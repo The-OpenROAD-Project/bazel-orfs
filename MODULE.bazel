@@ -1,0 +1,8 @@
+module(
+    name = "bazel_orfs",
+    version = "0.0.1",
+    compatibility_level = 1,
+)
+
+bazel_dep(name = "aspect_bazel_lib", version = "2.3.0")
+
