@@ -1,0 +1,1 @@
+exports_files(glob(["*.mk"]) + ["mock_area.tcl"])
