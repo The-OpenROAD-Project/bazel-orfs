@@ -1,5 +1,11 @@
 load("//:openroad.bzl", "build_openroad")
 
+# FIXME: this shouldn't be required
+exports_files(glob(["*.mk"]))
+exports_files(glob(["scripts/mem_dump.*"]))
+exports_files(["mock_area.tcl"])
+exports_files(["orfs"])
+
 build_openroad(
         name = "tag_array_64x184",
         io_constraints="io-sram.tcl",
