@@ -10,8 +10,8 @@ build_openroad(
         name = "tag_array_64x184",
         entrypoint = "//:entrypoint.mk",
         io_constraints="io-sram.tcl",
-        verilog_files=["rtl/tag_array_64x184.sv"],
-        stage_sources={'synth': ["constraints-sram.sdc", "util.tcl"],
+        verilog_files=["test/rtl/tag_array_64x184.sv"],
+        stage_sources={'synth': ["test/constraints-sram.sdc", "util.tcl"],
         'floorplan': ["util.tcl"],
         'place': ["util.tcl"]},
         stage_args={
@@ -26,10 +26,10 @@ build_openroad(
 build_openroad(
         name = "L1MetadataArray",
         entrypoint = "//:entrypoint.mk",
-        verilog_files=["rtl/L1MetadataArray.sv"],
+        verilog_files=["test/rtl/L1MetadataArray.sv"],
         variant="test",
         macros=["tag_array_64x184"],
-        stage_sources={'synth': ["constraints-top.sdc"],
+        stage_sources={'synth': ["test/constraints-top.sdc"],
         'floorplan': ["util.tcl"],
         'place': ["util.tcl"]},
         io_constraints="io.tcl",
