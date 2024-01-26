@@ -8,5 +8,5 @@ export MAKEFILES=$FLOW_HOME/Makefile
 
 source $ORFS/env.sh
 
-cd $ORFS_DIR
+export BAZEL_ORFS=$ORFS_DIR
 eval "$@"

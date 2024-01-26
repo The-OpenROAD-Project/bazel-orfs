@@ -243,7 +243,7 @@ def build_openroad(
                     "bazel-" + stage + ("-mock_area" if stage == 'floorplan' else "")
                 ] +
                 {
-                    'floorplan': ["MOCK_AREA=" + str(mock_area)],
+                    'floorplan': ["MOCK_AREA=" + str(mock_area), "MOCK_AREA_TCL=$(location " + str(Label('mock_area.tcl')) + ")"],
                     'synth': ["SYNTH_GUT=1"],
                     'generate_abstract': ["ABSTRACT_SOURCE=2_floorplan"]
                     }.get(stage, [])),
