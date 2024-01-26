@@ -6,8 +6,7 @@ export ORFS=~/OpenROAD-flow-scripts
 export FLOW_HOME=$ORFS/flow
 export MAKEFILES=$FLOW_HOME/Makefile
 
-cd $ORFS
-. env.sh
+source $ORFS/env.sh
 
 cd $ORFS_DIR
 eval "$@"
