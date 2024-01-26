@@ -64,8 +64,8 @@ def build_openroad(
     output_folder_name = source_folder_name
 
     all_sources = [
-        "orfs",
-        "config.mk"
+        Label("//:orfs"),
+        Label("//:config.mk"),
     ]
 
     macro_targets = map(lambda m: ":" + m + "_generate_abstract", macros)
@@ -209,14 +209,14 @@ def build_openroad(
 
     [run_binary(
         name = target_name + "_" + stage + "_orfs",
-        tool = ":orfs",
-        srcs = ["orfs-bazel.mk"] + all_sources,
+        tool = Label("//:orfs"),
+        srcs = [Label("//:orfs-bazel.mk")] + all_sources,
         args = ["make"] + base_args + wrap_args(stage_args.get(stage, [])) + ["bazel-" + stage + "-orfs"],
         outs = ["logs/" + platform + "/%s/%s/%s.sh" %(output_folder_name, variant, stage)],
     ) for stage in stages]
 
     for stage in name_to_stage:
-        stage_sources[stage] = ([stage + "-bazel.mk"] +
+        stage_sources[stage] = ([Label("//:" + stage + "-bazel.mk")] +
         all_sources +
         (macro_lib_targets if stage not in ('clock_period', 'synth_sdc') else []) +
         (macro_lef_targets if stage not in ('synth', 'clock_period', 'synth_sdc') else []) +
@@ -227,8 +227,8 @@ def build_openroad(
         mock_stages = ['clock_period', 'synth', 'synth_sdc', 'floorplan', 'generate_abstract']
         [run_binary(
                 name = target_name + "_" + stage + "_mock_area",
-                tool = ":orfs",
-                srcs = stage_sources[stage] + ([name + target_ext + "_" + stage, 'mock_area.tcl'] if stage == 'floorplan' else []) +
+                tool = Label("//:orfs"),
+                srcs = stage_sources[stage] + ([name + target_ext + "_" + stage, Label('mock_area.tcl')] if stage == 'floorplan' else []) +
                 ([name + target_ext + "_" + previous + "_mock_area"] if stage != 'clock_period' else []) +
                 ([name + target_ext + "_synth_mock_area"] if stage == 'floorplan' else []),
                 args = wrap_args([s for s in stage_args[stage] if not any([sub in s for sub in ('DIE_AREA', 'CORE_AREA', 'CORE_UTILIZATION')])] +
@@ -247,7 +247,7 @@ def build_openroad(
 
     run_binary(
             name = target_name + "_memory",
-            tool = ":orfs",
+            tool = Label("//:orfs"),
             srcs = stage_sources['synth'] + [name + "_clock_period"],
             args = wrap_args(stage_args['synth'] + ['memory']),
             outs = outs['memory']
@@ -255,7 +255,7 @@ def build_openroad(
 
     [run_binary(
         name = target_name + "_" + stage,
-        tool = ":orfs",
+        tool = Label("//:orfs"),
         srcs = stage_sources[stage] + ([name + target_ext + "_" + previous] if stage not in ('clock_period', 'synth_sdc', 'synth') else []) +
         ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
         args = wrap_args(stage_args[stage]) +
