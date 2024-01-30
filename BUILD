@@ -5,6 +5,7 @@ exports_files(glob(["*.mk"]))
 exports_files(glob(["scripts/mem_dump.*"]))
 exports_files(["mock_area.tcl"])
 exports_files(["orfs"])
+exports_files(["local_runner.template.sh"])
 
 build_openroad(
         name = "tag_array_64x184",

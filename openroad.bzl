@@ -213,14 +213,6 @@ def build_openroad(
 
     stage_sources['route'] = stage_sources.get('route', []) + outs['cts']
 
-    [run_binary(
-        name = target_name + "_" + stage + "_orfs",
-        tool = Label("//:orfs"),
-        srcs = [Label("//:orfs-bazel.mk")] + all_sources,
-        args = ["make"] + base_args + wrap_args(stage_args.get(stage, [])) + ["bazel-" + stage + "-orfs"],
-        outs = ["logs/" + platform + "/%s/%s/%s.sh" %(output_folder_name, variant, stage)],
-    ) for stage in stages]
-
     for stage in name_to_stage:
         stage_sources[stage] = ([Label("//:" + stage + "-bazel.mk")] +
         all_sources +
@@ -228,6 +220,27 @@ def build_openroad(
         (macro_lef_targets if stage not in ('synth', 'clock_period', 'synth_sdc') else []) +
         stage_sources.get(stage, []))
         stage_args[stage] = ["make"] + base_args + stage_args.get(stage, [])
+
+    [native.genrule(
+            name = target_name + "_" + stage + "_local_runner_script",
+            tools = [],
+	    srcs = [
+	    	Label("//:orfs-bazel.mk"),
+                Label("//:local_runner.template.sh"),
+	    ] +
+	    stage_sources[stage] +
+            [("//:" + target_name + "_" + previous_stage)] if stage not in ('clock_period', 'synth_sdc', 'synth') else [],
+	    cmd = "echo `cat $(location " + str(Label("//:local_runner.template.sh")) + ")` " + " ".join(wrap_args(stage_args.get(stage, []))) + " \\\"$$\\@\\\" > $@",
+            outs = ["logs/" + platform + "/%s/%s/local_runner_script_%s.sh" %(output_folder_name, variant, stage)],
+        ) for ((_, previous_stage), (i, stage)) in zip([(0, 'n/a')] + enumerate(stages), enumerate(stages))]
+    [
+	native.sh_binary(
+            name = target_name + "_" + stage + "_local_runner",
+	    srcs = ["//:" + target_name + "_" + stage + "_local_runner_script"],
+	    data = [Label("//:orfs")],
+	    deps = ["@bazel_tools//tools/bash/runfiles"],
+	)
+    for stage in stages]
 
     if mock_area != None:
         mock_stages = ['clock_period', 'synth', 'synth_sdc', 'floorplan', 'generate_abstract']
