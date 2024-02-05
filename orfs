@@ -9,4 +9,4 @@ export MAKEFILES=$FLOW_HOME/Makefile
 source $ORFS/env.sh
 
 export BAZEL_ORFS=$ORFS_DIR
-eval "$@"
+"$@"
