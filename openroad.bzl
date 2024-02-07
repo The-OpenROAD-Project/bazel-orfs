@@ -37,11 +37,7 @@ def wrap_args(args):
 
 def build_openroad(
     name,
-    # Path to Makefile which includes config.mk from this repository.
-	# Use BAZEL_ORFS env var to provide correct path to config.mk
-    # Workaround for the issues created by running make targets
-    # in the sandbox directory when bazel-orfs rules are loaded by other repository.
-    entrypoint,
+    entrypoint="not-used",
     variant="base",
     verilog_files = [],
     stage_sources = {},
@@ -70,8 +66,7 @@ def build_openroad(
 
     all_sources = [
         Label("//:orfs"),
-        Label("//:config.mk"),
-        entrypoint
+        Label("//:config.mk")
     ]
 
     macro_targets = map(lambda m: ":" + m + "_generate_abstract", macros)
@@ -126,7 +121,7 @@ def build_openroad(
     "ORFS_VERSION=" + str(orfs_version),
     "DESIGN_NAME=" + name,
     "FLOW_VARIANT=" + variant,
-    "DESIGN_CONFIG=$(location " + entrypoint + ")"]
+    "DESIGN_CONFIG=$${BAZEL_ORFS}/config.mk"]
 
     reports ={'synth': ['1_1_yosys',
     '1_1_yosys_hier_report'],
