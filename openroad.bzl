@@ -1,5 +1,3 @@
-load("@aspect_bazel_lib//lib:run_binary.bzl", "run_binary")
-
 def enumerate(iterable):
     result = []
     for i in range(len(iterable)):
@@ -244,41 +242,41 @@ def build_openroad(
 
     if mock_area != None:
         mock_stages = ['clock_period', 'synth', 'synth_sdc', 'floorplan', 'generate_abstract']
-        [run_binary(
+        [native.genrule(
                 name = target_name + "_" + stage + "_mock_area",
-                tool = Label("//:orfs"),
+                tools = [Label("//:orfs")],
                 srcs = stage_sources[stage] + ([name + target_ext + "_" + stage, Label('mock_area.tcl')] if stage == 'floorplan' else []) +
                 ([name + target_ext + "_" + previous + "_mock_area"] if stage != 'clock_period' else []) +
                 ([name + target_ext + "_synth_mock_area"] if stage == 'floorplan' else []),
-                args = [s for s in stage_args[stage] if not any([sub in s for sub in ('DIE_AREA', 'CORE_AREA', 'CORE_UTILIZATION')])] +
-                [
+                cmd = "$(location " + str(Label("//:orfs")) + ") " + ' '.join([s for s in stage_args[stage] if not any([sub in s for sub in ('DIE_AREA', 'CORE_AREA', 'CORE_UTILIZATION')])]) +
+		' ' +
+                ' '.join([
                     "FLOW_VARIANT=mock_area",
                     "bazel-" + stage + ("-mock_area" if stage == 'floorplan' else "")
-                ] +
-                {
+                ]) +
+		' ' +
+                ' '.join({
                     'floorplan': ["MOCK_AREA=" + str(mock_area), "MOCK_AREA_TCL=$(location " + str(Label('mock_area.tcl')) + ")"],
                     'synth': ["SYNTH_GUT=1"],
                     'generate_abstract': ["ABSTRACT_SOURCE=2_floorplan"]
-                    }.get(stage, []),
+                    }.get(stage, [])),
                 outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])]
                 )
         for (previous, stage) in zip(['n/a'] + mock_stages, mock_stages)]
 
-    run_binary(
+    native.genrule(
             name = target_name + "_memory",
-            tool = Label("//:orfs"),
+            tools = [Label("//:orfs")],
             srcs = stage_sources['synth'] + [name + "_clock_period"],
-            args = stage_args['synth'] + ['memory'],
+            cmd = "$(location " + str(Label("//:orfs")) + ") " + ' '.join(stage_args['synth']) + ' memory',
             outs = outs['memory']
             )
 
-    [run_binary(
+    [native.genrule(
         name = target_name + "_" + stage,
-        tool = Label("//:orfs"),
+        tools = [Label("//:orfs")],
         srcs = stage_sources[stage] + ([name + target_ext + "_" + previous] if stage not in ('clock_period', 'synth_sdc', 'synth') else []) +
         ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
-        args = stage_args[stage] +
-        ["bazel-" + stage + ("_mock_area" if mock_area != None and stage == "generate_abstract" else ""),
-        "elapsed"],
+        cmd = "$(location " + str(Label("//:orfs")) + ") " + ' '.join(stage_args[stage]) + " bazel-" + stage + ("_mock_area" if mock_area != None and stage == "generate_abstract" else "") + " elapsed",
         outs = outs.get(stage, []),
     ) for ((_, previous), (i, stage)) in zip([(0, 'n/a')] + enumerate(stages), enumerate(stages))]

@@ -109,10 +109,10 @@ This script loads the ORFS environment, sets the 'BAZEL_ORFS` environment variab
 
 ### openroad.bzl
 
-This file contains simple helper functions written in starlark as well as macro `build_openroad()`. The implementation of this macro spawns multiple `run_binary()` rules which are responsible for running ORFS `make` targets during bazel build stage. Each `run_binary()` does the same
+This file contains simple helper functions written in starlark as well as macro `build_openroad()`. The implementation of this macro spawns multiple `genrule` native rules which are responsible for running ORFS `make` targets during bazel build stage. Each `genrule()` does the same
 thing: it sets env vars and runs one of make targets defined in *.mk files which then run make target from ORFS flow Makefile.
 
-There are 4 kinds of run_binary() spawned in this macro:
+There are 4 kinds of genrules spawned in this macro:
 
 * Stage targets (named: `target_name + “_” + stage`)
 * Local Runner targets (named: `target_name + “_” + stage + “_local_runner”`)
