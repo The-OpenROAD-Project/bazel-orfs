@@ -31,7 +31,18 @@ def filter(iterable, func):
     return result
 
 def wrap_args(args):
-    return map(lambda arg: '"' + arg + '"' if (' ' in arg or '\\$$' in arg or '=(' in arg) else arg, args)
+    wrapped_args = []
+
+    for arg in args:
+        splt = arg.split("=", 1)
+        if (len(splt) == 2):
+            if (" " in splt[1] and "DESIGN_CONFIG" != splt[0]):
+                wrapped_args.append(splt[0] + "='" + splt[1] + "'")
+            else:
+                wrapped_args.append(arg)
+        else:
+            wrapped_args.append(arg)
+    return wrapped_args
 
 def build_openroad(
     name,
