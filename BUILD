@@ -9,7 +9,7 @@ exports_files(["mock_area.tcl"])
 
 exports_files(["orfs"])
 
-exports_files(["local_runner.template.sh"])
+exports_files(["make_script.template.sh"])
 
 build_openroad(
     name = "tag_array_64x184",
