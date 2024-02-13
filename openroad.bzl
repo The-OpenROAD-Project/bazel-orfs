@@ -267,18 +267,20 @@ def build_openroad(
                                 stage_sources.get(stage, []))
         stage_args[stage] = ["make"] + base_args + stage_args.get(stage, [])
 
-    [native.genrule(
-        name = target_name + "_" + stage + "_make_script",
-        tools = [],
-        srcs = [
-                   Label("//:orfs-bazel.mk"),
-                   Label("//:make_script.template.sh"),
-               ] +
-               stage_sources[stage] +
-               [("//:" + target_name + "_" + previous_stage)] if stage not in ("clock_period", "synth_sdc", "synth") else [],
-        cmd = "echo `cat $(location " + str(Label("//:make_script.template.sh")) + ")` " + " ".join(wrap_args(stage_args.get(stage, []))) + " \\\"$$\\@\\\" > $@",
-        outs = ["logs/" + platform + "/%s/%s/make_script_%s.sh" % (output_folder_name, variant, stage)],
-    ) for ((_, previous_stage), (i, stage)) in zip([(0, "n/a")] + enumerate(stages), enumerate(stages))]
+    [
+        native.genrule(
+            name = target_name + "_" + stage + "_make_script",
+            tools = [],
+            srcs = [
+                       Label("//:orfs-bazel.mk"),
+                       Label("//:make_script.template.sh"),
+                   ] +
+                   stage_sources[stage],
+            cmd = "echo `cat $(location " + str(Label("//:make_script.template.sh")) + ")` " + " ".join(wrap_args(stage_args.get(stage, []))) + " \\\"$$\\@\\\" > $@",
+            outs = ["logs/" + platform + "/%s/%s/make_script_%s.sh" % (output_folder_name, variant, stage)],
+        )
+        for stage in stages
+    ]
     [
         native.sh_binary(
             name = target_name + "_" + stage + "_make",

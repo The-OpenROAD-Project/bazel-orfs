@@ -132,10 +132,11 @@ Two targets are spawned for each ORFS stage. First generates a shell script, sec
 bazel-bin/<target_name>_make
 ```
 
-The shell script is produced by `genrule` by concatenating template script `make_script.template.sh` with `make` and environment variables specific for given stage. Template file contains boilerplate code for enabling features of [bazel bash runfiles library](https://github.com/bazelbuild/bazel/blob/master/tools/bash/runfiles/runfiles.bash) and a call to `orfs` script. The runfiles library is used for accessing script dependencies stored in `runfiles` driectory. Attribute `srcs` of the genrule contains dependencies required for running the script (e.g.: `orfs` script, make target patterns, TCL scripts, results of previous flow stages).
+The shell script is produced by `genrule` by concatenating template script `make_script.template.sh` with `make` and environment variables specific for given stage. Template file contains boilerplate code for enabling features of [bazel bash runfiles library](https://github.com/bazelbuild/bazel/blob/master/tools/bash/runfiles/runfiles.bash) and a call to `orfs` script. The runfiles library is used for accessing script dependencies stored in `runfiles` driectory. Attribute `srcs` of the genrule contains dependencies required for running the script (e.g.: `orfs` script, make target patterns, TCL scripts). Those dependencies don't include results of previous flow stages and because of that, it is required to build those before running the generated script.
 In the second rule (`sh_binary`) the `runfiles` directory for the script is created and filled with dependencies so that the script can be executed straight from the output directory. It is important to remember that, by default, bazel output directory is not writeable so running the ORFS flow with generated script will fail unless correct permissions are set for the directory. Example usage of `Make` targets can look like this:
 
 ```
+bazel build $(bazel query "deps(L1MetadataArray_test_floorplan)")
 bazel build L1MetadataArray_test_floorplan_make
 cd bazel-bin && chmod -R +w . && cd ..
 ./bazel-bin/L1MetadataArray_test_floorplan_make do-floorplan
