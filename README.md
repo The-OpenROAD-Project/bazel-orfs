@@ -80,23 +80,23 @@ Memory targets:
   //:L1MetadataArray_test_clock_period
   //:L1MetadataArray_test_memory
 
-Local runner targets:
-  //:L1MetadataArray_test_clock_period_local_runner_script
-  //:L1MetadataArray_test_clock_period_local_runner
-  //:L1MetadataArray_test_cts_local_runner_script
-  //:L1MetadataArray_test_cts_local_runner
-  //:L1MetadataArray_test_floorplan_local_runner_script
-  //:L1MetadataArray_test_floorplan_local_runner
-  //:L1MetadataArray_test_generate_abstract_local_runner_script
-  //:L1MetadataArray_test_generate_abstract_local_runner
-  //:L1MetadataArray_test_grt_local_runner_script
-  //:L1MetadataArray_test_grt_local_runner
-  //:L1MetadataArray_test_place_local_runner_script
-  //:L1MetadataArray_test_place_local_runner
-  //:L1MetadataArray_test_synth_local_runner_script
-  //:L1MetadataArray_test_synth_local_runner
-  //:L1MetadataArray_test_synth_sdc_local_runner_script
-  //:L1MetadataArray_test_synth_sdc_local_runner
+Make targets:
+  //:L1MetadataArray_test_clock_period_make_script
+  //:L1MetadataArray_test_clock_period_make
+  //:L1MetadataArray_test_cts_make_script
+  //:L1MetadataArray_test_cts_make
+  //:L1MetadataArray_test_floorplan_make_script
+  //:L1MetadataArray_test_floorplan_make
+  //:L1MetadataArray_test_generate_abstract_make_script
+  //:L1MetadataArray_test_generate_abstract_make
+  //:L1MetadataArray_test_grt_make_script
+  //:L1MetadataArray_test_grt_make
+  //:L1MetadataArray_test_place_make_script
+  //:L1MetadataArray_test_place_make
+  //:L1MetadataArray_test_synth_make_script
+  //:L1MetadataArray_test_synth_make
+  //:L1MetadataArray_test_synth_sdc_make_script
+  //:L1MetadataArray_test_synth_sdc_make
 ```
 
 The example comes from the `BUILD` file in this repository. For details about targets spawned by this macro please refer to `Implementation` chapter.
@@ -115,7 +115,7 @@ thing: it sets env vars and runs one of make targets defined in *.mk files which
 There are 4 kinds of genrules spawned in this macro:
 
 * Stage targets (named: `target_name + “_” + stage`)
-* Local Runner targets (named: `target_name + “_” + stage + “_local_runner”`)
+* Make targets (named: `target_name + “_” + stage + “_make”`)
 * Mock Area targets (named: `target_name + “_” + stage + “_mock_area”`)
 * Memory targets (named: `target_name + “_memory”`)
 
@@ -123,22 +123,22 @@ There are 4 kinds of genrules spawned in this macro:
 
 Main rules for executing each ORFS stage (synthesis, floorplan, clock tree synthesis, place, route, etc.). The outputs and inputs are different for each ORFS stage and are defined by macro arguments and the implementation of the macro.
 
-#### Local Runner Targets
+#### Make Targets
 
 Those scripts are used for local tests of ORFS stages.
 Two targets are spawned for each ORFS stage. First generates a shell script, second makes it executable from `bazel-bin` directory. The final usable script is generated under path:
 
 ```
-bazel-bin/<target_name>_local_runner
+bazel-bin/<target_name>_make
 ```
 
-The shell script is produced by `genrule` by concatenating template script `local_runner.template.sh` with `make` and environment variables specific for given stage. Template file contains boilerplate code for enabling features of [bazel bash runfiles library](https://github.com/bazelbuild/bazel/blob/master/tools/bash/runfiles/runfiles.bash) and a call to `orfs` script. The runfiles library is used for accessing script dependencies stored in `runfiles` driectory. Attribute `srcs` of the genrule contains dependencies required for running the script (e.g.: `orfs` script, make target patterns, TCL scripts, results of previous flow stages).
-In the second rule (`sh_binary`) the `runfiles` directory for the script is created and filled with dependencies so that the script can be executed straight from the output directory. It is important to remember that, by default, bazel output directory is not writeable so running the ORFS flow with generated script will fail unless correct permissions are set for the directory. Example usage of `Local Runner` targets can look like this:
+The shell script is produced by `genrule` by concatenating template script `make_script.template.sh` with `make` and environment variables specific for given stage. Template file contains boilerplate code for enabling features of [bazel bash runfiles library](https://github.com/bazelbuild/bazel/blob/master/tools/bash/runfiles/runfiles.bash) and a call to `orfs` script. The runfiles library is used for accessing script dependencies stored in `runfiles` driectory. Attribute `srcs` of the genrule contains dependencies required for running the script (e.g.: `orfs` script, make target patterns, TCL scripts, results of previous flow stages).
+In the second rule (`sh_binary`) the `runfiles` directory for the script is created and filled with dependencies so that the script can be executed straight from the output directory. It is important to remember that, by default, bazel output directory is not writeable so running the ORFS flow with generated script will fail unless correct permissions are set for the directory. Example usage of `Make` targets can look like this:
 
 ```
-bazel build L1MetadataArray_test_floorplan_local_runner
+bazel build L1MetadataArray_test_floorplan_make
 cd bazel-bin && chmod -R +w . && cd ..
-./bazel-bin/L1MetadataArray_test_floorplan_local_runner do-floorplan
+./bazel-bin/L1MetadataArray_test_floorplan_make do-floorplan
 ```
 
 #### Mock Area Targets
