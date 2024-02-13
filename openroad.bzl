@@ -228,7 +228,7 @@ def build_openroad(
 	    ] +
 	    stage_sources[stage] +
             [("//:" + target_name + "_" + previous_stage)] if stage not in ('clock_period', 'synth_sdc', 'synth') else [],
-	    cmd = "echo `cat $(location " + str(Label("//:local_runner.template.sh")) + ")` " + " ".join(stage_args.get(stage, [])) + " \\\"$$\\@\\\" > $@",
+	    cmd = "echo `cat $(location " + str(Label("//:local_runner.template.sh")) + ")` " + " ".join(wrap_args(stage_args.get(stage, []))) + " \\\"$$\\@\\\" > $@",
             outs = ["logs/" + platform + "/%s/%s/local_runner_script_%s.sh" %(output_folder_name, variant, stage)],
         ) for ((_, previous_stage), (i, stage)) in zip([(0, 'n/a')] + enumerate(stages), enumerate(stages))]
     [
@@ -248,18 +248,19 @@ def build_openroad(
                 srcs = stage_sources[stage] + ([name + target_ext + "_" + stage, Label('mock_area.tcl')] if stage == 'floorplan' else []) +
                 ([name + target_ext + "_" + previous + "_mock_area"] if stage != 'clock_period' else []) +
                 ([name + target_ext + "_synth_mock_area"] if stage == 'floorplan' else []),
-                cmd = "$(location " + str(Label("//:orfs")) + ") " + ' '.join([s for s in stage_args[stage] if not any([sub in s for sub in ('DIE_AREA', 'CORE_AREA', 'CORE_UTILIZATION')])]) +
+                cmd = "$(location " + str(Label("//:orfs")) + ") " +
+		' '.join(wrap_args([s for s in stage_args[stage] if not any([sub in s for sub in ('DIE_AREA', 'CORE_AREA', 'CORE_UTILIZATION')])])) +
 		' ' +
-                ' '.join([
+                ' '.join(wrap_args([
                     "FLOW_VARIANT=mock_area",
                     "bazel-" + stage + ("-mock_area" if stage == 'floorplan' else "")
-                ]) +
+                ])) +
 		' ' +
-                ' '.join({
+                ' '.join(wrap_args({
                     'floorplan': ["MOCK_AREA=" + str(mock_area), "MOCK_AREA_TCL=$(location " + str(Label('mock_area.tcl')) + ")"],
                     'synth': ["SYNTH_GUT=1"],
                     'generate_abstract': ["ABSTRACT_SOURCE=2_floorplan"]
-                    }.get(stage, [])),
+                    }.get(stage, []))),
                 outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])]
                 )
         for (previous, stage) in zip(['n/a'] + mock_stages, mock_stages)]
@@ -268,7 +269,7 @@ def build_openroad(
             name = target_name + "_memory",
             tools = [Label("//:orfs")],
             srcs = stage_sources['synth'] + [name + "_clock_period"],
-            cmd = "$(location " + str(Label("//:orfs")) + ") " + ' '.join(stage_args['synth']) + ' memory',
+            cmd = "$(location " + str(Label("//:orfs")) + ") " + ' '.join(wrap_args(stage_args['synth'])) + ' memory',
             outs = outs['memory']
             )
 
@@ -277,6 +278,6 @@ def build_openroad(
         tools = [Label("//:orfs")],
         srcs = stage_sources[stage] + ([name + target_ext + "_" + previous] if stage not in ('clock_period', 'synth_sdc', 'synth') else []) +
         ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
-        cmd = "$(location " + str(Label("//:orfs")) + ") " + ' '.join(stage_args[stage]) + " bazel-" + stage + ("_mock_area" if mock_area != None and stage == "generate_abstract" else "") + " elapsed",
+        cmd = "$(location " + str(Label("//:orfs")) + ") " + ' '.join(wrap_args(stage_args[stage])) + " bazel-" + stage + ("_mock_area" if mock_area != None and stage == "generate_abstract" else "") + " elapsed",
         outs = outs.get(stage, []),
     ) for ((_, previous), (i, stage)) in zip([(0, 'n/a')] + enumerate(stages), enumerate(stages))]
