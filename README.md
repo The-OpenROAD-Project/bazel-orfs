@@ -136,7 +136,7 @@ The shell script is produced by `genrule` by concatenating template script `make
 In the second rule (`sh_binary`) the `runfiles` directory for the script is created and filled with dependencies so that the script can be executed straight from the output directory. It is important to remember that, by default, bazel output directory is not writeable so running the ORFS flow with generated script will fail unless correct permissions are set for the directory. Example usage of `Make` targets can look like this:
 
 ```
-bazel build $(bazel query "deps(L1MetadataArray_test_floorplan)")
+bazel build $(bazel query "deps(L1MetadataArray_test_floorplan) except L1MetadataArray_test_floorplan")
 bazel build L1MetadataArray_test_floorplan_make
 cd bazel-bin && chmod -R +w . && cd ..
 ./bazel-bin/L1MetadataArray_test_floorplan_make do-floorplan
