@@ -276,7 +276,7 @@ def build_openroad(
                        Label("//:make_script.template.sh"),
                    ] +
                    all_sources,
-            cmd = "echo `cat $(location " + str(Label("//:make_script.template.sh")) + ")` " + " ".join(wrap_args(stage_args.get(stage, []))) + " \\\"$$\\@\\\" > $@",
+            cmd = "echo \"chmod -R +w . && \" `cat $(location " + str(Label("//:make_script.template.sh")) + ")` " + " ".join(wrap_args(stage_args.get(stage, []))) + " \\\"$$\\@\\\" > $@",
             outs = ["logs/" + platform + "/%s/%s/make_script_%s.sh" % (output_folder_name, variant, stage)],
         )
         for stage in stages
