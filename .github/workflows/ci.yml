@@ -1,0 +1,99 @@
+name: bazel-orfs build tests
+
+on:
+  workflow_dispatch:
+  push:
+  pull_request:
+
+jobs:
+  build-stage-target:
+    name: Build sample stage targets
+    runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/antmicro/bazel-orfs@sha256:78b4c15830d75e026dc2294b280cb5ff1200f6ee7902a714dca71fd61b5b2e4e
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        STAGE_TARGET: ["tag_array_64x184_generate_abstract", "L1MetadataArray_test_generate_abstract"]
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+    steps:
+      # Workaround for https://github.com/actions/runner/issues/863
+      - name: Override HOME env var
+        shell: bash
+        run: |
+          echo HOME=/root | sudo tee -a $GITHUB_ENV
+      - name: Print info
+        run: |
+          echo "USER: "$(whoami)
+          echo "PWD: "$(pwd)
+          ls -la
+          echo "HOME: "$HOME
+          cd ~/OpenROAD-flow-scripts
+          echo "OpenROAD-flow-scripts SHA: "$(git rev-parse HEAD)
+          source ./env.sh
+          yosys --version
+          openroad -version
+      - name: Checkout bazel-orfs
+        uses: actions/checkout@v4
+      - name: query target
+        run: |
+          bazel query ${{ matrix.STAGE_TARGET }}
+          bazel query ${{ matrix.STAGE_TARGET }} --output=build
+      - name: build target
+        run: |
+          bazel build --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }}
+
+  test-make-script-target:
+    name: Execute sample _make scripts
+    runs-on: ubuntu-22.04
+    container:
+      image: ghcr.io/antmicro/bazel-orfs@sha256:78b4c15830d75e026dc2294b280cb5ff1200f6ee7902a714dca71fd61b5b2e4e
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        CONFIG: [ { stage_target: "L1MetadataArray_test_floorplan", orfs_make_target: "do-floorplan" }, { stage_target: "L1MetadataArray_test_cts", orfs_make_target: "do-cts" } ]
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+    steps:
+      # Workaround for https://github.com/actions/runner/issues/863
+      - name: Override HOME env var
+        shell: bash
+        run: |
+          echo HOME=/root | sudo tee -a $GITHUB_ENV
+      - name: Print info
+        run: |
+          echo "USER: "$(whoami)
+          echo "PWD: "$(pwd)
+          ls -la
+          echo "HOME: "$HOME
+          cd ~/OpenROAD-flow-scripts
+          echo "OpenROAD-flow-scripts SHA: "$(git rev-parse HEAD)
+          source ./env.sh
+          yosys --version
+          openroad -version
+      - name: Checkout bazel-orfs
+        uses: actions/checkout@v4
+      - name: query stage target
+        run: |
+          bazel query ${{ matrix.CONFIG.stage_target }}
+          bazel query ${{ matrix.CONFIG.stage_target }} --output=build
+      - name: query make script target
+        run: |
+          bazel query ${{ matrix.CONFIG.stage_target }}_make
+          bazel query ${{ matrix.CONFIG.stage_target }}_make --output=build
+      - name: build make script
+        run: |
+          bazel build --subcommands --verbose_failures --sandbox_debug ${{ matrix.CONFIG.stage_target }}_make
+      - name: build stage target dependencies
+        run: |
+          bazel build $(bazel query "deps(${{ matrix.CONFIG.stage_target }}) except ${{ matrix.CONFIG.stage_target }}")
+      - name: run make script
+        run: |
+          ./bazel-bin/${{ matrix.CONFIG.stage_target }}_make ${{ matrix.CONFIG.orfs_make_target }}
