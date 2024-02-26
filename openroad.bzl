@@ -46,11 +46,7 @@ def wrap_args(args):
 
 def build_openroad(
         name,
-        # Path to Makefile which includes config.mk from this repository.
-        # Use BAZEL_ORFS env var to provide correct path to config.mk
-        # Workaround for the issues created by running make targets
-        # in the sandbox directory when bazel-orfs rules are loaded by other repository.
-        entrypoint,
+        entrypoint = "not-used",
         variant = "base",
         verilog_files = [],
         stage_sources = {},
@@ -89,7 +85,6 @@ def build_openroad(
     all_sources = [
         Label("//:orfs"),
         Label("//:config.mk"),
-        entrypoint,
     ]
 
     macro_targets = map(lambda m: ":" + m + "_generate_abstract", macros)
@@ -152,7 +147,7 @@ def build_openroad(
         "ORFS_VERSION=" + str(orfs_version),
         "DESIGN_NAME=" + name,
         "FLOW_VARIANT=" + variant,
-        "DESIGN_CONFIG=$(location " + entrypoint + ")",
+        "DESIGN_CONFIG=$(location " + str(Label("//:config.mk")) + ")",
     ]
 
     reports = {
@@ -260,20 +255,24 @@ def build_openroad(
     stage_sources["route"] = stage_sources.get("route", []) + outs["cts"]
 
     for stage in name_to_stage:
-        stage_sources[stage] = ([Label("//:" + stage + "-bazel.mk")] +
+        make_pattern = Label("//:" + stage + "-bazel.mk")
+        stage_sources[stage] = ([make_pattern] +
                                 all_sources +
                                 (macro_lib_targets if stage not in ("clock_period", "synth_sdc") else []) +
                                 (macro_lef_targets if stage not in ("synth", "clock_period", "synth_sdc") else []) +
                                 stage_sources.get(stage, []))
-        stage_args[stage] = ["make"] + base_args + stage_args.get(stage, [])
+        stage_args[stage] = ["make"] + ["MAKE_PATTERN=$(location " + str(make_pattern) + ")"] + base_args + stage_args.get(stage, [])
 
     [
         native.genrule(
             name = target_name + "_" + stage + "_make_script",
             tools = [],
-            srcs = [Label("//:make_script.template.sh")] +
+            srcs = [
+                       Label("//:make_script.template.sh"),
+                       Label("//:" + stage + "-bazel.mk"),
+                   ] +
                    all_sources,
-            cmd = "echo \"chmod -R +w . && \" `cat $(location " + str(Label("//:make_script.template.sh")) + ")` " + " ".join(wrap_args(stage_args.get(stage, []))) + " \\\"$$\\@\\\" > $@",
+            cmd = "echo \"chmod -R +w . && \" `cat $(location " + str(Label("//:make_script.template.sh")) + ")` " + " ".join(wrap_args(stage_args.get(stage, []))) + " 'MAKE_PATTERN=$$(rlocation bazel-orfs/" + stage + "-bazel.mk)' " + " 'DESIGN_CONFIG=$$(rlocation bazel-orfs/config.mk)' " + " \\\"$$\\@\\\" > $@",
             outs = ["logs/" + platform + "/%s/%s/make_script_%s.sh" % (output_folder_name, variant, stage)],
         )
         for stage in stages
@@ -282,7 +281,7 @@ def build_openroad(
         native.sh_binary(
             name = target_name + "_" + stage + "_make",
             srcs = ["//:" + target_name + "_" + stage + "_make_script"],
-            data = [Label("//:orfs")],
+            data = [Label("//:orfs"), Label("//:" + stage + "-bazel.mk"), Label("//:config.mk")],
             deps = ["@bazel_tools//tools/bash/runfiles"],
         )
         for stage in stages

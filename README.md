@@ -36,7 +36,6 @@ The macro can now be placed in the BUILD file. The macro usage can look like thi
 ```
 build_openroad(
     name = "L1MetadataArray",
-    entrypoint = "//:entrypoint.mk",
     verilog_files=["test/rtl/L1MetadataArray.sv"],
     variant="test",
     macros=["tag_array_64x184"],
@@ -56,12 +55,6 @@ build_openroad(
     mock_abstract=True,
     mock_stage="grt"
 )
-```
-
-It is important to provide an `entrypoint` argument which contains a path to Makefile located inside the repository which loads `bazel-orfs`. This Makefile should include `config.mk` from `bazel-orfs`. This can be done with the help of `BAZEL_ORFS` environment variable:
-
-```
-include $(BAZEL_ORFS)/config.mk
 ```
 
 Macro from the example above spawns the following bazel targets:
@@ -105,7 +98,7 @@ The example comes from the `BUILD` file in this repository. For details about ta
 
 ### orfs script
 
-This script loads the ORFS environment, sets the 'BAZEL_ORFS` environment variable and evaluates the rest of the command line that called the script.
+This script loads the ORFS environment and evaluates the rest of the command line that called the script.
 
 ### openroad.bzl
 
