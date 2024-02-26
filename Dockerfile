@@ -12,6 +12,7 @@ RUN apt-get update -y && \
     mkdir -p $USER_HOME && \
     cd $USER_HOME && \
     git clone --recursive https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts && \
+    echo "export ORFS=$USER_HOME/OpenROAD-flow-scripts" > $USER_HOME/orfs_path.sh && \
     cd $USER_HOME/OpenROAD-flow-scripts && \
     git checkout $ORFS_REF && \
     export SUDO_USER=$USERNAME && \
