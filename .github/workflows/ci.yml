@@ -10,7 +10,7 @@ jobs:
     name: Build sample stage targets
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/antmicro/bazel-orfs@sha256:78b4c15830d75e026dc2294b280cb5ff1200f6ee7902a714dca71fd61b5b2e4e
+      image: ghcr.io/antmicro/bazel-orfs@sha256:555bd997a785b15a694687739a027b74ac4c3bdaee3bed1fb631ed48241c1b6f
     defaults:
       run:
         shell: bash
@@ -51,7 +51,7 @@ jobs:
     name: Execute sample _make scripts
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/antmicro/bazel-orfs@sha256:78b4c15830d75e026dc2294b280cb5ff1200f6ee7902a714dca71fd61b5b2e4e
+      image: ghcr.io/antmicro/bazel-orfs@sha256:555bd997a785b15a694687739a027b74ac4c3bdaee3bed1fb631ed48241c1b6f
     defaults:
       run:
         shell: bash
