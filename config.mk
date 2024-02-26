@@ -4,13 +4,6 @@ export PLATFORM=asap7
 
 export WORK_HOME_READ?=$(WORK_HOME)
 
--include $(BAZEL_ORFS)/clock_period-bazel.mk
--include $(BAZEL_ORFS)/synth-bazel.mk
--include $(BAZEL_ORFS)/synth_sdc-bazel.mk
--include $(BAZEL_ORFS)/floorplan-bazel.mk
--include $(BAZEL_ORFS)/place-bazel.mk
--include $(BAZEL_ORFS)/cts-bazel.mk
--include $(BAZEL_ORFS)/grt-bazel.mk
--include $(BAZEL_ORFS)/route-bazel.mk
--include $(BAZEL_ORFS)/final-bazel.mk
--include $(BAZEL_ORFS)/generate_abstract-bazel.mk
+# $(MAKE_PATTERN) stores the path to file with make patterns
+# that will be called in the given flow.
+include $(MAKE_PATTERN)

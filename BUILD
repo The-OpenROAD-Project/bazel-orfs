@@ -13,7 +13,6 @@ exports_files(["make_script.template.sh"])
 
 build_openroad(
     name = "tag_array_64x184",
-    entrypoint = "//:entrypoint.mk",
     io_constraints = "io-sram.tcl",
     mock_abstract = True,
     mock_area = 0.20,
@@ -38,7 +37,6 @@ build_openroad(
 
 build_openroad(
     name = "L1MetadataArray",
-    entrypoint = "//:entrypoint.mk",
     io_constraints = "io.tcl",
     macros = ["tag_array_64x184"],
     mock_abstract = True,
