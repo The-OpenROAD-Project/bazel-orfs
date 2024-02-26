@@ -4,12 +4,19 @@ This repository contains [Bazel](https://bazel.build/) rules for wrapping Physic
 
 ## Requirements
 
-* [OpenROAD-flow-scripts](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts) - must reside under `~/OpenROAD-flow-scripts`. `bazel-orfs` intentionally does not treat OpenROAD-flow-scripts as a installable versioned tool, but prefers to rely on `~/OpenROAD-flow-scripts` such that it is easy to hack ORFS and OpenROAD.
+* [OpenROAD-flow-scripts](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts) - fully autonomous, RTL-GDSII flow for rapid architecture and design space exploration, early prediction of QoR and detailed physical design implementation. Please refer to Local Build [instructions](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/blob/master/docs/user/BuildLocally.md) for installing ORFS.
+* `~/orfs_path.sh` - script that must export environment variable `ORFS` with path to `OpenROAD-flow-scripts`. `bazel-orfs` intentionally does not treat OpenROAD-flow-scripts as an installable versioned tool, but prefers to rely on `~/orfs_path.sh` script so that it is easy to hack ORFS and OpenROAD. **WARNING: OpenROAD-flow-scripts is not registered by this build system. Any change to OpenROAD, yosys or OpenROAD-flow-scripts WILL NOT invalidate previously built artifacts**.
 * [Bazelisk](https://bazel.build/install/bazelisk) or [Bazel](https://bazel.build/install) - if using `bazel`, please refer to `.bazelversion` file for the recommended version of the tool.
 
 ## Usage
 
-Core functionality is implemented as `build_openroad()` bazel macro in `openroad.bzl` file.
+Assuming `OpenROAD-flow-scripts` is located in the home directory, the contents of `~/orfs_path.sh` should look like this:
+
+```
+export ORFS=~/OpenROAD-flow-scripts
+```
+
+The core functionality is implemented as `build_openroad()` bazel macro in `openroad.bzl` file.
 
 In order to use `build_openroad()` macro in Bazel Workspace in other project it is required to pull `bazel-orfs` as external dependency through one of [Bazel Workspace Rules](https://bazel.build/reference/be/workspace). For example in project's WORKSPACE:
 
