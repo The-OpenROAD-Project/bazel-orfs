@@ -254,7 +254,7 @@ def build_openroad(
 
     stage_sources["route"] = stage_sources.get("route", []) + outs["cts"]
 
-    for stage in name_to_stage:
+    for stage in stages:
         make_pattern = Label("//:" + stage + "-bazel.mk")
         stage_sources[stage] = ([make_pattern] +
                                 all_sources +
@@ -263,7 +263,6 @@ def build_openroad(
                                 stage_sources.get(stage, []))
         stage_args[stage] = ["make"] + ["MAKE_PATTERN=$(location " + str(make_pattern) + ")"] + base_args + stage_args.get(stage, [])
 
-    [
         native.genrule(
             name = target_name + "_" + stage + "_make_script",
             tools = [],
@@ -275,21 +274,17 @@ def build_openroad(
             cmd = "echo \"chmod -R +w . && \" `cat $(location " + str(Label("//:make_script.template.sh")) + ")` " + " ".join(wrap_args(stage_args.get(stage, []))) + " 'MAKE_PATTERN=$$(rlocation bazel-orfs/" + stage + "-bazel.mk)' " + " 'DESIGN_CONFIG=$$(rlocation bazel-orfs/config.mk)' " + " \\\"$$\\@\\\" > $@",
             outs = ["logs/" + platform + "/%s/%s/make_script_%s.sh" % (output_folder_name, variant, stage)],
         )
-        for stage in stages
-    ]
-    [
+
         native.sh_binary(
             name = target_name + "_" + stage + "_make",
             srcs = ["//:" + target_name + "_" + stage + "_make_script"],
-            data = [Label("//:orfs"), Label("//:" + stage + "-bazel.mk"), Label("//:config.mk")],
+            data = [Label("//:orfs"), make_pattern, Label("//:config.mk")],
             deps = ["@bazel_tools//tools/bash/runfiles"],
         )
-        for stage in stages
-    ]
 
     if mock_area != None:
         mock_stages = ["clock_period", "synth", "synth_sdc", "floorplan", "generate_abstract"]
-        [
+        for (previous, stage) in zip(["n/a"] + mock_stages, mock_stages):
             native.genrule(
                 name = target_name + "_" + stage + "_mock_area",
                 tools = [Label("//:orfs")],
@@ -311,8 +306,6 @@ def build_openroad(
                       }.get(stage, []))),
                 outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])],
             )
-            for (previous, stage) in zip(["n/a"] + mock_stages, mock_stages)
-        ]
 
     native.genrule(
         name = target_name + "_memory",
@@ -322,11 +315,12 @@ def build_openroad(
         outs = outs["memory"],
     )
 
-    [native.genrule(
-        name = target_name + "_" + stage,
-        tools = [Label("//:orfs")],
-        srcs = stage_sources[stage] + ([name + target_ext + "_" + previous] if stage not in ("clock_period", "synth_sdc", "synth") else []) +
-               ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
-        cmd = "$(location " + str(Label("//:orfs")) + ") " + " ".join(wrap_args(stage_args[stage])) + " bazel-" + stage + ("_mock_area" if mock_area != None and stage == "generate_abstract" else "") + " elapsed",
-        outs = outs.get(stage, []),
-    ) for ((_, previous), (i, stage)) in zip([(0, "n/a")] + enumerate(stages), enumerate(stages))]
+    for ((_, previous), (i, stage)) in zip([(0, "n/a")] + enumerate(stages), enumerate(stages)):
+        native.genrule(
+            name = target_name + "_" + stage,
+            tools = [Label("//:orfs")],
+            srcs = stage_sources[stage] + ([name + target_ext + "_" + previous] if stage not in ("clock_period", "synth_sdc", "synth") else []) +
+                   ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
+            cmd = "$(location " + str(Label("//:orfs")) + ") " + " ".join(wrap_args(stage_args[stage])) + " bazel-" + stage + ("_mock_area" if mock_area != None and stage == "generate_abstract" else "") + " elapsed",
+            outs = outs.get(stage, []),
+        )
