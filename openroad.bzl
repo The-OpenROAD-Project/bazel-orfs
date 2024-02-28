@@ -1,22 +1,65 @@
+"""
+This module contains a definiton of build_openroad() macro used for declaring
+targets for running physical design flow with OpenROAD-flow-scripts.
+"""
+
 def enumerate(iterable):
+    """
+    Convert list of elements into list of tuples (index, element)
+
+    Args:
+      iterable: collection of objects
+
+    Returns:
+      list of tuples in form of (index, element)
+    """
     result = []
     for i in range(len(iterable)):
         result.append((i, iterable[i]))
     return result
 
 def map(func, iterable):
+    """
+    Convert list of elements into list of mapped elements according to the mapping function
+
+    Args:
+      func: mapping function
+      iterable: collection of objects
+
+    Returns:
+      list of mapped elements
+    """
     result = []
     for item in iterable:
         result.append(func(item))
     return result
 
 def map2(func, iterable):
+    """
+    Convert list of elements into list of mapped elements according to the mapping function
+
+    Args:
+      func: mapping function
+      iterable: collection of objects
+
+    Returns:
+      list of mapped elements
+    """
     result = []
     for item in iterable:
         result.append(func(item))
     return result
 
 def set(iterable):
+    """
+    Create a list out of `iterable` of strings with all whitespace removed
+
+    Args:
+      iterable: collection of strings
+
+    Returns:
+      List of strings with removed whitespaces
+    """
     result = []
     for item in iterable:
         if item not in result:
@@ -24,6 +67,18 @@ def set(iterable):
     return result
 
 def filter(iterable, func):
+    """
+    Filter out elements from `iterable` according to the results of `func`.
+
+    Args:
+      iterable: collection of strings
+      func: function used for filtering out elements of `iterable`. Must return
+            true or false. Element is filtered out when function returns false
+	    for this element
+
+    Returns:
+      List with filtered out elements
+    """
     result = []
     for item in iterable:
         if func(item):
@@ -31,6 +86,20 @@ def filter(iterable, func):
     return result
 
 def wrap_args(args):
+    """
+    Wrap environment variables to ensure correct escaping and evaluation.
+
+    Add single quotes to env vars which have values containing spaces.
+    Do not ad single quotes for `DESIGN_CONFIG` env var - it contains
+    $(location <path>) which will be later expanded to regular path
+    and does not require this modification.
+
+    Args:
+      args: list of strings containing environment variables definitions
+
+    Returns:
+      List of wrapped environment variables definitions
+    """
     wrapped_args = []
 
     for arg in args:
@@ -58,6 +127,24 @@ def build_openroad(
         mock_area = None,
         platform = "asap7",
         macro_variant = "base"):
+    """
+    Spawns targets for running physical design flow with OpenROAD-flow-scripts.
+
+    Args:
+      name: name of the macro target
+      variant: variant of the ORFS flow, sets FLOW_VARIANT env var (see https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/blob/108bcf54464e989e6715bee18c3af3d3356e5023/flow/Makefile#L198)
+      verilog_files: list of verilog sources of the design
+      stage_sources: dictionary keyed by ORFS stages with lists of stage-specific sources
+      macros: list of macros required to run physical design flow for this design
+      macro_variants: dictionary keyed by macro names containing the variant of the ORFS flow that the macro was built with
+      io_constraints: path to tcl script with IO constraints
+      stage_args: dictionary keyed by ORFS stages with lists of stage-specific arguments
+      mock_abstract: boolean controlling the scope of _generate_abstract stage
+      mock_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
+      mock_area: floating point number, spawns additional _mock_area targets if set
+      platform: string specifying target platform for running physical design flow. Supported platforms: https://openroad-flow-scripts.readthedocs.io/en/latest/user/FlowVariables.html#platform
+      macro_variant: variant of the ORFS flow the macro was built with
+    """
     target_ext = ("_" + variant if variant != "base" else "")
     target_name = name + target_ext
     macros = set(macros + list(macro_variants.keys()))
