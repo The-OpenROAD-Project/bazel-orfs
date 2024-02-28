@@ -46,7 +46,6 @@ def wrap_args(args):
 
 def build_openroad(
         name,
-        entrypoint = "not-used",
         variant = "base",
         verilog_files = [],
         stage_sources = {},
