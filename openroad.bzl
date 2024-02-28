@@ -87,7 +87,6 @@ def build_openroad(
         Label("//:config.mk"),
     ]
 
-    macro_targets = map(lambda m: ":" + m + "_generate_abstract", macros)
     x = map(lambda ext: map2(lambda m: "//:results/" + platform + "/%s/%s/%s.%s" % (m, macro_variants.get(m, macro_variant), m, ext), macros), ["lef", "lib"])
     macro_lef_targets, macro_lib_targets = x
 
