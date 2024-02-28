@@ -55,7 +55,6 @@ def build_openroad(
         stage_args = {},
         mock_abstract = False,
         mock_stage = "place",
-        orfs_version = 4,
         mock_area = None,
         platform = "asap7",
         macro_variant = "base"):
@@ -142,7 +141,6 @@ def build_openroad(
 
     base_args = [
         "WORK_HOME=$(RULEDIR)",
-        "ORFS_VERSION=" + str(orfs_version),
         "DESIGN_NAME=" + name,
         "FLOW_VARIANT=" + variant,
         "DESIGN_CONFIG=$(location " + str(Label("//:config.mk")) + ")",
