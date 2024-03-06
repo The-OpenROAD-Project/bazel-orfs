@@ -142,12 +142,12 @@ def write_config(
         export_env += "export " + env_var + "\n"
 
     export_env += "export DESIGN_NICKNAME=" + design_nickname + "\n"
+    export_env += "export DESIGN_NAME=" + design_nickname + "\n"
 
     native.genrule(
         name = name,
         srcs = [
             Label("//:config_common.mk"),
-            Label("//:rules.mk"),
         ],
         cmd = """
                echo \"# Common config\" > $@
@@ -155,7 +155,7 @@ def write_config(
                echo \"\n# Design config\" >> $@
                echo \"""" + export_env + """\" >> $@
                echo \"# Make rules\" >> $@
-               cat $(location """ + str(Label("//:rules.mk")) + """) >> $@
+               echo \"include \\$$(BUILD_DIR)/\\$$(MAKE_PATTERN)\" >> $@
               """,
         outs = [name + ".mk"],
     )
@@ -233,19 +233,22 @@ def build_openroad(
 
     stage_args = dict(stage_args)
 
-    ADDITIONAL_LEFS = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/%s.lef" % (m, macro_variants.get(m, macro_variant), m), macros))
-    ADDITIONAL_LIBS = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/%s.lib" % (m, macro_variants.get(m, macro_variant), m), macros))
-    # ADDITIONAL_GDS_FILES = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/6_final.gds" % (m, macro_variants.get(m, macro_variant)), macros))
+    ADDITIONAL_LEFS = " ".join(map(lambda m: "\\$$(BUILD_DIR)/$(RULEDIR)/results/" + platform + "/%s/%s/%s.lef" % (m, macro_variants.get(m, macro_variant), m), macros))
+    ADDITIONAL_LIBS = " ".join(map(lambda m: "\\$$(BUILD_DIR)/$(RULEDIR)/results/" + platform + "/%s/%s/%s.lib" % (m, macro_variants.get(m, macro_variant), m), macros))
+    # ADDITIONAL_GDS_FILES = " ".join(map(lambda m: "\\$$(BUILD_DIR)/$(RULEDIR)/results/" + platform + "/%s/%s/6_final.gds" % (m, macro_variants.get(m, macro_variant)), macros))
 
-    io_constraints_args = ["IO_CONSTRAINTS=" + io_constraints] if io_constraints != None else []
+    io_constraints_args = ["IO_CONSTRAINTS=\\$$(BUILD_DIR)/" + io_constraints] if io_constraints != None else []
 
     lefs_args = (["ADDITIONAL_LEFS=" + ADDITIONAL_LEFS] if len(macros) > 0 else [])
     libs_args = (["ADDITIONAL_LIBS=" + ADDITIONAL_LIBS] if len(macros) > 0 else [])
     # gds_args = (["ADDITIONAL_GDS_FILES=" + ADDITIONAL_GDS_FILES] if len(macros) > 0 else [])
 
+    extended_verilog_files = []
+    for file in verilog_files:
+        extended_verilog_files.append("\\$$(BUILD_DIR)/" + file)
     stage_args["synth"] = stage_args.get("synth", []) + [
-        "VERILOG_FILES=" + " ".join(set(verilog_files)),
-        "SDC_FILE_CLOCK_PERIOD=" + SDC_FILE_CLOCK_PERIOD,
+        "VERILOG_FILES=" + " ".join(extended_verilog_files),
+        "SDC_FILE_CLOCK_PERIOD=\\$$(BUILD_DIR)/" + SDC_FILE_CLOCK_PERIOD,
     ]
     stage_args["floorplan"] = stage_args.get("floorplan", []) + (
         [] if len(macros) == 0 else [
@@ -326,7 +329,7 @@ def build_openroad(
         for item in sublist
     ]), lambda s: s.endswith(".sdc")))[0]
     stage_args["clock_period"] = [
-        "SDC_FILE=" + SDC_FILE,
+        "SDC_FILE=\\$$(BUILD_DIR)/" + SDC_FILE,
     ]
     stage_args["synth_sdc"] = stage_args["clock_period"]
     stage_sources["clock_period"] = [SDC_FILE]
@@ -390,6 +393,7 @@ def build_openroad(
         )
 
     stage_sources["route"] = stage_sources.get("route", []) + outs["cts"]
+
     for stage in ["floorplan", "final", "generate_abstract"]:
         stage_args[stage] = stage_args.get(stage, []) + lefs_args
         stage_sources[stage] = stage_sources.get(stage, []) + macro_lef_targets
@@ -408,12 +412,13 @@ def build_openroad(
     #     stage_args[stage] = stage_args.get(stage, []) + gds_args
     #     stage_sources[stage] = stage_sources.get(stage, []) + macro_gds_targets
 
+    make_sources = []
+    make_args = []
+
     for stage in stages:
         make_pattern = Label("//:" + stage + "-bazel.mk")
-        stage_sources[stage] = ([make_pattern] +
-                                all_sources +
-                                stage_sources.get(stage, []))
-        stage_args[stage] = ["make"] + ["MAKE_PATTERN=$(location " + str(make_pattern) + ")"] + base_args + stage_args.get(stage, [])
+        make_sources = [make_pattern] + all_sources
+        make_args = ["make"] + ["MAKE_PATTERN=$(location " + str(make_pattern) + ")"] + base_args
 
         native.genrule(
             name = target_name + "_" + stage + "_make_script",
@@ -423,7 +428,7 @@ def build_openroad(
                        Label("//:" + stage + "-bazel.mk"),
                    ] +
                    all_sources,
-            cmd = "echo \"chmod -R +w . && \" `cat $(location " + str(Label("//:make_script.template.sh")) + ")` " + " ".join(wrap_args(stage_args.get(stage, []), True)) + " 'MAKE_PATTERN=$$(rlocation bazel-orfs/" + stage + "-bazel.mk)' " + " 'DESIGN_CONFIG=$$(rlocation bazel-orfs/config.mk)' " + " \\\"$$\\@\\\" > $@",
+            cmd = "echo \"chmod -R +w . && \" `cat $(location " + str(Label("//:make_script.template.sh")) + ")` " + " ".join(wrap_args(make_args, True)) + " ".join(wrap_args(stage_args.get(stage, []), True)) + " 'MAKE_PATTERN=$$(rlocation bazel-orfs/" + stage + "-bazel.mk)' " + " 'DESIGN_CONFIG=$$(rlocation bazel-orfs/config.mk)' " + " \\\"$$\\@\\\" > $@",
             outs = ["logs/" + platform + "/%s/%s/make_script_%s.sh" % (output_folder_name, variant, stage)],
         )
 
@@ -439,11 +444,12 @@ def build_openroad(
         for (previous, stage) in zip(["n/a"] + mock_stages, mock_stages):
             native.genrule(
                 name = target_name + "_" + stage + "_mock_area",
-                tools = [Label("//:orfs")],
-                srcs = stage_sources[stage] + ([name + target_ext + "_" + stage, Label("mock_area.tcl")] if stage == "floorplan" else []) +
+                tools = [Label("//:docker_shell")],
+                srcs = ["//:orfs_env"] + make_sources + stage_sources[stage] + ([name + target_ext + "_" + stage, Label("mock_area.tcl")] if stage == "floorplan" else []) +
                        ([name + target_ext + "_" + previous + "_mock_area"] if stage != "clock_period" else []) +
                        ([name + target_ext + "_synth_mock_area"] if stage == "floorplan" else []),
-                cmd = "$(location " + str(Label("//:orfs")) + ") " +
+                cmd = "OR_IMAGE=bazel-orfs/orfs_env:latest $(location " + str(Label("//:docker_shell")) + ") " +
+                      " ".join(wrap_args(make_args, False)) +
                       " ".join(wrap_args([s for s in stage_args[stage] if not any([sub in s for sub in ("DIE_AREA", "CORE_AREA", "CORE_UTILIZATION")])], False)) +
                       " " +
                       " ".join(wrap_args([
@@ -462,17 +468,28 @@ def build_openroad(
     native.genrule(
         name = target_name + "_memory",
         tools = [Label("//:orfs")],
-        srcs = stage_sources["synth"] + [name + "_clock_period"],
-        cmd = "$(location " + str(Label("//:orfs")) + ") " + " ".join(wrap_args(stage_args["synth"], False)) + " memory",
+        srcs = make_sources + stage_sources["synth"] + [name + "_clock_period"],
+        cmd = "$(location " + str(Label("//:orfs")) + ") " + " ".join(wrap_args(make_args, False)) + " ".join(wrap_args(stage_args["synth"], False)) + " memory",
         outs = outs["memory"],
     )
 
+    env_list = []
+    for stage, envs in stage_args.items():
+        env_list += envs
+
+    write_config(
+        name = target_name + "_config",
+        design_nickname = target_name,
+        env_list = env_list,
+    )
+
     for ((_, previous), (i, stage)) in zip([(0, "n/a")] + enumerate(stages), enumerate(stages)):
+        make_pattern = stage + "-bazel.mk"
         native.genrule(
             name = target_name + "_" + stage,
-            tools = [Label("//:orfs")],
-            srcs = stage_sources[stage] + ([name + target_ext + "_" + previous] if stage not in ("clock_period", "synth_sdc", "synth") else []) +
+            tools = [Label("//:docker_shell")],
+            srcs = ["//:orfs_env", make_pattern] + stage_sources[stage] + [target_name + "_config.mk"] + ([name + target_ext + "_" + previous] if stage not in ("clock_period", "synth_sdc", "synth") else []) +
                    ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
-            cmd = "$(location " + str(Label("//:orfs")) + ") " + " ".join(wrap_args(stage_args[stage], False)) + " bazel-" + stage + ("_mock_area" if mock_area != None and stage == "generate_abstract" else "") + " elapsed",
+            cmd = "OR_IMAGE=bazel-orfs/orfs_env:latest MAKE_PATTERN=$(location " + str(make_pattern) + ") RULEDIR=$(RULEDIR) DESIGN_NAME=" + target_name + " CONFIG=$(location " + str(Label("//:" + target_name + "_config.mk")) + ") $(location " + str(Label("//:docker_shell")) + ") " + "make bazel-" + stage + ("_mock_area" if mock_area != None and stage == "generate_abstract" else "") + " elapsed",
             outs = outs.get(stage, []),
         )
