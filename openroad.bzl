@@ -74,7 +74,7 @@ def filter(iterable, func):
       iterable: collection of strings
       func: function used for filtering out elements of `iterable`. Must return
             true or false. Element is filtered out when function returns false
-	    for this element
+            for this element
 
     Returns:
       List with filtered out elements
@@ -85,7 +85,7 @@ def filter(iterable, func):
             result = result + [item]
     return result
 
-def wrap_args(args):
+def wrap_args(args, escape):
     """
     Wrap environment variables to ensure correct escaping and evaluation.
 
@@ -96,6 +96,7 @@ def wrap_args(args):
 
     Args:
       args: list of strings containing environment variables definitions
+      escape: flag controlling whether the env var value should have escaped quotes
 
     Returns:
       List of wrapped environment variables definitions
@@ -105,8 +106,11 @@ def wrap_args(args):
     for arg in args:
         splt = arg.split("=", 1)
         if (len(splt) == 2):
-            if (" " in splt[1] and "DESIGN_CONFIG" != splt[0]):
-                wrapped_args.append(splt[0] + "='" + splt[1] + "'")
+            if (" " in splt[1]):
+                if (escape):
+                    wrapped_args.append(splt[0] + "=\\\'" + splt[1] + "\\\'")
+                else:
+                    wrapped_args.append(splt[0] + "='" + splt[1] + "'")
             else:
                 wrapped_args.append(arg)
         else:
@@ -354,7 +358,7 @@ def build_openroad(
                        Label("//:" + stage + "-bazel.mk"),
                    ] +
                    all_sources,
-            cmd = "echo \"chmod -R +w . && \" `cat $(location " + str(Label("//:make_script.template.sh")) + ")` " + " ".join(wrap_args(stage_args.get(stage, []))) + " 'MAKE_PATTERN=$$(rlocation bazel-orfs/" + stage + "-bazel.mk)' " + " 'DESIGN_CONFIG=$$(rlocation bazel-orfs/config.mk)' " + " \\\"$$\\@\\\" > $@",
+            cmd = "echo \"chmod -R +w . && \" `cat $(location " + str(Label("//:make_script.template.sh")) + ")` " + " ".join(wrap_args(stage_args.get(stage, []), True)) + " 'MAKE_PATTERN=$$(rlocation bazel-orfs/" + stage + "-bazel.mk)' " + " 'DESIGN_CONFIG=$$(rlocation bazel-orfs/config.mk)' " + " \\\"$$\\@\\\" > $@",
             outs = ["logs/" + platform + "/%s/%s/make_script_%s.sh" % (output_folder_name, variant, stage)],
         )
 
@@ -375,18 +379,18 @@ def build_openroad(
                        ([name + target_ext + "_" + previous + "_mock_area"] if stage != "clock_period" else []) +
                        ([name + target_ext + "_synth_mock_area"] if stage == "floorplan" else []),
                 cmd = "$(location " + str(Label("//:orfs")) + ") " +
-                      " ".join(wrap_args([s for s in stage_args[stage] if not any([sub in s for sub in ("DIE_AREA", "CORE_AREA", "CORE_UTILIZATION")])])) +
+                      " ".join(wrap_args([s for s in stage_args[stage] if not any([sub in s for sub in ("DIE_AREA", "CORE_AREA", "CORE_UTILIZATION")])], False)) +
                       " " +
                       " ".join(wrap_args([
                           "FLOW_VARIANT=mock_area",
                           "bazel-" + stage + ("-mock_area" if stage == "floorplan" else ""),
-                      ])) +
+                      ], False)) +
                       " " +
                       " ".join(wrap_args({
                           "floorplan": ["MOCK_AREA=" + str(mock_area), "MOCK_AREA_TCL=$(location " + str(Label("mock_area.tcl")) + ")"],
                           "synth": ["SYNTH_GUT=1"],
                           "generate_abstract": ["ABSTRACT_SOURCE=2_floorplan"],
-                      }.get(stage, []))),
+                      }.get(stage, []), False)),
                 outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])],
             )
 
@@ -394,7 +398,7 @@ def build_openroad(
         name = target_name + "_memory",
         tools = [Label("//:orfs")],
         srcs = stage_sources["synth"] + [name + "_clock_period"],
-        cmd = "$(location " + str(Label("//:orfs")) + ") " + " ".join(wrap_args(stage_args["synth"])) + " memory",
+        cmd = "$(location " + str(Label("//:orfs")) + ") " + " ".join(wrap_args(stage_args["synth"], False)) + " memory",
         outs = outs["memory"],
     )
 
@@ -404,6 +408,6 @@ def build_openroad(
             tools = [Label("//:orfs")],
             srcs = stage_sources[stage] + ([name + target_ext + "_" + previous] if stage not in ("clock_period", "synth_sdc", "synth") else []) +
                    ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
-            cmd = "$(location " + str(Label("//:orfs")) + ") " + " ".join(wrap_args(stage_args[stage])) + " bazel-" + stage + ("_mock_area" if mock_area != None and stage == "generate_abstract" else "") + " elapsed",
+            cmd = "$(location " + str(Label("//:orfs")) + ") " + " ".join(wrap_args(stage_args[stage], False)) + " bazel-" + stage + ("_mock_area" if mock_area != None and stage == "generate_abstract" else "") + " elapsed",
             outs = outs.get(stage, []),
         )
