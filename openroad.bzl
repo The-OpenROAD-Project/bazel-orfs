@@ -117,6 +117,49 @@ def wrap_args(args, escape):
             wrapped_args.append(arg)
     return wrapped_args
 
+def write_config(
+        name,
+        design_nickname,
+        env = {},
+        env_list = []):
+    """
+    Writes config file for running physical design flow with OpenROAD-flow-scripts.
+
+    It appends a common configuration file and additional make rules used for
+    calling complex ORFS flows.
+
+    Args:
+      name: name of the design target
+      design_nickname: design name for specifying output paths
+      env: dictionary of environment variables to be placed in the config file
+      env_list: list of environment variables to be placed in the config file
+    """
+
+    export_env = ""
+    for var, value in env.items():
+        export_env += "export " + var + "=" + value + "\n"
+    for env_var in env_list:
+        export_env += "export " + env_var + "\n"
+
+    export_env += "export DESIGN_NICKNAME=" + design_nickname + "\n"
+
+    native.genrule(
+        name = name,
+        srcs = [
+            Label("//:config_common.mk"),
+            Label("//:rules.mk"),
+        ],
+        cmd = """
+               echo \"# Common config\" > $@
+               cat $(location """ + str(Label("//:config_common.mk")) + """) >> $@
+               echo \"\n# Design config\" >> $@
+               echo \"""" + export_env + """\" >> $@
+               echo \"# Make rules\" >> $@
+               cat $(location """ + str(Label("//:rules.mk")) + """) >> $@
+              """,
+        outs = [name + ".mk"],
+    )
+
 def build_openroad(
         name,
         variant = "base",
