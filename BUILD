@@ -69,3 +69,9 @@ oci_tarball(
     image = "@orfs_image",
     repo_tags = ["bazel-orfs/orfs_env:latest"],
 )
+
+sh_binary(
+    name = "docker_shell",
+    srcs = ["docker_shell.sh"],
+    visibility = ["//visibility:public"],
+)
