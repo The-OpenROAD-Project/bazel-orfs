@@ -160,6 +160,41 @@ def write_config(
         outs = [name + ".mk"],
     )
 
+def get_docker_shell_cmd(
+        make_pattern,
+        design_name,
+        design_config,
+        stage,
+        mock_area,
+        docker_shell = Label("//:docker_shell"),
+        or_image = "bazel-orfs/orfs_env:latest"):
+    """
+    Prepare command line for running docker_shell utility
+
+    Args:
+      make_pattern: label pointing to makefile conatining rules relevant to current stage
+      design_name: string with design name
+      design_config: label pointing to design-specific generated config.mk file
+      stage: name of the current stage
+      mock_area: floating point number, will run _mock_area targets if set
+      docker_shell: label pointing to the entrypint script for running ORFS flow
+      or_image: name of the docker image used for running ORFS flow
+
+    Returns:
+      string with command line for running ORFS flow in docker container
+    """
+
+    cmd = "OR_IMAGE=" + or_image
+    cmd += " MAKE_PATTERN=$(location " + str(make_pattern) + ")"
+    cmd += " RULEDIR=$(RULEDIR)"
+    cmd += " DESIGN_NAME=" + design_name
+    cmd += " CONFIG=$(location " + str(design_config) + ")"
+    cmd += " $(location " + str(docker_shell) + ")"
+    cmd += " make "
+    cmd += "bazel-" + stage + ("_mock_area" if mock_area != None and stage == "generate_abstract" else "") + " elapsed"
+
+    return cmd
+
 def build_openroad(
         name,
         variant = "base",
@@ -484,12 +519,13 @@ def build_openroad(
     )
 
     for ((_, previous), (i, stage)) in zip([(0, "n/a")] + enumerate(stages), enumerate(stages)):
-        make_pattern = stage + "-bazel.mk"
+        make_pattern = Label("//:" + stage + "-bazel.mk")
+        design_config = Label("//:" + target_name + "_config.mk")
         native.genrule(
             name = target_name + "_" + stage,
             tools = [Label("//:docker_shell")],
             srcs = ["//:orfs_env", make_pattern] + stage_sources[stage] + [target_name + "_config.mk"] + ([name + target_ext + "_" + previous] if stage not in ("clock_period", "synth_sdc", "synth") else []) +
                    ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
-            cmd = "OR_IMAGE=bazel-orfs/orfs_env:latest MAKE_PATTERN=$(location " + str(make_pattern) + ") RULEDIR=$(RULEDIR) DESIGN_NAME=" + target_name + " CONFIG=$(location " + str(Label("//:" + target_name + "_config.mk")) + ") $(location " + str(Label("//:docker_shell")) + ") " + "make bazel-" + stage + ("_mock_area" if mock_area != None and stage == "generate_abstract" else "") + " elapsed",
+            cmd = get_docker_shell_cmd(make_pattern, target_name, design_config, stage, mock_area),
             outs = outs.get(stage, []),
         )
