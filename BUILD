@@ -1,3 +1,4 @@
+load("@rules_oci//oci:defs.bzl", "oci_tarball")
 load("//:openroad.bzl", "build_openroad")
 
 # FIXME: this shouldn't be required
@@ -61,4 +62,10 @@ build_openroad(
     },
     variant = "test",
     verilog_files = ["test/rtl/L1MetadataArray.sv"],
+)
+
+oci_tarball(
+    name = "orfs_env",
+    image = "@orfs_image",
+    repo_tags = ["bazel-orfs/orfs_env:latest"],
 )
