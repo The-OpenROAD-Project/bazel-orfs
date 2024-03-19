@@ -191,9 +191,67 @@ def get_docker_shell_cmd(
     cmd += " CONFIG=$(location " + str(design_config) + ")"
     cmd += " $(location " + str(docker_shell) + ")"
     cmd += " make "
-    cmd += "bazel-" + stage + ("_mock_area" if mock_area != None and stage == "generate_abstract" else "") + " elapsed"
+    cmd += "bazel-" + stage + ("_mock_area" if ((mock_area != None and stage == "generate_abstract") or (stage == "floorplan")) else "") + " elapsed"
 
     return cmd
+
+def mock_area_stages(
+        target_name,
+        stage_sources,
+        env_list,
+        outs,
+        variant,
+        mock_area):
+    """
+    Spawn mock_area targets.
+
+    Filter out unnecessary ORFS options and inject new ones for the mock_area flow.
+    Generate config.mk specific for those targets
+
+    Args:
+      target_name: name of the design
+      stage_sources: dictionary of lists with sources for each flow stage
+      env_list: list of environment variables to be placed in the config file
+      outs: dictionary of lists with paths to output files for each flow stage
+      variant: default variant of the ORFS flow, used for replacing output paths
+      mock_area: floating point number used for scaling the design
+    """
+
+    # Write ORFS options for mock_area targets
+    # Filter out options affecting Chip Area and default flow variant
+    mock_area_env_list = [s for s in env_list if not any([sub in s for sub in ("DIE_AREA", "CORE_AREA", "CORE_UTILIZATION", "FLOW_VARIANT")])]
+
+    # Add mock_area-specific options
+    mock_area_env_list.append("FLOW_VARIANT=mock_area")
+    mock_area_env_list.append("MOCK_AREA=" + str(mock_area))
+    mock_area_env_list.append("MOCK_AREA_TCL=\\$$(BUILD_DIR)/mock_area.tcl")
+    mock_area_env_list.append("SYNTH_GUT=1")
+    mock_area_env_list.append("ABSTRACT_SOURCE=2_floorplan")
+
+    # Generate config for mock_area targets
+    write_config(
+        name = target_name + "_mock_area_config",
+        design_nickname = target_name,
+        env_list = mock_area_env_list,
+    )
+
+    mock_stages = ["clock_period", "synth", "synth_sdc", "floorplan", "generate_abstract"]
+
+    for (previous, stage) in zip(["n/a"] + mock_stages, mock_stages):
+        make_pattern = Label("//:" + stage + "-bazel.mk")
+        design_config = Label("//:" + target_name + "_mock_area_config.mk")
+
+        native.genrule(
+            name = target_name + "_" + stage + "_mock_area",
+            tools = [Label("//:docker_shell")],
+            srcs = ["//:orfs_env", make_pattern, design_config] +
+                   stage_sources[stage] +
+                   ([target_name + "_" + stage, Label("mock_area.tcl")] if stage == "floorplan" else []) +
+                   ([target_name + "_" + previous + "_mock_area"] if stage != "clock_period" else []) +
+                   ([target_name + "_synth_mock_area"] if stage == "floorplan" else []),
+            cmd = get_docker_shell_cmd(make_pattern, target_name, design_config, stage, mock_area),
+            outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])],
+        )
 
 def build_openroad(
         name,
@@ -447,12 +505,10 @@ def build_openroad(
     #     stage_args[stage] = stage_args.get(stage, []) + gds_args
     #     stage_sources[stage] = stage_sources.get(stage, []) + macro_gds_targets
 
-    make_sources = []
     make_args = []
 
     for stage in stages:
         make_pattern = Label("//:" + stage + "-bazel.mk")
-        make_sources = [make_pattern] + all_sources
         make_args = ["make"] + ["MAKE_PATTERN=$(location " + str(make_pattern) + ")"] + base_args
 
         native.genrule(
@@ -474,48 +530,27 @@ def build_openroad(
             deps = ["@bazel_tools//tools/bash/runfiles"],
         )
 
-    if mock_area != None:
-        mock_stages = ["clock_period", "synth", "synth_sdc", "floorplan", "generate_abstract"]
-        for (previous, stage) in zip(["n/a"] + mock_stages, mock_stages):
-            native.genrule(
-                name = target_name + "_" + stage + "_mock_area",
-                tools = [Label("//:docker_shell")],
-                srcs = ["//:orfs_env"] + make_sources + stage_sources[stage] + ([name + target_ext + "_" + stage, Label("mock_area.tcl")] if stage == "floorplan" else []) +
-                       ([name + target_ext + "_" + previous + "_mock_area"] if stage != "clock_period" else []) +
-                       ([name + target_ext + "_synth_mock_area"] if stage == "floorplan" else []),
-                cmd = "OR_IMAGE=bazel-orfs/orfs_env:latest $(location " + str(Label("//:docker_shell")) + ") " +
-                      " ".join(wrap_args(make_args, False)) +
-                      " ".join(wrap_args([s for s in stage_args[stage] if not any([sub in s for sub in ("DIE_AREA", "CORE_AREA", "CORE_UTILIZATION")])], False)) +
-                      " " +
-                      " ".join(wrap_args([
-                          "FLOW_VARIANT=mock_area",
-                          "bazel-" + stage + ("-mock_area" if stage == "floorplan" else ""),
-                      ], False)) +
-                      " " +
-                      " ".join(wrap_args({
-                          "floorplan": ["MOCK_AREA=" + str(mock_area), "MOCK_AREA_TCL=$(location " + str(Label("mock_area.tcl")) + ")"],
-                          "synth": ["SYNTH_GUT=1"],
-                          "generate_abstract": ["ABSTRACT_SOURCE=2_floorplan"],
-                      }.get(stage, []), False)),
-                outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])],
-            )
-
-    native.genrule(
-        name = target_name + "_memory",
-        tools = [Label("//:orfs")],
-        srcs = make_sources + stage_sources["synth"] + [name + "_clock_period"],
-        cmd = "$(location " + str(Label("//:orfs")) + ") " + " ".join(wrap_args(make_args, False)) + " ".join(wrap_args(stage_args["synth"], False)) + " memory",
-        outs = outs["memory"],
-    )
-
+    # Write all ORFS options to list
     env_list = []
     for stage, envs in stage_args.items():
         env_list += envs
 
+    # Generate config for stage targets
     write_config(
         name = target_name + "_config",
         design_nickname = target_name,
         env_list = env_list,
+    )
+
+    if mock_area != None:
+        mock_area_stages(target_name, stage_sources, env_list, outs, variant, mock_area)
+
+    native.genrule(
+        name = target_name + "_memory",
+        tools = [Label("//:orfs")],
+        srcs = all_sources + stage_sources["synth"] + [name + "_clock_period"],
+        cmd = "$(location " + str(Label("//:orfs")) + ") " + " ".join(wrap_args(make_args, False)) + " ".join(wrap_args(stage_args["synth"], False)) + " memory",
+        outs = outs["memory"],
     )
 
     for ((_, previous), (i, stage)) in zip([(0, "n/a")] + enumerate(stages), enumerate(stages)):
