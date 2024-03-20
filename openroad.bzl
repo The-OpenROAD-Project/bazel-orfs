@@ -160,12 +160,36 @@ def write_config(
         outs = [name + ".mk"],
     )
 
+def get_make_targets(
+        stage,
+        do_mock_area,
+        mock_area):
+    """
+    Prepare make targets to execute in ORFS environment.
+
+    Args:
+      stage: name of the stage to execute
+      do_mock_area: flag to recognize if the target should be always a mock_area target
+      mock_area: floating point number, will always run _mock_area target for generate_abstract stage if set,
+                 even if do_mock_area is not set
+
+    Returns:
+      string with space-separated make targets to be executed in ORFS environment
+    """
+    targets = "bazel-" + stage
+    if (mock_area != None and stage == "generate_abstract"):
+        targets += "_mock_area"
+    elif (do_mock_area and stage == "floorplan"):
+        targets += "-mock_area"
+    targets += " elapsed"
+
+    return targets
+
 def get_docker_shell_cmd(
         make_pattern,
         design_name,
         design_config,
-        stage,
-        mock_area,
+        make_targets,
         docker_shell = Label("//:docker_shell"),
         or_image = "bazel-orfs/orfs_env:latest"):
     """
@@ -175,8 +199,7 @@ def get_docker_shell_cmd(
       make_pattern: label pointing to makefile conatining rules relevant to current stage
       design_name: string with design name
       design_config: label pointing to design-specific generated config.mk file
-      stage: name of the current stage
-      mock_area: floating point number, will run _mock_area targets if set
+      make_targets: string with space-separated make targets to be executed in ORFS environment
       docker_shell: label pointing to the entrypint script for running ORFS flow
       or_image: name of the docker image used for running ORFS flow
 
@@ -191,12 +214,12 @@ def get_docker_shell_cmd(
     cmd += " CONFIG=$(location " + str(design_config) + ")"
     cmd += " $(location " + str(docker_shell) + ")"
     cmd += " make "
-    cmd += "bazel-" + stage + ("_mock_area" if ((mock_area != None and stage == "generate_abstract") or (stage == "floorplan")) else "") + " elapsed"
+    cmd += make_targets
 
     return cmd
 
 def mock_area_stages(
-        target_name,
+        name,
         stage_sources,
         env_list,
         outs,
@@ -209,7 +232,7 @@ def mock_area_stages(
     Generate config.mk specific for those targets
 
     Args:
-      target_name: name of the design
+      name: name of the target design
       stage_sources: dictionary of lists with sources for each flow stage
       env_list: list of environment variables to be placed in the config file
       outs: dictionary of lists with paths to output files for each flow stage
@@ -230,8 +253,8 @@ def mock_area_stages(
 
     # Generate config for mock_area targets
     write_config(
-        name = target_name + "_mock_area_config",
-        design_nickname = target_name,
+        name = name + "_mock_area_config",
+        design_nickname = name,
         env_list = mock_area_env_list,
     )
 
@@ -239,17 +262,18 @@ def mock_area_stages(
 
     for (previous, stage) in zip(["n/a"] + mock_stages, mock_stages):
         make_pattern = Label("//:" + stage + "-bazel.mk")
-        design_config = Label("//:" + target_name + "_mock_area_config.mk")
+        design_config = Label("//:" + name + "_mock_area_config.mk")
+        make_targets = get_make_targets(stage, True, mock_area)
 
         native.genrule(
-            name = target_name + "_" + stage + "_mock_area",
+            name = name + "_" + stage + "_mock_area",
             tools = [Label("//:docker_shell")],
             srcs = ["//:orfs_env", make_pattern, design_config] +
                    stage_sources[stage] +
-                   ([target_name + "_" + stage, Label("mock_area.tcl")] if stage == "floorplan" else []) +
-                   ([target_name + "_" + previous + "_mock_area"] if stage != "clock_period" else []) +
-                   ([target_name + "_synth_mock_area"] if stage == "floorplan" else []),
-            cmd = get_docker_shell_cmd(make_pattern, target_name, design_config, stage, mock_area),
+                   ([name + "_" + stage, Label("mock_area.tcl")] if stage == "floorplan" else []) +
+                   ([name + "_" + previous + "_mock_area"] if stage != "clock_period" else []) +
+                   ([name + "_synth_mock_area"] if stage == "floorplan" else []),
+            cmd = get_docker_shell_cmd(make_pattern, name, design_config, make_targets),
             outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])],
         )
 
@@ -556,11 +580,12 @@ def build_openroad(
     for ((_, previous), (i, stage)) in zip([(0, "n/a")] + enumerate(stages), enumerate(stages)):
         make_pattern = Label("//:" + stage + "-bazel.mk")
         design_config = Label("//:" + target_name + "_config.mk")
+        make_targets = get_make_targets(stage, False, mock_area)
         native.genrule(
             name = target_name + "_" + stage,
             tools = [Label("//:docker_shell")],
             srcs = ["//:orfs_env", make_pattern] + stage_sources[stage] + [target_name + "_config.mk"] + ([name + target_ext + "_" + previous] if stage not in ("clock_period", "synth_sdc", "synth") else []) +
                    ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
-            cmd = get_docker_shell_cmd(make_pattern, target_name, design_config, stage, mock_area),
+            cmd = get_docker_shell_cmd(make_pattern, target_name, design_config, make_targets),
             outs = outs.get(stage, []),
         )
