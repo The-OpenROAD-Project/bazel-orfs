@@ -100,6 +100,11 @@ The example comes from the `BUILD` file in this repository. For details about ta
 
 This script loads the ORFS environment and evaluates the rest of the command line that called the script.
 
+### util.tcl
+
+This TCL script provides a set of helper functions useful in other TCL files or SDC constraints.
+`UTIL_TCL` environment variable is prepared in the generated config files in order to pass the path and enable the usage of this library.
+
 ### openroad.bzl
 
 This file contains simple helper functions written in starlark as well as macro `build_openroad()`. The implementation of this macro spawns multiple `genrule` native rules which are responsible for running ORFS `make` targets during bazel build stage. Each `genrule()` does the same

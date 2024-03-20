@@ -28,10 +28,7 @@ build_openroad(
     stage_sources = {
         "synth": [
             "test/constraints-sram.sdc",
-            "util.tcl",
         ],
-        "floorplan": ["util.tcl"],
-        "place": ["util.tcl"],
     },
     verilog_files = ["test/rtl/tag_array_64x184.sv"],
 )
@@ -57,8 +54,6 @@ build_openroad(
     },
     stage_sources = {
         "synth": ["test/constraints-top.sdc"],
-        "floorplan": ["util.tcl"],
-        "place": ["util.tcl"],
     },
     variant = "test",
     verilog_files = ["test/rtl/L1MetadataArray.sv"],
