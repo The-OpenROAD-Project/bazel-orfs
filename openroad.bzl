@@ -143,6 +143,7 @@ def write_config(
 
     export_env += "export DESIGN_NICKNAME=" + design_nickname + "\n"
     export_env += "export DESIGN_NAME=" + design_nickname + "\n"
+    export_env += "export UTIL_TCL=\\$$(BUILD_DIR)/util.tcl\n"
 
     native.genrule(
         name = name,
@@ -343,10 +344,10 @@ def build_openroad(
     stage_sources = dict(stage_sources)
 
     SDC_FILE_CLOCK_PERIOD = "results/" + platform + "/%s/%s/clock_period.txt" % (output_folder_name, variant)
-    stage_sources["synth"] = stage_sources.get("synth", []) + set(verilog_files)
+    stage_sources["synth"] = ["//:util.tcl"] + stage_sources.get("synth", []) + set(verilog_files)
     io_constraints_source = ([io_constraints] if io_constraints != None else [])
-    stage_sources["floorplan"] = stage_sources.get("floorplan", []) + io_constraints_source
-    stage_sources["place"] = stage_sources.get("place", []) + io_constraints_source
+    stage_sources["floorplan"] = ["//:util.tcl"] + stage_sources.get("floorplan", []) + io_constraints_source
+    stage_sources["place"] = ["//:util.tcl"] + stage_sources.get("place", []) + io_constraints_source
 
     stage_args = dict(stage_args)
 

@@ -1,4 +1,4 @@
-source util.tcl
+source $::env(UTIL_TCL)
 
 # Set the clock name and period
 set clk_period 400 
