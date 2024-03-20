@@ -119,7 +119,7 @@ def wrap_args(args, escape):
 
 def write_config(
         name,
-        design_nickname,
+        design_name,
         env = {},
         env_list = []):
     """
@@ -130,7 +130,7 @@ def write_config(
 
     Args:
       name: name of the design target
-      design_nickname: design name for specifying output paths
+      design_name: short name of the design
       env: dictionary of environment variables to be placed in the config file
       env_list: list of environment variables to be placed in the config file
     """
@@ -141,8 +141,7 @@ def write_config(
     for env_var in env_list:
         export_env += "export " + env_var + "\n"
 
-    export_env += "export DESIGN_NICKNAME=" + design_nickname + "\n"
-    export_env += "export DESIGN_NAME=" + design_nickname + "\n"
+    export_env += "export DESIGN_NAME=" + design_name + "\n"
     export_env += "export UTIL_TCL=\\$$(BUILD_DIR)/util.tcl\n"
 
     native.genrule(
@@ -188,7 +187,6 @@ def get_make_targets(
 
 def get_docker_shell_cmd(
         make_pattern,
-        design_name,
         design_config,
         make_targets,
         docker_shell = Label("//:docker_shell"),
@@ -198,7 +196,6 @@ def get_docker_shell_cmd(
 
     Args:
       make_pattern: label pointing to makefile conatining rules relevant to current stage
-      design_name: string with design name
       design_config: label pointing to design-specific generated config.mk file
       make_targets: string with space-separated make targets to be executed in ORFS environment
       docker_shell: label pointing to the entrypint script for running ORFS flow
@@ -211,7 +208,6 @@ def get_docker_shell_cmd(
     cmd = "OR_IMAGE=" + or_image
     cmd += " MAKE_PATTERN=$(location " + str(make_pattern) + ")"
     cmd += " RULEDIR=$(RULEDIR)"
-    cmd += " DESIGN_NAME=" + design_name
     cmd += " CONFIG=$(location " + str(design_config) + ")"
     cmd += " $(location " + str(docker_shell) + ")"
     cmd += " make "
@@ -221,6 +217,7 @@ def get_docker_shell_cmd(
 
 def mock_area_stages(
         name,
+        design_name,
         stage_sources,
         env_list,
         outs,
@@ -234,6 +231,7 @@ def mock_area_stages(
 
     Args:
       name: name of the target design
+      design_name: short name of the design
       stage_sources: dictionary of lists with sources for each flow stage
       env_list: list of environment variables to be placed in the config file
       outs: dictionary of lists with paths to output files for each flow stage
@@ -256,7 +254,7 @@ def mock_area_stages(
     # Generate config for mock_area targets
     write_config(
         name = name + "_mock_area_config",
-        design_nickname = name,
+        design_name = design_name,
         env_list = mock_area_env_list,
     )
 
@@ -275,7 +273,7 @@ def mock_area_stages(
                    ([name + "_" + stage, Label("mock_area.tcl")] if stage == "floorplan" else []) +
                    ([name + "_" + previous + "_mock_area"] if stage != "clock_period" else []) +
                    ([name + "_synth_mock_area"] if stage == "floorplan" else []),
-            cmd = get_docker_shell_cmd(make_pattern, name, design_config, make_targets),
+            cmd = get_docker_shell_cmd(make_pattern, design_config, make_targets),
             outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])],
         )
 
@@ -372,7 +370,7 @@ def build_openroad(
     stage_args["floorplan"] = stage_args.get("floorplan", []) + (
         [] if len(macros) == 0 else [
             "CORE_MARGIN=4",
-            "'PDN_TCL=\\$${PLATFORM_DIR}/openRoad/pdn/BLOCKS_grid_strategy.tcl'",
+            "PDN_TCL=\\$${PLATFORM_DIR}/openRoad/pdn/BLOCKS_grid_strategy.tcl",
         ]
     ) + io_constraints_args + (["MACROS=" + " ".join(set(macros))] if len(macros) > 0 else [])
 
@@ -566,12 +564,12 @@ def build_openroad(
     # Generate config for stage targets
     write_config(
         name = target_name + "_config",
-        design_nickname = target_name,
+        design_name = name,
         env_list = env_list,
     )
 
     if mock_area != None:
-        mock_area_stages(target_name, stage_sources, env_list, outs, variant, mock_area)
+        mock_area_stages(target_name, name, stage_sources, env_list, outs, variant, mock_area)
 
     native.genrule(
         name = target_name + "_memory",
@@ -590,6 +588,6 @@ def build_openroad(
             tools = [Label("//:docker_shell")],
             srcs = ["//:orfs_env", make_pattern] + stage_sources[stage] + [target_name + "_config.mk"] + ([name + target_ext + "_" + previous] if stage not in ("clock_period", "synth_sdc", "synth") else []) +
                    ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
-            cmd = get_docker_shell_cmd(make_pattern, target_name, design_config, make_targets),
+            cmd = get_docker_shell_cmd(make_pattern, design_config, make_targets),
             outs = outs.get(stage, []),
         )
