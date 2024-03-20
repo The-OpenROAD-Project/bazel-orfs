@@ -5,5 +5,5 @@ bazel-generate_abstract:
 
 .PHONY: bazel-generate_abstract_mock_area
 bazel-generate_abstract_mock_area: bazel-generate_abstract
-	cp $(RESULTS_DIR)/../mock_area/$(DESIGN_NAME).lef $(RESULTS_DIR)/
+	cp $(WORK_HOME)/results/$(PLATFORM)/$(DESIGN_NICKNAME)/mock_area/$(DESIGN_NAME).lef $(RESULTS_DIR)/
 

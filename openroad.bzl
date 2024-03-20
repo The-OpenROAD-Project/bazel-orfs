@@ -247,6 +247,7 @@ def mock_area_stages(
 
     # Add mock_area-specific options
     mock_area_env_list.append("FLOW_VARIANT=mock_area")
+    mock_area_env_list.append("DEFAULT_FLOW_VARIANT=" + variant)
     mock_area_env_list.append("MOCK_AREA=" + str(mock_area))
     mock_area_env_list.append("MOCK_AREA_TCL=\\$$(BUILD_DIR)/mock_area.tcl")
     mock_area_env_list.append("SYNTH_GUT=1")
@@ -559,6 +560,8 @@ def build_openroad(
     env_list = []
     for stage, envs in stage_args.items():
         env_list += envs
+
+    env_list.append("FLOW_VARIANT=" + variant)
 
     # Generate config for stage targets
     write_config(
