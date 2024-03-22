@@ -178,6 +178,7 @@ def build_openroad(
 
     x = map(lambda ext: map2(lambda m: "//:results/" + platform + "/%s/%s/%s.%s" % (m, macro_variants.get(m, macro_variant), m, ext), macros), ["lef", "lib"])
     macro_lef_targets, macro_lib_targets = x
+    # macro_gds_targets = map(lambda m: "//:results/" + platform + "/%s/%s/6_final.gds" % (m, macro_variants.get(m, macro_variant)), macros)
 
     stage_sources = dict(stage_sources)
 
@@ -191,28 +192,30 @@ def build_openroad(
 
     ADDITIONAL_LEFS = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/%s.lef" % (m, macro_variants.get(m, macro_variant), m), macros))
     ADDITIONAL_LIBS = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/%s.lib" % (m, macro_variants.get(m, macro_variant), m), macros))
-    ADDITIONAL_GDS_FILES = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/6_final.gds" % (m, macro_variants.get(m, macro_variant)), macros))
+    # ADDITIONAL_GDS_FILES = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/6_final.gds" % (m, macro_variants.get(m, macro_variant)), macros))
 
     io_constraints_args = ["IO_CONSTRAINTS=" + io_constraints] if io_constraints != None else []
 
     lefs_args = (["ADDITIONAL_LEFS=" + ADDITIONAL_LEFS] if len(macros) > 0 else [])
     libs_args = (["ADDITIONAL_LIBS=" + ADDITIONAL_LIBS] if len(macros) > 0 else [])
-    gds_args = (["ADDITIONAL_GDS_FILES=" + ADDITIONAL_GDS_FILES] if len(macros) > 0 else [])
+    # gds_args = (["ADDITIONAL_GDS_FILES=" + ADDITIONAL_GDS_FILES] if len(macros) > 0 else [])
 
-    stage_args["synth"] = stage_args.get("synth", []) + libs_args + [
+    stage_args["synth"] = stage_args.get("synth", []) + [
         "VERILOG_FILES=" + " ".join(set(verilog_files)),
         "SDC_FILE_CLOCK_PERIOD=" + SDC_FILE_CLOCK_PERIOD,
     ]
-    stage_args["floorplan"] = stage_args.get("floorplan", []) + lefs_args + libs_args + (
+    stage_args["floorplan"] = stage_args.get("floorplan", []) + (
         [] if len(macros) == 0 else [
             "CORE_MARGIN=4",
             "'PDN_TCL=\\$${PLATFORM_DIR}/openRoad/pdn/BLOCKS_grid_strategy.tcl'",
         ]
     ) + io_constraints_args + (["MACROS=" + " ".join(set(macros))] if len(macros) > 0 else [])
 
-    stage_args["place"] = stage_args.get("place", []) + libs_args + io_constraints_args
+    stage_args["place"] = stage_args.get("place", []) + io_constraints_args
 
-    stage_args["final"] = stage_args.get("final", []) + gds_args + lefs_args + (
+    stage_args["cts"] = stage_args.get("cts", [])
+
+    stage_args["final"] = stage_args.get("final", []) + (
         ["GND_NETS_VOLTAGES=\"\"", "PWR_NETS_VOLTAGES=\"\""]
     ) + (
         ["GDS_ALLOW_EMPTY=(" + "|".join(macros) + ")"] if len(macros) > 0 else []
@@ -225,8 +228,12 @@ def build_openroad(
         ]
     )
 
+    for stage in ["synth", "floorplan", "place", "cts", "grt", "route", "final"]:
+        stage_args[stage] = stage_args.get(stage, []) + libs_args
+        stage_sources[stage] = stage_sources.get(stage, []) + macro_lib_targets
+
     abstract_source = str(name_to_stage[mock_stage]) + "_" + mock_stage
-    stage_args["generate_abstract"] = stage_args.get("generate_abstract", []) + gds_args + lefs_args + (
+    stage_args["generate_abstract"] = stage_args.get("generate_abstract", []) + (
         ["ABSTRACT_SOURCE=" + abstract_source] if mock_abstract else []
     )
 
@@ -340,13 +347,28 @@ def build_openroad(
         )
 
     stage_sources["route"] = stage_sources.get("route", []) + outs["cts"]
+    for stage in ["floorplan", "final", "generate_abstract"]:
+        stage_args[stage] = stage_args.get(stage, []) + lefs_args
+        stage_sources[stage] = stage_sources.get(stage, []) + macro_lef_targets
+
+    # FIXME add support for .gds files.
+    #
+    # The code currently assumes that .gds files are needed and produced by
+    # the "generate_abstract" stage, which is wrong. .gds files are needed and
+    # produced only by the "final" stage. Once the code is updated to reflect this,
+    # a macro can produce an artifact at e.g. floorplan, yet have targets to run
+    # through the "final" stage to produce the .gds file. This way, a higher level
+    # macro can depend on abstracts without running all the way to completion, yet
+    # have a valid .gds file dependency chain for the unused final stages.
+    #
+    # for stage in ["final", "generate_abstract"]:
+    #     stage_args[stage] = stage_args.get(stage, []) + gds_args
+    #     stage_sources[stage] = stage_sources.get(stage, []) + macro_gds_targets
 
     for stage in stages:
         make_pattern = Label("//:" + stage + "-bazel.mk")
         stage_sources[stage] = ([make_pattern] +
                                 all_sources +
-                                (macro_lib_targets if stage not in ("clock_period", "synth_sdc") else []) +
-                                (macro_lef_targets if stage not in ("synth", "clock_period", "synth_sdc") else []) +
                                 stage_sources.get(stage, []))
         stage_args[stage] = ["make"] + ["MAKE_PATTERN=$(location " + str(make_pattern) + ")"] + base_args + stage_args.get(stage, [])
 
