@@ -305,6 +305,108 @@ def init_stage_dict(all_stage_names, stage_dict_init):
 
     return d
 
+def get_reports_dict():
+    """
+    Initialize reports dictionary
+
+    Returns:
+      Dictionary keyed relevant ORFS stage names. Dictionary elements contain lists of report names
+    """
+    return {
+        "synth": [
+            "1_1_yosys",
+            "1_1_yosys_hier_report",
+        ],
+        "floorplan": [
+            "2_1_floorplan",
+            "2_2_floorplan_io",
+            "2_3_floorplan_tdms",
+            "2_4_floorplan_macro",
+            "2_5_floorplan_tapcell",
+            "2_6_floorplan_pdn",
+        ],
+        "place": [
+            "3_1_place_gp_skip_io",
+            "3_2_place_iop",
+            "3_3_place_gp",
+            "3_4_place_resized",
+            "3_5_place_dp",
+        ],
+        "cts": ["4_1_cts"],
+        "grt": ["5_1_grt"],
+        "route": [
+            "5_2_fillcell",
+            "5_3_route",
+        ],
+        "final": [
+            "6_1_merge",
+            "6_report",
+        ],
+        "generate_abstract": ["generate_abstract"],
+    }
+
+def init_output_dict(all_stages, platform, out_dir, variant, name):
+    """
+    Initialize output dictionary
+
+    Args:
+      all_stages: list of stages relevant to providing output files from ORFS flow
+      platform: target platform, e.g. "asap7"
+      out_dir: name of the output directory for the ORFS flow
+      variant: variant of the ORFS flow
+      name: name of the design
+
+    Returns:
+      Dictionary keyed with stages relevant for providing output files from ORFS flow.
+      Elements contain a list of output files for given stage.
+    """
+    outs = {
+        "clock_period": [
+            "results/%s/%s/%s/clock_period.txt" % (platform, out_dir, variant),
+        ],
+        "synth_sdc": [
+            "results/%s/%s/%s/1_synth.sdc" % (platform, out_dir, variant),
+        ],
+        "synth": [
+            "results/%s/%s/%s/1_synth.v" % (platform, out_dir, variant),
+        ],
+        "generate_abstract": [
+            "results/%s/%s/%s/%s.lib" % (platform, out_dir, variant, name),
+            "results/%s/%s/%s/%s.lef" % (platform, out_dir, variant, name),
+        ],
+        "final": [
+            "results/%s/%s/%s/6_final.spef" % (platform, out_dir, variant),
+            "results/%s/%s/%s/6_final.gds" % (platform, out_dir, variant),
+        ],
+        "grt": ["reports/%s/%s/%s/congestion.rpt" % (platform, out_dir, variant)],
+        "route": ["reports/%s/%s/%s/5_route_drc.rpt" % (platform, out_dir, variant)],
+        "memory": ["results/%s/%s/%s/mem.json" % (platform, out_dir, variant)],
+    }
+
+    stage_num = dict(map(lambda s: (s[1], s[0]), all_stages))
+
+    for stage, i in map(
+        lambda stage: (stage, stage_num[stage]),
+        ["floorplan", "place", "cts", "grt", "route", "final"],
+    ):
+        outs[stage] = outs.get(stage, []) + [
+            "results/%s/%s/%s/%s.sdc" % (platform, out_dir, variant, str(i) + "_" + stage),
+            "results/%s/%s/%s/%s.odb" % (platform, out_dir, variant, str(i) + "_" + stage),
+        ]
+
+    for stage in ["place", "grt"]:
+        outs[stage] = outs.get(stage, []) + [
+            "results/%s/%s/%s/%s.ok" % (platform, out_dir, variant, stage),
+        ]
+
+    reports = get_reports_dict()
+    for stage in reports:
+        outs[stage] = outs.get(stage, []) + list(
+            map(lambda log: "logs/%s/%s/%s/%s.log" % (platform, out_dir, variant, log), reports[stage]),
+        )
+
+    return outs
+
 def build_openroad(
         name,
         variant = "base",
@@ -359,7 +461,9 @@ def build_openroad(
 
     source_folder_name = name
 
-    output_folder_name = source_folder_name
+    out_dir = source_folder_name
+
+    outs = init_output_dict(all_stages, platform, out_dir, variant, name)
 
     all_sources = [
         Label("//:orfs"),
@@ -384,7 +488,7 @@ def build_openroad(
     for file in verilog_files:
         extended_verilog_files.append("\\$$(BUILD_DIR)/" + file)
 
-    SDC_FILE_CLOCK_PERIOD = "results/" + platform + "/%s/%s/clock_period.txt" % (output_folder_name, variant)
+    SDC_FILE_CLOCK_PERIOD = outs["clock_period"][0]
 
     abstract_source = str(name_to_stage[mock_stage]) + "_" + mock_stage
 
@@ -417,6 +521,7 @@ def build_openroad(
     stage_sources["floorplan"].append(name + target_ext + "_synth")
     stage_sources["floorplan"].append(io_constraints)
     stage_sources["place"].append(io_constraints)
+    stage_sources["route"] += outs["cts"]
     for stage in ["floorplan", "final", "generate_abstract"]:
         stage_args[stage] += lefs_args
         stage_sources[stage] += macro_lef_targets
@@ -445,62 +550,6 @@ def build_openroad(
         "DESIGN_CONFIG=$(location " + str(Label("//:config.mk")) + ")",
     ]
 
-    reports = {
-        "synth": [
-            "1_1_yosys",
-            "1_1_yosys_hier_report",
-        ],
-        "floorplan": [
-            "2_1_floorplan",
-            "2_2_floorplan_io",
-            "2_3_floorplan_tdms",
-            "2_4_floorplan_macro",
-            "2_5_floorplan_tapcell",
-            "2_6_floorplan_pdn",
-        ],
-        "place": [
-            "3_1_place_gp_skip_io",
-            "3_2_place_iop",
-            "3_3_place_gp",
-            "3_4_place_resized",
-            "3_5_place_dp",
-        ],
-        "cts": ["4_1_cts"],
-        "grt": ["5_1_grt"],
-        "route": [
-            "5_2_fillcell",
-            "5_3_route",
-        ],
-        "final": [
-            "6_1_merge",
-            "6_report",
-        ],
-        "generate_abstract": ["generate_abstract"],
-    }
-
-    outs = {
-        "clock_period": [
-            SDC_FILE_CLOCK_PERIOD,
-        ],
-        "synth_sdc": [
-            "results/" + platform + "/%s/%s/1_synth.sdc" % (output_folder_name, variant),
-        ],
-        "synth": [
-            "results/" + platform + "/%s/%s/1_synth.v" % (output_folder_name, variant),
-        ],
-        "generate_abstract": [
-            "results/" + platform + "/%s/%s/%s.lib" % (output_folder_name, variant, name),
-            "results/" + platform + "/%s/%s/%s.lef" % (output_folder_name, variant, name),
-        ],
-        "final": [
-            "results/" + platform + "/%s/%s/6_final.spef" % (output_folder_name, variant),
-            "results/" + platform + "/%s/%s/6_final.gds" % (output_folder_name, variant),
-        ],
-        "grt": ["reports/" + platform + "/%s/%s/congestion.rpt" % (output_folder_name, variant)],
-        "route": ["reports/" + platform + "/%s/%s/5_route_drc.rpt" % (output_folder_name, variant)],
-        "memory": ["results/" + platform + "/%s/%s/mem.json" % (output_folder_name, variant)],
-    }
-
     stages = []
     skip = False
     for stage in all_stage_names:
@@ -511,29 +560,6 @@ def build_openroad(
         if mock_abstract and stage == mock_stage:
             skip = True
         stages.append(stage)
-
-    stage_num = dict(map(lambda s: (s[1], s[0]), all_stages))
-
-    for stage, i in map(
-        lambda stage: (stage, stage_num[stage]),
-        ["floorplan", "place", "cts", "grt", "route", "final"],
-    ):
-        outs[stage] = outs.get(stage, []) + [
-            "results/" + platform + "/%s/%s/%s.sdc" % (output_folder_name, variant, str(i) + "_" + stage),
-            "results/" + platform + "/%s/%s/%s.odb" % (output_folder_name, variant, str(i) + "_" + stage),
-        ]
-
-    for stage in ["place", "grt"]:
-        outs[stage] = outs.get(stage, []) + [
-            "results/" + platform + "/%s/%s/%s.ok" % (output_folder_name, variant, stage),
-        ]
-
-    for stage in reports:
-        outs[stage] = outs.get(stage, []) + list(
-            map(lambda log: "logs/" + platform + "/%s/%s/%s.log" % (output_folder_name, variant, log), reports[stage]),
-        )
-
-    stage_sources["route"] += outs["cts"]
 
     make_args = []
 
@@ -550,7 +576,7 @@ def build_openroad(
                    ] +
                    all_sources,
             cmd = "echo \"chmod -R +w . && \" `cat $(location " + str(Label("//:make_script.template.sh")) + ")` " + " ".join(wrap_args(make_args, True)) + " ".join(wrap_args(stage_args.get(stage, []), True)) + " 'MAKE_PATTERN=$$(rlocation bazel-orfs/" + stage + "-bazel.mk)' " + " 'DESIGN_CONFIG=$$(rlocation bazel-orfs/config.mk)' " + " \\\"$$\\@\\\" > $@",
-            outs = ["logs/" + platform + "/%s/%s/make_script_%s.sh" % (output_folder_name, variant, stage)],
+            outs = ["logs/" + platform + "/%s/%s/make_script_%s.sh" % (out_dir, variant, stage)],
         )
 
         native.sh_binary(
@@ -587,7 +613,7 @@ def build_openroad(
         outs = outs["memory"],
     )
 
-    for ((_, previous), (i, stage)) in zip([(0, "n/a")] + enumerate(stages), enumerate(stages)):
+    for (previous, stage) in zip(["n/a"] + stages, stages):
         make_pattern = Label("//:" + stage + "-bazel.mk")
         design_config = Label("//:" + target_name + "_config.mk")
         make_targets = get_make_targets(stage, False, mock_area)
