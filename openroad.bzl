@@ -120,6 +120,8 @@ def wrap_args(args, escape):
 def write_config(
         name,
         design_name,
+        io_constraints,
+        sdc_constraints,
         env = {},
         env_list = []):
     """
@@ -131,6 +133,8 @@ def write_config(
     Args:
       name: name of the design target
       design_name: short name of the design
+      io_constraints: path to tcl script with IO constraints
+      sdc_constraints: path to SDC file with design constraints
       env: dictionary of environment variables to be placed in the config file
       env_list: list of environment variables to be placed in the config file
     """
@@ -142,12 +146,13 @@ def write_config(
         export_env += "export " + env_var + "\n"
 
     export_env += "export DESIGN_NAME=" + design_name + "\n"
-    export_env += "export UTIL_TCL=\\$$(BUILD_DIR)/util.tcl\n"
 
     native.genrule(
         name = name,
         srcs = [
             Label("//:config_common.mk"),
+            Label(io_constraints),
+            Label(sdc_constraints),
         ],
         cmd = """
                echo \"# Common config\" > $@
@@ -219,6 +224,8 @@ def mock_area_stages(
         name,
         design_name,
         stage_sources,
+        io_constraints,
+        sdc_constraints,
         env_list,
         outs,
         variant,
@@ -233,6 +240,8 @@ def mock_area_stages(
       name: name of the target design
       design_name: short name of the design
       stage_sources: dictionary of lists with sources for each flow stage
+      io_constraints: path to tcl script with IO constraints
+      sdc_constraints: path to SDC file with design constraints
       env_list: list of environment variables to be placed in the config file
       outs: dictionary of lists with paths to output files for each flow stage
       variant: default variant of the ORFS flow, used for replacing output paths
@@ -255,6 +264,8 @@ def mock_area_stages(
     write_config(
         name = name + "_mock_area_config",
         design_name = design_name,
+        io_constraints = io_constraints,
+        sdc_constraints = sdc_constraints,
         env_list = mock_area_env_list,
     )
 
@@ -284,7 +295,8 @@ def build_openroad(
         stage_sources = {},
         macros = [],
         macro_variants = {},
-        io_constraints = None,
+        io_constraints = [],
+        sdc_constraints = [],
         stage_args = {},
         mock_abstract = False,
         mock_stage = "place",
@@ -302,6 +314,7 @@ def build_openroad(
       macros: list of macros required to run physical design flow for this design
       macro_variants: dictionary keyed by macro names containing the variant of the ORFS flow that the macro was built with
       io_constraints: path to tcl script with IO constraints
+      sdc_constraints: path to SDC file with design constraints
       stage_args: dictionary keyed by ORFS stages with lists of stage-specific arguments
       mock_abstract: boolean controlling the scope of _generate_abstract stage
       mock_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
@@ -343,10 +356,9 @@ def build_openroad(
     stage_sources = dict(stage_sources)
 
     SDC_FILE_CLOCK_PERIOD = "results/" + platform + "/%s/%s/clock_period.txt" % (output_folder_name, variant)
-    stage_sources["synth"] = ["//:util.tcl"] + stage_sources.get("synth", []) + set(verilog_files)
-    io_constraints_source = ([io_constraints] if io_constraints != None else [])
-    stage_sources["floorplan"] = ["//:util.tcl"] + stage_sources.get("floorplan", []) + io_constraints_source
-    stage_sources["place"] = ["//:util.tcl"] + stage_sources.get("place", []) + io_constraints_source
+    stage_sources["synth"] = stage_sources.get("synth", []) + set(verilog_files)
+    stage_sources["floorplan"] = stage_sources.get("floorplan", []) + [io_constraints]
+    stage_sources["place"] = stage_sources.get("place", []) + [io_constraints]
 
     stage_args = dict(stage_args)
 
@@ -354,7 +366,7 @@ def build_openroad(
     ADDITIONAL_LIBS = " ".join(map(lambda m: "\\$$(BUILD_DIR)/$(RULEDIR)/results/" + platform + "/%s/%s/%s.lib" % (m, macro_variants.get(m, macro_variant), m), macros))
     # ADDITIONAL_GDS_FILES = " ".join(map(lambda m: "\\$$(BUILD_DIR)/$(RULEDIR)/results/" + platform + "/%s/%s/6_final.gds" % (m, macro_variants.get(m, macro_variant)), macros))
 
-    io_constraints_args = ["IO_CONSTRAINTS=\\$$(BUILD_DIR)/" + io_constraints] if io_constraints != None else []
+    io_constraints_args = ["IO_CONSTRAINTS=\\$$(BUILD_DIR)/$(location " + io_constraints + ")"] if io_constraints != [] else []
 
     lefs_args = (["ADDITIONAL_LEFS=" + ADDITIONAL_LEFS] if len(macros) > 0 else [])
     libs_args = (["ADDITIONAL_LIBS=" + ADDITIONAL_LIBS] if len(macros) > 0 else [])
@@ -440,17 +452,12 @@ def build_openroad(
         "generate_abstract": ["generate_abstract"],
     }
 
-    SDC_FILE = list(filter(set([
-        item
-        for sublist in stage_sources.values()
-        for item in sublist
-    ]), lambda s: s.endswith(".sdc")))[0]
     stage_args["clock_period"] = [
-        "SDC_FILE=\\$$(BUILD_DIR)/" + SDC_FILE,
+        "SDC_FILE=\\$$(BUILD_DIR)/$(location " + sdc_constraints + ")",
     ]
     stage_args["synth_sdc"] = stage_args["clock_period"]
-    stage_sources["clock_period"] = [SDC_FILE]
-    stage_sources["synth_sdc"] = [SDC_FILE]
+    stage_sources["clock_period"] = [sdc_constraints]
+    stage_sources["synth_sdc"] = [sdc_constraints]
     stage_sources["synth"] = list(filter(stage_sources["synth"], lambda s: not s.endswith(".sdc")))
     stage_sources["floorplan"] = stage_sources.get("floorplan", []) + [name + target_ext + "_synth"]
 
@@ -564,12 +571,14 @@ def build_openroad(
     # Generate config for stage targets
     write_config(
         name = target_name + "_config",
+        io_constraints = io_constraints,
+        sdc_constraints = sdc_constraints,
         design_name = name,
         env_list = env_list,
     )
 
     if mock_area != None:
-        mock_area_stages(target_name, name, stage_sources, env_list, outs, variant, mock_area)
+        mock_area_stages(target_name, name, stage_sources, io_constraints, sdc_constraints, env_list, outs, variant, mock_area)
 
     native.genrule(
         name = target_name + "_memory",
