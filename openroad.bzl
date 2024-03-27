@@ -219,13 +219,13 @@ def get_make_targets(
 
     return targets
 
-def get_docker_shell_cmd(
+def get_entrypoint_cmd(
         make_pattern,
         design_config,
         stage_config,
-        make_targets,
-        docker_shell = Label("//:docker_shell"),
-        or_image = "bazel-orfs/orfs_env:latest"):
+        entrypoint,
+        make_targets = None,
+        docker_image = None):
     """
     Prepare command line for running docker_shell utility
 
@@ -234,21 +234,30 @@ def get_docker_shell_cmd(
       design_config: label pointing to design-specific generated config.mk file
       stage_config: label pointing to stage- and design-specific generated config.mk file
       make_targets: string with space-separated make targets to be executed in ORFS environment
-      docker_shell: label pointing to the entrypint script for running ORFS flow
-      or_image: name of the docker image used for running ORFS flow
+      entrypoint: label pointing to the entrypint script for running ORFS flow
+      docker_image: name of the docker image used for running ORFS flow
 
     Returns:
       string with command line for running ORFS flow in docker container
     """
 
-    cmd = "OR_IMAGE=" + or_image
-    cmd += " DESIGN_CFG=$(location " + str(design_config) + ")"
-    cmd += " STAGE_CFG=$(location " + str(stage_config) + ")"
+    cmd = ""
+    if (docker_image != None):
+        cmd += "OR_IMAGE=" + docker_image
+
+        # Docker flow requires intermediate step of redefining env vars passed to the container
+        # Hence the different names
+        cmd += " DESIGN_CFG=$(location " + str(design_config) + ")"
+        cmd += " STAGE_CFG=$(location " + str(stage_config) + ")"
+    else:
+        cmd += "DESIGN_CONFIG=$(location " + str(design_config) + ")"
+        cmd += " STAGE_CONFIG=$(location " + str(stage_config) + ")"
     cmd += " MAKE_PATTERN=$(location " + str(make_pattern) + ")"
     cmd += " RULEDIR=$(RULEDIR)"
-    cmd += " $(location " + str(docker_shell) + ")"
+    cmd += " $(location " + str(entrypoint) + ")"
     cmd += " make "
-    cmd += make_targets
+    if (make_targets != None):
+        cmd += make_targets
 
     return cmd
 
@@ -324,7 +333,7 @@ def mock_area_stages(
                    ([name + "_" + stage, Label("mock_area.tcl")] if stage == "floorplan" else []) +
                    ([name + "_" + previous + "_mock_area"] if stage != "clock_period" else []) +
                    ([name + "_synth_mock_area"] if stage == "floorplan" else []),
-            cmd = get_docker_shell_cmd(make_pattern, design_config, stage_config, make_targets),
+            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, Label("//:docker_shell"), make_targets, docker_image = "bazel-orfs/orfs_env:latest"),
             outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])],
         )
 
@@ -584,13 +593,6 @@ def build_openroad(
     #     stage_args[stage] += gds_args
     #     stage_sources[stage] += macro_gds_targets
 
-    base_args = [
-        "WORK_HOME=$(RULEDIR)",
-        "DESIGN_NAME=" + name,
-        "FLOW_VARIANT=" + variant,
-        "DESIGN_CONFIG=$(location " + str(Label("//:config.mk")) + ")",
-    ]
-
     stages = []
     skip = False
     for stage in all_stage_names:
@@ -605,25 +607,25 @@ def build_openroad(
     make_args = []
 
     for stage in stages:
+        make_script_template = Label("//:make_script.template.sh")
         make_pattern = Label("//:" + stage + "-bazel.mk")
-        make_args = ["make"] + ["MAKE_PATTERN=$(location " + str(make_pattern) + ")"] + base_args
+        design_config = Label("//:" + target_name + "_config.mk")
+        stage_config = Label("//:" + target_name + "_" + stage + "_config.mk")
+        make_targets = get_make_targets(stage, False, mock_area)
+        entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, entrypoint = Label("//:orfs"))
 
         native.genrule(
             name = target_name + "_" + stage + "_make_script",
-            tools = [],
-            srcs = [
-                       Label("//:make_script.template.sh"),
-                       Label("//:" + stage + "-bazel.mk"),
-                   ] +
-                   all_sources,
-            cmd = "echo \"chmod -R +w . && \" `cat $(location " + str(Label("//:make_script.template.sh")) + ")` " + " ".join(wrap_args(make_args, True)) + " ".join(wrap_args(stage_args.get(stage, []), True)) + " 'MAKE_PATTERN=$$(rlocation bazel-orfs/" + stage + "-bazel.mk)' " + " 'DESIGN_CONFIG=$$(rlocation bazel-orfs/config.mk)' " + " \\\"$$\\@\\\" > $@",
-            outs = ["logs/" + platform + "/%s/%s/make_script_%s.sh" % (out_dir, variant, stage)],
+            tools = [Label("//:orfs")],
+            srcs = [make_script_template, design_config, stage_config, make_pattern],
+            cmd = "echo \"chmod -R +w . && \" `cat $(location " + str(make_script_template) + ")` " + entrypoint_cmd + " \\\"$$\\@\\\" > $@",
+            outs = ["logs/%s/%s/%s/make_script_%s.sh" % (platform, out_dir, variant, stage)],
         )
 
         native.sh_binary(
             name = target_name + "_" + stage + "_make",
             srcs = ["//:" + target_name + "_" + stage + "_make_script"],
-            data = [Label("//:orfs"), make_pattern, Label("//:config.mk")],
+            data = [Label("//:orfs"), design_config, stage_config, make_pattern],
             deps = ["@bazel_tools//tools/bash/runfiles"],
         )
 
@@ -664,6 +666,6 @@ def build_openroad(
             tools = [Label("//:docker_shell")],
             srcs = ["//:orfs_env", make_pattern] + stage_sources[stage] + [design_config, stage_config] + ([name + target_ext + "_" + previous] if stage not in ("clock_period", "synth_sdc", "synth") else []) +
                    ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
-            cmd = get_docker_shell_cmd(make_pattern, design_config, stage_config, make_targets),
+            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, Label("//:docker_shell"), make_targets, docker_image = "bazel-orfs/orfs_env:latest"),
             outs = outs.get(stage, []),
         )

@@ -1,10 +1,12 @@
 #!/bin/bash
 set -ex
-ORFS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 export ORFS=~/OpenROAD-flow-scripts
 export FLOW_HOME=$ORFS/flow
 export MAKEFILES=$FLOW_HOME/Makefile
+export WORK_HOME=$WORKSPACE/$RULEDIR
+export BUILD_DIR=$WORKSPACE
 
 source $ORFS/env.sh
 
