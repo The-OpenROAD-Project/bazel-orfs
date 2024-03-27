@@ -15,7 +15,8 @@ if test -t 0; then
 fi
 
 export FLOW_HOME="/OpenROAD-flow-scripts/flow/"
-export DESIGN_CONFIG="$WORKSPACE/$CONFIG"
+export DESIGN_CONFIG="$WORKSPACE/$DESIGN_CFG"
+export STAGE_CONFIG="$STAGE_CFG"
 export WORKSPACE_ORIGIN=$(dirname $(realpath $WORKSPACE/WORKSPACE))
 
 # Most of these options below has to do with allowing to
@@ -31,8 +32,9 @@ docker run --rm -u $(id -u ${USER}):$(id -g ${USER}) \
  -e XAUTHORITY=$XAUTH \
  -e BUILD_DIR=$WORKSPACE \
  -e FLOW_HOME=$FLOW_HOME \
- -e MAKE_PATTERN=$MAKE_PATTERN \
  -e DESIGN_CONFIG=$DESIGN_CONFIG \
+ -e STAGE_CONFIG=$STAGE_CONFIG \
+ -e MAKE_PATTERN=$MAKE_PATTERN \
  -e WORK_HOME=$WORKSPACE/$RULEDIR \
  -v $WORKSPACE:$WORKSPACE \
  -v $WORKSPACE_ORIGIN:$WORKSPACE_ORIGIN \
