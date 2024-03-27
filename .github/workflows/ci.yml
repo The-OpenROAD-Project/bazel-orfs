@@ -36,6 +36,10 @@ jobs:
     env:
       DEBIAN_FRONTEND: "noninteractive"
     steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          swap-storage: false
       - name: Print info
         run: |
           echo "USER: "$(whoami)
