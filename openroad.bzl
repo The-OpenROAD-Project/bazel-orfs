@@ -120,10 +120,8 @@ def wrap_args(args, escape):
 def write_config(
         name,
         design_name,
-        io_constraints,
-        sdc_constraints,
-        env = {},
-        env_list = []):
+        variant,
+        additional_cfg = []):
     """
     Writes config file for running physical design flow with OpenROAD-flow-scripts.
 
@@ -133,34 +131,65 @@ def write_config(
     Args:
       name: name of the design target
       design_name: short name of the design
-      io_constraints: path to tcl script with IO constraints
-      sdc_constraints: path to SDC file with design constraints
-      env: dictionary of environment variables to be placed in the config file
-      env_list: list of environment variables to be placed in the config file
+      variant: variant of the ORFS flow
+      additional_cfg: list of strings with definitions of additional configuration env vars
     """
 
-    export_env = ""
-    for var, value in env.items():
-        export_env += "export " + var + "=" + value + "\n"
-    for env_var in env_list:
-        export_env += "export " + env_var + "\n"
+    export_env = "export DESIGN_NAME=" + design_name + "\n"
+    export_env += "export FLOW_VARIANT=" + variant + "\n"
 
-    export_env += "export DESIGN_NAME=" + design_name + "\n"
+    add_cfg = ""
+    for cfg in additional_cfg:
+        add_cfg += "export " + cfg + "\n"
 
     native.genrule(
         name = name,
         srcs = [
             Label("//:config_common.mk"),
-            Label(io_constraints),
-            Label(sdc_constraints),
         ],
         cmd = """
                echo \"# Common config\" > $@
                cat $(location """ + str(Label("//:config_common.mk")) + """) >> $@
                echo \"\n# Design config\" >> $@
                echo \"""" + export_env + """\" >> $@
+               echo \"\n# Additional config\" >> $@
+               echo \"""" + add_cfg + """\" >> $@
+               echo \"\n# Stage config\" >> $@
+               echo \"include \\$$(BUILD_DIR)/\\$$(STAGE_CONFIG)\" >> $@
                echo \"# Make rules\" >> $@
                echo \"include \\$$(BUILD_DIR)/\\$$(MAKE_PATTERN)\" >> $@
+              """,
+        outs = [name + ".mk"],
+    )
+
+def write_stage_config(
+        name,
+        stage,
+        srcs,
+        stage_args):
+    """
+    Writes config file for running physical design flow with OpenROAD-flow-scripts.
+
+    It appends a common configuration file and additional make rules used for
+    calling complex ORFS flows.
+
+    Args:
+      name: name of the design target
+      stage: ORFS stage for which the config is generated
+      srcs: list of sources required for generating the config
+      stage_args: list of environment variables to be placed in the config file
+    """
+
+    export_env = ""
+    for env_var in stage_args:
+        export_env += "export " + env_var + "\n"
+
+    native.genrule(
+        name = name,
+        srcs = srcs,
+        cmd = """
+               echo \"# Stage """ + stage + """ config\" > $@
+               echo \"""" + export_env + """\" >> $@
               """,
         outs = [name + ".mk"],
     )
@@ -193,6 +222,7 @@ def get_make_targets(
 def get_docker_shell_cmd(
         make_pattern,
         design_config,
+        stage_config,
         make_targets,
         docker_shell = Label("//:docker_shell"),
         or_image = "bazel-orfs/orfs_env:latest"):
@@ -202,6 +232,7 @@ def get_docker_shell_cmd(
     Args:
       make_pattern: label pointing to makefile conatining rules relevant to current stage
       design_config: label pointing to design-specific generated config.mk file
+      stage_config: label pointing to stage- and design-specific generated config.mk file
       make_targets: string with space-separated make targets to be executed in ORFS environment
       docker_shell: label pointing to the entrypint script for running ORFS flow
       or_image: name of the docker image used for running ORFS flow
@@ -211,9 +242,10 @@ def get_docker_shell_cmd(
     """
 
     cmd = "OR_IMAGE=" + or_image
+    cmd += " DESIGN_CFG=$(location " + str(design_config) + ")"
+    cmd += " STAGE_CFG=$(location " + str(stage_config) + ")"
     cmd += " MAKE_PATTERN=$(location " + str(make_pattern) + ")"
     cmd += " RULEDIR=$(RULEDIR)"
-    cmd += " CONFIG=$(location " + str(design_config) + ")"
     cmd += " $(location " + str(docker_shell) + ")"
     cmd += " make "
     cmd += make_targets
@@ -226,7 +258,7 @@ def mock_area_stages(
         stage_sources,
         io_constraints,
         sdc_constraints,
-        env_list,
+        stage_args,
         outs,
         variant,
         mock_area):
@@ -242,19 +274,20 @@ def mock_area_stages(
       stage_sources: dictionary of lists with sources for each flow stage
       io_constraints: path to tcl script with IO constraints
       sdc_constraints: path to SDC file with design constraints
-      env_list: list of environment variables to be placed in the config file
+      stage_args: dictionary keyed by ORFS stages with lists of stage-specific arguments
       outs: dictionary of lists with paths to output files for each flow stage
       variant: default variant of the ORFS flow, used for replacing output paths
       mock_area: floating point number used for scaling the design
     """
 
     # Write ORFS options for mock_area targets
-    # Filter out options affecting Chip Area and default flow variant
-    mock_area_env_list = [s for s in env_list if not any([sub in s for sub in ("DIE_AREA", "CORE_AREA", "CORE_UTILIZATION", "FLOW_VARIANT")])]
+    # Filter out floorplan options affecting Chip Area and default flow variant
+    floorplan_args = [s for s in stage_args["floorplan"] if not any([sub in s for sub in ("DIE_AREA", "CORE_AREA", "CORE_UTILIZATION")])]
+    mock_area_stage_args = dict(stage_args)
+    mock_area_stage_args["floorplan"] = floorplan_args
 
     # Add mock_area-specific options
-    mock_area_env_list.append("FLOW_VARIANT=mock_area")
-    mock_area_env_list.append("DEFAULT_FLOW_VARIANT=" + variant)
+    mock_area_env_list = ["DEFAULT_FLOW_VARIANT=" + variant]
     mock_area_env_list.append("MOCK_AREA=" + str(mock_area))
     mock_area_env_list.append("MOCK_AREA_TCL=\\$$(BUILD_DIR)/mock_area.tcl")
     mock_area_env_list.append("SYNTH_GUT=1")
@@ -264,27 +297,34 @@ def mock_area_stages(
     write_config(
         name = name + "_mock_area_config",
         design_name = design_name,
-        io_constraints = io_constraints,
-        sdc_constraints = sdc_constraints,
-        env_list = mock_area_env_list,
+        variant = "mock_area",
+        additional_cfg = mock_area_env_list,
     )
 
     mock_stages = ["clock_period", "synth", "synth_sdc", "floorplan", "generate_abstract"]
 
     for (previous, stage) in zip(["n/a"] + mock_stages, mock_stages):
+        # Generate config for stage targets
+        write_stage_config(
+            name = name + "_" + stage + "_mock_area_config",
+            stage = stage,
+            srcs = [Label(io_constraints), Label(sdc_constraints)],
+            stage_args = mock_area_stage_args[stage],
+        )
         make_pattern = Label("//:" + stage + "-bazel.mk")
         design_config = Label("//:" + name + "_mock_area_config.mk")
+        stage_config = Label("//:" + name + "_" + stage + "_mock_area_config.mk")
         make_targets = get_make_targets(stage, True, mock_area)
 
         native.genrule(
             name = name + "_" + stage + "_mock_area",
             tools = [Label("//:docker_shell")],
-            srcs = ["//:orfs_env", make_pattern, design_config] +
+            srcs = ["//:orfs_env", make_pattern, design_config, stage_config] +
                    stage_sources[stage] +
                    ([name + "_" + stage, Label("mock_area.tcl")] if stage == "floorplan" else []) +
                    ([name + "_" + previous + "_mock_area"] if stage != "clock_period" else []) +
                    ([name + "_synth_mock_area"] if stage == "floorplan" else []),
-            cmd = get_docker_shell_cmd(make_pattern, design_config, make_targets),
+            cmd = get_docker_shell_cmd(make_pattern, design_config, stage_config, make_targets),
             outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])],
         )
 
@@ -489,15 +529,16 @@ def build_openroad(
         extended_verilog_files.append("\\$$(BUILD_DIR)/" + file)
 
     SDC_FILE_CLOCK_PERIOD = outs["clock_period"][0]
+    SDC_FILE = "SDC_FILE=\\$$(BUILD_DIR)/$(location " + sdc_constraints + ")"
 
     abstract_source = str(name_to_stage[mock_stage]) + "_" + mock_stage
 
     stage_args = init_stage_dict(all_stage_names, stage_args)
-    stage_args["synth_sdc"] = stage_args["clock_period"]
-    stage_args["clock_period"] = ["SDC_FILE=\\$$(BUILD_DIR)/$(location " + sdc_constraints + ")"]
+    stage_args["clock_period"] = [SDC_FILE]
+    stage_args["synth_sdc"] = [SDC_FILE]
     stage_args["synth"].append("VERILOG_FILES=" + " ".join(extended_verilog_files))
     stage_args["synth"].append("SDC_FILE_CLOCK_PERIOD=\\$$(BUILD_DIR)/" + SDC_FILE_CLOCK_PERIOD)
-    stage_args["floorplan"] += (
+    stage_args["floorplan"] += [SDC_FILE] + (
         [] if len(macros) == 0 else [
             "CORE_MARGIN=4",
             "PDN_TCL=\\$${PLATFORM_DIR}/openRoad/pdn/BLOCKS_grid_strategy.tcl",
@@ -586,24 +627,15 @@ def build_openroad(
             deps = ["@bazel_tools//tools/bash/runfiles"],
         )
 
-    # Write all ORFS options to list
-    env_list = []
-    for stage, envs in stage_args.items():
-        env_list += envs
-
-    env_list.append("FLOW_VARIANT=" + variant)
-
-    # Generate config for stage targets
+    # Generate general config for design stage targets
     write_config(
         name = target_name + "_config",
-        io_constraints = io_constraints,
-        sdc_constraints = sdc_constraints,
         design_name = name,
-        env_list = env_list,
+        variant = variant,
     )
 
     if mock_area != None:
-        mock_area_stages(target_name, name, stage_sources, io_constraints, sdc_constraints, env_list, outs, variant, mock_area)
+        mock_area_stages(target_name, name, stage_sources, io_constraints, sdc_constraints, stage_args, outs, variant, mock_area)
 
     native.genrule(
         name = target_name + "_memory",
@@ -614,14 +646,24 @@ def build_openroad(
     )
 
     for (previous, stage) in zip(["n/a"] + stages, stages):
+        # Generate config for stage targets
+        write_stage_config(
+            name = target_name + "_" + stage + "_config",
+            stage = stage,
+            srcs = [Label(io_constraints), Label(sdc_constraints)],
+            stage_args = stage_args[stage],
+        )
+
         make_pattern = Label("//:" + stage + "-bazel.mk")
         design_config = Label("//:" + target_name + "_config.mk")
+        stage_config = Label("//:" + target_name + "_" + stage + "_config.mk")
         make_targets = get_make_targets(stage, False, mock_area)
+
         native.genrule(
             name = target_name + "_" + stage,
             tools = [Label("//:docker_shell")],
-            srcs = ["//:orfs_env", make_pattern] + stage_sources[stage] + [target_name + "_config.mk"] + ([name + target_ext + "_" + previous] if stage not in ("clock_period", "synth_sdc", "synth") else []) +
+            srcs = ["//:orfs_env", make_pattern] + stage_sources[stage] + [design_config, stage_config] + ([name + target_ext + "_" + previous] if stage not in ("clock_period", "synth_sdc", "synth") else []) +
                    ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
-            cmd = get_docker_shell_cmd(make_pattern, design_config, make_targets),
+            cmd = get_docker_shell_cmd(make_pattern, design_config, stage_config, make_targets),
             outs = outs.get(stage, []),
         )
