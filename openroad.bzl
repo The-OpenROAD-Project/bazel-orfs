@@ -664,7 +664,7 @@ def build_openroad(
         native.genrule(
             name = target_name + "_" + stage,
             tools = [Label("//:docker_shell")],
-            srcs = ["//:orfs_env", make_pattern] + stage_sources[stage] + [design_config, stage_config] + ([name + target_ext + "_" + previous] if stage not in ("clock_period", "synth_sdc", "synth") else []) +
+            srcs = ["//:orfs_env", make_pattern] + stage_sources[stage] + [design_config, stage_config] + ([name + target_ext + "_" + previous] if stage not in ("clock_period", "synth_sdc") else []) +
                    ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
             cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, Label("//:docker_shell"), make_targets, docker_image = "bazel-orfs/orfs_env:latest"),
             outs = outs.get(stage, []),
