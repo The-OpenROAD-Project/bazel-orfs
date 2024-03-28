@@ -70,8 +70,6 @@ jobs:
         shell: bash
     strategy:
       fail-fast: false
-      matrix:
-        CONFIG: [ { stage_target: "L1MetadataArray_test_floorplan", orfs_make_target: "do-floorplan" }, { stage_target: "L1MetadataArray_test_cts", orfs_make_target: "do-cts" } ]
     env:
       DEBIAN_FRONTEND: "noninteractive"
     steps:
@@ -93,20 +91,27 @@ jobs:
           openroad -version
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
-      - name: query stage target
+      - name: build local stage targets
         run: |
-          bazel query ${{ matrix.CONFIG.stage_target }}
-          bazel query ${{ matrix.CONFIG.stage_target }} --output=build
-      - name: query make script target
-        run: |
-          bazel query ${{ matrix.CONFIG.stage_target }}_make
-          bazel query ${{ matrix.CONFIG.stage_target }}_make --output=build
-      - name: build make script
-        run: |
-          bazel build --subcommands --verbose_failures --sandbox_debug ${{ matrix.CONFIG.stage_target }}_make
-      - name: build stage target dependencies
-        run: |
-          bazel build $(bazel query "deps(${{ matrix.CONFIG.stage_target }}) except ${{ matrix.CONFIG.stage_target }}")
-      - name: run make script
-        run: |
-          ./bazel-bin/${{ matrix.CONFIG.stage_target }}_make ${{ matrix.CONFIG.orfs_make_target }}
+          echo "Build tag_array_64x184 macro"
+          for stage in "synth_sdc" "synth" "floorplan" "generate_abstract"
+          do
+            echo "query make script target"
+            bazel query tag_array_64x184_${stage}_make
+            bazel query tag_array_64x184_${stage}_make --output=build
+            echo "build make script"
+            bazel build --subcommands --verbose_failures --sandbox_debug tag_array_64x184_${stage}_make
+            echo "run make script"
+            ./bazel-bin/tag_array_64x184_${stage}_make bazel-${stage}
+          done
+          echo "Build L1MetadataArray"
+          for stage in "synth_sdc" "synth" "floorplan" "place" "cts" "grt" "generate_abstract"
+          do
+            echo "query make script target"
+            bazel query L1MetadataArray_test_${stage}_make
+            bazel query L1MetadataArray_test_${stage}_make --output=build
+            echo "build make script"
+            bazel build --subcommands --verbose_failures --sandbox_debug L1MetadataArray_test_${stage}_make
+            echo "run make script"
+            ./bazel-bin/L1MetadataArray_test_${stage}_make bazel-${stage}
+          done
