@@ -313,11 +313,17 @@ def mock_area_stages(
     mock_stages = ["clock_period", "synth", "synth_sdc", "floorplan", "generate_abstract"]
 
     for (previous, stage) in zip(["n/a"] + mock_stages, mock_stages):
+        stage_cfg_srcs = []
+        if sdc_constraints != None:
+            stage_cfg_srcs.append(Label(sdc_constraints))
+        if io_constraints != None:
+            stage_cfg_srcs.append(Label(io_constraints))
+
         # Generate config for stage targets
         write_stage_config(
             name = name + "_" + stage + "_mock_area_config",
             stage = stage,
-            srcs = [Label(io_constraints), Label(sdc_constraints)],
+            srcs = stage_cfg_srcs,
             stage_args = mock_area_stage_args[stage],
         )
         make_pattern = Label("//:" + stage + "-bazel.mk")
@@ -463,8 +469,8 @@ def build_openroad(
         stage_sources = {},
         macros = [],
         macro_variants = {},
-        io_constraints = [],
-        sdc_constraints = [],
+        io_constraints = None,
+        sdc_constraints = None,
         stage_args = {},
         mock_abstract = False,
         mock_stage = "place",
@@ -518,7 +524,7 @@ def build_openroad(
     macro_lef_targets, macro_lib_targets = x
     # macro_gds_targets = map(lambda m: "//:results/" + platform + "/%s/%s/6_final.gds" % (m, macro_variants.get(m, macro_variant)), macros)
 
-    io_constraints_args = ["IO_CONSTRAINTS=\\$$(BUILD_DIR)/$(location " + io_constraints + ")"] if io_constraints != [] else []
+    io_constraints_args = ["IO_CONSTRAINTS=\\$$(BUILD_DIR)/$(location " + io_constraints + ")"] if io_constraints != None else []
 
     ADDITIONAL_LEFS = " ".join(map(lambda m: "\\$$(BUILD_DIR)/$(RULEDIR)/results/" + platform + "/%s/%s/%s.lef" % (m, macro_variants.get(m, macro_variant), m), macros))
     ADDITIONAL_LIBS = " ".join(map(lambda m: "\\$$(BUILD_DIR)/$(RULEDIR)/results/" + platform + "/%s/%s/%s.lib" % (m, macro_variants.get(m, macro_variant), m), macros))
@@ -533,16 +539,16 @@ def build_openroad(
         extended_verilog_files.append("\\$$(BUILD_DIR)/" + file)
 
     SDC_FILE_CLOCK_PERIOD = outs["clock_period"][0]
-    SDC_FILE = "SDC_FILE=\\$$(BUILD_DIR)/$(location " + sdc_constraints + ")"
+    SDC_FILE = ["SDC_FILE=\\$$(BUILD_DIR)/$(location " + sdc_constraints + ")"] if sdc_constraints != None else []
 
     abstract_source = str(name_to_stage[mock_stage]) + "_" + mock_stage
 
     stage_args = init_stage_dict(all_stage_names, stage_args)
-    stage_args["clock_period"] = [SDC_FILE]
-    stage_args["synth_sdc"] = [SDC_FILE]
+    stage_args["clock_period"] = SDC_FILE
+    stage_args["synth_sdc"] = SDC_FILE
     stage_args["synth"].append("VERILOG_FILES=" + " ".join(extended_verilog_files))
     stage_args["synth"].append("SDC_FILE_CLOCK_PERIOD=\\$$(BUILD_DIR)/" + SDC_FILE_CLOCK_PERIOD)
-    stage_args["floorplan"] += [SDC_FILE] + (
+    stage_args["floorplan"] += SDC_FILE + (
         [] if len(macros) == 0 else [
             "CORE_MARGIN=4",
             "PDN_TCL=\\$${PLATFORM_DIR}/openRoad/pdn/BLOCKS_grid_strategy.tcl",
@@ -559,13 +565,15 @@ def build_openroad(
     stage_args["generate_abstract"] += ["ABSTRACT_SOURCE=" + abstract_source] if mock_abstract else []
 
     stage_sources = init_stage_dict(all_stage_names, stage_sources)
-    stage_sources["synth_sdc"] = [sdc_constraints]
-    stage_sources["clock_period"] = [sdc_constraints]
+    if sdc_constraints != None:
+        stage_sources["synth_sdc"] = [sdc_constraints]
+        stage_sources["clock_period"] = [sdc_constraints]
     stage_sources["synth"] = list(filter(stage_sources["synth"], lambda s: not s.endswith(".sdc")))
     stage_sources["synth"] += set(verilog_files)
     stage_sources["floorplan"].append(name + target_ext + "_synth")
-    stage_sources["floorplan"].append(io_constraints)
-    stage_sources["place"].append(io_constraints)
+    if io_constraints != None:
+        stage_sources["floorplan"].append(io_constraints)
+        stage_sources["place"].append(io_constraints)
     stage_sources["route"] += outs["cts"]
     for stage in ["floorplan", "final", "generate_abstract"]:
         stage_args[stage] += lefs_args
@@ -667,10 +675,15 @@ def build_openroad(
     # Stage (Docker) targets
     for (previous, stage) in zip(["n/a"] + stages, stages):
         # Generate config for stage targets
+        stage_cfg_srcs = []
+        if sdc_constraints != None:
+            stage_cfg_srcs.append(Label(sdc_constraints))
+        if io_constraints != None:
+            stage_cfg_srcs.append(Label(io_constraints))
         write_stage_config(
             name = target_name + "_" + stage + "_config",
             stage = stage,
-            srcs = [Label(io_constraints), Label(sdc_constraints)],
+            srcs = stage_cfg_srcs,
             stage_args = stage_args[stage],
         )
 
