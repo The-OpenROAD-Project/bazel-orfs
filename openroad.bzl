@@ -211,7 +211,10 @@ def get_make_targets(
       string with space-separated make targets to be executed in ORFS environment
     """
     targets = "bazel-" + stage
-    if (mock_area != None and stage == "generate_abstract"):
+    # `generate_abstract` from "regular" flow should copy mocked LEF file to the regular flow build directory
+    # Perform additional `bazel-generate_abstract_mock_area` make target only for `generate_abstract` stages
+    # outside of `mock_area` flow context
+    if (not do_mock_area and mock_area != None and stage == "generate_abstract"):
         targets += "_mock_area"
     elif (do_mock_area and stage == "floorplan"):
         targets += "-mock_area"
@@ -225,7 +228,8 @@ def get_entrypoint_cmd(
         stage_config,
         entrypoint,
         make_targets = None,
-        docker_image = None):
+        docker_image = None,
+        mock_area = False):
     """
     Prepare command line for running docker_shell utility
 
@@ -236,6 +240,7 @@ def get_entrypoint_cmd(
       make_targets: string with space-separated make targets to be executed in ORFS environment
       entrypoint: label pointing to the entrypint script for running ORFS flow
       docker_image: name of the docker image used for running ORFS flow
+      mock_area: flag describing whether pass additional env var for mock_area target execution
 
     Returns:
       string with command line for running ORFS flow in docker container
@@ -247,6 +252,8 @@ def get_entrypoint_cmd(
     cmd += " DESIGN_CONFIG=$(location " + str(design_config) + ")"
     cmd += " STAGE_CONFIG=$(location " + str(stage_config) + ")"
     cmd += " MAKE_PATTERN=$(location " + str(make_pattern) + ")"
+    if (mock_area):
+        cmd += " MOCK_AREA_TCL=$(location " + str(Label("//:mock_area.tcl")) + ")"
     cmd += " RULEDIR=$(RULEDIR)"
     cmd += " $(location " + str(entrypoint) + ")"
     cmd += " make "
@@ -286,13 +293,14 @@ def mock_area_stages(
     # Write ORFS options for mock_area targets
     # Filter out floorplan options affecting Chip Area and default flow variant
     floorplan_args = [s for s in stage_args["floorplan"] if not any([sub in s for sub in ("DIE_AREA", "CORE_AREA", "CORE_UTILIZATION")])]
+    generate_abstract_args = [s for s in stage_args["generate_abstract"] if not any(["ABSTRACT_SOURCE" in s])]
     mock_area_stage_args = dict(stage_args)
     mock_area_stage_args["floorplan"] = floorplan_args
+    mock_area_stage_args["generate_abstract"] = generate_abstract_args
 
     # Add mock_area-specific options
     mock_area_env_list = ["DEFAULT_FLOW_VARIANT=" + variant]
     mock_area_env_list.append("MOCK_AREA=" + str(mock_area))
-    mock_area_env_list.append("MOCK_AREA_TCL=\\$$(BUILD_DIR)/mock_area.tcl")
     mock_area_env_list.append("SYNTH_GUT=1")
     mock_area_env_list.append("ABSTRACT_SOURCE=2_floorplan")
 
@@ -300,7 +308,7 @@ def mock_area_stages(
     write_config(
         name = name + "_mock_area_config",
         design_name = design_name,
-        variant = "mock_area",
+        variant = variant,
         additional_cfg = mock_area_env_list,
     )
 
@@ -318,7 +326,7 @@ def mock_area_stages(
             name = name + "_" + stage + "_mock_area_config",
             stage = stage,
             srcs = stage_cfg_srcs,
-            stage_args = mock_area_stage_args[stage],
+            stage_args = mock_area_stage_args[stage] + ["FLOW_VARIANT=mock_area"],
         )
         make_pattern = Label("//:" + stage + "-bazel.mk")
         design_config = Label("@@//:" + name + "_mock_area_config.mk")
@@ -333,7 +341,7 @@ def mock_area_stages(
                    ([name + "_" + stage, Label("//:mock_area.tcl")] if stage == "floorplan" else []) +
                    ([name + "_" + previous + "_mock_area"] if stage != "clock_period" else []) +
                    ([name + "_synth_mock_area"] if stage == "floorplan" else []),
-            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, Label("//:docker_shell"), make_targets, docker_image = "bazel-orfs/orfs_env:latest"),
+            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, Label("//:docker_shell"), make_targets, docker_image = "bazel-orfs/orfs_env:latest", mock_area = (stage == "floorplan")),
             outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])],
         )
 
