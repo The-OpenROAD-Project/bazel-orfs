@@ -33,6 +33,12 @@ fi
 
 export MAKE_PATTERN_PREFIXED=$PATH_PREFIX/$MAKE_PATTERN
 
+# Prefix MOCK_AREA_TCL if exists
+if [[ -n "${MOCK_AREA_TCL}" ]]
+then
+	export MOCK_AREA_TCL_PREFIXED=$PATH_PREFIX/$MOCK_AREA_TCL
+fi
+
 # Configs are always generated in execroot because they are generated in
 # the repository that uses bazel-orfs as dependency or in bazel-orfs itself
 export DESIGN_CONFIG_PREFIXED=$WORKSPACE_EXECROOT/$DESIGN_CONFIG
@@ -54,6 +60,7 @@ docker run --rm -u $(id -u ${USER}):$(id -g ${USER}) \
  -e DESIGN_CONFIG=$DESIGN_CONFIG_PREFIXED \
  -e STAGE_CONFIG=$STAGE_CONFIG_PREFIXED \
  -e MAKE_PATTERN=$MAKE_PATTERN_PREFIXED \
+ -e MOCK_AREA_TCL=$MOCK_AREA_TCL_PREFIXED \
  -e WORK_HOME=$WORKSPACE_EXECROOT/$RULEDIR \
  -v $WORKSPACE_ROOT:$WORKSPACE_ROOT \
  -v $WORKSPACE_ORIGIN:$WORKSPACE_ORIGIN \
