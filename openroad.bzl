@@ -514,11 +514,6 @@ def build_openroad(
 
     outs = init_output_dict(all_stages, platform, out_dir, variant, name)
 
-    all_sources = [
-        Label("//:orfs"),
-        Label("//:config.mk"),
-    ]
-
     x = map(lambda ext: map2(lambda m: "//:results/" + platform + "/%s/%s/%s.%s" % (m, macro_variants.get(m, macro_variant), m, ext), macros), ["lef", "lib"])
     macro_lef_targets, macro_lib_targets = x
     # macro_gds_targets = map(lambda m: "//:results/" + platform + "/%s/%s/6_final.gds" % (m, macro_variants.get(m, macro_variant)), macros)
@@ -604,12 +599,11 @@ def build_openroad(
             skip = True
         stages.append(stage)
 
-    make_args = []
-
+    # Make (local) targets
+    make_script_template = Label("//:make_script.template.sh")
+    design_config = Label("//:" + target_name + "_config.mk")
     for stage in stages:
-        make_script_template = Label("//:make_script.template.sh")
         make_pattern = Label("//:" + stage + "-bazel.mk")
-        design_config = Label("//:" + target_name + "_config.mk")
         stage_config = Label("//:" + target_name + "_" + stage + "_config.mk")
         make_targets = get_make_targets(stage, False, mock_area)
         entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, entrypoint = Label("//:orfs"))
@@ -639,14 +633,38 @@ def build_openroad(
     if mock_area != None:
         mock_area_stages(target_name, name, stage_sources, io_constraints, sdc_constraints, stage_args, outs, variant, mock_area)
 
+    # *_memory targets
+    write_stage_config(
+        name = target_name + "_memory_config",
+        stage = "memory",
+        srcs = [],
+        stage_args = stage_args["synth"],
+    )
+    make_pattern = Label("//:memory-bazel.mk")
+    stage_config = Label("//:" + target_name + "_memory_config.mk")
+    entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, Label("//:orfs"))
+    native.genrule(
+        name = target_name + "_memory_make_script",
+        tools = [Label("//:orfs")],
+        srcs = [make_script_template, design_config, stage_config, make_pattern],
+        cmd = "echo \"chmod -R +w . && \" `cat $(location " + str(make_script_template) + ")` " + entrypoint_cmd + " \\\"$$\\@\\\" > $@",
+        outs = ["logs/%s/%s/%s/make_script_memory.sh" % (platform, out_dir, variant)],
+    )
+    native.sh_binary(
+        name = target_name + "_memory_make",
+        srcs = ["//:" + target_name + "_memory_make_script"],
+        data = [Label("//:orfs"), design_config, stage_config, make_pattern],
+        deps = ["@bazel_tools//tools/bash/runfiles"],
+    )
     native.genrule(
         name = target_name + "_memory",
-        tools = [Label("//:orfs")],
-        srcs = all_sources + stage_sources["synth"] + [name + "_clock_period"],
-        cmd = "$(location " + str(Label("//:orfs")) + ") " + " ".join(wrap_args(make_args, False)) + " ".join(wrap_args(stage_args["synth"], False)) + " memory",
+        tools = [Label("//:docker_shell")],
+        srcs = [Label("//:scripts/mem_dump.py"), Label("//:scripts/mem_dump.tcl"), target_name + "_clock_period", design_config, stage_config, make_pattern],
+        cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, Label("//:docker_shell"), "memory", docker_image = "bazel-orfs/orfs_env:latest"),
         outs = outs["memory"],
     )
 
+    # Stage (Docker) targets
     for (previous, stage) in zip(["n/a"] + stages, stages):
         # Generate config for stage targets
         write_stage_config(
