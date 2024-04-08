@@ -32,7 +32,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        STAGE_TARGET: ["tag_array_64x184_generate_abstract", "L1MetadataArray_test_generate_abstract", "L1MetadataArray_full_generate_abstract"]
+        STAGE_TARGET:
+          - "tag_array_64x184_generate_abstract"
+          - "L1MetadataArray_test_generate_abstract"
+          - "L1MetadataArray_full_generate_abstract"
+          - "tag_array_64x184_memory"
     env:
       DEBIAN_FRONTEND: "noninteractive"
     steps:
@@ -94,7 +98,7 @@ jobs:
       - name: build local stage targets
         run: |
           echo "Build tag_array_64x184 macro"
-          for stage in "synth_sdc" "synth" "floorplan" "generate_abstract"
+          for stage in "synth_sdc" "synth" "memory" "floorplan" "generate_abstract"
           do
             echo "query make script target"
             bazel query tag_array_64x184_${stage}_make
@@ -102,7 +106,7 @@ jobs:
             echo "build make script"
             bazel build --subcommands --verbose_failures --sandbox_debug tag_array_64x184_${stage}_make
             echo "run make script"
-            ./bazel-bin/tag_array_64x184_${stage}_make bazel-${stage}
+            ./bazel-bin/tag_array_64x184_${stage}_make $(if [[ "$stage" != "memory" ]] ; then echo "bazel-" ; fi)${stage}
           done
           echo "Build L1MetadataArray"
           for stage in "synth_sdc" "synth" "floorplan" "place" "cts" "grt" "generate_abstract"
