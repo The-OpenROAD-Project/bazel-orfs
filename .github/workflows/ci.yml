@@ -36,6 +36,7 @@ jobs:
           - "tag_array_64x184_generate_abstract"
           - "L1MetadataArray_test_generate_abstract"
           - "L1MetadataArray_full_generate_abstract"
+          - "L1MetadataArray_test_gds_final"
           - "tag_array_64x184_memory"
     env:
       DEBIAN_FRONTEND: "noninteractive"
@@ -95,27 +96,61 @@ jobs:
           openroad -version
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
-      - name: build local stage targets
+      - name: build local stage targets - tag_array_64x184
+        env:
+          TARGET: tag_array_64x184
+        run: .github/scripts/build_local_target.sh
+      - name: build local stage targets - lb_32x128
+        env:
+          TARGET: tag_array_64x184
+        run: .github/scripts/build_local_target.sh
+      - name: build local stage targets - L1MetadataArray_test
+        env:
+          TARGET: L1MetadataArray_test
+        run: .github/scripts/build_local_target.sh
+      - name: build local stage targets - L1MetadataArray_final
+        env:
+          TARGET: L1MetadataArray_test_gds
+          STAGES: grt route final
         run: |
-          echo "Build tag_array_64x184 macro"
-          for stage in "synth_sdc" "synth" "memory" "floorplan" "generate_abstract"
-          do
-            echo "query make script target"
-            bazel query tag_array_64x184_${stage}_make
-            bazel query tag_array_64x184_${stage}_make --output=build
-            echo "build make script"
-            bazel build --subcommands --verbose_failures --sandbox_debug tag_array_64x184_${stage}_make
-            echo "run make script"
-            ./bazel-bin/tag_array_64x184_${stage}_make $(if [[ "$stage" != "memory" ]] ; then echo "bazel-" ; fi)${stage}
-          done
-          echo "Build L1MetadataArray"
-          for stage in "synth_sdc" "synth" "floorplan" "place" "cts" "grt" "generate_abstract"
-          do
-            echo "query make script target"
-            bazel query L1MetadataArray_test_${stage}_make
-            bazel query L1MetadataArray_test_${stage}_make --output=build
-            echo "build make script"
-            bazel build --subcommands --verbose_failures --sandbox_debug L1MetadataArray_test_${stage}_make
-            echo "run make script"
-            ./bazel-bin/L1MetadataArray_test_${stage}_make bazel-${stage}
-          done
+          cp -r bazel-bin/results/asap7/L1MetadataArray/test bazel-bin/results/asap7/L1MetadataArray/test_gds
+          .github/scripts/build_local_target.sh
+
+  test-stage-make-targets:
+    name: Run ORFS using stage targets and _make scrips
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+      STAGES: "floorplan generate_abstract"
+      TARGET: tag_array_64x184
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          swap-storage: false
+      - name: Checkout bazel-orfs
+        uses: actions/checkout@v4
+      - name: load docker image
+        run: |
+          bazel run --subcommands --verbose_failures --sandbox_debug orfs_env
+      - name: build synth stage targets
+        run: |
+          bazel build --subcommands --verbose_failures --sandbox_debug tag_array_64x184_synth_sdc tag_array_64x184_synth
+      - name: build make target
+        env:
+          SKIP_RUN: 1
+        run: .github/scripts/build_local_target.sh
+      - name: set env
+        run: |
+          echo "DOCKER_ARGS=-v $(realpath ~/.cache):$(realpath ~/.cache)" >> $GITHUB_ENV
+          echo "OR_IMAGE=bazel-orfs/orfs_env" >> $GITHUB_ENV
+      - name: run make target
+        run: |
+          ./docker_shell.sh "export SKIP_BUILD=1
+            export TARGET=$TARGET
+            export STAGES=\"$STAGES\"
+            cd "'$WORK_HOME
+            $WORK_HOME/.github/scripts/build_local_target.sh'
