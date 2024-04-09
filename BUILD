@@ -67,6 +67,22 @@ build_openroad(
 )
 
 build_openroad(
+    name = "lb_32x128",
+    io_constraints=":io-sram",
+    verilog_files=["test/rtl/lb_32x128.sv"],
+    sdc_constraints = ":constraints-sram",
+    stage_args={
+            "floorplan": [
+                "CORE_UTILIZATION=40",
+                "CORE_ASPECT_RATIO=2",
+            ],
+            "place": ["PLACE_DENSITY=0.65"]},
+    mock_abstract=True,
+    mock_stage="floorplan",
+    mock_area=1,
+)
+
+build_openroad(
     name = "L1MetadataArray",
     io_constraints = ":io",
     macros = ["tag_array_64x184"],
@@ -90,6 +106,30 @@ build_openroad(
     verilog_files = ["test/rtl/L1MetadataArray.sv"],
 )
 
+# buildifier: disable=duplicated-name
+build_openroad(
+    name = "L1MetadataArray",
+    io_constraints = ":io",
+    macros = ["tag_array_64x184", "lb_32x128"],
+    sdc_constraints = ":test/constraints-top.sdc",
+    stage_args = {
+        "synth": ["SYNTH_HIERARCHICAL=1"],
+        "floorplan": [
+            "CORE_UTILIZATION=3",
+            "RTLMP_FLOW=True",
+            "CORE_MARGIN=2",
+            "MACRO_PLACE_HALO=10 10",
+        ],
+        "place": [
+            "PLACE_DENSITY=0.20",
+            "PLACE_PINS_ARGS=-annealing",
+        ],
+    },
+    variant = "test_gds",
+    verilog_files = ["test/rtl/L1MetadataArray.sv"],
+)
+
+# buildifier: disable=duplicated-name
 build_openroad(
     name = "L1MetadataArray",
     io_constraints = ":io",
