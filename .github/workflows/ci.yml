@@ -102,19 +102,12 @@ jobs:
         run: .github/scripts/build_local_target.sh
       - name: build local stage targets - lb_32x128
         env:
-          TARGET: tag_array_64x184
+          TARGET: lb_32x128
         run: .github/scripts/build_local_target.sh
       - name: build local stage targets - L1MetadataArray_test
         env:
           TARGET: L1MetadataArray_test
         run: .github/scripts/build_local_target.sh
-      - name: build local stage targets - L1MetadataArray_final
-        env:
-          TARGET: L1MetadataArray_test_gds
-          STAGES: grt route final
-        run: |
-          cp -r bazel-bin/results/asap7/L1MetadataArray/test bazel-bin/results/asap7/L1MetadataArray/test_gds
-          .github/scripts/build_local_target.sh
 
   test-stage-make-targets:
     name: Run ORFS using stage targets and _make scrips
