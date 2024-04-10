@@ -1,5 +1,5 @@
 module(
-    name = "bazel_orfs",
+    name = "bazel-orfs",
     version = "0.0.1",
     compatibility_level = 1,
 )

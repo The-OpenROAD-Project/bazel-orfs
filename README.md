@@ -12,17 +12,14 @@ This repository contains [Bazel](https://bazel.build/) rules for wrapping Physic
 
 Core functionality is implemented as `build_openroad()` bazel macro in `openroad.bzl` file.
 
-In order to use `build_openroad()` macro in Bazel Workspace in other project it is required to pull `bazel-orfs` as external dependency through one of [Bazel Workspace Rules](https://bazel.build/reference/be/workspace). For example in project's WORKSPACE:
+In order to use `build_openroad()` macro in Bazel Workspace in other project it is required to pull `bazel-orfs` as external dependency through one of [Bazel Workspace Rules](https://bazel.build/reference/be/workspace). For example in project's MODULE.bazel:
 
 ```
-git_hash = "<git hash for specific bazel-orfs revision>"
-archive_sha256 = "<SHA256 checksum for archive with bazel-orfs>"
-
-http_archive(
-    name = "bazel-orfs",
-    sha256 = archive_sha256,
-    strip_prefix = "bazel-orfs-%s" % git_hash,
-    url = "<URL to bazel-orfs repository>/archive/%s.tar.gz" % git_hash,
+bazel_dep(name = "bazel-orfs")
+git_override(
+    module_name = "bazel-orfs",
+    remote = "<URL to bazel-orfs repository>",
+    commit = "<git hash for specific bazel-orfs revision>"
 )
 ```
 
