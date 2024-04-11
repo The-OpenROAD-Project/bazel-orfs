@@ -40,6 +40,7 @@ docker run --rm -u $(id -u ${USER}):$(id -g ${USER}) \
  -v $WORKSPACE_ORIGIN:$WORKSPACE_ORIGIN \
  --network host \
  $DOCKER_INTERACTIVE \
+ $DOCKER_ARGS \
  ${OR_IMAGE:-openroad/flow-ubuntu22.04-builder:latest} \
  bash -c \
  "set -ex
