@@ -671,7 +671,7 @@ def build_openroad(
         stage_args = stage_args["synth"],
     )
     make_pattern = Label("//:memory-bazel.mk")
-    stage_config = Label("//:" + target_name + "_memory_config.mk")
+    stage_config = Label("@@//:" + target_name + "_memory_config.mk")
     entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, False)
     native.genrule(
         name = target_name + "_memory_make_script",
