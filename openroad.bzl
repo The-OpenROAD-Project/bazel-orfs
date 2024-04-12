@@ -622,7 +622,7 @@ def build_openroad(
             name = target_name + "_" + stage + "_make_script",
             tools = [Label("//:orfs")],
             srcs = [make_script_template, design_config, stage_config, make_pattern],
-            cmd = "echo \"chmod -R +w . && \" `cat $(location " + str(make_script_template) + ")` " + entrypoint_cmd + " \\\"$$\\@\\\" > $@",
+            cmd = "echo \"#!/bin/bash\nchmod -R +w . && \" `cat $(location " + str(make_script_template) + ")` " + entrypoint_cmd + " \\\"$$\\@\\\" > $@",
             outs = ["logs/%s/%s/%s/make_script_%s.sh" % (platform, out_dir, variant, stage)],
         )
 
@@ -657,7 +657,7 @@ def build_openroad(
         name = target_name + "_memory_make_script",
         tools = [Label("//:orfs")],
         srcs = [make_script_template, design_config, stage_config, make_pattern],
-        cmd = "echo \"chmod -R +w . && \" `cat $(location " + str(make_script_template) + ")` " + entrypoint_cmd + " \\\"$$\\@\\\" > $@",
+        cmd = "echo \"#!/bin/bash\nchmod -R +w . && \" `cat $(location " + str(make_script_template) + ")` " + entrypoint_cmd + " \\\"$$\\@\\\" > $@",
         outs = ["logs/%s/%s/%s/make_script_memory.sh" % (platform, out_dir, variant)],
     )
     native.sh_binary(
