@@ -211,6 +211,7 @@ def get_make_targets(
       string with space-separated make targets to be executed in ORFS environment
     """
     targets = "bazel-" + stage
+
     # `generate_abstract` from "regular" flow should copy mocked LEF file to the regular flow build directory
     # Perform additional `bazel-generate_abstract_mock_area` make target only for `generate_abstract` stages
     # outside of `mock_area` flow context
@@ -271,7 +272,8 @@ def mock_area_stages(
         stage_args,
         outs,
         variant,
-        mock_area):
+        mock_area,
+        docker_image):
     """
     Spawn mock_area targets.
 
@@ -288,6 +290,7 @@ def mock_area_stages(
       outs: dictionary of lists with paths to output files for each flow stage
       variant: default variant of the ORFS flow, used for replacing output paths
       mock_area: floating point number used for scaling the design
+      docker_image: name of the docker image used for running ORFS flow
     """
 
     # Write ORFS options for mock_area targets
@@ -341,7 +344,7 @@ def mock_area_stages(
                    ([name + "_" + stage, Label("//:mock_area.tcl")] if stage == "floorplan" else []) +
                    ([name + "_" + previous + "_mock_area"] if stage != "clock_period" else []) +
                    ([name + "_synth_mock_area"] if stage == "floorplan" else []),
-            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, Label("//:docker_shell"), make_targets, docker_image = "bazel-orfs/orfs_env:latest", mock_area = (stage == "floorplan")),
+            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, Label("//:docker_shell"), make_targets, docker_image = docker_image, mock_area = (stage == "floorplan")),
             outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])],
         )
 
@@ -478,7 +481,8 @@ def build_openroad(
         mock_stage = "place",
         mock_area = None,
         platform = "asap7",
-        macro_variant = "base"):
+        macro_variant = "base",
+        docker_image = "bazel-orfs/orfs_env:latest"):
     """
     Spawns targets for running physical design flow with OpenROAD-flow-scripts.
 
@@ -497,6 +501,7 @@ def build_openroad(
       mock_area: floating point number, spawns additional _mock_area targets if set
       platform: string specifying target platform for running physical design flow. Supported platforms: https://openroad-flow-scripts.readthedocs.io/en/latest/user/FlowVariables.html#platform
       macro_variant: variant of the ORFS flow the macro was built with
+      docker_image: docker image name or ID with ORFS environment. Referenced image must be available in local docker runtime. Defaults to `bazel-orfs/orfs_env:latest` which can be obtained by running: `bazel run orfs_env`
     """
     target_ext = ("_" + variant if variant != "base" else "")
     target_name = name + target_ext
@@ -641,7 +646,7 @@ def build_openroad(
     )
 
     if mock_area != None:
-        mock_area_stages(target_name, name, stage_sources, io_constraints, sdc_constraints, stage_args, outs, variant, mock_area)
+        mock_area_stages(target_name, name, stage_sources, io_constraints, sdc_constraints, stage_args, outs, variant, mock_area, docker_image)
 
     # *_memory targets
     write_stage_config(
@@ -670,7 +675,7 @@ def build_openroad(
         name = target_name + "_memory",
         tools = [Label("//:docker_shell")],
         srcs = [Label("//:scripts/mem_dump.py"), Label("//:scripts/mem_dump.tcl"), target_name + "_clock_period", design_config, stage_config, make_pattern],
-        cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, Label("//:docker_shell"), "memory", docker_image = "bazel-orfs/orfs_env:latest"),
+        cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, Label("//:docker_shell"), "memory", docker_image = docker_image),
         outs = outs["memory"],
     )
 
@@ -699,6 +704,6 @@ def build_openroad(
             tools = [Label("//:docker_shell")],
             srcs = [make_pattern, design_config, stage_config] + stage_sources[stage] + ([name + target_ext + "_" + previous] if stage not in ("clock_period", "synth_sdc") else []) +
                    ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
-            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, Label("//:docker_shell"), make_targets, docker_image = "bazel-orfs/orfs_env:latest"),
+            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, Label("//:docker_shell"), make_targets, docker_image = docker_image),
             outs = outs.get(stage, []),
         )
