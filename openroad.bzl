@@ -250,7 +250,8 @@ def get_entrypoint_cmd(
         docker_image = None,
         mock_area = False,
         memory = False,
-        entrypoint = None):
+        entrypoint = None,
+        interactive = False):
     """
     Prepare command line for running docker_shell utility
 
@@ -264,6 +265,7 @@ def get_entrypoint_cmd(
       mock_area: flag describing whether pass additional env var for mock_area target execution
       memory: flag describing whether pass additional env var for memory target execution
       entrypoint: optional label pointing to file which will be used as entrypoint
+      interactive: flag describing whether run docker container in interactive mode
 
     Returns:
       string with command line for running ORFS flow in docker container
@@ -295,6 +297,8 @@ def get_entrypoint_cmd(
         cmd += " MEMORY_DUMP_PY=" + get_location(Label("//scripts:mem_dump.py")) + fmt_whitespace
     cmd += " RULEDIR=$(RULEDIR)" + fmt_whitespace
     cmd += entrypoint
+    if interactive:
+        cmd += " --interactive"
     cmd += " make "
     if (make_targets != None):
         cmd += make_targets
@@ -653,6 +657,10 @@ def build_openroad(
     for stage in stages:
         make_pattern = Label("//:" + stage + "-bazel.mk")
         stage_config = Label("@@//:" + target_name + "_" + stage + "_config.mk")
+
+        # For synth use config with additional options required for GUI
+        if stage == "synth":
+            stage_config = Label("@@//:" + target_name + "_gui_" + stage + "_config.mk")
         make_targets = get_make_targets(stage, False, mock_area)
         local_entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, False, memory = False)
         docker_entrypoint_cmd = get_entrypoint_cmd(
@@ -663,6 +671,7 @@ def build_openroad(
             memory = False,
             entrypoint = Label("//:docker_shell"),
             docker_image = docker_image,
+            interactive = True,
         )
         target_name_stage = target_name + "_" + stage
 
@@ -727,7 +736,7 @@ def build_openroad(
     stage_config = Label("@@//:" + target_name + "_memory_config.mk")
     mem_scripts = [Label("//scripts:mem_dump.tcl"), Label("//scripts:mem_dump.py")]
     local_entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, False, memory = True)
-    docker_entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, "memory", docker_image = docker_image, memory = True)
+    docker_entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, "memory", docker_image = docker_image, memory = True, interactive = True)
 
     native.genrule(
         name = target_name + "_memory_make_local_script",
@@ -804,3 +813,19 @@ def build_openroad(
                    ([target_name + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []) +
                    [target_name + "_" + stage + "_scripts"],
         )
+
+        # Prepare GUI targets
+        if stage in ("synth", "floorplan", "place", "cts", "route", "final"):
+            base_targets = [target_name + "_" + stage]
+            if stage == "synth":
+                write_stage_config(
+                    name = target_name + "_gui_" + stage + "_config",
+                    stage = stage,
+                    srcs = stage_cfg_srcs,
+                    stage_args = stage_args["synth"] + stage_args["synth_sdc"] + lefs_args,
+                )
+                base_targets.append(target_name + "_synth_sdc")
+            native.filegroup(
+                name = target_name + "_" + stage + "_gui",
+                srcs = base_targets + [target_name + "_" + stage + "_scripts"],
+            )
