@@ -223,11 +223,17 @@ def get_make_targets(
 
     return targets
 
+def get_docker_flow_path(label):
+    return "$(location " + str(label) + ")"
+
+def get_local_flow_path(label):
+    return "\\$$\\(rlocation $(rlocationpath " + str(label) + ")\\)"
+
 def get_entrypoint_cmd(
         make_pattern,
         design_config,
         stage_config,
-        entrypoint,
+        use_docker_flow = True,
         make_targets = None,
         docker_image = None,
         mock_area = False):
@@ -239,7 +245,7 @@ def get_entrypoint_cmd(
       design_config: label pointing to design-specific generated config.mk file
       stage_config: label pointing to stage- and design-specific generated config.mk file
       make_targets: string with space-separated make targets to be executed in ORFS environment
-      entrypoint: label pointing to the entrypint script for running ORFS flow
+      use_docker_flow: flag to distinguish whether the command should run docker flow or local flow
       docker_image: name of the docker image used for running ORFS flow
       mock_area: flag describing whether pass additional env var for mock_area target execution
 
@@ -248,15 +254,24 @@ def get_entrypoint_cmd(
     """
 
     cmd = ""
+    path_constructor = None
+    entrypoint = None
+    if (use_docker_flow):
+        path_constructor = get_docker_flow_path
+        entrypoint = Label("//:docker_shell")
+    else:
+        path_constructor = get_local_flow_path
+        entrypoint = Label("//:orfs")
+
     if (docker_image != None):
         cmd += "OR_IMAGE=" + docker_image
-    cmd += " DESIGN_CONFIG=$(location " + str(design_config) + ")"
-    cmd += " STAGE_CONFIG=$(location " + str(stage_config) + ")"
-    cmd += " MAKE_PATTERN=$(location " + str(make_pattern) + ")"
+    cmd += " DESIGN_CONFIG=" + path_constructor(design_config)
+    cmd += " STAGE_CONFIG=" + path_constructor(stage_config)
+    cmd += " MAKE_PATTERN=" + path_constructor(make_pattern)
     if (mock_area):
-        cmd += " MOCK_AREA_TCL=$(location " + str(Label("//:mock_area.tcl")) + ")"
+        cmd += " MOCK_AREA_TCL=" + path_constructor(Label("//:mock_area.tcl"))
     cmd += " RULEDIR=$(RULEDIR)"
-    cmd += " $(location " + str(entrypoint) + ")"
+    cmd += " " + path_constructor(entrypoint)
     cmd += " make "
     if (make_targets != None):
         cmd += make_targets
@@ -344,7 +359,7 @@ def mock_area_stages(
                    ([name + "_" + stage, Label("//:mock_area.tcl")] if stage == "floorplan" else []) +
                    ([name + "_" + previous + "_mock_area"] if stage != "clock_period" else []) +
                    ([name + "_synth_mock_area"] if stage == "floorplan" else []),
-            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, Label("//:docker_shell"), make_targets, docker_image = docker_image, mock_area = (stage == "floorplan")),
+            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image, mock_area = (stage == "floorplan")),
             outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])],
         )
 
@@ -621,7 +636,7 @@ def build_openroad(
         make_pattern = Label("//:" + stage + "-bazel.mk")
         stage_config = Label("@@//:" + target_name + "_" + stage + "_config.mk")
         make_targets = get_make_targets(stage, False, mock_area)
-        entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, entrypoint = Label("//:orfs"))
+        entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, False)
 
         native.genrule(
             name = target_name + "_" + stage + "_make_script",
@@ -657,7 +672,7 @@ def build_openroad(
     )
     make_pattern = Label("//:memory-bazel.mk")
     stage_config = Label("//:" + target_name + "_memory_config.mk")
-    entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, Label("//:orfs"))
+    entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, False)
     native.genrule(
         name = target_name + "_memory_make_script",
         tools = [Label("//:orfs")],
@@ -675,7 +690,7 @@ def build_openroad(
         name = target_name + "_memory",
         tools = [Label("//:docker_shell")],
         srcs = [Label("//:scripts/mem_dump.py"), Label("//:scripts/mem_dump.tcl"), target_name + "_clock_period", design_config, stage_config, make_pattern],
-        cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, Label("//:docker_shell"), "memory", docker_image = docker_image),
+        cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, "memory", docker_image = docker_image),
         outs = outs["memory"],
     )
 
@@ -704,6 +719,6 @@ def build_openroad(
             tools = [Label("//:docker_shell")],
             srcs = [make_pattern, design_config, stage_config] + stage_sources[stage] + ([name + target_ext + "_" + previous] if stage not in ("clock_period", "synth_sdc") else []) +
                    ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
-            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, Label("//:docker_shell"), make_targets, docker_image = docker_image),
+            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image),
             outs = outs.get(stage, []),
         )

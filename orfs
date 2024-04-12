@@ -6,7 +6,14 @@ export ORFS=~/OpenROAD-flow-scripts
 export FLOW_HOME=$ORFS/flow
 export MAKEFILES=$FLOW_HOME/Makefile
 export WORK_HOME=$WORKSPACE/$RULEDIR
-export BUILD_DIR=$WORKSPACE
+
+if [[ $WORKSPACE = * ]]
+then
+    export BUILD_DIR=$(echo $WORKSPACE | sed 's|external/bazel-orfs~override|execroot/_main|')
+else
+    export BUILD_DIR=$WORKSPACE
+fi
+
 
 source $ORFS/env.sh
 
