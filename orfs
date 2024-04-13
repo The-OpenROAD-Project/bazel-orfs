@@ -5,7 +5,6 @@ WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 export ORFS=~/OpenROAD-flow-scripts
 export FLOW_HOME=$ORFS/flow
 export MAKEFILES=$FLOW_HOME/Makefile
-export WORK_HOME=$WORKSPACE/$RULEDIR
 
 if [[ $WORKSPACE = * ]]
 then
@@ -14,6 +13,7 @@ else
     export BUILD_DIR=$WORKSPACE
 fi
 
+export WORK_HOME=$BUILD_DIR/$RULEDIR
 
 source $ORFS/env.sh
 
