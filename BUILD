@@ -155,7 +155,7 @@ build_openroad(
 oci_tarball(
     name = "orfs_env",
     image = "@orfs_image",
-    repo_tags = ["bazel-orfs/orfs_env:latest"],
+    repo_tags = ["openroad/flow-ubuntu22.04-builder:latest"],
 )
 
 sh_binary(
