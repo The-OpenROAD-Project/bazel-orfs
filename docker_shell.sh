@@ -44,6 +44,9 @@ fi
 export DESIGN_CONFIG_PREFIXED=$WORKSPACE_EXECROOT/$DESIGN_CONFIG
 export STAGE_CONFIG_PREFIXED=$WORKSPACE_EXECROOT/$STAGE_CONFIG
 
+# Make bazel-bin writable
+chmod -R +w $WORKSPACE_EXECROOT/bazel-out/k8-fastbuild/bin
+
 # Most of these options below has to do with allowing to
 # run the OpenROAD GUI from within Docker.
 docker run --rm -u $(id -u ${USER}):$(id -g ${USER}) \
