@@ -15,6 +15,9 @@ fi
 
 export WORK_HOME=$BUILD_DIR/$RULEDIR
 
+# Make bazel-bin writable
+chmod -R +w $WORK_HOME
+
 source $ORFS/env.sh
 
 "$@"
