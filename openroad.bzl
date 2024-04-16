@@ -361,6 +361,7 @@ def mock_area_stages(
                    ([name + "_synth_mock_area"] if stage == "floorplan" else []),
             cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image, mock_area = (stage == "floorplan")),
             outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])],
+            tags = ["supports-graceful-termination"],
         )
 
 def init_stage_dict(all_stage_names, stage_dict_init):
@@ -692,6 +693,7 @@ def build_openroad(
         srcs = [Label("//:scripts/mem_dump.py"), Label("//:scripts/mem_dump.tcl"), target_name + "_clock_period", design_config, stage_config, make_pattern],
         cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, "memory", docker_image = docker_image),
         outs = outs["memory"],
+        tags = ["supports-graceful-termination"],
     )
 
     # Stage (Docker) targets
@@ -721,4 +723,5 @@ def build_openroad(
                    ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
             cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image),
             outs = outs.get(stage, []),
+            tags = ["supports-graceful-termination"],
         )
