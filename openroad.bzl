@@ -516,7 +516,7 @@ def build_openroad(
       mock_area: floating point number, spawns additional _mock_area targets if set
       platform: string specifying target platform for running physical design flow. Supported platforms: https://openroad-flow-scripts.readthedocs.io/en/latest/user/FlowVariables.html#platform
       macro_variant: variant of the ORFS flow the macro was built with
-      docker_image: docker image name or ID with ORFS environment. Referenced image must be available in local docker runtime. Defaults to `openroad/flow-ubuntu22.04-builder:latest` which can be obtained by running: `bazel run orfs_env`
+      docker_image: docker image name or ID with ORFS environment. Referenced image must be available in local docker runtime. Defaults to `openroad/flow-ubuntu22.04-builder:latest` which can be obtained by running: `bazel run orfs_env` or building the image from ORFS sources
     """
     target_ext = ("_" + variant if variant != "base" else "")
     target_name = name + target_ext
