@@ -5,6 +5,9 @@ on:
   push:
   pull_request:
 
+env:
+  DOCKER_IMAGE: openroad/flow-ubuntu22.04-builder:latest
+
 jobs:
   lint:
     name: Lint Bazel files
@@ -139,7 +142,7 @@ jobs:
       - name: set env
         run: |
           echo "DOCKER_ARGS=-v $(realpath ~/.cache):$(realpath ~/.cache)" >> $GITHUB_ENV
-          echo "OR_IMAGE=bazel-orfs/orfs_env" >> $GITHUB_ENV
+          echo "OR_IMAGE=$DOCKER_IMAGE" >> $GITHUB_ENV
       - name: run make target
         run: |
           ./docker_shell.sh "export SKIP_BUILD=1
