@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 
 set -ex
+uuid=$(uuidgen)
+
+function handle_sigterm() {
+	# Wait if container is not created
+	if [[ ! "$( docker container inspect -f '{{.State.Status}}' bazel-orfs-$uuid )" =~ ^(running|created)$ ]]; then
+		sleep 3s
+	fi
+	# Stop or remove container
+	docker container rm -f "bazel-orfs-$uuid" || true
+}
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 WORKSPACE_ROOT=$(pwd)/../..
@@ -47,9 +58,14 @@ export STAGE_CONFIG_PREFIXED=$WORKSPACE_EXECROOT/$STAGE_CONFIG
 # Make bazel-bin writable
 chmod -R +w $WORKSPACE_EXECROOT/bazel-out/k8-fastbuild/bin
 
+# Handle TERM signals
+# this option requires `supports-graceful-termination` tag in Bazel rule
+trap handle_sigterm SIGTERM
+
 # Most of these options below has to do with allowing to
 # run the OpenROAD GUI from within Docker.
-docker run --rm -u $(id -u ${USER}):$(id -g ${USER}) \
+docker run --name "bazel-orfs-$uuid" --rm \
+ -u $(id -u ${USER}):$(id -g ${USER}) \
  -e LIBGL_ALWAYS_SOFTWARE=1 \
  -e "QT_X11_NO_MITSHM=1" \
  -e XDG_RUNTIME_DIR=/tmp/xdg-run \
@@ -76,4 +92,9 @@ docker run --rm -u $(id -u ${USER}):$(id -g ${USER}) \
  . ./env.sh
  cd \$FLOW_HOME
  $ARGUMENTS
- "
+ " &
+
+# Wait for Docker container to finish
+# Docker container has to be run in subprocess,
+# otherwise signal will not be handled immediately
+wait $!
