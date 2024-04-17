@@ -95,6 +95,12 @@ Make targets:
   //:L1MetadataArray_test_generate_abstract_make
   //:L1MetadataArray_test_memory_make
 
+GUI targets:
+  //:L1MetadataArray_test_synth_gui
+  //:L1MetadataArray_test_floorplan_gui
+  //:L1MetadataArray_test_place_gui
+  //:L1MetadataArray_test_cts_gui
+
 Config generation targets:
 
   Design config:
@@ -142,6 +148,7 @@ These are the genrules spawned in this macro:
 * Make targets (named: `target_name + “_” + stage + “_make”`)
   * Builds all dependencies required for the stage and generates scripts
 * Special mock flow: Mock Area targets (named: `target_name + “_” + stage + “_mock_area”`)
+* GUI targets (named: `target_name + “_” + stage + “_gui”`)
 
 #### Docker flow
 
@@ -213,6 +220,30 @@ Used for estimating sizes of macros with long build times and checking if they w
 #### Memory Targets
 
 These targets print RAM summaries for a given module.
+
+#### GUI Targets
+
+Those targets are used to prepare environment for running OpenROAD CLI or GUI with Docker flow. E.g. `bazel build L1MetadataArray_full_final_gui` builds all dependencies required for running `open_final` and `gui_final` targets.
+
+CLI and GUI is not available for all stages, consequently these targets are created only for:
+* synthesis
+* floorplan
+* place
+* clock tree synthesis
+* route
+* final
+
+To use them with local flow it is enough to call generated script with `open_{stage}` or gui_{stage}` make target:
+
+```
+# Build dependencies
+bazel build L1MetadataArray_full_final_gui
+
+# Run GUI with local flow
+./bazel-bin/L1MetadataArray_full_final_local_make gui_final
+# or docker flow
+./bazel-bin/L1MetadataArray_full_final_docker gui_final
+```
 
 ### Constraints handling
 
