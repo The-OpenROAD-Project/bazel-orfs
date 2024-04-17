@@ -227,7 +227,7 @@ def get_docker_flow_path(label):
     return "$(location " + str(label) + ")"
 
 def get_local_flow_path(label):
-    return "\\$$\\(rlocation $(rlocationpath " + str(label) + ")\\)"
+    return "\\$$(rlocation $(rlocationpath " + str(label) + ")) \\\\\n"
 
 def get_entrypoint_cmd(
         make_pattern,
@@ -264,13 +264,15 @@ def get_entrypoint_cmd(
         entrypoint = Label("//:orfs")
 
     if (docker_image != None):
-        cmd += "OR_IMAGE=" + docker_image
-    cmd += " DESIGN_CONFIG=" + path_constructor(design_config)
+        cmd += "OR_IMAGE=" + docker_image + " "
+    cmd += "DESIGN_CONFIG=" + path_constructor(design_config)
     cmd += " STAGE_CONFIG=" + path_constructor(stage_config)
     cmd += " MAKE_PATTERN=" + path_constructor(make_pattern)
     if (mock_area):
         cmd += " MOCK_AREA_TCL=" + path_constructor(Label("//:mock_area.tcl"))
     cmd += " RULEDIR=$(RULEDIR)"
+    if not use_docker_flow:
+        cmd += " \\\\\n"
     cmd += " " + path_constructor(entrypoint)
     cmd += " make "
     if (make_targets != None):
@@ -643,7 +645,7 @@ def build_openroad(
             name = target_name + "_" + stage + "_make_script",
             tools = [Label("//:orfs")],
             srcs = [make_script_template, design_config, stage_config, make_pattern],
-            cmd = "echo \"#!/bin/bash\n\"`cat $(location " + str(make_script_template) + ")` " + entrypoint_cmd + " \\\"$$\\@\\\" > $@",
+            cmd = "cat <<EOF > $@ \n`cat $(location " + str(make_script_template) + ")`\n" + entrypoint_cmd + " \\$$@",
             outs = ["logs/%s/%s/%s/make_script_%s.sh" % (platform, out_dir, variant, stage)],
         )
 
@@ -678,7 +680,7 @@ def build_openroad(
         name = target_name + "_memory_make_script",
         tools = [Label("//:orfs")],
         srcs = [make_script_template, design_config, stage_config, make_pattern],
-        cmd = "echo \"#!/bin/bash\n \" `cat $(location " + str(make_script_template) + ")` " + entrypoint_cmd + " \\\"$$\\@\\\" > $@",
+        cmd = "cat <<EOF > $@ \n`cat $(location " + str(make_script_template) + ")`\n" + entrypoint_cmd + " \\$$@",
         outs = ["logs/%s/%s/%s/make_script_memory.sh" % (platform, out_dir, variant)],
     )
     native.sh_binary(
