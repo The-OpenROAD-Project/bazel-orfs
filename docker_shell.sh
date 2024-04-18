@@ -28,6 +28,15 @@ if [[ $DIR == */external/bazel-orfs~override ]]; then
 	DOCKER_ARGS="$DOCKER_ARGS -v $BAZLE_ORFS_DIR:$BAZLE_ORFS_DIR"
 fi
 
+if [[ "${1}" == "--interactive" ]]; then
+	if test -t 0; then
+	  DOCKER_INTERACTIVE=-ti
+	else
+		echo "STDIN not opened in the terminal, --interactive has no effect"
+  fi
+  shift 1
+fi
+
 XSOCK=/tmp/.X11-unix
 XAUTH=/tmp/.docker.xauth
 xauth nlist :0 | sed -e 's/^..../ffff/' | xauth -f $XAUTH nmerge -
@@ -74,46 +83,53 @@ chmod -R +w $WORKSPACE_EXECROOT/bazel-out/k8-fastbuild/bin
 
 export MAKEFILES=$FLOW_HOME/Makefile
 
-# Handle TERM signals
-# this option requires `supports-graceful-termination` tag in Bazel rule
-trap handle_sigterm SIGTERM
+function run_docker() {
+	# Most of these options below has to do with allowing to
+	# run the OpenROAD GUI from within Docker.
+	docker run --name "bazel-orfs-$uuid" --rm \
+	-u $(id -u ${USER}):$(id -g ${USER}) \
+	-e LIBGL_ALWAYS_SOFTWARE=1 \
+	-e "QT_X11_NO_MITSHM=1" \
+	-e XDG_RUNTIME_DIR=/tmp/xdg-run \
+	-e DISPLAY=$DISPLAY \
+	-e QT_XKB_CONFIG_ROOT=/usr/share/X11/xkb \
+	-v $XSOCK:$XSOCK \
+	-v $XAUTH:$XAUTH \
+	-e XAUTHORITY=$XAUTH \
+	-e BUILD_DIR=$WORKSPACE_EXECROOT \
+	-e FLOW_HOME=$FLOW_HOME \
+	-e MAKEFILES=$MAKEFILES \
+	-e DESIGN_CONFIG=$DESIGN_CONFIG_PREFIXED \
+	-e STAGE_CONFIG=$STAGE_CONFIG_PREFIXED \
+	-e MAKE_PATTERN=$MAKE_PATTERN_PREFIXED \
+	-e WORK_HOME=$WORKSPACE_EXECROOT/$RULEDIR \
+	$MOCK_AREA_TCL_PREFIXED \
+	$MEMORY_DUMP_TCL_PREFIXED \
+	$MEMORY_DUMP_PY_PREFIXED \
+	-v $WORKSPACE_ROOT:$WORKSPACE_ROOT \
+	-v $WORKSPACE_ORIGIN:$WORKSPACE_ORIGIN \
+	--network host \
+	$DOCKER_INTERACTIVE \
+	$DOCKER_ARGS \
+	${OR_IMAGE:-openroad/flow-ubuntu22.04-builder:latest} \
+	bash -c \
+	"set -ex
+	. ./env.sh
+	cd \$BUILD_DIR
+	$ARGUMENTS
+	"
+}
 
-# Most of these options below has to do with allowing to
-# run the OpenROAD GUI from within Docker.
-docker run --name "bazel-orfs-$uuid" --rm \
- -u $(id -u ${USER}):$(id -g ${USER}) \
- -e LIBGL_ALWAYS_SOFTWARE=1 \
- -e "QT_X11_NO_MITSHM=1" \
- -e XDG_RUNTIME_DIR=/tmp/xdg-run \
- -e DISPLAY=$DISPLAY \
- -e QT_XKB_CONFIG_ROOT=/usr/share/X11/xkb \
- -v $XSOCK:$XSOCK \
- -v $XAUTH:$XAUTH \
- -e XAUTHORITY=$XAUTH \
- -e BUILD_DIR=$WORKSPACE_EXECROOT \
- -e FLOW_HOME=$FLOW_HOME \
- -e MAKEFILES=$MAKEFILES \
- -e DESIGN_CONFIG=$DESIGN_CONFIG_PREFIXED \
- -e STAGE_CONFIG=$STAGE_CONFIG_PREFIXED \
- -e MAKE_PATTERN=$MAKE_PATTERN_PREFIXED \
- -e WORK_HOME=$WORKSPACE_EXECROOT/$RULEDIR \
- $MOCK_AREA_TCL_PREFIXED \
- $MEMORY_DUMP_TCL_PREFIXED \
- $MEMORY_DUMP_PY_PREFIXED \
- -v $WORKSPACE_ROOT:$WORKSPACE_ROOT \
- -v $WORKSPACE_ORIGIN:$WORKSPACE_ORIGIN \
- --network host \
- $DOCKER_INTERACTIVE \
- $DOCKER_ARGS \
- ${OR_IMAGE:-openroad/flow-ubuntu22.04-builder:latest} \
- bash -c \
- "set -ex
- . ./env.sh
- cd \$BUILD_DIR
- $ARGUMENTS
- " &
+if [[ "$DOCKER_INTERACTIVE" == "" ]]; then
+	# Handle TERM signals
+	# this option requires `supports-graceful-termination` tag in Bazel rule
+	trap handle_sigterm SIGTERM
+ 	run_docker &
 
-# Wait for Docker container to finish
-# Docker container has to be run in subprocess,
-# otherwise signal will not be handled immediately
-wait $!
+	# Wait for Docker container to finish
+	# Docker container has to be run in subprocess,
+	# otherwise signal will not be handled immediately
+	wait $!
+else
+	run_docker
+fi
