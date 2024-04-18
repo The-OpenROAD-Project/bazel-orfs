@@ -38,7 +38,7 @@ jobs:
         STAGE_TARGET:
           - "tag_array_64x184_generate_abstract_make"
           - "L1MetadataArray_test_generate_abstract_make"
-          - "L1MetadataArray_full_generate_abstract_make"
+          - "L1MetadataArray_full_final_gui"
           - "L1MetadataArray_test_gds_final_make"
           - "tag_array_64x184_memory_make"
     env:
@@ -67,6 +67,13 @@ jobs:
       - name: build target
         run: |
           bazel build --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }}
+      - name: open target
+        if: matrix.STAGE_TARGET == 'L1MetadataArray_full_final_gui'
+        run: |
+          for stage in "synth" "floorplan" "place" "cts" "route" "final"; do
+            bazel build --subcommands --verbose_failures --sandbox_debug L1MetadataArray_full_${stage}_scripts
+            echo | ./bazel-bin/L1MetadataArray_full_${stage}_docker open_${stage}
+          done
 
   test-scripts-target-docker:
     name: Docker flow - test _scripts targets
@@ -99,6 +106,7 @@ jobs:
       - name: build docker stage targets - L1MetadataArray_test
         env:
           TARGET: L1MetadataArray_test
+          STAGES: synth_sdc synth floorplan place cts grt generate_abstract
         run: .github/scripts/build_local_target.sh
 
   test-scripts-target-local:
@@ -142,8 +150,14 @@ jobs:
         run: .github/scripts/build_local_target.sh
       - name: build local stage targets - L1MetadataArray_test
         env:
-          TARGET: L1MetadataArray_test
+          TARGET: L1MetadataArray_test_gds
+          STAGES: synth_sdc synth floorplan place cts grt route final generate_abstract
         run: .github/scripts/build_local_target.sh
+      - name: open target
+        run: |
+          for stage in "synth" "floorplan" "place" "cts" "route" "final"; do
+            echo | bazel-bin/L1MetadataArray_test_gds_${stage}_local_make open_${stage}
+          done
 
   test-docker-local-targets:
     name: Run ORFS using docker and local flow

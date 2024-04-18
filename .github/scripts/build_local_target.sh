@@ -6,7 +6,7 @@ target_name=${TARGET:-"tag_array_64x184"}
 flow=${FLOW:-"local_make"}
 if [[ -z "$STAGES" ]]; then
   if [[ "$target_name" == L1MetadataArray_* ]]; then
-    STAGES=("synth_sdc" "synth" "floorplan" "place" "cts" "grt" "generate_abstract")
+    STAGES=("synth_sdc" "synth" "floorplan" "place" "generate_abstract")
   else
     STAGES=("synth_sdc" "synth" "memory" "floorplan" "generate_abstract")
   fi
