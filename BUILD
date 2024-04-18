@@ -122,7 +122,7 @@ build_openroad(
             "MACRO_PLACE_HALO=10 10",
         ],
         "place": [
-            "PLACE_DENSITY=0.20",
+            "PLACE_DENSITY=0.10",
             "PLACE_PINS_ARGS=-annealing",
         ],
     }, ['SKIP_REPORT_METRICS=1']),
