@@ -72,7 +72,7 @@ jobs:
     name: Execute sample _make scripts
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/antmicro/bazel-orfs@sha256:78b4c15830d75e026dc2294b280cb5ff1200f6ee7902a714dca71fd61b5b2e4e
+      image: ghcr.io/antmicro/openroad-flow-scripts/ubuntu22.04@sha256:b13b35193bec45cb708bd9a5ee3546a7f20378e3c977a4c49f00e9c1c8a71181
     defaults:
       run:
         shell: bash
@@ -80,23 +80,23 @@ jobs:
       fail-fast: false
     env:
       DEBIAN_FRONTEND: "noninteractive"
+      FLOW_HOME: /OpenROAD-flow-scripts/flow
     steps:
-      # Workaround for https://github.com/actions/runner/issues/863
-      - name: Override HOME env var
-        shell: bash
-        run: |
-          echo HOME=/root | sudo tee -a $GITHUB_ENV
       - name: Print info
         run: |
           echo "USER: "$(whoami)
           echo "PWD: "$(pwd)
           ls -la
           echo "HOME: "$HOME
-          cd ~/OpenROAD-flow-scripts
+          cd /OpenROAD-flow-scripts
           echo "OpenROAD-flow-scripts SHA: "$(git rev-parse HEAD)
           source ./env.sh
           yosys --version
           openroad -version
+      - name: Install bazelisk as bazel
+        run: |
+          wget https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64 -O /usr/local/bin/bazel
+          chmod +x /usr/local/bin/bazel
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
       - name: build local stage targets - tag_array_64x184
@@ -148,5 +148,6 @@ jobs:
           ./docker_shell.sh "export SKIP_BUILD=1
             export TARGET=$TARGET
             export STAGES=\"$STAGES\"
+            export FLOW_HOME=/OpenROAD-flow-scripts/flow
             cd "'$WORK_HOME
             $WORK_HOME/.github/scripts/build_local_target.sh'
