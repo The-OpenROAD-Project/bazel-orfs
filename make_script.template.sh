@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# The following lines are imported from Bazel Bash runfiles library
+# For more information please refer to the `Make targets` paragraph in the README
 set -uo pipefail
 set +e
 f=bazel_tools/tools/bash/runfiles/runfiles.bash
