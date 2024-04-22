@@ -283,3 +283,154 @@ Here is the example:
 set script_path [ file dirname $::env(IO_CONSTRAINTS) ]
 source $script_path/util.tcl
 ```
+
+## Tutorial
+
+This tutorial uses the `docker flow` to run the physical design flow with ORFS.
+Before starting, it is required to have available in your docker runtime a docker image with `OpenROAD-flow-scripts` installation.
+For more information, please refer to the [Requirements](https://github.com/The-OpenROAD-Project/bazel-orfs?tab=readme-ov-file#requirements) paragraph.
+
+### Hello world
+
+A quick test-build:
+
+```
+# Download and load docker image with ORFS
+bazel run @bazel-orfs//:orfs_env
+
+# Build L1MetadataArray macro up to the CTS stage
+bazel build L1MetadataArray_test_cts
+
+# View results with OpenROAD GUI
+bazel run L1MetadataArray_test_cts_gui
+```
+
+### Tweaking aspect ratio of a floorplan
+
+Notice how the `CORE_ASPECT_RATIO` parameter is associated with
+the floorplan and *only* the floorplan stage below.
+
+Bazel will detect this change specifically as a change to the
+floorplan, re-use the synthesis result and rebuild from the
+floorplan stage. Similarly, if the `PLACE_DENSITY` is modified,
+only stages from the placement and on are re-built.
+
+Also, notice that when the aspect ratio is changed back to
+a value for which there exists artifacts, Bazel completes
+instantaneously as the artifact already exists:
+
+```
+diff --git a/BUILD b/BUILD
+index 92d1a62..58c0ec0 100644
+--- a/BUILD
++++ b/BUILD
+@@ -59,7 +59,7 @@ build_openroad(
+     stage_args = {
+         "floorplan": [
+             "CORE_UTILIZATION=40",
+-            "CORE_ASPECT_RATIO=2",
++            "CORE_ASPECT_RATIO=4",
+         ],
+         "place": ["PLACE_DENSITY=0.65"],
+     },
+```
+
+Then run a quick test-build Bazel:
+
+```
+# Build tag_array_64x184 macro up to the floorplan stage
+bazel build tag_array_64x184_floorplan
+
+# View final results from Bazel
+bazel build tag_array_64x184_floorplan_gui
+```
+
+### Fast floorplanning and mock abstracts
+
+
+Let's say we want to skip place, cts and route and create a mock abstract where
+we can at least check that there is enough place for the macros at the top level.
+
+---
+
+**Warning:**
+Although mock abstracts can speed up turnaround times, skipping place, cts or route can lead to errors and problems that don't exist when place, cts and route are not skipped.
+
+---
+
+To do so, we modify in `BUILD` file the `mock_stage` attribute of `build_openroad` macro to `floorplan` stage:
+
+```
+diff --git a/BUILD b/BUILD
+index 92d1a62..1f6e46b 100644
+--- a/BUILD
++++ b/BUILD
+@@ -88,7 +88,7 @@ build_openroad(
+     io_constraints = ":io",
+     macros = ["tag_array_64x184"],
+     mock_abstract = True,
+-    mock_stage = "grt",
++    mock_stage = "cts",
+     sdc_constraints = ":test/constraints-top.sdc",
+     stage_args = {
+         "synth": ["SYNTH_HIERARCHICAL=1"],
+```
+
+Then run:
+
+```
+bazel build L1MetadataArray_test_generate_abstract
+```
+
+This will cause the `mock area` targets to generate the abstracts for the design right after the `floorplan` stage instead of `grt` stage.
+For more information please refer to the description of [mock area targets](https://github.com/The-OpenROAD-Project/bazel-orfs?tab=readme-ov-file#mock-area-targets).
+
+
+## Bazel hacking
+
+### Run all synth targets
+
+```
+bazel build $(bazel query '...:*' | grep '_synth$')
+```
+
+### Forcing a rebuild of a stage
+
+Sometimes it is desirable, such as when hacking ORFS, to redo a build stage even
+if none of the dependencies for that stage changed. This can be achieved by changing
+a `PHONY` variable to that stage and bumping it:
+
+```
+diff --git a/BUILD b/BUILD
+index 92d1a62..4dba0dd 100644
+--- a/BUILD
++++ b/BUILD
+@@ -97,6 +97,7 @@ build_openroad(
+             "RTLMP_FLOW=True",
+             "CORE_MARGIN=2",
+             "MACRO_PLACE_HALO=10 10",
++            "PHONY=1",
+         ],
+         "place": [
+             "PLACE_DENSITY=0.20",
+```
+
+### Building the immediate dependencies of a target
+
+```
+bazel build $(bazel query 'deps(<target label e.g. L1MetadataArray_test_synth>, 1)' --noimplicit_deps)
+```
+
+## Tentative roadmap
+
+- ORFS and orfs_rules should be independently versioned dependencies
+  while it should still be easy to do local hacking of ORFS. There should be a version
+  number for the ORFS dependency and orfs_rules separately. It should be possible to
+  specify the ORFS version per invocation of orfs_rules such that e.g. macros are not
+  rebuilt unless the user wants them to be rebuilt. Some macros can take days to build
+  and there could be manual verification involved and hence rebuilding should be
+  more controllable than for your typical Bazel build that is reasonably fast (C++, Scala,
+  etc.)
+- Once a reasonable structure is in place, set up CI for pull requests and invite
+  refinements and developments from the community.
+
