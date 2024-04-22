@@ -2,8 +2,11 @@
 set -ex
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-export ORFS=~/OpenROAD-flow-scripts
-export FLOW_HOME=$ORFS/flow
+if [[ -z $FLOW_HOME ]]; then
+    echo>&2 "Missing \`FLOW_HOME\` variable, please source \`env.sh\` file from OpenROAD-flow-scripts or set it manually to OpenROAD-flow-scripts/flow localization"
+    exit 1
+fi
+echo "Using OpenROAD-flow-scripts/flow from $FLOW_HOME"
 export MAKEFILES=$FLOW_HOME/Makefile
 
 if [[ $WORKSPACE = * ]]
@@ -18,6 +21,6 @@ export WORK_HOME=$BUILD_DIR/$RULEDIR
 # Make bazel-bin writable
 chmod -R +w $WORK_HOME
 
-source $ORFS/env.sh
+source $(dirname $FLOW_HOME)/env.sh
 
 "$@"
