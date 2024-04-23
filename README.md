@@ -8,7 +8,7 @@ This repository contains [Bazel](https://bazel.build/) rules for wrapping Physic
 ## Requirements
 
 * [Bazelisk](https://bazel.build/install/bazelisk) or [Bazel](https://bazel.build/install) - if using `bazel`, please refer to `.bazelversion` file for the recommended version of the tool.
-* [OpenROAD-flow-scripts](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts) - **Required only for running `Make` targets** - must reside under `~/OpenROAD-flow-scripts`. `bazel-orfs` intentionally does not treat OpenROAD-flow-scripts as a installable versioned tool, but prefers to rely on `~/OpenROAD-flow-scripts` such that it is easy to hack ORFS and OpenROAD.
+* [OpenROAD-flow-scripts](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts) - **Required only for running `Make` targets** - to use it, `env.sh` file from OpenROAD-flow-scripts has to be sourced or `FLOW_HOME` environmental variable has to be set manually to `OpenROAD-flow-scripts/flow` location. `bazel-orfs` intentionally does not treat OpenROAD-flow-scripts as a installable versioned tool, but prefers to rely on local installation such that it is easy to hack ORFS and OpenROAD.
 * [Docker](https://docs.docker.com/get-docker/) - **Required only for running `Stage` targets**
 * Docker image with ORFS installation - **Required only for running `Stage` targets** - can be obtained in two ways:
 
@@ -177,7 +177,7 @@ Users can also build the image from ORFS sources following [the guide](https://o
 #### Local flow
 
 The local flow (`_make` bazel targets) depends on the locally installed ORFS.
-OpenROAD-flow-scripts installation is expected to be located specifically under `~/OpenROAD-flow-scripts`.
+Path to `OpenROAD-flow-scripts/flow` is expected to be specified in `FLOW_HOME` environmental variable.
 For the installation guide please refer to the [build instructions](https://openroad-flow-scripts.readthedocs.io/en/latest/user/BuildLocally.html).
 The local flow relies on `_make` bazel targets which are used to generate shell scripts.
 Those shell scripts, apart from facilitating quick tests of ORFS modifications, can be used to run ORFS stages straight from the bazel-orfs repository and to allow tweaking the "moving parts" of the flow, like e.g.:
