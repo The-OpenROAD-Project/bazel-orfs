@@ -236,7 +236,8 @@ def get_entrypoint_cmd(
         use_docker_flow = True,
         make_targets = None,
         docker_image = None,
-        mock_area = False):
+        mock_area = False,
+        memory = False):
     """
     Prepare command line for running docker_shell utility
 
@@ -248,6 +249,7 @@ def get_entrypoint_cmd(
       use_docker_flow: flag to distinguish whether the command should run docker flow or local flow
       docker_image: name of the docker image used for running ORFS flow
       mock_area: flag describing whether pass additional env var for mock_area target execution
+      memory: flag describing whether pass additional env var for memory target execution
 
     Returns:
       string with command line for running ORFS flow in docker container
@@ -270,6 +272,9 @@ def get_entrypoint_cmd(
     cmd += " MAKE_PATTERN=" + path_constructor(make_pattern)
     if (mock_area):
         cmd += " MOCK_AREA_TCL=" + path_constructor(Label("//:mock_area.tcl"))
+    if (memory):
+        cmd += " MEMORY_DUMP_TCL=" + path_constructor(Label("//scripts:mem_dump.tcl"))
+        cmd += " MEMORY_DUMP_PY=" + path_constructor(Label("//scripts:mem_dump.py"))
     cmd += " RULEDIR=$(RULEDIR)"
     if not use_docker_flow:
         cmd += " \\\\\n"
@@ -361,7 +366,7 @@ def mock_area_stages(
                    ([name + "_" + stage, Label("//:mock_area.tcl")] if stage == "floorplan" else []) +
                    ([name + "_" + previous + "_mock_area"] if stage != "clock_period" else []) +
                    ([name + "_synth_mock_area"] if stage == "floorplan" else []),
-            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image, mock_area = (stage == "floorplan")),
+            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image, mock_area = (stage == "floorplan"), memory = False),
             outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])],
             tags = ["supports-graceful-termination"],
         )
@@ -549,30 +554,26 @@ def build_openroad(
     macro_lef_targets, macro_lib_targets = x
     # macro_gds_targets = map(lambda m: "//:results/" + platform + "/%s/%s/6_final.gds" % (m, macro_variants.get(m, macro_variant)), macros)
 
-    io_constraints_args = ["IO_CONSTRAINTS=\\$$(BUILD_DIR)/$(location " + io_constraints + ")"] if io_constraints != None else []
+    io_constraints_args = ["IO_CONSTRAINTS=$(location " + io_constraints + ")"] if io_constraints != None else []
 
-    ADDITIONAL_LEFS = " ".join(map(lambda m: "\\$$(BUILD_DIR)/$(RULEDIR)/results/" + platform + "/%s/%s/%s.lef" % (m, macro_variants.get(m, macro_variant), m), macros))
-    ADDITIONAL_LIBS = " ".join(map(lambda m: "\\$$(BUILD_DIR)/$(RULEDIR)/results/" + platform + "/%s/%s/%s.lib" % (m, macro_variants.get(m, macro_variant), m), macros))
-    # ADDITIONAL_GDS_FILES = " ".join(map(lambda m: "\\$$(BUILD_DIR)/$(RULEDIR)/results/" + platform + "/%s/%s/6_final.gds" % (m, macro_variants.get(m, macro_variant)), macros))
+    ADDITIONAL_LEFS = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/%s.lef" % (m, macro_variants.get(m, macro_variant), m), macros))
+    ADDITIONAL_LIBS = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/%s.lib" % (m, macro_variants.get(m, macro_variant), m), macros))
+    # ADDITIONAL_GDS_FILES = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/6_final.gds" % (m, macro_variants.get(m, macro_variant)), macros))
 
     lefs_args = (["ADDITIONAL_LEFS=" + ADDITIONAL_LEFS] if len(macros) > 0 else [])
     libs_args = (["ADDITIONAL_LIBS=" + ADDITIONAL_LIBS] if len(macros) > 0 else [])
     # gds_args = (["ADDITIONAL_GDS_FILES=" + ADDITIONAL_GDS_FILES] if len(macros) > 0 else [])
 
-    extended_verilog_files = []
-    for file in verilog_files:
-        extended_verilog_files.append("\\$$(BUILD_DIR)/" + file)
-
     SDC_FILE_CLOCK_PERIOD = outs["clock_period"][0]
-    SDC_FILE = ["SDC_FILE=\\$$(BUILD_DIR)/$(location " + sdc_constraints + ")"] if sdc_constraints != None else []
+    SDC_FILE = ["SDC_FILE=$(location " + sdc_constraints + ")"] if sdc_constraints != None else []
 
     abstract_source = str(name_to_stage[mock_stage]) + "_" + mock_stage
 
     stage_args = init_stage_dict(all_stage_names, stage_args)
     stage_args["clock_period"] = SDC_FILE
     stage_args["synth_sdc"] = SDC_FILE
-    stage_args["synth"].append("VERILOG_FILES=" + " ".join(extended_verilog_files))
-    stage_args["synth"].append("SDC_FILE_CLOCK_PERIOD=\\$$(BUILD_DIR)/" + SDC_FILE_CLOCK_PERIOD)
+    stage_args["synth"].append("VERILOG_FILES=" + " ".join(verilog_files))
+    stage_args["synth"].append("SDC_FILE_CLOCK_PERIOD=" + SDC_FILE_CLOCK_PERIOD)
     stage_args["floorplan"] += SDC_FILE + (
         [] if len(macros) == 0 else [
             "CORE_MARGIN=4",
@@ -639,7 +640,7 @@ def build_openroad(
         make_pattern = Label("//:" + stage + "-bazel.mk")
         stage_config = Label("@@//:" + target_name + "_" + stage + "_config.mk")
         make_targets = get_make_targets(stage, False, mock_area)
-        entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, False)
+        entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, False, memory = False)
 
         native.genrule(
             name = target_name + "_" + stage + "_make_script",
@@ -675,25 +676,25 @@ def build_openroad(
     )
     make_pattern = Label("//:memory-bazel.mk")
     stage_config = Label("@@//:" + target_name + "_memory_config.mk")
-    entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, False)
+    entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, False, memory = True)
     native.genrule(
         name = target_name + "_memory_make_script",
         tools = [Label("//:orfs")],
-        srcs = [make_script_template, design_config, stage_config, make_pattern],
+        srcs = [make_script_template, design_config, stage_config, make_pattern, Label("//scripts:mem_dump.tcl"), Label("//scripts:mem_dump.py")],
         cmd = "cat <<EOF > $@ \n`cat $(location " + str(make_script_template) + ")`\n" + entrypoint_cmd + " \\$$@",
         outs = ["logs/%s/%s/%s/make_script_memory.sh" % (platform, out_dir, variant)],
     )
     native.sh_binary(
         name = target_name + "_memory_make",
         srcs = ["//:" + target_name + "_memory_make_script"],
-        data = [Label("//:orfs"), design_config, stage_config, make_pattern],
+        data = [Label("//:orfs"), design_config, stage_config, make_pattern, Label("//scripts:mem_dump.tcl"), Label("//scripts:mem_dump.py")],
         deps = ["@bazel_tools//tools/bash/runfiles"],
     )
     native.genrule(
         name = target_name + "_memory",
         tools = [Label("//:docker_shell")],
-        srcs = [Label("//:scripts/mem_dump.py"), Label("//:scripts/mem_dump.tcl"), target_name + "_clock_period", design_config, stage_config, make_pattern],
-        cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, "memory", docker_image = docker_image),
+        srcs = [Label("//scripts:mem_dump.py"), Label("//scripts:mem_dump.tcl"), target_name + "_clock_period", design_config, stage_config, make_pattern],
+        cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, "memory", docker_image = docker_image, memory = True),
         outs = outs["memory"],
         tags = ["supports-graceful-termination"],
     )
@@ -723,7 +724,7 @@ def build_openroad(
             tools = [Label("//:docker_shell")],
             srcs = [make_pattern, design_config, stage_config] + stage_sources[stage] + ([name + target_ext + "_" + previous] if stage not in ("clock_period", "synth_sdc") else []) +
                    ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
-            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image),
+            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image, memory = False),
             outs = outs.get(stage, []),
             tags = ["supports-graceful-termination"],
         )

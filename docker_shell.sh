@@ -44,10 +44,18 @@ fi
 
 export MAKE_PATTERN_PREFIXED=$PATH_PREFIX/$MAKE_PATTERN
 
-# Prefix MOCK_AREA_TCL if exists
+# Prefix env var if exists
 if [[ -n "${MOCK_AREA_TCL}" ]]
 then
-	export MOCK_AREA_TCL_PREFIXED=$PATH_PREFIX/$MOCK_AREA_TCL
+	MOCK_AREA_TCL_PREFIXED="-e MOCK_AREA_TCL=$PATH_PREFIX/$MOCK_AREA_TCL"
+fi
+if [[ -n "${MEMORY_DUMP_TCL}" ]]
+then
+	MEMORY_DUMP_TCL_PREFIXED="-e MEMORY_DUMP_TCL=$PATH_PREFIX/$MEMORY_DUMP_TCL"
+fi
+if [[ -n "${MEMORY_DUMP_PY}" ]]
+then
+	MEMORY_DUMP_PY_PREFIXED="-e MEMORY_DUMP_PY=$PATH_PREFIX/$MEMORY_DUMP_PY"
 fi
 
 # Configs are always generated in execroot because they are generated in
@@ -57,6 +65,8 @@ export STAGE_CONFIG_PREFIXED=$WORKSPACE_EXECROOT/$STAGE_CONFIG
 
 # Make bazel-bin writable
 chmod -R +w $WORKSPACE_EXECROOT/bazel-out/k8-fastbuild/bin
+
+export MAKEFILES=$FLOW_HOME/Makefile
 
 # Handle TERM signals
 # this option requires `supports-graceful-termination` tag in Bazel rule
@@ -76,11 +86,14 @@ docker run --name "bazel-orfs-$uuid" --rm \
  -e XAUTHORITY=$XAUTH \
  -e BUILD_DIR=$WORKSPACE_EXECROOT \
  -e FLOW_HOME=$FLOW_HOME \
+ -e MAKEFILES=$MAKEFILES \
  -e DESIGN_CONFIG=$DESIGN_CONFIG_PREFIXED \
  -e STAGE_CONFIG=$STAGE_CONFIG_PREFIXED \
  -e MAKE_PATTERN=$MAKE_PATTERN_PREFIXED \
- -e MOCK_AREA_TCL=$MOCK_AREA_TCL_PREFIXED \
  -e WORK_HOME=$WORKSPACE_EXECROOT/$RULEDIR \
+ $MOCK_AREA_TCL_PREFIXED \
+ $MEMORY_DUMP_TCL_PREFIXED \
+ $MEMORY_DUMP_PY_PREFIXED \
  -v $WORKSPACE_ROOT:$WORKSPACE_ROOT \
  -v $WORKSPACE_ORIGIN:$WORKSPACE_ORIGIN \
  --network host \
@@ -90,7 +103,7 @@ docker run --name "bazel-orfs-$uuid" --rm \
  bash -c \
  "set -ex
  . ./env.sh
- cd \$FLOW_HOME
+ cd \$BUILD_DIR
  $ARGUMENTS
  " &
 
