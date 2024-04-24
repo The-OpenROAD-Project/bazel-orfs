@@ -83,9 +83,6 @@ Stage targets:
   //:L1MetadataArray_test_grt
   //:L1MetadataArray_test_generate_abstract
 
-Memory targets:
-  //:L1MetadataArray_test_memory
-
 Make targets:
   //:L1MetadataArray_test_clock_period_make
   //:L1MetadataArray_test_clock_period_make_script
@@ -103,8 +100,6 @@ Make targets:
   //:L1MetadataArray_test_grt_make_script
   //:L1MetadataArray_test_generate_abstract_make
   //:L1MetadataArray_test_generate_abstract_make_script
-  //:L1MetadataArray_test_memory_make
-  //:L1MetadataArray_test_memory_make_script
 
 Config generation targets:
 
@@ -129,8 +124,6 @@ Config generation targets:
     //:L1MetadataArray_test_grt_config.mk
     //:L1MetadataArray_test_generate_abstract_config
     //:L1MetadataArray_test_generate_abstract_config.mk
-    //:L1MetadataArray_test_memory_config
-    //:L1MetadataArray_test_memory_config.mk
 ```
 
 The example comes from the `BUILD` file in this repository.
@@ -149,7 +142,6 @@ These are the genrules spawend in this macro:
   * Common for the whole design (named: `target_name + “_config”`)
   * ORFS stage-specific config (named: `target_name + “_” + stage + “_config”`)
 * Stage targets (named: `target_name + “_” + stage`)
-  * Special stage: Memory targets (named: `target_name + “_memory”`)
   * Special mock flow: Mock Area targets (named: `target_name + “_” + stage + “_mock_area”`)
 * Make targets (named: `target_name + “_” + stage + “_make”`)
 
@@ -165,7 +157,6 @@ Docker flow uses containerized environment with preinstalled ORFS to run the phy
 Example targets which run the docker flow include:
 
 * //:L1MetadataArray_test_floorplan
-* //:L1MetadataArray_test_memory
 * //:tag_array_64x184_synth
 
 It implicitly depends on a docker image with installed ORFS environment being present in docker runtime of the machine running bazel targets.
@@ -240,10 +231,6 @@ The mock contains the description of macro which has its whole internal logic re
 At the same time the mock has the same pinout as the original macro and similar size which makes it useful in early design stages.
 Mocked abstracts are generated after the `floorplan` stage to be then used in builds of other parts of the design that use given macro.
 Used for estimating sizes of macros with long build times and checking if they will fit in upper-level modules without running time consuming place and route flow.
-
-#### Memory Targets
-
-These targets print RAM summaries for a given module.
 
 ### Constraints handling
 

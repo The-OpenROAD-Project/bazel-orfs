@@ -457,8 +457,7 @@ def init_output_dict(all_stages, platform, out_dir, variant, name):
             "results/%s/%s/%s/6_final.gds" % (platform, out_dir, variant),
         ],
         "grt": ["reports/%s/%s/%s/congestion.rpt" % (platform, out_dir, variant)],
-        "route": ["reports/%s/%s/%s/5_route_drc.rpt" % (platform, out_dir, variant)],
-        "memory": ["results/%s/%s/%s/mem.json" % (platform, out_dir, variant)],
+        "route": ["reports/%s/%s/%s/5_route_drc.rpt" % (platform, out_dir, variant)]
     }
 
     stage_num = dict(map(lambda s: (s[1], s[0]), all_stages))
@@ -665,38 +664,6 @@ def build_openroad(
 
     if mock_area != None:
         mock_area_stages(target_name, name, stage_sources, io_constraints, sdc_constraints, stage_args, outs, variant, mock_area, docker_image)
-
-    # *_memory targets
-    write_stage_config(
-        name = target_name + "_memory_config",
-        stage = "memory",
-        srcs = [],
-        stage_args = stage_args["synth"],
-    )
-    make_pattern = Label("//:memory-bazel.mk")
-    stage_config = Label("@@//:" + target_name + "_memory_config.mk")
-    entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, False)
-    native.genrule(
-        name = target_name + "_memory_make_script",
-        tools = [Label("//:orfs")],
-        srcs = [make_script_template, design_config, stage_config, make_pattern],
-        cmd = "cat <<EOF > $@ \n`cat $(location " + str(make_script_template) + ")`\n" + entrypoint_cmd + " \\$$@",
-        outs = ["logs/%s/%s/%s/make_script_memory.sh" % (platform, out_dir, variant)],
-    )
-    native.sh_binary(
-        name = target_name + "_memory_make",
-        srcs = ["//:" + target_name + "_memory_make_script"],
-        data = [Label("//:orfs"), design_config, stage_config, make_pattern],
-        deps = ["@bazel_tools//tools/bash/runfiles"],
-    )
-    native.genrule(
-        name = target_name + "_memory",
-        tools = [Label("//:docker_shell")],
-        srcs = [Label("//:scripts/mem_dump.py"), Label("//:scripts/mem_dump.tcl"), target_name + "_clock_period", design_config, stage_config, make_pattern],
-        cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, "memory", docker_image = docker_image),
-        outs = outs["memory"],
-        tags = ["supports-graceful-termination"],
-    )
 
     # Stage (Docker) targets
     for (previous, stage) in zip(["n/a"] + stages, stages):
