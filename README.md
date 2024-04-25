@@ -224,14 +224,6 @@ The runfiles library is used for accessing script dependencies stored in `runfil
 Attribute `srcs` of the genrule contains dependencies required for running the script (e.g.: `orfs` script, make target patterns, configs).
 Those dependencies don't include results of previous flow stages and because of that, it is required to build those before running the generated script.
 In the second rule (`sh_binary`) the `runfiles` directory for the script is created and filled with dependencies so that the script can be executed straight from the output directory.
-It is important to remember that, by default, bazel output directory is not writeable so running the ORFS flow with generated script will fail unless correct permissions are set for the directory.
-Example usage of `Make` targets can look like this:
-
-```
-bazel build $(bazel query "deps(L1MetadataArray_test_floorplan) except L1MetadataArray_test_floorplan")
-bazel build L1MetadataArray_test_floorplan_make
-./bazel-bin/L1MetadataArray_test_floorplan_make do-floorplan
-```
 
 #### Mock Area Targets
 
@@ -303,6 +295,42 @@ bazel build L1MetadataArray_test_cts
 
 # View results with OpenROAD GUI
 bazel run L1MetadataArray_test_cts_gui
+```
+
+### Using the local flow
+
+The local flow allows testing the build with locally built OpenROAD-flow-scripts.
+It is based on bazel `Make` targets, for more information on those, please refer to relevant [implementation](https://github.com/The-OpenROAD-Project/bazel-orfs?tab=readme-ov-file#make-targets) paragraph.
+Example usage of `Make` targets can look like this:
+
+Let's assume we want to perform a `floorplan` stage for the `L1MetadataArray` design using the locally built ORFS.
+
+1. Provide all the dependencies for running the target.
+```
+bazel build $(bazel query "deps(L1MetadataArray_test_floorplan) except L1MetadataArray_test_floorplan" --noimplicit_deps)
+```
+
+2. Generate the shell script.
+```
+bazel build L1MetadataArray_test_floorplan_make
+```
+
+3. Source `env.sh` of your local ORFS installation or set the `FLOW_HOME` environment variable to the path to your local `OpenROAD-flow-scripts/flow` directory.
+```
+source <path-to-ORFS>/env.sh
+# or
+export FLOW_HOME=<path-to-ORFS>/flow
+```
+
+4. Execute the shell script with ORFS make target relevant to given stage of the flow.
+The script is capable of running all make targets that have the same requirements as e.g. `do-floorplan` target
+```
+./bazel-bin/L1MetadataArray_test_floorplan_make do-floorplan
+```
+
+5. After the build is complete, it is possible to view the results in GUI.
+```
+./bazel-bin/L1MetadataArray_test_floorplan_make gui_floorplan
 ```
 
 ### Tweaking aspect ratio of a floorplan
