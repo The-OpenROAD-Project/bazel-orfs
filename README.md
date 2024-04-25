@@ -280,7 +280,7 @@ source $script_path/util.tcl
 
 This tutorial uses the `docker flow` to run the physical design flow with ORFS.
 Before starting, it is required to have available in your docker runtime a docker image with `OpenROAD-flow-scripts` installation.
-For more information, please refer to the [Requirements](https://github.com/The-OpenROAD-Project/bazel-orfs?tab=readme-ov-file#requirements) paragraph.
+For more information, please refer to the [Requirements](#requirements) paragraph.
 
 ### Hello world
 
@@ -300,7 +300,7 @@ bazel run L1MetadataArray_test_cts_gui
 ### Using the local flow
 
 The local flow allows testing the build with locally built OpenROAD-flow-scripts.
-It is based on bazel `Make` targets, for more information on those, please refer to relevant [implementation](https://github.com/The-OpenROAD-Project/bazel-orfs?tab=readme-ov-file#make-targets) paragraph.
+It is based on bazel `Make` targets, for more information on those, please refer to relevant [implementation](#make-targets) paragraph.
 Example usage of `Make` targets can look like this:
 
 Let's assume we want to perform a `floorplan` stage for the `L1MetadataArray` design using the locally built ORFS.
@@ -411,7 +411,7 @@ bazel build L1MetadataArray_test_generate_abstract
 ```
 
 This will cause the `mock area` targets to generate the abstracts for the design right after the `floorplan` stage instead of `grt` stage.
-For more information please refer to the description of [mock area targets](https://github.com/The-OpenROAD-Project/bazel-orfs?tab=readme-ov-file#mock-area-targets).
+For more information please refer to the description of [mock area targets](#mock-area-targets).
 
 
 ## Bazel hacking
