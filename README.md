@@ -217,13 +217,11 @@ The final usable script is generated under path:
 bazel-bin/<target_name>_make
 ```
 
-The shell script is produced by `genrule` by concatenating template script `make_script.template.sh` with the entrypoint command.
+The shell script is produced by `genrule` by concatenating shell shebang line with the entrypoint command.
 The entrypoint command consists of a call to `orfs`, essential environment variables definitions (e.g. with paths to generated `config.mk` files) and physical design make targets to execute in ORFS environment.
-Template file contains boilerplate code for enabling features of [bazel bash runfiles library](https://github.com/bazelbuild/bazel/blob/master/tools/bash/runfiles/runfiles.bash).
-The runfiles library is used for accessing script dependencies stored in `runfiles` driectory.
 Attribute `srcs` of the genrule contains dependencies required for running the script (e.g.: `orfs` script, make target patterns, configs).
 Those dependencies don't include results of previous flow stages and because of that, it is required to build those before running the generated script.
-In the second rule (`sh_binary`) the `runfiles` directory for the script is created and filled with dependencies so that the script can be executed straight from the output directory.
+In the second rule (`sh_binary`) for the script is created so that it can be executed straight from the output directory.
 
 #### Mock Area Targets
 
