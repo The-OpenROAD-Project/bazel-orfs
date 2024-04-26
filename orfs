@@ -11,15 +11,17 @@ export MAKEFILES=$FLOW_HOME/Makefile
 
 if [[ $WORKSPACE = * ]]
 then
-    export BUILD_DIR=$(echo $WORKSPACE | sed 's|external/bazel-orfs~override|execroot/_main|')
+    export BUILD_DIR=$(echo $WORKSPACE | sed 's|external/bazel-orfs~override||')
 else
     export BUILD_DIR=$WORKSPACE
 fi
 
-export WORK_HOME=$BUILD_DIR/$RULEDIR
+export WORK_HOME=$RULEDIR
 
 # Make bazel-bin writable
-chmod -R +w $WORK_HOME
+chmod -R +w $BUILD_DIR/$RULEDIR
+
+cd $BUILD_DIR
 
 source $(dirname $FLOW_HOME)/env.sh
 

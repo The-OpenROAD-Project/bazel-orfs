@@ -10,8 +10,6 @@ exports_files(["mock_area.tcl"])
 
 exports_files(["orfs"])
 
-exports_files(["make_script.template.sh"])
-
 filegroup(
     name = "util",
     srcs = [
