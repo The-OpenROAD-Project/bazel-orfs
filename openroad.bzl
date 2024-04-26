@@ -223,11 +223,8 @@ def get_make_targets(
 
     return targets
 
-def get_docker_flow_path(label):
+def get_location(label):
     return "$(location " + str(label) + ")"
-
-def get_local_flow_path(label):
-    return "\\$$(rlocation $(rlocationpath " + str(label) + ")) \\\\\n"
 
 def get_entrypoint_cmd(
         make_pattern,
@@ -255,30 +252,29 @@ def get_entrypoint_cmd(
       string with command line for running ORFS flow in docker container
     """
 
-    cmd = ""
-    path_constructor = None
     entrypoint = None
+    fmt_whitespace = ""
+    cmd = ""
+
     if (use_docker_flow):
-        path_constructor = get_docker_flow_path
-        entrypoint = Label("//:docker_shell")
+        fmt_whitespace = " \\\n"
+        entrypoint = " $(location " + str(Label("//:docker_shell")) + ")" + fmt_whitespace
     else:
-        path_constructor = get_local_flow_path
-        entrypoint = Label("//:orfs")
+        fmt_whitespace = " \\\\\n"
+        entrypoint = " $$(pwd)/$(location " + str(Label("//:orfs")) + ")" + fmt_whitespace
 
     if (docker_image != None):
-        cmd += "OR_IMAGE=" + docker_image + " "
-    cmd += "DESIGN_CONFIG=" + path_constructor(design_config)
-    cmd += " STAGE_CONFIG=" + path_constructor(stage_config)
-    cmd += " MAKE_PATTERN=" + path_constructor(make_pattern)
+        cmd += "\\\nOR_IMAGE=" + docker_image + fmt_whitespace + " "
+    cmd += "DESIGN_CONFIG=" + get_location(design_config) + fmt_whitespace
+    cmd += " STAGE_CONFIG=" + get_location(stage_config) + fmt_whitespace
+    cmd += " MAKE_PATTERN=" + get_location(make_pattern) + fmt_whitespace
     if (mock_area):
-        cmd += " MOCK_AREA_TCL=" + path_constructor(Label("//:mock_area.tcl"))
+        cmd += " MOCK_AREA_TCL=" + get_location(Label("//:mock_area.tcl")) + fmt_whitespace
     if (memory):
-        cmd += " MEMORY_DUMP_TCL=" + path_constructor(Label("//scripts:mem_dump.tcl"))
-        cmd += " MEMORY_DUMP_PY=" + path_constructor(Label("//scripts:mem_dump.py"))
-    cmd += " RULEDIR=$(RULEDIR)"
-    if not use_docker_flow:
-        cmd += " \\\\\n"
-    cmd += " " + path_constructor(entrypoint)
+        cmd += " MEMORY_DUMP_TCL=" + get_location(Label("//scripts:mem_dump.tcl")) + fmt_whitespace
+        cmd += " MEMORY_DUMP_PY=" + get_location(Label("//scripts:mem_dump.py")) + fmt_whitespace
+    cmd += " RULEDIR=$(RULEDIR)" + fmt_whitespace
+    cmd += entrypoint
     cmd += " make "
     if (make_targets != None):
         cmd += make_targets
@@ -634,7 +630,6 @@ def build_openroad(
         stages.append(stage)
 
     # Make (local) targets
-    make_script_template = Label("//:make_script.template.sh")
     design_config = Label("@@//:" + target_name + "_config.mk")
     for stage in stages:
         make_pattern = Label("//:" + stage + "-bazel.mk")
@@ -645,8 +640,8 @@ def build_openroad(
         native.genrule(
             name = target_name + "_" + stage + "_make_script",
             tools = [Label("//:orfs")],
-            srcs = [make_script_template, design_config, stage_config, make_pattern],
-            cmd = "cat <<EOF > $@ \n`cat $(location " + str(make_script_template) + ")`\n" + entrypoint_cmd + " \\$$@",
+            srcs = [design_config, stage_config, make_pattern],
+            cmd = "cat <<EOF > $@ \n#!/bin/bash\n" + entrypoint_cmd + " \\$$@",
             outs = ["logs/%s/%s/%s/make_script_%s.sh" % (platform, out_dir, variant, stage)],
         )
 
@@ -654,7 +649,6 @@ def build_openroad(
             name = target_name + "_" + stage + "_make",
             srcs = ["//:" + target_name + "_" + stage + "_make_script"],
             data = [Label("//:orfs"), design_config, stage_config, make_pattern],
-            deps = ["@bazel_tools//tools/bash/runfiles"],
         )
 
     # Generate general config for design stage targets
@@ -680,15 +674,14 @@ def build_openroad(
     native.genrule(
         name = target_name + "_memory_make_script",
         tools = [Label("//:orfs")],
-        srcs = [make_script_template, design_config, stage_config, make_pattern, Label("//scripts:mem_dump.tcl"), Label("//scripts:mem_dump.py")],
-        cmd = "cat <<EOF > $@ \n`cat $(location " + str(make_script_template) + ")`\n" + entrypoint_cmd + " \\$$@",
+        srcs = [design_config, stage_config, make_pattern, Label("//scripts:mem_dump.tcl"), Label("//scripts:mem_dump.py")],
+        cmd = "cat <<EOF > $@ \n#!/bin/bash\n" + entrypoint_cmd + " \\$$@",
         outs = ["logs/%s/%s/%s/make_script_memory.sh" % (platform, out_dir, variant)],
     )
     native.sh_binary(
         name = target_name + "_memory_make",
         srcs = ["//:" + target_name + "_memory_make_script"],
         data = [Label("//:orfs"), design_config, stage_config, make_pattern, Label("//scripts:mem_dump.tcl"), Label("//scripts:mem_dump.py")],
-        deps = ["@bazel_tools//tools/bash/runfiles"],
     )
     native.genrule(
         name = target_name + "_memory",
