@@ -51,7 +51,6 @@ build_openroad(
     name = "tag_array_64x184",
     io_constraints = ":io-sram",
     mock_abstract = True,
-    mock_area = 0.20,
     mock_stage = "floorplan",
     sdc_constraints = ":constraints-sram",
     stage_args = {
@@ -61,7 +60,7 @@ build_openroad(
         ],
         "place": ["PLACE_DENSITY=0.65"],
     },
-    verilog_files = ["test/rtl/tag_array_64x184.sv"],
+    verilog_files = ["test/mock/tag_array_64x184.sv"],
 )
 
 build_openroad(
