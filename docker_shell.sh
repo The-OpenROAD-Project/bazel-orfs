@@ -14,18 +14,24 @@ function handle_sigterm() {
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-WORKSPACE_ROOT=$(pwd)/../..
-WORKSPACE_EXECROOT=$(pwd)
+if [[ $DIR == */external/bazel-orfs~override ]]; then
+	WORKSPACE_ROOT=$(realpath $DIR/../../../../../../..)
+else
+	WORKSPACE_ROOT=$(realpath $DIR/../../../../..)
+fi
+WORKSPACE_EXECROOT=$WORKSPACE_ROOT/execroot/_main
 WORKSPACE_EXTERNAL=$WORKSPACE_ROOT/external
+
+# Automatically mount bazel-orfs directory if it is used as module with local_path_override
+if [[ $DIR == */external/bazel-orfs~override ]]; then
+	BAZLE_ORFS_DIR=$(realpath $WORKSPACE_ROOT/external/bazel-orfs~override)
+	DOCKER_ARGS="$DOCKER_ARGS -v $BAZLE_ORFS_DIR:$BAZLE_ORFS_DIR"
+fi
 
 XSOCK=/tmp/.X11-unix
 XAUTH=/tmp/.docker.xauth
 xauth nlist :0 | sed -e 's/^..../ffff/' | xauth -f $XAUTH nmerge -
 ARGUMENTS=$@
-
-if test -t 0; then
-    DOCKER_INTERACTIVE=-ti
-fi
 
 export FLOW_HOME="/OpenROAD-flow-scripts/flow/"
 # Get path to the bazel workspace
