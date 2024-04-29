@@ -3,6 +3,21 @@ This module contains a definiton of build_openroad() macro used for declaring
 targets for running physical design flow with OpenROAD-flow-scripts.
 """
 
+def add_options_all_stages(options, new_options):
+    """Add new_options to all options in options dictionary.
+
+    Args:
+        options (dict): options dictionary
+        new_options: options to add to all options in dictionary.
+
+    Returns:
+        dict: A new updated dictionary.
+    """
+    result = {}
+    for key, value in options.items():
+        result[key] = value + new_options
+    return result
+
 def enumerate(iterable):
     """
     Convert list of elements into list of tuples (index, element)
