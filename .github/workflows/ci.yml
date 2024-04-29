@@ -26,8 +26,8 @@ jobs:
         run: |
           buildifier -lint warn -r .
 
-  build-stage-target:
-    name: Build sample stage targets
+  build-make-target:
+    name: Build sample make targets
     runs-on: ubuntu-22.04
     defaults:
       run:
@@ -36,11 +36,11 @@ jobs:
       fail-fast: false
       matrix:
         STAGE_TARGET:
-          - "tag_array_64x184_generate_abstract"
-          - "L1MetadataArray_test_generate_abstract"
-          - "L1MetadataArray_full_generate_abstract"
-          - "L1MetadataArray_test_gds_final"
-          - "tag_array_64x184_memory"
+          - "tag_array_64x184_generate_abstract_make"
+          - "L1MetadataArray_test_generate_abstract_make"
+          - "L1MetadataArray_full_generate_abstract_make"
+          - "L1MetadataArray_test_gds_final_make"
+          - "tag_array_64x184_memory_make"
     env:
       DEBIAN_FRONTEND: "noninteractive"
     steps:
@@ -68,8 +68,41 @@ jobs:
         run: |
           bazel build --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }}
 
-  test-make-script-target:
-    name: Execute sample _make scripts
+  test-scripts-target-docker:
+    name: Execute sample _scripts targets with docker flow
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+      FLOW: docker
+    steps:
+      - name: Print info
+        run: |
+          echo "USER: "$(whoami)
+          echo "PWD: "$(pwd)
+          ls -la
+          echo "HOME: "$HOME
+          docker --version
+      - name: Checkout bazel-orfs
+        uses: actions/checkout@v4
+      - name: load docker image
+        run: |
+          bazel run --subcommands --verbose_failures --sandbox_debug orfs_env
+      - name: build docker stage targets - tag_array_64x184
+        env:
+          TARGET: tag_array_64x184
+        run: .github/scripts/build_local_target.sh
+      - name: build docker stage targets - L1MetadataArray_test
+        env:
+          TARGET: L1MetadataArray_test
+        run: .github/scripts/build_local_target.sh
+
+  test-scripts-target-local:
+    name: Execute sample _scripts targets with local flow
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/antmicro/openroad-flow-scripts/ubuntu22.04@sha256:b13b35193bec45cb708bd9a5ee3546a7f20378e3c977a4c49f00e9c1c8a71181
@@ -112,8 +145,8 @@ jobs:
           TARGET: L1MetadataArray_test
         run: .github/scripts/build_local_target.sh
 
-  test-stage-make-targets:
-    name: Run ORFS using stage targets and _make scrips
+  test-docker-local-targets:
+    name: Run ORFS using docker and local flow
     runs-on: ubuntu-22.04
     defaults:
       run:
@@ -132,22 +165,24 @@ jobs:
       - name: load docker image
         run: |
           bazel run --subcommands --verbose_failures --sandbox_debug orfs_env
-      - name: build synth stage targets
-        run: |
-          bazel build --subcommands --verbose_failures --sandbox_debug tag_array_64x184_synth_sdc tag_array_64x184_synth
-      - name: build make target
+      - name: build docker flow targets
+        env:
+          FLOW: docker
+          STAGES: synth_sdc synth
+        run: .github/scripts/build_local_target.sh
+      - name: prepare scripts with local flow
         env:
           SKIP_RUN: 1
         run: .github/scripts/build_local_target.sh
-      - name: set env
-        run: |
-          echo "DOCKER_ARGS=-v $(realpath ~/.cache):$(realpath ~/.cache)" >> $GITHUB_ENV
-          echo "OR_IMAGE=$DOCKER_IMAGE" >> $GITHUB_ENV
-      - name: run make target
-        run: |
-          ./docker_shell.sh "export SKIP_BUILD=1
-            export TARGET=$TARGET
-            export STAGES=\"$STAGES\"
-            export FLOW_HOME=/OpenROAD-flow-scripts/flow
-            cd "'$WORK_HOME
-            $WORK_HOME/.github/scripts/build_local_target.sh'
+      - name: run local flow target
+        run: >
+          docker run --rm
+          -v $(realpath ~/.cache):$(realpath ~/.cache)
+          -v $(pwd):$(pwd)
+          -e FLOW_HOME=/OpenROAD-flow-scripts/flow
+          -e SKIP_BUILD=1
+          -e TARGET
+          -e STAGES
+          -w $(pwd)
+          $DOCKER_IMAGE
+          .github/scripts/build_local_target.sh
