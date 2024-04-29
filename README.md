@@ -8,8 +8,8 @@ This repository contains [Bazel](https://bazel.build/) rules for wrapping Physic
 ## Requirements
 
 * [Bazelisk](https://bazel.build/install/bazelisk) or [Bazel](https://bazel.build/install) - if using `bazel`, please refer to `.bazelversion` file for the recommended version of the tool.
-* [OpenROAD-flow-scripts](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts) - **Required only for running `Make` targets** - to use it, `env.sh` file from OpenROAD-flow-scripts has to be sourced or `FLOW_HOME` environmental variable has to be set manually to `OpenROAD-flow-scripts/flow` location. `bazel-orfs` intentionally does not treat OpenROAD-flow-scripts as a installable versioned tool, but prefers to rely on local installation such that it is easy to hack ORFS and OpenROAD.
-* [Docker](https://docs.docker.com/get-docker/) - **Required only for running `Stage` targets**
+* [OpenROAD-flow-scripts](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts) - **Required only for running local scripts** - to use it, `env.sh` file from OpenROAD-flow-scripts has to be sourced or `FLOW_HOME` environmental variable has to be set manually to `OpenROAD-flow-scripts/flow` location. `bazel-orfs` intentionally does not treat OpenROAD-flow-scripts as a installable versioned tool, but prefers to rely on local installation such that it is easy to hack ORFS and OpenROAD.
+* [Docker](https://docs.docker.com/get-docker/) - **Required for running `Make` targets and Docker scripts**
 * Docker image with ORFS installation - **Required only for running `Stage` targets** - can be obtained in two ways:
 
   * running `bazel run orfs_env` which downloads the docker image from container registry and loads it to docker runtime under name: `openroad/flow-ubuntu22.04-builder:latest`
@@ -19,7 +19,7 @@ This repository contains [Bazel](https://bazel.build/) rules for wrapping Physic
     docker pull ghcr.io/antmicro/openroad-flow-scripts/ubuntu22.04:latest
     ```
     In such case the `docker_image` attribute of `build_openroad` macro must be set to `ghcr.io/antmicro/openroad-flow-scripts/ubuntu22.04:latest`
-  * Providing different docker image and overriding default used in the flow through `doker_image` attribute of `build_openroad` macro
+  * Providing different docker image and overriding default used in the flow through `docker_image` attribute of `build_openroad` macro
 
 ## Usage
 
@@ -73,38 +73,27 @@ build_openroad(
 Macro from the example above spawns the following bazel targets:
 
 ```
-Stage targets:
-  //:L1MetadataArray_test_clock_period
-  //:L1MetadataArray_test_synth_sdc
-  //:L1MetadataArray_test_synth
-  //:L1MetadataArray_test_floorplan
-  //:L1MetadataArray_test_place
-  //:L1MetadataArray_test_cts
-  //:L1MetadataArray_test_grt
-  //:L1MetadataArray_test_generate_abstract
-
-Memory targets:
-  //:L1MetadataArray_test_memory
+Scripts targets:
+  //:L1MetadataArray_test_clock_period_scripts
+  //:L1MetadataArray_test_synth_sdc_scripts
+  //:L1MetadataArray_test_synth_scripts
+  //:L1MetadataArray_test_memory_scripts
+  //:L1MetadataArray_test_floorplan_scripts
+  //:L1MetadataArray_test_place_scripts
+  //:L1MetadataArray_test_cts_scripts
+  //:L1MetadataArray_test_grt_scripts
+  //:L1MetadataArray_test_generate_abstract_scripts
 
 Make targets:
   //:L1MetadataArray_test_clock_period_make
-  //:L1MetadataArray_test_clock_period_make_script
   //:L1MetadataArray_test_synth_sdc_make
-  //:L1MetadataArray_test_synth_sdc_make_script
   //:L1MetadataArray_test_synth_make
-  //:L1MetadataArray_test_synth_make_script
   //:L1MetadataArray_test_floorplan_make
-  //:L1MetadataArray_test_floorplan_make_script
   //:L1MetadataArray_test_place_make
-  //:L1MetadataArray_test_place_make_script
   //:L1MetadataArray_test_cts_make
-  //:L1MetadataArray_test_cts_make_script
   //:L1MetadataArray_test_grt_make
-  //:L1MetadataArray_test_grt_make_script
   //:L1MetadataArray_test_generate_abstract_make
-  //:L1MetadataArray_test_generate_abstract_make_script
   //:L1MetadataArray_test_memory_make
-  //:L1MetadataArray_test_memory_make_script
 
 Config generation targets:
 
@@ -143,30 +132,20 @@ For details about targets spawned by this macro please refer to `Implementation`
 This file contains simple helper functions written in starlark as well as macro `build_openroad()`.
 The implementation of this macro spawns multiple `genrule` native rules which are responsible for preparing and running ORFS physical design flow targets during bazel build stage.
 
-These are the genrules spawend in this macro:
+These are the genrules spawned in this macro:
 
 * Config generation targets
   * Common for the whole design (named: `target_name + “_config”`)
   * ORFS stage-specific config (named: `target_name + “_” + stage + “_config”`)
-* Stage targets (named: `target_name + “_” + stage`)
-  * Special stage: Memory targets (named: `target_name + “_memory”`)
-  * Special mock flow: Mock Area targets (named: `target_name + “_” + stage + “_mock_area”`)
+* Scripts targets (named: `target_name + “_” + stage + “_scripts”`)
+  * Prepares local and Docker flow scripts which build the stage
 * Make targets (named: `target_name + “_” + stage + “_make”`)
-
-There are two kinds of flows available:
-* Docker flow (Stage targets)
-* Local flow (Make targets)
-
-Both docker and local flow does the same thing: for each stage of the physical design flow it writes config files, sets env vars pointing to those files, builds a command line to execute in ORFS environment and runs it through the `entrypoint` script.
+  * Builds all dependencies required for the stage and generates scripts
+* Special mock flow: Mock Area targets (named: `target_name + “_” + stage + “_mock_area”`)
 
 #### Docker flow
 
 Docker flow uses containerized environment with preinstalled ORFS to run the physical design flow.
-Example targets which run the docker flow include:
-
-* //:L1MetadataArray_test_floorplan
-* //:L1MetadataArray_test_memory
-* //:tag_array_64x184_synth
 
 It implicitly depends on a docker image with installed ORFS environment being present in docker runtime of the machine running bazel targets.
 The docker image used in the flow defaults to `ghcr.io/antmicro/openroad-flow-scripts/ubuntu22.04:latest`.
@@ -176,14 +155,10 @@ Users can also build the image from ORFS sources following [the guide](https://o
 
 #### Local flow
 
-The local flow (`_make` bazel targets) depends on the locally installed ORFS.
+The local flow depends on the locally installed ORFS.
 Path to `OpenROAD-flow-scripts/flow` is expected to be specified in `FLOW_HOME` environmental variable.
 For the installation guide please refer to the [build instructions](https://openroad-flow-scripts.readthedocs.io/en/latest/user/BuildLocally.html).
-The local flow relies on `_make` bazel targets which are used to generate shell scripts.
-Those shell scripts, apart from facilitating quick tests of ORFS modifications, can be used to run ORFS stages straight from the bazel-orfs repository and to allow tweaking the "moving parts" of the flow, like e.g.:
-* Design and stage configs
-* Make targets patterns
-* entrypoint command line
+The local flow relies on `_scripts` bazel targets which are used to generate shell scripts.
 
 #### Config files
 
@@ -200,28 +175,32 @@ Both of those scripts have the same responsibility of preparing and entering the
 `docker_shell` is very similar in that matter except it runs the flow in a docker container.
 The input and output files for the flow stage are passed to the running container through [bind mounts](https://docs.docker.com/storage/#bind-mounts).
 
-#### Stage Targets
+#### Scripts Targets
 
-Main rules for executing each ORFS stage (synthesis, floorplan, clock tree synthesis, place, route, etc.).
-The outputs and inputs are different for each ORFS stage and are defined by macro arguments and the implementation of the macro.
-Those targets are built with the docker flow.
-Before running stage targets it is required to first pull the ORFS docker image into local docker runtime.
-
-#### Make Targets
-
-Those scripts are used for local tests of ORFS stages and are built with locally installed ORFS.
-Two targets are spawned for each ORFS stage. First generates a shell script, second makes it executable from `bazel-bin` directory.
-The final usable script is generated under path:
+These rules generate two scripts, one for local flow and other for Docker flow.
+They can be found under path:
 
 ```
-bazel-bin/<target_name>_make
+bazel-bin/<target_name>_local_make
+bazel-bin/<target_name>_docker
 ```
 
-The shell script is produced by `genrule` by concatenating shell shebang line with the entrypoint command.
-The entrypoint command consists of a call to `orfs`, essential environment variables definitions (e.g. with paths to generated `config.mk` files) and physical design make targets to execute in ORFS environment.
+Shell scripts are produced by `genrule` by concatenating shell shebang line with the entrypoint command.
+The entrypoint command consists of a call to `orfs` or `docker_shell`, essential environment variables definitions (e.g. with paths to generated `config.mk` files) and physical design make targets to execute in ORFS environment.
 Attribute `srcs` of the genrule contains dependencies required for running the script (e.g.: `orfs` script, make target patterns, configs).
 Those dependencies don't include results of previous flow stages and because of that, it is required to build those before running the generated script.
 In the second rule (`sh_binary`) for the script is created so that it can be executed straight from the output directory.
+
+Created shell scripts, apart from facilitating quick tests of ORFS modifications, can be used to run ORFS stages straight from the bazel-orfs repository and to allow tweaking the "moving parts" of the flow, like e.g.:
+* Design and stage configs
+* Make targets patterns
+* entrypoint command line
+
+#### Make Targets
+
+Targets build all necessary dependencies for chosen stage and both scripts from scripts target.
+Those dependencies are built with the docker flow.
+Before running stage targets it is required to first pull the ORFS docker image into local docker runtime.
 
 #### Mock Area Targets
 
@@ -288,11 +267,12 @@ A quick test-build:
 # Download and load docker image with ORFS
 bazel run @bazel-orfs//:orfs_env
 
-# Build L1MetadataArray macro up to the CTS stage
-bazel build L1MetadataArray_test_cts
+# Build L1MetadataArray dependencies for the CTS stage
+bazel build L1MetadataArray_test_cts_make
 
-# View results with OpenROAD GUI
-bazel run L1MetadataArray_test_cts_gui
+# Build CTS stage for L1MetadataArray macro with local of Docker flow
+./bazel-bin/L1MetadataArray_test_cts_local_make bazel-cts
+./bazel-bin/L1MetadataArray_test_cts_docker bazel-cts
 ```
 
 ### Using the local flow
@@ -303,32 +283,22 @@ Example usage of `Make` targets can look like this:
 
 Let's assume we want to perform a `floorplan` stage for the `L1MetadataArray` design using the locally built ORFS.
 
-1. Provide all the dependencies for running the target.
-```
-bazel build $(bazel query "deps(L1MetadataArray_test_floorplan) except L1MetadataArray_test_floorplan" --noimplicit_deps)
-```
-
-2. Generate the shell script.
+1. Provide all the dependencies for running the target and generate scripts.
 ```
 bazel build L1MetadataArray_test_floorplan_make
 ```
 
-3. Source `env.sh` of your local ORFS installation or set the `FLOW_HOME` environment variable to the path to your local `OpenROAD-flow-scripts/flow` directory.
+2. Source `env.sh` of your local ORFS installation or set the `FLOW_HOME` environment variable to the path to your local `OpenROAD-flow-scripts/flow` directory.
 ```
 source <path-to-ORFS>/env.sh
 # or
 export FLOW_HOME=<path-to-ORFS>/flow
 ```
 
-4. Execute the shell script with ORFS make target relevant to given stage of the flow.
+3. Execute the shell script with ORFS make target relevant to given stage of the flow.
 The script is capable of running all make targets that have the same requirements as e.g. `do-floorplan` target
 ```
-./bazel-bin/L1MetadataArray_test_floorplan_make do-floorplan
-```
-
-5. After the build is complete, it is possible to view the results in GUI.
-```
-./bazel-bin/L1MetadataArray_test_floorplan_make gui_floorplan
+./bazel-bin/L1MetadataArray_test_floorplan_local_make bazel-floorplan
 ```
 
 ### Tweaking aspect ratio of a floorplan
