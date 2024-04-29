@@ -249,7 +249,8 @@ def get_entrypoint_cmd(
         make_targets = None,
         docker_image = None,
         mock_area = False,
-        memory = False):
+        memory = False,
+        entrypoint = None):
     """
     Prepare command line for running docker_shell utility
 
@@ -262,21 +263,25 @@ def get_entrypoint_cmd(
       docker_image: name of the docker image used for running ORFS flow
       mock_area: flag describing whether pass additional env var for mock_area target execution
       memory: flag describing whether pass additional env var for memory target execution
+      entrypoint: optional label pointing to file which will be used as entrypoint
 
     Returns:
       string with command line for running ORFS flow in docker container
     """
 
-    entrypoint = None
     fmt_whitespace = ""
     cmd = ""
 
     if (use_docker_flow):
         fmt_whitespace = " \\\n"
-        entrypoint = " $(location " + str(Label("//:docker_shell")) + ")" + fmt_whitespace
+        if entrypoint == None:
+            entrypoint = Label("//:docker_shell")
+        entrypoint = " $(location " + str(entrypoint) + ")" + fmt_whitespace
     else:
         fmt_whitespace = " \\\\\n"
-        entrypoint = " $$(pwd)/$(location " + str(Label("//:orfs")) + ")" + fmt_whitespace
+        if entrypoint == None:
+            entrypoint = Label("//:orfs")
+        entrypoint = " $$(pwd)/$(location " + str(entrypoint) + ")" + fmt_whitespace
 
     if (docker_image != None):
         cmd += "\\\nOR_IMAGE=" + docker_image + fmt_whitespace + " "
@@ -542,8 +547,8 @@ def build_openroad(
     macros = set(macros + list(macro_variants.keys()))
     all_stages = [
         ("0", "clock_period"),
-        ("1", "synth"),
         ("0", "synth_sdc"),
+        ("1", "synth"),
         ("2", "floorplan"),
         ("3", "place"),
         ("4", "cts"),
@@ -607,7 +612,6 @@ def build_openroad(
         stage_sources["clock_period"] = [sdc_constraints]
     stage_sources["synth"] = list(filter(stage_sources["synth"], lambda s: not s.endswith(".sdc")))
     stage_sources["synth"] += set(verilog_files)
-    stage_sources["floorplan"].append(name + target_ext + "_synth")
     if io_constraints != None:
         stage_sources["floorplan"].append(io_constraints)
         stage_sources["place"].append(io_constraints)
@@ -644,26 +648,56 @@ def build_openroad(
             skip = True
         stages.append(stage)
 
-    # Make (local) targets
+    # _scripts targets
     design_config = Label("@@//:" + target_name + "_config.mk")
     for stage in stages:
         make_pattern = Label("//:" + stage + "-bazel.mk")
         stage_config = Label("@@//:" + target_name + "_" + stage + "_config.mk")
         make_targets = get_make_targets(stage, False, mock_area)
-        entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, False, memory = False)
+        local_entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, False, memory = False)
+        docker_entrypoint_cmd = get_entrypoint_cmd(
+            make_pattern,
+            design_config,
+            stage_config,
+            False,
+            memory = False,
+            entrypoint = Label("//:docker_shell"),
+            docker_image = docker_image,
+        )
+        target_name_stage = target_name + "_" + stage
 
+        # Local flow scripts
         native.genrule(
-            name = target_name + "_" + stage + "_make_script",
+            name = target_name_stage + "_make_local_script",
             tools = [Label("//:orfs")],
             srcs = [design_config, stage_config, make_pattern],
-            cmd = "cat <<EOF > $@ \n#!/bin/bash\n" + entrypoint_cmd + " \\$$@",
+            cmd = "cat <<EOF > $@ \n#!/bin/bash\n" + local_entrypoint_cmd + " \\$$@\nEOF",
             outs = ["logs/%s/%s/%s/make_script_%s.sh" % (platform, out_dir, variant, stage)],
         )
-
         native.sh_binary(
-            name = target_name + "_" + stage + "_make",
-            srcs = ["//:" + target_name + "_" + stage + "_make_script"],
+            name = target_name_stage + "_local_make",
+            srcs = ["//:" + target_name_stage + "_make_local_script"],
             data = [Label("//:orfs"), design_config, stage_config, make_pattern],
+        )
+
+        # Docker flow scripts
+        native.genrule(
+            name = target_name_stage + "_make_docker_script",
+            tools = [Label("//:docker_shell")],
+            srcs = [design_config, stage_config, make_pattern],
+            cmd = "cat <<EOF > $@ \n#!/bin/bash\n" + docker_entrypoint_cmd + " \\$$@\nEOF",
+            outs = ["logs/%s/%s/%s/make_docker_script_%s.sh" % (platform, out_dir, variant, stage)],
+        )
+        native.sh_binary(
+            name = target_name_stage + "_docker",
+            srcs = ["//:" + target_name_stage + "_make_docker_script"],
+            data = [Label("//:docker_shell"), design_config, stage_config, make_pattern],
+        )
+
+        # Scripts target
+        native.filegroup(
+            name = target_name_stage + "_scripts",
+            srcs = [target_name_stage + "_local_make", target_name_stage + "_docker"],
         )
 
     # Generate general config for design stage targets
@@ -685,29 +719,46 @@ def build_openroad(
     )
     make_pattern = Label("//:memory-bazel.mk")
     stage_config = Label("@@//:" + target_name + "_memory_config.mk")
-    entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, False, memory = True)
+    mem_scripts = [Label("//scripts:mem_dump.tcl"), Label("//scripts:mem_dump.py")]
+    local_entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, False, memory = True)
+    docker_entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, "memory", docker_image = docker_image, memory = True)
+
     native.genrule(
-        name = target_name + "_memory_make_script",
+        name = target_name + "_memory_make_local_script",
         tools = [Label("//:orfs")],
-        srcs = [design_config, stage_config, make_pattern, Label("//scripts:mem_dump.tcl"), Label("//scripts:mem_dump.py")],
-        cmd = "cat <<EOF > $@ \n#!/bin/bash\n" + entrypoint_cmd + " \\$$@",
-        outs = ["logs/%s/%s/%s/make_script_memory.sh" % (platform, out_dir, variant)],
+        srcs = [design_config, stage_config, make_pattern] + mem_scripts,
+        cmd = "cat <<EOF > $@ \n#!/bin/bash\n" + local_entrypoint_cmd + " \\$$@\nEOF",
+        outs = ["logs/%s/%s/%s/make_local_script_memory.sh" % (platform, out_dir, variant)],
     )
     native.sh_binary(
-        name = target_name + "_memory_make",
-        srcs = ["//:" + target_name + "_memory_make_script"],
-        data = [Label("//:orfs"), design_config, stage_config, make_pattern, Label("//scripts:mem_dump.tcl"), Label("//scripts:mem_dump.py")],
-    )
-    native.genrule(
-        name = target_name + "_memory",
-        tools = [Label("//:docker_shell")],
-        srcs = [Label("//scripts:mem_dump.py"), Label("//scripts:mem_dump.tcl"), target_name + "_clock_period", design_config, stage_config, make_pattern],
-        cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, "memory", docker_image = docker_image, memory = True),
-        outs = outs["memory"],
-        tags = ["supports-graceful-termination"],
+        name = target_name + "_memory_local_make",
+        srcs = ["//:" + target_name + "_memory_make_local_script"],
+        data = [Label("//:orfs"), design_config, stage_config, make_pattern] + mem_scripts,
     )
 
-    # Stage (Docker) targets
+    native.genrule(
+        name = target_name + "_memory_make_docker_script",
+        tools = [Label("//:docker_shell")],
+        srcs = [design_config, stage_config, make_pattern] + mem_scripts,
+        cmd = "cat <<EOF > $@ \n#!/bin/bash\n" + docker_entrypoint_cmd + " \\$$@\nEOF",
+        outs = ["logs/%s/%s/%s/make_docker_script_memory.sh" % (platform, out_dir, variant)],
+    )
+    native.sh_binary(
+        name = target_name + "_memory_docker",
+        srcs = ["//:" + target_name + "_memory_make_docker_script"],
+        data = [Label("//:docker_shell"), design_config, stage_config, make_pattern] + mem_scripts,
+    )
+
+    native.filegroup(
+        name = target_name + "_memory_scripts",
+        srcs = [target_name + "_memory_local_make", target_name + "_memory_docker"],
+    )
+    native.filegroup(
+        name = target_name + "_memory_make",
+        srcs = [target_name + "_memory_scripts", target_name + "_clock_period"],
+    )
+
+    # _make targets
     for (previous, stage) in zip(["n/a"] + stages, stages):
         # Generate config for stage targets
         stage_cfg_srcs = []
@@ -727,12 +778,23 @@ def build_openroad(
         stage_config = Label("@@//:" + target_name + "_" + stage + "_config.mk")
         make_targets = get_make_targets(stage, False, mock_area)
 
+        # Target building `target_name` `stage` and its dependencies
         native.genrule(
             name = target_name + "_" + stage,
             tools = [Label("//:docker_shell")],
-            srcs = [make_pattern, design_config, stage_config] + stage_sources[stage] + ([name + target_ext + "_" + previous] if stage not in ("clock_period", "synth_sdc") else []) +
-                   ([name + target_ext + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
+            srcs = [make_pattern, design_config, stage_config] + stage_sources[stage] +
+                   ([target_name + "_" + previous] if stage not in ("clock_period", "synth_sdc") else []) +
+                   ([target_name + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
             cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image, memory = False),
             outs = outs.get(stage, []),
             tags = ["supports-graceful-termination"],
+            visibility = ["//visibility:private"],
+        )
+
+        # Target building `target_name` `stage` dependencies and generating `stage` scripts
+        native.filegroup(
+            name = target_name + "_" + stage + "_make",
+            srcs = [target_name + "_" + stage + "_scripts"] + stage_sources[stage] +
+                   ([target_name + "_" + previous] if stage not in ("clock_period", "synth_sdc") else []) +
+                   ([target_name + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
         )
