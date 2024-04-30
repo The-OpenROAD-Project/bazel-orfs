@@ -1,4 +1,4 @@
-name: bazel-orfs build tests
+name: bazel-orfs
 
 on:
   workflow_dispatch:
@@ -26,8 +26,8 @@ jobs:
         run: |
           buildifier -lint warn -r .
 
-  build-make-target:
-    name: Build sample make targets
+  test-make-target:
+    name: ${{ matrix.STAGE_TARGET }}
     runs-on: ubuntu-22.04
     defaults:
       run:
@@ -69,7 +69,7 @@ jobs:
           bazel build --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }}
 
   test-scripts-target-docker:
-    name: Execute sample _scripts targets with docker flow
+    name: Docker flow - test _scripts targets
     runs-on: ubuntu-22.04
     defaults:
       run:
@@ -102,7 +102,7 @@ jobs:
         run: .github/scripts/build_local_target.sh
 
   test-scripts-target-local:
-    name: Execute sample _scripts targets with local flow
+    name: Local flow - test _scripts targets
     runs-on: ubuntu-22.04
     container:
       image: ghcr.io/antmicro/openroad-flow-scripts/ubuntu22.04@sha256:b13b35193bec45cb708bd9a5ee3546a7f20378e3c977a4c49f00e9c1c8a71181
