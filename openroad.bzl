@@ -695,9 +695,15 @@ def build_openroad(
         )
 
         # Scripts target
+        # Specifies additional dependencies to ensure _local_make and _docker are printed at the end
         native.filegroup(
             name = target_name_stage + "_scripts",
-            srcs = [target_name_stage + "_local_make", target_name_stage + "_docker"],
+            srcs = [
+                target_name_stage + "_make_local_script",
+                target_name_stage + "_make_docker_script",
+                target_name_stage + "_local_make",
+                target_name_stage + "_docker",
+            ],
         )
 
     # Generate general config for design stage targets
@@ -794,7 +800,7 @@ def build_openroad(
         # Target building `target_name` `stage` dependencies and generating `stage` scripts
         native.filegroup(
             name = target_name + "_" + stage + "_make",
-            srcs = [target_name + "_" + stage + "_scripts"] + stage_sources[stage] +
-                   ([target_name + "_" + previous] if stage not in ("clock_period", "synth_sdc") else []) +
-                   ([target_name + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
+            srcs = stage_sources[stage] + ([target_name + "_" + previous] if stage not in ("clock_period", "synth_sdc") else []) +
+                   ([target_name + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []) +
+                   [target_name + "_" + stage + "_scripts"],
         )
