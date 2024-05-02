@@ -37,8 +37,8 @@ if [[ "${1}" == "--interactive" ]]; then
   shift 1
 fi
 
-XSOCK=/tmp/.X11-unix
-XAUTH=/tmp/.docker.xauth
+XSOCK=/tmp/.X11-unix_$uuid
+XAUTH=/tmp/.docker.xauth_$uuid
 xauth nlist :0 | sed -e 's/^..../ffff/' | xauth -f $XAUTH nmerge -
 ARGUMENTS=$@
 
