@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -ex
+set -e
 uuid=$(uuidgen)
 
 function handle_sigterm() {
@@ -103,7 +103,7 @@ function run_docker() {
 	$DOCKER_ARGS \
 	${OR_IMAGE:-openroad/flow-ubuntu22.04-builder:latest} \
 	bash -c \
-	"set -ex
+	"set -e
 	. ./env.sh
 	cd \$BUILD_DIR
 	$ARGUMENTS
