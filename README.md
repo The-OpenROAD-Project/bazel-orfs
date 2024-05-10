@@ -221,7 +221,8 @@ CLI and GUI is not available for all stages, consequently these targets are crea
 * synthesis
 * floorplan
 * place
-* clock tree synthesis
+* cts (clock tree synthesis)
+* grt (global route)
 * route
 * final
 

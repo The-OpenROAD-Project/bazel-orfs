@@ -760,7 +760,7 @@ def build_openroad(
         )
 
         # Prepare GUI targets
-        if stage in ("synth", "floorplan", "place", "cts", "route", "final"):
+        if stage in ("synth", "floorplan", "place", "cts", "grt", "route", "final"):
             base_targets = [target_name + "_" + stage]
             if stage == "synth":
                 write_stage_config(
