@@ -25,6 +25,7 @@ filegroup(
     data = [
         ":util",
     ],
+    visibility = [":__subpackages__"],
 )
 
 filegroup(
@@ -45,6 +46,7 @@ filegroup(
     data = [
         ":util",
     ],
+    visibility = [":__subpackages__"],
 )
 
 build_openroad(
