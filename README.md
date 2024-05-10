@@ -83,7 +83,7 @@ Challenges with large designs and ORFS that Bazel helps address
 * [Docker](https://docs.docker.com/get-docker/) - **Required for running `Make` targets and Docker scripts**
 * Docker image with ORFS installation - **Required only for running `Stage` targets** - can be obtained in two ways:
 
-  * running `bazel run orfs_env` which downloads the docker image from container registry and loads it to docker runtime under name: `openroad/flow-ubuntu22.04-builder:latest`
+  * running `bazel run '@bazel-orfs//:orfs_env'` which downloads the docker image from container registry and loads it to docker runtime under name: `openroad/flow-ubuntu22.04-builder:latest`
   * [Building the image locally](https://openroad-flow-scripts.readthedocs.io/en/latest/user/BuildWithDocker.html#build-using-docker-from-sources)
   * Pulling the image manually from the container registry with:
     ```
