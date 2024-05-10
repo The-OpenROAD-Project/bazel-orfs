@@ -1,5 +1,9 @@
 #!/bin/bash
 set -e
+if [[ -n $DEBUG_PRINTS ]]; then
+    set -x
+fi
+
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 if [[ -z $FLOW_HOME ]]; then

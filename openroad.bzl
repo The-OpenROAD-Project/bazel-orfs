@@ -250,7 +250,8 @@ def get_entrypoint_cmd(
         docker_image = None,
         mock_area = False,
         entrypoint = None,
-        interactive = False):
+        interactive = False,
+        debug_prints = False):
     """
     Prepare command line for running docker_shell utility
 
@@ -264,6 +265,7 @@ def get_entrypoint_cmd(
       mock_area: flag describing whether pass additional env var for mock_area target execution
       entrypoint: optional label pointing to file which will be used as entrypoint
       interactive: flag describing whether run docker container in interactive mode
+      debug_prints: flag enabling make echo prints and shell trace prints
 
     Returns:
       string with command line for running ORFS flow in docker container
@@ -291,10 +293,14 @@ def get_entrypoint_cmd(
     if (mock_area):
         cmd += " MOCK_AREA_TCL=" + get_location(Label("//:mock_area.tcl")) + fmt_whitespace
     cmd += " RULEDIR=$(RULEDIR)" + fmt_whitespace
+    if debug_prints:
+        cmd += " DEBUG_PRINTS=1" + fmt_whitespace
     cmd += entrypoint
     if interactive:
         cmd += " --interactive"
     cmd += " make "
+    if not debug_prints:
+        cmd += "--silent "
     if (make_targets != None):
         cmd += make_targets
 
@@ -310,7 +316,8 @@ def mock_area_stages(
         outs,
         variant,
         mock_area,
-        docker_image):
+        docker_image,
+        debug_prints = False):
     """
     Spawn mock_area targets.
 
@@ -328,6 +335,7 @@ def mock_area_stages(
       variant: default variant of the ORFS flow, used for replacing output paths
       mock_area: floating point number used for scaling the design
       docker_image: name of the docker image used for running ORFS flow
+      debug_prints: flag enabling make echo prints and shell trace prints
     """
 
     # Write ORFS options for mock_area targets
@@ -381,7 +389,7 @@ def mock_area_stages(
                    ([name + "_" + stage, Label("//:mock_area.tcl")] if stage == "floorplan" else []) +
                    ([name + "_" + previous + "_mock_area"] if stage != "clock_period" else []) +
                    ([name + "_synth_mock_area"] if stage == "floorplan" else []),
-            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image, mock_area = (stage == "floorplan")),
+            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image, mock_area = (stage == "floorplan"), debug_prints = debug_prints),
             outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])],
             tags = ["supports-graceful-termination"],
         )
@@ -519,7 +527,8 @@ def build_openroad(
         mock_area = None,
         platform = "asap7",
         macro_variant = "base",
-        docker_image = "openroad/flow-ubuntu22.04-builder:latest"):
+        docker_image = "openroad/flow-ubuntu22.04-builder:latest",
+        debug_prints = False):
     """
     Spawns targets for running physical design flow with OpenROAD-flow-scripts.
 
@@ -539,6 +548,7 @@ def build_openroad(
       platform: string specifying target platform for running physical design flow. Supported platforms: https://openroad-flow-scripts.readthedocs.io/en/latest/user/FlowVariables.html#platform
       macro_variant: variant of the ORFS flow the macro was built with
       docker_image: docker image name or ID with ORFS environment. Referenced image must be available in local docker runtime. Defaults to `openroad/flow-ubuntu22.04-builder:latest` which can be obtained by running: `bazel run orfs_env` or building the image from ORFS sources
+      debug_prints: flag enabling make echo prints and shell trace prints
     """
     target_ext = ("_" + variant if variant != "base" else "")
     target_name = name + target_ext
@@ -656,7 +666,7 @@ def build_openroad(
         if stage == "synth":
             stage_config = Label("@@//:" + target_name + "_gui_" + stage + "_config.mk")
         make_targets = get_make_targets(stage, False, mock_area)
-        local_entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, False)
+        local_entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, False, debug_prints = debug_prints)
         docker_entrypoint_cmd = get_entrypoint_cmd(
             make_pattern,
             design_config,
@@ -665,6 +675,7 @@ def build_openroad(
             entrypoint = Label("//:docker_shell"),
             docker_image = docker_image,
             interactive = True,
+	    debug_prints = debug_prints
         )
         target_name_stage = target_name + "_" + stage
 
@@ -745,7 +756,7 @@ def build_openroad(
             srcs = [make_pattern, design_config, stage_config] + stage_sources[stage] +
                    ([target_name + "_" + previous] if stage not in ("clock_period", "synth_sdc") else []) +
                    ([target_name + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
-            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image),
+            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image, debug_prints = debug_prints),
             outs = outs.get(stage, []),
             tags = ["supports-graceful-termination"],
             visibility = ["//visibility:private"],
