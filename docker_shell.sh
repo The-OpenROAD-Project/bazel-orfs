@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 
 set -e
+if [[ -n $DEBUG_PRINTS ]]; then
+    set -x
+    export DEBUG="x"
+fi
+
 uuid=$(uuidgen)
 
 function handle_sigterm() {
@@ -103,7 +108,7 @@ function run_docker() {
 	$DOCKER_ARGS \
 	${OR_IMAGE:-openroad/flow-ubuntu22.04-builder:latest} \
 	bash -c \
-	"set -e
+	"set -e$DEBUG
 	. ./env.sh
 	cd \$BUILD_DIR
 	$ARGUMENTS
