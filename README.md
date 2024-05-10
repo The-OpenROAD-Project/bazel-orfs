@@ -77,7 +77,6 @@ Scripts targets:
   //:L1MetadataArray_test_clock_period_scripts
   //:L1MetadataArray_test_synth_sdc_scripts
   //:L1MetadataArray_test_synth_scripts
-  //:L1MetadataArray_test_memory_scripts
   //:L1MetadataArray_test_floorplan_scripts
   //:L1MetadataArray_test_place_scripts
   //:L1MetadataArray_test_cts_scripts
@@ -93,7 +92,6 @@ Make targets:
   //:L1MetadataArray_test_cts_make
   //:L1MetadataArray_test_grt_make
   //:L1MetadataArray_test_generate_abstract_make
-  //:L1MetadataArray_test_memory_make
 
 GUI targets:
   //:L1MetadataArray_test_synth_gui
@@ -124,8 +122,6 @@ Config generation targets:
     //:L1MetadataArray_test_grt_config.mk
     //:L1MetadataArray_test_generate_abstract_config
     //:L1MetadataArray_test_generate_abstract_config.mk
-    //:L1MetadataArray_test_memory_config
-    //:L1MetadataArray_test_memory_config.mk
 ```
 
 The example comes from the `BUILD` file in this repository.
@@ -216,10 +212,6 @@ The mock contains the description of macro which has its whole internal logic re
 At the same time the mock has the same pinout as the original macro and similar size which makes it useful in early design stages.
 Mocked abstracts are generated after the `floorplan` stage to be then used in builds of other parts of the design that use given macro.
 Used for estimating sizes of macros with long build times and checking if they will fit in upper-level modules without running time consuming place and route flow.
-
-#### Memory Targets
-
-These targets print RAM summaries for a given module.
 
 #### GUI Targets
 

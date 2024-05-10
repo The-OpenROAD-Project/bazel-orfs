@@ -64,14 +64,6 @@ if [[ -n "${MOCK_AREA_TCL}" ]]
 then
 	MOCK_AREA_TCL_PREFIXED="-e MOCK_AREA_TCL=$PATH_PREFIX/$MOCK_AREA_TCL"
 fi
-if [[ -n "${MEMORY_DUMP_TCL}" ]]
-then
-	MEMORY_DUMP_TCL_PREFIXED="-e MEMORY_DUMP_TCL=$PATH_PREFIX/$MEMORY_DUMP_TCL"
-fi
-if [[ -n "${MEMORY_DUMP_PY}" ]]
-then
-	MEMORY_DUMP_PY_PREFIXED="-e MEMORY_DUMP_PY=$PATH_PREFIX/$MEMORY_DUMP_PY"
-fi
 
 # Configs are always generated in execroot because they are generated in
 # the repository that uses bazel-orfs as dependency or in bazel-orfs itself
@@ -104,8 +96,6 @@ function run_docker() {
 	-e MAKE_PATTERN=$MAKE_PATTERN_PREFIXED \
 	-e WORK_HOME=$WORKSPACE_EXECROOT/$RULEDIR \
 	$MOCK_AREA_TCL_PREFIXED \
-	$MEMORY_DUMP_TCL_PREFIXED \
-	$MEMORY_DUMP_PY_PREFIXED \
 	-v $WORKSPACE_ROOT:$WORKSPACE_ROOT \
 	-v $WORKSPACE_ORIGIN:$WORKSPACE_ORIGIN \
 	--network host \
