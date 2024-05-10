@@ -439,17 +439,3 @@ index 92d1a62..4dba0dd 100644
 ```
 bazel build $(bazel query 'deps(<target label e.g. L1MetadataArray_test_synth>, 1)' --noimplicit_deps)
 ```
-
-## Tentative roadmap
-
-- ORFS and orfs_rules should be independently versioned dependencies
-  while it should still be easy to do local hacking of ORFS. There should be a version
-  number for the ORFS dependency and orfs_rules separately. It should be possible to
-  specify the ORFS version per invocation of orfs_rules such that e.g. macros are not
-  rebuilt unless the user wants them to be rebuilt. Some macros can take days to build
-  and there could be manual verification involved and hence rebuilding should be
-  more controllable than for your typical Bazel build that is reasonably fast (C++, Scala,
-  etc.)
-- Once a reasonable structure is in place, set up CI for pull requests and invite
-  refinements and developments from the community.
-
