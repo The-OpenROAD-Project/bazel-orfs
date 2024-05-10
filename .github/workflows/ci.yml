@@ -199,3 +199,42 @@ jobs:
           -w $(pwd)
           $DOCKER_IMAGE
           .github/scripts/build_local_target.sh
+
+  test-make-issue:
+    name: Run ORFS <stage>_issue target
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+      STAGE_TARGET: "L1MetadataArray_test_place"
+      ISSUE_TARGET: "L1MetadataArray_test_cts_local_make"
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          swap-storage: false
+      - name: Checkout bazel-orfs
+        uses: actions/checkout@v4
+      - name: load docker image
+        run: |
+          bazel run --subcommands --verbose_failures --sandbox_debug orfs_env
+      - name: build target dependencies
+        run: |
+          bazel build --subcommands --verbose_failures --sandbox_debug ${STAGE_TARGET}
+      - name: generate script
+        run: |
+          bazel build --subcommands --verbose_failures --sandbox_debug ${ISSUE_TARGET}
+      - name: save and test the issue archive
+        run: >
+          docker run --rm
+          -v $(realpath ~/.cache):$(realpath ~/.cache)
+          -v $(pwd):$(pwd)
+          -e FLOW_HOME=/OpenROAD-flow-scripts/flow
+          -e SKIP_BUILD=1
+          -e TARGET
+          -e STAGES
+          -w $(pwd)
+          $DOCKER_IMAGE
+          /bin/bash -c "./bazel-bin/${ISSUE_TARGET} cts_issue; mkdir issue_test; tar -xvf bazel-bazel-orfs/cts_L1MetadataArray*.tar.gz -C issue_test; cd issue_test; cd cts_L1MetadataArray*; source \$FLOW_HOME/../env.sh; ./run*"
