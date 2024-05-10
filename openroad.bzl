@@ -377,8 +377,8 @@ def mock_area_stages(
             stage_args = mock_area_stage_args[stage] + ["FLOW_VARIANT=mock_area"],
         )
         make_pattern = Label("//:" + stage + "-bazel.mk")
-        design_config = Label("@@//:" + name + "_mock_area_config.mk")
-        stage_config = Label("@@//:" + name + "_" + stage + "_mock_area_config.mk")
+        design_config = Label("@@//" + native.package_name() + ":" + name + "_mock_area_config.mk")
+        stage_config = Label("@@//" + native.package_name() + ":" + name + "_" + stage + "_mock_area_config.mk")
         make_targets = get_make_targets(stage, True, mock_area)
 
         native.genrule(
@@ -512,6 +512,11 @@ def init_output_dict(all_stages, platform, out_dir, variant, name):
 
     return outs
 
+def resolve_path(label):
+    if native.package_name():
+        return "/".join([native.package_name(), label])
+    return label
+
 def build_openroad(
         name,
         variant = "base",
@@ -596,7 +601,7 @@ def build_openroad(
     stage_args = init_stage_dict(all_stage_names, stage_args)
     stage_args["clock_period"] = SDC_FILE
     stage_args["synth_sdc"] = SDC_FILE
-    stage_args["synth"].append("VERILOG_FILES=" + " ".join(verilog_files))
+    stage_args["synth"].append("VERILOG_FILES=" + " ".join(map(resolve_path, verilog_files)))
     stage_args["synth"].append("SDC_FILE_CLOCK_PERIOD=" + SDC_FILE_CLOCK_PERIOD)
     stage_args["floorplan"] += SDC_FILE + (
         [] if len(macros) == 0 else [
@@ -657,14 +662,14 @@ def build_openroad(
         stages.append(stage)
 
     # _scripts targets
-    design_config = Label("@@//:" + target_name + "_config.mk")
+    design_config = Label("@@//" + native.package_name() + ":" + target_name + "_config.mk")
     for stage in stages:
         make_pattern = Label("//:" + stage + "-bazel.mk")
-        stage_config = Label("@@//:" + target_name + "_" + stage + "_config.mk")
+        stage_config = Label("@@//" + native.package_name() + ":" + target_name + "_" + stage + "_config.mk")
 
         # For synth use config with additional options required for GUI
         if stage == "synth":
-            stage_config = Label("@@//:" + target_name + "_gui_" + stage + "_config.mk")
+            stage_config = Label("@@//" + native.package_name() + ":" + target_name + "_gui_" + stage + "_config.mk")
         make_targets = get_make_targets(stage, False, mock_area)
         local_entrypoint_cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, False, debug_prints = debug_prints)
         docker_entrypoint_cmd = get_entrypoint_cmd(
@@ -689,7 +694,7 @@ def build_openroad(
         )
         native.sh_binary(
             name = target_name_stage + "_local_make",
-            srcs = ["//:" + target_name_stage + "_make_local_script"],
+            srcs = ["//" + native.package_name() + ":" + target_name_stage + "_make_local_script"],
             data = [Label("//:orfs"), design_config, stage_config, make_pattern],
         )
 
@@ -703,7 +708,7 @@ def build_openroad(
         )
         native.sh_binary(
             name = target_name_stage + "_docker",
-            srcs = ["//:" + target_name_stage + "_make_docker_script"],
+            srcs = ["//" + native.package_name() + ":" + target_name_stage + "_make_docker_script"],
             data = [Label("//:docker_shell"), design_config, stage_config, make_pattern],
         )
 
@@ -745,8 +750,8 @@ def build_openroad(
         )
 
         make_pattern = Label("//:" + stage + "-bazel.mk")
-        design_config = Label("@@//:" + target_name + "_config.mk")
-        stage_config = Label("@@//:" + target_name + "_" + stage + "_config.mk")
+        design_config = Label("@@//" + native.package_name() + ":" + target_name + "_config.mk")
+        stage_config = Label("@@//" + native.package_name() + ":" + target_name + "_" + stage + "_config.mk")
         make_targets = get_make_targets(stage, False, mock_area)
 
         # Target building `target_name` `stage` and its dependencies
