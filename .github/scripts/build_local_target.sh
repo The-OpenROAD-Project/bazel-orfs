@@ -8,7 +8,7 @@ if [[ -z "$STAGES" ]]; then
   if [[ "$target_name" == L1MetadataArray_* ]]; then
     STAGES=("synth_sdc" "synth" "floorplan" "place" "generate_abstract")
   else
-    STAGES=("synth_sdc" "synth" "memory" "floorplan" "generate_abstract")
+    STAGES=("synth_sdc" "synth" "floorplan" "generate_abstract")
   fi
 else
   eval "STAGES=($STAGES)"
@@ -26,6 +26,6 @@ do
   fi
   if [[ -z $SKIP_RUN ]] ; then
     echo "run make script"
-    ./bazel-bin/${target_name}_${stage}_${flow} $(if [[ "$stage" != "memory" ]] ; then echo "bazel-" ; fi)${stage}
+    ./bazel-bin/${target_name}_${stage}_${flow} bazel-${stage}
   fi
 done
