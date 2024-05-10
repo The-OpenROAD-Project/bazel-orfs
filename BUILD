@@ -93,7 +93,7 @@ build_openroad(
             "CORE_UTILIZATION=3",
             "RTLMP_FLOW=True",
             "CORE_MARGIN=2",
-            "MACRO_PLACE_HALO=10 10",
+            "MACRO_PLACE_HALO=30 30",
         ],
         "place": [
             "PLACE_DENSITY=0.20",
