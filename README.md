@@ -338,16 +338,6 @@ filegroup(
 )
 ```
 
-The constraint file should also source the additional TCL script in a very specific manner.
-The additional sourced files have to be placed in the same directory as the constraint file.
-Constraint file should use environment variable `SDC_FILE` or `IO_CONSTRAINT` defined for the ORFS flow to fetch the path to itself and use it to source the additional file.
-Here is the example:
-
-```
-set script_path [ file dirname $::env(IO_CONSTRAINTS) ]
-source $script_path/util.tcl
-```
-
 ## Tutorial
 
 This tutorial uses the `docker flow` to run the physical design flow with ORFS.
