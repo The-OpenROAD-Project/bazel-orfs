@@ -136,7 +136,8 @@ def write_config(
         name,
         design_name,
         variant,
-        additional_cfg = []):
+        additional_cfg = [],
+        external_pdk = None):
     """
     Writes config file for running physical design flow with OpenROAD-flow-scripts.
 
@@ -148,10 +149,19 @@ def write_config(
       design_name: short name of the design
       variant: variant of the ORFS flow
       additional_cfg: list of strings with definitions of additional configuration env vars
+      external_pdk: label pointing to the external PDK dependency
     """
 
     export_env = "export DESIGN_NAME=" + design_name + "\n"
     export_env += "export FLOW_VARIANT=" + variant + "\n"
+
+    cfg_srcs = [Label("//:config_common.mk")]
+    if (external_pdk != None):
+        pdk_label = Label(external_pdk)
+        pdk_name = pdk_label.package
+        export_env += "export PLATFORM=" + pdk_name + "\n"
+        export_env += "export PLATFORM_HOME=$$(echo \"$(location " + external_pdk + ":BUILD)\" | sed -e 's/\\(\\/" + pdk_name + "\\/BUILD\\)*$$//g')\n"
+        cfg_srcs.append(external_pdk + ":BUILD")
 
     add_cfg = ""
     for cfg in additional_cfg:
@@ -159,9 +169,7 @@ def write_config(
 
     native.genrule(
         name = name,
-        srcs = [
-            Label("//:config_common.mk"),
-        ],
+        srcs = cfg_srcs,
         cmd = """
                echo \"# Common config\" > $@
                cat $(location """ + str(Label("//:config_common.mk")) + """) >> $@
@@ -317,7 +325,8 @@ def mock_area_stages(
         variant,
         mock_area,
         docker_image,
-        debug_prints = False):
+        debug_prints = False,
+        external_pdk = None):
     """
     Spawn mock_area targets.
 
@@ -336,6 +345,7 @@ def mock_area_stages(
       mock_area: floating point number used for scaling the design
       docker_image: name of the docker image used for running ORFS flow
       debug_prints: flag enabling make echo prints and shell trace prints
+      external_pdk: label pointing to the external PDK dependency
     """
 
     # Write ORFS options for mock_area targets
@@ -358,6 +368,7 @@ def mock_area_stages(
         design_name = design_name,
         variant = variant,
         additional_cfg = mock_area_env_list,
+        external_pdk = external_pdk,
     )
 
     mock_stages = ["clock_period", "synth", "synth_sdc", "floorplan", "generate_abstract"]
@@ -549,7 +560,8 @@ def build_openroad(
         platform = "asap7",
         macro_variant = "base",
         docker_image = "openroad/flow-ubuntu22.04-builder:latest",
-        debug_prints = False):
+        debug_prints = False,
+        external_pdk = None):
     """
     Spawns targets for running physical design flow with OpenROAD-flow-scripts.
 
@@ -570,6 +582,7 @@ def build_openroad(
       macro_variant: variant of the ORFS flow the macro was built with
       docker_image: docker image name or ID with ORFS environment. Referenced image must be available in local docker runtime. Defaults to `openroad/flow-ubuntu22.04-builder:latest` which can be obtained by running: `bazel run orfs_env` or building the image from ORFS sources
       debug_prints: flag enabling make echo prints and shell trace prints
+      external_pdk: label pointing to the external PDK dependency
     """
     target_ext = ("_" + variant if variant != "base" else "")
     target_name = name + target_ext
@@ -746,10 +759,11 @@ def build_openroad(
         name = target_name + "_config",
         design_name = name,
         variant = variant,
+        external_pdk = external_pdk,
     )
 
     if mock_area != None:
-        mock_area_stages(target_name, name, stage_sources, io_constraints, sdc_constraints, stage_args, outs, variant, mock_area, docker_image)
+        mock_area_stages(target_name, name, stage_sources, io_constraints, sdc_constraints, stage_args, outs, variant, mock_area, docker_image, external_pdk)
 
     # _make targets
     for (previous, stage) in zip(["n/a"] + stages, stages):
