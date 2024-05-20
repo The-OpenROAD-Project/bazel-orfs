@@ -517,6 +517,22 @@ def resolve_path(label):
         return "/".join([native.package_name(), label])
     return label
 
+def create_out_rule(name = "out_make_script"):
+    """
+    Spawns target which creates out script.
+
+    Args:
+        name: name of the created target
+    """
+    native.genrule(
+        name = name,
+        tools = ["@bazel-orfs//:out_script"],
+        srcs = [],
+        cmd = "cp $(location @bazel-orfs//:out_script) $@",
+        visibility = ["//visibility:private"],
+        outs = ["out"],
+    )
+
 def build_openroad(
         name,
         variant = "base",
@@ -680,7 +696,7 @@ def build_openroad(
             entrypoint = Label("//:docker_shell"),
             docker_image = docker_image,
             interactive = True,
-	    debug_prints = debug_prints
+            debug_prints = debug_prints,
         )
         target_name_stage = target_name + "_" + stage
 
@@ -719,6 +735,7 @@ def build_openroad(
             srcs = [
                 target_name_stage + "_make_local_script",
                 target_name_stage + "_make_docker_script",
+                ":out",
                 target_name_stage + "_local_make",
                 target_name_stage + "_docker",
             ],
