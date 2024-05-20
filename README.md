@@ -107,10 +107,11 @@ git_override(
 )
 ```
 
-Then load the macro in BUILD file where it should be used:
+Then load the macro in BUILD file where it should be used, and create rule for `out` script, which can find the latest file with logs:
 
 ```
-load("@bazel-orfs//:openroad.bzl", "build_openroad")
+load("@bazel-orfs//:openroad.bzl", "build_openroad", "create_out_rule")
+create_out_rule()
 ```
 
 The macro can now be placed in the BUILD file. The macro usage can look like this:
@@ -270,6 +271,12 @@ Created shell scripts, apart from facilitating quick tests of ORFS modifications
 * Make targets patterns
 * entrypoint command line
 
+Additionally, script finding the latest log files will be created - by default it displays full path (without symlinks) to the `bazel-bin` and with `--tail` option it shows full path to the latest log.
+It can be found under the path:
+```
+bazel-bin/out
+```
+
 #### Make Targets
 
 Targets build all necessary dependencies for chosen stage and both scripts from scripts target.
@@ -358,6 +365,9 @@ bazel build L1MetadataArray_test_cts_make
 # Build CTS stage for L1MetadataArray macro with local of Docker flow
 ./bazel-bin/L1MetadataArray_test_cts_local_make bazel-cts
 ./bazel-bin/L1MetadataArray_test_cts_docker bazel-cts
+
+# Tail the latest log file
+tail -f $(./bazel-bin/out -t)
 ```
 
 ### Using the local flow
