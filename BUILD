@@ -1,5 +1,5 @@
 load("@rules_oci//oci:defs.bzl", "oci_tarball")
-load("//:openroad.bzl", "build_openroad", "add_options_all_stages")
+load("//:openroad.bzl", "add_options_all_stages", "build_openroad", "create_out_rule")
 
 # FIXME: this shouldn't be required
 exports_files(glob(["*.mk"]))
@@ -8,7 +8,12 @@ exports_files(glob(["scripts/mem_dump.*"]))
 
 exports_files(["mock_area.tcl"])
 
-exports_files(["orfs"])
+exports_files([
+    "orfs",
+    "out_script",
+])
+
+create_out_rule()
 
 filegroup(
     name = "util",
@@ -115,19 +120,22 @@ build_openroad(
         "lb_32x128",
     ],
     sdc_constraints = ":test/constraints-top.sdc",
-    stage_args = add_options_all_stages({
-        "synth": ["SYNTH_HIERARCHICAL=1"],
-        "floorplan": [
-            "CORE_UTILIZATION=3",
-            "RTLMP_FLOW=True",
-            "CORE_MARGIN=2",
-            "MACRO_PLACE_HALO=10 10",
-        ],
-        "place": [
-            "PLACE_DENSITY=0.10",
-            "PLACE_PINS_ARGS=-annealing",
-        ],
-    }, ['SKIP_REPORT_METRICS=1']),
+    stage_args = add_options_all_stages(
+        {
+            "synth": ["SYNTH_HIERARCHICAL=1"],
+            "floorplan": [
+                "CORE_UTILIZATION=3",
+                "RTLMP_FLOW=True",
+                "CORE_MARGIN=2",
+                "MACRO_PLACE_HALO=10 10",
+            ],
+            "place": [
+                "PLACE_DENSITY=0.10",
+                "PLACE_PINS_ARGS=-annealing",
+            ],
+        },
+        ["SKIP_REPORT_METRICS=1"],
+    ),
     variant = "test_gds",
     verilog_files = ["test/rtl/L1MetadataArray.sv"],
 )
