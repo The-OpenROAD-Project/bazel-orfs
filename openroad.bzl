@@ -692,7 +692,7 @@ def build_openroad(
             make_pattern,
             design_config,
             stage_config,
-            False,
+            True,
             entrypoint = Label("//:docker_shell"),
             docker_image = docker_image,
             interactive = True,
