@@ -529,7 +529,7 @@ def create_out_rule(name = "out_make_script"):
         tools = ["@bazel-orfs//:out_script"],
         srcs = [],
         cmd = "cp $(location @bazel-orfs//:out_script) $@",
-        visibility = ["//visibility:private"],
+        visibility = [":__subpackages__"],
         outs = ["out"],
     )
 
@@ -733,9 +733,9 @@ def build_openroad(
         native.filegroup(
             name = target_name_stage + "_scripts",
             srcs = [
+                "//:out",
                 target_name_stage + "_make_local_script",
                 target_name_stage + "_make_docker_script",
-                ":out",
                 target_name_stage + "_local_make",
                 target_name_stage + "_docker",
             ],
