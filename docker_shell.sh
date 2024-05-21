@@ -34,11 +34,10 @@ if [[ $DIR == */external/bazel-orfs~override ]]; then
 fi
 
 if [[ "${1}" == "--interactive" ]]; then
-	if test -t 0; then
-	  DOCKER_INTERACTIVE=-ti
-	else
+	if ! test -t 0; then
 		echo "STDIN not opened in the terminal, --interactive has no effect"
   fi
+  DOCKER_INTERACTIVE=-i
   shift 1
 fi
 
@@ -83,7 +82,7 @@ export MAKEFILES=$FLOW_HOME/Makefile
 function run_docker() {
 	# Most of these options below has to do with allowing to
 	# run the OpenROAD GUI from within Docker.
-	docker run --name "bazel-orfs-$uuid" --rm \
+	${EXEC}docker run --name "bazel-orfs-$uuid" --rm \
 	-u $(id -u ${USER}):$(id -g ${USER}) \
 	-e LIBGL_ALWAYS_SOFTWARE=1 \
 	-e "QT_X11_NO_MITSHM=1" \
@@ -103,22 +102,19 @@ function run_docker() {
 	$MOCK_AREA_TCL_PREFIXED \
 	-v $WORKSPACE_ROOT:$WORKSPACE_ROOT \
 	-v $WORKSPACE_ORIGIN:$WORKSPACE_ORIGIN \
+	-w $WORKSPACE_EXECROOT \
 	--network host \
 	$DOCKER_INTERACTIVE \
 	$DOCKER_ARGS \
 	${OR_IMAGE:-openroad/flow-ubuntu22.04-builder:latest} \
-	bash -c \
-	"set -e$DEBUG
-	. ./env.sh
-	cd \$BUILD_DIR
 	$ARGUMENTS
-	"
 }
 
 if [[ "$DOCKER_INTERACTIVE" == "" ]]; then
 	# Handle TERM signals
 	# this option requires `supports-graceful-termination` tag in Bazel rule
 	trap handle_sigterm SIGTERM
+	EXEC=""
  	run_docker &
 
 	# Wait for Docker container to finish
@@ -126,5 +122,6 @@ if [[ "$DOCKER_INTERACTIVE" == "" ]]; then
 	# otherwise signal will not be handled immediately
 	wait $!
 else
+	EXEC="exec "
 	run_docker
 fi
