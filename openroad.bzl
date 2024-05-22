@@ -259,7 +259,8 @@ def get_entrypoint_cmd(
         mock_area = False,
         entrypoint = None,
         interactive = False,
-        debug_prints = False):
+        debug_prints = False,
+        fmt_whitespace = " \\\\\n"):
     """
     Prepare command line for running docker_shell utility
 
@@ -274,21 +275,19 @@ def get_entrypoint_cmd(
       entrypoint: optional label pointing to file which will be used as entrypoint
       interactive: flag describing whether run docker container in interactive mode
       debug_prints: flag enabling make echo prints and shell trace prints
+      fmt_whitespace: variables separator
 
     Returns:
       string with command line for running ORFS flow in docker container
     """
 
-    fmt_whitespace = ""
     cmd = ""
 
     if (use_docker_flow):
-        fmt_whitespace = " \\\n"
         if entrypoint == None:
             entrypoint = Label("//:docker_shell")
         entrypoint = " $(location " + str(entrypoint) + ")" + fmt_whitespace
     else:
-        fmt_whitespace = " \\\\\n"
         if entrypoint == None:
             entrypoint = Label("//:orfs")
         entrypoint = " $$(pwd)/$(location " + str(entrypoint) + ")" + fmt_whitespace
@@ -394,13 +393,19 @@ def mock_area_stages(
 
         native.genrule(
             name = name + "_" + stage + "_mock_area",
-            tools = [Label("//:docker_shell")],
+            tools = select({
+                "@bazel-orfs//:remote_exec": [Label("//:orfs")],
+                "//conditions:default": [Label("//:docker_shell")],
+            }),
             srcs = [make_pattern, design_config, stage_config] +
                    stage_sources[stage] +
                    ([name + "_" + stage, Label("//:mock_area.tcl")] if stage == "floorplan" else []) +
                    ([name + "_" + previous + "_mock_area"] if stage != "clock_period" else []) +
                    ([name + "_synth_mock_area"] if stage == "floorplan" else []),
-            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image, mock_area = (stage == "floorplan"), debug_prints = debug_prints),
+            cmd = select({
+                "@bazel-orfs//:remote_exec": "FLOW_HOME=/OpenROAD-flow-scripts/flow " + get_entrypoint_cmd(make_pattern, design_config, stage_config, False, make_targets, mock_area = (stage == "floorplan"), debug_prints = debug_prints, fmt_whitespace = " "),
+                "//conditions:default": get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image, mock_area = (stage == "floorplan"), debug_prints = debug_prints, fmt_whitespace = " "),
+            }),
             outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])],
             tags = ["supports-graceful-termination"],
         )
@@ -612,7 +617,8 @@ def build_openroad(
     macro_lef_targets, macro_lib_targets = x
     # macro_gds_targets = map(lambda m: "//:results/" + platform + "/%s/%s/6_final.gds" % (m, macro_variants.get(m, macro_variant)), macros)
 
-    io_constraints_args = ["IO_CONSTRAINTS=$(location " + io_constraints + ")"] if io_constraints != None else []
+    # Get only the first source from constraints
+    io_constraints_args = ["IO_CONSTRAINTS=$$(echo '$(locations " + io_constraints + ")' | cut -d' ' -f 1)"] if io_constraints != None else []
 
     ADDITIONAL_LEFS = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/%s.lef" % (m, macro_variants.get(m, macro_variant), m), macros))
     ADDITIONAL_LIBS = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/%s.lib" % (m, macro_variants.get(m, macro_variant), m), macros))
@@ -623,7 +629,8 @@ def build_openroad(
     # gds_args = (["ADDITIONAL_GDS_FILES=" + ADDITIONAL_GDS_FILES] if len(macros) > 0 else [])
 
     SDC_FILE_CLOCK_PERIOD = outs["clock_period"][0]
-    SDC_FILE = ["SDC_FILE=$(location " + sdc_constraints + ")"] if sdc_constraints != None else []
+    # Get only the first source from constraints
+    SDC_FILE = ["SDC_FILE=$$(echo '$(locations " + sdc_constraints + ")' | cut -d' ' -f 1)"] if sdc_constraints != None else []
 
     abstract_source = str(name_to_stage[mock_stage]) + "_" + mock_stage
 
@@ -788,11 +795,18 @@ def build_openroad(
         # Target building `target_name` `stage` and its dependencies
         native.genrule(
             name = target_name + "_" + stage,
-            tools = [Label("//:docker_shell")],
+            tools = select({
+                "@bazel-orfs//:remote_exec": [Label("//:orfs")],
+                "//conditions:default": [Label("//:docker_shell")],
+            }),
             srcs = [make_pattern, design_config, stage_config] + stage_sources[stage] +
                    ([target_name + "_" + previous] if stage not in ("clock_period", "synth_sdc") else []) +
+                   ([target_name + "_synth_sdc"] if stage == "floorplan" else []) +
                    ([target_name + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
-            cmd = get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image, debug_prints = debug_prints),
+            cmd = select({
+                "@bazel-orfs//:remote_exec": "FLOW_HOME=/OpenROAD-flow-scripts/flow " + get_entrypoint_cmd(make_pattern, design_config, stage_config, False, make_targets, debug_prints = debug_prints, fmt_whitespace = " "),
+                "//conditions:default": get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image, debug_prints = debug_prints, fmt_whitespace = " "),
+            }),
             outs = outs.get(stage, []),
             tags = ["supports-graceful-termination"],
             visibility = ["//visibility:private"],
