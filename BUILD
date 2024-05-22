@@ -13,6 +13,13 @@ exports_files([
     "out_script",
 ])
 
+# Config for remote execution
+config_setting(
+    name = "remote_exec",
+    values = {"define": "REMOTE=1"},
+    visibility = ["//visibility:public"],
+)
+
 create_out_rule()
 
 filegroup(
@@ -26,8 +33,6 @@ filegroup(
     name = "io-sram",
     srcs = [
         "test/io-sram.tcl",
-    ],
-    data = [
         ":util",
     ],
     visibility = [":__subpackages__"],
@@ -37,8 +42,6 @@ filegroup(
     name = "io",
     srcs = [
         "test/io.tcl",
-    ],
-    data = [
         ":util",
     ],
 )
@@ -47,8 +50,6 @@ filegroup(
     name = "constraints-sram",
     srcs = [
         "test/constraints-sram.sdc",
-    ],
-    data = [
         ":util",
     ],
     visibility = [":__subpackages__"],
