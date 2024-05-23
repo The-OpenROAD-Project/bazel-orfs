@@ -14,3 +14,12 @@ oci.pull(
     platforms = ["linux/amd64"],
 )
 use_repo(oci, "orfs_image")
+
+# To have the external PDK examples working uncomment the code below
+# and set the `urls` attribute to the archive with external PDK
+#bazel_dep(name = "external_pdk", version = "1.0.0")
+#archive_override(
+#    module_name = "external_pdk",
+#    patches = ["//external_pdk:external_pdk.patch"],
+#    urls = "",
+#)
