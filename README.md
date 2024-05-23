@@ -476,6 +476,85 @@ bazel build L1MetadataArray_test_generate_abstract
 This will cause the `mock area` targets to generate the abstracts for the design right after the `floorplan` stage instead of `grt` stage.
 For more information please refer to the description of [mock area targets](#mock-area-targets).
 
+### Using external PDK
+
+Bazel-orfs allows the usage of external PDKs.
+The external PDK should be delivered as a link to archive with PDK contents.
+PDK should consist of all files described in [ORFS platform configuration](https://openroad-flow-scripts.readthedocs.io/en/latest/contrib/PlatformBringUp.html#platform-configuration) paragraph.
+The link to the archive should be used to specify the PDK as an external bazel dependency through [archive_override](https://bazel.build/rules/lib/globals/module#archive_override).
+For example in `MODULE.bazel` file:
+
+```
+bazel_dep(name = "external_pdk", version = "1.0.0")
+archive_override(
+    module_name = "external_pdk",
+    patches = ["//external_pdk:external_pdk.patch"],
+    urls = "<URL to PDK archive>",
+)
+```
+
+Additionally, a `patch` is provided to set up a proper bazel module with subpackages for the particular PDK (in this example it is asap7).
+
+```
+diff --git a/BUILD b/BUILD
+new file mode 100644
+index 0000000..0d57ccb
+--- /dev/null
++++ BUILD
+@@ -0,0 +1,3 @@
++package(
++       default_visibility = ["//visibility:public"],
++)
+diff --git a/MODULE.bazel b/MODULE.bazel
+new file mode 100644
+index 0000000..8419e9b
+--- /dev/null
++++ MODULE.bazel
+@@ -0,0 +1 @@
++module(name="external_pdk")
+diff --git a/asap7/BUILD b/asap7/BUILD
+new file mode 100644
+index 0000000..c92202a
+--- /dev/null
++++ asap7/BUILD
+@@ -0,0 +1,10 @@
++package(
++       default_visibility = ["//visibility:public"],
++)
++filegroup(
++       name = "asap7",
++       srcs = glob([
++               "**"
++       ]),
++    visibility = ["//visibility:public"],
++)
+```
+
+In order to use such imported external PDK it is required to use `external_pdk` attribute of the `build_openroad()` macro.
+The attribute accepts label-like strings that point to the bazel package containing all PDK files e.g.:
+
+```
+build_openroad(
+    name = "tag_array_64x184",
+    external_pdk = "@external_pdk//asap7",
+    ...
+    variant = "external_pdk",
+    ...
+)
+
+build_openroad(
+    name = "L1MetadataArray",
+    external_pdk = "@external_pdk//asap7",
+    ...
+    macro_variants = {"tag_array_64x184": "external_pdk"},
+    macros = ["tag_array_64x184"],
+    ...
+    variant = "external_pdk",
+    ...
+)
+```
+
+> **Note:** In order to specify correct macro variants when building macros/modules higher in design hierarchy please use `macro_variants` attribute.
 
 ## Bazel hacking
 
