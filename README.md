@@ -338,12 +338,13 @@ filegroup(
     name = "io",
     srcs = [
         "test/io.tcl",
-    ],
-    data = [
         ":util",
     ],
 )
 ```
+
+Please, note that only the first script from filegroup will be used.
+So `:io` defines `test/io.tcl` as constraints and `test/utils.tcl` as its dependency.
 
 ## Tutorial
 
