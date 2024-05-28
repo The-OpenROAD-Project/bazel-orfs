@@ -56,7 +56,7 @@ Challenges with large designs and ORFS that Bazel helps address
 - **Mocking abstracts** when doing initial top-level floorplanning is needed to
   separate concerns. It can be useful to skip one of place, cts, route for
   the macros until one starts to converge on a workable
-  top level floorplan. This is supported via `mock_abstract` in `openroad.bzl`
+  top level floorplan. This is supported via `abstract_stage` in `openroad.bzl`
 - **Efficient local storage of build artifacts** are needed as .odb files are
   large and they should not exist in duplicates unnecessarily. Bazel
   uses symbolic links. ORFS can not use symbolic links for .odb files because,
@@ -121,8 +121,7 @@ build_openroad(
     name = "L1MetadataArray",
     io_constraints = ":io",
     macros = ["tag_array_64x184"],
-    mock_abstract = True,
-    mock_stage = "grt",
+    abstract_stage = "grt",
     sdc_constraints = ":test/constraints-top.sdc",
     stage_args = {
         "synth": ["SYNTH_HIERARCHICAL=1"],
@@ -450,7 +449,7 @@ Although mock abstracts can speed up turnaround times, skipping place, cts or ro
 
 ---
 
-To do so, we modify in `BUILD` file the `mock_stage` attribute of `build_openroad` macro to `floorplan` stage:
+To do so, we modify in `BUILD` file the `abstract_stage` attribute of `build_openroad` macro to `floorplan` stage:
 
 ```
 diff --git a/BUILD b/BUILD
@@ -460,9 +459,8 @@ index 92d1a62..1f6e46b 100644
 @@ -88,7 +88,7 @@ build_openroad(
      io_constraints = ":io",
      macros = ["tag_array_64x184"],
-     mock_abstract = True,
--    mock_stage = "grt",
-+    mock_stage = "cts",
+-    abstract_stage = "grt",
++    abstract_stage = "cts",
      sdc_constraints = ":test/constraints-top.sdc",
      stage_args = {
          "synth": ["SYNTH_HIERARCHICAL=1"],
