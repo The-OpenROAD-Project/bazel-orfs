@@ -370,9 +370,9 @@ def mock_area_stages(
         external_pdk = external_pdk,
     )
 
-    mock_stages = ["clock_period", "synth", "synth_sdc", "floorplan", "generate_abstract"]
+    abstract_stages = ["clock_period", "synth", "synth_sdc", "floorplan", "generate_abstract"]
 
-    for (previous, stage) in zip(["n/a"] + mock_stages, mock_stages):
+    for (previous, stage) in zip(["n/a"] + abstract_stages, abstract_stages):
         stage_cfg_srcs = []
         if sdc_constraints != None:
             stage_cfg_srcs.append(sdc_constraints)
@@ -559,8 +559,7 @@ def build_openroad(
         io_constraints = None,
         sdc_constraints = None,
         stage_args = {},
-        mock_abstract = False,
-        mock_stage = "place",
+        abstract_stage = "generate_abstract",
         mock_area = None,
         platform = "asap7",
         macro_variant = "base",
@@ -580,8 +579,7 @@ def build_openroad(
       io_constraints: path to tcl script with IO constraints
       sdc_constraints: path to SDC file with design constraints
       stage_args: dictionary keyed by ORFS stages with lists of stage-specific arguments
-      mock_abstract: boolean controlling the scope of _generate_abstract stage
-      mock_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
+      abstract_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
       mock_area: floating point number, spawns additional _mock_area targets if set
       platform: string specifying target platform for running physical design flow. Supported platforms: https://openroad-flow-scripts.readthedocs.io/en/latest/user/FlowVariables.html#platform
       macro_variant: variant of the ORFS flow the macro was built with
@@ -589,6 +587,7 @@ def build_openroad(
       debug_prints: flag enabling make echo prints and shell trace prints
       external_pdk: label pointing to the external PDK dependency
     """
+    mock_abstract = abstract_stage != "generate_abstract"
     target_ext = ("_" + variant if variant != "base" else "")
     target_name = name + target_ext
     macros = set(macros + list(macro_variants.keys()))
@@ -632,7 +631,7 @@ def build_openroad(
     # Get only the first source from constraints
     SDC_FILE = ["SDC_FILE=$$(echo '$(locations " + sdc_constraints + ")' | cut -d' ' -f 1)"] if sdc_constraints != None else []
 
-    abstract_source = str(name_to_stage[mock_stage]) + "_" + mock_stage
+    abstract_source = str(name_to_stage[abstract_stage]) + "_" + abstract_stage
 
     stage_args = init_stage_dict(all_stage_names, stage_args)
     stage_args["clock_period"] = SDC_FILE
@@ -693,7 +692,7 @@ def build_openroad(
             skip = False
         if skip:
             continue
-        if mock_abstract and stage == mock_stage:
+        if mock_abstract and stage == abstract_stage:
             skip = True
         stages.append(stage)
 

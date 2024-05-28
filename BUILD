@@ -58,8 +58,7 @@ filegroup(
 build_openroad(
     name = "tag_array_64x184",
     io_constraints = ":io-sram",
-    mock_abstract = True,
-    mock_stage = "floorplan",
+    abstract_stage = "floorplan",
     sdc_constraints = ":constraints-sram",
     stage_args = {
         "floorplan": [
@@ -74,9 +73,8 @@ build_openroad(
 build_openroad(
     name = "lb_32x128",
     io_constraints = ":io-sram",
-    mock_abstract = True,
     mock_area = 1,
-    mock_stage = "floorplan",
+    abstract_stage = "floorplan",
     sdc_constraints = ":constraints-sram",
     stage_args = {
         "floorplan": [
@@ -92,8 +90,7 @@ build_openroad(
     name = "L1MetadataArray",
     io_constraints = ":io",
     macros = ["tag_array_64x184"],
-    mock_abstract = True,
-    mock_stage = "grt",
+    abstract_stage = "grt",
     sdc_constraints = ":test/constraints-top.sdc",
     stage_args = {
         "synth": ["SYNTH_HIERARCHICAL=1"],
@@ -181,8 +178,7 @@ build_openroad(
     name = "tag_array_64x184",
     external_pdk = "@external_pdk//asap7",
     io_constraints = ":io-sram",
-    mock_abstract = True,
-    mock_stage = "floorplan",
+    abstract_stage = "floorplan",
     sdc_constraints = ":constraints-sram",
     stage_args = {
         "floorplan": [
@@ -202,8 +198,7 @@ build_openroad(
     io_constraints = ":io",
     macro_variants = {"tag_array_64x184": "external_pdk"},
     macros = ["tag_array_64x184"],
-    mock_abstract = True,
-    mock_stage = "grt",
+    abstract_stage = "grt",
     sdc_constraints = ":test/constraints-top.sdc",
     stage_args = {
         "synth": ["SYNTH_HIERARCHICAL=1"],
