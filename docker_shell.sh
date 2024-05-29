@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -e -o pipefail
 if [[ -n $DEBUG_PRINTS ]]; then
     set -x
     export DEBUG="x"
@@ -29,21 +29,26 @@ WORKSPACE_EXTERNAL=$WORKSPACE_ROOT/external
 
 # Automatically mount bazel-orfs directory if it is used as module with local_path_override
 if [[ $DIR == */external/bazel-orfs~override ]]; then
-	BAZLE_ORFS_DIR=$(realpath $WORKSPACE_ROOT/external/bazel-orfs~override)
-	DOCKER_ARGS="$DOCKER_ARGS -v $BAZLE_ORFS_DIR:$BAZLE_ORFS_DIR"
+	BAZEL_ORFS_DIR=$(realpath $WORKSPACE_ROOT/external/bazel-orfs~override)
+	DOCKER_ARGS="$DOCKER_ARGS -v $BAZEL_ORFS_DIR:$BAZEL_ORFS_DIR"
 fi
 
+XSOCK=/tmp/.X11-unix_$uuid
+XAUTH=/tmp/.docker.xauth_$uuid
 if [[ "${1}" == "--interactive" ]]; then
 	if ! test -t 0; then
 		echo "STDIN not opened in the terminal, --interactive has no effect"
   fi
   DOCKER_INTERACTIVE=-i
   shift 1
+
+	if ! xauth nlist > /dev/null; then
+		echo "Cannot retrieve X11 authorities, GUI may not work properly" 1>&2
+	else
+		xauth nlist | sed -e 's/^..../ffff/' | xauth -f $XAUTH nmerge -
+	fi
 fi
 
-XSOCK=/tmp/.X11-unix_$uuid
-XAUTH=/tmp/.docker.xauth_$uuid
-xauth nlist :0 | sed -e 's/^..../ffff/' | xauth -f $XAUTH nmerge -
 ARGUMENTS=$@
 
 export FLOW_HOME="/OpenROAD-flow-scripts/flow/"
