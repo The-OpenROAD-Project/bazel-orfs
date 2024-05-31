@@ -317,8 +317,6 @@ def mock_area_stages(
         name,
         design_name,
         stage_sources,
-        io_constraints,
-        sdc_constraints,
         stage_args,
         outs,
         variant,
@@ -336,8 +334,6 @@ def mock_area_stages(
       name: name of the target design
       design_name: short name of the design
       stage_sources: dictionary of lists with sources for each flow stage
-      io_constraints: path to tcl script with IO constraints
-      sdc_constraints: path to SDC file with design constraints
       stage_args: dictionary keyed by ORFS stages with lists of stage-specific arguments
       outs: dictionary of lists with paths to output files for each flow stage
       variant: default variant of the ORFS flow, used for replacing output paths
@@ -373,17 +369,11 @@ def mock_area_stages(
     abstract_stages = ["clock_period", "synth", "synth_sdc", "floorplan", "generate_abstract"]
 
     for (previous, stage) in zip(["n/a"] + abstract_stages, abstract_stages):
-        stage_cfg_srcs = []
-        if sdc_constraints != None:
-            stage_cfg_srcs.append(sdc_constraints)
-        if io_constraints != None:
-            stage_cfg_srcs.append(io_constraints)
-
         # Generate config for stage targets
         write_stage_config(
             name = name + "_" + stage + "_mock_area_config",
             stage = stage,
-            srcs = stage_cfg_srcs,
+            srcs = stage_sources[stage],
             stage_args = mock_area_stage_args[stage] + ["FLOW_VARIANT=mock_area"],
         )
         make_pattern = Label("//:" + stage + "-bazel.mk")
@@ -529,9 +519,7 @@ def init_output_dict(all_stages, platform, out_dir, variant, name):
     return outs
 
 def resolve_path(label):
-    if native.package_name():
-        return "/".join([native.package_name(), label])
-    return label
+    return "$(location " + label + ")"
 
 def create_out_rule(name = "out_make_script"):
     """
@@ -711,9 +699,10 @@ def build_openroad(
 
     stage_sources = init_stage_dict(all_stage_names, stage_sources)
     if sdc_constraints != None:
-        stage_sources["synth_sdc"] = [sdc_constraints]
-        stage_sources["clock_period"] = [sdc_constraints]
-    stage_sources["synth"] = list(filter(stage_sources["synth"], lambda s: not s.endswith(".sdc")))
+        stage_sources["synth_sdc"].append(sdc_constraints)
+        stage_sources["clock_period"].append(sdc_constraints)
+        stage_sources["floorplan"].append(sdc_constraints)
+        stage_sources["synth"].append(sdc_constraints)
     stage_sources["synth"] += set(verilog_files)
     if io_constraints != None:
         stage_sources["floorplan"].append(io_constraints)
@@ -828,20 +817,15 @@ def build_openroad(
     )
 
     if mock_area != None:
-        mock_area_stages(target_name, name, stage_sources, io_constraints, sdc_constraints, stage_args, outs, variant, mock_area, docker_image, external_pdk)
+        mock_area_stages(target_name, name, stage_sources, stage_args, outs, variant, mock_area, docker_image, external_pdk)
 
     # _make targets
     for (previous, stage) in zip(["n/a"] + stages, stages):
         # Generate config for stage targets
-        stage_cfg_srcs = []
-        if sdc_constraints != None:
-            stage_cfg_srcs.append(sdc_constraints)
-        if io_constraints != None:
-            stage_cfg_srcs.append(io_constraints)
         write_stage_config(
             name = target_name + "_" + stage + "_config",
             stage = stage,
-            srcs = stage_cfg_srcs,
+            srcs = stage_sources[stage],
             stage_args = stage_args[stage],
         )
 
@@ -891,7 +875,7 @@ def build_openroad(
                 write_stage_config(
                     name = target_name + "_gui_" + stage + "_config",
                     stage = stage,
-                    srcs = stage_cfg_srcs,
+                    srcs = stage_sources["synth"],
                     stage_args = stage_args["synth"] + stage_args["synth_sdc"] + lefs_args,
                 )
                 base_targets.append(target_name + "_synth_sdc")
