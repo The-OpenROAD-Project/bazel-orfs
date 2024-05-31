@@ -45,6 +45,7 @@ if [[ "${1}" == "--interactive" ]]; then
 	if ! xauth nlist > /dev/null; then
 		echo "Cannot retrieve X11 authorities, GUI may not work properly" 1>&2
 	else
+		touch $XAUTH
 		xauth nlist | sed -e 's/^..../ffff/' | xauth -f $XAUTH nmerge -
 	fi
 fi
