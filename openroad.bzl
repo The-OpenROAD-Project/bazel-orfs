@@ -725,11 +725,13 @@ def build_openroad(
             tools = [Label("//:orfs")],
             srcs = [design_config, stage_config, make_pattern],
             cmd = "cat <<EOF > $@ \n#!/bin/bash\n" + local_entrypoint_cmd + " \\$$@\nEOF",
+            tags = ["no-remote", "no-remote-cache"],
             outs = ["logs/%s/%s/%s/make_script_%s.sh" % (platform, out_dir, variant, stage)],
         )
         native.sh_binary(
             name = target_name_stage + "_local_make",
             srcs = ["//" + native.package_name() + ":" + target_name_stage + "_make_local_script"],
+            tags = ["no-remote", "no-remote-cache"],
             data = [Label("//:orfs"), design_config, stage_config, make_pattern],
         )
 
@@ -739,11 +741,13 @@ def build_openroad(
             tools = [Label("//:docker_shell")],
             srcs = [design_config, stage_config, make_pattern],
             cmd = "cat <<EOF > $@ \n#!/bin/bash\n" + docker_entrypoint_cmd + " \\$$@\nEOF",
+            tags = ["no-remote", "no-remote-cache"],
             outs = ["logs/%s/%s/%s/make_docker_script_%s.sh" % (platform, out_dir, variant, stage)],
         )
         native.sh_binary(
             name = target_name_stage + "_docker",
             srcs = ["//" + native.package_name() + ":" + target_name_stage + "_make_docker_script"],
+            tags = ["no-remote", "no-remote-cache"],
             data = [Label("//:docker_shell"), design_config, stage_config, make_pattern],
         )
 
