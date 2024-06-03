@@ -666,15 +666,15 @@ def build_openroad(
 
     outs = init_output_dict(all_stages, platform, out_dir, variant, name)
 
-    x = map(lambda ext: map2(lambda m: "//:results/" + platform + "/%s/%s/%s.%s" % (m, macro_variants.get(m, macro_variant), m, ext), macros), ["lef", "lib"])
+    x = map(lambda ext: map2(lambda m: "//" + native.package_name() + ":results/" + platform + "/%s/%s/%s.%s" % (m, macro_variants.get(m, macro_variant), m, ext), macros), ["lef", "lib"])
     macro_lef_targets, macro_lib_targets = x
     # macro_gds_targets = map(lambda m: "//:results/" + platform + "/%s/%s/6_final.gds" % (m, macro_variants.get(m, macro_variant)), macros)
 
     # Get only the first source from constraints
     io_constraints_args = ["IO_CONSTRAINTS=$$(echo '$(locations " + io_constraints + ")' | cut -d' ' -f 1)"] if io_constraints != None else []
 
-    ADDITIONAL_LEFS = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/%s.lef" % (m, macro_variants.get(m, macro_variant), m), macros))
-    ADDITIONAL_LIBS = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/%s.lib" % (m, macro_variants.get(m, macro_variant), m), macros))
+    ADDITIONAL_LEFS = " ".join(map(resolve_path, macro_lef_targets))
+    ADDITIONAL_LIBS = " ".join(map(resolve_path, macro_lib_targets))
     # ADDITIONAL_GDS_FILES = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/6_final.gds" % (m, macro_variants.get(m, macro_variant)), macros))
 
     lefs_args = (["ADDITIONAL_LEFS=" + ADDITIONAL_LEFS] if len(macros) > 0 else [])
@@ -719,7 +719,7 @@ def build_openroad(
         stage_sources["floorplan"].append(io_constraints)
         stage_sources["place"].append(io_constraints)
     stage_sources["route"] += outs["cts"]
-    for stage in ["floorplan", "final", "generate_abstract"]:
+    for stage in ["synth", "floorplan", "final", "generate_abstract"]:
         stage_args[stage] += lefs_args
         stage_sources[stage] += macro_lef_targets
     for stage in ["synth", "floorplan", "place", "cts", "grt", "route", "final"]:
