@@ -611,7 +611,8 @@ def build_openroad(
         macro_variant = "base",
         docker_image = "openroad/flow-ubuntu22.04-builder:latest",
         debug_prints = False,
-        external_pdk = None):
+        external_pdk = None,
+        visibility = ["//visibility:private"]):
     """
     Spawns targets for running physical design flow with OpenROAD-flow-scripts.
 
@@ -632,6 +633,7 @@ def build_openroad(
       docker_image: docker image name or ID with ORFS environment. Referenced image must be available in local docker runtime. Defaults to `openroad/flow-ubuntu22.04-builder:latest` which can be obtained by running: `bazel run orfs_env` or building the image from ORFS sources
       debug_prints: flag enabling make echo prints and shell trace prints
       external_pdk: label pointing to the external PDK dependency
+      visibility: the visibility attribute on a target controls whether the target can be used in other packages
     """
     mock_abstract = abstract_stage != "generate_abstract"
     target_ext = ("_" + variant if variant != "base" else "")
@@ -861,7 +863,7 @@ def build_openroad(
             }),
             outs = outs.get(stage, []),
             tags = ["supports-graceful-termination"],
-            visibility = ["//visibility:private"],
+            visibility = visibility,
         )
 
         # Target building `target_name` `stage` dependencies and generating `stage` scripts

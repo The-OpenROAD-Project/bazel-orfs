@@ -57,8 +57,8 @@ filegroup(
 
 build_openroad(
     name = "tag_array_64x184",
-    io_constraints = ":io-sram",
     abstract_stage = "floorplan",
+    io_constraints = ":io-sram",
     sdc_constraints = ":constraints-sram",
     stage_args = {
         "floorplan": [
@@ -68,6 +68,7 @@ build_openroad(
         "place": ["PLACE_DENSITY=0.65"],
     },
     verilog_files = ["test/mock/tag_array_64x184.sv"],
+    visibility = [":__subpackages__"],
 )
 
 build_openroad(
