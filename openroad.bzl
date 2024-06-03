@@ -837,7 +837,7 @@ def build_openroad(
                 base_targets.append(target_name + "_synth_sdc")
                 base_targets.extend(macro_lef_targets)
             elif stage == "grt":
-                base_targets.append(target_name + "cts_gui")
+                base_targets.append(target_name + "_cts_gui")
             native.filegroup(
                 name = target_name + "_" + stage + "_gui",
                 srcs = macro_lib_targets + base_targets + [target_name + "_" + stage + "_scripts"],
