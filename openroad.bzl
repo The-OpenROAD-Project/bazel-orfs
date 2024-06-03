@@ -777,6 +777,7 @@ def build_openroad(
         # Local flow scripts
         native.genrule(
             name = target_name_stage + "_make_local_script",
+            executable = True,
             tools = [Label("//:orfs")],
             srcs = [design_config, stage_config, make_pattern],
             cmd = "cat <<EOF > $@ \n#!/bin/bash\n" + local_entrypoint_cmd + " \\$$@\nEOF",
@@ -793,6 +794,7 @@ def build_openroad(
         # Docker flow scripts
         native.genrule(
             name = target_name_stage + "_make_docker_script",
+            executable = True,
             tools = [Label("//:docker_shell")],
             srcs = [design_config, stage_config, make_pattern],
             cmd = "cat <<EOF > $@ \n#!/bin/bash\n" + docker_entrypoint_cmd + " \\$$@\nEOF",
