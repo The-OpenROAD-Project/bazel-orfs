@@ -1,24 +1,9 @@
 load("//:openroad.bzl", "build_openroad")
 
 build_openroad(
-    name = "tag_array_64x184",
-    io_constraints = "//:io-sram",
-    abstract_stage = "floorplan",
-    sdc_constraints = "//:constraints-sram",
-    stage_args = {
-        "floorplan": [
-            "CORE_UTILIZATION=40",
-            "CORE_ASPECT_RATIO=2",
-        ],
-        "place": ["PLACE_DENSITY=0.65"],
-    },
-    verilog_files = ["//:test/mock/tag_array_64x184.sv"],
-)
-
-build_openroad(
     name = "L1MetadataArray",
     io_constraints = "//:io",
-    macros = ["tag_array_64x184"],
+    macros = ["//:tag_array_64x184"],
     abstract_stage = "grt",
     sdc_constraints = "//:test/constraints-top.sdc",
     stage_args = {

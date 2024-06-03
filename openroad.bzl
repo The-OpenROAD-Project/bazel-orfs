@@ -667,7 +667,7 @@ def build_openroad(
 
     outs = init_output_dict(all_stages, platform, out_dir, variant, name)
 
-    x = map(lambda ext: map2(lambda m: "//" + native.package_name() + ":results/" + platform + "/%s/%s/%s.%s" % (m, macro_variants.get(m, macro_variant), m, ext), macros), ["lef", "lib"])
+    x = map(lambda ext: map2(lambda m: "//" + Label(m).package + ":results/" + platform + "/%s/%s/%s.%s" % (Label(m).name, macro_variants.get(Label(m).name, macro_variant), Label(m).name, ext), macros), ["lef", "lib"])
     macro_lef_targets, macro_lib_targets = x
     # macro_gds_targets = map(lambda m: "//:results/" + platform + "/%s/%s/6_final.gds" % (m, macro_variants.get(m, macro_variant)), macros)
 
