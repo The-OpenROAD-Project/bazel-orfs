@@ -71,6 +71,7 @@ build_openroad(
         "place": ["PLACE_DENSITY=0.65"],
     },
     verilog_files = ["test/mock/tag_array_64x184.sv"],
+    visibility = [":__subpackages__"],
 )
 
 build_openroad(
