@@ -816,6 +816,7 @@ def build_openroad(
             name = target_name + "_" + stage + "_make",
             srcs = stage_sources[stage] + ([target_name + "_" + previous] if stage not in ("clock_period", "synth_sdc") else []) +
                    ([target_name + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []) +
+                   ([target_name + "_synth_sdc"] if stage == "floorplan" else []) +
                    [target_name + "_" + stage + "_scripts"],
         )
 
@@ -830,7 +831,10 @@ def build_openroad(
                     stage_args = stage_args["synth"] + stage_args["synth_sdc"] + lefs_args,
                 )
                 base_targets.append(target_name + "_synth_sdc")
+                base_targets.extend(macro_lef_targets)
+            elif stage == "grt":
+                base_targets.append(target_name + "cts_gui")
             native.filegroup(
                 name = target_name + "_" + stage + "_gui",
-                srcs = base_targets + [target_name + "_" + stage + "_scripts"],
+                srcs = macro_lib_targets + base_targets + [target_name + "_" + stage + "_scripts"],
             )
