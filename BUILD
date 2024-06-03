@@ -13,6 +13,8 @@ exports_files([
     "out_script",
 ])
 
+exports_files(glob(["test/**/*.sv", "test/**/*.sdc"]), visibility = [":__subpackages__"])
+
 # Config for remote execution
 config_setting(
     name = "remote_exec",
@@ -44,6 +46,7 @@ filegroup(
         "test/io.tcl",
         ":util",
     ],
+    visibility = [":__subpackages__"],
 )
 
 filegroup(
