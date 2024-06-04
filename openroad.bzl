@@ -549,6 +549,60 @@ def create_out_rule(name = "out_make_script"):
         outs = ["out"],
     )
 
+def _resource_full_cpu(_os_name, _inputs):
+    """
+    Returns resource set for `cpu_heavy_genrule`.
+
+    It has to be defined as top-level function.
+
+    Args:
+        _os_name: Name of the OS
+        _inputs: Number of inputs provided for genrule
+
+    Returns:
+        Dictionary with required resources (cpu, memory or local_test)
+    """
+    return {
+        "cpu": 512,
+    }
+
+def _cpu_heavy_genrule_impl(ctx):
+    """
+    Implementation of `cpu_heavy_genrule`.
+
+    It should behave like the normal genrule, but uses whole CPU.
+
+    Args:
+        ctx: rule context
+
+    Returns:
+        List with information providers of this rule
+    """
+    converted_cmd = ctx.expand_location(ctx.attr.cmd)
+    converted_cmd = ctx.expand_make_variables("cmd", converted_cmd, {
+        "RULEDIR": ctx.var["BINDIR"] + ("/" + ctx.label.package if ctx.label.package else ""),
+    })
+    ctx.actions.run_shell(
+        inputs = ctx.files.srcs,
+        tools = ctx.files.tools,
+        outputs = ctx.outputs.outs,
+        command = converted_cmd,
+        resource_set = _resource_full_cpu,
+        mnemonic = "CPUHeavyGenrule",
+        progress_message = "Executing CPUHeavyGenrule %{label}",
+    )
+    return [DefaultInfo(files = depset(ctx.outputs.outs))]
+
+cpu_heavy_genrule = rule(
+    implementation = _cpu_heavy_genrule_impl,
+    attrs = {
+        "tools": attr.label_list(mandatory = True, allow_files = True),
+        "srcs": attr.label_list(mandatory = True, allow_files = True),
+        "cmd": attr.string(mandatory = True),
+        "outs": attr.output_list(mandatory = True),
+    },
+)
+
 def build_openroad(
         name,
         variant = "base",
@@ -628,6 +682,7 @@ def build_openroad(
     # gds_args = (["ADDITIONAL_GDS_FILES=" + ADDITIONAL_GDS_FILES] if len(macros) > 0 else [])
 
     SDC_FILE_CLOCK_PERIOD = outs["clock_period"][0]
+
     # Get only the first source from constraints
     SDC_FILE = ["SDC_FILE=$$(echo '$(locations " + sdc_constraints + ")' | cut -d' ' -f 1)"] if sdc_constraints != None else []
 
@@ -795,8 +850,13 @@ def build_openroad(
         stage_config = Label("@@//" + native.package_name() + ":" + target_name + "_" + stage + "_config.mk")
         make_targets = get_make_targets(stage, False, mock_area)
 
+        if stage == "route":
+            genrule = cpu_heavy_genrule
+        else:
+            genrule = native.genrule
+
         # Target building `target_name` `stage` and its dependencies
-        native.genrule(
+        genrule(
             name = target_name + "_" + stage,
             tools = select({
                 "@bazel-orfs//:remote_exec": [Label("//:orfs")],
