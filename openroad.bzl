@@ -521,9 +521,18 @@ def init_output_dict(all_stages, platform, out_dir, variant, name):
     return outs
 
 def resolve_path(label):
-    if native.package_name():
-        return "/".join([native.package_name(), label])
-    return label
+    if Label(label).package:
+        return "/".join([Label(label).package, Label(label).name])
+    return Label(label).name
+
+def result_target(platform, variant, extension, label):
+    return "//{package}:results/{platform}/{label}/{variant}/{label}.{extension}".format(
+        package = Label(label).package,
+        platform = platform,
+        variant = variant,
+        extension = extension,
+        label = Label(label).name,
+    )
 
 def create_out_rule(name = "out_make_script"):
     """
@@ -660,15 +669,15 @@ def build_openroad(
 
     outs = init_output_dict(all_stages, platform, out_dir, variant, name)
 
-    x = map(lambda ext: map2(lambda m: "//:results/" + platform + "/%s/%s/%s.%s" % (m, macro_variants.get(m, macro_variant), m, ext), macros), ["lef", "lib"])
-    macro_lef_targets, macro_lib_targets = x
+    macro_lef_targets = map(lambda m: result_target(platform, macro_variants.get(m, macro_variant), "lef", m), macros)
+    macro_lib_targets = map(lambda m: result_target(platform, macro_variants.get(m, macro_variant), "lib", m), macros)
     # macro_gds_targets = map(lambda m: "//:results/" + platform + "/%s/%s/6_final.gds" % (m, macro_variants.get(m, macro_variant)), macros)
 
     # Get only the first source from constraints
     io_constraints_args = ["IO_CONSTRAINTS=$$(echo '$(locations " + io_constraints + ")' | cut -d' ' -f 1)"] if io_constraints != None else []
 
-    ADDITIONAL_LEFS = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/%s.lef" % (m, macro_variants.get(m, macro_variant), m), macros))
-    ADDITIONAL_LIBS = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/%s.lib" % (m, macro_variants.get(m, macro_variant), m), macros))
+    ADDITIONAL_LEFS = " ".join(map(lambda m: "/".join(["$(BINDIR)", resolve_path(m)]), macro_lef_targets))
+    ADDITIONAL_LIBS = " ".join(map(lambda m: "/".join(["$(BINDIR)", resolve_path(m)]), macro_lib_targets))
     # ADDITIONAL_GDS_FILES = " ".join(map(lambda m: "$(RULEDIR)/results/" + platform + "/%s/%s/6_final.gds" % (m, macro_variants.get(m, macro_variant)), macros))
 
     lefs_args = (["ADDITIONAL_LEFS=" + ADDITIONAL_LEFS] if len(macros) > 0 else [])
