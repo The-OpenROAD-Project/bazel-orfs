@@ -49,22 +49,6 @@ def map(func, iterable):
         result.append(func(item))
     return result
 
-def map2(func, iterable):
-    """
-    Convert list of elements into list of mapped elements according to the mapping function
-
-    Args:
-      func: mapping function
-      iterable: collection of objects
-
-    Returns:
-      list of mapped elements
-    """
-    result = []
-    for item in iterable:
-        result.append(func(item))
-    return result
-
 def set(iterable):
     """
     Create a list out of `iterable` of strings with all whitespace removed
