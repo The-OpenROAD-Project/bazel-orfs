@@ -40,7 +40,7 @@ jobs:
           - "L1MetadataArray_test_generate_abstract_make"
           - "L1MetadataArray_full_final_gui"
           - "L1MetadataArray_test_gds_final_make"
-          - "subpackage:tag_array_64x184_synth"
+          - "subpackage:L1MetadataArray_synth"
     env:
       DEBIAN_FRONTEND: "noninteractive"
     steps:
