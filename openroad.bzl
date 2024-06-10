@@ -399,7 +399,7 @@ def init_stage_dict(all_stage_names, stage_dict_init):
     """
     d = {}
     for stage in all_stage_names:
-        d[stage] = stage_dict_init.get(stage, [])
+        d[stage] = list(stage_dict_init.get(stage, []))
 
     return d
 
