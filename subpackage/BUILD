@@ -2,9 +2,9 @@ load("//:openroad.bzl", "build_openroad")
 
 build_openroad(
     name = "L1MetadataArray",
+    abstract_stage = "grt",
     io_constraints = "//:io",
     macros = ["//:tag_array_64x184"],
-    abstract_stage = "grt",
     sdc_constraints = "//:test/constraints-top.sdc",
     stage_args = {
         "synth": ["SYNTH_HIERARCHICAL=1"],
