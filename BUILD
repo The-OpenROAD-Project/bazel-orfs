@@ -82,9 +82,9 @@ build_openroad(
 
 build_openroad(
     name = "lb_32x128",
+    abstract_stage = "floorplan",
     io_constraints = ":io-sram",
     mock_area = 1,
-    abstract_stage = "floorplan",
     sdc_constraints = ":constraints-sram",
     stage_args = {
         "floorplan": [
@@ -98,9 +98,9 @@ build_openroad(
 
 build_openroad(
     name = "L1MetadataArray",
+    abstract_stage = "grt",
     io_constraints = ":io",
     macros = ["tag_array_64x184"],
-    abstract_stage = "grt",
     sdc_constraints = ":test/constraints-top.sdc",
     stage_args = {
         "synth": ["SYNTH_HIERARCHICAL=1"],
@@ -186,9 +186,9 @@ sh_binary(
 # buildifier: disable=duplicated-name
 build_openroad(
     name = "tag_array_64x184",
+    abstract_stage = "floorplan",
     external_pdk = "@external_pdk//asap7",
     io_constraints = ":io-sram",
-    abstract_stage = "floorplan",
     sdc_constraints = ":constraints-sram",
     stage_args = {
         "floorplan": [
@@ -204,11 +204,11 @@ build_openroad(
 # buildifier: disable=duplicated-name
 build_openroad(
     name = "L1MetadataArray",
+    abstract_stage = "grt",
     external_pdk = "@external_pdk//asap7",
     io_constraints = ":io",
     macro_variants = {"tag_array_64x184": "external_pdk"},
     macros = ["tag_array_64x184"],
-    abstract_stage = "grt",
     sdc_constraints = ":test/constraints-top.sdc",
     stage_args = {
         "synth": ["SYNTH_HIERARCHICAL=1"],
