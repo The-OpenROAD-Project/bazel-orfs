@@ -696,7 +696,7 @@ def build_openroad(
                             ["GDS_ALLOW_EMPTY=(" + "|".join(macros) + ")"] if len(macros) > 0 else [])
     stage_args["generate_abstract"] += ["ABSTRACT_SOURCE=" + abstract_source] if mock_abstract else []
 
-    stage_cfg_sources = init_stage_dict(all_stage_names, {})
+    stage_cfg_sources = init_stage_dict(all_stage_names, stage_sources)
     if sdc_constraints != None:
         stage_cfg_sources["floorplan"].append(sdc_constraints)
         stage_cfg_sources["synth_sdc"].append(sdc_constraints)
@@ -706,7 +706,7 @@ def build_openroad(
         stage_cfg_sources["floorplan"].append(io_constraints)
         stage_cfg_sources["place"].append(io_constraints)
 
-    stage_sources = init_stage_dict(all_stage_names, stage_sources | stage_cfg_sources)
+    stage_sources = init_stage_dict(all_stage_names, stage_cfg_sources)
     stage_sources["route"] += outs["cts"]
     for stage in ["floorplan", "final", "generate_abstract"]:
         stage_args[stage] += lefs_args
