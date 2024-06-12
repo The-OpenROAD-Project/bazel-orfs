@@ -847,7 +847,7 @@ def build_openroad(
                 "//conditions:default": [Label("//:docker_shell")],
             }),
             srcs = [make_pattern, design_config, stage_config] + stage_sources[stage] +
-                   ([target_name + "_" + previous] if stage not in ("clock_period", "synth_sdc") else []) +
+                   ([i for i in outs[previous] if len(i) > 4 and i[-4:] != ".log" and i[-4:] != ".rpt"] if stage not in ("clock_period", "synth_sdc") else []) +
                    ([target_name + "_synth_sdc"] if stage == "floorplan" else []) +
                    ([target_name + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
             cmd = select({
@@ -862,7 +862,7 @@ def build_openroad(
         # Target building `target_name` `stage` dependencies and generating `stage` scripts
         native.filegroup(
             name = target_name + "_" + stage + "_make",
-            srcs = stage_sources[stage] + ([target_name + "_" + previous] if stage not in ("clock_period", "synth_sdc") else []) +
+            srcs = stage_sources[stage] + ([i for i in outs[previous] if len(i) > 4 and i[-4:] != ".log" and i[-4:] != ".rpt"] if stage not in ("clock_period", "synth_sdc") else []) +
                    ([target_name + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []) +
                    ([target_name + "_synth_sdc"] if stage == "floorplan" else []) +
                    [target_name + "_" + stage + "_scripts"],
