@@ -20,17 +20,18 @@ function handle_sigterm() {
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 if [[ $DIR == */external/bazel-orfs~override ]]; then
-	WORKSPACE_ROOT=$(realpath $DIR/../../../../../../..)
+	WORKSPACE_ROOT=$(realpath -L $DIR/../../../..)
 else
-	WORKSPACE_ROOT=$(realpath $DIR/../../../../..)
+	WORKSPACE_ROOT=$(realpath $DIR/../..)
 fi
-WORKSPACE_EXECROOT=$WORKSPACE_ROOT/execroot/_main
+WORKSPACE_EXECROOT=$DIR
 WORKSPACE_EXTERNAL=$WORKSPACE_ROOT/external
 
 # Automatically mount bazel-orfs directory if it is used as module with local_path_override
 if [[ $DIR == */external/bazel-orfs~override ]]; then
 	BAZEL_ORFS_DIR=$(realpath $WORKSPACE_ROOT/external/bazel-orfs~override)
 	DOCKER_ARGS="$DOCKER_ARGS -v $BAZEL_ORFS_DIR:$BAZEL_ORFS_DIR"
+	WORKSPACE_EXECROOT=$(realpath -L $DIR/../..)
 fi
 
 XSOCK=/tmp/.X11-unix_$uuid
