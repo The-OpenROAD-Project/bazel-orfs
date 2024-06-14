@@ -270,7 +270,7 @@ def get_entrypoint_cmd(
     if (use_docker_flow):
         if entrypoint == None:
             entrypoint = Label("//:docker_shell")
-        entrypoint = " $(location " + str(entrypoint) + ")" + fmt_whitespace
+        entrypoint = " $$(pwd)/$(location " + str(entrypoint) + ")" + fmt_whitespace
     else:
         if entrypoint == None:
             entrypoint = Label("//:orfs")
