@@ -11,6 +11,7 @@ exports_files(["mock_area.tcl"])
 exports_files([
     "orfs",
     "out_script",
+    "docker_shell",
 ])
 
 exports_files(
@@ -175,12 +176,6 @@ oci_tarball(
     name = "orfs_env",
     image = "@orfs_image",
     repo_tags = ["openroad/flow-ubuntu22.04-builder:latest"],
-)
-
-sh_binary(
-    name = "docker_shell",
-    srcs = ["docker_shell.sh"],
-    visibility = ["//visibility:public"],
 )
 
 # buildifier: disable=duplicated-name
