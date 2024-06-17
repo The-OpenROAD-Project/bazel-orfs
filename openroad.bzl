@@ -297,6 +297,19 @@ def get_entrypoint_cmd(
 
     return cmd
 
+def filter_out_outputs(outs, stage):
+    """
+    Filters out log and report files from stage's output.
+
+    Args:
+      outs: dictionary of lists with paths to output files for each flow stage
+      stage: name of the stage
+
+    Retruns:
+      list with filtered output files
+    """
+    return [i for i in outs.get(stage, []) if len(i) > 4 and i[-4:] not in (".log", ".rpt")]
+
 def mock_area_stages(
         name,
         design_name,
@@ -354,6 +367,18 @@ def mock_area_stages(
 
     abstract_stages = ["clock_period", "synth", "synth_sdc", "floorplan", "generate_abstract"]
 
+    def mock_area_outputs(outputs):
+        """
+        Change outputs to the mock area outputs.
+
+        Args:
+          outputs: list of files
+
+        Returns:
+          list of files with changed /{variant}/ to /mock_area/
+        """
+        return [s.replace("/" + variant + "/", "/mock_area/") for s in outputs]
+
     for (previous, stage) in zip(["n/a"] + abstract_stages, abstract_stages):
         # Generate config for stage targets
         write_stage_config(
@@ -375,14 +400,14 @@ def mock_area_stages(
             }),
             srcs = [make_pattern, design_config, stage_config] +
                    stage_sources[stage] +
-                   ([name + "_" + stage, Label("//:mock_area.tcl")] if stage == "floorplan" else []) +
-                   ([name + "_" + previous + "_mock_area"] if stage != "clock_period" else []) +
-                   ([name + "_synth_mock_area"] if stage == "floorplan" else []),
+                   (filter_out_outputs(outs, stage) + [Label("//:mock_area.tcl")] if stage == "floorplan" else []) +
+                   (mock_area_outputs(filter_out_outputs(outs, previous)) if stage != "clock_period" else []) +
+                   (mock_area_outputs(filter_out_outputs(outs, "synth")) if stage == "floorplan" else []),
             cmd = select({
                 "@bazel-orfs//:remote_exec": "FLOW_HOME=/OpenROAD-flow-scripts/flow " + get_entrypoint_cmd(make_pattern, design_config, stage_config, False, make_targets, mock_area = (stage == "floorplan"), debug_prints = debug_prints, fmt_whitespace = " "),
                 "//conditions:default": get_entrypoint_cmd(make_pattern, design_config, stage_config, True, make_targets, docker_image = docker_image, mock_area = (stage == "floorplan"), debug_prints = debug_prints, fmt_whitespace = " "),
             }),
-            outs = [s.replace("/" + variant + "/", "/mock_area/") for s in outs.get(stage, [])],
+            outs = mock_area_outputs(outs.get(stage, [])),
             tags = ["supports-graceful-termination"],
         )
 
@@ -847,7 +872,7 @@ def build_openroad(
                 "//conditions:default": [Label("//:docker_shell")],
             }),
             srcs = [make_pattern, design_config, stage_config] + stage_sources[stage] +
-                   ([target_name + "_" + previous] if stage not in ("clock_period", "synth_sdc") else []) +
+                   (filter_out_outputs(outs, previous) if stage not in ("clock_period", "synth_sdc") else []) +
                    ([target_name + "_synth_sdc"] if stage == "floorplan" else []) +
                    ([target_name + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []),
             cmd = select({
@@ -862,7 +887,8 @@ def build_openroad(
         # Target building `target_name` `stage` dependencies and generating `stage` scripts
         native.filegroup(
             name = target_name + "_" + stage + "_make",
-            srcs = stage_sources[stage] + ([target_name + "_" + previous] if stage not in ("clock_period", "synth_sdc") else []) +
+            srcs = stage_sources[stage] +
+                   (filter_out_outputs(outs, previous) if stage not in ("clock_period", "synth_sdc") else []) +
                    ([target_name + "_generate_abstract_mock_area"] if mock_area != None and stage == "generate_abstract" else []) +
                    ([target_name + "_synth_sdc"] if stage == "floorplan" else []) +
                    [target_name + "_" + stage + "_scripts"],
