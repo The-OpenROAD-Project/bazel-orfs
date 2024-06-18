@@ -703,7 +703,7 @@ def build_openroad(
     stage_args = init_stage_dict(all_stage_names, stage_args)
     stage_args["clock_period"] = SDC_FILE
     stage_args["synth_sdc"] = SDC_FILE
-    stage_args["synth"].append("VERILOG_FILES=" + " ".join(map(resolve_path, verilog_files)))
+    stage_args["synth"].append("VERILOG_FILES=" + " ".join(map(lambda v: "$(location {})".format(v), verilog_files)))
     stage_args["synth"].append("SDC_FILE_CLOCK_PERIOD=" + SDC_FILE_CLOCK_PERIOD)
     stage_args["floorplan"] += SDC_FILE + (
         [] if len(macros) == 0 else [
