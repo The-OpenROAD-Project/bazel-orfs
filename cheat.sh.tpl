@@ -1,0 +1,7 @@
+set -eux -o pipefail
+export YOSYS_CMD={YOSYS_PATH}
+export OPENROAD_EXE={OPENROAD_PATH}
+export KLAYOUT_CMD={KLAYOUT_PATH}
+export FLOW_HOME={MAKEFILE_DIR}
+export WORK_HOME={WORK_HOME}
+make --file {MAKEFILE_PATH} "$@"
