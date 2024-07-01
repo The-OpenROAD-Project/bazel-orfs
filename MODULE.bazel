@@ -24,3 +24,7 @@ use_repo(oci, "orfs_image")
 #    patches = ["//external_pdk:external_pdk.patch"],
 #    urls = "",
 #)
+
+orfs_repos = use_extension("//:extension.bzl", "orfs_repositories")
+use_repo(orfs_repos, "com_docker_download")
+use_repo(orfs_repos, "docker_orfs")

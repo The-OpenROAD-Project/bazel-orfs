@@ -1,3 +1,21 @@
+PdkInfo = provider()
+
+def _pdk_impl(ctx):
+    return [PdkInfo(
+        name = ctx.attr.name,
+        files = depset(ctx.files.srcs),
+    )]
+
+pdk = rule(
+    implementation = _pdk_impl,
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = True,
+            providers = [DefaultInfo],
+        ),
+    },
+)
+
 """
 This module contains a definiton of build_openroad() macro used for declaring
 targets for running physical design flow with OpenROAD-flow-scripts.
