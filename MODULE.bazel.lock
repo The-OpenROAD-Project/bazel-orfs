@@ -74,7 +74,7 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "STTOz48FvwiJ+4UM6xAi3m8lmBKd7XveW0ABrwAiGLc=",
+        "bzlTransitiveDigest": "vbWVdVBK0kTLmbWwuU6NjPwuNnv38XpiTBXzBOqGVd0=",
         "usagesDigest": "MFT8HG6NwZXop0Jbk9hh5DkYz/LAK1QM1A0oj85HS68=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -86,17 +86,18 @@
             "attributes": {
               "timeout": 3600,
               "build_file": "@@//:docker.BUILD.bazel",
-              "docker_file": "@@//:Dockerfile",
-              "sha256": "70ea7eac09277b429e4cbac1668f29a795656b45993684425d8de0fd1977b65b",
+              "image": "openroad/orfs:f8d87d5bf1b2fa9a7e8724d1586a674180b31ae9",
+              "sha256": "7c3c2ebc85c83ca71c39012399d8b2bf0113b3409cfcd3cf828b2d8e9b0eb077",
               "strip_prefixes": {
                 "OpenROAD-flow-scripts/flow": "flow/",
                 "OpenROAD-flow-scripts/tools/install/OpenROAD/bin/": "bin/",
                 "OpenROAD-flow-scripts/tools/install/yosys/bin/": "bin/",
                 "OpenROAD-flow-scripts/tools/install/yosys/share/yosys/": "share/",
-                "OpenROAD-flow-scripts/dependencies/lib/": "lib/",
+                "opt/or-tools/lib/": "lib/",
                 "usr/lib/x86_64-linux-gnu/": "lib/",
                 "usr/lib/klayout/": "lib/klayout/",
-                "usr/lib/tcltk/x86_64-linux-gnu/tclreadline2.3.8/": "tcl/"
+                "usr/lib/tcltk/x86_64-linux-gnu/tclreadline2.3.8/": "tcl/",
+                "usr/bin/": "bin/"
               },
               "patches": [
                 "@@//:Makefile.patch"

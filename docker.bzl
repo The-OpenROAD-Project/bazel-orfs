@@ -1,22 +1,25 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
 
 def _impl(repository_ctx):
-    docker_path = repository_ctx.path(repository_ctx.attr._docker).realpath
-    image_archive = "data.tar"
+    docker_path = repository_ctx.path(repository_ctx.attr._docker)
+    image_archive = repository_ctx.path("data.tar")
+    dockerfile = repository_ctx.path("Dockerfile")
+
+    repository_ctx.file(dockerfile, content = "FROM {}".format(repository_ctx.attr.image))
     build_result = repository_ctx.execute(
         [
             docker_path,
             "build",
             "--file",
-            repository_ctx.attr.docker_file,
+            dockerfile,
             "--output",
-            "type=tar,dest={image_archive}".format(image_archive = image_archive),
+            "type=tar,dest={}".format(image_archive),
             ".",
         ],
     )
     if build_result.return_code != 0:
         fail(
-            "Failed to build {docker}:".format(docker = repository_ctx.attr.docker_file),
+            "Failed to build {}:".format(repository_ctx.attr.image),
             build_result.stderr,
         )
 
@@ -43,7 +46,7 @@ docker_pkg = repository_rule(
     implementation = _impl,
     attrs = {
         "build_file": attr.label(mandatory = True),
-        "docker_file": attr.label(mandatory = True),
+        "image": attr.string(mandatory = True),
         "sha256": attr.string(mandatory = True),
         "strip_prefixes": attr.string_dict(),
         "patches": attr.label_list(default = []),

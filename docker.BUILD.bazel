@@ -58,6 +58,11 @@ cc_import_library(
     shared_library = ":lib/libtclreadline-2.3.8.so",
 )
 
+cc_import_library(
+    name = "libpython3.10.so.1.0",
+    shared_library = ":lib/libpython3.10.so.1.0",
+)
+
 cc_import(
     name = "libortools",
     shared_library = ":libortools.so.9",
@@ -66,6 +71,11 @@ cc_import(
 cc_import(
     name = "libtclreadline",
     shared_library = ":libtclreadline-2.3.8.so",
+)
+
+cc_import(
+    name = "libpython",
+    shared_library = ":libpython3.10.so.1.0",
 )
 
 cc_import_binary(
@@ -79,6 +89,7 @@ cc_import_binary(
     deps = [
         ":libortools",
         ":libtclreadline",
+        ":libpython",
     ],
     executable = ":bin/openroad",
 )
@@ -432,7 +443,7 @@ cc_import_binary(
         ":libklayout_QtSvg",
         ":libklayout_QtXmlPatterns",
     ],
-    executable = ":lib/klayout/klayout",
+    executable = ":bin/klayout",
     visibility = ["//visibility:public"],
 )
 
