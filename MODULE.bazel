@@ -4,6 +4,7 @@ module(
     compatibility_level = 1,
 )
 
+bazel_dep(name = "patchelf", version = "0.18.0")
 bazel_dep(name = "rules_oci", version = "1.7.4")
 
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
