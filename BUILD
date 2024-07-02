@@ -1,5 +1,5 @@
 load("@rules_oci//oci:defs.bzl", "oci_tarball")
-load("//:openroad.bzl", "add_options_all_stages", "build_openroad", "create_out_rule")
+load("//:openroad.bzl", "build_openroad", "cheat", "orfs_open")
 
 # FIXME: this shouldn't be required
 exports_files(glob(["*.mk"]))
@@ -29,20 +29,17 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-create_out_rule()
-
-filegroup(
-    name = "util",
-    srcs = [
-        "test/util.tcl",
-    ],
+cheat(
+    name = "cheat.sh",
 )
 
 filegroup(
     name = "io-sram",
     srcs = [
-        "test/io-sram.tcl",
-        ":util",
+        ":test/io-sram.tcl",
+    ],
+    data = [
+        ":test/util.tcl",
     ],
     visibility = [":__subpackages__"],
 )
@@ -50,8 +47,10 @@ filegroup(
 filegroup(
     name = "io",
     srcs = [
-        "test/io.tcl",
-        ":util",
+        ":test/io.tcl",
+    ],
+    data = [
+        ":test/util.tcl",
     ],
     visibility = [":__subpackages__"],
 )
@@ -59,23 +58,37 @@ filegroup(
 filegroup(
     name = "constraints-sram",
     srcs = [
-        "test/constraints-sram.sdc",
-        ":util",
+        ":test/constraints-sram.sdc",
+    ],
+    data = [
+        ":test/util.tcl",
     ],
     visibility = [":__subpackages__"],
 )
 
+SRAM_FLOOR_PLACE_ARGUMENTS = {
+    "IO_CONSTRAINTS": "$(location :io-sram)",
+}
+
 build_openroad(
     name = "tag_array_64x184",
     abstract_stage = "floorplan",
-    io_constraints = ":io-sram",
-    sdc_constraints = ":constraints-sram",
     stage_args = {
-        "floorplan": [
-            "CORE_UTILIZATION=40",
-            "CORE_ASPECT_RATIO=2",
-        ],
-        "place": ["PLACE_DENSITY=0.65"],
+        "synth": {
+            "SDC_FILE": "$(location :constraints-sram)",
+        },
+        "floorplan": SRAM_FLOOR_PLACE_ARGUMENTS | {
+            "CORE_UTILIZATION": "40",
+            "CORE_ASPECT_RATIO": "2",
+        },
+        "place": SRAM_FLOOR_PLACE_ARGUMENTS | {
+            "PLACE_DENSITY": "0.65",
+        },
+    },
+    stage_sources = {
+        "synth": [":constraints-sram"],
+        "floorplan": [":io-sram"],
+        "place": [":io-sram"],
     },
     verilog_files = ["//another:tag_array_64x184.sv"],
     visibility = [":__subpackages__"],
@@ -84,140 +97,64 @@ build_openroad(
 build_openroad(
     name = "lb_32x128",
     abstract_stage = "floorplan",
-    io_constraints = ":io-sram",
-    mock_area = 1,
-    sdc_constraints = ":constraints-sram",
     stage_args = {
-        "floorplan": [
-            "CORE_UTILIZATION=40",
-            "CORE_ASPECT_RATIO=2",
-        ],
-        "place": ["PLACE_DENSITY=0.65"],
+        "synth": {"SDC_FILE": "$(location :constraints-sram)"},
+        "floorplan": SRAM_FLOOR_PLACE_ARGUMENTS | {
+            "CORE_UTILIZATION": "40",
+            "CORE_ASPECT_RATIO": "2",
+        },
+        "place": SRAM_FLOOR_PLACE_ARGUMENTS | {"PLACE_DENSITY": "0.65"},
+    },
+    stage_sources = {
+        "synth": [":constraints-sram"],
+        "floorplan": [":io-sram"],
+        "place": [":io-sram"],
     },
     verilog_files = ["test/rtl/lb_32x128.sv"],
 )
 
 build_openroad(
     name = "L1MetadataArray",
-    abstract_stage = "grt",
-    io_constraints = ":io",
-    macros = ["tag_array_64x184"],
-    sdc_constraints = ":test/constraints-top.sdc",
+    abstract_stage = "route",
+    macros = ["tag_array_64x184_generate_abstract"],
     stage_args = {
-        "synth": ["SYNTH_HIERARCHICAL=1"],
-        "floorplan": [
-            "CORE_UTILIZATION=3",
-            "RTLMP_FLOW=True",
-            "CORE_MARGIN=2",
-            "MACRO_PLACE_HALO=30 30",
-        ],
-        "place": [
-            "PLACE_DENSITY=0.20",
-            "PLACE_PINS_ARGS=-annealing",
-        ],
-    },
-    variant = "test",
-    verilog_files = ["test/rtl/L1MetadataArray.sv"],
-)
-
-# buildifier: disable=duplicated-name
-build_openroad(
-    name = "L1MetadataArray",
-    io_constraints = ":io",
-    macros = [
-        "tag_array_64x184",
-        "lb_32x128",
-    ],
-    sdc_constraints = ":test/constraints-top.sdc",
-    stage_args = add_options_all_stages(
-        {
-            "synth": ["SYNTH_HIERARCHICAL=1"],
-            "floorplan": [
-                "CORE_UTILIZATION=3",
-                "RTLMP_FLOW=True",
-                "CORE_MARGIN=2",
-                "MACRO_PLACE_HALO=10 10",
-            ],
-            "place": [
-                "PLACE_DENSITY=0.10",
-                "PLACE_PINS_ARGS=-annealing",
-            ],
+        "synth": {
+            "SDC_FILE": "$(location :test/constraints-top.sdc)",
+            "SYNTH_HIERARCHICAL": "1",
         },
-        ["SKIP_REPORT_METRICS=1"],
-    ),
-    variant = "test_gds",
+        "floorplan": {
+            "CORE_UTILIZATION": "3",
+            "RTLMP_FLOW": "True",
+            "CORE_MARGIN": "2",
+            "MACRO_PLACE_HALO": "30 30",
+        },
+        "place": {
+            "PLACE_DENSITY": "0.20",
+            "PLACE_PINS_ARGS": "-annealing",
+        },
+    },
+    stage_sources = {
+        "synth": [":test/constraints-top.sdc"],
+    },
     verilog_files = ["test/rtl/L1MetadataArray.sv"],
 )
 
-# buildifier: disable=duplicated-name
-build_openroad(
-    name = "L1MetadataArray",
-    io_constraints = ":io",
-    macros = ["tag_array_64x184"],
-    sdc_constraints = ":test/constraints-top.sdc",
-    stage_args = {
-        "synth": ["SYNTH_HIERARCHICAL=1"],
-        "floorplan": [
-            "CORE_UTILIZATION=3",
-            "RTLMP_FLOW=True",
-            "CORE_MARGIN=2",
-            "MACRO_PLACE_HALO=10 10",
-        ],
-        "place": [
-            "PLACE_DENSITY=0.20",
-            "PLACE_PINS_ARGS=-annealing",
-        ],
-    },
-    variant = "full",
-    verilog_files = ["test/rtl/L1MetadataArray.sv"],
+orfs_open(
+    name = "tag_array_64x184_report",
+    src = ":tag_array_64x184_floorplan",
+    outs = [
+        "final_clocks.webp.png",
+        "final_ir_drop.webp.png",
+        "final_placement.webp.png",
+        "final_resizer.webp.png",
+        "final_routing.webp.png",
+        "report.yaml",
+    ],
+    script = ":report.tcl",
 )
 
 oci_tarball(
     name = "orfs_env",
     image = "@orfs_image",
     repo_tags = ["openroad/flow-ubuntu22.04-builder:latest"],
-)
-
-# buildifier: disable=duplicated-name
-build_openroad(
-    name = "tag_array_64x184",
-    abstract_stage = "floorplan",
-    external_pdk = "@external_pdk//asap7",
-    io_constraints = ":io-sram",
-    sdc_constraints = ":constraints-sram",
-    stage_args = {
-        "floorplan": [
-            "CORE_UTILIZATION=40",
-            "CORE_ASPECT_RATIO=2",
-        ],
-        "place": ["PLACE_DENSITY=0.65"],
-    },
-    variant = "external_pdk",
-    verilog_files = ["test/mock/tag_array_64x184.sv"],
-)
-
-# buildifier: disable=duplicated-name
-build_openroad(
-    name = "L1MetadataArray",
-    abstract_stage = "grt",
-    external_pdk = "@external_pdk//asap7",
-    io_constraints = ":io",
-    macro_variants = {"tag_array_64x184": "external_pdk"},
-    macros = ["tag_array_64x184"],
-    sdc_constraints = ":test/constraints-top.sdc",
-    stage_args = {
-        "synth": ["SYNTH_HIERARCHICAL=1"],
-        "floorplan": [
-            "CORE_UTILIZATION=3",
-            "RTLMP_FLOW=True",
-            "CORE_MARGIN=2",
-            "MACRO_PLACE_HALO=30 30",
-        ],
-        "place": [
-            "PLACE_DENSITY=0.20",
-            "PLACE_PINS_ARGS=-annealing",
-        ],
-    },
-    variant = "external_pdk",
-    verilog_files = ["test/rtl/L1MetadataArray.sv"],
 )
