@@ -615,6 +615,7 @@ cpu_heavy_genrule = rule(
 
 def build_openroad(
         name,
+        docker_image,
         variant = "base",
         verilog_files = [],
         stage_sources = {},
@@ -627,7 +628,6 @@ def build_openroad(
         mock_area = None,
         platform = "asap7",
         macro_variant = "base",
-        docker_image = "openroad/flow-ubuntu22.04-builder:latest",
         debug_prints = False,
         external_pdk = None,
         visibility = ["//visibility:private"]):
@@ -636,6 +636,7 @@ def build_openroad(
 
     Args:
       name: name of the macro target
+      docker_image: docker image name or ID with ORFS environment. Referenced image must be available in a local docker runtime or in a specified registry
       variant: variant of the ORFS flow, sets FLOW_VARIANT env var (see https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/blob/108bcf54464e989e6715bee18c3af3d3356e5023/flow/Makefile#L198)
       verilog_files: list of verilog sources of the design
       stage_sources: dictionary keyed by ORFS stages with lists of stage-specific sources
@@ -648,11 +649,13 @@ def build_openroad(
       mock_area: floating point number, spawns additional _mock_area targets if set
       platform: string specifying target platform for running physical design flow. Supported platforms: https://openroad-flow-scripts.readthedocs.io/en/latest/user/FlowVariables.html#platform
       macro_variant: variant of the ORFS flow the macro was built with
-      docker_image: docker image name or ID with ORFS environment. Referenced image must be available in local docker runtime. Defaults to `openroad/flow-ubuntu22.04-builder:latest` which can be obtained by running: `bazel run orfs_env` or building the image from ORFS sources
       debug_prints: flag enabling make echo prints and shell trace prints
       external_pdk: label pointing to the external PDK dependency
       visibility: the visibility attribute on a target controls whether the target can be used in other packages
     """
+
+    if ":" not in docker_image:
+        fail("Image version has to be specified, please use one from https://hub.docker.com/r/openroad/orfs/tags")
     mock_abstract = abstract_stage != "generate_abstract"
     target_ext = ("_" + variant if variant != "base" else "")
     target_name = name + target_ext
