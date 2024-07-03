@@ -1,4 +1,3 @@
-load("@rules_oci//oci:defs.bzl", "oci_tarball")
 load("//:openroad.bzl", "build_openroad", "cheat", "orfs_open")
 
 # FIXME: this shouldn't be required
@@ -151,10 +150,4 @@ orfs_open(
         "report.yaml",
     ],
     script = ":report.tcl",
-)
-
-oci_tarball(
-    name = "orfs_env",
-    image = "@orfs_image",
-    repo_tags = ["openroad/flow-ubuntu22.04-builder:latest"],
 )

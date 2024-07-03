@@ -5,25 +5,6 @@ module(
 )
 
 bazel_dep(name = "patchelf", version = "0.18.0")
-bazel_dep(name = "rules_oci", version = "1.7.4")
-
-oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
-oci.pull(
-    name = "orfs_image",
-    digest = "sha256:ef18800147f1b09fd00366c32b2266da4944d59d588680ed05d2685fbae2531a",
-    image = "ghcr.io/antmicro/openroad-flow-scripts/ubuntu22.04",
-    platforms = ["linux/amd64"],
-)
-use_repo(oci, "orfs_image")
-
-# To have the external PDK examples working uncomment the code below
-# and set the `urls` attribute to the archive with external PDK
-#bazel_dep(name = "external_pdk", version = "1.0.0")
-#archive_override(
-#    module_name = "external_pdk",
-#    patches = ["//external_pdk:external_pdk.patch"],
-#    urls = "",
-#)
 
 orfs_repos = use_extension("//:extension.bzl", "orfs_repositories")
 use_repo(orfs_repos, "com_docker_download")
