@@ -83,16 +83,8 @@ Challenges with large designs and ORFS that Bazel helps address
 * [OpenROAD-flow-scripts](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts) - **Required only for running local scripts** - to use it, `env.sh` file from OpenROAD-flow-scripts has to be sourced or `FLOW_HOME` environmental variable has to be set manually to `OpenROAD-flow-scripts/flow` location.
   Bazel-orfs intentionally does not treat ORFS as a installable versioned tool, but prefers to rely on local installation such that it is easy to hack ORFS and OpenROAD.
 * [Docker](https://docs.docker.com/get-docker/) - **Required for running `Stage` targets and Docker scripts**
-* Docker image with ORFS installation - **Required only for running `Stage` targets** - can be obtained with:
-
-  * running `bazel run '@bazel-orfs//:orfs_env'` which downloads the Docker image from container registry and loads it to Docker runtime under name: `openroad/flow-ubuntu22.04-builder:latest`
-  * [Building the image locally](https://openroad-flow-scripts.readthedocs.io/en/latest/user/BuildWithDocker.html#build-using-docker-from-sources)
-  * Pulling the image manually from the container registry with:
-    ```
-    docker pull ghcr.io/antmicro/openroad-flow-scripts/ubuntu22.04:latest
-    ```
-    In such case the `docker_image` attribute of `build_openroad` macro must be set to `ghcr.io/antmicro/openroad-flow-scripts/ubuntu22.04:latest`
-  * Providing different Docker image and overriding default used in the flow through `docker_image` attribute of `build_openroad` macro
+* Docker image with ORFS used in `build_openroad` macro - **Required only for running `Stage` targets**. If `docker_image` points to locally available image, it will be used.
+  Otherwise, ORFS will pull the requested image, if available.
 
 ## Usage
 
@@ -128,6 +120,7 @@ The macro can now be placed in the BUILD file. The macro usage can look like thi
 ```
 build_openroad(
     name = "L1MetadataArray",
+    docker_image = "openroad/orfs:f8d87d5bf1b2fa9a7e8724d1586a674180b31ae9",
     io_constraints = ":io",
     macros = ["tag_array_64x184"],
     abstract_stage = "grt",
@@ -235,10 +228,9 @@ These are the genrules spawned in this macro:
 Docker flow uses containerized environment with preinstalled ORFS to run the Physical Design Flow.
 
 It implicitly depends on a Docker image with installed ORFS environment being present in Docker runtime of the machine running Bazel targets.
-The Docker image used in the flow defaults to `ghcr.io/antmicro/openroad-flow-scripts/ubuntu22.04:latest`.
-The default can be overridden per `build_openroad` instance with a `docker_image` attribute.
+Each `build_openroad` instance has to define `docker_image` attribute - list of publicly available images: https://hub.docker.com/r/openroad/orfs/tags.
 Setting this attribute to a valid registry and image within this registry will enable Docker to automatically pull the image if it's not available locally.
-Users can also build the image from ORFS sources following [the guide](https://openroad-flow-scripts.readthedocs.io/en/latest/user/BuildWithDocker.html#build-using-docker-from-sources).
+Users can also build the image from ORFS sources following [the guide](https://openroad-flow-scripts.readthedocs.io/en/latest/user/BuildWithDocker.html#build-using-docker-from-sources) and update the `docker_image` to use the same name as the built image.
 
 #### Local flow
 
@@ -357,9 +349,6 @@ For more information, please refer to the [Requirements](#requirements) paragrap
 A quick test-build:
 
 ```
-# Download and load Docker image with ORFS
-bazel run @bazel-orfs//:orfs_env
-
 # Build L1MetadataArray dependencies for the CTS stage
 bazel build L1MetadataArray_test_cts_make
 
