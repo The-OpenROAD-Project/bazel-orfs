@@ -1,3 +1,5 @@
+"""Actions for copying file trees"""
+
 def _copytree_impl(ctx):
     outs = []
 

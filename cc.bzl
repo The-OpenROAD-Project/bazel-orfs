@@ -1,3 +1,5 @@
+"""Actions for importing native code with shared dependencies"""
+
 def _cc_patch(ctx, input):
     out = ctx.actions.declare_file(ctx.label.name)
 

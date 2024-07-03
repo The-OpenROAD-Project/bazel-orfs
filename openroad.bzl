@@ -1,5 +1,9 @@
+"""Rules for the building the OpenROAD-flow-scripts stages"""
+
 OrfsInfo = provider(
+    "The outputs of a OpenROAD-flow-scripts stage.",
     fields = [
+        "odb",
         "gds",
         "lef",
         "lib",
@@ -9,12 +13,14 @@ OrfsInfo = provider(
     ],
 )
 PdkInfo = provider(
+    "A process design kit.",
     fields = [
         "name",
         "files",
     ],
 )
 TopInfo = provider(
+    "The name of the netlist top module.",
     fields = ["module_top"],
 )
 
@@ -372,6 +378,7 @@ def _synth_impl(ctx):
             **{f.basename: depset([f]) for f in [config, out, sdc]}
         ),
         OrfsInfo(
+            odb = None,
             gds = None,
             lef = None,
             lib = None,
@@ -656,8 +663,8 @@ def build_openroad(
     synth_step = steps[0]
     synth_step.impl(
         name = "{}_{}".format(name, synth_step.stage),
-        arguments = stage_args.get(synth_step.stage, default = {}),
-        data = stage_sources.get(synth_step.stage, default = []),
+        arguments = stage_args.get(synth_step.stage, {}),
+        data = stage_sources.get(synth_step.stage, []),
         deps = macros,
         module_top = name,
         verilog_files = verilog_files,
@@ -668,7 +675,7 @@ def build_openroad(
         step.impl(
             name = "{}_{}".format(name, step.stage),
             src = "{}_{}".format(name, prev.stage),
-            arguments = stage_args.get(step.stage, default = {}),
-            data = stage_sources.get(step.stage, default = []),
+            arguments = stage_args.get(step.stage, {}),
+            data = stage_sources.get(step.stage, []),
             visibility = visibility,
         )

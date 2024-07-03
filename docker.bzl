@@ -1,3 +1,5 @@
+"""Repository rules for exporting file trees from docker images"""
+
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
 
 def _impl(repository_ctx):
