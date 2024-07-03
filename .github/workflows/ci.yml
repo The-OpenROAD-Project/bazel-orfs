@@ -36,11 +36,10 @@ jobs:
       fail-fast: false
       matrix:
         STAGE_TARGET:
-          - "tag_array_64x184_generate_abstract_make"
-          - "L1MetadataArray_test_generate_abstract_make"
-          - "L1MetadataArray_full_final_gui"
-          - "L1MetadataArray_test_gds_final_make"
-          - "subpackage:L1MetadataArray_synth"
+          - "tag_array_64x184_report"
+          - "lb_32x128_generate_abstract"
+          - "L1MetadataArray_generate_abstract"
+          - "subpackage:L1MetadataArray_generate_abstract"
     env:
       DEBIAN_FRONTEND: "noninteractive"
     steps:
@@ -52,14 +51,10 @@ jobs:
         run: |
           echo "USER: "$(whoami)
           echo "PWD: "$(pwd)
-          ls -la
           echo "HOME: "$HOME
-          docker --version
+          ls -la
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
-      - name: load docker image
-        run: |
-          bazel run --subcommands --verbose_failures --sandbox_debug orfs_env
       - name: query target
         run: |
           bazel query ${{ matrix.STAGE_TARGET }}
@@ -67,175 +62,3 @@ jobs:
       - name: build target
         run: |
           bazel build --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }}
-      - name: open target
-        if: matrix.STAGE_TARGET == 'L1MetadataArray_full_final_gui'
-        run: |
-          for stage in "synth" "floorplan" "place" "cts" "route" "final"; do
-            bazel build --subcommands --verbose_failures --sandbox_debug L1MetadataArray_full_${stage}_scripts
-            echo | ./bazel-bin/L1MetadataArray_full_${stage}_docker open_${stage}
-          done
-
-  test-scripts-target-docker:
-    name: Docker flow - test _scripts targets
-    runs-on: ubuntu-22.04
-    defaults:
-      run:
-        shell: bash
-    strategy:
-      fail-fast: false
-    env:
-      DEBIAN_FRONTEND: "noninteractive"
-      FLOW: docker
-    steps:
-      - name: Print info
-        run: |
-          echo "USER: "$(whoami)
-          echo "PWD: "$(pwd)
-          ls -la
-          echo "HOME: "$HOME
-          docker --version
-      - name: Checkout bazel-orfs
-        uses: actions/checkout@v4
-      - name: load docker image
-        run: |
-          bazel run --subcommands --verbose_failures --sandbox_debug orfs_env
-      - name: build docker stage targets - tag_array_64x184
-        env:
-          TARGET: tag_array_64x184
-        run: .github/scripts/build_local_target.sh
-      - name: build docker stage targets - L1MetadataArray_test
-        env:
-          TARGET: L1MetadataArray_test
-          STAGES: synth_sdc synth floorplan place cts grt generate_abstract
-        run: .github/scripts/build_local_target.sh
-
-  test-scripts-target-local:
-    name: Local flow - test _scripts targets
-    runs-on: ubuntu-22.04
-    container:
-      image: ghcr.io/antmicro/openroad-flow-scripts/ubuntu22.04@sha256:ef18800147f1b09fd00366c32b2266da4944d59d588680ed05d2685fbae2531a
-    defaults:
-      run:
-        shell: bash
-    strategy:
-      fail-fast: false
-    env:
-      DEBIAN_FRONTEND: "noninteractive"
-      FLOW_HOME: /OpenROAD-flow-scripts/flow
-    steps:
-      - name: Print info
-        run: |
-          echo "USER: "$(whoami)
-          echo "PWD: "$(pwd)
-          ls -la
-          echo "HOME: "$HOME
-          cd /OpenROAD-flow-scripts
-          echo "OpenROAD-flow-scripts SHA: "$(git rev-parse HEAD)
-          source ./env.sh
-          yosys --version
-          openroad -version
-      - name: Install bazelisk as bazel
-        run: |
-          wget https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64 -O /usr/local/bin/bazel
-          chmod +x /usr/local/bin/bazel
-      - name: Checkout bazel-orfs
-        uses: actions/checkout@v4
-      - name: build local stage targets - tag_array_64x184
-        env:
-          TARGET: tag_array_64x184
-        run: .github/scripts/build_local_target.sh
-      - name: build local stage targets - lb_32x128
-        env:
-          TARGET: lb_32x128
-        run: .github/scripts/build_local_target.sh
-      - name: build local stage targets - L1MetadataArray_test
-        env:
-          TARGET: L1MetadataArray_test_gds
-          STAGES: synth_sdc synth floorplan place cts grt route final generate_abstract
-        run: .github/scripts/build_local_target.sh
-      - name: open target
-        run: |
-          for stage in "synth" "floorplan" "place" "cts" "route" "final"; do
-            echo | bazel-bin/L1MetadataArray_test_gds_${stage}_local_make open_${stage}
-          done
-
-  test-docker-local-targets:
-    name: Run ORFS using docker and local flow
-    runs-on: ubuntu-22.04
-    defaults:
-      run:
-        shell: bash
-    env:
-      DEBIAN_FRONTEND: "noninteractive"
-      STAGES: "floorplan generate_abstract"
-      TARGET: tag_array_64x184
-    steps:
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          swap-storage: false
-      - name: Checkout bazel-orfs
-        uses: actions/checkout@v4
-      - name: load docker image
-        run: |
-          bazel run --subcommands --verbose_failures --sandbox_debug orfs_env
-      - name: build docker flow targets
-        env:
-          FLOW: docker
-          STAGES: synth_sdc synth
-        run: .github/scripts/build_local_target.sh
-      - name: prepare scripts with local flow
-        env:
-          SKIP_RUN: 1
-        run: .github/scripts/build_local_target.sh
-      - name: run local flow target
-        run: >
-          docker run --rm
-          -v $(realpath ~/.cache):$(realpath ~/.cache)
-          -v $(pwd):$(pwd)
-          -e FLOW_HOME=/OpenROAD-flow-scripts/flow
-          -e SKIP_BUILD=1
-          -e TARGET
-          -e STAGES
-          -w $(pwd)
-          $DOCKER_IMAGE
-          .github/scripts/build_local_target.sh
-
-  test-make-issue:
-    name: Run ORFS <stage>_issue target
-    runs-on: ubuntu-22.04
-    defaults:
-      run:
-        shell: bash
-    env:
-      DEBIAN_FRONTEND: "noninteractive"
-      STAGE_TARGET: "L1MetadataArray_test_place"
-      ISSUE_TARGET: "L1MetadataArray_test_cts_local_make"
-    steps:
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          swap-storage: false
-      - name: Checkout bazel-orfs
-        uses: actions/checkout@v4
-      - name: load docker image
-        run: |
-          bazel run --subcommands --verbose_failures --sandbox_debug orfs_env
-      - name: build target dependencies
-        run: |
-          bazel build --subcommands --verbose_failures --sandbox_debug ${STAGE_TARGET}
-      - name: generate script
-        run: |
-          bazel build --subcommands --verbose_failures --sandbox_debug ${ISSUE_TARGET}
-      - name: save and test the issue archive
-        run: >
-          docker run --rm
-          -v $(realpath ~/.cache):$(realpath ~/.cache)
-          -v $(pwd):$(pwd)
-          -e FLOW_HOME=/OpenROAD-flow-scripts/flow
-          -e SKIP_BUILD=1
-          -e TARGET
-          -e STAGES
-          -w $(pwd)
-          $DOCKER_IMAGE
-          /bin/bash -c "./bazel-bin/${ISSUE_TARGET} cts_issue; mkdir issue_test; tar -xvf bazel-bazel-orfs/cts_L1MetadataArray*.tar.gz -C issue_test; cd issue_test; cd cts_L1MetadataArray*; source \$FLOW_HOME/../env.sh; ./run*"
