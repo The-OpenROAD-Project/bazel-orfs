@@ -653,6 +653,18 @@ def build_openroad(
         stage_args = {},
         abstract_stage = None,
         visibility = ["//visibility:private"]):
+    """
+    Creates targets for running physical design flow with OpenROAD-flow-scripts.
+
+    Args:
+      name: name of the macro target
+      verilog_files: list of verilog sources of the design
+      macros: list of macros required to run physical design flow for this design
+      stage_sources: dictionary keyed by ORFS stages with lists of stage-specific sources
+      stage_args: dictionary keyed by ORFS stages with lists of stage-specific arguments
+      abstract_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
+      visibility: the visibility attribute on a target controls whether the target can be used in other packages
+    """
     steps = []
     for step in STAGE_IMPLS:
         steps.append(step)
