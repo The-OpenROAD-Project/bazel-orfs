@@ -1,6 +1,22 @@
-OrfsInfo = provider()
-PdkInfo = provider()
-TopInfo = provider()
+OrfsInfo = provider(
+    fields = [
+        "gds",
+        "lef",
+        "lib",
+        "additional_gds",
+        "additional_lefs",
+        "additional_libs",
+    ],
+)
+PdkInfo = provider(
+    fields = [
+        "name",
+        "files",
+    ],
+)
+TopInfo = provider(
+    fields = ["module_top"],
+)
 
 def _pdk_impl(ctx):
     return [PdkInfo(
