@@ -1,3 +1,5 @@
+"""Actions for patching strings in binary files"""
+
 def _escape(str):
     return str.replace("/", "\\/")
 

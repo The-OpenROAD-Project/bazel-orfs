@@ -6,8 +6,8 @@ FLOOR_PLACE_ARGUMENTS = {
 
 build_openroad(
     name = "L1MetadataArray",
-    macros = ["//:tag_array_64x184_generate_abstract"],
     abstract_stage = "route",
+    macros = ["//:tag_array_64x184_generate_abstract"],
     stage_args = {
         "synth": {
             "SDC_FILE": "$(location //:test/constraints-top.sdc)",
