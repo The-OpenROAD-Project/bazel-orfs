@@ -628,7 +628,7 @@ def build_openroad(
         macros = [],
         stage_sources = {},
         stage_args = {},
-        abstract_stage = "generate_abstract",
+        abstract_stage = None,
         visibility = ["//visibility:private"]):
     steps = []
     for step in STAGE_IMPLS:
