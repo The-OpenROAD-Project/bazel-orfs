@@ -1,5 +1,5 @@
-load("@rules_oci//oci:defs.bzl", "oci_tarball")
 load("//:openroad.bzl", "add_options_all_stages", "build_openroad", "create_out_rule")
+load("//:variables.bzl", "DOCKER_IMAGE")
 
 # FIXME: this shouldn't be required
 exports_files(glob(["*.mk"]))
@@ -68,6 +68,7 @@ filegroup(
 build_openroad(
     name = "tag_array_64x184",
     abstract_stage = "floorplan",
+    docker_image = DOCKER_IMAGE,
     io_constraints = ":io-sram",
     sdc_constraints = ":constraints-sram",
     stage_args = {
@@ -84,6 +85,7 @@ build_openroad(
 build_openroad(
     name = "lb_32x128",
     abstract_stage = "floorplan",
+    docker_image = DOCKER_IMAGE,
     io_constraints = ":io-sram",
     mock_area = 1,
     sdc_constraints = ":constraints-sram",
@@ -100,6 +102,7 @@ build_openroad(
 build_openroad(
     name = "L1MetadataArray",
     abstract_stage = "grt",
+    docker_image = DOCKER_IMAGE,
     io_constraints = ":io",
     macros = ["tag_array_64x184"],
     sdc_constraints = ":test/constraints-top.sdc",
@@ -123,6 +126,7 @@ build_openroad(
 # buildifier: disable=duplicated-name
 build_openroad(
     name = "L1MetadataArray",
+    docker_image = DOCKER_IMAGE,
     io_constraints = ":io",
     macros = [
         "tag_array_64x184",
@@ -152,6 +156,7 @@ build_openroad(
 # buildifier: disable=duplicated-name
 build_openroad(
     name = "L1MetadataArray",
+    docker_image = DOCKER_IMAGE,
     io_constraints = ":io",
     macros = ["tag_array_64x184"],
     sdc_constraints = ":test/constraints-top.sdc",
@@ -172,16 +177,11 @@ build_openroad(
     verilog_files = ["test/rtl/L1MetadataArray.sv"],
 )
 
-oci_tarball(
-    name = "orfs_env",
-    image = "@orfs_image",
-    repo_tags = ["openroad/flow-ubuntu22.04-builder:latest"],
-)
-
 # buildifier: disable=duplicated-name
 build_openroad(
     name = "tag_array_64x184",
     abstract_stage = "floorplan",
+    docker_image = DOCKER_IMAGE,
     external_pdk = "@external_pdk//asap7",
     io_constraints = ":io-sram",
     sdc_constraints = ":constraints-sram",
@@ -200,6 +200,7 @@ build_openroad(
 build_openroad(
     name = "L1MetadataArray",
     abstract_stage = "grt",
+    docker_image = DOCKER_IMAGE,
     external_pdk = "@external_pdk//asap7",
     io_constraints = ":io",
     macro_variants = {"tag_array_64x184": "external_pdk"},

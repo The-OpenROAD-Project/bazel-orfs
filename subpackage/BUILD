@@ -1,7 +1,9 @@
 load("//:openroad.bzl", "build_openroad")
+load("//:variables.bzl", "DOCKER_IMAGE")
 
 build_openroad(
     name = "L1MetadataArray",
+    docker_image = DOCKER_IMAGE,
     abstract_stage = "grt",
     io_constraints = "//:io",
     macros = ["//:tag_array_64x184"],
