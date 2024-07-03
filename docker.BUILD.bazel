@@ -54,13 +54,174 @@ cc_import_library(
 )
 
 cc_import_library(
+    name = "libtcl8.6.so",
+    shared_library = ":lib/libtcl8.6.so",
+)
+
+cc_import_library(
     name = "libtclreadline-2.3.8.so",
     shared_library = ":lib/libtclreadline-2.3.8.so",
 )
 
 cc_import_library(
+    name = "libreadline.so.8",
+    shared_library = ":lib/libreadline.so.8",
+)
+
+cc_import_library(
+    name = "libtinfo.so.6",
+    shared_library = ":lib/libtinfo.so.6",
+)
+
+cc_import_library(
+    name = "libz.so.1",
+    shared_library = ":lib/libz.so.1",
+)
+
+cc_import_library(
+    name = "libgomp.so.1",
+    shared_library = ":lib/libgomp.so.1",
+)
+
+cc_import_library(
     name = "libpython3.10.so.1.0",
     shared_library = ":lib/libpython3.10.so.1.0",
+)
+
+cc_import_library(
+    name = "libexpat.so.1",
+    shared_library = ":lib/libexpat.so.1",
+)
+
+cc_import_library(
+    name = "libdouble-conversion.so.3",
+    shared_library = ":lib/libdouble-conversion.so.3",
+)
+
+cc_import_library(
+    name = "libicui18n.so.70",
+    shared_library = ":lib/libicui18n.so.70",
+)
+
+cc_import_library(
+    name = "libicudata.so.70",
+    shared_library = ":lib/libicudata.so.70",
+)
+
+cc_import_library(
+    name = "libicuuc.so.70",
+    shared_library = ":lib/libicuuc.so.70",
+)
+
+cc_import_library(
+    name = "libpcre2-16.so.0",
+    shared_library = ":lib/libpcre2-16.so.0",
+)
+
+cc_import_library(
+    name = "libzstd.so.1",
+    shared_library = ":lib/libzstd.so.1",
+)
+
+cc_import_library(
+    name = "libGL.so.1",
+    shared_library = ":lib/libGL.so.1",
+)
+
+cc_import_library(
+    name = "libGLdispatch.so.0",
+    shared_library = ":lib/libGLdispatch.so.0",
+)
+
+cc_import_library(
+    name = "libGLX.so.0",
+    shared_library = ":lib/libGLX.so.0",
+)
+
+cc_import_library(
+    name = "libX11.so.6",
+    shared_library = ":lib/libX11.so.6",
+)
+cc_import_library(
+    name = "libxcb.so.1",
+    shared_library = ":lib/libxcb.so.1",
+)
+cc_import_library(
+    name = "libXau.so.6",
+    shared_library = ":lib/libXau.so.6",
+)
+cc_import_library(
+    name = "libXdmcp.so.6",
+    shared_library = ":lib/libXdmcp.so.6",
+)
+
+cc_import_library(
+    name = "libbsd.so.0",
+    shared_library = ":lib/libbsd.so.0",
+)
+cc_import_library(
+    name = "libmd.so.0",
+    shared_library = ":lib/libmd.so.0",
+)
+cc_import_library(
+    name = "libpng16.so.16",
+    shared_library = ":lib/libpng16.so.16",
+)
+cc_import_library(
+    name = "libharfbuzz.so.0",
+    shared_library = ":lib/libharfbuzz.so.0",
+)
+cc_import_library(
+    name = "libfreetype.so.6",
+    shared_library = ":lib/libfreetype.so.6",
+)
+cc_import_library(
+    name = "libbrotlidec.so.1",
+    shared_library = ":lib/libbrotlidec.so.1",
+)
+cc_import_library(
+    name = "libbrotlicommon.so.1",
+    shared_library = ":lib/libbrotlicommon.so.1",
+)
+cc_import_library(
+    name = "libbz2.so.1.0",
+    shared_library = ":lib/libbz2.so.1.0",
+)
+cc_import_library(
+    name = "libglib-2.0.so.0",
+    shared_library = ":lib/libglib-2.0.so.0",
+)
+cc_import_library(
+    name = "libpcre.so.3",
+    shared_library = ":lib/libpcre.so.3",
+)
+cc_import_library(
+    name = "libgraphite2.so.3",
+    shared_library = ":lib/libgraphite2.so.3",
+)
+cc_import_library(
+    name = "libmd4c.so.0",
+    shared_library = ":lib/libmd4c.so.0",
+)
+
+cc_import_library(
+    name = "libQt5Charts.so.5",
+    shared_library = ":lib/libQt5Charts.so.5",
+)
+
+cc_import_library(
+    name = "libQt5Widgets.so.5",
+    shared_library = ":lib/libQt5Widgets.so.5",
+)
+
+cc_import_library(
+    name = "libQt5Gui.so.5",
+    shared_library = ":lib/libQt5Gui.so.5",
+)
+
+cc_import_library(
+    name = "libQt5Core.so.5",
+    shared_library = ":lib/libQt5Core.so.5",
 )
 
 cc_import(
@@ -69,13 +230,246 @@ cc_import(
 )
 
 cc_import(
+    name = "libtcl",
+    shared_library = ":libtcl8.6.so",
+)
+
+cc_import(
     name = "libtclreadline",
+    deps = [
+        ":libreadline",
+    ],
     shared_library = ":libtclreadline-2.3.8.so",
 )
 
 cc_import(
+    name = "libreadline",
+    deps = [
+        ":libtinfo",
+    ],
+    shared_library = ":libreadline.so.8",
+)
+
+cc_import(
+    name = "libtinfo",
+    shared_library = ":libtinfo.so.6",
+)
+
+cc_import(
+    name = "libz",
+    shared_library = ":libz.so.1",
+)
+
+cc_import(
+    name = "libgomp",
+    shared_library = ":libgomp.so.1",
+)
+
+cc_import(
+    name = "libdouble-conversion",
+    shared_library = ":libdouble-conversion.so.3",
+)
+
+cc_import(
+    name = "libicui18n",
+    shared_library = ":libicui18n.so.70",
+)
+
+cc_import(
+    name = "libicudata",
+    shared_library = ":libicudata.so.70",
+)
+
+cc_import(
+    name = "libicuuc",
+    deps = [
+        ":libicudata",
+    ],
+    shared_library = ":libicuuc.so.70",
+)
+
+cc_import(
+    name = "libpcre2-16",
+    shared_library = ":libpcre2-16.so.0",
+)
+
+cc_import(
+    name = "libzstd",
+    shared_library = ":libzstd.so.1",
+)
+
+cc_import(
+    name = "libGL",
+    deps = [
+        ":libGLdispatch",
+        ":libGLX",
+    ],
+    shared_library = "libGL.so.1",
+)
+
+cc_import(
+    name = "libGLdispatch",
+    shared_library = "libGLdispatch.so.0",
+)
+cc_import(
+    name = "libGLX",
+    deps = [
+        ":libX11",
+    ],
+    shared_library = "libGLX.so.0",
+)
+
+cc_import(
+    name = "libX11",
+    deps = [
+        ":libxcb",
+    ],
+    shared_library = "libX11.so.6",
+)
+
+cc_import(
+    name = "libxcb",
+    deps = [
+        ":libXau",
+        ":libXdmcp",
+    ],
+    shared_library = "libxcb.so.1",
+)
+
+cc_import(
+    name = "libXau",
+    shared_library = "libXau.so.6",
+)
+
+cc_import(
+    name = "libXdmcp",
+    deps = [
+        ":libbsd",
+    ],
+    shared_library = "libXdmcp.so.6",
+)
+
+cc_import(
+    name = "libbsd",
+    deps = [
+        ":libmd",
+    ],
+    shared_library = "libbsd.so.0",
+)
+
+cc_import(
+    name = "libmd",
+    shared_library = "libmd.so.0",
+)
+
+cc_import(
+    name = "libpng16",
+    shared_library = "libpng16.so.16",
+)
+
+cc_import(
+    name = "libharfbuzz",
+    deps = [
+        ":libfreetype",
+        ":libglib-2.0",
+        ":libgraphite2",
+    ],
+    shared_library = "libharfbuzz.so.0",
+)
+
+cc_import(
+    name = "libfreetype",
+    deps = [
+        ":libbrotlidec",
+    ],
+    shared_library = "libfreetype.so.6",
+)
+
+cc_import(
+    name = "libbrotlidec",
+    deps = [
+        ":libbrotlicommon",
+    ],
+    shared_library = ":libbrotlidec.so.1",
+)
+
+cc_import(
+    name = "libbrotlicommon",
+    shared_library = ":libbrotlicommon.so.1",
+)
+
+cc_import(
+    name = "libbz2",
+    shared_library = "libbz2.so.1.0",
+)
+
+cc_import(
+    name = "libglib-2.0",
+    deps = [
+        ":libpcre",
+    ],
+    shared_library = "libglib-2.0.so.0",
+)
+
+cc_import(
+    name = "libpcre",
+    shared_library = "libpcre.so.3",
+)
+
+cc_import(
+    name = "libgraphite2",
+    shared_library = "libgraphite2.so.3",
+)
+
+cc_import(
+    name = "libmd4c",
+    shared_library = "libmd4c.so.0",
+)
+
+cc_import(
+    name = "libQt5Charts",
+    shared_library = ":libQt5Charts.so.5",
+)
+
+cc_import(
+    name = "libQt5Widgets",
+    shared_library = ":libQt5Widgets.so.5",
+)
+
+cc_import(
+    name = "libQt5Gui",
+    deps = [
+        ":libGL",
+        ":libpng16",
+        ":libharfbuzz",
+        ":libmd4c",
+    ],
+    shared_library = ":libQt5Gui.so.5",
+)
+
+cc_import(
+    name = "libQt5Core",
+    shared_library = ":libQt5Core.so.5",
+    deps = [
+        ":libdouble-conversion",
+        ":libicui18n",
+        ":libicuuc",
+        ":libpcre2-16",
+        ":libzstd",
+    ],
+)
+
+cc_import(
     name = "libpython",
+    deps = [
+        ":libexpat",
+    ],
     shared_library = ":libpython3.10.so.1.0",
+)
+
+cc_import(
+    name = "libexpat",
+    shared_library = ":libexpat.so.1",
 )
 
 cc_import_binary(
@@ -87,8 +481,15 @@ cc_import_binary(
         ":tcl/tclreadlineSetup.tcl",
     ],
     deps = [
-        ":libortools",
+        ":libtcl",
         ":libtclreadline",
+        ":libz",
+        ":libortools",
+        ":libgomp",
+        ":libQt5Charts",
+        ":libQt5Widgets",
+        ":libQt5Gui",
+        ":libQt5Core",
         ":libpython",
     ],
     executable = ":bin/openroad",
