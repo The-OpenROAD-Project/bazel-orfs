@@ -6,7 +6,7 @@ on:
   pull_request:
 
 env:
-  DOCKER_IMAGE: openroad/flow-ubuntu22.04-builder:latest
+  DOCKER_IMAGE: openroad/orfs:f8d87d5bf1b2fa9a7e8724d1586a674180b31ae9
 
 jobs:
   lint:
@@ -57,9 +57,6 @@ jobs:
           docker --version
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
-      - name: load docker image
-        run: |
-          bazel run --subcommands --verbose_failures --sandbox_debug orfs_env
       - name: query target
         run: |
           bazel query ${{ matrix.STAGE_TARGET }}
@@ -96,9 +93,6 @@ jobs:
           docker --version
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
-      - name: load docker image
-        run: |
-          bazel run --subcommands --verbose_failures --sandbox_debug orfs_env
       - name: build docker stage targets - tag_array_64x184
         env:
           TARGET: tag_array_64x184
@@ -113,7 +107,7 @@ jobs:
     name: Local flow - test _scripts targets
     runs-on: ubuntu-22.04
     container:
-      image: ghcr.io/antmicro/openroad-flow-scripts/ubuntu22.04@sha256:ef18800147f1b09fd00366c32b2266da4944d59d588680ed05d2685fbae2531a
+      image: openroad/orfs:f8d87d5bf1b2fa9a7e8724d1586a674180b31ae9
     defaults:
       run:
         shell: bash
@@ -176,9 +170,6 @@ jobs:
           swap-storage: false
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
-      - name: load docker image
-        run: |
-          bazel run --subcommands --verbose_failures --sandbox_debug orfs_env
       - name: build docker flow targets
         env:
           FLOW: docker
@@ -218,9 +209,6 @@ jobs:
           swap-storage: false
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
-      - name: load docker image
-        run: |
-          bazel run --subcommands --verbose_failures --sandbox_debug orfs_env
       - name: build target dependencies
         run: |
           bazel build --subcommands --verbose_failures --sandbox_debug ${STAGE_TARGET}
