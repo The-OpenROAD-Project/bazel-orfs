@@ -1,10 +1,10 @@
-load("//:openroad.bzl", "build_openroad")
+load("//:openroad.bzl", "orfs_flow")
 
 FLOOR_PLACE_ARGUMENTS = {
     "IO_CONSTRAINTS": "$(location //:io)",
 }
 
-build_openroad(
+orfs_flow(
     name = "L1MetadataArray",
     abstract_stage = "route",
     macros = ["//:tag_array_64x184_generate_abstract"],

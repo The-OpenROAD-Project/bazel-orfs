@@ -1,4 +1,4 @@
-load("//:openroad.bzl", "build_openroad", "cheat", "orfs_open")
+load("//:openroad.bzl", "orfs_cheat", "orfs_flow", "orfs_run")
 
 # FIXME: this shouldn't be required
 exports_files(glob(["*.mk"]))
@@ -28,7 +28,7 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-cheat(
+orfs_cheat(
     name = "cheat.sh",
 )
 
@@ -69,7 +69,7 @@ SRAM_FLOOR_PLACE_ARGUMENTS = {
     "IO_CONSTRAINTS": "$(location :io-sram)",
 }
 
-build_openroad(
+orfs_flow(
     name = "tag_array_64x184",
     abstract_stage = "floorplan",
     stage_args = {
@@ -93,7 +93,7 @@ build_openroad(
     visibility = [":__subpackages__"],
 )
 
-build_openroad(
+orfs_flow(
     name = "lb_32x128",
     abstract_stage = "floorplan",
     stage_args = {
@@ -112,7 +112,7 @@ build_openroad(
     verilog_files = ["test/rtl/lb_32x128.sv"],
 )
 
-build_openroad(
+orfs_flow(
     name = "L1MetadataArray",
     abstract_stage = "route",
     macros = ["tag_array_64x184_generate_abstract"],
@@ -138,7 +138,7 @@ build_openroad(
     verilog_files = ["test/rtl/L1MetadataArray.sv"],
 )
 
-orfs_open(
+orfs_run(
     name = "tag_array_64x184_report",
     src = ":tag_array_64x184_floorplan",
     outs = [
