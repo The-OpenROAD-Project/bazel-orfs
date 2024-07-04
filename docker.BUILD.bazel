@@ -1,5 +1,12 @@
 load("@bazel-orfs//:openroad.bzl", "orfs_pdk")
 
+exports_files(
+    glob([
+        "OpenROAD-flow-scripts/**/*.tcl",
+    ]),
+    visibility = ["//visibility:public"],
+)
+
 filegroup(
     name = "openroad",
     srcs = ["OpenROAD-flow-scripts/tools/install/OpenROAD/bin/openroad"],
