@@ -25,10 +25,15 @@ TopInfo = provider(
 )
 
 def _pdk_impl(ctx):
-    return [PdkInfo(
-        name = ctx.attr.name,
-        files = depset(ctx.files.srcs),
-    )]
+    return [
+        DefaultInfo(
+            files = depset(ctx.files.srcs),
+        ),
+        PdkInfo(
+            name = ctx.attr.name,
+            files = depset(ctx.files.srcs),
+        ),
+    ]
 
 pdk = rule(
     implementation = _pdk_impl,
@@ -134,15 +139,6 @@ orfs_open = rule(
 )
 
 def _cheat_impl(ctx):
-    transitive = depset([], transitive = [
-        ctx.attr._openroad[DefaultInfo].default_runfiles.files,
-        ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._yosys[DefaultInfo].default_runfiles.files,
-        ctx.attr._yosys[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
-    ])
-
     out = ctx.actions.declare_file(ctx.attr.name)
     ctx.actions.expand_template(
         template = ctx.file._template,
@@ -153,26 +149,27 @@ def _cheat_impl(ctx):
             "{OPENROAD_PATH}": ctx.executable._openroad.path,
             "{KLAYOUT_PATH}": ctx.executable._klayout.path,
             "{MAKEFILE_PATH}": ctx.file._makefile.path,
-            "{MAKEFILE_DIR}": ctx.file._makefile.dirname,
+            "{FLOW_HOME}": ctx.file._makefile.dirname,
+            "{TCL_LIBRARY}": ctx.file._tcl.dirname,
         },
     )
     return [DefaultInfo(
         files = depset([out]),
-        runfiles = ctx.runfiles(files = [], transitive_files = transitive),
+        runfiles = ctx.runfiles([]),
     )]
 
 cheat = rule(
     implementation = _cheat_impl,
     attrs = {
-        "pdk": attr.label(
-            doc = "Process design kit.",
-            default = Label("@docker_orfs//:asap7"),
-            providers = [PdkInfo],
-        ),
         "_makefile": attr.label(
             doc = "Top level makefile.",
             allow_single_file = ["Makefile"],
             default = Label("@docker_orfs//:makefile"),
+        ),
+        "_tcl": attr.label(
+            doc = "Tcl library init.tcl.",
+            allow_single_file = ["init.tcl"],
+            default = Label("@docker_orfs//:tcl8.6"),
         ),
         "_yosys": attr.label(
             doc = "Yosys binary.",
