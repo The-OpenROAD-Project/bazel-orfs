@@ -1,4 +1,4 @@
-load("@bazel-orfs//:openroad.bzl", "pdk")
+load("@bazel-orfs//:openroad.bzl", "orfs_pdk")
 
 filegroup(
     name = "openroad",
@@ -53,7 +53,7 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-pdk(
+orfs_pdk(
     name = "asap7",
     srcs = glob([
         "OpenROAD-flow-scripts/flow/platforms/asap7/**/*.gds",

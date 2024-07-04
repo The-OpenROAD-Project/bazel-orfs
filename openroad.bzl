@@ -35,7 +35,7 @@ def _pdk_impl(ctx):
         ),
     ]
 
-pdk = rule(
+orfs_pdk = rule(
     implementation = _pdk_impl,
     attrs = {
         "srcs": attr.label_list(
@@ -45,7 +45,7 @@ pdk = rule(
     },
 )
 
-def _orfs_open_impl(ctx):
+def _run_impl(ctx):
     all_arguments = _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
     config = _config(ctx, "open", all_arguments)
 
@@ -98,8 +98,8 @@ def _orfs_open_impl(ctx):
         ),
     ]
 
-orfs_open = rule(
-    implementation = _orfs_open_impl,
+orfs_run = rule(
+    implementation = _run_impl,
     attrs = {
         "data": attr.label_list(
             doc = "List of additional data.",
@@ -158,7 +158,7 @@ def _cheat_impl(ctx):
         runfiles = ctx.runfiles([]),
     )]
 
-cheat = rule(
+orfs_cheat = rule(
     implementation = _cheat_impl,
     attrs = {
         "_makefile": attr.label(
@@ -402,7 +402,7 @@ def _synth_impl(ctx):
         ),
     ]
 
-synth = rule(
+orfs_synth = rule(
     implementation = _synth_impl,
     attrs = yosys_attrs(),
     provides = [DefaultInfo, PdkInfo, TopInfo],
@@ -507,7 +507,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         ctx.attr.src[TopInfo],
     ]
 
-floorplan = rule(
+orfs_floorplan = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "2_floorplan",
@@ -531,7 +531,7 @@ floorplan = rule(
     executable = False,
 )
 
-place = rule(
+orfs_place = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "3_place",
@@ -548,7 +548,7 @@ place = rule(
     executable = False,
 )
 
-cts = rule(
+orfs_cts = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "4_cts",
@@ -569,7 +569,7 @@ cts = rule(
     executable = False,
 )
 
-route = rule(
+orfs_route = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "5_route",
@@ -594,7 +594,7 @@ route = rule(
     executable = False,
 )
 
-final = rule(
+orfs_final = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "6_final",
@@ -626,7 +626,7 @@ final = rule(
 def _extensionless_basename(file):
     return file.basename.removesuffix("." + file.extension)
 
-abstract = rule(
+orfs_abstract = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "7_abstract",
@@ -644,17 +644,17 @@ abstract = rule(
 )
 
 STAGE_IMPLS = [
-    struct(stage = "synth", impl = synth),
-    struct(stage = "floorplan", impl = floorplan),
-    struct(stage = "place", impl = place),
-    struct(stage = "cts", impl = cts),
-    struct(stage = "route", impl = route),
-    struct(stage = "final", impl = final),
+    struct(stage = "synth", impl = orfs_synth),
+    struct(stage = "floorplan", impl = orfs_floorplan),
+    struct(stage = "place", impl = orfs_place),
+    struct(stage = "cts", impl = orfs_cts),
+    struct(stage = "route", impl = orfs_route),
+    struct(stage = "final", impl = orfs_final),
 ]
 
-ABSTRACT_IMPL = struct(stage = "generate_abstract", impl = abstract)
+ABSTRACT_IMPL = struct(stage = "generate_abstract", impl = orfs_abstract)
 
-def build_openroad(
+def orfs_flow(
         name,
         verilog_files = [],
         macros = [],
