@@ -18,8 +18,6 @@
     "https://bcr.bazel.build/modules/buildozer/7.1.2/source.json": "c9028a501d2db85793a6996205c8de120944f50a0d570438fcae0457a5f9d1f8",
     "https://bcr.bazel.build/modules/googletest/1.11.0/MODULE.bazel": "3a83f095183f66345ca86aa13c58b59f9f94a2f81999c093d4eeaa2d262d12f4",
     "https://bcr.bazel.build/modules/googletest/1.11.0/source.json": "c73d9ef4268c91bd0c1cd88f1f9dfa08e814b1dbe89b5f594a9f08ba0244d206",
-    "https://bcr.bazel.build/modules/patchelf/0.18.0/MODULE.bazel": "15a6beff7e828d585c5bd0f9f93589df117b5594e9d19e43096c77de58b9ae5f",
-    "https://bcr.bazel.build/modules/patchelf/0.18.0/source.json": "57caf6bcaa5ba515c6fb1c2eacee00735afbeb1ffacb34a57553fb139c8e4333",
     "https://bcr.bazel.build/modules/platforms/0.0.4/MODULE.bazel": "9b328e31ee156f53f3c416a64f8491f7eb731742655a47c9eec4703a71644aee",
     "https://bcr.bazel.build/modules/platforms/0.0.5/MODULE.bazel": "5733b54ea419d5eaf7997054bb55f6a1d0b5ff8aedf0176fef9eea44f3acda37",
     "https://bcr.bazel.build/modules/platforms/0.0.6/MODULE.bazel": "ad6eeef431dc52aefd2d77ed20a4b353f8ebf0f4ecdd26a807d2da5aa8cd0615",
@@ -65,7 +63,7 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "oBeaLS0LPYhvuowLZFARVtB6eb6pfqP68PkkjzSK55U=",
+        "bzlTransitiveDigest": "SB28ezs/YzJkY8S4Fhmm7J6lKGyI2pnEoerlGv/74qE=",
         "usagesDigest": "GoGE+6qaJNfmK32h63fLfCgpq7y6sqzl0/NMMbXd3W8=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -76,22 +74,27 @@
             "ruleClassName": "docker_pkg",
             "attributes": {
               "image": "openroad/orfs:f8d87d5bf1b2fa9a7e8724d1586a674180b31ae9",
-              "sha256": "7c3c2ebc85c83ca71c39012399d8b2bf0113b3409cfcd3cf828b2d8e9b0eb077",
               "build_file": "@@//:docker.BUILD.bazel",
               "timeout": 3600,
-              "strip_prefixes": {
-                "OpenROAD-flow-scripts/flow": "flow/",
-                "OpenROAD-flow-scripts/tools/install/OpenROAD/bin/": "bin/",
-                "OpenROAD-flow-scripts/tools/install/yosys/bin/": "bin/",
-                "OpenROAD-flow-scripts/tools/install/yosys/share/yosys/": "share/",
-                "opt/or-tools/lib/": "lib/",
-                "usr/lib/x86_64-linux-gnu/": "lib/",
-                "usr/lib/klayout/": "lib/klayout/",
-                "usr/lib/tcltk/x86_64-linux-gnu/tclreadline2.3.8/": "tcl/",
-                "usr/bin/": "bin/"
-              },
               "patches": [
-                "@@//:Makefile.patch"
+                "@@//:Makefile.patch",
+                "@@//:BUILD-0.patch",
+                "@@//:BUILD-1.patch",
+                "@@//:BUILD-2.patch",
+                "@@//:BUILD-3.patch",
+                "@@//:BUILD-4.patch",
+                "@@//:BUILD-5.patch"
+              ]
+            }
+          },
+          "com_github_nixos_patchelf_download": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "build_file_content": "\n    export_files(\n      [\"bin/patchelf\"],\n      visibility = [\"//visibility:public\"],\n    )\n    ",
+              "sha256": "ce84f2447fb7a8679e58bc54a20dc2b01b37b5802e12c57eece772a6f14bf3f0",
+              "urls": [
+                "https://github.com/NixOS/patchelf/releases/download/0.18.0/patchelf-0.18.0-x86_64.tar.gz"
               ]
             }
           },
@@ -118,6 +121,11 @@
             "",
             "com_docker_download",
             "_main~orfs_repositories~com_docker_download"
+          ],
+          [
+            "",
+            "com_github_nixos_patchelf_download",
+            "_main~orfs_repositories~com_github_nixos_patchelf_download"
           ]
         ]
       }

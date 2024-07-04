@@ -53,10 +53,12 @@ def _orfs_open_impl(ctx):
         ctx.attr.src[OrfsInfo].additional_lefs,
         ctx.attr.src[OrfsInfo].additional_libs,
         ctx.attr.src[PdkInfo].files,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._openroad[DefaultInfo].default_runfiles.files,
         ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._tcl[DefaultInfo].default_runfiles.files,
+        ctx.attr._tcl[DefaultInfo].default_runfiles.symlinks,
     ]
 
     ctx.actions.run_shell(
@@ -70,6 +72,7 @@ def _orfs_open_impl(ctx):
             "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "DESIGN_CONFIG": config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
+            "TCL_LIBRARY": ctx.file._tcl.dirname,
             "OPENROAD_EXE": ctx.executable._openroad.path,
             "ODB_FILE": ctx.attr.src[OrfsInfo].odb.path,
         },
@@ -114,6 +117,11 @@ orfs_open = rule(
             doc = "Top level makefile.",
             allow_single_file = ["Makefile"],
             default = Label("@docker_orfs//:makefile"),
+        ),
+        "_tcl": attr.label(
+            doc = "Tcl library init.tcl.",
+            allow_single_file = ["init.tcl"],
+            default = Label("@docker_orfs//:tcl8.6"),
         ),
         "_openroad": attr.label(
             doc = "OpenROAD binary.",
@@ -258,6 +266,11 @@ def openroad_only_attrs():
             doc = "Top level makefile.",
             allow_single_file = ["Makefile"],
             default = Label("@docker_orfs//:makefile"),
+        ),
+        "_tcl": attr.label(
+            doc = "Tcl library init.tcl.",
+            allow_single_file = ["init.tcl"],
+            default = Label("@docker_orfs//:tcl8.6"),
         ),
         "_openroad": attr.label(
             doc = "OpenROAD binary.",
@@ -445,6 +458,8 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         ctx.attr._klayout[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._makefile[DefaultInfo].default_runfiles.files,
         ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._tcl[DefaultInfo].default_runfiles.files,
+        ctx.attr._tcl[DefaultInfo].default_runfiles.symlinks,
     ]
 
     transitive_runfiles = []
@@ -459,6 +474,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
             "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "DESIGN_CONFIG": config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
+            "TCL_LIBRARY": ctx.file._tcl.dirname,
             "OPENROAD_EXE": ctx.executable._openroad.path,
             "KLAYOUT_CMD": ctx.executable._klayout.path,
         },
