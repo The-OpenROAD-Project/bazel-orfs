@@ -31,24 +31,31 @@ def _orfs_dependencies():
         urls = ["https://download.docker.com/linux/static/stable/x86_64/docker-26.1.4.tgz"],
     )
 
+    maybe(
+        http_archive,
+        name = "com_github_nixos_patchelf_download",
+        build_file_content = """
+    export_files(
+      ["bin/patchelf"],
+      visibility = ["//visibility:public"],
+    )
+    """,
+        sha256 = "ce84f2447fb7a8679e58bc54a20dc2b01b37b5802e12c57eece772a6f14bf3f0",
+        urls = ["https://github.com/NixOS/patchelf/releases/download/0.18.0/patchelf-0.18.0-x86_64.tar.gz"],
+    )
+
 _INFO = {
     "openroad/orfs:f8d87d5bf1b2fa9a7e8724d1586a674180b31ae9": {
-        "sha256": "7c3c2ebc85c83ca71c39012399d8b2bf0113b3409cfcd3cf828b2d8e9b0eb077",
         "build_file": ":docker.BUILD.bazel",
         "timeout": 3600,
-        "strip_prefixes": {
-            "OpenROAD-flow-scripts/flow": "flow/",
-            "OpenROAD-flow-scripts/tools/install/OpenROAD/bin/": "bin/",
-            "OpenROAD-flow-scripts/tools/install/yosys/bin/": "bin/",
-            "OpenROAD-flow-scripts/tools/install/yosys/share/yosys/": "share/",
-            "opt/or-tools/lib/": "lib/",
-            "usr/lib/x86_64-linux-gnu/": "lib/",
-            "usr/lib/klayout/": "lib/klayout/",
-            "usr/lib/tcltk/x86_64-linux-gnu/tclreadline2.3.8/": "tcl/",
-            "usr/bin/": "bin/",
-        },
         "patches": [
             ":Makefile.patch",
+            ":BUILD-0.patch",
+            ":BUILD-1.patch",
+            ":BUILD-2.patch",
+            ":BUILD-3.patch",
+            ":BUILD-4.patch",
+            ":BUILD-5.patch",
         ],
     },
 }

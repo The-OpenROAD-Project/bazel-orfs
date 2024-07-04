@@ -20,26 +20,34 @@ def _impl(repository_ctx):
         ],
     )
     if build_result.return_code != 0:
-        fail(
-            "Failed to build {}:".format(repository_ctx.attr.image),
-            build_result.stderr,
-        )
+        fail("Failed to build {}:".format(repository_ctx.attr.image), build_result.stderr)
 
-    check_result = repository_ctx.execute([
-        "sha256sum",
-        image_archive,
-    ])
-    if check_result.return_code != 0 or not check_result.stdout.startswith(repository_ctx.attr.sha256):
-        fail(
-            "Checksum error in {repo}, expected {sha256}, got:".format(repo = repository_ctx.attr.name, sha256 = repository_ctx.attr.sha256),
-            check_result.stdout,
-        )
+    repository_ctx.report_progress("Built {}.".format(repository_ctx.attr.image))
 
-    for src, dest in repository_ctx.attr.strip_prefixes.items():
-        repository_ctx.extract(archive = image_archive, stripPrefix = src, output = dest)
+    repository_ctx.extract(archive = image_archive)
+    repository_ctx.delete(image_archive)
+    repository_ctx.report_progress("Extracted {}.".format(repository_ctx.attr.image))
 
-    if not repository_ctx.attr.strip_prefixes:
-        repository_ctx.extract(archive = image_archive)
+    python_name = "python3"
+    python = repository_ctx.which(python_name)
+    if not python:
+        fail("Failed to find {}.".format(python_name))
+
+    patcher = repository_ctx.path(repository_ctx.attr._patcher)
+    patchelf = repository_ctx.path(repository_ctx.attr._patchelf)
+    patcher_result = repository_ctx.execute(
+        [
+            patcher,
+            "--patchelf",
+            patchelf,
+            repository_ctx.path("."),
+        ],
+        quiet = False,
+    )
+    if patcher_result.return_code != 0:
+        fail("Failed to run {}:".format(repository_ctx.attr._patcher), build_result.stderr)
+
+    repository_ctx.report_progress("Fixed `RUNPATH`s for {}.".format(repository_ctx.attr.image))
 
     repository_ctx.symlink(repository_ctx.attr.build_file, "BUILD")
     patch(repository_ctx)
@@ -49,8 +57,6 @@ docker_pkg = repository_rule(
     attrs = {
         "build_file": attr.label(mandatory = True),
         "image": attr.string(mandatory = True),
-        "sha256": attr.string(mandatory = True),
-        "strip_prefixes": attr.string_dict(),
         "patches": attr.label_list(default = []),
         "patch_tool": attr.string(default = ""),
         "patch_args": attr.string_list(default = ["-p0"]),
@@ -60,6 +66,18 @@ docker_pkg = repository_rule(
         "_docker": attr.label(
             doc = "Docker command line interface.",
             default = Label("@com_docker_download//:docker"),
+            executable = True,
+            cfg = "exec",
+        ),
+        "_patchelf": attr.label(
+            doc = "Patchelf binary.",
+            default = Label("@com_github_nixos_patchelf_download//:bin/patchelf"),
+            executable = True,
+            cfg = "exec",
+        ),
+        "_patcher": attr.label(
+            doc = "Python script to remap `RUNPATH`s.",
+            default = Label("//:patcher.py"),
             executable = True,
             cfg = "exec",
         ),
