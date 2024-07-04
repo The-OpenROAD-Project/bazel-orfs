@@ -540,12 +540,8 @@ place = rule(
             "3_place.odb",
             "3_place.sdc",
         ],
-        log_names = [
-            "3_1_place_gp_skip_io.log",
-        ],
-        report_names = [
-            "5_global_place.rpt",
-        ],
+        log_names = [],
+        report_names = [],
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, PdkInfo, TopInfo],
