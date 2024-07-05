@@ -30,6 +30,7 @@ config_setting(
 
 orfs_cheat(
     name = "cheat.sh",
+    visibility = ["//visibility:public"],
 )
 
 filegroup(
