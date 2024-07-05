@@ -7,7 +7,7 @@ def _impl(repository_ctx):
     image_archive = repository_ctx.path("data.tar")
     dockerfile = repository_ctx.path("Dockerfile")
 
-    repository_ctx.file(dockerfile, content = "FROM {}".format(repository_ctx.attr.image))
+    repository_ctx.file(dockerfile, content = "FROM {}@sha256:{}".format(repository_ctx.attr.image, repository_ctx.attr.sha256))
     build_result = repository_ctx.execute(
         [
             docker_path,
@@ -57,6 +57,7 @@ docker_pkg = repository_rule(
     attrs = {
         "build_file": attr.label(mandatory = True),
         "image": attr.string(mandatory = True),
+        "sha256": attr.string(mandatory = True),
         "patches": attr.label_list(default = []),
         "patch_tool": attr.string(default = ""),
         "patch_args": attr.string_list(default = ["-p0"]),
