@@ -3,7 +3,7 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
 
 def _impl(repository_ctx):
-    docker_path = repository_ctx.path(repository_ctx.attr._docker)
+    docker_path = repository_ctx.path(repository_ctx.attr._docker).realpath
     image_archive = repository_ctx.path("data.tar")
     dockerfile = repository_ctx.path("Dockerfile")
 
@@ -33,8 +33,8 @@ def _impl(repository_ctx):
     if not python:
         fail("Failed to find {}.".format(python_name))
 
-    patcher = repository_ctx.path(repository_ctx.attr._patcher)
-    patchelf = repository_ctx.path(repository_ctx.attr._patchelf)
+    patcher = repository_ctx.path(repository_ctx.attr._patcher).realpath
+    patchelf = repository_ctx.path(repository_ctx.attr._patchelf).realpath
     patcher_result = repository_ctx.execute(
         [
             patcher,
