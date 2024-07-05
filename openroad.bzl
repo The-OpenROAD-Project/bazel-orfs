@@ -225,7 +225,7 @@ def yosys_only_attrs():
         ),
         "deps": attr.label_list(
             default = [],
-            providers = [OrfsInfo],
+            providers = [OrfsInfo, TopInfo],
         ),
         "module_top": attr.string(mandatory = True),
         "pdk": attr.label(
@@ -320,6 +320,9 @@ def _orfs_arguments(*args):
 def _verilog_arguments(ctx):
     return {"VERILOG_FILES": " ".join([file.path for file in ctx.files.verilog_files])} if hasattr(ctx.attr, "verilog_files") else {}
 
+def _block_arguments(ctx):
+    return {"MACROS": " ".join([dep[TopInfo].module_top for dep in ctx.attr.deps])} if ctx.attr.deps else {}
+
 def _config(ctx, stage, all_arguments):
     config = ctx.actions.declare_file("results/{}/{}/base/{}.mk".format(_platform(ctx), _module_top(ctx), stage))
     ctx.actions.write(
@@ -329,7 +332,7 @@ def _config(ctx, stage, all_arguments):
     return config
 
 def _synth_impl(ctx):
-    all_arguments = {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()} | _required_arguments(ctx) | _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx)
+    all_arguments = {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()} | _required_arguments(ctx) | _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx) | _block_arguments(ctx)
     config = _config(ctx, "1_synth", all_arguments)
 
     out = ctx.actions.declare_file("results/{}/{}/base/1_synth.v".format(_platform(ctx), _module_top(ctx)))
