@@ -63,7 +63,7 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "qJPxqKt+lLZqrP7dSTNwx1D8BWdl3p4GVXH0er2i3mM=",
+        "bzlTransitiveDigest": "Wi7Dv97FFoFqn7TTRKEWNATttLR8GRsPHYAvy86tA1U=",
         "usagesDigest": "B37L74H5LLUeXTeFTnhVFsJXUj3eJjiJFyeZPA5xznQ=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -99,15 +99,14 @@
               ]
             }
           },
-          "com_docker_download": {
+          "com_github_docker_buildx_file": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
+            "ruleClassName": "http_file",
             "attributes": {
-              "build_file_content": "\n    export_files(\n      [\"docker\"],\n      visibility = [\"//visibility:public\"],\n    )\n    ",
-              "sha256": "a9cede81aa3337f310132c2c920dba2edc8d29b7d97065b63ba41cf47ae1ca4f",
-              "strip_prefix": "docker",
+              "executable": true,
+              "sha256": "8d486f0088b7407a90ad675525ba4a17d0a537741b9b33fe3391a88cafa2dd0b",
               "urls": [
-                "https://download.docker.com/linux/static/stable/x86_64/docker-26.1.4.tgz"
+                "https://github.com/docker/buildx/releases/download/v0.15.1/buildx-v0.15.1.linux-amd64"
               ]
             }
           }
@@ -120,8 +119,8 @@
           ],
           [
             "",
-            "com_docker_download",
-            "_main~orfs_repositories~com_docker_download"
+            "com_github_docker_buildx_file",
+            "_main~orfs_repositories~com_github_docker_buildx_file"
           ],
           [
             "",

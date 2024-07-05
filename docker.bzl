@@ -8,6 +8,7 @@ def _impl(repository_ctx):
     dockerfile = repository_ctx.path("Dockerfile")
 
     repository_ctx.file(dockerfile, content = "FROM {}@sha256:{}".format(repository_ctx.attr.image, repository_ctx.attr.sha256))
+
     build_result = repository_ctx.execute(
         [
             docker_path,
@@ -42,7 +43,6 @@ def _impl(repository_ctx):
             patchelf,
             repository_ctx.path("."),
         ],
-        quiet = False,
     )
     if patcher_result.return_code != 0:
         fail("Failed to run {}:".format(repository_ctx.attr._patcher), build_result.stderr)
@@ -66,7 +66,7 @@ docker_pkg = repository_rule(
         "timeout": attr.int(default = 600),
         "_docker": attr.label(
             doc = "Docker command line interface.",
-            default = Label("@com_docker_download//:docker"),
+            default = Label("@com_github_docker_buildx_file//file:downloaded"),
             executable = True,
             cfg = "exec",
         ),
