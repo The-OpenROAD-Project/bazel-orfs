@@ -13,6 +13,9 @@ _default_tag = tag_class(
         "image": attr.string(
             mandatory = True,
         ),
+        "sha256": attr.string(
+            mandatory = True,
+        ),
     },
 )
 
@@ -45,7 +48,7 @@ def _orfs_dependencies():
     )
 
 _INFO = {
-    "openroad/orfs:f8d87d5bf1b2fa9a7e8724d1586a674180b31ae9": {
+    "openroad/orfs:3b01a139cce34b01bad3c25526d7fa718aa5ce84": {
         "build_file": ":docker.BUILD.bazel",
         "timeout": 3600,
         "patches": [
@@ -67,6 +70,7 @@ def _orfs_repositories_impl(module_ctx):
         docker_pkg(
             name = "docker_orfs",
             image = default.image,
+            sha256 = default.sha256,
             **_INFO[default.image]
         )
 
