@@ -8,31 +8,51 @@ exports_files(
 )
 
 filegroup(
+    name = "ld.so",
+    srcs = ["lib64/ld-linux-x86-64.so.2"],
+)
+
+filegroup(
     name = "openroad",
+    data = [
+        ":ld.so",
+    ],
     srcs = ["OpenROAD-flow-scripts/tools/install/OpenROAD/bin/openroad"],
     visibility = ["//visibility:public"],
 )
 
 filegroup(
     name = "sta",
+    data = [
+        ":ld.so",
+    ],
     srcs = ["OpenROAD-flow-scripts/tools/install/OpenROAD/bin/sta"],
     visibility = ["//visibility:public"],
 )
 
 filegroup(
     name = "yosys",
+    data = [
+        ":ld.so",
+    ],
     srcs = ["OpenROAD-flow-scripts/tools/install/yosys/bin/yosys"],
     visibility = ["//visibility:public"],
 )
 
 filegroup(
     name = "yosys-abc",
+    data = [
+        ":ld.so",
+    ],
     srcs = ["OpenROAD-flow-scripts/tools/install/yosys/bin/yosys-abc"],
     visibility = ["//visibility:public"],
 )
 
 filegroup(
     name = "klayout",
+    data = [
+        ":ld.so",
+    ],
     srcs = ["usr/bin/klayout"],
     visibility = ["//visibility:public"],
 )

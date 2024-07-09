@@ -28,6 +28,9 @@ def main():
 
     for root, dirs, files in os.walk(args.directory):
         for file in files:
+            if os.path.islink(file):
+                continue
+
             if magic(os.path.join(root, file)) != ELF_MAGIC:
                 continue
 
@@ -48,10 +51,14 @@ def main():
                     elf = os.path.join('/', os.path.relpath(root, start=args.directory))
                     elf_to_rpath = os.path.relpath(rpath, start=elf)
                     rpaths.append(os.path.join('$ORIGIN', elf_to_rpath))
+
             rpath = ":".join(rpaths).encode('utf-8')
-            interpreter = os.path.join(args.directory, os.path.relpath(interpreter_old, start = '/'))
             subprocess.check_output([args.patchelf, '--force-rpath', '--set-rpath', rpath, '--no-default-lib', file], cwd=root)
-            subprocess.check_output([args.patchelf, '--set-interpreter', interpreter, file], cwd=root)
+
+            execution_root = os.path.normpath(os.path.join(args.directory, '..', '..'))
+            interp = os.path.relpath(interpreter_old, start = '/')
+            execution_root_to_interp = os.path.relpath(os.path.join(args.directory, interp), execution_root)
+            subprocess.check_output([args.patchelf, '--set-interpreter', execution_root_to_interp, file], cwd=root)
 
 
 
