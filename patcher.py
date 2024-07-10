@@ -39,12 +39,12 @@ def main():
             if magic(os.path.join(root, file)) != ELF_MAGIC:
                 continue
 
-            info_result = subprocess.run([args.patchelf, '--print-interpreter', '--print-rpath', file], cwd=root, capture_output=True)
-            if info_result.returncode != 0:
+            needed_result = subprocess.run([args.patchelf, '--print-needed', file], cwd=root, capture_output=True)
+            needed_libs = needed_result.stdout.decode('utf-8').strip()
+            if not needed_libs:
                 continue
 
-            interpreter_old, rpath_fragments, _ = info_result.stdout.decode('utf-8').split('\n')
-
+            rpath_fragments = subprocess.check_output([args.patchelf, '--print-rpath', file], cwd=root).decode('utf-8').strip()
             rpaths = []
             for rpath in rpath_fragments.split(':') + DEFAULT_SEARCH_PATHS:
                 if not rpath:
@@ -58,12 +58,18 @@ def main():
                     rpaths.append(os.path.join('$ORIGIN', elf_to_rpath))
 
             rpath = ":".join(rpaths).encode('utf-8')
-            subprocess.check_output([args.patchelf, '--force-rpath', '--set-rpath', rpath, '--no-default-lib', file], cwd=root)
+            subprocess.check_call([args.patchelf, '--force-rpath', '--set-rpath', rpath, '--no-default-lib', file], cwd=root)
 
+            interpreter_result = subprocess.run([args.patchelf, '--print-interpreter', file], cwd=root, capture_output=True)
+            if interpreter_result.returncode != 0:
+                continue
+
+            interpreter_old = interpreter_result.stdout.decode('utf-8').strip()
             execution_root = os.path.normpath(os.path.join(args.directory, '..', '..'))
             interp = os.path.relpath(interpreter_old, start = '/')
             execution_root_to_interp = os.path.relpath(os.path.join(args.directory, interp), execution_root)
-            subprocess.check_output([args.patchelf, '--set-interpreter', execution_root_to_interp, file], cwd=root)
+            subprocess.check_call([args.patchelf, '--set-interpreter', execution_root_to_interp, file], cwd=root)
+
 
 
 
