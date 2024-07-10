@@ -8,6 +8,18 @@ exports_files(
 )
 
 filegroup(
+    name = "opengl",
+    srcs = glob(["usr/lib/x86_64-linux-gnu/dri/*.so"]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "qt_plugins",
+    srcs = glob(["usr/lib/x86_64-linux-gnu/qt5/plugins/**"]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
     name = "ld.so",
     srcs = ["lib64/ld-linux-x86-64.so.2"],
 )
@@ -59,10 +71,7 @@ filegroup(
 
 filegroup(
     name = "tcl8.6",
-    srcs = ["usr/share/tcltk/tcl8.6/init.tcl"],
-    data = glob([
-        "usr/share/tcltk/tcl8.6/**",
-    ]),
+    srcs = glob(["usr/share/tcltk/tcl8.6/**"]),
     visibility = ["//visibility:public"],
 )
 
