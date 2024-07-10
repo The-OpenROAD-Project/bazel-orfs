@@ -28,7 +28,12 @@ def main():
 
     for root, dirs, files in os.walk(args.directory):
         for file in files:
-            if os.path.islink(file):
+            link = os.path.join(root, file)
+            if os.path.islink(link) and os.path.isabs(os.readlink(link)):
+                target = os.path.join(args.directory, os.readlink(link))
+                link_to_target = os.path.relpath(target, start=root)
+                os.unlink(link)
+                os.symlink(link_to_target, link)
                 continue
 
             if magic(os.path.join(root, file)) != ELF_MAGIC:
