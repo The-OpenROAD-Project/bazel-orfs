@@ -62,8 +62,6 @@ def _run_impl(ctx):
         ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._makefile[DefaultInfo].default_runfiles.files,
         ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._tcl[DefaultInfo].default_runfiles.files,
-        ctx.attr._tcl[DefaultInfo].default_runfiles.symlinks,
     ]
 
     ctx.actions.run_shell(
@@ -77,13 +75,14 @@ def _run_impl(ctx):
             "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "DESIGN_CONFIG": config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
-            "TCL_LIBRARY": ctx.file._tcl.dirname,
             "OPENROAD_EXE": ctx.executable._openroad.path,
             "ODB_FILE": ctx.attr.src[OrfsInfo].odb.path,
+            "TCL_LIBRARY": common_prefix(ctx.files._tcl),
         },
         inputs = depset(
             ctx.files.src +
             ctx.files.data +
+            ctx.files._tcl +
             [config, ctx.file.script, ctx.executable._openroad, ctx.file._makefile],
             transitive = transitive_inputs,
         ),
@@ -123,11 +122,6 @@ orfs_run = rule(
             allow_single_file = ["Makefile"],
             default = Label("@docker_orfs//:makefile"),
         ),
-        "_tcl": attr.label(
-            doc = "Tcl library init.tcl.",
-            allow_single_file = ["init.tcl"],
-            default = Label("@docker_orfs//:tcl8.6"),
-        ),
         "_openroad": attr.label(
             doc = "OpenROAD binary.",
             executable = True,
@@ -135,8 +129,23 @@ orfs_run = rule(
             cfg = "exec",
             default = Label("@docker_orfs//:openroad"),
         ),
+        "_tcl": attr.label(
+            doc = "Tcl library.",
+            allow_files = True,
+            default = Label("@docker_orfs//:tcl8.6"),
+        ),
     },
 )
+
+def common_prefix(files):
+    prefix = ""
+    for t in zip(*tuple([f.path.elems() for f in files])):
+        for x in t:
+            if x != t[0]:
+                return prefix
+        prefix += t[0]
+
+    return prefix
 
 def _orfs_make_impl(ctx):
     out = ctx.actions.declare_file(ctx.attr.name)
@@ -150,7 +159,9 @@ def _orfs_make_impl(ctx):
             "{KLAYOUT_PATH}": ctx.executable._klayout.path,
             "{MAKEFILE_PATH}": ctx.file._makefile.path,
             "{FLOW_HOME}": ctx.file._makefile.dirname,
-            "{TCL_LIBRARY}": ctx.file._tcl.dirname,
+            "{TCL_LIBRARY}": common_prefix(ctx.files._tcl),
+            "{QT_PLUGIN_PATH}": common_prefix(ctx.files._qt_plugins),
+            "{LIBGL_DRIVERS_PATH}": common_prefix(ctx.files._opengl),
         },
     )
     return [DefaultInfo(
@@ -165,11 +176,6 @@ orfs_make = rule(
             doc = "Top level makefile.",
             allow_single_file = ["Makefile"],
             default = Label("@docker_orfs//:makefile"),
-        ),
-        "_tcl": attr.label(
-            doc = "Tcl library init.tcl.",
-            allow_single_file = ["init.tcl"],
-            default = Label("@docker_orfs//:tcl8.6"),
         ),
         "_yosys": attr.label(
             doc = "Yosys binary.",
@@ -191,6 +197,21 @@ orfs_make = rule(
             allow_files = True,
             cfg = "exec",
             default = Label("@docker_orfs//:klayout"),
+        ),
+        "_tcl": attr.label(
+            doc = "Tcl library.",
+            allow_files = True,
+            default = Label("@docker_orfs//:tcl8.6"),
+        ),
+        "_opengl": attr.label(
+            doc = "OpenGL drivers.",
+            allow_files = True,
+            default = Label("@docker_orfs//:opengl"),
+        ),
+        "_qt_plugins": attr.label(
+            doc = "Qt plugins.",
+            allow_files = True,
+            default = Label("@docker_orfs//:qt_plugins"),
         ),
         "_template": attr.label(
             default = ":orfs-make.sh.tpl",
@@ -264,11 +285,6 @@ def openroad_only_attrs():
             allow_single_file = ["Makefile"],
             default = Label("@docker_orfs//:makefile"),
         ),
-        "_tcl": attr.label(
-            doc = "Tcl library init.tcl.",
-            allow_single_file = ["init.tcl"],
-            default = Label("@docker_orfs//:tcl8.6"),
-        ),
         "_openroad": attr.label(
             doc = "OpenROAD binary.",
             executable = True,
@@ -282,6 +298,11 @@ def openroad_only_attrs():
             allow_files = True,
             cfg = "exec",
             default = Label("@docker_orfs//:klayout"),
+        ),
+        "_tcl": attr.label(
+            doc = "Tcl library.",
+            allow_files = True,
+            default = Label("@docker_orfs//:tcl8.6"),
         ),
     }
 
@@ -458,8 +479,6 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         ctx.attr._klayout[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._makefile[DefaultInfo].default_runfiles.files,
         ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._tcl[DefaultInfo].default_runfiles.files,
-        ctx.attr._tcl[DefaultInfo].default_runfiles.symlinks,
     ]
 
     transitive_runfiles = []
@@ -474,13 +493,14 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
             "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "DESIGN_CONFIG": config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
-            "TCL_LIBRARY": ctx.file._tcl.dirname,
             "OPENROAD_EXE": ctx.executable._openroad.path,
             "KLAYOUT_CMD": ctx.executable._klayout.path,
+            "TCL_LIBRARY": common_prefix(ctx.files._tcl),
         },
         inputs = depset(
             ctx.files.src +
             ctx.files.data +
+            ctx.files._tcl +
             [config, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile],
             transitive = transitive_inputs + transitive_runfiles,
         ),
