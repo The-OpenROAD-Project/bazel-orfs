@@ -1,4 +1,4 @@
-load("//:openroad.bzl", "orfs_cheat", "orfs_flow", "orfs_run")
+load("//:openroad.bzl", "orfs_make", "orfs_flow", "orfs_run")
 
 # FIXME: this shouldn't be required
 exports_files(glob(["*.mk"]))
@@ -28,8 +28,8 @@ config_setting(
     visibility = ["//visibility:public"],
 )
 
-orfs_cheat(
-    name = "cheat.sh",
+orfs_make(
+    name = "orfs-make.sh",
     visibility = ["//visibility:public"],
 )
 
