@@ -1,4 +1,4 @@
-load("//:openroad.bzl", "orfs_make", "orfs_flow", "orfs_run")
+load("//:openroad.bzl", "orfs_flow", "orfs_make", "orfs_run")
 
 # FIXME: this shouldn't be required
 exports_files(glob(["*.mk"]))
@@ -29,7 +29,7 @@ config_setting(
 )
 
 orfs_make(
-    name = "orfs-make.sh",
+    name = "make",
     visibility = ["//visibility:public"],
 )
 
