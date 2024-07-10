@@ -159,8 +159,9 @@ def _expand_template(ctx, output, cmd):
             "{MAKEFILE_PATH}": ctx.file._makefile.path,
             "{FLOW_HOME}": ctx.file._makefile.dirname,
             "{TCL_LIBRARY}": common_prefix(ctx.files._tcl),
-            "{QT_PLUGIN_PATH}": common_prefix(ctx.files._qt_plugins),
             "{LIBGL_DRIVERS_PATH}": common_prefix(ctx.files._opengl),
+            "{QT_PLUGIN_PATH}": common_prefix(ctx.files._qt_plugins),
+            "{GIO_MODULE_DIR}": common_prefix(ctx.files._gio_modules),
             "{CMD}": cmd,
         },
     )
@@ -216,6 +217,11 @@ orfs_make = rule(
             doc = "Qt plugins.",
             allow_files = True,
             default = Label("@docker_orfs//:qt_plugins"),
+        ),
+        "_gio_modules": attr.label(
+            doc = "GIO modules.",
+            allow_files = True,
+            default = Label("@docker_orfs//:gio_modules"),
         ),
         "_template": attr.label(
             default = ":make.tpl",
