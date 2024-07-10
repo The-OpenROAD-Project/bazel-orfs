@@ -10,6 +10,7 @@ if [ -z "$FLOW_HOME" ]; then
   export TCL_LIBRARY={TCL_LIBRARY}
   export QT_PLUGIN_PATH={QT_PLUGIN_PATH}
   export LIBGL_DRIVERS_PATH={LIBGL_DRIVERS_PATH}
+  export GIO_MODULE_DIR={GIO_MODULE_DIR}
 fi
 
 exec make --file "$FLOW_HOME/Makefile" "$@"

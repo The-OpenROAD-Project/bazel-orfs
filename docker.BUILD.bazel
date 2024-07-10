@@ -20,6 +20,12 @@ filegroup(
 )
 
 filegroup(
+    name = "gio_modules",
+    srcs = glob(["usr/lib/x86_64-linux-gnu/gio/modules/*.so"]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
     name = "ld.so",
     srcs = ["lib64/ld-linux-x86-64.so.2"],
 )
