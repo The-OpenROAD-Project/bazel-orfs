@@ -147,11 +147,10 @@ def common_prefix(files):
 
     return prefix
 
-def _orfs_make_impl(ctx):
-    out = ctx.actions.declare_file(ctx.attr.name)
+def _expand_template(ctx, output, cmd):
     ctx.actions.expand_template(
         template = ctx.file._template,
-        output = out,
+        output = output,
         substitutions = {
             "{WORK_HOME}": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "{YOSYS_PATH}": ctx.executable._yosys.path,
@@ -162,15 +161,20 @@ def _orfs_make_impl(ctx):
             "{TCL_LIBRARY}": common_prefix(ctx.files._tcl),
             "{QT_PLUGIN_PATH}": common_prefix(ctx.files._qt_plugins),
             "{LIBGL_DRIVERS_PATH}": common_prefix(ctx.files._opengl),
+            "{CMD}": cmd,
         },
     )
+
+def _script_impl(ctx):
+    out = ctx.actions.declare_file(ctx.attr.name)
+    _expand_template(ctx, out, "$@")
     return [DefaultInfo(
         files = depset([out]),
         runfiles = ctx.runfiles([]),
     )]
 
 orfs_make = rule(
-    implementation = _orfs_make_impl,
+    implementation = _script_impl,
     attrs = {
         "_makefile": attr.label(
             doc = "Top level makefile.",
@@ -214,7 +218,7 @@ orfs_make = rule(
             default = Label("@docker_orfs//:qt_plugins"),
         ),
         "_template": attr.label(
-            default = ":orfs-make.sh.tpl",
+            default = ":make.tpl",
             allow_single_file = True,
         ),
     },
