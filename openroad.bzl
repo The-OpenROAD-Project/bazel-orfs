@@ -138,7 +138,7 @@ orfs_run = rule(
     },
 )
 
-def _cheat_impl(ctx):
+def _orfs_make_impl(ctx):
     out = ctx.actions.declare_file(ctx.attr.name)
     ctx.actions.expand_template(
         template = ctx.file._template,
@@ -158,8 +158,8 @@ def _cheat_impl(ctx):
         runfiles = ctx.runfiles([]),
     )]
 
-orfs_cheat = rule(
-    implementation = _cheat_impl,
+orfs_make = rule(
+    implementation = _orfs_make_impl,
     attrs = {
         "_makefile": attr.label(
             doc = "Top level makefile.",
@@ -193,7 +193,7 @@ orfs_cheat = rule(
             default = Label("@docker_orfs//:klayout"),
         ),
         "_template": attr.label(
-            default = ":cheat.sh.tpl",
+            default = ":orfs-make.sh.tpl",
             allow_single_file = True,
         ),
     },
