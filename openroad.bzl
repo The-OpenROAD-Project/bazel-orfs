@@ -415,10 +415,20 @@ def _synth_impl(ctx):
 
     return [
         DefaultInfo(
-            files = depset([config, out, sdc]),
+            files = depset(
+                [out, sdc] + [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds] +
+                [dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef] +
+                [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
+            ),
             runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
         ),
         OutputGroupInfo(
+            deps = depset(
+                [config] + ctx.files.verilog_files + ctx.files.data +
+                [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds] +
+                [dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef] +
+                [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
+            ),
             logs = depset([]),
             reports = depset([]),
             **{f.basename: depset([f]) for f in [config, out, sdc]}
@@ -522,10 +532,25 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
 
     return [
         DefaultInfo(
-            files = depset([config] + results),
+            files = depset(
+                results,
+                transitive = [
+                    ctx.attr.src[OrfsInfo].additional_gds,
+                    ctx.attr.src[OrfsInfo].additional_lefs,
+                    ctx.attr.src[OrfsInfo].additional_libs,
+                ],
+            ),
             runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
         ),
         OutputGroupInfo(
+            deps = depset(
+                [config] + ctx.files.src + ctx.files.data,
+                transitive = [
+                    ctx.attr.src[OrfsInfo].additional_gds,
+                    ctx.attr.src[OrfsInfo].additional_lefs,
+                    ctx.attr.src[OrfsInfo].additional_libs,
+                ],
+            ),
             logs = depset(logs),
             reports = depset(reports),
             **{f.basename: depset([f]) for f in [config] + results + objects + logs + reports}
