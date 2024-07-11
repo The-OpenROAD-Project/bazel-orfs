@@ -441,7 +441,7 @@ def _synth_impl(ctx):
 orfs_synth = rule(
     implementation = _synth_impl,
     attrs = yosys_attrs(),
-    provides = [DefaultInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
     executable = False,
 )
 
@@ -563,7 +563,7 @@ orfs_floorplan = rule(
         ],
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
     executable = False,
 )
 
@@ -580,7 +580,7 @@ orfs_place = rule(
         report_names = [],
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
     executable = False,
 )
 
@@ -601,7 +601,7 @@ orfs_cts = rule(
         ],
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
     executable = False,
 )
 
@@ -626,7 +626,7 @@ orfs_route = rule(
         ],
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
     executable = False,
 )
 
@@ -655,7 +655,7 @@ orfs_final = rule(
         ],
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, OrfsInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
     executable = False,
 )
 
@@ -675,7 +675,7 @@ orfs_abstract = rule(
             {"ABSTRACT_SOURCE": _extensionless_basename(ctx.attr.src[OrfsInfo].odb)},
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, OrfsInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
     executable = False,
 )
 
