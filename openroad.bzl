@@ -78,7 +78,7 @@ def _run_impl(ctx):
             "FLOW_HOME": ctx.file._makefile.dirname,
             "OPENROAD_EXE": ctx.executable._openroad.path,
             "ODB_FILE": ctx.attr.src[OrfsInfo].odb.path,
-            "TCL_LIBRARY": common_prefix(ctx.files._tcl),
+            "TCL_LIBRARY": commonpath(ctx.files._tcl),
         },
         inputs = depset(
             ctx.files.src +
@@ -138,15 +138,20 @@ orfs_run = rule(
     },
 )
 
-def common_prefix(files):
+def commonprefix(*args):
     prefix = ""
-    for t in zip(*tuple([f.path.elems() for f in files])):
+    for t in zip(*args):
         for x in t:
             if x != t[0]:
                 return prefix
         prefix += t[0]
 
     return prefix
+
+def commonpath(files):
+    prefix = commonprefix(*[f.path.elems() for f in files])
+    path, _, _ = prefix.rpartition("/")
+    return path
 
 def _expand_template(ctx, output, cmd):
     ctx.actions.expand_template(
@@ -159,10 +164,10 @@ def _expand_template(ctx, output, cmd):
             "{KLAYOUT_PATH}": ctx.executable._klayout.path,
             "{MAKEFILE_PATH}": ctx.file._makefile.path,
             "{FLOW_HOME}": ctx.file._makefile.dirname,
-            "{TCL_LIBRARY}": common_prefix(ctx.files._tcl),
-            "{LIBGL_DRIVERS_PATH}": common_prefix(ctx.files._opengl),
-            "{QT_PLUGIN_PATH}": common_prefix(ctx.files._qt_plugins),
-            "{GIO_MODULE_DIR}": common_prefix(ctx.files._gio_modules),
+            "{TCL_LIBRARY}": commonpath(ctx.files._tcl),
+            "{LIBGL_DRIVERS_PATH}": commonpath(ctx.files._opengl),
+            "{QT_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
+            "{GIO_MODULE_DIR}": commonpath(ctx.files._gio_modules),
             "{CMD}": cmd,
         },
     )
@@ -518,7 +523,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
             "FLOW_HOME": ctx.file._makefile.dirname,
             "OPENROAD_EXE": ctx.executable._openroad.path,
             "KLAYOUT_CMD": ctx.executable._klayout.path,
-            "TCL_LIBRARY": common_prefix(ctx.files._tcl),
+            "TCL_LIBRARY": commonpath(ctx.files._tcl),
         },
         inputs = depset(
             ctx.files.src +
