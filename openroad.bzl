@@ -72,6 +72,7 @@ def _run_impl(ctx):
         ],
         command = "make $@ < {}".format(ctx.file.script.path),
         env = {
+            "HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "DESIGN_CONFIG": config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
@@ -391,6 +392,7 @@ def _synth_impl(ctx):
         arguments = ["--file", ctx.file._makefile.path, "synth"],
         executable = "make",
         env = {
+            "HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "FLOW_HOME": ctx.file._makefile.dirname,
             "DESIGN_CONFIG": config.path,
@@ -500,6 +502,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         arguments = ["--file", ctx.file._makefile.path] + steps,
         executable = "make",
         env = {
+            "HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "DESIGN_CONFIG": config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
