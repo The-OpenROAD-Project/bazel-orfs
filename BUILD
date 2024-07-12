@@ -1,4 +1,4 @@
-load("//:openroad.bzl", "orfs_flow", "orfs_make", "orfs_run")
+load("//:openroad.bzl", "orfs_flow", "orfs_run")
 
 # FIXME: this shouldn't be required
 exports_files(glob(["*.mk"]))
@@ -25,11 +25,6 @@ exports_files(
 config_setting(
     name = "remote_exec",
     values = {"define": "REMOTE=1"},
-    visibility = ["//visibility:public"],
-)
-
-orfs_make(
-    name = "make",
     visibility = ["//visibility:public"],
 )
 

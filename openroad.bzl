@@ -47,7 +47,11 @@ orfs_pdk = rule(
 
 def _run_impl(ctx):
     all_arguments = _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
-    config = _config(ctx, "open", all_arguments)
+    config = ctx.actions.declare_file("results/{}/{}/base/open.mk".format(_platform(ctx), _module_top(ctx)))
+    ctx.actions.write(
+        output = config,
+        content = _config_content(all_arguments),
+    )
 
     outs = []
     for k in dir(ctx.outputs):
@@ -153,28 +157,33 @@ def commonpath(files):
     path, _, _ = prefix.rpartition("/")
     return path
 
-def _expand_template(ctx, output, cmd):
-    ctx.actions.expand_template(
-        template = ctx.file._template,
-        output = output,
-        substitutions = {
-            "{WORK_HOME}": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
-            "{YOSYS_PATH}": ctx.executable._yosys.path,
-            "{OPENROAD_PATH}": ctx.executable._openroad.path,
-            "{KLAYOUT_PATH}": ctx.executable._klayout.path,
-            "{MAKEFILE_PATH}": ctx.file._makefile.path,
-            "{FLOW_HOME}": ctx.file._makefile.dirname,
-            "{TCL_LIBRARY}": commonpath(ctx.files._tcl),
-            "{LIBGL_DRIVERS_PATH}": commonpath(ctx.files._opengl),
-            "{QT_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
-            "{GIO_MODULE_DIR}": commonpath(ctx.files._gio_modules),
-            "{CMD}": cmd,
-        },
-    )
+def openroad_substitutions(ctx):
+    return {
+        "{OPENROAD_PATH}": ctx.executable._openroad.path,
+        "{KLAYOUT_PATH}": ctx.executable._klayout.path,
+        "{MAKEFILE_PATH}": ctx.file._makefile.path,
+        "{FLOW_HOME}": ctx.file._makefile.dirname,
+        "{TCL_LIBRARY}": commonpath(ctx.files._tcl),
+        "{LIBGL_DRIVERS_PATH}": commonpath(ctx.files._opengl),
+        "{QT_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
+        "{GIO_MODULE_DIR}": commonpath(ctx.files._gio_modules),
+    }
+
+def yosys_substitutions(ctx):
+    return {
+        "{YOSYS_PATH}": ctx.executable._yosys.path,
+    }
 
 def _script_impl(ctx):
     out = ctx.actions.declare_file(ctx.attr.name)
-    _expand_template(ctx, out, "$@")
+    ctx.actions.expand_template(
+        template = ctx.file._template,
+        output = out,
+        substitutions = openroad_substitutions(ctx) |
+                        yosys_substitutions(ctx) | {
+            "{WORK_HOME}": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
+        },
+    )
     return [DefaultInfo(
         files = depset([out]),
         runfiles = ctx.runfiles([]),
@@ -320,6 +329,29 @@ def openroad_only_attrs():
             allow_files = True,
             default = Label("@docker_orfs//:tcl8.6"),
         ),
+        "_opengl": attr.label(
+            doc = "OpenGL drivers.",
+            allow_files = True,
+            default = Label("@docker_orfs//:opengl"),
+        ),
+        "_qt_plugins": attr.label(
+            doc = "Qt plugins.",
+            allow_files = True,
+            default = Label("@docker_orfs//:qt_plugins"),
+        ),
+        "_gio_modules": attr.label(
+            doc = "GIO modules.",
+            allow_files = True,
+            default = Label("@docker_orfs//:gio_modules"),
+        ),
+        "_deploy_template": attr.label(
+            default = ":deploy.tpl",
+            allow_single_file = True,
+        ),
+        "_make_template": attr.label(
+            default = ":make.tpl",
+            allow_single_file = True,
+        ),
     }
 
 def yosys_attrs():
@@ -340,18 +372,18 @@ def _required_arguments(ctx):
         "DESIGN_NAME": _module_top(ctx),
     }
 
-def _orfs_arguments(*args):
+def _orfs_arguments(*args, short = False):
     gds = depset([info.gds for info in args if info.gds], transitive = [info.additional_gds for info in args])
     lefs = depset([info.lef for info in args if info.lef], transitive = [info.additional_lefs for info in args])
     libs = depset([info.lib for info in args if info.lib], transitive = [info.additional_libs for info in args])
 
     args = {}
     if gds.to_list():
-        args["ADDITIONAL_GDS"] = " ".join([file.path for file in gds.to_list()])
+        args["ADDITIONAL_GDS"] = " ".join([file.short_path if short else file.path for file in gds.to_list()])
     if lefs.to_list():
-        args["ADDITIONAL_LEFS"] = " ".join([file.path for file in lefs.to_list()])
+        args["ADDITIONAL_LEFS"] = " ".join([file.short_path if short else file.path for file in lefs.to_list()])
     if libs.to_list():
-        args["ADDITIONAL_LIBS"] = " ".join([file.path for file in libs.to_list()])
+        args["ADDITIONAL_LIBS"] = " ".join([file.short_path if short else file.path for file in libs.to_list()])
     return args
 
 def _verilog_arguments(ctx):
@@ -360,17 +392,19 @@ def _verilog_arguments(ctx):
 def _block_arguments(ctx):
     return {"MACROS": " ".join([dep[TopInfo].module_top for dep in ctx.attr.deps])} if ctx.attr.deps else {}
 
-def _config(ctx, stage, all_arguments):
-    config = ctx.actions.declare_file("results/{}/{}/base/{}.mk".format(_platform(ctx), _module_top(ctx), stage))
-    ctx.actions.write(
-        output = config,
-        content = "".join(["export {}={}\n".format(*pair) for pair in all_arguments.items()]),
-    )
-    return config
+def _config_content(args):
+    return "".join(["export {}={}\n".format(*pair) for pair in args.items()])
+
+def _data_arguments(ctx):
+    return {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()}
 
 def _synth_impl(ctx):
-    all_arguments = {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()} | _required_arguments(ctx) | _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx) | _block_arguments(ctx)
-    config = _config(ctx, "1_synth", all_arguments)
+    all_arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx) | _block_arguments(ctx)
+    config = ctx.actions.declare_file("results/{}/{}/base/1_synth.mk".format(_platform(ctx), _module_top(ctx)))
+    ctx.actions.write(
+        output = config,
+        content = _config_content(all_arguments),
+    )
 
     out = ctx.actions.declare_file("results/{}/{}/base/1_synth.v".format(_platform(ctx), _module_top(ctx)))
     sdc = ctx.actions.declare_file("results/{}/{}/base/1_synth.sdc".format(_platform(ctx), _module_top(ctx)))
@@ -461,8 +495,12 @@ orfs_synth = rule(
 )
 
 def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_names = [], report_names = [], extra_arguments = {}):
-    all_arguments = {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()} | extra_arguments | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
-    config = _config(ctx, stage, all_arguments)
+    all_arguments = extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
+    config = ctx.actions.declare_file("results/{}/{}/base/{}.mk".format(_platform(ctx), _module_top(ctx), stage))
+    ctx.actions.write(
+        output = config,
+        content = _config_content(all_arguments),
+    )
 
     results = []
     odb = None
@@ -494,8 +532,6 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         reports.append(ctx.actions.declare_file("reports/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), report)))
 
     transitive_inputs = [
-        ctx.attr.src[DefaultInfo].default_runfiles.files,
-        ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
         ctx.attr.src[OrfsInfo].additional_gds,
         ctx.attr.src[OrfsInfo].additional_lefs,
         ctx.attr.src[OrfsInfo].additional_libs,
@@ -508,10 +544,9 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
     ]
 
-    transitive_runfiles = []
     for datum in ctx.attr.data:
-        transitive_runfiles.append(datum[DefaultInfo].default_runfiles.files)
-        transitive_runfiles.append(datum[DefaultInfo].default_runfiles.symlinks)
+        transitive_inputs.append(datum.default_runfiles.files)
+        transitive_inputs.append(datum.default_runfiles.symlinks)
 
     ctx.actions.run(
         arguments = ["--file", ctx.file._makefile.path] + steps,
@@ -530,13 +565,36 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
             ctx.files.data +
             ctx.files._tcl +
             [config, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile],
-            transitive = transitive_inputs + transitive_runfiles,
+            transitive = transitive_inputs,
         ),
         outputs = results + objects + logs + reports,
     )
 
+    config_short = ctx.actions.declare_file("results/{}/{}/base/{}.short.mk".format(_platform(ctx), _module_top(ctx), stage))
+    ctx.actions.write(
+        output = config_short,
+        content = _config_content(extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo], short = True)),
+    )
+
+    make = ctx.actions.declare_file("make")
+    ctx.actions.expand_template(
+        template = ctx.file._make_template,
+        output = make,
+        substitutions = openroad_substitutions(ctx),
+    )
+
+    exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
+    ctx.actions.expand_template(
+        template = ctx.file._deploy_template,
+        output = exe,
+        substitutions = {
+            "${GENFILES}": " ".join([f.short_path for f in [config_short] + results]),
+        },
+    )
+
     return [
         DefaultInfo(
+            executable = exe,
             files = depset(
                 results,
                 transitive = [
@@ -545,7 +603,11 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
                     ctx.attr.src[OrfsInfo].additional_libs,
                 ],
             ),
-            runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
+            runfiles = ctx.runfiles(
+                [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile] +
+                results + ctx.files.src + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
+                transitive_files = depset(transitive = transitive_inputs),
+            ),
         ),
         OutputGroupInfo(
             deps = depset(
@@ -594,7 +656,7 @@ orfs_floorplan = rule(
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
-    executable = False,
+    executable = True,
 )
 
 orfs_place = rule(
@@ -611,7 +673,7 @@ orfs_place = rule(
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
-    executable = False,
+    executable = True,
 )
 
 orfs_cts = rule(
@@ -632,7 +694,7 @@ orfs_cts = rule(
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
-    executable = False,
+    executable = True,
 )
 
 orfs_route = rule(
@@ -657,7 +719,7 @@ orfs_route = rule(
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
-    executable = False,
+    executable = True,
 )
 
 orfs_final = rule(
@@ -686,7 +748,7 @@ orfs_final = rule(
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
-    executable = False,
+    executable = True,
 )
 
 def _extensionless_basename(file):
