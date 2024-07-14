@@ -41,22 +41,6 @@ def _orfs_dependencies():
         urls = ["https://github.com/NixOS/patchelf/releases/download/0.18.0/patchelf-0.18.0-x86_64.tar.gz"],
     )
 
-_INFO = {
-    "openroad/orfs:3b01a139cce34b01bad3c25526d7fa718aa5ce84": {
-        "build_file": ":docker.BUILD.bazel",
-        "timeout": 3600,
-        "patches": [
-            ":Makefile.patch",
-            ":BUILD-0.patch",
-            ":BUILD-1.patch",
-            ":BUILD-2.patch",
-            ":BUILD-3.patch",
-            ":BUILD-4.patch",
-            ":BUILD-5.patch",
-        ],
-    },
-}
-
 def _orfs_repositories_impl(module_ctx):
     _orfs_dependencies()
 
@@ -65,7 +49,8 @@ def _orfs_repositories_impl(module_ctx):
             name = "docker_orfs",
             image = default.image,
             sha256 = default.sha256,
-            **_INFO[default.image]
+            build_file = ":docker.BUILD.bazel",
+            timeout = 3600,
         )
 
 orfs_repositories = module_extension(
