@@ -1,6 +1,7 @@
 #! /bin/sh
-
 set -e
+
+cd "$(dirname "$0")"
 
 if [ -z "$FLOW_HOME" ]; then
   export YOSYS_CMD="${YOSYS_PATH}"
