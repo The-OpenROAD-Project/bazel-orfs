@@ -174,6 +174,37 @@ def yosys_substitutions(ctx):
         "{YOSYS_PATH}": ctx.executable._yosys.path,
     }
 
+def _deps_impl(ctx):
+    exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
+    ctx.actions.expand_template(
+        template = ctx.file._deploy_template,
+        output = exe,
+        substitutions = {
+            "${GENFILES}": " ".join([f.short_path for f in ctx.attr.src[OutputGroupInfo].deps.to_list()]),
+        },
+    )
+    return [
+        DefaultInfo(
+            executable = exe,
+            files = depset([]),
+            runfiles = ctx.runfiles(transitive_files = ctx.attr.src[OutputGroupInfo].transitive_deps),
+        ),
+    ]
+
+orfs_deps = rule(
+    implementation = _deps_impl,
+    attrs = {
+        "src": attr.label(
+            providers = [DefaultInfo],
+        ),
+        "_deploy_template": attr.label(
+            default = ":deploy.tpl",
+            allow_single_file = True,
+        ),
+    },
+    executable = True,
+)
+
 def _script_impl(ctx):
     out = ctx.actions.declare_file(ctx.attr.name)
     ctx.actions.expand_template(
@@ -611,12 +642,17 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         ),
         OutputGroupInfo(
             deps = depset(
-                [config] + ctx.files.src + ctx.files.data,
+                [config_short] + ctx.files.src + ctx.files.data,
                 transitive = [
                     ctx.attr.src[OrfsInfo].additional_gds,
                     ctx.attr.src[OrfsInfo].additional_lefs,
                     ctx.attr.src[OrfsInfo].additional_libs,
                 ],
+            ),
+            transitive_deps = depset(
+                [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile] +
+                ctx.files.src + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
+                transitive = transitive_inputs,
             ),
             logs = depset(logs),
             reports = depset(reports),
@@ -827,4 +863,8 @@ def orfs_flow(
             arguments = stage_args.get(step.stage, {}),
             data = stage_sources.get(step.stage, []),
             visibility = visibility,
+        )
+        orfs_deps(
+            name = "{}_{}_deps".format(name, prev.stage),
+            src = "{}_{}".format(name, prev.stage),
         )
