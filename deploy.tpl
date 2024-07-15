@@ -57,18 +57,7 @@ main() {
     exit 1
   fi
 
-  if [ ! -e "$dst" ]; then
-    echo "$progname: '$dst' does not exist"
-    echo "Try '$progname -h' for more information."
-    exit 1
-  fi
-
-  if [ ! -d "$dst" ]; then
-    echo "$progname: '$dst' is not a directory"
-    echo "Try '$progname -h' for more information."
-    exit 1
-  fi
-
+  mkdir --parents "$dst"
   cp --recursive --parents --target-directory "$dst" -- *
 
   for file in $genfiles; do
