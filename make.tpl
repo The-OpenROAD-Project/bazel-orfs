@@ -13,4 +13,5 @@ if [ -z "$FLOW_HOME" ]; then
   export GIO_MODULE_DIR="${GIO_MODULE_DIR}"
 fi
 
+cd "$(dirname "$0")"
 exec make --file "$FLOW_HOME/Makefile" "$@"
