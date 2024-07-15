@@ -188,12 +188,16 @@ def commonpath(files):
     path, _, _ = prefix.rpartition("/")
     return path
 
+def flow_substitutions(ctx):
+    return {
+        "${MAKEFILE_PATH}": ctx.file._makefile.path,
+        "${FLOW_HOME}": ctx.file._makefile.dirname,
+    }
+
 def openroad_substitutions(ctx):
     return {
         "${OPENROAD_PATH}": ctx.executable._openroad.path,
         "${KLAYOUT_PATH}": ctx.executable._klayout.path,
-        "${MAKEFILE_PATH}": ctx.file._makefile.path,
-        "${FLOW_HOME}": ctx.file._makefile.dirname,
         "${TCL_LIBRARY}": commonpath(ctx.files._tcl),
         "${LIBGL_DRIVERS_PATH}": commonpath(ctx.files._opengl),
         "${QT_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
@@ -219,7 +223,7 @@ def _deps_impl(ctx):
     return [
         DefaultInfo(
             executable = exe,
-            files = depset([]),
+            files = depset(ctx.attr.src[OrfsDepInfo].files),
             runfiles = ctx.attr.src[OrfsDepInfo].runfiles,
         ),
     ]
@@ -248,6 +252,14 @@ def flow_attrs():
             doc = "List of additional flow data.",
             allow_files = True,
             default = [],
+        ),
+        "_deploy_template": attr.label(
+            default = ":deploy.tpl",
+            allow_single_file = True,
+        ),
+        "_make_template": attr.label(
+            default = ":make.tpl",
+            allow_single_file = True,
         ),
     }
 
@@ -337,14 +349,6 @@ def openroad_only_attrs():
             allow_files = True,
             default = Label("@docker_orfs//:gio_modules"),
         ),
-        "_deploy_template": attr.label(
-            default = ":deploy.tpl",
-            allow_single_file = True,
-        ),
-        "_make_template": attr.label(
-            default = ":make.tpl",
-            allow_single_file = True,
-        ),
     }
 
 def yosys_attrs():
@@ -379,8 +383,8 @@ def _orfs_arguments(*args, short = False):
         args["ADDITIONAL_LIBS"] = " ".join([file.short_path if short else file.path for file in libs.to_list()])
     return args
 
-def _verilog_arguments(ctx):
-    return {"VERILOG_FILES": " ".join([file.path for file in ctx.files.verilog_files])} if hasattr(ctx.attr, "verilog_files") else {}
+def _verilog_arguments(ctx, short = False):
+    return {"VERILOG_FILES": " ".join([file.short_path if short else file.path for file in ctx.files.verilog_files])} if hasattr(ctx.attr, "verilog_files") else {}
 
 def _block_arguments(ctx):
     return {"MACROS": " ".join([dep[TopInfo].module_top for dep in ctx.attr.deps])} if ctx.attr.deps else {}
@@ -415,10 +419,9 @@ def _synth_impl(ctx):
         depset([dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib]),
     ]
 
-    transitive_runfiles = []
     for datum in ctx.attr.data:
-        transitive_runfiles.append(datum[DefaultInfo].default_runfiles.files)
-        transitive_runfiles.append(datum[DefaultInfo].default_runfiles.symlinks)
+        transitive_inputs.append(datum.default_runfiles.files)
+        transitive_inputs.append(datum.default_runfiles.symlinks)
 
     ctx.actions.run(
         arguments = ["--file", ctx.file._makefile.path, "synth"],
@@ -445,14 +448,43 @@ def _synth_impl(ctx):
         outputs = [out, sdc],
     )
 
+    config_short = ctx.actions.declare_file("results/{}/{}/base/1_synth.short.mk".format(_platform(ctx), _module_top(ctx)))
+    ctx.actions.write(
+        output = config_short,
+        content = _config_content(_data_arguments(ctx) | _required_arguments(ctx) | _block_arguments(ctx) | _orfs_arguments(short = True, *[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx, short = True)),
+    )
+
+    make = ctx.actions.declare_file("make_1_synth")
+    ctx.actions.expand_template(
+        template = ctx.file._make_template,
+        output = make,
+        substitutions = flow_substitutions(ctx) | yosys_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
+    )
+
+    exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
+    ctx.actions.expand_template(
+        template = ctx.file._deploy_template,
+        output = exe,
+        substitutions = {
+            "${GENFILES}": " ".join([f.short_path for f in [out, sdc, config_short] + ctx.files.verilog_files + ctx.files.data]),
+            "${CONFIG}": config_short.short_path,
+            "${MAKE}": make.short_path,
+        },
+    )
+
     return [
         DefaultInfo(
+            executable = exe,
             files = depset(
                 [out, sdc] + [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds] +
                 [dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef] +
                 [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
             ),
-            runfiles = ctx.runfiles(transitive_files = depset(transitive = transitive_runfiles)),
+            runfiles = ctx.runfiles(
+                [out, sdc, config_short, make, ctx.executable._yosys, ctx.file._makefile] +
+                ctx.files.verilog_files + ctx.files.data,
+                transitive_files = depset(transitive = transitive_inputs),
+            ),
         ),
         OutputGroupInfo(
             deps = depset(
@@ -464,6 +496,16 @@ def _synth_impl(ctx):
             logs = depset([]),
             reports = depset([]),
             **{f.basename: depset([f]) for f in [config, out, sdc]}
+        ),
+        OrfsDepInfo(
+            make = make,
+            config = config_short,
+            files = [config_short] + ctx.files.verilog_files + ctx.files.data,
+            runfiles = ctx.runfiles(transitive_files = depset(
+                [config_short, make, ctx.executable._yosys, ctx.file._makefile] +
+                ctx.files.verilog_files + ctx.files.data,
+                transitive = transitive_inputs,
+            )),
         ),
         OrfsInfo(
             odb = None,
@@ -483,8 +525,8 @@ def _synth_impl(ctx):
 orfs_synth = rule(
     implementation = _synth_impl,
     attrs = yosys_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
-    executable = False,
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
+    executable = True,
 )
 
 def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_names = [], report_names = [], extra_arguments = {}):
@@ -569,11 +611,11 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         content = _config_content(extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo], short = True)),
     )
 
-    make = ctx.actions.declare_file("make")
+    make = ctx.actions.declare_file("make_{}".format(stage))
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
-        substitutions = openroad_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
+        substitutions = flow_substitutions(ctx) | openroad_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
@@ -660,7 +702,7 @@ orfs_floorplan = rule(
         ],
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
     executable = True,
 )
 
@@ -677,7 +719,7 @@ orfs_place = rule(
         report_names = [],
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
     executable = True,
 )
 
@@ -698,7 +740,7 @@ orfs_cts = rule(
         ],
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
     executable = True,
 )
 
@@ -723,7 +765,7 @@ orfs_route = rule(
         ],
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
     executable = True,
 )
 
@@ -752,7 +794,7 @@ orfs_final = rule(
         ],
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
     executable = True,
 )
 
@@ -772,7 +814,7 @@ orfs_abstract = rule(
             {"ABSTRACT_SOURCE": _extensionless_basename(ctx.attr.src[OrfsInfo].odb)},
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
     executable = False,
 )
 

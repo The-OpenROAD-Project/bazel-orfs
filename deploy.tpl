@@ -78,7 +78,7 @@ main() {
     cp --force --dereference --no-preserve=all --parents --target-directory "$dst" "$file"
   done
 
-  cp --force --target-directory "$dst" "$make"
+  cp --force "$make" "$dst/make"
   cp --force --no-preserve=all "$config" "$dst/config.mk"
 
   exit $?
