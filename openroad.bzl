@@ -24,6 +24,15 @@ TopInfo = provider(
     fields = ["module_top"],
 )
 
+OrfsDepInfo = provider(
+    "The name of the netlist top module.",
+    fields = [
+        "make",
+        "config",
+        "runfiles",
+    ],
+)
+
 def _pdk_impl(ctx):
     return [
         DefaultInfo(
@@ -159,19 +168,19 @@ def commonpath(files):
 
 def openroad_substitutions(ctx):
     return {
-        "{OPENROAD_PATH}": ctx.executable._openroad.path,
-        "{KLAYOUT_PATH}": ctx.executable._klayout.path,
-        "{MAKEFILE_PATH}": ctx.file._makefile.path,
-        "{FLOW_HOME}": ctx.file._makefile.dirname,
-        "{TCL_LIBRARY}": commonpath(ctx.files._tcl),
-        "{LIBGL_DRIVERS_PATH}": commonpath(ctx.files._opengl),
-        "{QT_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
-        "{GIO_MODULE_DIR}": commonpath(ctx.files._gio_modules),
+        "${OPENROAD_PATH}": ctx.executable._openroad.path,
+        "${KLAYOUT_PATH}": ctx.executable._klayout.path,
+        "${MAKEFILE_PATH}": ctx.file._makefile.path,
+        "${FLOW_HOME}": ctx.file._makefile.dirname,
+        "${TCL_LIBRARY}": commonpath(ctx.files._tcl),
+        "${LIBGL_DRIVERS_PATH}": commonpath(ctx.files._opengl),
+        "${QT_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
+        "${GIO_MODULE_DIR}": commonpath(ctx.files._gio_modules),
     }
 
 def yosys_substitutions(ctx):
     return {
-        "{YOSYS_PATH}": ctx.executable._yosys.path,
+        "${YOSYS_PATH}": ctx.executable._yosys.path,
     }
 
 def _deps_impl(ctx):
@@ -180,14 +189,16 @@ def _deps_impl(ctx):
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join([f.short_path for f in ctx.attr.src[OutputGroupInfo].deps.to_list()]),
+            "${GENFILES}": " ".join([]),
+            "${CONFIG}": ctx.attr.src[OrfsDepInfo].config.short_path,
+            "${MAKE}": ctx.attr.src[OrfsDepInfo].make.short_path,
         },
     )
     return [
         DefaultInfo(
             executable = exe,
             files = depset([]),
-            runfiles = ctx.runfiles(transitive_files = ctx.attr.src[OutputGroupInfo].transitive_deps),
+            runfiles = ctx.attr.src[OrfsDepInfo].runfiles,
         ),
     ]
 
@@ -195,7 +206,7 @@ orfs_deps = rule(
     implementation = _deps_impl,
     attrs = {
         "src": attr.label(
-            providers = [DefaultInfo],
+            providers = [OrfsDepInfo],
         ),
         "_deploy_template": attr.label(
             default = ":deploy.tpl",
@@ -611,7 +622,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
-        substitutions = openroad_substitutions(ctx),
+        substitutions = openroad_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
@@ -619,7 +630,9 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join([f.short_path for f in [config_short] + results]),
+            "${GENFILES}": " ".join([f.short_path for f in results]),
+            "${CONFIG}": config_short.short_path,
+            "${MAKE}": make.short_path,
         },
     )
 
@@ -649,14 +662,18 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
                     ctx.attr.src[OrfsInfo].additional_libs,
                 ],
             ),
-            transitive_deps = depset(
-                [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile] +
-                ctx.files.src + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
-                transitive = transitive_inputs,
-            ),
             logs = depset(logs),
             reports = depset(reports),
             **{f.basename: depset([f]) for f in [config] + results + objects + logs + reports}
+        ),
+        OrfsDepInfo(
+            make = make,
+            config = config_short,
+            runfiles = ctx.runfiles(transitive_files = depset(
+                [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile] +
+                ctx.files.src + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
+                transitive = transitive_inputs,
+            )),
         ),
         OrfsInfo(
             odb = odb,

@@ -10,7 +10,9 @@ usage() {
 main() {
   local progname
   local dst
+  local config
   local genfiles
+  local make
   progname=$(basename "$0")
 
   while [ $# -gt 0 ]; do
@@ -18,8 +20,18 @@ main() {
       -h|--help)
         usage "$progname"
       ;;
+      -c|--config)
+        config="$2"
+        shift
+        shift
+      ;;
       -g|--genfiles)
         genfiles="$2"
+        shift
+        shift
+      ;;
+      -m|--make)
+        make="$2"
         shift
         shift
       ;;
@@ -66,7 +78,10 @@ main() {
     cp --force --dereference --no-preserve=all --parents --target-directory "$dst" "$file"
   done
 
+  cp --force --target-directory "$dst" "$make"
+  cp --force --no-preserve=all "$config" "$dst/config.mk"
+
   exit $?
 }
 
-main --genfiles "${GENFILES}" "$@"
+main --genfiles "${GENFILES}" --make "${MAKE}" --config "${CONFIG}" "$@"
