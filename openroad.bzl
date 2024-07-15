@@ -29,6 +29,7 @@ OrfsDepInfo = provider(
     fields = [
         "make",
         "config",
+        "files",
         "runfiles",
     ],
 )
@@ -210,7 +211,7 @@ def _deps_impl(ctx):
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join([]),
+            "${GENFILES}": " ".join([f.short_path for f in ctx.attr.src[OrfsDepInfo].files]),
             "${CONFIG}": ctx.attr.src[OrfsDepInfo].config.short_path,
             "${MAKE}": ctx.attr.src[OrfsDepInfo].make.short_path,
         },
@@ -235,77 +236,6 @@ orfs_deps = rule(
         ),
     },
     executable = True,
-)
-
-def _script_impl(ctx):
-    out = ctx.actions.declare_file(ctx.attr.name)
-    ctx.actions.expand_template(
-        template = ctx.file._template,
-        output = out,
-        substitutions = openroad_substitutions(ctx) |
-                        yosys_substitutions(ctx) | {
-            "{WORK_HOME}": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
-        },
-    )
-    return [DefaultInfo(
-        files = depset([out]),
-        runfiles = ctx.runfiles([]),
-    )]
-
-orfs_make = rule(
-    implementation = _script_impl,
-    attrs = {
-        "_makefile": attr.label(
-            doc = "Top level makefile.",
-            allow_single_file = ["Makefile"],
-            default = Label("@docker_orfs//:makefile"),
-        ),
-        "_yosys": attr.label(
-            doc = "Yosys binary.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:yosys"),
-        ),
-        "_openroad": attr.label(
-            doc = "OpenROAD binary.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:openroad"),
-        ),
-        "_klayout": attr.label(
-            doc = "Klayout binary.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:klayout"),
-        ),
-        "_tcl": attr.label(
-            doc = "Tcl library.",
-            allow_files = True,
-            default = Label("@docker_orfs//:tcl8.6"),
-        ),
-        "_opengl": attr.label(
-            doc = "OpenGL drivers.",
-            allow_files = True,
-            default = Label("@docker_orfs//:opengl"),
-        ),
-        "_qt_plugins": attr.label(
-            doc = "Qt plugins.",
-            allow_files = True,
-            default = Label("@docker_orfs//:qt_plugins"),
-        ),
-        "_gio_modules": attr.label(
-            doc = "GIO modules.",
-            allow_files = True,
-            default = Label("@docker_orfs//:gio_modules"),
-        ),
-        "_template": attr.label(
-            default = ":make.tpl",
-            allow_single_file = True,
-        ),
-    },
 )
 
 def flow_attrs():
@@ -651,7 +581,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join([f.short_path for f in results]),
+            "${GENFILES}": " ".join([f.short_path for f in [config_short] + results + ctx.files.src + ctx.files.data]),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
@@ -690,6 +620,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         OrfsDepInfo(
             make = make,
             config = config_short,
+            files = [config_short] + ctx.files.src + ctx.files.data,
             runfiles = ctx.runfiles(transitive_files = depset(
                 [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile] +
                 ctx.files.src + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
