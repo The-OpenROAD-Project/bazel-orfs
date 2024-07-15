@@ -152,6 +152,18 @@ orfs_run = rule(
 )
 
 def commonprefix(*args):
+    """
+    Return the longest path prefix.
+
+    Return the longest path prefix (taken character-by-character)
+    that is a prefix of all paths in `*args`. If `*args` is empty,
+    return the empty string ('').
+
+    Args:
+      *args: Sequence of strings.
+    Returns:
+      Longest common prefix of each string in `*args`.
+    """
     prefix = ""
     for t in zip(*args):
         for x in t:
@@ -162,6 +174,15 @@ def commonprefix(*args):
     return prefix
 
 def commonpath(files):
+    """
+    Return the longest common sub-path of each file in the sequence `files`.
+
+    Args:
+      files: Sequence of files.
+
+    Returns:
+      Longest common sub-path of each file in the sequence `files`.
+    """
     prefix = commonprefix(*[f.path.elems() for f in files])
     path, _, _ = prefix.rpartition("/")
     return path
