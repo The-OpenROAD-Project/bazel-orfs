@@ -9,7 +9,6 @@ exports_files(["mock_area.tcl"])
 
 exports_files([
     "orfs",
-    "out_script",
     "docker_shell",
 ])
 
