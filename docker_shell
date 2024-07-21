@@ -58,14 +58,6 @@ export FLOW_HOME="/OpenROAD-flow-scripts/flow/"
 # Take first symlink from the workspace, follow it and fetch the directory name
 export WORKSPACE_ORIGIN=$(dirname $(find $WORKSPACE_EXECROOT -maxdepth 1 -type l -exec realpath {} \; -quit))
 
-# Create out script if one does not exist
-if [[ ! -f $WORKSPACE_EXECROOT/bazel-out/k8-fastbuild/bin/out ]]; then
-	if [[ -d $WORKSPACE_EXTERNAL/bazel-orfs~override ]]; then
-		cp $WORKSPACE_EXTERNAL/bazel-orfs~override/out_script $WORKSPACE_EXECROOT/bazel-out/k8-fastbuild/bin/out
-	elif [[ -f $WORKSPACE_ORIGIN/out_script ]]; then
-		cp $WORKSPACE_ORIGIN/out_script $WORKSPACE_EXECROOT/bazel-out/k8-fastbuild/bin/out
-	fi
-fi
 # Create bazel-bin symlink if it does not exist
 if [[ ! -L $WORKSPACE_ORIGIN/bazel-bin ]]; then
 	ln -s $WORKSPACE_EXECROOT/bazel-out/k8-fastbuild/bin $WORKSPACE_ORIGIN/bazel-bin
