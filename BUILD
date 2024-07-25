@@ -7,24 +7,12 @@ exports_files(glob(["scripts/mem_dump.*"]))
 
 exports_files(["mock_area.tcl"])
 
-exports_files([
-    "orfs",
-    "docker_shell",
-])
-
 exports_files(
     glob([
         "test/**/*.sv",
         "test/**/*.sdc",
     ]),
     visibility = [":__subpackages__"],
-)
-
-# Config for remote execution
-config_setting(
-    name = "remote_exec",
-    values = {"define": "REMOTE=1"},
-    visibility = ["//visibility:public"],
 )
 
 filegroup(
