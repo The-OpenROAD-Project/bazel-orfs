@@ -53,13 +53,15 @@ SRAM_FLOOR_PLACE_ARGUMENTS = {
     "PLACE_PINS_ARGS": "-min_distance 2 -min_distance_in_tracks",
 }
 
+SRAM_SYNTH_ARGUMENTS = {
+    "SDC_FILE": "$(location :constraints-sram)",
+}
+
 orfs_flow(
     name = "tag_array_64x184",
     abstract_stage = "route",
     stage_args = {
-        "synth": {
-            "SDC_FILE": "$(location :constraints-sram)",
-        },
+        "synth": SRAM_SYNTH_ARGUMENTS,
         "floorplan": SRAM_FLOOR_PLACE_ARGUMENTS | {
             "CORE_UTILIZATION": "40",
             "CORE_ASPECT_RATIO": "2",
@@ -81,7 +83,7 @@ orfs_flow(
     name = "lb_32x128",
     abstract_stage = "floorplan",
     stage_args = {
-        "synth": {"SDC_FILE": "$(location :constraints-sram)"},
+        "synth": SRAM_SYNTH_ARGUMENTS,
         "floorplan": SRAM_FLOOR_PLACE_ARGUMENTS | {
             "CORE_UTILIZATION": "40",
             "CORE_ASPECT_RATIO": "2",
