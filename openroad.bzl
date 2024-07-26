@@ -84,7 +84,7 @@ def _run_impl(ctx):
             ctx.file._makefile.path,
             "open_{}".format(ctx.attr.src[OrfsInfo].odb.basename),
         ],
-        command = "make $@ < {}".format(ctx.file.script.path),
+        command = "make $@",
         env = {
             "HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
@@ -93,6 +93,8 @@ def _run_impl(ctx):
             "OPENROAD_EXE": ctx.executable._openroad.path,
             "ODB_FILE": ctx.attr.src[OrfsInfo].odb.path,
             "TCL_LIBRARY": commonpath(ctx.files._tcl),
+            "GUI_ARGS": "-exit",
+            "GUI_SOURCE": ctx.file.script.path
         },
         inputs = depset(
             ctx.files.src +
