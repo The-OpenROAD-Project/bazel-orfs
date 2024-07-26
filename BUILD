@@ -62,11 +62,12 @@ filegroup(
 
 SRAM_FLOOR_PLACE_ARGUMENTS = {
     "IO_CONSTRAINTS": "$(location :io-sram)",
+    "PLACE_PINS_ARGS": "-min_distance 2 -min_distance_in_tracks",
 }
 
 orfs_flow(
     name = "tag_array_64x184",
-    abstract_stage = "floorplan",
+    abstract_stage = "route",
     stage_args = {
         "synth": {
             "SDC_FILE": "$(location :constraints-sram)",
@@ -76,7 +77,7 @@ orfs_flow(
             "CORE_ASPECT_RATIO": "2",
         },
         "place": SRAM_FLOOR_PLACE_ARGUMENTS | {
-            "PLACE_DENSITY": "0.65",
+            "PLACE_DENSITY": "0.40",
         },
     },
     stage_sources = {
@@ -135,7 +136,7 @@ orfs_flow(
 
 orfs_run(
     name = "tag_array_64x184_report",
-    src = ":tag_array_64x184_floorplan",
+    src = ":tag_array_64x184_route",
     outs = [
         "final_clocks.webp.png",
         "final_ir_drop.webp.png",
