@@ -138,11 +138,6 @@ orfs_run(
     name = "tag_array_64x184_report",
     src = ":tag_array_64x184_route",
     outs = [
-        "final_clocks.webp.png",
-        "final_ir_drop.webp.png",
-        "final_placement.webp.png",
-        "final_resizer.webp.png",
-        "final_routing.webp.png",
         "report.yaml",
     ],
     script = ":report.tcl",
