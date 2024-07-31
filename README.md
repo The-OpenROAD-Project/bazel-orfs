@@ -99,7 +99,7 @@ In order to use `orfs_flow()` macro in Bazel Workspace in other project it is re
   git_override(
       module_name = "bazel-orfs",
       remote = "<URL to bazel-orfs repository>",
-      commit = "<git hash for specific bazel-orfs revision>"
+      commit = "<git hash for specific bazel-orfs revision>",
   )
   ```
 
@@ -108,7 +108,8 @@ In order to use `orfs_flow()` macro in Bazel Workspace in other project it is re
   ```starlark
   bazel_dep(name = "bazel-orfs")
   local_path_override(
-      module_name = "bazel-orfs", path = "<path to local bazel-orfs workspace>"
+      module_name = "bazel-orfs",
+      path = "<path to local bazel-orfs workspace>",
   )
   ```
 
@@ -184,8 +185,18 @@ These are the genrules spawned in this macro:
 Regular Bazel flow uses artifacts from the Docker environment with preinstalled ORFS to run the Physical Design Flow.
 
 It implicitly depends on a Docker image with ORFS environment pre-installed being present.
-The Docker image used in the flow is defined in the [module](./MODULE.bazel) file, the default can be overridden by specifying modified `image` and `sha256` attributes.
-Setting this attribute to a valid image and checksum will enable Docker to automatically pull the image.
+The Docker image used in the flow is defined in the [module](./MODULE.bazel) file, the default can be overridden by specifying `image` and `sha256` attributes:
+
+```starlark
+orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
+orfs.default(
+    image = <image>,
+    sha256 = <sha256>,
+)
+use_repo(orfs, "docker_orfs")
+```
+
+Setting this attribute to a valid image and checksum will enable Bazel to automatically pull the image and extract ORFS artifacts.
 
 ```bash
 bazel run @bazel-orfs//:<target>_<stage> -- <absolute_path>
