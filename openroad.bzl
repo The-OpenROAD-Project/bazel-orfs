@@ -585,9 +585,16 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         transitive_inputs.append(datum.default_runfiles.files)
         transitive_inputs.append(datum.default_runfiles.symlinks)
 
-    ctx.actions.run(
+    command = "make $@"
+
+    if len(reports) > 0:
+        mkdir_commands = ["mkdir -p $(dirname {})".format(result.path) for result in reports]
+        touch_command = "touch {}".format(" ".join([result.path for result in reports]))
+        command = " && ".join(mkdir_commands + [touch_command]) + " && " + command
+
+    ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + steps,
-        executable = "make",
+        command = command,
         env = {
             "HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
