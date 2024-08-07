@@ -34,6 +34,11 @@ OrfsDepInfo = provider(
     ],
 )
 
+CanonicalizeInfo = provider(
+    "The canonicalized synthesis input",
+    fields = ["rtlil"],
+)
+
 def _pdk_impl(ctx):
     return [
         DefaultInfo(
@@ -94,7 +99,7 @@ def _run_impl(ctx):
             "ODB_FILE": ctx.attr.src[OrfsInfo].odb.path,
             "TCL_LIBRARY": commonpath(ctx.files._tcl),
             "GUI_ARGS": "-exit",
-            "GUI_SOURCE": ctx.file.script.path
+            "GUI_SOURCE": ctx.file.script.path,
         },
         inputs = depset(
             ctx.files.src +
@@ -267,15 +272,6 @@ def flow_attrs():
 
 def yosys_only_attrs():
     return {
-        "verilog_files": attr.label_list(
-            allow_files = [
-                ".v",
-                ".sv",
-            ],
-            allow_rules = [
-            ],
-            providers = [DefaultInfo],
-        ),
         "deps": attr.label_list(
             default = [],
             providers = [OrfsInfo, TopInfo],
@@ -397,18 +393,27 @@ def _config_content(args):
 def _data_arguments(ctx):
     return {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()}
 
-def _synth_impl(ctx):
+def _yosys_impl(ctx, canonicalize):
     all_arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx) | _block_arguments(ctx)
-    config = ctx.actions.declare_file("results/{}/{}/base/1_synth.mk".format(_platform(ctx), _module_top(ctx)))
+    result_dir = "results/{}/{}/base/".format(_platform(ctx), _module_top(ctx))
+    config = ctx.actions.declare_file(result_dir + ("1_canonicalize.mk" if canonicalize else "1_synth.mk"))
     ctx.actions.write(
         output = config,
         content = _config_content(all_arguments),
     )
 
-    synth_outputs = [
-        ctx.actions.declare_file("results/{}/{}/base/1_synth.v".format(_platform(ctx), _module_top(ctx))),
-        ctx.actions.declare_file("results/{}/{}/base/1_synth.sdc".format(_platform(ctx), _module_top(ctx))),
-        ctx.actions.declare_file("results/{}/{}/base/mem.json".format(_platform(ctx), _module_top(ctx)))]
+    if canonicalize:
+        verilog_files = ctx.files.verilog_files
+        rtlil = []
+        synth_outputs = [ctx.actions.declare_file(result_dir + "1_synth.rtlil")]
+    else:
+        verilog_files = []
+        rtlil = [ctx.attr.canonicalized[CanonicalizeInfo].rtlil]
+        synth_outputs = [
+            ctx.actions.declare_file(result_dir + "1_synth.v"),
+            ctx.actions.declare_file(result_dir + "1_synth.sdc"),
+            ctx.actions.declare_file(result_dir + "mem.json"),
+        ]
 
     transitive_inputs = [
         ctx.attr.pdk[PdkInfo].files,
@@ -427,19 +432,28 @@ def _synth_impl(ctx):
         transitive_inputs.append(datum.default_runfiles.files)
         transitive_inputs.append(datum.default_runfiles.symlinks)
 
+    work_home = "/".join([ctx.genfiles_dir.path, ctx.label.package])
     ctx.actions.run(
-        arguments = ["--file", ctx.file._makefile.path, "synth"],
+        arguments = ["--file", ctx.file._makefile.path] + (
+            ["do-yosys-canonicalize"] if canonicalize else [
+                "yosys-dependencies",
+                "do-yosys",
+                "do-synth",
+                work_home + "/" + result_dir + "1_synth.sdc",
+            ]
+        ),
         executable = "make",
         env = {
             "HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
-            "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
+            "WORK_HOME": work_home,
             "FLOW_HOME": ctx.file._makefile.dirname,
             "DESIGN_CONFIG": config.path,
             "ABC": ctx.executable._abc.path,
             "YOSYS_CMD": ctx.executable._yosys.path,
         },
         inputs = depset(
-            ctx.files.verilog_files +
+            rtlil +
+            verilog_files +
             ctx.files.data +
             [
                 config,
@@ -452,17 +466,17 @@ def _synth_impl(ctx):
         outputs = synth_outputs,
     )
 
-    config_short = ctx.actions.declare_file("results/{}/{}/base/1_synth.short.mk".format(_platform(ctx), _module_top(ctx)))
+    config_short = ctx.actions.declare_file(result_dir + ("1_canonicalize.short.mk" if canonicalize else "1_synth.short.mk"))
     ctx.actions.write(
         output = config_short,
         content = _config_content(_data_arguments(ctx) | _required_arguments(ctx) | _block_arguments(ctx) | _orfs_arguments(short = True, *[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx, short = True)),
     )
 
-    make = ctx.actions.declare_file("make_1_synth")
+    make = ctx.actions.declare_file("make_1_{}".format("canonicalize" if canonicalize else "synth"))
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
-        substitutions = flow_substitutions(ctx) | yosys_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
+        substitutions = flow_substitutions(ctx) | yosys_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" {} "$@"'.format(ctx.label.package, "yosys-dependencies" if not canonicalize else "")},
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
@@ -470,7 +484,7 @@ def _synth_impl(ctx):
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join([f.short_path for f in synth_outputs + [config_short] + ctx.files.verilog_files + ctx.files.data]),
+            "${GENFILES}": " ".join([f.short_path for f in synth_outputs + [config_short] + verilog_files + ctx.files.data]),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
@@ -486,13 +500,13 @@ def _synth_impl(ctx):
             ),
             runfiles = ctx.runfiles(
                 synth_outputs + [config_short, make, ctx.executable._yosys, ctx.file._makefile] +
-                ctx.files.verilog_files + ctx.files.data,
+                verilog_files + rtlil + ctx.files.data,
                 transitive_files = depset(transitive = transitive_inputs),
             ),
         ),
         OutputGroupInfo(
             deps = depset(
-                [config] + ctx.files.verilog_files + ctx.files.data +
+                [config] + verilog_files + rtlil + ctx.files.data +
                 [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds] +
                 [dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef] +
                 [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
@@ -504,10 +518,10 @@ def _synth_impl(ctx):
         OrfsDepInfo(
             make = make,
             config = config_short,
-            files = [config_short] + ctx.files.verilog_files + ctx.files.data,
+            files = [config_short] + verilog_files + rtlil + ctx.files.data,
             runfiles = ctx.runfiles(transitive_files = depset(
                 [config_short, make, ctx.executable._yosys, ctx.file._makefile] +
-                ctx.files.verilog_files + ctx.files.data,
+                verilog_files + rtlil + ctx.files.data,
                 transitive = transitive_inputs,
             )),
         ),
@@ -524,11 +538,36 @@ def _synth_impl(ctx):
         TopInfo(
             module_top = ctx.attr.module_top,
         ),
-    ]
+    ] + ([
+        CanonicalizeInfo(rtlil = synth_outputs[0]),
+    ] if canonicalize else [])
+
+orfs_canonicalize = rule(
+    implementation = lambda ctx: _yosys_impl(ctx, True),
+    attrs = yosys_attrs() | {
+        "verilog_files": attr.label_list(
+            allow_files = [
+                ".v",
+                ".sv",
+                ".rtlil",
+            ],
+            allow_rules = [],
+            providers = [DefaultInfo],
+        ),
+    },
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo, CanonicalizeInfo],
+    executable = True,
+)
 
 orfs_synth = rule(
-    implementation = _synth_impl,
-    attrs = yosys_attrs(),
+    implementation = lambda ctx: _yosys_impl(ctx, False),
+    attrs = yosys_attrs() | {
+        "canonicalized": attr.label(
+            doc = "The canonicalized input of the synthesis",
+            mandatory = True,
+            providers = [CanonicalizeInfo],
+        ),
+    },
     provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
     executable = True,
 )
@@ -626,7 +665,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
-        substitutions = flow_substitutions(ctx) | openroad_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
+        substitutions = flow_substitutions(ctx) | openroad_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},  # , '"${STAGE_MAKE}"': ctx.attr.
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
@@ -830,6 +869,7 @@ orfs_abstract = rule(
 )
 
 STAGE_IMPLS = [
+    struct(stage = "canonicalize", impl = orfs_canonicalize),
     struct(stage = "synth", impl = orfs_synth),
     struct(stage = "floorplan", impl = orfs_floorplan),
     struct(stage = "place", impl = orfs_place),
@@ -867,9 +907,10 @@ def orfs_flow(
             break
     steps.append(ABSTRACT_IMPL)
 
-    synth_step = steps[0]
-    synth_step.impl(
-        name = "{}_{}".format(name, synth_step.stage),
+    canonicalize_step = steps[0]
+    synth_step = steps[1]
+    canonicalize_step.impl(
+        name = "{}_{}".format(name, "canonicalize"),
         arguments = stage_args.get(synth_step.stage, {}),
         data = stage_sources.get(synth_step.stage, []),
         deps = macros,
@@ -877,8 +918,22 @@ def orfs_flow(
         verilog_files = verilog_files,
         visibility = visibility,
     )
+    orfs_deps(
+        name = "{}_{}_deps".format(name, canonicalize_step.stage),
+        src = "{}_{}".format(name, canonicalize_step.stage),
+    )
 
-    for step, prev in zip(steps[1:], steps):
+    synth_step.impl(
+        name = "{}_{}".format(name, synth_step.stage),
+        arguments = stage_args.get(synth_step.stage, {}),
+        data = stage_sources.get(synth_step.stage, []),
+        deps = macros,
+        canonicalized = "{}_{}".format(name, canonicalize_step.stage),
+        module_top = name,
+        visibility = visibility,
+    )
+
+    for step, prev in zip(steps[2:], steps[1:]):
         step.impl(
             name = "{}_{}".format(name, step.stage),
             src = "{}_{}".format(name, prev.stage),
