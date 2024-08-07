@@ -223,7 +223,13 @@ bazel run @bazel-orfs//:<target>_<stage>_deps -- <absolute_path>
 <absolute_path>/make <stage>
 ```
 
-By default, the `make <stage>` invocation will rely on the Docker ORFS installation, unless the `env.sh` script is sourced, or the `FLOW_HOME` environment variable is set to the path of the local `OpenROAD-flow-scripts/flow` installation:
+A convenient way to re-run for floorplan and view the results would be:
+
+```bash
+bazel run MyDesign_floorplan -- `pwd`/build && build/make gui_floorplan
+```
+
+By default, the `make <stage>` invocation will rely on the ORFS from MODULE.bazel, unless the `env.sh` script is sourced, or the `FLOW_HOME` environment variable is set to the path of the local `OpenROAD-flow-scripts/flow` installation:
 
 ```bash
 source <orfs_path>/env.sh
