@@ -1,2 +1,3 @@
 bazel-*
 copyright.txt
+MODULE.bazel.lock
