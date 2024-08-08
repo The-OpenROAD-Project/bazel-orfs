@@ -1,81 +1,23 @@
 # Bazel-orfs
 
-This repository contains [Bazel](https://bazel.build/) rules for wrapping Physical Design Flows provided by [OpenROAD-flow-scripts](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts) (ORFS).
-There are two variants of the Bazel flow available:
-
-* Docker flow - based on the ORFS installed in the Docker container that is used for running Bazel targets
-* Local flow - relies on local installation of the ORFS
-
-There are many build flows on top of OpenROAD
----------------------------------------------
-
-There are numerous build flows on top of OpenROAD, these are some:
-
-- ORFS. The developers of OpenROAD use this flow
-  to test the tool. It has features specifically for reporting bugs and
-  is simple to understand for OpenROAD developers as well as novice
-  users. It provides a lingua franca in the community to discuss features
-  and test cases.
-- [Hammer](https://chipyard.readthedocs.io/en/latest/VLSI/Hammer.html) is used with
-  Chipyard.
-- https://www.zeroasic.com/ has a Python based workflow that supports both
-  commercial tools and OpenROAD.
+This repository contains [Bazel](https://bazel.build/) rules for wrapping [OpenROAD-flow-scripts](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts) (ORFS).
 
 Why Bazel on top of ORFS?
 -------------------------
 
-ORFS and OpenROAD is work in progress and one should expect for
+bazel-orfs gives all the expected Bazel advantages to ORFS: artifacts, parallel builds, remote execution, repeatable builds, etc.
+
+Also, ORFS and OpenROAD is work in progress and one should expect for
 large designs to get involved with the community or need a
 support contract with Precision Innovations (https://www.linkedin.com/in/tomspyrou/).
 
 Using ORFS directly, instead of modifying it or creating an alternative flow,
 makes it easy to get the very latest features and version of OpenROAD and ORFS
-as well as having access to the tools, `make issue` and `deltaDebug.py`,
-required to articulate familiar and easily actionable github issues for
-the OpenROAD and ORFS maintainers.
+as well as having access to all ORFS features, including debugging
+features such as `make issue` and `deltaDebug.py`.
 
-Challenges with large designs and ORFS that Bazel helps address
----------------------------------------------------------------
-
-- **Long build times**; hours, days.
-- **Artifacts** are needed. Synthesis, for instance, can
-  be very time consuming and it is useful to share synthesis artifacts
-  between developers and CI servers. On a large design with multiple
-  developers and many pull requests in flight, it can become error
-  prone to manually track exactly what version of built stages that
-  are still valid. Ideally one should be able to check out a
-  pull request and automatically get the right prebuilt artifacts.
-- **Dependencies** in ORFS are at the file level. For instance, synthesis must be
-  redone if the clock period changes, but many other changes to .sdc do not require
-  resynthesis. With finer grained dependencies, superfluous time consuming
-  resynthesis, floor planning, placement, cts and routing can be avoided.
-- **Examining failures** for global/detailed place/route, that can take many
-  hours to build, is useful. Artifacts for failed stages are needed to
-  examine the problem: failed .odb file as well as any reports. This workflow
-  always existed for detailed routing: detailed routing succeeds, has exit code 0,
-  even if there are DRC errors.
-- **Mocking abstracts** when doing initial top-level floorplanning is needed to
-  separate concerns. It can be useful to skip one of place, cts, route for
-  the macros until one starts to converge on a workable
-  top level floorplan. This is supported via `abstract_stage` in `openroad.bzl`
-- **Efficient local storage of build artifacts** are needed as .odb files are
-  large and they should not exist in duplicates unnecessarily. Bazel
-  uses symbolic links. ORFS can not use symbolic links for .odb files because,
-  long story short, `make` does not work properly with symbolic links. This becomes
-  especially important when working with many branches and pull requests where
-  there is a large degree of shared .odb files.
-- **Parallel builds** are required for macros.
-- **Remote build services** are required for large projects where
-  developers machines are powerful enough to examine results, but
-  not to run builds.
-- **Cross cutting builds** such as completing floor planning for all macros,
-  then place, then cts, then route is required to be able to separate concerns.
-  When iterating on the concerns, it can be useful to complete placement under
-  human supervision to iterate quickly, but to leave routing for CI servers to complete.
-- **Select level of detail of artifacts** is useful throughout the
-  development process. Initially for a macro, artifacts are useful for inspection
-  for synthesis, floorplan, place, cts, route and abstract. Later, for stable macros,
-  abstracts are adequate(no .odb file, only .lef, .lib and .gds).
+Since bazel-orfs uses the unmodified ORFS, it is easy to articulate familiar
+and easily actionable github issues for the OpenROAD and ORFS maintainers.
 
 ## Requirements
 
@@ -84,8 +26,7 @@ Challenges with large designs and ORFS that Bazel helps address
   The Docker image used in the flow defaults to `openroad/orfs`, with tag specified in the [module](./MODULE.bzl) file.
 
   > **NOTE:** The `bazel-orfs` doesn't execute flows inside the Docker container, but rather uses the container as a source of ORFS artifacts.
-* [OpenROAD-flow-scripts](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts) - **Required only when using customized ORFS** - to use it, `env.sh` file from OpenROAD-flow-scripts has to be sourced or `FLOW_HOME` environment variable has to be set to the path of the local `OpenROAD-flow-scripts/flow` installation.
-  Bazel-orfs intentionally does not treat ORFS as an installable versioned tool, but prefers to rely on local installation such that it is easy to modify ORFS and OpenROAD.
+* (Optional) Locally built [ORFS](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts). To use it, `env.sh` file from OpenROAD-flow-scripts has to be sourced or `FLOW_HOME` environment variable has to be set to the path of the local `OpenROAD-flow-scripts/flow` installation.
 
 ## Usage
 
@@ -143,7 +84,7 @@ orfs_flow(
 )
 ```
 
-Macro from the example above spawns the following Bazel targets:
+The macro from the example above spawns the following Bazel targets:
 
 ```
 Dependency targets:
@@ -165,7 +106,6 @@ Abstract targets:
 ```
 
 The example comes from the [BUILD](./BUILD) file in this repository.
-For details about targets spawned by this macro please refer to [Implementation](#Implementation) chapter.
 
 ## Implementation
 
@@ -182,7 +122,7 @@ These are the genrules spawned in this macro:
 
 ### Bazel flow
 
-Regular Bazel flow uses artifacts from the Docker environment with preinstalled ORFS to run the Physical Design Flow.
+Regular Bazel flow uses artifacts from the Docker environment with preinstalled ORFS.
 
 It implicitly depends on a Docker image with ORFS environment pre-installed being present.
 The Docker image used in the flow is defined in the [module](./MODULE.bazel) file, the default can be overridden by specifying `image` and `sha256` attributes:
@@ -199,48 +139,33 @@ use_repo(orfs, "docker_orfs")
 Setting this attribute to a valid image and checksum will enable Bazel to automatically pull the image and extract ORFS artifacts.
 
 ```bash
-bazel run @bazel-orfs//:<target>_<stage> -- <absolute_path>
+bazel build <target>_<stage>
 ```
 
-If the directory under the `<absolute_path>` does not exist, it will be created.
-
-> **NOTE:** It's important to provide an absolute path to the directory where the results of the flow will be stored.
-> Otherwise, the flow will fail with an error message similar to:
->
-> ```
-> INFO: Running command line: bazel-bin/<target>_<stage>.sh build
-> <target>_<stage>.sh: 'build' is not an absolute path
-> Try '<target>_<stage>.sh -h' for more information.
-> ```
+If the directory under the `<absolute_path>` does not exist, it will be created. If a relative path is provided, the `bazel run` command above will fail.
 
 ### Local flow
 
-The locally modified [OpenROAD-flow-scripts](https://openroad-flow-scripts.readthedocs.io/en/latest/user/UserGuide.html) can also be used to run the Physical Design Flow.
-Once the environment is set up with Bazel, produced `make` script can be used to run the flow:
+A locally built and modified [ORFS](https://openroad-flow-scripts.readthedocs.io/en/latest/user/UserGuide.html) can also be used to run the flow:
 
 ```bash
-bazel run @bazel-orfs//:<target>_<stage>_deps -- <absolute_path>
-<absolute_path>/make <stage>
+bazel run <target>_<stage>_deps -- <absolute_path> && <absolute_path>/make <stage>
 ```
 
-A convenient way to re-run for floorplan and view the results would be:
+A convenient way to re-run the floorplan and view the results would be:
 
 ```bash
 bazel run MyDesign_floorplan -- `pwd`/build && build/make gui_floorplan
 ```
 
-By default, the `make <stage>` invocation will rely on the ORFS from MODULE.bazel, unless the `env.sh` script is sourced, or the `FLOW_HOME` environment variable is set to the path of the local `OpenROAD-flow-scripts/flow` installation:
+`make <stage>` will fail unless the `env.sh` script is sourced, or the `FLOW_HOME` environment variable is set to the path of the local `OpenROAD-flow-scripts/flow` installation:
 
 ```bash
 source <orfs_path>/env.sh
 
-bazel run @bazel-orfs//:<target>_<stage>_deps -- <absolute_path>
+bazel run <target>_<stage>_deps -- <absolute_path>
 <absolute_path>/make <stage>
 ```
-
-> **NOTE:** This requires building of each stage sequentially, starting from the first one specified in the [Stage targets](#stage-targets) list.
-
-For the ORFS installation guide please refer to the [build instructions](https://openroad-flow-scripts.readthedocs.io/en/latest/user/BuildLocally.html) guide.
 
 ### Stage targets
 
@@ -255,11 +180,9 @@ The stages are as follows:
 * `route`
 * `final`
 
-CLI and GUI is not available as Bazel targets, however, they can be run from the generated shell script as described in the [GUI targets](#gui-targets) paragraph.
+### generate abstract targets
 
-### Abstract targets
-
-Those targets are used to create mocked abstracts (`LEF` files) for macros.
+Those targets are used to create mocked abstracts (`.lef` and `.lib` files) for macros.
 The mock contains the description of macro which has its whole internal logic removed.
 At the same time the mock has the same pinout as the original macro and similar size which makes it useful in early design stages.
 
@@ -364,14 +287,14 @@ The GUI and CLI targets can only be run from the generated shell script.
 For the GUI:
 
 ```bash
-bazel run @bazel-orfs//:<target>_<stage> -- <absolute_path>
+bazel run <target>_<stage> -- <absolute_path>
 <absolute_path>/make gui_<stage>
 ```
 
 For the CLI:
 
 ```bash
-bazel run @bazel-orfs//:<target>_<stage> -- <absolute_path>
+bazel run <target>_<stage> -- <absolute_path>
 <absolute_path>/make open_<stage>
 ```
 
@@ -395,6 +318,22 @@ Bazel will automatically download the Docker image with the ORFS environment and
 
 This will build the `L1MetadataArray` target up to the `cts` stage and place the results in the `build/results` directory.
 It's important to provide an absolute path to the directory where the flow artifacts will be stored.
+
+### Dependencies in ORFS Makefile versus Bazel
+
+When using bazel-orfs, the dependency checking is done by Bazel instead of ORFS's makefile, with the exception fo the synthesis canonicalization stage.
+
+ORFS `make do-yosys-canonicalize` is special and will do dependency checking using ORFS `Makefile` and output `$(RESULTS_DIR)/1_synth.rtlil`.
+
+The `.rtlil` is Yosys's internal representation format of all the various input files that went into Yosys, however any unused modules have been deleted and the modules are in canonical form(ordering of the Verilog files provided to Yosys won't matter). However, `.rtlil` still contains line number information for debugging purposes. The canonicalization stage is quick compared to synthesis and adds no measurable overhead.
+
+Canonicalization simplifies specifying `VERILOG_FILES` to ORFS in Bazel, simply glob them all and let Yosys figure out which files are actually used. This avoids redoing synthesis unecessarily if, for instance, a Verilog file related to simulation changes.
+
+The next stage is `make do-yosys` which does no depedency checking, leaving it to Bazel. `do-yosys` completes the synthesis using `$(RESULTS_DIR)/1_synth.rtlil`.
+
+The subsequent ORFS stages are run with `make do-floorplan do-place ...` and these stages do no dependency checking, leaving it to Bazel.
+
+bazel-orfs also does dependency checking of options provided to each stage. If a property to CTS is changed, then no steps ahead of CTS is re-run. bazel-orfs does not know which properties belong to which stage, it is the responsibility of the user to pass properties to the correct stage. This includes some slightly surprising responsibilities, such as passing IO pin constraints to both floorplan and placement.
 
 ### Using the local flow
 
@@ -427,7 +366,7 @@ Let's assume we want to perform a `floorplan` stage for the `L1MetadataArray` de
 3. Execute the shell script with ORFS make target relevant to given stage of the flow:
 
   ```bash
-  build/make floorplan
+  build/make do-floorplan
   ```
 
 ### Running OpenROAD GUI
@@ -544,7 +483,7 @@ bazel build @bazel-orfs//:L1MetadataArray_generate_abstract
 This will cause the Bazel to generate the abstracts for the design right after the `floorplan` stage instead of `route` stage.
 The output `LEF` file can be found under the `bazel-bin/results/<module>/<target>/base/<target.lef>` path.
 
-For more information please refer to the description of [Abstract targets](#abstract-targets).
+For more information please refer to the description of [Abstract targets](#generate-abstract-targets).
 
 ## Bazel hacking
 
