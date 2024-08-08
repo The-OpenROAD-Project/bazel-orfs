@@ -158,7 +158,7 @@ A convenient way to re-run the floorplan and view the results would be:
 bazel run MyDesign_floorplan -- `pwd`/build && build/make gui_floorplan
 ```
 
-`make <stage>` will fail unless the `env.sh` script is sourced, or the `FLOW_HOME` environment variable is set to the path of the local `OpenROAD-flow-scripts/flow` installation:
+By default, the `make <stage>` invocation will rely on the ORFS from MODULE.bazel, unless the `env.sh` script is sourced, or the `FLOW_HOME` environment variable is set to the path of the local `OpenROAD-flow-scripts/flow` installation:
 
 ```bash
 source <orfs_path>/env.sh
