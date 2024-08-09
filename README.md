@@ -149,23 +149,33 @@ If the directory under the `<absolute_path>` does not exist, it will be created.
 A locally built and modified [ORFS](https://openroad-flow-scripts.readthedocs.io/en/latest/user/UserGuide.html) can also be used to run the flow:
 
 ```bash
-bazel run <target>_<stage>_deps -- <absolute_path> && <absolute_path>/make <stage>
+bazel run <target>_<stage>_deps -- <absolute_path> && <absolute_path>/make do-<stage>
 ```
 
 A convenient way to re-run the floorplan and view the results would be:
 
 ```bash
-bazel run MyDesign_floorplan -- `pwd`/build && build/make gui_floorplan
+bazel run MyDesign_floorplan -- `pwd`/build && build/make do-floorplan gui_floorplan
 ```
 
-By default, the `make <stage>` invocation will rely on the ORFS from MODULE.bazel, unless the `env.sh` script is sourced, or the `FLOW_HOME` environment variable is set to the path of the local `OpenROAD-flow-scripts/flow` installation:
+By default, the `make do-<stage>` invocation will rely on the ORFS from [MODULE.bazel](./MODULE.bazel), unless the `env.sh` script is sourced, or the `FLOW_HOME` environment variable is set to the path of the local `OpenROAD-flow-scripts/flow` installation:
 
 ```bash
 source <orfs_path>/env.sh
 
 bazel run <target>_<stage>_deps -- <absolute_path>
-<absolute_path>/make <stage>
+<absolute_path>/make do-<stage>
 ```
+
+> **NOTE:** The synthesis (`synth`) stage requires the `do-yosys-canonicalize` and `do-yosys` steps to be completed beforehand.
+> These steps are necessary to generate the required `.rtlil` file for the synthesis stage.
+>
+> ```bash
+> source <orfs_path>/env.sh
+>
+> bazel run <target>_synth_deps -- <absolute_path>
+> <absolute_path>/make do-yosys-canonicalize do-yosys do-synth
+> ```
 
 ### Stage targets
 
@@ -321,15 +331,15 @@ It's important to provide an absolute path to the directory where the flow artif
 
 ### Dependencies in ORFS Makefile versus Bazel
 
-When using bazel-orfs, the dependency checking is done by Bazel instead of ORFS's makefile, with the exception fo the synthesis canonicalization stage.
+When using bazel-orfs, the dependency checking is done by Bazel instead of ORFS's makefile, with the exception of the synthesis canonicalization stage.
 
 ORFS `make do-yosys-canonicalize` is special and will do dependency checking using ORFS `Makefile` and output `$(RESULTS_DIR)/1_synth.rtlil`.
 
 The `.rtlil` is Yosys's internal representation format of all the various input files that went into Yosys, however any unused modules have been deleted and the modules are in canonical form(ordering of the Verilog files provided to Yosys won't matter). However, `.rtlil` still contains line number information for debugging purposes. The canonicalization stage is quick compared to synthesis and adds no measurable overhead.
 
-Canonicalization simplifies specifying `VERILOG_FILES` to ORFS in Bazel, simply glob them all and let Yosys figure out which files are actually used. This avoids redoing synthesis unecessarily if, for instance, a Verilog file related to simulation changes.
+Canonicalization simplifies specifying `VERILOG_FILES` to ORFS in Bazel, simply glob them all and let Yosys figure out which files are actually used. This avoids redoing synthesis unnecessarily if, for instance, a Verilog file related to simulation changes.
 
-The next stage is `make do-yosys` which does no depedency checking, leaving it to Bazel. `do-yosys` completes the synthesis using `$(RESULTS_DIR)/1_synth.rtlil`.
+The next stage is `make do-yosys` which does no dependency checking, leaving it to Bazel. `do-yosys` completes the synthesis using `$(RESULTS_DIR)/1_synth.rtlil`.
 
 The subsequent ORFS stages are run with `make do-floorplan do-place ...` and these stages do no dependency checking, leaving it to Bazel.
 
