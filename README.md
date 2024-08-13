@@ -88,6 +88,7 @@ The macro from the example above spawns the following Bazel targets:
 
 ```
 Dependency targets:
+  //:L1MetadataArray_canonicalize_deps
   //:L1MetadataArray_cts_deps
   //:L1MetadataArray_floorplan_deps
   //:L1MetadataArray_place_deps
@@ -95,6 +96,7 @@ Dependency targets:
   //:L1MetadataArray_synth_deps
 
 Stage targets:
+  //:L1MetadataArray_canonicalize
   //:L1MetadataArray_synth
   //:L1MetadataArray_floorplan
   //:L1MetadataArray_place
@@ -167,14 +169,17 @@ bazel run <target>_<stage>_deps -- <absolute_path>
 <absolute_path>/make do-<stage>
 ```
 
-> **NOTE:** The synthesis (`synth`) stage requires the `do-yosys-canonicalize` and `do-yosys` steps to be completed beforehand.
+> **NOTE:** The synthesis (`canonicalize` and `synth`) stage requires the `do-yosys-canonicalize` and `do-yosys` steps to be completed beforehand.
 > These steps are necessary to generate the required `.rtlil` file for the synthesis stage.
 >
 > ```bash
 > source <orfs_path>/env.sh
 >
+> bazel run <target>_canonicalize_deps -- <absolute_path>
+> <absolute_path>/make do-yosys-canonicalize
+>
 > bazel run <target>_synth_deps -- <absolute_path>
-> <absolute_path>/make do-yosys-canonicalize do-yosys do-synth
+> <absolute_path>/make do-yosys do-synth
 > ```
 
 ### Stage targets
@@ -184,6 +189,7 @@ Each stage of the physical design flow is represented by a separate target and f
 The stages are as follows:
 
 * `synth` (synthesis)
+  * `canonicalize` - substage generating canonicalized input for the synthesis (it receives the same arguments and sources as `synth`)
 * `floorplan`
 * `place`
 * `cts` (clock tree synthesis)
@@ -224,7 +230,7 @@ orfs_flow(
 
 By default it's the latest ORFS-specific target (`final`).
 
-> **NOTE:** Mocked abstracts can be generated starting from the `floorplan` stage, thus skipping the `synth` stage.
+> **NOTE:** Mocked abstracts can be generated starting from the `floorplan` stage, thus skipping the `canonicalize` and `synth` stage.
 
 Mocked abstracts are intended to be used in builds of other parts of the design that use the given macro.
 They're useful for estimating sizes of macros with long build times and checking if they will fit in upper-level modules without running time consuming place and route flow.
@@ -364,10 +370,16 @@ Let's assume we want to perform a `floorplan` stage for the `L1MetadataArray` de
 
   ```bash
   # Initialize dependencies for the Synthesis stage for L1MetadataArray target
+  bazel run @bazel-orfs//:L1MetadataArray_canonicalize_deps -- `pwd`/build
+
+  # Build Synthesis stage for L1MetadataArray target using local ORFS
+  build/make do-yosys-canonicalize
+
+  # Initialize dependencies for the Synthesis stage for L1MetadataArray target
   bazel run @bazel-orfs//:L1MetadataArray_synth_deps -- `pwd`/build
 
   # Build Synthesis stage for L1MetadataArray target using local ORFS
-  build/make synth
+  build/make do-yosys do-synth
 
   # Initialize dependencies for the Floorplan stage for L1MetadataArray target
   bazel run @bazel-orfs//:L1MetadataArray_floorplan_deps -- `pwd`/build
