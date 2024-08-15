@@ -88,6 +88,7 @@ filegroup(
         "OpenROAD-flow-scripts/flow/util/utils.mk",
         "OpenROAD-flow-scripts/flow/util/*.pl",
         "OpenROAD-flow-scripts/flow/util/*.py",
+        "OpenROAD-flow-scripts/flow/util/*.sh",
         "OpenROAD-flow-scripts/flow/scripts/*.py",
         "OpenROAD-flow-scripts/flow/scripts/*.script",
         "OpenROAD-flow-scripts/flow/scripts/*.sh",
