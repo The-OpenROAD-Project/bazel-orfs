@@ -405,8 +405,10 @@ def _synth_impl(ctx):
         content = _config_content(all_arguments),
     )
 
-    out = ctx.actions.declare_file("results/{}/{}/base/1_synth.v".format(_platform(ctx), _module_top(ctx)))
-    sdc = ctx.actions.declare_file("results/{}/{}/base/1_synth.sdc".format(_platform(ctx), _module_top(ctx)))
+    synth_outputs = [
+        ctx.actions.declare_file("results/{}/{}/base/1_synth.v".format(_platform(ctx), _module_top(ctx))),
+        ctx.actions.declare_file("results/{}/{}/base/1_synth.sdc".format(_platform(ctx), _module_top(ctx))),
+        ctx.actions.declare_file("results/{}/{}/base/mem.json".format(_platform(ctx), _module_top(ctx)))]
 
     transitive_inputs = [
         ctx.attr.pdk[PdkInfo].files,
@@ -447,7 +449,7 @@ def _synth_impl(ctx):
             ],
             transitive = transitive_inputs,
         ),
-        outputs = [out, sdc],
+        outputs = synth_outputs,
     )
 
     config_short = ctx.actions.declare_file("results/{}/{}/base/1_synth.short.mk".format(_platform(ctx), _module_top(ctx)))
@@ -468,7 +470,7 @@ def _synth_impl(ctx):
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join([f.short_path for f in [out, sdc, config_short] + ctx.files.verilog_files + ctx.files.data]),
+            "${GENFILES}": " ".join([f.short_path for f in synth_outputs + [config_short] + ctx.files.verilog_files + ctx.files.data]),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
@@ -478,12 +480,12 @@ def _synth_impl(ctx):
         DefaultInfo(
             executable = exe,
             files = depset(
-                [out, sdc] + [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds] +
+                synth_outputs + [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds] +
                 [dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef] +
                 [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
             ),
             runfiles = ctx.runfiles(
-                [out, sdc, config_short, make, ctx.executable._yosys, ctx.file._makefile] +
+                synth_outputs + [config_short, make, ctx.executable._yosys, ctx.file._makefile] +
                 ctx.files.verilog_files + ctx.files.data,
                 transitive_files = depset(transitive = transitive_inputs),
             ),
@@ -497,7 +499,7 @@ def _synth_impl(ctx):
             ),
             logs = depset([]),
             reports = depset([]),
-            **{f.basename: depset([f]) for f in [config, out, sdc]}
+            **{f.basename: depset([f]) for f in [config] + synth_outputs}
         ),
         OrfsDepInfo(
             make = make,
