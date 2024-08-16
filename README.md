@@ -536,3 +536,22 @@ bazel build @bazel-orfs//:L1MetadataArray_synth_deps
 
 This will build the immediate dependencies of the `L1MetadataArray` target up to the `synth` stage and place the results in the `bazel-bin` directory.
 Later, those dependencies will be used by Bazel to build the `synth` stage for `L1MetadataArray` target.
+
+### Tools location after `bazel run ...`
+
+A mutable build folder can be set up to prepare for a local synthesis run, useful when digging into some detail of synthesis flow:
+
+    $ bazel build tag_array_64x184_synth_deps -- `pwd`/build
+    $ build/make print-YOSYS_CMD
+    YOSYS_CMD = external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys
+
+This is actually a symlink pointing to the read only executables, which is how yosys is able to find the yosys-abc alongside itself needed for the abc part of the synthesis stage:
+
+    $ ls -l $(dirname $(readlink -f build/external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys))
+    total 37456
+    -rwxr-xr-x 1 oyvind oyvind 23449673 Aug 15 07:05 yosys
+    -rwxr-xr-x 1 oyvind oyvind 14725193 Aug 15 07:05 yosys-abc
+    -rwxr-xr-x 1 oyvind oyvind     3904 Aug  7 23:11 yosys-config
+    -rwxr-xr-x 1 oyvind oyvind    65609 Aug 15 07:05 yosys-filterlib
+    -rwxr-xr-x 1 oyvind oyvind    73845 Aug  7 23:11 yosys-smtbmc
+    -rwxr-xr-x 1 oyvind oyvind    17377 Aug  7 23:11 yosys-witness
