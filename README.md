@@ -554,8 +554,8 @@ Later, those dependencies will be used by Bazel to build the `synth` stage for `
 A mutable build folder can be set up to prepare for a local synthesis run, useful when digging into some detail of synthesis flow:
 
     $ bazel build tag_array_64x184_synth_deps -- `pwd`/build
-    $ build/make print-YOSYS_CMD
-    YOSYS_CMD = external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys
+    $ build/make print-YOSYS_EXE
+    YOSYS_EXE = external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys
 
 This is actually a symlink pointing to the read only executables, which is how yosys is able to find the yosys-abc alongside itself needed for the abc part of the synthesis stage:
 
