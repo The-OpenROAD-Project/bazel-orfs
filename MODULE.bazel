@@ -9,6 +9,5 @@ orfs.default(
     image = "openroad/orfs:v3.0-1206-gc6ea30d2",
     sha256 = "c3b9263892e166684f6e3cd5498a556bc2b9a858b4dc36f3b7ea4ed92fb0b2f5",
 )
-use_repo(orfs, "com_github_docker_buildx_file")
 use_repo(orfs, "com_github_nixos_patchelf_download")
 use_repo(orfs, "docker_orfs")
