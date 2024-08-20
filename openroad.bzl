@@ -96,6 +96,7 @@ def _run_impl(ctx):
             "DESIGN_CONFIG": config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
             "OPENROAD_EXE": ctx.executable._openroad.path,
+            "YOSYS_EXE": "",
             "ODB_FILE": ctx.attr.src[OrfsInfo].odb.path,
             "TCL_LIBRARY": commonpath(ctx.files._tcl),
             "GUI_ARGS": "-exit",
@@ -203,6 +204,7 @@ def flow_substitutions(ctx):
 
 def openroad_substitutions(ctx):
     return {
+        "${YOSYS_PATH}": "",
         "${OPENROAD_PATH}": ctx.executable._openroad.path,
         "${KLAYOUT_PATH}": ctx.executable._klayout.path,
         "${TCL_LIBRARY}": commonpath(ctx.files._tcl),
@@ -214,6 +216,7 @@ def openroad_substitutions(ctx):
 def yosys_substitutions(ctx):
     return {
         "${YOSYS_PATH}": ctx.executable._yosys.path,
+        "${OPENROAD_PATH}": "",
     }
 
 def _deps_impl(ctx):
@@ -449,7 +452,8 @@ def _yosys_impl(ctx, canonicalize):
             "FLOW_HOME": ctx.file._makefile.dirname,
             "DESIGN_CONFIG": config.path,
             "ABC": ctx.executable._abc.path,
-            "YOSYS_CMD": ctx.executable._yosys.path,
+            "YOSYS_EXE": ctx.executable._yosys.path,
+            "OPENROAD_EXE": "",
         },
         inputs = depset(
             rtlil +
