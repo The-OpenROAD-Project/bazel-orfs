@@ -51,6 +51,7 @@ filegroup(
 SRAM_FLOOR_PLACE_ARGUMENTS = {
     "IO_CONSTRAINTS": "$(location :io-sram)",
     "PLACE_PINS_ARGS": "-min_distance 2 -min_distance_in_tracks",
+    "PLACE_DENSITY": "0.42",
 }
 
 SRAM_SYNTH_ARGUMENTS = {
@@ -68,7 +69,6 @@ orfs_flow(
             "SKIP_REPORT_METRICS": "1"
         },
         "place": SRAM_FLOOR_PLACE_ARGUMENTS | {
-            "PLACE_DENSITY": "0.40",
             "SKIP_REPORT_METRICS": "1",
         },
         "cts": {
