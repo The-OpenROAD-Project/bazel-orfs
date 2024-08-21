@@ -228,7 +228,7 @@ def _deps_impl(ctx):
             "${GENFILES}": " ".join([f.short_path for f in ctx.attr.src[OrfsDepInfo].files]),
             "${CONFIG}": ctx.attr.src[OrfsDepInfo].config.short_path,
             "${MAKE}": ctx.attr.src[OrfsDepInfo].make.short_path,
-        },
+        } | openroad_substitutions(ctx),
     )
     return [
         DefaultInfo(
@@ -237,20 +237,6 @@ def _deps_impl(ctx):
             runfiles = ctx.attr.src[OrfsDepInfo].runfiles,
         ),
     ]
-
-orfs_deps = rule(
-    implementation = _deps_impl,
-    attrs = {
-        "src": attr.label(
-            providers = [OrfsDepInfo],
-        ),
-        "_deploy_template": attr.label(
-            default = ":deploy.tpl",
-            allow_single_file = True,
-        ),
-    },
-    executable = True,
-)
 
 def flow_attrs():
     return {
@@ -872,6 +858,22 @@ orfs_abstract = rule(
     executable = False,
 )
 
+orfs_deps = rule(
+    implementation = _deps_impl,
+    attrs = {
+        "src": attr.label(
+            providers = [OrfsDepInfo],
+        ),
+        "_deploy_template": attr.label(
+            default = ":deploy.tpl",
+            allow_single_file = True,
+        ),
+    } | openroad_attrs(),
+    executable = True,
+)
+
+
+
 STAGE_IMPLS = [
     struct(stage = "canonicalize", impl = orfs_canonicalize),
     struct(stage = "synth", impl = orfs_synth),
@@ -949,3 +951,8 @@ def orfs_flow(
             name = "{}_{}_deps".format(name, prev.stage),
             src = "{}_{}".format(name, prev.stage),
         )
+
+    orfs_deps(
+        name = "{}_{}_deps".format(name, steps[-1].stage),
+        src = "{}_{}".format(name, steps[-1].stage),
+    )
