@@ -567,3 +567,21 @@ This is actually a symlink pointing to the read only executables, which is how y
     -rwxr-xr-x 1 oyvind oyvind    65609 Aug 15 07:05 yosys-filterlib
     -rwxr-xr-x 1 oyvind oyvind    73845 Aug  7 23:11 yosys-smtbmc
     -rwxr-xr-x 1 oyvind oyvind    17377 Aug  7 23:11 yosys-witness
+
+### `make issue` floorplan example
+
+To create and test a `make issue` archive for floorplan:
+
+    bazel run lb_32x128_floorplan_deps `pwd`/build
+    build/make ISSUE_TAG=test floorplan_issue
+
+This results in `build/floorplan_test.tar.gz`, which can be run provided there `openroad` application is in the path.
+
+A local ORFS installation can be used by running `source env.sh`.
+
+Alternatively, the ORFS installation used with Bazel, can be used by using `make bash` to set up the environment of the ORFS extracted into the Bazel build environment:
+
+    build/make bash
+    export PATH=$PATH:$(realpath $(dirname $(readlink -f $OPENROAD_EXE)))
+    tar --strip-components=1 -xzf ../floorplan_test.tar.gz
+    ./run-me-lb_32x128-asap7-base.sh
