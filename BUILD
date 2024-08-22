@@ -60,7 +60,7 @@ SRAM_SYNTH_ARGUMENTS = {
 
 orfs_flow(
     name = "tag_array_64x184",
-    abstract_stage = "route",
+    abstract_stage = "place",
     stage_args = {
         "synth": SRAM_SYNTH_ARGUMENTS,
         "floorplan": SRAM_FLOOR_PLACE_ARGUMENTS | {
@@ -140,7 +140,7 @@ orfs_flow(
 
 orfs_run(
     name = "tag_array_64x184_report",
-    src = ":tag_array_64x184_route",
+    src = ":tag_array_64x184_place",
     outs = [
         "report.yaml",
     ],
