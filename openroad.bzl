@@ -618,9 +618,10 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
 
     command = "make $@"
 
-    if len(reports) > 0:
-        mkdir_commands = ["mkdir -p $(dirname {})".format(result.path) for result in reports]
-        touch_command = "touch {}".format(" ".join([result.path for result in reports]))
+    optional = reports + logs
+    if len(optional) > 0:
+        mkdir_commands = ["mkdir -p $(dirname {})".format(result.path) for result in optional]
+        touch_command = "touch {}".format(" ".join([result.path for result in optional]))
         command = " && ".join(mkdir_commands + [touch_command]) + " && " + command
 
     ctx.actions.run_shell(
@@ -731,11 +732,13 @@ orfs_floorplan = rule(
             "2_floorplan.odb",
             "2_floorplan.sdc",
         ],
-        object_names = [
-            "copyright.txt",
-        ],
         log_names = [
             "2_1_floorplan.log",
+            "2_2_floorplan_io.log",
+            "2_3_floorplan_tdms.log",
+            "2_4_floorplan_macro.log",
+            "2_5_floorplan_tapcell.log",
+            "2_6_floorplan_pdn.log",
         ],
         report_names = [
             "2_floorplan_final.rpt",
@@ -755,7 +758,13 @@ orfs_place = rule(
             "3_place.odb",
             "3_place.sdc",
         ],
-        log_names = [],
+        log_names = [
+            "3_1_place_gp_skip_io.log",
+            "3_2_place_iop.log",
+            "3_3_place_gp.log",
+            "3_4_place_resized.log",
+            "3_5_place_dp.log",
+        ],
         report_names = [],
     ),
     attrs = openroad_attrs(),
