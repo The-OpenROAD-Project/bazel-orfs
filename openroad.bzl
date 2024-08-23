@@ -385,6 +385,7 @@ def _data_arguments(ctx):
 def _yosys_impl(ctx, canonicalize):
     all_arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx) | _block_arguments(ctx)
     result_dir = "results/{}/{}/base/".format(_platform(ctx), _module_top(ctx))
+    logs_dir = "logs/{}/{}/base/".format(_platform(ctx), _module_top(ctx))
     config = ctx.actions.declare_file(result_dir + ("1_canonicalize.mk" if canonicalize else "1_synth.mk"))
     ctx.actions.write(
         output = config,
@@ -395,6 +396,7 @@ def _yosys_impl(ctx, canonicalize):
         verilog_files = ctx.files.verilog_files
         rtlil = []
         synth_outputs = [ctx.actions.declare_file(result_dir + "1_synth.rtlil")]
+        logs = [ctx.actions.declare_file(logs_dir + "1_1_yosys_canonicalize.log")]
     else:
         verilog_files = []
         rtlil = [ctx.attr.canonicalized[CanonicalizeInfo].rtlil]
@@ -403,6 +405,8 @@ def _yosys_impl(ctx, canonicalize):
             ctx.actions.declare_file(result_dir + "1_synth.sdc"),
             ctx.actions.declare_file(result_dir + "mem.json"),
         ]
+        logs = [ctx.actions.declare_file(logs_dir + "1_1_yosys.log")]
+    synth_outputs = synth_outputs + logs
 
     transitive_inputs = [
         ctx.attr.pdk[PdkInfo].files,
@@ -501,7 +505,7 @@ def _yosys_impl(ctx, canonicalize):
                 [dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef] +
                 [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
             ),
-            logs = depset([]),
+            logs = depset(logs),
             reports = depset([]),
             **{f.basename: depset([f]) for f in [config] + synth_outputs}
         ),
