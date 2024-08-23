@@ -669,7 +669,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join([f.short_path for f in [config_short] + results + ctx.files.data]),
+            "${GENFILES}": " ".join([f.short_path for f in [config_short] + results + ctx.files.data + logs + reports]),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
@@ -688,7 +688,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
             ),
             runfiles = ctx.runfiles(
                 [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile] +
-                results + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
+                results + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules + logs + reports,
                 transitive_files = depset(transitive = transitive_inputs),
             ),
         ),
