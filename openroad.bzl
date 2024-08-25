@@ -430,6 +430,7 @@ def _yosys_impl(ctx, canonicalize):
         arguments = ["--file", ctx.file._makefile.path] + (
             ["do-yosys-canonicalize"] if canonicalize else [
                 "yosys-dependencies",
+                "do-yosys-keep-hierarchy",
                 "do-yosys",
                 "do-synth",
                 work_home + "/" + result_dir + "1_synth.sdc",
