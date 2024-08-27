@@ -34,6 +34,14 @@ OrfsDepInfo = provider(
     ],
 )
 
+LoggingInfo = provider(
+    "Logs and reports for current and previous stages",
+    fields = [
+        "logs",
+        "reports"
+    ]
+)
+
 CanonicalizeInfo = provider(
     "The canonicalized synthesis input",
     fields = ["rtlil"],
@@ -533,6 +541,10 @@ def _yosys_impl(ctx, canonicalize):
         TopInfo(
             module_top = ctx.attr.module_top,
         ),
+        LoggingInfo(
+            logs = [],
+            reports = []
+        ),
     ] + ([
         CanonicalizeInfo(rtlil = synth_outputs[0]),
     ] if canonicalize else [])
@@ -604,6 +616,9 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
     for report in report_names:
         reports.append(ctx.actions.declare_file("reports/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), report)))
 
+    previous_logs = ctx.attr.src[LoggingInfo].logs
+    previous_reports = ctx.attr.src[LoggingInfo].reports
+
     transitive_inputs = [
         ctx.attr.src[OrfsInfo].additional_gds,
         ctx.attr.src[OrfsInfo].additional_lefs,
@@ -669,7 +684,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join([f.short_path for f in [config_short] + results + ctx.files.data + logs + reports]),
+            "${GENFILES}": " ".join([f.short_path for f in [config_short] + results + ctx.files.data + logs + reports + previous_logs + previous_reports]),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
@@ -688,7 +703,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
             ),
             runfiles = ctx.runfiles(
                 [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile] +
-                results + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules + logs + reports,
+                results + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules + logs + reports + previous_logs + previous_reports,
                 transitive_files = depset(transitive = transitive_inputs),
             ),
         ),
@@ -724,6 +739,10 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
             additional_lefs = ctx.attr.src[OrfsInfo].additional_lefs,
             additional_libs = ctx.attr.src[OrfsInfo].additional_libs,
         ),
+        LoggingInfo(
+            logs = logs + previous_logs,
+            reports = reports + previous_reports
+        ),
         ctx.attr.src[PdkInfo],
         ctx.attr.src[TopInfo],
     ]
@@ -750,7 +769,7 @@ orfs_floorplan = rule(
         ],
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
     executable = True,
 )
 
@@ -773,7 +792,7 @@ orfs_place = rule(
         report_names = [],
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
     executable = True,
 )
 
@@ -794,7 +813,7 @@ orfs_cts = rule(
         ],
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
     executable = True,
 )
 
@@ -819,7 +838,7 @@ orfs_route = rule(
         ],
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
     executable = True,
 )
 
@@ -848,7 +867,7 @@ orfs_final = rule(
         ],
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
     executable = True,
 )
 
@@ -868,7 +887,7 @@ orfs_abstract = rule(
             {"ABSTRACT_SOURCE": _extensionless_basename(ctx.attr.src[OrfsInfo].odb)},
     ),
     attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
     executable = False,
 )
 
