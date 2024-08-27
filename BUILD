@@ -66,7 +66,7 @@ orfs_flow(
         "floorplan": SRAM_FLOOR_PLACE_ARGUMENTS | {
             "CORE_UTILIZATION": "40",
             "CORE_ASPECT_RATIO": "2",
-            "SKIP_REPORT_METRICS": "1"
+            "SKIP_REPORT_METRICS": "1",
         },
         "place": SRAM_FLOOR_PLACE_ARGUMENTS | {
             "SKIP_REPORT_METRICS": "1",

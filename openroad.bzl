@@ -38,8 +38,8 @@ LoggingInfo = provider(
     "Logs and reports for current and previous stages",
     fields = [
         "logs",
-        "reports"
-    ]
+        "reports",
+    ],
 )
 
 CanonicalizeInfo = provider(
@@ -741,13 +741,25 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         ),
         LoggingInfo(
             logs = logs + previous_logs,
-            reports = reports + previous_reports
+            reports = reports + previous_reports,
         ),
         ctx.attr.src[PdkInfo],
         ctx.attr.src[TopInfo],
     ]
 
-orfs_floorplan = rule(
+def add_orfs_make_rule_(
+        implementation,
+        attrs = openroad_attrs(),
+        provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
+        executable = True):
+    return rule(
+        implementation = implementation,
+        attrs = attrs,
+        provides = provides,
+        executable = executable,
+    )
+
+orfs_floorplan = add_orfs_make_rule_(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "2_floorplan",
@@ -768,12 +780,9 @@ orfs_floorplan = rule(
             "2_floorplan_final.rpt",
         ],
     ),
-    attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
-    executable = True,
 )
 
-orfs_place = rule(
+orfs_place = add_orfs_make_rule_(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "3_place",
@@ -791,12 +800,9 @@ orfs_place = rule(
         ],
         report_names = [],
     ),
-    attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
-    executable = True,
 )
 
-orfs_cts = rule(
+orfs_cts = add_orfs_make_rule_(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "4_cts",
@@ -812,12 +818,9 @@ orfs_cts = rule(
             "4_cts_final.rpt",
         ],
     ),
-    attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
-    executable = True,
 )
 
-orfs_route = rule(
+orfs_route = add_orfs_make_rule_(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "5_route",
@@ -837,12 +840,9 @@ orfs_route = rule(
             "congestion.rpt",
         ],
     ),
-    attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
-    executable = True,
 )
 
-orfs_final = rule(
+orfs_final = add_orfs_make_rule_(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "6_final",
@@ -866,9 +866,6 @@ orfs_final = rule(
             "VSS.rpt",
         ],
     ),
-    attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
-    executable = True,
 )
 
 def _extensionless_basename(file):
@@ -904,8 +901,6 @@ orfs_deps = rule(
     } | openroad_attrs(),
     executable = True,
 )
-
-
 
 STAGE_IMPLS = [
     struct(stage = "canonicalize", impl = orfs_canonicalize),
