@@ -390,21 +390,36 @@ def _config_content(args):
 def _data_arguments(ctx):
     return {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()}
 
-def _yosys_impl(ctx, canonicalize):
+def _add_optional_generation_to_command(command, optional_files):
+    if len(optional_files) > 0:
+        mkdir_commands = ["mkdir -p $(dirname {})".format(result.path) for result in optional_files]
+        touch_command = "touch {}".format(" ".join([result.path for result in optional_files]))
+        command = " && ".join(mkdir_commands + [touch_command]) + " && " + command
+    return command
+
+def _yosys_impl(ctx, canonicalize, log_names = [], report_names = []):
     all_arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx) | _block_arguments(ctx)
     result_dir = "results/{}/{}/base/".format(_platform(ctx), _module_top(ctx))
-    logs_dir = "logs/{}/{}/base/".format(_platform(ctx), _module_top(ctx))
     config = ctx.actions.declare_file(result_dir + ("1_canonicalize.mk" if canonicalize else "1_synth.mk"))
     ctx.actions.write(
         output = config,
         content = _config_content(all_arguments),
     )
 
+    logs = []
+    for log in log_names:
+        logs.append(ctx.actions.declare_file("logs/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), log)))
+
+    reports = []
+    for report in report_names:
+        reports.append(ctx.actions.declare_file("reports/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), report)))
+
     if canonicalize:
         verilog_files = ctx.files.verilog_files
         rtlil = []
         synth_outputs = [ctx.actions.declare_file(result_dir + "1_synth.rtlil")]
-        logs = [ctx.actions.declare_file(logs_dir + "1_1_yosys_canonicalize.log")]
+        previous_logs = []
+        previous_reports = []
     else:
         verilog_files = []
         rtlil = [ctx.attr.canonicalized[CanonicalizeInfo].rtlil]
@@ -413,8 +428,10 @@ def _yosys_impl(ctx, canonicalize):
             ctx.actions.declare_file(result_dir + "1_synth.sdc"),
             ctx.actions.declare_file(result_dir + "mem.json"),
         ]
-        logs = [ctx.actions.declare_file(logs_dir + "1_1_yosys.log")]
-    synth_outputs = synth_outputs + logs
+        previous_logs = ctx.attr.canonicalized[LoggingInfo].logs
+        previous_reports = ctx.attr.canonicalized[LoggingInfo].reports
+
+    command = _add_optional_generation_to_command("make $@", logs + reports)
 
     transitive_inputs = [
         ctx.attr.pdk[PdkInfo].files,
@@ -434,7 +451,7 @@ def _yosys_impl(ctx, canonicalize):
         transitive_inputs.append(datum.default_runfiles.symlinks)
 
     work_home = "/".join([ctx.genfiles_dir.path, ctx.label.package])
-    ctx.actions.run(
+    ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + (
             ["do-yosys-canonicalize"] if canonicalize else [
                 "yosys-dependencies",
@@ -444,7 +461,7 @@ def _yosys_impl(ctx, canonicalize):
                 work_home + "/" + result_dir + "1_synth.sdc",
             ]
         ),
-        executable = "make",
+        command = command,
         env = {
             "HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "WORK_HOME": work_home,
@@ -466,7 +483,7 @@ def _yosys_impl(ctx, canonicalize):
             ],
             transitive = transitive_inputs,
         ),
-        outputs = synth_outputs,
+        outputs = synth_outputs + logs + reports,
     )
 
     config_short = ctx.actions.declare_file(result_dir + ("1_canonicalize.short.mk" if canonicalize else "1_synth.short.mk"))
@@ -487,7 +504,7 @@ def _yosys_impl(ctx, canonicalize):
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join([f.short_path for f in synth_outputs + [config_short] + verilog_files + ctx.files.data]),
+            "${GENFILES}": " ".join([f.short_path for f in synth_outputs + [config_short] + verilog_files + ctx.files.data + logs + reports + previous_logs + previous_reports]),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
@@ -503,7 +520,7 @@ def _yosys_impl(ctx, canonicalize):
             ),
             runfiles = ctx.runfiles(
                 synth_outputs + [config_short, make, ctx.executable._yosys, ctx.file._makefile] +
-                verilog_files + rtlil + ctx.files.data,
+                verilog_files + rtlil + ctx.files.data + logs + reports + previous_logs + previous_reports,
                 transitive_files = depset(transitive = transitive_inputs),
             ),
         ),
@@ -542,15 +559,19 @@ def _yosys_impl(ctx, canonicalize):
             module_top = ctx.attr.module_top,
         ),
         LoggingInfo(
-            logs = [],
-            reports = []
+            logs = logs + previous_logs,
+            reports = reports + previous_reports,
         ),
     ] + ([
         CanonicalizeInfo(rtlil = synth_outputs[0]),
     ] if canonicalize else [])
 
 orfs_canonicalize = rule(
-    implementation = lambda ctx: _yosys_impl(ctx, True),
+    implementation = lambda ctx: _yosys_impl(
+        ctx = ctx,
+        canonicalize = True,
+        log_names = ["1_1_yosys_canonicalize.log"],
+    ),
     attrs = yosys_attrs() | {
         "verilog_files": attr.label_list(
             allow_files = [
@@ -562,12 +583,22 @@ orfs_canonicalize = rule(
             providers = [DefaultInfo],
         ),
     },
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo, CanonicalizeInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo, LoggingInfo, CanonicalizeInfo],
     executable = True,
 )
 
 orfs_synth = rule(
-    implementation = lambda ctx: _yosys_impl(ctx, False),
+    implementation = lambda ctx: _yosys_impl(
+        ctx = ctx,
+        canonicalize = False,
+        log_names = [
+            "1_1_yosys.log",
+            "1_1_yosys_metrics.log",
+        ],
+        report_names = [
+            "1_1_yosys_hier_report.log",
+        ],
+    ),
     attrs = yosys_attrs() | {
         "canonicalized": attr.label(
             doc = "The canonicalized input of the synthesis",
@@ -575,7 +606,7 @@ orfs_synth = rule(
             providers = [CanonicalizeInfo],
         ),
     },
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo, LoggingInfo],
     executable = True,
 )
 
@@ -636,13 +667,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         transitive_inputs.append(datum.default_runfiles.files)
         transitive_inputs.append(datum.default_runfiles.symlinks)
 
-    command = "make $@"
-
-    optional = reports + logs
-    if len(optional) > 0:
-        mkdir_commands = ["mkdir -p $(dirname {})".format(result.path) for result in optional]
-        touch_command = "touch {}".format(" ".join([result.path for result in optional]))
-        command = " && ".join(mkdir_commands + [touch_command]) + " && " + command
+    command = _add_optional_generation_to_command("make $@", reports + logs)
 
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + steps,
