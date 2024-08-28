@@ -414,12 +414,18 @@ def _yosys_impl(ctx, canonicalize, log_names = [], report_names = []):
     for report in report_names:
         reports.append(ctx.actions.declare_file("reports/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), report)))
 
+    previous_logs = []
+    previous_reports = []
     if canonicalize:
         verilog_files = ctx.files.verilog_files
         rtlil = []
         synth_outputs = [ctx.actions.declare_file(result_dir + "1_synth.rtlil")]
-        previous_logs = []
-        previous_reports = []
+
+        for dep in ctx.attr.deps:
+            if dep[LoggingInfo].logs:
+                previous_logs.extend(dep[LoggingInfo].logs)
+            if dep[LoggingInfo].reports:
+                previous_reports.extend(dep[LoggingInfo].reports)
     else:
         verilog_files = []
         rtlil = [ctx.attr.canonicalized[CanonicalizeInfo].rtlil]
@@ -428,8 +434,8 @@ def _yosys_impl(ctx, canonicalize, log_names = [], report_names = []):
             ctx.actions.declare_file(result_dir + "1_synth.sdc"),
             ctx.actions.declare_file(result_dir + "mem.json"),
         ]
-        previous_logs = ctx.attr.canonicalized[LoggingInfo].logs
-        previous_reports = ctx.attr.canonicalized[LoggingInfo].reports
+        previous_logs.extend(ctx.attr.canonicalized[LoggingInfo].logs)
+        previous_reports.extend(ctx.attr.canonicalized[LoggingInfo].logs)
 
     command = _add_optional_generation_to_command("make $@", logs + reports)
 
