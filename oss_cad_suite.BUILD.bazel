@@ -1,0 +1,84 @@
+filegroup(
+    name = "tabby",
+    data = glob([
+        "lib/python3.11/**/*.py",
+        "lib/python3.11/**/*.pyc",
+        "lib/python3.11/**/*.so",
+        "lib/ld-linux-x86-64.so.2",
+        "lib/libc.so.6",
+        "lib/libm.so.6",
+        "lib/libpython3.11.so.1.0",
+        "libexec/python3.11",
+    ]),
+    srcs = ["bin/tabbypy3"],
+)
+
+filegroup(
+    name = "bitwuzla",
+    srcs = ["bin/bitwuzla"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "eqy",
+    data = [
+        ":sby",
+        ":tabby",
+        "libexec/eqy",
+        "share/yosys/python3/eqy_job.py",
+        "share/yosys/plugins/eqy_combine.so",
+        "share/yosys/plugins/eqy_partition.so",
+        "share/yosys/plugins/eqy_recode.so",
+    ],
+    srcs = ["bin/eqy"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "sby",
+    data = [
+        ":tabby",
+        "lib/libsqlite3.so.0",
+        "libexec/sby",
+        "share/yosys/python3/sby_autotune.py",
+        "share/yosys/python3/sby_cmdline.py",
+        "share/yosys/python3/sby_core.py",
+        "share/yosys/python3/sby_design.py",
+        "share/yosys/python3/sby_engine_abc.py",
+        "share/yosys/python3/sby_engine_aiger.py",
+        "share/yosys/python3/sby_engine_btor.py",
+        "share/yosys/python3/sby_engine_smtbmc.py",
+        "share/yosys/python3/sby_jobserver.py",
+        "share/yosys/python3/sby_mode_bmc.py",
+        "share/yosys/python3/sby_mode_cover.py",
+        "share/yosys/python3/sby_mode_live.py",
+        "share/yosys/python3/sby_mode_prove.py",
+        "share/yosys/python3/sby_sim.py",
+        "share/yosys/python3/sby_status.py",
+    ],
+    srcs = ["bin/sby"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "yosys",
+    data = glob([
+        "lib/libtcl8.6.so",
+        "lib/libreadline.so.8",
+        "lib/libstdc++.so.6",
+        "libexec/yosys",
+        "share/yosys/**",
+    ]),
+    srcs = ["bin/yosys"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "yosys_smtbmc",
+    data = [
+        ":bitwuzla",
+        "libexec/yosys-smtbmc",
+    ],
+    srcs = ["bin/yosys-smtbmc"],
+    visibility = ["//visibility:public"],
+)

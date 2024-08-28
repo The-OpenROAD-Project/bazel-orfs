@@ -1,3 +1,4 @@
+load("//:eqy.bzl", "eqy_test")
 load("//:openroad.bzl", "orfs_flow", "orfs_run")
 
 # FIXME: this shouldn't be required
@@ -145,4 +146,42 @@ orfs_run(
         "report.yaml",
     ],
     script = ":report.tcl",
+)
+
+orfs_flow(
+    name = "Mul",
+    abstract_stage = "synth",
+    stage_args = {
+        "synth": {
+            "SDC_FILE": "$(location :test/constraints-top.sdc)",
+        },
+    },
+    stage_sources = {
+        "synth": [":test/constraints-top.sdc"],
+    },
+    verilog_files = ["test/rtl/Mul.sv"],
+)
+
+filegroup(
+    name = "Mul_synth_verilog",
+    srcs = [
+        "Mul_synth",
+    ],
+    output_group = "1_synth.v",
+)
+
+eqy_test(
+    name = "Mul_synth_eqy",
+    depth = 2,
+    module_top = "Mul",
+    gold_verilog_files = [
+        "test/rtl/Mul.sv",
+    ],
+    gate_verilog_files = [
+        ":Mul_synth_verilog",
+        "@docker_orfs//:OpenROAD-flow-scripts/flow/platforms/asap7/work_around_yosys/asap7sc7p5t_AO_RVT_TT_201020.v",
+        "@docker_orfs//:OpenROAD-flow-scripts/flow/platforms/asap7/work_around_yosys/asap7sc7p5t_INVBUF_RVT_TT_201020.v",
+        "@docker_orfs//:OpenROAD-flow-scripts/flow/platforms/asap7/work_around_yosys/asap7sc7p5t_OA_RVT_TT_201020.v",
+        "@docker_orfs//:OpenROAD-flow-scripts/flow/platforms/asap7/work_around_yosys/asap7sc7p5t_SIMPLE_RVT_TT_201020.v",
+    ],
 )
