@@ -11,3 +11,13 @@ orfs.default(
 )
 use_repo(orfs, "com_github_nixos_patchelf_download")
 use_repo(orfs, "docker_orfs")
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "oss_cad_suite",
+    build_file = "oss_cad_suite.BUILD.bazel",
+    sha256 = "e6434197cd3a31dd90899886b0f4b92ebf1f832eb9abb3a8802e120c2ca5cc73",
+    strip_prefix = "oss-cad-suite",
+    urls = ["https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2024-08-28/oss-cad-suite-linux-x64-20240828.tgz"],
+)

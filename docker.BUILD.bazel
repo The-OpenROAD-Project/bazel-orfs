@@ -3,6 +3,7 @@ load("@bazel-orfs//:openroad.bzl", "orfs_pdk")
 exports_files(
     glob([
         "OpenROAD-flow-scripts/**/*.tcl",
+        "OpenROAD-flow-scripts/flow/platforms/asap7/work_around_yosys/*.v",
     ]),
     visibility = ["//visibility:public"],
 )
