@@ -1,3 +1,5 @@
+"""Rules for eqy"""
+
 def _eqy_test_impl(ctx):
     eqy = ctx.actions.declare_file(ctx.attr.name + ".eqy")
     ctx.actions.expand_template(

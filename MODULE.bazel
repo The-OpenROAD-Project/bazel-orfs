@@ -6,8 +6,8 @@ module(
 
 orfs = use_extension("//:extension.bzl", "orfs_repositories")
 orfs.default(
-    image = "openroad/orfs:v3.0-1237-g2b8e0065",
-    sha256 = "54a47ce191974babe8890b8ee29826719961b5eddc7a23d1626ab18e1b4020fd",
+    image = "openroad/orfs:v3.0-1266-ge623a237",
+    sha256 = "d9492e65906d5e459bdc9d033915bc8fc15c37ab7b6337196f2e95c0e00a287e",
 )
 use_repo(orfs, "com_github_nixos_patchelf_download")
 use_repo(orfs, "docker_orfs")
