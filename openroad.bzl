@@ -218,6 +218,44 @@ def commonpath(files):
     path, _, _ = prefix.rpartition("/")
     return path
 
+def preloadwrap(command, library):
+    """
+    Return `command` wrapped in an `LD_PRELOAD` statement.
+
+    Args:
+      command: The command to be wrapped.
+      library: The library to be preloaded.
+
+    Returns:
+      The wrapped command.
+    """
+    return "LD_PRELOAD=" + library + " " + command
+
+def envwrap(command):
+    """
+    Return `command` argument wrapped in an `env -S` statement.
+
+    Args:
+      command: The command to be wrapped.
+
+    Returns:
+      The wrapped command.
+    """
+    return "env -S " + command
+
+def pathatlevel(path, level):
+    """
+    Return `path` argument, `level` directories back.
+
+    Args:
+      path: Path to be prepended.
+      level: The level of the parent directory to go to.
+
+    Returns:
+      The edited path.
+    """
+    return "/".join([".." for _ in range(level)] + [path])
+
 def flow_substitutions(ctx):
     return {
         "${MAKE_PATH}": ctx.executable._make.path,
@@ -235,6 +273,7 @@ def openroad_substitutions(ctx):
         "${TCL_LIBRARY}": commonpath(ctx.files._tcl),
         "${LIBGL_DRIVERS_PATH}": commonpath(ctx.files._opengl),
         "${QT_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
+        "${QT_QPA_PLATFORM_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
         "${GIO_MODULE_DIR}": commonpath(ctx.files._gio_modules),
     }
 
@@ -286,6 +325,10 @@ def flow_attrs():
         "_make_template": attr.label(
             default = ":make.tpl",
             allow_single_file = True,
+        ),
+        "_libstdbuf": attr.label(
+            allow_single_file = ["libstdbuf.so"],
+            default = Label("@docker_orfs//:libstdbuf.so"),
         ),
     }
 
@@ -769,8 +812,10 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
             "FLOW_HOME": ctx.file._makefile.dirname,
             "FLOW_VARIANT": ctx.attr.variant,
             "OPENROAD_EXE": ctx.executable._openroad.path,
-            "KLAYOUT_CMD": ctx.executable._klayout.path,
+            "KLAYOUT_CMD": envwrap(preloadwrap(ctx.executable._klayout.path, ctx.file._libstdbuf.path)),
             "TCL_LIBRARY": commonpath(ctx.files._tcl),
+            "QT_QPA_PLATFORM_PLUGIN_PATH": pathatlevel(commonpath(ctx.files._qt_plugins), 5),
+            "QT_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
         },
         inputs = depset(
             # 5_2_route stage requires congestion.rpt report
