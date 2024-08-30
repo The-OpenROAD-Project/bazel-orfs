@@ -3,50 +3,36 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
 
 def _impl(repository_ctx):
-    image = "{}@sha256:{}".format(repository_ctx.attr.image, repository_ctx.attr.sha256)
+    docker_path = repository_ctx.path(repository_ctx.attr._docker).realpath
+    image_archive = repository_ctx.path("data.tar")
+    dockerfile = repository_ctx.path("Dockerfile")
+
+    repository_ctx.file(dockerfile, content = "FROM {}@sha256:{}".format(repository_ctx.attr.image, repository_ctx.attr.sha256))
+
+    build_result = repository_ctx.execute(
+        [
+            docker_path,
+            "build",
+            "--file",
+            dockerfile,
+            "--output",
+            "type=tar,dest={}".format(image_archive),
+            ".",
+        ],
+    )
+    if build_result.return_code != 0:
+        fail("Failed to build {}:".format(repository_ctx.attr.image), build_result.stderr)
+
+    repository_ctx.report_progress("Built {}.".format(repository_ctx.attr.image))
+
+    repository_ctx.extract(archive = image_archive)
+    repository_ctx.delete(image_archive)
+    repository_ctx.report_progress("Extracted {}.".format(repository_ctx.attr.image))
 
     python_name = "python3"
     python = repository_ctx.which(python_name)
     if not python:
         fail("Failed to find {}.".format(python_name))
-    docker_name = "docker"
-    docker = repository_ctx.which(docker_name)
-    if not docker:
-        fail("Failed to find {}.".format(docker_name))
-
-    run = repository_ctx.execute(
-        [
-            docker,
-            "run",
-            "-td",
-            "--rm",
-            image,
-        ],
-    )
-    if run.return_code != 0:
-        fail("Failed to start container: {}".format(run.stderr), run.return_code)
-    container_id = run.stdout.strip()
-    cp = repository_ctx.execute(
-        [
-            docker,
-            "cp",
-            "{}:/".format(container_id),
-            ".",
-        ],
-    )
-    stop = repository_ctx.execute(
-        [
-            docker,
-            "stop",
-            container_id,
-        ],
-    )
-    if stop.return_code != 0:
-        print("Container {} has not been stopped".format(container_id))  # buildifier: disable=print
-    if cp.return_code != 0:
-        fail("Failed to copy image content: {}".format(cp.stderr), cp.return_code)
-
-    repository_ctx.report_progress("Extracted {}.".format(repository_ctx.attr.image))
 
     patcher = repository_ctx.path(repository_ctx.attr._patcher).realpath
     patchelf = repository_ctx.path(repository_ctx.attr._patchelf).realpath
@@ -59,7 +45,7 @@ def _impl(repository_ctx):
         ],
     )
     if patcher_result.return_code != 0:
-        fail("Failed to run {}:".format(repository_ctx.attr._patcher), patcher_result.stderr)
+        fail("Failed to run {}:".format(repository_ctx.attr._patcher), build_result.stderr)
 
     repository_ctx.report_progress("Fixed `RUNPATH`s for {}.".format(repository_ctx.attr.image))
 
@@ -78,6 +64,12 @@ docker_pkg = repository_rule(
         "patch_cmds": attr.string_list(default = []),
         "patch_cmds_win": attr.string_list(default = []),
         "timeout": attr.int(default = 600),
+        "_docker": attr.label(
+            doc = "Docker command line interface.",
+            default = Label("@com_github_docker_buildx_file//file:downloaded"),
+            executable = True,
+            cfg = "exec",
+        ),
         "_patchelf": attr.label(
             doc = "Patchelf binary.",
             default = Label("@com_github_nixos_patchelf_download//:bin/patchelf"),
