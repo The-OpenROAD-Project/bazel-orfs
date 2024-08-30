@@ -63,7 +63,7 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "iKdRL8KmOqQKkYlKI6FA6kzNZLve5/NCiAGHxstf1Wo=",
+        "bzlTransitiveDigest": "42x9Wez2cJ4mcTzytkWEzBr9ilyB80Y3HGoSJdZwb6w=",
         "usagesDigest": "vDCy3RMPjTu2/yUpxKaZKZRwXePWohgRn/P6sRnhufM=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -87,6 +87,17 @@
               "sha256": "ce84f2447fb7a8679e58bc54a20dc2b01b37b5802e12c57eece772a6f14bf3f0",
               "urls": [
                 "https://github.com/NixOS/patchelf/releases/download/0.18.0/patchelf-0.18.0-x86_64.tar.gz"
+              ]
+            }
+          },
+          "com_github_docker_buildx_file": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "executable": true,
+              "sha256": "8d486f0088b7407a90ad675525ba4a17d0a537741b9b33fe3391a88cafa2dd0b",
+              "urls": [
+                "https://github.com/docker/buildx/releases/download/v0.15.1/buildx-v0.15.1.linux-amd64"
               ]
             }
           }
