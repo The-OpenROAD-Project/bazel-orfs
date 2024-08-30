@@ -63,7 +63,7 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "qZZ2T9xZ8fojzi/nBMa7hGyEnWuuc6QPUO/+LJxhJ5A=",
+        "bzlTransitiveDigest": "iKdRL8KmOqQKkYlKI6FA6kzNZLve5/NCiAGHxstf1Wo=",
         "usagesDigest": "vDCy3RMPjTu2/yUpxKaZKZRwXePWohgRn/P6sRnhufM=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -96,6 +96,11 @@
             "",
             "bazel_tools",
             "bazel_tools"
+          ],
+          [
+            "",
+            "com_github_docker_buildx_file",
+            "_main~orfs_repositories~com_github_docker_buildx_file"
           ],
           [
             "",
