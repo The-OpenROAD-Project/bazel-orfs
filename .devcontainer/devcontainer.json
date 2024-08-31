@@ -1,0 +1,21 @@
+{
+    "name": "Ubuntu 22.04 with Bazel and Docker",
+    "image": "mcr.microsoft.com/vscode/devcontainers/base:ubuntu-22.04",
+    "features": {
+        "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
+        "ghcr.io/devcontainers-community/features/bazel:1": {},
+        "ghcr.io/jungaretti/features/make:1": {}
+    },
+    "postCreateCommand": "sudo apt-get update && sudo apt-get install -y time",
+    "customizations": {
+      "vscode": {
+        "settings": {},
+        "extensions": [
+          "ms-vscode-remote.remote-containers"
+        ]
+      }
+    },
+    "mounts": [
+      "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+    ]
+}
