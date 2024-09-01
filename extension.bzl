@@ -16,6 +16,9 @@ _default_tag = tag_class(
         "sha256": attr.string(
             mandatory = True,
         ),
+        "docker_name": attr.string(
+            mandatory = False,
+        ),
     },
 )
 
@@ -43,6 +46,7 @@ def _orfs_repositories_impl(module_ctx):
             sha256 = default.sha256,
             build_file = ":docker.BUILD.bazel",
             timeout = 3600,
+            docker_name = default.docker_name,
         )
 
 orfs_repositories = module_extension(

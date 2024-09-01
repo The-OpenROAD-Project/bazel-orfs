@@ -9,7 +9,8 @@ def _impl(repository_ctx):
     python = repository_ctx.which(python_name)
     if not python:
         fail("Failed to find {}.".format(python_name))
-    docker_name = "docker"
+
+    docker_name = repository_ctx.attr.docker_name or "docker"
     docker = repository_ctx.which(docker_name)
     if not docker:
         fail("Failed to find {}.".format(docker_name))
@@ -70,6 +71,7 @@ docker_pkg = repository_rule(
         "build_file": attr.label(mandatory = True),
         "image": attr.string(mandatory = True),
         "sha256": attr.string(mandatory = True),
+        "docker_name": attr.string(mandatory = False),
         "patches": attr.label_list(default = []),
         "patch_tool": attr.string(default = ""),
         "patch_args": attr.string_list(default = ["-p0"]),
