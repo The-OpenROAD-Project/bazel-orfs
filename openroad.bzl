@@ -87,6 +87,8 @@ def _run_impl(ctx):
         ctx.attr.src[PdkInfo].files,
         ctx.attr._openroad[DefaultInfo].default_runfiles.files,
         ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._make[DefaultInfo].default_runfiles.files,
+        ctx.attr._make[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._makefile[DefaultInfo].default_runfiles.files,
         ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
     ]
@@ -97,7 +99,7 @@ def _run_impl(ctx):
             ctx.file._makefile.path,
             "open_{}".format(ctx.attr.src[OrfsInfo].odb.basename),
         ],
-        command = "make $@",
+        command = ctx.executable._make.path + " $@",
         env = {
             "HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
@@ -114,7 +116,7 @@ def _run_impl(ctx):
             ctx.files.src +
             ctx.files.data +
             ctx.files._tcl +
-            [config, ctx.file.script, ctx.executable._openroad, ctx.file._makefile],
+            [config, ctx.file.script, ctx.executable._openroad, ctx.executable._make, ctx.file._makefile],
             transitive = transitive_inputs,
         ),
         outputs = outs,
@@ -152,6 +154,13 @@ orfs_run = rule(
             doc = "Top level makefile.",
             allow_single_file = ["Makefile"],
             default = Label("@docker_orfs//:makefile"),
+        ),
+        "_make": attr.label(
+            doc = "make binary",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:make"),
         ),
         "_openroad": attr.label(
             doc = "OpenROAD binary.",
@@ -206,12 +215,14 @@ def commonpath(files):
 
 def flow_substitutions(ctx):
     return {
+        "${MAKE_PATH}": ctx.executable._make.path,
         "${MAKEFILE_PATH}": ctx.file._makefile.path,
         "${FLOW_HOME}": ctx.file._makefile.dirname,
     }
 
 def openroad_substitutions(ctx):
     return {
+        "${MAKE_PATH}": ctx.executable._make.path,
         "${YOSYS_PATH}": "",
         "${OPENROAD_PATH}": ctx.executable._openroad.path,
         "${KLAYOUT_PATH}": ctx.executable._klayout.path,
@@ -223,6 +234,7 @@ def openroad_substitutions(ctx):
 
 def yosys_substitutions(ctx):
     return {
+        "${MAKE_PATH}": ctx.executable._make.path,
         "${YOSYS_PATH}": ctx.executable._yosys.path,
         "${OPENROAD_PATH}": "",
     }
@@ -298,6 +310,13 @@ def yosys_only_attrs():
             cfg = "exec",
             default = Label("@docker_orfs//:yosys"),
         ),
+        "_make": attr.label(
+            doc = "make binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:make"),
+        ),
     }
 
 def openroad_only_attrs():
@@ -309,6 +328,13 @@ def openroad_only_attrs():
             doc = "Top level makefile.",
             allow_single_file = ["Makefile"],
             default = Label("@docker_orfs//:makefile"),
+        ),
+        "_make": attr.label(
+            doc = "make binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:make"),
         ),
         "_openroad": attr.label(
             doc = "OpenROAD binary.",
@@ -437,7 +463,7 @@ def _yosys_impl(ctx, canonicalize, log_names = [], report_names = []):
         previous_logs.extend(ctx.attr.canonicalized[LoggingInfo].logs)
         previous_reports.extend(ctx.attr.canonicalized[LoggingInfo].logs)
 
-    command = _add_optional_generation_to_command("make $@", logs + reports)
+    command = _add_optional_generation_to_command(ctx.executable._make.path + " $@", logs + reports)
 
     transitive_inputs = [
         ctx.attr.pdk[PdkInfo].files,
@@ -447,6 +473,8 @@ def _yosys_impl(ctx, canonicalize, log_names = [], report_names = []):
         ctx.attr._yosys[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._makefile[DefaultInfo].default_runfiles.files,
         ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._make[DefaultInfo].default_runfiles.files,
+        ctx.attr._make[DefaultInfo].default_runfiles.symlinks,
         depset([dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds]),
         depset([dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef]),
         depset([dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib]),
@@ -485,6 +513,7 @@ def _yosys_impl(ctx, canonicalize, log_names = [], report_names = []):
                 config,
                 ctx.executable._abc,
                 ctx.executable._yosys,
+                ctx.executable._make,
                 ctx.file._makefile,
             ],
             transitive = transitive_inputs,
@@ -525,7 +554,7 @@ def _yosys_impl(ctx, canonicalize, log_names = [], report_names = []):
                 [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
             ),
             runfiles = ctx.runfiles(
-                synth_outputs + [config_short, make, ctx.executable._yosys, ctx.file._makefile] +
+                synth_outputs + [config_short, make, ctx.executable._yosys, ctx.file._makefile, ctx.executable._make] +
                 verilog_files + rtlil + ctx.files.data + logs + reports + previous_logs + previous_reports,
                 transitive_files = depset(transitive = transitive_inputs),
             ),
@@ -546,7 +575,7 @@ def _yosys_impl(ctx, canonicalize, log_names = [], report_names = []):
             config = config_short,
             files = [config_short] + verilog_files + rtlil + ctx.files.data,
             runfiles = ctx.runfiles(transitive_files = depset(
-                [config_short, make, ctx.executable._yosys, ctx.file._makefile] +
+                [config_short, make, ctx.executable._yosys, ctx.file._makefile, ctx.executable._make] +
                 verilog_files + rtlil + ctx.files.data,
                 transitive = transitive_inputs,
             )),
@@ -667,13 +696,15 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         ctx.attr._klayout[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._makefile[DefaultInfo].default_runfiles.files,
         ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._make[DefaultInfo].default_runfiles.files,
+        ctx.attr._make[DefaultInfo].default_runfiles.symlinks,
     ]
 
     for datum in ctx.attr.data:
         transitive_inputs.append(datum.default_runfiles.files)
         transitive_inputs.append(datum.default_runfiles.symlinks)
 
-    command = _add_optional_generation_to_command("make $@", reports + logs)
+    command = _add_optional_generation_to_command(ctx.executable._make.path + " $@", reports + logs)
 
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + steps,
@@ -691,7 +722,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
             ctx.files.src +
             ctx.files.data +
             ctx.files._tcl +
-            [config, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile],
+            [config, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile, ctx.executable._make],
             transitive = transitive_inputs,
         ),
         outputs = results + objects + logs + reports,
@@ -733,7 +764,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
                 ],
             ),
             runfiles = ctx.runfiles(
-                [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile] +
+                [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile, ctx.executable._make] +
                 results + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules + logs + reports + previous_logs + previous_reports,
                 transitive_files = depset(transitive = transitive_inputs),
             ),
@@ -756,7 +787,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
             config = config_short,
             files = [config_short] + ctx.files.src + ctx.files.data,
             runfiles = ctx.runfiles(transitive_files = depset(
-                [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile] +
+                [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile, ctx.executable._make] +
                 ctx.files.src + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
                 transitive = transitive_inputs,
             )),
