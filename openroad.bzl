@@ -70,7 +70,7 @@ orfs_pdk = rule(
 
 def _run_impl(ctx):
     all_arguments = _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
-    config = ctx.actions.declare_file("results/{}/{}/base/open.mk".format(_platform(ctx), _module_top(ctx)))
+    config = ctx.actions.declare_file("results/{}/{}/{}/open.mk".format(_platform(ctx), _module_top(ctx), ctx.attr.variant))
     ctx.actions.write(
         output = config,
         content = _config_content(all_arguments),
@@ -103,6 +103,7 @@ def _run_impl(ctx):
             "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "DESIGN_CONFIG": config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
+            "FLOW_VARIANT": ctx.attr.variant,
             "OPENROAD_EXE": ctx.executable._openroad.path,
             "YOSYS_EXE": "",
             "ODB_FILE": ctx.attr.src[OrfsInfo].odb.path,
@@ -147,6 +148,10 @@ orfs_run = rule(
         "outs": attr.output_list(
             mandatory = True,
             allow_empty = False,
+        ),
+        "variant": attr.string(
+            doc = "Variant of the used flow.",
+            default = "base",
         ),
         "_makefile": attr.label(
             doc = "Top level makefile.",
@@ -208,6 +213,7 @@ def flow_substitutions(ctx):
     return {
         "${MAKEFILE_PATH}": ctx.file._makefile.path,
         "${FLOW_HOME}": ctx.file._makefile.dirname,
+        "${FLOW_VARIANT}": ctx.attr.variant,
     }
 
 def openroad_substitutions(ctx):
@@ -256,6 +262,10 @@ def flow_attrs():
             doc = "List of additional flow data.",
             allow_files = True,
             default = [],
+        ),
+        "variant": attr.string(
+            doc = "Variant of the used flow.",
+            default = "base",
         ),
         "_deploy_template": attr.label(
             default = ":deploy.tpl",
@@ -398,8 +408,10 @@ def _add_optional_generation_to_command(command, optional_files):
     return command
 
 def _yosys_impl(ctx, canonicalize, log_names = [], report_names = []):
+    variant = ctx.attr.variant
     all_arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx) | _block_arguments(ctx)
-    result_dir = "results/{}/{}/base/".format(_platform(ctx), _module_top(ctx))
+    output_dir = "{}/{}/{}".format(_platform(ctx), _module_top(ctx), variant)
+    result_dir = "results/{}/".format(output_dir)
     config = ctx.actions.declare_file(result_dir + ("1_canonicalize.mk" if canonicalize else "1_synth.mk"))
     ctx.actions.write(
         output = config,
@@ -408,11 +420,11 @@ def _yosys_impl(ctx, canonicalize, log_names = [], report_names = []):
 
     logs = []
     for log in log_names:
-        logs.append(ctx.actions.declare_file("logs/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), log)))
+        logs.append(ctx.actions.declare_file("logs/{}/{}".format(output_dir, log)))
 
     reports = []
     for report in report_names:
-        reports.append(ctx.actions.declare_file("reports/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), report)))
+        reports.append(ctx.actions.declare_file("reports/{}/{}".format(output_dir, report)))
 
     previous_logs = []
     previous_reports = []
@@ -472,6 +484,7 @@ def _yosys_impl(ctx, canonicalize, log_names = [], report_names = []):
             "HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "WORK_HOME": work_home,
             "FLOW_HOME": ctx.file._makefile.dirname,
+            "FLOW_VARIANT": ctx.attr.variant,
             "DESIGN_CONFIG": config.path,
             "ABC": ctx.executable._abc.path,
             "YOSYS_EXE": ctx.executable._yosys.path,
@@ -617,8 +630,10 @@ orfs_synth = rule(
 )
 
 def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_names = [], report_names = [], extra_arguments = {}):
+    variant = ctx.attr.variant
     all_arguments = extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
-    config = ctx.actions.declare_file("results/{}/{}/base/{}.mk".format(_platform(ctx), _module_top(ctx), stage))
+    output_dir = "{}/{}/{}".format(_platform(ctx), _module_top(ctx), variant)
+    config = ctx.actions.declare_file("results/{}/{}.mk".format(output_dir, stage))
     ctx.actions.write(
         output = config,
         content = _config_content(all_arguments),
@@ -630,7 +645,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
     lef = None
     lib = None
     for result in result_names:
-        file = ctx.actions.declare_file("results/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), result))
+        file = ctx.actions.declare_file("results/{}/{}".format(output_dir, result))
         if file.extension == "odb":
             odb = file
         elif file.extension == "gds":
@@ -643,15 +658,15 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
 
     objects = []
     for object in object_names:
-        objects.append(ctx.actions.declare_file("objects/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), object)))
+        objects.append(ctx.actions.declare_file("objects/{}/{}".format(output_dir, object)))
 
     logs = []
     for log in log_names:
-        logs.append(ctx.actions.declare_file("logs/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), log)))
+        logs.append(ctx.actions.declare_file("logs/{}/{}".format(output_dir, log)))
 
     reports = []
     for report in report_names:
-        reports.append(ctx.actions.declare_file("reports/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), report)))
+        reports.append(ctx.actions.declare_file("reports/{}/{}".format(output_dir, report)))
 
     previous_logs = ctx.attr.src[LoggingInfo].logs
     previous_reports = ctx.attr.src[LoggingInfo].reports
@@ -683,6 +698,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
             "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
             "DESIGN_CONFIG": config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
+            "FLOW_VARIANT": ctx.attr.variant,
             "OPENROAD_EXE": ctx.executable._openroad.path,
             "KLAYOUT_CMD": ctx.executable._klayout.path,
             "TCL_LIBRARY": commonpath(ctx.files._tcl),
@@ -697,7 +713,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         outputs = results + objects + logs + reports,
     )
 
-    config_short = ctx.actions.declare_file("results/{}/{}/base/{}.short.mk".format(_platform(ctx), _module_top(ctx), stage))
+    config_short = ctx.actions.declare_file("results/{}/{}.short.mk".format(output_dir, stage))
     ctx.actions.write(
         output = config_short,
         content = _config_content(extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo], short = True)),
@@ -952,6 +968,7 @@ def orfs_flow(
         stage_sources = {},
         stage_args = {},
         abstract_stage = None,
+        variant = None,
         visibility = ["//visibility:private"]):
     """
     Creates targets for running physical design flow with OpenROAD-flow-scripts.
@@ -963,6 +980,7 @@ def orfs_flow(
       stage_sources: dictionary keyed by ORFS stages with lists of stage-specific sources
       stage_args: dictionary keyed by ORFS stages with lists of stage-specific arguments
       abstract_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
+      variant: name of the target variant, added right after the module name
       visibility: the visibility attribute on a target controls whether the target can be used in other packages
     """
     steps = []
@@ -972,46 +990,54 @@ def orfs_flow(
             break
     steps.append(ABSTRACT_IMPL)
 
+    variant_suffix = ""
+    if variant:
+        variant_suffix = "_" + variant
+    name_template = "{{}}{}_{{}}".format(variant_suffix)
+
     canonicalize_step = steps[0]
     synth_step = steps[1]
     canonicalize_step.impl(
-        name = "{}_{}".format(name, "canonicalize"),
+        name = name_template.format(name, canonicalize_step.stage),
         arguments = stage_args.get(synth_step.stage, {}),
         data = stage_sources.get(synth_step.stage, []),
         deps = macros,
         module_top = name,
+        variant = variant,
         verilog_files = verilog_files,
         visibility = visibility,
     )
     orfs_deps(
-        name = "{}_{}_deps".format(name, canonicalize_step.stage),
-        src = "{}_{}".format(name, canonicalize_step.stage),
+        name = name_template.format(name, canonicalize_step.stage) + "_deps",
+        src = name_template.format(name, canonicalize_step.stage),
     )
 
     synth_step.impl(
-        name = "{}_{}".format(name, synth_step.stage),
+        name = name_template.format(name, synth_step.stage),
         arguments = stage_args.get(synth_step.stage, {}),
         data = stage_sources.get(synth_step.stage, []),
         deps = macros,
-        canonicalized = "{}_{}".format(name, canonicalize_step.stage),
+        canonicalized = name_template.format(name, canonicalize_step.stage),
         module_top = name,
+        variant = variant,
         visibility = visibility,
     )
 
     for step, prev in zip(steps[2:], steps[1:]):
         step.impl(
-            name = "{}_{}".format(name, step.stage),
-            src = "{}_{}".format(name, prev.stage),
+            name = name_template.format(name, step.stage),
+            src = name_template.format(name, prev.stage),
             arguments = stage_args.get(step.stage, {}),
             data = stage_sources.get(step.stage, []),
+            variant = variant,
             visibility = visibility,
         )
         orfs_deps(
-            name = "{}_{}_deps".format(name, prev.stage),
-            src = "{}_{}".format(name, prev.stage),
+            name = name_template.format(name, prev.stage) + "_deps",
+            src = name_template.format(name, prev.stage),
         )
 
     orfs_deps(
-        name = "{}_{}_deps".format(name, steps[-1].stage),
-        src = "{}_{}".format(name, steps[-1].stage),
+        name = name_template.format(name, steps[-1].stage) + "_deps",
+        src = name_template.format(name, steps[-1].stage),
     )
