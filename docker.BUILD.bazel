@@ -59,6 +59,15 @@ filegroup(
 )
 
 filegroup(
+    name = "make",
+    data = [
+        ":ld.so",
+    ],
+    srcs = ["usr/bin/make"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
     name = "yosys-abc",
     data = [
         ":ld.so",
