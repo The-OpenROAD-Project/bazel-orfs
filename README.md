@@ -109,6 +109,37 @@ Abstract targets:
 
 The example comes from the [BUILD](./BUILD) file in this repository.
 
+To test different variants of the same design, the `orfs_flow` can be provided with an optional argument `variant`.
+
+```starlark
+orfs_flow(
+    name = "L1MetadataArray",
+    abstract_stage = "route",
+    macros = ["tag_array_64x184_generate_abstract"],
+    # [...]
+    variant = "test",
+)
+```
+
+This definition creates similar Bazel targets with additional variant appended after the design name:
+
+```
+Dependency targets:
+  //:L1MetadataArray_test_canonicalize_deps
+  //:L1MetadataArray_test_cts_deps
+  //:L1MetadataArray_test_floorplan_deps
+  ...
+
+Stage targets:
+  //:L1MetadataArray_test_canonicalize
+  //:L1MetadataArray_test_synth
+  //:L1MetadataArray_test_floorplan
+  ...
+
+Abstract targets:
+  //:L1MetadataArray_test_generate_abstract
+```
+
 ## Implementation
 
 ### openroad.bzl
@@ -118,9 +149,9 @@ The implementation of this macro spawns multiple `genrule` native rules which ar
 
 These are the genrules spawned in this macro:
 
-* ORFS stage-specific (named: `target_name + “_” + stage`)
-* ORFS stage dependencies (named: `target_name + “_” + stage + “_deps”`)
-* Abstract targets (named: `target_name + “_generate_abstract”`)
+* ORFS stage-specific (named: `target_name + “_” + stage` or `target_name + “_” + variant + “_” + stage`)
+* ORFS stage dependencies (named: `target_name + “_” + stage + “_deps”` or `target_name + “_” + variant + “_” + stage + “_deps”`)
+* Abstract targets (named: `target_name + “_generate_abstract”` or `target_name + “_” + variant + “_generate_abstract”`)
 
 ### Bazel flow
 
@@ -277,15 +308,15 @@ filegroup(
 
 ### Dependency targets
 
-The dependency targets fall under the `target_name + “_” + stage + “_deps”` naming convention, and are used to prepare the environment for running the ORFS stage targets.
+The dependency targets fall under the `target_name + “_” + variant + “_” +stage + “_deps”` naming convention, and are used to prepare the environment for running the ORFS stage targets.
 Each stage of the physical design flow depend on two generated `.mk` files that provide the configuration for the ORFS.
 One is specific for the stage of the flow and the second one is common for the whole design being built.
 
 They can be found under the following paths:
 
 ```bash
-<path>/config.mk                                                        # Common for the whole design
-<path>/results/<module>/<target>/base/<stage_number>_<stage>.short.mk   # Specific for the stage
+<path>/config.mk                                                             # Common for the whole design
+<path>/results/<module>/<target>/<variant>/<stage_number>_<stage>.short.mk   # Specific for the stage
 ```
 
 Additionally, the dependency targets are responsible for constraints handling and generating the shell scripts that are used to run the ORFS stages both in the Bazel and Local flow:
