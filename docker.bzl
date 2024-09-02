@@ -14,16 +14,18 @@ def _impl(repository_ctx):
     if not docker:
         fail("Failed to find {}.".format(docker_name))
 
-    created = repository_ctx.execute(
+    run = repository_ctx.execute(
         [
             docker,
-            "create",
+            "run",
+            "-td",
+            "--rm",
             image,
         ],
     )
-    if created.return_code != 0:
-        fail("Failed to create stopped container: {}".format(created.stderr), created.return_code)
-    container_id = created.stdout.strip()
+    if run.return_code != 0:
+        fail("Failed to start container: {}".format(run.stderr), run.return_code)
+    container_id = run.stdout.strip()
     cp = repository_ctx.execute(
         [
             docker,
@@ -32,15 +34,15 @@ def _impl(repository_ctx):
             ".",
         ],
     )
-    remove = repository_ctx.execute(
+    stop = repository_ctx.execute(
         [
             docker,
-            "rm",
+            "stop",
             container_id,
         ],
     )
-    if remove.return_code != 0:
-        print("Container {} has not been removed".format(container_id))  # buildifier: disable=print
+    if stop.return_code != 0:
+        print("Container {} has not been stopped".format(container_id))  # buildifier: disable=print
     if cp.return_code != 0:
         fail("Failed to copy image content: {}".format(cp.stderr), cp.return_code)
 
