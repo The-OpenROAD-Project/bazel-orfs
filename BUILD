@@ -94,23 +94,39 @@ orfs_flow(
     visibility = [":__subpackages__"],
 )
 
+LB_STAGE_ARGS = {
+    "synth": SRAM_SYNTH_ARGUMENTS,
+    "floorplan": SRAM_FLOOR_PLACE_ARGUMENTS | {
+        "CORE_UTILIZATION": "40",
+        "CORE_ASPECT_RATIO": "2",
+    },
+    "place": SRAM_FLOOR_PLACE_ARGUMENTS | {"PLACE_DENSITY": "0.65"},
+}
+
+LB_STAGE_SOURCES = {
+    "synth": [":constraints-sram"],
+    "floorplan": [":io-sram"],
+    "place": [":io-sram"],
+}
+
+LB_VERILOG_FILES = ["test/rtl/lb_32x128.sv"]
+
 orfs_flow(
     name = "lb_32x128",
     abstract_stage = "floorplan",
-    stage_args = {
-        "synth": SRAM_SYNTH_ARGUMENTS,
-        "floorplan": SRAM_FLOOR_PLACE_ARGUMENTS | {
-            "CORE_UTILIZATION": "40",
-            "CORE_ASPECT_RATIO": "2",
-        },
-        "place": SRAM_FLOOR_PLACE_ARGUMENTS | {"PLACE_DENSITY": "0.65"},
-    },
-    stage_sources = {
-        "synth": [":constraints-sram"],
-        "floorplan": [":io-sram"],
-        "place": [":io-sram"],
-    },
-    verilog_files = ["test/rtl/lb_32x128.sv"],
+    stage_args = LB_STAGE_ARGS,
+    stage_sources = LB_STAGE_SOURCES,
+    verilog_files = LB_VERILOG_FILES,
+)
+
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    abstract_stage = "place",
+    stage_args = LB_STAGE_ARGS,
+    stage_sources = LB_STAGE_SOURCES,
+    variant = "test",
+    verilog_files = LB_VERILOG_FILES,
 )
 
 orfs_flow(
@@ -173,10 +189,6 @@ filegroup(
 eqy_test(
     name = "Mul_synth_eqy",
     depth = 2,
-    module_top = "Mul",
-    gold_verilog_files = [
-        "test/rtl/Mul.sv",
-    ],
     gate_verilog_files = [
         ":Mul_synth_verilog",
         "@docker_orfs//:OpenROAD-flow-scripts/flow/platforms/asap7/work_around_yosys/asap7sc7p5t_AO_RVT_TT_201020.v",
@@ -184,4 +196,8 @@ eqy_test(
         "@docker_orfs//:OpenROAD-flow-scripts/flow/platforms/asap7/work_around_yosys/asap7sc7p5t_OA_RVT_TT_201020.v",
         "@docker_orfs//:OpenROAD-flow-scripts/flow/platforms/asap7/work_around_yosys/asap7sc7p5t_SIMPLE_RVT_TT_201020.v",
     ],
+    gold_verilog_files = [
+        "test/rtl/Mul.sv",
+    ],
+    module_top = "Mul",
 )
