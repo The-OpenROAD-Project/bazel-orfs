@@ -70,6 +70,10 @@ main() {
   cp --force "$make" "$dst/make"
   cp --force --no-preserve=all "$config" "$dst/config.mk"
 
+  if [[ "$make" == *synth* || "$make" == *canonicalize* ]]; then
+    "$dst/make" yosys-dependencies
+  fi
+
   exit $?
 }
 
