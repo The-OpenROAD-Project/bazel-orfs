@@ -91,17 +91,19 @@ Dependency targets:
   //:L1MetadataArray_canonicalize_deps
   //:L1MetadataArray_cts_deps
   //:L1MetadataArray_floorplan_deps
+  //:L1MetadataArray_grt_deps
   //:L1MetadataArray_place_deps
   //:L1MetadataArray_route_deps
   //:L1MetadataArray_synth_deps
 
 Stage targets:
   //:L1MetadataArray_canonicalize
-  //:L1MetadataArray_synth
-  //:L1MetadataArray_floorplan
-  //:L1MetadataArray_place
   //:L1MetadataArray_cts
+  //:L1MetadataArray_floorplan
+  //:L1MetadataArray_grt
+  //:L1MetadataArray_place
   //:L1MetadataArray_route
+  //:L1MetadataArray_synth
 
 Abstract targets:
   //:L1MetadataArray_generate_abstract
@@ -224,6 +226,7 @@ The stages are as follows:
 * `floorplan`
 * `place`
 * `cts` (clock tree synthesis)
+* `grt` (global route)
 * `route`
 * `final`
 
@@ -350,6 +353,7 @@ CLI and GUI is not available for all stages, consequently these targets are crea
 * `floorplan`
 * `place`
 * `cts` (clock tree synthesis)
+* `grt` (global route)
 * `route`
 * `final`
 
