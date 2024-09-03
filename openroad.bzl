@@ -667,6 +667,23 @@ orfs_synth = rule(
 )
 
 def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_names = [], report_names = [], extra_arguments = {}):
+    """
+    Implementation function for the OpenROAD-flow-scripts stages.
+
+    Args:
+      ctx: The context object.
+      stage: The stage name.
+      steps: Makefile targets to run.
+      result_names: The names of the result files.
+      object_names: The names of the object files.
+      log_names: The names of the log files.
+      report_names: The names of the report files.
+      extra_arguments: Extra arguments to add to the configuration.
+
+    Returns:
+        A list of providers. The returned PdkInfo and TopInfo providers are taken from the first
+        target of a ctx.attr.srcs list.
+    """
     variant = ctx.attr.variant
     all_arguments = extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.srcs[0][OrfsInfo])
     output_dir = "{}/{}/{}".format(_platform(ctx), _module_top(ctx), variant)
