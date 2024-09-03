@@ -3,7 +3,10 @@
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
 
 def _impl(repository_ctx):
-    image = "{}@sha256:{}".format(repository_ctx.attr.image, repository_ctx.attr.sha256)
+    if repository_ctx.attr.sha256 != "":
+        image = "{}@sha256:{}".format(repository_ctx.attr.image, repository_ctx.attr.sha256)
+    else:
+        image = repository_ctx.attr.image
 
     python_name = "python3"
     python = repository_ctx.which(python_name)
@@ -13,6 +16,26 @@ def _impl(repository_ctx):
     docker = repository_ctx.which(docker_name)
     if not docker:
         fail("Failed to find {}.".format(docker_name))
+
+    if repository_ctx.attr.sha256 == "":
+        inspect = repository_ctx.execute([
+            docker,
+            "inspect",
+            "--type=image",
+            image,
+        ])
+        if inspect.return_code != 0:
+            fail("Local image {} does not exist: {}".format(image, inspect.stderr), inspect.return_code)
+        repository_ctx.report_progress("Using local {}.".format(repository_ctx.attr.image))
+    else:
+        pull = repository_ctx.execute([
+            docker,
+            "pull",
+            image,
+        ])
+        if pull.return_code != 0:
+            fail("Image {} cannot be pulled: {}".format(image, pull.stderr), pull.return_code)
+        repository_ctx.report_progress("Pulled {}.".format(repository_ctx.attr.image))
 
     created = repository_ctx.execute(
         [
