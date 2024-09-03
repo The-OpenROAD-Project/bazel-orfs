@@ -3,6 +3,7 @@
 OrfsInfo = provider(
     "The outputs of a OpenROAD-flow-scripts stage.",
     fields = [
+        "stage",
         "odb",
         "gds",
         "lef",
@@ -68,6 +69,11 @@ orfs_pdk = rule(
     },
 )
 
+def odb_environment(ctx):
+    if ctx.attr.src[OrfsInfo].odb:
+        return {"ODB_FILE": ctx.attr.src[OrfsInfo].odb.path}
+    return {}
+
 def _run_impl(ctx):
     all_arguments = _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
     config = ctx.actions.declare_file("results/{}/{}/{}/open.mk".format(_platform(ctx), _module_top(ctx), ctx.attr.variant))
@@ -85,6 +91,8 @@ def _run_impl(ctx):
         ctx.attr.src[OrfsInfo].additional_lefs,
         ctx.attr.src[OrfsInfo].additional_libs,
         ctx.attr.src[PdkInfo].files,
+        ctx.attr.src[DefaultInfo].default_runfiles.files,
+        ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._openroad[DefaultInfo].default_runfiles.files,
         ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._make[DefaultInfo].default_runfiles.files,
@@ -93,14 +101,19 @@ def _run_impl(ctx):
         ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
     ]
 
+    for datum in ctx.attr.data:
+        transitive_inputs.append(datum.default_runfiles.files)
+        transitive_inputs.append(datum.default_runfiles.symlinks)
+
+    _, _, stage_name = ctx.attr.src[OrfsInfo].stage.partition("_")
     ctx.actions.run_shell(
         arguments = [
             "--file",
             ctx.file._makefile.path,
-            "open_{}".format(ctx.attr.src[OrfsInfo].odb.basename),
+            "open_{}".format(stage_name),
         ],
         command = ctx.executable._make.path + " $@",
-        env = {
+        env = odb_environment(ctx) | {
             "HOME": _work_home(ctx),
             "WORK_HOME": _work_home(ctx),
             "DESIGN_CONFIG": config.path,
@@ -108,7 +121,6 @@ def _run_impl(ctx):
             "FLOW_VARIANT": ctx.attr.variant,
             "OPENROAD_EXE": ctx.executable._openroad.path,
             "YOSYS_EXE": "",
-            "ODB_FILE": ctx.attr.src[OrfsInfo].odb.path,
             "TCL_LIBRARY": commonpath(ctx.files._tcl),
             "GUI_ARGS": "-exit",
             "GUI_SOURCE": ctx.file.script.path,
@@ -599,6 +611,7 @@ def _yosys_impl(ctx, canonicalize, log_names = [], report_names = []):
             )),
         ),
         OrfsInfo(
+            stage = "1_synth",
             odb = None,
             gds = None,
             lef = None,
@@ -832,6 +845,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             )),
         ),
         OrfsInfo(
+            stage = stage,
             odb = odb,
             gds = gds,
             lef = lef,
