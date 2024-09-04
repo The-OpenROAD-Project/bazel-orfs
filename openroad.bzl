@@ -492,10 +492,12 @@ def _data_arguments(ctx):
     return {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()}
 
 def _add_optional_generation_to_command(command, optional_files):
-    if len(optional_files) > 0:
-        mkdir_commands = ["mkdir -p $(dirname {})".format(result.path) for result in optional_files]
-        touch_command = "touch {}".format(" ".join([result.path for result in optional_files]))
-        command = " && ".join(mkdir_commands + [touch_command]) + " && " + command
+    if optional_files:
+        return " && ".join([
+            "mkdir -p " + " ".join([result.dirname for result in optional_files]),
+            "touch " + " ".join([result.path for result in optional_files]),
+            command,
+        ])
     return command
 
 def _work_home(ctx):
