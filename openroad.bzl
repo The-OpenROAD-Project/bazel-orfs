@@ -327,6 +327,11 @@ def yosys_only_attrs():
             cfg = "exec",
             default = Label("@docker_orfs//:make"),
         ),
+        "_tcl": attr.label(
+            doc = "Tcl library.",
+            allow_files = True,
+            default = Label("@docker_orfs//:tcl8.6"),
+        ),
     }
 
 def openroad_only_attrs():
@@ -525,11 +530,13 @@ def _yosys_impl(ctx, canonicalize, log_names = [], report_names = []):
             "ABC": ctx.executable._abc.path,
             "YOSYS_EXE": ctx.executable._yosys.path,
             "OPENROAD_EXE": "",
+            "TCL_LIBRARY": commonpath(ctx.files._tcl),
         },
         inputs = depset(
             rtlil +
             verilog_files +
             ctx.files.data +
+            ctx.files._tcl +
             [
                 config,
                 ctx.executable._abc,
