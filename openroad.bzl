@@ -71,7 +71,7 @@ def odb_environment(ctx):
 
 def _run_impl(ctx):
     all_arguments = _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
-    config = ctx.actions.declare_file("results/{}/{}/{}/open.mk".format(_platform(ctx), _module_top(ctx), ctx.attr.variant))
+    config = _declare_artifact(ctx, "results", "open.mk")
     ctx.actions.write(
         output = config,
         content = _config_content(all_arguments),
@@ -460,10 +460,12 @@ def _work_home(ctx):
 def _artifact_dir(ctx, category):
     return "/".join([category, _platform(ctx), _module_top(ctx), ctx.attr.variant])
 
+def _declare_artifact(ctx, category, name):
+    return ctx.actions.declare_file("/".join([_artifact_dir(ctx, category), name]))
+
 def _yosys_impl(ctx):
     all_arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]) | _block_arguments(ctx)
-    result_dir = "results/{}/{}/{}/".format(_platform(ctx), _module_top(ctx), ctx.attr.variant)
-    config = ctx.actions.declare_file(result_dir + "1_synth.mk")
+    config = _declare_artifact(ctx, "results", "1_synth.mk")
     ctx.actions.write(
         output = config,
         content = _config_content(all_arguments),
@@ -471,9 +473,9 @@ def _yosys_impl(ctx):
 
     canon_logs = []
     for log in ["1_1_yosys_canonicalize.log"]:
-        canon_logs.append(ctx.actions.declare_file("logs/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), log)))
+        canon_logs.append(_declare_artifact(ctx, "logs", log))
 
-    canon_output = ctx.actions.declare_file(result_dir + "1_synth.rtlil")
+    canon_output = _declare_artifact(ctx, "results", "1_synth.rtlil")
 
     command = _add_optional_generation_to_command(ctx.executable._make.path + " $@", canon_logs)
 
@@ -525,11 +527,11 @@ def _yosys_impl(ctx):
 
     synth_logs = []
     for log in ["1_1_yosys.log", "1_1_yosys_metrics.log", "1_1_yosys_hier_report.log"]:
-        synth_logs.append(ctx.actions.declare_file("logs/{}/{}/base/{}".format(_platform(ctx), _module_top(ctx), log)))
+        synth_logs.append(_declare_artifact(ctx, "logs", log))
 
     synth_outputs = []
     for output in ["1_synth.v", "1_synth.sdc", "mem.json"]:
-        synth_outputs.append(ctx.actions.declare_file(result_dir + output))
+        synth_outputs.append(_declare_artifact(ctx, "results", output))
 
     command = _add_optional_generation_to_command(ctx.executable._make.path + " $@", synth_logs)
     ctx.actions.run_shell(
@@ -559,7 +561,7 @@ def _yosys_impl(ctx):
         outputs = synth_outputs + synth_logs,
     )
 
-    config_short = ctx.actions.declare_file(result_dir + "1_synth.short.mk")
+    config_short = _declare_artifact(ctx, "results", "1_synth.short.mk")
     ctx.actions.write(
         output = config_short,
         content = _config_content(_data_arguments(ctx) | _required_arguments(ctx) | _block_arguments(ctx) | _orfs_arguments(short = True, *[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx.files.verilog_files, short = True)),
@@ -664,10 +666,8 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         A list of providers. The returned PdkInfo and TopInfo providers are taken from the first
         target of a ctx.attr.srcs list.
     """
-    variant = ctx.attr.variant
     all_arguments = extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
-    output_dir = "{}/{}/{}".format(_platform(ctx), _module_top(ctx), variant)
-    config = ctx.actions.declare_file("results/{}/{}.mk".format(output_dir, stage))
+    config = _declare_artifact(ctx, "results", stage + ".mk")
     ctx.actions.write(
         output = config,
         content = _config_content(all_arguments),
@@ -679,7 +679,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     lef = None
     lib = None
     for result in result_names:
-        file = ctx.actions.declare_file("results/{}/{}".format(output_dir, result))
+        file = _declare_artifact(ctx, "results", result)
         if file.extension == "odb":
             odb = file
         elif file.extension == "gds":
@@ -692,15 +692,15 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
 
     objects = []
     for object in object_names:
-        objects.append(ctx.actions.declare_file("objects/{}/{}".format(output_dir, object)))
+        objects.append(_declare_artifact(ctx, "objects", object))
 
     logs = []
     for log in log_names:
-        logs.append(ctx.actions.declare_file("logs/{}/{}".format(output_dir, log)))
+        logs.append(_declare_artifact(ctx, "logs", log))
 
     reports = []
     for report in report_names:
-        reports.append(ctx.actions.declare_file("reports/{}/{}".format(output_dir, report)))
+        reports.append(_declare_artifact(ctx, "reports", report))
 
     previous_logs = ctx.attr.src[LoggingInfo].logs
     previous_reports = ctx.attr.src[LoggingInfo].reports
@@ -748,7 +748,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         outputs = results + objects + logs + reports,
     )
 
-    config_short = ctx.actions.declare_file("results/{}/{}.short.mk".format(output_dir, stage))
+    config_short = _declare_artifact(ctx, "results", stage + ".short.mk")
     ctx.actions.write(
         output = config_short,
         content = _config_content(extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo], short = True)),
