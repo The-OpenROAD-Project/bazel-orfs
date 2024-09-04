@@ -685,8 +685,8 @@ def _yosys_impl(ctx):
             module_top = ctx.attr.module_top,
         ),
         LoggingInfo(
-            logs = canon_logs + synth_logs,
-            reports = [],
+            logs = depset(canon_logs + synth_logs),
+            reports = depset([]),
         ),
     ]
 
@@ -752,9 +752,6 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     for report in report_names:
         reports.append(_declare_artifact(ctx, "reports", report))
 
-    previous_logs = ctx.attr.src[LoggingInfo].logs
-    previous_reports = ctx.attr.src[LoggingInfo].reports
-
     transitive_inputs = [
         ctx.attr.src[OrfsInfo].additional_gds,
         ctx.attr.src[OrfsInfo].additional_lefs,
@@ -818,7 +815,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join([f.short_path for f in [config_short] + results + ctx.files.data + logs + reports + previous_logs + previous_reports]),
+            "${GENFILES}": " ".join([f.short_path for f in [config_short] + results + logs + reports + ctx.files.data]),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
@@ -836,9 +833,9 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
                 ],
             ),
             runfiles = ctx.runfiles(
-                [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile, ctx.executable._make] +
-                results + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules + logs + reports + previous_logs + previous_reports,
-                transitive_files = depset(transitive = transitive_inputs),
+                [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile] +
+                results + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules + logs + reports,
+                transitive_files = depset(transitive = transitive_inputs + [ctx.attr.src[LoggingInfo].logs, ctx.attr.src[LoggingInfo].reports]),
             ),
         ),
         OutputGroupInfo(
@@ -875,8 +872,8 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             additional_libs = ctx.attr.src[OrfsInfo].additional_libs,
         ),
         LoggingInfo(
-            logs = logs + previous_logs,
-            reports = reports + previous_reports,
+            logs = depset(logs, transitive = [ctx.attr.src[LoggingInfo].logs]),
+            reports = depset(reports, transitive = [ctx.attr.src[LoggingInfo].reports]),
         ),
         ctx.attr.src[PdkInfo],
         ctx.attr.src[TopInfo],
