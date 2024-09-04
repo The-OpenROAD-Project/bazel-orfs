@@ -101,8 +101,8 @@ def _run_impl(ctx):
         ],
         command = ctx.executable._make.path + " $@",
         env = {
-            "HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
-            "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
+            "HOME": _work_home(ctx),
+            "WORK_HOME": _work_home(ctx),
             "DESIGN_CONFIG": config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
             "FLOW_VARIANT": ctx.attr.variant,
@@ -481,6 +481,11 @@ def _add_optional_generation_to_command(command, optional_files):
         command = " && ".join(mkdir_commands + [touch_command]) + " && " + command
     return command
 
+def _work_home(ctx):
+    if ctx.label.package:
+        return "/".join([ctx.genfiles_dir.path, ctx.label.package])
+    return ctx.genfiles_dir.path
+
 def _yosys_impl(ctx, canonicalize, log_names = [], report_names = []):
     variant = ctx.attr.variant
     all_arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx) | _block_arguments(ctx)
@@ -544,7 +549,6 @@ def _yosys_impl(ctx, canonicalize, log_names = [], report_names = []):
         transitive_inputs.append(datum.default_runfiles.files)
         transitive_inputs.append(datum.default_runfiles.symlinks)
 
-    work_home = "/".join([ctx.genfiles_dir.path, ctx.label.package])
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + (
             ["do-yosys-canonicalize"] if canonicalize else [
@@ -552,13 +556,13 @@ def _yosys_impl(ctx, canonicalize, log_names = [], report_names = []):
                 "do-yosys-keep-hierarchy",
                 "do-yosys",
                 "do-synth",
-                work_home + "/" + result_dir + "1_synth.sdc",
+                _work_home(ctx) + "/" + result_dir + "1_synth.sdc",
             ]
         ),
         command = command,
         env = {
-            "HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
-            "WORK_HOME": work_home,
+            "HOME": _work_home(ctx),
+            "WORK_HOME": _work_home(ctx),
             "FLOW_HOME": ctx.file._makefile.dirname,
             "FLOW_VARIANT": ctx.attr.variant,
             "DESIGN_CONFIG": config.path,
@@ -794,8 +798,8 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         arguments = ["--file", ctx.file._makefile.path] + steps,
         command = command,
         env = {
-            "HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
-            "WORK_HOME": "/".join([ctx.genfiles_dir.path, ctx.label.package]),
+            "HOME": _work_home(ctx),
+            "WORK_HOME": _work_home(ctx),
             "DESIGN_CONFIG": config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
             "FLOW_VARIANT": ctx.attr.variant,
@@ -1119,7 +1123,8 @@ def orfs_flow(
         steps.append(step)
         if step.stage == abstract_stage:
             break
-    steps.append(ABSTRACT_IMPL)
+    if (abstract_stage not in [steps[0].stage, steps[1].stage]):
+        steps.append(ABSTRACT_IMPL)
 
     variant_suffix = ""
     if variant:
