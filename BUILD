@@ -92,9 +92,6 @@ orfs_flow(
     },
     verilog_files = ["//another:tag_array_64x184.sv"],
     visibility = [":__subpackages__"],
-    common_args = {
-        "GENERATE_ARTIFACTS_ON_FAILURE": "1",
-    },
 )
 
 LB_STAGE_ARGS = {
@@ -120,9 +117,6 @@ orfs_flow(
     stage_args = LB_STAGE_ARGS,
     stage_sources = LB_STAGE_SOURCES,
     verilog_files = LB_VERILOG_FILES,
-    common_args = {
-        "GENERATE_ARTIFACTS_ON_FAILURE": "1",
-    },
 )
 
 # buildifier: disable=duplicated-name
@@ -133,9 +127,6 @@ orfs_flow(
     stage_sources = LB_STAGE_SOURCES,
     variant = "test",
     verilog_files = LB_VERILOG_FILES,
-    common_args = {
-        "GENERATE_ARTIFACTS_ON_FAILURE": "1",
-    },
 )
 
 orfs_flow(
@@ -162,9 +153,6 @@ orfs_flow(
         "synth": [":test/constraints-top.sdc"],
     },
     verilog_files = ["test/rtl/L1MetadataArray.sv"],
-    common_args = {
-        "GENERATE_ARTIFACTS_ON_FAILURE": "1",
-    },
 )
 
 orfs_run(
@@ -188,9 +176,6 @@ orfs_flow(
         "synth": [":test/constraints-top.sdc"],
     },
     verilog_files = ["test/rtl/Mul.sv"],
-    common_args = {
-        "GENERATE_ARTIFACTS_ON_FAILURE": "1",
-    },
 )
 
 filegroup(
