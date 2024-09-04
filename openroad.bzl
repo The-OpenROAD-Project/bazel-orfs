@@ -379,7 +379,7 @@ def yosys_only_attrs():
 
 def openroad_only_attrs():
     return {
-        "srcs": attr.label_list(
+        "src": attr.label(
             providers = [DefaultInfo],
         ),
         "_makefile": attr.label(
@@ -437,18 +437,10 @@ def openroad_attrs():
     return flow_attrs() | openroad_only_attrs()
 
 def _module_top(ctx):
-    if hasattr(ctx.attr, "module_top"):
-        return ctx.attr.module_top
-    if hasattr(ctx.attr, "src"):
-        return ctx.attr.src[TopInfo].module_top
-    return ctx.attr.srcs[0][TopInfo].module_top
+    return ctx.attr.module_top if hasattr(ctx.attr, "module_top") else ctx.attr.src[TopInfo].module_top
 
 def _platform(ctx):
-    if hasattr(ctx.attr, "pdk"):
-        return ctx.attr.pdk[PdkInfo].name
-    if hasattr(ctx.attr, "src"):
-        return ctx.attr.src[PdkInfo].name
-    return ctx.attr.srcs[0][PdkInfo].name
+    return ctx.attr.pdk[PdkInfo].name if hasattr(ctx.attr, "pdk") else ctx.attr.src[PdkInfo].name
 
 def _required_arguments(ctx):
     return {
@@ -735,7 +727,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         target of a ctx.attr.srcs list.
     """
     variant = ctx.attr.variant
-    all_arguments = extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.srcs[0][OrfsInfo])
+    all_arguments = extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
     output_dir = "{}/{}/{}".format(_platform(ctx), _module_top(ctx), variant)
     config = ctx.actions.declare_file("results/{}/{}.mk".format(output_dir, stage))
     ctx.actions.write(
@@ -772,14 +764,14 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
     for report in report_names:
         reports.append(ctx.actions.declare_file("reports/{}/{}".format(output_dir, report)))
 
-    previous_logs = []
-    previous_reports = []
-
-    for src in ctx.attr.srcs:
-        previous_logs += src[LoggingInfo].logs
-        previous_reports += src[LoggingInfo].reports
+    previous_logs = ctx.attr.src[LoggingInfo].logs
+    previous_reports = ctx.attr.src[LoggingInfo].reports
 
     transitive_inputs = [
+        ctx.attr.src[OrfsInfo].additional_gds,
+        ctx.attr.src[OrfsInfo].additional_lefs,
+        ctx.attr.src[OrfsInfo].additional_libs,
+        ctx.attr.src[PdkInfo].files,
         ctx.attr._openroad[DefaultInfo].default_runfiles.files,
         ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
         ctx.attr._klayout[DefaultInfo].default_runfiles.files,
@@ -789,12 +781,6 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         ctx.attr._make[DefaultInfo].default_runfiles.files,
         ctx.attr._make[DefaultInfo].default_runfiles.symlinks,
     ]
-
-    for src in ctx.attr.srcs:
-        transitive_inputs.append(src[OrfsInfo].additional_gds)
-        transitive_inputs.append(src[OrfsInfo].additional_lefs)
-        transitive_inputs.append(src[OrfsInfo].additional_libs)
-        transitive_inputs.append(src[PdkInfo].files)
 
     for datum in ctx.attr.data:
         transitive_inputs.append(datum.default_runfiles.files)
@@ -818,9 +804,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
             "QT_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
         },
         inputs = depset(
-            # 5_2_route stage requires congestion.rpt report
-            (previous_reports if stage == '5_2_route' else []) +
-            ctx.files.srcs +
+            ctx.files.src +
             ctx.files.data +
             ctx.files._tcl +
             [config, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile, ctx.executable._make],
@@ -832,7 +816,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
     config_short = ctx.actions.declare_file("results/{}/{}.short.mk".format(output_dir, stage))
     ctx.actions.write(
         output = config_short,
-        content = _config_content(extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.srcs[0][OrfsInfo], short = True)),
+        content = _config_content(extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo], short = True)),
     )
 
     make = ctx.actions.declare_file("make_{}".format(stage))
@@ -853,23 +837,16 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         },
     )
 
-    additional_gds = []
-    additional_lefs = []
-    additional_libs = []
-
-    for src in ctx.attr.srcs:
-        additional_gds.append(src[OrfsInfo].additional_gds)
-        additional_lefs.append(src[OrfsInfo].additional_lefs)
-        additional_libs.append(src[OrfsInfo].additional_libs)
-
-    transitive_srcs_outs = additional_gds + additional_lefs + additional_libs
-
     return [
         DefaultInfo(
             executable = exe,
             files = depset(
                 results,
-                transitive = transitive_srcs_outs,
+                transitive = [
+                    ctx.attr.src[OrfsInfo].additional_gds,
+                    ctx.attr.src[OrfsInfo].additional_lefs,
+                    ctx.attr.src[OrfsInfo].additional_libs,
+                ],
             ),
             runfiles = ctx.runfiles(
                 [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile, ctx.executable._make] +
@@ -879,8 +856,12 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         ),
         OutputGroupInfo(
             deps = depset(
-                [config_short] + ctx.files.srcs + ctx.files.data,
-                transitive = transitive_srcs_outs,
+                [config_short] + ctx.files.src + ctx.files.data,
+                transitive = [
+                    ctx.attr.src[OrfsInfo].additional_gds,
+                    ctx.attr.src[OrfsInfo].additional_lefs,
+                    ctx.attr.src[OrfsInfo].additional_libs,
+                ],
             ),
             logs = depset(logs),
             reports = depset(reports),
@@ -889,10 +870,10 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         OrfsDepInfo(
             make = make,
             config = config_short,
-            files = [config_short] + ctx.files.srcs + ctx.files.data,
+            files = [config_short] + ctx.files.src + ctx.files.data,
             runfiles = ctx.runfiles(transitive_files = depset(
                 [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile, ctx.executable._make] +
-                ctx.files.srcs + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
+                ctx.files.src + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
                 transitive = transitive_inputs,
             )),
         ),
@@ -901,16 +882,16 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
             gds = gds,
             lef = lef,
             lib = lib,
-            additional_gds = depset(transitive = additional_gds),
-            additional_lefs = depset(transitive = additional_lefs),
-            additional_libs = depset(transitive = additional_libs),
+            additional_gds = ctx.attr.src[OrfsInfo].additional_gds,
+            additional_lefs = ctx.attr.src[OrfsInfo].additional_lefs,
+            additional_libs = ctx.attr.src[OrfsInfo].additional_libs,
         ),
         LoggingInfo(
             logs = logs + previous_logs,
             reports = reports + previous_reports,
         ),
-        ctx.attr.srcs[0][PdkInfo],
-        ctx.attr.srcs[0][TopInfo],
+        ctx.attr.src[PdkInfo],
+        ctx.attr.src[TopInfo],
     ]
 
 def add_orfs_make_rule_(
@@ -986,52 +967,26 @@ orfs_cts = add_orfs_make_rule_(
     ),
 )
 
-orfs_grt = add_orfs_make_rule_(
-    implementation = lambda ctx: _make_impl(
-        ctx = ctx,
-        stage = "5_1_grt",
-        steps = [
-            "do-5_1_grt",
-        ],
-        result_names = [
-            "5_1_grt.odb"
-        ],
-        log_names = [
-            "5_1_grt.log",
-        ],
-        report_names = [
-            "5_global_route.rpt",
-            "congestion.rpt",
-        ],
-    ),
-    attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
-    executable = True,
-)
-
 orfs_route = add_orfs_make_rule_(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
-        stage = "5_2_route",
-        steps = [
-            "do-5_2_fillcell",
-            "do-5_3_route", "do-5_route", "do-5_route.sdc"
-        ],
+        stage = "5_route",
+        steps = ["do-route"],
         result_names = [
             "5_route.odb",
             "5_route.sdc",
         ],
         log_names = [
+            "5_1_grt.log",
             "5_2_fillcell.log",
             "5_3_route.log",
         ],
         report_names = [
             "5_route_drc.rpt",
+            "5_global_route.rpt",
+            "congestion.rpt",
         ],
     ),
-    attrs = openroad_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
-    executable = True,
 )
 
 orfs_final = add_orfs_make_rule_(
@@ -1069,11 +1024,11 @@ orfs_abstract = rule(
         stage = "7_abstract",
         steps = ["do-generate_abstract"],
         result_names = [
-            "{}.lef".format(ctx.attr.srcs[0][TopInfo].module_top),
-            "{}.lib".format(ctx.attr.srcs[0][TopInfo].module_top),
+            "{}.lef".format(ctx.attr.src[TopInfo].module_top),
+            "{}.lib".format(ctx.attr.src[TopInfo].module_top),
         ],
         extra_arguments =
-            {"ABSTRACT_SOURCE": _extensionless_basename(ctx.attr.srcs[0][OrfsInfo].odb)},
+            {"ABSTRACT_SOURCE": _extensionless_basename(ctx.attr.src[OrfsInfo].odb)},
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
@@ -1100,7 +1055,6 @@ STAGE_IMPLS = [
     struct(stage = "floorplan", impl = orfs_floorplan),
     struct(stage = "place", impl = orfs_place),
     struct(stage = "cts", impl = orfs_cts),
-    struct(stage = "grt", impl = orfs_grt),
     struct(stage = "route", impl = orfs_route),
     struct(stage = "final", impl = orfs_final),
 ]
@@ -1170,19 +1124,14 @@ def orfs_flow(
     )
 
     for step, prev in zip(steps[2:], steps[1:]):
-        srcs = [name_template.format(name, prev.stage)]
-        if step.stage == 'route':
-            srcs.append(name_template.format(name, "cts"))
-
         step.impl(
             name = name_template.format(name, step.stage),
-            srcs = srcs,
+            src = name_template.format(name, prev.stage),
             arguments = stage_args.get(step.stage, {}),
             data = stage_sources.get(step.stage, []),
             variant = variant,
             visibility = visibility,
         )
-
         orfs_deps(
             name = name_template.format(name, prev.stage) + "_deps",
             src = name_template.format(name, prev.stage),
