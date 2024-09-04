@@ -612,7 +612,8 @@ def _yosys_impl(ctx, canonicalize, log_names = [], report_names = []):
         DefaultInfo(
             executable = exe,
             files = depset(
-                synth_outputs + [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds] +
+                synth_outputs +
+                [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds] +
                 [dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef] +
                 [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
             ),
@@ -708,7 +709,7 @@ orfs_synth = rule(
     executable = True,
 )
 
-def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_names = [], report_names = [], extra_arguments = {}):
+def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], object_names = [], log_names = [], report_names = [], extra_arguments = {}):
     """
     Implementation function for the OpenROAD-flow-scripts stages.
 
@@ -716,6 +717,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
       ctx: The context object.
       stage: The stage name.
       steps: Makefile targets to run.
+      forwarded_names: The names of files to be forwarded from `src`.
       result_names: The names of the result files.
       object_names: The names of the object files.
       log_names: The names of the log files.
@@ -841,7 +843,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         DefaultInfo(
             executable = exe,
             files = depset(
-                results,
+                [f for f in ctx.files.src if f.basename in forwarded_names] + reports + results,
                 transitive = [
                     ctx.attr.src[OrfsInfo].additional_gds,
                     ctx.attr.src[OrfsInfo].additional_lefs,
@@ -967,24 +969,52 @@ orfs_cts = add_orfs_make_rule_(
     ),
 )
 
+orfs_grt = add_orfs_make_rule_(
+    implementation = lambda ctx: _make_impl(
+        ctx = ctx,
+        stage = "5_1_grt",
+        steps = [
+            "do-5_1_grt",
+        ],
+        forwarded_names = [
+            "4_cts.sdc",
+        ],
+        result_names = [
+            "5_1_grt.odb",
+        ],
+        log_names = [
+            "5_1_grt.log",
+        ],
+        report_names = [
+            "5_global_route.rpt",
+            "congestion.rpt",
+        ],
+    ),
+    attrs = openroad_attrs(),
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
+    executable = True,
+)
+
 orfs_route = add_orfs_make_rule_(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
-        stage = "5_route",
-        steps = ["do-route"],
+        stage = "5_2_route",
+        steps = [
+            "do-5_2_fillcell",
+            "do-5_3_route",
+            "do-5_route",
+            "do-5_route.sdc",
+        ],
         result_names = [
             "5_route.odb",
             "5_route.sdc",
         ],
         log_names = [
-            "5_1_grt.log",
             "5_2_fillcell.log",
             "5_3_route.log",
         ],
         report_names = [
             "5_route_drc.rpt",
-            "5_global_route.rpt",
-            "congestion.rpt",
         ],
     ),
 )
@@ -1055,6 +1085,7 @@ STAGE_IMPLS = [
     struct(stage = "floorplan", impl = orfs_floorplan),
     struct(stage = "place", impl = orfs_place),
     struct(stage = "cts", impl = orfs_cts),
+    struct(stage = "grt", impl = orfs_grt),
     struct(stage = "route", impl = orfs_route),
     struct(stage = "final", impl = orfs_final),
 ]
