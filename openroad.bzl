@@ -602,6 +602,7 @@ def _yosys_impl(ctx):
                 config,
                 ctx.executable._abc,
                 ctx.executable._yosys,
+                ctx.executable._make,
                 ctx.file._makefile,
             ],
             transitive = transitive_inputs,
@@ -642,7 +643,7 @@ def _yosys_impl(ctx):
                 [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
             ),
             runfiles = ctx.runfiles(
-                synth_outputs + [canon_output, config_short, make, ctx.executable._yosys, ctx.file._makefile] +
+                synth_outputs + [canon_output, config_short, make, ctx.executable._yosys, ctx.executable._make, ctx.file._makefile] +
                 ctx.files.verilog_files + ctx.files.data + canon_logs + synth_logs,
                 transitive_files = depset(transitive = transitive_inputs),
             ),
@@ -663,7 +664,7 @@ def _yosys_impl(ctx):
             config = config_short,
             files = [config_short] + ctx.files.verilog_files + ctx.files.data,
             runfiles = ctx.runfiles(transitive_files = depset(
-                [config_short, make, ctx.executable._yosys, ctx.file._makefile] +
+                [config_short, make, ctx.executable._yosys, ctx.executable._make, ctx.file._makefile] +
                 ctx.files.verilog_files + ctx.files.data,
                 transitive = transitive_inputs,
             )),
@@ -831,7 +832,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
                 ],
             ),
             runfiles = ctx.runfiles(
-                [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile] +
+                [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.executable._make, ctx.file._makefile] +
                 results + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules + logs + reports,
                 transitive_files = depset(transitive = transitive_inputs + [ctx.attr.src[LoggingInfo].logs, ctx.attr.src[LoggingInfo].reports]),
             ),
@@ -854,7 +855,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             config = config_short,
             files = [config_short] + ctx.files.src + ctx.files.data,
             runfiles = ctx.runfiles(transitive_files = depset(
-                [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile, ctx.executable._make] +
+                [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.executable._make, ctx.file._makefile, ctx.executable._make] +
                 ctx.files.src + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
                 transitive = transitive_inputs,
             )),
