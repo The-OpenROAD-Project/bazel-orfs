@@ -9,7 +9,6 @@ if [ -z "$FLOW_HOME" ]; then
   export OPENROAD_EXE="${OPENROAD_PATH}"
   export KLAYOUT_CMD="${KLAYOUT_PATH}"
   export FLOW_HOME="${FLOW_HOME}"
-  export FLOW_VARIANT="${FLOW_VARIANT}"
   export TCL_LIBRARY="${TCL_LIBRARY}"
   export QT_PLUGIN_PATH="${QT_PLUGIN_PATH}"
   export LIBGL_DRIVERS_PATH="${LIBGL_DRIVERS_PATH}"
