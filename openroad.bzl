@@ -685,7 +685,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
         target of a ctx.attr.srcs list.
     """
     variant = ctx.attr.variant
-    all_arguments = extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(*[src[OrfsInfo] for src in ctx.attr.srcs])
+    all_arguments = extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.srcs[0][OrfsInfo])
     output_dir = "{}/{}/{}".format(_platform(ctx), _module_top(ctx), variant)
     config = ctx.actions.declare_file("results/{}/{}.mk".format(output_dir, stage))
     ctx.actions.write(
@@ -780,7 +780,7 @@ def _make_impl(ctx, stage, steps, result_names = [], object_names = [], log_name
     config_short = ctx.actions.declare_file("results/{}/{}.short.mk".format(output_dir, stage))
     ctx.actions.write(
         output = config_short,
-        content = _config_content(extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(short = True, *[src[OrfsInfo] for src in ctx.attr.srcs])),
+        content = _config_content(extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.srcs[0][OrfsInfo], short = True)),
     )
 
     make = ctx.actions.declare_file("make_{}".format(stage))
