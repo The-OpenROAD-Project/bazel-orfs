@@ -1102,7 +1102,7 @@ def orfs_flow(
         steps.append(step)
         if step.stage == abstract_stage:
             break
-    if (abstract_stage not in [STAGE_IMPLS[0].stage, STAGE_IMPLS[1].stage]):
+    if (abstract_stage != STAGE_IMPLS[0].stage):
         steps.append(ABSTRACT_IMPL)
 
     name_variant = name + "_" + variant if variant else name
