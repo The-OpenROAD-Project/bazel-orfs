@@ -413,6 +413,7 @@ def _required_arguments(ctx):
         "PLATFORM": _platform(ctx),
         "DESIGN_NAME": _module_top(ctx),
         "FLOW_VARIANT": ctx.attr.variant,
+        "GENERATE_ARTIFACTS_ON_FAILURE": "1",
     }
 
 def _orfs_arguments(*args, short = False):
