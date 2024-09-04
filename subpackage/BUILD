@@ -30,4 +30,7 @@ orfs_flow(
         "synth": ["//:test/constraints-top.sdc"],
     },
     verilog_files = ["//:test/rtl/L1MetadataArray.sv"],
+    common_args = {
+        "GENERATE_ARTIFACTS_ON_FAILURE": "1",
+    },
 )
