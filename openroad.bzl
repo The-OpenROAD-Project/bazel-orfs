@@ -1063,7 +1063,8 @@ def orfs_flow(
         stage_args = {},
         abstract_stage = None,
         variant = None,
-        visibility = ["//visibility:private"]):
+        visibility = ["//visibility:private"],
+        common_args = {}):
     """
     Creates targets for running physical design flow with OpenROAD-flow-scripts.
 
@@ -1076,6 +1077,7 @@ def orfs_flow(
       abstract_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
       variant: name of the target variant, added right after the module name
       visibility: the visibility attribute on a target controls whether the target can be used in other packages
+      common_args: dictionary of arguments that are passed to every stage. They are be overridden by stage_args.
     """
     steps = []
     for step in STAGE_IMPLS:
@@ -1093,7 +1095,7 @@ def orfs_flow(
     synth_step = steps[1]
     canonicalize_step.impl(
         name = name_template.format(name, canonicalize_step.stage),
-        arguments = stage_args.get(synth_step.stage, {}),
+        arguments = common_args | stage_args.get(synth_step.stage, {}),
         data = stage_sources.get(synth_step.stage, []),
         deps = macros,
         module_top = name,
@@ -1108,7 +1110,7 @@ def orfs_flow(
 
     synth_step.impl(
         name = name_template.format(name, synth_step.stage),
-        arguments = stage_args.get(synth_step.stage, {}),
+        arguments = common_args | stage_args.get(synth_step.stage, {}),
         data = stage_sources.get(synth_step.stage, []),
         deps = macros,
         canonicalized = name_template.format(name, canonicalize_step.stage),
@@ -1125,7 +1127,7 @@ def orfs_flow(
         step.impl(
             name = name_template.format(name, step.stage),
             srcs = srcs,
-            arguments = stage_args.get(step.stage, {}),
+            arguments = common_args | stage_args.get(step.stage, {}),
             data = stage_sources.get(step.stage, []),
             variant = variant,
             visibility = visibility,
