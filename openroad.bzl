@@ -113,7 +113,6 @@ def _run_impl(ctx):
             "WORK_HOME": _work_home(ctx),
             "DESIGN_CONFIG": config.path,
             "FLOW_HOME": ctx.file._makefile.dirname,
-            "FLOW_VARIANT": ctx.attr.variant,
             "OPENROAD_EXE": ctx.executable._openroad.path,
             "YOSYS_EXE": "",
             "TCL_LIBRARY": commonpath(ctx.files._tcl),
@@ -268,7 +267,6 @@ def flow_substitutions(ctx):
         "${MAKE_PATH}": ctx.executable._make.path,
         "${MAKEFILE_PATH}": ctx.file._makefile.path,
         "${FLOW_HOME}": ctx.file._makefile.dirname,
-        "${FLOW_VARIANT}": ctx.attr.variant,
     }
 
 def openroad_substitutions(ctx):
