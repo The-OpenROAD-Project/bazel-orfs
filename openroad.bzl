@@ -986,6 +986,8 @@ orfs_route = add_orfs_make_rule_(
             "5_route_drc.rpt",
         ],
     ),
+    attrs = openroad_attrs(),
+    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo],
 )
 
 orfs_final = add_orfs_make_rule_(
@@ -1031,7 +1033,7 @@ orfs_abstract = rule(
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
-    executable = False,
+    executable = True,
 )
 
 orfs_deps = rule(
