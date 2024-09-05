@@ -41,6 +41,7 @@ filegroup(
     name = "openroad",
     data = [
         ":ld.so",
+        ":qt_plugins",
     ],
     srcs = ["OpenROAD-flow-scripts/tools/install/OpenROAD/bin/openroad"],
     visibility = ["//visibility:public"],
