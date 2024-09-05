@@ -149,7 +149,6 @@ orfs_flow(
         "final": {
             "GND_NETS_VOLTAGES": "",
             "PWR_NETS_VOLTAGES": "",
-            "GDS_ALLOW_EMPTY": "tag_array_64x184",
         },
     },
     stage_sources = {

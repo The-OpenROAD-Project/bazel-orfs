@@ -710,21 +710,8 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     )
 
     results = []
-    odb = None
-    gds = None
-    lef = None
-    lib = None
     for result in result_names:
-        file = _declare_artifact(ctx, "results", result)
-        if file.extension == "odb":
-            odb = file
-        elif file.extension == "gds":
-            gds = file
-        elif file.extension == "lef":
-            lef = file
-        elif file.extension == "lib":
-            lib = file
-        results.append(file)
+        results.append(_declare_artifact(ctx, "results", result))
 
     objects = []
     for object in object_names:
@@ -737,6 +724,22 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     reports = []
     for report in report_names:
         reports.append(_declare_artifact(ctx, "reports", report))
+
+    forwards = [f for f in ctx.files.src if f.basename in forwarded_names]
+
+    odb = None
+    gds = None
+    lef = None
+    lib = None
+    for file in forwards + results:
+        if file.extension == "odb":
+            odb = file
+        elif file.extension == "gds":
+            gds = file
+        elif file.extension == "lef":
+            lef = file
+        elif file.extension == "lib":
+            lib = file
 
     transitive_inputs = [
         ctx.attr.src[OrfsInfo].additional_gds,
@@ -811,7 +814,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         DefaultInfo(
             executable = exe,
             files = depset(
-                [f for f in ctx.files.src if f.basename in forwarded_names] + reports + results,
+                forwards + reports + results,
                 transitive = [
                     ctx.attr.src[OrfsInfo].additional_gds,
                     ctx.attr.src[OrfsInfo].additional_lefs,
@@ -1023,6 +1026,9 @@ orfs_abstract = rule(
         ctx = ctx,
         stage = "7_abstract",
         steps = ["do-generate_abstract"],
+        forwarded_names = [
+            "6_final.gds",
+        ],
         result_names = [
             "{}.lef".format(ctx.attr.src[TopInfo].module_top),
             "{}.lib".format(ctx.attr.src[TopInfo].module_top),
