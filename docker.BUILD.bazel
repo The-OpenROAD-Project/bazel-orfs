@@ -100,6 +100,18 @@ filegroup(
 )
 
 filegroup(
+    name = "ruby3.0.0",
+    srcs = glob(["usr/lib/ruby/3.0.0/**"]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "ruby_dynamic3.0.0",
+    srcs = glob(["usr/lib/x86_64-linux-gnu/ruby/3.0.0/**"]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
     name = "makefile",
     srcs = ["OpenROAD-flow-scripts/flow/Makefile"],
     data = glob([
