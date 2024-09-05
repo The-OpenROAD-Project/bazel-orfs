@@ -1003,6 +1003,7 @@ orfs_final = add_orfs_make_rule_(
             "klayout.lyt",
         ],
         log_names = [
+            "6_1_merge.log",
             "6_report.log",
             "6_report.json",
         ],
@@ -1025,6 +1026,9 @@ orfs_abstract = rule(
         result_names = [
             "{}.lef".format(ctx.attr.src[TopInfo].module_top),
             "{}.lib".format(ctx.attr.src[TopInfo].module_top),
+        ],
+        log_names = [
+            "generate_abstract.log",
         ],
         extra_arguments =
             {"ABSTRACT_SOURCE": _extensionless_basename(ctx.attr.src[OrfsInfo].odb)},
