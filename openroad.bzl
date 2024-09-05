@@ -115,6 +115,8 @@ def _run_impl(ctx):
             "FLOW_HOME": ctx.file._makefile.dirname,
             "OPENROAD_EXE": ctx.executable._openroad.path,
             "YOSYS_EXE": "",
+            "RUBYLIB": ":".join([commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)]),
+            "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
             "TCL_LIBRARY": commonpath(ctx.files._tcl),
             "GUI_ARGS": "-exit",
             "GUI_SOURCE": ctx.file.script.path,
@@ -122,6 +124,8 @@ def _run_impl(ctx):
         inputs = depset(
             ctx.files.src +
             ctx.files.data +
+            ctx.files._ruby +
+            ctx.files._ruby_dynamic +
             ctx.files._tcl +
             [config, ctx.file.script, ctx.executable._openroad, ctx.executable._make, ctx.file._makefile],
             transitive = transitive_inputs,
@@ -179,6 +183,16 @@ orfs_run = rule(
             allow_files = True,
             cfg = "exec",
             default = Label("@docker_orfs//:openroad"),
+        ),
+        "_ruby": attr.label(
+            doc = "Ruby library.",
+            allow_files = True,
+            default = Label("@docker_orfs//:ruby3.0.0"),
+        ),
+        "_ruby_dynamic": attr.label(
+            doc = "Ruby dynamic library.",
+            allow_files = True,
+            default = Label("@docker_orfs//:ruby_dynamic3.0.0"),
         ),
         "_tcl": attr.label(
             doc = "Tcl library.",
@@ -262,6 +276,8 @@ def openroad_substitutions(ctx):
         "${YOSYS_PATH}": "",
         "${OPENROAD_PATH}": ctx.executable._openroad.path,
         "${KLAYOUT_PATH}": ctx.executable._klayout.path,
+        "${RUBY_PATH}": commonpath(ctx.files._ruby),
+        "${DLN_LIBRARY_PATH}": commonpath(ctx.files._ruby_dynamic),
         "${TCL_LIBRARY}": commonpath(ctx.files._tcl),
         "${LIBGL_DRIVERS_PATH}": commonpath(ctx.files._opengl),
         "${QT_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
@@ -407,6 +423,16 @@ def openroad_only_attrs():
             allow_files = True,
             cfg = "exec",
             default = Label("@docker_orfs//:klayout"),
+        ),
+        "_ruby": attr.label(
+            doc = "Ruby library.",
+            allow_files = True,
+            default = Label("@docker_orfs//:ruby3.0.0"),
+        ),
+        "_ruby_dynamic": attr.label(
+            doc = "Ruby dynamic library.",
+            allow_files = True,
+            default = Label("@docker_orfs//:ruby_dynamic3.0.0"),
         ),
         "_tcl": attr.label(
             doc = "Tcl library.",
@@ -762,6 +788,8 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             "FLOW_HOME": ctx.file._makefile.dirname,
             "OPENROAD_EXE": ctx.executable._openroad.path,
             "KLAYOUT_CMD": envwrap(preloadwrap(ctx.executable._klayout.path, ctx.file._libstdbuf.path)),
+            "RUBYLIB": ":".join([commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)]),
+            "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
             "TCL_LIBRARY": commonpath(ctx.files._tcl),
             "QT_QPA_PLATFORM_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
             "QT_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
@@ -769,6 +797,8 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         inputs = depset(
             ctx.files.src +
             ctx.files.data +
+            ctx.files._ruby +
+            ctx.files._ruby_dynamic +
             ctx.files._tcl +
             [config, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile, ctx.executable._make],
             transitive = transitive_inputs,
@@ -813,7 +843,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             ),
             runfiles = ctx.runfiles(
                 [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.executable._make, ctx.file._makefile] +
-                results + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules + logs + reports,
+                results + logs + reports + ctx.files.data + ctx.files._ruby + ctx.files._ruby_dynamic + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
                 transitive_files = depset(transitive = transitive_inputs + [ctx.attr.src[LoggingInfo].logs, ctx.attr.src[LoggingInfo].reports]),
             ),
         ),
@@ -836,7 +866,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             files = [config_short] + ctx.files.src + ctx.files.data,
             runfiles = ctx.runfiles(transitive_files = depset(
                 [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.executable._make, ctx.file._makefile, ctx.executable._make] +
-                ctx.files.src + ctx.files.data + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
+                ctx.files.src + ctx.files.data + ctx.files._ruby + ctx.files._ruby_dynamic + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
                 transitive = transitive_inputs,
             )),
         ),
