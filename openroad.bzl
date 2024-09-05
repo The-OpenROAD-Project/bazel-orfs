@@ -1061,7 +1061,7 @@ orfs_abstract = rule(
     ),
     attrs = openroad_attrs(),
     provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
-    executable = False,
+    executable = True,
 )
 
 orfs_deps = rule(
