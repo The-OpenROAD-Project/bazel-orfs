@@ -727,19 +727,9 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
 
     forwards = [f for f in ctx.files.src if f.basename in forwarded_names]
 
-    odb = None
-    gds = None
-    lef = None
-    lib = None
+    info = {}
     for file in forwards + results:
-        if file.extension == "odb":
-            odb = file
-        elif file.extension == "gds":
-            gds = file
-        elif file.extension == "lef":
-            lef = file
-        elif file.extension == "lib":
-            lib = file
+        info[file.extension] = file
 
     transitive_inputs = [
         ctx.attr.src[OrfsInfo].additional_gds,
@@ -852,10 +842,10 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         ),
         OrfsInfo(
             stage = stage,
-            odb = odb,
-            gds = gds,
-            lef = lef,
-            lib = lib,
+            odb = info.get("odb"),
+            gds = info.get("gds"),
+            lef = info.get("lef"),
+            lib = info.get("lib"),
             additional_gds = ctx.attr.src[OrfsInfo].additional_gds,
             additional_lefs = ctx.attr.src[OrfsInfo].additional_lefs,
             additional_libs = ctx.attr.src[OrfsInfo].additional_libs,
