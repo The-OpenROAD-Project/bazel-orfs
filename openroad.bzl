@@ -249,19 +249,6 @@ def envwrap(command):
     """
     return "env -S " + command
 
-def pathatlevel(path, level):
-    """
-    Return `path` argument, `level` directories back.
-
-    Args:
-      path: Path to be prepended.
-      level: The level of the parent directory to go to.
-
-    Returns:
-      The edited path.
-    """
-    return "/".join([".." for _ in range(level)] + [path])
-
 def flow_substitutions(ctx):
     return {
         "${MAKE_PATH}": ctx.executable._make.path,
@@ -278,7 +265,6 @@ def openroad_substitutions(ctx):
         "${TCL_LIBRARY}": commonpath(ctx.files._tcl),
         "${LIBGL_DRIVERS_PATH}": commonpath(ctx.files._opengl),
         "${QT_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
-        "${QT_QPA_PLATFORM_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
         "${GIO_MODULE_DIR}": commonpath(ctx.files._gio_modules),
     }
 
@@ -784,7 +770,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             "OPENROAD_EXE": ctx.executable._openroad.path,
             "KLAYOUT_CMD": envwrap(preloadwrap(ctx.executable._klayout.path, ctx.file._libstdbuf.path)),
             "TCL_LIBRARY": commonpath(ctx.files._tcl),
-            "QT_QPA_PLATFORM_PLUGIN_PATH": pathatlevel(commonpath(ctx.files._qt_plugins), 5),
+            "QT_QPA_PLATFORM_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
             "QT_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
         },
         inputs = depset(
