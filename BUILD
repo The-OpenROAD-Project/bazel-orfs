@@ -68,6 +68,7 @@ orfs_flow(
             "CORE_UTILIZATION": "40",
             "CORE_ASPECT_RATIO": "2",
             "SKIP_REPORT_METRICS": "1",
+            "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
         },
         "place": SRAM_FLOOR_PLACE_ARGUMENTS | {
             "SKIP_REPORT_METRICS": "1",
@@ -131,7 +132,7 @@ orfs_flow(
 
 orfs_flow(
     name = "L1MetadataArray",
-    abstract_stage = "route",
+    abstract_stage = "final",
     macros = ["tag_array_64x184_generate_abstract"],
     stage_args = {
         "synth": {
@@ -143,10 +144,16 @@ orfs_flow(
             "RTLMP_FLOW": "1",
             "CORE_MARGIN": "2",
             "MACRO_PLACE_HALO": "30 30",
+            "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
         },
         "place": {
             "PLACE_DENSITY": "0.20",
             "PLACE_PINS_ARGS": "-annealing",
+        },
+        "final": {
+            "GND_NETS_VOLTAGES": "",
+            "PWR_NETS_VOLTAGES": "",
+            "GDS_ALLOW_EMPTY": "tag_array_64x184",
         },
     },
     stage_sources = {
