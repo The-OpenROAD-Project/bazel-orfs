@@ -61,7 +61,6 @@ SRAM_SYNTH_ARGUMENTS = {
 
 orfs_flow(
     name = "tag_array_64x184",
-    abstract_stage = "place",
     stage_args = {
         "synth": SRAM_SYNTH_ARGUMENTS,
         "floorplan": SRAM_FLOOR_PLACE_ARGUMENTS | {
@@ -131,7 +130,6 @@ orfs_flow(
 
 orfs_flow(
     name = "L1MetadataArray",
-    abstract_stage = "route",
     macros = ["tag_array_64x184_generate_abstract"],
     stage_args = {
         "synth": {
@@ -147,6 +145,11 @@ orfs_flow(
         "place": {
             "PLACE_DENSITY": "0.20",
             "PLACE_PINS_ARGS": "-annealing",
+        },
+        "final": {
+            "GND_NETS_VOLTAGES": "",
+            "PWR_NETS_VOLTAGES": "",
+            "GDS_ALLOW_EMPTY": "tag_array_64x184",
         },
     },
     stage_sources = {
