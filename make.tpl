@@ -7,12 +7,13 @@ if [ -z "$FLOW_HOME" ]; then
   export MAKE_PATH="${MAKE_PATH}"
   export YOSYS_EXE="${YOSYS_PATH}"
   export OPENROAD_EXE="${OPENROAD_PATH}"
-  export KLAYOUT_CMD="${KLAYOUT_PATH}"
+  export KLAYOUT_CMD="${KLAYOUT_CMD}"
   export FLOW_HOME="${FLOW_HOME}"
   export TCL_LIBRARY="${TCL_LIBRARY}"
   export QT_PLUGIN_PATH="${QT_PLUGIN_PATH}"
   export LIBGL_DRIVERS_PATH="${LIBGL_DRIVERS_PATH}"
   export GIO_MODULE_DIR="${GIO_MODULE_DIR}"
+  export RUBYLIB="${RUBYLIB}"
 
   # absolute paths, if non-empty
   export YOSYS_EXE="${YOSYS_EXE:+$PWD/$YOSYS_EXE}"
@@ -22,6 +23,7 @@ if [ -z "$FLOW_HOME" ]; then
   export QT_PLUGIN_PATH="${QT_PLUGIN_PATH:+$PWD/$QT_PLUGIN_PATH}"
   export LIBGL_DRIVERS_PATH="${LIBGL_DRIVERS_PATH:+$PWD/$LIBGL_DRIVERS_PATH}"
   export GIO_MODULE_DIR="${GIO_MODULE_DIR:+$PWD/$GIO_MODULE_DIR}"
+  export RUBYLIB="${RUBYLIB:+$PWD/$RUBYLIB}"
 else
   # if make is not in the path, error out, otherwise set MAKE_PATH
   if ! command -v make >/dev/null; then

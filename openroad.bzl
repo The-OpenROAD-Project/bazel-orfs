@@ -120,6 +120,7 @@ def _run_impl(ctx):
             "TCL_LIBRARY": commonpath(ctx.files._tcl),
             "GUI_ARGS": "-exit",
             "GUI_SOURCE": ctx.file.script.path,
+            "KLAYOUT_CMD": envwrap(preloadwrap(ctx.executable._klayout.path, ctx.file._libstdbuf.path)),
         },
         inputs = depset(
             ctx.files.src +
@@ -199,6 +200,10 @@ orfs_run = rule(
             allow_files = True,
             default = Label("@docker_orfs//:tcl8.6"),
         ),
+        "_libstdbuf": attr.label(
+            allow_single_file = ["libstdbuf.so"],
+            default = Label("@docker_orfs//:libstdbuf.so"),
+        ),
     },
 )
 
@@ -275,7 +280,8 @@ def openroad_substitutions(ctx):
         "${MAKE_PATH}": ctx.executable._make.path,
         "${YOSYS_PATH}": "",
         "${OPENROAD_PATH}": ctx.executable._openroad.path,
-        "${KLAYOUT_PATH}": ctx.executable._klayout.path,
+        "${KLAYOUT_CMD}": envwrap(preloadwrap(ctx.executable._klayout.path, ctx.file._libstdbuf.path)),
+        "${RUBYLIB}": ":".join([commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)]),
         "${RUBY_PATH}": commonpath(ctx.files._ruby),
         "${DLN_LIBRARY_PATH}": commonpath(ctx.files._ruby_dynamic),
         "${TCL_LIBRARY}": commonpath(ctx.files._tcl),
@@ -301,6 +307,7 @@ def _deps_impl(ctx):
             "${CONFIG}": ctx.attr.src[OrfsDepInfo].config.short_path,
             "${MAKE}": ctx.attr.src[OrfsDepInfo].make.short_path,
         } | openroad_substitutions(ctx),
+        
     )
     return [
         DefaultInfo(
@@ -336,6 +343,16 @@ def flow_attrs():
         "_libstdbuf": attr.label(
             allow_single_file = ["libstdbuf.so"],
             default = Label("@docker_orfs//:libstdbuf.so"),
+        ),
+        "_ruby": attr.label(
+            doc = "Ruby library.",
+            allow_files = True,
+            default = Label("@docker_orfs//:ruby3.0.0"),
+        ),
+        "_ruby_dynamic": attr.label(
+            doc = "Ruby dynamic library.",
+            allow_files = True,
+            default = Label("@docker_orfs//:ruby_dynamic3.0.0"),
         ),
     }
 
