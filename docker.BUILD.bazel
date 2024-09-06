@@ -32,12 +32,6 @@ filegroup(
 )
 
 filegroup(
-    name = "libstdbuf.so",
-    srcs = ["usr/libexec/coreutils/libstdbuf.so"],
-    visibility = ["//visibility:public"],
-)
-
-filegroup(
     name = "openroad",
     data = [
         ":ld.so",
@@ -87,7 +81,6 @@ filegroup(
     name = "klayout",
     data = [
         ":ld.so",
-        ":libstdbuf.so",
     ],
     srcs = ["usr/bin/klayout"],
     visibility = ["//visibility:public"],
