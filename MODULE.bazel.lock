@@ -63,8 +63,8 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "IbHX92klreC/cdXk7u0Sa7h+di/v7G8yQtiUG20ocz0=",
-        "usagesDigest": "vDCy3RMPjTu2/yUpxKaZKZRwXePWohgRn/P6sRnhufM=",
+        "bzlTransitiveDigest": "QBi+YhISAjw4QqUAPLtPaFfw3mWHftL+XC6x62hMv+o=",
+        "usagesDigest": "xj7wfEDEDE8caOhOA7RBoXV50uID99H6X81CEPNP/rI=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -73,10 +73,13 @@
             "bzlFile": "@@//:docker.bzl",
             "ruleClassName": "docker_pkg",
             "attributes": {
-              "image": "docker.io/openroad/orfs:v3.0-1266-ge623a237",
-              "sha256": "d9492e65906d5e459bdc9d033915bc8fc15c37ab7b6337196f2e95c0e00a287e",
+              "image": "docker.io/openroad/orfs:v3.0-1305-g0aa3fe5d",
+              "sha256": "b817260720e3575771aea5b0e609946308b3c7f11d8a7023b2688947a704d899",
               "build_file": "@@//:docker.BUILD.bazel",
-              "timeout": 3600
+              "timeout": 3600,
+              "patch_cmds": [
+                "find . -name BUILD.bazel -delete"
+              ]
             }
           },
           "com_github_nixos_patchelf_download": {
