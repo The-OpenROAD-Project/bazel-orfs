@@ -43,6 +43,9 @@ def _orfs_repositories_impl(module_ctx):
             sha256 = default.sha256,
             build_file = ":docker.BUILD.bazel",
             timeout = 3600,
+            patch_cmds = [
+                "find . -name BUILD.bazel -delete",
+            ],
         )
 
 orfs_repositories = module_extension(
