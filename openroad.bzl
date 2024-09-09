@@ -243,6 +243,7 @@ def flow_substitutions(ctx):
         "${MAKE_PATH}": ctx.executable._make.path,
         "${MAKEFILE_PATH}": ctx.file._makefile.path,
         "${FLOW_HOME}": ctx.file._makefile.dirname,
+        "${TCL_LIBRARY}": commonpath(ctx.files._tcl),
     }
 
 def openroad_substitutions(ctx):
@@ -253,7 +254,6 @@ def openroad_substitutions(ctx):
         "${STDBUF_PATH}": "",
         "${RUBY_PATH}": commonpath(ctx.files._ruby),
         "${DLN_LIBRARY_PATH}": commonpath(ctx.files._ruby_dynamic),
-        "${TCL_LIBRARY}": commonpath(ctx.files._tcl),
         "${LIBGL_DRIVERS_PATH}": commonpath(ctx.files._opengl),
         "${QT_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
         "${GIO_MODULE_DIR}": commonpath(ctx.files._gio_modules),
@@ -578,9 +578,11 @@ def _yosys_impl(ctx):
             "ABC": ctx.executable._abc.path,
             "YOSYS_EXE": ctx.executable._yosys.path,
             "OPENROAD_EXE": "",
+            "TCL_LIBRARY": commonpath(ctx.files._tcl),
         },
         inputs = depset(
             ctx.files.data +
+            ctx.files._tcl +
             [
                 canon_output,
                 config,
@@ -627,8 +629,8 @@ def _yosys_impl(ctx):
                 [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
             ),
             runfiles = ctx.runfiles(
-                synth_outputs + [canon_output, config_short, make, ctx.executable._yosys, ctx.executable._make, ctx.file._makefile] +
-                ctx.files.verilog_files + ctx.files.data + canon_logs + synth_logs,
+                synth_outputs + canon_logs + synth_logs + [canon_output, config_short, make, ctx.executable._yosys, ctx.executable._make, ctx.file._makefile] +
+                ctx.files.verilog_files + ctx.files.data + ctx.files._tcl,
                 transitive_files = depset(transitive = transitive_inputs),
             ),
         ),
@@ -649,7 +651,7 @@ def _yosys_impl(ctx):
             files = [config_short] + ctx.files.verilog_files + ctx.files.data,
             runfiles = ctx.runfiles(transitive_files = depset(
                 [config_short, make, ctx.executable._yosys, ctx.executable._make, ctx.file._makefile] +
-                ctx.files.verilog_files + ctx.files.data,
+                ctx.files.verilog_files + ctx.files.data + ctx.files._tcl,
                 transitive = transitive_inputs,
             )),
         ),
