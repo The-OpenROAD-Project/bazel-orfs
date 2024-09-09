@@ -61,28 +61,10 @@ SRAM_SYNTH_ARGUMENTS = {
 
 orfs_flow(
     name = "tag_array_64x184",
-    stage_args = {
-        "synth": SRAM_SYNTH_ARGUMENTS,
-        "floorplan": SRAM_FLOOR_PLACE_ARGUMENTS | {
+    args = SRAM_SYNTH_ARGUMENTS | SRAM_FLOOR_PLACE_ARGUMENTS | {
             "CORE_UTILIZATION": "40",
             "CORE_ASPECT_RATIO": "2",
             "SKIP_REPORT_METRICS": "1",
-        },
-        "place": SRAM_FLOOR_PLACE_ARGUMENTS | {
-            "SKIP_REPORT_METRICS": "1",
-        },
-        "cts": {
-            "SKIP_REPORT_METRICS": "1",
-        },
-        "grt": {
-            "SKIP_REPORT_METRICS": "1",
-        },
-        "route": {
-            "SKIP_REPORT_METRICS": "1",
-        },
-        "final": {
-            "SKIP_REPORT_METRICS": "1",
-        },
     },
     stage_sources = {
         "synth": [":constraints-sram"],
