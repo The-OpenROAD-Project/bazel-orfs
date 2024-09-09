@@ -1064,12 +1064,55 @@ STAGE_IMPLS = [
 
 ABSTRACT_IMPL = struct(stage = "generate_abstract", impl = orfs_abstract)
 
+# A stage argument is used in one or more stages. This is metainformation
+# about the ORFS code that there is no known nice way for ORFS to
+# provide.
+STAGE_ARGS_USES = {
+    "PLACE_DENSITY": ["floorplan", "place"],
+    "SDC_FILE": ["synth"],
+    "IO_CONSTRAINTS": ["floorplan", "place"],
+    "PLACE_PINS_ARGS": ["floorplan", "place"],
+    "CORE_UTILIZATION": ["floorplan"],
+    "CORE_ASPECT_RATIO": ["floorplan"],
+    "REMOVE_ABC_BUFFERS": ["floorplan"],
+    "PDN_TCL": ["floorplan"],
+    "MACRO_PLACEMENT_TCL": ["floorplan"],
+    "TNS_END_PERCENT": ["cts", "floorplan", "grt"],
+    "SKIP_CTS_REPAIR_TIMING": ["cts"],
+    "CORE_MARGIN": ["floorplan"],
+    "SKIP_REPORT_METRICS": ["all"],
+    "SYNTH_HIERARCHICAL": ["synth"],
+    "RTLMP_FLOW": ["floorplan"],
+    "MACRO_PLACE_HALO": ["floorplan"],
+    "GND_NETS_VOLTAGES": ["final"],
+    "PWR_NETS_VOLTAGES": ["final"],
+    "GPL_ROUTABILITY_DRIVEN": ["place"],
+    "GPL_TIMING_DRIVEN": ["place"],
+    "SKIP_INCREMENTAL_REPAIR": ["grt"],
+}
+
+def get_stage_args(stage, stage_args, args):
+    """Returns the arguments for a specific stage.
+
+    Args:
+        stage: The stage name.
+        stage_args: the dictionary of stages with each stage having a dictionary of arguments
+        args: a dictionary of arguments automatically assigned to a stage
+    Returns:
+      A dictionary of arguments for the stage.
+    """
+    return ({arg: value
+             for arg, value in args.items()
+             if stage in STAGE_ARGS_USES[arg] or "all" in STAGE_ARGS_USES[arg]} |
+            stage_args.get(stage, {}))
+
 def orfs_flow(
         name,
         verilog_files = [],
         macros = [],
         stage_sources = {},
         stage_args = {},
+        args = {},
         abstract_stage = None,
         variant = None,
         visibility = ["//visibility:private"]):
@@ -1082,6 +1125,7 @@ def orfs_flow(
       macros: list of macros required to run physical design flow for this design
       stage_sources: dictionary keyed by ORFS stages with lists of stage-specific sources
       stage_args: dictionary keyed by ORFS stages with lists of stage-specific arguments
+      args: dictionary of additional arguments to the flow, automatically assigned to stages
       abstract_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
       variant: name of the target variant, added right after the module name
       visibility: the visibility attribute on a target controls whether the target can be used in other packages
@@ -1099,7 +1143,7 @@ def orfs_flow(
     synth_step = steps[0]
     synth_step.impl(
         name = "{}_{}".format(name_variant, synth_step.stage),
-        arguments = stage_args.get(synth_step.stage, {}),
+        arguments = get_stage_args(synth_step.stage, stage_args, args),
         data = stage_sources.get(synth_step.stage, []),
         deps = macros,
         module_top = name,
@@ -1116,7 +1160,7 @@ def orfs_flow(
         step.impl(
             name = "{}_{}".format(name_variant, step.stage),
             src = "{}_{}".format(name_variant, prev.stage),
-            arguments = stage_args.get(step.stage, {}),
+            arguments = get_stage_args(step.stage, stage_args, args),
             data = stage_sources.get(step.stage, []),
             variant = variant,
             visibility = visibility,
