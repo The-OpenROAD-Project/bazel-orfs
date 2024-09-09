@@ -247,7 +247,6 @@ def flow_substitutions(ctx):
 
 def openroad_substitutions(ctx):
     return {
-        "${MAKE_PATH}": ctx.executable._make.path,
         "${YOSYS_PATH}": "",
         "${OPENROAD_PATH}": ctx.executable._openroad.path,
         "${KLAYOUT_PATH}": ctx.executable._klayout.path,
