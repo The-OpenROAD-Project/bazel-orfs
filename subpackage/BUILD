@@ -31,3 +31,30 @@ orfs_flow(
     },
     verilog_files = ["//:test/rtl/L1MetadataArray.sv"],
 )
+
+
+orfs_flow(
+    name = "tag_array_64x184",
+    abstract_stage = "floorplan",
+    stage_args = {
+        "synth": {
+            "SYNTH_MEMORY_MAX_BITS": "12000",
+            "SDC_FILE": "$(location //:constraints-sram)",
+        },
+        "floorplan": {
+            "CORE_UTILIZATION": "40",
+            "CORE_ASPECT_RATIO": "2",
+            "IO_CONSTRAINTS": "$(location //:io-sram)",
+        },
+        "place": {
+            "PLACE_DENSITY": "0.65",
+            "IO_CONSTRAINTS": "$(location //:io-sram)",
+        },
+    },
+    stage_sources = {
+        "synth": ["//:constraints-sram"],
+        "floorplan": ["//:io-sram"],
+        "place": ["//:io-sram"],
+    },
+    verilog_files = ["//:test/rtl/tag_array_64x184.sv"],
+)
