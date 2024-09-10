@@ -171,13 +171,13 @@ orfs.default(
 use_repo(orfs, "docker_orfs")
 ```
 
-Setting this attribute to a valid image and checksum will enable Bazel to automatically pull the image and extract ORFS artifacts.
+Setting this attribute to a valid image and checksum will enable Bazel to automatically pull the image and extract ORFS artifacts on `bazel run` or `bazel build`:
 
 ```bash
 bazel build <target>_<stage>
 ```
 
-If the directory under the `<absolute_path>` does not exist, it will be created. If a relative path is provided, the `bazel run` command above will fail.
+> **NOTE:** If `sha256` is set to an empty string `""`, Bazel will attempt to use a local image with name provided in the `image` field.
 
 ### Local flow
 
@@ -186,6 +186,8 @@ A locally built and modified [ORFS](https://openroad-flow-scripts.readthedocs.io
 ```bash
 bazel run <target>_<stage>_deps -- <absolute_path> && <absolute_path>/make do-<stage>
 ```
+
+> **NOTE:** If the directory under the `<absolute_path>` does not exist, it will be created. If a relative path is provided, the `bazel run` command above will fail.
 
 A convenient way to re-run the floorplan and view the results would be:
 
