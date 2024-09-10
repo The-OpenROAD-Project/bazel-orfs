@@ -1089,6 +1089,9 @@ STAGE_ARGS_USES = {
     "GPL_ROUTABILITY_DRIVEN": ["place"],
     "GPL_TIMING_DRIVEN": ["place"],
     "SKIP_INCREMENTAL_REPAIR": ["grt"],
+    "MIN_ROUTING_LAYER": ["place", "grt", "route", "final"],
+    "MAX_ROUTING_LAYER": ["place", "grt", "route", "final"],
+    "ROUTING_LAYER_ADJUSTMENT": ["place", "grt", "route", "final"],
 }
 
 def get_stage_args(stage, stage_args, args):
