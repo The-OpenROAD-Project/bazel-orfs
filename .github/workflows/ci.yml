@@ -41,7 +41,10 @@ jobs:
           - "lb_32x128_generate_abstract"
           - "lb_32x128_test_generate_abstract"
           - "L1MetadataArray_generate_abstract"
+          - "data_2048x8_generate_abstract"
+          - "regfile_128x65_floorplan"
           - "subpackage:L1MetadataArray_generate_abstract"
+          - "subpackage:tag_array_64x184_generate_abstract"
     env:
       DEBIAN_FRONTEND: "noninteractive"
     steps:
@@ -61,6 +64,38 @@ jobs:
         run: |
           bazel query ${{ matrix.STAGE_TARGET }}
           bazel query ${{ matrix.STAGE_TARGET }} --output=build
-      - name: build target
+      - name: Build report
+        if: ${{ endsWith(matrix.STAGE_TARGET, '_report') }}
         run: |
           bazel build --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }}
+      - name: Run target
+        if: ${{ !endsWith(matrix.STAGE_TARGET, '_report') }}
+        run: |
+          bazel run --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }} -- `pwd`/build
+
+
+  test-target-local:
+    name: Local flow - test targets
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+    steps:
+      - name: Print info
+        run: |
+          echo "USER: "$(whoami)
+          echo "PWD: "$(pwd)
+          echo "HOME: "$HOME
+          ls -la
+      - name: Checkout bazel-orfs
+        uses: actions/checkout@v4
+      - name: Build local stage targets - tag_array_64x184
+        env:
+          TARGET: tag_array_64x184
+        run: .github/scripts/build_local_target.sh
+      - name: Build local stage targets - L1MetadataArray
+        env:
+          TARGET: L1MetadataArray
+        run: .github/scripts/build_local_target.sh
