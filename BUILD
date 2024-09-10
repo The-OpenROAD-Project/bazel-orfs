@@ -59,6 +59,12 @@ SRAM_SYNTH_ARGUMENTS = {
     "SDC_FILE": "$(location :constraints-sram)",
 }
 
+BLOCK_FLOORPLAN = {
+    "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
+    # repair_timing runs for hours in floorplan
+    "REMOVE_ABC_BUFFERS": "1",
+}
+
 orfs_flow(
     name = "tag_array_64x184",
     args = SRAM_SYNTH_ARGUMENTS | SRAM_FLOOR_PLACE_ARGUMENTS | {
@@ -184,4 +190,57 @@ eqy_test(
         "test/rtl/Mul.sv",
     ],
     module_top = "Mul",
+)
+
+orfs_flow(
+    name = "data_2048x8",
+    abstract_stage = "cts",
+    stage_args = {
+        "synth": SRAM_SYNTH_ARGUMENTS | {"SYNTH_MEMORY_MAX_BITS": "16384"},
+        "floorplan": BLOCK_FLOORPLAN | SRAM_FLOOR_PLACE_ARGUMENTS | {
+            "CORE_UTILIZATION": "40",
+            "CORE_ASPECT_RATIO": "2",
+        },
+        "place": SRAM_FLOOR_PLACE_ARGUMENTS | {
+            "PLACE_DENSITY": "0.65",
+            "GPL_TIMING_DRIVEN": "0",
+        },
+        "cts": {
+            "SKIP_CTS_REPAIR_TIMING": "0",
+            "SKIP_REPORT_METRICS": "1",
+        },
+    },
+    stage_sources = {
+        "synth": [":constraints-sram"],
+        "floorplan": [":io-sram"],
+        "place": [":io-sram"],
+    },
+    verilog_files = [
+        "test/rtl/data_2048x8.sv"
+    ],
+)
+
+orfs_flow(
+    name = "regfile_128x65",
+    abstract_stage = "cts",
+    stage_args = {
+        "synth": SRAM_SYNTH_ARGUMENTS,
+        "floorplan": BLOCK_FLOORPLAN | {
+            "DIE_AREA": "0 0 400 400",
+            "CORE_AREA": "2 2 298 298",
+            "IO_CONSTRAINTS": "$(location :io-sram)",
+        },
+        "place": {
+            "PLACE_DENSITY": "0.3",
+            "IO_CONSTRAINTS": "$(location :io-sram)",
+        },
+    },
+    stage_sources = {
+        "synth": [":constraints-sram"],
+        "floorplan": [":io-sram"],
+        "place": [":io-sram"],
+    },
+    verilog_files = [
+        "test/rtl/regfile_128x65.sv"
+    ],
 )
