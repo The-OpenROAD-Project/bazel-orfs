@@ -817,7 +817,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             ),
             runfiles = ctx.runfiles(
                 [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.executable._make, ctx.file._makefile] +
-                results + logs + reports + ctx.files.data + ctx.files._ruby + ctx.files._ruby_dynamic + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
+                forwards + results + logs + reports + ctx.files.data + ctx.files._ruby + ctx.files._ruby_dynamic + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
                 transitive_files = depset(transitive = transitive_inputs + [ctx.attr.src[LoggingInfo].logs, ctx.attr.src[LoggingInfo].reports]),
             ),
         ),
