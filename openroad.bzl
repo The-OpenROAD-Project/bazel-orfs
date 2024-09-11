@@ -1073,6 +1073,8 @@ STAGE_ARGS_USES = {
     "IO_CONSTRAINTS": ["floorplan", "place"],
     "PLACE_PINS_ARGS": ["floorplan", "place"],
     "CORE_UTILIZATION": ["floorplan"],
+    "CORE_AREA": ["floorplan"],
+    "DIE_AREA": ["floorplan"],
     "CORE_ASPECT_RATIO": ["floorplan"],
     "REMOVE_ABC_BUFFERS": ["floorplan"],
     "PDN_TCL": ["floorplan"],
