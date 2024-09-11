@@ -74,8 +74,8 @@ jobs:
           bazel run --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }} -- `pwd`/build
 
 
-  test-target-local:
-    name: Local flow - test targets
+  test-target-local-clean-setup:
+    name: Local flow - clean setup
     runs-on: ubuntu-22.04
     defaults:
       run:
@@ -89,6 +89,61 @@ jobs:
           echo "PWD: "$(pwd)
           echo "HOME: "$HOME
           ls -la
+      - name: Checkout bazel-orfs
+        uses: actions/checkout@v4
+      - name: Build local stage targets - tag_array_64x184
+        env:
+          TARGET: tag_array_64x184
+        run: .github/scripts/build_local_target.sh
+      - name: Build local stage targets - L1MetadataArray
+        env:
+          TARGET: L1MetadataArray
+        run: .github/scripts/build_local_target.sh
+
+  generate-config:
+    name: Generate configs
+    runs-on: ubuntu-22.04
+    outputs:
+      docker-tag: ${{ steps.docker-image.outputs.docker-orfs }}
+    steps:
+      - name: Checkout bazel-orfs
+        uses: actions/checkout@v4
+      - name: Lint Bazel files
+        run: bazel mod tidy && git diff --exit-code
+      - name: Extract Docker tag
+        id: docker-image
+        run: |
+          revision=$(python3 .github/scripts/extract_docker_revision.py MODULE.bazel.lock)
+          echo "docker-orfs=$revision" | tee -a $GITHUB_OUTPUT
+
+  test-target-local-preinstalled-orfs:
+    name: Local flow - preinstalled orfs
+    runs-on: ubuntu-22.04
+    needs: generate-config
+    container:
+      image: ${{ fromJSON(needs.generate-config.outputs.docker-tag).image }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+      FLOW_HOME: /OpenROAD-flow-scripts/flow
+    steps:
+      - name: Print info and setup orfs
+        run: |
+          echo "USER: "$(whoami)
+          echo "PWD: "$(pwd)
+          echo "HOME: "$HOME
+          ls -la
+          cd /OpenROAD-flow-scripts
+          echo "OpenROAD-flow-scripts SHA: "$(git rev-parse HEAD)
+          source ./env.sh
+          yosys --version
+          openroad -version
+      - name: Install bazelisk as bazel
+        run: |
+          wget https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64 -O /usr/local/bin/bazel
+          chmod +x /usr/local/bin/bazel
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
       - name: Build local stage targets - tag_array_64x184
