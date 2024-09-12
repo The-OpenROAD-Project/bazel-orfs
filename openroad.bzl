@@ -69,6 +69,21 @@ def odb_environment(ctx):
         return {"ODB_FILE": ctx.attr.src[OrfsInfo].odb.path}
     return {}
 
+def _default_env(ctx, config):
+    return {
+        "HOME": _work_home(ctx),
+        "WORK_HOME": _work_home(ctx),
+        "DESIGN_CONFIG": config.path,
+        "FLOW_HOME": ctx.file._makefile.dirname,
+    }
+
+def _run_env(ctx, config):
+    return _default_env(ctx, config) | {
+        "OPENROAD_EXE": ctx.executable._openroad.path,
+        "YOSYS_EXE": "",
+        "TCL_LIBRARY": commonpath(ctx.files._tcl),
+    }
+
 def _run_impl(ctx):
     all_arguments = _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
     config = _declare_artifact(ctx, "results", "open.mk")
@@ -108,16 +123,9 @@ def _run_impl(ctx):
             "open_{}".format(stage_name),
         ],
         command = ctx.executable._make.path + " $@",
-        env = odb_environment(ctx) | {
-            "HOME": _work_home(ctx),
-            "WORK_HOME": _work_home(ctx),
-            "DESIGN_CONFIG": config.path,
-            "FLOW_HOME": ctx.file._makefile.dirname,
-            "OPENROAD_EXE": ctx.executable._openroad.path,
-            "YOSYS_EXE": "",
+        env = odb_environment(ctx) | _run_env(ctx, config) | {
             "RUBYLIB": ":".join([commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)]),
             "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
-            "TCL_LIBRARY": commonpath(ctx.files._tcl),
             "GUI_ARGS": "-exit",
             "GUI_SOURCE": ctx.file.script.path,
         },
@@ -198,6 +206,128 @@ orfs_run = rule(
             doc = "Tcl library.",
             allow_files = True,
             default = Label("@docker_orfs//:tcl8.6"),
+        ),
+    },
+)
+
+def _run_openroad_impl(ctx, mock_area = False):
+    all_arguments = _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
+    config = _declare_artifact(ctx, "results", "run_or.mk")
+    ctx.actions.write(
+        output = config,
+        content = _config_content(all_arguments),
+    )
+
+    if mock_area:
+        obj_dir = _artifact_dir(ctx, "objects")
+        outs = [ctx.actions.declare_file(obj_dir + "/scaled_area.env")]
+    else:
+        outs = ctx.outputs
+
+    transitive_inputs = [
+        ctx.attr.src[OrfsInfo].additional_gds,
+        ctx.attr.src[OrfsInfo].additional_lefs,
+        ctx.attr.src[OrfsInfo].additional_libs,
+        ctx.attr.src[PdkInfo].files,
+        ctx.attr.src[DefaultInfo].default_runfiles.files,
+        ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._openroad[DefaultInfo].default_runfiles.files,
+        ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
+    ]
+
+    for datum in ctx.attr.data:
+        transitive_inputs.append(datum.default_runfiles.files)
+        transitive_inputs.append(datum.default_runfiles.symlinks)
+
+    ctx.actions.run_shell(
+        arguments = [
+            "-no_splash",
+            "-exit",
+            ctx.file.script.path,
+        ],
+        command = ctx.executable._openroad.path + " $@",
+        env = all_arguments | odb_environment(ctx) | _run_env(ctx, config) | {
+            "RESULTS_DIR": ctx.genfiles_dir.path + "/" + _artifact_dir(ctx, "results"),
+            "OUTPUTS": ":".join([out.path for out in outs]),
+        } | ctx.attr.extra_envs,
+        inputs = depset(
+            ctx.files.src +
+            ctx.files.data +
+            ctx.files._tcl +
+            [config, ctx.file.script, ctx.executable._openroad, ctx.file._makefile],
+            transitive = transitive_inputs,
+        ),
+        outputs = outs,
+    )
+    return [
+        DefaultInfo(
+            files = depset(outs),
+        ),
+        OutputGroupInfo(
+            **{f.basename: depset([f]) for f in outs}
+        ),
+    ]
+
+def run_openroad_attrs():
+    return {
+        "data": attr.label_list(
+            doc = "List of additional data.",
+            allow_files = True,
+            default = [],
+        ),
+        "src": attr.label(
+            mandatory = True,
+            providers = [OrfsInfo, PdkInfo],
+        ),
+        "variant": attr.string(
+            doc = "Variant of the used flow.",
+            default = "base",
+        ),
+        "extra_envs": attr.string_dict(
+            doc = "Dictionary with additional environmental variables.",
+            default = {},
+        ),
+        "_openroad": attr.label(
+            doc = "OpenROAD binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:openroad"),
+        ),
+        "_makefile": attr.label(
+            doc = "Top level makefile.",
+            allow_single_file = ["Makefile"],
+            default = Label("@docker_orfs//:makefile"),
+        ),
+        "_tcl": attr.label(
+            doc = "Tcl library.",
+            allow_files = True,
+            default = Label("@docker_orfs//:tcl8.6"),
+        ),
+    }
+
+orfs_run_openroad = rule(
+    implementation = lambda ctx: _run_openroad_impl(ctx, False),
+    attrs = run_openroad_attrs() | {
+        "script": attr.label(
+            mandatory = True,
+            allow_single_file = ["tcl"],
+        ),
+        "outs": attr.output_list(
+            mandatory = True,
+            allow_empty = False,
+        ),
+    },
+)
+
+orfs_run_mock_area = rule(
+    implementation = lambda ctx: _run_openroad_impl(ctx, True),
+    attrs = run_openroad_attrs() | {
+        "script": attr.label(
+            default = "@bazel-orfs//:mock_area.tcl",
+            allow_single_file = ["tcl"],
         ),
     },
 )
@@ -488,10 +618,23 @@ def _work_home(ctx):
     return ctx.genfiles_dir.path
 
 def _artifact_dir(ctx, category):
-    return "/".join([category, _platform(ctx), _module_top(ctx), ctx.attr.variant])
+    return "/".join([
+        category,
+        _platform(ctx),
+        _module_top(ctx),
+        ctx.attr.non_mocked_variant if hasattr(ctx.attr, "non_mocked_variant") and ctx.attr.non_mocked_variant else ctx.attr.variant,
+    ])
 
 def _declare_artifact(ctx, category, name):
     return ctx.actions.declare_file("/".join([_artifact_dir(ctx, category), name]))
+
+def _yosys_env(ctx, config):
+    return _default_env(ctx, config) | {
+        "ABC": ctx.executable._abc.path,
+        "YOSYS_EXE": ctx.executable._yosys.path,
+        "OPENROAD_EXE": "",
+        "TCL_LIBRARY": commonpath(ctx.files._tcl),
+    }
 
 def _yosys_impl(ctx):
     all_arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]) | _block_arguments(ctx)
@@ -531,16 +674,7 @@ def _yosys_impl(ctx):
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path, canon_output.path],
         command = command,
-        env = _verilog_arguments(ctx.files.verilog_files) | {
-            "HOME": _work_home(ctx),
-            "WORK_HOME": _work_home(ctx),
-            "FLOW_HOME": ctx.file._makefile.dirname,
-            "DESIGN_CONFIG": config.path,
-            "ABC": ctx.executable._abc.path,
-            "YOSYS_EXE": ctx.executable._yosys.path,
-            "OPENROAD_EXE": "",
-            "TCL_LIBRARY": commonpath(ctx.files._tcl),
-        },
+        env = _verilog_arguments(ctx.files.verilog_files) | _yosys_env(ctx, config),
         inputs = depset(
             ctx.files.verilog_files +
             ctx.files.data +
@@ -570,16 +704,7 @@ def _yosys_impl(ctx):
         arguments = ["--file", ctx.file._makefile.path, "--old-file", canon_output.path, "yosys-dependencies"] +
                     [f.path for f in synth_outputs],
         command = command,
-        env = _verilog_arguments([]) | {
-            "HOME": _work_home(ctx),
-            "WORK_HOME": _work_home(ctx),
-            "FLOW_HOME": ctx.file._makefile.dirname,
-            "DESIGN_CONFIG": config.path,
-            "ABC": ctx.executable._abc.path,
-            "YOSYS_EXE": ctx.executable._yosys.path,
-            "OPENROAD_EXE": "",
-            "TCL_LIBRARY": commonpath(ctx.files._tcl),
-        },
+        env = _verilog_arguments([]) | _yosys_env(ctx, config),
         inputs = depset(
             ctx.files.data +
             ctx.files._tcl +
@@ -749,22 +874,32 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         transitive_inputs.append(datum.default_runfiles.files)
         transitive_inputs.append(datum.default_runfiles.symlinks)
 
-    command = _add_optional_generation_to_command(ctx.executable._make.path + " $@", reports + logs)
+    extra_envs_deps = []
+    extra_envs_args = {}
+    command = ctx.executable._make.path + " $@"
+    if hasattr(ctx.file, "extra_envs") and ctx.file.extra_envs:
+        command = "source {}; {}".format(ctx.file.extra_envs.path, command)
+        extra_envs_deps = [ctx.file.extra_envs]
+        extra_envs_args = {
+            "${EXTRA_ENVS}": ctx.file.extra_envs.short_path,
+        }
+    command = _add_optional_generation_to_command(command, reports + logs)
+    if hasattr(ctx.attr, "non_mocked_variant") and ctx.attr.non_mocked_variant:
+        # Move mocked result to non-mocked variant
+        for file in results + objects + logs + reports:
+            command = command + " && mv {} {}".format(
+                file.path.replace("/{}/".format(ctx.attr.non_mocked_variant), "/{}/".format(ctx.attr.variant)),
+                file.path,
+            )
 
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + steps,
         command = command,
-        env = {
-            "HOME": _work_home(ctx),
-            "WORK_HOME": _work_home(ctx),
-            "DESIGN_CONFIG": config.path,
-            "FLOW_HOME": ctx.file._makefile.dirname,
-            "OPENROAD_EXE": ctx.executable._openroad.path,
+        env = _run_env(ctx, config) | {
             "KLAYOUT_CMD": ctx.executable._klayout.path,
             "STDBUF_CMD": "",
             "RUBYLIB": ":".join([commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)]),
             "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
-            "TCL_LIBRARY": commonpath(ctx.files._tcl),
             "QT_QPA_PLATFORM_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
             "QT_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
         },
@@ -774,6 +909,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             ctx.files._ruby +
             ctx.files._ruby_dynamic +
             ctx.files._tcl +
+            extra_envs_deps +
             [config, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile, ctx.executable._make],
             transitive = transitive_inputs,
         ),
@@ -786,11 +922,11 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         content = _config_content(extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo], short = True)),
     )
 
-    make = ctx.actions.declare_file("make_{}".format(stage))
+    make = ctx.actions.declare_file("make_{}_{}".format(ctx.attr.variant, stage))
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
-        substitutions = flow_substitutions(ctx) | openroad_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
+        substitutions = flow_substitutions(ctx) | openroad_substitutions(ctx) | extra_envs_args | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
@@ -798,7 +934,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join([f.short_path for f in [config_short] + results + logs + reports + ctx.files.data]),
+            "${GENFILES}": " ".join([f.short_path for f in [config_short] + results + logs + reports + ctx.files.data + extra_envs_deps]),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
@@ -817,7 +953,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             ),
             runfiles = ctx.runfiles(
                 [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.executable._make, ctx.file._makefile] +
-                forwards + results + logs + reports + ctx.files.data + ctx.files._ruby + ctx.files._ruby_dynamic + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
+                forwards + results + logs + reports + ctx.files.data + extra_envs_deps + ctx.files._ruby + ctx.files._ruby_dynamic + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
                 transitive_files = depset(transitive = transitive_inputs + [ctx.attr.src[LoggingInfo].logs, ctx.attr.src[LoggingInfo].reports]),
             ),
         ),
@@ -895,6 +1031,12 @@ orfs_floorplan = add_orfs_make_rule_(
             "2_floorplan_final.rpt",
         ],
     ),
+    attrs = openroad_attrs() | {
+        "extra_envs": attr.label(
+            doc = "File with exported environmenta variables.",
+            allow_single_file = True,
+        ),
+    },
 )
 
 orfs_place = add_orfs_make_rule_(
@@ -1033,7 +1175,12 @@ orfs_abstract = rule(
         extra_arguments =
             {"ABSTRACT_SOURCE": _extensionless_basename(ctx.attr.src[OrfsInfo].odb)},
     ),
-    attrs = openroad_attrs(),
+    attrs = openroad_attrs() | {
+        "non_mocked_variant": attr.string(
+            default = "",
+            doc = "FLOW_VARIANT of the non-mocked flow",
+        ),
+    },
     provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
     executable = True,
 )
@@ -1108,10 +1255,98 @@ def get_stage_args(stage, stage_args, args):
     Returns:
       A dictionary of arguments for the stage.
     """
-    return ({arg: value
-             for arg, value in args.items()
-             if stage in STAGE_ARGS_USES[arg] or "all" in STAGE_ARGS_USES[arg]} |
+    return ({
+                arg: value
+                for arg, value in args.items()
+                if stage in STAGE_ARGS_USES[arg] or "all" in STAGE_ARGS_USES[arg]
+            } |
             stage_args.get(stage, {}))
+
+def _deep_dict_copy(d):
+    new_d = dict(d)
+    for k, v in new_d.items():
+        new_d[k] = dict(v)
+    return new_d
+
+def _mock_area_targets(
+        name,
+        mock_area,
+        steps,
+        verilog_files = [],
+        macros = [],
+        stage_sources = {},
+        stage_args = {},
+        args = {},
+        variant = None,
+        visibility = ["//visibility:private"]):
+    steps.append(ABSTRACT_IMPL)
+
+    # Make a copy of args
+    stage_args = _deep_dict_copy(stage_args)
+    args = dict(args)
+    floorplan_args = stage_args.get("floorplan", {})
+    for arg in ("DIE_AREA", "CORE_AREA", "CORE_UTILIZATION"):
+        args.pop(arg, None)
+        floorplan_args.pop(arg, None)
+    stage_args["floorplan"] = floorplan_args
+    stage_args.get("generate_abstract", {}).pop("ABSTRACT_SOURCE", None)
+
+    # SYNTH_GUT=1 breaks floorplan for some targets, disabling for now
+    # synth_args = stage_args.get("synth", {})
+    # synth_args["SYNTH_GUT"] = "1"
+    # stage_args["synth"] = synth_args
+
+    name_variant = name + "_" + variant if variant else name
+    mock_variant = variant + "_mock_area" if variant else "mock_area"
+
+    synth_step = steps[0]
+    synth_step.impl(
+        name = "{}_{}_mock_area".format(name_variant, synth_step.stage),
+        arguments = get_stage_args(synth_step.stage, stage_args, args),
+        data = stage_sources.get(synth_step.stage, []),
+        deps = macros,
+        module_top = name,
+        variant = mock_variant,
+        verilog_files = verilog_files,
+        visibility = visibility,
+    )
+    orfs_deps(
+        name = "{}_{}_mock_area_deps".format(name_variant, synth_step.stage),
+        src = "{}_{}_mock_area".format(name_variant, synth_step.stage),
+    )
+
+    orfs_run_mock_area(
+        name = "{}_mock_area".format(name_variant),
+        src = "{}_floorplan".format(name_variant),
+        variant = variant,
+        extra_envs = {"MOCK_AREA": str(mock_area)},
+    )
+
+    if not variant:
+        variant = "base"
+    extra_args = {"extra_envs": "{}_mock_area".format(name_variant)}
+    last = len(steps) - 2
+    for i, (step, prev) in enumerate(zip(steps[1:], steps)):
+        suffix = "_mock_area"
+        if i == last:
+            suffix = ""
+            extra_args = extra_args | {
+                "non_mocked_variant": variant,
+            }
+        step.impl(
+            name = "{}_{}{}".format(name_variant, step.stage, suffix),
+            src = "{}_{}_mock_area".format(name_variant, prev.stage, suffix),
+            arguments = get_stage_args(step.stage, stage_args, args),
+            data = stage_sources.get(step.stage, []),
+            variant = mock_variant,
+            visibility = visibility,
+            **extra_args
+        )
+        orfs_deps(
+            name = "{}_{}{}_deps".format(name_variant, step.stage, suffix),
+            src = "{}_{}{}".format(name_variant, step.stage, suffix),
+        )
+        extra_args = {}
 
 def orfs_flow(
         name,
@@ -1122,6 +1357,7 @@ def orfs_flow(
         args = {},
         abstract_stage = None,
         variant = None,
+        mock_area = None,
         visibility = ["//visibility:private"]):
     """
     Creates targets for running physical design flow with OpenROAD-flow-scripts.
@@ -1135,6 +1371,7 @@ def orfs_flow(
       args: dictionary of additional arguments to the flow, automatically assigned to stages
       abstract_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
       variant: name of the target variant, added right after the module name
+      mock_area: floating point number, scale the die width/height by this amount, default no scaling
       visibility: the visibility attribute on a target controls whether the target can be used in other packages
     """
     steps = []
@@ -1142,7 +1379,7 @@ def orfs_flow(
         steps.append(step)
         if step.stage == abstract_stage:
             break
-    if (abstract_stage != STAGE_IMPLS[0].stage):
+    if (abstract_stage != STAGE_IMPLS[0].stage) and not mock_area:
         steps.append(ABSTRACT_IMPL)
 
     name_variant = name + "_" + variant if variant else name
@@ -1175,4 +1412,20 @@ def orfs_flow(
         orfs_deps(
             name = "{}_{}_deps".format(name_variant, step.stage),
             src = "{}_{}".format(name_variant, step.stage),
+        )
+
+    if mock_area:
+        if variant == "mock_area":
+            fail("'mock_area' variant is used by mock_area targets, please choose different one")
+        _mock_area_targets(
+            name,
+            mock_area,
+            steps,
+            verilog_files,
+            macros,
+            stage_sources,
+            stage_args,
+            args,
+            variant,
+            visibility,
         )
