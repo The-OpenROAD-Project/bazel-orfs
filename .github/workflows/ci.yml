@@ -52,12 +52,6 @@ jobs:
         uses: jlumbroso/free-disk-space@main
         with:
           swap-storage: false
-      - name: Print info
-        run: |
-          echo "USER: "$(whoami)
-          echo "PWD: "$(pwd)
-          echo "HOME: "$HOME
-          ls -la
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
       - name: query target
@@ -83,12 +77,6 @@ jobs:
     env:
       DEBIAN_FRONTEND: "noninteractive"
     steps:
-      - name: Print info
-        run: |
-          echo "USER: "$(whoami)
-          echo "PWD: "$(pwd)
-          echo "HOME: "$HOME
-          ls -la
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
       - name: Build local stage targets - tag_array_64x184
@@ -129,12 +117,8 @@ jobs:
       DEBIAN_FRONTEND: "noninteractive"
       FLOW_HOME: /OpenROAD-flow-scripts/flow
     steps:
-      - name: Print info and setup orfs
+      - name: orfs setup
         run: |
-          echo "USER: "$(whoami)
-          echo "PWD: "$(pwd)
-          echo "HOME: "$HOME
-          ls -la
           cd /OpenROAD-flow-scripts
           echo "OpenROAD-flow-scripts SHA: "$(git rev-parse HEAD)
           source ./env.sh
