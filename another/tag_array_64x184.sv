@@ -31,19 +31,19 @@ module tag_array_64x184(
   input  [7:0]   W0_mask
 );
 
-  reg [183:0] Memory[0:15];
+  reg [183:0] Memory[0:3]; // Reduced to 4 rows
   reg         _R0_en_d0;
   reg [5:0]   _R0_addr_d0;
-  reg [3:0]   _W0_addr_d0, _R0_addr_d1;
+  reg [1:0]   _W0_addr_d0, _R0_addr_d1; // Reduced to 2 bits
 
   always @(posedge R0_clk) begin
     _R0_en_d0 <= R0_en;
     _R0_addr_d0 <= R0_addr;
-    _R0_addr_d1 <= R0_addr[5:2] ^ R0_addr[1:0];
+    _R0_addr_d1 <= R0_addr[1:0]; // Only consider the last 2 bits
   end // always @(posedge)
 
   always @(posedge W0_clk) begin
-    _W0_addr_d0 <= W0_addr[5:2] ^ W0_addr[1:0];
+    _W0_addr_d0 <= W0_addr[1:0]; // Only consider the last 2 bits
     if (W0_en & W0_mask[0])
       Memory[_W0_addr_d0][32'h0 +: 23] <= W0_data[22:0];
     if (W0_en & W0_mask[1])
