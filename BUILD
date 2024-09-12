@@ -64,9 +64,9 @@ BLOCK_FLOORPLAN = {
 orfs_flow(
     name = "tag_array_64x184",
     args = SRAM_SYNTH_ARGUMENTS | SRAM_FLOOR_PLACE_ARGUMENTS | {
-            "CORE_UTILIZATION": "40",
-            "CORE_ASPECT_RATIO": "2",
-            "SKIP_REPORT_METRICS": "1",
+        "CORE_UTILIZATION": "40",
+        "CORE_ASPECT_RATIO": "2",
+        "SKIP_REPORT_METRICS": "1",
     },
     stage_sources = {
         "synth": [":constraints-sram"],
@@ -77,13 +77,10 @@ orfs_flow(
     visibility = [":__subpackages__"],
 )
 
-LB_STAGE_ARGS = {
-    "synth": SRAM_SYNTH_ARGUMENTS,
-    "floorplan": SRAM_FLOOR_PLACE_ARGUMENTS | {
-        "CORE_UTILIZATION": "40",
-        "CORE_ASPECT_RATIO": "2",
-    },
-    "place": SRAM_FLOOR_PLACE_ARGUMENTS | {"PLACE_DENSITY": "0.65"},
+LB_ARGS = SRAM_SYNTH_ARGUMENTS | SRAM_FLOOR_PLACE_ARGUMENTS | {
+    "CORE_UTILIZATION": "40",
+    "CORE_ASPECT_RATIO": "2",
+    "PLACE_DENSITY": "0.65",
 }
 
 LB_STAGE_SOURCES = {
@@ -97,7 +94,8 @@ LB_VERILOG_FILES = ["test/rtl/lb_32x128.sv"]
 orfs_flow(
     name = "lb_32x128",
     abstract_stage = "floorplan",
-    stage_args = LB_STAGE_ARGS,
+    mock_area = 1.0,
+    args = LB_ARGS,
     stage_sources = LB_STAGE_SOURCES,
     verilog_files = LB_VERILOG_FILES,
 )
@@ -106,7 +104,7 @@ orfs_flow(
 orfs_flow(
     name = "lb_32x128",
     abstract_stage = "place",
-    stage_args = LB_STAGE_ARGS,
+    args = LB_ARGS,
     stage_sources = LB_STAGE_SOURCES,
     variant = "test",
     verilog_files = LB_VERILOG_FILES,
