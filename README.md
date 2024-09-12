@@ -88,25 +88,22 @@ The macro from the example above spawns the following Bazel targets:
 
 ```
 Dependency targets:
-  //:L1MetadataArray_canonicalize_deps
   //:L1MetadataArray_cts_deps
   //:L1MetadataArray_floorplan_deps
+  //:L1MetadataArray_generate_abstract_deps
   //:L1MetadataArray_grt_deps
   //:L1MetadataArray_place_deps
   //:L1MetadataArray_route_deps
   //:L1MetadataArray_synth_deps
 
 Stage targets:
-  //:L1MetadataArray_canonicalize
   //:L1MetadataArray_cts
   //:L1MetadataArray_floorplan
+  //:L1MetadataArray_generate_abstract
   //:L1MetadataArray_grt
   //:L1MetadataArray_place
   //:L1MetadataArray_route
   //:L1MetadataArray_synth
-
-Abstract targets:
-  //:L1MetadataArray_generate_abstract
 ```
 
 The example comes from the [BUILD](./BUILD) file in this repository.
@@ -127,18 +124,15 @@ This definition creates similar Bazel targets with additional variant appended a
 
 ```
 Dependency targets:
-  //:L1MetadataArray_test_canonicalize_deps
   //:L1MetadataArray_test_cts_deps
   //:L1MetadataArray_test_floorplan_deps
   ...
+  //:L1MetadataArray_test_generate_abstract_deps
 
 Stage targets:
-  //:L1MetadataArray_test_canonicalize
   //:L1MetadataArray_test_synth
   //:L1MetadataArray_test_floorplan
   ...
-
-Abstract targets:
   //:L1MetadataArray_test_generate_abstract
 ```
 
@@ -153,7 +147,6 @@ These are the genrules spawned in this macro:
 
 * ORFS stage-specific (named: `target_name + “_” + stage` or `target_name + “_” + variant + “_” + stage`)
 * ORFS stage dependencies (named: `target_name + “_” + stage + “_deps”` or `target_name + “_” + variant + “_” + stage + “_deps”`)
-* Abstract targets (named: `target_name + “_generate_abstract”` or `target_name + “_” + variant + “_generate_abstract”`)
 
 ### Bazel flow
 
@@ -204,17 +197,14 @@ bazel run <target>_<stage>_deps -- <absolute_path>
 <absolute_path>/make do-<stage>
 ```
 
-> **NOTE:** The synthesis (`canonicalize` and `synth`) stage requires the `do-yosys-canonicalize` and `do-yosys` steps to be completed beforehand.
+> **NOTE:** The synthesis stage requires the `do-yosys-canonicalize`, `do-yosys-keep-hierarchy` and `do-yosys` steps to be completed beforehand.
 > These steps are necessary to generate the required `.rtlil` file for the synthesis stage.
 >
 > ```bash
 > source <orfs_path>/env.sh
 >
-> bazel run <target>_canonicalize_deps -- <absolute_path>
-> <absolute_path>/make do-yosys-canonicalize
->
 > bazel run <target>_synth_deps -- <absolute_path>
-> <absolute_path>/make do-yosys do-synth
+> <absolute_path>/make do-yosys-canonicalize do-yosys-keep-hierarchy do-yosys do-synth
 > ```
 
 ### Stage targets
@@ -224,21 +214,19 @@ Each stage of the physical design flow is represented by a separate target and f
 The stages are as follows:
 
 * `synth` (synthesis)
-  * `canonicalize` - substage generating canonicalized input for the synthesis (it receives the same arguments and sources as `synth`)
 * `floorplan`
 * `place`
 * `cts` (clock tree synthesis)
 * `grt` (global route)
 * `route`
 * `final`
+* `generate_abstract`
 
-### generate abstract targets
+### Generate abstract targets
 
-Those targets are used to create mocked abstracts (`.lef` and `.lib` files) for macros.
-The mock contains the description of macro which has its whole internal logic removed.
-At the same time the mock has the same pinout as the original macro and similar size which makes it useful in early design stages.
+Those targets are used to create abstracts (`.lef` and `.lib` files) for macros.
 
-Mocked abstracts are generated at the `target + "generate_abstract"` stage, which follows one defined via `abstract_stage` attribute passed to the `orfs_flow()` macro:
+Abstracts are generated at the `target + "generate_abstract"` stage, which follows one defined via `abstract_stage` attribute passed to the `orfs_flow()` macro:
 
 <pre lang="starlark">
 orfs_flow(
@@ -266,12 +254,36 @@ orfs_flow(
 
 By default it's the latest ORFS-specific target (`final`).
 
-> **NOTE:** Mocked abstracts can be generated starting from the `floorplan` stage, thus skipping the `canonicalize` and `synth` stage.
+> **NOTE:** Abstracts can be generated starting from the `floorplan` stage, thus skipping the `synth` stage.
 
-Mocked abstracts are intended to be used in builds of other parts of the design that use the given macro.
+Abstracts are intended to be used in builds of other parts of the design that use the given macro.
 They're useful for estimating sizes of macros with long build times and checking if they will fit in upper-level modules without running time consuming place and route flow.
 
 > **NOTE:** Stages that follow the one passed to `abstract_stage` will not be created by the `orfs_flow()` macro.
+
+### Mock area targets
+
+Mock area targets are created on top of the stage targets and overrides `_generate_abstract` target to produced mocked abstracts.
+
+The flow contains:
+* `target_name_variant + “_synth_mock_area”` - synthesis which has its whole internal logic removed,
+* `target_name_variant + “_mock_area”` - reads `DIE_AREA` and `CORE_AREA` from default floorplan results and scale them by value defined in `mock_area`,
+* `target_name_variant + “_floorplan_mock_area”` - floorplan with overridden `DIE_AREA` and `CORE_AREA` values,
+* `target_name_variant + “_generate_abstract”` - abstracts generated based on mocked synthesis and floorplan.
+
+To create mock area targets, `mock_area` has to be added to `orfs_flow` definition:
+
+```starlark
+orfs_flow(
+    name = "lb_32x128",
+    stage_args = LB_STAGE_ARGS,
+    stage_sources = LB_STAGE_SOURCES,
+    verilog_files = LB_VERILOG_FILES,
+    mock_area = 0.5,
+)
+```
+
+The mock has the same pinout as the original macro and similar size which makes it useful in early design stages.
 
 ### Constraints handling
 
@@ -407,16 +419,10 @@ Let's assume we want to perform a `floorplan` stage for the `L1MetadataArray` de
 
   ```bash
   # Initialize dependencies for the Synthesis stage for L1MetadataArray target
-  bazel run @bazel-orfs//:L1MetadataArray_canonicalize_deps -- `pwd`/build
-
-  # Build Synthesis stage for L1MetadataArray target using local ORFS
-  build/make do-yosys-canonicalize
-
-  # Initialize dependencies for the Synthesis stage for L1MetadataArray target
   bazel run @bazel-orfs//:L1MetadataArray_synth_deps -- `pwd`/build
 
   # Build Synthesis stage for L1MetadataArray target using local ORFS
-  build/make do-yosys do-synth
+  build/make do-yosys-canonicalize do-yosys-keep-hierarchy do-yosys do-synth
 
   # Initialize dependencies for the Floorplan stage for L1MetadataArray target
   bazel run @bazel-orfs//:L1MetadataArray_floorplan_deps -- `pwd`/build
