@@ -1094,6 +1094,8 @@ STAGE_ARGS_USES = {
     "MIN_ROUTING_LAYER": ["place", "grt", "route", "final"],
     "MAX_ROUTING_LAYER": ["place", "grt", "route", "final"],
     "ROUTING_LAYER_ADJUSTMENT": ["place", "grt", "route", "final"],
+    "FILL_CELLS": ["route"],
+    "TAPCELL_TCL": ["floorplan"],
 }
 
 def get_stage_args(stage, stage_args, args):
