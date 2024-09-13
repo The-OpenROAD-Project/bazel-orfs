@@ -53,6 +53,7 @@ SRAM_FLOOR_PLACE_ARGUMENTS = {
     "IO_CONSTRAINTS": "$(location :io-sram)",
     "PLACE_PINS_ARGS": "-min_distance 2 -min_distance_in_tracks",
     "PLACE_DENSITY": "0.42",
+    "REMOVE_ABC_BUFFERS": "1",
 }
 
 SRAM_SYNTH_ARGUMENTS = {
