@@ -1,11 +1,6 @@
 load("//:eqy.bzl", "eqy_test")
 load("//:openroad.bzl", "orfs_flow", "orfs_run")
 
-# FIXME: this shouldn't be required
-exports_files(glob(["*.mk"]))
-
-exports_files(glob(["scripts/mem_dump.*"]))
-
 exports_files(["mock_area.tcl"])
 
 exports_files(
