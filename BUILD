@@ -44,15 +44,15 @@ filegroup(
     visibility = [":__subpackages__"],
 )
 
-SRAM_FLOOR_PLACE_ARGUMENTS = {
+SRAM_ARGUMENTS = {
+    "SDC_FILE": "$(location :constraints-sram)",
     "IO_CONSTRAINTS": "$(location :io-sram)",
     "PLACE_PINS_ARGS": "-min_distance 2 -min_distance_in_tracks",
     "PLACE_DENSITY": "0.42",
     "REMOVE_ABC_BUFFERS": "1",
-}
-
-SRAM_SYNTH_ARGUMENTS = {
-    "SDC_FILE": "$(location :constraints-sram)",
+    # faster build
+    "SKIP_CTS_REPAIR_TIMING": "1",
+    "SKIP_REPORT_METRICS": "1",
 }
 
 BLOCK_FLOORPLAN = {
@@ -63,7 +63,8 @@ BLOCK_FLOORPLAN = {
 
 orfs_flow(
     name = "tag_array_64x184",
-    args = SRAM_SYNTH_ARGUMENTS | SRAM_FLOOR_PLACE_ARGUMENTS | {
+    abstract_stage = "cts",
+    args = SRAM_ARGUMENTS | {
         "CORE_UTILIZATION": "40",
         "CORE_ASPECT_RATIO": "2",
         "SKIP_REPORT_METRICS": "1",
@@ -77,10 +78,10 @@ orfs_flow(
     visibility = [":__subpackages__"],
 )
 
-LB_ARGS = SRAM_SYNTH_ARGUMENTS | SRAM_FLOOR_PLACE_ARGUMENTS | {
+LB_ARGS = SRAM_ARGUMENTS | {
     "CORE_UTILIZATION": "40",
     "CORE_ASPECT_RATIO": "2",
-    "PLACE_DENSITY": "0.65",
+    "PLACE_DENSITY": "0.65"
 }
 
 LB_STAGE_SOURCES = {
@@ -89,7 +90,7 @@ LB_STAGE_SOURCES = {
     "place": [":io-sram"],
 }
 
-LB_VERILOG_FILES = ["test/rtl/lb_32x128.sv"]
+LB_VERILOG_FILES = ["test/mock/lb_32x128.sv"]
 
 orfs_flow(
     name = "lb_32x128",
@@ -112,6 +113,7 @@ orfs_flow(
 
 orfs_flow(
     name = "L1MetadataArray",
+    abstract_stage = "cts",
     macros = ["tag_array_64x184_generate_abstract"],
     stage_args = {
         "synth": {
@@ -189,18 +191,18 @@ eqy_test(
 orfs_flow(
     name = "data_2048x8",
     abstract_stage = "cts",
+    args = SRAM_ARGUMENTS,
     stage_args = {
-        "synth": SRAM_SYNTH_ARGUMENTS | {"SYNTH_MEMORY_MAX_BITS": "16384"},
-        "floorplan": BLOCK_FLOORPLAN | SRAM_FLOOR_PLACE_ARGUMENTS | {
+        "synth": {"SYNTH_MEMORY_MAX_BITS": "16384"},
+        "floorplan": BLOCK_FLOORPLAN | {
             "CORE_UTILIZATION": "40",
             "CORE_ASPECT_RATIO": "2",
         },
-        "place": SRAM_FLOOR_PLACE_ARGUMENTS | {
+        "place": {
             "PLACE_DENSITY": "0.65",
             "GPL_TIMING_DRIVEN": "0",
         },
         "cts": {
-            "SKIP_CTS_REPAIR_TIMING": "0",
             "SKIP_REPORT_METRICS": "1",
         },
     },
@@ -217,8 +219,8 @@ orfs_flow(
 orfs_flow(
     name = "regfile_128x65",
     abstract_stage = "cts",
+    args = SRAM_ARGUMENTS,
     stage_args = {
-        "synth": SRAM_SYNTH_ARGUMENTS,
         "floorplan": BLOCK_FLOORPLAN | {
             "DIE_AREA": "0 0 400 400",
             "CORE_AREA": "2 2 298 298",
