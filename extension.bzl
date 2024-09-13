@@ -14,7 +14,7 @@ _default_tag = tag_class(
             mandatory = True,
         ),
         "sha256": attr.string(
-            mandatory = True,
+            mandatory = False,
         ),
     },
 )
