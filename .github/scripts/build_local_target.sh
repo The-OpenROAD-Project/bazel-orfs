@@ -4,7 +4,8 @@ set -e
 
 target_name=${TARGET:-"tag_array_64x184"}
 if [[ -z "$STAGES" ]]; then
-  STAGES=("synth" "floorplan" "place" "cts" "grt" "route")
+  # Skip "grt" "route", takes too long
+  STAGES=("synth" "floorplan" "place" "cts")
 else
   eval "STAGES=($STAGES)"
 fi

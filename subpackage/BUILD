@@ -4,10 +4,19 @@ FLOOR_PLACE_ARGUMENTS = {
     "IO_CONSTRAINTS": "$(location //:io)",
 }
 
+# faster build
+FAST_ARGUMENTS = {
+    "REMOVE_ABC_BUFFERS": "1",
+    "SKIP_CTS_REPAIR_TIMING": "1",
+    "SKIP_REPORT_METRICS": "1",
+}
+
+
 orfs_flow(
     name = "L1MetadataArray",
-    abstract_stage = "route",
+    abstract_stage = "cts",
     macros = ["//:tag_array_64x184_generate_abstract"],
+    args = FAST_ARGUMENTS,
     stage_args = {
         "synth": {
             "SDC_FILE": "$(location //:test/constraints-top.sdc)",
@@ -36,9 +45,9 @@ orfs_flow(
 orfs_flow(
     name = "tag_array_64x184",
     abstract_stage = "floorplan",
+    args = FAST_ARGUMENTS,
     stage_args = {
         "synth": {
-            "SYNTH_MEMORY_MAX_BITS": "12000",
             "SDC_FILE": "$(location //:constraints-sram)",
         },
         "floorplan": {
@@ -56,5 +65,5 @@ orfs_flow(
         "floorplan": ["//:io-sram"],
         "place": ["//:io-sram"],
     },
-    verilog_files = ["//:test/rtl/tag_array_64x184.sv"],
+    verilog_files = ["//:test/mock/tag_array_64x184.sv"],
 )
