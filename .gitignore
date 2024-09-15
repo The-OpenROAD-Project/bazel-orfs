@@ -1,2 +1,4 @@
 bazel-*
 copyright.txt
+build/
+.user-bazelrc
