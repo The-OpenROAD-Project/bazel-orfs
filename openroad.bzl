@@ -1215,6 +1215,8 @@ STAGE_IMPLS = [
 
 ABSTRACT_IMPL = struct(stage = "generate_abstract", impl = orfs_abstract)
 
+ALL_STAGES = ["synth", "floorplan", "place", "cts", "grt", "route", "final", "generate_abstract"]
+
 # A stage argument is used in one or more stages. This is metainformation
 # about the ORFS code that there is no known nice way for ORFS to
 # provide.
@@ -1233,7 +1235,7 @@ STAGE_ARGS_USES = {
     "TNS_END_PERCENT": ["cts", "floorplan", "grt"],
     "SKIP_CTS_REPAIR_TIMING": ["cts"],
     "CORE_MARGIN": ["floorplan"],
-    "SKIP_REPORT_METRICS": ["all"],
+    "SKIP_REPORT_METRICS": ["floorplan", "place", "cts", "grt", "route", "final"],
     "SYNTH_HIERARCHICAL": ["synth"],
     "RTLMP_FLOW": ["floorplan"],
     "MACRO_PLACE_HALO": ["floorplan"],
@@ -1247,6 +1249,48 @@ STAGE_ARGS_USES = {
     "ROUTING_LAYER_ADJUSTMENT": ["place", "grt", "route", "final"],
     "FILL_CELLS": ["route"],
     "TAPCELL_TCL": ["floorplan"],
+    "ADDITIONAL_LEFS": ALL_STAGES,
+    "ADDITIONAL_LIBS": ALL_STAGES,
+}
+
+def flatten(xs):
+    """Flattens a nested list iteratively.
+
+    Args:
+        xs: A list that may contain other lists, maximum two levels
+    Returns:
+        A flattened list.
+    """
+    result = []
+    for x in xs:
+        if type(x) == "list":
+            for y in x:
+                if type(y) == "list":
+                    fail("Nested lists are not supported")
+                else:
+                    result.append(y)
+        else:
+            result.append(x)
+    return result
+
+
+def set(iterable):
+    """Creates a set-like collection from an iterable.
+
+    Args:
+        iterable: An iterable containing elements.
+    Returns:
+        A list with unique elements.
+    """
+    unique_dict = {}
+    for item in iterable:
+        unique_dict[item] = True
+    return list(unique_dict.keys())
+
+STAGE_TO_VARIABLES = {
+    stage: [variable for variable, stages in STAGE_ARGS_USES.items()
+            if stage in stages]
+    for stage in ALL_STAGES
 }
 
 def get_stage_args(stage, stage_args, args):
@@ -1266,6 +1310,21 @@ def get_stage_args(stage, stage_args, args):
             } |
             stage_args.get(stage, {}))
 
+def get_sources(stage, stage_sources, sources):
+    """Returns the sources for a specific stage.
+
+    Args:
+        stage: The stage name.
+        stage_sources: the dictionary of stages with each stage having a list of sources
+        sources: a dictionary of variable names with a list of sources to a stage
+    Returns:
+      A list of sources for the stage.
+    """
+    return set(stage_sources.get(stage, []) +
+               flatten([source_list for variable, source_list in sources.items()
+                        if variable in STAGE_TO_VARIABLES[stage]]))
+
+
 def _deep_dict_copy(d):
     new_d = dict(d)
     for k, v in new_d.items():
@@ -1278,6 +1337,7 @@ def _mock_area_targets(
         steps,
         verilog_files = [],
         macros = [],
+        sources = {},
         stage_sources = {},
         stage_args = {},
         args = {},
@@ -1307,7 +1367,7 @@ def _mock_area_targets(
     synth_step.impl(
         name = "{}_{}_mock_area".format(name_variant, synth_step.stage),
         arguments = get_stage_args(synth_step.stage, stage_args, args),
-        data = stage_sources.get(synth_step.stage, []),
+        data = get_sources(synth_step.stage, stage_sources, sources),
         deps = macros,
         module_top = name,
         variant = mock_variant,
@@ -1341,7 +1401,7 @@ def _mock_area_targets(
             name = "{}_{}{}".format(name_variant, step.stage, suffix),
             src = "{}_{}_mock_area".format(name_variant, prev.stage, suffix),
             arguments = get_stage_args(step.stage, stage_args, args),
-            data = stage_sources.get(step.stage, []),
+            data = get_sources(step.stage, stage_sources, sources),
             variant = mock_variant,
             visibility = visibility,
             **extra_args
@@ -1356,6 +1416,7 @@ def orfs_flow(
         name,
         verilog_files = [],
         macros = [],
+        sources = {},
         stage_sources = {},
         stage_args = {},
         args = {},
@@ -1370,6 +1431,7 @@ def orfs_flow(
       name: name of the macro target
       verilog_files: list of verilog sources of the design
       macros: list of macros required to run physical design flow for this design
+      sources: dictionary keyed by ORFS variables with lists of sources
       stage_sources: dictionary keyed by ORFS stages with lists of stage-specific sources
       stage_args: dictionary keyed by ORFS stages with lists of stage-specific arguments
       args: dictionary of additional arguments to the flow, automatically assigned to stages
@@ -1392,7 +1454,7 @@ def orfs_flow(
     synth_step.impl(
         name = "{}_{}".format(name_variant, synth_step.stage),
         arguments = get_stage_args(synth_step.stage, stage_args, args),
-        data = stage_sources.get(synth_step.stage, []),
+        data = get_sources(synth_step.stage, stage_sources, sources),
         deps = macros,
         module_top = name,
         variant = variant,
@@ -1409,7 +1471,7 @@ def orfs_flow(
             name = "{}_{}".format(name_variant, step.stage),
             src = "{}_{}".format(name_variant, prev.stage),
             arguments = get_stage_args(step.stage, stage_args, args),
-            data = stage_sources.get(step.stage, []),
+            data = get_sources(step.stage, stage_sources, sources),
             variant = variant,
             visibility = visibility,
         )
@@ -1427,6 +1489,7 @@ def orfs_flow(
             steps,
             verilog_files,
             macros,
+            sources,
             stage_sources,
             stage_args,
             args,
