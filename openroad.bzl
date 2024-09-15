@@ -396,12 +396,16 @@ def yosys_substitutions(ctx):
         "${OPENROAD_PATH}": "",
     }
 
+default_substitutions = {
+    "${EXTRA_ENVS}": "",
+}
+
 def _deps_impl(ctx):
     exe = _declare_artifact(ctx, "results", ctx.attr.name + ".sh")
     ctx.actions.expand_template(
         template = ctx.file._deploy_template,
         output = exe,
-        substitutions = {
+        substitutions = default_substitutions | default_substitutions | {
             "${GENFILES}": " ".join([f.short_path for f in ctx.attr.src[OrfsDepInfo].files]),
             "${CONFIG}": ctx.attr.src[OrfsDepInfo].config.short_path,
             "${MAKE}": ctx.attr.src[OrfsDepInfo].make.short_path,
@@ -731,14 +735,14 @@ def _yosys_impl(ctx):
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
-        substitutions = flow_substitutions(ctx) | yosys_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
+        substitutions = default_substitutions | flow_substitutions(ctx) | yosys_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
     ctx.actions.expand_template(
         template = ctx.file._deploy_template,
         output = exe,
-        substitutions = {
+        substitutions = default_substitutions | {
             "${GENFILES}": " ".join([f.short_path for f in synth_outputs + [config_short] + canon_logs + synth_logs]),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
@@ -926,14 +930,14 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
-        substitutions = flow_substitutions(ctx) | openroad_substitutions(ctx) | extra_envs_args | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
+        substitutions = default_substitutions | flow_substitutions(ctx) | openroad_substitutions(ctx) | extra_envs_args | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
     ctx.actions.expand_template(
         template = ctx.file._deploy_template,
         output = exe,
-        substitutions = {
+        substitutions = default_substitutions | {
             "${GENFILES}": " ".join([f.short_path for f in [config_short] + results + logs + reports + ctx.files.data + extra_envs_deps]),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
