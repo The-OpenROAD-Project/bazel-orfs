@@ -393,7 +393,8 @@ def yosys_substitutions(ctx):
     return {
         "${MAKE_PATH}": ctx.executable._make.path,
         "${YOSYS_PATH}": ctx.executable._yosys.path,
-        "${OPENROAD_PATH}": "",
+        # FIXME only needed for build/make gui_synth
+        "${OPENROAD_PATH}": ctx.executable._openroad.path,
     }
 
 default_substitutions = {
@@ -476,6 +477,14 @@ def yosys_only_attrs():
             allow_files = True,
             cfg = "exec",
             default = Label("@docker_orfs//:yosys-abc"),
+        ),
+        # FIXME only needed for build/make gui_synth
+        "_openroad": attr.label(
+            doc = "OpenROAD binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:openroad"),
         ),
         "_yosys": attr.label(
             doc = "Yosys binary.",
@@ -636,7 +645,8 @@ def _yosys_env(ctx, config):
     return _default_env(ctx, config) | {
         "ABC": ctx.executable._abc.path,
         "YOSYS_EXE": ctx.executable._yosys.path,
-        "OPENROAD_EXE": "",
+        # FIXME only needed for make/gui_synth, not for building
+        "OPENROAD_EXE": ctx.executable._openroad.path,
         "TCL_LIBRARY": commonpath(ctx.files._tcl),
     }
 
@@ -686,6 +696,7 @@ def _yosys_impl(ctx):
             [
                 config,
                 ctx.executable._abc,
+                ctx.executable._openroad,
                 ctx.executable._yosys,
                 ctx.executable._make,
                 ctx.file._makefile,
@@ -717,6 +728,7 @@ def _yosys_impl(ctx):
                 config,
                 ctx.executable._abc,
                 ctx.executable._yosys,
+                ctx.executable._openroad,
                 ctx.executable._make,
                 ctx.file._makefile,
             ],
@@ -758,7 +770,7 @@ def _yosys_impl(ctx):
                 [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
             ),
             runfiles = ctx.runfiles(
-                synth_outputs + canon_logs + synth_logs + [canon_output, config_short, make, ctx.executable._yosys, ctx.executable._make, ctx.file._makefile] +
+                synth_outputs + canon_logs + synth_logs + [canon_output, config_short, make, ctx.executable._yosys, ctx.executable._openroad, ctx.executable._make, ctx.file._makefile] +
                 ctx.files.verilog_files + ctx.files.data + ctx.files._tcl,
                 transitive_files = depset(transitive = transitive_inputs),
             ),
