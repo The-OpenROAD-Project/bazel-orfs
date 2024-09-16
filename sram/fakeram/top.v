@@ -1,5 +1,5 @@
 module top (
-    input [16:0] addr_in,
+    input [4:0] addr_in,
     input we_in,
     input [63:0] wd_in,
     output [63:0] rd_out,
