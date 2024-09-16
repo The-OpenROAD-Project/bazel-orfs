@@ -249,7 +249,7 @@ def _run_openroad_impl(ctx, mock_area = False):
         ],
         command = ctx.executable._openroad.path + " $@",
         env = all_arguments | odb_environment(ctx) | _run_env(ctx, config) | {
-            "RESULTS_DIR": ctx.genfiles_dir.path + "/" + _artifact_dir(ctx, "results"),
+            "RESULTS_DIR": _work_home(ctx) + "/" + _artifact_dir(ctx, "results"),
             "OUTPUTS": ":".join([out.path for out in outs]),
         } | ctx.attr.extra_envs,
         inputs = depset(
