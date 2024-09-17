@@ -1565,7 +1565,7 @@ library (sdq_17x64) {
       timing () {
         related_pin : "clk";
         timing_sense : positive_unate;
-        timing_type : combinational;
+        timing_type : rising_edge;
         cell_rise (delay_template_7x7_x1) {
           index_1 ("5, 10, 20, 40, 80, 160, 320");
           index_2 ("5.76, 11.52, 23.04, 46.08, 92.16, 184.32, 368.64");
