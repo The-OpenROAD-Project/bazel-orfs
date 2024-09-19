@@ -1,4 +1,4 @@
-load("//:openroad.bzl", "orfs_flow")
+load("//:openroad.bzl", "orfs_flow", "orfs_run")
 
 FAST_SETTINGS = {
     "REMOVE_ABC_BUFFERS": "1",
@@ -74,6 +74,16 @@ filegroup(
     output_group = "sdq_17x64.lef",
 )
 
+# Use the macro placement from a different flow
+orfs_run(
+    name = "top_write_macro_placement",
+    src = ":top_floorplan",
+    outs = [
+        ":macro_placement.tcl",
+    ],
+    script = ":write_macros.tcl",
+)
+
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "top",
@@ -83,9 +93,8 @@ orfs_flow(
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "DIE_AREA": "0 0 100 100",
         "CORE_AREA": "2 2 98 98",
-        "RTLMP_FLOW": "True",
         "CORE_MARGIN": "2",
-        "MACRO_PLACE_HALO": "2 2",
+        "MACRO_PLACEMENT_TCL": "$(location :macro_placement.tcl)",
         "ADDITIONAL_LEFS": "$(location :lef_file)",
         "ADDITIONAL_LIBS": "$(location :fakeram/sdq_17x64.lib)",
     },
@@ -93,6 +102,7 @@ orfs_flow(
         "ADDITIONAL_LEFS" : [":lef_file"],
         "ADDITIONAL_LIBS" : [":fakeram/sdq_17x64.lib"],
         "SDC_FILE": [":fakeram/constraints-sram.sdc"],
+        "MACRO_PLACEMENT_TCL": [":macro_placement.tcl"],
     },
     verilog_files = [":fakeram/top.v"],
 )
