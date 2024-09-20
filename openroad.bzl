@@ -1236,6 +1236,7 @@ ALL_STAGES = ["synth", "floorplan", "place", "cts", "grt", "route", "final", "ge
 # about the ORFS code that there is no known nice way for ORFS to
 # provide.
 STAGE_ARGS_USES = {
+    "FLOORPLAN_DEF": ["floorplan"],
     "PLACE_DENSITY": ["floorplan", "place"],
     "SDC_FILE": ["synth"],
     "IO_CONSTRAINTS": ["floorplan", "place"],
