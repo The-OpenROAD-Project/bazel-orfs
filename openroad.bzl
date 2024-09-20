@@ -1367,10 +1367,9 @@ def _mock_area_targets(
     stage_args["floorplan"] = floorplan_args
     stage_args.get("generate_abstract", {}).pop("ABSTRACT_SOURCE", None)
 
-    # SYNTH_GUT=1 breaks floorplan for some targets, disabling for now
-    # synth_args = stage_args.get("synth", {})
-    # synth_args["SYNTH_GUT"] = "1"
-    # stage_args["synth"] = synth_args
+    synth_args = stage_args.get("synth", {})
+    synth_args["SYNTH_GUT"] = "1"
+    stage_args["synth"] = synth_args
 
     name_variant = name + "_" + variant if variant else name
     mock_variant = variant + "_mock_area" if variant else "mock_area"
