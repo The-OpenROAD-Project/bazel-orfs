@@ -30,8 +30,8 @@ orfs_flow(
     macros = [":sdq_17x64_generate_abstract"],
     args = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
-        "DIE_AREA": "0 0 100 100",
-        "CORE_AREA": "2 2 98 98",
+        "DIE_AREA": "0 0 80 80",
+        "CORE_AREA": "2 2 78 78",
         "RTLMP_FLOW": "True",
         "CORE_MARGIN": "2",
         "MACRO_PLACE_HALO": "2 2",
@@ -84,6 +84,16 @@ orfs_run(
     script = ":write_macros.tcl",
 )
 
+orfs_run(
+    name = "top_write_floorplan",
+    gui = False,
+    src = ":top_floorplan",
+    outs = [
+        ":floorplan.def",
+    ],
+    script = ":write_floorplan.tcl",
+)
+
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "top",
@@ -91,17 +101,16 @@ orfs_flow(
     abstract_stage = "grt",
     args = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
-        "DIE_AREA": "0 0 100 100",
-        "CORE_AREA": "2 2 98 98",
-        "CORE_MARGIN": "2",
+        "FLOORPLAN_DEF": "$(location :floorplan.def)",
         "MACRO_PLACEMENT_TCL": "$(location :macro_placement.tcl)",
         "ADDITIONAL_LEFS": "$(location :lef_file)",
         "ADDITIONAL_LIBS": "$(location :fakeram/sdq_17x64.lib)",
     },
     sources =  {
+        "SDC_FILE": [":fakeram/constraints-sram.sdc"],
+        "FLOORPLAN_DEF": ":floorplan.def",
         "ADDITIONAL_LEFS" : [":lef_file"],
         "ADDITIONAL_LIBS" : [":fakeram/sdq_17x64.lib"],
-        "SDC_FILE": [":fakeram/constraints-sram.sdc"],
         "MACRO_PLACEMENT_TCL": [":macro_placement.tcl"],
     },
     verilog_files = [":fakeram/top.v"],
