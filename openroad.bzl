@@ -120,15 +120,14 @@ def _run_impl(ctx):
         arguments = [
             "--file",
             ctx.file._makefile.path,
-            "open_{}".format(stage_name),
+            "open_{}".format(stage_name) if ctx.attr.gui else "run",
         ],
         command = ctx.executable._make.path + " $@",
         env = odb_environment(ctx) | _run_env(ctx, config) | {
             "RUBYLIB": ":".join([commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)]),
-            "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
-            "GUI_ARGS": "-exit",
-            "GUI_SOURCE": ctx.file.script.path,
-        },
+            "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic)} |
+            ({"GUI_ARGS": "-exit", "GUI_SOURCE": ctx.file.script.path,}
+             if ctx.attr.gui else {"RUN_SCRIPT": ctx.file.script.path}),
         inputs = depset(
             ctx.files.src +
             ctx.files.data +
@@ -160,6 +159,10 @@ orfs_run = rule(
         "src": attr.label(
             mandatory = True,
             providers = [OrfsInfo],
+        ),
+        "gui": attr.bool(
+            doc = "Run the GUI.",
+            default = True,
         ),
         "script": attr.label(
             mandatory = True,
