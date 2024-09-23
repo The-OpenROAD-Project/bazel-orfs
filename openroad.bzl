@@ -124,10 +124,10 @@ def _run_impl(ctx):
         ],
         command = ctx.executable._make.path + " $@",
         env = odb_environment(ctx) | _run_env(ctx, config) | {
-            "RUBYLIB": ":".join([commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)]),
-            "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic)} |
-            ({"GUI_ARGS": "-exit", "GUI_SOURCE": ctx.file.script.path,}
-             if ctx.attr.gui else {"RUN_SCRIPT": ctx.file.script.path}),
+                  "RUBYLIB": ":".join([commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)]),
+                  "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
+              } |
+              ({"GUI_ARGS": "-exit", "GUI_SOURCE": ctx.file.script.path} if ctx.attr.gui else {"RUN_SCRIPT": ctx.file.script.path}),
         inputs = depset(
             ctx.files.src +
             ctx.files.data +
@@ -1289,7 +1289,6 @@ def flatten(xs):
             result.append(x)
     return result
 
-
 def set(iterable):
     """Creates a set-like collection from an iterable.
 
@@ -1304,8 +1303,11 @@ def set(iterable):
     return list(unique_dict.keys())
 
 STAGE_TO_VARIABLES = {
-    stage: [variable for variable, stages in STAGE_ARGS_USES.items()
-            if stage in stages]
+    stage: [
+        variable
+        for variable, stages in STAGE_ARGS_USES.items()
+        if stage in stages
+    ]
     for stage in ALL_STAGES
 }
 
@@ -1337,9 +1339,11 @@ def get_sources(stage, stage_sources, sources):
       A list of sources for the stage.
     """
     return set(stage_sources.get(stage, []) +
-               flatten([source_list for variable, source_list in sources.items()
-                        if variable in STAGE_TO_VARIABLES[stage]]))
-
+               flatten([
+                   source_list
+                   for variable, source_list in sources.items()
+                   if variable in STAGE_TO_VARIABLES[stage]
+               ]))
 
 def _deep_dict_copy(d):
     new_d = dict(d)
