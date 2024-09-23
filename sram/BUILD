@@ -85,7 +85,6 @@ orfs_run(
 
 orfs_run(
     name = "top_write_floorplan",
-    gui = False,
     src = ":top_floorplan_deps",
     outs = [
         ":floorplan.def",
