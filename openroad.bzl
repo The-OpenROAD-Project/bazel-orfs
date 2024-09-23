@@ -301,20 +301,6 @@ def run_openroad_attrs():
         ),
     }
 
-orfs_run_openroad = rule(
-    implementation = lambda ctx: _run_openroad_impl(ctx, False),
-    attrs = run_openroad_attrs() | {
-        "script": attr.label(
-            mandatory = True,
-            allow_single_file = ["tcl"],
-        ),
-        "outs": attr.output_list(
-            mandatory = True,
-            allow_empty = False,
-        ),
-    },
-)
-
 orfs_run_mock_area = rule(
     implementation = lambda ctx: _run_openroad_impl(ctx, True),
     attrs = run_openroad_attrs() | {
