@@ -45,7 +45,7 @@ orfs_flow(
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "top",
-    variant="fakeram",
+    variant = "fakeram",
     abstract_stage = "grt",
     args = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
@@ -57,14 +57,13 @@ orfs_flow(
         "ADDITIONAL_LEFS": "$(location :fakeram/sdq_17x64.lef)",
         "ADDITIONAL_LIBS": "$(location :fakeram/sdq_17x64.lib)",
     },
-    sources =  {
-        "ADDITIONAL_LEFS" : [":fakeram/sdq_17x64.lef"],
-        "ADDITIONAL_LIBS" : [":fakeram/sdq_17x64.lib"],
+    sources = {
+        "ADDITIONAL_LEFS": [":fakeram/sdq_17x64.lef"],
+        "ADDITIONAL_LIBS": [":fakeram/sdq_17x64.lib"],
         "SDC_FILE": [":fakeram/constraints-sram.sdc"],
     },
     verilog_files = [":fakeram/top.v"],
 )
-
 
 filegroup(
     name = "lef_file",
@@ -97,7 +96,7 @@ orfs_run(
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "top",
-    variant="mix",
+    variant = "mix",
     abstract_stage = "grt",
     args = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
@@ -106,16 +105,15 @@ orfs_flow(
         "ADDITIONAL_LEFS": "$(location :lef_file)",
         "ADDITIONAL_LIBS": "$(location :fakeram/sdq_17x64.lib)",
     },
-    sources =  {
+    sources = {
         "SDC_FILE": [":fakeram/constraints-sram.sdc"],
         "FLOORPLAN_DEF": ":floorplan.def",
-        "ADDITIONAL_LEFS" : [":lef_file"],
-        "ADDITIONAL_LIBS" : [":fakeram/sdq_17x64.lib"],
+        "ADDITIONAL_LEFS": [":lef_file"],
+        "ADDITIONAL_LIBS": [":fakeram/sdq_17x64.lib"],
         "MACRO_PLACEMENT_TCL": [":macro_placement.tcl"],
     },
     verilog_files = [":fakeram/top.v"],
 )
-
 
 # buildifier: disable=duplicated-name
 orfs_flow(
