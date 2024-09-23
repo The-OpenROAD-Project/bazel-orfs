@@ -4,6 +4,7 @@ OrfsInfo = provider(
     "The outputs of a OpenROAD-flow-scripts stage.",
     fields = [
         "stage",
+        "config",
         "odb",
         "gds",
         "lef",
@@ -85,13 +86,7 @@ def _run_env(ctx, config):
     }
 
 def _run_impl(ctx):
-    all_arguments = _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
-    config = _declare_artifact(ctx, "results", "open.mk")
-    ctx.actions.write(
-        output = config,
-        content = _config_content(all_arguments),
-    )
-
+    config = ctx.attr.src[OrfsInfo].config
     outs = []
     for k in dir(ctx.outputs):
         outs.extend(getattr(ctx.outputs, k))
@@ -416,6 +411,9 @@ def _deps_impl(ctx):
         } | openroad_substitutions(ctx),
     )
     return [
+        ctx.attr.src[OrfsInfo],
+        ctx.attr.src[PdkInfo],
+        ctx.attr.src[TopInfo],
         DefaultInfo(
             executable = exe,
             files = depset(ctx.attr.src[OrfsDepInfo].files),
@@ -801,6 +799,7 @@ def _yosys_impl(ctx):
         ),
         OrfsInfo(
             stage = "1_synth",
+            config = config,
             odb = None,
             gds = None,
             lef = None,
@@ -1001,6 +1000,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         ),
         OrfsInfo(
             stage = stage,
+            config = config,
             odb = info.get("odb"),
             gds = info.get("gds"),
             lef = info.get("lef"),
