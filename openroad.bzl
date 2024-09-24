@@ -117,7 +117,10 @@ def _run_impl(ctx):
             "run",
         ],
         command = ctx.executable._make.path + " $@",
-        env = odb_environment(ctx) | _run_env(ctx, config) | {
+        env = _data_arguments(ctx) |
+              odb_environment(ctx) |
+              _run_env(ctx, config) |
+              {
                   "RUBYLIB": ":".join([commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)]),
                   "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
               } |
@@ -145,6 +148,10 @@ def _run_impl(ctx):
 orfs_run = rule(
     implementation = _run_impl,
     attrs = {
+        "arguments": attr.string_dict(
+            doc = "Dictionary of additional flow arguments.",
+            default = {},
+        ),
         "data": attr.label_list(
             doc = "List of additional data.",
             allow_files = True,
