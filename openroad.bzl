@@ -1217,37 +1217,54 @@ ALL_STAGES = ["synth", "floorplan", "place", "cts", "grt", "route", "final", "ge
 # about the ORFS code that there is no known nice way for ORFS to
 # provide.
 STAGE_ARGS_USES = {
-    "FLOORPLAN_DEF": ["floorplan"],
     "PLACE_DENSITY": ["floorplan", "place"],
-    "SDC_FILE": ["synth"],
     "IO_CONSTRAINTS": ["floorplan", "place"],
     "PLACE_PINS_ARGS": ["floorplan", "place"],
-    "CORE_UTILIZATION": ["floorplan"],
-    "CORE_AREA": ["floorplan"],
-    "DIE_AREA": ["floorplan"],
-    "CORE_ASPECT_RATIO": ["floorplan"],
-    "REMOVE_ABC_BUFFERS": ["floorplan"],
-    "PDN_TCL": ["floorplan"],
-    "MACRO_PLACEMENT_TCL": ["floorplan"],
     "TNS_END_PERCENT": ["cts", "floorplan", "grt"],
-    "SKIP_CTS_REPAIR_TIMING": ["cts"],
-    "CORE_MARGIN": ["floorplan"],
     "SKIP_REPORT_METRICS": ["floorplan", "place", "cts", "grt", "route", "final"],
-    "SYNTH_HIERARCHICAL": ["synth"],
-    "RTLMP_FLOW": ["floorplan"],
-    "MACRO_PLACE_HALO": ["floorplan"],
-    "GND_NETS_VOLTAGES": ["final"],
-    "PWR_NETS_VOLTAGES": ["final"],
-    "GPL_ROUTABILITY_DRIVEN": ["place"],
-    "GPL_TIMING_DRIVEN": ["place"],
-    "SKIP_INCREMENTAL_REPAIR": ["grt"],
     "MIN_ROUTING_LAYER": ["place", "grt", "route", "final"],
     "MAX_ROUTING_LAYER": ["place", "grt", "route", "final"],
     "ROUTING_LAYER_ADJUSTMENT": ["place", "grt", "route", "final"],
-    "FILL_CELLS": ["route"],
-    "TAPCELL_TCL": ["floorplan"],
     "ADDITIONAL_LEFS": ALL_STAGES,
     "ADDITIONAL_LIBS": ALL_STAGES,
+}
+
+STAGE_ARGS_IN = {
+    "synth": [
+        "SDC_FILE",
+        "SYNTH_HIERARCHICAL"
+    ],
+    "floorplan": [
+        "FLOORPLAN_DEF",
+        "CORE_AREA",
+        "DIE_AREA",
+        "CORE_ASPECT_RATIO",
+        "REMOVE_ABC_BUFFERS",
+        "PDN_TCL",
+        "MACRO_PLACEMENT_TCL",
+        "CORE_MARGIN",
+        "CORE_UTILIZATION",
+        "RTLMP_FLOW",
+        "MACRO_PLACE_HALO",
+        "TAPCELL_TCL",
+    ],
+    "place": [
+        "GPL_ROUTABILITY_DRIVEN",
+        "GPL_TIMING_DRIVEN",
+    ],
+    "cts": [
+        "SKIP_CTS_REPAIR_TIMING",
+    ],
+    "grt": [
+        "SKIP_INCREMENTAL_REPAIR",
+    ],
+    "route": [
+        "FILL_CELLS",
+    ],
+    "final": [
+        "GND_NETS_VOLTAGES",
+        "PWR_NETS_VOLTAGES",
+    ]
 }
 
 def flatten(xs):
@@ -1288,7 +1305,7 @@ STAGE_TO_VARIABLES = {
         variable
         for variable, stages in STAGE_ARGS_USES.items()
         if stage in stages
-    ]
+    ] + STAGE_ARGS_IN.get(stage, [])
     for stage in ALL_STAGES
 }
 
@@ -1305,7 +1322,7 @@ def get_stage_args(stage, stage_args, args):
     return ({
                 arg: value
                 for arg, value in args.items()
-                if stage in STAGE_ARGS_USES[arg] or "all" in STAGE_ARGS_USES[arg]
+                if arg in STAGE_TO_VARIABLES[stage]
             } |
             stage_args.get(stage, {}))
 
