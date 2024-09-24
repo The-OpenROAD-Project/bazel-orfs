@@ -16,8 +16,8 @@ orfs_flow(
     name = "L1MetadataArray",
     abstract_stage = "cts",
     macros = ["//:tag_array_64x184_generate_abstract"],
-    args = FAST_ARGUMENTS,
-    stage_args = {
+    arguments = FAST_ARGUMENTS,
+    stage_arguments = {
         "synth": {
             "SDC_FILE": "$(location //:test/constraints-top.sdc)",
             "SYNTH_HIERARCHICAL": "1",
@@ -45,8 +45,8 @@ orfs_flow(
 orfs_flow(
     name = "tag_array_64x184",
     abstract_stage = "floorplan",
-    args = FAST_ARGUMENTS,
-    stage_args = {
+    arguments = FAST_ARGUMENTS,
+    stage_arguments = {
         "synth": {
             "SDC_FILE": "$(location //:constraints-sram)",
         },

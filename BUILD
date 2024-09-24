@@ -64,7 +64,7 @@ BLOCK_FLOORPLAN = {
 orfs_flow(
     name = "tag_array_64x184",
     abstract_stage = "cts",
-    args = SRAM_ARGUMENTS | {
+    arguments = SRAM_ARGUMENTS | {
         "CORE_UTILIZATION": "40",
         "CORE_ASPECT_RATIO": "2",
         "SKIP_REPORT_METRICS": "1",
@@ -96,7 +96,7 @@ orfs_flow(
     name = "lb_32x128",
     abstract_stage = "floorplan",
     mock_area = 1.0,
-    args = LB_ARGS,
+    arguments = LB_ARGS,
     stage_sources = LB_STAGE_SOURCES,
     verilog_files = LB_VERILOG_FILES,
 )
@@ -105,7 +105,7 @@ orfs_flow(
 orfs_flow(
     name = "lb_32x128",
     abstract_stage = "place",
-    args = LB_ARGS,
+    arguments = LB_ARGS,
     stage_sources = LB_STAGE_SOURCES,
     variant = "test",
     verilog_files = LB_VERILOG_FILES,
@@ -115,7 +115,7 @@ orfs_flow(
     name = "L1MetadataArray",
     abstract_stage = "cts",
     macros = ["tag_array_64x184_generate_abstract"],
-    stage_args = {
+    stage_arguments = {
         "synth": {
             "SDC_FILE": "$(location :test/constraints-top.sdc)",
             "SYNTH_HIERARCHICAL": "1",
@@ -153,7 +153,7 @@ orfs_run(
 orfs_flow(
     name = "Mul",
     abstract_stage = "synth",
-    stage_args = {
+    stage_arguments = {
         "synth": {
             "SDC_FILE": "$(location :test/constraints-top.sdc)",
         },
@@ -191,8 +191,8 @@ eqy_test(
 orfs_flow(
     name = "data_2048x8",
     abstract_stage = "cts",
-    args = SRAM_ARGUMENTS,
-    stage_args = {
+    arguments = SRAM_ARGUMENTS,
+    stage_arguments = {
         "synth": {"SYNTH_MEMORY_MAX_BITS": "16384"},
         "floorplan": BLOCK_FLOORPLAN | {
             "CORE_UTILIZATION": "40",
@@ -219,8 +219,8 @@ orfs_flow(
 orfs_flow(
     name = "regfile_128x65",
     abstract_stage = "cts",
-    args = SRAM_ARGUMENTS,
-    stage_args = {
+    arguments = SRAM_ARGUMENTS,
+    stage_arguments = {
         "floorplan": BLOCK_FLOORPLAN | {
             "DIE_AREA": "0 0 400 400",
             "CORE_AREA": "2 2 298 298",
