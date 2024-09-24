@@ -1232,7 +1232,8 @@ STAGE_ARGS_USES = {
 STAGE_ARGS_IN = {
     "synth": [
         "SDC_FILE",
-        "SYNTH_HIERARCHICAL"
+        "SYNTH_HIERARCHICAL",
+        "SYNTH_GUT",
     ],
     "floorplan": [
         "FLOORPLAN_DEF",
