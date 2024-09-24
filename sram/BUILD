@@ -77,6 +77,9 @@ filegroup(
 orfs_run(
     name = "top_write_macro_placement",
     src = ":top_floorplan",
+    arguments = {
+        "MESSAGE": "Hello world!",
+    },
     outs = [
         ":macro_placement.tcl",
     ],
