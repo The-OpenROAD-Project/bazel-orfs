@@ -11,7 +11,7 @@ orfs_flow(
     name = "sdq_17x64",
     abstract_stage = "grt",
     mock_area = 0.95,
-    args = FAST_SETTINGS | {
+    arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "CORE_UTILIZATION": "20",
         "CORE_MARGIN": "2",
@@ -28,7 +28,7 @@ orfs_flow(
     name = "top",
     abstract_stage = "grt",
     macros = [":sdq_17x64_generate_abstract"],
-    args = FAST_SETTINGS | {
+    arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "DIE_AREA": "0 0 80 80",
         "CORE_AREA": "2 2 78 78",
@@ -47,7 +47,7 @@ orfs_flow(
     name = "top",
     variant = "fakeram",
     abstract_stage = "grt",
-    args = FAST_SETTINGS | {
+    arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "DIE_AREA": "0 0 30 30",
         "CORE_AREA": "2 2 28 28",
@@ -100,7 +100,7 @@ orfs_flow(
     name = "top",
     variant = "mix",
     abstract_stage = "grt",
-    args = FAST_SETTINGS | {
+    arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "FLOORPLAN_DEF": "$(location :floorplan.def)",
         "MACRO_PLACEMENT_TCL": "$(location :macro_placement.tcl)",
@@ -123,7 +123,7 @@ orfs_flow(
     variant = "megaboom",
     abstract_stage = "grt",
     mock_area = 0.95,
-    args = FAST_SETTINGS | {
+    arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :megaboom/constraints-sram.sdc)",
         "CORE_UTILIZATION": "20",
         "CORE_MARGIN": "2",
@@ -142,7 +142,7 @@ orfs_flow(
     abstract_stage = "grt",
     variant = "megaboom",
     macros = [":sdq_17x64_megaboom_generate_abstract"],
-    args = FAST_SETTINGS | {
+    arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :megaboom/constraints-top.sdc)",
         "DIE_AREA": "0 0 100 100",
         "CORE_AREA": "2 2 98 98",

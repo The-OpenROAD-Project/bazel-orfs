@@ -584,14 +584,14 @@ def _orfs_arguments(*args, short = False):
     lefs = depset([info.lef for info in args if info.lef], transitive = [info.additional_lefs for info in args])
     libs = depset([info.lib for info in args if info.lib], transitive = [info.additional_libs for info in args])
 
-    args = {}
+    arguments = {}
     if gds.to_list():
-        args["ADDITIONAL_GDS"] = " ".join([file.short_path if short else file.path for file in gds.to_list()])
+        arguments["ADDITIONAL_GDS"] = " ".join([file.short_path if short else file.path for file in gds.to_list()])
     if lefs.to_list():
-        args["ADDITIONAL_LEFS"] = " ".join([file.short_path if short else file.path for file in lefs.to_list()])
+        arguments["ADDITIONAL_LEFS"] = " ".join([file.short_path if short else file.path for file in lefs.to_list()])
     if libs.to_list():
-        args["ADDITIONAL_LIBS"] = " ".join([file.short_path if short else file.path for file in libs.to_list()])
-    return args
+        arguments["ADDITIONAL_LIBS"] = " ".join([file.short_path if short else file.path for file in libs.to_list()])
+    return arguments
 
 def _verilog_arguments(files, short = False):
     return {"VERILOG_FILES": " ".join([file.short_path if short else file.path for file in files])}
@@ -599,8 +599,8 @@ def _verilog_arguments(files, short = False):
 def _block_arguments(ctx):
     return {"MACROS": " ".join([dep[TopInfo].module_top for dep in ctx.attr.deps])} if ctx.attr.deps else {}
 
-def _config_content(args):
-    return "".join(["export {}={}\n".format(*pair) for pair in args.items()])
+def _config_content(arguments):
+    return "".join(["export {}={}\n".format(*pair) for pair in arguments.items()])
 
 def _data_arguments(ctx):
     return {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()}
@@ -1317,22 +1317,22 @@ STAGE_TO_VARIABLES = {
     for stage in ALL_STAGES
 }
 
-def get_stage_args(stage, stage_args, args):
+def get_stage_args(stage, stage_arguments, arguments):
     """Returns the arguments for a specific stage.
 
     Args:
         stage: The stage name.
-        stage_args: the dictionary of stages with each stage having a dictionary of arguments
-        args: a dictionary of arguments automatically assigned to a stage
+        stage_arguments: the dictionary of stages with each stage having a dictionary of arguments
+        arguments: a dictionary of arguments automatically assigned to a stage
     Returns:
       A dictionary of arguments for the stage.
     """
     return ({
                 arg: value
-                for arg, value in args.items()
+                for arg, value in arguments.items()
                 if arg in STAGE_TO_VARIABLES[stage]
             } |
-            stage_args.get(stage, {}))
+            stage_arguments.get(stage, {}))
 
 def get_sources(stage, stage_sources, sources):
     """Returns the sources for a specific stage.
@@ -1365,25 +1365,25 @@ def _mock_area_targets(
         macros = [],
         sources = {},
         stage_sources = {},
-        stage_args = {},
-        args = {},
+        stage_arguments = {},
+        arguments = {},
         variant = None,
         visibility = ["//visibility:private"]):
     steps.append(ABSTRACT_IMPL)
 
-    # Make a copy of args
-    stage_args = _deep_dict_copy(stage_args)
-    args = dict(args)
-    floorplan_args = stage_args.get("floorplan", {})
+    # Make a copy of arguments
+    stage_arguments = _deep_dict_copy(stage_arguments)
+    arguments = dict(arguments)
+    floorplan_args = stage_arguments.get("floorplan", {})
     for arg in ("DIE_AREA", "CORE_AREA", "CORE_UTILIZATION"):
-        args.pop(arg, None)
+        arguments.pop(arg, None)
         floorplan_args.pop(arg, None)
-    stage_args["floorplan"] = floorplan_args
-    stage_args.get("generate_abstract", {}).pop("ABSTRACT_SOURCE", None)
+    stage_arguments["floorplan"] = floorplan_args
+    stage_arguments.get("generate_abstract", {}).pop("ABSTRACT_SOURCE", None)
 
-    synth_args = stage_args.get("synth", {})
+    synth_args = stage_arguments.get("synth", {})
     synth_args["SYNTH_GUT"] = "1"
-    stage_args["synth"] = synth_args
+    stage_arguments["synth"] = synth_args
 
     name_variant = name + "_" + variant if variant else name
     mock_variant = variant + "_mock_area" if variant else "mock_area"
@@ -1391,7 +1391,7 @@ def _mock_area_targets(
     synth_step = steps[0]
     synth_step.impl(
         name = "{}_{}_mock_area".format(name_variant, synth_step.stage),
-        arguments = get_stage_args(synth_step.stage, stage_args, args),
+        arguments = get_stage_args(synth_step.stage, stage_arguments, arguments),
         data = get_sources(synth_step.stage, stage_sources, sources),
         deps = macros,
         module_top = name,
@@ -1425,7 +1425,7 @@ def _mock_area_targets(
         step.impl(
             name = "{}_{}{}".format(name_variant, step.stage, suffix),
             src = "{}_{}_mock_area".format(name_variant, prev.stage, suffix),
-            arguments = get_stage_args(step.stage, stage_args, args),
+            arguments = get_stage_args(step.stage, stage_arguments, arguments),
             data = get_sources(step.stage, stage_sources, sources),
             variant = mock_variant,
             visibility = visibility,
@@ -1443,8 +1443,8 @@ def orfs_flow(
         macros = [],
         sources = {},
         stage_sources = {},
-        stage_args = {},
-        args = {},
+        stage_arguments = {},
+        arguments = {},
         abstract_stage = None,
         variant = None,
         mock_area = None,
@@ -1458,8 +1458,8 @@ def orfs_flow(
       macros: list of macros required to run physical design flow for this design
       sources: dictionary keyed by ORFS variables with lists of sources
       stage_sources: dictionary keyed by ORFS stages with lists of stage-specific sources
-      stage_args: dictionary keyed by ORFS stages with lists of stage-specific arguments
-      args: dictionary of additional arguments to the flow, automatically assigned to stages
+      stage_arguments: dictionary keyed by ORFS stages with lists of stage-specific arguments
+      arguments: dictionary of additional arguments to the flow, automatically assigned to stages
       abstract_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
       variant: name of the target variant, added right after the module name
       mock_area: floating point number, scale the die width/height by this amount, default no scaling
@@ -1478,7 +1478,7 @@ def orfs_flow(
     synth_step = steps[0]
     synth_step.impl(
         name = "{}_{}".format(name_variant, synth_step.stage),
-        arguments = get_stage_args(synth_step.stage, stage_args, args),
+        arguments = get_stage_args(synth_step.stage, stage_arguments, arguments),
         data = get_sources(synth_step.stage, stage_sources, sources),
         deps = macros,
         module_top = name,
@@ -1495,7 +1495,7 @@ def orfs_flow(
         step.impl(
             name = "{}_{}".format(name_variant, step.stage),
             src = "{}_{}".format(name_variant, prev.stage),
-            arguments = get_stage_args(step.stage, stage_args, args),
+            arguments = get_stage_args(step.stage, stage_arguments, arguments),
             data = get_sources(step.stage, stage_sources, sources),
             variant = variant,
             visibility = visibility,
@@ -1516,8 +1516,8 @@ def orfs_flow(
             macros,
             sources,
             stage_sources,
-            stage_args,
-            args,
+            stage_arguments,
+            arguments,
             variant,
             visibility,
         )

@@ -61,7 +61,7 @@ orfs_flow(
     name = "L1MetadataArray",
     abstract_stage = "route",
     macros = ["tag_array_64x184_generate_abstract"],
-    stage_args = {
+    stage_arguments = {
         "synth": {
             "SDC_FILE": "$(location :test/constraints-top.sdc)",
             "SYNTH_HIERARCHICAL": "1",
@@ -232,7 +232,7 @@ Abstracts are generated at the `target + "generate_abstract"` stage, which follo
 orfs_flow(
     name = "tag_array_64x184",
     <b>abstract_stage = "floorplan",</b>
-    stage_args = {
+    stage_arguments = {
         "synth": SRAM_SYNTH_ARGUMENTS,
         "floorplan": SRAM_FLOOR_PLACE_ARGUMENTS | {
             "CORE_UTILIZATION": "40",
@@ -276,7 +276,7 @@ To create mock area targets, `mock_area` has to be added to `orfs_flow` definiti
 ```starlark
 orfs_flow(
     name = "lb_32x128",
-    stage_args = LB_STAGE_ARGS,
+    stage_arguments = LB_STAGE_ARGS,
     stage_sources = LB_STAGE_SOURCES,
     verilog_files = LB_VERILOG_FILES,
     mock_area = 0.5,
@@ -293,7 +293,7 @@ Constraint files are passed down to `orfs_flow()` macro through [Stage targets](
 orfs_flow(
     name = "tag_array_64x184",
     abstract_stage = "synth",
-    <b>stage_args = {
+    <b>stage_arguments = {
         "synth": {
             "SDC_FILE": "$(location :constraints-sram)",
         },
@@ -522,7 +522,7 @@ index 095d63b..9756fbf 100644
 -    abstract_stage = "route",
 +    abstract_stage = "floorplan",
      macros = ["tag_array_64x184_generate_abstract"],
-     stage_args = {
+     stage_arguments = {
          "synth": {
 ```
 
@@ -575,7 +575,7 @@ index 095d63b..5b618ba 100644
      name = "L1MetadataArray",
      abstract_stage = "route",
      macros = ["tag_array_64x184_generate_abstract"],
-     stage_args = {
+     stage_arguments = {
          "synth": {
 +            "PHONY": "1",
              "SDC_FILE": "$(location :test/constraints-top.sdc)",
