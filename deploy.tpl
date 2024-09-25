@@ -74,6 +74,10 @@ main() {
     "$dst/make" yosys-dependencies
   fi
 
+  if [[ -n "$@" ]]; then
+    "$dst/make" $@
+  fi
+
   exit $?
 }
 

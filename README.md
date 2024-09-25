@@ -177,15 +177,32 @@ bazel build <target>_<stage>
 A locally built and modified [ORFS](https://openroad-flow-scripts.readthedocs.io/en/latest/user/UserGuide.html) can also be used to run the flow:
 
 ```bash
-bazel run <target>_<stage>_deps -- <absolute_path> && <absolute_path>/make do-<stage>
+bazel run <target>_<stage>_deps -- <absolute_path>
+<absolute_path>/make do-<stage>
+```
+
+The `_deps` is used to distinguish between copying the results into the mutable folder for that stage versus copying the required files to execute said stage.
+
+It is also possible and convenient to run within the sandbox as the arguments after the absolute path are forwarded to make:
+
+```bash
+bazel run <target>_<stage>_deps -- <absolute_path> <make args...>
+```
+
+To view the floorplan:
+
+```bash
+bazel run tag_array_64x184_floorplan $(pwd)/tmp gui_floorplan
 ```
 
 > **NOTE:** If the directory under the `<absolute_path>` does not exist, it will be created. If a relative path is provided, the `bazel run` command above will fail.
 
-A convenient way to re-run the floorplan and view the results would be:
+A convenient way to run the floorplan and view the results would be:
 
 ```bash
-bazel run MyDesign_floorplan -- `pwd`/build && build/make do-floorplan gui_floorplan
+bazel run MyDesign_floorplan_deps -- `pwd`/build
+build/make do-floorplan
+build/make gui_floorplan
 ```
 
 By default, the `make do-<stage>` invocation will rely on the ORFS from [MODULE.bazel](./MODULE.bazel), unless the `env.sh` script is sourced, or the `FLOW_HOME` environment variable is set to the path of the local `OpenROAD-flow-scripts/flow` installation:
