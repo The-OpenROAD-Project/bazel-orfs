@@ -600,7 +600,7 @@ def _block_arguments(ctx):
     return {"MACROS": " ".join([dep[TopInfo].module_top for dep in ctx.attr.deps])} if ctx.attr.deps else {}
 
 def _config_content(arguments):
-    return "".join(["export {}={}\n".format(*pair) for pair in arguments.items()])
+    return "".join(["export {}?={}\n".format(*pair) for pair in arguments.items()])
 
 def _data_arguments(ctx):
     return {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()}

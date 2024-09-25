@@ -224,6 +224,20 @@ bazel run <target>_<stage>_deps -- <absolute_path>
 > <absolute_path>/make do-yosys-canonicalize do-yosys-keep-hierarchy do-yosys do-synth
 > ```
 
+### Override BUILD configuration variables
+
+Configuration variables can be overwritten on the command line by passing them in as arguments to the local flow:
+
+```bash
+$ bazel run tag_array_64x184_floorplan $(pwd)/tmp print-CORE_UTILIZATION
+[deleted]
+CORE_UTILIZATION = 40
+```bash
+$ bazel run tag_array_64x184_floorplan $(pwd)/tmp CORE_UTILIZATION=5 print-CORE_UTILIZATION
+[deleted]
+CORE_UTILIZATION = 5
+```
+
 ### Stage targets
 
 Each stage of the physical design flow is represented by a separate target and follows the naming convention: `target_name + “_” + stage`.
