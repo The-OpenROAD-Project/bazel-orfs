@@ -49,10 +49,11 @@ SRAM_ARGUMENTS = {
     "IO_CONSTRAINTS": "$(location :io-sram)",
     "PLACE_PINS_ARGS": "-min_distance 2 -min_distance_in_tracks",
     "PLACE_DENSITY": "0.42",
-    "REMOVE_ABC_BUFFERS": "1",
     # faster build
+    "REMOVE_ABC_BUFFERS": "1",
     "SKIP_CTS_REPAIR_TIMING": "1",
     "SKIP_REPORT_METRICS": "1",
+    "SKIP_INCREMENTAL_REPAIR": "1",
 }
 
 BLOCK_FLOORPLAN = {
@@ -61,9 +62,9 @@ BLOCK_FLOORPLAN = {
     "REMOVE_ABC_BUFFERS": "1",
 }
 
+# Run one macro through all stages
 orfs_flow(
     name = "tag_array_64x184",
-    abstract_stage = "cts",
     arguments = SRAM_ARGUMENTS | {
         "CORE_UTILIZATION": "40",
         "CORE_ASPECT_RATIO": "2",

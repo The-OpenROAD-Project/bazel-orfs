@@ -1115,8 +1115,8 @@ orfs_route = add_orfs_make_rule_(
         ctx = ctx,
         stage = "5_2_route",
         steps = [
-            "do-5_2_fillcell",
-            "do-5_3_route",
+            "do-5_2_route",
+            "do-5_3_fillcell",
             "do-5_route",
             "do-5_route.sdc",
         ],
@@ -1125,8 +1125,8 @@ orfs_route = add_orfs_make_rule_(
             "5_route.sdc",
         ],
         log_names = [
-            "5_2_fillcell.log",
-            "5_3_route.log",
+            "5_2_route.log",
+            "5_3_fillcell.log",
         ],
         report_names = [
             "5_route_drc.rpt",
