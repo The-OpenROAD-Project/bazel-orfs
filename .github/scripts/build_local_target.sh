@@ -30,8 +30,8 @@ do
     elif [[ $stage == "grt" ]]; then
         stages+=("do-5_1_grt")
     elif [[ $stage == "route" ]]; then
-        stages+=("do-5_2_fillcell")
-        stages+=("do-5_3_route")
+        stages+=("do-5_2_route")
+        stages+=("do-5_3_fillcell")
     else
         stages+=("do-${stage}")
     fi
