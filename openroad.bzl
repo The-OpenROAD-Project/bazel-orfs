@@ -1227,6 +1227,8 @@ STAGE_ARGS_USES = {
     "PLACE_DENSITY": ["floorplan", "place"],
     "IO_CONSTRAINTS": ["floorplan", "place"],
     "PLACE_PINS_ARGS": ["floorplan", "place"],
+    "IO_PLACER_H": ["floorplan", "place"],
+    "IO_PLACER_V": ["floorplan", "place"],
     "TNS_END_PERCENT": ["cts", "floorplan", "grt"],
     "SKIP_REPORT_METRICS": ["floorplan", "place", "cts", "grt", "route", "final"],
     "MIN_ROUTING_LAYER": ["place", "grt", "route", "final"],
