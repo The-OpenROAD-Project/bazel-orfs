@@ -24,7 +24,7 @@ orfs_flow(
         },
         "floorplan": FLOOR_PLACE_ARGUMENTS | {
             "CORE_UTILIZATION": "3",
-            "RTLMP_FLOW": "True",
+            "RTLMP_FLOW": "1",
             "CORE_MARGIN": "2",
             "MACRO_PLACE_HALO": "30 30",
         },
