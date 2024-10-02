@@ -928,7 +928,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         content = _config_content(extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo], short = True)),
     )
 
-    make = ctx.actions.declare_file("make_{}_{}".format(ctx.attr.variant, stage))
+    make = ctx.actions.declare_file("make_{}_{}_{}".format(ctx.attr.name, ctx.attr.variant, stage))
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
@@ -1040,7 +1040,7 @@ orfs_floorplan = add_orfs_make_rule_(
     ),
     attrs = openroad_attrs() | {
         "extra_envs": attr.label(
-            doc = "File with exported environmenta variables.",
+            doc = "File with exported environment variables.",
             allow_single_file = True,
         ),
     },
