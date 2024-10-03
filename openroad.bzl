@@ -70,6 +70,9 @@ def _macro_impl(ctx):
         DefaultInfo(
             files = depset(ctx.files.odb + ctx.files.gds + ctx.files.lef + ctx.files.lib),
         ),
+        OutputGroupInfo(
+            **{f.basename: depset([f]) for f in ctx.files.odb + ctx.files.gds + ctx.files.lef + ctx.files.lib}
+        ),
         OrfsInfo(
             odb = ctx.attr.odb[OrfsInfo].odb if ctx.attr.odb and OrfsInfo in ctx.attr.odb else ctx.file.odb,
             gds = ctx.attr.gds[OrfsInfo].gds if ctx.attr.gds and OrfsInfo in ctx.attr.gds else ctx.file.gds,
@@ -86,7 +89,7 @@ def _macro_impl(ctx):
 
 orfs_macro = rule(
     implementation = _macro_impl,
-    provides = [DefaultInfo, OrfsInfo, TopInfo],
+    provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, TopInfo],
     attrs = {
         "module_top": attr.string(mandatory = True),
     } | {
