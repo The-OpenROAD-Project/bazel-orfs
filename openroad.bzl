@@ -66,7 +66,6 @@ orfs_pdk = rule(
 )
 
 def _macro_impl(ctx):
-    print(ctx.attr.lef)
     return [
         DefaultInfo(
             files = depset(ctx.files.odb + ctx.files.gds + ctx.files.lef + ctx.files.lib),
@@ -93,7 +92,7 @@ orfs_macro = rule(
     } | {
         field: attr.label(
             allow_single_file = [field],
-            providers = [OrfsInfo, DefaultInfo],
+            providers = [DefaultInfo],
         )
         for field in [
             "odb",
@@ -1348,7 +1347,6 @@ def _deep_dict_copy(d):
 def _mock_area_targets(
         name,
         mock_area,
-        steps,
         verilog_files = [],
         macros = [],
         sources = {},
@@ -1357,7 +1355,7 @@ def _mock_area_targets(
         arguments = {},
         variant = None,
         visibility = ["//visibility:private"]):
-    steps.append(ABSTRACT_IMPL)
+    steps = STAGE_IMPLS[0:2] + [ABSTRACT_IMPL]
 
     # Make a copy of arguments
     stage_arguments = _deep_dict_copy(stage_arguments)
@@ -1406,14 +1404,8 @@ def _mock_area_targets(
     if not variant:
         variant = "base"
     extra_args = {"extra_envs": "{}_mock_area".format(name_variant)}
-    last = len(steps) - 2
-    for i, (step, prev) in enumerate(zip(steps[1:], steps)):
-        suffix = "_mock_area"
-        if i == last:
-            suffix = ""
-            extra_args = extra_args | {
-                "non_mocked_variant": variant,
-            }
+    suffix = "_mock_area"
+    for (step, prev) in zip(steps[1:], steps):
         step.impl(
             name = "{}_{}{}".format(name_variant, step.stage, suffix),
             src = "{}_{}_mock_area".format(name_variant, prev.stage, suffix),
@@ -1464,7 +1456,7 @@ def orfs_flow(
         steps.append(step)
         if step.stage == abstract_stage:
             break
-    if (abstract_stage != STAGE_IMPLS[0].stage) and not mock_area:
+    if (abstract_stage != STAGE_IMPLS[0].stage):
         steps.append(ABSTRACT_IMPL)
 
     name_variant = name + "_" + variant if variant else name
@@ -1487,8 +1479,10 @@ def orfs_flow(
     )
 
     for step, prev in zip(steps[1:], steps):
+        umocked_area = step.stage == "generate_abstract" and mock_area
+        stage_name = "{}_{}".format(name_variant, step.stage) + ("_unmocked_area" if umocked_area else "")
         step.impl(
-            name = "{}_{}".format(name_variant, step.stage),
+            name = stage_name,
             src = "{}_{}".format(name_variant, prev.stage),
             arguments = get_stage_args(step.stage, stage_arguments, arguments),
             data = get_sources(step.stage, stage_sources, sources),
@@ -1497,8 +1491,8 @@ def orfs_flow(
             visibility = visibility,
         )
         orfs_deps(
-            name = "{}_{}_deps".format(name_variant, step.stage),
-            src = "{}_{}".format(name_variant, step.stage),
+            name = "{}_deps".format(stage_name),
+            src = stage_name,
         )
 
     if mock_area != None:
@@ -1507,7 +1501,6 @@ def orfs_flow(
         _mock_area_targets(
             name,
             mock_area,
-            steps,
             verilog_files,
             macros,
             sources,
@@ -1516,4 +1509,30 @@ def orfs_flow(
             arguments,
             variant,
             visibility,
+        )
+
+        native.filegroup(
+            name = "{}_lef".format(name_variant),
+            srcs = [
+                "{}_generate_abstract_mock_area".format(name_variant),
+            ],
+            output_group = name + ".lef",
+            visibility = visibility,
+        )
+
+        native.filegroup(
+            name = "{}_lib".format(name_variant),
+            srcs = [
+                "{}_generate_abstract_unmocked_area".format(name_variant),
+            ],
+            output_group = name + ".lib",
+            visibility = visibility,
+        )
+
+        orfs_macro(
+            name = "{}_generate_abstract".format(name_variant),
+            lef = "{}_lef".format(name_variant),
+            lib = "{}_lib".format(name_variant),
+            #lib = ":{}_generate_abstract_unmocked_area".format(name_variant),
+            module_top = name,
         )

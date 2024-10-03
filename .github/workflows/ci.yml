@@ -39,7 +39,7 @@ jobs:
           - "//sram:top_mix_grt"
           - "tag_array_64x184_generate_abstract"
           - "tag_array_64x184_report"
-          - "lb_32x128_generate_abstract"
+          - "lb_32x128_generate_abstract_unmocked_area"
           - "lb_32x128_test_generate_abstract"
           - "L1MetadataArray_generate_abstract"
           - "data_2048x8_generate_abstract"

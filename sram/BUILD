@@ -44,9 +44,9 @@ orfs_flow(
 
 orfs_macro(
     name = "fakeram",
-    module_top = "sdq_17x64",
     lef = ":fakeram/sdq_17x64.lef",
     lib = ":fakeram/sdq_17x64.lib",
+    module_top = "sdq_17x64",
 )
 
 # buildifier: disable=duplicated-name
