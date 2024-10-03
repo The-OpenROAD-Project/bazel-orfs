@@ -1523,29 +1523,9 @@ def orfs_flow(
             visibility,
         )
 
-        native.filegroup(
-            name = "{}_lef".format(name_variant),
-            srcs = [
-                "{}_generate_abstract_mock_area".format(name_variant),
-            ],
-            output_group = name + ".lef",
-            visibility = visibility,
-        )
-
-        native.filegroup(
-            name = "{}_lib".format(name_variant),
-            srcs = [
-                "{}_generate_abstract_unmocked_area".format(name_variant),
-            ],
-            output_group = name + ".lib",
-            visibility = visibility,
-        )
-
-
         orfs_macro(
             name = "{}_generate_abstract".format(name_variant),
-            lef = "{}_lef".format(name_variant),
-            lib = "{}_lib".format(name_variant),
-            #lib = ":{}_generate_abstract_unmocked_area".format(name_variant),
+            lef = "{}_generate_abstract_mock_area".format(name_variant),
+            lib = "{}_generate_abstract_unmocked_area".format(name_variant),
             module_top = name,
         )
