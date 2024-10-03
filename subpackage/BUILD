@@ -11,12 +11,11 @@ FAST_ARGUMENTS = {
     "SKIP_REPORT_METRICS": "1",
 }
 
-
 orfs_flow(
     name = "L1MetadataArray",
     abstract_stage = "cts",
-    macros = ["//:tag_array_64x184_generate_abstract"],
     arguments = FAST_ARGUMENTS,
+    macros = ["//:tag_array_64x184_generate_abstract"],
     stage_arguments = {
         "synth": {
             "SDC_FILE": "$(location //:test/constraints-top.sdc)",
@@ -40,7 +39,6 @@ orfs_flow(
     },
     verilog_files = ["//:test/rtl/L1MetadataArray.sv"],
 )
-
 
 orfs_flow(
     name = "tag_array_64x184",

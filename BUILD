@@ -82,7 +82,7 @@ orfs_flow(
 LB_ARGS = SRAM_ARGUMENTS | {
     "CORE_UTILIZATION": "40",
     "CORE_ASPECT_RATIO": "2",
-    "PLACE_DENSITY": "0.65"
+    "PLACE_DENSITY": "0.65",
 }
 
 LB_STAGE_SOURCES = {
@@ -96,8 +96,8 @@ LB_VERILOG_FILES = ["test/mock/lb_32x128.sv"]
 orfs_flow(
     name = "lb_32x128",
     abstract_stage = "floorplan",
-    mock_area = 1.0,
     arguments = LB_ARGS,
+    mock_area = 1.0,
     stage_sources = LB_STAGE_SOURCES,
     verilog_files = LB_VERILOG_FILES,
 )
@@ -213,7 +213,7 @@ orfs_flow(
         "place": [":io-sram"],
     },
     verilog_files = [
-        "test/rtl/data_2048x8.sv"
+        "test/rtl/data_2048x8.sv",
     ],
 )
 
@@ -238,6 +238,6 @@ orfs_flow(
         "place": [":io-sram"],
     },
     verilog_files = [
-        "test/rtl/regfile_128x65.sv"
+        "test/rtl/regfile_128x65.sv",
     ],
 )
