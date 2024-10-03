@@ -210,66 +210,6 @@ orfs_run = rule(
     },
 )
 
-def _run_openroad_impl(ctx, mock_area = False):
-    all_arguments = _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
-    config = _declare_artifact(ctx, "results", "run_or.mk")
-    ctx.actions.write(
-        output = config,
-        content = _config_content(all_arguments),
-    )
-
-    if mock_area:
-        obj_dir = _artifact_dir(ctx, "objects")
-        outs = [ctx.actions.declare_file(obj_dir + "/scaled_area.env")]
-    else:
-        outs = ctx.outputs
-
-    transitive_inputs = [
-        ctx.attr.src[OrfsInfo].additional_gds,
-        ctx.attr.src[OrfsInfo].additional_lefs,
-        ctx.attr.src[OrfsInfo].additional_libs,
-        ctx.attr.src[PdkInfo].files,
-        ctx.attr.src[DefaultInfo].default_runfiles.files,
-        ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._openroad[DefaultInfo].default_runfiles.files,
-        ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
-    ]
-
-    for datum in ctx.attr.data:
-        transitive_inputs.append(datum.default_runfiles.files)
-        transitive_inputs.append(datum.default_runfiles.symlinks)
-
-    ctx.actions.run_shell(
-        arguments = [
-            "-no_splash",
-            "-exit",
-            ctx.file.script.path,
-        ],
-        command = ctx.executable._openroad.path + " $@",
-        env = all_arguments | odb_environment(ctx) | _run_env(ctx, config) | {
-            "RESULTS_DIR": _work_home(ctx) + "/" + _artifact_dir(ctx, "results"),
-            "OUTPUTS": ":".join([out.path for out in outs]),
-        } | ctx.attr.extra_envs,
-        inputs = depset(
-            ctx.files.src +
-            ctx.files.data +
-            ctx.files._tcl +
-            [config, ctx.file.script, ctx.executable._openroad, ctx.file._makefile],
-            transitive = transitive_inputs,
-        ),
-        outputs = outs,
-    )
-    return [
-        DefaultInfo(
-            files = depset(outs),
-        ),
-        OutputGroupInfo(
-            **{f.basename: depset([f]) for f in outs}
-        ),
-    ]
-
 def run_openroad_attrs():
     return {
         "data": attr.label_list(
@@ -307,16 +247,6 @@ def run_openroad_attrs():
             default = Label("@docker_orfs//:tcl8.6"),
         ),
     }
-
-orfs_run_mock_area = rule(
-    implementation = lambda ctx: _run_openroad_impl(ctx, True),
-    attrs = run_openroad_attrs() | {
-        "script": attr.label(
-            default = "@bazel-orfs//:mock_area.tcl",
-            allow_single_file = ["tcl"],
-        ),
-    },
-)
 
 def commonprefix(*args):
     """
@@ -1406,11 +1336,15 @@ def _mock_area_targets(
         src = "{}_{}_mock_area".format(name_variant, synth_step.stage),
     )
 
-    orfs_run_mock_area(
+    orfs_run(
         name = "{}_mock_area".format(name_variant),
         src = "{}_floorplan".format(name_variant),
-        variant = variant,
-        extra_envs = {"MOCK_AREA": str(mock_area)},
+        arguments = {
+            "MOCK_AREA": str(mock_area),
+            "OUTPUT": "{}.sh".format(name_variant),
+        },
+        outs = ["{}.sh".format(name_variant)],
+        script = "@bazel-orfs//:mock_area.tcl",
     )
 
     if not variant:
