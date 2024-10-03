@@ -345,6 +345,11 @@ def flow_attrs():
             doc = "Dictionary of additional flow arguments.",
             default = {},
         ),
+        "extra_configs": attr.label_list(
+            doc = "List of additional flow configuration files.",
+            allow_files = True,
+            default = [],
+        ),
         "data": attr.label_list(
             doc = "List of additional flow data.",
             allow_files = True,
@@ -529,8 +534,8 @@ def _verilog_arguments(files, short = False):
 def _block_arguments(ctx):
     return {"MACROS": " ".join([dep[TopInfo].module_top for dep in ctx.attr.deps])} if ctx.attr.deps else {}
 
-def _config_content(arguments):
-    return "".join(["export {}?={}\n".format(*pair) for pair in arguments.items()])
+def _config_content(arguments, paths):
+    return "".join(["export {}?={}\n".format(*pair) for pair in arguments.items()] + ["include {}\n".format(path) for path in paths])
 
 def _data_arguments(ctx):
     return {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()}
@@ -574,7 +579,7 @@ def _yosys_impl(ctx):
     config = _declare_artifact(ctx, "results", "1_synth.mk")
     ctx.actions.write(
         output = config,
-        content = _config_content(all_arguments),
+        content = _config_content(all_arguments, [file.path for file in ctx.files.extra_configs]),
     )
 
     canon_logs = []
@@ -611,6 +616,7 @@ def _yosys_impl(ctx):
         inputs = depset(
             ctx.files.verilog_files +
             ctx.files.data +
+            ctx.files.extra_configs +
             ctx.files._tcl +
             [
                 config,
@@ -641,6 +647,7 @@ def _yosys_impl(ctx):
         env = _verilog_arguments([]) | _yosys_env(ctx, config),
         inputs = depset(
             ctx.files.data +
+            ctx.files.extra_configs +
             ctx.files._tcl +
             [
                 canon_output,
@@ -659,7 +666,10 @@ def _yosys_impl(ctx):
     config_short = _declare_artifact(ctx, "results", "1_synth.short.mk")
     ctx.actions.write(
         output = config_short,
-        content = _config_content(_data_arguments(ctx) | _required_arguments(ctx) | _block_arguments(ctx) | _orfs_arguments(short = True, *[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx.files.verilog_files, short = True)),
+        content = _config_content(
+            arguments = _data_arguments(ctx) | _required_arguments(ctx) | _block_arguments(ctx) | _orfs_arguments(short = True, *[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx.files.verilog_files, short = True),
+            paths = [file.short_path for file in ctx.files.extra_configs],
+        ),
     )
 
     make = ctx.actions.declare_file("make_1_synth")
@@ -690,13 +700,13 @@ def _yosys_impl(ctx):
             ),
             runfiles = ctx.runfiles(
                 synth_outputs + canon_logs + synth_logs + [canon_output, config_short, make, ctx.executable._yosys, ctx.executable._openroad, ctx.executable._make, ctx.file._makefile] +
-                ctx.files.verilog_files + ctx.files.data + ctx.files._tcl,
+                ctx.files.verilog_files + ctx.files.data + ctx.files.extra_configs + ctx.files._tcl,
                 transitive_files = depset(transitive = transitive_inputs),
             ),
         ),
         OutputGroupInfo(
             deps = depset(
-                [config] + ctx.files.verilog_files + ctx.files.data +
+                [config] + ctx.files.verilog_files + ctx.files.data + ctx.files.extra_configs +
                 [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds] +
                 [dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef] +
                 [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
@@ -708,10 +718,10 @@ def _yosys_impl(ctx):
         OrfsDepInfo(
             make = make,
             config = config_short,
-            files = [config_short] + ctx.files.verilog_files + ctx.files.data,
+            files = [config_short] + ctx.files.verilog_files + ctx.files.data + ctx.files.extra_configs,
             runfiles = ctx.runfiles(transitive_files = depset(
                 [config_short, make, ctx.executable._yosys, ctx.executable._make, ctx.file._makefile] +
-                ctx.files.verilog_files + ctx.files.data + ctx.files._tcl,
+                ctx.files.verilog_files + ctx.files.data + ctx.files.extra_configs + ctx.files._tcl,
                 transitive = transitive_inputs,
             )),
         ),
@@ -766,7 +776,10 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     config = _declare_artifact(ctx, "results", stage + ".mk")
     ctx.actions.write(
         output = config,
-        content = _config_content(all_arguments),
+        content = _config_content(
+            arguments = all_arguments,
+            paths = [file.path for file in ctx.files.extra_configs],
+        ),
     )
 
     results = []
@@ -842,6 +855,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         inputs = depset(
             ctx.files.src +
             ctx.files.data +
+            ctx.files.extra_configs +
             ctx.files._ruby +
             ctx.files._ruby_dynamic +
             ctx.files._tcl +
@@ -855,7 +869,10 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     config_short = _declare_artifact(ctx, "results", stage + ".short.mk")
     ctx.actions.write(
         output = config_short,
-        content = _config_content(extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo], short = True)),
+        content = _config_content(
+            arguments = extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo], short = True),
+            paths = [file.short_path for file in ctx.files.extra_configs],
+        ),
     )
 
     make = ctx.actions.declare_file("make_{}_{}_{}".format(ctx.attr.name, ctx.attr.variant, stage))
@@ -889,13 +906,13 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             ),
             runfiles = ctx.runfiles(
                 [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.executable._make, ctx.file._makefile] +
-                forwards + results + logs + reports + ctx.files.data + extra_envs_deps + ctx.files._ruby + ctx.files._ruby_dynamic + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
+                forwards + results + logs + reports + ctx.files.data + ctx.files.extra_configs + extra_envs_deps + ctx.files._ruby + ctx.files._ruby_dynamic + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
                 transitive_files = depset(transitive = transitive_inputs + [ctx.attr.src[LoggingInfo].logs, ctx.attr.src[LoggingInfo].reports]),
             ),
         ),
         OutputGroupInfo(
             deps = depset(
-                [config_short] + ctx.files.src + ctx.files.data,
+                [config_short] + ctx.files.src + ctx.files.data + ctx.files.extra_configs,
                 transitive = [
                     ctx.attr.src[OrfsInfo].additional_gds,
                     ctx.attr.src[OrfsInfo].additional_lefs,
@@ -909,10 +926,10 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         OrfsDepInfo(
             make = make,
             config = config_short,
-            files = [config_short] + ctx.files.src + ctx.files.data,
+            files = [config_short] + ctx.files.src + ctx.files.data + ctx.files.extra_configs,
             runfiles = ctx.runfiles(transitive_files = depset(
                 [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.executable._make, ctx.file._makefile, ctx.executable._make] +
-                ctx.files.src + ctx.files.data + ctx.files._ruby + ctx.files._ruby_dynamic + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
+                ctx.files.src + ctx.files.data + ctx.files.extra_configs + ctx.files._ruby + ctx.files._ruby_dynamic + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
                 transitive = transitive_inputs,
             )),
         ),
