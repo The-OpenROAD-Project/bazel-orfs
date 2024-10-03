@@ -1467,6 +1467,7 @@ def orfs_flow(
         stage_sources = {},
         stage_arguments = {},
         arguments = {},
+        extra_configs = {},
         abstract_stage = None,
         variant = None,
         mock_area = None,
@@ -1482,6 +1483,7 @@ def orfs_flow(
       stage_sources: dictionary keyed by ORFS stages with lists of stage-specific sources
       stage_arguments: dictionary keyed by ORFS stages with lists of stage-specific arguments
       arguments: dictionary of additional arguments to the flow, automatically assigned to stages
+      extra_configs: dictionary keyed by ORFS stages with list of additional configuration files
       abstract_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
       variant: name of the target variant, added right after the module name
       mock_area: floating point number, scale the die width/height by this amount, default no scaling
@@ -1503,6 +1505,7 @@ def orfs_flow(
         arguments = get_stage_args(synth_step.stage, stage_arguments, arguments),
         data = get_sources(synth_step.stage, stage_sources, sources),
         deps = macros,
+        extra_configs = extra_configs.get(synth_step.stage, []),
         module_top = name,
         variant = variant,
         verilog_files = verilog_files,
@@ -1519,6 +1522,7 @@ def orfs_flow(
             src = "{}_{}".format(name_variant, prev.stage),
             arguments = get_stage_args(step.stage, stage_arguments, arguments),
             data = get_sources(step.stage, stage_sources, sources),
+            extra_configs = extra_configs.get(step.stage, []),
             variant = variant,
             visibility = visibility,
         )
