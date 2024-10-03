@@ -65,6 +65,45 @@ orfs_pdk = rule(
     },
 )
 
+def _macro_impl(ctx):
+    print(ctx.attr.lef)
+    return [
+        DefaultInfo(
+            files = depset(ctx.files.odb + ctx.files.gds + ctx.files.lef + ctx.files.lib),
+        ),
+        OrfsInfo(
+            odb = ctx.attr.odb[OrfsInfo].odb if ctx.attr.odb and OrfsInfo in ctx.attr.odb else ctx.file.odb,
+            gds = ctx.attr.gds[OrfsInfo].gds if ctx.attr.gds and OrfsInfo in ctx.attr.gds else ctx.file.gds,
+            lef = ctx.attr.lef[OrfsInfo].lef if ctx.attr.lef and OrfsInfo in ctx.attr.lef else ctx.file.lef,
+            lib = ctx.attr.lib[OrfsInfo].lib if ctx.attr.lib and OrfsInfo in ctx.attr.lib else ctx.file.lib,
+            additional_gds = depset([]),
+            additional_lefs = depset([]),
+            additional_libs = depset([]),
+        ),
+        TopInfo(
+            module_top = ctx.attr.module_top,
+        ),
+    ]
+
+orfs_macro = rule(
+    implementation = _macro_impl,
+    provides = [DefaultInfo, OrfsInfo, TopInfo],
+    attrs = {
+        "module_top": attr.string(mandatory = True),
+    } | {
+        field: attr.label(
+            allow_single_file = [field],
+            providers = [OrfsInfo, DefaultInfo],
+        )
+        for field in [
+            "odb",
+            "gds",
+            "lef",
+            "lib",
+        ]
+    },
+)
+
 def odb_environment(ctx):
     if ctx.attr.src[OrfsInfo].odb:
         return {"ODB_FILE": ctx.attr.src[OrfsInfo].odb.path}
