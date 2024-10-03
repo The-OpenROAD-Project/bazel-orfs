@@ -25,8 +25,4 @@ else
   export MAKE_PATH="$(command -v make)"
 fi
 
-if [ -n "${EXTRA_ENVS}" ] && [ -f "${EXTRA_ENVS}" ]; then
-  source "${EXTRA_ENVS}"
-fi
-
 exec $MAKE_PATH --file "$FLOW_HOME/Makefile" "$@"

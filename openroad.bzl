@@ -273,10 +273,6 @@ def run_openroad_attrs():
             doc = "Variant of the used flow.",
             default = "base",
         ),
-        "extra_envs": attr.string_dict(
-            doc = "Dictionary with additional environmental variables.",
-            default = {},
-        ),
         "_openroad": attr.label(
             doc = "OpenROAD binary.",
             executable = True,
@@ -361,16 +357,12 @@ def yosys_substitutions(ctx):
         "${OPENROAD_PATH}": ctx.executable._openroad.path,
     }
 
-default_substitutions = {
-    "${EXTRA_ENVS}": "",
-}
-
 def _deps_impl(ctx):
     exe = _declare_artifact(ctx, "results", ctx.attr.name + ".sh")
     ctx.actions.expand_template(
         template = ctx.file._deploy_template,
         output = exe,
-        substitutions = default_substitutions | default_substitutions | {
+        substitutions = {
             "${GENFILES}": " ".join([f.short_path for f in ctx.attr.src[OrfsDepInfo].files]),
             "${CONFIG}": ctx.attr.src[OrfsDepInfo].config.short_path,
             "${MAKE}": ctx.attr.src[OrfsDepInfo].make.short_path,
@@ -604,7 +596,7 @@ def _artifact_dir(ctx, category):
         category,
         _platform(ctx),
         _module_top(ctx),
-        ctx.attr.non_mocked_variant if hasattr(ctx.attr, "non_mocked_variant") and ctx.attr.non_mocked_variant else ctx.attr.variant,
+        ctx.attr.variant,
     ])
 
 def _declare_artifact(ctx, category, name):
@@ -721,14 +713,14 @@ def _yosys_impl(ctx):
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
-        substitutions = default_substitutions | flow_substitutions(ctx) | yosys_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
+        substitutions = flow_substitutions(ctx) | yosys_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
     ctx.actions.expand_template(
         template = ctx.file._deploy_template,
         output = exe,
-        substitutions = default_substitutions | {
+        substitutions = {
             "${GENFILES}": " ".join([f.short_path for f in synth_outputs + [config_short] + canon_logs + synth_logs]),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
@@ -868,23 +860,8 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         transitive_inputs.append(datum.default_runfiles.files)
         transitive_inputs.append(datum.default_runfiles.symlinks)
 
-    extra_envs_deps = []
-    extra_envs_args = {}
     command = ctx.executable._make.path + " $@"
-    if hasattr(ctx.file, "extra_envs") and ctx.file.extra_envs:
-        command = "source {}; {}".format(ctx.file.extra_envs.path, command)
-        extra_envs_deps = [ctx.file.extra_envs]
-        extra_envs_args = {
-            "${EXTRA_ENVS}": ctx.file.extra_envs.short_path,
-        }
     command = _add_optional_generation_to_command(command, reports + logs)
-    if hasattr(ctx.attr, "non_mocked_variant") and ctx.attr.non_mocked_variant:
-        # Move mocked result to non-mocked variant
-        for file in results + objects + logs + reports:
-            command = command + " && mv {} {}".format(
-                file.path.replace("/{}/".format(ctx.attr.non_mocked_variant), "/{}/".format(ctx.attr.variant)),
-                file.path,
-            )
 
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + steps,
@@ -904,7 +881,6 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             ctx.files._ruby +
             ctx.files._ruby_dynamic +
             ctx.files._tcl +
-            extra_envs_deps +
             [config, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile, ctx.executable._make],
             transitive = transitive_inputs,
         ),
@@ -924,15 +900,15 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
-        substitutions = default_substitutions | flow_substitutions(ctx) | openroad_substitutions(ctx) | extra_envs_args | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
+        substitutions = flow_substitutions(ctx) | openroad_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
     ctx.actions.expand_template(
         template = ctx.file._deploy_template,
         output = exe,
-        substitutions = default_substitutions | {
-            "${GENFILES}": " ".join([f.short_path for f in [config_short] + results + logs + reports + ctx.files.data + extra_envs_deps]),
+        substitutions = {
+            "${GENFILES}": " ".join([f.short_path for f in [config_short] + results + logs + reports + ctx.files.data]),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
@@ -951,7 +927,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             ),
             runfiles = ctx.runfiles(
                 [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.executable._make, ctx.file._makefile] +
-                forwards + results + logs + reports + ctx.files.data + ctx.files.extra_configs + extra_envs_deps + ctx.files._ruby + ctx.files._ruby_dynamic + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
+                forwards + results + logs + reports + ctx.files.data + ctx.files.extra_configs + ctx.files._ruby + ctx.files._ruby_dynamic + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
                 transitive_files = depset(transitive = transitive_inputs + [ctx.attr.src[LoggingInfo].logs, ctx.attr.src[LoggingInfo].reports]),
             ),
         ),
@@ -1030,12 +1006,7 @@ orfs_floorplan = add_orfs_make_rule_(
             "2_floorplan_final.rpt",
         ],
     ),
-    attrs = openroad_attrs() | {
-        "extra_envs": attr.label(
-            doc = "File with exported environment variables.",
-            allow_single_file = True,
-        ),
-    },
+    attrs = openroad_attrs(),
 )
 
 orfs_place = add_orfs_make_rule_(
@@ -1174,12 +1145,7 @@ orfs_abstract = rule(
         extra_arguments =
             {"ABSTRACT_SOURCE": _extensionless_basename(ctx.attr.src[OrfsInfo].odb)},
     ),
-    attrs = openroad_attrs() | {
-        "non_mocked_variant": attr.string(
-            default = "",
-            doc = "FLOW_VARIANT of the non-mocked flow",
-        ),
-    },
+    attrs = openroad_attrs(),
     provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo],
     executable = True,
 )
@@ -1211,6 +1177,14 @@ STAGE_IMPLS = [
 ABSTRACT_IMPL = struct(stage = "generate_abstract", impl = orfs_abstract)
 
 ALL_STAGES = ["synth", "floorplan", "place", "cts", "grt", "route", "final", "generate_abstract"]
+
+MOCK_STAGE_ARGUMENTS = {
+    "synth": {"SYNTH_GUT": "1"},
+}
+
+MOCK_STAGE_UNSETS = {
+    "floorplan": ["DIE_AREA", "CORE_AREA", "CORE_UTILIZATION"],
+}
 
 # A stage argument is used in one or more stages. This is metainformation
 # about the ORFS code that there is no known nice way for ORFS to
@@ -1345,93 +1319,25 @@ def get_sources(stage, stage_sources, sources):
                    if variable in STAGE_TO_VARIABLES[stage]
                ]))
 
-def _deep_dict_copy(d):
-    new_d = dict(d)
-    for k, v in new_d.items():
-        new_d[k] = dict(v)
-    return new_d
+def _step_name(name, variant, stage):
+    if variant:
+        name += "_" + variant
+    return name + "_" + stage
 
-def _mock_area_targets(
-        name,
-        mock_area,
-        verilog_files = [],
-        macros = [],
-        sources = {},
-        stage_sources = {},
-        stage_arguments = {},
-        arguments = {},
-        variant = None,
-        visibility = ["//visibility:private"]):
-    steps = STAGE_IMPLS[0:2] + [ABSTRACT_IMPL]
+def _variant_name(variant, suffix):
+    return "_".join([part for part in [variant, suffix] if part])
 
-    # Make a copy of arguments
-    stage_arguments = _deep_dict_copy(stage_arguments)
-    arguments = dict(arguments)
-    floorplan_args = stage_arguments.get("floorplan", {})
-    for arg in ("DIE_AREA", "CORE_AREA", "CORE_UTILIZATION"):
-        arguments.pop(arg, None)
-        floorplan_args.pop(arg, None)
-    stage_arguments["floorplan"] = floorplan_args
-    stage_arguments.get("generate_abstract", {}).pop("ABSTRACT_SOURCE", None)
+def _do_merge(a, b):
+    return {k: a.get(k, {}) | b.get(k, {}) for k in (a | b).keys()}
 
-    synth_args = stage_arguments.get("synth", {})
-    synth_args["SYNTH_GUT"] = "1"
-    stage_arguments["synth"] = synth_args
+def _merge(*args):
+    x = {}
+    for arg in args:
+        x = _do_merge(x, arg)
+    return x
 
-    name_variant = name + "_" + variant if variant else name
-    mock_variant = variant + "_mock_area" if variant else "mock_area"
-
-    synth_step = steps[0]
-    synth_step.impl(
-        name = "{}_{}_mock_area".format(name_variant, synth_step.stage),
-        arguments = get_stage_args(synth_step.stage, stage_arguments, arguments),
-        data = get_sources(synth_step.stage, stage_sources, sources),
-        deps = macros,
-        module_top = name,
-        variant = mock_variant,
-        verilog_files = verilog_files,
-        visibility = visibility,
-    )
-    orfs_deps(
-        name = "{}_{}_mock_area_deps".format(name_variant, synth_step.stage),
-        src = "{}_{}_mock_area".format(name_variant, synth_step.stage),
-    )
-
-    orfs_run(
-        name = "{}_mock_area".format(name_variant),
-        src = "{}_floorplan".format(name_variant),
-        arguments = {
-            "MOCK_AREA": str(mock_area),
-            "OUTPUT": "{}.sh".format(name_variant),
-        },
-        outs = ["{}.sh".format(name_variant)],
-        script = "@bazel-orfs//:mock_area.tcl",
-    )
-
-    if not variant:
-        variant = "base"
-    extra_args = {"extra_envs": "{}_mock_area".format(name_variant)}
-    last = len(steps) - 2
-    suffix = "_mock_area"
-    for i, (step, prev) in enumerate(zip(steps[1:], steps)):
-        # if i == last:
-        #     extra_args = extra_args | {
-        #         "non_mocked_variant": variant,
-        #     }
-        step.impl(
-            name = "{}_{}{}".format(name_variant, step.stage, suffix),
-            src = "{}_{}_mock_area".format(name_variant, prev.stage, suffix),
-            arguments = get_stage_args(step.stage, stage_arguments, arguments),
-            data = get_sources(step.stage, stage_sources, sources),
-            variant = mock_variant,
-            visibility = visibility,
-            **extra_args
-        )
-        orfs_deps(
-            name = "{}_{}{}_deps".format(name_variant, step.stage, suffix),
-            src = "{}_{}{}".format(name_variant, step.stage, suffix),
-        )
-        extra_args = {}
+def _diff(a, b):
+    return {o: {i: a[o][i] for i in a[o] if i not in b.get(o, {})} for o in a}
 
 def orfs_flow(
         name,
@@ -1463,19 +1369,98 @@ def orfs_flow(
       mock_area: floating point number, scale the die width/height by this amount, default no scaling
       visibility: the visibility attribute on a target controls whether the target can be used in other packages
     """
+    abstract_variant = _variant_name(variant, "unmocked" if mock_area else None)
+    _orfs_pass(
+        name = name,
+        verilog_files = verilog_files,
+        macros = macros,
+        sources = sources,
+        stage_sources = stage_sources,
+        stage_arguments = stage_arguments,
+        arguments = arguments,
+        extra_configs = extra_configs,
+        abstract_stage = abstract_stage,
+        variant = variant,
+        abstract_variant = abstract_variant,
+        visibility = visibility,
+    )
+
+    if not mock_area:
+        return
+
+    mock_variant = _variant_name(variant, "mocked")
+    mock_area_name = _step_name(name, mock_variant, "generate_area")
+    mock_configs = {
+        "floorplan": [mock_area_name],
+    }
+
+    mock_stage_arguments = _diff(
+        _merge(
+            {stage: {arg: value for arg, value in arguments.items() if arg in stage_args} for stage, stage_args in STAGE_ARGS_IN.items()},
+            {stage: {arg: value for arg, value in arguments.items() if stage in STAGE_ARGS_USES.get(arg, [])} for stage in ALL_STAGES},
+            stage_arguments,
+            MOCK_STAGE_ARGUMENTS,
+        ),
+        MOCK_STAGE_UNSETS,
+    )
+
+    _orfs_pass(
+        name = name,
+        verilog_files = verilog_files,
+        macros = macros,
+        sources = sources,
+        stage_sources = stage_sources,
+        stage_arguments = mock_stage_arguments,
+        arguments = {},
+        extra_configs = extra_configs | mock_configs,
+        abstract_stage = "floorplan",
+        variant = mock_variant,
+        abstract_variant = None,
+        visibility = visibility,
+    )
+
+    orfs_run(
+        name = mock_area_name,
+        src = _step_name(name, variant, "floorplan"),
+        arguments = {
+            "MOCK_AREA": str(mock_area),
+            "OUTPUT": "{}.mk".format(mock_area_name),
+        },
+        outs = ["{}.mk".format(mock_area_name)],
+        script = "@bazel-orfs//:mock_area.tcl",
+    )
+
+    orfs_macro(
+        name = _step_name(name, variant, ABSTRACT_IMPL.stage),
+        lef = _step_name(name, mock_variant, ABSTRACT_IMPL.stage),
+        lib = _step_name(name, abstract_variant, ABSTRACT_IMPL.stage),
+        module_top = name,
+    )
+
+def _orfs_pass(
+        name,
+        verilog_files,
+        macros,
+        sources,
+        stage_sources,
+        stage_arguments,
+        arguments,
+        extra_configs,
+        abstract_stage,
+        variant,
+        abstract_variant,
+        visibility):
     steps = []
     for step in STAGE_IMPLS:
         steps.append(step)
         if step.stage == abstract_stage:
             break
-    if (abstract_stage != STAGE_IMPLS[0].stage):
+    if abstract_stage != STAGE_IMPLS[0].stage:
         steps.append(ABSTRACT_IMPL)
-
-    name_variant = name + "_" + variant if variant else name
 
     synth_step = steps[0]
     synth_step.impl(
-        name = "{}_{}".format(name_variant, synth_step.stage),
+        name = _step_name(name, variant, synth_step.stage),
         arguments = get_stage_args(synth_step.stage, stage_arguments, arguments),
         data = get_sources(synth_step.stage, stage_sources, sources),
         deps = macros,
@@ -1486,16 +1471,16 @@ def orfs_flow(
         visibility = visibility,
     )
     orfs_deps(
-        name = "{}_{}_deps".format(name_variant, synth_step.stage),
-        src = "{}_{}".format(name_variant, synth_step.stage),
+        name = "{}_deps".format(_step_name(name, variant, synth_step.stage)),
+        src = _step_name(name, variant, synth_step.stage),
     )
 
     for step, prev in zip(steps[1:], steps):
-        umocked_area = step.stage == "generate_abstract" and mock_area
-        stage_name = "{}_{}".format(name_variant, step.stage) + ("_unmocked_area" if umocked_area else "")
+        stage_variant = abstract_variant if step.stage == ABSTRACT_IMPL.stage and abstract_variant else variant
+        step_name = _step_name(name, stage_variant, step.stage)
         step.impl(
-            name = stage_name,
-            src = "{}_{}".format(name_variant, prev.stage),
+            name = step_name,
+            src = _step_name(name, variant, prev.stage),
             arguments = get_stage_args(step.stage, stage_arguments, arguments),
             data = get_sources(step.stage, stage_sources, sources),
             extra_configs = extra_configs.get(step.stage, []),
@@ -1503,29 +1488,6 @@ def orfs_flow(
             visibility = visibility,
         )
         orfs_deps(
-            name = "{}_deps".format(stage_name),
-            src = stage_name,
-        )
-
-    if mock_area != None:
-        if variant == "mock_area":
-            fail("'mock_area' variant is used by mock_area targets, please choose different one")
-        _mock_area_targets(
-            name,
-            mock_area,
-            verilog_files,
-            macros,
-            sources,
-            stage_sources,
-            stage_arguments,
-            arguments,
-            variant,
-            visibility,
-        )
-
-        orfs_macro(
-            name = "{}_generate_abstract".format(name_variant),
-            lef = "{}_generate_abstract_mock_area".format(name_variant),
-            lib = "{}_generate_abstract_unmocked_area".format(name_variant),
-            module_top = name,
+            name = "{}_deps".format(step_name),
+            src = step_name,
         )
