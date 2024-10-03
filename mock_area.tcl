@@ -3,7 +3,7 @@ proc tee {file content} {
 	puts $file $content
 }
 
-set out_file [lindex [split $::env(OUTPUTS) ":"] 0]
+set out_file [file join $::env(WORK_HOME) $::env(OUTPUT)]
 
 read_db $::env(RESULTS_DIR)/2_floorplan.odb
 set db [::ord::get_db]
