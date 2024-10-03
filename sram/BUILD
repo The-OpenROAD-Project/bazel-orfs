@@ -1,4 +1,4 @@
-load("//:openroad.bzl", "orfs_flow", "orfs_run")
+load("//:openroad.bzl", "orfs_flow", "orfs_macro", "orfs_run")
 
 FAST_SETTINGS = {
     "REMOVE_ABC_BUFFERS": "1",
@@ -42,6 +42,13 @@ orfs_flow(
     verilog_files = [":fakeram/top.v"],
 )
 
+orfs_macro(
+    name = "fakeram",
+    lef = ":fakeram/sdq_17x64.lef",
+    lib = ":fakeram/sdq_17x64.lib",
+    module_top = "sdq_17x64",
+)
+
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "top",
@@ -53,12 +60,9 @@ orfs_flow(
         "RTLMP_FLOW": "1",
         "CORE_MARGIN": "2",
         "MACRO_PLACE_HALO": "2 2",
-        "ADDITIONAL_LEFS": "$(location :fakeram/sdq_17x64.lef)",
-        "ADDITIONAL_LIBS": "$(location :fakeram/sdq_17x64.lib)",
     },
+    macros = [":fakeram"],
     sources = {
-        "ADDITIONAL_LEFS": [":fakeram/sdq_17x64.lef"],
-        "ADDITIONAL_LIBS": [":fakeram/sdq_17x64.lib"],
         "SDC_FILE": [":fakeram/constraints-sram.sdc"],
     },
     variant = "fakeram",
