@@ -90,7 +90,7 @@ orfs_run(
     name = "top_write_floorplan",
     src = ":top_floorplan_deps",
     outs = [
-        ":floorplan.def",
+        ":floorplan.config",
     ],
     script = ":write_floorplan.tcl",
 )
@@ -101,15 +101,14 @@ orfs_flow(
     abstract_stage = "grt",
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
-        "FLOORPLAN_DEF": "$(location :floorplan.def)",
         "MACRO_PLACEMENT_TCL": "$(location :macro_placement.tcl)",
         "ADDITIONAL_LEFS": "$(location :lef_file)",
         "ADDITIONAL_LIBS": "$(location :fakeram/sdq_17x64.lib)",
         "RTLMP_FLOW": "1",
     },
+    extra_configs = {"floorplan": [":floorplan.config"]},
     sources = {
         "SDC_FILE": [":fakeram/constraints-sram.sdc"],
-        "FLOORPLAN_DEF": ":floorplan.def",
         "ADDITIONAL_LEFS": [":lef_file"],
         "ADDITIONAL_LIBS": [":fakeram/sdq_17x64.lib"],
         "MACRO_PLACEMENT_TCL": [":macro_placement.tcl"],
