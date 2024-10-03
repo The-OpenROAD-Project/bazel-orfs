@@ -1274,7 +1274,7 @@ STAGE_ARGS_IN = {
     "final": [
         "GND_NETS_VOLTAGES",
         "PWR_NETS_VOLTAGES",
-    ]
+    ],
 }
 
 def flatten(xs):

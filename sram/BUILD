@@ -10,7 +10,6 @@ FAST_SETTINGS = {
 orfs_flow(
     name = "sdq_17x64",
     abstract_stage = "grt",
-    mock_area = 0.95,
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "CORE_UTILIZATION": "20",
@@ -18,6 +17,7 @@ orfs_flow(
         "MACRO_PLACE_HALO": "30 30",
         "PLACE_DENSITY": "0.25",
     },
+    mock_area = 0.95,
     stage_sources = {
         "synth": [":fakeram/constraints-sram.sdc"],
     },
@@ -27,7 +27,6 @@ orfs_flow(
 orfs_flow(
     name = "top",
     abstract_stage = "grt",
-    macros = [":sdq_17x64_generate_abstract"],
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "DIE_AREA": "0 0 80 80",
@@ -36,6 +35,7 @@ orfs_flow(
         "CORE_MARGIN": "2",
         "MACRO_PLACE_HALO": "2 2",
     },
+    macros = [":sdq_17x64_generate_abstract"],
     stage_sources = {
         "synth": [":fakeram/constraints-sram.sdc"],
     },
@@ -45,7 +45,6 @@ orfs_flow(
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "top",
-    variant = "fakeram",
     abstract_stage = "grt",
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
@@ -62,6 +61,7 @@ orfs_flow(
         "ADDITIONAL_LIBS": [":fakeram/sdq_17x64.lib"],
         "SDC_FILE": [":fakeram/constraints-sram.sdc"],
     },
+    variant = "fakeram",
     verilog_files = [":fakeram/top.v"],
 )
 
@@ -77,12 +77,12 @@ filegroup(
 orfs_run(
     name = "top_write_macro_placement",
     src = ":top_floorplan",
-    arguments = {
-        "MESSAGE": "Hello world!",
-    },
     outs = [
         ":macro_placement.tcl",
     ],
+    arguments = {
+        "MESSAGE": "Hello world!",
+    },
     script = ":write_macros.tcl",
 )
 
@@ -98,7 +98,6 @@ orfs_run(
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "top",
-    variant = "mix",
     abstract_stage = "grt",
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
@@ -115,15 +114,14 @@ orfs_flow(
         "ADDITIONAL_LIBS": [":fakeram/sdq_17x64.lib"],
         "MACRO_PLACEMENT_TCL": [":macro_placement.tcl"],
     },
+    variant = "mix",
     verilog_files = [":fakeram/top.v"],
 )
 
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "sdq_17x64",
-    variant = "megaboom",
     abstract_stage = "grt",
-    mock_area = 0.95,
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :megaboom/constraints-sram.sdc)",
         "CORE_UTILIZATION": "20",
@@ -131,9 +129,11 @@ orfs_flow(
         "MACRO_PLACE_HALO": "30 30",
         "PLACE_DENSITY": "0.25",
     },
+    mock_area = 0.95,
     stage_sources = {
         "synth": [":megaboom/constraints-sram.sdc"],
     },
+    variant = "megaboom",
     verilog_files = [":megaboom/sdq_17x64.sv"],
 )
 
@@ -141,8 +141,6 @@ orfs_flow(
 orfs_flow(
     name = "top",
     abstract_stage = "grt",
-    variant = "megaboom",
-    macros = [":sdq_17x64_megaboom_generate_abstract"],
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :megaboom/constraints-top.sdc)",
         "DIE_AREA": "0 0 100 100",
@@ -151,8 +149,10 @@ orfs_flow(
         "CORE_MARGIN": "2",
         "MACRO_PLACE_HALO": "2 2",
     },
+    macros = [":sdq_17x64_megaboom_generate_abstract"],
     stage_sources = {
         "synth": [":megaboom/constraints-top.sdc"],
     },
+    variant = "megaboom",
     verilog_files = [":megaboom/top.v"],
 )
