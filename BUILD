@@ -83,6 +83,7 @@ LB_ARGS = SRAM_ARGUMENTS | {
     "CORE_UTILIZATION": "40",
     "CORE_ASPECT_RATIO": "2",
     "PLACE_DENSITY": "0.65",
+    "PLACE_PINS_ARGS": "-min_distance 1 -min_distance_in_tracks",
 }
 
 LB_STAGE_SOURCES = {
@@ -93,13 +94,25 @@ LB_STAGE_SOURCES = {
 
 LB_VERILOG_FILES = ["test/mock/lb_32x128.sv"]
 
+# Test a full abstract, all stages, so leave abstract_stage unset to default value(final)
 orfs_flow(
     name = "lb_32x128",
-    abstract_stage = "floorplan",
     arguments = LB_ARGS,
-    mock_area = 1.0,
+    mock_area = 0.5,
     stage_sources = LB_STAGE_SOURCES,
     verilog_files = LB_VERILOG_FILES,
+)
+
+orfs_flow(
+    name = "lb_32x128_top",
+    arguments = LB_ARGS | {
+        "CORE_UTILIZATION": "5",
+        "PLACE_DENSITY": "0.10",
+        "RTLMP_FLOW": "1",
+    },
+    macros = ["lb_32x128_generate_abstract"],
+    stage_sources = LB_STAGE_SOURCES,
+    verilog_files = ["test/rtl/lb_32x128_top.v"],
 )
 
 # buildifier: disable=duplicated-name
