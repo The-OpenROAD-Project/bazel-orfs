@@ -66,6 +66,13 @@ orfs_pdk = rule(
 )
 
 def _macro_impl(ctx):
+    info = {}
+    for field in ["odb", "gds", "lef", "lib"]:
+        if not getattr(ctx.attr, field):
+            continue
+        for file in getattr(ctx.attr, field).files.to_list():
+            info[file.extension] = file
+
     return [
         DefaultInfo(
             files = depset(ctx.files.odb + ctx.files.gds + ctx.files.lef + ctx.files.lib),
@@ -74,10 +81,10 @@ def _macro_impl(ctx):
             **{f.basename: depset([f]) for f in ctx.files.odb + ctx.files.gds + ctx.files.lef + ctx.files.lib}
         ),
         OrfsInfo(
-            odb = ctx.attr.odb[OrfsInfo].odb if ctx.attr.odb and OrfsInfo in ctx.attr.odb else ctx.file.odb,
-            gds = ctx.attr.gds[OrfsInfo].gds if ctx.attr.gds and OrfsInfo in ctx.attr.gds else ctx.file.gds,
-            lef = ctx.attr.lef[OrfsInfo].lef if ctx.attr.lef and OrfsInfo in ctx.attr.lef else ctx.file.lef,
-            lib = ctx.attr.lib[OrfsInfo].lib if ctx.attr.lib and OrfsInfo in ctx.attr.lib else ctx.file.lib,
+            odb = info.get("odb"),
+            gds = info.get("gds"),
+            lef = info.get("lef"),
+            lib = info.get("lib"),
             additional_gds = depset([]),
             additional_lefs = depset([]),
             additional_libs = depset([]),
@@ -94,7 +101,7 @@ orfs_macro = rule(
         "module_top": attr.string(mandatory = True),
     } | {
         field: attr.label(
-            allow_single_file = [field],
+            allow_files = [field],
             providers = [DefaultInfo],
         )
         for field in [
