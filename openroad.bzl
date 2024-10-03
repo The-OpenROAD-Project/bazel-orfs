@@ -1462,7 +1462,7 @@ def orfs_flow(
             src = "{}_{}".format(name_variant, step.stage),
         )
 
-    if mock_area:
+    if mock_area != None:
         if variant == "mock_area":
             fail("'mock_area' variant is used by mock_area targets, please choose different one")
         _mock_area_targets(
