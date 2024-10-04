@@ -531,9 +531,6 @@ def _orfs_arguments(*args, short = False):
 def _verilog_arguments(files, short = False):
     return {"VERILOG_FILES": " ".join([file.short_path if short else file.path for file in files])}
 
-def _block_arguments(ctx):
-    return {"MACROS": " ".join([dep[TopInfo].module_top for dep in ctx.attr.deps])} if ctx.attr.deps else {}
-
 def _config_content(arguments, paths):
     return "".join(["export {}?={}\n".format(*pair) for pair in arguments.items()] + ["include {}\n".format(path) for path in paths])
 
@@ -575,7 +572,7 @@ def _yosys_env(ctx, config):
     }
 
 def _yosys_impl(ctx):
-    all_arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]) | _block_arguments(ctx)
+    all_arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps])
     config = _declare_artifact(ctx, "results", "1_synth.mk")
     ctx.actions.write(
         output = config,
@@ -667,7 +664,7 @@ def _yosys_impl(ctx):
     ctx.actions.write(
         output = config_short,
         content = _config_content(
-            arguments = _data_arguments(ctx) | _required_arguments(ctx) | _block_arguments(ctx) | _orfs_arguments(short = True, *[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx.files.verilog_files, short = True),
+            arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(short = True, *[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx.files.verilog_files, short = True),
             paths = [file.short_path for file in ctx.files.extra_configs],
         ),
     )
