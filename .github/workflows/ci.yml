@@ -66,7 +66,12 @@ jobs:
       - name: Run target
         if: ${{ !endsWith(matrix.STAGE_TARGET, '_report') }}
         run: |
-          bazel run --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }} -- `pwd`/build
+          if [[ ${{ matrix.STAGE_TARGET }} == "lb_32x128_generate_abstract" ]]; then
+            # this is a mock area abstract, so it is not executable
+            bazel build --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }}
+          else
+            bazel run --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }} -- `pwd`/build
+          fi
 
 
   test-target-local-clean-setup:
