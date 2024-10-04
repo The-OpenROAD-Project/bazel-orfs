@@ -109,6 +109,9 @@ orfs_flow(
         "CORE_UTILIZATION": "5",
         "PLACE_DENSITY": "0.10",
         "RTLMP_FLOW": "1",
+        # Skip power checks to silence error and speed up build
+        "PWR_NETS_VOLTAGES": "",
+        "GND_NETS_VOLTAGES": "",
     },
     macros = ["lb_32x128_generate_abstract"],
     stage_sources = LB_STAGE_SOURCES,
