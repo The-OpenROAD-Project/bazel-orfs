@@ -363,7 +363,7 @@ def _deps_impl(ctx):
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join([f.short_path for f in ctx.attr.src[OrfsDepInfo].files]),
+            "${GENFILES}": " ".join(sorted([f.short_path for f in ctx.attr.src[OrfsDepInfo].files])),
             "${CONFIG}": ctx.attr.src[OrfsDepInfo].config.short_path,
             "${MAKE}": ctx.attr.src[OrfsDepInfo].make.short_path,
         } | openroad_substitutions(ctx),
@@ -561,18 +561,19 @@ def _orfs_arguments(*args, short = False):
 
     arguments = {}
     if gds.to_list():
-        arguments["ADDITIONAL_GDS"] = " ".join([file.short_path if short else file.path for file in gds.to_list()])
+        arguments["ADDITIONAL_GDS"] = " ".join(sorted([file.short_path if short else file.path for file in gds.to_list()]))
     if lefs.to_list():
-        arguments["ADDITIONAL_LEFS"] = " ".join([file.short_path if short else file.path for file in lefs.to_list()])
+        arguments["ADDITIONAL_LEFS"] = " ".join(sorted([file.short_path if short else file.path for file in lefs.to_list()]))
     if libs.to_list():
-        arguments["ADDITIONAL_LIBS"] = " ".join([file.short_path if short else file.path for file in libs.to_list()])
+        arguments["ADDITIONAL_LIBS"] = " ".join(sorted([file.short_path if short else file.path for file in libs.to_list()]))
     return arguments
 
 def _verilog_arguments(files, short = False):
-    return {"VERILOG_FILES": " ".join([file.short_path if short else file.path for file in files])}
+    return {"VERILOG_FILES": " ".join(sorted([file.short_path if short else file.path for file in files]))}
 
 def _config_content(arguments, paths):
-    return "".join(["export {}?={}\n".format(*pair) for pair in arguments.items()] + ["include {}\n".format(path) for path in paths])
+    return ("".join(sorted(["export {}?={}\n".format(*pair) for pair in arguments.items()]) +
+                    ["include {}\n".format(path) for path in paths]))
 
 def _data_arguments(ctx):
     return {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()}
@@ -580,8 +581,8 @@ def _data_arguments(ctx):
 def _add_optional_generation_to_command(command, optional_files):
     if optional_files:
         return " && ".join([
-            "mkdir -p " + " ".join([result.dirname for result in optional_files]),
-            "touch " + " ".join([result.path for result in optional_files]),
+            "mkdir -p " + " ".join(sorted([result.dirname for result in optional_files])),
+            "touch " + " ".join(sorted([result.path for result in optional_files])),
             command,
         ])
     return command
@@ -721,7 +722,7 @@ def _yosys_impl(ctx):
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join([f.short_path for f in synth_outputs + [config_short] + canon_logs + synth_logs]),
+            "${GENFILES}": " ".join(sorted([f.short_path for f in synth_outputs + [config_short] + canon_logs + synth_logs])),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
@@ -908,7 +909,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join([f.short_path for f in [config_short] + results + logs + reports + ctx.files.data]),
+            "${GENFILES}": " ".join(sorted([f.short_path for f in [config_short] + results + logs + reports + ctx.files.data])),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
