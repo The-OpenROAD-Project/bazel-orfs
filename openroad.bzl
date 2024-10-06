@@ -1296,12 +1296,13 @@ def get_stage_args(stage, stage_arguments, arguments):
     Returns:
       A dictionary of arguments for the stage.
     """
-    return ({
-                arg: value
-                for arg, value in arguments.items()
-                if arg in STAGE_TO_VARIABLES[stage]
-            } |
-            stage_arguments.get(stage, {}))
+    unsorted_dict = ({
+                         arg: value
+                         for arg, value in arguments.items()
+                         if arg in STAGE_TO_VARIABLES[stage]
+                     } |
+                     stage_arguments.get(stage, {}))
+    return dict(sorted(unsorted_dict.items()))
 
 def get_sources(stage, stage_sources, sources):
     """Returns the sources for a specific stage.
@@ -1313,12 +1314,12 @@ def get_sources(stage, stage_sources, sources):
     Returns:
       A list of sources for the stage.
     """
-    return set(stage_sources.get(stage, []) +
-               flatten([
-                   source_list
-                   for variable, source_list in sources.items()
-                   if variable in STAGE_TO_VARIABLES[stage]
-               ]))
+    return sorted(set(stage_sources.get(stage, []) +
+                      flatten([
+                          source_list
+                          for variable, source_list in sources.items()
+                          if variable in STAGE_TO_VARIABLES[stage]
+                      ])))
 
 def _step_name(name, variant, stage):
     if variant:
