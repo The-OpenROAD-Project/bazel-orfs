@@ -200,6 +200,18 @@ def source_inputs(ctx):
         ],
     )
 
+def pdk_inputs(ctx):
+    return depset(transitive = [
+        ctx.attr.pdk[PdkInfo].files,
+    ])
+
+def deps_inputs(ctx):
+    return depset(
+        [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds] +
+        [dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef] +
+        [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
+    )
+
 def commonprefix(*args):
     """
     Return the longest path prefix.
@@ -565,10 +577,8 @@ def _yosys_impl(ctx):
                 flow_inputs(ctx),
                 yosys_inputs(ctx),
                 data_inputs(ctx),
-                ctx.attr.pdk[PdkInfo].files,
-                depset([dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds]),
-                depset([dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef]),
-                depset([dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib]),
+                pdk_inputs(ctx),
+                deps_inputs(ctx),
             ],
         ),
         outputs = [canon_output] + canon_logs,
@@ -598,10 +608,8 @@ def _yosys_impl(ctx):
                 flow_inputs(ctx),
                 yosys_inputs(ctx),
                 data_inputs(ctx),
-                ctx.attr.pdk[PdkInfo].files,
-                depset([dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds]),
-                depset([dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef]),
-                depset([dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib]),
+                pdk_inputs(ctx),
+                deps_inputs(ctx),
             ],
         ),
         outputs = synth_outputs + synth_logs,
@@ -637,24 +645,20 @@ def _yosys_impl(ctx):
     return [
         DefaultInfo(
             executable = exe,
-            files = depset(
-                synth_outputs + [canon_output] + [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds] +
-                [dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef] +
-                [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
-            ),
+            files = depset([canon_output] + synth_outputs),
             runfiles = ctx.runfiles(
-                synth_outputs + canon_logs + synth_logs + [canon_output, config_short, make, ctx.executable._yosys, ctx.executable._openroad, ctx.executable._make, ctx.file._makefile] +
+                synth_outputs + canon_logs + synth_logs + [canon_output, config_short, make] +
                 ctx.files.verilog_files + ctx.files.extra_configs,
-                transitive_files = depset(transitive = [flow_inputs(ctx), data_inputs(ctx)]),
+                transitive_files = depset(transitive = [
+                    flow_inputs(ctx),
+                    yosys_inputs(ctx),
+                    data_inputs(ctx),
+                    pdk_inputs(ctx),
+                    deps_inputs(ctx),
+                ]),
             ),
         ),
         OutputGroupInfo(
-            deps = depset(
-                [config] + ctx.files.verilog_files + ctx.files.data + ctx.files.extra_configs +
-                [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds] +
-                [dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef] +
-                [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
-            ),
             logs = depset(canon_logs + synth_logs),
             reports = depset([]),
             **{f.basename: depset([f]) for f in [canon_output, config] + synth_outputs}
@@ -666,7 +670,13 @@ def _yosys_impl(ctx):
             runfiles = ctx.runfiles(transitive_files = depset(
                 [config_short, make] +
                 ctx.files.verilog_files + ctx.files.extra_configs,
-                transitive = [flow_inputs(ctx), yosys_inputs(ctx), data_inputs(ctx)],
+                transitive = [
+                    flow_inputs(ctx),
+                    yosys_inputs(ctx),
+                    data_inputs(ctx),
+                    pdk_inputs(ctx),
+                    deps_inputs(ctx),
+                ],
             )),
         ),
         OrfsInfo(
@@ -756,15 +766,11 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         command = command,
         env = flow_environment(ctx) | config_environment(config),
         inputs = depset(
-            [config] + ctx.files.src +
-            ctx.files.data +
+            [config] +
             ctx.files.extra_configs,
             transitive = [
-                ctx.attr.src[OrfsInfo].additional_gds,
-                ctx.attr.src[OrfsInfo].additional_lefs,
-                ctx.attr.src[OrfsInfo].additional_libs,
-                ctx.attr.src[PdkInfo].files,
                 flow_inputs(ctx),
+                source_inputs(ctx),
                 data_inputs(ctx),
             ],
         ),
@@ -820,14 +826,6 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             ),
         ),
         OutputGroupInfo(
-            deps = depset(
-                [config_short] + ctx.files.src + ctx.files.data + ctx.files.extra_configs,
-                transitive = [
-                    ctx.attr.src[OrfsInfo].additional_gds,
-                    ctx.attr.src[OrfsInfo].additional_lefs,
-                    ctx.attr.src[OrfsInfo].additional_libs,
-                ],
-            ),
             logs = depset(logs),
             reports = depset(reports),
             **{f.basename: depset([f]) for f in [config] + results + objects + logs + reports}
@@ -842,6 +840,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
                 transitive = [
                     flow_inputs(ctx),
                     data_inputs(ctx),
+                    source_inputs(ctx),
                 ],
             )),
         ),
