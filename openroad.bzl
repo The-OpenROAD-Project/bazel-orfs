@@ -118,9 +118,8 @@ def odb_environment(ctx):
         return {"ODB_FILE": ctx.attr.src[OrfsInfo].odb.path}
     return {}
 
-def default_environment(ctx):
+def flow_environment(ctx):
     return {
-        "ABC": ctx.executable._abc.path,
         "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
         "FLOW_HOME": ctx.file._makefile.dirname,
         "HOME": _work_home(ctx),
@@ -132,20 +131,23 @@ def default_environment(ctx):
         "STDBUF_CMD": "",
         "TCL_LIBRARY": commonpath(ctx.files._tcl),
         "WORK_HOME": _work_home(ctx),
+    }
+
+def yosys_environment(ctx):
+    return {
+        "ABC": ctx.executable._abc.path,
         "YOSYS_EXE": ctx.executable._yosys.path,
     }
 
 def config_environment(config):
     return {"DESIGN_CONFIG": config.path}
 
-def default_inputs(ctx):
+def flow_inputs(ctx):
     return depset(
         [
-            ctx.executable._abc,
             ctx.executable._klayout,
             ctx.executable._make,
             ctx.executable._openroad,
-            ctx.executable._yosys,
             ctx.file._makefile,
         ] +
         ctx.files._ruby +
@@ -155,10 +157,6 @@ def default_inputs(ctx):
         ctx.files._qt_plugins +
         ctx.files._gio_modules,
         transitive = [
-            ctx.attr._abc[DefaultInfo].default_runfiles.files,
-            ctx.attr._abc[DefaultInfo].default_runfiles.symlinks,
-            ctx.attr._yosys[DefaultInfo].default_runfiles.files,
-            ctx.attr._yosys[DefaultInfo].default_runfiles.symlinks,
             ctx.attr._openroad[DefaultInfo].default_runfiles.files,
             ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
             ctx.attr._klayout[DefaultInfo].default_runfiles.files,
@@ -170,11 +168,36 @@ def default_inputs(ctx):
         ],
     )
 
+def yosys_inputs(ctx):
+    return depset(
+        [ctx.executable._abc, ctx.executable._yosys] +
+        ctx.files._tcl,
+        transitive = [
+            ctx.attr._abc[DefaultInfo].default_runfiles.files,
+            ctx.attr._abc[DefaultInfo].default_runfiles.symlinks,
+            ctx.attr._yosys[DefaultInfo].default_runfiles.files,
+            ctx.attr._yosys[DefaultInfo].default_runfiles.symlinks,
+        ],
+    )
+
 def data_inputs(ctx):
     return depset(
         ctx.files.data,
         transitive = [datum.default_runfiles.files for datum in ctx.attr.data] +
                      [datum.default_runfiles.symlinks for datum in ctx.attr.data],
+    )
+
+def source_inputs(ctx):
+    return depset(
+        ctx.files.src,
+        transitive = [
+            ctx.attr.src[DefaultInfo].default_runfiles.files,
+            ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
+            ctx.attr.src[OrfsInfo].additional_gds,
+            ctx.attr.src[OrfsInfo].additional_lefs,
+            ctx.attr.src[OrfsInfo].additional_libs,
+            ctx.attr.src[PdkInfo].files,
+        ],
     )
 
 def commonprefix(*args):
@@ -227,6 +250,11 @@ def flow_substitutions(ctx):
         "${RUBY_PATH}": commonpath(ctx.files._ruby),
         "${STDBUF_PATH}": "",
         "${TCL_LIBRARY}": commonpath(ctx.files._tcl),
+    }
+
+def yosys_substitutions(ctx):
+    return {
+        "${ABC}": ctx.executable._abc.path,
         "${YOSYS_PATH}": ctx.executable._yosys.path,
     }
 
@@ -271,13 +299,6 @@ def flow_attrs():
         "variant": attr.string(
             doc = "Variant of the used flow.",
             default = "base",
-        ),
-        "_abc": attr.label(
-            doc = "Abc binary.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:yosys-abc"),
         ),
         "_deploy_template": attr.label(
             default = ":deploy.tpl",
@@ -343,6 +364,17 @@ def flow_attrs():
             allow_files = True,
             default = Label("@docker_orfs//:gio_modules"),
         ),
+    }
+
+def yosys_only_attrs():
+    return {
+        "_abc": attr.label(
+            doc = "Abc binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:yosys-abc"),
+        ),
         "_yosys": attr.label(
             doc = "Yosys binary.",
             executable = True,
@@ -352,7 +384,7 @@ def flow_attrs():
         ),
     }
 
-def yosys_only_attrs():
+def synth_attrs():
     return {
         "verilog_files": attr.label_list(
             allow_files = [
@@ -466,21 +498,15 @@ def _run_impl(ctx):
         command = ctx.executable._make.path + " $@",
         env = _data_arguments(ctx) |
               odb_environment(ctx) |
-              default_environment(ctx) |
+              flow_environment(ctx) |
               config_environment(config) |
               {"RUN_SCRIPT": ctx.file.script.path},
         inputs = depset(
-            [config, ctx.file.script] +
-            ctx.files.src,
+            [config, ctx.file.script],
             transitive = [
-                ctx.attr.src[OrfsInfo].additional_gds,
-                ctx.attr.src[OrfsInfo].additional_lefs,
-                ctx.attr.src[OrfsInfo].additional_libs,
-                ctx.attr.src[PdkInfo].files,
-                ctx.attr.src[DefaultInfo].default_runfiles.files,
-                ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
-                default_inputs(ctx),
                 data_inputs(ctx),
+                flow_inputs(ctx),
+                source_inputs(ctx),
             ],
         ),
         outputs = outs,
@@ -528,19 +554,21 @@ def _yosys_impl(ctx):
         arguments = ["--file", ctx.file._makefile.path, canon_output.path],
         command = command,
         env = _verilog_arguments(ctx.files.verilog_files) |
-              default_environment(ctx) |
+              flow_environment(ctx) |
+              yosys_environment(ctx) |
               config_environment(config),
         inputs = depset(
             [config] +
             ctx.files.verilog_files +
             ctx.files.extra_configs,
             transitive = [
+                flow_inputs(ctx),
+                yosys_inputs(ctx),
+                data_inputs(ctx),
                 ctx.attr.pdk[PdkInfo].files,
                 depset([dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds]),
                 depset([dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef]),
                 depset([dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib]),
-                default_inputs(ctx),
-                data_inputs(ctx),
             ],
         ),
         outputs = [canon_output] + canon_logs,
@@ -560,18 +588,20 @@ def _yosys_impl(ctx):
                     [f.path for f in synth_outputs],
         command = command,
         env = _verilog_arguments([]) |
-              default_environment(ctx) |
+              flow_environment(ctx) |
+              yosys_environment(ctx) |
               config_environment(config),
         inputs = depset(
             [canon_output, config] +
             ctx.files.extra_configs,
             transitive = [
+                flow_inputs(ctx),
+                yosys_inputs(ctx),
+                data_inputs(ctx),
                 ctx.attr.pdk[PdkInfo].files,
                 depset([dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds]),
                 depset([dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef]),
                 depset([dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib]),
-                default_inputs(ctx),
-                data_inputs(ctx),
             ],
         ),
         outputs = synth_outputs + synth_logs,
@@ -590,7 +620,7 @@ def _yosys_impl(ctx):
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
-        substitutions = flow_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
+        substitutions = flow_substitutions(ctx) | yosys_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
@@ -615,7 +645,7 @@ def _yosys_impl(ctx):
             runfiles = ctx.runfiles(
                 synth_outputs + canon_logs + synth_logs + [canon_output, config_short, make, ctx.executable._yosys, ctx.executable._openroad, ctx.executable._make, ctx.file._makefile] +
                 ctx.files.verilog_files + ctx.files.extra_configs,
-                transitive_files = depset(transitive = [default_inputs(ctx), data_inputs(ctx)]),
+                transitive_files = depset(transitive = [flow_inputs(ctx), data_inputs(ctx)]),
             ),
         ),
         OutputGroupInfo(
@@ -636,7 +666,7 @@ def _yosys_impl(ctx):
             runfiles = ctx.runfiles(transitive_files = depset(
                 [config_short, make] +
                 ctx.files.verilog_files + ctx.files.extra_configs,
-                transitive = [default_inputs(ctx), data_inputs(ctx)],
+                transitive = [flow_inputs(ctx), yosys_inputs(ctx), data_inputs(ctx)],
             )),
         ),
         OrfsInfo(
@@ -662,7 +692,7 @@ def _yosys_impl(ctx):
 
 orfs_synth = rule(
     implementation = _yosys_impl,
-    attrs = yosys_attrs(),
+    attrs = yosys_attrs() | synth_attrs(),
     provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo, LoggingInfo],
     executable = True,
 )
@@ -724,7 +754,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + steps,
         command = command,
-        env = default_environment(ctx) | config_environment(config),
+        env = flow_environment(ctx) | config_environment(config),
         inputs = depset(
             [config] + ctx.files.src +
             ctx.files.data +
@@ -734,7 +764,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
                 ctx.attr.src[OrfsInfo].additional_lefs,
                 ctx.attr.src[OrfsInfo].additional_libs,
                 ctx.attr.src[PdkInfo].files,
-                default_inputs(ctx),
+                flow_inputs(ctx),
                 data_inputs(ctx),
             ],
         ),
@@ -784,7 +814,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
                 forwards + results + logs + reports +
                 ctx.files.extra_configs,
                 transitive_files = depset(transitive = [
-                    default_inputs(ctx),
+                    flow_inputs(ctx),
                     data_inputs(ctx),
                 ]),
             ),
@@ -810,7 +840,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
                 [config_short, make] +
                 ctx.files.src + ctx.files.extra_configs,
                 transitive = [
-                    default_inputs(ctx),
+                    flow_inputs(ctx),
                     data_inputs(ctx),
                 ],
             )),
@@ -1013,7 +1043,7 @@ orfs_abstract = rule(
 
 orfs_deps = rule(
     implementation = _deps_impl,
-    attrs = openroad_attrs(),
+    attrs = flow_attrs() | openroad_only_attrs() | yosys_only_attrs(),
     executable = True,
 )
 
