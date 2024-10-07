@@ -118,179 +118,41 @@ def odb_environment(ctx):
         return {"ODB_FILE": ctx.attr.src[OrfsInfo].odb.path}
     return {}
 
-def _default_env(ctx, config):
+def default_environment(ctx):
     return {
-        "HOME": _work_home(ctx),
-        "WORK_HOME": _work_home(ctx),
-        "DESIGN_CONFIG": config.path,
+        "ABC": ctx.executable._abc.path,
+        "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
         "FLOW_HOME": ctx.file._makefile.dirname,
-    }
-
-def _run_env(ctx, config):
-    return _default_env(ctx, config) | {
+        "HOME": _work_home(ctx),
+        "KLAYOUT_CMD": ctx.executable._klayout.path,
         "OPENROAD_EXE": ctx.executable._openroad.path,
-        "YOSYS_EXE": "",
+        "QT_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
+        "QT_QPA_PLATFORM_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
+        "RUBYLIB": ":".join([commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)]),
+        "STDBUF_CMD": "",
         "TCL_LIBRARY": commonpath(ctx.files._tcl),
+        "WORK_HOME": _work_home(ctx),
+        "YOSYS_EXE": ctx.executable._yosys.path,
     }
 
-def _run_impl(ctx):
-    config = ctx.attr.src[OrfsInfo].config
-    outs = []
-    for k in dir(ctx.outputs):
-        outs.extend(getattr(ctx.outputs, k))
+def config_environment(config):
+    return {"DESIGN_CONFIG": config.path}
 
-    transitive_inputs = [
-        ctx.attr.src[OrfsInfo].additional_gds,
-        ctx.attr.src[OrfsInfo].additional_lefs,
-        ctx.attr.src[OrfsInfo].additional_libs,
-        ctx.attr.src[PdkInfo].files,
-        ctx.attr.src[DefaultInfo].default_runfiles.files,
-        ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._openroad[DefaultInfo].default_runfiles.files,
-        ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._make[DefaultInfo].default_runfiles.files,
-        ctx.attr._make[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
-    ]
-
-    for datum in ctx.attr.data:
-        transitive_inputs.append(datum.default_runfiles.files)
-        transitive_inputs.append(datum.default_runfiles.symlinks)
-
-    ctx.actions.run_shell(
-        arguments = [
-            "--file",
-            ctx.file._makefile.path,
-            "run",
-        ],
-        command = ctx.executable._make.path + " $@",
-        env = _data_arguments(ctx) |
-              odb_environment(ctx) |
-              _run_env(ctx, config) |
-              {
-                  "RUBYLIB": ":".join([commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)]),
-                  "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
-              } |
-              {"RUN_SCRIPT": ctx.file.script.path},
-        inputs = depset(
-            ctx.files.src +
-            ctx.files.data +
-            ctx.files._ruby +
-            ctx.files._ruby_dynamic +
-            ctx.files._tcl +
-            [config, ctx.file.script, ctx.executable._openroad, ctx.executable._make, ctx.file._makefile],
-            transitive = transitive_inputs,
-        ),
-        outputs = outs,
-    )
-    return [
-        DefaultInfo(
-            files = depset(outs),
-        ),
-        OutputGroupInfo(
-            **{f.basename: depset([f]) for f in outs}
-        ),
-    ]
-
-orfs_run = rule(
-    implementation = _run_impl,
-    attrs = {
-        "arguments": attr.string_dict(
-            doc = "Dictionary of additional flow arguments.",
-            default = {},
-        ),
-        "data": attr.label_list(
-            doc = "List of additional data.",
-            allow_files = True,
-            default = [],
-        ),
-        "src": attr.label(
-            mandatory = True,
-            providers = [OrfsInfo],
-        ),
-        "script": attr.label(
-            mandatory = True,
-            allow_single_file = ["tcl"],
-        ),
-        "outs": attr.output_list(
-            mandatory = True,
-            allow_empty = False,
-        ),
-        "variant": attr.string(
-            doc = "Variant of the used flow.",
-            default = "base",
-        ),
-        "_makefile": attr.label(
-            doc = "Top level makefile.",
-            allow_single_file = ["Makefile"],
-            default = Label("@docker_orfs//:makefile"),
-        ),
-        "_make": attr.label(
-            doc = "make binary",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:make"),
-        ),
-        "_openroad": attr.label(
-            doc = "OpenROAD binary.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:openroad"),
-        ),
-        "_ruby": attr.label(
-            doc = "Ruby library.",
-            allow_files = True,
-            default = Label("@docker_orfs//:ruby3.0.0"),
-        ),
-        "_ruby_dynamic": attr.label(
-            doc = "Ruby dynamic library.",
-            allow_files = True,
-            default = Label("@docker_orfs//:ruby_dynamic3.0.0"),
-        ),
-        "_tcl": attr.label(
-            doc = "Tcl library.",
-            allow_files = True,
-            default = Label("@docker_orfs//:tcl8.6"),
-        ),
-    },
-)
-
-def run_openroad_attrs():
-    return {
-        "data": attr.label_list(
-            doc = "List of additional data.",
-            allow_files = True,
-            default = [],
-        ),
-        "src": attr.label(
-            mandatory = True,
-            providers = [OrfsInfo, PdkInfo],
-        ),
-        "variant": attr.string(
-            doc = "Variant of the used flow.",
-            default = "base",
-        ),
-        "_openroad": attr.label(
-            doc = "OpenROAD binary.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:openroad"),
-        ),
-        "_makefile": attr.label(
-            doc = "Top level makefile.",
-            allow_single_file = ["Makefile"],
-            default = Label("@docker_orfs//:makefile"),
-        ),
-        "_tcl": attr.label(
-            doc = "Tcl library.",
-            allow_files = True,
-            default = Label("@docker_orfs//:tcl8.6"),
-        ),
-    }
+def default_inputs(ctx):
+    return ctx.files._ruby + \
+           ctx.files._ruby_dynamic + \
+           ctx.files._tcl + \
+           ctx.files._opengl + \
+           ctx.files._qt_plugins + \
+           ctx.files._gio_modules + \
+           [
+               ctx.executable._abc,
+               ctx.executable._klayout,
+               ctx.executable._make,
+               ctx.executable._openroad,
+               ctx.executable._yosys,
+               ctx.file._makefile,
+           ]
 
 def commonprefix(*args):
     """
@@ -330,31 +192,19 @@ def commonpath(files):
 
 def flow_substitutions(ctx):
     return {
-        "${MAKE_PATH}": ctx.executable._make.path,
-        "${MAKEFILE_PATH}": ctx.file._makefile.path,
-        "${FLOW_HOME}": ctx.file._makefile.dirname,
-        "${TCL_LIBRARY}": commonpath(ctx.files._tcl),
-    }
-
-def openroad_substitutions(ctx):
-    return {
-        "${YOSYS_PATH}": "",
-        "${OPENROAD_PATH}": ctx.executable._openroad.path,
-        "${KLAYOUT_PATH}": ctx.executable._klayout.path,
-        "${STDBUF_PATH}": "",
-        "${RUBY_PATH}": commonpath(ctx.files._ruby),
         "${DLN_LIBRARY_PATH}": commonpath(ctx.files._ruby_dynamic),
-        "${LIBGL_DRIVERS_PATH}": commonpath(ctx.files._opengl),
-        "${QT_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
+        "${FLOW_HOME}": ctx.file._makefile.dirname,
         "${GIO_MODULE_DIR}": commonpath(ctx.files._gio_modules),
-    }
-
-def yosys_substitutions(ctx):
-    return {
+        "${KLAYOUT_PATH}": ctx.executable._klayout.path,
+        "${LIBGL_DRIVERS_PATH}": commonpath(ctx.files._opengl),
+        "${MAKEFILE_PATH}": ctx.file._makefile.path,
         "${MAKE_PATH}": ctx.executable._make.path,
-        "${YOSYS_PATH}": ctx.executable._yosys.path,
-        # FIXME only needed for build/make gui_synth
         "${OPENROAD_PATH}": ctx.executable._openroad.path,
+        "${QT_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
+        "${RUBY_PATH}": commonpath(ctx.files._ruby),
+        "${STDBUF_PATH}": "",
+        "${TCL_LIBRARY}": commonpath(ctx.files._tcl),
+        "${YOSYS_PATH}": ctx.executable._yosys.path,
     }
 
 def _deps_impl(ctx):
@@ -362,11 +212,11 @@ def _deps_impl(ctx):
     ctx.actions.expand_template(
         template = ctx.file._deploy_template,
         output = exe,
-        substitutions = {
+        substitutions = flow_substitutions(ctx) | {
             "${GENFILES}": " ".join(sorted([f.short_path for f in ctx.attr.src[OrfsDepInfo].files])),
             "${CONFIG}": ctx.attr.src[OrfsDepInfo].config.short_path,
             "${MAKE}": ctx.attr.src[OrfsDepInfo].make.short_path,
-        } | openroad_substitutions(ctx),
+        },
     )
     return [
         ctx.attr.src[OrfsInfo],
@@ -399,42 +249,6 @@ def flow_attrs():
             doc = "Variant of the used flow.",
             default = "base",
         ),
-        "_deploy_template": attr.label(
-            default = ":deploy.tpl",
-            allow_single_file = True,
-        ),
-        "_make_template": attr.label(
-            default = ":make.tpl",
-            allow_single_file = True,
-        ),
-    }
-
-def yosys_only_attrs():
-    return {
-        "verilog_files": attr.label_list(
-            allow_files = [
-                ".v",
-                ".sv",
-            ],
-            allow_rules = [
-            ],
-            providers = [DefaultInfo],
-        ),
-        "deps": attr.label_list(
-            default = [],
-            providers = [OrfsInfo, TopInfo],
-        ),
-        "module_top": attr.string(mandatory = True),
-        "pdk": attr.label(
-            doc = "Process design kit.",
-            default = Label("@docker_orfs//:asap7"),
-            providers = [PdkInfo],
-        ),
-        "_makefile": attr.label(
-            doc = "Top level makefile.",
-            allow_single_file = ["Makefile"],
-            default = Label("@docker_orfs//:makefile"),
-        ),
         "_abc": attr.label(
             doc = "Abc binary.",
             executable = True,
@@ -442,39 +256,13 @@ def yosys_only_attrs():
             cfg = "exec",
             default = Label("@docker_orfs//:yosys-abc"),
         ),
-        # FIXME only needed for build/make gui_synth
-        "_openroad": attr.label(
-            doc = "OpenROAD binary.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:openroad"),
+        "_deploy_template": attr.label(
+            default = ":deploy.tpl",
+            allow_single_file = True,
         ),
-        "_yosys": attr.label(
-            doc = "Yosys binary.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:yosys"),
-        ),
-        "_make": attr.label(
-            doc = "make binary.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:make"),
-        ),
-        "_tcl": attr.label(
-            doc = "Tcl library.",
-            allow_files = True,
-            default = Label("@docker_orfs//:tcl8.6"),
-        ),
-    }
-
-def openroad_only_attrs():
-    return {
-        "src": attr.label(
-            providers = [DefaultInfo],
+        "_make_template": attr.label(
+            default = ":make.tpl",
+            allow_single_file = True,
         ),
         "_makefile": attr.label(
             doc = "Top level makefile.",
@@ -531,6 +319,43 @@ def openroad_only_attrs():
             doc = "GIO modules.",
             allow_files = True,
             default = Label("@docker_orfs//:gio_modules"),
+        ),
+        "_yosys": attr.label(
+            doc = "Yosys binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:yosys"),
+        ),
+    }
+
+def yosys_only_attrs():
+    return {
+        "verilog_files": attr.label_list(
+            allow_files = [
+                ".v",
+                ".sv",
+            ],
+            allow_rules = [
+            ],
+            providers = [DefaultInfo],
+        ),
+        "deps": attr.label_list(
+            default = [],
+            providers = [OrfsInfo, TopInfo],
+        ),
+        "module_top": attr.string(mandatory = True),
+        "pdk": attr.label(
+            doc = "Process design kit.",
+            default = Label("@docker_orfs//:asap7"),
+            providers = [PdkInfo],
+        ),
+    }
+
+def openroad_only_attrs():
+    return {
+        "src": attr.label(
+            providers = [DefaultInfo],
         ),
     }
 
@@ -603,14 +428,74 @@ def _artifact_dir(ctx, category):
 def _declare_artifact(ctx, category, name):
     return ctx.actions.declare_file("/".join([_artifact_dir(ctx, category), name]))
 
-def _yosys_env(ctx, config):
-    return _default_env(ctx, config) | {
-        "ABC": ctx.executable._abc.path,
-        "YOSYS_EXE": ctx.executable._yosys.path,
-        # FIXME only needed for make/gui_synth, not for building
-        "OPENROAD_EXE": ctx.executable._openroad.path,
-        "TCL_LIBRARY": commonpath(ctx.files._tcl),
-    }
+def _run_impl(ctx):
+    config = ctx.attr.src[OrfsInfo].config
+    outs = []
+    for k in dir(ctx.outputs):
+        outs.extend(getattr(ctx.outputs, k))
+
+    transitive_inputs = [
+        ctx.attr.src[OrfsInfo].additional_gds,
+        ctx.attr.src[OrfsInfo].additional_lefs,
+        ctx.attr.src[OrfsInfo].additional_libs,
+        ctx.attr.src[PdkInfo].files,
+        ctx.attr.src[DefaultInfo].default_runfiles.files,
+        ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._openroad[DefaultInfo].default_runfiles.files,
+        ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._make[DefaultInfo].default_runfiles.files,
+        ctx.attr._make[DefaultInfo].default_runfiles.symlinks,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
+        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
+    ]
+
+    for datum in ctx.attr.data:
+        transitive_inputs.append(datum.default_runfiles.files)
+        transitive_inputs.append(datum.default_runfiles.symlinks)
+
+    ctx.actions.run_shell(
+        arguments = [
+            "--file",
+            ctx.file._makefile.path,
+            "run",
+        ],
+        command = ctx.executable._make.path + " $@",
+        env = _data_arguments(ctx) |
+              odb_environment(ctx) |
+              default_environment(ctx) |
+              config_environment(config) |
+              {"RUN_SCRIPT": ctx.file.script.path},
+        inputs = depset(
+            [config, ctx.file.script] +
+            ctx.files.src +
+            ctx.files.data +
+            default_inputs(ctx),
+            transitive = transitive_inputs,
+        ),
+        outputs = outs,
+    )
+    return [
+        DefaultInfo(
+            files = depset(outs),
+        ),
+        OutputGroupInfo(
+            **{f.basename: depset([f]) for f in outs}
+        ),
+    ]
+
+orfs_run = rule(
+    implementation = _run_impl,
+    attrs = flow_attrs() | openroad_only_attrs() | {
+        "script": attr.label(
+            mandatory = True,
+            allow_single_file = ["tcl"],
+        ),
+        "outs": attr.output_list(
+            mandatory = True,
+            allow_empty = False,
+        ),
+    },
+)
 
 def _yosys_impl(ctx):
     all_arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps])
@@ -650,20 +535,15 @@ def _yosys_impl(ctx):
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path, canon_output.path],
         command = command,
-        env = _verilog_arguments(ctx.files.verilog_files) | _yosys_env(ctx, config),
+        env = _verilog_arguments(ctx.files.verilog_files) |
+              default_environment(ctx) |
+              config_environment(config),
         inputs = depset(
+            [config] +
             ctx.files.verilog_files +
             ctx.files.data +
             ctx.files.extra_configs +
-            ctx.files._tcl +
-            [
-                config,
-                ctx.executable._abc,
-                ctx.executable._openroad,
-                ctx.executable._yosys,
-                ctx.executable._make,
-                ctx.file._makefile,
-            ],
+            default_inputs(ctx),
             transitive = transitive_inputs,
         ),
         outputs = [canon_output] + canon_logs,
@@ -682,20 +562,14 @@ def _yosys_impl(ctx):
         arguments = ["--file", ctx.file._makefile.path, "--old-file", canon_output.path, "yosys-dependencies"] +
                     [f.path for f in synth_outputs],
         command = command,
-        env = _verilog_arguments([]) | _yosys_env(ctx, config),
+        env = _verilog_arguments([]) |
+              default_environment(ctx) |
+              config_environment(config),
         inputs = depset(
+            [canon_output, config] +
             ctx.files.data +
             ctx.files.extra_configs +
-            ctx.files._tcl +
-            [
-                canon_output,
-                config,
-                ctx.executable._abc,
-                ctx.executable._yosys,
-                ctx.executable._openroad,
-                ctx.executable._make,
-                ctx.file._makefile,
-            ],
+            default_inputs(ctx),
             transitive = transitive_inputs,
         ),
         outputs = synth_outputs + synth_logs,
@@ -714,7 +588,7 @@ def _yosys_impl(ctx):
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
-        substitutions = flow_substitutions(ctx) | yosys_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
+        substitutions = flow_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
@@ -867,22 +741,12 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + steps,
         command = command,
-        env = _run_env(ctx, config) | {
-            "KLAYOUT_CMD": ctx.executable._klayout.path,
-            "STDBUF_CMD": "",
-            "RUBYLIB": ":".join([commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)]),
-            "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
-            "QT_QPA_PLATFORM_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
-            "QT_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
-        },
+        env = default_environment(ctx) | config_environment(config),
         inputs = depset(
-            ctx.files.src +
+            [config] + ctx.files.src +
             ctx.files.data +
             ctx.files.extra_configs +
-            ctx.files._ruby +
-            ctx.files._ruby_dynamic +
-            ctx.files._tcl +
-            [config, ctx.executable._openroad, ctx.executable._klayout, ctx.file._makefile, ctx.executable._make],
+            default_inputs(ctx),
             transitive = transitive_inputs,
         ),
         outputs = results + objects + logs + reports,
@@ -901,7 +765,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
-        substitutions = flow_substitutions(ctx) | openroad_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
+        substitutions = flow_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
@@ -927,8 +791,11 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
                 ],
             ),
             runfiles = ctx.runfiles(
-                [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.executable._make, ctx.file._makefile] +
-                forwards + results + logs + reports + ctx.files.data + ctx.files.extra_configs + ctx.files._ruby + ctx.files._ruby_dynamic + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
+                [config_short, make] +
+                forwards + results + logs + reports +
+                ctx.files.data +
+                ctx.files.extra_configs +
+                default_inputs(ctx),
                 transitive_files = depset(transitive = transitive_inputs + [ctx.attr.src[LoggingInfo].logs, ctx.attr.src[LoggingInfo].reports]),
             ),
         ),
@@ -950,8 +817,8 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             config = config_short,
             files = [config_short] + ctx.files.src + ctx.files.data + ctx.files.extra_configs,
             runfiles = ctx.runfiles(transitive_files = depset(
-                [config_short, make, ctx.executable._openroad, ctx.executable._klayout, ctx.executable._make, ctx.file._makefile, ctx.executable._make] +
-                ctx.files.src + ctx.files.data + ctx.files.extra_configs + ctx.files._ruby + ctx.files._ruby_dynamic + ctx.files._tcl + ctx.files._opengl + ctx.files._qt_plugins + ctx.files._gio_modules,
+                [config_short, make] +
+                ctx.files.src + ctx.files.data + ctx.files.extra_configs,
                 transitive = transitive_inputs,
             )),
         ),
@@ -1153,15 +1020,18 @@ orfs_abstract = rule(
 
 orfs_deps = rule(
     implementation = _deps_impl,
-    attrs = {
+    attrs = flow_attrs() | {
         "src": attr.label(
             providers = [OrfsDepInfo],
         ),
-        "_deploy_template": attr.label(
-            default = ":deploy.tpl",
-            allow_single_file = True,
+        "_yosys": attr.label(
+            doc = "Yosys binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:yosys"),
         ),
-    } | openroad_attrs(),
+    },
     executable = True,
 )
 
