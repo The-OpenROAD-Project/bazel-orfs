@@ -1046,10 +1046,6 @@ MOCK_STAGE_ARGUMENTS = {
     "synth": {"SYNTH_GUT": "1"},
 }
 
-MOCK_STAGE_UNSETS = {
-    "floorplan": ["DIE_AREA", "CORE_AREA", "CORE_UTILIZATION"],
-}
-
 # A stage argument is used in one or more stages. This is metainformation
 # about the ORFS code that there is no known nice way for ORFS to
 # provide.
@@ -1201,9 +1197,6 @@ def _merge(*args):
         x = _do_merge(x, arg)
     return x
 
-def _diff(a, b):
-    return {o: {i: a[o][i] for i in a[o] if i not in b.get(o, {})} for o in a}
-
 def orfs_flow(
         name,
         verilog_files = [],
@@ -1259,14 +1252,11 @@ def orfs_flow(
         "floorplan": [mock_area_name],
     }
 
-    mock_stage_arguments = _diff(
-        _merge(
-            {stage: {arg: value for arg, value in arguments.items() if arg in stage_args} for stage, stage_args in STAGE_ARGS_IN.items()},
-            {stage: {arg: value for arg, value in arguments.items() if stage in STAGE_ARGS_USES.get(arg, [])} for stage in ALL_STAGES},
-            stage_arguments,
-            MOCK_STAGE_ARGUMENTS,
-        ),
-        MOCK_STAGE_UNSETS,
+    mock_stage_arguments = _merge(
+        {stage: {arg: value for arg, value in arguments.items() if arg in stage_args} for stage, stage_args in STAGE_ARGS_IN.items()},
+        {stage: {arg: value for arg, value in arguments.items() if stage in STAGE_ARGS_USES.get(arg, [])} for stage in ALL_STAGES},
+        stage_arguments,
+        MOCK_STAGE_ARGUMENTS,
     )
 
     _orfs_pass(
