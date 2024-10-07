@@ -496,7 +496,7 @@ def _run_impl(ctx):
 
 orfs_run = rule(
     implementation = _run_impl,
-    attrs = flow_attrs() | openroad_only_attrs() | {
+    attrs = openroad_attrs() | {
         "script": attr.label(
             mandatory = True,
             allow_single_file = ["tcl"],
@@ -1013,18 +1013,7 @@ orfs_abstract = rule(
 
 orfs_deps = rule(
     implementation = _deps_impl,
-    attrs = flow_attrs() | {
-        "src": attr.label(
-            providers = [OrfsDepInfo],
-        ),
-        "_yosys": attr.label(
-            doc = "Yosys binary.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:yosys"),
-        ),
-    },
+    attrs = openroad_attrs(),
     executable = True,
 )
 
