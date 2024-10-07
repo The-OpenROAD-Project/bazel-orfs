@@ -139,20 +139,43 @@ def config_environment(config):
     return {"DESIGN_CONFIG": config.path}
 
 def default_inputs(ctx):
-    return ctx.files._ruby + \
-           ctx.files._ruby_dynamic + \
-           ctx.files._tcl + \
-           ctx.files._opengl + \
-           ctx.files._qt_plugins + \
-           ctx.files._gio_modules + \
-           [
-               ctx.executable._abc,
-               ctx.executable._klayout,
-               ctx.executable._make,
-               ctx.executable._openroad,
-               ctx.executable._yosys,
-               ctx.file._makefile,
-           ]
+    return depset(
+        [
+            ctx.executable._abc,
+            ctx.executable._klayout,
+            ctx.executable._make,
+            ctx.executable._openroad,
+            ctx.executable._yosys,
+            ctx.file._makefile,
+        ] +
+        ctx.files._ruby +
+        ctx.files._ruby_dynamic +
+        ctx.files._tcl +
+        ctx.files._opengl +
+        ctx.files._qt_plugins +
+        ctx.files._gio_modules,
+        transitive = [
+            ctx.attr._abc[DefaultInfo].default_runfiles.files,
+            ctx.attr._abc[DefaultInfo].default_runfiles.symlinks,
+            ctx.attr._yosys[DefaultInfo].default_runfiles.files,
+            ctx.attr._yosys[DefaultInfo].default_runfiles.symlinks,
+            ctx.attr._openroad[DefaultInfo].default_runfiles.files,
+            ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
+            ctx.attr._klayout[DefaultInfo].default_runfiles.files,
+            ctx.attr._klayout[DefaultInfo].default_runfiles.symlinks,
+            ctx.attr._makefile[DefaultInfo].default_runfiles.files,
+            ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
+            ctx.attr._make[DefaultInfo].default_runfiles.files,
+            ctx.attr._make[DefaultInfo].default_runfiles.symlinks,
+        ],
+    )
+
+def data_inputs(ctx):
+    return depset(
+        ctx.files.data,
+        transitive = [datum.default_runfiles.files for datum in ctx.attr.data] +
+                     [datum.default_runfiles.symlinks for datum in ctx.attr.data],
+    )
 
 def commonprefix(*args):
     """
@@ -434,25 +457,6 @@ def _run_impl(ctx):
     for k in dir(ctx.outputs):
         outs.extend(getattr(ctx.outputs, k))
 
-    transitive_inputs = [
-        ctx.attr.src[OrfsInfo].additional_gds,
-        ctx.attr.src[OrfsInfo].additional_lefs,
-        ctx.attr.src[OrfsInfo].additional_libs,
-        ctx.attr.src[PdkInfo].files,
-        ctx.attr.src[DefaultInfo].default_runfiles.files,
-        ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._openroad[DefaultInfo].default_runfiles.files,
-        ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._make[DefaultInfo].default_runfiles.files,
-        ctx.attr._make[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
-    ]
-
-    for datum in ctx.attr.data:
-        transitive_inputs.append(datum.default_runfiles.files)
-        transitive_inputs.append(datum.default_runfiles.symlinks)
-
     ctx.actions.run_shell(
         arguments = [
             "--file",
@@ -467,10 +471,17 @@ def _run_impl(ctx):
               {"RUN_SCRIPT": ctx.file.script.path},
         inputs = depset(
             [config, ctx.file.script] +
-            ctx.files.src +
-            ctx.files.data +
-            default_inputs(ctx),
-            transitive = transitive_inputs,
+            ctx.files.src,
+            transitive = [
+                ctx.attr.src[OrfsInfo].additional_gds,
+                ctx.attr.src[OrfsInfo].additional_lefs,
+                ctx.attr.src[OrfsInfo].additional_libs,
+                ctx.attr.src[PdkInfo].files,
+                ctx.attr.src[DefaultInfo].default_runfiles.files,
+                ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
+                default_inputs(ctx),
+                data_inputs(ctx),
+            ],
         ),
         outputs = outs,
     )
@@ -513,25 +524,6 @@ def _yosys_impl(ctx):
 
     command = _add_optional_generation_to_command(ctx.executable._make.path + " $@", canon_logs)
 
-    transitive_inputs = [
-        ctx.attr.pdk[PdkInfo].files,
-        ctx.attr._abc[DefaultInfo].default_runfiles.files,
-        ctx.attr._abc[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._yosys[DefaultInfo].default_runfiles.files,
-        ctx.attr._yosys[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._make[DefaultInfo].default_runfiles.files,
-        ctx.attr._make[DefaultInfo].default_runfiles.symlinks,
-        depset([dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds]),
-        depset([dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef]),
-        depset([dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib]),
-    ]
-
-    for datum in ctx.attr.data:
-        transitive_inputs.append(datum.default_runfiles.files)
-        transitive_inputs.append(datum.default_runfiles.symlinks)
-
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path, canon_output.path],
         command = command,
@@ -541,10 +533,15 @@ def _yosys_impl(ctx):
         inputs = depset(
             [config] +
             ctx.files.verilog_files +
-            ctx.files.data +
-            ctx.files.extra_configs +
-            default_inputs(ctx),
-            transitive = transitive_inputs,
+            ctx.files.extra_configs,
+            transitive = [
+                ctx.attr.pdk[PdkInfo].files,
+                depset([dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds]),
+                depset([dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef]),
+                depset([dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib]),
+                default_inputs(ctx),
+                data_inputs(ctx),
+            ],
         ),
         outputs = [canon_output] + canon_logs,
     )
@@ -567,10 +564,15 @@ def _yosys_impl(ctx):
               config_environment(config),
         inputs = depset(
             [canon_output, config] +
-            ctx.files.data +
-            ctx.files.extra_configs +
-            default_inputs(ctx),
-            transitive = transitive_inputs,
+            ctx.files.extra_configs,
+            transitive = [
+                ctx.attr.pdk[PdkInfo].files,
+                depset([dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds]),
+                depset([dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef]),
+                depset([dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib]),
+                default_inputs(ctx),
+                data_inputs(ctx),
+            ],
         ),
         outputs = synth_outputs + synth_logs,
     )
@@ -612,8 +614,8 @@ def _yosys_impl(ctx):
             ),
             runfiles = ctx.runfiles(
                 synth_outputs + canon_logs + synth_logs + [canon_output, config_short, make, ctx.executable._yosys, ctx.executable._openroad, ctx.executable._make, ctx.file._makefile] +
-                ctx.files.verilog_files + ctx.files.data + ctx.files.extra_configs + ctx.files._tcl,
-                transitive_files = depset(transitive = transitive_inputs),
+                ctx.files.verilog_files + ctx.files.extra_configs,
+                transitive_files = depset(transitive = [default_inputs(ctx), data_inputs(ctx)]),
             ),
         ),
         OutputGroupInfo(
@@ -630,11 +632,11 @@ def _yosys_impl(ctx):
         OrfsDepInfo(
             make = make,
             config = config_short,
-            files = [config_short] + ctx.files.verilog_files + ctx.files.data + ctx.files.extra_configs,
+            files = [config_short] + ctx.files.verilog_files + ctx.files.extra_configs,
             runfiles = ctx.runfiles(transitive_files = depset(
-                [config_short, make, ctx.executable._yosys, ctx.executable._make, ctx.file._makefile] +
-                ctx.files.verilog_files + ctx.files.data + ctx.files.extra_configs + ctx.files._tcl,
-                transitive = transitive_inputs,
+                [config_short, make] +
+                ctx.files.verilog_files + ctx.files.extra_configs,
+                transitive = [default_inputs(ctx), data_inputs(ctx)],
             )),
         ),
         OrfsInfo(
@@ -716,25 +718,6 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     for file in forwards + results:
         info[file.extension] = file
 
-    transitive_inputs = [
-        ctx.attr.src[OrfsInfo].additional_gds,
-        ctx.attr.src[OrfsInfo].additional_lefs,
-        ctx.attr.src[OrfsInfo].additional_libs,
-        ctx.attr.src[PdkInfo].files,
-        ctx.attr._openroad[DefaultInfo].default_runfiles.files,
-        ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._klayout[DefaultInfo].default_runfiles.files,
-        ctx.attr._klayout[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.files,
-        ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
-        ctx.attr._make[DefaultInfo].default_runfiles.files,
-        ctx.attr._make[DefaultInfo].default_runfiles.symlinks,
-    ]
-
-    for datum in ctx.attr.data:
-        transitive_inputs.append(datum.default_runfiles.files)
-        transitive_inputs.append(datum.default_runfiles.symlinks)
-
     command = ctx.executable._make.path + " $@"
     command = _add_optional_generation_to_command(command, reports + logs)
 
@@ -745,9 +728,15 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         inputs = depset(
             [config] + ctx.files.src +
             ctx.files.data +
-            ctx.files.extra_configs +
-            default_inputs(ctx),
-            transitive = transitive_inputs,
+            ctx.files.extra_configs,
+            transitive = [
+                ctx.attr.src[OrfsInfo].additional_gds,
+                ctx.attr.src[OrfsInfo].additional_lefs,
+                ctx.attr.src[OrfsInfo].additional_libs,
+                ctx.attr.src[PdkInfo].files,
+                default_inputs(ctx),
+                data_inputs(ctx),
+            ],
         ),
         outputs = results + objects + logs + reports,
     )
@@ -793,10 +782,11 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             runfiles = ctx.runfiles(
                 [config_short, make] +
                 forwards + results + logs + reports +
-                ctx.files.data +
-                ctx.files.extra_configs +
-                default_inputs(ctx),
-                transitive_files = depset(transitive = transitive_inputs + [ctx.attr.src[LoggingInfo].logs, ctx.attr.src[LoggingInfo].reports]),
+                ctx.files.extra_configs,
+                transitive_files = depset(transitive = [
+                    default_inputs(ctx),
+                    data_inputs(ctx),
+                ]),
             ),
         ),
         OutputGroupInfo(
@@ -818,8 +808,11 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             files = [config_short] + ctx.files.src + ctx.files.data + ctx.files.extra_configs,
             runfiles = ctx.runfiles(transitive_files = depset(
                 [config_short, make] +
-                ctx.files.src + ctx.files.data + ctx.files.extra_configs,
-                transitive = transitive_inputs,
+                ctx.files.src + ctx.files.extra_configs,
+                transitive = [
+                    default_inputs(ctx),
+                    data_inputs(ctx),
+                ],
             )),
         ),
         OrfsInfo(
