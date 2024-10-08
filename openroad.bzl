@@ -1082,10 +1082,6 @@ STAGE_ARGS_USES = {
     "ROUTING_LAYER_ADJUSTMENT": ["place", "grt", "route", "final"],
     "ADDITIONAL_LEFS": ALL_STAGES,
     "ADDITIONAL_LIBS": ALL_STAGES,
-} | {
-    k: list(v["stages"])
-    for k, v in orfs_variable_metadata.items()
-    if "stages" in v and v["stages"] != ["all"]
 }
 
 STAGE_ARGS_IN = {
@@ -1169,6 +1165,47 @@ STAGE_TO_VARIABLES = {
     for stage in ALL_STAGES
 }
 
+ORFS_VARIABLE_TO_STAGES = {
+    k: list(v["stages"])
+    for k, v in orfs_variable_metadata.items()
+    if "stages" in v and v["stages"] != ["all"]
+}
+
+ORFS_STAGE_TO_VARIABLES = {
+    stage: [
+        variable
+        for variable, has_stages in ORFS_VARIABLE_TO_STAGES.items()
+        if stage in has_stages
+    ]
+    for stage in ALL_STAGES
+}
+
+[
+    fail("Variable {} is defined in both ORFS and Bazel".format(variable))
+    for stage in ALL_STAGES
+    for variable in ORFS_STAGE_TO_VARIABLES.get(stage, [])
+    if variable in STAGE_TO_VARIABLES.get(stage, [])
+]
+
+def _union(*lists):
+    merged_dict = {}
+    for list1 in lists:
+        dict1 = {key: True for key in list1}
+        merged_dict.update(dict1)
+
+    return list(merged_dict.keys())
+
+ALL_STAGE_TO_VARIABLES = {stage: _union(STAGE_TO_VARIABLES.get(stage, []), ORFS_STAGE_TO_VARIABLES.get(stage, [])) for stage in ALL_STAGES}
+
+ALL_VARIABLES_TO_STAGE = {
+    variable: [
+        stage
+        for stage in ALL_STAGES
+        if variable in ALL_STAGE_TO_VARIABLES[stage]
+    ]
+    for variable in _union(*ALL_STAGE_TO_VARIABLES.values())
+}
+
 def get_stage_args(stage, stage_arguments, arguments):
     """Returns the arguments for a specific stage.
 
@@ -1182,7 +1219,7 @@ def get_stage_args(stage, stage_arguments, arguments):
     unsorted_dict = ({
                          arg: value
                          for arg, value in arguments.items()
-                         if arg in STAGE_TO_VARIABLES[stage]
+                         if arg in ALL_STAGE_TO_VARIABLES[stage]
                      } |
                      stage_arguments.get(stage, {}))
     return dict(sorted(unsorted_dict.items()))
@@ -1201,7 +1238,7 @@ def get_sources(stage, stage_sources, sources):
                       flatten([
                           source_list
                           for variable, source_list in sources.items()
-                          if variable in STAGE_TO_VARIABLES[stage]
+                          if variable in ALL_STAGE_TO_VARIABLES[stage]
                       ])))
 
 def _step_name(name, variant, stage):
@@ -1277,8 +1314,8 @@ def orfs_flow(
     }
 
     mock_stage_arguments = _merge(
-        {stage: {arg: value for arg, value in arguments.items() if arg in stage_args} for stage, stage_args in STAGE_ARGS_IN.items()},
-        {stage: {arg: value for arg, value in arguments.items() if stage in STAGE_ARGS_USES.get(arg, [])} for stage in ALL_STAGES},
+        {stage: {arg: value for arg, value in arguments.items() if arg in stage_args} for stage, stage_args in ALL_STAGE_TO_VARIABLES.items()},
+        {stage: {arg: value for arg, value in arguments.items() if stage in ALL_VARIABLES_TO_STAGE.get(arg, [])} for stage in ALL_STAGES},
         stage_arguments,
         MOCK_STAGE_ARGUMENTS,
     )
