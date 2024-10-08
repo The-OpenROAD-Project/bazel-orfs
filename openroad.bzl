@@ -1,5 +1,7 @@
 """Rules for the building the OpenROAD-flow-scripts stages"""
 
+load("@orfs_variable_metadata//:json.bzl", "orfs_variable_metadata")
+
 OrfsInfo = provider(
     "The outputs of a OpenROAD-flow-scripts stage.",
     fields = [
@@ -1080,6 +1082,10 @@ STAGE_ARGS_USES = {
     "ROUTING_LAYER_ADJUSTMENT": ["place", "grt", "route", "final"],
     "ADDITIONAL_LEFS": ALL_STAGES,
     "ADDITIONAL_LIBS": ALL_STAGES,
+} | {
+    k: list(v["stages"])
+    for k, v in orfs_variable_metadata.items()
+    if "stages" in v and v["stages"] != ["all"]
 }
 
 STAGE_ARGS_IN = {

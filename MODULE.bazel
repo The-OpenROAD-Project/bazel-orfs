@@ -24,3 +24,13 @@ http_archive(
     strip_prefix = "oss-cad-suite",
     urls = ["https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2024-08-28/oss-cad-suite-linux-x64-20240828.tgz"],
 )
+
+load_json_file = use_repo_rule("//:load_json_file.bzl", "load_json_file")
+
+load_json_file(
+    name = "orfs_variable_metadata",
+    src = "@docker_orfs//:OpenROAD-flow-scripts/flow/scripts/defaults.yaml",
+    # Dummy output file, we're not actually using it
+    out = "variables.json",
+    script = "//:yaml_to_json.py",
+)
