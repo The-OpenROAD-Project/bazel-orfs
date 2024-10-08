@@ -116,6 +116,7 @@ filegroup(
         "OpenROAD-flow-scripts/flow/scripts/*.script",
         "OpenROAD-flow-scripts/flow/scripts/*.sh",
         "OpenROAD-flow-scripts/flow/scripts/*.tcl",
+        "OpenROAD-flow-scripts/flow/scripts/*.yaml",
     ]),
     visibility = ["//visibility:public"],
 )
