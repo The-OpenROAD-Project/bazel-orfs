@@ -1075,11 +1075,9 @@ STAGE_ARGS_USES = {
     "PLACE_PINS_ARGS": ["floorplan", "place"],
     "IO_PLACER_H": ["floorplan", "place"],
     "IO_PLACER_V": ["floorplan", "place"],
-    "TNS_END_PERCENT": ["cts", "floorplan", "grt"],
     "SKIP_REPORT_METRICS": ["floorplan", "place", "cts", "grt", "route", "final"],
     "MIN_ROUTING_LAYER": ["place", "grt", "route", "final"],
     "MAX_ROUTING_LAYER": ["place", "grt", "route", "final"],
-    "ROUTING_LAYER_ADJUSTMENT": ["place", "grt", "route", "final"],
     "ADDITIONAL_LEFS": ALL_STAGES,
     "ADDITIONAL_LIBS": ALL_STAGES,
 }
@@ -1092,14 +1090,11 @@ STAGE_ARGS_IN = {
     ],
     "floorplan": [
         "FLOORPLAN_DEF",
-        "CORE_AREA",
-        "DIE_AREA",
         "CORE_ASPECT_RATIO",
         "REMOVE_ABC_BUFFERS",
         "PDN_TCL",
         "MACRO_PLACEMENT_TCL",
         "CORE_MARGIN",
-        "CORE_UTILIZATION",
         "RTLMP_FLOW",
         "MACRO_PLACE_HALO",
         "TAPCELL_TCL",
@@ -1110,9 +1105,6 @@ STAGE_ARGS_IN = {
     ],
     "cts": [
         "SKIP_CTS_REPAIR_TIMING",
-    ],
-    "grt": [
-        "SKIP_INCREMENTAL_REPAIR",
     ],
     "route": [
         "FILL_CELLS",
