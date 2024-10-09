@@ -18,10 +18,27 @@ orfs_flow(
         "PLACE_DENSITY": "0.25",
     },
     mock_area = 0.95,
+    stage_outputs = {
+        "synth": {"1_synth.v": "1_synth_unedited.v"},
+    },
     stage_sources = {
         "synth": [":fakeram/constraints-sram.sdc"],
+        "floorplan": [":naja"],
     },
     verilog_files = [":fakeram/sdq_17x64.sv"],
+)
+
+filegroup(
+    name = "sdq_17x64_synth_unedited",
+    srcs = ["sdq_17x64_synth"],
+    output_group = "1_synth_unedited.v",
+)
+
+genrule(
+    name = "naja",
+    srcs = [":sdq_17x64_synth_unedited"],
+    outs = ["results/asap7/sdq_17x64/base/1_synth.v"],
+    cmd = "mkdir -p `dirname $@`; cp $< $@",
 )
 
 orfs_flow(
