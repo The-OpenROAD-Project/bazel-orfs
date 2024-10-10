@@ -618,8 +618,17 @@ def _yosys_impl(ctx):
 
     commands = [ctx.executable._make.path + " $@"] + _generation_commands(synth_logs) + _output_commands(ctx, synth_outputs)
     ctx.actions.run_shell(
-        arguments = ["--file", ctx.file._makefile.path, "--old-file", canon_output.path, "yosys-dependencies"] +
-                    ["/".join([_work_home(ctx), _artifact_name(ctx, "results", name)]) for name in SYNTH_OUTPUTS],
+        arguments = [
+            "--file",
+            ctx.file._makefile.path,
+            "--old-file",
+            canon_output.path,
+            "yosys-dependencies",
+            "do-yosys-keep-hierarchy",
+            "do-yosys",
+            "do-synth",
+            "/".join([_work_home(ctx), _artifact_name(ctx, "results", "1_synth.sdc")]),
+        ],
         command = " && ".join(commands),
         env = _verilog_arguments([]) |
               flow_environment(ctx) |
