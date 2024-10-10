@@ -1350,7 +1350,7 @@ def orfs_flow(
         sources = sources,
         stage_sources = stage_sources,
         stage_arguments = mock_stage_arguments,
-        stage_outputs = stage_outputs,
+        stage_outputs = {},
         arguments = {},
         extra_configs = extra_configs | mock_configs,
         abstract_stage = "floorplan",
