@@ -1157,11 +1157,34 @@ STAGE_TO_VARIABLES = {
     for stage in ALL_STAGES
 }
 
-ORFS_VARIABLE_TO_STAGES = {
-    k: list(v["stages"])
-    for k, v in orfs_variable_metadata.items()
-    if "stages" in v and v["stages"] != ["all"]
+def _union(*lists):
+    merged_dict = {}
+    for list1 in lists:
+        dict1 = {key: True for key in list1}
+        merged_dict.update(dict1)
+
+    return list(merged_dict.keys())
+
+VARIABLE_TO_STAGES = {
+    variable: [
+        stage
+        for stage in ALL_STAGES
+        if variable in STAGE_TO_VARIABLES[stage]
+    ]
+    for variable in _union(*STAGE_TO_VARIABLES.values())
 }
+
+ORFS_VARIABLE_TO_STAGES = {
+    k: v["stages"]
+    for k, v in orfs_variable_metadata.items()
+    if "stages" in v
+}
+
+[
+    fail("Variable {} is defined the same in ORFS and Bazel {}".format(variable, stages))
+    for variable, stages in VARIABLE_TO_STAGES.items()
+    if variable in ORFS_VARIABLE_TO_STAGES and sorted(ORFS_VARIABLE_TO_STAGES[variable]) == sorted(stages)
+]
 
 ORFS_STAGE_TO_VARIABLES = {
     stage: [
@@ -1171,21 +1194,6 @@ ORFS_STAGE_TO_VARIABLES = {
     ]
     for stage in ALL_STAGES
 }
-
-[
-    fail("Variable {} is defined in both ORFS and Bazel".format(variable))
-    for stage in ALL_STAGES
-    for variable in ORFS_STAGE_TO_VARIABLES.get(stage, [])
-    if variable in STAGE_TO_VARIABLES.get(stage, [])
-]
-
-def _union(*lists):
-    merged_dict = {}
-    for list1 in lists:
-        dict1 = {key: True for key in list1}
-        merged_dict.update(dict1)
-
-    return list(merged_dict.keys())
 
 ALL_STAGE_TO_VARIABLES = {stage: _union(STAGE_TO_VARIABLES.get(stage, []), ORFS_STAGE_TO_VARIABLES.get(stage, [])) for stage in ALL_STAGES}
 
