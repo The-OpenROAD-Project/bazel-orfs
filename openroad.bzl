@@ -491,7 +491,7 @@ def _generation_commands(optional_files):
     return []
 
 def _output_commands(ctx, results):
-    reverse = {v: k for k, v in ctx.attr.outputs.items()}
+    reverse = {v: k for k, v in ctx.attr.outputs.items() if k != v}
     return ["mv {} {}".format(
         "/".join([result.dirname, reverse[result.basename]]),
         result.path,
