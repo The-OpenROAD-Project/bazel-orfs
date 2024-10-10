@@ -19,6 +19,7 @@ orfs_flow(
     },
     mock_area = 0.95,
     stage_outputs = {
+        # the "naja" rule below will use the synthesis output
         "synth": {"1_synth.v": "1_synth_unedited.v"},
     },
     stage_sources = {
@@ -28,17 +29,21 @@ orfs_flow(
     verilog_files = [":fakeram/sdq_17x64.sv"],
 )
 
+# fish out the file that we want as input to the "naja" rule
+# below.
 filegroup(
     name = "sdq_17x64_synth_unedited",
     srcs = ["sdq_17x64_synth"],
     output_group = "1_synth_unedited.v",
 )
 
+# Read in the renamed synthesis output from above and provide
+# the original name to the next stage
 genrule(
     name = "naja",
     srcs = [":sdq_17x64_synth_unedited"],
     outs = ["results/asap7/sdq_17x64/base/1_synth.v"],
-    cmd = "mkdir -p `dirname $@`; cp $< $@",
+    cmd = "mkdir -p `dirname $@`; echo \"// imagine naja edits in this file\" > $@ && cat $< >> $@",
 )
 
 orfs_flow(
