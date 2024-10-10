@@ -1070,11 +1070,8 @@ MOCK_STAGE_ARGUMENTS = {
 # about the ORFS code that there is no known nice way for ORFS to
 # provide.
 STAGE_ARGS_USES = {
-    "PLACE_DENSITY": ["floorplan", "place"],
     "IO_CONSTRAINTS": ["floorplan", "place"],
     "PLACE_PINS_ARGS": ["floorplan", "place"],
-    "IO_PLACER_H": ["floorplan", "place"],
-    "IO_PLACER_V": ["floorplan", "place"],
     "SKIP_REPORT_METRICS": ["floorplan", "place", "cts", "grt", "route", "final"],
     "MIN_ROUTING_LAYER": ["place", "grt", "route", "final"],
     "MAX_ROUTING_LAYER": ["place", "grt", "route", "final"],
@@ -1085,26 +1082,10 @@ STAGE_ARGS_USES = {
 STAGE_ARGS_IN = {
     "synth": [
         "SDC_FILE",
-        "SYNTH_HIERARCHICAL",
         "SYNTH_GUT",
     ],
     "floorplan": [
-        "FLOORPLAN_DEF",
-        "CORE_ASPECT_RATIO",
         "REMOVE_ABC_BUFFERS",
-        "PDN_TCL",
-        "MACRO_PLACEMENT_TCL",
-        "CORE_MARGIN",
-        "RTLMP_FLOW",
-        "MACRO_PLACE_HALO",
-        "TAPCELL_TCL",
-    ],
-    "place": [
-        "GPL_ROUTABILITY_DRIVEN",
-        "GPL_TIMING_DRIVEN",
-    ],
-    "cts": [
-        "SKIP_CTS_REPAIR_TIMING",
     ],
     "route": [
         "FILL_CELLS",
