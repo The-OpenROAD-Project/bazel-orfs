@@ -8,9 +8,9 @@ orfs = use_extension("//:extension.bzl", "orfs_repositories")
 orfs.default(
     # a local only or remote docker image. Local docker images do not
     # have a sha256.
-    image = "docker.io/openroad/orfs:v3.0-1548-gce8d36a7",
+    image = "docker.io/openroad/orfs:v3.0-1565-g7b4e7aab",
     # Comment out line below for local only docker images
-    sha256 = "6fe655d0d5f33e2f344ec4ce1641b613b7bb90ec4cda279d2407386ed78ff6b3",
+    sha256 = "a92086df32200b01e34d9173f1a6d07812e7e88db4158fcd1ef30a8458959aef",
 )
 use_repo(orfs, "com_github_nixos_patchelf_download")
 use_repo(orfs, "docker_orfs")
@@ -29,7 +29,7 @@ load_json_file = use_repo_rule("//:load_json_file.bzl", "load_json_file")
 
 load_json_file(
     name = "orfs_variable_metadata",
-    src = "@docker_orfs//:OpenROAD-flow-scripts/flow/scripts/defaults.yaml",
+    src = "@docker_orfs//:OpenROAD-flow-scripts/flow/scripts/variables.yaml",
     # Dummy output file, we're not actually using it
     out = "variables.json",
     script = "//:yaml_to_json.py",
