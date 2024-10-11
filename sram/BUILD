@@ -7,9 +7,9 @@ FAST_SETTINGS = {
     "SKIP_INCREMENTAL_REPAIR": "1",
 }
 
-orfs_flow(
+[orfs_flow(
     name = "sdq_17x64",
-    abstract_stage = "grt",
+    abstract_stage = "grt" if variant == "base" else "floorplan",
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "CORE_UTILIZATION": "20",
@@ -21,19 +21,24 @@ orfs_flow(
     stage_outputs = {
         # the "naja" rule below will use the synthesis output
         "synth": {"1_synth.v": "1_synth_unedited.v"},
-    },
+    } if variant == "naja" else {},
     stage_sources = {
         "synth": [":fakeram/constraints-sram.sdc"],
+    } | ({
         "floorplan": [":naja"],
-    },
+    } if variant == "naja" else {}),
+    variant = variant,
     verilog_files = [":fakeram/sdq_17x64.sv"],
-)
+) for variant in [
+    "base",
+    "naja",
+]]
 
 # fish out the file that we want as input to the "naja" rule
 # below.
 filegroup(
     name = "sdq_17x64_synth_unedited",
-    srcs = ["sdq_17x64_synth"],
+    srcs = ["sdq_17x64_naja_synth"],
     output_group = "1_synth_unedited.v",
 )
 
@@ -42,7 +47,7 @@ filegroup(
 genrule(
     name = "naja",
     srcs = [":sdq_17x64_synth_unedited"],
-    outs = ["results/asap7/sdq_17x64/base/1_synth.v"],
+    outs = ["results/asap7/sdq_17x64/naja/1_synth.v"],
     cmd = "mkdir -p `dirname $@`; echo \"// imagine naja edits in this file\" > $@ && cat $< >> $@",
 )
 
