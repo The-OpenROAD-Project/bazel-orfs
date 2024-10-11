@@ -1299,6 +1299,8 @@ def orfs_flow(
       mock_area: floating point number, scale the die width/height by this amount, default no scaling
       visibility: the visibility attribute on a target controls whether the target can be used in other packages
     """
+    if variant == "base":
+        variant = None
     abstract_variant = _variant_name(variant, "unmocked" if mock_area else None)
     _orfs_pass(
         name = name,
