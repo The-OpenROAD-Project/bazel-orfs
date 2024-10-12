@@ -69,6 +69,37 @@ jobs:
             bazel run --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }} -- `pwd`/build
           fi
 
+  test-open-target:
+    name: open ${{ matrix.STAGE_TARGET }}
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        STAGE_TARGET:
+          - "//sram:top_mix"
+          - "tag_array_64x184"
+          - "L1MetadataArray"
+          - "subpackage:L1MetadataArray"
+          - "subpackage:tag_array_64x184"
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+    steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          swap-storage: false
+      - name: Checkout bazel-orfs
+        uses: actions/checkout@v4
+      - name: Run target
+        run: |
+            rm -rf ./build
+            bazel run ${{ matrix.STAGE_TARGET }}_synth -- `pwd`/build OR_ARGS=-exit open_synth
+            rm -rf ./build
+            bazel run ${{ matrix.STAGE_TARGET }}_floorplan -- `pwd`/build OR_ARGS=-exit open_floorplan
+
 
   test-target-local-clean-setup:
     name: Local flow - clean setup
