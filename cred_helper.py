@@ -16,7 +16,10 @@ def get_gcloud_auth_token():
     # Run gcloud command to get the authentication token
     result = subprocess.run(
         ["gcloud", "auth", "print-access-token", USER],
-        capture_output=True, text=True, check=True)
+        capture_output=True,
+        text=True,
+        check=True,
+    )
     token = result.stdout.strip()
     return token
 
@@ -26,11 +29,7 @@ def generate_credentials():
     bearer_token = get_gcloud_auth_token()
 
     # Create the JSON object with the required format
-    credentials = {
-        "headers": {
-            "Authorization": [f"Bearer {bearer_token}"]
-        }
-    }
+    credentials = {"headers": {"Authorization": [f"Bearer {bearer_token}"]}}
     return credentials
 
 
