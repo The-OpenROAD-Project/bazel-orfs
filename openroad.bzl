@@ -1098,29 +1098,15 @@ MOCK_STAGE_ARGUMENTS = {
 # about the ORFS code that there is no known nice way for ORFS to
 # provide.
 STAGE_ARGS_USES = {
-    "IO_CONSTRAINTS": ["floorplan", "place"],
-    "PLACE_PINS_ARGS": ["floorplan", "place"],
-    "SKIP_REPORT_METRICS": ["floorplan", "place", "cts", "grt", "route", "final"],
-    "MIN_ROUTING_LAYER": ["place", "grt", "route", "final"],
-    "MAX_ROUTING_LAYER": ["place", "grt", "route", "final"],
     "ADDITIONAL_LEFS": ALL_STAGES,
     "ADDITIONAL_LIBS": ALL_STAGES,
 }
 
 STAGE_ARGS_IN = {
     "synth": [
-        "SDC_FILE",
         "SYNTH_GUT",
     ],
-    "floorplan": [
-        "REMOVE_ABC_BUFFERS",
-    ],
-    "route": [
-        "FILL_CELLS",
-    ],
     "final": [
-        "GND_NETS_VOLTAGES",
-        "PWR_NETS_VOLTAGES",
     ],
 }
 
