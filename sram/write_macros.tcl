@@ -1,4 +1,4 @@
-source $::env(SCRIPTS_DIR)/gui.tcl
+source $::env(SCRIPTS_DIR)/open.tcl
 
 set f [file join $::env(WORK_HOME) "macro_placement.tcl"]
 
