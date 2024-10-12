@@ -1097,12 +1097,12 @@ MOCK_STAGE_ARGUMENTS = {
 # A stage argument is used in one or more stages. This is metainformation
 # about the ORFS code that there is no known nice way for ORFS to
 # provide.
-STAGE_ARGS_USES = {
+BAZEL_VARIABLE_TO_STAGES = {
     "ADDITIONAL_LEFS": ALL_STAGES,
     "ADDITIONAL_LIBS": ALL_STAGES,
 }
 
-STAGE_ARGS_IN = {
+BAZEL_STAGE_TO_VARIABLES = {
     "synth": [
         "SYNTH_GUT",
     ],
@@ -1146,9 +1146,9 @@ def set(iterable):
 STAGE_TO_VARIABLES = {
     stage: [
         variable
-        for variable, stages in STAGE_ARGS_USES.items()
+        for variable, stages in BAZEL_VARIABLE_TO_STAGES.items()
         if stage in stages
-    ] + STAGE_ARGS_IN.get(stage, [])
+    ] + BAZEL_STAGE_TO_VARIABLES.get(stage, [])
     for stage in ALL_STAGES
 }
 
@@ -1192,7 +1192,7 @@ ORFS_STAGE_TO_VARIABLES = {
 
 ALL_STAGE_TO_VARIABLES = {stage: _union(STAGE_TO_VARIABLES.get(stage, []), ORFS_STAGE_TO_VARIABLES.get(stage, [])) for stage in ALL_STAGES}
 
-ALL_VARIABLES_TO_STAGE = {
+ALL_VARIABLE_TO_STAGES = {
     variable: [
         stage
         for stage in ALL_STAGES
@@ -1214,7 +1214,7 @@ def get_stage_args(stage, stage_arguments, arguments):
     unsorted_dict = ({
                          arg: value
                          for arg, value in arguments.items()
-                         if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLES_TO_STAGE
+                         if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLE_TO_STAGES
                      } |
                      stage_arguments.get(stage, {}))
     return dict(sorted(unsorted_dict.items()))
