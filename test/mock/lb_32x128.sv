@@ -10,7 +10,7 @@ module lb_32x128(
   input  [127:0] W0_data
 );
 
-  reg [127:0] Memory[0:3]; // Reduced rows to 4
+  reg [127:0] Memory[0:1]; // Reduced rows to 2
   always @(posedge W0_clk) begin
     if (W0_en & 1'h1)
       Memory[W0_addr[4:3] ^ W0_addr[1:0]] <= W0_data; // XORing high and low bits

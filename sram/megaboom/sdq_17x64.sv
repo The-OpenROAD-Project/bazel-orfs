@@ -9,7 +9,8 @@ module sdq_17x64(
   input  [63:0] W0_data
 );
 
-  reg [63:0] Memory[0:16];
+  // reduced from 0:16 to 0:1 to speed up tests
+  reg [63:0] Memory[0:1];
   always @(posedge W0_clk) begin
     if (W0_en & 1'h1)
       Memory[W0_addr] <= W0_data;

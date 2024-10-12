@@ -8,7 +8,8 @@ module sdq_17x64
    ce_in
 );
    parameter BITS = 64;
-   parameter WORD_DEPTH = 17;
+   // reduced from 17 to 2 to speed up tests
+   parameter WORD_DEPTH = 2;
    parameter ADDR_WIDTH = 5;
    parameter corrupt_mem_on_X_p = 1;
 

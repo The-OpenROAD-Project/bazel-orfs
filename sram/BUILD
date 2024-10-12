@@ -1,10 +1,16 @@
 load("//:openroad.bzl", "orfs_flow", "orfs_macro", "orfs_run")
 
 FAST_SETTINGS = {
+    "FILL_CELLS": "",
     "REMOVE_ABC_BUFFERS": "1",
     "SKIP_REPORT_METRICS": "1",
     "SKIP_CTS_REPAIR_TIMING": "1",
     "SKIP_INCREMENTAL_REPAIR": "1",
+    "TAPCELL_TCL": "",
+    "GND_NETS_VOLTAGES": "",
+    "PWR_NETS_VOLTAGES": "",
+    "GPL_ROUTABILITY_DRIVEN": "0",
+    "GPL_TIMING_DRIVEN": "0",
 }
 
 [orfs_flow(
