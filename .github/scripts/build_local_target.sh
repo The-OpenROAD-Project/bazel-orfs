@@ -13,6 +13,7 @@ fi
 echo "Build ${target_name} macro"
 for stage in "${STAGES[@]}"
 do
+  rm -rf ./build
   if [[ -z $SKIP_BUILD ]] ; then
     echo "[${target_name}] ${stage}: Query dependency target"
     bazel query "${target_name}_${stage}_deps"
