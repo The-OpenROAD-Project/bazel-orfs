@@ -1314,8 +1314,6 @@ def orfs_flow(
     }
 
     mock_stage_arguments = _merge(
-        {stage: {arg: value for arg, value in arguments.items() if arg in stage_args} for stage, stage_args in ALL_STAGE_TO_VARIABLES.items()},
-        {stage: {arg: value for arg, value in arguments.items() if stage in ALL_VARIABLES_TO_STAGE.get(arg, ALL_STAGES)} for stage in ALL_STAGES},
         stage_arguments,
         MOCK_STAGE_ARGUMENTS,
     )
@@ -1328,7 +1326,7 @@ def orfs_flow(
         stage_sources = stage_sources,
         stage_arguments = mock_stage_arguments,
         stage_outputs = {},
-        arguments = {},
+        arguments = arguments,
         extra_configs = extra_configs | mock_configs,
         abstract_stage = "floorplan",
         variant = mock_variant,
