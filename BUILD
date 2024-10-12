@@ -44,16 +44,24 @@ filegroup(
     visibility = [":__subpackages__"],
 )
 
-SRAM_ARGUMENTS = {
+FAST_SETTINGS = {
+    "FILL_CELLS": "",
+    "REMOVE_ABC_BUFFERS": "1",
+    "SKIP_REPORT_METRICS": "1",
+    "SKIP_CTS_REPAIR_TIMING": "1",
+    "SKIP_INCREMENTAL_REPAIR": "1",
+    "TAPCELL_TCL": "",
+    "GND_NETS_VOLTAGES": "",
+    "PWR_NETS_VOLTAGES": "",
+    "GPL_ROUTABILITY_DRIVEN": "0",
+    "GPL_TIMING_DRIVEN": "0",
+}
+
+SRAM_ARGUMENTS = FAST_SETTINGS | {
     "SDC_FILE": "$(location :constraints-sram)",
     "IO_CONSTRAINTS": "$(location :io-sram)",
     "PLACE_PINS_ARGS": "-min_distance 2 -min_distance_in_tracks",
     "PLACE_DENSITY": "0.42",
-    # faster build
-    "REMOVE_ABC_BUFFERS": "1",
-    "SKIP_CTS_REPAIR_TIMING": "1",
-    "SKIP_REPORT_METRICS": "1",
-    "SKIP_INCREMENTAL_REPAIR": "1",
 }
 
 BLOCK_FLOORPLAN = {
@@ -66,7 +74,7 @@ BLOCK_FLOORPLAN = {
 orfs_flow(
     name = "tag_array_64x184",
     arguments = SRAM_ARGUMENTS | {
-        "CORE_UTILIZATION": "40",
+        "CORE_UTILIZATION": "10",
         "CORE_ASPECT_RATIO": "2",
         "SKIP_REPORT_METRICS": "1",
     },
@@ -131,6 +139,7 @@ orfs_flow(
 orfs_flow(
     name = "L1MetadataArray",
     abstract_stage = "cts",
+    arguments = FAST_SETTINGS,
     macros = ["tag_array_64x184_generate_abstract"],
     stage_arguments = {
         "synth": {
@@ -145,11 +154,6 @@ orfs_flow(
         },
         "place": {
             "PLACE_DENSITY": "0.20",
-            "PLACE_PINS_ARGS": "-annealing",
-        },
-        "final": {
-            "GND_NETS_VOLTAGES": "",
-            "PWR_NETS_VOLTAGES": "",
         },
     },
     stage_sources = {

@@ -31,7 +31,7 @@ module tag_array_64x184(
   input  [7:0]   W0_mask
 );
 
-  reg [183:0] Memory[0:3]; // Reduced to 4 rows
+  reg [183:0] Memory[0:1]; // Reduced to 2 rows
   reg         _R0_en_d0;
   reg [5:0]   _R0_addr_d0;
   reg [1:0]   _W0_addr_d0, _R0_addr_d1; // Reduced to 2 bits

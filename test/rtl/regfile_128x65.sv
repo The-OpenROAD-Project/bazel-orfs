@@ -53,7 +53,8 @@ module regfile_128x65(
                 R5_data
 );
 
-  reg [64:0] Memory[0:15];
+  // reduced from 128 to 3 to speed up tests
+  reg [64:0] Memory[0:3];
   always @(posedge W0_clk) begin
     if (W0_en)
       Memory[W0_addr[3:0] ^ W0_addr[7:4]] <= W0_data;

@@ -49,7 +49,7 @@ orfs_flow(
             "SDC_FILE": "$(location //:constraints-sram)",
         },
         "floorplan": {
-            "CORE_UTILIZATION": "40",
+            "CORE_UTILIZATION": "10",
             "CORE_ASPECT_RATIO": "2",
             "IO_CONSTRAINTS": "$(location //:io-sram)",
         },
