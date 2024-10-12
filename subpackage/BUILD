@@ -4,17 +4,23 @@ FLOOR_PLACE_ARGUMENTS = {
     "IO_CONSTRAINTS": "$(location //:io)",
 }
 
-# faster build
-FAST_ARGUMENTS = {
+FAST_SETTINGS = {
+    "FILL_CELLS": "",
     "REMOVE_ABC_BUFFERS": "1",
-    "SKIP_CTS_REPAIR_TIMING": "1",
     "SKIP_REPORT_METRICS": "1",
+    "SKIP_CTS_REPAIR_TIMING": "1",
+    "SKIP_INCREMENTAL_REPAIR": "1",
+    "TAPCELL_TCL": "",
+    "GND_NETS_VOLTAGES": "",
+    "PWR_NETS_VOLTAGES": "",
+    "GPL_ROUTABILITY_DRIVEN": "0",
+    "GPL_TIMING_DRIVEN": "0",
 }
 
 orfs_flow(
     name = "L1MetadataArray",
     abstract_stage = "cts",
-    arguments = FAST_ARGUMENTS,
+    arguments = FAST_SETTINGS,
     macros = ["//:tag_array_64x184_generate_abstract"],
     stage_arguments = {
         "synth": {
@@ -43,7 +49,7 @@ orfs_flow(
 orfs_flow(
     name = "tag_array_64x184",
     abstract_stage = "floorplan",
-    arguments = FAST_ARGUMENTS,
+    arguments = FAST_SETTINGS,
     stage_arguments = {
         "synth": {
             "SDC_FILE": "$(location //:constraints-sram)",
