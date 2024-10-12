@@ -42,7 +42,7 @@ do
         build/make "${local_stage}"
     done
     echo "Check that we can load the result"
-    echo | build/make open_${stage}
+    build/make OR_ARGS=-exit open_${stage}
   fi
 done
 
