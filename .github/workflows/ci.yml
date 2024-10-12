@@ -49,10 +49,6 @@ jobs:
     env:
       DEBIAN_FRONTEND: "noninteractive"
     steps:
-      - name: Free Disk Space (Ubuntu)
-        uses: jlumbroso/free-disk-space@main
-        with:
-          swap-storage: false
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
       - name: query target
