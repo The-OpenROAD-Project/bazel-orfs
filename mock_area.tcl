@@ -15,8 +15,8 @@ set scale [expr $::env(MOCK_AREA) / $dbu_per_uu]
 
 set file [open $out_file w]
 tee $file "export DIE_AREA=0 0 [expr $scale*[$die_bbox xMax]] [expr $scale*[$die_bbox yMax]]"
-tee $file "export CORE_AREA=[expr $scale*[$core_bbox xMin]] [expr $scale*[$core_bbox yMin]] \
-[expr $scale*([$die_bbox xMax] - ([$die_bbox xMax] - [$core_bbox xMax]))] \
+tee $file "export CORE_AREA=[expr $scale*[$core_bbox xMin]] [expr $scale*[$core_bbox yMin]]\
+[expr $scale*([$die_bbox xMax] - ([$die_bbox xMax] - [$core_bbox xMax]))]\
 [expr $scale*([$die_bbox yMax] - ([$die_bbox yMax] - [$core_bbox yMax]))]"
 tee $file "export CORE_UTILIZATION="
 close $file
