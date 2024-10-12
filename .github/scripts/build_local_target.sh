@@ -41,6 +41,8 @@ do
         echo "[${target_name}] ${local_stage}: Run make script"
         build/make "${local_stage}"
     done
+    echo "Check that we can load the result"
+    echo | build/make open_${stage}
   fi
 done
 
