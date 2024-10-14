@@ -211,9 +211,7 @@ def source_inputs(ctx):
     )
 
 def pdk_inputs(ctx):
-    return depset(transitive = [
-        ctx.attr.pdk[PdkInfo].files,
-    ])
+    return depset(transitive = [ctx.attr.pdk[PdkInfo].files])
 
 def deps_inputs(ctx):
     return depset(
@@ -812,8 +810,8 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             ctx.files.extra_configs,
             transitive = [
                 flow_inputs(ctx),
-                source_inputs(ctx),
                 data_inputs(ctx),
+                source_inputs(ctx),
             ],
         ),
         outputs = results + objects + logs + reports,
@@ -864,6 +862,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
                 transitive_files = depset(transitive = [
                     flow_inputs(ctx),
                     data_inputs(ctx),
+                    source_inputs(ctx),
                 ]),
             ),
         ),
