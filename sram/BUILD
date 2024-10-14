@@ -110,6 +110,13 @@ filegroup(
     output_group = "sdq_17x64.lef",
 )
 
+orfs_macro(
+    name = "frankenstein",
+    module_top = "sdq_17x64",
+    lef = ":sdq_17x64_generate_abstract",
+    lib = ":fakeram/sdq_17x64.lib",
+)
+
 # Use the macro placement from a different flow
 orfs_run(
     name = "top_write_macro_placement",
@@ -135,19 +142,18 @@ orfs_run(
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "top",
+    macros = [
+        ":frankenstein",
+    ],
     abstract_stage = "grt",
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "MACRO_PLACEMENT_TCL": "$(location :macro_placement.tcl)",
-        "ADDITIONAL_LEFS": "$(location :lef_file)",
-        "ADDITIONAL_LIBS": "$(location :fakeram/sdq_17x64.lib)",
         "RTLMP_FLOW": "1",
     },
     extra_configs = {"floorplan": [":floorplan.config"]},
     sources = {
         "SDC_FILE": [":fakeram/constraints-sram.sdc"],
-        "ADDITIONAL_LEFS": [":lef_file"],
-        "ADDITIONAL_LIBS": [":fakeram/sdq_17x64.lib"],
         "MACRO_PLACEMENT_TCL": [":macro_placement.tcl"],
     },
     variant = "mix",
