@@ -2,6 +2,14 @@
 
 load("@orfs_variable_metadata//:json.bzl", "orfs_variable_metadata")
 
+def _union(*lists):
+    merged_dict = {}
+    for list1 in lists:
+        dict1 = {key: True for key in list1}
+        merged_dict.update(dict1)
+
+    return list(merged_dict.keys())
+
 OrfsInfo = provider(
     "The outputs of a OpenROAD-flow-scripts stage.",
     fields = [
@@ -1088,8 +1096,6 @@ STAGE_IMPLS = [
 
 ABSTRACT_IMPL = struct(stage = "generate_abstract", impl = orfs_abstract)
 
-ALL_STAGES = ["synth", "floorplan", "place", "cts", "grt", "route", "final", "generate_abstract"]
-
 MOCK_STAGE_ARGUMENTS = {
     "synth": {"SYNTH_GUT": "1"},
 }
@@ -1098,8 +1104,6 @@ MOCK_STAGE_ARGUMENTS = {
 # about the ORFS code that there is no known nice way for ORFS to
 # provide.
 BAZEL_VARIABLE_TO_STAGES = {
-    "ADDITIONAL_LEFS": ALL_STAGES,
-    "ADDITIONAL_LIBS": ALL_STAGES,
 }
 
 BAZEL_STAGE_TO_VARIABLES = {
@@ -1138,6 +1142,23 @@ def set(iterable):
         unique_dict[item] = True
     return list(unique_dict.keys())
 
+ORFS_VARIABLE_TO_STAGES = {
+    k: v["stages"]
+    for k, v in orfs_variable_metadata.items()
+    if "stages" in v
+}
+
+ALL_STAGES = set(_union(*ORFS_VARIABLE_TO_STAGES.values()))
+
+ORFS_STAGE_TO_VARIABLES = {
+    stage: [
+        variable
+        for variable, has_stages in ORFS_VARIABLE_TO_STAGES.items()
+        if stage in has_stages
+    ]
+    for stage in ALL_STAGES
+}
+
 STAGE_TO_VARIABLES = {
     stage: [
         variable
@@ -1146,14 +1167,6 @@ STAGE_TO_VARIABLES = {
     ] + BAZEL_STAGE_TO_VARIABLES.get(stage, [])
     for stage in ALL_STAGES
 }
-
-def _union(*lists):
-    merged_dict = {}
-    for list1 in lists:
-        dict1 = {key: True for key in list1}
-        merged_dict.update(dict1)
-
-    return list(merged_dict.keys())
 
 VARIABLE_TO_STAGES = {
     variable: [
@@ -1164,26 +1177,11 @@ VARIABLE_TO_STAGES = {
     for variable in _union(*STAGE_TO_VARIABLES.values())
 }
 
-ORFS_VARIABLE_TO_STAGES = {
-    k: v["stages"]
-    for k, v in orfs_variable_metadata.items()
-    if "stages" in v
-}
-
 [
     fail("Variable {} is defined the same in ORFS and Bazel {}".format(variable, stages))
     for variable, stages in VARIABLE_TO_STAGES.items()
     if variable in ORFS_VARIABLE_TO_STAGES and sorted(ORFS_VARIABLE_TO_STAGES[variable]) == sorted(stages)
 ]
-
-ORFS_STAGE_TO_VARIABLES = {
-    stage: [
-        variable
-        for variable, has_stages in ORFS_VARIABLE_TO_STAGES.items()
-        if stage in has_stages
-    ]
-    for stage in ALL_STAGES
-}
 
 ALL_STAGE_TO_VARIABLES = {stage: _union(STAGE_TO_VARIABLES.get(stage, []), ORFS_STAGE_TO_VARIABLES.get(stage, [])) for stage in ALL_STAGES}
 
@@ -1228,7 +1226,7 @@ def get_sources(stage, stage_sources, sources):
                       flatten([
                           source_list
                           for variable, source_list in sources.items()
-                          if variable in ALL_STAGE_TO_VARIABLES[stage]
+                          if variable in ALL_STAGE_TO_VARIABLES[stage] or variable not in ALL_VARIABLE_TO_STAGES
                       ])))
 
 def _step_name(name, variant, stage):
