@@ -1103,11 +1103,6 @@ BAZEL_VARIABLE_TO_STAGES = {
 }
 
 BAZEL_STAGE_TO_VARIABLES = {
-    "synth": [
-        "SYNTH_GUT",
-    ],
-    "final": [
-    ],
 }
 
 def flatten(xs):
