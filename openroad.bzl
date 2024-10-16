@@ -845,7 +845,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         DefaultInfo(
             executable = exe,
             files = depset(
-                forwards + results + logs + reports,
+                forwards + results + reports,
                 transitive = [
                     ctx.attr.src[OrfsInfo].additional_gds,
                     ctx.attr.src[OrfsInfo].additional_lefs,
