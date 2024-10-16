@@ -828,7 +828,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join(sorted([f.short_path for f in [config_short] + results + logs + reports + ctx.files.data])),
+            "${GENFILES}": " ".join(sorted([f.short_path for f in [config_short] + results + logs + reports])),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
