@@ -838,17 +838,15 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     return [
         DefaultInfo(
             executable = exe,
-            files = depset(
-                forwards + results + reports,
-                transitive = [
-                    ctx.attr.src[OrfsInfo].additional_gds,
-                    ctx.attr.src[OrfsInfo].additional_lefs,
-                    ctx.attr.src[OrfsInfo].additional_libs,
-                ],
-            ),
+            files = depset(forwards + results + reports),
             runfiles = ctx.runfiles(
                 [config_short, make] +
                 forwards + results + logs + reports + ctx.files.extra_configs,
+                transitive_files = depset(transitive = [
+                    ctx.attr.src[OrfsInfo].additional_gds,
+                    ctx.attr.src[OrfsInfo].additional_lefs,
+                    ctx.attr.src[OrfsInfo].additional_libs,
+                ]),
             ),
         ),
         OutputGroupInfo(
