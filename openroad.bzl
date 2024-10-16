@@ -686,6 +686,7 @@ def _yosys_impl(ctx):
             files = depset(outputs),
             runfiles = ctx.runfiles(
                 outputs + canon_logs + synth_logs + [config_short, make],
+                transitive_files = deps_inputs(ctx),
             ),
         ),
         OutputGroupInfo(
