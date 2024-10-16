@@ -201,8 +201,6 @@ def source_inputs(ctx):
     return depset(
         ctx.files.src,
         transitive = [
-            ctx.attr.src[DefaultInfo].default_runfiles.files,
-            ctx.attr.src[DefaultInfo].default_runfiles.symlinks,
             ctx.attr.src[OrfsInfo].additional_gds,
             ctx.attr.src[OrfsInfo].additional_lefs,
             ctx.attr.src[OrfsInfo].additional_libs,
