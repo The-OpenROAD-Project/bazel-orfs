@@ -281,7 +281,7 @@ def _deps_impl(ctx):
     ctx.actions.expand_template(
         template = ctx.file._deploy_template,
         output = exe,
-        substitutions = flow_substitutions(ctx) | {
+        substitutions = {
             "${GENFILES}": " ".join(sorted([f.short_path for f in ctx.attr.src[OrfsDepInfo].files])),
             "${CONFIG}": ctx.attr.src[OrfsDepInfo].config.short_path,
             "${MAKE}": ctx.attr.src[OrfsDepInfo].make.short_path,
