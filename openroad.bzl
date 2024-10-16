@@ -633,7 +633,6 @@ def _yosys_impl(ctx):
             "do-yosys-keep-hierarchy",
             "do-yosys",
             "do-synth",
-            "/".join([_work_home(ctx), _artifact_name(ctx, "results", "1_synth.sdc")]),
         ],
         command = " && ".join(commands),
         env = _verilog_arguments([]) |
