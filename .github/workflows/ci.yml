@@ -159,6 +159,11 @@ jobs:
         env:
           TARGET: L1MetadataArray
         run: .github/scripts/build_local_target.sh
+      # FIXME switch from strings to labels to fix problems with bazel run vs. _deps environment
+      # - name: Build local stage targets - //sram:top_mix
+      #   env:
+      #     TARGET: //sram:top_mix
+      #   run: .github/scripts/build_local_target.sh
 
   generate-config:
     name: Generate configs
