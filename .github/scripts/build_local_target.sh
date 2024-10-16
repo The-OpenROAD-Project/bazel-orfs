@@ -1,8 +1,9 @@
 #!/bin/bash
 
-set -e
+set -ex
 
-target_name=${TARGET:-"tag_array_64x184"}
+# Test local build with submacros
+target_name=${TARGET:-"L1MetadataArray"}
 if [[ -z "$STAGES" ]]; then
   # Skip "grt" "route", takes too long
   STAGES=("synth" "floorplan" "place" "cts")
@@ -10,6 +11,10 @@ else
   eval "STAGES=($STAGES)"
 fi
 
+
+if [[ "$target_name" == "L1MetadataArray" || "$target_name" == "subpackage:L1MetadataArray" || "$target_name" == "//sram:top_mix" ]]; then
+  macro="true"
+fi
 echo "Build ${target_name} macro"
 for stage in "${STAGES[@]}"
 do
@@ -33,8 +38,17 @@ do
     elif [[ $stage == "route" ]]; then
         stages+=("do-5_2_route")
         stages+=("do-5_3_fillcell")
+    elif [[ $stage == "cts" ]]; then
+        stages+=("do-cts")
+        [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.odb' | wc -l) -eq 1 ]
+        [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.sdc' | wc -l) -eq 1 ]
+        [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.v' | wc -l) -eq 0 ]
     else
         stages+=("do-${stage}")
+    fi
+    if [[ "$macro" == "true" ]]; then
+      [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lef' | wc -l) -eq 1 ]
+      [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lib' | wc -l) -eq 1 ]
     fi
     for local_stage in "${stages[@]}"
     do
