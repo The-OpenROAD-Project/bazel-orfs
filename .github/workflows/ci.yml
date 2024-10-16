@@ -97,11 +97,30 @@ jobs:
         uses: actions/checkout@v4
       - name: Run target
         run: |
-            rm -rf ./build
-            bazel run ${{ matrix.STAGE_TARGET }}_synth -- `pwd`/build OR_ARGS=-exit open_synth
-            rm -rf ./build
-            bazel run ${{ matrix.STAGE_TARGET }}_floorplan -- `pwd`/build OR_ARGS=-exit open_floorplan
+            set -ex
 
+            rm -rf ./build/
+            bazel run ${{ matrix.STAGE_TARGET }}_synth -- `pwd`/build OR_ARGS=-exit open_synth
+            if [[ "${{ matrix.STAGE_TARGET }}" == "L1MetadataArray" || "${{ matrix.STAGE_TARGET }}" == "subpackage:L1MetadataArray" || "${{ matrix.STAGE_TARGET }}" == "//sram:top_mix" ]]; then
+              macro="true"
+            fi
+            if [[ "$macro" == "true" ]]; then
+              [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lib' | wc -l) -eq 1 ]
+              [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lef' | wc -l) -eq 1 ]
+            fi
+            [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/1_.*\.log' | wc -l) -gt 1 ]
+            [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/2_.*\.log' | wc -l) -eq 0 ]
+            rm -rf ./build/
+            bazel run ${{ matrix.STAGE_TARGET }}_floorplan -- `pwd`/build OR_ARGS=-exit open_floorplan
+            if [[ "$macro" == "true" ]]; then
+              [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lib' | wc -l) -eq 1 ]
+              [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lef' | wc -l) -eq 1 ]
+            fi
+            [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.odb' | wc -l) -eq 1 ]
+            [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.sdc' | wc -l) -eq 1 ]
+            [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.v' | wc -l) -eq 0 ]
+            [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/1_.*\.log' | wc -l) -eq 0 ]
+            [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/2_.*\.log' | wc -l) -gt 1 ]
 
   test-target-local-clean-setup:
     name: Local flow - clean setup
