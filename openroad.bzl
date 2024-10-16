@@ -685,15 +685,7 @@ def _yosys_impl(ctx):
             executable = exe,
             files = depset(outputs),
             runfiles = ctx.runfiles(
-                outputs + canon_logs + synth_logs + [config_short, make] +
-                ctx.files.verilog_files + ctx.files.extra_configs,
-                transitive_files = depset(transitive = [
-                    flow_inputs(ctx),
-                    yosys_inputs(ctx),
-                    data_inputs(ctx),
-                    pdk_inputs(ctx),
-                    deps_inputs(ctx),
-                ]),
+                outputs + canon_logs + synth_logs + [config_short, make],
             ),
         ),
         OutputGroupInfo(
@@ -854,13 +846,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             ),
             runfiles = ctx.runfiles(
                 [config_short, make] +
-                forwards + results + logs + reports +
-                ctx.files.extra_configs,
-                transitive_files = depset(transitive = [
-                    flow_inputs(ctx),
-                    data_inputs(ctx),
-                    source_inputs(ctx),
-                ]),
+                forwards + results + logs + reports,
             ),
         ),
         OutputGroupInfo(
