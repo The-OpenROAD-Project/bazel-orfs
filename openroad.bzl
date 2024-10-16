@@ -687,7 +687,11 @@ def _yosys_impl(ctx):
             runfiles = ctx.runfiles(
                 [config_short, make] + outputs + canon_logs + synth_logs +
                 ctx.files.extra_configs,
-                transitive_files = deps_inputs(ctx),
+                transitive_files = depset(transitive = [
+                    flow_inputs(ctx),
+                    deps_inputs(ctx),
+                    pdk_inputs(ctx),
+                ]),
             ),
         ),
         OutputGroupInfo(
@@ -843,6 +847,8 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
                 [config_short, make] +
                 forwards + results + logs + reports + ctx.files.extra_configs,
                 transitive_files = depset(transitive = [
+                    flow_inputs(ctx),
+                    ctx.attr.src[PdkInfo].files,
                     ctx.attr.src[OrfsInfo].additional_gds,
                     ctx.attr.src[OrfsInfo].additional_lefs,
                     ctx.attr.src[OrfsInfo].additional_libs,
