@@ -25,7 +25,7 @@ FAST_SETTINGS = {
     },
     mock_area = 0.95,
     renamed_inputs = {
-        "floorplan": {"1_synth.v": "naja.v"},
+        "floorplan": {"1_synth.v": ":naja.v"},
     } if variant == "naja" else {},
     stage_sources = {
         "synth": [":fakeram/constraints-sram.sdc"],

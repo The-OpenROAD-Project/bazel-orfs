@@ -407,7 +407,7 @@ def yosys_only_attrs():
 
 def renamed_inputs_attrs(outputs):
     return {
-        "renamed_inputs": attr.string_dict(
+        "renamed_inputs": attr.label_dict(
             default = {out: out for out in outputs},
         ),
     }
@@ -496,7 +496,10 @@ def _generation_commands(optional_files):
 
 def _input_commands(ctx, inputs):
     """Move inputs to the expected input locations"""
-    reverse = {v: k for k, v in ctx.attr.renamed_inputs.items() if k != v}
+    reverse = ctx.attr.renamed_inputs
+    #{v: k for k, v in ctx.attr.renamed_inputs.items() if k != v}
+    print(reverse)
+    print(inputs)
     categories = ["results", "reports"]
     output_folders = ["/".join([
         _work_home(ctx),
@@ -511,8 +514,8 @@ def _input_commands(ctx, inputs):
 
     return (["mkdir -p {}".format(folder) for folder in output_folders] +
             ["mv {} {}".format(
+                "/".join([_pick_output_folder(input), reverse[input.basename]]),
                 input.path,
-                "/".join(_pick_output_folder(input), reverse[input.basename]),
             ) for input in inputs if input.basename in reverse] +
             [
                 "mv {} {}".format(
@@ -814,6 +817,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         info[file.extension] = file
 
     commands = _input_commands(ctx, ctx.files.src) + [ctx.executable._make.path + " $@"] + _generation_commands(reports + logs)
+    print(commands)
 
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + steps,
