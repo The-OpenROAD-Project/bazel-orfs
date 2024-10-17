@@ -1273,6 +1273,7 @@ def orfs_flow(
         abstract_stage = None,
         variant = None,
         mock_area = None,
+        previous_stage = {},
         visibility = ["//visibility:private"]):
     """
     Creates targets for running physical design flow with OpenROAD-flow-scripts.
@@ -1291,6 +1292,7 @@ def orfs_flow(
       variant: name of the target variant, added right after the module name
       mock_area: floating point number, scale the die width/height by this amount, default no scaling
       visibility: the visibility attribute on a target controls whether the target can be used in other packages
+      previous_stage: a dictionary with the input for a stage, default is previous stage. Useful when running experiments that share preceeding stages, like share synthesis for floorplan variants.
     """
     if variant == "base":
         variant = None
@@ -1309,6 +1311,7 @@ def orfs_flow(
         variant = variant,
         abstract_variant = abstract_variant,
         visibility = visibility,
+        previous_stage = previous_stage,
     )
 
     if not mock_area:
@@ -1339,6 +1342,7 @@ def orfs_flow(
         variant = mock_variant,
         abstract_variant = None,
         visibility = visibility,
+        previous_stage = {},
     )
 
     orfs_run(
@@ -1375,7 +1379,8 @@ def _orfs_pass(
         abstract_stage,
         variant,
         abstract_variant,
-        visibility):
+        visibility,
+        previous_stage):
     steps = []
     for step in STAGE_IMPLS:
         steps.append(step)
@@ -1404,9 +1409,10 @@ def _orfs_pass(
     for step, prev in zip(steps[1:], steps):
         stage_variant = abstract_variant if step.stage == ABSTRACT_IMPL.stage and abstract_variant else variant
         step_name = _step_name(name, stage_variant, step.stage)
+        src = previous_stage.get(step.stage, _step_name(name, variant, prev.stage))
         step.impl(
             name = step_name,
-            src = _step_name(name, variant, prev.stage),
+            src = src,
             arguments = get_stage_args(step.stage, stage_arguments, arguments),
             data = get_sources(step.stage, stage_sources, sources),
             extra_configs = extra_configs.get(step.stage, []),
