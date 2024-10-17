@@ -25,8 +25,13 @@ FAST_SETTINGS = {
     },
     mock_area = 0.95,
     renamed_inputs = {
-        "floorplan": {"1_synth.v": ":naja"},
-    } if variant == "naja" else {},
+        "naja": {
+            "floorplan": {"1_synth.v": ":naja"},
+        },
+        "naja-error": {
+            "floorplan": {"1_synth.v": ":naja-error"},
+        },
+    }.get(variant, {}),
     stage_sources = {
         "synth": [":fakeram/constraints-sram.sdc"],
     },
@@ -35,6 +40,7 @@ FAST_SETTINGS = {
 ) for variant in [
     "base",
     "naja",
+    "naja-error",
 ]]
 
 # fish out the file that we want as input to the "naja" rule
@@ -52,6 +58,13 @@ genrule(
     srcs = [":sdq_17x64_synth_unedited"],
     outs = ["naja.v"],
     cmd = "mkdir -p `dirname $@`; echo \"// imagine naja edits in this file\" > $@ && cat $< >> $@",
+)
+
+genrule(
+    name = "naja-error",
+    srcs = [":sdq_17x64_synth_unedited"],
+    outs = ["naja-error.v"],
+    cmd = "mkdir -p `dirname $@`; echo \"imagine naja producing invalid verilog\" > $@ && cat $< >> $@",
 )
 
 orfs_flow(
