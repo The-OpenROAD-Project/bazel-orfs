@@ -1,5 +1,5 @@
 load("//:eqy.bzl", "eqy_test")
-load("//:openroad.bzl", "orfs_flow", "orfs_run")
+load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_run")
 
 exports_files(["mock_area.tcl"])
 
@@ -109,6 +109,15 @@ orfs_flow(
     mock_area = 0.5,
     stage_sources = LB_STAGE_SOURCES,
     verilog_files = LB_VERILOG_FILES,
+)
+
+# buildifier: disable=duplicated-name
+orfs_floorplan(
+    name = "lb_32x128_shared_synth_floorplan",
+    src = ":lb_32x128_synth",
+    arguments = get_stage_args("floorplan", {}, LB_ARGS),
+    data = LB_STAGE_SOURCES["floorplan"],
+    variant = "blah",
 )
 
 orfs_flow(

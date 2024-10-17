@@ -118,6 +118,21 @@ jobs:
             [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/1_.*\.log' | wc -l) -eq 0 ]
             [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/2_.*\.log' | wc -l) -gt 1 ]
 
+  test-builds:
+    name: Smoketests
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+    steps:
+      - name: Checkout bazel-orfs
+        uses: actions/checkout@v4
+      - name: Smoketests
+        run: |
+          bazel build lb_32x128_shared_synth_floorplan
+
   test-target-local-clean-setup:
     name: Local flow - clean setup
     runs-on: ubuntu-22.04
