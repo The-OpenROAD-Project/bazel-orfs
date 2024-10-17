@@ -405,9 +405,9 @@ def yosys_only_attrs():
         ),
     }
 
-def input_attrs(outputs):
+def renamed_inputs_attrs(outputs):
     return {
-        "inputs": attr.string_dict(
+        "renamed_inputs": attr.string_dict(
             default = {out: out for out in outputs},
         ),
     }
@@ -496,7 +496,7 @@ def _generation_commands(optional_files):
 
 def _input_commands(ctx, inputs):
     """Move inputs to the expected input locations"""
-    reverse = {v: k for k, v in ctx.attr.inputs.items() if k != v}
+    reverse = {v: k for k, v in ctx.attr.renamed_inputs.items() if k != v}
     categories = ["results", "reports"]
     output_folders = ["/".join([
         _work_home(ctx),
@@ -933,7 +933,7 @@ orfs_floorplan = rule(
             "2_floorplan.sdc",
         ],
     ),
-    attrs = openroad_attrs() | input_attrs([]),
+    attrs = openroad_attrs() | renamed_inputs_attrs([]),
     provides = flow_provides(),
     executable = True,
 )
@@ -956,7 +956,7 @@ orfs_place = rule(
             "3_place.sdc",
         ],
     ),
-    attrs = openroad_attrs() | input_attrs([]),
+    attrs = openroad_attrs() | renamed_inputs_attrs([]),
     provides = flow_provides(),
     executable = True,
 )
@@ -977,7 +977,7 @@ orfs_cts = rule(
             "4_cts.sdc",
         ],
     ),
-    attrs = openroad_attrs() | input_attrs([]),
+    attrs = openroad_attrs() | renamed_inputs_attrs([]),
     provides = flow_provides(),
     executable = True,
 )
@@ -1003,7 +1003,7 @@ orfs_grt = rule(
             "5_1_grt.odb",
         ],
     ),
-    attrs = openroad_attrs() | input_attrs([]),
+    attrs = openroad_attrs() | renamed_inputs_attrs([]),
     provides = flow_provides(),
     executable = True,
 )
@@ -1030,7 +1030,7 @@ orfs_route = rule(
             "5_route.sdc",
         ],
     ),
-    attrs = openroad_attrs() | input_attrs([
+    attrs = openroad_attrs() | renamed_inputs_attrs([
     ]),
     provides = flow_provides(),
     executable = True,
@@ -1061,7 +1061,7 @@ orfs_final = rule(
             "6_final.spef",
         ],
     ),
-    attrs = openroad_attrs() | input_attrs([]),
+    attrs = openroad_attrs() | renamed_inputs_attrs([]),
     provides = flow_provides(),
     executable = True,
 )
@@ -1087,7 +1087,7 @@ orfs_abstract = rule(
         extra_arguments =
             {"ABSTRACT_SOURCE": _extensionless_basename(ctx.attr.src[OrfsInfo].odb)},
     ),
-    attrs = openroad_attrs() | input_attrs([]),
+    attrs = openroad_attrs() | renamed_inputs_attrs([]),
     provides = flow_provides(),
     executable = True,
 )
@@ -1267,7 +1267,7 @@ def orfs_flow(
         sources = {},
         stage_sources = {},
         stage_arguments = {},
-        stage_inputs = {},
+        renamed_inputs = {},
         arguments = {},
         extra_configs = {},
         abstract_stage = None,
@@ -1285,7 +1285,7 @@ def orfs_flow(
       sources: dictionary keyed by ORFS variables with lists of sources
       stage_sources: dictionary keyed by ORFS stages with lists of stage-specific sources
       stage_arguments: dictionary keyed by ORFS stages with lists of stage-specific arguments
-      stage_inputs: dictionary keyed by ORFS stages to rename outputs
+      renamed_inputs: dictionary keyed by ORFS stages to rename inputs
       arguments: dictionary of additional arguments to the flow, automatically assigned to stages
       extra_configs: dictionary keyed by ORFS stages with list of additional configuration files
       abstract_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
@@ -1304,7 +1304,7 @@ def orfs_flow(
         sources = sources,
         stage_sources = stage_sources,
         stage_arguments = stage_arguments,
-        stage_inputs = stage_inputs,
+        renamed_inputs = renamed_inputs,
         arguments = arguments,
         extra_configs = extra_configs,
         abstract_stage = abstract_stage,
@@ -1335,7 +1335,7 @@ def orfs_flow(
         sources = sources,
         stage_sources = stage_sources,
         stage_arguments = mock_stage_arguments,
-        stage_inputs = {},
+        renamed_inputs = {},
         arguments = arguments,
         extra_configs = extra_configs | mock_configs,
         abstract_stage = "floorplan",
@@ -1373,7 +1373,7 @@ def _orfs_pass(
         sources,
         stage_sources,
         stage_arguments,
-        stage_inputs,
+        renamed_inputs,
         arguments,
         extra_configs,
         abstract_stage,
@@ -1420,7 +1420,7 @@ def _orfs_pass(
             visibility = visibility,
             **_kwargs(
                 step.stage,
-                inputs = stage_inputs,
+                renamed_inputs = renamed_inputs,
             )
         )
         orfs_deps(

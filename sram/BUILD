@@ -24,7 +24,7 @@ FAST_SETTINGS = {
         "PLACE_DENSITY": "0.25",
     },
     mock_area = 0.95,
-    stage_inputs = {
+    renamed_inputs = {
         "floorplan": {"1_synth.v": "naja.v"},
     } if variant == "naja" else {},
     stage_sources = {
