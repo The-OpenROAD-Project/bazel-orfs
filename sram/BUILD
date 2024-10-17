@@ -24,9 +24,8 @@ FAST_SETTINGS = {
         "PLACE_DENSITY": "0.25",
     },
     mock_area = 0.95,
-    stage_outputs = {
-        # the "naja" rule below will use the synthesis output
-        "synth": {"1_synth.v": "1_synth_unedited.v"},
+    renamed_inputs = {
+        "floorplan": {"1_synth.v": "naja.v"},
     } if variant == "naja" else {},
     stage_sources = {
         "synth": [":fakeram/constraints-sram.sdc"],
@@ -45,7 +44,7 @@ FAST_SETTINGS = {
 filegroup(
     name = "sdq_17x64_synth_unedited",
     srcs = ["sdq_17x64_naja_synth"],
-    output_group = "1_synth_unedited.v",
+    output_group = "1_synth.v",
 )
 
 # Read in the renamed synthesis output from above and provide
@@ -58,7 +57,7 @@ genrule(
       "naja_edit/install/lib/python",
       "naja_edit/install/share/naja/primitives/asap7_new.py",
     ],
-    outs = ["results/asap7/sdq_17x64/naja/1_synth.v"],
+    outs = ["naja.v"],
     cmd = "mkdir -p `dirname $@`; export PYTHONPATH=$(location naja_edit/install/lib/python) && $(location naja_edit/install/bin/naja_edit) -p $(location naja_edit/install/share/naja/primitives/asap7_new.py) -f verilog -t verilog -i $(location :sdq_17x64_synth_unedited) -o $@",
 )
 
