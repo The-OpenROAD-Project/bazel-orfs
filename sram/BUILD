@@ -51,9 +51,14 @@ filegroup(
 # the original name to the next stage
 genrule(
     name = "naja",
-    srcs = [":sdq_17x64_synth_unedited"],
+    srcs = [
+      ":sdq_17x64_synth_unedited",
+      "naja_edit/install/bin/naja_edit",
+      "naja_edit/install/lib/python",
+      "naja_edit/install/share/naja/primitives/asap7_new.py",
+    ],
     outs = ["naja.v"],
-    cmd = "mkdir -p `dirname $@`; echo \"// imagine naja edits in this file\" > $@ && cat $< >> $@",
+    cmd = "mkdir -p `dirname $@`; export PYTHONPATH=$(location naja_edit/install/lib/python) && $(location naja_edit/install/bin/naja_edit) -p $(location naja_edit/install/share/naja/primitives/asap7_new.py) -f verilog -t verilog -i $(location :sdq_17x64_synth_unedited) -o $@",
 )
 
 orfs_flow(
