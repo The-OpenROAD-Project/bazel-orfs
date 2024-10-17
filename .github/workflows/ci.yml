@@ -131,7 +131,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Smoketests
         run: |
-          bazel build lb_32x128_shared_synth_floorplan
+          bazel build lb_32x128_shared_synth_floorplan wns_report
 
   test-target-local-clean-setup:
     name: Local flow - clean setup

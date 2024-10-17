@@ -145,29 +145,60 @@ orfs_flow(
     verilog_files = LB_VERILOG_FILES,
 )
 
-# Use-case:
-#
-# bazel build --keep_going $(bazel query //:* | grep lb_32x128_density.*place\$)
-DENSITY_SWEEP = [
-    0.70,
-    0.75,
-    0.80,
-]
+SWEEP = {
+    "1": {
+        "PLACE_DENSITY": "0.65",
+    },
+    "2": {
+        "PLACE_DENSITY": "0.70",
+    },
+    "3": {
+        "PLACE_DENSITY": "0.75",
+    },
+    "4": {
+        "PLACE_DENSITY": "0.80",
+    },
+}
 
 # buildifier: disable=duplicated-name
 [
     orfs_flow(
         name = "lb_32x128",
-        abstract_stage = "place",
-        arguments = LB_ARGS | {
-            "PLACE_DENSITY": str(density),
-        },
+        abstract_stage = "cts",
+        arguments = LB_ARGS | SWEEP[variant],
+        # Share synthesis across all variants, the sweep
+        # differs from floorplan and onwards
+        previous_stage = {"floorplan": "lb_32x128_synth"},
         stage_sources = LB_STAGE_SOURCES,
-        variant = "density_" + str(density),
+        variant = variant,
         verilog_files = LB_VERILOG_FILES,
     )
-    for density in DENSITY_SWEEP
+    for variant in SWEEP
 ]
+
+[orfs_run(
+    name = "lb_32x128_" + variant + "_report",
+    src = ":lb_32x128_" + ("" if variant == "base" else variant + "_cts"),
+    outs = [
+        "lb_32x128_" + variant + ".yaml",
+    ],
+    arguments = {
+        "OUTFILE": "$(location :lb_32x128_" + variant + ".yaml)",
+    },
+    script = ":report-wns.tcl",
+) for variant in SWEEP]
+
+genrule(
+    name = "wns_report",
+    srcs = ["wns-report.py"] +
+           [":lb_32x128_" + variant + ".yaml" for variant in SWEEP],
+    outs = ["lb_32x128_wns_report.md"],
+    cmd = (
+        "$(location :wns-report.py) > $@ " +
+        " ".join(["$(location :lb_32x128_" + variant + ".yaml)" for variant in SWEEP])
+    ),
+    visibility = ["//visibility:public"],
+)
 
 orfs_flow(
     name = "L1MetadataArray",
