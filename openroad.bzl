@@ -902,6 +902,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
                     flow_inputs(ctx),
                     data_inputs(ctx),
                     source_inputs(ctx),
+                    rename_inputs(ctx),
                 ],
             )),
         ),
