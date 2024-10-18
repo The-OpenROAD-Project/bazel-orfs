@@ -131,7 +131,14 @@ jobs:
         uses: actions/checkout@v4
       - name: Smoketests
         run: |
-          bazel build lb_32x128_shared_synth_floorplan wns_report
+          set -ex
+          bazel build lb_32x128_shared_synth_floorplan wns_report //sram:sdq_17x64_naja_floorplan_deps //sram:naja
+          grep naja bazel-bin/sram/naja.v
+          grep -q naja bazel-bin/sram/results/asap7/sdq_17x64/naja/1_synth.v && false || true
+          (bazel build //sram:sdq_17x64_naja-error_floorplan || true) | grep "syntax error"
+          # FIXME not implemented yet
+          # bazel run //sram:sdq_17x64_naja_floorplan_deps $(pwd)/tmp
+          # grep naja tmp/sram/results/asap7/sdq_17x64/naja/1_synth.v
 
   test-target-local-clean-setup:
     name: Local flow - clean setup
@@ -152,6 +159,11 @@ jobs:
         env:
           TARGET: L1MetadataArray
         run: .github/scripts/build_local_target.sh
+      # FIXME switch from strings to labels to fix problems with bazel run vs. _deps environment
+      # - name: Build local stage targets - //sram:top_mix
+      #   env:
+      #     TARGET: //sram:top_mix
+      #   run: .github/scripts/build_local_target.sh
 
   generate-config:
     name: Generate configs
