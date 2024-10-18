@@ -15,6 +15,7 @@ OrfsInfo = provider(
     fields = [
         "stage",
         "config",
+        "variant",
         "odb",
         "gds",
         "lef",
@@ -207,6 +208,12 @@ def source_inputs(ctx):
             ctx.attr.src[PdkInfo].files,
         ],
     )
+
+def rename_inputs(ctx):
+    return depset(transitive = [
+        target.files
+        for target in ctx.attr.renamed_inputs.values()
+    ])
 
 def pdk_inputs(ctx):
     return depset(transitive = [ctx.attr.pdk[PdkInfo].files])
@@ -405,10 +412,10 @@ def yosys_only_attrs():
         ),
     }
 
-def renamed_inputs_attrs(outputs):
+def renamed_inputs_attr():
     return {
-        "renamed_inputs": attr.string_dict(
-            default = {out: out for out in outputs},
+        "renamed_inputs": attr.string_keyed_label_dict(
+            default = {},
         ),
     }
 
@@ -494,34 +501,34 @@ def _generation_commands(optional_files):
         ]
     return []
 
+def _mv_cmds(src, dst):
+    dir, _, _ = dst.rpartition("/")
+    return [
+        "mkdir -p {}".format(dir),
+        "mv {} {}".format(src, dst),
+    ]
+
+def _remap(s, a, b):
+    if s.endswith(a):
+        return s.replace("/" + a, "/" + b)
+    return s.replace("/" + a + "/", "/" + b + "/")
+
 def _input_commands(ctx, inputs):
     """Move inputs to the expected input locations"""
-    reverse = {v: k for k, v in ctx.attr.renamed_inputs.items() if k != v}
-    categories = ["results", "reports"]
-    output_folders = ["/".join([
-        _work_home(ctx),
-        _artifact_name(ctx, folder),
-    ]) for folder in categories]
-
-    def _pick_output_folder(input):
-        for category in categories:
-            if ("/" + category + "/") in input.path:
-                return "/".join([_work_home(ctx), _artifact_name(ctx, category)])
-        fail("Could not determine output folder for input: {}".format(input.path))
-
-    return (["mkdir -p {}".format(folder) for folder in output_folders] +
-            ["mv {} {}".format(
-                input.path,
-                "/".join(_pick_output_folder(input), reverse[input.basename]),
-            ) for input in inputs if input.basename in reverse] +
-            [
-                "mv {} {}".format(
-                    input.path,
-                    "/".join([_pick_output_folder(input), input.basename]),
-                )
-                for input in inputs
-                if input.basename not in reverse and _pick_output_folder(input) != input.dirname
-            ])
+    cmds = []
+    for file in inputs:
+        if ctx.attr.src[OrfsInfo].variant != ctx.attr.variant:
+            cmds.extend(_mv_cmds(
+                file.path,
+                _remap(file.path, ctx.attr.src[OrfsInfo].variant, ctx.attr.variant),
+            ))
+        if file.basename in ctx.attr.renamed_inputs:
+            for dst in ctx.attr.renamed_inputs[file.basename].files.to_list():
+                cmds.extend(_mv_cmds(
+                    dst.path,
+                    _remap(file.path, ctx.attr.src[OrfsInfo].variant, ctx.attr.variant),
+                ))
+    return cmds
 
 def _work_home(ctx):
     if ctx.label.package:
@@ -534,7 +541,8 @@ def _artifact_name(ctx, category, name = None):
         _platform(ctx),
         _module_top(ctx),
         ctx.attr.variant,
-    ] + ([name] if name else []))
+        name,
+    ])
 
 def _declare_artifact(ctx, category, name):
     return ctx.actions.declare_file(_artifact_name(ctx, category, name))
@@ -607,7 +615,7 @@ def _yosys_impl(ctx):
 
     canon_output = _declare_artifact(ctx, "results", CANON_OUTPUT)
 
-    commands = [ctx.executable._make.path + " $@"] + _generation_commands(canon_logs)
+    commands = _generation_commands(canon_logs) + [ctx.executable._make.path + " $@"]
 
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path, canon_output.path],
@@ -639,7 +647,7 @@ def _yosys_impl(ctx):
     for output in SYNTH_OUTPUTS:
         synth_outputs.append(_declare_artifact(ctx, "results", output))
 
-    commands = [ctx.executable._make.path + " $@"] + _generation_commands(synth_logs)
+    commands = _generation_commands(synth_logs) + [ctx.executable._make.path + " $@"]
     ctx.actions.run_shell(
         arguments = [
             "--file",
@@ -737,6 +745,7 @@ def _yosys_impl(ctx):
         OrfsInfo(
             stage = "1_synth",
             config = config,
+            variant = ctx.attr.variant,
             odb = None,
             gds = None,
             lef = None,
@@ -813,7 +822,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     for file in forwards + results:
         info[file.extension] = file
 
-    commands = _input_commands(ctx, ctx.files.src) + [ctx.executable._make.path + " $@"] + _generation_commands(reports + logs)
+    commands = _generation_commands(reports + logs) + _input_commands(ctx, ctx.files.src) + [ctx.executable._make.path + " $@"]
 
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + steps,
@@ -826,6 +835,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
                 flow_inputs(ctx),
                 data_inputs(ctx),
                 source_inputs(ctx),
+                rename_inputs(ctx),
             ],
         ),
         outputs = results + objects + logs + reports,
@@ -896,6 +906,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         OrfsInfo(
             stage = stage,
             config = config,
+            variant = ctx.attr.variant,
             odb = info.get("odb"),
             gds = info.get("gds"),
             lef = info.get("lef"),
@@ -933,7 +944,7 @@ orfs_floorplan = rule(
             "2_floorplan.sdc",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attrs([]),
+    attrs = openroad_attrs() | renamed_inputs_attr(),
     provides = flow_provides(),
     executable = True,
 )
@@ -956,7 +967,7 @@ orfs_place = rule(
             "3_place.sdc",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attrs([]),
+    attrs = openroad_attrs() | renamed_inputs_attr(),
     provides = flow_provides(),
     executable = True,
 )
@@ -977,7 +988,7 @@ orfs_cts = rule(
             "4_cts.sdc",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attrs([]),
+    attrs = openroad_attrs() | renamed_inputs_attr(),
     provides = flow_provides(),
     executable = True,
 )
@@ -1003,7 +1014,7 @@ orfs_grt = rule(
             "5_1_grt.odb",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attrs([]),
+    attrs = openroad_attrs() | renamed_inputs_attr(),
     provides = flow_provides(),
     executable = True,
 )
@@ -1030,8 +1041,7 @@ orfs_route = rule(
             "5_route.sdc",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attrs([
-    ]),
+    attrs = openroad_attrs() | renamed_inputs_attr(),
     provides = flow_provides(),
     executable = True,
 )
@@ -1061,7 +1071,7 @@ orfs_final = rule(
             "6_final.spef",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attrs([]),
+    attrs = openroad_attrs() | renamed_inputs_attr(),
     provides = flow_provides(),
     executable = True,
 )
@@ -1087,7 +1097,7 @@ orfs_abstract = rule(
         extra_arguments =
             {"ABSTRACT_SOURCE": _extensionless_basename(ctx.attr.src[OrfsInfo].odb)},
     ),
-    attrs = openroad_attrs() | renamed_inputs_attrs([]),
+    attrs = openroad_attrs() | renamed_inputs_attr(),
     provides = flow_provides(),
     executable = True,
 )
