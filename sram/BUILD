@@ -51,18 +51,25 @@ filegroup(
     output_group = "1_synth.v",
 )
 
+filegroup(
+    name = "sdq_17x64_synth_mergedlib",
+    srcs = ["sdq_17x64_naja_synth"],
+    output_group = "merged.lib",
+)
+
 # Read in the renamed synthesis output from above and provide
 # the original name to the next stage
 genrule(
     name = "naja",
     srcs = [
       ":sdq_17x64_synth_unedited",
+      ":sdq_17x64_synth_mergedlib",
       "naja_edit/install/bin/naja_edit",
       "naja_edit/install/lib/python",
       "naja_edit/install/share/naja/primitives/asap7_new.py",
     ],
     outs = ["naja.v"],
-    cmd = "mkdir -p `dirname $@`; export PYTHONPATH=$(location naja_edit/install/lib/python) && $(location naja_edit/install/bin/naja_edit) -a all -p $(location naja_edit/install/share/naja/primitives/asap7_new.py) -f verilog -t verilog -i $(location :sdq_17x64_synth_unedited) -o $@",
+    cmd = "mkdir -p `dirname $@`; export PYTHONPATH=$(location naja_edit/install/lib/python) && $(location naja_edit/install/bin/naja_edit) -a all -p $(location :sdq_17x64_synth_mergedlib) -f verilog -t verilog -i $(location :sdq_17x64_synth_unedited) -o $@",
 )
 
 genrule(

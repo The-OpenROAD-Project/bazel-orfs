@@ -647,6 +647,8 @@ def _yosys_impl(ctx):
     for output in SYNTH_OUTPUTS:
         synth_outputs.append(_declare_artifact(ctx, "results", output))
 
+    synth_outputs.append(_declare_artifact(ctx, "objects", "lib/merged.lib"))
+
     commands = _generation_commands(synth_logs) + [ctx.executable._make.path + " $@"]
     ctx.actions.run_shell(
         arguments = [
@@ -935,6 +937,12 @@ orfs_floorplan = rule(
             "2_4_floorplan_macro.log",
             "2_5_floorplan_tapcell.log",
             "2_6_floorplan_pdn.log",
+            "2_1_floorplan.json",
+            "2_2_floorplan_io.json",
+            "2_3_floorplan_tdms.json",
+            "2_4_floorplan_macro.json",
+            "2_5_floorplan_tapcell.json",
+            "2_6_floorplan_pdn.json",
         ],
         report_names = [
             "2_floorplan_final.rpt",
@@ -960,6 +968,11 @@ orfs_place = rule(
             "3_3_place_gp.log",
             "3_4_place_resized.log",
             "3_5_place_dp.log",
+            "3_1_place_gp_skip_io.json",
+            "3_2_place_iop.json",
+            "3_3_place_gp.json",
+            "3_4_place_resized.json",
+            "3_5_place_dp.json",
         ],
         report_names = [],
         result_names = [
@@ -979,6 +992,7 @@ orfs_cts = rule(
         steps = ["do-cts"],
         log_names = [
             "4_1_cts.log",
+            "4_1_cts.json",
         ],
         report_names = [
             "4_cts_final.rpt",
@@ -1005,6 +1019,9 @@ orfs_grt = rule(
         ],
         log_names = [
             "5_1_grt.log",
+            "5_1_grt.json",
+            "5_2_route.json",
+            "5_3_fillcell.json",
         ],
         report_names = [
             "5_global_route.rpt",
@@ -1058,6 +1075,7 @@ orfs_final = rule(
             "6_1_merge.log",
             "6_report.log",
             "6_report.json",
+            "6_1_fill.json",
         ],
         report_names = [
             "6_finish.rpt",
