@@ -28,6 +28,9 @@ FAST_SETTINGS = {
         "naja": {
             "floorplan": {"1_synth.v": ":naja"},
         },
+        "mock-naja": {
+            "floorplan": {"1_synth.v": ":mock-naja"},
+        },
         "naja-error": {
             "floorplan": {"1_synth.v": ":naja-error"},
         },
@@ -39,6 +42,7 @@ FAST_SETTINGS = {
     verilog_files = [":fakeram/sdq_17x64.sv"],
 ) for variant in [
     "base",
+    "mock-naja",
     "naja",
     "naja-error",
 ]]
@@ -60,13 +64,27 @@ filegroup(
 # Read in the renamed synthesis output from above and provide
 # the original name to the next stage
 genrule(
-    name = "naja",
+    name = "mock-naja",
     srcs = [
         ":sdq_17x64_synth_unedited",
         ":sdq_17x64_synth_mergedlib",
     ],
-    outs = ["naja.v"],
+    outs = ["mock-naja.v"],
     cmd = "mkdir -p `dirname $@`; ls $(location :sdq_17x64_synth_mergedlib); echo \"// imagine naja edits in this file\" > $@ && cat $(location :sdq_17x64_synth_unedited) >> $@",
+)
+
+# FIXME some better way to deploy naja in Bazel environment is needed
+genrule(
+    name = "naja",
+    srcs = [
+        ":sdq_17x64_synth_unedited",
+        ":sdq_17x64_synth_mergedlib",
+        "naja_edit/install/bin/naja_edit",
+        "naja_edit/install/lib/python",
+        "naja_edit/install/share/naja/primitives/asap7_new.py",
+    ],
+    outs = ["naja.v"],
+    cmd = "mkdir -p `dirname $@`; export PYTHONPATH=$(location naja_edit/install/lib/python) && $(location naja_edit/install/bin/naja_edit) -a all -p $(location :sdq_17x64_synth_mergedlib) -f verilog -t verilog -i $(location :sdq_17x64_synth_unedited) -o $@",
 )
 
 genrule(
