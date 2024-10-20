@@ -62,7 +62,7 @@ genrule(
       "naja_edit/install/share/naja/primitives/asap7_new.py",
     ],
     outs = ["naja.v"],
-    cmd = "mkdir -p `dirname $@`; export PYTHONPATH=$(location naja_edit/install/lib/python) && $(location naja_edit/install/bin/naja_edit) -p $(location naja_edit/install/share/naja/primitives/asap7_new.py) -f verilog -t verilog -i $(location :sdq_17x64_synth_unedited) -o $@",
+    cmd = "mkdir -p `dirname $@`; export PYTHONPATH=$(location naja_edit/install/lib/python) && $(location naja_edit/install/bin/naja_edit) -a all -p $(location naja_edit/install/share/naja/primitives/asap7_new.py) -f verilog -t verilog -i $(location :sdq_17x64_synth_unedited) -o $@",
 )
 
 genrule(
