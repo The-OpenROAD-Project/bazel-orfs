@@ -51,13 +51,22 @@ filegroup(
     output_group = "1_synth.v",
 )
 
+filegroup(
+    name = "sdq_17x64_synth_mergedlib",
+    srcs = ["sdq_17x64_naja_synth"],
+    output_group = "merged.lib",
+)
+
 # Read in the renamed synthesis output from above and provide
 # the original name to the next stage
 genrule(
     name = "naja",
-    srcs = [":sdq_17x64_synth_unedited"],
+    srcs = [
+        ":sdq_17x64_synth_unedited",
+        ":sdq_17x64_synth_mergedlib",
+    ],
     outs = ["naja.v"],
-    cmd = "mkdir -p `dirname $@`; echo \"// imagine naja edits in this file\" > $@ && cat $< >> $@",
+    cmd = "mkdir -p `dirname $@`; ls $(location :sdq_17x64_synth_mergedlib); echo \"// imagine naja edits in this file\" > $@ && cat $(location :sdq_17x64_synth_unedited) >> $@",
 )
 
 genrule(

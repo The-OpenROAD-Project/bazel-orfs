@@ -647,6 +647,8 @@ def _yosys_impl(ctx):
     for output in SYNTH_OUTPUTS:
         synth_outputs.append(_declare_artifact(ctx, "results", output))
 
+    synth_outputs.append(_declare_artifact(ctx, "objects", "lib/merged.lib"))
+
     commands = _generation_commands(synth_logs) + [ctx.executable._make.path + " $@"]
     ctx.actions.run_shell(
         arguments = [
