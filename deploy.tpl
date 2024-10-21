@@ -12,6 +12,7 @@ main() {
   local dst
   local config
   local genfiles
+  local renames
   local make
   progname=$(basename "$0")
 
@@ -27,6 +28,11 @@ main() {
       ;;
       -g|--genfiles)
         genfiles="$2"
+        shift
+        shift
+      ;;
+      -r|--renames)
+        renames="$2"
         shift
         shift
       ;;
@@ -70,6 +76,14 @@ main() {
   cp --force "$make" "$dst/make"
   cp --force --no-preserve=all "$config" "$dst/config.mk"
 
+  for rename in $renames; do
+    IFS=':' read -r src dst <<EOF
+$rename
+EOF
+    mkdir --parents $(dirname "$dst")
+    cp --force "$src" "$dst"
+  done
+
   if [[ -n "$@" ]]; then
     "$dst/make" $@
   fi
@@ -77,4 +91,4 @@ main() {
   exit $?
 }
 
-main --genfiles "${GENFILES}" --make "${MAKE}" --config "${CONFIG}" "$@"
+main --genfiles "${GENFILES}" --renames "${RENAMES}" --make "${MAKE}" --config "${CONFIG}" "$@"

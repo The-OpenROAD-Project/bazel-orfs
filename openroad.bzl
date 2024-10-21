@@ -42,6 +42,7 @@ OrfsDepInfo = provider(
     fields = [
         "make",
         "config",
+        "renames",
         "files",
         "runfiles",
     ],
@@ -289,7 +290,8 @@ def _deps_impl(ctx):
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join(sorted([f.short_path for f in ctx.attr.src[OrfsDepInfo].files])),
+            "${GENFILES}": " ".join(sorted([f.short_path for f in ctx.attr.src[OrfsDepInfo].files.to_list()])),
+            "${RENAMES}": " ".join(sorted(["{}:{}".format(rename.src, rename.dst) for rename in ctx.attr.src[OrfsDepInfo].renames])),
             "${CONFIG}": ctx.attr.src[OrfsDepInfo].config.short_path,
             "${MAKE}": ctx.attr.src[OrfsDepInfo].make.short_path,
         },
@@ -300,7 +302,7 @@ def _deps_impl(ctx):
         ctx.attr.src[TopInfo],
         DefaultInfo(
             executable = exe,
-            files = depset(ctx.attr.src[OrfsDepInfo].files),
+            files = ctx.attr.src[OrfsDepInfo].files,
             runfiles = ctx.attr.src[OrfsDepInfo].runfiles,
         ),
     ]
@@ -501,6 +503,12 @@ def _generation_commands(optional_files):
         ]
     return []
 
+def _input_commands(renames):
+    cmds = []
+    for rename in renames:
+        cmds.extend(_mv_cmds(rename.src, rename.dst))
+    return cmds
+
 def _mv_cmds(src, dst):
     dir, _, _ = dst.rpartition("/")
     return [
@@ -513,22 +521,22 @@ def _remap(s, a, b):
         return s.replace("/" + a, "/" + b)
     return s.replace("/" + a + "/", "/" + b + "/")
 
-def _input_commands(ctx, inputs):
+def _renames(ctx, inputs, short = False):
     """Move inputs to the expected input locations"""
-    cmds = []
+    renames = []
     for file in inputs:
         if ctx.attr.src[OrfsInfo].variant != ctx.attr.variant:
-            cmds.extend(_mv_cmds(
-                file.path,
-                _remap(file.path, ctx.attr.src[OrfsInfo].variant, ctx.attr.variant),
+            renames.append(struct(
+                src = file.short_path if short else file.path,
+                dst = _remap(file.short_path if short else file.path, ctx.attr.src[OrfsInfo].variant, ctx.attr.variant),
             ))
         if file.basename in ctx.attr.renamed_inputs:
-            for dst in ctx.attr.renamed_inputs[file.basename].files.to_list():
-                cmds.extend(_mv_cmds(
-                    dst.path,
-                    _remap(file.path, ctx.attr.src[OrfsInfo].variant, ctx.attr.variant),
+            for src in ctx.attr.renamed_inputs[file.basename].files.to_list():
+                renames.append(struct(
+                    src = src.short_path if short else src.path,
+                    dst = _remap(file.short_path if short else file.path, ctx.attr.src[OrfsInfo].variant, ctx.attr.variant),
                 ))
-    return cmds
+    return renames
 
 def _work_home(ctx):
     if ctx.label.package:
@@ -731,7 +739,8 @@ def _yosys_impl(ctx):
         OrfsDepInfo(
             make = make,
             config = config_short,
-            files = [config_short] + ctx.files.verilog_files + ctx.files.extra_configs,
+            renames = [],
+            files = depset([config_short] + ctx.files.verilog_files + ctx.files.extra_configs),
             runfiles = ctx.runfiles(transitive_files = depset(
                 [config_short, make] +
                 ctx.files.verilog_files + ctx.files.extra_configs,
@@ -824,7 +833,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     for file in forwards + results:
         info[file.extension] = file
 
-    commands = _generation_commands(reports + logs) + _input_commands(ctx, ctx.files.src) + [ctx.executable._make.path + " $@"]
+    commands = _generation_commands(reports + logs) + _input_commands(_renames(ctx, ctx.files.src)) + [ctx.executable._make.path + " $@"]
 
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + steps,
@@ -894,7 +903,8 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         OrfsDepInfo(
             make = make,
             config = config_short,
-            files = [config_short] + ctx.files.src + ctx.files.data + ctx.files.extra_configs,
+            renames = _renames(ctx, ctx.files.src, short = True),
+            files = depset([config_short] + ctx.files.src + ctx.files.data + ctx.files.extra_configs),
             runfiles = ctx.runfiles(transitive_files = depset(
                 [config_short, make] +
                 ctx.files.src + ctx.files.extra_configs,
