@@ -77,6 +77,7 @@ main() {
   cp --force --no-preserve=all "$config" "$dst/config.mk"
 
   echo "renames: $renames"
+  set -x
   for rename in $renames; do
     src=$(echo "$rename" | cut -d':' -f1)
     dst=$(echo "$rename" | cut -d':' -f2)
