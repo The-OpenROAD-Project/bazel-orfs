@@ -72,6 +72,7 @@ genrule(
     outs = ["mock-naja.v"],
     cmd = """
     set -ex
+
     mkdir -p `dirname $@`
     ls $(location :sdq_17x64_synth_mergedlib)
     echo \"// imagine naja edits in this file\" > $@
