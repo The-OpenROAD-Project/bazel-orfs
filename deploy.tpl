@@ -85,7 +85,7 @@ main() {
         echo "Error: Invalid rename pair '$rename'"
         exit 1
     fi
-    mkdir --parents $(dirname "$dst")
+    ls $(dirname "$dst")
     head -n 5 "$src"
     cp --force "$src" "$dst"
   done
