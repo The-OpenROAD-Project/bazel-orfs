@@ -89,13 +89,12 @@ main() {
     ls $(dirname "$dst")
     head -n 5 "$src"
     cp --force "$src" "$dst"
+    head -n 5 "$dst"
   done
 
   if [[ -n "$@" ]]; then
     "$dst/make" $@
   fi
-
-  exit $?
 }
 
 main --genfiles "${GENFILES}" --renames "${RENAMES}" --make "${MAKE}" --config "${CONFIG}" "$@"
