@@ -70,7 +70,13 @@ genrule(
         ":sdq_17x64_synth_mergedlib",
     ],
     outs = ["mock-naja.v"],
-    cmd = "mkdir -p `dirname $@`; ls $(location :sdq_17x64_synth_mergedlib); echo \"// imagine naja edits in this file\" > $@ && cat $(location :sdq_17x64_synth_unedited) >> $@",
+    cmd = """
+    set -ex
+    mkdir -p `dirname $@`
+    ls $(location :sdq_17x64_synth_mergedlib)
+    echo \"// imagine naja edits in this file\" > $@
+    cat $(location :sdq_17x64_synth_unedited) >> $@
+""",
 )
 
 # FIXME some better way to deploy naja in Bazel environment is needed
