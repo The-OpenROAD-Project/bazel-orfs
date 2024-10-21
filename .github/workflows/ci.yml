@@ -38,7 +38,7 @@ jobs:
       fail-fast: false
       matrix:
         STAGE_TARGET:
-          - "//sram:top_mix_grt"
+          - "//sram:top_mix_cts"
           - "tag_array_64x184_generate_abstract"
           - "tag_array_64x184_report"
           - "lb_32x128_generate_abstract"

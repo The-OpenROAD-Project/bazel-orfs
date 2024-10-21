@@ -15,7 +15,7 @@ FAST_SETTINGS = {
 
 [orfs_flow(
     name = "sdq_17x64",
-    abstract_stage = "grt" if variant == "base" else "floorplan",
+    abstract_stage = "cts" if variant == "base" else "floorplan",
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "CORE_UTILIZATION": "20",
@@ -96,7 +96,7 @@ genrule(
 
 orfs_flow(
     name = "top",
-    abstract_stage = "grt",
+    abstract_stage = "cts",
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "DIE_AREA": "0 0 80 80",
@@ -122,7 +122,7 @@ orfs_macro(
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "top",
-    abstract_stage = "grt",
+    abstract_stage = "cts",
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "DIE_AREA": "0 0 30 30",
@@ -179,7 +179,7 @@ orfs_run(
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "top",
-    abstract_stage = "grt",
+    abstract_stage = "cts",
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "MACRO_PLACEMENT_TCL": "$(location :macro_placement.tcl)",
@@ -200,7 +200,7 @@ orfs_flow(
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "sdq_17x64",
-    abstract_stage = "grt",
+    abstract_stage = "cts",
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :megaboom/constraints-sram.sdc)",
         "CORE_UTILIZATION": "20",
@@ -219,7 +219,7 @@ orfs_flow(
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "top",
-    abstract_stage = "grt",
+    abstract_stage = "cts",
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :megaboom/constraints-top.sdc)",
         "DIE_AREA": "0 0 100 100",
