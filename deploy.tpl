@@ -76,10 +76,14 @@ main() {
   cp --force "$make" "$dst/make"
   cp --force --no-preserve=all "$config" "$dst/config.mk"
 
+  echo "renames: $renames"
   for rename in $renames; do
-    IFS=':' read -r src dst <<EOF
-$rename
-EOF
+    src=$(echo "$rename" | cut -d':' -f1)
+    dst=$(echo "$rename" | cut -d':' -f2)
+    if [[ -z "$src" || -z "$dst" ]]; then
+        echo "Error: Invalid rename pair '$rename'"
+        exit 1
+    fi
     mkdir --parents $(dirname "$dst")
     cp --force "$src" "$dst"
   done
