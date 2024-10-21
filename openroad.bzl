@@ -1015,7 +1015,7 @@ orfs_grt = rule(
             "do-5_1_grt",
         ],
         forwarded_names = [
-            "4_cts.sdc",
+            "5_1_grt.sdc",
         ],
         log_names = [
             "5_1_grt.log",
@@ -1029,6 +1029,7 @@ orfs_grt = rule(
         ],
         result_names = [
             "5_1_grt.odb",
+            "5_1_grt.sdc",
         ],
     ),
     attrs = openroad_attrs() | renamed_inputs_attr(),

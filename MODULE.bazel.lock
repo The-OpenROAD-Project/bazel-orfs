@@ -64,7 +64,7 @@
     "//:extension.bzl%orfs_repositories": {
       "general": {
         "bzlTransitiveDigest": "vmcGR7h5VgEPebKSKqrF0UgcqrgFTr0lE5jdk/LXXdg=",
-        "usagesDigest": "QafWqpQ6FI4h8V+UhmqsG2RXIcX5y+seaoZGpzRhnTA=",
+        "usagesDigest": "MSaAP2iGR0nHxZjmvhxVBds6slaLwkB6DkkmilkHWHg=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -84,8 +84,8 @@
             "bzlFile": "@@//:docker.bzl",
             "ruleClassName": "docker_pkg",
             "attributes": {
-              "image": "docker.io/openroad/orfs:v3.0-1620-gf61d7a1e",
-              "sha256": "73391dd3dac142ede1cc2b51966400e44ac0fef41cffe7344bdd81ea5e123c9a",
+              "image": "docker.io/openroad/orfs:v3.0-1679-g980de246",
+              "sha256": "e3c30971e63d4748fde1ddbec63f9680bda53be5a50319d67db9279dd51d2945",
               "build_file": "@@//:docker.BUILD.bazel",
               "timeout": 3600,
               "patch_cmds": [
