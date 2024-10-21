@@ -12,6 +12,7 @@ main() {
   local dst
   local config
   local genfiles
+  local renames
   local make
   progname=$(basename "$0")
 
@@ -27,6 +28,11 @@ main() {
       ;;
       -g|--genfiles)
         genfiles="$2"
+        shift
+        shift
+      ;;
+      -r|--renames)
+        renames="$2"
         shift
         shift
       ;;
@@ -70,6 +76,21 @@ main() {
   cp --force "$make" "$dst/make"
   cp --force --no-preserve=all "$config" "$dst/config.mk"
 
+  echo "renames: $renames"
+  set -x
+  for rename in $renames; do
+    src=$(echo "$rename" | cut -d':' -f1)
+    dst=$(echo "$rename" | cut -d':' -f2)
+    if [[ -z "$src" || -z "$dst" ]]; then
+        echo "Error: Invalid rename pair '$rename'"
+        exit 1
+    fi
+    pwd
+    ls $(dirname "$dst")
+    head -n 5 "$src"
+    cp --force "$src" "$dst"
+  done
+
   if [[ -n "$@" ]]; then
     "$dst/make" $@
   fi
@@ -77,4 +98,4 @@ main() {
   exit $?
 }
 
-main --genfiles "${GENFILES}" --make "${MAKE}" --config "${CONFIG}" "$@"
+main --genfiles "${GENFILES}" --renames "${RENAMES}" --make "${MAKE}" --config "${CONFIG}" "$@"
