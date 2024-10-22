@@ -77,15 +77,15 @@ main() {
   cp --force --no-preserve=all "$config" "$dst/config.mk"
 
   for rename in $renames; do
-    IFS=':' read -r src dst <<EOF
+    IFS=':' read -r from to <<EOF
 $rename
 EOF
-    mkdir --parents $(dirname "$dst")
-    cp --force "$src" "$dst"
+    mkdir --parents "$dst"/"$(dirname "$to")"
+    cp --force --dereference --no-preserve=all "$from" "$dst"/"$to"
   done
 
-  if [[ -n "$@" ]]; then
-    "$dst/make" $@
+  if ! [ -z "$@" ]; then
+    "$dst/make" "$@"
   fi
 
   exit $?
