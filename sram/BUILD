@@ -61,6 +61,12 @@ filegroup(
     output_group = "merged.lib",
 )
 
+filegroup(
+    name = "top_lib",
+    srcs = ["top_generate_abstract"],
+    output_group = "top.lib",
+)
+
 # Read in the renamed synthesis output from above and provide
 # the original name to the next stage
 genrule(
@@ -68,9 +74,17 @@ genrule(
     srcs = [
         ":sdq_17x64_synth_unedited",
         ":sdq_17x64_synth_mergedlib",
+        ":top_lib",
     ],
     outs = ["mock-naja.v"],
-    cmd = "mkdir -p `dirname $@`; ls $(location :sdq_17x64_synth_mergedlib); echo \"// imagine naja edits in this file\" > $@ && cat $(location :sdq_17x64_synth_unedited) >> $@",
+    cmd = """
+    set -ex
+    mkdir -p `dirname $@`
+    ls $(location :sdq_17x64_synth_mergedlib)
+    ls $(location :top_lib)
+    echo \"// imagine naja edits in this file\" > $@
+    cat $(location :sdq_17x64_synth_unedited) >> $@
+""",
 )
 
 # FIXME some better way to deploy naja in Bazel environment is needed
