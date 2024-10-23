@@ -130,26 +130,31 @@ def odb_environment(ctx):
         return {"ODB_FILE": ctx.attr.src[OrfsInfo].odb.path}
     return {}
 
-def flow_environment(ctx):
+def orfs_environment(ctx):
     return {
-        "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
-        "FLOW_HOME": ctx.file._makefile.dirname,
         "HOME": _work_home(ctx),
-        "KLAYOUT_CMD": ctx.executable._klayout.path,
-        "OPENROAD_EXE": ctx.executable._openroad.path,
-        "QT_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
-        "QT_QPA_PLATFORM_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
-        "RUBYLIB": ":".join([commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)]),
         "STDBUF_CMD": "",
         "TCL_LIBRARY": commonpath(ctx.files._tcl),
         "WORK_HOME": _work_home(ctx),
     }
 
+def flow_environment(ctx):
+    return {
+        "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
+        "FLOW_HOME": ctx.file._makefile.dirname,
+        "KLAYOUT_CMD": ctx.executable._klayout.path,
+        "OPENROAD_EXE": ctx.executable._openroad.path,
+        "QT_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
+        "QT_QPA_PLATFORM_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
+        "RUBYLIB": ":".join([commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)]),
+    } | orfs_environment(ctx)
+
 def yosys_environment(ctx):
     return {
         "ABC": ctx.executable._abc.path,
         "YOSYS_EXE": ctx.executable._yosys.path,
-    }
+        "FLOW_HOME": ctx.file._makefile_yosys.dirname,
+    } | orfs_environment(ctx)
 
 def config_environment(config):
     return {"DESIGN_CONFIG": config.path}
@@ -182,13 +187,22 @@ def flow_inputs(ctx):
 
 def yosys_inputs(ctx):
     return depset(
-        [ctx.executable._abc, ctx.executable._yosys] +
+        [
+            ctx.executable._abc,
+            ctx.executable._yosys,
+            ctx.executable._make,
+            ctx.file._makefile_yosys,
+        ] +
         ctx.files._tcl,
         transitive = [
             ctx.attr._abc[DefaultInfo].default_runfiles.files,
             ctx.attr._abc[DefaultInfo].default_runfiles.symlinks,
             ctx.attr._yosys[DefaultInfo].default_runfiles.files,
             ctx.attr._yosys[DefaultInfo].default_runfiles.symlinks,
+            ctx.attr._makefile_yosys[DefaultInfo].default_runfiles.files,
+            ctx.attr._makefile_yosys[DefaultInfo].default_runfiles.symlinks,
+            ctx.attr._make[DefaultInfo].default_runfiles.files,
+            ctx.attr._make[DefaultInfo].default_runfiles.symlinks,
         ],
     )
 
@@ -310,7 +324,7 @@ def _deps_impl(ctx):
 def flow_provides():
     return [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo]
 
-def flow_attrs():
+def orfs_attrs():
     return {
         "arguments": attr.string_dict(
             doc = "Dictionary of additional flow arguments.",
@@ -330,6 +344,27 @@ def flow_attrs():
             doc = "Variant of the used flow.",
             default = "base",
         ),
+        "_make": attr.label(
+            doc = "make binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:make"),
+        ),
+        "_tcl": attr.label(
+            doc = "Tcl library.",
+            allow_files = True,
+            default = Label("@docker_orfs//:tcl8.6"),
+        ),
+        "_makefile": attr.label(
+            doc = "Top level makefile.",
+            allow_single_file = ["Makefile"],
+            default = Label("@docker_orfs//:makefile"),
+        ),
+    }
+
+def flow_attrs():
+    return {
         "_deploy_template": attr.label(
             default = ":deploy.tpl",
             allow_single_file = True,
@@ -337,18 +372,6 @@ def flow_attrs():
         "_make_template": attr.label(
             default = ":make.tpl",
             allow_single_file = True,
-        ),
-        "_makefile": attr.label(
-            doc = "Top level makefile.",
-            allow_single_file = ["Makefile"],
-            default = Label("@docker_orfs//:makefile"),
-        ),
-        "_make": attr.label(
-            doc = "make binary.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:make"),
         ),
         "_openroad": attr.label(
             doc = "OpenROAD binary.",
@@ -374,11 +397,6 @@ def flow_attrs():
             allow_files = True,
             default = Label("@docker_orfs//:ruby_dynamic3.0.0"),
         ),
-        "_tcl": attr.label(
-            doc = "Tcl library.",
-            allow_files = True,
-            default = Label("@docker_orfs//:tcl8.6"),
-        ),
         "_opengl": attr.label(
             doc = "OpenGL drivers.",
             allow_files = True,
@@ -394,7 +412,7 @@ def flow_attrs():
             allow_files = True,
             default = Label("@docker_orfs//:gio_modules"),
         ),
-    }
+    } | orfs_attrs()
 
 def yosys_only_attrs():
     return {
@@ -411,6 +429,11 @@ def yosys_only_attrs():
             allow_files = True,
             cfg = "exec",
             default = Label("@docker_orfs//:yosys"),
+        ),
+        "_makefile_yosys": attr.label(
+            doc = "Top level makefile yosys.",
+            allow_single_file = ["Makefile"],
+            default = Label("@docker_orfs//:makefile_yosys"),
         ),
     }
 
@@ -452,6 +475,8 @@ def openroad_only_attrs():
     }
 
 def yosys_attrs():
+    # flow_attrs() is not used by synthesis, but by bazel run foo_synth to
+    # open synthesis results in OpenROAD
     return flow_attrs() | yosys_only_attrs()
 
 def openroad_attrs():
@@ -626,10 +651,9 @@ def _yosys_impl(ctx):
     commands = _generation_commands(canon_logs) + [ctx.executable._make.path + " $@"]
 
     ctx.actions.run_shell(
-        arguments = ["--file", ctx.file._makefile.path, canon_output.path],
+        arguments = ["--file", ctx.file._makefile_yosys.path, canon_output.path],
         command = " && ".join(commands),
         env = _verilog_arguments(ctx.files.verilog_files) |
-              flow_environment(ctx) |
               yosys_environment(ctx) |
               config_environment(config),
         inputs = depset(
@@ -637,7 +661,6 @@ def _yosys_impl(ctx):
             ctx.files.verilog_files +
             ctx.files.extra_configs,
             transitive = [
-                flow_inputs(ctx),
                 yosys_inputs(ctx),
                 data_inputs(ctx),
                 pdk_inputs(ctx),
@@ -661,7 +684,7 @@ def _yosys_impl(ctx):
     ctx.actions.run_shell(
         arguments = [
             "--file",
-            ctx.file._makefile.path,
+            ctx.file._makefile_yosys.path,
             "--old-file",
             canon_output.path,
             "yosys-dependencies",
@@ -671,14 +694,12 @@ def _yosys_impl(ctx):
         ],
         command = " && ".join(commands),
         env = _verilog_arguments([]) |
-              flow_environment(ctx) |
               yosys_environment(ctx) |
               config_environment(config),
         inputs = depset(
             [canon_output, config] +
             ctx.files.extra_configs,
             transitive = [
-                flow_inputs(ctx),
                 yosys_inputs(ctx),
                 data_inputs(ctx),
                 pdk_inputs(ctx),
@@ -688,7 +709,22 @@ def _yosys_impl(ctx):
         outputs = synth_outputs + synth_logs,
     )
 
-    outputs = [canon_output] + synth_outputs
+    # Dummy action to make sure that the flow environment is available to
+    # bazel run foo_synth without causing resynthesis when upgrading
+    # ORFS where yosys did not change, saves many hours of synthesis
+    dummy_output = _declare_artifact(ctx, "results", "dummy.txt")
+    ctx.actions.run_shell(
+        command = "touch " + dummy_output.path,
+        env = flow_environment(ctx),
+        inputs = depset(
+            transitive = [
+                flow_inputs(ctx),
+            ],
+        ),
+        outputs = [dummy_output],
+    )
+
+    outputs = [canon_output] + synth_outputs + [dummy_output]
 
     config_short = _declare_artifact(ctx, "results", "1_synth.short.mk")
     ctx.actions.write(
