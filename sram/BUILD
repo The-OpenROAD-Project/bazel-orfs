@@ -24,6 +24,11 @@ FAST_SETTINGS = {
         "PLACE_DENSITY": "0.25",
     },
     mock_area = 0.95,
+    previous_stage = {
+        "mock-naja": {
+            "floorplan": "sdq_17x64_synth",
+        },
+    }.get(variant, {}),
     renamed_inputs = {
         "naja": {
             "floorplan": {"1_synth.v": ":naja"},
