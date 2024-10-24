@@ -305,7 +305,7 @@ def _deps_impl(ctx):
         output = exe,
         substitutions = {
             "${GENFILES}": " ".join(sorted([f.short_path for f in ctx.attr.src[OrfsDepInfo].files.to_list()])),
-            "${RENAMES}": " ".join(sorted(["{}:{}".format(rename.src, rename.dst) for rename in ctx.attr.src[OrfsDepInfo].renames])),
+            "${RENAMES}": " ".join(["{}:{}".format(rename.src, rename.dst) for rename in ctx.attr.src[OrfsDepInfo].renames]),
             "${CONFIG}": ctx.attr.src[OrfsDepInfo].config.short_path,
             "${MAKE}": ctx.attr.src[OrfsDepInfo].make.short_path,
         },
@@ -555,6 +555,8 @@ def _renames(ctx, inputs, short = False):
                 src = file.short_path if short else file.path,
                 dst = _remap(file.short_path if short else file.path, ctx.attr.src[OrfsInfo].variant, ctx.attr.variant),
             ))
+    # renamed_inputs win over variant renaming
+    for file in inputs:
         if file.basename in ctx.attr.renamed_inputs:
             for src in ctx.attr.renamed_inputs[file.basename].files.to_list():
                 renames.append(struct(
