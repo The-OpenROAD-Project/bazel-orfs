@@ -517,6 +517,9 @@ def _config_content(arguments, paths):
     return ("".join(sorted(["export {}?={}\n".format(*pair) for pair in arguments.items()]) +
                     ["include {}\n".format(path) for path in paths]))
 
+def _hack_away_prefix(arguments, prefix):
+    return {k: v.removeprefix(prefix + "/") for k, v in arguments.items()}
+
 def _data_arguments(ctx):
     return {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()}
 
@@ -732,7 +735,10 @@ def _yosys_impl(ctx):
     ctx.actions.write(
         output = config_short,
         content = _config_content(
-            arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(short = True, *[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx.files.verilog_files, short = True),
+            arguments = _hack_away_prefix(
+                arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(short = True, *[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx.files.verilog_files, short = True),
+                prefix = config_short.root.path,
+            ),
             paths = [file.short_path for file in ctx.files.extra_configs],
         ),
     )
@@ -894,7 +900,10 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     ctx.actions.write(
         output = config_short,
         content = _config_content(
-            arguments = extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo], short = True),
+            arguments = _hack_away_prefix(
+                arguments = extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo], short = True),
+                prefix = config_short.root.path,
+            ),
             paths = [file.short_path for file in ctx.files.extra_configs],
         ),
     )
