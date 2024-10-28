@@ -2,6 +2,9 @@
 
 load("@orfs_variable_metadata//:json.bzl", "orfs_variable_metadata")
 
+def _map(function, iterable):
+    return [function(x) for x in iterable]
+
 def _union(*lists):
     merged_dict = {}
     for list1 in lists:
@@ -558,6 +561,7 @@ def _renames(ctx, inputs, short = False):
                 src = file.short_path if short else file.path,
                 dst = _remap(file.short_path if short else file.path, ctx.attr.src[OrfsInfo].variant, ctx.attr.variant),
             ))
+
     # renamed_inputs win over variant renaming
     for file in inputs:
         if file.basename in ctx.attr.renamed_inputs:
@@ -1476,24 +1480,36 @@ def _orfs_pass(
     if abstract_stage != STAGE_IMPLS[0].stage:
         steps.append(ABSTRACT_IMPL)
 
-    synth_step = steps[0]
-    synth_step.impl(
-        name = _step_name(name, variant, synth_step.stage),
-        arguments = get_stage_args(synth_step.stage, stage_arguments, arguments),
-        data = get_sources(synth_step.stage, stage_sources, sources),
-        deps = macros,
-        extra_configs = extra_configs.get(synth_step.stage, []),
-        module_top = name,
-        variant = variant,
-        verilog_files = verilog_files,
-        visibility = visibility,
-    )
-    orfs_deps(
-        name = "{}_deps".format(_step_name(name, variant, synth_step.stage)),
-        src = _step_name(name, variant, synth_step.stage),
-    )
+    # Prune stages unused due to previous_stage
+    if len(previous_stage) > 1:
+        fail("Maximum previous stages is 1")
+    start_stage = 0
+    if len(previous_stage) > 0:
+        start_stage = _map(lambda x: x.stage, STAGE_IMPLS).index(previous_stage.keys()[0])
 
-    for step, prev in zip(steps[1:], steps):
+    if start_stage < 1:
+        synth_step = steps[0]
+        synth_step.impl(
+            name = _step_name(name, variant, synth_step.stage),
+            arguments = get_stage_args(synth_step.stage, stage_arguments, arguments),
+            data = get_sources(synth_step.stage, stage_sources, sources),
+            deps = macros,
+            extra_configs = extra_configs.get(synth_step.stage, []),
+            module_top = name,
+            variant = variant,
+            verilog_files = verilog_files,
+            visibility = visibility,
+        )
+        orfs_deps(
+            name = "{}_deps".format(_step_name(name, variant, synth_step.stage)),
+            src = _step_name(name, variant, synth_step.stage),
+        )
+
+    if start_stage == 0:
+        # implemented stage 0 above, so skip stage 0 below
+        start_stage = 1
+
+    for step, prev in zip(steps[start_stage:], steps[start_stage - 1:]):
         stage_variant = abstract_variant if step.stage == ABSTRACT_IMPL.stage and abstract_variant else variant
         step_name = _step_name(name, stage_variant, step.stage)
         src = previous_stage.get(step.stage, _step_name(name, variant, prev.stage))
