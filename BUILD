@@ -147,16 +147,27 @@ orfs_flow(
 
 SWEEP = {
     "1": {
-        "PLACE_DENSITY": "0.65",
+        "variables": {
+            "PLACE_DENSITY": "0.65",
+        },
+        "previous_stage": {"floorplan": "lb_32x128_synth"},
     },
     "2": {
-        "PLACE_DENSITY": "0.70",
+        "variables": {
+            "PLACE_DENSITY": "0.70",
+        },
+        "previous_stage": {"place": "lb_32x128_floorplan"},
     },
     "3": {
-        "PLACE_DENSITY": "0.75",
+        "variables": {
+            "PLACE_DENSITY": "0.75",
+        },
+        "previous_stage": {"cts": "lb_32x128_place"},
     },
     "4": {
-        "PLACE_DENSITY": "0.80",
+        "variables": {
+            "PLACE_DENSITY": "0.80",
+        },
     },
 }
 
@@ -165,10 +176,10 @@ SWEEP = {
     orfs_flow(
         name = "lb_32x128",
         abstract_stage = "cts",
-        arguments = LB_ARGS | SWEEP[variant],
+        arguments = LB_ARGS | SWEEP[variant]["variables"],
         # Share synthesis across all variants, the sweep
         # differs from floorplan and onwards
-        previous_stage = {"floorplan": "lb_32x128_synth"},
+        previous_stage = SWEEP[variant].get("previous_stage", {}),
         stage_sources = LB_STAGE_SOURCES,
         variant = variant,
         verilog_files = LB_VERILOG_FILES,
