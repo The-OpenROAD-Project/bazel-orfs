@@ -199,6 +199,16 @@ SWEEP = {
     script = ":report-wns.tcl",
 ) for variant in SWEEP]
 
+orfs_run(
+    name = "cell_count",
+    src = ":lb_32x128_floorplan",
+    outs = [
+        "test.txt",
+    ],
+    extra_args = "> $WORK_HOME/test.txt",
+    script = ":cell_count.tcl",
+)
+
 genrule(
     name = "wns_report",
     srcs = ["wns-report.py"] +
