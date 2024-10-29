@@ -601,7 +601,11 @@ def _run_impl(ctx):
             ctx.file._makefile.path,
             "run",
         ],
-        command = ctx.executable._make.path + " $@",
+        command = " ".join([
+            ctx.executable._make.path,
+            "$@",
+            ctx.expand_location(ctx.attr.extra_args, ctx.attr.data),
+        ]),
         env = _data_arguments(ctx) |
               odb_environment(ctx) |
               flow_environment(ctx) |
@@ -636,6 +640,10 @@ orfs_run = rule(
         "outs": attr.output_list(
             mandatory = True,
             allow_empty = False,
+        ),
+        "extra_args": attr.string(
+            mandatory = False,
+            default = "",
         ),
     },
 )

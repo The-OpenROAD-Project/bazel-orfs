@@ -1,6 +1,8 @@
 #!/bin/bash
 set -ex
 
+bazel build cell_count
+
 echo These targets should have been pruned
 bazel query //:* | grep -q -v lb_32x128_1_synth
 bazel query //:* | grep -q -v lb_32x128_2_floorplan
