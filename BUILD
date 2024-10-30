@@ -78,6 +78,7 @@ orfs_flow(
         "CORE_ASPECT_RATIO": "2",
         "SKIP_REPORT_METRICS": "1",
     },
+    mock_area = 0.8,
     stage_sources = {
         "synth": [":constraints-sram"],
         "floorplan": [":io-sram"],
@@ -245,6 +246,15 @@ orfs_flow(
         "synth": [":test/constraints-top.sdc"],
     },
     verilog_files = ["test/rtl/L1MetadataArray.sv"],
+)
+
+orfs_run(
+    name = "check_mock_area",
+    src = ":L1MetadataArray_floorplan",
+    outs = [
+        "area_ok.txt",
+    ],
+    script = ":check_mock_area.tcl",
 )
 
 orfs_run(

@@ -64,7 +64,7 @@ jobs:
       - name: Run target
         if: ${{ !endsWith(matrix.STAGE_TARGET, '_report') }}
         run: |
-          if [[ ${{ matrix.STAGE_TARGET }} == "lb_32x128_generate_abstract" ]]; then
+          if [[ ${{ matrix.STAGE_TARGET }} == "lb_32x128_generate_abstract" || ${{ matrix.STAGE_TARGET }} == *"tag_array_64x184_generate_abstract"* ]]; then
             # this is a mock area abstract, so it is not executable
             bazel build --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }}
           else
