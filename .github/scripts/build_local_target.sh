@@ -30,7 +30,7 @@ do
     stages=()
     if [[ $stage == "synth" ]]; then
         stages+=("do-yosys-canonicalize")
-        stages+=("do-yosys-keep-hierarchy")
+        stages+=("do-yosys-stats")
         stages+=("do-yosys")
         stages+=("do-synth")
     elif [[ $stage == "grt" ]]; then
