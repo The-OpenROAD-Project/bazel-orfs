@@ -1460,6 +1460,7 @@ def orfs_flow(
         lef = _step_name(name, mock_variant, ABSTRACT_IMPL.stage),
         lib = _step_name(name, abstract_variant, ABSTRACT_IMPL.stage),
         module_top = name,
+        visibility = visibility,
     )
 
 def _kwargs(stage, **kwargs):
