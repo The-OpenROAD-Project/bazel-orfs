@@ -86,6 +86,8 @@ def _macro_impl(ctx):
         if not getattr(ctx.attr, field):
             continue
         for file in getattr(ctx.attr, field).files.to_list():
+            if file.extension != field:
+                continue
             info[file.extension] = file
 
     return [
