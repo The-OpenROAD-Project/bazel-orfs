@@ -1,5 +1,6 @@
 load("//:eqy.bzl", "eqy_test")
 load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_run")
+load("//:sweep.bzl", "sweep")
 
 exports_files(["mock_area.tcl"])
 
@@ -146,60 +147,6 @@ orfs_flow(
     verilog_files = LB_VERILOG_FILES,
 )
 
-SWEEP = {
-    "1": {
-        "variables": {
-            "PLACE_DENSITY": "0.65",
-        },
-        "previous_stage": {"floorplan": "lb_32x128_synth"},
-    },
-    "2": {
-        "variables": {
-            "PLACE_DENSITY": "0.70",
-        },
-        "previous_stage": {"place": "lb_32x128_floorplan"},
-    },
-    "3": {
-        "variables": {
-            "PLACE_DENSITY": "0.75",
-        },
-        "previous_stage": {"cts": "lb_32x128_place"},
-    },
-    "4": {
-        "variables": {
-            "PLACE_DENSITY": "0.80",
-        },
-    },
-}
-
-# buildifier: disable=duplicated-name
-[
-    orfs_flow(
-        name = "lb_32x128",
-        abstract_stage = "cts",
-        arguments = LB_ARGS | SWEEP[variant]["variables"],
-        # Share synthesis across all variants, the sweep
-        # differs from floorplan and onwards
-        previous_stage = SWEEP[variant].get("previous_stage", {}),
-        stage_sources = LB_STAGE_SOURCES,
-        variant = variant,
-        verilog_files = LB_VERILOG_FILES,
-    )
-    for variant in SWEEP
-]
-
-[orfs_run(
-    name = "lb_32x128_" + variant + "_report",
-    src = ":lb_32x128_" + ("" if variant == "base" else variant + "_cts"),
-    outs = [
-        "lb_32x128_" + variant + ".yaml",
-    ],
-    arguments = {
-        "OUTFILE": "$(location :lb_32x128_" + variant + ".yaml)",
-    },
-    script = ":report-wns.tcl",
-) for variant in SWEEP]
-
 orfs_run(
     name = "cell_count",
     src = ":lb_32x128_floorplan",
@@ -208,18 +155,6 @@ orfs_run(
     ],
     extra_args = "> $WORK_HOME/test.txt",
     script = ":cell_count.tcl",
-)
-
-genrule(
-    name = "wns_report",
-    srcs = ["wns-report.py"] +
-           [":lb_32x128_" + variant + ".yaml" for variant in SWEEP],
-    outs = ["lb_32x128_wns_report.md"],
-    cmd = (
-        "$(location :wns-report.py) > $@ " +
-        " ".join(["$(location :lb_32x128_" + variant + ".yaml)" for variant in SWEEP])
-    ),
-    visibility = ["//visibility:public"],
 )
 
 orfs_flow(
@@ -356,3 +291,43 @@ orfs_flow(
         "test/rtl/regfile_128x65.sv",
     ],
 )
+
+# buildifier: disable=duplicated-name
+sweep(
+    name = "lb_32x128",
+    stage = "cts",
+    stage_sources = {
+        "synth": [":constraints-sram"],
+        "floorplan": [":io-sram"],
+        "place": [":io-sram"],
+    },
+    sweep = {
+        "1": {
+            "variables": {
+                "PLACE_DENSITY": "0.65",
+            },
+            "previous_stage": {"floorplan": "lb_32x128_synth"},
+        },
+        "2": {
+            "variables": {
+                "PLACE_DENSITY": "0.70",
+            },
+            "previous_stage": {"place": "lb_32x128_floorplan"},
+        },
+        "3": {
+            "variables": {
+                "PLACE_DENSITY": "0.75",
+            },
+            "previous_stage": {"cts": "lb_32x128_place"},
+        },
+        "4": {
+            "variables": {
+                "PLACE_DENSITY": "0.80",
+            },
+        },
+    },
+    variables = LB_ARGS,
+    verilog_files = ["test/mock/lb_32x128.sv"],
+)
+
+exports_files(["sweep-wns.tcl"])
