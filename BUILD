@@ -356,3 +356,8 @@ orfs_flow(
         "test/rtl/regfile_128x65.sv",
     ],
 )
+
+py_binary(
+    name = "yaml_to_json",
+    srcs = ["yaml_to_json.py"],
+)
