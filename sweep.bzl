@@ -114,13 +114,13 @@ def orfs_sweep(
     native.genrule(
         name = name + "_wns_report",
         srcs = [
-                   "wns_report.py",
+                   Label(":wns_report.py"),
                    name + "_sweep.json",
                ] + [":" + name + "_" + variant + ".txt" for variant in sweep] +
                [":" + name + "_" + variant + "_logs" for variant in sweep],
         outs = [name + "_wns_report.md"],
         cmd = (
-            "$(location :wns_report.py) > $@" +
+            "$(location " + str(Label(":wns_report.py")) + ") > $@" +
             " $(location :" + name + "_sweep.json)"
         ),
         visibility = visibility,
