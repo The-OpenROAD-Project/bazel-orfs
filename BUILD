@@ -330,4 +330,9 @@ orfs_sweep(
     verilog_files = ["test/mock/lb_32x128.sv"],
 )
 
-exports_files(["sweep-wns.tcl"])
+exports_files(
+    [
+        "sweep-wns.tcl",
+        "wns_report.py",
+    ],
+)
