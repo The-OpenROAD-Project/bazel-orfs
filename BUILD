@@ -1,6 +1,6 @@
 load("//:eqy.bzl", "eqy_test")
 load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_run")
-load("//:sweep.bzl", "sweep")
+load("//:sweep.bzl", "orfs_sweep")
 
 exports_files(["mock_area.tcl"])
 
@@ -293,8 +293,9 @@ orfs_flow(
 )
 
 # buildifier: disable=duplicated-name
-sweep(
+orfs_sweep(
     name = "lb_32x128",
+    arguments = LB_ARGS,
     stage = "cts",
     stage_sources = {
         "synth": [":constraints-sram"],
@@ -326,7 +327,6 @@ sweep(
             },
         },
     },
-    variables = LB_ARGS,
     verilog_files = ["test/mock/lb_32x128.sv"],
 )
 
