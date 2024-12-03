@@ -12,30 +12,34 @@ all_stages = [
     "final",
 ]
 
-def sweep(
+def orfs_sweep(
         name,
-        variables,
+        arguments,
         sweep,
         verilog_files,
         stage_sources,
         other_variants = {},
         stage = "floorplan",
-        macros = []):
+        abstract_stage = "final",
+        macros = [],
+        visibility = ["//visibility:private"]):
     """Run a sweep of OpenROAD stages
 
     Args:
         name: Verilog module name
-        variables: dictionary of the base variables for the flow
+        arguments: dictionary of the base variables for the flow
         sweep: The dictionary describing the variables to sweep
         other_variants: Dictionary with other variants to generate, but not as part of the sweep
         stage: The stage to do the sweep on
         macros: name of modules to use as macros
         verilog_files: The Verilog files to build
         stage_sources: dictionary with list of sources to use for the stage
+        abstract_stage: generate abstract from this stage
+        visibility: list of visibility labels
     """
     sweep_json = {
         "name": name,
-        "base": variables,
+        "base": arguments,
         "sweep": sweep,
         "stage": stage,
         "stages": all_stages[0:all_stages.index(stage) + 1],
@@ -50,7 +54,7 @@ def sweep(
     for variant in all_variants:
         orfs_flow(
             name = name,
-            arguments = variables | all_variants[variant].get("variables", {}),
+            arguments = arguments | all_variants[variant].get("variables", {}),
             macros = [
                 m
                 for m in macros
@@ -65,6 +69,8 @@ def sweep(
             },
             variant = variant,
             verilog_files = verilog_files,
+            abstract_stage = abstract_stage,
+            visibility = visibility,
         )
 
         native.filegroup(
@@ -87,13 +93,14 @@ def sweep(
             data = [":" + name + "_" + variant + "_odb"],
             extra_args = "> $WORK_HOME/" + name + "_" + variant + ".txt",
             script = Label(":sweep-wns.tcl"),
+            visibility = visibility,
         )
 
         native.filegroup(
             name = name + "_" + variant + "_logs",
             srcs = [":" + name + "_" + ("" if variant == "base" else variant + "_") + stage for stage in sweep_json["stages"]],
             output_group = "logs",
-            visibility = [":__subpackages__"],
+            visibility = visibility,
         )
 
     # This can be built in parallel, but grt needs to be build in serial, or
@@ -101,7 +108,7 @@ def sweep(
     native.filegroup(
         name = name + "_sweep_parallel",
         srcs = [name + "_" + ("" if variant == "base" else variant + "_") + "cts" for variant in sweep],
-        visibility = ["//visibility:public"],
+        visibility = visibility,
     )
 
     native.genrule(
@@ -116,7 +123,7 @@ def sweep(
             "$(location :wns_report.py) > $@" +
             " $(location :" + name + "_sweep.json)"
         ),
-        visibility = ["//visibility:public"],
+        visibility = visibility,
     )
 
     native.filegroup(
@@ -127,6 +134,7 @@ def sweep(
             for variant in sweep
         ],
         output_group = "logs",
+        visibility = visibility,
     )
 
     native.genrule(
@@ -137,5 +145,5 @@ def sweep(
         ],
         outs = [name + "_retiming.pdf"],
         cmd = "$(location plot-retiming.py) $(location " + name + "_retiming.pdf) $(locations " + name + "_repair_logs)",
-        visibility = ["//visibility:public"],
+        visibility = visibility,
     )
