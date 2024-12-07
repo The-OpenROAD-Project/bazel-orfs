@@ -2,3 +2,5 @@ bazel-*
 copyright.txt
 build/
 .user-bazelrc
+.metals/
+.vscode/
