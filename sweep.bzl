@@ -89,9 +89,9 @@ def orfs_sweep(
             ],
             arguments = {
                 "ODB_FILE": "$(location :" + name + "_" + variant + "_odb)",
+                "OUTPUT": "$(location :" + name + "_" + variant + ".txt)",
             },
             data = [":" + name + "_" + variant + "_odb"],
-            extra_args = "> $WORK_HOME/" + name + "_" + variant + ".txt",
             script = Label(":sweep-wns.tcl"),
             visibility = visibility,
         )
