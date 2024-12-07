@@ -14,15 +14,16 @@ all_stages = [
 
 def orfs_sweep(
         name,
-        arguments,
-        sweep,
-        verilog_files,
-        stage_sources,
+        arguments = {},
+        sweep = {"base": {}},
+        verilog_files = [],
+        stage_sources = {},
         other_variants = {},
         stage = "floorplan",
         abstract_stage = "final",
         macros = [],
-        visibility = ["//visibility:private"]):
+        visibility = ["//visibility:private"],
+        sources = {}):
     """Run a sweep of OpenROAD stages
 
     Args:
@@ -36,6 +37,7 @@ def orfs_sweep(
         stage_sources: dictionary with list of sources to use for the stage
         abstract_stage: generate abstract from this stage
         visibility: list of visibility labels
+        sources: forwarded to orfs_flow
     """
     sweep_json = {
         "name": name,
@@ -70,6 +72,7 @@ def orfs_sweep(
             variant = variant,
             verilog_files = verilog_files,
             abstract_stage = abstract_stage,
+            sources = sources,
             visibility = visibility,
         )
 
