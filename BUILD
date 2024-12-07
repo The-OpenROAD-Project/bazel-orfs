@@ -1,6 +1,7 @@
 load("//:eqy.bzl", "eqy_test")
 load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_run")
 load("//:sweep.bzl", "orfs_sweep")
+load("chisel.bzl", "chisel_binary")
 
 exports_files(["mock_area.tcl"])
 
@@ -335,4 +336,53 @@ exports_files(
         "sweep-wns.tcl",
         "wns_report.py",
     ],
+)
+
+chisel_binary(
+    name = "bus_generator",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    main_class = "Main",
+    deps = [],
+)
+
+genrule(
+    name = "bus_verilog",
+    srcs = [":bus_generator"],
+    outs = ["Bus.sv"],
+    cmd = "$(locations :bus_generator) > $(OUTS)",
+)
+
+filegroup(
+    name = "bus-io",
+    srcs = [
+        "bus-io.tcl",
+    ],
+    data = [
+        "util.tcl",
+    ],
+    visibility = [":__subpackages__"],
+)
+
+orfs_sweep(
+    name = "Bus",
+    arguments = {
+        "PLACE_DENSITY": "0.40",
+        "SDC_FILE": "$(location :bus-constraints.sdc)",
+        "IO_CONSTRAINTS": "$(location :bus-io)",
+    },
+    sources = {
+        "SDC_FILE": [":bus-constraints.sdc"],
+        "IO_CONSTRAINTS": [":bus-io"],
+    },
+    stage = "cts",
+    sweep = {
+        str(width): {"variables": {
+            "DIE_AREA": "0 0 " + str(width) + " 20",
+            "CORE_AREA": "2 2 " + str(width - 2) + " 18",
+        }} | {
+            "previous_stage": {"floorplan": "Bus_100_synth"} if width > 100 else {},
+        }
+        for width in range(100, 1000, 333)
+    },
+    verilog_files = ["bus_verilog"],
 )

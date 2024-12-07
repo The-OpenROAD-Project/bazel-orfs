@@ -34,3 +34,32 @@ load_json_file(
     out = "variables.json",
     script = "//:yaml_to_json.py",
 )
+
+bazel_dep(name = "rules_jvm_external", version = "6.4")
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+
+scala_version = "2.13.14"
+
+scala_version_short = "2.13"
+
+scalafmt_version = "3.8.3"
+
+chisel_version = "7.0.0-M2"
+
+circe_version = "0.14.4"
+
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven.install(
+    artifacts = [
+        "org.scalameta:scalafmt-cli_%s:%s" % (scala_version_short, scalafmt_version),
+        "io.circe:circe-core_%s:%s" % (scala_version_short, circe_version),
+        "io.circe:circe-generic_%s:%s" % (scala_version_short, circe_version),
+        "io.circe:circe-generic-extras_%s:%s" % (scala_version_short, circe_version),
+        "io.circe:circe-parser_%s:%s" % (scala_version_short, circe_version),
+        "org.chipsalliance:chisel_%s:%s" % (scala_version_short, chisel_version),
+        "org.chipsalliance:chisel-plugin_%s:%s" % (scala_version, chisel_version),
+    ],
+    fetch_sources = True,
+    lock_file = "//:maven_install.json",
+)
+use_repo(maven, "maven")
