@@ -7,6 +7,8 @@ set paths [find_timing_paths -path_group reg2reg -sort_by_slack -group_count 1]
 set path [lindex $paths 0]
 set slack [get_property $path slack]
 
-puts "slack: $slack"
-report_tns
-report_cell_usage
+set f [open $::env(OUTPUT) w]
+puts $f "slack: $slack"
+close $f
+report_tns >> $::env(OUTPUT)
+report_cell_usage >> $::env(OUTPUT)
