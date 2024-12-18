@@ -7,6 +7,7 @@ if [ -z "$FLOW_HOME" ]; then
   export MAKE_PATH="${MAKE_PATH}"
   export YOSYS_EXE="${YOSYS_PATH}"
   export OPENROAD_EXE="${OPENROAD_PATH}"
+  export OPENSTA_EXE="${OPENSTA_PATH}"
   export KLAYOUT_CMD="${KLAYOUT_PATH}"
   export STDBUF_CMD="${STDBUF_PATH}"
   export FLOW_HOME="${FLOW_HOME}"
