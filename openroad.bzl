@@ -149,6 +149,7 @@ def flow_environment(ctx):
         "FLOW_HOME": ctx.file._makefile.dirname,
         "KLAYOUT_CMD": ctx.executable._klayout.path,
         "OPENROAD_EXE": ctx.executable._openroad.path,
+        "OPENSTA_EXE": ctx.executable._opensta.path,
         "QT_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
         "QT_QPA_PLATFORM_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
         "RUBYLIB": ":".join([commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)]),
@@ -170,6 +171,7 @@ def flow_inputs(ctx):
             ctx.executable._klayout,
             ctx.executable._make,
             ctx.executable._openroad,
+            ctx.executable._opensta,
             ctx.file._makefile,
         ] +
         ctx.files._ruby +
@@ -181,6 +183,8 @@ def flow_inputs(ctx):
         transitive = [
             ctx.attr._openroad[DefaultInfo].default_runfiles.files,
             ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
+            ctx.attr._opensta[DefaultInfo].default_runfiles.files,
+            ctx.attr._opensta[DefaultInfo].default_runfiles.symlinks,
             ctx.attr._klayout[DefaultInfo].default_runfiles.files,
             ctx.attr._klayout[DefaultInfo].default_runfiles.symlinks,
             ctx.attr._makefile[DefaultInfo].default_runfiles.files,
@@ -291,6 +295,7 @@ def flow_substitutions(ctx):
         "${MAKEFILE_PATH}": ctx.file._makefile.path,
         "${MAKE_PATH}": ctx.executable._make.path,
         "${OPENROAD_PATH}": ctx.executable._openroad.path,
+        "${OPENSTA_PATH}": ctx.executable._opensta.path,
         "${QT_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
         "${RUBY_PATH}": commonpath(ctx.files._ruby),
         "${STDBUF_PATH}": "",
@@ -384,6 +389,13 @@ def flow_attrs():
             allow_files = True,
             cfg = "exec",
             default = Label("@docker_orfs//:openroad"),
+        ),
+        "_opensta": attr.label(
+            doc = "OpenSTA binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:sta"),
         ),
         "_klayout": attr.label(
             doc = "Klayout binary.",
@@ -608,10 +620,10 @@ def _run_impl(ctx):
             "$@",
             ctx.expand_location(ctx.attr.extra_args, ctx.attr.data),
         ]),
-        env = _data_arguments(ctx) |
-              odb_environment(ctx) |
+        env = odb_environment(ctx) |
               flow_environment(ctx) |
               config_environment(config) |
+              _data_arguments(ctx) |
               {"RUN_SCRIPT": ctx.file.script.path},
         inputs = depset(
             [config, ctx.file.script],

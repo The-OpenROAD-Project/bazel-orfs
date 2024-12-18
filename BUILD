@@ -336,3 +336,16 @@ exports_files(
         "wns_report.py",
     ],
 )
+
+orfs_run(
+    name = "sta",
+    src = ":lb_32x128_floorplan",
+    outs = [
+        "units.txt",
+    ],
+    arguments = {
+        "OPENROAD_EXE": "$$OPENSTA_EXE",
+        "OUTPUT": "$(location units.txt)",
+    },
+    script = ":units.tcl",
+)
