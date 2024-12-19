@@ -321,9 +321,6 @@ def _deps_impl(ctx):
         },
     )
     return [
-        ctx.attr.src[OrfsInfo],
-        ctx.attr.src[PdkInfo],
-        ctx.attr.src[TopInfo],
         DefaultInfo(
             executable = exe,
             files = ctx.attr.src[OrfsDepInfo].files,
@@ -636,11 +633,27 @@ def _run_impl(ctx):
         outputs = outs,
     )
     return [
+        ctx.attr.src[PdkInfo],
+        ctx.attr.src[TopInfo],
         DefaultInfo(
             files = depset(outs),
         ),
         OutputGroupInfo(
             **{f.basename: depset([f]) for f in outs}
+        ),
+        OrfsDepInfo(
+            make = ctx.attr.src[OrfsDepInfo].make,
+            config = ctx.attr.src[OrfsDepInfo].config,
+            renames = [],
+            files = depset([ctx.attr.src[OrfsDepInfo].config, ctx.file.script]),
+            runfiles = ctx.runfiles(transitive_files = depset(
+                [ctx.attr.src[OrfsDepInfo].config, ctx.attr.src[OrfsDepInfo].make, ctx.file.script],
+                transitive = [
+                    flow_inputs(ctx),
+                    data_inputs(ctx),
+                    source_inputs(ctx),
+                ],
+            )),
         ),
     ]
 
