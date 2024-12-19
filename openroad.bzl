@@ -130,9 +130,10 @@ orfs_macro = rule(
     },
 )
 
-def odb_environment(ctx):
+def _odb_arguments(ctx, short = False):
     if ctx.attr.src[OrfsInfo].odb:
-        return {"ODB_FILE": ctx.attr.src[OrfsInfo].odb.path}
+        odb = ctx.attr.src[OrfsInfo].odb
+        return {"ODB_FILE": odb.short_path if short else odb.path}
     return {}
 
 def orfs_environment(ctx):
@@ -537,6 +538,12 @@ def _hack_away_prefix(arguments, prefix):
 def _data_arguments(ctx):
     return {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()}
 
+def _run_arguments(ctx):
+    return {"RUN_SCRIPT": ctx.file.script.path}
+
+def _environment_string(env):
+    return " ".join(['{}="{}"'.format(*pair) for pair in env.items()])
+
 def _generation_commands(optional_files):
     if optional_files:
         return [
@@ -617,11 +624,12 @@ def _run_impl(ctx):
             "$@",
             ctx.expand_location(ctx.attr.extra_args, ctx.attr.data),
         ]),
-        env = odb_environment(ctx) |
-              flow_environment(ctx) |
-              config_environment(config) |
-              _data_arguments(ctx) |
-              {"RUN_SCRIPT": ctx.file.script.path},
+        env =
+            flow_environment(ctx) |
+            config_environment(config) |
+            _odb_arguments(ctx) |
+            _data_arguments(ctx) |
+            _run_arguments(ctx),
         inputs = depset(
             [config, ctx.file.script],
             transitive = [
@@ -632,6 +640,25 @@ def _run_impl(ctx):
         ),
         outputs = outs,
     )
+
+    make = ctx.actions.declare_file("make_{}_{}_run".format(ctx.attr.name, ctx.attr.variant))
+    ctx.actions.expand_template(
+        template = ctx.file._make_template,
+        output = make,
+        substitutions = flow_substitutions(ctx) | {'"$@"': _environment_string(
+            _hack_away_prefix(
+                arguments = _odb_arguments(ctx, short = True) |
+                            _data_arguments(ctx) |
+                            _run_arguments(ctx),
+                prefix = config.root.path,
+            ) |
+            {
+                "WORK_HOME": ctx.label.package,
+                "DESIGN_CONFIG": "config.mk",
+            },
+        ) + ' "$@"'},
+    )
+
     return [
         ctx.attr.src[PdkInfo],
         ctx.attr.src[TopInfo],
@@ -642,12 +669,12 @@ def _run_impl(ctx):
             **{f.basename: depset([f]) for f in outs}
         ),
         OrfsDepInfo(
-            make = ctx.attr.src[OrfsDepInfo].make,
+            make = make,
             config = ctx.attr.src[OrfsDepInfo].config,
             renames = [],
             files = depset([ctx.attr.src[OrfsDepInfo].config, ctx.file.script]),
             runfiles = ctx.runfiles(transitive_files = depset(
-                [ctx.attr.src[OrfsDepInfo].config, ctx.attr.src[OrfsDepInfo].make, ctx.file.script],
+                [ctx.attr.src[OrfsDepInfo].config, make, ctx.file.script],
                 transitive = [
                     flow_inputs(ctx),
                     data_inputs(ctx),
