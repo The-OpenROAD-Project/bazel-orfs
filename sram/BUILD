@@ -195,35 +195,35 @@ orfs_run(
     script = ":write_macros.tcl",
 )
 
-orfs_run(
-    name = "top_write_floorplan",
-    src = ":top_floorplan_deps",
-    outs = [
-        ":floorplan.config",
-    ],
-    script = ":write_floorplan.tcl",
-)
+# orfs_run(
+#     name = "top_write_floorplan",
+#     src = ":top_floorplan_deps",
+#     outs = [
+#         ":floorplan.config",
+#     ],
+#     script = ":write_floorplan.tcl",
+# )
 
 # buildifier: disable=duplicated-name
-orfs_flow(
-    name = "top",
-    abstract_stage = "cts",
-    arguments = FAST_SETTINGS | {
-        "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
-        "MACRO_PLACEMENT_TCL": "$(location :macro_placement.tcl)",
-        "RTLMP_FLOW": "1",
-    },
-    extra_configs = {"floorplan": [":floorplan.config"]},
-    macros = [
-        ":frankenstein",
-    ],
-    sources = {
-        "SDC_FILE": [":fakeram/constraints-sram.sdc"],
-        "MACRO_PLACEMENT_TCL": [":macro_placement.tcl"],
-    },
-    variant = "mix",
-    verilog_files = [":fakeram/top.v"],
-)
+# orfs_flow(
+#     name = "top",
+#     abstract_stage = "cts",
+#     arguments = FAST_SETTINGS | {
+#         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
+#         "MACRO_PLACEMENT_TCL": "$(location :macro_placement.tcl)",
+#         "RTLMP_FLOW": "1",
+#     },
+#     extra_configs = {"floorplan": [":floorplan.config"]},
+#     macros = [
+#         ":frankenstein",
+#     ],
+#     sources = {
+#         "SDC_FILE": [":fakeram/constraints-sram.sdc"],
+#         "MACRO_PLACEMENT_TCL": [":macro_placement.tcl"],
+#     },
+#     variant = "mix",
+#     verilog_files = [":fakeram/top.v"],
+# )
 
 # buildifier: disable=duplicated-name
 orfs_flow(
