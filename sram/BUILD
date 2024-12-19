@@ -193,7 +193,7 @@ orfs_run(
 
 orfs_run(
     name = "top_write_floorplan",
-    src = ":top_floorplan_deps",
+    src = ":top_floorplan",
     outs = [
         ":floorplan.config",
     ],
