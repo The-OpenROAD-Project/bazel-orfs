@@ -131,6 +131,7 @@ orfs_flow(
         # Skip power checks to silence error and speed up build
         "PWR_NETS_VOLTAGES": "",
         "GND_NETS_VOLTAGES": "",
+        "GDS_ALLOW_EMPTY": "lb_32x128",
     },
     macros = ["lb_32x128_generate_abstract"],
     stage_sources = LB_STAGE_SOURCES,
