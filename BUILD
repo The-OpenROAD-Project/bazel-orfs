@@ -271,7 +271,7 @@ orfs_flow(
         "DIE_AREA": "0 0 400 400",
         "CORE_AREA": "2 2 298 298",
         "IO_CONSTRAINTS": "$(location :io-sram)",
-        "PLACE_DENSITY": "0.20"
+        "PLACE_DENSITY": "0.20",
     },
     stage_sources = {
         "synth": [":constraints-sram"],
