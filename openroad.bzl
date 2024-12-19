@@ -1170,6 +1170,7 @@ orfs_final = rule(
             "6_final.odb",
             "6_final.sdc",
             "6_final.spef",
+            "6_final.v",
         ],
     ),
     attrs = openroad_attrs() | renamed_inputs_attr(),
