@@ -49,6 +49,10 @@ FAST_SETTINGS = {
     }.get(variant, []),
     variant = variant,
     verilog_files = [":fakeram/sdq_17x64.sv"],
+    tags = {
+        "naja": ["manual"],
+        "naja-error": ["manual"],
+    }.get(variant, []),
 ) for variant in [
     "base",
     "mock-naja",
