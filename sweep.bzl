@@ -139,11 +139,11 @@ def orfs_sweep(
 
     native.genrule(
         name = name + "_plot_repair",
+        tools = ["@bazel-orfs//:plot_repair"],
         srcs = [
-            "plot-retiming.py",
             name + "_repair_logs",
         ],
         outs = [name + "_retiming.pdf"],
-        cmd = "$(location plot-retiming.py) $(location " + name + "_retiming.pdf) $(locations " + name + "_repair_logs)",
+        cmd = "$(execpath  :plot_repair) $(location " + name + "_retiming.pdf) $(locations " + name + "_repair_logs)",
         visibility = visibility,
     )
