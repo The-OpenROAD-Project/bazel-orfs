@@ -8,14 +8,7 @@ bazel query //:* | grep -q -v lb_32x128_3_place
 echo This target should exist
 bazel query //:* | grep -q -v lb_32x128_4_synth
 
-bazel build \
- check_mock_area \
- cell_count lb_32x128_shared_synth_floorplan \
- lb_32x128_wns_report \
- //sram:sdq_17x64_mock-naja_floorplan_deps \
- //sram:mock-naja \
- sta \
- lb_32x128_top_final
+bazel build ...
 grep naja bazel-bin/sram/mock-naja.v
 grep -q naja bazel-bin/sram/results/asap7/sdq_17x64/mock-naja/1_synth.v && false || true
 (bazel build //sram:sdq_17x64_naja-error_floorplan 2>&1 || true) | grep "syntax error"
