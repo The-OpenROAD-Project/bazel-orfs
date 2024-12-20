@@ -31,7 +31,7 @@ module data_2048x8(
   input  [3:0]  W0_mask
 );
 
-  reg [7:0]  Memory[0:3];  // Reduced to 4 rows
+  reg [7:0]  Memory[0:0];  // Reduced to 1 rows
   reg        _R0_en_d0;
   reg [1:0]  _R0_addr_d0;  // Reduced to 2 bits
   reg [1:0]  _W0_addr_d0;  // Reduced to 2 bits
