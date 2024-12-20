@@ -110,7 +110,7 @@ LB_VERILOG_FILES = ["test/mock/lb_32x128.sv"]
 orfs_flow(
     name = "lb_32x128",
     arguments = LB_ARGS,
-    mock_area = 0.5,
+    mock_area = 0.90,
     stage_sources = LB_STAGE_SOURCES,
     verilog_files = LB_VERILOG_FILES,
 )
@@ -163,23 +163,17 @@ orfs_run(
 orfs_flow(
     name = "L1MetadataArray",
     abstract_stage = "cts",
-    arguments = FAST_SETTINGS,
+    arguments = FAST_SETTINGS |
+                {
+                    "SDC_FILE": "$(location :test/constraints-top.sdc)",
+                    "SYNTH_HIERARCHICAL": "1",
+                    "CORE_UTILIZATION": "3",
+                    "RTLMP_FLOW": "1",
+                    "CORE_MARGIN": "2",
+                    "MACRO_PLACE_HALO": "30 30",
+                    "PLACE_DENSITY": "0.10",
+                },
     macros = ["tag_array_64x184_generate_abstract"],
-    stage_arguments = {
-        "synth": {
-            "SDC_FILE": "$(location :test/constraints-top.sdc)",
-            "SYNTH_HIERARCHICAL": "1",
-        },
-        "floorplan": {
-            "CORE_UTILIZATION": "3",
-            "RTLMP_FLOW": "1",
-            "CORE_MARGIN": "2",
-            "MACRO_PLACE_HALO": "30 30",
-        },
-        "place": {
-            "PLACE_DENSITY": "0.20",
-        },
-    },
     stage_sources = {
         "synth": [":test/constraints-top.sdc"],
     },
@@ -361,9 +355,9 @@ compile_pip_requirements(
 
 py_binary(
     name = "plot_repair",
-    main = "plot-retiming.py",
     srcs = [
         "plot-retiming.py",
     ],
-    deps = [requirement("matplotlib")]
+    main = "plot-retiming.py",
+    deps = [requirement("matplotlib")],
 )
