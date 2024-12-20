@@ -292,6 +292,7 @@ orfs_flow(
 # buildifier: disable=duplicated-name
 orfs_sweep(
     name = "lb_32x128",
+    abstract_stage = "cts",
     arguments = LB_ARGS,
     stage = "cts",
     stage_sources = {
