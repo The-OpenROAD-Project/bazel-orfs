@@ -1,3 +1,5 @@
+load("@pip//:requirements.bzl", "requirement")
+load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("//:eqy.bzl", "eqy_test")
 load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_run")
 load("//:sweep.bzl", "orfs_sweep")
@@ -349,4 +351,19 @@ orfs_run(
         "OUTPUT": "$(location units.txt)",
     },
     script = ":units.tcl",
+)
+
+compile_pip_requirements(
+    name = "requirements",
+    src = "requirements.in",
+    requirements_txt = "requirements_lock.txt",
+)
+
+py_binary(
+    name = "plot_repair",
+    main = "plot-retiming.py",
+    srcs = [
+        "plot-retiming.py",
+    ],
+    deps = [requirement("matplotlib")]
 )
