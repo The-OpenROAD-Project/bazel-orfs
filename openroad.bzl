@@ -1435,20 +1435,15 @@ def orfs_flow(
         "floorplan": [mock_area_name],
     }
 
-    mock_stage_arguments = _merge(
-        stage_arguments,
-        MOCK_STAGE_ARGUMENTS,
-    )
-
     _orfs_pass(
         name = name,
         verilog_files = verilog_files,
         macros = macros,
         sources = sources,
         stage_sources = stage_sources,
-        stage_arguments = mock_stage_arguments,
+        stage_arguments = stage_arguments,
         renamed_inputs = {},
-        arguments = arguments,
+        arguments = arguments | {"SYNTH_GUT": "1"},
         extra_configs = extra_configs | mock_configs,
         abstract_stage = "floorplan",
         variant = mock_variant,
