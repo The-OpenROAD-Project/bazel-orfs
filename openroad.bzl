@@ -1285,31 +1285,7 @@ ORFS_STAGE_TO_VARIABLES = {
     for stage in ALL_STAGES
 }
 
-STAGE_TO_VARIABLES = {
-    stage: [
-        variable
-        for variable, stages in BAZEL_VARIABLE_TO_STAGES.items()
-        if stage in stages
-    ] + BAZEL_STAGE_TO_VARIABLES.get(stage, [])
-    for stage in ALL_STAGES
-}
-
-VARIABLE_TO_STAGES = {
-    variable: [
-        stage
-        for stage in ALL_STAGES
-        if variable in STAGE_TO_VARIABLES[stage]
-    ]
-    for variable in _union(*STAGE_TO_VARIABLES.values())
-}
-
-[
-    fail("Variable {} is defined the same in ORFS and Bazel {}".format(variable, stages))
-    for variable, stages in VARIABLE_TO_STAGES.items()
-    if variable in ORFS_VARIABLE_TO_STAGES and sorted(ORFS_VARIABLE_TO_STAGES[variable]) == sorted(stages)
-]
-
-ALL_STAGE_TO_VARIABLES = {stage: _union(STAGE_TO_VARIABLES.get(stage, []), ORFS_STAGE_TO_VARIABLES.get(stage, [])) for stage in ALL_STAGES}
+ALL_STAGE_TO_VARIABLES = {stage: ORFS_STAGE_TO_VARIABLES.get(stage, []) for stage in ALL_STAGES}
 
 ALL_VARIABLE_TO_STAGES = {
     variable: [
