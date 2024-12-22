@@ -1339,15 +1339,6 @@ def _step_name(name, variant, stage):
 def _variant_name(variant, suffix):
     return "_".join([part for part in [variant, suffix] if part])
 
-def _do_merge(a, b):
-    return {k: a.get(k, {}) | b.get(k, {}) for k in (a | b).keys()}
-
-def _merge(*args):
-    x = {}
-    for arg in args:
-        x = _do_merge(x, arg)
-    return x
-
 def orfs_flow(
         name,
         verilog_files = [],
