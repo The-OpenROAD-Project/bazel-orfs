@@ -264,20 +264,14 @@ orfs_flow(
     ],
 )
 
+# Need full flow to test final gatelist extraction
 orfs_flow(
     name = "regfile_128x65",
-    abstract_stage = "cts",
-    arguments = SRAM_ARGUMENTS,
-    stage_arguments = {
-        "floorplan": BLOCK_FLOORPLAN | {
-            "DIE_AREA": "0 0 400 400",
-            "CORE_AREA": "2 2 298 298",
-            "IO_CONSTRAINTS": "$(location :io-sram)",
-        },
-        "place": {
-            "PLACE_DENSITY": "0.3",
-            "IO_CONSTRAINTS": "$(location :io-sram)",
-        },
+    arguments = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
+        "DIE_AREA": "0 0 400 400",
+        "CORE_AREA": "2 2 298 298",
+        "IO_CONSTRAINTS": "$(location :io-sram)",
+        "PLACE_DENSITY": "0.20"
     },
     stage_sources = {
         "synth": [":constraints-sram"],
@@ -361,4 +355,37 @@ py_binary(
     ],
     main = "plot-retiming.py",
     deps = [requirement("matplotlib")],
+)
+
+filegroup(
+    name = "gatelist",
+    srcs = [
+        "lb_32x128_final",
+        "regfile_128x65_final",
+    ],
+    output_group = "6_final.v",
+)
+
+filegroup(
+    name = "spef",
+    srcs = [
+        "lb_32x128_final",
+        "regfile_128x65_final",
+    ],
+    output_group = "6_final.spef",
+)
+
+# gate netlists can be build by e.g. Verilator, mock
+# usage of the gate netlists here to demonstrate the
+# usecase
+genrule(
+    name = "gatelist_wc",
+    srcs = [
+        ":gatelist",
+        ":spef",
+    ],
+    outs = [
+        "gatelist_wc.txt",
+    ],
+    cmd = "wc -l $(locations :gatelist) $(locations :spef) > $@",
 )
