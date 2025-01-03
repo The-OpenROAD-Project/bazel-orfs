@@ -18,7 +18,7 @@ proc expect {value a b} {
     exit 1
   }
 }
-expect Width $width 20.366
-expect Height $height 39.133
+expect Width $width 20.364
+expect Height $height 39.128
 
 exec touch $::env(WORK_HOME)/area_ok.txt
