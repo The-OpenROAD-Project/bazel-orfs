@@ -8,9 +8,9 @@ orfs = use_extension("//:extension.bzl", "orfs_repositories")
 orfs.default(
     # a local only or remote docker image. Local docker images do not
     # have a sha256.
-    image = "docker.io/openroad/orfs:v3.0-1755-g18371323",
+    image = "docker.io/openroad/orfs:v3.0-1985-gf6274eee",
     # Comment out line below for local only docker images
-    sha256 = "43ce53d1eed2f75857532e1d066eb9d5f78d7cb9bd89646429f3f6dc33aee7b7",
+    sha256 = "9c7b880d2148d6744280e36f492e2b3539dbb3301b71314d0772cdf85bb59bb4",
 )
 use_repo(orfs, "com_github_nixos_patchelf_download")
 use_repo(orfs, "docker_orfs")
