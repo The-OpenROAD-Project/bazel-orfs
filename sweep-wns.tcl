@@ -11,4 +11,4 @@ set f [open $::env(OUTPUT) w]
 puts $f "slack: $slack"
 close $f
 report_tns >> $::env(OUTPUT)
-report_cell_usage >> $::env(OUTPUT)
+tee -file $::env(OUTPUT) -append report_cell_usage
