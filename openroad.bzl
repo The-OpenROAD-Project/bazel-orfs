@@ -759,7 +759,6 @@ def _yosys_impl(ctx):
             "--old-file",
             canon_output.path,
             "yosys-dependencies",
-            "do-yosys-stats",
             "do-yosys",
             "do-synth",
         ],

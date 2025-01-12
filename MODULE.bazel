@@ -4,17 +4,6 @@ module(
     compatibility_level = 1,
 )
 
-orfs = use_extension("//:extension.bzl", "orfs_repositories")
-orfs.default(
-    # a local only or remote docker image. Local docker images do not
-    # have a sha256.
-    image = "docker.io/openroad/orfs:v3.0-1985-gf6274eee",
-    # Comment out line below for local only docker images
-    sha256 = "9c7b880d2148d6744280e36f492e2b3539dbb3301b71314d0772cdf85bb59bb4",
-)
-use_repo(orfs, "com_github_nixos_patchelf_download")
-use_repo(orfs, "docker_orfs")
-
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 http_archive(
@@ -50,3 +39,14 @@ pip.parse(
     requirements_lock = "//:requirements_lock.txt",
 )
 use_repo(pip, "pip")
+
+orfs = use_extension("//:extension.bzl", "orfs_repositories")
+orfs.default(
+    # a local only or remote docker image. Local docker images do not
+    # have a sha256.
+    image = "docker.io/openroad/orfs:v3.0-2024-g6a47bb89",
+    # Comment out line below for local only docker images
+    sha256 = "6b1a31959f0f70716d6eb8a6fb3d36ea854cddb3a1d4612bfb961d37071c20eb",
+)
+use_repo(orfs, "com_github_nixos_patchelf_download")
+use_repo(orfs, "docker_orfs")

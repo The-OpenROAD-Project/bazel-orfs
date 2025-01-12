@@ -214,14 +214,14 @@ bazel run <target>_<stage>_deps -- <absolute_path>
 <absolute_path>/make do-<stage>
 ```
 
-> **NOTE:** The synthesis stage requires the `do-yosys-canonicalize`, `do-yosys-stats` and `do-yosys` steps to be completed beforehand.
+> **NOTE:** The synthesis stage requires the `do-yosys-canonicalize` and `do-yosys` steps to be completed beforehand.
 > These steps are necessary to generate the required `.rtlil` file for the synthesis stage.
 >
 > ```bash
 > source <orfs_path>/env.sh
 >
 > bazel run <target>_synth_deps -- <absolute_path>
-> <absolute_path>/make do-yosys-canonicalize do-yosys-stats do-yosys do-synth
+> <absolute_path>/make do-yosys-canonicalize do-yosys do-synth
 > ```
 
 ### Override BUILD configuration variables
@@ -453,7 +453,7 @@ Let's assume we want to perform a `floorplan` stage for the `L1MetadataArray` de
   bazel run @bazel-orfs//:L1MetadataArray_synth_deps -- `pwd`/build
 
   # Build Synthesis stage for L1MetadataArray target using local ORFS
-  build/make do-yosys-canonicalize do-yosys-stats do-yosys do-synth
+  build/make do-yosys-canonicalize do-yosys do-synth
 
   # Initialize dependencies for the Floorplan stage for L1MetadataArray target
   bazel run @bazel-orfs//:L1MetadataArray_floorplan_deps -- `pwd`/build
