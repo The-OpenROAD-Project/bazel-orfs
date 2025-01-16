@@ -1,4 +1,4 @@
-load("@pip//:requirements.bzl", "requirement")
+load("@bazel-orfs-pip//:requirements.bzl", "requirement")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("//:eqy.bzl", "eqy_test")
 load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_run")
