@@ -722,7 +722,7 @@ def _yosys_impl(ctx):
     commands = _generation_commands(canon_logs) + [ctx.executable._make.path + " $@"]
 
     ctx.actions.run_shell(
-        arguments = ["--file", ctx.file._makefile_yosys.path, canon_output.path],
+        arguments = ["--file", ctx.file._makefile_yosys.path, "yosys-dependencies", "do-yosys-canonicalize"],
         command = " && ".join(commands),
         env = _verilog_arguments(ctx.files.verilog_files) |
               yosys_environment(ctx) |
@@ -756,8 +756,6 @@ def _yosys_impl(ctx):
         arguments = [
             "--file",
             ctx.file._makefile_yosys.path,
-            "--old-file",
-            canon_output.path,
             "yosys-dependencies",
             "do-yosys",
             "do-synth",
