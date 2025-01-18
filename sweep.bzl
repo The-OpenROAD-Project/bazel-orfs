@@ -17,7 +17,8 @@ def orfs_sweep(
         arguments,
         sweep,
         verilog_files,
-        stage_sources,
+        stage_sources = {},
+        sources = {},
         other_variants = {},
         stage = "floorplan",
         abstract_stage = "final",
@@ -36,6 +37,7 @@ def orfs_sweep(
         stage_sources: dictionary with list of sources to use for the stage
         abstract_stage: generate abstract from this stage
         visibility: list of visibility labels
+        sources: forwarded to orfs_flow
     """
     sweep_json = {
         "name": name,
@@ -69,6 +71,7 @@ def orfs_sweep(
             },
             variant = variant,
             verilog_files = verilog_files,
+            sources = sources,
             abstract_stage = abstract_stage,
             visibility = visibility,
         )
