@@ -149,7 +149,7 @@ def main():
     logs_dir = os.path.join(log_dir, "..")
 
     variables = sorted(
-        set(k for v in sweep.values() for k in v.get("variables", {}).keys())
+        set(k for v in sweep.values() for k in v.get("arguments", {}).keys())
     )
 
     def read_file(variant):
@@ -164,7 +164,7 @@ def main():
     stats = {variant: parse_stats(read_file(variant)) for variant in sweep}
     names = sorted({name for stat in stats.values() for name in stat.keys()})
     variable_names = sorted(
-        set(k for v in sweep.values() for k in v.get("variables", {}).keys())
+        set(k for v in sweep.values() for k in v.get("arguments", {}).keys())
     )
 
     table_data = None
@@ -184,7 +184,7 @@ def main():
                 + ["dissolve", "previous_stage"]
                 + logs
             ]
-        variables = sweep[variant].get("variables", {})
+        variables = sweep[variant].get("arguments", {})
         table_data.append(
             (
                 [variant, sweep[variant].get("description", "")]
