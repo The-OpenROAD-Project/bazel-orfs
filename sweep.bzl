@@ -55,7 +55,7 @@ def orfs_sweep(
 
     for variant in all_variants:
         for key in all_variants[variant].keys():
-            if key not in ["arguments", "dissolve", "macros", "previous_stage", "renamed_inputs", "stage_arguments", "stage_sources"]:
+            if key not in ["arguments", "dissolve", "macros", "previous_stage", "renamed_inputs", "stage_arguments", "stage_sources", "description"]:
                 fail("Unknown orfs_sweep() key \"" + key + "\" in " + variant)
 
         orfs_flow(
