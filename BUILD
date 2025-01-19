@@ -296,25 +296,25 @@ orfs_sweep(
     },
     sweep = {
         "1": {
-            "variables": {
+            "arguments": {
                 "PLACE_DENSITY": "0.65",
             },
             "previous_stage": {"floorplan": "lb_32x128_synth"},
         },
         "2": {
-            "variables": {
+            "arguments": {
                 "PLACE_DENSITY": "0.70",
             },
             "previous_stage": {"place": "lb_32x128_floorplan"},
         },
         "3": {
-            "variables": {
+            "arguments": {
                 "PLACE_DENSITY": "0.75",
             },
             "previous_stage": {"cts": "lb_32x128_place"},
         },
         "4": {
-            "variables": {
+            "arguments": {
                 "PLACE_DENSITY": "0.80",
             },
         },
