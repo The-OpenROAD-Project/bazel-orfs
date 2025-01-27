@@ -179,8 +179,7 @@ def flow_inputs(ctx):
         ctx.files._ruby_dynamic +
         ctx.files._tcl +
         ctx.files._opengl +
-        ctx.files._qt_plugins +
-        ctx.files._gio_modules,
+        ctx.files._qt_plugins,
         transitive = [
             ctx.attr._openroad[DefaultInfo].default_runfiles.files,
             ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
@@ -290,7 +289,6 @@ def flow_substitutions(ctx):
     return {
         "${DLN_LIBRARY_PATH}": commonpath(ctx.files._ruby_dynamic),
         "${FLOW_HOME}": ctx.file._makefile.dirname,
-        "${GIO_MODULE_DIR}": commonpath(ctx.files._gio_modules),
         "${KLAYOUT_PATH}": ctx.executable._klayout.path,
         "${LIBGL_DRIVERS_PATH}": commonpath(ctx.files._opengl),
         "${MAKEFILE_PATH}": ctx.file._makefile.path,
@@ -421,11 +419,6 @@ def flow_attrs():
             doc = "Qt plugins.",
             allow_files = True,
             default = Label("@docker_orfs//:qt_plugins"),
-        ),
-        "_gio_modules": attr.label(
-            doc = "GIO modules.",
-            allow_files = True,
-            default = Label("@docker_orfs//:gio_modules"),
         ),
     } | orfs_attrs()
 
