@@ -2,6 +2,7 @@ load("@bazel-orfs-pip//:requirements.bzl", "requirement")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("//:eqy.bzl", "eqy_test")
 load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_run")
+load("//:ppa.bzl", "orfs_ppa")
 load("//:sweep.bzl", "orfs_sweep")
 
 exports_files(["mock_area.tcl"])
@@ -326,6 +327,7 @@ exports_files(
     [
         "sweep-wns.tcl",
         "wns_report.py",
+        "power.tcl",
     ],
 )
 
@@ -388,4 +390,23 @@ genrule(
         "gatelist_wc.txt",
     ],
     cmd = "wc -l $(locations :gatelist) $(locations :spef) > $@",
+)
+
+py_binary(
+    name = "plot_clock_period_tool",
+    srcs = [
+        "plot_clock_period.py",
+    ],
+    main = "plot_clock_period.py",
+    visibility = ["//visibility:public"],
+    deps = [
+        requirement("PyYAML"),
+        requirement("matplotlib"),
+    ],
+)
+
+orfs_ppa(
+    name = "plot",
+    plot = ["lb_32x128_{}_cts".format(i + 1) for i in range(4)],
+    title = "lb_32x128 variants",
 )
