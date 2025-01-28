@@ -99,11 +99,10 @@ filegroup(
 )
 
 MAKEFILE_SHARED = [
-        "OpenROAD-flow-scripts/flow/util/utils.mk",
-        "OpenROAD-flow-scripts/flow/scripts/*.py",
-        "OpenROAD-flow-scripts/flow/scripts/*.sh",
-        "OpenROAD-flow-scripts/flow/scripts/*.yaml",
-
+    "OpenROAD-flow-scripts/flow/util/utils.mk",
+    "OpenROAD-flow-scripts/flow/scripts/*.py",
+    "OpenROAD-flow-scripts/flow/scripts/*.sh",
+    "OpenROAD-flow-scripts/flow/scripts/*.yaml",
 ]
 
 # Narrowly define yosys dependencies to avoid hours of resynthesis
@@ -133,20 +132,29 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-orfs_pdk(
-    name = "asap7",
+#print(["OpenROAD-flow-scripts/flow/platforms/{pdk}/**/*.{ext}".format(pdk = "asap7", ext = ext) for ext in ["gds", "lib.gz", "lef", "lib", "lyt", "mk", "rules", "sdc", "tcl", "v", "tlef"]]] + +["OpenROAD-flow-scripts/flow/platforms/common/**/*.v"])
+
+[orfs_pdk(
+    name = pdk,
     srcs = glob([
-        "OpenROAD-flow-scripts/flow/platforms/asap7/**/*.gds",
-        "OpenROAD-flow-scripts/flow/platforms/asap7/**/*.lib.gz",
-        "OpenROAD-flow-scripts/flow/platforms/asap7/**/*.lef",
-        "OpenROAD-flow-scripts/flow/platforms/asap7/**/*.lib",
-        "OpenROAD-flow-scripts/flow/platforms/asap7/**/*.lyt",
-        "OpenROAD-flow-scripts/flow/platforms/asap7/**/*.mk",
-        "OpenROAD-flow-scripts/flow/platforms/asap7/**/*.rules",
-        "OpenROAD-flow-scripts/flow/platforms/asap7/**/*.sdc",
-        "OpenROAD-flow-scripts/flow/platforms/asap7/**/*.tcl",
-        "OpenROAD-flow-scripts/flow/platforms/asap7/**/*.v",
-        "OpenROAD-flow-scripts/flow/platforms/common/**/*.v",
-    ]),
+                    "OpenROAD-flow-scripts/flow/platforms/{pdk}/**/*.{ext}".format(pdk = pdk, ext = ext)
+                    for ext in [
+                        "gds",
+                        "lib.gz",
+                        "lef",
+                        "lib",
+                        "lyt",
+                        "mk",
+                        "rules",
+                        "sdc",
+                        "tcl",
+                        "v",
+                        "tlef",
+                    ]
+                ] +
+                ["OpenROAD-flow-scripts/flow/platforms/common/**/*.v"]),
     visibility = ["//visibility:public"],
-)
+) for pdk in [
+    "asap7",
+    "sky130hd",
+]]

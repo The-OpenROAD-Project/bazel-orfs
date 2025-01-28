@@ -17,17 +17,20 @@ def orfs_sweep(
         arguments,
         sweep,
         verilog_files,
+        top = None,
         stage_sources = {},
         sources = {},
         other_variants = {},
         stage = "floorplan",
         abstract_stage = "final",
         macros = [],
+        pdk = None,
         visibility = ["//visibility:private"]):
     """Run a sweep of OpenROAD stages
 
     Args:
-        name: Verilog module name
+        name: Basename of bazel targets
+        top: Top module, default "name"
         arguments: dictionary of the base variables for the flow
         sweep: The dictionary describing the variables to sweep
         other_variants: Dictionary with other variants to generate, but not as part of the sweep
@@ -38,7 +41,10 @@ def orfs_sweep(
         abstract_stage: generate abstract from this stage
         visibility: list of visibility labels
         sources: forwarded to orfs_flow
+        pdk: forwarded to orfs_flow
     """
+    if top == None:
+        top = name
     sweep_json = {
         "name": name,
         "base": arguments,
@@ -60,6 +66,8 @@ def orfs_sweep(
 
         orfs_flow(
             name = name,
+            top = top,
+            pdk = pdk,
             arguments = arguments | all_variants[variant].get("arguments", {}),
             macros = [
                 m
