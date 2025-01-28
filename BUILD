@@ -410,3 +410,19 @@ orfs_ppa(
     plot = ["lb_32x128_{}_cts".format(i + 1) for i in range(4)],
     title = "lb_32x128 variants",
 )
+
+orfs_flow(
+    name = "lb_32x128_sky130hd",
+    arguments = {
+        "CORE_UTILIZATION": "10",
+        "CORE_ASPECT_RATIO": "2",
+        "SKIP_REPORT_METRICS": "1",
+        "SDC_FILE": "$(location :constraints-sram-sky130hd.sdc)",
+    },
+    pdk = "@docker_orfs//:sky130hd",
+    sources = {
+        "SDC_FILE": [":constraints-sram-sky130hd.sdc"],
+    },
+    top = "lb_32x128",
+    verilog_files = LB_VERILOG_FILES,
+)
