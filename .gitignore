@@ -4,3 +4,4 @@ build/
 .user-bazelrc
 .metals/
 .vscode/
+__pycache__/
