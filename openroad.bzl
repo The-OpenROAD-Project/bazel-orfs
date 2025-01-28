@@ -742,7 +742,9 @@ def _yosys_impl(ctx):
     for output in SYNTH_OUTPUTS:
         synth_outputs.append(_declare_artifact(ctx, "results", output))
 
-    synth_outputs.append(_declare_artifact(ctx, "objects", "lib/merged.lib"))
+    if "asap7" in ctx.attr.pdk[PdkInfo].name:
+        # FIXME - should ORFS have a consistent name here?
+        synth_outputs.append(_declare_artifact(ctx, "objects", "lib/merged.lib"))
 
     commands = _generation_commands(synth_logs) + [ctx.executable._make.path + " $@"]
     ctx.actions.run_shell(
@@ -1371,6 +1373,7 @@ def _variant_name(variant, suffix):
 
 def orfs_flow(
         name,
+        top = None,
         verilog_files = [],
         macros = [],
         sources = {},
@@ -1383,12 +1386,14 @@ def orfs_flow(
         variant = None,
         mock_area = None,
         previous_stage = {},
+        pdk = None,
         **kwargs):
     """
     Creates targets for running physical design flow with OpenROAD-flow-scripts.
 
     Args:
-      name: name of the macro target
+      name: base name of bazel targets
+      top: Verilog top level module name, default is 'name'
       verilog_files: list of verilog sources of the design
       macros: list of macros required to run physical design flow for this design
       sources: dictionary keyed by ORFS variables with lists of sources
@@ -1401,13 +1406,19 @@ def orfs_flow(
       variant: name of the target variant, added right after the module name
       mock_area: floating point number, scale the die width/height by this amount, default no scaling
       previous_stage: a dictionary with the input for a stage, default is previous stage. Useful when running experiments that share preceeding stages, like share synthesis for floorplan variants.
+      pdk: name of the PDK to use, default is asap7
       **kwargs: forward named args
     """
+    if pdk == None:
+        pdk = "@docker_orfs//:asap7"
     if variant == "base":
         variant = None
+    if top == None:
+        top = name
     abstract_variant = _variant_name(variant, "unmocked" if mock_area else None)
     _orfs_pass(
         name = name,
+        top = top,
         verilog_files = verilog_files,
         macros = macros,
         sources = sources,
@@ -1420,6 +1431,7 @@ def orfs_flow(
         variant = variant,
         abstract_variant = abstract_variant,
         previous_stage = previous_stage,
+        pdk = pdk,
         **kwargs
     )
 
@@ -1434,6 +1446,7 @@ def orfs_flow(
 
     _orfs_pass(
         name = name,
+        top = top,
         verilog_files = verilog_files,
         macros = macros,
         sources = sources,
@@ -1446,6 +1459,7 @@ def orfs_flow(
         variant = mock_variant,
         abstract_variant = None,
         previous_stage = {},
+        pdk = pdk,
         **kwargs
     )
 
@@ -1474,6 +1488,7 @@ def _kwargs(stage, **kwargs):
 
 def _orfs_pass(
         name,
+        top,
         verilog_files,
         macros,
         sources,
@@ -1486,6 +1501,7 @@ def _orfs_pass(
         variant,
         abstract_variant,
         previous_stage,
+        pdk,
         **kwargs):
     steps = []
     for step in STAGE_IMPLS:
@@ -1510,9 +1526,10 @@ def _orfs_pass(
             data = get_sources(synth_step.stage, stage_sources, sources),
             deps = macros,
             extra_configs = extra_configs.get(synth_step.stage, []),
-            module_top = name,
+            module_top = top,
             variant = variant,
             verilog_files = verilog_files,
+            pdk = pdk,
         )
         orfs_deps(
             name = "{}_deps".format(_step_name(name, variant, synth_step.stage)),
