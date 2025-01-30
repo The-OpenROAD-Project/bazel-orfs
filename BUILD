@@ -111,7 +111,7 @@ LB_VERILOG_FILES = ["test/mock/lb_32x128.sv"]
 orfs_flow(
     name = "lb_32x128",
     arguments = LB_ARGS,
-    mock_area = 0.90,
+    mock_area = 0.7,
     stage_sources = LB_STAGE_SOURCES,
     verilog_files = LB_VERILOG_FILES,
 )
