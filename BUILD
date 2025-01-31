@@ -120,7 +120,8 @@ orfs_flow(
 orfs_floorplan(
     name = "lb_32x128_shared_synth_floorplan",
     src = ":lb_32x128_synth",
-    arguments = get_stage_args("floorplan", {}, LB_ARGS),
+    # HACK! orfs_floorplan() isn't really meant to be called directly
+    arguments = get_stage_args("floorplan", {}, LB_ARGS, {}),
     data = LB_STAGE_SOURCES["floorplan"],
     variant = "blah",
 )
@@ -417,7 +418,6 @@ orfs_flow(
         "CORE_UTILIZATION": "10",
         "CORE_ASPECT_RATIO": "2",
         "SKIP_REPORT_METRICS": "1",
-        "SDC_FILE": "$(location :constraints-sram-sky130hd.sdc)",
     },
     pdk = "@docker_orfs//:sky130hd",
     sources = {
