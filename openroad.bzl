@@ -1328,22 +1328,28 @@ ALL_VARIABLE_TO_STAGES = {
     for variable in _union(*ALL_STAGE_TO_VARIABLES.values())
 }
 
-def get_stage_args(stage, stage_arguments, arguments):
+def get_stage_args(stage, stage_arguments, arguments, sources):
     """Returns the arguments for a specific stage.
 
     Args:
         stage: The stage name.
         stage_arguments: the dictionary of stages with each stage having a dictionary of arguments
         arguments: a dictionary of arguments automatically assigned to a stage
+        sources: a dictionary of variables and source files
     Returns:
       A dictionary of arguments for the stage.
     """
-    unsorted_dict = ({
-                         arg: value
-                         for arg, value in arguments.items()
-                         if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLE_TO_STAGES
-                     } |
-                     stage_arguments.get(stage, {}))
+    unsorted_dict = (
+        {
+            arg: " ".join(_map(lambda v: "$(location {})".format(v), value))
+            for arg, value in sources.items()
+            if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLE_TO_STAGES
+        } | {
+            arg: value
+            for arg, value in arguments.items()
+            if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLE_TO_STAGES
+        } | stage_arguments.get(stage, {})
+    )
     return dict(sorted(unsorted_dict.items()))
 
 def get_sources(stage, stage_sources, sources):
@@ -1522,7 +1528,7 @@ def _orfs_pass(
         synth_step = steps[0]
         synth_step.impl(
             name = _step_name(name, variant, synth_step.stage),
-            arguments = get_stage_args(synth_step.stage, stage_arguments, arguments),
+            arguments = get_stage_args(synth_step.stage, stage_arguments, arguments, sources),
             data = get_sources(synth_step.stage, stage_sources, sources),
             deps = macros,
             extra_configs = extra_configs.get(synth_step.stage, []),
@@ -1547,7 +1553,7 @@ def _orfs_pass(
         step.impl(
             name = step_name,
             src = src,
-            arguments = get_stage_args(step.stage, stage_arguments, arguments),
+            arguments = get_stage_args(step.stage, stage_arguments, arguments, sources),
             data = get_sources(step.stage, stage_sources, sources),
             extra_configs = extra_configs.get(step.stage, []),
             variant = variant,
