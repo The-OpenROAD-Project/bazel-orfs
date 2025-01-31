@@ -358,6 +358,7 @@ py_binary(
     ],
     main = "plot-retiming.py",
     deps = [requirement("matplotlib")],
+    visibility = ["//visibility:public"],
 )
 
 filegroup(

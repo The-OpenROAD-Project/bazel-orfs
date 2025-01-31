@@ -159,6 +159,6 @@ def orfs_sweep(
             name + "_repair_logs",
         ],
         outs = [name + "_retiming.pdf"],
-        cmd = "$(execpath  :plot_repair) $(location " + name + "_retiming.pdf) $(locations " + name + "_repair_logs)",
+        cmd = "$(execpath @bazel-orfs//:plot_repair) $(location " + name + "_retiming.pdf) $(locations " + name + "_repair_logs)",
         visibility = visibility,
     )
