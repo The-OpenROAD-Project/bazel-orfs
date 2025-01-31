@@ -120,7 +120,7 @@ orfs_flow(
 orfs_floorplan(
     name = "lb_32x128_shared_synth_floorplan",
     src = ":lb_32x128_synth",
-    # HACK! orfs_floorplan() isn't really meant to be called directly
+    # Make sure we're not passing in any non-floorplan arguments
     arguments = get_stage_args("floorplan", {}, LB_ARGS, {}),
     data = LB_STAGE_SOURCES["floorplan"],
     variant = "blah",
