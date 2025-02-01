@@ -1341,7 +1341,7 @@ def get_stage_args(stage, stage_arguments, arguments, sources):
     """
     unsorted_dict = (
         {
-            arg: " ".join(_map(lambda v: "$(location {})".format(v), value))
+            arg: " ".join(_map(lambda v: "$(locations {})".format(v), value))
             for arg, value in sources.items()
             if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLE_TO_STAGES
         } | {
