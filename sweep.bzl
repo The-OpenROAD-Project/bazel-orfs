@@ -61,7 +61,17 @@ def orfs_sweep(
 
     for variant in all_variants:
         for key in all_variants[variant].keys():
-            if key not in ["arguments", "dissolve", "macros", "previous_stage", "renamed_inputs", "stage_arguments", "stage_sources", "description"]:
+            if key not in [
+                "arguments",
+                "dissolve",
+                "macros",
+                "previous_stage",
+                "renamed_inputs",
+                "stage_arguments",
+                "stage_sources",
+                "description",
+                "sources",
+            ]:
                 fail("Unknown orfs_sweep() key \"" + key + "\" in " + variant)
 
         orfs_flow(
@@ -83,7 +93,7 @@ def orfs_sweep(
             },
             variant = variant,
             verilog_files = verilog_files,
-            sources = sources,
+            sources = sources | all_variants[variant].get("sources", {}),
             abstract_stage = abstract_stage,
             visibility = visibility,
         )

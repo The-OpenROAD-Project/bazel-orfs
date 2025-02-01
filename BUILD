@@ -1,7 +1,7 @@
 load("@bazel-orfs-pip//:requirements.bzl", "requirement")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("//:eqy.bzl", "eqy_test")
-load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_run")
+load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_run", "orfs_macro")
 load("//:ppa.bzl", "orfs_ppa")
 load("//:sweep.bzl", "orfs_sweep")
 
@@ -162,12 +162,30 @@ orfs_run(
     script = ":cell_count.tcl",
 )
 
-orfs_flow(
+filegroup(
+    name = "tag_array_64x184_libs",
+    srcs = ["tag_array_64x184_generate_abstract"],
+    output_group = "tag_array_64x184.lib",
+)
+
+filegroup(
+    name = "tag_array_64x184_lefs",
+    srcs = ["tag_array_64x184_generate_abstract"],
+    output_group = "tag_array_64x184.lef",
+)
+
+orfs_macro(
+    name = "amalgam",
+    lef = "tag_array_64x184_lefs",
+    lib = "tag_array_64x184_libs",
+    module_top = "tag_array_64x184",
+)
+
+orfs_sweep(
     name = "L1MetadataArray",
     abstract_stage = "cts",
     arguments = FAST_SETTINGS |
                 {
-                    "SDC_FILE": "$(location :test/constraints-top.sdc)",
                     "SYNTH_HIERARCHICAL": "1",
                     "CORE_UTILIZATION": "3",
                     "RTLMP_FLOW": "1",
@@ -175,9 +193,19 @@ orfs_flow(
                     "MACRO_PLACE_HALO": "30 30",
                     "PLACE_DENSITY": "0.10",
                 },
-    macros = ["tag_array_64x184_generate_abstract"],
-    stage_sources = {
-        "synth": [":test/constraints-top.sdc"],
+    sweep = {
+        "base": {
+            "macros": ["tag_array_64x184_generate_abstract"],
+            "sources": {
+                "SDC_FILE": [":test/constraints-top.sdc"],
+            },
+        },
+        "1": {
+            "macros": ["amalgam"],
+            "sources": {
+                "SDC_FILE": [":test/constraints-top.sdc"],
+            },
+        },
     },
     verilog_files = ["test/rtl/L1MetadataArray.sv"],
 )
@@ -357,8 +385,8 @@ py_binary(
         "plot-retiming.py",
     ],
     main = "plot-retiming.py",
-    deps = [requirement("matplotlib")],
     visibility = ["//visibility:public"],
+    deps = [requirement("matplotlib")],
 )
 
 filegroup(
