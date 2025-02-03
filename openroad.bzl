@@ -56,6 +56,8 @@ LoggingInfo = provider(
     fields = [
         "logs",
         "reports",
+        "drcs",
+        "jsons",
     ],
 )
 
@@ -874,6 +876,8 @@ def _yosys_impl(ctx):
         LoggingInfo(
             logs = depset(canon_logs + synth_logs),
             reports = depset([]),
+            drcs = depset([]),
+            jsons = depset([]),
         ),
     ]
 
@@ -884,7 +888,18 @@ orfs_synth = rule(
     executable = True,
 )
 
-def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], object_names = [], log_names = [], report_names = [], extra_arguments = {}):
+def _make_impl(
+        ctx,
+        stage,
+        steps,
+        forwarded_names = [],
+        result_names = [],
+        object_names = [],
+        log_names = [],
+        report_names = [],
+        extra_arguments = {},
+        json_names = [],
+        drc_names = []):
     """
     Implementation function for the OpenROAD-flow-scripts stages.
 
@@ -898,6 +913,8 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
       log_names: The names of the log files.
       report_names: The names of the report files.
       extra_arguments: Extra arguments to add to the configuration.
+      json_names: The names of the JSON files.
+      drc_names: The names of the DRC files.
 
     Returns:
         A list of providers. The returned PdkInfo and TopInfo providers are taken from the first
@@ -925,9 +942,17 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     for log in log_names:
         logs.append(_declare_artifact(ctx, "logs", log))
 
+    jsons = []
+    for json in json_names:
+        jsons.append(_declare_artifact(ctx, "logs", json))
+
     reports = []
     for report in report_names:
         reports.append(_declare_artifact(ctx, "reports", report))
+
+    drcs = []
+    for drc in drc_names:
+        drcs.append(_declare_artifact(ctx, "reports", drc))
 
     forwards = [f for f in ctx.files.src if f.basename in forwarded_names]
 
@@ -935,7 +960,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
     for file in forwards + results:
         info[file.extension] = file
 
-    commands = _generation_commands(reports + logs) + _input_commands(_renames(ctx, ctx.files.src)) + [ctx.executable._make.path + " $@"]
+    commands = _generation_commands(reports + logs + jsons + drcs) + _input_commands(_renames(ctx, ctx.files.src)) + [ctx.executable._make.path + " $@"]
 
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + steps,
@@ -951,7 +976,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
                 rename_inputs(ctx),
             ],
         ),
-        outputs = results + objects + logs + reports,
+        outputs = results + objects + logs + reports + jsons + drcs,
     )
 
     config_short = _declare_artifact(ctx, "results", stage + ".short.mk")
@@ -978,7 +1003,7 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join(sorted([f.short_path for f in [config_short] + results + logs + reports])),
+            "${GENFILES}": " ".join(sorted([f.short_path for f in [config_short] + results + logs + reports + drcs + jsons])),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
@@ -990,7 +1015,8 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
             files = depset(forwards + results + reports),
             runfiles = ctx.runfiles(
                 [config_short, make] +
-                forwards + results + logs + reports + ctx.files.extra_configs,
+                forwards + results + logs + reports + ctx.files.extra_configs +
+                drcs + jsons,
                 transitive_files = depset(transitive = [
                     flow_inputs(ctx),
                     ctx.attr.src[PdkInfo].files,
@@ -1003,6 +1029,8 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         OutputGroupInfo(
             logs = depset(logs),
             reports = depset(reports),
+            jsons = depset(jsons),
+            drcs = depset(drcs),
             **{f.basename: depset([f]) for f in [config] + results + objects + logs + reports}
         ),
         OrfsDepInfo(
@@ -1036,6 +1064,8 @@ def _make_impl(ctx, stage, steps, forwarded_names = [], result_names = [], objec
         LoggingInfo(
             logs = depset(logs, transitive = [ctx.attr.src[LoggingInfo].logs]),
             reports = depset(reports, transitive = [ctx.attr.src[LoggingInfo].reports]),
+            drcs = depset(reports, transitive = [ctx.attr.src[LoggingInfo].drcs]),
+            jsons = depset(reports, transitive = [ctx.attr.src[LoggingInfo].jsons]),
         ),
         ctx.attr.src[PdkInfo],
         ctx.attr.src[TopInfo],
@@ -1052,6 +1082,8 @@ orfs_floorplan = rule(
             "2_3_floorplan_macro.log",
             "2_4_floorplan_tapcell.log",
             "2_5_floorplan_pdn.log",
+        ],
+        json_names = [
             "2_1_floorplan.json",
             "2_2_floorplan_io.json",
             "2_3_floorplan_macro.json",
@@ -1082,6 +1114,8 @@ orfs_place = rule(
             "3_3_place_gp.log",
             "3_4_place_resized.log",
             "3_5_place_dp.log",
+        ],
+        json_names = [
             "3_1_place_gp_skip_io.json",
             "3_2_place_iop.json",
             "3_3_place_gp.json",
@@ -1106,6 +1140,8 @@ orfs_cts = rule(
         steps = ["do-cts"],
         log_names = [
             "4_1_cts.log",
+        ],
+        json_names = [
             "4_1_cts.json",
         ],
         report_names = [
@@ -1133,12 +1169,14 @@ orfs_grt = rule(
         ],
         log_names = [
             "5_1_grt.log",
+        ],
+        json_names = [
             "5_1_grt.json",
-            "5_2_route.json",
-            "5_3_fillcell.json",
         ],
         report_names = [
             "5_global_route.rpt",
+        ],
+        drc_names = [
             "congestion.rpt",
         ],
         result_names = [
@@ -1165,7 +1203,11 @@ orfs_route = rule(
             "5_2_route.log",
             "5_3_fillcell.log",
         ],
-        report_names = [
+        json_names = [
+            "5_2_route.json",
+            "5_3_fillcell.json",
+        ],
+        drc_names = [
             "5_route_drc.rpt",
         ],
         result_names = [
@@ -1189,6 +1231,8 @@ orfs_final = rule(
         log_names = [
             "6_1_merge.log",
             "6_report.log",
+        ],
+        json_names = [
             "6_report.json",
             "6_1_fill.json",
         ],
