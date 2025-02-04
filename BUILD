@@ -451,6 +451,7 @@ orfs_flow(
     pdk = "@docker_orfs//:sky130hd",
     sources = {
         "SDC_FILE": [":constraints-sram-sky130hd.sdc"],
+        "FASTROUTE_TCL": [":fastroute.tcl"],
     },
     top = "lb_32x128",
     verilog_files = LB_VERILOG_FILES,
