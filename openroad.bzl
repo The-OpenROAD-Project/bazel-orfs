@@ -1016,7 +1016,9 @@ def _make_impl(
             runfiles = ctx.runfiles(
                 [config_short, make] +
                 forwards + results + logs + reports + ctx.files.extra_configs +
-                drcs + jsons,
+                drcs + jsons +
+                # Some of these files might be read by open.tcl
+                ctx.files.data,
                 transitive_files = depset(transitive = [
                     flow_inputs(ctx),
                     ctx.attr.src[PdkInfo].files,
