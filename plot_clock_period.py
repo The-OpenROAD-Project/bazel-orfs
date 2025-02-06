@@ -7,17 +7,16 @@ import numpy as np
 import os
 import sys
 import re
-import pprint
 
 # Command-line arguments
 if len(sys.argv) < 4:
-    raise ValueError(
-        "Usage: python script.py <output_pdf> <title> <input_files...>"
-    )
+    raise ValueError("Usage: python script.py <output_pdf> <title> <input_files...>")
 
 output_pdf = sys.argv[1]
-title = sys.argv[2]
-input_files = sys.argv[3:]
+output_yaml = sys.argv[2]
+output_csv = sys.argv[3]
+title = sys.argv[4]
+input_files = sys.argv[5:]
 
 # Load data from input files
 file_data = {}
@@ -39,8 +38,16 @@ for file in input_files:
 
     series_map[series].append((index, file_data[file]))
 
-pprint.pprint(series_map)
+with open(output_yaml, "w") as f:
+    yaml.dump({name: dict(points) for name, points in series_map.items()}, f)
 
+# now in csv format with two levels of dicts
+with open(output_csv, "w") as f:
+    for name, points in series_map.items():
+        for index, data in points:
+            f.write(
+                f"{name},{index},{data['power']},{data['clock_period']},{data['area']}\n"
+            )
 
 # Sort and normalize the series by index
 normalized_series = {}
@@ -53,10 +60,11 @@ for name, points in series_map.items():
 
 def plot_one(pdf_pages, data_key):
     # Extract the specified series
-    series_names = sorted(list(normalized_series.keys()),
-                          reverse=True,
-                          key=lambda name: max(map(lambda n: n[data_key],
-                                                   normalized_series[name])))
+    series_names = sorted(
+        list(normalized_series.keys()),
+        reverse=True,
+        key=lambda name: max(map(lambda n: n[data_key], normalized_series[name])),
+    )
     serieses = list(
         map(
             lambda series_name: np.array(
