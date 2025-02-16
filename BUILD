@@ -4,6 +4,7 @@ load("//:eqy.bzl", "eqy_test")
 load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_macro", "orfs_run")
 load("//:ppa.bzl", "orfs_ppa")
 load("//:sweep.bzl", "orfs_sweep")
+load("//:yosys.bzl", "yosys")
 
 exports_files(["mock_area.tcl"])
 
@@ -455,4 +456,14 @@ orfs_flow(
     },
     top = "lb_32x128",
     verilog_files = LB_VERILOG_FILES,
+)
+
+yosys(
+    name = "alu",
+    srcs = ["alu.v"],
+    outs = ["alu.json"],
+    arguments = [
+        "-p",
+        "read_verilog $(location alu.v); proc; write_json $(location alu.json)",
+    ],
 )
