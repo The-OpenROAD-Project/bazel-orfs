@@ -1,0 +1,9 @@
+{
+    "name": "bazel-orfs",
+    "version": "0.0.1",
+    "description": "A project for Bazel ORFS",
+    "dependencies": {
+      "netlistsvg": "^1.0.2",
+      "yargs": "^17.0.1"
+    }
+}

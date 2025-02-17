@@ -1,6 +1,9 @@
+load("@aspect_rules_js//js:defs.bzl", "js_binary")
 load("@bazel-orfs-pip//:requirements.bzl", "requirement")
+load("@npm//:defs.bzl", "npm_link_all_packages")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("//:eqy.bzl", "eqy_test")
+load("//:netlistsvg.bzl", "netlistsvg")
 load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_macro", "orfs_run")
 load("//:ppa.bzl", "orfs_ppa")
 load("//:sweep.bzl", "orfs_sweep")
@@ -466,4 +469,22 @@ yosys(
         "-p",
         "read_verilog $(location alu.v); proc; write_json $(location alu.json)",
     ],
+)
+
+npm_link_all_packages(name = "node_modules")
+
+js_binary(
+    name = "netlistsvg",
+    data = [
+        "//:node_modules/netlistsvg",
+        "//:node_modules/yargs",
+    ],
+    entry_point = "main.js",
+    visibility = ["//visibility:public"],
+)
+
+netlistsvg(
+    name = "alu_svg",
+    src = "alu.json",
+    out = "alu.svg",
 )
