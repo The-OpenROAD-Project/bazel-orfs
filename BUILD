@@ -488,3 +488,18 @@ netlistsvg(
     src = "alu.json",
     out = "alu.svg",
 )
+
+# Demonstrate how to use this tool from a genrule
+#
+# https://docs.aspect.build/guides/rules_js_migration/#account-for-change-to-working-directory
+genrule(
+    name = "alu_svg_2",
+    srcs = ["alu.json"],
+    outs = ["alu2.svg"],
+    cmd = """
+BAZEL_BINDIR=$(BINDIR) $(location :netlistsvg) \
+ ../../../$(location alu.json) \
+ -o ../../../$(location alu2.svg)
+""",
+    tools = [":netlistsvg"],
+)
