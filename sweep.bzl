@@ -25,7 +25,8 @@ def orfs_sweep(
         abstract_stage = "final",
         macros = [],
         pdk = None,
-        visibility = ["//visibility:private"]):
+        visibility = ["//visibility:private"],
+        tags = []):
     """Run a sweep of OpenROAD stages
 
     Args:
@@ -42,6 +43,7 @@ def orfs_sweep(
         visibility: list of visibility labels
         sources: forwarded to orfs_flow
         pdk: forwarded to orfs_flow
+        tags: forwarded
     """
     if top == None:
         top = name
@@ -96,6 +98,7 @@ def orfs_sweep(
             sources = sources | all_variants[variant].get("sources", {}),
             abstract_stage = abstract_stage,
             visibility = visibility,
+            tags = tags,
         )
 
         native.filegroup(
@@ -104,6 +107,7 @@ def orfs_sweep(
             output_group = ("5_1_grt" if sweep_json["stage"] == "grt" else str(sweep_json["stages"].index(sweep_json["stage"]) + 2) + "_" + sweep_json["stage"]) +
                            ".odb",
             visibility = [":__subpackages__"],
+            tags = tags,
         )
 
         orfs_run(
@@ -119,6 +123,7 @@ def orfs_sweep(
             data = [":" + name + "_" + variant + "_odb"],
             script = Label(":sweep-wns.tcl"),
             visibility = visibility,
+            tags = tags,
         )
 
         native.filegroup(
@@ -126,6 +131,7 @@ def orfs_sweep(
             srcs = [":" + name + "_" + ("" if variant == "base" else variant + "_") + stage for stage in sweep_json["stages"]],
             output_group = "logs",
             visibility = visibility,
+            tags = tags,
         )
 
     # This can be built in parallel, but grt needs to be build in serial, or
@@ -134,4 +140,5 @@ def orfs_sweep(
         name = name + "_sweep_parallel",
         srcs = [name + "_" + ("" if variant == "base" else variant + "_") + "cts" for variant in sweep],
         visibility = visibility,
+        tags = tags,
     )
