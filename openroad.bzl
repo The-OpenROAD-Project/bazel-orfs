@@ -1582,10 +1582,12 @@ def _orfs_pass(
             variant = variant,
             verilog_files = verilog_files,
             pdk = pdk,
+            **kwargs
         )
         orfs_deps(
             name = "{}_deps".format(_step_name(name, variant, synth_step.stage)),
             src = _step_name(name, variant, synth_step.stage),
+            **kwargs
         )
 
     if start_stage == 0:

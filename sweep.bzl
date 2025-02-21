@@ -57,6 +57,7 @@ def orfs_sweep(
     write_binary(
         name = name + "_sweep.json",
         data = str(sweep_json),
+        tags = tags,
     )
 
     all_variants = sweep | other_variants
