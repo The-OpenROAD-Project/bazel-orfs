@@ -503,3 +503,15 @@ BAZEL_BINDIR=$(BINDIR) $(location :netlistsvg) \
 """,
     tools = [":netlistsvg"],
 )
+
+# This should not be built with bazel build ..., as it fails
+orfs_run(
+    name = "cell_count_manual",
+    src = ":lb_32x128_floorplan",
+    outs = [
+        "no-such-file-test.txt",
+    ],
+    extra_args = "> $WORK_HOME/test.txt",
+    script = ":cell_count.tcl",
+    tags = ["manual"],
+)
