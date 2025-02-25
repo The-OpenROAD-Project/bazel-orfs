@@ -1,7 +1,7 @@
 load("@aspect_rules_js//js:defs.bzl", "js_binary")
 load("@bazel-orfs-pip//:requirements.bzl", "requirement")
+load("@bazel_orfs_rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@npm//:defs.bzl", "npm_link_all_packages")
-load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("//:eqy.bzl", "eqy_test")
 load("//:netlistsvg.bzl", "netlistsvg")
 load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_macro", "orfs_run")
