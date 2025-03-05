@@ -714,7 +714,9 @@ def _yosys_impl(ctx):
 
     canon_output = _declare_artifact(ctx, "results", CANON_OUTPUT)
 
-    commands = _generation_commands(canon_logs) + [ctx.executable._make.path + " $@"]
+    # SYNTH_NETLIST_FILES will not create an .rtlil file or reports, so we need
+    # an empty placeholder in that case.
+    commands = [ctx.executable._make.path + " $@"] + _generation_commands(canon_logs + [canon_output])
 
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile_yosys.path, "yosys-dependencies", "do-yosys-canonicalize"],
@@ -748,7 +750,9 @@ def _yosys_impl(ctx):
         # FIXME - should ORFS have a consistent name here?
         synth_outputs.append(_declare_artifact(ctx, "objects", "lib/merged.lib"))
 
-    commands = _generation_commands(synth_logs) + [ctx.executable._make.path + " $@"]
+    # SYNTH_NETLIST_FILES will not create an .rtlil file or reports, so we need
+    # an empty placeholder in that case.
+    commands = [ctx.executable._make.path + " $@"] + _generation_commands(synth_logs + synth_outputs)
     ctx.actions.run_shell(
         arguments = [
             "--file",
