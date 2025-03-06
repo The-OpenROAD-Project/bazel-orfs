@@ -746,10 +746,6 @@ def _yosys_impl(ctx):
     for output in SYNTH_OUTPUTS:
         synth_outputs.append(_declare_artifact(ctx, "results", output))
 
-    if "asap7" in ctx.attr.pdk[PdkInfo].name:
-        # FIXME - should ORFS have a consistent name here?
-        synth_outputs.append(_declare_artifact(ctx, "objects", "lib/merged.lib"))
-
     # SYNTH_NETLIST_FILES will not create an .rtlil file or reports, so we need
     # an empty placeholder in that case.
     commands = [ctx.executable._make.path + " $@"] + _generation_commands(synth_logs + synth_outputs)
