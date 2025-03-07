@@ -616,8 +616,8 @@ def _run_impl(ctx):
         ],
         command = " ".join([
             ctx.executable._make.path,
-            "$@",
             ctx.expand_location(ctx.attr.extra_args, ctx.attr.data),
+            "$@",
         ]),
         env =
             flow_environment(ctx) |
