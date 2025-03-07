@@ -64,24 +64,14 @@ filegroup(
     output_group = "1_synth.v",
 )
 
-# FIXME should be possible to do in a prettier way.
-#
-# We want access to merged.lib, which is a hack in ORFS.
-#
-# Build asap7sc7p5t_AO_RVT_FF_nldm_211120.lib, which
-# creates the output folder for merged.lib, then
-# build merged.lib, finally run mergedlib.tcl that
-# copies merged.lib to the destination.
 orfs_run(
     name = "sdq_17x64_synth_mergedlib",
     src = ":sdq_17x64_naja_synth",
-    outs = [":merged.lib"],
+    outs = [":objects/asap7/sdq_17x64/naja/lib/merged.lib"],
     extra_args = " ".join([
-        "bazel-out/k8-fastbuild/bin/sram/objects/asap7/sdq_17x64/naja/lib/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib",
-        "bazel-out/k8-fastbuild/bin/sram/objects/asap7/sdq_17x64/naja/lib/merged.lib",
-        "OUTPUT=$(location :merged.lib)",
+        "$(location :objects/asap7/sdq_17x64/naja/lib/merged.lib)",
     ]),
-    script = "mergedlib.tcl",
+    script = "@docker_orfs//:OpenROAD-flow-scripts/flow/scripts/noop.tcl",
 )
 
 filegroup(
@@ -101,10 +91,10 @@ genrule(
     ],
     outs = ["mock-naja.v"],
     cmd = """
-    set -ex
+    set -e
     mkdir -p `dirname $@`
-    ls $(location :sdq_17x64_synth_mergedlib)
-    ls $(location :top_lib)
+    # reference files we should be able to access here
+    ls $(location :sdq_17x64_synth_mergedlib) $(location :top_lib) > /dev/null
     echo \"// imagine naja edits in this file\" > $@
     cat $(location :sdq_17x64_synth_unedited) >> $@
 """,
