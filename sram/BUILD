@@ -64,10 +64,24 @@ filegroup(
     output_group = "1_synth.v",
 )
 
-filegroup(
+# FIXME should be possible to do in a prettier way.
+#
+# We want access to merged.lib, which is a hack in ORFS.
+#
+# Build asap7sc7p5t_AO_RVT_FF_nldm_211120.lib, which
+# creates the output folder for merged.lib, then
+# build merged.lib, finally run mergedlib.tcl that
+# copies merged.lib to the destination.
+orfs_run(
     name = "sdq_17x64_synth_mergedlib",
-    srcs = ["sdq_17x64_naja_synth"],
-    output_group = "merged.lib",
+    src = ":sdq_17x64_naja_synth",
+    outs = [":merged.lib"],
+    extra_args = " ".join([
+        "bazel-out/k8-fastbuild/bin/sram/objects/asap7/sdq_17x64/naja/lib/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib",
+        "bazel-out/k8-fastbuild/bin/sram/objects/asap7/sdq_17x64/naja/lib/merged.lib",
+        "OUTPUT=$(location :merged.lib)",
+    ]),
+    script = "mergedlib.tcl",
 )
 
 filegroup(
