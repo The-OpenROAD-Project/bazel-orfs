@@ -612,15 +612,16 @@ def _run_impl(ctx):
         arguments = [
             "--file",
             ctx.file._makefile.path,
-            "run",
         ],
         command = " ".join([
             ctx.executable._make.path,
+            ctx.expand_location(ctx.attr.cmd, ctx.attr.data),
             ctx.expand_location(ctx.attr.extra_args, ctx.attr.data),
             "$@",
         ]),
         env =
             flow_environment(ctx) |
+            yosys_environment(ctx) |
             config_environment(config) |
             _odb_arguments(ctx) |
             _data_arguments(ctx) |
@@ -630,6 +631,7 @@ def _run_impl(ctx):
             transitive = [
                 data_inputs(ctx),
                 flow_inputs(ctx),
+                yosys_inputs(ctx),
                 source_inputs(ctx),
             ],
         ),
@@ -681,7 +683,7 @@ def _run_impl(ctx):
 
 orfs_run = rule(
     implementation = _run_impl,
-    attrs = openroad_attrs() | {
+    attrs = yosys_attrs() | openroad_attrs() | {
         "script": attr.label(
             mandatory = True,
             allow_single_file = ["tcl"],
@@ -689,6 +691,10 @@ orfs_run = rule(
         "outs": attr.output_list(
             mandatory = True,
             allow_empty = False,
+        ),
+        "cmd": attr.string(
+            mandatory = False,
+            default = "run",
         ),
         "extra_args": attr.string(
             mandatory = False,
