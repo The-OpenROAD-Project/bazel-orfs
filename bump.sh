@@ -38,7 +38,7 @@ fi
 sed -i -E \
     -e "/orfs\.default\(/,/^\s*\)/ { \
         s|(image = \"docker.io/openroad/orfs:)[^\"]+(\")|\1$LATEST_TAG\2|; \
-        s|(sha256 = \")[^\"]+(\")|\1sha256:$DIGEST\2| \
+        s|(sha256 = \")[^\"]+(\")|\1$DIGEST\2| \
     }" \
     "$MODULE_FILE"
 
