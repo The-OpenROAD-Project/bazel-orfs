@@ -32,16 +32,13 @@ fi
 #      # a local only or remote docker image. Local docker images do not
 #      # have a sha256.
 #     image = "docker.io/openroad/orfs:v3.0-2487-g1adb9c6e",
-#     image = "docker.io/openroad/orfs:latest",
-#      # Comment out line below for local only docker images
-#     sha256 = "68dfdd9a65755b56abab8646b846014364071188432721990121eb7f212d53b1",
 #     sha256 = "sha256:546fb1bfabbfec4fa03c3c25ff60dbf6478daf237cb0387b35e4a3218ad2c805",
 # )
 
 sed -i -E \
-    -e "/orfs.default/,/}/ { \
+    -e "/orfs\.default\(/,/^\s*\)/ { \
         s|(image = \"docker.io/openroad/orfs:)[^\"]+(\")|\1$LATEST_TAG\2|; \
-        s|(sha256 = \")[^\"]+(\")|\1$DIGEST\2| \
+        s|(sha256 = \")[^\"]+(\")|\1sha256:$DIGEST\2| \
     }" \
     "$MODULE_FILE"
 
