@@ -1445,6 +1445,7 @@ def orfs_flow(
         mock_area = None,
         previous_stage = {},
         pdk = None,
+        stage_data = {},
         **kwargs):
     """
     Creates targets for running physical design flow with OpenROAD-flow-scripts.
@@ -1465,6 +1466,7 @@ def orfs_flow(
       mock_area: floating point number, scale the die width/height by this amount, default no scaling
       previous_stage: a dictionary with the input for a stage, default is previous stage. Useful when running experiments that share preceeding stages, like share synthesis for floorplan variants.
       pdk: name of the PDK to use, default is asap7
+      stage_data: dictionary keyed by ORFS stages with lists of stage-specific data files
       **kwargs: forward named args
     """
     if pdk == None:
@@ -1490,6 +1492,7 @@ def orfs_flow(
         abstract_variant = abstract_variant,
         previous_stage = previous_stage,
         pdk = pdk,
+        stage_data = stage_data,
         **kwargs
     )
 
@@ -1518,6 +1521,7 @@ def orfs_flow(
         abstract_variant = None,
         previous_stage = {},
         pdk = pdk,
+        stage_data = stage_data,
         **kwargs
     )
 
@@ -1560,6 +1564,7 @@ def _orfs_pass(
         abstract_variant,
         previous_stage,
         pdk,
+        stage_data,
         **kwargs):
     steps = []
     for step in STAGE_IMPLS:
@@ -1581,7 +1586,8 @@ def _orfs_pass(
         synth_step.impl(
             name = _step_name(name, variant, synth_step.stage),
             arguments = get_stage_args(synth_step.stage, stage_arguments, arguments, sources),
-            data = get_sources(synth_step.stage, stage_sources, sources),
+            data = get_sources(synth_step.stage, stage_sources, sources) +
+                   stage_data.get(synth_step.stage, []),
             deps = macros,
             extra_configs = extra_configs.get(synth_step.stage, []),
             module_top = top,
@@ -1608,7 +1614,8 @@ def _orfs_pass(
             name = step_name,
             src = src,
             arguments = get_stage_args(step.stage, stage_arguments, arguments, sources),
-            data = get_sources(step.stage, stage_sources, sources),
+            data = get_sources(step.stage, stage_sources, sources) +
+                   stage_data.get(step.stage, []),
             extra_configs = extra_configs.get(step.stage, []),
             variant = variant,
             **(kwargs | _kwargs(
