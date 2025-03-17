@@ -84,11 +84,9 @@ EOF
     cp --force --dereference --no-preserve=all "$from" "$dst"/"$to"
   done
 
-  if ! [ -z "$@" ]; then
+  if [ "$#" -gt 0 ]; then
     "$dst/make" "$@"
   fi
-
-  exit $?
 }
 
 main --genfiles "${GENFILES}" --renames "${RENAMES}" --make "${MAKE}" --config "${CONFIG}" "$@"
