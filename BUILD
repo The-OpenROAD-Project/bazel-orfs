@@ -361,6 +361,7 @@ exports_files(
         "sweep-wns.tcl",
         "wns_report.py",
         "power.tcl",
+        "open_plots.sh",
     ],
 )
 

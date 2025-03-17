@@ -45,7 +45,7 @@ def orfs_ppa(name, title, plot, tags = []):
 
     native.sh_binary(
         name = name,
-        srcs = ["open_plots.sh"],
+        srcs = ["@bazel-orfs//:open_plots.sh"],
         args = ["$(location :{}_ppa.pdf)".format(name)],
         data = [":{}_ppa.pdf".format(name)],
         tags = tags,
