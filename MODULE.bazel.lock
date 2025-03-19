@@ -83,7 +83,7 @@
     "//:extension.bzl%orfs_repositories": {
       "general": {
         "bzlTransitiveDigest": "vmcGR7h5VgEPebKSKqrF0UgcqrgFTr0lE5jdk/LXXdg=",
-        "usagesDigest": "sSBUkROLNzG42/XS6Cz8KqH+v2qorGwtd3lAxVpwR4E=",
+        "usagesDigest": "BSIuxJxZGwbO4LI5tzraS9qVdXQk9Oh19mroLhDj+mE=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -103,8 +103,8 @@
             "bzlFile": "@@//:docker.bzl",
             "ruleClassName": "docker_pkg",
             "attributes": {
-              "image": "docker.io/openroad/orfs:v3.0-2548-g804812ea",
-              "sha256": "d4f8495d5a5fe048390683f65db6be2cafd51f2ce161658a8925815ab9943182",
+              "image": "docker.io/openroad/orfs:v3.0-2623-g372e2136",
+              "sha256": "9548ef09599c0c0b104f1a53caf852d3f067a4154bf3dfcea4386927641df4c4",
               "build_file": "@@//:docker.BUILD.bazel",
               "timeout": 3600,
               "patch_cmds": [
@@ -697,6 +697,23 @@
             "bazel_features~~version_extension~bazel_features_version"
           ]
         ]
+      }
+    },
+    "@@platforms//host:extension.bzl%host_platform": {
+      "general": {
+        "bzlTransitiveDigest": "xelQcPZH8+tmuOHVjL9vDxMnnQNMlwj0SlvgoqBkm4U=",
+        "usagesDigest": "pCYpDQmqMbmiiPI1p2Kd3VLm5T48rRAht5WdW0X2GlA=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "host_platform": {
+            "bzlFile": "@@platforms//host:extension.bzl",
+            "ruleClassName": "host_platform_repo",
+            "attributes": {}
+          }
+        },
+        "recordedRepoMappingEntries": []
       }
     },
     "@@rules_nodejs~//nodejs:extensions.bzl%node": {
