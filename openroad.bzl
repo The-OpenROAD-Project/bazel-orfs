@@ -1086,17 +1086,15 @@ orfs_floorplan = rule(
         steps = ["do-floorplan"],
         log_names = [
             "2_1_floorplan.log",
-            "2_2_floorplan_io.log",
-            "2_3_floorplan_macro.log",
-            "2_4_floorplan_tapcell.log",
-            "2_5_floorplan_pdn.log",
+            "2_2_floorplan_macro.log",
+            "2_3_floorplan_tapcell.log",
+            "2_4_floorplan_pdn.log",
         ],
         json_names = [
             "2_1_floorplan.json",
-            "2_2_floorplan_io.json",
-            "2_3_floorplan_macro.json",
-            "2_4_floorplan_tapcell.json",
-            "2_5_floorplan_pdn.json",
+            "2_2_floorplan_macro.json",
+            "2_3_floorplan_tapcell.json",
+            "2_4_floorplan_pdn.json",
         ],
         report_names = [
             "2_floorplan_final.rpt",
