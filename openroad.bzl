@@ -1514,7 +1514,7 @@ def orfs_flow(
         renamed_inputs = {},
         arguments = arguments | {"SYNTH_GUT": "1"},
         extra_configs = extra_configs | mock_configs,
-        abstract_stage = "floorplan",
+        abstract_stage = "place",
         variant = mock_variant,
         abstract_variant = None,
         previous_stage = {},
@@ -1565,12 +1565,14 @@ def _orfs_pass(
         stage_data,
         **kwargs):
     steps = []
+    LEGAL_ABSTRACT_STAGES = ["place", "cts", "grt", "route", "final"]
+    if abstract_stage != None and abstract_stage not in LEGAL_ABSTRACT_STAGES:
+        fail("Abstract stage {abstract_stage} must be one of: {legal}".format(abstract_stage = abstract_stage, legal = ", ".join(LEGAL_ABSTRACT_STAGES)))
     for step in STAGE_IMPLS:
         steps.append(step)
         if step.stage == abstract_stage:
             break
-    if abstract_stage != STAGE_IMPLS[0].stage:
-        steps.append(ABSTRACT_IMPL)
+    steps.append(ABSTRACT_IMPL)
 
     # Prune stages unused due to previous_stage
     if len(previous_stage) > 1:
