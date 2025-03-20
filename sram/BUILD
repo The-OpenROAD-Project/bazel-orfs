@@ -15,7 +15,7 @@ FAST_SETTINGS = {
 
 [orfs_flow(
     name = "sdq_17x64",
-    abstract_stage = "cts" if variant == "base" else "floorplan",
+    abstract_stage = "cts" if variant == "base" else "place",
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "CORE_UTILIZATION": "20",

@@ -48,7 +48,7 @@ orfs_flow(
 
 orfs_flow(
     name = "tag_array_64x184",
-    abstract_stage = "floorplan",
+    abstract_stage = "place",
     arguments = FAST_SETTINGS,
     stage_arguments = {
         "synth": {
