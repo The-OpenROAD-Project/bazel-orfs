@@ -262,7 +262,7 @@ Abstracts are generated at the `target + "generate_abstract"` stage, which follo
 <pre lang="starlark">
 orfs_flow(
     name = "tag_array_64x184",
-    <b>abstract_stage = "floorplan",</b>
+    <b>abstract_stage = "place",</b>
     stage_arguments = {
         "synth": SRAM_SYNTH_ARGUMENTS,
         "floorplan": SRAM_FLOOR_PLACE_ARGUMENTS | {
@@ -323,14 +323,8 @@ Constraint files are passed down to `orfs_flow()` macro through [Stage targets](
 <pre lang="starlark">
 orfs_flow(
     name = "tag_array_64x184",
-    abstract_stage = "synth",
-    <b>stage_arguments = {
-        "synth": {
-            "SDC_FILE": "$(location :constraints-sram)",
-        },
-    },
-    stage_sources = {
-        "synth": [":constraints-sram"],
+    <b>sources = {
+        "SDC_FILE": ":constraints-sram",
     },</b>
     verilog_files = ["//another:tag_array_64x184.sv"],
     visibility = [":__subpackages__"],
@@ -551,7 +545,7 @@ index 095d63b..9756fbf 100644
  orfs_flow(
      name = "L1MetadataArray",
 -    abstract_stage = "route",
-+    abstract_stage = "floorplan",
++    abstract_stage = "place",
      macros = ["tag_array_64x184_generate_abstract"],
      stage_arguments = {
          "synth": {
