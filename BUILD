@@ -234,7 +234,6 @@ orfs_run(
 
 orfs_flow(
     name = "Mul",
-    abstract_stage = "synth",
     stage_arguments = {
         "synth": {
             "SDC_FILE": "$(location :test/constraints-top.sdc)",
