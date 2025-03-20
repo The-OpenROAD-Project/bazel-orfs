@@ -1,5 +1,4 @@
 load("@aspect_rules_js//js:defs.bzl", "js_binary")
-load("@bazel-orfs-pip//:requirements.bzl", "requirement")
 load("@bazel_orfs_rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@npm//:defs.bzl", "npm_link_all_packages")
 load("//:eqy.bzl", "eqy_test")
@@ -388,7 +387,7 @@ py_binary(
     ],
     main = "plot-retiming.py",
     visibility = ["//visibility:public"],
-    deps = [requirement("matplotlib")],
+    deps = ["@bazel-orfs-pip//matplotlib"],
 )
 
 filegroup(
@@ -432,8 +431,8 @@ py_binary(
     main = "plot_clock_period.py",
     visibility = ["//visibility:public"],
     deps = [
-        requirement("PyYAML"),
-        requirement("matplotlib"),
+        "@bazel-orfs-pip//matplotlib",
+        "@bazel-orfs-pip//pyyaml",
     ],
 )
 
