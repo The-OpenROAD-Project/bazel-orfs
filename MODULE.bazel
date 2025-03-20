@@ -51,7 +51,7 @@ load_json_file(
 
 bazel_dep(
     name = "rules_python",
-    version = "0.33.2",
+    version = "1.2.0",
     # reduce namespace collisions by prefixing with bazel_orfs
     repo_name = "bazel_orfs_rules_python",
 )
@@ -59,14 +59,14 @@ bazel_dep(
 python = use_extension("@bazel_orfs_rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
     ignore_root_user_error = True,
-    python_version = "3.12",
+    python_version = "3.13",
 )
 
 pip = use_extension("@bazel_orfs_rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
     hub_name = "bazel-orfs-pip",
-    python_version = "3.12",
-    requirements_lock = "//:requirements_lock.txt",
+    python_version = "3.13",
+    requirements_lock = "//:requirements_lock_3_13.txt",
 )
 use_repo(pip, "bazel-orfs-pip")
 

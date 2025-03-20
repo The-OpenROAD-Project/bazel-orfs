@@ -377,7 +377,8 @@ orfs_run(
 compile_pip_requirements(
     name = "requirements",
     src = "requirements.in",
-    requirements_txt = "requirements_lock.txt",
+    python_version = "3.13",
+    requirements_txt = "requirements_lock_3_13.txt",
 )
 
 py_binary(
