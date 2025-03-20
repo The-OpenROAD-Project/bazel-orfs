@@ -4,7 +4,7 @@ load("@bazel_orfs_rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@npm//:defs.bzl", "npm_link_all_packages")
 load("//:eqy.bzl", "eqy_test")
 load("//:netlistsvg.bzl", "netlistsvg")
-load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_macro", "orfs_run")
+load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_macro", "orfs_run", "orfs_synth")
 load("//:ppa.bzl", "orfs_ppa")
 load("//:sweep.bzl", "orfs_sweep")
 load("//:yosys.bzl", "yosys")
@@ -232,16 +232,13 @@ orfs_run(
     script = ":report.tcl",
 )
 
-orfs_flow(
-    name = "Mul",
-    stage_arguments = {
-        "synth": {
-            "SDC_FILE": "$(location :test/constraints-top.sdc)",
-        },
+orfs_synth(
+    name = "Mul_synth",
+    arguments = {
+        "SDC_FILE": "$(location :test/constraints-top.sdc)",
     },
-    stage_sources = {
-        "synth": [":test/constraints-top.sdc"],
-    },
+    data = [":test/constraints-top.sdc"],
+    module_top = "Mul",
     verilog_files = ["test/rtl/Mul.sv"],
 )
 
