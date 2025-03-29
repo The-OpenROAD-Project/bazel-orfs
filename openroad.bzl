@@ -1,5 +1,6 @@
 """Rules for the building the OpenROAD-flow-scripts stages"""
 
+load("@config//:global_config.bzl", "CONFIG_MAKEFILE", "CONFIG_MAKEFILE_YOSYS", "CONFIG_OPENROAD", "CONFIG_PDK")
 load("@orfs_variable_metadata//:json.bzl", "orfs_variable_metadata")
 
 def _map(function, iterable):
@@ -372,7 +373,7 @@ def orfs_attrs():
         "_makefile": attr.label(
             doc = "Top level makefile.",
             allow_single_file = ["Makefile"],
-            default = Label("@docker_orfs//:makefile"),
+            default = CONFIG_MAKEFILE,
         ),
     }
 
@@ -391,7 +392,7 @@ def flow_attrs():
             executable = True,
             allow_files = True,
             cfg = "exec",
-            default = Label("@docker_orfs//:openroad"),
+            default = CONFIG_OPENROAD,
         ),
         "_opensta": attr.label(
             doc = "OpenSTA binary.",
@@ -448,7 +449,7 @@ def yosys_only_attrs():
         "_makefile_yosys": attr.label(
             doc = "Top level makefile yosys.",
             allow_single_file = ["Makefile"],
-            default = Label("@docker_orfs//:makefile_yosys"),
+            default = CONFIG_MAKEFILE_YOSYS,
         ),
     }
 
@@ -477,7 +478,7 @@ def synth_attrs():
         "module_top": attr.string(mandatory = True),
         "pdk": attr.label(
             doc = "Process design kit.",
-            default = Label("@docker_orfs//:asap7"),
+            default = CONFIG_PDK,
             providers = [PdkInfo],
         ),
     }
