@@ -142,8 +142,8 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "vmcGR7h5VgEPebKSKqrF0UgcqrgFTr0lE5jdk/LXXdg=",
-        "usagesDigest": "zCA2OK3qID5cwbU0Dw2qeHueaQ4dGLzR5nKkIMk3vkc=",
+        "bzlTransitiveDigest": "2ctEG18np9qyUr56GijmegoXpAkk6aSrglG5gfhrN1Q=",
+        "usagesDigest": "dj4RkJ7Z0GDlleU0RgsctH6AS9u8OpNHfBvWNyQDFW4=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -170,6 +170,13 @@
               "patch_cmds": [
                 "find . -name BUILD.bazel -delete"
               ]
+            }
+          },
+          "config": {
+            "bzlFile": "@@//:config.bzl",
+            "ruleClassName": "global_config",
+            "attributes": {
+              "makefile": "@docker_orfs//:makefile"
             }
           }
         },
