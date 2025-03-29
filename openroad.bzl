@@ -1,5 +1,6 @@
 """Rules for the building the OpenROAD-flow-scripts stages"""
 
+load("@config//:global_config.bzl", "CONFIG_MAKEFILE")
 load("@orfs_variable_metadata//:json.bzl", "orfs_variable_metadata")
 
 def _map(function, iterable):
@@ -367,7 +368,7 @@ def orfs_attrs():
         "_makefile": attr.label(
             doc = "Top level makefile.",
             allow_single_file = ["Makefile"],
-            default = Label("@docker_orfs//:makefile"),
+            default = CONFIG_MAKEFILE,
         ),
     }
 

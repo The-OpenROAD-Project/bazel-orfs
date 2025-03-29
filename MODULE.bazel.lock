@@ -142,8 +142,8 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "vmcGR7h5VgEPebKSKqrF0UgcqrgFTr0lE5jdk/LXXdg=",
-        "usagesDigest": "zQpBeiDryMmc9xWjRBQADQoWlv1+b6Cbj/XE+Qgx5k0=",
+        "bzlTransitiveDigest": "V2b3GZb/WG5QlldMx8AXpRT560XNEcfJCZRMDOW7h2c=",
+        "usagesDigest": "ZuW9ThF8ig/oUX/MbB3OsevS7SpoF0t15/IEqO6zRY4=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -171,6 +171,13 @@
                 "find . -name BUILD.bazel -delete"
               ]
             }
+          },
+          "config": {
+            "bzlFile": "@@//:config.bzl",
+            "ruleClassName": "global_config",
+            "attributes": {
+              "makefile": "@@_main~orfs_repositories~docker_orfs//:makefile"
+            }
           }
         },
         "recordedRepoMappingEntries": [
@@ -183,6 +190,11 @@
             "",
             "com_github_nixos_patchelf_download",
             "_main~orfs_repositories~com_github_nixos_patchelf_download"
+          ],
+          [
+            "",
+            "docker_orfs",
+            "_main~orfs_repositories~docker_orfs"
           ]
         ]
       }
