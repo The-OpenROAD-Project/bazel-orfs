@@ -6,6 +6,7 @@ build stages.
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+load("//:config.bzl", "global_config")
 load("//:docker.bzl", "docker_pkg")
 
 _default_tag = tag_class(
@@ -15,6 +16,10 @@ _default_tag = tag_class(
         ),
         "sha256": attr.string(
             mandatory = False,
+        ),
+        "makefile": attr.label(
+            mandatory = False,
+            default = Label("@docker_orfs//:makefile"),
         ),
     },
 )
@@ -46,6 +51,10 @@ def _orfs_repositories_impl(module_ctx):
             patch_cmds = [
                 "find . -name BUILD.bazel -delete",
             ],
+        )
+        global_config(
+            name = "config",
+            makefile = default.makefile,
         )
 
 orfs_repositories = module_extension(

@@ -103,6 +103,7 @@ MAKEFILE_SHARED = [
     "OpenROAD-flow-scripts/flow/scripts/*.py",
     "OpenROAD-flow-scripts/flow/scripts/*.sh",
     "OpenROAD-flow-scripts/flow/scripts/*.yaml",
+    "OpenROAD-flow-scripts/flow/scripts/*.mk",
 ]
 
 # Narrowly define yosys dependencies to avoid hours of resynthesis
