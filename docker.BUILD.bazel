@@ -137,6 +137,7 @@ filegroup(
 
 [orfs_pdk(
     name = pdk,
+    config = ":OpenROAD-flow-scripts/flow/platforms/{pdk}/config.mk".format(pdk = pdk),
     srcs = glob([
                     "OpenROAD-flow-scripts/flow/platforms/{pdk}/**/*.{ext}".format(pdk = pdk, ext = ext)
                     for ext in [
