@@ -33,6 +33,7 @@ PdkInfo = provider(
     fields = [
         "name",
         "files",
+        "config",
     ],
 )
 TopInfo = provider(
@@ -69,6 +70,7 @@ def _pdk_impl(ctx):
         PdkInfo(
             name = ctx.attr.name,
             files = depset(ctx.files.srcs),
+            config = ctx.attr.config,
         ),
     ]
 
@@ -78,6 +80,9 @@ orfs_pdk = rule(
         "srcs": attr.label_list(
             allow_files = True,
             providers = [DefaultInfo],
+        ),
+        "config": attr.label(
+            allow_single_file = ["config.mk"],
         ),
     },
 )
@@ -498,9 +503,13 @@ def _module_top(ctx):
 def _platform(ctx):
     return ctx.attr.pdk[PdkInfo].name if hasattr(ctx.attr, "pdk") else ctx.attr.src[PdkInfo].name
 
+def _platform_config(ctx):
+    return (ctx.attr.pdk[PdkInfo] if hasattr(ctx.attr, "pdk") else ctx.attr.src[PdkInfo]).config.files.to_list()[0]
+
 def _required_arguments(ctx):
     return {
         "PLATFORM": _platform(ctx),
+        "PLATFORM_DIR": _platform_config(ctx).dirname,
         "DESIGN_NAME": _module_top(ctx),
         "FLOW_VARIANT": ctx.attr.variant,
         "GENERATE_ARTIFACTS_ON_FAILURE": "1",
@@ -1467,8 +1476,6 @@ def orfs_flow(
       stage_data: dictionary keyed by ORFS stages with lists of stage-specific data files
       **kwargs: forward named args
     """
-    if pdk == None:
-        pdk = "@docker_orfs//:asap7"
     if variant == "base":
         variant = None
     if top == None:
