@@ -1,5 +1,5 @@
 #!/bin/bash
-set -x -e -u -o pipefail
+set -e -u -o pipefail
 
 cd $BUILD_WORKSPACE_DIRECTORY
 
@@ -34,6 +34,14 @@ sed -i -E \
         s|(sha256 = \")[^\"]+(\")|\1$DIGEST\2| \
     }" \
     "$MODULE_FILE"
+
+COMMIT=$(curl -s "https://api.github.com/repos/The-OpenROAD-Project/bazel-orfs/commits/main" | jq -r '.sha')
+if [[ -z "$COMMIT" || "$COMMIT" == "null" ]]; then
+    echo "Failed to fetch latest commit."
+    exit 1
+fi
+echo "Latest commit: $COMMIT"
+sed -i "/git_override(/{:a;N;/)/!ba};/module_name = \"bazel-orfs\"/s/commit = \"[^\"]*\"/commit = \"$COMMIT\"/" MODULE.bazel
 
 bazelisk mod tidy
 
