@@ -513,3 +513,11 @@ orfs_run(
     script = ":cell_count.tcl",
     tags = ["manual"],
 )
+
+# From any project using bazel-orfs run `bazelisk run @bazel-orfs//:bump`
+# to upgrade ORFS and bazel-orfs.
+sh_binary(
+    name = "bump",
+    srcs = ["bump.sh"],
+    visibility = ["//visibility:public"],
+)
