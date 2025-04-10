@@ -1,6 +1,6 @@
 """Sweep OpenROAD stages"""
 
-load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run", "set")
+load("@bazel-orfs//:openroad.bzl", "orfs_flow", "set")
 load(":write_binary.bzl", "write_binary")
 
 all_stages = [
@@ -108,22 +108,6 @@ def orfs_sweep(
             output_group = ("5_1_grt" if sweep_json["stage"] == "grt" else str(sweep_json["stages"].index(sweep_json["stage"]) + 2) + "_" + sweep_json["stage"]) +
                            ".odb",
             visibility = [":__subpackages__"],
-            tags = tags,
-        )
-
-        orfs_run(
-            name = name + "_" + variant + "_report",
-            src = ":" + name + "_" + ("" if variant == "base" else variant + "_") + sweep_json["stage"],
-            outs = [
-                name + "_" + variant + ".txt",
-            ],
-            arguments = {
-                "ODB_FILE": "$(location :" + name + "_" + variant + "_odb)",
-                "OUTPUT": "$(location :" + name + "_" + variant + ".txt)",
-            },
-            data = [":" + name + "_" + variant + "_odb"],
-            script = Label(":sweep-wns.tcl"),
-            visibility = visibility,
             tags = tags,
         )
 
