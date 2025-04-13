@@ -133,8 +133,6 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-#print(["OpenROAD-flow-scripts/flow/platforms/{pdk}/**/*.{ext}".format(pdk = "asap7", ext = ext) for ext in ["gds", "lib.gz", "lef", "lib", "lyt", "mk", "rules", "sdc", "tcl", "v", "tlef"]]] + +["OpenROAD-flow-scripts/flow/platforms/common/**/*.v"])
-
 [orfs_pdk(
     name = pdk,
     config = ":OpenROAD-flow-scripts/flow/platforms/{pdk}/config.mk".format(pdk = pdk),
@@ -142,17 +140,17 @@ filegroup(
                     "OpenROAD-flow-scripts/flow/platforms/{pdk}/**/*.{ext}".format(pdk = pdk, ext = ext)
                     for ext in [
                         "gds",
-                        "lib.gz",
                         "lef",
                         "lib",
                         "lyt",
                         "mk",
                         "rules",
-                        "sdc",
                         "tcl",
                         "v",
-                        "tlef",
-                    ]
+                    ] + {
+                        "sky130hd": ["tlef"],
+                        "asap7": ["lib.gz", "sdc"],
+                    }.get(pdk, [])
                 ] +
                 ["OpenROAD-flow-scripts/flow/platforms/common/**/*.v"]),
     visibility = ["//visibility:public"],
