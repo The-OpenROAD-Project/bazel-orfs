@@ -1710,7 +1710,7 @@ def _orfs_pass(
         # implemented stage 0 above, so skip stage 0 below
         start_stage = 1
 
-    def do_step(step, prev, logs = []):
+    def do_step(step, prev, logs = [], add_deps = True):
         stage_variant = abstract_variant if step.stage == ABSTRACT_IMPL.stage and abstract_variant else variant
         step_name = _step_name(name, stage_variant, step.stage)
         src = previous_stage.get(step.stage, _step_name(name, variant, prev.stage))
@@ -1729,11 +1729,12 @@ def _orfs_pass(
                 {"logs": logs} if logs else {}
             ))
         )
-        orfs_deps(
-            name = "{}_deps".format(step_name),
-            src = step_name,
-            **kwargs
-        )
+        if add_deps:
+            orfs_deps(
+                name = "{}_deps".format(step_name),
+                src = step_name,
+                **kwargs
+            )
         return step_name
 
     for step, prev in zip(steps[start_stage:], steps[start_stage - 1:]):
@@ -1748,4 +1749,4 @@ def _orfs_pass(
         )
         test_args = get_stage_args(TEST_STAGE_IMPL.stage, stage_arguments, arguments, sources)
         if "RULES_JSON" in test_args:
-            do_step(TEST_STAGE_IMPL, GENERATE_METADATA_STAGE_IMPL)
+            do_step(TEST_STAGE_IMPL, GENERATE_METADATA_STAGE_IMPL, add_deps = False)
