@@ -187,7 +187,8 @@ def flow_inputs(ctx):
         ctx.files._ruby_dynamic +
         ctx.files._tcl +
         ctx.files._opengl +
-        ctx.files._qt_plugins,
+        ctx.files._qt_plugins +
+        ctx.files.logs,
         transitive = [
             ctx.attr._openroad[DefaultInfo].default_runfiles.files,
             ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
@@ -357,6 +358,10 @@ def orfs_attrs():
         "variant": attr.string(
             doc = "Variant of the used flow.",
             default = "base",
+        ),
+        "logs": attr.label_list(
+            providers = [LoggingInfo],
+            allow_empty = True,
         ),
         "_make": attr.label(
             doc = "make binary.",
@@ -1677,10 +1682,13 @@ def _orfs_pass(
     if len(previous_stage) > 0:
         start_stage = _map(lambda x: x.stage, STAGE_IMPLS).index(previous_stage.keys()[0])
 
+    step_names = []
     if start_stage < 1:
         synth_step = steps[0]
+        step_name = _step_name(name, variant, synth_step.stage)
+        step_names.append(step_name)
         synth_step.impl(
-            name = _step_name(name, variant, synth_step.stage),
+            name = step_name,
             arguments = get_stage_args(synth_step.stage, stage_arguments, arguments, sources),
             data = get_sources(synth_step.stage, stage_sources, sources) +
                    stage_data.get(synth_step.stage, []),
@@ -1702,7 +1710,7 @@ def _orfs_pass(
         # implemented stage 0 above, so skip stage 0 below
         start_stage = 1
 
-    def do_step(step, prev):
+    def do_step(step, prev, logs = []):
         stage_variant = abstract_variant if step.stage == ABSTRACT_IMPL.stage and abstract_variant else variant
         step_name = _step_name(name, stage_variant, step.stage)
         src = previous_stage.get(step.stage, _step_name(name, variant, prev.stage))
@@ -1717,6 +1725,8 @@ def _orfs_pass(
             **(kwargs | _kwargs(
                 step.stage,
                 renamed_inputs = renamed_inputs,
+            ) | (
+                {"logs": logs} if logs else {}
             ))
         )
         orfs_deps(
@@ -1727,10 +1737,15 @@ def _orfs_pass(
         return step_name
 
     for step, prev in zip(steps[start_stage:], steps[start_stage - 1:]):
-        do_step(step, prev)
+        step_names.append(do_step(step, prev))
 
     if FINAL_STAGE_IMPL in steps:
-        do_step(GENERATE_METADATA_STAGE_IMPL, FINAL_STAGE_IMPL)
+        logs = [name for name in step_names[0:steps.index(FINAL_STAGE_IMPL) + 1]]
+        do_step(
+            GENERATE_METADATA_STAGE_IMPL,
+            FINAL_STAGE_IMPL,
+            logs = logs,
+        )
         test_args = get_stage_args(TEST_STAGE_IMPL.stage, stage_arguments, arguments, sources)
         if "RULES_JSON" in test_args:
             do_step(TEST_STAGE_IMPL, GENERATE_METADATA_STAGE_IMPL)
