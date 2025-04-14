@@ -715,6 +715,60 @@ orfs_run = rule(
     },
 )
 
+def _test_impl(ctx):
+    config = ctx.attr.src[OrfsDepInfo].config
+
+    test = ctx.actions.declare_file("make_{}_{}_test".format(ctx.attr.name, ctx.attr.variant))
+    ctx.actions.write(
+        output = test,
+        is_executable = True,
+        content = """
+#!/bin/sh
+set -e
+{make} --file {makefile} {moreargs} metadata-check
+""".format(
+            make = ctx.executable._make.path,
+            makefile = ctx.file._makefile.path,
+            moreargs = _environment_string(
+                _hack_away_prefix(
+                    arguments = _odb_arguments(ctx, short = True) |
+                                _data_arguments(ctx),
+                    prefix = config.root.path,
+                ) |
+                {
+                    "WORK_HOME": ctx.label.package,
+                } | {"DESIGN_CONFIG": config.short_path},
+            ),
+        ),
+    )
+
+    return [
+        ctx.attr.src[PdkInfo],
+        ctx.attr.src[TopInfo],
+        DefaultInfo(
+            executable = test,
+            runfiles = ctx.runfiles(transitive_files = depset(
+                [config, test],
+                transitive = [
+                    flow_inputs(ctx),
+                    data_inputs(ctx),
+                    source_inputs(ctx),
+                ],
+            )),
+        ),
+    ]
+
+orfs_test = rule(
+    implementation = _test_impl,
+    attrs = yosys_attrs() | openroad_attrs() | {
+        "cmd": attr.string(
+            mandatory = False,
+            default = "metadata-check",
+        ),
+    },
+    test = True,
+)
+
 CANON_OUTPUT = "1_synth.rtlil"
 SYNTH_OUTPUTS = ["1_synth.v", "1_synth.sdc", "mem.json"]
 SYNTH_REPORTS = ["synth_stat.txt"]
@@ -1332,6 +1386,8 @@ FINAL_STAGE_IMPL = struct(stage = "final", impl = orfs_final)
 
 GENERATE_METADATA_STAGE_IMPL = struct(stage = "generate_metadata", impl = orfs_generate_metadata)
 
+TEST_STAGE_IMPL = struct(stage = "test", impl = orfs_test)
+
 STAGE_IMPLS = [
     struct(stage = "synth", impl = orfs_synth),
     struct(stage = "floorplan", impl = orfs_floorplan),
@@ -1397,7 +1453,8 @@ ORFS_VARIABLE_TO_STAGES = {
 }
 
 # Stages that do not appear in variables.yaml must be added manually here
-ALL_STAGES = set(_union(*ORFS_VARIABLE_TO_STAGES.values()) + ["generate_metadata"])
+ALL_STAGES = set(_union(*ORFS_VARIABLE_TO_STAGES.values()) +
+                 ["generate_metadata", "test"])
 
 ORFS_STAGE_TO_VARIABLES = {
     stage: [
@@ -1667,9 +1724,13 @@ def _orfs_pass(
             src = step_name,
             **kwargs
         )
+        return step_name
 
     for step, prev in zip(steps[start_stage:], steps[start_stage - 1:]):
         do_step(step, prev)
 
     if FINAL_STAGE_IMPL in steps:
         do_step(GENERATE_METADATA_STAGE_IMPL, FINAL_STAGE_IMPL)
+        test_args = get_stage_args(TEST_STAGE_IMPL.stage, stage_arguments, arguments, sources)
+        if "RULES_JSON" in test_args:
+            do_step(TEST_STAGE_IMPL, GENERATE_METADATA_STAGE_IMPL)
