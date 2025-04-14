@@ -717,6 +717,7 @@ orfs_run = rule(
 
 CANON_OUTPUT = "1_synth.rtlil"
 SYNTH_OUTPUTS = ["1_synth.v", "1_synth.sdc", "mem.json"]
+SYNTH_REPORTS = ["synth_stat.txt"]
 
 def _yosys_impl(ctx):
     all_arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps])
@@ -764,6 +765,10 @@ def _yosys_impl(ctx):
     for output in SYNTH_OUTPUTS:
         synth_outputs.append(_declare_artifact(ctx, "results", output))
 
+    synth_reports = []
+    for report in SYNTH_REPORTS:
+        synth_reports.append(_declare_artifact(ctx, "reports", report))
+
     # SYNTH_NETLIST_FILES will not create an .rtlil file or reports, so we need
     # an empty placeholder in that case.
     commands = [ctx.executable._make.path + " $@"] + _generation_commands(synth_logs + synth_outputs)
@@ -788,7 +793,7 @@ def _yosys_impl(ctx):
                 deps_inputs(ctx),
             ],
         ),
-        outputs = synth_outputs + synth_logs,
+        outputs = synth_outputs + synth_logs + synth_reports,
         tools = yosys_inputs(ctx),
     )
 
@@ -889,7 +894,7 @@ def _yosys_impl(ctx):
         ),
         LoggingInfo(
             logs = depset(canon_logs + synth_logs),
-            reports = depset([]),
+            reports = depset(synth_reports),
             drcs = depset([]),
             jsons = depset([]),
         ),
