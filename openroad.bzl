@@ -1273,6 +1273,29 @@ orfs_final = rule(
     executable = True,
 )
 
+orfs_generate_metadata = rule(
+    implementation = lambda ctx: _make_impl(
+        ctx = ctx,
+        stage = "generate_metadata",
+        steps = ["metadata-generate"],
+        object_names = [
+        ],
+        log_names = [
+            "metadata-generate.log",
+        ],
+        json_names = [
+        ],
+        report_names = [
+            "metadata.json",
+        ],
+        result_names = [
+        ],
+    ),
+    attrs = openroad_attrs() | renamed_inputs_attr(),
+    provides = flow_provides(),
+    executable = True,
+)
+
 def _extensionless_basename(file):
     return file.basename.removesuffix("." + file.extension)
 
@@ -1305,6 +1328,10 @@ orfs_deps = rule(
     executable = True,
 )
 
+FINAL_STAGE_IMPL = struct(stage = "final", impl = orfs_final)
+
+GENERATE_METADATA_STAGE_IMPL = struct(stage = "generate_metadata", impl = orfs_generate_metadata)
+
 STAGE_IMPLS = [
     struct(stage = "synth", impl = orfs_synth),
     struct(stage = "floorplan", impl = orfs_floorplan),
@@ -1312,7 +1339,7 @@ STAGE_IMPLS = [
     struct(stage = "cts", impl = orfs_cts),
     struct(stage = "grt", impl = orfs_grt),
     struct(stage = "route", impl = orfs_route),
-    struct(stage = "final", impl = orfs_final),
+    FINAL_STAGE_IMPL,
 ]
 
 ABSTRACT_IMPL = struct(stage = "generate_abstract", impl = orfs_abstract)
@@ -1369,7 +1396,8 @@ ORFS_VARIABLE_TO_STAGES = {
     if "stages" in v
 }
 
-ALL_STAGES = set(_union(*ORFS_VARIABLE_TO_STAGES.values()))
+# Stages that do not appear in variables.yaml must be added manually here
+ALL_STAGES = set(_union(*ORFS_VARIABLE_TO_STAGES.values()) + ["generate_metadata"])
 
 ORFS_STAGE_TO_VARIABLES = {
     stage: [
@@ -1617,7 +1645,7 @@ def _orfs_pass(
         # implemented stage 0 above, so skip stage 0 below
         start_stage = 1
 
-    for step, prev in zip(steps[start_stage:], steps[start_stage - 1:]):
+    def do_step(step, prev):
         stage_variant = abstract_variant if step.stage == ABSTRACT_IMPL.stage and abstract_variant else variant
         step_name = _step_name(name, stage_variant, step.stage)
         src = previous_stage.get(step.stage, _step_name(name, variant, prev.stage))
@@ -1639,3 +1667,9 @@ def _orfs_pass(
             src = step_name,
             **kwargs
         )
+
+    for step, prev in zip(steps[start_stage:], steps[start_stage - 1:]):
+        do_step(step, prev)
+
+    if FINAL_STAGE_IMPL in steps:
+        do_step(GENERATE_METADATA_STAGE_IMPL, FINAL_STAGE_IMPL)
