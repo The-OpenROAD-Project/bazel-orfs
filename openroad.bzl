@@ -640,12 +640,14 @@ def _run_impl(ctx):
             [config, ctx.file.script],
             transitive = [
                 data_inputs(ctx),
-                flow_inputs(ctx),
-                yosys_inputs(ctx),
                 source_inputs(ctx),
             ],
         ),
         outputs = outs,
+        tools = depset(transitive = [
+            flow_inputs(ctx),
+            yosys_inputs(ctx),
+        ]),
     )
 
     make = ctx.actions.declare_file("make_{}_{}_run".format(ctx.attr.name, ctx.attr.variant))
@@ -745,13 +747,13 @@ def _yosys_impl(ctx):
             ctx.files.verilog_files +
             ctx.files.extra_configs,
             transitive = [
-                yosys_inputs(ctx),
                 data_inputs(ctx),
                 pdk_inputs(ctx),
                 deps_inputs(ctx),
             ],
         ),
         outputs = [canon_output] + canon_logs,
+        tools = yosys_inputs(ctx),
     )
 
     synth_logs = []
@@ -781,13 +783,13 @@ def _yosys_impl(ctx):
             [canon_output, config] +
             ctx.files.extra_configs,
             transitive = [
-                yosys_inputs(ctx),
                 data_inputs(ctx),
                 pdk_inputs(ctx),
                 deps_inputs(ctx),
             ],
         ),
         outputs = synth_outputs + synth_logs,
+        tools = yosys_inputs(ctx),
     )
 
     # Dummy action to make sure that the flow environment is available to
@@ -797,12 +799,8 @@ def _yosys_impl(ctx):
     ctx.actions.run_shell(
         command = "touch " + dummy_output.path,
         env = flow_environment(ctx),
-        inputs = depset(
-            transitive = [
-                flow_inputs(ctx),
-            ],
-        ),
         outputs = [dummy_output],
+        tools = flow_inputs(ctx),
     )
 
     outputs = [canon_output] + synth_outputs + [dummy_output]
@@ -986,13 +984,13 @@ def _make_impl(
             [config] +
             ctx.files.extra_configs,
             transitive = [
-                flow_inputs(ctx),
                 data_inputs(ctx),
                 source_inputs(ctx),
                 rename_inputs(ctx),
             ],
         ),
         outputs = results + objects + logs + reports + jsons + drcs,
+        tools = flow_inputs(ctx),
     )
 
     config_short = _declare_artifact(ctx, "results", stage + ".short.mk")
