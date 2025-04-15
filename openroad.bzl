@@ -1355,6 +1355,22 @@ orfs_generate_metadata = rule(
     executable = True,
 )
 
+orfs_update_rules = rule(
+    implementation = lambda ctx: _make_impl(
+        ctx = ctx,
+        stage = "update_rules",
+        steps = ["do-update_rules"],
+        object_names = [],
+        log_names = [],
+        json_names = [],
+        report_names = ["rules.json"],
+        result_names = [],
+    ),
+    attrs = openroad_attrs() | renamed_inputs_attr(),
+    provides = flow_provides(),
+    executable = True,
+)
+
 def _extensionless_basename(file):
     return file.basename.removesuffix("." + file.extension)
 
@@ -1390,6 +1406,7 @@ orfs_deps = rule(
 FINAL_STAGE_IMPL = struct(stage = "final", impl = orfs_final)
 
 GENERATE_METADATA_STAGE_IMPL = struct(stage = "generate_metadata", impl = orfs_generate_metadata)
+UPDATE_RULES_IMPL = struct(stage = "update_rules", impl = orfs_update_rules)
 
 TEST_STAGE_IMPL = struct(stage = "test", impl = orfs_test)
 
@@ -1459,7 +1476,7 @@ ORFS_VARIABLE_TO_STAGES = {
 
 # Stages that do not appear in variables.yaml must be added manually here
 ALL_STAGES = set(_union(*ORFS_VARIABLE_TO_STAGES.values()) +
-                 ["generate_metadata", "test"])
+                 ["generate_metadata", "test", "update_rules"])
 
 ORFS_STAGE_TO_VARIABLES = {
     stage: [
@@ -1647,6 +1664,52 @@ def orfs_flow(
 def _kwargs(stage, **kwargs):
     return {k: v[stage] for k, v in kwargs.items() if stage in v and v[stage]}
 
+def _update_rules_impl(ctx):
+    script = ctx.actions.declare_file(ctx.attr.name + "_update.sh")
+
+    ctx.actions.write(
+        output = script,
+        is_executable = True,
+        content = """
+#!/bin/bash
+set -e
+rules_json="{rules_json}"
+logs="{logs}"
+cp $logs $BUILD_WORKSPACE_DIRECTORY/$rules_json
+""".format(
+            rules_json = ctx.file.rules_json.path,
+            logs = " ".join([log.short_path for log in ctx.files.logs]),
+        ),
+    )
+
+    return [
+        DefaultInfo(
+            executable = script,
+            runfiles = ctx.runfiles(transitive_files = depset(
+                [],
+                transitive = [
+                    depset(ctx.files.rules_json),
+                    depset(ctx.files.logs),
+                ],
+            )),
+        ),
+    ]
+
+orfs_update = rule(
+    implementation = _update_rules_impl,
+    attrs = {
+        "rules_json": attr.label(
+            allow_single_file = True,
+            mandatory = True,
+        ),
+        "logs": attr.label_list(
+            allow_files = True,
+            providers = [LoggingInfo],
+        ),
+    },
+    executable = True,
+)
+
 def _orfs_pass(
         name,
         top,
@@ -1750,3 +1813,9 @@ def _orfs_pass(
         test_args = get_stage_args(TEST_STAGE_IMPL.stage, stage_arguments, arguments, sources)
         if "RULES_JSON" in test_args:
             do_step(TEST_STAGE_IMPL, GENERATE_METADATA_STAGE_IMPL, add_deps = False)
+            rules_name = do_step(UPDATE_RULES_IMPL, GENERATE_METADATA_STAGE_IMPL)
+            orfs_update(
+                name = _step_name(name, variant, "update"),
+                rules_json = sources["RULES_JSON"][0],
+                logs = [rules_name],
+            )
