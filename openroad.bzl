@@ -1773,7 +1773,7 @@ def _orfs_pass(
         # implemented stage 0 above, so skip stage 0 below
         start_stage = 1
 
-    def do_step(step, prev, logs = [], add_deps = True):
+    def do_step(step, prev, logs = [], add_deps = True, more_kwargs = {}):
         stage_variant = abstract_variant if step.stage == ABSTRACT_IMPL.stage and abstract_variant else variant
         step_name = _step_name(name, stage_variant, step.stage)
         src = previous_stage.get(step.stage, _step_name(name, variant, prev.stage))
@@ -1790,13 +1790,13 @@ def _orfs_pass(
                 renamed_inputs = renamed_inputs,
             ) | (
                 {"logs": logs} if logs else {}
-            ))
+            ) | more_kwargs)
         )
         if add_deps:
             orfs_deps(
                 name = "{}_deps".format(step_name),
                 src = step_name,
-                **kwargs
+                **(kwargs | more_kwargs)
             )
         return step_name
 
@@ -1809,11 +1809,20 @@ def _orfs_pass(
             GENERATE_METADATA_STAGE_IMPL,
             FINAL_STAGE_IMPL,
             logs = logs,
+            # TODO remove when ORFS supports the needed targets
+            more_kwargs = {"tags": ["manual"]},
         )
         test_args = get_stage_args(TEST_STAGE_IMPL.stage, stage_arguments, arguments, sources)
         if "RULES_JSON" in test_args:
-            do_step(TEST_STAGE_IMPL, GENERATE_METADATA_STAGE_IMPL, add_deps = False)
-            rules_name = do_step(UPDATE_RULES_IMPL, GENERATE_METADATA_STAGE_IMPL)
+            do_step(
+                TEST_STAGE_IMPL,
+                GENERATE_METADATA_STAGE_IMPL,
+                add_deps = False,
+            )
+            rules_name = do_step(
+                UPDATE_RULES_IMPL,
+                GENERATE_METADATA_STAGE_IMPL,
+            )
             orfs_update(
                 name = _step_name(name, variant, "update"),
                 rules_json = sources["RULES_JSON"][0],
