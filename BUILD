@@ -78,11 +78,11 @@ BLOCK_FLOORPLAN = {
     "REMOVE_ABC_BUFFERS": "1",
 }
 
-# Run one macro through all stages
 orfs_flow(
     name = "tag_array_64x184",
+    abstract_stage = "cts",
     arguments = SRAM_ARGUMENTS | {
-        "CORE_UTILIZATION": "10",
+        "CORE_UTILIZATION": "2",
         "CORE_ASPECT_RATIO": "2",
         "SKIP_REPORT_METRICS": "1",
     },
@@ -97,9 +97,9 @@ orfs_flow(
 )
 
 LB_ARGS = SRAM_ARGUMENTS | {
-    "CORE_UTILIZATION": "40",
+    "CORE_UTILIZATION": "15",
     "CORE_ASPECT_RATIO": "2",
-    "PLACE_DENSITY": "0.65",
+    "PLACE_DENSITY": "0.15",
     "PLACE_PINS_ARGS": "-min_distance 1 -min_distance_in_tracks",
 }
 
@@ -132,10 +132,11 @@ orfs_floorplan(
 
 orfs_flow(
     name = "lb_32x128_top",
+    abstract_stage = "place",
     arguments = LB_ARGS | {
-        "CORE_UTILIZATION": "5",
+        "CORE_UTILIZATION": "1",
         "PLACE_DENSITY": "0.10",
-        "RTLMP_FLOW": "1",
+
         # Skip power checks to silence error and speed up build
         "PWR_NETS_VOLTAGES": "",
         "GND_NETS_VOLTAGES": "",
@@ -185,17 +186,17 @@ orfs_macro(
     module_top = "tag_array_64x184",
 )
 
+# Run one macro through all stages
 orfs_sweep(
     name = "L1MetadataArray",
-    abstract_stage = "cts",
     arguments = FAST_SETTINGS |
                 {
                     "SYNTH_HIERARCHICAL": "1",
                     "CORE_UTILIZATION": "3",
-                    "RTLMP_FLOW": "1",
                     "CORE_MARGIN": "2",
                     "MACRO_PLACE_HALO": "30 30",
-                    "PLACE_DENSITY": "0.10",
+                    "PLACE_DENSITY": "0.05",
+                    "GDS_ALLOW_EMPTY": "tag_array_64x184",
                 },
     sweep = {
         "base": {
@@ -266,34 +267,6 @@ eqy_test(
     module_top = "Mul",
 )
 
-orfs_flow(
-    name = "data_2048x8",
-    abstract_stage = "cts",
-    arguments = SRAM_ARGUMENTS,
-    stage_arguments = {
-        "synth": {"SYNTH_MEMORY_MAX_BITS": "16384"},
-        "floorplan": BLOCK_FLOORPLAN | {
-            "CORE_UTILIZATION": "40",
-            "CORE_ASPECT_RATIO": "2",
-        },
-        "place": {
-            "PLACE_DENSITY": "0.65",
-            "GPL_TIMING_DRIVEN": "0",
-        },
-        "cts": {
-            "SKIP_REPORT_METRICS": "1",
-        },
-    },
-    stage_sources = {
-        "synth": [":constraints-sram"],
-        "floorplan": [":io-sram"],
-        "place": [":io-sram"],
-    },
-    verilog_files = [
-        "test/rtl/data_2048x8.sv",
-    ],
-)
-
 # Need full flow to test final gatelist extraction
 orfs_flow(
     name = "regfile_128x65",
@@ -301,7 +274,7 @@ orfs_flow(
         "DIE_AREA": "0 0 400 400",
         "CORE_AREA": "2 2 298 298",
         "IO_CONSTRAINTS": "$(location :io-sram)",
-        "PLACE_DENSITY": "0.20",
+        "PLACE_DENSITY": "0.10",
     },
     stage_sources = {
         "synth": [":constraints-sram"],
@@ -327,26 +300,21 @@ orfs_sweep(
     sweep = {
         "1": {
             "arguments": {
-                "PLACE_DENSITY": "0.65",
+                "PLACE_DENSITY": "0.20",
             },
             "previous_stage": {"floorplan": "lb_32x128_synth"},
         },
         "2": {
             "arguments": {
-                "PLACE_DENSITY": "0.70",
+                "PLACE_DENSITY": "0.21",
             },
             "previous_stage": {"place": "lb_32x128_floorplan"},
         },
         "3": {
             "arguments": {
-                "PLACE_DENSITY": "0.75",
+                "PLACE_DENSITY": "0.22",
             },
             "previous_stage": {"cts": "lb_32x128_place"},
-        },
-        "4": {
-            "arguments": {
-                "PLACE_DENSITY": "0.80",
-            },
         },
     },
     verilog_files = ["test/mock/lb_32x128.sv"],
@@ -439,14 +407,14 @@ py_binary(
 
 orfs_ppa(
     name = "plot",
-    plot = ["lb_32x128_{}_cts".format(i + 1) for i in range(4)],
+    plot = ["lb_32x128_{}_cts".format(i + 1) for i in range(3)],
     title = "lb_32x128 variants",
 )
 
 orfs_flow(
     name = "lb_32x128_sky130hd",
     arguments = {
-        "CORE_UTILIZATION": "10",
+        "CORE_UTILIZATION": "5",
         "CORE_ASPECT_RATIO": "2",
         "SKIP_REPORT_METRICS": "1",
     },

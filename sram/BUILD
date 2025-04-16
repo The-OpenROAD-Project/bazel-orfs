@@ -21,7 +21,7 @@ FAST_SETTINGS = {
         "CORE_UTILIZATION": "20",
         "CORE_MARGIN": "2",
         "MACRO_PLACE_HALO": "30 30",
-        "PLACE_DENSITY": "0.25",
+        "PLACE_DENSITY": "0.20",
     },
     mock_area = 0.95,
     previous_stage = {
@@ -129,7 +129,6 @@ orfs_flow(
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "DIE_AREA": "0 0 80 80",
         "CORE_AREA": "2 2 78 78",
-        "RTLMP_FLOW": "1",
         "CORE_MARGIN": "2",
         "MACRO_PLACE_HALO": "2 2",
     },
@@ -155,7 +154,6 @@ orfs_flow(
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "DIE_AREA": "0 0 30 30",
         "CORE_AREA": "2 2 28 28",
-        "RTLMP_FLOW": "1",
         "CORE_MARGIN": "2",
         "MACRO_PLACE_HALO": "2 2",
     },
@@ -211,7 +209,6 @@ orfs_flow(
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "MACRO_PLACEMENT_TCL": "$(location :macro_placement.tcl)",
-        "RTLMP_FLOW": "1",
     },
     extra_configs = {"floorplan": [":floorplan.config"]},
     macros = [
@@ -228,10 +225,10 @@ orfs_flow(
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "sdq_17x64",
-    abstract_stage = "cts",
+    abstract_stage = "place",
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :megaboom/constraints-sram.sdc)",
-        "CORE_UTILIZATION": "20",
+        "CORE_UTILIZATION": "10",
         "CORE_MARGIN": "2",
         "MACRO_PLACE_HALO": "30 30",
         "PLACE_DENSITY": "0.25",
@@ -252,7 +249,6 @@ orfs_flow(
         "SDC_FILE": "$(location :megaboom/constraints-top.sdc)",
         "DIE_AREA": "0 0 100 100",
         "CORE_AREA": "2 2 98 98",
-        "RTLMP_FLOW": "1",
         "CORE_MARGIN": "2",
         "MACRO_PLACE_HALO": "2 2",
     },

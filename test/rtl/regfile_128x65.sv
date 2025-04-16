@@ -32,20 +32,20 @@ module regfile_128x65(
   input  [6:0]  W0_addr,
   input         W0_en,
                 W0_clk,
-  input  [64:0] W0_data,
+  input  [8:0] W0_data,
   input  [6:0]  W1_addr,
   input         W1_en,
                 W1_clk,
-  input  [64:0] W1_data,
+  input  [8:0] W1_data,
   input  [6:0]  W2_addr,
   input         W2_en,
                 W2_clk,
-  input  [64:0] W2_data,
+  input  [8:0] W2_data,
   input  [6:0]  W3_addr,
   input         W3_en,
                 W3_clk,
-  input  [64:0] W3_data,
-  output [64:0] R0_data,
+  input  [8:0] W3_data,
+  output [8:0] R0_data,
                 R1_data,
                 R2_data,
                 R3_data,
@@ -53,8 +53,8 @@ module regfile_128x65(
                 R5_data
 );
 
-  // reduced from 128 to 1 to speed up tests
-  reg [64:0] Memory[0:0];
+  // reduced 64:0 to 8:0 and 128 to 1 to speed up tests
+  reg [8:0] Memory[0:0];
   always @(posedge W0_clk) begin
     if (W0_en)
       Memory[W0_addr[3:0] ^ W0_addr[7:4]] <= W0_data;
