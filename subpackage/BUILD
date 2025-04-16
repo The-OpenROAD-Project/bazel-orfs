@@ -19,25 +19,17 @@ FAST_SETTINGS = {
 
 orfs_flow(
     name = "L1MetadataArray",
-    abstract_stage = "cts",
-    arguments = FAST_SETTINGS,
-    macros = ["//:tag_array_64x184_generate_abstract"],
-    stage_arguments = {
-        "synth": {
-            "SDC_FILE": "$(location //:test/constraints-top.sdc)",
-            "SYNTH_HIERARCHICAL": "1",
-        },
-        "floorplan": FLOOR_PLACE_ARGUMENTS | {
-            "CORE_UTILIZATION": "3",
-            "RTLMP_FLOW": "1",
-            "CORE_MARGIN": "2",
-            "MACRO_PLACE_HALO": "30 30",
-        },
-        "place": FLOOR_PLACE_ARGUMENTS | {
-            "PLACE_DENSITY": "0.20",
-            "PLACE_PINS_ARGS": "-annealing",
-        },
+    abstract_stage = "place",
+    arguments = FAST_SETTINGS | FLOOR_PLACE_ARGUMENTS | {
+        "SDC_FILE": "$(location //:test/constraints-top.sdc)",
+        "SYNTH_HIERARCHICAL": "1",
+        "CORE_UTILIZATION": "3",
+        "CORE_MARGIN": "2",
+        "MACRO_PLACE_HALO": "30 30",
+        "PLACE_DENSITY": "0.20",
+        "PLACE_PINS_ARGS": "-annealing",
     },
+    macros = ["//:tag_array_64x184_generate_abstract"],
     stage_sources = {
         "floorplan": ["//:io"],
         "place": ["//:io"],
@@ -49,20 +41,12 @@ orfs_flow(
 orfs_flow(
     name = "tag_array_64x184",
     abstract_stage = "place",
-    arguments = FAST_SETTINGS,
-    stage_arguments = {
-        "synth": {
-            "SDC_FILE": "$(location //:constraints-sram)",
-        },
-        "floorplan": {
-            "CORE_UTILIZATION": "10",
-            "CORE_ASPECT_RATIO": "2",
-            "IO_CONSTRAINTS": "$(location //:io-sram)",
-        },
-        "place": {
-            "PLACE_DENSITY": "0.65",
-            "IO_CONSTRAINTS": "$(location //:io-sram)",
-        },
+    arguments = FAST_SETTINGS | {
+        "SDC_FILE": "$(location //:constraints-sram)",
+        "CORE_UTILIZATION": "4",
+        "CORE_ASPECT_RATIO": "2",
+        "PLACE_DENSITY": "0.10",
+        "IO_CONSTRAINTS": "$(location //:io-sram)",
     },
     stage_sources = {
         "synth": ["//:constraints-sram"],
