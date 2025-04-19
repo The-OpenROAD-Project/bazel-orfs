@@ -830,7 +830,7 @@ def _yosys_impl(ctx):
 
     # SYNTH_NETLIST_FILES will not create an .rtlil file or reports, so we need
     # an empty placeholder in that case.
-    commands = [ctx.executable._make.path + " $@"] + _generation_commands(synth_logs + synth_outputs)
+    commands = [ctx.executable._make.path + " $@"] + _generation_commands(synth_logs + synth_outputs + synth_reports)
     ctx.actions.run_shell(
         arguments = [
             "--file",
