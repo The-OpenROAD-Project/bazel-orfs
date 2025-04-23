@@ -1773,7 +1773,7 @@ def _orfs_pass(
         # implemented stage 0 above, so skip stage 0 below
         start_stage = 1
 
-    def do_step(step, prev, logs = [], add_deps = True, more_kwargs = {}):
+    def do_step(step, prev, logs = [], add_deps = True, more_kwargs = {}, data = []):
         stage_variant = abstract_variant if step.stage == ABSTRACT_IMPL.stage and abstract_variant else variant
         step_name = _step_name(name, stage_variant, step.stage)
         src = previous_stage.get(step.stage, _step_name(name, variant, prev.stage))
@@ -1782,7 +1782,7 @@ def _orfs_pass(
             src = src,
             arguments = get_stage_args(step.stage, stage_arguments, arguments, sources),
             data = get_sources(step.stage, stage_sources, sources) +
-                   stage_data.get(step.stage, []),
+                   stage_data.get(step.stage, []) + data,
             extra_configs = extra_configs.get(step.stage, []),
             variant = variant,
             **(kwargs | _kwargs(
@@ -1809,9 +1809,14 @@ def _orfs_pass(
             GENERATE_METADATA_STAGE_IMPL,
             FINAL_STAGE_IMPL,
             logs = logs,
+            data = [
+                # Need 2_floorplan.sdc
+                _step_name(name, variant, "floorplan"),
+            ],
             # TODO remove when ORFS supports the needed targets
             more_kwargs = {"tags": ["manual"]},
         )
+
         test_args = get_stage_args(TEST_STAGE_IMPL.stage, stage_arguments, arguments, sources)
         if "RULES_JSON" in test_args:
             do_step(
