@@ -187,8 +187,7 @@ def flow_inputs(ctx):
         ctx.files._ruby_dynamic +
         ctx.files._tcl +
         ctx.files._opengl +
-        ctx.files._qt_plugins +
-        ctx.files.logs,
+        ctx.files._qt_plugins,
         transitive = [
             ctx.attr._openroad[DefaultInfo].default_runfiles.files,
             ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
@@ -239,6 +238,8 @@ def source_inputs(ctx):
             ctx.attr.src[OrfsInfo].additional_lefs,
             ctx.attr.src[OrfsInfo].additional_libs,
             ctx.attr.src[PdkInfo].files,
+            ctx.attr.src[LoggingInfo].jsons,
+            ctx.attr.src[LoggingInfo].logs,
         ],
     )
 
@@ -358,10 +359,6 @@ def orfs_attrs():
         "variant": attr.string(
             doc = "Variant of the used flow.",
             default = "base",
-        ),
-        "logs": attr.label_list(
-            providers = [LoggingInfo],
-            allow_empty = True,
         ),
         "_make": attr.label(
             doc = "make binary.",
@@ -1111,7 +1108,7 @@ def _make_impl(
             reports = depset(reports),
             jsons = depset(jsons),
             drcs = depset(drcs),
-            **{f.basename: depset([f]) for f in [config] + results + objects + logs + reports}
+            **{f.basename: depset([f]) for f in [config] + results + objects + logs + reports + jsons + drcs}
         ),
         OrfsDepInfo(
             make = make,
@@ -1144,8 +1141,8 @@ def _make_impl(
         LoggingInfo(
             logs = depset(logs, transitive = [ctx.attr.src[LoggingInfo].logs]),
             reports = depset(reports, transitive = [ctx.attr.src[LoggingInfo].reports]),
-            drcs = depset(reports, transitive = [ctx.attr.src[LoggingInfo].drcs]),
-            jsons = depset(reports, transitive = [ctx.attr.src[LoggingInfo].jsons]),
+            drcs = depset(drcs, transitive = [ctx.attr.src[LoggingInfo].drcs]),
+            jsons = depset(jsons, transitive = [ctx.attr.src[LoggingInfo].jsons]),
         ),
         ctx.attr.src[PdkInfo],
         ctx.attr.src[TopInfo],
@@ -1773,7 +1770,7 @@ def _orfs_pass(
         # implemented stage 0 above, so skip stage 0 below
         start_stage = 1
 
-    def do_step(step, prev, logs = [], add_deps = True, more_kwargs = {}, data = []):
+    def do_step(step, prev, add_deps = True, more_kwargs = {}, data = []):
         stage_variant = abstract_variant if step.stage == ABSTRACT_IMPL.stage and abstract_variant else variant
         step_name = _step_name(name, stage_variant, step.stage)
         src = previous_stage.get(step.stage, _step_name(name, variant, prev.stage))
@@ -1788,8 +1785,6 @@ def _orfs_pass(
             **(kwargs | _kwargs(
                 step.stage,
                 renamed_inputs = renamed_inputs,
-            ) | (
-                {"logs": logs} if logs else {}
             ) | more_kwargs)
         )
         if add_deps:
@@ -1804,11 +1799,9 @@ def _orfs_pass(
         step_names.append(do_step(step, prev))
 
     if FINAL_STAGE_IMPL in steps:
-        logs = [name for name in step_names[0:steps.index(FINAL_STAGE_IMPL) + 1]]
         do_step(
             GENERATE_METADATA_STAGE_IMPL,
             FINAL_STAGE_IMPL,
-            logs = logs,
             data = [
                 # Need 2_floorplan.sdc
                 _step_name(name, variant, "floorplan"),
