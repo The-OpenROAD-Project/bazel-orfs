@@ -240,6 +240,7 @@ def source_inputs(ctx):
             ctx.attr.src[PdkInfo].files,
             ctx.attr.src[LoggingInfo].jsons,
             ctx.attr.src[LoggingInfo].logs,
+            ctx.attr.src[LoggingInfo].reports,
         ],
     )
 
