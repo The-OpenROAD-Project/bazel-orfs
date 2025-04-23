@@ -31,6 +31,7 @@ _default_tag = tag_class(
         ),
         "openroad": attr.label(
             mandatory = False,
+            cfg = "exec",
             default = Label("@docker_orfs//:openroad"),
         ),
     },
