@@ -23,7 +23,10 @@ global_config = repository_rule(
         "makefile": attr.label(mandatory = True),
         "pdk": attr.label(mandatory = True),
         "makefile_yosys": attr.label(mandatory = True),
-        "openroad": attr.label(mandatory = True),
+        "openroad": attr.label(
+            mandatory = True,
+            cfg = "exec",
+        ),
     },
     doc = "A repository that provides global configuration values as strings.",
 )
