@@ -1,6 +1,14 @@
 """Rules for the building the OpenROAD-flow-scripts stages"""
 
-load("@config//:global_config.bzl", "CONFIG_MAKEFILE", "CONFIG_MAKEFILE_YOSYS", "CONFIG_OPENROAD", "CONFIG_PDK")
+load(
+    "@config//:global_config.bzl",
+    "CONFIG_MAKEFILE",
+    "CONFIG_MAKEFILE_YOSYS",
+    "CONFIG_OPENROAD",
+    "CONFIG_PDK",
+    "CONFIG_YOSYS",
+    "CONFIG_YOSYS_ABC",
+)
 load("@orfs_variable_metadata//:json.bzl", "orfs_variable_metadata")
 
 def _map(function, iterable):
@@ -440,14 +448,14 @@ def yosys_only_attrs():
             executable = True,
             allow_files = True,
             cfg = "exec",
-            default = Label("@docker_orfs//:yosys-abc"),
+            default = CONFIG_YOSYS_ABC,
         ),
         "_yosys": attr.label(
             doc = "Yosys binary.",
             executable = True,
             allow_files = True,
             cfg = "exec",
-            default = Label("@docker_orfs//:yosys"),
+            default = CONFIG_YOSYS,
         ),
         "_makefile_yosys": attr.label(
             doc = "Top level makefile yosys.",

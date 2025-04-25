@@ -34,6 +34,16 @@ _default_tag = tag_class(
             cfg = "exec",
             default = Label("@docker_orfs//:openroad"),
         ),
+        "yosys": attr.label(
+            mandatory = False,
+            cfg = "exec",
+            default = Label("@docker_orfs//:yosys"),
+        ),
+        "yosys_abc": attr.label(
+            mandatory = False,
+            cfg = "exec",
+            default = Label("@docker_orfs//:yosys-abc"),
+        ),
     },
 )
 
@@ -71,6 +81,8 @@ def _orfs_repositories_impl(module_ctx):
             pdk = default.pdk,
             makefile_yosys = default.makefile_yosys,
             openroad = default.openroad,
+            yosys = default.yosys,
+            yosys_abc = default.yosys_abc,
         )
 
 orfs_repositories = module_extension(

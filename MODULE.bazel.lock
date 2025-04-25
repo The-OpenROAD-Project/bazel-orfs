@@ -142,7 +142,7 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "D8F4lxkxZKld3gfouPynfNto900AoYgU58+xOY+BTeA=",
+        "bzlTransitiveDigest": "opZMguyG+UPmDQ6vhzXe/u0WnKyao2m9IAQt+JWkhcA=",
         "usagesDigest": "zpK78whikb3oKQG+qwrNsiLynPHlfSPD6mtj/bHJOvg=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -179,7 +179,9 @@
               "makefile": "@@_main~orfs_repositories~docker_orfs//:makefile",
               "pdk": "@@_main~orfs_repositories~docker_orfs//:asap7",
               "makefile_yosys": "@@_main~orfs_repositories~docker_orfs//:makefile_yosys",
-              "openroad": "@@_main~orfs_repositories~docker_orfs//:openroad"
+              "openroad": "@@_main~orfs_repositories~docker_orfs//:openroad",
+              "yosys": "@@_main~orfs_repositories~docker_orfs//:yosys",
+              "yosys_abc": "@@_main~orfs_repositories~docker_orfs//:yosys-abc"
             }
           }
         },
