@@ -9,7 +9,7 @@ load("//:ppa.bzl", "orfs_ppa")
 load("//:sweep.bzl", "orfs_sweep")
 load("//:yosys.bzl", "yosys")
 
-exports_files(["mock_area.tcl"])
+exports_files(["mock_area.tcl", "oss_cad_suite.BUILD.bazel"])
 
 exports_files(
     glob([

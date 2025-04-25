@@ -74,6 +74,24 @@ filegroup(
 )
 
 filegroup(
+    name = "yosys-abc",
+    data = glob([
+        "lib/libtcl8.6.so",
+        "lib/libreadline.so.8",
+        "lib/libstdc++.so.6",
+        "lib/ld-linux-x86-64.so.2",
+        "lib/libc.so.6",
+        "lib/libm.so.6",
+        "lib/libgcc_s.so.1",
+        "lib/tcl8.6/**",
+        "libexec/yosys-abc",
+        "share/yosys/**",
+    ]),
+    srcs = ["bin/yosys-abc"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
     name = "yosys_smtbmc",
     data = [
         ":bitwuzla",
