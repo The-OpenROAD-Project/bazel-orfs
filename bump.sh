@@ -6,8 +6,9 @@ cd $BUILD_WORKSPACE_DIRECTORY
 MODULE_FILE="MODULE.bazel"
 REPO="openroad/orfs"
 
-# Get the latest tag from Docker Hub API
-LATEST_TAG=$(curl -s "https://hub.docker.com/v2/repositories/$REPO/tags/?page_size=1" | jq -r '.results[0].name')
+# Get the latest immutable tag from Docker Hub API (excluding "latest")
+LATEST_TAG=$(curl -s "https://hub.docker.com/v2/repositories/$REPO/tags/?page_size=100" | \
+    jq -r '.results[] | select(.name != "latest") | .name' | sort -V | tail -n 1)
 
 if [[ -z "$LATEST_TAG" || "$LATEST_TAG" == "null" ]]; then
     echo "Failed to fetch latest tag."
