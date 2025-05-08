@@ -5,7 +5,12 @@ A repository rule to load a yaml file and convert it into a Starlark file.
 def _load_json_file_impl(repository_ctx):
     yaml_file = repository_ctx.path(repository_ctx.attr.src)
     json_file = repository_ctx.path(repository_ctx.attr.out)
-    result = repository_ctx.execute(["python3", yaml_file, json_file])
+    result = repository_ctx.execute([
+        "python3",
+        repository_ctx.path(repository_ctx.attr.script),
+        yaml_file,
+        json_file,
+    ])
     if result.return_code != 0:
         fail("Failed to convert yaml to json: {}".format(result.stderr), result.return_code)
     json_data = json.decode(repository_ctx.read(json_file))
