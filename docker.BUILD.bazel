@@ -44,12 +44,13 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-filegroup(
+sh_binary(
     name = "yosys",
     data = [
         ":ld.so",
+        "OpenROAD-flow-scripts/tools/install/yosys/share/yosys/plugins/slang.so",
     ],
-    srcs = ["OpenROAD-flow-scripts/tools/install/yosys/bin/yosys"],
+    srcs = ["OpenROAD-flow-scripts/tools/install/yosys/bin/yosys"],   
     visibility = ["//visibility:public"],
 )
 
