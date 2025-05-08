@@ -2,4 +2,4 @@ build --incompatible_strict_action_env
 
 common --incompatible_disallow_empty_glob
 
-try-import %workspace%/.user-bazelrc
+try-import %workspace%/user.bazelrc

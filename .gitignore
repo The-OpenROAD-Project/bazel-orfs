@@ -1,7 +1,8 @@
-bazel-*
-copyright.txt
-build/
-.user-bazelrc
+bazel-bazel-orfs
+bazel-bin       
+bazel-out       
+bazel-testlogs  
+user.bazelrc
 .metals/
 .vscode/
 __pycache__/
