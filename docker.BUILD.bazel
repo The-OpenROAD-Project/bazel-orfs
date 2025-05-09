@@ -44,7 +44,7 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-sh_binary(
+filegroup(
     name = "yosys",
     data = [
         ":ld.so",
