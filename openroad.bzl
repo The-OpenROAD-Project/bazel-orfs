@@ -667,7 +667,7 @@ def _run_impl(ctx):
         output = make,
         substitutions = flow_substitutions(ctx) | {'"$@"': _environment_string(
             _hack_away_prefix(
-                arguments = _odb_arguments(ctx, short = True) |
+                arguments = _odb_arguments(ctx) |
                             _data_arguments(ctx) |
                             _run_arguments(ctx),
                 prefix = config.root.path,
@@ -742,7 +742,7 @@ set -e
             makefile = ctx.file._makefile.path,
             moreargs = _environment_string(
                 _hack_away_prefix(
-                    arguments = _odb_arguments(ctx, short = True) |
+                    arguments = _odb_arguments(ctx) |
                                 _data_arguments(ctx),
                     prefix = config.root.path,
                 ) |
@@ -880,7 +880,10 @@ def _yosys_impl(ctx):
         output = config_short,
         content = _config_content(
             arguments = _hack_away_prefix(
-                arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(short = True, *[dep[OrfsInfo] for dep in ctx.attr.deps]) | _verilog_arguments(ctx.files.verilog_files, short = True),
+                arguments = _data_arguments(ctx) |
+                            _required_arguments(ctx) |
+                            _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]) |
+                            _verilog_arguments(ctx.files.verilog_files),
                 prefix = config_short.root.path,
             ),
             paths = [file.short_path for file in ctx.files.extra_configs],
@@ -1068,7 +1071,7 @@ def _make_impl(
         output = config_short,
         content = _config_content(
             arguments = _hack_away_prefix(
-                arguments = extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo], short = True),
+                arguments = extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo]),
                 prefix = config_short.root.path,
             ),
             paths = [file.short_path for file in ctx.files.extra_configs],
