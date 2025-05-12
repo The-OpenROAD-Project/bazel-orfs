@@ -1068,7 +1068,7 @@ def _make_impl(
         output = config_short,
         content = _config_content(
             arguments = _hack_away_prefix(
-                arguments = extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo], short = True),
+                arguments = extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo]),
                 prefix = config_short.root.path,
             ),
             paths = [file.short_path for file in ctx.files.extra_configs],
