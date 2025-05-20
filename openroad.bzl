@@ -549,7 +549,10 @@ def _config_content(arguments, paths):
                     ["include {}\n".format(path) for path in paths]))
 
 def _hack_away_prefix(arguments, prefix):
-    return {k: v.removeprefix(prefix + "/") for k, v in arguments.items()}
+    return {
+        k: " ".join([w.removeprefix(prefix + "/") for w in v.split(" ")])
+        for k, v in arguments.items()
+    }
 
 def _data_arguments(ctx):
     return {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()}
