@@ -7,6 +7,9 @@ import sys
 def yaml_to_json(yaml_file, output_file):
     with open(yaml_file, "r") as f:
         data = yaml.safe_load(f)
+    for value in data.values():
+        # Reduce size
+        del value["description"]
 
     with open(output_file, "w") as f:
         json.dump(data, f)
