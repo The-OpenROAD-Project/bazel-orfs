@@ -54,20 +54,20 @@ jobs:
         uses: actions/checkout@v4
       - name: query target
         run: |
-          bazel query ${{ matrix.STAGE_TARGET }}
-          bazel query ${{ matrix.STAGE_TARGET }} --output=build
+          bazelisk query ${{ matrix.STAGE_TARGET }}
+          bazelisk query ${{ matrix.STAGE_TARGET }} --output=build
       - name: Build report
         if: ${{ endsWith(matrix.STAGE_TARGET, '_report') }}
         run: |
-          bazel build --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }}
+          bazelisk build --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }}
       - name: Run target
         if: ${{ !endsWith(matrix.STAGE_TARGET, '_report') }}
         run: |
           if [[ ${{ matrix.STAGE_TARGET }} == "lb_32x128_generate_abstract" || ${{ matrix.STAGE_TARGET }} == *"tag_array_64x184_generate_abstract"* ]]; then
             # this is a mock area abstract, so it is not executable
-            bazel build --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }}
+            bazelisk build --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }}
           else
-            bazel run --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }} -- `pwd`/build
+            bazelisk run --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }} -- `pwd`/build
           fi
 
   test-open-target:
@@ -95,7 +95,7 @@ jobs:
             set -ex
 
             rm -rf ./build/
-            bazel run ${{ matrix.STAGE_TARGET }}_synth -- `pwd`/build OR_ARGS=-exit open_synth
+            bazelisk run ${{ matrix.STAGE_TARGET }}_synth -- `pwd`/build OR_ARGS=-exit open_synth
             if [[ "${{ matrix.STAGE_TARGET }}" == "L1MetadataArray" || "${{ matrix.STAGE_TARGET }}" == "subpackage:L1MetadataArray" || "${{ matrix.STAGE_TARGET }}" == "//sram:top_mix" ]]; then
               macro="true"
             fi
@@ -106,7 +106,7 @@ jobs:
             [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/1_.*\.log' | wc -l) -gt 1 ]
             [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/2_.*\.log' | wc -l) -eq 0 ]
             rm -rf ./build/
-            bazel run ${{ matrix.STAGE_TARGET }}_floorplan -- `pwd`/build OR_ARGS=-exit open_floorplan
+            bazelisk run ${{ matrix.STAGE_TARGET }}_floorplan -- `pwd`/build OR_ARGS=-exit open_floorplan
             if [[ "$macro" == "true" ]]; then
               [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lib' | wc -l) -eq 1 ]
               [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lef' | wc -l) -eq 1 ]

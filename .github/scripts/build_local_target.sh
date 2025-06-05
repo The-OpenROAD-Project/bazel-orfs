@@ -21,10 +21,10 @@ do
   rm -rf ./build
   if [[ -z $SKIP_BUILD ]] ; then
     echo "[${target_name}] ${stage}: Query dependency target"
-    bazel query "${target_name}_${stage}_deps"
-    bazel query "${target_name}_${stage}_deps" --output=build
+    bazelisk query "${target_name}_${stage}_deps"
+    bazelisk query "${target_name}_${stage}_deps" --output=build
     echo "[${target_name}] ${stage}: Build dependency"
-    bazel run --subcommands --verbose_failures --sandbox_debug "${target_name}_${stage}_deps" -- "$(pwd)/build"
+    bazelisk run --subcommands --verbose_failures --sandbox_debug "${target_name}_${stage}_deps" -- "$(pwd)/build"
   fi
   if [[ -z $SKIP_RUN ]] ; then
     stages=()
@@ -61,8 +61,8 @@ done
 
 if [[ -z $SKIP_BUILD && -z $SKIP_ABSTRACT ]]; then
     echo "query abstract target"
-    bazel query "${target_name}_generate_abstract"
-    bazel query "${target_name}_generate_abstract" --output=build
+    bazelisk query "${target_name}_generate_abstract"
+    bazelisk query "${target_name}_generate_abstract" --output=build
     echo "build abstract"
-    bazel build --subcommands --verbose_failures --sandbox_debug "${target_name}_generate_abstract"
+    bazelisk build --subcommands --verbose_failures --sandbox_debug "${target_name}_generate_abstract"
 fi
