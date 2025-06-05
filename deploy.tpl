@@ -64,24 +64,37 @@ main() {
   fi
 
   mkdir --parents "$dst"
-  cp --recursive --parents --target-directory "$dst" -- *
+  cp --recursive --target-directory "$dst" -- $0.runfiles/*
+  if [ ! -d "$dst/_main/external" ]; then
+    # Needed as of Bazel >= 8
+    ln -sf "$dst" "$dst/_main/external"
+  fi
+  dst_main="$dst/_main"
 
   for file in $genfiles; do
-    if [ -L "$dst/$file" ]; then
-      unlink "$dst/$file"
+    if [ -L "$dst_main/$file" ]; then
+      unlink "$dst_main/$file"
     fi
-    cp --force --dereference --no-preserve=all --parents --target-directory "$dst" "$file"
+    cp --force --dereference --no-preserve=all --parents --target-directory "$dst_main" "$file"
   done
 
-  cp --force "$make" "$dst/make"
-  cp --force --no-preserve=all "$config" "$dst/config.mk"
+  rm -f "$dst/make"
+  cat > "$dst/make" <<EOF
+#!/usr/bin/env bash
+set -exuo pipefail
+cd "\$(dirname "\$0")/_main"
+exec ./$make "\$@"
+EOF
+  chmod +x "$dst/make"
+
+  cp --force --no-preserve=all "$config" "$dst_main/config.mk"
 
   for rename in $renames; do
     IFS=':' read -r from to <<EOF
 $rename
 EOF
-    mkdir --parents "$dst"/"$(dirname "$to")"
-    cp --force --dereference --no-preserve=all "$from" "$dst"/"$to"
+    mkdir --parents "$dst_main"/"$(dirname "$to")"
+    cp --force --dereference --no-preserve=all "$from" "$dst_main"/"$to"
   done
 
   if [ "$#" -gt 0 ]; then
