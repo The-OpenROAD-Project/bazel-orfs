@@ -39,15 +39,15 @@ do
         stages+=("do-5_3_fillcell")
     elif [[ $stage == "cts" ]]; then
         stages+=("do-cts")
-        [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.odb' | wc -l) -eq 1 ]
-        [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.sdc' | wc -l) -eq 1 ]
-        [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.v' | wc -l) -eq 0 ]
+        [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.odb' | wc -l) -eq 1 ]
+        [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.sdc' | wc -l) -eq 1 ]
+        [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.v' | wc -l) -eq 0 ]
     else
         stages+=("do-${stage}")
     fi
     if [[ "$macro" == "true" ]]; then
-      [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lef' | wc -l) -eq 1 ]
-      [ $(find build ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lib' | wc -l) -eq 1 ]
+      [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lef' | wc -l) -eq 1 ]
+      [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lib' | wc -l) -eq 1 ]
     fi
     for local_stage in "${stages[@]}"
     do

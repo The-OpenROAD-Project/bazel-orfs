@@ -14,6 +14,6 @@ grep -q naja bazel-bin/sram/results/asap7/sdq_17x64/mock-naja/1_synth.v && false
 (bazel build //sram:sdq_17x64_naja-error_floorplan 2>&1 || true) | grep "syntax error"
 
 bazel run //sram:sdq_17x64_mock-naja_floorplan_deps $(pwd)/tmp
-grep naja tmp/sram/results/asap7/sdq_17x64/mock-naja/1_synth.v
+grep naja tmp/_main/sram/results/asap7/sdq_17x64/mock-naja/1_synth.v
 
 bazel analyze-profile build.profile
