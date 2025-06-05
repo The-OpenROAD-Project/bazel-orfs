@@ -1,8 +1,6 @@
 #! /bin/sh
-
 set -e
 
-cd "$(dirname "$0")"
 if [ -z "$FLOW_HOME" ]; then
   export MAKE_PATH="${MAKE_PATH}"
   export YOSYS_EXE="${YOSYS_PATH}"
