@@ -426,6 +426,7 @@ orfs_flow(
         "FASTROUTE_TCL": [":fastroute.tcl"],
         "RULES_JSON": ["rules-base.json"],
     },
+    tags = ["manual"],
     top = "lb_32x128",
     verilog_files = LB_VERILOG_FILES,
 )
