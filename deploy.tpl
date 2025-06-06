@@ -64,6 +64,7 @@ main() {
   fi
 
   mkdir --parents "$dst"
+  chmod --recursive u+w "$dst"
   cp --recursive --target-directory "$dst" -- $0.runfiles/*
   if [ ! -d "$dst/_main/external" ]; then
     # Needed as of Bazel >= 8
