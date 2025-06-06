@@ -739,9 +739,13 @@ def _test_impl(ctx):
         content = """
 #!/bin/sh
 set -e
+if [ ! -e external ]; then
+    # Needed as of Bazel >= 8
+    ln -sf $(realpath $(pwd)/..) external
+fi
 {make} --file {makefile} {moreargs} metadata-check
 """.format(
-            make = ctx.executable._make.path,
+            make = ctx.executable._make.short_path,
             makefile = ctx.file._makefile.path,
             moreargs = _environment_string(
                 _hack_away_prefix(
@@ -750,8 +754,9 @@ set -e
                     prefix = config.root.path,
                 ) |
                 {
-                    "WORK_HOME": ctx.label.package,
-                } | {"DESIGN_CONFIG": config.short_path},
+                    "WORK_HOME": "./" + ctx.label.package,
+                    "DESIGN_CONFIG": config.short_path,
+                },
             ),
         ),
     )

@@ -419,12 +419,12 @@ orfs_flow(
     arguments = {
         "CORE_UTILIZATION": "5",
         "CORE_ASPECT_RATIO": "2",
-        "SKIP_REPORT_METRICS": "1",
     },
     pdk = "@docker_orfs//:sky130hd",
     sources = {
         "SDC_FILE": [":constraints-sram-sky130hd.sdc"],
         "FASTROUTE_TCL": [":fastroute.tcl"],
+        "RULES_JSON": ["rules-base.json"],
     },
     top = "lb_32x128",
     verilog_files = LB_VERILOG_FILES,
