@@ -1836,13 +1836,16 @@ def _orfs_pass(
                 TEST_STAGE_IMPL,
                 GENERATE_METADATA_STAGE_IMPL,
                 add_deps = False,
+                more_kwargs = kwargs,
             )
             rules_name = do_step(
                 UPDATE_RULES_IMPL,
                 GENERATE_METADATA_STAGE_IMPL,
+                more_kwargs = kwargs,
             )
             orfs_update(
                 name = _step_name(name, variant, "update"),
                 rules_json = sources["RULES_JSON"][0],
                 logs = [rules_name],
+                **kwargs
             )
