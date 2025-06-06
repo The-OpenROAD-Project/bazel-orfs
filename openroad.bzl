@@ -1826,8 +1826,6 @@ def _orfs_pass(
                 # Need 2_floorplan.sdc
                 _step_name(name, variant, "floorplan"),
             ],
-            # TODO remove when ORFS supports the needed targets
-            more_kwargs = {"tags": ["manual"]},
         )
 
         test_args = get_stage_args(TEST_STAGE_IMPL.stage, stage_arguments, arguments, sources)
