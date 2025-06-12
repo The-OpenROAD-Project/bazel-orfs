@@ -414,22 +414,26 @@ orfs_ppa(
     title = "lb_32x128 variants",
 )
 
-orfs_flow(
-    name = "lb_32x128_sky130hd",
+[orfs_flow(
+    name = "lb_32x128_{}".format(pdk),
     arguments = {
         "CORE_UTILIZATION": "5",
         "CORE_ASPECT_RATIO": "2",
     },
-    pdk = "@docker_orfs//:sky130hd",
+    pdk = "@docker_orfs//:" + pdk,
     sources = {
         "SDC_FILE": [":constraints-sram-sky130hd.sdc"],
+    } | ({
         "FASTROUTE_TCL": [":fastroute.tcl"],
         "RULES_JSON": ["rules-base.json"],
-    },
+    } if pdk == "sky130hd" else {}),
     tags = ["manual"],
     top = "lb_32x128",
     verilog_files = LB_VERILOG_FILES,
-)
+) for pdk in [
+    "sky130hd",
+    "ihp-sg13g2",
+]]
 
 yosys(
     name = "alu",
