@@ -1401,7 +1401,7 @@ orfs_abstract = rule(
         ],
         result_names = [
             "{}.lef".format(ctx.attr.src[TopInfo].module_top),
-            "{}.lib".format(ctx.attr.src[TopInfo].module_top),
+            "{}_typ.lib".format(ctx.attr.src[TopInfo].module_top),
         ],
         log_names = [
             "generate_abstract.log",
