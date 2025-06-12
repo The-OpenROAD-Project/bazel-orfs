@@ -173,7 +173,7 @@ orfs_run(
 filegroup(
     name = "tag_array_64x184_libs",
     srcs = ["tag_array_64x184_generate_abstract"],
-    output_group = "tag_array_64x184.lib",
+    output_group = "tag_array_64x184_typ.lib",
 )
 
 filegroup(

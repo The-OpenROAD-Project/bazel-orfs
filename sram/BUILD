@@ -77,7 +77,7 @@ orfs_run(
 filegroup(
     name = "top_lib",
     srcs = ["top_generate_abstract"],
-    output_group = "top.lib",
+    output_group = "top_typ.lib",
 )
 
 # Read in the renamed synthesis output from above and provide
