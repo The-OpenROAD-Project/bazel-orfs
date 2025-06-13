@@ -167,6 +167,7 @@ def flow_environment(ctx):
         "KLAYOUT_CMD": ctx.executable._klayout.path,
         "OPENROAD_EXE": ctx.executable._openroad.path,
         "OPENSTA_EXE": ctx.executable._opensta.path,
+        "PYTHON_EXE": ctx.executable._python.path,
         "QT_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
         "QT_QPA_PLATFORM_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
         "RUBYLIB": ":".join([commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)]),
@@ -189,6 +190,7 @@ def flow_inputs(ctx):
             ctx.executable._make,
             ctx.executable._openroad,
             ctx.executable._opensta,
+            ctx.executable._python,
             ctx.file._makefile,
         ] +
         ctx.files._ruby +
@@ -207,6 +209,8 @@ def flow_inputs(ctx):
             ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
             ctx.attr._make[DefaultInfo].default_runfiles.files,
             ctx.attr._make[DefaultInfo].default_runfiles.symlinks,
+            ctx.attr._python[DefaultInfo].default_runfiles.files,
+            ctx.attr._python[DefaultInfo].default_runfiles.symlinks,
         ],
     )
 
@@ -385,6 +389,13 @@ def orfs_attrs():
             doc = "Top level makefile.",
             allow_single_file = ["Makefile"],
             default = CONFIG_MAKEFILE,
+        ),
+        "_python": attr.label(
+            doc = "Python wrapper.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@bazel-orfs//pythonwrapper:python3"),
         ),
     }
 
