@@ -1727,6 +1727,10 @@ orfs_update = rule(
     executable = True,
 )
 
+def _add_manual(kwargs):
+    """Adds manual arguments to the kwargs dictionary."""
+    return kwargs | {"tags": kwargs.get("tags", ["manual"])}
+
 def _orfs_pass(
         name,
         top,
@@ -1783,7 +1787,7 @@ def _orfs_pass(
         orfs_deps(
             name = "{}_deps".format(_step_name(name, variant, synth_step.stage)),
             src = _step_name(name, variant, synth_step.stage),
-            **kwargs
+            **_add_manual(kwargs)
         )
 
     if start_stage == 0:
@@ -1811,7 +1815,7 @@ def _orfs_pass(
             orfs_deps(
                 name = "{}_deps".format(step_name),
                 src = step_name,
-                **(kwargs | more_kwargs)
+                **_add_manual(kwargs | more_kwargs)
             )
         return step_name
 
