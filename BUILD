@@ -429,6 +429,7 @@ orfs_ppa(
     } if pdk == "sky130hd" else {}),
     top = "lb_32x128",
     verilog_files = LB_VERILOG_FILES,
+    tags = (["manual"] if pdk == "ihp-sg13g2" else []),
 ) for pdk in [
     "sky130hd",
     "ihp-sg13g2",
