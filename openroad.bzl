@@ -1783,7 +1783,7 @@ def _orfs_pass(
         orfs_deps(
             name = "{}_deps".format(_step_name(name, variant, synth_step.stage)),
             src = _step_name(name, variant, synth_step.stage),
-            **kwargs
+            **(kwargs | {"tags": kwargs.get("tags", ["manual"])})
         )
 
     if start_stage == 0:
