@@ -195,7 +195,9 @@ def flow_inputs(ctx):
         ctx.files._ruby_dynamic +
         ctx.files._tcl +
         ctx.files._opengl +
-        ctx.files._qt_plugins,
+        ctx.files._qt_plugins +
+        ctx.files._pandas,
+        ctx.files._pytz,
         transitive = [
             ctx.attr._openroad[DefaultInfo].default_runfiles.files,
             ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
@@ -385,6 +387,16 @@ def orfs_attrs():
             doc = "Top level makefile.",
             allow_single_file = ["Makefile"],
             default = CONFIG_MAKEFILE,
+        ),
+        "_pandas": attr.label(
+            doc = "pandas package.",
+            allow_files = True,
+            default = Label("@bazel-orfs-pip//pandas"),
+        ),
+        "_pytz": attr.label(
+            doc = "pandas package.",
+            allow_files = True,
+            default = Label("@bazel-orfs-pip//pandas"),
         ),
     }
 
@@ -738,12 +750,14 @@ def _test_impl(ctx):
         is_executable = True,
         content = """
 #!/bin/sh
-set -e
+set -ex
+export PYTHONPATH=$PYTHONPATH:$(location {pandas})
 if [ ! -e external ]; then
     # Needed as of Bazel >= 8
     ln -sf $(realpath $(pwd)/..) external
 fi
 {make} --file {makefile} {moreargs} metadata-check
+exit 1
 """.format(
             make = ctx.executable._make.short_path,
             makefile = ctx.file._makefile.path,
@@ -758,6 +772,7 @@ fi
                     "DESIGN_CONFIG": config.short_path,
                 },
             ),
+            pandas = ctx.attr._pandas.short_path,
         ),
     )
 
@@ -1057,9 +1072,18 @@ def _make_impl(
 
     commands = _generation_commands(reports + logs + jsons + drcs) + _input_commands(_renames(ctx, ctx.files.src)) + [ctx.executable._make.path + " $@"]
 
+    print(ctx.files._pandas[0])
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + steps,
-        command = " && ".join(commands),
+        command = """
+        set -ex
+        ls $(dirname {pandas})
+        export PYTHONPATH=$PYTHONPATH:$(dirname {pandas})
+    """.format(
+            pandas = ctx.files._pandas[0].path,
+        ) +       
+        
+        " && ".join(commands),
         env = flow_environment(ctx) | config_environment(config),
         inputs = depset(
             [config] +
