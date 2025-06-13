@@ -83,3 +83,10 @@ orfs.default(
 use_repo(orfs, "com_github_nixos_patchelf_download")
 use_repo(orfs, "docker_orfs")
 use_repo(orfs, "config")
+
+bazel_dep(name = "rules_uv", version = "0.76.0")
+git_override(
+    module_name = "rules_uv",
+    commit = "11a4ef54889723fcb7ad096f70ede16a5523e736",
+    remote = "https://github.com/theoremlp/rules_uv",
+)

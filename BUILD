@@ -2,12 +2,20 @@ load("@aspect_rules_js//js:defs.bzl", "js_binary")
 load("@bazel_orfs_rules_python//python:defs.bzl", "py_binary")
 load("@bazel_orfs_rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@npm//:defs.bzl", "npm_link_all_packages")
+load("@rules_uv//uv:venv.bzl", "create_venv")
 load("//:eqy.bzl", "eqy_test")
 load("//:netlistsvg.bzl", "netlistsvg")
 load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_macro", "orfs_run", "orfs_synth")
 load("//:ppa.bzl", "orfs_ppa")
 load("//:sweep.bzl", "orfs_sweep")
 load("//:yosys.bzl", "yosys")
+
+# Create a virtual environment
+create_venv(
+    name = "venv",
+    destination_folder = ".venv",
+    requirements_txt = "//:requirements_lock_3_13.txt",
+)
 
 exports_files([
     "mock_area.tcl",

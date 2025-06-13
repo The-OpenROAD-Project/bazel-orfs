@@ -189,6 +189,7 @@ def flow_inputs(ctx):
             ctx.executable._make,
             ctx.executable._openroad,
             ctx.executable._opensta,
+            ctx.executable._python,
             ctx.file._makefile,
         ] +
         ctx.files._ruby +
@@ -207,6 +208,8 @@ def flow_inputs(ctx):
             ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
             ctx.attr._make[DefaultInfo].default_runfiles.files,
             ctx.attr._make[DefaultInfo].default_runfiles.symlinks,
+            ctx.attr._python[DefaultInfo].default_runfiles.files,
+            ctx.attr._python[DefaultInfo].default_runfiles.symlinks,
         ],
     )
 
@@ -385,6 +388,13 @@ def orfs_attrs():
             doc = "Top level makefile.",
             allow_single_file = ["Makefile"],
             default = CONFIG_MAKEFILE,
+        ),
+        "_python": attr.label(
+            doc = "Python wrapper.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@bazel-orfs//pythonwrapper:python3"),
         ),
     }
 
@@ -738,12 +748,15 @@ def _test_impl(ctx):
         is_executable = True,
         content = """
 #!/bin/sh
-set -e
+set -ex
+export PATH=$(dirname {python}):$PATH
+which -a python3
 if [ ! -e external ]; then
     # Needed as of Bazel >= 8
     ln -sf $(realpath $(pwd)/..) external
 fi
 {make} --file {makefile} {moreargs} metadata-check
+exit 1
 """.format(
             make = ctx.executable._make.short_path,
             makefile = ctx.file._makefile.path,
@@ -758,6 +771,7 @@ fi
                     "DESIGN_CONFIG": config.short_path,
                 },
             ),
+            python=ctx.executable._python.path
         ),
     )
 
@@ -1059,7 +1073,13 @@ def _make_impl(
 
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + steps,
-        command = " && ".join(commands),
+        command = """
+        set -ex
+
+        export PATH=$(dirname {python}):$PATH
+        which -a python
+        """.format(python=ctx.executable._python.path) +
+        " && ".join(commands),
         env = flow_environment(ctx) | config_environment(config),
         inputs = depset(
             [config] +
