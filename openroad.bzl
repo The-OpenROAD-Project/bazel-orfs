@@ -192,7 +192,7 @@ def flow_inputs(ctx):
             ctx.executable._opensta,
             ctx.executable._python,
             ctx.file._makefile,
-        ] +
+        ] + ctx.files.tools +
         ctx.files._ruby +
         ctx.files._ruby_dynamic +
         ctx.files._tcl +
@@ -211,7 +211,13 @@ def flow_inputs(ctx):
             ctx.attr._make[DefaultInfo].default_runfiles.symlinks,
             ctx.attr._python[DefaultInfo].default_runfiles.files,
             ctx.attr._python[DefaultInfo].default_runfiles.symlinks,
-        ],
+        ] + _map(
+            lambda tool: tool[DefaultInfo].default_runfiles.files if tool[DefaultInfo] else [],
+            ctx.attr.tools,
+        ) + _map(
+            lambda tool: tool[DefaultInfo].default_runfiles.symlinks if tool[DefaultInfo] else [],
+            ctx.attr.tools,
+        ),
     )
 
 def yosys_inputs(ctx):
@@ -372,6 +378,12 @@ def orfs_attrs():
         "variant": attr.string(
             doc = "Variant of the used flow.",
             default = "base",
+        ),
+        "tools": attr.label_list(
+            doc = "List of tool binaries.",
+            allow_files = True,
+            cfg = "exec",
+            default = [],
         ),
         "_make": attr.label(
             doc = "make binary.",
