@@ -183,62 +183,47 @@ def yosys_environment(ctx):
 def config_environment(config):
     return {"DESIGN_CONFIG": config.path}
 
+def _runfiles(attrs):
+    return depset(
+        _map(
+            lambda tool: tool[DefaultInfo].files_to_run.executable,
+            attrs,
+        ),
+        transitive = flatten(_map(
+            lambda tool: [
+                tool[DefaultInfo].default_runfiles.files,
+                tool[DefaultInfo].default_runfiles.symlinks,
+            ],
+            attrs,
+        )),
+    )
+
 def flow_inputs(ctx):
     return depset(
-        [
-            ctx.executable._klayout,
-            ctx.executable._make,
-            ctx.executable._openroad,
-            ctx.executable._opensta,
-            ctx.executable._python,
-            ctx.file._makefile,
-        ] + ctx.files.tools +
         ctx.files._ruby +
         ctx.files._ruby_dynamic +
         ctx.files._tcl +
         ctx.files._opengl +
         ctx.files._qt_plugins,
-        transitive = [
-            ctx.attr._openroad[DefaultInfo].default_runfiles.files,
-            ctx.attr._openroad[DefaultInfo].default_runfiles.symlinks,
-            ctx.attr._opensta[DefaultInfo].default_runfiles.files,
-            ctx.attr._opensta[DefaultInfo].default_runfiles.symlinks,
-            ctx.attr._klayout[DefaultInfo].default_runfiles.files,
-            ctx.attr._klayout[DefaultInfo].default_runfiles.symlinks,
-            ctx.attr._makefile[DefaultInfo].default_runfiles.files,
-            ctx.attr._makefile[DefaultInfo].default_runfiles.symlinks,
-            ctx.attr._make[DefaultInfo].default_runfiles.files,
-            ctx.attr._make[DefaultInfo].default_runfiles.symlinks,
-            ctx.attr._python[DefaultInfo].default_runfiles.files,
-            ctx.attr._python[DefaultInfo].default_runfiles.symlinks,
-        ] + _map(
-            lambda tool: tool[DefaultInfo].default_runfiles.files if tool[DefaultInfo] else [],
-            ctx.attr.tools,
-        ) + _map(
-            lambda tool: tool[DefaultInfo].default_runfiles.symlinks if tool[DefaultInfo] else [],
-            ctx.attr.tools,
-        ),
+        transitive = [_runfiles([
+            ctx.attr._klayout,
+            ctx.attr._make,
+            ctx.attr._openroad,
+            ctx.attr._opensta,
+            ctx.attr._python,
+            ctx.attr._makefile,
+        ] + ctx.attr.tools)],
     )
 
 def yosys_inputs(ctx):
     return depset(
-        [
-            ctx.executable._abc,
-            ctx.executable._yosys,
-            ctx.executable._make,
-            ctx.file._makefile_yosys,
-        ] +
         ctx.files._tcl,
-        transitive = [
-            ctx.attr._abc[DefaultInfo].default_runfiles.files,
-            ctx.attr._abc[DefaultInfo].default_runfiles.symlinks,
-            ctx.attr._yosys[DefaultInfo].default_runfiles.files,
-            ctx.attr._yosys[DefaultInfo].default_runfiles.symlinks,
-            ctx.attr._makefile_yosys[DefaultInfo].default_runfiles.files,
-            ctx.attr._makefile_yosys[DefaultInfo].default_runfiles.symlinks,
-            ctx.attr._make[DefaultInfo].default_runfiles.files,
-            ctx.attr._make[DefaultInfo].default_runfiles.symlinks,
-        ],
+        transitive = [_runfiles([
+            ctx.attr._abc,
+            ctx.attr._yosys,
+            ctx.attr._make,
+            ctx.attr._makefile_yosys,
+        ])],
     )
 
 def data_inputs(ctx):
