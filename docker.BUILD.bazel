@@ -117,7 +117,7 @@ filegroup(
         "OpenROAD-flow-scripts/flow/scripts/util.tcl",
         "OpenROAD-flow-scripts/flow/scripts/synth*.tcl",
         "OpenROAD-flow-scripts/flow/util/preprocessLib.py",
-        "OpenROAD-flow-scripts/flow/util/mergeLib.pl",
+        "OpenROAD-flow-scripts/flow/util/merge_lib.py",
     ]),
     visibility = ["//visibility:public"],
 )
@@ -126,7 +126,6 @@ filegroup(
     name = "makefile",
     srcs = ["OpenROAD-flow-scripts/flow/Makefile"],
     data = glob(MAKEFILE_SHARED + [
-        "OpenROAD-flow-scripts/flow/util/*.pl",
         "OpenROAD-flow-scripts/flow/util/*.py",
         "OpenROAD-flow-scripts/flow/util/*.sh",
         "OpenROAD-flow-scripts/flow/scripts/*.tcl",
