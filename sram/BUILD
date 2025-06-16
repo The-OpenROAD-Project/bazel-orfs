@@ -21,7 +21,7 @@ FAST_SETTINGS = {
         "CORE_UTILIZATION": "20",
         "CORE_MARGIN": "2",
         "MACRO_PLACE_HALO": "30 30",
-        "PLACE_DENSITY": "0.20",
+        "PLACE_DENSITY": "0.23",
     },
     mock_area = 0.95,
     previous_stage = {

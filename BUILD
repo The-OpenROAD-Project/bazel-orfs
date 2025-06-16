@@ -102,7 +102,7 @@ orfs_flow(
 LB_ARGS = SRAM_ARGUMENTS | {
     "CORE_UTILIZATION": "15",
     "CORE_ASPECT_RATIO": "2",
-    "PLACE_DENSITY": "0.15",
+    "PLACE_DENSITY": "0.20",
     "PLACE_PINS_ARGS": "-min_distance 1 -min_distance_in_tracks",
 }
 
