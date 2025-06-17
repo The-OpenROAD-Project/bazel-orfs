@@ -878,18 +878,7 @@ def _yosys_impl(ctx):
         tools = yosys_inputs(ctx),
     )
 
-    # Dummy action to make sure that the flow environment is available to
-    # bazel run foo_synth without causing resynthesis when upgrading
-    # ORFS where yosys did not change, saves many hours of synthesis
-    dummy_output = _declare_artifact(ctx, "results", "dummy.txt")
-    ctx.actions.run_shell(
-        command = "touch " + dummy_output.path,
-        env = flow_environment(ctx),
-        outputs = [dummy_output],
-        tools = flow_inputs(ctx),
-    )
-
-    outputs = [canon_output] + synth_outputs + [dummy_output]
+    outputs = [canon_output] + synth_outputs
 
     config_short = _declare_artifact(ctx, "results", "1_synth.short.mk")
     ctx.actions.write(
