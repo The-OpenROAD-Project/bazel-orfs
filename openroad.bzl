@@ -1052,11 +1052,18 @@ def _make_impl(
     for file in forwards + results:
         info[file.extension] = file
 
-    commands = _generation_commands(reports + logs + jsons + drcs) + _input_commands(_renames(ctx, ctx.files.src)) + [ctx.executable._make.path + " $@"]
+    commands = (
+        _generation_commands(reports + logs + jsons + drcs) +
+        _input_commands(_renames(ctx, ctx.files.src))
+    )
 
     ctx.actions.run_shell(
-        arguments = ["--file", ctx.file._makefile.path] + steps,
-        command = " && ".join(commands),
+        command = "\n".join(commands +
+                            [" ".join([
+                                ctx.executable._make.path,
+                                "--file",
+                                ctx.file._makefile.path,
+                            ] + steps)]),
         env = flow_environment(ctx) | config_environment(config),
         inputs = depset(
             [config] +
