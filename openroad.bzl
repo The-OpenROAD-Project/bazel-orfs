@@ -307,8 +307,9 @@ def flow_substitutions(ctx):
         "${LIBGL_DRIVERS_PATH}": commonpath(ctx.files._opengl),
         "${MAKEFILE_PATH}": ctx.file._makefile.path,
         "${MAKE_PATH}": ctx.executable._make.path,
-        "${OPENROAD_PATH}": ctx.executable._openroad.path,
-        "${OPENSTA_PATH}": ctx.executable._opensta.path,
+        # OpenROAD uses //:openroad, //:opensta here and puts the binary in the pwd
+        "${OPENROAD_PATH}": "./" + ctx.executable._openroad.short_path,
+        "${OPENSTA_PATH}": "./" + ctx.executable._opensta.short_path,
         "${QT_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
         "${RUBY_PATH}": commonpath(ctx.files._ruby),
         "${STDBUF_PATH}": "",
