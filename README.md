@@ -577,6 +577,12 @@ For more information please refer to the description of [Abstract targets](#gene
 
 ## Bazel hacking
 
+### Upgrading bazel-orfs and ORFS in a repository using bazel-orfs and ORFS
+
+    bazelisk run @bazel-orfs//:bump
+
+This will update your MODULE.bazel with the latest ORFS and bazel-orfs and run `bazelisk mod tidy`.
+
 ### Run all synth targets
 
 ```bash
