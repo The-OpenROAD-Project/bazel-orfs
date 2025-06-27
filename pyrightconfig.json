@@ -1,0 +1,11 @@
+{
+    "exclude": [
+        "bazel-bin/**/*",
+        "bazel-bazel-orfs/**/*",
+        "bazel-out/**/*",
+        "bazel-testlogs/**/*",
+        "**/__pycache__",
+        "**/node_modules",
+        "**/__pycache__",
+    ],
+}
