@@ -797,7 +797,7 @@ orfs_test = rule(
     test = True,
 )
 
-CANON_OUTPUT = "1_synth.rtlil"
+CANON_OUTPUT = "1_1_yosys_canonicalize.rtlil"
 SYNTH_OUTPUTS = ["1_synth.v", "1_synth.sdc", "mem.json"]
 SYNTH_REPORTS = ["synth_stat.txt"]
 
@@ -840,7 +840,7 @@ def _yosys_impl(ctx):
     )
 
     synth_logs = []
-    for log in ["1_1_yosys.log", "1_1_yosys_metrics.log", "1_1_yosys_hier_report.log"]:
+    for log in ["1_2_yosys.log", "1_2_yosys_metrics.log"]:
         synth_logs.append(_declare_artifact(ctx, "logs", log))
 
     synth_outputs = []

@@ -413,13 +413,13 @@ It's important to provide an absolute path to the directory where the flow artif
 
 When using bazel-orfs, the dependency checking is done by Bazel instead of ORFS's makefile, with the exception of the synthesis canonicalization stage.
 
-ORFS `make do-yosys-canonicalize` is special and will do dependency checking using ORFS `Makefile` and output `$(RESULTS_DIR)/1_synth.rtlil`.
+ORFS `make do-yosys-canonicalize` is special and will do dependency checking using ORFS `Makefile` and output `$(RESULTS_DIR)/1_1_yosys_canonicalize.rtlil`.
 
 The `.rtlil` is Yosys's internal representation format of all the various input files that went into Yosys, however any unused modules have been deleted and the modules are in canonical form(ordering of the Verilog files provided to Yosys won't matter). However, `.rtlil` still contains line number information for debugging purposes. The canonicalization stage is quick compared to synthesis and adds no measurable overhead.
 
 Canonicalization simplifies specifying `VERILOG_FILES` to ORFS in Bazel, simply glob them all and let Yosys figure out which files are actually used. This avoids redoing synthesis unnecessarily if, for instance, a Verilog file related to simulation changes.
 
-The next stage is `make do-yosys` which does no dependency checking, leaving it to Bazel. `do-yosys` completes the synthesis using `$(RESULTS_DIR)/1_synth.rtlil`.
+The next stage is `make do-yosys` which does no dependency checking, leaving it to Bazel. `do-yosys` completes the synthesis using `$(RESULTS_DIR)/1_1_yosys_canonicalize.rtlil`.
 
 The subsequent ORFS stages are run with `make do-floorplan do-place ...` and these stages do no dependency checking, leaving it to Bazel.
 
