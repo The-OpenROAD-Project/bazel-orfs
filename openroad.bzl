@@ -487,6 +487,7 @@ def synth_attrs():
                 ".v",
                 ".sv",
                 ".svh",
+                ".rtlil",
             ],
             allow_rules = [
             ],
