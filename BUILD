@@ -427,9 +427,9 @@ orfs_ppa(
         "FASTROUTE_TCL": [":fastroute.tcl"],
         "RULES_JSON": ["rules-base.json"],
     } if pdk == "sky130hd" else {}),
+    tags = (["manual"] if pdk == "ihp-sg13g2" else []),
     top = "lb_32x128",
     verilog_files = LB_VERILOG_FILES,
-    tags = (["manual"] if pdk == "ihp-sg13g2" else []),
 ) for pdk in [
     "sky130hd",
     "ihp-sg13g2",
