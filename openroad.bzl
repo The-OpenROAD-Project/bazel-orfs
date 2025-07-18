@@ -536,6 +536,7 @@ def _required_arguments(ctx):
         "DESIGN_NAME": _module_top(ctx),
         "FLOW_VARIANT": ctx.attr.variant,
         "GENERATE_ARTIFACTS_ON_FAILURE": "1",
+        "WORK_HOME": "./" + ctx.label.package,
     }
 
 def _orfs_arguments(*args, short = False):
@@ -687,7 +688,6 @@ def _run_impl(ctx):
                 prefix = config.root.path,
             ) |
             {
-                "WORK_HOME": ctx.label.package,
                 "DESIGN_CONFIG": "config.mk",
             },
         ) + ' "$@"'},
@@ -765,7 +765,6 @@ fi
                     prefix = config.root.path,
                 ) |
                 {
-                    "WORK_HOME": "./" + ctx.label.package,
                     "DESIGN_CONFIG": config.short_path,
                 },
             ),
@@ -902,7 +901,7 @@ def _yosys_impl(ctx):
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
-        substitutions = flow_substitutions(ctx) | yosys_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
+        substitutions = flow_substitutions(ctx) | yosys_substitutions(ctx) | {'"$@"': 'DESIGN_CONFIG="config.mk" "$@"'},
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
@@ -1090,7 +1089,7 @@ def _make_impl(
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
-        substitutions = flow_substitutions(ctx) | {'"$@"': 'WORK_HOME="./{}" DESIGN_CONFIG="config.mk" "$@"'.format(ctx.label.package)},
+        substitutions = flow_substitutions(ctx) | {'"$@"': 'DESIGN_CONFIG="config.mk" "$@"'},
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
