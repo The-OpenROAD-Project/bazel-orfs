@@ -340,6 +340,11 @@ def _deps_impl(ctx):
             files = ctx.attr.src[OrfsDepInfo].files,
             runfiles = ctx.attr.src[OrfsDepInfo].runfiles,
         ),
+        ctx.attr.src[OrfsInfo],
+        ctx.attr.src[PdkInfo],
+        ctx.attr.src[TopInfo],
+        ctx.attr.src[LoggingInfo],
+        ctx.attr.src[OrfsDepInfo],
     ]
 
 def flow_provides():
