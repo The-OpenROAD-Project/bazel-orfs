@@ -183,13 +183,15 @@ orfs_macro(
 # Use the macro placement from a different flow
 orfs_run(
     name = "top_write_macro_placement",
-    src = ":top_floorplan",
+    src = ":top_floorplan_deps",
     outs = [
         ":macro_placement.tcl",
     ],
     arguments = {
         "MESSAGE": "Hello world!",
     },
+    # Run only the steps we need, faster
+    cmd = "do-2_1_floorplan do-2_2_floorplan_macro run",
     script = ":write_macros.tcl",
 )
 
