@@ -153,7 +153,7 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "iyNJmQefNHFxk2IZ05Ws8xMhCV33ensoUHYLn+DsXWA=",
+        "bzlTransitiveDigest": "hyqlyIKmHhc/aIKGpRDRHrtzfibw/p5egldJWKofAlc=",
         "usagesDigest": "pcFTLtQv8Iavl8PfeTm4iDby1J5JlWvd9eFomR+KgA8=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -178,6 +178,14 @@
               "timeout": 3600,
               "patch_cmds": [
                 "find . -name BUILD.bazel -delete"
+              ],
+              "patches": [
+                "@@//:orfs-patch.txt"
+              ],
+              "patch_args": [
+                "-p1",
+                "-d",
+                "OpenROAD-flow-scripts"
               ]
             }
           },
