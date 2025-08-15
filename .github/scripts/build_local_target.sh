@@ -32,6 +32,7 @@ do
         stages+=("do-yosys-canonicalize")
         stages+=("do-yosys")
         stages+=("do-synth")
+        stages+=("do-1_3_synth")
     elif [[ $stage == "grt" ]]; then
         stages+=("do-5_1_grt")
     elif [[ $stage == "route" ]]; then
