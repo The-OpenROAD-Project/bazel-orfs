@@ -804,7 +804,7 @@ orfs_test = rule(
 )
 
 CANON_OUTPUT = "1_1_yosys_canonicalize.rtlil"
-SYNTH_OUTPUTS = ["1_synth.v", "1_synth.sdc", "mem.json"]
+SYNTH_OUTPUTS = ["1_synth.v", "1_synth.sdc", "mem.json", "1_synth.odb"]
 SYNTH_REPORTS = ["synth_stat.txt"]
 
 def _yosys_impl(ctx):
@@ -867,6 +867,7 @@ def _yosys_impl(ctx):
             "yosys-dependencies",
             "do-yosys",
             "do-synth",
+            "do-1_3_synth",
         ],
         command = " && ".join(commands),
         env = _verilog_arguments([]) |
@@ -882,7 +883,7 @@ def _yosys_impl(ctx):
             ],
         ),
         outputs = synth_outputs + synth_logs + synth_reports,
-        tools = yosys_inputs(ctx),
+        tools = depset(transitive = [yosys_inputs(ctx), flow_inputs(ctx)]),
     )
 
     outputs = [canon_output] + synth_outputs
