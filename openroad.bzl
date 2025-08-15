@@ -849,9 +849,9 @@ def _yosys_impl(ctx):
     for log in ["1_2_yosys.log", "1_2_yosys_metrics.log"]:
         synth_logs.append(_declare_artifact(ctx, "logs", log))
 
-    synth_outputs = []
+    synth_outputs = {}
     for output in SYNTH_OUTPUTS:
-        synth_outputs.append(_declare_artifact(ctx, "results", output))
+        synth_outputs[output] = _declare_artifact(ctx, "results", output)
 
     synth_reports = []
     for report in SYNTH_REPORTS:
@@ -859,7 +859,7 @@ def _yosys_impl(ctx):
 
     # SYNTH_NETLIST_FILES will not create an .rtlil file or reports, so we need
     # an empty placeholder in that case.
-    commands = [ctx.executable._make.path + " $@"] + _generation_commands(synth_logs + synth_outputs + synth_reports)
+    commands = [ctx.executable._make.path + " $@"] + _generation_commands(synth_logs + synth_outputs.values() + synth_reports)
     ctx.actions.run_shell(
         arguments = [
             "--file",
@@ -882,11 +882,11 @@ def _yosys_impl(ctx):
                 deps_inputs(ctx),
             ],
         ),
-        outputs = synth_outputs + synth_logs + synth_reports,
+        outputs = synth_outputs.values() + synth_logs + synth_reports,
         tools = depset(transitive = [yosys_inputs(ctx), flow_inputs(ctx)]),
     )
 
-    outputs = [canon_output] + synth_outputs
+    outputs = [canon_output] + synth_outputs.values()
 
     config_short = _declare_artifact(ctx, "results", "1_synth.short.mk")
     ctx.actions.write(
@@ -961,7 +961,7 @@ def _yosys_impl(ctx):
             stage = "1_synth",
             config = config,
             variant = ctx.attr.variant,
-            odb = None,
+            odb = synth_outputs["1_synth.odb"],
             gds = None,
             lef = None,
             lib = None,
