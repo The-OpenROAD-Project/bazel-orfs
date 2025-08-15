@@ -254,21 +254,22 @@ filegroup(
     output_group = "1_synth.v",
 )
 
-eqy_test(
-    name = "Mul_synth_eqy",
-    depth = 2,
-    gate_verilog_files = [
-        ":Mul_synth_verilog",
-        "@docker_orfs//:OpenROAD-flow-scripts/flow/platforms/asap7/work_around_yosys/asap7sc7p5t_AO_RVT_TT_201020.v",
-        "@docker_orfs//:OpenROAD-flow-scripts/flow/platforms/asap7/work_around_yosys/asap7sc7p5t_INVBUF_RVT_TT_201020.v",
-        "@docker_orfs//:OpenROAD-flow-scripts/flow/platforms/asap7/work_around_yosys/asap7sc7p5t_OA_RVT_TT_201020.v",
-        "@docker_orfs//:OpenROAD-flow-scripts/flow/platforms/asap7/work_around_yosys/asap7sc7p5t_SIMPLE_RVT_TT_201020.v",
-    ],
-    gold_verilog_files = [
-        "test/rtl/Mul.sv",
-    ],
-    module_top = "Mul",
-)
+# FIXME update to using .lib cells after
+# https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/pull/3377
+#
+# Yosys no longer has this multiply bug that we're testing for.
+#
+# eqy_test(
+#     name = "Mul_synth_eqy",
+#     depth = 2,
+#     gate_verilog_files = [
+#         ":Mul_synth_verilog",
+#     ],
+#     gold_verilog_files = [
+#         "test/rtl/Mul.sv",
+#     ],
+#     module_top = "Mul",
+# )
 
 # Need full flow to test final gatelist extraction
 orfs_flow(
