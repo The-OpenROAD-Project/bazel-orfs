@@ -242,9 +242,9 @@ orfs_run(
 orfs_synth(
     name = "Mul_synth",
     arguments = {
-        "SDC_FILE": "$(location :test/constraints-top.sdc)",
+        "SDC_FILE": "$(location :test/constraints-combinational.sdc)",
     },
-    data = [":test/constraints-top.sdc"],
+    data = [":test/constraints-combinational.sdc"],
     module_top = "Mul",
     verilog_files = ["test/rtl/Mul.sv"],
 )
