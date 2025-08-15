@@ -74,6 +74,15 @@ def _orfs_repositories_impl(module_ctx):
             patch_cmds = [
                 "find . -name BUILD.bazel -delete",
             ],
+            # This is normally an empty patch, but is useful to
+            # apply patches while waiting for some pull request to land
+            # in the official ORFS docker image:
+            #
+            # git diff -u origin/master HEAD > orfs-patch.txt
+            patches = [
+                "//:orfs-patch.txt",
+            ],
+            patch_args = ["-p1", "-d", "OpenROAD-flow-scripts"],
         )
         global_config(
             name = "config",
