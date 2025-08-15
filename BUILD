@@ -89,7 +89,8 @@ orfs_flow(
         "CORE_ASPECT_RATIO": "2",
         "SKIP_REPORT_METRICS": "1",
     },
-    mock_area = 0.8,
+    # FIXME reenable after https://github.com/The-OpenROAD-Project/OpenROAD/issues/7745 is fixed
+    # mock_area = 0.8,
     stage_sources = {
         "synth": [":constraints-sram"],
         "floorplan": [":io-sram"],
