@@ -3,6 +3,8 @@ load("@aspect_rules_js//js:defs.bzl", "js_binary")
 # Unused in CI
 #
 # load("@bazel-orfs//tools/pin:pin.bzl", "pin_data")
+load("@bazel-orfs//toolchains/scala:chisel.bzl", "chisel_library")
+load("@bazel-orfs//toolchains/scala:scala_bloop.bzl", "scala_bloop")
 load("@bazel_orfs_rules_python//python:defs.bzl", "py_binary")
 load("@bazel_orfs_rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@npm//:defs.bzl", "npm_link_all_packages")
@@ -524,3 +526,20 @@ sh_binary(
 #     ],
 #     tags = ["manual"],
 # )
+
+# This library lists all the scala files we will be editing in vscode via bloop
+chisel_library(
+    name = "blooplib",
+    srcs = [
+        "//toolchains/scala:chiselfiles",
+    ],
+    deps = [
+        "@maven//:org_scalatest_scalatest_2_13",
+    ],
+)
+
+# Set up bloop
+scala_bloop(
+    name = "bloop",
+    src = "blooplib",
+)
