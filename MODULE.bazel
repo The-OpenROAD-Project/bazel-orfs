@@ -83,3 +83,12 @@ orfs.default(
 use_repo(orfs, "com_github_nixos_patchelf_download")
 use_repo(orfs, "docker_orfs")
 use_repo(orfs, "config")
+
+# Not in use in CI
+#
+# pin = use_extension("//extensions:pin.bzl", "pin")
+# pin.artifacts(
+#     artifacts_lock = "//:artifacts_lock.txt",
+#     repo_name = "pinned",
+# )
+# use_repo(pin, "pinned")

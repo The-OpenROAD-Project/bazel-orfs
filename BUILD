@@ -1,4 +1,8 @@
 load("@aspect_rules_js//js:defs.bzl", "js_binary")
+
+# Unused in CI
+#
+# load("@bazel-orfs//tools/pin:pin.bzl", "pin_data")
 load("@bazel_orfs_rules_python//python:defs.bzl", "py_binary")
 load("@bazel_orfs_rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@npm//:defs.bzl", "npm_link_all_packages")
@@ -501,3 +505,22 @@ sh_binary(
     srcs = ["bump.sh"],
     visibility = ["//visibility:public"],
 )
+
+# Not in use in CI
+#
+# pin_data(
+#     name = "pin",
+#     srcs = [
+#         ":alu",
+#     ],
+#     artifacts_lock = "artifacts_lock.txt",
+#     bucket = "some-google-bucket",
+# )
+
+# filegroup(
+#     name = "foo",
+#     srcs = [
+#         "@pinned//alu",
+#     ],
+#     tags = ["manual"],
+# )

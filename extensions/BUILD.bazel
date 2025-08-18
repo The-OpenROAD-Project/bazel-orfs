@@ -1,0 +1,4 @@
+exports_files(
+    ["pin.bzl"],
+    visibility = ["//visibility:public"],
+)
