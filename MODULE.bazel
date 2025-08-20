@@ -149,3 +149,13 @@ use_repo(maven, "maven")
 register_toolchains(
     "//toolchains/scala:all",
 )
+
+http_archive(
+    name = "circt",
+    build_file_content = """
+exports_files(glob(["bin/*"]), visibility = ["//visibility:public"])
+""",
+    sha256 = "44b03df50843ceb5f49ad0e6a84c382008e591361ec1dd4086ac8321877e401b",
+    strip_prefix = "firtool-1.127.0",
+    url = "https://github.com/llvm/circt/releases/download/firtool-1.127.0/circt-full-static-linux-x64.tar.gz",
+)
