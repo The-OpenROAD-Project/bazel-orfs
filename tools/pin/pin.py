@@ -9,7 +9,7 @@ import tarfile
 import tempfile
 import typing
 import urllib.parse
-
+from pathlib import Path
 
 class Label(typing.NamedTuple):
     repo: str
@@ -29,9 +29,18 @@ class File(typing.NamedTuple):
     workspace_root: str
 
     def runfile_path(self):
-        return os.path.join(
-            os.environ["RUNFILES"], os.path.relpath(self.path, self.root)
-        )
+        attempt = os.path.join(os.environ["RUNFILES"],
+                               os.path.relpath(self.path, self.root))
+        if not os.path.exists(attempt):
+            base = Path(os.environ["RUNFILES"])
+            while base.name != "bazel-out":
+                base = base.parent
+            attempt = os.path.join(base.parent, self.path)
+            if not os.path.exists(attempt):
+                raise RuntimeError("Unable to find path of {}".format(
+                    self.path))
+
+        return attempt
 
     def archive_path(self):
         return os.path.relpath(
