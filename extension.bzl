@@ -80,7 +80,7 @@ def _orfs_repositories_impl(module_ctx):
             #
             # git diff -u origin/master HEAD > orfs-patch.txt
             patches = [
-                # "//:orfs-patch.txt",
+                "//:0001-Revert-make-check-if-binaries-are-valid-before-conti.patch",
             ],
             patch_args = ["-p1", "-d", "OpenROAD-flow-scripts"],
         )

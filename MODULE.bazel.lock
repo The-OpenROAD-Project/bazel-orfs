@@ -155,7 +155,7 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "W2FcgOTim8eocKPV5zKBqUWCMCrRjVK8KK28G/2fPTE=",
+        "bzlTransitiveDigest": "xMdj3VsRTAj/bBji7IiyxOnBRsFjKl5qgByGWDdrDhc=",
         "usagesDigest": "WcizB/eXNPcHypOiVGOkqqSeDXjC4SPmC6HIAUY239I=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -181,7 +181,9 @@
               "patch_cmds": [
                 "find . -name BUILD.bazel -delete"
               ],
-              "patches": [],
+              "patches": [
+                "@@//:0001-Revert-make-check-if-binaries-are-valid-before-conti.patch"
+              ],
               "patch_args": [
                 "-p1",
                 "-d",
