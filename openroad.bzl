@@ -867,10 +867,12 @@ def _yosys_impl(ctx):
             "yosys-dependencies",
             "do-yosys",
             "do-synth",
+            # convert to .odb using OpenROAD
             "do-1_3_synth",
         ],
         command = " && ".join(commands),
         env = _verilog_arguments([]) |
+              flow_environment(ctx) |
               yosys_environment(ctx) |
               config_environment(config),
         inputs = depset(
