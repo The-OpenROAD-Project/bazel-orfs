@@ -1588,6 +1588,7 @@ def orfs_flow(
         previous_stage = {},
         pdk = None,
         stage_data = {},
+        test_kwargs = {},
         **kwargs):
     """
     Creates targets for running physical design flow with OpenROAD-flow-scripts.
@@ -1609,6 +1610,7 @@ def orfs_flow(
       previous_stage: a dictionary with the input for a stage, default is previous stage. Useful when running experiments that share preceeding stages, like share synthesis for floorplan variants.
       pdk: name of the PDK to use, default is asap7
       stage_data: dictionary keyed by ORFS stages with lists of stage-specific data files
+      test_kwargs: dictionary of arguments to pass to orfs_test
       **kwargs: forward named args
     """
     if variant == "base":
@@ -1633,6 +1635,7 @@ def orfs_flow(
         previous_stage = previous_stage,
         pdk = pdk,
         stage_data = stage_data,
+        test_kwargs = test_kwargs,
         **kwargs
     )
 
@@ -1662,6 +1665,7 @@ def orfs_flow(
         previous_stage = {},
         pdk = pdk,
         stage_data = stage_data,
+        mock_area = True,
         **kwargs
     )
 
@@ -1755,6 +1759,8 @@ def _orfs_pass(
         previous_stage,
         pdk,
         stage_data,
+        test_kwargs = {},
+        mock_area = False,
         **kwargs):
     steps = []
     LEGAL_ABSTRACT_STAGES = ["place", "cts", "grt", "route", "final"]
@@ -1801,7 +1807,7 @@ def _orfs_pass(
         # implemented stage 0 above, so skip stage 0 below
         start_stage = 1
 
-    def do_step(step, prev, add_deps = True, more_kwargs = {}, data = []):
+    def do_step(step, prev, kwargs, add_deps = True, more_kwargs = {}, data = []):
         stage_variant = abstract_variant if step.stage == ABSTRACT_IMPL.stage and abstract_variant else variant
         step_name = _step_name(name, stage_variant, step.stage)
         src = previous_stage.get(step.stage, _step_name(name, variant, prev.stage))
@@ -1827,7 +1833,7 @@ def _orfs_pass(
         return step_name
 
     for step, prev in zip(steps[start_stage:], steps[start_stage - 1:]):
-        step_names.append(do_step(step, prev))
+        step_names.append(do_step(step, prev, kwargs))
 
     if FINAL_STAGE_IMPL in steps:
         do_step(
@@ -1837,19 +1843,21 @@ def _orfs_pass(
                 # Need 2_floorplan.sdc
                 _step_name(name, variant, "floorplan"),
             ],
+            kwargs = kwargs,
         )
 
         test_args = get_stage_args(TEST_STAGE_IMPL.stage, stage_arguments, arguments, sources)
-        if "RULES_JSON" in test_args:
+        if "RULES_JSON" in test_args and not mock_area:
             do_step(
                 TEST_STAGE_IMPL,
                 GENERATE_METADATA_STAGE_IMPL,
                 add_deps = False,
-                more_kwargs = kwargs,
+                kwargs = kwargs | {"tags": []} | test_kwargs,
             )
             rules_name = do_step(
                 UPDATE_RULES_IMPL,
                 GENERATE_METADATA_STAGE_IMPL,
+                kwargs = kwargs,
                 more_kwargs = kwargs,
             )
             orfs_update(
