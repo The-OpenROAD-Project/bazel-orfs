@@ -51,9 +51,9 @@ FAST_SETTINGS = {
     verilog_files = [":fakeram/sdq_17x64.sv"],
 ) for variant in [
     "base",
-    "mock-naja",
-    "naja",
-    "naja-error",
+#    "mock-naja",
+#    "naja",
+#    "naja-error",
 ]]
 
 # fish out the file that we want as input to the "naja" rule
@@ -72,6 +72,7 @@ orfs_run(
         "$(location :objects/asap7/sdq_17x64/naja/lib/merged.lib)",
     ]),
     script = "@docker_orfs//:OpenROAD-flow-scripts/flow/scripts/noop.tcl",
+    tags = ["manual"],
 )
 
 filegroup(
@@ -98,6 +99,7 @@ genrule(
     echo \"// imagine naja edits in this file\" > $@
     cat $(location :sdq_17x64_synth_unedited) >> $@
 """,
+    tags = ["manual"],
 )
 
 # FIXME some better way to deploy naja in Bazel environment is needed
@@ -120,6 +122,7 @@ genrule(
     srcs = [":sdq_17x64_synth_unedited"],
     outs = ["naja-error.v"],
     cmd = "mkdir -p `dirname $@`; echo \"imagine naja producing invalid verilog\" > $@ && cat $< >> $@",
+    tags = ["manual"],
 )
 
 orfs_flow(
