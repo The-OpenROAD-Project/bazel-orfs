@@ -28,6 +28,7 @@ orfs_flow(
         "MACRO_PLACE_HALO": "30 30",
         "PLACE_DENSITY": "0.20",
         "PLACE_PINS_ARGS": "-annealing",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
     },
     macros = ["//:tag_array_64x184_generate_abstract"],
     stage_sources = {
