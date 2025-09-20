@@ -22,6 +22,7 @@ FAST_SETTINGS = {
         "CORE_MARGIN": "2",
         "MACRO_PLACE_HALO": "30 30",
         "PLACE_DENSITY": "0.23",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
     },
     mock_area = 0.95,
     previous_stage = {
@@ -51,9 +52,9 @@ FAST_SETTINGS = {
     verilog_files = [":fakeram/sdq_17x64.sv"],
 ) for variant in [
     "base",
-#    "mock-naja",
-#    "naja",
-#    "naja-error",
+    #    "mock-naja",
+    #    "naja",
+    #    "naja-error",
 ]]
 
 # fish out the file that we want as input to the "naja" rule
@@ -134,6 +135,7 @@ orfs_flow(
         "CORE_AREA": "2 2 78 78",
         "CORE_MARGIN": "2",
         "MACRO_PLACE_HALO": "2 2",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
     },
     macros = [":sdq_17x64_generate_abstract"],
     stage_sources = {
@@ -214,6 +216,7 @@ orfs_flow(
     arguments = FAST_SETTINGS | {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
         "MACRO_PLACEMENT_TCL": "$(location :macro_placement.tcl)",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
     },
     extra_configs = {"floorplan": [":floorplan.config"]},
     macros = [
@@ -237,6 +240,7 @@ orfs_flow(
         "CORE_MARGIN": "2",
         "MACRO_PLACE_HALO": "30 30",
         "PLACE_DENSITY": "0.25",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
     },
     mock_area = 0.95,
     stage_sources = {
@@ -256,6 +260,7 @@ orfs_flow(
         "CORE_AREA": "2 2 98 98",
         "CORE_MARGIN": "2",
         "MACRO_PLACE_HALO": "2 2",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
     },
     macros = [":sdq_17x64_megaboom_generate_abstract"],
     stage_sources = {
