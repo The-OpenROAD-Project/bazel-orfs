@@ -92,7 +92,7 @@ BLOCK_FLOORPLAN = {
 orfs_flow(
     name = "tag_array_64x184",
     abstract_stage = "cts",
-    arguments = SRAM_ARGUMENTS | {
+    arguments = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
         "CORE_UTILIZATION": "2",
         "CORE_ASPECT_RATIO": "2",
         "SKIP_REPORT_METRICS": "1",
@@ -153,6 +153,7 @@ orfs_flow(
         "PWR_NETS_VOLTAGES": "",
         "GND_NETS_VOLTAGES": "",
         "GDS_ALLOW_EMPTY": "lb_32x128",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
     },
     macros = ["lb_32x128_generate_abstract"],
     stage_sources = LB_STAGE_SOURCES,
@@ -209,6 +210,7 @@ orfs_sweep(
                     "MACRO_PLACE_HALO": "30 30",
                     "PLACE_DENSITY": "0.05",
                     "GDS_ALLOW_EMPTY": "tag_array_64x184",
+                    "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
                 },
     sweep = {
         "base": {
