@@ -295,8 +295,8 @@ filegroup(
 orfs_flow(
     name = "regfile_128x65",
     arguments = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
-        "DIE_AREA": "0 0 400 400",
-        "CORE_AREA": "2 2 298 298",
+        "DIE_AREA": "0 0 25 25",
+        "CORE_AREA": "2 2 23 23",
         "IO_CONSTRAINTS": "$(location :io-sram)",
         "PLACE_DENSITY": "0.10",
     },
