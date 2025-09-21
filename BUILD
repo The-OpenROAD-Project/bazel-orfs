@@ -93,8 +93,8 @@ orfs_flow(
     name = "tag_array_64x184",
     abstract_stage = "cts",
     arguments = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
-        "CORE_UTILIZATION": "2",
-        "CORE_ASPECT_RATIO": "2",
+        "CORE_UTILIZATION": "20",
+        "CORE_ASPECT_RATIO": "10",
         "SKIP_REPORT_METRICS": "1",
     },
     # FIXME reenable after https://github.com/The-OpenROAD-Project/OpenROAD/issues/7745 is fixed
@@ -109,7 +109,7 @@ orfs_flow(
 )
 
 LB_ARGS = SRAM_ARGUMENTS | {
-    "CORE_UTILIZATION": "15",
+    "CORE_UTILIZATION": "30",
     "CORE_ASPECT_RATIO": "2",
     "PLACE_DENSITY": "0.20",
     "PLACE_PINS_ARGS": "-min_distance 1 -min_distance_in_tracks",
@@ -128,7 +128,8 @@ orfs_flow(
     name = "lb_32x128",
     abstract_stage = "cts",
     arguments = LB_ARGS | {
-        "CORE_UTILIZATION": "10",
+        "CORE_UTILIZATION": "20",
+        "CORE_ASPECT_RATIO": "0.5",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
     },
     mock_area = 0.7,
@@ -150,11 +151,11 @@ orfs_flow(
     name = "lb_32x128_top",
     abstract_stage = "place",
     arguments = SRAM_ARGUMENTS | {
-        "DIE_AREA": "0 0 100 100",
-        "CORE_AREA": "2 2 98 98",
+        "DIE_AREA": "0 0 25 25",
+        "CORE_AREA": "2 2 23 23",
         "CORE_MARGIN": "2",
-        "MACRO_PLACE_HALO": "30 30",
-        "PLACE_DENSITY": "0.10",
+        "MACRO_PLACE_HALO": "5 5",
+        "PLACE_DENSITY": "0.30",
 
         # Skip power checks to silence error and speed up build
         "PWR_NETS_VOLTAGES": "",
@@ -214,10 +215,11 @@ orfs_sweep(
     arguments = FAST_SETTINGS |
                 {
                     "SYNTH_HIERARCHICAL": "1",
-                    "CORE_UTILIZATION": "3",
+                    "DIE_AREA": "0 0 20 70",
+                    "CORE_AREA": "2 2 18 68",
                     "CORE_MARGIN": "2",
-                    "MACRO_PLACE_HALO": "30 30",
-                    "PLACE_DENSITY": "0.05",
+                    "MACRO_PLACE_HALO": "2 2",
+                    "PLACE_DENSITY": "0.30",
                     "GDS_ALLOW_EMPTY": "tag_array_64x184",
                     "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
                 },
@@ -298,7 +300,7 @@ orfs_flow(
         "DIE_AREA": "0 0 25 25",
         "CORE_AREA": "2 2 23 23",
         "IO_CONSTRAINTS": "$(location :io-sram)",
-        "PLACE_DENSITY": "0.10",
+        "PLACE_DENSITY": "0.30",
     },
     stage_sources = {
         "synth": [":constraints-sram"],
@@ -438,6 +440,7 @@ orfs_ppa(
     arguments = {
         "CORE_UTILIZATION": "5",
         "CORE_ASPECT_RATIO": "2",
+        "PLACE_DENSITY": "0.40",
     },
     pdk = "@docker_orfs//:" + pdk,
     sources = {
