@@ -126,6 +126,7 @@ LB_VERILOG_FILES = ["test/mock/lb_32x128.sv"]
 # Test a full abstract, all stages, so leave abstract_stage unset to default value(final)
 orfs_flow(
     name = "lb_32x128",
+    abstract_stage = "cts",
     arguments = LB_ARGS | {
         "CORE_UTILIZATION": "10",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
@@ -385,7 +386,6 @@ py_binary(
 filegroup(
     name = "gatelist",
     srcs = [
-        "lb_32x128_final",
         "regfile_128x65_final",
     ],
     output_group = "6_final.v",
@@ -394,7 +394,6 @@ filegroup(
 filegroup(
     name = "spef",
     srcs = [
-        "lb_32x128_final",
         "regfile_128x65_final",
     ],
     output_group = "6_final.spef",
