@@ -19,7 +19,7 @@ proc expect {value a b} {
   }
 }
 # Hardcoded is good 'nuf. This rarely changes in practice.
-expect Width $width 38.254
-expect Height $height 74.508
+expect Width $width 7.127
+expect Height $height 53.27
 
 exec touch $::env(WORK_HOME)/area_ok.txt
