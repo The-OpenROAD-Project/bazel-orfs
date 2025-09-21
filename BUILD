@@ -207,9 +207,9 @@ orfs_macro(
     module_top = "tag_array_64x184",
 )
 
-# Run one macro through all stages
 orfs_sweep(
     name = "L1MetadataArray",
+    abstract_stage = "cts",
     arguments = FAST_SETTINGS |
                 {
                     "SYNTH_HIERARCHICAL": "1",
