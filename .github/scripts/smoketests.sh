@@ -8,7 +8,10 @@ bazelisk query //:* | grep -q -v lb_32x128_3_place
 echo This target should exist
 bazelisk query //:* | grep -q -v lb_32x128_4_synth
 
-bazelisk test ... \
+# Reduce overload of CPU
+jobs=$(( $(nproc) / 2 ))
+
+bazelisk test --jobs=$jobs ... \
    --keep_going \
    --test_output=errors \
    --profile=build.profile
