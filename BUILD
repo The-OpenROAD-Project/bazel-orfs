@@ -26,7 +26,9 @@ exports_files(
     glob([
         "test/**/*.sv",
         "test/**/*.sdc",
-    ]),
+    ]) + [
+        "sby.tpl",
+    ],
     visibility = [":__subpackages__"],
 )
 
@@ -543,6 +545,7 @@ sh_binary(
 chisel_library(
     name = "blooplib",
     srcs = [
+        "//sby:chiselfiles",
         "//toolchains/scala:chiselfiles",
     ],
     deps = [
