@@ -43,6 +43,11 @@ SCALA_EXECUTABLE_ATTRS = {
         default = "//toolchains/scala/variables:variables",
         providers = [BuiltinVariablesInfo],
     ),
+    "resources": attr.label_list(
+        allow_files = True,
+        mandatory = False,
+        doc = "Resource files or directories to include in the JAR",
+    ),
 }
 
 def relpath(dst, src):
@@ -99,7 +104,7 @@ def _scala_binary_impl(ctx):
 
     classpath = depset(
         jars,
-        transitive = [toolchain.runfiles.files] +
+        transitive = [toolchain.runfiles.files, depset(ctx.files.resources)] +
                      [dep[JavaInfo].transitive_runtime_jars for dep in ctx.attr.deps],
     )
     manifest = ctx.actions.declare_file(ctx.label.name + ".Manifest.txt")
