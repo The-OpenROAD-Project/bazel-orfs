@@ -1,13 +1,12 @@
 filegroup(
     name = "tabby",
     data = glob([
-        "lib/python3.11/**/*.py",
-        "lib/python3.11/**/*.pyc",
-        "lib/python3.11/**/*.so",
+        "lib/python3.11/**/*",
         "lib/ld-linux-x86-64.so.2",
         "lib/libc.so.6",
         "lib/libm.so.6",
         "lib/libpython3.11.so.1.0",
+        "lib/libreadline.so.8",
         "libexec/python3.11",
     ]),
     srcs = ["bin/tabbypy3"],
@@ -38,6 +37,7 @@ filegroup(
     name = "sby",
     data = [
         ":tabby",
+        ":yosys_smtbmc",
         "lib/libsqlite3.so.0",
         "libexec/sby",
         "share/yosys/python3/sby_autotune.py",

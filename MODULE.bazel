@@ -56,9 +56,9 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 http_archive(
     name = "oss_cad_suite",
     build_file = "oss_cad_suite.BUILD.bazel",
-    sha256 = "e6434197cd3a31dd90899886b0f4b92ebf1f832eb9abb3a8802e120c2ca5cc73",
+    sha256 = "f4df215210b06af4a8df8dc0005b45503e4918a845d732b33c08d001957a9260",
     strip_prefix = "oss-cad-suite",
-    urls = ["https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2024-08-28/oss-cad-suite-linux-x64-20240828.tgz"],
+    urls = ["https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2025-09-25/oss-cad-suite-linux-x64-20250925.tgz"],
 )
 
 load_json_file = use_repo_rule("//:load_json_file.bzl", "load_json_file")
