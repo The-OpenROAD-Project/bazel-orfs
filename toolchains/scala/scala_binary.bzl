@@ -48,10 +48,17 @@ SCALA_EXECUTABLE_ATTRS = {
         mandatory = False,
         doc = "Resource files or directories to include in the JAR",
     ),
+    "resource_strip_prefix": attr.string(
+        default = "",
+        doc = "If non-empty, strip this prefix from the paths of resources",
+    ),
 }
 
 def relpath(dst, src):
     return "/".join([".." for _ in src.dirname.split("/")] + [dst.path])
+
+def _dirname(path):
+    return path[:path.rfind("/")]
 
 def toolchain_binary(java_toolchain, basename):
     bins = [file for file in java_toolchain.java.java_runtime.files.to_list() if file.basename == basename]
@@ -104,13 +111,21 @@ def _scala_binary_impl(ctx):
 
     classpath = depset(
         jars,
-        transitive = [toolchain.runfiles.files, depset(ctx.files.resources)] +
+        transitive = [toolchain.runfiles.files] +
                      [dep[JavaInfo].transitive_runtime_jars for dep in ctx.attr.deps],
     )
     manifest = ctx.actions.declare_file(ctx.label.name + ".Manifest.txt")
+
+    resources_path = "generate_counter_java.runfiles/_main/sby"  # _dirname(relpath(ctx.files.resources[0], ctx.outputs.jar)) if ctx.files.resources else None
+
+    content = ("Main-Class: " + ctx.attr.main_class +
+               "\nClass-Path:" +
+               "\n".join(["  " + relpath(f, ctx.outputs.jar) for f in (classpath.to_list())] +
+                         ["  " + resources_path] if ctx.files.resources else []) +
+               "\n")
     ctx.actions.write(
         output = manifest,
-        content = "Main-Class: " + ctx.attr.main_class + "\nClass-Path:" + "\n".join(["  " + relpath(f, ctx.outputs.jar) for f in classpath.to_list()]) + "\n",
+        content = content,
     )
 
     jar = jar_binary(ctx.toolchains["@bazel_tools//tools/jdk:toolchain_type"])
@@ -118,10 +133,17 @@ def _scala_binary_impl(ctx):
     jar_args.add("--create")
     jar_args.add("--manifest", manifest)
     jar_args.add("--file", ctx.outputs.jar)
+
+    resources = ctx.files.resources
+    if resources:
+        for resource in resources:
+            jar_args.add("-C", resource.dirname)
+            jar_args.add(resource.basename)
+
     ctx.actions.run(
         executable = jar,
         arguments = [jar_args],
-        inputs = depset([manifest] + jars),
+        inputs = depset([manifest] + jars + resources),
         tools = depset([jar]),
         outputs = [ctx.outputs.jar],
         mnemonic = "Jar",
@@ -157,7 +179,7 @@ fi
         files = depset([ctx.outputs.jar] + ([ctx.outputs.stripped_jar] if ctx.attr.stripped_jar else [])),
         runfiles = ctx.runfiles(
             [wrapper, ctx.outputs.jar] + ([link] if is_test else []),
-            transitive_files = depset(transitive = [classpath, depset(ctx.files.data)]),
+            transitive_files = depset(transitive = [classpath, depset(ctx.files.data), depset(ctx.files.resources)]),
         ),
         executable = wrapper,
     )]
