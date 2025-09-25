@@ -29,6 +29,12 @@ fir_library(
     generator = ":generate_counter",
     opts = [
         "TestCounter",
+        "--disable-all-randomization",
+        "-strip-debug-info",
+        "-disable-layers=Verification",
+        "-disable-layers=Verification.Assert",
+        "-disable-layers=Verification.Assume",
+        "-disable-layers=Verification.Cover",
     ],
     tags = ["manual"],
 )
