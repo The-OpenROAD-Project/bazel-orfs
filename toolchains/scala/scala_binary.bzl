@@ -113,12 +113,9 @@ def _scala_binary_impl(ctx):
     )
     manifest = ctx.actions.declare_file(ctx.label.name + ".Manifest.txt")
 
-    resources_path = "generate_counter_java.runfiles/_main/sby"  # _dirname(relpath(ctx.files.resources[0], ctx.outputs.jar)) if ctx.files.resources else None
-
     content = ("Main-Class: " + ctx.attr.main_class +
                "\nClass-Path:" +
-               "\n".join(["  " + relpath(f, ctx.outputs.jar) for f in (classpath.to_list())] +
-                         ["  " + resources_path] if ctx.files.resources else []) +
+               "\n".join(["  " + relpath(f, ctx.outputs.jar) for f in (classpath.to_list())]) +
                "\n")
     ctx.actions.write(
         output = manifest,
