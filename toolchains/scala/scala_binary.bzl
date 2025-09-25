@@ -57,9 +57,6 @@ SCALA_EXECUTABLE_ATTRS = {
 def relpath(dst, src):
     return "/".join([".." for _ in src.dirname.split("/")] + [dst.path])
 
-def _dirname(path):
-    return path[:path.rfind("/")]
-
 def toolchain_binary(java_toolchain, basename):
     bins = [file for file in java_toolchain.java.java_runtime.files.to_list() if file.basename == basename]
     if len(bins) != 1:
