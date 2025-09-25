@@ -77,7 +77,10 @@ verilog_file = rule(
 
 def _only_sv(f):
     """Filter for just SystemVerilog source"""
-    if f.extension in ["v", "sv"]:
+
+    # FIXME ideally we could use verilog_file directly on the fir target
+    # https://github.com/llvm/circt/issues/9020
+    if f.extension in ["v", "sv"] and not "/verification/" in f.path:
         return f.path
     return None
 
