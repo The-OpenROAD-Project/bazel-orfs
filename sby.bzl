@@ -11,7 +11,7 @@ def _sby_test_impl(ctx):
         output = sby,
         substitutions = {
             "${VERILOG_BASE_NAMES}": " ".join([file.basename for file in ctx.files.verilog_files]),
-            "${VERILOG}": " ".join([file.short_path for file in ctx.files.verilog_files]),
+            "${VERILOG}": "\n".join([file.short_path for file in ctx.files.verilog_files]),
             "${TOP}": ctx.attr.module_top,
         },
     )

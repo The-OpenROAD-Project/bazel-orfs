@@ -12,8 +12,6 @@ chisel_binary(
     name = "generate_counter",
     srcs = glob(["**/*.scala"]),
     main_class = "CodeGen",
-    resource_strip_prefix = "src/main/resources",
-    resources = glob(["src/main/resources/**/*.v"]),
     tags = ["manual"],
     deps = [
         "@maven//:com_github_scopt_scopt_2_13",
@@ -25,6 +23,7 @@ sby_test(
     generator = ":generate_counter",
     generator_opts = ["TestCounter"],
     module_top = "TestCounter",
+    verilog_files = [":FormalCounter.v"],
     # FIXME runs out of disk in CI
     tags = ["manual"],
 )
