@@ -14,12 +14,13 @@ class SimpleCounter(MaxCount: Int) extends Module {
   out := cnt
 }
 
-class Formal extends BlackBox with HasBlackBoxResource {
+class Formal extends BlackBox {
   val io = IO(new Bundle {
     val clock = Input(Clock())
     val reset = Input(Bool())
     val cnt = Input(UInt(4.W))
     val fv = Output(UInt(4.W))
   })
-  addResource("/FormalCounter.v")
+  // FormalCounter.v is provided separately, we're just defining
+  // the module interface in Chisel speak here.
 }
