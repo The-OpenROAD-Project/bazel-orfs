@@ -1495,7 +1495,7 @@ def set(iterable):
 ORFS_VARIABLE_TO_STAGES = {
     k: v["stages"]
     for k, v in orfs_variable_metadata.items()
-    if "stages" in v
+    if "stages" in v and "All stages" not in v["stages"]
 }
 
 # Stages that do not appear in variables.yaml must be added manually here
