@@ -26,8 +26,8 @@ You should now have Scala tooltips, references, etc. for your project.
 
 Add this [workaround](https://github.com/scalacenter/bloop/issues/2711) in .bazelrc:
 
-    # Stamping the manifest changes the name of `scala-compiler-2.13.16.jar` to
-    # `processed_scala-compiler-2.13.16.jar`, which keeps `bloop` from recognizing
+    # Stamping the manifest changes the name of `scala-compiler-2.13.17.jar` to
+    # `processed_scala-compiler-2.13.17.jar`, which keeps `bloop` from recognizing
     # it.
     # Read more:
     # https://web.archive.org/web/20250624074624/https://github.com/scalacenter/bloop/blob/b90aaa82e0799b8783b1812f4c07961d4c47ec30/backend/src/main/scala/bloop/ScalaInstance.scala#L73-L75

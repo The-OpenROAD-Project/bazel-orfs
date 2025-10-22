@@ -13,8 +13,8 @@ def chisel_binary(name, **kwargs):
             "@maven//:io_circe_circe_generic_extras_2_13",
             "@maven//:io_circe_circe_parser_2_13",
             "@maven//:org_chipsalliance_chisel_2_13",
-            "@maven//:org_scala_lang_scala_library_2_13_16",
-            "@maven//:org_scala_lang_scala_reflect_2_13_16",
+            "@maven//:org_scala_lang_scala_library_2_13_17",
+            "@maven//:org_scala_lang_scala_reflect_2_13_17",
             "@maven//:org_typelevel_cats_core_2_13",
             "@maven//:org_typelevel_cats_kernel_2_13",
         ] + kwargs.pop("deps", []),
@@ -25,7 +25,7 @@ def chisel_binary(name, **kwargs):
             "-Xcheckinit",
         ] + kwargs.pop("scalacopts", []),
         plugins = [
-            "@maven//:org_chipsalliance_chisel_plugin_2_13_16",
+            "@maven//:org_chipsalliance_chisel_plugin_2_13_17",
         ],
         **kwargs
     )
@@ -41,8 +41,8 @@ def chisel_library(name, **kwargs):
             "@maven//:io_circe_circe_generic_extras_2_13",
             "@maven//:io_circe_circe_parser_2_13",
             "@maven//:org_chipsalliance_chisel_2_13",
-            "@maven//:org_scala_lang_scala_library_2_13_16",
-            "@maven//:org_scala_lang_scala_reflect_2_13_16",
+            "@maven//:org_scala_lang_scala_library_2_13_17",
+            "@maven//:org_scala_lang_scala_reflect_2_13_17",
             "@maven//:org_typelevel_cats_core_2_13",
             "@maven//:org_typelevel_cats_kernel_2_13",
         ] + kwargs.pop("deps", []),
@@ -53,7 +53,7 @@ def chisel_library(name, **kwargs):
             "-Xcheckinit",
         ] + kwargs.pop("scalacopts", []),
         plugins = [
-            "@maven//:org_chipsalliance_chisel_plugin_2_13_16",
+            "@maven//:org_chipsalliance_chisel_plugin_2_13_17",
         ],
         **kwargs
     )
@@ -74,8 +74,8 @@ def chisel_test(name, **kwargs):
             "@maven//:io_circe_circe_generic_extras_2_13",
             "@maven//:io_circe_circe_parser_2_13",
             "@maven//:org_chipsalliance_chisel_2_13",
-            "@maven//:org_scala_lang_scala_library_2_13_16",
-            "@maven//:org_scala_lang_scala_reflect_2_13_16",
+            "@maven//:org_scala_lang_scala_library_2_13_17",
+            "@maven//:org_scala_lang_scala_reflect_2_13_17",
             "@maven//:org_typelevel_cats_core_2_13",
             "@maven//:org_typelevel_cats_kernel_2_13",
         ] + kwargs.pop("deps", []),
@@ -94,7 +94,7 @@ def chisel_test(name, **kwargs):
             "-Xcheckinit",
         ] + kwargs.pop("scalacopts", []),
         plugins = [
-            "@maven//:org_chipsalliance_chisel_plugin_2_13_16",
+            "@maven//:org_chipsalliance_chisel_plugin_2_13_17",
         ],
         **kwargs
     )
