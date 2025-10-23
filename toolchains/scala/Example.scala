@@ -1,8 +1,9 @@
 import chisel3._
 import chisel3.util.Counter
 import circt.stage.ChiselStage
+import chisel3.layer.{Layer, LayerConfig}
 
-object Simulation extends layer.Layer(layer.Convention.Bind)
+object Simulation extends Layer(LayerConfig.Extract())
 
 class Blinky(freq: Int, startOn: Boolean = false) extends Module {
   val io = IO(new Bundle {
