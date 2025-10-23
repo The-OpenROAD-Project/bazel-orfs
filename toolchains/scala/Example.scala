@@ -26,10 +26,4 @@ object Main extends App {
       firtoolOpts = Array("-disable-all-randomization", "-strip-debug-info")
     )
   )
-  println(
-    ChiselStage.emitSystemVerilog(
-      new Blinky(1000),
-      firtoolOpts = Array("-disable-all-randomization", "-strip-debug-info")
-    )
-  )
 }
