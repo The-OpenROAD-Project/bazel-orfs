@@ -175,9 +175,10 @@ llvm.toolchain(
 use_repo(llvm, "llvm_toolchain")
 
 register_toolchains(
-    "@rules_verilator//verilator:verilator_toolchain",
+    # FIXME no space in CI to have all toolchains enabled by default
+    # "@rules_verilator//verilator:verilator_toolchain",
     "//toolchains/scala:all",
-    "@llvm_toolchain//:all",
+    # "@llvm_toolchain//:all",
 )
 
 http_archive(
