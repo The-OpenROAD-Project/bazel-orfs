@@ -14,3 +14,18 @@ chisel_library(
     tags = ["manual"],
     visibility = ["//visibility:public"],
 )
+
+chisel_library(
+    name = "applicationlib",
+    srcs = glob(["src/main/scala/example/**/*.scala"]),
+    tags = ["manual"],
+)
+
+chisel_bench_test(
+    name = "life",
+    srcs = glob(["src/test/scala/example/**/*.scala"]),
+    chisel_module = "example.LifeUniverseTestBench",
+    module_top = "LifeUniverseTestBench",
+    tags = ["manual"],
+    deps = [":applicationlib"],
+)
