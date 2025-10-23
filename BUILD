@@ -545,6 +545,7 @@ sh_binary(
 chisel_library(
     name = "blooplib",
     srcs = [
+        "//chisel:chiselfiles",
         "//sby:chiselfiles",
         "//toolchains/scala:chiselfiles",
     ],
