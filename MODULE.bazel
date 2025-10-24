@@ -164,15 +164,15 @@ maven.install(
 )
 use_repo(maven, "maven")
 
-## Lock the compiler version and avoid any local compiler
-bazel_dep(name = "toolchains_llvm", version = "1.5.0")
+# ## Lock the compiler version and avoid any local compiler
+# bazel_dep(name = "toolchains_llvm", version = "1.5.0")
 
-# Configure and register the toolchain.
-llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
-llvm.toolchain(
-    llvm_version = "20.1.8",
-)
-use_repo(llvm, "llvm_toolchain")
+# # Configure and register the toolchain.
+# llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
+# llvm.toolchain(
+#     llvm_version = "20.1.8",
+# )
+# use_repo(llvm, "llvm_toolchain")
 
 register_toolchains(
     # FIXME no space in CI to have all toolchains enabled by default
