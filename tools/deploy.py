@@ -18,8 +18,7 @@ def main():
     parser.add_argument("--manifest")
     parser.add_argument(
         "--check-bloop",
-        action="store_true",
-        default=False,
+        action=argparse.BooleanOptionalAction,
         help="Check pre-conditions for bloop to work.",
     )
     parser.add_argument("--directory", nargs=1, default=[])
