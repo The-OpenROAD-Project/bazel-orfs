@@ -64,6 +64,8 @@ def main():
                 os.remove(dst)
 
             src = os.path.join(execroot, path)
+            # Avoid ephemeral symlinks, resolve to real path
+            src = os.path.realpath(src)
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             os.symlink(src, dst)
 
