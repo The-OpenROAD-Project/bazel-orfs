@@ -34,12 +34,13 @@ def main():
         # The symptom are inscrutible errors and little help from ChatGPT
         # or Google.
         ok = True
-        for cmd, info in {"code": "Visual Studio Code", "BloopServer": "Bloop"}.items():
+        for cmd, info in (
+            (("-x", "code"), "Visual Studio Code"),
+            (("-f", "BloopServer"), "Bloop"),
+        ):
             try:
-                subprocess.check_output(["pgrep", "-f", cmd])
-                print(
-                    f"Error: run `pkill -f {cmd}`, {info} is running."
-                )
+                subprocess.check_output(["pgrep"] + list(cmd))
+                print(f"Error: run `pkill {' '.join(cmd)}`, {info} is running.")
                 ok = False
             except subprocess.CalledProcessError as e:
                 if e.returncode != 1:
