@@ -34,7 +34,7 @@ def main():
         # The symptom are inscrutible errors and little help from ChatGPT
         # or Google.
         ok = True
-        for cmd, info in {"BloopServer": "Bloop", "code": "Visual Studio Code"}.items():
+        for cmd, info in {"code": "Visual Studio Code", "BloopServer": "Bloop"}.items():
             try:
                 subprocess.check_output(["pgrep", "-f", cmd])
                 print(
