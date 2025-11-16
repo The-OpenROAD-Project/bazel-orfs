@@ -28,16 +28,22 @@ def main():
     workspace = Path(os.environ["BUILD_WORKSPACE_DIRECTORY"])
 
     if args.check_bloop:
-        try:
-            subprocess.check_output(["pgrep", "-x", "code"])
-            print(
-                "Error: 'code' process is running. Please close it before proceeding."
-            )
-            sys.exit(1)
-        except subprocess.CalledProcessError as e:
-            if e.returncode != 1:
-                # 1 means "not found", anything else is an actual error
-                raise
+        # Upon major java version upgrades, bloop and vscode does not
+        # take kindly to files being changed undeneath them.
+        #
+        # The symptom are inscrutible errors and little help from ChatGPT
+        # or Google.
+        for cmd, info in {"java": "Bloop", "code": "Visual Studio Code"}.items():
+            try:
+                subprocess.check_output(["pgrep", "-x", cmd])
+                print(
+                    f"Error: {info} is running, run `pkill {cmd}` before proceeding."
+                )
+                sys.exit(1)
+            except subprocess.CalledProcessError as e:
+                if e.returncode != 1:
+                    # 1 means "not found", anything else is an actual error
+                    raise
 
         for root, dirs, files in os.walk(workspace):
             forbidden = {".bloop", ".metals", ".bazelbsp"} & set(dirs)
