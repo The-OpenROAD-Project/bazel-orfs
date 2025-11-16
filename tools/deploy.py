@@ -33,17 +33,20 @@ def main():
         #
         # The symptom are inscrutible errors and little help from ChatGPT
         # or Google.
-        for cmd, info in {"java": "Bloop", "code": "Visual Studio Code"}.items():
+        ok = True
+        for cmd, info in {"BloopServer": "Bloop", "code": "Visual Studio Code"}.items():
             try:
-                subprocess.check_output(["pgrep", "-x", cmd])
+                subprocess.check_output(["pgrep", "-f", cmd])
                 print(
-                    f"Error: {info} is running, run `pkill {cmd}` before proceeding."
+                    f"Error: run `pkill -f {cmd}`, {info} is running."
                 )
-                sys.exit(1)
+                ok = False
             except subprocess.CalledProcessError as e:
                 if e.returncode != 1:
                     # 1 means "not found", anything else is an actual error
                     raise
+        if not ok:
+            sys.exit(1)
 
         for root, dirs, files in os.walk(workspace):
             forbidden = {".bloop", ".metals", ".bazelbsp"} & set(dirs)
