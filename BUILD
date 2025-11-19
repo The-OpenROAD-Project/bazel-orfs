@@ -20,7 +20,7 @@ load("//:yosys.bzl", "yosys")
 exports_files([
     "mock_area.tcl",
     "oss_cad_suite.BUILD.bazel",
-    "eqy.tpl"
+    "eqy.tpl",
 ])
 
 exports_files(
