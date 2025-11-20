@@ -41,7 +41,7 @@ npm = use_extension("@aspect_rules_js//npm:extensions.bzl", "npm")
 npm.npm_translate_lock(
     name = "npm",
     pnpm_lock = "//:pnpm-lock.yaml",
-    #verify_node_modules_ignored = "//:.bazelignore",
+    # verify_node_modules_ignored = "//:.bazelignore",
 )
 use_repo(npm, "npm")
 
@@ -51,14 +51,19 @@ pnpm = use_extension("@aspect_rules_js//npm:extensions.bzl", "pnpm")
 # bazel run -- @pnpm --dir /home/runner/work/rules_js/rules_js install
 use_repo(pnpm, "pnpm")
 
-http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive = use_repo_rule(
+    "@bazel_tools//tools/build_defs/repo:http.bzl",
+    "http_archive",
+)
 
 http_archive(
     name = "oss_cad_suite",
     build_file = "oss_cad_suite.BUILD.bazel",
     sha256 = "05ff3c1435b7ce69f537ef942c6e0e96d09b10fac350e99925a3dd1610246f30",
     strip_prefix = "oss-cad-suite",
-    urls = ["https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2025-11-18/oss-cad-suite-linux-x64-20251118.tgz"],
+    urls = [
+        "https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2025-11-18/oss-cad-suite-linux-x64-20251118.tgz",
+    ],
 )
 
 load_json_file = use_repo_rule("//:load_json_file.bzl", "load_json_file")
@@ -78,7 +83,10 @@ bazel_dep(
     repo_name = "bazel_orfs_rules_python",
 )
 
-python = use_extension("@bazel_orfs_rules_python//python/extensions:python.bzl", "python")
+python = use_extension(
+    "@bazel_orfs_rules_python//python/extensions:python.bzl",
+    "python",
+)
 python.toolchain(
     ignore_root_user_error = True,
     python_version = "3.13",
@@ -150,8 +158,14 @@ MAVEN_LONG_DEPS = {
 
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 maven.install(
-    artifacts = ["{}_{}:{}".format(dep, SCALA_VERSION_SHORT, version) for (dep, version) in MAVEN_SHORT_DEPS.items()] +
-                ["{}_{}:{}".format(dep, SCALA_VERSION, version) for (dep, version) in MAVEN_LONG_DEPS.items()] +
+    artifacts = [
+                    "{}_{}:{}".format(dep, SCALA_VERSION_SHORT, version)
+                    for (dep, version) in MAVEN_SHORT_DEPS.items()
+                ] +
+                [
+                    "{}_{}:{}".format(dep, SCALA_VERSION, version)
+                    for (dep, version) in MAVEN_LONG_DEPS.items()
+                ] +
                 ["{}:{}".format(dep, version) for (dep, version) in MAVEN_DEPS.items()],
     fetch_sources = True,
     # bazelisk run @maven//:pin

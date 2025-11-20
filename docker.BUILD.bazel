@@ -1,10 +1,12 @@
 load("@bazel-orfs//:openroad.bzl", "orfs_pdk")
 
 exports_files(
-    glob([
-        "OpenROAD-flow-scripts/**/*.tcl",
-        "OpenROAD-flow-scripts/flow/platforms/asap7/**/*.v",
-    ]),
+    glob(
+        [
+            "OpenROAD-flow-scripts/**/*.tcl",
+            "OpenROAD-flow-scripts/flow/platforms/asap7/**/*.v",
+        ],
+    ),
     visibility = ["//visibility:public"],
 )
 
@@ -112,48 +114,63 @@ MAKEFILE_SHARED = [
 filegroup(
     name = "makefile_yosys",
     srcs = ["OpenROAD-flow-scripts/flow/Makefile"],
-    data = glob(MAKEFILE_SHARED + [
-        "OpenROAD-flow-scripts/flow/scripts/*.script",
-        "OpenROAD-flow-scripts/flow/scripts/util.tcl",
-        "OpenROAD-flow-scripts/flow/scripts/synth*.tcl",
-    ]),
+    data = glob(
+        MAKEFILE_SHARED +
+        [
+            "OpenROAD-flow-scripts/flow/scripts/*.script",
+            "OpenROAD-flow-scripts/flow/scripts/util.tcl",
+            "OpenROAD-flow-scripts/flow/scripts/synth*.tcl",
+        ],
+    ),
     visibility = ["//visibility:public"],
 )
 
 filegroup(
     name = "makefile",
     srcs = ["OpenROAD-flow-scripts/flow/Makefile"],
-    data = glob(MAKEFILE_SHARED + [
-        "OpenROAD-flow-scripts/flow/util/*.py",
-        "OpenROAD-flow-scripts/flow/util/*.sh",
-        "OpenROAD-flow-scripts/flow/scripts/*.tcl",
-    ]),
+    data = glob(
+        MAKEFILE_SHARED +
+        [
+            "OpenROAD-flow-scripts/flow/util/*.py",
+            "OpenROAD-flow-scripts/flow/util/*.sh",
+            "OpenROAD-flow-scripts/flow/scripts/*.tcl",
+        ],
+    ),
     visibility = ["//visibility:public"],
 )
 
-[orfs_pdk(
-    name = pdk,
-    config = ":OpenROAD-flow-scripts/flow/platforms/{pdk}/config.mk".format(pdk = pdk),
-    srcs = glob([
-                    "OpenROAD-flow-scripts/flow/platforms/{pdk}/**/*.{ext}".format(pdk = pdk, ext = ext)
-                    for ext in [
-                        "gds",
-                        "lef",
-                        "lib",
-                        "lyt",
-                        "mk",
-                        "rules",
-                        "tcl",
-                        "v",
-                    ] + {
-                        "sky130hd": ["tlef"],
-                        "asap7": ["lib.gz", "sdc"],
-                    }.get(pdk, [])
-                ] +
-                ["OpenROAD-flow-scripts/flow/platforms/common/**/*.v"]),
-    visibility = ["//visibility:public"],
-) for pdk in [
-    "asap7",
-    "sky130hd",
-    "ihp-sg13g2",
-]]
+[
+    orfs_pdk(
+        name = pdk,
+        config = ":OpenROAD-flow-scripts/flow/platforms/{pdk}/config.mk".format(pdk = pdk),
+        srcs = glob(
+            [
+                "OpenROAD-flow-scripts/flow/platforms/{pdk}/**/*.{ext}".format(
+                    pdk = pdk,
+                    ext = ext,
+                )
+                for ext in [
+                               "gds",
+                               "lef",
+                               "lib",
+                               "lyt",
+                               "mk",
+                               "rules",
+                               "tcl",
+                               "v",
+                           ] +
+                           {
+                               "sky130hd": ["tlef"],
+                               "asap7": ["lib.gz", "sdc"],
+                           }.get(pdk, [])
+            ] +
+            ["OpenROAD-flow-scripts/flow/platforms/common/**/*.v"],
+        ),
+        visibility = ["//visibility:public"],
+    )
+    for pdk in [
+        "asap7",
+        "sky130hd",
+        "ihp-sg13g2",
+    ]
+]

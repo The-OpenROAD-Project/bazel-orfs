@@ -75,7 +75,7 @@ def orfs_sweep(
                 "description",
                 "sources",
             ]:
-                fail("Unknown orfs_sweep() key \"" + key + "\" in " + variant)
+                fail('Unknown orfs_sweep() key "' + key + '" in ' + variant)
 
         orfs_flow(
             name = name,
@@ -83,16 +83,23 @@ def orfs_sweep(
             pdk = pdk,
             arguments = arguments | all_variants[variant].get("arguments", {}),
             macros = [
-                m
-                for m in macros
-                if m not in all_variants[variant].get("dissolve", [])
-            ] + all_variants[variant].get("macros", []),
+                         m
+                         for m in macros
+                         if m not in all_variants[variant].get("dissolve", [])
+                     ] +
+                     all_variants[variant].get("macros", []),
             previous_stage = all_variants[variant].get("previous_stage", {}),
             renamed_inputs = all_variants[variant].get("renamed_inputs", {}),
             stage_arguments = all_variants[variant].get("stage_arguments", {}),
             stage_sources = {
-                stage: set(stage_sources.get(stage, []) + all_variants[variant].get("stage_sources", {}).get(stage, []))
-                for stage in set(stage_sources.keys() + all_variants[variant].get("stage_sources", {}).keys())
+                stage: set(
+                    stage_sources.get(stage, []) +
+                    all_variants[variant].get("stage_sources", {}).get(stage, []),
+                )
+                for stage in set(
+                    stage_sources.keys() +
+                    all_variants[variant].get("stage_sources", {}).keys(),
+                )
             },
             variant = variant,
             verilog_files = verilog_files,
@@ -104,8 +111,18 @@ def orfs_sweep(
 
         native.filegroup(
             name = name + "_" + variant + "_odb",
-            srcs = [":" + name + "_" + ("" if variant == "base" else variant + "_") + sweep_json["stage"]],
-            output_group = ("5_1_grt" if sweep_json["stage"] == "grt" else str(sweep_json["stages"].index(sweep_json["stage"]) + 2) + "_" + sweep_json["stage"]) +
+            srcs = [
+                ":" +
+                name +
+                "_" +
+                ("" if variant == "base" else variant + "_") +
+                sweep_json["stage"],
+            ],
+            output_group = (
+                               "5_1_grt" if sweep_json["stage"] == "grt" else str(sweep_json["stages"].index(sweep_json["stage"]) + 2) +
+                                                                              "_" +
+                                                                              sweep_json["stage"]
+                           ) +
                            ".odb",
             visibility = [":__subpackages__"],
             tags = tags,
@@ -113,7 +130,10 @@ def orfs_sweep(
 
         native.filegroup(
             name = name + "_" + variant + "_logs",
-            srcs = [":" + name + "_" + ("" if variant == "base" else variant + "_") + stage for stage in sweep_json["stages"]],
+            srcs = [
+                ":" + name + "_" + ("" if variant == "base" else variant + "_") + stage
+                for stage in sweep_json["stages"]
+            ],
             output_group = "logs",
             visibility = visibility,
             tags = tags,
@@ -123,7 +143,10 @@ def orfs_sweep(
     # we will run out of memory
     native.filegroup(
         name = name + "_sweep_parallel",
-        srcs = [name + "_" + ("" if variant == "base" else variant + "_") + "cts" for variant in sweep],
+        srcs = [
+            name + "_" + ("" if variant == "base" else variant + "_") + "cts"
+            for variant in sweep
+        ],
         visibility = visibility,
         tags = tags,
     )

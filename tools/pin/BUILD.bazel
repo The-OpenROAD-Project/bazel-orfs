@@ -1,4 +1,6 @@
-exports_files([
-    "pin.py",
-    "pin.sh.tpl",
-])
+exports_files(
+    [
+        "pin.py",
+        "pin.sh.tpl",
+    ],
+)

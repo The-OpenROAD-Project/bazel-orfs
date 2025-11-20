@@ -1,15 +1,17 @@
 filegroup(
     name = "tabby",
-    data = glob([
-        "lib/python3.11/**/*",
-        "lib/ld-linux-x86-64.so.2",
-        "lib/libc.so.6",
-        "lib/libtinfo.so.6",
-        "lib/libm.so.6",
-        "lib/libpython3.11.so.1.0",
-        "lib/libreadline.so.8",
-        "libexec/python3.11",
-    ]),
+    data = glob(
+        [
+            "lib/python3.11/**/*",
+            "lib/ld-linux-x86-64.so.2",
+            "lib/libc.so.6",
+            "lib/libtinfo.so.6",
+            "lib/libm.so.6",
+            "lib/libpython3.11.so.1.0",
+            "lib/libreadline.so.8",
+            "libexec/python3.11",
+        ],
+    ),
     srcs = ["bin/tabbypy3"],
 )
 
@@ -63,31 +65,35 @@ filegroup(
 
 filegroup(
     name = "yosys",
-    data = glob([
-        "lib/libtcl8.6.so",
-        "lib/libreadline.so.8",
-        "lib/libstdc++.so.6",
-        "libexec/yosys",
-        "share/yosys/**",
-    ]),
+    data = glob(
+        [
+            "lib/libtcl8.6.so",
+            "lib/libreadline.so.8",
+            "lib/libstdc++.so.6",
+            "libexec/yosys",
+            "share/yosys/**",
+        ],
+    ),
     srcs = ["bin/yosys"],
     visibility = ["//visibility:public"],
 )
 
 filegroup(
     name = "yosys-abc",
-    data = glob([
-        "lib/libtcl8.6.so",
-        "lib/libreadline.so.8",
-        "lib/libstdc++.so.6",
-        "lib/ld-linux-x86-64.so.2",
-        "lib/libc.so.6",
-        "lib/libm.so.6",
-        "lib/libgcc_s.so.1",
-        "lib/tcl8.6/**",
-        "libexec/yosys-abc",
-        "share/yosys/**",
-    ]),
+    data = glob(
+        [
+            "lib/libtcl8.6.so",
+            "lib/libreadline.so.8",
+            "lib/libstdc++.so.6",
+            "lib/ld-linux-x86-64.so.2",
+            "lib/libc.so.6",
+            "lib/libm.so.6",
+            "lib/libgcc_s.so.1",
+            "lib/tcl8.6/**",
+            "libexec/yosys-abc",
+            "share/yosys/**",
+        ],
+    ),
     srcs = ["bin/yosys-abc"],
     visibility = ["//visibility:public"],
 )

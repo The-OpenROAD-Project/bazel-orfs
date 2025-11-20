@@ -25,9 +25,11 @@ set -ex
     return [
         DefaultInfo(
             executable = test,
-            runfiles = ctx.runfiles(transitive_files = depset(
-                [ctx.executable.test_bench_runner],
-            )),
+            runfiles = ctx.runfiles(
+                transitive_files = depset(
+                    [ctx.executable.test_bench_runner],
+                ),
+            ),
         ),
     ]
 
@@ -106,8 +108,8 @@ def chisel_bench_test(
         name = "{name}_run".format(name = name),
         srcs = ["//chisel:TestBench.cpp"],
         copts = [
-            #"-std=gnu++23",
-            #"-g",
+            # "-std=gnu++23",
+            # "-g",
         ],
         local_defines = ["MODULE_TOP={module_top}".format(module_top = module_top)],
         linkopts = ["-latomic"],

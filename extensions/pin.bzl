@@ -18,9 +18,11 @@ def _pin_impl(repository_ctx):
 pin = module_extension(
     implementation = _pin_impl,
     tag_classes = {
-        "artifacts": tag_class(attrs = {
-            "repo_name": attr.string(),
-            "artifacts_lock": attr.label(),
-        }),
+        "artifacts": tag_class(
+            attrs = {
+                "repo_name": attr.string(),
+                "artifacts_lock": attr.label(),
+            },
+        ),
     },
 )

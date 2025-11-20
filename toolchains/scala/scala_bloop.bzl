@@ -1,6 +1,10 @@
 """Output bloop configurations"""
 
-load("//toolchains/scala/impl:aspects.bzl", "SemanticDbInfo", "scala_diagnostics_aspect")
+load(
+    "//toolchains/scala/impl:aspects.bzl",
+    "SemanticDbInfo",
+    "scala_diagnostics_aspect",
+)
 
 def _scala_bloop_impl(ctx):
     directory = "__EXEC_ROOT__"
@@ -22,17 +26,22 @@ def _scala_bloop_impl(ctx):
                 name = name,
                 directory = directory,
                 sources = ["/".join([directory, f.path]) for f in info.srcs.to_list()],
-                dependencies = [],  #[d.label.name for d in info.deps.to_list()],
+                dependencies = [],  # [d.label.name for d in info.deps.to_list()],
                 classpath = ["/".join([directory, f.path]) for f in info.jars.to_list()],
                 out = "/".join([directory, ctx.attr.directory, "out", name]),
-                classesDir = "/".join([directory, ctx.attr.directory, "out", name, "classes"]),
+                classesDir = "/".join(
+                    [directory, ctx.attr.directory, "out", name, "classes"],
+                ),
                 resources = [],
                 scala = struct(
                     organization = "org.scala-lang",
                     name = "scala-compiler",
                     version = "2.13.17",
                     options = info.scalacopts.to_list(),
-                    jars = ["/".join([directory, f.path]) for f in info.compiler[JavaInfo].compilation_info.runtime_classpath.to_list()],
+                    jars = [
+                        "/".join([directory, f.path])
+                        for f in info.compiler[JavaInfo].compilation_info.runtime_classpath.to_list()
+                    ],
                 ),
                 java = struct(
                     options = [],
@@ -43,16 +52,21 @@ def _scala_bloop_impl(ctx):
                             name = d.label.name,
                             organization = "TODO",
                             version = "TODO",
-                            artifacts =
-                                [struct(
-                                    name = d.label.name,
-                                    path = "/".join([directory, j.path]),
-                                ) for j in d[JavaInfo].compile_jars.to_list()] +
-                                [struct(
-                                    name = d.label.name,
-                                    classifier = "sources",
-                                    path = "/".join([directory, j.path]),
-                                ) for j in d[JavaInfo].source_jars],
+                            artifacts = [
+                                            struct(
+                                                name = d.label.name,
+                                                path = "/".join([directory, j.path]),
+                                            )
+                                            for j in d[JavaInfo].compile_jars.to_list()
+                                        ] +
+                                        [
+                                            struct(
+                                                name = d.label.name,
+                                                classifier = "sources",
+                                                path = "/".join([directory, j.path]),
+                                            )
+                                            for j in d[JavaInfo].source_jars
+                                        ],
                         )
                         for d in info.deps.to_list()
                     ],
@@ -62,19 +76,31 @@ def _scala_bloop_impl(ctx):
         out = ctx.actions.declare_file(name + ".json")
         ctx.actions.write(output = out, content = json.encode_indent(content))
         outs.append(out)
-        source_jars.append(depset(
-            [j for d in info.deps.to_list() for j in d[JavaInfo].source_jars],
-            transitive =
-                [
+        source_jars.append(
+            depset(
+                [j for d in info.deps.to_list() for j in d[JavaInfo].source_jars],
+                transitive = [
                     info.compiler.default_runfiles.files,
                     info.jars,
                 ],
-        ))
+            ),
+        )
 
     all_jars = depset(transitive = source_jars)
 
     manifest = ctx.actions.declare_file(ctx.label.name + ".manifest.json")
-    ctx.actions.write(output = manifest, content = json.encode_indent(set([f.owner.workspace_root for f in all_jars.to_list() if f.owner.workspace_root])))
+    ctx.actions.write(
+        output = manifest,
+        content = json.encode_indent(
+            set(
+                [
+                    f.owner.workspace_root
+                    for f in all_jars.to_list()
+                    if f.owner.workspace_root
+                ],
+            ),
+        ),
+    )
     args = ctx.actions.args()
     args.add("--directory", ctx.attr.directory)
     args.add("--manifest", manifest.short_path)
@@ -98,11 +124,13 @@ def _scala_bloop_impl(ctx):
             executable = link,
             runfiles = ctx.runfiles(
                 [link, manifest, ctx.outputs.parameters] + outs,
-                transitive_files = depset(transitive = [
-                    all_jars,
-                    ctx.attr._deploy[DefaultInfo].default_runfiles.files,
-                    ctx.attr._deploy[DefaultInfo].default_runfiles.symlinks,
-                ]),
+                transitive_files = depset(
+                    transitive = [
+                        all_jars,
+                        ctx.attr._deploy[DefaultInfo].default_runfiles.files,
+                        ctx.attr._deploy[DefaultInfo].default_runfiles.symlinks,
+                    ],
+                ),
             ),
             files = depset(outs),
         ),

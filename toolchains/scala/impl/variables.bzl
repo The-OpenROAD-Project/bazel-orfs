@@ -1,6 +1,11 @@
 """Variables"""
 
-load("//toolchains/scala:scala_toolchain_info.bzl", "ActionTypeSetInfo", "BuiltinVariablesInfo", "VariableInfo")
+load(
+    "//toolchains/scala:scala_toolchain_info.bzl",
+    "ActionTypeSetInfo",
+    "BuiltinVariablesInfo",
+    "VariableInfo",
+)
 load(":collect.bzl", "collect_action_types", "collect_provider")
 
 types = struct(
@@ -24,20 +29,24 @@ types = struct(
     struct = lambda **kv: dict(
         name = "struct",
         kv = kv,
-        repr = "struct(%s)" % ", ".join([
-            "{k}={v}".format(k = k, v = v["repr"])
-            for k, v in sorted(kv.items())
-        ]),
+        repr = "struct(%s)" %
+               ", ".join(
+                   ["{k}={v}".format(k = k, v = v["repr"]) for k, v in sorted(kv.items())],
+               ),
     ),
 )
 
 def _scala_variable_impl(ctx):
-    return [VariableInfo(
-        name = ctx.label.name,
-        label = ctx.label,
-        type = json.decode(ctx.attr.type),
-        actions = collect_action_types(ctx.attr.actions) if ctx.attr.actions else None,
-    )]
+    return [
+        VariableInfo(
+            name = ctx.label.name,
+            label = ctx.label,
+            type = json.decode(ctx.attr.type),
+            actions = (
+                collect_action_types(ctx.attr.actions) if ctx.attr.actions else None
+            ),
+        ),
+    ]
 
 _scala_variable = rule(
     implementation = _scala_variable_impl,
@@ -79,10 +88,14 @@ def scala_variable(name, type, **kwargs):
     _scala_variable(name = name, type = json.encode(type), **kwargs)
 
 def _scala_builtin_variables_impl(ctx):
-    return [BuiltinVariablesInfo(variables = {
-        variable.name: variable
-        for variable in collect_provider(ctx.attr.srcs, VariableInfo)
-    })]
+    return [
+        BuiltinVariablesInfo(
+            variables = {
+                variable.name: variable
+                for variable in collect_provider(ctx.attr.srcs, VariableInfo)
+            },
+        ),
+    ]
 
 scala_builtin_variables = rule(
     implementation = _scala_builtin_variables_impl,

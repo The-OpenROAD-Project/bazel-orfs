@@ -58,13 +58,19 @@ def relpath(dst, src):
     return "/".join([".." for _ in src.dirname.split("/")] + [dst.path])
 
 def toolchain_binary(java_toolchain, basename):
-    bins = [file for file in java_toolchain.java.java_runtime.files.to_list() if file.basename == basename]
+    bins = [
+        file
+        for file in java_toolchain.java.java_runtime.files.to_list()
+        if file.basename == basename
+    ]
     if len(bins) != 1:
         fail("expected a single java binary")
     return bins[0]
 
 def java_binary(java_toolchain):
-    _, _, basename = java_toolchain.java.java_runtime.java_executable_exec_path.rpartition("/")
+    _, _, basename = (
+        java_toolchain.java.java_runtime.java_executable_exec_path.rpartition("/")
+    )
     return toolchain_binary(java_toolchain, basename)
 
 def jar_binary(java_toolchain):
@@ -85,21 +91,41 @@ def _scala_binary_impl(ctx):
     compile_action = ctx.attr._compile_action[ActionTypeInfo]
     compiler = toolchain.tool_map[ToolConfigInfo].configs[compile_action]
     variable = {
-        ctx.attr._variables[BuiltinVariablesInfo].variables["sources"]: depset(ctx.files.srcs),
-        ctx.attr._variables[BuiltinVariablesInfo].variables["jars"]: depset([f for d in ctx.attr.deps for f in d[JavaInfo].transitive_runtime_jars.to_list()]),
-        ctx.attr._variables[BuiltinVariablesInfo].variables["plugins"]: depset(ctx.files.plugins),
-        ctx.attr._variables[BuiltinVariablesInfo].variables["scalacopts"]: depset(ctx.attr.scalacopts),
+        ctx.attr._variables[BuiltinVariablesInfo].variables["sources"]: depset(
+            ctx.files.srcs,
+        ),
+        ctx.attr._variables[BuiltinVariablesInfo].variables["jars"]: depset(
+            [
+                f
+                for d in ctx.attr.deps
+                for f in d[JavaInfo].transitive_runtime_jars.to_list()
+            ],
+        ),
+        ctx.attr._variables[BuiltinVariablesInfo].variables["plugins"]: depset(
+            ctx.files.plugins,
+        ),
+        ctx.attr._variables[BuiltinVariablesInfo].variables["scalacopts"]: depset(
+            ctx.attr.scalacopts,
+        ),
     }
     args = args_by_action(toolchain, variable, compile_action, ctx.label)
 
     jars = []
     if ctx.files.srcs:
-        stripped = ctx.outputs.stripped_jar if ctx.attr.stripped_jar else ctx.actions.declare_file(ctx.label.name + ".stripped.jar")
+        stripped = (
+            ctx.outputs.stripped_jar if ctx.attr.stripped_jar else ctx.actions.declare_file(ctx.label.name + ".stripped.jar")
+        )
         ctx.actions.run(
             arguments = args.args + ["-d", stripped.path],
             executable = compiler.files_to_run,
             inputs = depset(transitive = args.files),
-            tools = depset([compiler.files_to_run.executable], transitive = [compiler.default_runfiles.files, compiler.default_runfiles.symlinks]),
+            tools = depset(
+                [compiler.files_to_run.executable],
+                transitive = [
+                    compiler.default_runfiles.files,
+                    compiler.default_runfiles.symlinks,
+                ],
+            ),
             outputs = [stripped],
             mnemonic = "Scalac",
             toolchain = "//toolchains/scala:toolchain_type",
@@ -113,10 +139,13 @@ def _scala_binary_impl(ctx):
     )
     manifest = ctx.actions.declare_file(ctx.label.name + ".Manifest.txt")
 
-    content = ("Main-Class: " + ctx.attr.main_class +
-               "\nClass-Path:" +
-               "\n".join(["  " + relpath(f, ctx.outputs.jar) for f in (classpath.to_list())]) +
-               "\n")
+    content = (
+        "Main-Class: " +
+        ctx.attr.main_class +
+        "\nClass-Path:" +
+        "\n".join(["  " + relpath(f, ctx.outputs.jar) for f in (classpath.to_list())]) +
+        "\n"
+    )
     ctx.actions.write(
         output = manifest,
         content = content,
@@ -148,7 +177,9 @@ def _scala_binary_impl(ctx):
     ctx.actions.symlink(
         output = link,
         # TODO: Move java stuff into scala toolchain
-        target_file = java_binary(ctx.toolchains["@bazel_tools//tools/jdk:toolchain_type"]),
+        target_file = java_binary(
+            ctx.toolchains["@bazel_tools//tools/jdk:toolchain_type"],
+        ),
         is_executable = True,
     )
 
@@ -164,19 +195,32 @@ exec {java_bin} "$@" -z "$TESTBRIDGE_TEST_ONLY"
 else
 exec {java_bin} "$@"
 fi
-""".format(java_bin = link.short_path)
+""".format(
+            java_bin = link.short_path,
+        )
         ctx.actions.write(output = wrapper, content = script, is_executable = True)
     else:
         wrapper = link
 
-    return [DefaultInfo(
-        files = depset([ctx.outputs.jar] + ([ctx.outputs.stripped_jar] if ctx.attr.stripped_jar else [])),
-        runfiles = ctx.runfiles(
-            [wrapper, ctx.outputs.jar] + ([link] if is_test else []),
-            transitive_files = depset(transitive = [classpath, depset(ctx.files.data), depset(ctx.files.resources)]),
+    return [
+        DefaultInfo(
+            files = depset(
+                [ctx.outputs.jar] +
+                ([ctx.outputs.stripped_jar] if ctx.attr.stripped_jar else []),
+            ),
+            runfiles = ctx.runfiles(
+                [wrapper, ctx.outputs.jar] + ([link] if is_test else []),
+                transitive_files = depset(
+                    transitive = [
+                        classpath,
+                        depset(ctx.files.data),
+                        depset(ctx.files.resources),
+                    ],
+                ),
+            ),
+            executable = wrapper,
         ),
-        executable = wrapper,
-    )]
+    ]
 
 _scala_binary = rule(
     implementation = _scala_binary_impl,
@@ -205,9 +249,10 @@ def scala_binary(name, **kwargs):
 
 _scala_test = rule(
     implementation = _merge_impls(_scala_binary_impl, _env_impl),
-    attrs = SCALA_EXECUTABLE_ATTRS | {
-        "env": attr.string_dict(),
-    },
+    attrs = SCALA_EXECUTABLE_ATTRS |
+            {
+                "env": attr.string_dict(),
+            },
     executable = True,
     test = True,
     provides = [
@@ -228,15 +273,17 @@ def scala_test(name, **kwargs):
         jar = jar,
         stripped_jar = stripped_jar,
         args = [
-            "-jar",
-            "$(location {})".format(jar),
-            "-R",
-            "$(location :{})".format(stripped_jar),
-            "-e",
-        ] + kwargs.pop("args", []),
+                   "-jar",
+                   "$(location {})".format(jar),
+                   "-R",
+                   "$(location :{})".format(stripped_jar),
+                   "-e",
+               ] +
+               kwargs.pop("args", []),
         main_class = kwargs.pop("main_class", "org.scalatest.tools.Runner"),
-        deps = kwargs.pop("deps", []) + [
-            "@maven//:org_scalatest_scalatest_2_13",
-        ],
+        deps = kwargs.pop("deps", []) +
+               [
+                   "@maven//:org_scalatest_scalatest_2_13",
+               ],
         **kwargs
     )

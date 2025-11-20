@@ -51,10 +51,12 @@ scala_action_type(
 def _scala_action_type_set_impl(ctx):
     if not ctx.attr.actions and not ctx.attr.allow_empty:
         fail("Each scala_action_type_set must contain at least one action type.")
-    return [ActionTypeSetInfo(
-        label = ctx.label,
-        actions = collect_action_types(ctx.attr.actions),
-    )]
+    return [
+        ActionTypeSetInfo(
+            label = ctx.label,
+            actions = collect_action_types(ctx.attr.actions),
+        ),
+    ]
 
 scala_action_type_set = rule(
     doc = """Represents a set of actions.

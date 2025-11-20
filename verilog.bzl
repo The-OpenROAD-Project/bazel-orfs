@@ -29,15 +29,24 @@ def _verilog_impl(ctx, split):
 
     # TODO: Figure out how to get the directories w/o hardcoding
     verilog_info = make_verilog_info(
-        new_entries = [make_dag_entry(
-            srcs = [sv],
-            hdrs = [],
-            includes = [sv.path, sv.path + "/Simulation", sv.path + "/verification", sv.path + "/verification/assume", sv.path + "/verification/cover", sv.path + "/verification/assert"],
-            data = [],
-            deps = [],
-            label = ctx.label,
-            tags = [],
-        )],
+        new_entries = [
+            make_dag_entry(
+                srcs = [sv],
+                hdrs = [],
+                includes = [
+                    sv.path,
+                    sv.path + "/Simulation",
+                    sv.path + "/verification",
+                    sv.path + "/verification/assume",
+                    sv.path + "/verification/cover",
+                    sv.path + "/verification/assert",
+                ],
+                data = [],
+                deps = [],
+                label = ctx.label,
+                tags = [],
+            ),
+        ],
         old_infos = [],
     )
 

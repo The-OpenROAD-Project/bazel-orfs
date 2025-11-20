@@ -21,7 +21,10 @@ def _scala_tool_map_impl(ctx):
 
         for action in action_set.actions.to_list():
             if action in action_to_as:
-                fail("The action %s appears multiple times in your tool_map (as %s and %s)" % (action.label, action_set.label, action_to_as[action].label))
+                fail(
+                    "The action %s appears multiple times in your tool_map (as %s and %s)" %
+                    (action.label, action_set.label, action_to_as[action].label),
+                )
             action_to_as[action] = action_set
             action_to_tool[action] = tool
 

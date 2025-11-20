@@ -4,7 +4,10 @@ load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
 
 def _impl(repository_ctx):
     if repository_ctx.attr.sha256 != "":
-        image = "{}@sha256:{}".format(repository_ctx.attr.image, repository_ctx.attr.sha256)
+        image = "{}@sha256:{}".format(
+            repository_ctx.attr.image,
+            repository_ctx.attr.sha256,
+        )
     else:
         image = repository_ctx.attr.image
 
@@ -18,23 +21,35 @@ def _impl(repository_ctx):
         fail("Failed to find {}.".format(docker_name))
 
     if repository_ctx.attr.sha256 == "":
-        inspect = repository_ctx.execute([
-            docker,
-            "inspect",
-            "--type=image",
-            image,
-        ])
+        inspect = repository_ctx.execute(
+            [
+                docker,
+                "inspect",
+                "--type=image",
+                image,
+            ],
+        )
         if inspect.return_code != 0:
-            fail("Local image {} does not exist: {}".format(image, inspect.stderr), inspect.return_code)
-        repository_ctx.report_progress("Using local {}.".format(repository_ctx.attr.image))
+            fail(
+                "Local image {} does not exist: {}".format(image, inspect.stderr),
+                inspect.return_code,
+            )
+        repository_ctx.report_progress(
+            "Using local {}.".format(repository_ctx.attr.image),
+        )
     else:
-        pull = repository_ctx.execute([
-            docker,
-            "pull",
-            image,
-        ])
+        pull = repository_ctx.execute(
+            [
+                docker,
+                "pull",
+                image,
+            ],
+        )
         if pull.return_code != 0:
-            fail("Image {} cannot be pulled: {}".format(image, pull.stderr), pull.return_code)
+            fail(
+                "Image {} cannot be pulled: {}".format(image, pull.stderr),
+                pull.return_code,
+            )
         repository_ctx.report_progress("Pulled {}.".format(repository_ctx.attr.image))
 
     created = repository_ctx.execute(
@@ -45,7 +60,10 @@ def _impl(repository_ctx):
         ],
     )
     if created.return_code != 0:
-        fail("Failed to create stopped container: {}".format(created.stderr), created.return_code)
+        fail(
+            "Failed to create stopped container: {}".format(created.stderr),
+            created.return_code,
+        )
     container_id = created.stdout.strip()
     cp = repository_ctx.execute(
         [
@@ -63,7 +81,9 @@ def _impl(repository_ctx):
         ],
     )
     if remove.return_code != 0:
-        print("Container {} has not been removed".format(container_id))  # buildifier: disable=print
+        print(
+            "Container {} has not been removed".format(container_id),
+        )  # buildifier: disable=print
     if cp.return_code != 0:
         fail("Failed to copy image content: {}".format(cp.stderr), cp.return_code)
 
@@ -80,9 +100,14 @@ def _impl(repository_ctx):
         ],
     )
     if patcher_result.return_code != 0:
-        fail("Failed to run {}:".format(repository_ctx.attr._patcher), patcher_result.stderr)
+        fail(
+            "Failed to run {}:".format(repository_ctx.attr._patcher),
+            patcher_result.stderr,
+        )
 
-    repository_ctx.report_progress("Fixed `RUNPATH`s for {}.".format(repository_ctx.attr.image))
+    repository_ctx.report_progress(
+        "Fixed `RUNPATH`s for {}.".format(repository_ctx.attr.image),
+    )
 
     repository_ctx.symlink(repository_ctx.attr.build_file, "BUILD")
     patch(repository_ctx)

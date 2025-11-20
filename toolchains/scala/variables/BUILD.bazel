@@ -1,4 +1,9 @@
-load("//toolchains/scala/impl:variables.bzl", "scala_builtin_variables", "scala_variable", "types")
+load(
+    "//toolchains/scala/impl:variables.bzl",
+    "scala_builtin_variables",
+    "scala_variable",
+    "types",
+)
 
 package(default_visibility = ["//visibility:public"])
 

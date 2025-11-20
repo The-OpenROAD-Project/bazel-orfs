@@ -37,10 +37,12 @@ def _scala_args_impl(ctx):
             label = ctx.label,
             args = tuple([args]),
             files = files,
-            by_action = tuple([
-                struct(action = action, args = tuple([args]), files = files)
-                for action in actions.to_list()
-            ]),
+            by_action = tuple(
+                [
+                    struct(action = action, args = tuple([args]), files = files)
+                    for action in actions.to_list()
+                ],
+            ),
         ),
     ]
 
@@ -84,12 +86,30 @@ _scala_args = rule(
         "join_with": attr.label_keyed_string_dict(
             doc = "A delimiter string used to join together the strings",
         ),
-        "iterate_over": attr.label(providers = [VariableInfo], doc = "Replacement for flag_group.iterate_over"),
-        "requires_not_none": attr.label(providers = [VariableInfo], doc = "Replacement for flag_group.expand_if_available"),
-        "requires_none": attr.label(providers = [VariableInfo], doc = "Replacement for flag_group.expand_if_not_available"),
-        "requires_true": attr.label(providers = [VariableInfo], doc = "Replacement for flag_group.expand_if_true"),
-        "requires_false": attr.label(providers = [VariableInfo], doc = "Replacement for flag_group.expand_if_false"),
-        "requires_equal": attr.label(providers = [VariableInfo], doc = "Replacement for flag_group.expand_if_equal"),
+        "iterate_over": attr.label(
+            providers = [VariableInfo],
+            doc = "Replacement for flag_group.iterate_over",
+        ),
+        "requires_not_none": attr.label(
+            providers = [VariableInfo],
+            doc = "Replacement for flag_group.expand_if_available",
+        ),
+        "requires_none": attr.label(
+            providers = [VariableInfo],
+            doc = "Replacement for flag_group.expand_if_not_available",
+        ),
+        "requires_true": attr.label(
+            providers = [VariableInfo],
+            doc = "Replacement for flag_group.expand_if_true",
+        ),
+        "requires_false": attr.label(
+            providers = [VariableInfo],
+            doc = "Replacement for flag_group.expand_if_false",
+        ),
+        "requires_equal": attr.label(
+            providers = [VariableInfo],
+            doc = "Replacement for flag_group.expand_if_equal",
+        ),
         "requires_equal_value": attr.string(),
         "_variables": attr.label(
             default = "//toolchains/scala/variables:variables",

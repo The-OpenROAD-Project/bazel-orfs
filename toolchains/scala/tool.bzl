@@ -9,7 +9,9 @@ def _scala_tool_impl(ctx):
     elif len(exe_info.files.to_list()) == 1:
         exe = exe_info.files.to_list()[0]
     else:
-        fail("Expected scala_tool's src attribute to be either an executable or a single file")
+        fail(
+            "Expected scala_tool's src attribute to be either an executable or a single file",
+        )
 
     runfiles = collect_data(ctx, ctx.attr.data + [ctx.attr.src])
     link = ctx.actions.declare_file(ctx.label.name)
@@ -18,14 +20,18 @@ def _scala_tool_impl(ctx):
         target_file = exe,
         is_executable = True,
     )
-    return [p for p in [
-        ctx.attr.src[JavaInfo] if JavaInfo in ctx.attr.src else None,
-        DefaultInfo(
-            files = depset([link]),
-            runfiles = runfiles,
-            executable = link,
-        ),
-    ] if p]
+    return [
+        p
+        for p in [
+            ctx.attr.src[JavaInfo] if JavaInfo in ctx.attr.src else None,
+            DefaultInfo(
+                files = depset([link]),
+                runfiles = runfiles,
+                executable = link,
+            ),
+        ]
+        if p
+    ]
 
 scala_tool = rule(
     implementation = _scala_tool_impl,

@@ -16,10 +16,22 @@ def _scala_library_impl(ctx):
     compile_action = ctx.attr._compile_action[ActionTypeInfo]
     compiler = toolchain.tool_map[ToolConfigInfo].configs[compile_action]
     variable = {
-        ctx.attr._variables[BuiltinVariablesInfo].variables["sources"]: depset(ctx.files.srcs),
-        ctx.attr._variables[BuiltinVariablesInfo].variables["jars"]: depset([f for d in ctx.attr.deps for f in d[JavaInfo].transitive_runtime_jars.to_list()]),
-        ctx.attr._variables[BuiltinVariablesInfo].variables["plugins"]: depset(ctx.files.plugins),
-        ctx.attr._variables[BuiltinVariablesInfo].variables["scalacopts"]: depset(ctx.attr.scalacopts),
+        ctx.attr._variables[BuiltinVariablesInfo].variables["sources"]: depset(
+            ctx.files.srcs,
+        ),
+        ctx.attr._variables[BuiltinVariablesInfo].variables["jars"]: depset(
+            [
+                f
+                for d in ctx.attr.deps
+                for f in d[JavaInfo].transitive_runtime_jars.to_list()
+            ],
+        ),
+        ctx.attr._variables[BuiltinVariablesInfo].variables["plugins"]: depset(
+            ctx.files.plugins,
+        ),
+        ctx.attr._variables[BuiltinVariablesInfo].variables["scalacopts"]: depset(
+            ctx.attr.scalacopts,
+        ),
     }
     args = args_by_action(toolchain, variable, compile_action, ctx.label)
 
@@ -27,7 +39,13 @@ def _scala_library_impl(ctx):
         arguments = args.args + ["-d", ctx.outputs.jar.path],
         executable = compiler.files_to_run,
         inputs = depset(transitive = args.files),
-        tools = depset([compiler.files_to_run.executable], transitive = [compiler.default_runfiles.files, compiler.default_runfiles.symlinks]),
+        tools = depset(
+            [compiler.files_to_run.executable],
+            transitive = [
+                compiler.default_runfiles.files,
+                compiler.default_runfiles.symlinks,
+            ],
+        ),
         outputs = [ctx.outputs.jar],
         mnemonic = "Scalac",
         toolchain = "//toolchains/scala:toolchain_type",
@@ -80,8 +98,4 @@ _scala_library = rule(
 )
 
 def scala_library(name, **kwargs):
-    return _scala_library(
-        name = name,
-        jar = name + ".jar",
-        **kwargs
-    )
+    return _scala_library(name = name, jar = name + ".jar", **kwargs)

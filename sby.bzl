@@ -10,34 +10,46 @@ def _sby_test_impl(ctx):
         template = ctx.file._sby_template,
         output = sby,
         substitutions = {
-            "${VERILOG_BASE_NAMES}": " ".join([file.basename for file in ctx.files.verilog_files]),
-            "${VERILOG}": "\n".join([file.short_path for file in ctx.files.verilog_files]),
+            "${VERILOG_BASE_NAMES}": " ".join(
+                [file.basename for file in ctx.files.verilog_files],
+            ),
+            "${VERILOG}": "\n".join(
+                [file.short_path for file in ctx.files.verilog_files],
+            ),
             "${TOP}": ctx.attr.module_top,
         },
     )
 
     script = ctx.actions.declare_file(ctx.attr.name + ".run.sh")
-    ctx.actions.write(script, content = """
+    ctx.actions.write(
+        script,
+        content = """
 # !/bin/sh
 echo "Files found in $(pwd)"
 exec {} "$@" {}
 
-""".format(ctx.executable._sby.short_path, sby.short_path), is_executable = True)
+""".format(
+            ctx.executable._sby.short_path,
+            sby.short_path,
+        ),
+        is_executable = True,
+    )
 
     return [
         DefaultInfo(
             files = depset([script]),
             executable = script,
             runfiles = ctx.runfiles(
-                files =
-                    [sby, ctx.executable._sby, ctx.executable._yosys] + ctx.files.verilog_files,
-                transitive_files =
-                    depset(transitive = [
+                files = [sby, ctx.executable._sby, ctx.executable._yosys] +
+                        ctx.files.verilog_files,
+                transitive_files = depset(
+                    transitive = [
                         ctx.attr._sby[DefaultInfo].default_runfiles.files,
                         ctx.attr._sby[DefaultInfo].default_runfiles.symlinks,
                         ctx.attr._yosys[DefaultInfo].default_runfiles.files,
                         ctx.attr._yosys[DefaultInfo].default_runfiles.symlinks,
-                    ]),
+                    ],
+                ),
             ),
         ),
     ]
@@ -102,8 +114,7 @@ def sby_test(
 
     fir_library(
         name = "{name}_fir".format(name = name),
-        data = [
-        ],
+        data = [],
         generator = generator,
         opts = generator_opts + firtool_options,
         tags = ["manual"],

@@ -1,21 +1,27 @@
 """Pinning of artifacts"""
 
 def _serialize_file(file):
-    return "@".join([
-        file.path,
-        file.root.path,
-        file.owner.workspace_root,
-    ])
+    return "@".join(
+        [
+            file.path,
+            file.root.path,
+            file.owner.workspace_root,
+        ],
+    )
 
 def _serialize(target):
     if len(target.files.to_list()) == 0:
         fail("Target {} has no files to pin".format(target.label))
 
-    return repr(",".join([
-        str(target.label),
-        target.label.workspace_root,
-        ":".join([_serialize_file(file) for file in target.files.to_list()]),
-    ]))
+    return repr(
+        ",".join(
+            [
+                str(target.label),
+                target.label.workspace_root,
+                ":".join([_serialize_file(file) for file in target.files.to_list()]),
+            ],
+        ),
+    )
 
 def _pin_data_impl(ctx):
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
@@ -25,16 +31,18 @@ def _pin_data_impl(ctx):
             "${BUCKET}": ctx.attr.bucket,
             "${PACKAGE}": ctx.label.package,
             "${LOCK}": ctx.attr.artifacts_lock,
-            "\"$@\"": " ".join([_serialize(target) for target in ctx.attr.srcs]),
+            '"$@"': " ".join([_serialize(target) for target in ctx.attr.srcs]),
         },
         template = ctx.file._pin_template,
         output = exe,
     )
-    return [DefaultInfo(
-        executable = exe,
-        files = depset([exe]),
-        runfiles = ctx.runfiles(ctx.files._pinner + ctx.files.srcs),
-    )]
+    return [
+        DefaultInfo(
+            executable = exe,
+            files = depset([exe]),
+            runfiles = ctx.runfiles(ctx.files._pinner + ctx.files.srcs),
+        ),
+    ]
 
 pin_data = rule(
     implementation = _pin_data_impl,

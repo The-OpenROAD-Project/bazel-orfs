@@ -6,9 +6,11 @@ load(
     "ArgsListInfo",
 )
 
-visibility([
-    "//toolchains/scala/...",
-])
+visibility(
+    [
+        "//toolchains/scala/...",
+    ],
+)
 
 def collect_provider(targets, provider):
     """Collects providers from a label list.
@@ -58,11 +60,13 @@ def collect_data(ctx, targets):
         A depset containing all files for each of the targets, and all runfiles
         required to run them.
     """
-    return ctx.runfiles(transitive_files = collect_files(targets)).merge_all([
-        info.default_runfiles
-        for info in collect_defaultinfo(targets)
-        if info.default_runfiles != None
-    ])
+    return ctx.runfiles(transitive_files = collect_files(targets)).merge_all(
+        [
+            info.default_runfiles
+            for info in collect_defaultinfo(targets)
+            if info.default_runfiles != None
+        ],
+    )
 
 def collect_args_lists(targets, label):
     """Collects a label_list of ArgsListInfo into a single ArgsListInfo
@@ -93,12 +97,14 @@ def collect_args_lists(targets, label):
         label = label,
         args = tuple(args),
         files = depset(transitive = transitive_files),
-        by_action = tuple([
-            struct(
-                action = k,
-                args = tuple(v.args),
-                files = depset(transitive = v.transitive_files),
-            )
-            for k, v in by_action.items()
-        ]),
+        by_action = tuple(
+            [
+                struct(
+                    action = k,
+                    args = tuple(v.args),
+                    files = depset(transitive = v.transitive_files),
+                )
+                for k, v in by_action.items()
+            ],
+        ),
     )

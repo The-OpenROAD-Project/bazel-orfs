@@ -111,7 +111,10 @@ def _macro_impl(ctx):
             files = depset(ctx.files.odb + ctx.files.gds + ctx.files.lef + ctx.files.lib),
         ),
         OutputGroupInfo(
-            **{f.basename: depset([f]) for f in ctx.files.odb + ctx.files.gds + ctx.files.lef + ctx.files.lib}
+            **{
+                f.basename: depset([f])
+                for f in ctx.files.odb + ctx.files.gds + ctx.files.lef + ctx.files.lib
+            }
         ),
         OrfsInfo(
             odb = info.get("odb"),
@@ -131,19 +134,20 @@ orfs_macro = rule(
     implementation = _macro_impl,
     provides = [DefaultInfo, OutputGroupInfo, OrfsInfo, TopInfo],
     attrs = {
-        "module_top": attr.string(mandatory = True),
-    } | {
-        field: attr.label(
-            allow_files = [field],
-            providers = [DefaultInfo],
-        )
-        for field in [
-            "odb",
-            "gds",
-            "lef",
-            "lib",
-        ]
-    },
+                "module_top": attr.string(mandatory = True),
+            } |
+            {
+                field: attr.label(
+                    allow_files = [field],
+                    providers = [DefaultInfo],
+                )
+                for field in [
+                    "odb",
+                    "gds",
+                    "lef",
+                    "lib",
+                ]
+            },
 )
 
 def _odb_arguments(ctx, short = False):
@@ -170,7 +174,9 @@ def flow_environment(ctx):
         "PYTHON_EXE": ctx.executable._python.path,
         "QT_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
         "QT_QPA_PLATFORM_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
-        "RUBYLIB": ":".join([commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)]),
+        "RUBYLIB": ":".join(
+            [commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)],
+        ),
     } | orfs_environment(ctx)
 
 def yosys_environment(ctx):
@@ -189,13 +195,15 @@ def _runfiles(attrs):
             lambda tool: tool[DefaultInfo].files_to_run.executable,
             attrs,
         ),
-        transitive = flatten(_map(
-            lambda tool: [
-                tool[DefaultInfo].default_runfiles.files,
-                tool[DefaultInfo].default_runfiles.symlinks,
-            ],
-            attrs,
-        )),
+        transitive = flatten(
+            _map(
+                lambda tool: [
+                    tool[DefaultInfo].default_runfiles.files,
+                    tool[DefaultInfo].default_runfiles.symlinks,
+                ],
+                attrs,
+            ),
+        ),
     )
 
 def flow_inputs(ctx):
@@ -205,25 +213,34 @@ def flow_inputs(ctx):
         ctx.files._tcl +
         ctx.files._opengl +
         ctx.files._qt_plugins,
-        transitive = [_runfiles([
-            ctx.attr._klayout,
-            ctx.attr._make,
-            ctx.attr._openroad,
-            ctx.attr._opensta,
-            ctx.attr._python,
-            ctx.attr._makefile,
-        ] + ctx.attr.tools)],
+        transitive = [
+            _runfiles(
+                [
+                    ctx.attr._klayout,
+                    ctx.attr._make,
+                    ctx.attr._openroad,
+                    ctx.attr._opensta,
+                    ctx.attr._python,
+                    ctx.attr._makefile,
+                ] +
+                ctx.attr.tools,
+            ),
+        ],
     )
 
 def yosys_inputs(ctx):
     return depset(
         ctx.files._tcl,
-        transitive = [_runfiles([
-            ctx.attr._abc,
-            ctx.attr._yosys,
-            ctx.attr._make,
-            ctx.attr._makefile_yosys,
-        ])],
+        transitive = [
+            _runfiles(
+                [
+                    ctx.attr._abc,
+                    ctx.attr._yosys,
+                    ctx.attr._make,
+                    ctx.attr._makefile_yosys,
+                ],
+            ),
+        ],
     )
 
 def data_inputs(ctx):
@@ -248,10 +265,9 @@ def source_inputs(ctx):
     )
 
 def rename_inputs(ctx):
-    return depset(transitive = [
-        target.files
-        for target in ctx.attr.renamed_inputs.values()
-    ])
+    return depset(
+        transitive = [target.files for target in ctx.attr.renamed_inputs.values()],
+    )
 
 def pdk_inputs(ctx):
     return depset(transitive = [ctx.attr.pdk[PdkInfo].files])
@@ -328,8 +344,17 @@ def _deps_impl(ctx):
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join(sorted([f.short_path for f in ctx.attr.src[OrfsDepInfo].files.to_list()])),
-            "${RENAMES}": " ".join(["{}:{}".format(rename.src, rename.dst) for rename in ctx.attr.src[OrfsDepInfo].renames]),
+            "${GENFILES}": " ".join(
+                sorted(
+                    [f.short_path for f in ctx.attr.src[OrfsDepInfo].files.to_list()],
+                ),
+            ),
+            "${RENAMES}": " ".join(
+                [
+                    "{}:{}".format(rename.src, rename.dst)
+                    for rename in ctx.attr.src[OrfsDepInfo].renames
+                ],
+            ),
             "${CONFIG}": ctx.attr.src[OrfsDepInfo].config.short_path,
             "${MAKE}": ctx.attr.src[OrfsDepInfo].make.short_path,
         },
@@ -348,7 +373,15 @@ def _deps_impl(ctx):
     ]
 
 def flow_provides():
-    return [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, LoggingInfo, PdkInfo, TopInfo]
+    return [
+        DefaultInfo,
+        OutputGroupInfo,
+        OrfsDepInfo,
+        OrfsInfo,
+        LoggingInfo,
+        PdkInfo,
+        TopInfo,
+    ]
 
 def orfs_attrs():
     return {
@@ -494,8 +527,7 @@ def synth_attrs():
                 ".svh",
                 ".rtlil",
             ],
-            allow_rules = [
-            ],
+            allow_rules = [],
             providers = [DefaultInfo],
         ),
         "deps": attr.label_list(
@@ -526,13 +558,19 @@ def openroad_attrs():
     return flow_attrs() | openroad_only_attrs()
 
 def _module_top(ctx):
-    return ctx.attr.module_top if hasattr(ctx.attr, "module_top") else ctx.attr.src[TopInfo].module_top
+    return (
+        ctx.attr.module_top if hasattr(ctx.attr, "module_top") else ctx.attr.src[TopInfo].module_top
+    )
 
 def _platform(ctx):
-    return ctx.attr.pdk[PdkInfo].name if hasattr(ctx.attr, "pdk") else ctx.attr.src[PdkInfo].name
+    return (
+        ctx.attr.pdk[PdkInfo].name if hasattr(ctx.attr, "pdk") else ctx.attr.src[PdkInfo].name
+    )
 
 def _platform_config(ctx):
-    return (ctx.attr.pdk[PdkInfo] if hasattr(ctx.attr, "pdk") else ctx.attr.src[PdkInfo]).config.files.to_list()[0]
+    return (
+        ctx.attr.pdk[PdkInfo] if hasattr(ctx.attr, "pdk") else ctx.attr.src[PdkInfo]
+    ).config.files.to_list()[0]
 
 def _required_arguments(ctx):
     return {
@@ -545,25 +583,50 @@ def _required_arguments(ctx):
     }
 
 def _orfs_arguments(*args, short = False):
-    gds = depset([info.gds for info in args if info.gds], transitive = [info.additional_gds for info in args])
-    lefs = depset([info.lef for info in args if info.lef], transitive = [info.additional_lefs for info in args])
-    libs = depset([info.lib for info in args if info.lib], transitive = [info.additional_libs for info in args])
+    gds = depset(
+        [info.gds for info in args if info.gds],
+        transitive = [info.additional_gds for info in args],
+    )
+    lefs = depset(
+        [info.lef for info in args if info.lef],
+        transitive = [info.additional_lefs for info in args],
+    )
+    libs = depset(
+        [info.lib for info in args if info.lib],
+        transitive = [info.additional_libs for info in args],
+    )
 
     arguments = {}
     if gds.to_list():
-        arguments["ADDITIONAL_GDS"] = " ".join(sorted([file.short_path if short else file.path for file in gds.to_list()]))
+        arguments["ADDITIONAL_GDS"] = " ".join(
+            sorted([file.short_path if short else file.path for file in gds.to_list()]),
+        )
     if lefs.to_list():
-        arguments["ADDITIONAL_LEFS"] = " ".join(sorted([file.short_path if short else file.path for file in lefs.to_list()]))
+        arguments["ADDITIONAL_LEFS"] = " ".join(
+            sorted(
+                [file.short_path if short else file.path for file in lefs.to_list()],
+            ),
+        )
     if libs.to_list():
-        arguments["ADDITIONAL_LIBS"] = " ".join(sorted([file.short_path if short else file.path for file in libs.to_list()]))
+        arguments["ADDITIONAL_LIBS"] = " ".join(
+            sorted(
+                [file.short_path if short else file.path for file in libs.to_list()],
+            ),
+        )
     return arguments
 
 def _verilog_arguments(files, short = False):
-    return {"VERILOG_FILES": " ".join(sorted([file.short_path if short else file.path for file in files]))}
+    return {
+        "VERILOG_FILES": " ".join(
+            sorted([file.short_path if short else file.path for file in files]),
+        ),
+    }
 
 def _config_content(arguments, paths):
-    return ("".join(sorted(["export {}?={}\n".format(*pair) for pair in arguments.items()]) +
-                    ["include {}\n".format(path) for path in paths]))
+    return "".join(
+        sorted(["export {}?={}\n".format(*pair) for pair in arguments.items()]) +
+        ["include {}\n".format(path) for path in paths],
+    )
 
 def _hack_away_prefix(arguments, prefix):
     return {
@@ -572,7 +635,10 @@ def _hack_away_prefix(arguments, prefix):
     }
 
 def _data_arguments(ctx):
-    return {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.arguments.items()}
+    return {
+        k: ctx.expand_location(v, ctx.attr.data)
+        for k, v in ctx.attr.arguments.items()
+    }
 
 def _run_arguments(ctx):
     return {"RUN_SCRIPT": ctx.file.script.path}
@@ -583,7 +649,8 @@ def _environment_string(env):
 def _generation_commands(optional_files):
     if optional_files:
         return [
-            "mkdir -p " + " ".join(sorted([result.dirname for result in optional_files])),
+            "mkdir -p " +
+            " ".join(sorted([result.dirname for result in optional_files])),
             "touch " + " ".join(sorted([result.path for result in optional_files])),
         ]
     return []
@@ -611,19 +678,31 @@ def _renames(ctx, inputs, short = False):
     renames = []
     for file in inputs:
         if ctx.attr.src[OrfsInfo].variant != ctx.attr.variant:
-            renames.append(struct(
-                src = file.short_path if short else file.path,
-                dst = _remap(file.short_path if short else file.path, ctx.attr.src[OrfsInfo].variant, ctx.attr.variant),
-            ))
+            renames.append(
+                struct(
+                    src = file.short_path if short else file.path,
+                    dst = _remap(
+                        file.short_path if short else file.path,
+                        ctx.attr.src[OrfsInfo].variant,
+                        ctx.attr.variant,
+                    ),
+                ),
+            )
 
     # renamed_inputs win over variant renaming
     for file in inputs:
         if file.basename in ctx.attr.renamed_inputs:
             for src in ctx.attr.renamed_inputs[file.basename].files.to_list():
-                renames.append(struct(
-                    src = src.short_path if short else src.path,
-                    dst = _remap(file.short_path if short else file.path, ctx.attr.src[OrfsInfo].variant, ctx.attr.variant),
-                ))
+                renames.append(
+                    struct(
+                        src = src.short_path if short else src.path,
+                        dst = _remap(
+                            file.short_path if short else file.path,
+                            ctx.attr.src[OrfsInfo].variant,
+                            ctx.attr.variant,
+                        ),
+                    ),
+                )
     return renames
 
 def _work_home(ctx):
@@ -632,13 +711,15 @@ def _work_home(ctx):
     return ctx.genfiles_dir.path
 
 def _artifact_name(ctx, category, name = None):
-    return "/".join([
-        category,
-        _platform(ctx),
-        _module_top(ctx),
-        ctx.attr.variant,
-        name,
-    ])
+    return "/".join(
+        [
+            category,
+            _platform(ctx),
+            _module_top(ctx),
+            ctx.attr.variant,
+            name,
+        ],
+    )
 
 def _declare_artifact(ctx, category, name):
     return ctx.actions.declare_file(_artifact_name(ctx, category, name))
@@ -654,19 +735,20 @@ def _run_impl(ctx):
             "--file",
             ctx.file._makefile.path,
         ],
-        command = " ".join([
-            ctx.executable._make.path,
-            ctx.expand_location(ctx.attr.cmd, ctx.attr.data),
-            ctx.expand_location(ctx.attr.extra_args, ctx.attr.data),
-            "$@",
-        ]),
-        env =
-            flow_environment(ctx) |
-            yosys_environment(ctx) |
-            config_environment(config) |
-            _odb_arguments(ctx) |
-            _data_arguments(ctx) |
-            _run_arguments(ctx),
+        command = " ".join(
+            [
+                ctx.executable._make.path,
+                ctx.expand_location(ctx.attr.cmd, ctx.attr.data),
+                ctx.expand_location(ctx.attr.extra_args, ctx.attr.data),
+                "$@",
+            ],
+        ),
+        env = flow_environment(ctx) |
+              yosys_environment(ctx) |
+              config_environment(config) |
+              _odb_arguments(ctx) |
+              _data_arguments(ctx) |
+              _run_arguments(ctx),
         inputs = depset(
             [config, ctx.file.script],
             transitive = [
@@ -675,27 +757,35 @@ def _run_impl(ctx):
             ],
         ),
         outputs = outs,
-        tools = depset(transitive = [
-            flow_inputs(ctx),
-            yosys_inputs(ctx),
-        ]),
+        tools = depset(
+            transitive = [
+                flow_inputs(ctx),
+                yosys_inputs(ctx),
+            ],
+        ),
     )
 
-    make = ctx.actions.declare_file("make_{}_{}_run".format(ctx.attr.name, ctx.attr.variant))
+    make = ctx.actions.declare_file(
+        "make_{}_{}_run".format(ctx.attr.name, ctx.attr.variant),
+    )
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
-        substitutions = flow_substitutions(ctx) | {'"$@"': _environment_string(
-            _hack_away_prefix(
-                arguments = _odb_arguments(ctx) |
-                            _data_arguments(ctx) |
-                            _run_arguments(ctx),
-                prefix = config.root.path,
-            ) |
-            {
-                "DESIGN_CONFIG": "config.mk",
-            },
-        ) + ' "$@"'},
+        substitutions = flow_substitutions(ctx) |
+                        {
+                            '"$@"': _environment_string(
+                                        _hack_away_prefix(
+                                            arguments = _odb_arguments(ctx) |
+                                                        _data_arguments(ctx) |
+                                                        _run_arguments(ctx),
+                                            prefix = config.root.path,
+                                        ) |
+                                        {
+                                            "DESIGN_CONFIG": "config.mk",
+                                        },
+                                    ) +
+                                    ' "$@"',
+                        },
     )
 
     return [
@@ -704,51 +794,55 @@ def _run_impl(ctx):
         DefaultInfo(
             files = depset(outs),
         ),
-        OutputGroupInfo(
-            **{f.basename: depset([f]) for f in outs}
-        ),
+        OutputGroupInfo(**{f.basename: depset([f]) for f in outs}),
         OrfsDepInfo(
             make = make,
             config = ctx.attr.src[OrfsDepInfo].config,
             renames = [],
             files = depset([ctx.attr.src[OrfsDepInfo].config, ctx.file.script]),
-            runfiles = ctx.runfiles(transitive_files = depset(
-                [ctx.attr.src[OrfsDepInfo].config, make, ctx.file.script],
-                transitive = [
-                    flow_inputs(ctx),
-                    data_inputs(ctx),
-                    source_inputs(ctx),
-                ],
-            )),
+            runfiles = ctx.runfiles(
+                transitive_files = depset(
+                    [ctx.attr.src[OrfsDepInfo].config, make, ctx.file.script],
+                    transitive = [
+                        flow_inputs(ctx),
+                        data_inputs(ctx),
+                        source_inputs(ctx),
+                    ],
+                ),
+            ),
         ),
     ]
 
 orfs_run = rule(
     implementation = _run_impl,
-    attrs = yosys_attrs() | openroad_attrs() | {
-        "script": attr.label(
-            mandatory = True,
-            allow_single_file = ["tcl"],
-        ),
-        "outs": attr.output_list(
-            mandatory = True,
-            allow_empty = False,
-        ),
-        "cmd": attr.string(
-            mandatory = False,
-            default = "run",
-        ),
-        "extra_args": attr.string(
-            mandatory = False,
-            default = "",
-        ),
-    },
+    attrs = yosys_attrs() |
+            openroad_attrs() |
+            {
+                "script": attr.label(
+                    mandatory = True,
+                    allow_single_file = ["tcl"],
+                ),
+                "outs": attr.output_list(
+                    mandatory = True,
+                    allow_empty = False,
+                ),
+                "cmd": attr.string(
+                    mandatory = False,
+                    default = "run",
+                ),
+                "extra_args": attr.string(
+                    mandatory = False,
+                    default = "",
+                ),
+            },
 )
 
 def _test_impl(ctx):
     config = ctx.attr.src[OrfsDepInfo].config
 
-    test = ctx.actions.declare_file("make_{}_{}_test".format(ctx.attr.name, ctx.attr.variant))
+    test = ctx.actions.declare_file(
+        "make_{}_{}_test".format(ctx.attr.name, ctx.attr.variant),
+    )
     ctx.actions.write(
         output = test,
         is_executable = True,
@@ -765,8 +859,7 @@ fi
             makefile = ctx.file._makefile.path,
             moreargs = _environment_string(
                 _hack_away_prefix(
-                    arguments = _odb_arguments(ctx) |
-                                _data_arguments(ctx),
+                    arguments = _odb_arguments(ctx) | _data_arguments(ctx),
                     prefix = config.root.path,
                 ) |
                 {
@@ -781,25 +874,29 @@ fi
         ctx.attr.src[TopInfo],
         DefaultInfo(
             executable = test,
-            runfiles = ctx.runfiles(transitive_files = depset(
-                [config, test],
-                transitive = [
-                    flow_inputs(ctx),
-                    data_inputs(ctx),
-                    source_inputs(ctx),
-                ],
-            )),
+            runfiles = ctx.runfiles(
+                transitive_files = depset(
+                    [config, test],
+                    transitive = [
+                        flow_inputs(ctx),
+                        data_inputs(ctx),
+                        source_inputs(ctx),
+                    ],
+                ),
+            ),
         ),
     ]
 
 orfs_test = rule(
     implementation = _test_impl,
-    attrs = yosys_attrs() | openroad_attrs() | {
-        "cmd": attr.string(
-            mandatory = False,
-            default = "metadata-check",
-        ),
-    },
+    attrs = yosys_attrs() |
+            openroad_attrs() |
+            {
+                "cmd": attr.string(
+                    mandatory = False,
+                    default = "metadata-check",
+                ),
+            },
     test = True,
 )
 
@@ -808,11 +905,18 @@ SYNTH_OUTPUTS = ["1_synth.v", "1_synth.sdc", "mem.json", "1_synth.odb"]
 SYNTH_REPORTS = ["synth_stat.txt"]
 
 def _yosys_impl(ctx):
-    all_arguments = _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps])
+    all_arguments = (
+        _data_arguments(ctx) |
+        _required_arguments(ctx) |
+        _orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps])
+    )
     config = _declare_artifact(ctx, "results", "1_synth.mk")
     ctx.actions.write(
         output = config,
-        content = _config_content(all_arguments, [file.path for file in ctx.files.extra_configs]),
+        content = _config_content(
+            all_arguments,
+            [file.path for file in ctx.files.extra_configs],
+        ),
     )
 
     canon_logs = []
@@ -823,18 +927,23 @@ def _yosys_impl(ctx):
 
     # SYNTH_NETLIST_FILES will not create an .rtlil file or reports, so we need
     # an empty placeholder in that case.
-    commands = [ctx.executable._make.path + " $@"] + _generation_commands(canon_logs + [canon_output])
+    commands = [ctx.executable._make.path + " $@"] + _generation_commands(
+        canon_logs + [canon_output],
+    )
 
     ctx.actions.run_shell(
-        arguments = ["--file", ctx.file._makefile_yosys.path, "yosys-dependencies", "do-yosys-canonicalize"],
+        arguments = [
+            "--file",
+            ctx.file._makefile_yosys.path,
+            "yosys-dependencies",
+            "do-yosys-canonicalize",
+        ],
         command = " && ".join(commands),
         env = _verilog_arguments(ctx.files.verilog_files) |
               yosys_environment(ctx) |
               config_environment(config),
         inputs = depset(
-            [config] +
-            ctx.files.verilog_files +
-            ctx.files.extra_configs,
+            [config] + ctx.files.verilog_files + ctx.files.extra_configs,
             transitive = [
                 data_inputs(ctx),
                 pdk_inputs(ctx),
@@ -859,7 +968,9 @@ def _yosys_impl(ctx):
 
     # SYNTH_NETLIST_FILES will not create an .rtlil file or reports, so we need
     # an empty placeholder in that case.
-    commands = [ctx.executable._make.path + " $@"] + _generation_commands(synth_logs + synth_outputs.values() + synth_reports)
+    commands = [ctx.executable._make.path + " $@"] + _generation_commands(
+        synth_logs + synth_outputs.values() + synth_reports,
+    )
     ctx.actions.run_shell(
         arguments = [
             "--file",
@@ -876,8 +987,7 @@ def _yosys_impl(ctx):
               yosys_environment(ctx) |
               config_environment(config),
         inputs = depset(
-            [canon_output, config] +
-            ctx.files.extra_configs,
+            [canon_output, config] + ctx.files.extra_configs,
             transitive = [
                 data_inputs(ctx),
                 pdk_inputs(ctx),
@@ -909,7 +1019,9 @@ def _yosys_impl(ctx):
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
-        substitutions = flow_substitutions(ctx) | yosys_substitutions(ctx) | {'"$@"': 'DESIGN_CONFIG="config.mk" "$@"'},
+        substitutions = flow_substitutions(ctx) |
+                        yosys_substitutions(ctx) |
+                        {'"$@"': 'DESIGN_CONFIG="config.mk" "$@"'},
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
@@ -917,7 +1029,14 @@ def _yosys_impl(ctx):
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join(sorted([f.short_path for f in [config_short] + outputs + canon_logs + synth_logs])),
+            "${GENFILES}": " ".join(
+                sorted(
+                    [
+                        f.short_path
+                        for f in [config_short] + outputs + canon_logs + synth_logs
+                    ],
+                ),
+            ),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
@@ -928,13 +1047,18 @@ def _yosys_impl(ctx):
             executable = exe,
             files = depset(outputs),
             runfiles = ctx.runfiles(
-                [config_short, make] + outputs + canon_logs + synth_logs +
+                [config_short, make] +
+                outputs +
+                canon_logs +
+                synth_logs +
                 ctx.files.extra_configs,
-                transitive_files = depset(transitive = [
-                    flow_inputs(ctx),
-                    deps_inputs(ctx),
-                    pdk_inputs(ctx),
-                ]),
+                transitive_files = depset(
+                    transitive = [
+                        flow_inputs(ctx),
+                        deps_inputs(ctx),
+                        pdk_inputs(ctx),
+                    ],
+                ),
             ),
         ),
         OutputGroupInfo(
@@ -946,18 +1070,23 @@ def _yosys_impl(ctx):
             make = make,
             config = config_short,
             renames = [],
-            files = depset([config_short] + ctx.files.verilog_files + ctx.files.extra_configs),
-            runfiles = ctx.runfiles(transitive_files = depset(
-                [config_short, make] +
-                ctx.files.verilog_files + ctx.files.extra_configs,
-                transitive = [
-                    flow_inputs(ctx),
-                    yosys_inputs(ctx),
-                    data_inputs(ctx),
-                    pdk_inputs(ctx),
-                    deps_inputs(ctx),
-                ],
-            )),
+            files = depset(
+                [config_short] + ctx.files.verilog_files + ctx.files.extra_configs,
+            ),
+            runfiles = ctx.runfiles(
+                transitive_files = depset(
+                    [config_short, make] +
+                    ctx.files.verilog_files +
+                    ctx.files.extra_configs,
+                    transitive = [
+                        flow_inputs(ctx),
+                        yosys_inputs(ctx),
+                        data_inputs(ctx),
+                        pdk_inputs(ctx),
+                        deps_inputs(ctx),
+                    ],
+                ),
+            ),
         ),
         OrfsInfo(
             stage = "1_synth",
@@ -967,9 +1096,15 @@ def _yosys_impl(ctx):
             gds = None,
             lef = None,
             lib = None,
-            additional_gds = depset([dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds]),
-            additional_lefs = depset([dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef]),
-            additional_libs = depset([dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib]),
+            additional_gds = depset(
+                [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds],
+            ),
+            additional_lefs = depset(
+                [dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef],
+            ),
+            additional_libs = depset(
+                [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
+            ),
         ),
         ctx.attr.pdk[PdkInfo],
         TopInfo(
@@ -986,7 +1121,15 @@ def _yosys_impl(ctx):
 orfs_synth = rule(
     implementation = _yosys_impl,
     attrs = yosys_attrs() | synth_attrs(),
-    provides = [DefaultInfo, OutputGroupInfo, OrfsDepInfo, OrfsInfo, PdkInfo, TopInfo, LoggingInfo],
+    provides = [
+        DefaultInfo,
+        OutputGroupInfo,
+        OrfsDepInfo,
+        OrfsInfo,
+        PdkInfo,
+        TopInfo,
+        LoggingInfo,
+    ],
     executable = True,
 )
 
@@ -1022,7 +1165,12 @@ def _make_impl(
         A list of providers. The returned PdkInfo and TopInfo providers are taken from the first
         target of a ctx.attr.srcs list.
     """
-    all_arguments = extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo])
+    all_arguments = (
+        extra_arguments |
+        _data_arguments(ctx) |
+        _required_arguments(ctx) |
+        _orfs_arguments(ctx.attr.src[OrfsInfo])
+    )
     config = _declare_artifact(ctx, "results", stage + ".mk")
     ctx.actions.write(
         output = config,
@@ -1062,15 +1210,18 @@ def _make_impl(
     for file in forwards + results:
         info[file.extension] = file
 
-    commands = _generation_commands(reports + logs + jsons + drcs) + _input_commands(_renames(ctx, ctx.files.src)) + [ctx.executable._make.path + " $@"]
+    commands = (
+        _generation_commands(reports + logs + jsons + drcs) +
+        _input_commands(_renames(ctx, ctx.files.src)) +
+        [ctx.executable._make.path + " $@"]
+    )
 
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + steps,
         command = " && ".join(commands),
         env = flow_environment(ctx) | config_environment(config),
         inputs = depset(
-            [config] +
-            ctx.files.extra_configs,
+            [config] + ctx.files.extra_configs,
             transitive = [
                 data_inputs(ctx),
                 source_inputs(ctx),
@@ -1086,18 +1237,24 @@ def _make_impl(
         output = config_short,
         content = _config_content(
             arguments = _hack_away_prefix(
-                arguments = extra_arguments | _data_arguments(ctx) | _required_arguments(ctx) | _orfs_arguments(ctx.attr.src[OrfsInfo]),
+                arguments = extra_arguments |
+                            _data_arguments(ctx) |
+                            _required_arguments(ctx) |
+                            _orfs_arguments(ctx.attr.src[OrfsInfo]),
                 prefix = config_short.root.path,
             ),
             paths = [file.short_path for file in ctx.files.extra_configs],
         ),
     )
 
-    make = ctx.actions.declare_file("make_{}_{}_{}".format(ctx.attr.name, ctx.attr.variant, stage))
+    make = ctx.actions.declare_file(
+        "make_{}_{}_{}".format(ctx.attr.name, ctx.attr.variant, stage),
+    )
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
-        substitutions = flow_substitutions(ctx) | {'"$@"': 'DESIGN_CONFIG="config.mk" "$@"'},
+        substitutions = flow_substitutions(ctx) |
+                        {'"$@"': 'DESIGN_CONFIG="config.mk" "$@"'},
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
@@ -1105,7 +1262,19 @@ def _make_impl(
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
-            "${GENFILES}": " ".join(sorted([f.short_path for f in [config_short] + results + logs + reports + drcs + jsons])),
+            "${GENFILES}": " ".join(
+                sorted(
+                    [
+                        f.short_path
+                        for f in [config_short] +
+                                 results +
+                                 logs +
+                                 reports +
+                                 drcs +
+                                 jsons
+                    ],
+                ),
+            ),
             "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
@@ -1117,17 +1286,24 @@ def _make_impl(
             files = depset(forwards + results + reports),
             runfiles = ctx.runfiles(
                 [config_short, make] +
-                forwards + results + logs + reports + ctx.files.extra_configs +
-                drcs + jsons +
+                forwards +
+                results +
+                logs +
+                reports +
+                ctx.files.extra_configs +
+                drcs +
+                jsons +
                 # Some of these files might be read by open.tcl
                 ctx.files.data,
-                transitive_files = depset(transitive = [
-                    flow_inputs(ctx),
-                    ctx.attr.src[PdkInfo].files,
-                    ctx.attr.src[OrfsInfo].additional_gds,
-                    ctx.attr.src[OrfsInfo].additional_lefs,
-                    ctx.attr.src[OrfsInfo].additional_libs,
-                ]),
+                transitive_files = depset(
+                    transitive = [
+                        flow_inputs(ctx),
+                        ctx.attr.src[PdkInfo].files,
+                        ctx.attr.src[OrfsInfo].additional_gds,
+                        ctx.attr.src[OrfsInfo].additional_lefs,
+                        ctx.attr.src[OrfsInfo].additional_libs,
+                    ],
+                ),
             ),
         ),
         OutputGroupInfo(
@@ -1135,23 +1311,32 @@ def _make_impl(
             reports = depset(reports),
             jsons = depset(jsons),
             drcs = depset(drcs),
-            **{f.basename: depset([f]) for f in [config] + results + objects + logs + reports + jsons + drcs}
+            **{
+                f.basename: depset([f])
+                for f in [config] + results + objects + logs + reports + jsons + drcs
+            }
         ),
         OrfsDepInfo(
             make = make,
             config = config_short,
             renames = _renames(ctx, ctx.files.src, short = True),
-            files = depset([config_short] + ctx.files.src + ctx.files.data + ctx.files.extra_configs),
-            runfiles = ctx.runfiles(transitive_files = depset(
-                [config_short, make] +
-                ctx.files.src + ctx.files.extra_configs,
-                transitive = [
-                    flow_inputs(ctx),
-                    data_inputs(ctx),
-                    source_inputs(ctx),
-                    rename_inputs(ctx),
-                ],
-            )),
+            files = depset(
+                [config_short] +
+                ctx.files.src +
+                ctx.files.data +
+                ctx.files.extra_configs,
+            ),
+            runfiles = ctx.runfiles(
+                transitive_files = depset(
+                    [config_short, make] + ctx.files.src + ctx.files.extra_configs,
+                    transitive = [
+                        flow_inputs(ctx),
+                        data_inputs(ctx),
+                        source_inputs(ctx),
+                        rename_inputs(ctx),
+                    ],
+                ),
+            ),
         ),
         OrfsInfo(
             stage = stage,
@@ -1361,18 +1546,15 @@ orfs_generate_metadata = rule(
         ctx = ctx,
         stage = "generate_metadata",
         steps = ["metadata-generate"],
-        object_names = [
-        ],
+        object_names = [],
         log_names = [
             "metadata-generate.log",
         ],
-        json_names = [
-        ],
+        json_names = [],
         report_names = [
             "metadata.json",
         ],
-        result_names = [
-        ],
+        result_names = [],
     ),
     attrs = openroad_attrs() | renamed_inputs_attr(),
     provides = flow_provides(),
@@ -1413,8 +1595,9 @@ orfs_abstract = rule(
         log_names = [
             "generate_abstract.log",
         ],
-        extra_arguments =
-            {"ABSTRACT_SOURCE": _extensionless_basename(ctx.attr.src[OrfsInfo].odb)},
+        extra_arguments = {
+            "ABSTRACT_SOURCE": _extensionless_basename(ctx.attr.src[OrfsInfo].odb),
+        },
     ),
     attrs = openroad_attrs() | renamed_inputs_attr(),
     provides = flow_provides(),
@@ -1429,7 +1612,10 @@ orfs_deps = rule(
 
 FINAL_STAGE_IMPL = struct(stage = "final", impl = orfs_final)
 
-GENERATE_METADATA_STAGE_IMPL = struct(stage = "generate_metadata", impl = orfs_generate_metadata)
+GENERATE_METADATA_STAGE_IMPL = struct(
+    stage = "generate_metadata",
+    impl = orfs_generate_metadata,
+)
 UPDATE_RULES_IMPL = struct(stage = "update_rules", impl = orfs_update_rules)
 
 TEST_STAGE_IMPL = struct(stage = "test", impl = orfs_test)
@@ -1453,11 +1639,9 @@ MOCK_STAGE_ARGUMENTS = {
 # A stage argument is used in one or more stages. This is metainformation
 # about the ORFS code that there is no known nice way for ORFS to
 # provide.
-BAZEL_VARIABLE_TO_STAGES = {
-}
+BAZEL_VARIABLE_TO_STAGES = {}
 
-BAZEL_STAGE_TO_VARIABLES = {
-}
+BAZEL_STAGE_TO_VARIABLES = {}
 
 def flatten(xs):
     """Flattens a nested list iteratively.
@@ -1499,8 +1683,10 @@ ORFS_VARIABLE_TO_STAGES = {
 }
 
 # Stages that do not appear in variables.yaml must be added manually here
-ALL_STAGES = set(_union(*ORFS_VARIABLE_TO_STAGES.values()) +
-                 ["generate_metadata", "test", "update_rules"])
+ALL_STAGES = set(
+    _union(*ORFS_VARIABLE_TO_STAGES.values()) +
+    ["generate_metadata", "test", "update_rules"],
+)
 
 ORFS_STAGE_TO_VARIABLES = {
     stage: [
@@ -1511,7 +1697,10 @@ ORFS_STAGE_TO_VARIABLES = {
     for stage in ALL_STAGES
 }
 
-ALL_STAGE_TO_VARIABLES = {stage: ORFS_STAGE_TO_VARIABLES.get(stage, []) for stage in ALL_STAGES}
+ALL_STAGE_TO_VARIABLES = {
+    stage: ORFS_STAGE_TO_VARIABLES.get(stage, [])
+    for stage in ALL_STAGES
+}
 
 ALL_VARIABLE_TO_STAGES = {
     variable: [
@@ -1538,11 +1727,13 @@ def get_stage_args(stage, stage_arguments, arguments, sources):
             arg: " ".join(_map(lambda v: "$(locations {})".format(v), value))
             for arg, value in sources.items()
             if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLE_TO_STAGES
-        } | {
+        } |
+        {
             arg: value
             for arg, value in arguments.items()
             if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLE_TO_STAGES
-        } | stage_arguments.get(stage, {})
+        } |
+        stage_arguments.get(stage, {})
     )
     return dict(sorted(unsorted_dict.items()))
 
@@ -1556,12 +1747,19 @@ def get_sources(stage, stage_sources, sources):
     Returns:
       A list of sources for the stage.
     """
-    return sorted(set(stage_sources.get(stage, []) +
-                      flatten([
-                          source_list
-                          for variable, source_list in sources.items()
-                          if variable in ALL_STAGE_TO_VARIABLES[stage] or variable not in ALL_VARIABLE_TO_STAGES
-                      ])))
+    return sorted(
+        set(
+            stage_sources.get(stage, []) +
+            flatten(
+                [
+                    source_list
+                    for variable, source_list in sources.items()
+                    if variable in ALL_STAGE_TO_VARIABLES[stage] or
+                       variable not in ALL_VARIABLE_TO_STAGES
+                ],
+            ),
+        ),
+    )
 
 def _step_name(name, variant, stage):
     if variant:
@@ -1713,13 +1911,15 @@ cp $logs $BUILD_WORKSPACE_DIRECTORY/$rules_json
     return [
         DefaultInfo(
             executable = script,
-            runfiles = ctx.runfiles(transitive_files = depset(
-                [],
-                transitive = [
-                    depset(ctx.files.rules_json),
-                    depset(ctx.files.logs),
-                ],
-            )),
+            runfiles = ctx.runfiles(
+                transitive_files = depset(
+                    [],
+                    transitive = [
+                        depset(ctx.files.rules_json),
+                        depset(ctx.files.logs),
+                    ],
+                ),
+            ),
         ),
     ]
 
@@ -1765,7 +1965,12 @@ def _orfs_pass(
     steps = []
     LEGAL_ABSTRACT_STAGES = ["place", "cts", "grt", "route", "final"]
     if abstract_stage != None and abstract_stage not in LEGAL_ABSTRACT_STAGES:
-        fail("Abstract stage {abstract_stage} must be one of: {legal}".format(abstract_stage = abstract_stage, legal = ", ".join(LEGAL_ABSTRACT_STAGES)))
+        fail(
+            "Abstract stage {abstract_stage} must be one of: {legal}".format(
+                abstract_stage = abstract_stage,
+                legal = ", ".join(LEGAL_ABSTRACT_STAGES),
+            ),
+        )
     for step in STAGE_IMPLS:
         steps.append(step)
         if step.stage == abstract_stage:
@@ -1777,7 +1982,9 @@ def _orfs_pass(
         fail("Maximum previous stages is 1")
     start_stage = 0
     if len(previous_stage) > 0:
-        start_stage = _map(lambda x: x.stage, STAGE_IMPLS).index(previous_stage.keys()[0])
+        start_stage = _map(lambda x: x.stage, STAGE_IMPLS).index(
+            previous_stage.keys()[0],
+        )
 
     step_names = []
     if start_stage < 1:
@@ -1786,7 +1993,12 @@ def _orfs_pass(
         step_names.append(step_name)
         synth_step.impl(
             name = step_name,
-            arguments = get_stage_args(synth_step.stage, stage_arguments, arguments, sources),
+            arguments = get_stage_args(
+                synth_step.stage,
+                stage_arguments,
+                arguments,
+                sources,
+            ),
             data = get_sources(synth_step.stage, stage_sources, sources) +
                    stage_data.get(synth_step.stage, []),
             deps = macros,
@@ -1808,7 +2020,9 @@ def _orfs_pass(
         start_stage = 1
 
     def do_step(step, prev, kwargs, add_deps = True, more_kwargs = {}, data = []):
-        stage_variant = abstract_variant if step.stage == ABSTRACT_IMPL.stage and abstract_variant else variant
+        stage_variant = (
+            abstract_variant if step.stage == ABSTRACT_IMPL.stage and abstract_variant else variant
+        )
         step_name = _step_name(name, stage_variant, step.stage)
         src = previous_stage.get(step.stage, _step_name(name, variant, prev.stage))
         step.impl(
@@ -1816,13 +2030,18 @@ def _orfs_pass(
             src = src,
             arguments = get_stage_args(step.stage, stage_arguments, arguments, sources),
             data = get_sources(step.stage, stage_sources, sources) +
-                   stage_data.get(step.stage, []) + data,
+                   stage_data.get(step.stage, []) +
+                   data,
             extra_configs = extra_configs.get(step.stage, []),
             variant = variant,
-            **(kwargs | _kwargs(
-                step.stage,
-                renamed_inputs = renamed_inputs,
-            ) | more_kwargs)
+            **(
+                kwargs |
+                _kwargs(
+                    step.stage,
+                    renamed_inputs = renamed_inputs,
+                ) |
+                more_kwargs
+            )
         )
         if add_deps:
             orfs_deps(
@@ -1846,7 +2065,12 @@ def _orfs_pass(
             kwargs = kwargs,
         )
 
-        test_args = get_stage_args(TEST_STAGE_IMPL.stage, stage_arguments, arguments, sources)
+        test_args = get_stage_args(
+            TEST_STAGE_IMPL.stage,
+            stage_arguments,
+            arguments,
+            sources,
+        )
         if "RULES_JSON" in test_args and not mock_area:
             do_step(
                 TEST_STAGE_IMPL,

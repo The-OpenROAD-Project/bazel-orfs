@@ -1,6 +1,7 @@
 """
 fir_library rule for generating FIR files from source files using a specified generator tool.
 """
+
 # buildifier: disable=module-docstring
 
 def _fir_library_impl(ctx):
@@ -17,9 +18,10 @@ def _fir_library_impl(ctx):
             "CHISEL_FIRTOOL_PATH": ctx.executable._firtool.dirname,
         },
         inputs = [
-            ctx.executable.generator,
-            ctx.executable._firtool,
-        ] + ctx.files.data,
+                     ctx.executable.generator,
+                     ctx.executable._firtool,
+                 ] +
+                 ctx.files.data,
         outputs = [fir],
         mnemonic = "FirGeneration",
     )

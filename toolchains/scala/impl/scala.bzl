@@ -41,7 +41,13 @@ def collect(t, var):
     Returns:
         A set of collected variables.
     """
-    if t in [types.unknown, types.void, types.string, types.bool, types.list(types.string)]:
+    if t in [
+        types.unknown,
+        types.void,
+        types.string,
+        types.bool,
+        types.list(types.string),
+    ]:
         return depset([])
     if t in [types.file, types.directory, types.list(types.file)]:
         if type(var) in ["File", "depset"]:
@@ -60,11 +66,32 @@ def collect_formats(arg, variable):
         A list of formatted argument values.
     """
     if arg.iterate_over:
-        return [{arg.format[arg.iterate_over]: format(arg.iterate_over[VariableInfo].type["elements"], var)} for var in variable[arg.iterate_over[VariableInfo]].to_list()]
+        return [
+            {
+                arg.format[arg.iterate_over]: format(
+                    arg.iterate_over[VariableInfo].type["elements"],
+                    var,
+                ),
+            }
+            for var in variable[arg.iterate_over[VariableInfo]].to_list()
+        ]
     elif arg.join_with:
-        return [{arg.format[var]: delimiter.join([format(var[VariableInfo].type["elements"], f) for f in variable[var[VariableInfo]].to_list()]) for var, delimiter in arg.join_with.items()}]
+        return [
+            {
+                arg.format[var]: delimiter.join(
+                    [
+                        format(var[VariableInfo].type["elements"], f)
+                        for f in variable[var[VariableInfo]].to_list()
+                    ],
+                )
+                for var, delimiter in arg.join_with.items()
+            },
+        ]
     elif arg.format:
-        return [{v: format(types.list(types.file), k.files.to_list())} for k, v in arg.format.items()]
+        return [
+            {v: format(types.list(types.file), k.files.to_list())}
+            for k, v in arg.format.items()
+        ]
     else:
         return [{}]
 
@@ -80,9 +107,17 @@ def collect_files(arg, variable):
         A set of collected file variables.
     """
     if arg.iterate_over:
-        return collect(arg.iterate_over[VariableInfo].type, variable[arg.iterate_over[VariableInfo]])
+        return collect(
+            arg.iterate_over[VariableInfo].type,
+            variable[arg.iterate_over[VariableInfo]],
+        )
     if arg.join_with:
-        return depset(transitive = [collect(var[VariableInfo].type, variable[var[VariableInfo]]) for var in arg.join_with])
+        return depset(
+            transitive = [
+                collect(var[VariableInfo].type, variable[var[VariableInfo]])
+                for var in arg.join_with
+            ],
+        )
     else:
         return depset(transitive = [target.files for target in arg.format.keys()])
 

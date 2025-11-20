@@ -6,10 +6,14 @@ def _yosys_impl(ctx):
         outs.extend(getattr(ctx.outputs, k))
 
     ctx.actions.run(
-        arguments = [ctx.expand_location(arg, ctx.attr.srcs) for arg in ctx.attr.arguments],
+        arguments = [
+            ctx.expand_location(arg, ctx.attr.srcs)
+            for arg in ctx.attr.arguments
+        ],
         executable = ctx.executable._yosys,
         inputs = depset(
-            ctx.files.srcs + [
+            ctx.files.srcs +
+            [
                 ctx.executable._yosys,
             ],
             transitive = [

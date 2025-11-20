@@ -1,6 +1,7 @@
 """
 This module defines providers for Scala toolchain information.
 """
+
 ArgsInfo = provider(
     doc = "A set of arguments to be added to the command line for specific actions",
     # @unsorted-dict-items

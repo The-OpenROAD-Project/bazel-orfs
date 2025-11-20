@@ -33,31 +33,53 @@ def _scala_diagnostics_aspect_impl(_target, ctx):
     compiler = toolchain.tool_map[ToolConfigInfo].configs[action]
 
     if ctx.rule.kind not in _scala_rules:
-        return [SemanticDbInfo(
-            compiler = compiler,
-            scalacopts = depset([]),
-            jars = depset([]),
-            deps = depset([]),
-            srcs = depset([]),
-        )]
+        return [
+            SemanticDbInfo(
+                compiler = compiler,
+                scalacopts = depset([]),
+                jars = depset([]),
+                deps = depset([]),
+                srcs = depset([]),
+            ),
+        ]
 
     variable = {
-        ctx.rule.attr._variables[BuiltinVariablesInfo].variables["sources"]: depset(ctx.rule.files.srcs),
-        ctx.rule.attr._variables[BuiltinVariablesInfo].variables["jars"]: depset([f for d in ctx.rule.attr.deps for f in d[JavaInfo].transitive_runtime_jars.to_list()]),
-        ctx.rule.attr._variables[BuiltinVariablesInfo].variables["plugins"]: depset(ctx.rule.files.plugins),
-        ctx.rule.attr._variables[BuiltinVariablesInfo].variables["scalacopts"]: depset(ctx.rule.attr.scalacopts),
+        ctx.rule.attr._variables[BuiltinVariablesInfo].variables["sources"]: depset(
+            ctx.rule.files.srcs,
+        ),
+        ctx.rule.attr._variables[BuiltinVariablesInfo].variables["jars"]: depset(
+            [
+                f
+                for d in ctx.rule.attr.deps
+                for f in d[JavaInfo].transitive_runtime_jars.to_list()
+            ],
+        ),
+        ctx.rule.attr._variables[BuiltinVariablesInfo].variables["plugins"]: depset(
+            ctx.rule.files.plugins,
+        ),
+        ctx.rule.attr._variables[BuiltinVariablesInfo].variables["scalacopts"]: depset(
+            ctx.rule.attr.scalacopts,
+        ),
     }
 
     # TODO: Pass `scalacopts` from toolchain
     args_by_action(toolchain, variable, action, ctx.label)
 
-    return [SemanticDbInfo(
-        compiler = compiler,
-        scalacopts = depset(ctx.rule.attr.scalacopts),
-        jars = depset([f for d in ctx.rule.attr.deps for f in d[JavaInfo].transitive_runtime_jars.to_list()]),
-        deps = depset(ctx.rule.attr.deps),
-        srcs = depset(ctx.rule.files.srcs),
-    )]
+    return [
+        SemanticDbInfo(
+            compiler = compiler,
+            scalacopts = depset(ctx.rule.attr.scalacopts),
+            jars = depset(
+                [
+                    f
+                    for d in ctx.rule.attr.deps
+                    for f in d[JavaInfo].transitive_runtime_jars.to_list()
+                ],
+            ),
+            deps = depset(ctx.rule.attr.deps),
+            srcs = depset(ctx.rule.files.srcs),
+        ),
+    ]
 
 scala_diagnostics_aspect = aspect(
     attr_aspects = ["deps"],
