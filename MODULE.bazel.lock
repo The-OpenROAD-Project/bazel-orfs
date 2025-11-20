@@ -172,7 +172,7 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "W2FcgOTim8eocKPV5zKBqUWCMCrRjVK8KK28G/2fPTE=",
+        "bzlTransitiveDigest": "hUDTFZFC1MZ0pAKoHsqexR2vwS2q99PcATMoQ7d8KyQ=",
         "usagesDigest": "R4+jwqqT6oHmva2ZHbabGJXMeeR17dlZkogttvW+iwE=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
