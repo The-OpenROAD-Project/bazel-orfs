@@ -22,11 +22,19 @@ def _eqy_test_impl(ctx):
         script,
         content = """
 # !/bin/sh
-exec {} "$@" {}
+set -euo pipefail
+test_status=0
+(exec {eqy} "$@" {eqy_script}) || test_status=$?
 
+if [ $test_status -ne 0 ]; then
+    echo "See bazel-testlogs/$(dirname $TEST_BINARY)/{results_folder}/test.outputs for eqy work files"
+    cp -r {results_folder} $TEST_UNDECLARED_OUTPUTS_DIR/
+    exit $test_status
+fi
 """.format(
-            ctx.executable._eqy.short_path,
-            eqy.short_path,
+            eqy = ctx.executable._eqy.short_path,
+            eqy_script = eqy.short_path,
+            results_folder = ctx.attr.name,
         ),
         is_executable = True,
     )
