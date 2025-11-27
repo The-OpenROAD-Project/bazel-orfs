@@ -29,12 +29,27 @@ test_status=0
 if [ $test_status -ne 0 ]; then
     echo "Copying $(find {results_folder} . | wc -l) files to bazel-testlogs/$(dirname $TEST_BINARY)/{results_folder}/test.outputs for inspection."
     cp -r {results_folder} $TEST_UNDECLARED_OUTPUTS_DIR/
+    gold_verilog_files="{gold_verilog_files}"
+    gate_verilog_files="{gate_verilog_files}"
+    for kind in gold_verilog_files gate_verilog_files; do
+        for f in ${{!kind}}; do
+            dest=$(echo "$f" | sed 's|^\\.\\./|external/|')
+            mkdir -p "$TEST_UNDECLARED_OUTPUTS_DIR/$kind/$(dirname "$dest")"
+            cp --parents "$f" "$TEST_UNDECLARED_OUTPUTS_DIR/$kind/"
+        done
+    done
     exit $test_status
 fi
 """.format(
             eqy = ctx.executable._eqy.short_path,
             eqy_script = eqy.short_path,
             results_folder = ctx.attr.name,
+            gold_verilog_files = " ".join(
+                [file.short_path for file in ctx.files.gold_verilog_files],
+            ),
+            gate_verilog_files = " ".join(
+                [file.short_path for file in ctx.files.gate_verilog_files],
+            ),
         ),
         is_executable = True,
     )
