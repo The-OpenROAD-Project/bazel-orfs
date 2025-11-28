@@ -50,11 +50,16 @@ def main():
             sys.exit(1)
 
         for root, dirs, files in os.walk(workspace):
-            forbidden = {".bloop", ".metals", ".bazelbsp"} & set(dirs)
+            forbidden = {".bloop", ".metals", ".bazelbsp", ".bsp"} & set(dirs)
             for folder in forbidden:
                 folder_path = os.path.join(root, folder)
                 print(f"Cleaning up (removing), removing: {folder_path}")
                 shutil.rmtree(folder_path)
+            forbidden_files = {".bazelproject"} & set(files)
+            for file in forbidden_files:
+                file_path = os.path.join(root, file)
+                print(f"Cleaning up (removing), removing: {file_path}")
+                os.remove(file_path)
 
     execroot = os.readlink(
         os.path.join(workspace, "bazel-" + os.path.basename(workspace))
