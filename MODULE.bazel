@@ -200,7 +200,7 @@ http_archive(
     build_file_content = """
 exports_files(glob(["bin/*"]), visibility = ["//visibility:public"])
 """,
-    sha256 = "f3d62330cdd204bb75393e1cfd745b64c76776520f125f93ad87dd4aa61297fd",
-    strip_prefix = "firtool-1.131.0",
-    url = "https://github.com/llvm/circt/releases/download/firtool-1.131.0/circt-full-static-linux-x64.tar.gz",
+    sha256 = "c00d58b93c9d7ad13f0e95e78cef180a5dfb9a416cd11a2dd7814fdbe4132439",
+    strip_prefix = "firtool-1.137.0",
+    url = "https://github.com/llvm/circt/releases/download/firtool-1.137.0/circt-full-static-linux-x64.tar.gz",
 )
