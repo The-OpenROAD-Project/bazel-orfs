@@ -10,9 +10,6 @@ def _sby_test_impl(ctx):
         template = ctx.file._sby_template,
         output = sby,
         substitutions = {
-            "${VERILOG_BASE_NAMES}": " ".join(
-                [file.basename for file in ctx.files.verilog_files],
-            ),
             "${VERILOG}": "\n".join(
                 [file.short_path for file in ctx.files.verilog_files],
             ),
@@ -24,13 +21,64 @@ def _sby_test_impl(ctx):
     ctx.actions.write(
         script,
         content = """
-# !/bin/sh
-echo "Files found in $(pwd)"
-exec {} "$@" {}
+#!/bin/sh
+set -xeuo pipefail
+test_status=0
+find .
+VERILOG_BASE_NAMES="{VERILOG_BASE_NAMES}"
+# $VERILOG_BASE_NAMES is a list of verilog files and folders
+# that contain .sv and .v files. Generate a list of the verilog
+# files for yosys to read.
 
+#find $VERILOG_BASE_NAMES
+#find $VERILOG_BASE_NAMES -regex ".*sv\\$"
+#find $VERILOG_BASE_NAMES -regex ".*\\.\\(v\\|sv\\)$"
+find $VERILOG_BASE_NAMES -regex ".*\\.\\(v\\|sv\\)$"
+echo blah
+VERILOG_FILES=$(find $VERILOG_BASE_NAMES -regex ".*\\.\\(v\\|sv\\)$" | xargs echo)
+# replace multiline error/fatail with assert(0);
+# Example:
+
+# remove these lines:
+
+#sed -i '/\\else $error/d' $VERILOG_FILES
+
+# replace these lines:
+# with just ";"
+sed -i -E 's/else \\$(error|fatal)([^;]*);/;/g' $VERILOG_FILES
+
+#sed -i '/\\$fwrite/d' $VERILOG_FILES
+#sed -i '/\\$fopen/d' $VERILOG_FILES
+#sed -i '/\\$fclose/d' $VERILOG_FILES
+
+VERILOG_FOLDERS=$(find $VERILOG_BASE_NAMES -type d | xargs echo)
+# Strip $(dirname $TEST_BINARY) prefix from VERILOG_FILES to get
+# the right path.
+VERILOG_FILES=$(echo $VERILOG_FILES | sed "s|$(dirname $TEST_BINARY)/||g")
+# Next we need to add all the -I for each of the folders in VERILOG_FOLDERS
+for folder in $VERILOG_FOLDERS; do
+    # Strip $(dirname $TEST_BINARY) prefix from folder to get
+    # the right path.
+    folder=$(echo $folder | sed "s|$(dirname $TEST_BINARY)/||g")
+    VERILOG_FILES="-I $folder $VERILOG_FILES"
+done
+# Now we use sed to replace VERILOG_BASE_NAMES with VERILOG_FILES
+# in the yosys script.
+sed -i "s|VERILOG_BASE_NAMES|$VERILOG_FILES|g" {sby_script}
+cat {sby_script}
+(exec {sby} "$@" {sby_script}) || test_status=$?
+test_status=1
+if [ $test_status -ne 0 ]; then
+    echo "Copying $(find . | wc -l) files to bazel-testlogs/$(dirname $TEST_BINARY)/test.outputs for inspection."
+    cp -r $(dirname $TEST_BINARY)/* "$TEST_UNDECLARED_OUTPUTS_DIR/"
+    exit $test_status
+fi
 """.format(
-            ctx.executable._sby.short_path,
-            sby.short_path,
+            sby = ctx.executable._sby.short_path,
+            sby_script = sby.short_path,
+            VERILOG_BASE_NAMES = " ".join(
+                [file.short_path for file in ctx.files.verilog_files],
+            ),
         ),
         is_executable = True,
     )
@@ -104,12 +152,16 @@ def sby_test(
 
     # massage output for sby
     firtool_options = [
-        "--disable-all-randomization",
+        #"--help",
+       "--disable-all-randomization",
         "-strip-debug-info",
-        "-disable-layers=Verification",
-        "-disable-layers=Verification.Assert",
-        "-disable-layers=Verification.Assume",
-        "-disable-layers=Verification.Cover",
+        "--default-layer-specialization=enable",
+        "--verification-flavor=immediate",
+        #"-disable-layers=Verification",
+        #"-disable-layers=Verification.Assert",
+        #"-disable-layers=Verification.Assume",
+        #"-disable-layers=Verification.Cover",
+        "--lowering-options=disallowPackedArrays,disallowLocalVariables,noAlwaysComb,verifLabels",
     ]
 
     fir_library(
@@ -140,6 +192,6 @@ def sby_test(
     _sby_test(
         name = name + "_test",
         module_top = module_top,
-        verilog_files = verilog_files + [":{name}.sv".format(name = name)],
+        verilog_files = verilog_files + [":{name}_split".format(name = name)],
         **kwargs
     )
