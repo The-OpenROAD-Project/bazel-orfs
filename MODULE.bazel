@@ -189,8 +189,7 @@ use_repo(maven, "maven")
 # use_repo(llvm, "llvm_toolchain")
 
 register_toolchains(
-    # FIXME no space in CI to have all toolchains enabled by default
-    # "@rules_verilator//verilator:verilator_toolchain",
+    "@rules_verilator//verilator:verilator_toolchain",
     "//toolchains/scala:all",
     # "@llvm_toolchain//:all",
 )
@@ -203,4 +202,17 @@ exports_files(glob(["bin/*"]), visibility = ["//visibility:public"])
     sha256 = "c00d58b93c9d7ad13f0e95e78cef180a5dfb9a416cd11a2dd7814fdbe4132439",
     strip_prefix = "firtool-1.137.0",
     url = "https://github.com/llvm/circt/releases/download/firtool-1.137.0/circt-full-static-linux-x64.tar.gz",
+)
+
+http_archive(
+    name = "verilator_binary",
+    build_file_content = """
+exports_files(glob(["bin/*", "share/**", "bazel-wrapper/*"]), visibility = ["//visibility:public"])
+filegroup(name = "all",
+    srcs = glob(["**/*"]),
+    visibility = ["//visibility:public"],
+)
+""",
+    sha256 = "00b03ad688002f8d5e3c98f143bde84b06a77638589f8f35e4caa1ed748fb489",
+    url = "https://storage.googleapis.com/ascenium-3rdparty/verilator/x86_64-plucky/verilator-v5.038.tar.gz",
 )
