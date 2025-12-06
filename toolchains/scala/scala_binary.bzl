@@ -80,9 +80,14 @@ def _merge_impls(*impls):
     return lambda ctx: [p for impl in impls for p in impl(ctx)]
 
 def _env_impl(ctx):
+    expanded = {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.env.items()}
+    if "CHISEL_FIRTOOL_BINARY_PATH" in expanded and "CHISEL_FIRTOOL_PATH" not in expanded:
+        # Hack to remove the /firtool suffix added by rootpath expansion to get the folder
+        expanded["CHISEL_FIRTOOL_PATH"] = expanded["CHISEL_FIRTOOL_BINARY_PATH"].replace("/firtool", "")
+
     return [
         RunEnvironmentInfo(
-            environment = {k: ctx.expand_location(v) for k, v in ctx.attr.env.items()},
+            environment = {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.env.items()},
         ),
     ]
 
