@@ -69,6 +69,7 @@ def chisel_test(name, **kwargs):
                    "@circt//:bin/firtool",
                    "@verilator_binary//:all",
                    "@verilator_binary//:bin/verilator_bin",
+                   "@verilator_binary//:bazel-wrapper/verilator_bin",
                ] +
                kwargs.pop("data", []),
         deps = [
@@ -88,10 +89,8 @@ def chisel_test(name, **kwargs):
         env = {
                   # Doesn't work in hermetic mode, no point in Bazel, no home folder
                   "CCACHE_DISABLE": "1",
-                  # TODO: Stop hard coding once `scala_test()` performs location expansion
-                  # https://github.com/bazelbuild/rules_scala/pull/1572
-                  "VERILATOR_BIN": "../../../../+_repo_rules2+verilator_binary/bazel-wrapper/verilator_bin",
-                  "CHISEL_FIRTOOL_PATH": "../+_repo_rules2+circt/bin",
+                  "VERILATOR_BIN": "$(rootpath @verilator_binary//:bazel-wrapper/verilator_bin)",
+                  "CHISEL_FIRTOOL_BINARY_PATH": "$(rootpath @circt//:bin/firtool)",
               } |
               kwargs.pop("env", {}),
         scalacopts = [
