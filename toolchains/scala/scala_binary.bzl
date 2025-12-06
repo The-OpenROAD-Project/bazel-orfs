@@ -195,6 +195,8 @@ def _scala_binary_impl(ctx):
         wrapper = ctx.actions.declare_file(ctx.label.name)
         script = """#!/bin/bash
 set -ex
+# Hack since we have a relative path, but Chisel switches cwd during test execution
+export VERILATOR_BIN=$(realpath $VERILATOR_BIN)
 if [[ -n "$TESTBRIDGE_TEST_ONLY" ]]; then
 exec {java_bin} "$@" -z "$TESTBRIDGE_TEST_ONLY"
 else
