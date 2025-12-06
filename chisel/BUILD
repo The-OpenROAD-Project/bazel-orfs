@@ -1,5 +1,5 @@
 load("//chisel:test.bzl", "chisel_bench_test")
-load("//toolchains/scala:chisel.bzl", "chisel_library")
+load("//toolchains/scala:chisel.bzl", "chisel_library", "chisel_test")
 
 filegroup(
     name = "chiselfiles",
@@ -23,9 +23,16 @@ chisel_library(
 
 chisel_bench_test(
     name = "life",
-    srcs = glob(["src/test/scala/example/**/*.scala"]),
+    srcs = ["src/test/scala/example/LifeUniverseTests.scala"],
     chisel_module = "example.LifeUniverseTestBench",
     module_top = "LifeUniverseTestBench",
+    tags = ["manual"],
+    deps = [":applicationlib"],
+)
+
+chisel_test(
+    name = "life2_test",
+    srcs = ["src/test/scala/example/LifeTests.scala"],
     tags = ["manual"],
     deps = [":applicationlib"],
 )
