@@ -36,3 +36,17 @@ chisel_test(
     tags = ["manual"],
     deps = [":applicationlib"],
 )
+
+cc_test(
+    name = "life_cc_test",
+    size = "small",
+    srcs = ["LifeTests.cpp"],
+    copts = [],
+    visibility = [
+    ],
+    deps = [
+        ":life_simulator",
+        "@googletest//:gtest_main",
+    ],
+    tags = ["manual"],
+)
