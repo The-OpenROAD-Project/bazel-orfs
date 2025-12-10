@@ -42,11 +42,11 @@ cc_test(
     size = "small",
     srcs = ["LifeTests.cpp"],
     copts = [],
+    tags = ["manual"],
     visibility = [
     ],
     deps = [
         ":life_simulator",
         "@googletest//:gtest_main",
     ],
-    tags = ["manual"],
 )
