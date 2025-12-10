@@ -1,12 +1,15 @@
 [gold]
 read_verilog -sv ${GOLD}
-prep -top ${TOP}
-memory_map
 
 [gate]
 read_verilog -sv ${GATE}
-prep -top ${TOP}
+
+[script]
+prep -top gcd
 memory_map
+rename -hide w:\_*_ c:\_*_
+flatten
+hierarchy -purge_lib
 
 [collect *]
 
@@ -14,7 +17,6 @@ memory_map
 use sby
 depth ${DEPTH}
 engine smtbmc bitwuzla
-
 
 # Lifted from https://github.com/The-OpenROAD-Project/OpenROAD/blob/8987223146c788a48d7ff4bde299a07a9429c8c1/test/helpers.tcl#L78-L90
 # Recommendation from eqy team on how to speed up a design
