@@ -6,7 +6,6 @@ module(
     compatibility_level = 1,
 )
 
-
 bazel_dep(name = "googletest", version = "1.17.0")
 bazel_dep(name = "rules_jvm_external", version = "6.7")
 bazel_dep(name = "rules_java", version = "8.12.0")
@@ -80,7 +79,7 @@ load_json_file(
 
 bazel_dep(
     name = "rules_python",
-    version = "1.6.3",
+    version = "1.7.0",
     # reduce namespace collisions by prefixing with bazel_orfs
     repo_name = "bazel_orfs_rules_python",
 )
