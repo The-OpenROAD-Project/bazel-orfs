@@ -5,7 +5,7 @@ read_verilog -sv ${GOLD}
 read_verilog -sv ${GATE}
 
 [script]
-prep -top gcd
+prep -top ${TOP}
 memory_map
 rename -hide w:\_*_ c:\_*_
 flatten
