@@ -368,7 +368,13 @@ def _deps_impl(ctx):
         ctx.attr.src[OrfsInfo],
         ctx.attr.src[PdkInfo],
         ctx.attr.src[TopInfo],
-        ctx.attr.src[LoggingInfo],
+        # Don't depend on the logs of the source; a circular dependency
+        LoggingInfo(
+            logs = depset(),
+            reports = depset(),
+            drcs = depset([]),
+            jsons = depset([]),
+        ),
         ctx.attr.src[OrfsDepInfo],
     ]
 
