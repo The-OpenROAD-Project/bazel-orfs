@@ -199,11 +199,17 @@ register_toolchains(
 http_archive(
     name = "circt",
     build_file_content = """
-exports_files(glob(["bin/*"]), visibility = ["//visibility:public"])
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "bin/firtool",
+    srcs = ["org.chipsalliance/llvm-firtool/linux-x64/bin/firtool"],
+)
+
+exports_files(["org.chipsalliance/llvm-firtool/linux-x64/bin/firtool"])
 """,
-    sha256 = "c00d58b93c9d7ad13f0e95e78cef180a5dfb9a416cd11a2dd7814fdbe4132439",
-    strip_prefix = "firtool-1.137.0",
-    url = "https://github.com/llvm/circt/releases/download/firtool-1.137.0/circt-full-static-linux-x64.tar.gz",
+    sha256 = "87eed8ee81914c9bce19228a6b397b10a7e8b1a8dbafa100ed84c15bc63a8188",
+    urls = ["https://repo1.maven.org/maven2/org/chipsalliance/llvm-firtool/1.137.0/llvm-firtool-1.137.0.jar"],
 )
 
 http_archive(
