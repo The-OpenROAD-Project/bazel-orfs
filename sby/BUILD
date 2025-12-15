@@ -23,7 +23,5 @@ sby_test(
     generator = ":generate_counter",
     generator_opts = ["TestCounter"],
     module_top = "TestCounter",
-    # FIXME runs out of disk in CI
-    tags = ["manual"],
     verilog_files = [":FormalCounter.v"],
 )
