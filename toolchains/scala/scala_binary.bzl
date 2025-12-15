@@ -201,6 +201,15 @@ SCRIPT_DIR=$(cd $(dirname ${{BASH_SOURCE[0]}}) && pwd)
 RUNFILES_DIR=$(cd $SCRIPT_DIR/../.. && pwd)
 # verilator+ is at runfiles/verilator+
 export VERILATOR_ROOT="$RUNFILES_DIR/verilator+"
+# Workaround: BCR verilator package doesn't generate verilated.mk, create it from template
+if [[ ! -f "$VERILATOR_ROOT/include/verilated.mk" && -f "$VERILATOR_ROOT/include/verilated.mk.in" ]]; then
+  sed 's/@AR@/ar/g; s/@CXX@/g++/g; s/@LINK@/g++/g; s/@OBJCACHE@//g; s/@PERL@/perl/g; s/@PYTHON3@/python3/g; s/@[A-Z_]*@//g' \\
+    "$VERILATOR_ROOT/include/verilated.mk.in" > "$VERILATOR_ROOT/include/verilated.mk"
+fi
+# Workaround: BCR verilator package doesn't include verilator_includer, link our version
+if [[ ! -f "$VERILATOR_ROOT/bin/verilator_includer" ]]; then
+  ln -sf "$RUNFILES_DIR/_main/toolchains/verilator/verilator_includer" "$VERILATOR_ROOT/bin/verilator_includer"
+fi
 # Set VERILATOR_BIN to relative path that chisel expects (bin/verilator)
 export VERILATOR_BIN="bin/verilator"
 if [[ -n "$TESTBRIDGE_TEST_ONLY" ]]; then

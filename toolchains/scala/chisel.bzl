@@ -69,6 +69,7 @@ def chisel_test(name, **kwargs):
                    "@circt//:bin/firtool",
                    "@verilator//:bin/verilator",
                    "@verilator//:verilator_includes",
+                   "//toolchains/verilator:verilator_includer",
                ] +
                kwargs.pop("data", []),
         deps = [
