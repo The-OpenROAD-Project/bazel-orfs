@@ -87,7 +87,7 @@ def _env_impl(ctx):
 
     return [
         RunEnvironmentInfo(
-            environment = {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.env.items()},
+            environment = expanded,
         ),
     ]
 
@@ -195,8 +195,14 @@ def _scala_binary_impl(ctx):
         wrapper = ctx.actions.declare_file(ctx.label.name)
         script = """#!/bin/bash
 set -ex
-# Hack since we have a relative path, but Chisel switches cwd during test execution
-export VERILATOR_BIN=$(realpath $VERILATOR_BIN)
+# Get the directory where this wrapper script lives (in runfiles/_main/chisel/)
+SCRIPT_DIR=$(cd $(dirname ${{BASH_SOURCE[0]}}) && pwd)
+# Get runfiles root (script is in runfiles/_main/chisel/, so go up 2 levels to get to runfiles/)
+RUNFILES_DIR=$(cd $SCRIPT_DIR/../.. && pwd)
+# verilator+ is at runfiles/verilator+
+export VERILATOR_ROOT="$RUNFILES_DIR/verilator+"
+# Set VERILATOR_BIN to relative path that chisel expects (bin/verilator)
+export VERILATOR_BIN="bin/verilator"
 if [[ -n "$TESTBRIDGE_TEST_ONLY" ]]; then
 exec {java_bin} "$@" -z "$TESTBRIDGE_TEST_ONLY"
 else

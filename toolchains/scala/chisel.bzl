@@ -68,6 +68,7 @@ def chisel_test(name, **kwargs):
         data = [
                    "@circt//:bin/firtool",
                    "@verilator//:bin/verilator",
+                   "@verilator//:verilator_includes",
                ] +
                kwargs.pop("data", []),
         deps = [
