@@ -103,6 +103,8 @@ filegroup(
 
 MAKEFILE_SHARED = [
     "OpenROAD-flow-scripts/flow/util/utils.mk",
+    "OpenROAD-flow-scripts/flow/util/*.py",
+    "OpenROAD-flow-scripts/flow/util/*.sh",
     "OpenROAD-flow-scripts/flow/scripts/*.py",
     "OpenROAD-flow-scripts/flow/scripts/*.sh",
     "OpenROAD-flow-scripts/flow/scripts/*.yaml",
@@ -131,8 +133,6 @@ filegroup(
     data = glob(
         MAKEFILE_SHARED +
         [
-            "OpenROAD-flow-scripts/flow/util/*.py",
-            "OpenROAD-flow-scripts/flow/util/*.sh",
             "OpenROAD-flow-scripts/flow/scripts/*.tcl",
         ],
     ),
