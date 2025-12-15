@@ -67,9 +67,7 @@ def chisel_test(name, **kwargs):
         name = name,
         data = [
                    "@circt//:bin/firtool",
-                   "@verilator_binary//:all",
-                   "@verilator_binary//:bin/verilator_bin",
-                   "@verilator_binary//:bazel-wrapper/verilator_bin",
+                   "@verilator//:bin/verilator",
                ] +
                kwargs.pop("data", []),
         deps = [
@@ -89,7 +87,7 @@ def chisel_test(name, **kwargs):
         env = {
                   # Doesn't work in hermetic mode, no point in Bazel, no home folder
                   "CCACHE_DISABLE": "1",
-                  "VERILATOR_BIN": "$(rootpath @verilator_binary//:bazel-wrapper/verilator_bin)",
+                  "VERILATOR_BIN": "$(rootpath @verilator//:bin/verilator)",
                   "CHISEL_FIRTOOL_BINARY_PATH": "$(rootpath @circt//:bin/firtool)",
               } |
               kwargs.pop("env", {}),
