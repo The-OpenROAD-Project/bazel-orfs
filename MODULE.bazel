@@ -211,16 +211,3 @@ exports_files(["org.chipsalliance/llvm-firtool/linux-x64/bin/firtool"])
     sha256 = "87eed8ee81914c9bce19228a6b397b10a7e8b1a8dbafa100ed84c15bc63a8188",
     urls = ["https://repo1.maven.org/maven2/org/chipsalliance/llvm-firtool/1.137.0/llvm-firtool-1.137.0.jar"],
 )
-
-http_archive(
-    name = "verilator_binary",
-    build_file_content = """
-exports_files(glob(["bin/*", "share/**", "bazel-wrapper/*"]), visibility = ["//visibility:public"])
-filegroup(name = "all",
-    srcs = glob(["**/*"]),
-    visibility = ["//visibility:public"],
-)
-""",
-    sha256 = "00b03ad688002f8d5e3c98f143bde84b06a77638589f8f35e4caa1ed748fb489",
-    url = "https://storage.googleapis.com/ascenium-3rdparty/verilator/x86_64-plucky/verilator-v5.038.tar.gz",
-)
