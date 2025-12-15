@@ -6,29 +6,11 @@ module(
     compatibility_level = 1,
 )
 
-
 bazel_dep(name = "googletest", version = "1.17.0")
 bazel_dep(name = "rules_jvm_external", version = "6.7")
 bazel_dep(name = "rules_java", version = "8.12.0")
 bazel_dep(name = "aspect_rules_js", version = "2.1.3")
-bazel_dep(name = "rules_verilator", version = "5.034")
-single_version_override(
-    module_name = "rules_verilator",
-    registry = "https://raw.githubusercontent.com/Pinata-Consulting/ascenium-registry/683f93e670a04f8d3d47316c42d197d8ac095a00/",
-    version = "5.034",
-)
-
-single_version_override(
-    module_name = "verilator",
-    registry = "https://raw.githubusercontent.com/Pinata-Consulting/ascenium-registry/683f93e670a04f8d3d47316c42d197d8ac095a00/",
-    version = "5.034.ar.1",
-)
-
-single_version_override(
-    module_name = "systemc",
-    registry = "https://raw.githubusercontent.com/Pinata-Consulting/ascenium-registry/683f93e670a04f8d3d47316c42d197d8ac095a00/",
-    version = "3.0.1",
-)
+bazel_dep(name = "verilator", version = "5.036.bcr.3")
 
 ####### Node.js version #########
 # By default you get the node version from DEFAULT_NODE_VERSION in @rules_nodejs//nodejs:repositories.bzl
@@ -191,7 +173,6 @@ use_repo(maven, "maven")
 # use_repo(llvm, "llvm_toolchain")
 
 register_toolchains(
-    "@rules_verilator//verilator:verilator_toolchain",
     "//toolchains/scala:all",
     # "@llvm_toolchain//:all",
 )

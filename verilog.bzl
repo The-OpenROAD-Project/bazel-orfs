@@ -2,7 +2,7 @@
 verilog library support
 """
 
-load("@rules_verilator//verilog:providers.bzl", "make_dag_entry", "make_verilog_info")
+load("//verilog:providers.bzl", "make_dag_entry", "make_verilog_info")
 
 def _verilog_impl(ctx, split):
     if split:
