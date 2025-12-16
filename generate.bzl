@@ -35,14 +35,14 @@ def _fir_library_impl(ctx):
 fir_library = rule(
     implementation = _fir_library_impl,
     attrs = {
+        "data": attr.label_list(
+            allow_files = True,
+        ),
         "generator": attr.label(
             allow_single_file = True,
             cfg = "exec",
             executable = True,
             mandatory = True,
-        ),
-        "data": attr.label_list(
-            allow_files = True,
         ),
         "opts": attr.string_list(default = []),
         "_firtool": attr.label(

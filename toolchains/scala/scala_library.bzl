@@ -65,19 +65,19 @@ def _scala_library_impl(ctx):
 _scala_library = rule(
     implementation = _scala_library_impl,
     attrs = {
-        "srcs": attr.label_list(
-            allow_files = True,
-        ),
         "deps": attr.label_list(
             providers = [JavaInfo],
             allow_files = True,
         ),
+        "jar": attr.output(),
         "plugins": attr.label_list(
             providers = [JavaInfo],
             allow_files = True,
         ),
         "scalacopts": attr.string_list(),
-        "jar": attr.output(),
+        "srcs": attr.label_list(
+            allow_files = True,
+        ),
         "_compile_action": attr.label(
             default = "//toolchains/scala/actions:scala_compile",
             providers = [ActionTypeInfo],

@@ -15,9 +15,9 @@ SemanticDbInfo = provider(
     "Holds `compile_commands.json` databases.",
     fields = {
         "compiler": "Scala compiler.",
-        "scalacopts": "Scala compiler options.",
-        "jars": "Sequence of jars.",
         "deps": "Sequence of dependencies.",
+        "jars": "Sequence of jars.",
+        "scalacopts": "Scala compiler options.",
         "srcs": "Sequence of sources.",
     },
 )

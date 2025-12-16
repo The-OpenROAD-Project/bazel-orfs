@@ -139,9 +139,9 @@ MAVEN_SHORT_DEPS = {
     "io.circe:circe-generic": CIRCE_VERSION,
     "io.circe:circe-generic-extras": CIRCE_VERSION,
     "io.circe:circe-parser": CIRCE_VERSION,
-    "org.json4s:json4s-native": "4.0.7",
     "org.chipsalliance:chisel": "7.2.0",
     "org.chipsalliance:firtool-resolver": "2.0.1",
+    "org.json4s:json4s-native": "4.0.7",
     "org.scalatest:scalatest": "3.2.19",
 }
 

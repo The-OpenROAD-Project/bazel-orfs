@@ -84,6 +84,7 @@ fi
 eqy_test = rule(
     implementation = _eqy_test_impl,
     attrs = {
+        "depth": attr.int(mandatory = True),
         "gate_verilog_files": attr.label_list(
             allow_files = True,
             providers = [DefaultInfo],
@@ -93,13 +94,16 @@ eqy_test = rule(
             providers = [DefaultInfo],
         ),
         "module_top": attr.string(mandatory = True),
-        "depth": attr.int(mandatory = True),
         "_eqy": attr.label(
             doc = "Eqy binary.",
             executable = True,
             allow_files = True,
             cfg = "exec",
             default = Label("@oss_cad_suite//:eqy"),
+        ),
+        "_eqy_template": attr.label(
+            default = "eqy.tpl",
+            allow_single_file = True,
         ),
         "_yosys": attr.label(
             doc = "Yosys binary.",
@@ -114,10 +118,6 @@ eqy_test = rule(
             allow_files = True,
             cfg = "exec",
             default = Label("@oss_cad_suite//:yosys_smtbmc"),
-        ),
-        "_eqy_template": attr.label(
-            default = "eqy.tpl",
-            allow_single_file = True,
         ),
     },
     test = True,

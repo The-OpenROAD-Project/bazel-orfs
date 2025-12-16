@@ -1,5 +1,6 @@
 """Output bloop configurations"""
 
+load("@rules_java//java/common:java_info.bzl", "JavaInfo")
 load(
     "//toolchains/scala/impl:aspects.bzl",
     "SemanticDbInfo",
@@ -139,17 +140,17 @@ def _scala_bloop_impl(ctx):
 _scala_bloop = rule(
     implementation = _scala_bloop_impl,
     attrs = {
-        "src": attr.label(
-            aspects = [scala_diagnostics_aspect],
-            allow_files = True,
-            mandatory = True,
+        "directory": attr.string(
+            doc = "Directory to deploy configuration files to.",
+            default = ".bloop",
         ),
         "parameters": attr.output(
             doc = "Name of the file containing deployment parameters.",
         ),
-        "directory": attr.string(
-            doc = "Directory to deploy configuration files to.",
-            default = ".bloop",
+        "src": attr.label(
+            aspects = [scala_diagnostics_aspect],
+            allow_files = True,
+            mandatory = True,
         ),
         "_deploy": attr.label(
             doc = "Compilation database deployment binary.",

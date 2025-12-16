@@ -14,16 +14,9 @@ _default_tag = tag_class(
         "image": attr.string(
             mandatory = True,
         ),
-        "sha256": attr.string(
-            mandatory = False,
-        ),
         "makefile": attr.label(
             mandatory = False,
             default = Label("@docker_orfs//:makefile"),
-        ),
-        "pdk": attr.label(
-            mandatory = False,
-            default = Label("@docker_orfs//:asap7"),
         ),
         "makefile_yosys": attr.label(
             mandatory = False,
@@ -33,6 +26,13 @@ _default_tag = tag_class(
             mandatory = False,
             cfg = "exec",
             default = Label("@docker_orfs//:openroad"),
+        ),
+        "pdk": attr.label(
+            mandatory = False,
+            default = Label("@docker_orfs//:asap7"),
+        ),
+        "sha256": attr.string(
+            mandatory = False,
         ),
         "yosys": attr.label(
             mandatory = False,

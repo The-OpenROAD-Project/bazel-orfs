@@ -12,9 +12,6 @@ load(
 )
 
 SCALA_EXECUTABLE_ATTRS = {
-    "srcs": attr.label_list(
-        allow_files = True,
-    ),
     "data": attr.label_list(
         providers = [DefaultInfo],
         allow_files = True,
@@ -23,6 +20,7 @@ SCALA_EXECUTABLE_ATTRS = {
         providers = [JavaInfo],
         allow_files = True,
     ),
+    "jar": attr.output(),
     "main_class": attr.string(
         mandatory = True,
     ),
@@ -30,10 +28,21 @@ SCALA_EXECUTABLE_ATTRS = {
         providers = [JavaInfo],
         allow_files = True,
     ),
+    "resource_strip_prefix": attr.string(
+        default = "",
+        doc = "If non-empty, strip this prefix from the paths of resources",
+    ),
+    "resources": attr.label_list(
+        allow_files = True,
+        mandatory = False,
+        doc = "Resource files or directories to include in the JAR",
+    ),
     "scalacopts": attr.string_list(
         default = [],
     ),
-    "jar": attr.output(),
+    "srcs": attr.label_list(
+        allow_files = True,
+    ),
     "stripped_jar": attr.output(mandatory = False),
     "_compile_action": attr.label(
         default = "//toolchains/scala/actions:scala_compile",
@@ -42,15 +51,6 @@ SCALA_EXECUTABLE_ATTRS = {
     "_variables": attr.label(
         default = "//toolchains/scala/variables:variables",
         providers = [BuiltinVariablesInfo],
-    ),
-    "resources": attr.label_list(
-        allow_files = True,
-        mandatory = False,
-        doc = "Resource files or directories to include in the JAR",
-    ),
-    "resource_strip_prefix": attr.string(
-        default = "",
-        doc = "If non-empty, strip this prefix from the paths of resources",
     ),
 }
 

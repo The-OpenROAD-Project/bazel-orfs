@@ -1,5 +1,6 @@
 """Implementation of scala_tool"""
 
+load("@rules_java//java/common:java_info.bzl", "JavaInfo")
 load("//toolchains/scala/impl:collect.bzl", "collect_data")
 
 def _scala_tool_impl(ctx):
