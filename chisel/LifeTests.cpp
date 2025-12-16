@@ -85,5 +85,5 @@ TEST(LifeUniverse, DirectSignalTest) {
   harness.run_until_done();
 
   // Check done signal
-  ASSERT_EQ(harness.top.done, 0);
+  ASSERT_EQ(harness.top.done, 1);
 }
