@@ -8,7 +8,11 @@ bazelisk query //:* | grep -q -v lb_32x128_3_place
 echo This target should exist
 bazelisk query //:* | grep -q -v lb_32x128_4_synth
 
+# Avoid overprovisioning and slowdown locally and in CI,
+# run at most 4 tests/builds at the time
 bazelisk test ... \
+   --action_env=NUM_CORES=4 \
+   --test_env=NUM_CORES=4 \
    --keep_going \
    --test_output=errors \
    --profile=build.profile
