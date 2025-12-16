@@ -6,7 +6,7 @@ bmc:
 mode bmc
 
 [engines]
-smtbmc z3
+smtbmc bitwuzla
 
 [script]
 read -formal ${VERILOG_BASE_NAMES}
