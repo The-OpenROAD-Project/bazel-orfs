@@ -87,7 +87,7 @@ def _env_impl(ctx):
 
     return [
         RunEnvironmentInfo(
-            environment = {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.env.items()},
+            environment = expanded,
         ),
     ]
 
