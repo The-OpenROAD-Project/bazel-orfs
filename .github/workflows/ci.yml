@@ -17,13 +17,14 @@ jobs:
     env:
       DEBIAN_FRONTEND: "noninteractive"
     steps:
-      - name: Download buildifier
-        run: |
-          wget https://github.com/bazelbuild/buildtools/releases/download/v6.4.0/buildifier-linux-amd64 -O /usr/local/bin/buildifier
-          chmod +x /usr/local/bin/buildifier
-          buildifier -version
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
+
+      - name: Download buildifier
+        run: |
+          sudo wget https://github.com/bazelbuild/buildtools/releases/download/v6.4.0/buildifier-linux-amd64 -O /usr/local/bin/buildifier
+          sudo chmod +x /usr/local/bin/buildifier
+          buildifier -version
       - name: Check Bazel files
         run: |
           buildifier -lint warn -r .
@@ -52,6 +53,14 @@ jobs:
     steps:
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-${{ matrix.STAGE_TARGET }}
+          repository-cache: true
+
       - name: query target
         run: |
           bazel query ${{ matrix.STAGE_TARGET }}
@@ -90,6 +99,14 @@ jobs:
     steps:
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-${{ matrix.STAGE_TARGET }}
+          repository-cache: true
+
       - name: Run target
         run: |
           set -ex
@@ -138,6 +155,14 @@ jobs:
           swap-storage: true
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-${{ github.job }}
+          repository-cache: true
+
       - name: Smoketests
         run: |
           .github/scripts/smoketests.sh
@@ -153,10 +178,17 @@ jobs:
     steps:
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
+
+      - name: Install bazelisk as bazel
+        run: |
+          sudo wget https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64 -O /usr/local/bin/bazel
+          sudo chmod +x /usr/local/bin/bazel
+
       - name: Build local stage targets - tag_array_64x184
         env:
           TARGET: tag_array_64x184
         run: .github/scripts/build_local_target.sh
+
       - name: Build local stage targets - L1MetadataArray
         env:
           TARGET: L1MetadataArray
@@ -175,6 +207,14 @@ jobs:
     steps:
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-${{ github.job }}
+          repository-cache: true
+
       - name: Lint Bazel files
         run: bazel mod tidy && git diff --exit-code
       - name: Extract Docker tag
@@ -203,12 +243,15 @@ jobs:
           source ./env.sh
           yosys --version
           openroad -version
+
       - name: Install bazelisk as bazel
         run: |
           wget https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64 -O /usr/local/bin/bazel
           chmod +x /usr/local/bin/bazel
+
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
+
       - name: Build local stage targets - tag_array_64x184
         env:
           TARGET: tag_array_64x184
