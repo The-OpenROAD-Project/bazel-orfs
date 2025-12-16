@@ -201,14 +201,20 @@ SCRIPT_DIR=$(cd $(dirname ${{BASH_SOURCE[0]}}) && pwd)
 RUNFILES_DIR=$(cd $SCRIPT_DIR/../.. && pwd)
 # verilator+ is at runfiles/verilator+
 export VERILATOR_ROOT="$RUNFILES_DIR/verilator+"
-# Workaround for BCR verilator < 5.036.bcr.4: Generate verilated.mk from template
-# BCR 5.036.bcr.4+ includes pre-configured verilated.mk, so this workaround won't run
+# Workaround for BCR verilator 5.036.bcr.3: Generate verilated_config.h from template
+# if future version includes pre-configured verilated_config.h, so this workaround won't run
+if [[ ! -f "$VERILATOR_ROOT/include/verilated_config.h" && -f "$VERILATOR_ROOT/include/verilated_config.h.in" ]]; then
+  sed 's/@PACKAGE_NAME@/Verilator/g; s/@PACKAGE_VERSION@/5.036/g; s/@VERILATOR_VERSION_INTEGER@/530000/g' \\
+    "$VERILATOR_ROOT/include/verilated_config.h.in" > "$VERILATOR_ROOT/include/verilated_config.h"
+fi
+# Workaround for BCR verilator 5.036.bcr.3: Generate verilated.mk from template
+# if future version includes pre-configured verilated.mk, so this workaround won't run
 if [[ ! -f "$VERILATOR_ROOT/include/verilated.mk" && -f "$VERILATOR_ROOT/include/verilated.mk.in" ]]; then
   sed 's/@AR@/ar/g; s/@CXX@/g++/g; s/@LINK@/g++/g; s/@OBJCACHE@//g; s/@PERL@/perl/g; s/@PYTHON3@/python3/g; s/@[A-Z_]*@//g' \\
     "$VERILATOR_ROOT/include/verilated.mk.in" > "$VERILATOR_ROOT/include/verilated.mk"
 fi
-# Workaround for BCR verilator < 5.036.bcr.4: Symlink our verilator_includer script
-# BCR 5.036.bcr.4+ includes verilator_includer in bin/, so this workaround won't run
+# Workaround for BCR verilator 5.036.bcr.3: Symlink our verilator_includer script
+# if future version includes verilator_includer in bin/, so this workaround won't run
 if [[ ! -f "$VERILATOR_ROOT/bin/verilator_includer" ]]; then
   ln -sf "$RUNFILES_DIR/_main/toolchains/verilator/verilator_includer" "$VERILATOR_ROOT/bin/verilator_includer"
 fi
