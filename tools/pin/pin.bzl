@@ -27,11 +27,11 @@ def _pin_data_impl(ctx):
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
     ctx.actions.expand_template(
         substitutions = {
-            "${PINNER}": ctx.file._pinner.short_path,
-            "${BUCKET}": ctx.attr.bucket,
-            "${PACKAGE}": ctx.label.package,
-            "${LOCK}": ctx.attr.artifacts_lock,
             '"$@"': " ".join([_serialize(target) for target in ctx.attr.srcs]),
+            "${BUCKET}": ctx.attr.bucket,
+            "${LOCK}": ctx.attr.artifacts_lock,
+            "${PACKAGE}": ctx.label.package,
+            "${PINNER}": ctx.file._pinner.short_path,
         },
         template = ctx.file._pin_template,
         output = exe,

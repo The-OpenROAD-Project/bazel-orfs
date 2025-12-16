@@ -10,13 +10,13 @@ def _sby_test_impl(ctx):
         template = ctx.file._sby_template,
         output = sby,
         substitutions = {
+            "${TOP}": ctx.attr.module_top,
             "${VERILOG_BASE_NAMES}": " ".join(
                 [file.basename for file in ctx.files.verilog_files],
             ),
             "${VERILOG}": "\n".join(
                 [file.short_path for file in ctx.files.verilog_files],
             ),
-            "${TOP}": ctx.attr.module_top,
         },
     )
 
@@ -57,11 +57,11 @@ exec {} "$@" {}
 _sby_test = rule(
     implementation = _sby_test_impl,
     attrs = {
+        "module_top": attr.string(mandatory = True),
         "verilog_files": attr.label_list(
             allow_files = True,
             providers = [DefaultInfo],
         ),
-        "module_top": attr.string(mandatory = True),
         "_sby": attr.label(
             doc = "sby binary.",
             executable = True,
@@ -69,16 +69,16 @@ _sby_test = rule(
             cfg = "exec",
             default = Label("@oss_cad_suite//:sby"),
         ),
+        "_sby_template": attr.label(
+            default = "sby.tpl",
+            allow_single_file = True,
+        ),
         "_yosys": attr.label(
             doc = "Yosys binary.",
             executable = True,
             allow_files = True,
             cfg = "exec",
             default = Label("@oss_cad_suite//:yosys"),
-        ),
-        "_sby_template": attr.label(
-            default = "sby.tpl",
-            allow_single_file = True,
         ),
     },
     test = True,

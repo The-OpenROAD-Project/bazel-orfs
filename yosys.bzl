@@ -33,22 +33,22 @@ def _yosys_impl(ctx):
 yosys = rule(
     implementation = _yosys_impl,
     attrs = {
-        "_yosys": attr.label(
-            doc = "Yosys binary.",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:yosys"),
-        ),
         "arguments": attr.string_list(
+            mandatory = True,
+        ),
+        "outs": attr.output_list(
             mandatory = True,
         ),
         "srcs": attr.label_list(
             mandatory = True,
             allow_files = True,
         ),
-        "outs": attr.output_list(
-            mandatory = True,
+        "_yosys": attr.label(
+            doc = "Yosys binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:yosys"),
         ),
     },
     provides = [DefaultInfo],

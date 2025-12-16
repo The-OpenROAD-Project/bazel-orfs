@@ -8,6 +8,7 @@ load("@bazel-orfs//toolchains/scala:scala_bloop.bzl", "scala_bloop")
 load("@bazel_orfs_rules_python//python:defs.bzl", "py_binary")
 load("@bazel_orfs_rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@npm//:defs.bzl", "npm_link_all_packages")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 # Reenable when we add test back in
 # load("//:eqy.bzl", "eqy_test")
@@ -68,22 +69,22 @@ filegroup(
 
 FAST_SETTINGS = {
     "FILL_CELLS": "",
-    "REMOVE_ABC_BUFFERS": "1",
-    "SKIP_REPORT_METRICS": "1",
-    "SKIP_CTS_REPAIR_TIMING": "1",
-    "SKIP_INCREMENTAL_REPAIR": "1",
-    "TAPCELL_TCL": "",
     "GND_NETS_VOLTAGES": "",
-    "PWR_NETS_VOLTAGES": "",
     "GPL_ROUTABILITY_DRIVEN": "0",
     "GPL_TIMING_DRIVEN": "0",
+    "PWR_NETS_VOLTAGES": "",
+    "REMOVE_ABC_BUFFERS": "1",
+    "SKIP_CTS_REPAIR_TIMING": "1",
+    "SKIP_INCREMENTAL_REPAIR": "1",
+    "SKIP_REPORT_METRICS": "1",
+    "TAPCELL_TCL": "",
 }
 
 SRAM_ARGUMENTS = FAST_SETTINGS | {
-    "SDC_FILE": "$(location :constraints-sram)",
     "IO_CONSTRAINTS": "$(location :io-sram)",
-    "PLACE_PINS_ARGS": "-min_distance 2 -min_distance_in_tracks",
     "PLACE_DENSITY": "0.42",
+    "PLACE_PINS_ARGS": "-min_distance 2 -min_distance_in_tracks",
+    "SDC_FILE": "$(location :constraints-sram)",
 }
 
 BLOCK_FLOORPLAN = {
@@ -96,32 +97,32 @@ orfs_flow(
     name = "tag_array_64x184",
     abstract_stage = "cts",
     arguments = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
-        "CORE_UTILIZATION": "20",
         "CORE_ASPECT_RATIO": "10",
+        "CORE_UTILIZATION": "20",
         "SKIP_REPORT_METRICS": "1",
     },
     # FIXME reenable after https://github.com/The-OpenROAD-Project/OpenROAD/issues/7745 is fixed
     # mock_area = 0.8,
     stage_sources = {
-        "synth": [":constraints-sram"],
         "floorplan": [":io-sram"],
         "place": [":io-sram"],
+        "synth": [":constraints-sram"],
     },
     verilog_files = ["//another:tag_array_64x184.sv"],
     visibility = [":__subpackages__"],
 )
 
 LB_ARGS = SRAM_ARGUMENTS | {
-    "CORE_UTILIZATION": "30",
     "CORE_ASPECT_RATIO": "2",
+    "CORE_UTILIZATION": "30",
     "PLACE_DENSITY": "0.20",
     "PLACE_PINS_ARGS": "-min_distance 1 -min_distance_in_tracks",
 }
 
 LB_STAGE_SOURCES = {
-    "synth": [":constraints-sram"],
     "floorplan": [":io-sram"],
     "place": [":io-sram"],
+    "synth": [":constraints-sram"],
 }
 
 LB_VERILOG_FILES = ["test/mock/lb_32x128.sv"]
@@ -131,8 +132,8 @@ orfs_flow(
     name = "lb_32x128",
     abstract_stage = "cts",
     arguments = LB_ARGS | {
-        "CORE_UTILIZATION": "20",
         "CORE_ASPECT_RATIO": "0.5",
+        "CORE_UTILIZATION": "20",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
     },
     mock_area = 0.7,
@@ -154,17 +155,17 @@ orfs_flow(
     name = "lb_32x128_top",
     abstract_stage = "place",
     arguments = SRAM_ARGUMENTS | {
-        "DIE_AREA": "0 0 25 25",
         "CORE_AREA": "2 2 23 23",
         "CORE_MARGIN": "2",
+        "DIE_AREA": "0 0 25 25",
+        "GDS_ALLOW_EMPTY": "lb_32x128",
+        "GND_NETS_VOLTAGES": "",
         "MACRO_PLACE_HALO": "5 5",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
         "PLACE_DENSITY": "0.30",
 
         # Skip power checks to silence error and speed up build
         "PWR_NETS_VOLTAGES": "",
-        "GND_NETS_VOLTAGES": "",
-        "GDS_ALLOW_EMPTY": "lb_32x128",
-        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
     },
     macros = ["lb_32x128_generate_abstract"],
     stage_sources = LB_STAGE_SOURCES,
@@ -217,24 +218,24 @@ orfs_sweep(
     abstract_stage = "cts",
     arguments = FAST_SETTINGS |
                 {
-                    "SYNTH_HIERARCHICAL": "1",
-                    "DIE_AREA": "0 0 20 70",
                     "CORE_AREA": "2 2 18 68",
                     "CORE_MARGIN": "2",
-                    "MACRO_PLACE_HALO": "2 2",
-                    "PLACE_DENSITY": "0.30",
+                    "DIE_AREA": "0 0 20 70",
                     "GDS_ALLOW_EMPTY": "tag_array_64x184",
+                    "MACRO_PLACE_HALO": "2 2",
                     "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+                    "PLACE_DENSITY": "0.30",
+                    "SYNTH_HIERARCHICAL": "1",
                 },
     sweep = {
-        "base": {
-            "macros": ["tag_array_64x184_generate_abstract"],
+        "1": {
+            "macros": ["amalgam"],
             "sources": {
                 "SDC_FILE": [":test/constraints-top.sdc"],
             },
         },
-        "1": {
-            "macros": ["amalgam"],
+        "base": {
+            "macros": ["tag_array_64x184_generate_abstract"],
             "sources": {
                 "SDC_FILE": [":test/constraints-top.sdc"],
             },
@@ -300,15 +301,15 @@ filegroup(
 orfs_flow(
     name = "regfile_128x65",
     arguments = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
-        "DIE_AREA": "0 0 25 25",
         "CORE_AREA": "2 2 23 23",
+        "DIE_AREA": "0 0 25 25",
         "IO_CONSTRAINTS": "$(location :io-sram)",
         "PLACE_DENSITY": "0.30",
     },
     stage_sources = {
-        "synth": [":constraints-sram"],
         "floorplan": [":io-sram"],
         "place": [":io-sram"],
+        "synth": [":constraints-sram"],
     },
     verilog_files = [
         "test/rtl/regfile_128x65.sv",
@@ -322,9 +323,9 @@ orfs_sweep(
     arguments = LB_ARGS,
     stage = "cts",
     stage_sources = {
-        "synth": [":constraints-sram"],
         "floorplan": [":io-sram"],
         "place": [":io-sram"],
+        "synth": [":constraints-sram"],
     },
     sweep = {
         "1": {
@@ -441,8 +442,8 @@ orfs_ppa(
 [orfs_flow(
     name = "lb_32x128_{}".format(pdk),
     arguments = {
-        "CORE_UTILIZATION": "5",
         "CORE_ASPECT_RATIO": "2",
+        "CORE_UTILIZATION": "5",
         "PLACE_DENSITY": "0.40",
     },
     pdk = "@docker_orfs//:" + pdk,

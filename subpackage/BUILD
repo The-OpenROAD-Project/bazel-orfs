@@ -6,30 +6,30 @@ FLOOR_PLACE_ARGUMENTS = {
 
 FAST_SETTINGS = {
     "FILL_CELLS": "",
-    "REMOVE_ABC_BUFFERS": "1",
-    "SKIP_REPORT_METRICS": "1",
-    "SKIP_CTS_REPAIR_TIMING": "1",
-    "SKIP_INCREMENTAL_REPAIR": "1",
-    "TAPCELL_TCL": "",
     "GND_NETS_VOLTAGES": "",
-    "PWR_NETS_VOLTAGES": "",
     "GPL_ROUTABILITY_DRIVEN": "0",
     "GPL_TIMING_DRIVEN": "0",
+    "PWR_NETS_VOLTAGES": "",
+    "REMOVE_ABC_BUFFERS": "1",
+    "SKIP_CTS_REPAIR_TIMING": "1",
+    "SKIP_INCREMENTAL_REPAIR": "1",
+    "SKIP_REPORT_METRICS": "1",
+    "TAPCELL_TCL": "",
 }
 
 orfs_flow(
     name = "L1MetadataArray",
     abstract_stage = "place",
     arguments = FAST_SETTINGS | FLOOR_PLACE_ARGUMENTS | {
-        "SDC_FILE": "$(location //:test/constraints-top.sdc)",
-        "DIE_AREA": "0 0 20 70",
         "CORE_AREA": "2 2 18 68",
         "CORE_MARGIN": "2",
+        "DIE_AREA": "0 0 20 70",
         "MACRO_PLACE_HALO": "2 2",
-        "PLACE_DENSITY": "0.30",
-        "SYNTH_HIERARCHICAL": "1",
-        "PLACE_PINS_ARGS": "-annealing",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+        "PLACE_DENSITY": "0.30",
+        "PLACE_PINS_ARGS": "-annealing",
+        "SDC_FILE": "$(location //:test/constraints-top.sdc)",
+        "SYNTH_HIERARCHICAL": "1",
     },
     macros = ["//:tag_array_64x184_generate_abstract"],
     stage_sources = {
@@ -44,16 +44,16 @@ orfs_flow(
     name = "tag_array_64x184",
     abstract_stage = "place",
     arguments = FAST_SETTINGS | {
-        "SDC_FILE": "$(location //:constraints-sram)",
-        "CORE_UTILIZATION": "4",
         "CORE_ASPECT_RATIO": "2",
-        "PLACE_DENSITY": "0.10",
+        "CORE_UTILIZATION": "4",
         "IO_CONSTRAINTS": "$(location //:io-sram)",
+        "PLACE_DENSITY": "0.10",
+        "SDC_FILE": "$(location //:constraints-sram)",
     },
     stage_sources = {
-        "synth": ["//:constraints-sram"],
         "floorplan": ["//:io-sram"],
         "place": ["//:io-sram"],
+        "synth": ["//:constraints-sram"],
     },
     verilog_files = ["//:test/mock/tag_array_64x184.sv"],
 )

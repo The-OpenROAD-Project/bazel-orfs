@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//chisel:test.bzl", "chisel_bench_test")
 load("//toolchains/scala:chisel.bzl", "chisel_library", "chisel_test")
 

@@ -25,9 +25,9 @@ def _load_json_file_impl(repository_ctx):
 load_json_file = repository_rule(
     implementation = _load_json_file_impl,
     attrs = {
-        "src": attr.label(allow_single_file = True),
-        "script": attr.label(allow_single_file = True),
         "out": attr.string(),
+        "script": attr.label(allow_single_file = True),
+        "src": attr.label(allow_single_file = True),
     },
     local = True,
 )

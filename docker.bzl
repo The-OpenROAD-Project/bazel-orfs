@@ -117,12 +117,12 @@ docker_pkg = repository_rule(
     attrs = {
         "build_file": attr.label(mandatory = True),
         "image": attr.string(mandatory = True),
-        "sha256": attr.string(mandatory = False),
-        "patches": attr.label_list(default = []),
-        "patch_tool": attr.string(default = ""),
         "patch_args": attr.string_list(default = ["-p0"]),
         "patch_cmds": attr.string_list(default = []),
         "patch_cmds_win": attr.string_list(default = []),
+        "patch_tool": attr.string(default = ""),
+        "patches": attr.label_list(default = []),
+        "sha256": attr.string(mandatory = False),
         "timeout": attr.int(default = 600),
         "_patchelf": attr.label(
             doc = "Patchelf binary.",
