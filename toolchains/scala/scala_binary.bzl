@@ -12,9 +12,6 @@ load(
 )
 
 SCALA_EXECUTABLE_ATTRS = {
-    "srcs": attr.label_list(
-        allow_files = True,
-    ),
     "data": attr.label_list(
         providers = [DefaultInfo],
         allow_files = True,
@@ -23,6 +20,7 @@ SCALA_EXECUTABLE_ATTRS = {
         providers = [JavaInfo],
         allow_files = True,
     ),
+    "jar": attr.output(),
     "main_class": attr.string(
         mandatory = True,
     ),
@@ -30,10 +28,21 @@ SCALA_EXECUTABLE_ATTRS = {
         providers = [JavaInfo],
         allow_files = True,
     ),
+    "resource_strip_prefix": attr.string(
+        default = "",
+        doc = "If non-empty, strip this prefix from the paths of resources",
+    ),
+    "resources": attr.label_list(
+        allow_files = True,
+        mandatory = False,
+        doc = "Resource files or directories to include in the JAR",
+    ),
     "scalacopts": attr.string_list(
         default = [],
     ),
-    "jar": attr.output(),
+    "srcs": attr.label_list(
+        allow_files = True,
+    ),
     "stripped_jar": attr.output(mandatory = False),
     "_compile_action": attr.label(
         default = "//toolchains/scala/actions:scala_compile",
@@ -42,15 +51,6 @@ SCALA_EXECUTABLE_ATTRS = {
     "_variables": attr.label(
         default = "//toolchains/scala/variables:variables",
         providers = [BuiltinVariablesInfo],
-    ),
-    "resources": attr.label_list(
-        allow_files = True,
-        mandatory = False,
-        doc = "Resource files or directories to include in the JAR",
-    ),
-    "resource_strip_prefix": attr.string(
-        default = "",
-        doc = "If non-empty, strip this prefix from the paths of resources",
     ),
 }
 
@@ -87,7 +87,7 @@ def _env_impl(ctx):
 
     return [
         RunEnvironmentInfo(
-            environment = {k: ctx.expand_location(v, ctx.attr.data) for k, v in ctx.attr.env.items()},
+            environment = expanded,
         ),
     ]
 
@@ -195,8 +195,27 @@ def _scala_binary_impl(ctx):
         wrapper = ctx.actions.declare_file(ctx.label.name)
         script = """#!/bin/bash
 set -ex
-# Hack since we have a relative path, but Chisel switches cwd during test execution
-export VERILATOR_BIN=$(realpath $VERILATOR_BIN)
+# Get the directory where this wrapper script lives (in runfiles/_main/chisel/)
+SCRIPT_DIR=$(cd $(dirname ${{BASH_SOURCE[0]}}) && pwd)
+# Get runfiles root (script is in runfiles/_main/chisel/, so go up 2 levels to get to runfiles/)
+RUNFILES_DIR=$(cd $SCRIPT_DIR/../.. && pwd)
+# verilator+ is at runfiles/verilator+
+export VERILATOR_ROOT="$RUNFILES_DIR/verilator+"
+# Workaround for BCR verilator < 5.036.bcr.4: Generate verilated.mk from template
+# BCR 5.036.bcr.4+ includes pre-configured verilated.mk, so this workaround won't run
+if [[ ! -f "$VERILATOR_ROOT/include/verilated.mk" && -f "$VERILATOR_ROOT/include/verilated.mk.in" ]]; then
+  sed 's/@AR@/ar/g; s/@CXX@/g++/g; s/@LINK@/g++/g; s/@OBJCACHE@//g; s/@PERL@/perl/g; s/@PYTHON3@/python3/g; s/@[A-Z_]*@//g' \\
+    "$VERILATOR_ROOT/include/verilated.mk.in" > "$VERILATOR_ROOT/include/verilated.mk"
+fi
+# Workaround for BCR verilator < 5.036.bcr.4: Symlink our verilator_includer script
+# BCR 5.036.bcr.4+ includes verilator_includer in bin/, so this workaround won't run
+if [[ ! -f "$VERILATOR_ROOT/bin/verilator_includer" ]]; then
+  ln -sf "$RUNFILES_DIR/_main/toolchains/verilator/verilator_includer" "$VERILATOR_ROOT/bin/verilator_includer"
+fi
+# Set VERILATOR_BIN to relative path that chisel expects (bin/verilator)
+export VERILATOR_BIN="bin/verilator"
+# Add verilator bin directory to PATH so chisel can find verilator executable
+export PATH="$VERILATOR_ROOT/bin:$PATH"
 if [[ -n "$TESTBRIDGE_TEST_ONLY" ]]; then
 exec {java_bin} "$@" -z "$TESTBRIDGE_TEST_ONLY"
 else

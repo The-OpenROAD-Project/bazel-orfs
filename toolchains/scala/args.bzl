@@ -69,9 +69,6 @@ _scala_args = rule(
     This is equivalent to flag_group(flags = ["--foo", "%{foo}"])
     """,
         ),
-        "env": attr.string_dict(
-            doc = """See documentation for scala_args macro wrapper.""",
-        ),
         "data": attr.label_list(
             allow_files = True,
             doc = """Files required to add this argument to the command-line.
@@ -80,37 +77,40 @@ _scala_args = rule(
     directory as additional files.
     """,
         ),
+        "env": attr.string_dict(
+            doc = """See documentation for scala_args macro wrapper.""",
+        ),
         "format": attr.label_keyed_string_dict(
             doc = "Variables to be used in substitutions",
-        ),
-        "join_with": attr.label_keyed_string_dict(
-            doc = "A delimiter string used to join together the strings",
         ),
         "iterate_over": attr.label(
             providers = [VariableInfo],
             doc = "Replacement for flag_group.iterate_over",
         ),
-        "requires_not_none": attr.label(
-            providers = [VariableInfo],
-            doc = "Replacement for flag_group.expand_if_available",
-        ),
-        "requires_none": attr.label(
-            providers = [VariableInfo],
-            doc = "Replacement for flag_group.expand_if_not_available",
-        ),
-        "requires_true": attr.label(
-            providers = [VariableInfo],
-            doc = "Replacement for flag_group.expand_if_true",
-        ),
-        "requires_false": attr.label(
-            providers = [VariableInfo],
-            doc = "Replacement for flag_group.expand_if_false",
+        "join_with": attr.label_keyed_string_dict(
+            doc = "A delimiter string used to join together the strings",
         ),
         "requires_equal": attr.label(
             providers = [VariableInfo],
             doc = "Replacement for flag_group.expand_if_equal",
         ),
         "requires_equal_value": attr.string(),
+        "requires_false": attr.label(
+            providers = [VariableInfo],
+            doc = "Replacement for flag_group.expand_if_false",
+        ),
+        "requires_none": attr.label(
+            providers = [VariableInfo],
+            doc = "Replacement for flag_group.expand_if_not_available",
+        ),
+        "requires_not_none": attr.label(
+            providers = [VariableInfo],
+            doc = "Replacement for flag_group.expand_if_available",
+        ),
+        "requires_true": attr.label(
+            providers = [VariableInfo],
+            doc = "Replacement for flag_group.expand_if_true",
+        ),
         "_variables": attr.label(
             default = "//toolchains/scala/variables:variables",
         ),

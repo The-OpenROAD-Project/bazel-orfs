@@ -60,11 +60,11 @@ def _verilog_impl(ctx, split):
 
 def verilog_attrs():
     return {
+        "opts": attr.string_list(default = []),
         "srcs": attr.label_list(
             doc = "Cell library.",
             allow_files = True,
         ),
-        "opts": attr.string_list(default = []),
         "_firtool": attr.label(
             doc = "Firtool binary.",
             executable = True,

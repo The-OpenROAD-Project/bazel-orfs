@@ -25,12 +25,12 @@ global_config = repository_rule(
     implementation = _global_config_impl,
     attrs = {
         "makefile": attr.label(mandatory = True),
-        "pdk": attr.label(mandatory = True),
         "makefile_yosys": attr.label(mandatory = True),
         "openroad": attr.label(
             mandatory = True,
             cfg = "exec",
         ),
+        "pdk": attr.label(mandatory = True),
         "yosys": attr.label(
             mandatory = True,
             cfg = "exec",

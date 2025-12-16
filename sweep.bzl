@@ -48,11 +48,11 @@ def orfs_sweep(
     if top == None:
         top = name
     sweep_json = {
-        "name": name,
         "base": arguments,
-        "sweep": sweep,
+        "name": name,
         "stage": stage,
         "stages": all_stages[0:all_stages.index(stage) + 1],
+        "sweep": sweep,
     }
     write_binary(
         name = name + "_sweep.json",

@@ -10,15 +10,8 @@ bazel_dep(name = "googletest", version = "1.17.0")
 bazel_dep(name = "rules_jvm_external", version = "6.7")
 bazel_dep(name = "rules_java", version = "8.12.0")
 bazel_dep(name = "aspect_rules_js", version = "2.1.3")
-bazel_dep(name = "rules_verilator", version = "5.034")
+bazel_dep(name = "rules_verilator", version = "0.1.0")
 bazel_dep(name = "verilator", version = "5.036.bcr.3")
-
-# Use Pinata rules_verilator fork with BCR verilator support
-git_override(
-    module_name = "rules_verilator",
-    commit = "f4f3e4104ed84767e944e39aed0d4d48b5e2179d",
-    remote = "https://github.com/MrAMS/bazel_rules_verilator.git",
-)
 
 ####### Node.js version #########
 # By default you get the node version from DEFAULT_NODE_VERSION in @rules_nodejs//nodejs:repositories.bzl
@@ -137,9 +130,9 @@ MAVEN_SHORT_DEPS = {
     "io.circe:circe-generic": CIRCE_VERSION,
     "io.circe:circe-generic-extras": CIRCE_VERSION,
     "io.circe:circe-parser": CIRCE_VERSION,
-    "org.json4s:json4s-native": "4.0.7",
     "org.chipsalliance:chisel": "7.2.0",
     "org.chipsalliance:firtool-resolver": "2.0.1",
+    "org.json4s:json4s-native": "4.0.7",
     "org.scalatest:scalatest": "3.2.19",
 }
 

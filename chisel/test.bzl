@@ -2,6 +2,7 @@
 This module defines Bazel rules and macros for generating, simulating, and testing Chisel hardware modules.
 """
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
 load("//:generate.bzl", "fir_library")
 load("//:verilog.bzl", "verilog_directory")
@@ -103,8 +104,7 @@ def chisel_bench_test(
         visibility = ["//visibility:public"],
         vopts = [],
     )
-
-    native.cc_binary(
+    cc_binary(
         name = "{name}_run".format(name = name),
         srcs = ["//chisel:TestBench.cpp"],
         copts = [

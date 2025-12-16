@@ -86,12 +86,12 @@ def _pdk_impl(ctx):
 orfs_pdk = rule(
     implementation = _pdk_impl,
     attrs = {
+        "config": attr.label(
+            allow_single_file = ["config.mk"],
+        ),
         "srcs": attr.label_list(
             allow_files = True,
             providers = [DefaultInfo],
-        ),
-        "config": attr.label(
-            allow_single_file = ["config.mk"],
         ),
     },
 )
@@ -182,8 +182,8 @@ def flow_environment(ctx):
 def yosys_environment(ctx):
     return {
         "ABC": ctx.executable._abc.path,
-        "YOSYS_EXE": ctx.executable._yosys.path,
         "FLOW_HOME": ctx.file._makefile_yosys.dirname,
+        "YOSYS_EXE": ctx.executable._yosys.path,
     } | orfs_environment(ctx)
 
 def config_environment(config):
@@ -344,19 +344,19 @@ def _deps_impl(ctx):
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
+            "${CONFIG}": ctx.attr.src[OrfsDepInfo].config.short_path,
             "${GENFILES}": " ".join(
                 sorted(
                     [f.short_path for f in ctx.attr.src[OrfsDepInfo].files.to_list()],
                 ),
             ),
+            "${MAKE}": ctx.attr.src[OrfsDepInfo].make.short_path,
             "${RENAMES}": " ".join(
                 [
                     "{}:{}".format(rename.src, rename.dst)
                     for rename in ctx.attr.src[OrfsDepInfo].renames
                 ],
             ),
-            "${CONFIG}": ctx.attr.src[OrfsDepInfo].config.short_path,
-            "${MAKE}": ctx.attr.src[OrfsDepInfo].make.short_path,
         },
     )
     return [
@@ -395,19 +395,15 @@ def orfs_attrs():
             doc = "Dictionary of additional flow arguments.",
             default = {},
         ),
-        "extra_configs": attr.label_list(
-            doc = "List of additional flow configuration files.",
-            allow_files = True,
-            default = [],
-        ),
         "data": attr.label_list(
             doc = "List of additional flow data.",
             allow_files = True,
             default = [],
         ),
-        "variant": attr.string(
-            doc = "Variant of the used flow.",
-            default = "base",
+        "extra_configs": attr.label_list(
+            doc = "List of additional flow configuration files.",
+            allow_files = True,
+            default = [],
         ),
         "tools": attr.label_list(
             doc = "List of tool binaries.",
@@ -415,17 +411,16 @@ def orfs_attrs():
             cfg = "exec",
             default = [],
         ),
+        "variant": attr.string(
+            doc = "Variant of the used flow.",
+            default = "base",
+        ),
         "_make": attr.label(
             doc = "make binary.",
             executable = True,
             allow_files = True,
             cfg = "exec",
             default = Label("@docker_orfs//:make"),
-        ),
-        "_tcl": attr.label(
-            doc = "Tcl library.",
-            allow_files = True,
-            default = Label("@docker_orfs//:tcl8.6"),
         ),
         "_makefile": attr.label(
             doc = "Top level makefile.",
@@ -439,6 +434,11 @@ def orfs_attrs():
             cfg = "exec",
             default = Label("@bazel-orfs//pythonwrapper:python3"),
         ),
+        "_tcl": attr.label(
+            doc = "Tcl library.",
+            allow_files = True,
+            default = Label("@docker_orfs//:tcl8.6"),
+        ),
     }
 
 def flow_attrs():
@@ -447,9 +447,21 @@ def flow_attrs():
             default = ":deploy.tpl",
             allow_single_file = True,
         ),
+        "_klayout": attr.label(
+            doc = "Klayout binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@docker_orfs//:klayout"),
+        ),
         "_make_template": attr.label(
             default = ":make.tpl",
             allow_single_file = True,
+        ),
+        "_opengl": attr.label(
+            doc = "OpenGL drivers.",
+            allow_files = True,
+            default = Label("@docker_orfs//:opengl"),
         ),
         "_openroad": attr.label(
             doc = "OpenROAD binary.",
@@ -465,12 +477,10 @@ def flow_attrs():
             cfg = "exec",
             default = Label("@docker_orfs//:sta"),
         ),
-        "_klayout": attr.label(
-            doc = "Klayout binary.",
-            executable = True,
+        "_qt_plugins": attr.label(
+            doc = "Qt plugins.",
             allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:klayout"),
+            default = Label("@docker_orfs//:qt_plugins"),
         ),
         "_ruby": attr.label(
             doc = "Ruby library.",
@@ -481,16 +491,6 @@ def flow_attrs():
             doc = "Ruby dynamic library.",
             allow_files = True,
             default = Label("@docker_orfs//:ruby_dynamic3.0.0"),
-        ),
-        "_opengl": attr.label(
-            doc = "OpenGL drivers.",
-            allow_files = True,
-            default = Label("@docker_orfs//:opengl"),
-        ),
-        "_qt_plugins": attr.label(
-            doc = "Qt plugins.",
-            allow_files = True,
-            default = Label("@docker_orfs//:qt_plugins"),
         ),
     } | orfs_attrs()
 
@@ -503,17 +503,17 @@ def yosys_only_attrs():
             cfg = "exec",
             default = CONFIG_YOSYS_ABC,
         ),
+        "_makefile_yosys": attr.label(
+            doc = "Top level makefile yosys.",
+            allow_single_file = ["Makefile"],
+            default = CONFIG_MAKEFILE_YOSYS,
+        ),
         "_yosys": attr.label(
             doc = "Yosys binary.",
             executable = True,
             allow_files = True,
             cfg = "exec",
             default = CONFIG_YOSYS,
-        ),
-        "_makefile_yosys": attr.label(
-            doc = "Top level makefile yosys.",
-            allow_single_file = ["Makefile"],
-            default = CONFIG_MAKEFILE_YOSYS,
         ),
     }
 
@@ -526,16 +526,6 @@ def renamed_inputs_attr():
 
 def synth_attrs():
     return {
-        "verilog_files": attr.label_list(
-            allow_files = [
-                ".v",
-                ".sv",
-                ".svh",
-                ".rtlil",
-            ],
-            allow_rules = [],
-            providers = [DefaultInfo],
-        ),
         "deps": attr.label_list(
             default = [],
             providers = [OrfsInfo, TopInfo],
@@ -545,6 +535,16 @@ def synth_attrs():
             doc = "Process design kit.",
             default = CONFIG_PDK,
             providers = [PdkInfo],
+        ),
+        "verilog_files": attr.label_list(
+            allow_files = [
+                ".v",
+                ".sv",
+                ".svh",
+                ".rtlil",
+            ],
+            allow_rules = [],
+            providers = [DefaultInfo],
         ),
     }
 
@@ -580,11 +580,11 @@ def _platform_config(ctx):
 
 def _required_arguments(ctx):
     return {
-        "PLATFORM": _platform(ctx),
-        "PLATFORM_DIR": _platform_config(ctx).dirname,
         "DESIGN_NAME": _module_top(ctx),
         "FLOW_VARIANT": ctx.attr.variant,
         "GENERATE_ARTIFACTS_ON_FAILURE": "1",
+        "PLATFORM": _platform(ctx),
+        "PLATFORM_DIR": _platform_config(ctx).dirname,
         "WORK_HOME": "./" + ctx.label.package,
     }
 
@@ -824,14 +824,6 @@ orfs_run = rule(
     attrs = yosys_attrs() |
             openroad_attrs() |
             {
-                "script": attr.label(
-                    mandatory = True,
-                    allow_single_file = ["tcl"],
-                ),
-                "outs": attr.output_list(
-                    mandatory = True,
-                    allow_empty = False,
-                ),
                 "cmd": attr.string(
                     mandatory = False,
                     default = "run",
@@ -839,6 +831,14 @@ orfs_run = rule(
                 "extra_args": attr.string(
                     mandatory = False,
                     default = "",
+                ),
+                "outs": attr.output_list(
+                    mandatory = True,
+                    allow_empty = False,
+                ),
+                "script": attr.label(
+                    mandatory = True,
+                    allow_single_file = ["tcl"],
                 ),
             },
 )
@@ -1035,6 +1035,7 @@ def _yosys_impl(ctx):
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
+            "${CONFIG}": config_short.short_path,
             "${GENFILES}": " ".join(
                 sorted(
                     [
@@ -1043,7 +1044,6 @@ def _yosys_impl(ctx):
                     ],
                 ),
             ),
-            "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
     )
@@ -1268,6 +1268,7 @@ def _make_impl(
         template = ctx.file._deploy_template,
         output = exe,
         substitutions = {
+            "${CONFIG}": config_short.short_path,
             "${GENFILES}": " ".join(
                 sorted(
                     [
@@ -1281,7 +1282,6 @@ def _make_impl(
                     ],
                 ),
             ),
-            "${CONFIG}": config_short.short_path,
             "${MAKE}": make.short_path,
         },
     )
@@ -1932,13 +1932,13 @@ cp $logs $BUILD_WORKSPACE_DIRECTORY/$rules_json
 orfs_update = rule(
     implementation = _update_rules_impl,
     attrs = {
-        "rules_json": attr.label(
-            allow_single_file = True,
-            mandatory = True,
-        ),
         "logs": attr.label_list(
             allow_files = True,
             providers = [LoggingInfo],
+        ),
+        "rules_json": attr.label(
+            allow_single_file = True,
+            mandatory = True,
         ),
     },
     executable = True,

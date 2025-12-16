@@ -1,3 +1,4 @@
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("//chisel:test.bzl", "chisel_bench_test")
 load("//toolchains/scala:chisel.bzl", "chisel_library", "chisel_test")
 
@@ -26,14 +27,12 @@ chisel_bench_test(
     srcs = ["src/test/scala/example/LifeUniverseTests.scala"],
     chisel_module = "example.LifeUniverseTestBench",
     module_top = "LifeUniverseTestBench",
-    tags = ["manual"],
     deps = [":applicationlib"],
 )
 
 chisel_test(
     name = "life2_test",
     srcs = ["src/test/scala/example/LifeTests.scala"],
-    tags = ["manual"],
     deps = [":applicationlib"],
 )
 
@@ -42,7 +41,6 @@ cc_test(
     size = "small",
     srcs = ["LifeTests.cpp"],
     copts = [],
-    tags = ["manual"],
     visibility = [
     ],
     deps = [
