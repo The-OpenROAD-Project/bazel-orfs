@@ -16,8 +16,8 @@ bazel_dep(name = "verilator", version = "5.036.bcr.3")
 # Use Pinata rules_verilator fork with BCR verilator support
 git_override(
     module_name = "rules_verilator",
-    remote = "https://github.com/MrAMS/bazel_rules_verilator.git",
     commit = "f4f3e4104ed84767e944e39aed0d4d48b5e2179d",
+    remote = "https://github.com/MrAMS/bazel_rules_verilator.git",
 )
 
 ####### Node.js version #########
