@@ -24,17 +24,6 @@ Open Example.scala, start the Metals doctor to verify that "blooplib" is hooked 
 
 You should now have Scala tooltips, references, etc. for your project.
 
-Add this [workaround](https://github.com/scalacenter/bloop/issues/2711) in .bazelrc:
-
-    # Stamping the manifest changes the name of `scala-compiler-2.13.17.jar` to
-    # `processed_scala-compiler-2.13.17.jar`, which keeps `bloop` from recognizing
-    # it.
-    # Read more:
-    # https://web.archive.org/web/20250624074624/https://github.com/scalacenter/bloop/blob/b90aaa82e0799b8783b1812f4c07961d4c47ec30/backend/src/main/scala/bloop/ScalaInstance.scala#L73-L75
-    # https://web.archive.org/web/20250624074941/https://github.com/bazel-contrib/rules_jvm_external/issues/786
-    common --@rules_jvm_external//settings:stamp_manifest=false
-
-
 ## Metals doctor healthy example
 
 ![alt text](metals-doctor.png)
