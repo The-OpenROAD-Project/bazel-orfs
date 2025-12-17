@@ -1,5 +1,6 @@
 build --incompatible_strict_action_env
 
 common --incompatible_disallow_empty_glob
+common --experimental_repository_downloader_retries=5
 
 try-import %workspace%/user.bazelrc
