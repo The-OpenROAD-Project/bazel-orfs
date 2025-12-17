@@ -983,9 +983,7 @@ def _yosys_impl(ctx):
             ctx.file._makefile_yosys.path,
             "yosys-dependencies",
             "do-yosys",
-            "do-synth",
-            # convert to .odb using OpenROAD
-            "do-1_3_synth",
+            "do-1_synth",
         ],
         command = " && ".join(commands),
         env = _verilog_arguments([]) |
