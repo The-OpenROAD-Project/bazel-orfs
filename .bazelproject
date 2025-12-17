@@ -1,0 +1,13 @@
+targets:
+    //chisel:codegenlib
+    //chisel:applicationlib
+    //chisel:life2_test
+
+allow_manual_targets_sync: false
+
+derive_targets_from_directories: false
+
+enabled_rules:
+    rules_scala
+    rules_java
+    rules_jvm

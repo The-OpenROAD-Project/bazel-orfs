@@ -9,7 +9,6 @@ The project uses **BCR rules_scala 7.1.5** from Bazel Central Registry as the un
 - Automatically includes Chisel 7.2.0 and its dependencies
 - Pre-configures Scala compiler options for Chisel
 - Sets up Verilator and firtool for hardware simulation (tests only)
-- Maintains API compatibility with existing BUILD files
 
 ## Usage
 
@@ -80,51 +79,68 @@ The `chisel_test` rule includes workarounds for BCR verilator compatibility:
 2. **Path resolution**: Automatically sets `VERILATOR_ROOT`, `VERILATOR_BIN`, and `PATH`
 3. **Forward compatibility**: Workarounds are conditional and will automatically disable when BCR verilator is fixed
 
-These workarounds are based on previous fixes (commits 0a3c114, c58bf7d) and ensure tests work without manual configuration.
+## IDE Support with Bazel BSP
 
-## Migration from Custom Toolchain
+This project uses [Bazel BSP](https://github.com/JetBrains/bazel-bsp) (Build Server Protocol) for IDE integration with Metals.
 
-This project was migrated from a custom Scala toolchain (~1500 lines) to BCR rules_scala (~250 lines of wrappers) in early 2025. The Chisel API remained unchanged, requiring no modifications to BUILD files.
+### Quick Setup
 
-### Benefits of BCR Migration
+1. **Install Bazel BSP**:
+   ```bash
+   cs install bsp
+   ```
 
-- **Reduced maintenance**: No custom toolchain to maintain
-- **Standard compliance**: Uses Bazel community standard
-- **Easy upgrades**: Can upgrade rules_scala independently
-- **Community support**: Can get help from wider Bazel community
+2. **Initialize BSP**:
+   ```bash
+   cd /path/to/bazel-orfs-local
+   bsp
+   ```
 
-### What Changed
+3. **Configure targets** (`.bazelproject` in project root):
+   ```
+   targets:
+       //:blooplib
+       //chisel:all
+       //sby:all
 
-**Deleted**:
-- Custom Scala toolchain implementation (`impl/`, `args/`, `tools/`, etc.)
-- Custom `scala_library`, `scala_binary` rule definitions
+   allow_manual_targets_sync: false
+   derive_targets_from_directories: false
 
-**Preserved**:
-- Chisel wrapper API (`chisel_*` rules)
-- All BUILD files using Chisel rules
+   enabled_rules:
+       rules_scala
+       rules_java
+       rules_jvm
+   ```
 
-**Modified**:
-- `MODULE.bazel`: Uses BCR rules_scala 7.1.5
-- `toolchains/scala/chisel.bzl`: Simplified to thin wrappers
+4. **Build project first**:
+   ```bash
+   bazel build //chisel:codegenlib //chisel:applicationlib
+   ```
 
-## Bloop Integration (Disabled)
+5. **Open in VSCode** and Metals will auto-connect to BSP
 
-The bloop integration for IDE support is temporarily disabled during the BCR migration:
+### Troubleshooting
 
-```python
-# Temporarily disabled in BUILD file
-# load("@bazel-orfs//toolchains/scala:scala_bloop.bzl", "scala_bloop")
-# scala_bloop(name = "bloop", src = "blooplib")
-```
+**No targets found**:
+- Verify `.bazelproject` exists in project root
+- Check targets: `bazel query "//chisel:all"`
+- Rebuild BSP index: VSCode → "Metals: Import Build"
 
-To re-enable in the future, the `scala_bloop` rule needs to be updated to work with BCR rules_scala.
+**Metals doesn't connect**:
+- Ensure `bsp` is in PATH: `which bsp`
+- Check `.bsp/bazelbsp.json` exists
+- Restart: VSCode → "Metals: Restart Build Server"
 
-## Files
+**No IntelliSense**:
+- Wait for initial indexing (check status bar)
+- Verify build succeeds: `bazel build //chisel:codegenlib`
+- Check logs: VSCode → Output → Metals
 
-- **chisel.bzl**: Main implementation of `chisel_binary`, `chisel_library`, `chisel_test`
-- **scala_bloop.bzl**: Bloop integration (currently disabled)
-- **BUILD.bazel**: Example usage (empty after migration)
-- **README.md**: This file
+### Resources
+
+- [Metals Bazel Documentation](http://scalameta.org/metals/docs/build-tools/bazel/)
+- [Bazel BSP Server](https://github.com/JetBrains/bazel-bsp)
+- [BSP Protocol Specification](https://build-server-protocol.github.io/)
 
 ## See Also
 

@@ -29,26 +29,6 @@ jobs:
         run: |
           buildifier -lint warn -r .
 
-  bloop:
-    name: Check Bloop
-    runs-on: ubuntu-22.04
-    env:
-      DEBIAN_FRONTEND: "noninteractive"
-    steps:
-      - name: Checkout bazel-orfs
-        uses: actions/checkout@v4
-
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.15.0
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}-${{ github.job }}
-          repository-cache: true
-
-      - name: Run Bloop
-        run: |
-          bazel run :bloop
-
   test-make-target:
     name: ${{ matrix.STAGE_TARGET }}
     runs-on: ubuntu-22.04
