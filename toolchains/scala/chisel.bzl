@@ -3,6 +3,14 @@ load("//toolchains/scala:scala_binary.bzl", "scala_binary", "scala_test")
 load("//toolchains/scala:scala_library.bzl", "scala_library")
 
 def chisel_binary(name, **kwargs):
+    """Wrapper for scala_binary with Chisel configuration.
+
+    Automatically includes Chisel dependencies and compiler options.
+
+    Args:
+      name: A unique name for this target.
+      **kwargs: Additional arguments to pass to scala_binary.
+    """
     scala_binary(
         name = name,
         deps = [
@@ -33,6 +41,14 @@ def chisel_binary(name, **kwargs):
     )
 
 def chisel_library(name, **kwargs):
+    """Wrapper for scala_library with Chisel configuration.
+
+    Automatically includes Chisel dependencies and compiler options.
+
+    Args:
+      name: A unique name for this target.
+      **kwargs: Additional arguments to pass to scala_library.
+    """
     scala_library(
         name = name,
         deps = [
