@@ -65,7 +65,7 @@ load_json_file(
 
 bazel_dep(
     name = "rules_python",
-    version = "1.6.3",
+    version = "1.7.0",
     # reduce namespace collisions by prefixing with bazel_orfs
     repo_name = "bazel_orfs_rules_python",
 )
