@@ -3,13 +3,10 @@ load("@aspect_rules_js//js:defs.bzl", "js_binary")
 # Unused in CI
 #
 # load("@bazel-orfs//tools/pin:pin.bzl", "pin_data")
-load("@bazel-orfs//toolchains/scala:chisel.bzl", "chisel_library")
-
-# Temporarily disabled during BCR rules_scala migration
-# load("@bazel-orfs//toolchains/scala:scala_bloop.bzl", "scala_bloop")
 load("@npm//:defs.bzl", "npm_link_all_packages")
 load("@rules_python//python:defs.bzl", "py_binary")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
+load("@rules_scala//scala:scala_toolchain.bzl", "scala_toolchain")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 # Reenable when we add test back in
@@ -526,6 +523,20 @@ sh_binary(
     visibility = ["//visibility:public"],
 )
 
+# Custom Scala toolchain with SemanticDB enabled
+scala_toolchain(
+    name = "semanticdb_toolchain_impl",
+    enable_semanticdb = True,
+    semanticdb_bundle_in_jar = False,
+    visibility = ["//visibility:public"],
+)
+
+toolchain(
+    name = "semanticdb_toolchain",
+    toolchain = ":semanticdb_toolchain_impl",
+    toolchain_type = "@rules_scala//scala:toolchain_type",
+)
+
 # Not in use in CI
 #
 # pin_data(
@@ -543,23 +554,4 @@ sh_binary(
 #         "@pinned//alu",
 #     ],
 #     tags = ["manual"],
-# )
-
-# This library lists all the scala files we will be editing in vscode via bloop
-chisel_library(
-    name = "blooplib",
-    srcs = [
-        "//chisel:chiselfiles",
-        "//sby:chiselfiles",
-        "//toolchains/scala:chiselfiles",
-    ],
-    deps = [
-        "@maven//:org_scalatest_scalatest_2_13",
-    ],
-)
-
-# Set up bloop (temporarily disabled during migration to BCR rules_scala)
-# scala_bloop(
-#     name = "bloop",
-#     src = "blooplib",
 # )

@@ -1,0 +1,12 @@
+targets:
+    //chisel:codegenlib
+    //chisel:applicationlib
+
+allow_manual_targets_sync: false
+
+derive_targets_from_directories: false
+
+enabled_rules:
+    rules_scala
+    rules_java
+    rules_jvm

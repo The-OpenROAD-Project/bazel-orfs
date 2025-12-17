@@ -151,6 +151,9 @@ scala_deps.scala()  # Provides scala-compiler, scala-library, scala-reflect
 scala_deps.scalatest()  # Provides scalatest framework
 use_repo(scala_deps, "rules_scala_toolchains")
 
+# Register custom Scala toolchain with SemanticDB enabled
+register_toolchains("//:semanticdb_toolchain")
+
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 maven.install(
     artifacts = [

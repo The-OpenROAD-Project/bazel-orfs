@@ -8,7 +8,6 @@ def _fir_library_impl(ctx):
     fir = ctx.actions.declare_file(ctx.attr.name + ".fir")
 
     args = ctx.actions.args()
-    args.add("-jar", ctx.file.generator)
     args.add_all([ctx.expand_location(opt, ctx.attr.data) for opt in ctx.attr.opts])
     args.add("-o", fir)
     ctx.actions.run(
@@ -39,7 +38,6 @@ fir_library = rule(
             allow_files = True,
         ),
         "generator": attr.label(
-            allow_single_file = True,
             cfg = "exec",
             executable = True,
             mandatory = True,
