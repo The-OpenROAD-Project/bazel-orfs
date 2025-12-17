@@ -4,7 +4,9 @@ load("@aspect_rules_js//js:defs.bzl", "js_binary")
 #
 # load("@bazel-orfs//tools/pin:pin.bzl", "pin_data")
 load("@bazel-orfs//toolchains/scala:chisel.bzl", "chisel_library")
-load("@bazel-orfs//toolchains/scala:scala_bloop.bzl", "scala_bloop")
+
+# Temporarily disabled during BCR rules_scala migration
+# load("@bazel-orfs//toolchains/scala:scala_bloop.bzl", "scala_bloop")
 load("@bazel_orfs_rules_python//python:defs.bzl", "py_binary")
 load("@bazel_orfs_rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@npm//:defs.bzl", "npm_link_all_packages")
@@ -556,8 +558,8 @@ chisel_library(
     ],
 )
 
-# Set up bloop
-scala_bloop(
-    name = "bloop",
-    src = "blooplib",
-)
+# Set up bloop (temporarily disabled during migration to BCR rules_scala)
+# scala_bloop(
+#     name = "bloop",
+#     src = "blooplib",
+# )
