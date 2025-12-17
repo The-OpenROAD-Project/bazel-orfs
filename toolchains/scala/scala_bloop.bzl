@@ -37,7 +37,7 @@ def _scala_bloop_impl(ctx):
                 scala = struct(
                     organization = "org.scala-lang",
                     name = "scala-compiler",
-                    version = "2.13.17",
+                    version = "2.13.18",
                     options = info.scalacopts.to_list(),
                     jars = [
                         "/".join([directory, f.path])

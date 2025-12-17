@@ -48,7 +48,7 @@ scala_binary(
     ],
     main_class = "Main",
     plugins = [
-        "@maven//:org_chipsalliance_chisel_plugin_2_13_17",
+        "@maven//:org_chipsalliance_chisel_plugin_2_13_18",
     ],
     scalacopts = [
         "-language:reflectiveCalls",
@@ -95,7 +95,7 @@ scala_library(
         "Example.scala",
     ],
     plugins = [
-        "@maven//:org_chipsalliance_chisel_plugin_2_13_17",
+        "@maven//:org_chipsalliance_chisel_plugin_2_13_18",
     ],
     scalacopts = [
         "-language:reflectiveCalls",

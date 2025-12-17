@@ -110,7 +110,7 @@ use_repo(orfs, "config")
 # )
 # use_repo(pin, "pinned")
 
-SCALA_VERSION = "2.13.17"
+SCALA_VERSION = "2.13.18"
 
 SCALA_VERSION_SHORT = SCALA_VERSION.rpartition(".")[0]
 
@@ -132,14 +132,14 @@ MAVEN_SHORT_DEPS = {
     "io.circe:circe-generic": CIRCE_VERSION,
     "io.circe:circe-generic-extras": CIRCE_VERSION,
     "io.circe:circe-parser": CIRCE_VERSION,
-    "org.chipsalliance:chisel": "7.2.0",
+    "org.chipsalliance:chisel": "7.4.0",
     "org.chipsalliance:firtool-resolver": "2.0.1",
     "org.json4s:json4s-native": "4.0.7",
     "org.scalatest:scalatest": "3.2.19",
 }
 
 MAVEN_LONG_DEPS = {
-    "org.chipsalliance:chisel-plugin": "7.2.0",
+    "org.chipsalliance:chisel-plugin": "7.4.0",
     "org.scalameta:semanticdb-scalac": "4.14.1",
 }
 
