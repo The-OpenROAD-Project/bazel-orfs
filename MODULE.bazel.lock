@@ -764,6 +764,166 @@
         ]
       }
     },
+    "@@rules_bison+//bison/internal:default_toolchain_ext.bzl%default_toolchain_ext": {
+      "general": {
+        "bzlTransitiveDigest": "Vd3jEbJ8YAI/n4FupsISXkB0UZACFAUWLWiflmiPxDI=",
+        "usagesDigest": "FMYRjoxzvaVrxrTBGlNufDxx8OqUy39ltMVhPHrVLJg=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "bison_v3.3.2": {
+            "repoRuleId": "@@rules_bison+//bison/rules:bison_repository.bzl%bison_repository",
+            "attributes": {
+              "version": "3.3.2"
+            }
+          },
+          "bison": {
+            "repoRuleId": "@@rules_bison+//bison/rules:bison_toolchain_repository.bzl%bison_toolchain_repository",
+            "attributes": {
+              "bison_repository": "@bison_v3.3.2"
+            }
+          }
+        },
+        "moduleExtensionMetadata": {
+          "explicitRootModuleDirectDeps": [
+            "bison"
+          ],
+          "explicitRootModuleDirectDevDeps": [],
+          "useAllRepos": "NO",
+          "reproducible": false
+        },
+        "recordedRepoMappingEntries": []
+      }
+    },
+    "@@rules_flex+//flex/internal:default_toolchain_ext.bzl%default_toolchain_ext": {
+      "general": {
+        "bzlTransitiveDigest": "IyvJbFvAYvjVrhYqrB8CJ8qfee94/AdZQhknVQYlFb8=",
+        "usagesDigest": "cvCF4zkacU5rBKBo56xxmQ5DaxVfmtu1H2q2rfnAbig=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "flex_v2.6.4": {
+            "repoRuleId": "@@rules_flex+//flex/rules:flex_repository.bzl%flex_repository",
+            "attributes": {
+              "version": "2.6.4"
+            }
+          },
+          "flex": {
+            "repoRuleId": "@@rules_flex+//flex/rules:flex_toolchain_repository.bzl%flex_toolchain_repository",
+            "attributes": {
+              "flex_repository": "@flex_v2.6.4"
+            }
+          }
+        },
+        "moduleExtensionMetadata": {
+          "explicitRootModuleDirectDeps": [
+            "flex"
+          ],
+          "explicitRootModuleDirectDevDeps": [],
+          "useAllRepos": "NO",
+          "reproducible": false
+        },
+        "recordedRepoMappingEntries": []
+      }
+    },
+    "@@rules_kotlin+//src/main/starlark/core/repositories:bzlmod_setup.bzl%rules_kotlin_extensions": {
+      "general": {
+        "bzlTransitiveDigest": "rL/34P1aFDq2GqVC2zCFgQ8nTuOC6ziogocpvG50Qz8=",
+        "usagesDigest": "QI2z8ZUR+mqtbwsf2fLqYdJAkPOHdOV+tF2yVAUgRzw=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "com_github_jetbrains_kotlin_git": {
+            "repoRuleId": "@@rules_kotlin+//src/main/starlark/core/repositories:compiler.bzl%kotlin_compiler_git_repository",
+            "attributes": {
+              "urls": [
+                "https://github.com/JetBrains/kotlin/releases/download/v1.9.23/kotlin-compiler-1.9.23.zip"
+              ],
+              "sha256": "93137d3aab9afa9b27cb06a824c2324195c6b6f6179d8a8653f440f5bd58be88"
+            }
+          },
+          "com_github_jetbrains_kotlin": {
+            "repoRuleId": "@@rules_kotlin+//src/main/starlark/core/repositories:compiler.bzl%kotlin_capabilities_repository",
+            "attributes": {
+              "git_repository_name": "com_github_jetbrains_kotlin_git",
+              "compiler_version": "1.9.23"
+            }
+          },
+          "com_github_google_ksp": {
+            "repoRuleId": "@@rules_kotlin+//src/main/starlark/core/repositories:ksp.bzl%ksp_compiler_plugin_repository",
+            "attributes": {
+              "urls": [
+                "https://github.com/google/ksp/releases/download/1.9.23-1.0.20/artifacts.zip"
+              ],
+              "sha256": "ee0618755913ef7fd6511288a232e8fad24838b9af6ea73972a76e81053c8c2d",
+              "strip_version": "1.9.23-1.0.20"
+            }
+          },
+          "com_github_pinterest_ktlint": {
+            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_file",
+            "attributes": {
+              "sha256": "01b2e0ef893383a50dbeb13970fe7fa3be36ca3e83259e01649945b09d736985",
+              "urls": [
+                "https://github.com/pinterest/ktlint/releases/download/1.3.0/ktlint"
+              ],
+              "executable": true
+            }
+          },
+          "rules_android": {
+            "repoRuleId": "@@bazel_tools//tools/build_defs/repo:http.bzl%http_archive",
+            "attributes": {
+              "sha256": "cd06d15dd8bb59926e4d65f9003bfc20f9da4b2519985c27e190cddc8b7a7806",
+              "strip_prefix": "rules_android-0.1.1",
+              "urls": [
+                "https://github.com/bazelbuild/rules_android/archive/v0.1.1.zip"
+              ]
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "rules_kotlin+",
+            "bazel_tools",
+            "bazel_tools"
+          ]
+        ]
+      }
+    },
+    "@@rules_m4+//m4/internal:default_toolchain_ext.bzl%default_toolchain_ext": {
+      "general": {
+        "bzlTransitiveDigest": "tsDFT9pkt4Tt3gpC3ufpCdpFRFHSoWSmGrgkKq1xiPM=",
+        "usagesDigest": "si5emwgpnDsU6P/27vQdYzLJhnlKDJjWt+beEA2/t08=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "m4_v1.4.18": {
+            "repoRuleId": "@@rules_m4+//m4/rules:m4_repository.bzl%m4_repository",
+            "attributes": {
+              "version": "1.4.18"
+            }
+          },
+          "m4": {
+            "repoRuleId": "@@rules_m4+//m4/rules:m4_toolchain_repository.bzl%m4_toolchain_repository",
+            "attributes": {
+              "m4_repository": "@m4_v1.4.18"
+            }
+          }
+        },
+        "moduleExtensionMetadata": {
+          "explicitRootModuleDirectDeps": [
+            "m4"
+          ],
+          "explicitRootModuleDirectDevDeps": [],
+          "useAllRepos": "NO",
+          "reproducible": false
+        },
+        "recordedRepoMappingEntries": []
+      }
+    },
     "@@rules_nodejs+//nodejs:extensions.bzl%node": {
       "general": {
         "bzlTransitiveDigest": "SqbzUarOVzAfK28Ca5+NIU3LUwnW/b3h0xXBUS97oyI=",
@@ -883,6 +1043,47 @@
           }
         },
         "recordedRepoMappingEntries": []
+      }
+    },
+    "@@rules_python+//python/uv:uv.bzl%uv": {
+      "general": {
+        "bzlTransitiveDigest": "8vT1ddXtljNxYD0tJkksqzeKE6xqx4Ix+tXthAppjTI=",
+        "usagesDigest": "icnInV8HDGrRQf9x8RMfxWfBHgT3OgRlYovS/9POEJw=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "uv": {
+            "repoRuleId": "@@rules_python+//python/uv/private:uv_toolchains_repo.bzl%uv_toolchains_repo",
+            "attributes": {
+              "toolchain_type": "'@@rules_python+//python/uv:uv_toolchain_type'",
+              "toolchain_names": [
+                "none"
+              ],
+              "toolchain_implementations": {
+                "none": "'@@rules_python+//python:none'"
+              },
+              "toolchain_compatible_with": {
+                "none": [
+                  "@platforms//:incompatible"
+                ]
+              },
+              "toolchain_target_settings": {}
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "rules_python+",
+            "bazel_tools",
+            "bazel_tools"
+          ],
+          [
+            "rules_python+",
+            "platforms",
+            "platforms"
+          ]
+        ]
       }
     }
   },
