@@ -542,22 +542,3 @@ sh_binary(
 #     ],
 #     tags = ["manual"],
 # )
-
-# This library lists all the scala files we will be editing in vscode via bloop
-chisel_library(
-    name = "blooplib",
-    srcs = [
-        "//chisel:chiselfiles",
-        "//sby:chiselfiles",
-        "//toolchains/scala:chiselfiles",
-    ],
-    deps = [
-        "@maven//:org_scalatest_scalatest_2_13",
-    ],
-)
-
-# Set up bloop
-scala_bloop(
-    name = "bloop",
-    src = "blooplib",
-)
