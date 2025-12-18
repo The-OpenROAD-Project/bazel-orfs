@@ -195,10 +195,8 @@ def _scala_binary_impl(ctx):
         wrapper = ctx.actions.declare_file(ctx.label.name)
         script = """#!/bin/bash
 set -ex
-# Get the directory where this wrapper script lives (in runfiles/_main/chisel/)
-SCRIPT_DIR=$(cd $(dirname ${{BASH_SOURCE[0]}}) && pwd)
-# Get runfiles root (script is in runfiles/_main/chisel/, so go up 2 levels to get to runfiles/)
-RUNFILES_DIR=$(cd $SCRIPT_DIR/../.. && pwd)
+# HACK! _main/.. is where we find external dependencies
+RUNFILES_DIR=$(cd $PWD/.. && pwd)
 # verilator+ is at runfiles/verilator+
 export VERILATOR_ROOT="$RUNFILES_DIR/verilator+"
 # Workaround for BCR verilator 5.036.bcr.3: Generate verilated_config.h from template
