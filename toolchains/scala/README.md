@@ -74,6 +74,8 @@ This project uses [Bazel BSP](https://github.com/JetBrains/bazel-bsp) (Build Ser
 
 ### Quick Setup
 
+1. **Set up your MODULE.bazel** Copy relevant bits from bazel-orfs MODULE.bazel, don't forget to search bazel-orfs for `semanticdb` and set up the bits in MODULE.bazel as well as BUILD target.
+
 1. **Configure targets** (`.bazelproject` in project root):
 Ensure your `.bazelproject` lists the targets you want to index. You check this [doc](https://ij.bazel.build/docs/project-views.html) more information.
 
@@ -82,7 +84,11 @@ Open the project directory in your preferred editor (VS Code, Zed, etc.). The ed
 
 ### Troubleshooting
 
-**No targets found**:
+Run the bsp setup script, it will diagnose your setup and clean (delete) various files:
+
+    bazelisk run @bazel-orfs//:bsp
+
+### No targets found
 
 * Verify `.bazelproject` exists in project root
 * Check targets validity: `bazel query "//chisel:all"`
@@ -90,7 +96,7 @@ Open the project directory in your preferred editor (VS Code, Zed, etc.). The ed
 * **VS Code**: "Metals: Import Build"
 * **Zed**: Trigger a build server reconnect or restart the editor
 
-**No IntelliSense**:
+### No IntelliSense
 
 * Wait for initial indexing (check status bar)
 * Verify build succeeds via command line
