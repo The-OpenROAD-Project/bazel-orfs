@@ -4,13 +4,15 @@ This directory contains Bazel rule wrappers for Chisel hardware design, built on
 
 ## Architecture
 
-The project uses **BCR rules_scala 7.1.5** from Bazel Central Registry as the underlying Scala toolchain. The Chisel wrappers (`chisel_binary`, `chisel_library`, `chisel_test`) provide a convenient API that:
+The project uses **BCR rules_scala 7.1.5 or newer** (as per `MODULE.bazel`) from Bazel Central Registry as the underlying Scala toolchain. The Chisel wrappers (`chisel_binary`, `chisel_library`, `chisel_test`) provide a convenient API that:
 
-- Automatically includes Chisel 7.2.0 and its dependencies
-- Pre-configures Scala compiler options for Chisel
-- Sets up Verilator and firtool for hardware simulation (tests only)
+* Automatically includes Chisel and its dependencies
+* Pre-configures Scala compiler options for Chisel
+* Sets up Verilator and firtool for hardware simulation (tests only)
 
 ## Usage
+
+For another minimal working example, please refer to [bazel-chisel-verilator-openroad-demo](https://github.com/MrAMS/bazel-chisel-verilator-openroad-demo).
 
 ### chisel_library
 
@@ -24,6 +26,7 @@ chisel_library(
     srcs = ["MyModule.scala"],
     visibility = ["//visibility:public"],
 )
+
 ```
 
 ### chisel_binary
@@ -39,6 +42,7 @@ chisel_binary(
     main_class = "myproject.Generate",
     deps = [":mylib"],
 )
+
 ```
 
 ### chisel_test
@@ -53,23 +57,8 @@ chisel_test(
     srcs = ["MyModuleTest.scala"],
     deps = [":mylib"],
 )
+
 ```
-
-**Note**: Tests run locally (`tags = ["local"]`) to allow Verilator to generate files during simulation.
-
-## Dependencies
-
-The following dependencies are automatically included:
-
-- Chisel 7.2.0 (`org.chipsalliance.chisel`)
-- Chisel plugin for Scala 2.13.17
-- Circe (JSON library)
-- Shapeless (generic programming)
-- Cats (functional programming)
-
-For tests, additional tools are provided:
-- Verilator 5.036 (from BCR)
-- firtool from CIRCT
 
 ## Verilator Integration
 
@@ -81,69 +70,28 @@ The `chisel_test` rule includes workarounds for BCR verilator compatibility:
 
 ## IDE Support with Bazel BSP
 
-This project uses [Bazel BSP](https://github.com/JetBrains/bazel-bsp) (Build Server Protocol) for IDE integration with Metals.
+This project uses [Bazel BSP](https://github.com/JetBrains/bazel-bsp) (Build Server Protocol) for IDE integration. Modern editors like **Zed**, **VS Code**, and **IntelliJ IDEA** can automatically detect and initialize the BSP server via Metals or their respective plugins without manual installation.
 
 ### Quick Setup
 
-1. **Install Bazel BSP**:
-   ```bash
-   cs install bsp
-   ```
+1. **Configure targets** (`.bazelproject` in project root):
+Ensure your `.bazelproject` lists the targets you want to index. You check this [doc](https://ij.bazel.build/docs/project-views.html) more information.
 
-2. **Initialize BSP**:
-   ```bash
-   cd /path/to/bazel-orfs-local
-   bsp
-   ```
-
-3. **Configure targets** (`.bazelproject` in project root):
-   ```
-   targets:
-       //:blooplib
-       //chisel:all
-       //sby:all
-
-   allow_manual_targets_sync: false
-   derive_targets_from_directories: false
-
-   enabled_rules:
-       rules_scala
-       rules_java
-       rules_jvm
-   ```
-
-4. **Build project first**:
-   ```bash
-   bazel build //chisel:codegenlib //chisel:applicationlib
-   ```
-
-5. **Open in VSCode** and Metals will auto-connect to BSP
+2. **Open in Editor**:
+Open the project directory in your preferred editor (VS Code, Zed, etc.). The editor (via Metals) will detect the `.bazelproject` file and automatically initialize the Bazel BSP connection.
 
 ### Troubleshooting
 
 **No targets found**:
-- Verify `.bazelproject` exists in project root
-- Check targets: `bazel query "//chisel:all"`
-- Rebuild BSP index: VSCode → "Metals: Import Build"
 
-**Metals doesn't connect**:
-- Ensure `bsp` is in PATH: `which bsp`
-- Check `.bsp/bazelbsp.json` exists
-- Restart: VSCode → "Metals: Restart Build Server"
+* Verify `.bazelproject` exists in project root
+* Check targets validity: `bazel query "//chisel:all"`
+* Re-import build:
+* **VS Code**: "Metals: Import Build"
+* **Zed**: Trigger a build server reconnect or restart the editor
 
 **No IntelliSense**:
-- Wait for initial indexing (check status bar)
-- Verify build succeeds: `bazel build //chisel:codegenlib`
-- Check logs: VSCode → Output → Metals
 
-### Resources
-
-- [Metals Bazel Documentation](http://scalameta.org/metals/docs/build-tools/bazel/)
-- [Bazel BSP Server](https://github.com/JetBrains/bazel-bsp)
-- [BSP Protocol Specification](https://build-server-protocol.github.io/)
-
-## See Also
-
-- [rules_scala documentation](https://github.com/bazelbuild/rules_scala)
-- [Chisel documentation](https://www.chisel-lang.org/)
-- [Verilator documentation](https://verilator.org/)
+* Wait for initial indexing (check status bar)
+* Verify build succeeds via command line
+* Check logs: Editor Output -> Metals
