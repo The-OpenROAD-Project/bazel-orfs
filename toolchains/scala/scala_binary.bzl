@@ -220,8 +220,6 @@ fi
 if [[ ! -f "$VERILATOR_ROOT/bin/verilator_includer" ]]; then
   ln -sf "$VERILATOR_INCLUDER" "$VERILATOR_ROOT/bin/verilator_includer"
 fi
-# Set VERILATOR_BIN to relative path that chisel expects (bin/verilator)
-export VERILATOR_BIN="bin/verilator"
 # Add verilator bin directory to PATH so chisel can find verilator executable
 export PATH="$VERILATOR_ROOT/bin:$PATH"
 if [[ -n "$TESTBRIDGE_TEST_ONLY" ]]; then
