@@ -5,9 +5,9 @@ load("@aspect_rules_js//js:defs.bzl", "js_binary")
 # load("@bazel-orfs//tools/pin:pin.bzl", "pin_data")
 load("@bazel-orfs//toolchains/scala:chisel.bzl", "chisel_library")
 load("@bazel-orfs//toolchains/scala:scala_bloop.bzl", "scala_bloop")
-load("@bazel_orfs_rules_python//python:defs.bzl", "py_binary")
-load("@bazel_orfs_rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@npm//:defs.bzl", "npm_link_all_packages")
+load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 # Reenable when we add test back in
