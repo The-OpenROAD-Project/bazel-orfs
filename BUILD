@@ -555,3 +555,9 @@ toolchain(
 #     ],
 #     tags = ["manual"],
 # )
+
+py_binary(
+    name = "bsp",
+    srcs = ["bsp.py"],
+    visibility = ["//visibility:public"],
+)
