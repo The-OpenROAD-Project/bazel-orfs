@@ -1,44 +1,97 @@
-# Scala toolchain to work with Chisel
+# Chisel Bazel Rules
 
-This toolchain is adapted to work with Chisel and support vscode with bloop.
+This directory contains Bazel rule wrappers for Chisel hardware design, built on top of [BCR rules_scala](https://github.com/bazelbuild/rules_scala).
 
-One of the problem with bazelbsp is that it invokes bazel, which locks up the GUI as well as the command line.
+## Architecture
 
-bloop on the other hand runs completely independently of Bazel inside vscode
+The project uses **BCR rules_scala 7.1.5 or newer** (as per `MODULE.bazel`) from Bazel Central Registry as the underlying Scala toolchain. The Chisel wrappers (`chisel_binary`, `chisel_library`, `chisel_test`) provide a convenient API that:
 
-## Setting up example
+* Automatically includes Chisel and its dependencies
+* Pre-configures Scala compiler options for Chisel
+* Sets up Verilator and firtool for hardware simulation (tests only)
 
-See ./BUILD.bazel for an example on how to set up `scala_bloop`.
+## Usage
 
-    NOTE! This will erase any existing .metals, .bloop and .bazelbsp folders in the project.
+For another minimal working example, please refer to [bazel-chisel-verilator-openroad-demo](https://github.com/MrAMS/bazel-chisel-verilator-openroad-demo).
 
-Set up bloop files, stop vscode, re-run every time you add and remove a file from the project:
+### chisel_library
 
-    bazelisk run :bloop
+Use for Chisel library targets:
 
-Now run vscode:
+```python
+load("@bazel-orfs//toolchains/scala:chisel.bzl", "chisel_library")
 
-    code .
+chisel_library(
+    name = "mylib",
+    srcs = ["MyModule.scala"],
+    visibility = ["//visibility:public"],
+)
 
-Open Example.scala, start the Metals doctor to verify that "blooplib" is hooked up and working without any serious warnings.
+```
 
-You should now have Scala tooltips, references, etc. for your project.
+### chisel_binary
 
-Add this [workaround](https://github.com/scalacenter/bloop/issues/2711) in .bazelrc:
+Use for Chisel binary targets (e.g., Verilog generators):
 
-    # Stamping the manifest changes the name of `scala-compiler-2.13.17.jar` to
-    # `processed_scala-compiler-2.13.17.jar`, which keeps `bloop` from recognizing
-    # it.
-    # Read more:
-    # https://web.archive.org/web/20250624074624/https://github.com/scalacenter/bloop/blob/b90aaa82e0799b8783b1812f4c07961d4c47ec30/backend/src/main/scala/bloop/ScalaInstance.scala#L73-L75
-    # https://web.archive.org/web/20250624074941/https://github.com/bazel-contrib/rules_jvm_external/issues/786
-    common --@rules_jvm_external//settings:stamp_manifest=false
+```python
+load("@bazel-orfs//toolchains/scala:chisel.bzl", "chisel_binary")
 
+chisel_binary(
+    name = "generate_verilog",
+    srcs = ["Generate.scala"],
+    main_class = "myproject.Generate",
+    deps = [":mylib"],
+)
 
-## Metals doctor healthy example
+```
 
-![alt text](metals-doctor.png)
+### chisel_test
 
-## Intellisense example
+Use for Chisel tests with Verilator support:
 
-![alt text](intellisense.png)
+```python
+load("@bazel-orfs//toolchains/scala:chisel.bzl", "chisel_test")
+
+chisel_test(
+    name = "mymodule_test",
+    srcs = ["MyModuleTest.scala"],
+    deps = [":mylib"],
+)
+
+```
+
+## Verilator Integration
+
+The `chisel_test` rule includes workarounds for BCR verilator compatibility:
+
+1. **Runtime configuration generation**: Generates `verilated.mk` and `verilated_config.h` from templates at test runtime
+2. **Path resolution**: Automatically sets `VERILATOR_ROOT`, `VERILATOR_BIN`, and `PATH`
+3. **Forward compatibility**: Workarounds are conditional and will automatically disable when BCR verilator is fixed
+
+## IDE Support with Bazel BSP
+
+This project uses [Bazel BSP](https://github.com/JetBrains/bazel-bsp) (Build Server Protocol) for IDE integration. Modern editors like **Zed**, **VS Code**, and **IntelliJ IDEA** can automatically detect and initialize the BSP server via Metals or their respective plugins without manual installation.
+
+### Quick Setup
+
+1. **Configure targets** (`.bazelproject` in project root):
+Ensure your `.bazelproject` lists the targets you want to index. You check this [doc](https://ij.bazel.build/docs/project-views.html) more information.
+
+2. **Open in Editor**:
+Open the project directory in your preferred editor (VS Code, Zed, etc.). The editor (via Metals) will detect the `.bazelproject` file and automatically initialize the Bazel BSP connection.
+
+### Troubleshooting
+
+**No targets found**:
+
+* Verify `.bazelproject` exists in project root
+* Check targets validity: `bazel query "//chisel:all"`
+* Re-import build:
+* **VS Code**: "Metals: Import Build"
+* **Zed**: Trigger a build server reconnect or restart the editor
+
+**No IntelliSense**:
+
+* Wait for initial indexing (check status bar)
+* Verify build succeeds via command line
+* Check logs: Editor Output -> Metals

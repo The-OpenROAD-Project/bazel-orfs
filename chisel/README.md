@@ -16,13 +16,9 @@ Create a Chisel test bench module that has one `done` top level output signal to
 
 See BUILD file in this folder and read the test.bzl on how to set up chisel_bench_test().
 
-Unfortunately, there isn't enough disk space in CI to have LLVM + verilator toolchains enabled, so it has been temporarily disabled. To enable, revert the disabling:
+Run the test:
 
-    git revert 60f0a5e5335feca1b0c9a4b8ae087d23a5fb99b2
-
-Now run the test:
-
-    bazelisk test :life_test
+    bazel test :life_test
 
 Output:
 
