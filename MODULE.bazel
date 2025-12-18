@@ -9,7 +9,7 @@ module(
 # NOTE! downgraded googletest to 1.15.2 from 1.17.0 to avoid target 'if_constexpr' error
 bazel_dep(name = "googletest", version = "1.15.2")
 bazel_dep(name = "rules_jvm_external", version = "6.7")
-bazel_dep(name = "rules_java", version = "8.12.0")
+bazel_dep(name = "rules_java", version = "8.14.0")
 bazel_dep(name = "rules_scala", version = "7.1.5")
 bazel_dep(name = "aspect_rules_js", version = "2.1.3")
 bazel_dep(name = "rules_verilator", version = "0.1.0")
