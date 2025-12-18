@@ -155,8 +155,12 @@ if [ -n "$VERILATOR_ROOT" ]; then
 
     # Workaround: Symlink verilator_includer script if missing
     # BCR verilator < 5.036.bcr.4 doesn't include verilator_includer in bin/
+    VERILATOR_INCLUDER=$RUNFILES_DIR/{workspace}/toolchains/verilator/verilator_includer
+    if [ ! -f $VERILATOR_INCLUDER ]; then
+        VERILATOR_INCLUDER="$RUNFILES_DIR/bazel-orfs+/toolchains/verilator/verilator_includer"
+    fi
     if [[ ! -f "$VERILATOR_ROOT/bin/verilator_includer" ]]; then
-        ln -sf "$RUNFILES_DIR/{workspace}/toolchains/verilator/verilator_includer" "$VERILATOR_ROOT/bin/verilator_includer"
+        ln -sf "$VERILATOR_INCLUDER" "$VERILATOR_ROOT/bin/verilator_includer"
     fi
 fi
 
