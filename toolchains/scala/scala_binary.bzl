@@ -215,8 +215,12 @@ if [[ ! -f "$VERILATOR_ROOT/include/verilated.mk" && -f "$VERILATOR_ROOT/include
 fi
 # Workaround for BCR verilator 5.036.bcr.3: Symlink our verilator_includer script
 # if future version includes verilator_includer in bin/, so this workaround won't run
+VERILATOR_INCLUDER=$PWD/toolchains/verilator/verilator_includer
+if [ ! -f $VERILATOR_INCLUDER ]; then
+  VERILATOR_INCLUDER="$RUNFILES_DIR/bazel-orfs+/toolchains/verilator/verilator_includer"
+fi
 if [[ ! -f "$VERILATOR_ROOT/bin/verilator_includer" ]]; then
-  ln -sf "$RUNFILES_DIR/_main/toolchains/verilator/verilator_includer" "$VERILATOR_ROOT/bin/verilator_includer"
+  ln -sf "$VERILATOR_INCLUDER" "$VERILATOR_ROOT/bin/verilator_includer"
 fi
 # Set VERILATOR_BIN to relative path that chisel expects (bin/verilator)
 export VERILATOR_BIN="bin/verilator"
