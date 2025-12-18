@@ -150,9 +150,10 @@ jobs:
           android: true
           dotnet: true
           haskell: true
-          large-packages: true
           docker-images: true
-          swap-storage: true
+          # Set false for speed (~4min -> ~47s); ~20GB savings remain sufficient.
+          large-packages: false
+          swap-storage: false
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
 
