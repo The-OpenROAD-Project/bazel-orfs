@@ -152,7 +152,11 @@ scala_deps.scalatest()  # Provides scalatest framework
 use_repo(scala_deps, "rules_scala_toolchains")
 
 # Register custom Scala toolchain with SemanticDB enabled
-register_toolchains("//:semanticdb_toolchain")
+#
+# NOTE! Do not enable because it causes problems for e.g. OpenROAD
+# that does not need or want semanticdb toolchain
+#
+# register_toolchains("//:semanticdb_toolchain")
 
 maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
 maven.install(
