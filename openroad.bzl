@@ -628,9 +628,14 @@ def _verilog_arguments(files, short = False):
         ),
     }
 
-def _config_content(arguments, paths):
+def _config_content(ctx, arguments, paths):
+    defines_for_stage = {
+        var: value
+        for var, value in ctx.var.items()
+        if var in ALL_STAGE_TO_VARIABLES[ctx.attr._stage]
+    }
     return "".join(
-        sorted(["export {}?={}\n".format(*pair) for pair in arguments.items()]) +
+        sorted(["export {}?={}\n".format(*pair) for pair in (arguments | defines_for_stage).items()]) +
         ["include {}\n".format(path) for path in paths],
     )
 
@@ -920,6 +925,7 @@ def _yosys_impl(ctx):
     ctx.actions.write(
         output = config,
         content = _config_content(
+            ctx,
             all_arguments,
             [file.path for file in ctx.files.extra_configs],
         ),
@@ -1008,6 +1014,7 @@ def _yosys_impl(ctx):
     ctx.actions.write(
         output = config_short,
         content = _config_content(
+            ctx,
             arguments = _hack_away_prefix(
                 arguments = _data_arguments(ctx) |
                             _required_arguments(ctx) |
@@ -1124,7 +1131,11 @@ def _yosys_impl(ctx):
 
 orfs_synth = rule(
     implementation = _yosys_impl,
-    attrs = yosys_attrs() | synth_attrs(),
+    attrs = yosys_attrs() | synth_attrs() | {
+        "_stage": attr.string(
+            default = "synth",
+        ),
+    },
     provides = [
         DefaultInfo,
         OutputGroupInfo,
@@ -1179,6 +1190,7 @@ def _make_impl(
     ctx.actions.write(
         output = config,
         content = _config_content(
+            ctx,
             arguments = all_arguments,
             paths = [file.path for file in ctx.files.extra_configs],
         ),
@@ -1240,6 +1252,7 @@ def _make_impl(
     ctx.actions.write(
         output = config_short,
         content = _config_content(
+            ctx,
             arguments = _hack_away_prefix(
                 arguments = extra_arguments |
                             _data_arguments(ctx) |
@@ -1389,7 +1402,11 @@ orfs_floorplan = rule(
             "2_floorplan.sdc",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr(),
+    attrs = openroad_attrs() | renamed_inputs_attr() | {
+        "_stage": attr.string(
+            default = "floorplan",
+        ),
+    },
     provides = flow_provides(),
     executable = True,
 )
@@ -1419,7 +1436,11 @@ orfs_place = rule(
             "3_place.sdc",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr(),
+    attrs = openroad_attrs() | renamed_inputs_attr() | {
+        "_stage": attr.string(
+            default = "place",
+        ),
+    },
     provides = flow_provides(),
     executable = True,
 )
@@ -1443,7 +1464,11 @@ orfs_cts = rule(
             "4_cts.sdc",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr(),
+    attrs = openroad_attrs() | renamed_inputs_attr() | {
+        "_stage": attr.string(
+            default = "cts",
+        ),
+    },
     provides = flow_provides(),
     executable = True,
 )
@@ -1475,7 +1500,11 @@ orfs_grt = rule(
             "5_1_grt.sdc",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr(),
+    attrs = openroad_attrs() | renamed_inputs_attr() | {
+        "_stage": attr.string(
+            default = "grt",
+        ),
+    },
     provides = flow_provides(),
     executable = True,
 )
@@ -1506,7 +1535,11 @@ orfs_route = rule(
             "5_route.sdc",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr(),
+    attrs = openroad_attrs() | renamed_inputs_attr() | {
+        "_stage": attr.string(
+            default = "route",
+        ),
+    },
     provides = flow_provides(),
     executable = True,
 )
@@ -1540,7 +1573,11 @@ orfs_final = rule(
             "6_final.v",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr(),
+    attrs = openroad_attrs() | renamed_inputs_attr() | {
+        "_stage": attr.string(
+            default = "final",
+        ),
+    },
     provides = flow_provides(),
     executable = True,
 )
@@ -1603,7 +1640,11 @@ orfs_abstract = rule(
             "ABSTRACT_SOURCE": _extensionless_basename(ctx.attr.src[OrfsInfo].odb),
         },
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr(),
+    attrs = openroad_attrs() | renamed_inputs_attr() | {
+        "_stage": attr.string(
+            default = "generate_abstract",
+        ),
+    },
     provides = flow_provides(),
     executable = True,
 )
