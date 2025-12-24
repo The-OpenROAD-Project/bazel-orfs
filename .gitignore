@@ -11,3 +11,6 @@ external
 
 .bsp/
 .bazelbsp/
+
+# Optuna results
+optuna/results/

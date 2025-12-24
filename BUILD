@@ -138,6 +138,7 @@ orfs_flow(
     mock_area = 0.7,
     stage_sources = LB_STAGE_SOURCES,
     verilog_files = LB_VERILOG_FILES,
+    visibility = ["//optuna:__pkg__"],
 )
 
 # buildifier: disable=duplicated-name
