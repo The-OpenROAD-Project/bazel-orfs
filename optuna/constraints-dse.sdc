@@ -5,9 +5,7 @@ set sdc_version 2.0
 # Tighter constraints than default to make PLACE_DENSITY optimization meaningful
 #
 
-# Run at ~13.9 GHz (72 ps period - challenging but achievable)
-# With timing-driven optimization, some PLACE_DENSITY values should meet this
-set clk_period 72
+set clk_period $::env(ABC_CLOCK_PERIOD_IN_PS)
 
 # Covers all clock naming types in SRAMs and reg files
 set clock_ports [concat [get_ports -quiet *clk] [get_ports -quiet *clock]]

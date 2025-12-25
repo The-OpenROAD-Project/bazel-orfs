@@ -10,14 +10,12 @@ exports_files([
 
 # DSE-specific flow configuration with tighter constraints
 orfs_flow(
-    name = "lb_32x128",
+    name = "mock-cpu",
     abstract_stage = "cts",
     arguments = {
-        # Tight timing constraints for meaningful DSE
         "CORE_ASPECT_RATIO": "0.5",
         "CORE_UTILIZATION": "50",  # Higher utilization
         "PLACE_DENSITY": "0.20",
-        "PLACE_PINS_ARGS": "-min_distance 1 -min_distance_in_tracks",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
         # Enable timing-driven optimization for DSE
         "GPL_TIMING_DRIVEN": "1",  # Enable timing-driven placement
@@ -31,31 +29,34 @@ orfs_flow(
         "SKIP_INCREMENTAL_REPAIR": "1",
         "SKIP_REPORT_METRICS": "1",
         "TAPCELL_TCL": "",
+        # Tight timing constraints for meaningful DSE
+        "ABC_CLOCK_PERIOD_IN_PS": "1000",
+        # Synthesis
+        "SYNTH_HDL_FRONTEND": "slang",
     },
-    mock_area = 0.7,
+    top = "mock_cpu",
     sources = {
         "SDC_FILE": [":constraints-dse.sdc"],
-        "IO_CONSTRAINTS": ["//:io-sram"],
     },
     tags = ["manual"],
-    verilog_files = ["//:test/mock/lb_32x128.sv"],
+    verilog_files = [":mock-cpu.sv"],
 )
 
 # Extract timing information from CTS
 orfs_run(
-    name = "lb_32x128_timing",
-    src = ":lb_32x128_cts",
-    outs = ["lb_32x128_timing.txt"],
-    arguments = {"OUTFILE": "$(location lb_32x128_timing.txt)"},
+    name = "mock-cpu_timing",
+    src = ":mock-cpu_cts",
+    outs = ["mock-cpu_timing.txt"],
+    arguments = {"OUTFILE": "$(location mock-cpu_timing.txt)"},
     script = ":extract_timing.tcl",
 )
 
 # Extract PPA (Performance, Power, Area) metrics from CTS
 orfs_run(
-    name = "lb_32x128_ppa",
-    src = ":lb_32x128_cts",
-    outs = ["lb_32x128_ppa.txt"],
-    arguments = {"OUTFILE": "$(location lb_32x128_ppa.txt)"},
+    name = "mock-cpu_ppa",
+    src = ":mock-cpu_cts",
+    outs = ["mock-cpu_ppa.txt"],
+    arguments = {"OUTFILE": "$(location mock-cpu_ppa.txt)"},
     script = ":extract_ppa.tcl",
 )
 
