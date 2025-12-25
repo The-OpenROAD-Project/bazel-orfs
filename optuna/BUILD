@@ -61,7 +61,7 @@ orfs_run(
 
 # Main DSE optimizer: Find optimal CORE_UTILIZATION and PLACE_DENSITY
 py_binary(
-    name = "_optimize_dse_impl",
+    name = "run",
     srcs = ["optimize_dse.py"],
     main = "optimize_dse.py",
     tags = ["manual"],
