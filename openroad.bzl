@@ -629,10 +629,11 @@ def _verilog_arguments(files, short = False):
     }
 
 def _config_content(ctx, arguments, paths):
+    has_stage = hasattr(ctx.attr, "_stage")
     defines_for_stage = {
         var: value
         for var, value in ctx.var.items()
-        if var in ALL_STAGE_TO_VARIABLES[ctx.attr._stage]
+        if has_stage and var in ALL_STAGE_TO_VARIABLES[ctx.attr._stage]
     }
     return "".join(
         sorted(["export {}?={}\n".format(*pair) for pair in (arguments | defines_for_stage).items()]) +
