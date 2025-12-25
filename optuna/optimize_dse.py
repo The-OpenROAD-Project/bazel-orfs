@@ -35,23 +35,30 @@ def find_workspace_root() -> str:
     return os.environ.get("BUILD_WORKSPACE_DIRECTORY", os.getcwd())
 
 
-def build_design(core_util: int, place_density: float, workspace_root: str) -> dict:
+def build_design(
+    core_util: int, place_density: float, workspace_root: str, trial_number: int
+) -> dict:
     """Build design with given parameters and extract PPA metrics."""
+    trial_dir = os.path.join(workspace_root, "optuna/trial_runs", f"{trial_number}")
+    os.makedirs(trial_dir, exist_ok=True)
+    arguments = [
+        "bazelisk",
+        f"--output_base={trial_dir}",
+        "build",
+        f"--define=CORE_UTILIZATION={core_util}",
+        f"--define=PLACE_DENSITY={place_density:.4f}",
+        "//optuna:lb_32x128_cts",
+        "//optuna:lb_32x128_ppa",
+    ]
     print(
         f"\n{'=' * 70}\n"
         f"CORE_UTILIZATION = {core_util}%, PLACE_DENSITY = {place_density:.3f}\n"
+        f"{subprocess.list2cmdline(arguments)}\n"
         f"{'=' * 70}"
     )
 
     result = subprocess.run(
-        [
-            "bazelisk",
-            "build",
-            f"--define=CORE_UTILIZATION={core_util}",
-            f"--define=PLACE_DENSITY={place_density:.4f}",
-            "//optuna:lb_32x128_cts",
-            "//optuna:lb_32x128_ppa",
-        ],
+        arguments,
         capture_output=True,
         text=True,
         timeout=300,
@@ -70,7 +77,15 @@ def build_design(core_util: int, place_density: float, workspace_root: str) -> d
         }
 
     # Parse PPA metrics - use absolute path from workspace root
-    ppa_file = os.path.join(workspace_root, "bazel-bin/optuna/lb_32x128_ppa.txt")
+    bazel_bin = subprocess.run(
+        ["bazelisk", f"--output_base={trial_dir}", "info", "bazel-bin"],
+        check=True,
+        capture_output=True,
+        text=True,
+        cwd=workspace_root,
+    ).stdout.strip()
+
+    ppa_file = os.path.join(bazel_bin, "optuna/lb_32x128_ppa.txt")
     metrics = {}
     try:
         with open(ppa_file) as f:
@@ -113,7 +128,7 @@ def objective_single(trial: optuna.Trial, args, workspace_root: str) -> float:
         "PLACE_DENSITY", args.min_density, args.max_density
     )
 
-    metrics = build_design(core_util, place_density, workspace_root)
+    metrics = build_design(core_util, place_density, workspace_root, trial.number)
 
     # Store metrics
     trial.set_user_attr("area", metrics["cell_area"])
@@ -132,7 +147,7 @@ def objective_multi(trial: optuna.Trial, args, workspace_root: str) -> tuple:
         "PLACE_DENSITY", args.min_density, args.max_density
     )
 
-    metrics = build_design(core_util, place_density, workspace_root)
+    metrics = build_design(core_util, place_density, workspace_root, trial.number)
 
     # Store metrics
     trial.set_user_attr("area", metrics["cell_area"])
@@ -780,6 +795,17 @@ def plot_results(study: optuna.Study, multi_objective: bool, output_file: str):
     print(f"✓ Plots saved to {os.path.abspath(output_file)}")
 
 
+def run_study(optimize_fn, study_args, n_trials, show_progress_bar, n_jobs):
+    study = optuna.create_study(**study_args)
+    study.optimize(
+        optimize_fn,
+        n_trials=n_trials,
+        show_progress_bar=show_progress_bar,
+        n_jobs=n_jobs,
+    )
+    return study
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Optuna-based DSE for optimal CORE_UTILIZATION and PLACE_DENSITY"
@@ -850,31 +876,32 @@ def main():
     print("=" * 70)
 
     # Create study
-    if args.multi_objective:
-        study = optuna.create_study(
-            directions=["minimize", "minimize"],  # Minimize area and power
-            sampler=optuna.samplers.TPESampler(
-                seed=args.seed, constraints_func=constraints
-            ),
-        )
-        study.optimize(
-            lambda trial: objective_multi(trial, args, workspace_root),
-            n_trials=args.n_trials,
-            show_progress_bar=True,
-        )
-    else:
-        study = optuna.create_study(
-            direction="minimize",  # Minimize area
-            sampler=optuna.samplers.TPESampler(
-                seed=args.seed, constraints_func=constraints
-            ),
-        )
-        study.optimize(
-            lambda trial: objective_single(trial, args, workspace_root),
-            n_trials=args.n_trials,
-            show_progress_bar=True,
-        )
+    n_jobs = os.cpu_count()  # Use all CPU cores
 
+    if args.multi_objective:
+        study_args = dict(
+            directions=["minimize", "minimize"],
+            sampler=optuna.samplers.TPESampler(
+                seed=args.seed, constraints_func=constraints
+            ),
+        )
+        optimize_fn = lambda trial: objective_multi(trial, args, workspace_root)
+    else:
+        study_args = dict(
+            direction="minimize",
+            sampler=optuna.samplers.TPESampler(
+                seed=args.seed, constraints_func=constraints
+            ),
+        )
+        optimize_fn = lambda trial: objective_single(trial, args, workspace_root)
+
+    study = run_study(
+        optimize_fn=optimize_fn,
+        study_args=study_args,
+        n_trials=args.n_trials,
+        show_progress_bar=True,
+        n_jobs=n_jobs,
+    )
     # Print results
     print(f"\n{'=' * 70}\nResults\n{'=' * 70}")
 
