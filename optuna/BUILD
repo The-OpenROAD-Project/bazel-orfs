@@ -73,11 +73,11 @@ py_binary(
     name = "_optimize_dse_impl",
     srcs = ["optimize_dse.py"],
     main = "optimize_dse.py",
+    tags = ["manual"],
+    visibility = ["//visibility:public"],
     deps = [
-        "@bazel-orfs-pip//optuna",
         "@bazel-orfs-pip//matplotlib",
         "@bazel-orfs-pip//numpy",
+        "@bazel-orfs-pip//optuna",
     ],
-    visibility = ["//visibility:public"],
-    tags = ["manual"],
 )
