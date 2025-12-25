@@ -23,19 +23,19 @@ Parameter optimization using Optuna to find optimal design parameter combination
 
 ```bash
 # Single-objective: Minimize area
-bazelisk run //optuna:_optimize_dse_impl -- --n-trials 20
+bazelisk run //optuna:run -- --n-trials 20
 
 # Multi-objective: Minimize area and power (Pareto frontier)
-bazelisk run //optuna:_optimize_dse_impl -- --multi-objective --n-trials 30
+bazelisk run //optuna:run -- --multi-objective --n-trials 30
 
 # Custom parameter ranges
-bazelisk run //optuna:_optimize_dse_impl -- \
+bazelisk run //optuna:run -- \
   --min-util 30 --max-util 70 \
   --min-density 0.2 --max-density 0.7 \
   --n-trials 25
 
 # View help
-bazelisk run //optuna:_optimize_dse_impl -- --help
+bazelisk run //optuna:run -- --help
 ```
 
 ## Command Line Options
