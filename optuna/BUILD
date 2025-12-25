@@ -8,19 +8,12 @@ exports_files([
     "constraints-dse.sdc",
 ])
 
-# SDC constraints filegroup for DSE
-filegroup(
-    name = "constraints-dse",
-    srcs = ["constraints-dse.sdc"],
-)
-
 # DSE-specific flow configuration with tighter constraints
 orfs_flow(
     name = "lb_32x128",
     abstract_stage = "cts",
     arguments = {
         # Tight timing constraints for meaningful DSE
-        "SDC_FILE": "$(location :constraints-dse)",  # 70ps clock
         "CORE_ASPECT_RATIO": "0.5",
         "CORE_UTILIZATION": "50",  # Higher utilization
         "PLACE_DENSITY": "0.20",
@@ -38,16 +31,14 @@ orfs_flow(
         "SKIP_INCREMENTAL_REPAIR": "1",
         "SKIP_REPORT_METRICS": "1",
         "TAPCELL_TCL": "",
-        "IO_CONSTRAINTS": "$(location //:io-sram)",
     },
     mock_area = 0.7,
-    stage_sources = {
-        "floorplan": ["//:io-sram"],
-        "place": ["//:io-sram"],
-        "synth": [":constraints-dse"],
+    sources = {
+        "SDC_FILE": [":constraints-dse.sdc"],
+        "IO_CONSTRAINTS": ["//:io-sram"],
     },
-    verilog_files = ["//:test/mock/lb_32x128.sv"],
     tags = ["manual"],
+    verilog_files = ["//:test/mock/lb_32x128.sv"],
 )
 
 # Extract timing information from CTS
