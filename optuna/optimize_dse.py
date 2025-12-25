@@ -49,8 +49,8 @@ def build_design(core_util: int, place_density: float, workspace_root: str) -> d
             "build",
             f"--define=CORE_UTILIZATION={core_util}",
             f"--define=PLACE_DENSITY={place_density:.4f}",
-            "//optuna:lb_32x128_cts",
-            "//optuna:lb_32x128_ppa",
+            "//optuna:mock-cpu_cts",
+            "//optuna:mock-cpu_ppa",
         ],
         capture_output=True,
         text=True,
@@ -70,7 +70,7 @@ def build_design(core_util: int, place_density: float, workspace_root: str) -> d
         }
 
     # Parse PPA metrics - use absolute path from workspace root
-    ppa_file = os.path.join(workspace_root, "bazel-bin/optuna/lb_32x128_ppa.txt")
+    ppa_file = os.path.join(workspace_root, "bazel-bin/optuna/mock-cpu_ppa.txt")
     metrics = {}
     try:
         with open(ppa_file) as f:
