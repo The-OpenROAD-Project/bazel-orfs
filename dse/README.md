@@ -1,0 +1,88 @@
+# Design Space Exploration (DSE) Parameterization with Bazel
+
+This project demonstrates how to use **Bazel build settings** and a custom `param` rule to manage and export design parameters for hardware design space exploration (DSE).
+
+## Use Case
+
+Suppose you want to sweep or optimize parameters such as **core utilization** and **placement density** in your hardware design flow. This setup allows you to:
+
+- Define parameters as Bazel build settings.
+- Map those settings to environment variables or configuration files.
+- Easily pass parameter values to downstream tools or scripts.
+
+## How It Works
+
+1. **Define Build Settings**
+
+   Use `string_flag` to declare build settings for each parameter:
+
+   ```python
+   string_flag(
+       name = "density",
+       build_setting_default = "50",
+   )
+
+   string_flag(
+       name = "utilization",
+       build_setting_default = "45",
+   )
+   ```
+
+2. **Convert Parameters to JSON for Flow Graphs**
+
+   The system converts configuration parameters to a `.json` file that can be fed into a static `orfs_flow()` graph. Each stage in the flow runs an action to whittle the `.json` file down to just the parameters needed for that stage.
+
+   This allows configuring the entire `orfs_flow()` graph directly from the Bazel command line using `--//path:parameter=value` pairs defined by the user.
+
+3. **Map Build Settings to Parameter Names**
+
+   Use a custom `param` rule to map Bazel flags to parameter names:
+
+   ```python
+   param(
+       name = "params",
+       parameters = {
+           ":density": "PLACE_DENSITY",
+           ":utilization": "CORE_UTILIZATION",
+       },
+   )
+   ```
+
+4. **Build and Export Parameters**
+
+   Build the `params` target with custom values for each parameter:
+
+   ```sh
+   bazelisk build //dse:params --//dse:utilization="42" --//dse:density="43"
+   ```
+
+   This generates a JSON file with the selected parameter values:
+
+   ```sh
+   cat $(bazelisk info bazel-bin)/dse/params.json
+   ```
+
+   Output:
+   ```json
+   {
+       "CORE_UTILIZATION": "42",
+       "PLACE_DENSITY": "43"
+   }
+   ```
+
+## Benefits
+
+- **Reproducibility:** All parameter values are tracked by Bazel, ensuring reproducible builds.
+- **Automation:** Easily sweep parameters in scripts or optimization loops.
+- **Integration:** Exported parameters can be consumed by downstream tools (e.g., synthesis, place-and-route, simulation).
+- **Flexible Flow Configuration:** The `.json` parameter file enables dynamic configuration of each stage in the `orfs_flow()` graph, all from the Bazel command line.
+
+## Example Workflow
+
+1. Set desired parameter values via Bazel flags.
+2. Build the `params` target.
+3. Use the generated `params.json` in your design flow or as input to an `orfs_flow()` graph.
+
+---
+
+This approach is ideal for hardware design flows that require systematic parameter exploration, dynamic flow configuration, and tight integration with Bazel-based build systems.
