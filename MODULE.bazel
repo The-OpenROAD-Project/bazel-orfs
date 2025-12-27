@@ -6,6 +6,7 @@ module(
     compatibility_level = 1,
 )
 
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
 # NOTE! downgraded googletest to 1.15.2 from 1.17.0 to avoid target 'if_constexpr' error
 bazel_dep(name = "googletest", version = "1.15.2")
 bazel_dep(name = "rules_jvm_external", version = "6.7")
