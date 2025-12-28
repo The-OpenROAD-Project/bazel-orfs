@@ -1,5 +1,6 @@
 """Rules for the building the OpenROAD-flow-scripts stages"""
 
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     "@config//:global_config.bzl",
     "CONFIG_MAKEFILE",
@@ -400,6 +401,10 @@ def orfs_attrs():
             allow_files = True,
             default = [],
         ),
+        "settings": attr.string_keyed_label_dict(
+            doc = "Arguments with build settings.",
+            providers = [BuildSettingInfo],
+        ),
         "extra_configs": attr.label_list(
             doc = "List of additional flow configuration files.",
             allow_files = True,
@@ -635,8 +640,9 @@ def _config_content(ctx, arguments, paths):
         for var, value in ctx.var.items()
         if has_stage and var in ALL_STAGE_TO_VARIABLES[ctx.attr._stage]
     }
+    settings = {var: value[BuildSettingInfo].value for var, value in ctx.attr.settings.items()}
     return "".join(
-        sorted(["export {}?={}\n".format(*pair) for pair in (arguments | defines_for_stage).items()]) +
+        sorted(["export {}?={}\n".format(*pair) for pair in (arguments | defines_for_stage | settings).items()]) +
         ["include {}\n".format(path) for path in paths],
     )
 
@@ -1757,7 +1763,7 @@ ALL_VARIABLE_TO_STAGES = {
     for variable in _union(*ALL_STAGE_TO_VARIABLES.values())
 }
 
-def get_stage_args(stage, stage_arguments, arguments, sources):
+def get_stage_args(stage, stage_arguments = {}, arguments = {}, sources = {}):
     """Returns the arguments for a specific stage.
 
     Args:
@@ -1770,13 +1776,19 @@ def get_stage_args(stage, stage_arguments, arguments, sources):
     """
     unsorted_dict = (
         {
-            arg: " ".join(_map(lambda v: "$(locations {})".format(v), value))
-            for arg, value in sources.items()
-            if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLE_TO_STAGES
-        } |
-        {
             arg: value
-            for arg, value in arguments.items()
+            for arg, value in (
+                {
+                    arg: " ".join(_map(lambda v: "$(locations {})".format(v), value))
+                    for arg, value in sources.items()
+                    if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLE_TO_STAGES
+                } |
+                {
+                    arg: value
+                    for arg, value in arguments.items()
+                    if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLE_TO_STAGES
+                }
+            ).items()
             if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLE_TO_STAGES
         } |
         stage_arguments.get(stage, {})
@@ -1831,6 +1843,7 @@ def orfs_flow(
         mock_area = None,
         previous_stage = {},
         pdk = None,
+        settings = {},
         stage_data = {},
         test_kwargs = {},
         **kwargs):
@@ -1852,6 +1865,7 @@ def orfs_flow(
       variant: name of the target variant, added right after the module name
       mock_area: floating point number, scale the die width/height by this amount, default no scaling
       previous_stage: a dictionary with the input for a stage, default is previous stage. Useful when running experiments that share preceeding stages, like share synthesis for floorplan variants.
+      settings: dictionary with variable to BuildSettingInfo mappings
       pdk: name of the PDK to use, default is asap7
       stage_data: dictionary keyed by ORFS stages with lists of stage-specific data files
       test_kwargs: dictionary of arguments to pass to orfs_test
@@ -1879,6 +1893,7 @@ def orfs_flow(
         previous_stage = previous_stage,
         pdk = pdk,
         stage_data = stage_data,
+        settings = settings,
         test_kwargs = test_kwargs,
         **kwargs
     )
@@ -1910,6 +1925,7 @@ def orfs_flow(
         pdk = pdk,
         stage_data = stage_data,
         mock_area = True,
+        settings = settings,
         **kwargs
     )
 
@@ -2004,6 +2020,7 @@ def _orfs_pass(
         abstract_variant,
         previous_stage,
         pdk,
+        settings,
         stage_data,
         test_kwargs = {},
         mock_area = False,
@@ -2050,6 +2067,10 @@ def _orfs_pass(
             deps = macros,
             extra_configs = extra_configs.get(synth_step.stage, []),
             module_top = top,
+            settings = get_stage_args(
+                synth_step.stage,
+                arguments = settings,
+            ),
             variant = variant,
             verilog_files = verilog_files,
             pdk = pdk,
@@ -2080,6 +2101,10 @@ def _orfs_pass(
                    data,
             extra_configs = extra_configs.get(step.stage, []),
             variant = variant,
+            settings = get_stage_args(
+                step.stage,
+                arguments = settings,
+            ),
             **(
                 kwargs |
                 _kwargs(
