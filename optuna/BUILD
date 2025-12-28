@@ -32,7 +32,6 @@ orfs_flow(
         "SKIP_REPORT_METRICS": "1",
         "TAPCELL_TCL": "",
     },
-    mock_area = 0.7,
     sources = {
         "SDC_FILE": [":constraints-dse.sdc"],
         "IO_CONSTRAINTS": ["//:io-sram"],
