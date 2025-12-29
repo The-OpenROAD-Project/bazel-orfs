@@ -4,7 +4,9 @@ This project demonstrates how to use **Bazel build settings** with orfs_flow() `
 
 ## Use Case
 
-Suppose you want to sweep or optimize parameters such as **core utilization** and **placement density** in your hardware design flow. This setup allows you to:
+Suppose you want to sweep or optimize parameters such as **core utilization** and **placement density** in your hardware design flow.
+
+This setup allows you to:
 
 - Define parameters as Bazel build settings.
 - Map those settings to orfs_flow() `settings` variables
@@ -19,7 +21,7 @@ Suppose you want to sweep or optimize parameters such as **core utilization** an
    ```python
    string_flag(
        name = "density",
-       build_setting_default = "50",
+       build_setting_default = "0.5",
    )
 
    string_flag(
@@ -28,43 +30,50 @@ Suppose you want to sweep or optimize parameters such as **core utilization** an
    )
    ```
 
-2. **Convert Parameters to JSON for Flow Graphs**
-
-   The system converts configuration parameters to a `.json` file that can be fed into a static `orfs_flow()` graph. Each stage in the flow runs an action to whittle the `.json` file down to just the parameters needed for that stage.
-
-   This allows configuring the entire `orfs_flow()` graph directly from the Bazel command line using `--//path:parameter=value` pairs defined by the user.
-
-3. **Map Build Settings to Parameter Names**
-
-   Use a custom `param` rule to map Bazel flags to parameter names:
+2. **Use build settings in orfs_flow()**
 
    ```python
-   param(
-       name = "params",
-       parameters = {
-           ":density": "PLACE_DENSITY",
-           ":utilization": "CORE_UTILIZATION",
-       },
+   orfs_flow(
+      name = "lb_32x128",
+      abstract_stage = "place",
+      arguments = {
+         "CORE_ASPECT_RATIO": "0.5",
+         ...
+      },
+      settings = {
+         "CORE_UTILIZATION": ":utilization",
+         "PLACE_DENSITY": ":density",
+      },
+      ...
    )
    ```
 
-4. **Build and Export Parameters**
+2. **Observe that Settings are used**
 
-   Build the `params` target with custom values for each parameter:
+   The below prints out the ORFS parameters and we observe that we can override the values on the command line:
 
    ```sh
-   bazelisk run --//dse:utilization="42" --//dse:density="43" //dse:lb_32x128_floorplan_deps /tmp/x print-CORE_UTILIZATION print-PLACE_DENSITY
+   bazelisk run --//dse:utilization="42" --//dse:density="0.43" //dse:lb_32x128_floorplan_deps /tmp/x print-CORE_UTILIZATION print-PLACE_DENSITY
    ```
 
    Outputs:
 
    ```sh
    CORE_UTILIZATION = 42
-   PLACE_DENSITY = 43
+   PLACE_DENSITY = 0.43
    ```
+3. **Observe distribution of parameters to stages**:
 
+   The parameters are only distributed to the relevant stages, so for the synthesis stage, we observe default ORFS values, i.e. we don't have to re-run synthesis when floorplan/place settings change.
+
+   ```sh
+   $ bazelisk run --//dse:utilization="42" --//dse:density="43" //dse:lb_32x128_synth_deps /tmp/x print-CORE_UTILIZATION
+   CORE_UTILIZATION =
+   PLACE_DENSITY = 0.60
+   ```
 ## Benefits
 
 - **Reproducibility:** All parameter values are tracked by Bazel, ensuring reproducible builds.
 - **Automation:** Easily sweep parameters in scripts or optimization loops.
 - **Integration:** Exported parameters can be consumed by downstream tools (e.g., synthesis, place-and-route, simulation).
+- **Parallelism by Bazel:** Bazel handles parallelism more efficiently than Optuna would if we were to instantiate Bazel multiple times as the cost of the Bazel server is paid once and Bazel improves provisioning by not running too many processes at once, it defaults to one action per thread.
