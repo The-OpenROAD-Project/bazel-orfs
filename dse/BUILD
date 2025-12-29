@@ -1,18 +1,20 @@
 load("@bazel-orfs//:openroad.bzl", "orfs_flow")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 
-string_flag(
-    name = "density",
+N = 2
+
+[string_flag(
+    name = "density{}".format(i),
     build_setting_default = "50",
-)
+) for i in range(N)]
 
-string_flag(
-    name = "utilization",
+[string_flag(
+    name = "utilization{}".format(i),
     build_setting_default = "47",
-)
+) for i in range(N)]
 
-orfs_flow(
-    name = "lb_32x128",
+[orfs_flow(
+    name = "lb_32x128_{}".format(i),
     abstract_stage = "place",
     arguments = {
         "CORE_ASPECT_RATIO": "0.5",
@@ -32,13 +34,14 @@ orfs_flow(
         "TAPCELL_TCL": "",
     },
     settings = {
-        "CORE_UTILIZATION": ":utilization",
-        "PLACE_DENSITY": ":density",
+        "CORE_UTILIZATION": ":utilization{}".format(i),
+        "PLACE_DENSITY": ":density{}".format(i),
     },
     sources = {
         "SDC_FILE": ["//optuna:constraints-dse.sdc"],
         "IO_CONSTRAINTS": ["//:io-sram"],
     },
     tags = ["manual"],
+    top = "lb_32x128",
     verilog_files = ["//:test/mock/lb_32x128.sv"],
-)
+) for i in range(N)]
