@@ -7,13 +7,19 @@ git fetch origin --quiet
 
 OUTPUT_LINES=()
 EMPTY_BRANCHES=()
+CURRENT_BRANCH=main
 for br in $(git branch -r --list origin/* | grep -v '\->'); do
+    BRANCH_NAME="${br#origin/}"
+    # Skip current branch (main/master/etc)
+    if [ "$BRANCH_NAME" = "$CURRENT_BRANCH" ]; then
+        continue
+    fi
     DIFF_COUNT=$(git cherry HEAD "$br" | grep "^+" | wc -l)
     if [ "$DIFF_COUNT" -eq 0 ]; then
-        OUTPUT_LINES+=("EMPTY: 🗑️  ${br#origin/} is EMPTY (Fully merged/cherry-picked)")
-        EMPTY_BRANCHES+=("${br#origin/}")
+        OUTPUT_LINES+=("EMPTY: 🗑️  $BRANCH_NAME is EMPTY (Fully merged/cherry-picked)")
+        EMPTY_BRANCHES+=("$BRANCH_NAME")
     else
-        OUTPUT_LINES+=("ACTIVE: 🌱 ${br#origin/} is ACTIVE ($DIFF_COUNT unique commits)")
+        OUTPUT_LINES+=("ACTIVE: 🌱 $BRANCH_NAME is ACTIVE ($DIFF_COUNT unique commits)")
     fi
 done
 
