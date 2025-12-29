@@ -31,7 +31,6 @@ orfs_flow(
         "SKIP_REPORT_METRICS": "1",
         "TAPCELL_TCL": "",
     },
-    mock_area = 0.7,
     settings = {
         "CORE_UTILIZATION": ":utilization",
         "PLACE_DENSITY": ":density",
