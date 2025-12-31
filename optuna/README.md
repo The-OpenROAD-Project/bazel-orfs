@@ -25,7 +25,7 @@ Side note: ORFS has a large number of small designs for testing purposes, wherea
 
 ## 3D HTML intearctvie pareto front snapshot
 
-![3D pareto from](screenshots/optuna_dse_results.html)
+![3D pareto front](https://raw.githack.com/The-OpenROAD-Project/bazel-orfs/refs/heads/main/optuna/screenshots/optuna_dse_results.html)
 
 ## Quick Start
 
