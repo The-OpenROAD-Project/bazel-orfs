@@ -12,14 +12,35 @@ Experimental Setup:
   - Objective: Minimize area (single-objective) or area+power (multi-objective)
 """
 
+
 import argparse
 import os
 import subprocess
 import sys
 from typing import List
 import itertools
+import logging
 
 import optuna
+
+
+def setup_logger(log_filename: str):
+    """Set up a logger that writes to both a file and stdout."""
+    logger = logging.getLogger("dse_logger")
+    logger.setLevel(logging.INFO)
+    # Remove any existing handlers
+    logger.handlers.clear()
+    # File handler
+    fh = logging.FileHandler(log_filename)
+    fh.setLevel(logging.INFO)
+    fh.setFormatter(logging.Formatter("%(message)s"))
+    # Stream handler (stdout)
+    sh = logging.StreamHandler(sys.stdout)
+    sh.setLevel(logging.INFO)
+    sh.setFormatter(logging.Formatter("%(message)s"))
+    logger.addHandler(fh)
+    logger.addHandler(sh)
+    return logger
 
 
 def find_workspace_root() -> str:
@@ -65,7 +86,7 @@ def build_designs(
             )
         )
     )
-    print(subprocess.list2cmdline(cmd))
+    log.info(subprocess.list2cmdline(cmd))
     result = subprocess.run(
         cmd,
         cwd=workspace_root,  # Run in workspace root
@@ -104,14 +125,14 @@ def build_designs(
         trials[i].set_user_attr("area", area)
         trials[i].set_user_attr("compute_per_energy", compute / energy)
         trials[i].set_user_attr("compute_per_time", compute)
-        print(
+        log.info(
             f"CORE_UTILIZATION={core_util[i]}%, "
             f"PLACE_DENSITY={place_density[i]:.3f}, "
             f"NUM_CORES={num_cores[i]}, "
             f"PIPELINE_DEPTH={pipeline_depth[i]}, "
             f"WORK_PER_STAGE={work_per_stage[i]}"
         )
-        print(
+        log.info(
             f"AREA={area:.2f}, "
             f"COMPUTE/ENERGY={compute/energy:.2f}, "
             f"COMPUTE/TIME={compute:.2f}"
@@ -198,6 +219,9 @@ def main():
     if not os.path.isabs(output_dir):
         output_dir = os.path.join(workspace_root, output_dir)
     os.makedirs(output_dir, exist_ok=True)
+    global log
+    log_file_name = os.path.join(output_dir, "dse.log")
+    log = setup_logger(log_file_name)
 
     print("=" * 70)
     print("Optuna DSE: Finding Optimal Design Parameters")
@@ -219,7 +243,7 @@ def main():
         )
         keep_percent = 20
         trials_per_rung = max(args.trials // ((100 // keep_percent) ** rung_number), 1)
-        print(f"Study {rung} with {trials_per_rung} trials")
+        log.info(f"Study {rung} with {trials_per_rung} trials")
         for i in range(
             0, (trials_per_rung + PARALLEL_RUNS - 1) // PARALLEL_RUNS, PARALLEL_RUNS
         ):
@@ -278,7 +302,8 @@ def main():
         include_dominated_trials=True,
     )
     fig.write_html(plot_file)
-    print(f"✅ Pareto front plot saved to: {plot_file}")
+    print(f"Log file saved to: {log_file_name}")
+    print(f"Pareto front plot saved to: {plot_file}")
 
 
 if __name__ == "__main__":
