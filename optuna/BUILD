@@ -13,6 +13,7 @@ orfs_flow(
     name = "mock-cpu",
     abstract_stage = "cts",
     arguments = {
+        "VERILOG_TOP_PARAMS": "NUM_CORES 2 PIPELINE_DEPTH 4 WORK_PER_STAGE 8",
         "CORE_ASPECT_RATIO": "0.5",
         "CORE_UTILIZATION": "50",  # Higher utilization
         "PLACE_DENSITY": "0.20",
@@ -44,19 +45,10 @@ orfs_flow(
     verilog_files = [":mock-cpu.sv"],
 )
 
-# Extract timing information from CTS
-orfs_run(
-    name = "mock-cpu_timing",
-    src = ":mock-cpu_cts",
-    outs = ["mock-cpu_timing.txt"],
-    arguments = {"OUTFILE": "$(location mock-cpu_timing.txt)"},
-    script = ":extract_timing.tcl",
-)
-
 # Extract PPA (Performance, Power, Area) metrics from CTS
 orfs_run(
     name = "mock-cpu_ppa",
-    src = ":mock-cpu_cts",
+    src = ":mock-cpu_synth",
     outs = ["mock-cpu_ppa.txt"],
     arguments = {"OUTFILE": "$(location mock-cpu_ppa.txt)"},
     script = ":extract_ppa.tcl",
@@ -73,5 +65,8 @@ py_binary(
         "@bazel-orfs-pip//matplotlib",
         "@bazel-orfs-pip//numpy",
         "@bazel-orfs-pip//optuna",
+        "@bazel-orfs-pip//pandas",
+        "@bazel-orfs-pip//plotly",
+        "@bazel-orfs-pip//kaleido",
     ],
 )

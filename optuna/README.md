@@ -23,20 +23,17 @@ Side note: ORFS has a large number of small designs for testing purposes, wherea
 - Supports constrained optimization (must meet timing) and multi-objective optimization (area + power simultaneously)
 - Optuna shines in simplicity and good results for limited effort. No need install or configure a server for remote execution.
 
-## Screenshots
+## 3D HTML intearctvie pareto front snapshot
 
-![](screenshots/optuna-plot.webp)
+![3D pareto from](screenshots/optuna_dse_results.html)
 
 ## Quick Start
 
 ### Main Tool: Parameter Optimization (Recommended)
 
 ```bash
-# Single-objective: Minimize area
-bazelisk run //optuna:run -- --n-trials 20
-
-# Multi-objective: Minimize area and power (Pareto frontier)
-bazelisk run //optuna:run -- --multi-objective --n-trials 30
+# Minimize all objectives (Pareto frontier)
+bazelisk run //optuna:run -- --n-trials 30
 
 # Custom parameter ranges
 bazelisk run //optuna:run -- \
@@ -56,7 +53,6 @@ bazelisk run //optuna:run -- --help
 - `--max-density FLOAT`: Maximum PLACE_DENSITY (default: 0.70)
 - `--n-trials INT`: Number of optimization trials (default: 20)
 - `--seed INT`: Random seed for reproducibility (default: 42)
-- `--multi-objective`: Enable multi-objective optimization (area + power)
 - `--output-dir PATH`: Output directory for results (default: optuna/results)
 
 ## Experiment Flow
