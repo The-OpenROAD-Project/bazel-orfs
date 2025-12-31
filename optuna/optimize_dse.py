@@ -16,7 +16,8 @@ import argparse
 import os
 import subprocess
 import sys
-
+from typing import List
+import itertools
 
 import matplotlib
 
@@ -36,88 +37,6 @@ from optuna.visualization.matplotlib import plot_pareto_front
 import pandas
 
 
-def save_pareto_pdf(study, filename="pareto_front.pdf", target_names=None):
-    """
-    Generates a Pareto Front plot for a multi-objective study and saves it as a PDF.
-
-    Args:
-        study: The Optuna study object.
-        filename (str): The path/name of the output PDF file.
-        target_names (list): Optional list of names for the objectives (e.g., ["Accuracy", "Latency"]).
-    """
-    # 1. Create the figure using the Matplotlib backend
-    # Note: We assign the result to 'ax' (axes), though Optuna handles the drawing directly on the current figure.
-    ax = plot_pareto_front(study, target_names=target_names)
-
-    # 2. Tweak the layout to prevent labels from being cut off
-    plt.tight_layout()
-
-    # 3. Save the figure
-    plt.savefig(filename, format="pdf", dpi=300)
-
-    # 4. Close the plot to free up memory
-    plt.close()
-
-    print(f"Successfully saved plot to {filename}")
-
-
-from pandas.plotting import parallel_coordinates
-
-import pandas as pd
-import matplotlib.pyplot as plt
-from pandas.plotting import parallel_coordinates
-
-
-def save_parallel_coords_pdf(study, objective_names, filename="parallel_coords.pdf"):
-    df = study.trials_dataframe()
-    df = df[df["state"] == "COMPLETE"]
-
-    # 1. Select Parameters and Objectives
-    param_cols = [c for c in df.columns if c.startswith("params_")]
-    obj_cols = ["values_0", "values_1", "values_2"]
-
-    subset = df[param_cols + obj_cols].copy()
-
-    # 2. Rename columns
-    clean_param_names = {c: c.replace("params_", "") for c in param_cols}
-    subset = subset.rename(columns=clean_param_names)
-    rename_objs = {k: v for k, v in zip(obj_cols, objective_names)}
-    subset = subset.rename(columns=rename_objs)
-
-    # 3. Create "Score" column robustly
-    # We use the first objective (e.g., Area) to color the lines
-    first_obj = subset[objective_names[0]]
-
-    if first_obj.nunique() <= 1:
-        # Fallback: If all results are identical, assign a single label
-        subset["Score"] = "Converged"
-    else:
-        # FIX: Use pd.cut instead of pd.qcut
-        # pd.cut creates bins based on value RANGE, not frequency, avoiding the "unique edges" error
-        subset["Score"] = pd.cut(
-            first_obj,
-            bins=4,
-            labels=["Best", "Good", "Avg", "Poor"],
-            include_lowest=True,
-        )
-
-    # 4. Plot
-    plt.figure(figsize=(12, 6))
-
-    # Use a colormap that handles discrete labels well
-    parallel_coordinates(subset, "Score", colormap="viridis", alpha=0.5)
-
-    plt.title("Parameter Impact on Objectives")
-    plt.ylabel("Value")
-    plt.xticks(rotation=45)
-    plt.grid(True, axis="x")
-    plt.tight_layout()
-
-    plt.savefig(filename, format="pdf")
-    plt.close()
-    print(f"✅ Parallel coords saved to: {filename}")
-
-
 def find_workspace_root() -> str:
     """Find the Bazel workspace root directory.
 
@@ -127,23 +46,32 @@ def find_workspace_root() -> str:
     return os.environ.get("BUILD_WORKSPACE_DIRECTORY", os.getcwd())
 
 
-def build_design(
-    core_util: int,
-    place_density: float,
+PARALLEL_RUNS = 8
+
+
+def build_designs(
+    trials: List[optuna.Trial],
+    core_util: List[int],
+    place_density: List[float],
     workspace_root: str,
-    num_cores: int,
-    pipeline_depth: int,
-    work_per_stage: int,
-) -> dict:
+    num_cores: List[int],
+    pipeline_depth: List[int],
+    work_per_stage: List[int],
+) -> List[dict]:
     """Build design with given parameters and extract PPA metrics."""
-    cmd = [
-        "bazelisk",
-        "build",
-        f"--define=CORE_UTILIZATION={core_util}",
-        f"--define=PLACE_DENSITY={place_density:.4f}",
-        f"--define=VERILOG_TOP_PARAMS=NUM_CORES {num_cores} PIPELINE_DEPTH {pipeline_depth} WORK_PER_STAGE {work_per_stage}",
-        "//optuna:mock-cpu_ppa",
-    ]
+    cmd = ["bazelisk", "build"] + list(
+        itertools.chain.from_iterable(
+            [
+                [
+                    f"--//optuna:density{i}={place_density[i]:.4f}",
+                    f"--//optuna:utilization{i}={core_util[i]}",
+                    f"--//optuna:params{i}=NUM_CORES {num_cores[i]} PIPELINE_DEPTH {pipeline_depth[i]} WORK_PER_STAGE {work_per_stage[i]}",
+                    f"//optuna:mock-cpu_{i}_ppa",
+                ]
+                for i in range(len(trials))
+            ]
+        )
+    )
     print(subprocess.list2cmdline(cmd))
     result = subprocess.run(
         cmd,
@@ -156,54 +84,71 @@ def build_design(
     if result.returncode != 0:
         print(f"❌ Build failed")
         print(f"Error:\n{result.stderr[-800:]}")
-        # beggars pruning
-        return {
-            "cell_area": 1e9,
-            "power": 1e9,
-            "slack": -1e9,
-            "frequency": 0.0,
-            "failed": True,
-        }
+        # beggars pruning, no multiobjective pruning in optuna.
+        #
+        # It has been discussed for years...
+        #
+        # https://github.com/optuna/optuna/issues/3450
+        return [
+            {
+                "cell_area": 1e9,
+                "power": 1e9,
+                "frequency": 0.0,
+            }
+        ] * len(trials)
 
-    # Parse PPA metrics - use absolute path from workspace root
-    ppa_file = os.path.join(workspace_root, "bazel-bin/optuna/mock-cpu_ppa.txt")
-    metrics = {}
-    with open(ppa_file) as f:
-        for line in f:
-            if ":" in line and not line.startswith("#"):
-                key, value = line.split(":", 1)
-                metrics[key.strip()] = float(value.strip())
+    metrics_list = []
+    for i in range(len(trials)):
+        # Parse PPA metrics - use absolute path from workspace root
+        ppa_file = os.path.join(workspace_root, f"bazel-bin/optuna/mock-cpu_{i}_ppa.txt")
+        metrics = {}
+        with open(ppa_file) as f:
+            for line in f:
+                if ":" in line and not line.startswith("#"):
+                    key, value = line.split(":", 1)
+                    metrics[key.strip()] = float(value.strip())
 
-    area = metrics.get("cell_area", 1e9)
-    power = metrics.get("estimated_power_uw", 1e9)
-    slack = metrics.get("slack", -1e9)
-    freq = metrics.get("frequency_ghz", 0.0)
+        area = metrics.get("cell_area", 1e9)
+        power = metrics.get("estimated_power_uw", 1e9)
+        slack = metrics.get("slack", -1e9)
+        freq = metrics.get("frequency_ghz", 0.0)
 
-    meets_timing = slack >= 0
-    print(f"{'✓' if meets_timing else '✗'} Slack: {slack:.2f} ps")
-    print(f"  Area: {area:.3f} um², Power: {power:.1f} uW, Freq: {freq:.2f} GHz")
+        meets_timing = slack >= 0
+        print(f"{'✓' if meets_timing else '✗'} Slack: {slack:.2f} ps")
+        print(f"  Area: {area:.3f} um², Power: {power:.1f} uW, Freq: {freq:.2f} GHz")
 
-    return {
-        "cell_area": area,
-        "power": power,
-        "slack": slack,
-        "frequency": freq,
-        "compute": freq,
-        "failed": False,
-    }
+        compute = freq * num_cores[i] * work_per_stage[i]
+        energy = power / freq
+
+        metrics_list.append([metrics["cell_area"], compute / energy, compute])
+
+        trials[i].set_user_attr("area", area)
+        trials[i].set_user_attr("compute_per_energy", compute/energy)
+        trials[i].set_user_attr("compute_per_time", compute)
+
+    return metrics_list
 
 
-def objective_multi(trial: optuna.Trial, args, workspace_root: str) -> tuple:
+def objective_multi(study : optuna.Study, trials: List[optuna.Trial], args, workspace_root: str) -> tuple:
     """Multi-objective: Minimize area and power."""
-    core_util = trial.suggest_int("CORE_UTILIZATION", args.min_util, args.max_util)
-    place_density = trial.suggest_float(
-        "PLACE_DENSITY", args.min_density, args.max_density
-    )
-    num_cores = trial.suggest_int("NUM_CORES", 1, 8)
-    pipeline_depth = trial.suggest_int("PIPELINE_DEPTH", 1, 5)
-    work_per_stage = trial.suggest_int("WORK_PER_STAGE", 1, 10)
+    core_util = []
+    place_density = []
+    num_cores = []
+    pipeline_depth = []
+    work_per_stage = []
+    for trial in trials:
+        core_util.append(
+            trial.suggest_int("CORE_UTILIZATION", args.min_util, args.max_util)
+        )
+        place_density.append(
+            trial.suggest_float("PLACE_DENSITY", args.min_density, args.max_density)
+        )
+        num_cores.append(trial.suggest_int("NUM_CORES", 1, 8))
+        pipeline_depth.append(trial.suggest_int("PIPELINE_DEPTH", 1, 5))
+        work_per_stage.append(trial.suggest_int("WORK_PER_STAGE", 1, 10))
 
-    metrics = build_design(
+    metrics = build_designs(
+        trials,
         core_util,
         place_density,
         workspace_root,
@@ -213,18 +158,8 @@ def objective_multi(trial: optuna.Trial, args, workspace_root: str) -> tuple:
     )
 
     # Store metrics
-    trial.set_user_attr("area", metrics["cell_area"])
-    trial.set_user_attr("power", metrics["power"])
-    trial.set_user_attr("slack", metrics["slack"])
-    trial.set_user_attr("frequency", metrics["frequency"])
-    trial.set_user_attr("failed", metrics["failed"])
-    trial.set_user_attr("compute", metrics["frequency"] * num_cores * work_per_stage)
-
-    return (
-        metrics["cell_area"],
-        metrics["compute"] / metrics["power"],
-        metrics["compute"],
-    )
+    for trial, metric in zip(trials, metrics):
+        study.tell(trial, metric)
 
 
 def main():
@@ -297,11 +232,10 @@ def main():
         # storage=storage_url,
         load_if_exists=True,
     )
-    study.optimize(
-        lambda trial: objective_multi(trial, args, workspace_root),
-        n_trials=args.n_trials,
-        show_progress_bar=True,
-    )
+    for i in range(0, (args.n_trials + PARALLEL_RUNS - 1) // PARALLEL_RUNS):
+        trials = [study.ask() for _ in range(min(PARALLEL_RUNS, args.n_trials - i))]
+
+        objective_multi(study, trials, args, workspace_root)
 
     # Print results
     print(f"\n{'=' * 70}\nResults\n{'=' * 70}")
@@ -325,9 +259,9 @@ def main():
                     f"NUM_CORES={trial.params['NUM_CORES']}",
                     f"PIPELINE_DEPTH={trial.params['PIPELINE_DEPTH']}",
                     f"WORK_PER_STAGE={trial.params['WORK_PER_STAGE']}",
-                    f"Area={trial.user_attrs['area']:.2f}um²",
-                    f"Power={trial.user_attrs['power']:.1f}",
-                    f"Compute={trial.user_attrs['compute']}",
+                    f"area={trial.user_attrs['area']:.2f}",
+                    f"compute_per_energy={trial.user_attrs['compute_per_energy']:.2f}",
+                    f"compute_per_time={trial.user_attrs['compute_per_time']:.2f}",
                 ]
             )
             + "\n"
