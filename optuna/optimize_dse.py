@@ -27,11 +27,6 @@ from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 import optuna
 
-# Fix import for Bazel py_binary: add script dir to sys.path
-sys.path.insert(0, os.path.dirname(__file__))
-from plot_results import plot_results
-
-
 import matplotlib.pyplot as plt
 from optuna.visualization.matplotlib import plot_pareto_front
 import pandas

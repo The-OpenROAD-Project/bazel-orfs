@@ -29,7 +29,6 @@ exports_files([
 # DSE-specific flow configuration with tighter constraints
 [orfs_flow(
     name = "mock-cpu",
-    variant = "{}".format(i),
     abstract_stage = "cts",
     arguments = {
         "CORE_ASPECT_RATIO": "0.5",
@@ -63,6 +62,7 @@ exports_files([
     },
     tags = ["manual"],
     top = "mock_cpu",
+    variant = "{}".format(i),
     verilog_files = [":mock-cpu.sv"],
 ) for i in range(N)]
 
@@ -80,7 +80,6 @@ py_binary(
     name = "run",
     srcs = [
         "optimize_dse.py",
-        "plot_results.py",
     ],
     main = "optimize_dse.py",
     tags = ["manual"],
