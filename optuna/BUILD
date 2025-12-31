@@ -17,22 +17,24 @@ orfs_flow(
         "CORE_UTILIZATION": "50",  # Higher utilization
         "PLACE_DENSITY": "0.20",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
-        # Enable timing-driven optimization for DSE
-        "GPL_TIMING_DRIVEN": "1",  # Enable timing-driven placement
-        "SKIP_CTS_REPAIR_TIMING": "0",  # Enable CTS timing repair
-        # Other fast settings
-        "FILL_CELLS": "",
-        "GND_NETS_VOLTAGES": "",
-        "GPL_ROUTABILITY_DRIVEN": "0",
-        "PWR_NETS_VOLTAGES": "",
-        "REMOVE_ABC_BUFFERS": "1",
-        "SKIP_INCREMENTAL_REPAIR": "1",
-        "SKIP_REPORT_METRICS": "1",
-        "TAPCELL_TCL": "",
         # Tight timing constraints for meaningful DSE
         "ABC_CLOCK_PERIOD_IN_PS": "1000",
         # Synthesis
         "SYNTH_HDL_FRONTEND": "slang",
+        # Speed up, we don't care about exact or timing results,
+        # we'll still get roughly the RTL parameterization and
+        # builds will be faster.
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        # Other fast settings
+        "SKIP_CTS_REPAIR_TIMING": "0",  # Enable CTS timing repair
+        "FILL_CELLS": "",
+        "GND_NETS_VOLTAGES": "",
+        "PWR_NETS_VOLTAGES": "",
+        "SKIP_INCREMENTAL_REPAIR": "1",
+        "SKIP_REPORT_METRICS": "1",
+        "TAPCELL_TCL": "",
+        "TNS_END_PERCENT": "0",
     },
     sources = {
         "SDC_FILE": [":constraints-dse.sdc"],
