@@ -1138,11 +1138,13 @@ def _yosys_impl(ctx):
 
 orfs_synth = rule(
     implementation = _yosys_impl,
-    attrs = yosys_attrs() | synth_attrs() | {
-        "_stage": attr.string(
-            default = "synth",
-        ),
-    },
+    attrs = yosys_attrs() |
+            synth_attrs() |
+            {
+                "_stage": attr.string(
+                    default = "synth",
+                ),
+            },
     provides = [
         DefaultInfo,
         OutputGroupInfo,
@@ -1409,11 +1411,13 @@ orfs_floorplan = rule(
             "2_floorplan.sdc",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr() | {
-        "_stage": attr.string(
-            default = "floorplan",
-        ),
-    },
+    attrs = openroad_attrs() |
+            renamed_inputs_attr() |
+            {
+                "_stage": attr.string(
+                    default = "floorplan",
+                ),
+            },
     provides = flow_provides(),
     executable = True,
 )
@@ -1443,11 +1447,13 @@ orfs_place = rule(
             "3_place.sdc",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr() | {
-        "_stage": attr.string(
-            default = "place",
-        ),
-    },
+    attrs = openroad_attrs() |
+            renamed_inputs_attr() |
+            {
+                "_stage": attr.string(
+                    default = "place",
+                ),
+            },
     provides = flow_provides(),
     executable = True,
 )
@@ -1471,11 +1477,13 @@ orfs_cts = rule(
             "4_cts.sdc",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr() | {
-        "_stage": attr.string(
-            default = "cts",
-        ),
-    },
+    attrs = openroad_attrs() |
+            renamed_inputs_attr() |
+            {
+                "_stage": attr.string(
+                    default = "cts",
+                ),
+            },
     provides = flow_provides(),
     executable = True,
 )
@@ -1507,11 +1515,13 @@ orfs_grt = rule(
             "5_1_grt.sdc",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr() | {
-        "_stage": attr.string(
-            default = "grt",
-        ),
-    },
+    attrs = openroad_attrs() |
+            renamed_inputs_attr() |
+            {
+                "_stage": attr.string(
+                    default = "grt",
+                ),
+            },
     provides = flow_provides(),
     executable = True,
 )
@@ -1542,11 +1552,13 @@ orfs_route = rule(
             "5_route.sdc",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr() | {
-        "_stage": attr.string(
-            default = "route",
-        ),
-    },
+    attrs = openroad_attrs() |
+            renamed_inputs_attr() |
+            {
+                "_stage": attr.string(
+                    default = "route",
+                ),
+            },
     provides = flow_provides(),
     executable = True,
 )
@@ -1580,11 +1592,13 @@ orfs_final = rule(
             "6_final.v",
         ],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr() | {
-        "_stage": attr.string(
-            default = "final",
-        ),
-    },
+    attrs = openroad_attrs() |
+            renamed_inputs_attr() |
+            {
+                "_stage": attr.string(
+                    default = "final",
+                ),
+            },
     provides = flow_provides(),
     executable = True,
 )
@@ -1647,11 +1661,13 @@ orfs_abstract = rule(
             "ABSTRACT_SOURCE": _extensionless_basename(ctx.attr.src[OrfsInfo].odb),
         },
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr() | {
-        "_stage": attr.string(
-            default = "generate_abstract",
-        ),
-    },
+    attrs = openroad_attrs() |
+            renamed_inputs_attr() |
+            {
+                "_stage": attr.string(
+                    default = "generate_abstract",
+                ),
+            },
     provides = flow_provides(),
     executable = True,
 )
@@ -1774,25 +1790,24 @@ def get_stage_args(stage, stage_arguments = {}, arguments = {}, sources = {}):
     Returns:
       A dictionary of arguments for the stage.
     """
-    unsorted_dict = (
-        {
-            arg: value
-            for arg, value in (
-                {
-                    arg: " ".join(_map(lambda v: "$(locations {})".format(v), value))
-                    for arg, value in sources.items()
-                    if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLE_TO_STAGES
-                } |
-                {
-                    arg: value
-                    for arg, value in arguments.items()
-                    if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLE_TO_STAGES
-                }
-            ).items()
-            if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLE_TO_STAGES
-        } |
-        stage_arguments.get(stage, {})
-    )
+    unsorted_dict = {
+        arg: value
+        for arg, value in (
+            {
+                arg: " ".join(_map(lambda v: "$(locations {})".format(v), value))
+                for arg, value in sources.items()
+                if arg in ALL_STAGE_TO_VARIABLES[stage] or
+                   arg not in ALL_VARIABLE_TO_STAGES
+            } |
+            {
+                arg: value
+                for arg, value in arguments.items()
+                if arg in ALL_STAGE_TO_VARIABLES[stage] or
+                   arg not in ALL_VARIABLE_TO_STAGES
+            }
+        ).items()
+        if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLE_TO_STAGES
+    } | stage_arguments.get(stage, {})
     return dict(sorted(unsorted_dict.items()))
 
 def get_sources(stage, stage_sources, sources):
