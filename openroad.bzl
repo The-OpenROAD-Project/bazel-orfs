@@ -638,11 +638,26 @@ def _config_content(ctx, arguments, paths):
     defines_for_stage = {
         var: value
         for var, value in ctx.var.items()
-        if has_stage and var in ALL_STAGE_TO_VARIABLES[ctx.attr._stage]
+        if has_stage and
+           var in
+           (
+               ALL_STAGE_TO_VARIABLES[ctx.attr._stage] +
+               # FIXME delete this hotfix on next ORFS update
+               # https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/pull/3746
+               {"synth": ["VERILOG_TOP_PARAMS"]}.get(ctx.attr._stage, [])
+           )
     }
-    settings = {var: value[BuildSettingInfo].value for var, value in ctx.attr.settings.items()}
+    settings = {
+        var: value[BuildSettingInfo].value
+        for var, value in ctx.attr.settings.items()
+    }
     return "".join(
-        sorted(["export {}?={}\n".format(*pair) for pair in (arguments | defines_for_stage | settings).items()]) +
+        sorted(
+            [
+                "export {}?={}\n".format(*pair)
+                for pair in (arguments | defines_for_stage | settings).items()
+            ],
+        ) +
         ["include {}\n".format(path) for path in paths],
     )
 
