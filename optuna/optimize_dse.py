@@ -19,17 +19,7 @@ import sys
 from typing import List
 import itertools
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
-import numpy as np
 import optuna
-
-import matplotlib.pyplot as plt
-from optuna.visualization.matplotlib import plot_pareto_front
-import pandas
 
 
 def find_workspace_root() -> str:
@@ -41,10 +31,9 @@ def find_workspace_root() -> str:
     return os.environ.get("BUILD_WORKSPACE_DIRECTORY", os.getcwd())
 
 
+# Number of parallel trials to run, a balance between speed and
+# updating the Baysian sampler with new results.
 PARALLEL_RUNS = 8
-# synth, fastest. Later use multifidelity optimizations with rungs
-# from least least accurate fastest builds to most accurate slowest builds.
-STAGE = "synth"  # synth, place, grt
 
 
 def build_designs(
@@ -83,20 +72,7 @@ def build_designs(
     )
 
     if result.returncode != 0:
-        print(f"❌ Build failed")
-        print(f"Error:\n{result.stderr[-800:]}")
-        # beggars pruning, no multiobjective pruning in optuna.
-        #
-        # It has been discussed for years...
-        #
-        # https://github.com/optuna/optuna/issues/3450
-        return [
-            {
-                "cell_area": 1e9,
-                "power": 1e9,
-                "frequency": 0.0,
-            }
-        ] * len(trials)
+        print(f"❌ Build failed, looking for successful trials as we used --keep_going")
 
     metrics_list = []
     for i in range(len(trials)):
@@ -173,12 +149,8 @@ def objective_multi(
     # Optuna automatically checks the queue first. If the queue has items (from step 1),
     # it uses them. If the queue is empty, it samples new values from the ranges below.
     for trial in trials:
-        core_util.append(
-            trial.suggest_int("CORE_UTILIZATION", args.min_util, args.max_util)
-        )
-        place_density.append(
-            trial.suggest_float("PLACE_DENSITY", args.min_density, args.max_density)
-        )
+        core_util.append(trial.suggest_int("CORE_UTILIZATION", 10, 90))
+        place_density.append(trial.suggest_float("PLACE_DENSITY", 0.1, 0.9))
         num_cores.append(trial.suggest_int("NUM_CORES", 1, 8))
         pipeline_depth.append(trial.suggest_int("PIPELINE_DEPTH", 1, 5))
         work_per_stage.append(trial.suggest_int("WORK_PER_STAGE", 1, 10))
@@ -204,31 +176,7 @@ def main():
         description="Optuna-based DSE for optimal CORE_UTILIZATION and PLACE_DENSITY"
     )
     parser.add_argument(
-        "--min-util",
-        type=int,
-        default=30,
-        help="Minimum CORE_UTILIZATION %% (default: 30)",
-    )
-    parser.add_argument(
-        "--max-util",
-        type=int,
-        default=70,
-        help="Maximum CORE_UTILIZATION %% (default: 70)",
-    )
-    parser.add_argument(
-        "--min-density",
-        type=float,
-        default=0.20,
-        help="Minimum PLACE_DENSITY (default: 0.20)",
-    )
-    parser.add_argument(
-        "--max-density",
-        type=float,
-        default=0.70,
-        help="Maximum PLACE_DENSITY (default: 0.70)",
-    )
-    parser.add_argument(
-        "--n-trials", type=int, default=20, help="Number of trials (default: 20)"
+        "--trials", type=int, default=20, help="Number of trials (default: 20)"
     )
     parser.add_argument(
         "--seed", type=int, default=42, help="Random seed (default: 42)"
@@ -255,9 +203,7 @@ def main():
     print("Optuna DSE: Finding Optimal Design Parameters")
     print(f"Workspace root: {workspace_root}")
     print(f"Working directory: {os.getcwd()}")
-    print(f"CORE_UTILIZATION range: {args.min_util}% - {args.max_util}%")
-    print(f"PLACE_DENSITY range: {args.min_density:.2f} - {args.max_density:.2f}")
-    print(f"Trials: {args.n_trials}, Seed: {args.seed}")
+    print(f"Trials: {args.trials}, Seed: {args.seed}")
     print("=" * 70)
 
     storage_url = f"sqlite:///{os.path.join(workspace_root, "optuna/results/dse.db")}"
@@ -272,9 +218,7 @@ def main():
             load_if_exists=True,
         )
         keep_percent = 20
-        trials_per_rung = max(
-            args.n_trials // ((100 // keep_percent) ** rung_number), 1
-        )
+        trials_per_rung = max(args.trials // ((100 // keep_percent) ** rung_number), 1)
         print(f"Study {rung} with {trials_per_rung} trials")
         for i in range(
             0, (trials_per_rung + PARALLEL_RUNS - 1) // PARALLEL_RUNS, PARALLEL_RUNS

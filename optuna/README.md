@@ -33,13 +33,7 @@ Side note: ORFS has a large number of small designs for testing purposes, wherea
 
 ```bash
 # Minimize all objectives (Pareto frontier)
-bazelisk run //optuna:run -- --n-trials 30
-
-# Custom parameter ranges
-bazelisk run //optuna:run -- \
-  --min-util 30 --max-util 70 \
-  --min-density 0.2 --max-density 0.7 \
-  --n-trials 25
+bazelisk run //optuna:run -- --trials 30
 
 # View help
 bazelisk run //optuna:run -- --help
@@ -47,11 +41,7 @@ bazelisk run //optuna:run -- --help
 
 ## Command Line Options
 
-- `--min-util INT`: Minimum CORE_UTILIZATION % (default: 30)
-- `--max-util INT`: Maximum CORE_UTILIZATION % (default: 70)
-- `--min-density FLOAT`: Minimum PLACE_DENSITY (default: 0.20)
-- `--max-density FLOAT`: Maximum PLACE_DENSITY (default: 0.70)
-- `--n-trials INT`: Number of optimization trials (default: 20)
+- `--trials INT`: Number of optimization trials (default: 20)
 - `--seed INT`: Random seed for reproducibility (default: 42)
 - `--output-dir PATH`: Output directory for results (default: optuna/results)
 
