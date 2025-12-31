@@ -1,5 +1,8 @@
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design 4_cts.odb 4_cts.sdc
+# from optuna/results/asap7/mock_cpu/base/3_place.odb, we want 3_place
+# stracted from $::env(ODB_FILE)
+set file_stem [file rootname [file tail $::env(ODB_FILE)]]
+load_design ${file_stem}.odb ${file_stem}.sdc
 
 # ============================================================
 # Performance Metrics
