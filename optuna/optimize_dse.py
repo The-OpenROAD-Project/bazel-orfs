@@ -44,7 +44,7 @@ def find_workspace_root() -> str:
 PARALLEL_RUNS = 8
 # synth, fastest. Later use multifidelity optimizations with rungs
 # from least least accurate fastest builds to most accurate slowest builds.
-STAGE = "synth" # synth, place, grt
+STAGE = "synth"  # synth, place, grt
 
 
 def build_designs(
@@ -55,27 +55,30 @@ def build_designs(
     num_cores: List[int],
     pipeline_depth: List[int],
     work_per_stage: List[int],
+    rung: str,
 ) -> List[dict]:
     """Build design with given parameters and extract PPA metrics."""
-    cmd = ["bazelisk", "build"] + list(
-        itertools.chain.from_iterable(
-            [
+    beggars_provisioning = ["--jobs", "1"] if rung != "synth" else []
+    cmd = (
+        ["bazelisk", "build", "--keep_going"]
+        + beggars_provisioning
+        + list(
+            itertools.chain.from_iterable(
                 [
-                    f"--//optuna:density{i}={place_density[i]:.4f}",
-                    f"--//optuna:utilization{i}={core_util[i]}",
-                    f"--//optuna:params{i}=NUM_CORES {num_cores[i]} PIPELINE_DEPTH {pipeline_depth[i]} WORK_PER_STAGE {work_per_stage[i]}",
-                    f"//optuna:mock-cpu_{i}_{STAGE}_ppa",
+                    [
+                        f"--//optuna:density{i}={place_density[i]:.4f}",
+                        f"--//optuna:utilization{i}={core_util[i]}",
+                        f"--//optuna:params{i}=NUM_CORES {num_cores[i]} PIPELINE_DEPTH {pipeline_depth[i]} WORK_PER_STAGE {work_per_stage[i]}",
+                        f"//optuna:mock-cpu_{i}_{rung}_ppa",
+                    ]
+                    for i in range(len(trials))
                 ]
-                for i in range(len(trials))
-            ]
+            )
         )
     )
     print(subprocess.list2cmdline(cmd))
     result = subprocess.run(
         cmd,
-        capture_output=True,
-        text=True,
-        timeout=300,
         cwd=workspace_root,  # Run in workspace root
     )
 
@@ -98,22 +101,24 @@ def build_designs(
     metrics_list = []
     for i in range(len(trials)):
         # Parse PPA metrics - use absolute path from workspace root
-        ppa_file = os.path.join(workspace_root, f"bazel-bin/optuna/mock-cpu_{i}_ppa.txt")
+        ppa_file = os.path.join(
+            workspace_root, f"bazel-bin/optuna/mock-cpu_{i}_{rung}_ppa.txt"
+        )
         metrics = {}
-        with open(ppa_file) as f:
-            for line in f:
-                if ":" in line and not line.startswith("#"):
-                    key, value = line.split(":", 1)
-                    metrics[key.strip()] = float(value.strip())
-
-        area = metrics.get("cell_area", 1e9)
-        power = metrics.get("estimated_power_uw", 1e9)
-        slack = metrics.get("slack", -1e9)
-        freq = metrics.get("frequency_ghz", 0.0)
-
-        meets_timing = slack >= 0
-        print(f"{'✓' if meets_timing else '✗'} Slack: {slack:.2f} ps")
-        print(f"  Area: {area:.3f} um², Power: {power:.1f} uW, Freq: {freq:.2f} GHz")
+        if os.path.exists(ppa_file):
+            with open(ppa_file) as f:
+                for line in f:
+                    if ":" in line and not line.startswith("#"):
+                        key, value = line.split(":", 1)
+                        metrics[key.strip()] = float(value.strip())
+            area = metrics.get("cell_area", 1e9)
+            power = metrics.get("estimated_power_uw", 1e9)
+            freq = metrics.get("frequency_ghz", 0.0)
+        else:
+            print("Beggars pruning - optuna multiobjective pruning not supported")
+            area = 1e9
+            power = 1e9
+            freq = 1000
 
         compute = freq * num_cores[i] * work_per_stage[i]
         energy = power / freq
@@ -121,19 +126,52 @@ def build_designs(
         metrics_list.append([metrics["cell_area"], compute / energy, compute])
 
         trials[i].set_user_attr("area", area)
-        trials[i].set_user_attr("compute_per_energy", compute/energy)
+        trials[i].set_user_attr("compute_per_energy", compute / energy)
         trials[i].set_user_attr("compute_per_time", compute)
+        print(
+            f"CORE_UTILIZATION={core_util[i]}%, "
+            f"PLACE_DENSITY={place_density[i]:.3f}, "
+            f"NUM_CORES={num_cores[i]}, "
+            f"PIPELINE_DEPTH={pipeline_depth[i]}, "
+            f"WORK_PER_STAGE={work_per_stage[i]}"
+        )
+        print(
+            f"AREA={area:.2f}, "
+            f"COMPUTE/ENERGY={compute/energy:.2f}, "
+            f"COMPUTE/TIME={compute:.2f}"
+        )
 
     return metrics_list
 
 
-def objective_multi(study : optuna.Study, trials: List[optuna.Trial], args, workspace_root: str) -> tuple:
+def objective_multi(
+    study: optuna.Study,
+    trials: List[optuna.Trial],
+    args,
+    workspace_root: str,
+    rung: str,
+    previous_study: optuna.Study,
+) -> tuple:
     """Multi-objective: Minimize area and power."""
     core_util = []
     place_density = []
     num_cores = []
     pipeline_depth = []
     work_per_stage = []
+
+    # 1. SETUP: Warm-start if previous study exists
+    if previous_study is not None:
+        # Get the Top 5 Pareto optimal trials
+        best_trials = previous_study.best_trials[:5]
+
+        # Register (queue) them into the current study
+        for t in best_trials:
+            # This tells Optuna: "For the next trial, force these parameters"
+            study.enqueue_trial(t.params)
+
+    # 2. EXECUTION: Standard loop for ALL trials
+    # Optuna automatically checks the queue first. If the queue has items (from step 1),
+    # it uses them. If the queue is empty, it samples new values from the ranges below.
     for trial in trials:
         core_util.append(
             trial.suggest_int("CORE_UTILIZATION", args.min_util, args.max_util)
@@ -153,6 +191,7 @@ def objective_multi(study : optuna.Study, trials: List[optuna.Trial], args, work
         num_cores,
         pipeline_depth,
         work_per_stage,
+        rung,
     )
 
     # Store metrics
@@ -224,16 +263,35 @@ def main():
     storage_url = f"sqlite:///{os.path.join(workspace_root, "optuna/results/dse.db")}"
     print(f"Using storage: {storage_url}")
 
-    study = optuna.create_study(
-        directions=["minimize", "maximize", "maximize"],  # Search for pareto front
-        sampler=optuna.samplers.TPESampler(seed=args.seed),
-        # storage=storage_url,
-        load_if_exists=True,
-    )
-    for i in range(0, (args.n_trials + PARALLEL_RUNS - 1) // PARALLEL_RUNS):
-        trials = [study.ask() for _ in range(min(PARALLEL_RUNS, args.n_trials - i))]
+    previous_study = None
+    for rung_number, rung in enumerate(["synth", "place", "grt"]):
+        study = optuna.create_study(
+            directions=["minimize", "maximize", "maximize"],  # Search for pareto front
+            sampler=optuna.samplers.TPESampler(seed=args.seed),
+            # storage=storage_url,
+            load_if_exists=True,
+        )
+        keep_percent = 20
+        trials_per_rung = max(
+            args.n_trials // ((100 // keep_percent) ** rung_number), 1
+        )
+        print(f"Study {rung} with {trials_per_rung} trials")
+        for i in range(
+            0, (trials_per_rung + PARALLEL_RUNS - 1) // PARALLEL_RUNS, PARALLEL_RUNS
+        ):
+            trials = [
+                study.ask() for _ in range(min(PARALLEL_RUNS, trials_per_rung - i))
+            ]
 
-        objective_multi(study, trials, args, workspace_root)
+            objective_multi(
+                study,
+                trials,
+                args,
+                workspace_root,
+                rung,
+                previous_study if i == 0 else None,
+            )
+        previous_study = study
 
     # Print results
     print(f"\n{'=' * 70}\nResults\n{'=' * 70}")

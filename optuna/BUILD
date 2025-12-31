@@ -38,7 +38,7 @@ exports_files([
 # DSE-specific flow configuration with tighter constraints
 [orfs_flow(
     name = "mock-cpu",
-    abstract_stage = "cts",
+    abstract_stage = STAGES[-1],
     arguments = {
         "CORE_ASPECT_RATIO": "0.5",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
