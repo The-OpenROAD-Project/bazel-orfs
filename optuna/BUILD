@@ -40,25 +40,14 @@ exports_files([
     name = "mock-cpu",
     abstract_stage = STAGES[-1],
     arguments = {
-        "CORE_ASPECT_RATIO": "0.5",
-        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
-        # Tight timing constraints for meaningful DSE
+        # Timing somewhat close to what we're getting
         "ABC_CLOCK_PERIOD_IN_PS": "1000",
         # Synthesis
         "SYNTH_HDL_FRONTEND": "slang",
-        # Speed up, we don't care about exact or timing results,
-        # we'll still get roughly the RTL parameterization and
-        # builds will be faster.
-        "GPL_TIMING_DRIVEN": "0",
-        "GPL_ROUTABILITY_DRIVEN": "0",
-        # Other fast settings
-        "SKIP_CTS_REPAIR_TIMING": "0",  # Enable CTS timing repair
-        "FILL_CELLS": "",
-        "GND_NETS_VOLTAGES": "",
-        "PWR_NETS_VOLTAGES": "",
-        "SKIP_INCREMENTAL_REPAIR": "1",
+        # Not used, just slows things down
         "SKIP_REPORT_METRICS": "1",
-        "TAPCELL_TCL": "",
+        # repair only worst, only if we actually want to close timing do we
+        # want to run repair on all endpoints
         "TNS_END_PERCENT": "0",
     },
     settings = {
