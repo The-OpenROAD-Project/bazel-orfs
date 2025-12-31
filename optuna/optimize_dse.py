@@ -42,6 +42,9 @@ def find_workspace_root() -> str:
 
 
 PARALLEL_RUNS = 8
+# synth, fastest. Later use multifidelity optimizations with rungs
+# from least least accurate fastest builds to most accurate slowest builds.
+STAGE = "synth" # synth, place, grt
 
 
 def build_designs(
@@ -61,7 +64,7 @@ def build_designs(
                     f"--//optuna:density{i}={place_density[i]:.4f}",
                     f"--//optuna:utilization{i}={core_util[i]}",
                     f"--//optuna:params{i}=NUM_CORES {num_cores[i]} PIPELINE_DEPTH {pipeline_depth[i]} WORK_PER_STAGE {work_per_stage[i]}",
-                    f"//optuna:mock-cpu_{i}_ppa",
+                    f"//optuna:mock-cpu_{i}_{STAGE}_ppa",
                 ]
                 for i in range(len(trials))
             ]

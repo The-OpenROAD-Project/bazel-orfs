@@ -2,7 +2,16 @@ load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_run")
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
 load("@rules_python//python:defs.bzl", "py_binary")
 
+# A balance between batch size/parallelism and frequency of
+# feeding posteriors into the Bayesian optimizer.
 N = 8
+
+# Rungs from fastest least accurate to slowest most accurate builds.
+STAGES = [
+    "synth",
+    "place",
+    "grt",
+]
 
 [string_flag(
     name = "density{}".format(i),
@@ -67,13 +76,17 @@ exports_files([
 ) for i in range(N)]
 
 # Extract PPA (Performance, Power, Area) metrics from CTS
-[orfs_run(
-    name = "mock-cpu_{}_ppa".format(i),
-    src = ":mock-cpu_{}_synth".format(i),
-    outs = ["mock-cpu_{}_ppa.txt".format(i)],
-    arguments = {"OUTFILE": "$(location mock-cpu_{}_ppa.txt)".format(i)},
-    script = ":extract_ppa.tcl",
-) for i in range(N)]
+[
+    orfs_run(
+        name = "mock-cpu_{}_{}_ppa".format(i, stage),
+        src = ":mock-cpu_{}_{}".format(i, stage),
+        outs = ["mock-cpu_{}_{}_ppa.txt".format(i, stage)],
+        arguments = {"OUTFILE": "$(location mock-cpu_{}_{}_ppa.txt)".format(i, stage)},
+        script = ":extract_ppa.tcl",
+    )
+    for i in range(N)
+    for stage in STAGES
+]
 
 # Main DSE optimizer: Find optimal CORE_UTILIZATION and PLACE_DENSITY
 py_binary(
