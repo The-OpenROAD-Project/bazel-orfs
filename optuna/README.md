@@ -2,6 +2,16 @@
 
 Parameter optimization using Optuna to find optimal design parameter combinations that meet timing constraints.
 
+For this a multi-fidelity Design Space Exploration is needed. The study is done in several phases with increasing accuracy and running times. Optuna has idiomatic support for handling such multiphase studies. The number of runs that can be done is roughly an order of magnitude less per stage, so below perhaps 100, 10, 1 runs.
+
+For CI runs on a pull request, it stage 1 or 2 could be doable, post-merge with master the 3rd stage could be run.
+
+1. Disable all repair timing options and timing driven placement/routing, reduce accuracy of placement density, etc. so as find a range of parameters that is interesting to explore with full accuracy.
+2. Adjust clock period range to have a readily achieveable positive slack without running times going through the roof and re-enable options disabled in the first stage.
+3. Tighten clock period to eke out everything from OpenROAD.
+
+Side note: ORFS has a large number of small designs for testing purposes, whereas users of ORFS/OpenROAD may be much more interested in a deep study of a single design while staying within a reasonable CI budget and simple infrastructure. Optuna is a bare-bones infrastructure that requires no servers to be set up. ORFS uses Ray in AutoTuner, which needs to be configured for a cluster, but given the large number of designs that need to be studied at full accuracy, a cluster is needed.
+
 ## Experiment Design
 
 **Goal**: Find optimal CORE_UTILIZATION and PLACE_DENSITY at a fixed clock frequency to minimize area (or area + power).
