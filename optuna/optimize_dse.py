@@ -264,7 +264,6 @@ def main():
     # Print results
     print(f"\n{'=' * 70}\nResults\n{'=' * 70}")
 
-    print(f"Pareto optimal solutions: {len(study.best_trials)}")
     if len(study.best_trials) == 0:
         print("\n⚠️  No feasible trials completed!")
         print("All trials either failed to build or violated timing constraints.")
@@ -291,15 +290,14 @@ def main():
             + "\n"
         )
 
-    for i, trial in enumerate(study.best_trials[:5]):  # Show top 5
-        print(f"\nSolution {i+1}:")
+    print(f"Pareto optimal solutions: {len(study.best_trials)}")
+    for i, trial in enumerate(study.best_trials):
         write_trial(sys.stdout, trial)
 
     plot_file = os.path.join(output_dir, "optuna_dse_results.html")
     fig = optuna.visualization.plot_pareto_front(
         study,
         target_names=["Area", "Compute/Power", "Compute/time"],
-        include_dominated_trials=True,
     )
     fig.write_html(plot_file)
     print(f"Log file saved to: {log_file_name}")
