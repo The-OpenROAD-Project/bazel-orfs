@@ -21,6 +21,7 @@ exports_files([
     "mock_area.tcl",
     "oss_cad_suite.BUILD.bazel",
     "eqy.tpl",
+    "eqy-write-verilog.tcl",
 ])
 
 exports_files(
