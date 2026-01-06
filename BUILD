@@ -267,6 +267,8 @@ orfs_synth(
     name = "Mul_synth",
     arguments = {
         "SDC_FILE": "$(location :test/constraints-combinational.sdc)",
+        # Test locally, modify this, no re-synthesis should take place
+        "PLACE_DENSITY": "0.53",
     },
     data = [":test/constraints-combinational.sdc"],
     module_top = "Mul",

@@ -1151,7 +1151,7 @@ def _yosys_impl(ctx):
         ),
     ]
 
-orfs_synth = rule(
+_orfs_synth = rule(
     implementation = _yosys_impl,
     attrs = yosys_attrs() |
             synth_attrs() |
@@ -1171,6 +1171,46 @@ orfs_synth = rule(
     ],
     executable = True,
 )
+
+def _filter_stage_args(
+        stage,
+        **kwargs):
+    """Filter and prepare the arguments for a specific stage."""
+
+    def _args(**kwargs):
+        return kwargs
+
+    arguments = kwargs.pop("arguments", {})
+    data = kwargs.pop("data", [])
+    settings = kwargs.pop("settings", {})
+    extra_configs = kwargs.pop("extra_configs", {})
+    sources = kwargs.pop("sources", {})
+    stage_arguments = kwargs.pop("stage_arguments", {})
+    stage_sources = kwargs.pop("stage_sources", {})
+    stage_data = kwargs.pop("stage_data", {})
+
+    return _args(
+        arguments = get_stage_args(
+            stage,
+            arguments = arguments,
+            sources = sources,
+            stage_arguments = stage_arguments,
+        ),
+        data = get_sources(stage, stage_sources, sources) +
+               stage_data.get(stage, []) + data,
+        extra_configs = extra_configs.get(stage, []),
+        settings = get_stage_args(
+            stage,
+            arguments = settings,
+        ),
+        **kwargs
+    )
+
+def orfs_synth(**kwargs):
+    return _orfs_synth(**_filter_stage_args(
+        "synth",
+        **kwargs
+    ))
 
 def _make_impl(
         ctx,
@@ -1704,7 +1744,7 @@ UPDATE_RULES_IMPL = struct(stage = "update_rules", impl = orfs_update_rules)
 TEST_STAGE_IMPL = struct(stage = "test", impl = orfs_test)
 
 STAGE_IMPLS = [
-    struct(stage = "synth", impl = orfs_synth),
+    struct(stage = "synth", impl = _orfs_synth),
     struct(stage = "floorplan", impl = orfs_floorplan),
     struct(stage = "place", impl = orfs_place),
     struct(stage = "cts", impl = orfs_cts),
@@ -2084,28 +2124,23 @@ def _orfs_pass(
         synth_step = steps[0]
         step_name = _step_name(name, variant, synth_step.stage)
         step_names.append(step_name)
-        synth_step.impl(
+        synth_step.impl(**_filter_stage_args(
+            synth_step.stage,
             name = step_name,
-            arguments = get_stage_args(
-                synth_step.stage,
-                stage_arguments,
-                arguments,
-                sources,
-            ),
-            data = get_sources(synth_step.stage, stage_sources, sources) +
-                   stage_data.get(synth_step.stage, []),
+            stage_arguments = stage_arguments,
+            arguments = arguments,
+            sources = sources,
             deps = macros,
-            extra_configs = extra_configs.get(synth_step.stage, []),
             module_top = top,
-            settings = get_stage_args(
-                synth_step.stage,
-                arguments = settings,
-            ),
             variant = variant,
             verilog_files = verilog_files,
             pdk = pdk,
+            stage_sources = stage_sources,
+            settings = settings,
+            extra_configs = extra_configs,
+            stage_data = stage_data,
             **kwargs
-        )
+        ))
         orfs_deps(
             name = "{}_deps".format(_step_name(name, variant, synth_step.stage)),
             src = _step_name(name, variant, synth_step.stage),
@@ -2122,19 +2157,19 @@ def _orfs_pass(
         )
         step_name = _step_name(name, stage_variant, step.stage)
         src = previous_stage.get(step.stage, _step_name(name, variant, prev.stage))
-        step.impl(
+        step.impl(**_filter_stage_args(
+            step.stage,
             name = step_name,
+            stage_arguments = stage_arguments,
+            arguments = arguments,
+            sources = sources,
+            stage_sources = stage_sources,
+            settings = settings,
+            extra_configs = extra_configs,
             src = src,
-            arguments = get_stage_args(step.stage, stage_arguments, arguments, sources),
-            data = get_sources(step.stage, stage_sources, sources) +
-                   stage_data.get(step.stage, []) +
-                   data,
-            extra_configs = extra_configs.get(step.stage, []),
             variant = variant,
-            settings = get_stage_args(
-                step.stage,
-                arguments = settings,
-            ),
+            stage_data = stage_data,
+            data = data,
             **(
                 kwargs |
                 _kwargs(
@@ -2143,7 +2178,7 @@ def _orfs_pass(
                 ) |
                 more_kwargs
             )
-        )
+        ))
         if add_deps:
             orfs_deps(
                 name = "{}_deps".format(step_name),
