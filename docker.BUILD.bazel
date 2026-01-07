@@ -122,6 +122,7 @@ filegroup(
             "OpenROAD-flow-scripts/flow/scripts/*.script",
             "OpenROAD-flow-scripts/flow/scripts/util.tcl",
             "OpenROAD-flow-scripts/flow/scripts/synth*.tcl",
+            "OpenROAD-flow-scripts/flow/scripts/**/*.v",
         ],
     ),
     visibility = ["//visibility:public"],
