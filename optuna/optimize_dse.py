@@ -68,7 +68,12 @@ def build_designs(
     rung: str,
 ) -> List[dict]:
     """Build design with given parameters and extract PPA metrics."""
-    beggars_provisioning = ["--jobs", "1"] if rung != "synth" else []
+    # Remove --jobs 1 restriction and let Bazel manage resources intelligently
+    # Users can control parallelism via:
+    #   - --local_ram_resources to limit based on available memory
+    #   - --jobs to set max parallel jobs
+    # This allows better CPU utilization while avoiding OOM
+    beggars_provisioning = []
     cmd = (
         ["bazelisk", "build", "--keep_going"]
         + beggars_provisioning
