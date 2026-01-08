@@ -779,12 +779,12 @@ def _run_impl(ctx):
                 "$@",
             ],
         ),
-        env = flow_environment(ctx) |
-              yosys_environment(ctx) |
-              config_environment(config) |
-              _odb_arguments(ctx) |
-              _data_arguments(ctx) |
-              _run_arguments(ctx),
+        env = _config_overrides(ctx, flow_environment(ctx) |
+                                     yosys_environment(ctx) |
+                                     config_environment(config) |
+                                     _odb_arguments(ctx) |
+                                     _data_arguments(ctx) |
+                                     _run_arguments(ctx)),
         inputs = depset(
             [config, ctx.file.script],
             transitive = [
@@ -976,9 +976,9 @@ def _yosys_impl(ctx):
             "do-yosys-canonicalize",
         ],
         command = " && ".join(commands),
-        env = _verilog_arguments(ctx.files.verilog_files) |
-              yosys_environment(ctx) |
-              config_environment(config),
+        env = _config_overrides(ctx, _verilog_arguments(ctx.files.verilog_files) |
+                                     yosys_environment(ctx) |
+                                     config_environment(config)),
         inputs = depset(
             [config] + ctx.files.verilog_files + ctx.files.extra_configs,
             transitive = [
@@ -1017,10 +1017,10 @@ def _yosys_impl(ctx):
             "do-1_synth",
         ],
         command = " && ".join(commands),
-        env = _verilog_arguments([]) |
-              flow_environment(ctx) |
-              yosys_environment(ctx) |
-              config_environment(config),
+        env = _config_overrides(ctx, _verilog_arguments([]) |
+                                     flow_environment(ctx) |
+                                     yosys_environment(ctx) |
+                                     config_environment(config)),
         inputs = depset(
             [canon_output, config] + ctx.files.extra_configs,
             transitive = [
@@ -1302,7 +1302,7 @@ def _make_impl(
     ctx.actions.run_shell(
         arguments = ["--file", ctx.file._makefile.path] + steps,
         command = " && ".join(commands),
-        env = flow_environment(ctx) | config_environment(config),
+        env = _config_overrides(ctx, flow_environment(ctx) | config_environment(config)),
         inputs = depset(
             [config] + ctx.files.extra_configs,
             transitive = [
