@@ -165,6 +165,19 @@ def orfs_environment(ctx):
         "WORK_HOME": _work_home(ctx),
     }
 
+def _thread_env(ctx):
+    """Allow Bazel defines to override ORFS NUM_CORES.
+
+    Checks in priority order:
+    1. NUM_CORES (standard ORFS variable)
+    2. ORFS_NUM_CORES (alternative name)
+    3. OPENROAD_THREADS (legacy name)
+    """
+    threads = ctx.var.get("NUM_CORES") or ctx.var.get("ORFS_NUM_CORES") or ctx.var.get("OPENROAD_THREADS")
+    if threads:
+        return {"NUM_CORES": str(threads)}
+    return {}
+
 def flow_environment(ctx):
     return {
         "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
@@ -178,7 +191,7 @@ def flow_environment(ctx):
         "RUBYLIB": ":".join(
             [commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)],
         ),
-    } | orfs_environment(ctx)
+    } | _thread_env(ctx) | orfs_environment(ctx)
 
 def yosys_environment(ctx):
     return {
