@@ -1807,17 +1807,24 @@ def set(iterable):
         unique_dict[item] = True
     return list(unique_dict.keys())
 
-ORFS_VARIABLE_TO_STAGES = {
-    k: v["stages"]
-    for k, v in orfs_variable_metadata.items()
-    if "stages" in v and "All stages" not in v["stages"]
-}
+ALL_STAGES = [
+    "synth",
+    "floorplan",
+    "place",
+    "cts",
+    "grt",
+    "route",
+    "final",
+    "generate_abstract",
+    "generate_metadata",
+    "test",
+    "update_rules",
+]
 
-# Stages that do not appear in variables.yaml must be added manually here
-ALL_STAGES = set(
-    _union(*ORFS_VARIABLE_TO_STAGES.values()) +
-    ["generate_metadata", "test", "update_rules"],
-)
+ORFS_VARIABLE_TO_STAGES = {
+    k: v["stages"] if "stages" in v and v["stages"] != ["All stages"] else ALL_STAGES
+    for k, v in orfs_variable_metadata.items()
+}
 
 ORFS_STAGE_TO_VARIABLES = {
     stage: [
