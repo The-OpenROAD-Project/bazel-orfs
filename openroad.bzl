@@ -633,7 +633,7 @@ def _verilog_arguments(files, short = False):
         ),
     }
 
-def _config_content(ctx, arguments, paths):
+def _config_overrides(ctx, arguments):
     has_stage = hasattr(ctx.attr, "_stage")
     defines_for_stage = {
         var: value
@@ -651,11 +651,14 @@ def _config_content(ctx, arguments, paths):
         var: value[BuildSettingInfo].value
         for var, value in ctx.attr.settings.items()
     }
+    return arguments | defines_for_stage | settings
+
+def _config_content(ctx, arguments, paths):
     return "".join(
         sorted(
             [
                 "export {}?={}\n".format(*pair)
-                for pair in (arguments | defines_for_stage | settings).items()
+                for pair in _config_overrides(ctx, arguments).items()
             ],
         ) +
         ["include {}\n".format(path) for path in paths],
