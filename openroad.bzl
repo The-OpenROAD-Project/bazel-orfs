@@ -259,9 +259,11 @@ def source_inputs(ctx):
             ctx.attr.src[OrfsInfo].additional_lefs,
             ctx.attr.src[OrfsInfo].additional_libs,
             ctx.attr.src[PdkInfo].files,
+            # Accumulate all JSON reports, so depend on previous stage.
             ctx.attr.src[LoggingInfo].jsons,
-            ctx.attr.src[LoggingInfo].logs,
             ctx.attr.src[LoggingInfo].reports,
+            # non-idempotent by design transitive dependencies
+            # ctx.attr.src[LoggingInfo].logs,
         ],
     )
 
