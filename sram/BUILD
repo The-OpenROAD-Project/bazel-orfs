@@ -13,9 +13,9 @@ FAST_SETTINGS = {
     "TAPCELL_TCL": "",
 }
 
-[orfs_flow(
+orfs_flow(
     name = "sdq_17x64",
-    abstract_stage = "cts" if variant == "base" else "place",
+    abstract_stage = "cts",
     arguments = FAST_SETTINGS | {
         "CORE_MARGIN": "2",
         "CORE_UTILIZATION": "20",
@@ -25,105 +25,10 @@ FAST_SETTINGS = {
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
     },
     mock_area = 0.95,
-    previous_stage = {
-        "mock-naja": {
-            "floorplan": "sdq_17x64_synth",
-        },
-    }.get(variant, {}),
-    renamed_inputs = {
-        "mock-naja": {
-            "floorplan": {"1_synth.v": ":mock-naja"},
-        },
-        "naja": {
-            "floorplan": {"1_synth.v": ":naja"},
-        },
-        "naja-error": {
-            "floorplan": {"1_synth.v": ":naja-error"},
-        },
-    }.get(variant, {}),
     stage_sources = {
         "synth": [":fakeram/constraints-sram.sdc"],
     },
-    tags = {
-        "naja": ["manual"],
-        "naja-error": ["manual"],
-    }.get(variant, []),
-    variant = variant,
     verilog_files = [":fakeram/sdq_17x64.sv"],
-) for variant in [
-    "base",
-    #    "mock-naja",
-    #    "naja",
-    #    "naja-error",
-]]
-
-# fish out the file that we want as input to the "naja" rule
-# below.
-filegroup(
-    name = "sdq_17x64_synth_unedited",
-    srcs = ["sdq_17x64_naja_synth"],
-    output_group = "1_synth.v",
-)
-
-orfs_run(
-    name = "sdq_17x64_synth_mergedlib",
-    src = ":sdq_17x64_naja_synth",
-    outs = [":objects/asap7/sdq_17x64/naja/lib/merged.lib"],
-    extra_args = " ".join([
-        "$(location :objects/asap7/sdq_17x64/naja/lib/merged.lib)",
-    ]),
-    script = "@docker_orfs//:OpenROAD-flow-scripts/flow/scripts/noop.tcl",
-    tags = ["manual"],
-)
-
-filegroup(
-    name = "top_lib",
-    srcs = ["top_generate_abstract"],
-    output_group = "top_typ.lib",
-)
-
-# Read in the renamed synthesis output from above and provide
-# the original name to the next stage
-genrule(
-    name = "mock-naja",
-    srcs = [
-        ":sdq_17x64_synth_unedited",
-        ":sdq_17x64_synth_mergedlib",
-        ":top_lib",
-    ],
-    outs = ["mock-naja.v"],
-    cmd = """
-    set -e
-    mkdir -p `dirname $@`
-    # reference files we should be able to access here
-    ls $(location :sdq_17x64_synth_mergedlib) $(location :top_lib) > /dev/null
-    echo \"// imagine naja edits in this file\" > $@
-    cat $(location :sdq_17x64_synth_unedited) >> $@
-""",
-    tags = ["manual"],
-)
-
-# FIXME some better way to deploy naja in Bazel environment is needed
-genrule(
-    name = "naja",
-    srcs = [
-        ":sdq_17x64_synth_unedited",
-        ":sdq_17x64_synth_mergedlib",
-        "naja_edit/install/bin/naja_edit",
-        "naja_edit/install/lib/python",
-        "naja_edit/install/share/naja/primitives/asap7_new.py",
-    ],
-    outs = ["naja.v"],
-    cmd = "mkdir -p `dirname $@`; export PYTHONPATH=$(location naja_edit/install/lib/python) && $(location naja_edit/install/bin/naja_edit) -a all -p $(location :sdq_17x64_synth_mergedlib) -f verilog -t verilog -i $(location :sdq_17x64_synth_unedited) -o $@",
-    tags = ["manual"],
-)
-
-genrule(
-    name = "naja-error",
-    srcs = [":sdq_17x64_synth_unedited"],
-    outs = ["naja-error.v"],
-    cmd = "mkdir -p `dirname $@`; echo \"imagine naja producing invalid verilog\" > $@ && cat $< >> $@",
-    tags = ["manual"],
 )
 
 orfs_flow(
