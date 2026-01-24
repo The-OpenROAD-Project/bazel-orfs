@@ -72,6 +72,7 @@ exports_files([
         outs = ["mock-cpu_{}_{}_ppa.txt".format(i, stage)],
         arguments = {"OUTFILE": "$(location mock-cpu_{}_{}_ppa.txt)".format(i, stage)},
         script = ":extract_ppa.tcl",
+        tags = ["manual"],
     )
     for i in range(N)
     for stage in STAGES
