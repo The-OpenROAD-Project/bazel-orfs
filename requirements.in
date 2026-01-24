@@ -4,3 +4,4 @@ pandas==2.3.0
 optuna==4.6.0
 plotly==6.5.0
 kaleido==1.2.0
+najaeda==0.3.5
