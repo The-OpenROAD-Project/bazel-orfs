@@ -1051,7 +1051,37 @@ def _yosys_impl(ctx):
         tools = depset(transitive = [yosys_inputs(ctx), flow_inputs(ctx)]),
     )
 
-    outputs = [canon_output] + synth_outputs.values()
+    variables = _declare_artifact(ctx, "results", "1_synth.vars")
+    ctx.actions.run_shell(
+        arguments = [
+            "--file",
+            ctx.file._makefile_yosys.path,
+            "print-LIB_FILES",
+        ],
+        command = """
+        set -x
+        {make} $@ > {out}
+        """.format(make = ctx.executable._make.path, out = variables.path),
+        env = _config_overrides(
+            ctx,
+            _verilog_arguments([]) |
+            flow_environment(ctx) |
+            yosys_environment(ctx) |
+            config_environment(config),
+        ),
+        inputs = depset(
+            [canon_output, config] + ctx.files.extra_configs,
+            transitive = [
+                data_inputs(ctx),
+                pdk_inputs(ctx),
+                deps_inputs(ctx),
+            ],
+        ),
+        outputs = [variables],
+        tools = depset(transitive = [flow_inputs(ctx)]),
+    )
+
+    outputs = [canon_output, variables] + synth_outputs.values()
 
     config_short = _declare_artifact(ctx, "results", "1_synth.short.mk")
     ctx.actions.write(
