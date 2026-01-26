@@ -153,7 +153,6 @@ filegroup(
                 for ext in [
                                "gds",
                                "lef",
-                               "lib",
                                "lyt",
                                "mk",
                                "rules",
@@ -162,10 +161,24 @@ filegroup(
                            ] +
                            {
                                "sky130hd": ["tlef"],
-                               "asap7": ["lib.gz", "sdc"],
+                               "asap7": ["sdc"],
                            }.get(pdk, [])
             ] +
             ["OpenROAD-flow-scripts/flow/platforms/common/**/*.v"],
+        ),
+        libs = glob(
+            [
+                "OpenROAD-flow-scripts/flow/platforms/{pdk}/**/*.{ext}".format(
+                    pdk = pdk,
+                    ext = ext,
+                )
+                for ext in [
+                               "lib",
+                           ] +
+                           {
+                               "asap7": ["lib.gz"],
+                           }.get(pdk, [])
+            ],
         ),
         visibility = ["//visibility:public"],
     )
