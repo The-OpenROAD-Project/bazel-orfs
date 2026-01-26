@@ -55,13 +55,14 @@ main() {
     exit 1
   fi
 
-  local canonical
-  canonical="$(realpath --canonicalize-missing "$dst")"
-  if [ "$dst" != "$canonical" ] && [ "$dst" != "$canonical/" ]; then
+  if [[ "$dst" != /* ]]; then
     echo "$progname: '$dst' is not an absolute path"
     echo "Try '$progname -h' for more information."
     exit 1
   fi
+
+  local canonical
+  canonical="$(realpath --canonicalize-missing "$dst")"
 
   mkdir --parents "$dst"
   chmod --recursive u+w "$dst"
