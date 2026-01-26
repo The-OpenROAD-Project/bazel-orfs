@@ -44,6 +44,7 @@ PdkInfo = provider(
         "name",
         "files",
         "config",
+        "libs",
     ],
 )
 TopInfo = provider(
@@ -80,6 +81,7 @@ def _pdk_impl(ctx):
         PdkInfo(
             name = ctx.attr.name,
             files = depset(ctx.files.srcs),
+            libs = depset(ctx.files.libs),
             config = ctx.attr.config,
         ),
     ]
@@ -91,6 +93,10 @@ orfs_pdk = rule(
             allow_single_file = ["config.mk"],
         ),
         "srcs": attr.label_list(
+            allow_files = True,
+            providers = [DefaultInfo],
+        ),
+        "libs": attr.label_list(
             allow_files = True,
             providers = [DefaultInfo],
         ),
@@ -259,6 +265,7 @@ def source_inputs(ctx):
             ctx.attr.src[OrfsInfo].additional_lefs,
             ctx.attr.src[OrfsInfo].additional_libs,
             ctx.attr.src[PdkInfo].files,
+            ctx.attr.src[PdkInfo].libs,
             # Accumulate all JSON reports, so depend on previous stage.
             ctx.attr.src[LoggingInfo].jsons,
             ctx.attr.src[LoggingInfo].reports,
@@ -273,7 +280,7 @@ def rename_inputs(ctx):
     )
 
 def pdk_inputs(ctx):
-    return depset(transitive = [ctx.attr.pdk[PdkInfo].files])
+    return depset(transitive = [ctx.attr.pdk[PdkInfo].files, ctx.attr.pdk[PdkInfo].libs])
 
 def deps_inputs(ctx):
     return depset(
@@ -1390,6 +1397,7 @@ def _make_impl(
                     transitive = [
                         flow_inputs(ctx),
                         ctx.attr.src[PdkInfo].files,
+                        ctx.attr.src[PdkInfo].libs,
                         ctx.attr.src[OrfsInfo].additional_gds,
                         ctx.attr.src[OrfsInfo].additional_lefs,
                         ctx.attr.src[OrfsInfo].additional_libs,
