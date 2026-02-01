@@ -949,7 +949,7 @@ orfs_test = rule(
 )
 
 CANON_OUTPUT = "1_1_yosys_canonicalize.rtlil"
-SYNTH_OUTPUTS = ["1_2_yosys.v", "1_synth.sdc", "mem.json", "1_synth.odb"]
+SYNTH_OUTPUTS = ["1_2_yosys.v", "1_synth.sdc", "mem.json"]
 SYNTH_REPORTS = ["synth_stat.txt", "synth_mocked_memories.txt"]
 
 def _yosys_impl(ctx):
@@ -1011,7 +1011,7 @@ def _yosys_impl(ctx):
         synth_logs.append(_declare_artifact(ctx, "logs", log))
 
     synth_outputs = {}
-    for output in SYNTH_OUTPUTS:
+    for output in SYNTH_OUTPUTS + (["1_synth.odb"] if ctx.attr.save_odb else []):
         synth_outputs[output] = _declare_artifact(ctx, "results", output)
 
     synth_reports = []
@@ -1029,8 +1029,7 @@ def _yosys_impl(ctx):
             ctx.file._makefile_yosys.path,
             "yosys-dependencies",
             "do-yosys",
-            "do-1_synth",
-        ],
+        ] + (["do-1_synth"] if ctx.attr.save_odb else []),
         command = " && ".join(commands),
         env = _config_overrides(
             ctx,
@@ -1175,7 +1174,7 @@ def _yosys_impl(ctx):
             stage = "1_synth",
             config = config,
             variant = ctx.attr.variant,
-            odb = synth_outputs["1_synth.odb"],
+            odb = synth_outputs["1_synth.odb"] if ctx.attr.save_odb else None,
             gds = None,
             lef = None,
             lib = None,
@@ -1208,6 +1207,12 @@ _orfs_synth = rule(
             {
                 "_stage": attr.string(
                     default = "synth",
+                ),
+                "save_odb": attr.bool(
+                    default = True,
+                    doc = "Whether to save the ODB file from synthesis. Useful to disable if " +
+                          "only Verilog output is needed or possible when doing hierarchical " +
+                          "synthesis as some files could be blackboxed.",
                 ),
             },
     provides = [
