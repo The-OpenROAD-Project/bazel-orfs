@@ -1059,7 +1059,6 @@ def _yosys_impl(ctx):
             "print-LIB_FILES",
         ],
         command = """
-        set -x
         {make} $@ > {out}
         """.format(make = ctx.executable._make.path, out = variables.path),
         env = _config_overrides(
