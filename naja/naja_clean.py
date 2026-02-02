@@ -32,5 +32,6 @@ lib_files = ungzipped_libs
 
 netlist.load_liberty(lib_files)
 top = netlist.load_verilog(dirty_netlists)
+netlist.apply_constant_propagation()
 netlist.apply_dle()
 top.dump_verilog(cleaned_netlist)
