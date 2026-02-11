@@ -565,3 +565,9 @@ py_binary(
     srcs = ["bsp.py"],
     visibility = ["//visibility:public"],
 )
+
+py_binary(
+    name = "worker_wrapper",
+    srcs = ["worker_wrapper.py"],
+    visibility = ["//visibility:public"],
+)

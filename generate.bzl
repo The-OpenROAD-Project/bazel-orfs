@@ -8,11 +8,21 @@ def _fir_library_impl(ctx):
     fir = ctx.actions.declare_file(ctx.attr.name + ".fir")
 
     args = ctx.actions.args()
+
+    # Enable worker protocol.
+    args.use_param_file("@%s", use_always = True)
+    args.set_param_file_format("multiline")
+    args.add(ctx.executable.generator)
+    execution_requirements = {
+        "supports-workers": "1",
+        "requires-worker-protocol": "json",
+    }
+
     args.add_all([ctx.expand_location(opt, ctx.attr.data) for opt in ctx.attr.opts])
     args.add("-o", fir)
     ctx.actions.run(
         arguments = [args],
-        executable = ctx.executable.generator,
+        executable = ctx.executable._worker_wrapper,
         env = {
             "CHISEL_FIRTOOL_PATH": ctx.executable._firtool.dirname,
         },
@@ -22,7 +32,9 @@ def _fir_library_impl(ctx):
                  ] +
                  ctx.files.data,
         outputs = [fir],
+        tools = [ctx.executable.generator, ctx.executable._firtool] + ctx.files.data,
         mnemonic = "FirGeneration",
+        execution_requirements = execution_requirements,
     )
     return [
         DefaultInfo(
@@ -49,6 +61,11 @@ fir_library = rule(
             allow_files = True,
             cfg = "exec",
             default = Label("@circt//:bin/firtool"),
+        ),
+        "_worker_wrapper": attr.label(
+            default = Label(":worker_wrapper"),
+            executable = True,
+            cfg = "exec",
         ),
     },
 )
