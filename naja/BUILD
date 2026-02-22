@@ -16,6 +16,7 @@ orfs_synth(
         "SYNTH_BLACKBOXES": "foo",
     },
     module_top = "dirty",
+    save_odb = False,
     sources = {
         "SDC_FILE": [":constraints.sdc"],
     },
