@@ -24,4 +24,7 @@ else
   export MAKE_PATH="$(command -v make)"
 fi
 
+# https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/issues/3907
+export LEC_CHECK=0
+
 exec $MAKE_PATH --file "$FLOW_HOME/Makefile" "$@"

@@ -663,11 +663,16 @@ def _config_overrides(ctx, arguments):
     return arguments | defines_for_stage | settings
 
 def _config_content(ctx, arguments, paths):
+    workaround = {
+        # https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/issues/3907
+        "LEC_CHECK": "0",
+    } | arguments
+
     return "".join(
         sorted(
             [
                 "export {}?={}\n".format(*pair)
-                for pair in _config_overrides(ctx, arguments).items()
+                for pair in _config_overrides(ctx, workaround).items()
             ],
         ) +
         ["include {}\n".format(path) for path in paths],
