@@ -1,42 +1,57 @@
 #!/usr/bin/env bash
 set -u -o pipefail
 
-git fetch origin --quiet
+# Fetch all remotes
+git fetch --all --quiet --prune
 
+# Detect the primary baseline branch on origin
+get_origin_primary() {
+    if git rev-parse --verify origin/main >/dev/null 2>&1; then
+        echo "origin/main"
+    elif git rev-parse --verify origin/master >/dev/null 2>&1; then
+        echo "origin/master"
+    else
+        echo "origin/main"
+    fi
+}
 
-
+BASELINE=$(get_origin_primary)
 OUTPUT_LINES=()
-EMPTY_BRANCHES=()
-CURRENT_BRANCH=main
-for br in $(git branch -r --list origin/* | grep -v '\->'); do
-    BRANCH_NAME="${br#origin/}"
-    # Skip current branch (main/master/etc)
-    if [ "$BRANCH_NAME" = "$CURRENT_BRANCH" ]; then
+declare -A REMOTE_GROUPS
+
+# Process all remote branches
+for br in $(git branch -r --list | grep -v '\->'); do
+    if [ "$br" = "$BASELINE" ]; then
         continue
     fi
-    DIFF_COUNT=$(git cherry HEAD "$br" | grep "^+" | wc -l)
-    if [ "$DIFF_COUNT" -eq 0 ]; then
-        OUTPUT_LINES+=("EMPTY: 🗑️  $BRANCH_NAME is EMPTY (Fully merged/cherry-picked)")
-        EMPTY_BRANCHES+=("$BRANCH_NAME")
+
+    # Check for unique commits against origin/main or origin/master
+    DIFF_COUNT=$(git cherry "$BASELINE" "$br" | grep "^+" | wc -l)
+    
+    if [ "$DIFF_COUNT" -eq 0 ] && [[ ! "$br" =~ (.*/main|.*/master)$ ]]; then
+        OUTPUT_LINES+=("EMPTY: 🗑️  $br is EMPTY")
+        
+        # Parse remote and branch name (e.g., "origin/feature" -> remote="origin", branch="feature")
+        REMOTE_NAME="${br%%/*}"
+        BRANCH_ONLY="${br#*/}"
+        REMOTE_GROUPS["$REMOTE_NAME"]+="$BRANCH_ONLY "
     else
-        OUTPUT_LINES+=("ACTIVE: 🌱 $BRANCH_NAME is ACTIVE ($DIFF_COUNT unique commits)")
+        OUTPUT_LINES+=("ACTIVE: 🌱 $br is ACTIVE ($DIFF_COUNT unique commits)")
     fi
 done
 
-# Print ACTIVE first, then EMPTY
-for line in "${OUTPUT_LINES[@]}"; do
-    if [[ $line == ACTIVE:* ]]; then
-        echo "$line"
-    fi
-done
-for line in "${OUTPUT_LINES[@]}"; do
-    if [[ $line == EMPTY:* ]]; then
-        echo "$line"
-    fi
-done
+# Print Status
+for line in "${OUTPUT_LINES[@]}"; do [[ $line == ACTIVE:* ]] && echo "$line"; done
+for line in "${OUTPUT_LINES[@]}"; do [[ $line == EMPTY:* ]] && echo "$line"; done
 
-if [ ${#EMPTY_BRANCHES[@]} -eq 0 ]; then
-    echo -e "\nNo empty branches to delete."
+# Generate Deletion Commands
+if [ ${#REMOTE_GROUPS[@]} -eq 0 ]; then
+    echo -e "\nNo empty branches found."
     exit 0
 fi
-echo -e "\nTo delete empty branches from the server, run:\n\ngit push origin --delete ${EMPTY_BRANCHES[*]}"
+
+echo -e "\nTo delete these branches from their respective remotes, run:\n"
+
+for remote in "${!REMOTE_GROUPS[@]}"; do
+    echo "git push $remote --delete ${REMOTE_GROUPS[$remote]}"
+done
