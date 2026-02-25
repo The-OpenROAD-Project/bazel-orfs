@@ -954,7 +954,7 @@ orfs_test = rule(
 )
 
 CANON_OUTPUT = "1_1_yosys_canonicalize.rtlil"
-SYNTH_OUTPUTS = ["1_2_yosys.v", "1_synth.sdc", "mem.json"]
+SYNTH_OUTPUTS = ["1_2_yosys.v", "1_2_yosys.sdc", "1_synth.sdc", "mem.json"]
 SYNTH_REPORTS = ["synth_stat.txt", "synth_mocked_memories.txt"]
 
 def _yosys_impl(ctx):
