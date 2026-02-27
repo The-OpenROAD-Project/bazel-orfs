@@ -177,32 +177,32 @@ bazel build <target>_<stage>
 A locally built and modified [ORFS](https://openroad-flow-scripts.readthedocs.io/en/latest/user/UserGuide.html) can also be used to run the flow:
 
 ```bash
-bazel run <target>_<stage>_deps -- <absolute_path>
-<absolute_path>/make do-<stage>
+bazel run <target>_<stage>_deps -- [absolute_path]
+[absolute_path]/make do-<stage>
 ```
 
 The `_deps` is used to distinguish between copying the results into the mutable folder for that stage versus copying the required files to execute said stage.
 
-It is also possible and convenient to run within the sandbox as the arguments after the absolute path are forwarded to make:
+It is also possible and convenient to run within the sandbox as the arguments after the optional path are forwarded to make:
 
 ```bash
-bazel run <target>_<stage>_deps -- <absolute_path> <make args...>
+bazel run <target>_<stage>_deps -- [absolute_path] <make args...>
 ```
 
 To view the floorplan:
 
 ```bash
-bazel run tag_array_64x184_floorplan $(pwd)/tmp gui_floorplan
+bazel run tag_array_64x184_floorplan gui_floorplan
 ```
 
-> **NOTE:** If the directory under the `<absolute_path>` does not exist, it will be created. If a relative path is provided, the `bazel run` command above will fail.
+> **NOTE:** If no path is provided, files are placed in `tmp/<package>/` under the workspace root (e.g. `tmp/sram/` for `//sram:...`), which is added to `.gitignore` automatically. If a path is provided it must be absolute; a relative path will fail.
 
 A convenient way to run the floorplan and view the results would be:
 
 ```bash
-bazel run MyDesign_floorplan_deps -- `pwd`/build
-build/make do-floorplan
-build/make gui_floorplan
+bazel run MyDesign_floorplan_deps
+tmp/make do-floorplan
+tmp/make gui_floorplan
 ```
 
 By default, the `make do-<stage>` invocation will rely on the ORFS from [MODULE.bazel](./MODULE.bazel), unless the `env.sh` script is sourced, or the `FLOW_HOME` environment variable is set to the path of the local `OpenROAD-flow-scripts/flow` installation:
@@ -210,8 +210,8 @@ By default, the `make do-<stage>` invocation will rely on the ORFS from [MODULE.
 ```bash
 source <orfs_path>/env.sh
 
-bazel run <target>_<stage>_deps -- <absolute_path>
-<absolute_path>/make do-<stage>
+bazel run <target>_<stage>_deps -- [absolute_path]
+[absolute_path]/make do-<stage>
 ```
 
 > **NOTE:** The synthesis stage requires the `do-yosys-canonicalize` and `do-yosys` steps to be completed beforehand.
@@ -220,8 +220,8 @@ bazel run <target>_<stage>_deps -- <absolute_path>
 > ```bash
 > source <orfs_path>/env.sh
 >
-> bazel run <target>_synth_deps -- <absolute_path>
-> <absolute_path>/make do-yosys-canonicalize do-yosys do-1_synth
+> bazel run <target>_synth_deps -- [absolute_path]
+> [absolute_path]/make do-yosys-canonicalize do-yosys do-1_synth
 > ```
 
 ### Override BUILD configuration variables
@@ -229,11 +229,11 @@ bazel run <target>_<stage>_deps -- <absolute_path>
 Configuration variables can be overwritten on the command line by passing them in as arguments to the local flow:
 
 ```bash
-$ bazel run tag_array_64x184_floorplan $(pwd)/tmp print-CORE_UTILIZATION
+$ bazel run tag_array_64x184_floorplan print-CORE_UTILIZATION
 [deleted]
 CORE_UTILIZATION = 40
 ```bash
-$ bazel run tag_array_64x184_floorplan $(pwd)/tmp CORE_UTILIZATION=5 print-CORE_UTILIZATION
+$ bazel run tag_array_64x184_floorplan CORE_UTILIZATION=5 print-CORE_UTILIZATION
 [deleted]
 CORE_UTILIZATION = 5
 ```
@@ -376,15 +376,20 @@ The GUI and CLI targets can only be run from the generated shell script.
 For the GUI:
 
 ```bash
-bazel run <target>_<stage> -- <absolute_path>
-<absolute_path>/make gui_<stage>
+bazel run <target>_<stage> gui_<stage>
 ```
 
 For the CLI:
 
 ```bash
-bazel run <target>_<stage> -- <absolute_path>
-<absolute_path>/make open_<stage>
+bazel run <target>_<stage> open_<stage>
+```
+
+Or with an explicit path:
+
+```bash
+bazel run <target>_<stage> -- [absolute_path] gui_<stage>
+[absolute_path]/make open_<stage>
 ```
 
 CLI and GUI is not available for all stages, consequently these targets are created only for:
@@ -401,13 +406,12 @@ CLI and GUI is not available for all stages, consequently these targets are crea
 To execute the build flow for the `cts` (Clock Tree Synthesis) stage of the `L1MetadataArray` target, use the following command:
 
 ```bash
-bazel run @bazel-orfs//:L1MetadataArray_cts -- `pwd`/build
+bazel run @bazel-orfs//:L1MetadataArray_cts
 ```
 
 Bazel will automatically download the Docker image with the ORFS environment and run the flow.
 
-This will build the `L1MetadataArray` target up to the `cts` stage and place the results in the `build/results` directory.
-It's important to provide an absolute path to the directory where the flow artifacts will be stored.
+This will build the `L1MetadataArray` target up to the `cts` stage and place the results in the `tmp/results` directory under the workspace root.
 
 ### Dependencies in ORFS Makefile versus Bazel
 
@@ -444,19 +448,19 @@ Let's assume we want to perform a `floorplan` stage for the `L1MetadataArray` de
 
   ```bash
   # Initialize dependencies for the Synthesis stage for L1MetadataArray target
-  bazel run @bazel-orfs//:L1MetadataArray_synth_deps -- `pwd`/build
+  bazel run @bazel-orfs//:L1MetadataArray_synth_deps
 
   # Build Synthesis stage for L1MetadataArray target using local ORFS
-  build/make do-yosys-canonicalize do-yosys do-1_synth
+  tmp/make do-yosys-canonicalize do-yosys do-1_synth
 
   # Initialize dependencies for the Floorplan stage for L1MetadataArray target
-  bazel run @bazel-orfs//:L1MetadataArray_floorplan_deps -- `pwd`/build
+  bazel run @bazel-orfs//:L1MetadataArray_floorplan_deps
   ```
 
 3. Execute the shell script with ORFS make target relevant to given stage of the flow:
 
   ```bash
-  build/make do-floorplan
+  tmp/make do-floorplan
   ```
 
 ### Running OpenROAD GUI
@@ -466,17 +470,18 @@ Let's assume we want to run a GUI for the `route` stage for the `L1MetadataArray
 1. Initialize and build stages up to the `route` stage:
 
   ```bash
-  bazel run @bazel-orfs//:L1MetadataArray_route -- `pwd`/build
+  bazel run @bazel-orfs//:L1MetadataArray_route gui_route
   ```
 
-2. Execute the GUI shell script:
+Or in two steps:
 
   ```bash
+  bazel run @bazel-orfs//:L1MetadataArray_route
   # Start the GUI for the Route stage for L1MetadataArray target
-  build/make gui_route
+  tmp/make gui_route
 
   # Or open the GUI through the CLI
-  build/make open_route
+  tmp/make open_route
   gui::show
   ```
 
@@ -507,11 +512,8 @@ Similarly, if the `PLACE_DENSITY` is modified, only stages from the placement an
 To apply and view the changes:
 
 ```bash
-# Build tag_array_64x184 macro up to the floorplan stage
-bazel run @bazel-orfs//:tag_array_64x184_floorplan -- `pwd`/build
-
-# View final results from GUI
-build/make gui_floorplan
+# Build tag_array_64x184 macro up to the floorplan stage and view in GUI
+bazel run @bazel-orfs//:tag_array_64x184_floorplan gui_floorplan
 ```
 
 If the remote caching is enabled for Bazel, reverting the change and rebuilding the floorplan stage will be completed instantaneously, as the artifact already exists:
@@ -520,11 +522,8 @@ If the remote caching is enabled for Bazel, reverting the change and rebuilding 
 # Revert the change
 git restore BUILD
 
-# Rebuild the floorplan stage
-bazel run @bazel-orfs//:tag_array_64x184_floorplan -- `pwd`/build
-
-# View final results from GUI
-build/make gui_floorplan
+# Rebuild the floorplan stage and view in GUI
+bazel run @bazel-orfs//:tag_array_64x184_floorplan gui_floorplan
 ```
 
 ### Fast floorplanning and mock abstracts
@@ -586,10 +585,10 @@ This will update your MODULE.bazel with the latest ORFS and bazel-orfs and run `
 ### Run all synth targets
 
 ```bash
-bazel query :\* | grep '_synth$' | xargs -I {} bazel run {} -- `pwd`/build
+bazel query :\* | grep '_synth$' | xargs -I {} bazel run {}
 ```
 
-This will run all synth targets in the workspace and place the results in the `build/results` directory.
+This will run all synth targets in the workspace and place the results in the `tmp/results` directory.
 
 ### Forcing a rebuild of a stage
 
@@ -627,13 +626,13 @@ Later, those dependencies will be used by Bazel to build the `synth` stage for `
 
 A mutable build folder can be set up to prepare for a local synthesis run, useful when digging into some detail of synthesis flow:
 
-    $ bazel build tag_array_64x184_synth_deps -- `pwd`/build
-    $ build/make print-YOSYS_EXE
+    $ bazel run tag_array_64x184_synth_deps
+    $ tmp/make print-YOSYS_EXE
     YOSYS_EXE = external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys
 
 This is actually a symlink pointing to the read only executables, which is how yosys is able to find the yosys-abc alongside itself needed for the abc part of the synthesis stage:
 
-    $ ls -l $(dirname $(readlink -f build/external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys))
+    $ ls -l $(dirname $(readlink -f tmp/external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys))
     total 37456
     -rwxr-xr-x 1 oyvind oyvind 23449673 Aug 15 07:05 yosys
     -rwxr-xr-x 1 oyvind oyvind 14725193 Aug 15 07:05 yosys-abc
@@ -646,16 +645,16 @@ This is actually a symlink pointing to the read only executables, which is how y
 
 To create and test a `make issue` archive for floorplan:
 
-    bazel run lb_32x128_floorplan_deps `pwd`/build
-    build/make ISSUE_TAG=test floorplan_issue
+    bazel run lb_32x128_floorplan_deps
+    tmp/make ISSUE_TAG=test floorplan_issue
 
-This results in `build/floorplan_test.tar.gz`, which can be run provided there `openroad` application is in the path.
+This results in `tmp/floorplan_test.tar.gz`, which can be run provided there `openroad` application is in the path.
 
 A local ORFS installation can be used by running `source env.sh`.
 
 Alternatively, the ORFS installation used with Bazel, can be used by using `make bash` to set up the environment of the ORFS extracted into the Bazel build environment:
 
-    build/make bash
+    tmp/make bash
     export PATH=$PATH:$(realpath $(dirname $(readlink -f $OPENROAD_EXE)))
     tar --strip-components=1 -xzf ../floorplan_test.tar.gz
     ./run-me-lb_32x128-asap7-base.sh

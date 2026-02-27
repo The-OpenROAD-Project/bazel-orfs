@@ -361,6 +361,7 @@ def _deps_impl(ctx):
                 ),
             ),
             "${MAKE}": ctx.attr.src[OrfsDepInfo].make.short_path,
+            "${PACKAGE}": ctx.label.package,
             "${RENAMES}": " ".join(
                 [
                     "{}:{}".format(rename.src, rename.dst)
@@ -1126,6 +1127,7 @@ def _yosys_impl(ctx):
                 ),
             ),
             "${MAKE}": make.short_path,
+            "${PACKAGE}": ctx.label.package,
         },
     )
 
@@ -1414,6 +1416,7 @@ def _make_impl(
                 ),
             ),
             "${MAKE}": make.short_path,
+            "${PACKAGE}": ctx.label.package,
         },
     )
 
