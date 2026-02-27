@@ -11,6 +11,19 @@ else
   eval "STAGES=($STAGES)"
 fi
 
+# Derive package from target_name to find the tmp/<package> output directory
+if [[ "$target_name" == //* ]]; then
+  # //package:target -> package
+  package="${target_name#//}"
+  package="${package%%:*}"
+elif [[ "$target_name" == *:* ]]; then
+  # package:target -> package
+  package="${target_name%%:*}"
+else
+  # bare target name -> root package (empty)
+  package=""
+fi
+build_dir="tmp${package:+/$package}"
 
 if [[ "$target_name" == "L1MetadataArray" || "$target_name" == "subpackage:L1MetadataArray" || "$target_name" == "//sram:top_mix" ]]; then
   macro="true"
@@ -18,13 +31,13 @@ fi
 echo "Build ${target_name} macro"
 for stage in "${STAGES[@]}"
 do
-  rm -rf ./build
+  rm -rf "./$build_dir"
   if [[ -z $SKIP_BUILD ]] ; then
     echo "[${target_name}] ${stage}: Query dependency target"
     bazel query "${target_name}_${stage}_deps"
     bazel query "${target_name}_${stage}_deps" --output=build
     echo "[${target_name}] ${stage}: Build dependency"
-    bazel run --subcommands --verbose_failures --sandbox_debug "${target_name}_${stage}_deps" -- "$(pwd)/build"
+    bazel run --subcommands --verbose_failures --sandbox_debug "${target_name}_${stage}_deps"
   fi
   if [[ -z $SKIP_RUN ]] ; then
     stages=()
@@ -39,23 +52,23 @@ do
         stages+=("do-5_3_fillcell")
     elif [[ $stage == "cts" ]]; then
         stages+=("do-cts")
-        [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.odb' | wc -l) -eq 1 ]
-        [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.sdc' | wc -l) -eq 1 ]
-        [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.v' | wc -l) -eq 0 ]
+        [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.odb' | wc -l) -eq 1 ]
+        [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.sdc' | wc -l) -eq 1 ]
+        [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.v' | wc -l) -eq 0 ]
     else
         stages+=("do-${stage}")
     fi
     if [[ "$macro" == "true" ]]; then
-      [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lef' | wc -l) -eq 1 ]
-      [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lib' | wc -l) -eq 1 ]
+      [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lef' | wc -l) -eq 1 ]
+      [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lib' | wc -l) -eq 1 ]
     fi
     for local_stage in "${stages[@]}"
     do
         echo "[${target_name}] ${local_stage}: Run make script"
-        build/make "${local_stage}"
+        "$build_dir/make" "${local_stage}"
     done
     echo "Check that we can load the result"
-    build/make OR_ARGS=-exit open_${stage}
+    "$build_dir/make" OR_ARGS=-exit open_${stage}
   fi
 done
 

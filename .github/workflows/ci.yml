@@ -76,7 +76,7 @@ jobs:
             # this is a mock area abstract, so it is not executable
             bazel build --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }}
           else
-            bazel run --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }} -- `pwd`/build
+            bazel run --subcommands --verbose_failures --sandbox_debug ${{ matrix.STAGE_TARGET }}
           fi
 
   test-open-target:
@@ -111,28 +111,38 @@ jobs:
         run: |
           set -ex
 
-          rm -rf ./build/
-          bazel run ${{ matrix.STAGE_TARGET }}_synth -- `pwd`/build OR_ARGS=-exit open_synth
-          if [[ "${{ matrix.STAGE_TARGET }}" == "L1MetadataArray" || "${{ matrix.STAGE_TARGET }}" == "subpackage:L1MetadataArray" || "${{ matrix.STAGE_TARGET }}" == "//sram:top_mix" ]]; then
+          stage_target="${{ matrix.STAGE_TARGET }}"
+          if [[ "$stage_target" == //* ]]; then
+            package="${stage_target#//}"; package="${package%%:*}"
+          elif [[ "$stage_target" == *:* ]]; then
+            package="${stage_target%%:*}"
+          else
+            package=""
+          fi
+          build_dir="tmp${package:+/$package}"
+
+          rm -rf "./$build_dir"
+          bazel run ${stage_target}_synth -- OR_ARGS=-exit open_synth
+          if [[ "$stage_target" == "L1MetadataArray" || "$stage_target" == "subpackage:L1MetadataArray" || "$stage_target" == "//sram:top_mix" ]]; then
             macro="true"
           fi
           if [[ "$macro" == "true" ]]; then
-            [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lib' | wc -l) -eq 1 ]
-            [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lef' | wc -l) -eq 1 ]
+            [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lib' | wc -l) -eq 1 ]
+            [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lef' | wc -l) -eq 1 ]
           fi
-          [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/1_.*\.log' | wc -l) -gt 1 ]
-          [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/2_.*\.log' | wc -l) -eq 0 ]
-          rm -rf ./build/
-          bazel run ${{ matrix.STAGE_TARGET }}_floorplan -- `pwd`/build OR_ARGS=-exit open_floorplan
+          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/1_.*\.log' | wc -l) -gt 1 ]
+          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/2_.*\.log' | wc -l) -eq 0 ]
+          rm -rf "./$build_dir"
+          bazel run ${stage_target}_floorplan -- OR_ARGS=-exit open_floorplan
           if [[ "$macro" == "true" ]]; then
-            [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lib' | wc -l) -eq 1 ]
-            [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lef' | wc -l) -eq 1 ]
+            [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lib' | wc -l) -eq 1 ]
+            [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lef' | wc -l) -eq 1 ]
           fi
-          [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.odb' | wc -l) -eq 1 ]
-          [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.sdc' | wc -l) -eq 1 ]
-          [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.v' | wc -l) -eq 0 ]
-          [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/1_.*\.log' | wc -l) -eq 0 ]
-          [ $(find build/_main ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/2_.*\.log' | wc -l) -gt 1 ]
+          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.odb' | wc -l) -eq 1 ]
+          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.sdc' | wc -l) -eq 1 ]
+          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.v' | wc -l) -eq 0 ]
+          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/1_.*\.log' | wc -l) -eq 0 ]
+          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/2_.*\.log' | wc -l) -gt 1 ]
 
   test-builds:
     name: Smoketests

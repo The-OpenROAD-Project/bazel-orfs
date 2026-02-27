@@ -177,16 +177,16 @@ bazel build <target>_<stage>
 A locally built and modified [ORFS](https://openroad-flow-scripts.readthedocs.io/en/latest/user/UserGuide.html) can also be used to run the flow:
 
 ```bash
-bazel run <target>_<stage>_deps -- [absolute_path]
-[absolute_path]/make do-<stage>
+bazel run <target>_<stage>_deps
+tmp/<package>/make do-<stage>
 ```
 
 The `_deps` is used to distinguish between copying the results into the mutable folder for that stage versus copying the required files to execute said stage.
 
-It is also possible and convenient to run within the sandbox as the arguments after the optional path are forwarded to make:
+It is also possible and convenient to run within the sandbox as the arguments are forwarded to make:
 
 ```bash
-bazel run <target>_<stage>_deps -- [absolute_path] <make args...>
+bazel run <target>_<stage>_deps <make args...>
 ```
 
 To view the floorplan:
@@ -195,7 +195,7 @@ To view the floorplan:
 bazel run tag_array_64x184_floorplan gui_floorplan
 ```
 
-> **NOTE:** If no path is provided, files are placed in `tmp/<package>/` under the workspace root (e.g. `tmp/sram/` for `//sram:...`), which is added to `.gitignore` automatically. If a path is provided it must be absolute; a relative path will fail.
+> **NOTE:** Files are always placed in `tmp/<package>/` under the workspace root (e.g. `tmp/sram/` for `//sram:...`, `tmp/` for the root package), which is added to `.gitignore` automatically.
 
 A convenient way to run the floorplan and view the results would be:
 
@@ -210,8 +210,8 @@ By default, the `make do-<stage>` invocation will rely on the ORFS from [MODULE.
 ```bash
 source <orfs_path>/env.sh
 
-bazel run <target>_<stage>_deps -- [absolute_path]
-[absolute_path]/make do-<stage>
+bazel run <target>_<stage>_deps
+tmp/<package>/make do-<stage>
 ```
 
 > **NOTE:** The synthesis stage requires the `do-yosys-canonicalize` and `do-yosys` steps to be completed beforehand.
@@ -220,8 +220,8 @@ bazel run <target>_<stage>_deps -- [absolute_path]
 > ```bash
 > source <orfs_path>/env.sh
 >
-> bazel run <target>_synth_deps -- [absolute_path]
-> [absolute_path]/make do-yosys-canonicalize do-yosys do-1_synth
+> bazel run <target>_synth_deps
+> tmp/<package>/make do-yosys-canonicalize do-yosys do-1_synth
 > ```
 
 ### Override BUILD configuration variables
@@ -383,13 +383,6 @@ For the CLI:
 
 ```bash
 bazel run <target>_<stage> open_<stage>
-```
-
-Or with an explicit path:
-
-```bash
-bazel run <target>_<stage> -- [absolute_path] gui_<stage>
-[absolute_path]/make open_<stage>
 ```
 
 CLI and GUI is not available for all stages, consequently these targets are created only for:
