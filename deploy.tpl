@@ -3,14 +3,13 @@
 set -e
 
 usage() {
-  echo "Usage: $1 [ABSOLUTE_PATH]"
-  echo "  If ABSOLUTE_PATH is omitted, defaults to \$BUILD_WORKSPACE_DIRECTORY/tmp/<package>"
+  echo "Usage: $1 [<make args...>]"
+  echo "  Files are placed in \$BUILD_WORKSPACE_DIRECTORY/tmp/<package>"
   exit 1
 }
 
 main() {
   local progname
-  local dst
   local config
   local genfiles
   local renames
@@ -44,40 +43,24 @@ main() {
         shift
       ;;
       *)
-        if [[ "$1" == /* ]]; then
-          dst="$1"
-          shift
-        fi
         break
       ;;
     esac
   done
 
-  if [ -z "$dst" ]; then
-    if [ -z "$BUILD_WORKSPACE_DIRECTORY" ]; then
-      echo "$progname: must have [ABSOLUTE_PATH] when not run via 'bazel run'"
-      echo "Try '$progname -h' for more information."
-      exit 1
-    fi
-    dst="$BUILD_WORKSPACE_DIRECTORY/tmp/$package"
-  fi
-
-  if [ -n "$BUILD_WORKSPACE_DIRECTORY" ]; then
-    local gitignore="$BUILD_WORKSPACE_DIRECTORY/.gitignore"
-    if ! grep -qxF "tmp/" "$gitignore" 2>/dev/null; then
-      echo "tmp/" >> "$gitignore"
-      echo "$progname: Added 'tmp/' to $gitignore"
-    fi
-  fi
-
-  if [[ "$dst" != /* ]]; then
-    echo "$progname: '$dst' is not an absolute path"
+  if [ -z "$BUILD_WORKSPACE_DIRECTORY" ]; then
+    echo "$progname: must be run via 'bazel run'"
     echo "Try '$progname -h' for more information."
     exit 1
   fi
 
-  local canonical
-  canonical="$(realpath --canonicalize-missing "$dst")"
+  local dst="${BUILD_WORKSPACE_DIRECTORY}/tmp${package:+/$package}"
+
+  local gitignore="$BUILD_WORKSPACE_DIRECTORY/.gitignore"
+  if ! grep -qxF "tmp/" "$gitignore" 2>/dev/null; then
+    echo "tmp/" >> "$gitignore"
+    echo "$progname: Added 'tmp/' to $gitignore"
+  fi
 
   mkdir --parents "$dst"
   chmod --recursive u+w "$dst"
