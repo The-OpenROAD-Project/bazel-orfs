@@ -56,10 +56,17 @@ main() {
 
   local dst="${BUILD_WORKSPACE_DIRECTORY}/tmp${package:+/$package}"
 
-  local gitignore="$BUILD_WORKSPACE_DIRECTORY/.gitignore"
-  if ! grep -qxF "tmp/" "$gitignore" 2>/dev/null; then
-    echo "tmp/" >> "$gitignore"
-    echo "$progname: Added 'tmp/' to $gitignore"
+  local missing=()
+  if ! grep -qxF "tmp/" "$BUILD_WORKSPACE_DIRECTORY/.gitignore" 2>/dev/null; then
+    missing+=(".gitignore")
+  fi
+  if ! grep -qxF "tmp" "$BUILD_WORKSPACE_DIRECTORY/.bazelignore" 2>/dev/null; then
+    missing+=(".bazelignore")
+  fi
+  if [ ${#missing[@]} -gt 0 ]; then
+    echo "$progname: 'tmp' entry missing from: ${missing[*]}"
+    echo "Add 'tmp/' to .gitignore and 'tmp' to .bazelignore"
+    exit 1
   fi
 
   mkdir --parents "$dst"
