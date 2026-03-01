@@ -101,7 +101,7 @@ def main():
         forbidden = {".bloop", ".metals", ".bazelbsp", ".bsp"} & set(dirs)
         for folder in forbidden:
             folder_path = os.path.join(root, folder)
-            print(f"Rleaning up (removing): {folder_path}")
+            print(f"Cleaning up (removing): {folder_path}")
             shutil.rmtree(folder_path)
 
     cmd = ["bazelisk", "build"] + data.get("targets", [])
