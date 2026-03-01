@@ -62,9 +62,6 @@ load_json_file = use_repo_rule("//:load_json_file.bzl", "load_json_file")
 load_json_file(
     name = "orfs_variable_metadata",
     src = "@docker_orfs//:OpenROAD-flow-scripts/flow/scripts/variables.yaml",
-    # Dummy output file, we're not actually using it
-    out = "variables.json",
-    script = "//:yaml_to_json.py",
 )
 
 bazel_dep(
