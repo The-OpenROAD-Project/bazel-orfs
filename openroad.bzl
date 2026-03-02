@@ -166,6 +166,7 @@ def _odb_arguments(ctx, short = False):
 def orfs_environment(ctx):
     return {
         "HOME": _work_home(ctx),
+        "PYTHON_EXE": ctx.executable._python.path,
         "STDBUF_CMD": "",
         "TCL_LIBRARY": commonpath(ctx.files._tcl),
         "WORK_HOME": _work_home(ctx),
@@ -178,7 +179,6 @@ def flow_environment(ctx):
         "KLAYOUT_CMD": ctx.executable._klayout.path,
         "OPENROAD_EXE": ctx.executable._openroad.path,
         "OPENSTA_EXE": ctx.executable._opensta.path,
-        "PYTHON_EXE": ctx.executable._python.path,
         "QT_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
         "QT_QPA_PLATFORM_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
         "RUBYLIB": ":".join(
@@ -245,6 +245,7 @@ def yosys_inputs(ctx):
                     ctx.attr._yosys,
                     ctx.attr._make,
                     ctx.attr._makefile_yosys,
+                    ctx.attr._python,
                 ],
             ),
         ],
