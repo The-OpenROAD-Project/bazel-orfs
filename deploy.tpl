@@ -4,7 +4,7 @@ set -e
 
 usage() {
   echo "Usage: $1 [<make args...>]"
-  echo "  Files are placed in \$BUILD_WORKSPACE_DIRECTORY/tmp/<package>"
+  echo "  Files are placed in \$BUILD_WORKSPACE_DIRECTORY/tmp/<package>/<name>"
   exit 1
 }
 
@@ -14,6 +14,7 @@ main() {
   local genfiles
   local renames
   local make
+  local name="${NAME}"
   local package="${PACKAGE}"
   progname=$(basename "$0")
 
@@ -42,6 +43,11 @@ main() {
         shift
         shift
       ;;
+      -n|--name)
+        name="$2"
+        shift
+        shift
+      ;;
       *)
         break
       ;;
@@ -54,7 +60,7 @@ main() {
     exit 1
   fi
 
-  local dst="${BUILD_WORKSPACE_DIRECTORY}/tmp${package:+/$package}"
+  local dst="${BUILD_WORKSPACE_DIRECTORY}/tmp${package:+/$package}/$name"
 
   local missing=()
   if ! grep -qxF "tmp/" "$BUILD_WORKSPACE_DIRECTORY/.gitignore" 2>/dev/null; then
@@ -109,4 +115,4 @@ EOF
   fi
 }
 
-main --genfiles "${GENFILES}" --renames "${RENAMES}" --make "${MAKE}" --config "${CONFIG}" "$@"
+main --genfiles "${GENFILES}" --name "${NAME}" --renames "${RENAMES}" --make "${MAKE}" --config "${CONFIG}" "$@"

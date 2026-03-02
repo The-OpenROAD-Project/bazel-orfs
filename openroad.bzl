@@ -361,6 +361,7 @@ def _deps_impl(ctx):
                 ),
             ),
             "${MAKE}": ctx.attr.src[OrfsDepInfo].make.short_path,
+            "${NAME}": ctx.attr.name,
             "${PACKAGE}": ctx.label.package,
             "${RENAMES}": " ".join(
                 [
