@@ -178,7 +178,7 @@ A locally built and modified [ORFS](https://openroad-flow-scripts.readthedocs.io
 
 ```bash
 bazel run <target>_<stage>_deps
-tmp/<package>/make do-<stage>
+tmp/<package>/<target>_<stage>_deps/make do-<stage>
 ```
 
 The `_deps` is used to distinguish between copying the results into the mutable folder for that stage versus copying the required files to execute said stage.
@@ -195,14 +195,14 @@ To view the floorplan:
 bazel run tag_array_64x184_floorplan gui_floorplan
 ```
 
-> **NOTE:** Files are always placed in `tmp/<package>/` under the workspace root (e.g. `tmp/sram/` for `//sram:...`, `tmp/` for the root package), which is added to `.gitignore` automatically.
+> **NOTE:** Files are always placed in `tmp/<package>/<name>/` under the workspace root (e.g. `tmp/sram/sdq_17x64_floorplan_deps/` for `//sram:sdq_17x64_floorplan_deps`, `tmp/MyDesign_floorplan_deps/` for the root package), which is added to `.gitignore` automatically.
 
 A convenient way to run the floorplan and view the results would be:
 
 ```bash
 bazel run MyDesign_floorplan_deps
-tmp/make do-floorplan
-tmp/make gui_floorplan
+tmp/MyDesign_floorplan_deps/make do-floorplan
+tmp/MyDesign_floorplan_deps/make gui_floorplan
 ```
 
 By default, the `make do-<stage>` invocation will rely on the ORFS from [MODULE.bazel](./MODULE.bazel), unless the `env.sh` script is sourced, or the `FLOW_HOME` environment variable is set to the path of the local `OpenROAD-flow-scripts/flow` installation:
@@ -211,7 +211,7 @@ By default, the `make do-<stage>` invocation will rely on the ORFS from [MODULE.
 source <orfs_path>/env.sh
 
 bazel run <target>_<stage>_deps
-tmp/<package>/make do-<stage>
+tmp/<package>/<target>_<stage>_deps/make do-<stage>
 ```
 
 > **NOTE:** The synthesis stage requires the `do-yosys-canonicalize` and `do-yosys` steps to be completed beforehand.
@@ -221,7 +221,7 @@ tmp/<package>/make do-<stage>
 > source <orfs_path>/env.sh
 >
 > bazel run <target>_synth_deps
-> tmp/<package>/make do-yosys-canonicalize do-yosys do-1_synth
+> tmp/<package>/<target>_synth_deps/make do-yosys-canonicalize do-yosys do-1_synth
 > ```
 
 ### Override BUILD configuration variables
@@ -444,7 +444,7 @@ Let's assume we want to perform a `floorplan` stage for the `L1MetadataArray` de
   bazel run @bazel-orfs//:L1MetadataArray_synth_deps
 
   # Build Synthesis stage for L1MetadataArray target using local ORFS
-  tmp/make do-yosys-canonicalize do-yosys do-1_synth
+  tmp/L1MetadataArray_synth_deps/make do-yosys-canonicalize do-yosys do-1_synth
 
   # Initialize dependencies for the Floorplan stage for L1MetadataArray target
   bazel run @bazel-orfs//:L1MetadataArray_floorplan_deps
@@ -453,7 +453,7 @@ Let's assume we want to perform a `floorplan` stage for the `L1MetadataArray` de
 3. Execute the shell script with ORFS make target relevant to given stage of the flow:
 
   ```bash
-  tmp/make do-floorplan
+  tmp/L1MetadataArray_floorplan_deps/make do-floorplan
   ```
 
 ### Running OpenROAD GUI
@@ -471,10 +471,10 @@ Or in two steps:
   ```bash
   bazel run @bazel-orfs//:L1MetadataArray_route
   # Start the GUI for the Route stage for L1MetadataArray target
-  tmp/make gui_route
+  tmp/L1MetadataArray_route/make gui_route
 
   # Or open the GUI through the CLI
-  tmp/make open_route
+  tmp/L1MetadataArray_route/make open_route
   gui::show
   ```
 
@@ -620,12 +620,12 @@ Later, those dependencies will be used by Bazel to build the `synth` stage for `
 A mutable build folder can be set up to prepare for a local synthesis run, useful when digging into some detail of synthesis flow:
 
     $ bazel run tag_array_64x184_synth_deps
-    $ tmp/make print-YOSYS_EXE
+    $ tmp/tag_array_64x184_synth_deps/make print-YOSYS_EXE
     YOSYS_EXE = external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys
 
 This is actually a symlink pointing to the read only executables, which is how yosys is able to find the yosys-abc alongside itself needed for the abc part of the synthesis stage:
 
-    $ ls -l $(dirname $(readlink -f tmp/external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys))
+    $ ls -l $(dirname $(readlink -f tmp/tag_array_64x184_synth_deps/external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys))
     total 37456
     -rwxr-xr-x 1 oyvind oyvind 23449673 Aug 15 07:05 yosys
     -rwxr-xr-x 1 oyvind oyvind 14725193 Aug 15 07:05 yosys-abc
@@ -639,15 +639,15 @@ This is actually a symlink pointing to the read only executables, which is how y
 To create and test a `make issue` archive for floorplan:
 
     bazel run lb_32x128_floorplan_deps
-    tmp/make ISSUE_TAG=test floorplan_issue
+    tmp/lb_32x128_floorplan_deps/make ISSUE_TAG=test floorplan_issue
 
-This results in `tmp/floorplan_test.tar.gz`, which can be run provided there `openroad` application is in the path.
+This results in `tmp/lb_32x128_floorplan_deps/floorplan_test.tar.gz`, which can be run provided there `openroad` application is in the path.
 
 A local ORFS installation can be used by running `source env.sh`.
 
 Alternatively, the ORFS installation used with Bazel, can be used by using `make bash` to set up the environment of the ORFS extracted into the Bazel build environment:
 
-    tmp/make bash
+    tmp/lb_32x128_floorplan_deps/make bash
     export PATH=$PATH:$(realpath $(dirname $(readlink -f $OPENROAD_EXE)))
     tar --strip-components=1 -xzf ../floorplan_test.tar.gz
     ./run-me-lb_32x128-asap7-base.sh

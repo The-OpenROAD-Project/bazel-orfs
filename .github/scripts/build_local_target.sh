@@ -11,19 +11,21 @@ else
   eval "STAGES=($STAGES)"
 fi
 
-# Derive package from target_name to find the tmp/<package> output directory
+# Derive package and bare target from target_name for tmp/<package>/<name> output directory
 if [[ "$target_name" == //* ]]; then
-  # //package:target -> package
+  # //package:target -> package, target
   package="${target_name#//}"
+  bare_target="${package#*:}"
   package="${package%%:*}"
 elif [[ "$target_name" == *:* ]]; then
-  # package:target -> package
+  # package:target -> package, target
+  bare_target="${target_name#*:}"
   package="${target_name%%:*}"
 else
   # bare target name -> root package (empty)
+  bare_target="$target_name"
   package=""
 fi
-build_dir="tmp${package:+/$package}"
 
 if [[ "$target_name" == "L1MetadataArray" || "$target_name" == "subpackage:L1MetadataArray" || "$target_name" == "//sram:top_mix" ]]; then
   macro="true"
@@ -31,6 +33,7 @@ fi
 echo "Build ${target_name} macro"
 for stage in "${STAGES[@]}"
 do
+  build_dir="tmp${package:+/$package}/${bare_target}_${stage}_deps"
   rm -rf "./$build_dir"
   if [[ -z $SKIP_BUILD ]] ; then
     echo "[${target_name}] ${stage}: Query dependency target"
