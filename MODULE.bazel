@@ -18,6 +18,8 @@ bazel_dep(name = "rules_verilator", version = "0.1.0")
 bazel_dep(name = "verilator", version = "5.036.bcr.3")
 bazel_dep(name = "rules_shell", version = "0.3.0")
 bazel_dep(name = "rules_cc", version = "0.2.4")
+bazel_dep(name = "yosys", version = "0.57.bcr.2")
+bazel_dep(name = "readline", version = "8.3")  # GCC 15 compat (fixes K&R declarations)
 
 ####### Node.js version #########
 # By default you get the node version from DEFAULT_NODE_VERSION in @rules_nodejs//nodejs:repositories.bzl
