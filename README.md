@@ -138,6 +138,36 @@ Stage targets:
 
 ## Implementation
 
+### orfs_genrule
+
+`orfs_genrule` is a drop-in replacement for Bazel's native `genrule` that keeps
+`srcs` and `tools` in the **exec** configuration (`cfg = "exec"`).
+
+Native `genrule` forces `srcs` into the **target** configuration. When `srcs`
+reference targets produced by ORFS rules (which always build in the exec
+configuration), this configuration mismatch causes the entire ORFS pipeline —
+synthesis, placement, routing — to be **rebuilt a second time** under the target
+configuration. For large designs this can add hours to the build.
+
+`orfs_genrule` avoids this by matching the configuration where ORFS outputs
+already live. Use it for any post-processing rule (reports, plots, CSV
+transformations) whose inputs come from `orfs_flow` or `orfs_synth` targets.
+
+It supports the same `cmd` substitutions as native `genrule`:
+`$(location)`, `$(execpath)`, `$(SRCS)`, `$(OUTS)`, `$<`, `$@`, `$$`.
+
+```starlark
+load("@bazel-orfs//:orfs_genrule.bzl", "orfs_genrule")
+
+orfs_genrule(
+    name = "my_report",
+    srcs = [":MyDesign_synth_report"],
+    outs = ["my_report.csv"],
+    cmd = "$(execpath :my_script) --input $< --output $@",
+    tools = [":my_script"],
+)
+```
+
 ### openroad.bzl
 
 This file contains simple helper functions written in Starlark as well as macro `orfs_flow()`.
