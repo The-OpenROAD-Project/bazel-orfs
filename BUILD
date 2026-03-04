@@ -13,6 +13,7 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 # load("//:eqy.bzl", "eqy_test")
 load("//:netlistsvg.bzl", "netlistsvg")
 load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_macro", "orfs_run", "orfs_synth")
+load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:ppa.bzl", "orfs_ppa")
 load("//:sweep.bzl", "orfs_sweep")
 load("//:yosys.bzl", "yosys")
@@ -419,6 +420,21 @@ genrule(
     ],
     outs = [
         "gatelist_wc.txt",
+    ],
+    cmd = "wc -l $(locations :gatelist) $(locations :spef) > $@",
+)
+
+# Same as gatelist_wc but using orfs_genrule to keep srcs in exec config.
+# Native genrule forces srcs into target config, causing ORFS outputs to
+# be rebuilt in a second configuration.
+orfs_genrule(
+    name = "gatelist_wc_orfs_genrule",
+    srcs = [
+        ":gatelist",
+        ":spef",
+    ],
+    outs = [
+        "gatelist_wc_orfs_genrule.txt",
     ],
     cmd = "wc -l $(locations :gatelist) $(locations :spef) > $@",
 )

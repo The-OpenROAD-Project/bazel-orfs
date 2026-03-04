@@ -8,6 +8,13 @@ bazelisk query //:* | grep -q -v lb_32x128_3_place
 echo This target should exist
 bazelisk query //:* | grep -q -v lb_32x128_4_synth
 
+# orfs_genrule: verify srcs use exec config (not target config)
+# Native genrule forces srcs into target config, rebuilding ORFS outputs.
+# orfs_genrule keeps srcs in exec config, avoiding the duplicate build.
+target_config=$(bazelisk cquery //:gatelist_wc_orfs_genrule 2>&1 | grep "^//" | sed 's/.*(\(.*\))/\1/')
+srcs_config=$(bazelisk cquery 'deps(//:gatelist_wc_orfs_genrule, 1)' 2>&1 | grep "gatelist " | sed 's/.*(\(.*\))/\1/')
+test "$target_config" != "$srcs_config"
+
 bazelisk test ... \
    --keep_going \
    --test_output=errors \
