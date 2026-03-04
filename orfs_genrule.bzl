@@ -35,11 +35,19 @@ def _orfs_genrule_impl(ctx):
     cmd = cmd.replace("$(RULEDIR)", outs[0].dirname if outs else "")
     cmd = cmd.replace(_PLACEHOLDER, "$")
 
+    # Pass FilesToRunProvider objects so that run_shell creates the
+    # .runfiles tree in the sandbox for py_binary tools.
+    tools_list = [
+        tool[DefaultInfo].files_to_run
+        for tool in ctx.attr.tools
+        if tool[DefaultInfo].files_to_run
+    ]
+
     ctx.actions.run_shell(
         command = cmd,
         inputs = ctx.files.srcs,
         outputs = outs,
-        tools = ctx.files.tools,
+        tools = tools_list,
         mnemonic = "OrfsGenrule",
         progress_message = "OrfsGenrule %s" % ctx.label,
     )
