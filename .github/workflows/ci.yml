@@ -40,14 +40,14 @@ jobs:
       matrix:
         STAGE_TARGET:
           - "//sram:top_mix_cts"
-          - "tag_array_64x184_generate_abstract"
-          - "tag_array_64x184_report"
-          - "lb_32x128_generate_abstract"
-          - "lb_32x128_test_generate_abstract"
-          - "L1MetadataArray_generate_abstract"
-          - "regfile_128x65_floorplan"
-          - "subpackage:L1MetadataArray_generate_abstract"
-          - "subpackage:tag_array_64x184_generate_abstract"
+          - "//test:tag_array_64x184_generate_abstract"
+          - "//test:tag_array_64x184_report"
+          - "//test:lb_32x128_generate_abstract"
+          - "//test:lb_32x128_test_generate_abstract"
+          - "//test:L1MetadataArray_generate_abstract"
+          - "//test:regfile_128x65_floorplan"
+          - "//subpackage:L1MetadataArray_generate_abstract"
+          - "//subpackage:tag_array_64x184_generate_abstract"
     env:
       DEBIAN_FRONTEND: "noninteractive"
     steps:
@@ -68,7 +68,7 @@ jobs:
       - name: Run target
         if: ${{ !endsWith(matrix.STAGE_TARGET, '_report') }}
         run: |
-          if [[ ${{ matrix.STAGE_TARGET }} == "lb_32x128_generate_abstract" || ${{ matrix.STAGE_TARGET }} == *"tag_array_64x184_generate_abstract"* ]]; then
+          if [[ ${{ matrix.STAGE_TARGET }} == *"lb_32x128_generate_abstract" || ${{ matrix.STAGE_TARGET }} == *"tag_array_64x184_generate_abstract"* ]]; then
             # this is a mock area abstract, so it is not executable
             bazel build --verbose_failures ${{ matrix.STAGE_TARGET }}
           else
@@ -86,10 +86,10 @@ jobs:
       matrix:
         STAGE_TARGET:
           - "//sram:top_mix"
-          - "tag_array_64x184"
-          - "L1MetadataArray"
-          - "subpackage:L1MetadataArray"
-          - "subpackage:tag_array_64x184"
+          - "//test:tag_array_64x184"
+          - "//test:L1MetadataArray"
+          - "//subpackage:L1MetadataArray"
+          - "//subpackage:tag_array_64x184"
     env:
       DEBIAN_FRONTEND: "noninteractive"
     steps:
@@ -119,7 +119,7 @@ jobs:
 
           rm -rf "./$build_dir"
           bazel run ${stage_target}_synth -- OR_ARGS=-exit open_synth
-          if [[ "$stage_target" == "L1MetadataArray" || "$stage_target" == "subpackage:L1MetadataArray" || "$stage_target" == "//sram:top_mix" ]]; then
+          if [[ "$stage_target" == *"L1MetadataArray" || "$stage_target" == "//sram:top_mix" ]]; then
             macro="true"
           fi
           if [[ "$macro" == "true" ]]; then
@@ -193,12 +193,12 @@ jobs:
 
       - name: Build local stage targets - tag_array_64x184
         env:
-          TARGET: tag_array_64x184
+          TARGET: //test:tag_array_64x184
         run: .github/scripts/build_local_target.sh
 
       - name: Build local stage targets - L1MetadataArray
         env:
-          TARGET: L1MetadataArray
+          TARGET: //test:L1MetadataArray
         run: .github/scripts/build_local_target.sh
       # FIXME switch from strings to labels to fix problems with bazel run vs. _deps environment
       # - name: Build local stage targets - //sram:top_mix
@@ -261,9 +261,9 @@ jobs:
 
       - name: Build local stage targets - tag_array_64x184
         env:
-          TARGET: tag_array_64x184
+          TARGET: //test:tag_array_64x184
         run: .github/scripts/build_local_target.sh
       - name: Build local stage targets - L1MetadataArray
         env:
-          TARGET: L1MetadataArray
+          TARGET: //test:L1MetadataArray
         run: .github/scripts/build_local_target.sh
