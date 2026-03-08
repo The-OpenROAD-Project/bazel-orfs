@@ -675,7 +675,7 @@ Alternatively, the ORFS installation used with Bazel, can be used by using `make
 The root directory contains only external-facing concerns:
 
 - `.bzl` rule files (`openroad.bzl`, `sweep.bzl`, `ppa.bzl`, etc.) loaded by downstream consumers
-- `MODULE.bazel` and `BUILD` with public tools (`bump`, `bsp`, `plot_repair`, `plot_clock_period_tool`)
+- `MODULE.bazel` and `BUILD` with public tools (`bump`, `plot_repair`, `plot_clock_period_tool`)
 - Template files consumed by rules (`make.tpl`, `deploy.tpl`, `eqy.tpl`, `sby.tpl`, `mock_area.tcl`)
 - `toolchains/` (Scala/Chisel), `tools/` (pin, deploy), `extensions/` (pin)
 
