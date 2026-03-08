@@ -117,23 +117,32 @@ MAVEN_LONG_DEPS = {
 }
 
 # Configure BCR rules_scala
-scala_config = use_extension("@rules_scala//scala/extensions:config.bzl", "scala_config")
+#
+# Downstream modules must configure their own scala_config, scala_deps,
+# register_toolchains, and maven extensions. bazel-orfs provides the
+# rules (chisel.bzl, etc.) but does not own the toolchain configuration.
+scala_config = use_extension(
+    "@rules_scala//scala/extensions:config.bzl",
+    "scala_config",
+    dev_dependency = True,
+)
 scala_config.settings(scala_version = "2.13.17")
 use_repo(scala_config, "rules_scala_config")
 
-scala_deps = use_extension("@rules_scala//scala/extensions:deps.bzl", "scala_deps")
+scala_deps = use_extension(
+    "@rules_scala//scala/extensions:deps.bzl",
+    "scala_deps",
+    dev_dependency = True,
+)
 scala_deps.scala()  # Provides scala-compiler, scala-library, scala-reflect
 scala_deps.scalatest()  # Provides scalatest framework
 use_repo(scala_deps, "rules_scala_toolchains")
 
-# Register custom Scala toolchain with SemanticDB enabled
-#
-# NOTE! Do not enable because it causes problems for e.g. OpenROAD
-# that does not need or want semanticdb toolchain
-#
-# register_toolchains("//:semanticdb_toolchain")
-
-maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven = use_extension(
+    "@rules_jvm_external//:extensions.bzl",
+    "maven",
+    dev_dependency = True,
+)
 maven.install(
     artifacts = [
                     "{}_{}:{}".format(dep, SCALA_VERSION_SHORT, version)
@@ -169,6 +178,7 @@ register_toolchains(
     "@rules_verilator//verilator:verilator_toolchain",
     "@rules_scala_toolchains//...:all",
     # "@llvm_toolchain//:all",
+    dev_dependency = True,
 )
 
 http_archive(
