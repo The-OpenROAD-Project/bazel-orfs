@@ -1,9 +1,6 @@
-load("@aspect_rules_js//js:defs.bzl", "js_binary")
-
 # Unused in CI
 #
 # load("@bazel-orfs//tools/pin:pin.bzl", "pin_data")
-load("@npm//:defs.bzl", "npm_link_all_packages")
 load("@rules_python//python:defs.bzl", "py_binary")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_scala//scala:scala_toolchain.bzl", "scala_toolchain")
@@ -11,12 +8,10 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 # Reenable when we add test back in
 # load("//:eqy.bzl", "eqy_test")
-load("//:netlistsvg.bzl", "netlistsvg")
 load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_macro", "orfs_run", "orfs_synth")
 load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:ppa.bzl", "orfs_ppa")
 load("//:sweep.bzl", "orfs_sweep")
-load("//:yosys.bzl", "yosys")
 
 exports_files([
     "mock_area.tcl",
@@ -480,49 +475,6 @@ orfs_ppa(
     "ihp-sg13g2",
 ]]
 
-yosys(
-    name = "alu",
-    srcs = ["alu.v"],
-    outs = ["alu.json"],
-    arguments = [
-        "-p",
-        "read_verilog $(location alu.v); proc; write_json $(location alu.json)",
-    ],
-)
-
-npm_link_all_packages(name = "node_modules")
-
-js_binary(
-    name = "netlistsvg",
-    data = [
-        "//:node_modules/netlistsvg",
-        "//:node_modules/yargs",
-    ],
-    entry_point = "main.js",
-    visibility = ["//visibility:public"],
-)
-
-netlistsvg(
-    name = "alu_svg",
-    src = "alu.json",
-    out = "alu.svg",
-)
-
-# Demonstrate how to use this tool from a genrule
-#
-# https://docs.aspect.build/guides/rules_js_migration/#account-for-change-to-working-directory
-genrule(
-    name = "alu_svg_2",
-    srcs = ["alu.json"],
-    outs = ["alu2.svg"],
-    cmd = """
-BAZEL_BINDIR=$(BINDIR) $(location :netlistsvg) \
- ../../../$(location alu.json) \
- -o ../../../$(location alu2.svg)
-""",
-    tools = [":netlistsvg"],
-)
-
 # This should not be built with bazel build ..., as it fails
 orfs_run(
     name = "cell_count_manual",
@@ -556,25 +508,6 @@ toolchain(
     toolchain = ":semanticdb_toolchain_impl",
     toolchain_type = "@rules_scala//scala:toolchain_type",
 )
-
-# Not in use in CI
-#
-# pin_data(
-#     name = "pin",
-#     srcs = [
-#         ":alu",
-#     ],
-#     artifacts_lock = "artifacts_lock.txt",
-#     bucket = "some-google-bucket",
-# )
-
-# filegroup(
-#     name = "foo",
-#     srcs = [
-#         "@pinned//alu",
-#     ],
-#     tags = ["manual"],
-# )
 
 py_binary(
     name = "bsp",

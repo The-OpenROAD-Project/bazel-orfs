@@ -681,3 +681,58 @@ Alternatively, the ORFS installation used with Bazel, can be used by using `make
     export PATH=$PATH:$(realpath $(dirname $(readlink -f $OPENROAD_EXE)))
     tar --strip-components=1 -xzf ../floorplan_test.tar.gz
     ./run-me-lb_32x128-asap7-base.sh
+
+## Retired features
+
+The following features have been removed from bazel-orfs. If you need to
+re-implement any of them, check the git history for the original implementation.
+
+* **netlistsvg / SVG netlist visualization** — `netlistsvg.bzl` provided a
+  `netlistsvg()` rule that converted Yosys JSON netlists into SVG diagrams
+  using the [netlistsvg](https://github.com/nturley/netlistsvg) npm package.
+  This was the sole reason for the `aspect_rules_js`, `rules_nodejs`, npm and
+  pnpm dependencies. Removed along with the `alu` yosys demo target,
+  `alu_svg`, `alu_svg_2`, `main.js`, `package.json` and `pnpm-lock.yaml`.
+
+### Deprecated
+
+The following features are candidates for removal. They are not tested in CI and have no known external users. Contributions to maintain them are welcome,
+otherwise they may be retired in a future release.
+
+* **yosys.bzl** — standalone `yosys()` rule for running arbitrary Yosys
+  commands. No longer used in the root BUILD file.
+
+### Experimental and demonstration
+
+* **naja/** — experimental post-synthesis netlist cleanup using
+  [najaeda](https://github.com/najaeda/najaeda). The naja CI tests are
+  commented out in `smoketests.sh`.
+* **optuna/** — Optuna-based design space exploration demo. Not tested in CI.
+* **eqy.bzl** — original equivalence checking rule, superseded by
+  `eqy-flow.bzl` which provides `eqy_flow_test`. The load in the root BUILD is commented out. This could be useful in the future with kepler-formal as kepler-formal scales better and eqy_flow_test() demonstrates how to integrate it.
+* **sby/** — demo of SymbiYosys formal verification (`sby.bzl`) with a Chisel counter example. Not tested in CI. Possibly useful in the future if Chisel formal testing improves and sby scales better.
+
+### Test-only targets
+
+The following targets in the root BUILD file exist to test bazel-orfs itself.
+They are built in CI (`.github/workflows/ci.yml` and `.github/scripts/`) but
+are not intended as examples of how to use bazel-orfs in your own project.
+
+* **slang/** — demo `orfs_flow` using the Slang SystemVerilog frontend
+  (`SYNTH_HDL_FRONTEND=slang`). The feature itself works via a flow variable;
+  this directory is just a test case.
+* `tag_array_64x184` — SRAM macro with abstract generation, used to test
+  `orfs_flow` with `abstract_stage`, `mock_area`, and macro composition.
+* `lb_32x128` (and variants `test`, `top`, `sky130hd`, `ihp-sg13g2`) — small
+  load buffer used to test sweep, shared synthesis, multi-PDK, and PPA
+  plotting features.
+* `L1MetadataArray` — hierarchical design with macros, tests `orfs_sweep`
+  with multiple sweep variants and `orfs_macro` with external `.lib`/`.lef`.
+* `regfile_128x65` — full flow through `final` stage, tests gatelist and SPEF
+  extraction via `orfs_genrule`.
+* `Mul_synth` — combinational-only synthesis, tests `orfs_synth` standalone.
+* `cell_count`, `check_mock_area`, `tag_array_64x184_report`, `sta` —
+  `orfs_run` tests exercising custom TCL scripts on flow outputs.
+* `plot` — `orfs_ppa` test generating PPA plots from sweep variants.
+* `cell_count_manual` — intentionally failing target (tagged `manual`) to
+  test error handling.
