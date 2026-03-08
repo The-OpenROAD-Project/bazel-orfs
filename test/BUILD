@@ -78,6 +78,12 @@ orfs_flow(
         "CORE_UTILIZATION": "20",
         "SKIP_REPORT_METRICS": "1",
     },
+    # CI regression test for stage_arguments override of automatic stage assignment
+    stage_arguments = {
+        "floorplan": {
+            "SKIP_REPORT_METRICS": "1",
+        },
+    },
     # FIXME reenable after https://github.com/The-OpenROAD-Project/OpenROAD/issues/7745 is fixed
     # mock_area = 0.8,
     stage_sources = {
