@@ -55,8 +55,3 @@ sh_binary(
     visibility = ["//visibility:public"],
 )
 
-py_binary(
-    name = "bsp",
-    srcs = ["bsp.py"],
-    visibility = ["//visibility:public"],
-)
