@@ -36,31 +36,9 @@ pin_data(
 ```starlark
 filegroup(
     name = "foo",
-    srcs = [
-        "@pinned//someslowtarget",
-    ],
-)
-```
-
-### Example: pinning a yosys netlist
-
-```starlark
-pin_data(
-    name = "pin",
-    srcs = [
-        ":alu",
-    ],
-    artifacts_lock = "artifacts_lock.txt",
-    bucket = "some-google-bucket",
-)
-
-filegroup(
-    name = "foo",
-    srcs = [
-        "@pinned//alu",
-    ],
-    tags = ["manual"],
-)
+        srcs = [
+            "@pinned//someslowtarget",
+            ..
 ```
 
 ## Updating pinned artifacts
