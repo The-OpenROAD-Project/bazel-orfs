@@ -217,15 +217,7 @@ To view the floorplan:
 bazel run //test:tag_array_64x184_floorplan gui_floorplan
 ```
 
-> **NOTE:** Files are always placed in `tmp/<package>/<name>/` under the workspace root (e.g. `tmp/sram/sdq_17x64_floorplan_deps/` for `//sram:sdq_17x64_floorplan_deps`, `tmp/MyDesign_floorplan_deps/` for the root package), which is added to `.gitignore` automatically.
->
-> The installation directory can be overridden with `--install`:
->
-> ```bash
-> bazel run <target>_<stage>_deps -- --install /path/to/dir [<make args...>]
-> ```
->
-> This is useful on systems where `/tmp` is small or when you want to place the build artifacts in a specific location.
+> **NOTE:** Files are placed in `tmp/<package>/<name>/` under the workspace root (e.g. `tmp/sram/sdq_17x64_floorplan_deps/` for `//sram:sdq_17x64_floorplan_deps`, `tmp/MyDesign_floorplan_deps/` for the root package). Requires `tmp/` in `.gitignore` and `tmp` in `.bazelignore`. The directory can be overridden with `-- --install /path/to/dir`.
 
 A convenient way to run the floorplan and view the results would be:
 
@@ -294,11 +286,10 @@ Abstracts are generated at the `target + "generate_abstract"` stage, which follo
 <pre lang="starlark">
 orfs_flow(
     name = "tag_array_64x184",
-    <b>abstract_stage = "place",</b>
-    arguments = SRAM_ARGUMENTS | {
-        "CORE_ASPECT_RATIO": "2",
-        "CORE_UTILIZATION": "40",
-        "PLACE_DENSITY": "0.65",
+    <b>abstract_stage = "cts",</b>
+    arguments = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
+        "CORE_ASPECT_RATIO": "10",
+        "CORE_UTILIZATION": "20",
     },
     stage_sources = {
         "floorplan": [":io-sram"],
@@ -312,7 +303,7 @@ orfs_flow(
 
 By default it's the latest ORFS-specific target (`final`).
 
-> **NOTE:** Abstracts can be generated starting from the `floorplan` stage, thus skipping the `synth` stage.
+> **NOTE:** Valid `abstract_stage` values are: `place`, `cts`, `grt`, `route`, `final`.
 
 Abstracts are intended to be used in builds of other parts of the design that use the given macro.
 They're useful for estimating sizes of macros with long build times and checking if they will fit in upper-level modules without running time consuming place and route flow.
@@ -321,21 +312,19 @@ They're useful for estimating sizes of macros with long build times and checking
 
 ### Mock area targets
 
-Mock area targets are created on top of the stage targets and overrides `_generate_abstract` target to produced mocked abstracts.
+When `mock_area` is set, `orfs_flow()` creates a `_mocked` variant that generates approximate abstracts quickly. The mocked flow:
 
-The flow contains:
-* `target_name_variant + “_synth_mock_area”` - synthesis which has its whole internal logic removed,
-* `target_name_variant + “_mock_area”` - reads `DIE_AREA` and `CORE_AREA` from default floorplan results and scale them by value defined in `mock_area`,
-* `target_name_variant + “_floorplan_mock_area”` - floorplan with overridden `DIE_AREA` and `CORE_AREA` values,
-* `target_name_variant + “_generate_abstract”` - abstracts generated based on mocked synthesis and floorplan.
-
-To create mock area targets, `mock_area` has to be added to `orfs_flow` definition:
+* `<name>_mocked_synth` — synthesis with `SYNTH_GUT=1` (internal logic removed)
+* `<name>_mocked_generate_area` — reads `DIE_AREA`/`CORE_AREA` from the real floorplan and scales by `mock_area`
+* `<name>_mocked_floorplan` — floorplan with scaled `DIE_AREA`/`CORE_AREA`
+* `<name>_mocked_generate_abstract` — abstracts from mocked synthesis and floorplan
+* `<name>_generate_abstract` — combines mocked LEF with the unmocked LIB
 
 ```starlark
 orfs_flow(
-    name = "lb_32x128",
+    name = “lb_32x128”,
     arguments = LB_ARGS,
-    mock_area = 0.5,
+    mock_area = 0.7,
     stage_sources = LB_STAGE_SOURCES,
     verilog_files = LB_VERILOG_FILES,
 )
@@ -545,11 +534,9 @@ bazel run @bazel-orfs//test:tag_array_64x184_floorplan gui_floorplan
 
 ### Fast floorplanning and mock abstracts
 
-Let's say we want to skip place, cts and route and create a mock abstract where we can at least check that there is enough place for the macros at the top level.
+To skip route and create a mock abstract to check that macros fit at the top level, set `abstract_stage` to `"place"`:
 
-> **WARNING:** Although mock abstracts can speed up turnaround times, skipping place, cts or route can lead to errors and problems that don't exist when place, cts and route are not skipped.
-
-To do so, we modify in `BUILD` file the `abstract_stage` attribute of `orfs_flow` macro to `floorplan` stage:
+> **WARNING:** Skipping stages can lead to errors that don't exist with the full flow.
 
 ```diff
 diff --git a/test/BUILD b/test/BUILD
@@ -557,14 +544,14 @@ diff --git a/test/BUILD b/test/BUILD
 +++ b/test/BUILD
  orfs_flow(
      name = "L1MetadataArray",
--    abstract_stage = "route",
+-    abstract_stage = "cts",
 +    abstract_stage = "place",
      arguments = {
          ...
      },
 ```
 
-This will generate targets that can be verified in the `bazel query` output:
+Verify the generated targets:
 
 ```bash
 bazel query '...:*' | grep 'L1MetadataArray'
@@ -573,20 +560,18 @@ bazel query '...:*' | grep 'L1MetadataArray'
 //test:L1MetadataArray_synth
 //test:L1MetadataArray_floorplan_deps
 //test:L1MetadataArray_floorplan
+//test:L1MetadataArray_place_deps
+//test:L1MetadataArray_place
 //test:L1MetadataArray_generate_abstract
 ```
 
-The abstract stage follows the one defined via `abstract_stage` attribute passed to the `orfs_flow()` macro.
-However it always falls down to the `<target>_generate_abstract` pattern and can be built with the following command:
+The abstract target is always named `<target>_generate_abstract` regardless of which stage it follows:
 
 ```bash
 bazel build @bazel-orfs//test:L1MetadataArray_generate_abstract
 ```
 
-This will cause the Bazel to generate the abstracts for the design right after the `floorplan` stage instead of `route` stage.
-The output `LEF` file can be found under the `bazel-bin/results/<module>/<target>/base/<target.lef>` path.
-
-For more information please refer to the description of [Abstract targets](#generate-abstract-targets).
+The output LEF file is at `bazel-bin/results/<module>/<target>/base/<target.lef>`.
 
 ## Bazel hacking
 
@@ -616,7 +601,7 @@ diff --git a/test/BUILD b/test/BUILD
 +++ b/test/BUILD
  orfs_flow(
      name = "L1MetadataArray",
-     abstract_stage = "route",
+     abstract_stage = "cts",
      arguments = {
 +        "PHONY": "1",
          "SYNTH_HIERARCHICAL": "1",
