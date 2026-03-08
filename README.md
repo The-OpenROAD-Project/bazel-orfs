@@ -63,7 +63,7 @@ orfs_flow(
     macros = ["tag_array_64x184_generate_abstract"],
     stage_arguments = {
         "synth": {
-            "SDC_FILE": "$(location :test/constraints-top.sdc)",
+            "SDC_FILE": "$(location :constraints-top.sdc)",
             "SYNTH_HIERARCHICAL": "1",
         },
         "floorplan": {
@@ -78,9 +78,9 @@ orfs_flow(
         },
     },
     stage_sources = {
-        "synth": [":test/constraints-top.sdc"],
+        "synth": [":constraints-top.sdc"],
     },
-    verilog_files = ["test/rtl/L1MetadataArray.sv"],
+    verilog_files = ["rtl/L1MetadataArray.sv"],
 )
 ```
 
@@ -106,7 +106,7 @@ Stage targets:
   //test:L1MetadataArray_synth
 ```
 
-The example comes from the [test/BUILD](./test/BUILD) file in this repository.
+The example is based on the [test/BUILD](./test/BUILD) file in this repository.
 
 To test different variants of the same design, the `orfs_flow` can be provided with an optional argument `variant`.
 
@@ -226,6 +226,14 @@ bazel run //test:tag_array_64x184_floorplan gui_floorplan
 ```
 
 > **NOTE:** Files are always placed in `tmp/<package>/<name>/` under the workspace root (e.g. `tmp/sram/sdq_17x64_floorplan_deps/` for `//sram:sdq_17x64_floorplan_deps`, `tmp/MyDesign_floorplan_deps/` for the root package), which is added to `.gitignore` automatically.
+>
+> The installation directory can be overridden with `--install`:
+>
+> ```bash
+> bazel run <target>_<stage>_deps -- --install /path/to/dir [<make args...>]
+> ```
+>
+> This is useful on systems where `/tmp` is small or when you want to place the build artifacts in a specific location.
 
 A convenient way to run the floorplan and view the results would be:
 
@@ -261,11 +269,13 @@ Configuration variables can be overwritten on the command line by passing them i
 ```bash
 $ bazel run //test:tag_array_64x184_floorplan print-CORE_UTILIZATION
 [deleted]
-CORE_UTILIZATION = 40
+CORE_UTILIZATION: 20
+```
+
 ```bash
 $ bazel run //test:tag_array_64x184_floorplan CORE_UTILIZATION=5 print-CORE_UTILIZATION
 [deleted]
-CORE_UTILIZATION = 5
+CORE_UTILIZATION: 5
 ```
 
 ### Stage targets
@@ -369,10 +379,10 @@ In such scenario a filegroup should also define the `data` attribute with the ad
 filegroup(
     name = "constraints-sram",
     srcs = [
-        ":test/constraints-sram.sdc",
+        ":constraints-sram.sdc",
     ],
     <b>data = [
-        ":test/util.tcl",
+        ":util.tcl",
     ],</b>
     visibility = [":__subpackages__"],
 )
@@ -474,7 +484,7 @@ Let's assume we want to perform a `floorplan` stage for the `L1MetadataArray` de
   bazel run @bazel-orfs//test:L1MetadataArray_synth_deps
 
   # Build Synthesis stage for L1MetadataArray target using local ORFS
-  tmp/L1MetadataArray_synth_deps/make do-yosys-canonicalize do-yosys do-1_synth
+  tmp/test/L1MetadataArray_synth_deps/make do-yosys-canonicalize do-yosys do-1_synth
 
   # Initialize dependencies for the Floorplan stage for L1MetadataArray target
   bazel run @bazel-orfs//test:L1MetadataArray_floorplan_deps
@@ -483,7 +493,7 @@ Let's assume we want to perform a `floorplan` stage for the `L1MetadataArray` de
 3. Execute the shell script with ORFS make target relevant to given stage of the flow:
 
   ```bash
-  tmp/L1MetadataArray_floorplan_deps/make do-floorplan
+  tmp/test/L1MetadataArray_floorplan_deps/make do-floorplan
   ```
 
 ### Running OpenROAD GUI
@@ -501,10 +511,10 @@ Or in two steps:
   ```bash
   bazel run @bazel-orfs//test:L1MetadataArray_route
   # Start the GUI for the Route stage for L1MetadataArray target
-  tmp/L1MetadataArray_route/make gui_route
+  tmp/test/L1MetadataArray_route/make gui_route
 
   # Or open the GUI through the CLI
-  tmp/L1MetadataArray_route/make open_route
+  tmp/test/L1MetadataArray_route/make open_route
   gui::show
   ```
 
@@ -514,10 +524,10 @@ Notice how the `CORE_ASPECT_RATIO` parameter is associated with
 the floorplan and *only* the floorplan stage below:
 
 ```diff
-diff --git a/BUILD b/BUILD
+diff --git a/test/BUILD b/test/BUILD
 index 095d63b..4b78dea 100644
---- a/BUILD
-+++ b/BUILD
+--- a/test/BUILD
++++ b/test/BUILD
 @@ -74,7 +74,7 @@ orfs_flow(
          "synth": SRAM_SYNTH_ARGUMENTS,
          "floorplan": SRAM_FLOOR_PLACE_ARGUMENTS | {
@@ -543,7 +553,7 @@ If the remote caching is enabled for Bazel, reverting the change and rebuilding 
 
 ```bash
 # Revert the change
-git restore BUILD
+git restore test/BUILD
 
 # Rebuild the floorplan stage and view in GUI
 bazel run @bazel-orfs//test:tag_array_64x184_floorplan gui_floorplan
@@ -558,10 +568,10 @@ Let's say we want to skip place, cts and route and create a mock abstract where 
 To do so, we modify in `BUILD` file the `abstract_stage` attribute of `orfs_flow` macro to `floorplan` stage:
 
 ```diff
-diff --git a/BUILD b/BUILD
+diff --git a/test/BUILD b/test/BUILD
 index 095d63b..9756fbf 100644
---- a/BUILD
-+++ b/BUILD
+--- a/test/BUILD
++++ b/test/BUILD
 @@ -110,7 +110,7 @@ orfs_flow(
 
  orfs_flow(
@@ -620,10 +630,10 @@ if none of the dependencies for that stage changed. This can be achieved by chan
 a `PHONY` variable to that stage and bumping it:
 
 ```diff
-diff --git a/BUILD b/BUILD
+diff --git a/test/BUILD b/test/BUILD
 index 095d63b..5b618ba 100644
---- a/BUILD
-+++ b/BUILD
+--- a/test/BUILD
++++ b/test/BUILD
 @@ -114,6 +114,7 @@ orfs_flow(
      name = "L1MetadataArray",
      abstract_stage = "route",
@@ -631,7 +641,7 @@ index 095d63b..5b618ba 100644
      stage_arguments = {
          "synth": {
 +            "PHONY": "1",
-             "SDC_FILE": "$(location :test/constraints-top.sdc)",
+             "SDC_FILE": "$(location :constraints-top.sdc)",
              "SYNTH_HIERARCHICAL": "1",
          },
 ```
