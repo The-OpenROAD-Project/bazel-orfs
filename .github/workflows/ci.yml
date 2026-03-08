@@ -123,22 +123,22 @@ jobs:
             macro="true"
           fi
           if [[ "$macro" == "true" ]]; then
-            [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lib' | wc -l) -eq 1 ]
-            [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lef' | wc -l) -eq 1 ]
+            [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\)/.*' -regex '.*\.lib' | wc -l) -eq 1 ]
+            [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\)/.*' -regex '.*\.lef' | wc -l) -eq 1 ]
           fi
-          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/1_.*\.log' | wc -l) -gt 1 ]
-          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/2_.*\.log' | wc -l) -eq 0 ]
+          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\)/.*' -regex '.*/1_.*\.log' | wc -l) -gt 1 ]
+          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\)/.*' -regex '.*/2_.*\.log' | wc -l) -eq 0 ]
           rm -rf "./$build_dir"
           bazel run ${stage_target}_floorplan -- OR_ARGS=-exit open_floorplan
           if [[ "$macro" == "true" ]]; then
-            [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lib' | wc -l) -eq 1 ]
-            [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.lef' | wc -l) -eq 1 ]
+            [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\)/.*' -regex '.*\.lib' | wc -l) -eq 1 ]
+            [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\)/.*' -regex '.*\.lef' | wc -l) -eq 1 ]
           fi
-          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.odb' | wc -l) -eq 1 ]
-          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.sdc' | wc -l) -eq 1 ]
-          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*\.v' | wc -l) -eq 0 ]
-          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/1_.*\.log' | wc -l) -eq 0 ]
-          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\|test\)/.*' -regex '.*/2_.*\.log' | wc -l) -gt 1 ]
+          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\)/.*' -regex '.*\.odb' | wc -l) -eq 1 ]
+          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\)/.*' -regex '.*\.sdc' | wc -l) -eq 1 ]
+          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\)/.*' -regex '.*\.v' | wc -l) -eq 0 ]
+          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\)/.*' -regex '.*/1_.*\.log' | wc -l) -eq 0 ]
+          [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\)/.*' -regex '.*/2_.*\.log' | wc -l) -gt 1 ]
 
   test-builds:
     name: Smoketests
