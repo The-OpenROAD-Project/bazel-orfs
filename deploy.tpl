@@ -3,8 +3,9 @@
 set -e
 
 usage() {
-  echo "Usage: $1 [<make args...>]"
+  echo "Usage: $1 [--install <dir>] [<make args...>]"
   echo "  Files are placed in \$BUILD_WORKSPACE_DIRECTORY/tmp/<package>/<name>"
+  echo "  --install <dir>  Override the installation directory"
   exit 1
 }
 
@@ -16,6 +17,7 @@ main() {
   local make
   local name="${NAME}"
   local package="${PACKAGE}"
+  local install_dir=""
   progname=$(basename "$0")
 
   while [ $# -gt 0 ]; do
@@ -48,6 +50,11 @@ main() {
         shift
         shift
       ;;
+      --install)
+        install_dir="$2"
+        shift
+        shift
+      ;;
       *)
         break
       ;;
@@ -60,19 +67,26 @@ main() {
     exit 1
   fi
 
-  local dst="${BUILD_WORKSPACE_DIRECTORY}/tmp${package:+/$package}/$name"
+  local dst
+  if [ -n "$install_dir" ]; then
+    dst="$install_dir"
+  else
+    dst="${BUILD_WORKSPACE_DIRECTORY}/tmp${package:+/$package}/$name"
+  fi
 
-  local missing=()
-  if ! grep -qxF "tmp/" "$BUILD_WORKSPACE_DIRECTORY/.gitignore" 2>/dev/null; then
-    missing+=(".gitignore")
-  fi
-  if ! grep -qxF "tmp" "$BUILD_WORKSPACE_DIRECTORY/.bazelignore" 2>/dev/null; then
-    missing+=(".bazelignore")
-  fi
-  if [ ${#missing[@]} -gt 0 ]; then
-    echo "$progname: 'tmp' entry missing from: ${missing[*]}"
-    echo "Add 'tmp/' to .gitignore and 'tmp' to .bazelignore"
-    exit 1
+  if [ -z "$install_dir" ]; then
+    local missing=()
+    if ! grep -qxF "tmp/" "$BUILD_WORKSPACE_DIRECTORY/.gitignore" 2>/dev/null; then
+      missing+=(".gitignore")
+    fi
+    if ! grep -qxF "tmp" "$BUILD_WORKSPACE_DIRECTORY/.bazelignore" 2>/dev/null; then
+      missing+=(".bazelignore")
+    fi
+    if [ ${#missing[@]} -gt 0 ]; then
+      echo "$progname: 'tmp' entry missing from: ${missing[*]}"
+      echo "Add 'tmp/' to .gitignore and 'tmp' to .bazelignore"
+      exit 1
+    fi
   fi
 
   mkdir --parents "$dst"
