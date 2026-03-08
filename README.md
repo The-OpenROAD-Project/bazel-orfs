@@ -62,6 +62,7 @@ orfs_flow(
     abstract_stage = "route",
     arguments = {
         "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "3",
         "MACRO_PLACE_HALO": "30 30",
         "PLACE_DENSITY": "0.20",
         "PLACE_PINS_ARGS": "-annealing",
@@ -70,11 +71,6 @@ orfs_flow(
     macros = ["tag_array_64x184_generate_abstract"],
     sources = {
         "SDC_FILE": [":constraints-top.sdc"],
-    },
-    stage_arguments = {
-        "floorplan": {
-            "CORE_UTILIZATION": "3",
-        },
     },
     verilog_files = ["rtl/L1MetadataArray.sv"],
 )
@@ -511,23 +507,20 @@ Or in two steps:
 
 ### Tweaking aspect ratio of a floorplan
 
-Notice how the `CORE_ASPECT_RATIO` parameter is associated with
-the floorplan and *only* the floorplan stage below:
+Notice how the `CORE_ASPECT_RATIO` parameter is a floorplan variable and
+changing it will only rebuild from the floorplan stage:
 
 ```diff
 diff --git a/test/BUILD b/test/BUILD
-index 095d63b..4b78dea 100644
 --- a/test/BUILD
 +++ b/test/BUILD
-@@ -74,7 +74,7 @@ orfs_flow(
-         "synth": SRAM_SYNTH_ARGUMENTS,
-         "floorplan": SRAM_FLOOR_PLACE_ARGUMENTS | {
-             "CORE_UTILIZATION": "40",
--            "CORE_ASPECT_RATIO": "2",
-+            "CORE_ASPECT_RATIO": "4",
-         },
-         "place": SRAM_FLOOR_PLACE_ARGUMENTS | {
-             "PLACE_DENSITY": "0.65",
+ orfs_flow(
+     name = "tag_array_64x184",
+     arguments = SRAM_ARGUMENTS | {
+-        "CORE_ASPECT_RATIO": "10",
++        "CORE_ASPECT_RATIO": "4",
+         "CORE_UTILIZATION": "20",
+     },
 ```
 
 Bazel will detect this change specifically as a change to the floorplan, re-use the synthesis result and rebuild from the floorplan stage.
@@ -560,18 +553,15 @@ To do so, we modify in `BUILD` file the `abstract_stage` attribute of `orfs_flow
 
 ```diff
 diff --git a/test/BUILD b/test/BUILD
-index 095d63b..9756fbf 100644
 --- a/test/BUILD
 +++ b/test/BUILD
-@@ -110,7 +110,7 @@ orfs_flow(
-
  orfs_flow(
      name = "L1MetadataArray",
 -    abstract_stage = "route",
 +    abstract_stage = "place",
-     macros = ["tag_array_64x184_generate_abstract"],
-     stage_arguments = {
-         "synth": {
+     arguments = {
+         ...
+     },
 ```
 
 This will generate targets that can be verified in the `bazel query` output:
@@ -622,19 +612,16 @@ a `PHONY` variable to that stage and bumping it:
 
 ```diff
 diff --git a/test/BUILD b/test/BUILD
-index 095d63b..5b618ba 100644
 --- a/test/BUILD
 +++ b/test/BUILD
-@@ -114,6 +114,7 @@ orfs_flow(
+ orfs_flow(
      name = "L1MetadataArray",
      abstract_stage = "route",
-     macros = ["tag_array_64x184_generate_abstract"],
-     stage_arguments = {
-         "synth": {
-+            "PHONY": "1",
-             "SDC_FILE": "$(location :constraints-top.sdc)",
-             "SYNTH_HIERARCHICAL": "1",
-         },
+     arguments = {
++        "PHONY": "1",
+         "SYNTH_HIERARCHICAL": "1",
+         ...
+     },
 ```
 
 ### Building the immediate dependencies of a target
