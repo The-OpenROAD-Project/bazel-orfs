@@ -2,17 +2,17 @@
 set -ex
 
 echo These targets should have been pruned
-bazelisk query //:* | grep -q -v lb_32x128_1_synth
-bazelisk query //:* | grep -q -v lb_32x128_2_floorplan
-bazelisk query //:* | grep -q -v lb_32x128_3_place
+bazelisk query //test:* | grep -q -v lb_32x128_1_synth
+bazelisk query //test:* | grep -q -v lb_32x128_2_floorplan
+bazelisk query //test:* | grep -q -v lb_32x128_3_place
 echo This target should exist
-bazelisk query //:* | grep -q -v lb_32x128_4_synth
+bazelisk query //test:* | grep -q -v lb_32x128_4_synth
 
 # orfs_genrule: verify srcs use exec config (not target config)
 # Native genrule forces srcs into target config, rebuilding ORFS outputs.
 # orfs_genrule keeps srcs in exec config, avoiding the duplicate build.
-target_config=$(bazelisk cquery //:gatelist_wc_orfs_genrule 2>&1 | grep "^//" | sed 's/.*(\(.*\))/\1/')
-srcs_config=$(bazelisk cquery 'deps(//:gatelist_wc_orfs_genrule, 1)' 2>&1 | grep "gatelist " | sed 's/.*(\(.*\))/\1/')
+target_config=$(bazelisk cquery //test:gatelist_wc_orfs_genrule 2>&1 | grep "^//" | sed 's/.*(\(.*\))/\1/')
+srcs_config=$(bazelisk cquery 'deps(//test:gatelist_wc_orfs_genrule, 1)' 2>&1 | grep "gatelist " | sed 's/.*(\(.*\))/\1/')
 test "$target_config" != "$srcs_config"
 
 bazelisk test ... \

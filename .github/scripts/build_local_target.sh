@@ -3,7 +3,7 @@
 set -ex
 
 # Test local build with submacros
-target_name=${TARGET:-"L1MetadataArray"}
+target_name=${TARGET:-"//test:L1MetadataArray"}
 if [[ -z "$STAGES" ]]; then
   # Skip "grt" "route", takes too long
   STAGES=("synth" "floorplan" "place" "cts")
@@ -27,7 +27,7 @@ else
   package=""
 fi
 
-if [[ "$target_name" == "L1MetadataArray" || "$target_name" == "subpackage:L1MetadataArray" || "$target_name" == "//sram:top_mix" ]]; then
+if [[ "$target_name" == *"L1MetadataArray" || "$target_name" == "//sram:top_mix" ]]; then
   macro="true"
 fi
 echo "Build ${target_name} macro"

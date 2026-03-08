@@ -39,9 +39,9 @@ N = 2
     },
     sources = {
         "SDC_FILE": ["//optuna:constraints-dse.sdc"],
-        "IO_CONSTRAINTS": ["//:io-sram"],
+        "IO_CONSTRAINTS": ["//test:io-sram"],
     },
     tags = ["manual"],
     top = "lb_32x128",
-    verilog_files = ["//:test/mock/lb_32x128.sv"],
+    verilog_files = ["//test:mock/lb_32x128.sv"],
 ) for i in range(N)]
