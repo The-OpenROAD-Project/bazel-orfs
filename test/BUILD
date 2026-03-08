@@ -1,3 +1,4 @@
+load("@rules_python//python:defs.bzl", "py_binary")
 load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_macro", "orfs_run", "orfs_synth")
 load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:ppa.bzl", "orfs_ppa")
@@ -416,4 +417,12 @@ orfs_run(
     extra_args = "> $WORK_HOME/test.txt",
     script = ":cell_count.tcl",
     tags = ["manual"],
+)
+
+py_binary(
+    name = "plot_repair",
+    srcs = ["plot-retiming.py"],
+    main = "plot-retiming.py",
+    visibility = ["//visibility:public"],
+    deps = ["@bazel-orfs-pip//matplotlib"],
 )
