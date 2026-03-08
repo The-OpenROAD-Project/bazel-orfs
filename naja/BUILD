@@ -1,5 +1,5 @@
 load("//:openroad.bzl", "orfs_deps", "orfs_synth")
-load("//:orfs_libs.bzl", "orfs_libs")
+load(":orfs_libs.bzl", "orfs_libs")
 
 orfs_synth(
     name = "foo_synth",

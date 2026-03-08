@@ -25,16 +25,6 @@ compile_pip_requirements(
 )
 
 py_binary(
-    name = "plot_repair",
-    srcs = [
-        "plot-retiming.py",
-    ],
-    main = "plot-retiming.py",
-    visibility = ["//visibility:public"],
-    deps = ["@bazel-orfs-pip//matplotlib"],
-)
-
-py_binary(
     name = "plot_clock_period_tool",
     srcs = [
         "plot_clock_period.py",
