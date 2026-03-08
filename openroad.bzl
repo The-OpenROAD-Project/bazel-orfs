@@ -1996,7 +1996,9 @@ def orfs_flow(
       macros: list of macros required to run physical design flow for this design
       sources: dictionary keyed by ORFS variables with lists of sources
       stage_sources: dictionary keyed by ORFS stages with lists of stage-specific sources
-      stage_arguments: dictionary keyed by ORFS stages with lists of stage-specific arguments
+      stage_arguments: dictionary keyed by ORFS stages with lists of stage-specific arguments.
+        Prefer 'arguments' which automatically assigns variables to the correct stages.
+        Use stage_arguments only to override the automatic stage assignment.
       renamed_inputs: dictionary keyed by ORFS stages to rename inputs
       arguments: dictionary of additional arguments to the flow, automatically assigned to stages
       extra_configs: dictionary keyed by ORFS stages with list of additional configuration files
