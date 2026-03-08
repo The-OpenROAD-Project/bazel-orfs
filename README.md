@@ -60,25 +60,21 @@ The macro can now be placed in the BUILD file. The macro usage can look like thi
 orfs_flow(
     name = "L1MetadataArray",
     abstract_stage = "route",
+    arguments = {
+        "CORE_MARGIN": "2",
+        "MACRO_PLACE_HALO": "30 30",
+        "PLACE_DENSITY": "0.20",
+        "PLACE_PINS_ARGS": "-annealing",
+        "SYNTH_HIERARCHICAL": "1",
+    },
     macros = ["tag_array_64x184_generate_abstract"],
+    sources = {
+        "SDC_FILE": [":constraints-top.sdc"],
+    },
     stage_arguments = {
-        "synth": {
-            "SDC_FILE": "$(location :constraints-top.sdc)",
-            "SYNTH_HIERARCHICAL": "1",
-        },
         "floorplan": {
             "CORE_UTILIZATION": "3",
-            
-            "CORE_MARGIN": "2",
-            "MACRO_PLACE_HALO": "30 30",
         },
-        "place": {
-            "PLACE_DENSITY": "0.20",
-            "PLACE_PINS_ARGS": "-annealing",
-        },
-    },
-    stage_sources = {
-        "synth": [":constraints-top.sdc"],
     },
     verilog_files = ["rtl/L1MetadataArray.sv"],
 )
@@ -303,20 +299,15 @@ Abstracts are generated at the `target + "generate_abstract"` stage, which follo
 orfs_flow(
     name = "tag_array_64x184",
     <b>abstract_stage = "place",</b>
-    stage_arguments = {
-        "synth": SRAM_SYNTH_ARGUMENTS,
-        "floorplan": SRAM_FLOOR_PLACE_ARGUMENTS | {
-            "CORE_UTILIZATION": "40",
-            "CORE_ASPECT_RATIO": "2",
-        },
-        "place": SRAM_FLOOR_PLACE_ARGUMENTS | {
-            "PLACE_DENSITY": "0.65",
-        },
+    arguments = SRAM_ARGUMENTS | {
+        "CORE_ASPECT_RATIO": "2",
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.65",
     },
     stage_sources = {
-        "synth": [":constraints-sram"],
         "floorplan": [":io-sram"],
         "place": [":io-sram"],
+        "synth": [":constraints-sram"],
     },
     verilog_files = ["//another:tag_array_64x184.sv"],
     visibility = [":__subpackages__"],
@@ -347,10 +338,10 @@ To create mock area targets, `mock_area` has to be added to `orfs_flow` definiti
 ```starlark
 orfs_flow(
     name = "lb_32x128",
-    stage_arguments = LB_STAGE_ARGS,
+    arguments = LB_ARGS,
+    mock_area = 0.5,
     stage_sources = LB_STAGE_SOURCES,
     verilog_files = LB_VERILOG_FILES,
-    mock_area = 0.5,
 )
 ```
 
@@ -364,7 +355,7 @@ Constraint files are passed down to `orfs_flow()` macro through [Stage targets](
 orfs_flow(
     name = "tag_array_64x184",
     <b>sources = {
-        "SDC_FILE": ":constraints-sram",
+        "SDC_FILE": [":constraints-sram"],
     },</b>
     verilog_files = ["//another:tag_array_64x184.sv"],
     visibility = [":__subpackages__"],
