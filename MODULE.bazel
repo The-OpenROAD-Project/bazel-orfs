@@ -49,6 +49,7 @@ bazel_dep(
 python = use_extension(
     "@rules_python//python/extensions:python.bzl",
     "python",
+    dev_dependency = True,
 )
 python.toolchain(
     ignore_root_user_error = True,
