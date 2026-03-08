@@ -80,6 +80,9 @@ use_repo(orfs, "config")
 
 # Not in use in CI
 #
+# Ideally pin_data() would be tested in CI, but setting up a Google Cloud
+# Storage bucket for the test is inconvenient.
+#
 # pin = use_extension("//extensions:pin.bzl", "pin")
 # pin.artifacts(
 #     artifacts_lock = "//:artifacts_lock.txt",
