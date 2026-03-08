@@ -88,25 +88,25 @@ The macro from the example above spawns the following Bazel targets:
 
 ```
 Dependency targets:
-  //:L1MetadataArray_cts_deps
-  //:L1MetadataArray_floorplan_deps
-  //:L1MetadataArray_generate_abstract_deps
-  //:L1MetadataArray_grt_deps
-  //:L1MetadataArray_place_deps
-  //:L1MetadataArray_route_deps
-  //:L1MetadataArray_synth_deps
+  //test:L1MetadataArray_cts_deps
+  //test:L1MetadataArray_floorplan_deps
+  //test:L1MetadataArray_generate_abstract_deps
+  //test:L1MetadataArray_grt_deps
+  //test:L1MetadataArray_place_deps
+  //test:L1MetadataArray_route_deps
+  //test:L1MetadataArray_synth_deps
 
 Stage targets:
-  //:L1MetadataArray_cts
-  //:L1MetadataArray_floorplan
-  //:L1MetadataArray_generate_abstract
-  //:L1MetadataArray_grt
-  //:L1MetadataArray_place
-  //:L1MetadataArray_route
-  //:L1MetadataArray_synth
+  //test:L1MetadataArray_cts
+  //test:L1MetadataArray_floorplan
+  //test:L1MetadataArray_generate_abstract
+  //test:L1MetadataArray_grt
+  //test:L1MetadataArray_place
+  //test:L1MetadataArray_route
+  //test:L1MetadataArray_synth
 ```
 
-The example comes from the [BUILD](./BUILD) file in this repository.
+The example comes from the [test/BUILD](./test/BUILD) file in this repository.
 
 To test different variants of the same design, the `orfs_flow` can be provided with an optional argument `variant`.
 
@@ -124,16 +124,16 @@ This definition creates similar Bazel targets with additional variant appended a
 
 ```
 Dependency targets:
-  //:L1MetadataArray_test_cts_deps
-  //:L1MetadataArray_test_floorplan_deps
+  //test:L1MetadataArray_test_cts_deps
+  //test:L1MetadataArray_test_floorplan_deps
   ...
-  //:L1MetadataArray_test_generate_abstract_deps
+  //test:L1MetadataArray_test_generate_abstract_deps
 
 Stage targets:
-  //:L1MetadataArray_test_synth
-  //:L1MetadataArray_test_floorplan
+  //test:L1MetadataArray_test_synth
+  //test:L1MetadataArray_test_floorplan
   ...
-  //:L1MetadataArray_test_generate_abstract
+  //test:L1MetadataArray_test_generate_abstract
 ```
 
 ## Implementation
@@ -222,7 +222,7 @@ bazel run <target>_<stage>_deps <make args...>
 To view the floorplan:
 
 ```bash
-bazel run tag_array_64x184_floorplan gui_floorplan
+bazel run //test:tag_array_64x184_floorplan gui_floorplan
 ```
 
 > **NOTE:** Files are always placed in `tmp/<package>/<name>/` under the workspace root (e.g. `tmp/sram/sdq_17x64_floorplan_deps/` for `//sram:sdq_17x64_floorplan_deps`, `tmp/MyDesign_floorplan_deps/` for the root package), which is added to `.gitignore` automatically.
@@ -259,11 +259,11 @@ tmp/<package>/<target>_<stage>_deps/make do-<stage>
 Configuration variables can be overwritten on the command line by passing them in as arguments to the local flow:
 
 ```bash
-$ bazel run tag_array_64x184_floorplan print-CORE_UTILIZATION
+$ bazel run //test:tag_array_64x184_floorplan print-CORE_UTILIZATION
 [deleted]
 CORE_UTILIZATION = 40
 ```bash
-$ bazel run tag_array_64x184_floorplan CORE_UTILIZATION=5 print-CORE_UTILIZATION
+$ bazel run //test:tag_array_64x184_floorplan CORE_UTILIZATION=5 print-CORE_UTILIZATION
 [deleted]
 CORE_UTILIZATION = 5
 ```
@@ -429,7 +429,7 @@ CLI and GUI is not available for all stages, consequently these targets are crea
 To execute the build flow for the `cts` (Clock Tree Synthesis) stage of the `L1MetadataArray` target, use the following command:
 
 ```bash
-bazel run @bazel-orfs//:L1MetadataArray_cts
+bazel run @bazel-orfs//test:L1MetadataArray_cts
 ```
 
 Bazel will automatically download the Docker image with the ORFS environment and run the flow.
@@ -471,13 +471,13 @@ Let's assume we want to perform a `floorplan` stage for the `L1MetadataArray` de
 
   ```bash
   # Initialize dependencies for the Synthesis stage for L1MetadataArray target
-  bazel run @bazel-orfs//:L1MetadataArray_synth_deps
+  bazel run @bazel-orfs//test:L1MetadataArray_synth_deps
 
   # Build Synthesis stage for L1MetadataArray target using local ORFS
   tmp/L1MetadataArray_synth_deps/make do-yosys-canonicalize do-yosys do-1_synth
 
   # Initialize dependencies for the Floorplan stage for L1MetadataArray target
-  bazel run @bazel-orfs//:L1MetadataArray_floorplan_deps
+  bazel run @bazel-orfs//test:L1MetadataArray_floorplan_deps
   ```
 
 3. Execute the shell script with ORFS make target relevant to given stage of the flow:
@@ -493,13 +493,13 @@ Let's assume we want to run a GUI for the `route` stage for the `L1MetadataArray
 1. Initialize and build stages up to the `route` stage:
 
   ```bash
-  bazel run @bazel-orfs//:L1MetadataArray_route gui_route
+  bazel run @bazel-orfs//test:L1MetadataArray_route gui_route
   ```
 
 Or in two steps:
 
   ```bash
-  bazel run @bazel-orfs//:L1MetadataArray_route
+  bazel run @bazel-orfs//test:L1MetadataArray_route
   # Start the GUI for the Route stage for L1MetadataArray target
   tmp/L1MetadataArray_route/make gui_route
 
@@ -536,7 +536,7 @@ To apply and view the changes:
 
 ```bash
 # Build tag_array_64x184 macro up to the floorplan stage and view in GUI
-bazel run @bazel-orfs//:tag_array_64x184_floorplan gui_floorplan
+bazel run @bazel-orfs//test:tag_array_64x184_floorplan gui_floorplan
 ```
 
 If the remote caching is enabled for Bazel, reverting the change and rebuilding the floorplan stage will be completed instantaneously, as the artifact already exists:
@@ -546,7 +546,7 @@ If the remote caching is enabled for Bazel, reverting the change and rebuilding 
 git restore BUILD
 
 # Rebuild the floorplan stage and view in GUI
-bazel run @bazel-orfs//:tag_array_64x184_floorplan gui_floorplan
+bazel run @bazel-orfs//test:tag_array_64x184_floorplan gui_floorplan
 ```
 
 ### Fast floorplanning and mock abstracts
@@ -578,18 +578,18 @@ This will generate targets that can be verified in the `bazel query` output:
 ```bash
 bazel query '...:*' | grep 'L1MetadataArray'
 
-//:L1MetadataArray_synth_deps
-//:L1MetadataArray_synth
-//:L1MetadataArray_floorplan_deps
-//:L1MetadataArray_floorplan
-//:L1MetadataArray_generate_abstract
+//test:L1MetadataArray_synth_deps
+//test:L1MetadataArray_synth
+//test:L1MetadataArray_floorplan_deps
+//test:L1MetadataArray_floorplan
+//test:L1MetadataArray_generate_abstract
 ```
 
 The abstract stage follows the one defined via `abstract_stage` attribute passed to the `orfs_flow()` macro.
 However it always falls down to the `<target>_generate_abstract` pattern and can be built with the following command:
 
 ```bash
-bazel build @bazel-orfs//:L1MetadataArray_generate_abstract
+bazel build @bazel-orfs//test:L1MetadataArray_generate_abstract
 ```
 
 This will cause the Bazel to generate the abstracts for the design right after the `floorplan` stage instead of `route` stage.
@@ -639,7 +639,7 @@ index 095d63b..5b618ba 100644
 ### Building the immediate dependencies of a target
 
 ```bash
-bazel build @bazel-orfs//:L1MetadataArray_synth_deps
+bazel build @bazel-orfs//test:L1MetadataArray_synth_deps
 ```
 
 This will build the immediate dependencies of the `L1MetadataArray` target up to the `synth` stage and place the results in the `bazel-bin` directory.
@@ -649,13 +649,13 @@ Later, those dependencies will be used by Bazel to build the `synth` stage for `
 
 A mutable build folder can be set up to prepare for a local synthesis run, useful when digging into some detail of synthesis flow:
 
-    $ bazel run tag_array_64x184_synth_deps
-    $ tmp/tag_array_64x184_synth_deps/make print-YOSYS_EXE
+    $ bazel run //test:tag_array_64x184_synth_deps
+    $ tmp/test/tag_array_64x184_synth_deps/make print-YOSYS_EXE
     YOSYS_EXE = external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys
 
 This is actually a symlink pointing to the read only executables, which is how yosys is able to find the yosys-abc alongside itself needed for the abc part of the synthesis stage:
 
-    $ ls -l $(dirname $(readlink -f tmp/tag_array_64x184_synth_deps/external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys))
+    $ ls -l $(dirname $(readlink -f tmp/test/tag_array_64x184_synth_deps/external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys))
     total 37456
     -rwxr-xr-x 1 oyvind oyvind 23449673 Aug 15 07:05 yosys
     -rwxr-xr-x 1 oyvind oyvind 14725193 Aug 15 07:05 yosys-abc
@@ -668,16 +668,60 @@ This is actually a symlink pointing to the read only executables, which is how y
 
 To create and test a `make issue` archive for floorplan:
 
-    bazel run lb_32x128_floorplan_deps
-    tmp/lb_32x128_floorplan_deps/make ISSUE_TAG=test floorplan_issue
+    bazel run //test:lb_32x128_floorplan_deps
+    tmp/test/lb_32x128_floorplan_deps/make ISSUE_TAG=test floorplan_issue
 
-This results in `tmp/lb_32x128_floorplan_deps/floorplan_test.tar.gz`, which can be run provided there `openroad` application is in the path.
+This results in `tmp/test/lb_32x128_floorplan_deps/floorplan_test.tar.gz`, which can be run provided there `openroad` application is in the path.
 
 A local ORFS installation can be used by running `source env.sh`.
 
 Alternatively, the ORFS installation used with Bazel, can be used by using `make bash` to set up the environment of the ORFS extracted into the Bazel build environment:
 
-    tmp/lb_32x128_floorplan_deps/make bash
+    tmp/test/lb_32x128_floorplan_deps/make bash
     export PATH=$PATH:$(realpath $(dirname $(readlink -f $OPENROAD_EXE)))
     tar --strip-components=1 -xzf ../floorplan_test.tar.gz
     ./run-me-lb_32x128-asap7-base.sh
+
+## Repository layout
+
+The root directory contains only external-facing concerns:
+
+- `.bzl` rule files (`openroad.bzl`, `sweep.bzl`, `ppa.bzl`, etc.) loaded by downstream consumers
+- `MODULE.bazel` and `BUILD` with public tools (`bump`, `bsp`, `plot_repair`, `plot_clock_period_tool`)
+- Template files consumed by rules (`make.tpl`, `deploy.tpl`, `eqy.tpl`, `sby.tpl`, `mock_area.tcl`)
+- `toolchains/` (Scala/Chisel), `tools/` (pin, deploy), `extensions/` (pin)
+
+Test and demo content lives in subdirectories:
+
+- `test/` — CI test flows (tag_array_64x184, lb_32x128, L1MetadataArray, etc.) and supporting files
+- `sram/` — SRAM macro tests with fakeram and megaboom variants
+- `subpackage/` — cross-package reference tests
+- `chisel/` — Chisel integration tests
+- `sby/` — formal verification tests
+- `optuna/` — hyperparameter tuning experiments
+- `dse/` — design space exploration experiments
+
+### Trivial test files
+
+Most files under `test/` are short implementation details easily derived from
+context. The TCL scripts (`cell_count.tcl`, `check_mock_area.tcl`, `report.tcl`,
+`units.tcl`, `io.tcl`, `io-sram.tcl`, `fastroute.tcl`), SDC constraint files,
+and simple RTL (`Mul.sv`, `lb_32x128_top.v`) are boilerplate — an LLM can
+regenerate them from the BUILD target definitions.
+
+Non-trivial files worth understanding: `wns_report.py` (complex report parsing),
+`L1MetadataArray.sv` (cache metadata controller), `patcher.py` (ELF binary
+patching), and the plot scripts.
+
+## Retired features
+
+Features removed from bazel-orfs. Check git history for the original implementation.
+
+- **netlistsvg** — SVG schematic generation from Yosys JSON netlists. Removed
+  along with all JavaScript dependencies (`aspect_rules_js`, `rules_nodejs`,
+  `npm`, `pnpm`). See `netlistsvg.bzl`, `main.js` in git history.
+
+### Deprecated
+
+- **yosys.bzl** — standalone Yosys rule. Still present but unused in CI.
+  Superseded by the synthesis stage in `orfs_flow`.
