@@ -1,0 +1,224 @@
+# Chisel → SystemVerilog Roundtripping LEC Example
+#
+# This BUILD file demonstrates the full flow:
+#   1. Chisel generates Verilog (parameterized, 32-bit config)
+#   2. AI-assisted rewrite to idiomatic SystemVerilog (rtl/CountTo42Cpu.sv)
+#   3. Verilator simulation of BOTH generated and rewritten RTL
+#   4. LEC: eqy verifies generated ≡ rewritten
+#   5. LEC: kepler-formal verifies generated ≡ rewritten
+#   6. Synthesis via OpenROAD (ASAP7)
+
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
+load("@rules_verilator//verilog:defs.bzl", "verilog_library")
+load("//:eqy.bzl", "eqy_test")
+load("//:generate.bzl", "fir_library")
+load("//:openroad.bzl", "orfs_flow")
+load("//:verilog.bzl", "verilog_directory", "verilog_single_file_library")
+load("//lec:lec.bzl", "lec_test")
+load("//toolchains/scala:chisel.bzl", "chisel_binary", "chisel_library")
+
+# =============================================================================
+# Step 1: Chisel → FIRRTL → Verilog
+# =============================================================================
+
+chisel_library(
+    name = "cpu_lib",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    tags = ["manual"],
+)
+
+chisel_library(
+    name = "cpu_testbench_lib",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    tags = ["manual"],
+    deps = [":cpu_lib"],
+)
+
+chisel_binary(
+    name = "cpu_generator",
+    srcs = [],
+    main_class = "codegen.CodeGen",
+    tags = ["manual"],
+    deps = [
+        ":cpu_testbench_lib",
+        "//chisel:codegenlib",
+    ],
+)
+
+FIRTOOL_OPTS = [
+    "--lowering-options=disallowPackedArrays,disallowLocalVariables,noAlwaysComb",
+    "--disable-all-randomization",
+    "-disable-layers=Verification",
+    "-disable-layers=Verification.Assert",
+    "-disable-layers=Verification.Assume",
+    "-disable-layers=Verification.Cover",
+]
+
+# --- Testbench wrapper (for Verilator simulation) ---
+
+fir_library(
+    name = "cpu_fir",
+    generator = ":cpu_generator",
+    opts = ["cpu.CountTo42CpuTestBench"] + FIRTOOL_OPTS,
+    tags = ["manual"],
+)
+
+verilog_directory(
+    name = "cpu_split",
+    srcs = [":cpu_fir"],
+    opts = FIRTOOL_OPTS,
+    tags = ["manual"],
+)
+
+# --- Standalone CPU (for LEC gold reference — no testbench wrapper) ---
+
+chisel_binary(
+    name = "cpu_standalone_generator",
+    srcs = [],
+    main_class = "cpu.CountTo42CpuGen",
+    tags = ["manual"],
+    deps = [":cpu_lib"],
+)
+
+fir_library(
+    name = "cpu_standalone_fir",
+    generator = ":cpu_standalone_generator",
+    opts = FIRTOOL_OPTS,
+    tags = ["manual"],
+)
+
+verilog_directory(
+    name = "cpu_standalone_split",
+    srcs = [":cpu_standalone_fir"],
+    opts = FIRTOOL_OPTS,
+    tags = ["manual"],
+)
+
+# Concatenate standalone generated Verilog into a single file (LEC gold)
+verilog_single_file_library(
+    name = "cpu_generated.sv",
+    srcs = [":cpu_standalone_split"],
+    tags = ["manual"],
+)
+
+# =============================================================================
+# Step 2: Verilator simulation — generated Verilog (pre-synthesis)
+# =============================================================================
+
+verilator_cc_library(
+    name = "cpu_generated_simulator",
+    copts = ["-Os", "-Wno-all"],
+    module = ":cpu_split",
+    module_top = "CountTo42CpuTestBench",
+    tags = ["manual"],
+    trace = True,
+)
+
+cc_test(
+    name = "cpu_generated_test",
+    size = "small",
+    srcs = ["CpuTest.cpp"],
+    local_defines = [
+        "MODULE_TOP=CountTo42CpuTestBench",
+        "TESTBENCH_WRAPPER",
+    ],
+    tags = ["manual"],
+    deps = [
+        ":cpu_generated_simulator",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# =============================================================================
+# Step 3: Verilator simulation — idiomatic SystemVerilog rewrite (pre-synthesis)
+# =============================================================================
+
+# Wrap the hand-written SV file so verilator_cc_library can consume it
+verilog_library(
+    name = "cpu_rewrite_verilog",
+    srcs = ["rtl/CountTo42Cpu.sv"],
+)
+
+verilator_cc_library(
+    name = "cpu_rewrite_simulator",
+    copts = ["-Os", "-Wno-all"],
+    module = ":cpu_rewrite_verilog",
+    module_top = "CountTo42Cpu",
+    tags = ["manual"],
+    trace = True,
+)
+
+cc_test(
+    name = "cpu_rewrite_test",
+    size = "small",
+    srcs = ["CpuTest.cpp"],
+    local_defines = ["MODULE_TOP=CountTo42Cpu"],
+    tags = ["manual"],
+    deps = [
+        ":cpu_rewrite_simulator",
+        "@googletest//:gtest_main",
+    ],
+)
+
+# =============================================================================
+# Step 4: LEC — generated Verilog ≡ idiomatic SystemVerilog rewrite (eqy)
+#
+# NOTE: eqy uses structural matching. When the rewrite changes structure
+# (e.g. arrays vs individual registers, inlined ROM vs stored ROM), eqy
+# may fail to prove equivalence even when the designs are functionally
+# identical. This is expected — use kepler-formal or increase depth for
+# deep structural rewrites. The simulation tests above prove behavioral
+# equivalence on concrete test vectors.
+# =============================================================================
+
+eqy_test(
+    name = "cpu_eqy_lec_test",
+    depth = 10,
+    gate_verilog_files = ["rtl/CountTo42Cpu.sv"],
+    gold_verilog_files = [":cpu_generated.sv"],
+    module_top = "CountTo42Cpu",
+    tags = ["manual"],
+)
+
+# =============================================================================
+# Step 5: LEC — generated Verilog ≡ idiomatic SystemVerilog rewrite (kepler-formal)
+# =============================================================================
+
+lec_test(
+    name = "cpu_kepler_lec_test",
+    gate_verilog_files = ["rtl/CountTo42Cpu.sv"],
+    gold_verilog_files = [":cpu_generated.sv"],
+    tags = ["manual"],
+)
+
+# =============================================================================
+# Step 6: Synthesis (OpenROAD / ASAP7)
+# =============================================================================
+
+orfs_flow(
+    name = "CountTo42Cpu",
+    abstract_stage = "place",
+    arguments = {
+        "CORE_UTILIZATION": "30",
+    },
+    sources = {
+        "SDC_FILE": ["constraints.sdc"],
+    },
+    verilog_files = ["rtl/CountTo42Cpu.sv"],
+)
+
+# =============================================================================
+# Test suite: run all verification targets together
+# =============================================================================
+
+test_suite(
+    name = "all_tests",
+    tags = ["manual"],
+    tests = [
+        ":cpu_generated_test",
+        ":cpu_rewrite_test",
+        ":cpu_eqy_lec_test",
+        ":cpu_kepler_lec_test",
+    ],
+)
