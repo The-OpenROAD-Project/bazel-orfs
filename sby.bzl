@@ -24,13 +24,22 @@ def _sby_test_impl(ctx):
     ctx.actions.write(
         script,
         content = """
-# !/bin/sh
+#!/bin/sh
 echo "Files found in $(pwd)"
-exec {} "$@" {}
-
+{sby} "$@" {sby_file}
+rc=$?
+# Copy counterexample traces to test outputs so they survive sandbox cleanup
+if [ -n "$TEST_UNDECLARED_OUTPUTS_DIR" ]; then
+    for f in $(find . -name "trace.vcd" -o -name "trace_tb.v" -o -name "trace.yw" 2>/dev/null); do
+        dir="$TEST_UNDECLARED_OUTPUTS_DIR/$(dirname "$f")"
+        mkdir -p "$dir"
+        cp "$f" "$dir/"
+    done
+fi
+exit $rc
 """.format(
-            ctx.executable._sby.short_path,
-            sby.short_path,
+            sby = ctx.executable._sby.short_path,
+            sby_file = sby.short_path,
         ),
         is_executable = True,
     )
