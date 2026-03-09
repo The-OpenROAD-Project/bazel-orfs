@@ -14,6 +14,10 @@ import chisel3.util._
 // DataWidth is configurable (32 or 64) to demonstrate parameterized
 // generation. The delivered SystemVerilog is fixed at 32 bits.
 
+object Opcode extends ChiselEnum {
+  val LI, ADDI, BNE, HALT = Value
+}
+
 class CountTo42Cpu(val DataWidth: Int = 32) extends Module {
   require(DataWidth == 32 || DataWidth == 64, "DataWidth must be 32 or 64")
 
@@ -27,25 +31,17 @@ class CountTo42Cpu(val DataWidth: Int = 32) extends Module {
   val regFile = RegInit(VecInit(Seq.fill(NumRegs)(0.U(DataWidth.W))))
 
   // --- Program ROM ---
-  // Encoding: {opcode[3:0], rd[4:0], rs1[4:0], rs2_or_imm[15:0]}
-  // Opcodes:
-  //   0 = LI   rd, imm        (rd := imm)
-  //   1 = ADDI rd, rs1, imm   (rd := rs1 + sext(imm))
-  //   2 = BNE  rs1, rs2, imm  (if rs1 != rs2, pc += sext(imm))
-  //   3 = HALT
-
+  // Encoding: {opcode[3:0], rd[4:0], rs1[4:0], imm[15:0]}
   val InsnWidth = 30
+  def encode(op: Opcode.Type, rd: Int, rs1: Int, imm: UInt): UInt =
+    Cat(op.asUInt.pad(4), rd.U(5.W), rs1.U(5.W), imm.pad(16))
+
   val program = VecInit(Seq(
-    // 0: LI x1, 0
-    Cat(0.U(4.W), 1.U(5.W), 0.U(5.W), 0.U(16.W)),
-    // 1: LI x2, 42
-    Cat(0.U(4.W), 2.U(5.W), 0.U(5.W), 42.U(16.W)),
-    // 2: ADDI x1, x1, 1
-    Cat(1.U(4.W), 1.U(5.W), 1.U(5.W), 1.U(16.W)),
-    // 3: BNE x1, x2, -1 (jump back to instruction 2)
-    Cat(2.U(4.W), 1.U(5.W), 2.U(5.W), "hFFFF".U(16.W)),
-    // 4: HALT
-    Cat(3.U(4.W), 0.U(5.W), 0.U(5.W), 0.U(16.W)),
+    encode(Opcode.LI,   1, 0, 0.U),         // li  x1, 0
+    encode(Opcode.LI,   2, 0, 42.U),        // li  x2, 42
+    encode(Opcode.ADDI, 1, 1, 1.U),         // addi x1, x1, 1
+    encode(Opcode.BNE,  1, 2, "hFFFF".U),   // bne x1, x2, -1
+    encode(Opcode.HALT, 0, 0, 0.U),         // halt
   ))
 
   // --- Program counter ---
@@ -77,29 +73,28 @@ class CountTo42Cpu(val DataWidth: Int = 32) extends Module {
 
   when(!halted) {
     switch(opcode) {
-      is(0.U) { // LI
+      is(Opcode.LI.asUInt) {
         when(rd =/= 0.U) {
           regFile(rd) := immSext
         }
         pc := pc + 1.U
       }
-      is(1.U) { // ADDI
+      is(Opcode.ADDI.asUInt) {
         when(rd =/= 0.U) {
           regFile(rd) := rs1Val + immSext
         }
         pc := pc + 1.U
       }
-      is(2.U) { // BNE rs1=rd field, rs2=rs1 field
+      is(Opcode.BNE.asUInt) {
         val cmpA = Mux(rd === 0.U, 0.U, regFile(rd))
         val cmpB = Mux(rs1 === 0.U, 0.U, regFile(rs1))
         when(cmpA =/= cmpB) {
-          // PC-relative branch: imm is signed offset
           pc := (pc.asSInt + immSext(pc.getWidth - 1, 0).asSInt).asUInt
         }.otherwise {
           pc := pc + 1.U
         }
       }
-      is(3.U) { // HALT
+      is(Opcode.HALT.asUInt) {
         halted := true.B
       }
     }
