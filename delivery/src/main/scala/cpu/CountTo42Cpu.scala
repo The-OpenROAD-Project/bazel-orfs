@@ -58,15 +58,8 @@ class CountTo42Cpu(val DataWidth: Int = 32) extends Module {
   val immSext = Wire(UInt(DataWidth.W))
   immSext := Cat(Fill(DataWidth - 16, imm16(15)), imm16)
 
-  // rs2 field reuses the imm16 lower bits for BNE
-  val rs2 = insn(InsnWidth - 10, InsnWidth - 14)
-
   // --- Read register file ---
   val rs1Val = Mux(rs1 === 0.U, 0.U, regFile(rs1))
-  val rs2Idx = imm16(4, 0)
-  // For BNE, rs2 is encoded in the rd field of the instruction format
-  // Actually let's decode it properly: BNE uses rd as rs1, rs1 as rs2
-  // Re-decode: for BNE, the two source registers are in rd and rs1 fields
 
   // --- Execute ---
   val halted = RegInit(false.B)
