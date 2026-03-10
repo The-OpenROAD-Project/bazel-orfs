@@ -1,5 +1,15 @@
 """
 fir_library rule for generating FIR files from source files using a specified generator tool.
+
+WARNING: The Chisel generator binary invokes firtool internally (via
+CHISEL_FIRTOOL_PATH) during elaboration to lower CHIRRTL to FIRRTL.
+Any firtool flags passed through `opts` (e.g. -disable-layers,
+--disable-all-randomization) take effect at this stage. If the output
+.fir is later processed by verilog_directory / verilog_file, the same
+firtool flags must be passed there too, or the two passes will
+disagree on layer handling and produce broken Verilog.
+
+See sby.bzl for an example of passing consistent options to both passes.
 """
 
 # buildifier: disable=module-docstring

@@ -4,6 +4,7 @@ bmc
 [options]
 bmc:
 mode bmc
+depth ${DEPTH}
 
 [engines]
 smtbmc bitwuzla

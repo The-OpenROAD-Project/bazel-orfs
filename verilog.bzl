@@ -1,5 +1,14 @@
 """
-verilog library support
+Verilog library support: firtool FIRRTL-to-SystemVerilog conversion.
+
+WARNING: If the .fir input was produced by fir_library (which runs the
+Chisel generator with firtool internally), the same firtool flags
+(especially -disable-layers, --disable-all-randomization) must be
+passed to verilog_directory / verilog_file via `opts`. The two firtool
+invocations must agree, otherwise layer bind files or randomization
+constructs in the .fir won't match what this pass expects.
+
+See sby.bzl for an example of passing consistent options to both passes.
 """
 
 load("@rules_verilator//verilog:providers.bzl", "make_dag_entry", "make_verilog_info")
@@ -98,9 +107,15 @@ def _verilog_single_file_library(ctx):
 
     args = ctx.actions.args()
     args.add_all(ctx.files.srcs, map_each = _only_sv)
+
+    # Strip `include directives: when all .sv files from the split
+    # directory are concatenated, the include targets are already present
+    # in the output. Leaving include directives would cause yosys/verilator
+    # to fail because the include paths don't resolve in the flat file.
+    # This is the workaround for https://github.com/llvm/circt/issues/9020
     ctx.actions.run_shell(
         arguments = [args],
-        command = "cat $@ > {}".format(out.path),
+        command = "grep -hvF '`include' $@ > {} || true".format(out.path),
         inputs = ctx.files.srcs,
         outputs = [out],
         mnemonic = "Cat",

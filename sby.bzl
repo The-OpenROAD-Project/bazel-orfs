@@ -1,7 +1,28 @@
-"""Rules for sby"""
+"""Rules for sby formal verification."""
 
 load("//:generate.bzl", "fir_library")
 load("//:verilog.bzl", "verilog_directory", "verilog_single_file_library")
+
+# Default firtool options for formal verification.
+#
+# firtool is invoked twice in this flow — first by the Chisel generator
+# (fir_library, via CHISEL_FIRTOOL_PATH) to lower CHIRRTL, then by
+# verilog_directory to produce SystemVerilog. These options must be
+# passed to both passes to stay consistent.
+#
+# Verification.Assert is kept enabled so that DUT-internal Chisel
+# assert() statements are checked by the formal solver. The layer bind
+# files use `include directives which are stripped by
+# verilog_single_file_library (see verilog.bzl).
+#
+# Assume and Cover are disabled: assumes would over-constrain the
+# solver and covers are not needed for BMC.
+DEFAULT_FIRTOOL_OPTIONS = [
+    "--disable-all-randomization",
+    "-strip-debug-info",
+    "-disable-layers=Verification.Assume",
+    "-disable-layers=Verification.Cover",
+]
 
 def _sby_test_impl(ctx):
     sby = ctx.actions.declare_file(ctx.attr.name + ".sby")
@@ -10,6 +31,7 @@ def _sby_test_impl(ctx):
         template = ctx.file._sby_template,
         output = sby,
         substitutions = {
+            "${DEPTH}": str(ctx.attr.depth),
             "${TOP}": ctx.attr.module_top,
             "${VERILOG_BASE_NAMES}": " ".join(
                 [file.basename for file in ctx.files.verilog_files],
@@ -66,6 +88,7 @@ exit $rc
 _sby_test = rule(
     implementation = _sby_test_impl,
     attrs = {
+        "depth": attr.int(mandatory = True),
         "module_top": attr.string(mandatory = True),
         "verilog_files": attr.label_list(
             allow_files = True,
@@ -97,29 +120,38 @@ def sby_test(
         name,
         module_top,
         generator,
+        depth = 20,
         generator_opts = [],
+        firtool_options = None,
         verilog_files = [],
         **kwargs):
-    """sby_test macro frontend to run formal verification with sby.
+    """Run SymbiYosys bounded model checking on a Chisel-generated design.
+
+    Generates Verilog from Chisel source, then runs SymbiYosys BMC with
+    the bitwuzla solver. Additional SystemVerilog files (formal wrappers
+    with SVA properties) can be included via verilog_files.
 
     Args:
-        name: Name of the test target.
-        module_top: Top module name in the verilog files.
-        generator: Label of the scala binary that generates the verilog files.
-        generator_opts: List of options passed to Generator scala app for generating the verilog.
-        verilog_files: List of additional verilog files to include in the sby test.
-        **kwargs: Additional args passed to _sby_test.
+        name: Name of the test target. The actual test will be name + "_test".
+        module_top: Top module name for formal checking (typically the
+            formal wrapper module, e.g. "FormalMyModule").
+        generator: Label of the Chisel generator binary (scala_binary that
+            calls chisel3.stage.ChiselStage).
+        depth: BMC depth — number of clock cycles to unroll. Higher values
+            find deeper bugs but take exponentially longer. Default 20.
+        generator_opts: Options passed to the Chisel generator binary
+            (e.g. ["--top-module=my.package.MyModule"]).
+        firtool_options: Options passed to firtool for both CHIRRTL lowering
+            and Verilog generation. Defaults to DEFAULT_FIRTOOL_OPTIONS which
+            disables randomization and Verification layers. Override to
+            customize layer handling or add other firtool flags.
+        verilog_files: Additional SystemVerilog files to include (e.g. formal
+            wrapper files with SVA properties using `ifdef FORMAL).
+        **kwargs: Additional args passed to the underlying test rule
+            (e.g. tags, timeout, size).
     """
-
-    # massage output for sby
-    firtool_options = [
-        "--disable-all-randomization",
-        "-strip-debug-info",
-        "-disable-layers=Verification",
-        "-disable-layers=Verification.Assert",
-        "-disable-layers=Verification.Assume",
-        "-disable-layers=Verification.Cover",
-    ]
+    if firtool_options == None:
+        firtool_options = DEFAULT_FIRTOOL_OPTIONS
 
     fir_library(
         name = "{name}_fir".format(name = name),
@@ -129,7 +161,7 @@ def sby_test(
         tags = ["manual"],
     )
 
-    # FIXME we have to split the files or we get the verification layer stubs
+    # Split into per-module files to avoid verification layer stubs
     # https://github.com/llvm/circt/issues/9020
     verilog_directory(
         name = "{name}_split".format(name = name),
@@ -138,7 +170,7 @@ def sby_test(
         tags = ["manual"],
     )
 
-    # And concat the files into one again for sby
+    # Concat back into a single file for sby
     verilog_single_file_library(
         name = "{name}.sv".format(name = name),
         srcs = [":{name}_split".format(name = name)],
@@ -148,6 +180,7 @@ def sby_test(
 
     _sby_test(
         name = name + "_test",
+        depth = depth,
         module_top = module_top,
         verilog_files = verilog_files + [":{name}.sv".format(name = name)],
         **kwargs
