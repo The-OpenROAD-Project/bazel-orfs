@@ -1,13 +1,11 @@
 [tasks]
-bmc
+${TASKS}
 
 [options]
-bmc:
-mode bmc
-depth ${DEPTH}
+${OPTIONS}
 
 [engines]
-smtbmc bitwuzla
+${ENGINES}
 
 [script]
 read -formal ${VERILOG_BASE_NAMES}
