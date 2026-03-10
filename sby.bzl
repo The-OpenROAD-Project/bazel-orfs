@@ -27,11 +27,29 @@ DEFAULT_FIRTOOL_OPTIONS = [
 def _sby_test_impl(ctx):
     sby = ctx.actions.declare_file(ctx.attr.name + ".sby")
 
+    engines = ctx.attr.engines
+    if not engines:
+        engines = ["smtbmc bitwuzla"]
+
+    # sby runs multiple engines within a single task in parallel (race).
+    # The first engine to finish determines the result.
+    # For "abc pdr" (unbounded prove), use "mode prove" instead of "mode bmc".
+    has_unbounded = any([e.startswith("abc") for e in engines])
+    if has_unbounded:
+        tasks = "prove"
+        options = "prove:\nmode prove"
+    else:
+        tasks = "bmc"
+        options = "bmc:\nmode bmc\ndepth %d" % ctx.attr.depth
+    engines_str = "\n".join(engines)
+
     ctx.actions.expand_template(
         template = ctx.file._sby_template,
         output = sby,
         substitutions = {
-            "${DEPTH}": str(ctx.attr.depth),
+            "${TASKS}": tasks,
+            "${OPTIONS}": options,
+            "${ENGINES}": engines_str,
             "${TOP}": ctx.attr.module_top,
             "${VERILOG_BASE_NAMES}": " ".join(
                 [file.basename for file in ctx.files.verilog_files],
@@ -71,7 +89,8 @@ exit $rc
             files = depset([script]),
             executable = script,
             runfiles = ctx.runfiles(
-                files = [sby, ctx.executable._sby, ctx.executable._yosys] +
+                files = [sby, ctx.executable._sby, ctx.executable._yosys,
+                         ctx.executable._yosys_abc] +
                         ctx.files.verilog_files,
                 transitive_files = depset(
                     transitive = [
@@ -79,6 +98,8 @@ exit $rc
                         ctx.attr._sby[DefaultInfo].default_runfiles.symlinks,
                         ctx.attr._yosys[DefaultInfo].default_runfiles.files,
                         ctx.attr._yosys[DefaultInfo].default_runfiles.symlinks,
+                        ctx.attr._yosys_abc[DefaultInfo].default_runfiles.files,
+                        ctx.attr._yosys_abc[DefaultInfo].default_runfiles.symlinks,
                     ],
                 ),
             ),
@@ -89,6 +110,11 @@ _sby_test = rule(
     implementation = _sby_test_impl,
     attrs = {
         "depth": attr.int(mandatory = True),
+        "engines": attr.string_list(
+            doc = "SymbiYosys engine lines. Default: ['smtbmc bitwuzla']. " +
+                  "Use ['abc pdr'] for unbounded proof, or multiple entries " +
+                  "for multi-engine (parallel race).",
+        ),
         "module_top": attr.string(mandatory = True),
         "verilog_files": attr.label_list(
             allow_files = True,
@@ -112,6 +138,13 @@ _sby_test = rule(
             cfg = "exec",
             default = Label("@oss_cad_suite//:yosys"),
         ),
+        "_yosys_abc": attr.label(
+            doc = "yosys-abc binary (needed for abc pdr engine).",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@oss_cad_suite//:yosys-abc"),
+        ),
     },
     test = True,
 )
@@ -121,14 +154,15 @@ def sby_test(
         module_top,
         generator,
         depth = 20,
+        engines = [],
         generator_opts = [],
         firtool_options = None,
         verilog_files = [],
         **kwargs):
-    """Run SymbiYosys bounded model checking on a Chisel-generated design.
+    """Run SymbiYosys formal verification on a Chisel-generated design.
 
-    Generates Verilog from Chisel source, then runs SymbiYosys BMC with
-    the bitwuzla solver. Additional SystemVerilog files (formal wrappers
+    Generates Verilog from Chisel source, then runs SymbiYosys with the
+    configured engine(s). Additional SystemVerilog files (formal wrappers
     with SVA properties) can be included via verilog_files.
 
     Args:
@@ -139,6 +173,12 @@ def sby_test(
             calls chisel3.stage.ChiselStage).
         depth: BMC depth — number of clock cycles to unroll. Higher values
             find deeper bugs but take exponentially longer. Default 20.
+            Ignored for unbounded engines like "abc pdr".
+        engines: SymbiYosys engine lines. Default: ["smtbmc bitwuzla"].
+            Examples:
+              ["smtbmc yices"]         — BMC with yices (often faster)
+              ["abc pdr"]              — unbounded IC3/PDR proof
+              ["smtbmc bitwuzla", "abc pdr"]  — multi-engine race
         generator_opts: Options passed to the Chisel generator binary
             (e.g. ["--top-module=my.package.MyModule"]).
         firtool_options: Options passed to firtool for both CHIRRTL lowering
@@ -181,6 +221,7 @@ def sby_test(
     _sby_test(
         name = name + "_test",
         depth = depth,
+        engines = engines,
         module_top = module_top,
         verilog_files = verilog_files + [":{name}.sv".format(name = name)],
         **kwargs
