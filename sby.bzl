@@ -57,6 +57,9 @@ def _sby_test_impl(ctx):
             "${VERILOG}": "\n".join(
                 [file.short_path for file in ctx.files.verilog_files],
             ),
+            "${INCLUDES}": "\n".join(
+                [file.short_path for file in ctx.files.includes],
+            ) if ctx.files.includes else "",
         },
     )
 
@@ -91,7 +94,8 @@ exit $rc
             runfiles = ctx.runfiles(
                 files = [sby, ctx.executable._sby, ctx.executable._yosys,
                          ctx.executable._yosys_abc] +
-                        ctx.files.verilog_files,
+                        ctx.files.verilog_files +
+                        ctx.files.includes,
                 transitive_files = depset(
                     transitive = [
                         ctx.attr._sby[DefaultInfo].default_runfiles.files,
@@ -117,6 +121,11 @@ _sby_test = rule(
         ),
         "module_top": attr.string(mandatory = True),
         "verilog_files": attr.label_list(
+            allow_files = True,
+            providers = [DefaultInfo],
+        ),
+        "includes": attr.label_list(
+            doc = "Files available for Verilog `include but not read directly.",
             allow_files = True,
             providers = [DefaultInfo],
         ),
@@ -158,6 +167,7 @@ def sby_test(
         generator_opts = [],
         firtool_options = None,
         verilog_files = [],
+        includes = [],
         **kwargs):
     """Run SymbiYosys formal verification on a Chisel-generated design.
 
@@ -187,6 +197,9 @@ def sby_test(
             customize layer handling or add other firtool flags.
         verilog_files: Additional SystemVerilog files to include (e.g. formal
             wrapper files with SVA properties using `ifdef FORMAL).
+        includes: Additional files available for Verilog `include directives
+            but not read directly by yosys. Useful for shared property
+            headers included by variant wrappers.
         **kwargs: Additional args passed to the underlying test rule
             (e.g. tags, timeout, size).
     """
@@ -224,5 +237,6 @@ def sby_test(
         engines = engines,
         module_top = module_top,
         verilog_files = verilog_files + [":{name}.sv".format(name = name)],
+        includes = includes,
         **kwargs
     )

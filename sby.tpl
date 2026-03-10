@@ -13,3 +13,4 @@ prep -top ${TOP}
 
 [files]
 ${VERILOG}
+${INCLUDES}
