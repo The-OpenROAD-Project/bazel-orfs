@@ -210,7 +210,7 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "mXT67CG7L5OLVmAL21N/b1fUYtLkKfGcDS9/BHvSBuY=",
+        "bzlTransitiveDigest": "We8lHiP0MwXcNMkjeB/9G1WfFWL4xDQs48mA+auBrqE=",
         "usagesDigest": "GI2GE8tlWOwlCIZhlNeNCc5pr37kxwJb5wUjdtFqtIs=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -271,6 +271,11 @@
             "",
             "docker_orfs",
             "+orfs_repositories+docker_orfs"
+          ],
+          [
+            "",
+            "python_3_13_host",
+            "rules_python++python+python_3_13_host"
           ]
         ]
       }
