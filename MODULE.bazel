@@ -49,12 +49,12 @@ bazel_dep(
 python = use_extension(
     "@rules_python//python/extensions:python.bzl",
     "python",
-    dev_dependency = True,
 )
 python.toolchain(
     ignore_root_user_error = True,
     python_version = "3.13",
 )
+use_repo(python, "python_3_13_host")
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(

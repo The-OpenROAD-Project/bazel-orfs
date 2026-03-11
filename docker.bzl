@@ -11,10 +11,6 @@ def _impl(repository_ctx):
     else:
         image = repository_ctx.attr.image
 
-    python_name = "python3"
-    python = repository_ctx.which(python_name)
-    if not python:
-        fail("Failed to find {}.".format(python_name))
     docker_name = "docker"
     docker = repository_ctx.which(docker_name)
     if not docker:
@@ -89,10 +85,12 @@ def _impl(repository_ctx):
 
     repository_ctx.report_progress("Extracted {}.".format(repository_ctx.attr.image))
 
+    python = repository_ctx.path(repository_ctx.attr._python).realpath
     patcher = repository_ctx.path(repository_ctx.attr._patcher).realpath
     patchelf = repository_ctx.path(repository_ctx.attr._patchelf).realpath
     patcher_result = repository_ctx.execute(
         [
+            python,
             patcher,
             "--patchelf",
             patchelf,
@@ -130,11 +128,16 @@ docker_pkg = repository_rule(
             executable = True,
             cfg = "exec",
         ),
+        "_python": attr.label(
+            doc = "Hermetic Python interpreter.",
+            default = Label("@python_3_13_host//:python"),
+            executable = True,
+            cfg = "exec",
+        ),
         "_patcher": attr.label(
             doc = "Python script to remap `RUNPATH`s.",
             default = Label("//:patcher.py"),
-            executable = True,
-            cfg = "exec",
+            allow_single_file = True,
         ),
     },
 )
