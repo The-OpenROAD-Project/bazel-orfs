@@ -7,8 +7,8 @@ module sdq_17x64
    clk,
    ce_in
 );
-   // reduced from 64 to 16 to speed up tests
-   parameter BITS = 16;
+   // reduced from 64 to 8 to speed up tests
+   parameter BITS = 8;
    // reduced from 17 to 2 to speed up tests
    parameter WORD_DEPTH = 2;
    parameter ADDR_WIDTH = 5;

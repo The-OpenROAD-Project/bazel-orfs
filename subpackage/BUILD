@@ -21,9 +21,9 @@ orfs_flow(
     name = "L1MetadataArray",
     abstract_stage = "place",
     arguments = FAST_SETTINGS | FLOOR_PLACE_ARGUMENTS | {
-        "CORE_AREA": "2 2 18 68",
+        "CORE_AREA": "2 2 18 28",
         "CORE_MARGIN": "2",
-        "DIE_AREA": "0 0 20 70",
+        "DIE_AREA": "0 0 20 30",
         "MACRO_PLACE_HALO": "2 2",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
         "PLACE_DENSITY": "0.30",
@@ -45,9 +45,9 @@ orfs_flow(
     abstract_stage = "place",
     arguments = FAST_SETTINGS | {
         "CORE_ASPECT_RATIO": "2",
-        "CORE_UTILIZATION": "4",
+        "CORE_UTILIZATION": "40",
         "IO_CONSTRAINTS": "$(location //test:io-sram)",
-        "PLACE_DENSITY": "0.10",
+        "PLACE_DENSITY": "0.42",
         "SDC_FILE": "$(location //test:constraints-sram)",
     },
     stage_sources = {
