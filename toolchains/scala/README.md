@@ -1,4 +1,6 @@
-# Chisel Bazel Rules
+# Chisel Bazel rules
+
+> For peek-poke-less Chisel test examples, see [chisel/README.md](../../chisel/README.md).
 
 This directory contains Bazel rule wrappers for Chisel hardware design, built on top of [BCR rules_scala](https://github.com/bazelbuild/rules_scala).
 

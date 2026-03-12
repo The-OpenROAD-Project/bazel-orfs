@@ -1,4 +1,6 @@
-# Optuna-Based Design Space Exploration (DSE)
+# Optuna-based design space exploration (DSE)
+
+> For Bazel-native parameter sweeps without Optuna, see [dse/README.md](../dse/README.md).
 
 Parameter optimization using Optuna to find optimal design parameter combinations that meet timing constraints.
 
@@ -23,7 +25,7 @@ Side note: ORFS has a large number of small designs for testing purposes, wherea
 - Supports constrained optimization (must meet timing) and multi-objective optimization (area + power simultaneously)
 - Optuna shines in simplicity and good results for limited effort. No need install or configure a server for remote execution.
 
-## 3D HTML intearctvie pareto front snapshot
+## 3D HTML interactive pareto front snapshot
 
 [3D pareto front](https://raw.githack.com/The-OpenROAD-Project/bazel-orfs/refs/heads/main/optuna/screenshots/optuna_dse_results.html)
 
