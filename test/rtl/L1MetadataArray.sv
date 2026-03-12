@@ -31,17 +31,17 @@ module L1MetadataArray(
   input  [5:0]  io_write_bits_idx,
   input  [1:0]  io_write_bits_way_en,
   input  [1:0]  io_write_bits_data_coh_state,
-  input  [20:0] io_write_bits_data_tag,
+  input  [5:0]  io_write_bits_data_tag,
   output [1:0]  io_resp_0_coh_state,
-  output [20:0] io_resp_0_tag,
+  output [5:0]  io_resp_0_tag,
   output [1:0]  io_resp_1_coh_state,
-  output [20:0] io_resp_1_tag
+  output [5:0]  io_resp_1_tag
 );
 
-  wire [45:0] _tag_array_ext_R0_data;
+  wire [15:0] _tag_array_ext_R0_data;
   reg  [6:0]   rst_cnt;
   wire [1:0]   _wdata_T_coh_state = rst_cnt[6] ? io_write_bits_data_coh_state : 2'h0;
-  wire [20:0]  _wdata_T_tag = rst_cnt[6] ? io_write_bits_data_tag : 21'h0;
+  wire [5:0]   _wdata_T_tag = rst_cnt[6] ? io_write_bits_data_tag : 6'h0;
   wire         tag_array_MPORT_en = ~(rst_cnt[6]) | io_write_valid;
   always @(posedge clock) begin
     if (reset)
@@ -64,9 +64,9 @@ module L1MetadataArray(
   );
   assign io_read_ready = ~tag_array_MPORT_en;
   assign io_write_ready = rst_cnt[6];
-  assign io_resp_0_coh_state = _tag_array_ext_R0_data[22:21];
-  assign io_resp_0_tag = _tag_array_ext_R0_data[20:0];
-  assign io_resp_1_coh_state = _tag_array_ext_R0_data[45:44];
-  assign io_resp_1_tag = _tag_array_ext_R0_data[43:23];
+  assign io_resp_0_coh_state = _tag_array_ext_R0_data[7:6];
+  assign io_resp_0_tag = _tag_array_ext_R0_data[5:0];
+  assign io_resp_1_coh_state = _tag_array_ext_R0_data[15:14];
+  assign io_resp_1_tag = _tag_array_ext_R0_data[13:8];
 endmodule
 

@@ -19,8 +19,8 @@ proc expect {value a b} {
   }
 }
 # Hardcoded is good 'nuf. This rarely changes in practice.
-# Reduced from 7.127 x 53.27 after tag_array port width reduction (184-bit -> 46-bit).
-expect Width $width 9.29
-expect Height $height 16.58
+# Reduced from 9.29 x 16.58 after tag_array port width reduction (46-bit -> 16-bit).
+expect Width $width 7.138
+expect Height $height 12.276
 
 exec touch $::env(WORK_HOME)/area_ok.txt

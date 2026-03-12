@@ -19,38 +19,38 @@
 `endif // not def STOP_COND_
 
 // VCS coverage exclude_file
-// Reduced from 8-way (184-bit) to 2-way (46-bit) to speed up CI builds.
+// Reduced from 8-way (184-bit) to 2-way (16-bit) to speed up CI builds.
 // Original: 184 = 8 * 23 bits (8 ways, each 21-bit tag + 2-bit coh_state).
-// Reduced:   46 = 2 * 23 bits (2 ways).
+// Reduced:   16 = 2 *  8 bits (2 ways, each  6-bit tag + 2-bit coh_state).
 module tag_array_64x184(
   input  [5:0]  R0_addr,
   input         R0_en,
                 R0_clk,
-  output [45:0] R0_data,
+  output [15:0] R0_data,
   input  [5:0]  W0_addr,
   input         W0_en,
                 W0_clk,
-  input  [45:0] W0_data,
+  input  [15:0] W0_data,
   input  [1:0]  W0_mask
 );
 
-  reg [31:0] Memory[0:1]; // 2 rows, 32 bits
+  reg [15:0] Memory[0:1]; // 2 rows, 16 bits
   reg        _R0_en_d0;
-  reg [1:0]  _W0_addr_d0, _R0_addr_d1;
+  reg [0:0]  _W0_addr_d0, _R0_addr_d1;
 
   always @(posedge R0_clk) begin
     _R0_en_d0 <= R0_en;
-    _R0_addr_d1 <= R0_addr[1:0];
+    _R0_addr_d1 <= R0_addr[0:0];
   end // always @(posedge)
 
   always @(posedge W0_clk) begin
-    _W0_addr_d0 <= W0_addr[1:0];
+    _W0_addr_d0 <= W0_addr[0:0];
     if (W0_en & W0_mask[0])
-      Memory[_W0_addr_d0][22:0] <= W0_data[22:0];
+      Memory[_W0_addr_d0][7:0] <= W0_data[7:0];
     if (W0_en & W0_mask[1])
-      Memory[_W0_addr_d0][31:23] <= W0_data[45:23];
+      Memory[_W0_addr_d0][15:8] <= W0_data[15:8];
   end // always @(posedge)
 
-  assign R0_data = _R0_en_d0 ? Memory[_R0_addr_d1][45:0] : 46'bx;
+  assign R0_data = _R0_en_d0 ? Memory[_R0_addr_d1] : 16'bx;
 endmodule
 
