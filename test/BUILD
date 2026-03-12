@@ -235,9 +235,9 @@ orfs_sweep(
     abstract_stage = "cts",
     arguments = FAST_SETTINGS |
                 {
-                    "CORE_AREA": "2 2 18 28",
+                    "CORE_AREA": "2 2 15 22",
                     "CORE_MARGIN": "2",
-                    "DIE_AREA": "0 0 20 30",
+                    "DIE_AREA": "0 0 17 24",
                     "GDS_ALLOW_EMPTY": "tag_array_64x184",
                     "MACRO_PLACE_HALO": "2 2",
                     "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
@@ -303,10 +303,10 @@ filegroup(
 orfs_flow(
     name = "regfile_128x65",
     arguments = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
-        "CORE_AREA": "2 2 23 23",
-        "DIE_AREA": "0 0 25 25",
+        "CORE_AREA": "2 2 12 12",
+        "DIE_AREA": "0 0 14 14",
         "IO_CONSTRAINTS": "$(location :io-sram)",
-        "PLACE_DENSITY": "0.30",
+        "PLACE_DENSITY": "0.40",
     },
     stage_sources = {
         "floorplan": [":io-sram"],
