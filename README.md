@@ -30,6 +30,10 @@ and easily actionable github issues for the OpenROAD and ORFS maintainers.
 | Create macros with LEF/LIB | [Work with macros and abstracts](#work-with-macros-and-abstracts) |
 | Quickly estimate macro sizes | [Mock area targets](#mock-area-targets) |
 | Tweak floorplan or placement settings | [Tweak and iterate on designs](#tweak-and-iterate-on-designs) |
+| Speed up CI or development builds | [Speed up your builds](#speed-up-your-builds) |
+| Profile build times | [Profile build times](#profile-build-times) |
+| Query timing interactively | [Query timing interactively](#query-timing-interactively) |
+| Monitor long-running builds | [Monitor long-running builds](#monitor-long-running-builds) |
 | Sweep design parameters | [Design space exploration](#design-space-exploration) |
 | Run formal verification | [sby/README.md](sby/README.md) |
 | Integrate Chisel designs | [toolchains/scala/README.md](toolchains/scala/README.md) |
@@ -335,7 +339,7 @@ orfs_flow(
 
 By default, `abstract_stage` is set to `final` (the latest ORFS stage).
 
-> **NOTE:** Abstracts can be generated starting from the `floorplan` stage, thus skipping the `synth` stage.
+> **NOTE:** Abstracts can be generated starting from the `place` stage, because pin placement happens during the place stage. The legal values for `abstract_stage` are: `place`, `cts`, `grt`, `route`, `final`.
 
 Abstracts are useful for estimating sizes of macros with long build times and checking if they fit in upper-level modules without running the full place and route flow.
 
@@ -365,7 +369,7 @@ orfs_flow(
 
 ### Fast floorplanning with mock abstracts
 
-To skip place, cts, and route and create a mock abstract where you can check that macros fit at the top level, set `abstract_stage` to `floorplan`:
+To skip cts and route and create a mock abstract where you can check that macros fit at the top level, set `abstract_stage` to `place`:
 
 > **WARNING:** Although mock abstracts can speed up turnaround times, skipping place, cts, or route can lead to errors that don't exist when these stages are run.
 
@@ -443,6 +447,164 @@ git restore test/BUILD
 # Rebuild — instant cache hit
 bazel run @bazel-orfs//test:tag_array_64x184_floorplan gui_floorplan
 ```
+
+## Speed up your builds
+
+### Disable expensive operations for CI and development
+
+For CI or iterative development where timing closure isn't needed, you can
+disable expensive operations. The `FAST_SETTINGS` dict in [test/BUILD](test/BUILD)
+shows the recommended settings:
+
+| Setting | Stage | What it disables | Speed impact |
+|---------|-------|------------------|-------------|
+| `REMOVE_ABC_BUFFERS` = `"1"` | floorplan | Removes synthesis buffers instead of running `repair_timing_helper` (gate sizing, VT swapping). Without this, floorplan timing repair can run for hours. | Very high |
+| `GPL_TIMING_DRIVEN` = `"0"` | place | Timing-driven global placement. Skips timing path analysis and buffer removal during placement iterations. | High |
+| `GPL_ROUTABILITY_DRIVEN` = `"0"` | place | Routability-driven global placement. Skips routing congestion estimation during placement. | Moderate |
+| `SKIP_CTS_REPAIR_TIMING` = `"1"` | cts | Timing repair after clock tree synthesis. Skips iterative buffer insertion, gate sizing, gate cloning, and VT swapping. Can reduce CTS from hours to minutes. | Very high |
+| `SKIP_INCREMENTAL_REPAIR` = `"1"` | grt | Incremental repair during global routing. Skips two rounds of `repair_design` + `repair_timing` with incremental re-routing. | Very high |
+| `SKIP_REPORT_METRICS` = `"1"` | all | Metrics reporting (`report_checks`, `report_wns`, `report_tns`, `report_power`, `report_clock_skew`) at every stage. | Moderate |
+| `FILL_CELLS` = `""` | route | Fill cell insertion (`filler_placement`). Required for manufacturing but not for design exploration. | Low |
+| `TAPCELL_TCL` = `""` | floorplan | Custom tap/endcap cell placement script. Falls back to simple `cut_rows`. | Low |
+| `PWR_NETS_VOLTAGES` = `""` | final | IR drop analysis for power nets (`analyze_power_grid`). | Low |
+| `GND_NETS_VOLTAGES` = `""` | final | IR drop analysis for ground nets (`analyze_power_grid`). | Low |
+
+Apply these settings in your `orfs_flow()` target:
+
+```starlark
+FAST_SETTINGS = {
+    "FILL_CELLS": "",
+    "GND_NETS_VOLTAGES": "",
+    "GPL_ROUTABILITY_DRIVEN": "0",
+    "GPL_TIMING_DRIVEN": "0",
+    "PWR_NETS_VOLTAGES": "",
+    "REMOVE_ABC_BUFFERS": "1",
+    "SKIP_CTS_REPAIR_TIMING": "1",
+    "SKIP_INCREMENTAL_REPAIR": "1",
+    "SKIP_REPORT_METRICS": "1",
+    "TAPCELL_TCL": "",
+}
+
+orfs_flow(
+    name = "my_design",
+    arguments = FAST_SETTINGS | {
+        "CORE_UTILIZATION": "40",
+        # ...
+    },
+    verilog_files = ["my_design.sv"],
+)
+```
+
+### Set abstract_stage as early as possible
+
+The `abstract_stage` parameter controls how far the flow runs. Setting it earlier
+skips all subsequent stages:
+
+| `abstract_stage` | Stages built | Stages skipped |
+|------------------|--------------|----------------|
+| `"place"` | synth, floorplan, place | cts, grt, route, final |
+| `"cts"` | synth → cts | grt, route, final |
+| `"grt"` | synth → grt | route, final |
+| `"route"` | synth → route | final |
+| `"final"` (default) | All stages | None |
+
+Abstract generation requires at least the `place` stage because pins are placed
+during placement. For macro size estimation, `"place"` is usually sufficient.
+For timing analysis, `"cts"` provides clock tree data without expensive routing.
+
+### Query timing interactively
+
+Open an interactive OpenROAD shell or GUI to investigate a completed stage:
+
+```bash
+# GUI with timing loaded
+bazel run <target>_<stage> gui_<stage>
+
+# Interactive TCL shell (no GUI)
+bazel run <target>_<stage> open_<stage>
+```
+
+Useful TCL commands once inside OpenROAD:
+
+| Command | What it shows |
+|---------|---------------|
+| `report_checks -path_delay max -group_count 5` | Top 5 worst setup timing paths |
+| `report_checks -path_delay max -through [get_pins *name*]` | Worst path through a specific pin |
+| `report_wns` | Worst negative slack |
+| `report_tns` | Total negative slack |
+| `get_cells -hier *name*` | Find instances by name pattern |
+
+### Monitor long-running builds
+
+ORFS stages can take minutes to hours. To monitor progress, watch the OpenROAD
+log files while a build is running.
+
+**Find the active log file:**
+
+```bash
+# Find the most recently modified .log file in the Bazel sandbox
+find /tmp -path "*/sandbox/*/logs/*.log" -newer /tmp/.bazel_start 2>/dev/null | head -5
+
+# Or watch all ORFS log output from the sandbox
+tail -f $(find /tmp -path "*/sandbox/*/logs/*.log" -newer /tmp/.bazel_start 2>/dev/null | tail -1)
+```
+
+**Monitor via the local flow** (easier, recommended for debugging):
+
+```bash
+# Start the build in the local flow
+bazel run //test:L1MetadataArray_cts_deps
+tmp/test/L1MetadataArray_cts_deps/make do-cts &
+
+# In another terminal, watch the log
+tail -f tmp/test/L1MetadataArray_cts_deps/logs/4_1_cts.log
+```
+
+**What to look for in logs:**
+
+| Log pattern | What it means |
+|-------------|---------------|
+| `repair_timing` | Timing repair loop — can run for hours on large designs. Look for iteration count and remaining violations. |
+| `Iteration` / `Overflow` | Global placement convergence. Overflow should decrease toward 0. |
+| `[WARNING]` slack values | Negative slack means timing violations. Large negative values suggest the clock period is too aggressive. |
+| `report_checks` | Timing report output. Check `Slack` at the bottom of each path. |
+| `estimate_parasitics` | Parasitic estimation — usually fast, indicates a stage transition. |
+
+**Log file naming convention:**
+
+Each ORFS stage produces numbered log files under `logs/`:
+
+| Stage | Log files |
+|-------|-----------|
+| synth | `1_1_yosys_canonicalize.log`, `1_2_yosys.log` |
+| floorplan | `2_1_floorplan.log` through `2_4_floorplan_pdn.log` |
+| place | `3_1_place_gp_skip_io.log` through `3_5_place_dp.log` |
+| cts | `4_1_cts.log` |
+| grt | `5_1_grt.log` |
+| route | `5_2_route.log`, `5_3_fillcell.log` |
+| final | `6_1_merge.log`, `6_report.log` |
+
+### Profile build times
+
+Generate and analyze a Bazel build profile to find bottlenecks:
+
+```bash
+bazel build <target> --profile=/tmp/profile.gz
+bazel analyze-profile /tmp/profile.gz
+```
+
+The critical path output shows each action and its wall-clock time.
+
+### Debug cache misses
+
+Use `--explain` to understand why Bazel is rebuilding a target:
+
+```bash
+bazel build <target> --explain=/tmp/explain.txt --verbose_explanations
+```
+
+Avoid `bazel clean --expunge` — it forces a full rebuild. If you need to force-rebuild
+one target, use the [`PHONY` variable trick](#force-a-rebuild) instead.
 
 ## Design space exploration
 

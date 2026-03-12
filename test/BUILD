@@ -45,6 +45,38 @@ filegroup(
     visibility = ["//:__subpackages__"],
 )
 
+# Settings to speed up CI builds by disabling expensive operations that are
+# only needed for timing closure and manufacturing sign-off.
+#
+# Setting                    Stage      What it disables
+# -------                    -----      ----------------
+# GPL_TIMING_DRIVEN=0        place      Timing-driven global placement. Skips timing path
+#                                        analysis during placement iterations and buffer
+#                                        removal (remove_buffers). (global_place.tcl)
+# GPL_ROUTABILITY_DRIVEN=0   place      Routability-driven global placement. Skips routing
+#                                        congestion estimation during placement. (global_place.tcl)
+# SKIP_CTS_REPAIR_TIMING=1   cts        CTS timing repair. Skips repair_timing_helper after
+#                                        clock tree synthesis — buffer insertion, gate sizing,
+#                                        VT swapping. Can reduce CTS from hours to minutes
+#                                        on large designs. (cts.tcl)
+# SKIP_INCREMENTAL_REPAIR=1  grt        Incremental repair during global routing. Skips two
+#                                        rounds of repair_design + repair_timing with
+#                                        incremental re-routing between them. (global_route.tcl)
+# REMOVE_ABC_BUFFERS=1       floorplan  Removes synthesis buffers instead of running
+#                                        repair_timing_helper in floorplan. The alternative
+#                                        (=0) runs hours of gate sizing/VT swapping.
+#                                        (floorplan.tcl)
+# SKIP_REPORT_METRICS=1      all        Metrics reporting. Skips report_checks, report_wns,
+#                                        report_tns, report_power, report_clock_skew at every
+#                                        stage. Saves minutes per stage. (report_metrics.tcl)
+# FILL_CELLS=""               route      Fill cell insertion. Skips filler_placement for
+#                                        manufacturing density requirements. (fillcell.tcl)
+# TAPCELL_TCL=""              floorplan  Custom tap/endcap cell placement. Falls back to
+#                                        simple cut_rows. (tapcell.tcl)
+# PWR_NETS_VOLTAGES=""        final      IR drop analysis for power nets. Skips
+#                                        analyze_power_grid. (final_report.tcl)
+# GND_NETS_VOLTAGES=""        final      IR drop analysis for ground nets. Skips
+#                                        analyze_power_grid. (final_report.tcl)
 FAST_SETTINGS = {
     "FILL_CELLS": "",
     "GND_NETS_VOLTAGES": "",
