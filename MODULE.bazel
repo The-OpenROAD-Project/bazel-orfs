@@ -56,6 +56,13 @@ python.toolchain(
 )
 use_repo(python, "python_3_13_host")
 
+detect_cpus = use_repo_rule("//:detect_cpus.bzl", "detect_cpus")
+
+detect_cpus(
+    name = "host_cpus",
+    python_interpreter = "@python_3_13_host//:python",
+)
+
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
     hub_name = "bazel-orfs-pip",

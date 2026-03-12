@@ -10,7 +10,18 @@ load(
     "CONFIG_YOSYS",
     "CONFIG_YOSYS_ABC",
 )
+load("@host_cpus//:cpus.bzl", "NUM_CPUS")
 load("@orfs_variable_metadata//:json.bzl", "orfs_variable_metadata")
+
+# Stages containing multi-threaded OpenROAD algorithms that benefit from
+# all available CPUs. See docs/resource_scheduling.md for sub-stage details.
+_MULTI_THREADED_STAGES = ["place", "cts", "grt", "route"]
+
+def _openroad_resource_set(_os, _inputs):
+    return {"cpu": NUM_CPUS, "memory": 8192}
+
+def _lightweight_resource_set(_os, _inputs):
+    return {"cpu": 1, "memory": 8192}
 
 def _map(function, iterable):
     return [function(x) for x in iterable]
@@ -819,6 +830,7 @@ def _run_impl(ctx):
                 yosys_inputs(ctx),
             ],
         ),
+        resource_set = _lightweight_resource_set,
     )
 
     make = ctx.actions.declare_file(
@@ -1012,6 +1024,7 @@ def _yosys_impl(ctx):
         ),
         outputs = [canon_output] + canon_logs,
         tools = yosys_inputs(ctx),
+        resource_set = _lightweight_resource_set,
     )
 
     synth_logs = []
@@ -1056,6 +1069,7 @@ def _yosys_impl(ctx):
         ),
         outputs = synth_outputs.values() + synth_logs + synth_reports,
         tools = depset(transitive = [yosys_inputs(ctx), flow_inputs(ctx)]),
+        resource_set = _lightweight_resource_set,
     )
 
     variables = _declare_artifact(ctx, "results", "1_synth.vars")
@@ -1085,6 +1099,7 @@ def _yosys_impl(ctx):
         ),
         outputs = [variables],
         tools = depset(transitive = [flow_inputs(ctx)]),
+        resource_set = _lightweight_resource_set,
     )
 
     outputs = [canon_output, variables] + synth_outputs.values()
@@ -1370,6 +1385,7 @@ def _make_impl(
         ),
         outputs = results + objects + logs + reports + jsons + drcs,
         tools = flow_inputs(ctx),
+        resource_set = _openroad_resource_set if ctx.attr._stage in _MULTI_THREADED_STAGES else _lightweight_resource_set,
     )
 
     config_short = _declare_artifact(ctx, "results", stage + ".short.mk")
@@ -1735,7 +1751,13 @@ orfs_generate_metadata = rule(
         ],
         result_names = [],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr(),
+    attrs = openroad_attrs() |
+            renamed_inputs_attr() |
+            {
+                "_stage": attr.string(
+                    default = "generate_metadata",
+                ),
+            },
     provides = flow_provides(),
     executable = True,
 )
@@ -1751,7 +1773,13 @@ orfs_update_rules = rule(
         report_names = ["rules.json"],
         result_names = [],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr(),
+    attrs = openroad_attrs() |
+            renamed_inputs_attr() |
+            {
+                "_stage": attr.string(
+                    default = "update_rules",
+                ),
+            },
     provides = flow_provides(),
     executable = True,
 )
