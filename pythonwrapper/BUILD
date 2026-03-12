@@ -7,7 +7,6 @@ py_binary(
     main = "python.py",
     visibility = ["//visibility:public"],
     deps = [
-        "@bazel-orfs-pip//pandas",
         "@bazel-orfs-pip//pyyaml",
     ],
 )

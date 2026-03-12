@@ -64,6 +64,26 @@ pip.parse(
 )
 use_repo(pip, "bazel-orfs-pip")
 
+pip_features = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip_features.parse(
+    hub_name = "bazel-orfs-features-pip",
+    python_version = "3.13",
+    requirements_lock = "//:requirements_features_lock_3_13.txt",
+)
+use_repo(pip_features, "bazel-orfs-features-pip")
+
+pip_examples = use_extension(
+    "@rules_python//python/extensions:pip.bzl",
+    "pip",
+    dev_dependency = True,
+)
+pip_examples.parse(
+    hub_name = "bazel-orfs-examples-pip",
+    python_version = "3.13",
+    requirements_lock = "//:requirements_examples_lock_3_13.txt",
+)
+use_repo(pip_examples, "bazel-orfs-examples-pip")
+
 orfs = use_extension("//:extension.bzl", "orfs_repositories")
 orfs.default(
     # a local only or remote docker image. Local docker images do not
