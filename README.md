@@ -1,15 +1,14 @@
-# Bazel-orfs
+# bazel-orfs
 
 This repository contains [Bazel](https://bazel.build/) rules for wrapping [OpenROAD-flow-scripts](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts) (ORFS).
 
-Why Bazel on top of ORFS?
--------------------------
+## Why Bazel on top of ORFS?
 
 bazel-orfs gives all the expected Bazel advantages to ORFS: artifacts, parallel builds, remote execution, repeatable builds, etc.
 
-Also, ORFS and OpenROAD is work in progress and one should expect for
+Also, ORFS and OpenROAD is work in progress and you should expect for
 large designs to get involved with the community or need a
-support contract with Precision Innovations (https://www.linkedin.com/in/tomspyrou/).
+support contract with [Precision Innovations](https://www.linkedin.com/in/tomspyrou/).
 
 Using ORFS directly, instead of modifying it or creating an alternative flow,
 makes it easy to get the very latest features and version of OpenROAD and ORFS
@@ -18,6 +17,26 @@ features such as `make issue` and `deltaDebug.py`.
 
 Since bazel-orfs uses the unmodified ORFS, it is easy to articulate familiar
 and easily actionable github issues for the OpenROAD and ORFS maintainers.
+
+## Use cases
+
+| I want to... | Go to |
+|---|---|
+| Run my first build | [Get started](#get-started) |
+| Define a new design flow | [Define a design flow](#define-a-design-flow) |
+| Add bazel-orfs to my project | [Use as an external dependency](#use-bazel-orfs-as-an-external-dependency) |
+| View results in the OpenROAD GUI | [View results in the GUI](#view-results-in-the-gui) |
+| Build with local ORFS | [Use the local flow](#use-the-local-flow) |
+| Create macros with LEF/LIB | [Work with macros and abstracts](#work-with-macros-and-abstracts) |
+| Quickly estimate macro sizes | [Mock area targets](#mock-area-targets) |
+| Tweak floorplan or placement settings | [Tweak and iterate on designs](#tweak-and-iterate-on-designs) |
+| Sweep design parameters | [Design space exploration](#design-space-exploration) |
+| Run formal verification | [sby/README.md](sby/README.md) |
+| Integrate Chisel designs | [toolchains/scala/README.md](toolchains/scala/README.md) |
+| Pin slow-to-build artifacts | [tools/pin/README.md](tools/pin/README.md) |
+| Debug or create issue archives | [Create a make issue archive](#create-a-make-issue-archive) |
+| Upgrade bazel-orfs or ORFS | [Upgrade bazel-orfs](#upgrade-bazel-orfs) |
+| Override configuration variables | [Override configuration variables](#override-configuration-variables) |
 
 ## Requirements
 
@@ -28,33 +47,124 @@ and easily actionable github issues for the OpenROAD and ORFS maintainers.
   > **NOTE:** The `bazel-orfs` doesn't execute flows inside the Docker container, but rather uses the container as a source of ORFS artifacts.
 * (Optional) Locally built [ORFS](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts). To use it, `env.sh` file from OpenROAD-flow-scripts has to be sourced or `FLOW_HOME` environment variable has to be set to the path of the local `OpenROAD-flow-scripts/flow` installation.
 
-## Usage
+## Get started
 
-Core functionality is implemented as `orfs_flow()` Bazel macro in `openroad.bzl` file.
+### Run your first build
 
-In order to use `orfs_flow()` macro in Bazel Workspace in other project it is required to use bazel-orfs as an external dependency through one of [Bazel Module Methods](https://bazel.build/rules/lib/globals/module):
-* from git repository
+To build the `cts` (Clock Tree Synthesis) stage of the `L1MetadataArray` target, run:
 
-  ```starlark
-  bazel_dep(name = "bazel-orfs")
-  git_override(
-      module_name = "bazel-orfs",
-      remote = "<URL to bazel-orfs repository>",
-      commit = "<git hash for specific bazel-orfs revision>",
-  )
-  ```
+```bash
+bazel run @bazel-orfs//test:L1MetadataArray_cts
+```
 
-* from local directory
+Bazel automatically downloads the Docker image with the ORFS environment and runs the flow. Results are placed in the `tmp/results` directory under the workspace root.
 
-  ```starlark
-  bazel_dep(name = "bazel-orfs")
-  local_path_override(
-      module_name = "bazel-orfs",
-      path = "<path to local bazel-orfs workspace>",
-  )
-  ```
+### View results in the GUI
 
-The macro can now be placed in the BUILD file. The macro usage can look like this:
+To open the OpenROAD GUI for a completed stage:
+
+```bash
+bazel run <target>_<stage> gui_<stage>
+```
+
+For example, to view the route stage of `L1MetadataArray`:
+
+```bash
+bazel run @bazel-orfs//test:L1MetadataArray_route gui_route
+```
+
+You can also run the build and view results in two steps:
+
+```bash
+bazel run @bazel-orfs//test:L1MetadataArray_route
+# Start the GUI
+tmp/test/L1MetadataArray_route/make gui_route
+
+# Or open the CLI instead
+tmp/test/L1MetadataArray_route/make open_route
+gui::show
+```
+
+GUI and CLI are available for these stages: `floorplan`, `place`, `cts`, `grt`, `route`, `final`.
+
+### Use the local flow
+
+The local flow lets you build with a locally compiled [ORFS](https://openroad-flow-scripts.readthedocs.io/en/latest/user/UserGuide.html) instead of the Docker image.
+
+1. Source `env.sh` of your local ORFS installation or set the `FLOW_HOME` environment variable:
+
+   ```bash
+   source <ORFS_path>/env.sh
+   # Or
+   export FLOW_HOME=<ORFS_path>/flow
+   ```
+
+2. Initialize dependencies and run the stage:
+
+   ```bash
+   # Initialize dependencies for the synthesis stage
+   bazel run @bazel-orfs//test:L1MetadataArray_synth_deps
+
+   # Build synthesis using local ORFS
+   tmp/test/L1MetadataArray_synth_deps/make do-yosys-canonicalize do-yosys do-1_synth
+
+   # Initialize dependencies for the floorplan stage
+   bazel run @bazel-orfs//test:L1MetadataArray_floorplan_deps
+
+   # Build floorplan
+   tmp/test/L1MetadataArray_floorplan_deps/make do-floorplan
+   ```
+
+> **NOTE:** The synthesis stage requires `do-yosys-canonicalize` and `do-yosys` to be completed before `do-1_synth`. These steps generate the required `.rtlil` file.
+
+> **NOTE:** If `FLOW_HOME` is not set and `env.sh` is not sourced, `make do-<stage>` uses the ORFS from [MODULE.bazel](./MODULE.bazel) by default.
+
+> **NOTE:** Files are always placed in `tmp/<package>/<name>/` under the workspace root (e.g. `tmp/sram/sdq_17x64_floorplan_deps/` for `//sram:sdq_17x64_floorplan_deps`, `tmp/MyDesign_floorplan_deps/` for the root package), which is added to `.gitignore` automatically.
+>
+> You can override the installation directory with `--install`:
+>
+> ```bash
+> bazel run <target>_<stage>_deps -- --install /path/to/dir [<make args...>]
+> ```
+>
+> This is useful on systems where `/tmp` is small or when you want to place the build artifacts in a specific location.
+
+You can also forward arguments to make directly:
+
+```bash
+bazel run <target>_<stage>_deps <make args...>
+```
+
+## Define a design flow
+
+### Use bazel-orfs as an external dependency
+
+To use `orfs_flow()` in another project, add bazel-orfs as a dependency through one of [Bazel Module Methods](https://bazel.build/rules/lib/globals/module):
+
+From a git repository:
+
+```starlark
+bazel_dep(name = "bazel-orfs")
+git_override(
+    module_name = "bazel-orfs",
+    remote = "<URL to bazel-orfs repository>",
+    commit = "<git hash for specific bazel-orfs revision>",
+)
+```
+
+From a local directory:
+
+```starlark
+bazel_dep(name = "bazel-orfs")
+local_path_override(
+    module_name = "bazel-orfs",
+    path = "<path to local bazel-orfs workspace>",
+)
+```
+
+### Write an orfs_flow() target
+
+Core functionality is implemented as `orfs_flow()` Bazel macro in `openroad.bzl` file. Place the macro in your BUILD file:
 
 ```starlark
 orfs_flow(
@@ -76,7 +186,7 @@ orfs_flow(
 )
 ```
 
-The macro from the example above spawns the following Bazel targets:
+This spawns the following Bazel targets:
 
 ```
 Dependency targets:
@@ -100,7 +210,9 @@ Stage targets:
 
 The example is based on the [test/BUILD](./test/BUILD) file in this repository.
 
-To test different variants of the same design, the `orfs_flow` can be provided with an optional argument `variant`.
+### Use variants
+
+To test different variants of the same design, provide the optional `variant` argument:
 
 ```starlark
 orfs_flow(
@@ -112,7 +224,7 @@ orfs_flow(
 )
 ```
 
-This definition creates similar Bazel targets with additional variant appended after the design name:
+This creates targets with the variant appended after the design name:
 
 ```
 Dependency targets:
@@ -128,7 +240,281 @@ Stage targets:
   //test:L1MetadataArray_test_generate_abstract
 ```
 
-## Implementation
+## Configure and customize
+
+### Override configuration variables
+
+You can override configuration variables on the command line by passing them as arguments:
+
+```bash
+$ bazel run //test:tag_array_64x184_floorplan print-CORE_UTILIZATION
+[deleted]
+CORE_UTILIZATION: 20
+```
+
+```bash
+$ bazel run //test:tag_array_64x184_floorplan CORE_UTILIZATION=5 print-CORE_UTILIZATION
+[deleted]
+CORE_UTILIZATION: 5
+```
+
+### Pass constraints to stages
+
+Pass constraint files to `orfs_flow()` through `sources`:
+
+```starlark
+orfs_flow(
+    name = "tag_array_64x184",
+    sources = {
+        "SDC_FILE": [":constraints-sram"],  # constraint file label
+    },
+    verilog_files = ["//another:tag_array_64x184.sv"],
+    visibility = [":__subpackages__"],
+)
+```
+
+If your constraints file includes additional TCL scripts, define them in a filegroup with the `data` attribute:
+
+```starlark
+filegroup(
+    name = "constraints-sram",
+    srcs = [
+        ":constraints-sram.sdc",
+    ],
+    data = [
+        ":util.tcl",  # additional TCL script
+    ],
+    visibility = [":__subpackages__"],
+)
+```
+
+### Force a rebuild
+
+Sometimes it is desirable, such as when hacking ORFS, to redo a build stage even
+if none of the dependencies for that stage changed. You can achieve this by adding
+a `PHONY` variable to that stage and bumping it:
+
+```diff
+diff --git a/test/BUILD b/test/BUILD
+--- a/test/BUILD
++++ b/test/BUILD
+ orfs_flow(
+     name = "L1MetadataArray",
+     abstract_stage = "route",
+     arguments = {
++        "PHONY": "1",
+         "SYNTH_HIERARCHICAL": "1",
+         ...
+     },
+```
+
+## Work with macros and abstracts
+
+### Generate abstracts
+
+Abstracts (`.lef` and `.lib` files) are generated at the `<target>_generate_abstract` stage, which follows the stage defined via the `abstract_stage` attribute:
+
+```starlark
+orfs_flow(
+    name = "tag_array_64x184",
+    abstract_stage = "place",  # generate abstracts after this stage
+    arguments = SRAM_ARGUMENTS | {
+        "CORE_ASPECT_RATIO": "2",
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.65",
+    },
+    stage_sources = {
+        "floorplan": [":io-sram"],
+        "place": [":io-sram"],
+        "synth": [":constraints-sram"],
+    },
+    verilog_files = ["//another:tag_array_64x184.sv"],
+    visibility = [":__subpackages__"],
+)
+```
+
+By default, `abstract_stage` is set to `final` (the latest ORFS stage).
+
+> **NOTE:** Abstracts can be generated starting from the `floorplan` stage, thus skipping the `synth` stage.
+
+Abstracts are useful for estimating sizes of macros with long build times and checking if they fit in upper-level modules without running the full place and route flow.
+
+> **NOTE:** Stages that follow the one passed to `abstract_stage` are not created by `orfs_flow()`.
+
+### Mock area targets
+
+Mock area targets override `_generate_abstract` to produce mocked abstracts with the same pinout as the original macro but with a scaled size. This is useful in early design stages.
+
+The flow contains:
+* `<target>_synth_mock_area` — synthesis with internal logic removed
+* `<target>_mock_area` — reads `DIE_AREA` and `CORE_AREA` from the default floorplan and scales them by `mock_area`
+* `<target>_floorplan_mock_area` — floorplan with overridden `DIE_AREA` and `CORE_AREA`
+* `<target>_generate_abstract` — abstracts generated from mocked synthesis and floorplan
+
+To create mock area targets, add `mock_area` to your `orfs_flow` definition:
+
+```starlark
+orfs_flow(
+    name = "lb_32x128",
+    arguments = LB_ARGS,
+    mock_area = 0.5,
+    stage_sources = LB_STAGE_SOURCES,
+    verilog_files = LB_VERILOG_FILES,
+)
+```
+
+### Fast floorplanning with mock abstracts
+
+To skip place, cts, and route and create a mock abstract where you can check that macros fit at the top level, set `abstract_stage` to `floorplan`:
+
+> **WARNING:** Although mock abstracts can speed up turnaround times, skipping place, cts, or route can lead to errors that don't exist when these stages are run.
+
+```diff
+diff --git a/test/BUILD b/test/BUILD
+--- a/test/BUILD
++++ b/test/BUILD
+ orfs_flow(
+     name = "L1MetadataArray",
+-    abstract_stage = "route",
++    abstract_stage = "place",
+     arguments = {
+         ...
+     },
+```
+
+You can verify the generated targets with `bazel query`:
+
+```bash
+bazel query '...:*' | grep 'L1MetadataArray'
+
+//test:L1MetadataArray_synth_deps
+//test:L1MetadataArray_synth
+//test:L1MetadataArray_floorplan_deps
+//test:L1MetadataArray_floorplan
+//test:L1MetadataArray_generate_abstract
+```
+
+The abstract target always follows the `<target>_generate_abstract` naming pattern:
+
+```bash
+bazel build @bazel-orfs//test:L1MetadataArray_generate_abstract
+```
+
+The output `LEF` file can be found under `bazel-bin/results/<module>/<target>/base/<target.lef>`.
+
+## Tweak and iterate on designs
+
+### Adjust floorplan parameters
+
+The `CORE_ASPECT_RATIO` parameter is a floorplan variable, so
+changing it only rebuilds from the floorplan stage:
+
+```diff
+diff --git a/test/BUILD b/test/BUILD
+--- a/test/BUILD
++++ b/test/BUILD
+ orfs_flow(
+     name = "tag_array_64x184",
+     arguments = SRAM_ARGUMENTS | {
+-        "CORE_ASPECT_RATIO": "10",
++        "CORE_ASPECT_RATIO": "4",
+         "CORE_UTILIZATION": "20",
+     },
+```
+
+Bazel detects this change specifically as a change to the floorplan, re-uses the synthesis result, and rebuilds from the floorplan stage.
+Similarly, if `PLACE_DENSITY` is modified, only stages from placement onward are rebuilt.
+
+To apply and view the changes:
+
+```bash
+# Build and view in GUI
+bazel run @bazel-orfs//test:tag_array_64x184_floorplan gui_floorplan
+```
+
+### Use remote caching for instant reverts
+
+If remote caching is enabled for Bazel, reverting a change and rebuilding completes instantaneously because the artifact already exists:
+
+```bash
+# Revert the change
+git restore test/BUILD
+
+# Rebuild — instant cache hit
+bazel run @bazel-orfs//test:tag_array_64x184_floorplan gui_floorplan
+```
+
+## Design space exploration
+
+bazel-orfs supports two approaches to design space exploration:
+
+* **Bazel-native DSE** — sweep parameters using Bazel build settings, with Bazel handling parallelism efficiently. See [dse/README.md](dse/README.md).
+* **Optuna-based DSE** — multi-objective optimization using Optuna's TPE algorithm to find near-optimal parameter combinations. See [optuna/README.md](optuna/README.md).
+
+## Additional tools and integrations
+
+| Tool | Description | Documentation |
+|------|-------------|---------------|
+| Chisel integration | Build Chisel designs, run tests | [toolchains/scala](toolchains/scala/README.md), [chisel](chisel/README.md) |
+| Formal verification | SymbiYosys bounded model checking | [sby](sby/README.md) |
+| Artifact pinning | Cache long-running build results | [tools/pin](tools/pin/README.md) |
+| Post-synthesis cleanup | najaeda netlist cleaning (experimental) | [naja](naja/README.md) |
+| SRAM macros | fakeram and mock SRAM | [sram](sram/README.md) |
+| ASAP7 tech files | Modified ASAP7 files for eqy | [asap7](asap7/README.md) |
+
+## Reference
+
+### Stage targets
+
+Each stage of the physical design flow is represented by a separate target following the naming convention `<target>_<stage>`.
+
+The stages are:
+
+* `synth` (synthesis)
+* `floorplan`
+* `place`
+* `cts` (clock tree synthesis)
+* `grt` (global route)
+* `route`
+* `final`
+* `generate_abstract`
+
+### Dependency targets
+
+Dependency targets follow the naming convention `<target>_<stage>_deps` (or `<target>_<variant>_<stage>_deps`) and prepare the environment for running ORFS stage targets.
+
+Each stage depends on two generated `.mk` files that provide the ORFS configuration:
+
+```bash
+<path>/config.mk                                                             # Common for the whole design
+<path>/results/<module>/<target>/<variant>/<stage_number>_<stage>.short.mk   # Specific for the stage
+```
+
+Additionally, the dependency targets generate shell scripts for running ORFS stages in both the Bazel and local flows:
+
+```bash
+<path>/make     # Running the ORFS stages
+<path>/results  # Directory for the results of the flow
+<path>/external # Directory for the external dependencies
+```
+
+### GUI and CLI targets
+
+GUI and CLI targets can only be run from the generated shell script.
+
+For the GUI:
+
+```bash
+bazel run <target>_<stage> gui_<stage>
+```
+
+For the CLI:
+
+```bash
+bazel run <target>_<stage> open_<stage>
+```
+
+GUI and CLI are available for: `floorplan`, `place`, `cts`, `grt`, `route`, `final`.
 
 ### orfs_genrule
 
@@ -160,22 +546,38 @@ orfs_genrule(
 )
 ```
 
-### openroad.bzl
+### How Bazel replaces ORFS Makefile dependencies
 
-This file contains simple helper functions written in Starlark as well as macro `orfs_flow()`.
-The implementation of this macro spawns multiple `genrule` native rules which are responsible for preparing and running ORFS physical design flow targets during Bazel build stage.
+When using bazel-orfs, dependency checking is done by Bazel instead of ORFS's Makefile, with the exception of the synthesis canonicalization stage.
+
+ORFS `make do-yosys-canonicalize` is special and does dependency checking using the ORFS `Makefile`, outputting `$(RESULTS_DIR)/1_1_yosys_canonicalize.rtlil`.
+
+The `.rtlil` is Yosys's internal representation format of all the various input files that went into Yosys, however any unused modules have been deleted and the modules are in canonical form (ordering of the Verilog files provided to Yosys won't matter). However, `.rtlil` still contains line number information for debugging purposes. The canonicalization stage is quick compared to synthesis and adds no measurable overhead.
+
+Canonicalization simplifies specifying `VERILOG_FILES` to ORFS in Bazel: simply glob them all and let Yosys figure out which files are actually used. This avoids redoing synthesis unnecessarily if, for instance, a Verilog file related to simulation changes.
+
+The next stage is `make do-yosys` which does no dependency checking, leaving it to Bazel. `do-yosys` completes the synthesis using `$(RESULTS_DIR)/1_1_yosys_canonicalize.rtlil`.
+
+The subsequent ORFS stages are run with `make do-floorplan do-place ...` and these stages do no dependency checking, leaving it to Bazel.
+
+bazel-orfs also does dependency checking of options provided to each stage. If a property to CTS is changed, then no steps ahead of CTS are re-run. bazel-orfs does not know which properties belong to which stage; it is the responsibility of the user to pass properties to the correct stage. This includes some slightly surprising responsibilities, such as passing IO pin constraints to both floorplan and placement.
+
+### openroad.bzl internals
+
+The `openroad.bzl` file contains simple helper functions written in Starlark as well as the `orfs_flow()` macro.
+The implementation of this macro spawns multiple `genrule` native rules which are responsible for preparing and running ORFS physical design flow targets during the Bazel build stage.
 
 These are the genrules spawned in this macro:
 
-* ORFS stage-specific (named: `target_name + “_” + stage` or `target_name + “_” + variant + “_” + stage`)
-* ORFS stage dependencies (named: `target_name + “_” + stage + “_deps”` or `target_name + “_” + variant + “_” + stage + “_deps”`)
+* ORFS stage-specific (named: `target_name + "_" + stage` or `target_name + "_" + variant + "_" + stage`)
+* ORFS stage dependencies (named: `target_name + "_" + stage + "_deps"` or `target_name + "_" + variant + "_" + stage + "_deps"`)
 
-### Bazel flow
+### Bazel flow (Docker)
 
-Regular Bazel flow uses artifacts from the Docker environment with preinstalled ORFS.
+The regular Bazel flow uses artifacts from the Docker environment with preinstalled ORFS.
 
 It implicitly depends on a Docker image with ORFS environment pre-installed being present.
-The Docker image used in the flow is defined in the [module](./MODULE.bazel) file, the default can be overridden by specifying `image` and `sha256` attributes:
+The Docker image used in the flow is defined in the [module](./MODULE.bazel) file. You can override the default by specifying `image` and `sha256` attributes:
 
 ```starlark
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
@@ -186,462 +588,23 @@ orfs.default(
 use_repo(orfs, "docker_orfs")
 ```
 
-Setting this attribute to a valid image and checksum will enable Bazel to automatically pull the image and extract ORFS artifacts on `bazel run` or `bazel build`:
+Setting this attribute to a valid image and checksum enables Bazel to automatically pull the image and extract ORFS artifacts on `bazel run` or `bazel build`:
 
 ```bash
 bazel build <target>_<stage>
 ```
 
-> **NOTE:** If `sha256` is set to an empty string `""`, Bazel will attempt to use a local image with name provided in the `image` field.
+> **NOTE:** If `sha256` is set to an empty string `""`, Bazel attempts to use a local image with the name provided in the `image` field.
 
-### Local flow
+### Tools location after bazel run
 
-A locally built and modified [ORFS](https://openroad-flow-scripts.readthedocs.io/en/latest/user/UserGuide.html) can also be used to run the flow:
-
-```bash
-bazel run <target>_<stage>_deps
-tmp/<package>/<target>_<stage>_deps/make do-<stage>
-```
-
-The `_deps` is used to distinguish between copying the results into the mutable folder for that stage versus copying the required files to execute said stage.
-
-It is also possible and convenient to run within the sandbox as the arguments are forwarded to make:
-
-```bash
-bazel run <target>_<stage>_deps <make args...>
-```
-
-To view the floorplan:
-
-```bash
-bazel run //test:tag_array_64x184_floorplan gui_floorplan
-```
-
-> **NOTE:** Files are always placed in `tmp/<package>/<name>/` under the workspace root (e.g. `tmp/sram/sdq_17x64_floorplan_deps/` for `//sram:sdq_17x64_floorplan_deps`, `tmp/MyDesign_floorplan_deps/` for the root package), which is added to `.gitignore` automatically.
->
-> The installation directory can be overridden with `--install`:
->
-> ```bash
-> bazel run <target>_<stage>_deps -- --install /path/to/dir [<make args...>]
-> ```
->
-> This is useful on systems where `/tmp` is small or when you want to place the build artifacts in a specific location.
-
-A convenient way to run the floorplan and view the results would be:
-
-```bash
-bazel run MyDesign_floorplan_deps
-tmp/MyDesign_floorplan_deps/make do-floorplan
-tmp/MyDesign_floorplan_deps/make gui_floorplan
-```
-
-By default, the `make do-<stage>` invocation will rely on the ORFS from [MODULE.bazel](./MODULE.bazel), unless the `env.sh` script is sourced, or the `FLOW_HOME` environment variable is set to the path of the local `OpenROAD-flow-scripts/flow` installation:
-
-```bash
-source <orfs_path>/env.sh
-
-bazel run <target>_<stage>_deps
-tmp/<package>/<target>_<stage>_deps/make do-<stage>
-```
-
-> **NOTE:** The synthesis stage requires the `do-yosys-canonicalize` and `do-yosys` steps to be completed beforehand.
-> These steps are necessary to generate the required `.rtlil` file for the synthesis stage.
->
-> ```bash
-> source <orfs_path>/env.sh
->
-> bazel run <target>_synth_deps
-> tmp/<package>/<target>_synth_deps/make do-yosys-canonicalize do-yosys do-1_synth
-> ```
-
-### Override BUILD configuration variables
-
-Configuration variables can be overwritten on the command line by passing them in as arguments to the local flow:
-
-```bash
-$ bazel run //test:tag_array_64x184_floorplan print-CORE_UTILIZATION
-[deleted]
-CORE_UTILIZATION: 20
-```
-
-```bash
-$ bazel run //test:tag_array_64x184_floorplan CORE_UTILIZATION=5 print-CORE_UTILIZATION
-[deleted]
-CORE_UTILIZATION: 5
-```
-
-### Stage targets
-
-Each stage of the physical design flow is represented by a separate target and follows the naming convention: `target_name + “_” + stage`.
-
-The stages are as follows:
-
-* `synth` (synthesis)
-* `floorplan`
-* `place`
-* `cts` (clock tree synthesis)
-* `grt` (global route)
-* `route`
-* `final`
-* `generate_abstract`
-
-### Generate abstract targets
-
-Those targets are used to create abstracts (`.lef` and `.lib` files) for macros.
-
-Abstracts are generated at the `target + "generate_abstract"` stage, which follows one defined via `abstract_stage` attribute passed to the `orfs_flow()` macro:
-
-<pre lang="starlark">
-orfs_flow(
-    name = "tag_array_64x184",
-    <b>abstract_stage = "place",</b>
-    arguments = SRAM_ARGUMENTS | {
-        "CORE_ASPECT_RATIO": "2",
-        "CORE_UTILIZATION": "40",
-        "PLACE_DENSITY": "0.65",
-    },
-    stage_sources = {
-        "floorplan": [":io-sram"],
-        "place": [":io-sram"],
-        "synth": [":constraints-sram"],
-    },
-    verilog_files = ["//another:tag_array_64x184.sv"],
-    visibility = [":__subpackages__"],
-)
-</pre>
-
-By default it's the latest ORFS-specific target (`final`).
-
-> **NOTE:** Abstracts can be generated starting from the `floorplan` stage, thus skipping the `synth` stage.
-
-Abstracts are intended to be used in builds of other parts of the design that use the given macro.
-They're useful for estimating sizes of macros with long build times and checking if they will fit in upper-level modules without running time consuming place and route flow.
-
-> **NOTE:** Stages that follow the one passed to `abstract_stage` will not be created by the `orfs_flow()` macro.
-
-### Mock area targets
-
-Mock area targets are created on top of the stage targets and overrides `_generate_abstract` target to produced mocked abstracts.
-
-The flow contains:
-* `target_name_variant + “_synth_mock_area”` - synthesis which has its whole internal logic removed,
-* `target_name_variant + “_mock_area”` - reads `DIE_AREA` and `CORE_AREA` from default floorplan results and scale them by value defined in `mock_area`,
-* `target_name_variant + “_floorplan_mock_area”` - floorplan with overridden `DIE_AREA` and `CORE_AREA` values,
-* `target_name_variant + “_generate_abstract”` - abstracts generated based on mocked synthesis and floorplan.
-
-To create mock area targets, `mock_area` has to be added to `orfs_flow` definition:
-
-```starlark
-orfs_flow(
-    name = "lb_32x128",
-    arguments = LB_ARGS,
-    mock_area = 0.5,
-    stage_sources = LB_STAGE_SOURCES,
-    verilog_files = LB_VERILOG_FILES,
-)
-```
-
-The mock has the same pinout as the original macro and similar size which makes it useful in early design stages.
-
-### Constraints handling
-
-Constraint files are passed down to `orfs_flow()` macro through [Stage targets](#stage-targets) arguments and sources:
-
-<pre lang="starlark">
-orfs_flow(
-    name = "tag_array_64x184",
-    <b>sources = {
-        "SDC_FILE": [":constraints-sram"],
-    },</b>
-    verilog_files = ["//another:tag_array_64x184.sv"],
-    visibility = [":__subpackages__"],
-)
-</pre>
-
-Those accept a Bazel label that points to the file.
-There are however cases, where e.g. SRAM constraints file includes additional TCL script.
-In such scenario a filegroup should also define the `data` attribute with the additional script.
-
-<pre lang="starlark">
-filegroup(
-    name = "constraints-sram",
-    srcs = [
-        ":constraints-sram.sdc",
-    ],
-    <b>data = [
-        ":util.tcl",
-    ],</b>
-    visibility = [":__subpackages__"],
-)
-</pre>
-
-### Dependency targets
-
-The dependency targets fall under the `target_name + “_” + variant + “_” +stage + “_deps”` naming convention, and are used to prepare the environment for running the ORFS stage targets.
-Each stage of the physical design flow depend on two generated `.mk` files that provide the configuration for the ORFS.
-One is specific for the stage of the flow and the second one is common for the whole design being built.
-
-They can be found under the following paths:
-
-```bash
-<path>/config.mk                                                             # Common for the whole design
-<path>/results/<module>/<target>/<variant>/<stage_number>_<stage>.short.mk   # Specific for the stage
-```
-
-Additionally, the dependency targets are responsible for constraints handling and generating the shell scripts that are used to run the ORFS stages both in the Bazel and Local flow:
-
-```bash
-<path>/make     # Running the ORFS stages
-<path>/results  # Directory for the results of the flow
-<path>/external # Directory for the external dependencies
-```
-
-### GUI targets
-
-The GUI and CLI targets can only be run from the generated shell script.
-
-For the GUI:
-
-```bash
-bazel run <target>_<stage> gui_<stage>
-```
-
-For the CLI:
-
-```bash
-bazel run <target>_<stage> open_<stage>
-```
-
-CLI and GUI is not available for all stages, consequently these targets are created only for:
-
-* `floorplan`
-* `place`
-* `cts` (clock tree synthesis)
-* `grt` (global route)
-* `route`
-* `final`
-
-## Tutorial
-
-To execute the build flow for the `cts` (Clock Tree Synthesis) stage of the `L1MetadataArray` target, use the following command:
-
-```bash
-bazel run @bazel-orfs//test:L1MetadataArray_cts
-```
-
-Bazel will automatically download the Docker image with the ORFS environment and run the flow.
-
-This will build the `L1MetadataArray` target up to the `cts` stage and place the results in the `tmp/results` directory under the workspace root.
-
-### Dependencies in ORFS Makefile versus Bazel
-
-When using bazel-orfs, the dependency checking is done by Bazel instead of ORFS's makefile, with the exception of the synthesis canonicalization stage.
-
-ORFS `make do-yosys-canonicalize` is special and will do dependency checking using ORFS `Makefile` and output `$(RESULTS_DIR)/1_1_yosys_canonicalize.rtlil`.
-
-The `.rtlil` is Yosys's internal representation format of all the various input files that went into Yosys, however any unused modules have been deleted and the modules are in canonical form(ordering of the Verilog files provided to Yosys won't matter). However, `.rtlil` still contains line number information for debugging purposes. The canonicalization stage is quick compared to synthesis and adds no measurable overhead.
-
-Canonicalization simplifies specifying `VERILOG_FILES` to ORFS in Bazel, simply glob them all and let Yosys figure out which files are actually used. This avoids redoing synthesis unnecessarily if, for instance, a Verilog file related to simulation changes.
-
-The next stage is `make do-yosys` which does no dependency checking, leaving it to Bazel. `do-yosys` completes the synthesis using `$(RESULTS_DIR)/1_1_yosys_canonicalize.rtlil`.
-
-The subsequent ORFS stages are run with `make do-floorplan do-place ...` and these stages do no dependency checking, leaving it to Bazel.
-
-bazel-orfs also does dependency checking of options provided to each stage. If a property to CTS is changed, then no steps ahead of CTS is re-run. bazel-orfs does not know which properties belong to which stage, it is the responsibility of the user to pass properties to the correct stage. This includes some slightly surprising responsibilities, such as passing IO pin constraints to both floorplan and placement.
-
-### Using the local flow
-
-The local flow allows testing the build with locally built OpenROAD-flow-scripts.
-It is based on Bazel `make` targets, for more information on those, please refer to [Dependency targets](#dependency-targets) paragraph.
-
-Let's assume we want to perform a `floorplan` stage for the `L1MetadataArray` design using the locally built ORFS.
-
-1. Source `env.sh` of your local ORFS installation or set the `FLOW_HOME` environment variable to the path to your local `OpenROAD-flow-scripts/flow` directory:
-
-  ```bash
-  source <ORFS_path>/env.sh
-  # Or
-  export FLOW_HOME=<ORFS_path>/flow
-  ```
-
-2. Build the stages prior to the `floorplan` stage:
-
-  ```bash
-  # Initialize dependencies for the Synthesis stage for L1MetadataArray target
-  bazel run @bazel-orfs//test:L1MetadataArray_synth_deps
-
-  # Build Synthesis stage for L1MetadataArray target using local ORFS
-  tmp/test/L1MetadataArray_synth_deps/make do-yosys-canonicalize do-yosys do-1_synth
-
-  # Initialize dependencies for the Floorplan stage for L1MetadataArray target
-  bazel run @bazel-orfs//test:L1MetadataArray_floorplan_deps
-  ```
-
-3. Execute the shell script with ORFS make target relevant to given stage of the flow:
-
-  ```bash
-  tmp/test/L1MetadataArray_floorplan_deps/make do-floorplan
-  ```
-
-### Running OpenROAD GUI
-
-Let's assume we want to run a GUI for the `route` stage for the `L1MetadataArray` target.
-
-1. Initialize and build stages up to the `route` stage:
-
-  ```bash
-  bazel run @bazel-orfs//test:L1MetadataArray_route gui_route
-  ```
-
-Or in two steps:
-
-  ```bash
-  bazel run @bazel-orfs//test:L1MetadataArray_route
-  # Start the GUI for the Route stage for L1MetadataArray target
-  tmp/test/L1MetadataArray_route/make gui_route
-
-  # Or open the GUI through the CLI
-  tmp/test/L1MetadataArray_route/make open_route
-  gui::show
-  ```
-
-### Tweaking aspect ratio of a floorplan
-
-Notice how the `CORE_ASPECT_RATIO` parameter is a floorplan variable and
-changing it will only rebuild from the floorplan stage:
-
-```diff
-diff --git a/test/BUILD b/test/BUILD
---- a/test/BUILD
-+++ b/test/BUILD
- orfs_flow(
-     name = "tag_array_64x184",
-     arguments = SRAM_ARGUMENTS | {
--        "CORE_ASPECT_RATIO": "10",
-+        "CORE_ASPECT_RATIO": "4",
-         "CORE_UTILIZATION": "20",
-     },
-```
-
-Bazel will detect this change specifically as a change to the floorplan, re-use the synthesis result and rebuild from the floorplan stage.
-Similarly, if the `PLACE_DENSITY` is modified, only stages from the placement and on are re-built.
-
-To apply and view the changes:
-
-```bash
-# Build tag_array_64x184 macro up to the floorplan stage and view in GUI
-bazel run @bazel-orfs//test:tag_array_64x184_floorplan gui_floorplan
-```
-
-If the remote caching is enabled for Bazel, reverting the change and rebuilding the floorplan stage will be completed instantaneously, as the artifact already exists:
-
-```bash
-# Revert the change
-git restore test/BUILD
-
-# Rebuild the floorplan stage and view in GUI
-bazel run @bazel-orfs//test:tag_array_64x184_floorplan gui_floorplan
-```
-
-### Fast floorplanning and mock abstracts
-
-Let's say we want to skip place, cts and route and create a mock abstract where we can at least check that there is enough place for the macros at the top level.
-
-> **WARNING:** Although mock abstracts can speed up turnaround times, skipping place, cts or route can lead to errors and problems that don't exist when place, cts and route are not skipped.
-
-To do so, we modify in `BUILD` file the `abstract_stage` attribute of `orfs_flow` macro to `floorplan` stage:
-
-```diff
-diff --git a/test/BUILD b/test/BUILD
---- a/test/BUILD
-+++ b/test/BUILD
- orfs_flow(
-     name = "L1MetadataArray",
--    abstract_stage = "route",
-+    abstract_stage = "place",
-     arguments = {
-         ...
-     },
-```
-
-This will generate targets that can be verified in the `bazel query` output:
-
-```bash
-bazel query '...:*' | grep 'L1MetadataArray'
-
-//test:L1MetadataArray_synth_deps
-//test:L1MetadataArray_synth
-//test:L1MetadataArray_floorplan_deps
-//test:L1MetadataArray_floorplan
-//test:L1MetadataArray_generate_abstract
-```
-
-The abstract stage follows the one defined via `abstract_stage` attribute passed to the `orfs_flow()` macro.
-However it always falls down to the `<target>_generate_abstract` pattern and can be built with the following command:
-
-```bash
-bazel build @bazel-orfs//test:L1MetadataArray_generate_abstract
-```
-
-This will cause the Bazel to generate the abstracts for the design right after the `floorplan` stage instead of `route` stage.
-The output `LEF` file can be found under the `bazel-bin/results/<module>/<target>/base/<target.lef>` path.
-
-For more information please refer to the description of [Abstract targets](#generate-abstract-targets).
-
-## Bazel hacking
-
-### Upgrading bazel-orfs and ORFS in a repository using bazel-orfs and ORFS
-
-    bazelisk run @bazel-orfs//:bump
-
-This will update your MODULE.bazel with the latest ORFS and bazel-orfs and run `bazelisk mod tidy`.
-
-### Run all synth targets
-
-```bash
-bazel query :\* | grep '_synth$' | xargs -I {} bazel run {}
-```
-
-This will run all synth targets in the workspace and place the results in the `tmp/results` directory.
-
-### Forcing a rebuild of a stage
-
-Sometimes it is desirable, such as when hacking ORFS, to redo a build stage even
-if none of the dependencies for that stage changed. This can be achieved by changing
-a `PHONY` variable to that stage and bumping it:
-
-```diff
-diff --git a/test/BUILD b/test/BUILD
---- a/test/BUILD
-+++ b/test/BUILD
- orfs_flow(
-     name = "L1MetadataArray",
-     abstract_stage = "route",
-     arguments = {
-+        "PHONY": "1",
-         "SYNTH_HIERARCHICAL": "1",
-         ...
-     },
-```
-
-### Building the immediate dependencies of a target
-
-```bash
-bazel build @bazel-orfs//test:L1MetadataArray_synth_deps
-```
-
-This will build the immediate dependencies of the `L1MetadataArray` target up to the `synth` stage and place the results in the `bazel-bin` directory.
-Later, those dependencies will be used by Bazel to build the `synth` stage for `L1MetadataArray` target.
-
-### Tools location after `bazel run ...`
-
-A mutable build folder can be set up to prepare for a local synthesis run, useful when digging into some detail of synthesis flow:
+A mutable build folder can be set up to prepare for a local synthesis run, useful when digging into some detail of the synthesis flow:
 
     $ bazel run //test:tag_array_64x184_synth_deps
     $ tmp/test/tag_array_64x184_synth_deps/make print-YOSYS_EXE
     YOSYS_EXE = external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys
 
-This is actually a symlink pointing to the read only executables, which is how yosys is able to find the yosys-abc alongside itself needed for the abc part of the synthesis stage:
+This is actually a symlink pointing to the read-only executables, which is how yosys is able to find yosys-abc alongside itself needed for the abc part of the synthesis stage:
 
     $ ls -l $(dirname $(readlink -f tmp/test/tag_array_64x184_synth_deps/external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys))
     total 37456
@@ -652,23 +615,46 @@ This is actually a symlink pointing to the read only executables, which is how y
     -rwxr-xr-x 1 oyvind oyvind    73845 Aug  7 23:11 yosys-smtbmc
     -rwxr-xr-x 1 oyvind oyvind    17377 Aug  7 23:11 yosys-witness
 
-### `make issue` floorplan example
+### Create a make issue archive
 
 To create and test a `make issue` archive for floorplan:
 
     bazel run //test:lb_32x128_floorplan_deps
     tmp/test/lb_32x128_floorplan_deps/make ISSUE_TAG=test floorplan_issue
 
-This results in `tmp/test/lb_32x128_floorplan_deps/floorplan_test.tar.gz`, which can be run provided there `openroad` application is in the path.
+This results in `tmp/test/lb_32x128_floorplan_deps/floorplan_test.tar.gz`, which can be run provided the `openroad` application is in the path.
 
-A local ORFS installation can be used by running `source env.sh`.
+You can use a local ORFS installation by running `source env.sh`.
 
-Alternatively, the ORFS installation used with Bazel, can be used by using `make bash` to set up the environment of the ORFS extracted into the Bazel build environment:
+Alternatively, use the ORFS installation from Bazel by running `make bash` to set up the environment:
 
     tmp/test/lb_32x128_floorplan_deps/make bash
     export PATH=$PATH:$(realpath $(dirname $(readlink -f $OPENROAD_EXE)))
     tar --strip-components=1 -xzf ../floorplan_test.tar.gz
     ./run-me-lb_32x128-asap7-base.sh
+
+### Run all synth targets
+
+```bash
+bazel query :\* | grep '_synth$' | xargs -I {} bazel run {}
+```
+
+This runs all synth targets in the workspace and places the results in the `tmp/results` directory.
+
+### Build the immediate dependencies of a target
+
+```bash
+bazel build @bazel-orfs//test:L1MetadataArray_synth_deps
+```
+
+This builds the immediate dependencies of the `L1MetadataArray` target up to the `synth` stage and places the results in the `bazel-bin` directory.
+Later, those dependencies are used by Bazel to build the `synth` stage for the `L1MetadataArray` target.
+
+## Upgrade bazel-orfs
+
+    bazelisk run @bazel-orfs//:bump
+
+This updates your MODULE.bazel with the latest ORFS and bazel-orfs and runs `bazelisk mod tidy`.
 
 ## Repository layout
 

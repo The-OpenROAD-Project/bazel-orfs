@@ -1,4 +1,6 @@
-# Design Space Exploration (DSE) Parameterization with Bazel
+# Design space exploration (DSE) parameterization with Bazel
+
+> For optimization-based DSE using Optuna, see [optuna/README.md](../optuna/README.md).
 
 This project demonstrates how to use **Bazel build settings** with orfs_flow() `settings` argument to manage design parameters for hardware design space exploration (DSE).
 
