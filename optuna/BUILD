@@ -88,11 +88,11 @@ py_binary(
     tags = ["manual"],
     visibility = ["//visibility:public"],
     deps = [
-        "@bazel-orfs-pip//kaleido",
-        "@bazel-orfs-pip//matplotlib",
-        "@bazel-orfs-pip//numpy",
-        "@bazel-orfs-pip//optuna",
-        "@bazel-orfs-pip//pandas",
-        "@bazel-orfs-pip//plotly",
+        "@bazel-orfs-examples-pip//kaleido",
+        "@bazel-orfs-features-pip//matplotlib",
+        "@bazel-orfs-examples-pip//numpy",
+        "@bazel-orfs-examples-pip//optuna",
+        "@bazel-orfs-examples-pip//pandas",
+        "@bazel-orfs-examples-pip//plotly",
     ],
 )

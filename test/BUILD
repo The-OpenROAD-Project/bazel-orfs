@@ -456,5 +456,5 @@ py_binary(
     srcs = ["plot-retiming.py"],
     main = "plot-retiming.py",
     visibility = ["//visibility:public"],
-    deps = ["@bazel-orfs-pip//matplotlib"],
+    deps = ["@bazel-orfs-features-pip//matplotlib"],
 )

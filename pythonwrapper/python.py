@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
-import os
+import runpy
 import sys
-import subprocess
 
 
 def main():
-    env = os.environ.copy()
-    env["PYTHONPATH"] = os.pathsep.join(p for p in sys.path if p)
-    subprocess.run([sys.executable] + sys.argv[1:], check=True, env=env)
+    script = sys.argv[1]
+    sys.argv = sys.argv[1:]
+    runpy.run_path(script, run_name='__main__')
 
 
 if __name__ == "__main__":

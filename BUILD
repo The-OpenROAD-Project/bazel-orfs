@@ -24,6 +24,20 @@ compile_pip_requirements(
     requirements_txt = "requirements_lock_3_13.txt",
 )
 
+compile_pip_requirements(
+    name = "requirements_features",
+    src = "requirements_features.in",
+    python_version = "3.13",
+    requirements_txt = "requirements_features_lock_3_13.txt",
+)
+
+compile_pip_requirements(
+    name = "requirements_examples",
+    src = "requirements_examples.in",
+    python_version = "3.13",
+    requirements_txt = "requirements_examples_lock_3_13.txt",
+)
+
 py_binary(
     name = "plot_clock_period_tool",
     srcs = [
@@ -32,7 +46,7 @@ py_binary(
     main = "plot_clock_period.py",
     visibility = ["//visibility:public"],
     deps = [
-        "@bazel-orfs-pip//matplotlib",
+        "@bazel-orfs-features-pip//matplotlib",
         "@bazel-orfs-pip//pyyaml",
     ],
 )
