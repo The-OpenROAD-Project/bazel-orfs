@@ -1,0 +1,386 @@
+"""Environment, input, and configuration helper functions for OpenROAD-flow-scripts rules."""
+
+load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+load(
+    "//private:providers.bzl",
+    "LoggingInfo",
+    "OrfsInfo",
+    "PdkInfo",
+    "TopInfo",
+)
+load("//private:stages.bzl", "ALL_STAGE_TO_VARIABLES")
+load("//private:utils.bzl", "commonpath", "flatten", "map_fn")
+
+def odb_arguments(ctx, short = False):
+    if ctx.attr.src[OrfsInfo].odb:
+        odb = ctx.attr.src[OrfsInfo].odb
+        return {"ODB_FILE": odb.short_path if short else odb.path}
+    return {}
+
+def _work_home(ctx):
+    if ctx.label.package:
+        return "/".join([ctx.genfiles_dir.path, ctx.label.package])
+    return ctx.genfiles_dir.path
+
+def orfs_environment(ctx):
+    return {
+        "HOME": _work_home(ctx),
+        "PYTHON_EXE": ctx.executable._python.path,
+        "STDBUF_CMD": "",
+        "TCL_LIBRARY": commonpath(ctx.files._tcl),
+        "WORK_HOME": _work_home(ctx),
+    }
+
+def flow_environment(ctx):
+    return {
+        "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
+        "FLOW_HOME": ctx.file._makefile.dirname,
+        "KLAYOUT_CMD": ctx.executable._klayout.path,
+        "OPENROAD_EXE": ctx.executable._openroad.path,
+        "OPENSTA_EXE": ctx.executable._opensta.path,
+        "QT_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
+        "QT_QPA_PLATFORM_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
+        "RUBYLIB": ":".join(
+            [commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)],
+        ),
+    } | orfs_environment(ctx)
+
+def yosys_environment(ctx):
+    return {
+        "ABC": ctx.executable._abc.path,
+        "FLOW_HOME": ctx.file._makefile_yosys.dirname,
+        "YOSYS_EXE": ctx.executable._yosys.path,
+    } | orfs_environment(ctx)
+
+def config_environment(config):
+    return {"DESIGN_CONFIG": config.path}
+
+def _runfiles(attrs):
+    return depset(
+        map_fn(
+            lambda tool: tool[DefaultInfo].files_to_run.executable,
+            attrs,
+        ),
+        transitive = flatten(
+            map_fn(
+                lambda tool: [
+                    tool[DefaultInfo].default_runfiles.files,
+                    tool[DefaultInfo].default_runfiles.symlinks,
+                ],
+                attrs,
+            ),
+        ),
+    )
+
+def flow_inputs(ctx):
+    return depset(
+        ctx.files._ruby +
+        ctx.files._ruby_dynamic +
+        ctx.files._tcl +
+        ctx.files._opengl +
+        ctx.files._qt_plugins,
+        transitive = [
+            _runfiles(
+                [
+                    ctx.attr._klayout,
+                    ctx.attr._make,
+                    ctx.attr._openroad,
+                    ctx.attr._opensta,
+                    ctx.attr._python,
+                    ctx.attr._makefile,
+                ] +
+                ctx.attr.tools,
+            ),
+        ],
+    )
+
+def yosys_inputs(ctx):
+    return depset(
+        ctx.files._tcl,
+        transitive = [
+            _runfiles(
+                [
+                    ctx.attr._abc,
+                    ctx.attr._yosys,
+                    ctx.attr._make,
+                    ctx.attr._makefile_yosys,
+                    ctx.attr._python,
+                ],
+            ),
+        ],
+    )
+
+def data_inputs(ctx):
+    return depset(
+        ctx.files.data,
+        transitive = [datum.default_runfiles.files for datum in ctx.attr.data] +
+                     [datum.default_runfiles.symlinks for datum in ctx.attr.data],
+    )
+
+def source_inputs(ctx):
+    return depset(
+        ctx.files.src,
+        transitive = [
+            ctx.attr.src[OrfsInfo].additional_gds,
+            ctx.attr.src[OrfsInfo].additional_lefs,
+            ctx.attr.src[OrfsInfo].additional_libs,
+            ctx.attr.src[PdkInfo].files,
+            ctx.attr.src[PdkInfo].libs,
+            # Accumulate all JSON reports, so depend on previous stage.
+            ctx.attr.src[LoggingInfo].jsons,
+            ctx.attr.src[LoggingInfo].reports,
+            # non-idempotent by design transitive dependencies
+            # ctx.attr.src[LoggingInfo].logs,
+        ],
+    )
+
+def rename_inputs(ctx):
+    return depset(
+        transitive = [target.files for target in ctx.attr.renamed_inputs.values()],
+    )
+
+def pdk_inputs(ctx):
+    return depset(transitive = [ctx.attr.pdk[PdkInfo].files, ctx.attr.pdk[PdkInfo].libs])
+
+def deps_inputs(ctx):
+    return depset(
+        [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds] +
+        [dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef] +
+        [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
+    )
+
+def flow_substitutions(ctx):
+    return {
+        "${DLN_LIBRARY_PATH}": commonpath(ctx.files._ruby_dynamic),
+        "${FLOW_HOME}": ctx.file._makefile.dirname,
+        "${KLAYOUT_PATH}": ctx.executable._klayout.path,
+        "${LIBGL_DRIVERS_PATH}": commonpath(ctx.files._opengl),
+        "${MAKEFILE_PATH}": ctx.file._makefile.path,
+        "${MAKE_PATH}": ctx.executable._make.path,
+        # OpenROAD uses //:openroad, //:opensta here and puts the binary in the pwd
+        "${OPENROAD_PATH}": "./" + ctx.executable._openroad.short_path,
+        "${OPENSTA_PATH}": "./" + ctx.executable._opensta.short_path,
+        "${QT_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
+        "${RUBY_PATH}": commonpath(ctx.files._ruby),
+        "${STDBUF_PATH}": "",
+        "${TCL_LIBRARY}": commonpath(ctx.files._tcl),
+    }
+
+def yosys_substitutions(ctx):
+    return {
+        "${ABC}": ctx.executable._abc.path,
+        "${YOSYS_PATH}": ctx.executable._yosys.path,
+    }
+
+def module_top(ctx):
+    return (
+        ctx.attr.module_top if hasattr(ctx.attr, "module_top") else ctx.attr.src[TopInfo].module_top
+    )
+
+def platform(ctx):
+    return (
+        ctx.attr.pdk[PdkInfo].name if hasattr(ctx.attr, "pdk") else ctx.attr.src[PdkInfo].name
+    )
+
+def platform_config(ctx):
+    return (
+        ctx.attr.pdk[PdkInfo] if hasattr(ctx.attr, "pdk") else ctx.attr.src[PdkInfo]
+    ).config.files.to_list()[0]
+
+def required_arguments(ctx):
+    return {
+        "DESIGN_NAME": module_top(ctx),
+        "FLOW_VARIANT": ctx.attr.variant,
+        "GENERATE_ARTIFACTS_ON_FAILURE": "1",
+        "PLATFORM": platform(ctx),
+        "PLATFORM_DIR": platform_config(ctx).dirname,
+        "WORK_HOME": "./" + ctx.label.package,
+    }
+
+def orfs_arguments(*args, short = False):
+    """Returns ADDITIONAL_GDS/LEFS/LIBS arguments from OrfsInfo providers.
+
+    Args:
+      *args: OrfsInfo provider instances.
+      short: If True, use short_path instead of path.
+
+    Returns:
+      A dictionary of ADDITIONAL_GDS/LEFS/LIBS arguments.
+    """
+    gds = depset(
+        [info.gds for info in args if info.gds],
+        transitive = [info.additional_gds for info in args],
+    )
+    lefs = depset(
+        [info.lef for info in args if info.lef],
+        transitive = [info.additional_lefs for info in args],
+    )
+    libs = depset(
+        [info.lib for info in args if info.lib],
+        transitive = [info.additional_libs for info in args],
+    )
+
+    arguments = {}
+    if gds.to_list():
+        arguments["ADDITIONAL_GDS"] = " ".join(
+            sorted([file.short_path if short else file.path for file in gds.to_list()]),
+        )
+    if lefs.to_list():
+        arguments["ADDITIONAL_LEFS"] = " ".join(
+            sorted(
+                [file.short_path if short else file.path for file in lefs.to_list()],
+            ),
+        )
+    if libs.to_list():
+        arguments["ADDITIONAL_LIBS"] = " ".join(
+            sorted(
+                [file.short_path if short else file.path for file in libs.to_list()],
+            ),
+        )
+    return arguments
+
+def verilog_arguments(files, short = False):
+    return {
+        "VERILOG_FILES": " ".join(
+            sorted([file.short_path if short else file.path for file in files]),
+        ),
+    }
+
+def config_overrides(ctx, arguments):
+    has_stage = hasattr(ctx.attr, "_stage")
+    defines_for_stage = {
+        var: value
+        for var, value in ctx.var.items()
+        if has_stage and
+           var in
+           (
+               ALL_STAGE_TO_VARIABLES[ctx.attr._stage] +
+               # FIXME delete this hotfix on next ORFS update
+               # https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/pull/3746
+               {"synth": ["VERILOG_TOP_PARAMS"]}.get(ctx.attr._stage, [])
+           )
+    }
+    settings = {
+        var: value[BuildSettingInfo].value
+        for var, value in ctx.attr.settings.items()
+    }
+    return arguments | defines_for_stage | settings
+
+def config_content(ctx, arguments, paths):
+    workaround = {
+        # https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/issues/3907
+        "LEC_CHECK": "0",
+    } | arguments
+
+    return "".join(
+        sorted(
+            [
+                "export {}?={}\n".format(*pair)
+                for pair in config_overrides(ctx, workaround).items()
+            ],
+        ) +
+        ["include {}\n".format(path) for path in paths],
+    )
+
+def hack_away_prefix(arguments, prefix):
+    return {
+        k: " ".join([w.removeprefix(prefix + "/") for w in v.split(" ")])
+        for k, v in arguments.items()
+    }
+
+def data_arguments(ctx):
+    return {
+        k: ctx.expand_location(v, ctx.attr.data)
+        for k, v in ctx.attr.arguments.items()
+    }
+
+def run_arguments(ctx):
+    return {"RUN_SCRIPT": ctx.file.script.path}
+
+def environment_string(env):
+    return " ".join(['{}="{}"'.format(*pair) for pair in env.items()])
+
+def generation_commands(optional_files):
+    if optional_files:
+        return [
+            "mkdir -p " +
+            " ".join(sorted([result.dirname for result in optional_files])),
+            "touch " + " ".join(sorted([result.path for result in optional_files])),
+        ]
+    return []
+
+def _mv_cmds(src, dst):
+    dir, _, _ = dst.rpartition("/")
+    return [
+        "mkdir -p {}".format(dir),
+        "mv {} {}".format(src, dst),
+    ]
+
+def input_commands(renames):
+    cmds = []
+    for rename in renames:
+        cmds.extend(_mv_cmds(rename.src, rename.dst))
+    return cmds
+
+def _remap(s, a, b):
+    if s.endswith(a):
+        return s.replace("/" + a, "/" + b)
+    return s.replace("/" + a + "/", "/" + b + "/")
+
+def renames(ctx, inputs, short = False):
+    """Move inputs to the expected input locations.
+
+    Args:
+      ctx: The rule context.
+      inputs: List of input files to potentially rename.
+      short: If True, use short_path instead of path.
+
+    Returns:
+      A list of structs with src and dst fields for renaming.
+    """
+    result = []
+    for file in inputs:
+        if ctx.attr.src[OrfsInfo].variant != ctx.attr.variant:
+            result.append(
+                struct(
+                    src = file.short_path if short else file.path,
+                    dst = _remap(
+                        file.short_path if short else file.path,
+                        ctx.attr.src[OrfsInfo].variant,
+                        ctx.attr.variant,
+                    ),
+                ),
+            )
+
+    # renamed_inputs win over variant renaming
+    for file in inputs:
+        if file.basename in ctx.attr.renamed_inputs:
+            for src in ctx.attr.renamed_inputs[file.basename].files.to_list():
+                result.append(
+                    struct(
+                        src = src.short_path if short else src.path,
+                        dst = _remap(
+                            file.short_path if short else file.path,
+                            ctx.attr.src[OrfsInfo].variant,
+                            ctx.attr.variant,
+                        ),
+                    ),
+                )
+    return result
+
+def _artifact_name(ctx, category, name = None):
+    return "/".join(
+        [
+            category,
+            platform(ctx),
+            module_top(ctx),
+            ctx.attr.variant,
+            name,
+        ],
+    )
+
+def declare_artifact(ctx, category, name):
+    return ctx.actions.declare_file(_artifact_name(ctx, category, name))
+
+def extensionless_basename(file):
+    return file.basename.removesuffix("." + file.extension)
