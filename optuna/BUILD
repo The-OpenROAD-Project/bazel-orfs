@@ -89,10 +89,10 @@ py_binary(
     visibility = ["//visibility:public"],
     deps = [
         "@bazel-orfs-examples-pip//kaleido",
-        "@bazel-orfs-features-pip//matplotlib",
         "@bazel-orfs-examples-pip//numpy",
         "@bazel-orfs-examples-pip//optuna",
         "@bazel-orfs-examples-pip//pandas",
         "@bazel-orfs-examples-pip//plotly",
+        "@bazel-orfs-features-pip//matplotlib",
     ],
 )

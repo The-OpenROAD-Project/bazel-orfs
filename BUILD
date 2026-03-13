@@ -58,4 +58,3 @@ sh_binary(
     srcs = ["bump.sh"],
     visibility = ["//visibility:public"],
 )
-

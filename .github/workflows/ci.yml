@@ -140,6 +140,34 @@ jobs:
           [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\)/.*' -regex '.*/1_.*\.log' | wc -l) -eq 0 ]
           [ $(find "$build_dir/_main" ! -regex '.*/\(objects\|external\)/.*' -regex '.*/2_.*\.log' | wc -l) -gt 1 ]
 
+  test-delivery:
+    name: Delivery - Chisel to SV roundtrip
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+    steps:
+      - name: Checkout bazel-orfs
+        uses: actions/checkout@v4
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}-${{ github.job }}
+          repository-cache: true
+
+      - name: Verilator simulation - generated Verilog
+        run: bazel test --verbose_failures //delivery:cpu_generated_test --test_output=errors
+
+      - name: Verilator simulation - idiomatic SystemVerilog rewrite
+        run: bazel test --verbose_failures //delivery:cpu_rewrite_test --test_output=errors
+
+      - name: Synthesis - ASAP7
+        run: bazel build --verbose_failures //delivery:CountTo42Cpu_synth
+
   test-builds:
     name: Smoketests
     runs-on: ubuntu-22.04

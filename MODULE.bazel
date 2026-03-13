@@ -18,6 +18,17 @@ bazel_dep(name = "rules_verilator", version = "0.1.0")
 bazel_dep(name = "verilator", version = "5.036.bcr.3")
 bazel_dep(name = "rules_shell", version = "0.3.0")
 bazel_dep(name = "rules_cc", version = "0.2.4")
+bazel_dep(name = "kepler-formal", version = "1.0.0")
+
+# kepler-formal is not yet in BCR. Use git_override pointing to the repo.
+# For local development, comment out git_override and use local_path_override:
+#   local_path_override(module_name = "kepler-formal", path = "../kepler-formal")
+# After BCR publication, remove the override entirely.
+git_override(
+    module_name = "kepler-formal",
+    commit = "e8675f3086926c63205f8f5f586be7c7dccaf788",
+    remote = "https://github.com/keplertech/kepler-formal.git",
+)
 
 http_archive = use_repo_rule(
     "@bazel_tools//tools/build_defs/repo:http.bzl",
