@@ -987,3 +987,14 @@ Features removed from bazel-orfs. Check git history for the original implementat
 
 - **yosys.bzl** — standalone Yosys rule. Still present but unused in CI.
   Superseded by the synthesis stage in `orfs_flow`.
+
+## Feature history
+
+Development timeline generated from `git --numstat` (actual files changed, not
+just commit messages). Bar opacity reflects lines of code changed. Numbers show
+total LOC changed and commit count per activity.
+
+![bazel-orfs Development Timeline](docs/gantt.png)
+
+<!-- To regenerate: python docs/generate_gantt.py -o docs/gantt.png
+     To update activities: edit docs/gantt_activities.yaml then regenerate -->
