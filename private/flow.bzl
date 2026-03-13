@@ -15,7 +15,6 @@ load(
     "orfs_synth_rule",
 )
 load("//private:stages.bzl", "get_sources", "get_stage_args")
-load("//private:utils.bzl", "map_fn")
 
 def _filter_stage_args(stage, **kwargs):
     """Filter and prepare the arguments for a specific stage."""
@@ -281,7 +280,7 @@ def _orfs_pass(
         fail("Maximum previous stages is 1")
     start_stage = 0
     if len(previous_stage) > 0:
-        start_stage = map_fn(lambda x: x.stage, STAGE_IMPLS).index(
+        start_stage = [x.stage for x in STAGE_IMPLS].index(
             previous_stage.keys()[0],
         )
 

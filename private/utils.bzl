@@ -1,7 +1,16 @@
 """Pure utility functions for OpenROAD-flow-scripts Bazel rules."""
 
-def map_fn(function, iterable):
-    return [function(x) for x in iterable]
+def file_path(f, short = False):
+    """Returns short_path or path depending on the short flag.
+
+    Args:
+      f: A File object.
+      short: If True, return short_path; otherwise return path.
+
+    Returns:
+      The file's short_path or path.
+    """
+    return f.short_path if short else f.path
 
 def union(*lists):
     """Returns the union of multiple lists, removing duplicates.

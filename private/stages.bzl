@@ -1,7 +1,7 @@
 """Stage metadata and argument helpers for OpenROAD-flow-scripts Bazel rules."""
 
 load("@orfs_variable_metadata//:json.bzl", "orfs_variable_metadata")
-load("//private:utils.bzl", "flatten", "map_fn", "set", "union")
+load("//private:utils.bzl", "flatten", "set", "union")
 
 # A stage argument is used in one or more stages. This is metainformation
 # about the ORFS code that there is no known nice way for ORFS to
@@ -67,7 +67,7 @@ def get_stage_args(stage, stage_arguments = {}, arguments = {}, sources = {}):
         arg: value
         for arg, value in (
             {
-                arg: " ".join(map_fn(lambda v: "$(locations {})".format(v), value))
+                arg: " ".join(["$(locations {})".format(v) for v in value])
                 for arg, value in sources.items()
                 if arg in ALL_STAGE_TO_VARIABLES[stage] or
                    arg not in ALL_VARIABLE_TO_STAGES

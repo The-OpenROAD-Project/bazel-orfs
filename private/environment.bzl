@@ -9,12 +9,12 @@ load(
     "TopInfo",
 )
 load("//private:stages.bzl", "ALL_STAGE_TO_VARIABLES")
-load("//private:utils.bzl", "commonpath", "flatten", "map_fn")
+load("//private:utils.bzl", "commonpath", "file_path", "flatten")
 
 def odb_arguments(ctx, short = False):
     if ctx.attr.src[OrfsInfo].odb:
         odb = ctx.attr.src[OrfsInfo].odb
-        return {"ODB_FILE": odb.short_path if short else odb.path}
+        return {"ODB_FILE": file_path(odb, short)}
     return {}
 
 def _work_home(ctx):
@@ -57,18 +57,15 @@ def config_environment(config):
 
 def _runfiles(attrs):
     return depset(
-        map_fn(
-            lambda tool: tool[DefaultInfo].files_to_run.executable,
-            attrs,
-        ),
+        [tool[DefaultInfo].files_to_run.executable for tool in attrs],
         transitive = flatten(
-            map_fn(
-                lambda tool: [
+            [
+                [
                     tool[DefaultInfo].default_runfiles.files,
                     tool[DefaultInfo].default_runfiles.symlinks,
-                ],
-                attrs,
-            ),
+                ]
+                for tool in attrs
+            ],
         ),
     )
 
@@ -223,18 +220,18 @@ def orfs_arguments(*args, short = False):
     arguments = {}
     if gds.to_list():
         arguments["ADDITIONAL_GDS"] = " ".join(
-            sorted([file.short_path if short else file.path for file in gds.to_list()]),
+            sorted([file_path(file, short) for file in gds.to_list()]),
         )
     if lefs.to_list():
         arguments["ADDITIONAL_LEFS"] = " ".join(
             sorted(
-                [file.short_path if short else file.path for file in lefs.to_list()],
+                [file_path(file, short) for file in lefs.to_list()],
             ),
         )
     if libs.to_list():
         arguments["ADDITIONAL_LIBS"] = " ".join(
             sorted(
-                [file.short_path if short else file.path for file in libs.to_list()],
+                [file_path(file, short) for file in libs.to_list()],
             ),
         )
     return arguments
@@ -242,7 +239,7 @@ def orfs_arguments(*args, short = False):
 def verilog_arguments(files, short = False):
     return {
         "VERILOG_FILES": " ".join(
-            sorted([file.short_path if short else file.path for file in files]),
+            sorted([file_path(file, short) for file in files]),
         ),
     }
 
@@ -343,9 +340,9 @@ def renames(ctx, inputs, short = False):
         if ctx.attr.src[OrfsInfo].variant != ctx.attr.variant:
             result.append(
                 struct(
-                    src = file.short_path if short else file.path,
+                    src = file_path(file, short),
                     dst = _remap(
-                        file.short_path if short else file.path,
+                        file_path(file, short),
                         ctx.attr.src[OrfsInfo].variant,
                         ctx.attr.variant,
                     ),
@@ -358,9 +355,9 @@ def renames(ctx, inputs, short = False):
             for src in ctx.attr.renamed_inputs[file.basename].files.to_list():
                 result.append(
                     struct(
-                        src = src.short_path if short else src.path,
+                        src = file_path(src, short),
                         dst = _remap(
-                            file.short_path if short else file.path,
+                            file_path(file, short),
                             ctx.attr.src[OrfsInfo].variant,
                             ctx.attr.variant,
                         ),
@@ -381,6 +378,19 @@ def _artifact_name(ctx, category, name = None):
 
 def declare_artifact(ctx, category, name):
     return ctx.actions.declare_file(_artifact_name(ctx, category, name))
+
+def declare_artifacts(ctx, category, names):
+    """Declares multiple artifacts in one call.
+
+    Args:
+      ctx: Rule context.
+      category: Artifact category (e.g., "results", "logs", "reports", "objects").
+      names: List of artifact file names.
+
+    Returns:
+      List of declared File objects.
+    """
+    return [declare_artifact(ctx, category, name) for name in names]
 
 def extensionless_basename(file):
     return file.basename.removesuffix("." + file.extension)
