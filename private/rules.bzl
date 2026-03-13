@@ -19,6 +19,7 @@ load(
     "data_arguments",
     "data_inputs",
     "declare_artifact",
+    "declare_artifacts",
     "deps_inputs",
     "environment_string",
     "extensionless_basename",
@@ -49,6 +50,56 @@ load(
     "PdkInfo",
     "TopInfo",
 )
+
+# --- Shared helpers ---
+
+def _expand_deploy_template(ctx, exe, config, make, genfiles, name = "", renames = []):
+    """Expands the deploy template for a stage.
+
+    Args:
+      ctx: Rule context.
+      exe: Output File for the shell script.
+      config: The config File (short version for deploy).
+      make: The make script File.
+      genfiles: List of Files to include in the deploy directory.
+      name: Deploy folder name. Only deps targets set this to get per-target folders.
+      renames: List of rename structs (src, dst). Only used by deps rule.
+    """
+    ctx.actions.expand_template(
+        template = ctx.file._deploy_template,
+        output = exe,
+        substitutions = {
+            "${CONFIG}": config.short_path,
+            "${GENFILES}": " ".join(sorted([f.short_path for f in genfiles])),
+            "${MAKE}": make.short_path,
+            "${NAME}": name,
+            "${PACKAGE}": ctx.label.package,
+            "${RENAMES}": " ".join(
+                ["{}:{}".format(r.src, r.dst) for r in renames],
+            ),
+        },
+    )
+
+def _create_make_script(ctx, name, extra_substitutions = {}):
+    """Creates the make wrapper script via template expansion.
+
+    Args:
+      ctx: Rule context.
+      name: Filename for the declared make script.
+      extra_substitutions: Additional substitutions beyond flow_substitutions.
+
+    Returns:
+      The declared make File.
+    """
+    make = ctx.actions.declare_file(name)
+    ctx.actions.expand_template(
+        template = ctx.file._make_template,
+        output = make,
+        substitutions = flow_substitutions(ctx) |
+                        {'"$@"': 'DESIGN_CONFIG="config.mk" "$@"'} |
+                        extra_substitutions,
+    )
+    return make
 
 # --- PDK rule ---
 
@@ -142,26 +193,14 @@ orfs_macro = rule(
 
 def _deps_impl(ctx):
     exe = declare_artifact(ctx, "results", ctx.attr.name + ".sh")
-    ctx.actions.expand_template(
-        template = ctx.file._deploy_template,
-        output = exe,
-        substitutions = {
-            "${CONFIG}": ctx.attr.src[OrfsDepInfo].config.short_path,
-            "${GENFILES}": " ".join(
-                sorted(
-                    [f.short_path for f in ctx.attr.src[OrfsDepInfo].files.to_list()],
-                ),
-            ),
-            "${MAKE}": ctx.attr.src[OrfsDepInfo].make.short_path,
-            "${NAME}": ctx.attr.name,
-            "${PACKAGE}": ctx.label.package,
-            "${RENAMES}": " ".join(
-                [
-                    "{}:{}".format(rename.src, rename.dst)
-                    for rename in ctx.attr.src[OrfsDepInfo].renames
-                ],
-            ),
-        },
+    _expand_deploy_template(
+        ctx,
+        exe,
+        config = ctx.attr.src[OrfsDepInfo].config,
+        make = ctx.attr.src[OrfsDepInfo].make,
+        genfiles = ctx.attr.src[OrfsDepInfo].files.to_list(),
+        name = ctx.attr.name,
+        renames = ctx.attr.src[OrfsDepInfo].renames,
     )
     return [
         DefaultInfo(
@@ -393,9 +432,7 @@ def _yosys_impl(ctx):
         ),
     )
 
-    canon_logs = []
-    for log in ["1_1_yosys_canonicalize.log"]:
-        canon_logs.append(declare_artifact(ctx, "logs", log))
+    canon_logs = declare_artifacts(ctx, "logs", ["1_1_yosys_canonicalize.log"])
 
     canon_output = declare_artifact(ctx, "results", CANON_OUTPUT)
 
@@ -431,17 +468,13 @@ def _yosys_impl(ctx):
         tools = yosys_inputs(ctx),
     )
 
-    synth_logs = []
-    for log in ["1_2_yosys.log", "1_2_yosys_metrics.log"]:
-        synth_logs.append(declare_artifact(ctx, "logs", log))
+    synth_logs = declare_artifacts(ctx, "logs", ["1_2_yosys.log", "1_2_yosys_metrics.log"])
 
     synth_outputs = {}
     for output in SYNTH_OUTPUTS + (["1_synth.odb"] if ctx.attr.save_odb else []):
         synth_outputs[output] = declare_artifact(ctx, "results", output)
 
-    synth_reports = []
-    for report in SYNTH_REPORTS:
-        synth_reports.append(declare_artifact(ctx, "reports", report))
+    synth_reports = declare_artifacts(ctx, "reports", SYNTH_REPORTS)
 
     # SYNTH_NETLIST_FILES will not create an .rtlil file or reports, so we need
     # an empty placeholder in that case.
@@ -522,32 +555,15 @@ def _yosys_impl(ctx):
         ),
     )
 
-    make = ctx.actions.declare_file("make_1_synth")
-    ctx.actions.expand_template(
-        template = ctx.file._make_template,
-        output = make,
-        substitutions = flow_substitutions(ctx) |
-                        yosys_substitutions(ctx) |
-                        {'"$@"': 'DESIGN_CONFIG="config.mk" "$@"'},
-    )
+    make = _create_make_script(ctx, "make_1_synth", yosys_substitutions(ctx))
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
-    ctx.actions.expand_template(
-        template = ctx.file._deploy_template,
-        output = exe,
-        substitutions = {
-            "${CONFIG}": config_short.short_path,
-            "${GENFILES}": " ".join(
-                sorted(
-                    [
-                        f.short_path
-                        for f in [config_short] + outputs + canon_logs + synth_logs
-                    ],
-                ),
-            ),
-            "${MAKE}": make.short_path,
-            "${PACKAGE}": ctx.label.package,
-        },
+    _expand_deploy_template(
+        ctx,
+        exe,
+        config = config_short,
+        make = make,
+        genfiles = [config_short] + outputs + canon_logs + synth_logs,
     )
 
     return [
@@ -703,29 +719,12 @@ def _make_impl(
         ),
     )
 
-    results = []
-    for result in result_names:
-        results.append(declare_artifact(ctx, "results", result))
-
-    objects = []
-    for object in object_names:
-        objects.append(declare_artifact(ctx, "objects", object))
-
-    logs = []
-    for log in log_names:
-        logs.append(declare_artifact(ctx, "logs", log))
-
-    jsons = []
-    for json in json_names:
-        jsons.append(declare_artifact(ctx, "logs", json))
-
-    reports = []
-    for report in report_names:
-        reports.append(declare_artifact(ctx, "reports", report))
-
-    drcs = []
-    for drc in drc_names:
-        drcs.append(declare_artifact(ctx, "reports", drc))
+    results = declare_artifacts(ctx, "results", result_names)
+    objects = declare_artifacts(ctx, "objects", object_names)
+    logs = declare_artifacts(ctx, "logs", log_names)
+    jsons = declare_artifacts(ctx, "logs", json_names)
+    reports = declare_artifacts(ctx, "reports", report_names)
+    drcs = declare_artifacts(ctx, "reports", drc_names)
 
     forwards = [f for f in ctx.files.src if f.basename in forwarded_names]
 
@@ -771,38 +770,18 @@ def _make_impl(
         ),
     )
 
-    make = ctx.actions.declare_file(
+    make = _create_make_script(
+        ctx,
         "make_{}_{}_{}".format(ctx.attr.name, ctx.attr.variant, stage),
-    )
-    ctx.actions.expand_template(
-        template = ctx.file._make_template,
-        output = make,
-        substitutions = flow_substitutions(ctx) |
-                        {'"$@"': 'DESIGN_CONFIG="config.mk" "$@"'},
     )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
-    ctx.actions.expand_template(
-        template = ctx.file._deploy_template,
-        output = exe,
-        substitutions = {
-            "${CONFIG}": config_short.short_path,
-            "${GENFILES}": " ".join(
-                sorted(
-                    [
-                        f.short_path
-                        for f in [config_short] +
-                                 results +
-                                 logs +
-                                 reports +
-                                 drcs +
-                                 jsons
-                    ],
-                ),
-            ),
-            "${MAKE}": make.short_path,
-            "${PACKAGE}": ctx.label.package,
-        },
+    _expand_deploy_template(
+        ctx,
+        exe,
+        config = config_short,
+        make = make,
+        genfiles = [config_short] + results + logs + reports + drcs + jsons,
     )
 
     return [
