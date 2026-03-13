@@ -92,8 +92,12 @@ exit $rc
             files = depset([script]),
             executable = script,
             runfiles = ctx.runfiles(
-                files = [sby, ctx.executable._sby, ctx.executable._yosys,
-                         ctx.executable._yosys_abc] +
+                files = [
+                            sby,
+                            ctx.executable._sby,
+                            ctx.executable._yosys,
+                            ctx.executable._yosys_abc,
+                        ] +
                         ctx.files.verilog_files +
                         ctx.files.includes,
                 transitive_files = depset(
