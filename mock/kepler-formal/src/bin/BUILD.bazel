@@ -1,0 +1,5 @@
+sh_binary(
+    name = "kepler-formal",
+    srcs = ["kepler-formal.sh"],
+    visibility = ["//visibility:public"],
+)

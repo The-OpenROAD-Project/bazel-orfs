@@ -61,6 +61,9 @@ jobs:
           disk-cache: ${{ github.workflow }}-${{ matrix.STAGE_TARGET }}
           repository-cache: true
 
+      - name: Use mock kepler-formal
+        run: echo 'import %workspace%/.github/ci.bazelrc' >> user.bazelrc
+
       - name: Build report
         if: ${{ endsWith(matrix.STAGE_TARGET, '_report') }}
         run: |
@@ -102,6 +105,9 @@ jobs:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}-${{ matrix.STAGE_TARGET }}
           repository-cache: true
+
+      - name: Use mock kepler-formal
+        run: echo 'import %workspace%/.github/ci.bazelrc' >> user.bazelrc
 
       - name: Run target
         run: |
@@ -159,6 +165,9 @@ jobs:
           disk-cache: ${{ github.workflow }}-${{ github.job }}
           repository-cache: true
 
+      - name: Use mock kepler-formal
+        run: echo 'import %workspace%/.github/ci.bazelrc' >> user.bazelrc
+
       - name: Verilator simulation - generated Verilog
         run: bazel test --verbose_failures //delivery:cpu_generated_test --test_output=errors
 
@@ -198,6 +207,9 @@ jobs:
           disk-cache: ${{ github.workflow }}-${{ github.job }}
           repository-cache: true
 
+      - name: Use mock kepler-formal
+        run: echo 'import %workspace%/.github/ci.bazelrc' >> user.bazelrc
+
       - name: Smoketests
         run: |
           .github/scripts/smoketests.sh
@@ -218,6 +230,9 @@ jobs:
         run: |
           sudo wget https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64 -O /usr/local/bin/bazel
           sudo chmod +x /usr/local/bin/bazel
+
+      - name: Use mock kepler-formal
+        run: echo 'import %workspace%/.github/ci.bazelrc' >> user.bazelrc
 
       - name: Build local stage targets - tag_array_64x184
         env:
@@ -249,6 +264,9 @@ jobs:
           bazelisk-cache: true
           disk-cache: ${{ github.workflow }}-${{ github.job }}
           repository-cache: true
+
+      - name: Use mock kepler-formal
+        run: echo 'import %workspace%/.github/ci.bazelrc' >> user.bazelrc
 
       - name: Lint Bazel files
         run: bazel mod tidy && git diff --exit-code
@@ -286,6 +304,9 @@ jobs:
 
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
+
+      - name: Use mock kepler-formal
+        run: echo 'import %workspace%/.github/ci.bazelrc' >> user.bazelrc
 
       - name: Build local stage targets - tag_array_64x184
         env:

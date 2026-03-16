@@ -1,0 +1,3 @@
+# Override kepler-formal with a lightweight local mock to avoid
+# cloning the full git repository during module resolution.
+common --override_module=kepler-formal=%workspace%/mock/kepler-formal
