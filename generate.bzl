@@ -26,10 +26,8 @@ def _fir_library_impl(ctx):
         env = {
             "CHISEL_FIRTOOL_PATH": ctx.executable._firtool.dirname,
         },
-        inputs = [
-                     ctx.executable.generator,
-                     ctx.executable._firtool,
-                 ] +
+        inputs = ctx.attr.generator[DefaultInfo].default_runfiles.files.to_list() +
+                 [ctx.executable._firtool] +
                  ctx.files.data,
         outputs = [fir],
         mnemonic = "FirGeneration",
