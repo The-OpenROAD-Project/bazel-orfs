@@ -211,6 +211,7 @@ orfs_flow(
     sources = {
         "SDC_FILE": ["constraints.sdc"],
     },
+    tags = ["manual"],
     verilog_files = ["rtl/CountTo42Cpu.sv"],
 )
 
