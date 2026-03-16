@@ -419,7 +419,7 @@ orfs_ppa(
 
 [orfs_flow(
     name = "lb_32x128_{}".format(pdk),
-    arguments = {
+    arguments = ({} if pdk == "sky130hd" else FAST_SETTINGS) | {
         "CORE_ASPECT_RATIO": "2",
         "CORE_UTILIZATION": "5",
         "PLACE_DENSITY": "0.40",
