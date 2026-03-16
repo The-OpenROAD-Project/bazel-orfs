@@ -219,6 +219,9 @@ def chisel_test(name, **kwargs):
         - Other standard scala_test attributes
     """
 
+    # Save user tags before popping -- needed by both inner and outer targets
+    user_tags = kwargs.pop("tags", [])
+
     # Extract env dict that needs expansion
     env_to_expand = {
         # Doesn't work in hermetic mode, no point in Bazel, no home folder
@@ -270,7 +273,7 @@ def chisel_test(name, **kwargs):
             "@maven//:org_chipsalliance_chisel_plugin_2_13_17",
         ],
         testonly = True,
-        tags = ["manual"] + kwargs.pop("tags", []),
+        tags = ["manual"] + user_tags,
         **kwargs
     )
 
@@ -283,5 +286,5 @@ def chisel_test(name, **kwargs):
         data = data_deps,
         # "local" tag runs test locally, allowing Verilator to access its include files
         # This is necessary because Verilator generates Makefiles with relative paths
-        tags = ["local"] + kwargs.pop("tags", []),
+        tags = ["local"] + user_tags,
     )
