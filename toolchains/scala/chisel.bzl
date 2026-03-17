@@ -137,6 +137,14 @@ if [ -n "$CHISEL_FIRTOOL_BINARY_PATH" ]; then
     export PATH="$FIRTOOL_DIR:$PATH"
 fi
 
+# Add espresso to PATH if provided (for Chisel QMC decoder logic minimization)
+if [ -n "$ESPRESSO_BIN" ]; then
+    if [[ "$ESPRESSO_BIN" != /* ]]; then
+        export ESPRESSO_BIN="$PWD/$ESPRESSO_BIN"
+    fi
+    export PATH="$(dirname "$ESPRESSO_BIN"):$PATH"
+fi
+
 # Workaround for BCR verilator: Generate verilated.mk from template
 # BCR verilator 5.036.bcr.3 includes only verilated.mk.in (template), not the processed file
 # Generate it at runtime to avoid modifying the BCR module
