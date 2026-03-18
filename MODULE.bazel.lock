@@ -210,7 +210,7 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "aR0dC2ttwB3GthuSxJQBRy7hUTty936IK0Do3Xl6B9M=",
+        "bzlTransitiveDigest": "s5rGtmx4XBt3zmIyDU6o5DHA49PSTjboQd6togXQQr4=",
         "usagesDigest": "fPb30cqg4GJ7U/lsKX7bo/mRzO3jG5/SiaPWEC+7Ryo=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -258,11 +258,6 @@
           }
         },
         "recordedRepoMappingEntries": [
-          [
-            "",
-            "bazel-orfs",
-            ""
-          ],
           [
             "",
             "bazel_tools",
