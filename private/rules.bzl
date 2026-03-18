@@ -37,6 +37,7 @@ load(
     "required_arguments",
     "run_arguments",
     "source_inputs",
+    "test_inputs",
     "verilog_arguments",
     "yosys_environment",
     "yosys_inputs",
@@ -388,7 +389,7 @@ fi
                 transitive_files = depset(
                     [config, test],
                     transitive = [
-                        flow_inputs(ctx),
+                        test_inputs(ctx),
                         data_inputs(ctx),
                         source_inputs(ctx),
                     ],
@@ -1049,9 +1050,7 @@ orfs_final = rule(
         ctx = ctx,
         stage = "6_final",
         steps = ["do-final"],
-        object_names = [
-            "klayout.lyt",
-        ],
+        object_names = [],
         log_names = [
             "6_1_merge.log",
             "6_report.log",
@@ -1066,7 +1065,6 @@ orfs_final = rule(
             "VSS.rpt",
         ],
         result_names = [
-            "6_final.gds",
             "6_final.odb",
             "6_final.sdc",
             "6_final.spef",
@@ -1078,6 +1076,40 @@ orfs_final = rule(
             {
                 "_stage": attr.string(
                     default = "final",
+                ),
+            },
+    provides = flow_provides(),
+    executable = True,
+)
+
+orfs_gds = rule(
+    implementation = lambda ctx: _make_impl(
+        ctx = ctx,
+        stage = "6_gds",
+        steps = ["do-gds"],
+        object_names = [
+            "klayout.lyt",
+        ],
+        log_names = [
+            "6_gds.log",
+        ],
+        json_names = [],
+        report_names = [],
+        result_names = [
+            "6_final.gds",
+        ],
+    ),
+    attrs = openroad_attrs() |
+            renamed_inputs_attr() |
+            {
+                "_stage": attr.string(
+                    default = "final",
+                ),
+                "klayout": attr.label(
+                    doc = "KLayout binary. Override to use a custom or mock klayout.",
+                    executable = True,
+                    allow_files = True,
+                    cfg = "exec",
                 ),
             },
     provides = flow_provides(),
@@ -1125,9 +1157,6 @@ orfs_abstract = rule(
         ctx = ctx,
         stage = "7_abstract",
         steps = ["do-generate_abstract"],
-        forwarded_names = [
-            "6_final.gds",
-        ],
         result_names = [
             "{}.lef".format(ctx.attr.src[TopInfo].module_top),
             "{}_typ.lib".format(ctx.attr.src[TopInfo].module_top),

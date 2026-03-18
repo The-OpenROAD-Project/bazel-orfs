@@ -31,6 +31,7 @@ load(
     _orfs_deps = "orfs_deps",
     _orfs_final = "orfs_final",
     _orfs_floorplan = "orfs_floorplan",
+    _orfs_gds = "orfs_gds",
     _orfs_generate_metadata = "orfs_generate_metadata",
     _orfs_grt = "orfs_grt",
     _orfs_macro = "orfs_macro",
@@ -94,6 +95,7 @@ orfs_cts = _orfs_cts
 orfs_grt = _orfs_grt
 orfs_route = _orfs_route
 orfs_final = _orfs_final
+orfs_gds = _orfs_gds
 orfs_generate_metadata = _orfs_generate_metadata
 orfs_update_rules = _orfs_update_rules
 orfs_abstract = _orfs_abstract
