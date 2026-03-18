@@ -1,0 +1,5 @@
+sh_binary(
+    name = "klayout",
+    srcs = ["klayout.sh"],
+    visibility = ["//visibility:public"],
+)
