@@ -1,0 +1,75 @@
+title: "Today: bazel-orfs dependency chain"
+layout:
+  node_width: 280
+  node_height: 48
+  gap_y: 30
+  margin: 30
+
+nodes:
+  - id: bazel
+    label: "Bazel rule"
+    sublabel: "_make_impl / _yosys_impl in rules.bzl"
+    col: 0
+    row: 0
+    fill: "#e3f2fd"
+    stroke: "#1565c0"
+
+  - id: maketpl
+    label: "make.tpl"
+    sublabel: "shell wrapper, sets env vars"
+    col: 0
+    row: 1
+    fill: "#fff3e0"
+    stroke: "#e65100"
+
+  - id: make
+    label: "GNU Make"
+    sublabel: "Makefile + config.mk + variables.mk"
+    col: 0
+    row: 2
+    fill: "#fff3e0"
+    stroke: "#e65100"
+
+  - id: flowsh
+    label: "flow.sh / synth.sh"
+    sublabel: "thin shell wrapper"
+    col: 0
+    row: 3
+    fill: "#f5f5f5"
+    stroke: "#666"
+
+  - id: tools
+    label: "openroad / yosys / klayout"
+    sublabel: "reads $::env(PLACE_DENSITY), $::env(TECH_LEF), ..."
+    col: 0
+    row: 4
+    fill: "#e8f5e9"
+    stroke: "#2e7d32"
+
+  - id: printvar
+    label: "make print-LIB_FILES"
+    sublabel: "hack: invokes Make just to read a variable"
+    col: 1
+    row: 1
+    fill: "#ffebee"
+    stroke: "#c62828"
+    stroke_width: 2
+
+edges:
+  - from: bazel
+    to: maketpl
+  - from: maketpl
+    to: make
+  - from: make
+    to: flowsh
+  - from: flowsh
+    to: tools
+  - from: bazel
+    to: printvar
+    color: "#c62828"
+    dashed: true
+    label: "synth needs LIB_FILES"
+  - from: printvar
+    to: make
+    color: "#c62828"
+    dashed: true

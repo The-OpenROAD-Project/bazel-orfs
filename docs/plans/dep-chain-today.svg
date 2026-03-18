@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 650.0 450.0" font-family="system-ui, sans-serif" font-size="13">
+<rect width="650.0" height="450.0" fill="white"/>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#555"/></marker></defs>
+<text x="325.0" y="24" text-anchor="middle" font-size="15" font-weight="bold">Today: bazel-orfs dependency chain</text>
+<line x1="170.0" y1="108.0" x2="170.0" y2="138.0" stroke="#555" stroke-width="1.5" marker-end="url(#arr)"/>
+<line x1="170.0" y1="186.0" x2="170.0" y2="216.0" stroke="#555" stroke-width="1.5" marker-end="url(#arr)"/>
+<line x1="170.0" y1="264.0" x2="170.0" y2="294.0" stroke="#555" stroke-width="1.5" marker-end="url(#arr)"/>
+<line x1="170.0" y1="342.0" x2="170.0" y2="372.0" stroke="#555" stroke-width="1.5" marker-end="url(#arr)"/>
+<line x1="310.0" y1="84.0" x2="340.0" y2="162.0" stroke="#c62828" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arr)"/>
+<text x="331.0" y="119.0" font-size="10" fill="#c62828" font-style="italic">synth needs LIB_FILES</text>
+<line x1="340.0" y1="162.0" x2="310.0" y2="240.0" stroke="#c62828" stroke-width="1.5" stroke-dasharray="6,4" marker-end="url(#arr)"/>
+<rect x="30.0" y="60.0" width="280" height="48" rx="6" fill="#e3f2fd" stroke="#1565c0" stroke-width="1.5"/>
+<text x="170.0" y="80.0" text-anchor="middle" font-weight="bold">Bazel rule</text>
+<text x="170.0" y="96.0" text-anchor="middle" font-size="10" fill="#666">_make_impl / _yosys_impl in rules.bzl</text>
+<rect x="30.0" y="138.0" width="280" height="48" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="1.5"/>
+<text x="170.0" y="158.0" text-anchor="middle" font-weight="bold">make.tpl</text>
+<text x="170.0" y="174.0" text-anchor="middle" font-size="10" fill="#666">shell wrapper, sets env vars</text>
+<rect x="30.0" y="216.0" width="280" height="48" rx="6" fill="#fff3e0" stroke="#e65100" stroke-width="1.5"/>
+<text x="170.0" y="236.0" text-anchor="middle" font-weight="bold">GNU Make</text>
+<text x="170.0" y="252.0" text-anchor="middle" font-size="10" fill="#666">Makefile + config.mk + variables.mk</text>
+<rect x="30.0" y="294.0" width="280" height="48" rx="6" fill="#f5f5f5" stroke="#666" stroke-width="1.5"/>
+<text x="170.0" y="314.0" text-anchor="middle" font-weight="bold">flow.sh / synth.sh</text>
+<text x="170.0" y="330.0" text-anchor="middle" font-size="10" fill="#666">thin shell wrapper</text>
+<rect x="30.0" y="372.0" width="280" height="48" rx="6" fill="#e8f5e9" stroke="#2e7d32" stroke-width="1.5"/>
+<text x="170.0" y="392.0" text-anchor="middle" font-weight="bold">openroad / yosys / klayout</text>
+<text x="170.0" y="408.0" text-anchor="middle" font-size="10" fill="#666">reads $::env(PLACE_DENSITY), $::env(TECH_LEF), ...</text>
+<rect x="340.0" y="138.0" width="280" height="48" rx="6" fill="#ffebee" stroke="#c62828" stroke-width="2"/>
+<text x="480.0" y="158.0" text-anchor="middle" font-weight="bold">make print-LIB_FILES</text>
+<text x="480.0" y="174.0" text-anchor="middle" font-size="10" fill="#666">hack: invokes Make just to read a variable</text>
+</svg>

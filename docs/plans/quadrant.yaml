@@ -1,0 +1,30 @@
+title: "Options for Reducing bazel-orfs Make Dependency"
+x:
+  label: "ORFS Churn"
+  low: "none"
+  high: "major"
+y:
+  label: "Testability Gain"
+  low: "none"
+  high: "full"
+points:
+  - label: "A"
+    x: 0.10
+    y: 0.60
+    note: "Python interpreter for config.mk DSL"
+  - label: "B"
+    x: 0.80
+    y: 0.90
+    note: "Piecemeal YAML + Python migration"
+  - label: "C"
+    x: 0.35
+    y: 0.30
+    note: "Pre-evaluate config.mk via Make, ship JSON"
+  - label: "D"
+    x: 0.05
+    y: 0.10
+    note: "bazel-orfs absorbs config knowledge"
+  - label: "E*"
+    x: 0.15
+    y: 0.85
+    note: "Python generates Make (like defaults.py) [recommended]"
