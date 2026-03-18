@@ -1,9 +1,13 @@
 # KLayout Integration
 
 KLayout is an optional dependency in bazel-orfs used for GDS generation.
+GDS generation is separated from the main flow (`orfs_flow`) into the
+standalone `orfs_gds` rule, so designs can complete synthesis through
+final reporting without requiring klayout.
+
 By default, bazel-orfs uses the locally installed `klayout` binary from your
-system PATH. This can be overridden to use a custom binary or a mock for
-CI/testing.
+system PATH. This can be overridden globally via `orfs.default()` or
+per-target via the `klayout` attribute on `orfs_gds`.
 
 ## Security Note
 
@@ -23,7 +27,7 @@ KLayout is configured through the `orfs_repositories` module extension in your
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
 orfs.default(
     image = "docker.io/openroad/orfs:...",
-    # Override klayout with a custom binary:
+    # Override klayout globally:
     # klayout = "@my_klayout//:klayout",
 )
 ```
@@ -40,7 +44,8 @@ orfs.default(
 ## GDS Generation with `orfs_gds`
 
 The `orfs_gds` rule generates GDS files using klayout via the ORFS `do-gds`
-make target. It takes a routed design as input and produces the final GDS:
+make target. It takes a completed design (from `orfs_final`) as input and
+produces the final GDS:
 
 ```starlark
 load("@bazel-orfs//:openroad.bzl", "orfs_gds")
@@ -51,8 +56,42 @@ orfs_gds(
 )
 ```
 
-The `orfs_gds` rule is separate from `orfs_final` to support flows where
-klayout is not available or GDS generation is not needed.
+The `klayout` attribute can be overridden per-target. When not set, it
+defaults to the global klayout configured in `orfs.default()`:
+
+```starlark
+orfs_gds(
+    name = "my_design_gds",
+    src = ":my_design_final",
+    klayout = "@mock-klayout//src/bin:klayout",
+)
+```
+
+## Assembling Macros with `orfs_macro`
+
+Use `orfs_macro` to assemble `.lef`, `.lib`, and optionally `.gds` files
+from different sources into a single macro target. GDS is optional:
+
+```starlark
+load("@bazel-orfs//:openroad.bzl", "orfs_gds", "orfs_macro")
+
+# Without GDS (klayout not required)
+orfs_macro(
+    name = "my_macro",
+    lef = ":my_design_generate_abstract",
+    lib = ":my_design_generate_abstract",
+    module_top = "my_design",
+)
+
+# With GDS
+orfs_macro(
+    name = "my_macro_with_gds",
+    gds = ":my_design_gds",
+    lef = ":my_design_generate_abstract",
+    lib = ":my_design_generate_abstract",
+    module_top = "my_design",
+)
+```
 
 ## Mock KLayout for Testing
 
@@ -69,25 +108,32 @@ local_path_override(
 )
 ```
 
-The mock klayout parses `-rd out=<path>` arguments (matching klayout's
-`-rd` flag for passing variables to scripts) and creates a minimal dummy
-GDS file at the specified output path. This allows the full flow to
+The mock klayout handles `-v` (version query), `-rd out=<path>`, and
+`-rd out_file=<path>` arguments, creating minimal dummy GDS files at
+the specified output paths. This allows the GDS generation step to
 complete without a real klayout installation.
 
-To use the mock in your own project, add it as a dev dependency and
-override the klayout parameter:
+To use the mock per-target in tests:
 
 ```starlark
-orfs.default(
-    image = "docker.io/openroad/orfs:...",
+orfs_gds(
+    name = "my_design_gds",
+    src = ":my_design_final",
     klayout = "@mock-klayout//src/bin:klayout",
 )
 ```
 
 ## Testing
 
-Run the mock klayout test to verify the dummy GDS generation:
+Run the tests to verify klayout integration:
 
 ```sh
+# Mock klayout unit test
 bazel test //test/klayout:mock_klayout_test
+
+# End-to-end macro assembly test (uses mock klayout for GDS)
+bazel test //test:lb_32x128_sky130hd_macro_test
+
+# Smoke test (flow without GDS)
+bazel test //test:lb_32x128_sky130hd_test
 ```
