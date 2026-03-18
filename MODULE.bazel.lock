@@ -210,8 +210,8 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "We8lHiP0MwXcNMkjeB/9G1WfFWL4xDQs48mA+auBrqE=",
-        "usagesDigest": "vl2eIbzv+D121Og4jIlrEwwXWhcKfgo1BiEUCzMRTuM=",
+        "bzlTransitiveDigest": "aR0dC2ttwB3GthuSxJQBRy7hUTty936IK0Do3Xl6B9M=",
+        "usagesDigest": "fPb30cqg4GJ7U/lsKX7bo/mRzO3jG5/SiaPWEC+7Ryo=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -247,6 +247,7 @@
           "config": {
             "repoRuleId": "@@//:config.bzl%global_config",
             "attributes": {
+              "klayout": "@@mock-klayout+//src/bin:klayout",
               "makefile": "@@+orfs_repositories+docker_orfs//:makefile",
               "pdk": "@@+orfs_repositories+docker_orfs//:asap7",
               "makefile_yosys": "@@+orfs_repositories+docker_orfs//:makefile_yosys",
@@ -257,6 +258,11 @@
           }
         },
         "recordedRepoMappingEntries": [
+          [
+            "",
+            "bazel-orfs",
+            ""
+          ],
           [
             "",
             "bazel_tools",
@@ -271,6 +277,11 @@
             "",
             "docker_orfs",
             "+orfs_repositories+docker_orfs"
+          ],
+          [
+            "",
+            "mock-klayout",
+            "mock-klayout+"
           ],
           [
             "",

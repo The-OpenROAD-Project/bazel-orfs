@@ -20,6 +20,11 @@ bazel_dep(name = "rules_shell", version = "0.3.0")
 bazel_dep(name = "rules_cc", version = "0.2.4")
 
 bazel_dep(name = "kepler-formal", version = "1.0.0", dev_dependency = True)
+bazel_dep(name = "mock-klayout", version = "0.0.1", dev_dependency = True)
+local_path_override(
+    module_name = "mock-klayout",
+    path = "mock/klayout",
+)
 
 # kepler-formal is not yet in BCR. Use git_override pointing to the repo.
 # For local development, comment out git_override and use local_path_override:
@@ -101,6 +106,9 @@ orfs.default(
     # a local only or remote docker image. Local docker images do not
     # have a sha256.
     image = "docker.io/openroad/orfs:26Q1-656-g97416b2e4",
+    # Use mock klayout for dev builds. For production, override with
+    # a real klayout binary or use the default (locally installed klayout).
+    klayout = "@mock-klayout//src/bin:klayout",
     # Smoketest, this is the default value
     makefile = "@docker_orfs//:makefile",
     # Comment out line below for local only docker images
