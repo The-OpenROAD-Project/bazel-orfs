@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" font-family="system-ui, sans-serif" font-size="13">
+<rect width="600" height="450" fill="white"/>
+<rect x="80" y="60" width="240.0" height="165.0" fill="#e8f5e9" opacity="0.5"/>
+<rect x="320.0" y="60" width="240.0" height="165.0" fill="#fff3e0" opacity="0.5"/>
+<rect x="80" y="225.0" width="240.0" height="165.0" fill="#fce4ec" opacity="0.5"/>
+<rect x="320.0" y="225.0" width="240.0" height="165.0" fill="#ffebee" opacity="0.5"/>
+<line x1="80" y1="390" x2="560" y2="390" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="80" y1="390" x2="80" y2="60" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#333"/></marker></defs>
+<text x="320.0" y="435" text-anchor="middle" font-size="14" font-weight="bold">ORFS Churn</text>
+<text x="65" y="225.0" text-anchor="middle" font-size="14" font-weight="bold" transform="rotate(-90,65,225.0)">Testability Gain</text>
+<text x="80" y="415" text-anchor="middle" font-size="11" fill="#666">none</text>
+<text x="560" y="415" text-anchor="middle" font-size="11" fill="#666">major</text>
+<text x="72" y="394" text-anchor="end" font-size="11" fill="#666">none</text>
+<text x="72" y="64" text-anchor="end" font-size="11" fill="#666">full</text>
+<text x="300.0" y="28" text-anchor="middle" font-size="16" font-weight="bold">Options for Reducing bazel-orfs Make Dependency</text>
+<circle cx="128.0" cy="192.0" r="6" fill="#546e7a" stroke="white" stroke-width="2"/>
+<text x="142.0" y="190.0" text-anchor="start" font-weight="bold" font-size="13" fill="#546e7a">A</text>
+<text x="142.0" y="206.0" text-anchor="start" font-size="11" fill="#555">Python interpreter for config.mk DSL</text>
+<circle cx="464.0" cy="93.0" r="6" fill="#546e7a" stroke="white" stroke-width="2"/>
+<text x="450.0" y="91.0" text-anchor="end" font-weight="bold" font-size="13" fill="#546e7a">B</text>
+<text x="450.0" y="107.0" text-anchor="end" font-size="11" fill="#555">Piecemeal YAML + Python migration</text>
+<circle cx="248.0" cy="291.0" r="6" fill="#546e7a" stroke="white" stroke-width="2"/>
+<text x="262.0" y="289.0" text-anchor="start" font-weight="bold" font-size="13" fill="#546e7a">C</text>
+<text x="262.0" y="305.0" text-anchor="start" font-size="11" fill="#555">Pre-evaluate config.mk via Make, ship JSON</text>
+<circle cx="104.0" cy="357.0" r="6" fill="#546e7a" stroke="white" stroke-width="2"/>
+<text x="118.0" y="355.0" text-anchor="start" font-weight="bold" font-size="13" fill="#546e7a">D</text>
+<text x="118.0" y="371.0" text-anchor="start" font-size="11" fill="#555">bazel-orfs absorbs config knowledge</text>
+<circle cx="152.0" cy="109.5" r="16" fill="none" stroke="#2e7d32" stroke-width="2" stroke-dasharray="4,3" opacity="0.5"/>
+<circle cx="152.0" cy="109.5" r="10" fill="#2e7d32" stroke="white" stroke-width="2"/>
+<text x="170.0" y="107.5" text-anchor="start" font-weight="bold" font-size="14" fill="#2e7d32">E*</text>
+<text x="170.0" y="123.5" text-anchor="start" font-size="12" fill="#333">Python generates Make (like defaults.py) [recommended]</text>
+</svg>
