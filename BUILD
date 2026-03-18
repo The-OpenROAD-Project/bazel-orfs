@@ -17,6 +17,12 @@ exports_files([
     "sby.tpl",
 ])
 
+sh_binary(
+    name = "klayout",
+    srcs = ["klayout.sh"],
+    visibility = ["//visibility:public"],
+)
+
 compile_pip_requirements(
     name = "requirements",
     src = "requirements.in",
@@ -56,5 +62,12 @@ py_binary(
 sh_binary(
     name = "bump",
     srcs = ["bump.sh"],
+    visibility = ["//visibility:public"],
+)
+
+# Run `bazelisk run //:fix_lint` to format all files changed since origin/main.
+sh_binary(
+    name = "fix_lint",
+    srcs = ["fix_lint.sh"],
     visibility = ["//visibility:public"],
 )
