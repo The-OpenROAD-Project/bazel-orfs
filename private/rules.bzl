@@ -1084,6 +1084,34 @@ orfs_final = rule(
     executable = True,
 )
 
+orfs_gds = rule(
+    implementation = lambda ctx: _make_impl(
+        ctx = ctx,
+        stage = "6_gds",
+        steps = ["do-gds"],
+        object_names = [
+            "klayout.lyt",
+        ],
+        log_names = [
+            "6_gds.log",
+        ],
+        json_names = [],
+        report_names = [],
+        result_names = [
+            "6_final.gds",
+        ],
+    ),
+    attrs = openroad_attrs() |
+            renamed_inputs_attr() |
+            {
+                "_stage": attr.string(
+                    default = "final",
+                ),
+            },
+    provides = flow_provides(),
+    executable = True,
+)
+
 orfs_generate_metadata = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
