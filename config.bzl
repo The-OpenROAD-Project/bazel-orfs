@@ -29,6 +29,7 @@ global_config = repository_rule(
         "klayout": attr.label(
             mandatory = False,
             cfg = "exec",
+            default = Label("@bazel-orfs//:klayout"),
         ),
         "makefile": attr.label(mandatory = True),
         "makefile_yosys": attr.label(mandatory = True),

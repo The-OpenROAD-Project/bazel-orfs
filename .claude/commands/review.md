@@ -8,7 +8,7 @@ Review all uncommitted changes and any commits since main. Read the diff, change
 
 ## 2. Run linters and formatters
 
-Run `bazelisk run //:fix_lint` to apply all project linters and formatters (buildifier, black, etc.) on changed files. Report any formatting changes made.
+Run `bazelisk run //:fix_lint` to apply all project linters and formatters (buildifier, black, etc.) on changed files. Always use `bazelisk run` (not direct shell invocation) to ensure the correct toolchain. Report any formatting changes made.
 
 ## 3. Update lock files
 
