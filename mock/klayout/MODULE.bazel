@@ -1,0 +1,4 @@
+module(
+    name = "mock-klayout",
+    version = "0.0.1",
+)
