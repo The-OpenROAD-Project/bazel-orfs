@@ -14,6 +14,11 @@ _default_tag = tag_class(
         "image": attr.string(
             mandatory = True,
         ),
+        "klayout": attr.label(
+            mandatory = False,
+            cfg = "exec",
+            default = Label("@bazel-orfs//:klayout"),
+        ),
         "makefile": attr.label(
             mandatory = False,
             default = Label("@docker_orfs//:makefile"),
@@ -88,6 +93,7 @@ def _orfs_repositories_impl(module_ctx):
         )
         global_config(
             name = "config",
+            klayout = default.klayout,
             makefile = default.makefile,
             pdk = default.pdk,
             makefile_yosys = default.makefile_yosys,

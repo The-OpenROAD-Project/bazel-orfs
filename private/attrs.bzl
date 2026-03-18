@@ -3,6 +3,7 @@
 load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     "@config//:global_config.bzl",
+    "CONFIG_KLAYOUT",
     "CONFIG_MAKEFILE",
     "CONFIG_MAKEFILE_YOSYS",
     "CONFIG_OPENROAD",
@@ -97,7 +98,7 @@ def flow_attrs():
             executable = True,
             allow_files = True,
             cfg = "exec",
-            default = Label("@docker_orfs//:klayout"),
+            default = CONFIG_KLAYOUT,
         ),
         "_make_template": attr.label(
             default = Label("@bazel-orfs//:make.tpl"),
