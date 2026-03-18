@@ -1,5 +1,6 @@
 load("@rules_python//python:defs.bzl", "py_binary")
-load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_macro", "orfs_run", "orfs_synth")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_gds", "orfs_macro", "orfs_run", "orfs_synth")
 load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:ppa.bzl", "orfs_ppa")
 load("//:sweep.bzl", "orfs_sweep")
@@ -438,6 +439,30 @@ orfs_ppa(
     "sky130hd",
     "ihp-sg13g2",
 ]]
+
+orfs_gds(
+    name = "lb_32x128_sky130hd_gds",
+    src = ":lb_32x128_sky130hd_final",
+    klayout = "@mock-klayout//src/bin:klayout",
+    variant = "base",
+)
+
+orfs_macro(
+    name = "lb_32x128_sky130hd_macro",
+    gds = ":lb_32x128_sky130hd_gds",
+    lef = ":lb_32x128_sky130hd_generate_abstract",
+    lib = ":lb_32x128_sky130hd_generate_abstract",
+    module_top = "lb_32x128",
+)
+
+sh_test(
+    name = "lb_32x128_sky130hd_macro_test",
+    srcs = ["macro_test.sh"],
+    args = [
+        "$(locations :lb_32x128_sky130hd_macro)",
+    ],
+    data = [":lb_32x128_sky130hd_macro"],
+)
 
 # This should not be built with bazel build ..., as it fails
 orfs_run(
