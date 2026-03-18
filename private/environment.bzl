@@ -31,11 +31,22 @@ def orfs_environment(ctx):
         "WORK_HOME": _work_home(ctx),
     }
 
+def _klayout_attr(ctx):
+    """Returns the klayout attr, preferring public 'klayout' over private '_klayout'."""
+    if hasattr(ctx.attr, "klayout") and ctx.attr.klayout:
+        return ctx.attr.klayout
+    return ctx.attr._klayout
+
+def _klayout_executable(ctx):
+    """Returns the klayout executable path."""
+    attr = _klayout_attr(ctx)
+    return attr[DefaultInfo].files_to_run.executable.path
+
 def flow_environment(ctx):
     return {
         "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
         "FLOW_HOME": ctx.file._makefile.dirname,
-        "KLAYOUT_CMD": ctx.executable._klayout.path,
+        "KLAYOUT_CMD": _klayout_executable(ctx),
         "OPENROAD_EXE": ctx.executable._openroad.path,
         "OPENSTA_EXE": ctx.executable._opensta.path,
         "QT_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
@@ -79,7 +90,7 @@ def flow_inputs(ctx):
         transitive = [
             _runfiles(
                 [
-                    ctx.attr._klayout,
+                    _klayout_attr(ctx),
                     ctx.attr._make,
                     ctx.attr._openroad,
                     ctx.attr._opensta,
@@ -87,6 +98,19 @@ def flow_inputs(ctx):
                     ctx.attr._makefile,
                 ] +
                 ctx.attr.tools,
+            ),
+        ],
+    )
+
+def test_inputs(ctx):
+    return depset(
+        transitive = [
+            _runfiles(
+                [
+                    ctx.attr._make,
+                    ctx.attr._python,
+                    ctx.attr._makefile,
+                ],
             ),
         ],
     )
