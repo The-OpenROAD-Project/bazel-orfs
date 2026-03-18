@@ -211,7 +211,7 @@
     "//:extension.bzl%orfs_repositories": {
       "general": {
         "bzlTransitiveDigest": "+mMA0zJouA+Nn2VVutkUvg9uQRRE84oEhIhnCyWHXgg=",
-        "usagesDigest": "fPb30cqg4GJ7U/lsKX7bo/mRzO3jG5/SiaPWEC+7Ryo=",
+        "usagesDigest": "vl2eIbzv+D121Og4jIlrEwwXWhcKfgo1BiEUCzMRTuM=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -247,7 +247,7 @@
           "config": {
             "repoRuleId": "@@//:config.bzl%global_config",
             "attributes": {
-              "klayout": "@@mock-klayout+//src/bin:klayout",
+              "klayout": "@@//:klayout",
               "makefile": "@@+orfs_repositories+docker_orfs//:makefile",
               "pdk": "@@+orfs_repositories+docker_orfs//:asap7",
               "makefile_yosys": "@@+orfs_repositories+docker_orfs//:makefile_yosys",
@@ -277,11 +277,6 @@
             "",
             "docker_orfs",
             "+orfs_repositories+docker_orfs"
-          ],
-          [
-            "",
-            "mock-klayout",
-            "mock-klayout+"
           ],
           [
             "",
