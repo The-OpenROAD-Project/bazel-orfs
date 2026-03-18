@@ -47,7 +47,7 @@ orfs_flow(
         "CORE_ASPECT_RATIO": "2",
         "CORE_UTILIZATION": "4",
         "IO_CONSTRAINTS": "$(location //test:io-sram)",
-        "PLACE_DENSITY": "0.10",
+        "PLACE_DENSITY": "0.20",
         "SDC_FILE": "$(location //test:constraints-sram)",
     },
     stage_sources = {
