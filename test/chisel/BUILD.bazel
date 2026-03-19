@@ -1,0 +1,11 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+    name = "downstream_chisel_test",
+    srcs = ["downstream_chisel_test.sh"],
+    tags = [
+        "local",
+        "manual",
+        "no-sandbox",
+    ],
+)
