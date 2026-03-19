@@ -1,0 +1,5 @@
+sh_binary(
+    name = "openroad",
+    srcs = ["openroad.sh"],
+    visibility = ["//visibility:public"],
+)
