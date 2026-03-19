@@ -37,6 +37,17 @@ def _klayout_attr(ctx):
         return ctx.attr.klayout
     return ctx.attr._klayout
 
+def _openroad_attr(ctx):
+    """Returns the openroad attr, preferring public 'openroad' over private '_openroad'."""
+    if hasattr(ctx.attr, "openroad") and ctx.attr.openroad:
+        return ctx.attr.openroad
+    return ctx.attr._openroad
+
+def _openroad_executable(ctx):
+    """Returns the openroad executable path."""
+    attr = _openroad_attr(ctx)
+    return attr[DefaultInfo].files_to_run.executable.path
+
 def _klayout_executable(ctx):
     """Returns the klayout executable path."""
     attr = _klayout_attr(ctx)
@@ -47,7 +58,7 @@ def flow_environment(ctx):
         "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
         "FLOW_HOME": ctx.file._makefile.dirname,
         "KLAYOUT_CMD": _klayout_executable(ctx),
-        "OPENROAD_EXE": ctx.executable._openroad.path,
+        "OPENROAD_EXE": _openroad_executable(ctx),
         "OPENSTA_EXE": ctx.executable._opensta.path,
         "QT_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
         "QT_QPA_PLATFORM_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
@@ -92,7 +103,7 @@ def flow_inputs(ctx):
                 [
                     _klayout_attr(ctx),
                     ctx.attr._make,
-                    ctx.attr._openroad,
+                    _openroad_attr(ctx),
                     ctx.attr._opensta,
                     ctx.attr._python,
                     ctx.attr._makefile,
@@ -179,7 +190,7 @@ def flow_substitutions(ctx):
         "${MAKEFILE_PATH}": ctx.file._makefile.path,
         "${MAKE_PATH}": ctx.executable._make.path,
         # OpenROAD uses //:openroad, //:opensta here and puts the binary in the pwd
-        "${OPENROAD_PATH}": "./" + ctx.executable._openroad.short_path,
+        "${OPENROAD_PATH}": "./" + _openroad_attr(ctx)[DefaultInfo].files_to_run.executable.short_path,
         "${OPENSTA_PATH}": "./" + ctx.executable._opensta.short_path,
         "${QT_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
         "${RUBY_PATH}": commonpath(ctx.files._ruby),

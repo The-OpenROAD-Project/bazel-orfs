@@ -72,6 +72,7 @@ def orfs_flow(
         arguments = {},
         extra_configs = {},
         abstract_stage = None,
+        last_stage = None,
         variant = None,
         mock_area = None,
         previous_stage = {},
@@ -97,6 +98,7 @@ def orfs_flow(
       arguments: dictionary of additional arguments to the flow, automatically assigned to stages
       extra_configs: dictionary keyed by ORFS stages with list of additional configuration files
       abstract_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
+      last_stage: string with the last stage to run, stops the flow early without generating an abstract. Mutually exclusive with abstract_stage. Useful for fast testing.
       variant: name of the target variant, added right after the module name
       mock_area: floating point number, scale the die width/height by this amount, default no scaling
       previous_stage: a dictionary with the input for a stage, default is previous stage. Useful when running experiments that share preceeding stages, like share synthesis for floorplan variants.
@@ -106,6 +108,8 @@ def orfs_flow(
       test_kwargs: dictionary of arguments to pass to orfs_test
       **kwargs: forward named args
     """
+    if abstract_stage and last_stage:
+        fail("abstract_stage and last_stage are mutually exclusive")
     if variant == "base":
         variant = None
     if top == None:
@@ -123,6 +127,7 @@ def orfs_flow(
         arguments = arguments,
         extra_configs = extra_configs,
         abstract_stage = abstract_stage,
+        last_stage = last_stage,
         variant = variant,
         abstract_variant = abstract_variant,
         previous_stage = previous_stage,
@@ -257,9 +262,11 @@ def _orfs_pass(
         pdk,
         settings,
         stage_data,
+        last_stage = None,
         test_kwargs = {},
         mock_area = False,
         **kwargs):
+    ALL_STAGES = [step.stage for step in STAGE_IMPLS]
     steps = []
     LEGAL_ABSTRACT_STAGES = ["place", "cts", "grt", "route", "final"]
     if abstract_stage != None and abstract_stage not in LEGAL_ABSTRACT_STAGES:
@@ -269,11 +276,24 @@ def _orfs_pass(
                 legal = ", ".join(LEGAL_ABSTRACT_STAGES),
             ),
         )
+    if last_stage != None and last_stage not in ALL_STAGES:
+        fail(
+            "last_stage {last_stage} must be one of: {legal}".format(
+                last_stage = last_stage,
+                legal = ", ".join(ALL_STAGES),
+            ),
+        )
+
+    # Determine which stage truncates the flow
+    stop_stage = abstract_stage or last_stage
     for step in STAGE_IMPLS:
         steps.append(step)
-        if step.stage == abstract_stage:
+        if step.stage == stop_stage:
             break
-    steps.append(ABSTRACT_IMPL)
+
+    # Only add abstract generation when abstract_stage is set (not last_stage)
+    if abstract_stage or not last_stage:
+        steps.append(ABSTRACT_IMPL)
 
     # Prune stages unused due to previous_stage
     if len(previous_stage) > 1:
