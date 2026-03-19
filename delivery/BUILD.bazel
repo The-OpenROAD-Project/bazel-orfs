@@ -9,6 +9,7 @@
 #   6. Synthesis via OpenROAD (ASAP7)
 
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("@rules_chisel//chisel:defs.bzl", "chisel_binary", "chisel_library")
 load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
 load("@rules_verilator//verilog:defs.bzl", "verilog_library")
 load("//:eqy.bzl", "eqy_test")
@@ -16,7 +17,6 @@ load("//:generate.bzl", "fir_library")
 load("//:openroad.bzl", "orfs_flow")
 load("//:verilog.bzl", "verilog_directory", "verilog_single_file_library")
 load("//lec:lec.bzl", "lec_test")
-load("//toolchains/scala:chisel.bzl", "chisel_binary", "chisel_library")
 
 # =============================================================================
 # Step 1: Chisel -> FIRRTL -> Verilog

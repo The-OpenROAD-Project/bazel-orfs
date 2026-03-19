@@ -8,12 +8,12 @@ module(
 
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
 
-# NOTE! downgraded googletest to 1.15.2 from 1.17.0 to avoid target 'if_constexpr' error
-bazel_dep(name = "googletest", version = "1.15.2", dev_dependency = True)
+bazel_dep(name = "googletest", version = "1.17.0.bcr.1", dev_dependency = True)
 
 bazel_dep(name = "rules_jvm_external", version = "6.7")
 bazel_dep(name = "rules_java", version = "8.14.0")
 bazel_dep(name = "rules_scala", version = "7.1.5")
+bazel_dep(name = "rules_chisel", version = "0.2.0")
 bazel_dep(name = "rules_verilator", version = "0.1.0")
 bazel_dep(name = "verilator", version = "5.036.bcr.3")
 
@@ -276,6 +276,14 @@ maven.install(
     ],
 )
 use_repo(maven, "maven")
+
+chisel = use_extension("@rules_chisel//chisel:extensions.bzl", "chisel")
+chisel.toolchain(
+    chisel_version = "7.2.0",
+    firtool_resolver_version = "2.0.1",
+    scala_version = SCALA_VERSION,
+)
+use_repo(chisel, "chisel_maven")
 
 # ## Lock the compiler version and avoid any local compiler
 # bazel_dep(name = "toolchains_llvm", version = "1.5.0")

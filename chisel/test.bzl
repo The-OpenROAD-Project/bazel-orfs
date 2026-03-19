@@ -3,10 +3,10 @@ This module defines Bazel rules and macros for generating, simulating, and testi
 """
 
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
 load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
 load("//:generate.bzl", "fir_library")
 load("//:verilog.bzl", "verilog_directory")
-load("//toolchains/scala:chisel.bzl", "chisel_binary")
 
 def _chisel_bench_test_impl(ctx):
     test = ctx.actions.declare_file("{}_test".format(ctx.attr.name))

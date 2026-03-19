@@ -1,5 +1,5 @@
+load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
 load("//:sby.bzl", "sby_test")
-load("//toolchains/scala:chisel.bzl", "chisel_binary")
 
 filegroup(
     name = "chiselfiles",
