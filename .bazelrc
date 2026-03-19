@@ -2,4 +2,8 @@ build --incompatible_strict_action_env
 
 common --incompatible_disallow_empty_glob
 
+# Build OpenROAD from source with GUI enabled to match the docker image.
+# Use: bazelisk build --config=openroad-gui @openroad//:openroad
+build:openroad-gui --@openroad//:platform=gui
+
 try-import %workspace%/user.bazelrc

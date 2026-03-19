@@ -1,0 +1,31 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+index f09d48c..c803b3c 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -389,7 +389,7 @@ filegroup(
+     srcs = [
+         "src/Exception.i",
+     ],
+-    visibility = ["@//:__subpackages__"],
++    visibility = ["//visibility:public"],
+ )
+ 
+ filegroup(
+@@ -397,7 +397,7 @@ filegroup(
+     srcs = [
+         "src/Exception-py.i",
+     ],
+-    visibility = ["@//:__subpackages__"],
++    visibility = ["//visibility:public"],
+ )
+ 
+ filegroup(
+@@ -412,7 +412,7 @@ filegroup(
+     srcs = [
+         "src/options.i",
+     ],
+-    visibility = ["@//:__subpackages__"],
++    visibility = ["//visibility:public"],
+ )
+ 
+ sh_binary(
