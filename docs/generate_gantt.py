@@ -72,7 +72,7 @@ ACTIVITIES = [
      [r"sby[\./]", r"sby\.bzl$", r"sby\.tpl$"], []),
     # --- Toolchains ---
     ("Chisel & Scala", "Toolchains",
-     [r"chisel/", r"toolchains/scala/", r"generate\.bzl$",
+     [r"chisel/", r"generate\.bzl$",
       r"bloop", r"\.scala$"], []),
     ("Verilog & Yosys", "Toolchains",
      [r"verilog\.bzl$", r"yosys\.bzl$", r"slang/"], []),

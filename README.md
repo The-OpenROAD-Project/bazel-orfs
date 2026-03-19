@@ -36,7 +36,7 @@ and easily actionable github issues for the OpenROAD and ORFS maintainers.
 | Monitor long-running builds | [Monitor long-running builds](#monitor-long-running-builds) |
 | Sweep design parameters | [Design space exploration](#design-space-exploration) |
 | Run formal verification | [sby/README.md](sby/README.md) |
-| Integrate Chisel designs | [toolchains/scala/README.md](toolchains/scala/README.md) |
+| Integrate Chisel designs | [chisel/README.md](chisel/README.md) |
 | Pin slow-to-build artifacts | [tools/pin/README.md](tools/pin/README.md) |
 | Debug or create issue archives | [Create a make issue archive](#create-a-make-issue-archive) |
 | Upgrade bazel-orfs or ORFS | [Upgrade bazel-orfs](#upgrade-bazel-orfs) |
@@ -743,7 +743,7 @@ bazel-orfs supports two approaches to design space exploration:
 
 | Tool | Description | Documentation |
 |------|-------------|---------------|
-| Chisel integration | Build Chisel designs, run tests | [toolchains/scala](toolchains/scala/README.md), [chisel](chisel/README.md) |
+| Chisel integration | Build Chisel designs, run tests | [chisel](chisel/README.md) |
 | Formal verification | SymbiYosys bounded model checking | [sby](sby/README.md) |
 | Artifact pinning | Cache long-running build results | [tools/pin](tools/pin/README.md) |
 | Post-synthesis cleanup | najaeda netlist cleaning (experimental) | [naja](naja/README.md) |
@@ -964,7 +964,7 @@ The root directory contains only external-facing concerns:
 - `.bzl` rule files (`openroad.bzl`, `sweep.bzl`, `ppa.bzl`, etc.) loaded by downstream consumers
 - `MODULE.bazel` and `BUILD` with public tools (`bump`, `plot_clock_period_tool`)
 - Template files consumed by rules (`make.tpl`, `deploy.tpl`, `eqy.tpl`, `sby.tpl`, `mock_area.tcl`)
-- `toolchains/` (Scala/Chisel), `tools/` (pin, deploy), `extensions/` (pin)
+- `tools/` (pin, deploy), `extensions/` (pin)
 
 Test and demo content lives in subdirectories:
 

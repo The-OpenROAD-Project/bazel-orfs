@@ -1,6 +1,6 @@
 # Peek poke less Chisel tests built by Bazel
 
-> For Chisel Bazel rules (`chisel_library`, `chisel_binary`, `chisel_test`), see [toolchains/scala/README.md](../toolchains/scala/README.md).
+> For Chisel Bazel rules (`chisel_library`, `chisel_binary`, `chisel_test`), see BCR package `rules_chisel`: `@rules_chisel//chisel:defs.bzl`.
 
 ChiselSim handles builds and runs tests, which is an inversion of control.
 

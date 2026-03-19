@@ -8,8 +8,8 @@ Saves you from searching through external rules to find the right incantations.
 ### Chisel -> Verilog pipeline (in bazel-orfs)
 
 ```
-chisel_library()     # //toolchains/scala:chisel.bzl -- scala_library + chisel deps
-chisel_binary()      # //toolchains/scala:chisel.bzl -- scala_binary + chisel deps
+chisel_library()     # @rules_chisel//chisel:defs.bzl -- scala_library + chisel deps
+chisel_binary()      # @rules_chisel//chisel:defs.bzl -- scala_binary + chisel deps
 fir_library()        # //:generate.bzl -- runs generator binary -> .fir file
 verilog_directory()  # //:verilog.bzl -- firtool: .fir -> split .sv directory
 verilog_file()       # //:verilog.bzl -- firtool: .fir -> single .sv file
@@ -159,7 +159,7 @@ kepler-formal requires:
 
 | What | Path |
 |------|------|
-| Chisel rules | `toolchains/scala/chisel.bzl` |
+| Chisel rules | `@rules_chisel//chisel:defs.bzl` |
 | FIR generation | `generate.bzl` |
 | Verilog rules | `verilog.bzl` |
 | VerilogInfo provider | `@rules_verilator//verilog:providers.bzl` |
