@@ -6,12 +6,15 @@ load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 exports_files([
+    "bump.sh",
     "deploy.tpl",
     "eqy.tpl",
     "eqy-write-verilog.tcl",
     "make.tpl",
     "mock_area.tcl",
     "open_plots.sh",
+    "openroad-llvm-root-only.patch",
+    "openroad-visibility.patch",
     "oss_cad_suite.BUILD.bazel",
     "power.tcl",
     "sby.tpl",
@@ -20,6 +23,12 @@ exports_files([
 sh_binary(
     name = "klayout",
     srcs = ["klayout.sh"],
+    visibility = ["//visibility:public"],
+)
+
+sh_binary(
+    name = "openroad",
+    srcs = ["openroad_wrapper.sh"],
     visibility = ["//visibility:public"],
 )
 
