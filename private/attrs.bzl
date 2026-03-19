@@ -138,6 +138,12 @@ def flow_attrs():
             allow_files = True,
             default = Label("@docker_orfs//:ruby_dynamic3.0.0"),
         ),
+        "openroad": attr.label(
+            doc = "OpenROAD binary. Override to use a custom or locally-built openroad.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+        ),
     } | orfs_attrs()
 
 def yosys_only_attrs():
