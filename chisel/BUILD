@@ -1,5 +1,9 @@
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("@rules_chisel//chisel:defs.bzl", "chisel_library", "chisel_test")
+load("@rules_chisel//chisel:defs.bzl", "chisel_binary", "chisel_library", "chisel_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//:generate.bzl", "fir_library")
+load("//:openroad.bzl", "orfs_synth")
+load("//:verilog.bzl", "verilog_directory", "verilog_single_file_library")
 load("//chisel:test.bzl", "chisel_bench_test")
 
 filegroup(
@@ -47,4 +51,70 @@ cc_test(
         ":life_simulator",
         "@googletest//:gtest_main",
     ],
+)
+
+# =============================================================================
+# HelloWorld: Chisel -> FIRRTL -> Verilog -> ORFS synthesis
+# =============================================================================
+
+HELLOWORLD_FIRTOOL_OPTS = [
+    "--lowering-options=disallowPackedArrays,disallowLocalVariables,noAlwaysComb",
+    "--disable-all-randomization",
+]
+
+chisel_binary(
+    name = "helloworld_generator",
+    srcs = [],
+    main_class = "codegen.CodeGen",
+    tags = ["manual"],
+    deps = [
+        ":applicationlib",
+        ":codegenlib",
+    ],
+)
+
+fir_library(
+    name = "helloworld_fir",
+    generator = ":helloworld_generator",
+    opts = ["example.HelloWorld"] + HELLOWORLD_FIRTOOL_OPTS,
+    tags = ["manual"],
+)
+
+verilog_directory(
+    name = "helloworld_split",
+    srcs = [":helloworld_fir"],
+    opts = HELLOWORLD_FIRTOOL_OPTS,
+    tags = ["manual"],
+)
+
+verilog_single_file_library(
+    name = "helloworld.sv",
+    srcs = [":helloworld_split"],
+    tags = ["manual"],
+)
+
+orfs_synth(
+    name = "HelloWorld_synth",
+    arguments = {
+        "SDC_FILE": "$(location :constraints-helloworld.sdc)",
+    },
+    data = [":constraints-helloworld.sdc"],
+    module_top = "HelloWorld",
+    tags = ["manual"],
+    verilog_files = [":helloworld.sv"],
+)
+
+filegroup(
+    name = "HelloWorld_synth_odb",
+    srcs = [":HelloWorld_synth"],
+    output_group = "1_synth.odb",
+    tags = ["manual"],
+)
+
+sh_test(
+    name = "helloworld_synth_test",
+    srcs = ["helloworld_synth_test.sh"],
+    args = ["$(locations :HelloWorld_synth_odb)"],
+    data = [":HelloWorld_synth_odb"],
+    tags = ["manual"],
 )
