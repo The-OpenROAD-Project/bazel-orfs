@@ -12,7 +12,17 @@ Run `bazelisk run //:fix_lint` to apply all project linters and formatters (buil
 
 ## 3. Update lock files
 
-If `MODULE.bazel` has changed, ensure `MODULE.bazel.lock` is up to date by running `bazelisk mod deps --lockfile_mode=update`. Report whether the lockfile needed updating.
+If `MODULE.bazel` has changed, regenerate `MODULE.bazel.lock` with the CI config applied (see CLAUDE.md for details):
+
+```sh
+echo 'import %workspace%/.github/ci.bazelrc' >> user.bazelrc
+bazelisk mod tidy
+rm user.bazelrc
+```
+
+IMPORTANT: Do NOT use `bazelisk mod deps --lockfile_mode=update` or plain `bazelisk mod tidy` — the CI uses `.github/ci.bazelrc` which overrides module resolution (e.g. `--override_module=kepler-formal=...`), so the lockfile generated without that config will differ from what CI expects, causing the "Generate configs" job to fail.
+
+Report whether the lockfile needed updating.
 
 ## 4. Check Bazel conventions
 
