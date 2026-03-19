@@ -1,0 +1,18 @@
+module(
+    name = "bazel-orfs",
+    version = "0.0.1",
+)
+
+bazel_dep(name = "openroad", dev_dependency = True)
+git_override(
+    module_name = "openroad",
+    commit = "old_openroad_commit",
+    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
+)
+
+orfs = use_extension("//:extension.bzl", "orfs_repositories")
+orfs.default(
+    image = "docker.io/openroad/orfs:OLD-TAG",
+    sha256 = "old_sha256",
+)
+use_repo(orfs, "docker_orfs")
