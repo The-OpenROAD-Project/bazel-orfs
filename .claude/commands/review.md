@@ -10,9 +10,30 @@ Review all uncommitted changes and any commits since main. Read the diff, change
 
 Run `bazelisk run //:fix_lint` to apply all project linters and formatters (buildifier, black, etc.) on changed files. Report any formatting changes made.
 
-## 3. Update lock files
+## 3. Local validation (replicate CI locally, ~15s total)
 
-If `MODULE.bazel` has changed, regenerate `MODULE.bazel.lock` with the CI config applied (see CLAUDE.md for details):
+Run these checks locally before reviewing style. They catch the most common CI failures and are much faster than waiting for remote CI (~10min round-trip). Run them in this order:
+
+### 3a. Analysis check (~10s)
+
+```sh
+bazelisk build //... --nobuild
+```
+
+This runs full target analysis without building. Catches: conflicting actions (duplicate output paths from `orfs_flow` targets with same name+variant), missing deps, label errors, broken `select()` expressions.
+
+### 3b. Fast targeted tests (~5s)
+
+```sh
+bazelisk test //test/bump:bump_test //test:lb_32x128_sky130hd_test //test/klayout:mock_klayout_test --test_output=errors
+bazelisk build //test:lb_32x128_mock_openroad_floorplan
+```
+
+These exercise the mock openroad/klayout override paths and bump.sh logic cheaply.
+
+### 3c. Lockfile regeneration (~30s, only if MODULE.bazel changed)
+
+Regenerate `MODULE.bazel.lock` with the CI config applied (see CLAUDE.md for details):
 
 ```sh
 echo 'import %workspace%/.github/ci.bazelrc' >> user.bazelrc
@@ -23,6 +44,16 @@ rm user.bazelrc
 IMPORTANT: Do NOT use `bazelisk mod deps --lockfile_mode=update` or plain `bazelisk mod tidy` — the CI uses `.github/ci.bazelrc` which overrides module resolution (e.g. `--override_module=kepler-formal=...`), so the lockfile generated without that config will differ from what CI expects, causing the "Generate configs" job to fail.
 
 Report whether the lockfile needed updating.
+
+### 3d. Check for .gitignore traps on new files
+
+```sh
+git check-ignore $(git ls-files --others --exclude-standard)
+```
+
+The repo has `bazel-*` in `.gitignore` which can silently ignore files with names starting with "bazel-" (e.g. fixture files). If any new files are ignored, either rename them or use `git add -f`.
+
+Report any issues found. Do NOT proceed to style review if any of 3a-3d fail — fix them first.
 
 ## 4. Check Bazel conventions
 
@@ -70,7 +101,7 @@ For any changed `.md` files:
 - Check that internal links point to files that exist
 - Ensure tone is welcoming and matter-of-fact
 
-## 8. Summarize findings
+## 9. Summarize findings
 
 Present findings as a numbered list of **concrete suggestions**, grouped by file. For each suggestion:
 
@@ -84,7 +115,7 @@ Order suggestions by **least churn first** — small, safe fixes before larger c
 
 End with a short verdict: "Ready to merge", "Needs minor fixes", or "Needs significant work".
 
-## 9. Offer to fix and clean up commits
+## 10. Offer to fix and clean up commits
 
 After presenting findings, show a numbered menu combining both issues found and commit cleanup opportunities:
 
