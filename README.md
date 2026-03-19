@@ -942,7 +942,20 @@ Later, those dependencies are used by Bazel to build the `synth` stage for the `
 
     bazelisk run @bazel-orfs//:bump
 
-This updates your MODULE.bazel with the latest ORFS and bazel-orfs and runs `bazelisk mod tidy`.
+A single command that updates all version pins in your `MODULE.bazel` and
+runs `bazelisk mod tidy`. It detects which project it's running in and does
+the right thing — no need to remember which versions to update or where.
+
+What it updates:
+
+- **ORFS docker image** tag and sha256 (latest from Docker Hub)
+- **bazel-orfs** git commit (latest from GitHub)
+- **OpenROAD** git commit (latest from GitHub, if configured)
+
+In downstream projects, it also injects commented-out boilerplate for
+[building OpenROAD from source](docs/openroad.md) — uncomment to test the
+latest OpenROAD before the docker image catches up. This is useful when an
+OpenROAD bug fix or feature hasn't made it into the docker image yet.
 
 ## Repository layout
 
