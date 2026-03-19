@@ -61,6 +61,19 @@ sed -i -E \
     }" \
     "$MODULE_FILE"
 
+# Also update mock downstream repos that pin the ORFS image.
+for mock_module in mock/*/MODULE.bazel; do
+    if [ -f "$mock_module" ] && grep -q 'orfs\.default' "$mock_module"; then
+        echo "Updating ORFS image in $mock_module"
+        sed -i -E \
+            -e "/orfs\.default\(/,/^\s*\)/ { \
+                s|(image = \"docker.io/openroad/orfs:)[^\"]+(\")|\1$LATEST_TAG\2|; \
+                s|(sha256 = \")[^\"]+(\")|\1$DIGEST\2| \
+            }" \
+            "$mock_module"
+    fi
+done
+
 # --- Update bazel-orfs commit (all projects except bazel-orfs itself) ---
 
 if [[ "$IS_BAZEL_ORFS" -eq 0 ]]; then
