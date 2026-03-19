@@ -1,0 +1,45 @@
+load("@bazel-orfs//:generate.bzl", "fir_library")
+load("@bazel-orfs//:verilog.bzl", "verilog_directory", "verilog_single_file_library")
+load("@rules_chisel//chisel:defs.bzl", "chisel_binary", "chisel_library")
+
+chisel_library(
+    name = "codegenlib",
+    srcs = ["src/main/scala/codegen/CodeGen.scala"],
+)
+
+chisel_library(
+    name = "designlib",
+    srcs = glob(["src/main/scala/example/**/*.scala"]),
+)
+
+chisel_binary(
+    name = "generator",
+    srcs = [],
+    main_class = "codegen.CodeGen",
+    deps = [
+        ":codegenlib",
+        ":designlib",
+    ],
+)
+
+FIRTOOL_OPTS = [
+    "--lowering-options=disallowPackedArrays,disallowLocalVariables,noAlwaysComb",
+    "--disable-all-randomization",
+]
+
+fir_library(
+    name = "helloworld_fir",
+    generator = ":generator",
+    opts = ["example.HelloWorld"] + FIRTOOL_OPTS,
+)
+
+verilog_directory(
+    name = "helloworld_split",
+    srcs = [":helloworld_fir"],
+    opts = FIRTOOL_OPTS,
+)
+
+verilog_single_file_library(
+    name = "helloworld.sv",
+    srcs = [":helloworld_split"],
+)
