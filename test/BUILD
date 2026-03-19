@@ -464,6 +464,38 @@ sh_test(
     data = [":lb_32x128_sky130hd_macro"],
 )
 
+# Test the openroad override mechanism using mock-openroad (fast in CI).
+# Also tests the last_stage option to stop after floorplan without abstract.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    arguments = LB_ARGS,
+    last_stage = "floorplan",
+    openroad = "@mock-openroad//src/bin:openroad",
+    previous_stage = {"floorplan": ":lb_32x128_synth"},
+    stage_sources = LB_STAGE_SOURCES,
+    variant = "mock_openroad",
+    verilog_files = LB_VERILOG_FILES,
+)
+
+# Manual target for testing the source-built OpenROAD GUI locally.
+# Run: bazelisk run //test:lb_32x128_openroad_gui_synth
+# This builds OpenROAD from source with GUI and opens the synthesis
+# results in the OpenROAD GUI. Use after `bazelisk run //:bump` to
+# verify the latest OpenROAD works with the flow.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    arguments = LB_ARGS,
+    last_stage = "floorplan",
+    openroad = "@openroad//:openroad",
+    previous_stage = {"floorplan": ":lb_32x128_synth"},
+    stage_sources = LB_STAGE_SOURCES,
+    tags = ["manual"],
+    variant = "openroad_gui",
+    verilog_files = LB_VERILOG_FILES,
+)
+
 # This should not be built with bazel build ..., as it fails
 orfs_run(
     name = "cell_count_manual",
