@@ -1,0 +1,10 @@
+sh_test(
+    name = "bump_test",
+    srcs = ["bump_test.sh"],
+    data = [
+        "fixtures/downstream.MODULE.bazel",
+        "fixtures/downstream-with-boilerplate.MODULE.bazel",
+        "fixtures/openroad.MODULE.bazel",
+        "fixtures/self.MODULE.bazel",
+    ],
+)
