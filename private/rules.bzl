@@ -13,6 +13,7 @@ load(
 )
 load(
     "//private:environment.bzl",
+    "EXPAND_VERILOG_DIRS",
     "config_content",
     "config_environment",
     "config_overrides",
@@ -450,7 +451,7 @@ def _yosys_impl(ctx):
             "yosys-dependencies",
             "do-yosys-canonicalize",
         ],
-        command = " && ".join(commands),
+        command = EXPAND_VERILOG_DIRS + " && ".join(commands),
         env = config_overrides(
             ctx,
             verilog_arguments(ctx.files.verilog_files) |
