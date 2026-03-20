@@ -118,3 +118,35 @@ sh_test(
     data = [":HelloWorld_synth_odb"],
     tags = ["manual"],
 )
+
+# =============================================================================
+# HelloWorld synthesis from verilog_directory (TreeArtifact) directly,
+# without the verilog_single_file_library concatenation workaround.
+# Tests EXPAND_VERILOG_DIRS shell expansion of directory entries.
+# =============================================================================
+
+orfs_synth(
+    name = "HelloWorld_dir_synth",
+    arguments = {
+        "SDC_FILE": "$(location :constraints-helloworld.sdc)",
+    },
+    data = [":constraints-helloworld.sdc"],
+    module_top = "HelloWorld",
+    tags = ["manual"],
+    verilog_files = [":helloworld_split"],
+)
+
+filegroup(
+    name = "HelloWorld_dir_synth_odb",
+    srcs = [":HelloWorld_dir_synth"],
+    output_group = "1_synth.odb",
+    tags = ["manual"],
+)
+
+sh_test(
+    name = "helloworld_dir_synth_test",
+    srcs = ["helloworld_synth_test.sh"],
+    args = ["$(locations :HelloWorld_dir_synth_odb)"],
+    data = [":HelloWorld_dir_synth_odb"],
+    tags = ["manual"],
+)
