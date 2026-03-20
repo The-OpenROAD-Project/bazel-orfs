@@ -278,6 +278,22 @@ def verilog_arguments(files, short = False):
         ),
     }
 
+# Shell snippet prepended to synthesis commands to expand directory entries
+# in VERILOG_FILES to individual .v/.sv/.svh files.  TreeArtifacts (from
+# verilog_directory) appear as directory paths that synthesis frontends
+# (slang, yosys, verific) cannot process directly.
+EXPAND_VERILOG_DIRS = """\
+_expanded=""
+for _f in $VERILOG_FILES; do
+  if [ -d "$_f" ]; then
+    _expanded="$_expanded $(find "$_f" \\( -name '*.v' -o -name '*.sv' -o -name '*.svh' \\) | sort | tr '\\n' ' ')"
+  else
+    _expanded="$_expanded $_f"
+  fi
+done
+export VERILOG_FILES="$_expanded"
+"""
+
 def config_overrides(ctx, arguments):
     has_stage = hasattr(ctx.attr, "_stage")
     defines_for_stage = {
