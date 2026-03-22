@@ -1,33 +1,13 @@
 #!/bin/sh
-# Mock klayout binary - generates dummy GDS files for testing.
-#
-# Parses "-rd key=value" arguments to find the output file path
-# and creates a minimal dummy GDS file.
-
-case "$1" in
-    -v)
-        echo "KLayout 0.0.0 (mock)"
-        exit 0
-        ;;
-esac
-
-next_is_rd=false
-for arg in "$@"; do
-    if [ "$next_is_rd" = true ]; then
-        case "$arg" in
-            out=*|out_file=*)
-                outfile="${arg#*=}"
-                mkdir -p "$(dirname "$outfile")"
-                # Write a minimal dummy GDS II file (HEADER + BGNLIB + ENDLIB)
-                printf '\x00\x06\x00\x02\x00\x07\x00\x1c\x01\x02\x00\x01\x00\x01\x00\x01\x00\x01\x00\x00\x00\x01\x00\x01\x00\x01\x00\x01\x00\x00\x00\x04\x04\x00' > "$outfile"
-                ;;
-        esac
-        next_is_rd=false
-        continue
-    fi
-    case "$arg" in
-        -rd) next_is_rd=true ;;
-    esac
+# Mock klayout binary — delegates to Python implementation.
+# Look for klayout.py as a sibling (direct invocation) or in runfiles (Bazel).
+dir="$(cd "$(dirname "$0")" && pwd)"
+for py in \
+    "$dir/klayout.py" \
+    "$dir/klayout.runfiles/mock-klayout+/src/bin/klayout.py" \
+    "$dir/klayout.runfiles/mock-klayout/src/bin/klayout.py" \
+; do
+    [ -f "$py" ] && exec python3 "$py" "$@"
 done
-echo "mock klayout (CI stub)"
-exit 0
+echo "error: cannot find klayout.py" >&2
+exit 1
