@@ -9,11 +9,10 @@ module(
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
 
 bazel_dep(name = "googletest", version = "1.17.0.bcr.1", dev_dependency = True)
-
-bazel_dep(name = "rules_jvm_external", version = "6.7")
-bazel_dep(name = "rules_java", version = "8.14.0")
-bazel_dep(name = "rules_scala", version = "7.1.5")
-bazel_dep(name = "rules_chisel", version = "0.2.0")
+bazel_dep(name = "rules_jvm_external", version = "6.7", dev_dependency = True)
+bazel_dep(name = "rules_java", version = "8.14.0", dev_dependency = True)
+bazel_dep(name = "rules_scala", version = "7.1.5", dev_dependency = True)
+bazel_dep(name = "rules_chisel", version = "0.2.0", dev_dependency = True)
 single_version_override(
     module_name = "rules_chisel",
     patch_strip = 1,
@@ -23,15 +22,13 @@ single_version_override(
 bazel_dep(name = "rules_verilator", version = "0.1.0")
 bazel_dep(name = "verilator", version = "5.036.bcr.3")
 
-# WARNING: Do not bump rules_shell or rules_cc here for dev-only needs
-# (e.g. OpenROAD from source). These are non-dev deps, so MVS forces the
-# higher version on ALL downstream consumers. rules_cc >= 0.2.14 introduces
-# cc_compatibility_proxy which creates a WORKSPACE cycle for any downstream
-# project that still uses WORKSPACE.bazel. When bazel-orfs is the root
+# WARNING: Do not bump rules_shell here for dev-only needs
+# (e.g. OpenROAD from source). It is a non-dev dep, so MVS forces the
+# higher version on ALL downstream consumers. When bazel-orfs is the root
 # module, MVS will pull in the higher versions from OpenROAD automatically.
 bazel_dep(name = "rules_shell", version = "0.3.0")
-bazel_dep(name = "rules_cc", version = "0.2.4")
 
+bazel_dep(name = "rules_cc", version = "0.2.4", dev_dependency = True)
 bazel_dep(name = "kepler-formal", version = "1.0.0", dev_dependency = True)
 bazel_dep(name = "mock-klayout", version = "0.0.1", dev_dependency = True)
 local_path_override(
