@@ -47,3 +47,10 @@ These are only used by dev-only extensions, toolchains, or BUILD files:
 - `rules_scala` — scala_config/scala_deps extensions
 - `rules_chisel` — chisel/test.bzl, dev BUILD files
 - `rules_cc` — chisel/test.bzl, dev BUILD files
+
+## PDK extensibility
+
+The PDKs in `docker.BUILD.bazel` (asap7, nangate45, sky130hd, ihp-sg13g2) are
+the ORFS-bundled PDKs exposed for convenience. PDK support does not have to
+live in bazel-orfs — users can implement private or proprietary PDK support in
+their own repository using the `orfs_pdk` rule.
