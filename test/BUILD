@@ -1,4 +1,5 @@
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_gds", "orfs_macro", "orfs_run", "orfs_synth")
 load("//:orfs_genrule.bzl", "orfs_genrule")
@@ -125,6 +126,7 @@ orfs_flow(
         "place": [":io-sram"],
         "synth": [":constraints-sram"],
     },
+    substeps = False,
     verilog_files = ["//another:tag_array_64x184.sv"],
     visibility = ["//:__subpackages__"],
 )
@@ -155,6 +157,7 @@ orfs_flow(
     },
     mock_area = 0.7,
     stage_sources = LB_STAGE_SOURCES,
+    substeps = False,
     verilog_files = LB_VERILOG_FILES,
     visibility = ["//optuna:__pkg__"],
 )
@@ -187,6 +190,7 @@ orfs_flow(
     },
     macros = ["lb_32x128_generate_abstract"],
     stage_sources = LB_STAGE_SOURCES,
+    substeps = False,
     verilog_files = ["rtl/lb_32x128_top.v"],
 )
 
@@ -198,6 +202,7 @@ orfs_flow(
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
     },
     stage_sources = LB_STAGE_SOURCES,
+    substeps = False,
     variant = "test",
     verilog_files = LB_VERILOG_FILES,
 )
@@ -314,6 +319,7 @@ orfs_flow(
         "place": [":io-sram"],
         "synth": [":constraints-sram"],
     },
+    substeps = False,
     verilog_files = [
         "rtl/regfile_128x65.sv",
     ],
@@ -444,6 +450,8 @@ sh_test(
 
 # Test the openroad override mechanism using mock-openroad (fast in CI).
 # Also tests the last_stage option to stop after floorplan without abstract.
+# Test the openroad override mechanism using mock-openroad (fast in CI).
+# Also tests the last_stage option to stop after floorplan without abstract.
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "lb_32x128",
@@ -476,6 +484,7 @@ orfs_flow(
 
 # Test squashed flow through cts: all stages after synth run as a single
 # Bazel action. substeps=False disables substep target generation.
+# Shares mock_openroad synth to avoid conflicting action with other flows.
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "lb_32x128",
@@ -530,3 +539,83 @@ py_binary(
     visibility = ["//visibility:public"],
     deps = ["@bazel-orfs-features-pip//matplotlib"],
 )
+
+# --- Mock unit tests ---
+
+py_test(
+    name = "mock_openroad_test",
+    srcs = [
+        "mock_helpers.py",
+        "mock_openroad_test.py",
+    ],
+    data = ["@mock-openroad//src/bin:openroad.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "mock_klayout_test",
+    srcs = [
+        "mock_helpers.py",
+        "mock_klayout_test.py",
+    ],
+    data = ["@mock-klayout//src/bin:klayout.py"],
+    imports = ["."],
+)
+
+# --- Mock-openroad build tests: fast validation of .bzl rule logic ---
+
+build_test(
+    name = "mock_openroad_floorplan_build_test",
+    targets = [":lb_32x128_mock_openroad_floorplan"],
+)
+
+build_test(
+    name = "mock_openroad_squashed_cts_build_test",
+    targets = [":lb_32x128_squashed_cts"],
+)
+
+# Mock hierarchical flow: tests macros attribute with mock-openroad.
+# lb_32x128_mock_openroad generates abstract (submacro), then
+# lb_32x128_mock_hierarchy uses it as a macro (parent with macro).
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    abstract_stage = "cts",
+    arguments = LB_ARGS | BLOCK_FLOORPLAN,
+    openroad = "@mock-openroad//src/bin:openroad",
+    previous_stage = {"floorplan": ":lb_32x128_synth"},
+    stage_sources = LB_STAGE_SOURCES,
+    variant = "mock_abstract",
+    verilog_files = LB_VERILOG_FILES,
+)
+
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128_top",
+    abstract_stage = "place",
+    arguments = SRAM_ARGUMENTS | {
+        "CORE_AREA": "2 2 23 23",
+        "CORE_MARGIN": "2",
+        "DIE_AREA": "0 0 25 25",
+        "GDS_ALLOW_EMPTY": "lb_32x128",
+        "MACRO_PLACE_HALO": "5 5",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+        "PLACE_DENSITY": "0.30",
+        "PWR_NETS_VOLTAGES": "",
+    },
+    macros = ["lb_32x128_mock_abstract_generate_abstract"],
+    openroad = "@mock-openroad//src/bin:openroad",
+    previous_stage = {"floorplan": ":lb_32x128_top_synth"},
+    stage_sources = LB_STAGE_SOURCES,
+    variant = "mock_hierarchy",
+    verilog_files = ["rtl/lb_32x128_top.v"],
+)
+
+build_test(
+    name = "mock_hierarchy_build_test",
+    targets = [":lb_32x128_top_mock_hierarchy_generate_abstract"],
+)
+
+# Pruning is validated implicitly: if orfs_sweep's previous_stage pruning
+# is broken, the lb_32x128 sweep targets would fail at analysis time
+# (duplicate actions or missing deps). No explicit query tests needed.
