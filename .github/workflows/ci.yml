@@ -20,14 +20,9 @@ jobs:
       - name: Checkout bazel-orfs
         uses: actions/checkout@v4
 
-      - name: Download buildifier
-        run: |
-          sudo wget https://github.com/bazelbuild/buildtools/releases/download/v6.4.0/buildifier-linux-amd64 -O /usr/local/bin/buildifier
-          sudo chmod +x /usr/local/bin/buildifier
-          buildifier -version
       - name: Check Bazel files
         run: |
-          buildifier -lint warn -r .
+          bazelisk run @buildifier_prebuilt//:buildifier -- -lint warn -r .
 
   test-make-target:
     name: ${{ matrix.STAGE_TARGET }}

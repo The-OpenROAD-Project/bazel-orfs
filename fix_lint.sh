@@ -5,6 +5,14 @@ set -e
 
 cd "${BUILD_WORKSPACE_DIRECTORY:-.}"
 
+# Resolve buildifier from Bazel runfiles (provided by @buildifier_prebuilt)
+RUNFILES="${RUNFILES_DIR:-${BASH_SOURCE[0]}.runfiles}"
+BUILDIFIER="$RUNFILES/buildifier_prebuilt+/buildifier/buildifier"
+if [ ! -x "$BUILDIFIER" ]; then
+    echo "error: buildifier not found in runfiles; run via 'bazelisk run //:fix_lint'" >&2
+    exit 1
+fi
+
 MERGE_BASE=$(git merge-base origin/main HEAD 2>/dev/null || echo HEAD~1)
 
 # Buildifier: format and lint Bazel files
@@ -13,8 +21,8 @@ BAZEL_FILES=$(git diff --name-only --diff-filter=d "$MERGE_BASE" -- \
     'WORKSPACE' '**/WORKSPACE' 2>/dev/null || true)
 if [ -n "$BAZEL_FILES" ]; then
     echo "buildifier: $(echo "$BAZEL_FILES" | wc -w) file(s)"
-    echo "$BAZEL_FILES" | xargs buildifier
-    echo "$BAZEL_FILES" | xargs buildifier -lint warn
+    echo "$BAZEL_FILES" | xargs "$BUILDIFIER"
+    echo "$BAZEL_FILES" | xargs "$BUILDIFIER" -lint warn
 fi
 
 # Black: format Python files
