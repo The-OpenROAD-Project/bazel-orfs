@@ -12,9 +12,11 @@ load(
     "orfs_deps",
     "orfs_macro",
     "orfs_run",
+    "orfs_squashed",
+    "orfs_step",
     "orfs_synth_rule",
 )
-load("//private:stages.bzl", "get_sources", "get_stage_args")
+load("//private:stages.bzl", "STAGE_METADATA", "STAGE_SUBSTEPS", "get_sources", "get_stage_args")
 
 def _filter_stage_args(stage, **kwargs):
     """Filter and prepare the arguments for a specific stage."""
@@ -80,6 +82,8 @@ def orfs_flow(
         settings = {},
         stage_data = {},
         test_kwargs = {},
+        squash = False,
+        substeps = True,
         **kwargs):
     """
     Creates targets for running physical design flow with OpenROAD-flow-scripts.
@@ -106,6 +110,12 @@ def orfs_flow(
       pdk: name of the PDK to use, default is asap7
       stage_data: dictionary keyed by ORFS stages with lists of stage-specific data files
       test_kwargs: dictionary of arguments to pass to orfs_test
+      squash: if True, combine all stages after synthesis into a single Bazel action.
+        Reduces artifact size by avoiding intermediate ODB checkpoints. Useful for
+        stable designs like RAM macros where intermediate stages don't need inspection.
+      substeps: if True (default), generate manual-tagged per-substep targets for
+        debugging and fast iteration. Set to False to reduce target count for designs
+        that don't need substep-level debugging.
       **kwargs: forward named args
     """
     if abstract_stage and last_stage:
@@ -135,6 +145,8 @@ def orfs_flow(
         stage_data = stage_data,
         settings = settings,
         test_kwargs = test_kwargs,
+        squash = squash,
+        substeps = substeps,
         **kwargs
     )
 
@@ -265,6 +277,8 @@ def _orfs_pass(
         last_stage = None,
         test_kwargs = {},
         mock_area = False,
+        squash = False,
+        substeps = True,
         **kwargs):
     ALL_STAGES = [step.stage for step in STAGE_IMPLS]
     steps = []
@@ -338,6 +352,106 @@ def _orfs_pass(
         # implemented stage 0 above, so skip stage 0 below
         start_stage = 1
 
+    # Squashed mode: combine all non-synth stages into a single Bazel action
+    if squash:
+        squash_steps = [s for s in steps[start_stage:] if s.stage in STAGE_METADATA]
+        if squash_steps:
+            last_step = squash_steps[-1]
+            last_meta = STAGE_METADATA[last_step.stage]
+            squash_name = _step_name(name, variant, last_step.stage)
+            src = previous_stage.get(
+                squash_steps[0].stage,
+                _step_name(name, variant, steps[start_stage - 1].stage),
+            )
+
+            # Accumulate make targets, logs, jsons, reports, drcs from all stages
+            all_make_targets = []
+            all_log_names = []
+            all_json_names = []
+            all_report_names = []
+            all_drc_names = []
+            for s in squash_steps:
+                meta = STAGE_METADATA[s.stage]
+                all_make_targets.extend(meta.make_targets)
+                subs = STAGE_SUBSTEPS.get(s.stage, [])
+                all_log_names.extend([sub + ".log" for sub in subs])
+                all_json_names.extend([sub + ".json" for sub in subs])
+                all_report_names.extend(meta.report_names)
+                all_drc_names.extend(meta.drc_names)
+
+            orfs_squashed(
+                name = squash_name,
+                stage_name = last_meta.stage_name,
+                make_targets = all_make_targets,
+                log_names = all_log_names,
+                json_names = all_json_names,
+                report_names = all_report_names,
+                result_names = last_meta.result_names,
+                drc_names = all_drc_names,
+                src = src,
+                variant = variant,
+                **_filter_stage_args(
+                    last_step.stage,
+                    stage_arguments = stage_arguments,
+                    arguments = arguments,
+                    sources = sources,
+                    stage_sources = stage_sources,
+                    settings = settings,
+                    extra_configs = extra_configs,
+                    stage_data = stage_data,
+                    **kwargs
+                )
+            )
+            step_names.append(squash_name)
+            orfs_deps(
+                name = "{}_deps".format(squash_name),
+                src = squash_name,
+                **_add_manual(kwargs)
+            )
+
+            # Generate substep targets for all squashed stages
+            if substeps:
+                for s in squash_steps:
+                    stage_substeps = STAGE_SUBSTEPS.get(s.stage, [])
+                    if len(stage_substeps) > 1:
+                        for substep_name in stage_substeps:
+                            orfs_step(
+                                name = "{}_{}".format(squash_name, substep_name),
+                                src = squash_name,
+                                stage_name = substep_name,
+                                **_add_manual(kwargs)
+                            )
+
+            # Handle abstract generation for squashed flow
+            if ABSTRACT_IMPL in steps:
+                abstract_step_name = _step_name(
+                    name,
+                    abstract_variant if abstract_variant else variant,
+                    ABSTRACT_IMPL.stage,
+                )
+                ABSTRACT_IMPL.impl(
+                    **_filter_stage_args(
+                        ABSTRACT_IMPL.stage,
+                        name = abstract_step_name,
+                        stage_arguments = stage_arguments,
+                        arguments = arguments,
+                        sources = sources,
+                        stage_sources = stage_sources,
+                        settings = settings,
+                        extra_configs = extra_configs,
+                        src = squash_name,
+                        variant = variant,
+                        stage_data = stage_data,
+                        **kwargs
+                    )
+                )
+                orfs_deps(
+                    name = "{}_deps".format(abstract_step_name),
+                    src = abstract_step_name,
+                    **_add_manual(kwargs)
+                )
+            return
+
     def do_step(step, prev, kwargs, add_deps = True, more_kwargs = {}, data = []):
         stage_variant = (
             abstract_variant if step.stage == ABSTRACT_IMPL.stage and abstract_variant else variant
@@ -374,6 +488,18 @@ def _orfs_pass(
                 src = step_name,
                 **_add_manual(kwargs | more_kwargs)
             )
+
+            # Generate manual-tagged substep targets for stages with multiple substeps
+            if substeps:
+                stage_substeps = STAGE_SUBSTEPS.get(step.stage, [])
+                if len(stage_substeps) > 1:
+                    for substep_name in stage_substeps:
+                        orfs_step(
+                            name = "{}_{}".format(step_name, substep_name),
+                            src = step_name,
+                            stage_name = substep_name,
+                            **_add_manual(kwargs)
+                        )
         return step_name
 
     for step, prev in zip(steps[start_stage:], steps[start_stage - 1:]):
