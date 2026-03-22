@@ -24,6 +24,102 @@ ALL_STAGES = [
     "update_rules",
 ]
 
+# Substep names within each stage, using ORFS naming directly.
+# This is the single source of truth; log_names and json_names in stage
+# rules are derived from these lists.
+STAGE_SUBSTEPS = {
+    "floorplan": [
+        "2_1_floorplan",
+        "2_2_floorplan_macro",
+        "2_3_floorplan_tapcell",
+        "2_4_floorplan_pdn",
+    ],
+    "place": [
+        "3_1_place_gp_skip_io",
+        "3_2_place_iop",
+        "3_3_place_gp",
+        "3_4_place_resized",
+        "3_5_place_dp",
+    ],
+    "cts": [
+        "4_1_cts",
+    ],
+    "grt": [
+        "5_1_grt",
+    ],
+    "route": [
+        "5_2_route",
+        "5_3_fillcell",
+    ],
+    "final": [
+        "6_1_merge",
+        "6_report",
+    ],
+}
+
+# Per-stage metadata used by orfs_flow(squash=True) to combine stages
+# into a single Bazel action. Each stage lists its make targets, result
+# files, reports, and DRC outputs beyond the substep-derived logs/jsons.
+STAGE_METADATA = {
+    "floorplan": struct(
+        stage_name = "2_floorplan",
+        make_targets = ["do-floorplan"],
+        log_names = [s + ".log" for s in STAGE_SUBSTEPS["floorplan"]],
+        json_names = [s + ".json" for s in STAGE_SUBSTEPS["floorplan"]],
+        result_names = ["2_floorplan.odb", "2_floorplan.sdc"],
+        report_names = ["2_floorplan_final.rpt"],
+        drc_names = [],
+    ),
+    "place": struct(
+        stage_name = "3_place",
+        make_targets = ["do-place"],
+        log_names = [s + ".log" for s in STAGE_SUBSTEPS["place"]],
+        json_names = [s + ".json" for s in STAGE_SUBSTEPS["place"]],
+        result_names = ["3_place.odb", "3_place.sdc"],
+        report_names = [],
+        drc_names = [],
+    ),
+    "cts": struct(
+        stage_name = "4_cts",
+        make_targets = ["do-cts"],
+        log_names = [s + ".log" for s in STAGE_SUBSTEPS["cts"]],
+        json_names = [s + ".json" for s in STAGE_SUBSTEPS["cts"]],
+        result_names = ["4_cts.odb", "4_cts.sdc"],
+        report_names = ["4_cts_final.rpt"],
+        drc_names = [],
+    ),
+    "grt": struct(
+        stage_name = "5_1_grt",
+        make_targets = ["do-5_1_grt"],
+        log_names = [s + ".log" for s in STAGE_SUBSTEPS["grt"]],
+        json_names = [s + ".json" for s in STAGE_SUBSTEPS["grt"]],
+        result_names = ["5_1_grt.odb", "5_1_grt.sdc"],
+        report_names = ["5_global_route.rpt"],
+        drc_names = ["congestion.rpt"],
+    ),
+    "route": struct(
+        stage_name = "5_2_route",
+        make_targets = ["do-5_2_route", "do-5_3_fillcell", "do-5_route", "do-5_route.sdc"],
+        log_names = [s + ".log" for s in STAGE_SUBSTEPS["route"]],
+        json_names = [s + ".json" for s in STAGE_SUBSTEPS["route"]],
+        result_names = ["5_route.odb", "5_route.sdc"],
+        report_names = [],
+        drc_names = ["5_route_drc.rpt"],
+    ),
+    "final": struct(
+        stage_name = "6_final",
+        make_targets = ["do-final"],
+        log_names = [s + ".log" for s in STAGE_SUBSTEPS["final"]],
+        json_names = [
+            "6_report.json",
+            "6_1_fill.json",
+        ],
+        result_names = ["6_final.odb", "6_final.sdc", "6_final.spef", "6_final.v"],
+        report_names = ["6_finish.rpt", "VDD.rpt", "VSS.rpt"],
+        drc_names = [],
+    ),
+}
+
 ORFS_VARIABLE_TO_STAGES = {
     k: v["stages"] if "stages" in v and v["stages"] != ["All stages"] else ALL_STAGES
     for k, v in orfs_variable_metadata.items()

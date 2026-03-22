@@ -39,6 +39,7 @@ load(
     _orfs_place = "orfs_place",
     _orfs_route = "orfs_route",
     _orfs_run = "orfs_run",
+    _orfs_step = "orfs_step",
     _orfs_test = "orfs_test",
     _orfs_update_rules = "orfs_update_rules",
 )
@@ -50,6 +51,7 @@ load(
     _BAZEL_STAGE_TO_VARIABLES = "BAZEL_STAGE_TO_VARIABLES",
     _BAZEL_VARIABLE_TO_STAGES = "BAZEL_VARIABLE_TO_STAGES",
     _ORFS_VARIABLE_TO_STAGES = "ORFS_VARIABLE_TO_STAGES",
+    _STAGE_SUBSTEPS = "STAGE_SUBSTEPS",
     _get_sources = "get_sources",
     _get_stage_args = "get_stage_args",
 )
@@ -79,6 +81,7 @@ BAZEL_VARIABLE_TO_STAGES = _BAZEL_VARIABLE_TO_STAGES
 ORFS_VARIABLE_TO_STAGES = _ORFS_VARIABLE_TO_STAGES
 get_stage_args = _get_stage_args
 get_sources = _get_sources
+STAGE_SUBSTEPS = _STAGE_SUBSTEPS
 
 # Attrs
 flow_provides = _flow_provides
@@ -88,6 +91,7 @@ orfs_pdk = _orfs_pdk
 orfs_macro = _orfs_macro
 orfs_deps = _orfs_deps
 orfs_run = _orfs_run
+orfs_step = _orfs_step
 orfs_test = _orfs_test
 orfs_floorplan = _orfs_floorplan
 orfs_place = _orfs_place

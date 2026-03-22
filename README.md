@@ -30,6 +30,8 @@ and easily actionable github issues for the OpenROAD and ORFS maintainers.
 | Create macros with LEF/LIB | [Work with macros and abstracts](#work-with-macros-and-abstracts) |
 | Quickly estimate macro sizes | [Mock area targets](#mock-area-targets) |
 | Tweak floorplan or placement settings | [Tweak and iterate on designs](#tweak-and-iterate-on-designs) |
+| Run a single substep (e.g. resizing) | [Substep targets](#substep-targets) |
+| Reduce artifacts for stable designs | [Squashed flows](#squashed-flows) |
 | Speed up CI or development builds | [Speed up your builds](#speed-up-your-builds) |
 | Understand CI timing breakdown | [Where CI time goes](#where-ci-time-goes) |
 | Query timing interactively | [Query timing interactively](#query-timing-interactively) |
@@ -436,6 +438,125 @@ To apply and view the changes:
 bazel run @bazel-orfs//test:tag_array_64x184_floorplan gui_floorplan
 ```
 
+### Substep targets
+
+Each ORFS stage runs multiple substeps internally — e.g., the `place` stage
+runs global placement, IO placement, resizing, and detailed placement as a
+single Bazel action via `do-place`. ORFS already exposes individual substeps
+as make targets (`do-3_4_place_resized`, `do-2_4_floorplan_pdn`, etc.) and
+the `_deps` mechanism deploys stage artifacts where users can manually invoke
+these targets. However, `_deps` has high cognitive load:
+
+1. **Manual dependency management**: you must build preceding stages first
+   (`bazel build synth`, then `floorplan`, then `place`) before running a
+   substep via `_deps`.
+2. **No change tracking**: `_deps` doesn't detect when BUILD parameters
+   change — you must re-run `bazelisk run ..._deps` manually.
+3. **Opaque naming**: you must know internal ORFS make target names
+   (e.g., `do-3_4_place_resized`) and run them through the `tmp/.../make`
+   wrapper.
+4. **Error-prone**: forgetting to rebuild a preceding stage silently uses
+   stale artifacts, leading to confusing results.
+
+`orfs_flow()` auto-generates manual-tagged Bazel targets for individual
+substeps that solve all of these problems:
+
+- **Automatic dependency chain** — Bazel handles synth → floorplan → place
+  before deploying and running the substep
+- **ORFS naming** — `3_4_place_resized` maps 1:1 to `do-3_4_place_resized`
+  in the ORFS Makefile
+- **GUI support** — append `gui_<stage>` to open the result in the OpenROAD GUI
+- **Tagged `manual`** — never built by `bazel build //...`, no impact on
+  existing workflows
+
+#### Before: iterating on resizing with `_deps`
+
+```bash
+# 1. Build all preceding stages manually
+bazelisk build //coralnpu:CoreMiniAxi_synth
+bazelisk build //coralnpu:CoreMiniAxi_floorplan
+bazelisk build //coralnpu:CoreMiniAxi_place
+
+# 2. Deploy place artifacts
+bazelisk run //coralnpu:CoreMiniAxi_place_deps
+
+# 3. Know and run the internal make target
+tmp/coralnpu/CoreMiniAxi_place_deps/make do-3_4_place_resized
+
+# 4. If BUILD changed, re-deploy (easy to forget!)
+bazelisk run //coralnpu:CoreMiniAxi_place_deps
+tmp/coralnpu/CoreMiniAxi_place_deps/make do-3_4_place_resized
+```
+
+#### After: one command
+
+```bash
+# Builds entire chain, deploys, runs only resizing
+bazel run //coralnpu:CoreMiniAxi_place_3_4_place_resized
+
+# Open GUI to inspect
+bazel run //coralnpu:CoreMiniAxi_place_3_4_place_resized gui_place
+
+# After editing BUILD, same command picks up changes automatically
+bazel run //coralnpu:CoreMiniAxi_place_3_4_place_resized
+```
+
+#### Available substeps per stage
+
+| Stage | Substeps |
+|-------|----------|
+| floorplan | `2_1_floorplan`, `2_2_floorplan_macro`, `2_3_floorplan_tapcell`, `2_4_floorplan_pdn` |
+| place | `3_1_place_gp_skip_io`, `3_2_place_iop`, `3_3_place_gp`, `3_4_place_resized`, `3_5_place_dp` |
+| cts | `4_1_cts` |
+| grt | `5_1_grt` |
+| route | `5_2_route`, `5_3_fillcell` |
+| final | `6_1_merge`, `6_report` |
+
+Substep names are defined once in `STAGE_SUBSTEPS` in `private/stages.bzl` —
+the single source of truth from which log and JSON file names in stage rules
+are derived. Stages with only one substep (like cts) don't generate substep
+targets since the stage target already runs exactly that substep.
+
+> **NOTE:** ORFS could grow a metadata file (beyond `variables.yaml`) that
+> lists substep names, their scripts, and dependencies. This would make
+> `STAGE_SUBSTEPS` truly derived from ORFS rather than maintained as a copy
+> in bazel-orfs.
+
+#### How substep targets work
+
+Substep targets are deploy-and-run wrappers (like `_deps`) that reuse the
+parent stage's single set of artifacts. No new Bazel actions, no new ODB
+checkpoints, no artifact explosion.
+
+**Why not split stages into separate Bazel actions per substep?** ORFS substeps
+share a single ODB file that is modified in-place through the pipeline. If each
+substep were a separate Bazel action, every substep would need to declare its
+own ODB output, and Bazel would store each intermediate checkpoint. For a design
+with 5 placement substeps, that means 5 copies of the ODB instead of 1. Across
+all stages, this artifact explosion would multiply storage by ~4-5x per design.
+For CI with multiple PDKs and variants, this quickly becomes prohibitive.
+
+#### Disabling substep targets
+
+To disable substep target generation (e.g. for stable designs that don't need
+substep-level debugging), set `substeps = False`:
+
+```starlark
+orfs_flow(
+    name = "my_design",
+    substeps = False,
+    ...
+)
+```
+
+#### `_deps` as a hacking tool
+
+With substep targets, `_deps` is no longer the primary tool for design
+iteration. However, `_deps` remains essential for local ORFS and bazel-orfs
+development where users need the full Make wrapper for low-level hacking
+(e.g., running arbitrary make targets, modifying ORFS scripts, creating
+issue archives).
+
 ### Use remote caching for instant reverts
 
 If remote caching is enabled for Bazel, reverting a change and rebuilding completes instantaneously because the artifact already exists:
@@ -511,6 +632,52 @@ skips all subsequent stages:
 Abstract generation requires at least the `place` stage because pins are placed
 during placement. For macro size estimation, `"place"` is usually sufficient.
 For timing analysis, `"cts"` provides clock tree data without expensive routing.
+
+### Squashed flows
+
+By default, `orfs_flow()` creates one Bazel target per stage (the default
+`squash = False`), each storing its own ODB checkpoint. This is useful for
+debugging — you can inspect any intermediate stage, re-run from a checkpoint,
+and iterate on individual substeps.
+
+`squash = True` combines all stages after synthesis into a single Bazel action.
+Only the final stage's ODB is stored as an artifact. This is for mature, stable
+designs like RAM macros where nobody needs to inspect intermediate stages:
+
+```starlark
+# Stable RAM macro — no need to inspect intermediate stages
+orfs_flow(
+    name = "sram_64x128",
+    abstract_stage = "cts",
+    squash = True,
+    ...
+)
+```
+
+The reduction in artifact count is significant: instead of 7 ODB checkpoints
+(synth through final), you get 2 (synth + final). For CI with multiple PDKs
+and variants, this saves considerable storage.
+
+Which ODB files to checkpoint as artifacts is flow-specific — the default
+per-stage boundaries are just one common case that `orfs_flow()` encodes.
+`squash = True` is the other extreme. Advanced users can use `orfs_squashed`
+directly for custom groupings (e.g., squashing only floorplan through place
+while keeping later stages separate).
+
+By default, substep targets are still generated (manual-tagged) even with
+`squash = True`, for debugging if something goes wrong later. Disable with
+`substeps = False` to minimize the target count:
+
+```starlark
+# Minimal target footprint for stable RAM macro
+orfs_flow(
+    name = "sram_64x128",
+    abstract_stage = "cts",
+    squash = True,
+    substeps = False,
+    ...
+)
+```
 
 ### Query timing interactively
 
@@ -766,6 +933,10 @@ The stages are:
 * `route`
 * `final`
 * `generate_abstract`
+
+Stages with multiple substeps also generate manual-tagged substep targets
+following the naming convention `<target>_<stage>_<substep>` (e.g.,
+`L1MetadataArray_place_3_4_place_resized`). See [Substep targets](#substep-targets).
 
 ### Dependency targets
 

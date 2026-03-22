@@ -20,9 +20,10 @@ esac
 if [ -n "$RESULTS_DIR" ]; then
     for arg in "$@"; do
         if [ -f "$arg" ]; then
-            # Extract output filenames from write_db/write_sdc calls
-            for ext in odb sdc; do
-                grep -oE "(orfs_write_db|write_db|write_sdc)\s+.*\.$ext" "$arg" 2>/dev/null | while IFS= read -r line; do
+            # Extract output filenames from write_db/write_sdc/write_verilog/write_spef
+            # calls that write to $::env(RESULTS_DIR)/
+            for ext in odb sdc v spef; do
+                grep -oE "(orfs_write_db|write_db|write_sdc|write_verilog|write_spef)\s+.*\.$ext" "$arg" 2>/dev/null | while IFS= read -r line; do
                     fname=$(echo "$line" | grep -oE "[^/]*\.$ext" | tail -1)
                     if [ -n "$fname" ]; then
                         mkdir -p "$RESULTS_DIR"
@@ -30,6 +31,13 @@ if [ -n "$RESULTS_DIR" ]; then
                     fi
                 done
             done
+
+            # generate_abstract.tcl writes .lef and .lib using $::env(DESIGN_NAME)
+            if grep -q "write_abstract_lef\|write_timing_model" "$arg" 2>/dev/null && [ -n "$DESIGN_NAME" ]; then
+                mkdir -p "$RESULTS_DIR"
+                touch "$RESULTS_DIR/${DESIGN_NAME}.lef"
+                touch "$RESULTS_DIR/${DESIGN_NAME}_typ.lib"
+            fi
         fi
     done
 fi
