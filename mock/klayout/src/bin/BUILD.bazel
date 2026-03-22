@@ -1,5 +1,11 @@
 sh_binary(
     name = "klayout",
     srcs = ["klayout.sh"],
+    data = ["klayout.py"],
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["klayout.py"],
     visibility = ["//visibility:public"],
 )
