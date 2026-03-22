@@ -1,5 +1,11 @@
 sh_binary(
     name = "openroad",
     srcs = ["openroad.sh"],
+    data = ["openroad.py"],
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["openroad.py"],
     visibility = ["//visibility:public"],
 )
