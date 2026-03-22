@@ -52,6 +52,10 @@ load(
     "PdkInfo",
     "TopInfo",
 )
+load(
+    "//private:stages.bzl",
+    "STAGE_SUBSTEPS",
+)
 
 # --- Shared helpers ---
 
@@ -867,6 +871,93 @@ def _make_impl(
         ctx.attr.src[TopInfo],
     ]
 
+# --- Substep deploy-and-run rule ---
+
+def _step_impl(ctx):
+    """Deploys stage artifacts and runs a specific substep make target."""
+    exe = declare_artifact(ctx, "results", ctx.attr.name + ".sh")
+    _expand_deploy_template(
+        ctx,
+        exe,
+        config = ctx.attr.src[OrfsDepInfo].config,
+        make = ctx.attr.src[OrfsDepInfo].make,
+        genfiles = ctx.attr.src[OrfsDepInfo].files.to_list(),
+        name = ctx.attr.name,
+        renames = ctx.attr.src[OrfsDepInfo].renames,
+    )
+
+    # Wrapper that symlinks runfiles so the deploy script can find them,
+    # then invokes deploy with the baked-in make target.
+    wrapper = ctx.actions.declare_file(ctx.attr.name + "_run.sh")
+    ctx.actions.write(
+        output = wrapper,
+        is_executable = True,
+        content = """\
+#!/bin/bash
+RUNFILES="${{RUNFILES_DIR:-$0.runfiles}}"
+DEPLOY="$RUNFILES/_main/{deploy}"
+# deploy.tpl expects $0.runfiles to exist
+ln -sfn "$RUNFILES" "$DEPLOY.runfiles"
+exec "$DEPLOY" do-{make_target} "$@"
+""".format(
+            deploy = exe.short_path,
+            make_target = ctx.attr.stage_name,
+        ),
+    )
+    return [
+        DefaultInfo(
+            executable = wrapper,
+            files = ctx.attr.src[OrfsDepInfo].files,
+            runfiles = ctx.runfiles(files = [exe]).merge(
+                ctx.attr.src[OrfsDepInfo].runfiles,
+            ),
+        ),
+    ]
+
+orfs_step = rule(
+    implementation = _step_impl,
+    attrs = flow_attrs() | openroad_only_attrs() | yosys_only_attrs() | {
+        "stage_name": attr.string(
+            doc = "ORFS substep name, e.g. '3_4_place_resized'. " +
+                  "Used to derive the make target (do-{stage_name}).",
+            mandatory = True,
+        ),
+    },
+    executable = True,
+)
+
+# --- Squashed multi-stage rule ---
+
+def _squashed_impl(ctx):
+    """Runs multiple stages as a single Bazel action."""
+    return _make_impl(
+        ctx = ctx,
+        stage = ctx.attr.stage_name,
+        steps = ctx.attr.make_targets,
+        log_names = ctx.attr.log_names,
+        json_names = ctx.attr.json_names,
+        report_names = ctx.attr.report_names,
+        result_names = ctx.attr.result_names,
+        drc_names = ctx.attr.drc_names,
+    )
+
+orfs_squashed = rule(
+    implementation = _squashed_impl,
+    attrs = openroad_attrs() |
+            renamed_inputs_attr() |
+            {
+                "stage_name": attr.string(mandatory = True),
+                "make_targets": attr.string_list(mandatory = True),
+                "log_names": attr.string_list(default = []),
+                "json_names": attr.string_list(default = []),
+                "report_names": attr.string_list(default = []),
+                "result_names": attr.string_list(default = []),
+                "drc_names": attr.string_list(default = []),
+            },
+    provides = flow_provides(),
+    executable = True,
+)
+
 # --- Stage rule declarations ---
 
 orfs_floorplan = rule(
@@ -874,18 +965,8 @@ orfs_floorplan = rule(
         ctx = ctx,
         stage = "2_floorplan",
         steps = ["do-floorplan"],
-        log_names = [
-            "2_1_floorplan.log",
-            "2_2_floorplan_macro.log",
-            "2_3_floorplan_tapcell.log",
-            "2_4_floorplan_pdn.log",
-        ],
-        json_names = [
-            "2_1_floorplan.json",
-            "2_2_floorplan_macro.json",
-            "2_3_floorplan_tapcell.json",
-            "2_4_floorplan_pdn.json",
-        ],
+        log_names = [s + ".log" for s in STAGE_SUBSTEPS["floorplan"]],
+        json_names = [s + ".json" for s in STAGE_SUBSTEPS["floorplan"]],
         report_names = [
             "2_floorplan_final.rpt",
         ],
@@ -910,20 +991,8 @@ orfs_place = rule(
         ctx = ctx,
         stage = "3_place",
         steps = ["do-place"],
-        log_names = [
-            "3_1_place_gp_skip_io.log",
-            "3_2_place_iop.log",
-            "3_3_place_gp.log",
-            "3_4_place_resized.log",
-            "3_5_place_dp.log",
-        ],
-        json_names = [
-            "3_1_place_gp_skip_io.json",
-            "3_2_place_iop.json",
-            "3_3_place_gp.json",
-            "3_4_place_resized.json",
-            "3_5_place_dp.json",
-        ],
+        log_names = [s + ".log" for s in STAGE_SUBSTEPS["place"]],
+        json_names = [s + ".json" for s in STAGE_SUBSTEPS["place"]],
         report_names = [],
         result_names = [
             "3_place.odb",
@@ -946,12 +1015,8 @@ orfs_cts = rule(
         ctx = ctx,
         stage = "4_cts",
         steps = ["do-cts"],
-        log_names = [
-            "4_1_cts.log",
-        ],
-        json_names = [
-            "4_1_cts.json",
-        ],
+        log_names = [s + ".log" for s in STAGE_SUBSTEPS["cts"]],
+        json_names = [s + ".json" for s in STAGE_SUBSTEPS["cts"]],
         report_names = [
             "4_cts_final.rpt",
         ],
@@ -1019,14 +1084,8 @@ orfs_route = rule(
             "do-5_route",
             "do-5_route.sdc",
         ],
-        log_names = [
-            "5_2_route.log",
-            "5_3_fillcell.log",
-        ],
-        json_names = [
-            "5_2_route.json",
-            "5_3_fillcell.json",
-        ],
+        log_names = [s + ".log" for s in STAGE_SUBSTEPS["route"]],
+        json_names = [s + ".json" for s in STAGE_SUBSTEPS["route"]],
         drc_names = [
             "5_route_drc.rpt",
         ],
@@ -1052,10 +1111,7 @@ orfs_final = rule(
         stage = "6_final",
         steps = ["do-final"],
         object_names = [],
-        log_names = [
-            "6_1_merge.log",
-            "6_report.log",
-        ],
+        log_names = [s + ".log" for s in STAGE_SUBSTEPS["final"]],
         json_names = [
             "6_report.json",
             "6_1_fill.json",

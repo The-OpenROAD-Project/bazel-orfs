@@ -474,6 +474,43 @@ orfs_flow(
     verilog_files = LB_VERILOG_FILES,
 )
 
+# Test squashed flow through cts: all stages after synth run as a single
+# Bazel action. substeps=False disables substep target generation.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    abstract_stage = "cts",
+    arguments = LB_ARGS,
+    openroad = "@mock-openroad//src/bin:openroad",
+    previous_stage = {"floorplan": ":lb_32x128_synth"},
+    squash = True,
+    stage_sources = LB_STAGE_SOURCES,
+    substeps = False,
+    variant = "squashed",
+    verilog_files = LB_VERILOG_FILES,
+)
+
+# Test squashed flow through final: exercises grt, route, and final stages
+# in squashed mode, with substep targets enabled.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    arguments = LB_ARGS,
+    last_stage = "final",
+    openroad = "@mock-openroad//src/bin:openroad",
+    previous_stage = {"floorplan": ":lb_32x128_synth"},
+    squash = True,
+    stage_sources = LB_STAGE_SOURCES,
+    variant = "squashed_final",
+    verilog_files = LB_VERILOG_FILES,
+)
+
+sh_test(
+    name = "lb_32x128_squashed_final_test",
+    srcs = ["squashed_test.sh"],
+    data = [":lb_32x128_squashed_final_final"],
+)
+
 # This should not be built with bazel build ..., as it fails
 orfs_run(
     name = "cell_count_manual",
