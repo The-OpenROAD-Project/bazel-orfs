@@ -1,0 +1,533 @@
+diff --git a/openroad.bzl b/openroad.bzl
+index e275cf4..3ac3878 100644
+--- a/openroad.bzl
++++ b/openroad.bzl
+@@ -39,6 +39,7 @@ load(
+     _orfs_place = "orfs_place",
+     _orfs_route = "orfs_route",
+     _orfs_run = "orfs_run",
++    _orfs_step = "orfs_step",
+     _orfs_test = "orfs_test",
+     _orfs_update_rules = "orfs_update_rules",
+ )
+@@ -50,6 +51,7 @@ load(
+     _BAZEL_STAGE_TO_VARIABLES = "BAZEL_STAGE_TO_VARIABLES",
+     _BAZEL_VARIABLE_TO_STAGES = "BAZEL_VARIABLE_TO_STAGES",
+     _ORFS_VARIABLE_TO_STAGES = "ORFS_VARIABLE_TO_STAGES",
++    _STAGE_SUBSTEPS = "STAGE_SUBSTEPS",
+     _get_sources = "get_sources",
+     _get_stage_args = "get_stage_args",
+ )
+@@ -79,6 +81,7 @@ BAZEL_VARIABLE_TO_STAGES = _BAZEL_VARIABLE_TO_STAGES
+ ORFS_VARIABLE_TO_STAGES = _ORFS_VARIABLE_TO_STAGES
+ get_stage_args = _get_stage_args
+ get_sources = _get_sources
++STAGE_SUBSTEPS = _STAGE_SUBSTEPS
+ 
+ # Attrs
+ flow_provides = _flow_provides
+@@ -88,6 +91,7 @@ orfs_pdk = _orfs_pdk
+ orfs_macro = _orfs_macro
+ orfs_deps = _orfs_deps
+ orfs_run = _orfs_run
++orfs_step = _orfs_step
+ orfs_test = _orfs_test
+ orfs_floorplan = _orfs_floorplan
+ orfs_place = _orfs_place
+diff --git a/private/flow.bzl b/private/flow.bzl
+index b8f710f..454bb75 100644
+--- a/private/flow.bzl
++++ b/private/flow.bzl
+@@ -12,9 +12,11 @@ load(
+     "orfs_deps",
+     "orfs_macro",
+     "orfs_run",
++    "orfs_squashed",
++    "orfs_step",
+     "orfs_synth_rule",
+ )
+-load("//private:stages.bzl", "get_sources", "get_stage_args")
++load("//private:stages.bzl", "STAGE_METADATA", "STAGE_SUBSTEPS", "get_sources", "get_stage_args")
+ 
+ def _filter_stage_args(stage, **kwargs):
+     """Filter and prepare the arguments for a specific stage."""
+@@ -80,6 +82,8 @@ def orfs_flow(
+         settings = {},
+         stage_data = {},
+         test_kwargs = {},
++        squash = False,
++        substeps = True,
+         **kwargs):
+     """
+     Creates targets for running physical design flow with OpenROAD-flow-scripts.
+@@ -106,6 +110,12 @@ def orfs_flow(
+       pdk: name of the PDK to use, default is asap7
+       stage_data: dictionary keyed by ORFS stages with lists of stage-specific data files
+       test_kwargs: dictionary of arguments to pass to orfs_test
++      squash: if True, combine all stages after synthesis into a single Bazel action.
++        Reduces artifact size by avoiding intermediate ODB checkpoints. Useful for
++        stable designs like RAM macros where intermediate stages don't need inspection.
++      substeps: if True (default), generate manual-tagged per-substep targets for
++        debugging and fast iteration. Set to False to reduce target count for designs
++        that don't need substep-level debugging.
+       **kwargs: forward named args
+     """
+     if abstract_stage and last_stage:
+@@ -135,6 +145,8 @@ def orfs_flow(
+         stage_data = stage_data,
+         settings = settings,
+         test_kwargs = test_kwargs,
++        squash = squash,
++        substeps = substeps,
+         **kwargs
+     )
+ 
+@@ -265,6 +277,8 @@ def _orfs_pass(
+         last_stage = None,
+         test_kwargs = {},
+         mock_area = False,
++        squash = False,
++        substeps = True,
+         **kwargs):
+     ALL_STAGES = [step.stage for step in STAGE_IMPLS]
+     steps = []
+@@ -338,6 +352,106 @@ def _orfs_pass(
+         # implemented stage 0 above, so skip stage 0 below
+         start_stage = 1
+ 
++    # Squashed mode: combine all non-synth stages into a single Bazel action
++    if squash:
++        squash_steps = [s for s in steps[start_stage:] if s.stage in STAGE_METADATA]
++        if squash_steps:
++            last_step = squash_steps[-1]
++            last_meta = STAGE_METADATA[last_step.stage]
++            squash_name = _step_name(name, variant, last_step.stage)
++            src = previous_stage.get(
++                squash_steps[0].stage,
++                _step_name(name, variant, steps[start_stage - 1].stage),
++            )
++
++            # Accumulate make targets, logs, jsons, reports, drcs from all stages
++            all_make_targets = []
++            all_log_names = []
++            all_json_names = []
++            all_report_names = []
++            all_drc_names = []
++            for s in squash_steps:
++                meta = STAGE_METADATA[s.stage]
++                all_make_targets.extend(meta.make_targets)
++                subs = STAGE_SUBSTEPS.get(s.stage, [])
++                all_log_names.extend([sub + ".log" for sub in subs])
++                all_json_names.extend([sub + ".json" for sub in subs])
++                all_report_names.extend(meta.report_names)
++                all_drc_names.extend(meta.drc_names)
++
++            orfs_squashed(
++                name = squash_name,
++                stage_name = last_meta.stage_name,
++                make_targets = all_make_targets,
++                log_names = all_log_names,
++                json_names = all_json_names,
++                report_names = all_report_names,
++                result_names = last_meta.result_names,
++                drc_names = all_drc_names,
++                src = src,
++                variant = variant,
++                **_filter_stage_args(
++                    last_step.stage,
++                    stage_arguments = stage_arguments,
++                    arguments = arguments,
++                    sources = sources,
++                    stage_sources = stage_sources,
++                    settings = settings,
++                    extra_configs = extra_configs,
++                    stage_data = stage_data,
++                    **kwargs
++                )
++            )
++            step_names.append(squash_name)
++            orfs_deps(
++                name = "{}_deps".format(squash_name),
++                src = squash_name,
++                **_add_manual(kwargs)
++            )
++
++            # Generate substep targets for all squashed stages
++            if substeps:
++                for s in squash_steps:
++                    stage_substeps = STAGE_SUBSTEPS.get(s.stage, [])
++                    if len(stage_substeps) > 1:
++                        for substep_name in stage_substeps:
++                            orfs_step(
++                                name = "{}_{}".format(squash_name, substep_name),
++                                src = squash_name,
++                                stage_name = substep_name,
++                                **_add_manual(kwargs)
++                            )
++
++            # Handle abstract generation for squashed flow
++            if ABSTRACT_IMPL in steps:
++                abstract_step_name = _step_name(
++                    name,
++                    abstract_variant if abstract_variant else variant,
++                    ABSTRACT_IMPL.stage,
++                )
++                ABSTRACT_IMPL.impl(
++                    **_filter_stage_args(
++                        ABSTRACT_IMPL.stage,
++                        name = abstract_step_name,
++                        stage_arguments = stage_arguments,
++                        arguments = arguments,
++                        sources = sources,
++                        stage_sources = stage_sources,
++                        settings = settings,
++                        extra_configs = extra_configs,
++                        src = squash_name,
++                        variant = variant,
++                        stage_data = stage_data,
++                        **kwargs
++                    )
++                )
++                orfs_deps(
++                    name = "{}_deps".format(abstract_step_name),
++                    src = abstract_step_name,
++                    **_add_manual(kwargs)
++                )
++            return
++
+     def do_step(step, prev, kwargs, add_deps = True, more_kwargs = {}, data = []):
+         stage_variant = (
+             abstract_variant if step.stage == ABSTRACT_IMPL.stage and abstract_variant else variant
+@@ -374,6 +488,18 @@ def _orfs_pass(
+                 src = step_name,
+                 **_add_manual(kwargs | more_kwargs)
+             )
++
++            # Generate manual-tagged substep targets for stages with multiple substeps
++            if substeps:
++                stage_substeps = STAGE_SUBSTEPS.get(step.stage, [])
++                if len(stage_substeps) > 1:
++                    for substep_name in stage_substeps:
++                        orfs_step(
++                            name = "{}_{}".format(step_name, substep_name),
++                            src = step_name,
++                            stage_name = substep_name,
++                            **_add_manual(kwargs)
++                        )
+         return step_name
+ 
+     for step, prev in zip(steps[start_stage:], steps[start_stage - 1:]):
+diff --git a/private/rules.bzl b/private/rules.bzl
+index a388d08..1da3e6d 100644
+--- a/private/rules.bzl
++++ b/private/rules.bzl
+@@ -52,6 +52,10 @@ load(
+     "PdkInfo",
+     "TopInfo",
+ )
++load(
++    "//private:stages.bzl",
++    "STAGE_SUBSTEPS",
++)
+ 
+ # --- Shared helpers ---
+ 
+@@ -867,6 +871,93 @@ def _make_impl(
+         ctx.attr.src[TopInfo],
+     ]
+ 
++# --- Substep deploy-and-run rule ---
++
++def _step_impl(ctx):
++    """Deploys stage artifacts and runs a specific substep make target."""
++    exe = declare_artifact(ctx, "results", ctx.attr.name + ".sh")
++    _expand_deploy_template(
++        ctx,
++        exe,
++        config = ctx.attr.src[OrfsDepInfo].config,
++        make = ctx.attr.src[OrfsDepInfo].make,
++        genfiles = ctx.attr.src[OrfsDepInfo].files.to_list(),
++        name = ctx.attr.name,
++        renames = ctx.attr.src[OrfsDepInfo].renames,
++    )
++
++    # Wrapper that symlinks runfiles so the deploy script can find them,
++    # then invokes deploy with the baked-in make target.
++    wrapper = ctx.actions.declare_file(ctx.attr.name + "_run.sh")
++    ctx.actions.write(
++        output = wrapper,
++        is_executable = True,
++        content = """\
++#!/bin/bash
++RUNFILES="${{RUNFILES_DIR:-$0.runfiles}}"
++DEPLOY="$RUNFILES/_main/{deploy}"
++# deploy.tpl expects $0.runfiles to exist
++ln -sfn "$RUNFILES" "$DEPLOY.runfiles"
++exec "$DEPLOY" do-{make_target} "$@"
++""".format(
++            deploy = exe.short_path,
++            make_target = ctx.attr.stage_name,
++        ),
++    )
++    return [
++        DefaultInfo(
++            executable = wrapper,
++            files = ctx.attr.src[OrfsDepInfo].files,
++            runfiles = ctx.runfiles(files = [exe]).merge(
++                ctx.attr.src[OrfsDepInfo].runfiles,
++            ),
++        ),
++    ]
++
++orfs_step = rule(
++    implementation = _step_impl,
++    attrs = flow_attrs() | openroad_only_attrs() | yosys_only_attrs() | {
++        "stage_name": attr.string(
++            doc = "ORFS substep name, e.g. '3_4_place_resized'. " +
++                  "Used to derive the make target (do-{stage_name}).",
++            mandatory = True,
++        ),
++    },
++    executable = True,
++)
++
++# --- Squashed multi-stage rule ---
++
++def _squashed_impl(ctx):
++    """Runs multiple stages as a single Bazel action."""
++    return _make_impl(
++        ctx = ctx,
++        stage = ctx.attr.stage_name,
++        steps = ctx.attr.make_targets,
++        log_names = ctx.attr.log_names,
++        json_names = ctx.attr.json_names,
++        report_names = ctx.attr.report_names,
++        result_names = ctx.attr.result_names,
++        drc_names = ctx.attr.drc_names,
++    )
++
++orfs_squashed = rule(
++    implementation = _squashed_impl,
++    attrs = openroad_attrs() |
++            renamed_inputs_attr() |
++            {
++                "stage_name": attr.string(mandatory = True),
++                "make_targets": attr.string_list(mandatory = True),
++                "log_names": attr.string_list(default = []),
++                "json_names": attr.string_list(default = []),
++                "report_names": attr.string_list(default = []),
++                "result_names": attr.string_list(default = []),
++                "drc_names": attr.string_list(default = []),
++            },
++    provides = flow_provides(),
++    executable = True,
++)
++
+ # --- Stage rule declarations ---
+ 
+ orfs_floorplan = rule(
+@@ -874,18 +965,8 @@ orfs_floorplan = rule(
+         ctx = ctx,
+         stage = "2_floorplan",
+         steps = ["do-floorplan"],
+-        log_names = [
+-            "2_1_floorplan.log",
+-            "2_2_floorplan_macro.log",
+-            "2_3_floorplan_tapcell.log",
+-            "2_4_floorplan_pdn.log",
+-        ],
+-        json_names = [
+-            "2_1_floorplan.json",
+-            "2_2_floorplan_macro.json",
+-            "2_3_floorplan_tapcell.json",
+-            "2_4_floorplan_pdn.json",
+-        ],
++        log_names = [s + ".log" for s in STAGE_SUBSTEPS["floorplan"]],
++        json_names = [s + ".json" for s in STAGE_SUBSTEPS["floorplan"]],
+         report_names = [
+             "2_floorplan_final.rpt",
+         ],
+@@ -910,20 +991,8 @@ orfs_place = rule(
+         ctx = ctx,
+         stage = "3_place",
+         steps = ["do-place"],
+-        log_names = [
+-            "3_1_place_gp_skip_io.log",
+-            "3_2_place_iop.log",
+-            "3_3_place_gp.log",
+-            "3_4_place_resized.log",
+-            "3_5_place_dp.log",
+-        ],
+-        json_names = [
+-            "3_1_place_gp_skip_io.json",
+-            "3_2_place_iop.json",
+-            "3_3_place_gp.json",
+-            "3_4_place_resized.json",
+-            "3_5_place_dp.json",
+-        ],
++        log_names = [s + ".log" for s in STAGE_SUBSTEPS["place"]],
++        json_names = [s + ".json" for s in STAGE_SUBSTEPS["place"]],
+         report_names = [],
+         result_names = [
+             "3_place.odb",
+@@ -946,12 +1015,8 @@ orfs_cts = rule(
+         ctx = ctx,
+         stage = "4_cts",
+         steps = ["do-cts"],
+-        log_names = [
+-            "4_1_cts.log",
+-        ],
+-        json_names = [
+-            "4_1_cts.json",
+-        ],
++        log_names = [s + ".log" for s in STAGE_SUBSTEPS["cts"]],
++        json_names = [s + ".json" for s in STAGE_SUBSTEPS["cts"]],
+         report_names = [
+             "4_cts_final.rpt",
+         ],
+@@ -1019,14 +1084,8 @@ orfs_route = rule(
+             "do-5_route",
+             "do-5_route.sdc",
+         ],
+-        log_names = [
+-            "5_2_route.log",
+-            "5_3_fillcell.log",
+-        ],
+-        json_names = [
+-            "5_2_route.json",
+-            "5_3_fillcell.json",
+-        ],
++        log_names = [s + ".log" for s in STAGE_SUBSTEPS["route"]],
++        json_names = [s + ".json" for s in STAGE_SUBSTEPS["route"]],
+         drc_names = [
+             "5_route_drc.rpt",
+         ],
+@@ -1052,10 +1111,7 @@ orfs_final = rule(
+         stage = "6_final",
+         steps = ["do-final"],
+         object_names = [],
+-        log_names = [
+-            "6_1_merge.log",
+-            "6_report.log",
+-        ],
++        log_names = [s + ".log" for s in STAGE_SUBSTEPS["final"]],
+         json_names = [
+             "6_report.json",
+             "6_1_fill.json",
+diff --git a/private/stages.bzl b/private/stages.bzl
+index 437ebc9..c1f3591 100644
+--- a/private/stages.bzl
++++ b/private/stages.bzl
+@@ -24,6 +24,84 @@ ALL_STAGES = [
+     "update_rules",
+ ]
+ 
++# Substep names within each stage, using ORFS naming directly.
++# This is the single source of truth; log_names and json_names in stage
++# rules are derived from these lists.
++STAGE_SUBSTEPS = {
++    "floorplan": [
++        "2_1_floorplan",
++        "2_2_floorplan_macro",
++        "2_3_floorplan_tapcell",
++        "2_4_floorplan_pdn",
++    ],
++    "place": [
++        "3_1_place_gp_skip_io",
++        "3_2_place_iop",
++        "3_3_place_gp",
++        "3_4_place_resized",
++        "3_5_place_dp",
++    ],
++    "cts": [
++        "4_1_cts",
++    ],
++    "route": [
++        "5_2_route",
++        "5_3_fillcell",
++    ],
++    "final": [
++        "6_1_merge",
++        "6_report",
++    ],
++}
++
++# Per-stage metadata used by orfs_flow(squash=True) to combine stages
++# into a single Bazel action. Each stage lists its make targets, result
++# files, reports, and DRC outputs beyond the substep-derived logs/jsons.
++STAGE_METADATA = {
++    "floorplan": struct(
++        stage_name = "2_floorplan",
++        make_targets = ["do-floorplan"],
++        result_names = ["2_floorplan.odb", "2_floorplan.sdc"],
++        report_names = ["2_floorplan_final.rpt"],
++        drc_names = [],
++    ),
++    "place": struct(
++        stage_name = "3_place",
++        make_targets = ["do-place"],
++        result_names = ["3_place.odb", "3_place.sdc"],
++        report_names = [],
++        drc_names = [],
++    ),
++    "cts": struct(
++        stage_name = "4_cts",
++        make_targets = ["do-cts"],
++        result_names = ["4_cts.odb", "4_cts.sdc"],
++        report_names = ["4_cts_final.rpt"],
++        drc_names = [],
++    ),
++    "grt": struct(
++        stage_name = "5_1_grt",
++        make_targets = ["do-5_1_grt"],
++        result_names = ["5_1_grt.odb", "5_1_grt.sdc"],
++        report_names = ["5_global_route.rpt"],
++        drc_names = ["congestion.rpt"],
++    ),
++    "route": struct(
++        stage_name = "5_2_route",
++        make_targets = ["do-5_2_route", "do-5_3_fillcell", "do-5_route", "do-5_route.sdc"],
++        result_names = ["5_route.odb", "5_route.sdc"],
++        report_names = [],
++        drc_names = ["5_route_drc.rpt"],
++    ),
++    "final": struct(
++        stage_name = "6_final",
++        make_targets = ["do-final"],
++        result_names = ["6_final.odb", "6_final.sdc", "6_final.spef", "6_final.v"],
++        report_names = ["6_finish.rpt", "VDD.rpt", "VSS.rpt"],
++        drc_names = [],
++    ),
++}
++
+ ORFS_VARIABLE_TO_STAGES = {
+     k: v["stages"] if "stages" in v and v["stages"] != ["All stages"] else ALL_STAGES
+     for k, v in orfs_variable_metadata.items()
+diff --git a/test/BUILD b/test/BUILD
+index d9da03c..486909a 100644
+--- a/test/BUILD
++++ b/test/BUILD
+@@ -474,6 +474,23 @@ orfs_flow(
+     verilog_files = LB_VERILOG_FILES,
+ )
+ 
++# Test squashed flow: all stages after synth run as a single Bazel action.
++# Reduces artifact count for stable designs like RAM macros.
++# substeps=False also disables substep target generation to minimize targets.
++# buildifier: disable=duplicated-name
++orfs_flow(
++    name = "lb_32x128",
++    abstract_stage = "cts",
++    arguments = LB_ARGS,
++    openroad = "@mock-openroad//src/bin:openroad",
++    previous_stage = {"floorplan": ":lb_32x128_synth"},
++    squash = True,
++    stage_sources = LB_STAGE_SOURCES,
++    substeps = False,
++    variant = "squashed",
++    verilog_files = LB_VERILOG_FILES,
++)
++
+ # This should not be built with bazel build ..., as it fails
+ orfs_run(
+     name = "cell_count_manual",
