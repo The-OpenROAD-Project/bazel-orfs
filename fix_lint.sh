@@ -25,6 +25,14 @@ if [ -n "$BAZEL_FILES" ]; then
     echo "$BAZEL_FILES" | xargs "$BUILDIFIER" -lint warn
 fi
 
+# MODULE.bazel.lock: regenerate with CI config if MODULE.bazel changed
+if git diff --name-only --diff-filter=d "$MERGE_BASE" -- MODULE.bazel | grep -q .; then
+    echo "mod tidy: regenerating MODULE.bazel.lock with CI config"
+    echo 'import %workspace%/.github/ci.bazelrc' >> user.bazelrc
+    bazelisk mod tidy
+    rm user.bazelrc
+fi
+
 # Black: format Python files
 PY_FILES=$(git diff --name-only --diff-filter=d "$MERGE_BASE" -- '*.py' 2>/dev/null || true)
 if [ -n "$PY_FILES" ] && command -v black >/dev/null 2>&1; then
