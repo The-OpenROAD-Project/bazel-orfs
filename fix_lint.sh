@@ -9,7 +9,8 @@ MERGE_BASE=$(git merge-base origin/main HEAD 2>/dev/null || echo HEAD~1)
 
 # Buildifier: format and lint Bazel files
 BAZEL_FILES=$(git diff --name-only --diff-filter=d "$MERGE_BASE" -- \
-    '*.bzl' '*.bazel' 'BUILD' 'MODULE.bazel' 'WORKSPACE' 2>/dev/null || true)
+    '*.bzl' '*.bazel' 'BUILD' '**/BUILD' 'MODULE.bazel' '**/MODULE.bazel' \
+    'WORKSPACE' '**/WORKSPACE' 2>/dev/null || true)
 if [ -n "$BAZEL_FILES" ]; then
     echo "buildifier: $(echo "$BAZEL_FILES" | wc -w) file(s)"
     echo "$BAZEL_FILES" | xargs buildifier
