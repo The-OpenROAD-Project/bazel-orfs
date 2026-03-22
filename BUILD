@@ -78,5 +78,6 @@ sh_binary(
 sh_binary(
     name = "fix_lint",
     srcs = ["fix_lint.sh"],
+    data = ["@buildifier_prebuilt//:buildifier"],
     visibility = ["//visibility:public"],
 )
