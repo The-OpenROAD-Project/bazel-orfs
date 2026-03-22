@@ -1,3 +1,5 @@
+"""BUILD file for the docker ORFS image, providing PDK and flow targets."""
+
 load("@bazel-orfs//:openroad.bzl", "orfs_pdk")
 
 exports_files(
@@ -184,6 +186,7 @@ filegroup(
     )
     for pdk in [
         "asap7",
+        "nangate45",
         "sky130hd",
         "ihp-sg13g2",
     ]

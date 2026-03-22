@@ -130,5 +130,5 @@ bazel test //test/klayout:mock_klayout_test
 bazel test //test:lb_32x128_sky130hd_macro_test
 
 # Smoke test (flow without GDS)
-bazel test //test:lb_32x128_sky130hd_test
+bazel test //test/smoketest:lb_32x128_sky130hd_test
 ```
