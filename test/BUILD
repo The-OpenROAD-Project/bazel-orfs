@@ -474,6 +474,23 @@ orfs_flow(
     verilog_files = LB_VERILOG_FILES,
 )
 
+# Test squashed flow: all stages after synth run as a single Bazel action.
+# Reduces artifact count for stable designs like RAM macros.
+# substeps=False also disables substep target generation to minimize targets.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    abstract_stage = "cts",
+    arguments = LB_ARGS,
+    openroad = "@mock-openroad//src/bin:openroad",
+    previous_stage = {"floorplan": ":lb_32x128_synth"},
+    squash = True,
+    stage_sources = LB_STAGE_SOURCES,
+    substeps = False,
+    variant = "squashed",
+    verilog_files = LB_VERILOG_FILES,
+)
+
 # This should not be built with bazel build ..., as it fails
 orfs_run(
     name = "cell_count_manual",
