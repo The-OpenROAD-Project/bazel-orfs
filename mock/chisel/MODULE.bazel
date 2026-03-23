@@ -6,6 +6,11 @@ module(
 )
 
 bazel_dep(name = "bazel-orfs")
+bazel_dep(name = "bazel-orfs-verilog")
+local_path_override(
+    module_name = "bazel-orfs-verilog",
+    path = "../../verilog",
+)
 
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
 orfs.default(
@@ -23,7 +28,7 @@ use_repo(orfs, "docker_orfs")
 bazel_dep(name = "rules_jvm_external", version = "6.7")
 bazel_dep(name = "rules_java", version = "8.14.0")
 bazel_dep(name = "rules_scala", version = "7.1.5")
-bazel_dep(name = "rules_chisel", version = "0.2.0")
+bazel_dep(name = "rules_chisel", version = "0.3.0")
 
 SCALA_VERSION = "2.13.17"
 
@@ -52,6 +57,7 @@ maven.install(
         "org.chipsalliance:chisel-plugin_%s:7.2.0" % SCALA_VERSION,
     ],
     fetch_sources = True,
+    lock_file = "//:maven_install.json",
     repositories = [
         "https://repo1.maven.org/maven2",
     ],
