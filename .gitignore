@@ -16,3 +16,4 @@ external
 optuna/results/
 
 tmp/
+bep.json

@@ -26,7 +26,8 @@ def orfs_sweep(
         macros = [],
         pdk = None,
         visibility = ["//visibility:private"],
-        tags = []):
+        tags = [],
+        **kwargs):
     """Run a sweep of OpenROAD stages
 
     Args:
@@ -44,6 +45,7 @@ def orfs_sweep(
         sources: forwarded to orfs_flow
         pdk: forwarded to orfs_flow
         tags: forwarded
+        **kwargs: forwarded to orfs_flow (e.g. openroad, substeps)
     """
     if top == None:
         top = name
@@ -107,6 +109,7 @@ def orfs_sweep(
             abstract_stage = abstract_stage,
             visibility = visibility,
             tags = tags,
+            **kwargs
         )
 
         native.filegroup(
