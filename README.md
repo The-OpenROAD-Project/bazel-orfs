@@ -141,6 +141,42 @@ You can also forward arguments to make directly:
 bazel run <target>_<stage>_deps <make args...>
 ```
 
+### Parallel local builds
+
+Multiple `_deps` deployments are independent and can run in parallel. This
+is useful when building multiple designs or deploying all stages at once:
+
+```bash
+# Deploy and build two independent designs in parallel
+bazel run //test:tag_array_64x184_synth_deps &
+bazel run //test:lb_32x128_synth_deps &
+wait
+
+# Run synthesis in parallel (each in its own directory)
+tmp/test/tag_array_64x184_synth_deps/make do-yosys-canonicalize do-yosys do-1_synth &
+tmp/test/lb_32x128_synth_deps/make do-yosys-canonicalize do-yosys do-1_synth &
+wait
+```
+
+You can also pre-deploy all stages of a single design for faster iteration:
+
+```bash
+# Deploy all stages at once (each _deps is independent)
+for stage in synth floorplan place cts grt route final; do
+  bazel run //test:L1MetadataArray_${stage}_deps &
+done
+wait
+
+# Now iterate on any stage without re-deploying
+tmp/test/L1MetadataArray_floorplan_deps/make do-floorplan
+tmp/test/L1MetadataArray_place_deps/make do-place
+```
+
+> **NOTE:** Each stage's `make` invocation still requires its input artifacts
+> from the previous stage to be present, so the `make` commands must run
+> sequentially. Only the `_deps` deployments (which just set up the directory
+> structure) can run in parallel.
+
 ## Define a design flow
 
 ### Use bazel-orfs as an external dependency
@@ -516,6 +552,12 @@ Substep names are defined once in `STAGE_SUBSTEPS` in `private/stages.bzl` —
 the single source of truth from which log and JSON file names in stage rules
 are derived. Stages with only one substep (like cts) don't generate substep
 targets since the stage target already runs exactly that substep.
+
+> **NOTE:** The synth stage is not listed above because it uses a different
+> execution model (Yosys, not OpenROAD). Synth has two internal operations
+> (`1_1_yosys_canonicalize` and `1_2_yosys`) but they are handled as a
+> single Bazel action with built-in dependency checking via `.rtlil`
+> canonicalization, not as deploy-and-run substep targets.
 
 > **NOTE:** ORFS could grow a metadata file (beyond `variables.yaml`) that
 > lists substep names, their scripts, and dependencies. This would make
@@ -903,7 +945,7 @@ Potential improvements to the bazel-orfs CI pipeline:
 
 bazel-orfs supports two approaches to design space exploration:
 
-* **Bazel-native DSE** — sweep parameters using Bazel build settings, with Bazel handling parallelism efficiently. See [dse/README.md](dse/README.md).
+* **Bazel-native DSE** — sweep parameters using Bazel build settings, with Bazel handling parallelism efficiently. The `orfs_sweep` macro from `sweep.bzl` is the underlying mechanism. See [dse/README.md](dse/README.md).
 * **Optuna-based DSE** — multi-objective optimization using Optuna's TPE algorithm to find near-optimal parameter combinations. See [optuna/README.md](optuna/README.md).
 
 ## Additional tools and integrations
@@ -916,6 +958,9 @@ bazel-orfs supports two approaches to design space exploration:
 | Post-synthesis cleanup | najaeda netlist cleaning (experimental) | [naja](naja/README.md) |
 | SRAM macros | fakeram and mock SRAM | [sram](sram/README.md) |
 | ASAP7 tech files | Modified ASAP7 files for eqy | [asap7](asap7/README.md) |
+| Equivalence checking (eqy) | Yosys-based combinational equivalence | [delivery](delivery/README.md) |
+| Equivalence checking (LEC) | kepler-formal logic equivalence | [lec](lec/README.md) |
+| Verilog generation | FIRRTL-to-SystemVerilog via firtool | [verilog](verilog/README.md) |
 
 ## Reference
 
