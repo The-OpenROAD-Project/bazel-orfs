@@ -494,7 +494,6 @@ orfs_flow(
     previous_stage = {"floorplan": ":lb_32x128_synth"},
     squash = True,
     stage_sources = LB_STAGE_SOURCES,
-    substeps = False,
     variant = "squashed",
     verilog_files = LB_VERILOG_FILES,
 )
@@ -510,6 +509,7 @@ orfs_flow(
     previous_stage = {"floorplan": ":lb_32x128_synth"},
     squash = True,
     stage_sources = LB_STAGE_SOURCES,
+    substeps = True,
     variant = "squashed_final",
     verilog_files = LB_VERILOG_FILES,
 )
@@ -616,6 +616,31 @@ build_test(
     targets = [":lb_32x128_top_mock_hierarchy_generate_abstract"],
 )
 
+# Mock sweep test: tests orfs_sweep with macros + openroad override.
+# Uses mock-openroad for all stages. The sweep's "base" variant uses
+# lb_32x128_mock_abstract as a macro (hierarchical design).
+orfs_sweep(
+    name = "mock_sweep_lb",
+    abstract_stage = "cts",
+    arguments = LB_ARGS,
+    openroad = "@mock-openroad//src/bin:openroad",
+    stage_sources = LB_STAGE_SOURCES,
+    sweep = {
+        "mock": {
+            "macros": ["lb_32x128_mock_abstract_generate_abstract"],
+            "previous_stage": {"floorplan": "lb_32x128_synth"},
+            "sources": {
+                "SDC_FILE": [":constraints-sram"],
+            },
+        },
+    },
+    verilog_files = ["rtl/L1MetadataArray.sv"],
+)
+
+build_test(
+    name = "mock_sweep_build_test",
+    targets = [":mock_sweep_lb_mock_generate_abstract"],
+)
 # Pruning is validated implicitly: if orfs_sweep's previous_stage pruning
 # is broken, the lb_32x128 sweep targets would fail at analysis time
 # (duplicate actions or missing deps). No explicit query tests needed.
