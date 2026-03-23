@@ -1,0 +1,87 @@
+"""Chisel integration examples and tests for bazel-orfs."""
+
+module(
+    name = "bazel-orfs-chisel",
+    version = "0.0.1",
+)
+
+# --- bazel-orfs and verilog rules ---
+
+bazel_dep(name = "bazel-orfs")
+git_override(
+    module_name = "bazel-orfs",
+    branch = "main",
+    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",
+)
+
+bazel_dep(name = "bazel-orfs-verilog")
+local_path_override(
+    module_name = "bazel-orfs-verilog",
+    path = "../verilog",
+)
+
+orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
+orfs.default(
+    image = "docker.io/openroad/orfs:26Q1-656-g97416b2e4",
+    sha256 = "9c90633d62e08f0b3772d4fdfc06b14e4f33273ae1511d1c41d3c48560adb9a5",
+)
+use_repo(orfs, "docker_orfs")
+
+# --- Build rules ---
+
+bazel_dep(name = "rules_cc", version = "0.0.17")
+bazel_dep(name = "rules_shell", version = "0.3.0")
+bazel_dep(name = "rules_verilator", version = "0.1.0")
+bazel_dep(name = "verilator", version = "5.036.bcr.3")
+bazel_dep(name = "googletest", version = "1.17.0")
+
+# --- Chisel / Scala toolchain ---
+
+bazel_dep(name = "rules_jvm_external", version = "6.7")
+bazel_dep(name = "rules_java", version = "8.14.0")
+bazel_dep(name = "rules_scala", version = "7.1.5")
+bazel_dep(name = "rules_chisel", version = "0.3.0")
+
+SCALA_VERSION = "2.13.17"
+
+SCALA_VERSION_SHORT = SCALA_VERSION.rpartition(".")[0]
+
+scala_config = use_extension(
+    "@rules_scala//scala/extensions:config.bzl",
+    "scala_config",
+)
+scala_config.settings(scala_version = SCALA_VERSION)
+use_repo(scala_config, "rules_scala_config")
+
+scala_deps = use_extension(
+    "@rules_scala//scala/extensions:deps.bzl",
+    "scala_deps",
+)
+scala_deps.scala()
+scala_deps.scalatest()
+use_repo(scala_deps, "rules_scala_toolchains")
+
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
+maven.install(
+    artifacts = [
+        "org.chipsalliance:chisel_%s:7.2.0" % SCALA_VERSION_SHORT,
+        "org.chipsalliance:firtool-resolver_%s:2.0.1" % SCALA_VERSION_SHORT,
+        "org.chipsalliance:chisel-plugin_%s:7.2.0" % SCALA_VERSION,
+    ],
+    fetch_sources = True,
+    lock_file = "//:maven_install.json",
+    repositories = [
+        "https://repo1.maven.org/maven2",
+    ],
+)
+use_repo(maven, "maven")
+
+chisel = use_extension("@rules_chisel//chisel:extensions.bzl", "chisel")
+chisel.toolchain(
+    chisel_version = "7.2.0",
+    firtool_resolver_version = "2.0.1",
+    scala_version = SCALA_VERSION,
+)
+use_repo(chisel, "chisel_maven")
+
+register_toolchains("@rules_scala_toolchains//...:all")

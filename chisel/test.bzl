@@ -2,11 +2,11 @@
 This module defines Bazel rules and macros for generating, simulating, and testing Chisel hardware modules.
 """
 
+load("@bazel-orfs-verilog//:generate.bzl", "fir_library")
+load("@bazel-orfs-verilog//:verilog.bzl", "verilog_directory")
 load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
 load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
-load("@bazel-orfs-verilog//:generate.bzl", "fir_library")
-load("@bazel-orfs-verilog//:verilog.bzl", "verilog_directory")
 
 def _chisel_bench_test_impl(ctx):
     test = ctx.actions.declare_file("{}_test".format(ctx.attr.name))
@@ -74,7 +74,7 @@ def chisel_bench_test(
         srcs = srcs,
         main_class = "codegen.CodeGen",
         tags = ["manual"],
-        deps = deps + ["//chisel:codegenlib"],
+        deps = deps + ["//:codegenlib"],
     )
 
     fir_library(
@@ -106,7 +106,7 @@ def chisel_bench_test(
     )
     cc_binary(
         name = "{name}_run".format(name = name),
-        srcs = ["//chisel:TestBench.cpp"],
+        srcs = ["//:TestBench.cpp"],
         copts = [
             # "-std=gnu++23",
             # "-g",
