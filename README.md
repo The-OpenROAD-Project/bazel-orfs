@@ -578,26 +578,41 @@ with 5 placement substeps, that means 5 copies of the ODB instead of 1. Across
 all stages, this artifact explosion would multiply storage by ~4-5x per design.
 For CI with multiple PDKs and variants, this quickly becomes prohibitive.
 
-#### Disabling substep targets
+#### Enabling substep targets
 
-To disable substep target generation (e.g. for stable designs that don't need
-substep-level debugging), set `substeps = False`:
+Substep targets are **off by default** (`substeps = False`) to keep the target
+count small for stable designs. Enable them for designs under active development
+where you need substep-level iteration:
 
 ```starlark
 orfs_flow(
     name = "my_design",
-    substeps = False,
+    substeps = True,
     ...
 )
 ```
 
-#### `_deps` as a hacking tool
+Wrapper macros that call `orfs_flow()` internally (e.g. for SRAMs or register
+files) should consider passing `substeps` through as a parameter so users can
+enable it when debugging.
 
-With substep targets, `_deps` is no longer the primary tool for design
-iteration. However, `_deps` remains essential for local ORFS and bazel-orfs
-development where users need the full Make wrapper for low-level hacking
-(e.g., running arbitrary make targets, modifying ORFS scripts, creating
-issue archives).
+#### When to use `_deps` vs substep targets
+
+| I want to... | Use |
+|---|---|
+| Run a single substep and view the result | Substep target |
+| Iterate on a substep after editing BUILD | Substep target (auto-detects changes) |
+| Run arbitrary make targets not in STAGE_SUBSTEPS | `_deps` |
+| Edit Tcl scripts and re-run without Bazel | `_deps` (picks up file changes instantly) |
+| Create a `make issue` archive | `_deps` |
+| Use a local ORFS installation | `_deps` |
+| Run `make bash` for interactive debugging | `_deps` |
+
+Substep targets are the simpler tool for most iteration — one command, automatic
+dependency chain, change detection. `_deps` remains essential when you need the
+full Make wrapper: hacking ORFS scripts, running `make issue`, working with a
+local ORFS installation, or running arbitrary make targets not exposed as substep
+targets.
 
 ### Use remote caching for instant reverts
 
@@ -705,6 +720,11 @@ per-stage boundaries are just one common case that `orfs_flow()` encodes.
 `squash = True` is the other extreme. Advanced users can use `orfs_squashed`
 directly for custom groupings (e.g., squashing only floorplan through place
 while keeping later stages separate).
+
+Wrapper macros (like those for SRAMs or register files) that call
+`orfs_flow()` internally are good candidates for `squash = True`, since
+sub-macros are typically stable once working and don't need per-stage
+inspection.
 
 By default, substep targets are still generated (manual-tagged) even with
 `squash = True`, for debugging if something goes wrong later. Disable with
