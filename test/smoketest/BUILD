@@ -1,6 +1,14 @@
 """Multi-PDK smoke tests: verify the full ORFS flow completes for all supported PDKs."""
 
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//:openroad.bzl", "orfs_flow")
+
+PDKS = [
+    "asap7",
+    "nangate45",
+    "sky130hd",
+    "ihp-sg13g2",
+]
 
 FAST_SETTINGS = {
     "FILL_CELLS": "",
@@ -28,9 +36,10 @@ FAST_SETTINGS = {
     top = "lb_32x128",
     verilog_files = ["//test:mock/lb_32x128.sv"],
     visibility = ["//:__subpackages__"],
-) for pdk in [
-    "asap7",
-    "nangate45",
-    "sky130hd",
-    "ihp-sg13g2",
-]]
+) for pdk in PDKS]
+
+# Full-flow build tests: verify real OpenROAD completes for each PDK.
+[build_test(
+    name = "lb_32x128_{}_build_test".format(pdk),
+    targets = [":lb_32x128_{}_generate_abstract".format(pdk)],
+) for pdk in PDKS]
