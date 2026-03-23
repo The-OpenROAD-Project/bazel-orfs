@@ -25,10 +25,6 @@ external scripts.
 | `//chisel:life2_test` | Verilator simulation (larger design) | — | — | — | — |
 | `//chisel:helloworld_synth_test` | Chisel → synthesis with real OpenROAD | — | — | asap7 | yes |
 | `//chisel:helloworld_dir_synth_test` | Chisel → synthesis (directory output) | — | — | asap7 | yes |
-| `//delivery:cpu_generated_test` | Verilator simulation of generated Verilog | — | — | — | — |
-| `//delivery:cpu_rewrite_test` | Verilator simulation of rewritten SystemVerilog | — | — | — | — |
-| `//delivery:cpu_eqy_lec_test` | Equivalence checking (eqy) | — | — | — | — |
-| `//delivery:cpu_kepler_lec_test` | Equivalence checking (kepler-formal, mocked in CI) | — | — | — | — |
 | `//sby:counter_test` | Formal verification (SymbiYosys BMC) | — | — | — | — |
 | `//:requirements.test` | pip requirements lock consistency | — | — | — | — |
 | `//:requirements_examples.test` | pip requirements lock consistency | — | — | — | — |
@@ -62,7 +58,6 @@ development (`cd chisel && bazelisk test ...`).
 | Directory | Why it's here | Who should own it |
 |-----------|--------------|-------------------|
 | `chisel/` | Chisel integration examples/tests. Chisel rules already moved to BCR `rules_chisel`. | rules_chisel examples repo |
-| `delivery/` | Chisel→SV roundtrip LEC demo using eqy + kepler-formal + verilator | downstream project example |
 | `lec/` | Bazel rules wrapping kepler-formal for logic equivalence checking | kepler-formal repo |
 | `sby/` | Bazel rules wrapping SymbiYosys for formal verification | oss-cad-suite or separate rules_sby repo |
 | `naja/` | Naja EDA netlist cleaning example | naja repo |

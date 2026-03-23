@@ -5,7 +5,6 @@ tmp
 # Excluding them from //... keeps the root module fast by avoiding
 # heavy deps (chisel/scala/maven, verilator, kepler-formal, oss_cad_suite).
 chisel
-delivery
 lec
 mock/chisel
 naja
