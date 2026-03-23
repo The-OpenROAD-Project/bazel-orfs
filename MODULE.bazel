@@ -9,14 +9,6 @@ module(
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
 
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
-bazel_dep(name = "googletest", version = "1.17.0.bcr.1", dev_dependency = True)
-bazel_dep(name = "rules_jvm_external", version = "6.7", dev_dependency = True)
-bazel_dep(name = "rules_java", version = "8.14.0", dev_dependency = True)
-bazel_dep(name = "rules_scala", version = "7.1.5", dev_dependency = True)
-bazel_dep(name = "rules_chisel", version = "0.3.0", dev_dependency = True)
-
-bazel_dep(name = "rules_verilator", version = "0.1.0")
-bazel_dep(name = "verilator", version = "5.036.bcr.3")
 
 # WARNING: Do not bump rules_shell here for dev-only needs
 # (e.g. OpenROAD from source). It is a non-dev dep, so MVS forces the
@@ -24,8 +16,6 @@ bazel_dep(name = "verilator", version = "5.036.bcr.3")
 # module, MVS will pull in the higher versions from OpenROAD automatically.
 bazel_dep(name = "rules_shell", version = "0.3.0")
 
-bazel_dep(name = "rules_cc", version = "0.2.4", dev_dependency = True)
-bazel_dep(name = "kepler-formal", version = "1.0.0", dev_dependency = True)
 bazel_dep(name = "mock-klayout", version = "0.0.1", dev_dependency = True)
 local_path_override(
     module_name = "mock-klayout",
@@ -36,81 +26,6 @@ bazel_dep(name = "mock-openroad", version = "0.0.1", dev_dependency = True)
 local_path_override(
     module_name = "mock-openroad",
     path = "mock/openroad",
-)
-
-# Build OpenROAD from source (dev_dependency for testing the override mechanism).
-# The default remains @docker_orfs//:openroad for speed/convenience.
-# Users who want to test latest OpenROAD before docker image updates can add
-# these same deps in their own MODULE.bazel and override via orfs.default().
-bazel_dep(name = "openroad", dev_dependency = True)
-git_override(
-    module_name = "openroad",
-    commit = "a5b10a7a23f1a922864e697a6c573ddeab468515",
-    init_submodules = True,
-    # HACK: Patch out the llvm extension usage because toolchains_llvm
-    # enforces root-module-only usage. The root module configures it below.
-    # Remove this patch once OpenROAD makes llvm extension usage conditional.
-    patch_strip = 1,
-    patches = [
-        "//:openroad-llvm-root-only.patch",
-        "//:openroad-visibility.patch",
-    ],
-    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
-)
-
-# Required by OpenROAD: qt-bazel git_override must be in the root module
-# because bzlmod ignores git_override from non-root modules.
-# Remove once qt-bazel is published to BCR.
-bazel_dep(name = "qt-bazel", dev_dependency = True)
-git_override(
-    module_name = "qt-bazel",
-    commit = "df022f4ebaa4130713692fffd2f519d49e9d0b97",
-    remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
-)
-
-# Required by OpenROAD for its LLVM toolchain.
-bazel_dep(name = "toolchains_llvm", version = "1.5.0", dev_dependency = True)
-
-# HACK: Configure the llvm toolchain here (root module) because OpenROAD
-# can't do it as a non-root module. Remove once OpenROAD handles this.
-llvm = use_extension(
-    "@toolchains_llvm//toolchain/extensions:llvm.bzl",
-    "llvm",
-    dev_dependency = True,
-)
-llvm.toolchain(
-    llvm_version = "20.1.8",
-)
-use_repo(llvm, "llvm_toolchain")
-
-register_toolchains(
-    "@llvm_toolchain//:all",
-    dev_dependency = True,
-)
-
-# kepler-formal is not yet in BCR. Use git_override pointing to the repo.
-# For local development, comment out git_override and use local_path_override:
-#   local_path_override(module_name = "kepler-formal", path = "../kepler-formal")
-# After BCR publication, remove the override entirely.
-git_override(
-    module_name = "kepler-formal",
-    commit = "e8675f3086926c63205f8f5f586be7c7dccaf788",
-    remote = "https://github.com/keplertech/kepler-formal.git",
-)
-
-http_archive = use_repo_rule(
-    "@bazel_tools//tools/build_defs/repo:http.bzl",
-    "http_archive",
-)
-
-http_archive(
-    name = "oss_cad_suite",
-    build_file = "oss_cad_suite.BUILD.bazel",
-    sha256 = "05ff3c1435b7ce69f537ef942c6e0e96d09b10fac350e99925a3dd1610246f30",
-    strip_prefix = "oss-cad-suite",
-    urls = [
-        "https://github.com/YosysHQ/oss-cad-suite-build/releases/download/2025-11-18/oss-cad-suite-linux-x64-20251118.tgz",
-    ],
 )
 
 load_json_file = use_repo_rule("//:load_json_file.bzl", "load_json_file")
@@ -151,18 +66,6 @@ pip_features.parse(
 )
 use_repo(pip_features, "bazel-orfs-features-pip")
 
-pip_examples = use_extension(
-    "@rules_python//python/extensions:pip.bzl",
-    "pip",
-    dev_dependency = True,
-)
-pip_examples.parse(
-    hub_name = "bazel-orfs-examples-pip",
-    python_version = "3.13",
-    requirements_lock = "//:requirements_examples_lock_3_13.txt",
-)
-use_repo(pip_examples, "bazel-orfs-examples-pip")
-
 orfs = use_extension("//:extension.bzl", "orfs_repositories")
 use_repo(orfs, "com_github_nixos_patchelf_download")
 use_repo(orfs, "docker_orfs")
@@ -183,136 +86,4 @@ orfs_dev.default(
     makefile = "@docker_orfs//:makefile",
     # Comment out line below for local only docker images
     sha256 = "9c90633d62e08f0b3772d4fdfc06b14e4f33273ae1511d1c41d3c48560adb9a5",
-)
-
-# Not in use in CI
-#
-# Ideally pin_data() would be tested in CI, but setting up a Google Cloud
-# Storage bucket for the test is inconvenient.
-#
-# pin = use_extension("//extensions:pin.bzl", "pin")
-# pin.artifacts(
-#     artifacts_lock = "//:artifacts_lock.txt",
-#     repo_name = "pinned",
-# )
-# use_repo(pin, "pinned")
-
-SCALA_VERSION = "2.13.17"
-
-SCALA_VERSION_SHORT = SCALA_VERSION.rpartition(".")[0]
-
-CIRCE_VERSION = "0.14.4"
-
-MAVEN_DEPS = {
-    "org.apache.commons:commons-text": "1.12.0",
-    # BCR rules_scala automatically provides scala-compiler, scala-library, scala-reflect
-}
-
-MAVEN_SHORT_DEPS = {
-    "com.github.scopt:scopt": "4.1.0",
-    "com.lihaoyi:os-lib": "0.10.0",
-    "com.lihaoyi:ujson": "4.1.0",
-    "com.lihaoyi:upickle": "4.1.0",
-    "io.circe:circe-core": CIRCE_VERSION,
-    "io.circe:circe-generic": CIRCE_VERSION,
-    "io.circe:circe-generic-extras": CIRCE_VERSION,
-    "io.circe:circe-parser": CIRCE_VERSION,
-    "org.chipsalliance:chisel": "7.2.0",
-    "org.chipsalliance:firtool-resolver": "2.0.1",
-    "org.json4s:json4s-native": "4.0.7",
-    "org.scalatest:scalatest": "3.2.19",
-}
-
-MAVEN_LONG_DEPS = {
-    "org.chipsalliance:chisel-plugin": "7.2.0",
-    "org.scalameta:semanticdb-scalac": "4.14.1",
-}
-
-# Configure BCR rules_scala
-#
-# Downstream modules must configure their own scala_config, scala_deps,
-# register_toolchains, and maven extensions. bazel-orfs provides the
-# rules (chisel.bzl, etc.) but does not own the toolchain configuration.
-scala_config = use_extension(
-    "@rules_scala//scala/extensions:config.bzl",
-    "scala_config",
-    dev_dependency = True,
-)
-scala_config.settings(scala_version = "2.13.17")
-use_repo(scala_config, "rules_scala_config")
-
-scala_deps = use_extension(
-    "@rules_scala//scala/extensions:deps.bzl",
-    "scala_deps",
-    dev_dependency = True,
-)
-scala_deps.scala()  # Provides scala-compiler, scala-library, scala-reflect
-scala_deps.scalatest()  # Provides scalatest framework
-use_repo(scala_deps, "rules_scala_toolchains")
-
-maven = use_extension(
-    "@rules_jvm_external//:extensions.bzl",
-    "maven",
-    dev_dependency = True,
-)
-maven.install(
-    artifacts = [
-                    "{}_{}:{}".format(dep, SCALA_VERSION_SHORT, version)
-                    for (dep, version) in MAVEN_SHORT_DEPS.items()
-                ] +
-                [
-                    "{}_{}:{}".format(dep, SCALA_VERSION, version)
-                    for (dep, version) in MAVEN_LONG_DEPS.items()
-                ] +
-                ["{}:{}".format(dep, version) for (dep, version) in MAVEN_DEPS.items()],
-    fetch_sources = True,
-    # bazelisk run @maven//:pin
-    lock_file = "//:maven_install.json",
-    repositories = [
-        "https://repo1.maven.org/maven2",  # fastest mirror, last I tried
-        "https://s01.oss.sonatype.org/content/repositories/releases",
-        "https://s01.oss.sonatype.org/content/repositories/snapshots",
-    ],
-)
-use_repo(maven, "maven")
-
-chisel = use_extension("@rules_chisel//chisel:extensions.bzl", "chisel", dev_dependency = True)
-chisel.toolchain(
-    chisel_version = "7.2.0",
-    firtool_resolver_version = "2.0.1",
-    scala_version = SCALA_VERSION,
-)
-use_repo(chisel, "chisel_maven")
-
-# ## Lock the compiler version and avoid any local compiler
-# bazel_dep(name = "toolchains_llvm", version = "1.5.0")
-
-# # Configure and register the toolchain.
-# llvm = use_extension("@toolchains_llvm//toolchain/extensions:llvm.bzl", "llvm")
-# llvm.toolchain(
-#     llvm_version = "20.1.8",
-# )
-# use_repo(llvm, "llvm_toolchain")
-
-register_toolchains(
-    "@rules_verilator//verilator:verilator_toolchain",
-    "@rules_scala_toolchains//...:all",
-    # "@llvm_toolchain//:all",
-    dev_dependency = True,
-)
-
-http_archive(
-    name = "circt",
-    build_file_content = """
-package(default_visibility = ["//visibility:public"])
-
-filegroup(
-    name = "bin/firtool",
-    srcs = ["org.chipsalliance/llvm-firtool/linux-x64/bin/firtool"],
-)
-
-exports_files(["org.chipsalliance/llvm-firtool/linux-x64/bin/firtool"])
-""",
-    sha256 = "87eed8ee81914c9bce19228a6b397b10a7e8b1a8dbafa100ed84c15bc63a8188",
-    urls = ["https://repo1.maven.org/maven2/org/chipsalliance/llvm-firtool/1.137.0/llvm-firtool-1.137.0.jar"],
 )

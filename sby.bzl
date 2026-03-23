@@ -1,7 +1,7 @@
 """Rules for sby formal verification."""
 
-load("//:generate.bzl", "fir_library")
-load("//:verilog.bzl", "verilog_directory", "verilog_single_file_library")
+load("@bazel-orfs-verilog//:generate.bzl", "fir_library")
+load("@bazel-orfs-verilog//:verilog.bzl", "verilog_directory", "verilog_single_file_library")
 
 # Default firtool options for formal verification.
 #

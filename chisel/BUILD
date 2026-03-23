@@ -1,9 +1,9 @@
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load("@rules_chisel//chisel:defs.bzl", "chisel_binary", "chisel_library", "chisel_test")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
-load("//:generate.bzl", "fir_library")
+load("@bazel-orfs-verilog//:generate.bzl", "fir_library")
 load("//:openroad.bzl", "orfs_synth")
-load("//:verilog.bzl", "verilog_directory", "verilog_single_file_library")
+load("@bazel-orfs-verilog//:verilog.bzl", "verilog_directory", "verilog_single_file_library")
 load("//chisel:test.bzl", "chisel_bench_test")
 
 filegroup(
