@@ -83,7 +83,7 @@ def orfs_flow(
         stage_data = {},
         test_kwargs = {},
         squash = False,
-        substeps = True,
+        substeps = False,
         **kwargs):
     """
     Creates targets for running physical design flow with OpenROAD-flow-scripts.
@@ -113,9 +113,9 @@ def orfs_flow(
       squash: if True, combine all stages after synthesis into a single Bazel action.
         Reduces artifact size by avoiding intermediate ODB checkpoints. Useful for
         stable designs like RAM macros where intermediate stages don't need inspection.
-      substeps: if True (default), generate manual-tagged per-substep targets for
-        debugging and fast iteration. Set to False to reduce target count for designs
-        that don't need substep-level debugging.
+      substeps: if True, generate manual-tagged per-substep targets for
+        debugging and fast iteration. Default is False to keep the target count low.
+        Set to True for designs where substep-level debugging is needed.
       **kwargs: forward named args
     """
     if abstract_stage and last_stage:
@@ -278,7 +278,7 @@ def _orfs_pass(
         test_kwargs = {},
         mock_area = False,
         squash = False,
-        substeps = True,
+        substeps = False,
         **kwargs):
     ALL_STAGES = [step.stage for step in STAGE_IMPLS]
     steps = []
