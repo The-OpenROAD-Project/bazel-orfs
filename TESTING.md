@@ -52,8 +52,8 @@ These cannot be tested via `bazelisk test ...`:
 The following directories are excluded from `//...` via `.bazelignore`.
 They contain code that doesn't belong in bazel-orfs long-term — bazel-orfs
 is hosting it temporarily until the respective owners provide native Bazel
-support. Each directory will get its own `MODULE.bazel` for independent
-development (`cd chisel && bazelisk test ...`).
+support. Each has its own `MODULE.bazel` for independent development
+(`cd chisel && bazelisk test ... --override_module=bazel-orfs=$(pwd)/..`).
 
 | Directory | Why it's here | Who should own it |
 |-----------|--------------|-------------------|
