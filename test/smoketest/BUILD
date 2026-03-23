@@ -5,8 +5,10 @@ load("//:openroad.bzl", "orfs_flow")
 
 PDKS = [
     "asap7",
+    "gf180",
     "nangate45",
     "sky130hd",
+    "sky130hs",
     "ihp-sg13g2",
 ]
 

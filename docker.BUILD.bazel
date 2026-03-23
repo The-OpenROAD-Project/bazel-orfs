@@ -155,6 +155,7 @@ filegroup(
                 for ext in [
                                "gds",
                                "lef",
+                               "lyp",
                                "lyt",
                                "mk",
                                "rules",
@@ -162,8 +163,12 @@ filegroup(
                                "v",
                            ] +
                            {
-                               "sky130hd": ["tlef"],
-                               "asap7": ["sdc"],
+                               "asap7": ["cfg", "json", "sdc"],
+                               "gf180": ["cfg", "layermap", "lyt_generic"],
+                               "ihp-sg13g2": ["json"],
+                               "nangate45": ["cfg"],
+                               "sky130hd": ["json", "tlef"],
+                               "sky130hs": ["json", "tlef"],
                            }.get(pdk, [])
             ] +
             ["OpenROAD-flow-scripts/flow/platforms/common/**/*.v"],
@@ -174,20 +179,20 @@ filegroup(
                     pdk = pdk,
                     ext = ext,
                 )
-                for ext in [
-                               "lib",
-                           ] +
-                           {
-                               "asap7": ["lib.gz"],
-                           }.get(pdk, [])
+                for ext in {
+                    "asap7": ["lib", "lib.gz"],
+                    "gf180": ["lib.gz"],
+                }.get(pdk, ["lib"])
             ],
         ),
         visibility = ["//visibility:public"],
     )
     for pdk in [
         "asap7",
+        "gf180",
         "nangate45",
         "sky130hd",
+        "sky130hs",
         "ihp-sg13g2",
     ]
 ]
