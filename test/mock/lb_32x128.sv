@@ -10,11 +10,19 @@ module lb_32x128(
   input  [7:0] W0_data
 );
 
-  reg [3:0] Memory[0:0]; // Reduced rows to 1 and 8 bits
+  reg [7:0] Memory[0:0];
+  reg [7:0] R0_data_reg;
+
   always @(posedge W0_clk) begin
-    if (W0_en & 1'h1)
-      Memory[W0_addr[4:3] ^ W0_addr[1:0]] <= W0_data; // XORing high and low bits
-  end // always @(posedge)
-  assign R0_data = R0_en ? Memory[R0_addr[4:3] ^ R0_addr[1:0]] : 128'bx; // XORing high and low bits
+    if (W0_en)
+      Memory[W0_addr[4:3] ^ W0_addr[1:0]] <= W0_data;
+  end
+
+  always @(posedge R0_clk) begin
+    if (R0_en)
+      R0_data_reg <= Memory[R0_addr[4:3] ^ R0_addr[1:0]];
+  end
+
+  assign R0_data = R0_data_reg;
 endmodule
 
