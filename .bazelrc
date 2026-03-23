@@ -6,4 +6,7 @@ common --incompatible_disallow_empty_glob
 # Use: bazelisk build --config=openroad-gui @openroad//:openroad
 build:openroad-gui --@openroad//:platform=gui
 
+# Garbage-collect disk cache to avoid exhausting CI runner disk.
+build --experimental_disk_cache_gc_max_size=10G
+
 try-import %workspace%/user.bazelrc

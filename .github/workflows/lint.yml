@@ -1,0 +1,38 @@
+name: lint
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-22.04
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+    steps:
+      - name: Checkout bazel-orfs
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          repository-cache: true
+
+      - name: Use mock kepler-formal
+        run: echo 'import %workspace%/.github/ci.bazelrc' >> user.bazelrc
+
+      # Single source of truth: fix_lint.sh handles buildifier (respecting
+      # .bazelignore), black, and lockfile regeneration (with CI config).
+      # If this produces a diff, the contributor forgot to run fix_lint locally.
+      - name: Lint and lockfile check
+        run: |
+          bazelisk run //:fix_lint
+          rm -f user.bazelrc
+          git diff --exit-code
