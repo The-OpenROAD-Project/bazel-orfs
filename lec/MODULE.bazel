@@ -1,0 +1,12 @@
+"""Bazel rules wrapping kepler-formal for logic equivalence checking."""
+
+module(
+    name = "bazel-orfs-lec",
+    version = "0.0.1",
+)
+
+bazel_dep(name = "kepler-formal")
+local_path_override(
+    module_name = "kepler-formal",
+    path = "../mock/kepler-formal",
+)

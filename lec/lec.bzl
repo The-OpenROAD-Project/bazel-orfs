@@ -121,7 +121,7 @@ lec_test = rule(
             default = Label("@kepler-formal//src/bin:kepler-formal"),
         ),
         "_config_template": attr.label(
-            default = "//lec:lec.yaml.tpl",
+            default = "//:lec.yaml.tpl",
             allow_single_file = True,
         ),
     },

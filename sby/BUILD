@@ -1,5 +1,5 @@
+load("@bazel-orfs//:sby.bzl", "sby_test")
 load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
-load("//:sby.bzl", "sby_test")
 
 filegroup(
     name = "chiselfiles",
