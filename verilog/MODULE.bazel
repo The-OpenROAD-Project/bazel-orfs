@@ -1,0 +1,28 @@
+module(
+    name = "bazel-orfs-verilog",
+    version = "0.0.1",
+)
+
+bazel_dep(name = "rules_verilator", version = "0.1.0")
+bazel_dep(name = "verilator", version = "5.036.bcr.3")
+
+http_archive = use_repo_rule(
+    "@bazel_tools//tools/build_defs/repo:http.bzl",
+    "http_archive",
+)
+
+http_archive(
+    name = "circt",
+    build_file_content = """
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "bin/firtool",
+    srcs = ["org.chipsalliance/llvm-firtool/linux-x64/bin/firtool"],
+)
+
+exports_files(["org.chipsalliance/llvm-firtool/linux-x64/bin/firtool"])
+""",
+    sha256 = "87eed8ee81914c9bce19228a6b397b10a7e8b1a8dbafa100ed84c15bc63a8188",
+    urls = ["https://repo1.maven.org/maven2/org/chipsalliance/llvm-firtool/1.137.0/llvm-firtool-1.137.0.jar"],
+)
