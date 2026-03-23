@@ -1,0 +1,57 @@
+name: submodules
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - submodule: mock/chisel
+          - submodule: chisel
+          - submodule: sby
+          - submodule: lec
+    name: ${{ matrix.submodule }}
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+    steps:
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          docker-images: true
+          large-packages: false
+          swap-storage: false
+      - name: Checkout bazel-orfs
+        uses: actions/checkout@v4
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: submodules-${{ matrix.submodule }}
+          repository-cache: true
+
+      - name: Test
+        working-directory: ${{ matrix.submodule }}
+        run: >-
+          bazelisk test ... --keep_going --build_tests_only
+          --test_output=errors
+          --override_module=bazel-orfs=${{ github.workspace }}
+          --profile=build.profile
+      - name: Analyze profile
+        if: always()
+        working-directory: ${{ matrix.submodule }}
+        run: bazelisk analyze-profile build.profile
