@@ -15,10 +15,24 @@ fi
 
 MERGE_BASE=$(git merge-base origin/main HEAD 2>/dev/null || echo HEAD~1)
 
+# Build grep pattern from .bazelignore (skip comments and blank lines)
+BAZELIGNORE_PATTERN=""
+if [ -f .bazelignore ]; then
+    BAZELIGNORE_PATTERN=$(grep -v '^#' .bazelignore | grep -v '^$' | sed 's|/$||' | paste -sd'|' | sed 's/|/\\|/g')
+fi
+
+filter_ignored() {
+    if [ -n "$BAZELIGNORE_PATTERN" ]; then
+        grep -v "^\\($BAZELIGNORE_PATTERN\\)/" || true
+    else
+        cat
+    fi
+}
+
 # Buildifier: format and lint Bazel files
 BAZEL_FILES=$(git diff --name-only --diff-filter=d "$MERGE_BASE" -- \
     '*.bzl' '*.bazel' 'BUILD' '**/BUILD' 'MODULE.bazel' '**/MODULE.bazel' \
-    'WORKSPACE' '**/WORKSPACE' 2>/dev/null || true)
+    'WORKSPACE' '**/WORKSPACE' 2>/dev/null | filter_ignored || true)
 if [ -n "$BAZEL_FILES" ]; then
     echo "buildifier: $(echo "$BAZEL_FILES" | wc -w) file(s)"
     echo "$BAZEL_FILES" | xargs "$BUILDIFIER"
@@ -34,7 +48,7 @@ if git diff --name-only --diff-filter=d "$MERGE_BASE" -- MODULE.bazel | grep -q 
 fi
 
 # Black: format Python files
-PY_FILES=$(git diff --name-only --diff-filter=d "$MERGE_BASE" -- '*.py' 2>/dev/null || true)
+PY_FILES=$(git diff --name-only --diff-filter=d "$MERGE_BASE" -- '*.py' 2>/dev/null | filter_ignored || true)
 if [ -n "$PY_FILES" ] && command -v black >/dev/null 2>&1; then
     echo "black: $(echo "$PY_FILES" | wc -w) file(s)"
     echo "$PY_FILES" | xargs black --quiet
