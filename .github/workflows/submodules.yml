@@ -13,9 +13,14 @@ jobs:
       matrix:
         include:
           - submodule: mock/chisel
+            command: build
           - submodule: chisel
+            command: test
           - submodule: sby
+            command: test
           - submodule: lec
+            command: build
+            override_bazel_orfs: false
     name: ${{ matrix.submodule }}
     runs-on: ubuntu-22.04
     defaults:
@@ -47,9 +52,9 @@ jobs:
       - name: Test
         working-directory: ${{ matrix.submodule }}
         run: >-
-          bazelisk test ... --keep_going --build_tests_only
-          --test_output=errors
-          --override_module=bazel-orfs=${{ github.workspace }}
+          bazelisk ${{ matrix.command }} ... --keep_going
+          ${{ matrix.command == 'test' && '--build_tests_only --test_output=errors' || '' }}
+          ${{ matrix.override_bazel_orfs != false && format('--override_module=bazel-orfs={0}', github.workspace) || '' }}
           --profile=build.profile
       - name: Analyze profile
         if: always()
