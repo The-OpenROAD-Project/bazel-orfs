@@ -46,13 +46,6 @@ compile_pip_requirements(
     requirements_txt = "requirements_features_lock_3_13.txt",
 )
 
-compile_pip_requirements(
-    name = "requirements_examples",
-    src = "requirements_examples.in",
-    python_version = "3.13",
-    requirements_txt = "requirements_examples_lock_3_13.txt",
-)
-
 py_binary(
     name = "plot_clock_period_tool",
     srcs = [

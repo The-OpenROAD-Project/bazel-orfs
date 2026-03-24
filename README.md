@@ -963,10 +963,33 @@ Potential improvements to the bazel-orfs CI pipeline:
 
 ## Design space exploration
 
-bazel-orfs supports two approaches to design space exploration:
+bazel-orfs supports design space exploration (DSE) by parameterizing
+`orfs_flow()` targets with Bazel build settings. This lets you sweep or
+optimize parameters like core utilization and placement density across
+multiple flow instances, with Bazel handling parallelism and caching.
 
-* **Bazel-native DSE** — sweep parameters using Bazel build settings, with Bazel handling parallelism efficiently. The `orfs_sweep` macro from `sweep.bzl` is the underlying mechanism. See [dse/README.md](dse/README.md).
-* **Optuna-based DSE** — multi-objective optimization using Optuna's TPE algorithm to find near-optimal parameter combinations. See [optuna/README.md](optuna/README.md).
+**Use-case:** Find parameter combinations (utilization, density, clock period,
+macro placement, etc.) that optimize area, timing, or power for a given design.
+
+**How it works:**
+
+1. Declare parameters as `string_flag` build settings
+2. Map them to ORFS variables via `orfs_flow(settings = {...})`
+3. Create N parallel flow instances using list comprehensions
+4. Invoke with overrides: `bazel build --//pkg:density0=0.7 --//pkg:util0=40 //pkg:design_0_place`
+
+The `orfs_sweep` macro in `sweep.bzl` wraps this pattern for common cases.
+
+Parameters only propagate to relevant stages — changing `PLACE_DENSITY` does not
+invalidate the synthesis cache.
+
+**External optimizers:** Any optimizer (Optuna, Vizier, hyperopt, etc.) can drive
+DSE by scripting `bazel build` invocations with different `--//pkg:flag=value`
+arguments and parsing PPA metrics from the build outputs.
+
+### Examples
+
+<!-- Add links to DSE example repos or PRs here -->
 
 ## Additional tools and integrations
 
@@ -1209,8 +1232,6 @@ Test and demo content lives in subdirectories:
 - `subpackage/` — cross-package reference tests
 - `chisel/` — Chisel integration tests
 - `sby/` — formal verification tests
-- `optuna/` — hyperparameter tuning experiments
-- `dse/` — design space exploration experiments
 
 ### Trivial test files
 
@@ -1231,6 +1252,12 @@ Features removed from bazel-orfs. Check git history for the original implementat
 - **netlistsvg** — SVG schematic generation from Yosys JSON netlists. Removed
   along with all JavaScript dependencies (`aspect_rules_js`, `rules_nodejs`,
   `npm`, `pnpm`). See `netlistsvg.bzl`, `main.js` in git history.
+- **optuna/** — Multi-objective Bayesian optimization (Optuna TPE) for hardware
+  DSE with multi-fidelity (synth→place→grt) progressive refinement. Included a
+  parameterized `mock-cpu.sv` test design. See `optuna/` in git history.
+- **dse/** — Bazel-native DSE example using `string_flag` build settings with
+  `orfs_flow(settings = {...})` to sweep utilization and density. The pattern
+  is now documented in the DSE section above. See `dse/` in git history.
 
 ### Deprecated
 
