@@ -93,8 +93,17 @@ main() {
   chmod --recursive u+w "$dst"
   cp --recursive --target-directory "$dst" -- $0.runfiles/*
   if [ ! -d "$dst/_main/external" ]; then
-    # Needed as of Bazel >= 8
-    ln -sf "$dst" "$dst/_main/external"
+    # Needed as of Bazel >= 8: _main/external/<repo> must resolve.
+    # Create a real directory with per-repo symlinks instead of
+    # ln -sf "$dst" which creates a self-referential loop that
+    # causes tar -ch (follow symlinks) to recurse infinitely.
+    mkdir -p "$dst/_main/external"
+    for repo_dir in "$dst"/*/; do
+      repo_name=$(basename "$repo_dir")
+      [ "$repo_name" = "_main" ] && continue
+      [ "$repo_name" = "_repo_mapping" ] && continue
+      ln -sf "$repo_dir" "$dst/_main/external/$repo_name"
+    done
   fi
   dst_main="$dst/_main"
 
