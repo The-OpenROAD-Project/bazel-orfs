@@ -437,6 +437,7 @@ def _orfs_pass(
                                 name = "{}_{}".format(squash_name, substep_name),
                                 src = squash_name,
                                 stage_name = substep_name,
+                                deploy_name = "{}_deps".format(squash_name),
                                 **_add_manual(kwargs)
                             )
 
@@ -516,6 +517,7 @@ def _orfs_pass(
                             name = "{}_{}".format(step_name, substep_name),
                             src = step_name,
                             stage_name = substep_name,
+                            deploy_name = "{}_deps".format(step_name),
                             **_add_manual(kwargs)
                         )
         return step_name

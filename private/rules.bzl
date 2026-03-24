@@ -876,13 +876,17 @@ def _make_impl(
 def _step_impl(ctx):
     """Deploys stage artifacts and runs a specific substep make target."""
     exe = declare_artifact(ctx, "results", ctx.attr.name + ".sh")
+
+    # All substep targets for a stage share the same deploy directory
+    # so that substep N can read the ODB written by substep N-1.
+    deploy_name = ctx.attr.deploy_name if ctx.attr.deploy_name else ctx.attr.name
     _expand_deploy_template(
         ctx,
         exe,
         config = ctx.attr.src[OrfsDepInfo].config,
         make = ctx.attr.src[OrfsDepInfo].make,
         genfiles = ctx.attr.src[OrfsDepInfo].files.to_list(),
-        name = ctx.attr.name,
+        name = deploy_name,
         renames = ctx.attr.src[OrfsDepInfo].renames,
     )
 
@@ -921,6 +925,10 @@ orfs_step = rule(
             doc = "ORFS substep name, e.g. '3_4_place_resized'. " +
                   "Used to derive the make target (do-{stage_name}).",
             mandatory = True,
+        ),
+        "deploy_name": attr.string(
+            doc = "Deploy folder name. All substeps for a stage share " +
+                  "the same deploy_name so they read/write the same ODB files.",
         ),
     },
     executable = True,
