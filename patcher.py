@@ -2,10 +2,12 @@
 
 import argparse
 import os
+import shutil
+import stat
 import subprocess
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 DEFAULT_SEARCH_PATHS = [
     "/lib64",
@@ -13,6 +15,17 @@ DEFAULT_SEARCH_PATHS = [
 ]
 
 ELF_MAGIC = b"\x7fELF"
+
+WRAPPER_TEMPLATE = """\
+#!/usr/bin/env bash
+self="$(readlink -f "${{BASH_SOURCE[0]}}")"
+top_dir="$(cd "$(dirname "$self")/{self_to_top}" && pwd)"
+{env_exports}exec "$top_dir/{interpreter}" \\
+  --inhibit-cache --inhibit-rpath "" \\
+  --library-path "{library_path}" \\
+  --argv0 "$self" \\
+  "$top_dir/{libexec}" "$@"
+"""
 
 
 def magic(path: str) -> Optional[bytes]:
@@ -41,7 +54,9 @@ def magic(path: str) -> Optional[bytes]:
     return None
 
 
-def patch_prepare(args: argparse.Namespace, root: str, file: str) -> List:
+def patch_prepare(
+    args: argparse.Namespace, root: str, file: str
+) -> Tuple[List, Optional[dict]]:
     """
     Reads patchelf information (like rpath or interpreter)
     and prepares patchelf commands. It also fixes links.
@@ -57,8 +72,9 @@ def patch_prepare(args: argparse.Namespace, root: str, file: str) -> List:
 
     Returns
     -------
-    List
-        List of prepared commands
+    Tuple[List, Optional[dict]]
+        List of prepared patchelf commands, and optional wrapper info
+        for executables with an interpreter.
 
     Raises
     ------
@@ -72,17 +88,17 @@ def patch_prepare(args: argparse.Namespace, root: str, file: str) -> List:
         link_to_target = os.path.relpath(target, start=root)
         os.unlink(link)
         os.symlink(link_to_target, link)
-        return []
+        return [], None
 
     if magic(os.path.join(root, file)) != ELF_MAGIC:
-        return []
+        return [], None
 
     needed_result = subprocess.run(
         [args.patchelf, "--print-needed", file], cwd=root, capture_output=True
     )
     needed_libs = needed_result.stdout.decode("utf-8").strip()
     if not needed_libs:
-        return []
+        return [], None
 
     rpath_fragments = (
         subprocess.check_output([args.patchelf, "--print-rpath", file], cwd=root)
@@ -120,18 +136,168 @@ def patch_prepare(args: argparse.Namespace, root: str, file: str) -> List:
         [args.patchelf, "--print-interpreter", file], cwd=root, capture_output=True
     )
     if interpreter_result.returncode != 0:
-        return cmds
+        return cmds, None
+
+    # Only wrap actual executables, not shared libraries.
+    # Shared libraries may have PT_INTERP (PIE) but should not be wrapped.
+    if ".so" in file:
+        return cmds, None
 
     interpreter_old = interpreter_result.stdout.decode("utf-8").strip()
-    execution_root = os.path.normpath(os.path.join(args.directory, "..", ".."))
-    interp = os.path.relpath(interpreter_old, start="/")
-    execution_root_to_interp = os.path.relpath(
-        os.path.join(args.directory, interp), execution_root
+    interpreter_rel = os.path.relpath(interpreter_old, start="/")
+
+    # Compute absolute rpath directories relative to the extraction root
+    # for use in the wrapper script's --library-path
+    elf_dir = os.path.join("/", os.path.relpath(root, start=args.directory))
+    abs_rpaths = []
+    for rp in rpaths:
+        if "$ORIGIN" in rp:
+            resolved = rp.replace("$ORIGIN", elf_dir)
+            rel_to_root = os.path.relpath(resolved, start="/")
+            abs_rpaths.append(rel_to_root)
+        else:
+            abs_rpaths.append(os.path.relpath(rp, start="/"))
+
+    wrapper_info = {
+        "root": root,
+        "file": file,
+        "interpreter": interpreter_rel,
+        "library_paths": abs_rpaths,
+    }
+
+    return cmds, wrapper_info
+
+
+def find_tcl_library(directory: str) -> Optional[str]:
+    """Find the TCL library directory relative to the extraction root."""
+    for root, dirs, files in os.walk(directory):
+        if "init.tcl" in files and "tcl" in root:
+            return os.path.relpath(root, directory)
+    return None
+
+
+def generate_wrapper(
+    args: argparse.Namespace,
+    wrapper_info: dict,
+    tcl_library: Optional[str] = None,
+):
+    """
+    Moves an ELF executable to libexec/ and creates a wrapper script
+    that invokes the bundled ld-linux with --inhibit-cache.
+
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Program arguments
+    wrapper_info : dict
+        Dictionary with keys: root, file, interpreter, library_paths
+    tcl_library : Optional[str]
+        TCL library path relative to extraction root
+    """
+    root = wrapper_info["root"]
+    file = wrapper_info["file"]
+    src = os.path.join(root, file)
+
+    # Compute the libexec destination mirroring the relative path
+    rel_from_root = os.path.relpath(src, start=args.directory)
+    libexec_rel = os.path.join("libexec", rel_from_root)
+    libexec_abs = os.path.join(args.directory, libexec_rel)
+
+    os.makedirs(os.path.dirname(libexec_abs), exist_ok=True)
+    os.rename(src, libexec_abs)
+
+    # Relative path from the wrapper script's directory
+    # to the extraction root
+    wrapper_dir = os.path.dirname(src)
+    self_to_top = os.path.relpath(
+        args.directory, start=wrapper_dir
     )
-    cmds.append(
-        ([args.patchelf, "--set-interpreter", execution_root_to_interp, file], root),
+
+    library_path = ":".join(
+        "$top_dir/" + p for p in wrapper_info["library_paths"]
     )
-    return cmds
+
+    env_lines = []
+    if tcl_library:
+        env_lines.append(
+            'export TCL_LIBRARY="${TCL_LIBRARY:-'
+            '$top_dir/' + tcl_library + '}"'
+        )
+    env_exports = "".join(line + "\n" for line in env_lines)
+
+    wrapper_content = WRAPPER_TEMPLATE.format(
+        self_to_top=self_to_top,
+        interpreter=wrapper_info["interpreter"],
+        library_path=library_path,
+        libexec=libexec_rel,
+        env_exports=env_exports,
+    )
+
+    with open(src, "w") as f:
+        f.write(wrapper_content)
+    os.chmod(
+        src,
+        stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP
+        | stat.S_IROTH | stat.S_IXOTH,
+    )
+
+
+def setup_interpreter(args: argparse.Namespace, interpreter_rel: str):
+    """
+    Copy the ld-linux interpreter to lib/ at the extraction root.
+
+    Tools like yosys use /proc/self/exe to locate share/ relative
+    to the interpreter. By placing ld-linux at {top}/lib/ (a real
+    directory, not a symlink), /proc/self/exe resolves to
+    {top}/lib/ld-linux and {exe_dir}/../share/yosys/ becomes
+    {top}/share/yosys/ — matching the oss-cad-suite layout.
+
+    Returns the new interpreter path relative to the extraction root.
+    """
+    interp_basename = os.path.basename(interpreter_rel)
+    new_rel = os.path.join("_lib", interp_basename)
+    new_abs = os.path.join(args.directory, new_rel)
+
+    if not os.path.exists(new_abs):
+        real_interp = os.path.realpath(
+            os.path.join(args.directory, interpreter_rel)
+        )
+        os.makedirs(os.path.dirname(new_abs), exist_ok=True)
+        shutil.copy2(real_interp, new_abs)
+
+    return new_rel
+
+
+def create_share_symlinks(args: argparse.Namespace):
+    """
+    Create top-level share/ symlinks so that tools using
+    /proc/self/exe can find their data directories.
+
+    With the wrapper approach, /proc/self/exe resolves to
+    the ld-linux interpreter. Tools like yosys check
+    {exe_dir}/../share/yosys/ which becomes {top}/share/yosys/.
+    """
+    top_share = os.path.join(args.directory, "share")
+    os.makedirs(top_share, exist_ok=True)
+
+    for root, dirs, files in os.walk(args.directory):
+        # Skip the top-level share dir itself and libexec
+        rel = os.path.relpath(root, args.directory)
+        if rel == "share" or rel.startswith("share/"):
+            continue
+        if rel.startswith("libexec"):
+            continue
+
+        # Look for share/<tool> directories
+        if os.path.basename(root) == "share":
+            for d in dirs:
+                link = os.path.join(top_share, d)
+                target = os.path.join(root, d)
+                if not os.path.exists(link):
+                    os.symlink(
+                        os.path.relpath(target, top_share),
+                        link,
+                    )
 
 
 def main():
@@ -148,7 +314,7 @@ def main():
     if args.jobs is None:
         args.jobs = multiprocessing.cpu_count() // 2
 
-    futures, commands, failed_files = [], [], []
+    futures, commands, wrappers, failed_files = [], [], [], []
     with ThreadPoolExecutor(max_workers=args.jobs) as executor:
         for root, dirs, files in os.walk(args.directory):
             for file in files:
@@ -165,11 +331,13 @@ def main():
                 )
         for future, (root, file) in futures:
             try:
-                command = future.result()
+                command, wrapper_info = future.result()
             except subprocess.CalledProcessError as ex:
                 failed_files.append((root, file, ex))
                 continue
             commands.extend(command)
+            if wrapper_info is not None:
+                wrappers.append(wrapper_info)
 
     if failed_files:
         error_msg = "\n".join([f"{os.path.join(r, f)}" for r, f, _ in failed_files])
@@ -179,6 +347,47 @@ def main():
 
     for command, root in commands:
         subprocess.check_call(command, cwd=root)
+
+    # Copy ld-linux to lib/ so /proc/self/exe resolves to a
+    # known, symlink-free path. This lets tools like yosys find
+    # {exe_dir}/../share/yosys/ = {top}/share/yosys/.
+    interp_map = {}
+    for wrapper_info in wrappers:
+        old_interp = wrapper_info["interpreter"]
+        if old_interp not in interp_map:
+            interp_map[old_interp] = setup_interpreter(
+                args, old_interp
+            )
+        wrapper_info["interpreter"] = interp_map[old_interp]
+
+    tcl_library = find_tcl_library(args.directory)
+
+    for wrapper_info in wrappers:
+        generate_wrapper(args, wrapper_info, tcl_library)
+
+    # Tools like yosys use proc_self_dirname() to find sibling
+    # executables (e.g. yosys-abc). Since /proc/self/exe now
+    # resolves to _lib/ld-linux, create symlinks in _lib/ for
+    # all wrapped executables so they can be found as siblings.
+    interp_dir = os.path.dirname(
+        os.path.join(args.directory, interp_map[old_interp])
+    )
+    for wrapper_info in wrappers:
+        name = os.path.basename(wrapper_info["file"])
+        link = os.path.join(interp_dir, name)
+        wrapper_path = os.path.join(
+            wrapper_info["root"], wrapper_info["file"]
+        )
+        if not os.path.exists(link):
+            os.symlink(
+                os.path.relpath(wrapper_path, interp_dir),
+                link,
+            )
+
+    # Create top-level share/ symlinks so tools like yosys that
+    # use /proc/self/exe to find {exe_dir}/../share/yosys/ can
+    # locate their data files relative to the ld-linux location.
+    create_share_symlinks(args)
 
 
 if __name__ == "__main__":
