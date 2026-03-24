@@ -26,13 +26,19 @@ filegroup(
 
 filegroup(
     name = "ld.so",
-    srcs = ["lib64/ld-linux-x86-64.so.2"],
+    srcs = ["_lib/ld-linux-x86-64.so.2"],
+)
+
+filegroup(
+    name = "libexec",
+    srcs = glob(["libexec/**"]),
 )
 
 filegroup(
     name = "openroad",
     data = [
         ":ld.so",
+        ":libexec",
         ":qt_plugins",
     ],
     srcs = ["OpenROAD-flow-scripts/tools/install/OpenROAD/bin/openroad"],
@@ -43,6 +49,7 @@ filegroup(
     name = "sta",
     data = [
         ":ld.so",
+        ":libexec",
     ],
     srcs = ["OpenROAD-flow-scripts/tools/install/OpenROAD/bin/sta"],
     visibility = ["//visibility:public"],
@@ -52,6 +59,7 @@ filegroup(
     name = "yosys",
     data = [
         ":ld.so",
+        ":libexec",
         "OpenROAD-flow-scripts/tools/install/yosys/share/yosys/plugins/slang.so",
     ],
     srcs = ["OpenROAD-flow-scripts/tools/install/yosys/bin/yosys"],
@@ -62,6 +70,7 @@ filegroup(
     name = "make",
     data = [
         ":ld.so",
+        ":libexec",
     ],
     srcs = ["usr/bin/make"],
     visibility = ["//visibility:public"],
@@ -71,6 +80,7 @@ filegroup(
     name = "yosys-abc",
     data = [
         ":ld.so",
+        ":libexec",
     ],
     srcs = ["OpenROAD-flow-scripts/tools/install/yosys/bin/yosys-abc"],
     visibility = ["//visibility:public"],
@@ -80,6 +90,7 @@ filegroup(
     name = "klayout",
     data = [
         ":ld.so",
+        ":libexec",
     ],
     srcs = ["usr/bin/klayout"],
     visibility = ["//visibility:public"],
