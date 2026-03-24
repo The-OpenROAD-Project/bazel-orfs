@@ -12,8 +12,5 @@ external
 .bsp/
 .bazelbsp/
 
-# Optuna results
-optuna/results/
-
 tmp/
 bep.json

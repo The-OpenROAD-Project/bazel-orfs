@@ -27,7 +27,6 @@ external scripts.
 | `//chisel:helloworld_dir_synth_test` | Chisel → synthesis (directory output) | — | — | asap7 | yes |
 | `//sby:counter_test` | Formal verification (SymbiYosys BMC) | — | — | — | — |
 | `//:requirements.test` | pip requirements lock consistency | — | — | — | — |
-| `//:requirements_examples.test` | pip requirements lock consistency | — | — | — | — |
 | `//:requirements_features.test` | pip requirements lock consistency | — | — | — | — |
 
 ### Manual tests (not run by `bazelisk test ...`)
