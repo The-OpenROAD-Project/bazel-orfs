@@ -17,7 +17,7 @@ consumers.
 | `ppa.bzl` | `orfs_ppa` | `rules_shell` |
 | `verilog.bzl` | `verilog_directory`, `verilog_file`, `verilog_single_file_library` | `rules_verilator` |
 | `generate.bzl` | `fir_library` | none (`@circt` http_archive) |
-| `sby.bzl` | `sby_test` | none (via generate.bzl + verilog.bzl) |
+| `sby/sby.bzl` | `sby_test` | `bazel-orfs-verilog`, `oss_cad_suite` (in `bazel-orfs-sby` submodule) |
 | `eqy.bzl` | `eqy_test` | none |
 | `orfs_genrule.bzl` | `orfs_genrule` | none |
 | `sweep.bzl` | `sweep` | none (via openroad.bzl) |

@@ -6,7 +6,7 @@ designs using SymbiYosys with the bitwuzla SMT solver.
 ## Quick start
 
 ```python
-load("@bazel-orfs//:sby.bzl", "sby_test")
+load("@bazel-orfs-sby//:sby.bzl", "sby_test")
 
 sby_test(
     name = "counter_formal",
