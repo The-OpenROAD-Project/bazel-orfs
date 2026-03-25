@@ -2,13 +2,12 @@
 
 import argparse
 import os
-import re
 import shutil
 import stat
-import subprocess
+import struct
 import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 DEFAULT_SEARCH_PATHS = [
     "/lib64",
@@ -28,64 +27,201 @@ top_dir="$(cd "$(dirname "$self")/{self_to_top}" && pwd)"
   "$top_dir/{libexec}" "$@"
 """
 
-# Regex patterns for parsing readelf output
-_NEEDED_RE = re.compile(r"\(NEEDED\)\s+Shared library: \[(.+)\]")
-_RPATH_RE = re.compile(r"\((?:RPATH|RUNPATH)\)\s+Library r(?:un)?path: \[(.+)\]")
-_INTERP_RE = re.compile(r"Requesting program interpreter: (.+)\]")
+# ELF constants
+_PT_INTERP = 3
+_PT_DYNAMIC = 2
+_DT_NULL = 0
+_DT_NEEDED = 1
+_DT_STRTAB = 5
+_DT_RPATH = 15
+_DT_RUNPATH = 29
 
 
-def magic(path: str) -> Optional[bytes]:
+def _read_cstr(f, offset):
+    """Read a null-terminated string from file at offset."""
+    f.seek(offset)
+    chars = []
+    while True:
+        b = f.read(1)
+        if not b or b == b"\x00":
+            break
+        chars.append(b)
+    return b"".join(chars).decode("utf-8", errors="replace")
+
+
+def parse_elf(path: str) -> Optional[dict]:
+    """Parse ELF needed libs, rpath, and interpreter.
+
+    Pure Python implementation using struct — no readelf dependency.
+
+    Returns dict with keys:
+        needed: List[str] — shared libraries (DT_NEEDED)
+        rpath: str — colon-separated library search path (DT_RPATH or DT_RUNPATH)
+        interp: Optional[str] — dynamic linker path (PT_INTERP)
+
+    Returns None if not a valid ELF or on parse error.
     """
-    Returns first few bytes from the given file.
-
-    Parameters
-    ----------
-    path : str
-        Path to the file
-
-    Returns
-    -------
-    Optional[bytes]
-        bytes or None
-    """
-    if not os.path.isfile(path):
-        return None
-
     try:
         with open(path, "rb") as f:
-            return f.read(len(ELF_MAGIC))
-    except FileNotFoundError:
+            return _parse_elf_file(f)
+    except (OSError, struct.error, ValueError):
         return None
 
-    return None
 
-
-def _readelf_dynamic(root: str, file: str) -> str:
-    """Run readelf -d and return stdout, or empty string on failure."""
-    result = subprocess.run(["readelf", "-d", file], cwd=root, capture_output=True)
-    if result.returncode != 0:
-        return ""
-    return result.stdout.decode("utf-8")
-
-
-def _readelf_needed(dynamic_output: str) -> List[str]:
-    """Extract NEEDED entries from readelf -d output."""
-    return _NEEDED_RE.findall(dynamic_output)
-
-
-def _readelf_rpath(dynamic_output: str) -> str:
-    """Extract RPATH/RUNPATH from readelf -d output."""
-    match = _RPATH_RE.search(dynamic_output)
-    return match.group(1) if match else ""
-
-
-def _readelf_interpreter(root: str, file: str) -> Optional[str]:
-    """Extract PT_INTERP from readelf -l output."""
-    result = subprocess.run(["readelf", "-l", file], cwd=root, capture_output=True)
-    if result.returncode != 0:
+def _parse_elf_file(f) -> Optional[dict]:
+    """Parse an open ELF file object."""
+    # ELF header: e_ident
+    ident = f.read(16)
+    if len(ident) < 16 or ident[:4] != ELF_MAGIC:
         return None
-    match = _INTERP_RE.search(result.stdout.decode("utf-8"))
-    return match.group(1) if match else None
+
+    ei_class = ident[4]  # 1=32-bit, 2=64-bit
+    ei_data = ident[5]  # 1=little-endian, 2=big-endian
+
+    if ei_data == 1:
+        endian = "<"
+    elif ei_data == 2:
+        endian = ">"
+    else:
+        return None
+
+    if ei_class == 1:
+        # 32-bit ELF header (after ident): 13 fields, 36 bytes
+        hdr = f.read(36)
+        if len(hdr) < 36:
+            return None
+        (
+            _,
+            _,
+            _,
+            _,
+            e_phoff,
+            e_shoff,
+            _,
+            _,
+            e_phentsize,
+            e_phnum,
+            e_shentsize,
+            e_shnum,
+            _,
+        ) = struct.unpack(endian + "HHIIIIIHHHHHH", hdr)
+        ph_fmt = endian + "IIIIIIII"  # 32-bit phdr
+        sh_fmt = endian + "IIIIIIIIII"  # 32-bit shdr
+        dyn_fmt = endian + "iI"  # 32-bit dyn entry
+    elif ei_class == 2:
+        # 64-bit ELF header (after ident): 13 fields, 48 bytes
+        hdr = f.read(48)
+        if len(hdr) < 48:
+            return None
+        (
+            _,
+            _,
+            _,
+            _,
+            e_phoff,
+            e_shoff,
+            _,
+            _,
+            e_phentsize,
+            e_phnum,
+            e_shentsize,
+            e_shnum,
+            _,
+        ) = struct.unpack(endian + "HHIQQQIHHHHHH", hdr)
+        ph_fmt = endian + "IIQQQQQQ"  # 64-bit program header
+        sh_fmt = endian + "IIQQQQIIQQ"  # 64-bit section header
+        dyn_fmt = endian + "qQ"  # 64-bit dynamic entry
+    else:
+        return None
+
+    ph_size = struct.calcsize(ph_fmt)
+    sh_size = struct.calcsize(sh_fmt)
+    dyn_size = struct.calcsize(dyn_fmt)
+
+    # Read program headers
+    interp = None
+    dyn_offset = 0
+    dyn_filesz = 0
+
+    for i in range(e_phnum):
+        f.seek(e_phoff + i * e_phentsize)
+        ph_data = f.read(ph_size)
+        if len(ph_data) < ph_size:
+            break
+        ph = struct.unpack(ph_fmt, ph_data)
+
+        if ei_class == 1:
+            p_type, p_offset, _, _, p_filesz = ph[0], ph[1], ph[2], ph[3], ph[4]
+        else:
+            p_type, p_offset, p_filesz = ph[0], ph[2], ph[5]
+
+        if p_type == _PT_INTERP:
+            f.seek(p_offset)
+            raw = f.read(p_filesz)
+            interp = raw.rstrip(b"\x00").decode("utf-8", errors="replace")
+
+        if p_type == _PT_DYNAMIC:
+            dyn_offset = p_offset
+            dyn_filesz = p_filesz
+
+    # Read section headers to find .dynstr
+    sh_list = []
+    for i in range(e_shnum):
+        f.seek(e_shoff + i * e_shentsize)
+        sh_data = f.read(sh_size)
+        if len(sh_data) < sh_size:
+            break
+        sh_list.append(struct.unpack(sh_fmt, sh_data))
+
+    # Parse .dynamic section
+    needed_offsets = []
+    rpath_offset = None
+    strtab_addr = 0
+
+    if dyn_offset and dyn_filesz:
+        f.seek(dyn_offset)
+        pos = 0
+        while pos < dyn_filesz:
+            entry_data = f.read(dyn_size)
+            if len(entry_data) < dyn_size:
+                break
+            d_tag, d_val = struct.unpack(dyn_fmt, entry_data)
+            if d_tag == _DT_NULL:
+                break
+            if d_tag == _DT_NEEDED:
+                needed_offsets.append(d_val)
+            if d_tag == _DT_STRTAB:
+                strtab_addr = d_val
+            # DT_RUNPATH takes precedence over DT_RPATH
+            if d_tag == _DT_RUNPATH:
+                rpath_offset = d_val
+            if d_tag == _DT_RPATH and rpath_offset is None:
+                rpath_offset = d_val
+            pos += dyn_size
+
+    # Find .dynstr file offset from section headers
+    # Match section where sh_addr == strtab_addr
+    strtab_file_offset = 0
+    if strtab_addr:
+        for sh in sh_list:
+            if ei_class == 1:
+                sh_addr, sh_offset_val = sh[3], sh[4]
+            else:
+                sh_addr, sh_offset_val = sh[3], sh[4]
+            if sh_addr == strtab_addr:
+                strtab_file_offset = sh_offset_val
+                break
+
+    # Resolve string table entries
+    needed = []
+    rpath = ""
+    if strtab_file_offset:
+        for off in needed_offsets:
+            needed.append(_read_cstr(f, strtab_file_offset + off))
+        if rpath_offset is not None:
+            rpath = _read_cstr(f, strtab_file_offset + rpath_offset)
+
+    return {"needed": needed, "rpath": rpath, "interp": interp}
 
 
 def patch_prepare(args: argparse.Namespace, root: str, file: str) -> Optional[dict]:
@@ -106,11 +242,6 @@ def patch_prepare(args: argparse.Namespace, root: str, file: str) -> Optional[di
     -------
     Optional[dict]
         Wrapper info dict for executables with an interpreter, or None.
-
-    Raises
-    ------
-    subprocess.CalledProcessError
-        Exception raised when subprocess fails
     """
     link = os.path.join(root, file)
     if os.path.islink(link) and os.path.isabs(os.readlink(link)):
@@ -121,15 +252,15 @@ def patch_prepare(args: argparse.Namespace, root: str, file: str) -> Optional[di
         os.symlink(link_to_target, link)
         return None
 
-    if magic(os.path.join(root, file)) != ELF_MAGIC:
+    elf_info = parse_elf(os.path.join(root, file))
+    if elf_info is None:
         return None
 
-    dynamic_output = _readelf_dynamic(root, file)
-    needed_libs = _readelf_needed(dynamic_output)
+    needed_libs = elf_info["needed"]
     if not needed_libs:
         return None
 
-    rpath_fragments = _readelf_rpath(dynamic_output)
+    rpath_fragments = elf_info["rpath"]
     rpaths = []
     for rpath in rpath_fragments.split(":") + DEFAULT_SEARCH_PATHS:
         if not rpath:
@@ -142,7 +273,7 @@ def patch_prepare(args: argparse.Namespace, root: str, file: str) -> Optional[di
             elf_to_rpath = os.path.relpath(rpath, start=elf)
             rpaths.append(os.path.join("$ORIGIN", elf_to_rpath))
 
-    interpreter_old = _readelf_interpreter(root, file)
+    interpreter_old = elf_info["interp"]
     if interpreter_old is None:
         return None
 
@@ -328,7 +459,7 @@ def main():
         for future, (root, file) in futures:
             try:
                 wrapper_info = future.result()
-            except subprocess.CalledProcessError as ex:
+            except Exception as ex:
                 failed_files.append((root, file, ex))
                 continue
             if wrapper_info is not None:
