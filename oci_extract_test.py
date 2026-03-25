@@ -6,6 +6,7 @@ import io
 import json
 import os
 import shutil
+import stat
 import tarfile
 import tempfile
 import unittest
@@ -298,21 +299,25 @@ class TestExtractLayer(unittest.TestCase):
         shutil.rmtree(self.output_dir)
 
     def _make_tar(self, members):
-        """Create a tar with given (name, content) tuples.
+        """Create a tar with given (name, content[, mode]) tuples.
 
-        content=None for directories.
+        content=None for directories.  Optional third element sets the mode.
         """
         tar_path = os.path.join(self.output_dir, "_layer.tar")
         with tarfile.open(tar_path, "w:gz") as tar:
-            for name, content in members:
+            for entry in members:
+                name, content = entry[0], entry[1]
+                mode = entry[2] if len(entry) > 2 else None
                 if content is None:
                     info = tarfile.TarInfo(name=name)
                     info.type = tarfile.DIRTYPE
-                    info.mode = 0o755
+                    info.mode = mode if mode is not None else 0o755
                     tar.addfile(info)
                 else:
                     info = tarfile.TarInfo(name=name)
                     info.size = len(content)
+                    if mode is not None:
+                        info.mode = mode
                     tar.addfile(info, io.BytesIO(content))
         return tar_path
 
@@ -358,6 +363,29 @@ class TestExtractLayer(unittest.TestCase):
         oci_extract.extract_layer(tar_path, extract_dir)
         self.assertTrue(os.path.isdir(subdir))
         self.assertEqual(os.listdir(subdir), [])
+
+    def test_execute_bits_preserved(self):
+        """Files with execute bits in the tar must be executable after extraction."""
+        tar_path = self._make_tar(
+            [
+                ("script.sh", b"#!/bin/bash\necho hi\n", 0o755),
+                ("data.txt", b"no exec", 0o644),
+            ]
+        )
+        extract_dir = os.path.join(self.output_dir, "extract")
+        os.makedirs(extract_dir)
+        oci_extract.extract_layer(tar_path, extract_dir)
+
+        script = os.path.join(extract_dir, "script.sh")
+        data = os.path.join(extract_dir, "data.txt")
+        self.assertTrue(
+            os.stat(script).st_mode & stat.S_IXUSR,
+            "script.sh should be executable",
+        )
+        self.assertFalse(
+            os.stat(data).st_mode & stat.S_IXUSR,
+            "data.txt should not be executable",
+        )
 
     def test_layer_ordering(self):
         """Later layer overwrites earlier layer's files."""
