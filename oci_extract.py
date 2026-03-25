@@ -234,6 +234,12 @@ def extract_layer(tar_path, output_dir):
 
             try:
                 tar.extract(member, output_dir, set_attrs=False)
+                # set_attrs=False skips all permissions (to avoid uid/gid
+                # issues), but we still need execute bits for binaries and
+                # scripts.  Restore them from the tar member's mode.
+                if member.isreg() and member.mode & 0o111:
+                    dest_path = os.path.join(output_dir, member.name)
+                    os.chmod(dest_path, os.stat(dest_path).st_mode | 0o111)
             except (OSError, tarfile.TarError) as e:
                 print(f"WARNING: failed to extract {member.name}: {e}", file=sys.stderr)
 
