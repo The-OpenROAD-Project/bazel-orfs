@@ -315,6 +315,14 @@ class TestDetectProject(unittest.TestCase):
     def test_no_module(self):
         self.assertEqual(bump.detect_project("# empty"), "downstream")
 
+    def test_module_with_version(self):
+        content = 'module(\n    name = "bazel-orfs",\n    version = "1.0",\n)'
+        self.assertEqual(bump.detect_project(content), "bazel-orfs")
+
+    def test_module_single_line(self):
+        content = 'module(name = "openroad")'
+        self.assertEqual(bump.detect_project(content), "openroad")
+
 
 class TestUpdateOrfsImage(unittest.TestCase):
     def test_updates_tag_and_digest(self):
@@ -340,6 +348,24 @@ class TestUpdateOrfsImage(unittest.TestCase):
         )
         result = bump.update_orfs_image(content, "NEW", "new")
         self.assertIn('openroad = "//:openroad"', result)
+
+    def test_no_orfs_default_is_noop(self):
+        content = 'module(name = "foo")\n'
+        result = bump.update_orfs_image(content, "TAG", "DIGEST")
+        self.assertEqual(result, content)
+
+    def test_preserves_surrounding_content(self):
+        content = (
+            "# header\n"
+            "orfs.default(\n"
+            '    image = "docker.io/openroad/orfs:OLD",\n'
+            '    sha256 = "old",\n'
+            ")\n"
+            "# footer\n"
+        )
+        result = bump.update_orfs_image(content, "NEW", "new")
+        self.assertTrue(result.startswith("# header\n"))
+        self.assertTrue(result.endswith("# footer\n"))
 
 
 class TestUpdateGitOverride(unittest.TestCase):
@@ -374,6 +400,46 @@ class TestUpdateGitOverride(unittest.TestCase):
         result = bump.update_git_override_commit(content, "openroad", "new_commit")
         self.assertIn('commit = "new_commit"', result)
 
+    def test_multiple_blocks_only_target_updated(self):
+        content = (
+            "git_override(\n"
+            '    module_name = "bazel-orfs",\n'
+            '    commit = "aaa",\n'
+            ")\n"
+            "git_override(\n"
+            '    module_name = "bazel-orfs-verilog",\n'
+            '    commit = "bbb",\n'
+            '    strip_prefix = "verilog",\n'
+            ")\n"
+        )
+        result = bump.update_git_override_commit(content, "bazel-orfs-verilog", "new")
+        self.assertIn('commit = "aaa"', result)
+        self.assertIn('commit = "new"', result)
+        self.assertIn('strip_prefix = "verilog"', result)
+
+    def test_no_matching_block_is_noop(self):
+        content = (
+            "git_override(\n"
+            '    module_name = "other",\n'
+            '    commit = "keep",\n'
+            ")"
+        )
+        result = bump.update_git_override_commit(content, "bazel-orfs", "new")
+        self.assertEqual(result, content)
+
+    def test_preserves_other_fields_in_block(self):
+        content = (
+            "git_override(\n"
+            '    module_name = "bazel-orfs",\n'
+            '    commit = "old",\n'
+            "    init_submodules = True,\n"
+            '    remote = "https://github.com/...",\n'
+            ")"
+        )
+        result = bump.update_git_override_commit(content, "bazel-orfs", "new")
+        self.assertIn("init_submodules = True", result)
+        self.assertIn("remote =", result)
+
 
 class TestInjectBoilerplate(unittest.TestCase):
     def test_injects_after_use_repo(self):
@@ -387,6 +453,134 @@ class TestInjectBoilerplate(unittest.TestCase):
         result = bump.inject_openroad_boilerplate(content, "abc123")
         count = result.count(bump.BOILERPLATE_MARKER)
         self.assertEqual(count, 1)
+
+    def test_no_use_repo_is_noop(self):
+        content = 'module(name = "test")\n'
+        result = bump.inject_openroad_boilerplate(content, "abc123")
+        self.assertNotIn(bump.BOILERPLATE_MARKER, result)
+        self.assertEqual(result, content)
+
+    def test_boilerplate_placed_after_last_use_repo(self):
+        content = (
+            'use_repo(orfs, "docker_orfs")\n' 'use_repo(orfs, "other")\n' "# end\n"
+        )
+        result = bump.inject_openroad_boilerplate(content, "abc123")
+        lines = result.split("\n")
+        marker_idx = next(
+            i for i, l in enumerate(lines) if bump.BOILERPLATE_MARKER in l
+        )
+        use_repo_indices = [i for i, l in enumerate(lines) if "use_repo(orfs" in l]
+        self.assertGreater(marker_idx, max(use_repo_indices))
+
+
+class TestBazelOrfsSkipsSelfCommit(unittest.TestCase):
+    """bazel-orfs project must not update its own git_override commit."""
+
+    def setUp(self):
+        self.content = apply_bump("self.MODULE.bazel")
+
+    def test_orfs_commit_not_in_output(self):
+        self.assertNotIn(ORFS_COMMIT, self.content, "ORFS commit is informational only")
+
+    def test_image_tag_present(self):
+        self.assertIn(LATEST_TAG, self.content)
+
+
+class TestOpenroadSkipsSelfCommit(unittest.TestCase):
+    """OpenROAD project must not update its own commit."""
+
+    def setUp(self):
+        self.content = apply_bump("openroad.MODULE.bazel")
+
+    def test_does_not_self_update(self):
+        self.assertNotIn(
+            OPENROAD_COMMIT, self.content, "OpenROAD must not bump its own commit"
+        )
+
+    def test_updates_bazel_orfs(self):
+        self.assertIn(BAZEL_ORFS_COMMIT, self.content)
+
+
+class TestSubmodulesDoubleUpdate(unittest.TestCase):
+    """Bumping a file with submodules twice should be idempotent."""
+
+    def test_double_bump_idempotent(self):
+        src = os.path.join(FIXTURES_DIR, "downstream-with-submodules.MODULE.bazel")
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".MODULE.bazel", delete=False
+        )
+        tmp.close()
+        shutil.copy2(src, tmp.name)
+
+        kwargs = dict(
+            fetch_tag_fn=mock_fetch_tag,
+            fetch_commit_fn=mock_fetch_commit,
+            resolve_digest_fn=mock_resolve_digest,
+        )
+        bump.bump(tmp.name, **kwargs)
+        with open(tmp.name) as f:
+            first = f.read()
+
+        bump.bump(tmp.name, **kwargs)
+        with open(tmp.name) as f:
+            second = f.read()
+
+        os.unlink(tmp.name)
+        self.assertEqual(first, second, "Second bump should produce identical output")
+
+
+class TestMockModuleSkipsNonOrfs(unittest.TestCase):
+    """Mock modules without orfs.default() should be left untouched."""
+
+    def test_mock_without_orfs_default_unchanged(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            main_file = os.path.join(tmpdir, "MODULE.bazel")
+            shutil.copy2(
+                os.path.join(FIXTURES_DIR, "self.MODULE.bazel"),
+                main_file,
+            )
+
+            mock_file = os.path.join(tmpdir, "mock.MODULE.bazel")
+            with open(mock_file, "w") as f:
+                f.write('module(name = "mock")\n')
+
+            original = open(mock_file).read()
+
+            bump.bump(
+                main_file,
+                mock_modules=[mock_file],
+                fetch_tag_fn=mock_fetch_tag,
+                fetch_commit_fn=mock_fetch_commit,
+                resolve_digest_fn=mock_resolve_digest,
+            )
+
+            with open(mock_file) as f:
+                self.assertEqual(f.read(), original)
+        finally:
+            shutil.rmtree(tmpdir)
+
+
+class TestMockModuleMissingFile(unittest.TestCase):
+    """Mock modules that don't exist should be silently skipped."""
+
+    def test_missing_mock_file_no_error(self):
+        src = os.path.join(FIXTURES_DIR, "self.MODULE.bazel")
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".MODULE.bazel", delete=False
+        )
+        tmp.close()
+        shutil.copy2(src, tmp.name)
+        try:
+            bump.bump(
+                tmp.name,
+                mock_modules=["/nonexistent/MODULE.bazel"],
+                fetch_tag_fn=mock_fetch_tag,
+                fetch_commit_fn=mock_fetch_commit,
+                resolve_digest_fn=mock_resolve_digest,
+            )
+        finally:
+            os.unlink(tmp.name)
 
 
 class TestNetworkErrorHandling(unittest.TestCase):
@@ -407,6 +601,44 @@ class TestNetworkErrorHandling(unittest.TestCase):
                     fetch_tag_fn=bad_fetch,
                     fetch_commit_fn=mock_fetch_commit,
                     resolve_digest_fn=mock_resolve_digest,
+                )
+            finally:
+                os.unlink(tmp.name)
+
+    def test_commit_fetch_failure(self):
+        def bad_commit(_repo, _branch):
+            raise RuntimeError("API error")
+
+        with self.assertRaises(RuntimeError):
+            src = os.path.join(FIXTURES_DIR, "self.MODULE.bazel")
+            tmp = tempfile.NamedTemporaryFile(suffix=".MODULE.bazel", delete=False)
+            tmp.close()
+            shutil.copy2(src, tmp.name)
+            try:
+                bump.bump(
+                    tmp.name,
+                    fetch_tag_fn=mock_fetch_tag,
+                    fetch_commit_fn=bad_commit,
+                    resolve_digest_fn=mock_resolve_digest,
+                )
+            finally:
+                os.unlink(tmp.name)
+
+    def test_digest_resolve_failure(self):
+        def bad_digest(_image, _tag):
+            raise RuntimeError("Registry error")
+
+        with self.assertRaises(RuntimeError):
+            src = os.path.join(FIXTURES_DIR, "self.MODULE.bazel")
+            tmp = tempfile.NamedTemporaryFile(suffix=".MODULE.bazel", delete=False)
+            tmp.close()
+            shutil.copy2(src, tmp.name)
+            try:
+                bump.bump(
+                    tmp.name,
+                    fetch_tag_fn=mock_fetch_tag,
+                    fetch_commit_fn=mock_fetch_commit,
+                    resolve_digest_fn=bad_digest,
                 )
             finally:
                 os.unlink(tmp.name)
