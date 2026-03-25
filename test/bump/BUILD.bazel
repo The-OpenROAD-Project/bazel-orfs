@@ -1,10 +1,17 @@
-sh_test(
+load("@rules_python//python:defs.bzl", "py_test")
+
+py_test(
     name = "bump_test",
-    srcs = ["bump_test.sh"],
+    srcs = [
+        "bump_test.py",
+        "//:bump.py",
+        "//:oci_extract.py",
+    ],
     data = [
         "fixtures/downstream.MODULE.bazel",
         "fixtures/downstream-with-boilerplate.MODULE.bazel",
         "fixtures/openroad.MODULE.bazel",
         "fixtures/self.MODULE.bazel",
     ],
+    main = "bump_test.py",
 )

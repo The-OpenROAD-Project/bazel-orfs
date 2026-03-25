@@ -6,12 +6,12 @@ load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 exports_files([
-    "bump.sh",
+    "bump.py",
     "deploy.tpl",
     "eqy.tpl",
-    "oci_extract.py",
     "eqy-write-verilog.tcl",
     "make.tpl",
+    "oci_extract.py",
     "mock_area.tcl",
     "open_plots.sh",
     "openroad-llvm-root-only.patch",
@@ -62,9 +62,11 @@ py_binary(
 
 # From any project using bazel-orfs run `bazelisk run @bazel-orfs//:bump`
 # to upgrade ORFS and bazel-orfs.
-sh_binary(
+py_binary(
     name = "bump",
-    srcs = ["bump.sh"],
+    srcs = ["bump.py"],
+    data = ["oci_extract.py"],
+    main = "bump.py",
     visibility = ["//visibility:public"],
 )
 

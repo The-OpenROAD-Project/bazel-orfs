@@ -62,9 +62,7 @@ def magic(path: str) -> Optional[bytes]:
 
 def _readelf_dynamic(root: str, file: str) -> str:
     """Run readelf -d and return stdout, or empty string on failure."""
-    result = subprocess.run(
-        ["readelf", "-d", file], cwd=root, capture_output=True
-    )
+    result = subprocess.run(["readelf", "-d", file], cwd=root, capture_output=True)
     if result.returncode != 0:
         return ""
     return result.stdout.decode("utf-8")
@@ -83,18 +81,14 @@ def _readelf_rpath(dynamic_output: str) -> str:
 
 def _readelf_interpreter(root: str, file: str) -> Optional[str]:
     """Extract PT_INTERP from readelf -l output."""
-    result = subprocess.run(
-        ["readelf", "-l", file], cwd=root, capture_output=True
-    )
+    result = subprocess.run(["readelf", "-l", file], cwd=root, capture_output=True)
     if result.returncode != 0:
         return None
     match = _INTERP_RE.search(result.stdout.decode("utf-8"))
     return match.group(1) if match else None
 
 
-def patch_prepare(
-    args: argparse.Namespace, root: str, file: str
-) -> Optional[dict]:
+def patch_prepare(args: argparse.Namespace, root: str, file: str) -> Optional[dict]:
     """
     Reads ELF information and prepares wrapper info for executables.
     Also fixes absolute symlinks to be relative.
@@ -222,19 +216,14 @@ def generate_wrapper(
     # Relative path from the wrapper script's directory
     # to the extraction root
     wrapper_dir = os.path.dirname(src)
-    self_to_top = os.path.relpath(
-        args.directory, start=wrapper_dir
-    )
+    self_to_top = os.path.relpath(args.directory, start=wrapper_dir)
 
-    library_path = ":".join(
-        "$top_dir/" + p for p in wrapper_info["library_paths"]
-    )
+    library_path = ":".join("$top_dir/" + p for p in wrapper_info["library_paths"])
 
     env_lines = []
     if tcl_library:
         env_lines.append(
-            'export TCL_LIBRARY="${TCL_LIBRARY:-'
-            '$top_dir/' + tcl_library + '}"'
+            'export TCL_LIBRARY="${TCL_LIBRARY:-' "$top_dir/" + tcl_library + '}"'
         )
     env_exports = "".join(line + "\n" for line in env_lines)
 
@@ -250,8 +239,7 @@ def generate_wrapper(
         f.write(wrapper_content)
     os.chmod(
         src,
-        stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP
-        | stat.S_IROTH | stat.S_IXOTH,
+        stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH,
     )
 
 
@@ -272,9 +260,7 @@ def setup_interpreter(args: argparse.Namespace, interpreter_rel: str):
     new_abs = os.path.join(args.directory, new_rel)
 
     if not os.path.exists(new_abs):
-        real_interp = os.path.realpath(
-            os.path.join(args.directory, interpreter_rel)
-        )
+        real_interp = os.path.realpath(os.path.join(args.directory, interpreter_rel))
         os.makedirs(os.path.dirname(new_abs), exist_ok=True)
         shutil.copy2(real_interp, new_abs)
 
@@ -350,9 +336,9 @@ def main():
 
     if failed_files:
         error_msg = "\n".join([f"{os.path.join(r, f)}" for r, f, _ in failed_files])
-        raise Exception(
-            f"Cannot read ELF info for:\n{error_msg}"
-        ) from failed_files[0][2]
+        raise Exception(f"Cannot read ELF info for:\n{error_msg}") from failed_files[0][
+            2
+        ]
 
     # Copy ld-linux to lib/ so /proc/self/exe resolves to a
     # known, symlink-free path. This lets tools like yosys find
@@ -361,9 +347,7 @@ def main():
     for wrapper_info in wrappers:
         old_interp = wrapper_info["interpreter"]
         if old_interp not in interp_map:
-            interp_map[old_interp] = setup_interpreter(
-                args, old_interp
-            )
+            interp_map[old_interp] = setup_interpreter(args, old_interp)
         wrapper_info["interpreter"] = interp_map[old_interp]
 
     tcl_library = find_tcl_library(args.directory)
@@ -384,9 +368,7 @@ def main():
         for wrapper_info in wrappers:
             name = os.path.basename(wrapper_info["file"])
             link = os.path.join(interp_dir, name)
-            wrapper_path = os.path.join(
-                wrapper_info["root"], wrapper_info["file"]
-            )
+            wrapper_path = os.path.join(wrapper_info["root"], wrapper_info["file"])
             if not os.path.exists(link):
                 os.symlink(
                     os.path.relpath(wrapper_path, interp_dir),
