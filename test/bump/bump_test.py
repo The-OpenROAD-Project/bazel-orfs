@@ -2,6 +2,7 @@
 """Unit tests for bump.py — ported from bump_test.sh with additions."""
 
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -157,6 +158,77 @@ class TestDownstreamWithBoilerplate(unittest.TestCase):
     def test_boilerplate_not_duplicated(self):
         count = self.content.count(bump.BOILERPLATE_MARKER)
         self.assertEqual(count, 1, f"Boilerplate appears {count} times, expected 1")
+
+
+class TestDownstreamWithSubmodules(unittest.TestCase):
+    """Test: downstream with bazel-orfs-verilog and bazel-orfs-sby submodules."""
+
+    def setUp(self):
+        self.content = apply_bump("downstream-with-submodules.MODULE.bazel")
+
+    def test_bazel_orfs_commit_updated(self):
+        self.assertNotIn("old_bazel_orfs_commit", self.content)
+
+    def test_verilog_submodule_commit_updated(self):
+        self.assertNotIn("old_verilog_commit", self.content)
+
+    def test_sby_submodule_commit_updated(self):
+        self.assertNotIn("old_sby_commit", self.content)
+
+    def test_all_submodules_share_same_commit(self):
+        """All bazel-orfs submodule overrides should use the same commit."""
+        blocks = re.findall(
+            r'git_override\(.*?module_name\s*=\s*"(bazel-orfs[^"]*)".*?'
+            r'commit\s*=\s*"([^"]*)".*?\)',
+            self.content,
+            re.DOTALL,
+        )
+        commits = {name: commit for name, commit in blocks}
+        self.assertEqual(commits["bazel-orfs"], BAZEL_ORFS_COMMIT)
+        self.assertEqual(commits["bazel-orfs-verilog"], BAZEL_ORFS_COMMIT)
+        self.assertEqual(commits["bazel-orfs-sby"], BAZEL_ORFS_COMMIT)
+
+    def test_strip_prefix_preserved(self):
+        self.assertIn('strip_prefix = "verilog"', self.content)
+        self.assertIn('strip_prefix = "sby"', self.content)
+
+
+class TestDownstreamWithoutSubmodules(unittest.TestCase):
+    """Bump should not inject submodule overrides that don't already exist."""
+
+    def setUp(self):
+        self.content = apply_bump("downstream.MODULE.bazel")
+
+    def test_no_verilog_submodule_injected(self):
+        self.assertNotIn("bazel-orfs-verilog", self.content)
+
+    def test_no_sby_submodule_injected(self):
+        self.assertNotIn("bazel-orfs-sby", self.content)
+
+
+class TestFindBazelOrfsSubmodules(unittest.TestCase):
+    def test_finds_present_submodules(self):
+        content = (
+            'git_override(\n    module_name = "bazel-orfs-sby",\n'
+            '    commit = "abc",\n)\n'
+        )
+        self.assertEqual(bump.find_bazel_orfs_submodules(content), ["bazel-orfs-sby"])
+
+    def test_empty_when_none_present(self):
+        content = (
+            'git_override(\n    module_name = "bazel-orfs",\n    commit = "x",\n)\n'
+        )
+        self.assertEqual(bump.find_bazel_orfs_submodules(content), [])
+
+    def test_finds_both(self):
+        content = (
+            'git_override(\n    module_name = "bazel-orfs-verilog",\n    commit = "a",\n)\n'
+            'git_override(\n    module_name = "bazel-orfs-sby",\n    commit = "b",\n)\n'
+        )
+        self.assertEqual(
+            bump.find_bazel_orfs_submodules(content),
+            ["bazel-orfs-verilog", "bazel-orfs-sby"],
+        )
 
 
 class TestDownstreamDoubleBump(unittest.TestCase):

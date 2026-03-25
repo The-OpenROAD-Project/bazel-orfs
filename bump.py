@@ -111,6 +111,22 @@ def update_git_override_commit(content, module_name, new_commit):
     return content
 
 
+BAZEL_ORFS_SUBMODULES = ["bazel-orfs-verilog", "bazel-orfs-sby"]
+
+
+def find_bazel_orfs_submodules(content):
+    """Return the subset of BAZEL_ORFS_SUBMODULES that have git_override blocks."""
+    return [
+        name
+        for name in BAZEL_ORFS_SUBMODULES
+        if re.search(
+            r'git_override\(.*?module_name\s*=\s*"' + re.escape(name) + r'"',
+            content,
+            re.DOTALL,
+        )
+    ]
+
+
 BOILERPLATE_MARKER = "Uncomment to build OpenROAD from source"
 
 BOILERPLATE_TEMPLATE = """\
@@ -240,6 +256,9 @@ def bump(
         bazel_orfs_commit = fetch_commit_fn("The-OpenROAD-Project/bazel-orfs", "main")
         print(f"Latest bazel-orfs commit: {bazel_orfs_commit}")
         content = update_git_override_commit(content, "bazel-orfs", bazel_orfs_commit)
+        # Submodules live in the same repo, so they share the same commit
+        for submodule in find_bazel_orfs_submodules(content):
+            content = update_git_override_commit(content, submodule, bazel_orfs_commit)
 
     # --- Update OpenROAD commit (skip for OpenROAD itself) ---
     openroad_commit = fetch_commit_fn("The-OpenROAD-Project/OpenROAD", "master")
