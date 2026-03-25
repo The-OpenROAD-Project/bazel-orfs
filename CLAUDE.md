@@ -1,8 +1,11 @@
 # Claude Code Instructions
 
-## Commits
+## Git
 
 Always use `git commit -s` to include a `Signed-off-by` trailer.
+
+Never push to remote. Only the human pushes — they need to review
+what goes out. Prepare commits, but stop before `git push`.
 
 ## Formatting
 
