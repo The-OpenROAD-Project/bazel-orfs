@@ -1,7 +1,7 @@
 # Unused in CI
 #
 # load("@bazel-orfs//tools/pin:pin.bzl", "pin_data")
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
@@ -9,6 +9,7 @@ exports_files([
     "bump.sh",
     "deploy.tpl",
     "eqy.tpl",
+    "oci_extract.py",
     "eqy-write-verilog.tcl",
     "make.tpl",
     "mock_area.tcl",
@@ -65,6 +66,15 @@ sh_binary(
     name = "bump",
     srcs = ["bump.sh"],
     visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "oci_extract_test",
+    srcs = [
+        "oci_extract.py",
+        "oci_extract_test.py",
+    ],
+    main = "oci_extract_test.py",
 )
 
 # Run `bazelisk run //:fix_lint` to format all files changed since origin/main.
