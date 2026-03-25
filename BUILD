@@ -79,6 +79,15 @@ py_test(
     main = "oci_extract_test.py",
 )
 
+py_test(
+    name = "patcher_test",
+    srcs = [
+        "patcher.py",
+        "patcher_test.py",
+    ],
+    main = "patcher_test.py",
+)
+
 # Run `bazelisk run //:fix_lint` to format all files changed since origin/main.
 sh_binary(
     name = "fix_lint",

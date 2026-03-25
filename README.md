@@ -47,6 +47,9 @@ and easily actionable github issues for the OpenROAD and ORFS maintainers.
 ## Requirements
 
 * [Bazelisk](https://bazel.build/install/bazelisk) or [Bazel](https://bazel.build/install) - if using Bazel, please refer to [.bazelversion](./.bazelversion) file for the recommended version of the tool.
+
+That's it. Bazel manages all other dependencies (Python, toolchains, ORFS image) hermetically. No Docker, no system packages beyond a standard Linux installation.
+
 * (Optional) Locally built [ORFS](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts). To use it, `env.sh` file from OpenROAD-flow-scripts has to be sourced or `FLOW_HOME` environment variable has to be set to the path of the local `OpenROAD-flow-scripts/flow` installation.
 
 ## Get started

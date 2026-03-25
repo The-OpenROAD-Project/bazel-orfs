@@ -15,9 +15,10 @@ This meant binaries only worked when invoked from Bazel's execution root.
 
 `patcher.py` runs after extracting the OCI image:
 
-1. **RPATH reading**: `readelf` reads NEEDED/RPATH/RUNPATH from ELF binaries.
-   Absolute library paths are converted to `$ORIGIN`-relative paths for use
-   in the wrapper's `--library-path`.
+1. **ELF parsing**: Pure Python parsing reads NEEDED/RPATH/RUNPATH from ELF
+   binaries (no `readelf` or other host tools needed). Absolute library paths
+   are converted to `$ORIGIN`-relative paths for use in the wrapper's
+   `--library-path`.
 
 2. **Wrapper generation**: For each ELF executable with `PT_INTERP`:
    - Move the binary from `bin/foo` to `libexec/bin/foo`
