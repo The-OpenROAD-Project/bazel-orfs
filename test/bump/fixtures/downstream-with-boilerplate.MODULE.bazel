@@ -1,3 +1,5 @@
+"""Test fixture: downstream project with OpenROAD-from-source boilerplate."""
+
 module(
     name = "my-chip",
     version = "0.0.1",
@@ -17,8 +19,8 @@ orfs.default(
 )
 use_repo(orfs, "docker_orfs")
 
-# Uncomment to build OpenROAD from source instead of using the docker image.
-# This is useful to test the latest OpenROAD before the docker image is updated.
+# Uncomment to build OpenROAD from source instead of using the ORFS image.
+# This is useful to test the latest OpenROAD before the ORFS image is updated.
 # See: https://github.com/The-OpenROAD-Project/bazel-orfs/blob/main/docs/openroad.md
 #
 # bazel_dep(name = "openroad")

@@ -20,12 +20,14 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlparse
 
-MANIFEST_TYPES = ", ".join([
-    "application/vnd.oci.image.manifest.v1+json",
-    "application/vnd.docker.distribution.manifest.v2+json",
-    "application/vnd.oci.image.index.v1+json",
-    "application/vnd.docker.distribution.manifest.list.v2+json",
-])
+MANIFEST_TYPES = ", ".join(
+    [
+        "application/vnd.oci.image.manifest.v1+json",
+        "application/vnd.docker.distribution.manifest.v2+json",
+        "application/vnd.oci.image.index.v1+json",
+        "application/vnd.docker.distribution.manifest.list.v2+json",
+    ]
+)
 
 CHUNK_SIZE = 1 << 16  # 64 KiB
 
@@ -132,10 +134,14 @@ def fetch_manifest(registry, repository, reference, token):
 
     media_type = manifest.get("mediaType", "")
 
-    if media_type in (
-        "application/vnd.oci.image.index.v1+json",
-        "application/vnd.docker.distribution.manifest.list.v2+json",
-    ) or "manifests" in manifest:
+    if (
+        media_type
+        in (
+            "application/vnd.oci.image.index.v1+json",
+            "application/vnd.docker.distribution.manifest.list.v2+json",
+        )
+        or "manifests" in manifest
+    ):
         digest = _select_platform(manifest, "linux", "amd64")
         return fetch_manifest(registry, repository, digest, token)
 
@@ -146,7 +152,10 @@ def _select_platform(index, os_name, architecture):
     """Select a platform-specific manifest digest from an OCI index."""
     for entry in index.get("manifests", []):
         platform = entry.get("platform", {})
-        if platform.get("os") == os_name and platform.get("architecture") == architecture:
+        if (
+            platform.get("os") == os_name
+            and platform.get("architecture") == architecture
+        ):
             return entry["digest"]
     raise ValueError(
         f"No {os_name}/{architecture} manifest found in index. "
@@ -201,8 +210,13 @@ def extract_layer(tar_path, output_dir):
             dest = os.path.join(output_dir, member.name)
             real_dest = os.path.realpath(dest)
             real_output = os.path.realpath(output_dir)
-            if not real_dest.startswith(real_output + os.sep) and real_dest != real_output:
-                print(f"WARNING: skipping path traversal: {member.name}", file=sys.stderr)
+            if (
+                not real_dest.startswith(real_output + os.sep)
+                and real_dest != real_output
+            ):
+                print(
+                    f"WARNING: skipping path traversal: {member.name}", file=sys.stderr
+                )
                 continue
 
             basename = os.path.basename(member.name)
@@ -288,8 +302,12 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     extract_parser = subparsers.add_parser("extract", help="Extract image filesystem")
-    extract_parser.add_argument("--image", required=True, help="Image reference (e.g. docker.io/openroad/orfs)")
-    extract_parser.add_argument("--digest", required=True, help="Image sha256 digest (without sha256: prefix)")
+    extract_parser.add_argument(
+        "--image", required=True, help="Image reference (e.g. docker.io/openroad/orfs)"
+    )
+    extract_parser.add_argument(
+        "--digest", required=True, help="Image sha256 digest (without sha256: prefix)"
+    )
     extract_parser.add_argument("--output", required=True, help="Output directory")
 
     digest_parser = subparsers.add_parser("digest", help="Resolve tag to digest")
