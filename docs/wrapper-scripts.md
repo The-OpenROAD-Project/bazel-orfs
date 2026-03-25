@@ -1,6 +1,6 @@
 # Wrapper Scripts for Relocatable Binaries
 
-Binaries extracted from the Docker image (OpenROAD, yosys, klayout, make, sta)
+Binaries extracted from the ORFS image (OpenROAD, yosys, klayout, make, sta)
 are wrapped with shell scripts so they can be invoked from any working directory.
 This replaces the previous `patchelf --set-interpreter` approach.
 
@@ -13,11 +13,11 @@ This meant binaries only worked when invoked from Bazel's execution root.
 
 ## How it works
 
-`patcher.py` runs after extracting the Docker image:
+`patcher.py` runs after extracting the OCI image:
 
-1. **RPATH rewriting** (unchanged): `patchelf --set-rpath` converts absolute
-   library paths to `$ORIGIN`-relative paths. This still helps `.so` files
-   loaded via `dlopen()`.
+1. **RPATH reading**: `readelf` reads NEEDED/RPATH/RUNPATH from ELF binaries.
+   Absolute library paths are converted to `$ORIGIN`-relative paths for use
+   in the wrapper's `--library-path`.
 
 2. **Wrapper generation**: For each ELF executable with `PT_INTERP`:
    - Move the binary from `bin/foo` to `libexec/bin/foo`

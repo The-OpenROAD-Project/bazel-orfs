@@ -53,7 +53,7 @@ gives Bazel full visibility into the action for caching and remote
 execution) -- it must use `ctx.actions.run_shell()` through Make.
 
 **Make is a runtime dependency.** The Make binary must be present in the
-Docker image and the Bazel sandbox. This complicates hermetic builds.
+ORFS image and the Bazel sandbox. This complicates hermetic builds.
 
 **Make's variable semantics are complex.** Platform config.mk files use
 `?=` (conditional defaults), `+=` (append), `$(foreach)`/`$(eval)`
@@ -105,7 +105,7 @@ Requires ORFS maintainer buy-in for the YAML format.
 ### Option C: Pre-evaluate config.mk via Make, ship JSON
 
 Add a Make target to ORFS that runs `make print-all-vars` and dumps the
-result to JSON. Ship this JSON in the Docker image. bazel-orfs reads
+result to JSON. Ship this JSON in the ORFS image. bazel-orfs reads
 JSON; Make users still use Make.
 
 **Pros:** Zero changes to config.mk files. Simplest to implement.

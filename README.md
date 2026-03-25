@@ -47,10 +47,6 @@ and easily actionable github issues for the OpenROAD and ORFS maintainers.
 ## Requirements
 
 * [Bazelisk](https://bazel.build/install/bazelisk) or [Bazel](https://bazel.build/install) - if using Bazel, please refer to [.bazelversion](./.bazelversion) file for the recommended version of the tool.
-* [Docker](https://docs.docker.com/get-docker/) - Bazel utilizes Docker to set up the environment using ORFS artifacts from the container.
-  The Docker image used in the flow defaults to `openroad/orfs`, with tag specified in the [module](./MODULE.bazel) file.
-
-  > **NOTE:** The `bazel-orfs` doesn't execute flows inside the Docker container, but rather uses the container as a source of ORFS artifacts.
 * (Optional) Locally built [ORFS](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts). To use it, `env.sh` file from OpenROAD-flow-scripts has to be sourced or `FLOW_HOME` environment variable has to be set to the path of the local `OpenROAD-flow-scripts/flow` installation.
 
 ## Get started
@@ -63,7 +59,7 @@ To build the `cts` (Clock Tree Synthesis) stage of the `L1MetadataArray` target,
 bazel run @bazel-orfs//test:L1MetadataArray_cts
 ```
 
-Bazel automatically downloads the Docker image with the ORFS environment and runs the flow. Results are placed in the `tmp/results` directory under the workspace root.
+Bazel automatically downloads the pre-built ORFS environment and runs the flow. Results are placed in the `tmp/results` directory under the workspace root.
 
 ### View results in the GUI
 
@@ -95,7 +91,7 @@ GUI and CLI are available for these stages: `floorplan`, `place`, `cts`, `grt`, 
 
 ### Use the local flow
 
-The local flow lets you build with a locally compiled [ORFS](https://openroad-flow-scripts.readthedocs.io/en/latest/user/UserGuide.html) instead of the Docker image.
+The local flow lets you build with a locally compiled [ORFS](https://openroad-flow-scripts.readthedocs.io/en/latest/user/UserGuide.html) instead of the pre-built ORFS image.
 
 1. Source `env.sh` of your local ORFS installation or set the `FLOW_HOME` environment variable:
 
@@ -1151,12 +1147,11 @@ These are the genrules spawned in this macro:
 * ORFS stage-specific (named: `target_name + "_" + stage` or `target_name + "_" + variant + "_" + stage`)
 * ORFS stage dependencies (named: `target_name + "_" + stage + "_deps"` or `target_name + "_" + variant + "_" + stage + "_deps"`)
 
-### Bazel flow (Docker)
+### Bazel flow
 
-The regular Bazel flow uses artifacts from the Docker environment with preinstalled ORFS.
+The regular Bazel flow uses pre-built ORFS artifacts from an OCI image.
 
-It implicitly depends on a Docker image with ORFS environment pre-installed being present.
-The Docker image used in the flow is defined in the [module](./MODULE.bazel) file. You can override the default by specifying `image` and `sha256` attributes:
+The ORFS image is defined in the [module](./MODULE.bazel) file. You can override the default by specifying `image` and `sha256` attributes:
 
 ```starlark
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
@@ -1167,13 +1162,13 @@ orfs.default(
 use_repo(orfs, "docker_orfs")
 ```
 
-Setting this attribute to a valid image and checksum enables Bazel to automatically pull the image and extract ORFS artifacts on `bazel run` or `bazel build`:
+Setting this attribute to a valid image and checksum enables Bazel to automatically download and extract ORFS artifacts on `bazel run` or `bazel build`:
 
 ```bash
 bazel build <target>_<stage>
 ```
 
-> **NOTE:** If `sha256` is set to an empty string `""`, Bazel attempts to use a local image with the name provided in the `image` field.
+> **NOTE:** If `sha256` is set to an empty string `""`, the image tag is used directly without digest verification.
 
 ### Tools location after bazel run
 
@@ -1239,14 +1234,14 @@ the right thing — no need to remember which versions to update or where.
 
 What it updates:
 
-- **ORFS docker image** tag and sha256 (latest from Docker Hub)
+- **ORFS image** tag and sha256 (latest from the OCI registry)
 - **bazel-orfs** git commit (latest from GitHub)
 - **OpenROAD** git commit (latest from GitHub, if configured)
 
 In downstream projects, it also injects commented-out boilerplate for
 [building OpenROAD from source](docs/openroad.md) — uncomment to test the
-latest OpenROAD before the docker image catches up. This is useful when an
-OpenROAD bug fix or feature hasn't made it into the docker image yet.
+latest OpenROAD before the ORFS image catches up. This is useful when an
+OpenROAD bug fix or feature hasn't made it into the ORFS image yet.
 
 ## Repository layout
 
@@ -1275,7 +1270,7 @@ regenerate them from the BUILD target definitions.
 
 Non-trivial files worth understanding: `wns_report.py` (complex report parsing),
 `L1MetadataArray.sv` (cache metadata controller), `patcher.py` (ld-linux wrapper
-generation for docker-extracted binaries), and the plot scripts.
+generation for OCI-image-extracted binaries), and the plot scripts.
 
 ## Retired features
 

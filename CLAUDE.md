@@ -6,18 +6,18 @@ Always use `git commit -s` to include a `Signed-off-by` trailer.
 
 ## Formatting
 
-After editing any `.bzl`, `BUILD`, `BUILD.bazel`, `MODULE.bazel`, or `WORKSPACE` file, run `buildifier` on the changed files before committing.
+Before committing, run `bazelisk run //:fix_lint` to format and lint all changed files. This is the single source of truth — do NOT run `buildifier`, `bazelisk mod tidy`, or `black` individually, as `fix_lint` handles all of them with the correct CI-compatible configuration:
 
-## MODULE.bazel.lock
+- `buildifier` on changed `.bzl`/`BUILD`/`MODULE.bazel` files (respects `.bazelignore`)
+- `bazelisk mod tidy` with CI config when `MODULE.bazel` changed (ensures lockfile matches CI)
+- `black` on changed `.py` files
 
-CI runs `bazel mod tidy && git diff --exit-code` to verify the lockfile is up to date. CI uses `.github/ci.bazelrc` which overrides module resolution (e.g. `--override_module=kepler-formal=...`), so the lockfile generated locally may differ from what CI expects.
-
-After changing `MODULE.bazel`, regenerate the lockfile with the CI config applied:
+Before running `fix_lint`, set up the CI config:
 
 ```sh
 echo 'import %workspace%/.github/ci.bazelrc' >> user.bazelrc
-bazelisk mod tidy
-git checkout user.bazelrc
+bazelisk run //:fix_lint
+rm -f user.bazelrc
 ```
 
-This ensures the lockfile matches CI's module resolution. Without this, the "Generate configs" CI job will fail with a lockfile diff.
+This matches exactly what CI does. Without this, the "Lint and lockfile check" CI job will fail.

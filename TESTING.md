@@ -42,7 +42,7 @@ These cannot be tested via `bazelisk test ...`:
 
 - **`_deps` workflow**: `bazel run //test:lb_32x128_mock_openroad_floorplan_deps` then
   `tmp/.../make do-floorplan`. Tests the local escape-hatch build workflow.
-- **Docker container**: Testing with preinstalled ORFS in the Docker image.
+- **ORFS image**: Testing with preinstalled ORFS from the OCI image.
 - **Lockfile consistency**: `bazel mod tidy && git diff --exit-code` (run in CI as a pre-test step).
 - **Buildifier lint**: `bazelisk run @buildifier_prebuilt//:buildifier -- -lint warn -r .` (run in CI as a pre-test step).
 

@@ -41,7 +41,7 @@ still runs.
 
 ## PDK extensibility
 
-The PDKs listed above are the ones bundled with the ORFS Docker image and
+The PDKs listed above are the ones bundled with the ORFS image and
 exposed here for convenience. PDK support does not have to live in
 bazel-orfs — users can implement private or proprietary PDK support in
 their own repository using the `orfs_pdk` rule.

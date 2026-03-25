@@ -1,23 +1,23 @@
 # OpenROAD Integration
 
 OpenROAD is the core place-and-route tool in bazel-orfs. By default, it uses
-the pre-built binary from the ORFS docker image (`@docker_orfs//:openroad`).
+the pre-built binary from the ORFS image (`@docker_orfs//:openroad`).
 This is the fastest option and requires no compilation.
 
-For users who need to test a newer OpenROAD before the docker image is updated,
+For users who need to test a newer OpenROAD before the ORFS image is updated,
 bazel-orfs supports building OpenROAD from source via `bazel_dep` +
 `git_override`, or using a locally installed binary via a PATH wrapper.
 
 ## Default Configuration
 
-The default uses the docker image binary, configured in `MODULE.bazel`:
+The default uses the ORFS image binary, configured in `MODULE.bazel`:
 
 ```starlark
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
 orfs.default(
     image = "docker.io/openroad/orfs:...",
     sha256 = "...",
-    # openroad defaults to @docker_orfs//:openroad
+    # openroad defaults to @docker_orfs//:openroad (from ORFS image)
 )
 ```
 
@@ -71,7 +71,7 @@ orfs.default(
 
 ### GUI Builds
 
-The docker image ships OpenROAD with GUI support. To match this when building
+The ORFS image ships OpenROAD with GUI support. To match this when building
 from source, use the `openroad-gui` config:
 
 ```sh
@@ -120,7 +120,7 @@ orfs.default(
 ```
 
 The `@bazel-orfs//:openroad` wrapper executes whichever `openroad` binary is
-found on the system `PATH`. For hermetic builds, prefer the docker image default
+found on the system `PATH`. For hermetic builds, prefer the ORFS image default
 or building from source via `git_override`.
 
 ## Mock OpenROAD for Testing
@@ -220,7 +220,7 @@ which project it's running in and does the right thing:
 
 | What it updates | bazel-orfs | OpenROAD | User project |
 |----------------|-----------|---------|-------------|
-| ORFS docker image + sha256 | yes | yes | yes |
+| ORFS image + sha256 | yes | yes | yes |
 | bazel-orfs git commit | — (is self) | yes | yes |
 | OpenROAD git commit | yes | — (is self) | yes (if present) |
 | Inject commented-out OR-from-source | — (has it) | — (is OR) | yes |
@@ -248,7 +248,7 @@ bazelisk build //test:lb_32x128_mock_openroad_floorplan
 After bumping OpenROAD to the latest commit:
 
 ```sh
-# 1. Bump OpenROAD (and ORFS docker image) to latest versions
+# 1. Bump OpenROAD (and ORFS image) to latest versions
 bazelisk run //:bump
 
 # 2. Open synthesis results in the source-built OpenROAD GUI
