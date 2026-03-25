@@ -43,20 +43,12 @@ def _build_elf64(
     for off in needed_offsets:
         dyn_entries.append(struct.pack(endian + "qQ", 1, off))  # DT_NEEDED
     if rpath_offset is not None:
-        dyn_entries.append(
-            struct.pack(endian + "qQ", 15, rpath_offset)
-        )  # DT_RPATH
+        dyn_entries.append(struct.pack(endian + "qQ", 15, rpath_offset))  # DT_RPATH
     if runpath_offset is not None:
-        dyn_entries.append(
-            struct.pack(endian + "qQ", 29, runpath_offset)
-        )  # DT_RUNPATH
+        dyn_entries.append(struct.pack(endian + "qQ", 29, runpath_offset))  # DT_RUNPATH
     # DT_STRTAB — will be patched with actual address
-    dyn_entries.append(
-        struct.pack(endian + "qQ", 5, 0)
-    )  # placeholder
-    dyn_entries.append(
-        struct.pack(endian + "qQ", 0, 0)
-    )  # DT_NULL
+    dyn_entries.append(struct.pack(endian + "qQ", 5, 0))  # placeholder
+    dyn_entries.append(struct.pack(endian + "qQ", 0, 0))  # DT_NULL
     dynamic = b"".join(dyn_entries)
 
     # Build PT_INTERP content
@@ -93,9 +85,7 @@ def _build_elf64(
     for entry in dyn_entries:
         tag, val = struct.unpack(endian + "qQ", entry)
         if tag == 5:  # DT_STRTAB
-            patched_dyn_entries.append(
-                struct.pack(endian + "qQ", 5, dynstr_addr)
-            )
+            patched_dyn_entries.append(struct.pack(endian + "qQ", 5, dynstr_addr))
         else:
             patched_dyn_entries.append(entry)
     dynamic = b"".join(patched_dyn_entries)
@@ -242,31 +232,60 @@ def _build_elf32(interp=None, needed=None, rpath=None):
 
     ehdr = e_ident + struct.pack(
         endian + "HHIIIIIHHHHHH",
-        2, 3, 1, 0,
-        phdrs_offset, shdrs_offset, 0,
-        ehdr_size, phdr_size, num_phdrs,
-        shdr_size, num_shdrs, 0,
+        2,
+        3,
+        1,
+        0,
+        phdrs_offset,
+        shdrs_offset,
+        0,
+        ehdr_size,
+        phdr_size,
+        num_phdrs,
+        shdr_size,
+        num_shdrs,
+        0,
     )
 
     phdrs = b""
     if interp is not None:
         phdrs += struct.pack(
             endian + "IIIIIIII",
-            3, interp_offset, interp_offset, interp_offset,
-            len(interp_bytes), len(interp_bytes), 4, 1,
+            3,
+            interp_offset,
+            interp_offset,
+            interp_offset,
+            len(interp_bytes),
+            len(interp_bytes),
+            4,
+            1,
         )
     if needed or rpath is not None:
         phdrs += struct.pack(
             endian + "IIIIIIII",
-            2, dynamic_offset, dynamic_offset, dynamic_offset,
-            len(dynamic), len(dynamic), 6, 4,
+            2,
+            dynamic_offset,
+            dynamic_offset,
+            dynamic_offset,
+            len(dynamic),
+            len(dynamic),
+            6,
+            4,
         )
 
     null_shdr = struct.pack(endian + "IIIIIIIIII", *([0] * 10))
     dynstr_shdr = struct.pack(
         endian + "IIIIIIIIII",
-        0, 3, 0, dynstr_addr, dynstr_offset,
-        len(dynstr), 0, 0, 1, 0,
+        0,
+        3,
+        0,
+        dynstr_addr,
+        dynstr_offset,
+        len(dynstr),
+        0,
+        0,
+        1,
+        0,
     )
     shdrs = null_shdr + dynstr_shdr
 
@@ -314,9 +333,7 @@ class TestParseElf(unittest.TestCase):
         )
         path = self._write_elf(elf)
         result = patcher.parse_elf(path)
-        self.assertEqual(
-            result["rpath"], "/opt/lib:/usr/local/lib"
-        )
+        self.assertEqual(result["rpath"], "/opt/lib:/usr/local/lib")
 
     def test_runpath_takes_precedence(self):
         elf = _build_elf64(
@@ -379,9 +396,7 @@ class TestParseElf(unittest.TestCase):
         path = self._write_elf(elf)
         result = patcher.parse_elf(path)
         self.assertIsNotNone(result)
-        self.assertEqual(
-            result["interp"], "/lib/ld-linux.so.2"
-        )
+        self.assertEqual(result["interp"], "/lib/ld-linux.so.2")
         self.assertEqual(result["needed"], ["libc.so.6"])
         self.assertEqual(result["rpath"], "/opt/lib32")
 
@@ -390,9 +405,7 @@ class TestParseElf(unittest.TestCase):
         for candidate in ["/bin/ls", "/usr/bin/ls"]:
             if os.path.isfile(candidate):
                 result = patcher.parse_elf(candidate)
-                self.assertIsNotNone(
-                    result, f"Failed to parse {candidate}"
-                )
+                self.assertIsNotNone(result, f"Failed to parse {candidate}")
                 self.assertIsNotNone(result["interp"])
                 self.assertIn("libc", str(result["needed"]))
                 return

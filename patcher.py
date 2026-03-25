@@ -394,6 +394,10 @@ def setup_interpreter(args: argparse.Namespace, interpreter_rel: str):
         real_interp = os.path.realpath(os.path.join(args.directory, interpreter_rel))
         os.makedirs(os.path.dirname(new_abs), exist_ok=True)
         shutil.copy2(real_interp, new_abs)
+        os.chmod(
+            new_abs,
+            stat.S_IRWXU | stat.S_IRGRP | stat.S_IXGRP | stat.S_IROTH | stat.S_IXOTH,
+        )
 
     return new_rel
 
