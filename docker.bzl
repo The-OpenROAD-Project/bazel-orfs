@@ -87,13 +87,10 @@ def _impl(repository_ctx):
 
     python = repository_ctx.path(repository_ctx.attr._python).realpath
     patcher = repository_ctx.path(repository_ctx.attr._patcher).realpath
-    patchelf = repository_ctx.path(repository_ctx.attr._patchelf).realpath
     patcher_result = repository_ctx.execute(
         [
             python,
             patcher,
-            "--patchelf",
-            patchelf,
             repository_ctx.path("."),
         ],
     )
@@ -104,7 +101,7 @@ def _impl(repository_ctx):
         )
 
     repository_ctx.report_progress(
-        "Fixed `RUNPATH`s for {}.".format(repository_ctx.attr.image),
+        "Created ld-linux wrappers for {}.".format(repository_ctx.attr.image),
     )
 
     repository_ctx.symlink(repository_ctx.attr.build_file, "BUILD")
@@ -122,12 +119,6 @@ docker_pkg = repository_rule(
         "patches": attr.label_list(default = []),
         "sha256": attr.string(mandatory = False),
         "timeout": attr.int(default = 600),
-        "_patchelf": attr.label(
-            doc = "Patchelf binary.",
-            default = Label("@com_github_nixos_patchelf_download//:bin/patchelf"),
-            executable = True,
-            cfg = "exec",
-        ),
         "_python": attr.label(
             doc = "Hermetic Python interpreter.",
             default = Label("@python_3_13_host//:python"),
@@ -135,7 +126,7 @@ docker_pkg = repository_rule(
             cfg = "exec",
         ),
         "_patcher": attr.label(
-            doc = "Python script to remap `RUNPATH`s.",
+            doc = "Python script to create ld-linux wrapper scripts.",
             default = Label("//:patcher.py"),
             allow_single_file = True,
         ),

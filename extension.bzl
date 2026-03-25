@@ -4,8 +4,6 @@ from a OpenROAD-flow-scripts docker image and provides rules for its
 build stages.
 """
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//:config.bzl", "global_config")
 load("//:docker.bzl", "docker_pkg")
 
@@ -52,25 +50,7 @@ _default_tag = tag_class(
     },
 )
 
-def _orfs_dependencies():
-    maybe(
-        http_archive,
-        name = "com_github_nixos_patchelf_download",
-        build_file_content = """
-    export_files(
-      ["bin/patchelf"],
-      visibility = ["//visibility:public"],
-    )
-    """,
-        sha256 = "ce84f2447fb7a8679e58bc54a20dc2b01b37b5802e12c57eece772a6f14bf3f0",
-        urls = [
-            "https://github.com/NixOS/patchelf/releases/download/0.18.0/patchelf-0.18.0-x86_64.tar.gz",
-        ],
-    )
-
 def _orfs_repositories_impl(module_ctx):
-    _orfs_dependencies()
-
     for default in module_ctx.modules[0].tags.default:
         docker_pkg(
             name = "docker_orfs",

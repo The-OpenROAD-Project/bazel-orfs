@@ -996,7 +996,7 @@ arguments and parsing PPA metrics from the build outputs.
 | Tool | Description | Documentation |
 |------|-------------|---------------|
 | Chisel integration | Build Chisel designs, run tests | [chisel](chisel/README.md) |
-| Formal verification | SymbiYosys bounded model checking | [sby](sby/README.md) |
+| Formal verification | SymbiYosys bounded model checking (`bazel-orfs-sby` module) | [sby](sby/README.md) |
 | Artifact pinning | Cache long-running build results | [tools/pin](tools/pin/README.md) |
 | Post-synthesis cleanup | najaeda netlist cleaning (experimental) | [naja](naja/README.md) |
 | SRAM macros | fakeram and mock SRAM | [sram](sram/README.md) |
@@ -1004,6 +1004,38 @@ arguments and parsing PPA metrics from the build outputs.
 | Equivalence checking (eqy) | Yosys-based combinational equivalence | [delivery](delivery/README.md) |
 | Equivalence checking (LEC) | kepler-formal logic equivalence | [lec](lec/README.md) |
 | Verilog generation | FIRRTL-to-SystemVerilog via firtool | [verilog](verilog/README.md) |
+
+### Sub-modules
+
+Several tools live in subdirectories that are **separate Bazel modules**.
+Downstream consumers must add their own `bazel_dep` and `git_override` for each
+sub-module they use:
+
+| Sub-module directory | Bazel module name | What it provides |
+|----------------------|-------------------|------------------|
+| `sby/` | `bazel-orfs-sby` | `sby_test` rule for SymbiYosys formal verification |
+| `verilog/` | `bazel-orfs-verilog` | `verilog_files`, `fir_library` rules |
+| `lec/` | `bazel-orfs-lec` | Logic equivalence checking |
+
+Example for adding `bazel-orfs-sby` to a downstream `MODULE.bazel`:
+
+```starlark
+bazel_dep(name = "bazel-orfs-sby")
+
+git_override(
+    module_name = "bazel-orfs-sby",
+    commit = "<same commit as bazel-orfs>",
+    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs",
+    strip_prefix = "sby",
+)
+```
+
+Then load rules from the sub-module, not the root:
+
+```starlark
+# Old (broken): load("@bazel-orfs//:sby.bzl", "sby_test")
+load("@bazel-orfs-sby//:sby.bzl", "sby_test")
+```
 
 ## Reference
 
@@ -1222,7 +1254,7 @@ The root directory contains only external-facing concerns:
 
 - `.bzl` rule files (`openroad.bzl`, `sweep.bzl`, `ppa.bzl`, etc.) loaded by downstream consumers
 - `MODULE.bazel` and `BUILD` with public tools (`bump`, `plot_clock_period_tool`)
-- Template files consumed by rules (`make.tpl`, `deploy.tpl`, `eqy.tpl`, `sby.tpl`, `mock_area.tcl`)
+- Template files consumed by rules (`make.tpl`, `deploy.tpl`, `eqy.tpl`, `mock_area.tcl`)
 - `tools/` (pin, deploy), `extensions/` (pin)
 
 Test and demo content lives in subdirectories:
@@ -1242,8 +1274,8 @@ and simple RTL (`Mul.sv`, `lb_32x128_top.v`) are boilerplate — an LLM can
 regenerate them from the BUILD target definitions.
 
 Non-trivial files worth understanding: `wns_report.py` (complex report parsing),
-`L1MetadataArray.sv` (cache metadata controller), `patcher.py` (ELF binary
-patching), and the plot scripts.
+`L1MetadataArray.sv` (cache metadata controller), `patcher.py` (ld-linux wrapper
+generation for docker-extracted binaries), and the plot scripts.
 
 ## Retired features
 
