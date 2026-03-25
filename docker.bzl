@@ -1,91 +1,33 @@
-"""Repository rules for exporting file trees from docker images"""
+"""Repository rules for extracting file trees from OCI container images"""
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
 
 def _impl(repository_ctx):
-    if repository_ctx.attr.sha256 != "":
-        image = "{}@sha256:{}".format(
-            repository_ctx.attr.image,
-            repository_ctx.attr.sha256,
-        )
-    else:
-        image = repository_ctx.attr.image
+    python = repository_ctx.path(repository_ctx.attr._python).realpath
+    oci_extract = repository_ctx.path(repository_ctx.attr._oci_extract).realpath
 
-    docker_name = "docker"
-    docker = repository_ctx.which(docker_name)
-    if not docker:
-        fail("Failed to find {}.".format(docker_name))
-
-    if repository_ctx.attr.sha256 == "":
-        inspect = repository_ctx.execute(
-            [
-                docker,
-                "inspect",
-                "--type=image",
-                image,
-            ],
-        )
-        if inspect.return_code != 0:
-            fail(
-                "Local image {} does not exist: {}".format(image, inspect.stderr),
-                inspect.return_code,
-            )
-        repository_ctx.report_progress(
-            "Using local {}.".format(repository_ctx.attr.image),
-        )
-    else:
-        pull = repository_ctx.execute(
-            [
-                docker,
-                "pull",
-                image,
-            ],
-        )
-        if pull.return_code != 0:
-            fail(
-                "Image {} cannot be pulled: {}".format(image, pull.stderr),
-                pull.return_code,
-            )
-        repository_ctx.report_progress("Pulled {}.".format(repository_ctx.attr.image))
-
-    created = repository_ctx.execute(
-        [
-            docker,
-            "create",
-            image,
-        ],
-    )
-    if created.return_code != 0:
+    extract_args = [
+        python,
+        oci_extract,
+        "extract",
+        "--image",
+        repository_ctx.attr.image,
+        "--digest",
+        repository_ctx.attr.sha256,
+        "--output",
+        str(repository_ctx.path(".")),
+    ]
+    extract_result = repository_ctx.execute(extract_args)
+    if extract_result.return_code != 0:
         fail(
-            "Failed to create stopped container: {}".format(created.stderr),
-            created.return_code,
+            "Failed to extract {}: {}".format(
+                repository_ctx.attr.image,
+                extract_result.stderr,
+            ),
         )
-    container_id = created.stdout.strip()
-    cp = repository_ctx.execute(
-        [
-            docker,
-            "cp",
-            "{}:/".format(container_id),
-            ".",
-        ],
-    )
-    remove = repository_ctx.execute(
-        [
-            docker,
-            "rm",
-            container_id,
-        ],
-    )
-    if remove.return_code != 0:
-        print(
-            "Container {} has not been removed".format(container_id),
-        )  # buildifier: disable=print
-    if cp.return_code != 0:
-        fail("Failed to copy image content: {}".format(cp.stderr), cp.return_code)
 
     repository_ctx.report_progress("Extracted {}.".format(repository_ctx.attr.image))
 
-    python = repository_ctx.path(repository_ctx.attr._python).realpath
     patcher = repository_ctx.path(repository_ctx.attr._patcher).realpath
     patcher_result = repository_ctx.execute(
         [
@@ -119,6 +61,11 @@ docker_pkg = repository_rule(
         "patches": attr.label_list(default = []),
         "sha256": attr.string(mandatory = False),
         "timeout": attr.int(default = 600),
+        "_oci_extract": attr.label(
+            doc = "OCI image extraction script.",
+            default = Label("//:oci_extract.py"),
+            allow_single_file = True,
+        ),
         "_python": attr.label(
             doc = "Hermetic Python interpreter.",
             default = Label("@python_3_13_host//:python"),
