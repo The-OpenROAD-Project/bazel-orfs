@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -26,6 +27,11 @@ top_dir="$(cd "$(dirname "$self")/{self_to_top}" && pwd)"
   --argv0 "$self" \\
   "$top_dir/{libexec}" "$@"
 """
+
+# Regex patterns for parsing readelf output
+_NEEDED_RE = re.compile(r"\(NEEDED\)\s+Shared library: \[(.+)\]")
+_RPATH_RE = re.compile(r"\((?:RPATH|RUNPATH)\)\s+Library r(?:un)?path: \[(.+)\]")
+_INTERP_RE = re.compile(r"Requesting program interpreter: (.+)\]")
 
 
 def magic(path: str) -> Optional[bytes]:
@@ -54,12 +60,44 @@ def magic(path: str) -> Optional[bytes]:
     return None
 
 
+def _readelf_dynamic(root: str, file: str) -> str:
+    """Run readelf -d and return stdout, or empty string on failure."""
+    result = subprocess.run(
+        ["readelf", "-d", file], cwd=root, capture_output=True
+    )
+    if result.returncode != 0:
+        return ""
+    return result.stdout.decode("utf-8")
+
+
+def _readelf_needed(dynamic_output: str) -> List[str]:
+    """Extract NEEDED entries from readelf -d output."""
+    return _NEEDED_RE.findall(dynamic_output)
+
+
+def _readelf_rpath(dynamic_output: str) -> str:
+    """Extract RPATH/RUNPATH from readelf -d output."""
+    match = _RPATH_RE.search(dynamic_output)
+    return match.group(1) if match else ""
+
+
+def _readelf_interpreter(root: str, file: str) -> Optional[str]:
+    """Extract PT_INTERP from readelf -l output."""
+    result = subprocess.run(
+        ["readelf", "-l", file], cwd=root, capture_output=True
+    )
+    if result.returncode != 0:
+        return None
+    match = _INTERP_RE.search(result.stdout.decode("utf-8"))
+    return match.group(1) if match else None
+
+
 def patch_prepare(
     args: argparse.Namespace, root: str, file: str
-) -> Tuple[List, Optional[dict]]:
+) -> Optional[dict]:
     """
-    Reads patchelf information (like rpath or interpreter)
-    and prepares patchelf commands. It also fixes links.
+    Reads ELF information and prepares wrapper info for executables.
+    Also fixes absolute symlinks to be relative.
 
     Parameters
     ----------
@@ -72,9 +110,8 @@ def patch_prepare(
 
     Returns
     -------
-    Tuple[List, Optional[dict]]
-        List of prepared patchelf commands, and optional wrapper info
-        for executables with an interpreter.
+    Optional[dict]
+        Wrapper info dict for executables with an interpreter, or None.
 
     Raises
     ------
@@ -88,23 +125,17 @@ def patch_prepare(
         link_to_target = os.path.relpath(target, start=root)
         os.unlink(link)
         os.symlink(link_to_target, link)
-        return [], None
+        return None
 
     if magic(os.path.join(root, file)) != ELF_MAGIC:
-        return [], None
+        return None
 
-    needed_result = subprocess.run(
-        [args.patchelf, "--print-needed", file], cwd=root, capture_output=True
-    )
-    needed_libs = needed_result.stdout.decode("utf-8").strip()
+    dynamic_output = _readelf_dynamic(root, file)
+    needed_libs = _readelf_needed(dynamic_output)
     if not needed_libs:
-        return [], None
+        return None
 
-    rpath_fragments = (
-        subprocess.check_output([args.patchelf, "--print-rpath", file], cwd=root)
-        .decode("utf-8")
-        .strip()
-    )
+    rpath_fragments = _readelf_rpath(dynamic_output)
     rpaths = []
     for rpath in rpath_fragments.split(":") + DEFAULT_SEARCH_PATHS:
         if not rpath:
@@ -117,33 +148,15 @@ def patch_prepare(
             elf_to_rpath = os.path.relpath(rpath, start=elf)
             rpaths.append(os.path.join("$ORIGIN", elf_to_rpath))
 
-    rpath = ":".join(rpaths).encode("utf-8")
-    cmds = [
-        (
-            [
-                args.patchelf,
-                "--force-rpath",
-                "--set-rpath",
-                rpath,
-                "--no-default-lib",
-                file,
-            ],
-            root,
-        )
-    ]
-
-    interpreter_result = subprocess.run(
-        [args.patchelf, "--print-interpreter", file], cwd=root, capture_output=True
-    )
-    if interpreter_result.returncode != 0:
-        return cmds, None
+    interpreter_old = _readelf_interpreter(root, file)
+    if interpreter_old is None:
+        return None
 
     # Only wrap actual executables, not shared libraries.
     # Shared libraries may have PT_INTERP (PIE) but should not be wrapped.
     if ".so" in file:
-        return cmds, None
+        return None
 
-    interpreter_old = interpreter_result.stdout.decode("utf-8").strip()
     interpreter_rel = os.path.relpath(interpreter_old, start="/")
 
     # Compute absolute rpath directories relative to the extraction root
@@ -165,7 +178,7 @@ def patch_prepare(
         "library_paths": abs_rpaths,
     }
 
-    return cmds, wrapper_info
+    return wrapper_info
 
 
 def find_tcl_library(directory: str) -> Optional[str]:
@@ -250,7 +263,7 @@ def setup_interpreter(args: argparse.Namespace, interpreter_rel: str):
     to the interpreter. By placing ld-linux at {top}/lib/ (a real
     directory, not a symlink), /proc/self/exe resolves to
     {top}/lib/ld-linux and {exe_dir}/../share/yosys/ becomes
-    {top}/share/yosys/ — matching the oss-cad-suite layout.
+    {top}/share/yosys/ --- matching the oss-cad-suite layout.
 
     Returns the new interpreter path relative to the extraction root.
     """
@@ -304,9 +317,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("directory", help="Directory to patch.")
     parser.add_argument(
-        "-p", "--patchelf", default="patchelf", help="`patchelf` binary to use."
-    )
-    parser.add_argument(
         "-j", "--jobs", default=None, type=int, help="Number of threads to use."
     )
     args = parser.parse_args()
@@ -314,7 +324,7 @@ def main():
     if args.jobs is None:
         args.jobs = multiprocessing.cpu_count() // 2
 
-    futures, commands, wrappers, failed_files = [], [], [], []
+    futures, wrappers, failed_files = [], [], []
     with ThreadPoolExecutor(max_workers=args.jobs) as executor:
         for root, dirs, files in os.walk(args.directory):
             for file in files:
@@ -331,22 +341,18 @@ def main():
                 )
         for future, (root, file) in futures:
             try:
-                command, wrapper_info = future.result()
+                wrapper_info = future.result()
             except subprocess.CalledProcessError as ex:
                 failed_files.append((root, file, ex))
                 continue
-            commands.extend(command)
             if wrapper_info is not None:
                 wrappers.append(wrapper_info)
 
     if failed_files:
         error_msg = "\n".join([f"{os.path.join(r, f)}" for r, f, _ in failed_files])
         raise Exception(
-            f"Cannot prepare patchelf command for:\n{error_msg}"
+            f"Cannot read ELF info for:\n{error_msg}"
         ) from failed_files[0][2]
-
-    for command, root in commands:
-        subprocess.check_call(command, cwd=root)
 
     # Copy ld-linux to lib/ so /proc/self/exe resolves to a
     # known, symlink-free path. This lets tools like yosys find
@@ -369,20 +375,23 @@ def main():
     # executables (e.g. yosys-abc). Since /proc/self/exe now
     # resolves to _lib/ld-linux, create symlinks in _lib/ for
     # all wrapped executables so they can be found as siblings.
-    interp_dir = os.path.dirname(
-        os.path.join(args.directory, interp_map[old_interp])
-    )
-    for wrapper_info in wrappers:
-        name = os.path.basename(wrapper_info["file"])
-        link = os.path.join(interp_dir, name)
-        wrapper_path = os.path.join(
-            wrapper_info["root"], wrapper_info["file"]
+    if wrappers:
+        # After setup_interpreter, wrapper["interpreter"] is already the
+        # new _lib/ path.  Use it directly.
+        interp_dir = os.path.dirname(
+            os.path.join(args.directory, wrappers[0]["interpreter"])
         )
-        if not os.path.exists(link):
-            os.symlink(
-                os.path.relpath(wrapper_path, interp_dir),
-                link,
+        for wrapper_info in wrappers:
+            name = os.path.basename(wrapper_info["file"])
+            link = os.path.join(interp_dir, name)
+            wrapper_path = os.path.join(
+                wrapper_info["root"], wrapper_info["file"]
             )
+            if not os.path.exists(link):
+                os.symlink(
+                    os.path.relpath(wrapper_path, interp_dir),
+                    link,
+                )
 
     # Create top-level share/ symlinks so tools like yosys that
     # use /proc/self/exe to find {exe_dir}/../share/yosys/ can

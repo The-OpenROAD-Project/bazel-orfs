@@ -7,6 +7,11 @@ module(
 )
 
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
+bazel_dep(name = "bazel-orfs-verilog")
+local_path_override(
+    module_name = "bazel-orfs-verilog",
+    path = "verilog",
+)
 
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
@@ -67,7 +72,6 @@ pip_features.parse(
 use_repo(pip_features, "bazel-orfs-features-pip")
 
 orfs = use_extension("//:extension.bzl", "orfs_repositories")
-use_repo(orfs, "com_github_nixos_patchelf_download")
 use_repo(orfs, "docker_orfs")
 use_repo(orfs, "config")
 
