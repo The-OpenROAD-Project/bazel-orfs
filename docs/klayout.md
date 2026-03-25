@@ -5,14 +5,14 @@ GDS generation is separated from the main flow (`orfs_flow`) into the
 standalone `orfs_gds` rule, so designs can complete synthesis through
 final reporting without requiring klayout.
 
-By default, bazel-orfs uses the klayout binary from the ORFS docker image
+By default, bazel-orfs uses the klayout binary from the ORFS image
 (`@docker_orfs//:klayout`). This can be overridden globally via
 `orfs.default()` or per-target via the `klayout` attribute on `orfs_gds`.
 
 ## Configuration
 
 KLayout is configured through the `orfs_repositories` module extension in your
-`MODULE.bazel`. The default uses the docker image klayout:
+`MODULE.bazel`. The default uses the ORFS image klayout:
 
 ```starlark
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
@@ -34,7 +34,7 @@ orfs.default(
 
 Note: the `@bazel-orfs//:klayout` wrapper executes whichever `klayout`
 binary is found on the system `PATH`. For hermetic builds, prefer the
-docker image default or a pinned `http_archive`.
+ORFS image default or a pinned `http_archive`.
 
 ## GDS Generation with `orfs_gds`
 
