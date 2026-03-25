@@ -644,5 +644,160 @@ class TestNetworkErrorHandling(unittest.TestCase):
                 os.unlink(tmp.name)
 
 
+class TestMigrateLoadPaths(unittest.TestCase):
+    """Test load() path migration for moved .bzl files."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir)
+
+    def _write(self, relpath, content):
+        fpath = os.path.join(self.tmpdir, relpath)
+        os.makedirs(os.path.dirname(fpath), exist_ok=True)
+        with open(fpath, "w") as f:
+            f.write(content)
+        return fpath
+
+    def _read(self, relpath):
+        with open(os.path.join(self.tmpdir, relpath)) as f:
+            return f.read()
+
+    def test_migrates_sby_load_in_build_file(self):
+        self._write(
+            "hardware/BUILD.bazel",
+            'load("@bazel-orfs//:sby.bzl", "sby_test")\n',
+        )
+        changes = bump.migrate_load_paths(self.tmpdir)
+        self.assertEqual(len(changes), 1)
+        self.assertEqual(changes[0][1], "@bazel-orfs//:sby.bzl")
+        self.assertEqual(changes[0][2], "@bazel-orfs//:sby/sby.bzl")
+        self.assertEqual(
+            self._read("hardware/BUILD.bazel"),
+            'load("@bazel-orfs//:sby/sby.bzl", "sby_test")\n',
+        )
+
+    def test_migrates_sby_load_in_bzl_file(self):
+        self._write(
+            "defs.bzl",
+            'load("@bazel-orfs//:sby.bzl", "sby_test")\n',
+        )
+        changes = bump.migrate_load_paths(self.tmpdir)
+        self.assertEqual(len(changes), 1)
+
+    def test_skips_already_migrated(self):
+        self._write(
+            "BUILD.bazel",
+            'load("@bazel-orfs//:sby/sby.bzl", "sby_test")\n',
+        )
+        changes = bump.migrate_load_paths(self.tmpdir)
+        self.assertEqual(len(changes), 0)
+
+    def test_skips_unrelated_files(self):
+        self._write("README.md", '@bazel-orfs//:sby.bzl\n')
+        self._write("src/main.py", 'print("@bazel-orfs//:sby.bzl")\n')
+        changes = bump.migrate_load_paths(self.tmpdir)
+        self.assertEqual(len(changes), 0)
+
+    def test_skips_bazel_output_dirs(self):
+        self._write(
+            "bazel-bin/BUILD.bazel",
+            'load("@bazel-orfs//:sby.bzl", "sby_test")\n',
+        )
+        changes = bump.migrate_load_paths(self.tmpdir)
+        self.assertEqual(len(changes), 0)
+
+    def test_skips_hidden_dirs(self):
+        self._write(
+            ".git/BUILD.bazel",
+            'load("@bazel-orfs//:sby.bzl", "sby_test")\n',
+        )
+        changes = bump.migrate_load_paths(self.tmpdir)
+        self.assertEqual(len(changes), 0)
+
+    def test_migrates_multiple_files(self):
+        self._write(
+            "a/BUILD.bazel",
+            'load("@bazel-orfs//:sby.bzl", "sby_test")\n',
+        )
+        self._write(
+            "b/BUILD",
+            'load("@bazel-orfs//:sby.bzl", "sby_test")\n',
+        )
+        changes = bump.migrate_load_paths(self.tmpdir)
+        self.assertEqual(len(changes), 2)
+
+    def test_preserves_other_loads(self):
+        content = (
+            'load("@bazel-orfs//:sby.bzl", "sby_test")\n'
+            'load("@bazel-orfs//:openroad.bzl", "orfs_flow")\n'
+        )
+        self._write("BUILD.bazel", content)
+        bump.migrate_load_paths(self.tmpdir)
+        result = self._read("BUILD.bazel")
+        self.assertIn('@bazel-orfs//:sby/sby.bzl', result)
+        self.assertIn('@bazel-orfs//:openroad.bzl', result)
+
+
+class TestBumpWithMigration(unittest.TestCase):
+    """Integration test: bump() migrates load paths in workspace."""
+
+    def test_bump_migrates_sby_load(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            # Set up workspace with MODULE.bazel and a BUILD file with old load
+            src = os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel")
+            module_file = os.path.join(tmpdir, "MODULE.bazel")
+            shutil.copy2(src, module_file)
+
+            build_file = os.path.join(tmpdir, "hardware", "BUILD.bazel")
+            os.makedirs(os.path.dirname(build_file))
+            with open(build_file, "w") as f:
+                f.write('load("@bazel-orfs//:sby.bzl", "sby_test")\n')
+
+            bump.bump(
+                module_file,
+                fetch_tag_fn=mock_fetch_tag,
+                fetch_commit_fn=mock_fetch_commit,
+                resolve_digest_fn=mock_resolve_digest,
+                workspace_dir=tmpdir,
+            )
+
+            with open(build_file) as f:
+                result = f.read()
+            self.assertIn('@bazel-orfs//:sby/sby.bzl', result)
+            self.assertNotIn('@bazel-orfs//:sby.bzl"', result)
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_bazel_orfs_project_skips_migration(self):
+        """bazel-orfs itself should not migrate its own load paths."""
+        tmpdir = tempfile.mkdtemp()
+        try:
+            src = os.path.join(FIXTURES_DIR, "self.MODULE.bazel")
+            module_file = os.path.join(tmpdir, "MODULE.bazel")
+            shutil.copy2(src, module_file)
+
+            build_file = os.path.join(tmpdir, "BUILD.bazel")
+            with open(build_file, "w") as f:
+                f.write('load("//:sby.bzl", "sby_test")\n')
+
+            bump.bump(
+                module_file,
+                fetch_tag_fn=mock_fetch_tag,
+                fetch_commit_fn=mock_fetch_commit,
+                resolve_digest_fn=mock_resolve_digest,
+                workspace_dir=tmpdir,
+            )
+
+            with open(build_file) as f:
+                result = f.read()
+            # bazel-orfs uses //:sby.bzl (no @bazel-orfs prefix), should be untouched
+            self.assertEqual(result, 'load("//:sby.bzl", "sby_test")\n')
+        finally:
+            shutil.rmtree(tmpdir)
+
+
 if __name__ == "__main__":
     unittest.main()

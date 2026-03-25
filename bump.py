@@ -113,6 +113,51 @@ def update_git_override_commit(content, module_name, new_commit):
 
 BAZEL_ORFS_SUBMODULES = ["bazel-orfs-verilog", "bazel-orfs-sby"]
 
+# Old load path -> new load path.  Applied to BUILD* and *.bzl files
+# when bumping a downstream project so that moved .bzl files don't
+# break the build.
+LOAD_MIGRATIONS = {
+    '@bazel-orfs//:sby.bzl': '@bazel-orfs//:sby/sby.bzl',
+}
+
+
+def migrate_load_paths(workspace_dir):
+    """Rewrite load() statements in BUILD/bzl files for known .bzl moves.
+
+    Returns list of (filepath, old, new) tuples for each replacement made.
+    """
+    changes = []
+    for root, _dirs, files in os.walk(workspace_dir):
+        # Skip bazel output dirs and hidden dirs
+        rel = os.path.relpath(root, workspace_dir)
+        if rel != "." and any(
+            part.startswith(".") or part.startswith("bazel-")
+            for part in rel.split(os.sep)
+        ):
+            continue
+        for fname in files:
+            if not (
+                fname == "BUILD"
+                or fname == "BUILD.bazel"
+                or fname.endswith(".bzl")
+            ):
+                continue
+            fpath = os.path.join(root, fname)
+            with open(fpath) as f:
+                content = f.read()
+            new_content = content
+            for old_path, new_path in LOAD_MIGRATIONS.items():
+                new_content = new_content.replace(
+                    f'"{old_path}"', f'"{new_path}"'
+                )
+            if new_content != content:
+                with open(fpath, "w") as f:
+                    f.write(new_content)
+                for old_path, new_path in LOAD_MIGRATIONS.items():
+                    if f'"{old_path}"' in content:
+                        changes.append((fpath, old_path, new_path))
+    return changes
+
 
 def find_bazel_orfs_submodules(content):
     """Return the subset of BAZEL_ORFS_SUBMODULES that have git_override blocks."""
@@ -225,6 +270,7 @@ def bump(
     fetch_tag_fn=fetch_latest_docker_tag,
     fetch_commit_fn=fetch_latest_commit,
     resolve_digest_fn=resolve_image_digest,
+    workspace_dir=None,
 ):
     """Main bump orchestrator.
 
@@ -280,6 +326,12 @@ def bump(
     with open(module_file, "w") as f:
         f.write(content)
 
+    # --- Migrate load() paths for moved .bzl files (downstream only) ---
+    if project != "bazel-orfs" and workspace_dir:
+        changes = migrate_load_paths(workspace_dir)
+        for fpath, old, new in changes:
+            print(f"Migrated load path in {fpath}: {old} -> {new}")
+
     # --- Update mock modules ---
     if mock_modules:
         for mock_file in mock_modules:
@@ -328,10 +380,10 @@ def main():
         else:
             args.mock_modules = []
 
-    bump(args.module_file, args.mock_modules)
+    workspace = os.environ.get("BUILD_WORKSPACE_DIRECTORY", ".")
+    bump(args.module_file, args.mock_modules, workspace_dir=workspace)
 
     # Run bazelisk mod tidy
-    workspace = os.environ.get("BUILD_WORKSPACE_DIRECTORY", ".")
     try:
         subprocess.run(
             ["bazelisk", "mod", "tidy"],
@@ -345,9 +397,9 @@ def main():
             file=sys.stderr,
         )
 
-    # Show diff
+    # Show diff (workspace-wide, not just MODULE.bazel, to include load path migrations)
     subprocess.run(
-        ["git", "diff", "--color=always", args.module_file],
+        ["git", "diff", "--color=always"],
         cwd=workspace,
     )
 
