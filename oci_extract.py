@@ -28,6 +28,7 @@ Stdlib-only (no pip dependencies) so it can run during Bazel repository rule pha
 """
 
 import argparse
+import concurrent.futures
 import hashlib
 import json
 import os
@@ -259,6 +260,9 @@ def resolve_blob_url(registry, repository, digest, token):
 def resolve_layers(image, reference):
     """Resolve a container image to its layer digests and download URLs.
 
+    Resolves all layer URLs concurrently (thread pool) to minimize
+    the overhead of 21+ sequential HTTP redirect-resolution requests.
+
     Returns a list of dicts: [{"digest": "sha256:...", "size": N, "url": "https://..."}]
     """
     registry, repository = parse_image(image)
@@ -266,12 +270,15 @@ def resolve_layers(image, reference):
     manifest = fetch_manifest(registry, repository, reference, token)
 
     layers = manifest.get("layers", manifest.get("fsLayers", []))
-    result = []
-    for layer in layers:
+
+    def _resolve(layer):
         digest = layer.get("digest", layer.get("blobSum"))
         size = layer.get("size", 0)
         url = resolve_blob_url(registry, repository, digest, token)
-        result.append({"digest": digest, "size": size, "url": url})
+        return {"digest": digest, "size": size, "url": url}
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+        result = list(pool.map(_resolve, layers))
 
     return result
 
