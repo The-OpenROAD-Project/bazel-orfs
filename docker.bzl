@@ -29,9 +29,36 @@ to a CDN (Docker Hub), or (b) serves blobs directly at the /v2/ URL
 without authentication (public images on ghcr.io, quay.io, etc.).
 Authenticated private registries may need additional handling in
 ``resolve_blob_url()`` in ``oci_extract.py``.
+
+Requires Bazel 8+.  Only tested on Bazel 8.  Older versions may lack
+``repository_ctx.download(sha256=...)`` caching or ``repository_ctx.delete()``.
 """
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
+
+# Minimum Bazel version required by this rule.  The 3-phase extraction
+# uses repository_ctx.download(sha256=...) for layer caching and
+# repository_ctx.delete() for cleanup, both of which need Bazel 8+.
+# This has only been tested on Bazel 8; older versions may lack APIs
+# or behave differently.
+_MIN_BAZEL_MAJOR = 8
+
+def _check_bazel_version():
+    """Fail fast if Bazel is older than the minimum tested version."""
+    v = native.bazel_version
+    if not v:
+        return  # development build, skip check
+    major = int(v.split(".")[0])
+    if major < _MIN_BAZEL_MAJOR:
+        fail((
+            "bazel-orfs requires Bazel {min}+, got {got}. " +
+            "This has only been tested on Bazel {min}."
+        ).format(
+            min = _MIN_BAZEL_MAJOR,
+            got = v,
+        ))
+
+_check_bazel_version()
 
 def _impl(repository_ctx):
     python = repository_ctx.path(repository_ctx.attr._python).realpath
