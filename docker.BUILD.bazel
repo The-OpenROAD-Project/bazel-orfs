@@ -56,11 +56,16 @@ filegroup(
 )
 
 filegroup(
+    name = "yosys_share",
+    srcs = glob(["share/yosys/**"]),
+)
+
+filegroup(
     name = "yosys",
     data = [
         ":ld.so",
         ":libexec",
-        "OpenROAD-flow-scripts/tools/install/yosys/share/yosys/plugins/slang.so",
+        ":yosys_share",
     ],
     srcs = ["OpenROAD-flow-scripts/tools/install/yosys/bin/yosys"],
     visibility = ["//visibility:public"],
