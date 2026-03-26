@@ -404,32 +404,47 @@ def setup_interpreter(args: argparse.Namespace, interpreter_rel: str):
 
 def create_share_symlinks(args: argparse.Namespace):
     """
-    Create top-level share/ symlinks so that tools using
+    Create top-level share/ file symlinks so that tools using
     /proc/self/exe can find their data directories.
 
     With the wrapper approach, /proc/self/exe resolves to
     the ld-linux interpreter. Tools like yosys check
     {exe_dir}/../share/yosys/ which becomes {top}/share/yosys/.
+
+    We create per-file symlinks (not directory symlinks) because
+    Bazel's glob() follows symlinks to files but not to directories.
     """
     top_share = os.path.join(args.directory, "share")
     os.makedirs(top_share, exist_ok=True)
 
+    # Collect share/<tool> directories from the tree, skipping
+    # the top-level share/ itself and libexec/ (which mirrors
+    # the original tree).
+    share_tool_dirs = []
     for root, dirs, files in os.walk(args.directory):
-        # Skip the top-level share dir itself and libexec
         rel = os.path.relpath(root, args.directory)
         if rel == "share" or rel.startswith("share/"):
             continue
         if rel.startswith("libexec"):
             continue
-
-        # Look for share/<tool> directories
         if os.path.basename(root) == "share":
             for d in dirs:
-                link = os.path.join(top_share, d)
-                target = os.path.join(root, d)
+                share_tool_dirs.append(os.path.join(root, d))
+
+    # For each share/<tool> directory, walk its contents and create
+    # per-file symlinks under {top}/share/<tool>/...
+    for tool_dir in share_tool_dirs:
+        tool_name = os.path.basename(tool_dir)
+        for root, dirs, files in os.walk(tool_dir):
+            for f in files:
+                src = os.path.join(root, f)
+                # Compute relative path within the tool dir
+                rel_in_tool = os.path.relpath(src, tool_dir)
+                link = os.path.join(top_share, tool_name, rel_in_tool)
                 if not os.path.exists(link):
+                    os.makedirs(os.path.dirname(link), exist_ok=True)
                     os.symlink(
-                        os.path.relpath(target, top_share),
+                        os.path.relpath(src, os.path.dirname(link)),
                         link,
                     )
 
