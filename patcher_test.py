@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Unit tests for patcher.py ELF parsing."""
+"""Unit tests for patcher.py."""
 
+import argparse
 import os
 import struct
 import tempfile
@@ -410,6 +411,296 @@ class TestParseElf(unittest.TestCase):
                 self.assertIn("libc", str(result["needed"]))
                 return
         self.skipTest("No system binary found")
+
+
+def _place_elf(path, rpath=None):
+    """Write a fake ELF binary at *path* and make it executable."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    elf = _build_elf64(
+        interp="/lib64/ld-linux-x86-64.so.2",
+        needed=["libc.so.6"],
+        rpath=rpath or os.path.dirname(path),
+    )
+    with open(path, "wb") as f:
+        f.write(elf)
+    os.chmod(path, 0o755)
+
+
+# Binaries in the real ORFS docker image that docker.BUILD.bazel
+# exposes as filegroup srcs.  Paths are relative to the extraction root.
+ORFS_BINARIES = [
+    "OpenROAD-flow-scripts/tools/install/yosys/bin/yosys",
+    "OpenROAD-flow-scripts/tools/install/yosys/bin/yosys-abc",
+    "OpenROAD-flow-scripts/tools/install/OpenROAD/bin/openroad",
+    "OpenROAD-flow-scripts/tools/install/OpenROAD/bin/sta",
+    "usr/bin/klayout",
+]
+
+
+def _create_fake_orfs_tree(tmpdir):
+    """Create a directory tree mirroring the real ORFS docker image layout.
+
+    Returns dict mapping binary name -> absolute path.
+    """
+    # ld-linux interpreter
+    interp_path = os.path.join(tmpdir, "lib64", "ld-linux-x86-64.so.2")
+    os.makedirs(os.path.dirname(interp_path), exist_ok=True)
+    with open(interp_path, "wb") as f:
+        f.write(b"fake-interp")
+    os.chmod(interp_path, 0o755)
+
+    bins = {}
+    for rel in ORFS_BINARIES:
+        abs_path = os.path.join(tmpdir, rel)
+        _place_elf(abs_path)
+        bins[os.path.basename(rel)] = abs_path
+
+    # yosys share directory with slang plugin
+    plugins_dir = os.path.join(
+        tmpdir,
+        "OpenROAD-flow-scripts",
+        "tools",
+        "install",
+        "yosys",
+        "share",
+        "yosys",
+        "plugins",
+    )
+    os.makedirs(plugins_dir, exist_ok=True)
+    with open(os.path.join(plugins_dir, "slang.so"), "wb") as f:
+        f.write(b"fake-slang-plugin")
+
+    return bins
+
+
+class TestCreateShareSymlinks(unittest.TestCase):
+    def test_creates_share_symlink_for_yosys(self):
+        """Simulate yosys share directory structure and verify symlink creation."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            yosys_share = os.path.join(
+                tmpdir, "tools", "install", "yosys", "share", "yosys", "plugins"
+            )
+            os.makedirs(yosys_share)
+            with open(os.path.join(yosys_share, "slang.so"), "w") as f:
+                f.write("fake")
+
+            args = argparse.Namespace(directory=tmpdir)
+            patcher.create_share_symlinks(args)
+
+            top_yosys = os.path.join(tmpdir, "share", "yosys")
+            self.assertTrue(os.path.islink(top_yosys))
+            resolved = os.path.join(top_yosys, "plugins", "slang.so")
+            self.assertTrue(os.path.isfile(resolved))
+
+    def test_skips_libexec(self):
+        """Share dirs under libexec/ should not get top-level symlinks."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            os.makedirs(os.path.join(tmpdir, "libexec", "tools", "share", "yosys"))
+
+            args = argparse.Namespace(directory=tmpdir)
+            patcher.create_share_symlinks(args)
+
+            self.assertFalse(
+                os.path.exists(os.path.join(tmpdir, "share", "yosys"))
+            )
+
+    def test_does_not_overwrite_existing(self):
+        """First share/tool found wins; second is ignored."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            first = os.path.join(tmpdir, "first", "share", "yosys")
+            os.makedirs(first)
+            with open(os.path.join(first, "marker"), "w") as f:
+                f.write("first")
+
+            second = os.path.join(tmpdir, "second", "share", "yosys")
+            os.makedirs(second)
+            with open(os.path.join(second, "marker"), "w") as f:
+                f.write("second")
+
+            args = argparse.Namespace(directory=tmpdir)
+            patcher.create_share_symlinks(args)
+
+            top_yosys = os.path.join(tmpdir, "share", "yosys")
+            self.assertTrue(os.path.islink(top_yosys))
+            self.assertTrue(os.path.isfile(os.path.join(top_yosys, "marker")))
+
+
+class TestSetupInterpreter(unittest.TestCase):
+    def test_copies_interpreter_to_lib(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            interp_dir = os.path.join(tmpdir, "lib64")
+            os.makedirs(interp_dir)
+            interp = os.path.join(interp_dir, "ld-linux-x86-64.so.2")
+            with open(interp, "wb") as f:
+                f.write(b"fake-interp")
+
+            args = argparse.Namespace(directory=tmpdir)
+            new_rel = patcher.setup_interpreter(args, "lib64/ld-linux-x86-64.so.2")
+
+            self.assertEqual(new_rel, "_lib/ld-linux-x86-64.so.2")
+            new_abs = os.path.join(tmpdir, new_rel)
+            self.assertTrue(os.path.isfile(new_abs))
+            self.assertTrue(os.access(new_abs, os.X_OK))
+
+    def test_idempotent(self):
+        """Calling setup_interpreter twice doesn't fail or change the file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            interp_dir = os.path.join(tmpdir, "lib64")
+            os.makedirs(interp_dir)
+            interp = os.path.join(interp_dir, "ld-linux-x86-64.so.2")
+            with open(interp, "wb") as f:
+                f.write(b"fake-interp")
+
+            args = argparse.Namespace(directory=tmpdir)
+            rel1 = patcher.setup_interpreter(args, "lib64/ld-linux-x86-64.so.2")
+            rel2 = patcher.setup_interpreter(args, "lib64/ld-linux-x86-64.so.2")
+            self.assertEqual(rel1, rel2)
+
+
+class TestGenerateWrapper(unittest.TestCase):
+    def test_creates_wrapper_script(self):
+        """Wrapper script is created and original ELF moves to libexec/."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bin_dir = os.path.join(tmpdir, "tools", "bin")
+            os.makedirs(bin_dir)
+            exe = os.path.join(bin_dir, "mytool")
+            with open(exe, "wb") as f:
+                f.write(b"\x7fELF-fake")
+            os.chmod(exe, 0o755)
+
+            args = argparse.Namespace(directory=tmpdir)
+            wrapper_info = {
+                "root": bin_dir,
+                "file": "mytool",
+                "interpreter": "_lib/ld-linux-x86-64.so.2",
+                "library_paths": ["tools/lib"],
+            }
+            patcher.generate_wrapper(args, wrapper_info)
+
+            # Wrapper script exists at original path
+            self.assertTrue(os.path.isfile(exe))
+            with open(exe) as f:
+                content = f.read()
+            self.assertIn("#!/usr/bin/env bash", content)
+            self.assertIn("_lib/ld-linux-x86-64.so.2", content)
+
+            # Original ELF moved to libexec/
+            libexec = os.path.join(tmpdir, "libexec", "tools", "bin", "mytool")
+            self.assertTrue(os.path.isfile(libexec))
+            with open(libexec, "rb") as f:
+                self.assertEqual(f.read(), b"\x7fELF-fake")
+
+    def test_wrapper_includes_tcl_library(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bin_dir = os.path.join(tmpdir, "bin")
+            os.makedirs(bin_dir)
+            exe = os.path.join(bin_dir, "mytool")
+            with open(exe, "wb") as f:
+                f.write(b"\x7fELF-fake")
+
+            args = argparse.Namespace(directory=tmpdir)
+            wrapper_info = {
+                "root": bin_dir,
+                "file": "mytool",
+                "interpreter": "_lib/ld-linux-x86-64.so.2",
+                "library_paths": [],
+            }
+            patcher.generate_wrapper(args, wrapper_info, tcl_library="usr/share/tcl8.6")
+
+            with open(exe) as f:
+                content = f.read()
+            self.assertIn("TCL_LIBRARY", content)
+            self.assertIn("usr/share/tcl8.6", content)
+
+
+class TestPatcherIntegration(unittest.TestCase):
+    """Integration test: full patcher pipeline on a fake ORFS tree.
+
+    Runs patcher.main() on a directory tree mirroring the real ORFS
+    docker image and verifies the resulting structure for all binaries.
+    """
+
+    def _run_patcher(self, tmpdir):
+        import sys
+        old_argv = sys.argv
+        try:
+            sys.argv = ["patcher", tmpdir]
+            patcher.main()
+        finally:
+            sys.argv = old_argv
+
+    def test_all_binaries_wrapped(self):
+        """Every ORFS binary is replaced with a wrapper script."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _create_fake_orfs_tree(tmpdir)
+            self._run_patcher(tmpdir)
+
+            for name, path in bins.items():
+                with open(path) as f:
+                    content = f.read()
+                self.assertIn(
+                    "#!/usr/bin/env bash",
+                    content,
+                    f"{name} was not replaced with a wrapper script",
+                )
+                self.assertIn("--inhibit-cache", content, f"{name} wrapper malformed")
+
+    def test_all_binaries_moved_to_libexec(self):
+        """Original ELFs for all ORFS binaries land in libexec/."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _create_fake_orfs_tree(tmpdir)
+            self._run_patcher(tmpdir)
+
+            for name, path in bins.items():
+                rel = os.path.relpath(path, tmpdir)
+                libexec = os.path.join(tmpdir, "libexec", rel)
+                self.assertTrue(
+                    os.path.isfile(libexec),
+                    f"original ELF for {name} not found at {libexec}",
+                )
+
+    def test_all_binaries_have_sibling_symlinks(self):
+        """_lib/ contains sibling symlinks for every wrapped binary."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bins = _create_fake_orfs_tree(tmpdir)
+            self._run_patcher(tmpdir)
+
+            for name in bins:
+                sibling = os.path.join(tmpdir, "_lib", name)
+                self.assertTrue(
+                    os.path.islink(sibling),
+                    f"_lib/{name} sibling symlink missing",
+                )
+
+    def test_interpreter_in_lib(self):
+        """_lib/ contains the ld-linux interpreter."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _create_fake_orfs_tree(tmpdir)
+            self._run_patcher(tmpdir)
+
+            interp = os.path.join(tmpdir, "_lib", "ld-linux-x86-64.so.2")
+            self.assertTrue(os.path.isfile(interp))
+            self.assertTrue(os.access(interp, os.X_OK))
+
+    def test_yosys_slang_path_resolves(self):
+        """_lib/../share/yosys/plugins/slang.so must resolve.
+
+        This is the path yosys computes via proc_self_dirname() when
+        running through the ld-linux wrapper.  If this breaks, yosys
+        fails with "cannot open shared object file" at synthesis time.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            _create_fake_orfs_tree(tmpdir)
+            self._run_patcher(tmpdir)
+
+            slang_via_lib = os.path.join(
+                tmpdir, "_lib", "..", "share", "yosys", "plugins", "slang.so"
+            )
+            self.assertTrue(
+                os.path.isfile(slang_via_lib),
+                f"slang.so not reachable at {slang_via_lib} — "
+                "yosys will fail to load the slang plugin at runtime",
+            )
 
 
 if __name__ == "__main__":
