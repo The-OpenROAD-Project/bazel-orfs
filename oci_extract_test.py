@@ -613,5 +613,101 @@ class TestExtractImageE2E(unittest.TestCase):
             shutil.rmtree(output_dir)
 
 
+class TestResolveBlobUrl(unittest.TestCase):
+    """Test resolve_blob_url redirect capture."""
+
+    @patch("oci_extract.urllib.request.build_opener")
+    def test_captures_redirect(self, mock_build_opener):
+        """Docker Hub redirects to CDN — capture the Location URL."""
+        cdn_url = "https://cdn.docker.io/blob?sig=abc"
+        mock_opener = MagicMock()
+        mock_opener.open.side_effect = oci_extract._RedirectCaptured(cdn_url)
+        mock_build_opener.return_value = mock_opener
+
+        result = oci_extract.resolve_blob_url(
+            "registry-1.docker.io", "openroad/orfs", "sha256:abc", "token"
+        )
+        self.assertEqual(result, cdn_url)
+
+    @patch("oci_extract.urllib.request.build_opener")
+    def test_no_redirect(self, mock_build_opener):
+        """Registry serves blob directly without redirect."""
+        mock_resp = MagicMock()
+        mock_resp.__enter__ = MagicMock(return_value=mock_resp)
+        mock_resp.__exit__ = MagicMock(return_value=False)
+        mock_opener = MagicMock()
+        mock_opener.open.return_value = mock_resp
+        mock_build_opener.return_value = mock_opener
+
+        result = oci_extract.resolve_blob_url("ghcr.io", "org/repo", "sha256:abc", None)
+        self.assertEqual(result, "https://ghcr.io/v2/org/repo/blobs/sha256:abc")
+
+
+class TestResolveLayers(unittest.TestCase):
+    """Test resolve_layers end-to-end with mocked HTTP."""
+
+    @patch("oci_extract.resolve_blob_url")
+    @patch("oci_extract.fetch_manifest")
+    @patch("oci_extract.get_token")
+    def test_resolve_layers(self, mock_token, mock_manifest, mock_resolve_url):
+        mock_token.return_value = "token"
+        mock_manifest.return_value = {
+            "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+            "layers": [
+                {"digest": "sha256:aaa", "size": 100},
+                {"digest": "sha256:bbb", "size": 200},
+            ],
+        }
+        mock_resolve_url.side_effect = [
+            "https://cdn.example.com/aaa",
+            "https://cdn.example.com/bbb",
+        ]
+
+        result = oci_extract.resolve_layers("docker.io/openroad/orfs", "sha256:abc123")
+        self.assertEqual(len(result), 2)
+        self.assertEqual(result[0]["digest"], "sha256:aaa")
+        self.assertEqual(result[0]["url"], "https://cdn.example.com/aaa")
+        self.assertEqual(result[1]["digest"], "sha256:bbb")
+        self.assertEqual(result[1]["size"], 200)
+
+
+class TestExtractLayers(unittest.TestCase):
+    """Test extract_layers command."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir)
+
+    def _make_tar(self, name, members):
+        tar_path = os.path.join(self.tmpdir, name)
+        with tarfile.open(tar_path, "w:gz") as tar:
+            for fname, content in members:
+                info = tarfile.TarInfo(name=fname)
+                info.size = len(content)
+                tar.addfile(info, io.BytesIO(content))
+        return tar_path
+
+    def test_extracts_in_order(self):
+        layer0 = self._make_tar("l0.tar.gz", [("file.txt", b"v1")])
+        layer1 = self._make_tar("l1.tar.gz", [("file.txt", b"v2")])
+
+        output = os.path.join(self.tmpdir, "out")
+        oci_extract.extract_layers([layer0, layer1], output)
+
+        with open(os.path.join(output, "file.txt")) as f:
+            self.assertEqual(f.read(), "v2")
+
+    def test_handles_whiteouts(self):
+        layer0 = self._make_tar("l0.tar.gz", [("old.txt", b"data")])
+        layer1 = self._make_tar("l1.tar.gz", [(".wh.old.txt", b"")])
+
+        output = os.path.join(self.tmpdir, "out")
+        oci_extract.extract_layers([layer0, layer1], output)
+
+        self.assertFalse(os.path.exists(os.path.join(output, "old.txt")))
+
+
 if __name__ == "__main__":
     unittest.main()
