@@ -474,8 +474,8 @@ def _create_fake_orfs_tree(tmpdir):
 
 
 class TestCreateShareSymlinks(unittest.TestCase):
-    def test_creates_share_symlink_for_yosys(self):
-        """Simulate yosys share directory structure and verify symlink creation."""
+    def test_creates_file_symlinks_for_yosys(self):
+        """Per-file symlinks created under share/yosys/ (not a dir symlink)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             yosys_share = os.path.join(
                 tmpdir, "tools", "install", "yosys", "share", "yosys", "plugins"
@@ -487,15 +487,25 @@ class TestCreateShareSymlinks(unittest.TestCase):
             args = argparse.Namespace(directory=tmpdir)
             patcher.create_share_symlinks(args)
 
+            # share/yosys is a real directory (not a symlink)
             top_yosys = os.path.join(tmpdir, "share", "yosys")
-            self.assertTrue(os.path.islink(top_yosys))
-            resolved = os.path.join(top_yosys, "plugins", "slang.so")
-            self.assertTrue(os.path.isfile(resolved))
+            self.assertTrue(os.path.isdir(top_yosys))
+            self.assertFalse(os.path.islink(top_yosys))
+
+            # Individual files are symlinks
+            slang = os.path.join(top_yosys, "plugins", "slang.so")
+            self.assertTrue(os.path.islink(slang))
+            self.assertTrue(os.path.isfile(slang))
 
     def test_skips_libexec(self):
         """Share dirs under libexec/ should not get top-level symlinks."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            os.makedirs(os.path.join(tmpdir, "libexec", "tools", "share", "yosys"))
+            libexec_share = os.path.join(
+                tmpdir, "libexec", "tools", "share", "yosys", "plugins"
+            )
+            os.makedirs(libexec_share)
+            with open(os.path.join(libexec_share, "slang.so"), "w") as f:
+                f.write("fake")
 
             args = argparse.Namespace(directory=tmpdir)
             patcher.create_share_symlinks(args)
@@ -505,7 +515,7 @@ class TestCreateShareSymlinks(unittest.TestCase):
             )
 
     def test_does_not_overwrite_existing(self):
-        """First share/tool found wins; second is ignored."""
+        """First file found wins; second is ignored."""
         with tempfile.TemporaryDirectory() as tmpdir:
             first = os.path.join(tmpdir, "first", "share", "yosys")
             os.makedirs(first)
@@ -520,9 +530,9 @@ class TestCreateShareSymlinks(unittest.TestCase):
             args = argparse.Namespace(directory=tmpdir)
             patcher.create_share_symlinks(args)
 
-            top_yosys = os.path.join(tmpdir, "share", "yosys")
-            self.assertTrue(os.path.islink(top_yosys))
-            self.assertTrue(os.path.isfile(os.path.join(top_yosys, "marker")))
+            marker = os.path.join(tmpdir, "share", "yosys", "marker")
+            self.assertTrue(os.path.islink(marker))
+            self.assertTrue(os.path.isfile(marker))
 
 
 class TestSetupInterpreter(unittest.TestCase):
