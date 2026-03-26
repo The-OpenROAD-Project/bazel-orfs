@@ -248,7 +248,7 @@ def resolve_blob_url(registry, repository, digest, token):
     opener = urllib.request.build_opener(_NoRedirectHandler)
     try:
         # If no redirect, the registry serves the blob directly.
-        with opener.open(req) as resp:
+        with opener.open(req):
             return url
     except _RedirectCaptured as e:
         return e.url
@@ -281,6 +281,30 @@ def resolve_layers(image, reference):
         result = list(pool.map(_resolve, layers))
 
     return result
+
+
+def download_plan(image, reference):
+    """Build a download plan for Bazel's repository_ctx.download().
+
+    Returns a list of dicts ready for Starlark consumption:
+    [{"filename": "layer_0.tar.gz", "sha256": "<hash>", "url": "https://..."}]
+
+    This keeps all string parsing, digest extraction, and filename
+    generation in Python where it can be unit-tested, so docker.bzl
+    only needs a trivial loop over the plan.
+    """
+    layers = resolve_layers(image, reference)
+    plan = []
+    for i, layer in enumerate(layers):
+        digest = layer["digest"]
+        plan.append(
+            {
+                "filename": f"layer_{i}.tar.gz",
+                "sha256": digest.split(":", 1)[-1],
+                "url": layer["url"],
+            }
+        )
+    return plan
 
 
 def extract_layers(layer_paths, output_dir):
@@ -330,10 +354,20 @@ def extract_layer(tar_path, output_dir, pigz=None):
     - .wh.<name>: delete <name> in that directory
     - .wh..wh..opq: delete all prior contents of that directory
     """
+    tar, proc = _open_tar(tar_path, pigz=pigz)
+    _extract_tar_members(tar, output_dir)
+    if proc is not None:
+        proc.wait()
+
+
+_PIGZ = shutil.which("pigz")
+
+
+def _extract_tar_members(tar, output_dir):
+    """Extract tar members with whiteout handling (shared by both paths)."""
     whiteouts = []
     opaque_dirs = []
 
-    tar, proc = _open_tar(tar_path, pigz=pigz)
     with tar:
         for member in tar:
             dest = os.path.join(output_dir, member.name)
@@ -363,15 +397,17 @@ def extract_layer(tar_path, output_dir, pigz=None):
 
             try:
                 tar.extract(member, output_dir, set_attrs=False)
-                # set_attrs=False skips all permissions (to avoid uid/gid
-                # issues), but we still need execute bits for binaries and
-                # scripts.  Restore them from the tar member's mode.
                 if member.isreg() and member.mode & 0o111:
                     dest_path = os.path.join(output_dir, member.name)
                     os.chmod(dest_path, os.stat(dest_path).st_mode | 0o111)
             except (OSError, tarfile.TarError) as e:
                 print(f"WARNING: failed to extract {member.name}: {e}", file=sys.stderr)
 
+    _apply_whiteouts(opaque_dirs, whiteouts)
+
+
+def _apply_whiteouts(opaque_dirs, whiteouts):
+    """Apply OCI whiteout deletions."""
     for opaque_dir in opaque_dirs:
         if os.path.isdir(opaque_dir):
             for entry in os.listdir(opaque_dir):
@@ -387,12 +423,6 @@ def extract_layer(tar_path, output_dir, pigz=None):
                 shutil.rmtree(target)
             else:
                 os.unlink(target)
-
-    if proc is not None:
-        proc.wait()
-
-
-_PIGZ = shutil.which("pigz")
 
 
 def extract_image(image, reference, output_dir):
@@ -466,6 +496,17 @@ def main():
         "--digest", required=True, help="Image sha256 digest (without sha256: prefix)"
     )
 
+    plan_parser = subparsers.add_parser(
+        "download-plan",
+        help="Output a download plan for Bazel (filename, sha256, url)",
+    )
+    plan_parser.add_argument(
+        "--image", required=True, help="Image reference (e.g. docker.io/openroad/orfs)"
+    )
+    plan_parser.add_argument(
+        "--digest", required=True, help="Image sha256 digest (without sha256: prefix)"
+    )
+
     extract_layers_parser = subparsers.add_parser(
         "extract-layers", help="Extract pre-downloaded layer tarballs"
     )
@@ -494,6 +535,13 @@ def main():
             digest = "sha256:" + digest
         layers = resolve_layers(args.image, digest)
         json.dump({"layers": layers}, sys.stdout)
+
+    elif args.command == "download-plan":
+        digest = args.digest
+        if not digest.startswith("sha256:"):
+            digest = "sha256:" + digest
+        plan = download_plan(args.image, digest)
+        json.dump({"downloads": plan}, sys.stdout)
 
     elif args.command == "extract-layers":
         extract_layers(args.layers, args.output)

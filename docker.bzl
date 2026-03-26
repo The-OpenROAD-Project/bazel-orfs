@@ -68,54 +68,43 @@ def _impl(repository_ctx):
     oci_extract = repository_ctx.path(repository_ctx.attr._oci_extract).realpath
     root = str(repository_ctx.path("."))
 
-    # Phase 1: Resolve manifest → layer metadata with direct download URLs.
-    resolve_result = repository_ctx.execute([
+    # Phase 1: Build download plan (Python resolves manifest + CDN URLs).
+    plan_result = repository_ctx.execute([
         python,
         oci_extract,
-        "resolve",
+        "download-plan",
         "--image",
         repository_ctx.attr.image,
         "--digest",
         repository_ctx.attr.sha256,
     ])
-    if resolve_result.return_code != 0:
+    if plan_result.return_code != 0:
         fail(
             "Failed to resolve {}: {}".format(
                 repository_ctx.attr.image,
-                resolve_result.stderr,
+                plan_result.stderr,
             ),
         )
 
-    manifest = json.decode(resolve_result.stdout)
-    layers = manifest["layers"]
+    downloads = json.decode(plan_result.stdout)["downloads"]
     repository_ctx.report_progress(
-        "Resolved {} layers for {}.".format(len(layers), repository_ctx.attr.image),
+        "Resolved {} layers for {}.".format(len(downloads), repository_ctx.attr.image),
     )
 
     # Phase 2: Download each layer via Bazel's downloader.
     # Bazel's repository cache is keyed by sha256, so unchanged layers
     # between image versions are served from cache (no HTTP request).
     layer_paths = []
-    for i, layer in enumerate(layers):
-        digest = layer["digest"]
-        digest_hash = digest.split(":", 1)[-1]
-        size_mb = int(layer.get("size", 0) / (1024 * 1024))
-        filename = "layer_{}.tar.gz".format(i)
-
+    for i, entry in enumerate(downloads):
         repository_ctx.report_progress(
-            "Downloading layer {}/{}: {}... ({} MB)".format(
-                i + 1,
-                len(layers),
-                digest[:30],
-                size_mb,
-            ),
+            "Downloading layer {}/{}".format(i + 1, len(downloads)),
         )
         repository_ctx.download(
-            url = layer["url"],
-            output = filename,
-            sha256 = digest_hash,
+            url = entry["url"],
+            output = entry["filename"],
+            sha256 = entry["sha256"],
         )
-        layer_paths.append(filename)
+        layer_paths.append(entry["filename"])
 
     # Phase 3: Extract all downloaded layers with whiteout handling.
     extract_args = [python, oci_extract, "extract-layers", "--output", root, "--layers"] + layer_paths
