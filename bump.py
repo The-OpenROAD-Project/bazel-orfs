@@ -117,7 +117,7 @@ BAZEL_ORFS_SUBMODULES = ["bazel-orfs-verilog", "bazel-orfs-sby"]
 # when bumping a downstream project so that moved .bzl files don't
 # break the build.
 LOAD_MIGRATIONS = {
-    '@bazel-orfs//:sby.bzl': '@bazel-orfs//:sby/sby.bzl',
+    "@bazel-orfs//:sby.bzl": "@bazel-orfs//:sby/sby.bzl",
 }
 
 
@@ -137,9 +137,7 @@ def migrate_load_paths(workspace_dir):
             continue
         for fname in files:
             if not (
-                fname == "BUILD"
-                or fname == "BUILD.bazel"
-                or fname.endswith(".bzl")
+                fname == "BUILD" or fname == "BUILD.bazel" or fname.endswith(".bzl")
             ):
                 continue
             fpath = os.path.join(root, fname)
@@ -147,9 +145,7 @@ def migrate_load_paths(workspace_dir):
                 content = f.read()
             new_content = content
             for old_path, new_path in LOAD_MIGRATIONS.items():
-                new_content = new_content.replace(
-                    f'"{old_path}"', f'"{new_path}"'
-                )
+                new_content = new_content.replace(f'"{old_path}"', f'"{new_path}"')
             if new_content != content:
                 with open(fpath, "w") as f:
                     f.write(new_content)

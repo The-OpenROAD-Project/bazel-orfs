@@ -71,6 +71,14 @@ pip_features.parse(
 )
 use_repo(pip_features, "bazel-orfs-features-pip")
 
+pip_gui = use_extension("@rules_python//python/extensions:pip.bzl", "pip", dev_dependency = True)
+pip_gui.parse(
+    hub_name = "bazel-orfs-gui-pip",
+    python_version = "3.13",
+    requirements_lock = "//:requirements_gui_lock_3_13.txt",
+)
+use_repo(pip_gui, "bazel-orfs-gui-pip")
+
 orfs = use_extension("//:extension.bzl", "orfs_repositories")
 use_repo(orfs, "docker_orfs")
 use_repo(orfs, "config")

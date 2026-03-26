@@ -88,6 +88,47 @@ py_test(
     main = "patcher_test.py",
 )
 
+compile_pip_requirements(
+    name = "requirements_gui",
+    src = "requirements_gui.in",
+    python_version = "3.13",
+    requirements_txt = "requirements_gui_lock_3_13.txt",
+)
+
+py_binary(
+    name = "gui",
+    srcs = glob(["gui_src/*.py"]),
+    data = glob(["gui_src/static/**"]),
+    main = "gui_src/server.py",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@bazel-orfs-gui-pip//flask",
+        "@bazel-orfs-gui-pip//pywebview",
+        "@bazel-orfs-pip//pyyaml",
+    ],
+)
+
+py_test(
+    name = "gui_query_test",
+    srcs = [
+        "gui_src/query.py",
+        "gui_src/query_test.py",
+    ],
+    main = "gui_src/query_test.py",
+)
+
+py_test(
+    name = "gui_metrics_test",
+    srcs = [
+        "gui_src/metrics.py",
+        "gui_src/metrics_test.py",
+    ],
+    main = "gui_src/metrics_test.py",
+    deps = [
+        "@bazel-orfs-pip//pyyaml",
+    ],
+)
+
 # Run `bazelisk run //:fix_lint` to format all files changed since origin/main.
 sh_binary(
     name = "fix_lint",

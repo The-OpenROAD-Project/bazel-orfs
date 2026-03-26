@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORFS GUI</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="app">
+    <!-- Top bar -->
+    <div class="topbar">
+        <span class="topbar-title">ORFS GUI</span>
+        <span class="bazel-status" id="bazel-status" title="Bazel holds a global lock — only one build at a time">Idle</span>
+        <button class="btn bazel-stop-btn" id="bazel-stop-btn" onclick="stopBuild()" title="Cancel running build" style="display:none">Stop</button>
+        <span class="topbar-workspace" id="workspace-path"></span>
+        <div class="topbar-actions">
+            <span class="cache-badge" id="cache-badge" title="Disk cache status"></span>
+            <select id="theme-select" onchange="setTheme(this.value)" title="Theme">
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+            </select>
+            <button class="btn" onclick="refreshAll()" title="Refresh targets and status">Refresh</button>
+        </div>
+    </div>
+
+    <!-- Sidebar: design tree -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-section">Designs</div>
+        <div id="design-tree">
+            <div class="empty-state" style="padding:32px">
+                <div class="empty-state-text">Loading targets...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main content -->
+    <div class="main">
+        <!-- Tabs -->
+        <div class="tabs">
+            <div class="tab active" data-tab="graph">Graph</div>
+            <div class="tab" data-tab="builds" id="builds-tab">Builds</div>
+            <div class="tab" data-tab="metrics">Metrics</div>
+            <div class="tab" data-tab="logs">Logs</div>
+            <div class="tab" data-tab="reports">Reports</div>
+        </div>
+
+        <!-- Graph tab -->
+        <div class="tab-content active" data-tab="graph" style="position:relative">
+            <div id="graph-container"></div>
+            <div class="detail-panel" id="detail-panel">
+                <h3 id="detail-title"></h3>
+                <div id="detail-content"></div>
+            </div>
+        </div>
+
+        <!-- Builds tab -->
+        <div class="tab-content" data-tab="builds">
+            <div class="toolbar">
+                <span style="font-weight:600">Active Builds</span>
+                <span style="flex:1"></span>
+                <button class="btn" onclick="refreshBuilds()">Refresh</button>
+            </div>
+            <div class="scroll-container" style="display:flex;flex-direction:column">
+                <div id="builds-list" style="padding:0 16px"></div>
+                <div class="log-viewer" id="build-log-content" style="flex:1;border-top:1px solid var(--border)">
+                    <div class="empty-state">
+                        <div class="empty-state-text">Select a build to view output</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics tab -->
+        <div class="tab-content" data-tab="metrics">
+            <div class="scroll-container">
+                <div id="metrics-content">
+                    <div class="empty-state">
+                        <div class="empty-state-text">Select a design to view metrics</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs tab -->
+        <div class="tab-content" data-tab="logs">
+            <div class="toolbar">
+                <select id="log-stage-select">
+                    <option value="">Select stage...</option>
+                    <option value="synth">synth</option>
+                    <option value="floorplan">floorplan</option>
+                    <option value="place">place</option>
+                    <option value="cts">cts</option>
+                    <option value="grt">grt</option>
+                    <option value="route">route</option>
+                    <option value="final">final</option>
+                </select>
+                <input type="text" id="log-search" placeholder="Search logs..." style="flex:1">
+            </div>
+            <div class="log-viewer" id="log-content">
+                <div class="empty-state">
+                    <div class="empty-state-text">Select a design and stage to view logs</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports tab -->
+        <div class="tab-content" data-tab="reports">
+            <div class="toolbar">
+                <select id="report-stage-select">
+                    <option value="">Select stage...</option>
+                    <option value="floorplan">floorplan</option>
+                    <option value="cts">cts</option>
+                    <option value="grt">grt</option>
+                    <option value="route">route</option>
+                    <option value="final">final</option>
+                </select>
+            </div>
+            <div class="log-viewer" id="report-content">
+                <div class="empty-state">
+                    <div class="empty-state-text">Select a design and stage to view reports</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/static/lib/cytoscape.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

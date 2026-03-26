@@ -1,5 +1,6 @@
 """Flow orchestration macros for OpenROAD-flow-scripts Bazel rules."""
 
+load("//:write_binary.bzl", "write_binary")
 load("//private:providers.bzl", "LoggingInfo")
 load(
     "//private:rules.bzl",
@@ -17,6 +18,46 @@ load(
     "orfs_synth_rule",
 )
 load("//private:stages.bzl", "STAGE_METADATA", "STAGE_SUBSTEPS", "get_sources", "get_stage_args")
+
+def _json_str(s):
+    return '"%s"' % str(s).replace("\\", "\\\\").replace('"', '\\"')
+
+def _json_list(items):
+    return "[%s]" % ", ".join([_json_str(v) for v in items])
+
+def _json_bool(b):
+    return "true" if b else "false"
+
+def _gui_metadata(name, variant, top, abstract_stage, last_stage, macros, mock_area, **kwargs):
+    """Emit a JSON manifest describing this orfs_flow for the GUI."""
+    stop_stage = abstract_stage or last_stage
+    stages = []
+    for step in STAGE_IMPLS:
+        stages.append(step.stage)
+        if step.stage == stop_stage:
+            break
+    if abstract_stage or not last_stage:
+        stages.append(ABSTRACT_IMPL.stage)
+
+    pairs = [
+        "%s: %s" % (_json_str("name"), _json_str(name)),
+        "%s: %s" % (_json_str("variant"), _json_str(variant or "")),
+        "%s: %s" % (_json_str("top"), _json_str(top)),
+        "%s: %s" % (_json_str("abstract_stage"), _json_str(abstract_stage or "")),
+        "%s: %s" % (_json_str("last_stage"), _json_str(last_stage or "")),
+        "%s: %s" % (_json_str("stages"), _json_list(stages)),
+        "%s: %s" % (_json_str("macros"), _json_list([str(m) for m in macros])),
+        "%s: %s" % (_json_str("mock_area"), _json_str(str(mock_area) if mock_area else "")),
+        "%s: %s" % (_json_str("is_macro"), _json_bool(abstract_stage != None)),
+    ]
+
+    manifest_name = _step_name(name, variant, "gui_manifest")
+    write_binary(
+        name = manifest_name,
+        data = "{%s}" % ", ".join(pairs),
+        tags = ["manual"],
+        **{k: v for k, v in kwargs.items() if k == "visibility"}
+    )
 
 def _filter_stage_args(stage, **kwargs):
     """Filter and prepare the arguments for a specific stage."""
@@ -120,6 +161,20 @@ def orfs_flow(
     """
     if abstract_stage and last_stage:
         fail("abstract_stage and last_stage are mutually exclusive")
+
+    # Emit GUI metadata: single source of truth for the flow structure.
+    # The GUI discovers these via `bazel query 'kind("genrule", //...)'`
+    # and reads the JSON to build the design tree.
+    _gui_metadata(
+        name = name,
+        variant = variant,
+        top = top if top else name,
+        abstract_stage = abstract_stage,
+        last_stage = last_stage,
+        macros = macros,
+        mock_area = mock_area,
+        **kwargs
+    )
     if variant == "base":
         variant = None
     if top == None:
