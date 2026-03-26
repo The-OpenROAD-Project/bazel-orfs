@@ -18,6 +18,12 @@ load(
 )
 load("//private:stages.bzl", "STAGE_METADATA", "STAGE_SUBSTEPS", "get_sources", "get_stage_args")
 
+def _strip_tool_kwargs(**kwargs):
+    """Strip tool-specific kwargs for non-stage targets (orfs_macro, orfs_run)."""
+    kwargs.pop("openroad", None)
+    kwargs.pop("yosys", None)
+    return kwargs
+
 def _filter_stage_args(stage, **kwargs):
     """Filter and prepare the arguments for a specific stage."""
 
@@ -32,6 +38,10 @@ def _filter_stage_args(stage, **kwargs):
     stage_arguments = kwargs.pop("stage_arguments", {})
     stage_sources = kwargs.pop("stage_sources", {})
     stage_data = kwargs.pop("stage_data", {})
+
+    # yosys attribute only applies to synth stage
+    if stage != "synth":
+        kwargs.pop("yosys", None)
 
     return _args(
         arguments = get_stage_args(
@@ -190,7 +200,7 @@ def orfs_flow(
         },
         outs = ["{}.mk".format(mock_area_name)],
         script = "@bazel-orfs//:mock_area.tcl",
-        **kwargs
+        **_strip_tool_kwargs(**kwargs)
     )
 
     orfs_macro(
@@ -198,7 +208,7 @@ def orfs_flow(
         lef = _step_name(name, mock_variant, ABSTRACT_IMPL.stage),
         lib = _step_name(name, abstract_variant, ABSTRACT_IMPL.stage),
         module_top = name,
-        **kwargs
+        **_strip_tool_kwargs(**kwargs)
     )
 
 def _kwargs(stage, **kwargs):

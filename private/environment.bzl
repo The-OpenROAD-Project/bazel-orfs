@@ -71,7 +71,7 @@ def yosys_environment(ctx):
     return {
         "ABC": ctx.executable._abc.path,
         "FLOW_HOME": ctx.file._makefile_yosys.dirname,
-        "YOSYS_EXE": ctx.executable._yosys.path,
+        "YOSYS_EXE": ctx.executable.yosys.path,
     } | orfs_environment(ctx)
 
 def config_environment(config):
@@ -133,7 +133,7 @@ def yosys_inputs(ctx):
             _runfiles(
                 [
                     ctx.attr._abc,
-                    ctx.attr._yosys,
+                    ctx.attr.yosys,
                     ctx.attr._make,
                     ctx.attr._makefile_yosys,
                     ctx.attr._python,
@@ -201,7 +201,7 @@ def flow_substitutions(ctx):
 def yosys_substitutions(ctx):
     return {
         "${ABC}": ctx.executable._abc.path,
-        "${YOSYS_PATH}": ctx.executable._yosys.path,
+        "${YOSYS_PATH}": ctx.executable.yosys.path,
     }
 
 def module_top(ctx):
