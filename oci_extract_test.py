@@ -671,6 +671,28 @@ class TestResolveLayers(unittest.TestCase):
         self.assertEqual(result[1]["size"], 200)
 
 
+class TestDownloadPlan(unittest.TestCase):
+    """Test download_plan outputs Starlark-ready format."""
+
+    @patch("oci_extract.resolve_layers")
+    def test_plan_format(self, mock_resolve):
+        mock_resolve.return_value = [
+            {"digest": "sha256:aabbcc", "size": 100, "url": "https://cdn/aabbcc"},
+            {"digest": "sha256:ddeeff", "size": 200, "url": "https://cdn/ddeeff"},
+        ]
+
+        plan = oci_extract.download_plan("docker.io/openroad/orfs", "sha256:abc")
+        self.assertEqual(len(plan), 2)
+        # Filenames are sequential
+        self.assertEqual(plan[0]["filename"], "layer_0.tar.gz")
+        self.assertEqual(plan[1]["filename"], "layer_1.tar.gz")
+        # sha256 is the bare hash (no "sha256:" prefix)
+        self.assertEqual(plan[0]["sha256"], "aabbcc")
+        self.assertEqual(plan[1]["sha256"], "ddeeff")
+        # URLs pass through
+        self.assertEqual(plan[0]["url"], "https://cdn/aabbcc")
+
+
 class TestExtractLayers(unittest.TestCase):
     """Test extract_layers command."""
 
