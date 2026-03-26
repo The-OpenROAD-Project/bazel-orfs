@@ -423,6 +423,75 @@ class TestExtractLayer(unittest.TestCase):
         self.assertFalse(os.path.exists(evil))
 
 
+class TestExtractLayerWithPigz(unittest.TestCase):
+    """Test extract_layer with pigz decompression."""
+
+    def setUp(self):
+        self.output_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.output_dir)
+
+    def _make_tar(self, members):
+        tar_path = os.path.join(self.output_dir, "_layer.tar")
+        with tarfile.open(tar_path, "w:gz") as tar:
+            for name, content in members:
+                info = tarfile.TarInfo(name=name)
+                info.size = len(content)
+                tar.addfile(info, io.BytesIO(content))
+        return tar_path
+
+    @unittest.skipUnless(shutil.which("pigz"), "pigz not installed")
+    def test_extract_with_pigz(self):
+        tar_path = self._make_tar([("hello.txt", b"world")])
+        extract_dir = os.path.join(self.output_dir, "extract")
+        os.makedirs(extract_dir)
+        oci_extract.extract_layer(tar_path, extract_dir, pigz=shutil.which("pigz"))
+        path = os.path.join(extract_dir, "hello.txt")
+        with open(path) as f:
+            self.assertEqual(f.read(), "world")
+
+    def test_extract_without_pigz(self):
+        tar_path = self._make_tar([("hello.txt", b"world")])
+        extract_dir = os.path.join(self.output_dir, "extract")
+        os.makedirs(extract_dir)
+        oci_extract.extract_layer(tar_path, extract_dir, pigz=None)
+        path = os.path.join(extract_dir, "hello.txt")
+        with open(path) as f:
+            self.assertEqual(f.read(), "world")
+
+
+class TestOpenTar(unittest.TestCase):
+    """Test _open_tar helper."""
+
+    def setUp(self):
+        self.tmpdir = tempfile.mkdtemp()
+        self.tar_path = os.path.join(self.tmpdir, "test.tar.gz")
+        with tarfile.open(self.tar_path, "w:gz") as tar:
+            info = tarfile.TarInfo(name="f.txt")
+            info.size = 3
+            tar.addfile(info, io.BytesIO(b"abc"))
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir)
+
+    def test_without_pigz(self):
+        tar, proc = oci_extract._open_tar(self.tar_path)
+        with tar:
+            names = [m.name for m in tar]
+        self.assertEqual(names, ["f.txt"])
+        self.assertIsNone(proc)
+
+    @unittest.skipUnless(shutil.which("pigz"), "pigz not installed")
+    def test_with_pigz(self):
+        tar, proc = oci_extract._open_tar(self.tar_path, pigz=shutil.which("pigz"))
+        with tar:
+            names = [m.name for m in tar]
+        proc.wait()
+        self.assertEqual(names, ["f.txt"])
+        self.assertEqual(proc.returncode, 0)
+
+
 class TestRedirectHandler(unittest.TestCase):
     def test_strips_auth_on_cross_host_redirect(self):
         handler = oci_extract._RedirectHandler()

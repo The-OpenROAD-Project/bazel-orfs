@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -29,7 +30,7 @@ MANIFEST_TYPES = ", ".join(
     ]
 )
 
-CHUNK_SIZE = 1 << 16  # 64 KiB
+CHUNK_SIZE = 1 << 20  # 1 MiB
 
 
 def parse_image(image_str):
@@ -195,7 +196,28 @@ def download_blob(registry, repository, digest, token, dest_path):
         )
 
 
-def extract_layer(tar_path, output_dir):
+def _open_tar(tar_path, pigz=None):
+    """Open a compressed tarball for streaming extraction.
+
+    When *pigz* is a path to the pigz binary, decompression is
+    offloaded to that external process (parallel, much faster).
+    Otherwise, Python's built-in gzip is used.
+
+    Returns (tar, proc) where *proc* is the pigz subprocess
+    (or None).  Caller must wait()/close proc after the tar
+    context exits.
+    """
+    if pigz:
+        proc = subprocess.Popen(
+            [pigz, "-dc", tar_path],
+            stdout=subprocess.PIPE,
+        )
+        tar = tarfile.open(fileobj=proc.stdout, mode="r|")
+        return tar, proc
+    return tarfile.open(tar_path, "r|gz"), None
+
+
+def extract_layer(tar_path, output_dir, pigz=None):
     """Extract a single layer tarball, handling OCI whiteout files.
 
     Whiteout semantics (OCI image spec):
@@ -205,8 +227,9 @@ def extract_layer(tar_path, output_dir):
     whiteouts = []
     opaque_dirs = []
 
-    with tarfile.open(tar_path) as tar:
-        for member in tar.getmembers():
+    tar, proc = _open_tar(tar_path, pigz=pigz)
+    with tar:
+        for member in tar:
             dest = os.path.join(output_dir, member.name)
             real_dest = os.path.realpath(dest)
             real_output = os.path.realpath(output_dir)
@@ -259,6 +282,12 @@ def extract_layer(tar_path, output_dir):
             else:
                 os.unlink(target)
 
+    if proc is not None:
+        proc.wait()
+
+
+_PIGZ = shutil.which("pigz")
+
 
 def extract_image(image, reference, output_dir):
     """Extract a container image filesystem to output_dir.
@@ -278,6 +307,8 @@ def extract_image(image, reference, output_dir):
 
     layers = manifest.get("layers", manifest.get("fsLayers", []))
     print(f"Image has {len(layers)} layers", file=sys.stderr)
+    if _PIGZ:
+        print(f"Using pigz: {_PIGZ}", file=sys.stderr)
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -286,7 +317,7 @@ def extract_image(image, reference, output_dir):
         size = layer.get("size", 0)
         size_mb = size / (1024 * 1024) if size else 0
         print(
-            f"Layer {i + 1}/{len(layers)}: {digest[:30]}... ({size_mb:.1f} MB)",
+            f"Layer {i + 1}/{len(layers)}: " f"{digest[:30]}... ({size_mb:.1f} MB)",
             file=sys.stderr,
         )
 
@@ -295,12 +326,15 @@ def extract_image(image, reference, output_dir):
 
         try:
             download_blob(registry, repository, digest, token, tmp_path)
-            extract_layer(tmp_path, output_dir)
+            extract_layer(tmp_path, output_dir, pigz=_PIGZ)
         finally:
             if os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
-    print(f"Extracted {len(layers)} layers to {output_dir}", file=sys.stderr)
+    print(
+        f"Extracted {len(layers)} layers to {output_dir}",
+        file=sys.stderr,
+    )
 
 
 def main():
