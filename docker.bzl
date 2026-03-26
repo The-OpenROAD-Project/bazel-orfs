@@ -32,6 +32,9 @@ Authenticated private registries may need additional handling in
 
 Requires Bazel 8+.  Only tested on Bazel 8.  Older versions may lack
 ``repository_ctx.download(sha256=...)`` caching or ``repository_ctx.delete()``.
+
+See ``docs/oci-extraction.md`` for the full architecture, performance
+history, and debugging tips.
 """
 
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch")
