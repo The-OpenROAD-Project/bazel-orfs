@@ -10,11 +10,14 @@ image into a Bazel external repository in three phases:
 
 ### Phase 1: Resolve
 
-`oci_extract.py resolve` fetches the image manifest from the registry
-and resolves each layer's blob URL.  Docker Hub redirects blob requests
-to a CDN with a signed, self-authenticating URL.  The resolve phase
-captures that redirect target so that Bazel's downloader can fetch it
-without needing registry auth tokens.
+`oci_extract.py download-plan` fetches the image manifest from the
+registry and resolves each layer's blob URL.  Docker Hub redirects blob
+requests to a CDN with a signed, self-authenticating URL.  The resolve
+phase captures that redirect target so that Bazel's downloader can fetch
+it without needing registry auth tokens.
+
+All JSON parsing, digest extraction, and filename generation happens in
+Python (unit-tested), so `docker.bzl` stays a thin shim.
 
 ### Phase 2: Download
 
@@ -49,19 +52,29 @@ Measurements taken against the ORFS image (21 layers, ~1.5 GB compressed).
 
 | Optimization | Measured impact | Status | Notes |
 |---|---|---|---|
-| Streaming tar (`r\|gz` mode) | 72 s → 55 s (−23%) | Shipped (22be97c) | Replaced `getmembers()` O(n^2) with streaming O(n) |
-| pigz parallel gzip | 55 s → 53 s (−4%) | Shipped (22be97c) | Opportunistic — detected at runtime via `shutil.which` |
-| 1 MiB download chunks | 53 s → 52 s (−2%) | Shipped (22be97c) | Reduced syscall overhead (was 64 KiB) |
-| Layer caching via `repository_ctx.download()` | 119 s → 25 s warm (−79%) | Shipped (PR #587) | Zero-config; uses Bazel repository cache |
-| Pipeline download → extract (no temp file) | Est. −10–15% cold | Not tried | Would eliminate disk write+read per layer |
+| Streaming tar (`r\|gz` mode) | 72 s → 55 s (−23%) | Shipped | Replaced `getmembers()` O(n^2) with streaming O(n) |
+| pigz parallel gzip | 55 s → 53 s (−4%) | Shipped | Opportunistic — detected at runtime via `shutil.which` |
+| 1 MiB download chunks | 53 s → 52 s (−2%) | Shipped | Reduced syscall overhead (was 64 KiB) |
+| Layer caching via `repository_ctx.download()` | 119 s → 25 s warm (−79%) | Shipped | Zero-config; uses Bazel repository cache |
+| Parallel URL resolution | 8.2 s → 1.9 s (−77%) | Shipped | ThreadPoolExecutor for 21 concurrent redirect captures |
+| Pipeline download → extract | Deadlocks | Failed | Pipe buffer deadlock between network writer and tar reader |
 | Parallel layer downloads | N/A | Blocked | `repository_ctx.download()` is sequential in Starlark |
-| zstd-compressed layers | Est. 3–5x faster decompress | Not tried | Requires registry to serve `application/vnd.oci.image.layer.v1.tar+zstd` |
-| Skip resolve on cache hit | Est. −8 s | Not tried | Would cache manifest/URL mapping to avoid 21 redirect-resolution requests |
+| zstd-compressed layers | Est. 3–5x faster decompress | Blocked | Docker Hub does not serve zstd layers for this image |
+| Skip resolve on cache hit | Not impactful | Skipped | Resolve only runs when repo rule runs (cache miss); ~2 s with parallel resolution |
 
-**Recommendation**: The best remaining optimization is **pipeline
-download → extraction**, which eliminates writing ~1.5 GB of temp files
-to disk on cold runs.  Everything else is diminishing returns or blocked
-by Starlark limitations.
+## De-featuring priority
+
+Prioritized list of what to remove first if something breaks in
+production, ordered by risk-to-benefit ratio (remove highest risk /
+lowest benefit first):
+
+| Priority | Feature | Risk | Benefit | Recommendation |
+|---|---|---|---|---|
+| 1 | pigz support | Medium — runtime detection, subprocess pipes, untestable in CI without pigz | −4% (2 s) | Remove first. Tiny gain, adds code paths. Python gzip works fine. |
+| 2 | Parallel URL resolution | Low — stdlib ThreadPoolExecutor, well-tested | −77% of resolve phase (6 s) | Keep unless thread bugs surface. Easy to revert to sequential loop. |
+| 3 | `download-plan` command | None — pure refactor, more testable | Testability | Keep. Strictly better than inline Starlark logic. |
+| 4 | Layer caching (3-phase split) | Low — relies on stable Bazel APIs | −79% warm (94 s) | Core feature. Only remove if `repository_ctx.download()` breaks. |
+| 5 | Streaming tar (`r\|gz` mode) | None — standard Python tarfile API | −23% (17 s) | Never remove. No downside. |
 
 ## Debugging
 
