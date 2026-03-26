@@ -1,9 +1,28 @@
 #!/usr/bin/env python3
-"""Extract filesystem from OCI/Docker container images without Docker.
+"""Extract filesystem from Docker/OCI container images without Docker.
 
-Usage:
+Two modes of operation:
+
+  Standalone (downloads + extracts in one step):
     python oci_extract.py extract --image docker.io/openroad/orfs --digest <sha256> --output /path
-    python oci_extract.py digest  --image docker.io/openroad/orfs --tag <tag>
+
+  Bazel-integrated (three phases, enables Bazel repository cache for layers):
+    1. python oci_extract.py resolve --image <image> --digest <sha256>
+       → outputs JSON with layer digests and direct download URLs
+    2. Bazel downloads each layer via repository_ctx.download(sha256=...)
+       → unchanged layers across image versions are served from cache
+    3. python oci_extract.py extract-layers --output /path --layers l0.tar.gz l1.tar.gz ...
+       → extracts pre-downloaded tarballs with Docker whiteout handling
+
+  Resolve tag to digest:
+    python oci_extract.py digest --image docker.io/openroad/orfs --tag <tag>
+
+The Bazel-integrated mode splits downloading from extraction so that
+repository_ctx.download() handles each layer blob.  Bazel's repository
+cache is content-addressed by SHA-256, so when an image is updated only
+the layers whose digests actually changed are re-downloaded.  Docker
+images share base layers across versions, so typically only a few top
+layers change per release.
 
 Stdlib-only (no pip dependencies) so it can run during Bazel repository rule phase.
 """
@@ -196,6 +215,86 @@ def download_blob(registry, repository, digest, token, dest_path):
         )
 
 
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Capture redirect Location without following it."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise _RedirectCaptured(newurl)
+
+
+class _RedirectCaptured(Exception):
+    """Raised by _NoRedirectHandler to capture the redirect URL."""
+
+    def __init__(self, url):
+        self.url = url
+
+
+def resolve_blob_url(registry, repository, digest, token):
+    """Resolve a blob digest to a direct download URL.
+
+    Docker Hub redirects blob requests to a CDN with a signed URL that
+    requires no Authorization header.  This function captures that
+    redirect target so that Bazel's repository_ctx.download() can fetch
+    it directly (avoiding auth/redirect complications).
+
+    For registries that don't redirect, returns the original blob URL.
+    """
+    url = f"https://{registry}/v2/{repository}/blobs/{digest}"
+    req = urllib.request.Request(url, method="GET")
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
+
+    opener = urllib.request.build_opener(_NoRedirectHandler)
+    try:
+        # If no redirect, the registry serves the blob directly.
+        with opener.open(req) as resp:
+            return url
+    except _RedirectCaptured as e:
+        return e.url
+    except urllib.error.HTTPError:
+        # Fall back to the original URL if anything goes wrong.
+        return url
+
+
+def resolve_layers(image, reference):
+    """Resolve a container image to its layer digests and download URLs.
+
+    Returns a list of dicts: [{"digest": "sha256:...", "size": N, "url": "https://..."}]
+    """
+    registry, repository = parse_image(image)
+    token = get_token(registry, repository)
+    manifest = fetch_manifest(registry, repository, reference, token)
+
+    layers = manifest.get("layers", manifest.get("fsLayers", []))
+    result = []
+    for layer in layers:
+        digest = layer.get("digest", layer.get("blobSum"))
+        size = layer.get("size", 0)
+        url = resolve_blob_url(registry, repository, digest, token)
+        result.append({"digest": digest, "size": size, "url": url})
+
+    return result
+
+
+def extract_layers(layer_paths, output_dir):
+    """Extract pre-downloaded layer tarballs into output_dir.
+
+    Layers must be provided in order (bottom to top).  Handles Docker
+    whiteout files (.wh.*) for proper layer stacking.
+    """
+    pigz = shutil.which("pigz")
+    os.makedirs(output_dir, exist_ok=True)
+    if pigz:
+        print(f"Using pigz: {pigz}", file=sys.stderr)
+    for i, path in enumerate(layer_paths):
+        print(f"Extracting layer {i + 1}/{len(layer_paths)}: {path}", file=sys.stderr)
+        extract_layer(path, output_dir, pigz=pigz)
+    print(
+        f"Extracted {len(layer_paths)} layers to {output_dir}",
+        file=sys.stderr,
+    )
+
+
 def _open_tar(tar_path, pigz=None):
     """Open a compressed tarball for streaming extraction.
 
@@ -350,6 +449,26 @@ def main():
     )
     extract_parser.add_argument("--output", required=True, help="Output directory")
 
+    resolve_parser = subparsers.add_parser(
+        "resolve", help="Resolve image layers to direct download URLs"
+    )
+    resolve_parser.add_argument(
+        "--image", required=True, help="Image reference (e.g. docker.io/openroad/orfs)"
+    )
+    resolve_parser.add_argument(
+        "--digest", required=True, help="Image sha256 digest (without sha256: prefix)"
+    )
+
+    extract_layers_parser = subparsers.add_parser(
+        "extract-layers", help="Extract pre-downloaded layer tarballs"
+    )
+    extract_layers_parser.add_argument(
+        "--output", required=True, help="Output directory"
+    )
+    extract_layers_parser.add_argument(
+        "--layers", required=True, nargs="+", help="Layer tarball paths in order"
+    )
+
     digest_parser = subparsers.add_parser("digest", help="Resolve tag to digest")
     digest_parser.add_argument("--image", required=True, help="Image reference")
     digest_parser.add_argument("--tag", required=True, help="Image tag to resolve")
@@ -361,6 +480,16 @@ def main():
         if not digest.startswith("sha256:"):
             digest = "sha256:" + digest
         extract_image(args.image, digest, args.output)
+
+    elif args.command == "resolve":
+        digest = args.digest
+        if not digest.startswith("sha256:"):
+            digest = "sha256:" + digest
+        layers = resolve_layers(args.image, digest)
+        json.dump({"layers": layers}, sys.stdout)
+
+    elif args.command == "extract-layers":
+        extract_layers(args.layers, args.output)
 
     elif args.command == "digest":
         registry, repository = parse_image(args.image)
