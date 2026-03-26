@@ -69,11 +69,11 @@ def _impl(repository_ctx):
     for i, layer in enumerate(layers):
         digest = layer["digest"]
         digest_hash = digest.split(":", 1)[-1]
-        size_mb = layer.get("size", 0) / (1024 * 1024)
+        size_mb = int(layer.get("size", 0) / (1024 * 1024))
         filename = "layer_{}.tar.gz".format(i)
 
         repository_ctx.report_progress(
-            "Downloading layer {}/{}: {}... ({:.1f} MB)".format(
+            "Downloading layer {}/{}: {}... ({} MB)".format(
                 i + 1,
                 len(layers),
                 digest[:30],
