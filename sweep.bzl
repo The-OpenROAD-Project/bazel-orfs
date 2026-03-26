@@ -70,14 +70,23 @@ def orfs_sweep(
                 "arguments",
                 "dissolve",
                 "macros",
+                "openroad",
                 "previous_stage",
                 "renamed_inputs",
                 "stage_arguments",
                 "stage_sources",
                 "description",
                 "sources",
+                "yosys",
             ]:
                 fail('Unknown orfs_sweep() key "' + key + '" in ' + variant)
+
+        # Per-variant tool overrides: merge into kwargs for this variant
+        variant_kwargs = dict(kwargs)
+        for tool in ["openroad", "yosys"]:
+            variant_tool = all_variants[variant].get(tool, None)
+            if variant_tool:
+                variant_kwargs[tool] = variant_tool
 
         orfs_flow(
             name = name,
@@ -109,7 +118,7 @@ def orfs_sweep(
             abstract_stage = abstract_stage,
             visibility = visibility,
             tags = tags,
-            **kwargs
+            **variant_kwargs
         )
 
         native.filegroup(

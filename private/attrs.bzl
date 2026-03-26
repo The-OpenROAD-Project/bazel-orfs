@@ -160,8 +160,8 @@ def yosys_only_attrs():
             allow_single_file = ["Makefile"],
             default = CONFIG_MAKEFILE_YOSYS,
         ),
-        "_yosys": attr.label(
-            doc = "Yosys binary.",
+        "yosys": attr.label(
+            doc = "Yosys binary. Override to use a custom or locally-built yosys.",
             executable = True,
             allow_files = True,
             cfg = "exec",

@@ -561,7 +561,11 @@ def _yosys_impl(ctx):
         ),
     )
 
-    make = _create_make_script(ctx, "make_1_synth", yosys_substitutions(ctx))
+    make = _create_make_script(
+        ctx,
+        "make_{}_1_synth".format(ctx.attr.name),
+        yosys_substitutions(ctx),
+    )
 
     exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
     _expand_deploy_template(
