@@ -93,6 +93,56 @@ Bazel and Make coexist. Bazel manages the graph and metadata. Make remains
 the execution engine and the interface for OpenROAD developers. The `_deps`
 targets bridge the two.
 
+## How mock-openroad and mock-yosys get written
+
+This is the part that sounds like a marketing brochure until you see the
+mechanism. A mock OpenROAD and mock Yosys — Python scripts that execute
+the real ORFS TCL stage scripts and validate configuration in seconds —
+can now be written, tested, and extended at nearly zero cost. Here is how.
+
+ORFS stages are driven by TCL scripts (`floorplan.tcl`, `place.tcl`,
+etc.) that call OpenROAD commands (`initialize_floorplan`,
+`detailed_placement`, `global_route`). The mock implements each command
+as a Python function: parse the arguments, update a lightweight design
+state (die area, cell count, pin list, macro positions), and write stub
+output files in the formats ORFS expects (.odb, .lef, .lib, metrics
+JSON). The TCL interpreter is also Python — 96 unit tests cover control
+flow, substitution, proc args, `{*}` expansion, nested `[$obj method]`
+calls. The result is a deterministic tool, not an AI inference: given
+the same inputs, it produces the same outputs every time.
+
+The mock doesn't need to be complete. It needs to execute the TCL scripts
+far enough to reach the commands that read configuration and produce
+outputs. When a new ORFS script uses a command the mock doesn't implement,
+the mock fails with a clear error, Claude adds the implementation and a
+unit test, and the mock grows by one function. Each function is typically
+5–20 lines of Python.
+
+Claude drives the training loop — but the output is a traditional
+deterministic tool. The loop:
+
+1. Run the mock flow against a real design's configuration.
+2. The mock hits a command it doesn't implement, or produces output that
+   differs from real ORFS, or misses an error that a real build caught.
+3. Claude reads the error, writes the Python implementation or check,
+   writes a pytest pair (insane triggers error, sane is quiet).
+4. The test suite grows by one assertion. Run `pytest`. Green.
+5. The mock now handles that case forever — no Claude needed at runtime.
+
+After step 5, the mock is a standalone Python tool. It runs in CI,
+in Make, in Bazel, on a developer's laptop. Claude was the author, not
+a runtime dependency. The 199 unit tests are the specification — they
+document what the mock checks and why, and they run in under a second.
+
+This is why the cost approaches zero. Writing a mock OpenROAD command
+implementation is a small, well-scoped task: read the ORFS TCL script
+to see what the command does, write a Python function that updates the
+mock state, write two tests. Claude can do this reliably because the
+pattern is repetitive and the test tells you immediately if it's wrong.
+The expensive part — understanding what the ORFS flow actually does at
+each stage, what values are sane, what cross-stage invariants matter —
+is captured once in the test and never needs to be rediscovered.
+
 ## The flow linter — seconds instead of hours
 
 `@lint-openroad` and `@lint-yosys` replace real OpenROAD and Yosys with
