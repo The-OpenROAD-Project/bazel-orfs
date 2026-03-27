@@ -15,15 +15,14 @@ Before committing, run `bazelisk run //:fix_lint` to format and lint all changed
 - `bazelisk mod tidy` with CI config when `MODULE.bazel` changed (ensures lockfile matches CI)
 - `black` on changed `.py` files
 
-Before running `fix_lint`, set up the CI config:
+Just run:
 
 ```sh
-echo 'import %workspace%/.github/ci.bazelrc' >> user.bazelrc
 bazelisk run //:fix_lint
-rm -f user.bazelrc
 ```
 
-This matches exactly what CI does. Without this, the "Lint and lockfile check" CI job will fail.
+CI config is applied automatically via `--bazelrc` flags — no `user.bazelrc` needed.
+This also handles sub-module lockfiles (e.g. `gallery/MODULE.bazel.lock`).
 
 ## Gallery
 
