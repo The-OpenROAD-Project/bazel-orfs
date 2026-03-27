@@ -1,12 +1,22 @@
 load("@rules_python//python:defs.bzl", "py_binary")
 
-exports_files(["gallery_image.tcl", "floorplan_image.tcl", "place_image.tcl", "cts_image.tcl", "grt_image.tcl", "route_image.tcl", "congestion_check.tcl", "analyze_congestion.tcl", "probe_placement.tcl"])
+exports_files([
+    "gallery_image.tcl",
+    "floorplan_image.tcl",
+    "place_image.tcl",
+    "cts_image.tcl",
+    "grt_image.tcl",
+    "route_image.tcl",
+    "congestion_check.tcl",
+    "analyze_congestion.tcl",
+    "probe_placement.tcl",
+])
 
 py_binary(
     name = "resize_image",
     srcs = ["resize_image.py"],
-    deps = ["@pip//pillow"],
     visibility = ["//visibility:public"],
+    deps = ["@pip//pillow"],
 )
 
 py_binary(
@@ -60,26 +70,26 @@ py_binary(
 py_binary(
     name = "gemmini_build_times",
     srcs = ["gemmini_build_times.py"],
+    visibility = ["//visibility:public"],
     deps = [
         "@pip//matplotlib",
         "@pip//pyyaml",
     ],
-    visibility = ["//visibility:public"],
 )
 
 py_binary(
     name = "gemmini_scaling",
     srcs = ["gemmini_scaling.py"],
-    deps = ["@pip//matplotlib"],
     visibility = ["//visibility:public"],
+    deps = ["@pip//matplotlib"],
 )
 
 py_binary(
     name = "build_time_chart",
     srcs = ["build_time_chart.py"],
+    visibility = ["//visibility:public"],
     deps = [
         "@pip//matplotlib",
         "@pip//pyyaml",
     ],
-    visibility = ["//visibility:public"],
 )
