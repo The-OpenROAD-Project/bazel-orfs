@@ -4,7 +4,7 @@ module(
     compatibility_level = 1,
 )
 
-bazel_dep(name = "bazel_skylib", version = "1.7.1")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
 
 # --- bazel-orfs: RTL-to-GDS flow (parent directory) ---
 
@@ -132,7 +132,7 @@ use_repo(maven, "maven")
 
 # --- rules_python: for generating RTL from Amaranth HDL ---
 
-bazel_dep(name = "rules_python", version = "1.4.1")
+bazel_dep(name = "rules_python", version = "1.8.5")
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(python_version = "3.13")
