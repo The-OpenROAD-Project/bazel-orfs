@@ -51,6 +51,28 @@ synthesis, so this requires upstream ORFS changes.
 - Each check: detect the precondition that leads to the error, before the
   failing stage runs
 
+## Rule numbering and artifacts
+
+Each FRC rule gets a stable numeric ID (FRC-1, FRC-2, ...) like DRC rules.
+For each rule:
+
+- **Python unit test** — embodies the intent of the check; the test IS the
+  specification. Tests run against synthetic inputs (small ODB snippets,
+  metric JSONs) to verify detection without needing a full ORFS build.
+- **Markdown doc** (`frc/FRC-NNN.md`) — human-readable description: what the
+  rule checks, why it matters, example failures, and suggested fixes.
+- **Check implementation** — Python function that takes stage outputs and
+  returns structured violations.
+
+Example:
+
+| ID | Name | After stage | Checks |
+|---|---|---|---|
+| FRC-1 | core-to-die-spacing | floorplan | Core-to-die spacing sufficient for PDN rings |
+| FRC-2 | macro-in-bounds | floorplan | All macros fit within die area with halo |
+| FRC-3 | pdn-grid-config | floorplan | PDN_TCL matches hierarchical design topology |
+| FRC-4 | utilization-headroom | synth | Cell area vs. core area leaves routing margin |
+
 ## Implementation sketch
 
 - Per-stage check scripts (Tcl or Python) that read ODB / metrics
