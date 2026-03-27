@@ -6,6 +6,7 @@ load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_g
 load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:ppa.bzl", "orfs_ppa")
 load("//:sweep.bzl", "orfs_sweep")
+load(":deps_output_group_rule.bzl", "deps_output_group_test")
 
 exports_files(
     glob([
@@ -209,7 +210,6 @@ orfs_flow(
         "place": [":io-sram"],
         "synth": [":constraints-sram"],
     },
-    substeps = False,
     verilog_files = LB_VERILOG_FILES,
     visibility = [],
 )
@@ -247,7 +247,6 @@ orfs_flow(
         "place": [":io-sram"],
         "synth": [":constraints-sram"],
     },
-    substeps = False,
     verilog_files = ["rtl/lb_32x128_top.v"],
 )
 
@@ -303,7 +302,6 @@ orfs_flow(
     arguments = LB_ARGS,
     previous_stage = {"floorplan": ":lb_32x128_synth"},
     stage_sources = LB_STAGE_SOURCES,
-    substeps = False,
     variant = "test",
     verilog_files = LB_VERILOG_FILES,
 )
@@ -515,7 +513,6 @@ orfs_sweep(
         "place": [":io-sram"],
         "synth": [":constraints-sram"],
     },
-    substeps = False,
     sweep = {
         "base": {
             "arguments": {
@@ -752,8 +749,7 @@ orfs_flow(
 )
 
 # Test squashed flow through cts: all stages after synth run as a single
-# Bazel action. substeps=False disables substep target generation.
-# Shares mock_openroad synth to avoid conflicting action with other flows.
+# Bazel action. Shares mock_openroad synth to avoid conflicting action.
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "lb_32x128",
@@ -768,7 +764,7 @@ orfs_flow(
 )
 
 # Test squashed flow through final: exercises grt, route, and final stages
-# in squashed mode, with substep targets enabled.
+# in squashed mode.
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "lb_32x128",
@@ -778,7 +774,6 @@ orfs_flow(
     previous_stage = {"floorplan": ":lb_32x128_synth"},
     squash = True,
     stage_sources = LB_STAGE_SOURCES,
-    substeps = True,
     variant = "squashed_final",
     verilog_files = LB_VERILOG_FILES,
 )
@@ -919,7 +914,6 @@ build_test(
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "lb_32x128",
-    add_deps = False,
     arguments = LB_ARGS,
     last_stage = "floorplan",
     lite_flow = True,
@@ -939,4 +933,24 @@ sh_test(
     name = "lite_flow_no_heavy_deps_test",
     srcs = ["lite_flow_test.sh"],
     data = [":lb_32x128_lite_floorplan"],
+)
+
+# --- Deps output group tests: verify on-demand deps deployment ---
+
+# Test deps output group on synth (yosys) stage
+deps_output_group_test(
+    name = "deps_output_group_synth_test",
+    target = ":lb_32x128_synth",
+)
+
+# Test deps output group on floorplan (openroad) stage
+deps_output_group_test(
+    name = "deps_output_group_floorplan_test",
+    target = ":lb_32x128_mock_openroad_floorplan",
+)
+
+# Test deps output group on squashed flow stage
+deps_output_group_test(
+    name = "deps_output_group_squashed_test",
+    target = ":lb_32x128_squashed_final_final",
 )

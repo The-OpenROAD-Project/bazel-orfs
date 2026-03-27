@@ -103,6 +103,14 @@ py_test(
     deps = [":monitor-test"],
 )
 
+# Run `bazelisk run //:deps -- //pkg:target` to deploy stage inputs
+# for interactive debugging. Only builds the deps output group (cheap).
+sh_binary(
+    name = "deps",
+    srcs = ["deps_wrapper.sh"],
+    visibility = ["//visibility:public"],
+)
+
 # Run `bazelisk run //:fix_lint` to format all files changed since origin/main.
 py_binary(
     name = "fix_lint",

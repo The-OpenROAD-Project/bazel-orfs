@@ -48,7 +48,7 @@ def orfs_sweep(
         sources: forwarded to orfs_flow
         pdk: forwarded to orfs_flow
         tags: forwarded
-        **kwargs: forwarded to orfs_flow (e.g. openroad, substeps)
+        **kwargs: forwarded to orfs_flow (e.g. openroad)
     """
     if top == None:
         top = name

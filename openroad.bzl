@@ -28,7 +28,6 @@ load(
     _UPDATE_RULES_IMPL = "UPDATE_RULES_IMPL",
     _orfs_abstract = "orfs_abstract",
     _orfs_cts = "orfs_cts",
-    _orfs_deps = "orfs_deps",
     _orfs_final = "orfs_final",
     _orfs_floorplan = "orfs_floorplan",
     _orfs_gds = "orfs_gds",
@@ -39,7 +38,6 @@ load(
     _orfs_place = "orfs_place",
     _orfs_route = "orfs_route",
     _orfs_run = "orfs_run",
-    _orfs_step = "orfs_step",
     _orfs_test = "orfs_test",
     _orfs_update_rules = "orfs_update_rules",
 )
@@ -89,9 +87,7 @@ flow_provides = _flow_provides
 # Rules
 orfs_pdk = _orfs_pdk
 orfs_macro = _orfs_macro
-orfs_deps = _orfs_deps
 orfs_run = _orfs_run
-orfs_step = _orfs_step
 orfs_test = _orfs_test
 orfs_floorplan = _orfs_floorplan
 orfs_place = _orfs_place

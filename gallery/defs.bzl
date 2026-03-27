@@ -79,7 +79,7 @@ def demo_flow(
         pdk = None,
         arguments = {},
         macros = [],
-        substeps = False,
+
         lint = False,
         base_tags = ["manual"],
         **kwargs):
@@ -96,7 +96,7 @@ def demo_flow(
         pdk: PDK label to use (default: None = use bazel-orfs default, which is asap7)
         arguments: ORFS arguments — all project-specific settings go here
         macros: List of macro abstract targets for hierarchical designs
-        substeps: If True, generate per-substep targets for debugging iteration
+
         lint: If True, add lint variant alongside real flow
         base_tags: Tags for base (real) variant and A/B comparison targets
         **kwargs: Additional arguments passed to orfs_flow/orfs_sweep
@@ -108,7 +108,7 @@ def demo_flow(
             verilog_files = verilog_files,
             arguments = merged_args,
             macros = macros,
-            substeps = substeps,
+
             **kwargs
         )
         if pdk:
@@ -120,7 +120,7 @@ def demo_flow(
             verilog_files = verilog_files,
             arguments = merged_args,
             macros = macros,
-            substeps = substeps,
+
             stage = "final",
             sweep = {
                 "base": {},
@@ -144,7 +144,7 @@ def demo_sram(
         abstract_stage = "cts",
         pdk = None,
         arguments = {},
-        substeps = False,
+
         lint = False,
         lint_tags = [],
         base_tags = ["manual"],
@@ -164,7 +164,7 @@ def demo_sram(
         arguments: ORFS arguments — must include CORE_UTILIZATION (or DIE_AREA),
             PLACE_DENSITY, and PDN_TCL (or provide PDN_TCL via sources).
             No defaults are injected beyond _GLOBAL_SETTINGS.
-        substeps: If True, generate per-substep targets for debugging iteration
+
         lint: If True, add lint variant alongside real flow
         lint_tags: Tags for lint variant targets
         base_tags: Tags for base (real) variant targets
@@ -178,7 +178,7 @@ def demo_sram(
             mock_area = mock_area,
             verilog_files = verilog_files,
             arguments = merged_args,
-            substeps = substeps,
+
             **kwargs
         )
         if pdk:
@@ -197,7 +197,7 @@ def demo_sram(
             mock_area = mock_area,
             verilog_files = verilog_files,
             arguments = merged_args,
-            substeps = substeps,
+
             tags = base_tags,
             **kwargs
         )
@@ -211,7 +211,7 @@ def demo_sram(
             verilog_files = verilog_files,
             arguments = merged_args,
             variant = "lint",
-            substeps = substeps,
+
             tags = lint_tags,
             openroad = _LINT_TOOLS["openroad"],
             yosys = _LINT_TOOLS["yosys"],
@@ -227,7 +227,7 @@ def demo_hierarchical(
         macros,
         pdk = None,
         arguments = {},
-        substeps = False,
+
         lint = False,
         base_tags = ["manual"],
         **kwargs):
@@ -244,7 +244,7 @@ def demo_hierarchical(
         arguments: ORFS arguments — must include SYNTH_HIERARCHICAL,
             MACRO_PLACE_HALO, PLACE_PINS_ARGS, and PDN_TCL (or via sources).
             No defaults are injected beyond _GLOBAL_SETTINGS.
-        substeps: If True, generate per-substep targets for debugging iteration
+
         lint: If True, add lint variant alongside real flow
         base_tags: Tags for base (real) variant and A/B comparison targets
         **kwargs: Additional arguments passed to orfs_flow
@@ -256,7 +256,7 @@ def demo_hierarchical(
             verilog_files = verilog_files,
             macros = macros,
             arguments = merged_args,
-            substeps = substeps,
+
             **kwargs
         )
         if pdk:
@@ -268,7 +268,7 @@ def demo_hierarchical(
             verilog_files = verilog_files,
             arguments = merged_args,
             macros = macros,
-            substeps = substeps,
+
             stage = "final",
             sweep = {
                 "base": {},

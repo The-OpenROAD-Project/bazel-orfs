@@ -85,7 +85,6 @@ demo_hierarchical(
         # Requires OpenROAD from source (see MODULE.bazel)
         # "MACRO_PLACEMENT_TCL": [":macro-placement.tcl"],
     },
-    substeps = True,
     verilog_files = ["//gemmini_8x8:gemmini_8x8_sv"],
 )
 

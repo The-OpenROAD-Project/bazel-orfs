@@ -49,7 +49,6 @@ demo_flow(
         "TNS_END_PERCENT": "0",
     },
     sources = {"SDC_FILE": [":constraints.sdc"]},
-    substeps = True,
     verilog_files = [
         "@cva6//:rtl",
         "@cv_hpdcache//:rtl",

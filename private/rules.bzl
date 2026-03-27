@@ -576,6 +576,19 @@ def _yosys_impl(ctx):
         genfiles = [config_short] + outputs + canon_logs + synth_logs,
     )
 
+    # Deploy script for input-only deployment (on-demand deps).
+    # Only depends on config_short (cheap write action) and verilog source
+    # files -- never triggers the main synth action.
+    deps_exe = declare_artifact(ctx, "results", ctx.attr.name + "_deps_deploy.sh")
+    _expand_deploy_template(
+        ctx,
+        deps_exe,
+        config = config_short,
+        make = make,
+        genfiles = [config_short] + ctx.files.verilog_files + ctx.files.extra_configs,
+        name = ctx.attr.name + "_deps",
+    )
+
     return [
         DefaultInfo(
             executable = exe,
@@ -598,6 +611,7 @@ def _yosys_impl(ctx):
         OutputGroupInfo(
             logs = depset(canon_logs + synth_logs),
             reports = depset([]),
+            deps = depset([deps_exe]),
             **{f.basename: depset([f]) for f in [config] + outputs}
         ),
         OrfsDepInfo(
@@ -794,6 +808,20 @@ def _make_impl(
         genfiles = [config_short] + results + logs + reports + drcs + jsons,
     )
 
+    # Deploy script for input-only deployment (on-demand deps).
+    # Only depends on config_short (cheap write action) and source files
+    # from the previous stage -- never triggers the main make action.
+    deps_exe = declare_artifact(ctx, "results", ctx.attr.name + "_deps_deploy.sh")
+    _expand_deploy_template(
+        ctx,
+        deps_exe,
+        config = config_short,
+        make = make,
+        genfiles = [config_short] + ctx.files.src + ctx.files.data + ctx.files.extra_configs,
+        name = ctx.attr.name + "_deps",
+        renames = renames(ctx, ctx.files.src, short = True),
+    )
+
     return [
         DefaultInfo(
             executable = exe,
@@ -826,6 +854,7 @@ def _make_impl(
             reports = depset(reports),
             jsons = depset(jsons),
             drcs = depset(drcs),
+            deps = depset([deps_exe]),
             **{
                 f.basename: depset([f])
                 for f in [config] + results + objects + logs + reports + jsons + drcs
