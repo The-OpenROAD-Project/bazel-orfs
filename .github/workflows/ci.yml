@@ -37,10 +37,28 @@ jobs:
           disk-cache: ${{ github.workflow }}
           repository-cache: true
 
+      - name: Launch Bazel
+        run: bazelisk build --nobuild ... --build_tests_only --profile=launch.profile
+      - name: Analyze launch
+        if: always()
+        run: bazelisk analyze-profile launch.profile
+
       - name: Build tests
         run: bazelisk build ... --build_tests_only --profile=build.profile
-      - name: Run tests
-        run: bazelisk test ... --keep_going --build_tests_only --test_output=errors
-      - name: Analyze profile
+      - name: Analyze build
         if: always()
         run: bazelisk analyze-profile build.profile
+
+      - name: Run tests
+        run: bazelisk test ... --keep_going --build_tests_only --test_output=errors --profile=test.profile
+      - name: Analyze test
+        if: always()
+        run: bazelisk analyze-profile test.profile
+
+      - name: Verify cache
+        run: |
+          # A second build should be a no-op if caching works.
+          # "0 processes" means everything came from cache.
+          OUTPUT=$(bazelisk build ... --build_tests_only 2>&1)
+          echo "$OUTPUT"
+          echo "$OUTPUT" | grep -q "0 processes" || { echo "ERROR: expected all actions cached"; exit 1; }
