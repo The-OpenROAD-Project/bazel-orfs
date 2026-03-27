@@ -296,7 +296,7 @@
     "@@rules_chisel+//chisel:extensions.bzl%chisel": {
       "general": {
         "bzlTransitiveDigest": "K49+IHCLhejpq/yw4hVwtbylRwTa9sQsXdZwoz57xNs=",
-        "usagesDigest": "2doiohQFBLyAZiF7PLL3yM/8na5b3kM+lqWAV2gAoDI=",
+        "usagesDigest": "mTvJSZtCe5FUdrrcKdHc0wz6Sv+rLqKvFP6wEByeYKo=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
