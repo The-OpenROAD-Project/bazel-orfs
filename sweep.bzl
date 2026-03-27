@@ -35,7 +35,10 @@ def orfs_sweep(
         top: Top module, default "name"
         arguments: dictionary of the base variables for the flow
         sweep: The dictionary describing the variables to sweep
-        other_variants: Dictionary with other variants to generate, but not as part of the sweep
+        other_variants: Dictionary with other variants to generate, but not as part of the sweep.
+            Per-variant keys: arguments, dissolve, macros, openroad, previous_stage,
+            renamed_inputs, stage_arguments, stage_sources, description, sources, yosys,
+            abstract_stage, last_stage, tags
         stage: The stage to do the sweep on
         macros: name of modules to use as macros
         verilog_files: The Verilog files to build
@@ -78,6 +81,9 @@ def orfs_sweep(
                 "description",
                 "sources",
                 "yosys",
+                "abstract_stage",
+                "last_stage",
+                "tags",
             ]:
                 fail('Unknown orfs_sweep() key "' + key + '" in ' + variant)
 
@@ -115,9 +121,10 @@ def orfs_sweep(
             variant = variant,
             verilog_files = verilog_files,
             sources = sources | all_variants[variant].get("sources", {}),
-            abstract_stage = abstract_stage,
+            abstract_stage = None if "last_stage" in all_variants[variant] else all_variants[variant].get("abstract_stage", abstract_stage),
+            last_stage = all_variants[variant].get("last_stage", None),
             visibility = visibility,
-            tags = tags,
+            tags = tags + all_variants[variant].get("tags", []),
             **variant_kwargs
         )
 
