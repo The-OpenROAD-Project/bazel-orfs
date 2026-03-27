@@ -173,7 +173,6 @@ def main(argv=None):
                 with open(path, "w") as f:
                     f.write(content)
 
-    print("lint-yosys: done", file=sys.stderr)
     return 0
 
 

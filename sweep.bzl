@@ -83,16 +83,20 @@ def orfs_sweep(
                 "yosys",
                 "abstract_stage",
                 "last_stage",
+                "lint",
                 "tags",
             ]:
                 fail('Unknown orfs_sweep() key "' + key + '" in ' + variant)
 
-        # Per-variant tool overrides: merge into kwargs for this variant
+        # Per-variant tool overrides and flags: merge into kwargs for this variant
         variant_kwargs = dict(kwargs)
         for tool in ["openroad", "yosys"]:
             variant_tool = all_variants[variant].get(tool, None)
             if variant_tool:
                 variant_kwargs[tool] = variant_tool
+        lint_val = all_variants[variant].get("lint", None)
+        if lint_val != None:
+            variant_kwargs["lint"] = lint_val
 
         orfs_flow(
             name = name,

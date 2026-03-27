@@ -909,14 +909,14 @@ build_test(
 # is broken, the lb_32x128 sweep targets would fail at analysis time
 # (duplicate actions or missing deps). No explicit query tests needed.
 
-# --- Lite flow tests: verify that heavy dependencies are excluded ---
+# --- Lint flow tests: verify that heavy dependencies are excluded ---
 
 # buildifier: disable=duplicated-name
 orfs_flow(
     name = "lb_32x128",
     arguments = LB_ARGS,
     last_stage = "floorplan",
-    lite_flow = True,
+    lint = True,
     openroad = "@mock-openroad//src/bin:openroad",
     previous_stage = {"floorplan": ":lb_32x128_synth"},
     stage_sources = LB_STAGE_SOURCES,
@@ -925,13 +925,13 @@ orfs_flow(
 )
 
 build_test(
-    name = "lite_flow_build_test",
+    name = "lint_build_test",
     targets = [":lb_32x128_lite_floorplan"],
 )
 
 sh_test(
-    name = "lite_flow_no_heavy_deps_test",
-    srcs = ["lite_flow_test.sh"],
+    name = "lint_no_heavy_deps_test",
+    srcs = ["lint_test.sh"],
     data = [":lb_32x128_lite_floorplan"],
 )
 

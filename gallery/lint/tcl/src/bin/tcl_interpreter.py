@@ -452,9 +452,8 @@ class TclInterpreter:
             if short in self.commands:
                 return self.commands[short](self, args) or ""
 
-        # Unknown command — log and continue (ORFS scripts reference many
+        # Unknown command — silently ignore (ORFS scripts reference many
         # OpenROAD internals we don't need to implement)
-        print(f"lint: unknown command '{cmd_name}' (ignored)", file=sys.stderr)
         return ""
 
     def _call_proc(self, name, args):
