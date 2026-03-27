@@ -88,6 +88,20 @@ py_test(
     main = "patcher_test.py",
 )
 
+# Run `bazelisk run //:monitor-test` to run tests with stage monitoring.
+# Usage: bazelisk run //:monitor-test -- //test/...
+py_binary(
+    name = "monitor-test",
+    srcs = ["monitor_test.py"],
+)
+
+py_test(
+    name = "monitor-test-test",
+    srcs = ["monitor_test_test.py"],
+    main = "monitor_test_test.py",
+    deps = [":monitor-test"],
+)
+
 # Run `bazelisk run //:fix_lint` to format all files changed since origin/main.
 sh_binary(
     name = "fix_lint",
