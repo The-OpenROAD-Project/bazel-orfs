@@ -46,6 +46,7 @@ demo_sram(
     arguments = {
         "CORE_UTILIZATION": "40",
         "PLACE_DENSITY": "0.65",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
     },
     sources = {
         "SDC_FILE": [":constraints-sram.sdc"],
@@ -62,9 +63,11 @@ demo_hierarchical(
     ],
     macros = [":tiny_sram_generate_abstract"],
     arguments = {
-        "CORE_UTILIZATION": "30",
-        "PLACE_DENSITY": "0.60",
+        "DIE_AREA": "0 0 40 40",
+        "CORE_AREA": "2 2 38 38",
+        "PLACE_DENSITY": "0.30",
         "MACRO_PLACE_HALO": "1 1",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
     },
     sources = {
         "SDC_FILE": [":constraints.sdc"],
