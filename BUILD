@@ -93,6 +93,7 @@ py_test(
 py_binary(
     name = "monitor-test",
     srcs = ["monitor_test.py"],
+    main = "monitor_test.py",
 )
 
 py_test(
