@@ -14,13 +14,11 @@ module lb_32x128(
   reg [7:0] R0_data_reg;
 
   always @(posedge W0_clk) begin
-    if (W0_en)
-      Memory[W0_addr[4:3] ^ W0_addr[1:0]] <= W0_data;
+    Memory[W0_addr[4:3] ^ W0_addr[1:0]] <= W0_data;
   end
 
   always @(posedge R0_clk) begin
-    if (R0_en)
-      R0_data_reg <= Memory[R0_addr[4:3] ^ R0_addr[1:0]];
+    R0_data_reg <= Memory[R0_addr[4:3] ^ R0_addr[1:0]];
   end
 
   assign R0_data = R0_data_reg;

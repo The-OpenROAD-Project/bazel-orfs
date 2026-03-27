@@ -1,5 +1,6 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_gds", "orfs_macro", "orfs_run", "orfs_synth")
 load("//:orfs_genrule.bzl", "orfs_genrule")
@@ -82,6 +83,7 @@ filegroup(
 FAST_SETTINGS = {
     "FILL_CELLS": "",
     "GND_NETS_VOLTAGES": "",
+    "GLOBAL_PLACEMENT_ARGS": "-overflow 0.2",
     "GPL_ROUTABILITY_DRIVEN": "0",
     "GPL_TIMING_DRIVEN": "0",
     "PWR_NETS_VOLTAGES": "",
@@ -94,7 +96,7 @@ FAST_SETTINGS = {
 
 SRAM_ARGUMENTS = FAST_SETTINGS | {
     "IO_CONSTRAINTS": "$(location :io-sram)",
-    "PLACE_DENSITY": "0.42",
+    "PLACE_DENSITY": "0.65",
     "PLACE_PINS_ARGS": "-min_distance 2 -min_distance_in_tracks",
     "SDC_FILE": "$(location :constraints-sram)",
 }
@@ -105,36 +107,79 @@ BLOCK_FLOORPLAN = {
     "REMOVE_ABC_BUFFERS": "1",
 }
 
-orfs_flow(
+TAG_ARRAY_ARGUMENTS = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
+    "CORE_AREA": "1.026 1.080 5.184 42.930",
+    "DIE_AREA": "0 0 6.198 43.980",
+    "SKIP_REPORT_METRICS": "1",
+}
+
+orfs_sweep(
     name = "tag_array_64x184",
     abstract_stage = "cts",
-    arguments = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
-        "CORE_ASPECT_RATIO": "10",
-        "CORE_UTILIZATION": "20",
-        "SKIP_REPORT_METRICS": "1",
-    },
-    # CI regression test for stage_arguments override of automatic stage assignment
-    stage_arguments = {
-        "floorplan": {
-            "SKIP_REPORT_METRICS": "1",
+    arguments = TAG_ARRAY_ARGUMENTS,
+    # Pin placement variant: runs floorplan without pinned IO for regeneration.
+    other_variants = {
+        "pin_placement": {
+            "last_stage": "floorplan",
+            "previous_stage": {"floorplan": "tag_array_64x184_synth"},
+            "stage_sources": {
+                "floorplan": [":io-sram"],
+            },
+            "tags": ["manual"],
         },
     },
-    # FIXME reenable after https://github.com/The-OpenROAD-Project/OpenROAD/issues/7745 is fixed
-    # mock_area = 0.8,
     stage_sources = {
-        "floorplan": [":io-sram"],
         "place": [":io-sram"],
         "synth": [":constraints-sram"],
     },
-    substeps = False,
+    sweep = {
+        "base": {
+            "arguments": {
+                "IO_CONSTRAINTS": "$(location :tag_array_64x184_io-placement.tcl)",
+            },
+            # CI regression test for stage_arguments override of automatic stage assignment
+            "stage_arguments": {
+                "floorplan": {
+                    "SKIP_REPORT_METRICS": "1",
+                },
+            },
+            "stage_sources": {
+                "floorplan": [":tag_array_64x184_io-placement.tcl"],
+            },
+        },
+    },
     verilog_files = ["//another:tag_array_64x184.sv"],
     visibility = ["//:__subpackages__"],
 )
 
+orfs_run(
+    name = "tag_array_64x184_write_pin_placement",
+    src = ":tag_array_64x184_pin_placement_floorplan",
+    outs = [
+        "tag_array_64x184_io-placement.tcl",
+    ],
+    arguments = {
+        "OUTPUT": "tag_array_64x184_io-placement.tcl",
+    },
+    script = ":write_pin_placement.tcl",
+    tags = ["manual"],
+)
+
+sh_binary(
+    name = "pin_tag_array_64x184",
+    srcs = ["pin_placement.sh"],
+    args = [
+        "$(rootpath :tag_array_64x184_write_pin_placement)",
+        "test/tag_array_64x184_io-placement.tcl",
+    ],
+    data = [":tag_array_64x184_write_pin_placement"],
+    tags = ["manual"],
+)
+
 LB_ARGS = SRAM_ARGUMENTS | {
     "CORE_ASPECT_RATIO": "2",
-    "CORE_UTILIZATION": "30",
-    "PLACE_DENSITY": "0.20",
+    "CORE_UTILIZATION": "40",
+    "PLACE_DENSITY": "0.65",
     "PLACE_PINS_ARGS": "-min_distance 1 -min_distance_in_tracks",
 }
 
@@ -151,12 +196,19 @@ orfs_flow(
     name = "lb_32x128",
     abstract_stage = "cts",
     arguments = LB_ARGS | {
-        "CORE_ASPECT_RATIO": "0.5",
-        "CORE_UTILIZATION": "20",
+        "CORE_AREA": "1.026 1.080 6.372 3.510",
+        "CORE_ASPECT_RATIO": "",
+        "CORE_UTILIZATION": "",
+        "DIE_AREA": "0 0 7.400 4.700",
+        "IO_CONSTRAINTS": "$(location :lb_32x128_io-placement.tcl)",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
     },
     mock_area = 0.7,
-    stage_sources = LB_STAGE_SOURCES,
+    stage_sources = {
+        "floorplan": [":lb_32x128_io-placement.tcl"],
+        "place": [":io-sram"],
+        "synth": [":constraints-sram"],
+    },
     substeps = False,
     verilog_files = LB_VERILOG_FILES,
     visibility = [],
@@ -181,30 +233,116 @@ orfs_flow(
         "DIE_AREA": "0 0 25 25",
         "GDS_ALLOW_EMPTY": "lb_32x128",
         "GND_NETS_VOLTAGES": "",
+        "IO_CONSTRAINTS": "$(location :lb_32x128_top_io-placement.tcl)",
         "MACRO_PLACE_HALO": "5 5",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
-        "PLACE_DENSITY": "0.30",
+        "PLACE_DENSITY": "0.65",
 
         # Skip power checks to silence error and speed up build
         "PWR_NETS_VOLTAGES": "",
     },
     macros = ["lb_32x128_generate_abstract"],
-    stage_sources = LB_STAGE_SOURCES,
+    stage_sources = {
+        "floorplan": [":lb_32x128_top_io-placement.tcl"],
+        "place": [":io-sram"],
+        "synth": [":constraints-sram"],
+    },
     substeps = False,
     verilog_files = ["rtl/lb_32x128_top.v"],
 )
 
 # buildifier: disable=duplicated-name
 orfs_flow(
-    name = "lb_32x128",
-    abstract_stage = "place",
-    arguments = LB_ARGS | {
-        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
+    name = "lb_32x128_top",
+    arguments = SRAM_ARGUMENTS | {
+        "CORE_AREA": "2 2 23 23",
+        "CORE_MARGIN": "2",
+        "DIE_AREA": "0 0 25 25",
+        "MACRO_PLACE_HALO": "5 5",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+        "PLACE_DENSITY": "0.65",
     },
+    last_stage = "floorplan",
+    macros = ["lb_32x128_generate_abstract"],
+    previous_stage = {"floorplan": ":lb_32x128_top_synth"},
+    stage_sources = LB_STAGE_SOURCES,
+    tags = ["manual"],
+    variant = "pin_placement",
+    verilog_files = ["rtl/lb_32x128_top.v"],
+)
+
+orfs_run(
+    name = "lb_32x128_top_write_pin_placement",
+    src = ":lb_32x128_top_pin_placement_floorplan",
+    outs = [
+        "lb_32x128_top_io-placement.tcl",
+    ],
+    arguments = {
+        "OUTPUT": "lb_32x128_top_io-placement.tcl",
+    },
+    script = ":write_pin_placement.tcl",
+    tags = ["manual"],
+)
+
+sh_binary(
+    name = "pin_lb_32x128_top",
+    srcs = ["pin_placement.sh"],
+    args = [
+        "$(rootpath :lb_32x128_top_write_pin_placement)",
+        "test/lb_32x128_top_io-placement.tcl",
+    ],
+    data = [":lb_32x128_top_write_pin_placement"],
+    tags = ["manual"],
+)
+
+# Test variant naming: reuses base floorplan, runs place + cts + abstract.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    abstract_stage = "cts",
+    arguments = LB_ARGS,
+    previous_stage = {"floorplan": ":lb_32x128_synth"},
     stage_sources = LB_STAGE_SOURCES,
     substeps = False,
     variant = "test",
     verilog_files = LB_VERILOG_FILES,
+)
+
+# Pin placement generation: shares synth, runs own floorplan without pinned IO.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    arguments = LB_ARGS,
+    last_stage = "floorplan",
+    previous_stage = {"floorplan": ":lb_32x128_synth"},
+    stage_sources = LB_STAGE_SOURCES,
+    tags = ["manual"],
+    variant = "pin_placement",
+    verilog_files = LB_VERILOG_FILES,
+)
+
+orfs_run(
+    name = "lb_32x128_write_pin_placement",
+    src = ":lb_32x128_pin_placement_floorplan",
+    outs = [
+        "lb_32x128_io-placement.tcl",
+    ],
+    arguments = {
+        "OUTPUT": "lb_32x128_io-placement.tcl",
+    },
+    script = ":write_pin_placement.tcl",
+    tags = ["manual"],
+)
+
+sh_binary(
+    name = "pin_lb_32x128",
+    srcs = ["pin_placement.sh"],
+    args = [
+        "$(rootpath :lb_32x128_write_pin_placement)",
+        "test/lb_32x128_io-placement.tcl",
+    ],
+    data = [":lb_32x128_write_pin_placement"],
+    tags = ["manual"],
 )
 
 orfs_run(
@@ -236,35 +374,83 @@ orfs_macro(
     module_top = "tag_array_64x184",
 )
 
+L1_ARGUMENTS = FAST_SETTINGS | {
+    "CORE_AREA": "2 2 18 68",
+    "CORE_MARGIN": "2",
+    "DIE_AREA": "0 0 20 70",
+    "GDS_ALLOW_EMPTY": "tag_array_64x184",
+    "MACRO_PLACE_HALO": "2 2",
+    "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+    "PLACE_DENSITY": "0.65",
+    "SYNTH_HIERARCHICAL": "1",
+}
+
 orfs_sweep(
     name = "L1MetadataArray",
     abstract_stage = "cts",
-    arguments = FAST_SETTINGS |
-                {
-                    "CORE_AREA": "2 2 18 68",
-                    "CORE_MARGIN": "2",
-                    "DIE_AREA": "0 0 20 70",
-                    "GDS_ALLOW_EMPTY": "tag_array_64x184",
-                    "MACRO_PLACE_HALO": "2 2",
-                    "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
-                    "PLACE_DENSITY": "0.30",
-                    "SYNTH_HIERARCHICAL": "1",
-                },
+    arguments = L1_ARGUMENTS,
+    other_variants = {
+        "pin_placement": {
+            "last_stage": "floorplan",
+            "macros": ["tag_array_64x184_generate_abstract"],
+            "previous_stage": {"floorplan": "L1MetadataArray_synth"},
+            "sources": {
+                "SDC_FILE": [":constraints-top.sdc"],
+            },
+            "tags": ["manual"],
+        },
+    },
     sweep = {
         "1": {
+            "arguments": {
+                "IO_CONSTRAINTS": "$(location :L1MetadataArray_io-placement.tcl)",
+            },
             "macros": ["amalgam"],
             "sources": {
                 "SDC_FILE": [":constraints-top.sdc"],
             },
+            "stage_sources": {
+                "floorplan": [":L1MetadataArray_io-placement.tcl"],
+            },
         },
         "base": {
+            "arguments": {
+                "IO_CONSTRAINTS": "$(location :L1MetadataArray_io-placement.tcl)",
+            },
             "macros": ["tag_array_64x184_generate_abstract"],
             "sources": {
                 "SDC_FILE": [":constraints-top.sdc"],
             },
+            "stage_sources": {
+                "floorplan": [":L1MetadataArray_io-placement.tcl"],
+            },
         },
     },
     verilog_files = ["rtl/L1MetadataArray.sv"],
+)
+
+orfs_run(
+    name = "L1MetadataArray_write_pin_placement",
+    src = ":L1MetadataArray_pin_placement_floorplan",
+    outs = [
+        "L1MetadataArray_io-placement.tcl",
+    ],
+    arguments = {
+        "OUTPUT": "L1MetadataArray_io-placement.tcl",
+    },
+    script = ":write_pin_placement.tcl",
+    tags = ["manual"],
+)
+
+sh_binary(
+    name = "pin_L1MetadataArray",
+    srcs = ["pin_placement.sh"],
+    args = [
+        "$(rootpath :L1MetadataArray_write_pin_placement)",
+        "test/L1MetadataArray_io-placement.tcl",
+    ],
+    data = [":L1MetadataArray_write_pin_placement"],
+    tags = ["manual"],
 )
 
 orfs_run(
@@ -305,24 +491,68 @@ filegroup(
     output_group = "1_synth.v",
 )
 
+REGFILE_ARGUMENTS = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
+    "CORE_AREA": "1.026 1.080 4.914 4.860",
+    "DIE_AREA": "0 0 5.940 5.940",
+    "PLACE_DENSITY": "0.65",
+}
+
 # Need full flow to test final gatelist extraction
-orfs_flow(
+orfs_sweep(
     name = "regfile_128x65",
-    arguments = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
-        "CORE_AREA": "2 2 23 23",
-        "DIE_AREA": "0 0 25 25",
-        "IO_CONSTRAINTS": "$(location :io-sram)",
-        "PLACE_DENSITY": "0.30",
+    arguments = REGFILE_ARGUMENTS,
+    other_variants = {
+        "pin_placement": {
+            "last_stage": "floorplan",
+            "previous_stage": {"floorplan": "regfile_128x65_synth"},
+            "stage_sources": {
+                "floorplan": [":io-sram"],
+            },
+            "tags": ["manual"],
+        },
     },
     stage_sources = {
-        "floorplan": [":io-sram"],
         "place": [":io-sram"],
         "synth": [":constraints-sram"],
     },
     substeps = False,
+    sweep = {
+        "base": {
+            "arguments": {
+                "IO_CONSTRAINTS": "$(location :regfile_128x65_io-placement.tcl)",
+            },
+            "stage_sources": {
+                "floorplan": [":regfile_128x65_io-placement.tcl"],
+            },
+        },
+    },
     verilog_files = [
         "rtl/regfile_128x65.sv",
     ],
+)
+
+orfs_run(
+    name = "regfile_128x65_write_pin_placement",
+    src = ":regfile_128x65_pin_placement_floorplan",
+    outs = [
+        "regfile_128x65_io-placement.tcl",
+    ],
+    arguments = {
+        "OUTPUT": "regfile_128x65_io-placement.tcl",
+    },
+    script = ":write_pin_placement.tcl",
+    tags = ["manual"],
+)
+
+sh_binary(
+    name = "pin_regfile_128x65",
+    srcs = ["pin_placement.sh"],
+    args = [
+        "$(rootpath :regfile_128x65_write_pin_placement)",
+        "test/regfile_128x65_io-placement.tcl",
+    ],
+    data = [":regfile_128x65_write_pin_placement"],
+    tags = ["manual"],
 )
 
 # buildifier: disable=duplicated-name
@@ -330,6 +560,13 @@ orfs_sweep(
     name = "lb_32x128",
     abstract_stage = "cts",
     arguments = LB_ARGS,
+    other_variants = {
+        "sweep_pin_placement": {
+            "last_stage": "floorplan",
+            "previous_stage": {"floorplan": "lb_32x128_synth"},
+            "tags": ["manual"],
+        },
+    },
     stage = "cts",
     stage_sources = {
         "floorplan": [":io-sram"],
@@ -339,24 +576,56 @@ orfs_sweep(
     sweep = {
         "1": {
             "arguments": {
-                "PLACE_DENSITY": "0.20",
+                "CORE_AREA": "1.026 1.080 3.672 6.210",
+                "CORE_ASPECT_RATIO": "",
+                "CORE_UTILIZATION": "",
+                "DIE_AREA": "0 0 4.700 7.400",
+                "IO_CONSTRAINTS": "$(location :lb_32x128_sweep_io-placement.tcl)",
+                "PLACE_DENSITY": "0.65",
             },
             "previous_stage": {"floorplan": "lb_32x128_synth"},
+            "stage_sources": {
+                "floorplan": [":lb_32x128_sweep_io-placement.tcl"],
+            },
         },
         "2": {
             "arguments": {
-                "PLACE_DENSITY": "0.21",
+                "PLACE_DENSITY": "0.66",
             },
             "previous_stage": {"place": "lb_32x128_floorplan"},
         },
         "3": {
             "arguments": {
-                "PLACE_DENSITY": "0.22",
+                "PLACE_DENSITY": "0.67",
             },
             "previous_stage": {"cts": "lb_32x128_place"},
         },
     },
     verilog_files = ["mock/lb_32x128.sv"],
+)
+
+orfs_run(
+    name = "lb_32x128_sweep_write_pin_placement",
+    src = ":lb_32x128_sweep_pin_placement_floorplan",
+    outs = [
+        "lb_32x128_sweep_io-placement.tcl",
+    ],
+    arguments = {
+        "OUTPUT": "lb_32x128_sweep_io-placement.tcl",
+    },
+    script = ":write_pin_placement.tcl",
+    tags = ["manual"],
+)
+
+sh_binary(
+    name = "pin_lb_32x128_sweep",
+    srcs = ["pin_placement.sh"],
+    args = [
+        "$(rootpath :lb_32x128_sweep_write_pin_placement)",
+        "test/lb_32x128_sweep_io-placement.tcl",
+    ],
+    data = [":lb_32x128_sweep_write_pin_placement"],
+    tags = ["manual"],
 )
 
 filegroup(
@@ -600,7 +869,7 @@ orfs_flow(
         "GDS_ALLOW_EMPTY": "lb_32x128",
         "MACRO_PLACE_HALO": "5 5",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
-        "PLACE_DENSITY": "0.30",
+        "PLACE_DENSITY": "0.65",
         "PWR_NETS_VOLTAGES": "",
     },
     macros = ["lb_32x128_mock_abstract_generate_abstract"],
@@ -644,3 +913,30 @@ build_test(
 # Pruning is validated implicitly: if orfs_sweep's previous_stage pruning
 # is broken, the lb_32x128 sweep targets would fail at analysis time
 # (duplicate actions or missing deps). No explicit query tests needed.
+
+# --- Lite flow tests: verify that heavy dependencies are excluded ---
+
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    add_deps = False,
+    arguments = LB_ARGS,
+    last_stage = "floorplan",
+    lite_flow = True,
+    openroad = "@mock-openroad//src/bin:openroad",
+    previous_stage = {"floorplan": ":lb_32x128_synth"},
+    stage_sources = LB_STAGE_SOURCES,
+    variant = "lite",
+    verilog_files = LB_VERILOG_FILES,
+)
+
+build_test(
+    name = "lite_flow_build_test",
+    targets = [":lb_32x128_lite_floorplan"],
+)
+
+sh_test(
+    name = "lite_flow_no_heavy_deps_test",
+    srcs = ["lite_flow_test.sh"],
+    data = [":lb_32x128_lite_floorplan"],
+)
