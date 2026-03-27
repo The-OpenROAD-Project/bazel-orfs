@@ -14,8 +14,8 @@ local_path_override(
 
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
 orfs.default(
-    image = "docker.io/openroad/orfs:26Q1-656-g97416b2e4",
-    sha256 = "9c90633d62e08f0b3772d4fdfc06b14e4f33273ae1511d1c41d3c48560adb9a5",
+    image = "docker.io/openroad/orfs:26Q1-737-g2565e815a",
+    sha256 = "987073e847767a2856c3803d0ed9509a33f16f3ff2a6e01855a323458af5a940",
 )
 use_repo(orfs, "docker_orfs")
 
