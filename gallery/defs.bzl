@@ -45,6 +45,7 @@ def _add_lint_targets(name, stages, base_tags):
     build_test(
         name = name + "_lint_test",
         targets = [":" + name + "_lint_" + last],
+        tags = base_tags,
     )
 
     # A/B comparison tests (depends on base flow, so uses base_tags)

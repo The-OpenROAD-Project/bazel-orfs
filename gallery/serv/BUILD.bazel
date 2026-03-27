@@ -21,6 +21,7 @@ demo_flow(
     },
     verilog_files = ["@serv//:rtl"],
     lint = True,
+    base_tags = ["manual"],
 )
 
 demo_gallery_image(
