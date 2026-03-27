@@ -16,11 +16,11 @@ demo_flow(
         "FILL_CELLS": "",
         "TAPCELL_TCL": "",
     },
+    lint = True,
     sources = {
         "SDC_FILE": [":constraints.sdc"],
     },
     verilog_files = ["@serv//:rtl"],
-    lint = True,
 )
 
 demo_gallery_image(

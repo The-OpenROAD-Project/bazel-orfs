@@ -48,6 +48,6 @@ demo_gallery_image(
 # Build test — full RTL-to-GDS (manual: too heavy for CI)
 build_test(
     name = "checksum_build_test",
-    targets = [":ChecksumRTL_noparam_final"],
     tags = ["manual"],
+    targets = [":ChecksumRTL_noparam_final"],
 )
