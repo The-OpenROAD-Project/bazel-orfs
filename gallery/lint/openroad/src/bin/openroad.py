@@ -180,7 +180,6 @@ def main(argv=None):
             # implement yet. Create expected output files based on env vars.
             _create_fallback_outputs(state)
 
-    print("lint-openroad: done", file=sys.stderr)
     return 0
 
 

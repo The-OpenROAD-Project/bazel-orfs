@@ -86,6 +86,12 @@ def _expand_deploy_template(ctx, exe, config, make, genfiles, name = "", renames
         },
     )
 
+def _make_cmd(ctx):
+    """Returns the make command prefix, with --silent in lint mode."""
+    if getattr(ctx.attr, "lint", False):
+        return ctx.executable._make.path + " --silent $@"
+    return ctx.executable._make.path + " $@"
+
 def _create_make_script(ctx, name, extra_substitutions = {}):
     """Creates the make wrapper script via template expansion.
 
@@ -98,11 +104,12 @@ def _create_make_script(ctx, name, extra_substitutions = {}):
       The declared make File.
     """
     make = ctx.actions.declare_file(name)
+    silent = "--silent " if getattr(ctx.attr, "lint", False) else ""
     ctx.actions.expand_template(
         template = ctx.file._make_template,
         output = make,
         substitutions = flow_substitutions(ctx) |
-                        {'"$@"': 'DESIGN_CONFIG="config.mk" "$@"'} |
+                        {'"$@"': '{}DESIGN_CONFIG="config.mk" "$@"'.format(silent)} |
                         extra_substitutions,
     )
     return make
@@ -444,7 +451,7 @@ def _yosys_impl(ctx):
 
     # SYNTH_NETLIST_FILES will not create an .rtlil file or reports, so we need
     # an empty placeholder in that case.
-    commands = [ctx.executable._make.path + " $@"] + generation_commands(
+    commands = [_make_cmd(ctx)] + generation_commands(
         canon_logs + [canon_output],
     )
 
@@ -482,66 +489,72 @@ def _yosys_impl(ctx):
 
     synth_reports = declare_artifacts(ctx, "reports", SYNTH_REPORTS)
 
-    # SYNTH_NETLIST_FILES will not create an .rtlil file or reports, so we need
-    # an empty placeholder in that case.
-    commands = [ctx.executable._make.path + " $@"] + generation_commands(
-        synth_logs + synth_outputs.values() + synth_reports,
-    )
-    ctx.actions.run_shell(
-        arguments = [
-            "--file",
-            ctx.file._makefile_yosys.path,
-            "yosys-dependencies",
-            "do-yosys",
-        ] + (["do-1_synth"] if ctx.attr.save_odb else []),
-        command = " && ".join(commands),
-        env = config_overrides(
-            ctx,
-            verilog_arguments([]) |
-            flow_environment(ctx) |
-            yosys_environment(ctx) |
-            config_environment(config),
-        ),
-        inputs = depset(
-            [canon_output, config] + ctx.files.extra_configs,
-            transitive = [
-                data_inputs(ctx),
-                pdk_inputs(ctx),
-                deps_inputs(ctx),
-            ],
-        ),
-        outputs = synth_outputs.values() + synth_logs + synth_reports,
-        tools = depset(transitive = [yosys_inputs(ctx), flow_inputs(ctx)]),
-    )
-
     variables = declare_artifact(ctx, "results", "1_synth.vars")
-    ctx.actions.run_shell(
-        arguments = [
-            "--file",
-            ctx.file._makefile_yosys.path,
-            "print-LIB_FILES",
-        ],
-        command = """
-        {make} $@ > {out}
-        """.format(make = ctx.executable._make.path, out = variables.path),
-        env = config_overrides(
-            ctx,
-            verilog_arguments([]) |
-            flow_environment(ctx) |
-            yosys_environment(ctx) |
-            config_environment(config),
-        ),
-        inputs = depset(
-            [canon_output, config] + ctx.files.extra_configs,
-            transitive = [
-                data_inputs(ctx),
-                pdk_inputs(ctx),
-                deps_inputs(ctx),
+
+    if ctx.attr.lint:
+        # Lint mode: only canonicalization runs; stub remaining synth outputs.
+        for f in synth_outputs.values() + synth_logs + synth_reports + [variables]:
+            ctx.actions.write(output = f, content = "")
+    else:
+        # SYNTH_NETLIST_FILES will not create an .rtlil file or reports, so we need
+        # an empty placeholder in that case.
+        commands = [_make_cmd(ctx)] + generation_commands(
+            synth_logs + synth_outputs.values() + synth_reports,
+        )
+        ctx.actions.run_shell(
+            arguments = [
+                "--file",
+                ctx.file._makefile_yosys.path,
+                "yosys-dependencies",
+                "do-yosys",
+            ] + (["do-1_synth"] if ctx.attr.save_odb else []),
+            command = " && ".join(commands),
+            env = config_overrides(
+                ctx,
+                verilog_arguments([]) |
+                flow_environment(ctx) |
+                yosys_environment(ctx) |
+                config_environment(config),
+            ),
+            inputs = depset(
+                [canon_output, config] + ctx.files.extra_configs,
+                transitive = [
+                    data_inputs(ctx),
+                    pdk_inputs(ctx),
+                    deps_inputs(ctx),
+                ],
+            ),
+            outputs = synth_outputs.values() + synth_logs + synth_reports,
+            tools = depset(transitive = [yosys_inputs(ctx), flow_inputs(ctx)]),
+        )
+
+        ctx.actions.run_shell(
+            arguments = [
+                "--file",
+                ctx.file._makefile_yosys.path,
+                "print-LIB_FILES",
             ],
-        ),
-        outputs = [variables],
-        tools = depset(transitive = [flow_inputs(ctx)]),
-    )
+            command = """
+            {make} $@ > {out}
+            """.format(make = ctx.executable._make.path, out = variables.path),
+            env = config_overrides(
+                ctx,
+                verilog_arguments([]) |
+                flow_environment(ctx) |
+                yosys_environment(ctx) |
+                config_environment(config),
+            ),
+            inputs = depset(
+                [canon_output, config] + ctx.files.extra_configs,
+                transitive = [
+                    data_inputs(ctx),
+                    pdk_inputs(ctx),
+                    deps_inputs(ctx),
+                ],
+            ),
+            outputs = [variables],
+            tools = depset(transitive = [flow_inputs(ctx)]),
+        )
 
     outputs = [canon_output, variables] + synth_outputs.values()
 
@@ -767,7 +780,7 @@ def _make_impl(
     commands = (
         generation_commands(reports + logs + jsons + drcs + substep_odbs) +
         input_commands(renames(ctx, ctx.files.src)) +
-        [ctx.executable._make.path + " $@"]
+        [_make_cmd(ctx)]
     )
 
     ctx.actions.run_shell(

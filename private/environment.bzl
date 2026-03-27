@@ -92,7 +92,7 @@ def _runfiles(attrs):
     )
 
 def flow_inputs(ctx):
-    if ctx.attr.lite_flow:
+    if ctx.attr.lint:
         return flow_inputs_lite(ctx)
     return depset(
         ctx.files._ruby +

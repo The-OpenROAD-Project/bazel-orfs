@@ -25,6 +25,7 @@ _GLOBAL_SETTINGS = {
 _LINT_TOOLS = {
     "openroad": "@lint-openroad//src/bin:openroad",
     "yosys": "@lint-yosys//src/bin:yosys",
+    "lint": True,
 }
 
 _ALL_STAGES = [
@@ -211,6 +212,7 @@ def demo_sram(
             verilog_files = verilog_files,
             arguments = merged_args,
             variant = "lint",
+            lint = True,
 
             tags = lint_tags,
             openroad = _LINT_TOOLS["openroad"],
