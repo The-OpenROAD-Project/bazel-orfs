@@ -94,6 +94,7 @@ def orfs_flow(
         test_kwargs = {},
         squash = False,
         substeps = False,
+        add_deps = True,
         **kwargs):
     """
     Creates targets for running physical design flow with OpenROAD-flow-scripts.
@@ -126,6 +127,8 @@ def orfs_flow(
       substeps: if True, generate manual-tagged per-substep targets for
         debugging and fast iteration. Default is False to keep the target count low.
         Set to True for designs where substep-level debugging is needed.
+      add_deps: if True, create *_deps targets for GUI debugging. Set to False
+        for lightweight flows (lint/mock) to reduce target count.
       **kwargs: forward named args
     """
     if abstract_stage and last_stage:
@@ -157,6 +160,7 @@ def orfs_flow(
         test_kwargs = test_kwargs,
         squash = squash,
         substeps = substeps,
+        add_deps = add_deps,
         **kwargs
     )
 
@@ -289,6 +293,7 @@ def _orfs_pass(
         mock_area = False,
         squash = False,
         substeps = False,
+        add_deps = True,
         **kwargs):
     ALL_STAGES = [step.stage for step in STAGE_IMPLS]
     steps = []
@@ -352,11 +357,12 @@ def _orfs_pass(
                 **kwargs
             )
         )
-        orfs_deps(
-            name = "{}_deps".format(_step_name(name, variant, synth_step.stage)),
-            src = _step_name(name, variant, synth_step.stage),
-            **_add_manual(kwargs)
-        )
+        if add_deps:
+            orfs_deps(
+                name = "{}_deps".format(_step_name(name, variant, synth_step.stage)),
+                src = _step_name(name, variant, synth_step.stage),
+                **_add_manual(kwargs)
+            )
 
     if start_stage == 0:
         # implemented stage 0 above, so skip stage 0 below
@@ -431,11 +437,12 @@ def _orfs_pass(
                 **kwargs
             )
             step_names.append(squash_name)
-            orfs_deps(
-                name = "{}_deps".format(squash_name),
-                src = squash_name,
-                **_add_manual(kwargs)
-            )
+            if add_deps:
+                orfs_deps(
+                    name = "{}_deps".format(squash_name),
+                    src = squash_name,
+                    **_add_manual(kwargs)
+                )
 
             # Generate substep targets for all squashed stages
             if substeps:
@@ -474,14 +481,15 @@ def _orfs_pass(
                         **kwargs
                     )
                 )
-                orfs_deps(
-                    name = "{}_deps".format(abstract_step_name),
-                    src = abstract_step_name,
-                    **_add_manual(kwargs)
-                )
+                if add_deps:
+                    orfs_deps(
+                        name = "{}_deps".format(abstract_step_name),
+                        src = abstract_step_name,
+                        **_add_manual(kwargs)
+                    )
             return
 
-    def do_step(step, prev, kwargs, add_deps = True, more_kwargs = {}, data = []):
+    def do_step(step, prev, kwargs, add_deps = add_deps, more_kwargs = {}, data = []):
         stage_variant = (
             abstract_variant if step.stage == ABSTRACT_IMPL.stage and abstract_variant else variant
         )
