@@ -58,7 +58,8 @@ jobs:
       - name: Verify cache
         run: |
           # A second build should be a no-op if caching works.
-          # "0 processes" means everything came from cache.
+          # Bazel always reports 1 internal process for bookkeeping,
+          # so "1 process: 1 internal" means everything was cached.
           OUTPUT=$(bazelisk build ... --build_tests_only 2>&1)
           echo "$OUTPUT"
-          echo "$OUTPUT" | grep -q "0 processes" || { echo "ERROR: expected all actions cached"; exit 1; }
+          echo "$OUTPUT" | grep -qP "\b1 process: 1 internal\b" || { echo "ERROR: expected all actions cached"; exit 1; }
