@@ -1,18 +1,15 @@
 # Mock Yosys and OpenROAD for Seconds-Fast Configuration
 
+See [flow-linter-with-frc.md](../docs/flow-linter-with-frc.md) for the
+consolidated vision: why a linting flow is needed, FRC rule design, the
+training loop, and how this connects to the autotuner and GUI.
+
 ## Problem
 
-Setting up hierarchical synthesis for megaboom (93 modules, 35 memories)
-took **2.5+ hours of developer time** across 8+ failed iterations, despite
-the successful build itself taking only 7 minutes. Every single failure was
-detectable statically from the SystemVerilog source and BUILD.bazel
-configuration — no real synthesis or place-and-route was needed to find them.
-
-The root cause is a feedback loop measured in minutes (37 minutes for a
-single synthesis attempt), combined with cryptic error messages that don't
-explain what went wrong or how to fix it. Claude can close this loop
-autonomously — but only if it has a fast oracle that validates configuration
-in seconds, not minutes.
+The MegaBoom setup session (93 modules, 35 memories) took 2.5+ hours
+across 8+ failed iterations — every failure detectable statically.
+Details and the developer fatigue model are in the
+[flow linter doc](../docs/flow-linter-with-frc.md#the-feedback-loop-problem).
 
 ### The pain: a narrative with numbers
 
