@@ -40,7 +40,7 @@ if [ -n "$BAZEL_FILES" ]; then
 fi
 
 # MODULE.bazel.lock: regenerate for any changed MODULE.bazel (root + sub-modules)
-MODULE_FILES=$(git diff --name-only --diff-filter=d "$MERGE_BASE" -- '**/MODULE.bazel' 'MODULE.bazel' 2>/dev/null || true)
+MODULE_FILES=$(git diff --name-only --diff-filter=d "$MERGE_BASE" -- '**/MODULE.bazel' 'MODULE.bazel' 2>/dev/null | filter_ignored || true)
 for mf in $MODULE_FILES; do
     dir=$(dirname "$mf")
     # Only tidy if the module has a lockfile to update
