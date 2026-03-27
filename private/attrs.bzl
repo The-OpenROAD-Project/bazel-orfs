@@ -217,4 +217,12 @@ def yosys_attrs():
     return flow_attrs() | yosys_only_attrs()
 
 def openroad_attrs():
-    return flow_attrs() | openroad_only_attrs()
+    return flow_attrs() | openroad_only_attrs() | {
+        "substeps": attr.bool(
+            default = False,
+            doc = "When True, capture intermediate substep .odb files as " +
+                  "additional action outputs in per-substep output groups. " +
+                  "Enables shared cache of substep intermediates for " +
+                  "debugging via //:deps.",
+        ),
+    }

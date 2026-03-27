@@ -57,3 +57,57 @@ deps_output_group_test = rule(
     },
     test = True,
 )
+
+def _output_group_test_impl(ctx):
+    """Verifies a named output group exists and contains files."""
+    group_name = ctx.attr.output_group
+    info = ctx.attr.target[OutputGroupInfo]
+
+    # Access the output group by name via getattr
+    group = getattr(info, group_name, None)
+    if group == None:
+        fail("Target {} has no '{}' output group".format(
+            ctx.attr.target.label,
+            group_name,
+        ))
+
+    files = group.to_list()
+    if not files:
+        fail("Output group '{}' on {} is empty".format(
+            group_name,
+            ctx.attr.target.label,
+        ))
+
+    runner = ctx.actions.declare_file(ctx.attr.name + "_runner.sh")
+    ctx.actions.write(
+        output = runner,
+        is_executable = True,
+        content = """\
+#!/bin/sh
+echo "PASS: {label} has output group '{group}' with {count} file(s)"
+""".format(
+            label = ctx.attr.target.label,
+            group = group_name,
+            count = len(files),
+        ),
+    )
+
+    return [DefaultInfo(
+        executable = runner,
+        runfiles = ctx.runfiles(files = files),
+    )]
+
+output_group_test = rule(
+    implementation = _output_group_test_impl,
+    attrs = {
+        "target": attr.label(
+            mandatory = True,
+            doc = "Target to check for the named output group",
+        ),
+        "output_group": attr.string(
+            mandatory = True,
+            doc = "Name of the output group to verify",
+        ),
+    },
+    test = True,
+)

@@ -6,7 +6,7 @@ load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_g
 load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:ppa.bzl", "orfs_ppa")
 load("//:sweep.bzl", "orfs_sweep")
-load(":deps_output_group_rule.bzl", "deps_output_group_test")
+load(":deps_output_group_rule.bzl", "deps_output_group_test", "output_group_test")
 
 exports_files(
     glob([
@@ -953,4 +953,40 @@ deps_output_group_test(
 deps_output_group_test(
     name = "deps_output_group_squashed_test",
     target = ":lb_32x128_squashed_final_final",
+)
+
+# --- Substep output group tests: verify per-substep .odb caching ---
+
+# Flow with substeps=True to test intermediate .odb capture
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    arguments = LB_ARGS,
+    last_stage = "floorplan",
+    openroad = "@mock-openroad//src/bin:openroad",
+    previous_stage = {"floorplan": ":lb_32x128_synth"},
+    stage_sources = LB_STAGE_SOURCES,
+    substeps = True,
+    variant = "substeps",
+    verilog_files = LB_VERILOG_FILES,
+)
+
+# First substep: verifies chain starts correctly
+output_group_test(
+    name = "substep_first_output_group_test",
+    output_group = "substep_2_1_floorplan",
+    target = ":lb_32x128_substeps_floorplan",
+)
+
+# Last substep: verifies no conflict with final 2_floorplan.odb result
+output_group_test(
+    name = "substep_last_output_group_test",
+    output_group = "substep_2_4_floorplan_pdn",
+    target = ":lb_32x128_substeps_floorplan",
+)
+
+# deps output group still works alongside substeps=True
+deps_output_group_test(
+    name = "deps_output_group_substeps_test",
+    target = ":lb_32x128_substeps_floorplan",
 )
