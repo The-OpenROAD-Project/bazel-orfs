@@ -1,0 +1,34 @@
+Found gzip magic in file `external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz', decompressing using zlib.
+Found gzip magic in file `external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz', decompressing using zlib.
+Found gzip magic in file `external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz', decompressing using zlib.
+Found gzip magic in file `external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz', decompressing using zlib.
+
+21. Printing statistics.
+
+=== multiplier ===
+
+        +----------Local Count, excluding submodules.
+        |        +-Local Area, excluding submodules.
+        |        | 
+     5712        - wires
+     5837        - wire bits
+     4927        - public wires
+     5052        - public wire bits
+        5        - ports
+      130        - port bits
+     5183  666.889 cells
+      253   22.132   AND2x2_ASAP7_75t_R
+      315   27.556   AO21x1_ASAP7_75t_R
+      560   73.483   AO22x1_ASAP7_75t_R
+       17    2.479   AO33x2_ASAP7_75t_R
+      783  228.323   DFFHQNx1_ASAP7_75t_R
+      480   97.978   FAx1_ASAP7_75t_R
+      108   14.172   HAxp5_ASAP7_75t_R
+     2024    88.53   INVx1_ASAP7_75t_R
+        1    0.044   TIEHIx1_ASAP7_75t_R
+        1    0.044   TIELOx1_ASAP7_75t_R
+      641  112.149   XOR2x1_ASAP7_75t_R
+
+   Chip area for module '\multiplier': 666.889200
+     of which used for sequential elements: 228.322800 (34.24%)
+

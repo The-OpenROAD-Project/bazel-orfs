@@ -24,3 +24,27 @@ rm -f user.bazelrc
 ```
 
 This matches exactly what CI does. Without this, the "Lint and lockfile check" CI job will fail.
+
+## Gallery
+
+`gallery/` is a separate Bazel workspace with its own `MODULE.bazel`.
+It contains example ORFS designs that exercise bazel-orfs features.
+
+- **bazelisk** commands for gallery targets require `cd gallery` first
+- gallery uses `local_path_override(path = "..")` to reference bazel-orfs,
+  so changes to bazel-orfs rules are immediately visible in gallery builds
+- Gallery-specific skills are prefixed with `demo-` (e.g., `/demo-add`,
+  `/demo-debug`, `/demo-update`)
+- Gallery has its own `.bazelrc` and `user.bazelrc` (gitignored)
+
+### Human-only external actions
+
+Never run commands that create or modify external state. The human does
+all of these manually:
+
+- `gh pr create`, `gh issue create`, `gh pr merge`, `gh pr comment`
+- `git push` (to any remote)
+- Any GitHub API write (`gh api` with POST/PUT/PATCH/DELETE)
+
+Prepare the content (branch, issue markdown, PR description) and stop.
+The human reviews and publishes.

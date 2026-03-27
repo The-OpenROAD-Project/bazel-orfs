@@ -1,0 +1,21 @@
+load("@rules_chisel//chisel:defs.bzl", "chisel_library")
+
+chisel_library(
+    name = "boom_lib",
+    srcs = glob(
+        ["src/main/scala/v4/**/*.scala"],
+        exclude = [
+            # Test: references excluded groundtest package
+            "src/main/scala/v4/lsu/tracegen.scala",
+        ],
+    ),
+    deps = [
+        "@rocket_chip_boom//:rocket_chip_lib",
+        "@rocket_chip_boom//:rocket_chip_macros",
+        "@hardfloat_boom//:hardfloat_lib",
+        "@cde_boom//:cde_lib",
+        "@diplomacy_boom//:diplomacy_lib",
+        "@maven//:com_lihaoyi_sourcecode_2_13",
+    ],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,24 @@
+From 85d0d9d9e69b54c9d324f4e059d1ab5cbea43952 Mon Sep 17 00:00:00 2001
+From: Derek Chow <derekjchow@google.com>
+Date: Fri, 1 Aug 2025 10:32:22 -0700
+Subject: [PATCH 3/3] Fill in unreachable state in fpnew_divsqrt_th_32 fsm.
+
+---
+ src/fpnew_divsqrt_th_32.sv | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/fpnew_divsqrt_th_32.sv b/src/fpnew_divsqrt_th_32.sv
+index cb5b5f2..0cae2a3 100644
+--- a/src/fpnew_divsqrt_th_32.sv
++++ b/src/fpnew_divsqrt_th_32.sv
+@@ -145,7 +145,7 @@ module fpnew_divsqrt_th_32 #(
+   logic data_is_held;           // data in hold register is valid
+   logic unit_busy;              // valid data in flight
+   // FSM states
+-  typedef enum logic [1:0] {IDLE, BUSY, HOLD} fsm_state_e;
++  typedef enum logic [1:0] {IDLE, BUSY, HOLD, UNREACHABLE} fsm_state_e;
+   fsm_state_e state_q, state_d;
+
+   // Operations are gated by the FSM ready. Invalid input ops run a sqrt to not lose illegal instr.
+--
+2.50.1.565.gc32cd1483b-goog

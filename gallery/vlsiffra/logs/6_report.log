@@ -1,0 +1,70 @@
+OpenROAD 26Q1-1929-g7cf7b720fd 
+Features included (+) or not (-): +GPU +GUI +Python
+This program is licensed under the BSD-3 license. See the LICENSE file for details.
+Components of this program may be licensed under more restrictive licenses which must be honored.
+[INFO ORD-0030] Using 16 thread(s).
+source external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/liberty_suppressions.tcl
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib
+read_db -hier bazel-out/k8-fastbuild/bin/vlsiffra/results/asap7/multiplier/base/6_1_fill.odb
+[WARNING ORD-0012] Hierarchical flow (-hier) is currently in development and may cause multiple issues. Do not use in production environments.
+source external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/setRC.tcl
+write_db bazel-out/k8-fastbuild/bin/vlsiffra/results/asap7/multiplier/base/6_final.odb
+Deleted 0 routing obstructions
+[INFO RCX-0431] Defined process_corner X with ext_model_index 0
+[INFO RCX-0029] Defined extraction corner X
+[INFO RCX-0435] Reading extraction model file external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/rcx_patterns.rules ...
+[INFO RCX-0436] RC segment generation multiplier (max_merge_res 50.0) ...
+[INFO RCX-0040] Final 33759 rc segments
+[INFO RCX-0439] Coupling Cap extraction multiplier ...
+[INFO RCX-0440] Coupling threshhold is 0.1000 fF, coupling capacitance less than 0.1000 fF will be grounded.
+[INFO RCX-0442] 54% of 32936 wires extracted
+[INFO RCX-0442] 100% of 32936 wires extracted
+[INFO RCX-0045] Extract 6109 nets, 39865 rsegs, 39865 caps, 38803 ccs
+[INFO RCX-0443] 6109 nets finished
+[INFO PSM-0040] All shapes on net VDD are connected.
+########## IR report #################
+Net              : VDD
+Corner           : default
+Total power      : 2.28e-02 W
+Supply voltage   : 7.70e-01 V
+Worstcase voltage: 7.60e-01 V
+Average voltage  : 7.67e-01 V
+Average IR drop  : 2.65e-03 V
+Worstcase IR drop: 9.96e-03 V
+Percentage drop  : 1.29 %
+######################################
+[INFO PSM-0040] All shapes on net VSS are connected.
+########## IR report #################
+Net              : VSS
+Corner           : default
+Total power      : 2.28e-02 W
+Supply voltage   : 0.00e+00 V
+Worstcase voltage: 1.30e-02 V
+Average voltage  : 2.64e-03 V
+Average IR drop  : 2.64e-03 V
+Worstcase IR drop: 1.30e-02 V
+Percentage drop  : 1.69 %
+######################################
+Cell type report:                       Count       Area
+  Tie cell                                 89       3.89
+  Clock buffer                             70      18.46
+  Timing Repair Buffer                    140      13.18
+  Inverter                               2024      89.94
+  Clock inverter                           11       1.22
+  Sequential cell                         783     228.32
+  Multi-Input combinational cell         2374     350.72
+  Total                                  5491     705.74
+Report metrics stage 6, finish...
+
+==========================================================================
+finish report_design_area
+--------------------------------------------------------------------------
+Design area 706 um^2 43% utilization.
+[WARNING GUI-0076] QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-oyvind'
+Elapsed time: 0:09.19[h:]min:sec. CPU time: user 11.37 sys 1.08 (135%). Peak memory: 390712KB.
+Log                        Elapsed/s Peak Memory/MB  sha1sum .odb [0:20)
+6_report                           9            381                  N/A

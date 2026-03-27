@@ -1,0 +1,299 @@
+load("//:defs.bzl", "demo_sram")
+load("//:gallery.bzl", "demo_gallery_image")
+load("@bazel-orfs-verilog//:generate.bzl", "fir_library")
+load("@bazel-orfs-verilog//:verilog.bzl", "verilog_directory", "verilog_single_file_library")
+load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_synth")
+load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
+load(":kept.bzl", "KEPT_MODULES")
+
+# ============================================================================
+# Chisel → Verilog pipeline
+# ============================================================================
+
+chisel_binary(
+    name = "generator",
+    srcs = ["src/BoomGenerator.scala"],
+    main_class = "megaboom.generator.BoomGenerator",
+    deps = [
+        "@cde_boom//:cde_lib",
+        "@diplomacy_boom//:diplomacy_lib",
+        "@hardfloat_boom//:hardfloat_lib",
+        "@maven//:com_lihaoyi_sourcecode_2_13",
+        "@riscv_boom//:boom_lib",
+        "@rocket_chip_boom//:rocket_chip_lib",
+        "@rocket_chip_boom//:rocket_chip_macros",
+    ],
+)
+
+fir_library(
+    name = "boom_fir",
+    generator = ":generator",
+)
+
+verilog_directory(
+    name = "boom_sv_split",
+    srcs = [":boom_fir"],
+    opts = [
+        "--disable-all-randomization",
+        "--lowering-options=disallowPackedArrays,disallowLocalVariables,noAlwaysComb",
+    ],
+)
+
+verilog_single_file_library(
+    name = "boom_concat_sv",
+    srcs = [":boom_sv_split"],
+)
+
+genrule(
+    name = "boom_sv",
+    srcs = [":boom_concat_sv"],
+    outs = ["BoomTile.sv"],
+    cmd = "cp $< $@",
+)
+
+# ============================================================================
+# IO constraint filegroups
+# ============================================================================
+
+filegroup(
+    name = "io-sram",
+    srcs = ["io-sram.tcl"],
+    data = ["util.tcl"],
+)
+
+filegroup(
+    name = "io-sram-bottom",
+    srcs = ["io-sram-bottom.tcl"],
+    data = ["util.tcl"],
+)
+
+filegroup(
+    name = "io-boomtile",
+    srcs = ["io-boomtile.tcl"],
+    data = ["util.tcl"],
+)
+
+# ============================================================================
+# Shared settings
+# ============================================================================
+
+FAST_SETTINGS = {
+    "FILL_CELLS": "",
+    "SKIP_LAST_GASP": "1",
+    "SKIP_REPORT_METRICS": "1",
+    "SKIP_CTS_REPAIR_TIMING": "1",
+    "SKIP_INCREMENTAL_REPAIR": "1",
+    "GPL_ROUTABILITY_DRIVEN": "0",
+    "GPL_TIMING_DRIVEN": "0",
+    "TAPCELL_TCL": "",
+    "SYNTH_ARGS": "-noshare",
+}
+
+BLOCK_FLOORPLAN = {
+    "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
+}
+
+# ============================================================================
+# SRAM macro settings
+# ============================================================================
+
+SRAM_SETTINGS = FAST_SETTINGS | BLOCK_FLOORPLAN | {
+    "PLACE_PINS_ARGS": "-min_distance 1 -min_distance_in_tracks",
+    "CORE_UTILIZATION": "40",
+    "PLACE_DENSITY": "0.65",
+    "SETUP_SLACK_MARGIN": "-500",
+}
+
+SRAM_SOURCES = {
+    "SDC_FILE": [":constraints-sram.sdc"],
+    "IO_CONSTRAINTS": [":io-sram"],
+}
+
+SRAM_STAGE_SOURCES = {
+    "synth": [":constraints-sram.sdc"],
+    "floorplan": [":io-sram"],
+    "place": [":io-sram"],
+}
+
+# ============================================================================
+# All behavioral memory modules to blackbox during synthesis.
+# These are explicit RTL modules with reg arrays — SYNTH_MOCK_LARGE_MEMORIES
+# only handles Yosys-inferred $mem primitives, not named modules.
+# ============================================================================
+
+MEMORY_BLACKBOXES = [
+    "array_64x1024",
+    "bim_col_256x8",
+    "btb_data_way_128x56",
+    "btb_ebtb_128x40",
+    "btb_meta_way_128x120",
+    "dataArrayB_256x512",
+    "ghist_40x72",
+    "l2_tlb_ram_0_512x44",
+    "meta_40x240",
+    "ram_10x72",
+    "ram_15x118",
+    "ram_2x143",
+    "ram_2x146",
+    "ram_2x173",
+    "ram_2x186",
+    "ram_2x189",
+    "ram_2x413",
+    "ram_2x46",
+    "ram_2x60",
+    "ram_2x62",
+    "ram_4x552",
+    "ram_4x65",
+    "ram_8x64",
+    "ram_8x72",
+    "ram_sink_2x4",
+    "regfile_128x65",
+    "regfile_20x12",
+    "regfile_32x20",
+    "regfile_36x64",
+    "regfile_40x1",
+    "rob_compact_uop_mem_32x132",
+    "sdq_17x64",
+    "tag_array_64x152",
+    "tag_array_64x168",
+    "tage_table_128x44",
+    "tage_table_128x52",
+    "tage_table_256x48",
+    "tage_u_128x8",
+    "tage_u_256x8",
+]
+
+# ============================================================================
+# ICache test: small module with SRAM sub-macros (proof of concept)
+# ============================================================================
+
+demo_sram(
+    name = "dataArrayB_256x512",
+    arguments = SRAM_SETTINGS | {"CORE_ASPECT_RATIO": "4"},
+    mock_area = 10.0,
+    sources = SRAM_SOURCES,
+    stage_sources = SRAM_STAGE_SOURCES,
+    substeps = True,
+    verilog_files = [":boom_sv"],
+)
+
+demo_sram(
+    name = "tag_array_64x152",
+    arguments = SRAM_SETTINGS | {"CORE_ASPECT_RATIO": "4"},
+    mock_area = 1.5,
+    sources = SRAM_SOURCES,
+    stage_sources = SRAM_STAGE_SOURCES,
+    substeps = True,
+    verilog_files = [":boom_sv"],
+)
+
+icache_srams = [
+    "dataArrayB_256x512",
+    "tag_array_64x152",
+]
+
+orfs_flow(
+    name = "ICache",
+    arguments = FAST_SETTINGS | BLOCK_FLOORPLAN | {
+        "SYNTH_HIERARCHICAL": "0",
+        "PLACE_DENSITY": "0.3",
+        "CORE_UTILIZATION": "25",
+        "MACRO_PLACE_HALO": "4 4",
+        "PLACE_PINS_ARGS": "-annealing",
+    },
+    macros = [":" + m + "_generate_abstract" for m in icache_srams],
+    sources = {
+        "SDC_FILE": [":constraints-sram.sdc"],
+    },
+    stage_sources = {
+        "synth": [":constraints-sram.sdc"],
+    },
+    substeps = True,
+    verilog_files = [":boom_sv"],
+)
+
+# ============================================================================
+# Per-module netlist synthesis — each KEPT_MODULE gets its own Yosys/ABC
+# process as a separate Bazel action, running in parallel.
+# All other KEPT_MODULES + all memories are blackboxed.
+# ============================================================================
+
+ALL_BLACKBOXES = MEMORY_BLACKBOXES + KEPT_MODULES
+
+# Use orfs_synth directly (not orfs_flow) so we can set save_odb=False.
+# synth_odb fails on blackboxed modules that have no LEF masters;
+# save_odb=False skips it since we only need the .v netlist output.
+[orfs_synth(
+    name = name + "_netlist_synth",
+    arguments = FAST_SETTINGS | {
+        "SYNTH_BLACKBOXES": " ".join([b for b in ALL_BLACKBOXES if b != name]),
+    },
+    module_top = name,
+    save_odb = False,
+    sources = {
+        "SDC_FILE": [":constraints-module.sdc"],
+    },
+    tags = ["manual"],
+    verilog_files = [":boom_sv"],
+) for name in KEPT_MODULES]
+
+# Collect per-module netlists
+[filegroup(
+    name = "{name}_netlist".format(name = name),
+    srcs = ["{name}_netlist_synth".format(name = name)],
+    output_group = "1_2_yosys.v",
+) for name in KEPT_MODULES]
+
+filegroup(
+    name = "netlists",
+    srcs = [":{}_netlist".format(name) for name in KEPT_MODULES],
+)
+
+# ============================================================================
+# Test: verify per-module synthesis produces correct blackboxing
+# ============================================================================
+
+sh_test(
+    name = "test_hierarchical_synth",
+    srcs = ["test_hierarchical_synth.sh"],
+    data = [":netlists"] + [
+        ":{}_netlist_synth".format(name)
+        for name in KEPT_MODULES
+    ],
+    tags = ["manual"],
+)
+
+# ============================================================================
+# Survey: hierarchical synthesis with mocked memories to get module sizes
+# ============================================================================
+
+orfs_flow(
+    name = "BoomTile_survey",
+    arguments = FAST_SETTINGS | {
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_MINIMUM_KEEP_SIZE": "0",
+        "SYNTH_BLACKBOXES": " ".join(MEMORY_BLACKBOXES),
+        "DIE_AREA": "0 0 1000 1000",
+        "CORE_AREA": "2 2 998 998",
+        "PLACE_DENSITY": "0.40",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+        "PLACE_PINS_ARGS": "-annealing",
+    },
+    stage_sources = {
+        "synth": [":constraints.sdc"],
+        "floorplan": [":io-boomtile"],
+        "place": [":io-boomtile"],
+    },
+    substeps = True,
+    top = "BoomTile",
+    verilog_files = [":boom_sv"],
+)
+
+# ============================================================================
+# Gallery
+# ============================================================================
+
+demo_gallery_image(
+    name = "ICache_gallery",
+    src = ":ICache_place",
+)

@@ -1,0 +1,44 @@
+name: Gallery
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['gallery/**']
+  pull_request:
+    paths: ['gallery/**']
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    defaults:
+      run:
+        working-directory: gallery
+    steps:
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          docker-images: true
+          large-packages: false
+          swap-storage: false
+      - uses: actions/checkout@v4
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+          cache-version: 2
+      - name: Validate BUILD files
+        run: bazelisk query //...
+      - name: Test
+        run: bazelisk test ... --keep_going --build_tests_only --test_output=errors --experimental_disk_cache_gc_max_size=10G --profile=build.profile
+      - name: Analyze Profile
+        if: always()
+        run: bazelisk analyze-profile build.profile

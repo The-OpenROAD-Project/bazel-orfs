@@ -1,0 +1,15 @@
+--- a/rtl/top/tensor_processing_cluster.v	2026-03-25 08:11:50.818624892 +0100
++++ b/rtl/top/tensor_processing_cluster.v	2026-03-25 08:11:50.835966152 +0100
+@@ -289,11 +289,7 @@
+     wire [ARRAY_SIZE*ACC_WIDTH-1:0]  systolic_result;
+     wire systolic_result_valid;
+     
+-    systolic_array #(
+-        .ARRAY_SIZE (ARRAY_SIZE),
+-        .DATA_WIDTH (DATA_WIDTH),
+-        .ACC_WIDTH  (ACC_WIDTH)
+-    ) mxu_array (
++    systolic_array mxu_array (
+         .clk              (clk),
+         .rst_n            (rst_n),
+         .start            (mxu_start_array_d),

@@ -1,0 +1,52 @@
+_EXCLUDE = [
+    "rtl/memory/axi_memory_model.v",      # simulation only
+    "rtl/memory/memory_controller_wrapper.v",  # FPGA stubs
+]
+
+# All synthesizable RTL
+filegroup(
+    name = "rtl",
+    srcs = glob(["rtl/**/*.v"], exclude = _EXCLUDE),
+    visibility = ["//visibility:public"],
+)
+
+# mac_pe only (leaf macro)
+filegroup(
+    name = "mac_pe_rtl",
+    srcs = ["rtl/core/mac_pe.v"],
+    visibility = ["//visibility:public"],
+)
+
+# systolic_array — excludes mac_pe (provided as macro)
+filegroup(
+    name = "systolic_array_rtl",
+    srcs = glob(["rtl/**/*.v"], exclude = _EXCLUDE + ["rtl/core/mac_pe.v"]),
+    visibility = ["//visibility:public"],
+)
+
+# TPC and above — excludes mac_pe and systolic_array (both provided as macros)
+filegroup(
+    name = "tpc_rtl",
+    srcs = glob(
+        ["rtl/**/*.v"],
+        exclude = _EXCLUDE + [
+            "rtl/core/mac_pe.v",
+            "rtl/core/systolic_array.v",
+        ],
+    ),
+    visibility = ["//visibility:public"],
+)
+
+# Top-level — excludes mac_pe, systolic_array, and TPC (all provided as macros)
+filegroup(
+    name = "top_rtl",
+    srcs = glob(
+        ["rtl/**/*.v"],
+        exclude = _EXCLUDE + [
+            "rtl/core/mac_pe.v",
+            "rtl/core/systolic_array.v",
+            "rtl/top/tensor_processing_cluster.v",
+        ],
+    ),
+    visibility = ["//visibility:public"],
+)

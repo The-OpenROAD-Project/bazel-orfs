@@ -1,0 +1,75 @@
+Found gzip magic in file `external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz', decompressing using zlib.
+Found gzip magic in file `external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz', decompressing using zlib.
+Found gzip magic in file `external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz', decompressing using zlib.
+Found gzip magic in file `external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz', decompressing using zlib.
+
+21. Printing statistics.
+
+=== serv_rf_top ===
+
+        +----------Local Count, excluding submodules.
+        |        +-Local Area, excluding submodules.
+        |        | 
+     7897        - wires
+     8150        - wire bits
+       41        - public wires
+      294        - public wire bits
+       20        - ports
+      273        - port bits
+     8035  973.754 cells
+      272   23.795   AND2x2_ASAP7_75t_R
+       10    1.458   AND2x4_ASAP7_75t_R
+      396   34.642   AND3x1_ASAP7_75t_R
+        3    0.306   AND3x2_ASAP7_75t_R
+        3    0.612   AND3x4_ASAP7_75t_R
+       20    2.041   AND4x1_ASAP7_75t_R
+        1    0.117   AND4x2_ASAP7_75t_R
+        8    0.933   AND5x1_ASAP7_75t_R
+     1092   95.528   AO21x1_ASAP7_75t_R
+        1    0.102   AO21x2_ASAP7_75t_R
+       11    1.604   AO221x1_ASAP7_75t_R
+        1    0.131   AO22x1_ASAP7_75t_R
+        2    0.467   AO31x2_ASAP7_75t_R
+       12      1.4   AO32x1_ASAP7_75t_R
+        2    0.292   AO33x2_ASAP7_75t_R
+        3    0.525   AOI211x1_ASAP7_75t_R
+       49    5.715   AOI21x1_ASAP7_75t_R
+        6    0.875   AOI22x1_ASAP7_75t_R
+      588   42.865   BUFx2_ASAP7_75t_R
+       70    6.124   BUFx3_ASAP7_75t_R
+       10    1.166   BUFx4f_ASAP7_75t_R
+       17    2.479   BUFx6f_ASAP7_75t_R
+     1336  389.578   DFFHQNx1_ASAP7_75t_R
+        4    0.816   FAx1_ASAP7_75t_R
+        9    1.181   HAxp5_ASAP7_75t_R
+      709   31.012   INVx1_ASAP7_75t_R
+        2    0.117   INVx2_ASAP7_75t_R
+        1    0.131   MAJx2_ASAP7_75t_R
+     1165  101.914   NAND2x1_ASAP7_75t_R
+        1    0.146   NAND2x2_ASAP7_75t_R
+        1     0.16   NAND3x1_ASAP7_75t_R
+      742    64.91   NOR2x1_ASAP7_75t_R
+        1    0.146   NOR2x2_ASAP7_75t_R
+        2    0.321   NOR3x1_ASAP7_75t_R
+      663   77.332   OA211x2_ASAP7_75t_R
+      414   42.253   OA21x2_ASAP7_75t_R
+        1    0.175   OA222x2_ASAP7_75t_R
+        1    0.146   OA22x2_ASAP7_75t_R
+        6    1.312   OA31x2_ASAP7_75t_R
+       27    3.937   OA33x2_ASAP7_75t_R
+       35    4.082   OAI21x1_ASAP7_75t_R
+        1    0.146   OAI22x1_ASAP7_75t_R
+       32    2.799   OR2x2_ASAP7_75t_R
+        1    0.175   OR2x6_ASAP7_75t_R
+      262    22.92   OR3x1_ASAP7_75t_R
+        3    0.306   OR3x2_ASAP7_75t_R
+       25    2.551   OR4x1_ASAP7_75t_R
+        3     0.35   OR5x1_ASAP7_75t_R
+        1    0.044   TIELOx1_ASAP7_75t_R
+        1    0.175   XNOR2x1_ASAP7_75t_R
+        6    0.962   XNOR2x2_ASAP7_75t_R
+        3    0.481   XOR2x2_ASAP7_75t_R
+
+   Chip area for module '\serv_rf_top': 973.754460
+     of which used for sequential elements: 389.577600 (40.01%)
+

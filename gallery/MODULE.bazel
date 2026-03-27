@@ -1,0 +1,352 @@
+module(
+    name = "gallery",
+    version = "0.0.1",
+    compatibility_level = 1,
+)
+
+bazel_dep(name = "bazel_skylib", version = "1.7.1")
+
+# --- bazel-orfs: RTL-to-GDS flow (parent directory) ---
+
+bazel_dep(name = "bazel-orfs")
+local_path_override(
+    module_name = "bazel-orfs",
+    path = "..",
+)
+
+# --- Lint binaries (seconds-fast flow linter) ---
+
+bazel_dep(name = "lint-tcl", version = "0.0.1")
+local_path_override(
+    module_name = "lint-tcl",
+    path = "lint/tcl",
+)
+
+bazel_dep(name = "lint-openroad", version = "0.0.1")
+local_path_override(
+    module_name = "lint-openroad",
+    path = "lint/openroad",
+)
+
+bazel_dep(name = "lint-yosys", version = "0.0.1")
+local_path_override(
+    module_name = "lint-yosys",
+    path = "lint/yosys",
+)
+
+orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
+orfs.default(
+    image = "docker.io/openroad/orfs:26Q1-737-g2565e815a",
+    sha256 = "987073e847767a2856c3803d0ed9509a33f16f3ff2a6e01855a323458af5a940",
+)
+use_repo(orfs, "docker_orfs")
+
+# Uncomment to build OpenROAD from source instead of using the docker image.
+# This is useful to test the latest OpenROAD before the docker image is updated.
+# See: https://github.com/The-OpenROAD-Project/bazel-orfs/blob/main/docs/openroad.md
+#
+# bazel_dep(name = "openroad")
+# git_override(
+#     module_name = "openroad",
+#     commit = "8b95fedee8f821345eb96ecc398f66678919bf9f",
+#     init_submodules = True,
+#     patch_strip = 1,
+#     patches = ["@bazel-orfs//:openroad-llvm-root-only.patch", "@bazel-orfs//:openroad-visibility.patch"],
+#     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
+# )
+# bazel_dep(name = "qt-bazel")
+# git_override(
+#     module_name = "qt-bazel",
+#     commit = "df022f4ebaa4130713692fffd2f519d49e9d0b97",
+#     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
+# )
+# bazel_dep(name = "toolchains_llvm", version = "1.5.0")
+
+# --- rules_scala + Chisel: for building Chisel projects (Gemmini, etc.) ---
+
+bazel_dep(name = "rules_chisel", version = "0.3.0")
+bazel_dep(name = "rules_verilator", version = "0.1.0")
+bazel_dep(name = "bazel-orfs-verilog")
+local_path_override(
+    module_name = "bazel-orfs-verilog",
+    path = "../verilog",
+)
+
+# Import chisel_maven repo for chisel_library/chisel_binary rules.
+chisel = use_extension("@rules_chisel//chisel:extensions.bzl", "chisel")
+chisel.toolchain()
+use_repo(chisel, "chisel_maven")
+
+bazel_dep(name = "rules_jvm_external", version = "6.7")
+bazel_dep(name = "rules_java", version = "8.14.0")
+bazel_dep(name = "rules_scala", version = "7.1.5")
+
+scala_config = use_extension(
+    "@rules_scala//scala/extensions:config.bzl",
+    "scala_config",
+)
+scala_config.settings(scala_version = "2.13.17")
+use_repo(scala_config, "rules_scala_config")
+
+scala_deps = use_extension(
+    "@rules_scala//scala/extensions:deps.bzl",
+    "scala_deps",
+)
+scala_deps.scala()
+scala_deps.scalatest()
+use_repo(scala_deps, "rules_scala_toolchains")
+
+maven = use_extension(
+    "@rules_jvm_external//:extensions.bzl",
+    "maven",
+)
+maven.install(
+    artifacts = [
+        # Chisel 7
+        "org.chipsalliance:chisel_2.13:7.2.0",
+        "org.chipsalliance:chisel-plugin_2.13.17:7.2.0",
+        "org.chipsalliance:firtool-resolver_2.13:2.0.1",
+        # Chisel deps
+        "com.github.scopt:scopt_2.13:4.1.0",
+        "com.lihaoyi:os-lib_2.13:0.10.0",
+        "com.chuusai:shapeless_2.13:2.3.12",
+        "io.circe:circe-core_2.13:0.14.4",
+        "io.circe:circe-generic_2.13:0.14.4",
+        "io.circe:circe-generic-extras_2.13:0.14.4",
+        "io.circe:circe-parser_2.13:0.14.4",
+        "org.typelevel:cats-core_2.13:2.10.0",
+        "org.typelevel:cats-kernel_2.13:2.10.0",
+        "org.scalatest:scalatest_2.13:3.2.19",
+        "org.scalameta:semanticdb-scalac_2.13.17:4.14.1",
+        # MegaBoom (rocket-chip) deps
+        "org.json4s:json4s-jackson_2.13:4.0.5",
+        "com.lihaoyi:mainargs_2.13:0.5.0",
+        "com.lihaoyi:sourcecode_2.13:0.3.1",
+    ],
+    repositories = [
+        "https://repo1.maven.org/maven2",
+        "https://s01.oss.sonatype.org/content/repositories/releases",
+    ],
+)
+use_repo(maven, "maven")
+
+# --- rules_python: for generating RTL from Amaranth HDL ---
+
+bazel_dep(name = "rules_python", version = "1.4.1")
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(python_version = "3.13")
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "pip",
+    python_version = "3.13",
+    requirements_lock = "//:requirements_lock.txt",
+)
+use_repo(pip, "pip")
+
+# --- External RTL projects (fetched by Bazel, no source copying) ---
+
+http_archive = use_repo_rule(
+    "@bazel_tools//tools/build_defs/repo:http.bzl",
+    "http_archive",
+)
+
+http_archive(
+    name = "picorv32",
+    build_file = "//picorv32:external.BUILD.bazel",
+    sha256 = "e19413edc589a9022eb96a8c436170ea5019236bb897ac9eb7813899920ea70c",
+    strip_prefix = "picorv32-87c89acc18994c8cf9a2311e871818e87d304568",
+    urls = ["https://github.com/YosysHQ/picorv32/archive/87c89acc18994c8cf9a2311e871818e87d304568.tar.gz"],
+)
+
+http_archive(
+    name = "vlsiffra",
+    build_file = "//vlsiffra:external.BUILD.bazel",
+    sha256 = "983cb8958db4887b4368a120815b00f066a3c497c2cc94f5b633cd32d8d9443d",
+    strip_prefix = "vlsiffra-22e7acc55020f5f09092dd37b765191549b57ada",
+    urls = ["https://github.com/antonblanchard/vlsiffra/archive/22e7acc55020f5f09092dd37b765191549b57ada.tar.gz"],
+)
+
+http_archive(
+    name = "serv",
+    build_file = "//serv:external.BUILD.bazel",
+    sha256 = "a6833ce7fc7548b03a64b6613c36b9a8efc61127890f343f9bf09db13af24e38",
+    strip_prefix = "serv-f5ddfaa6378a958f0797146a6f8b2bcf72ce4e3b",
+    urls = ["https://github.com/olofk/serv/archive/f5ddfaa6378a958f0797146a6f8b2bcf72ce4e3b.tar.gz"],
+)
+
+http_archive(
+    name = "gemmini",
+    build_file = "//gemmini:external.BUILD.bazel",
+    patch_args = ["-p1"],
+    patches = ["//gemmini:patches/chisel7-compat.patch"],
+    sha256 = "943f721ce57293aec17423849c19f3a512293329767f4d0a92cd5310961443aa",
+    strip_prefix = "gemmini-8c3f9923a44a2fe2c7930587be297d6d4f8c09ca",
+    urls = ["https://github.com/ucb-bar/gemmini/archive/8c3f9923a44a2fe2c7930587be297d6d4f8c09ca.tar.gz"],
+)
+
+http_archive(
+    name = "coralnpu",
+    build_file = "//coralnpu:external.BUILD.bazel",
+    patch_args = ["-p1"],
+    patch_cmds = [
+        # The diff-style patch empties BUILD files instead of deleting them.
+        # Empty BUILD files create Bazel packages that block root-level globs.
+        "find . -name BUILD -empty -delete",
+        "find . -name BUILD.bazel -empty -delete",
+        # Fix BlackBox resource paths for Bazel classpath (no resource_strip_prefix).
+        """sed -i 's|addResource("ClockGate.sv")|addResource("hdl/verilog/ClockGate.sv")|' hdl/chisel/src/coralnpu/ClockGate.scala""",
+        """sed -i 's|addResource("RstSync.sv")|addResource("hdl/verilog/RstSync.sv")|' hdl/chisel/src/coralnpu/RstSync.scala""",
+    ],
+    patches = ["//coralnpu:patches/chisel7-compat.patch"],
+    sha256 = "39ba6fff9342f2be2b3c8cfad4dd82a1d2481b53b67963d3248461562b81d042",
+    strip_prefix = "coralnpu-04c48f55d0f9933f6fea69c429e1790e0ae18647",
+    urls = ["https://github.com/google-coral/coralnpu/archive/04c48f55d0f9933f6fea69c429e1790e0ae18647.tar.gz"],
+)
+
+http_archive(
+    name = "rocket_chip",
+    build_file = "//coralnpu:rocket_chip.BUILD.bazel",
+    sha256 = "76076a7e7538dd347074d7dc056cfa6219a6dfdeed58bb47c848b435f27c30f8",
+    strip_prefix = "rocket-chip-f517abbf41abb65cea37421d3559f9739efd00a9",
+    urls = ["https://github.com/chipsalliance/rocket-chip/archive/f517abbf41abb65cea37421d3559f9739efd00a9.tar.gz"],
+)
+
+http_archive(
+    name = "diplomacy",
+    build_file = "//coralnpu:diplomacy.BUILD.bazel",
+    sha256 = "33a66aa60e565b9665dcfc93020f5acf64710a7dc4f2b164752544ec5a946256",
+    strip_prefix = "diplomacy-6590276fa4dac315ae7c7c01371b954c5687a473",
+    urls = ["https://github.com/chipsalliance/diplomacy/archive/6590276fa4dac315ae7c7c01371b954c5687a473.tar.gz"],
+)
+
+http_archive(
+    name = "common_cells",
+    build_file = "//coralnpu:common_cells.BUILD.bazel",
+    sha256 = "ea112e598908b9cfd03254aeb676ff8b51196b186ab00bdb5e2ad90a73a3055e",
+    strip_prefix = "common_cells-6aeee85d0a34fedc06c14f04fd6363c9f7b4eeea",
+    urls = ["https://github.com/pulp-platform/common_cells/archive/6aeee85d0a34fedc06c14f04fd6363c9f7b4eeea.tar.gz"],
+)
+
+http_archive(
+    name = "cvfpu",
+    build_file = "//coralnpu:cvfpu.BUILD.bazel",
+    patch_args = ["-p1"],
+    patches = [
+        "//coralnpu:patches/cvfpu-0001-max_num_lanes.patch",
+        "//coralnpu:patches/cvfpu-0003-fill-unreachable.patch",
+    ],
+    sha256 = "1446d4528bcff472ea50f656f529c7dd126b117587c0b334d391cbd1e0997553",
+    strip_prefix = "cvfpu-58ca3c376beb914b2b80b811d4b270c063d4e6f7",
+    urls = ["https://github.com/openhwgroup/cvfpu/archive/58ca3c376beb914b2b80b811d4b270c063d4e6f7.tar.gz"],
+)
+
+http_archive(
+    name = "fpu_div_sqrt_mvp",
+    build_file = "//coralnpu:fpu_div_sqrt_mvp.BUILD.bazel",
+    sha256 = "2647be453d3dbb7315d7018235ab64b9178ed387c3ff0d2f48d106bac6ab2ece",
+    strip_prefix = "fpu_div_sqrt_mvp-86e1f558b3c95e91577c41b2fc452c86b04e85ac",
+    urls = ["https://github.com/pulp-platform/fpu_div_sqrt_mvp/archive/86e1f558b3c95e91577c41b2fc452c86b04e85ac.tar.gz"],
+)
+
+http_archive(
+    name = "cva6",
+    build_file = "//cva6:external.BUILD.bazel",
+    sha256 = "fb187a141171891db56d0ce52f6d3f56665df7829fd792a8511ed963c704bb22",
+    strip_prefix = "cva6-02e11e3b9d9e6a087dc4811b933bf0cc80156e1a",
+    urls = ["https://github.com/openhwgroup/cva6/archive/02e11e3b9d9e6a087dc4811b933bf0cc80156e1a.tar.gz"],
+)
+
+http_archive(
+    name = "cv_hpdcache",
+    build_file = "//cva6:hpdcache.BUILD.bazel",
+    sha256 = "1be6a5fbfd36b3291612964791cb3d6edc4cb7d6ddc2f9025bf141261db2ba71",
+    strip_prefix = "cv-hpdcache-04de80896981527c34fbbd35d7b1ef787a082d7c",
+    urls = ["https://github.com/openhwgroup/cv-hpdcache/archive/04de80896981527c34fbbd35d7b1ef787a082d7c.tar.gz"],
+)
+
+http_archive(
+    name = "tensor_accelerator",
+    build_file = "//tensor_accelerator:external.BUILD.bazel",
+    patch_args = ["-p1"],
+    patches = [
+        "//tensor_accelerator:patches/remove-mac-pe-params.patch",
+        "//tensor_accelerator:patches/remove-systolic-params.patch",
+        "//tensor_accelerator:patches/remove-tpc-params.patch",
+    ],
+    sha256 = "e61cff08800d6ca143fa4b1fa6e759d6c811a935a719ce9baaf709d618e95427",
+    strip_prefix = "tensor_accelerator-ae1078d296a995925c81f5ae643a4574d5971589",
+    urls = ["https://github.com/profitmonk/tensor_accelerator/archive/ae1078d296a995925c81f5ae643a4574d5971589.tar.gz"],
+)
+
+http_archive(
+    name = "genben",
+    build_file = "//genben:external.BUILD.bazel",
+    patch_cmds = [
+        # Remove _ref suffix from all module names so the top module is just "CPU"
+        "sed -i 's/_ref\\b//g' data/Design/GA_94/ref.v",
+        # Fix trailing commas before ); in port lists (illegal in strict Verilog)
+        "sed -i -E ':a;N;$!ba;s/,([[:space:]]*\\);)/\\1/g' data/Design/GA_94/ref.v",
+    ],
+    sha256 = "22a27982fc10d9fba27828a955a551d017bf0195bede283a0f9ae58de50cead8",
+    strip_prefix = "GenBen-a103f9a892e31bd1c410fe23663bc89f029c6fe9",
+    urls = ["https://github.com/ChatDesignVerification/GenBen/archive/a103f9a892e31bd1c410fe23663bc89f029c6fe9.tar.gz"],
+)
+
+http_archive(
+    name = "pymtl3",
+    build_file = "//pymtl3:external.BUILD.bazel",
+    sha256 = "6f9d604be19f4ed12391890dc5a5cc4ce97337550259bdb58afbef55b33ec7a5",
+    strip_prefix = "pymtl3-ea5ca68eb2c44b849938434ab147fc91af169e76",
+    urls = ["https://github.com/pymtl/pymtl3/archive/ea5ca68eb2c44b849938434ab147fc91af169e76.tar.gz"],
+)
+
+# --- MegaBoom: BOOM from Chisel source (separate _boom archives to avoid conflicts with coralnpu) ---
+
+http_archive(
+    name = "cde_boom",
+    build_file = "//megaboom:cde.BUILD.bazel",
+    sha256 = "08e8e8ee01ae1d11c797c18a9edc67a48702b7f888b95ea40996aa89544354e3",
+    strip_prefix = "cde-2bcaeae2b9914bd25497ce3c6fa62dc5ca80e09f",
+    urls = ["https://github.com/chipsalliance/cde/archive/2bcaeae2b9914bd25497ce3c6fa62dc5ca80e09f.tar.gz"],
+)
+
+http_archive(
+    name = "diplomacy_boom",
+    build_file = "//megaboom:diplomacy.BUILD.bazel",
+    sha256 = "e09ed74c45d1dc857cf68feaa0b86c614fe490c06707f3f05bf53f3d39a010d5",
+    strip_prefix = "diplomacy-fe5e131d4fc8adec14a3ce4a4935bb5c0a269871",
+    urls = ["https://github.com/chipsalliance/diplomacy/archive/fe5e131d4fc8adec14a3ce4a4935bb5c0a269871.tar.gz"],
+)
+
+http_archive(
+    name = "hardfloat_boom",
+    build_file = "//megaboom:hardfloat.BUILD.bazel",
+    sha256 = "aa8ffae35404dc827b7d336a758ae52ad011e388b13ed8230c9a163cc094eabb",
+    strip_prefix = "berkeley-hardfloat-072fe42b1cfc2ead6ca56e725adf964ec06f9a4c",
+    urls = ["https://github.com/ucb-bar/berkeley-hardfloat/archive/072fe42b1cfc2ead6ca56e725adf964ec06f9a4c.tar.gz"],
+)
+
+http_archive(
+    name = "rocket_chip_boom",
+    build_file = "//megaboom:rocket-chip.BUILD.bazel",
+    patch_args = ["-p1"],
+    # Chisel 7 compat: remove tests, stub formal/debug, fix os-lib.
+    # Generated by: megaboom/scripts/patch_rocket_chip.py (with unit tests)
+    patches = ["//megaboom:patches/rocket-chip-chisel7.patch"],
+    sha256 = "ddc6b9aa7d0bbe24731588c9ca6cd3a1dcde08bf2e2845115fdf3e3a05c35626",
+    strip_prefix = "rocket-chip-885dd5966a49ce19512e3cc3275515926e729ba2",
+    urls = ["https://github.com/chipsalliance/rocket-chip/archive/885dd5966a49ce19512e3cc3275515926e729ba2.tar.gz"],
+)
+
+http_archive(
+    name = "riscv_boom",
+    build_file = "//megaboom:external.BUILD.bazel",
+    patch_args = ["-p1"],
+    # Chisel 7.2.0 compat: type annotations, Instance→Module, TLEdgeOut hints
+    patches = ["//megaboom:patches/boom-chisel7.patch"],
+    sha256 = "378e00a8ef95deb05960e247883f0cc3546e05aa55d5c318963f69246c1bafb9",
+    strip_prefix = "riscv-boom-af3023c5ef22d6a19e2f4608b29f61c37419c115",
+    urls = ["https://github.com/riscv-boom/riscv-boom/archive/af3023c5ef22d6a19e2f4608b29f61c37419c115.tar.gz"],
+)

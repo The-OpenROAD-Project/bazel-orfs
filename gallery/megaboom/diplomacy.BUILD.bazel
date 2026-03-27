@@ -1,0 +1,11 @@
+load("@rules_chisel//chisel:defs.bzl", "chisel_library")
+
+chisel_library(
+    name = "diplomacy_lib",
+    srcs = glob(["diplomacy/src/**/*.scala"]),
+    deps = [
+        "@cde_boom//:cde_lib",
+        "@maven//:com_lihaoyi_sourcecode_2_13",
+    ],
+    visibility = ["//visibility:public"],
+)

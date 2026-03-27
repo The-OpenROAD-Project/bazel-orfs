@@ -1,0 +1,67 @@
+Found gzip magic in file `external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz', decompressing using zlib.
+Found gzip magic in file `external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz', decompressing using zlib.
+Found gzip magic in file `external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz', decompressing using zlib.
+Found gzip magic in file `external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz', decompressing using zlib.
+
+21. Printing statistics.
+
+=== MeshWithDelays ===
+
+        +----------Local Count, excluding submodules.
+        |        +-Local Area, excluding submodules.
+        |        | 
+    49832        - wires
+    50140        - wire bits
+     1168        - public wires
+     1476        - public wire bits
+       49        - ports
+      357        - port bits
+    47600 5.61E+03 cells
+     2636  230.597   AND2x2_ASAP7_75t_R
+     1213  106.113   AND3x1_ASAP7_75t_R
+      270   27.556   AND4x1_ASAP7_75t_R
+       42    4.899   AND5x1_ASAP7_75t_R
+       48   11.197   AO211x2_ASAP7_75t_R
+     4750   415.53   AO21x1_ASAP7_75t_R
+      830  121.014   AO221x1_ASAP7_75t_R
+       85   14.872   AO222x2_ASAP7_75t_R
+      652   85.555   AO22x1_ASAP7_75t_R
+       53   12.364   AO31x2_ASAP7_75t_R
+      172   20.062   AO32x1_ASAP7_75t_R
+        6    0.875   AO33x2_ASAP7_75t_R
+      142   24.844   AOI211x1_ASAP7_75t_R
+     1316  153.498   AOI21x1_ASAP7_75t_R
+       77   15.717   AOI221x1_ASAP7_75t_R
+      186   27.119   AOI22x1_ASAP7_75t_R
+     3383  246.621   BUFx2_ASAP7_75t_R
+        9    0.787   BUFx3_ASAP7_75t_R
+     4798  1.4E+03   DFFHQNx1_ASAP7_75t_R
+      913  186.362   FAx1_ASAP7_75t_R
+     1503  197.224   HAxp5_ASAP7_75t_R
+     4788  209.427   INVx1_ASAP7_75t_R
+        3    0.175   INVx2_ASAP7_75t_R
+        4    0.525   MAJx2_ASAP7_75t_R
+     3333  291.571   NAND2x1_ASAP7_75t_R
+        1    0.146   NAND2x2_ASAP7_75t_R
+       84   13.472   NAND3x1_ASAP7_75t_R
+     2382  208.377   NOR2x1_ASAP7_75t_R
+       59    9.462   NOR3x1_ASAP7_75t_R
+     3260  380.246   OA211x2_ASAP7_75t_R
+     3969  405.076   OA21x2_ASAP7_75t_R
+        1    0.233   OA221x2_ASAP7_75t_R
+      136   23.795   OA222x2_ASAP7_75t_R
+      287   41.845   OA22x2_ASAP7_75t_R
+       95   20.776   OA31x2_ASAP7_75t_R
+       21    3.062   OA33x2_ASAP7_75t_R
+      431   50.272   OAI21x1_ASAP7_75t_R
+      153   22.307   OAI22x1_ASAP7_75t_R
+      996    87.13   OR2x2_ASAP7_75t_R
+     2250   196.83   OR3x1_ASAP7_75t_R
+      318   32.455   OR4x1_ASAP7_75t_R
+      109   12.714   OR5x1_ASAP7_75t_R
+     1032  165.512   XNOR2x2_ASAP7_75t_R
+      804  128.946   XOR2x2_ASAP7_75t_R
+
+   Chip area for module '\MeshWithDelays': 5606.257860
+     of which used for sequential elements: 1399.096800 (24.96%)
+

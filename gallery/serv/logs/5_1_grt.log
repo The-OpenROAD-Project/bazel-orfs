@@ -1,0 +1,194 @@
+OpenROAD 26Q1-1929-g7cf7b720fd 
+Features included (+) or not (-): +GPU +GUI +Python
+This program is licensed under the BSD-3 license. See the LICENSE file for details.
+Components of this program may be licensed under more restrictive licenses which must be honored.
+[INFO ORD-0030] Using 16 thread(s).
+source external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/liberty_suppressions.tcl
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib
+read_db -hier bazel-out/k8-fastbuild/bin/serv/results/asap7/serv_rf_top/base/4_cts.odb
+[WARNING ORD-0012] Hierarchical flow (-hier) is currently in development and may cause multiple issues. Do not use in production environments.
+source external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/setRC.tcl
+pin_access
+[INFO DRT-0149] Reading tech and libs.
+
+Units:                1000
+Number of layers:     21
+Number of macros:     212
+Number of vias:       15
+Number of viarulegen: 11
+
+[INFO DRT-0150] Reading design.
+
+Design:                   serv_rf_top
+Die area:                 ( 0 0 ) ( 51339 51339 )
+Number of track patterns: 32
+Number of DEF vias:       0
+Number of components:     8397
+Number of terminals:      275
+Number of snets:          2
+Number of nets:           8455
+
+[INFO DRT-0167] List of default vias:
+  Layer V2
+    default via: VIA23
+  Layer V3
+    default via: VIA34
+  Layer V4
+    default via: VIA45
+  Layer V5
+    default via: VIA56
+  Layer V6
+    default via: VIA67
+  Layer V7
+    default via: VIA78
+  Layer V8
+    default via: VIA89
+  Layer V9
+    default via: VIA9Pad
+[INFO DRT-0162] Library cell analysis.
+[INFO DRT-0163] Instance analysis.
+[INFO DRT-0164] Number of unique instances = 176.
+[INFO DRT-0168] Init region query.
+[INFO DRT-0024]   Complete Active.
+[INFO DRT-0024]   Complete V0.
+[INFO DRT-0024]   Complete M1.
+[INFO DRT-0024]   Complete V1.
+[INFO DRT-0024]   Complete M2.
+[INFO DRT-0024]   Complete V2.
+[INFO DRT-0024]   Complete M3.
+[INFO DRT-0024]   Complete V3.
+[INFO DRT-0024]   Complete M4.
+[INFO DRT-0024]   Complete V4.
+[INFO DRT-0024]   Complete M5.
+[INFO DRT-0024]   Complete V5.
+[INFO DRT-0024]   Complete M6.
+[INFO DRT-0024]   Complete V6.
+[INFO DRT-0024]   Complete M7.
+[INFO DRT-0024]   Complete V7.
+[INFO DRT-0024]   Complete M8.
+[INFO DRT-0024]   Complete V8.
+[INFO DRT-0024]   Complete M9.
+[INFO DRT-0024]   Complete V9.
+[INFO DRT-0024]   Complete Pad.
+[INFO DRT-0033] Active shape region query size = 0.
+[INFO DRT-0033] V0 shape region query size = 0.
+[INFO DRT-0033] M1 shape region query size = 152195.
+[INFO DRT-0033] V1 shape region query size = 262599.
+[INFO DRT-0033] M2 shape region query size = 6222.
+[INFO DRT-0033] V2 shape region query size = 5490.
+[INFO DRT-0033] M3 shape region query size = 5490.
+[INFO DRT-0033] V3 shape region query size = 3660.
+[INFO DRT-0033] M4 shape region query size = 3898.
+[INFO DRT-0033] V4 shape region query size = 3660.
+[INFO DRT-0033] M5 shape region query size = 2075.
+[INFO DRT-0033] V5 shape region query size = 420.
+[INFO DRT-0033] M6 shape region query size = 228.
+[INFO DRT-0033] V6 shape region query size = 0.
+[INFO DRT-0033] M7 shape region query size = 0.
+[INFO DRT-0033] V7 shape region query size = 0.
+[INFO DRT-0033] M8 shape region query size = 0.
+[INFO DRT-0033] V8 shape region query size = 0.
+[INFO DRT-0033] M9 shape region query size = 0.
+[INFO DRT-0033] V9 shape region query size = 0.
+[INFO DRT-0033] Pad shape region query size = 0.
+[INFO DRT-0165] Start pin access.
+[INFO DRT-0078]   Complete 984 pins.
+[INFO DRT-0079]   Complete 100 unique inst patterns.
+[INFO DRT-0081]   Complete 176 unique inst patterns.
+[INFO DRT-0084]   Complete 5076 groups.
+#scanned instances     = 8397
+#unique  instances     = 176
+#stdCellGenAp          = 4913
+#stdCellValidPlanarAp  = 25
+#stdCellValidViaAp     = 4150
+#stdCellPinNoAp        = 0
+#stdCellPinCnt         = 27328
+#instTermValidViaApCnt = 0
+#macroGenAp            = 0
+#macroValidPlanarAp    = 0
+#macroValidViaAp       = 0
+#macroNoAp             = 0
+[INFO DRT-0166] Complete pin access.
+[INFO DRT-0267] cpu time = 00:03:42, elapsed time = 00:00:14, memory = 257.41 (MB), peak = 256.16 (MB)
+Took 15 seconds: pin_access
+global_route -congestion_report_file bazel-out/k8-fastbuild/bin/serv/reports/asap7/serv_rf_top/base/congestion.rpt -congestion_iterations 30 -congestion_report_iter_step 5 -verbose
+[INFO GRT-0020] Min routing layer: M2
+[INFO GRT-0021] Max routing layer: M7
+[INFO GRT-0022] Global adjustment: 0%
+[INFO GRT-0023] Grid origin: (0, 0)
+[INFO GRT-0088] Layer M1      Track-Pitch = 0.0360  line-2-Via Pitch: 0.0360
+[INFO GRT-0088] Layer M2      Track-Pitch = 0.0390  line-2-Via Pitch: 0.0360
+[INFO GRT-0088] Layer M3      Track-Pitch = 0.0360  line-2-Via Pitch: 0.0360
+[INFO GRT-0088] Layer M4      Track-Pitch = 0.0480  line-2-Via Pitch: 0.0480
+[INFO GRT-0088] Layer M5      Track-Pitch = 0.0480  line-2-Via Pitch: 0.0480
+[INFO GRT-0088] Layer M6      Track-Pitch = 0.0640  line-2-Via Pitch: 0.0640
+[INFO GRT-0088] Layer M7      Track-Pitch = 0.0640  line-2-Via Pitch: 0.0640
+[INFO GRT-0003] Macros: 0
+[INFO GRT-0004] Blockages: 4008
+[INFO GRT-0019] Found 73 clock nets.
+[INFO GRT-0001] Minimum degree: 2
+[INFO GRT-0002] Maximum degree: 26
+
+[INFO GRT-0053] Routing resources analysis:
+          Routing      Original      Derated      Resource
+Layer     Direction    Resources     Resources    Reduction (%)
+---------------------------------------------------------------
+M1         Vertical            0             0          0.00%
+M2         Horizontal      96081         69394          27.78%
+M3         Vertical       121608         90169          25.85%
+M4         Horizontal      93214         69113          25.86%
+M5         Vertical        89838         66495          25.98%
+M6         Horizontal      62678         42840          31.65%
+M7         Vertical        71378         48060          32.67%
+---------------------------------------------------------------
+
+[INFO GRT-0197] Via related to pin nodes: 50168
+[INFO GRT-0198] Via related Steiner nodes: 1637
+[INFO GRT-0199] Via filling finished.
+[INFO GRT-0111] Final number of vias: 65166
+[INFO GRT-0112] Final usage 3D: 260060
+
+[INFO GRT-0096] Final congestion report:
+Layer         Resource        Demand        Usage (%)    Max H / Max V / Total Overflow
+---------------------------------------------------------------------------------------
+M1                   0             0            0.00%             0 /  0 /  0
+M2               69394         24207           34.88%             0 /  0 /  0
+M3               90169         28342           31.43%             0 /  0 /  0
+M4               69113          8673           12.55%             0 /  0 /  0
+M5               66495          3271            4.92%             0 /  0 /  0
+M6               42840            69            0.16%             0 /  0 /  0
+M7               48060             0            0.00%             0 /  0 /  0
+---------------------------------------------------------------------------------------
+Total           386071         64562           16.72%             0 /  0 /  0
+
+[INFO GRT-0018] Total wirelength: 49579 um
+[INFO GRT-0014] Routed nets: 8417
+[INFO GRT-0303] Global routing runtime = 00:00:00
+estimate_parasitics -global_routing
+global_route -start_incremental
+global_route -end_incremental -congestion_report_file bazel-out/k8-fastbuild/bin/serv/reports/asap7/serv_rf_top/base/congestion_post_recover_power.rpt
+Repair antennas...
+[WARNING GRT-0246] No diode with LEF class CORE ANTENNACELL found.
+[INFO ANT-0002] Found 0 net violations.
+[INFO ANT-0001] Found 0 pin violations.
+Estimate parasitics...
+estimate_parasitics -global_routing
+Report metrics stage 5, global route...
+
+==========================================================================
+global route report_design_area
+--------------------------------------------------------------------------
+Design area 1035 um^2 43% utilization.
+[INFO FLW-0007] clock clk period 1000.000000
+[INFO FLW-0008] Clock clk period 1037.882
+[INFO FLW-0009] Clock clk slack -92.507
+[INFO FLW-0011] Path endpoint path count 1564
+write_db bazel-out/k8-fastbuild/bin/serv/results/asap7/serv_rf_top/base/5_1_grt.odb
+write_sdc -no_timestamp bazel-out/k8-fastbuild/bin/serv/results/asap7/serv_rf_top/base/5_1_grt.sdc
+Elapsed time: 0:20.71[h:]min:sec. CPU time: user 239.37 sys 1.20 (1161%). Peak memory: 467432KB.
+Log                        Elapsed/s Peak Memory/MB  sha1sum .odb [0:20)
+5_1_grt                           20            456 91dec8a0b4753322ab58

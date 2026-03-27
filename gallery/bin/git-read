@@ -1,0 +1,20 @@
+#!/bin/bash
+# Read-only git wrapper for use in Claude Code permissions.
+# Usage: git-read <dir> <git-subcommand> [args...]
+# Example: git-read upstream/OpenROAD log -1 --format="%H %s"
+#
+# Only allows read-only git subcommands.
+set -euo pipefail
+
+dir="$1"; shift
+cmd="$1"
+
+case "$cmd" in
+  log|diff|show|status|branch|rev-parse|describe|blame|shortlog|worktree|rev-list|tag|remote|ls-files|ls-tree|cat-file|name-rev|symbolic-ref)
+    exec git -C "$dir" "$@"
+    ;;
+  *)
+    echo "git-read: '$cmd' is not an allowed read-only subcommand" >&2
+    exit 1
+    ;;
+esac

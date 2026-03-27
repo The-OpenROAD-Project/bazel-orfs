@@ -1,0 +1,64 @@
+load("//:defs.bzl", "demo_flow")
+load("//:gallery.bzl", "demo_gallery_image")
+load("@bazel-orfs-verilog//:generate.bzl", "fir_library")
+load("@bazel-orfs-verilog//:verilog.bzl", "verilog_directory", "verilog_single_file_library")
+load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
+
+chisel_binary(
+    name = "generator",
+    srcs = ["src/Gemmini8x8Generator.scala"],
+    main_class = "gemmini.generator.Gemmini8x8Generator",
+    deps = ["@gemmini//:gemmini_lib"],
+)
+
+fir_library(
+    name = "gemmini_8x8_fir",
+    generator = ":generator",
+)
+
+verilog_directory(
+    name = "gemmini_8x8_sv_split",
+    srcs = [":gemmini_8x8_fir"],
+    opts = [
+        "--disable-all-randomization",
+        "--lowering-options=disallowPackedArrays,disallowLocalVariables,noAlwaysComb",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+verilog_single_file_library(
+    name = "gemmini_8x8_concat_sv",
+    srcs = [":gemmini_8x8_sv_split"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "gemmini_8x8_sv",
+    srcs = [":gemmini_8x8_concat_sv"],
+    outs = ["MeshWithDelays.sv"],
+    cmd = "cp $< $@",
+    visibility = ["//visibility:public"],
+)
+
+demo_flow(
+    name = "MeshWithDelays",
+    arguments = {
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.65",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "SKIP_CTS_REPAIR_TIMING": "1",
+        "SKIP_INCREMENTAL_REPAIR": "1",
+        "SKIP_LAST_GASP": "1",
+        "FILL_CELLS": "",
+        "TAPCELL_TCL": "",
+    },
+    sources = {"SDC_FILE": [":constraints.sdc"]},
+    verilog_files = [":gemmini_8x8_sv"],
+)
+
+# Gallery from GRT (route not yet complete — killed after 2 hrs)
+demo_gallery_image(
+    name = "MeshWithDelays_gallery",
+    src = ":MeshWithDelays_grt",
+)

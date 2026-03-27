@@ -1,0 +1,45 @@
+load("@rules_chisel//chisel:defs.bzl", "chisel_library")
+
+chisel_library(
+    name = "gemmini_lib",
+    srcs = glob(
+        ["src/main/scala/gemmini/**/*.scala"],
+        exclude = [
+            # Files deleted by chisel7-compat.patch (Rocket-Chip dependencies)
+            "src/main/scala/gemmini/CmdFSM.scala",
+            "src/main/scala/gemmini/Configs.scala",
+            "src/main/scala/gemmini/ConfigsFP.scala",
+            "src/main/scala/gemmini/Controller.scala",
+            "src/main/scala/gemmini/CounterFile.scala",
+            "src/main/scala/gemmini/CustomCPUConfigs.scala",
+            "src/main/scala/gemmini/CustomConfigs.scala",
+            "src/main/scala/gemmini/CustomSoCConfigs.scala",
+            "src/main/scala/gemmini/DMA.scala",
+            "src/main/scala/gemmini/DSEConfigs.scala",
+            "src/main/scala/gemmini/ExecuteController.scala",
+            "src/main/scala/gemmini/FrontendTLB.scala",
+            "src/main/scala/gemmini/GemminiConfigs.scala",
+            "src/main/scala/gemmini/InstructionCompression.scala",
+            "src/main/scala/gemmini/LoadController.scala",
+            "src/main/scala/gemmini/LoopConv.scala",
+            "src/main/scala/gemmini/LoopMatmul.scala",
+            "src/main/scala/gemmini/LoopUnroller.scala",
+            "src/main/scala/gemmini/ReservationStation.scala",
+            "src/main/scala/gemmini/Scratchpad.scala",
+            "src/main/scala/gemmini/StoreController.scala",
+            "src/main/scala/gemmini/TilerController.scala",
+            "src/main/scala/gemmini/TilerFSM.scala",
+            "src/main/scala/gemmini/TilerScheduler.scala",
+            "src/main/scala/gemmini/TransposePreloadUnroller.scala",
+            # Additional files with transitive Rocket-Chip/FireSim/HardFloat deps
+            "src/main/scala/gemmini/Im2Col.scala",
+            "src/main/scala/gemmini/Normalizer.scala",
+            "src/main/scala/gemmini/VectorScalarMultiplier.scala",
+            "src/main/scala/gemmini/XactTracker.scala",
+            "src/main/scala/gemmini/ZeroWriter.scala",
+            "src/main/scala/gemmini/AccumulatorScale.scala",
+            "src/main/scala/gemmini/BeatMerger.scala",
+        ],
+    ),
+    visibility = ["//visibility:public"],
+)

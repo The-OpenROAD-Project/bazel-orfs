@@ -1,0 +1,22 @@
+#!/bin/bash
+# Bazel wrapper for use in Claude Code permissions.
+# Usage: bazel <dir> <subcommand> [args...]
+# Example: bazel upstream/OpenROAD-flow-scripts/tools/OpenROAD build //src/sta:opensta
+#
+# cd's into <dir> then runs bazelisk <subcommand> [args...].
+# Only allows safe subcommands.
+set -euo pipefail
+
+dir="$1"; shift
+cmd="$1"
+
+case "$cmd" in
+  build|test|run|query|cquery|aquery|info|version|fetch)
+    cd "$dir"
+    exec bazelisk "$@"
+    ;;
+  *)
+    echo "bazel: '$cmd' is not an allowed subcommand" >&2
+    exit 1
+    ;;
+esac

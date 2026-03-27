@@ -1,0 +1,13 @@
+filegroup(
+    name = "rtl",
+    srcs = glob(
+        ["rtl/**/*.sv", "rtl/**/*.svh"],
+        exclude = [
+            "rtl/**/blackbox/**",  # use behav models, not blackbox stubs
+            "rtl/**/tb/**",        # testbench wrappers
+            "rtl/**/target/**",    # target-specific configs (use CVA6's own)
+            "rtl/src/utils/hpdcache_to_l15.sv",  # OpenPiton adapter, not needed
+        ],
+    ),
+    visibility = ["//visibility:public"],
+)

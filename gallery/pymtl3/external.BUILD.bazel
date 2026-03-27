@@ -1,0 +1,19 @@
+# pymtl3: Python-based hardware modeling framework
+# Only the pure-Python source is needed for Verilog translation.
+# Simulation deps (cffi, greenlet) are NOT required.
+
+py_library(
+    name = "pymtl3_lib",
+    srcs = glob(
+        ["pymtl3/**/*.py", "examples/**/*.py"],
+        exclude = ["**/test/**", "**/tests/**"],
+    ),
+    imports = ["."],
+    deps = [
+        "@pip//py",
+        "@pip//greenlet",
+        "@pip//hypothesis",
+        "@pip//cffi",
+    ],
+    visibility = ["//visibility:public"],
+)

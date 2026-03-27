@@ -1,0 +1,7 @@
+load("@rules_chisel//chisel:defs.bzl", "chisel_library")
+
+chisel_library(
+    name = "hardfloat_lib",
+    srcs = glob(["hardfloat/src/main/scala/**/*.scala"]),
+    visibility = ["//visibility:public"],
+)

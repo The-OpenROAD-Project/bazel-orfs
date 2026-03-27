@@ -1,0 +1,8 @@
+# OpenROAD Demo Project
+# Common settings for bazel-orfs builds
+
+build --incompatible_strict_action_env
+
+# User-local overrides (not tracked in git)
+# Set --disk_cache here for local builds. CI uses setup-bazel's cache.
+try-import %workspace%/user.bazelrc

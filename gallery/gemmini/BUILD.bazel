@@ -1,0 +1,90 @@
+load("//:defs.bzl", "demo_flow")
+load("//:gallery.bzl", "demo_gallery_image", "demo_stage_images")
+load("@bazel-orfs-verilog//:generate.bzl", "fir_library")
+load("@bazel-orfs-verilog//:verilog.bzl", "verilog_directory", "verilog_single_file_library")
+load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
+
+# Step 1: Compile the Chisel generator binary
+chisel_binary(
+    name = "generator",
+    srcs = ["src/GemminiGenerator.scala"],
+    main_class = "gemmini.generator.GemminiGenerator",
+    deps = ["@gemmini//:gemmini_lib"],
+)
+
+# Step 2: Elaborate Chisel -> FIRRTL
+fir_library(
+    name = "gemmini_fir",
+    generator = ":generator",
+)
+
+# Step 3: firtool FIRRTL -> split SystemVerilog
+verilog_directory(
+    name = "gemmini_sv_split",
+    srcs = [":gemmini_fir"],
+    opts = [
+        "--disable-all-randomization",
+        "--lowering-options=disallowPackedArrays,disallowLocalVariables,noAlwaysComb",
+    ],
+)
+
+# Step 4: Concatenate split .sv files into a single file for ORFS
+verilog_single_file_library(
+    name = "gemmini_concat_sv",
+    srcs = [":gemmini_sv_split"],
+)
+
+# Step 4b: Rename to .sv extension (required by orfs_flow)
+genrule(
+    name = "gemmini_sv",
+    srcs = [":gemmini_concat_sv"],
+    outs = ["MeshWithDelays.sv"],
+    cmd = "cp $< $@",
+)
+
+# Step 5: ORFS physical design flow
+demo_flow(
+    name = "MeshWithDelays",
+    arguments = {
+        # --- Synthesis ---
+        # Keep all modules for hierarchy analysis (run //scripts:module_sizes after synth)
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_MINIMUM_KEEP_SIZE": "0",
+        "SYNTH_MOCK_LARGE_MEMORIES": "1",
+        # --- Floorplan & Placement ---
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.65",
+        # --- Timing repair slack margins ---
+        "SETUP_SLACK_MARGIN": "-1100",
+        "HOLD_SLACK_MARGIN": "-1100",
+        # --- Speed defaults (remove to improve QoR) ---
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "SKIP_CTS_REPAIR_TIMING": "1",
+        "SKIP_INCREMENTAL_REPAIR": "1",
+        "SKIP_LAST_GASP": "1",
+        "FILL_CELLS": "",
+        "TAPCELL_TCL": "",
+    },
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    verilog_files = [":gemmini_sv"],
+)
+
+demo_gallery_image(
+    name = "MeshWithDelays_gallery",
+    src = ":MeshWithDelays_route",
+)
+
+demo_stage_images(
+    name = "MeshWithDelays_images",
+    module = "MeshWithDelays",
+    stages = [
+        "floorplan",
+        "place",
+        "cts",
+        "grt",
+        "route",
+    ],
+)

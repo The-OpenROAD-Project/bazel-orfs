@@ -1,0 +1,250 @@
+load("//:defs.bzl", "demo_flow", "demo_sram")
+load("//:gallery.bzl", "demo_gallery_image", "demo_stage_images", "orfs_run")
+load("@bazel-orfs-verilog//:generate.bzl", "fir_library")
+load("@bazel-orfs-verilog//:verilog.bzl", "verilog_directory")
+load("@bazel-orfs//:openroad.bzl", "orfs_synth")
+load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
+
+# Step 1: Compile the Chisel generator binary
+chisel_binary(
+    name = "generator",
+    srcs = ["src/CoreMiniAxiGenerator.scala"],
+    main_class = "coralnpu.generator.CoreMiniAxiGenerator",
+    deps = ["@coralnpu//:coralnpu_lib"],
+)
+
+# Step 2: Elaborate Chisel -> FIRRTL (disable verification layers for synthesis)
+fir_library(
+    name = "coralnpu_fir",
+    generator = ":generator",
+    opts = [
+        "--disable-layers=Verification",
+    ],
+)
+
+# Step 3: firtool FIRRTL -> split SystemVerilog directory
+verilog_directory(
+    name = "coralnpu_sv",
+    srcs = [":coralnpu_fir"],
+    opts = [
+        "--disable-all-randomization",
+        "--disable-layers=Verification",
+        "--lowering-options=disallowPackedArrays,disallowLocalVariables,noAlwaysComb",
+    ],
+)
+
+# Step 4: Combine generated SV with FPnew RTL (external deps for fpnew_top BlackBox)
+# BlackBox implementations (ClockGate, RstSync, SRAMs) are already emitted
+# into the generated SV by firtool — do NOT include blackbox_sv.
+filegroup(
+    name = "coralnpu_all_sv",
+    srcs = [
+        ":coralnpu_sv",
+        "@common_cells//:all_srcs",
+        "@cvfpu//:all_srcs",
+        "@fpu_div_sqrt_mvp//:all_srcs",
+    ],
+)
+
+# Step 5: Parallel per-module synthesis (megaboom pattern)
+#
+# Modules with >2000 cells are synthesized independently via orfs_synth(),
+# then combined into a single netlist for the top-level P&R flow. Bazel
+# runs all orfs_synth() targets in parallel, reducing synthesis wall time
+# from ~6 min to ~30s.
+
+KEPT_MODULES = [
+    "Regfile",  # 26,775 cells — register file (24% of design)
+    "RetirementBuffer",  #  7,508 cells — reorder buffer
+    "fpnew_fma",  #  7,072 cells — FPU multiply-add
+    "CircularBufferMulti",  # 6,911 cells — instruction buffer
+    "Csr",  #  5,225 cells — CSR unit
+    "Mlu",  #  4,819 cells — multiply unit
+    "DispatchV2",  #  4,743 cells — dispatch
+    "fpnew_cast_multi",  #  2,605 cells — FPU cast
+    "ram_3x145",  #  2,437 cells — small RAM
+    "DebugModule",  #  2,366 cells — debug
+    "Aligner",  #  2,334 cells — memory alignment
+    "ram_3x137",  #  2,304 cells — small RAM
+    "Alu",  #  2,285 cells — ALU
+    "FetchControl",  #  2,122 cells — fetch control
+    "pa_fdsu_srt_single",  # 2,052 cells — FPU divsqrt
+]
+
+# Mocked SRAMs — always blackboxed
+MOCKED_SRAMS = [
+    "Sram_2048x128",
+    "Sram_512x128",
+]
+
+# Modules with SystemVerilog type parameters — slang can't blackbox these.
+# They are still individually synthesized but must NOT appear in SYNTH_BLACKBOXES
+# for the CoreMiniAxi top-level target.
+TYPE_PARAM_MODULES = [
+    "fpnew_fma",
+    "fpnew_cast_multi",
+    "Aligner",
+]
+
+# Modules safe to blackbox (no type parameters)
+BLACKBOXABLE_MODULES = [m for m in KEPT_MODULES if m not in TYPE_PARAM_MODULES]
+
+SYNTH_ARGUMENTS = {
+    "SYNTH_HIERARCHICAL": "0",
+    # Must duplicate _GLOBAL_SETTINGS from defs.bzl since orfs_synth() is
+    # called directly, not through demo_flow().
+    "SYNTH_REPEATABLE_BUILD": "1",
+    "SYNTH_HDL_FRONTEND": "slang",
+    "SYNTH_SLANG_ARGS": "--disable-instance-caching=false -DUSE_GENERIC -Iexternal/+_repo_rules+common_cells/include",
+    "SYNTH_MOCK_LARGE_MEMORIES": "1",
+    "OPENROAD_HIERARCHICAL": "1",
+}
+
+# All modules including top-level CoreMiniAxi
+ALL_SYNTH_MODULES = KEPT_MODULES + ["CoreMiniAxi"]
+
+[orfs_synth(
+    name = "{}_netlist_synth".format(name),
+    arguments = SYNTH_ARGUMENTS | {
+        # CoreMiniAxi can only blackbox modules without type parameters;
+        # submodule targets blackbox all other kept modules.
+        "SYNTH_BLACKBOXES": " ".join(
+            ([b for b in BLACKBOXABLE_MODULES if b != name] if name == "CoreMiniAxi" else [b for b in KEPT_MODULES if b != name]) + MOCKED_SRAMS,
+        ),
+    },
+    module_top = name,
+    save_odb = False,
+    sources = {"SDC_FILE": [":constraints.sdc"]},
+    variant = "netlist",
+    verilog_files = [":coralnpu_all_sv"],
+) for name in ALL_SYNTH_MODULES]
+
+[filegroup(
+    name = "{}_netlist".format(name),
+    srcs = ["{}_netlist_synth".format(name)],
+    output_group = "1_2_yosys.v",
+) for name in ALL_SYNTH_MODULES]
+
+filegroup(
+    name = "netlists",
+    srcs = [":{}_netlist".format(name) for name in ALL_SYNTH_MODULES],
+)
+
+genrule(
+    name = "CoreMiniAxi_combined_netlist",
+    srcs = [":netlists"],
+    outs = ["CoreMiniAxi_combined_netlist.v"],
+    cmd = "cat $(SRCS) > $@",
+)
+
+# Step 6: SRAM macro targets (provide LEF/LIB for mocked memories)
+#
+# SRAMs are mocked during synthesis (replaced with blackbox stubs). These
+# demo_sram() targets build the SRAMs through CTS to generate LEF/LIB
+# abstracts that the top-level flow needs for placement and timing.
+
+demo_sram(
+    name = "Sram_2048x128",
+    abstract_stage = "cts",
+    arguments = {
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.65",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
+        "SYNTH_SLANG_ARGS": "--disable-instance-caching=false -DUSE_GENERIC -Iexternal/+_repo_rules+common_cells/include",
+    },
+    mock_area = 1.0,
+    sources = {"SDC_FILE": [":constraints-sram.sdc"]},
+    verilog_files = [":coralnpu_all_sv"],
+)
+
+demo_sram(
+    name = "Sram_512x128",
+    abstract_stage = "cts",
+    arguments = {
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.65",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
+        "SYNTH_SLANG_ARGS": "--disable-instance-caching=false -DUSE_GENERIC -Iexternal/+_repo_rules+common_cells/include",
+    },
+    mock_area = 1.0,
+    sources = {"SDC_FILE": [":constraints-sram.sdc"]},
+    verilog_files = [":coralnpu_all_sv"],
+)
+
+# Step 7: ORFS physical design flow (uses pre-synthesized netlists + SRAM macros)
+demo_flow(
+    name = "CoreMiniAxi",
+    arguments = {
+        # Synthesis is skipped (SYNTH_NETLIST_FILES provides pre-synthesized netlists).
+        # SYNTH_HIERARCHICAL=0 because KEEP_VARS is not generated when synthesis
+        # is skipped, and the floorplan would fail looking for it.
+        "SYNTH_HIERARCHICAL": "0",
+        # KEEP_VARS=1: skip erase_non_stage_variables (which needs PyYAML not
+        # available in _deps). Keeps all env vars across stages — safe since
+        # bazel-orfs already controls variable scoping.
+        "KEEP_VARS": "1",
+        "SYNTH_SLANG_ARGS": "--disable-instance-caching=false -DUSE_GENERIC -Iexternal/+_repo_rules+common_cells/include",
+        # Floorplan & Placement
+        "CORE_ASPECT_RATIO": "1",
+        "CORE_UTILIZATION": "40",
+        # PDN rings need >1 μm core-to-die spacing (PDN-0351 at default 1.0 μm)
+        "CORE_MARGIN": "2",
+        "PLACE_DENSITY": "0.55",
+        "MACRO_PLACE_HALO": "5 5",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+        # Timing repair slack margins (start generous)
+        # WNS at floorplan is ~-7800ps — margin must exceed this to prevent
+        # futile timing repair. Rounded down 10% for headroom.
+        "SETUP_SLACK_MARGIN": "-8600",
+        "HOLD_SLACK_MARGIN": "-8600",
+        # Placement quality vs speed
+        "GPL_ROUTABILITY_DRIVEN": "1",
+        # Speed defaults (remove to improve QoR later)
+        "GPL_TIMING_DRIVEN": "0",
+        "SKIP_CTS_REPAIR_TIMING": "1",
+        "SKIP_INCREMENTAL_REPAIR": "1",
+        "SKIP_LAST_GASP": "1",
+        "FILL_CELLS": "",
+        "TAPCELL_TCL": "",
+    },
+    macros = [
+        ":Sram_2048x128_generate_abstract",
+        ":Sram_512x128_generate_abstract",
+    ],
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+        "SYNTH_NETLIST_FILES": [":CoreMiniAxi_combined_netlist"],
+        "PRE_GLOBAL_PLACE_TCL": [":CoreMiniAxi_probe_placement"],
+    },
+    substeps = True,
+    verilog_files = [":coralnpu_all_sv"],
+)
+
+# Probe placement: run fast routability-driven placement on floorplan,
+# analyze density + RUDY, emit placement-tips.tcl for the real placement.
+#
+# Chain: floorplan → probe → placement-tips.tcl → real placement
+orfs_run(
+    name = "CoreMiniAxi_probe_placement",
+    src = ":CoreMiniAxi_floorplan",
+    outs = ["placement-tips.tcl"],
+    arguments = {
+        "PLACEMENT_TIPS_OUT": "$(location :placement-tips.tcl)",
+    },
+    script = "//scripts:probe_placement.tcl",
+)
+
+demo_gallery_image(
+    name = "CoreMiniAxi_gallery",
+    src = ":CoreMiniAxi_cts",
+)
+
+demo_stage_images(
+    name = "CoreMiniAxi_images",
+    module = "CoreMiniAxi",
+    stages = [
+        "floorplan",
+        "place",
+        "cts",
+    ],
+)

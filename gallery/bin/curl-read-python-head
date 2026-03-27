@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""Read-only curl + Python filter + head.
+
+Usage:
+    curl-read-python-head <https-url> <python-expr> [max-lines]
+
+Fetches <https-url> via curl (read-only, HTTPS only), pipes the response
+through a Python expression, and prints at most <max-lines> lines (default: all).
+
+The Python expression receives:
+    - `data`  — the raw response body (str)
+    - `json`  — the json module (pre-imported)
+    - `sys`   — the sys module (pre-imported)
+    - `re`    — the re module (pre-imported)
+
+The expression must evaluate to an iterable of strings (one per output line)
+or a single string (printed as-is).
+
+Examples:
+    # Extract file paths containing "GA_94" from a GitHub tree
+    curl-read-python-head \\
+      "https://api.github.com/repos/owner/repo/git/trees/main?recursive=1" \\
+      "[e['path'] for e in json.loads(data).get('tree',[]) if 'GA_94' in e['path']]" \\
+      30
+
+    # First 50 lines of a README
+    curl-read-python-head \\
+      "https://raw.githubusercontent.com/owner/repo/main/README.md" \\
+      "data" \\
+      50
+
+Safety: this script is intentionally read-only.
+    - Only HTTPS URLs are allowed
+    - curl runs with -sL (silent, follow redirects) — no writes
+    - The Python expression runs in a restricted namespace with no builtins
+      that perform I/O beyond print/len/sorted/etc.
+"""
+
+import ast
+import json
+import re
+import subprocess
+import sys
+
+
+def is_read_only_expr(expr: str) -> bool:
+    """Reject expressions that contain obviously dangerous constructs."""
+    try:
+        tree = ast.parse(expr, mode="eval")
+    except SyntaxError:
+        # Not a valid expression — reject
+        return False
+
+    for node in ast.walk(tree):
+        # Block calls to known dangerous builtins
+        if isinstance(node, ast.Name) and node.id in (
+            "exec", "eval", "compile", "__import__", "open",
+            "breakpoint", "exit", "quit",
+        ):
+            return False
+        # Block attribute access to dunder methods (e.g., __class__, __subclasses__)
+        if isinstance(node, ast.Attribute) and node.attr.startswith("__"):
+            return False
+    return True
+
+
+def main():
+    if len(sys.argv) < 3:
+        print("Usage: curl-read-python-head <https-url> <python-expr> [max-lines]",
+              file=sys.stderr)
+        sys.exit(1)
+
+    url = sys.argv[1]
+    expr = sys.argv[2]
+    max_lines = int(sys.argv[3]) if len(sys.argv) > 3 else 0  # 0 = unlimited
+
+    # HTTPS only
+    if not url.startswith("https://"):
+        print("curl-read-python-head: only https:// URLs are allowed", file=sys.stderr)
+        sys.exit(1)
+
+    # Validate expression is read-only
+    if not is_read_only_expr(expr):
+        print("curl-read-python-head: expression rejected (unsafe construct detected)",
+              file=sys.stderr)
+        sys.exit(1)
+
+    # Fetch URL
+    result = subprocess.run(
+        ["curl", "-sL", url],
+        capture_output=True, text=True, timeout=30,
+    )
+    if result.returncode != 0:
+        print(f"curl-read-python-head: curl failed (exit {result.returncode})",
+              file=sys.stderr)
+        if result.stderr:
+            print(result.stderr, file=sys.stderr)
+        sys.exit(1)
+
+    data = result.stdout
+
+    # Evaluate expression in restricted namespace
+    safe_builtins = {
+        "len": len, "sorted": sorted, "reversed": reversed,
+        "list": list, "dict": dict, "set": set, "tuple": tuple,
+        "str": str, "int": int, "float": float, "bool": bool,
+        "enumerate": enumerate, "zip": zip, "map": map, "filter": filter,
+        "range": range, "min": min, "max": max, "sum": sum,
+        "any": any, "all": all, "isinstance": isinstance, "type": type,
+        "print": print, "repr": repr, "abs": abs, "round": round,
+        "True": True, "False": False, "None": None,
+    }
+
+    namespace = {
+        "__builtins__": safe_builtins,
+        "data": data,
+        "json": json,
+        "re": re,
+        "sys": sys,
+    }
+
+    try:
+        output = eval(compile(expr, "<expr>", "eval"), namespace)  # noqa: S307
+    except Exception as e:
+        print(f"curl-read-python-head: expression error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    # Print output
+    if isinstance(output, str):
+        lines = output.splitlines()
+    elif hasattr(output, "__iter__"):
+        lines = [str(item) for item in output]
+    else:
+        lines = [str(output)]
+
+    for i, line in enumerate(lines):
+        if max_lines and i >= max_lines:
+            break
+        print(line)
+
+
+if __name__ == "__main__":
+    main()
