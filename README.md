@@ -108,13 +108,13 @@ The local flow lets you build with a locally compiled [ORFS](https://openroad-fl
 
    ```bash
    # Initialize dependencies for the synthesis stage
-   bazel run @bazel-orfs//test:L1MetadataArray_synth_deps
+   bazel run //:deps -- //test:L1MetadataArray_synth
 
    # Build synthesis using local ORFS
    tmp/test/L1MetadataArray_synth_deps/make do-yosys-canonicalize do-yosys do-1_synth
 
    # Initialize dependencies for the floorplan stage
-   bazel run @bazel-orfs//test:L1MetadataArray_floorplan_deps
+   bazel run //:deps -- //test:L1MetadataArray_floorplan
 
    # Build floorplan
    tmp/test/L1MetadataArray_floorplan_deps/make do-floorplan
@@ -124,12 +124,12 @@ The local flow lets you build with a locally compiled [ORFS](https://openroad-fl
 
 > **NOTE:** If `FLOW_HOME` is not set and `env.sh` is not sourced, `make do-<stage>` uses the ORFS from [MODULE.bazel](./MODULE.bazel) by default.
 
-> **NOTE:** Files are always placed in `tmp/<package>/<name>/` under the workspace root (e.g. `tmp/sram/sdq_17x64_floorplan_deps/` for `//sram:sdq_17x64_floorplan_deps`, `tmp/MyDesign_floorplan_deps/` for the root package), which is added to `.gitignore` automatically.
+> **NOTE:** Files are always placed in `tmp/<package>/<name>_deps/` under the workspace root (e.g. `tmp/sram/sdq_17x64_floorplan_deps/` for `//sram:sdq_17x64_floorplan`, `tmp/MyDesign_floorplan_deps/` for the root package), which is added to `.gitignore` automatically.
 >
 > You can override the installation directory with `--install`:
 >
 > ```bash
-> bazel run <target>_<stage>_deps -- --install /path/to/dir [<make args...>]
+> bazel run //:deps -- <target>_<stage> --install /path/to/dir [<make args...>]
 > ```
 >
 > This is useful on systems where `/tmp` is small or when you want to place the build artifacts in a specific location.
@@ -137,18 +137,18 @@ The local flow lets you build with a locally compiled [ORFS](https://openroad-fl
 You can also forward arguments to make directly:
 
 ```bash
-bazel run <target>_<stage>_deps <make args...>
+bazel run //:deps -- <target>_<stage> <make args...>
 ```
 
 ### Parallel local builds
 
-Multiple `_deps` deployments are independent and can run in parallel. This
+Multiple dependency deployments are independent and can run in parallel. This
 is useful when building multiple designs or deploying all stages at once:
 
 ```bash
 # Deploy and build two independent designs in parallel
-bazel run //test:tag_array_64x184_synth_deps &
-bazel run //test:lb_32x128_synth_deps &
+bazel run //:deps -- //test:tag_array_64x184_synth &
+bazel run //:deps -- //test:lb_32x128_synth &
 wait
 
 # Run synthesis in parallel (each in its own directory)
@@ -160,9 +160,9 @@ wait
 You can also pre-deploy all stages of a single design for faster iteration:
 
 ```bash
-# Deploy all stages at once (each _deps is independent)
+# Deploy all stages at once (each deployment is independent)
 for stage in synth floorplan place cts grt route final; do
-  bazel run //test:L1MetadataArray_${stage}_deps &
+  bazel run //:deps -- //test:L1MetadataArray_${stage} &
 done
 wait
 
@@ -173,7 +173,7 @@ tmp/test/L1MetadataArray_place_deps/make do-place
 
 > **NOTE:** Each stage's `make` invocation still requires its input artifacts
 > from the previous stage to be present, so the `make` commands must run
-> sequentially. Only the `_deps` deployments (which just set up the directory
+> sequentially. Only the dependency deployments (which just set up the directory
 > structure) can run in parallel.
 
 ## Define a design flow
@@ -230,23 +230,20 @@ orfs_flow(
 This spawns the following Bazel targets:
 
 ```
-Dependency targets:
-  //test:L1MetadataArray_cts_deps
-  //test:L1MetadataArray_floorplan_deps
-  //test:L1MetadataArray_generate_abstract_deps
-  //test:L1MetadataArray_grt_deps
-  //test:L1MetadataArray_place_deps
-  //test:L1MetadataArray_route_deps
-  //test:L1MetadataArray_synth_deps
-
 Stage targets:
-  //test:L1MetadataArray_cts
-  //test:L1MetadataArray_floorplan
-  //test:L1MetadataArray_generate_abstract
-  //test:L1MetadataArray_grt
-  //test:L1MetadataArray_place
-  //test:L1MetadataArray_route
   //test:L1MetadataArray_synth
+  //test:L1MetadataArray_floorplan
+  //test:L1MetadataArray_place
+  //test:L1MetadataArray_cts
+  //test:L1MetadataArray_grt
+  //test:L1MetadataArray_route
+  //test:L1MetadataArray_generate_abstract
+```
+
+To deploy dependencies for local iteration, use the `//:deps` wrapper:
+
+```bash
+bazel run //:deps -- //test:L1MetadataArray_synth
 ```
 
 The example is based on the [test/BUILD](./test/BUILD) file in this repository.
@@ -268,12 +265,6 @@ orfs_flow(
 This creates targets with the variant appended after the design name:
 
 ```
-Dependency targets:
-  //test:L1MetadataArray_test_cts_deps
-  //test:L1MetadataArray_test_floorplan_deps
-  ...
-  //test:L1MetadataArray_test_generate_abstract_deps
-
 Stage targets:
   //test:L1MetadataArray_test_synth
   //test:L1MetadataArray_test_floorplan
@@ -428,9 +419,7 @@ You can verify the generated targets with `bazel query`:
 ```bash
 bazel query '...:*' | grep 'L1MetadataArray'
 
-//test:L1MetadataArray_synth_deps
 //test:L1MetadataArray_synth
-//test:L1MetadataArray_floorplan_deps
 //test:L1MetadataArray_floorplan
 //test:L1MetadataArray_generate_abstract
 ```
@@ -477,64 +466,23 @@ bazel run @bazel-orfs//test:tag_array_64x184_floorplan gui_floorplan
 
 Each ORFS stage runs multiple substeps internally — e.g., the `place` stage
 runs global placement, IO placement, resizing, and detailed placement as a
-single Bazel action via `do-place`. ORFS already exposes individual substeps
-as make targets (`do-3_4_place_resized`, `do-2_4_floorplan_pdn`, etc.) and
-the `_deps` mechanism deploys stage artifacts where users can manually invoke
-these targets. However, `_deps` has high cognitive load:
-
-1. **Manual dependency management**: you must build preceding stages first
-   (`bazel build synth`, then `floorplan`, then `place`) before running a
-   substep via `_deps`.
-2. **No change tracking**: `_deps` doesn't detect when BUILD parameters
-   change — you must re-run `bazelisk run ..._deps` manually.
-3. **Opaque naming**: you must know internal ORFS make target names
-   (e.g., `do-3_4_place_resized`) and run them through the `tmp/.../make`
-   wrapper.
-4. **Error-prone**: forgetting to rebuild a preceding stage silently uses
-   stale artifacts, leading to confusing results.
-
-`orfs_flow()` auto-generates manual-tagged Bazel targets for individual
-substeps that solve all of these problems:
-
-- **Automatic dependency chain** — Bazel handles synth → floorplan → place
-  before deploying and running the substep
-- **ORFS naming** — `3_4_place_resized` maps 1:1 to `do-3_4_place_resized`
-  in the ORFS Makefile
-- **GUI support** — append `gui_<stage>` to open the result in the OpenROAD GUI
-- **Tagged `manual`** — never built by `bazel build //...`, no impact on
-  existing workflows
-
-#### Before: iterating on resizing with `_deps`
+single Bazel action via `do-place`. You can run individual substeps by
+passing the substep name as a make argument to `//:deps`:
 
 ```bash
-# 1. Build all preceding stages manually
-bazelisk build //coralnpu:CoreMiniAxi_synth
-bazelisk build //coralnpu:CoreMiniAxi_floorplan
-bazelisk build //coralnpu:CoreMiniAxi_place
-
-# 2. Deploy place artifacts
-bazelisk run //coralnpu:CoreMiniAxi_place_deps
-
-# 3. Know and run the internal make target
-tmp/coralnpu/CoreMiniAxi_place_deps/make do-3_4_place_resized
-
-# 4. If BUILD changed, re-deploy (easy to forget!)
-bazelisk run //coralnpu:CoreMiniAxi_place_deps
-tmp/coralnpu/CoreMiniAxi_place_deps/make do-3_4_place_resized
-```
-
-#### After: one command
-
-```bash
-# Builds entire chain, deploys, runs only resizing
-bazel run //coralnpu:CoreMiniAxi_place_3_4_place_resized
+# Deploy place artifacts and run only the resizing substep
+bazel run //:deps -- //coralnpu:CoreMiniAxi_place do-3_4_place_resized
 
 # Open GUI to inspect
-bazel run //coralnpu:CoreMiniAxi_place_3_4_place_resized gui_place
+bazel run //:deps -- //coralnpu:CoreMiniAxi_place gui_place
 
-# After editing BUILD, same command picks up changes automatically
-bazel run //coralnpu:CoreMiniAxi_place_3_4_place_resized
+# After editing BUILD, re-deploy and re-run
+bazel run //:deps -- //coralnpu:CoreMiniAxi_place do-3_4_place_resized
 ```
+
+The `//:deps` wrapper builds all preceding stages (synth, floorplan, place)
+automatically via `--output_groups=deps` before deploying artifacts, so you
+never need to manually build the dependency chain.
 
 #### Available substeps per stage
 
@@ -549,69 +497,30 @@ bazel run //coralnpu:CoreMiniAxi_place_3_4_place_resized
 
 Substep names are defined once in `STAGE_SUBSTEPS` in `private/stages.bzl` —
 the single source of truth from which log and JSON file names in stage rules
-are derived. Stages with only one substep (like cts) don't generate substep
-targets since the stage target already runs exactly that substep.
+are derived.
 
 > **NOTE:** The synth stage is not listed above because it uses a different
 > execution model (Yosys, not OpenROAD). Synth has two internal operations
 > (`1_1_yosys_canonicalize` and `1_2_yosys`) but they are handled as a
 > single Bazel action with built-in dependency checking via `.rtlil`
-> canonicalization, not as deploy-and-run substep targets.
+> canonicalization.
 
 > **NOTE:** ORFS could grow a metadata file (beyond `variables.yaml`) that
 > lists substep names, their scripts, and dependencies. This would make
 > `STAGE_SUBSTEPS` truly derived from ORFS rather than maintained as a copy
 > in bazel-orfs.
 
-#### How substep targets work
+#### Common `//:deps` workflows
 
-Substep targets are deploy-and-run wrappers (like `_deps`) that reuse the
-parent stage's single set of artifacts. No new Bazel actions, no new ODB
-checkpoints, no artifact explosion.
-
-**Why not split stages into separate Bazel actions per substep?** ORFS substeps
-share a single ODB file that is modified in-place through the pipeline. If each
-substep were a separate Bazel action, every substep would need to declare its
-own ODB output, and Bazel would store each intermediate checkpoint. For a design
-with 5 placement substeps, that means 5 copies of the ODB instead of 1. Across
-all stages, this artifact explosion would multiply storage by ~4-5x per design.
-For CI with multiple PDKs and variants, this quickly becomes prohibitive.
-
-#### Enabling substep targets
-
-Substep targets are **off by default** (`substeps = False`) to keep the target
-count small for stable designs. Enable them for designs under active development
-where you need substep-level iteration:
-
-```starlark
-orfs_flow(
-    name = "my_design",
-    substeps = True,
-    ...
-)
-```
-
-Wrapper macros that call `orfs_flow()` internally (e.g. for SRAMs or register
-files) should consider passing `substeps` through as a parameter so users can
-enable it when debugging.
-
-#### When to use `_deps` vs substep targets
-
-| I want to... | Use |
+| I want to... | Command |
 |---|---|
-| Run a single substep and view the result | Substep target |
-| Iterate on a substep after editing BUILD | Substep target (auto-detects changes) |
-| Run arbitrary make targets not in STAGE_SUBSTEPS | `_deps` |
-| Edit Tcl scripts and re-run without Bazel | `_deps` (picks up file changes instantly) |
-| Create a `make issue` archive | `_deps` |
-| Use a local ORFS installation | `_deps` |
-| Run `make bash` for interactive debugging | `_deps` |
-
-Substep targets are the simpler tool for most iteration — one command, automatic
-dependency chain, change detection. `_deps` remains essential when you need the
-full Make wrapper: hacking ORFS scripts, running `make issue`, working with a
-local ORFS installation, or running arbitrary make targets not exposed as substep
-targets.
+| Run a single substep | `bazel run //:deps -- <target>_<stage> do-<substep>` |
+| View result in GUI | `bazel run //:deps -- <target>_<stage> gui_<stage>` |
+| Run arbitrary make targets | `bazel run //:deps -- <target>_<stage> <make args...>` |
+| Edit Tcl scripts and re-run without Bazel | `tmp/<pkg>/<target>_<stage>_deps/make do-<substep>` |
+| Create a `make issue` archive | `bazel run //:deps -- <target>_<stage>` then `tmp/.../make <stage>_issue` |
+| Use a local ORFS installation | `bazel run //:deps -- <target>_<stage>` with `FLOW_HOME` set |
+| Run `make bash` for interactive debugging | `tmp/<pkg>/<target>_<stage>_deps/make bash` |
 
 ### Use remote caching for instant reverts
 
@@ -725,19 +634,11 @@ Wrapper macros (like those for SRAMs or register files) that call
 sub-macros are typically stable once working and don't need per-stage
 inspection.
 
-By default, substep targets are still generated (manual-tagged) even with
-`squash = True`, for debugging if something goes wrong later. Disable with
-`substeps = False` to minimize the target count:
+You can still use `//:deps` to deploy and debug individual substeps of a
+squashed flow if something goes wrong:
 
-```starlark
-# Minimal target footprint for stable RAM macro
-orfs_flow(
-    name = "sram_64x128",
-    abstract_stage = "cts",
-    squash = True,
-    substeps = False,
-    ...
-)
+```bash
+bazel run //:deps -- //sram:sram_64x128_place do-3_4_place_resized
 ```
 
 ### Query timing interactively
@@ -805,7 +706,7 @@ find ~/.cache/bazel -name "*.tmp.log" -size +0c 2>/dev/null | \
 
 ```bash
 # Start the build in the local flow
-bazel run //test:L1MetadataArray_cts_deps
+bazel run //:deps -- //test:L1MetadataArray_cts
 tmp/test/L1MetadataArray_cts_deps/make do-cts &
 
 # In another terminal, watch the log
@@ -1053,13 +954,18 @@ The stages are:
 * `final`
 * `generate_abstract`
 
-Stages with multiple substeps also generate manual-tagged substep targets
-following the naming convention `<target>_<stage>_<substep>` (e.g.,
-`L1MetadataArray_place_3_4_place_resized`). See [Substep targets](#substep-targets).
+Individual substeps within a stage can be run via the `//:deps` wrapper.
+See [Substep targets](#substep-targets).
 
-### Dependency targets
+### Dependency deployment
 
-Dependency targets follow the naming convention `<target>_<stage>_deps` (or `<target>_<variant>_<stage>_deps`) and prepare the environment for running ORFS stage targets.
+Dependencies are deployed using the `//:deps` wrapper, which uses `--output_groups=deps` to build and deploy stage artifacts:
+
+```bash
+bazel run //:deps -- <target>_<stage>
+```
+
+This prepares the environment for running ORFS stage targets locally. The deploy directory follows the naming convention `tmp/<package>/<target>_<stage>_deps/`.
 
 Each stage depends on two generated `.mk` files that provide the ORFS configuration:
 
@@ -1148,7 +1054,8 @@ The implementation of this macro spawns multiple `genrule` native rules which ar
 These are the genrules spawned in this macro:
 
 * ORFS stage-specific (named: `target_name + "_" + stage` or `target_name + "_" + variant + "_" + stage`)
-* ORFS stage dependencies (named: `target_name + "_" + stage + "_deps"` or `target_name + "_" + variant + "_" + stage + "_deps"`)
+
+Dependency deployment is handled via the `deps` output group on stage targets, accessed through the `//:deps` wrapper.
 
 ### Bazel flow
 
@@ -1177,7 +1084,7 @@ bazel build <target>_<stage>
 
 A mutable build folder can be set up to prepare for a local synthesis run, useful when digging into some detail of the synthesis flow:
 
-    $ bazel run //test:tag_array_64x184_synth_deps
+    $ bazel run //:deps -- //test:tag_array_64x184_synth
     $ tmp/test/tag_array_64x184_synth_deps/make print-YOSYS_EXE
     YOSYS_EXE = external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys
 
@@ -1196,7 +1103,7 @@ This is actually a symlink pointing to the read-only executables, which is how y
 
 To create and test a `make issue` archive for floorplan:
 
-    bazel run //test:lb_32x128_floorplan_deps
+    bazel run //:deps -- //test:lb_32x128_floorplan
     tmp/test/lb_32x128_floorplan_deps/make ISSUE_TAG=test floorplan_issue
 
 This results in `tmp/test/lb_32x128_floorplan_deps/floorplan_test.tar.gz`, which can be run provided the `openroad` application is in the path.
@@ -1221,7 +1128,7 @@ This runs all synth targets in the workspace and places the results in the `tmp/
 ### Build the immediate dependencies of a target
 
 ```bash
-bazel build @bazel-orfs//test:L1MetadataArray_synth_deps
+bazel build --output_groups=deps @bazel-orfs//test:L1MetadataArray_synth
 ```
 
 This builds the immediate dependencies of the `L1MetadataArray` target up to the `synth` stage and places the results in the `bazel-bin` directory.

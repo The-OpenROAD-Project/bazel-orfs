@@ -216,7 +216,6 @@ demo_flow(
         "SYNTH_NETLIST_FILES": [":CoreMiniAxi_combined_netlist"],
         "PRE_GLOBAL_PLACE_TCL": [":CoreMiniAxi_probe_placement"],
     },
-    substeps = True,
     verilog_files = [":coralnpu_all_sv"],
 )
 

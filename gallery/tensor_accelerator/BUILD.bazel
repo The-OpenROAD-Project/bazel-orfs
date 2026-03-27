@@ -28,7 +28,6 @@ demo_sram(
         "SDC_FILE": [":constraints.sdc"],
         "IO_CONSTRAINTS": [":mac_pe-io.tcl"],
     },
-    substeps = True,
     verilog_files = ["@tensor_accelerator//:mac_pe_rtl"],
 )
 
@@ -53,7 +52,6 @@ demo_sram(
         "SDC_FILE": [":constraints.sdc"],
         "IO_CONSTRAINTS": [":systolic_array-io.tcl"],
     },
-    substeps = True,
     verilog_files = ["@tensor_accelerator//:systolic_array_rtl"],
 )
 
@@ -77,7 +75,6 @@ demo_sram(
         "IO_CONSTRAINTS": [":tpc-io.tcl"],
         "PDN_TCL": [":pdn-tpc.tcl"],
     },
-    substeps = True,
     verilog_files = ["@tensor_accelerator//:tpc_rtl"],
 )
 
@@ -99,7 +96,6 @@ demo_hierarchical(
         "SDC_FILE": [":constraints.sdc"],
         "PDN_TCL": [":top-pdn.tcl"],
     },
-    substeps = True,
     verilog_files = ["@tensor_accelerator//:top_rtl"],
 )
 

@@ -37,7 +37,6 @@ demo_flow(
     sources = {
         "SDC_FILE": [":constraints.sdc"],
     },
-    substeps = True,
     verilog_files = ["rtl/counter.sv"],
 )
 

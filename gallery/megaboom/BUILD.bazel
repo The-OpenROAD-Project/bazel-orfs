@@ -173,7 +173,6 @@ demo_sram(
     mock_area = 10.0,
     sources = SRAM_SOURCES,
     stage_sources = SRAM_STAGE_SOURCES,
-    substeps = True,
     verilog_files = [":boom_sv"],
 )
 
@@ -183,7 +182,6 @@ demo_sram(
     mock_area = 1.5,
     sources = SRAM_SOURCES,
     stage_sources = SRAM_STAGE_SOURCES,
-    substeps = True,
     verilog_files = [":boom_sv"],
 )
 
@@ -208,7 +206,6 @@ orfs_flow(
     stage_sources = {
         "synth": [":constraints-sram.sdc"],
     },
-    substeps = True,
     verilog_files = [":boom_sv"],
 )
 
@@ -284,7 +281,6 @@ orfs_flow(
         "floorplan": [":io-boomtile"],
         "place": [":io-boomtile"],
     },
-    substeps = True,
     top = "BoomTile",
     verilog_files = [":boom_sv"],
 )
