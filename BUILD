@@ -104,9 +104,10 @@ py_test(
 )
 
 # Run `bazelisk run //:fix_lint` to format all files changed since origin/main.
-sh_binary(
+py_binary(
     name = "fix_lint",
-    srcs = ["fix_lint.sh"],
+    srcs = ["fix_lint.py"],
     data = ["@buildifier_prebuilt//:buildifier"],
+    main = "fix_lint.py",
     visibility = ["//visibility:public"],
 )

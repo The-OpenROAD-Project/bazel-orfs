@@ -25,7 +25,7 @@ jobs:
           bazelisk-cache: true
           repository-cache: true
 
-      # Single source of truth: fix_lint.sh handles buildifier (respecting
+      # Single source of truth: fix_lint.py handles buildifier (respecting
       # .bazelignore), black, and lockfile regeneration (with CI config via
       # --bazelrc flag — no source tree mutation).
       # If this produces a diff, the contributor forgot to run fix_lint locally.
