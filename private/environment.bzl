@@ -92,6 +92,8 @@ def _runfiles(attrs):
     )
 
 def flow_inputs(ctx):
+    if ctx.attr.lite_flow:
+        return flow_inputs_lite(ctx)
     return depset(
         ctx.files._ruby +
         ctx.files._ruby_dynamic +
@@ -109,6 +111,25 @@ def flow_inputs(ctx):
                     ctx.attr._makefile,
                 ] +
                 ctx.attr.tools,
+            ),
+        ],
+    )
+
+def flow_inputs_lite(ctx):
+    """Minimal tool inputs for lightweight flows (lint/mock).
+
+    Excludes klayout, opensta, ruby, tcl, opengl, qt — only includes
+    make, openroad (or its replacement), python, makefile, and user tools.
+    """
+    return depset(
+        transitive = [
+            _runfiles(
+                [
+                    ctx.attr._make,
+                    _openroad_attr(ctx),
+                    ctx.attr._python,
+                    ctx.attr._makefile,
+                ] + ctx.attr.tools,
             ),
         ],
     )
