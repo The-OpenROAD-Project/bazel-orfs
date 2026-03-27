@@ -1,0 +1,8 @@
+filegroup(
+    name = "all_srcs",
+    srcs = glob(
+        ["**/*.sv", "**/*.svh", "**/*.v"],
+        allow_empty = True,
+    ),
+    visibility = ["//visibility:public"],
+)

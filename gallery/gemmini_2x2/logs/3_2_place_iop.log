@@ -1,0 +1,29 @@
+OpenROAD 26Q1-1929-g7cf7b720fd 
+Features included (+) or not (-): +GPU +GUI +Python
+This program is licensed under the BSD-3 license. See the LICENSE file for details.
+Components of this program may be licensed under more restrictive licenses which must be honored.
+[INFO ORD-0030] Using 16 thread(s).
+source external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/liberty_suppressions.tcl
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib
+read_db -hier bazel-out/k8-fastbuild/bin/gemmini_2x2/results/asap7/MeshWithDelays/base/3_1_place_gp_skip_io.odb
+[WARNING ORD-0012] Hierarchical flow (-hier) is currently in development and may cause multiple issues. Do not use in production environments.
+source external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/setRC.tcl
+place_pins -hor_layers M4 -ver_layers M5
+Found 0 macro blocks.
+Using 2 tracks default min distance between IO pins.
+[INFO PPL-0001] Number of available slots 2584
+[INFO PPL-0002] Number of I/O             243
+[INFO PPL-0003] Number of I/O w/sink      243
+[INFO PPL-0004] Number of I/O w/o sink    0
+[INFO PPL-0005] Slots per section         200
+[INFO PPL-0008] Successfully assigned pins to sections.
+[INFO PPL-0012] I/O nets HPWL: 2047.70 um.
+Design area 1528 um^2 41% utilization.
+write_db bazel-out/k8-fastbuild/bin/gemmini_2x2/results/asap7/MeshWithDelays/base/3_2_place_iop.odb
+Elapsed time: 0:01.50[h:]min:sec. CPU time: user 1.43 sys 0.07 (99%). Peak memory: 221896KB.
+Log                        Elapsed/s Peak Memory/MB  sha1sum .odb [0:20)
+3_2_place_iop                      1            216 85ee2b8f189a7ba48e8c

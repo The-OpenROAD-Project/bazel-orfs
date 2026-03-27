@@ -1,0 +1,4 @@
+exports_files(
+    ["diplomacy/src/diplomacy/nodes/HeterogeneousBag.scala"],
+    visibility = ["//visibility:public"],
+)

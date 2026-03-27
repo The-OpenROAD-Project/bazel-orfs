@@ -1,0 +1,166 @@
+diff -ruN a/src/main/scala/v4/common/parameters.scala b/src/main/scala/v4/common/parameters.scala
+--- a/src/main/scala/v4/common/parameters.scala	2026-01-23 02:53:59.000000000 +0100
++++ b/src/main/scala/v4/common/parameters.scala	2026-03-25 23:00:00.000000000 +0100
+@@ -174,10 +174,10 @@
+     Some(CustomCSR(chickenCSRId, mask, Some(init)))
+   }
+
+-  val enableOOOCSRId = 0x800
++  def enableOOOCSRId = 0x800
+   def enableOOOCSR = Some(CustomCSR(enableOOOCSRId, BigInt(1), Some(BigInt(1))))
+
+-  val enableBPDCSRId = 0x808
++  def enableBPDCSRId = 0x808
+   def enableBPDCSR = Some(CustomCSR(enableBPDCSRId, BigInt(1), Some(BigInt(1))))
+
+   def marchid = CustomCSR.constant(CSRs.marchid, BigInt(2))
+diff -ruN a/src/main/scala/v4/exu/rename/rename-stage.scala b/src/main/scala/v4/exu/rename/rename-stage.scala
+--- a/src/main/scala/v4/exu/rename/rename-stage.scala	2026-01-23 02:53:59.000000000 +0100
++++ b/src/main/scala/v4/exu/rename/rename-stage.scala	2026-03-25 23:00:00.000000000 +0100
+@@ -144,4 +144,4 @@
+ {
+-  val int = !float
+-  val pregSz = log2Ceil(numPhysRegs)
+-  val rtype = if (float) RT_FLT else RT_FIX
++  def int = !float
++  def pregSz = log2Ceil(numPhysRegs)
++  def rtype = if (float) RT_FLT else RT_FIX
+diff -ruN a/src/main/scala/v4/common/tile.scala b/src/main/scala/v4/common/tile.scala
+--- a/src/main/scala/v4/common/tile.scala	2026-01-23 02:53:59.000000000 +0100
++++ b/src/main/scala/v4/common/tile.scala	2026-03-25 22:13:33.139719836 +0100
+@@ -88,7 +88,7 @@
+   val masterNode = TLIdentityNode()
+   val slaveNode = TLIdentityNode()
+ 
+-  val tile_master_blocker =
++  val tile_master_blocker: Option[BasicBusBlocker] =
+     tileParams.blockerCtrlAddr
+       .map(BasicBusBlockerParams(_, xBytes, masterPortBeatBytes, deadlock = true))
+       .map(bp => LazyModule(new BasicBusBlocker(bp)))
+@@ -150,7 +150,7 @@
+   roccs.map(_.atlNode).foreach { atl => tlMasterXbar.node :=* atl }
+   roccs.map(_.tlNode).foreach { tl => tlOtherMastersNode :=* tl }
+ 
+-  val trace_encoder_controller = boomParams.traceParams.map { t =>
++  val trace_encoder_controller: Option[TraceEncoderController] = boomParams.traceParams.map { t =>
+     val trace_encoder_controller = LazyModule(new TraceEncoderController(t.encoderBaseAddr, xBytes, tileId))
+     connectTLSlave(trace_encoder_controller.node, xBytes)
+     trace_encoder_controller
+diff -ruN a/src/main/scala/v4/ifu/frontend.scala b/src/main/scala/v4/ifu/frontend.scala
+--- a/src/main/scala/v4/ifu/frontend.scala	2026-01-23 02:53:59.000000000 +0100
++++ b/src/main/scala/v4/ifu/frontend.scala	2026-03-25 22:12:56.175766144 +0100
+@@ -321,7 +321,7 @@
+   val io = IO(new BoomFrontendBundle(outer))
+   io.errors := DontCare
+   val io_reset_vector = outer.resetVectorSinkNode.bundle
+-  implicit val edge = outer.masterNode.edges.out(0)
++  implicit val edge: freechips.rocketchip.tilelink.TLEdgeOut = outer.masterNode.edges.out(0)
+   require(fetchWidth*coreInstBytes == outer.icacheParams.fetchBytes)
+ 
+   val bpd = Module(new BranchPredictor)
+diff -ruN a/src/main/scala/v4/ifu/icache.scala b/src/main/scala/v4/ifu/icache.scala
+--- a/src/main/scala/v4/ifu/icache.scala	2026-01-23 02:53:59.000000000 +0100
++++ b/src/main/scala/v4/ifu/icache.scala	2026-03-25 22:12:32.278158726 +0100
+@@ -99,7 +99,8 @@
+   val icacheSinglePorted = tileParams.core.asInstanceOf[BoomCoreParams].icacheSinglePorted
+   val io = IO(new ICacheBundle(outer))
+ 
+-  val (tl_out, edge_out) = outer.masterNode.out(0)
++  val tl_out = outer.masterNode.out(0)._1
++  val edge_out = outer.masterNode.out(0)._2
+ 
+   require(isPow2(nSets) && isPow2(nWays))
+   require(usingVM)
+diff -ruN a/src/main/scala/v4/lsu/dcache.scala b/src/main/scala/v4/lsu/dcache.scala
+--- a/src/main/scala/v4/lsu/dcache.scala	2026-01-23 02:53:59.000000000 +0100
++++ b/src/main/scala/v4/lsu/dcache.scala	2026-03-25 22:12:46.872528803 +0100
+@@ -439,8 +439,8 @@
+   with HasL1HellaCacheParameters
+   with HasBoomCoreParameters
+ {
+-  implicit val edge = outer.node.edges.out(0)
+-  val (tl_out, _) = outer.node.out(0)
++  implicit val edge: TLEdgeOut = outer.node.edges.out(0)
++  val tl_out = outer.node.out(0)._1
+   val io = IO(new BoomDCacheBundle)
+ 
+   io.errors := DontCare
+diff -ruN a/src/main/scala/v4/util/ParallelFindOne.scala b/src/main/scala/v4/util/ParallelFindOne.scala
+--- a/src/main/scala/v4/util/ParallelFindOne.scala	2026-01-23 02:53:59.000000000 +0100
++++ b/src/main/scala/v4/util/ParallelFindOne.scala	2026-03-25 22:12:22.028900514 +0100
+@@ -8,16 +8,13 @@
+ 
+ import chisel3._
+ import chisel3.util.{log2Ceil,log2Floor, Cat,Mux1H}
+-import chisel3.experimental.hierarchy.{Definition, Instance, instantiable, public}
+-import circt.stage.ChiselStage
+ 
+-@instantiable
+ class ParallelFindOne(decodeWidth : Int, favor: Boolean) extends Module {
+ 
+   override val desiredName = s"Parallel_${decodeWidth}_f${favor}_FindOne"
+-  @public val bitmask = IO(Input(UInt(decodeWidth.W)))
+-  @public val success = IO(Output(new Bool()))
+-  @public val index = IO(Output(UInt(log2Ceil(decodeWidth).W)))
++  val bitmask = IO(Input(UInt(decodeWidth.W)))
++  val success = IO(Output(new Bool()))
++  val index = IO(Output(UInt(log2Ceil(decodeWidth).W)))
+ 
+   // must be log of 2
+   require(log2Ceil(decodeWidth) == log2Floor(decodeWidth))
+@@ -29,14 +26,9 @@
+     } else {
+       index := !bitmask(0)
+     }
+-    // index := Mux1H(Seq(
+-    //   bitmask(1) -> 1.U(1.W),
+-    //   bitmask(0) -> 0.U(1.W)
+-    // )) // Note: not truly parallel for lack of X
+   } else {
+-    val decoder_def = Definition(new ParallelFindOne(decodeWidth / 2, favor))
+-    val lower_dec = Instance(decoder_def)
+-    val upper_dec = Instance(decoder_def)
++    val lower_dec = Module(new ParallelFindOne(decodeWidth / 2, favor))
++    val upper_dec = Module(new ParallelFindOne(decodeWidth / 2, favor))
+ 
+     val lower_success = Wire(Bool())
+     val upper_success = Wire(Bool())
+@@ -54,10 +46,6 @@
+     } else {
+       index := Mux(lower_success, Cat(0.U(1.W), lower_index), Cat(1.U(1.W), upper_index))
+     }
+-    // index := Mux1H(Seq(
+-    //   upper_success ->Cat(1.U(1.W), upper_index),
+-    //   lower_success -> Cat(0.U(1.W), lower_index)
+-    // ))
+   }
+ }
+ 
+@@ -66,27 +54,6 @@
+     val widthRoundUp = scala.math.pow(2, (log2Ceil(bv.getWidth))).intValue
+     val pfo = Module(new ParallelFindOne(widthRoundUp, favor))
+     pfo.bitmask := bv
+-//    assert(pfo.index < bv.getWidth.U,"non-pow2 index out of range")
+     (pfo.success, pfo.index)
+   }
+ }
+-
+-class testmodule extends Module {
+-  val input = IO(Input(UInt(4.W)))
+-  val success = IO(Output(Bool()))
+-  val index = IO(Output(UInt(2.W)))
+-
+-  val (a, b) = ParallelFindOne(input, true)
+-  success := a
+-  index := b
+-
+-//   (success, index)  := 
+-}
+-
+-object Elaborate extends App {
+-
+-  println(ChiselStage.emitSystemVerilog(new testmodule))
+-//  println(ChiselStage.emitFIRRTLDialect(new ParallelFindOne(4)))
+-//  println(ChiselStage.emitSystemVerilog(new PrefixedMux))
+-
+-}

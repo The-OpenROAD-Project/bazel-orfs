@@ -1,0 +1,10 @@
+filegroup(
+    name = "all_srcs",
+    srcs = [
+        "include/common_cells/registers.svh",
+        "src/cf_math_pkg.sv",
+        "src/lzc.sv",
+        "src/rr_arb_tree.sv",
+    ],
+    visibility = ["//visibility:public"],
+)

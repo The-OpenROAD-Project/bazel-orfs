@@ -1,0 +1,38 @@
+Yosys 0.63+post (git sha1 UNKNOWN-dirty, g++ 11.4.0-1ubuntu1~22.04.3 -fPIC -O3)
+Using ABC speed script.
+Extracting clock period from SDC file: bazel-out/k8-fastbuild/bin/gemmini/results/asap7/MeshWithDelays/base/clock_period.txt
+Setting clock period to 1000
+1. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz
+2. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz
+3. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz
+4. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz
+5. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib
+6. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz
+7. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz
+8. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz
+9. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz
+10. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib
+11. Executing SLANG frontend.
+11.1. Executing UNDRIVEN pass. (resolve undriven signals)
+11.2. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+11.3. Executing TRIBUF pass.
+11.4. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
+11.5. Executing PROC_PRUNE pass (remove redundant assignments in processes).
+11.6. Executing PROC_INIT pass (extract init attributes).
+11.7. Executing PROC_ROM pass (convert switches to ROMs).
+11.8. Executing PROC_MUX pass (convert decision trees to multiplexers).
+11.9. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+11.10. Executing OPT_EXPR pass (perform const folding).
+12. Executing HIERARCHY pass (managing design hierarchy).
+12.1. Analyzing design hierarchy..
+12.2. Analyzing design hierarchy..
+13. Executing OPT_CLEAN pass (remove unused cells and wires).
+14. Executing RTLIL backend.
+End of script. Logfile hash: 8f4dc2a250, CPU: user 3.96s system 0.05s, MEM: 126.15 MB peak
+Yosys 0.63+post (git sha1 UNKNOWN-dirty, g++ 11.4.0-1ubuntu1~22.04.3 -fPIC -O3)
+Time spent: 50% 2x read_slang (2 sec), 17% 1x proc_prune (0 sec), ...
+Top level design units:
+    MeshWithDelays
+
+Build succeeded: 0 errors, 0 warnings
+Elapsed time: 0:04.09[h:]min:sec. CPU time: user 4.04 sys 0.05 (100%). Peak memory: 129176KB.

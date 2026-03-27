@@ -1,0 +1,120 @@
+load("//:defs.bzl", "demo_hierarchical", "demo_sram")
+load("//:gallery.bzl", "demo_gallery_image", "demo_stage_images")
+
+FAST = {
+    "GPL_ROUTABILITY_DRIVEN": "0",
+    "GPL_TIMING_DRIVEN": "0",
+    "SKIP_CTS_REPAIR_TIMING": "1",
+    "SKIP_INCREMENTAL_REPAIR": "1",
+    "SKIP_LAST_GASP": "1",
+    "FILL_CELLS": "",
+    "TAPCELL_TCL": "",
+    "SETUP_SLACK_MARGIN": "1000",
+}
+
+# Level 0: MAC Processing Element — 748 cells, instantiated 16x in systolic_array.
+# Uses platform BLOCK_grid_strategy: M1/M2 followpins, M5 pins via M4/M5 ring.
+demo_sram(
+    name = "mac_pe",
+    abstract_stage = "place",
+    arguments = FAST | {
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.65",
+        "MAX_ROUTING_LAYER": "M5",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
+    },
+    mock_area = 0.5,
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+        "IO_CONSTRAINTS": [":mac_pe-io.tcl"],
+    },
+    substeps = True,
+    verilog_files = ["@tensor_accelerator//:mac_pe_rtl"],
+)
+
+# Level 1: Systolic array — mac_pe macros + skew/deskew registers.
+# Uses platform BLOCKS_grid_strategy: mac_pe M5 pins → M5/M6 straps → M6 pins.
+demo_sram(
+    name = "systolic_array",
+    arguments = FAST | {
+        "SYNTH_HIERARCHICAL": "1",
+        "CORE_UTILIZATION": "",
+        "DIE_AREA": "0 0 80 80",
+        "CORE_AREA": "3 3 77 77",
+        "PLACE_DENSITY": "0.85",
+        "MACRO_PLACE_HALO": "1 1",
+        "MAX_ROUTING_LAYER": "M6",
+        "PLACE_PINS_ARGS": "-annealing",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+    },
+    macros = [":mac_pe_generate_abstract"],
+    mock_area = 0.5,
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+        "IO_CONSTRAINTS": [":systolic_array-io.tcl"],
+    },
+    substeps = True,
+    verilog_files = ["@tensor_accelerator//:systolic_array_rtl"],
+)
+
+# Level 2: Tensor Processing Cluster — replicated 4x in the top module.
+# systolic_array macro exposes M6 → TPC uses M7/M8, pins on M8.
+demo_sram(
+    name = "tensor_processing_cluster",
+    arguments = FAST | {
+        "SYNTH_HIERARCHICAL": "1",
+        "CORE_UTILIZATION": "",
+        "DIE_AREA": "0 0 210 210",
+        "CORE_AREA": "5 5 205 205",
+        "MACRO_PLACE_HALO": "5 5",
+        "MAX_ROUTING_LAYER": "M8",
+        "PLACE_PINS_ARGS": "-annealing",
+    },
+    macros = [":systolic_array_generate_abstract"],
+    mock_area = 0.5,
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+        "IO_CONSTRAINTS": [":tpc-io.tcl"],
+        "PDN_TCL": [":pdn-tpc.tcl"],
+    },
+    substeps = True,
+    verilog_files = ["@tensor_accelerator//:tpc_rtl"],
+)
+
+# Level 3: Top — 4x TPC + global command processor + NoC crossbar.
+# Full metal stack M1-M9. TPC macros expose M8.
+demo_hierarchical(
+    name = "tensor_accelerator_top",
+    arguments = FAST | {
+        "SYNTH_HIERARCHICAL": "1",
+        "MACRO_PLACE_HALO": "5 5",
+        "PLACE_PINS_ARGS": "-annealing",
+        "CORE_UTILIZATION": "",
+        "DIE_AREA": "0 0 350 350",
+        "CORE_AREA": "5 5 345 345",
+        "PLACE_DENSITY": "0.65",
+    },
+    macros = [":tensor_processing_cluster_generate_abstract"],
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+        "PDN_TCL": [":top-pdn.tcl"],
+    },
+    substeps = True,
+    verilog_files = ["@tensor_accelerator//:top_rtl"],
+)
+
+demo_gallery_image(
+    name = "tensor_accelerator_top_gallery",
+    src = ":tensor_accelerator_top_place",
+    stage = "place",
+)
+
+demo_stage_images(
+    name = "tensor_accelerator_top_images",
+    module = "tensor_accelerator_top",
+    stages = [
+        "floorplan",
+        "place",
+        "cts",
+    ],
+)

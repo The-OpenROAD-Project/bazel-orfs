@@ -1,0 +1,36 @@
+From 228a299a755d3147d1862c7f8fb26d216ff915c0 Mon Sep 17 00:00:00 2001
+From: Alex Van Damme <atv@google.com>
+Date: Mon, 14 Apr 2025 11:16:57 -0700
+Subject: [PATCH] Fix max_num_lanes issue in DC
+
+---
+ src/fpnew_pkg.sv | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+diff --git a/src/fpnew_pkg.sv b/src/fpnew_pkg.sv
+index 0167305..b3edf0e 100644
+--- a/src/fpnew_pkg.sv
++++ b/src/fpnew_pkg.sv
+@@ -403,7 +403,19 @@ package fpnew_pkg;
+
+   // Returns the maximum number of lanes in the FPU according to width, format config and vectors
+   function automatic int unsigned max_num_lanes(int unsigned width, fmt_logic_t cfg, logic vec);
+-    return vec ? width / min_fp_width(cfg) : 1; // if no vectors, only one lane
++    // return vec ? width / min_fp_width(cfg) : 1; // if no vectors, only one lane
++    if (vec) begin
++      automatic int unsigned res = max_fp_width(cfg);
++      for (int unsigned i = 0; i < NUM_FP_FORMATS; i++) begin
++        if (cfg[i]) begin
++          automatic int unsigned format_width = FP_ENCODINGS[i].exp_bits + FP_ENCODINGS[i].man_bits + 1;
++          res = unsigned'(minimum(res, format_width));
++        end
++      end
++      return width / res;
++    end else begin
++      return 1;
++    end
+   endfunction
+
+     // Returns the maximum number of lanes in the FPU according to width, format config and vectors
+--
+2.49.0.604.gff1f9ca942-goog

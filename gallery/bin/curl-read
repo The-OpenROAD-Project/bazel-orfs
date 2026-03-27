@@ -1,0 +1,18 @@
+#!/bin/bash
+# Read-only curl wrapper for use in Claude Code permissions.
+# Usage: curl-read <https-url> [curl-flags...]
+# Example: curl-read https://raw.githubusercontent.com/owner/repo/main/README.md
+#          curl-read https://api.github.com/repos/owner/repo/git/trees/main?recursive=1
+#
+# Only allows HTTPS URLs. No authentication headers or tokens.
+set -euo pipefail
+
+url="$1"; shift || { echo "curl-read: missing URL" >&2; exit 1; }
+
+# Require https://
+case "$url" in
+  https://*) ;;
+  *) echo "curl-read: only https:// URLs are allowed" >&2; exit 1 ;;
+esac
+
+exec curl -sL "$url" "$@"

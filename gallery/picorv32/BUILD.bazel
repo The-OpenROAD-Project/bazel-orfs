@@ -1,0 +1,39 @@
+load("//:defs.bzl", "demo_flow")
+load("//:gallery.bzl", "demo_gallery_image", "demo_stage_images")
+
+demo_flow(
+    name = "picorv32",
+    arguments = {
+        # --- Floorplan & Placement ---
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.65",
+        # --- Speed defaults (remove to improve QoR) ---
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "SKIP_CTS_REPAIR_TIMING": "1",
+        "SKIP_INCREMENTAL_REPAIR": "1",
+        "SKIP_LAST_GASP": "1",
+        "FILL_CELLS": "",
+        "TAPCELL_TCL": "",
+    },
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    verilog_files = ["@picorv32//:rtl"],
+)
+
+demo_gallery_image(
+    name = "picorv32_gallery",
+    src = ":picorv32_route",
+)
+
+demo_stage_images(
+    name = "picorv32_images",
+    module = "picorv32",
+    stages = [
+        "floorplan",
+        "place",
+        "cts",
+        "route",
+    ],
+)

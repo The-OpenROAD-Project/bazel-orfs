@@ -1,0 +1,36 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library")
+
+py_library(
+    name = "vlsiffra_lib",
+    srcs = glob(["vlsiffra/**/*.py"]),
+    imports = ["."],
+    deps = ["@pip//amaranth"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "vlsi_multiplier_py",
+    srcs = ["vlsiffra/vlsi-multiplier"],
+    outs = ["vlsi_multiplier.py"],
+    cmd = "cp $< $@",
+)
+
+py_binary(
+    name = "vlsi_multiplier",
+    srcs = [":vlsi_multiplier_py"],
+    main = "vlsi_multiplier.py",
+    deps = [":vlsiffra_lib"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "asap7_cells",
+    srcs = ["verilog/asap7.v"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "multiplier_gold_v",
+    srcs = ["gold/multiplier.v"],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,64 @@
+load("//:defs.bzl", "demo_flow")
+load("//:gallery.bzl", "demo_gallery_image")
+
+# CVA6 cv32a60x — 32-bit RISC-V CPU with HPDcache
+#
+# Sources span three archives (CVA6 uses git submodules):
+#   @cva6            — core CPU RTL + vendor IPs
+#   @cv_hpdcache     — high-performance data cache (submodule)
+#   @cvfpu           — FPU (submodule, shared with coralnpu)
+#   @fpu_div_sqrt_mvp — FPU div/sqrt (submodule inside cvfpu)
+#
+# SRAM strategy: SYNTH_MOCK_LARGE_MEMORIES=1 (from defs.bzl) handles all
+# memories automatically. HPDcache behavioral models provide the source.
+#
+# Future refinement: add demo_sram() targets for hpdcache SRAMs with
+# custom _impl.sv files and mock_area=0.2 for better area estimates.
+# See openhwgroup/cva6#3053 BUILD file for proven SRAM configuration.
+
+demo_flow(
+    name = "cva6",
+    arguments = {
+        # Synthesis — survey mode: keep all modules for size analysis
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_MINIMUM_KEEP_SIZE": "0",
+        "VERILOG_DEFINES": "-D HPDCACHE_ASSERT_OFF",
+        "SYNTH_SLANG_ARGS": " ".join([
+            "--disable-instance-caching=false",
+            "-Iexternal/+_repo_rules+cva6/core/include",
+            "-Iexternal/+_repo_rules+cv_hpdcache/rtl/include",
+            "-Iexternal/+_repo_rules+cva6/vendor/pulp-platform/common_cells/include",
+            "-Iexternal/+_repo_rules+cva6/vendor/pulp-platform/common_cells/src",
+            "-Iexternal/+_repo_rules+cva6/vendor/pulp-platform/axi/include",
+            "-Iexternal/+_repo_rules+cva6/common/local/util",
+        ]),
+        # Floorplan (from PR #3053 proven values)
+        "CORE_UTILIZATION": "70",
+        "CORE_MARGIN": "2",
+        "PLACE_DENSITY": "0.73",
+        "MACRO_PLACE_HALO": "3 3",
+        # Speed
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "SKIP_CTS_REPAIR_TIMING": "1",
+        "SKIP_INCREMENTAL_REPAIR": "1",
+        "SKIP_LAST_GASP": "1",
+        "FILL_CELLS": "",
+        "TAPCELL_TCL": "",
+        "SETUP_SLACK_MARGIN": "-10000",
+        "TNS_END_PERCENT": "0",
+    },
+    sources = {"SDC_FILE": [":constraints.sdc"]},
+    substeps = True,
+    verilog_files = [
+        "@cva6//:rtl",
+        "@cv_hpdcache//:rtl",
+        "@cvfpu//:all_srcs",
+        "@fpu_div_sqrt_mvp//:all_srcs",
+    ],
+)
+
+demo_gallery_image(
+    name = "cva6_gallery",
+    src = ":cva6_place",
+)

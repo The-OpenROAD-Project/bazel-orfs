@@ -1,0 +1,10 @@
+export PLATFORM          = asap7
+export DESIGN_NAME       = counter_with_sram
+export DESIGN_NICKNAME   = counter_with_sram
+export VERILOG_FILES     = ./rtl/counter_with_sram.sv ./rtl/counter.sv ./rtl/tiny_sram.sv
+export SDC_FILE          = ./constraints.sdc
+export CORE_UTILIZATION  = 30
+export PLACE_DENSITY     = 0.60
+export MACRO_PLACE_HALO  = 1 1
+export SYNTH_HIERARCHICAL = 1
+export BLOCKS            = tiny_sram

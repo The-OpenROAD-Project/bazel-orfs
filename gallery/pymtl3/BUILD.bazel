@@ -1,0 +1,52 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("//:defs.bzl", "demo_flow")
+load("//:gallery.bzl", "demo_gallery_image")
+
+# pymtl3 ChecksumRTL — tiny stream-based checksum unit for fast CI
+
+# Step 1: Translate pymtl3 Python RTL to Verilog
+py_binary(
+    name = "translate_checksum",
+    srcs = ["translate_checksum.py"],
+    deps = ["@pymtl3//:pymtl3_lib"],
+)
+
+genrule(
+    name = "generate_checksum_v",
+    outs = ["ChecksumRTL.v"],
+    cmd = "$(execpath :translate_checksum) --output=$@",
+    tools = [":translate_checksum"],
+)
+
+# Step 2: ORFS physical design flow
+demo_flow(
+    name = "ChecksumRTL_noparam",
+    arguments = {
+        # Floorplan & Placement
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.65",
+        # Speed defaults
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "SKIP_CTS_REPAIR_TIMING": "1",
+        "SKIP_INCREMENTAL_REPAIR": "1",
+        "SKIP_LAST_GASP": "1",
+        "FILL_CELLS": "",
+        "TAPCELL_TCL": "",
+    },
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    verilog_files = [":generate_checksum_v"],
+)
+
+demo_gallery_image(
+    name = "ChecksumRTL_noparam_gallery",
+    src = ":ChecksumRTL_noparam_place",
+)
+
+# CI smoketest — full RTL-to-GDS for the smallest design
+build_test(
+    name = "checksum_build_test",
+    targets = [":ChecksumRTL_noparam_final"],
+)

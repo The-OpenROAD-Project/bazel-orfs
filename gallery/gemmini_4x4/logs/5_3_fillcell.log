@@ -1,0 +1,9 @@
+OpenROAD 26Q1-1929-g7cf7b720fd 
+Features included (+) or not (-): +GPU +GUI +Python
+This program is licensed under the BSD-3 license. See the LICENSE file for details.
+Components of this program may be licensed under more restrictive licenses which must be honored.
+[INFO ORD-0030] Using 16 thread(s).
+exec cp bazel-out/k8-fastbuild/bin/gemmini_4x4/results/asap7/MeshWithDelays/base/5_2_route.odb bazel-out/k8-fastbuild/bin/gemmini_4x4/results/asap7/MeshWithDelays/base/5_3_fillcell.odb
+Elapsed time: 0:00.19[h:]min:sec. CPU time: user 0.13 sys 0.04 (92%). Peak memory: 88396KB.
+Log                        Elapsed/s Peak Memory/MB  sha1sum .odb [0:20)
+5_3_fillcell                       0             86 3bec9311b369cb28986d

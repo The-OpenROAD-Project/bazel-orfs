@@ -1,0 +1,19 @@
+OpenROAD 26Q1-1929-g7cf7b720fd 
+Features included (+) or not (-): +GPU +GUI +Python
+This program is licensed under the BSD-3 license. See the LICENSE file for details.
+Components of this program may be licensed under more restrictive licenses which must be honored.
+[INFO ORD-0030] Using 16 thread(s).
+source external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/liberty_suppressions.tcl
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib
+read_db -hier bazel-out/k8-fastbuild/bin/gemmini_4x4/results/asap7/MeshWithDelays/base/2_2_floorplan_macro.odb
+[WARNING ORD-0012] Hierarchical flow (-hier) is currently in development and may cause multiple issues. Do not use in production environments.
+source external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/setRC.tcl
+Design area 5645 um^2 40% utilization.
+write_db bazel-out/k8-fastbuild/bin/gemmini_4x4/results/asap7/MeshWithDelays/base/2_3_floorplan_tapcell.odb
+Elapsed time: 0:01.85[h:]min:sec. CPU time: user 1.77 sys 0.07 (100%). Peak memory: 255952KB.
+Log                        Elapsed/s Peak Memory/MB  sha1sum .odb [0:20)
+2_3_floorplan_tapcell              1            249 3e9871a63c17cf07c560

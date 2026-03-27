@@ -1,0 +1,30 @@
+Yosys 0.63+post (git sha1 UNKNOWN-dirty, g++ 11.4.0-1ubuntu1~22.04.3 -fPIC -O3)
+Using ABC speed script.
+Extracting clock period from SDC file: bazel-out/k8-fastbuild/bin/vlsiffra/results/asap7/multiplier/base/clock_period.txt
+Setting clock period to 370
+1. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz
+2. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz
+3. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz
+4. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz
+5. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib
+6. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz
+7. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz
+8. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz
+9. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz
+10. Executing Liberty frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib
+11. Executing Verilog-2005 frontend: bazel-out/k8-fastbuild/bin/vlsiffra/multiplier.v
+12. Executing Verilog-2005 frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/yoSys/cells_clkgate_R.v
+13. Executing HIERARCHY pass (managing design hierarchy).
+14. Executing AST frontend in derive mode using pre-parsed AST for module `\multiplier'.
+14.1. Analyzing design hierarchy..
+14.2. Executing AST frontend in derive mode using pre-parsed AST for module `\multiplier.final_adder'.
+14.3. Analyzing design hierarchy..
+14.4. Analyzing design hierarchy..
+15. Executing OPT_CLEAN pass (remove unused cells and wires).
+Warning: Ignoring module multiplier because it contains processes (run 'proc' command first).
+16. Executing RTLIL backend.
+Warnings: 1 unique messages, 1 total
+End of script. Logfile hash: 75d2c46a8a, CPU: user 0.99s system 0.02s, MEM: 77.39 MB peak
+Yosys 0.63+post (git sha1 UNKNOWN-dirty, g++ 11.4.0-1ubuntu1~22.04.3 -fPIC -O3)
+Time spent: 66% 12x read_liberty (0 sec), 21% 1x hierarchy (0 sec), ...
+Elapsed time: 0:01.09[h:]min:sec. CPU time: user 1.06 sys 0.02 (100%). Peak memory: 82852KB.

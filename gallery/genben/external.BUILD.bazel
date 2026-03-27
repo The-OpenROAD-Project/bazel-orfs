@@ -1,0 +1,5 @@
+filegroup(
+    name = "rtl",
+    srcs = ["data/Design/GA_94/ref.v"],
+    visibility = ["//visibility:public"],
+)

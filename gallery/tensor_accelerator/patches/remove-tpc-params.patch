@@ -1,0 +1,24 @@
+--- a/rtl/top/tensor_accelerator_top.v	2026-03-25 08:49:29.128069791 +0100
++++ b/rtl/top/tensor_accelerator_top.v	2026-03-25 08:49:29.144717240 +0100
+@@ -210,20 +210,7 @@
+     genvar t;
+     generate
+         for (t = 0; t < NUM_TPCS; t = t + 1) begin : tpc_gen
+-            tensor_processing_cluster #(
+-                .ARRAY_SIZE  (ARRAY_SIZE),
+-                .DATA_WIDTH  (DATA_WIDTH),
+-                .ACC_WIDTH   (ACC_WIDTH),
+-                .VPU_LANES   (VPU_LANES),
+-                .VPU_DATA_W  (VPU_DATA_W),
+-                .SRAM_BANKS  (SRAM_BANKS),
+-                .SRAM_DEPTH  (SRAM_DEPTH),
+-                .SRAM_WIDTH  (SRAM_WIDTH),
+-                .SRAM_ADDR_W (SRAM_ADDR_W),
+-                .EXT_ADDR_W  (AXI_ADDR_W),
+-                .EXT_DATA_W  (AXI_DATA_W),
+-                .TPC_ID      (t)
+-            ) tpc_inst (
++            tensor_processing_cluster tpc_inst (
+                 .clk              (clk),
+                 .rst_n            (rst_n),
+                 

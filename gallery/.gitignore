@@ -1,0 +1,9 @@
+bazel-*
+.bazel-disk-cache/
+user.bazelrc
+.metals/
+.vscode/
+tmp/
+# Upstream project worktrees (git worktree add upstream/<name> ...)
+upstream/
+profile.json

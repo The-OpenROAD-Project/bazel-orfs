@@ -1,0 +1,131 @@
+OpenROAD 26Q1-1929-g7cf7b720fd 
+Features included (+) or not (-): +GPU +GUI +Python
+This program is licensed under the BSD-3 license. See the LICENSE file for details.
+Components of this program may be licensed under more restrictive licenses which must be honored.
+[INFO ORD-0030] Using 16 thread(s).
+source external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/liberty_suppressions.tcl
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib
+read_db -hier bazel-out/k8-fastbuild/bin/gemmini/results/asap7/MeshWithDelays/base/3_place.odb
+[WARNING ORD-0012] Hierarchical flow (-hier) is currently in development and may cause multiple issues. Do not use in production environments.
+source external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/setRC.tcl
+clock_tree_synthesis -sink_clustering_enable -repair_clock_nets
+[INFO CTS-0050] Root buffer is BUFx24_ASAP7_75t_R.
+[INFO CTS-0051] Sink buffer is BUFx24_ASAP7_75t_R.
+[INFO CTS-0052] The following clock buffers will be used for CTS:
+                    BUFx24_ASAP7_75t_R
+[INFO CTS-0049] Characterization buffer is BUFx24_ASAP7_75t_R.
+[INFO CTS-0007] Net "clock" found for clock "clock".
+[INFO CTS-0010]  Clock net "clock" has 78732 sinks.
+[INFO CTS-0008] TritonCTS found 1 clock nets.
+[INFO CTS-0097] Characterization used 1 buffer(s) types.
+[INFO CTS-0201] 0 blockages from hard placement blockages and placed macros will be used.
+[INFO CTS-0027] Generating H-Tree topology for net clock.
+[INFO CTS-0028]  Total number of sinks: 78732.
+[INFO CTS-0090]  Sinks will be clustered based on buffer max cap.
+[INFO CTS-0030]  Number of static layers: 0.
+[INFO CTS-0020]  Wire segment unit: 1350  dbu (1 um).
+[INFO CTS-0206] Best clustering solution was found from clustering size of 20 and clustering diameter of 50.
+[INFO CTS-0019]  Total number of sinks after clustering: 4026.
+[INFO CTS-0024]  Normalized sink region: [(1.58385, 2.07895), (376.454, 374.418)].
+[INFO CTS-0025]     Width:  374.8703.
+[INFO CTS-0026]     Height: 372.3387.
+ Level 1
+    Direction: Horizontal
+    Sinks per sub-region: 2013
+    Sub-region size: 187.4352 X 372.3387
+[INFO CTS-0034]     Segment length (rounded): 94.
+ Level 2
+    Direction: Vertical
+    Sinks per sub-region: 1007
+    Sub-region size: 187.4352 X 186.1694
+[INFO CTS-0034]     Segment length (rounded): 94.
+ Level 3
+    Direction: Horizontal
+    Sinks per sub-region: 504
+    Sub-region size: 93.7176 X 186.1694
+[INFO CTS-0034]     Segment length (rounded): 46.
+ Level 4
+    Direction: Vertical
+    Sinks per sub-region: 252
+    Sub-region size: 93.7176 X 93.0847
+[INFO CTS-0034]     Segment length (rounded): 46.
+ Level 5
+    Direction: Horizontal
+    Sinks per sub-region: 126
+    Sub-region size: 46.8588 X 93.0847
+[INFO CTS-0034]     Segment length (rounded): 24.
+ Level 6
+    Direction: Vertical
+    Sinks per sub-region: 63
+    Sub-region size: 46.8588 X 46.5423
+[INFO CTS-0034]     Segment length (rounded): 24.
+ Level 7
+    Direction: Horizontal
+    Sinks per sub-region: 32
+    Sub-region size: 23.4294 X 46.5423
+[INFO CTS-0034]     Segment length (rounded): 12.
+ Level 8
+    Direction: Vertical
+    Sinks per sub-region: 16
+    Sub-region size: 23.4294 X 23.2712
+[INFO CTS-0034]     Segment length (rounded): 12.
+ Level 9
+    Direction: Horizontal
+    Sinks per sub-region: 8
+    Sub-region size: 11.7147 X 23.2712
+[INFO CTS-0034]     Segment length (rounded): 6.
+[INFO CTS-0032]  Stop criterion found. Max number of sinks is 15.
+[INFO CTS-0035]  Number of sinks covered: 4026.
+[INFO CTS-0018]     Created 4789 clock buffers.
+[INFO CTS-0012]     Minimum number of buffers in the clock path: 14.
+[INFO CTS-0013]     Maximum number of buffers in the clock path: 14.
+[INFO CTS-0015]     Created 4789 clock nets.
+[INFO CTS-0016]     Fanout distribution for the current clock = 3:3, 4:19, 5:41, 6:97, 7:93, 8:109, 9:101, 10:80, 11:70, 12:94, 13:114, 14:114, 15:154, 16:198, 17:231, 18:298, 19:354, 20:464, 21:537, 22:517, 23:385, 24:283, 25:136, 26:39, 27:5, 28:2..
+[INFO CTS-0017]     Max level of the clock tree: 9.
+[INFO CTS-0098] Clock net "clock"
+[INFO CTS-0099]  Sinks 82446
+[INFO CTS-0100]  Leaf buffers 4026
+[INFO CTS-0101]  Average sink wire length 989.99 um
+[INFO CTS-0102]  Path depth 13 - 14
+[INFO CTS-0207]  Dummy loads inserted 3714
+[INFO RSZ-0047] Found 1 long wires.
+[INFO RSZ-0048] Inserted 4 buffers in 1 nets.
+Took 80 seconds: clock_tree_synthesis -sink_clustering_enable -repair_clock_nets
+estimate_parasitics -placement
+Took 28 seconds: estimate_parasitics -placement
+[INFO DPL-0005] Max displacement: +/- 500 sites horizontally, +/- 100 rows vertically.
+Movements Summary
+---------------------------------------
+Total cells:                  896465
+Diamond Move Success:         896465 (100.00%)
+Diamond Move Failure:              0
+Rip-up and replace Success:        0 (  0.00% of diamond failures)
+Rip-up and replace Failure:        0
+Total Placement Failures:          0
+---------------------------------------
+Placement Analysis
+---------------------------------
+total displacement      10937.4 u
+average displacement        0.0 u
+max displacement            1.2 u
+original HPWL         3320807.5 u
+legalized HPWL        3386821.0 u
+delta HPWL                    2 %
+
+estimate_parasitics -placement
+Took 29 seconds: estimate_parasitics -placement
+Report metrics stage 4, cts final...
+
+==========================================================================
+cts final report_design_area
+--------------------------------------------------------------------------
+Design area 106816 um^2 41% utilization.
+write_db bazel-out/k8-fastbuild/bin/gemmini/results/asap7/MeshWithDelays/base/4_1_cts.odb
+write_sdc -no_timestamp bazel-out/k8-fastbuild/bin/gemmini/results/asap7/MeshWithDelays/base/4_cts.sdc
+Elapsed time: 8:11.53[h:]min:sec. CPU time: user 1093.91 sys 168.00 (256%). Peak memory: 8032788KB.
+Log                        Elapsed/s Peak Memory/MB  sha1sum .odb [0:20)
+4_1_cts                          491           7844 67d855b8786f6c72b7c7

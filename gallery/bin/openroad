@@ -1,0 +1,10 @@
+#!/bin/bash
+# OpenROAD wrapper for use in Claude Code permissions.
+# Usage: openroad <dir> [openroad_args...]
+# Example: openroad upstream/OpenROAD-flow-scripts/tools/OpenROAD -no_init -threads 1 -exit script.tcl
+#
+# Runs <dir>/bazel-bin/openroad with the remaining args.
+set -euo pipefail
+
+dir="$1"; shift
+exec "$dir/bazel-bin/openroad" "$@"

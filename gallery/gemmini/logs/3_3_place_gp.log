@@ -1,0 +1,147 @@
+OpenROAD 26Q1-1929-g7cf7b720fd 
+Features included (+) or not (-): +GPU +GUI +Python
+This program is licensed under the BSD-3 license. See the LICENSE file for details.
+Components of this program may be licensed under more restrictive licenses which must be honored.
+[INFO ORD-0030] Using 16 thread(s).
+source external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/liberty_suppressions.tcl
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib
+read_db -hier bazel-out/k8-fastbuild/bin/gemmini/results/asap7/MeshWithDelays/base/3_2_place_iop.odb
+[WARNING ORD-0012] Hierarchical flow (-hier) is currently in development and may cause multiple issues. Do not use in production environments.
+source external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/setRC.tcl
+Perform port buffering...
+[INFO RSZ-0027] Inserted 413 BUFx2_ASAP7_75t_R input buffers.
+[INFO RSZ-0028] Inserted 667 BUFx2_ASAP7_75t_R output buffers.
+global_placement -density 0.65 -pad_left 0 -pad_right 0 -force_center_initial_place -min_phi_coef 0.95 -max_phi_coef 1.05
+[INFO GPL-0001] ---- Initialize GPL Main Data Structures
+[INFO GPL-0002] DBU: 1000
+[INFO GPL-0003] SiteSize: (  0.054  0.270 ) um
+[INFO GPL-0004] CoreBBox: (  1.026  1.080 ) ( 510.138 510.030 ) um
+[INFO GPL-0036] Movable instances area:     103783.327 um^2
+[INFO GPL-0037] Total instances area:       103783.327 um^2
+[INFO GPL-0035] Pin density area adjust:     12236.269 um^2
+[INFO GPL-0032] ---- Initialize Region: Top-level
+[INFO GPL-0006] Number of instances:            887459
+[INFO GPL-0007] Movable instances:              887459
+[INFO GPL-0008] Fixed instances:                     0
+[INFO GPL-0009] Dummy instances:                     0
+[INFO GPL-0010] Number of nets:                 927785
+[INFO GPL-0011] Number of pins:                3153577
+[INFO GPL-0012] Die BBox:  (  0.000  0.000 ) ( 511.145 511.145 ) um
+[INFO GPL-0013] Core BBox: (  1.026  1.080 ) ( 510.138 510.030 ) um
+[INFO GPL-0016] Core area:                  259112.552 um^2
+[INFO GPL-0014] Region name: top-level.
+[INFO GPL-0015] Region area:                259112.552 um^2
+[INFO GPL-0017] Fixed instances area:            0.000 um^2
+[INFO GPL-0018] Movable instances area:     116019.596 um^2
+[INFO GPL-0019] Utilization:                    44.776 %
+[INFO GPL-0020] Standard cells area:        116019.596 um^2
+[INFO GPL-0021] Large instances area:            0.000 um^2
+[INFO GPL-0005] ---- Execute Conjugate Gradient Initial Placement.
+[INFO GPL-0051] Source of initial instance position counters:
+	Odb location = 0	Core center = 887459	Region center = 0
+[InitialPlace]  Iter: 1 conjugate gradient residual: 0.02030695 HPWL: 4330054539
+[InitialPlace]  Iter: 2 conjugate gradient residual: 0.01201002 HPWL: 1303706133
+[InitialPlace]  Iter: 3 conjugate gradient residual: 0.01085806 HPWL: 1286941623
+[InitialPlace]  Iter: 4 conjugate gradient residual: 0.01553189 HPWL: 1295956047
+[InitialPlace]  Iter: 5 conjugate gradient residual: 0.01034617 HPWL: 1295848236
+[InitialPlace]  Iter: 6 conjugate gradient residual: 0.01072324 HPWL: 1300294519
+[InitialPlace]  Iter: 7 conjugate gradient residual: 0.01258577 HPWL: 1297777503
+[InitialPlace]  Iter: 8 conjugate gradient residual: 0.00986113 HPWL: 1300591039
+[InitialPlace]  Iter: 9 conjugate gradient residual: 0.01524797 HPWL: 1296596925
+[InitialPlace]  Iter: 10 conjugate gradient residual: 0.00914137 HPWL: 1297028083
+[InitialPlace]  Iter: 11 conjugate gradient residual: 0.05231866 HPWL: 1292824865
+[InitialPlace]  Iter: 12 conjugate gradient residual: 0.00583508 HPWL: 1556260616
+[InitialPlace]  Iter: 13 conjugate gradient residual: 0.00476128 HPWL: 1392255394
+[InitialPlace]  Iter: 14 conjugate gradient residual: 0.00502378 HPWL: 1358149123
+[InitialPlace]  Iter: 15 conjugate gradient residual: 0.00411431 HPWL: 1331754039
+[InitialPlace]  Iter: 16 conjugate gradient residual: 0.00440022 HPWL: 1318724578
+[InitialPlace]  Iter: 17 conjugate gradient residual: 0.00322403 HPWL: 1306059357
+[InitialPlace]  Iter: 18 conjugate gradient residual: 0.00303482 HPWL: 1298543996
+[InitialPlace]  Iter: 19 conjugate gradient residual: 0.00204450 HPWL: 1290781570
+[InitialPlace]  Iter: 20 conjugate gradient residual: 0.00229742 HPWL: 1288207097
+[INFO GPL-0033] ---- Initialize Nesterov Region: Top-level
+[INFO GPL-0023] Placement target density:       0.6500
+[INFO GPL-0024] Movable insts average area:      0.131 um^2
+[INFO GPL-0025] Ideal bin area:                  0.201 um^2
+[INFO GPL-0026] Ideal bin count:               1288309
+[INFO GPL-0027] Total bin area:             259112.552 um^2
+[INFO GPL-0028] Bin count (X, Y):        1024 ,   1024
+[INFO GPL-0029] Bin size (W * H):       0.497 *  0.497 um
+[INFO GPL-0030] Number of bins:                1048576
+[INFO GPL-0007] ---- Execute Nesterov Global Placement.
+[INFO GPL-0031] HPWL: Half-Perimeter Wirelength
+Iteration | Overflow |     HPWL (um) |  HPWL(%) |   Penalty | Group
+---------------------------------------------------------------
+        0 |   0.9728 |  9.793919e+05 |   +0.00% |  1.22e-13 |      
+       10 |   0.9727 |  6.807268e+05 |  -30.49% |  1.99e-13 |      
+       20 |   0.9698 |  7.034161e+05 |   +3.33% |  3.23e-13 |      
+       30 |   0.9680 |  7.257979e+05 |   +3.18% |  5.25e-13 |      
+       40 |   0.9665 |  7.430122e+05 |   +2.37% |  8.54e-13 |      
+       50 |   0.9655 |  7.589065e+05 |   +2.14% |  1.39e-12 |      
+       60 |   0.9646 |  7.740106e+05 |   +1.99% |  2.26e-12 |      
+       70 |   0.9638 |  7.874630e+05 |   +1.74% |  3.67e-12 |      
+       80 |   0.9632 |  8.014351e+05 |   +1.77% |  5.97e-12 |      
+       90 |   0.9622 |  8.174249e+05 |   +2.00% |  9.71e-12 |      
+      100 |   0.9611 |  8.366617e+05 |   +2.35% |  1.58e-11 |      
+      110 |   0.9597 |  8.608488e+05 |   +2.89% |  2.57e-11 |      
+      120 |   0.9573 |  8.953283e+05 |   +4.01% |  4.16e-11 |      
+      130 |   0.9533 |  9.480596e+05 |   +5.89% |  6.74e-11 |      
+      140 |   0.9472 |  1.031211e+06 |   +8.77% |  1.09e-10 |      
+      150 |   0.9383 |  1.162325e+06 |  +12.71% |  1.75e-10 |      
+      160 |   0.9257 |  1.360470e+06 |  +17.05% |  2.79e-10 |      
+      170 |   0.9097 |  1.633323e+06 |  +20.06% |  4.42e-10 |      
+      180 |   0.8909 |  1.972743e+06 |  +20.78% |  6.93e-10 |      
+      190 |   0.8694 |  2.359548e+06 |  +19.61% |  1.08e-09 |      
+      200 |   0.8493 |  2.693536e+06 |  +14.15% |  1.70e-09 |      
+      210 |   0.8281 |  2.920590e+06 |   +8.43% |  2.69e-09 |      
+      220 |   0.8074 |  3.010370e+06 |   +3.07% |  4.35e-09 |      
+      230 |   0.7819 |  3.285747e+06 |   +9.15% |  6.89e-09 |      
+      240 |   0.7502 |  3.583205e+06 |   +9.05% |  1.08e-08 |      
+      250 |   0.7034 |  4.469172e+06 |  +24.73% |  1.63e-08 |      
+      260 |   0.6627 |  5.528597e+06 |  +23.71% |  2.28e-08 |      
+      270 |   0.6635 |  4.455419e+06 |  -19.41% |  3.72e-08 |      
+      280 |   0.6227 |  4.377856e+06 |   -1.74% |  6.03e-08 |      
+      290 |   0.6045 |  3.702235e+06 |  -15.43% |  9.82e-08 |      
+      300 |   0.5605 |  3.904509e+06 |   +5.46% |  1.55e-07 |      
+      310 |   0.5194 |  3.625595e+06 |   -7.14% |  2.53e-07 |      
+      320 |   0.4794 |  3.483954e+06 |   -3.91% |  4.11e-07 |      
+      330 |   0.4298 |  3.437377e+06 |   -1.34% |  6.70e-07 |      
+      340 |   0.3780 |  3.398490e+06 |   -1.13% |  1.09e-06 |      
+      350 |   0.3292 |  3.374833e+06 |   -0.70% |  1.72e-06 |      
+      360 |   0.2953 |  3.330601e+06 |   -1.31% |  2.54e-06 |      
+      370 |   0.2624 |  3.305799e+06 |   -0.74% |  3.74e-06 |      
+      380 |   0.2331 |  3.281596e+06 |   -0.73% |  5.51e-06 |      
+      390 |   0.2060 |  3.264244e+06 |   -0.53% |  8.12e-06 |      
+      400 |   0.1804 |  3.254307e+06 |   -0.30% |  1.20e-05 |      
+      410 |   0.1568 |  3.250759e+06 |   -0.11% |  1.76e-05 |      
+      420 |   0.1358 |  3.249909e+06 |   -0.03% |  2.60e-05 |      
+      430 |   0.1175 |  3.251136e+06 |   +0.04% |  3.82e-05 |      
+      440 |   0.1026 |  3.252825e+06 |   +0.05% |  5.63e-05 |      
+      442 |   0.1000 |  3.252447e+06 |          |  6.33e-05 |      
+---------------------------------------------------------------
+[INFO GPL-1001] Global placement finished at iteration 442
+[INFO GPL-1002] Placed Cell Area            116019.5963
+[INFO GPL-1003] Available Free Area         259112.5524
+[INFO GPL-1004] Minimum Feasible Density        0.4500 (cell_area / free_area)
+[INFO GPL-1006]   Suggested Target Densities:
+[INFO GPL-1007]     - For 90% usage of free space: 0.4975
+[INFO GPL-1008]     - For 80% usage of free space: 0.5597
+[INFO GPL-1009]     - For 50% usage of free space: 0.8955
+[INFO GPL-1014] Final placement area: 116019.60 (+0.00%)
+Took 430 seconds: global_placement -density 0.65 -pad_left 0 -pad_right 0 -force_center_initial_place -min_phi_coef 0.95 -max_phi_coef 1.05
+estimate_parasitics -placement
+Took 28 seconds: estimate_parasitics -placement
+Report metrics stage 3, global place...
+
+==========================================================================
+global place report_design_area
+--------------------------------------------------------------------------
+Design area 103783 um^2 40% utilization.
+write_db bazel-out/k8-fastbuild/bin/gemmini/results/asap7/MeshWithDelays/base/3_3_place_gp.odb
+Elapsed time: 10:42.67[h:]min:sec. CPU time: user 2905.96 sys 41.48 (458%). Peak memory: 4858172KB.
+Log                        Elapsed/s Peak Memory/MB  sha1sum .odb [0:20)
+3_3_place_gp                     642           4744 b005fadaf14561af24ef

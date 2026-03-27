@@ -1,0 +1,8 @@
+filegroup(
+    name = "all_srcs",
+    srcs = glob(
+        ["src/*.sv", "vendor/opene906/**/*.v"],
+        allow_empty = True,
+    ),
+    visibility = ["//visibility:public"],
+)

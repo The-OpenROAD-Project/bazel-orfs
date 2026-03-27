@@ -1,0 +1,1110 @@
+Yosys 0.63+post (git sha1 UNKNOWN-dirty, g++ 11.4.0-1ubuntu1~22.04.3 -fPIC -O3)
+Using ABC speed script.
+Extracting clock period from SDC file: bazel-out/k8-fastbuild/bin/gemmini/results/asap7/MeshWithDelays/base/clock_period.txt
+Setting clock period to 1000
+1. Executing RTLIL frontend.
+2. Executing HIERARCHY pass (managing design hierarchy).
+2.1. Analyzing design hierarchy..
+2.2. Analyzing design hierarchy..
+3. Executing SYNTH pass.
+3.1. Executing HIERARCHY pass (managing design hierarchy).
+3.1.1. Analyzing design hierarchy..
+3.1.2. Analyzing design hierarchy..
+3.2. Executing PROC pass (convert processes to netlists).
+3.2.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+3.2.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
+3.2.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
+3.2.4. Executing PROC_INIT pass (extract init attributes).
+3.2.5. Executing PROC_ARST pass (detect async resets in processes).
+3.2.6. Executing PROC_ROM pass (convert switches to ROMs).
+3.2.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
+3.2.8. Executing PROC_DLATCH pass (convert process syncs to latches).
+3.2.9. Executing PROC_DFF pass (convert process syncs to FFs).
+3.2.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
+3.2.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+3.2.12. Executing OPT_EXPR pass (perform const folding).
+3.3. Executing OPT_EXPR pass (perform const folding).
+3.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+3.5. Executing CHECK pass (checking for obvious problems).
+3.6. Executing OPT pass (performing simple optimizations).
+3.6.1. Executing OPT_EXPR pass (perform const folding).
+3.6.2. Executing OPT_MERGE pass (detect identical cells).
+3.6.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+3.6.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+3.6.5. Executing OPT_MERGE pass (detect identical cells).
+3.6.6. Executing OPT_DFF pass (perform DFF optimizations).
+3.6.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+3.6.8. Executing OPT_EXPR pass (perform const folding).
+3.6.9. Rerunning OPT passes. (Maybe there is more to do..)
+3.6.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+3.6.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+3.6.12. Executing OPT_MERGE pass (detect identical cells).
+3.6.13. Executing OPT_DFF pass (perform DFF optimizations).
+3.6.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+3.6.15. Executing OPT_EXPR pass (perform const folding).
+3.6.16. Finished fast OPT passes. (There is nothing left to do.)
+3.7. Executing FSM pass (extract and optimize FSM).
+3.7.1. Executing FSM_DETECT pass (finding FSMs in design).
+3.7.2. Executing FSM_EXTRACT pass (extracting FSM from design).
+3.7.3. Executing FSM_OPT pass (simple optimizations of FSMs).
+3.7.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+3.7.5. Executing FSM_OPT pass (simple optimizations of FSMs).
+3.7.6. Executing FSM_RECODE pass (re-assigning FSM state encoding).
+3.7.7. Executing FSM_INFO pass (dumping all available information on FSM cells).
+3.7.8. Executing FSM_MAP pass (mapping FSMs to basic logic).
+3.8. Executing OPT pass (performing simple optimizations).
+3.8.1. Executing OPT_EXPR pass (perform const folding).
+3.8.2. Executing OPT_MERGE pass (detect identical cells).
+3.8.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+3.8.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+3.8.5. Executing OPT_MERGE pass (detect identical cells).
+3.8.6. Executing OPT_DFF pass (perform DFF optimizations).
+3.8.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+3.8.8. Executing OPT_EXPR pass (perform const folding).
+3.8.9. Rerunning OPT passes. (Maybe there is more to do..)
+3.8.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+3.8.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+3.8.12. Executing OPT_MERGE pass (detect identical cells).
+3.8.13. Executing OPT_DFF pass (perform DFF optimizations).
+3.8.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+3.8.15. Executing OPT_EXPR pass (perform const folding).
+3.8.16. Finished fast OPT passes. (There is nothing left to do.)
+3.9. Executing WREDUCE pass (reducing word size of cells).
+3.10. Executing PEEPOPT pass (run peephole optimizers).
+3.11. Executing OPT_CLEAN pass (remove unused cells and wires).
+3.12. Executing ALUMACC pass (create $alu and $macc cells).
+3.13. Executing SHARE pass (SAT-based resource sharing).
+3.14. Executing OPT pass (performing simple optimizations).
+3.14.1. Executing OPT_EXPR pass (perform const folding).
+3.14.2. Executing OPT_MERGE pass (detect identical cells).
+3.14.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+3.14.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+3.14.5. Executing OPT_MERGE pass (detect identical cells).
+3.14.6. Executing OPT_DFF pass (perform DFF optimizations).
+3.14.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+3.14.8. Executing OPT_EXPR pass (perform const folding).
+3.14.9. Rerunning OPT passes. (Maybe there is more to do..)
+3.14.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+3.14.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+3.14.12. Executing OPT_MERGE pass (detect identical cells).
+3.14.13. Executing OPT_DFF pass (perform DFF optimizations).
+3.14.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+3.14.15. Executing OPT_EXPR pass (perform const folding).
+3.14.16. Finished fast OPT passes. (There is nothing left to do.)
+3.15. Executing MEMORY pass.
+3.15.1. Executing OPT_MEM pass (optimize memories).
+3.15.2. Executing OPT_MEM_PRIORITY pass (removing unnecessary memory write priority relations).
+3.15.3. Executing OPT_MEM_FEEDBACK pass (finding memory read-to-write feedback paths).
+3.15.4. Executing MEMORY_BMUX2ROM pass (converting muxes to ROMs).
+3.15.5. Executing MEMORY_DFF pass (merging $dff cells to $memrd).
+3.15.6. Executing OPT_CLEAN pass (remove unused cells and wires).
+3.15.7. Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).
+3.15.8. Executing OPT_MEM_WIDEN pass (optimize memories where all ports are wide).
+3.15.9. Executing OPT_CLEAN pass (remove unused cells and wires).
+3.15.10. Executing MEMORY_COLLECT pass (generating $mem cells).
+3.16. Executing OPT_CLEAN pass (remove unused cells and wires).
+Keep modules above estimated size of
+      0 gate equivalents
+4. Executing CELLMATCH pass. (match cells)
+Warning: Ignoring blackbox module ICGx8DC_ASAP7_75t_R.
+Warning: Ignoring blackbox module ICGx6p67DC_ASAP7_75t_R.
+Warning: Ignoring blackbox module ICGx5p33DC_ASAP7_75t_R.
+Warning: Ignoring blackbox module ICGx5_ASAP7_75t_R.
+Warning: Ignoring blackbox module ICGx4_ASAP7_75t_R.
+Warning: Ignoring blackbox module ICGx4DC_ASAP7_75t_R.
+Warning: Ignoring blackbox module ICGx3_ASAP7_75t_R.
+Warning: Ignoring blackbox module ICGx2p67DC_ASAP7_75t_R.
+Warning: Ignoring blackbox module ICGx2_ASAP7_75t_R.
+Warning: Ignoring blackbox module ICGx1_ASAP7_75t_R.
+Warning: Skipping module OAI333xp33_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module OAI332xp33_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module OAI331xp33_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module OAI322xp33_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module OA333x2_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module OA333x1_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module OA332x2_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module OA332x1_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module OA331x2_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module OA331x1_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module AOI333xp33_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module AOI332xp33_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module AOI331xp33_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module AOI322xp5_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module AO333x2_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module AO333x1_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module AO332x2_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module AO332x1_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module AO331x2_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module AO331x1_ASAP7_75t_R with more than 6 inputs bits.
+Warning: Skipping module AO322x2_ASAP7_75t_R with more than 6 inputs bits.
+5. Executing KEEP_HIERARCHY pass.
+6. Executing SYNTH pass.
+6.1. Executing PROC pass (convert processes to netlists).
+6.1.1. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+6.1.2. Executing PROC_RMDEAD pass (remove dead branches from decision trees).
+6.1.3. Executing PROC_PRUNE pass (remove redundant assignments in processes).
+6.1.4. Executing PROC_INIT pass (extract init attributes).
+6.1.5. Executing PROC_ARST pass (detect async resets in processes).
+6.1.6. Executing PROC_ROM pass (convert switches to ROMs).
+6.1.7. Executing PROC_MUX pass (convert decision trees to multiplexers).
+6.1.8. Executing PROC_DLATCH pass (convert process syncs to latches).
+6.1.9. Executing PROC_DFF pass (convert process syncs to FFs).
+6.1.10. Executing PROC_MEMWR pass (convert process memory writes to cells).
+6.1.11. Executing PROC_CLEAN pass (remove empty switches from decision trees).
+6.1.12. Executing OPT_EXPR pass (perform const folding).
+6.2. Executing FLATTEN pass (flatten design).
+6.3. Executing OPT_EXPR pass (perform const folding).
+6.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.5. Executing CHECK pass (checking for obvious problems).
+6.6. Executing OPT pass (performing simple optimizations).
+6.6.1. Executing OPT_EXPR pass (perform const folding).
+6.6.2. Executing OPT_MERGE pass (detect identical cells).
+6.6.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+6.6.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+6.6.5. Executing OPT_MERGE pass (detect identical cells).
+6.6.6. Executing OPT_DFF pass (perform DFF optimizations).
+6.6.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.6.8. Executing OPT_EXPR pass (perform const folding).
+6.6.9. Finished fast OPT passes. (There is nothing left to do.)
+6.7. Executing FSM pass (extract and optimize FSM).
+6.7.1. Executing FSM_DETECT pass (finding FSMs in design).
+6.7.2. Executing FSM_EXTRACT pass (extracting FSM from design).
+6.7.3. Executing FSM_OPT pass (simple optimizations of FSMs).
+6.7.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.7.5. Executing FSM_OPT pass (simple optimizations of FSMs).
+6.7.6. Executing FSM_RECODE pass (re-assigning FSM state encoding).
+6.7.7. Executing FSM_INFO pass (dumping all available information on FSM cells).
+6.7.8. Executing FSM_MAP pass (mapping FSMs to basic logic).
+6.8. Executing OPT pass (performing simple optimizations).
+6.8.1. Executing OPT_EXPR pass (perform const folding).
+6.8.2. Executing OPT_MERGE pass (detect identical cells).
+6.8.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+6.8.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+6.8.5. Executing OPT_MERGE pass (detect identical cells).
+6.8.6. Executing OPT_DFF pass (perform DFF optimizations).
+6.8.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.8.8. Executing OPT_EXPR pass (perform const folding).
+6.8.9. Finished fast OPT passes. (There is nothing left to do.)
+6.9. Executing WREDUCE pass (reducing word size of cells).
+6.10. Executing PEEPOPT pass (run peephole optimizers).
+6.11. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.12. Executing ALUMACC pass (create $alu and $macc cells).
+6.13. Executing SHARE pass (SAT-based resource sharing).
+6.14. Executing OPT pass (performing simple optimizations).
+6.14.1. Executing OPT_EXPR pass (perform const folding).
+6.14.2. Executing OPT_MERGE pass (detect identical cells).
+6.14.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+6.14.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+6.14.5. Executing OPT_MERGE pass (detect identical cells).
+6.14.6. Executing OPT_DFF pass (perform DFF optimizations).
+6.14.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.14.8. Executing OPT_EXPR pass (perform const folding).
+6.14.9. Finished fast OPT passes. (There is nothing left to do.)
+6.15. Executing MEMORY pass.
+6.15.1. Executing OPT_MEM pass (optimize memories).
+6.15.2. Executing OPT_MEM_PRIORITY pass (removing unnecessary memory write priority relations).
+6.15.3. Executing OPT_MEM_FEEDBACK pass (finding memory read-to-write feedback paths).
+6.15.4. Executing MEMORY_BMUX2ROM pass (converting muxes to ROMs).
+6.15.5. Executing MEMORY_DFF pass (merging $dff cells to $memrd).
+6.15.6. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.15.7. Executing MEMORY_SHARE pass (consolidating $memrd/$memwr cells).
+6.15.8. Executing OPT_MEM_WIDEN pass (optimize memories where all ports are wide).
+6.15.9. Executing OPT_CLEAN pass (remove unused cells and wires).
+6.15.10. Executing MEMORY_COLLECT pass (generating $mem cells).
+6.16. Executing OPT_CLEAN pass (remove unused cells and wires).
+7. Executing MEMORY_COLLECT pass (generating $mem cells).
+Memory mem_0_8x1$MeshWithDelays.SRAMShifted_shifter_48.mem.mem_0_ext/Memory has dimensions 8 x 1 = 8
+Memory mem_0_6x4$MeshWithDelays.SRAMShifted_shifter_62.mem.mem_0_ext/Memory has dimensions 6 x 4 = 24
+Memory mem_0_16x32$MeshWithDelays.SRAMShifted_shifter_97.mem.mem_0_ext/Memory has dimensions 16 x 32 = 512
+Memory mem_0_6x1$MeshWithDelays.SRAMShifted_shifter_47.mem.mem_0_ext/Memory has dimensions 6 x 1 = 6
+Memory mem_0_24x4$MeshWithDelays.SRAMShifted_shifter_71.mem.mem_0_ext/Memory has dimensions 24 x 4 = 96
+Memory mem_0_4x4$MeshWithDelays.SRAMShifted_shifter_61.mem.mem_0_ext/Memory has dimensions 4 x 4 = 16
+Memory mem_0_4x1$MeshWithDelays.SRAMShifted_shifter_46.mem.mem_0_ext/Memory has dimensions 4 x 1 = 4
+Memory mem_0_4x32$MeshWithDelays.SRAMShifted_shifter_103.mem.mem_0_ext/Memory has dimensions 4 x 32 = 128
+Memory mem_0_26x32$MeshWithDelays.SRAMShifted_shifter_92.mem.mem_0_ext/Memory has dimensions 26 x 32 = 832
+Memory mem_0_2x1$MeshWithDelays.SRAMShifted_shifter_45.mem.mem_0_ext/Memory has dimensions 2 x 1 = 2
+Memory mem_0_2x4$MeshWithDelays.SRAMShifted_shifter_60.mem.mem_0_ext/Memory has dimensions 2 x 4 = 8
+Memory mem_0_22x4$MeshWithDelays.SRAMShifted_shifter_70.mem.mem_0_ext/Memory has dimensions 22 x 4 = 88
+Memory mem_0_30x8$MeshWithDelays.SRAMShifted_shifter_14.mem.mem_0_ext/Memory has dimensions 30 x 8 = 240
+Memory mem_0_30x1$MeshWithDelays.SRAMShifted_shifter_59.mem.mem_0_ext/Memory has dimensions 30 x 1 = 30
+Memory mem_0_28x8$MeshWithDelays.SRAMShifted_shifter_13.mem.mem_0_ext/Memory has dimensions 28 x 8 = 224
+Memory mem_0_18x32$MeshWithDelays.SRAMShifted_shifter_96.mem.mem_0_ext/Memory has dimensions 18 x 32 = 576
+Memory mem_0_20x4$MeshWithDelays.SRAMShifted_shifter_69.mem.mem_0_ext/Memory has dimensions 20 x 4 = 80
+Memory mem_0_26x8$MeshWithDelays.SRAMShifted_shifter_12.mem.mem_0_ext/Memory has dimensions 26 x 8 = 208
+Memory mem_0_28x1$MeshWithDelays.SRAMShifted_shifter_58.mem.mem_0_ext/Memory has dimensions 28 x 1 = 28
+Memory mem_0_28x32$MeshWithDelays.SRAMShifted_shifter_91.mem.mem_0_ext/Memory has dimensions 28 x 32 = 896
+Memory mem_0_24x8$MeshWithDelays.SRAMShifted_shifter_11.mem.mem_0_ext/Memory has dimensions 24 x 8 = 192
+Memory mem_0_12x32$MeshWithDelays.SRAMShifted_shifter_99.mem.mem_0_ext/Memory has dimensions 12 x 32 = 384
+Memory mem_0_26x1$MeshWithDelays.SRAMShifted_shifter_57.mem.mem_0_ext/Memory has dimensions 26 x 1 = 26
+Memory mem_0_22x8$MeshWithDelays.SRAMShifted_shifter_10.mem.mem_0_ext/Memory has dimensions 22 x 8 = 176
+Memory mem_0_18x4$MeshWithDelays.SRAMShifted_shifter_68.mem.mem_0_ext/Memory has dimensions 18 x 4 = 72
+Memory mem_0_8x32$MeshWithDelays.SRAMShifted_shifter_101.mem.mem_0_ext/Memory has dimensions 8 x 32 = 256
+Memory mem_0_20x8$MeshWithDelays.SRAMShifted_shifter_9.mem.mem_0_ext/Memory has dimensions 20 x 8 = 160
+Memory mem_0_24x1$MeshWithDelays.SRAMShifted_shifter_56.mem.mem_0_ext/Memory has dimensions 24 x 1 = 24
+Memory mem_0_30x32$MeshWithDelays.SRAMShifted_shifter_90.mem.mem_0_ext/Memory has dimensions 30 x 32 = 960
+Memory mem_0_18x8$MeshWithDelays.SRAMShifted_shifter_8.mem.mem_0_ext/Memory has dimensions 18 x 8 = 144
+Memory mem_0_16x4$MeshWithDelays.SRAMShifted_shifter_67.mem.mem_0_ext/Memory has dimensions 16 x 4 = 64
+Memory mem_0_22x1$MeshWithDelays.SRAMShifted_shifter_55.mem.mem_0_ext/Memory has dimensions 22 x 1 = 22
+Memory mem_0_16x8$MeshWithDelays.SRAMShifted_shifter_7.mem.mem_0_ext/Memory has dimensions 16 x 8 = 128
+Memory mem_0_20x32$MeshWithDelays.SRAMShifted_shifter_95.mem.mem_0_ext/Memory has dimensions 20 x 32 = 640
+Memory mem_0_2x32$MeshWithDelays.SRAMShifted_shifter_104.mem.mem_0_ext/Memory has dimensions 2 x 32 = 64
+Memory mem_0_14x8$MeshWithDelays.SRAMShifted_shifter_6.mem.mem_0_ext/Memory has dimensions 14 x 8 = 112
+Memory mem_0_20x1$MeshWithDelays.SRAMShifted_shifter_54.mem.mem_0_ext/Memory has dimensions 20 x 1 = 20
+Memory mem_0_14x4$MeshWithDelays.SRAMShifted_shifter_66.mem.mem_0_ext/Memory has dimensions 14 x 4 = 56
+Memory mem_0_12x8$MeshWithDelays.SRAMShifted_shifter_5.mem.mem_0_ext/Memory has dimensions 12 x 8 = 96
+Memory mem_0_30x4$MeshWithDelays.SRAMShifted_shifter_74.mem.mem_0_ext/Memory has dimensions 30 x 4 = 120
+Memory mem_0_18x1$MeshWithDelays.SRAMShifted_shifter_53.mem.mem_0_ext/Memory has dimensions 18 x 1 = 18
+Memory mem_0_10x8$MeshWithDelays.SRAMShifted_shifter_4.mem.mem_0_ext/Memory has dimensions 10 x 8 = 80
+Memory mem_0_14x32$MeshWithDelays.SRAMShifted_shifter_98.mem.mem_0_ext/Memory has dimensions 14 x 32 = 448
+Memory mem_0_12x4$MeshWithDelays.SRAMShifted_shifter_65.mem.mem_0_ext/Memory has dimensions 12 x 4 = 48
+Memory mem_0_8x8$MeshWithDelays.SRAMShifted_shifter_3.mem.mem_0_ext/Memory has dimensions 8 x 8 = 64
+Memory mem_0_16x1$MeshWithDelays.SRAMShifted_shifter_52.mem.mem_0_ext/Memory has dimensions 16 x 1 = 16
+Memory mem_0_22x32$MeshWithDelays.SRAMShifted_shifter_94.mem.mem_0_ext/Memory has dimensions 22 x 32 = 704
+Memory mem_0_6x8$MeshWithDelays.SRAMShifted_shifter_2.mem.mem_0_ext/Memory has dimensions 6 x 8 = 48
+Memory mem_0_28x4$MeshWithDelays.SRAMShifted_shifter_73.mem.mem_0_ext/Memory has dimensions 28 x 4 = 112
+Memory mem_0_14x1$MeshWithDelays.SRAMShifted_shifter_51.mem.mem_0_ext/Memory has dimensions 14 x 1 = 14
+Memory mem_0_4x8$MeshWithDelays.SRAMShifted_shifter_1.mem.mem_0_ext/Memory has dimensions 4 x 8 = 32
+Memory mem_0_10x4$MeshWithDelays.SRAMShifted_shifter_64.mem.mem_0_ext/Memory has dimensions 10 x 4 = 40
+Memory mem_0_6x32$MeshWithDelays.SRAMShifted_shifter_102.mem.mem_0_ext/Memory has dimensions 6 x 32 = 192
+Memory mem_0_2x8$MeshWithDelays.SRAMShifted_shifter.mem.mem_0_ext/Memory has dimensions 2 x 8 = 16
+Memory ram_17x9$MeshWithDelays.total_rows_q.ram_ext/Memory has dimensions 17 x 9 = 153
+Memory mem_0_12x1$MeshWithDelays.SRAMShifted_shifter_50.mem.mem_0_ext/Memory has dimensions 12 x 1 = 12
+Memory mem_0_10x32$MeshWithDelays.SRAMShifted_shifter_100.mem.mem_0_ext/Memory has dimensions 10 x 32 = 320
+Memory mem_0_8x4$MeshWithDelays.SRAMShifted_shifter_63.mem.mem_0_ext/Memory has dimensions 8 x 4 = 32
+Memory mem_0_10x1$MeshWithDelays.SRAMShifted_shifter_49.mem.mem_0_ext/Memory has dimensions 10 x 1 = 10
+Memory mem_0_26x4$MeshWithDelays.SRAMShifted_shifter_72.mem.mem_0_ext/Memory has dimensions 26 x 4 = 104
+Memory mem_0_24x32$MeshWithDelays.SRAMShifted_shifter_93.mem.mem_0_ext/Memory has dimensions 24 x 32 = 768
+8. Executing SYNTH pass.
+8.1. Executing OPT pass (performing simple optimizations).
+8.1.1. Executing OPT_EXPR pass (perform const folding).
+8.1.2. Executing OPT_MERGE pass (detect identical cells).
+8.1.3. Executing OPT_DFF pass (perform DFF optimizations).
+8.1.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+8.1.5. Finished fast OPT passes.
+8.2. Executing MEMORY_MAP pass (converting memories to logic and flip-flops).
+8.3. Executing OPT pass (performing simple optimizations).
+8.3.1. Executing OPT_EXPR pass (perform const folding).
+8.3.2. Executing OPT_MERGE pass (detect identical cells).
+8.3.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+8.3.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+8.3.5. Executing OPT_MERGE pass (detect identical cells).
+8.3.6. Executing OPT_SHARE pass.
+8.3.7. Executing OPT_DFF pass (perform DFF optimizations).
+8.3.8. Executing OPT_CLEAN pass (remove unused cells and wires).
+8.3.9. Executing OPT_EXPR pass (perform const folding).
+8.3.10. Rerunning OPT passes. (Maybe there is more to do..)
+8.3.11. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+8.3.12. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+8.3.13. Executing OPT_MERGE pass (detect identical cells).
+8.3.14. Executing OPT_SHARE pass.
+8.3.15. Executing OPT_DFF pass (perform DFF optimizations).
+8.3.16. Executing OPT_CLEAN pass (remove unused cells and wires).
+8.3.17. Executing OPT_EXPR pass (perform const folding).
+8.3.18. Rerunning OPT passes. (Maybe there is more to do..)
+8.3.19. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+8.3.20. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+8.3.21. Executing OPT_MERGE pass (detect identical cells).
+8.3.22. Executing OPT_SHARE pass.
+8.3.23. Executing OPT_DFF pass (perform DFF optimizations).
+8.3.24. Executing OPT_CLEAN pass (remove unused cells and wires).
+8.3.25. Executing OPT_EXPR pass (perform const folding).
+8.3.26. Finished fast OPT passes. (There is nothing left to do.)
+8.4. Executing TECHMAP pass (map to technology primitives).
+8.4.1. Executing Verilog-2005 frontend: /home/oyvind/.cache/bazel/_bazel_oyvind/285391a82c2e1bd599538dec1d5db9cd/external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/../share/yosys/techmap.v
+8.4.2. Executing Verilog-2005 frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/common/lcu_kogge_stone.v
+8.4.3. Continuing TECHMAP pass.
+8.5. Executing OPT pass (performing simple optimizations).
+8.5.1. Executing OPT_EXPR pass (perform const folding).
+8.5.2. Executing OPT_MERGE pass (detect identical cells).
+8.5.3. Executing OPT_DFF pass (perform DFF optimizations).
+8.5.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+8.5.5. Rerunning OPT passes. (Removed registers in this run.)
+8.5.6. Executing OPT_EXPR pass (perform const folding).
+8.5.7. Executing OPT_MERGE pass (detect identical cells).
+8.5.8. Executing OPT_DFF pass (perform DFF optimizations).
+8.5.9. Executing OPT_CLEAN pass (remove unused cells and wires).
+8.5.10. Finished fast OPT passes.
+8.6. Executing ABC pass (technology mapping using ABC).
+8.6.1. Extracting gate netlist of module `\AlwaysOutTransposer$MeshWithDelays.transposer' to `<abc-temp-dir>/input.blif'..
+8.6.2. Extracting gate netlist of module `\MacUnit$MeshWithDelays.mesh.mesh_0_0.tile_0_0.mac_unit' to `<abc-temp-dir>/input.blif'..
+8.6.3. Extracting gate netlist of module `\Mesh$MeshWithDelays.mesh' to `<abc-temp-dir>/input.blif'..
+8.6.4. Extracting gate netlist of module `\MeshWithDelays' to `<abc-temp-dir>/input.blif'..
+8.6.5. Extracting gate netlist of module `\PE$MeshWithDelays.transposer.pes_0_0' to `<abc-temp-dir>/input.blif'..
+8.6.6. Extracting gate netlist of module `\PE_256$MeshWithDelays.mesh.mesh_0_0.tile_0_0' to `<abc-temp-dir>/input.blif'..
+8.6.7. Extracting gate netlist of module `\Queue17_TagWithIdAndTotalRows$MeshWithDelays.total_rows_q' to `<abc-temp-dir>/input.blif'..
+8.6.8. Extracting gate netlist of module `\ShiftSRAM$MeshWithDelays.SRAMShifted_shifter' to `<abc-temp-dir>/input.blif'..
+8.6.9. Extracting gate netlist of module `\ShiftSRAM_1$MeshWithDelays.SRAMShifted_shifter_1' to `<abc-temp-dir>/input.blif'..
+8.6.10. Extracting gate netlist of module `\ShiftSRAM_10$MeshWithDelays.SRAMShifted_shifter_10' to `<abc-temp-dir>/input.blif'..
+8.6.11. Extracting gate netlist of module `\ShiftSRAM_100$MeshWithDelays.SRAMShifted_shifter_100' to `<abc-temp-dir>/input.blif'..
+8.6.12. Extracting gate netlist of module `\ShiftSRAM_101$MeshWithDelays.SRAMShifted_shifter_101' to `<abc-temp-dir>/input.blif'..
+8.6.13. Extracting gate netlist of module `\ShiftSRAM_102$MeshWithDelays.SRAMShifted_shifter_102' to `<abc-temp-dir>/input.blif'..
+8.6.14. Extracting gate netlist of module `\ShiftSRAM_103$MeshWithDelays.SRAMShifted_shifter_103' to `<abc-temp-dir>/input.blif'..
+8.6.15. Extracting gate netlist of module `\ShiftSRAM_104$MeshWithDelays.SRAMShifted_shifter_104' to `<abc-temp-dir>/input.blif'..
+8.6.16. Extracting gate netlist of module `\ShiftSRAM_11$MeshWithDelays.SRAMShifted_shifter_11' to `<abc-temp-dir>/input.blif'..
+8.6.17. Extracting gate netlist of module `\ShiftSRAM_12$MeshWithDelays.SRAMShifted_shifter_12' to `<abc-temp-dir>/input.blif'..
+8.6.18. Extracting gate netlist of module `\ShiftSRAM_13$MeshWithDelays.SRAMShifted_shifter_13' to `<abc-temp-dir>/input.blif'..
+8.6.19. Extracting gate netlist of module `\ShiftSRAM_14$MeshWithDelays.SRAMShifted_shifter_14' to `<abc-temp-dir>/input.blif'..
+8.6.20. Extracting gate netlist of module `\ShiftSRAM_2$MeshWithDelays.SRAMShifted_shifter_2' to `<abc-temp-dir>/input.blif'..
+8.6.21. Extracting gate netlist of module `\ShiftSRAM_3$MeshWithDelays.SRAMShifted_shifter_3' to `<abc-temp-dir>/input.blif'..
+8.6.22. Extracting gate netlist of module `\ShiftSRAM_4$MeshWithDelays.SRAMShifted_shifter_4' to `<abc-temp-dir>/input.blif'..
+8.6.23. Extracting gate netlist of module `\ShiftSRAM_45$MeshWithDelays.SRAMShifted_shifter_45' to `<abc-temp-dir>/input.blif'..
+8.6.24. Extracting gate netlist of module `\ShiftSRAM_46$MeshWithDelays.SRAMShifted_shifter_46' to `<abc-temp-dir>/input.blif'..
+8.6.25. Extracting gate netlist of module `\ShiftSRAM_47$MeshWithDelays.SRAMShifted_shifter_47' to `<abc-temp-dir>/input.blif'..
+8.6.26. Extracting gate netlist of module `\ShiftSRAM_48$MeshWithDelays.SRAMShifted_shifter_48' to `<abc-temp-dir>/input.blif'..
+8.6.27. Extracting gate netlist of module `\ShiftSRAM_49$MeshWithDelays.SRAMShifted_shifter_49' to `<abc-temp-dir>/input.blif'..
+8.6.28. Extracting gate netlist of module `\ShiftSRAM_5$MeshWithDelays.SRAMShifted_shifter_5' to `<abc-temp-dir>/input.blif'..
+8.6.29. Extracting gate netlist of module `\ShiftSRAM_50$MeshWithDelays.SRAMShifted_shifter_50' to `<abc-temp-dir>/input.blif'..
+8.6.30. Extracting gate netlist of module `\ShiftSRAM_51$MeshWithDelays.SRAMShifted_shifter_51' to `<abc-temp-dir>/input.blif'..
+8.6.31. Extracting gate netlist of module `\ShiftSRAM_52$MeshWithDelays.SRAMShifted_shifter_52' to `<abc-temp-dir>/input.blif'..
+8.6.32. Extracting gate netlist of module `\ShiftSRAM_53$MeshWithDelays.SRAMShifted_shifter_53' to `<abc-temp-dir>/input.blif'..
+8.6.33. Extracting gate netlist of module `\ShiftSRAM_54$MeshWithDelays.SRAMShifted_shifter_54' to `<abc-temp-dir>/input.blif'..
+8.6.34. Extracting gate netlist of module `\ShiftSRAM_55$MeshWithDelays.SRAMShifted_shifter_55' to `<abc-temp-dir>/input.blif'..
+8.6.35. Extracting gate netlist of module `\ShiftSRAM_56$MeshWithDelays.SRAMShifted_shifter_56' to `<abc-temp-dir>/input.blif'..
+8.6.36. Extracting gate netlist of module `\ShiftSRAM_57$MeshWithDelays.SRAMShifted_shifter_57' to `<abc-temp-dir>/input.blif'..
+8.6.37. Extracting gate netlist of module `\ShiftSRAM_58$MeshWithDelays.SRAMShifted_shifter_58' to `<abc-temp-dir>/input.blif'..
+8.6.38. Extracting gate netlist of module `\ShiftSRAM_59$MeshWithDelays.SRAMShifted_shifter_59' to `<abc-temp-dir>/input.blif'..
+8.6.39. Extracting gate netlist of module `\ShiftSRAM_6$MeshWithDelays.SRAMShifted_shifter_6' to `<abc-temp-dir>/input.blif'..
+8.6.40. Extracting gate netlist of module `\ShiftSRAM_60$MeshWithDelays.SRAMShifted_shifter_60' to `<abc-temp-dir>/input.blif'..
+8.6.41. Extracting gate netlist of module `\ShiftSRAM_61$MeshWithDelays.SRAMShifted_shifter_61' to `<abc-temp-dir>/input.blif'..
+8.6.42. Extracting gate netlist of module `\ShiftSRAM_62$MeshWithDelays.SRAMShifted_shifter_62' to `<abc-temp-dir>/input.blif'..
+8.6.43. Extracting gate netlist of module `\ShiftSRAM_63$MeshWithDelays.SRAMShifted_shifter_63' to `<abc-temp-dir>/input.blif'..
+8.6.44. Extracting gate netlist of module `\ShiftSRAM_64$MeshWithDelays.SRAMShifted_shifter_64' to `<abc-temp-dir>/input.blif'..
+8.6.45. Extracting gate netlist of module `\ShiftSRAM_65$MeshWithDelays.SRAMShifted_shifter_65' to `<abc-temp-dir>/input.blif'..
+8.6.46. Extracting gate netlist of module `\ShiftSRAM_66$MeshWithDelays.SRAMShifted_shifter_66' to `<abc-temp-dir>/input.blif'..
+8.6.47. Extracting gate netlist of module `\ShiftSRAM_67$MeshWithDelays.SRAMShifted_shifter_67' to `<abc-temp-dir>/input.blif'..
+8.6.48. Extracting gate netlist of module `\ShiftSRAM_68$MeshWithDelays.SRAMShifted_shifter_68' to `<abc-temp-dir>/input.blif'..
+8.6.49. Extracting gate netlist of module `\ShiftSRAM_69$MeshWithDelays.SRAMShifted_shifter_69' to `<abc-temp-dir>/input.blif'..
+8.6.50. Extracting gate netlist of module `\ShiftSRAM_7$MeshWithDelays.SRAMShifted_shifter_7' to `<abc-temp-dir>/input.blif'..
+8.6.51. Extracting gate netlist of module `\ShiftSRAM_70$MeshWithDelays.SRAMShifted_shifter_70' to `<abc-temp-dir>/input.blif'..
+8.6.52. Extracting gate netlist of module `\ShiftSRAM_71$MeshWithDelays.SRAMShifted_shifter_71' to `<abc-temp-dir>/input.blif'..
+8.6.53. Extracting gate netlist of module `\ShiftSRAM_72$MeshWithDelays.SRAMShifted_shifter_72' to `<abc-temp-dir>/input.blif'..
+8.6.54. Extracting gate netlist of module `\ShiftSRAM_73$MeshWithDelays.SRAMShifted_shifter_73' to `<abc-temp-dir>/input.blif'..
+8.6.55. Extracting gate netlist of module `\ShiftSRAM_74$MeshWithDelays.SRAMShifted_shifter_74' to `<abc-temp-dir>/input.blif'..
+8.6.56. Extracting gate netlist of module `\ShiftSRAM_8$MeshWithDelays.SRAMShifted_shifter_8' to `<abc-temp-dir>/input.blif'..
+8.6.57. Extracting gate netlist of module `\ShiftSRAM_9$MeshWithDelays.SRAMShifted_shifter_9' to `<abc-temp-dir>/input.blif'..
+8.6.58. Extracting gate netlist of module `\ShiftSRAM_90$MeshWithDelays.SRAMShifted_shifter_90' to `<abc-temp-dir>/input.blif'..
+8.6.59. Extracting gate netlist of module `\ShiftSRAM_91$MeshWithDelays.SRAMShifted_shifter_91' to `<abc-temp-dir>/input.blif'..
+8.6.60. Extracting gate netlist of module `\ShiftSRAM_92$MeshWithDelays.SRAMShifted_shifter_92' to `<abc-temp-dir>/input.blif'..
+8.6.61. Extracting gate netlist of module `\ShiftSRAM_93$MeshWithDelays.SRAMShifted_shifter_93' to `<abc-temp-dir>/input.blif'..
+8.6.62. Extracting gate netlist of module `\ShiftSRAM_94$MeshWithDelays.SRAMShifted_shifter_94' to `<abc-temp-dir>/input.blif'..
+8.6.63. Extracting gate netlist of module `\ShiftSRAM_95$MeshWithDelays.SRAMShifted_shifter_95' to `<abc-temp-dir>/input.blif'..
+8.6.64. Extracting gate netlist of module `\ShiftSRAM_96$MeshWithDelays.SRAMShifted_shifter_96' to `<abc-temp-dir>/input.blif'..
+8.6.65. Extracting gate netlist of module `\ShiftSRAM_97$MeshWithDelays.SRAMShifted_shifter_97' to `<abc-temp-dir>/input.blif'..
+8.6.66. Extracting gate netlist of module `\ShiftSRAM_98$MeshWithDelays.SRAMShifted_shifter_98' to `<abc-temp-dir>/input.blif'..
+8.6.67. Extracting gate netlist of module `\ShiftSRAM_99$MeshWithDelays.SRAMShifted_shifter_99' to `<abc-temp-dir>/input.blif'..
+8.6.68. Extracting gate netlist of module `\TagQueue$MeshWithDelays.tagq' to `<abc-temp-dir>/input.blif'..
+8.6.69. Extracting gate netlist of module `\Tile$MeshWithDelays.mesh.mesh_0_0' to `<abc-temp-dir>/input.blif'..
+8.6.70. Extracting gate netlist of module `\TwoPortSyncMem$MeshWithDelays.SRAMShifted_shifter.mem' to `<abc-temp-dir>/input.blif'..
+8.6.71. Extracting gate netlist of module `\TwoPortSyncMem_1$MeshWithDelays.SRAMShifted_shifter_1.mem' to `<abc-temp-dir>/input.blif'..
+8.6.72. Extracting gate netlist of module `\TwoPortSyncMem_10$MeshWithDelays.SRAMShifted_shifter_10.mem' to `<abc-temp-dir>/input.blif'..
+8.6.73. Extracting gate netlist of module `\TwoPortSyncMem_100$MeshWithDelays.SRAMShifted_shifter_100.mem' to `<abc-temp-dir>/input.blif'..
+8.6.74. Extracting gate netlist of module `\TwoPortSyncMem_101$MeshWithDelays.SRAMShifted_shifter_101.mem' to `<abc-temp-dir>/input.blif'..
+8.6.75. Extracting gate netlist of module `\TwoPortSyncMem_102$MeshWithDelays.SRAMShifted_shifter_102.mem' to `<abc-temp-dir>/input.blif'..
+8.6.76. Extracting gate netlist of module `\TwoPortSyncMem_103$MeshWithDelays.SRAMShifted_shifter_103.mem' to `<abc-temp-dir>/input.blif'..
+8.6.77. Extracting gate netlist of module `\TwoPortSyncMem_104$MeshWithDelays.SRAMShifted_shifter_104.mem' to `<abc-temp-dir>/input.blif'..
+8.6.78. Extracting gate netlist of module `\TwoPortSyncMem_11$MeshWithDelays.SRAMShifted_shifter_11.mem' to `<abc-temp-dir>/input.blif'..
+8.6.79. Extracting gate netlist of module `\TwoPortSyncMem_12$MeshWithDelays.SRAMShifted_shifter_12.mem' to `<abc-temp-dir>/input.blif'..
+8.6.80. Extracting gate netlist of module `\TwoPortSyncMem_13$MeshWithDelays.SRAMShifted_shifter_13.mem' to `<abc-temp-dir>/input.blif'..
+8.6.81. Extracting gate netlist of module `\TwoPortSyncMem_14$MeshWithDelays.SRAMShifted_shifter_14.mem' to `<abc-temp-dir>/input.blif'..
+8.6.82. Extracting gate netlist of module `\TwoPortSyncMem_2$MeshWithDelays.SRAMShifted_shifter_2.mem' to `<abc-temp-dir>/input.blif'..
+8.6.83. Extracting gate netlist of module `\TwoPortSyncMem_3$MeshWithDelays.SRAMShifted_shifter_3.mem' to `<abc-temp-dir>/input.blif'..
+8.6.84. Extracting gate netlist of module `\TwoPortSyncMem_4$MeshWithDelays.SRAMShifted_shifter_4.mem' to `<abc-temp-dir>/input.blif'..
+8.6.85. Extracting gate netlist of module `\TwoPortSyncMem_45$MeshWithDelays.SRAMShifted_shifter_45.mem' to `<abc-temp-dir>/input.blif'..
+8.6.86. Extracting gate netlist of module `\TwoPortSyncMem_46$MeshWithDelays.SRAMShifted_shifter_46.mem' to `<abc-temp-dir>/input.blif'..
+8.6.87. Extracting gate netlist of module `\TwoPortSyncMem_47$MeshWithDelays.SRAMShifted_shifter_47.mem' to `<abc-temp-dir>/input.blif'..
+8.6.88. Extracting gate netlist of module `\TwoPortSyncMem_48$MeshWithDelays.SRAMShifted_shifter_48.mem' to `<abc-temp-dir>/input.blif'..
+8.6.89. Extracting gate netlist of module `\TwoPortSyncMem_49$MeshWithDelays.SRAMShifted_shifter_49.mem' to `<abc-temp-dir>/input.blif'..
+8.6.90. Extracting gate netlist of module `\TwoPortSyncMem_5$MeshWithDelays.SRAMShifted_shifter_5.mem' to `<abc-temp-dir>/input.blif'..
+8.6.91. Extracting gate netlist of module `\TwoPortSyncMem_50$MeshWithDelays.SRAMShifted_shifter_50.mem' to `<abc-temp-dir>/input.blif'..
+8.6.92. Extracting gate netlist of module `\TwoPortSyncMem_51$MeshWithDelays.SRAMShifted_shifter_51.mem' to `<abc-temp-dir>/input.blif'..
+8.6.93. Extracting gate netlist of module `\TwoPortSyncMem_52$MeshWithDelays.SRAMShifted_shifter_52.mem' to `<abc-temp-dir>/input.blif'..
+8.6.94. Extracting gate netlist of module `\TwoPortSyncMem_53$MeshWithDelays.SRAMShifted_shifter_53.mem' to `<abc-temp-dir>/input.blif'..
+8.6.95. Extracting gate netlist of module `\TwoPortSyncMem_54$MeshWithDelays.SRAMShifted_shifter_54.mem' to `<abc-temp-dir>/input.blif'..
+8.6.96. Extracting gate netlist of module `\TwoPortSyncMem_55$MeshWithDelays.SRAMShifted_shifter_55.mem' to `<abc-temp-dir>/input.blif'..
+8.6.97. Extracting gate netlist of module `\TwoPortSyncMem_56$MeshWithDelays.SRAMShifted_shifter_56.mem' to `<abc-temp-dir>/input.blif'..
+8.6.98. Extracting gate netlist of module `\TwoPortSyncMem_57$MeshWithDelays.SRAMShifted_shifter_57.mem' to `<abc-temp-dir>/input.blif'..
+8.6.99. Extracting gate netlist of module `\TwoPortSyncMem_58$MeshWithDelays.SRAMShifted_shifter_58.mem' to `<abc-temp-dir>/input.blif'..
+8.6.100. Extracting gate netlist of module `\TwoPortSyncMem_59$MeshWithDelays.SRAMShifted_shifter_59.mem' to `<abc-temp-dir>/input.blif'..
+8.6.101. Extracting gate netlist of module `\TwoPortSyncMem_6$MeshWithDelays.SRAMShifted_shifter_6.mem' to `<abc-temp-dir>/input.blif'..
+8.6.102. Extracting gate netlist of module `\TwoPortSyncMem_60$MeshWithDelays.SRAMShifted_shifter_60.mem' to `<abc-temp-dir>/input.blif'..
+8.6.103. Extracting gate netlist of module `\TwoPortSyncMem_61$MeshWithDelays.SRAMShifted_shifter_61.mem' to `<abc-temp-dir>/input.blif'..
+8.6.104. Extracting gate netlist of module `\TwoPortSyncMem_62$MeshWithDelays.SRAMShifted_shifter_62.mem' to `<abc-temp-dir>/input.blif'..
+8.6.105. Extracting gate netlist of module `\TwoPortSyncMem_63$MeshWithDelays.SRAMShifted_shifter_63.mem' to `<abc-temp-dir>/input.blif'..
+8.6.106. Extracting gate netlist of module `\TwoPortSyncMem_64$MeshWithDelays.SRAMShifted_shifter_64.mem' to `<abc-temp-dir>/input.blif'..
+8.6.107. Extracting gate netlist of module `\TwoPortSyncMem_65$MeshWithDelays.SRAMShifted_shifter_65.mem' to `<abc-temp-dir>/input.blif'..
+8.6.108. Extracting gate netlist of module `\TwoPortSyncMem_66$MeshWithDelays.SRAMShifted_shifter_66.mem' to `<abc-temp-dir>/input.blif'..
+8.6.109. Extracting gate netlist of module `\TwoPortSyncMem_67$MeshWithDelays.SRAMShifted_shifter_67.mem' to `<abc-temp-dir>/input.blif'..
+8.6.110. Extracting gate netlist of module `\TwoPortSyncMem_68$MeshWithDelays.SRAMShifted_shifter_68.mem' to `<abc-temp-dir>/input.blif'..
+8.6.111. Extracting gate netlist of module `\TwoPortSyncMem_69$MeshWithDelays.SRAMShifted_shifter_69.mem' to `<abc-temp-dir>/input.blif'..
+8.6.112. Extracting gate netlist of module `\TwoPortSyncMem_7$MeshWithDelays.SRAMShifted_shifter_7.mem' to `<abc-temp-dir>/input.blif'..
+8.6.113. Extracting gate netlist of module `\TwoPortSyncMem_70$MeshWithDelays.SRAMShifted_shifter_70.mem' to `<abc-temp-dir>/input.blif'..
+8.6.114. Extracting gate netlist of module `\TwoPortSyncMem_71$MeshWithDelays.SRAMShifted_shifter_71.mem' to `<abc-temp-dir>/input.blif'..
+8.6.115. Extracting gate netlist of module `\TwoPortSyncMem_72$MeshWithDelays.SRAMShifted_shifter_72.mem' to `<abc-temp-dir>/input.blif'..
+8.6.116. Extracting gate netlist of module `\TwoPortSyncMem_73$MeshWithDelays.SRAMShifted_shifter_73.mem' to `<abc-temp-dir>/input.blif'..
+8.6.117. Extracting gate netlist of module `\TwoPortSyncMem_74$MeshWithDelays.SRAMShifted_shifter_74.mem' to `<abc-temp-dir>/input.blif'..
+8.6.118. Extracting gate netlist of module `\TwoPortSyncMem_8$MeshWithDelays.SRAMShifted_shifter_8.mem' to `<abc-temp-dir>/input.blif'..
+8.6.119. Extracting gate netlist of module `\TwoPortSyncMem_9$MeshWithDelays.SRAMShifted_shifter_9.mem' to `<abc-temp-dir>/input.blif'..
+8.6.120. Extracting gate netlist of module `\TwoPortSyncMem_90$MeshWithDelays.SRAMShifted_shifter_90.mem' to `<abc-temp-dir>/input.blif'..
+8.6.121. Extracting gate netlist of module `\TwoPortSyncMem_91$MeshWithDelays.SRAMShifted_shifter_91.mem' to `<abc-temp-dir>/input.blif'..
+8.6.122. Extracting gate netlist of module `\TwoPortSyncMem_92$MeshWithDelays.SRAMShifted_shifter_92.mem' to `<abc-temp-dir>/input.blif'..
+8.6.123. Extracting gate netlist of module `\TwoPortSyncMem_93$MeshWithDelays.SRAMShifted_shifter_93.mem' to `<abc-temp-dir>/input.blif'..
+8.6.124. Extracting gate netlist of module `\TwoPortSyncMem_94$MeshWithDelays.SRAMShifted_shifter_94.mem' to `<abc-temp-dir>/input.blif'..
+8.6.125. Extracting gate netlist of module `\TwoPortSyncMem_95$MeshWithDelays.SRAMShifted_shifter_95.mem' to `<abc-temp-dir>/input.blif'..
+8.6.126. Extracting gate netlist of module `\TwoPortSyncMem_96$MeshWithDelays.SRAMShifted_shifter_96.mem' to `<abc-temp-dir>/input.blif'..
+8.6.127. Extracting gate netlist of module `\TwoPortSyncMem_97$MeshWithDelays.SRAMShifted_shifter_97.mem' to `<abc-temp-dir>/input.blif'..
+8.6.128. Extracting gate netlist of module `\TwoPortSyncMem_98$MeshWithDelays.SRAMShifted_shifter_98.mem' to `<abc-temp-dir>/input.blif'..
+8.6.129. Extracting gate netlist of module `\TwoPortSyncMem_99$MeshWithDelays.SRAMShifted_shifter_99.mem' to `<abc-temp-dir>/input.blif'..
+8.6.130. Extracting gate netlist of module `\mem_0_10x1$MeshWithDelays.SRAMShifted_shifter_49.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.131. Extracting gate netlist of module `\mem_0_10x32$MeshWithDelays.SRAMShifted_shifter_100.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.132. Extracting gate netlist of module `\mem_0_10x4$MeshWithDelays.SRAMShifted_shifter_64.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.133. Extracting gate netlist of module `\mem_0_10x8$MeshWithDelays.SRAMShifted_shifter_4.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.134. Extracting gate netlist of module `\mem_0_12x1$MeshWithDelays.SRAMShifted_shifter_50.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.135. Extracting gate netlist of module `\mem_0_12x32$MeshWithDelays.SRAMShifted_shifter_99.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.136. Extracting gate netlist of module `\mem_0_12x4$MeshWithDelays.SRAMShifted_shifter_65.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.137. Extracting gate netlist of module `\mem_0_12x8$MeshWithDelays.SRAMShifted_shifter_5.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.138. Extracting gate netlist of module `\mem_0_14x1$MeshWithDelays.SRAMShifted_shifter_51.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.139. Extracting gate netlist of module `\mem_0_14x32$MeshWithDelays.SRAMShifted_shifter_98.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.140. Extracting gate netlist of module `\mem_0_14x4$MeshWithDelays.SRAMShifted_shifter_66.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.141. Extracting gate netlist of module `\mem_0_14x8$MeshWithDelays.SRAMShifted_shifter_6.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.142. Extracting gate netlist of module `\mem_0_16x1$MeshWithDelays.SRAMShifted_shifter_52.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.143. Extracting gate netlist of module `\mem_0_16x32$MeshWithDelays.SRAMShifted_shifter_97.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.144. Extracting gate netlist of module `\mem_0_16x4$MeshWithDelays.SRAMShifted_shifter_67.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.145. Extracting gate netlist of module `\mem_0_16x8$MeshWithDelays.SRAMShifted_shifter_7.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.146. Extracting gate netlist of module `\mem_0_18x1$MeshWithDelays.SRAMShifted_shifter_53.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.147. Extracting gate netlist of module `\mem_0_18x32$MeshWithDelays.SRAMShifted_shifter_96.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.148. Extracting gate netlist of module `\mem_0_18x4$MeshWithDelays.SRAMShifted_shifter_68.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.149. Extracting gate netlist of module `\mem_0_18x8$MeshWithDelays.SRAMShifted_shifter_8.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.150. Extracting gate netlist of module `\mem_0_20x1$MeshWithDelays.SRAMShifted_shifter_54.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.151. Extracting gate netlist of module `\mem_0_20x32$MeshWithDelays.SRAMShifted_shifter_95.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.152. Extracting gate netlist of module `\mem_0_20x4$MeshWithDelays.SRAMShifted_shifter_69.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.153. Extracting gate netlist of module `\mem_0_20x8$MeshWithDelays.SRAMShifted_shifter_9.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.154. Extracting gate netlist of module `\mem_0_22x1$MeshWithDelays.SRAMShifted_shifter_55.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.155. Extracting gate netlist of module `\mem_0_22x32$MeshWithDelays.SRAMShifted_shifter_94.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.156. Extracting gate netlist of module `\mem_0_22x4$MeshWithDelays.SRAMShifted_shifter_70.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.157. Extracting gate netlist of module `\mem_0_22x8$MeshWithDelays.SRAMShifted_shifter_10.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.158. Extracting gate netlist of module `\mem_0_24x1$MeshWithDelays.SRAMShifted_shifter_56.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.159. Extracting gate netlist of module `\mem_0_24x32$MeshWithDelays.SRAMShifted_shifter_93.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.160. Extracting gate netlist of module `\mem_0_24x4$MeshWithDelays.SRAMShifted_shifter_71.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.161. Extracting gate netlist of module `\mem_0_24x8$MeshWithDelays.SRAMShifted_shifter_11.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.162. Extracting gate netlist of module `\mem_0_26x1$MeshWithDelays.SRAMShifted_shifter_57.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.163. Extracting gate netlist of module `\mem_0_26x32$MeshWithDelays.SRAMShifted_shifter_92.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.164. Extracting gate netlist of module `\mem_0_26x4$MeshWithDelays.SRAMShifted_shifter_72.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.165. Extracting gate netlist of module `\mem_0_26x8$MeshWithDelays.SRAMShifted_shifter_12.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.166. Extracting gate netlist of module `\mem_0_28x1$MeshWithDelays.SRAMShifted_shifter_58.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.167. Extracting gate netlist of module `\mem_0_28x32$MeshWithDelays.SRAMShifted_shifter_91.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.168. Extracting gate netlist of module `\mem_0_28x4$MeshWithDelays.SRAMShifted_shifter_73.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.169. Extracting gate netlist of module `\mem_0_28x8$MeshWithDelays.SRAMShifted_shifter_13.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.170. Extracting gate netlist of module `\mem_0_2x1$MeshWithDelays.SRAMShifted_shifter_45.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.171. Extracting gate netlist of module `\mem_0_2x32$MeshWithDelays.SRAMShifted_shifter_104.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.172. Extracting gate netlist of module `\mem_0_2x4$MeshWithDelays.SRAMShifted_shifter_60.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.173. Extracting gate netlist of module `\mem_0_2x8$MeshWithDelays.SRAMShifted_shifter.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.174. Extracting gate netlist of module `\mem_0_30x1$MeshWithDelays.SRAMShifted_shifter_59.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.175. Extracting gate netlist of module `\mem_0_30x32$MeshWithDelays.SRAMShifted_shifter_90.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.176. Extracting gate netlist of module `\mem_0_30x4$MeshWithDelays.SRAMShifted_shifter_74.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.177. Extracting gate netlist of module `\mem_0_30x8$MeshWithDelays.SRAMShifted_shifter_14.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.178. Extracting gate netlist of module `\mem_0_4x1$MeshWithDelays.SRAMShifted_shifter_46.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.179. Extracting gate netlist of module `\mem_0_4x32$MeshWithDelays.SRAMShifted_shifter_103.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.180. Extracting gate netlist of module `\mem_0_4x4$MeshWithDelays.SRAMShifted_shifter_61.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.181. Extracting gate netlist of module `\mem_0_4x8$MeshWithDelays.SRAMShifted_shifter_1.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.182. Extracting gate netlist of module `\mem_0_6x1$MeshWithDelays.SRAMShifted_shifter_47.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.183. Extracting gate netlist of module `\mem_0_6x32$MeshWithDelays.SRAMShifted_shifter_102.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.184. Extracting gate netlist of module `\mem_0_6x4$MeshWithDelays.SRAMShifted_shifter_62.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.185. Extracting gate netlist of module `\mem_0_6x8$MeshWithDelays.SRAMShifted_shifter_2.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.186. Extracting gate netlist of module `\mem_0_8x1$MeshWithDelays.SRAMShifted_shifter_48.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.187. Extracting gate netlist of module `\mem_0_8x32$MeshWithDelays.SRAMShifted_shifter_101.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.188. Extracting gate netlist of module `\mem_0_8x4$MeshWithDelays.SRAMShifted_shifter_63.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.189. Extracting gate netlist of module `\mem_0_8x8$MeshWithDelays.SRAMShifted_shifter_3.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+8.6.190. Extracting gate netlist of module `\ram_17x9$MeshWithDelays.total_rows_q.ram_ext' to `<abc-temp-dir>/input.blif'..
+8.7. Executing OPT pass (performing simple optimizations).
+8.7.1. Executing OPT_EXPR pass (perform const folding).
+8.7.2. Executing OPT_MERGE pass (detect identical cells).
+8.7.3. Executing OPT_DFF pass (perform DFF optimizations).
+8.7.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+8.7.5. Finished fast OPT passes.
+8.8. Executing HIERARCHY pass (managing design hierarchy).
+8.8.1. Analyzing design hierarchy..
+8.8.2. Analyzing design hierarchy..
+8.9. Printing statistics.
+8.10. Executing CHECK pass (checking for obvious problems).
+9. Executing OPT pass (performing simple optimizations).
+9.1. Executing OPT_EXPR pass (perform const folding).
+9.2. Executing OPT_MERGE pass (detect identical cells).
+9.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+9.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+9.5. Executing OPT_MERGE pass (detect identical cells).
+9.6. Executing OPT_DFF pass (perform DFF optimizations).
+9.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+9.8. Executing OPT_EXPR pass (perform const folding).
+9.9. Rerunning OPT passes. (Maybe there is more to do..)
+9.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+9.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+9.12. Executing OPT_MERGE pass (detect identical cells).
+9.13. Executing OPT_DFF pass (perform DFF optimizations).
+9.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+9.15. Executing OPT_EXPR pass (perform const folding).
+9.16. Finished fast OPT passes. (There is nothing left to do.)
+10. Executing EXTRACT_FA pass (find and extract full/half adders).
+11. Executing TECHMAP pass (map to technology primitives).
+11.1. Executing Verilog-2005 frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/yoSys/cells_adders_R.v
+11.2. Continuing TECHMAP pass.
+12. Executing TECHMAP pass (map to technology primitives).
+12.1. Executing Verilog-2005 frontend: /home/oyvind/.cache/bazel/_bazel_oyvind/285391a82c2e1bd599538dec1d5db9cd/external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/../share/yosys/techmap.v
+12.2. Continuing TECHMAP pass.
+13. Executing OPT pass (performing simple optimizations).
+13.1. Executing OPT_EXPR pass (perform const folding).
+13.2. Executing OPT_MERGE pass (detect identical cells).
+13.3. Executing OPT_DFF pass (perform DFF optimizations).
+13.4. Executing OPT_CLEAN pass (remove unused cells and wires).
+13.5. Finished fast OPT passes.
+14. Executing TECHMAP pass (map to technology primitives).
+14.1. Executing Verilog-2005 frontend: external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/yoSys/cells_latch_R.v
+14.2. Continuing TECHMAP pass.
+15. Executing DFFLIBMAP pass (mapping DFF cells to sequential cells from liberty file).
+15.1. Executing DFFLEGALIZE pass (convert FFs to types supported by the target).
+16. Executing OPT pass (performing simple optimizations).
+16.1. Executing OPT_EXPR pass (perform const folding).
+16.2. Executing OPT_MERGE pass (detect identical cells).
+16.3. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+16.4. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+16.5. Executing OPT_MERGE pass (detect identical cells).
+16.6. Executing OPT_DFF pass (perform DFF optimizations).
+16.7. Executing OPT_CLEAN pass (remove unused cells and wires).
+16.8. Executing OPT_EXPR pass (perform const folding).
+16.9. Rerunning OPT passes. (Maybe there is more to do..)
+16.10. Executing OPT_MUXTREE pass (detect dead branches in mux trees).
+16.11. Executing OPT_REDUCE pass (consolidate $*mux and $reduce_* inputs).
+16.12. Executing OPT_MERGE pass (detect identical cells).
+16.13. Executing OPT_DFF pass (perform DFF optimizations).
+16.14. Executing OPT_CLEAN pass (remove unused cells and wires).
+16.15. Executing OPT_EXPR pass (perform const folding).
+16.16. Finished fast OPT passes. (There is nothing left to do.)
+17. Executing SETUNDEF pass (replace undef values with defined constants).
+abc -script external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/scripts/abc_speed.script -liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz -liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz -liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz -liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz -liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib -dont_use *x1p*_ASAP7* -dont_use *xp*_ASAP7* -dont_use SDF* -dont_use ICG* -constr bazel-out/k8-fastbuild/bin/gemmini/objects/asap7/MeshWithDelays/base/abc.constr -D 1000
+18. Executing ABC pass (technology mapping using ABC).
+18.1. Extracting gate netlist of module `\AlwaysOutTransposer$MeshWithDelays.transposer' to `<abc-temp-dir>/input.blif'..
+18.1.1. Executed ABC.
+18.1.2. Re-integrating ABC results.
+18.2. Extracting gate netlist of module `\MacUnit$MeshWithDelays.mesh.mesh_0_0.tile_0_0.mac_unit' to `<abc-temp-dir>/input.blif'..
+18.2.1. Executed ABC.
+18.2.2. Re-integrating ABC results.
+18.3. Extracting gate netlist of module `\Mesh$MeshWithDelays.mesh' to `<abc-temp-dir>/input.blif'..
+18.3.1. Executed ABC.
+18.3.2. Re-integrating ABC results.
+18.4. Extracting gate netlist of module `\MeshWithDelays' to `<abc-temp-dir>/input.blif'..
+18.4.1. Executed ABC.
+18.4.2. Re-integrating ABC results.
+18.5. Extracting gate netlist of module `\PE$MeshWithDelays.transposer.pes_0_0' to `<abc-temp-dir>/input.blif'..
+18.5.1. Executed ABC.
+18.5.2. Re-integrating ABC results.
+18.6. Extracting gate netlist of module `\PE_256$MeshWithDelays.mesh.mesh_0_0.tile_0_0' to `<abc-temp-dir>/input.blif'..
+18.6.1. Executed ABC.
+18.6.2. Re-integrating ABC results.
+18.7. Extracting gate netlist of module `\Queue17_TagWithIdAndTotalRows$MeshWithDelays.total_rows_q' to `<abc-temp-dir>/input.blif'..
+18.7.1. Executed ABC.
+18.7.2. Re-integrating ABC results.
+18.8. Extracting gate netlist of module `\ShiftSRAM$MeshWithDelays.SRAMShifted_shifter' to `<abc-temp-dir>/input.blif'..
+18.8.1. Executed ABC.
+18.8.2. Re-integrating ABC results.
+18.9. Extracting gate netlist of module `\ShiftSRAM_1$MeshWithDelays.SRAMShifted_shifter_1' to `<abc-temp-dir>/input.blif'..
+18.9.1. Executed ABC.
+18.9.2. Re-integrating ABC results.
+18.10. Extracting gate netlist of module `\ShiftSRAM_10$MeshWithDelays.SRAMShifted_shifter_10' to `<abc-temp-dir>/input.blif'..
+18.10.1. Executed ABC.
+18.10.2. Re-integrating ABC results.
+18.11. Extracting gate netlist of module `\ShiftSRAM_100$MeshWithDelays.SRAMShifted_shifter_100' to `<abc-temp-dir>/input.blif'..
+18.11.1. Executed ABC.
+18.11.2. Re-integrating ABC results.
+18.12. Extracting gate netlist of module `\ShiftSRAM_101$MeshWithDelays.SRAMShifted_shifter_101' to `<abc-temp-dir>/input.blif'..
+18.12.1. Executed ABC.
+18.12.2. Re-integrating ABC results.
+18.13. Extracting gate netlist of module `\ShiftSRAM_102$MeshWithDelays.SRAMShifted_shifter_102' to `<abc-temp-dir>/input.blif'..
+18.13.1. Executed ABC.
+18.13.2. Re-integrating ABC results.
+18.14. Extracting gate netlist of module `\ShiftSRAM_103$MeshWithDelays.SRAMShifted_shifter_103' to `<abc-temp-dir>/input.blif'..
+18.14.1. Executed ABC.
+18.14.2. Re-integrating ABC results.
+18.15. Extracting gate netlist of module `\ShiftSRAM_104$MeshWithDelays.SRAMShifted_shifter_104' to `<abc-temp-dir>/input.blif'..
+18.15.1. Executed ABC.
+18.15.2. Re-integrating ABC results.
+18.16. Extracting gate netlist of module `\ShiftSRAM_11$MeshWithDelays.SRAMShifted_shifter_11' to `<abc-temp-dir>/input.blif'..
+18.16.1. Executed ABC.
+18.16.2. Re-integrating ABC results.
+18.17. Extracting gate netlist of module `\ShiftSRAM_12$MeshWithDelays.SRAMShifted_shifter_12' to `<abc-temp-dir>/input.blif'..
+18.17.1. Executed ABC.
+18.17.2. Re-integrating ABC results.
+18.18. Extracting gate netlist of module `\ShiftSRAM_13$MeshWithDelays.SRAMShifted_shifter_13' to `<abc-temp-dir>/input.blif'..
+18.18.1. Executed ABC.
+18.18.2. Re-integrating ABC results.
+18.19. Extracting gate netlist of module `\ShiftSRAM_14$MeshWithDelays.SRAMShifted_shifter_14' to `<abc-temp-dir>/input.blif'..
+18.19.1. Executed ABC.
+18.19.2. Re-integrating ABC results.
+18.20. Extracting gate netlist of module `\ShiftSRAM_2$MeshWithDelays.SRAMShifted_shifter_2' to `<abc-temp-dir>/input.blif'..
+18.20.1. Executed ABC.
+18.20.2. Re-integrating ABC results.
+18.21. Extracting gate netlist of module `\ShiftSRAM_3$MeshWithDelays.SRAMShifted_shifter_3' to `<abc-temp-dir>/input.blif'..
+18.21.1. Executed ABC.
+18.21.2. Re-integrating ABC results.
+18.22. Extracting gate netlist of module `\ShiftSRAM_4$MeshWithDelays.SRAMShifted_shifter_4' to `<abc-temp-dir>/input.blif'..
+18.22.1. Executed ABC.
+18.22.2. Re-integrating ABC results.
+18.23. Extracting gate netlist of module `\ShiftSRAM_45$MeshWithDelays.SRAMShifted_shifter_45' to `<abc-temp-dir>/input.blif'..
+18.23.1. Executed ABC.
+18.23.2. Re-integrating ABC results.
+18.24. Extracting gate netlist of module `\ShiftSRAM_46$MeshWithDelays.SRAMShifted_shifter_46' to `<abc-temp-dir>/input.blif'..
+18.24.1. Executed ABC.
+18.24.2. Re-integrating ABC results.
+18.25. Extracting gate netlist of module `\ShiftSRAM_47$MeshWithDelays.SRAMShifted_shifter_47' to `<abc-temp-dir>/input.blif'..
+18.25.1. Executed ABC.
+18.25.2. Re-integrating ABC results.
+18.26. Extracting gate netlist of module `\ShiftSRAM_48$MeshWithDelays.SRAMShifted_shifter_48' to `<abc-temp-dir>/input.blif'..
+18.26.1. Executed ABC.
+18.26.2. Re-integrating ABC results.
+18.27. Extracting gate netlist of module `\ShiftSRAM_49$MeshWithDelays.SRAMShifted_shifter_49' to `<abc-temp-dir>/input.blif'..
+18.27.1. Executed ABC.
+18.27.2. Re-integrating ABC results.
+18.28. Extracting gate netlist of module `\ShiftSRAM_5$MeshWithDelays.SRAMShifted_shifter_5' to `<abc-temp-dir>/input.blif'..
+18.28.1. Executed ABC.
+18.28.2. Re-integrating ABC results.
+18.29. Extracting gate netlist of module `\ShiftSRAM_50$MeshWithDelays.SRAMShifted_shifter_50' to `<abc-temp-dir>/input.blif'..
+18.29.1. Executed ABC.
+18.29.2. Re-integrating ABC results.
+18.30. Extracting gate netlist of module `\ShiftSRAM_51$MeshWithDelays.SRAMShifted_shifter_51' to `<abc-temp-dir>/input.blif'..
+18.30.1. Executed ABC.
+18.30.2. Re-integrating ABC results.
+18.31. Extracting gate netlist of module `\ShiftSRAM_52$MeshWithDelays.SRAMShifted_shifter_52' to `<abc-temp-dir>/input.blif'..
+18.31.1. Executed ABC.
+18.31.2. Re-integrating ABC results.
+18.32. Extracting gate netlist of module `\ShiftSRAM_53$MeshWithDelays.SRAMShifted_shifter_53' to `<abc-temp-dir>/input.blif'..
+18.32.1. Executed ABC.
+18.32.2. Re-integrating ABC results.
+18.33. Extracting gate netlist of module `\ShiftSRAM_54$MeshWithDelays.SRAMShifted_shifter_54' to `<abc-temp-dir>/input.blif'..
+18.33.1. Executed ABC.
+18.33.2. Re-integrating ABC results.
+18.34. Extracting gate netlist of module `\ShiftSRAM_55$MeshWithDelays.SRAMShifted_shifter_55' to `<abc-temp-dir>/input.blif'..
+18.34.1. Executed ABC.
+18.34.2. Re-integrating ABC results.
+18.35. Extracting gate netlist of module `\ShiftSRAM_56$MeshWithDelays.SRAMShifted_shifter_56' to `<abc-temp-dir>/input.blif'..
+18.35.1. Executed ABC.
+18.35.2. Re-integrating ABC results.
+18.36. Extracting gate netlist of module `\ShiftSRAM_57$MeshWithDelays.SRAMShifted_shifter_57' to `<abc-temp-dir>/input.blif'..
+18.36.1. Executed ABC.
+18.36.2. Re-integrating ABC results.
+18.37. Extracting gate netlist of module `\ShiftSRAM_58$MeshWithDelays.SRAMShifted_shifter_58' to `<abc-temp-dir>/input.blif'..
+18.37.1. Executed ABC.
+18.37.2. Re-integrating ABC results.
+18.38. Extracting gate netlist of module `\ShiftSRAM_59$MeshWithDelays.SRAMShifted_shifter_59' to `<abc-temp-dir>/input.blif'..
+18.38.1. Executed ABC.
+18.38.2. Re-integrating ABC results.
+18.39. Extracting gate netlist of module `\ShiftSRAM_6$MeshWithDelays.SRAMShifted_shifter_6' to `<abc-temp-dir>/input.blif'..
+18.39.1. Executed ABC.
+18.39.2. Re-integrating ABC results.
+18.40. Extracting gate netlist of module `\ShiftSRAM_60$MeshWithDelays.SRAMShifted_shifter_60' to `<abc-temp-dir>/input.blif'..
+18.40.1. Executed ABC.
+18.40.2. Re-integrating ABC results.
+18.41. Extracting gate netlist of module `\ShiftSRAM_61$MeshWithDelays.SRAMShifted_shifter_61' to `<abc-temp-dir>/input.blif'..
+18.41.1. Executed ABC.
+18.41.2. Re-integrating ABC results.
+18.42. Extracting gate netlist of module `\ShiftSRAM_62$MeshWithDelays.SRAMShifted_shifter_62' to `<abc-temp-dir>/input.blif'..
+18.42.1. Executed ABC.
+18.42.2. Re-integrating ABC results.
+18.43. Extracting gate netlist of module `\ShiftSRAM_63$MeshWithDelays.SRAMShifted_shifter_63' to `<abc-temp-dir>/input.blif'..
+18.43.1. Executed ABC.
+18.43.2. Re-integrating ABC results.
+18.44. Extracting gate netlist of module `\ShiftSRAM_64$MeshWithDelays.SRAMShifted_shifter_64' to `<abc-temp-dir>/input.blif'..
+18.44.1. Executed ABC.
+18.44.2. Re-integrating ABC results.
+18.45. Extracting gate netlist of module `\ShiftSRAM_65$MeshWithDelays.SRAMShifted_shifter_65' to `<abc-temp-dir>/input.blif'..
+18.45.1. Executed ABC.
+18.45.2. Re-integrating ABC results.
+18.46. Extracting gate netlist of module `\ShiftSRAM_66$MeshWithDelays.SRAMShifted_shifter_66' to `<abc-temp-dir>/input.blif'..
+18.46.1. Executed ABC.
+18.46.2. Re-integrating ABC results.
+18.47. Extracting gate netlist of module `\ShiftSRAM_67$MeshWithDelays.SRAMShifted_shifter_67' to `<abc-temp-dir>/input.blif'..
+18.47.1. Executed ABC.
+18.47.2. Re-integrating ABC results.
+18.48. Extracting gate netlist of module `\ShiftSRAM_68$MeshWithDelays.SRAMShifted_shifter_68' to `<abc-temp-dir>/input.blif'..
+18.48.1. Executed ABC.
+18.48.2. Re-integrating ABC results.
+18.49. Extracting gate netlist of module `\ShiftSRAM_69$MeshWithDelays.SRAMShifted_shifter_69' to `<abc-temp-dir>/input.blif'..
+18.49.1. Executed ABC.
+18.49.2. Re-integrating ABC results.
+18.50. Extracting gate netlist of module `\ShiftSRAM_7$MeshWithDelays.SRAMShifted_shifter_7' to `<abc-temp-dir>/input.blif'..
+18.50.1. Executed ABC.
+18.50.2. Re-integrating ABC results.
+18.51. Extracting gate netlist of module `\ShiftSRAM_70$MeshWithDelays.SRAMShifted_shifter_70' to `<abc-temp-dir>/input.blif'..
+18.51.1. Executed ABC.
+18.51.2. Re-integrating ABC results.
+18.52. Extracting gate netlist of module `\ShiftSRAM_71$MeshWithDelays.SRAMShifted_shifter_71' to `<abc-temp-dir>/input.blif'..
+18.52.1. Executed ABC.
+18.52.2. Re-integrating ABC results.
+18.53. Extracting gate netlist of module `\ShiftSRAM_72$MeshWithDelays.SRAMShifted_shifter_72' to `<abc-temp-dir>/input.blif'..
+18.53.1. Executed ABC.
+18.53.2. Re-integrating ABC results.
+18.54. Extracting gate netlist of module `\ShiftSRAM_73$MeshWithDelays.SRAMShifted_shifter_73' to `<abc-temp-dir>/input.blif'..
+18.54.1. Executed ABC.
+18.54.2. Re-integrating ABC results.
+18.55. Extracting gate netlist of module `\ShiftSRAM_74$MeshWithDelays.SRAMShifted_shifter_74' to `<abc-temp-dir>/input.blif'..
+18.55.1. Executed ABC.
+18.55.2. Re-integrating ABC results.
+18.56. Extracting gate netlist of module `\ShiftSRAM_8$MeshWithDelays.SRAMShifted_shifter_8' to `<abc-temp-dir>/input.blif'..
+18.56.1. Executed ABC.
+18.56.2. Re-integrating ABC results.
+18.57. Extracting gate netlist of module `\ShiftSRAM_9$MeshWithDelays.SRAMShifted_shifter_9' to `<abc-temp-dir>/input.blif'..
+18.57.1. Executed ABC.
+18.57.2. Re-integrating ABC results.
+18.58. Extracting gate netlist of module `\ShiftSRAM_90$MeshWithDelays.SRAMShifted_shifter_90' to `<abc-temp-dir>/input.blif'..
+18.58.1. Executed ABC.
+18.58.2. Re-integrating ABC results.
+18.59. Extracting gate netlist of module `\ShiftSRAM_91$MeshWithDelays.SRAMShifted_shifter_91' to `<abc-temp-dir>/input.blif'..
+18.59.1. Executed ABC.
+18.59.2. Re-integrating ABC results.
+18.60. Extracting gate netlist of module `\ShiftSRAM_92$MeshWithDelays.SRAMShifted_shifter_92' to `<abc-temp-dir>/input.blif'..
+18.60.1. Executed ABC.
+18.60.2. Re-integrating ABC results.
+18.61. Extracting gate netlist of module `\ShiftSRAM_93$MeshWithDelays.SRAMShifted_shifter_93' to `<abc-temp-dir>/input.blif'..
+18.61.1. Executed ABC.
+18.61.2. Re-integrating ABC results.
+18.62. Extracting gate netlist of module `\ShiftSRAM_94$MeshWithDelays.SRAMShifted_shifter_94' to `<abc-temp-dir>/input.blif'..
+18.62.1. Executed ABC.
+18.62.2. Re-integrating ABC results.
+18.63. Extracting gate netlist of module `\ShiftSRAM_95$MeshWithDelays.SRAMShifted_shifter_95' to `<abc-temp-dir>/input.blif'..
+18.63.1. Executed ABC.
+18.63.2. Re-integrating ABC results.
+18.64. Extracting gate netlist of module `\ShiftSRAM_96$MeshWithDelays.SRAMShifted_shifter_96' to `<abc-temp-dir>/input.blif'..
+18.64.1. Executed ABC.
+18.64.2. Re-integrating ABC results.
+18.65. Extracting gate netlist of module `\ShiftSRAM_97$MeshWithDelays.SRAMShifted_shifter_97' to `<abc-temp-dir>/input.blif'..
+18.65.1. Executed ABC.
+18.65.2. Re-integrating ABC results.
+18.66. Extracting gate netlist of module `\ShiftSRAM_98$MeshWithDelays.SRAMShifted_shifter_98' to `<abc-temp-dir>/input.blif'..
+18.66.1. Executed ABC.
+18.66.2. Re-integrating ABC results.
+18.67. Extracting gate netlist of module `\ShiftSRAM_99$MeshWithDelays.SRAMShifted_shifter_99' to `<abc-temp-dir>/input.blif'..
+18.67.1. Executed ABC.
+18.67.2. Re-integrating ABC results.
+18.68. Extracting gate netlist of module `\TagQueue$MeshWithDelays.tagq' to `<abc-temp-dir>/input.blif'..
+18.68.1. Executed ABC.
+18.68.2. Re-integrating ABC results.
+18.69. Extracting gate netlist of module `\Tile$MeshWithDelays.mesh.mesh_0_0' to `<abc-temp-dir>/input.blif'..
+18.69.1. Executed ABC.
+18.69.2. Re-integrating ABC results.
+18.70. Extracting gate netlist of module `\TwoPortSyncMem$MeshWithDelays.SRAMShifted_shifter.mem' to `<abc-temp-dir>/input.blif'..
+18.70.1. Executed ABC.
+18.71. Extracting gate netlist of module `\TwoPortSyncMem_1$MeshWithDelays.SRAMShifted_shifter_1.mem' to `<abc-temp-dir>/input.blif'..
+18.71.1. Executed ABC.
+18.72. Extracting gate netlist of module `\TwoPortSyncMem_10$MeshWithDelays.SRAMShifted_shifter_10.mem' to `<abc-temp-dir>/input.blif'..
+18.72.1. Executed ABC.
+18.73. Extracting gate netlist of module `\TwoPortSyncMem_100$MeshWithDelays.SRAMShifted_shifter_100.mem' to `<abc-temp-dir>/input.blif'..
+18.73.1. Executed ABC.
+18.74. Extracting gate netlist of module `\TwoPortSyncMem_101$MeshWithDelays.SRAMShifted_shifter_101.mem' to `<abc-temp-dir>/input.blif'..
+18.74.1. Executed ABC.
+18.75. Extracting gate netlist of module `\TwoPortSyncMem_102$MeshWithDelays.SRAMShifted_shifter_102.mem' to `<abc-temp-dir>/input.blif'..
+18.75.1. Executed ABC.
+18.76. Extracting gate netlist of module `\TwoPortSyncMem_103$MeshWithDelays.SRAMShifted_shifter_103.mem' to `<abc-temp-dir>/input.blif'..
+18.76.1. Executed ABC.
+18.77. Extracting gate netlist of module `\TwoPortSyncMem_104$MeshWithDelays.SRAMShifted_shifter_104.mem' to `<abc-temp-dir>/input.blif'..
+18.77.1. Executed ABC.
+18.78. Extracting gate netlist of module `\TwoPortSyncMem_11$MeshWithDelays.SRAMShifted_shifter_11.mem' to `<abc-temp-dir>/input.blif'..
+18.78.1. Executed ABC.
+18.79. Extracting gate netlist of module `\TwoPortSyncMem_12$MeshWithDelays.SRAMShifted_shifter_12.mem' to `<abc-temp-dir>/input.blif'..
+18.79.1. Executed ABC.
+18.80. Extracting gate netlist of module `\TwoPortSyncMem_13$MeshWithDelays.SRAMShifted_shifter_13.mem' to `<abc-temp-dir>/input.blif'..
+18.80.1. Executed ABC.
+18.81. Extracting gate netlist of module `\TwoPortSyncMem_14$MeshWithDelays.SRAMShifted_shifter_14.mem' to `<abc-temp-dir>/input.blif'..
+18.81.1. Executed ABC.
+18.82. Extracting gate netlist of module `\TwoPortSyncMem_2$MeshWithDelays.SRAMShifted_shifter_2.mem' to `<abc-temp-dir>/input.blif'..
+18.82.1. Executed ABC.
+18.83. Extracting gate netlist of module `\TwoPortSyncMem_3$MeshWithDelays.SRAMShifted_shifter_3.mem' to `<abc-temp-dir>/input.blif'..
+18.83.1. Executed ABC.
+18.84. Extracting gate netlist of module `\TwoPortSyncMem_4$MeshWithDelays.SRAMShifted_shifter_4.mem' to `<abc-temp-dir>/input.blif'..
+18.84.1. Executed ABC.
+18.85. Extracting gate netlist of module `\TwoPortSyncMem_45$MeshWithDelays.SRAMShifted_shifter_45.mem' to `<abc-temp-dir>/input.blif'..
+18.85.1. Executed ABC.
+18.86. Extracting gate netlist of module `\TwoPortSyncMem_46$MeshWithDelays.SRAMShifted_shifter_46.mem' to `<abc-temp-dir>/input.blif'..
+18.86.1. Executed ABC.
+18.87. Extracting gate netlist of module `\TwoPortSyncMem_47$MeshWithDelays.SRAMShifted_shifter_47.mem' to `<abc-temp-dir>/input.blif'..
+18.87.1. Executed ABC.
+18.88. Extracting gate netlist of module `\TwoPortSyncMem_48$MeshWithDelays.SRAMShifted_shifter_48.mem' to `<abc-temp-dir>/input.blif'..
+18.88.1. Executed ABC.
+18.89. Extracting gate netlist of module `\TwoPortSyncMem_49$MeshWithDelays.SRAMShifted_shifter_49.mem' to `<abc-temp-dir>/input.blif'..
+18.89.1. Executed ABC.
+18.90. Extracting gate netlist of module `\TwoPortSyncMem_5$MeshWithDelays.SRAMShifted_shifter_5.mem' to `<abc-temp-dir>/input.blif'..
+18.90.1. Executed ABC.
+18.91. Extracting gate netlist of module `\TwoPortSyncMem_50$MeshWithDelays.SRAMShifted_shifter_50.mem' to `<abc-temp-dir>/input.blif'..
+18.91.1. Executed ABC.
+18.92. Extracting gate netlist of module `\TwoPortSyncMem_51$MeshWithDelays.SRAMShifted_shifter_51.mem' to `<abc-temp-dir>/input.blif'..
+18.92.1. Executed ABC.
+18.93. Extracting gate netlist of module `\TwoPortSyncMem_52$MeshWithDelays.SRAMShifted_shifter_52.mem' to `<abc-temp-dir>/input.blif'..
+18.93.1. Executed ABC.
+18.94. Extracting gate netlist of module `\TwoPortSyncMem_53$MeshWithDelays.SRAMShifted_shifter_53.mem' to `<abc-temp-dir>/input.blif'..
+18.94.1. Executed ABC.
+18.95. Extracting gate netlist of module `\TwoPortSyncMem_54$MeshWithDelays.SRAMShifted_shifter_54.mem' to `<abc-temp-dir>/input.blif'..
+18.95.1. Executed ABC.
+18.96. Extracting gate netlist of module `\TwoPortSyncMem_55$MeshWithDelays.SRAMShifted_shifter_55.mem' to `<abc-temp-dir>/input.blif'..
+18.96.1. Executed ABC.
+18.97. Extracting gate netlist of module `\TwoPortSyncMem_56$MeshWithDelays.SRAMShifted_shifter_56.mem' to `<abc-temp-dir>/input.blif'..
+18.97.1. Executed ABC.
+18.98. Extracting gate netlist of module `\TwoPortSyncMem_57$MeshWithDelays.SRAMShifted_shifter_57.mem' to `<abc-temp-dir>/input.blif'..
+18.98.1. Executed ABC.
+18.99. Extracting gate netlist of module `\TwoPortSyncMem_58$MeshWithDelays.SRAMShifted_shifter_58.mem' to `<abc-temp-dir>/input.blif'..
+18.99.1. Executed ABC.
+18.100. Extracting gate netlist of module `\TwoPortSyncMem_59$MeshWithDelays.SRAMShifted_shifter_59.mem' to `<abc-temp-dir>/input.blif'..
+18.100.1. Executed ABC.
+18.101. Extracting gate netlist of module `\TwoPortSyncMem_6$MeshWithDelays.SRAMShifted_shifter_6.mem' to `<abc-temp-dir>/input.blif'..
+18.101.1. Executed ABC.
+18.102. Extracting gate netlist of module `\TwoPortSyncMem_60$MeshWithDelays.SRAMShifted_shifter_60.mem' to `<abc-temp-dir>/input.blif'..
+18.102.1. Executed ABC.
+18.103. Extracting gate netlist of module `\TwoPortSyncMem_61$MeshWithDelays.SRAMShifted_shifter_61.mem' to `<abc-temp-dir>/input.blif'..
+18.103.1. Executed ABC.
+18.104. Extracting gate netlist of module `\TwoPortSyncMem_62$MeshWithDelays.SRAMShifted_shifter_62.mem' to `<abc-temp-dir>/input.blif'..
+18.104.1. Executed ABC.
+18.105. Extracting gate netlist of module `\TwoPortSyncMem_63$MeshWithDelays.SRAMShifted_shifter_63.mem' to `<abc-temp-dir>/input.blif'..
+18.105.1. Executed ABC.
+18.106. Extracting gate netlist of module `\TwoPortSyncMem_64$MeshWithDelays.SRAMShifted_shifter_64.mem' to `<abc-temp-dir>/input.blif'..
+18.106.1. Executed ABC.
+18.107. Extracting gate netlist of module `\TwoPortSyncMem_65$MeshWithDelays.SRAMShifted_shifter_65.mem' to `<abc-temp-dir>/input.blif'..
+18.107.1. Executed ABC.
+18.108. Extracting gate netlist of module `\TwoPortSyncMem_66$MeshWithDelays.SRAMShifted_shifter_66.mem' to `<abc-temp-dir>/input.blif'..
+18.108.1. Executed ABC.
+18.109. Extracting gate netlist of module `\TwoPortSyncMem_67$MeshWithDelays.SRAMShifted_shifter_67.mem' to `<abc-temp-dir>/input.blif'..
+18.109.1. Executed ABC.
+18.110. Extracting gate netlist of module `\TwoPortSyncMem_68$MeshWithDelays.SRAMShifted_shifter_68.mem' to `<abc-temp-dir>/input.blif'..
+18.110.1. Executed ABC.
+18.111. Extracting gate netlist of module `\TwoPortSyncMem_69$MeshWithDelays.SRAMShifted_shifter_69.mem' to `<abc-temp-dir>/input.blif'..
+18.111.1. Executed ABC.
+18.112. Extracting gate netlist of module `\TwoPortSyncMem_7$MeshWithDelays.SRAMShifted_shifter_7.mem' to `<abc-temp-dir>/input.blif'..
+18.112.1. Executed ABC.
+18.113. Extracting gate netlist of module `\TwoPortSyncMem_70$MeshWithDelays.SRAMShifted_shifter_70.mem' to `<abc-temp-dir>/input.blif'..
+18.113.1. Executed ABC.
+18.114. Extracting gate netlist of module `\TwoPortSyncMem_71$MeshWithDelays.SRAMShifted_shifter_71.mem' to `<abc-temp-dir>/input.blif'..
+18.114.1. Executed ABC.
+18.115. Extracting gate netlist of module `\TwoPortSyncMem_72$MeshWithDelays.SRAMShifted_shifter_72.mem' to `<abc-temp-dir>/input.blif'..
+18.115.1. Executed ABC.
+18.116. Extracting gate netlist of module `\TwoPortSyncMem_73$MeshWithDelays.SRAMShifted_shifter_73.mem' to `<abc-temp-dir>/input.blif'..
+18.116.1. Executed ABC.
+18.117. Extracting gate netlist of module `\TwoPortSyncMem_74$MeshWithDelays.SRAMShifted_shifter_74.mem' to `<abc-temp-dir>/input.blif'..
+18.117.1. Executed ABC.
+18.118. Extracting gate netlist of module `\TwoPortSyncMem_8$MeshWithDelays.SRAMShifted_shifter_8.mem' to `<abc-temp-dir>/input.blif'..
+18.118.1. Executed ABC.
+18.119. Extracting gate netlist of module `\TwoPortSyncMem_9$MeshWithDelays.SRAMShifted_shifter_9.mem' to `<abc-temp-dir>/input.blif'..
+18.119.1. Executed ABC.
+18.120. Extracting gate netlist of module `\TwoPortSyncMem_90$MeshWithDelays.SRAMShifted_shifter_90.mem' to `<abc-temp-dir>/input.blif'..
+18.120.1. Executed ABC.
+18.121. Extracting gate netlist of module `\TwoPortSyncMem_91$MeshWithDelays.SRAMShifted_shifter_91.mem' to `<abc-temp-dir>/input.blif'..
+18.121.1. Executed ABC.
+18.122. Extracting gate netlist of module `\TwoPortSyncMem_92$MeshWithDelays.SRAMShifted_shifter_92.mem' to `<abc-temp-dir>/input.blif'..
+18.122.1. Executed ABC.
+18.123. Extracting gate netlist of module `\TwoPortSyncMem_93$MeshWithDelays.SRAMShifted_shifter_93.mem' to `<abc-temp-dir>/input.blif'..
+18.123.1. Executed ABC.
+18.124. Extracting gate netlist of module `\TwoPortSyncMem_94$MeshWithDelays.SRAMShifted_shifter_94.mem' to `<abc-temp-dir>/input.blif'..
+18.124.1. Executed ABC.
+18.125. Extracting gate netlist of module `\TwoPortSyncMem_95$MeshWithDelays.SRAMShifted_shifter_95.mem' to `<abc-temp-dir>/input.blif'..
+18.125.1. Executed ABC.
+18.126. Extracting gate netlist of module `\TwoPortSyncMem_96$MeshWithDelays.SRAMShifted_shifter_96.mem' to `<abc-temp-dir>/input.blif'..
+18.126.1. Executed ABC.
+18.127. Extracting gate netlist of module `\TwoPortSyncMem_97$MeshWithDelays.SRAMShifted_shifter_97.mem' to `<abc-temp-dir>/input.blif'..
+18.127.1. Executed ABC.
+18.128. Extracting gate netlist of module `\TwoPortSyncMem_98$MeshWithDelays.SRAMShifted_shifter_98.mem' to `<abc-temp-dir>/input.blif'..
+18.128.1. Executed ABC.
+18.129. Extracting gate netlist of module `\TwoPortSyncMem_99$MeshWithDelays.SRAMShifted_shifter_99.mem' to `<abc-temp-dir>/input.blif'..
+18.129.1. Executed ABC.
+18.130. Extracting gate netlist of module `\mem_0_10x1$MeshWithDelays.SRAMShifted_shifter_49.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.130.1. Executed ABC.
+18.130.2. Re-integrating ABC results.
+18.131. Extracting gate netlist of module `\mem_0_10x32$MeshWithDelays.SRAMShifted_shifter_100.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.131.1. Executed ABC.
+18.131.2. Re-integrating ABC results.
+18.132. Extracting gate netlist of module `\mem_0_10x4$MeshWithDelays.SRAMShifted_shifter_64.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.132.1. Executed ABC.
+18.132.2. Re-integrating ABC results.
+18.133. Extracting gate netlist of module `\mem_0_10x8$MeshWithDelays.SRAMShifted_shifter_4.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.133.1. Executed ABC.
+18.133.2. Re-integrating ABC results.
+18.134. Extracting gate netlist of module `\mem_0_12x1$MeshWithDelays.SRAMShifted_shifter_50.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.134.1. Executed ABC.
+18.134.2. Re-integrating ABC results.
+18.135. Extracting gate netlist of module `\mem_0_12x32$MeshWithDelays.SRAMShifted_shifter_99.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.135.1. Executed ABC.
+18.135.2. Re-integrating ABC results.
+18.136. Extracting gate netlist of module `\mem_0_12x4$MeshWithDelays.SRAMShifted_shifter_65.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.136.1. Executed ABC.
+18.136.2. Re-integrating ABC results.
+18.137. Extracting gate netlist of module `\mem_0_12x8$MeshWithDelays.SRAMShifted_shifter_5.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.137.1. Executed ABC.
+18.137.2. Re-integrating ABC results.
+18.138. Extracting gate netlist of module `\mem_0_14x1$MeshWithDelays.SRAMShifted_shifter_51.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.138.1. Executed ABC.
+18.138.2. Re-integrating ABC results.
+18.139. Extracting gate netlist of module `\mem_0_14x32$MeshWithDelays.SRAMShifted_shifter_98.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.139.1. Executed ABC.
+18.139.2. Re-integrating ABC results.
+18.140. Extracting gate netlist of module `\mem_0_14x4$MeshWithDelays.SRAMShifted_shifter_66.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.140.1. Executed ABC.
+18.140.2. Re-integrating ABC results.
+18.141. Extracting gate netlist of module `\mem_0_14x8$MeshWithDelays.SRAMShifted_shifter_6.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.141.1. Executed ABC.
+18.141.2. Re-integrating ABC results.
+18.142. Extracting gate netlist of module `\mem_0_16x1$MeshWithDelays.SRAMShifted_shifter_52.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.142.1. Executed ABC.
+18.142.2. Re-integrating ABC results.
+18.143. Extracting gate netlist of module `\mem_0_16x32$MeshWithDelays.SRAMShifted_shifter_97.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.143.1. Executed ABC.
+18.143.2. Re-integrating ABC results.
+18.144. Extracting gate netlist of module `\mem_0_16x4$MeshWithDelays.SRAMShifted_shifter_67.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.144.1. Executed ABC.
+18.144.2. Re-integrating ABC results.
+18.145. Extracting gate netlist of module `\mem_0_16x8$MeshWithDelays.SRAMShifted_shifter_7.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.145.1. Executed ABC.
+18.145.2. Re-integrating ABC results.
+18.146. Extracting gate netlist of module `\mem_0_18x1$MeshWithDelays.SRAMShifted_shifter_53.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.146.1. Executed ABC.
+18.146.2. Re-integrating ABC results.
+18.147. Extracting gate netlist of module `\mem_0_18x32$MeshWithDelays.SRAMShifted_shifter_96.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.147.1. Executed ABC.
+18.147.2. Re-integrating ABC results.
+18.148. Extracting gate netlist of module `\mem_0_18x4$MeshWithDelays.SRAMShifted_shifter_68.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.148.1. Executed ABC.
+18.148.2. Re-integrating ABC results.
+18.149. Extracting gate netlist of module `\mem_0_18x8$MeshWithDelays.SRAMShifted_shifter_8.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.149.1. Executed ABC.
+18.149.2. Re-integrating ABC results.
+18.150. Extracting gate netlist of module `\mem_0_20x1$MeshWithDelays.SRAMShifted_shifter_54.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.150.1. Executed ABC.
+18.150.2. Re-integrating ABC results.
+18.151. Extracting gate netlist of module `\mem_0_20x32$MeshWithDelays.SRAMShifted_shifter_95.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.151.1. Executed ABC.
+18.151.2. Re-integrating ABC results.
+18.152. Extracting gate netlist of module `\mem_0_20x4$MeshWithDelays.SRAMShifted_shifter_69.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.152.1. Executed ABC.
+18.152.2. Re-integrating ABC results.
+18.153. Extracting gate netlist of module `\mem_0_20x8$MeshWithDelays.SRAMShifted_shifter_9.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.153.1. Executed ABC.
+18.153.2. Re-integrating ABC results.
+18.154. Extracting gate netlist of module `\mem_0_22x1$MeshWithDelays.SRAMShifted_shifter_55.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.154.1. Executed ABC.
+18.154.2. Re-integrating ABC results.
+18.155. Extracting gate netlist of module `\mem_0_22x32$MeshWithDelays.SRAMShifted_shifter_94.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.155.1. Executed ABC.
+18.155.2. Re-integrating ABC results.
+18.156. Extracting gate netlist of module `\mem_0_22x4$MeshWithDelays.SRAMShifted_shifter_70.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.156.1. Executed ABC.
+18.156.2. Re-integrating ABC results.
+18.157. Extracting gate netlist of module `\mem_0_22x8$MeshWithDelays.SRAMShifted_shifter_10.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.157.1. Executed ABC.
+18.157.2. Re-integrating ABC results.
+18.158. Extracting gate netlist of module `\mem_0_24x1$MeshWithDelays.SRAMShifted_shifter_56.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.158.1. Executed ABC.
+18.158.2. Re-integrating ABC results.
+18.159. Extracting gate netlist of module `\mem_0_24x32$MeshWithDelays.SRAMShifted_shifter_93.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.159.1. Executed ABC.
+18.159.2. Re-integrating ABC results.
+18.160. Extracting gate netlist of module `\mem_0_24x4$MeshWithDelays.SRAMShifted_shifter_71.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.160.1. Executed ABC.
+18.160.2. Re-integrating ABC results.
+18.161. Extracting gate netlist of module `\mem_0_24x8$MeshWithDelays.SRAMShifted_shifter_11.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.161.1. Executed ABC.
+18.161.2. Re-integrating ABC results.
+18.162. Extracting gate netlist of module `\mem_0_26x1$MeshWithDelays.SRAMShifted_shifter_57.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.162.1. Executed ABC.
+18.162.2. Re-integrating ABC results.
+18.163. Extracting gate netlist of module `\mem_0_26x32$MeshWithDelays.SRAMShifted_shifter_92.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.163.1. Executed ABC.
+18.163.2. Re-integrating ABC results.
+18.164. Extracting gate netlist of module `\mem_0_26x4$MeshWithDelays.SRAMShifted_shifter_72.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.164.1. Executed ABC.
+18.164.2. Re-integrating ABC results.
+18.165. Extracting gate netlist of module `\mem_0_26x8$MeshWithDelays.SRAMShifted_shifter_12.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.165.1. Executed ABC.
+18.165.2. Re-integrating ABC results.
+18.166. Extracting gate netlist of module `\mem_0_28x1$MeshWithDelays.SRAMShifted_shifter_58.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.166.1. Executed ABC.
+18.166.2. Re-integrating ABC results.
+18.167. Extracting gate netlist of module `\mem_0_28x32$MeshWithDelays.SRAMShifted_shifter_91.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.167.1. Executed ABC.
+18.167.2. Re-integrating ABC results.
+18.168. Extracting gate netlist of module `\mem_0_28x4$MeshWithDelays.SRAMShifted_shifter_73.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.168.1. Executed ABC.
+18.168.2. Re-integrating ABC results.
+18.169. Extracting gate netlist of module `\mem_0_28x8$MeshWithDelays.SRAMShifted_shifter_13.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.169.1. Executed ABC.
+18.169.2. Re-integrating ABC results.
+18.170. Extracting gate netlist of module `\mem_0_2x1$MeshWithDelays.SRAMShifted_shifter_45.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.170.1. Executed ABC.
+18.170.2. Re-integrating ABC results.
+18.171. Extracting gate netlist of module `\mem_0_2x32$MeshWithDelays.SRAMShifted_shifter_104.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.171.1. Executed ABC.
+18.171.2. Re-integrating ABC results.
+18.172. Extracting gate netlist of module `\mem_0_2x4$MeshWithDelays.SRAMShifted_shifter_60.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.172.1. Executed ABC.
+18.172.2. Re-integrating ABC results.
+18.173. Extracting gate netlist of module `\mem_0_2x8$MeshWithDelays.SRAMShifted_shifter.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.173.1. Executed ABC.
+18.173.2. Re-integrating ABC results.
+18.174. Extracting gate netlist of module `\mem_0_30x1$MeshWithDelays.SRAMShifted_shifter_59.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.174.1. Executed ABC.
+18.174.2. Re-integrating ABC results.
+18.175. Extracting gate netlist of module `\mem_0_30x32$MeshWithDelays.SRAMShifted_shifter_90.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.175.1. Executed ABC.
+18.175.2. Re-integrating ABC results.
+18.176. Extracting gate netlist of module `\mem_0_30x4$MeshWithDelays.SRAMShifted_shifter_74.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.176.1. Executed ABC.
+18.176.2. Re-integrating ABC results.
+18.177. Extracting gate netlist of module `\mem_0_30x8$MeshWithDelays.SRAMShifted_shifter_14.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.177.1. Executed ABC.
+18.177.2. Re-integrating ABC results.
+18.178. Extracting gate netlist of module `\mem_0_4x1$MeshWithDelays.SRAMShifted_shifter_46.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.178.1. Executed ABC.
+18.178.2. Re-integrating ABC results.
+18.179. Extracting gate netlist of module `\mem_0_4x32$MeshWithDelays.SRAMShifted_shifter_103.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.179.1. Executed ABC.
+18.179.2. Re-integrating ABC results.
+18.180. Extracting gate netlist of module `\mem_0_4x4$MeshWithDelays.SRAMShifted_shifter_61.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.180.1. Executed ABC.
+18.180.2. Re-integrating ABC results.
+18.181. Extracting gate netlist of module `\mem_0_4x8$MeshWithDelays.SRAMShifted_shifter_1.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.181.1. Executed ABC.
+18.181.2. Re-integrating ABC results.
+18.182. Extracting gate netlist of module `\mem_0_6x1$MeshWithDelays.SRAMShifted_shifter_47.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.182.1. Executed ABC.
+18.182.2. Re-integrating ABC results.
+18.183. Extracting gate netlist of module `\mem_0_6x32$MeshWithDelays.SRAMShifted_shifter_102.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.183.1. Executed ABC.
+18.183.2. Re-integrating ABC results.
+18.184. Extracting gate netlist of module `\mem_0_6x4$MeshWithDelays.SRAMShifted_shifter_62.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.184.1. Executed ABC.
+18.184.2. Re-integrating ABC results.
+18.185. Extracting gate netlist of module `\mem_0_6x8$MeshWithDelays.SRAMShifted_shifter_2.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.185.1. Executed ABC.
+18.185.2. Re-integrating ABC results.
+18.186. Extracting gate netlist of module `\mem_0_8x1$MeshWithDelays.SRAMShifted_shifter_48.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.186.1. Executed ABC.
+18.186.2. Re-integrating ABC results.
+18.187. Extracting gate netlist of module `\mem_0_8x32$MeshWithDelays.SRAMShifted_shifter_101.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.187.1. Executed ABC.
+18.187.2. Re-integrating ABC results.
+18.188. Extracting gate netlist of module `\mem_0_8x4$MeshWithDelays.SRAMShifted_shifter_63.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.188.1. Executed ABC.
+18.188.2. Re-integrating ABC results.
+18.189. Extracting gate netlist of module `\mem_0_8x8$MeshWithDelays.SRAMShifted_shifter_3.mem.mem_0_ext' to `<abc-temp-dir>/input.blif'..
+18.189.1. Executed ABC.
+18.189.2. Re-integrating ABC results.
+18.190. Extracting gate netlist of module `\ram_17x9$MeshWithDelays.total_rows_q.ram_ext' to `<abc-temp-dir>/input.blif'..
+18.190.1. Executed ABC.
+18.190.2. Re-integrating ABC results.
+Took 126 seconds: abc -script external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/scripts/abc_speed.script -liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz -liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz -liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz -liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz -liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib -dont_use *x1p*_ASAP7* -dont_use *xp*_ASAP7* -dont_use SDF* -dont_use ICG* -constr bazel-out/k8-fastbuild/bin/gemmini/objects/asap7/MeshWithDelays/base/abc.constr -D 1000
+19. Executing SPLITNETS pass (splitting up multi-bit signals).
+20. Executing OPT_CLEAN pass (remove unused cells and wires).
+21. Executing HILOMAP pass (mapping to constant drivers).
+22. Executing INSBUF pass (insert buffer cells for connected wires).
+23. Executing CHECK pass (checking for obvious problems).
+24. Printing statistics.
+25. Executing CHECK pass (checking for obvious problems).
+26. Executing Verilog backend.
+26.1. Executing BMUXMAP pass.
+26.2. Executing DEMUXMAP pass.
+exec cp gemmini/constraints.sdc bazel-out/k8-fastbuild/bin/gemmini/results/asap7/MeshWithDelays/base/1_synth.sdc
+Warnings: 31 unique messages, 31 total
+End of script. Logfile hash: c3cdcddddd, CPU: user 43.48s system 0.50s, MEM: 531.57 MB peak
+Yosys 0.63+post (git sha1 UNKNOWN-dirty, g++ 11.4.0-1ubuntu1~22.04.3 -fPIC -O3)
+Time spent: 76% 2x abc (131 sec), 5% 28x opt_dff (8 sec), ...
+Elapsed time: 2:53.47[h:]min:sec. CPU time: user 169.58 sys 4.36 (100%). Peak memory: 545860KB.

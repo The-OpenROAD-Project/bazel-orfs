@@ -1,0 +1,12 @@
+exports_files(
+    [
+        "src/main/scala/util/AsyncQueue.scala",
+        "src/main/scala/util/AsyncResetReg.scala",
+        "src/main/scala/util/Counters.scala",
+        "src/main/scala/util/Crossing.scala",
+        "src/main/scala/util/ShiftReg.scala",
+        "src/main/scala/util/SynchronizerReg.scala",
+        "src/main/scala/util/package.scala",
+    ],
+    visibility = ["//visibility:public"],
+)

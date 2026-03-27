@@ -1,0 +1,132 @@
+load("//:defs.bzl", "demo_hierarchical", "demo_sram")
+load("//:gallery.bzl", "demo_stage_images", "orfs_run")
+
+# --- Tile Macro (built through route, then abstracted) ---
+
+demo_sram(
+    name = "Tile",
+    abstract_stage = "route",
+    arguments = {
+        # Grid-aligned die/core area (multiples of 2.16 µm = 45 × M5 pitch)
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
+        # Track-aligned: origin at 0.012 + N*0.048, end at 0.012 + M*0.048
+        "DIE_AREA": "0 0 25.920 25.920",
+        "CORE_AREA": "1.116 1.116 24.828 24.828",
+        # Restrict routing to lower layers — upper layers for top-level routing
+        "MIN_ROUTING_LAYER": "M2",
+        "MAX_ROUTING_LAYER": "M5",
+        "IO_PLACER_H": "M2 M4",
+        "IO_PLACER_V": "M3 M5",
+        # High density for small leaf macro
+        "PLACE_DENSITY": "0.82",
+        # Annealing with mirrored constraints for abutment
+        "PLACE_PINS_ARGS": "-annealing",
+        # Speed defaults
+        "SKIP_CTS_REPAIR_TIMING": "1",
+        "SKIP_INCREMENTAL_REPAIR": "1",
+        "SKIP_LAST_GASP": "1",
+    },
+    mock_area = 1.0,
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+        "IO_CONSTRAINTS": [":tile-io-manual.tcl"],
+    },
+    verilog_files = ["//gemmini_8x8:gemmini_8x8_sv"],
+)
+
+# Verify Tile pin placement after route
+orfs_run(
+    name = "verify_tile_pins",
+    src = ":Tile_route",
+    outs = ["verify_tile_pins.log"],
+    arguments = {
+        "VERIFY_LOG": "$(location :verify_tile_pins.log)",
+    },
+    script = ":verify_tile_pins.tcl",
+)
+
+# --- Top Level (MeshWithDelays with 64 Tile macros) ---
+
+demo_hierarchical(
+    name = "MeshWithDelays",
+    arguments = {
+        "SYNTH_HIERARCHICAL": "1",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+        # Route on top of macros using upper layers
+        "MIN_ROUTING_LAYER": "M2",
+        "MAX_ROUTING_LAYER": "M9",
+        "IO_PLACER_H": "M4 M6",
+        "IO_PLACER_V": "M5 M7",
+        # Grid-aligned die/core area (multiples of 2.16 µm = 45 × M5 pitch)
+        # CORE origin at N*pitch (no track offset!) — pins in LEF already
+        # include the 0.012 offset, so macro_origin + pin = 0.012 + (N+M)*pitch
+        "DIE_AREA": "0 0 361.920 322.224",
+        "CORE_AREA": "17.280 17.280 344.640 304.896",
+        # Low density — most area is macro instances
+        "PLACE_DENSITY": "0.30",
+        # Override annealing from demo_hierarchical — too slow with 583 pins + 64 macros
+        "PLACE_PINS_ARGS": "",
+        # 5 µm X halo for routing channels, 2.16 µm Y halo for clock
+        "MACRO_PLACE_HALO": "5 2.160",
+        # Speed defaults
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "SKIP_CTS_REPAIR_TIMING": "1",
+        "SKIP_INCREMENTAL_REPAIR": "1",
+        "SKIP_LAST_GASP": "1",
+        "FILL_CELLS": "",
+        "TAPCELL_TCL": "",
+    },
+    macros = [":Tile_generate_abstract"],
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+        "IO_CONSTRAINTS": [":top-io.tcl"],
+        # Removed: RTLMP auto-places with MPL-0005 fix
+        # Requires OpenROAD from source (see MODULE.bazel)
+        # "MACRO_PLACEMENT_TCL": [":macro-placement.tcl"],
+    },
+    substeps = True,
+    verilog_files = ["//gemmini_8x8:gemmini_8x8_sv"],
+)
+
+exports_files(["macro-placement.tcl"])
+
+# Early congestion check after placement (with heatmap image)
+orfs_run(
+    name = "congestion_check",
+    src = ":MeshWithDelays_place",
+    outs = ["congestion_check.webp"],
+    arguments = {
+        "GALLERY_IMAGE": "$(location :congestion_check.webp)",
+        "OR_ARGS": "-gui",
+    },
+    extra_args = "OPENROAD_CMD='xvfb-run -a $(OPENROAD_EXE) -exit $(OPENROAD_ARGS)'",
+    script = "//scripts:congestion_check.tcl",
+)
+
+# Verify abutment after macro placement
+orfs_run(
+    name = "verify_abutment",
+    src = ":MeshWithDelays_floorplan",
+    outs = ["verify_abutment.log"],
+    arguments = {
+        "VERIFY_LOG": "$(location :verify_abutment.log)",
+    },
+    script = ":verify_abutment.tcl",
+)
+
+# Per-stage gallery images (floorplan → place → CTS → GRT → route)
+demo_stage_images(
+    name = "MeshWithDelays_images",
+    module = "MeshWithDelays",
+    stages = [
+        "floorplan",
+        "cts",
+    ],  # add stages as they complete
+)
+
+exports_files([
+    "tile-io.tcl",
+    "verify_tile_pins.tcl",
+    "verify_abutment.tcl",
+])

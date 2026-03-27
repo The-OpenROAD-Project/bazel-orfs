@@ -1,0 +1,248 @@
+OpenROAD 26Q1-1929-g7cf7b720fd 
+Features included (+) or not (-): +GPU +GUI +Python
+This program is licensed under the BSD-3 license. See the LICENSE file for details.
+Components of this program may be licensed under more restrictive licenses which must be honored.
+[INFO ORD-0030] Using 16 thread(s).
+source external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/liberty_suppressions.tcl
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz
+read_liberty external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib
+read_db -hier bazel-out/k8-fastbuild/bin/serv/results/asap7/serv_rf_top/base/1_synth.odb
+[WARNING ORD-0012] Hierarchical flow (-hier) is currently in development and may cause multiple issues. Do not use in production environments.
+source external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/setRC.tcl
+
+==========================================================================
+Floorplan check_setup
+--------------------------------------------------------------------------
+Warning: There are 101 input ports missing set_input_delay.
+Warning: There are 168 output ports missing set_output_delay.
+number instances in verilog is 8035
+[INFO IFP-0107] Defining die area using utilization: 40.00% and aspect ratio: 1.
+[WARNING IFP-0028] Core area lower left (1.000, 1.000) snapped to (1.026, 1.080).
+[INFO IFP-0001] Added 182 rows of 913 site asap7sc7p5t.
+[INFO IFP-0100] Die BBox:  (  0.000  0.000 ) ( 51.339 51.339 ) um
+[INFO IFP-0101] Core BBox: (  1.026  1.080 ) ( 50.328 50.220 ) um
+[INFO IFP-0102] Core area:                         2422.700 um^2
+[INFO IFP-0103] Total instances area:               973.754 um^2
+[INFO IFP-0104] Effective utilization:                0.402
+[INFO IFP-0105] Number of instances:                   8035
+source external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/openRoad/make_tracks.tcl
+source external/bazel-orfs++orfs_repositories+docker_orfs/OpenROAD-flow-scripts/flow/platforms/asap7/fastroute.tcl
+Repair tie lo fanout...
+[INFO RSZ-0042] Inserted 3 tie TIELOx1_ASAP7_75t_R instances.
+Repair tie hi fanout...
+repair_timing -setup_margin 0 -hold_margin 0 -repair_tns 100 -skip_last_gasp -setup -skip_last_gasp -sequence unbuffer,sizeup,swap,vt_swap -verbose
+[WARNING EST-0027] no estimated parasitics. Using wire load models.
+[INFO RSZ-0100] Repair move sequence: UnbufferMove SizeUpMove SwapPinsMove 
+[INFO RSZ-0094] Found 124 endpoints with setup violations.
+[INFO RSZ-0099] Repairing 124 out of 124 (100.00%) violating endpoints...
+   Iter   | Removed | Resized | Inserted | Cloned |  Pin  |   Area   |    WNS   |   TNS      |  Viol  | Worst
+          | Buffers |  Gates  | Buffers  |  Gates | Swaps |          |          |            | Endpts | Endpt
+--------------------------------------------------------------------------------------------------------------
+        0 |       0 |       0 |        0 |      0 |     0 |    +0.0% |  -64.807 |    -3696.6 |    124 | cpu.bufreg2.dhi[5]$_DFFE_PP_/D
+        8 |       0 |       5 |        0 |      0 |     2 |    +0.0% |  -53.550 |    -3473.1 |    124 | o_dbus_cyc
+       10 |       0 |       6 |        0 |      0 |     2 |    +0.0% |  -53.550 |    -3276.5 |    124 | o_dbus_cyc
+       20 |       0 |      15 |        0 |      0 |     3 |    +0.0% |  -53.550 |    -2883.3 |    124 | o_dbus_cyc
+       20 |       0 |      15 |        0 |      0 |     3 |    +0.0% |  -53.550 |    -2883.3 |    124 | o_dbus_cyc
+       22 |       0 |      15 |        0 |      0 |     3 |    +0.0% |  -53.550 |    -2883.3 |    124 | o_dbus_cyc
+       24 |       0 |      15 |        0 |      0 |     3 |    +0.0% |  -53.550 |    -2883.3 |    124 | o_dbus_cyc
+       25 |       0 |      15 |        0 |      0 |     3 |    +0.0% |  -53.550 |    -2883.3 |    124 | o_dbus_cyc
+       30 |       0 |      16 |        0 |      0 |     6 |    +0.0% |  -53.550 |    -2882.3 |    124 | o_dbus_cyc
+       30 |       0 |      16 |        0 |      0 |     6 |    +0.0% |  -53.550 |    -2882.3 |    124 | o_dbus_cyc
+       32 |       0 |      16 |        0 |      0 |     6 |    +0.0% |  -53.550 |    -2882.3 |    124 | o_dbus_cyc
+       33 |       0 |      16 |        0 |      0 |     6 |    +0.0% |  -53.550 |    -2882.3 |    124 | o_dbus_cyc
+       35 |       0 |      16 |        0 |      0 |     6 |    +0.0% |  -53.550 |    -2882.3 |    124 | o_dbus_cyc
+       40 |       0 |      20 |        0 |      0 |     6 |    +0.1% |  -53.550 |    -2748.9 |    124 | o_dbus_cyc
+       43 |       0 |      22 |        0 |      0 |     7 |    +0.1% |  -53.550 |    -2652.7 |    124 | o_dbus_cyc
+       45 |       0 |      22 |        0 |      0 |     8 |    +0.1% |  -53.550 |    -2651.1 |    124 | o_dbus_cyc
+       47 |       0 |      22 |        0 |      0 |     9 |    +0.1% |  -53.550 |    -2649.5 |    124 | o_dbus_cyc
+       49 |       0 |      22 |        0 |      0 |    10 |    +0.1% |  -53.550 |    -2648.0 |    124 | o_dbus_cyc
+       50 |       0 |      22 |        0 |      0 |    10 |    +0.1% |  -53.550 |    -2648.0 |    124 | o_dbus_cyc
+       51 |       0 |      22 |        0 |      0 |    11 |    +0.1% |  -53.550 |    -2646.4 |    124 | o_dbus_cyc
+       53 |       0 |      22 |        0 |      0 |    12 |    +0.1% |  -53.550 |    -2644.8 |    124 | o_dbus_cyc
+       55 |       0 |      22 |        0 |      0 |    13 |    +0.1% |  -53.550 |    -2643.2 |    124 | o_dbus_cyc
+       57 |       0 |      22 |        0 |      0 |    14 |    +0.1% |  -53.550 |    -2641.6 |    124 | o_dbus_cyc
+       60 |       0 |      24 |        0 |      0 |    14 |    +0.1% |  -53.550 |    -2599.7 |    124 | o_dbus_cyc
+       62 |       0 |      25 |        0 |      0 |    15 |    +0.1% |  -53.550 |    -2583.2 |    124 | o_dbus_cyc
+       64 |       0 |      25 |        0 |      0 |    16 |    +0.1% |  -53.550 |    -2581.6 |    124 | o_dbus_cyc
+       66 |       0 |      25 |        0 |      0 |    17 |    +0.1% |  -53.550 |    -2580.0 |    124 | o_dbus_cyc
+       68 |       0 |      25 |        0 |      0 |    18 |    +0.1% |  -53.550 |    -2578.4 |    124 | o_dbus_cyc
+       70 |       0 |      25 |        0 |      0 |    19 |    +0.1% |  -53.550 |    -2576.8 |    124 | o_dbus_cyc
+       70 |       0 |      25 |        0 |      0 |    19 |    +0.1% |  -53.550 |    -2576.8 |    124 | o_dbus_cyc
+       72 |       0 |      25 |        0 |      0 |    20 |    +0.1% |  -53.550 |    -2575.2 |    124 | o_dbus_cyc
+       74 |       0 |      25 |        0 |      0 |    21 |    +0.1% |  -53.550 |    -2573.6 |    124 | o_dbus_cyc
+       76 |       0 |      25 |        0 |      0 |    22 |    +0.1% |  -53.550 |    -2572.0 |    124 | o_dbus_cyc
+       78 |       0 |      25 |        0 |      0 |    23 |    +0.1% |  -53.550 |    -2570.4 |    124 | o_dbus_cyc
+       80 |       0 |      25 |        0 |      0 |    24 |    +0.1% |  -53.550 |    -2568.8 |    124 | o_dbus_cyc
+       80 |       0 |      25 |        0 |      0 |    24 |    +0.1% |  -53.550 |    -2568.8 |    124 | o_dbus_cyc
+       83 |       0 |      25 |        0 |      0 |    26 |    +0.1% |  -53.550 |    -2567.8 |    124 | o_dbus_cyc
+       86 |       0 |      25 |        0 |      0 |    28 |    +0.1% |  -53.550 |    -2566.8 |    124 | o_dbus_cyc
+       90 |       0 |      28 |        0 |      0 |    28 |    +0.1% |  -53.550 |    -2344.2 |    124 | o_dbus_cyc
+       96 |       0 |      33 |        0 |      0 |    29 |    +0.1% |  -53.550 |    -1776.1 |    124 | o_dbus_cyc
+       98 |       0 |      33 |        0 |      0 |    29 |    +0.1% |  -53.550 |    -1776.1 |    124 | o_dbus_cyc
+      100 |       0 |      33 |        0 |      0 |    30 |    +0.1% |  -53.550 |    -1777.8 |    124 | o_dbus_cyc
+      100 |       0 |      33 |        0 |      0 |    29 |    +0.1% |  -53.550 |    -1776.1 |    124 | o_dbus_cyc
+      103 |       0 |      34 |        0 |      0 |    29 |    +0.1% |  -53.550 |    -1745.3 |    124 | o_dbus_cyc
+      105 |       0 |      34 |        0 |      0 |    29 |    +0.1% |  -53.550 |    -1745.3 |    124 | o_dbus_cyc
+      107 |       0 |      34 |        0 |      0 |    29 |    +0.1% |  -53.550 |    -1745.3 |    124 | o_dbus_cyc
+      110 |       0 |      36 |        0 |      0 |    29 |    +0.1% |  -53.550 |    -1705.0 |    124 | o_dbus_cyc
+      114 |       0 |      40 |        0 |      0 |    29 |    +0.1% |  -53.550 |    -1697.7 |    124 | o_dbus_cyc
+      117 |       0 |      41 |        0 |      0 |    30 |    +0.1% |  -53.550 |    -1668.1 |    124 | o_dbus_cyc
+      119 |       0 |      41 |        0 |      0 |    30 |    +0.1% |  -53.550 |    -1668.1 |    124 | o_dbus_cyc
+      120 |       0 |      41 |        0 |      0 |    30 |    +0.1% |  -53.550 |    -1668.1 |    124 | o_dbus_cyc
+      121 |       0 |      41 |        0 |      0 |    30 |    +0.1% |  -53.550 |    -1668.1 |    124 | o_dbus_cyc
+      123 |       0 |      41 |        0 |      0 |    30 |    +0.1% |  -53.550 |    -1668.1 |    124 | o_dbus_cyc
+      125 |       0 |      41 |        0 |      0 |    30 |    +0.1% |  -53.550 |    -1668.1 |    124 | o_dbus_cyc
+      127 |       0 |      41 |        0 |      0 |    30 |    +0.1% |  -53.550 |    -1668.1 |    124 | o_dbus_cyc
+      129 |       0 |      41 |        0 |      0 |    30 |    +0.1% |  -53.550 |    -1668.1 |    124 | o_dbus_cyc
+      130 |       0 |      41 |        0 |      0 |    30 |    +0.1% |  -53.550 |    -1668.1 |    124 | o_dbus_cyc
+      131 |       0 |      41 |        0 |      0 |    30 |    +0.1% |  -53.550 |    -1668.1 |    124 | o_dbus_cyc
+      140 |       0 |      49 |        0 |      0 |    30 |    +0.2% |  -53.550 |    -1200.9 |    124 | o_dbus_cyc
+      143 |       0 |      51 |        0 |      0 |    31 |    +0.2% |  -53.550 |    -1204.6 |    122 | o_dbus_cyc
+      145 |       0 |      51 |        0 |      0 |    32 |    +0.2% |  -53.550 |    -1204.4 |    122 | o_dbus_cyc
+      150 |       0 |      55 |        0 |      0 |    32 |    +0.2% |  -53.550 |    -1166.6 |    122 | o_dbus_cyc
+      156 |       0 |      60 |        0 |      0 |    33 |    +0.2% |  -53.550 |    -1112.7 |    122 | o_dbus_cyc
+      158 |       0 |      60 |        0 |      0 |    34 |    +0.2% |  -53.550 |    -1109.7 |    122 | o_dbus_cyc
+      160 |       0 |      60 |        0 |      0 |    35 |    +0.2% |  -53.550 |    -1108.2 |    122 | o_dbus_cyc
+      160 |       0 |      60 |        0 |      0 |    35 |    +0.2% |  -53.550 |    -1108.2 |    122 | o_dbus_cyc
+      163 |       0 |      61 |        0 |      0 |    36 |    +0.2% |  -53.550 |    -1109.7 |    122 | o_dbus_cyc
+      166 |       0 |      63 |        0 |      0 |    36 |    +0.2% |  -53.550 |    -1092.9 |    120 | o_dbus_cyc
+      167 |       0 |      63 |        0 |      0 |    36 |    +0.2% |  -53.550 |    -1092.9 |    119 | o_dbus_cyc
+      170 |       0 |      64 |        0 |      0 |    37 |    +0.2% |  -53.550 |    -1095.6 |    119 | o_dbus_cyc
+      171 |       0 |      64 |        0 |      0 |    37 |    +0.2% |  -53.550 |    -1095.6 |    119 | o_dbus_cyc
+      179 |       0 |      71 |        0 |      0 |    37 |    +0.2% |  -53.550 |    -1072.7 |    119 | o_dbus_cyc
+      180 |       0 |      71 |        0 |      0 |    37 |    +0.2% |  -53.550 |    -1072.7 |    119 | o_dbus_cyc
+      190 |       0 |      81 |        0 |      0 |    37 |    +0.2% |  -53.550 |    -1048.3 |    119 | o_dbus_cyc
+      190 |       0 |      81 |        0 |      0 |    37 |    +0.2% |  -53.550 |    -1048.3 |    119 | o_dbus_cyc
+      191 |       0 |      81 |        0 |      0 |    37 |    +0.2% |  -53.550 |    -1048.3 |    118 | o_dbus_cyc
+      192 |       0 |      81 |        0 |      0 |    37 |    +0.2% |  -53.550 |    -1048.3 |    118 | o_dbus_cyc
+      195 |       0 |      81 |        0 |      0 |    37 |    +0.2% |  -53.550 |    -1048.3 |    118 | o_dbus_cyc
+      198 |       0 |      81 |        0 |      0 |    37 |    +0.2% |  -53.550 |    -1048.3 |    118 | o_dbus_cyc
+      200 |       0 |      82 |        0 |      0 |    37 |    +0.3% |  -53.550 |    -1059.2 |    118 | o_dbus_cyc
+      201 |       0 |      81 |        0 |      0 |    37 |    +0.2% |  -53.550 |    -1048.3 |    118 | o_dbus_cyc
+      203 |       0 |      81 |        0 |      0 |    38 |    +0.2% |  -53.550 |    -1047.2 |    116 | o_dbus_cyc
+      205 |       0 |      81 |        0 |      0 |    39 |    +0.2% |  -53.550 |    -1046.1 |    114 | o_dbus_cyc
+      207 |       0 |      81 |        0 |      0 |    40 |    +0.2% |  -53.550 |    -1045.0 |    112 | o_dbus_cyc
+      209 |       0 |      81 |        0 |      0 |    41 |    +0.2% |  -53.550 |    -1044.0 |    110 | o_dbus_cyc
+      210 |       0 |      81 |        0 |      0 |    41 |    +0.2% |  -53.550 |    -1044.0 |    110 | o_dbus_cyc
+      211 |       0 |      81 |        0 |      0 |    42 |    +0.2% |  -53.550 |    -1042.9 |    108 | o_dbus_cyc
+      213 |       0 |      81 |        0 |      0 |    43 |    +0.2% |  -53.550 |    -1041.9 |    106 | o_dbus_cyc
+      214 |       0 |      81 |        0 |      0 |    43 |    +0.2% |  -53.550 |    -1041.9 |    105 | o_dbus_cyc
+      215 |       0 |      81 |        0 |      0 |    43 |    +0.2% |  -53.550 |    -1041.9 |    104 | o_dbus_cyc
+      216 |       0 |      81 |        0 |      0 |    43 |    +0.2% |  -53.550 |    -1041.9 |    103 | o_dbus_cyc
+      217 |       0 |      81 |        0 |      0 |    43 |    +0.2% |  -53.550 |    -1041.9 |    102 | o_dbus_cyc
+      220 |       0 |      83 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -961.1 |    101 | o_dbus_cyc
+      220 |       0 |      83 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -961.1 |    100 | o_dbus_cyc
+      221 |       0 |      83 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -961.1 |     99 | o_dbus_cyc
+      222 |       0 |      83 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -961.1 |     98 | o_dbus_cyc
+      223 |       0 |      83 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -961.1 |     97 | o_dbus_cyc
+      224 |       0 |      83 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -961.1 |     96 | o_dbus_cyc
+      225 |       0 |      83 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -961.1 |     95 | o_dbus_cyc
+      226 |       0 |      83 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -961.1 |     94 | o_dbus_cyc
+      227 |       0 |      83 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -961.1 |     93 | o_dbus_cyc
+      229 |       0 |      84 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -936.7 |     91 | o_dbus_cyc
+      230 |       0 |      84 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -936.7 |     91 | o_dbus_cyc
+      230 |       0 |      84 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -936.7 |     90 | o_dbus_cyc
+      231 |       0 |      84 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -936.7 |     89 | o_dbus_cyc
+      232 |       0 |      84 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -936.7 |     88 | o_dbus_cyc
+      234 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     86 | o_dbus_cyc
+      235 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     85 | o_dbus_cyc
+      236 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     84 | o_dbus_cyc
+      237 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     83 | o_dbus_cyc
+      238 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     82 | o_dbus_cyc
+      239 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     81 | o_dbus_cyc
+      240 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     81 | o_dbus_cyc
+      240 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     80 | o_dbus_cyc
+      241 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     79 | o_dbus_cyc
+      242 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     78 | o_dbus_cyc
+      243 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     77 | o_dbus_cyc
+      244 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     76 | o_dbus_cyc
+      245 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     75 | o_dbus_cyc
+      246 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     74 | o_dbus_cyc
+      247 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     73 | o_dbus_cyc
+      248 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     72 | o_dbus_cyc
+      249 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     71 | o_dbus_cyc
+      250 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     71 | o_dbus_cyc
+      250 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     70 | o_dbus_cyc
+      251 |       0 |      85 |        0 |      0 |    43 |    +0.2% |  -53.550 |     -908.8 |     69 | o_dbus_cyc
+      260 |       0 |      91 |        0 |      0 |    45 |    +0.3% |  -53.550 |     -869.1 |     69 | o_dbus_cyc
+      260 |       0 |      91 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -868.6 |     69 | o_dbus_cyc
+      263 |       0 |      93 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -854.6 |     69 | o_dbus_cyc
+      265 |       0 |      93 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -854.6 |     69 | o_dbus_cyc
+      267 |       0 |      94 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -854.1 |     69 | o_dbus_cyc
+      268 |       0 |      94 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -854.1 |     68 | o_dbus_cyc
+      269 |       0 |      94 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -854.1 |     67 | o_dbus_cyc
+      270 |       0 |      94 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -854.1 |     67 | o_dbus_cyc
+      270 |       0 |      94 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -854.1 |     66 | o_dbus_cyc
+      271 |       0 |      94 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -854.1 |     65 | o_dbus_cyc
+      272 |       0 |      94 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -854.1 |     64 | o_dbus_cyc
+      273 |       0 |      94 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -854.1 |     63 | o_dbus_cyc
+      274 |       0 |      94 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -854.1 |     62 | o_dbus_cyc
+      275 |       0 |      94 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -854.1 |     61 | o_dbus_cyc
+      276 |       0 |      94 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -854.1 |     60 | o_dbus_cyc
+      277 |       0 |      94 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -854.1 |     59 | o_dbus_cyc
+      278 |       0 |      94 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -854.1 |     58 | o_dbus_cyc
+      279 |       0 |      94 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -854.1 |     57 | o_dbus_cyc
+      280 |       0 |      94 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -854.1 |     57 | o_dbus_cyc
+      281 |       0 |      95 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -851.3 |     55 | o_dbus_cyc
+      282 |       0 |      95 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -851.3 |     54 | o_dbus_cyc
+      283 |       0 |      95 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -851.3 |     53 | o_dbus_cyc
+      284 |       0 |      95 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -851.3 |     52 | o_dbus_cyc
+      285 |       0 |      95 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -851.3 |     51 | o_dbus_cyc
+      286 |       0 |      95 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -851.3 |     50 | o_dbus_cyc
+      287 |       0 |      95 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -851.3 |     49 | o_dbus_cyc
+      288 |       0 |      95 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -851.3 |     48 | o_dbus_cyc
+    final |       0 |      95 |        0 |      0 |    43 |    +0.3% |  -53.550 |     -851.3 |     48 | o_dbus_cyc
+--------------------------------------------------------------------------------------------------------------
+[INFO RSZ-0051] Resized 95 instances: 95 up, 0 up match, 0 down, 0 VT
+[INFO RSZ-0043] Swapped pins on 43 instances.
+[WARNING RSZ-0062] Unable to repair all setup violations.
+Default units for flow
+ time 1ps
+ capacitance 1fF
+ resistance 1kohm
+ voltage 1v
+ current 1mA
+ power 1pW
+ distance 1um
+   Layer   | Unit Resistance | Unit Capacitance 
+           |       (kohm/um) |          (fF/um)
+------------------------------------------------
+        M1 |        7.04e-02 |         1.00e-10
+        M2 |        4.62e-02 |         1.85e-01
+        M3 |        3.63e-02 |         1.54e-01
+        M4 |        2.03e-02 |         1.89e-01
+        M5 |        1.93e-02 |         1.72e-01
+        M6 |        1.19e-02 |         1.76e-01
+        M7 |        1.25e-02 |         1.47e-01
+        M8 |        0.00e+00 |         0.00e+00
+        M9 |        0.00e+00 |         0.00e+00
+       Pad |        0.00e+00 |         0.00e+00
+------------------------------------------------
+
+   Layer   | Via Resistance 
+           |         (kohm) 
+----------------------------
+        V1 |       1.72e-02 
+        V2 |       1.72e-02 
+        V3 |       1.72e-02 
+        V4 |       1.18e-02 
+        V5 |       1.18e-02 
+        V6 |       8.20e-03 
+        V7 |       8.20e-03 
+        V8 |       6.30e-03 
+        V9 |       0.00e+00 
+----------------------------
+Report metrics stage 2, floorplan final...
+
+==========================================================================
+floorplan final report_design_area
+--------------------------------------------------------------------------
+Design area 976 um^2 40% utilization.
+write_db bazel-out/k8-fastbuild/bin/serv/results/asap7/serv_rf_top/base/2_1_floorplan.odb
+write_sdc -no_timestamp bazel-out/k8-fastbuild/bin/serv/results/asap7/serv_rf_top/base/2_1_floorplan.sdc
+Elapsed time: 0:04.25[h:]min:sec. CPU time: user 6.14 sys 1.05 (168%). Peak memory: 248624KB.
+Log                        Elapsed/s Peak Memory/MB  sha1sum .odb [0:20)
+2_1_floorplan                      4            242 a2236a39afaac15334cf

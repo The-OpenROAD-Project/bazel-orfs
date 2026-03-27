@@ -1,0 +1,16 @@
+#!/bin/bash
+# grep piped through head or tail, for use in Claude Code permissions.
+# Usage: grep-tail head|tail <n> <grep_args...>
+# Examples:
+#   grep-tail head 10 -E 'read_liberty|read_lef' file.sh
+#   grep-tail tail 5 -r 'pattern' dir/
+set -uo pipefail
+
+mode="$1"; shift
+n="$1"; shift
+
+case "$mode" in
+  head) grep "$@" | head -"$n" || true ;;
+  tail) grep "$@" | tail -"$n" || true ;;
+  *) echo "grep-tail: first arg must be 'head' or 'tail', got '$mode'" >&2; exit 1 ;;
+esac

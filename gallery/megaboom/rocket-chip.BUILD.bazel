@@ -1,0 +1,57 @@
+load("@rules_chisel//chisel:defs.bzl", "chisel_library")
+load("@rules_scala//scala:scala.bzl", "scala_library")
+
+# Scala-reflect macros used by rocket-chip internals
+scala_library(
+    name = "rocket_chip_macros",
+    srcs = ["macros/src/main/scala/ValName.scala"],
+    deps = ["@maven//:org_scala_lang_scala_reflect"],
+    visibility = ["//visibility:public"],
+)
+
+# Full rocket-chip library for BOOM
+chisel_library(
+    name = "rocket_chip_lib",
+    resources = glob(["src/main/resources/**"]),
+    srcs = glob(
+        ["src/main/scala/**/*.scala"],
+        exclude = [
+            # Pure test/formal packages
+            "src/main/scala/groundtest/**",
+            "src/main/scala/unittest/**",
+            "src/main/scala/formal/**",
+            "src/main/scala/examples/**",
+            # Bus protocols not used by BOOM (TileLink only)
+            "src/main/scala/amba/ahb/**",
+            "src/main/scala/amba/apb/**",
+            "src/main/scala/amba/axi4/Test.scala",
+            "src/main/scala/amba/axi4/Delayer.scala",
+            # AXI4 test files (stale TLFuzzer imports cleaned by patch)
+            # TileLink bridge/test files not needed by BOOM
+            "src/main/scala/tilelink/RegisterRouterTest.scala",
+            "src/main/scala/tilelink/Fuzzer.scala",
+            "src/main/scala/tilelink/ToAHB.scala",
+            "src/main/scala/tilelink/ToAPB.scala",
+            "src/main/scala/tilelink/Delayer.scala",
+            # Debug: patch replaces original files with Stubs.scala (included via glob)
+            "src/main/scala/devices/tilelink/TestRAM.scala",
+            "src/main/scala/devices/tilelink/MasterMux.scala",
+            # CLI tool
+            "src/main/scala/diplomacy/Main.scala",
+            # System-level wrappers
+            "src/main/scala/system/**",
+        ],
+    ),
+    deps = [
+        ":rocket_chip_macros",
+        "@hardfloat_boom//:hardfloat_lib",
+        "@cde_boom//:cde_lib",
+        "@diplomacy_boom//:diplomacy_lib",
+        "@maven//:org_json4s_json4s_jackson_2_13",
+        "@maven//:org_json4s_json4s_ast_2_13",
+        "@maven//:org_json4s_json4s_core_2_13",
+        "@maven//:com_lihaoyi_mainargs_2_13",
+        "@maven//:com_lihaoyi_sourcecode_2_13",
+    ],
+    visibility = ["//visibility:public"],
+)

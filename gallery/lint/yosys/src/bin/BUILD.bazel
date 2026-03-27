@@ -1,0 +1,18 @@
+sh_binary(
+    name = "yosys",
+    srcs = ["yosys.sh"],
+    data = [
+        "yosys.py",
+        "yosys_commands.py",
+        "@lint-tcl//src/bin:tcl_interpreter.py",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    [
+        "yosys.py",
+        "yosys_commands.py",
+    ],
+    visibility = ["//visibility:public"],
+)
