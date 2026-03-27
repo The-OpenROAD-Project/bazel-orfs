@@ -28,44 +28,39 @@ sh_test(
 # --- Flat design: A/B flow with real + lint variants ---
 demo_flow(
     name = "counter",
-    verilog_files = ["rtl/counter.sv"],
     arguments = {
         "CORE_UTILIZATION": "40",
         "PLACE_DENSITY": "0.65",
     },
+    base_tags = [],
+    lint = True,
     sources = {
         "SDC_FILE": [":constraints.sdc"],
     },
     substeps = True,
-    lint = True,
-    base_tags = [],
+    verilog_files = ["rtl/counter.sv"],
 )
 
 # --- Sub-macro: SRAM-like block built through CTS ---
 demo_sram(
     name = "tiny_sram",
-    verilog_files = ["rtl/tiny_sram.sv"],
-    mock_area = 1.0,
     arguments = {
         "CORE_UTILIZATION": "40",
         "PLACE_DENSITY": "0.65",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
     },
+    base_tags = [],
+    lint = True,
+    mock_area = 1.0,
     sources = {
         "SDC_FILE": [":constraints-sram.sdc"],
     },
-    lint = True,
-    base_tags = [],
+    verilog_files = ["rtl/tiny_sram.sv"],
 )
 
 # --- Hierarchical top: counter + SRAM macro ---
 demo_hierarchical(
     name = "counter_with_sram",
-    verilog_files = [
-        "rtl/counter_with_sram.sv",
-        "rtl/counter.sv",
-    ],
-    macros = [":tiny_sram_generate_abstract"],
     arguments = {
         "DIE_AREA": "0 0 40 40",
         "CORE_AREA": "2 2 38 38",
@@ -73,9 +68,14 @@ demo_hierarchical(
         "MACRO_PLACE_HALO": "1 1",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
     },
+    base_tags = [],
+    lint = True,
+    macros = [":tiny_sram_generate_abstract"],
     sources = {
         "SDC_FILE": [":constraints.sdc"],
     },
-    lint = True,
-    base_tags = [],
+    verilog_files = [
+        "rtl/counter_with_sram.sv",
+        "rtl/counter.sv",
+    ],
 )

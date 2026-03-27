@@ -28,8 +28,13 @@ _LINT_TOOLS = {
 }
 
 _ALL_STAGES = [
-    "synth", "floorplan", "place", "cts",
-    "grt", "route", "final",
+    "synth",
+    "floorplan",
+    "place",
+    "cts",
+    "grt",
+    "route",
+    "final",
 ]
 
 def _add_lint_targets(name, stages, base_tags):
@@ -40,6 +45,7 @@ def _add_lint_targets(name, stages, base_tags):
     2. A/B comparison — compares real vs lint outputs (tagged with base_tags
        since it depends on the base flow completing)
     """
+
     # Lint flow build test: verify last stage completes
     last = stages[-1]
     build_test(
@@ -54,8 +60,10 @@ def _add_lint_targets(name, stages, base_tags):
             name = name + "_" + stage + "_lint_compare",
             srcs = ["//smoketest:mock_compare_test.py"],
             args = [
-                "--stage", stage,
-                "--design", name,
+                "--stage",
+                stage,
+                "--design",
+                name,
             ],
             data = [
                 ":" + name + "_" + stage,
