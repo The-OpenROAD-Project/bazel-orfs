@@ -37,8 +37,10 @@ jobs:
           disk-cache: ${{ github.workflow }}
           repository-cache: true
 
-      - name: Test
-        run: bazelisk test ... --keep_going --build_tests_only --test_output=errors --profile=build.profile
+      - name: Build tests
+        run: bazelisk build ... --build_tests_only --profile=build.profile
+      - name: Run tests
+        run: bazelisk test ... --keep_going --build_tests_only --test_output=errors
       - name: Analyze profile
         if: always()
         run: bazelisk analyze-profile build.profile
