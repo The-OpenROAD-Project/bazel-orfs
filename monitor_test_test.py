@@ -72,9 +72,7 @@ class TestGetStageTimings(unittest.TestCase):
                 "Took 201 seconds: global_placement -density 0.2\n"
                 "more output\n"
             )
-            (log_dir / "2_1_floorplan.log").write_text(
-                "Took 3 seconds: something\n"
-            )
+            (log_dir / "2_1_floorplan.log").write_text("Took 3 seconds: something\n")
             # tmp logs should be ignored
             (log_dir / "3_3_place_gp.tmp.log").write_text(
                 "Took 999 seconds: should be ignored\n"
