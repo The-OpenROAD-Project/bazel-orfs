@@ -3,40 +3,13 @@
 Capture unexpected values from mock OpenROAD/Yosys runs and turn them into
 unit tests and sanity checks.
 
-## What Mock OpenROAD Is: A Flow Linter
+## What Mock OpenROAD Is
 
-Mock OpenROAD is a **flow linter** that runs in seconds. It translates
-inputs (ODB sizes, SDC constraints, LEF dimensions, cell counts) and
-examines them quickly to report:
-
-- **Estimated running times** per stage
-- **Macro placement feasibility** — will it fit? aspect ratio issues?
-- **Pin placement conflicts** — port count vs die perimeter
-- **Cross-stage coherence** — e.g. "your pin placement will fail because
-  you need to change the aspect ratio of the macro"
-- **Configuration errors** — wrong scale factors, missing constraints,
-  bad units
-
-A mock run in the bazel-orfs GUI gives you a useful report: the kind of
-things an expert human could tell you at a glance, reported in seconds.
-
-**Separation of concerns**: Real OpenROAD's policy is "you asked for it,
-you deserve the result" — PDN will happily generate an 8000x8000um grid.
-Mock OpenROAD's job is to tell you *before* that happens whether what
-you're asking for follows the intent.
-
-Error messages gather information crossing stages to present a coherent
-story. Claude helps capture heuristics from debugging sessions and encode
-them into unit tests automatically.
-
-## Formalization Path
-
-The checks hardcoded in mock OpenROAD/Yosys lint will, when stable, be
-refactored into the upstream `variables.yaml` file and formalized
-(adding `min`, `max`, `type`, cross-variable constraints). Eventually,
-the lint would live in ORFS itself, but while being developed it is good
-to have the lint change in lockstep with the openroad-demo data —
-the demo projects provide the ground truth for what values are sane.
+A flow linter that runs in seconds. See
+[flow-linter-with-frc.md](../../gallery/docs/flow-linter-with-frc.md)
+for the full vision: why a linting flow (not just static checks) is needed,
+the separation of concerns with real OpenROAD, FRC rule design, and the
+formalization path to upstream `frc.yaml`.
 
 ## When to Use This Skill
 

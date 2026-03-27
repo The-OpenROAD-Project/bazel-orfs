@@ -1,14 +1,10 @@
 # Lint OpenROAD and Yosys
 
 Seconds-fast lint binaries that replace real OpenROAD and Yosys for
-flow validation. They execute ORFS TCL scripts via a minimal TCL
-interpreter with lint command implementations, creating all expected
-output files without running actual synthesis or place-and-route.
-
-A **flow linter** that validates ORFS parameters against design intent,
-catching configuration errors in seconds. Reports the kind of things an
-expert human could tell you at a glance: estimated running times, macro
-placement feasibility, pin placement conflicts, and cross-stage coherence.
+flow validation. See
+[flow-linter-with-frc.md](../docs/flow-linter-with-frc.md) for why
+a linting flow is needed, FRC rule design, the training loop, and how
+this connects to the autotuner and GUI.
 
 ## A/B Comparison Flow
 
