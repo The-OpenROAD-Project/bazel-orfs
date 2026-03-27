@@ -33,6 +33,24 @@ The idea: after each stage completes, run a lightweight check that inspects
 the output (ODB metrics, area, utilization) and flags likely problems in the
 *next* stage — before spending the time to actually run it.
 
+## Lint scope: canonicalize only, no synthesis
+
+Currently lint runs the full flow with mock tools. Ideally, linting should
+only need Yosys to produce RTLIL (canonicalization) — not full synthesis
+with ABC. This would make lint near-instant and allow it to cover all designs
+(including serv) in CI without real build cost.
+
+Blocker: `orfs_synth()` doesn't currently separate canonicalization from
+synthesis, so this requires upstream ORFS changes.
+
+## Mining rules from OpenROAD/ORFS history
+
+- Mine the GitHub OpenROAD/ORFS issue database and git log for error patterns
+- Analyze all error messages (PDN-0232, PDN-0233, PDN-0351, etc.) and convert
+  them into Python FRC checks with unit tests
+- Each check: detect the precondition that leads to the error, before the
+  failing stage runs
+
 ## Implementation sketch
 
 - Per-stage check scripts (Tcl or Python) that read ODB / metrics
@@ -40,3 +58,18 @@ the output (ODB metrics, area, utilization) and flags likely problems in the
 - Output structured violations (JSON) with severity, message, predicted stage
 - A/B comparison (current lint infrastructure) remains for determinism checks;
   FRC is orthogonal — it checks *correctness* of configuration
+
+## To do / investigate
+
+- [ ] Investigate: can `orfs_synth()` split canonicalization from full synthesis?
+- [ ] Investigate: mine OpenROAD GitHub issues for common error patterns
+      (PDN-*, GPL-*, GRT-*, DRT-*) and catalog preconditions
+- [ ] Investigate: what ODB metrics / report data is available after each stage
+      that could feed FRC checks?
+- [ ] Fix: `genMetrics.py` crashes on empty JSON from lint variant — lint
+      `generate_metadata` is broken (workaround: `--build_tests_only`)
+- [ ] Implement: first FRC check — validate core-to-die spacing is sufficient
+      for PDN ring config after floorplan
+- [ ] Implement: FRC check for macro placement vs. die area bounds
+- [ ] Design: structured FRC output format (JSON with severity, stage, message)
+- [ ] Design: integration point in bazel-orfs — post-stage hook or separate rule?
