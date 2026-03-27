@@ -39,13 +39,20 @@ if [ -n "$BAZEL_FILES" ]; then
     echo "$BAZEL_FILES" | xargs "$BUILDIFIER" -lint warn
 fi
 
-# MODULE.bazel.lock: regenerate with CI config if MODULE.bazel changed
-if git diff --name-only --diff-filter=d "$MERGE_BASE" -- MODULE.bazel | grep -q .; then
-    echo "mod tidy: regenerating MODULE.bazel.lock with CI config"
-    echo 'import %workspace%/.github/ci.bazelrc' >> user.bazelrc
-    bazelisk mod tidy
-    rm user.bazelrc
-fi
+# MODULE.bazel.lock: regenerate for any changed MODULE.bazel (root + sub-modules)
+MODULE_FILES=$(git diff --name-only --diff-filter=d "$MERGE_BASE" -- '**/MODULE.bazel' 'MODULE.bazel' 2>/dev/null || true)
+for mf in $MODULE_FILES; do
+    dir=$(dirname "$mf")
+    # Only tidy if the module has a lockfile to update
+    [ -f "$dir/MODULE.bazel.lock" ] || continue
+    if [ "$dir" = "." ]; then
+        echo "mod tidy: root (with CI config)"
+        bazelisk --bazelrc=.github/ci.bazelrc mod tidy
+    else
+        echo "mod tidy: $dir"
+        (cd "$dir" && bazelisk mod tidy)
+    fi
+done
 
 # Black: format Python files
 PY_FILES=$(git diff --name-only --diff-filter=d "$MERGE_BASE" -- '*.py' 2>/dev/null | filter_ignored || true)
