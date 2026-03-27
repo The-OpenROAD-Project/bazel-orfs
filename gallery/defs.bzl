@@ -73,7 +73,7 @@ def demo_flow(
         macros = [],
         substeps = False,
         lint = False,
-        base_tags = [],
+        base_tags = ["manual"],
         **kwargs):
     """Create an orfs_flow with demo gallery defaults.
 
@@ -139,7 +139,7 @@ def demo_sram(
         substeps = False,
         lint = False,
         lint_tags = [],
-        base_tags = [],
+        base_tags = ["manual"],
         **kwargs):
     """Create an orfs_flow for a sub-macro (SRAM, register file, etc).
 
@@ -221,7 +221,7 @@ def demo_hierarchical(
         arguments = {},
         substeps = False,
         lint = False,
-        base_tags = [],
+        base_tags = ["manual"],
         **kwargs):
     """Create an orfs_flow for a hierarchical top-level design.
 

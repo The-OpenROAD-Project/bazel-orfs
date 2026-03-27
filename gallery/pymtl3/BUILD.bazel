@@ -45,8 +45,9 @@ demo_gallery_image(
     src = ":ChecksumRTL_noparam_place",
 )
 
-# CI smoketest — full RTL-to-GDS for the smallest design
+# Build test — full RTL-to-GDS (manual: too heavy for CI)
 build_test(
     name = "checksum_build_test",
     targets = [":ChecksumRTL_noparam_final"],
+    tags = ["manual"],
 )

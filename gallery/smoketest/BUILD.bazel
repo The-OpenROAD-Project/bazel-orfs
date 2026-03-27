@@ -38,6 +38,7 @@ demo_flow(
     },
     substeps = True,
     lint = True,
+    base_tags = [],
 )
 
 # --- Sub-macro: SRAM-like block built through CTS ---
@@ -54,6 +55,7 @@ demo_sram(
         "SDC_FILE": [":constraints-sram.sdc"],
     },
     lint = True,
+    base_tags = [],
 )
 
 # --- Hierarchical top: counter + SRAM macro ---
@@ -75,4 +77,5 @@ demo_hierarchical(
         "SDC_FILE": [":constraints.sdc"],
     },
     lint = True,
+    base_tags = [],
 )
