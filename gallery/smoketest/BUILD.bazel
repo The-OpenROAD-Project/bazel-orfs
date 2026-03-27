@@ -1,5 +1,7 @@
 load("//:defs.bzl", "demo_flow", "demo_hierarchical", "demo_sram")
 
+exports_files(["mock_compare_test.py"])
+
 # --- Standalone ORFS Makefile test with lint tools ---
 # Requires upstream/OpenROAD-flow-scripts checkout (not managed by Bazel).
 sh_test(
