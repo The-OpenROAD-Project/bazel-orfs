@@ -706,7 +706,8 @@ def _make_impl(
         report_names = [],
         extra_arguments = {},
         json_names = [],
-        drc_names = []):
+        drc_names = [],
+        substep_names = []):
     """
     Implementation function for the OpenROAD-flow-scripts stages.
 
@@ -722,6 +723,8 @@ def _make_impl(
       extra_arguments: Extra arguments to add to the configuration.
       json_names: The names of the JSON files.
       drc_names: The names of the DRC files.
+      substep_names: Substep names whose intermediate .odb files should be
+          captured as additional action outputs in per-substep output groups.
 
     Returns:
         A list of providers. The returned PdkInfo and TopInfo providers are taken from the first
@@ -749,6 +752,11 @@ def _make_impl(
     jsons = declare_artifacts(ctx, "logs", json_names)
     reports = declare_artifacts(ctx, "reports", report_names)
     drcs = declare_artifacts(ctx, "reports", drc_names)
+    substep_odbs = declare_artifacts(
+        ctx,
+        "results",
+        [s + ".odb" for s in substep_names],
+    )
 
     forwards = [f for f in ctx.files.src if f.basename in forwarded_names]
 
@@ -757,7 +765,7 @@ def _make_impl(
         info[file.extension] = file
 
     commands = (
-        generation_commands(reports + logs + jsons + drcs) +
+        generation_commands(reports + logs + jsons + drcs + substep_odbs) +
         input_commands(renames(ctx, ctx.files.src)) +
         [ctx.executable._make.path + " $@"]
     )
@@ -774,7 +782,7 @@ def _make_impl(
                 rename_inputs(ctx),
             ],
         ),
-        outputs = results + objects + logs + reports + jsons + drcs,
+        outputs = results + objects + logs + reports + jsons + drcs + substep_odbs,
         tools = flow_inputs(ctx),
     )
 
@@ -855,10 +863,16 @@ def _make_impl(
             jsons = depset(jsons),
             drcs = depset(drcs),
             deps = depset([deps_exe]),
-            **{
-                f.basename: depset([f])
-                for f in [config] + results + objects + logs + reports + jsons + drcs
-            }
+            **dict(
+                {
+                    f.basename: depset([f])
+                    for f in [config] + results + objects + logs + reports + jsons + drcs
+                },
+                **{
+                    "substep_" + substep_names[i]: depset([f])
+                    for i, f in enumerate(substep_odbs)
+                }
+            )
         ),
         OrfsDepInfo(
             make = make,
@@ -980,6 +994,7 @@ def _squashed_impl(ctx):
         report_names = ctx.attr.report_names,
         result_names = ctx.attr.result_names,
         drc_names = ctx.attr.drc_names,
+        substep_names = ctx.attr.substep_names,
     )
 
 orfs_squashed = rule(
@@ -994,6 +1009,7 @@ orfs_squashed = rule(
                 "report_names": attr.string_list(default = []),
                 "result_names": attr.string_list(default = []),
                 "drc_names": attr.string_list(default = []),
+                "substep_names": attr.string_list(default = []),
             },
     provides = flow_provides(),
     executable = True,
@@ -1015,6 +1031,7 @@ orfs_floorplan = rule(
             "2_floorplan.odb",
             "2_floorplan.sdc",
         ],
+        substep_names = STAGE_SUBSTEPS["floorplan"] if ctx.attr.substeps else [],
     ),
     attrs = openroad_attrs() |
             renamed_inputs_attr() |
@@ -1039,6 +1056,7 @@ orfs_place = rule(
             "3_place.odb",
             "3_place.sdc",
         ],
+        substep_names = STAGE_SUBSTEPS["place"] if ctx.attr.substeps else [],
     ),
     attrs = openroad_attrs() |
             renamed_inputs_attr() |
@@ -1065,6 +1083,7 @@ orfs_cts = rule(
             "4_cts.odb",
             "4_cts.sdc",
         ],
+        substep_names = STAGE_SUBSTEPS["cts"] if ctx.attr.substeps else [],
     ),
     attrs = openroad_attrs() |
             renamed_inputs_attr() |
@@ -1103,6 +1122,7 @@ orfs_grt = rule(
             "5_1_grt.odb",
             "5_1_grt.sdc",
         ],
+        substep_names = STAGE_SUBSTEPS["grt"] if ctx.attr.substeps else [],
     ),
     attrs = openroad_attrs() |
             renamed_inputs_attr() |
@@ -1134,6 +1154,7 @@ orfs_route = rule(
             "5_route.odb",
             "5_route.sdc",
         ],
+        substep_names = STAGE_SUBSTEPS["route"] if ctx.attr.substeps else [],
     ),
     attrs = openroad_attrs() |
             renamed_inputs_attr() |
@@ -1168,6 +1189,7 @@ orfs_final = rule(
             "6_final.spef",
             "6_final.v",
         ],
+        substep_names = STAGE_SUBSTEPS["final"] if ctx.attr.substeps else [],
     ),
     attrs = openroad_attrs() |
             renamed_inputs_attr() |

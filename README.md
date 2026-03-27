@@ -505,6 +505,36 @@ are derived.
 > single Bazel action with built-in dependency checking via `.rtlil`
 > canonicalization.
 
+#### Caching substep intermediates (`substeps = True`)
+
+By default, stage actions only declare the final `.odb` as a Bazel output.
+Intermediate substep `.odb` files are produced by make but not captured —
+they vanish with the sandbox.
+
+With `substeps = True`, each intermediate `.odb` is declared as an
+additional action output in a per-substep output group (e.g.
+`substep_2_1_floorplan`, `substep_3_4_place_resized`). This means:
+
+- **Shared cache**: one developer (or CI) builds the stage, all
+  intermediates go to the remote cache. Another developer can pull a
+  specific substep's `.odb` instantly.
+- **On-demand access**: `bazel build --output_groups=substep_3_3_place_gp //target`
+  fetches just that intermediate from cache.
+- **No target explosion**: all intermediates are output groups on the
+  existing stage target, not separate targets.
+
+```python
+orfs_flow(
+    name = "MyDesign",
+    verilog_files = [...],
+    substeps = True,  # capture intermediate .odb files
+)
+```
+
+`substeps = False` (default) keeps the cache footprint minimal — enable it
+for designs under active development where substep-level debugging benefits
+from shared caching.
+
 > **NOTE:** ORFS could grow a metadata file (beyond `variables.yaml`) that
 > lists substep names, their scripts, and dependencies. This would make
 > `STAGE_SUBSTEPS` truly derived from ORFS rather than maintained as a copy

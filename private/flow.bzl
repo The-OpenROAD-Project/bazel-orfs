@@ -41,6 +41,10 @@ def _filter_stage_args(stage, **kwargs):
     if stage != "synth":
         kwargs.pop("yosys", None)
 
+    # substeps attribute only applies to openroad stages, not synth
+    if stage == "synth":
+        kwargs.pop("substeps", None)
+
     return _args(
         arguments = get_stage_args(
             stage,
@@ -91,6 +95,7 @@ def orfs_flow(
         stage_data = {},
         test_kwargs = {},
         squash = False,
+        substeps = False,
         **kwargs):
     """
     Creates targets for running physical design flow with OpenROAD-flow-scripts.
@@ -120,6 +125,10 @@ def orfs_flow(
       squash: if True, combine all stages after synthesis into a single Bazel action.
         Reduces artifact size by avoiding intermediate ODB checkpoints. Useful for
         stable designs like RAM macros where intermediate stages don't need inspection.
+      substeps: if True, capture intermediate substep .odb files as additional
+        action outputs in per-substep output groups. Enables shared cache of
+        substep intermediates for debugging via //:deps. Default False to
+        control cache budget -- enable for designs under active development.
       **kwargs: forward named args
     """
     if abstract_stage and last_stage:
@@ -150,6 +159,7 @@ def orfs_flow(
         settings = settings,
         test_kwargs = test_kwargs,
         squash = squash,
+        substeps = substeps,
         **kwargs
     )
 
