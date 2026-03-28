@@ -30,6 +30,38 @@ timing tables.
 | `//test/smoketest:lb_32x128_ihp-sg13g2_build_test` | Full flow, all stages | — | — | ihp-sg13g2 | yes |
 | `//test/bump:bump_test` | `bump.sh` MODULE.bazel version update logic | — | — | — | — |
 
+## User-facing binaries
+
+Every `*_binary` target must have a functional test (not just `build_test`).
+Tests mock the external environment so they run in the Bazel sandbox.
+
+| Binary | Use-case | Test | How it's tested |
+|--------|----------|------|-----------------|
+| `//:deps` | Deploy stage inputs for interactive debugging | `deps.yml` CI workflow | Real end-to-end: deploy + make (4 cases) |
+| `//:bump` | Upgrade ORFS/bazel-orfs/OpenROAD versions | `//test/bump:bump_test` | Mock fetch functions, fixture MODULE.bazel |
+| `//:fix_lint` | Format changed Bazel/Python files | `//test:fix_lint_test` | Unit test core logic, mock git/buildifier |
+| `//:klayout` | Launch KLayout viewer | `//test:klayout_wrapper_test` | Mock klayout on PATH |
+| `//:openroad` | Launch OpenROAD CLI | `//test:openroad_wrapper_test` | Mock openroad on PATH |
+| `//:plot_clock_period_tool` | Generate PPA plots from metrics | `//test:plot_clock_period_test` | Fixture YAML inputs, verify CSV/YAML output |
+| `//:monitor-test` | Monitor build progress | `//test:monitor_test_test` | (existing) |
+| `//pythonwrapper:python3` | Python wrapper for ORFS make | `//pythonwrapper:python3_test` | Run script, verify argv and yaml import |
+
+### Contract
+
+`--build_tests_only` in CI means only test dependencies get built.
+Adding a binary without a test makes it invisible to CI. The rule:
+
+> Every non-manual `*_binary` must be a transitive dependency of a `*_test`.
+
+To check for gaps:
+
+```bash
+# Binaries not reachable from any test
+comm -23 \
+  <(bazelisk query 'kind(".*_binary", //...) except attr(tags, manual, //...)' 2>/dev/null | sort) \
+  <(bazelisk query 'deps(kind(".*_test", //...), 3)' 2>/dev/null | sort)
+```
+
 ### Manual tests (not run by `bazelisk test ...`)
 
 | Target | What it tests |
