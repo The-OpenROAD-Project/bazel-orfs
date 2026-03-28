@@ -111,6 +111,10 @@ main() {
     if [ -L "$dst_main/$file" ]; then
       unlink "$dst_main/$file"
     fi
+    # Skip if source and dest resolve to the same file (e.g. //:deps symlink tree).
+    if [ "$(readlink -f "$file")" = "$(readlink -f "$dst_main/$file")" ] 2>/dev/null; then
+      continue
+    fi
     cp --force --dereference --no-preserve=all --parents --target-directory "$dst_main" "$file"
   done
 
