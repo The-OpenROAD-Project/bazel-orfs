@@ -1,0 +1,61 @@
+name: deps-integration
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'deps_wrapper.sh'
+      - 'deploy.tpl'
+      - 'make.tpl'
+      - 'private/**'
+      - 'openroad.bzl'
+      - 'test/**'
+      - '.github/workflows/deps.yml'
+  pull_request:
+    paths:
+      - 'deps_wrapper.sh'
+      - 'deploy.tpl'
+      - 'make.tpl'
+      - 'private/**'
+      - 'openroad.bzl'
+      - 'test/**'
+      - '.github/workflows/deps.yml'
+
+jobs:
+  deps-test:
+    name: "deps: ${{ matrix.case }}"
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        case: [single_synth, single_floorplan, real_floorplan, hierarchy, make_passthrough, run_substep]
+    defaults:
+      run:
+        shell: bash
+    env:
+      DEBIAN_FRONTEND: "noninteractive"
+    steps:
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          docker-images: true
+          large-packages: false
+          swap-storage: false
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bazel
+        uses: bazel-contrib/setup-bazel@0.15.0
+        with:
+          bazelisk-cache: true
+          disk-cache: ${{ github.workflow }}
+          repository-cache: true
+
+      - name: Run deps integration test
+        run: test/deps_integration_test.sh ${{ matrix.case }}
