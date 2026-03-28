@@ -624,7 +624,11 @@ def _yosys_impl(ctx):
         OutputGroupInfo(
             logs = depset(canon_logs + synth_logs),
             reports = depset([]),
-            deps = depset([deps_exe]),
+            deps = depset(
+                [deps_exe, config_short, make] +
+                ctx.files.verilog_files +
+                ctx.files.extra_configs,
+            ),
             **{f.basename: depset([f]) for f in [config] + outputs}
         ),
         OrfsDepInfo(
@@ -875,7 +879,12 @@ def _make_impl(
             reports = depset(reports),
             jsons = depset(jsons),
             drcs = depset(drcs),
-            deps = depset([deps_exe]),
+            deps = depset(
+                [deps_exe, config_short, make] +
+                ctx.files.src +
+                ctx.files.data +
+                ctx.files.extra_configs,
+            ),
             **dict(
                 {
                     f.basename: depset([f])
