@@ -1,7 +1,7 @@
 # Unused in CI
 #
 # load("@bazel-orfs//tools/pin:pin.bzl", "pin_data")
-load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
@@ -112,6 +112,12 @@ sh_binary(
 )
 
 # Run `bazelisk run //:fix_lint` to format all files changed since origin/main.
+py_library(
+    name = "fix_lint_lib",
+    srcs = ["fix_lint.py"],
+    visibility = ["//test:__pkg__"],
+)
+
 py_binary(
     name = "fix_lint",
     srcs = ["fix_lint.py"],
