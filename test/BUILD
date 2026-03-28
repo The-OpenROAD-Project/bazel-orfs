@@ -935,6 +935,44 @@ sh_test(
     data = [":lb_32x128_lite_floorplan"],
 )
 
+# --- User-facing binary tests: verify binaries work with mock environments ---
+
+py_test(
+    name = "fix_lint_test",
+    srcs = ["fix_lint_test.py"],
+    deps = ["//:fix_lint_lib"],
+)
+
+py_test(
+    name = "plot_clock_period_test",
+    srcs = ["plot_clock_period_test.py"],
+    data = ["//:plot_clock_period_tool"],
+    deps = [
+        "@bazel-orfs-features-pip//matplotlib",
+        "@bazel-orfs-pip//pyyaml",
+    ],
+)
+
+sh_test(
+    name = "klayout_wrapper_test",
+    srcs = ["tool_wrapper_test.sh"],
+    args = [
+        "$(rootpath //:klayout)",
+        "klayout",
+    ],
+    data = ["//:klayout"],
+)
+
+sh_test(
+    name = "openroad_wrapper_test",
+    srcs = ["tool_wrapper_test.sh"],
+    args = [
+        "$(rootpath //:openroad)",
+        "openroad",
+    ],
+    data = ["//:openroad"],
+)
+
 # --- Deps output group tests: verify on-demand deps deployment ---
 
 # Test deps output group on synth (yosys) stage
