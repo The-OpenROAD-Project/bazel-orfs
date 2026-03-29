@@ -169,7 +169,7 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "2NaeMQ9kFzzANam0K4H6dF287e/i5452A2YeozZxTbk=",
+        "bzlTransitiveDigest": "s5WpiD4OUyU7PlhIs3aI1tzvawwmZLyE4c/osRw7e4U=",
         "usagesDigest": "NV58r68EQX8Jfvjelkrr0t0Tm8fruOp0pSXADNbeCXQ=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -197,12 +197,20 @@
             "repoRuleId": "@@//:config.bzl%global_config",
             "attributes": {
               "klayout": "@@mock-klayout+//src/bin:klayout",
+              "make": "@@+orfs_repositories+docker_orfs//:make",
               "makefile": "@@+orfs_repositories+docker_orfs//:makefile",
-              "pdk": "@@+orfs_repositories+docker_orfs//:asap7",
               "makefile_yosys": "@@+orfs_repositories+docker_orfs//:makefile_yosys",
               "openroad": "@@+orfs_repositories+docker_orfs//:openroad",
+              "opensta": "@@+orfs_repositories+docker_orfs//:sta",
+              "pdk": "@@+orfs_repositories+docker_orfs//:asap7",
               "yosys": "@@+orfs_repositories+docker_orfs//:yosys",
               "yosys_abc": "@@+orfs_repositories+docker_orfs//:yosys-abc"
+            }
+          },
+          "orfs_variable_metadata": {
+            "repoRuleId": "@@//:load_json_file.bzl%load_json_file",
+            "attributes": {
+              "src": "@@+orfs_repositories+docker_orfs//:OpenROAD-flow-scripts/flow/scripts/variables.yaml"
             }
           }
         },

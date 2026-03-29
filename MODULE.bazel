@@ -34,13 +34,6 @@ local_path_override(
     path = "mock/openroad",
 )
 
-load_json_file = use_repo_rule("//:load_json_file.bzl", "load_json_file")
-
-load_json_file(
-    name = "orfs_variable_metadata",
-    src = "@docker_orfs//:OpenROAD-flow-scripts/flow/scripts/variables.yaml",
-)
-
 bazel_dep(
     name = "rules_python",
     version = "1.8.5",
@@ -75,6 +68,7 @@ use_repo(pip_features, "bazel-orfs-features-pip")
 orfs = use_extension("//:extension.bzl", "orfs_repositories")
 use_repo(orfs, "docker_orfs")
 use_repo(orfs, "config")
+use_repo(orfs, "orfs_variable_metadata")
 
 # Dev-only: mock-klayout is a dev_dependency, so the orfs.default() tag
 # referencing it must also be dev_dependency to avoid breaking downstream

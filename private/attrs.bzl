@@ -4,9 +4,11 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     "@config//:global_config.bzl",
     "CONFIG_KLAYOUT",
+    "CONFIG_MAKE",
     "CONFIG_MAKEFILE",
     "CONFIG_MAKEFILE_YOSYS",
     "CONFIG_OPENROAD",
+    "CONFIG_OPENSTA",
     "CONFIG_PDK",
     "CONFIG_YOSYS",
     "CONFIG_YOSYS_ABC",
@@ -66,7 +68,7 @@ def orfs_attrs():
             executable = True,
             allow_files = True,
             cfg = "exec",
-            default = Label("@docker_orfs//:make"),
+            default = CONFIG_MAKE,
         ),
         "_makefile": attr.label(
             doc = "Top level makefile.",
@@ -125,7 +127,7 @@ def flow_attrs():
             executable = True,
             allow_files = True,
             cfg = "exec",
-            default = Label("@docker_orfs//:sta"),
+            default = CONFIG_OPENSTA,
         ),
         "_qt_plugins": attr.label(
             doc = "Qt plugins.",
