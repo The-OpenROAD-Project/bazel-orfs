@@ -6,7 +6,6 @@ on:
     branches: [main]
     paths: ['gallery/**']
   pull_request:
-    paths: ['gallery/**']
 
 jobs:
   test:
@@ -28,6 +27,7 @@ jobs:
           large-packages: false
           swap-storage: false
       - uses: actions/checkout@v4
+
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
