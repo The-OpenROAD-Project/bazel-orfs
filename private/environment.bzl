@@ -295,7 +295,7 @@ def orfs_arguments(*args, short = False):
 def verilog_arguments(files, short = False):
     return {
         "VERILOG_FILES": " ".join(
-            sorted([file_path(file, short) for file in files]),
+            [file_path(file, short) for file in files],
         ),
     }
 
