@@ -513,9 +513,11 @@ def _orfs_pass(
                 kwargs = kwargs,
                 more_kwargs = kwargs,
             )
+            update_kwargs = dict(kwargs)
+            update_kwargs.pop("substeps", None)
             orfs_update(
                 name = _step_name(name, variant, "update"),
                 rules_json = sources["RULES_JSON"][0],
                 logs = [rules_name],
-                **kwargs
+                **_strip_tool_kwargs(**update_kwargs)
             )

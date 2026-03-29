@@ -5,18 +5,22 @@ def _global_config_impl(repository_ctx):
         "global_config.bzl",
         """
 CONFIG_KLAYOUT = "{klayout}"
+CONFIG_MAKE = "{make}"
 CONFIG_MAKEFILE = "{makefile}"
-CONFIG_PDK = "{pdk}"
 CONFIG_MAKEFILE_YOSYS = "{makefile_yosys}"
 CONFIG_OPENROAD = "{openroad}"
+CONFIG_OPENSTA = "{opensta}"
+CONFIG_PDK = "{pdk}"
 CONFIG_YOSYS = "{yosys}"
 CONFIG_YOSYS_ABC = "{yosys_abc}"
 """.format(
             klayout = repository_ctx.attr.klayout,
+            make = repository_ctx.attr.make,
             makefile = repository_ctx.attr.makefile,
-            pdk = repository_ctx.attr.pdk,
             makefile_yosys = repository_ctx.attr.makefile_yosys,
             openroad = repository_ctx.attr.openroad,
+            opensta = repository_ctx.attr.opensta,
+            pdk = repository_ctx.attr.pdk,
             yosys = repository_ctx.attr.yosys,
             yosys_abc = repository_ctx.attr.yosys_abc,
         ),
@@ -31,11 +35,21 @@ global_config = repository_rule(
             cfg = "exec",
             default = Label("@docker_orfs//:klayout"),
         ),
+        "make": attr.label(
+            mandatory = False,
+            cfg = "exec",
+            default = Label("@docker_orfs//:make"),
+        ),
         "makefile": attr.label(mandatory = True),
         "makefile_yosys": attr.label(mandatory = True),
         "openroad": attr.label(
             mandatory = True,
             cfg = "exec",
+        ),
+        "opensta": attr.label(
+            mandatory = False,
+            cfg = "exec",
+            default = Label("@docker_orfs//:sta"),
         ),
         "pdk": attr.label(mandatory = True),
         "yosys": attr.label(
