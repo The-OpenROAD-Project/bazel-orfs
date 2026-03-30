@@ -1,7 +1,7 @@
 From 963cabe512ad587caf618baa9300962e4aacdf2e Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Sun, 29 Mar 2026 23:14:37 +0200
-Subject: [PATCH 05/40] Add orfs_design() macro and auto-generated targets from
+Subject: [PATCH 05/40] Add orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad") macro and auto-generated targets from
  config.mk
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -9,13 +9,13 @@ Content-Transfer-Encoding: 8bit
 
 config.mk is the single source of truth for design configuration.
 A repository rule parses all config.mk files and generates a DESIGNS
-dict. Each design's BUILD.bazel calls orfs_design() which creates
+dict. Each design's BUILD.bazel calls orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad") which creates
 orfs_flow() targets with properly routed stage arguments.
 
 Key components:
 - bazel/designs.bzl: repo rule that watches config.mk files via
   repository_ctx.read() and re-parses on changes
-- bazel/orfs.bzl: orfs_design() macro with BLOCKS support, label
+- bazel/orfs.bzl: orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad") macro with BLOCKS support, label
   filtering for Tier 2 designs, rules-base.json auto-detection
 - MODULE.bazel: local bazel-orfs, docker image for yosys/klayout,
   local scripts/PDKs, configurable variables_yaml
@@ -238,7 +238,7 @@ index 9687e51c4..50ce2cd26 100644
  use_repo(orfs, "docker_orfs")
 +
 +# Auto-generate orfs_flow() targets from config.mk files
-+orfs_designs = use_repo_rule("//bazel:designs.bzl", "orfs_designs")
++orfs_designs = use_repo_rule("@bazel-orfs//private:designs.bzl", "orfs_designs")
 +orfs_designs(
 +    name = "orfs_designs",
 +    designs_dir = "//flow/designs:BUILD.bazel",
@@ -252,291 +252,45 @@ index 9687e51c4..50ce2cd26 100644
 +    ],
 +)
 +
-diff --git a/bazel/designs.bzl b/bazel/designs.bzl
-new file mode 100644
-index 000000000..8128d56c2
---- /dev/null
-+++ b/bazel/designs.bzl
-@@ -0,0 +1,114 @@
-+"""Repository rule that parses config.mk files and generates a .bzl with design configs.
-+
-+The generated .bzl file contains a DESIGNS dict that orfs_design() reads
-+to create orfs_flow() targets with properly routed stage arguments.
-+
-+Each config.mk is read via repository_ctx.read() so that Bazel watches
-+them and re-fetches the repo when any config.mk changes.
-+"""
-+
-+def _find_config_files(repository_ctx, designs_dir, platforms):
-+    """Walk designs_dir to find all config.mk files."""
-+    configs = []
-+    for platform in platforms:
-+        platform_dir = designs_dir + "/" + platform
-+        # List design directories under this platform
-+        result = repository_ctx.execute(["find", platform_dir, "-name", "config.mk", "-type", "f"])
-+        if result.return_code == 0:
-+            for line in result.stdout.strip().split("\n"):
-+                if line:
-+                    configs.append(line)
-+    return configs
-+
-+def _orfs_designs_impl(repository_ctx):
-+    parser_path = repository_ctx.path(repository_ctx.attr._parser)
-+    designs_path = repository_ctx.path(repository_ctx.attr.designs_dir)
-+    designs_dir = str(designs_path.dirname)
-+
-+    python = repository_ctx.which("python3") or repository_ctx.which("python")
-+    if not python:
-+        fail("python3 not found in PATH")
-+
-+    # Read every config.mk to register them as watched inputs.
-+    # When any config.mk changes, Bazel will re-fetch this repo.
-+    config_files = _find_config_files(
-+        repository_ctx,
-+        designs_dir,
-+        repository_ctx.attr.platforms,
-+    )
-+    for config_file in config_files:
-+        repository_ctx.read(config_file)
-+
-+    platforms_arg = ",".join(repository_ctx.attr.platforms)
-+    result = repository_ctx.execute(
-+        [python, str(parser_path), "--all", designs_dir, "--platforms", platforms_arg, "--json"],
-+        timeout = 120,
-+    )
-+
-+    if result.return_code != 0:
-+        fail("config_mk_parser.py failed (dir=%s):\nstdout: %s\nstderr: %s" % (designs_dir, result.stdout, result.stderr))
-+
-+    if not result.stdout or not result.stdout.strip():
-+        fail("config_mk_parser.py produced no output (dir=%s, stderr=%s)" % (designs_dir, result.stderr))
-+
-+    configs = json.decode(result.stdout)
-+
-+    # Build a dict keyed by "platform/design_nickname"
-+    designs = {}
-+    for config in configs:
-+        platform = config.get("platform", "")
-+        nickname = config.get("design_nickname", "")
-+        name = config.get("design_name", "") or nickname
-+        if not name or not platform or not nickname:
-+            continue
-+
-+        key = "%s/%s" % (platform, nickname)
-+        designs[key] = {
-+            "name": name,
-+            "platform": platform,
-+            "verilog_files": config.get("verilog_files", []),
-+            "sources": config.get("sources", {}),
-+            "arguments": config.get("arguments", {}),
-+            "blocks": config.get("blocks", []),
-+        }
-+
-+        # Also add block_configs as separate entries
-+        for block_config in config.get("block_configs", []):
-+            bp = block_config.get("platform", platform)
-+            bn = block_config.get("design_nickname", "")
-+            bname = block_config.get("design_name", "") or bn
-+            if not bname or not bn:
-+                continue
-+            bkey = "%s/%s" % (bp, bn)
-+            designs[bkey] = {
-+                "name": bname,
-+                "platform": bp,
-+                "verilog_files": block_config.get("verilog_files", []),
-+                "sources": block_config.get("sources", {}),
-+                "arguments": block_config.get("arguments", {}),
-+                "blocks": [],
-+            }
-+
-+    # Generate designs.bzl
-+    bzl_content = 'DESIGNS = %s\n' % repr(designs)
-+    repository_ctx.file("designs.bzl", bzl_content)
-+    repository_ctx.file("BUILD.bazel", "")
-+
-+orfs_designs = repository_rule(
-+    implementation = _orfs_designs_impl,
-+    attrs = {
-+        "designs_dir": attr.label(
-+            mandatory = True,
-+        ),
-+        "platforms": attr.string_list(
-+            default = ["asap7", "sky130hd", "sky130hs", "nangate45", "ihp-sg13g2"],
-+        ),
-+        "module_name": attr.string(
-+            default = "orfs",
-+        ),
-+        "_parser": attr.label(
-+            default = Label("//bazel:config_mk_parser.py"),
-+            allow_single_file = True,
-+        ),
-+    },
-+)
-diff --git a/bazel/orfs.bzl b/bazel/orfs.bzl
-new file mode 100644
-index 000000000..655bac155
---- /dev/null
-+++ b/bazel/orfs.bzl
-@@ -0,0 +1,123 @@
-+"""Macro to create orfs_flow() targets from parsed config.mk data."""
-+
-+load("@bazel-orfs//:openroad.bzl", "orfs_flow")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+def _convert_sources(sources, pkg):
-+    """Convert absolute source labels to relative when in the current package.
-+
-+    Filters out unresolvable labels (unresolved Make variables, invalid paths).
-+    """
-+    result = {}
-+    for var, labels in sources.items():
-+        converted = []
-+        for label in labels:
-+            # Skip unresolved Make variables
-+            if "$(" in label or "${" in label:
-+                continue
-+            # Skip invalid paths like //./
-+            if "//." in label:
-+                continue
-+            # Skip platform paths — already included in PDK
-+            if "//flow/platforms/" in label:
-+                continue
-+            # Skip partial patterns and directory refs
-+            if "*" in label or "))" in label:
-+                continue
-+            # Skip empty targets (trailing colon with no name)
-+            if label.endswith(":"):
-+                continue
-+            if label.startswith("//" + pkg + ":"):
-+                label = ":" + label.split(":")[1]
-+            converted.append(label)
-+        if converted:
-+            result[var] = converted
-+    return result
-+
-+def orfs_design(platform = None, design = None):
-+    """Create orfs_flow() targets for a design based on its parsed config.mk.
-+
-+    Call this from a design's BUILD.bazel:
-+        load("//bazel:orfs.bzl", "orfs_design")
-+        orfs_design()
-+
-+    The platform and design are auto-detected from the package path
-+    (flow/designs/<platform>/<design>/).
-+
-+    Args:
-+        platform: Override platform (default: from package path).
-+        design: Override design nickname (default: from package path).
-+    """
-+    pkg = native.package_name()  # e.g., "flow/designs/asap7/gcd"
-+    parts = pkg.split("/")
-+
-+    if not platform and len(parts) >= 3:
-+        platform = parts[2]  # "asap7"
-+    if not design and len(parts) >= 4:
-+        design = parts[3]  # "gcd"
-+
-+    key = "%s/%s" % (platform, design)
-+    if key not in DESIGNS:
-+        fail("No parsed config.mk for %s. Run the linter: " +
-+             "python3 bazel/config_mk_parser.py --lint flow/designs/%s/config.mk" % (key, key))
-+
-+    config = DESIGNS[key]
-+    name = config["name"]
-+    sources = _convert_sources(config["sources"], pkg)
-+
-+    # Auto-detect rules-base.json if present in the package
-+    if "RULES_JSON" not in sources and native.glob(["rules-base.json"], allow_empty = True):
-+        sources["RULES_JSON"] = [":rules-base.json"]
-+
-+    # Handle BLOCKS: create sub-macro orfs_flow() targets
-+    macros = []
-+    for block_name in config.get("blocks", []):
-+        block_key = "%s/%s" % (platform, "%s_%s" % (design, block_name))
-+
-+        # Sub-macro config may use <design>_<block> or just <block> as nickname
-+        block_config = DESIGNS.get(block_key)
-+        if not block_config:
-+            # No parsed config for this block — skip
-+            # (block may use block.mk or other non-standard config)
-+            continue
-+
-+        block_verilog = [
-+            vf for vf in block_config["verilog_files"]
-+            if "$(" not in vf and "${" not in vf and "//." not in vf and not vf.endswith(":")
-+        ]
-+        block_sources = _convert_sources(block_config["sources"], pkg)
-+        orfs_flow(
-+            name = block_config["name"],
-+            abstract_stage = "cts",
-+            verilog_files = block_verilog,
-+            pdk = "//flow:" + platform,
-+            arguments = block_config["arguments"],
-+            sources = block_sources,
-+        )
-+        macros.append(":%s_generate_abstract" % block_config["name"])
-+
-+    # Filter verilog_files: skip unresolved Make variables and invalid labels
-+    verilog_files = []
-+    for vf in config["verilog_files"]:
-+        # Skip unresolved Make variables and partial patterns
-+        if "$(" in vf or "${" in vf or "*" in vf or "))" in vf:
-+            continue
-+        # Skip invalid paths
-+        if "//." in vf or vf.endswith(":"):
-+            continue
-+        # Skip platform paths — already in PDK
-+        if "//flow/platforms/" in vf:
-+            continue
-+        # Skip directory references (VERILOG_INCLUDE_DIRS)
-+        if vf.endswith(":include") or "/include" in vf.split(":")[-1]:
-+            continue
-+        verilog_files.append(vf)
-+
-+    orfs_flow(
-+        name = name,
-+        verilog_files = verilog_files,
-+        pdk = "//flow:" + platform,
-+        arguments = config["arguments"],
-+        sources = sources,
-+        macros = macros if macros else [],
-+    )
 diff --git a/flow/designs/BUILD.bazel b/flow/designs/BUILD.bazel
 new file mode 100644
 index 000000000..ed4e50dd7
 --- /dev/null
 +++ b/flow/designs/BUILD.bazel
-@@ -0,0 +1 @@
+@@ -0,0 +1,1 @@
 +exports_files(["BUILD.bazel"])
 diff --git a/flow/designs/asap7/aes-block/BUILD.bazel b/flow/designs/asap7/aes-block/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/aes-block/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/aes-mbff/BUILD.bazel b/flow/designs/asap7/aes-mbff/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/aes-mbff/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/aes/BUILD.bazel b/flow/designs/asap7/aes/BUILD.bazel
 index 2ff325bb4..4ccd0967d 100644
 --- a/flow/designs/asap7/aes/BUILD.bazel
 +++ b/flow/designs/asap7/aes/BUILD.bazel
-@@ -1,47 +1,5 @@
+@@ -1,47 +1,6 @@
 -load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_synth")
-+load("//bazel:orfs.bzl", "orfs_design")
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
  
 -BLACKBOXES = [
 -    "aes_sbox",
@@ -584,47 +338,51 @@ index 2ff325bb4..4ccd0967d 100644
 -    },
 -    top = "aes_cipher_top",
 -)
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/aes_lvt/BUILD.bazel b/flow/designs/asap7/aes_lvt/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/aes_lvt/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/cva6/BUILD.bazel b/flow/designs/asap7/cva6/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/cva6/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/ethmac/BUILD.bazel b/flow/designs/asap7/ethmac/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/ethmac/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/ethmac_lvt/BUILD.bazel b/flow/designs/asap7/ethmac_lvt/BUILD.bazel
 index 6bc335434..4ccd0967d 100644
 --- a/flow/designs/asap7/ethmac_lvt/BUILD.bazel
 +++ b/flow/designs/asap7/ethmac_lvt/BUILD.bazel
-@@ -1,24 +1,5 @@
+@@ -1,24 +1,6 @@
 -load("@bazel-orfs//:openroad.bzl", "orfs_flow")
-+load("//bazel:orfs.bzl", "orfs_design")
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
  
 -orfs_flow(
 -    name = "ethmac_lvt",
@@ -650,113 +408,123 @@ index 6bc335434..4ccd0967d 100644
 -)
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/gcd-ccs/BUILD.bazel b/flow/designs/asap7/gcd-ccs/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/gcd-ccs/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/gcd/BUILD.bazel b/flow/designs/asap7/gcd/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/gcd/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/ibex/BUILD.bazel b/flow/designs/asap7/ibex/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/ibex/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/jpeg/BUILD.bazel b/flow/designs/asap7/jpeg/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/jpeg/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/jpeg_lvt/BUILD.bazel b/flow/designs/asap7/jpeg_lvt/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/jpeg_lvt/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/minimal/BUILD.bazel b/flow/designs/asap7/minimal/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/minimal/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/mock-alu/BUILD.bazel b/flow/designs/asap7/mock-alu/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/mock-alu/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/mock-cpu/BUILD.bazel b/flow/designs/asap7/mock-cpu/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/mock-cpu/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel b/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel b/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
 new file mode 100644
 index 000000000..5d7d8ccbf
 --- /dev/null
 +++ b/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
-@@ -0,0 +1,11 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,12 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
@@ -766,25 +534,27 @@ index 000000000..5d7d8ccbf
 +    visibility = ["//visibility:public"],
 +)
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i/BUILD.bazel b/flow/designs/asap7/riscv32i/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/riscv32i/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/swerv_wrapper/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 index e97eee723..4ccd0967d 100644
 --- a/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 +++ b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
-@@ -1,118 +1,5 @@
+@@ -1,118 +1,6 @@
 -load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_macro", "orfs_synth")
-+load("//bazel:orfs.bzl", "orfs_design")
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
  
 -FAKERAMS = [
 -    "fakeram7_64x21",
@@ -903,632 +673,689 @@ index e97eee723..4ccd0967d 100644
 -    tags = ["manual"],
 -    verilog_files = [],
 -)
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/uart/BUILD.bazel b/flow/designs/asap7/uart/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/uart/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf12/aes/BUILD.bazel b/flow/designs/gf12/aes/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf12/aes/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf12/ariane/BUILD.bazel b/flow/designs/gf12/ariane/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf12/ariane/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf12/ariane133/BUILD.bazel b/flow/designs/gf12/ariane133/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf12/ariane133/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf12/bp_dual/BUILD.bazel b/flow/designs/gf12/bp_dual/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf12/bp_dual/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf12/bp_quad/BUILD.bazel b/flow/designs/gf12/bp_quad/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf12/bp_quad/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf12/bp_single/BUILD.bazel b/flow/designs/gf12/bp_single/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf12/bp_single/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf12/ca53/BUILD.bazel b/flow/designs/gf12/ca53/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf12/ca53/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf12/coyote/BUILD.bazel b/flow/designs/gf12/coyote/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf12/coyote/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf12/gcd/BUILD.bazel b/flow/designs/gf12/gcd/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf12/gcd/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf12/ibex/BUILD.bazel b/flow/designs/gf12/ibex/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf12/ibex/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf12/jpeg/BUILD.bazel b/flow/designs/gf12/jpeg/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf12/jpeg/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf12/swerv_wrapper/BUILD.bazel b/flow/designs/gf12/swerv_wrapper/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf12/swerv_wrapper/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf12/tinyRocket/BUILD.bazel b/flow/designs/gf12/tinyRocket/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf12/tinyRocket/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf180/aes-hybrid/BUILD.bazel b/flow/designs/gf180/aes-hybrid/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf180/aes-hybrid/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf180/aes/BUILD.bazel b/flow/designs/gf180/aes/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf180/aes/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf180/ibex/BUILD.bazel b/flow/designs/gf180/ibex/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf180/ibex/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf180/jpeg/BUILD.bazel b/flow/designs/gf180/jpeg/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf180/jpeg/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf180/riscv32i/BUILD.bazel b/flow/designs/gf180/riscv32i/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf180/riscv32i/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf180/uart-blocks/BUILD.bazel b/flow/designs/gf180/uart-blocks/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf180/uart-blocks/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel b/flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel
 new file mode 100644
 index 000000000..2a5a8dd2e
 --- /dev/null
 +++ b/flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,7 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 +
 diff --git a/flow/designs/gf55/aes/BUILD.bazel b/flow/designs/gf55/aes/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/gf55/aes/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/ihp-sg13g2/aes/BUILD.bazel b/flow/designs/ihp-sg13g2/aes/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/ihp-sg13g2/aes/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/ihp-sg13g2/gcd/BUILD.bazel b/flow/designs/ihp-sg13g2/gcd/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/ihp-sg13g2/gcd/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/ihp-sg13g2/i2c-gpio-expander/BUILD.bazel b/flow/designs/ihp-sg13g2/i2c-gpio-expander/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/ihp-sg13g2/i2c-gpio-expander/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/ihp-sg13g2/i2c-gpio-expander/I2cDeviceCtrl/BUILD.bazel b/flow/designs/ihp-sg13g2/i2c-gpio-expander/I2cDeviceCtrl/BUILD.bazel
 new file mode 100644
 index 000000000..2a5a8dd2e
 --- /dev/null
 +++ b/flow/designs/ihp-sg13g2/i2c-gpio-expander/I2cDeviceCtrl/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,7 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 +
 diff --git a/flow/designs/ihp-sg13g2/ibex/BUILD.bazel b/flow/designs/ihp-sg13g2/ibex/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/ihp-sg13g2/ibex/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/ihp-sg13g2/jpeg/BUILD.bazel b/flow/designs/ihp-sg13g2/jpeg/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/ihp-sg13g2/jpeg/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/ihp-sg13g2/riscv32i/BUILD.bazel b/flow/designs/ihp-sg13g2/riscv32i/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/ihp-sg13g2/riscv32i/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/ihp-sg13g2/spi/BUILD.bazel b/flow/designs/ihp-sg13g2/spi/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/ihp-sg13g2/spi/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/aes/BUILD.bazel b/flow/designs/nangate45/aes/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/nangate45/aes/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/ariane133/BUILD.bazel b/flow/designs/nangate45/ariane133/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/nangate45/ariane133/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/ariane136/BUILD.bazel b/flow/designs/nangate45/ariane136/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/nangate45/ariane136/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/black_parrot/BUILD.bazel b/flow/designs/nangate45/black_parrot/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/nangate45/black_parrot/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/bp_be_top/BUILD.bazel b/flow/designs/nangate45/bp_be_top/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/nangate45/bp_be_top/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/bp_fe_top/BUILD.bazel b/flow/designs/nangate45/bp_fe_top/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/nangate45/bp_fe_top/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/bp_multi_top/BUILD.bazel b/flow/designs/nangate45/bp_multi_top/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/nangate45/bp_multi_top/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/bp_quad/BUILD.bazel b/flow/designs/nangate45/bp_quad/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/nangate45/bp_quad/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/dynamic_node/BUILD.bazel b/flow/designs/nangate45/dynamic_node/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/nangate45/dynamic_node/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/gcd/BUILD.bazel b/flow/designs/nangate45/gcd/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/nangate45/gcd/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/ibex/BUILD.bazel b/flow/designs/nangate45/ibex/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/nangate45/ibex/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/jpeg/BUILD.bazel b/flow/designs/nangate45/jpeg/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/nangate45/jpeg/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/mempool_group/BUILD.bazel b/flow/designs/nangate45/mempool_group/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/nangate45/mempool_group/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/swerv/BUILD.bazel b/flow/designs/nangate45/swerv/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/nangate45/swerv/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/swerv_wrapper/BUILD.bazel b/flow/designs/nangate45/swerv_wrapper/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/nangate45/swerv_wrapper/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/tinyRocket/BUILD.bazel b/flow/designs/nangate45/tinyRocket/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/nangate45/tinyRocket/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/rapidus2hp/cva6/BUILD.bazel b/flow/designs/rapidus2hp/cva6/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/rapidus2hp/cva6/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/rapidus2hp/ethmac/BUILD.bazel b/flow/designs/rapidus2hp/ethmac/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/rapidus2hp/ethmac/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/rapidus2hp/gcd/BUILD.bazel b/flow/designs/rapidus2hp/gcd/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/rapidus2hp/gcd/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/rapidus2hp/hercules_idecode/BUILD.bazel b/flow/designs/rapidus2hp/hercules_idecode/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/rapidus2hp/hercules_idecode/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/rapidus2hp/hercules_is_int/BUILD.bazel b/flow/designs/rapidus2hp/hercules_is_int/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/rapidus2hp/hercules_is_int/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/rapidus2hp/ibex/BUILD.bazel b/flow/designs/rapidus2hp/ibex/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/rapidus2hp/ibex/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/rapidus2hp/jpeg/BUILD.bazel b/flow/designs/rapidus2hp/jpeg/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/rapidus2hp/jpeg/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/aes/BUILD.bazel b/flow/designs/sky130hd/aes/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/sky130hd/aes/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/chameleon/BUILD.bazel b/flow/designs/sky130hd/chameleon/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/sky130hd/chameleon/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/gcd/BUILD.bazel b/flow/designs/sky130hd/gcd/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/sky130hd/gcd/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/ibex/BUILD.bazel b/flow/designs/sky130hd/ibex/BUILD.bazel
 index 08f7adc3e..4ccd0967d 100644
 --- a/flow/designs/sky130hd/ibex/BUILD.bazel
 +++ b/flow/designs/sky130hd/ibex/BUILD.bazel
-@@ -1,23 +1,5 @@
+@@ -1,23 +1,6 @@
 -load("@bazel-orfs//:openroad.bzl", "orfs_flow")
-+load("//bazel:orfs.bzl", "orfs_design")
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
  
 -orfs_flow(
 -    name = "ibex",
@@ -1553,95 +1380,103 @@ index 08f7adc3e..4ccd0967d 100644
 -)
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/jpeg/BUILD.bazel b/flow/designs/sky130hd/jpeg/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/sky130hd/jpeg/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/microwatt/BUILD.bazel b/flow/designs/sky130hd/microwatt/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/sky130hd/microwatt/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/riscv32i/BUILD.bazel b/flow/designs/sky130hd/riscv32i/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/sky130hd/riscv32i/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hs/aes/BUILD.bazel b/flow/designs/sky130hs/aes/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/sky130hs/aes/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hs/gcd/BUILD.bazel b/flow/designs/sky130hs/gcd/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/sky130hs/gcd/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hs/ibex/BUILD.bazel b/flow/designs/sky130hs/ibex/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/sky130hs/ibex/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hs/jpeg/BUILD.bazel b/flow/designs/sky130hs/jpeg/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/sky130hs/jpeg/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hs/riscv32i/BUILD.bazel b/flow/designs/sky130hs/riscv32i/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/sky130hs/riscv32i/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 -- 
 2.51.0
 

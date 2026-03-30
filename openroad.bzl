@@ -5,10 +5,18 @@ load(
     _flow_provides = "flow_provides",
 )
 load(
+    "//private:designs.bzl",
+    _orfs_designs = "orfs_designs",
+)
+load(
     "//private:flow.bzl",
     _orfs_flow = "orfs_flow",
     _orfs_synth = "orfs_synth",
     _orfs_update = "orfs_update",
+)
+load(
+    "//private:orfs_design.bzl",
+    _orfs_design = "orfs_design",
 )
 load(
     "//private:providers.bzl",
@@ -55,6 +63,7 @@ load(
 )
 load(
     "//private:utils.bzl",
+    _NUM_CPUS = "NUM_CPUS",
     _flatten = "flatten",
     _set = "set",
 )
@@ -107,9 +116,13 @@ TEST_STAGE_IMPL = _TEST_STAGE_IMPL
 ABSTRACT_IMPL = _ABSTRACT_IMPL
 
 # CPU count for parallel synthesis partitioning
-NUM_CPUS = 4
+NUM_CPUS = _NUM_CPUS
 
 # Flow macros
 orfs_flow = _orfs_flow
 orfs_synth = _orfs_synth
 orfs_update = _orfs_update
+
+# Design config macros
+orfs_design = _orfs_design
+orfs_designs = _orfs_designs

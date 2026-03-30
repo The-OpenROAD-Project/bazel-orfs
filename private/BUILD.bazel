@@ -1,1 +1,4 @@
-package(default_visibility = ["//:__pkg__"])
+package(default_visibility = [
+    "//:__pkg__",
+    "//private:__subpackages__",
+])

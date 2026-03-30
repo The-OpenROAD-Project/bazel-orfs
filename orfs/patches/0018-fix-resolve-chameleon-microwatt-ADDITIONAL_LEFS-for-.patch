@@ -24,19 +24,6 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 flow/designs/sky130hd/chameleon/gds/BUILD.bazel
  create mode 100644 flow/designs/sky130hd/chameleon/lef/BUILD.bazel
 
-diff --git a/bazel/config_mk_parser.py b/bazel/config_mk_parser.py
-index 11d98cd39..97422c45e 100644
---- a/bazel/config_mk_parser.py
-+++ b/bazel/config_mk_parser.py
-@@ -59,8 +59,6 @@ PATH_ONLY_VARS = {
-     "DESIGN_NICKNAME",
-     "SRC_HOME",
-     "TEMP_DESIGN_DIR",
--    "chameleon_DIR",
--    "microwatt_DIR",
-     "TOP_DESIGN_NICKNAME",
- }
- 
 diff --git a/flow/designs/sky130hd/chameleon/config.mk b/flow/designs/sky130hd/chameleon/config.mk
 index d02447831..14e82b5b8 100644
 --- a/flow/designs/sky130hd/chameleon/config.mk

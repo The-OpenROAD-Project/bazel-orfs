@@ -28,7 +28,7 @@ New BUILD.bazel files:
 - 21 cva6 src subdirectories for nested verilog/include files
 - ibex, jpeg include directories
 
-Disable orfs_design() for designs with pre-existing issues:
+Disable orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad") for designs with pre-existing issues:
 - cva6, minimal, mock-cpu, riscv32i, swerv_wrapper
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
@@ -95,217 +95,99 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 flow/designs/src/ibex_sv/vendor/lowrisc_ip/prim/rtl/BUILD.bazel
  create mode 100644 flow/designs/src/jpeg/include/BUILD.bazel
 
-diff --git a/bazel/config_mk_parser.py b/bazel/config_mk_parser.py
-index a13fd4f9b..88174fd84 100644
---- a/bazel/config_mk_parser.py
-+++ b/bazel/config_mk_parser.py
-@@ -328,6 +328,10 @@ class ConfigMkParser:
-                 ))
-                 continue
- 
-+            # Skip Make recipe lines (tab-indented)
-+            if line.startswith("\t"):
-+                continue
-+
-             # Parse export assignments
-             self._parse_assignment(stripped, line_num, raw_vars, result, conditional=False)
- 
-@@ -532,8 +536,8 @@ class ConfigMkParser:
-             return [label]
- 
-         # Handle multi-glob with sort (e.g., cva6 with many $(sort $(wildcard ...)) joined)
--        # Split on whitespace and process each token
--        tokens = resolved.split()
-+        # Tokenize preserving $(...) expressions as single units
-+        tokens = self._tokenize_make_expr(resolved)
-         multi_sort = False
-         for token in tokens:
-             token = token.strip()
-@@ -566,16 +570,52 @@ class ConfigMkParser:
- 
-         return [resolved]  # Return raw if can't resolve
- 
-+    @staticmethod
-+    def _tokenize_make_expr(value):
-+        """Split a Make expression into tokens, preserving $(...) as single units.
-+
-+        Regular whitespace splitting breaks expressions like
-+        $(sort $(wildcard path/*.sv)) into fragments. This tokenizer
-+        tracks parenthesis nesting depth so $(...) groups stay intact.
-+        """
-+        tokens = []
-+        current = []
-+        depth = 0
-+        i = 0
-+        while i < len(value):
-+            ch = value[i]
-+            if ch == '$' and i + 1 < len(value) and value[i + 1] == '(':
-+                current.append('$(')
-+                depth += 1
-+                i += 2
-+                continue
-+            if ch == '(' and depth > 0:
-+                current.append(ch)
-+                depth += 1
-+            elif ch == ')' and depth > 0:
-+                current.append(ch)
-+                depth -= 1
-+            elif ch in (' ', '\t') and depth == 0:
-+                if current:
-+                    tokens.append(''.join(current))
-+                    current = []
-+            else:
-+                current.append(ch)
-+            i += 1
-+        if current:
-+            tokens.append(''.join(current))
-+        return tokens
-+
-     def _dir_to_verilog_label(self, dir_path):
-         """Convert a directory path to a //flow/designs/src/<name>:verilog label."""
-         # Normalize path
-         dir_path = dir_path.strip().rstrip("/")
- 
-         # Check if it's under designs/src/
--        src_match = re.search(r'(?:flow/)?designs/src/([^/]+)(?:/.*)?$', dir_path)
-+        src_match = re.search(r'(?:flow/)?designs/src/(.+)$', dir_path)
-         if src_match:
--            src_name = src_match.group(1)
--            return f"//flow/designs/src/{src_name}:verilog"
-+            rel_path = src_match.group(1)
-+            return f"//flow/designs/src/{rel_path}:verilog"
- 
-         # Check if it's under flow/platforms/ (deprecated)
-         plat_match = re.search(r'(?:flow/)?platforms/([^/]+)(/.*)?$', dir_path)
-@@ -669,6 +709,19 @@ class ConfigMkParser:
-         if os.path.exists(flow_candidate):
-             return flow_candidate
- 
-+        # Try relative to the flow/ directory derived from base_dir
-+        # (handles repo rule context where CWD != repo root)
-+        # base_dir is like .../flow/designs/<platform>/<design>
-+        # include_path is like designs/src/mock-alu/defaults.mk
-+        try:
-+            designs_idx = base_dir.rindex("/designs/")
-+            flow_dir = base_dir[:designs_idx]
-+            flow_rel = os.path.join(flow_dir, include_path)
-+            if os.path.exists(flow_rel):
-+                return flow_rel
-+        except ValueError:
-+            pass
-+
-         return None
- 
-     def _warn_conditional(self, line, line_num, result):
-diff --git a/bazel/orfs.bzl b/bazel/orfs.bzl
-index 655bac155..620f9ec38 100644
---- a/bazel/orfs.bzl
-+++ b/bazel/orfs.bzl
-@@ -113,6 +113,15 @@ def orfs_design(platform = None, design = None):
-             continue
-         verilog_files.append(vf)
- 
-+    # Collect extra data dependencies for VERILOG_INCLUDE_DIRS
-+    # Include dir files must be in the sandbox for synthesis to find them
-+    extra_data = []
-+    include_dirs = config["arguments"].get("VERILOG_INCLUDE_DIRS", "")
-+    for inc_dir in include_dirs.replace("\t", " ").split(" "):
-+        inc_dir = inc_dir.strip().rstrip("/")
-+        if inc_dir:
-+            extra_data.append("//" + inc_dir + ":include")
-+
-     orfs_flow(
-         name = name,
-         verilog_files = verilog_files,
-@@ -120,4 +129,5 @@ def orfs_design(platform = None, design = None):
-         arguments = config["arguments"],
-         sources = sources,
-         macros = macros if macros else [],
-+        stage_data = {"synth": extra_data} if extra_data else {},
-     )
 diff --git a/flow/designs/asap7/aes/BUILD.bazel b/flow/designs/asap7/aes/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/aes/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/cva6/BUILD.bazel b/flow/designs/asap7/cva6/BUILD.bazel
 index 4ccd0967d..e9bbf4f48 100644
 --- a/flow/designs/asap7/cva6/BUILD.bazel
 +++ b/flow/designs/asap7/cva6/BUILD.bazel
-@@ -1,5 +1,6 @@
--load("//bazel:orfs.bzl", "orfs_design")
-+# load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,6 +1,7 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
++# load("@bazel-orfs//:openroad.bzl", "orfs_design")
++# load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
--orfs_design()
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 +# FIXME later
-+# orfs_design()
++# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/ethmac_lvt/BUILD.bazel b/flow/designs/asap7/ethmac_lvt/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/asap7/ethmac_lvt/BUILD.bazel
-@@ -0,0 +1,5 @@
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,6 @@
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design()
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/minimal/BUILD.bazel b/flow/designs/asap7/minimal/BUILD.bazel
 index 4ccd0967d..d2275d7b1 100644
 --- a/flow/designs/asap7/minimal/BUILD.bazel
 +++ b/flow/designs/asap7/minimal/BUILD.bazel
-@@ -1,5 +1 @@
--load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,6 +1,1 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
 -
 -exports_files(glob(["*"]))
 -
--orfs_design()
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 +# Note! This is a local make use only, not used with Bazel
 diff --git a/flow/designs/asap7/mock-cpu/BUILD.bazel b/flow/designs/asap7/mock-cpu/BUILD.bazel
 index 4ccd0967d..613d916d0 100644
 --- a/flow/designs/asap7/mock-cpu/BUILD.bazel
 +++ b/flow/designs/asap7/mock-cpu/BUILD.bazel
-@@ -1,5 +1,5 @@
--load("//bazel:orfs.bzl", "orfs_design")
-+# load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,6 +1,6 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
++# load("@bazel-orfs//:openroad.bzl", "orfs_design")
++# load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
--orfs_design()
-+# orfs_design()
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i/BUILD.bazel b/flow/designs/asap7/riscv32i/BUILD.bazel
 index 4ccd0967d..8cb6b4fe6 100644
 --- a/flow/designs/asap7/riscv32i/BUILD.bazel
 +++ b/flow/designs/asap7/riscv32i/BUILD.bazel
-@@ -1,5 +1,6 @@
--load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,6 +1,7 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
 +# FIXME later
-+# load("//bazel:orfs.bzl", "orfs_design")
++# load("@bazel-orfs//:openroad.bzl", "orfs_design")
++# load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
--orfs_design()
-+# orfs_design()
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/swerv_wrapper/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 new file mode 100644
 index 000000000..e9bbf4f48
 --- /dev/null
 +++ b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
-@@ -0,0 +1,6 @@
-+# load("//bazel:orfs.bzl", "orfs_design")
+@@ -0,0 +1,7 @@
++# load("@bazel-orfs//:openroad.bzl", "orfs_design")
++# load("@orfs_designs//:designs.bzl", "DESIGNS")
 +
 +exports_files(glob(["*"]))
 +
 +# FIXME later
-+# orfs_design()
++# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/src/cva6/common/local/util/BUILD.bazel b/flow/designs/src/cva6/common/local/util/BUILD.bazel
 new file mode 100644
 index 000000000..5bdb9cc16

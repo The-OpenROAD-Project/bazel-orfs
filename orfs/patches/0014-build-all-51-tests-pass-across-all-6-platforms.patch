@@ -30,89 +30,38 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  flow/designs/sky130hd/microwatt/BUILD.bazel   |  5 ++--
  6 files changed, 34 insertions(+), 17 deletions(-)
 
-diff --git a/bazel/config_mk_parser.py b/bazel/config_mk_parser.py
-index 529d84517..11d98cd39 100644
---- a/bazel/config_mk_parser.py
-+++ b/bazel/config_mk_parser.py
-@@ -400,6 +400,12 @@ class ConfigMkParser:
-                 val = raw_vars[var_name][0].strip()
-                 ctx[var_name] = self._resolve_refs(val, ctx, None, 0)
- 
-+        # Add VERILOG_FILES_BLACKBOX to context so it can be substituted
-+        # inside VERILOG_FILES wildcard expressions
-+        if "VERILOG_FILES_BLACKBOX" in raw_vars:
-+            val = raw_vars["VERILOG_FILES_BLACKBOX"][0].strip()
-+            ctx["VERILOG_FILES_BLACKBOX"] = self._resolve_refs(val, ctx, None, 0)
-+
-         return ctx
- 
-     def _resolve_refs(self, value, ctx, result, line_num):
-@@ -493,15 +499,20 @@ class ConfigMkParser:
-         labels = []
- 
-         # Handle $(sort $(wildcard <path>/*.v)) or $(sort $(wildcard <path>/*.sv))
--        # This is the most common pattern
-+        # Supports multiple paths: $(sort $(wildcard dir1/*.v dir2/*.v))
-         sort_wc_match = re.match(
--            r'^\$\(sort\s+\$\(wildcard\s+(.+?)/\*\.(v|sv)\s*\)\s*\)$',
-+            r'^\$\(sort\s+\$\(wildcard\s+(.+)\)\s*\)$',
-             resolved.strip()
-         )
-         if sort_wc_match:
--            dir_path = sort_wc_match.group(1)
--            label = self._dir_to_verilog_label(dir_path)
--            return [label]
-+            inner = sort_wc_match.group(1).strip()
-+            glob_labels = []
-+            for part in inner.split():
-+                gm = re.match(r'^(.+)/\*\.(v|sv|svh)$', part.strip())
-+                if gm:
-+                    glob_labels.append(self._dir_to_verilog_label(gm.group(1)))
-+            if glob_labels:
-+                return glob_labels
- 
-         # Handle $(wildcard <path>/*.v) without sort
-         wc_match = re.match(
-@@ -555,6 +566,11 @@ class ConfigMkParser:
-                 labels.append(self._dir_to_verilog_label(dir_path))
-                 multi_sort = True
-                 continue
-+            # Bare glob pattern: path/*.v → :verilog label
-+            bare_glob = re.match(r'^(.+)/\*\.(v|sv|svh)$', token.strip())
-+            if bare_glob:
-+                labels.append(self._dir_to_verilog_label(bare_glob.group(1)))
-+                continue
-             # Single file reference
-             label = self._file_to_label(token, result, line_num)
-             if label:
 diff --git a/flow/designs/gf180/uart-blocks/BUILD.bazel b/flow/designs/gf180/uart-blocks/BUILD.bazel
 index 4ccd0967d..9bdb6c47a 100644
 --- a/flow/designs/gf180/uart-blocks/BUILD.bazel
 +++ b/flow/designs/gf180/uart-blocks/BUILD.bazel
-@@ -1,5 +1,7 @@
--load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,6 +1,8 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
 +# TODO: design bug — uart.v connects prescale port to uart_rx but
 +# uart-no-param/uart_rx.v doesn't have that port
-+# load("//bazel:orfs.bzl", "orfs_design")
++# load("@bazel-orfs//:openroad.bzl", "orfs_design")
++# load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
--orfs_design()
-+# orfs_design()
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel b/flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel
 index 2a5a8dd2e..aa83d3b3f 100644
 --- a/flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel
 +++ b/flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel
-@@ -1,6 +1,6 @@
--load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,7 +1,7 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
 +# TODO: parent design (uart-blocks) has design bug, disable sub-block too
-+# load("//bazel:orfs.bzl", "orfs_design")
++# load("@bazel-orfs//:openroad.bzl", "orfs_design")
++# load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
--orfs_design()
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 -
-+# orfs_design()
++# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/tinyRocket/config.mk b/flow/designs/nangate45/tinyRocket/config.mk
 index d86621ba3..f18600e22 100644
 --- a/flow/designs/nangate45/tinyRocket/config.mk
@@ -131,28 +80,32 @@ diff --git a/flow/designs/sky130hd/chameleon/BUILD.bazel b/flow/designs/sky130hd
 index fb329605f..4ccd0967d 100644
 --- a/flow/designs/sky130hd/chameleon/BUILD.bazel
 +++ b/flow/designs/sky130hd/chameleon/BUILD.bazel
-@@ -1,6 +1,5 @@
+@@ -1,7 +1,6 @@
 -# TODO: parser can't resolve $(VERILOG_FILES_BLACKBOX) and wildcard in AHB_sys_0
--# load("//bazel:orfs.bzl", "orfs_design")
-+load("//bazel:orfs.bzl", "orfs_design")
+-# load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-# load("@orfs_designs//:designs.bzl", "DESIGNS")
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
--# orfs_design()
-+orfs_design()
+-# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/microwatt/BUILD.bazel b/flow/designs/sky130hd/microwatt/BUILD.bazel
 index 80698389b..4ccd0967d 100644
 --- a/flow/designs/sky130hd/microwatt/BUILD.bazel
 +++ b/flow/designs/sky130hd/microwatt/BUILD.bazel
-@@ -1,6 +1,5 @@
+@@ -1,7 +1,6 @@
 -# TODO: parser can't resolve $(VERILOG_FILES_BLACKBOX) inside VERILOG_FILES wildcard
--# load("//bazel:orfs.bzl", "orfs_design")
-+load("//bazel:orfs.bzl", "orfs_design")
+-# load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-# load("@orfs_designs//:designs.bzl", "DESIGNS")
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
--# orfs_design()
-+orfs_design()
+-# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 -- 
 2.51.0
 

@@ -6,7 +6,7 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
-Replaced by auto-generated orfs_design() targets from config.mk.
+Replaced by auto-generated orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad") targets from config.mk.
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
@@ -78,7 +78,7 @@ index 50ce2cd26..55f15f5dc 100644
 +# bazel_dep(name = "toolchains_llvm", version = "1.5.0")
 +
  # Auto-generate orfs_flow() targets from config.mk files
- orfs_designs = use_repo_rule("//bazel:designs.bzl", "orfs_designs")
+ orfs_designs = use_repo_rule("@bazel-orfs//private:designs.bzl", "orfs_designs")
 +
  orfs_designs(
      name = "orfs_designs",
@@ -4545,23 +4545,25 @@ deleted file mode 100644
 index 4ccd0967d..000000000
 --- a/flow/designs/asap7/aes/BUILD.bazel
 +++ /dev/null
-@@ -1,5 +0,0 @@
--load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,6 +0,0 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
 -
 -exports_files(glob(["*"]))
 -
--orfs_design()
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/ethmac_lvt/BUILD.bazel b/flow/designs/asap7/ethmac_lvt/BUILD.bazel
 deleted file mode 100644
 index 4ccd0967d..000000000
 --- a/flow/designs/asap7/ethmac_lvt/BUILD.bazel
 +++ /dev/null
-@@ -1,5 +0,0 @@
--load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,6 +0,0 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
 -
 -exports_files(glob(["*"]))
 -
--orfs_design()
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/gcd/BUILD b/flow/designs/asap7/gcd/BUILD
 deleted file mode 100644
 index 0736578fe..000000000
@@ -4593,23 +4595,25 @@ deleted file mode 100644
 index 4ccd0967d..000000000
 --- a/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 +++ /dev/null
-@@ -1,5 +0,0 @@
--load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,6 +0,0 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
 -
 -exports_files(glob(["*"]))
 -
--orfs_design()
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/ibex/BUILD.bazel b/flow/designs/sky130hd/ibex/BUILD.bazel
 deleted file mode 100644
 index 4ccd0967d..000000000
 --- a/flow/designs/sky130hd/ibex/BUILD.bazel
 +++ /dev/null
-@@ -1,5 +0,0 @@
--load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,6 +0,0 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
 -
 -exports_files(glob(["*"]))
 -
--orfs_design()
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 -- 
 2.51.0
 

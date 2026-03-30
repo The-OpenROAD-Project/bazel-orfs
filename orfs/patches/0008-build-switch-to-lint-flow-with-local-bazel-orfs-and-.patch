@@ -47,77 +47,65 @@ index 55f15f5dc..8814e49f0 100644
  )
  
  bazel_dep(name = "rules_python", version = "1.2.0")
-diff --git a/bazel/orfs.bzl b/bazel/orfs.bzl
-index 620f9ec38..5c31fd281 100644
---- a/bazel/orfs.bzl
-+++ b/bazel/orfs.bzl
-@@ -93,6 +93,8 @@ def orfs_design(platform = None, design = None):
-             pdk = "//flow:" + platform,
-             arguments = block_config["arguments"],
-             sources = block_sources,
-+            lint = True,
-+            openroad = "@mock-openroad//src/bin:openroad",
-         )
-         macros.append(":%s_generate_abstract" % block_config["name"])
- 
-@@ -130,4 +132,6 @@ def orfs_design(platform = None, design = None):
-         sources = sources,
-         macros = macros if macros else [],
-         stage_data = {"synth": extra_data} if extra_data else {},
-+        lint = True,
-+        openroad = "@mock-openroad//src/bin:openroad",
-     )
 diff --git a/flow/designs/asap7/cva6/BUILD.bazel b/flow/designs/asap7/cva6/BUILD.bazel
 index e9bbf4f48..4ccd0967d 100644
 --- a/flow/designs/asap7/cva6/BUILD.bazel
 +++ b/flow/designs/asap7/cva6/BUILD.bazel
-@@ -1,6 +1,5 @@
--# load("//bazel:orfs.bzl", "orfs_design")
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,7 +1,6 @@
+-# load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-# load("@orfs_designs//:designs.bzl", "DESIGNS")
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
 -# FIXME later
--# orfs_design()
-+orfs_design()
+-# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/mock-cpu/BUILD.bazel b/flow/designs/asap7/mock-cpu/BUILD.bazel
 index 613d916d0..4ccd0967d 100644
 --- a/flow/designs/asap7/mock-cpu/BUILD.bazel
 +++ b/flow/designs/asap7/mock-cpu/BUILD.bazel
-@@ -1,5 +1,5 @@
--# load("//bazel:orfs.bzl", "orfs_design")
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,6 +1,6 @@
+-# load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-# load("@orfs_designs//:designs.bzl", "DESIGNS")
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
--# orfs_design()
-+orfs_design()
+-# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i/BUILD.bazel b/flow/designs/asap7/riscv32i/BUILD.bazel
 index 8cb6b4fe6..4ccd0967d 100644
 --- a/flow/designs/asap7/riscv32i/BUILD.bazel
 +++ b/flow/designs/asap7/riscv32i/BUILD.bazel
-@@ -1,6 +1,5 @@
+@@ -1,7 +1,6 @@
 -# FIXME later
--# load("//bazel:orfs.bzl", "orfs_design")
-+load("//bazel:orfs.bzl", "orfs_design")
+-# load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-# load("@orfs_designs//:designs.bzl", "DESIGNS")
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
--# orfs_design()
-+orfs_design()
+-# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/swerv_wrapper/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 index e9bbf4f48..4ccd0967d 100644
 --- a/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 +++ b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
-@@ -1,6 +1,5 @@
--# load("//bazel:orfs.bzl", "orfs_design")
-+load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,7 +1,6 @@
+-# load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-# load("@orfs_designs//:designs.bzl", "DESIGNS")
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
 -# FIXME later
--# orfs_design()
-+orfs_design()
+-# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 -- 
 2.51.0
 
