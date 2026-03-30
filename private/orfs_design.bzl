@@ -127,7 +127,7 @@ def orfs_design(name = None, platform = None, design = None, designs = None, moc
     extra_data = _collect_include_dirs(config["arguments"])
 
     # Handle BLOCKS: create sub-macro orfs_flow() targets
-    macros = _create_block_targets(
+    macros, lint_macros = _create_block_targets(
         config,
         designs,
         platform,
@@ -159,7 +159,7 @@ def orfs_design(name = None, platform = None, design = None, designs = None, moc
             pdk = "//flow:" + platform,
             arguments = config["arguments"],
             sources = sources,
-            macros = macros if macros else [],
+            macros = lint_macros if lint_macros else [],
             stage_data = {"synth": extra_data} if extra_data else {},
             variant = "lint",
             lint = True,
@@ -191,8 +191,14 @@ def _collect_include_dirs(arguments):
     return extra_data
 
 def _create_block_targets(config, designs, platform, design, pkg, tags, mock_openroad):
-    """Create sub-macro orfs_flow() targets for BLOCKS."""
+    """Create sub-macro orfs_flow() targets for BLOCKS.
+
+    Returns:
+        Tuple of (macros, lint_macros) where macros references real flow
+        abstracts and lint_macros references lint flow abstracts.
+    """
     macros = []
+    lint_macros = []
     for block_name in config.get("blocks", []):
         block_key = "%s/%s" % (platform, "%s_%s" % (design, block_name))
 
@@ -233,5 +239,6 @@ def _create_block_targets(config, designs, platform, design, pkg, tags, mock_ope
                 openroad = mock_openroad,
                 tags = tags,
             )
+            lint_macros.append(":%s_lint_generate_abstract" % block_config["name"])
 
-    return macros
+    return macros, lint_macros
