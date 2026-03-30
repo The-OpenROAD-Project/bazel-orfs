@@ -18,9 +18,16 @@ def odb_arguments(ctx, short = False):
     return {}
 
 def _work_home(ctx):
+    # For external repo targets, declared files are placed under
+    # bin/external/<repo>/<package>, but genfiles_dir.path is just bin/.
+    # Use the declared file path of a known output to derive the correct prefix.
+    parts = [ctx.genfiles_dir.path]
+    if ctx.label.workspace_name:
+        parts.append("external")
+        parts.append(ctx.label.workspace_name)
     if ctx.label.package:
-        return "/".join([ctx.genfiles_dir.path, ctx.label.package])
-    return ctx.genfiles_dir.path
+        parts.append(ctx.label.package)
+    return "/".join(parts)
 
 def orfs_environment(ctx):
     return {
