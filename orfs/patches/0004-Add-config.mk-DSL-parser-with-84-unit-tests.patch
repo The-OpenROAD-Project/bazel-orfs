@@ -1,0 +1,2046 @@
+From 7f93e180adb4f44b2f275b828c68f097bb94d279 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Sun, 29 Mar 2026 23:14:12 +0200
+Subject: [PATCH 04/40] Add config.mk DSL parser with 84 unit tests
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Python parser for the config.mk design DSL that extracts structural
+params (PLATFORM, DESIGN_NAME, VERILOG_FILES, SDC_FILE, BLOCKS) and
+flow arguments (CORE_UTILIZATION, PLACE_DENSITY, etc.) for generating
+orfs_flow() Bazel targets.
+
+Handles all DSL features: export/=/?=/:=, line continuations,
+$(wildcard), $(sort), variable resolution. Emits deprecation warnings
+for complex features (ifeq, $(if), $(filter)).
+
+84 unit tests including integration tests against all real config.mk
+files in the repository.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ bazel/BUILD.bazel              |   31 +
+ bazel/config_mk_parser.py      |  928 ++++++++++++++++++++++++++++
+ bazel/config_mk_parser_test.py | 1035 ++++++++++++++++++++++++++++++++
+ 3 files changed, 1994 insertions(+)
+ create mode 100644 bazel/BUILD.bazel
+ create mode 100644 bazel/config_mk_parser.py
+ create mode 100644 bazel/config_mk_parser_test.py
+
+diff --git a/bazel/BUILD.bazel b/bazel/BUILD.bazel
+new file mode 100644
+index 000000000..a1bd31c56
+--- /dev/null
++++ b/bazel/BUILD.bazel
+@@ -0,0 +1,31 @@
++load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
++
++py_library(
++    name = "config_mk_parser_lib",
++    srcs = ["config_mk_parser.py"],
++    visibility = ["//visibility:public"],
++)
++
++py_binary(
++    name = "config_mk_parser",
++    srcs = ["config_mk_parser.py"],
++    visibility = ["//visibility:public"],
++)
++
++py_binary(
++    name = "config_mk_lint",
++    srcs = ["config_mk_parser.py"],
++    args = [
++        "--lint",
++        "--all",
++        "flow/designs",
++    ],
++    visibility = ["//visibility:public"],
++)
++
++py_test(
++    name = "config_mk_parser_test",
++    srcs = ["config_mk_parser_test.py"],
++    data = glob(["../flow/designs/**/config.mk"]) + glob(["../flow/designs/src/**/*.mk"]),
++    deps = [":config_mk_parser_lib"],
++)
+diff --git a/bazel/config_mk_parser.py b/bazel/config_mk_parser.py
+new file mode 100644
+index 000000000..a13fd4f9b
+--- /dev/null
++++ b/bazel/config_mk_parser.py
+@@ -0,0 +1,928 @@
++"""Parser for ORFS config.mk design DSL files.
++
++Parses config.mk files and produces structured data suitable for generating
++orfs_flow() Bazel targets. Supports all DSL features found across the 84
++config.mk files, with deprecation warnings for features that should be
++migrated.
++
++Usage:
++    python3 config_mk_parser.py [--lint] [--json] <config.mk> [<config.mk> ...]
++    python3 config_mk_parser.py --all <designs_dir>
++"""
++
++import argparse
++import json
++import os
++import re
++import sys
++from dataclasses import asdict, dataclass, field
++from pathlib import Path
++from typing import Optional
++
++
++# Variables that map to orfs_flow() structural params (not arguments dict)
++STRUCTURAL_VARS = {
++    "PLATFORM",
++    "DESIGN_NAME",
++    "DESIGN_NICKNAME",
++    "VERILOG_FILES",
++    "SDC_FILE",
++    "SRC_HOME",
++    "BLOCKS",
++}
++
++# Variables that map to orfs_flow() sources dict (file references)
++SOURCE_VARS = {
++    "SDC_FILE",
++    "FASTROUTE_TCL",
++    "IO_CONSTRAINTS",
++    "MACRO_PLACEMENT_TCL",
++    "PDN_TCL",
++    "TAPCELL_TCL",
++    "FLOORPLAN_DEF",
++    "SEAL_GDS",
++    "ADDITIONAL_LEFS",
++    "ADDITIONAL_LIBS",
++    "ADDITIONAL_GDS",
++    "SYNTH_NETLIST_FILES",
++    "VERILOG_FILES_BLACKBOX",
++    # VERILOG_INCLUDE_DIRS are directories, not files — treat as arguments
++    # "VERILOG_INCLUDE_DIRS",
++    "WRAP_LEFS",
++    "WRAP_LIBS",
++    "SYNTH_CANONICALIZE_TCL",
++    "FOOTPRINT_TCL",
++}
++
++# Variables that are purely for path resolution, not passed to orfs_flow()
++PATH_ONLY_VARS = {
++    "DESIGN_NICKNAME",
++    "SRC_HOME",
++    "TEMP_DESIGN_DIR",
++    "chameleon_DIR",
++    "microwatt_DIR",
++    "TOP_DESIGN_NICKNAME",
++}
++
++# Variables that are structural but not arguments
++NON_ARGUMENT_VARS = STRUCTURAL_VARS | PATH_ONLY_VARS
++
++# Deprecated variable references that emit lint warnings
++DEPRECATED_REFS = {
++    "SRC_HOME": "use $(DESIGN_HOME)/src/$(DESIGN_NICKNAME) instead",
++    "WORK_HOME": "use previous_stage in orfs_flow() instead",
++    "TOP_DESIGN_NICKNAME": "use explicit parent path instead",
++}
++
++
++@dataclass
++class Warning:
++    """A lint warning about a deprecated or unsupported DSL feature."""
++    line_number: int
++    message: str
++    category: str  # "deprecated", "unsupported", "info"
++
++
++@dataclass
++class ParsedDesign:
++    """Result of parsing a config.mk file."""
++    config_path: str           # Path to the config.mk file
++    platform: str = ""         # e.g., "asap7"
++    design_name: str = ""      # DESIGN_NAME value
++    design_nickname: str = ""  # DESIGN_NICKNAME (or dir name default)
++    verilog_files: list = field(default_factory=list)   # Bazel labels
++    sources: dict = field(default_factory=dict)         # var -> [labels]
++    arguments: dict = field(default_factory=dict)       # var -> value
++    blocks: list = field(default_factory=list)           # BLOCKS list
++    block_configs: list = field(default_factory=list)    # Parsed sub-macros
++    has_conditionals: bool = False
++    warnings: list = field(default_factory=list)
++
++    def to_dict(self):
++        d = asdict(self)
++        d["warnings"] = [asdict(w) if isinstance(w, Warning) else w for w in self.warnings]
++        d["block_configs"] = [bc.to_dict() if isinstance(bc, ParsedDesign) else bc for bc in self.block_configs]
++        return d
++
++
++def _join_continuation_lines(lines):
++    """Join lines ending with backslash continuation."""
++    result = []
++    current = ""
++    current_start_line = 0
++    for i, line in enumerate(lines):
++        if not current:
++            current_start_line = i
++        stripped = line.rstrip()
++        if stripped.endswith("\\"):
++            current += stripped[:-1]
++        else:
++            current += stripped
++            result.append((current_start_line, current))
++            current = ""
++    if current:
++        result.append((current_start_line, current))
++    return result
++
++
++def _strip_inline_comment(value):
++    """Remove inline comments from a value, being careful with # in strings."""
++    # Simple heuristic: # preceded by whitespace is a comment
++    # This handles most cases without full Make parsing
++    match = re.search(r'\s#\s', value)
++    if match:
++        return value[:match.start()].rstrip()
++    # Also handle # at start of remaining value after whitespace
++    match = re.search(r'\s#[^(]', value)
++    if match:
++        return value[:match.start()].rstrip()
++    return value
++
++
++class ConfigMkParser:
++    """Parser for ORFS config.mk design DSL files."""
++
++    def __init__(self, designs_home="flow/designs", flow_home="flow"):
++        self.designs_home = designs_home
++        self.flow_home = flow_home
++
++    def parse(self, config_path, base_dir=None):
++        """Parse a config.mk file and return a ParsedDesign.
++
++        Args:
++            config_path: Path to the config.mk file.
++            base_dir: Base directory for resolving relative include paths.
++                      Defaults to the directory containing config_path.
++
++        Returns:
++            ParsedDesign with all parsed information.
++        """
++        config_path = str(config_path)
++        if base_dir is None:
++            base_dir = os.path.dirname(config_path)
++
++        # Derive platform and design dir from path
++        # Expected: .../flow/designs/<platform>/<design>/config.mk
++        # Or: .../flow/designs/<platform>/<design>/<block>/config.mk
++        parts = Path(config_path).parts
++        platform = ""
++        design_dir_name = ""
++        try:
++            designs_idx = parts.index("designs")
++            if designs_idx + 2 < len(parts):
++                platform = parts[designs_idx + 1]
++                design_dir_name = parts[designs_idx + 2]
++        except (ValueError, IndexError):
++            pass
++
++        result = ParsedDesign(config_path=config_path)
++        raw_vars = {}  # var_name -> (value, assignment_op, line_number)
++
++        self._parse_file(config_path, base_dir, raw_vars, result, set())
++
++        # Set platform from parsed or derived
++        if "PLATFORM" in raw_vars:
++            result.platform = raw_vars["PLATFORM"][0].strip()
++        elif platform:
++            result.platform = platform
++
++        # Set design_name
++        if "DESIGN_NAME" in raw_vars:
++            result.design_name = raw_vars["DESIGN_NAME"][0].strip()
++
++        # Set design_nickname (defaults to design dir name)
++        if "DESIGN_NICKNAME" in raw_vars:
++            result.design_nickname = raw_vars["DESIGN_NICKNAME"][0].strip()
++        elif design_dir_name:
++            result.design_nickname = design_dir_name
++        elif result.design_name:
++            result.design_nickname = result.design_name
++
++        # Check structural vars for deprecated patterns
++        for var_name in ("DESIGN_NICKNAME", "DESIGN_NAME", "PLATFORM"):
++            if var_name in raw_vars:
++                raw_val = raw_vars[var_name][0]
++                line_n = raw_vars[var_name][2]
++                if re.search(r'\$\{[A-Za-z_]', raw_val):
++                    result.warnings.append(Warning(
++                        line_number=line_n,
++                        message="${VAR} shell-style syntax: "
++                                "use $(VAR) Make-style",
++                        category="deprecated",
++                    ))
++
++        # Build variable resolution context
++        ctx = self._build_context(result, config_path, raw_vars)
++
++        # Process each variable
++        for var_name, (value, op, line_num) in raw_vars.items():
++            if var_name in ("PLATFORM", "DESIGN_NAME", "DESIGN_NICKNAME"):
++                continue
++            if var_name in PATH_ONLY_VARS:
++                continue
++
++            resolved = self._resolve_refs(value.strip(), ctx, result, line_num)
++
++            if var_name == "VERILOG_FILES":
++                result.verilog_files = self._map_verilog_files(
++                    resolved, ctx, result, line_num
++                )
++            elif var_name == "BLOCKS":
++                result.blocks = resolved.split()
++            elif var_name in SOURCE_VARS:
++                labels = self._map_source_file(
++                    var_name, resolved, ctx, result, line_num
++                )
++                if labels:
++                    result.sources[var_name] = labels
++            elif var_name not in NON_ARGUMENT_VARS:
++                result.arguments[var_name] = resolved
++
++        # Process BLOCKS — discover and parse sub-macro configs
++        if result.blocks:
++            config_dir = os.path.dirname(config_path)
++            for block_name in result.blocks:
++                block_config = os.path.join(config_dir, block_name, "config.mk")
++                if os.path.exists(block_config):
++                    block_parsed = self.parse(block_config)
++                    result.block_configs.append(block_parsed)
++
++        return result
++
++    def _parse_file(self, filepath, base_dir, raw_vars, result, visited):
++        """Parse a single file, handling includes recursively."""
++        filepath = os.path.abspath(filepath)
++        if filepath in visited:
++            return
++        visited.add(filepath)
++
++        if not os.path.exists(filepath):
++            result.warnings.append(Warning(
++                line_number=0,
++                message=f"File not found: {filepath}",
++                category="error",
++            ))
++            return
++
++        with open(filepath) as f:
++            lines = f.readlines()
++
++        joined = _join_continuation_lines(lines)
++        in_conditional = 0  # nesting depth
++        conditional_start = None
++
++        for line_num, line in joined:
++            stripped = line.strip()
++
++            # Skip empty lines and comments
++            if not stripped or stripped.startswith("#"):
++                continue
++
++            # Handle conditionals
++            if re.match(r'^(ifeq|ifneq|ifdef|ifndef)\b', stripped):
++                if in_conditional == 0:
++                    conditional_start = line_num + 1
++                    result.has_conditionals = True
++                    self._warn_conditional(stripped, line_num + 1, result)
++                in_conditional += 1
++                continue
++
++            if stripped.startswith("else"):
++                # else/else ifeq — stay in conditional
++                if re.match(r'^else\s+(ifeq|ifneq|ifdef|ifndef)\b', stripped):
++                    self._warn_conditional(stripped, line_num + 1, result)
++                continue
++
++            if stripped == "endif":
++                in_conditional = max(0, in_conditional - 1)
++                continue
++
++            # Skip lines inside conditionals for now
++            # (we still parse them but mark the design as having conditionals)
++            if in_conditional > 0:
++                self._parse_assignment(stripped, line_num, raw_vars, result, conditional=True)
++                continue
++
++            # Handle include directives
++            include_match = re.match(r'^-?include\s+(.+)', stripped)
++            if include_match:
++                include_path = include_match.group(1).strip()
++                result.warnings.append(Warning(
++                    line_number=line_num + 1,
++                    message=f"include directive: consider inlining the included content",
++                    category="deprecated",
++                ))
++                # Resolve include path
++                resolved_path = self._resolve_include_path(include_path, base_dir)
++                if resolved_path:
++                    self._parse_file(resolved_path, os.path.dirname(resolved_path),
++                                     raw_vars, result, visited)
++                continue
++
++            # Handle Make target lines (not DSL)
++            if re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*:', stripped) and '=' not in stripped:
++                result.warnings.append(Warning(
++                    line_number=line_num + 1,
++                    message=f"Make target in config: move to Makefile",
++                    category="deprecated",
++                ))
++                continue
++
++            # Parse export assignments
++            self._parse_assignment(stripped, line_num, raw_vars, result, conditional=False)
++
++    def _parse_assignment(self, line, line_num, raw_vars, result, conditional=False):
++        """Parse an export VAR = value line."""
++        # Match: export VAR = value, export VAR ?= value, export VAR := value
++        # Also: VAR = value (without export), and export VAR=value (no spaces)
++        match = re.match(
++            r'^(?:export\s+)?([A-Za-z_][A-Za-z0-9_.]*)\s*(\?=|:=|=)\s*(.*)',
++            line
++        )
++        if not match:
++            return
++
++        var_name = match.group(1)
++        op = match.group(2)
++        value = match.group(3).strip()
++        value = _strip_inline_comment(value)
++
++        # For ?= only set if not already defined
++        if op == "?=" and var_name in raw_vars and not conditional:
++            return
++
++        # For conditional assignments, only store if var not already set unconditionally
++        if conditional and var_name in raw_vars:
++            return
++
++        raw_vars[var_name] = (value, op, line_num + 1)
++
++    def _build_context(self, result, config_path, raw_vars):
++        """Build the variable resolution context."""
++        config_dir = os.path.dirname(config_path)
++
++        # Determine design_dir relative path from the designs_home
++        # e.g., "flow/designs/asap7/gcd"
++        try:
++            rel_config_dir = str(Path(config_dir).relative_to(
++                Path(config_path).parents[len(Path(config_path).parts) - 1]
++            ))
++        except (ValueError, IndexError):
++            rel_config_dir = config_dir
++
++        ctx = {
++            "DESIGN_HOME": self.designs_home,
++            "PLATFORM": result.platform,
++            "DESIGN_NAME": result.design_name,
++            "DESIGN_NICKNAME": result.design_nickname,
++            "DESIGN_DIR": f"{self.designs_home}/{result.platform}/{result.design_nickname}",
++            "PLATFORM_DIR": f"{self.flow_home}/platforms/{result.platform}",
++            "FLOW_HOME": self.flow_home,
++            "_config_dir": config_dir,
++            "_rel_config_dir": rel_config_dir,
++        }
++
++        # Add SRC_HOME if defined
++        if "SRC_HOME" in raw_vars:
++            src_home_val = raw_vars["SRC_HOME"][0].strip()
++            # Resolve SRC_HOME itself
++            ctx["SRC_HOME"] = self._resolve_refs(src_home_val, ctx, None, 0)
++        else:
++            ctx["SRC_HOME"] = f"{self.designs_home}/src/{result.design_nickname}"
++
++        # Add any custom variables (like TOP_DESIGN_NICKNAME)
++        for var_name in ("TOP_DESIGN_NICKNAME",):
++            if var_name in raw_vars:
++                val = raw_vars[var_name][0].strip()
++                ctx[var_name] = self._resolve_refs(val, ctx, None, 0)
++
++        return ctx
++
++    def _resolve_refs(self, value, ctx, result, line_num):
++        """Resolve Make variable references in a value string.
++
++        Handles both $(VAR) and ${VAR} syntax.
++        """
++        if not value:
++            return value
++
++        # Check for deprecated ${VAR} syntax
++        if result and re.search(r'\$\{[A-Za-z_]', value):
++            result.warnings.append(Warning(
++                line_number=line_num,
++                message="${VAR} shell-style syntax: use $(VAR) Make-style",
++                category="deprecated",
++            ))
++
++        # Check for deprecated variable references
++        if result:
++            for dep_var, msg in DEPRECATED_REFS.items():
++                if f"$({dep_var})" in value or f"${{{dep_var}}}" in value:
++                    result.warnings.append(Warning(
++                        line_number=line_num,
++                        message=f"$({dep_var}): {msg}",
++                        category="deprecated",
++                    ))
++
++        # Check for $(if ...), $(strip ...), $(filter ...), $(and ...) functions
++        if result:
++            for func in ("if", "strip", "filter", "filter-out", "and"):
++                if f"$({func} " in value or f"$({func}\t" in value:
++                    result.warnings.append(Warning(
++                        line_number=line_num,
++                        message=f"$({func} ...): simplify or move complexity to platform config",
++                        category="deprecated",
++                    ))
++
++        # Handle $(sort $(wildcard ...)) pattern
++        sort_wildcard = re.match(
++            r'^\$\(sort\s+\$\(wildcard\s+(.+?)\)\s*\)$', value.strip()
++        )
++        if sort_wildcard:
++            return f"$(sort $(wildcard {self._resolve_simple_refs(sort_wildcard.group(1), ctx)}))"
++
++        # Handle $(wildcard ...) pattern
++        wildcard = re.match(r'^\$\(wildcard\s+(.+?)\)$', value.strip())
++        if wildcard:
++            return f"$(wildcard {self._resolve_simple_refs(wildcard.group(1), ctx)})"
++
++        # Handle $(sort $(filter-out ...))
++        filter_out = re.match(
++            r'^\$\(sort\s+\$\(filter-out\s+(.+?),\s*\$\(wildcard\s+(.+?)\)\s*\)\s*\)$',
++            value.strip()
++        )
++        if filter_out:
++            resolved_glob = self._resolve_simple_refs(filter_out.group(2), ctx)
++            return f"$(sort $(filter-out {filter_out.group(1)}, $(wildcard {resolved_glob})))"
++
++        # Handle $(if ...) — extract a reasonable default
++        if_match = re.match(r'^\$\(if\s+', value.strip())
++        if if_match:
++            # For $(if) expressions, we can't resolve statically
++            # Return the raw value — it will be handled by the caller
++            return self._resolve_simple_refs(value, ctx)
++
++        # Handle $(strip ...) — unwrap
++        strip_match = re.match(r'^\$\(strip\s+(.*)\)$', value.strip())
++        if strip_match:
++            inner = strip_match.group(1).strip()
++            return self._resolve_refs(inner, ctx, result, line_num)
++
++        # Simple variable resolution
++        return self._resolve_simple_refs(value, ctx)
++
++    def _resolve_simple_refs(self, value, ctx):
++        """Replace $(VAR) and ${VAR} with their values from context."""
++        def replace_var(match):
++            var_name = match.group(1) or match.group(2)
++            if var_name in ctx:
++                return ctx[var_name]
++            return match.group(0)  # Leave unresolved
++
++        # Replace $(VAR) and ${VAR} patterns (only simple variable refs)
++        result = re.sub(r'\$\(([A-Za-z_][A-Za-z0-9_]*)\)|\$\{([A-Za-z_][A-Za-z0-9_]*)\}',
++                        replace_var, value)
++        return result
++
++    def _map_verilog_files(self, resolved, ctx, result, line_num):
++        """Map resolved VERILOG_FILES value to Bazel labels."""
++        labels = []
++
++        # Handle $(sort $(wildcard <path>/*.v)) or $(sort $(wildcard <path>/*.sv))
++        # This is the most common pattern
++        sort_wc_match = re.match(
++            r'^\$\(sort\s+\$\(wildcard\s+(.+?)/\*\.(v|sv)\s*\)\s*\)$',
++            resolved.strip()
++        )
++        if sort_wc_match:
++            dir_path = sort_wc_match.group(1)
++            label = self._dir_to_verilog_label(dir_path)
++            return [label]
++
++        # Handle $(wildcard <path>/*.v) without sort
++        wc_match = re.match(
++            r'^\$\(wildcard\s+(.+?)/\*\.(v|sv)\s*\)\s*$',
++            resolved.strip()
++        )
++        if wc_match:
++            dir_path = wc_match.group(1)
++            label = self._dir_to_verilog_label(dir_path)
++            return [label]
++
++        # Handle bare glob pattern (no $(wildcard)): path/*.v
++        bare_glob = re.match(r'^(.+?)/\*\.(v|sv)\s*$', resolved.strip())
++        if bare_glob and "$(" not in resolved:
++            dir_path = bare_glob.group(1)
++            result.warnings.append(Warning(
++                line_number=line_num,
++                message="bare glob without $(wildcard): use $(sort $(wildcard ...))",
++                category="deprecated",
++            ))
++            label = self._dir_to_verilog_label(dir_path)
++            return [label]
++
++        # Handle $(sort $(filter-out ...)) pattern — map the wildcard part
++        filter_out_match = re.match(
++            r'^\$\(sort\s+\$\(filter-out\s+.+?,\s*\$\(wildcard\s+(.+?)/\*\.(v|sv)\s*\)\s*\)\s*\)$',
++            resolved.strip()
++        )
++        if filter_out_match:
++            dir_path = filter_out_match.group(1)
++            label = self._dir_to_verilog_label(dir_path)
++            return [label]
++
++        # Handle multi-glob with sort (e.g., cva6 with many $(sort $(wildcard ...)) joined)
++        # Split on whitespace and process each token
++        tokens = resolved.split()
++        multi_sort = False
++        for token in tokens:
++            token = token.strip()
++            if not token:
++                continue
++            swm = re.match(r'^\$\(sort\s+\$\(wildcard\s+(.+?)/\*\.(v|sv|svh)\s*\)\s*\)$', token)
++            if swm:
++                dir_path = swm.group(1)
++                labels.append(self._dir_to_verilog_label(dir_path))
++                multi_sort = True
++                continue
++            wm = re.match(r'^\$\(wildcard\s+(.+?)/\*\.(v|sv|svh)\s*\)$', token)
++            if wm:
++                dir_path = wm.group(1)
++                labels.append(self._dir_to_verilog_label(dir_path))
++                multi_sort = True
++                continue
++            # Single file reference
++            label = self._file_to_label(token, result, line_num)
++            if label:
++                labels.append(label)
++
++        if labels:
++            return labels
++
++        # Fallback: try to map as a single file or unresolved
++        label = self._file_to_label(resolved.strip(), result, line_num)
++        if label:
++            return [label]
++
++        return [resolved]  # Return raw if can't resolve
++
++    def _dir_to_verilog_label(self, dir_path):
++        """Convert a directory path to a //flow/designs/src/<name>:verilog label."""
++        # Normalize path
++        dir_path = dir_path.strip().rstrip("/")
++
++        # Check if it's under designs/src/
++        src_match = re.search(r'(?:flow/)?designs/src/([^/]+)(?:/.*)?$', dir_path)
++        if src_match:
++            src_name = src_match.group(1)
++            return f"//flow/designs/src/{src_name}:verilog"
++
++        # Check if it's under flow/platforms/ (deprecated)
++        plat_match = re.search(r'(?:flow/)?platforms/([^/]+)(/.*)?$', dir_path)
++        if plat_match:
++            return f"//flow/platforms/{plat_match.group(1)}{plat_match.group(2) or ''}:verilog"
++
++        return f"//{dir_path}:verilog"
++
++    def _file_to_label(self, path, result, line_num):
++        """Convert a file path to a Bazel label."""
++        if not path or path.startswith("$("):
++            return path  # Can't resolve
++        return self._path_to_label(path.strip(), result, line_num)
++
++    def _map_source_file(self, var_name, resolved, ctx, result, line_num):
++        """Map a source file variable to Bazel labels.
++
++        Always produces absolute labels (//pkg:file) so they work
++        from external repos like @orfs_designs.
++        """
++        if not resolved:
++            return []
++
++        labels = []
++
++        # Split on whitespace for multi-file variables
++        tokens = resolved.split()
++        for token in tokens:
++            token = token.strip()
++            if not token:
++                continue
++
++            label = self._path_to_label(token, result, line_num)
++            if label:
++                labels.append(label)
++
++        return labels
++
++    def _path_to_label(self, path, result, line_num):
++        """Convert a resolved file path to a proper //pkg:file Bazel label."""
++        if not path:
++            return path
++
++        # Already a label
++        if path.startswith("//") or path.startswith("@"):
++            return path
++
++        # Unresolved variable refs — pass through
++        if "$(" in path or "${" in path:
++            return path
++
++        # Normalize: ensure path starts with flow/
++        if not path.startswith("flow/"):
++            if path.startswith(f"{self.designs_home}/"):
++                path = f"flow/{path}"
++            elif path.startswith(f"{self.flow_home}/"):
++                pass  # already has flow/ prefix conceptually
++            else:
++                # Relative path without flow/ prefix
++                if result:
++                    result.warnings.append(Warning(
++                        line_number=line_num,
++                        message="relative path without $(DESIGN_HOME): "
++                                "use $(DESIGN_HOME) prefix",
++                        category="deprecated",
++                    ))
++                if path.startswith("designs/"):
++                    path = f"flow/{path}"
++
++        # Split into package and file: //dir:filename
++        if "/" in path:
++            dir_part = os.path.dirname(path)
++            file_part = os.path.basename(path)
++            return f"//{dir_part}:{file_part}"
++
++        return path
++
++    def _resolve_include_path(self, include_path, base_dir):
++        """Resolve an include directive path."""
++        # Try relative to base_dir first
++        candidate = os.path.join(base_dir, include_path)
++        if os.path.exists(candidate):
++            return candidate
++
++        # Try relative to CWD (for paths like "designs/asap7/riscv32i/config.mk")
++        if os.path.exists(include_path):
++            return include_path
++
++        # Try relative to flow/
++        flow_candidate = os.path.join("flow", include_path)
++        if os.path.exists(flow_candidate):
++            return flow_candidate
++
++        return None
++
++    def _warn_conditional(self, line, line_num, result):
++        """Add a warning for conditional blocks."""
++        if "FLOW_VARIANT" in line:
++            result.warnings.append(Warning(
++                line_number=line_num,
++                message="ifeq FLOW_VARIANT: split into separate config.mk per variant",
++                category="deprecated",
++            ))
++        elif "USE_FILL" in line:
++            result.warnings.append(Warning(
++                line_number=line_num,
++                message="ifeq USE_FILL: set DESIGN_TYPE unconditionally",
++                category="deprecated",
++            ))
++        elif "BLOCKS" in line:
++            result.warnings.append(Warning(
++                line_number=line_num,
++                message="ifeq BLOCKS: use separate config for with/without blocks",
++                category="deprecated",
++            ))
++        elif "SYNTH_MOCK_LARGE_MEMORIES" in line:
++            result.warnings.append(Warning(
++                line_number=line_num,
++                message="ifeq SYNTH_MOCK_LARGE_MEMORIES: simplify to unconditional",
++                category="deprecated",
++            ))
++        else:
++            # Generic conditional warning
++            cond_var = re.search(r'\$\((\w+)\)', line)
++            var_name = cond_var.group(1) if cond_var else "unknown"
++            result.warnings.append(Warning(
++                line_number=line_num,
++                message=f"ifeq {var_name}: consider simplifying or removing conditional",
++                category="deprecated",
++            ))
++
++
++def generate_orfs_flow(parsed, module_name="orfs"):
++    """Generate an orfs_flow() Bazel target string from a ParsedDesign.
++
++    Args:
++        parsed: ParsedDesign instance.
++        module_name: Module name for cross-repo labels (e.g., "orfs").
++
++    Returns:
++        String containing the orfs_flow() Bazel call.
++    """
++    lines = []
++    lines.append('load("@bazel-orfs//:openroad.bzl", "orfs_flow")')
++    lines.append("")
++
++    # Generate sub-macro targets first
++    for block_config in parsed.block_configs:
++        lines.append(f"# Sub-macro: {block_config.design_name}")
++        lines.append(_format_orfs_flow_call(block_config, module_name, abstract_stage="cts"))
++        lines.append("")
++
++    # Generate main target
++    if parsed.warnings:
++        has_deprecated = any(w.category == "deprecated" for w in parsed.warnings
++                            if isinstance(w, Warning))
++        if has_deprecated:
++            lines.append("# NOTE: This config uses deprecated features. Run the linter for details.")
++    lines.append(f"# Auto-generated from {os.path.basename(parsed.config_path)}")
++    lines.append(_format_orfs_flow_call(parsed, module_name))
++    return "\n".join(lines) + "\n"
++
++
++def _format_orfs_flow_call(parsed, module_name, abstract_stage=None):
++    """Format a single orfs_flow() call."""
++    parts = []
++
++    # name
++    name = parsed.design_name or parsed.design_nickname
++    parts.append(f'    name = "{name}",')
++
++    # top (only if different from name)
++    if parsed.design_name and parsed.design_name != name:
++        parts.append(f'    top = "{parsed.design_name}",')
++
++    # abstract_stage (for sub-macros)
++    if abstract_stage:
++        parts.append(f'    abstract_stage = "{abstract_stage}",')
++
++    # verilog_files
++    if parsed.verilog_files:
++        if len(parsed.verilog_files) == 1:
++            vf = parsed.verilog_files[0]
++            # Add module prefix for cross-repo refs
++            if vf.startswith("//"):
++                vf = f"@{module_name}{vf}"
++            parts.append(f'    verilog_files = ["{vf}"],')
++        else:
++            parts.append("    verilog_files = [")
++            for vf in parsed.verilog_files:
++                if vf.startswith("//"):
++                    vf = f"@{module_name}{vf}"
++                parts.append(f'        "{vf}",')
++            parts.append("    ],")
++
++    # pdk
++    pdk_label = f"@{module_name}//flow:{parsed.platform}"
++    parts.append(f'    pdk = "{pdk_label}",')
++
++    # macros (from BLOCKS)
++    if parsed.block_configs:
++        macro_refs = []
++        for bc in parsed.block_configs:
++            bn = bc.design_name or bc.design_nickname
++            macro_refs.append(f'        ":{bn}_generate_abstract",')
++        parts.append("    macros = [")
++        parts.extend(macro_refs)
++        parts.append("    ],")
++
++    # arguments
++    if parsed.arguments:
++        parts.append("    arguments = {")
++        for key in sorted(parsed.arguments.keys()):
++            val = parsed.arguments[key]
++            parts.append(f'        "{key}": "{val}",')
++        parts.append("    },")
++
++    # sources
++    if parsed.sources:
++        parts.append("    sources = {")
++        for key in sorted(parsed.sources.keys()):
++            vals = parsed.sources[key]
++            formatted_vals = []
++            for v in vals:
++                if v.startswith("//"):
++                    v = f"@{module_name}{v}"
++                formatted_vals.append(f'"{v}"')
++            parts.append(f'        "{key}": [{", ".join(formatted_vals)}],')
++        parts.append("    },")
++
++    return "orfs_flow(\n" + "\n".join(parts) + "\n)"
++
++
++def lint_report(parsed):
++    """Generate a human-readable lint report for a ParsedDesign."""
++    lines = []
++    for w in parsed.warnings:
++        if isinstance(w, Warning):
++            prefix = {
++                "deprecated": "WARNING",
++                "unsupported": "ERROR",
++                "info": "INFO",
++                "error": "ERROR",
++            }.get(w.category, "WARNING")
++            lines.append(f"{parsed.config_path}:{w.line_number}: {prefix}: {w.message}")
++        else:
++            lines.append(str(w))
++    return "\n".join(lines)
++
++
++def discover_configs(designs_dir, platforms=None):
++    """Discover all config.mk files under a designs directory.
++
++    Args:
++        designs_dir: Path to the designs directory.
++        platforms: Optional list of platforms to include. If None, all platforms.
++
++    Returns:
++        List of config.mk file paths.
++    """
++    configs = []
++    designs_path = Path(designs_dir)
++    if not designs_path.exists():
++        return configs
++
++    for platform_dir in sorted(designs_path.iterdir()):
++        if not platform_dir.is_dir():
++            continue
++        if platform_dir.name == "src":
++            continue
++        if platforms and platform_dir.name not in platforms:
++            continue
++        for design_dir in sorted(platform_dir.iterdir()):
++            if not design_dir.is_dir():
++                continue
++            config_mk = design_dir / "config.mk"
++            if config_mk.exists():
++                configs.append(str(config_mk))
++    return configs
++
++
++def main():
++    parser = argparse.ArgumentParser(
++        description="Parse ORFS config.mk design DSL files"
++    )
++    parser.add_argument("configs", nargs="*", help="config.mk files to parse")
++    parser.add_argument("--all", metavar="DESIGNS_DIR",
++                        help="Discover and parse all config.mk files under DESIGNS_DIR")
++    parser.add_argument("--platforms", help="Comma-separated list of platforms to include")
++    parser.add_argument("--lint", action="store_true",
++                        help="Print lint warnings instead of parsed output")
++    parser.add_argument("--json", action="store_true",
++                        help="Output as JSON")
++    parser.add_argument("--generate", action="store_true",
++                        help="Generate orfs_flow() Bazel targets")
++    parser.add_argument("--module-name", default="orfs",
++                        help="Module name for cross-repo labels")
++
++    args = parser.parse_args()
++
++    configs = list(args.configs)
++    if args.all:
++        platforms = args.platforms.split(",") if args.platforms else None
++        configs.extend(discover_configs(args.all, platforms))
++
++    if not configs:
++        parser.print_help()
++        sys.exit(1)
++
++    mk_parser = ConfigMkParser()
++    results = []
++    exit_code = 0
++
++    for config_path in configs:
++        parsed = mk_parser.parse(config_path)
++        results.append(parsed)
++
++        if args.lint:
++            report = lint_report(parsed)
++            if report:
++                print(report)
++                exit_code = 1
++        elif args.generate:
++            print(generate_orfs_flow(parsed, args.module_name))
++        elif args.json:
++            pass  # Batch output below
++        else:
++            # Default: print summary
++            print(f"{config_path}:")
++            print(f"  platform: {parsed.platform}")
++            print(f"  design_name: {parsed.design_name}")
++            print(f"  design_nickname: {parsed.design_nickname}")
++            print(f"  verilog_files: {parsed.verilog_files}")
++            print(f"  sources: {parsed.sources}")
++            print(f"  arguments: {parsed.arguments}")
++            print(f"  blocks: {parsed.blocks}")
++            print(f"  has_conditionals: {parsed.has_conditionals}")
++            if parsed.warnings:
++                print(f"  warnings: {len(parsed.warnings)}")
++            print()
++
++    if args.json:
++        output = [r.to_dict() for r in results]
++        print(json.dumps(output, indent=2))
++
++    sys.exit(exit_code)
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/bazel/config_mk_parser_test.py b/bazel/config_mk_parser_test.py
+new file mode 100644
+index 000000000..a261c12a0
+--- /dev/null
++++ b/bazel/config_mk_parser_test.py
+@@ -0,0 +1,1035 @@
++"""Extensive unit tests for the ORFS config.mk DSL parser.
++
++Tests every DSL feature found across the 84 config.mk files, including
++both supported features and deprecated features that emit lint warnings.
++"""
++
++import os
++import tempfile
++import textwrap
++import unittest
++from pathlib import Path
++
++from config_mk_parser import (
++    ConfigMkParser,
++    ParsedDesign,
++    Warning,
++    _join_continuation_lines,
++    _strip_inline_comment,
++    discover_configs,
++    generate_orfs_flow,
++    lint_report,
++)
++
++# Path to the real flow/designs directory (for integration tests)
++REPO_ROOT = Path(__file__).parent.parent
++DESIGNS_DIR = REPO_ROOT / "flow" / "designs"
++
++
++def _write_config(content, dir_structure="flow/designs/asap7/test"):
++    """Write a config.mk to a temp directory with proper structure."""
++    tmpdir = tempfile.mkdtemp()
++    config_dir = os.path.join(tmpdir, dir_structure)
++    os.makedirs(config_dir, exist_ok=True)
++    config_path = os.path.join(config_dir, "config.mk")
++    with open(config_path, "w") as f:
++        f.write(textwrap.dedent(content))
++    return config_path, tmpdir
++
++
++class TestJoinContinuationLines(unittest.TestCase):
++    """Test line continuation joining."""
++
++    def test_no_continuation(self):
++        lines = ["line1\n", "line2\n"]
++        result = _join_continuation_lines(lines)
++        self.assertEqual(result, [(0, "line1"), (1, "line2")])
++
++    def test_two_line_continuation(self):
++        lines = ["first \\\n", "  second\n"]
++        result = _join_continuation_lines(lines)
++        self.assertEqual(len(result), 1)
++        self.assertEqual(result[0], (0, "first   second"))
++
++    def test_three_line_continuation(self):
++        lines = ["a \\\n", "  b \\\n", "  c\n"]
++        result = _join_continuation_lines(lines)
++        self.assertEqual(len(result), 1)
++        self.assertIn("a", result[0][1])
++        self.assertIn("b", result[0][1])
++        self.assertIn("c", result[0][1])
++
++    def test_mixed_continuation(self):
++        lines = ["normal\n", "cont \\\n", "  end\n", "another\n"]
++        result = _join_continuation_lines(lines)
++        self.assertEqual(len(result), 3)
++        self.assertEqual(result[0][1], "normal")
++        self.assertIn("cont", result[1][1])
++        self.assertIn("end", result[1][1])
++        self.assertEqual(result[2][1], "another")
++
++    def test_trailing_continuation(self):
++        """Continuation at end of file."""
++        lines = ["value \\\n"]
++        result = _join_continuation_lines(lines)
++        self.assertEqual(len(result), 1)
++        self.assertEqual(result[0][1], "value ")
++
++
++class TestStripInlineComment(unittest.TestCase):
++    """Test inline comment stripping."""
++
++    def test_no_comment(self):
++        self.assertEqual(_strip_inline_comment("value"), "value")
++
++    def test_inline_comment(self):
++        self.assertEqual(_strip_inline_comment("value # comment"), "value")
++
++    def test_hash_in_middle(self):
++        # $(filter ...) patterns contain no spaces before #
++        self.assertEqual(_strip_inline_comment("abc#def"), "abc#def")
++
++    def test_comment_after_spaces(self):
++        self.assertEqual(
++            _strip_inline_comment("some value  # a comment"),
++            "some value"
++        )
++
++
++class TestLineParsingBasic(unittest.TestCase):
++    """Test basic line parsing: assignments, operators, whitespace."""
++
++    def setUp(self):
++        self.parser = ConfigMkParser()
++
++    def test_basic_assignment(self):
++        config, _ = _write_config("export PLATFORM = asap7\n")
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "asap7")
++
++    def test_conditional_assignment(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export SKIP_LAST_GASP ?= 1
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(result.arguments["SKIP_LAST_GASP"], "1")
++
++    def test_conditional_assignment_no_override(self):
++        """?= should not override a prior = assignment."""
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export CORE_UTILIZATION = 65
++            export CORE_UTILIZATION ?= 50
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(result.arguments["CORE_UTILIZATION"], "65")
++
++    def test_immediate_assignment(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export ABC_AREA := 1
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(result.arguments["ABC_AREA"], "1")
++
++    def test_clear_to_empty(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export ADDER_MAP_FILE :=
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(result.arguments["ADDER_MAP_FILE"], "")
++
++    def test_comment_lines_ignored(self):
++        config, _ = _write_config("""\
++            # This is a comment
++            export PLATFORM = asap7
++            # Another comment
++            export DESIGN_NAME = gcd
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "asap7")
++        self.assertEqual(result.design_name, "gcd")
++
++    def test_empty_lines_ignored(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++
++            export DESIGN_NAME = gcd
++
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "asap7")
++
++    def test_leading_whitespace(self):
++        config, _ = _write_config("""\
++              export PLATFORM = asap7
++            \texport DESIGN_NAME = gcd
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "asap7")
++
++    def test_no_spaces_around_equals(self):
++        config, _ = _write_config("""\
++            export PLATFORM=asap7
++            export DESIGN_NAME=gcd
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "asap7")
++
++    def test_multi_line_continuation(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export IO_NORTH_PINS = pin1 \\
++            pin2 \\
++            pin3
++        """)
++        result = self.parser.parse(config)
++        self.assertIn("pin1", result.arguments["IO_NORTH_PINS"])
++        self.assertIn("pin2", result.arguments["IO_NORTH_PINS"])
++        self.assertIn("pin3", result.arguments["IO_NORTH_PINS"])
++
++    def test_non_export_line_ignored(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            SOME_VAR = value
++        """)
++        result = self.parser.parse(config)
++        # Non-export assignments are still parsed (Make allows it)
++        self.assertIn("SOME_VAR", result.arguments)
++
++    def test_make_target_line_warning(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            verilog:
++            \techo hello
++        """)
++        result = self.parser.parse(config)
++        warnings = [w for w in result.warnings if isinstance(w, Warning)]
++        target_warnings = [w for w in warnings if "Make target" in w.message]
++        self.assertTrue(len(target_warnings) > 0)
++
++
++class TestVariableResolution(unittest.TestCase):
++    """Test variable reference resolution."""
++
++    def setUp(self):
++        self.parser = ConfigMkParser()
++
++    def test_design_home_ref(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/constraint.sdc
++        """)
++        result = self.parser.parse(config)
++        self.assertIn("SDC_FILE", result.sources)
++        labels = result.sources["SDC_FILE"]
++        self.assertTrue(any("constraint.sdc" in l for l in labels))
++
++    def test_platform_ref(self):
++        config, _ = _write_config("""\
++            export PLATFORM = sky130hd
++            export DESIGN_NAME = gcd
++            export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/constraint.sdc
++        """)
++        result = self.parser.parse(config)
++        self.assertIn("SDC_FILE", result.sources)
++
++    def test_design_nickname_default(self):
++        """DESIGN_NICKNAME defaults to the design directory name."""
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint.sdc
++        """)
++        result = self.parser.parse(config)
++        # design_nickname should default to "test" (the dir name)
++        self.assertEqual(result.design_nickname, "test")
++
++    def test_design_nickname_explicit(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NICKNAME = aes
++            export DESIGN_NAME = aes_cipher_top
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(result.design_nickname, "aes")
++        self.assertEqual(result.design_name, "aes_cipher_top")
++
++    def test_platform_dir_ref(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export PDN_TCL = $(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl
++        """)
++        result = self.parser.parse(config)
++        self.assertIn("PDN_TCL", result.sources)
++        labels = result.sources["PDN_TCL"]
++        self.assertTrue(any("platforms/asap7" in l for l in labels))
++
++    def test_src_home_deprecated(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export SRC_HOME = $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)
++            export VERILOG_FILES = $(SRC_HOME)/gcd.v
++        """)
++        result = self.parser.parse(config)
++        warnings = [w for w in result.warnings if isinstance(w, Warning)]
++        src_warnings = [w for w in warnings if "SRC_HOME" in w.message]
++        self.assertTrue(len(src_warnings) > 0)
++
++    def test_shell_style_var_deprecated(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export TOP_DESIGN_NICKNAME = parent
++            export DESIGN_NICKNAME = ${TOP_DESIGN_NICKNAME}_${DESIGN_NAME}
++        """)
++        result = self.parser.parse(config)
++        warnings = [w for w in result.warnings if isinstance(w, Warning)]
++        shell_warnings = [w for w in warnings if "shell-style" in w.message]
++        self.assertTrue(len(shell_warnings) > 0)
++
++    def test_nested_refs(self):
++        config, _ = _write_config("""\
++            export PLATFORM = sky130hd
++            export DESIGN_NAME = gcd
++            export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/constraint.sdc
++        """)
++        result = self.parser.parse(config)
++        self.assertIn("SDC_FILE", result.sources)
++
++    def test_unknown_variable_left_unresolved(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export ADDITIONAL_LIBS = $(LIB_DIR)/fakeram.lib
++        """)
++        result = self.parser.parse(config)
++        self.assertIn("ADDITIONAL_LIBS", result.sources)
++        labels = result.sources["ADDITIONAL_LIBS"]
++        self.assertTrue(any("$(LIB_DIR)" in l for l in labels))
++
++
++class TestVerilogFilesMapping(unittest.TestCase):
++    """Test VERILOG_FILES → Bazel label mapping."""
++
++    def setUp(self):
++        self.parser = ConfigMkParser()
++
++    def test_sort_wildcard_pattern(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/$(DESIGN_NAME)/*.v))
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(result.verilog_files, ["//flow/designs/src/gcd:verilog"])
++
++    def test_sort_wildcard_nickname(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = aes_cipher_top
++            export DESIGN_NICKNAME = aes
++            export VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/*.v))
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(result.verilog_files, ["//flow/designs/src/aes:verilog"])
++
++    def test_wildcard_without_sort(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export VERILOG_FILES = $(wildcard $(DESIGN_HOME)/src/$(DESIGN_NAME)/*.v)
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(result.verilog_files, ["//flow/designs/src/gcd:verilog"])
++
++    def test_single_file(self):
++        config, _ = _write_config("""\
++            export PLATFORM = sky130hd
++            export DESIGN_NAME = gcd
++            export VERILOG_FILES = $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/gcd.v
++        """)
++        result = self.parser.parse(config)
++        self.assertTrue(len(result.verilog_files) == 1)
++        self.assertIn("gcd.v", result.verilog_files[0])
++
++    def test_multi_file_continuation(self):
++        """Multi-file VERILOG_FILES with line continuations."""
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = test
++            export VERILOG_FILES = $(DESIGN_HOME)/src/test/a.v \\
++                $(DESIGN_HOME)/src/test/b.v
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(len(result.verilog_files), 2)
++
++    def test_platform_dir_verilog_deprecated(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = test
++            export VERILOG_FILES = $(PLATFORM_DIR)/verilog/fakeram.sv
++        """)
++        result = self.parser.parse(config)
++        self.assertTrue(len(result.verilog_files) >= 1)
++
++    def test_bare_glob_deprecated(self):
++        """Glob without $(wildcard) — deprecated."""
++        config, _ = _write_config("""\
++            export PLATFORM = gf180
++            export DESIGN_NAME = uart
++            export DESIGN_NICKNAME = uart-no-param
++            export VERILOG_FILES = flow/designs/src/uart-no-param/*.v
++        """)
++        result = self.parser.parse(config)
++        self.assertTrue(len(result.verilog_files) >= 1)
++
++
++class TestSdcFileMapping(unittest.TestCase):
++    """Test SDC_FILE → Bazel label mapping."""
++
++    def setUp(self):
++        self.parser = ConfigMkParser()
++
++    def test_standard_pattern_design_name(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/constraint.sdc
++        """)
++        result = self.parser.parse(config)
++        self.assertIn("SDC_FILE", result.sources)
++        labels = result.sources["SDC_FILE"]
++        self.assertTrue(any("constraint.sdc" in l for l in labels))
++
++    def test_standard_pattern_nickname(self):
++        config, _ = _write_config("""\
++            export PLATFORM = sky130hd
++            export DESIGN_NAME = gcd
++            export DESIGN_NICKNAME = gcd
++            export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint.sdc
++        """)
++        result = self.parser.parse(config)
++        self.assertIn("SDC_FILE", result.sources)
++        # Should be relative label since it's in the same dir
++        labels = result.sources["SDC_FILE"]
++        self.assertTrue(any("constraint.sdc" in l for l in labels))
++
++
++class TestVariableClassification(unittest.TestCase):
++    """Test that variables are correctly classified as structural/source/argument."""
++
++    def setUp(self):
++        self.parser = ConfigMkParser()
++
++    def test_platform_is_structural(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "asap7")
++        self.assertNotIn("PLATFORM", result.arguments)
++
++    def test_design_name_is_structural(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(result.design_name, "gcd")
++        self.assertNotIn("DESIGN_NAME", result.arguments)
++
++    def test_verilog_files_is_structural(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/$(DESIGN_NAME)/*.v))
++        """)
++        result = self.parser.parse(config)
++        self.assertTrue(len(result.verilog_files) > 0)
++        self.assertNotIn("VERILOG_FILES", result.arguments)
++
++    def test_sdc_file_is_source(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/constraint.sdc
++        """)
++        result = self.parser.parse(config)
++        self.assertIn("SDC_FILE", result.sources)
++        self.assertNotIn("SDC_FILE", result.arguments)
++
++    def test_source_vars_classified(self):
++        """All SOURCE_VARS should go to sources, not arguments."""
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export FASTROUTE_TCL = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/route.tcl
++            export IO_CONSTRAINTS = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/io.tcl
++            export PDN_TCL = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/pdn.tcl
++        """)
++        result = self.parser.parse(config)
++        for var in ("FASTROUTE_TCL", "IO_CONSTRAINTS", "PDN_TCL"):
++            self.assertIn(var, result.sources, f"{var} should be in sources")
++            self.assertNotIn(var, result.arguments, f"{var} should not be in arguments")
++
++    def test_core_utilization_is_argument(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export CORE_UTILIZATION = 65
++        """)
++        result = self.parser.parse(config)
++        self.assertIn("CORE_UTILIZATION", result.arguments)
++        self.assertEqual(result.arguments["CORE_UTILIZATION"], "65")
++
++    def test_blocks_is_structural(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = test
++            export BLOCKS = block1 block2
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(result.blocks, ["block1", "block2"])
++        self.assertNotIn("BLOCKS", result.arguments)
++
++    def test_synth_hierarchical_is_argument(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = test
++            export SYNTH_HIERARCHICAL = 1
++        """)
++        result = self.parser.parse(config)
++        self.assertIn("SYNTH_HIERARCHICAL", result.arguments)
++
++
++class TestConditionalParsing(unittest.TestCase):
++    """Test parsing of conditional blocks (ifeq, ifdef, etc.)."""
++
++    def setUp(self):
++        self.parser = ConfigMkParser()
++
++    def test_ifeq_detected(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            ifeq ($(FLOW_VARIANT),top)
++                export DESIGN_NAME = top_module
++            endif
++        """)
++        result = self.parser.parse(config)
++        self.assertTrue(result.has_conditionals)
++
++    def test_ifeq_flow_variant_warning(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            ifeq ($(FLOW_VARIANT),top)
++                export ABC_AREA = 1
++            endif
++        """)
++        result = self.parser.parse(config)
++        warnings = [w for w in result.warnings if isinstance(w, Warning)]
++        fv_warnings = [w for w in warnings if "FLOW_VARIANT" in w.message]
++        self.assertTrue(len(fv_warnings) > 0)
++
++    def test_ifeq_use_fill_warning(self):
++        config, _ = _write_config("""\
++            export PLATFORM = gf12
++            export DESIGN_NAME = gcd
++            ifeq ($(USE_FILL),1)
++                export DESIGN_TYPE = CELL
++            endif
++        """)
++        result = self.parser.parse(config)
++        warnings = [w for w in result.warnings if isinstance(w, Warning)]
++        fill_warnings = [w for w in warnings if "USE_FILL" in w.message]
++        self.assertTrue(len(fill_warnings) > 0)
++
++    def test_ifeq_blocks_warning(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = test
++            ifeq ($(BLOCKS),)
++                export ADDITIONAL_LEFS = something.lef
++            endif
++        """)
++        result = self.parser.parse(config)
++        warnings = [w for w in result.warnings if isinstance(w, Warning)]
++        block_warnings = [w for w in warnings if "BLOCKS" in w.message]
++        self.assertTrue(len(block_warnings) > 0)
++
++    def test_else_ifeq_chains(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = aes
++            ifeq ($(FLOW_VARIANT),top)
++                export DESIGN_NAME = top
++            else ifeq ($(FLOW_VARIANT),blackbox)
++                export DESIGN_NAME = blackbox
++            else ifeq ($(FLOW_VARIANT),combine)
++                export DESIGN_NAME = combine
++            endif
++        """)
++        result = self.parser.parse(config)
++        self.assertTrue(result.has_conditionals)
++        # The unconditional DESIGN_NAME should be "aes"
++        self.assertEqual(result.design_name, "aes")
++
++    def test_nested_ifeq(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            ifeq ($(A),1)
++                ifeq ($(B),2)
++                    export X = nested
++                endif
++            endif
++            export CORE_UTILIZATION = 65
++        """)
++        result = self.parser.parse(config)
++        self.assertTrue(result.has_conditionals)
++        self.assertEqual(result.arguments["CORE_UTILIZATION"], "65")
++
++    def test_if_filter_deprecated(self):
++        config, _ = _write_config("""\
++            export PLATFORM = rapidus2hp
++            export DESIGN_NAME = gcd
++            export CORE_UTILIZATION = $(strip $(if $(filter 0.15,$(RAPIDUS_PDK_VERSION)),40,45))
++        """)
++        result = self.parser.parse(config)
++        warnings = [w for w in result.warnings if isinstance(w, Warning)]
++        if_warnings = [w for w in warnings if "$(if" in w.message or "$(strip" in w.message or "$(filter" in w.message]
++        self.assertTrue(len(if_warnings) > 0)
++
++    def test_include_deprecated(self):
++        """include directive is parsed and emits warning."""
++        tmpdir = tempfile.mkdtemp()
++        base_dir = os.path.join(tmpdir, "flow/designs/asap7/test")
++        os.makedirs(base_dir, exist_ok=True)
++
++        # Write the included file
++        included = os.path.join(base_dir, "base.mk")
++        with open(included, "w") as f:
++            f.write("export CORE_UTILIZATION = 50\n")
++
++        # Write the main config
++        config = os.path.join(base_dir, "config.mk")
++        with open(config, "w") as f:
++            f.write("export PLATFORM = asap7\nexport DESIGN_NAME = test\n")
++            f.write(f"include {included}\n")
++
++        result = self.parser.parse(config)
++        self.assertEqual(result.arguments["CORE_UTILIZATION"], "50")
++        warnings = [w for w in result.warnings if isinstance(w, Warning)]
++        include_warnings = [w for w in warnings if "include" in w.message]
++        self.assertTrue(len(include_warnings) > 0)
++
++    def test_work_home_deprecated(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = aes
++            export SYNTH_NETLIST_FILES = $(WORK_HOME)/results/asap7/aes/top/1_synth.v
++        """)
++        result = self.parser.parse(config)
++        warnings = [w for w in result.warnings if isinstance(w, Warning)]
++        wh_warnings = [w for w in warnings if "WORK_HOME" in w.message]
++        self.assertTrue(len(wh_warnings) > 0)
++
++    def test_relative_path_deprecated(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = test
++            export VERILOG_FILES = designs/src/test/*.v
++        """)
++        result = self.parser.parse(config)
++        warnings = [w for w in result.warnings if isinstance(w, Warning)]
++        rel_warnings = [w for w in warnings if "relative path" in w.message
++                        or "bare glob" in w.message]
++        self.assertTrue(len(rel_warnings) > 0)
++
++
++class TestBlocksSubMacros(unittest.TestCase):
++    """Test BLOCKS variable and sub-macro config discovery."""
++
++    def setUp(self):
++        self.parser = ConfigMkParser()
++
++    def test_blocks_parsed(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = test
++            export BLOCKS = block1 block2
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(result.blocks, ["block1", "block2"])
++
++    def test_single_block(self):
++        config, _ = _write_config("""\
++            export PLATFORM = gf180
++            export DESIGN_NAME = uart
++            export BLOCKS = uart_rx
++        """)
++        result = self.parser.parse(config)
++        self.assertEqual(result.blocks, ["uart_rx"])
++
++    def test_block_config_discovery(self):
++        """When BLOCKS is set, parser should discover sub-macro config.mk files."""
++        tmpdir = tempfile.mkdtemp()
++        base_dir = os.path.join(tmpdir, "flow/designs/gf180/uart-blocks")
++        os.makedirs(base_dir, exist_ok=True)
++
++        # Write main config
++        config = os.path.join(base_dir, "config.mk")
++        with open(config, "w") as f:
++            f.write("export PLATFORM = gf180\n")
++            f.write("export DESIGN_NAME = uart\n")
++            f.write("export DESIGN_NICKNAME = uart-blocks\n")
++            f.write("export BLOCKS = uart_rx\n")
++
++        # Write sub-macro config
++        block_dir = os.path.join(base_dir, "uart_rx")
++        os.makedirs(block_dir, exist_ok=True)
++        block_config = os.path.join(block_dir, "config.mk")
++        with open(block_config, "w") as f:
++            f.write("export PLATFORM = gf180\n")
++            f.write("export DESIGN_NAME = uart_rx\n")
++            f.write("export CORE_UTILIZATION = 30\n")
++
++        result = self.parser.parse(config)
++        self.assertEqual(result.blocks, ["uart_rx"])
++        self.assertEqual(len(result.block_configs), 1)
++        self.assertEqual(result.block_configs[0].design_name, "uart_rx")
++        self.assertEqual(result.block_configs[0].arguments["CORE_UTILIZATION"], "30")
++
++
++class TestGenerateOrfsFlow(unittest.TestCase):
++    """Test orfs_flow() generation from ParsedDesign."""
++
++    def setUp(self):
++        self.parser = ConfigMkParser()
++
++    def test_simple_generation(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/$(DESIGN_NAME)/*.v))
++            export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/constraint.sdc
++            export CORE_UTILIZATION = 65
++        """)
++        result = self.parser.parse(config)
++        output = generate_orfs_flow(result)
++        self.assertIn("orfs_flow(", output)
++        self.assertIn('name = "gcd"', output)
++        self.assertIn('"CORE_UTILIZATION": "65"', output)
++        self.assertIn("@orfs//flow/designs/src/gcd:verilog", output)
++        self.assertIn("@orfs//flow:asap7", output)
++
++    def test_generation_with_blocks(self):
++        """Test that BLOCKS generates macros references."""
++        tmpdir = tempfile.mkdtemp()
++        base_dir = os.path.join(tmpdir, "flow/designs/gf180/test")
++        os.makedirs(base_dir, exist_ok=True)
++
++        config = os.path.join(base_dir, "config.mk")
++        with open(config, "w") as f:
++            f.write("export PLATFORM = gf180\n")
++            f.write("export DESIGN_NAME = top\n")
++            f.write("export BLOCKS = sub1\n")
++
++        # Sub-macro
++        sub_dir = os.path.join(base_dir, "sub1")
++        os.makedirs(sub_dir, exist_ok=True)
++        with open(os.path.join(sub_dir, "config.mk"), "w") as f:
++            f.write("export PLATFORM = gf180\n")
++            f.write("export DESIGN_NAME = sub1\n")
++            f.write("export CORE_UTILIZATION = 50\n")
++
++        result = self.parser.parse(config)
++        output = generate_orfs_flow(result)
++        self.assertIn('name = "sub1"', output)
++        self.assertIn("abstract_stage", output)
++        self.assertIn(":sub1_generate_abstract", output)
++
++
++class TestLintReport(unittest.TestCase):
++    """Test lint report generation."""
++
++    def setUp(self):
++        self.parser = ConfigMkParser()
++
++    def test_clean_config_no_lint(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            export VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/$(DESIGN_NAME)/*.v))
++            export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/constraint.sdc
++            export CORE_UTILIZATION = 65
++        """)
++        result = self.parser.parse(config)
++        report = lint_report(result)
++        self.assertEqual(report, "")
++
++    def test_deprecated_features_reported(self):
++        config, _ = _write_config("""\
++            export PLATFORM = asap7
++            export DESIGN_NAME = gcd
++            ifeq ($(FLOW_VARIANT),top)
++                export ABC = 1
++            endif
++        """)
++        result = self.parser.parse(config)
++        report = lint_report(result)
++        self.assertIn("WARNING", report)
++        self.assertIn("FLOW_VARIANT", report)
++
++
++# ========================================================================
++# Integration tests — parse real config.mk files from the repository
++# ========================================================================
++
++@unittest.skipUnless(DESIGNS_DIR.exists(), "ORFS designs directory not found")
++class TestIntegrationGcd(unittest.TestCase):
++    """Parse real gcd config.mk files from each platform."""
++
++    def setUp(self):
++        self.parser = ConfigMkParser()
++
++    def test_asap7_gcd(self):
++        config = str(DESIGNS_DIR / "asap7" / "gcd" / "config.mk")
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "asap7")
++        self.assertEqual(result.design_name, "gcd")
++        self.assertEqual(result.verilog_files, ["//flow/designs/src/gcd:verilog"])
++        self.assertIn("SDC_FILE", result.sources)
++        self.assertEqual(result.arguments["CORE_UTILIZATION"], "65")
++        self.assertEqual(result.arguments["PLACE_DENSITY"], "0.35")
++        self.assertFalse(result.has_conditionals)
++
++    def test_nangate45_gcd(self):
++        config = str(DESIGNS_DIR / "nangate45" / "gcd" / "config.mk")
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "nangate45")
++        self.assertEqual(result.design_name, "gcd")
++        self.assertIn("SDC_FILE", result.sources)
++        self.assertIn("PDN_TCL", result.sources)
++        self.assertEqual(result.arguments["ABC_AREA"], "1")
++        self.assertFalse(result.has_conditionals)
++
++    def test_sky130hd_gcd(self):
++        config = str(DESIGNS_DIR / "sky130hd" / "gcd" / "config.mk")
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "sky130hd")
++        self.assertEqual(result.design_name, "gcd")
++        self.assertFalse(result.has_conditionals)
++
++    def test_sky130hs_gcd(self):
++        config = str(DESIGNS_DIR / "sky130hs" / "gcd" / "config.mk")
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "sky130hs")
++        self.assertEqual(result.design_name, "gcd")
++        self.assertFalse(result.has_conditionals)
++
++    def test_ihp_sg13g2_gcd(self):
++        config = str(DESIGNS_DIR / "ihp-sg13g2" / "gcd" / "config.mk")
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "ihp-sg13g2")
++        self.assertEqual(result.design_name, "gcd")
++        self.assertFalse(result.has_conditionals)
++
++    def test_gf12_gcd(self):
++        config = str(DESIGNS_DIR / "gf12" / "gcd" / "config.mk")
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "gf12")
++        self.assertEqual(result.design_name, "gcd")
++        self.assertTrue(result.has_conditionals)  # Has ifeq USE_FILL
++
++    def test_rapidus2hp_gcd(self):
++        config = str(DESIGNS_DIR / "rapidus2hp" / "gcd" / "config.mk")
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "rapidus2hp")
++        self.assertEqual(result.design_name, "gcd")
++        self.assertTrue(result.has_conditionals)
++
++
++@unittest.skipUnless(DESIGNS_DIR.exists(), "ORFS designs directory not found")
++class TestIntegrationComplex(unittest.TestCase):
++    """Parse complex real config.mk files."""
++
++    def setUp(self):
++        self.parser = ConfigMkParser()
++
++    def test_asap7_aes(self):
++        """Has ifeq FLOW_VARIANT with 3 branches."""
++        config = str(DESIGNS_DIR / "asap7" / "aes" / "config.mk")
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "asap7")
++        self.assertEqual(result.design_name, "aes_cipher_top")
++        self.assertEqual(result.design_nickname, "aes")
++        self.assertTrue(result.has_conditionals)
++        self.assertEqual(result.arguments["CORE_UTILIZATION"], "70")
++
++    def test_gf180_uart_blocks(self):
++        """Has BLOCKS with uart_rx sub-macro."""
++        config = str(DESIGNS_DIR / "gf180" / "uart-blocks" / "config.mk")
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "gf180")
++        self.assertEqual(result.design_name, "uart")
++        self.assertEqual(result.blocks, ["uart_rx"])
++        self.assertEqual(len(result.block_configs), 1)
++        self.assertEqual(result.block_configs[0].design_name, "uart_rx")
++
++    def test_asap7_riscv32i_mock_sram(self):
++        """Has include and BLOCKS."""
++        config = str(DESIGNS_DIR / "asap7" / "riscv32i-mock-sram" / "config.mk")
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "asap7")
++        self.assertEqual(result.blocks, ["fakeram7_256x32"])
++        self.assertTrue(len(result.block_configs) == 1)
++
++    def test_asap7_aes_block(self):
++        """Has BLOCKS for hierarchical synthesis."""
++        config = str(DESIGNS_DIR / "asap7" / "aes-block" / "config.mk")
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "asap7")
++        self.assertEqual(result.design_name, "aes_cipher_top")
++        self.assertEqual(result.blocks, ["aes_rcon", "aes_sbox"])
++
++    def test_ihp_i2c_gpio_expander(self):
++        """Has BLOCKS with sub-macro using ${VAR} syntax."""
++        config = str(DESIGNS_DIR / "ihp-sg13g2" / "i2c-gpio-expander" / "config.mk")
++        result = self.parser.parse(config)
++        self.assertEqual(result.platform, "ihp-sg13g2")
++        self.assertEqual(result.design_name, "I2cGpioExpanderTop")
++        self.assertEqual(result.blocks, ["I2cDeviceCtrl"])
++        self.assertEqual(len(result.block_configs), 1)
++
++
++@unittest.skipUnless(DESIGNS_DIR.exists(), "ORFS designs directory not found")
++class TestIntegrationAllConfigs(unittest.TestCase):
++    """Smoke test: parse ALL config.mk files without errors."""
++
++    def setUp(self):
++        self.parser = ConfigMkParser()
++
++    def test_parse_all_configs(self):
++        """Every config.mk should parse without exceptions."""
++        configs = discover_configs(str(DESIGNS_DIR))
++        self.assertGreaterEqual(len(configs), 80)
++
++        # Some configs get DESIGN_NAME from include or don't set it
++        # (e.g., minimal, mock-alu, gcd-ccs, riscv32i-mock-sram)
++        no_design_name_ok = {
++            "minimal", "mock-alu", "gcd-ccs", "riscv32i-mock-sram"
++        }
++
++        errors = []
++        for config in configs:
++            try:
++                result = self.parser.parse(config)
++                self.assertIsInstance(result, ParsedDesign)
++                self.assertTrue(result.platform, f"No platform in {config}")
++                design_dir = Path(config).parent.name
++                if design_dir not in no_design_name_ok:
++                    self.assertTrue(result.design_name, f"No design_name in {config}")
++            except Exception as e:
++                errors.append(f"{config}: {e}")
++
++        if errors:
++            self.fail(f"Failed to parse {len(errors)} configs:\n" +
++                      "\n".join(errors))
++
++    def test_tier1_no_conditionals(self):
++        """Tier 1 designs (simple) should have no conditionals."""
++        tier1_configs = [
++            "asap7/gcd", "asap7/minimal", "asap7/jpeg", "asap7/uart",
++            "nangate45/gcd", "nangate45/dynamic_node", "nangate45/swerv",
++            "sky130hd/gcd", "sky130hs/gcd",
++            "ihp-sg13g2/gcd", "ihp-sg13g2/spi",
++        ]
++        for design_path in tier1_configs:
++            config = str(DESIGNS_DIR / design_path / "config.mk")
++            if not os.path.exists(config):
++                continue
++            result = self.parser.parse(config)
++            self.assertFalse(
++                result.has_conditionals,
++                f"{design_path} should be Tier 1 (no conditionals)"
++            )
++
++
++@unittest.skipUnless(DESIGNS_DIR.exists(), "ORFS designs directory not found")
++class TestRoundTrip(unittest.TestCase):
++    """Parse config.mk → generate orfs_flow() → verify correctness."""
++
++    def setUp(self):
++        self.parser = ConfigMkParser()
++
++    def test_asap7_gcd_roundtrip(self):
++        config = str(DESIGNS_DIR / "asap7" / "gcd" / "config.mk")
++        result = self.parser.parse(config)
++        output = generate_orfs_flow(result)
++
++        # Verify key elements present
++        self.assertIn('name = "gcd"', output)
++        self.assertIn("@orfs//flow/designs/src/gcd:verilog", output)
++        self.assertIn('"CORE_UTILIZATION": "65"', output)
++        self.assertIn('"PLACE_DENSITY": "0.35"', output)
++        self.assertIn("@orfs//flow:asap7", output)
++
++    def test_sky130hd_gcd_roundtrip(self):
++        config = str(DESIGNS_DIR / "sky130hd" / "gcd" / "config.mk")
++        result = self.parser.parse(config)
++        output = generate_orfs_flow(result)
++        self.assertIn('name = "gcd"', output)
++        self.assertIn("@orfs//flow:sky130hd", output)
++
++    def test_gf180_uart_blocks_roundtrip(self):
++        """Hierarchical design with BLOCKS."""
++        config = str(DESIGNS_DIR / "gf180" / "uart-blocks" / "config.mk")
++        result = self.parser.parse(config)
++        output = generate_orfs_flow(result)
++        self.assertIn('name = "uart"', output)
++        self.assertIn("uart_rx", output)
++        self.assertIn("abstract_stage", output)
++        self.assertIn("macros", output)
++
++
++class TestDiscoverConfigs(unittest.TestCase):
++    """Test config.mk file discovery."""
++
++    @unittest.skipUnless(DESIGNS_DIR.exists(), "ORFS designs directory not found")
++    def test_discover_all(self):
++        configs = discover_configs(str(DESIGNS_DIR))
++        self.assertGreaterEqual(len(configs), 80)
++
++    @unittest.skipUnless(DESIGNS_DIR.exists(), "ORFS designs directory not found")
++    def test_discover_filtered(self):
++        configs = discover_configs(str(DESIGNS_DIR), platforms=["asap7"])
++        self.assertGreater(len(configs), 5)
++        for c in configs:
++            self.assertIn("asap7", c)
++
++    @unittest.skipUnless(DESIGNS_DIR.exists(), "ORFS designs directory not found")
++    def test_discover_excludes_src(self):
++        """The src/ directory should not be included."""
++        configs = discover_configs(str(DESIGNS_DIR))
++        for c in configs:
++            self.assertNotIn("/src/", c.split("designs/")[1])
++
++
++if __name__ == "__main__":
++    unittest.main()
+-- 
+2.51.0
+

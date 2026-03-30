@@ -1,0 +1,35 @@
+From f860598d90298cdef6270c0a333339b856a7e06b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 13:13:49 +0200
+Subject: [PATCH 24/40] lint: add SDC_FILE_EXTRA source variable for SDC
+ dependencies
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+SDC files may source external Tcl files (e.g. util.tcl) that need
+to be in the Bazel sandbox. SDC_FILE_EXTRA allows config.mk to
+declare these transitive dependencies so they are available at
+build time.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ bazel/config_mk_parser.py | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/bazel/config_mk_parser.py b/bazel/config_mk_parser.py
+index ff330e8ec..c3af8f29f 100644
+--- a/bazel/config_mk_parser.py
++++ b/bazel/config_mk_parser.py
+@@ -52,6 +52,7 @@ SOURCE_VARS = {
+     "WRAP_LIBS",
+     "SYNTH_CANONICALIZE_TCL",
+     "FOOTPRINT_TCL",
++    "SDC_FILE_EXTRA",
+ }
+ 
+ # Variables that are purely for path resolution, not passed to orfs_flow()
+-- 
+2.51.0
+

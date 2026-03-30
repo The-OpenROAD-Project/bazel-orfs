@@ -1,0 +1,95 @@
+"""ORFS integration — exercises bazel-orfs rules against real ORFS designs."""
+
+module(
+    name = "orfs-integration",
+    version = "0.0.1",
+    compatibility_level = 1,
+)
+
+# --- bazel-orfs: RTL-to-GDS flow rules (parent directory) ---
+
+bazel_dep(name = "bazel-orfs")
+local_path_override(
+    module_name = "bazel-orfs",
+    path = "..",
+)
+
+# --- ORFS: OpenROAD flow scripts (fetched at merge-base + patched) ---
+
+bazel_dep(name = "orfs")
+git_override(
+    module_name = "orfs",
+    commit = "7a3f3d5eb054c61829c3b032f4167dc0d0cc4963",
+    patch_strip = 1,
+    patches = [
+        "//patches:0001-build-remove-stale-merge_lib.py-preprocessLib.py-fro.patch",
+        "//patches:0002-build-add-all-PDKs-and-export-variables.yaml.patch",
+        "//patches:0003-build-add-exports_files-BUILD.bazel-to-all-src-direc.patch",
+        "//patches:0004-Add-config.mk-DSL-parser-with-84-unit-tests.patch",
+        "//patches:0005-Add-orfs_design-macro-and-auto-generated-targets-fro.patch",
+        "//patches:0006-docs-update-README-with-config.mk-DSL-and-incrementa.patch",
+        "//patches:0007-build-remove-hand-written-design-BUILD-files.patch",
+        "//patches:0008-build-fix-config.mk-parser-and-add-missing-BUILD.baz.patch",
+        "//patches:0009-build-switch-to-lint-flow-with-local-bazel-orfs-and-.patch",
+        "//patches:0010-build-15-18-asap7-designs-pass-lint-flow.patch",
+        "//patches:0011-build-all-18-asap7-designs-pass-lint-flow-163-target.patch",
+        "//patches:0012-build-add-fakeram-blackbox-stubs-for-swerv_wrapper.patch",
+        "//patches:0013-build-sky130hd-4-6-designs-pass-lint-add-chameleon-s.patch",
+        "//patches:0014-build-lint-flow-passes-48-51-tests-across-all-6-plat.patch",
+        "//patches:0015-build-all-51-tests-pass-across-all-6-platforms.patch",
+        "//patches:0016-tools-add-rtlil-stats-command-fix-stage-isolation-an.patch",
+        "//patches:0017-fix-parser-change-detection-via-repository_ctx.read-.patch",
+        "//patches:0018-build-add-tinyRocket-fakeram-blackbox-and-microwatt-.patch",
+        "//patches:0019-refactor-simplify-BUILD-files-exports_files-moved-in.patch",
+        "//patches:0020-build-dual-targets-real-flow-and-lint-flow-from-sing.patch",
+        "//patches:0021-fix-resolve-chameleon-microwatt-ADDITIONAL_LEFS-for-.patch",
+        "//patches:0022-lint-warn-and-skip-variables-only-set-inside-Make-co.patch",
+        "//patches:0023-lint-resolve-wildcard-.-patterns-to-filegroup-labels.patch",
+        "//patches:0024-lint-add-SDC_FILE_EXTRA-source-variable-for-SDC-depe.patch",
+        "//patches:0025-build-CI-detection-all-platforms-skip-missing-source.patch",
+        "//patches:0026-fix-move-SYNTH_MEMORY_MAX_BITS-before-conditional-in.patch",
+        "//patches:0027-fix-add-mock-cpu-SDC-dependency-on-util.tcl-for-Baze.patch",
+        "//patches:0028-build-add-lef-lib-gds-BUILD-files-for-swerv_wrapper-.patch",
+        "//patches:0029-lint-take-default-branch-from-conditionals-instead-o.patch",
+        "//patches:0030-lint-defer-conditional-only-warnings-to-avoid-false-.patch",
+        "//patches:0031-build-add-SC_LEF-source-var-and-auto-create-filegrou.patch",
+        "//patches:0032-build-add-parallel-synthesis-infrastructure-keep-par.patch",
+        "//patches:0033-test-force-SYNTH_HIERARCHICAL-1-on-non-trivial-desig.patch",
+        "//patches:0034-build-support-SYNTH_BLACKBOXES-after-checkpoint-read.patch",
+        "//patches:0035-build-partition-synth-reads-keep-RTLIL-skips-coarse-.patch",
+        "//patches:0036-build-split-keep-RTLIL-and-JSON-extraction-into-sepa.patch",
+        "//patches:0037-build-use-NUM_CPUS-from-detect_cpus-for-parallel-syn.patch",
+        "//patches:0038-fix-truncate-module-name-in-partition-log-filename-s.patch",
+        "//patches:0039-build-add-do-yosys-sdc-copy-target-for-parallel-synt.patch",
+        "//patches:0040-docs-add-parallel-synthesis-status-and-next-steps.patch",
+        "//patches:0041-fix-remove-non-root-module-overrides.patch",
+    ],
+    remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
+)
+
+# --- mock-openroad: fast lint binary (from bazel-orfs) ---
+
+bazel_dep(name = "mock-openroad", version = "0.0.1")
+local_path_override(
+    module_name = "mock-openroad",
+    path = "../mock/openroad",
+)
+
+bazel_dep(name = "rules_python", version = "1.2.0")
+bazel_dep(name = "rules_shell", version = "0.6.1")
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    ignore_root_user_error = True,
+    python_version = "3.13",
+)
+
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+use_repo(pip, "orfs-pip")
+
+orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
+orfs.default(
+    image = "docker.io/openroad/orfs:26Q1-755-g7a3f3d5eb",
+    sha256 = "933f0179ba7feca829768ab2daebe6c1b8b458bf656ef4becc251887725ac7be",
+)
+use_repo(orfs, "docker_orfs")

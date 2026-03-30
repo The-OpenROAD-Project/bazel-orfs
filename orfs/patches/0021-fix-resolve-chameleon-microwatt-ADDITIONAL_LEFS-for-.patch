@@ -1,0 +1,116 @@
+From e1f70f33f017b2fdcb29e9e694aa5aa5a3c93aca Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 10:02:47 +0200
+Subject: [PATCH 21/40] fix: resolve chameleon/microwatt ADDITIONAL_LEFS for
+ Bazel builds
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Replace custom chameleon_DIR and microwatt_DIR variables with the
+built-in DESIGN_DIR so the config parser can resolve ADDITIONAL_LEFS
+and ADDITIONAL_GDS paths to proper Bazel labels. Add BUILD.bazel
+files for lef/ and gds/ subdirectories.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ bazel/config_mk_parser.py                     |  2 --
+ flow/designs/sky130hd/chameleon/config.mk     | 20 +++++++++----------
+ .../sky130hd/chameleon/gds/BUILD.bazel        |  4 ++++
+ .../sky130hd/chameleon/lef/BUILD.bazel        |  4 ++++
+ flow/designs/sky130hd/microwatt/config.mk     |  8 +++-----
+ 5 files changed, 20 insertions(+), 18 deletions(-)
+ create mode 100644 flow/designs/sky130hd/chameleon/gds/BUILD.bazel
+ create mode 100644 flow/designs/sky130hd/chameleon/lef/BUILD.bazel
+
+diff --git a/bazel/config_mk_parser.py b/bazel/config_mk_parser.py
+index 11d98cd39..97422c45e 100644
+--- a/bazel/config_mk_parser.py
++++ b/bazel/config_mk_parser.py
+@@ -59,8 +59,6 @@ PATH_ONLY_VARS = {
+     "DESIGN_NICKNAME",
+     "SRC_HOME",
+     "TEMP_DESIGN_DIR",
+-    "chameleon_DIR",
+-    "microwatt_DIR",
+     "TOP_DESIGN_NICKNAME",
+ }
+ 
+diff --git a/flow/designs/sky130hd/chameleon/config.mk b/flow/designs/sky130hd/chameleon/config.mk
+index d02447831..14e82b5b8 100644
+--- a/flow/designs/sky130hd/chameleon/config.mk
++++ b/flow/designs/sky130hd/chameleon/config.mk
+@@ -33,19 +33,17 @@ export CORE_UTILIZATION       = 70
+ export CORE_ASPECT_RATIO      = 1.3
+ export CORE_MARGIN            = 2
+ 
+-export chameleon_DIR = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)
++export ADDITIONAL_GDS  = $(DESIGN_DIR)/gds/apb_sys_0.gds.gz \
++                               $(DESIGN_DIR)/gds/DMC_32x16HC.gds.gz \
++                               $(DESIGN_DIR)/gds/DFFRAM_4K.gds.gz \
++                               $(DESIGN_DIR)/gds/ibex_wrapper.gds.gz
+ 
+-export ADDITIONAL_GDS  = $(chameleon_DIR)/gds/apb_sys_0.gds.gz \
+-                               $(chameleon_DIR)/gds/DMC_32x16HC.gds.gz \
+-                               $(chameleon_DIR)/gds/DFFRAM_4K.gds.gz \
+-                               $(chameleon_DIR)/gds/ibex_wrapper.gds.gz
++export ADDITIONAL_LEFS  = $(DESIGN_DIR)/lef/apb_sys_0.lef \
++                          $(DESIGN_DIR)/lef/DFFRAM_4K.lef \
++                          $(DESIGN_DIR)/lef/DMC_32x16HC.lef \
++                          $(DESIGN_DIR)/lef/ibex_wrapper.lef
+ 
+-export ADDITIONAL_LEFS  = $(chameleon_DIR)/lef/apb_sys_0.lef \
+-                          $(chameleon_DIR)/lef/DFFRAM_4K.lef \
+-                          $(chameleon_DIR)/lef/DMC_32x16HC.lef \
+-                          $(chameleon_DIR)/lef/ibex_wrapper.lef
+-
+-#export MACRO_PLACEMENT_TCL = $(chameleon_DIR)/macro_placement.tcl
++#export MACRO_PLACEMENT_TCL = $(DESIGN_DIR)/macro_placement.tcl
+ 
+ export FP_PDN_RAIL_WIDTH  = 0.48
+ export FP_PDN_RAIL_OFFSET = 0
+diff --git a/flow/designs/sky130hd/chameleon/gds/BUILD.bazel b/flow/designs/sky130hd/chameleon/gds/BUILD.bazel
+new file mode 100644
+index 000000000..dff698838
+--- /dev/null
++++ b/flow/designs/sky130hd/chameleon/gds/BUILD.bazel
+@@ -0,0 +1,4 @@
++exports_files(
++    glob(["*.gds.gz"]),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/sky130hd/chameleon/lef/BUILD.bazel b/flow/designs/sky130hd/chameleon/lef/BUILD.bazel
+new file mode 100644
+index 000000000..9362a811f
+--- /dev/null
++++ b/flow/designs/sky130hd/chameleon/lef/BUILD.bazel
+@@ -0,0 +1,4 @@
++exports_files(
++    glob(["*.lef"]),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/sky130hd/microwatt/config.mk b/flow/designs/sky130hd/microwatt/config.mk
+index 56ba3efb8..42f1e4b95 100644
+--- a/flow/designs/sky130hd/microwatt/config.mk
++++ b/flow/designs/sky130hd/microwatt/config.mk
+@@ -11,13 +11,11 @@ export SDC_FILE      = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint.
+ export DIE_AREA   = 0 0 3020 3610
+ export CORE_AREA  = 10 10 3010 3600
+ 
+-export microwatt_DIR = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)
++export ADDITIONAL_GDS  = $(wildcard $(DESIGN_DIR)/gds/*.gds.gz)
+ 
+-export ADDITIONAL_GDS  = $(wildcard $(microwatt_DIR)/gds/*.gds.gz)
++export ADDITIONAL_LEFS  = $(wildcard $(DESIGN_DIR)/lef/*.lef)
+ 
+-export ADDITIONAL_LEFS  = $(wildcard $(microwatt_DIR)/lef/*.lef)
+-
+-export ADDITIONAL_LIBS = $(wildcard $(microwatt_DIR)/lib/*.lib)
++export ADDITIONAL_LIBS = $(wildcard $(DESIGN_DIR)/lib/*.lib)
+ 
+ export SYNTH_HIERARCHICAL = 1
+ 
+-- 
+2.51.0
+

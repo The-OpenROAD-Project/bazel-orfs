@@ -1,0 +1,75 @@
+From 98d05deb6bc08b70aa9c12e04887554411b88f82 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 14:37:44 +0200
+Subject: [PATCH 33/40] test: force SYNTH_HIERARCHICAL=1 on non-trivial designs
+ for parallel synth testing
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Temporary — will be reverted after parallel synthesis is validated.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/designs/asap7/cva6/config.mk          | 1 +
+ flow/designs/asap7/ethmac/config.mk        | 1 +
+ flow/designs/asap7/ibex/config.mk          | 1 +
+ flow/designs/asap7/jpeg/config.mk          | 1 +
+ flow/designs/asap7/swerv_wrapper/config.mk | 1 +
+ 5 files changed, 5 insertions(+)
+
+diff --git a/flow/designs/asap7/cva6/config.mk b/flow/designs/asap7/cva6/config.mk
+index 3882ee934..41d1c19ec 100644
+--- a/flow/designs/asap7/cva6/config.mk
++++ b/flow/designs/asap7/cva6/config.mk
+@@ -1,4 +1,5 @@
+ export PLATFORM               = asap7
++export SYNTH_HIERARCHICAL = 1
+ 
+ export DESIGN_NAME            = cva6
+ 
+diff --git a/flow/designs/asap7/ethmac/config.mk b/flow/designs/asap7/ethmac/config.mk
+index 56f437afa..e33d87ee8 100644
+--- a/flow/designs/asap7/ethmac/config.mk
++++ b/flow/designs/asap7/ethmac/config.mk
+@@ -1,4 +1,5 @@
+ export PLATFORM               = asap7
++export SYNTH_HIERARCHICAL = 1
+ 
+ export DESIGN_NAME            = ethmac
+ 
+diff --git a/flow/designs/asap7/ibex/config.mk b/flow/designs/asap7/ibex/config.mk
+index a6a0b94a2..fbdefcf40 100644
+--- a/flow/designs/asap7/ibex/config.mk
++++ b/flow/designs/asap7/ibex/config.mk
+@@ -1,4 +1,5 @@
+ export PLATFORM               = asap7
++export SYNTH_HIERARCHICAL = 1
+ 
+ export DESIGN_NICKNAME        = ibex
+ export DESIGN_NAME            = ibex_core
+diff --git a/flow/designs/asap7/jpeg/config.mk b/flow/designs/asap7/jpeg/config.mk
+index 7a229fa0c..021ef08d5 100644
+--- a/flow/designs/asap7/jpeg/config.mk
++++ b/flow/designs/asap7/jpeg/config.mk
+@@ -1,4 +1,5 @@
+ export PLATFORM               = asap7
++export SYNTH_HIERARCHICAL = 1
+ 
+ export DESIGN_NAME            = jpeg_encoder
+ export DESIGN_NICKNAME        = jpeg
+diff --git a/flow/designs/asap7/swerv_wrapper/config.mk b/flow/designs/asap7/swerv_wrapper/config.mk
+index 9b07043ea..ef472b42a 100644
+--- a/flow/designs/asap7/swerv_wrapper/config.mk
++++ b/flow/designs/asap7/swerv_wrapper/config.mk
+@@ -1,5 +1,6 @@
+ export DESIGN_NAME = swerv_wrapper
+ export PLATFORM    = asap7
++export SYNTH_HIERARCHICAL = 1
+ 
+ # SYNTH_KEEP_MODULES below is a captured list of kept modules
+ # with:
+-- 
+2.51.0
+

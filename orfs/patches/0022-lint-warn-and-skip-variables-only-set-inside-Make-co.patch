@@ -1,0 +1,51 @@
+From 3d34bdad49260c45e8409d80b643be20250ddc94 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 13:12:54 +0200
+Subject: [PATCH 22/40] lint: warn and skip variables only set inside Make
+ conditionals
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The parser cannot evaluate Make conditionals (ifeq/else/endif), so
+extracting variable values from unknown branches produces wrong
+configs. For example, SYNTH_BLACKBOXES from an ifeq FLOW_VARIANT
+block would cause Yosys to blackbox modules that shouldn't be.
+
+Now all conditional assignments are skipped, and the linter emits
+an ERROR for variables that are only defined inside conditional
+blocks and will therefore be missing in the Bazel build.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ bazel/config_mk_parser.py | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/bazel/config_mk_parser.py b/bazel/config_mk_parser.py
+index 97422c45e..0ac501164 100644
+--- a/bazel/config_mk_parser.py
++++ b/bazel/config_mk_parser.py
+@@ -353,8 +353,17 @@ class ConfigMkParser:
+         if op == "?=" and var_name in raw_vars and not conditional:
+             return
+ 
+-        # For conditional assignments, only store if var not already set unconditionally
+-        if conditional and var_name in raw_vars:
++        # Skip all conditional assignments — the parser can't evaluate
++        # Make conditionals, so extracting values from unknown branches
++        # produces wrong configs.
++        if conditional:
++            if var_name not in raw_vars and var_name not in NON_ARGUMENT_VARS:
++                result.warnings.append(Warning(
++                    line_number=line_num + 1,
++                    message=f"{var_name}: only set inside conditional, "
++                            "will be missing in Bazel build",
++                    category="error",
++                ))
+             return
+ 
+         raw_vars[var_name] = (value, op, line_num + 1)
+-- 
+2.51.0
+

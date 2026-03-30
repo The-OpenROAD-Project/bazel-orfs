@@ -1,0 +1,83 @@
+From 21184ab76235e20b55b85bff19d1177d47b0bb34 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 13:13:11 +0200
+Subject: [PATCH 23/40] lint: resolve $(wildcard ...) patterns to filegroup
+ labels
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Previously, $(sort $(wildcard ...)) patterns in SOURCE_VARS like
+ADDITIONAL_LEFS were split on whitespace, producing malformed tokens
+like ["$(sort", "$(wildcard", "...*.lef))"] that were silently
+dropped by _convert_sources.
+
+Now the parser unwraps $(sort $(wildcard ...)) and $(wildcard ...)
+wrappers, then maps glob patterns (*.lef, *.lib, *.v) to
+convention-based filegroup labels (e.g. //pkg/lef:lef, //pkg:verilog).
+The target BUILD.bazel must define a matching filegroup.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ bazel/config_mk_parser.py | 36 +++++++++++++++++++++++++++++++++++-
+ 1 file changed, 35 insertions(+), 1 deletion(-)
+
+diff --git a/bazel/config_mk_parser.py b/bazel/config_mk_parser.py
+index 0ac501164..ff330e8ec 100644
+--- a/bazel/config_mk_parser.py
++++ b/bazel/config_mk_parser.py
+@@ -662,15 +662,49 @@ class ConfigMkParser:
+         if not resolved:
+             return []
+ 
++        # Unwrap $(sort $(wildcard ...)) and $(wildcard ...) before splitting,
++        # since these contain spaces that aren't token separators.
++        unwrapped = re.sub(
++            r'\$\(sort\s+\$\(wildcard\s+(.+?)\)\s*\)',
++            r'\1',
++            resolved,
++        )
++        unwrapped = re.sub(
++            r'\$\(wildcard\s+(.+?)\)',
++            r'\1',
++            unwrapped,
++        )
++
+         labels = []
+ 
+         # Split on whitespace for multi-file variables
+-        tokens = resolved.split()
++        tokens = unwrapped.split()
+         for token in tokens:
+             token = token.strip()
+             if not token:
+                 continue
+ 
++            # Map wildcard patterns to filegroup labels.
++            # e.g. flow/designs/asap7/swerv_wrapper/lef/*.lef
++            #   -> //flow/designs/asap7/swerv_wrapper/lef:lef
++            # The target BUILD.bazel must define a matching filegroup.
++            if "*" in token or "?" in token:
++                dir_part = os.path.dirname(token)
++                ext = os.path.splitext(token)[1].lstrip(".")
++                # Map file extension to filegroup name
++                ext_to_group = {
++                    "v": "verilog", "sv": "verilog",
++                    "lef": "lef", "lib": "lib",
++                    "gz": "gds",
++                }
++                group_name = ext_to_group.get(ext, ext)
++                label = self._path_to_label(
++                    dir_part + "/" + group_name, result, line_num
++                )
++                if label:
++                    labels.append(label)
++                continue
++
+             label = self._path_to_label(token, result, line_num)
+             if label:
+                 labels.append(label)
+-- 
+2.51.0
+

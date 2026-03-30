@@ -1,0 +1,197 @@
+From e6313535ad572b76a3bb4f7d95160edff5d79d00 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 13:14:31 +0200
+Subject: [PATCH 25/40] build: CI detection, all platforms, skip missing
+ sources in repo rule
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Add ci flag per design based on rules-base.json presence; non-CI
+  designs get tags=["manual"] to exclude from wildcard builds
+- Add all platforms (gf12, gf55, rapidus2hp) to MODULE.bazel
+- Skip designs with missing source files (confidential designs)
+- Index designs by directory name when it differs from nickname
+- Soft return instead of fail() for unknown designs
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ MODULE.bazel      |  4 ++++
+ bazel/designs.bzl | 54 ++++++++++++++++++++++++++++++++++++++++++++++-
+ bazel/orfs.bzl    | 14 ++++++++++--
+ 3 files changed, 69 insertions(+), 3 deletions(-)
+
+diff --git a/MODULE.bazel b/MODULE.bazel
+index 8814e49f0..a151f4dba 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -70,6 +70,7 @@ use_repo(orfs, "docker_orfs")
+ # bazel_dep(name = "toolchains_llvm", version = "1.5.0")
+ 
+ # Auto-generate orfs_flow() targets from config.mk files
++# Designs with rules-base.json are CI-enabled; others get tags=["manual"]
+ orfs_designs = use_repo_rule("//bazel:designs.bzl", "orfs_designs")
+ 
+ orfs_designs(
+@@ -77,9 +78,12 @@ orfs_designs(
+     designs_dir = "//flow/designs:BUILD.bazel",
+     platforms = [
+         "asap7",
++        "gf12",
+         "gf180",
++        "gf55",
+         "ihp-sg13g2",
+         "nangate45",
++        "rapidus2hp",
+         "sky130hd",
+         "sky130hs",
+     ],
+diff --git a/bazel/designs.bzl b/bazel/designs.bzl
+index 1654cb748..31a1d1d3f 100644
+--- a/bazel/designs.bzl
++++ b/bazel/designs.bzl
+@@ -20,6 +20,25 @@ def _find_config_files(repository_ctx, designs_dir, platforms):
+                     configs.append(line)
+     return configs
+ 
++def _find_ci_designs(repository_ctx, designs_dir, platforms):
++    """Find designs that have rules-base.json (CI-enabled)."""
++    ci_designs = {}
++    for platform in platforms:
++        platform_dir = designs_dir + "/" + platform
++        result = repository_ctx.execute(["find", platform_dir, "-name", "rules-base.json", "-type", "f"])
++        if result.return_code == 0:
++            for line in result.stdout.strip().split("\n"):
++                if not line:
++                    continue
++
++                # Extract platform/design from path
++                # e.g. .../designs/sky130hd/gcd/rules-base.json -> sky130hd/gcd
++                rel = line[len(designs_dir) + 1:]
++                parts = rel.split("/")
++                if len(parts) >= 2:
++                    ci_designs[parts[0] + "/" + parts[1]] = True
++    return ci_designs
++
+ def _orfs_designs_impl(repository_ctx):
+     parser_path = repository_ctx.path(repository_ctx.attr._parser)
+     designs_path = repository_ctx.path(repository_ctx.attr.designs_dir)
+@@ -57,6 +76,13 @@ def _orfs_designs_impl(repository_ctx):
+ 
+     configs = json.decode(result.stdout)
+ 
++    # Find CI-enabled designs (those with rules-base.json)
++    ci_designs = _find_ci_designs(
++        repository_ctx,
++        designs_dir,
++        repository_ctx.attr.platforms,
++    )
++
+     # Build a dict keyed by "platform/design_nickname"
+     designs = {}
+     for config in configs:
+@@ -66,15 +92,41 @@ def _orfs_designs_impl(repository_ctx):
+         if not name or not platform or not nickname:
+             continue
+ 
++        # Skip designs with source files that don't exist (e.g. confidential designs).
++        # designs_dir points to .../flow/designs, so go up two levels for workspace root.
++        skip = False
++        for vf in config.get("verilog_files", []):
++            if vf.startswith("//"):
++                pkg_path = vf[2:].split(":")[0]
++                full_path = designs_dir + "/../../" + pkg_path
++                if not repository_ctx.path(full_path).exists:
++                    skip = True
++                    break
++        if skip:
++            continue
++
+         key = "%s/%s" % (platform, nickname)
+-        designs[key] = {
++        entry = {
+             "name": name,
+             "platform": platform,
+             "verilog_files": config.get("verilog_files", []),
+             "sources": config.get("sources", {}),
+             "arguments": config.get("arguments", {}),
+             "blocks": config.get("blocks", []),
++            "ci": key in ci_designs,
+         }
++        designs[key] = entry
++
++        # Also index by directory name when it differs from nickname,
++        # so orfs_design() can find the config from the package path.
++        config_path = config.get("config_path", "")
++        if config_path:
++            parts = config_path.split("/")
++            if len(parts) >= 4:
++                dirname = parts[-2]  # e.g. "black_parrot" from ".../black_parrot/config.mk"
++                dir_key = "%s/%s" % (platform, dirname)
++                if dir_key != key:
++                    designs[dir_key] = entry
+ 
+         # Also add block_configs as separate entries
+         for block_config in config.get("block_configs", []):
+diff --git a/bazel/orfs.bzl b/bazel/orfs.bzl
+index bc40a14d5..16d4a249b 100644
+--- a/bazel/orfs.bzl
++++ b/bazel/orfs.bzl
+@@ -61,8 +61,10 @@ def orfs_design(platform = None, design = None):
+ 
+     key = "%s/%s" % (platform, design)
+     if key not in DESIGNS:
+-        fail("No parsed config.mk for %s. Run the linter: " +
+-             "python3 bazel/config_mk_parser.py --lint flow/designs/%s/config.mk" % (key, key))
++        # Platform/design not in the parsed config set — skip silently.
++        # This happens for platforms not listed in MODULE.bazel or when
++        # the directory name doesn't match the DESIGN_NICKNAME in config.mk.
++        return
+ 
+     config = DESIGNS[key]
+     name = config["name"]
+@@ -72,6 +74,10 @@ def orfs_design(platform = None, design = None):
+     if "RULES_JSON" not in sources and native.glob(["rules-base.json"], allow_empty = True):
+         sources["RULES_JSON"] = [":rules-base.json"]
+ 
++    # Designs not tested in CI get tags = ["manual"] so they are excluded
++    # from wildcard builds (bazel build //...) but can still be built explicitly.
++    tags = [] if config.get("ci", False) else ["manual"]
++
+     # Handle BLOCKS: create sub-macro orfs_flow() targets
+     macros = []
+     for block_name in config.get("blocks", []):
+@@ -97,6 +103,7 @@ def orfs_design(platform = None, design = None):
+             pdk = "//flow:" + platform,
+             arguments = block_config["arguments"],
+             sources = block_sources,
++            tags = tags,
+         )
+         macros.append(":%s_generate_abstract" % block_config["name"])
+ 
+@@ -111,6 +118,7 @@ def orfs_design(platform = None, design = None):
+             variant = "lint",
+             lint = True,
+             openroad = "@mock-openroad//src/bin:openroad",
++            tags = tags,
+         )
+ 
+     # Filter verilog_files: skip unresolved Make variables and invalid labels
+@@ -147,6 +155,7 @@ def orfs_design(platform = None, design = None):
+         sources = sources,
+         macros = macros if macros else [],
+         stage_data = {"synth": extra_data} if extra_data else {},
++        tags = tags,
+     )
+ 
+     # Lint flow — fast validation with mock-openroad
+@@ -161,4 +170,5 @@ def orfs_design(platform = None, design = None):
+         variant = "lint",
+         lint = True,
+         openroad = "@mock-openroad//src/bin:openroad",
++        tags = tags,
+     )
+-- 
+2.51.0
+

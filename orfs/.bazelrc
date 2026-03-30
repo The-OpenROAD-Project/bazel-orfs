@@ -1,0 +1,6 @@
+# Common settings for ORFS integration builds
+
+build --incompatible_strict_action_env
+
+# User-local overrides (not tracked in git)
+try-import %workspace%/user.bazelrc

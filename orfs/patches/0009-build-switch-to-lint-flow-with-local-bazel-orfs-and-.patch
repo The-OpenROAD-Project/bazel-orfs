@@ -1,0 +1,123 @@
+From f640b80734c0b316fe4f39f798757782e9077ae6 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 05:52:41 +0200
+Subject: [PATCH 09/40] build: switch to lint flow with local bazel-orfs and
+ mock-openroad
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- MODULE.bazel: use local_path_override for bazel-orfs and mock-openroad
+  pointing to ~/bazel-orfs (linting flow is beta)
+- orfs.bzl: pass lint=True and openroad=@mock-openroad to orfs_flow()
+  for seconds-fast feedback instead of hours-long full EDA flow
+- Re-enable disabled designs: cva6, mock-cpu, riscv32i, swerv_wrapper
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ MODULE.bazel                                 | 11 ++++++++---
+ bazel/orfs.bzl                               |  4 ++++
+ flow/designs/asap7/cva6/BUILD.bazel          |  5 ++---
+ flow/designs/asap7/mock-cpu/BUILD.bazel      |  4 ++--
+ flow/designs/asap7/riscv32i/BUILD.bazel      |  5 ++---
+ flow/designs/asap7/swerv_wrapper/BUILD.bazel |  5 ++---
+ 6 files changed, 20 insertions(+), 14 deletions(-)
+
+diff --git a/MODULE.bazel b/MODULE.bazel
+index 55f15f5dc..8814e49f0 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -7,10 +7,15 @@ module(
+ )
+ 
+ bazel_dep(name = "bazel-orfs")
+-git_override(
++local_path_override(
+     module_name = "bazel-orfs",
+-    commit = "2dbd8f0fa9c1f1cc4bf5d52f680b9116fb204219",
+-    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",
++    path = "../bazel-orfs",
++)
++
++bazel_dep(name = "mock-openroad", version = "0.0.1")
++local_path_override(
++    module_name = "mock-openroad",
++    path = "../bazel-orfs/mock/openroad",
+ )
+ 
+ bazel_dep(name = "rules_python", version = "1.2.0")
+diff --git a/bazel/orfs.bzl b/bazel/orfs.bzl
+index 620f9ec38..5c31fd281 100644
+--- a/bazel/orfs.bzl
++++ b/bazel/orfs.bzl
+@@ -93,6 +93,8 @@ def orfs_design(platform = None, design = None):
+             pdk = "//flow:" + platform,
+             arguments = block_config["arguments"],
+             sources = block_sources,
++            lint = True,
++            openroad = "@mock-openroad//src/bin:openroad",
+         )
+         macros.append(":%s_generate_abstract" % block_config["name"])
+ 
+@@ -130,4 +132,6 @@ def orfs_design(platform = None, design = None):
+         sources = sources,
+         macros = macros if macros else [],
+         stage_data = {"synth": extra_data} if extra_data else {},
++        lint = True,
++        openroad = "@mock-openroad//src/bin:openroad",
+     )
+diff --git a/flow/designs/asap7/cva6/BUILD.bazel b/flow/designs/asap7/cva6/BUILD.bazel
+index e9bbf4f48..4ccd0967d 100644
+--- a/flow/designs/asap7/cva6/BUILD.bazel
++++ b/flow/designs/asap7/cva6/BUILD.bazel
+@@ -1,6 +1,5 @@
+-# load("//bazel:orfs.bzl", "orfs_design")
++load("//bazel:orfs.bzl", "orfs_design")
+ 
+ exports_files(glob(["*"]))
+ 
+-# FIXME later
+-# orfs_design()
++orfs_design()
+diff --git a/flow/designs/asap7/mock-cpu/BUILD.bazel b/flow/designs/asap7/mock-cpu/BUILD.bazel
+index 613d916d0..4ccd0967d 100644
+--- a/flow/designs/asap7/mock-cpu/BUILD.bazel
++++ b/flow/designs/asap7/mock-cpu/BUILD.bazel
+@@ -1,5 +1,5 @@
+-# load("//bazel:orfs.bzl", "orfs_design")
++load("//bazel:orfs.bzl", "orfs_design")
+ 
+ exports_files(glob(["*"]))
+ 
+-# orfs_design()
++orfs_design()
+diff --git a/flow/designs/asap7/riscv32i/BUILD.bazel b/flow/designs/asap7/riscv32i/BUILD.bazel
+index 8cb6b4fe6..4ccd0967d 100644
+--- a/flow/designs/asap7/riscv32i/BUILD.bazel
++++ b/flow/designs/asap7/riscv32i/BUILD.bazel
+@@ -1,6 +1,5 @@
+-# FIXME later
+-# load("//bazel:orfs.bzl", "orfs_design")
++load("//bazel:orfs.bzl", "orfs_design")
+ 
+ exports_files(glob(["*"]))
+ 
+-# orfs_design()
++orfs_design()
+diff --git a/flow/designs/asap7/swerv_wrapper/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
+index e9bbf4f48..4ccd0967d 100644
+--- a/flow/designs/asap7/swerv_wrapper/BUILD.bazel
++++ b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
+@@ -1,6 +1,5 @@
+-# load("//bazel:orfs.bzl", "orfs_design")
++load("//bazel:orfs.bzl", "orfs_design")
+ 
+ exports_files(glob(["*"]))
+ 
+-# FIXME later
+-# orfs_design()
++orfs_design()
+-- 
+2.51.0
+
