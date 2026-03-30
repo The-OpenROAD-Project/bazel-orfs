@@ -68,10 +68,19 @@ def create_outputs(tcl_path, results_dir, design_name=None):
         created.append(path)
 
     if needs_abstract(content) and design_name:
-        for suffix in [".lef", "_typ.lib"]:
-            path = os.path.join(results_dir, design_name + suffix)
-            pathlib.Path(path).touch()
-            created.append(path)
+        lef_path = os.path.join(results_dir, design_name + ".lef")
+        pathlib.Path(lef_path).touch()
+        created.append(lef_path)
+
+        lib_path = os.path.join(results_dir, design_name + "_typ.lib")
+        with open(lib_path, "w") as f:
+            f.write(
+                f'library ("{design_name}_typ") {{\n'
+                f"  cell ({design_name}) {{\n"
+                f"  }}\n"
+                f"}}\n"
+            )
+        created.append(lib_path)
 
     return created
 
