@@ -366,10 +366,29 @@ def _test_impl(ctx):
     test = ctx.actions.declare_file(
         "make_{}_{}_test".format(ctx.attr.name, ctx.attr.variant),
     )
-    ctx.actions.write(
-        output = test,
-        is_executable = True,
-        content = """
+
+    if ctx.attr.lint:
+        # Lint mode: test just verifies the dependency chain builds.
+        # No metadata-check since mock-openroad doesn't produce real metrics.
+        ctx.actions.write(
+            output = test,
+            is_executable = True,
+            content = "#!/bin/sh\nexit 0\n",
+        )
+    else:
+        # For external repo targets, WORK_HOME must include the external/<repo>/
+        # prefix so Make finds results/reports at the correct runfiles path.
+        if ctx.label.workspace_name:
+            parts = ["external", ctx.label.workspace_name]
+            if ctx.label.package:
+                parts.append(ctx.label.package)
+            work_home = "/".join(parts)
+        else:
+            work_home = None
+        ctx.actions.write(
+            output = test,
+            is_executable = True,
+            content = """
 #!/bin/sh
 set -e
 if [ ! -e external ]; then
@@ -378,19 +397,18 @@ if [ ! -e external ]; then
 fi
 {make} --file {makefile} {moreargs} metadata-check
 """.format(
-            make = ctx.executable._make.short_path,
-            makefile = ctx.file._makefile.path,
-            moreargs = environment_string(
-                hack_away_prefix(
-                    arguments = odb_arguments(ctx) | data_arguments(ctx),
-                    prefix = config.root.path,
-                ) |
-                {
-                    "DESIGN_CONFIG": config.short_path,
-                },
+                make = ctx.executable._make.short_path,
+                makefile = ctx.file._makefile.path,
+                moreargs = environment_string(
+                    hack_away_prefix(
+                        arguments = odb_arguments(ctx) | data_arguments(ctx),
+                        prefix = config.root.path,
+                    ) |
+                    {"DESIGN_CONFIG": config.short_path} |
+                    ({"WORK_HOME": work_home} if work_home else {}),
+                ),
             ),
-        ),
-    )
+        )
 
     return [
         ctx.attr.src[PdkInfo],
@@ -781,27 +799,35 @@ def _make_impl(
     for file in forwards + results:
         info[file.extension] = file
 
-    commands = (
-        generation_commands(reports + logs + jsons + drcs + substep_odbs) +
-        input_commands(renames(ctx, ctx.files.src)) +
-        [_make_cmd(ctx)]
-    )
+    all_outputs = results + objects + logs + reports + jsons + drcs + substep_odbs
+    if ctx.attr.lint and stage in ("generate_metadata", "update_rules"):
+        # Lint mode: metadata/update parse real stage outputs that are stubs
+        # in lint mode, so stub their outputs instead of running Make.
+        json_set = {f: True for f in jsons + reports}
+        for f in all_outputs:
+            ctx.actions.write(output = f, content = "{}" if f in json_set else "")
+    else:
+        commands = (
+            generation_commands(reports + logs + jsons + drcs + substep_odbs) +
+            input_commands(renames(ctx, ctx.files.src)) +
+            [_make_cmd(ctx)]
+        )
 
-    ctx.actions.run_shell(
-        arguments = ["--file", ctx.file._makefile.path] + steps,
-        command = " && ".join(commands),
-        env = config_overrides(ctx, flow_environment(ctx) | config_environment(config)),
-        inputs = depset(
-            [config] + ctx.files.extra_configs,
-            transitive = [
-                data_inputs(ctx),
-                source_inputs(ctx),
-                rename_inputs(ctx),
-            ],
-        ),
-        outputs = results + objects + logs + reports + jsons + drcs + substep_odbs,
-        tools = flow_inputs(ctx),
-    )
+        ctx.actions.run_shell(
+            arguments = ["--file", ctx.file._makefile.path] + steps,
+            command = " && ".join(commands),
+            env = config_overrides(ctx, flow_environment(ctx) | config_environment(config)),
+            inputs = depset(
+                [config] + ctx.files.extra_configs,
+                transitive = [
+                    data_inputs(ctx),
+                    source_inputs(ctx),
+                    rename_inputs(ctx),
+                ],
+            ),
+            outputs = all_outputs,
+            tools = flow_inputs(ctx),
+        )
 
     config_short = declare_artifact(ctx, "results", stage + ".short.mk")
     ctx.actions.write(
