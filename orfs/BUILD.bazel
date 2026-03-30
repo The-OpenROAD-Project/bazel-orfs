@@ -14,6 +14,7 @@ test_suite(
         "@orfs//flow/designs/asap7/mock-alu:MockAlu_lint_test",
         "@orfs//flow/designs/asap7/mock-cpu:mock_cpu_lint_test",
         "@orfs//flow/designs/asap7/riscv32i:riscv_top_lint_test",
+        "@orfs//flow/designs/asap7/riscv32i-mock-sram:riscv_top_lint_test",
         "@orfs//flow/designs/asap7/swerv_wrapper:swerv_wrapper_lint_test",
         "@orfs//flow/designs/asap7/uart:uart_lint_test",
     ],
