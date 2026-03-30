@@ -204,7 +204,7 @@
   "moduleExtensions": {
     "@@bazel-orfs+//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "2NaeMQ9kFzzANam0K4H6dF287e/i5452A2YeozZxTbk=",
+        "bzlTransitiveDigest": "49Rwjm2V6v3hh3++p8hh/LjQnDxRwsn/WyOg/Dv3+ro=",
         "usagesDigest": "qX3Uqa59gPEIG5VN/ICsLE/gGk9aaVQXraWNS9b36/o=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -232,12 +232,20 @@
             "repoRuleId": "@@bazel-orfs+//:config.bzl%global_config",
             "attributes": {
               "klayout": "@@bazel-orfs++orfs_repositories+docker_orfs//:klayout",
+              "make": "@@bazel-orfs++orfs_repositories+docker_orfs//:make",
               "makefile": "@@bazel-orfs++orfs_repositories+docker_orfs//:makefile",
-              "pdk": "@@bazel-orfs++orfs_repositories+docker_orfs//:asap7",
               "makefile_yosys": "@@bazel-orfs++orfs_repositories+docker_orfs//:makefile_yosys",
               "openroad": "@@bazel-orfs++orfs_repositories+docker_orfs//:openroad",
+              "opensta": "@@bazel-orfs++orfs_repositories+docker_orfs//:sta",
+              "pdk": "@@bazel-orfs++orfs_repositories+docker_orfs//:asap7",
               "yosys": "@@bazel-orfs++orfs_repositories+docker_orfs//:yosys",
               "yosys_abc": "@@bazel-orfs++orfs_repositories+docker_orfs//:yosys-abc"
+            }
+          },
+          "orfs_variable_metadata": {
+            "repoRuleId": "@@bazel-orfs+//:load_json_file.bzl%load_json_file",
+            "attributes": {
+              "src": "@@bazel-orfs++orfs_repositories+docker_orfs//:OpenROAD-flow-scripts/flow/scripts/variables.yaml"
             }
           }
         },
@@ -294,7 +302,7 @@
     },
     "@@rules_chisel+//chisel:extensions.bzl%chisel": {
       "general": {
-        "bzlTransitiveDigest": "K49+IHCLhejpq/yw4hVwtbylRwTa9sQsXdZwoz57xNs=",
+        "bzlTransitiveDigest": "G0W1XHpqSsfgj6JuP6XnKWFDECHSYB5aZi+4DlbfvVc=",
         "usagesDigest": "mTvJSZtCe5FUdrrcKdHc0wz6Sv+rLqKvFP6wEByeYKo=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -586,7 +594,7 @@
     },
     "@@rules_python+//python/extensions:config.bzl%config": {
       "general": {
-        "bzlTransitiveDigest": "uo49IDITNsksO4x76pZ7eYlLKomkU77mK8VTrbCHXZM=",
+        "bzlTransitiveDigest": "TRGIl0CDmorwyNiblOYyhWuyKzi/kWFHT2uIofq7o9Y=",
         "usagesDigest": "lDbpRfhoWmZCHSaNxwZv/8fF2y0wu2th0G0f/uqX7VM=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
