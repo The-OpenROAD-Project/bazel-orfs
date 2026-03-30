@@ -46,49 +46,6 @@ index 82e00c802..f16b7e59b 100644
          "recordedFileInputs": {},
          "recordedDirentsInputs": {},
          "envVariables": {},
-diff --git a/bazel/config_mk_parser.py b/bazel/config_mk_parser.py
-index 88174fd84..529d84517 100644
---- a/bazel/config_mk_parser.py
-+++ b/bazel/config_mk_parser.py
-@@ -685,6 +685,11 @@ class ConfigMkParser:
-                 if path.startswith("designs/"):
-                     path = f"flow/{path}"
- 
-+        # Platform files live under the //flow package (no sub-packages)
-+        if path.startswith("flow/platforms/"):
-+            rel = path[len("flow/"):]  # e.g. platforms/asap7/verilog/fakeram7_64x256.sv
-+            return f"//flow:{rel}"
-+
-         # Split into package and file: //dir:filename
-         if "/" in path:
-             dir_part = os.path.dirname(path)
-diff --git a/bazel/orfs.bzl b/bazel/orfs.bzl
-index 5c31fd281..41eb75cea 100644
---- a/bazel/orfs.bzl
-+++ b/bazel/orfs.bzl
-@@ -18,9 +18,7 @@ def _convert_sources(sources, pkg):
-             # Skip invalid paths like //./
-             if "//." in label:
-                 continue
--            # Skip platform paths — already included in PDK
--            if "//flow/platforms/" in label:
--                continue
-+            # Platform paths (fakeram lef/lib) are needed by the flow
-             # Skip partial patterns and directory refs
-             if "*" in label or "))" in label:
-                 continue
-@@ -107,9 +105,8 @@ def orfs_design(platform = None, design = None):
-         # Skip invalid paths
-         if "//." in vf or vf.endswith(":"):
-             continue
--        # Skip platform paths — already in PDK
--        if "//flow/platforms/" in vf:
--            continue
-+        # Platform verilog (fakeram etc.) is needed for synthesis
-+        # PDK provides liberty/lef/tech, not behavioral verilog
-         # Skip directory references (VERILOG_INCLUDE_DIRS)
-         if vf.endswith(":include") or "/include" in vf.split(":")[-1]:
-             continue
 diff --git a/flow/BUILD.bazel b/flow/BUILD.bazel
 index 0be37f13b..d6d367d1e 100644
 --- a/flow/BUILD.bazel
@@ -111,38 +68,44 @@ diff --git a/flow/designs/asap7/cva6/BUILD.bazel b/flow/designs/asap7/cva6/BUILD
 index 4ccd0967d..805016312 100644
 --- a/flow/designs/asap7/cva6/BUILD.bazel
 +++ b/flow/designs/asap7/cva6/BUILD.bazel
-@@ -1,5 +1,7 @@
--load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,6 +1,8 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
 +# TODO: VERILOG_INCLUDE_DIRS subdirectory includes not in sandbox
 +# common_cells/registers.svh needs recursive include dir support
-+# load("//bazel:orfs.bzl", "orfs_design")
++# load("@bazel-orfs//:openroad.bzl", "orfs_design")
++# load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
--orfs_design()
-+# orfs_design()
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel b/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
 index 4ccd0967d..be645ab51 100644
 --- a/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
 +++ b/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
-@@ -1,5 +1,7 @@
--load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,6 +1,8 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
 +# TODO: hierarchical design — mock-openroad creates empty .lib stubs
 +# that yosys can't parse for the sub-block abstract
-+# load("//bazel:orfs.bzl", "orfs_design")
++# load("@bazel-orfs//:openroad.bzl", "orfs_design")
++# load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
--orfs_design()
-+# orfs_design()
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel b/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
 index 5d7d8ccbf..bce3e7880 100644
 --- a/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
 +++ b/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
-@@ -1,4 +1,5 @@
--load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,5 +1,6 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
 +# TODO: mock-openroad creates empty .lib stubs that yosys can't parse
-+# load("//bazel:orfs.bzl", "orfs_design")
++# load("@bazel-orfs//:openroad.bzl", "orfs_design")
++# load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
@@ -150,34 +113,38 @@ index 5d7d8ccbf..bce3e7880 100644
      visibility = ["//visibility:public"],
  )
  
--orfs_design()
-+# orfs_design()
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i/BUILD.bazel b/flow/designs/asap7/riscv32i/BUILD.bazel
 index 4ccd0967d..08fbd32ed 100644
 --- a/flow/designs/asap7/riscv32i/BUILD.bazel
 +++ b/flow/designs/asap7/riscv32i/BUILD.bazel
-@@ -1,5 +1,6 @@
--load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,6 +1,7 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
 +# TODO: config.mk needs platform fakeram verilog in VERILOG_FILES
-+# load("//bazel:orfs.bzl", "orfs_design")
++# load("@bazel-orfs//:openroad.bzl", "orfs_design")
++# load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
--orfs_design()
-+# orfs_design()
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/swerv_wrapper/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 index 4ccd0967d..08fbd32ed 100644
 --- a/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 +++ b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
-@@ -1,5 +1,6 @@
--load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,6 +1,7 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
 +# TODO: config.mk needs platform fakeram verilog in VERILOG_FILES
-+# load("//bazel:orfs.bzl", "orfs_design")
++# load("@bazel-orfs//:openroad.bzl", "orfs_design")
++# load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
--orfs_design()
-+# orfs_design()
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 -- 
 2.51.0
 

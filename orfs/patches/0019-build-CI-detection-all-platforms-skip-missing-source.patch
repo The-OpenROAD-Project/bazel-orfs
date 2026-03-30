@@ -1,0 +1,52 @@
+From e6313535ad572b76a3bb4f7d95160edff5d79d00 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 13:14:31 +0200
+Subject: [PATCH 25/40] build: CI detection, all platforms, skip missing
+ sources in repo rule
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Add ci flag per design based on rules-base.json presence; non-CI
+  designs get tags=["manual"] to exclude from wildcard builds
+- Add all platforms (gf12, gf55, rapidus2hp) to MODULE.bazel
+- Skip designs with missing source files (confidential designs)
+- Index designs by directory name when it differs from nickname
+- Soft return instead of fail() for unknown designs
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ MODULE.bazel      |  4 ++++
+ bazel/designs.bzl | 54 ++++++++++++++++++++++++++++++++++++++++++++++-
+ bazel/orfs.bzl    | 14 ++++++++++--
+ 3 files changed, 69 insertions(+), 3 deletions(-)
+
+diff --git a/MODULE.bazel b/MODULE.bazel
+index 8814e49f0..a151f4dba 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -70,6 +70,7 @@ use_repo(orfs, "docker_orfs")
+ # bazel_dep(name = "toolchains_llvm", version = "1.5.0")
+ 
+ # Auto-generate orfs_flow() targets from config.mk files
++# Designs with rules-base.json are CI-enabled; others get tags=["manual"]
+ orfs_designs = use_repo_rule("@bazel-orfs//private:designs.bzl", "orfs_designs")
+ 
+ orfs_designs(
+@@ -77,9 +78,12 @@ orfs_designs(
+     designs_dir = "//flow/designs:BUILD.bazel",
+     platforms = [
+         "asap7",
++        "gf12",
+         "gf180",
++        "gf55",
+         "ihp-sg13g2",
+         "nangate45",
++        "rapidus2hp",
+         "sky130hd",
+         "sky130hs",
+     ],
+-- 
+2.51.0
+

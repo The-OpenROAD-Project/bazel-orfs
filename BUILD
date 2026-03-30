@@ -7,6 +7,7 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 exports_files([
     "bump.py",
+    "config_mk_parser.py",
     "deploy.tpl",
     "eqy.tpl",
     "eqy-write-verilog.tcl",
@@ -18,6 +19,7 @@ exports_files([
     "openroad-visibility.patch",
     "oss_cad_suite.BUILD.bazel",
     "power.tcl",
+    "rtlil_kept_modules.py",
     "sby.tpl",
 ])
 
@@ -109,6 +111,42 @@ sh_binary(
     name = "deps",
     srcs = ["deps_wrapper.sh"],
     visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "config_mk_parser_lib",
+    srcs = ["config_mk_parser.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "config_mk_parser",
+    srcs = ["config_mk_parser.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "config_mk_parser_test",
+    srcs = ["config_mk_parser_test.py"],
+    deps = [":config_mk_parser_lib"],
+)
+
+py_library(
+    name = "rtlil_kept_modules_lib",
+    srcs = ["rtlil_kept_modules.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "rtlil_kept_modules",
+    srcs = ["rtlil_kept_modules.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "rtlil_kept_modules_test",
+    srcs = ["rtlil_kept_modules_test.py"],
+    deps = [":rtlil_kept_modules_lib"],
 )
 
 # Run `bazelisk run //:fix_lint` to format all files changed since origin/main.

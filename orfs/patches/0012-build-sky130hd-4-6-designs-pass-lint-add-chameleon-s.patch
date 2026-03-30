@@ -22,28 +22,32 @@ diff --git a/flow/designs/sky130hd/chameleon/BUILD.bazel b/flow/designs/sky130hd
 index 4ccd0967d..fb329605f 100644
 --- a/flow/designs/sky130hd/chameleon/BUILD.bazel
 +++ b/flow/designs/sky130hd/chameleon/BUILD.bazel
-@@ -1,5 +1,6 @@
--load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,6 +1,7 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
 +# TODO: parser can't resolve $(VERILOG_FILES_BLACKBOX) and wildcard in AHB_sys_0
-+# load("//bazel:orfs.bzl", "orfs_design")
++# load("@bazel-orfs//:openroad.bzl", "orfs_design")
++# load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
--orfs_design()
-+# orfs_design()
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/microwatt/BUILD.bazel b/flow/designs/sky130hd/microwatt/BUILD.bazel
 index 4ccd0967d..80698389b 100644
 --- a/flow/designs/sky130hd/microwatt/BUILD.bazel
 +++ b/flow/designs/sky130hd/microwatt/BUILD.bazel
-@@ -1,5 +1,6 @@
--load("//bazel:orfs.bzl", "orfs_design")
+@@ -1,6 +1,7 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
 +# TODO: parser can't resolve $(VERILOG_FILES_BLACKBOX) inside VERILOG_FILES wildcard
-+# load("//bazel:orfs.bzl", "orfs_design")
++# load("@bazel-orfs//:openroad.bzl", "orfs_design")
++# load("@orfs_designs//:designs.bzl", "DESIGNS")
  
  exports_files(glob(["*"]))
  
--orfs_design()
-+# orfs_design()
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 -- 
 2.51.0
 
