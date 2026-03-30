@@ -342,11 +342,51 @@ def config_overrides(ctx, arguments):
     }
     return arguments | defines_for_stage | settings
 
+def _workspace_prefix(ctx):
+    """Return the execroot-relative prefix for the workspace containing ctx.
+
+    For targets in the main repo this is empty.  For external repo targets
+    (e.g. @@orfs+) this is "external/<repo_name>".
+    """
+    if ctx.label.workspace_name:
+        return "external/" + ctx.label.workspace_name
+    return ""
+
+def _prefix_include_dirs(dirs_value, prefix):
+    """Prefix each directory in a space-separated VERILOG_INCLUDE_DIRS value."""
+    if not prefix or not dirs_value:
+        return dirs_value
+    parts = dirs_value.replace("\t", " ").split(" ")
+    return " ".join([
+        prefix + "/" + p.strip() if p.strip() and not p.strip().startswith(prefix) else p
+        for p in parts
+        if p.strip()
+    ])
+
 def config_content(ctx, arguments, paths):
+    """Generate Makefile-style config content for an ORFS stage.
+
+    Args:
+      ctx: The rule context.
+      arguments: Dictionary of config variables.
+      paths: List of additional config file paths to include.
+
+    Returns:
+      A string with export VAR?=value lines and include directives.
+    """
     workaround = {
         # https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/issues/3907
         "LEC_CHECK": "0",
     } | arguments
+
+    # Rewrite VERILOG_INCLUDE_DIRS to use sandbox-relative paths
+    prefix = _workspace_prefix(ctx)
+    if prefix and "VERILOG_INCLUDE_DIRS" in workaround:
+        workaround = dict(workaround)
+        workaround["VERILOG_INCLUDE_DIRS"] = _prefix_include_dirs(
+            workaround["VERILOG_INCLUDE_DIRS"],
+            prefix,
+        )
 
     return "".join(
         sorted(
