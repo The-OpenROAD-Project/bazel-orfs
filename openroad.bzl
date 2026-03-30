@@ -106,6 +106,9 @@ UPDATE_RULES_IMPL = _UPDATE_RULES_IMPL
 TEST_STAGE_IMPL = _TEST_STAGE_IMPL
 ABSTRACT_IMPL = _ABSTRACT_IMPL
 
+# CPU count for parallel synthesis partitioning
+NUM_CPUS = 4
+
 # Flow macros
 orfs_flow = _orfs_flow
 orfs_synth = _orfs_synth

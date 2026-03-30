@@ -1,0 +1,40 @@
+From e89f6b27898abc6506c18f63eda397a5bd67ef97 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 07:06:17 +0200
+Subject: [PATCH 17/40] fix: parser change detection via
+ repository_ctx.read(label)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Bazel uses content-based hashing, not timestamps. The marker file
+already tracked the parser hash, but repository_ctx.path(label) alone
+didn't register the watch. Using repository_ctx.read(label) explicitly
+registers the parser as a watched input.
+
+touch doesn't trigger re-parse (content unchanged); actual edits do.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ bazel/designs.bzl | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/bazel/designs.bzl b/bazel/designs.bzl
+index 8128d56c2..1654cb748 100644
+--- a/bazel/designs.bzl
++++ b/bazel/designs.bzl
+@@ -25,6 +25,10 @@ def _orfs_designs_impl(repository_ctx):
+     designs_path = repository_ctx.path(repository_ctx.attr.designs_dir)
+     designs_dir = str(designs_path.dirname)
+ 
++    # Watch the parser file so Bazel re-fetches this repo when it changes.
++    # read(label) registers it as a watched input; read(path) does not.
++    repository_ctx.read(repository_ctx.attr._parser)
++
+     python = repository_ctx.which("python3") or repository_ctx.which("python")
+     if not python:
+         fail("python3 not found in PATH")
+-- 
+2.51.0
+

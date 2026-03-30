@@ -1,0 +1,50 @@
+From 610aab70168df7cc4c04ddc1d51949bfe27e4d65 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 15:24:10 +0200
+Subject: [PATCH 37/40] build: use NUM_CPUS from detect_cpus for parallel synth
+ partitions
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Replace hardcoded partition count with NUM_CPUS detected at workspace
+setup. Designs with SYNTH_HIERARCHICAL=1 automatically get parallel
+synthesis with one partition per CPU core.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ bazel/orfs.bzl | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/bazel/orfs.bzl b/bazel/orfs.bzl
+index 1642acbd8..577fb28e6 100644
+--- a/bazel/orfs.bzl
++++ b/bazel/orfs.bzl
+@@ -1,6 +1,6 @@
+ """Macro to create orfs_flow() targets from parsed config.mk data."""
+ 
+-load("@bazel-orfs//:openroad.bzl", "orfs_flow")
++load("@bazel-orfs//:openroad.bzl", "NUM_CPUS", "orfs_flow")
+ load("@orfs_designs//:designs.bzl", "DESIGNS")
+ 
+ def _convert_sources(sources, pkg):
+@@ -162,6 +162,7 @@ def orfs_design(platform = None, design = None):
+             extra_data.append("//" + inc_dir + ":include")
+ 
+     # Real flow — uses Docker image with real OpenROAD/Yosys
++    parallel = NUM_CPUS if config["arguments"].get("SYNTH_HIERARCHICAL") == "1" else 0
+     orfs_flow(
+         name = name,
+         verilog_files = verilog_files,
+@@ -171,6 +172,7 @@ def orfs_design(platform = None, design = None):
+         macros = macros if macros else [],
+         stage_data = {"synth": extra_data} if extra_data else {},
+         tags = tags,
++        parallel_synth = parallel,
+     )
+ 
+     # Lint flow — fast validation with mock-openroad
+-- 
+2.51.0
+

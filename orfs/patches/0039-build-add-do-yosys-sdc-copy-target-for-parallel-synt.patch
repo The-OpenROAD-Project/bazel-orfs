@@ -1,0 +1,38 @@
+From bdced8313991d2319155f3c125230350b245cdf2 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 16:16:16 +0200
+Subject: [PATCH 39/40] build: add do-yosys-sdc-copy target for parallel synth
+ path
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The parallel synth path skips do-yosys (which copies SDC_FILE to
+1_2_yosys.sdc). Add a separate target for just the SDC copy, and
+run synth_odb after merging partitions to produce valid ODB for
+downstream stages.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/Makefile | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/flow/Makefile b/flow/Makefile
+index 36f74bda2..f0243a04c 100644
+--- a/flow/Makefile
++++ b/flow/Makefile
+@@ -276,6 +276,10 @@ do-yosys-canonicalize: yosys-dependencies
+ do-yosys-keep: yosys-dependencies
+ 	$(SCRIPTS_DIR)/synth.sh $(SCRIPTS_DIR)/synth_keep.tcl $(LOG_DIR)/1_1_yosys_keep.log
+ 
++.PHONY: do-yosys-sdc-copy
++do-yosys-sdc-copy:
++	cp $(SDC_FILE) $(RESULTS_DIR)/1_2_yosys.sdc
++
+ .PHONY: do-yosys-kept-json
+ do-yosys-kept-json:
+ 	$(PYTHON_EXE) $(SCRIPTS_DIR)/rtlil_kept_modules.py $(RESULTS_DIR)/1_1_yosys_keep.rtlil $(RESULTS_DIR)/kept_modules.json
+-- 
+2.51.0
+
