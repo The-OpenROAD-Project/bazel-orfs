@@ -96,7 +96,6 @@ def orfs_flow(
         test_kwargs = {},
         squash = False,
         substeps = False,
-        parallel_synth = 0,  # buildifier: disable=unused-variable
         **kwargs):
     """
     Creates targets for running physical design flow with OpenROAD-flow-scripts.
@@ -130,8 +129,6 @@ def orfs_flow(
         action outputs in per-substep output groups. Enables shared cache of
         substep intermediates for debugging via //:deps. Default False to
         control cache budget -- enable for designs under active development.
-      parallel_synth: number of parallel synthesis partitions (0 = disabled).
-        When > 0, synthesis is split into keep + N partition actions.
       **kwargs: forward named args
     """
     if abstract_stage and last_stage:

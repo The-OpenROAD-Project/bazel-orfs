@@ -138,13 +138,12 @@ def orfs_design(name = None, platform = None, design = None, designs = None, moc
     )
 
     # Real flow — uses Docker image with real OpenROAD/Yosys
-    parallel = NUM_CPUS if config["arguments"].get("SYNTH_HIERARCHICAL") == "1" else 0
-
-    # HACK: speed up local testing for large hierarchical designs by keeping
-    # all modules as separate synthesis units (minimum keep size = 0).
     arguments = dict(config["arguments"])
-    if parallel and "SYNTH_MINIMUM_KEEP_SIZE" not in arguments:
-        arguments["SYNTH_MINIMUM_KEEP_SIZE"] = "0"
+    if arguments.get("SYNTH_HIERARCHICAL") == "1":
+        if "SYNTH_MINIMUM_KEEP_SIZE" not in arguments:
+            arguments["SYNTH_MINIMUM_KEEP_SIZE"] = "0"
+        if "SYNTH_NUM_PARTITIONS" not in arguments:
+            arguments["SYNTH_NUM_PARTITIONS"] = str(NUM_CPUS)
 
     orfs_flow(
         name = name,
@@ -155,7 +154,6 @@ def orfs_design(name = None, platform = None, design = None, designs = None, moc
         macros = macros if macros else [],
         stage_data = {"synth": extra_data} if extra_data else {},
         tags = tags,
-        parallel_synth = parallel,
     )
 
     # Lint flow — fast validation with mock-openroad (only if configured)
