@@ -58,7 +58,7 @@ to PRs directly in OpenROAD and ORFS.
 
 The lint flow validates design configuration in seconds using mock
 tools. FRC rules catch common errors before expensive real builds.
-See the [FRC catalog](../gallery/docs/frc/) for the full list.
+See the [FRC catalog](../gallery/docs/frc/FRC.md) for the full list.
 
 ## Why Patches?
 
