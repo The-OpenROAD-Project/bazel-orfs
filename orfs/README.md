@@ -84,7 +84,7 @@ Floorplan stage results across all platforms (2026-03-31):
 | mock-cpu | pass | |
 | riscv32i | pass | |
 | riscv32i-mock-sram (block) | pass | |
-| riscv32i-mock-sram (top) | **FAIL** | [FRC-7](FRC.md) PDN-0232/0233: empty macro PDN grids |
+| riscv32i-mock-sram (top) | pass | Fixed: [FRC-7](FRC.md) PDN-0232/0233 (patch 0035) |
 | swerv_wrapper | pass | |
 | uart | pass | |
 

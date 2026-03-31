@@ -40,7 +40,13 @@ new FRC rule. For each failure:
 3. Create `gallery/docs/frc/FRC-NNN.md` documenting the pattern:
    what it checks, why it matters, an example, and a suggested fix.
 4. Add the rule to the table above.
-5. Update the build status table in [README.md](README.md).
+5. **Fix the bug** — apply the fix (patch, config change, etc.) and
+   rebuild the failing target to verify the error is gone. Fixing the
+   bug is itself a quality check for the FRC: it confirms the root-cause
+   analysis is correct, the documented fix actually works, and observing
+   the problem disappear validates the FRC description end-to-end.
+6. Update the build status table in [README.md](README.md) — change the
+   entry from FAIL to pass and note the fix (patch number, FRC ID).
 
 Repeat for each stage (`_synth`, `_floorplan`, `_place`, `_cts`, `_route`,
 `_final`) to extend coverage incrementally.

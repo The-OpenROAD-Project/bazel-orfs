@@ -56,6 +56,7 @@ git_override(
         "//patches:0032-fix-remove-non-root-module-overrides.patch",
         "//patches:0033-fix-add-ihp-sg13g2-IO-pad-verilog-to-i2c-gpio-expan.patch",
         "//patches:0034-fix-mock-cpu-io.tcl-source-util.tcl-via-env-var-for.patch",
+        "//patches:0035-fix-override-PDN_TCL-for-riscv32i-mock-sram-to-fix-.patch",
     ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
 )
