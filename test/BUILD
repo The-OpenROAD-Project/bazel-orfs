@@ -812,7 +812,11 @@ py_test(
         "mock_helpers.py",
         "mock_openroad_test.py",
     ],
-    data = ["@mock-openroad//src/bin:openroad.py"],
+    data = [
+        "@mock-openroad//src/bin:openroad.py",
+        "@mock-openroad//src/bin:openroad_commands.py",
+        "@mock-openroad//src/bin:tcl_interpreter.py",
+    ],
     imports = ["."],
 )
 
