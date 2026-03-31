@@ -1,52 +1,56 @@
-# ORFS Integration Testing
+# ORFS Designs in Bazel
 
-This directory is a standalone Bazel module that fetches
-[OpenROAD-flow-scripts](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts)
-at a pinned commit and applies patches on top. It lets you test bazel-orfs
-rules against real ORFS designs without maintaining a separate checkout.
+This directory is an existence proof: 51 ORFS designs across 5 platforms
+(asap7, sky130hd, sky130hs, gf180, ihp-sg13g2) build and pass lint
+validation under Bazel using the bazel-orfs rules from the parent
+directory.
 
-## Motivation
-
-ORFS designs are configured via `config.mk` files. These patches add:
-
-- **config.mk parser** — auto-generates Bazel targets from ~84 design configs
-- **`orfs_design()` macro** — single macro per design, dual targets (real flow + lint)
-- **Lint flow** — seconds-fast validation using mock-openroad (51/51 designs pass across 6 platforms)
-- **Parallel synthesis** — 6.8x speedup on swerv_wrapper via keep-hierarchy + partition
-
-## Quick Start
+## What You Can Do
 
 ```bash
 cd orfs/
-bazelisk build @orfs//flow/designs/asap7/gcd:gcd_lint_synth   # single design lint
-bazelisk test @orfs//... --test_tag_filters=-manual            # all CI designs
+
+# Lint a single design (~seconds, uses mock-openroad)
+bazelisk build @orfs//flow/designs/asap7/gcd:gcd_lint_synth
+
+# Lint all CI designs
+bazelisk test $(bazelisk query @orfs//flow/designs/... | grep _lint_test)
+
+# Run a real flow stage
+bazelisk build @orfs//flow/designs/asap7/gcd:gcd_synth
 ```
 
-## How It Works
+Every `config.mk` design in ORFS automatically gets Bazel targets — no
+manual wiring needed.
 
-`MODULE.bazel` uses `git_override` to fetch ORFS at a merge-base commit and
-applies 41 patches (40 feature commits + 1 fixup removing `local_path_override`
-directives that are only valid when ORFS is the root module).
+## What's with the funky `@orfs//` path
 
-The module provides:
-- `bazel-orfs` via `local_path_override` to the parent directory
-- `mock-openroad` via `local_path_override` to `../mock/openroad`
-- ORFS docker image for yosys/openroad binaries
+Bazel is importing and patching up ORFS so that we have something to
+test against and then we get thsi funky path.
 
-## Updating Patches
+When this is merged with ORFS, you would test all designs with
+linting and real tests by using a more straightforward syntax:
 
-When the ORFS branch gains new commits:
-
-```bash
-cd /path/to/OpenROAD-flow-scripts
-git format-patch <merge-base>..HEAD -o /path/to/bazel-orfs/orfs/patches/
-
-# Regenerate fixup patch if MODULE.bazel changed, then update
-# orfs/MODULE.bazel patches list to include all new patches.
+```
+cd flow
+bazelisk test designs/asap7/...
 ```
 
-## Known Limitations
+## How to Contribute
 
-- Parallel synthesis ODB stage is blocked by Make prerequisite checking
-- Some designs are tagged `manual` (no CI rules-base.json)
-- The docker image provides yosys/openroad; PDK and flow scripts come from the patched ORFS source
+You don't need to touch any code here. If something looks wrong, is
+missing, or could work better, file an issue with questions,
+suggestions, or feature requests.
+
+Obviously, PRs are welcome, but this is a bit of a tricky setup
+so fixing simple things come with a large cognitive load compared
+to PRs directly in OpenROAD and ORFS.
+
+## Why Patches?
+
+This module carries a stack of patches on top of upstream ORFS. Updating
+them is tedious but mechanical — Claude handles the rebasing. The
+patches live here so that bazel-orfs features can be tested against real
+designs without waiting for upstream merges. As patches become
+well-articulated and stable, they get upstreamed to ORFS, which
+minimizes long-term churn on both sides.
