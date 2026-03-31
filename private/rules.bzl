@@ -447,7 +447,7 @@ CANON_OUTPUT = "1_1_yosys_canonicalize.rtlil"
 SYNTH_OUTPUTS = ["1_2_yosys.v", "1_2_yosys.sdc", "1_synth.sdc", "mem.json"]
 SYNTH_REPORTS = ["synth_stat.txt", "synth_mocked_memories.txt"]
 
-def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_reports, num_partitions):
+def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_reports, num_partitions, save_odb):
     """Parallel synthesis: keep → kept-json → N partitions → merge.
 
     Yosys is not deterministic when using host threads, so SYNTH_NUM_PARTITIONS
@@ -556,13 +556,36 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             tools = yosys_and_flow_tools,
         )
 
-    # Action 4: merge partition outputs → 1_2_yosys.v
+    # Action 4: synthesize the top module with all kept modules blackboxed
+    top_output = declare_artifact(ctx, "results", "partition_top.v")
+    top_commands = [_make_cmd(ctx)] + generation_commands([top_output])
+    ctx.actions.run_shell(
+        arguments = [
+            "--file",
+            parallel_makefile.path,
+            "yosys-dependencies",
+            "do-yosys-partition",
+            "SYNTH_PARTITION_SCRIPT=" + ctx.file._synth_partition_script.path,
+        ],
+        command = " && ".join(top_commands),
+        env = config_overrides(ctx, base_env | {
+            "SYNTH_PARTITION_ID": "top",
+            "SYNTH_NUM_PARTITIONS": str(num_partitions),
+            "SYNTH_TCL": ctx.file._synth_tcl.path,
+        }),
+        inputs = partition_inputs,
+        outputs = [top_output],
+        tools = yosys_and_flow_tools,
+    )
+
+    # Action 5: merge partition outputs + top module → 1_2_yosys.v
+    all_parts = partition_outputs + [top_output]
     ctx.actions.run_shell(
         command = "cat {inputs} > {output}".format(
-            inputs = " ".join([p.path for p in partition_outputs]),
+            inputs = " ".join([p.path for p in all_parts]),
             output = synth_outputs["1_2_yosys.v"].path,
         ),
-        inputs = partition_outputs,
+        inputs = all_parts,
         outputs = [synth_outputs["1_2_yosys.v"]],
     )
 
@@ -587,6 +610,38 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         outputs = [synth_outputs["1_2_yosys.sdc"]],
         tools = yosys_and_flow_tools,
     )
+
+    # Action 6: ODB generation → 1_synth.odb
+    # do-1_synth is a .PHONY target that runs synth_odb.tcl to read the
+    # merged Verilog and produce the ODB; it does not trigger yosys rebuilds.
+    if save_odb:
+        odb_commands = [_make_cmd(ctx)] + generation_commands(
+            [synth_outputs["1_synth.odb"]],
+        )
+        ctx.actions.run_shell(
+            arguments = [
+                "--file",
+                parallel_makefile.path,
+                "do-1_synth",
+            ],
+            command = " && ".join(odb_commands),
+            env = config_overrides(ctx, base_env),
+            inputs = depset(
+                [
+                    synth_outputs["1_2_yosys.v"],
+                    synth_outputs["1_2_yosys.sdc"],
+                    config,
+                    parallel_makefile,
+                ] + ctx.files.extra_configs,
+                transitive = [
+                    data_inputs(ctx),
+                    pdk_inputs(ctx),
+                    deps_inputs(ctx),
+                ],
+            ),
+            outputs = [synth_outputs["1_synth.odb"]],
+            tools = yosys_and_flow_tools,
+        )
 
     # Stub outputs that the serial path produces but parallel does not
     for name in ["1_synth.sdc", "mem.json"]:
@@ -648,9 +703,7 @@ def _yosys_impl(ctx):
 
     num_partitions = int(all_arguments.get("SYNTH_NUM_PARTITIONS", "0"))
 
-    # Parallel path: ODB generation not yet supported (do-1_synth Make target
-    # has prerequisite issues that try to rebuild 1_2_yosys.v).
-    save_odb = ctx.attr.save_odb and num_partitions == 0
+    save_odb = ctx.attr.save_odb
 
     synth_logs = declare_artifacts(ctx, "logs", ["1_2_yosys.log", "1_2_yosys_metrics.log"])
 
@@ -667,7 +720,7 @@ def _yosys_impl(ctx):
         for f in synth_outputs.values() + synth_logs + synth_reports + [variables]:
             ctx.actions.write(output = f, content = "")
     elif num_partitions > 0:
-        _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_reports, num_partitions)
+        _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_reports, num_partitions, save_odb)
     else:
         # SYNTH_NETLIST_FILES will not create an .rtlil file or reports, so we need
         # an empty placeholder in that case.
