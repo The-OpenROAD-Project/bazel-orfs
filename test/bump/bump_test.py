@@ -86,7 +86,7 @@ class TestBazelOrfsProject(unittest.TestCase):
 
 
 class TestOpenroadProject(unittest.TestCase):
-    """Test 2: OpenROAD project."""
+    """Test 2: OpenROAD project (uses variable-reference commit pattern)."""
 
     def setUp(self):
         self.content = apply_bump("openroad.MODULE.bazel")
@@ -97,8 +97,17 @@ class TestOpenroadProject(unittest.TestCase):
     def test_docker_sha256_updated(self):
         self.assertIn(DIGEST, self.content)
 
-    def test_bazel_orfs_commit_updated(self):
-        self.assertIn(BAZEL_ORFS_COMMIT, self.content)
+    def test_bazel_orfs_commit_variable_updated(self):
+        self.assertIn(
+            f'BAZEL_ORFS_COMMIT = "{BAZEL_ORFS_COMMIT}"', self.content
+        )
+
+    def test_old_commit_removed(self):
+        self.assertNotIn("old_bazel_orfs_commit", self.content)
+
+    def test_variable_reference_preserved(self):
+        """git_override blocks should still use the variable, not inline the value."""
+        self.assertIn("commit = BAZEL_ORFS_COMMIT,", self.content)
 
     def test_openroad_commit_not_updated(self):
         self.assertNotIn(
@@ -110,6 +119,16 @@ class TestOpenroadProject(unittest.TestCase):
 
     def test_openroad_label_preserved(self):
         self.assertIn('openroad = "//:openroad"', self.content)
+
+    def test_verilog_submodule_uses_same_variable(self):
+        """Both git_override blocks should reference the same variable."""
+        blocks = re.findall(
+            r'git_override\(.*?\)',
+            self.content,
+            re.DOTALL,
+        )
+        for block in blocks:
+            self.assertIn("BAZEL_ORFS_COMMIT", block)
 
 
 class TestDownstreamFresh(unittest.TestCase):
@@ -417,6 +436,57 @@ class TestUpdateGitOverride(unittest.TestCase):
         self.assertIn('commit = "new"', result)
         self.assertIn('strip_prefix = "verilog"', result)
 
+    def test_variable_reference_updates_assignment(self):
+        content = (
+            'MY_COMMIT = "old_commit"\n'
+            "\n"
+            "git_override(\n"
+            '    module_name = "bazel-orfs",\n'
+            "    commit = MY_COMMIT,\n"
+            '    remote = "https://...",\n'
+            ")"
+        )
+        result = bump.update_git_override_commit(content, "bazel-orfs", "new_commit")
+        self.assertIn('MY_COMMIT = "new_commit"', result)
+        self.assertIn("commit = MY_COMMIT,", result)
+
+    def test_variable_reference_shared_by_multiple_blocks(self):
+        content = (
+            'SHARED = "old"\n'
+            "\n"
+            "git_override(\n"
+            '    module_name = "bazel-orfs",\n'
+            "    commit = SHARED,\n"
+            ")\n"
+            "git_override(\n"
+            '    module_name = "bazel-orfs-verilog",\n'
+            "    commit = SHARED,\n"
+            '    strip_prefix = "verilog",\n'
+            ")"
+        )
+        result = bump.update_git_override_commit(content, "bazel-orfs", "new")
+        self.assertIn('SHARED = "new"', result)
+        # Second block still uses the variable (updated via separate call or shared var)
+        self.assertIn("commit = SHARED,", result)
+
+    def test_variable_reference_does_not_touch_other_module(self):
+        content = (
+            'A_COMMIT = "aaa"\n'
+            'B_COMMIT = "bbb"\n'
+            "\n"
+            "git_override(\n"
+            '    module_name = "mod-a",\n'
+            "    commit = A_COMMIT,\n"
+            ")\n"
+            "git_override(\n"
+            '    module_name = "mod-b",\n'
+            "    commit = B_COMMIT,\n"
+            ")"
+        )
+        result = bump.update_git_override_commit(content, "mod-a", "new")
+        self.assertIn('A_COMMIT = "new"', result)
+        self.assertIn('B_COMMIT = "bbb"', result)
+
     def test_no_matching_block_is_noop(self):
         content = (
             "git_override(\n"
@@ -498,7 +568,7 @@ class TestOpenroadSkipsSelfCommit(unittest.TestCase):
         )
 
     def test_updates_bazel_orfs(self):
-        self.assertIn(BAZEL_ORFS_COMMIT, self.content)
+        self.assertIn(f'BAZEL_ORFS_COMMIT = "{BAZEL_ORFS_COMMIT}"', self.content)
 
 
 class TestSubmodulesDoubleUpdate(unittest.TestCase):
