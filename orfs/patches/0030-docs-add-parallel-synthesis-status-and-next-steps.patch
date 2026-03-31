@@ -1,7 +1,7 @@
-From fbab7acc2f94c1ce06f7161585d8817f1f839525 Mon Sep 17 00:00:00 2001
+From 8237783a55060c765cb89044cb160b5420a6d37c Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 30 Mar 2026 16:38:03 +0200
-Subject: [PATCH 40/40] docs: add parallel synthesis status and next steps
+Subject: [PATCH 30/34] docs: add parallel synthesis status and next steps
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

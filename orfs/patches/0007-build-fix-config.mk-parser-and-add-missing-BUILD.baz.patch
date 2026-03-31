@@ -1,7 +1,7 @@
-From 045a2fed7a1935b8147afb9c73aeaf6750fd11fd Mon Sep 17 00:00:00 2001
+From 46d1bda9c78c91df0cacab137cd7772450e15bf7 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 30 Mar 2026 00:23:23 +0200
-Subject: [PATCH 08/40] build: fix config.mk parser and add missing BUILD.bazel
+Subject: [PATCH 07/34] build: fix config.mk parser and add missing BUILD.bazel
  files
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -34,40 +34,38 @@ Disable orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- bazel/config_mk_parser.py                     | 63 +++++++++++++++++--
- bazel/orfs.bzl                                | 10 +++
- flow/designs/asap7/aes/BUILD.bazel            |  5 ++
- flow/designs/asap7/cva6/BUILD.bazel           |  5 +-
- flow/designs/asap7/ethmac_lvt/BUILD.bazel     |  5 ++
- flow/designs/asap7/minimal/BUILD.bazel        |  6 +-
- flow/designs/asap7/mock-cpu/BUILD.bazel       |  4 +-
- flow/designs/asap7/riscv32i/BUILD.bazel       |  5 +-
- flow/designs/asap7/swerv_wrapper/BUILD.bazel  |  6 ++
- .../src/cva6/common/local/util/BUILD.bazel    | 13 ++++
- flow/designs/src/cva6/core/BUILD.bazel        | 13 ++++
- .../src/cva6/core/cache_subsystem/BUILD.bazel | 13 ++++
- .../hpdcache/rtl/include/BUILD.bazel          | 22 +++++++
- .../hpdcache/rtl/src/BUILD.bazel              | 13 ++++
- .../hpdcache/rtl/src/common/BUILD.bazel       | 13 ++++
- .../src/common/macros/blackbox/BUILD.bazel    | 13 ++++
- .../hpdcache/rtl/src/hwpf_stride/BUILD.bazel  | 13 ++++
- .../hpdcache/rtl/src/utils/BUILD.bazel        | 13 ++++
- .../src/cva6/core/cva6_mmu/BUILD.bazel        | 13 ++++
- .../src/cva6/core/cvfpu/src/BUILD.bazel       | 13 ++++
- .../src/common_cells/include/BUILD.bazel      | 22 +++++++
- .../include/common_cells/BUILD.bazel          | 22 +++++++
- .../src/fpu_div_sqrt_mvp/hdl/BUILD.bazel      | 13 ++++
- .../core/cvxif_example/include/BUILD.bazel    | 13 ++++
- .../src/cva6/core/frontend/BUILD.bazel        | 13 ++++
- .../designs/src/cva6/core/include/BUILD.bazel | 22 +++++++
- .../designs/src/cva6/core/pmp/src/BUILD.bazel | 13 ++++
- .../vendor/pulp-platform/axi/src/BUILD.bazel  | 13 ++++
- .../common_cells/src/BUILD.bazel              | 13 ++++
- .../tech_cells_generic/src/rtl/BUILD.bazel    | 13 ++++
- .../vendor/lowrisc_ip/prim/rtl/BUILD.bazel    | 22 +++++++
- flow/designs/src/jpeg/include/BUILD.bazel     | 22 +++++++
+ flow/designs/asap7/aes/BUILD.bazel            |  6 +++++
+ flow/designs/asap7/cva6/BUILD.bazel           |  7 +++---
+ flow/designs/asap7/ethmac_lvt/BUILD.bazel     |  6 +++++
+ flow/designs/asap7/minimal/BUILD.bazel        |  7 +-----
+ flow/designs/asap7/mock-cpu/BUILD.bazel       |  6 ++---
+ flow/designs/asap7/riscv32i/BUILD.bazel       |  7 +++---
+ flow/designs/asap7/swerv_wrapper/BUILD.bazel  |  7 ++++++
+ .../src/cva6/common/local/util/BUILD.bazel    | 13 +++++++++++
+ flow/designs/src/cva6/core/BUILD.bazel        | 13 +++++++++++
+ .../src/cva6/core/cache_subsystem/BUILD.bazel | 13 +++++++++++
+ .../hpdcache/rtl/include/BUILD.bazel          | 22 +++++++++++++++++++
+ .../hpdcache/rtl/src/BUILD.bazel              | 13 +++++++++++
+ .../hpdcache/rtl/src/common/BUILD.bazel       | 13 +++++++++++
+ .../src/common/macros/blackbox/BUILD.bazel    | 13 +++++++++++
+ .../hpdcache/rtl/src/hwpf_stride/BUILD.bazel  | 13 +++++++++++
+ .../hpdcache/rtl/src/utils/BUILD.bazel        | 13 +++++++++++
+ .../src/cva6/core/cva6_mmu/BUILD.bazel        | 13 +++++++++++
+ .../src/cva6/core/cvfpu/src/BUILD.bazel       | 13 +++++++++++
+ .../src/common_cells/include/BUILD.bazel      | 22 +++++++++++++++++++
+ .../include/common_cells/BUILD.bazel          | 22 +++++++++++++++++++
+ .../src/fpu_div_sqrt_mvp/hdl/BUILD.bazel      | 13 +++++++++++
+ .../core/cvxif_example/include/BUILD.bazel    | 13 +++++++++++
+ .../src/cva6/core/frontend/BUILD.bazel        | 13 +++++++++++
+ .../designs/src/cva6/core/include/BUILD.bazel | 22 +++++++++++++++++++
+ .../designs/src/cva6/core/pmp/src/BUILD.bazel | 13 +++++++++++
+ .../vendor/pulp-platform/axi/src/BUILD.bazel  | 13 +++++++++++
+ .../common_cells/src/BUILD.bazel              | 13 +++++++++++
+ .../tech_cells_generic/src/rtl/BUILD.bazel    | 13 +++++++++++
+ .../vendor/lowrisc_ip/prim/rtl/BUILD.bazel    | 22 +++++++++++++++++++
+ flow/designs/src/jpeg/include/BUILD.bazel     | 22 +++++++++++++++++++
  flow/designs/src/mock-array/BUILD.bazel       |  2 +-
- 33 files changed, 447 insertions(+), 17 deletions(-)
+ 31 files changed, 385 insertions(+), 16 deletions(-)
  create mode 100644 flow/designs/asap7/aes/BUILD.bazel
  create mode 100644 flow/designs/asap7/ethmac_lvt/BUILD.bazel
  create mode 100644 flow/designs/asap7/swerv_wrapper/BUILD.bazel
@@ -97,7 +95,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 
 diff --git a/flow/designs/asap7/aes/BUILD.bazel b/flow/designs/asap7/aes/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/aes/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -108,7 +106,7 @@ index 000000000..4ccd0967d
 +
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/cva6/BUILD.bazel b/flow/designs/asap7/cva6/BUILD.bazel
-index 4ccd0967d..e9bbf4f48 100644
+index a8a5f264d..5d9662317 100644
 --- a/flow/designs/asap7/cva6/BUILD.bazel
 +++ b/flow/designs/asap7/cva6/BUILD.bazel
 @@ -1,6 +1,7 @@
@@ -124,7 +122,7 @@ index 4ccd0967d..e9bbf4f48 100644
 +# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/ethmac_lvt/BUILD.bazel b/flow/designs/asap7/ethmac_lvt/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/ethmac_lvt/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -135,10 +133,10 @@ index 000000000..4ccd0967d
 +
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/minimal/BUILD.bazel b/flow/designs/asap7/minimal/BUILD.bazel
-index 4ccd0967d..d2275d7b1 100644
+index a8a5f264d..d2275d7b1 100644
 --- a/flow/designs/asap7/minimal/BUILD.bazel
 +++ b/flow/designs/asap7/minimal/BUILD.bazel
-@@ -1,6 +1,1 @@
+@@ -1,6 +1 @@
 -load("@bazel-orfs//:openroad.bzl", "orfs_design")
 -load("@orfs_designs//:designs.bzl", "DESIGNS")
 -
@@ -147,7 +145,7 @@ index 4ccd0967d..d2275d7b1 100644
 -orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 +# Note! This is a local make use only, not used with Bazel
 diff --git a/flow/designs/asap7/mock-cpu/BUILD.bazel b/flow/designs/asap7/mock-cpu/BUILD.bazel
-index 4ccd0967d..613d916d0 100644
+index a8a5f264d..01deff0be 100644
 --- a/flow/designs/asap7/mock-cpu/BUILD.bazel
 +++ b/flow/designs/asap7/mock-cpu/BUILD.bazel
 @@ -1,6 +1,6 @@
@@ -161,7 +159,7 @@ index 4ccd0967d..613d916d0 100644
 -orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 +# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i/BUILD.bazel b/flow/designs/asap7/riscv32i/BUILD.bazel
-index 4ccd0967d..8cb6b4fe6 100644
+index a8a5f264d..3c61c7540 100644
 --- a/flow/designs/asap7/riscv32i/BUILD.bazel
 +++ b/flow/designs/asap7/riscv32i/BUILD.bazel
 @@ -1,6 +1,7 @@
@@ -177,7 +175,7 @@ index 4ccd0967d..8cb6b4fe6 100644
 +# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/swerv_wrapper/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 new file mode 100644
-index 000000000..e9bbf4f48
+index 000000000..5d9662317
 --- /dev/null
 +++ b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 @@ -0,0 +1,7 @@

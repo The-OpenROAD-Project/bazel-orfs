@@ -1,7 +1,7 @@
-From e6313535ad572b76a3bb4f7d95160edff5d79d00 Mon Sep 17 00:00:00 2001
+From 9afcc4a32d005e20496b3ddead426ff1f82b24b7 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 30 Mar 2026 13:14:31 +0200
-Subject: [PATCH 25/40] build: CI detection, all platforms, skip missing
+Subject: [PATCH 18/34] build: CI detection, all platforms, skip missing
  sources in repo rule
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -21,17 +21,17 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  1 file changed, 1 insertion(+)
 
 diff --git a/MODULE.bazel b/MODULE.bazel
-index 8814e49f0..a151f4dba 100644
+index db300698f..4b6ea18f2 100644
 --- a/MODULE.bazel
 +++ b/MODULE.bazel
 @@ -70,6 +70,7 @@ use_repo(orfs, "docker_orfs")
  # bazel_dep(name = "toolchains_llvm", version = "1.5.0")
-
+ 
  # Auto-generate orfs_flow() targets from config.mk files
 +# Designs with rules-base.json are CI-enabled; others get tags=["manual"]
  orfs_designs = use_repo_rule("@bazel-orfs//private:designs.bzl", "orfs_designs")
-
+ 
  orfs_designs(
---
+-- 
 2.51.0
 

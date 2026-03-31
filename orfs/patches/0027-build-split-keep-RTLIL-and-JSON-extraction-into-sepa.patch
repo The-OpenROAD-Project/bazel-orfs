@@ -1,7 +1,7 @@
-From 5f3de15f215f834c047834c442e913f2ef1ed0dc Mon Sep 17 00:00:00 2001
+From c9785cdd2834651ec393ced863e9d32c432db32a Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 30 Mar 2026 15:13:33 +0200
-Subject: [PATCH 36/40] build: split keep RTLIL and JSON extraction into
+Subject: [PATCH 27/34] build: split keep RTLIL and JSON extraction into
  separate actions
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -18,14 +18,10 @@ This allows fast iteration on the JSON format without re-running Yosys.
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- flow/Makefile                           |  4 ++
- flow/scripts/rtlil_kept_modules.py      | 45 ++++++++++++++
- flow/scripts/rtlil_kept_modules_test.py | 83 +++++++++++++++++++++++++
- flow/scripts/synth.tcl                  | 10 +--
- flow/scripts/synth_keep.tcl             | 27 +-------
- 5 files changed, 141 insertions(+), 28 deletions(-)
- create mode 100644 flow/scripts/rtlil_kept_modules.py
- create mode 100644 flow/scripts/rtlil_kept_modules_test.py
+ flow/Makefile               |  4 ++++
+ flow/scripts/synth.tcl      | 10 ++++++----
+ flow/scripts/synth_keep.tcl | 27 +++------------------------
+ 3 files changed, 13 insertions(+), 28 deletions(-)
 
 diff --git a/flow/Makefile b/flow/Makefile
 index 5387dba3c..36f74bda2 100644

@@ -1,8 +1,8 @@
-From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From d96dc13f3f48421229b617ff937d6e6e645b2e69 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 31 Mar 2026 12:00:00 +0200
-Subject: [PATCH] fix: mock-cpu io.tcl source util.tcl via env var for Bazel
- sandbox
+Date: Tue, 31 Mar 2026 12:00:00 +0200
+Subject: [PATCH 33/34] fix: mock-cpu io.tcl source util.tcl via env var for
+ Bazel sandbox
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -23,7 +23,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  1 file changed, 1 insertion(+), 7 deletions(-)
 
 diff --git a/flow/designs/asap7/mock-cpu/io.tcl b/flow/designs/asap7/mock-cpu/io.tcl
-index ea8b842..5591aab 100644
+index ea8b842fc..5591aab16 100644
 --- a/flow/designs/asap7/mock-cpu/io.tcl
 +++ b/flow/designs/asap7/mock-cpu/io.tcl
 @@ -1,10 +1,4 @@
@@ -35,9 +35,9 @@ index ea8b842..5591aab 100644
 -  }
 -}
 +source $::env(SDC_FILE_EXTRA)
-
+ 
  set_io_pin_constraint -order -group -region bottom:* \
    -pin_names [concat [match_pins .*] [match_pins clk input 1]]
---
+-- 
 2.51.0
 

@@ -1,7 +1,7 @@
-From e574c814aac937591c1b67222412b019577e329f Mon Sep 17 00:00:00 2001
+From bdacc7cd8c032f82c6dda1e19779f4159b4ef11d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Sun, 29 Mar 2026 23:15:32 +0200
-Subject: [PATCH 07/40] build: remove hand-written design BUILD files
+Subject: [PATCH 06/34] build: remove hand-written design BUILD files
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -13,12 +13,12 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  MODULE.bazel                                 |   31 +-
  MODULE.bazel.lock                            | 4201 ++----------------
- flow/designs/asap7/aes/BUILD.bazel           |    5 -
- flow/designs/asap7/ethmac_lvt/BUILD.bazel    |    5 -
+ flow/designs/asap7/aes/BUILD.bazel           |    6 -
+ flow/designs/asap7/ethmac_lvt/BUILD.bazel    |    6 -
  flow/designs/asap7/gcd/BUILD                 |   20 -
- flow/designs/asap7/swerv_wrapper/BUILD.bazel |    5 -
- flow/designs/sky130hd/ibex/BUILD.bazel       |    5 -
- 7 files changed, 327 insertions(+), 3945 deletions(-)
+ flow/designs/asap7/swerv_wrapper/BUILD.bazel |    6 -
+ flow/designs/sky130hd/ibex/BUILD.bazel       |    6 -
+ 7 files changed, 327 insertions(+), 3949 deletions(-)
  delete mode 100644 flow/designs/asap7/aes/BUILD.bazel
  delete mode 100644 flow/designs/asap7/ethmac_lvt/BUILD.bazel
  delete mode 100644 flow/designs/asap7/gcd/BUILD
@@ -26,7 +26,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  delete mode 100644 flow/designs/sky130hd/ibex/BUILD.bazel
 
 diff --git a/MODULE.bazel b/MODULE.bazel
-index 50ce2cd26..55f15f5dc 100644
+index 03a3da5d5..53698acb1 100644
 --- a/MODULE.bazel
 +++ b/MODULE.bazel
 @@ -7,10 +7,10 @@ module(
@@ -4542,7 +4542,7 @@ index ffe386712..82e00c802 100644
  }
 diff --git a/flow/designs/asap7/aes/BUILD.bazel b/flow/designs/asap7/aes/BUILD.bazel
 deleted file mode 100644
-index 4ccd0967d..000000000
+index a8a5f264d..000000000
 --- a/flow/designs/asap7/aes/BUILD.bazel
 +++ /dev/null
 @@ -1,6 +0,0 @@
@@ -4554,7 +4554,7 @@ index 4ccd0967d..000000000
 -orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/ethmac_lvt/BUILD.bazel b/flow/designs/asap7/ethmac_lvt/BUILD.bazel
 deleted file mode 100644
-index 4ccd0967d..000000000
+index a8a5f264d..000000000
 --- a/flow/designs/asap7/ethmac_lvt/BUILD.bazel
 +++ /dev/null
 @@ -1,6 +0,0 @@
@@ -4592,7 +4592,7 @@ index 0736578fe..000000000
 -)
 diff --git a/flow/designs/asap7/swerv_wrapper/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 deleted file mode 100644
-index 4ccd0967d..000000000
+index a8a5f264d..000000000
 --- a/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 +++ /dev/null
 @@ -1,6 +0,0 @@
@@ -4604,7 +4604,7 @@ index 4ccd0967d..000000000
 -orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/ibex/BUILD.bazel b/flow/designs/sky130hd/ibex/BUILD.bazel
 deleted file mode 100644
-index 4ccd0967d..000000000
+index a8a5f264d..000000000
 --- a/flow/designs/sky130hd/ibex/BUILD.bazel
 +++ /dev/null
 @@ -1,6 +0,0 @@

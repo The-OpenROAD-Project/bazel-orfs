@@ -1,7 +1,7 @@
-From f5b78e723cebb367c62428cb7a67290c10a5abaf Mon Sep 17 00:00:00 2001
+From d0281414121efeb8bb51ef7c69f4632f1ccbe86b Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 30 Mar 2026 06:08:21 +0200
-Subject: [PATCH 10/40] build: 15/18 asap7 designs pass lint flow
+Subject: [PATCH 09/34] build: 15/18 asap7 designs pass lint flow
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
@@ -22,16 +22,14 @@ Disabled designs (pre-existing config.mk issues):
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- MODULE.bazel.lock                                        | 2 +-
- bazel/config_mk_parser.py                                | 5 +++++
- bazel/orfs.bzl                                           | 9 +++------
- flow/BUILD.bazel                                         | 7 ++++++-
- flow/designs/asap7/cva6/BUILD.bazel                      | 6 ++++--
- flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel        | 6 ++++--
- .../asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel | 5 +++--
- flow/designs/asap7/riscv32i/BUILD.bazel                  | 5 +++--
- flow/designs/asap7/swerv_wrapper/BUILD.bazel             | 5 +++--
- 9 files changed, 32 insertions(+), 18 deletions(-)
+ MODULE.bazel.lock                                         | 2 +-
+ flow/BUILD.bazel                                          | 7 ++++++-
+ flow/designs/asap7/cva6/BUILD.bazel                       | 8 +++++---
+ flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel         | 8 +++++---
+ .../asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel  | 7 ++++---
+ flow/designs/asap7/riscv32i/BUILD.bazel                   | 7 ++++---
+ flow/designs/asap7/swerv_wrapper/BUILD.bazel              | 7 ++++---
+ 7 files changed, 29 insertions(+), 17 deletions(-)
 
 diff --git a/MODULE.bazel.lock b/MODULE.bazel.lock
 index 82e00c802..f16b7e59b 100644
@@ -65,7 +63,7 @@ index 0be37f13b..d6d367d1e 100644
  )
  
 diff --git a/flow/designs/asap7/cva6/BUILD.bazel b/flow/designs/asap7/cva6/BUILD.bazel
-index 4ccd0967d..805016312 100644
+index a8a5f264d..8c3488f49 100644
 --- a/flow/designs/asap7/cva6/BUILD.bazel
 +++ b/flow/designs/asap7/cva6/BUILD.bazel
 @@ -1,6 +1,8 @@
@@ -81,7 +79,7 @@ index 4ccd0967d..805016312 100644
 -orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 +# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel b/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
-index 4ccd0967d..be645ab51 100644
+index a8a5f264d..0814451a5 100644
 --- a/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
 +++ b/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
 @@ -1,6 +1,8 @@
@@ -97,7 +95,7 @@ index 4ccd0967d..be645ab51 100644
 -orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 +# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel b/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
-index 5d7d8ccbf..bce3e7880 100644
+index eb51c610f..bf158877f 100644
 --- a/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
 +++ b/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
 @@ -1,5 +1,6 @@
@@ -109,14 +107,14 @@ index 5d7d8ccbf..bce3e7880 100644
  
  exports_files(glob(["*"]))
  
-@@ -8,4 +9,4 @@ filegroup(
+@@ -9,4 +10,4 @@ filegroup(
      visibility = ["//visibility:public"],
  )
  
 -orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 +# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i/BUILD.bazel b/flow/designs/asap7/riscv32i/BUILD.bazel
-index 4ccd0967d..08fbd32ed 100644
+index a8a5f264d..6d2ac6bb0 100644
 --- a/flow/designs/asap7/riscv32i/BUILD.bazel
 +++ b/flow/designs/asap7/riscv32i/BUILD.bazel
 @@ -1,6 +1,7 @@
@@ -131,7 +129,7 @@ index 4ccd0967d..08fbd32ed 100644
 -orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 +# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/swerv_wrapper/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
-index 4ccd0967d..08fbd32ed 100644
+index a8a5f264d..6d2ac6bb0 100644
 --- a/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 +++ b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 @@ -1,6 +1,7 @@

@@ -1,7 +1,7 @@
-From 9f23c5eedaf34d46832d66e37dfe479007ccbe36 Mon Sep 17 00:00:00 2001
+From af0a0211a6120d9b2492467a473013221ad73090 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 30 Mar 2026 13:30:59 +0200
-Subject: [PATCH 29/40] lint: take default branch from conditionals instead of
+Subject: [PATCH 22/34] lint: take default branch from conditionals instead of
  skipping all
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -23,15 +23,14 @@ parser now handles it.
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- bazel/config_mk_parser.py                 | 29 +++++++++++++++++++----
- flow/designs/sky130hd/microwatt/config.mk |  6 ++---
- 2 files changed, 27 insertions(+), 8 deletions(-)
+ flow/designs/sky130hd/microwatt/config.mk | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/flow/designs/sky130hd/microwatt/config.mk b/flow/designs/sky130hd/microwatt/config.mk
-index 299ec84cd..42f1e4b95 100644
+index e015bbfab..6a2021c3f 100644
 --- a/flow/designs/sky130hd/microwatt/config.mk
 +++ b/flow/designs/sky130hd/microwatt/config.mk
-@@ -34,8 +34,6 @@ export SETUP_SLACK_MARGIN = 0.2
+@@ -36,8 +36,6 @@ export SETUP_SLACK_MARGIN = 0.2
  # GRT non-default config
  export FASTROUTE_TCL = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/fastroute.tcl
  
@@ -40,7 +39,7 @@ index 299ec84cd..42f1e4b95 100644
  ifeq ($(SYNTH_MOCK_LARGE_MEMORIES),1)
      # ca. 3 minutes to run make synth
      #
-@@ -44,7 +42,9 @@ ifeq ($(SYNTH_MOCK_LARGE_MEMORIES),1)
+@@ -46,7 +44,9 @@ ifeq ($(SYNTH_MOCK_LARGE_MEMORIES),1)
      #
      # The goal is to run through the flow quickly to learn what we can
      # about the design without getting bogged down in memory issues.

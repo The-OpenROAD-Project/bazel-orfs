@@ -1,7 +1,7 @@
-From bdced8313991d2319155f3c125230350b245cdf2 Mon Sep 17 00:00:00 2001
+From a3abc9a381c328904d5b7a8fa1a885106c5801da Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 30 Mar 2026 16:16:16 +0200
-Subject: [PATCH 39/40] build: add do-yosys-sdc-copy target for parallel synth
+Subject: [PATCH 29/34] build: add do-yosys-sdc-copy target for parallel synth
  path
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
