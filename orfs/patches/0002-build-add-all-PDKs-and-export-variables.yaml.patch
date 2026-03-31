@@ -1,7 +1,7 @@
-From 44d6440e7af89dc406188530b733e3b6e6b2c105 Mon Sep 17 00:00:00 2001
+From 2edd19015cacf105c784a41be743529e27b6a94a Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Sun, 29 Mar 2026 23:13:49 +0200
-Subject: [PATCH 02/40] build: add all PDKs and export variables.yaml
+Subject: [PATCH 02/34] build: add all PDKs and export variables.yaml
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

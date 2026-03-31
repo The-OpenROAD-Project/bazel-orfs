@@ -1,7 +1,7 @@
-From bb39221835dab846984a3e032b13e052642f65aa Mon Sep 17 00:00:00 2001
+From e3d2dc259bab192268160ffd7ab44d571f6b77e8 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 30 Mar 2026 22:42:43 +0200
-Subject: [PATCH] fix: remove non-root module overrides from MODULE.bazel
+Subject: [PATCH 31/34] fix: remove non-root module overrides from MODULE.bazel
 
 When ORFS is fetched as a dependency (not the root module),
 local_path_override directives are illegal. The root module
@@ -12,7 +12,7 @@ mock-openroad through its own overrides.
  1 file changed, 10 deletions(-)
 
 diff --git a/MODULE.bazel b/MODULE.bazel
-index a151f4dba..31200751b 100644
+index 4b6ea18f2..de200edbf 100644
 --- a/MODULE.bazel
 +++ b/MODULE.bazel
 @@ -7,17 +7,7 @@ module(

@@ -1,7 +1,7 @@
-From 881e508a6733dcb81354b94a726a76cb34327db6 Mon Sep 17 00:00:00 2001
+From ea03ef0f3feee29e2bb745edc7877bbfaacadbbe Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 30 Mar 2026 06:44:12 +0200
-Subject: [PATCH 11/40] build: all 18 asap7 designs pass lint flow (163
+Subject: [PATCH 10/34] build: all 18 asap7 designs pass lint flow (163
  targets)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -19,20 +19,20 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/BUILD.bazel                              |  4 ++++
- flow/designs/asap7/cva6/BUILD.bazel           |  6 ++---
- .../asap7/riscv32i-mock-sram/BUILD.bazel      |  6 ++---
- .../fakeram7_256x32/BUILD.bazel               |  5 ++---
- flow/designs/asap7/riscv32i/BUILD.bazel       |  5 ++---
- flow/designs/asap7/riscv32i/config.mk         |  7 +++---
- flow/designs/asap7/swerv_wrapper/BUILD.bazel  |  5 ++---
+ flow/designs/asap7/cva6/BUILD.bazel           |  8 +++----
+ .../asap7/riscv32i-mock-sram/BUILD.bazel      |  8 +++----
+ .../fakeram7_256x32/BUILD.bazel               |  7 +++---
+ flow/designs/asap7/riscv32i/BUILD.bazel       |  7 +++---
+ flow/designs/asap7/riscv32i/config.mk         |  3 ++-
+ flow/designs/asap7/swerv_wrapper/BUILD.bazel  |  7 +++---
  flow/designs/asap7/swerv_wrapper/config.mk    |  3 ++-
  .../src/common_cells/include/BUILD.bazel      |  6 ++---
  .../include/common_cells/BUILD.bazel          | 22 -------------------
- 10 files changed, 23 insertions(+), 46 deletions(-)
+ 10 files changed, 26 insertions(+), 49 deletions(-)
  delete mode 100644 flow/designs/src/cva6/core/cvfpu/src/common_cells/include/common_cells/BUILD.bazel
 
 diff --git a/flow/BUILD.bazel b/flow/BUILD.bazel
-index d6d367d1e..a1c0935e2 100644
+index d6d367d1e..bc538f3ed 100644
 --- a/flow/BUILD.bazel
 +++ b/flow/BUILD.bazel
 @@ -6,6 +6,10 @@ exports_files(
@@ -47,7 +47,7 @@ index d6d367d1e..a1c0935e2 100644
      visibility = ["//visibility:public"],
  )
 diff --git a/flow/designs/asap7/cva6/BUILD.bazel b/flow/designs/asap7/cva6/BUILD.bazel
-index 805016312..4ccd0967d 100644
+index 8c3488f49..a8a5f264d 100644
 --- a/flow/designs/asap7/cva6/BUILD.bazel
 +++ b/flow/designs/asap7/cva6/BUILD.bazel
 @@ -1,8 +1,6 @@
@@ -63,7 +63,7 @@ index 805016312..4ccd0967d 100644
 -# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel b/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
-index be645ab51..4ccd0967d 100644
+index 0814451a5..a8a5f264d 100644
 --- a/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
 +++ b/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
 @@ -1,8 +1,6 @@
@@ -79,7 +79,7 @@ index be645ab51..4ccd0967d 100644
 -# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel b/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
-index bce3e7880..5d7d8ccbf 100644
+index bf158877f..eb51c610f 100644
 --- a/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
 +++ b/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
 @@ -1,6 +1,5 @@
@@ -91,14 +91,14 @@ index bce3e7880..5d7d8ccbf 100644
  
  exports_files(glob(["*"]))
  
-@@ -9,4 +8,4 @@ filegroup(
+@@ -10,4 +9,4 @@ filegroup(
      visibility = ["//visibility:public"],
  )
  
 -# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i/BUILD.bazel b/flow/designs/asap7/riscv32i/BUILD.bazel
-index 08fbd32ed..4ccd0967d 100644
+index 6d2ac6bb0..a8a5f264d 100644
 --- a/flow/designs/asap7/riscv32i/BUILD.bazel
 +++ b/flow/designs/asap7/riscv32i/BUILD.bazel
 @@ -1,7 +1,6 @@
@@ -113,10 +113,10 @@ index 08fbd32ed..4ccd0967d 100644
 -# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i/config.mk b/flow/designs/asap7/riscv32i/config.mk
-index d148ad51c..84cf9dffc 100644
+index 6b4175b16..84cf9dffc 100644
 --- a/flow/designs/asap7/riscv32i/config.mk
 +++ b/flow/designs/asap7/riscv32i/config.mk
-@@ -6,12 +6,13 @@ export SYNTH_HIERARCHICAL ?= 1
+@@ -6,7 +6,8 @@ export SYNTH_HIERARCHICAL ?= 1
  
  export SYNTH_MINIMUM_KEEP_SIZE ?= 10000
  
@@ -126,15 +126,8 @@ index d148ad51c..84cf9dffc 100644
  export SDC_FILE      = $(DESIGN_HOME)/$(PLATFORM)/riscv32i/constraint.sdc
  
  ifeq ($(BLOCKS),)
--	export ADDITIONAL_LEFS = ./platforms/$(PLATFORM)/lef/fakeram7_256x32.lef
--	export ADDITIONAL_LIBS = $(LIB_DIR)/fakeram7_256x32.lib
-+	export ADDITIONAL_LEFS = $(PLATFORM_DIR)/lef/fakeram7_256x32.lef
-+	export ADDITIONAL_LIBS = $(PLATFORM_DIR)/lib/NLDM/fakeram7_256x32.lib
- endif
- 
- export CORE_UTILIZATION = 62
 diff --git a/flow/designs/asap7/swerv_wrapper/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
-index 08fbd32ed..4ccd0967d 100644
+index 6d2ac6bb0..a8a5f264d 100644
 --- a/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 +++ b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 @@ -1,7 +1,6 @@
@@ -149,7 +142,7 @@ index 08fbd32ed..4ccd0967d 100644
 -# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/swerv_wrapper/config.mk b/flow/designs/asap7/swerv_wrapper/config.mk
-index b93dbad2d..9b07043ea 100644
+index 97410ab47..2ccf6fa00 100644
 --- a/flow/designs/asap7/swerv_wrapper/config.mk
 +++ b/flow/designs/asap7/swerv_wrapper/config.mk
 @@ -45,7 +45,8 @@ export SYNTH_KEEP_MODULES ?= \

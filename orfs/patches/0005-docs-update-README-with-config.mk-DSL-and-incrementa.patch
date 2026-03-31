@@ -1,7 +1,7 @@
-From 25111cb27ffc7f11a1f7bb254332293b757f6120 Mon Sep 17 00:00:00 2001
+From beee71ed2eb4ec1be2b873718a81475f64bdc352 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Sun, 29 Mar 2026 23:14:44 +0200
-Subject: [PATCH 06/40] docs: update README with config.mk DSL and incremental
+Subject: [PATCH 05/34] docs: update README with config.mk DSL and incremental
  caching
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

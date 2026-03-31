@@ -1,7 +1,7 @@
-From fc6807c1af6b6a838b0f7faef6251862090947f8 Mon Sep 17 00:00:00 2001
+From 1aa3ef2e2d351e6c0ff5c2770cffe3d143a5ef3a Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 30 Mar 2026 13:14:48 +0200
-Subject: [PATCH 27/40] fix: add mock-cpu SDC dependency on util.tcl for Bazel
+Subject: [PATCH 20/34] fix: add mock-cpu SDC dependency on util.tcl for Bazel
  sandbox
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -33,14 +33,14 @@ index ae051ebd7..6168ebbae 100644
  export CORE_UTILIZATION         = 40
  export CORE_ASPECT_RATIO        = 1
 diff --git a/flow/designs/asap7/mock-cpu/constraint.sdc b/flow/designs/asap7/mock-cpu/constraint.sdc
-index 4648916e3..a7f3b609e 100644
+index a7f3b609e..c2a2c3b26 100644
 --- a/flow/designs/asap7/mock-cpu/constraint.sdc
 +++ b/flow/designs/asap7/mock-cpu/constraint.sdc
 @@ -2,7 +2,7 @@
  #
  # This fifo is from http://www.sunburst-design.com/papers/CummingsSNUG2002SJ_FIFO1.pdf
  
--source designs/src/mock-array/util.tcl
+-source $::env(DESIGN_HOME)/src/mock-array/util.tcl
 +source $::env(SDC_FILE_EXTRA)
  
  set sdc_version 2.0

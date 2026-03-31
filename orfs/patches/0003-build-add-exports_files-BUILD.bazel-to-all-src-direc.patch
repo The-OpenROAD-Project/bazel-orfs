@@ -1,7 +1,7 @@
-From efbef4778f92f42c766eade554004bbeff220fb6 Mon Sep 17 00:00:00 2001
+From 87410b828602bd96945e8109d2891462d18378ef Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Sun, 29 Mar 2026 23:14:03 +0200
-Subject: [PATCH 03/40] build: add exports_files BUILD.bazel to all src/
+Subject: [PATCH 03/34] build: add exports_files BUILD.bazel to all src/
  directories
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

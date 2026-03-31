@@ -1,7 +1,7 @@
-From 0b7f3f5c1619ebabba51776e9f3fcda2f2424b7e Mon Sep 17 00:00:00 2001
+From f9b91a8d0c55dd4844423cccc4d6bd022d75a110 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 30 Mar 2026 07:02:28 +0200
-Subject: [PATCH 16/40] tools: add rtlil-stats command, fix stage isolation and
+Subject: [PATCH 15/34] tools: add rtlil-stats command, fix stage isolation and
  change detection
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

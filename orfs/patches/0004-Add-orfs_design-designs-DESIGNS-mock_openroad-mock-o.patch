@@ -1,7 +1,8 @@
-From 963cabe512ad587caf618baa9300962e4aacdf2e Mon Sep 17 00:00:00 2001
+From 8068d30d7310b75b8c2f505e7fa936e18cc8e07d Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Sun, 29 Mar 2026 23:14:37 +0200
-Subject: [PATCH 05/40] Add orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad") macro and auto-generated targets from
+Subject: [PATCH 04/34] Add orfs_design(designs = DESIGNS, mock_openroad =
+ "@mock-openroad//src/bin:openroad") macro and auto-generated targets from
  config.mk
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
@@ -27,75 +28,71 @@ Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  MODULE.bazel                                  |  31 +++--
- bazel/designs.bzl                             | 114 ++++++++++++++++
- bazel/orfs.bzl                                | 123 ++++++++++++++++++
  flow/designs/BUILD.bazel                      |   1 +
- flow/designs/asap7/aes-block/BUILD.bazel      |   5 +
- flow/designs/asap7/aes-mbff/BUILD.bazel       |   5 +
- flow/designs/asap7/aes/BUILD.bazel            |  48 +------
- flow/designs/asap7/aes_lvt/BUILD.bazel        |   5 +
- flow/designs/asap7/cva6/BUILD.bazel           |   5 +
- flow/designs/asap7/ethmac/BUILD.bazel         |   5 +
- flow/designs/asap7/ethmac_lvt/BUILD.bazel     |  27 +---
- flow/designs/asap7/gcd-ccs/BUILD.bazel        |   5 +
- flow/designs/asap7/gcd/BUILD.bazel            |   5 +
- flow/designs/asap7/ibex/BUILD.bazel           |   5 +
- flow/designs/asap7/jpeg/BUILD.bazel           |   5 +
- flow/designs/asap7/jpeg_lvt/BUILD.bazel       |   5 +
- flow/designs/asap7/minimal/BUILD.bazel        |   5 +
- flow/designs/asap7/mock-alu/BUILD.bazel       |   5 +
- flow/designs/asap7/mock-cpu/BUILD.bazel       |   5 +
- .../asap7/riscv32i-mock-sram/BUILD.bazel      |   5 +
- .../fakeram7_256x32/BUILD.bazel               |  11 ++
- flow/designs/asap7/riscv32i/BUILD.bazel       |   5 +
- flow/designs/asap7/swerv_wrapper/BUILD.bazel  | 119 +----------------
- flow/designs/asap7/uart/BUILD.bazel           |   5 +
- flow/designs/gf180/aes-hybrid/BUILD.bazel     |   5 +
- flow/designs/gf180/aes/BUILD.bazel            |   5 +
- flow/designs/gf180/ibex/BUILD.bazel           |   5 +
- flow/designs/gf180/jpeg/BUILD.bazel           |   5 +
- flow/designs/gf180/riscv32i/BUILD.bazel       |   5 +
- flow/designs/gf180/uart-blocks/BUILD.bazel    |   5 +
- .../gf180/uart-blocks/uart_rx/BUILD.bazel     |   6 +
- flow/designs/ihp-sg13g2/aes/BUILD.bazel       |   5 +
- flow/designs/ihp-sg13g2/gcd/BUILD.bazel       |   5 +
- .../ihp-sg13g2/i2c-gpio-expander/BUILD.bazel  |   5 +
- .../I2cDeviceCtrl/BUILD.bazel                 |   6 +
- flow/designs/ihp-sg13g2/ibex/BUILD.bazel      |   5 +
- flow/designs/ihp-sg13g2/jpeg/BUILD.bazel      |   5 +
- flow/designs/ihp-sg13g2/riscv32i/BUILD.bazel  |   5 +
- flow/designs/ihp-sg13g2/spi/BUILD.bazel       |   5 +
- flow/designs/nangate45/aes/BUILD.bazel        |   5 +
- flow/designs/nangate45/ariane133/BUILD.bazel  |   5 +
- flow/designs/nangate45/ariane136/BUILD.bazel  |   5 +
- .../nangate45/black_parrot/BUILD.bazel        |   5 +
- flow/designs/nangate45/bp_be_top/BUILD.bazel  |   5 +
- flow/designs/nangate45/bp_fe_top/BUILD.bazel  |   5 +
- .../nangate45/bp_multi_top/BUILD.bazel        |   5 +
- flow/designs/nangate45/bp_quad/BUILD.bazel    |   5 +
- .../nangate45/dynamic_node/BUILD.bazel        |   5 +
- flow/designs/nangate45/gcd/BUILD.bazel        |   5 +
- flow/designs/nangate45/ibex/BUILD.bazel       |   5 +
- flow/designs/nangate45/jpeg/BUILD.bazel       |   5 +
- .../nangate45/mempool_group/BUILD.bazel       |   5 +
- flow/designs/nangate45/swerv/BUILD.bazel      |   5 +
- .../nangate45/swerv_wrapper/BUILD.bazel       |   5 +
- flow/designs/nangate45/tinyRocket/BUILD.bazel |   5 +
- flow/designs/sky130hd/aes/BUILD.bazel         |   5 +
- flow/designs/sky130hd/chameleon/BUILD.bazel   |   5 +
- flow/designs/sky130hd/gcd/BUILD.bazel         |   5 +
- flow/designs/sky130hd/ibex/BUILD.bazel        |  26 +---
- flow/designs/sky130hd/jpeg/BUILD.bazel        |   5 +
- flow/designs/sky130hd/microwatt/BUILD.bazel   |   5 +
- flow/designs/sky130hd/riscv32i/BUILD.bazel    |   5 +
- flow/designs/sky130hs/aes/BUILD.bazel         |   5 +
- flow/designs/sky130hs/gcd/BUILD.bazel         |   5 +
- flow/designs/sky130hs/ibex/BUILD.bazel        |   5 +
- flow/designs/sky130hs/jpeg/BUILD.bazel        |   5 +
- flow/designs/sky130hs/riscv32i/BUILD.bazel    |   5 +
- 88 files changed, 682 insertions(+), 215 deletions(-)
- create mode 100644 bazel/designs.bzl
- create mode 100644 bazel/orfs.bzl
+ flow/designs/asap7/aes-block/BUILD.bazel      |   6 +
+ flow/designs/asap7/aes-mbff/BUILD.bazel       |   6 +
+ flow/designs/asap7/aes/BUILD.bazel            |  49 +------
+ flow/designs/asap7/aes_lvt/BUILD.bazel        |   6 +
+ flow/designs/asap7/cva6/BUILD.bazel           |   6 +
+ flow/designs/asap7/ethmac/BUILD.bazel         |   6 +
+ flow/designs/asap7/ethmac_lvt/BUILD.bazel     |  28 +---
+ flow/designs/asap7/gcd-ccs/BUILD.bazel        |   6 +
+ flow/designs/asap7/gcd/BUILD.bazel            |   6 +
+ flow/designs/asap7/ibex/BUILD.bazel           |   6 +
+ flow/designs/asap7/jpeg/BUILD.bazel           |   6 +
+ flow/designs/asap7/jpeg_lvt/BUILD.bazel       |   6 +
+ flow/designs/asap7/minimal/BUILD.bazel        |   6 +
+ flow/designs/asap7/mock-alu/BUILD.bazel       |   6 +
+ flow/designs/asap7/mock-cpu/BUILD.bazel       |   6 +
+ .../asap7/riscv32i-mock-sram/BUILD.bazel      |   6 +
+ .../fakeram7_256x32/BUILD.bazel               |  12 ++
+ flow/designs/asap7/riscv32i/BUILD.bazel       |   6 +
+ flow/designs/asap7/swerv_wrapper/BUILD.bazel  | 120 +-----------------
+ flow/designs/asap7/uart/BUILD.bazel           |   6 +
+ flow/designs/gf180/aes-hybrid/BUILD.bazel     |   6 +
+ flow/designs/gf180/aes/BUILD.bazel            |   6 +
+ flow/designs/gf180/ibex/BUILD.bazel           |   6 +
+ flow/designs/gf180/jpeg/BUILD.bazel           |   6 +
+ flow/designs/gf180/riscv32i/BUILD.bazel       |   6 +
+ flow/designs/gf180/uart-blocks/BUILD.bazel    |   6 +
+ .../gf180/uart-blocks/uart_rx/BUILD.bazel     |   7 +
+ flow/designs/ihp-sg13g2/aes/BUILD.bazel       |   6 +
+ flow/designs/ihp-sg13g2/gcd/BUILD.bazel       |   6 +
+ .../ihp-sg13g2/i2c-gpio-expander/BUILD.bazel  |   6 +
+ .../I2cDeviceCtrl/BUILD.bazel                 |   7 +
+ flow/designs/ihp-sg13g2/ibex/BUILD.bazel      |   6 +
+ flow/designs/ihp-sg13g2/jpeg/BUILD.bazel      |   6 +
+ flow/designs/ihp-sg13g2/riscv32i/BUILD.bazel  |   6 +
+ flow/designs/ihp-sg13g2/spi/BUILD.bazel       |   6 +
+ flow/designs/nangate45/aes/BUILD.bazel        |   6 +
+ flow/designs/nangate45/ariane133/BUILD.bazel  |   6 +
+ flow/designs/nangate45/ariane136/BUILD.bazel  |   6 +
+ .../nangate45/black_parrot/BUILD.bazel        |   6 +
+ flow/designs/nangate45/bp_be_top/BUILD.bazel  |   6 +
+ flow/designs/nangate45/bp_fe_top/BUILD.bazel  |   6 +
+ .../nangate45/bp_multi_top/BUILD.bazel        |   6 +
+ flow/designs/nangate45/bp_quad/BUILD.bazel    |   6 +
+ .../nangate45/dynamic_node/BUILD.bazel        |   6 +
+ flow/designs/nangate45/gcd/BUILD.bazel        |   6 +
+ flow/designs/nangate45/ibex/BUILD.bazel       |   6 +
+ flow/designs/nangate45/jpeg/BUILD.bazel       |   6 +
+ .../nangate45/mempool_group/BUILD.bazel       |   6 +
+ flow/designs/nangate45/swerv/BUILD.bazel      |   6 +
+ .../nangate45/swerv_wrapper/BUILD.bazel       |   6 +
+ flow/designs/nangate45/tinyRocket/BUILD.bazel |   6 +
+ flow/designs/sky130hd/aes/BUILD.bazel         |   6 +
+ flow/designs/sky130hd/chameleon/BUILD.bazel   |   6 +
+ flow/designs/sky130hd/gcd/BUILD.bazel         |   6 +
+ flow/designs/sky130hd/ibex/BUILD.bazel        |  27 +---
+ flow/designs/sky130hd/jpeg/BUILD.bazel        |   6 +
+ flow/designs/sky130hd/microwatt/BUILD.bazel   |   6 +
+ flow/designs/sky130hd/riscv32i/BUILD.bazel    |   6 +
+ flow/designs/sky130hs/aes/BUILD.bazel         |   6 +
+ flow/designs/sky130hs/gcd/BUILD.bazel         |   6 +
+ flow/designs/sky130hs/ibex/BUILD.bazel        |   6 +
+ flow/designs/sky130hs/jpeg/BUILD.bazel        |   6 +
+ flow/designs/sky130hs/riscv32i/BUILD.bazel    |   6 +
+ 65 files changed, 403 insertions(+), 215 deletions(-)
  create mode 100644 flow/designs/BUILD.bazel
  create mode 100644 flow/designs/asap7/aes-block/BUILD.bazel
  create mode 100644 flow/designs/asap7/aes-mbff/BUILD.bazel
@@ -158,7 +155,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 flow/designs/sky130hs/riscv32i/BUILD.bazel
 
 diff --git a/MODULE.bazel b/MODULE.bazel
-index 9687e51c4..50ce2cd26 100644
+index 9687e51c4..03a3da5d5 100644
 --- a/MODULE.bazel
 +++ b/MODULE.bazel
 @@ -8,11 +8,9 @@ module(
@@ -215,11 +212,11 @@ new file mode 100644
 index 000000000..ed4e50dd7
 --- /dev/null
 +++ b/flow/designs/BUILD.bazel
-@@ -0,0 +1,1 @@
+@@ -0,0 +1 @@
 +exports_files(["BUILD.bazel"])
 diff --git a/flow/designs/asap7/aes-block/BUILD.bazel b/flow/designs/asap7/aes-block/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/aes-block/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -231,7 +228,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/aes-mbff/BUILD.bazel b/flow/designs/asap7/aes-mbff/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/aes-mbff/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -242,7 +239,7 @@ index 000000000..4ccd0967d
 +
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/aes/BUILD.bazel b/flow/designs/asap7/aes/BUILD.bazel
-index 2ff325bb4..4ccd0967d 100644
+index 2ff325bb4..a8a5f264d 100644
 --- a/flow/designs/asap7/aes/BUILD.bazel
 +++ b/flow/designs/asap7/aes/BUILD.bazel
 @@ -1,47 +1,6 @@
@@ -299,7 +296,7 @@ index 2ff325bb4..4ccd0967d 100644
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/aes_lvt/BUILD.bazel b/flow/designs/asap7/aes_lvt/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/aes_lvt/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -311,7 +308,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/cva6/BUILD.bazel b/flow/designs/asap7/cva6/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/cva6/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -323,7 +320,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/ethmac/BUILD.bazel b/flow/designs/asap7/ethmac/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/ethmac/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -334,7 +331,7 @@ index 000000000..4ccd0967d
 +
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/ethmac_lvt/BUILD.bazel b/flow/designs/asap7/ethmac_lvt/BUILD.bazel
-index 6bc335434..4ccd0967d 100644
+index 6bc335434..a8a5f264d 100644
 --- a/flow/designs/asap7/ethmac_lvt/BUILD.bazel
 +++ b/flow/designs/asap7/ethmac_lvt/BUILD.bazel
 @@ -1,24 +1,6 @@
@@ -369,7 +366,7 @@ index 6bc335434..4ccd0967d 100644
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/gcd-ccs/BUILD.bazel b/flow/designs/asap7/gcd-ccs/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/gcd-ccs/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -381,7 +378,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/gcd/BUILD.bazel b/flow/designs/asap7/gcd/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/gcd/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -393,7 +390,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/ibex/BUILD.bazel b/flow/designs/asap7/ibex/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/ibex/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -405,7 +402,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/jpeg/BUILD.bazel b/flow/designs/asap7/jpeg/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/jpeg/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -417,7 +414,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/jpeg_lvt/BUILD.bazel b/flow/designs/asap7/jpeg_lvt/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/jpeg_lvt/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -429,7 +426,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/minimal/BUILD.bazel b/flow/designs/asap7/minimal/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/minimal/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -441,7 +438,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/mock-alu/BUILD.bazel b/flow/designs/asap7/mock-alu/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/mock-alu/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -453,7 +450,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/mock-cpu/BUILD.bazel b/flow/designs/asap7/mock-cpu/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/mock-cpu/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -465,7 +462,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel b/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -477,7 +474,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel b/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
 new file mode 100644
-index 000000000..5d7d8ccbf
+index 000000000..eb51c610f
 --- /dev/null
 +++ b/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
 @@ -0,0 +1,12 @@
@@ -495,7 +492,7 @@ index 000000000..5d7d8ccbf
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i/BUILD.bazel b/flow/designs/asap7/riscv32i/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/riscv32i/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -506,7 +503,7 @@ index 000000000..4ccd0967d
 +
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/swerv_wrapper/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
-index e97eee723..4ccd0967d 100644
+index e97eee723..a8a5f264d 100644
 --- a/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 +++ b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 @@ -1,118 +1,6 @@
@@ -634,7 +631,7 @@ index e97eee723..4ccd0967d 100644
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/asap7/uart/BUILD.bazel b/flow/designs/asap7/uart/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/asap7/uart/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -646,7 +643,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf180/aes-hybrid/BUILD.bazel b/flow/designs/gf180/aes-hybrid/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/gf180/aes-hybrid/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -658,7 +655,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf180/aes/BUILD.bazel b/flow/designs/gf180/aes/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/gf180/aes/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -670,7 +667,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf180/ibex/BUILD.bazel b/flow/designs/gf180/ibex/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/gf180/ibex/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -682,7 +679,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf180/jpeg/BUILD.bazel b/flow/designs/gf180/jpeg/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/gf180/jpeg/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -694,7 +691,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf180/riscv32i/BUILD.bazel b/flow/designs/gf180/riscv32i/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/gf180/riscv32i/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -706,7 +703,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf180/uart-blocks/BUILD.bazel b/flow/designs/gf180/uart-blocks/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/gf180/uart-blocks/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -718,7 +715,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel b/flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel
 new file mode 100644
-index 000000000..2a5a8dd2e
+index 000000000..78a31a278
 --- /dev/null
 +++ b/flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel
 @@ -0,0 +1,7 @@
@@ -731,7 +728,7 @@ index 000000000..2a5a8dd2e
 +
 diff --git a/flow/designs/ihp-sg13g2/aes/BUILD.bazel b/flow/designs/ihp-sg13g2/aes/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/ihp-sg13g2/aes/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -743,7 +740,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/ihp-sg13g2/gcd/BUILD.bazel b/flow/designs/ihp-sg13g2/gcd/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/ihp-sg13g2/gcd/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -755,7 +752,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/ihp-sg13g2/i2c-gpio-expander/BUILD.bazel b/flow/designs/ihp-sg13g2/i2c-gpio-expander/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/ihp-sg13g2/i2c-gpio-expander/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -767,7 +764,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/ihp-sg13g2/i2c-gpio-expander/I2cDeviceCtrl/BUILD.bazel b/flow/designs/ihp-sg13g2/i2c-gpio-expander/I2cDeviceCtrl/BUILD.bazel
 new file mode 100644
-index 000000000..2a5a8dd2e
+index 000000000..78a31a278
 --- /dev/null
 +++ b/flow/designs/ihp-sg13g2/i2c-gpio-expander/I2cDeviceCtrl/BUILD.bazel
 @@ -0,0 +1,7 @@
@@ -780,7 +777,7 @@ index 000000000..2a5a8dd2e
 +
 diff --git a/flow/designs/ihp-sg13g2/ibex/BUILD.bazel b/flow/designs/ihp-sg13g2/ibex/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/ihp-sg13g2/ibex/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -792,7 +789,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/ihp-sg13g2/jpeg/BUILD.bazel b/flow/designs/ihp-sg13g2/jpeg/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/ihp-sg13g2/jpeg/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -804,7 +801,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/ihp-sg13g2/riscv32i/BUILD.bazel b/flow/designs/ihp-sg13g2/riscv32i/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/ihp-sg13g2/riscv32i/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -816,7 +813,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/ihp-sg13g2/spi/BUILD.bazel b/flow/designs/ihp-sg13g2/spi/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/ihp-sg13g2/spi/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -828,7 +825,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/aes/BUILD.bazel b/flow/designs/nangate45/aes/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/nangate45/aes/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -840,7 +837,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/ariane133/BUILD.bazel b/flow/designs/nangate45/ariane133/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/nangate45/ariane133/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -852,7 +849,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/ariane136/BUILD.bazel b/flow/designs/nangate45/ariane136/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/nangate45/ariane136/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -864,7 +861,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/black_parrot/BUILD.bazel b/flow/designs/nangate45/black_parrot/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/nangate45/black_parrot/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -876,7 +873,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/bp_be_top/BUILD.bazel b/flow/designs/nangate45/bp_be_top/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/nangate45/bp_be_top/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -888,7 +885,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/bp_fe_top/BUILD.bazel b/flow/designs/nangate45/bp_fe_top/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/nangate45/bp_fe_top/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -900,7 +897,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/bp_multi_top/BUILD.bazel b/flow/designs/nangate45/bp_multi_top/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/nangate45/bp_multi_top/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -912,7 +909,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/bp_quad/BUILD.bazel b/flow/designs/nangate45/bp_quad/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/nangate45/bp_quad/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -924,7 +921,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/dynamic_node/BUILD.bazel b/flow/designs/nangate45/dynamic_node/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/nangate45/dynamic_node/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -936,7 +933,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/gcd/BUILD.bazel b/flow/designs/nangate45/gcd/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/nangate45/gcd/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -948,7 +945,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/ibex/BUILD.bazel b/flow/designs/nangate45/ibex/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/nangate45/ibex/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -960,7 +957,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/jpeg/BUILD.bazel b/flow/designs/nangate45/jpeg/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/nangate45/jpeg/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -972,7 +969,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/mempool_group/BUILD.bazel b/flow/designs/nangate45/mempool_group/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/nangate45/mempool_group/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -984,7 +981,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/swerv/BUILD.bazel b/flow/designs/nangate45/swerv/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/nangate45/swerv/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -996,7 +993,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/swerv_wrapper/BUILD.bazel b/flow/designs/nangate45/swerv_wrapper/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/nangate45/swerv_wrapper/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -1008,7 +1005,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/nangate45/tinyRocket/BUILD.bazel b/flow/designs/nangate45/tinyRocket/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/nangate45/tinyRocket/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -1020,7 +1017,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/aes/BUILD.bazel b/flow/designs/sky130hd/aes/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/sky130hd/aes/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -1032,7 +1029,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/chameleon/BUILD.bazel b/flow/designs/sky130hd/chameleon/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/sky130hd/chameleon/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -1044,7 +1041,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/gcd/BUILD.bazel b/flow/designs/sky130hd/gcd/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/sky130hd/gcd/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -1055,7 +1052,7 @@ index 000000000..4ccd0967d
 +
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/ibex/BUILD.bazel b/flow/designs/sky130hd/ibex/BUILD.bazel
-index 08f7adc3e..4ccd0967d 100644
+index 08f7adc3e..a8a5f264d 100644
 --- a/flow/designs/sky130hd/ibex/BUILD.bazel
 +++ b/flow/designs/sky130hd/ibex/BUILD.bazel
 @@ -1,23 +1,6 @@
@@ -1089,7 +1086,7 @@ index 08f7adc3e..4ccd0967d 100644
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/jpeg/BUILD.bazel b/flow/designs/sky130hd/jpeg/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/sky130hd/jpeg/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -1101,7 +1098,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/microwatt/BUILD.bazel b/flow/designs/sky130hd/microwatt/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/sky130hd/microwatt/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -1113,7 +1110,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hd/riscv32i/BUILD.bazel b/flow/designs/sky130hd/riscv32i/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/sky130hd/riscv32i/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -1125,7 +1122,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hs/aes/BUILD.bazel b/flow/designs/sky130hs/aes/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/sky130hs/aes/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -1137,7 +1134,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hs/gcd/BUILD.bazel b/flow/designs/sky130hs/gcd/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/sky130hs/gcd/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -1149,7 +1146,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hs/ibex/BUILD.bazel b/flow/designs/sky130hs/ibex/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/sky130hs/ibex/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -1161,7 +1158,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hs/jpeg/BUILD.bazel b/flow/designs/sky130hs/jpeg/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/sky130hs/jpeg/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -1173,7 +1170,7 @@ index 000000000..4ccd0967d
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/sky130hs/riscv32i/BUILD.bazel b/flow/designs/sky130hs/riscv32i/BUILD.bazel
 new file mode 100644
-index 000000000..4ccd0967d
+index 000000000..a8a5f264d
 --- /dev/null
 +++ b/flow/designs/sky130hs/riscv32i/BUILD.bazel
 @@ -0,0 +1,6 @@

@@ -1,7 +1,7 @@
-From 403e769879f6a5633259641938935e782a04dc33 Mon Sep 17 00:00:00 2001
+From 5d5ba4e3abd3c0eca02c2bcb6b32355f0579e7ae Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 30 Mar 2026 14:23:40 +0200
-Subject: [PATCH 32/40] build: add parallel synthesis infrastructure (keep +
+Subject: [PATCH 23/34] build: add parallel synthesis infrastructure (keep +
  partition)
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

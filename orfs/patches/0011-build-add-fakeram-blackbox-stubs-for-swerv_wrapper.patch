@@ -1,7 +1,7 @@
-From bbe2939ee60c23de9cd3b3dd80d985fa018bcb0c Mon Sep 17 00:00:00 2001
+From 66a41d520c3e296e3c3876af6358a254feb578d2 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 30 Mar 2026 06:46:30 +0200
-Subject: [PATCH 12/40] build: add fakeram blackbox stubs for swerv_wrapper
+Subject: [PATCH 11/34] build: add fakeram blackbox stubs for swerv_wrapper
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

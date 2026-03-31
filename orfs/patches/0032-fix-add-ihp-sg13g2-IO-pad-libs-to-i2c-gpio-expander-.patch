@@ -1,8 +1,8 @@
-From d6e7aff2dbc98e4ff7ebbb3516ae89f57dbfcba4 Mon Sep 17 00:00:00 2001
+From 0c56d8a8080ee60f41e2716ab7fc2e7676620907 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Tue, 31 Mar 2026 15:17:25 +0200
-Subject: [PATCH] fix: add ihp-sg13g2 IO pad libs to i2c-gpio-expander for all
- corners
+Subject: [PATCH 32/34] fix: add ihp-sg13g2 IO pad libs to i2c-gpio-expander
+ for all corners
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

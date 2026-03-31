@@ -1,7 +1,7 @@
-From 3231f3bd08368c0ac80049ebb016885462b32e18 Mon Sep 17 00:00:00 2001
+From df64132dba32306b4b8f2413f234cd1d6b823e72 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 30 Mar 2026 14:45:27 +0200
-Subject: [PATCH 34/40] build: support SYNTH_BLACKBOXES after checkpoint read
+Subject: [PATCH 25/34] build: support SYNTH_BLACKBOXES after checkpoint read
  in synth.tcl
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

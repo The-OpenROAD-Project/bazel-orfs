@@ -1,7 +1,7 @@
-From 778f921acdb4134803b7c307de0eb651dc938ec7 Mon Sep 17 00:00:00 2001
+From 0271f31d52d2b914108a3c7e5070b9628f79ea23 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Tue, 31 Mar 2026 15:05:19 +0200
-Subject: [PATCH] fix: override PDN_TCL for riscv32i-mock-sram to fix
+Subject: [PATCH 34/34] fix: override PDN_TCL for riscv32i-mock-sram to fix
  PDN-0232/0233
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8

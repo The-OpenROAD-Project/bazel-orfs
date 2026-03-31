@@ -1,7 +1,7 @@
-From abef6edac0cf2d444380abb9b978422c866337ce Mon Sep 17 00:00:00 2001
+From 68915c06f76913c45939e8b858d19ace941b1210 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 Date: Mon, 30 Mar 2026 14:50:08 +0200
-Subject: [PATCH 35/40] build: partition synth reads keep RTLIL, skips coarse
+Subject: [PATCH 26/34] build: partition synth reads keep RTLIL, skips coarse
  synth
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
