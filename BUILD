@@ -19,8 +19,12 @@ exports_files([
     "openroad-visibility.patch",
     "oss_cad_suite.BUILD.bazel",
     "power.tcl",
+    "parallel_synth.mk",
     "rtlil_kept_modules.py",
     "sby.tpl",
+    "synth.tcl",
+    "synth_keep.tcl",
+    "synth_partition.sh",
 ])
 
 sh_binary(
