@@ -3,10 +3,23 @@ module(
 )
 
 bazel_dep(name = "bazel-orfs", dev_dependency = True)
+bazel_dep(name = "bazel-orfs-verilog", dev_dependency = True)
+
+BAZEL_ORFS_COMMIT = "old_bazel_orfs_commit"
+
+BAZEL_ORFS_REMOTE = "https://github.com/The-OpenROAD-Project/bazel-orfs.git"
+
 git_override(
     module_name = "bazel-orfs",
-    commit = "old_bazel_orfs_commit",
-    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",
+    commit = BAZEL_ORFS_COMMIT,
+    remote = BAZEL_ORFS_REMOTE,
+)
+
+git_override(
+    module_name = "bazel-orfs-verilog",
+    commit = BAZEL_ORFS_COMMIT,
+    remote = BAZEL_ORFS_REMOTE,
+    strip_prefix = "verilog",
 )
 
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories", dev_dependency = True)

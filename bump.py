@@ -70,18 +70,30 @@ def update_orfs_image(content, tag, digest):
 def update_git_override_commit(content, module_name, new_commit):
     """Update commit in git_override() block for a given module_name.
 
-    Handles both active and commented-out blocks.
+    Handles both active and commented-out blocks.  When the block uses
+    a variable reference (``commit = SOME_VAR``) instead of a string
+    literal, the top-level assignment ``SOME_VAR = "..."`` is updated.
     """
+    # Track variable names that need updating (from variable-reference blocks).
+    vars_to_update = set()
 
     def replace_in_block(m):
         block = m.group(0)
         if f'module_name = "{module_name}"' not in block:
             return block
-        return re.sub(
+        # Try replacing a quoted literal first.
+        new_block, n = re.subn(
             r'(commit\s*=\s*")[^"]*(")',
             rf"\g<1>{new_commit}\2",
             block,
         )
+        if n:
+            return new_block
+        # No quoted literal — look for a variable reference.
+        var_match = re.search(r'commit\s*=\s*([A-Za-z_][A-Za-z_0-9]*)', block)
+        if var_match:
+            vars_to_update.add(var_match.group(1))
+        return block
 
     # Active git_override blocks
     content = re.sub(
@@ -96,17 +108,31 @@ def update_git_override_commit(content, module_name, new_commit):
         block = m.group(0)
         if f'module_name = "{module_name}"' not in block:
             return block
-        return re.sub(
+        new_block, n = re.subn(
             r'(commit\s*=\s*")[^"]*(")',
             rf"\g<1>{new_commit}\2",
             block,
         )
+        if n:
+            return new_block
+        var_match = re.search(r'commit\s*=\s*([A-Za-z_][A-Za-z_0-9]*)', block)
+        if var_match:
+            vars_to_update.add(var_match.group(1))
+        return block
 
     content = re.sub(
         r"#\s*git_override\((?:\n#.*?)*?\n#\s*\)",
         replace_commented_block,
         content,
     )
+
+    # Update any top-level variable assignments discovered above.
+    for var_name in vars_to_update:
+        content = re.sub(
+            r'(' + re.escape(var_name) + r'\s*=\s*")[^"]*(")',
+            rf"\g<1>{new_commit}\2",
+            content,
+        )
 
     return content
 
@@ -285,39 +311,36 @@ def bump(
         content = f.read()
 
     project = detect_project(content)
-    print(f"Detected: {project} project")
+    updated_modules = []
 
     # --- Update ORFS image (all projects) ---
     repo = "openroad/orfs"
     latest_tag = fetch_tag_fn(repo)
-    print(f"Latest ORFS tag: {latest_tag}")
-
     digest = resolve_digest_fn(f"docker.io/{repo}", latest_tag)
-    print(f"Digest: {digest}")
-
     content = update_orfs_image(content, latest_tag, digest)
+    updated_modules.append(f"ORFS image -> {latest_tag}")
 
     # --- Update bazel-orfs commit (skip for bazel-orfs itself) ---
     if project != "bazel-orfs":
         bazel_orfs_commit = fetch_commit_fn("The-OpenROAD-Project/bazel-orfs", "main")
-        print(f"Latest bazel-orfs commit: {bazel_orfs_commit}")
         content = update_git_override_commit(content, "bazel-orfs", bazel_orfs_commit)
+        updated_modules.append(f"bazel-orfs -> {bazel_orfs_commit[:12]}")
         # Submodules live in the same repo, so they share the same commit
         for submodule in find_bazel_orfs_submodules(content):
             content = update_git_override_commit(content, submodule, bazel_orfs_commit)
+            updated_modules.append(f"{submodule} -> {bazel_orfs_commit[:12]}")
 
     # --- Update OpenROAD commit (skip for OpenROAD itself) ---
     openroad_commit = fetch_commit_fn("The-OpenROAD-Project/OpenROAD", "master")
-    print(f"Latest OpenROAD commit: {openroad_commit}")
 
     if project != "openroad":
         content = update_git_override_commit(content, "openroad", openroad_commit)
+        updated_modules.append(f"openroad -> {openroad_commit[:12]}")
 
     # --- Informational: ORFS commit ---
     orfs_commit = fetch_commit_fn(
         "The-OpenROAD-Project/OpenROAD-flow-scripts", "master"
     )
-    print(f"Latest ORFS commit: {orfs_commit}")
 
     # --- Inject boilerplate (downstream only) ---
     if project == "downstream":
@@ -330,7 +353,7 @@ def bump(
     if project != "bazel-orfs" and workspace_dir:
         changes = migrate_load_paths(workspace_dir)
         for fpath, old, new in changes:
-            print(f"Migrated load path in {fpath}: {old} -> {new}")
+            updated_modules.append(f"load path {old} -> {new} in {fpath}")
 
     # --- Update mock modules ---
     if mock_modules:
@@ -341,10 +364,15 @@ def bump(
                 mock_content = f.read()
             if "orfs.default" not in mock_content:
                 continue
-            print(f"Updating ORFS image in {mock_file}")
             mock_content = update_orfs_image(mock_content, latest_tag, digest)
             with open(mock_file, "w") as f:
                 f.write(mock_content)
+            updated_modules.append(f"mock {mock_file}")
+
+    # --- Summary ---
+    print(f"Updated {module_file} ({project} project):")
+    for entry in updated_modules:
+        print(f"  {entry}")
 
     return content
 
@@ -396,12 +424,6 @@ def main():
             "You may need to run it manually.",
             file=sys.stderr,
         )
-
-    # Show diff (workspace-wide, not just MODULE.bazel, to include load path migrations)
-    subprocess.run(
-        ["git", "diff", "--color=always"],
-        cwd=workspace,
-    )
 
 
 if __name__ == "__main__":
