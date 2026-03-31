@@ -18,6 +18,14 @@ bazelisk test $(bazelisk query @orfs//flow/designs/... | grep _lint_test)
 
 # Run a real flow stage
 bazelisk build @orfs//flow/designs/asap7/gcd:gcd_synth
+
+# Run all synth flows for asap7
+bazelisk build $(bazelisk query @orfs//flow/designs/asap7/... | grep _synth)
+
+# Run a full test of one flow, including metadata test, quality of results
+# regression test in ORFS
+bazelisk test @orfs//flow/designs/asap7/gcd:gcd_test
+
 ```
 
 Every `config.mk` design in ORFS automatically gets Bazel targets — no
