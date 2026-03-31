@@ -398,7 +398,8 @@ class ConfigMkParser:
         # Match: export VAR = value, export VAR ?= value, export VAR := value
         # Also: VAR = value (without export), and export VAR=value (no spaces)
         match = re.match(
-            r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_.]*)\s*(\?=|:=|=)\s*(.*)", line
+            r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_.]*)\s*(\+=|\?=|:=|=)\s*(.*)",
+            line,
         )
         if not match:
             return
@@ -424,7 +425,12 @@ class ConfigMkParser:
                 result._conditional_only_vars.setdefault(var_name, line_num + 1)
             return
 
-        raw_vars[var_name] = (value, op, line_num + 1)
+        # For += append to existing value
+        if op == "+=" and var_name in raw_vars:
+            prev_value, prev_op, prev_line = raw_vars[var_name]
+            raw_vars[var_name] = (prev_value + " " + value, prev_op, prev_line)
+        else:
+            raw_vars[var_name] = (value, op, line_num + 1)
 
     def _build_context(self, result, config_path, raw_vars):
         """Build the variable resolution context."""

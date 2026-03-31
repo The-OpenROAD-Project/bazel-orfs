@@ -18,7 +18,7 @@ Fixes:
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
- flow/BUILD.bazel                              |  1 +
+ flow/BUILD.bazel                              |  4 ++++
  flow/designs/asap7/cva6/BUILD.bazel           |  6 ++---
  .../asap7/riscv32i-mock-sram/BUILD.bazel      |  6 ++---
  .../fakeram7_256x32/BUILD.bazel               |  5 ++---
@@ -28,18 +28,21 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  flow/designs/asap7/swerv_wrapper/config.mk    |  3 ++-
  .../src/common_cells/include/BUILD.bazel      |  6 ++---
  .../include/common_cells/BUILD.bazel          | 22 -------------------
- 10 files changed, 20 insertions(+), 46 deletions(-)
+ 10 files changed, 23 insertions(+), 46 deletions(-)
  delete mode 100644 flow/designs/src/cva6/core/cvfpu/src/common_cells/include/common_cells/BUILD.bazel
 
 diff --git a/flow/BUILD.bazel b/flow/BUILD.bazel
 index d6d367d1e..a1c0935e2 100644
 --- a/flow/BUILD.bazel
 +++ b/flow/BUILD.bazel
-@@ -6,6 +6,7 @@ exports_files(
+@@ -6,6 +6,10 @@ exports_files(
          "platforms/*/verilog/*.sv",
          "platforms/*/lef/*.lef",
          "platforms/*/lib/**/*.lib",
-+        "platforms/*/openRoad/**/*.tcl",
++        "platforms/*/*.tcl",
++        "platforms/*/gds/*.gds",
++        "platforms/*/openRoad/**",
++        "platforms/*/openROAD/**",
      ]),
      visibility = ["//visibility:public"],
  )
