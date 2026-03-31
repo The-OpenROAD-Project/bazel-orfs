@@ -125,8 +125,8 @@ Floorplan stage results across all platforms (2026-03-31):
 |--------|-----------|----------------|
 | aes | pass | |
 | gcd | pass | |
-| i2c-gpio-expander | **FAIL** | [FRC-8](FRC.md) STA-0453: sg13g2_IOPadIn cell not found (synth) |
-| i2c-gpio-expander/I2cDeviceCtrl | **FAIL** | [FRC-8](FRC.md) STA-0453: sg13g2_IOPadIn cell not found (synth) |
+| i2c-gpio-expander | **FAIL** | [FRC-8](FRC.md) synth fixed (patch 0033); [FRC-9](FRC.md) PAD-0102 at floorplan |
+| i2c-gpio-expander/I2cDeviceCtrl | **FAIL** | [FRC-8](FRC.md) synth fixed (patch 0033); [FRC-9](FRC.md) PAD-0102 at floorplan |
 | ibex | pass | |
 | jpeg | pass | |
 | riscv32i | pass | |
