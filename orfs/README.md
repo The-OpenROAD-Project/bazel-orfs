@@ -60,6 +60,78 @@ The lint flow validates design configuration in seconds using mock
 tools. FRC rules catch common errors before expensive real builds.
 See the [FRC catalog](FRC.md) for the full list.
 
+## Build Status
+
+Floorplan stage results across all platforms (2026-03-31):
+
+### asap7
+
+| Design | floorplan | Blocking issue |
+|--------|-----------|----------------|
+| aes | pass | |
+| aes-block | pass | |
+| aes-mbff | pass | |
+| aes_lvt | pass | |
+| cva6 | pass | |
+| ethmac | pass | |
+| ethmac_lvt | pass | |
+| gcd | pass | |
+| gcd-ccs | pass | |
+| ibex | pass | |
+| jpeg | pass | |
+| jpeg_lvt | pass | |
+| mock-alu | pass | |
+| mock-cpu | pass | |
+| riscv32i | pass | |
+| riscv32i-mock-sram (block) | pass | |
+| riscv32i-mock-sram (top) | **FAIL** | [FRC-7](FRC.md) PDN-0232/0233: empty macro PDN grids |
+| swerv_wrapper | pass | |
+| uart | pass | |
+
+### sky130hd
+
+| Design | floorplan | Blocking issue |
+|--------|-----------|----------------|
+| aes | pass | |
+| chameleon | pass | |
+| gcd | pass | |
+| jpeg | pass | |
+| microwatt | pass | |
+| riscv32i | pass | |
+
+### sky130hs
+
+| Design | floorplan | Blocking issue |
+|--------|-----------|----------------|
+| aes | pass | |
+| gcd | pass | |
+| ibex | pass | |
+| jpeg | pass | |
+| riscv32i | pass | |
+
+### gf180
+
+| Design | floorplan | Blocking issue |
+|--------|-----------|----------------|
+| aes | pass | |
+| aes-hybrid | pass | |
+| ibex | pass | |
+| jpeg | pass | |
+| riscv32i | pass | |
+
+### ihp-sg13g2
+
+| Design | floorplan | Blocking issue |
+|--------|-----------|----------------|
+| aes | pass | |
+| gcd | pass | |
+| i2c-gpio-expander | **FAIL** | [FRC-8](FRC.md) STA-0453: sg13g2_IOPadIn cell not found (synth) |
+| i2c-gpio-expander/I2cDeviceCtrl | **FAIL** | [FRC-8](FRC.md) STA-0453: sg13g2_IOPadIn cell not found (synth) |
+| ibex | pass | |
+| jpeg | pass | |
+| riscv32i | pass | |
+| spi | pass | |
+
 ## Why Patches?
 
 This module carries a stack of patches on top of upstream ORFS. Updating
