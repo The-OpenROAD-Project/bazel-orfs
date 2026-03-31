@@ -8,8 +8,9 @@ Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
 The SDC sources designs/src/mock-array/util.tcl which must be in the
-sandbox. Use SDC_FILE_EXTRA to declare the dependency and $::env(DESIGN_HOME)
-for a portable path. Export *.tcl from the mock-array BUILD.
+sandbox. Use SDC_FILE_EXTRA to declare the dependency and source
+$::env(SDC_FILE_EXTRA) for a portable Bazel-sandbox-compatible path.
+Export *.tcl from the mock-array BUILD.
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
@@ -40,7 +41,7 @@ index 4648916e3..a7f3b609e 100644
  # This fifo is from http://www.sunburst-design.com/papers/CummingsSNUG2002SJ_FIFO1.pdf
  
 -source designs/src/mock-array/util.tcl
-+source $::env(DESIGN_HOME)/src/mock-array/util.tcl
++source $::env(SDC_FILE_EXTRA)
  
  set sdc_version 2.0
  
