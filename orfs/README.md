@@ -54,6 +54,12 @@ Obviously, PRs are welcome, but this is a bit of a tricky setup
 so fixing simple things come with a large cognitive load compared
 to PRs directly in OpenROAD and ORFS.
 
+## Flow Rules Check (FRC)
+
+The lint flow validates design configuration in seconds using mock
+tools. FRC rules catch common errors before expensive real builds.
+See the [FRC catalog](../gallery/docs/frc/) for the full list.
+
 ## Why Patches?
 
 This module carries a stack of patches on top of upstream ORFS. Updating

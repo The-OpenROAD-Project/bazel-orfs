@@ -1070,7 +1070,14 @@ class TclInterpreter:
         subcmd = args[0]
         sargs = args[1:]
         if subcmd == "exists":
-            return "1" if os.path.exists(sargs[0]) else "0"
+            path = sargs[0]
+            exists = os.path.exists(path)
+            if not exists and path.endswith(".tcl"):
+                print(
+                    f"FRC source-file-missing: {path}",
+                    file=sys.stderr,
+                )
+            return "1" if exists else "0"
         elif subcmd == "dirname":
             return os.path.dirname(sargs[0])
         elif subcmd == "tail":
