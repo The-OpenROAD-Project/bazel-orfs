@@ -9,6 +9,7 @@ on:
 
 jobs:
   test:
+    name: Gallery lint + smoketest
     runs-on: ubuntu-22.04
     env:
       DEBIAN_FRONTEND: noninteractive
