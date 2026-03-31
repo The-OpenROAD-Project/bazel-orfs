@@ -21,11 +21,28 @@ OUTPUT="$RESULTS_DIR/partition_${PARTITION_ID}.v"
 # JSON format: {"modules": ["mod1", "mod2", ...]}
 ALL_MODULES=$(sed 's/.*\[//;s/\].*//;s/"//g;s/,/\n/g;s/ //g' "$KEPT_JSON")
 
+# When SYNTH_SKIP_KEEP is set, the keep-hierarchy discovery was skipped.
+# Partitions read from canonical RTLIL and run full synthesis (coarse+fine).
+if [ -n "${SYNTH_SKIP_KEEP:-}" ]; then
+  CHECKPOINT="$RESULTS_DIR/1_1_yosys_canonicalize.rtlil"
+  # Validate that every SYNTH_KEPT_MODULES entry exists in the canonical RTLIL
+  RTLIL_MODULES=$(grep '^module \\' "$CHECKPOINT" | sed 's/^module \\//;s/ .*//')
+  for module in $ALL_MODULES; do
+    if ! echo "$RTLIL_MODULES" | grep -qx "$module"; then
+      echo "ERROR: SYNTH_KEPT_MODULES lists '$module' but it does not exist in the design." >&2
+      echo "Available modules: $(echo "$RTLIL_MODULES" | tr '\n' ' ')" >&2
+      exit 1
+    fi
+  done
+else
+  CHECKPOINT="$RESULTS_DIR/1_1_yosys_keep.rtlil"
+fi
+
 if [ "$PARTITION_ID" = "top" ]; then
   # Synthesize the top module with all kept modules blackboxed
   BLACKBOXES=$(echo "$ALL_MODULES" | tr '\n' ' ')
   echo "=== Synthesizing top module: $DESIGN_NAME (blackboxes: $BLACKBOXES) ==="
-  SYNTH_CHECKPOINT="$RESULTS_DIR/1_1_yosys_keep.rtlil" \
+  SYNTH_CHECKPOINT="$CHECKPOINT" \
   SYNTH_BLACKBOXES="$BLACKBOXES" \
     "$SCRIPTS_DIR/synth.sh" \
     "$SYNTH_TCL" \
@@ -70,7 +87,7 @@ for module in "${MY_MODULES[@]}"; do
   # DESIGN_NAME: override to this module
   # Truncate module name in log filename to avoid filesystem limits
   log_module="${module:0:80}"
-  SYNTH_CHECKPOINT="$RESULTS_DIR/1_1_yosys_keep.rtlil" \
+  SYNTH_CHECKPOINT="$CHECKPOINT" \
   SYNTH_BLACKBOXES="$BLACKBOXES" \
   DESIGN_NAME="$module" \
     "$SCRIPTS_DIR/synth.sh" \

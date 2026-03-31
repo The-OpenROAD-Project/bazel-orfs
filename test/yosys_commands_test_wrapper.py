@@ -15,6 +15,13 @@ for subdir in [
 # Now import and run via pytest
 import pytest
 
-sys.exit(pytest.main([os.path.join(
-    _RUNFILES, "mock-yosys+", "src", "bin", "yosys_commands_test.py"
-), "-v"]))
+sys.exit(
+    pytest.main(
+        [
+            os.path.join(
+                _RUNFILES, "mock-yosys+", "src", "bin", "yosys_commands_test.py"
+            ),
+            "-v",
+        ]
+    )
+)

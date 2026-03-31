@@ -10,7 +10,7 @@ do-yosys-keep: yosys-dependencies
 
 .PHONY: do-yosys-partition
 do-yosys-partition: yosys-dependencies
-	$(SYNTH_PARTITION_SCRIPT)
+	bash $(SYNTH_PARTITION_SCRIPT)
 
 .PHONY: do-yosys-sdc-copy
 do-yosys-sdc-copy:
