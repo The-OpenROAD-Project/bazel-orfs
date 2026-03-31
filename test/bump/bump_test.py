@@ -98,9 +98,7 @@ class TestOpenroadProject(unittest.TestCase):
         self.assertIn(DIGEST, self.content)
 
     def test_bazel_orfs_commit_variable_updated(self):
-        self.assertIn(
-            f'BAZEL_ORFS_COMMIT = "{BAZEL_ORFS_COMMIT}"', self.content
-        )
+        self.assertIn(f'BAZEL_ORFS_COMMIT = "{BAZEL_ORFS_COMMIT}"', self.content)
 
     def test_old_commit_removed(self):
         self.assertNotIn("old_bazel_orfs_commit", self.content)
@@ -123,7 +121,7 @@ class TestOpenroadProject(unittest.TestCase):
     def test_verilog_submodule_uses_same_variable(self):
         """Both git_override blocks should reference the same variable."""
         blocks = re.findall(
-            r'git_override\(.*?\)',
+            r"git_override\(.*?\)",
             self.content,
             re.DOTALL,
         )
@@ -765,7 +763,7 @@ class TestMigrateLoadPaths(unittest.TestCase):
         self.assertEqual(len(changes), 0)
 
     def test_skips_unrelated_files(self):
-        self._write("README.md", '@bazel-orfs//:sby.bzl\n')
+        self._write("README.md", "@bazel-orfs//:sby.bzl\n")
         self._write("src/main.py", 'print("@bazel-orfs//:sby.bzl")\n')
         changes = bump.migrate_load_paths(self.tmpdir)
         self.assertEqual(len(changes), 0)
@@ -806,8 +804,8 @@ class TestMigrateLoadPaths(unittest.TestCase):
         self._write("BUILD.bazel", content)
         bump.migrate_load_paths(self.tmpdir)
         result = self._read("BUILD.bazel")
-        self.assertIn('@bazel-orfs//:sby/sby.bzl', result)
-        self.assertIn('@bazel-orfs//:openroad.bzl', result)
+        self.assertIn("@bazel-orfs//:sby/sby.bzl", result)
+        self.assertIn("@bazel-orfs//:openroad.bzl", result)
 
 
 class TestBumpWithMigration(unittest.TestCase):
@@ -836,7 +834,7 @@ class TestBumpWithMigration(unittest.TestCase):
 
             with open(build_file) as f:
                 result = f.read()
-            self.assertIn('@bazel-orfs//:sby/sby.bzl', result)
+            self.assertIn("@bazel-orfs//:sby/sby.bzl", result)
             self.assertNotIn('@bazel-orfs//:sby.bzl"', result)
         finally:
             shutil.rmtree(tmpdir)

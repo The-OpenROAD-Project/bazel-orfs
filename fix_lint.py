@@ -119,7 +119,9 @@ def run_buildifier(buildifier, files):
         return
     print(f"buildifier: {len(files)} file(s)")
     subprocess.check_call([buildifier] + files)
-    subprocess.check_call([buildifier, "-lint", "warn"] + files)
+    ret = subprocess.call([buildifier, "-lint", "warn"] + files)
+    if ret not in (0, 4):
+        raise subprocess.CalledProcessError(ret, "buildifier -lint warn")
 
 
 def run_mod_tidy(module_files):

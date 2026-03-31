@@ -1,3 +1,5 @@
+"""Downstream project fixture for bump tests."""
+
 module(
     name = "my-chip",
     version = "0.0.1",
