@@ -2,7 +2,7 @@ load("//:defs.bzl", "demo_sram")
 load("//:gallery.bzl", "demo_gallery_image")
 load("@bazel-orfs-verilog//:generate.bzl", "fir_library")
 load("@bazel-orfs-verilog//:verilog.bzl", "verilog_directory", "verilog_single_file_library")
-load("@bazel-orfs//:openroad.bzl", "orfs_flow", "orfs_synth")
+load("@bazel-orfs//:openroad.bzl", "orfs_flow")
 load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
 load(":kept.bzl", "KEPT_MODULES")
 
@@ -164,26 +164,26 @@ MEMORY_BLACKBOXES = [
 ]
 
 # ============================================================================
-# ICache test: small module with SRAM sub-macros (proof of concept)
+# Memory macros — all MEMORY_BLACKBOXES built as demo_sram with mock areas.
+# SYNTH_MOCK_LARGE_MEMORIES=1 comes from _GLOBAL_SETTINGS via demo_sram().
 # ============================================================================
 
-demo_sram(
-    name = "dataArrayB_256x512",
-    arguments = SRAM_SETTINGS | {"CORE_ASPECT_RATIO": "4"},
-    mock_area = 10.0,
-    sources = SRAM_SOURCES,
-    stage_sources = SRAM_STAGE_SOURCES,
-    verilog_files = [":boom_sv"],
-)
+# Per-memory overrides for floorplan sizing (populated iteratively).
+# PPL-0111: not enough pin slots → lower utilization for more perimeter.
+SRAM_OVERRIDES = {
+    "array_64x1024": {"CORE_UTILIZATION": "20"},
+    "regfile_128x65": {"CORE_UTILIZATION": "20"},
+    "ram_sink_2x4": {"CORE_UTILIZATION": "10", "CORE_ASPECT_RATIO": "1"},
+}
 
-demo_sram(
-    name = "tag_array_64x152",
-    arguments = SRAM_SETTINGS | {"CORE_ASPECT_RATIO": "4"},
-    mock_area = 1.5,
+[demo_sram(
+    name = name,
+    arguments = SRAM_SETTINGS | {"CORE_ASPECT_RATIO": "4"} | SRAM_OVERRIDES.get(name, {}),
+    mock_area = 1.0,
     sources = SRAM_SOURCES,
     stage_sources = SRAM_STAGE_SOURCES,
     verilog_files = [":boom_sv"],
-)
+) for name in MEMORY_BLACKBOXES]
 
 icache_srams = [
     "dataArrayB_256x512",
@@ -210,65 +210,13 @@ orfs_flow(
 )
 
 # ============================================================================
-# Per-module netlist synthesis — each KEPT_MODULE gets its own Yosys/ABC
-# process as a separate Bazel action, running in parallel.
-# All other KEPT_MODULES + all memories are blackboxed.
-# ============================================================================
-
-ALL_BLACKBOXES = MEMORY_BLACKBOXES + KEPT_MODULES
-
-# Use orfs_synth directly (not orfs_flow) so we can set save_odb=False.
-# synth_odb fails on blackboxed modules that have no LEF masters;
-# save_odb=False skips it since we only need the .v netlist output.
-[orfs_synth(
-    name = name + "_netlist_synth",
-    arguments = FAST_SETTINGS | {
-        "SYNTH_BLACKBOXES": " ".join([b for b in ALL_BLACKBOXES if b != name]),
-    },
-    module_top = name,
-    save_odb = False,
-    sources = {
-        "SDC_FILE": [":constraints-module.sdc"],
-    },
-    tags = ["manual"],
-    verilog_files = [":boom_sv"],
-) for name in KEPT_MODULES]
-
-# Collect per-module netlists
-[filegroup(
-    name = "{name}_netlist".format(name = name),
-    srcs = ["{name}_netlist_synth".format(name = name)],
-    output_group = "1_2_yosys.v",
-) for name in KEPT_MODULES]
-
-filegroup(
-    name = "netlists",
-    srcs = [":{}_netlist".format(name) for name in KEPT_MODULES],
-)
-
-# ============================================================================
-# Test: verify per-module synthesis produces correct blackboxing
-# ============================================================================
-
-sh_test(
-    name = "test_hierarchical_synth",
-    srcs = ["test_hierarchical_synth.sh"],
-    data = [":netlists"] + [
-        ":{}_netlist_synth".format(name)
-        for name in KEPT_MODULES
-    ],
-    tags = ["manual"],
-)
-
-# ============================================================================
-# Survey: hierarchical synthesis with mocked memories to get module sizes
+# Full BoomTile flow with SYNTH_KEPT_MODULES parallel synthesis.
 # ============================================================================
 
 orfs_flow(
-    name = "BoomTile_survey",
+    name = "BoomTile",
     arguments = FAST_SETTINGS | {
-        "SYNTH_HIERARCHICAL": "1",
-        "SYNTH_MINIMUM_KEEP_SIZE": "0",
+        "SYNTH_KEPT_MODULES": " ".join(KEPT_MODULES),
         "SYNTH_BLACKBOXES": " ".join(MEMORY_BLACKBOXES),
         "DIE_AREA": "0 0 1000 1000",
         "CORE_AREA": "2 2 998 998",
@@ -276,11 +224,15 @@ orfs_flow(
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
         "PLACE_PINS_ARGS": "-annealing",
     },
+    macros = [":{}_generate_abstract".format(m) for m in MEMORY_BLACKBOXES],
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+    },
     stage_sources = {
-        "synth": [":constraints.sdc"],
         "floorplan": [":io-boomtile"],
         "place": [":io-boomtile"],
     },
+    tags = ["manual"],
     top = "BoomTile",
     verilog_files = [":boom_sv"],
 )
