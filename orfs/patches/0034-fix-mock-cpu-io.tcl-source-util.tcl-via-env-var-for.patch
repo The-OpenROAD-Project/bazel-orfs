@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 31 Mar 2026 12:00:00 +0200
+Subject: [PATCH] fix: mock-cpu io.tcl source util.tcl via env var for Bazel
+ sandbox
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The io.tcl used hardcoded relative paths to source util.tcl, guarded by
+file exists checks. In the Bazel sandbox neither path resolves, so
+util.tcl is silently skipped and match_pins is never defined, causing
+floorplan to crash with "invalid command name match_pins".
+
+Use $::env(SDC_FILE_EXTRA) which already points to util.tcl's sandbox
+path (added in the SDC fix). This is the same pattern used for
+constraint.sdc.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/designs/asap7/mock-cpu/io.tcl | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
+
+diff --git a/flow/designs/asap7/mock-cpu/io.tcl b/flow/designs/asap7/mock-cpu/io.tcl
+index ea8b842..5591aab 100644
+--- a/flow/designs/asap7/mock-cpu/io.tcl
++++ b/flow/designs/asap7/mock-cpu/io.tcl
+@@ -1,10 +1,4 @@
+-# bazel has root of OpenROAD-flow-scripts as working directory
+-foreach prefix {"" flow/} {
+-  set f ${prefix}designs/src/mock-array/util.tcl
+-  if { [file exists $f] } {
+-    source $f
+-  }
+-}
++source $::env(SDC_FILE_EXTRA)
+
+ set_io_pin_constraint -order -group -region bottom:* \
+   -pin_names [concat [match_pins .*] [match_pins clk input 1]]
+--
+2.51.0
+

@@ -610,5 +610,32 @@ class TestInfoCommand:
         assert result == "1"
 
 
+class TestFRC:
+    def test_frc_source_file_missing(self, interp, capsys):
+        """file exists on missing .tcl emits FRC warning."""
+        interp.eval("file exists /nonexistent/foo.tcl")
+        captured = capsys.readouterr()
+        assert "FRC source-file-missing" in captured.err
+        assert "/nonexistent/foo.tcl" in captured.err
+
+    def test_frc_source_file_present(self, interp, capsys):
+        """file exists on real .tcl file emits no FRC warning."""
+        with tempfile.NamedTemporaryFile(
+            suffix=".tcl", delete=False
+        ) as f:
+            f.write(b"# ok\n")
+            f.flush()
+            interp.eval(f"file exists {f.name}")
+            captured = capsys.readouterr()
+            assert "FRC" not in captured.err
+            os.unlink(f.name)
+
+    def test_frc_non_tcl_no_warning(self, interp, capsys):
+        """file exists on missing non-.tcl file emits no FRC warning."""
+        interp.eval("file exists /nonexistent/foo.txt")
+        captured = capsys.readouterr()
+        assert "FRC" not in captured.err
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
