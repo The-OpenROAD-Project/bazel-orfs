@@ -90,7 +90,7 @@ def update_git_override_commit(content, module_name, new_commit):
         if n:
             return new_block
         # No quoted literal — look for a variable reference.
-        var_match = re.search(r'commit\s*=\s*([A-Za-z_][A-Za-z_0-9]*)', block)
+        var_match = re.search(r"commit\s*=\s*([A-Za-z_][A-Za-z_0-9]*)", block)
         if var_match:
             vars_to_update.add(var_match.group(1))
         return block
@@ -115,7 +115,7 @@ def update_git_override_commit(content, module_name, new_commit):
         )
         if n:
             return new_block
-        var_match = re.search(r'commit\s*=\s*([A-Za-z_][A-Za-z_0-9]*)', block)
+        var_match = re.search(r"commit\s*=\s*([A-Za-z_][A-Za-z_0-9]*)", block)
         if var_match:
             vars_to_update.add(var_match.group(1))
         return block
@@ -129,7 +129,7 @@ def update_git_override_commit(content, module_name, new_commit):
     # Update any top-level variable assignments discovered above.
     for var_name in vars_to_update:
         content = re.sub(
-            r'(' + re.escape(var_name) + r'\s*=\s*")[^"]*(")',
+            r"(" + re.escape(var_name) + r'\s*=\s*")[^"]*(")',
             rf"\g<1>{new_commit}\2",
             content,
         )
@@ -143,7 +143,7 @@ BAZEL_ORFS_SUBMODULES = ["bazel-orfs-verilog", "bazel-orfs-sby"]
 # when bumping a downstream project so that moved .bzl files don't
 # break the build.
 LOAD_MIGRATIONS = {
-    '@bazel-orfs//:sby.bzl': '@bazel-orfs//:sby/sby.bzl',
+    "@bazel-orfs//:sby.bzl": "@bazel-orfs//:sby/sby.bzl",
 }
 
 
@@ -163,9 +163,7 @@ def migrate_load_paths(workspace_dir):
             continue
         for fname in files:
             if not (
-                fname == "BUILD"
-                or fname == "BUILD.bazel"
-                or fname.endswith(".bzl")
+                fname == "BUILD" or fname == "BUILD.bazel" or fname.endswith(".bzl")
             ):
                 continue
             fpath = os.path.join(root, fname)
@@ -173,9 +171,7 @@ def migrate_load_paths(workspace_dir):
                 content = f.read()
             new_content = content
             for old_path, new_path in LOAD_MIGRATIONS.items():
-                new_content = new_content.replace(
-                    f'"{old_path}"', f'"{new_path}"'
-                )
+                new_content = new_content.replace(f'"{old_path}"', f'"{new_path}"')
             if new_content != content:
                 with open(fpath, "w") as f:
                     f.write(new_content)

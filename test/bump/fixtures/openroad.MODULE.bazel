@@ -1,3 +1,5 @@
+"""OpenROAD project fixture for bump tests."""
+
 module(
     name = "openroad",
 )
