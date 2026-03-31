@@ -151,7 +151,7 @@
   "moduleExtensions": {
     "@@bazel-orfs+//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "49Rwjm2V6v3hh3++p8hh/LjQnDxRwsn/WyOg/Dv3+ro=",
+        "bzlTransitiveDigest": "1T9b1AS979F7qaxyw/OjMC5ZMrWRH/7sYB76ydIETxQ=",
         "usagesDigest": "6lt3q6NiSHQWldlSCos5leLt3JPvaZPExP3Pcw/IZJs=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
