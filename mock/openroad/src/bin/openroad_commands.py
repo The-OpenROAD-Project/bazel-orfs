@@ -73,6 +73,7 @@ def _touch(path, content=""):
 
 # --- Database I/O ---
 
+
 def cmd_read_db(interp, args):
     """read_db <path>"""
     if args:
@@ -109,6 +110,7 @@ def cmd_orfs_write_db(interp, args):
 
 # --- SDC I/O ---
 
+
 def cmd_read_sdc(interp, args):
     """read_sdc <path>"""
     remaining = list(args)
@@ -119,8 +121,7 @@ def cmd_read_sdc(interp, args):
         _state.sdc_loaded = path
         if not os.path.isfile(path):
             print(
-                f"lint: WARNING: SDC not found:"
-                f" {path}",
+                f"lint: WARNING: SDC not found:" f" {path}",
                 file=sys.stderr,
             )
         else:
@@ -132,9 +133,12 @@ def cmd_read_sdc(interp, args):
 
 
 def cmd_write_sdc(interp, args):
-    """write_sdc <path>"""
-    if args:
-        path = args[0]
+    """write_sdc ?-no_timestamp? <path>"""
+    remaining = list(args)
+    while remaining and remaining[0].startswith("-"):
+        remaining.pop(0)
+    if remaining:
+        path = remaining[0]
         # Copy source SDC if available, else create minimal
         content = "# Mock SDC\n"
         if _state.sdc_loaded and os.path.isfile(_state.sdc_loaded):
@@ -152,6 +156,7 @@ def cmd_orfs_write_sdc(interp, args):
 
 # --- LEF/Liberty I/O ---
 
+
 def cmd_read_lef(interp, args):
     """read_lef <path>"""
     remaining = list(args)
@@ -162,8 +167,7 @@ def cmd_read_lef(interp, args):
         _state.lefs_loaded.append(path)
         if not os.path.isfile(path):
             print(
-                f"lint: WARNING: LEF not found:"
-                f" {path}",
+                f"lint: WARNING: LEF not found:" f" {path}",
                 file=sys.stderr,
             )
     return ""
@@ -180,6 +184,7 @@ def cmd_read_liberty(interp, args):
 
 
 # --- Verilog I/O ---
+
 
 def cmd_read_verilog(interp, args):
     """read_verilog <path> — also extract port names."""
@@ -233,14 +238,14 @@ def cmd_write_spef(interp, args):
 
 # --- Design commands ---
 
+
 def cmd_link_design(interp, args):
     """link_design <name>"""
     if args:
         _state.design_name = args[0]
     else:
         print(
-            "lint: WARNING: link_design called"
-            " with no design name",
+            "lint: WARNING: link_design called" " with no design name",
             file=sys.stderr,
         )
     return ""
@@ -280,13 +285,12 @@ def validate_env_vars():
     based on variables.yaml semantics.
     """
     max_die = _get_max_die()
-    platform = os.environ.get(
-        "PLATFORM", "asap7"
-    ).lower()
+    platform = os.environ.get("PLATFORM", "asap7").lower()
 
     # --- Required variables ---
     for var in (
-        "PLATFORM", "DESIGN_NAME",
+        "PLATFORM",
+        "DESIGN_NAME",
     ):
         if not os.environ.get(var, ""):
             _lint(var, "required but not set")
@@ -320,8 +324,7 @@ def validate_env_vars():
             elif ar < 0.1 or ar > 10.0:
                 _lint(
                     "CORE_ASPECT_RATIO",
-                    f"{ar} is extreme"
-                    f" (typical: 0.5–2.0)",
+                    f"{ar} is extreme" f" (typical: 0.5–2.0)",
                 )
         except ValueError:
             _lint(
@@ -344,8 +347,7 @@ def validate_env_vars():
                 elif m > max_die / 4:
                     _lint(
                         "CORE_MARGIN",
-                        f"{m}um is >25% of max die"
-                        f" ({max_die}um)",
+                        f"{m}um is >25% of max die" f" ({max_die}um)",
                     )
             except ValueError:
                 _lint(
@@ -370,9 +372,7 @@ def validate_env_vars():
             )
 
     # --- ROUTING_LAYER_ADJUSTMENT: float [0, 1] ---
-    val = os.environ.get(
-        "ROUTING_LAYER_ADJUSTMENT", ""
-    )
+    val = os.environ.get("ROUTING_LAYER_ADJUSTMENT", "")
     if val:
         try:
             a = float(val)
@@ -426,8 +426,7 @@ def validate_env_vars():
         if len(parts) != 4:
             _lint(
                 "DIE_AREA",
-                f"expected 4 values (X1 Y1 X2 Y2),"
-                f" got {len(parts)}",
+                f"expected 4 values (X1 Y1 X2 Y2)," f" got {len(parts)}",
             )
         else:
             try:
@@ -437,15 +436,12 @@ def validate_env_vars():
                 if w <= 0 or h <= 0:
                     _lint(
                         "DIE_AREA",
-                        f"non-positive size"
-                        f" {w:.1f}x{h:.1f}um",
+                        f"non-positive size" f" {w:.1f}x{h:.1f}um",
                     )
                 elif w > max_die or h > max_die:
                     _lint(
                         "DIE_AREA",
-                        f"{w:.0f}x{h:.0f}um exceeds"
-                        f" {max_die}um for"
-                        f" {platform}",
+                        f"{w:.0f}x{h:.0f}um exceeds" f" {max_die}um for" f" {platform}",
                     )
             except ValueError:
                 _lint(
@@ -483,8 +479,7 @@ def validate_env_vars():
         if len(parts) != 2:
             _lint(
                 "MACRO_PLACE_HALO",
-                f"expected 2 values (H V),"
-                f" got {len(parts)}",
+                f"expected 2 values (H V)," f" got {len(parts)}",
             )
         else:
             for p in parts:
@@ -493,8 +488,7 @@ def validate_env_vars():
                     if h < 0:
                         _lint(
                             "MACRO_PLACE_HALO",
-                            f"{h} must be"
-                            f" non-negative",
+                            f"{h} must be" f" non-negative",
                         )
                 except ValueError:
                     _lint(
@@ -517,9 +511,7 @@ def validate_env_vars():
                 _lint(var, f"'{val}' is not an int")
 
     # --- DETAILED_ROUTE_END_ITERATION: int > 0 ---
-    val = os.environ.get(
-        "DETAILED_ROUTE_END_ITERATION", ""
-    )
+    val = os.environ.get("DETAILED_ROUTE_END_ITERATION", "")
     if val:
         try:
             n = int(val)
@@ -546,8 +538,7 @@ def validate_env_vars():
                 if c < lo or c > hi:
                     _lint(
                         var,
-                        f"{c} outside typical"
-                        f" range [{lo}, {hi}]",
+                        f"{c} outside typical" f" range [{lo}, {hi}]",
                     )
             except ValueError:
                 _lint(var, f"'{val}' is not a number")
@@ -579,22 +570,18 @@ def validate_env_vars():
             _lint(var, f"'{val}' should be 0 or 1")
 
     # --- Cross-variable: CORE_UTILIZATION vs DIE_AREA ---
-    has_util = bool(
-        os.environ.get("CORE_UTILIZATION", "")
-    )
+    has_util = bool(os.environ.get("CORE_UTILIZATION", ""))
     has_die = bool(os.environ.get("DIE_AREA", ""))
     has_core = bool(os.environ.get("CORE_AREA", ""))
     if has_util and has_die:
         _lint(
             "CORE_UTILIZATION+DIE_AREA",
-            "both set — DIE_AREA takes precedence,"
-            " CORE_UTILIZATION is ignored",
+            "both set — DIE_AREA takes precedence," " CORE_UTILIZATION is ignored",
         )
     if has_core and not has_die:
         _lint(
             "CORE_AREA",
-            "set without DIE_AREA —"
-            " CORE_AREA requires DIE_AREA",
+            "set without DIE_AREA —" " CORE_AREA requires DIE_AREA",
         )
 
 
@@ -612,8 +599,7 @@ def cmd_initialize_floorplan(interp, args):
     util = float(core_util) if core_util else 50.0
     _state.utilization = util
     print(
-        f"lint: initialize_floorplan"
-        f" (util={util}%)",
+        f"lint: initialize_floorplan" f" (util={util}%)",
         file=sys.stderr,
     )
     return ""
@@ -637,6 +623,7 @@ def cmd_set_global_routing_layer_adjustment(interp, args):
 
 # --- Placement ---
 
+
 def cmd_global_placement(interp, args):
     print("lint: global_placement (skipped)", file=sys.stderr)
     return ""
@@ -657,6 +644,7 @@ def cmd_optimize_mirroring(interp, args):
 
 # --- CTS ---
 
+
 def cmd_clock_tree_synthesis(interp, args):
     print("lint: clock_tree_synthesis (skipped)", file=sys.stderr)
     return ""
@@ -667,6 +655,7 @@ def cmd_set_propagated_clock(interp, args):
 
 
 # --- Routing ---
+
 
 def cmd_global_route(interp, args):
     print("lint: global_route (skipped)", file=sys.stderr)
@@ -683,6 +672,7 @@ def cmd_estimate_parasitics(interp, args):
 
 
 # --- Repair / Optimization ---
+
 
 def cmd_repair_timing(interp, args):
     return ""
@@ -709,6 +699,7 @@ def cmd_set_dont_use(interp, args):
 
 
 # --- Reports ---
+
 
 def cmd_report_design_area(interp, args):
     return "Design area 0.000 u^2 0% utilization."
@@ -747,6 +738,7 @@ def cmd_report_cell_usage(interp, args):
 
 
 # --- Database query ---
+
 
 def cmd_get_db(interp, args):
     """ord::get_db — return a mock database handle."""
@@ -833,8 +825,12 @@ def _register_mock_odb_methods(interp):
         return "mock_obj"
 
     for name in [
-        "mock_db", "mock_tech", "mock_chip",
-        "mock_block", "mock_die_bbox", "mock_obj",
+        "mock_db",
+        "mock_tech",
+        "mock_chip",
+        "mock_block",
+        "mock_die_bbox",
+        "mock_obj",
     ]:
         interp.register_command(name, _mock_method)
     interp.register_command("mock_core_bbox", _mock_core_method)
@@ -864,8 +860,7 @@ def cmd_get_ports(interp, args):
         # Wildcards: skip validation for glob patterns
         if "*" in port_name or "?" in port_name:
             continue
-        if (_state.ports
-                and port_name not in _state.ports):
+        if _state.ports and port_name not in _state.ports:
             print(
                 f"lint: WARNING: get_ports"
                 f" '{port_name}' — port not found"
@@ -907,9 +902,7 @@ def cmd_all_inputs(interp, args):
     # Return known ports (from Verilog parse) as space-separated list
     ports = set(_state.ports)
     if no_clocks and _state.clocks:
-        clock_ports = {
-            v for v in _state.clocks.values() if v
-        }
+        clock_ports = {v for v in _state.clocks.values() if v}
         ports -= clock_ports
     return " ".join(sorted(ports))
 
@@ -939,9 +932,11 @@ def cmd_create_clock(interp, args):
     if port_arg and _state.ports:
         # port_arg might be [get_ports clk] result
         port_name = port_arg.strip()
-        if (port_name
-                and port_name not in _state.ports
-                and not port_name.startswith("{")):
+        if (
+            port_name
+            and port_name not in _state.ports
+            and not port_name.startswith("{")
+        ):
             print(
                 f"lint: WARNING: create_clock on"
                 f" '{port_name}' — port not in design",
@@ -966,11 +961,9 @@ def cmd_set_input_delay(interp, args):
     # Last arg is the port list
     if remaining and _state.ports:
         port = remaining[-1].strip()
-        if (port and port not in _state.ports
-                and not port.startswith("{")):
+        if port and port not in _state.ports and not port.startswith("{"):
             print(
-                f"lint: WARNING: set_input_delay on"
-                f" '{port}' — port not in design",
+                f"lint: WARNING: set_input_delay on" f" '{port}' — port not in design",
                 file=sys.stderr,
             )
     return ""
@@ -985,11 +978,9 @@ def cmd_set_output_delay(interp, args):
             remaining.pop(0)
     if remaining and _state.ports:
         port = remaining[-1].strip()
-        if (port and port not in _state.ports
-                and not port.startswith("{")):
+        if port and port not in _state.ports and not port.startswith("{"):
             print(
-                f"lint: WARNING: set_output_delay on"
-                f" '{port}' — port not in design",
+                f"lint: WARNING: set_output_delay on" f" '{port}' — port not in design",
                 file=sys.stderr,
             )
     return ""
@@ -1031,6 +1022,7 @@ def cmd_set_multicycle_path(interp, args):
 
 # --- Abstract generation ---
 
+
 def cmd_write_abstract_lef(interp, args):
     """Generate mock LEF abstract."""
     remaining = list(args)
@@ -1049,7 +1041,7 @@ def cmd_write_abstract_lef(interp, args):
     cell_area = _state.cell_count * 0.5
     util = max(_state.utilization, 30.0) / 100.0
     total_area = cell_area / util if util > 0 else cell_area
-    side = max(total_area ** 0.5, 1.0)
+    side = max(total_area**0.5, 1.0)
     # Snap to grid (ASAP7: 0.054um placement grid)
     grid = 0.054
     w = round(side / grid) * grid
@@ -1083,6 +1075,34 @@ END LIBRARY
     return ""
 
 
+def _load_ports_from_rtlil():
+    """Extract port names from the RTLIL file if _state.ports is empty."""
+    if _state.ports:
+        return
+    rtlil_path = os.path.join(_state.results_dir, "1_1_yosys_canonicalize.rtlil")
+    if not os.path.isfile(rtlil_path):
+        return
+    try:
+        with open(rtlil_path) as f:
+            in_top = False
+            top = _state.design_name or ""
+            for line in f:
+                stripped = line.strip()
+                if stripped.startswith("module \\"):
+                    mod_name = stripped[len("module \\") :].strip()
+                    in_top = (mod_name == top) if top else True
+                elif stripped == "end":
+                    if in_top:
+                        break
+                    in_top = False
+                elif in_top and stripped.startswith("wire \\"):
+                    port_name = stripped[len("wire \\") :].strip()
+                    if port_name:
+                        _state.ports.add(port_name)
+    except OSError:
+        pass
+
+
 def cmd_write_timing_model(interp, args):
     """Generate mock Liberty timing model."""
     remaining = list(args)
@@ -1095,13 +1115,19 @@ def cmd_write_timing_model(interp, args):
         path = os.path.join(_state.results_dir, f"{name}_typ.lib")
 
     name = _state.design_name or "mock"
+    _load_ports_from_rtlil()
+
+    pin_lines = ""
+    for port in sorted(_state.ports):
+        pin_lines += f"    pin ({port}) {{\n      direction: inout ;\n    }}\n"
+
     lib_content = f"""library ({name}_typ) {{
   technology (cmos) ;
   delay_model : table_lookup ;
   time_unit : "1ps" ;
   cell ({name}) {{
     area : {_state.cell_count * 0.5:.1f} ;
-  }}
+{pin_lines}  }}
 }}
 """
     _touch(path, lib_content)
@@ -1110,6 +1136,7 @@ def cmd_write_timing_model(interp, args):
 
 
 # --- Misc ORFS helpers ---
+
 
 def cmd_log_cmd(interp, args):
     """log_cmd <command> <args...> — ORFS wrapper that logs and times commands."""
@@ -1237,6 +1264,7 @@ def cmd_write_def(interp, args):
 
 
 # --- utl namespace ---
+
 
 def cmd_utl_set_metrics_stage(interp, args):
     if args:
