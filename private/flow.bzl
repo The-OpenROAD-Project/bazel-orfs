@@ -96,6 +96,7 @@ def orfs_flow(
         test_kwargs = {},
         squash = False,
         substeps = False,
+        save_odb = True,
         **kwargs):
     """
     Creates targets for running physical design flow with OpenROAD-flow-scripts.
@@ -129,6 +130,8 @@ def orfs_flow(
         action outputs in per-substep output groups. Enables shared cache of
         substep intermediates for debugging via //:deps. Default False to
         control cache budget -- enable for designs under active development.
+      save_odb: if False, skip synth_odb generation. Needed when SYNTH_BLACKBOXES
+        includes modules without LEF masters. Default True.
       **kwargs: forward named args
     """
     if abstract_stage and last_stage:
@@ -160,6 +163,7 @@ def orfs_flow(
         test_kwargs = test_kwargs,
         squash = squash,
         substeps = substeps,
+        save_odb = save_odb,
         **kwargs
     )
 
@@ -287,6 +291,7 @@ def _orfs_pass(
         test_kwargs = {},
         mock_area = False,
         squash = False,
+        save_odb = True,
         **kwargs):
     ALL_STAGES = [step.stage for step in STAGE_IMPLS]
     steps = []
@@ -347,6 +352,7 @@ def _orfs_pass(
                 settings = settings,
                 extra_configs = extra_configs,
                 stage_data = stage_data,
+                save_odb = save_odb,
                 **kwargs
             )
         )
