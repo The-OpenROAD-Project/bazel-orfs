@@ -26,14 +26,17 @@ ALL_MODULES=$(sed 's/.*\[//;s/\].*//;s/"//g;s/,/\n/g;s/ //g' "$KEPT_JSON")
 if [ -n "${SYNTH_SKIP_KEEP:-}" ]; then
   CHECKPOINT="$RESULTS_DIR/1_1_yosys_canonicalize.rtlil"
   # Validate that every SYNTH_KEPT_MODULES entry exists in the canonical RTLIL
-  RTLIL_MODULES=$(grep '^module \\' "$CHECKPOINT" | sed 's/^module \\//;s/ .*//')
+  RTLIL_MODULES_FILE=$(mktemp)
+  grep '^module \\' "$CHECKPOINT" | sed 's/^module \\//;s/ .*//' > "$RTLIL_MODULES_FILE"
   for module in $ALL_MODULES; do
-    if ! echo "$RTLIL_MODULES" | grep -qx "$module"; then
+    if ! grep -qxF "$module" "$RTLIL_MODULES_FILE"; then
       echo "ERROR: SYNTH_KEPT_MODULES lists '$module' but it does not exist in the design." >&2
-      echo "Available modules: $(echo "$RTLIL_MODULES" | tr '\n' ' ')" >&2
+      echo "Available modules: $(tr '\n' ' ' < "$RTLIL_MODULES_FILE")" >&2
+      rm -f "$RTLIL_MODULES_FILE"
       exit 1
     fi
   done
+  rm -f "$RTLIL_MODULES_FILE"
 else
   CHECKPOINT="$RESULTS_DIR/1_1_yosys_keep.rtlil"
 fi
