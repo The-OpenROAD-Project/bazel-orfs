@@ -20,14 +20,31 @@ synthesis, initial floorplan, macro placement, and tapcell insertion can
 still fail here — wasting minutes of build time on a configuration that
 was never going to work.
 
-The root cause is typically a mismatch between the macro's LEF/abstract
-and the PDN TCL grid definitions: the macro power pins don't align with
-the straps specified in the platform's `MACRO_BLOCKAGE_HALO` or
-`pdn_grid` configuration.
+## Root cause
+
+On asap7, the platform `config.mk` selects `PDN_TCL` based on whether
+`BLOCKS` is set:
+
+```makefile
+ifeq ($(BLOCKS),)
+   export PDN_TCL ?= .../grid_strategy-M1-M2-M5-M6.tcl
+else
+   export PDN_TCL ?= .../BLOCKS_grid_strategy.tcl
+endif
+```
+
+`BLOCKS_grid_strategy.tcl` defines an `ElementGrid` macro grid with only
+an M5↔M6 connection rule but **no stripes**. When the block abstract has
+`MAX_ROUTING_LAYER=M4`, the M5↔M6 connection has nothing to connect —
+the grids are empty.
+
+The working pattern (used by `aes-block`) overrides `PDN_TCL` to use
+`BLOCK_grid_strategy.tcl`, which defines M4↔M5 connections matching the
+block's routing constraints.
 
 ## Example
 
-`riscv32i-mock-sram/fakeram7_256x32:riscv_top_floorplan` fails at
+`riscv32i-mock-sram/fakeram7_256x32:riscv_top_floorplan` failed at
 `2_4_floorplan_pdn` with:
 
 ```
@@ -39,24 +56,22 @@ the straps specified in the platform's `MACRO_BLOCKAGE_HALO` or
 [ERROR PDN-0233] Failed to generate full power grid.
 ```
 
-All four fakeram7_256x32 macro instances produce empty grids, causing the
-flow to abort.
-
 ## Fix
 
-Ensure the PDN TCL grid definitions for macro instances match the macro
-LEF power pin geometry. Common remedies:
+Override `PDN_TCL` in the design's `config.mk` to use
+`BLOCK_grid_strategy.tcl`:
 
-- Verify `PDN_TCL` or platform PDN config covers the macro's power pin
-  layers and pitches.
-- Check that `MACRO_BLOCKAGE_HALO` leaves enough room for PDN straps.
-- For hierarchical designs, ensure the block's abstract includes power
-  pins at the layers expected by the parent's PDN grid.
+```makefile
+export PDN_TCL = $(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl
+```
+
+This was applied in patch 0035 and verified: the floorplan now passes
+with only the `top` grid inserted (no empty macro grids).
 
 ## Implementation
 
 Not yet implemented in mock-openroad. The mock `pdngen` command
 (`gallery/lint/openroad/src/bin/openroad_commands.py`, `cmd_pdngen`) is
-currently a no-op stub. A future implementation could track macro
-instances from `read_db` and flag when the PDN TCL defines macro grids
-but no matching instances exist, or vice versa.
+currently a no-op stub. A future implementation could cross-check
+`PDN_TCL` grid definitions against block `MAX_ROUTING_LAYER` constraints
+to detect layer mismatches before the real build.
