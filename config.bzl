@@ -1,6 +1,11 @@
 """Global configuration repository rule."""
 
 def _global_config_impl(repository_ctx):
+    result = repository_ctx.execute(["nproc"])
+    if result.return_code == 0:
+        num_cpus = int(result.stdout.strip())
+    else:
+        num_cpus = 4
     repository_ctx.file(
         "global_config.bzl",
         """
@@ -13,6 +18,7 @@ CONFIG_OPENSTA = "{opensta}"
 CONFIG_PDK = "{pdk}"
 CONFIG_YOSYS = "{yosys}"
 CONFIG_YOSYS_ABC = "{yosys_abc}"
+NUM_CPUS = {num_cpus}
 """.format(
             klayout = repository_ctx.attr.klayout,
             make = repository_ctx.attr.make,
@@ -23,6 +29,7 @@ CONFIG_YOSYS_ABC = "{yosys_abc}"
             pdk = repository_ctx.attr.pdk,
             yosys = repository_ctx.attr.yosys,
             yosys_abc = repository_ctx.attr.yosys_abc,
+            num_cpus = num_cpus,
         ),
     )
     repository_ctx.file("BUILD", "")
