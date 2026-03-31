@@ -8,12 +8,12 @@ first to parse all config.mk files and generate the DESIGNS dict.
 """
 
 load(
-    "//private:flow.bzl",
-    "orfs_flow",
+    "@config//:global_config.bzl",
+    "NUM_CPUS",
 )
 load(
-    "//private:utils.bzl",
-    "NUM_CPUS",
+    "//private:flow.bzl",
+    "orfs_flow",
 )
 
 def _convert_sources(sources, pkg):

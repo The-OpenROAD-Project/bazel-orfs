@@ -1,8 +1,5 @@
 """Pure utility functions for OpenROAD-flow-scripts Bazel rules."""
 
-# CPU count for parallel synthesis partitioning.
-NUM_CPUS = 4
-
 def file_path(f, short = False):
     """Returns short_path or path depending on the short flag.
 

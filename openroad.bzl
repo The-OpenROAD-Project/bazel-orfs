@@ -1,6 +1,10 @@
 """Rules for the building the OpenROAD-flow-scripts stages"""
 
 load(
+    "@config//:global_config.bzl",
+    _NUM_CPUS = "NUM_CPUS",
+)
+load(
     "//private:attrs.bzl",
     _flow_provides = "flow_provides",
 )
@@ -63,7 +67,6 @@ load(
 )
 load(
     "//private:utils.bzl",
-    _NUM_CPUS = "NUM_CPUS",
     _flatten = "flatten",
     _set = "set",
 )
