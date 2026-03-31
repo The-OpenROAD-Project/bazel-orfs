@@ -116,14 +116,30 @@ class TestRunModTidy(unittest.TestCase):
 
 
 class TestRunBuildifier(unittest.TestCase):
+    @mock.patch("fix_lint.subprocess.call", return_value=0)
     @mock.patch("fix_lint.subprocess.check_call")
-    def test_formats_and_lints(self, mock_call):
+    def test_formats_and_lints(self, mock_check_call, mock_call):
         fix_lint.run_buildifier("/path/to/buildifier", ["a.bzl", "BUILD"])
-        self.assertEqual(mock_call.call_count, 2)
-        mock_call.assert_any_call(["/path/to/buildifier", "a.bzl", "BUILD"])
-        mock_call.assert_any_call(
+        mock_check_call.assert_called_once_with(
+            ["/path/to/buildifier", "a.bzl", "BUILD"]
+        )
+        mock_call.assert_called_once_with(
             ["/path/to/buildifier", "-lint", "warn", "a.bzl", "BUILD"]
         )
+
+    @mock.patch("fix_lint.subprocess.call", return_value=4)
+    @mock.patch("fix_lint.subprocess.check_call")
+    def test_lint_warnings_tolerated(self, _mock_check_call, mock_call):
+        """Exit code 4 (lint warnings) should not raise."""
+        fix_lint.run_buildifier("/path/to/buildifier", ["a.bzl"])
+        mock_call.assert_called_once()
+
+    @mock.patch("fix_lint.subprocess.call", return_value=1)
+    @mock.patch("fix_lint.subprocess.check_call")
+    def test_lint_error_raises(self, _mock_check_call, mock_call):
+        """Non-zero exit codes other than 4 should raise."""
+        with self.assertRaises(subprocess.CalledProcessError):
+            fix_lint.run_buildifier("/path/to/buildifier", ["a.bzl"])
 
     @mock.patch("fix_lint.subprocess.check_call")
     def test_no_files_is_noop(self, mock_call):
