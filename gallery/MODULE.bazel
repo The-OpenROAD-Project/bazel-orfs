@@ -14,24 +14,18 @@ local_path_override(
     path = "..",
 )
 
-# --- Lint binaries (seconds-fast flow linter) ---
+# --- Mock binaries (seconds-fast flow linter) ---
 
-bazel_dep(name = "lint-tcl", version = "0.0.1")
+bazel_dep(name = "mock-openroad", version = "0.0.1")
 local_path_override(
-    module_name = "lint-tcl",
-    path = "lint/tcl",
+    module_name = "mock-openroad",
+    path = "../mock/openroad",
 )
 
-bazel_dep(name = "lint-openroad", version = "0.0.1")
+bazel_dep(name = "mock-yosys", version = "0.0.1")
 local_path_override(
-    module_name = "lint-openroad",
-    path = "lint/openroad",
-)
-
-bazel_dep(name = "lint-yosys", version = "0.0.1")
-local_path_override(
-    module_name = "lint-yosys",
-    path = "lint/yosys",
+    module_name = "mock-yosys",
+    path = "../mock/yosys",
 )
 
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")

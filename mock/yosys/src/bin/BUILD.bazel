@@ -1,10 +1,12 @@
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
 sh_binary(
     name = "yosys",
     srcs = ["yosys.sh"],
     data = [
         "yosys.py",
         "yosys_commands.py",
-        "@lint-tcl//src/bin:tcl_interpreter.py",
+        "@mock-openroad//src/bin:tcl_interpreter.py",
     ],
     visibility = ["//visibility:public"],
 )

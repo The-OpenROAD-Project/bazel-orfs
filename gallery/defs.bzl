@@ -23,8 +23,8 @@ _GLOBAL_SETTINGS = {
 }
 
 _LINT_TOOLS = {
-    "openroad": "@lint-openroad//src/bin:openroad",
-    "yosys": "@lint-yosys//src/bin:yosys",
+    "openroad": "@mock-openroad//src/bin:openroad",
+    "yosys": "@mock-yosys//src/bin:yosys",
     "lint": True,
 }
 

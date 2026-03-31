@@ -68,6 +68,12 @@ local_path_override(
     path = "../mock/openroad",
 )
 
+bazel_dep(name = "mock-yosys", version = "0.0.1")
+local_path_override(
+    module_name = "mock-yosys",
+    path = "../mock/yosys",
+)
+
 bazel_dep(name = "rules_python", version = "1.2.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 

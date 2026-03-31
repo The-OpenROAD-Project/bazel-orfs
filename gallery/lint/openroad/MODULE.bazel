@@ -1,6 +1,0 @@
-module(
-    name = "lint-openroad",
-    version = "0.0.1",
-)
-
-bazel_dep(name = "lint-tcl", version = "0.0.1")

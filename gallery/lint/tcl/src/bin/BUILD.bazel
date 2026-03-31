@@ -1,7 +1,0 @@
-exports_files(
-    [
-        "tcl_interpreter.py",
-        "tcl_interpreter_test.py",
-    ],
-    visibility = ["//visibility:public"],
-)
