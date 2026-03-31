@@ -2,13 +2,13 @@
 
 FRC rules validate design configuration in seconds using mock tools,
 catching common errors before expensive real builds. See
-[flow-linter-with-frc.md](../flow-linter-with-frc.md) for the design
+[flow-linter-with-frc.md](../gallery/docs/flow-linter-with-frc.md) for the design
 philosophy and roadmap.
 
 | ID | Name | Severity | Stage | Synopsis |
 |----|------|----------|-------|----------|
-| [FRC-6](FRC-6.md) | source-file-missing | Error | Any | `file exists` returns 0 for a `.tcl` file — silent source skip |
-| [FRC-7](FRC-7.md) | pdn-macro-grid-empty | Error | floorplan | Macro PDN grids contain no shapes/vias (PDN-0232/0233) |
+| [FRC-6](../gallery/docs/frc/FRC-6.md) | source-file-missing | Error | Any | `file exists` returns 0 for a `.tcl` file — silent source skip |
+| [FRC-7](../gallery/docs/frc/FRC-7.md) | pdn-macro-grid-empty | Error | floorplan | Macro PDN grids contain no shapes/vias (PDN-0232/0233) |
 
 ## Planned (not yet implemented)
 
