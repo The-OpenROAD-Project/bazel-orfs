@@ -447,6 +447,162 @@ CANON_OUTPUT = "1_1_yosys_canonicalize.rtlil"
 SYNTH_OUTPUTS = ["1_2_yosys.v", "1_2_yosys.sdc", "1_synth.sdc", "mem.json"]
 SYNTH_REPORTS = ["synth_stat.txt", "synth_mocked_memories.txt"]
 
+def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_reports, num_partitions, save_odb):
+    """Parallel synthesis: keep → kept-json → N partitions → merge.
+
+    Yosys is not deterministic when using host threads, so SYNTH_NUM_PARTITIONS
+    defaulting to NUM_CPUS means synthesis results vary across machines with
+    different core counts. Users who need reproducible builds should set a fixed
+    SYNTH_NUM_PARTITIONS value.
+    """
+    base_env = (
+        verilog_arguments([]) |
+        flow_environment(ctx) |
+        yosys_environment(ctx) |
+        config_environment(config)
+    )
+    base_inputs = depset(
+        [canon_output, config] + ctx.files.extra_configs,
+        transitive = [
+            data_inputs(ctx),
+            pdk_inputs(ctx),
+            deps_inputs(ctx),
+        ],
+    )
+    yosys_and_flow_tools = depset(transitive = [yosys_inputs(ctx), flow_inputs(ctx)])
+
+    # Action 2a: do-yosys-keep → 1_1_yosys_keep.rtlil
+    keep_output = declare_artifact(ctx, "results", "1_1_yosys_keep.rtlil")
+    keep_logs = declare_artifacts(ctx, "logs", ["1_1_yosys_keep.log"])
+    keep_commands = [_make_cmd(ctx)] + generation_commands(
+        [keep_output] + keep_logs,
+    )
+    ctx.actions.run_shell(
+        arguments = [
+            "--file",
+            ctx.file._makefile_yosys.path,
+            "yosys-dependencies",
+            "do-yosys-keep",
+        ],
+        command = " && ".join(keep_commands),
+        env = config_overrides(ctx, base_env),
+        inputs = base_inputs,
+        outputs = [keep_output] + keep_logs,
+        tools = yosys_and_flow_tools,
+    )
+
+    # Action 2b: do-yosys-kept-json → kept_modules.json
+    kept_json = declare_artifact(ctx, "results", "kept_modules.json")
+    ctx.actions.run_shell(
+        arguments = [
+            "--file",
+            ctx.file._makefile_yosys.path,
+            "do-yosys-kept-json",
+        ],
+        command = "{make} $@".format(make = ctx.executable._make.path),
+        env = config_overrides(ctx, base_env),
+        inputs = depset(
+            [keep_output, config] + ctx.files.extra_configs,
+            transitive = [
+                data_inputs(ctx),
+                pdk_inputs(ctx),
+                deps_inputs(ctx),
+            ],
+        ),
+        outputs = [kept_json],
+        tools = yosys_and_flow_tools,
+    )
+
+    # Actions 3..N: do-yosys-partition (parallel)
+    partition_inputs = depset(
+        [keep_output, kept_json, config] + ctx.files.extra_configs,
+        transitive = [
+            data_inputs(ctx),
+            pdk_inputs(ctx),
+            deps_inputs(ctx),
+        ],
+    )
+    partition_outputs = []
+    for i in range(num_partitions):
+        part_output = declare_artifact(ctx, "results", "partition_{}.v".format(i))
+        partition_outputs.append(part_output)
+        part_commands = [_make_cmd(ctx)] + generation_commands([part_output])
+        ctx.actions.run_shell(
+            arguments = [
+                "--file",
+                ctx.file._makefile_yosys.path,
+                "yosys-dependencies",
+                "do-yosys-partition",
+            ],
+            command = " && ".join(part_commands),
+            env = config_overrides(ctx, base_env | {
+                "SYNTH_PARTITION_ID": str(i),
+                "SYNTH_NUM_PARTITIONS": str(num_partitions),
+            }),
+            inputs = partition_inputs,
+            outputs = [part_output],
+            tools = yosys_and_flow_tools,
+        )
+
+    # Action 4: merge partition outputs → 1_2_yosys.v
+    ctx.actions.run_shell(
+        command = "cat {inputs} > {output}".format(
+            inputs = " ".join([p.path for p in partition_outputs]),
+            output = synth_outputs["1_2_yosys.v"].path,
+        ),
+        inputs = partition_outputs,
+        outputs = [synth_outputs["1_2_yosys.v"]],
+    )
+
+    # Action 5: do-yosys-sdc-copy → 1_2_yosys.sdc
+    ctx.actions.run_shell(
+        arguments = [
+            "--file",
+            ctx.file._makefile_yosys.path,
+            "do-yosys-sdc-copy",
+        ],
+        command = "{make} $@".format(make = ctx.executable._make.path),
+        env = config_overrides(ctx, base_env),
+        inputs = base_inputs,
+        outputs = [synth_outputs["1_2_yosys.sdc"]],
+        tools = yosys_and_flow_tools,
+    )
+
+    # Action 6: do-1_synth → 1_synth.odb (reads merged netlist + SDC)
+    if save_odb:
+        odb_commands = [_make_cmd(ctx)] + generation_commands(
+            [synth_outputs["1_synth.odb"]],
+        )
+        ctx.actions.run_shell(
+            arguments = [
+                "--file",
+                ctx.file._makefile_yosys.path,
+                "do-1_synth",
+            ],
+            command = " && ".join(odb_commands),
+            env = config_overrides(ctx, base_env),
+            inputs = depset(
+                [
+                    synth_outputs["1_2_yosys.v"],
+                    synth_outputs["1_2_yosys.sdc"],
+                    config,
+                ] + ctx.files.extra_configs,
+                transitive = [
+                    data_inputs(ctx),
+                    pdk_inputs(ctx),
+                    deps_inputs(ctx),
+                ],
+            ),
+            outputs = [synth_outputs["1_synth.odb"]],
+            tools = depset(transitive = [yosys_inputs(ctx), flow_inputs(ctx)]),
+        )
+
+    # Stub outputs that the serial path produces but parallel does not
+    for name in ["1_synth.sdc", "mem.json"]:
+        ctx.actions.write(output = synth_outputs[name], content = "")
+    for f in synth_logs + synth_reports:
+        ctx.actions.write(output = f, content = "")
+
 def _yosys_impl(ctx):
     all_arguments = (
         data_arguments(ctx) |
@@ -499,10 +655,13 @@ def _yosys_impl(ctx):
         tools = yosys_inputs(ctx),
     )
 
+    num_partitions = int(all_arguments.get("SYNTH_NUM_PARTITIONS", "0"))
+    save_odb = ctx.attr.save_odb
+
     synth_logs = declare_artifacts(ctx, "logs", ["1_2_yosys.log", "1_2_yosys_metrics.log"])
 
     synth_outputs = {}
-    for output in SYNTH_OUTPUTS + (["1_synth.odb"] if ctx.attr.save_odb else []):
+    for output in SYNTH_OUTPUTS + (["1_synth.odb"] if save_odb else []):
         synth_outputs[output] = declare_artifact(ctx, "results", output)
 
     synth_reports = declare_artifacts(ctx, "reports", SYNTH_REPORTS)
@@ -513,6 +672,8 @@ def _yosys_impl(ctx):
         # Lint mode: only canonicalization runs; stub remaining synth outputs.
         for f in synth_outputs.values() + synth_logs + synth_reports + [variables]:
             ctx.actions.write(output = f, content = "")
+    elif num_partitions > 0:
+        _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_reports, num_partitions, save_odb)
     else:
         # SYNTH_NETLIST_FILES will not create an .rtlil file or reports, so we need
         # an empty placeholder in that case.
@@ -525,7 +686,7 @@ def _yosys_impl(ctx):
                 ctx.file._makefile_yosys.path,
                 "yosys-dependencies",
                 "do-yosys",
-            ] + (["do-1_synth"] if ctx.attr.save_odb else []),
+            ] + (["do-1_synth"] if save_odb else []),
             command = " && ".join(commands),
             env = config_overrides(
                 ctx,
@@ -546,6 +707,7 @@ def _yosys_impl(ctx):
             tools = depset(transitive = [yosys_inputs(ctx), flow_inputs(ctx)]),
         )
 
+    if not ctx.attr.lint:
         ctx.actions.run_shell(
             arguments = [
                 "--file",
@@ -675,7 +837,7 @@ def _yosys_impl(ctx):
             stage = "1_synth",
             config = config,
             variant = ctx.attr.variant,
-            odb = synth_outputs["1_synth.odb"] if ctx.attr.save_odb else None,
+            odb = synth_outputs.get("1_synth.odb"),
             gds = None,
             lef = None,
             lib = None,
