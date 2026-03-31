@@ -21,9 +21,7 @@ def setup_module_path():
     for _ in range(6):
         for name in ["mock-openroad+", "mock-openroad"]:
             candidate = os.path.join(d, name, "src", "bin")
-            if os.path.isfile(os.path.join(
-                candidate, "tcl_interpreter.py"
-            )):
+            if os.path.isfile(os.path.join(candidate, "tcl_interpreter.py")):
                 if candidate not in sys.path:
                     sys.path.insert(0, candidate)
                 return
@@ -133,10 +131,8 @@ def main(argv=None):
     if results_dir:
         state = yosys_commands.get_state()
         for name_f, content in [
-            ("1_2_yosys.v",
-             f"module {design}(); endmodule\n"),
-            ("1_1_yosys_canonicalize.rtlil",
-             f"# Mock RTLIL\nmodule \\{design}\nend\n"),
+            ("1_2_yosys.v", f"module {design}(); endmodule\n"),
+            ("1_1_yosys_canonicalize.rtlil", f"# Mock RTLIL\nmodule \\{design}\nend\n"),
             ("mem.json", "{}\n"),
         ]:
             path = os.path.join(results_dir, name_f)

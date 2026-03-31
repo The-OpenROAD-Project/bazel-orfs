@@ -18,7 +18,9 @@ class MockSynthState:
     def __init__(self):
         self.design_name = os.environ.get("DESIGN_NAME", "")
         self.verilog_files = []
-        self.modules = {}  # name -> {ports: [...], regs: N, assigns: N, instances: [...]}
+        self.modules = (
+            {}
+        )  # name -> {ports: [...], regs: N, assigns: N, instances: [...]}
         self.top_module = ""
         self.cell_count_estimate = 0
 
@@ -61,6 +63,7 @@ def _touch(path, content=""):
 
 # --- Simple Verilog parser ---
 
+
 def parse_verilog(content):
     """Extract module structure from Verilog/SystemVerilog source.
 
@@ -83,8 +86,10 @@ def parse_verilog(content):
         if m:
             if current_module:
                 modules[current_module] = {
-                    "ports": ports, "regs": reg_count,
-                    "assigns": assign_count, "instances": instances,
+                    "ports": ports,
+                    "regs": reg_count,
+                    "assigns": assign_count,
+                    "instances": instances,
                     "lines": line_count,
                 }
             current_module = m.group(1)
@@ -95,7 +100,10 @@ def parse_verilog(content):
             line_count = 0
 
         # Port declarations
-        m = re.match(r"(input|output|inout)\s+(?:wire|reg|logic)?\s*(?:\[(\d+):(\d+)\])?\s*(\w+)", line_stripped)
+        m = re.match(
+            r"(input|output|inout)\s+(?:wire|reg|logic)?\s*(?:\[(\d+):(\d+)\])?\s*(\w+)",
+            line_stripped,
+        )
         if m and current_module:
             ports.append(m.group(4))
 
@@ -116,16 +124,35 @@ def parse_verilog(content):
         m = re.match(r"(\w+)\s+(\w+)\s*\(", line_stripped)
         if m and current_module:
             inst_type = m.group(1)
-            if inst_type not in ("module", "input", "output", "inout", "wire",
-                                 "reg", "logic", "assign", "always", "initial",
-                                 "if", "else", "for", "while", "case",
-                                 "function", "task", "generate", "begin", "end"):
+            if inst_type not in (
+                "module",
+                "input",
+                "output",
+                "inout",
+                "wire",
+                "reg",
+                "logic",
+                "assign",
+                "always",
+                "initial",
+                "if",
+                "else",
+                "for",
+                "while",
+                "case",
+                "function",
+                "task",
+                "generate",
+                "begin",
+                "end",
+            ):
                 instances.append(inst_type)
 
         # End of module
         if "endmodule" in line_stripped and current_module:
             modules[current_module] = {
-                "ports": ports, "regs": reg_count,
+                "ports": ports,
+                "regs": reg_count,
                 "assigns": assign_count,
                 "instances": instances,
                 "lines": line_count,
@@ -166,15 +193,18 @@ def estimate_cells(modules, top_module=None):
     for inst in mod["instances"]:
         if inst in modules:
             sub = modules[inst]
-            cells += (sub["regs"]
-                      + sub["assigns"] * CELLS_PER_ASSIGN
-                      + sub["lines"] * CELLS_PER_LINE)
+            cells += (
+                sub["regs"]
+                + sub["assigns"] * CELLS_PER_ASSIGN
+                + sub["lines"] * CELLS_PER_LINE
+            )
         else:
             cells += UNKNOWN_MODULE_CELLS
     return max(cells, 10)
 
 
 # --- Yosys commands ---
+
 
 def cmd_read_verilog(interp, args):
     """read_verilog ?-sv? ?-defer? <file>"""
@@ -189,20 +219,17 @@ def cmd_read_verilog(interp, args):
             parsed = parse_verilog(content)
             _state.modules.update(parsed)
             print(
-                f"lint-yosys: read_verilog {path}"
-                f" ({len(parsed)} modules)",
+                f"lint-yosys: read_verilog {path}" f" ({len(parsed)} modules)",
                 file=sys.stderr,
             )
             if not parsed:
                 print(
-                    f"lint-yosys: WARNING: {path}"
-                    " contains 0 modules",
+                    f"lint-yosys: WARNING: {path}" " contains 0 modules",
                     file=sys.stderr,
                 )
         else:
             print(
-                f"lint-yosys: ERROR: file not found:"
-                f" {path}",
+                f"lint-yosys: ERROR: file not found:" f" {path}",
                 file=sys.stderr,
             )
     return ""
@@ -229,9 +256,7 @@ def cmd_hierarchy(interp, args):
             remaining.pop(0)
     if not _state.top_module and _state.design_name:
         _state.top_module = _state.design_name
-    if (_state.top_module
-            and _state.modules
-            and _state.top_module not in _state.modules):
+    if _state.top_module and _state.modules and _state.top_module not in _state.modules:
         print(
             f"lint-yosys: ERROR: top module"
             f" '{_state.top_module}' not found in"
@@ -245,7 +270,9 @@ def cmd_hierarchy(interp, args):
 def cmd_synth(interp, args):
     """synth — mock synthesis (estimate cell counts)."""
     _state.cell_count_estimate = estimate_cells(_state.modules, _state.top_module)
-    print(f"lint-yosys: synth (est. {_state.cell_count_estimate} cells)", file=sys.stderr)
+    print(
+        f"lint-yosys: synth (est. {_state.cell_count_estimate} cells)", file=sys.stderr
+    )
     return ""
 
 
@@ -263,7 +290,9 @@ def cmd_write_verilog(interp, args):
             ports = _state.modules[name]["ports"]
             if ports:
                 ports_str = ", ".join(ports)
-        netlist = f"// Mock synthesized netlist ({_state.cell_count_estimate} est. cells)\n"
+        netlist = (
+            f"// Mock synthesized netlist ({_state.cell_count_estimate} est. cells)\n"
+        )
         netlist += f"module {name}({ports_str});\n"
         netlist += f"endmodule\n"
         _touch(path, netlist)
@@ -289,7 +318,9 @@ def cmd_write_rtlil(interp, args):
 
 def cmd_stat(interp, args):
     """stat — produce synthesis statistics."""
-    cells = _state.cell_count_estimate or estimate_cells(_state.modules, _state.top_module)
+    cells = _state.cell_count_estimate or estimate_cells(
+        _state.modules, _state.top_module
+    )
     _state.cell_count_estimate = cells
     name = _state.top_module or _state.design_name or "mock"
     report = f"""

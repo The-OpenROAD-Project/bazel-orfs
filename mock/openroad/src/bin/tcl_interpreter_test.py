@@ -17,6 +17,7 @@ def interp():
 
 # --- Variable substitution ---
 
+
 class TestVariables:
     def test_set_get(self, interp):
         interp.eval("set x hello")
@@ -63,26 +64,21 @@ class TestVariables:
 
 # --- Command substitution ---
 
+
 class TestCommandSubstitution:
     def test_simple(self, interp):
-        interp.register_command("add", lambda i, a: str(
-            int(a[0]) + int(a[1])
-        ))
+        interp.register_command("add", lambda i, a: str(int(a[0]) + int(a[1])))
         result = interp.eval("set x [add 3 4]")
         assert result == "7"
 
     def test_nested_brackets(self, interp):
-        interp.register_command(
-            "double", lambda i, a: str(int(a[0]) * 2)
-        )
+        interp.register_command("double", lambda i, a: str(int(a[0]) * 2))
         result = interp.eval("set x [double [double 3]]")
         assert result == "12"
 
     def test_bracket_in_bare_word(self, interp):
         """[$var method] should parse as single word."""
-        interp.register_command(
-            "obj", lambda i, a: "result" if a == ["method"] else ""
-        )
+        interp.register_command("obj", lambda i, a: "result" if a == ["method"] else "")
         interp.eval("set o obj")
         result = interp.eval("set x [$o method]")
         assert result == "result"
@@ -91,13 +87,11 @@ class TestCommandSubstitution:
         """[[$db getTech] getDbUnitsPerMicron] pattern."""
         interp.register_command(
             "mock_db",
-            lambda i, a: "mock_tech"
-            if a and a[0] == "getTech" else "",
+            lambda i, a: "mock_tech" if a and a[0] == "getTech" else "",
         )
         interp.register_command(
             "mock_tech",
-            lambda i, a: "1000"
-            if a and a[0] == "getDbu" else "",
+            lambda i, a: "1000" if a and a[0] == "getDbu" else "",
         )
         interp.eval("set db mock_db")
         result = interp.eval("set x [[$db getTech] getDbu]")
@@ -106,12 +100,11 @@ class TestCommandSubstitution:
 
 # --- {*} expansion ---
 
+
 class TestExpansion:
     def test_expand_variable(self, interp):
         results = []
-        interp.register_command(
-            "cmd", lambda i, a: (results.extend(a), "")[1]
-        )
+        interp.register_command("cmd", lambda i, a: (results.extend(a), "")[1])
         interp.eval("set args {a b c}")
         interp.eval("cmd {*}$args")
         assert results == ["a", "b", "c"]
@@ -122,35 +115,28 @@ class TestExpansion:
             "collect",
             lambda i, a: (results.extend(a), "")[1],
         )
-        interp.eval(
-            "proc test {args} { collect {*}$args }"
-        )
+        interp.eval("proc test {args} { collect {*}$args }")
         interp.eval("test x y z")
         assert results == ["x", "y", "z"]
 
 
 # --- Proc ---
 
+
 class TestProc:
     def test_basic_proc(self, interp):
-        interp.eval("proc greet {name} { return \"hi $name\" }")
+        interp.eval('proc greet {name} { return "hi $name" }')
         result = interp.eval("greet world")
         assert result == "hi world"
 
     def test_proc_with_args(self, interp):
         """proc with special 'args' parameter."""
-        interp.eval(
-            "proc log_cmd {cmd args} {"
-            "  return \"cmd=$cmd args=$args\""
-            "}"
-        )
+        interp.eval("proc log_cmd {cmd args} {" '  return "cmd=$cmd args=$args"' "}")
         result = interp.eval("log_cmd hello world foo")
         assert result == "cmd=hello args=world foo"
 
     def test_proc_return(self, interp):
-        interp.eval(
-            "proc add {a b} { return [expr $a + $b] }"
-        )
+        interp.eval("proc add {a b} { return [expr $a + $b] }")
         result = interp.eval("add 3 4")
         assert result == "7"
 
@@ -164,15 +150,14 @@ class TestProc:
 
 # --- Control flow ---
 
+
 class TestControlFlow:
     def test_if_true(self, interp):
         result = interp.eval("if {1} { set x yes }")
         assert result == "yes"
 
     def test_if_false(self, interp):
-        result = interp.eval(
-            "if {0} { set x yes } else { set x no }"
-        )
+        result = interp.eval("if {0} { set x yes } else { set x no }")
         assert result == "no"
 
     def test_if_elseif(self, interp):
@@ -186,42 +171,33 @@ class TestControlFlow:
 
     def test_foreach(self, interp):
         interp.eval("set sum 0")
-        interp.eval(
-            "foreach i {1 2 3} { set sum [expr $sum + $i] }"
-        )
+        interp.eval("foreach i {1 2 3} { set sum [expr $sum + $i] }")
         assert interp.get_var("sum") == "6"
 
     def test_for_loop(self, interp):
         interp.eval("set sum 0")
         interp.eval(
-            "for {set i 0} {$i < 3} {incr i} {"
-            "  set sum [expr $sum + $i]"
-            "}"
+            "for {set i 0} {$i < 3} {incr i} {" "  set sum [expr $sum + $i]" "}"
         )
         assert interp.get_var("sum") == "3"
 
     def test_while(self, interp):
         interp.eval("set i 0")
-        interp.eval(
-            "while {$i < 5} { incr i }"
-        )
+        interp.eval("while {$i < 5} { incr i }")
         assert interp.get_var("i") == "5"
 
     def test_break(self, interp):
         interp.eval("set i 0")
-        interp.eval(
-            "while {1} { incr i; if {$i >= 3} break }"
-        )
+        interp.eval("while {1} { incr i; if {$i >= 3} break }")
         assert interp.get_var("i") == "3"
 
     def test_switch(self, interp):
-        result = interp.eval(
-            'switch "b" { a { set r 1 } b { set r 2 } }'
-        )
+        result = interp.eval('switch "b" { a { set r 1 } b { set r 2 } }')
         assert result == "2"
 
 
 # --- Expressions ---
+
 
 class TestExpr:
     def test_arithmetic(self, interp):
@@ -252,6 +228,7 @@ class TestExpr:
 
 # --- List operations ---
 
+
 class TestLists:
     def test_list(self, interp):
         result = interp.eval("list a b c")
@@ -275,9 +252,7 @@ class TestLists:
         assert result == "b c"
 
     def test_lmap(self, interp):
-        result = interp.eval(
-            "lmap x {1 2 3} { expr $x * 2 }"
-        )
+        result = interp.eval("lmap x {1 2 3} { expr $x * 2 }")
         assert result == "2 4 6"
 
     def test_join(self, interp):
@@ -290,6 +265,7 @@ class TestLists:
 
 
 # --- String operations ---
+
 
 class TestStrings:
     def test_length(self, interp):
@@ -309,31 +285,26 @@ class TestStrings:
         assert result == "hello"
 
     def test_map(self, interp):
-        result = interp.eval(
-            'string map {a A e E} "hello"'
-        )
+        result = interp.eval('string map {a A e E} "hello"')
         assert result == "hEllo"
 
 
 # --- Source and file operations ---
 
+
 class TestSource:
     def test_source_file(self, interp):
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".tcl", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".tcl", delete=False) as f:
             f.write("set sourced_var 42\n")
             f.flush()
-            interp.eval(f'source {f.name}')
+            interp.eval(f"source {f.name}")
             assert interp.get_var("sourced_var") == "42"
             os.unlink(f.name)
 
     def test_file_exists(self, interp):
         result = interp.eval("file exists /dev/null")
         assert result == "1"
-        result = interp.eval(
-            "file exists /nonexistent_file_xyz"
-        )
+        result = interp.eval("file exists /nonexistent_file_xyz")
         assert result == "0"
 
     def test_file_dirname(self, interp):
@@ -342,6 +313,7 @@ class TestSource:
 
 
 # --- Catch ---
+
 
 class TestCatch:
     def test_catch_success(self, interp):
@@ -357,6 +329,7 @@ class TestCatch:
 
 # --- Clock ---
 
+
 class TestClock:
     def test_clock_seconds(self, interp):
         result = interp.eval("clock seconds")
@@ -364,6 +337,7 @@ class TestClock:
 
 
 # --- Comments and whitespace ---
+
 
 class TestParsing:
     def test_comment(self, interp):
@@ -392,12 +366,10 @@ class TestParsing:
 
 # --- Namespace ---
 
+
 class TestNamespace:
     def test_namespace_eval(self, interp):
-        interp.eval(
-            "namespace eval myns { proc hello {} {"
-            " return hi } }"
-        )
+        interp.eval("namespace eval myns { proc hello {} {" " return hi } }")
 
     def test_unknown_command_no_crash(self, interp):
         """Unknown commands print warning but don't crash."""
@@ -406,6 +378,7 @@ class TestNamespace:
 
 
 # --- Dict ---
+
 
 class TestDict:
     def test_create_and_get(self, interp):
@@ -425,6 +398,7 @@ class TestDict:
 
 
 # --- Error handling / failure modes ---
+
 
 class TestErrors:
     def test_missing_variable(self, interp):
@@ -474,9 +448,7 @@ class TestErrors:
 
     def test_catch_prevents_propagation(self, interp):
         """catch should prevent error from propagating."""
-        result = interp.eval(
-            'catch { error "caught" } msg'
-        )
+        result = interp.eval('catch { error "caught" } msg')
         assert result == "1"
         assert interp.get_var("msg") == "caught"
 
@@ -510,16 +482,12 @@ class TestErrors:
 
 
 class TestNestedSubstitution:
-    def test_nested_command_in_braces_no_subst(
-        self, interp
-    ):
+    def test_nested_command_in_braces_no_subst(self, interp):
         """Braces prevent command substitution."""
         result = interp.eval("set x {[expr 1+2]}")
         assert result == "[expr 1+2]"
 
-    def test_nested_command_in_quotes_subst(
-        self, interp
-    ):
+    def test_nested_command_in_quotes_subst(self, interp):
         result = interp.eval('set x "[expr 1+2]"')
         assert result == "3"
 
@@ -569,9 +537,7 @@ class TestStringOperations:
         assert result == "5"
 
     def test_string_range(self, interp):
-        result = interp.eval(
-            "string range hello 1 3"
-        )
+        result = interp.eval("string range hello 1 3")
         assert result == "ell"
 
     def test_string_equal(self, interp):
@@ -581,9 +547,7 @@ class TestStringOperations:
         assert r2 == "0"
 
     def test_string_map(self, interp):
-        result = interp.eval(
-            'string map {a A e E} "hello"'
-        )
+        result = interp.eval('string map {a A e E} "hello"')
         assert result == "hEllo"
 
 
@@ -594,17 +558,12 @@ class TestInfoCommand:
         assert result == "1"
 
     def test_info_exists_false(self, interp):
-        result = interp.eval(
-            "info exists nonexistent_var"
-        )
+        result = interp.eval("info exists nonexistent_var")
         assert result == "0"
 
     def test_info_exists_in_proc(self, interp):
         interp.eval(
-            "proc test_exists {} {"
-            " set local 1;"
-            " return [info exists local]"
-            " }"
+            "proc test_exists {} {" " set local 1;" " return [info exists local]" " }"
         )
         result = interp.eval("test_exists")
         assert result == "1"
@@ -620,9 +579,7 @@ class TestFRC:
 
     def test_frc_source_file_present(self, interp, capsys):
         """file exists on real .tcl file emits no FRC warning."""
-        with tempfile.NamedTemporaryFile(
-            suffix=".tcl", delete=False
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".tcl", delete=False) as f:
             f.write(b"# ok\n")
             f.flush()
             interp.eval(f"file exists {f.name}")

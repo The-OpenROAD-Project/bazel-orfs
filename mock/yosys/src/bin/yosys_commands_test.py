@@ -9,10 +9,19 @@ import pytest
 
 sys.path.insert(0, os.path.dirname(__file__))
 # tcl_interpreter lives in mock-openroad
-sys.path.insert(0, os.path.join(
-    os.path.dirname(__file__),
-    "..", "..", "..", "..", "openroad", "src", "bin",
-))
+sys.path.insert(
+    0,
+    os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "..",
+        "..",
+        "openroad",
+        "src",
+        "bin",
+    ),
+)
 from tcl_interpreter import TclInterpreter
 import yosys_commands
 
@@ -36,10 +45,12 @@ def tmpdir():
     d = tempfile.mkdtemp()
     yield d
     import shutil
+
     shutil.rmtree(d, ignore_errors=True)
 
 
 # --- Verilog parsing ---
+
 
 class TestParseVerilog:
     def test_simple_module(self):
@@ -74,11 +85,7 @@ class TestParseVerilog:
         assert modules["counter"]["regs"] == 9
 
     def test_module_instantiation(self):
-        content = (
-            "module top();\n"
-            "  submod u0 (.clk(clk));\n"
-            "endmodule\n"
-        )
+        content = "module top();\n" "  submod u0 (.clk(clk));\n" "endmodule\n"
         modules = yosys_commands.parse_verilog(content)
         assert "submod" in modules["top"]["instances"]
 
@@ -87,16 +94,14 @@ class TestParseVerilog:
         assert modules == {}
 
     def test_multiple_modules(self):
-        content = (
-            "module a();\nendmodule\n"
-            "module b();\nendmodule\n"
-        )
+        content = "module a();\nendmodule\n" "module b();\nendmodule\n"
         modules = yosys_commands.parse_verilog(content)
         assert "a" in modules
         assert "b" in modules
 
 
 # --- Cell estimation ---
+
 
 class TestEstimateCells:
     def test_empty_modules(self):
@@ -142,6 +147,7 @@ class TestEstimateCells:
 
 # --- Read commands ---
 
+
 class TestReadVerilog:
     def test_reads_file(self, interp, state, tmpdir):
         path = os.path.join(tmpdir, "test.v")
@@ -178,6 +184,7 @@ class TestReadLiberty:
 
 # --- Hierarchy ---
 
+
 class TestHierarchy:
     def test_sets_top_module(self, interp, state):
         interp.eval("hierarchy -top my_top")
@@ -187,9 +194,7 @@ class TestHierarchy:
         interp.eval("hierarchy -check -top my_top")
         assert state.top_module == "my_top"
 
-    def test_missing_top_warns(
-        self, interp, state, tmpdir, capsys
-    ):
+    def test_missing_top_warns(self, interp, state, tmpdir, capsys):
         path = os.path.join(tmpdir, "test.v")
         with open(path, "w") as f:
             f.write("module real_top();\nendmodule\n")
@@ -200,6 +205,7 @@ class TestHierarchy:
 
 
 # --- Write commands ---
+
 
 class TestWriteVerilog:
     def test_creates_netlist(self, interp, state, tmpdir):
@@ -253,6 +259,7 @@ class TestWriteJson:
 
 # --- Synthesis ---
 
+
 class TestSynth:
     def test_estimates_cells(self, interp, state):
         state.modules = {
@@ -293,20 +300,42 @@ class TestTee:
 
 # --- No-op passes ---
 
+
 class TestNoOpPasses:
     """All synthesis passes should be no-ops that don't crash."""
 
     PASSES = [
-        "opt_clean", "opt", "flatten", "abc",
-        "techmap", "dfflibmap", "memory",
-        "memory_libmap", "proc", "clean",
-        "rename", "check", "select", "delete",
-        "setattr", "scratchpad", "design",
-        "autoname", "chformal", "async2sync",
-        "dff2dffe", "opt_merge", "opt_muxtree",
-        "opt_reduce", "opt_expr", "peepopt",
-        "wreduce", "share", "alumacc",
-        "pmuxtree", "muxcover",
+        "opt_clean",
+        "opt",
+        "flatten",
+        "abc",
+        "techmap",
+        "dfflibmap",
+        "memory",
+        "memory_libmap",
+        "proc",
+        "clean",
+        "rename",
+        "check",
+        "select",
+        "delete",
+        "setattr",
+        "scratchpad",
+        "design",
+        "autoname",
+        "chformal",
+        "async2sync",
+        "dff2dffe",
+        "opt_merge",
+        "opt_muxtree",
+        "opt_reduce",
+        "opt_expr",
+        "peepopt",
+        "wreduce",
+        "share",
+        "alumacc",
+        "pmuxtree",
+        "muxcover",
     ]
 
     @pytest.mark.parametrize("cmd", PASSES)

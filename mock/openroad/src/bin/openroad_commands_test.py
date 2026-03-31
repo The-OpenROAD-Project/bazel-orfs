@@ -637,6 +637,88 @@ class TestReadVerilogPorts:
         assert len(state.ports) == 0
 
 
+class TestParsePortsFromRtlil:
+    """Tests for parse_ports_from_rtlil (shared RTLIL parser)."""
+
+    def test_mock_yosys_format(self, tmpdir):
+        """Simplified mock-yosys RTLIL: wire \\name."""
+        rtlil = os.path.join(tmpdir, "mock.rtlil")
+        with open(rtlil, "w") as f:
+            f.write(
+                "module \\blk\n"
+                "  wire \\din\n"
+                "  wire \\dout\n"
+                "  wire \\ck\n"
+                "end\n"
+            )
+        ports = openroad_commands.parse_ports_from_rtlil(rtlil, "blk")
+        assert ports == {"din", "dout", "ck"}
+
+    def test_real_yosys_format(self, tmpdir):
+        """Real yosys RTLIL: wire width N input/output N \\name."""
+        rtlil = os.path.join(tmpdir, "real.rtlil")
+        with open(rtlil, "w") as f:
+            f.write(
+                "autoidx 1\n"
+                "module \\fakeram7_256x32\n"
+                "  wire width 8 input 2 \\addr_in\n"
+                "  wire input 6 \\ce_in\n"
+                "  wire input 5 \\clk\n"
+                "  wire width 32 output 1 \\rd_out\n"
+                "  wire width 32 input 4 \\wd_in\n"
+                "  wire input 3 \\we_in\n"
+                "  wire width 2 \\index\n"
+                "end\n"
+            )
+        ports = openroad_commands.parse_ports_from_rtlil(rtlil, "fakeram7_256x32")
+        assert ports == {"addr_in", "ce_in", "clk", "rd_out", "wd_in", "we_in"}
+
+    def test_real_yosys_excludes_internal_wires(self, tmpdir):
+        """Internal wires (no input/output/inout) are excluded."""
+        rtlil = os.path.join(tmpdir, "internal.rtlil")
+        with open(rtlil, "w") as f:
+            f.write(
+                "module \\top\n"
+                "  wire input 1 \\clk\n"
+                "  wire output 2 \\out\n"
+                "  wire width 4 \\internal_sig\n"
+                "end\n"
+            )
+        ports = openroad_commands.parse_ports_from_rtlil(rtlil, "top")
+        assert ports == {"clk", "out"}
+        assert "internal_sig" not in ports
+
+    def test_module_filtering(self, tmpdir):
+        """Only ports from the named module are returned."""
+        rtlil = os.path.join(tmpdir, "multi.rtlil")
+        with open(rtlil, "w") as f:
+            f.write(
+                "module \\other\n"
+                "  wire \\other_port\n"
+                "end\n"
+                "module \\target\n"
+                "  wire \\my_port\n"
+                "end\n"
+            )
+        ports = openroad_commands.parse_ports_from_rtlil(rtlil, "target")
+        assert ports == {"my_port"}
+        assert "other_port" not in ports
+
+    def test_nonexistent_file(self, tmpdir):
+        ports = openroad_commands.parse_ports_from_rtlil(
+            os.path.join(tmpdir, "missing.rtlil"), "blk"
+        )
+        assert ports == set()
+
+    def test_empty_design_name(self, tmpdir):
+        """Empty design_name matches first module."""
+        rtlil = os.path.join(tmpdir, "any.rtlil")
+        with open(rtlil, "w") as f:
+            f.write("module \\whatever\n  wire \\p\nend\n")
+        ports = openroad_commands.parse_ports_from_rtlil(rtlil, "")
+        assert ports == {"p"}
+
+
 class TestWriteTimingModelPins:
     def test_pins_from_state_ports(self, interp, state, tmpdir):
         state.design_name = "fakeram"
@@ -651,15 +733,14 @@ class TestWriteTimingModelPins:
         assert "pin (rd_out)" in content
         assert "pin (clk)" in content
 
-    def test_pins_from_rtlil(self, interp, state, tmpdir):
-        """Ports loaded from RTLIL when state.ports empty."""
+    def test_pins_from_mock_rtlil(self, interp, state, tmpdir):
+        """Ports loaded from mock-yosys RTLIL when state.ports empty."""
         state.design_name = "blk"
         state.cell_count = 50
         state.ports = set()
         results = os.path.join(tmpdir, "results")
         os.makedirs(results)
         os.environ["RESULTS_DIR"] = results
-        # Write mock RTLIL with port wires
         rtlil = os.path.join(results, "1_1_yosys_canonicalize.rtlil")
         with open(rtlil, "w") as f:
             f.write(
@@ -677,6 +758,40 @@ class TestWriteTimingModelPins:
         assert "pin (din)" in content
         assert "pin (dout)" in content
         assert "pin (ck)" in content
+
+    def test_pins_from_real_rtlil(self, interp, state, tmpdir):
+        """Ports loaded from real yosys RTLIL (with width/direction attrs)."""
+        state.design_name = "fakeram7_256x32"
+        state.cell_count = 50
+        state.ports = set()
+        results = os.path.join(tmpdir, "results")
+        os.makedirs(results)
+        os.environ["RESULTS_DIR"] = results
+        rtlil = os.path.join(results, "1_1_yosys_canonicalize.rtlil")
+        with open(rtlil, "w") as f:
+            f.write(
+                "autoidx 1\n"
+                "module \\fakeram7_256x32\n"
+                "  wire width 8 input 2 \\addr_in\n"
+                "  wire input 6 \\ce_in\n"
+                "  wire input 5 \\clk\n"
+                "  wire width 32 output 1 \\rd_out\n"
+                "  wire width 32 input 4 \\wd_in\n"
+                "  wire input 3 \\we_in\n"
+                "  wire width 2 \\index\n"
+                "end\n"
+            )
+        path = os.path.join(tmpdir, "fakeram_typ.lib")
+        interp.eval(f"write_timing_model {path}")
+        with open(path) as f:
+            content = f.read()
+        assert "pin (addr_in)" in content
+        assert "pin (ce_in)" in content
+        assert "pin (clk)" in content
+        assert "pin (rd_out)" in content
+        assert "pin (wd_in)" in content
+        assert "pin (we_in)" in content
+        assert "pin (index)" not in content
 
     def test_no_pins_when_no_ports(self, interp, state, tmpdir):
         state.design_name = "empty"

@@ -86,30 +86,13 @@ def _create_fallback_outputs(state):
                 f"END {design}\nEND LIBRARY\n"
             )
     if not os.path.exists(lib):
-        # Extract ports from RTLIL for pin declarations
-        pin_lines = ""
+        import openroad_commands
+
         rtlil_path = os.path.join(results, "1_1_yosys_canonicalize.rtlil")
-        if os.path.isfile(rtlil_path):
-            try:
-                with open(rtlil_path) as f:
-                    in_top = False
-                    for rtlil_line in f:
-                        s = rtlil_line.strip()
-                        if s.startswith("module \\"):
-                            mod = s[len("module \\") :].strip()
-                            in_top = (mod == design) if design else True
-                        elif s == "end":
-                            if in_top:
-                                break
-                            in_top = False
-                        elif in_top and s.startswith("wire \\"):
-                            port = s[len("wire \\") :].strip()
-                            if port:
-                                pin_lines += (
-                                    f"    pin ({port}) {{ direction: inout ; }}\n"
-                                )
-            except OSError:
-                pass
+        ports = openroad_commands.parse_ports_from_rtlil(rtlil_path, design)
+        pin_lines = ""
+        for port in sorted(ports):
+            pin_lines += f"    pin ({port}) {{ direction: inout ; }}\n"
         with open(lib, "w") as f:
             f.write(
                 f"library ({design}_typ) {{\n"
