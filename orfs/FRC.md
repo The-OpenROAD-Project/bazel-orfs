@@ -10,6 +10,7 @@ philosophy and roadmap.
 | [FRC-6](../gallery/docs/frc/FRC-6.md) | source-file-missing | Error | Any | `file exists` returns 0 for a `.tcl` file — silent source skip |
 | [FRC-7](../gallery/docs/frc/FRC-7.md) | pdn-macro-grid-empty | Error | floorplan | Macro PDN grids contain no shapes/vias (PDN-0232/0233) |
 | [FRC-8](../gallery/docs/frc/FRC-8.md) | cell-not-found | Error | synth | Cell referenced in netlist/SDC not in any liberty (STA-0453) |
+| [FRC-9](../gallery/docs/frc/FRC-9.md) | pad-instance-not-found | Error | floorplan | IO pin placement references nonexistent pad instance (PAD-0102) |
 
 ## Collecting FRC violations
 
