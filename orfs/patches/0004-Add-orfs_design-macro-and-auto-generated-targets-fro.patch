@@ -50,19 +50,6 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  flow/designs/asap7/riscv32i/BUILD.bazel       |   5 +
  flow/designs/asap7/swerv_wrapper/BUILD.bazel  | 119 +----------------
  flow/designs/asap7/uart/BUILD.bazel           |   5 +
- flow/designs/gf12/aes/BUILD.bazel             |   5 +
- flow/designs/gf12/ariane/BUILD.bazel          |   5 +
- flow/designs/gf12/ariane133/BUILD.bazel       |   5 +
- flow/designs/gf12/bp_dual/BUILD.bazel         |   5 +
- flow/designs/gf12/bp_quad/BUILD.bazel         |   5 +
- flow/designs/gf12/bp_single/BUILD.bazel       |   5 +
- flow/designs/gf12/ca53/BUILD.bazel            |   5 +
- flow/designs/gf12/coyote/BUILD.bazel          |   5 +
- flow/designs/gf12/gcd/BUILD.bazel             |   5 +
- flow/designs/gf12/ibex/BUILD.bazel            |   5 +
- flow/designs/gf12/jpeg/BUILD.bazel            |   5 +
- flow/designs/gf12/swerv_wrapper/BUILD.bazel   |   5 +
- flow/designs/gf12/tinyRocket/BUILD.bazel      |   5 +
  flow/designs/gf180/aes-hybrid/BUILD.bazel     |   5 +
  flow/designs/gf180/aes/BUILD.bazel            |   5 +
  flow/designs/gf180/ibex/BUILD.bazel           |   5 +
@@ -70,7 +57,6 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  flow/designs/gf180/riscv32i/BUILD.bazel       |   5 +
  flow/designs/gf180/uart-blocks/BUILD.bazel    |   5 +
  .../gf180/uart-blocks/uart_rx/BUILD.bazel     |   6 +
- flow/designs/gf55/aes/BUILD.bazel             |   5 +
  flow/designs/ihp-sg13g2/aes/BUILD.bazel       |   5 +
  flow/designs/ihp-sg13g2/gcd/BUILD.bazel       |   5 +
  .../ihp-sg13g2/i2c-gpio-expander/BUILD.bazel  |   5 +
@@ -95,13 +81,6 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  flow/designs/nangate45/swerv/BUILD.bazel      |   5 +
  .../nangate45/swerv_wrapper/BUILD.bazel       |   5 +
  flow/designs/nangate45/tinyRocket/BUILD.bazel |   5 +
- flow/designs/rapidus2hp/cva6/BUILD.bazel      |   5 +
- flow/designs/rapidus2hp/ethmac/BUILD.bazel    |   5 +
- flow/designs/rapidus2hp/gcd/BUILD.bazel       |   5 +
- .../rapidus2hp/hercules_idecode/BUILD.bazel   |   5 +
- .../rapidus2hp/hercules_is_int/BUILD.bazel    |   5 +
- flow/designs/rapidus2hp/ibex/BUILD.bazel      |   5 +
- flow/designs/rapidus2hp/jpeg/BUILD.bazel      |   5 +
  flow/designs/sky130hd/aes/BUILD.bazel         |   5 +
  flow/designs/sky130hd/chameleon/BUILD.bazel   |   5 +
  flow/designs/sky130hd/gcd/BUILD.bazel         |   5 +
@@ -135,19 +114,6 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
  create mode 100644 flow/designs/asap7/riscv32i/BUILD.bazel
  create mode 100644 flow/designs/asap7/uart/BUILD.bazel
- create mode 100644 flow/designs/gf12/aes/BUILD.bazel
- create mode 100644 flow/designs/gf12/ariane/BUILD.bazel
- create mode 100644 flow/designs/gf12/ariane133/BUILD.bazel
- create mode 100644 flow/designs/gf12/bp_dual/BUILD.bazel
- create mode 100644 flow/designs/gf12/bp_quad/BUILD.bazel
- create mode 100644 flow/designs/gf12/bp_single/BUILD.bazel
- create mode 100644 flow/designs/gf12/ca53/BUILD.bazel
- create mode 100644 flow/designs/gf12/coyote/BUILD.bazel
- create mode 100644 flow/designs/gf12/gcd/BUILD.bazel
- create mode 100644 flow/designs/gf12/ibex/BUILD.bazel
- create mode 100644 flow/designs/gf12/jpeg/BUILD.bazel
- create mode 100644 flow/designs/gf12/swerv_wrapper/BUILD.bazel
- create mode 100644 flow/designs/gf12/tinyRocket/BUILD.bazel
  create mode 100644 flow/designs/gf180/aes-hybrid/BUILD.bazel
  create mode 100644 flow/designs/gf180/aes/BUILD.bazel
  create mode 100644 flow/designs/gf180/ibex/BUILD.bazel
@@ -155,7 +121,6 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 flow/designs/gf180/riscv32i/BUILD.bazel
  create mode 100644 flow/designs/gf180/uart-blocks/BUILD.bazel
  create mode 100644 flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel
- create mode 100644 flow/designs/gf55/aes/BUILD.bazel
  create mode 100644 flow/designs/ihp-sg13g2/aes/BUILD.bazel
  create mode 100644 flow/designs/ihp-sg13g2/gcd/BUILD.bazel
  create mode 100644 flow/designs/ihp-sg13g2/i2c-gpio-expander/BUILD.bazel
@@ -180,13 +145,6 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 flow/designs/nangate45/swerv/BUILD.bazel
  create mode 100644 flow/designs/nangate45/swerv_wrapper/BUILD.bazel
  create mode 100644 flow/designs/nangate45/tinyRocket/BUILD.bazel
- create mode 100644 flow/designs/rapidus2hp/cva6/BUILD.bazel
- create mode 100644 flow/designs/rapidus2hp/ethmac/BUILD.bazel
- create mode 100644 flow/designs/rapidus2hp/gcd/BUILD.bazel
- create mode 100644 flow/designs/rapidus2hp/hercules_idecode/BUILD.bazel
- create mode 100644 flow/designs/rapidus2hp/hercules_is_int/BUILD.bazel
- create mode 100644 flow/designs/rapidus2hp/ibex/BUILD.bazel
- create mode 100644 flow/designs/rapidus2hp/jpeg/BUILD.bazel
  create mode 100644 flow/designs/sky130hd/aes/BUILD.bazel
  create mode 100644 flow/designs/sky130hd/chameleon/BUILD.bazel
  create mode 100644 flow/designs/sky130hd/gcd/BUILD.bazel
@@ -686,162 +644,6 @@ index 000000000..4ccd0967d
 +exports_files(glob(["*"]))
 +
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/gf12/aes/BUILD.bazel b/flow/designs/gf12/aes/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/gf12/aes/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/gf12/ariane/BUILD.bazel b/flow/designs/gf12/ariane/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/gf12/ariane/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/gf12/ariane133/BUILD.bazel b/flow/designs/gf12/ariane133/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/gf12/ariane133/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/gf12/bp_dual/BUILD.bazel b/flow/designs/gf12/bp_dual/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/gf12/bp_dual/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/gf12/bp_quad/BUILD.bazel b/flow/designs/gf12/bp_quad/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/gf12/bp_quad/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/gf12/bp_single/BUILD.bazel b/flow/designs/gf12/bp_single/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/gf12/bp_single/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/gf12/ca53/BUILD.bazel b/flow/designs/gf12/ca53/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/gf12/ca53/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/gf12/coyote/BUILD.bazel b/flow/designs/gf12/coyote/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/gf12/coyote/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/gf12/gcd/BUILD.bazel b/flow/designs/gf12/gcd/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/gf12/gcd/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/gf12/ibex/BUILD.bazel b/flow/designs/gf12/ibex/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/gf12/ibex/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/gf12/jpeg/BUILD.bazel b/flow/designs/gf12/jpeg/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/gf12/jpeg/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/gf12/swerv_wrapper/BUILD.bazel b/flow/designs/gf12/swerv_wrapper/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/gf12/swerv_wrapper/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/gf12/tinyRocket/BUILD.bazel b/flow/designs/gf12/tinyRocket/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/gf12/tinyRocket/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/gf180/aes-hybrid/BUILD.bazel b/flow/designs/gf180/aes-hybrid/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
@@ -927,18 +729,6 @@ index 000000000..2a5a8dd2e
 +
 +orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 +
-diff --git a/flow/designs/gf55/aes/BUILD.bazel b/flow/designs/gf55/aes/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/gf55/aes/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
 diff --git a/flow/designs/ihp-sg13g2/aes/BUILD.bazel b/flow/designs/ihp-sg13g2/aes/BUILD.bazel
 new file mode 100644
 index 000000000..4ccd0967d
@@ -1221,90 +1011,6 @@ new file mode 100644
 index 000000000..4ccd0967d
 --- /dev/null
 +++ b/flow/designs/nangate45/tinyRocket/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/rapidus2hp/cva6/BUILD.bazel b/flow/designs/rapidus2hp/cva6/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/rapidus2hp/cva6/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/rapidus2hp/ethmac/BUILD.bazel b/flow/designs/rapidus2hp/ethmac/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/rapidus2hp/ethmac/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/rapidus2hp/gcd/BUILD.bazel b/flow/designs/rapidus2hp/gcd/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/rapidus2hp/gcd/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/rapidus2hp/hercules_idecode/BUILD.bazel b/flow/designs/rapidus2hp/hercules_idecode/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/rapidus2hp/hercules_idecode/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/rapidus2hp/hercules_is_int/BUILD.bazel b/flow/designs/rapidus2hp/hercules_is_int/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/rapidus2hp/hercules_is_int/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/rapidus2hp/ibex/BUILD.bazel b/flow/designs/rapidus2hp/ibex/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/rapidus2hp/ibex/BUILD.bazel
-@@ -0,0 +1,6 @@
-+load("@bazel-orfs//:openroad.bzl", "orfs_design")
-+load("@orfs_designs//:designs.bzl", "DESIGNS")
-+
-+exports_files(glob(["*"]))
-+
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-diff --git a/flow/designs/rapidus2hp/jpeg/BUILD.bazel b/flow/designs/rapidus2hp/jpeg/BUILD.bazel
-new file mode 100644
-index 000000000..4ccd0967d
---- /dev/null
-+++ b/flow/designs/rapidus2hp/jpeg/BUILD.bazel
 @@ -0,0 +1,6 @@
 +load("@bazel-orfs//:openroad.bzl", "orfs_design")
 +load("@orfs_designs//:designs.bzl", "DESIGNS")
