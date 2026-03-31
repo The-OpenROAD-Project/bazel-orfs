@@ -3,8 +3,11 @@
 # Reads kept_modules.json, picks modules where index % N == partition_id,
 # and synthesizes each sequentially with all others blackboxed.
 #
+# When SYNTH_PARTITION_ID=top, synthesizes the top module (DESIGN_NAME)
+# with all kept modules blackboxed.
+#
 # Environment:
-#   SYNTH_PARTITION_ID   - this partition's index (0..N-1)
+#   SYNTH_PARTITION_ID   - this partition's index (0..N-1) or "top"
 #   SYNTH_NUM_PARTITIONS - total number of partitions
 #   RESULTS_DIR, SCRIPTS_DIR, etc. - standard ORFS env
 set -euo pipefail
@@ -17,6 +20,19 @@ OUTPUT="$RESULTS_DIR/partition_${PARTITION_ID}.v"
 # Parse module list from JSON using sed (avoids python wrapper issues)
 # JSON format: {"modules": ["mod1", "mod2", ...]}
 ALL_MODULES=$(sed 's/.*\[//;s/\].*//;s/"//g;s/,/\n/g;s/ //g' "$KEPT_JSON")
+
+if [ "$PARTITION_ID" = "top" ]; then
+  # Synthesize the top module with all kept modules blackboxed
+  BLACKBOXES=$(echo "$ALL_MODULES" | tr '\n' ' ')
+  echo "=== Synthesizing top module: $DESIGN_NAME (blackboxes: $BLACKBOXES) ==="
+  SYNTH_CHECKPOINT="$RESULTS_DIR/1_1_yosys_keep.rtlil" \
+  SYNTH_BLACKBOXES="$BLACKBOXES" \
+    "$SCRIPTS_DIR/synth.sh" \
+    "$SYNTH_TCL" \
+    "$LOG_DIR/1_2_yosys_partition_top.log"
+  cp "$RESULTS_DIR/1_2_yosys.v" "$OUTPUT"
+  exit 0
+fi
 
 # Pick this partition's modules: index % N == partition_id
 MY_MODULES=()
@@ -46,7 +62,7 @@ for module in "${MY_MODULES[@]}"; do
     fi
   done <<< "$ALL_MODULES"
 
-  echo "=== Synthesizing module: $module (blackboxing ${#MY_MODULES[@]}-1 + others) ==="
+  echo "=== Synthesizing module: $module (blackboxes: $BLACKBOXES) ==="
 
   # Run synthesis from keep checkpoint for this module.
   # SYNTH_CHECKPOINT: skip coarse synth + keep_hierarchy (already done)
