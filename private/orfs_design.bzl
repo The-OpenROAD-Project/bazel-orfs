@@ -48,7 +48,7 @@ def _convert_sources(sources, pkg):
             result[var] = converted
     return result
 
-def orfs_design(name = None, platform = None, design = None, designs = None, mock_openroad = None):  # buildifier: disable=unused-variable
+def orfs_design(name = None, platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None):  # buildifier: disable=unused-variable
     """Create orfs_flow() targets for a design based on its parsed config.mk.
 
     Call this from a design's BUILD.bazel:
@@ -67,6 +67,9 @@ def orfs_design(name = None, platform = None, design = None, designs = None, moc
         mock_openroad: Label for mock-openroad binary. When set, generates
             lint flow targets (variant="lint") alongside real flow targets.
             Example: "@mock-openroad//src/bin:openroad".
+        mock_yosys: Label for mock-yosys binary. When set, lint flow uses
+            this instead of real Yosys for synthesis.
+            Example: "@mock-yosys//src/bin:yosys".
     """
     if designs == None:
         fail("orfs_design() requires designs argument: pass DESIGNS from @orfs_designs//:designs.bzl")
@@ -135,6 +138,7 @@ def orfs_design(name = None, platform = None, design = None, designs = None, moc
         pkg,
         tags,
         mock_openroad,
+        mock_yosys,
     )
 
     # Real flow — uses Docker image with real OpenROAD/Yosys
@@ -158,7 +162,7 @@ def orfs_design(name = None, platform = None, design = None, designs = None, moc
 
     # Lint flow — fast validation with mock-openroad (only if configured)
     if mock_openroad:
-        orfs_flow(
+        lint_kwargs = dict(
             name = name,
             verilog_files = verilog_files,
             pdk = "//flow:" + platform,
@@ -171,6 +175,9 @@ def orfs_design(name = None, platform = None, design = None, designs = None, moc
             openroad = mock_openroad,
             tags = tags,
         )
+        if mock_yosys:
+            lint_kwargs["yosys"] = mock_yosys
+        orfs_flow(**lint_kwargs)
 
 def _filter_verilog_files(raw_verilog_files):
     """Filter verilog_files: skip unresolved Make variables and invalid labels."""
@@ -195,7 +202,7 @@ def _collect_include_dirs(arguments):
             extra_data.append("//" + inc_dir + ":include")
     return extra_data
 
-def _create_block_targets(config, designs, platform, design, pkg, tags, mock_openroad):
+def _create_block_targets(config, designs, platform, design, pkg, tags, mock_openroad, mock_yosys = None):
     """Create sub-macro orfs_flow() targets for BLOCKS.
 
     Returns:
@@ -232,7 +239,7 @@ def _create_block_targets(config, designs, platform, design, pkg, tags, mock_ope
 
         # Lint flow (only if mock_openroad is configured)
         if mock_openroad:
-            orfs_flow(
+            lint_kwargs = dict(
                 name = block_config["name"],
                 abstract_stage = "cts",
                 verilog_files = block_verilog,
@@ -244,6 +251,9 @@ def _create_block_targets(config, designs, platform, design, pkg, tags, mock_ope
                 openroad = mock_openroad,
                 tags = tags,
             )
+            if mock_yosys:
+                lint_kwargs["yosys"] = mock_yosys
+            orfs_flow(**lint_kwargs)
             lint_macros.append(":%s_lint_generate_abstract" % block_config["name"])
 
     return macros, lint_macros

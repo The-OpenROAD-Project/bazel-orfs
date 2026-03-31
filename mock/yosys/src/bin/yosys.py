@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Lint Yosys binary — estimation engine for ORFS synthesis.
+"""Mock Yosys binary — estimation engine for ORFS synthesis.
 
 Replaces real Yosys with a seconds-fast linter that:
 - Parses Verilog source for module structure (canonicalization)
@@ -11,33 +11,15 @@ import os
 import sys
 
 
-def find_module_file(name):
-    """Find a Python module file relative to this script."""
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    path = os.path.join(script_dir, name)
-    if os.path.isfile(path):
-        return path
-    for runfiles_base in [
-        os.path.join(script_dir, "yosys.runfiles", "lint-yosys+", "src", "bin"),
-        os.path.join(script_dir, "yosys.runfiles", "lint-yosys", "src", "bin"),
-    ]:
-        path = os.path.join(runfiles_base, name)
-        if os.path.isfile(path):
-            return path
-    return None
-
-
 def setup_module_path():
     """Add the directory containing our modules to sys.path."""
     script_dir = os.path.dirname(os.path.abspath(__file__))
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
-    # Find tcl_interpreter from lint-tcl module.
-    # In bazel runfiles, walk up from script_dir to find
-    # the runfiles root, then look for lint-tcl+/src/bin.
+    # Runfiles: tcl_interpreter.py comes from mock-openroad module.
     d = script_dir
     for _ in range(6):
-        for name in ["lint-tcl+", "lint-tcl"]:
+        for name in ["mock-openroad+", "mock-openroad"]:
             candidate = os.path.join(d, name, "src", "bin")
             if os.path.isfile(os.path.join(
                 candidate, "tcl_interpreter.py"
@@ -49,15 +31,6 @@ def setup_module_path():
         if parent == d:
             break
         d = parent
-    # Local dev: sibling mock/tcl directory
-    tcl_dir = os.path.normpath(os.path.join(
-        script_dir, "..", "..", "..", "tcl", "src", "bin"
-    ))
-    if os.path.isfile(os.path.join(
-        tcl_dir, "tcl_interpreter.py"
-    )):
-        if tcl_dir not in sys.path:
-            sys.path.insert(0, tcl_dir)
 
 
 def parse_yosys_args(argv):
@@ -122,7 +95,7 @@ def main(argv=None):
         return 0
 
     if flags.get("help"):
-        print("lint-yosys: estimation engine for ORFS synthesis")
+        print("mock-yosys: estimation engine for ORFS synthesis")
         return 0
 
     setup_module_path()
@@ -144,7 +117,7 @@ def main(argv=None):
         try:
             interp.eval(cmd)
         except Exception as e:
-            print(f"lint-yosys: error in command: {e}", file=sys.stderr)
+            print(f"mock-yosys: error in command: {e}", file=sys.stderr)
 
     # Execute -s script files
     for script in scripts:
@@ -152,14 +125,13 @@ def main(argv=None):
             try:
                 interp.eval_file(script)
             except Exception as e:
-                print(f"lint-yosys: error in {script}: {e}", file=sys.stderr)
+                print(f"mock-yosys: error in {script}: {e}", file=sys.stderr)
 
     # Create fallback outputs if TCL execution didn't
     results_dir = os.environ.get("RESULTS_DIR", "")
     design = os.environ.get("DESIGN_NAME", "mock")
     if results_dir:
         state = yosys_commands.get_state()
-        cells = state.cell_count_estimate or 100
         for name_f, content in [
             ("1_2_yosys.v",
              f"module {design}(); endmodule\n"),

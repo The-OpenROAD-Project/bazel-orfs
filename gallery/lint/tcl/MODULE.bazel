@@ -1,4 +1,0 @@
-module(
-    name = "lint-tcl",
-    version = "0.0.1",
-)
