@@ -1,179 +1,161 @@
 #!/usr/bin/env python3
-"""Mock openroad binary for testing the ORFS Bazel rules.
+"""Mock OpenROAD binary — estimation engine for ORFS flows.
 
-Creates dummy output files by scanning TCL scripts for write commands,
-allowing the ORFS flow to proceed without a real OpenROAD installation.
+Replaces real OpenROAD with a seconds-fast linter that:
+- Executes ORFS TCL scripts via a minimal TCL interpreter
+- Creates all expected output files (ODB, SDC, LEF, LIB, logs, reports)
+- Estimates design complexity, stage runtimes, and suggests parameters
 """
 
-import glob
 import os
-import pathlib
-import re
 import sys
 
-# Patterns that write output files in ORFS TCL scripts
-WRITE_PATTERNS = {
-    "odb": re.compile(r"(?:orfs_write_db|write_db)\s+(.+\.odb)"),
-    "sdc": re.compile(r"write_sdc\s+(.+\.sdc)"),
-    "v": re.compile(r"write_verilog\s+(.+\.v)"),
-    "spef": re.compile(r"write_spef\s+(.+\.spef)"),
-}
 
-ABSTRACT_PATTERNS = re.compile(r"write_abstract_lef|write_timing_model")
+def setup_module_path():
+    """Add the directory containing our modules to sys.path."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    if script_dir not in sys.path:
+        sys.path.insert(0, script_dir)
+    # Runfiles: tcl_interpreter.py is a sibling in the same package,
+    # but may be in the runfiles tree under mock-openroad+/src/bin/.
+    for runfiles_base in [
+        os.path.join(script_dir, "openroad.runfiles", "mock-openroad+", "src", "bin"),
+        os.path.join(script_dir, "openroad.runfiles", "mock-openroad", "src", "bin"),
+    ]:
+        if os.path.isfile(os.path.join(runfiles_base, "tcl_interpreter.py")):
+            if runfiles_base not in sys.path:
+                sys.path.insert(0, runfiles_base)
+            return
 
 
-def extract_output_files(tcl_content):
-    """Extract output filenames from TCL script content.
+def _create_fallback_outputs(state):
+    """Create expected output files when TCL execution fails.
 
-    Returns a list of basenames (e.g. '2_floorplan.odb') that the script
-    would write to $RESULTS_DIR.
+    Scans RESULTS_DIR for what's expected based on env vars.
     """
-    files = []
-    for line in tcl_content.splitlines():
-        for ext, pattern in WRITE_PATTERNS.items():
-            match = pattern.search(line)
-            if match:
-                path = match.group(1).strip()
-                basename = os.path.basename(path)
-                if basename:
-                    files.append(basename)
-    return files
-
-
-def needs_abstract(tcl_content):
-    """Check if the TCL script generates abstract views (.lef and .lib)."""
-    return bool(ABSTRACT_PATTERNS.search(tcl_content))
-
-
-def extract_ports_from_rtlil(results_dir, design_name):
-    """Extract port names and directions from the RTLIL for design_name.
-
-    Scans *.rtlil files in results_dir for the module matching design_name
-    and returns a list of (name, direction, width) tuples.
-    """
-    ports = []
-    rtlil_files = glob.glob(os.path.join(results_dir, "*.rtlil"))
-    for rtlil_path in rtlil_files:
-        try:
-            with open(rtlil_path) as f:
-                in_module = False
-                for line in f:
-                    stripped = line.strip()
-                    if stripped == f"module \\{design_name}":
-                        in_module = True
-                        continue
-                    if in_module and stripped.startswith("end"):
-                        break
-                    if not in_module:
-                        continue
-                    m = re.match(
-                        r"wire\s+(?:width\s+(\d+)\s+)?(input|output|inout)\s+\d+\s+\\(\S+)",
-                        stripped,
-                    )
-                    if m:
-                        width = int(m.group(1)) if m.group(1) else 1
-                        direction = m.group(2)
-                        name = m.group(3)
-                        ports.append((name, direction, width))
-        except (OSError, IOError):
-            continue
-        if ports:
-            break
-    return ports
-
-
-def generate_liberty(design_name, ports):
-    """Generate a minimal liberty string with pin declarations.
-
-    Multi-bit ports use bus() with a type definition so yosys can
-    reconstruct the port width from the liberty model.
-    """
-    lines = [f'library ("{design_name}_typ") {{']
-
-    # Emit bus_type definitions for each unique width
-    widths = sorted({w for _, _, w in ports if w > 1})
-    for w in widths:
-        lines.append(f"  type (bus{w}) {{")
-        lines.append(f"    base_type: array;")
-        lines.append(f"    data_type: bit;")
-        lines.append(f"    bit_width: {w};")
-        lines.append(f"    bit_from: {w - 1};")
-        lines.append(f"    bit_to: 0;")
-        lines.append(f"  }}")
-
-    lines.append(f"  cell ({design_name}) {{")
-    for name, direction, width in ports:
-        if width > 1:
-            lines.append(f"    bus ({name}) {{")
-            lines.append(f"      bus_type: bus{width};")
-            lines.append(f"      direction: {direction};")
-            lines.append(f"    }}")
-        else:
-            lines.append(f"    pin ({name}) {{")
-            lines.append(f"      direction: {direction};")
-            lines.append("    }")
-    lines.append("  }")
-    lines.append("}")
-    return "\n".join(lines) + "\n"
-
-
-def create_outputs(tcl_path, results_dir, design_name=None):
-    """Scan a TCL file and create dummy output files in results_dir.
-
-    Returns list of created file paths.
-    """
-    created = []
-
-    try:
-        with open(tcl_path) as f:
-            content = f.read()
-    except (OSError, IOError):
-        return created
-
-    if not results_dir:
-        return created
-
-    os.makedirs(results_dir, exist_ok=True)
-
-    for basename in extract_output_files(content):
-        path = os.path.join(results_dir, basename)
-        pathlib.Path(path).touch()
-        created.append(path)
-
-    if needs_abstract(content) and design_name:
-        lef_path = os.path.join(results_dir, design_name + ".lef")
-        pathlib.Path(lef_path).touch()
-        created.append(lef_path)
-
-        ports = extract_ports_from_rtlil(results_dir, design_name)
-        lib_path = os.path.join(results_dir, design_name + "_typ.lib")
-        with open(lib_path, "w") as f:
-            f.write(generate_liberty(design_name, ports))
-        created.append(lib_path)
-
-    return created
+    results = state.results_dir
+    if not results or results == ".":
+        return
+    os.makedirs(results, exist_ok=True)
+    # The make wrapper copies the last substep ODB.
+    # Create any ODB that doesn't exist yet.
+    design = state.design_name or "mock"
+    for pattern in [
+        "1_synth.odb",
+        "2_1_floorplan.odb",
+        "2_2_floorplan_macro.odb",
+        "2_3_floorplan_tapcell.odb",
+        "2_4_floorplan_pdn.odb",
+        "3_1_place_gp_skip_io.odb",
+        "3_2_place_iop.odb",
+        "3_3_place_gp.odb",
+        "3_4_place_resized.odb",
+        "3_5_place_dp.odb",
+        "4_1_cts.odb",
+        "5_1_grt.odb",
+        "5_2_route.odb",
+        "5_3_fillcell.odb",
+        "6_1_merge.odb",
+    ]:
+        path = os.path.join(results, pattern)
+        if not os.path.exists(path):
+            with open(path, "w") as f:
+                f.write("lint-odb-v1\n")
+    # SDC files
+    for sdc in [
+        "2_1_floorplan.sdc",
+        "2_floorplan.sdc",
+        "3_place.sdc",
+        "4_cts.sdc",
+        "5_1_grt.sdc",
+        "5_route.sdc",
+        "6_final.sdc",
+    ]:
+        path = os.path.join(results, sdc)
+        if not os.path.exists(path):
+            with open(path, "w") as f:
+                f.write("# Mock SDC\n")
+    # Abstract outputs
+    lef = os.path.join(results, f"{design}.lef")
+    lib = os.path.join(results, f"{design}_typ.lib")
+    if not os.path.exists(lef):
+        with open(lef, "w") as f:
+            f.write(
+                f"VERSION 5.8 ;\nMACRO {design}\n"
+                f"  CLASS BLOCK ;\n  SIZE 10.0 BY 10.0 ;\n"
+                f"END {design}\nEND LIBRARY\n"
+            )
+    if not os.path.exists(lib):
+        with open(lib, "w") as f:
+            f.write(
+                f"library ({design}_typ) {{\n"
+                f"  cell ({design}) {{ area : 1.0 ; }}\n}}\n"
+            )
 
 
 def main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
 
+    # Handle simple flags
     for arg in argv:
-        if arg == "-version":
-            print("OpenROAD v0.0.0 (mock)")
+        if arg in ("-version", "--version"):
+            print("OpenROAD v0.0.0-mock (estimation engine)")
             return 0
-        if arg == "-help":
-            print("mock openroad (CI stub)")
+        if arg in ("-help", "--help"):
+            print("mock-openroad: estimation engine for ORFS flows")
+            print("Usage: openroad [-version] [-exit] [script.tcl ...]")
             return 0
 
-    results_dir = os.environ.get("RESULTS_DIR", "")
-    design_name = os.environ.get("DESIGN_NAME", "")
+    setup_module_path()
+    from tcl_interpreter import TclInterpreter
+    import openroad_commands
 
-    for arg in argv:
-        if os.path.isfile(arg):
-            create_outputs(arg, results_dir, design_name)
+    interp = TclInterpreter()
+    openroad_commands.register_all(interp)
+    openroad_commands.reset_state()
 
-    print("mock openroad (CI stub)")
+    # Load design name from environment
+    state = openroad_commands.get_state()
+    state.design_name = os.environ.get("DESIGN_NAME", "")
+    state.platform = os.environ.get("PLATFORM", "")
+
+    # Ensure output directories exist
+    for d in [state.results_dir, state.log_dir, state.reports_dir, state.objects_dir]:
+        if d and d != ".":
+            os.makedirs(d, exist_ok=True)
+
+    # Parse arguments
+    scripts = []
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg in ("-exit", "-no_init", "-no_splash", "-gui"):
+            pass
+        elif arg in ("-threads", "-log", "-metrics"):
+            i += 1  # skip value
+        elif arg.startswith("-"):
+            pass  # ignore unknown flags
+        elif os.path.isfile(arg) or arg.endswith(".tcl"):
+            scripts.append(arg)
+        i += 1
+
+    # Execute scripts
+    for script_path in scripts:
+        if not os.path.isfile(script_path):
+            print(
+                f"mock-openroad: warning: script not found: {script_path}",
+                file=sys.stderr,
+            )
+            continue
+        try:
+            interp.eval_file(script_path)
+        except Exception as e:
+            print(f"mock-openroad: error in {script_path}: {e}", file=sys.stderr)
+            # Don't fail — ORFS scripts may reference things we don't
+            # implement yet. Create expected output files based on env vars.
+            _create_fallback_outputs(state)
+
     return 0
 
 

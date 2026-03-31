@@ -3,11 +3,19 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 sh_binary(
     name = "openroad",
     srcs = ["openroad.sh"],
-    data = ["openroad.py"],
+    data = [
+        "openroad.py",
+        "openroad_commands.py",
+        "tcl_interpreter.py",
+    ],
     visibility = ["//visibility:public"],
 )
 
 exports_files(
-    ["openroad.py"],
+    [
+        "openroad.py",
+        "openroad_commands.py",
+        "tcl_interpreter.py",
+    ],
     visibility = ["//visibility:public"],
 )
