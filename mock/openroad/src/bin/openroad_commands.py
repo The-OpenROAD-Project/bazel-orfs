@@ -1075,32 +1075,59 @@ END LIBRARY
     return ""
 
 
+def parse_ports_from_rtlil(rtlil_path, design_name=""):
+    """Extract port names from an RTLIL file.
+
+    Handles both mock-yosys simplified format (``wire \\name``) and real
+    yosys format (``wire width 8 input 2 \\name``).  Only wires with an
+    ``input``, ``output``, or ``inout`` attribute are returned so that
+    internal wires are excluded.  In the simplified format every wire is
+    treated as a port since mock-yosys only emits port wires.
+
+    Returns a set of port name strings (without the leading backslash).
+    """
+    ports = set()
+    if not os.path.isfile(rtlil_path):
+        return ports
+    try:
+        with open(rtlil_path) as f:
+            in_top = False
+            for line in f:
+                stripped = line.strip()
+                if stripped.startswith("module \\"):
+                    mod_name = stripped[len("module \\") :].strip()
+                    in_top = (mod_name == design_name) if design_name else True
+                elif stripped == "end":
+                    if in_top:
+                        break
+                    in_top = False
+                elif in_top and stripped.startswith("wire "):
+                    parts = stripped.split()
+                    if not parts or not parts[-1].startswith("\\"):
+                        continue
+                    port_name = parts[-1][1:]  # strip leading backslash
+                    if not port_name:
+                        continue
+                    # Real RTLIL marks ports with input/output/inout
+                    # attributes.  Mock RTLIL only emits port wires, so
+                    # if none of the keywords are present treat it as a
+                    # port (len(parts) == 2 means "wire \name").
+                    is_port = len(parts) == 2 or any(
+                        kw in parts for kw in ("input", "output", "inout")
+                    )
+                    if is_port:
+                        ports.add(port_name)
+    except OSError:
+        pass
+    return ports
+
+
 def _load_ports_from_rtlil():
     """Extract port names from the RTLIL file if _state.ports is empty."""
     if _state.ports:
         return
     rtlil_path = os.path.join(_state.results_dir, "1_1_yosys_canonicalize.rtlil")
-    if not os.path.isfile(rtlil_path):
-        return
-    try:
-        with open(rtlil_path) as f:
-            in_top = False
-            top = _state.design_name or ""
-            for line in f:
-                stripped = line.strip()
-                if stripped.startswith("module \\"):
-                    mod_name = stripped[len("module \\") :].strip()
-                    in_top = (mod_name == top) if top else True
-                elif stripped == "end":
-                    if in_top:
-                        break
-                    in_top = False
-                elif in_top and stripped.startswith("wire \\"):
-                    port_name = stripped[len("wire \\") :].strip()
-                    if port_name:
-                        _state.ports.add(port_name)
-    except OSError:
-        pass
+    _state.ports.update(parse_ports_from_rtlil(rtlil_path, _state.design_name or ""))
 
 
 def cmd_write_timing_model(interp, args):

@@ -830,6 +830,39 @@ py_test(
     imports = ["."],
 )
 
+py_test(
+    name = "openroad_commands_test",
+    srcs = [
+        "@mock-openroad//src/bin:openroad_commands.py",
+        "@mock-openroad//src/bin:openroad_commands_test.py",
+        "@mock-openroad//src/bin:tcl_interpreter.py",
+    ],
+    imports = ["."],
+    deps = ["@bazel-orfs-pip//pytest"],
+)
+
+py_test(
+    name = "tcl_interpreter_test",
+    srcs = [
+        "@mock-openroad//src/bin:tcl_interpreter.py",
+        "@mock-openroad//src/bin:tcl_interpreter_test.py",
+    ],
+    imports = ["."],
+    deps = ["@bazel-orfs-pip//pytest"],
+)
+
+py_test(
+    name = "yosys_commands_test",
+    srcs = ["yosys_commands_test_wrapper.py"],
+    data = [
+        "@mock-openroad//src/bin:tcl_interpreter.py",
+        "@mock-yosys//src/bin:yosys_commands.py",
+        "@mock-yosys//src/bin:yosys_commands_test.py",
+    ],
+    main = "yosys_commands_test_wrapper.py",
+    deps = ["@bazel-orfs-pip//pytest"],
+)
+
 # --- Mock-openroad build tests: fast validation of .bzl rule logic ---
 
 build_test(

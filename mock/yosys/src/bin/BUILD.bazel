@@ -15,6 +15,7 @@ exports_files(
     [
         "yosys.py",
         "yosys_commands.py",
+        "yosys_commands_test.py",
     ],
     visibility = ["//visibility:public"],
 )

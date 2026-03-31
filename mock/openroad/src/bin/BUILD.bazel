@@ -15,7 +15,9 @@ exports_files(
     [
         "openroad.py",
         "openroad_commands.py",
+        "openroad_commands_test.py",
         "tcl_interpreter.py",
+        "tcl_interpreter_test.py",
     ],
     visibility = ["//visibility:public"],
 )

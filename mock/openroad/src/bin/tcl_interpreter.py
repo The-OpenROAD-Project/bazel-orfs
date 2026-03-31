@@ -67,7 +67,7 @@ class TclInterpreter:
         """Get a variable value."""
         if name in self.variables:
             return self.variables[name]
-        raise TclError(f"can't read \"{name}\": no such variable")
+        raise TclError(f'can\'t read "{name}": no such variable')
 
     def set_array(self, array_name, key, value):
         """Set an array element."""
@@ -79,9 +79,7 @@ class TclInterpreter:
         """Get an array element."""
         if array_name in self.arrays and key in self.arrays[array_name]:
             return self.arrays[array_name][key]
-        raise TclError(
-            f"can't read \"{array_name}({key})\": no such element in array"
-        )
+        raise TclError(f'can\'t read "{array_name}({key})": no such element in array')
 
     def eval(self, script, source_file=None):
         """Evaluate a TCL script string. Returns the result of the last command."""
@@ -99,7 +97,7 @@ class TclInterpreter:
             with open(path) as f:
                 script = f.read()
         except OSError as e:
-            raise TclError(f"couldn't read file \"{path}\": {e}")
+            raise TclError(f'couldn\'t read file "{path}": {e}')
         return self.eval(script, source_file=path)
 
     # --- Script parsing ---
@@ -182,7 +180,7 @@ class TclInterpreter:
                 continue
 
             # Parse a word, tracking if it's braced
-            is_braced = (c == "{")
+            is_braced = c == "{"
             word, i = self._parse_word(script, i)
             current_words.append((word, is_braced))
 
@@ -290,8 +288,18 @@ class TclInterpreter:
         """Parse a backslash escape at position i. Returns (char, new_i)."""
         # i points at the backslash
         next_c = script[i + 1] if i + 1 < len(script) else ""
-        escape_map = {"n": "\n", "t": "\t", "r": "\r", "\\": "\\", '"': '"',
-                      "{": "{", "}": "}", "[": "[", "]": "]", "$": "$"}
+        escape_map = {
+            "n": "\n",
+            "t": "\t",
+            "r": "\r",
+            "\\": "\\",
+            '"': '"',
+            "{": "{",
+            "}": "}",
+            "[": "[",
+            "]": "]",
+            "$": "$",
+        }
         if next_c in escape_map:
             return escape_map[next_c], i + 2
         return next_c, i + 2
@@ -336,15 +344,15 @@ class TclInterpreter:
 
         # ${varname} form
         if word[i] == "{":
-            end = word.index("}", i + 1) if "}" in word[i + 1:] else -1
+            end = word.index("}", i + 1) if "}" in word[i + 1 :] else -1
             if end == -1:
                 raise TclError("missing close-brace for variable name")
             end = word.index("}", i + 1)
-            varname = word[i + 1:end]
+            varname = word[i + 1 : end]
             return self.get_var(varname), end + 1
 
         # $::env(NAME) or $::namespace::var
-        if word[i:i + 2] == "::":
+        if word[i : i + 2] == "::":
             return self._subst_namespaced_var(word, i)
 
         # Regular variable name
@@ -367,7 +375,7 @@ class TclInterpreter:
                 elif word[i] == ")":
                     depth -= 1
                 i += 1
-            key = self._substitute(word[key_start:i - 1])
+            key = self._substitute(word[key_start : i - 1])
             return self.get_array(varname, key), i
 
         return self.get_var(varname), i
@@ -394,7 +402,7 @@ class TclInterpreter:
                 elif word[i] == ")":
                     depth -= 1
                 i += 1
-            key = self._substitute(word[key_start:i - 1])
+            key = self._substitute(word[key_start : i - 1])
 
             if name == "::env":
                 val = os.environ.get(key, "")
@@ -472,7 +480,7 @@ class TclInterpreter:
                         raise TclError(
                             f"wrong # args: should be \"{name} {' '.join(params)}\""
                         )
-                self.variables["args"] = " ".join(args[len(params) - 1:])
+                self.variables["args"] = " ".join(args[len(params) - 1 :])
             else:
                 # Handle default values
                 required = []
@@ -578,9 +586,7 @@ class TclInterpreter:
                 return args[1]
             self.variables[args[0]] = args[1]
             return args[1]
-        raise TclError(
-            "wrong # args: should be \"set varName ?newValue?\""
-        )
+        raise TclError('wrong # args: should be "set varName ?newValue?"')
 
     def _cmd_unset(self, interp, args):
         for name in args:
@@ -610,7 +616,7 @@ class TclInterpreter:
 
     def _cmd_proc(self, interp, args):
         if len(args) != 3:
-            raise TclError("wrong # args: should be \"proc name args body\"")
+            raise TclError('wrong # args: should be "proc name args body"')
         name, params_str, body = args
         params = self._parse_list(params_str)
         self.procs[name] = (params, body)
@@ -652,7 +658,7 @@ class TclInterpreter:
 
     def _cmd_for(self, interp, args):
         if len(args) != 4:
-            raise TclError("wrong # args: should be \"for start test next body\"")
+            raise TclError('wrong # args: should be "for start test next body"')
         init, test, step, body = args
         self._eval_script(init)
         result = ""
@@ -668,7 +674,7 @@ class TclInterpreter:
 
     def _cmd_foreach(self, interp, args):
         if len(args) < 3:
-            raise TclError("wrong # args: should be \"foreach varList list body\"")
+            raise TclError('wrong # args: should be "foreach varList list body"')
         varname = args[0]
         items = self._parse_list(args[1])
         body = args[2]
@@ -685,7 +691,7 @@ class TclInterpreter:
 
     def _cmd_while(self, interp, args):
         if len(args) != 2:
-            raise TclError("wrong # args: should be \"while test body\"")
+            raise TclError('wrong # args: should be "while test body"')
         test, body = args
         result = ""
         while self._expr_bool(test):
@@ -719,7 +725,7 @@ class TclInterpreter:
 
     def _cmd_source(self, interp, args):
         if len(args) != 1:
-            raise TclError("wrong # args: should be \"source fileName\"")
+            raise TclError('wrong # args: should be "source fileName"')
         path = args[0]
         # Resolve relative paths against current source file directory
         if not os.path.isabs(path) and self._source_stack:
@@ -731,7 +737,7 @@ class TclInterpreter:
 
     def _cmd_catch(self, interp, args):
         if len(args) < 1:
-            raise TclError("wrong # args: should be \"catch script ?resultVar?\"")
+            raise TclError('wrong # args: should be "catch script ?resultVar?"')
         script = args[0]
         result_var = args[1] if len(args) > 1 else None
         try:
@@ -754,7 +760,7 @@ class TclInterpreter:
 
     def _cmd_error(self, interp, args):
         if len(args) < 1:
-            raise TclError("wrong # args: should be \"error message\"")
+            raise TclError('wrong # args: should be "error message"')
         raise TclError(args[0])
 
     # --- List commands ---
@@ -792,7 +798,15 @@ class TclInterpreter:
         parts = []
         for item in items:
             s = str(item)
-            if not s or " " in s or "\t" in s or "\n" in s or "{" in s or "}" in s or '"' in s:
+            if (
+                not s
+                or " " in s
+                or "\t" in s
+                or "\n" in s
+                or "{" in s
+                or "}" in s
+                or '"' in s
+            ):
                 parts.append("{" + s + "}")
             else:
                 parts.append(s)
@@ -803,7 +817,7 @@ class TclInterpreter:
 
     def _cmd_lappend(self, interp, args):
         if len(args) < 1:
-            raise TclError("wrong # args: should be \"lappend varName ?value ...?\"")
+            raise TclError('wrong # args: should be "lappend varName ?value ...?"')
         varname = args[0]
         current = self.variables.get(varname, "")
         items = self._parse_list(current) if current else []
@@ -814,7 +828,7 @@ class TclInterpreter:
 
     def _cmd_lindex(self, interp, args):
         if len(args) < 2:
-            raise TclError("wrong # args: should be \"lindex list index\"")
+            raise TclError('wrong # args: should be "lindex list index"')
         items = self._parse_list(args[0])
         try:
             idx = int(args[1])
@@ -828,16 +842,16 @@ class TclInterpreter:
 
     def _cmd_llength(self, interp, args):
         if len(args) != 1:
-            raise TclError("wrong # args: should be \"llength list\"")
+            raise TclError('wrong # args: should be "llength list"')
         return str(len(self._parse_list(args[0])))
 
     def _cmd_lrange(self, interp, args):
         if len(args) != 3:
-            raise TclError("wrong # args: should be \"lrange list first last\"")
+            raise TclError('wrong # args: should be "lrange list first last"')
         items = self._parse_list(args[0])
         first = self._list_index(args[1], len(items))
         last = self._list_index(args[2], len(items))
-        return self._to_list(items[first:last + 1])
+        return self._to_list(items[first : last + 1])
 
     def _cmd_lsort(self, interp, args):
         items = self._parse_list(args[-1])
@@ -866,7 +880,7 @@ class TclInterpreter:
         first = self._list_index(args[1], len(items))
         last = self._list_index(args[2], len(items))
         new_items = args[3:]
-        items[first:last + 1] = new_items
+        items[first : last + 1] = new_items
         return self._to_list(items)
 
     def _list_index(self, idx_str, length):
@@ -880,7 +894,7 @@ class TclInterpreter:
     def _cmd_lmap(self, interp, args):
         """lmap varName list body — like foreach but collects results."""
         if len(args) < 3:
-            raise TclError("wrong # args: should be \"lmap varList list body\"")
+            raise TclError('wrong # args: should be "lmap varList list body"')
         varname = args[0]
         items = self._parse_list(args[1])
         body = args[2]
@@ -942,7 +956,7 @@ class TclInterpreter:
             s = sargs[0]
             first = self._list_index(sargs[1], len(s))
             last = self._list_index(sargs[2], len(s))
-            return s[first:last + 1]
+            return s[first : last + 1]
         elif subcmd == "equal":
             return "1" if sargs[0] == sargs[1] else "0"
         elif subcmd == "compare":
@@ -951,6 +965,7 @@ class TclInterpreter:
         elif subcmd == "match":
             # Glob-style matching
             import fnmatch
+
             return "1" if fnmatch.fnmatch(sargs[1], sargs[0]) else "0"
         elif subcmd == "map":
             mapping = self._parse_list(sargs[0])
@@ -983,7 +998,7 @@ class TclInterpreter:
             first = int(sargs[1])
             last = int(sargs[2])
             replacement = sargs[3] if len(sargs) > 3 else ""
-            return s[:first] + replacement + s[last + 1:]
+            return s[:first] + replacement + s[last + 1 :]
         elif subcmd == "repeat":
             return sargs[0] * int(sargs[1])
         elif subcmd == "is":
@@ -1005,12 +1020,17 @@ class TclInterpreter:
                 except ValueError:
                     return "0"
             elif type_name == "boolean":
-                return "1" if val.lower() in ("0", "1", "true", "false", "yes", "no", "on", "off") else "0"
+                return (
+                    "1"
+                    if val.lower()
+                    in ("0", "1", "true", "false", "yes", "no", "on", "off")
+                    else "0"
+                )
             return "0"
         elif subcmd == "cat":
             return "".join(sargs)
         else:
-            raise TclError(f"unknown string subcommand \"{subcmd}\"")
+            raise TclError(f'unknown string subcommand "{subcmd}"')
 
     def _cmd_regexp(self, interp, args):
         # regexp ?switches? exp string ?matchVar? ?subMatchVar ...?
@@ -1106,11 +1126,12 @@ class TclInterpreter:
                 try:
                     if os.path.isdir(f):
                         import shutil
+
                         shutil.rmtree(f)
                     elif os.path.exists(f):
                         os.remove(f)
                     elif not force:
-                        raise TclError(f"could not delete \"{f}\": no such file")
+                        raise TclError(f'could not delete "{f}": no such file')
                 except OSError as e:
                     if not force:
                         raise TclError(str(e))
@@ -1120,6 +1141,7 @@ class TclInterpreter:
             paths = [a for a in sargs if a != "-force" and a != "--"]
             if len(paths) >= 2:
                 import shutil
+
                 shutil.copy2(paths[0], paths[1])
             return ""
         elif subcmd == "size":
@@ -1129,6 +1151,7 @@ class TclInterpreter:
 
     def _cmd_glob(self, interp, args):
         import glob as globmod
+
         remaining = list(args)
         nocomplain = False
         directory = None
@@ -1181,7 +1204,7 @@ class TclInterpreter:
             with open(channel) as f:
                 return f.read()
         except OSError:
-            raise TclError(f"can not read \"{channel}\"")
+            raise TclError(f'can not read "{channel}"')
 
     def _cmd_gets(self, interp, args):
         if not args:
@@ -1218,7 +1241,9 @@ class TclInterpreter:
         elif subcmd == "args":
             if args[1] in self.procs:
                 params = self.procs[args[1]][0]
-                return self._to_list([p[0] if isinstance(p, list) else p for p in params])
+                return self._to_list(
+                    [p[0] if isinstance(p, list) else p for p in params]
+                )
         elif subcmd == "script":
             return self._source_stack[-1] if self._source_stack else ""
         return ""
@@ -1353,6 +1378,7 @@ class TclInterpreter:
                 return self._eval_script(body)
             elif not exact:
                 import fnmatch
+
                 if fnmatch.fnmatch(string, pattern):
                     return self._eval_script(body)
             # Handle fall-through: if body is "-", fall to next
@@ -1431,7 +1457,7 @@ class TclInterpreter:
                         d = self._parse_list(val)
                         break
                 else:
-                    raise TclError(f"key \"{key}\" not known in dictionary")
+                    raise TclError(f'key "{key}" not known in dictionary')
             return val if keys else args[1]
         elif subcmd == "set":
             d = self._parse_list(args[1]) if len(args) > 1 else []
@@ -1510,6 +1536,7 @@ class TclInterpreter:
     def _cmd_clock(self, interp, args):
         """clock seconds|clicks|format|scan"""
         import time
+
         if not args:
             return "0"
         subcmd = args[0]
@@ -1542,7 +1569,11 @@ class TclInterpreter:
         # Execute remaining as a command
         result = self._eval_script(" ".join(remaining)) if remaining else ""
         if output_file:
-            os.makedirs(os.path.dirname(output_file), exist_ok=True) if os.path.dirname(output_file) else None
+            (
+                os.makedirs(os.path.dirname(output_file), exist_ok=True)
+                if os.path.dirname(output_file)
+                else None
+            )
             mode = "a" if append else "w"
             with open(output_file, mode) as f:
                 f.write(result + "\n")
@@ -1563,24 +1594,24 @@ class TclInterpreter:
             return 0
 
         # Replace TCL operators with Python equivalents
-        s = re.sub(r'\beq\b', '==', s)
-        s = re.sub(r'\bne\b', '!=', s)
-        s = s.replace('&&', ' and ')
-        s = s.replace('||', ' or ')
-        s = s.replace('!', ' not ')
+        s = re.sub(r"\beq\b", "==", s)
+        s = re.sub(r"\bne\b", "!=", s)
+        s = s.replace("&&", " and ")
+        s = s.replace("||", " or ")
+        s = s.replace("!", " not ")
         # Fix double negation from ! replacement
-        s = s.replace(' not =', '!=')
+        s = s.replace(" not =", "!=")
         # TCL integer division: use //
-        s = re.sub(r'(?<!\/)\/(?!\/)', '//', s)
+        s = re.sub(r"(?<!\/)\/(?!\/)", "//", s)
 
         # Handle TCL ternary: expr { cond ? a : b }
         # Python eval handles this natively
 
         # Handle double(x), int(x), etc.
-        s = re.sub(r'\bdouble\s*\(', 'float(', s)
-        s = re.sub(r'\bround\s*\(', 'round(', s)
-        s = re.sub(r'\babs\s*\(', 'abs(', s)
-        s = re.sub(r'\bwide\s*\(', 'int(', s)
+        s = re.sub(r"\bdouble\s*\(", "float(", s)
+        s = re.sub(r"\bround\s*\(", "round(", s)
+        s = re.sub(r"\babs\s*\(", "abs(", s)
+        s = re.sub(r"\bwide\s*\(", "int(", s)
 
         # Handle ** power operator (TCL uses **)
         # Python also uses **, so no change needed
@@ -1588,17 +1619,37 @@ class TclInterpreter:
         # Handle string equality with quotes
         try:
             # Safe eval with math functions
-            result = eval(s, {"__builtins__": {}}, {
-                "int": int, "float": float, "round": round, "abs": abs,
-                "sqrt": math.sqrt, "pow": pow, "log": math.log,
-                "log10": math.log10, "ceil": math.ceil, "floor": math.floor,
-                "sin": math.sin, "cos": math.cos, "tan": math.tan,
-                "max": max, "min": min,
-                "True": 1, "False": 0,
-            })
+            result = eval(
+                s,
+                {"__builtins__": {}},
+                {
+                    "int": int,
+                    "float": float,
+                    "round": round,
+                    "abs": abs,
+                    "sqrt": math.sqrt,
+                    "pow": pow,
+                    "log": math.log,
+                    "log10": math.log10,
+                    "ceil": math.ceil,
+                    "floor": math.floor,
+                    "sin": math.sin,
+                    "cos": math.cos,
+                    "tan": math.tan,
+                    "max": max,
+                    "min": min,
+                    "True": 1,
+                    "False": 0,
+                },
+            )
             if isinstance(result, bool):
                 return 1 if result else 0
-            if isinstance(result, float) and result == int(result) and "." not in s and "e" not in s.lower():
+            if (
+                isinstance(result, float)
+                and result == int(result)
+                and "." not in s
+                and "e" not in s.lower()
+            ):
                 return int(result)
             return result
         except Exception:
