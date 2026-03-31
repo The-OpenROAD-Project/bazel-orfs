@@ -489,6 +489,24 @@ filegroup(
     output_group = "1_synth.v",
 )
 
+# Test SYNTH_KEPT_MODULES: skip keep-hierarchy discovery, go straight to
+# parallel partition synthesis with a pre-specified module list.
+orfs_synth(
+    name = "kept_modules_synth",
+    arguments = {
+        "SDC_FILE": "$(location :constraints-top.sdc)",
+        "SYNTH_KEPT_MODULES": "adder counter",
+    },
+    data = [":constraints-top.sdc"],
+    module_top = "kept_modules_top",
+    verilog_files = ["rtl/kept_modules_top.v"],
+)
+
+build_test(
+    name = "kept_modules_synth_test",
+    targets = [":kept_modules_synth"],
+)
+
 REGFILE_ARGUMENTS = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
     "CORE_AREA": "1.026 1.080 4.914 4.860",
     "DIE_AREA": "0 0 5.940 5.940",

@@ -148,6 +148,8 @@ def orfs_design(name = None, platform = None, design = None, designs = None, moc
             arguments["SYNTH_MINIMUM_KEEP_SIZE"] = "0"
         if "SYNTH_NUM_PARTITIONS" not in arguments:
             arguments["SYNTH_NUM_PARTITIONS"] = str(NUM_CPUS)
+    if arguments.get("SYNTH_KEPT_MODULES") and "SYNTH_NUM_PARTITIONS" not in arguments:
+        arguments["SYNTH_NUM_PARTITIONS"] = str(NUM_CPUS)
 
     orfs_flow(
         name = name,
