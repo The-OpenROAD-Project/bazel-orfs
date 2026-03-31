@@ -9,7 +9,7 @@ Content-Transfer-Encoding: 8bit
 
 - Add ci flag per design based on rules-base.json presence; non-CI
   designs get tags=["manual"] to exclude from wildcard builds
-- Add all platforms (gf12, gf55, rapidus2hp) to MODULE.bazel
+- Remove gf12, gf55, rapidus2hp from platforms (confidential PDK)
 - Skip designs with missing source files (confidential designs)
 - Index designs by directory name when it differs from nickname
 - Soft return instead of fail() for unknown designs
@@ -38,12 +38,9 @@ index 8814e49f0..a151f4dba 100644
      designs_dir = "//flow/designs:BUILD.bazel",
      platforms = [
          "asap7",
-+        "gf12",
          "gf180",
-+        "gf55",
          "ihp-sg13g2",
          "nangate45",
-+        "rapidus2hp",
          "sky130hd",
          "sky130hs",
      ],
