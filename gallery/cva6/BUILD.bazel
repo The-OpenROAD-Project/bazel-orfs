@@ -21,7 +21,6 @@ demo_flow(
     arguments = {
         # Synthesis — survey mode: keep all modules for size analysis
         "SYNTH_HIERARCHICAL": "1",
-        "SYNTH_MINIMUM_KEEP_SIZE": "0",
         "VERILOG_DEFINES": "-D HPDCACHE_ASSERT_OFF",
         "SYNTH_SLANG_ARGS": " ".join([
             "--disable-instance-caching=false",

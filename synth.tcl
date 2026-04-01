@@ -94,16 +94,7 @@ if { [env_var_exists_and_non_empty SYNTH_CHECKPOINT] && [env_var_exists_and_non_
   # defer flattening until we have decided what hierarchy to keep
   synth -run :fine
 
-  if { [env_var_exists_and_non_empty SYNTH_MINIMUM_KEEP_SIZE] } {
-    set ungroup_threshold $::env(SYNTH_MINIMUM_KEEP_SIZE)
-    puts "Keep modules above estimated size of
-      $ungroup_threshold gate equivalents"
-
-    convert_liberty_areas
-    keep_hierarchy -min_cost $ungroup_threshold
-  } else {
-    keep_hierarchy
-  }
+  keep_hierarchy
 
   # Re-run coarse-level script, this time do pass -flatten
   synth -flatten -run coarse:fine {*}$synth_full_args
