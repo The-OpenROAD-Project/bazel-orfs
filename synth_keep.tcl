@@ -19,14 +19,7 @@ if { [env_var_exists_and_non_empty SYNTH_KEEP_MODULES] } {
 # Coarse synthesis without flattening to get module sizes
 synth -run :fine
 
-if { [env_var_exists_and_non_empty SYNTH_MINIMUM_KEEP_SIZE] } {
-  set ungroup_threshold $::env(SYNTH_MINIMUM_KEEP_SIZE)
-  puts "Keep modules above estimated size of $ungroup_threshold gate equivalents"
-  convert_liberty_areas
-  keep_hierarchy -min_cost $ungroup_threshold
-} else {
-  keep_hierarchy
-}
+keep_hierarchy
 
 # Save RTLIL checkpoint after keep_hierarchy decisions.
 # The kept module list (kept_modules.json) is extracted separately
