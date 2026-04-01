@@ -3,7 +3,6 @@
 module(
     name = "orfs-integration",
     version = "0.0.1",
-    compatibility_level = 1,
 )
 
 # --- bazel-orfs: RTL-to-GDS flow rules (parent directory) ---
