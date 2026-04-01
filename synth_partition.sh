@@ -27,16 +27,30 @@ if [ -n "${SYNTH_SKIP_KEEP:-}" ]; then
   CHECKPOINT="$RESULTS_DIR/1_1_yosys_canonicalize.rtlil"
   # Validate that every SYNTH_KEPT_MODULES entry exists in the canonical RTLIL
   RTLIL_MODULES_FILE=$(mktemp)
-  grep '^module \\' "$CHECKPOINT" | sed 's/^module \\//;s/ .*//' > "$RTLIL_MODULES_FILE"
+  grep '^module \\' "$CHECKPOINT" | sed 's/^module \\//;s/ .*//' | grep -v '^$' > "$RTLIL_MODULES_FILE"
+  # Map bare module names to canonical names. HDL frontends like slang add
+  # "$instance_path" suffixes during elaboration (e.g. AluDataModule becomes
+  # AluDataModule$ProcessingUnit.slices_0.execute.alu). Resolve each entry
+  # to its canonical form so that DESIGN_NAME is set correctly later.
+  RESOLVED_MODULES=()
   for module in $ALL_MODULES; do
-    if ! grep -qxF "$module" "$RTLIL_MODULES_FILE"; then
-      echo "ERROR: SYNTH_KEPT_MODULES lists '$module' but it does not exist in the design." >&2
-      echo "Available modules: $(tr '\n' ' ' < "$RTLIL_MODULES_FILE")" >&2
-      rm -f "$RTLIL_MODULES_FILE"
-      exit 1
+    if grep -qxF "$module" "$RTLIL_MODULES_FILE"; then
+      RESOLVED_MODULES+=("$module")
+    else
+      # Try prefix match: "Name" matches "Name$..." in the RTLIL
+      canonical=$(grep -m1 "^$(printf '%s' "$module" | sed 's/[.[\*^$()+?{|\\]/\\&/g')\\$" "$RTLIL_MODULES_FILE" || true)
+      if [ -z "$canonical" ]; then
+        echo "ERROR: SYNTH_KEPT_MODULES lists '$module' but it does not exist in the design." >&2
+        echo "Available modules: $(tr '\n' ' ' < "$RTLIL_MODULES_FILE")" >&2
+        rm -f "$RTLIL_MODULES_FILE"
+        exit 1
+      fi
+      RESOLVED_MODULES+=("$canonical")
     fi
   done
   rm -f "$RTLIL_MODULES_FILE"
+  # Replace ALL_MODULES with the resolved canonical names
+  ALL_MODULES=$(printf '%s\n' "${RESOLVED_MODULES[@]}")
 else
   CHECKPOINT="$RESULTS_DIR/1_1_yosys_keep.rtlil"
 fi
