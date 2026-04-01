@@ -14,11 +14,7 @@ local_path_override(
 
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
-# WARNING: Do not bump rules_shell here for dev-only needs
-# (e.g. OpenROAD from source). It is a non-dev dep, so MVS forces the
-# higher version on ALL downstream consumers. When bazel-orfs is the root
-# module, MVS will pull in the higher versions from OpenROAD automatically.
-bazel_dep(name = "rules_shell", version = "0.3.0")
+bazel_dep(name = "rules_shell", version = "0.6.1")
 
 bazel_dep(name = "mock-klayout", version = "0.0.1", dev_dependency = True)
 local_path_override(
