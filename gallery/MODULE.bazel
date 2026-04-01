@@ -1,7 +1,6 @@
 module(
     name = "gallery",
     version = "0.0.1",
-    compatibility_level = 1,
 )
 
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
