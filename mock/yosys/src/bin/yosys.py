@@ -130,9 +130,30 @@ def main(argv=None):
     design = os.environ.get("DESIGN_NAME", "mock")
     if results_dir:
         state = yosys_commands.get_state()
+
+        # If TCL execution didn't parse any verilog, try parsing VERILOG_FILES
+        if not state.modules:
+            vfiles = os.environ.get("VERILOG_FILES", "").split()
+            for vf in vfiles:
+                if os.path.isfile(vf):
+                    with open(vf) as f:
+                        parsed = yosys_commands.parse_verilog(f.read())
+                    state.modules.update(parsed)
+
+        # Build RTLIL from all parsed modules (not just the top)
+        if state.modules:
+            rtlil_content = "# Mock RTLIL\n"
+            for name, info in state.modules.items():
+                rtlil_content += f"module \\{name}\n"
+                for port in info.get("ports", []):
+                    rtlil_content += f"  wire \\{port}\n"
+                rtlil_content += "end\n"
+        else:
+            rtlil_content = f"# Mock RTLIL\nmodule \\{design}\nend\n"
+
         for name_f, content in [
             ("1_2_yosys.v", f"module {design}(); endmodule\n"),
-            ("1_1_yosys_canonicalize.rtlil", f"# Mock RTLIL\nmodule \\{design}\nend\n"),
+            ("1_1_yosys_canonicalize.rtlil", rtlil_content),
             ("mem.json", "{}\n"),
         ]:
             path = os.path.join(results_dir, name_f)
