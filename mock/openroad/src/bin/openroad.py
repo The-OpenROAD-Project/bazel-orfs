@@ -135,12 +135,17 @@ def main(argv=None):
 
     # Parse arguments
     scripts = []
+    metrics_path = None
     i = 0
     while i < len(argv):
         arg = argv[i]
         if arg in ("-exit", "-no_init", "-no_splash", "-gui"):
             pass
-        elif arg in ("-threads", "-log", "-metrics"):
+        elif arg == "-metrics":
+            i += 1
+            if i < len(argv):
+                metrics_path = argv[i]
+        elif arg in ("-threads", "-log"):
             i += 1  # skip value
         elif arg.startswith("-"):
             pass  # ignore unknown flags
@@ -163,6 +168,13 @@ def main(argv=None):
             # Don't fail — ORFS scripts may reference things we don't
             # implement yet. Create expected output files based on env vars.
             _create_fallback_outputs(state)
+
+    # Write metrics JSON if requested (real OpenROAD writes metrics here;
+    # genMetrics.py later reads these files).
+    if metrics_path:
+        os.makedirs(os.path.dirname(metrics_path), exist_ok=True)
+        with open(metrics_path, "w") as f:
+            f.write("{}\n")
 
     return 0
 
