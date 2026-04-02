@@ -4,7 +4,6 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_gds", "orfs_macro", "orfs_run", "orfs_synth")
 load("//:orfs_genrule.bzl", "orfs_genrule")
-load("//:ppa.bzl", "orfs_ppa")
 load("//:sweep.bzl", "orfs_sweep")
 load(":deps_output_group_rule.bzl", "deps_output_group_test", "output_group_test")
 
@@ -458,6 +457,7 @@ orfs_run(
         "area_ok.txt",
     ],
     script = ":check_mock_area.tcl",
+    tags = ["manual"],
 )
 
 orfs_run(
@@ -513,7 +513,8 @@ REGFILE_ARGUMENTS = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
     "PLACE_DENSITY": "0.65",
 }
 
-# Need full flow to test final gatelist extraction
+# Need full flow to test final gatelist extraction.
+# Tagged manual — needs real OpenROAD for valid metrics.
 orfs_sweep(
     name = "regfile_128x65",
     arguments = REGFILE_ARGUMENTS,
@@ -541,6 +542,7 @@ orfs_sweep(
             },
         },
     },
+    tags = ["manual"],
     verilog_files = [
         "rtl/regfile_128x65.sv",
     ],
@@ -649,6 +651,7 @@ filegroup(
         "regfile_128x65_final",
     ],
     output_group = "6_final.v",
+    tags = ["manual"],
 )
 
 filegroup(
@@ -657,6 +660,7 @@ filegroup(
         "regfile_128x65_final",
     ],
     output_group = "6_final.spef",
+    tags = ["manual"],
 )
 
 # gate netlists can be build by e.g. Verilator, mock
@@ -672,6 +676,7 @@ genrule(
         "gatelist_wc.txt",
     ],
     cmd = "wc -l $(locations :gatelist) $(locations :spef) > $@",
+    tags = ["manual"],
 )
 
 # Same as gatelist_wc but using orfs_genrule to keep srcs in exec config.
@@ -687,8 +692,11 @@ orfs_genrule(
         "gatelist_wc_orfs_genrule.txt",
     ],
     cmd = "wc -l $(locations :gatelist) $(locations :spef) > $@",
+    tags = ["manual"],
 )
 
+# Exercise real OpenSTA from the OpenROAD source build.
+# Requires: bazel_dep(name = "openroad") + git_override in MODULE.bazel.
 orfs_run(
     name = "sta",
     src = ":lb_32x128_floorplan",
@@ -696,22 +704,24 @@ orfs_run(
         "units.txt",
     ],
     arguments = {
-        "OPENROAD_EXE": "$$OPENSTA_EXE",
         "OUTPUT": "$(location units.txt)",
     },
+    openroad = "@openroad//src/sta:opensta",
     script = ":units.tcl",
+    tags = ["manual"],
 )
 
-orfs_ppa(
-    name = "plot",
-    plot = ["lb_32x128_{}_cts".format(i + 1) for i in range(3)],
-    title = "lb_32x128 variants",
+build_test(
+    name = "sta_test",
+    tags = ["manual"],
+    targets = [":sta"],
 )
 
 orfs_gds(
     name = "lb_32x128_sky130hd_gds",
     src = "//test/smoketest:lb_32x128_sky130hd_final",
     klayout = "@mock-klayout//src/bin:klayout",
+    tags = ["manual"],
     variant = "base",
 )
 
@@ -721,6 +731,7 @@ orfs_macro(
     lef = "//test/smoketest:lb_32x128_sky130hd_generate_abstract",
     lib = "//test/smoketest:lb_32x128_sky130hd_generate_abstract",
     module_top = "lb_32x128",
+    tags = ["manual"],
 )
 
 sh_test(
@@ -730,6 +741,7 @@ sh_test(
         "$(locations :lb_32x128_sky130hd_macro)",
     ],
     data = [":lb_32x128_sky130hd_macro"],
+    tags = ["manual"],
 )
 
 # Test the openroad override mechanism using mock-openroad (fast in CI).
@@ -812,14 +824,6 @@ orfs_run(
     extra_args = "> $WORK_HOME/test.txt",
     script = ":cell_count.tcl",
     tags = ["manual"],
-)
-
-py_binary(
-    name = "plot_repair",
-    srcs = ["plot-retiming.py"],
-    main = "plot-retiming.py",
-    visibility = ["//visibility:public"],
-    deps = ["@bazel-orfs-features-pip//matplotlib"],
 )
 
 # --- Mock unit tests ---
@@ -996,16 +1000,6 @@ py_test(
     name = "fix_lint_test",
     srcs = ["fix_lint_test.py"],
     deps = ["//:fix_lint_lib"],
-)
-
-py_test(
-    name = "plot_clock_period_test",
-    srcs = ["plot_clock_period_test.py"],
-    data = ["//:plot_clock_period_tool"],
-    deps = [
-        "@bazel-orfs-features-pip//matplotlib",
-        "@bazel-orfs-pip//pyyaml",
-    ],
 )
 
 sh_test(
