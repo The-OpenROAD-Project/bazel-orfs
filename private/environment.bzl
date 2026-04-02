@@ -226,7 +226,7 @@ def flow_substitutions(ctx):
         "${KLAYOUT_PATH}": ctx.executable._klayout.path,
         "${LIBGL_DRIVERS_PATH}": _optional_commonpath(ctx.files._opengl),
         "${MAKEFILE_PATH}": ctx.file._makefile.path,
-        "${MAKE_PATH}": ctx.executable._make.path,
+        "${MAKE_PATH}": "./" + ctx.executable._make.short_path,
         # OpenROAD uses //:openroad, //:opensta here and puts the binary in the pwd
         "${OPENROAD_PATH}": "./" + _openroad_attr(ctx)[DefaultInfo].files_to_run.executable.short_path,
         "${OPENSTA_PATH}": "./" + ctx.executable._opensta.short_path,
