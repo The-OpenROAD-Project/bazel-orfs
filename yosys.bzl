@@ -48,7 +48,7 @@ yosys = rule(
             executable = True,
             allow_files = True,
             cfg = "exec",
-            default = Label("@docker_orfs//:yosys"),
+            default = Label("@mock-yosys//src/bin:yosys"),
         ),
     },
     provides = [DefaultInfo],

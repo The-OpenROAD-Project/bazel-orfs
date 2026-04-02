@@ -13,8 +13,5 @@ git_override(
 )
 
 orfs = use_extension("//:extension.bzl", "orfs_repositories")
-orfs.default(
-    image = "docker.io/openroad/orfs:OLD-TAG",
-    sha256 = "old_sha256",
-)
+orfs.default()
 use_repo(orfs, "docker_orfs")

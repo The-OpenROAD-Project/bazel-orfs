@@ -15,20 +15,19 @@ local_path_override(
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
 bazel_dep(name = "rules_shell", version = "0.6.1")
-
-bazel_dep(name = "mock-klayout", version = "0.0.1", dev_dependency = True)
+bazel_dep(name = "mock-klayout", version = "0.0.1")
 local_path_override(
     module_name = "mock-klayout",
     path = "mock/klayout",
 )
 
-bazel_dep(name = "mock-openroad", version = "0.0.1", dev_dependency = True)
+bazel_dep(name = "mock-openroad", version = "0.0.1")
 local_path_override(
     module_name = "mock-openroad",
     path = "mock/openroad",
 )
 
-bazel_dep(name = "mock-yosys", version = "0.0.1", dev_dependency = True)
+bazel_dep(name = "mock-yosys", version = "0.0.1")
 local_path_override(
     module_name = "mock-yosys",
     path = "mock/yosys",
@@ -39,6 +38,9 @@ git_override(
     module_name = "orfs",
     commit = "f40d2f346e67ffe309a4f49b1897a560cf20c747",
     patch_strip = 1,
+    # Minimal patches: only what's needed for extension.bzl flow targets
+    # (PDK definitions, variables.yaml export). Design-specific patches
+    # are only applied in the orfs/ integration workspace.
     patches = [
         "//patches:0001-build-remove-stale-merge_lib.py-preprocessLib.py-fro.patch",
         "//patches:0002-build-add-all-PDKs-and-export-variables.yaml.patch",
@@ -79,23 +81,8 @@ pip_features.parse(
 use_repo(pip_features, "bazel-orfs-features-pip")
 
 orfs = use_extension("//:extension.bzl", "orfs_repositories")
+orfs.default()
 use_repo(orfs, "docker_orfs")
 use_repo(orfs, "config")
+use_repo(orfs, "gnumake")
 use_repo(orfs, "orfs_variable_metadata")
-
-# Dev-only: mock-klayout is a dev_dependency, so the orfs.default() tag
-# referencing it must also be dev_dependency to avoid breaking downstream
-# consumers where @mock-klayout is not visible.
-orfs_dev = use_extension("//:extension.bzl", "orfs_repositories", dev_dependency = True)
-orfs_dev.default(
-    # a local only or remote docker image. Local docker images do not
-    # have a sha256.
-    image = "docker.io/openroad/orfs:26Q1-656-g97416b2e4",
-    # Use mock klayout for dev builds. For production, override with
-    # a real klayout binary or use the default (locally installed klayout).
-    klayout = "@mock-klayout//src/bin:klayout",
-    # Smoketest, this is the default value
-    makefile = "@docker_orfs//:makefile",
-    # Comment out line below for local only docker images
-    sha256 = "9c90633d62e08f0b3772d4fdfc06b14e4f33273ae1511d1c41d3c48560adb9a5",
-)

@@ -188,7 +188,7 @@ From a git repository:
 bazel_dep(name = "bazel-orfs")
 git_override(
     module_name = "bazel-orfs",
-    remote = "<URL to bazel-orfs repository>",
+    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",
     commit = "<git hash for specific bazel-orfs revision>",
 )
 ```
@@ -200,6 +200,95 @@ bazel_dep(name = "bazel-orfs")
 local_path_override(
     module_name = "bazel-orfs",
     path = "<path to local bazel-orfs workspace>",
+)
+```
+
+### Tool configuration
+
+bazel-orfs builds all EDA tools from source by default. This works on all
+platforms and requires only Bazelisk — no Docker, no system packages.
+
+KLayout defaults to a mock implementation since GDS output is the end of
+the flow and not needed for most development. Override with a real klayout
+when you need actual GDS files.
+
+#### Build OpenROAD from source (default)
+
+Add OpenROAD to your `MODULE.bazel`. Run `bazelisk run @bazel-orfs//:bump`
+to auto-fill the latest commit, or specify a version manually:
+
+```starlark
+bazel_dep(name = "openroad")
+git_override(
+    module_name = "openroad",
+    commit = "<openroad-commit-sha>",
+    init_submodules = True,
+    patch_strip = 1,
+    patches = [
+        "@bazel-orfs//:openroad-llvm-root-only.patch",
+        "@bazel-orfs//:openroad-visibility.patch",
+    ],
+    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
+)
+bazel_dep(name = "qt-bazel")
+git_override(
+    module_name = "qt-bazel",
+    commit = "df022f4ebaa4130713692fffd2f519d49e9d0b97",
+    remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
+)
+bazel_dep(name = "toolchains_llvm", version = "1.5.0")
+
+orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
+orfs.default(
+    openroad = "@openroad//:openroad",
+    opensta = "@openroad//src/sta:opensta",
+)
+use_repo(orfs, "docker_orfs")
+use_repo(orfs, "gnumake")
+```
+
+First build takes 30-60 minutes; subsequent builds are incremental.
+See [docs/openroad.md](docs/openroad.md) for details and gotchas.
+
+#### Use locally installed tools
+
+To use OpenROAD, yosys, or klayout from your system PATH:
+
+```starlark
+orfs.default(
+    openroad = "@bazel-orfs//:openroad",  # uses `openroad` from PATH
+)
+```
+
+The `@bazel-orfs//:openroad` and `@bazel-orfs//:klayout` targets are thin
+wrappers that `exec` the corresponding binary from PATH.
+
+#### Configure klayout
+
+KLayout defaults to mock-klayout. To use a real klayout, add to `user.bazelrc`:
+
+```
+build --@bazel-orfs//:klayout=@bazel-orfs//:klayout
+```
+
+Or override globally in `MODULE.bazel`:
+
+```starlark
+orfs.default(
+    klayout = "@bazel-orfs//:klayout",  # system klayout from PATH
+)
+```
+
+#### Per-target overrides
+
+Any tool can be overridden on individual targets:
+
+```starlark
+orfs_flow(
+    name = "my_design",
+    openroad = "@openroad//:openroad",
+    klayout = "@bazel-orfs//:klayout",
+    verilog_files = ["my_design.v"],
 )
 ```
 
@@ -1089,45 +1178,21 @@ Dependency deployment is handled via the `deps` output group on stage targets, a
 
 ### Bazel flow
 
-The regular Bazel flow uses pre-built ORFS artifacts from an OCI image.
-
-The ORFS image is defined in the [module](./MODULE.bazel) file. You can override the default by specifying `image` and `sha256` attributes:
-
-```starlark
-orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
-orfs.default(
-    image = <image>,
-    sha256 = <sha256>,
-)
-use_repo(orfs, "docker_orfs")
-```
-
-Setting this attribute to a valid image and checksum enables Bazel to automatically download and extract ORFS artifacts on `bazel run` or `bazel build`:
+The ORFS flow scripts (Makefile, TCL scripts, PDKs) are fetched from the
+[OpenROAD-flow-scripts](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts)
+repository via `git_override` in `MODULE.bazel`. All EDA tools default to
+mock implementations for fast iteration; override with real tools for
+production builds (see [Tool configuration](#tool-configuration) above).
 
 ```bash
 bazel build <target>_<stage>
 ```
-
-> **NOTE:** If `sha256` is set to an empty string `""`, the image tag is used directly without digest verification.
 
 ### Tools location after bazel run
 
 A mutable build folder can be set up to prepare for a local synthesis run, useful when digging into some detail of the synthesis flow:
 
     $ bazel run //:deps -- //test:tag_array_64x184_synth
-    $ tmp/test/tag_array_64x184_synth_deps/make print-YOSYS_EXE
-    YOSYS_EXE = external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys
-
-This is actually a symlink pointing to the read-only executables, which is how yosys is able to find yosys-abc alongside itself needed for the abc part of the synthesis stage:
-
-    $ ls -l $(dirname $(readlink -f tmp/test/tag_array_64x184_synth_deps/external/_main~orfs_repositories~docker_orfs/OpenROAD-flow-scripts/tools/install/yosys/bin/yosys))
-    total 37456
-    -rwxr-xr-x 1 oyvind oyvind 23449673 Aug 15 07:05 yosys
-    -rwxr-xr-x 1 oyvind oyvind 14725193 Aug 15 07:05 yosys-abc
-    -rwxr-xr-x 1 oyvind oyvind     3904 Aug  7 23:11 yosys-config
-    -rwxr-xr-x 1 oyvind oyvind    65609 Aug 15 07:05 yosys-filterlib
-    -rwxr-xr-x 1 oyvind oyvind    73845 Aug  7 23:11 yosys-smtbmc
-    -rwxr-xr-x 1 oyvind oyvind    17377 Aug  7 23:11 yosys-witness
 
 ### Create a make issue archive
 
