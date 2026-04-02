@@ -1248,6 +1248,12 @@ def cmd_set_thread_count(interp, args):
     return ""
 
 
+def cmd_write_pin_placement(interp, args):
+    if args:
+        _touch(args[-1], "# mock pin placement\n")
+    return ""
+
+
 def cmd_place_pins(interp, args):
     return ""
 
@@ -1407,6 +1413,7 @@ def register_all(interp):
         "source_step_tcl": cmd_source_step_tcl,
         "set_thread_count": cmd_set_thread_count,
         # Physical
+        "write_pin_placement": cmd_write_pin_placement,
         "place_pins": cmd_place_pins,
         "place_pin": cmd_place_pin,
         "macro_placement": cmd_macro_placement,

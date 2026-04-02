@@ -29,14 +29,20 @@ def _work_home(ctx):
         parts.append(ctx.label.package)
     return "/".join(parts)
 
+def _optional_commonpath(files):
+    """Returns commonpath of files, or empty string if files is empty."""
+    return commonpath(files) if files else ""
+
 def orfs_environment(ctx):
-    return {
+    env = {
         "HOME": _work_home(ctx),
         "PYTHON_EXE": ctx.executable._python.path,
         "STDBUF_CMD": "",
-        "TCL_LIBRARY": commonpath(ctx.files._tcl),
         "WORK_HOME": _work_home(ctx),
     }
+    if ctx.files._tcl:
+        env["TCL_LIBRARY"] = commonpath(ctx.files._tcl)
+    return env
 
 def _klayout_attr(ctx):
     """Returns the klayout attr, preferring public 'klayout' over private '_klayout'."""
@@ -61,18 +67,22 @@ def _klayout_executable(ctx):
     return attr[DefaultInfo].files_to_run.executable.path
 
 def flow_environment(ctx):
-    return {
-        "DLN_LIBRARY_PATH": commonpath(ctx.files._ruby_dynamic),
+    env = {
         "FLOW_HOME": ctx.file._makefile.dirname,
         "KLAYOUT_CMD": _klayout_executable(ctx),
         "OPENROAD_EXE": _openroad_executable(ctx),
         "OPENSTA_EXE": ctx.executable._opensta.path,
-        "QT_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
-        "QT_QPA_PLATFORM_PLUGIN_PATH": commonpath(ctx.files._qt_plugins),
-        "RUBYLIB": ":".join(
-            [commonpath(ctx.files._ruby), commonpath(ctx.files._ruby_dynamic)],
-        ),
-    } | orfs_environment(ctx)
+    }
+    if ctx.files._ruby_dynamic:
+        env["DLN_LIBRARY_PATH"] = commonpath(ctx.files._ruby_dynamic)
+    if ctx.files._qt_plugins:
+        env["QT_PLUGIN_PATH"] = commonpath(ctx.files._qt_plugins)
+        env["QT_QPA_PLATFORM_PLUGIN_PATH"] = commonpath(ctx.files._qt_plugins)
+    if ctx.files._ruby or ctx.files._ruby_dynamic:
+        env["RUBYLIB"] = ":".join(
+            [_optional_commonpath(ctx.files._ruby), _optional_commonpath(ctx.files._ruby_dynamic)],
+        )
+    return env | orfs_environment(ctx)
 
 def yosys_environment(ctx):
     return {
@@ -211,19 +221,19 @@ def deps_inputs(ctx):
 
 def flow_substitutions(ctx):
     return {
-        "${DLN_LIBRARY_PATH}": commonpath(ctx.files._ruby_dynamic),
+        "${DLN_LIBRARY_PATH}": _optional_commonpath(ctx.files._ruby_dynamic),
         "${FLOW_HOME}": ctx.file._makefile.dirname,
         "${KLAYOUT_PATH}": ctx.executable._klayout.path,
-        "${LIBGL_DRIVERS_PATH}": commonpath(ctx.files._opengl),
+        "${LIBGL_DRIVERS_PATH}": _optional_commonpath(ctx.files._opengl),
         "${MAKEFILE_PATH}": ctx.file._makefile.path,
         "${MAKE_PATH}": ctx.executable._make.path,
         # OpenROAD uses //:openroad, //:opensta here and puts the binary in the pwd
         "${OPENROAD_PATH}": "./" + _openroad_attr(ctx)[DefaultInfo].files_to_run.executable.short_path,
         "${OPENSTA_PATH}": "./" + ctx.executable._opensta.short_path,
-        "${QT_PLUGIN_PATH}": commonpath(ctx.files._qt_plugins),
-        "${RUBY_PATH}": commonpath(ctx.files._ruby),
+        "${QT_PLUGIN_PATH}": _optional_commonpath(ctx.files._qt_plugins),
+        "${RUBY_PATH}": _optional_commonpath(ctx.files._ruby),
         "${STDBUF_PATH}": "",
-        "${TCL_LIBRARY}": commonpath(ctx.files._tcl),
+        "${TCL_LIBRARY}": _optional_commonpath(ctx.files._tcl),
     }
 
 def yosys_substitutions(ctx):
