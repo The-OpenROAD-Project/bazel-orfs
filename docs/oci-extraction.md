@@ -105,6 +105,35 @@ not a problem because:
 ls $(bazel info repository_cache)/content_addressable/sha256/
 ```
 
+### SSL certificates (NixOS, non-FHS systems)
+
+`oci_extract.py` auto-detects the system CA certificate bundle at startup.
+The detection order is:
+
+1. `SSL_CERT_FILE` environment variable (if already set, used as-is)
+2. `NIX_SSL_CERT_FILE` environment variable (NixOS)
+3. Common distro paths: `/etc/ssl/certs/ca-certificates.crt` (Debian),
+   `/etc/pki/tls/certs/ca-bundle.crt` (RHEL), etc.
+
+This is needed because rules_python's hermetic Python bundles its own
+OpenSSL, which looks for certificates at a compiled-in FHS path that
+may not exist on NixOS or other non-standard layouts.
+
+To override, set `SSL_CERT_FILE` in your environment before running Bazel.
+
+### Diagnostic toggles
+
+Environment variables to disable specific features for troubleshooting.
+All default to `1` (enabled); set to `0` to disable.
+
+| Variable | Effect when `=0` |
+|---|---|
+| `OCI_EXTRACT_SSL_SETUP` | Skip CA bundle auto-detection |
+| `OCI_EXTRACT_PIGZ` | Use Python gzip instead of pigz |
+| `OCI_EXTRACT_PARALLEL` | Sequential URL resolution (no threads) |
+
+Example: `OCI_EXTRACT_PARALLEL=0 bazelisk fetch @docker_orfs//...`
+
 ### Standalone mode
 
 `oci_extract.py extract` still works as a standalone one-step command

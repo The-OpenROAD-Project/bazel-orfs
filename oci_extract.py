@@ -53,6 +53,46 @@ MANIFEST_TYPES = ", ".join(
 CHUNK_SIZE = 1 << 20  # 1 MiB
 
 
+def _setup_ssl():
+    """Configure SSL certificate bundle for hermetic Python interpreters.
+
+    rules_python's hermetic Python bundles its own OpenSSL, which looks
+    for CA certificates at a compiled-in FHS path (e.g. /usr/lib/ssl/certs/).
+    On NixOS and other non-FHS systems, the CA bundle is elsewhere.
+
+    This function detects the correct CA bundle path and sets SSL_CERT_FILE
+    so that OpenSSL (and thus urllib) finds it.  Does nothing if SSL_CERT_FILE
+    is already set.
+
+    Disable with OCI_EXTRACT_SSL_SETUP=0 for diagnostics.
+    """
+    if os.environ.get("OCI_EXTRACT_SSL_SETUP", "1") == "0":
+        return
+
+    if os.environ.get("SSL_CERT_FILE"):
+        return
+
+    for var in ("NIX_SSL_CERT_FILE", "CURL_CA_BUNDLE"):
+        path = os.environ.get(var)
+        if path and os.path.isfile(path):
+            os.environ["SSL_CERT_FILE"] = path
+            return
+
+    for path in (
+        "/etc/ssl/certs/ca-certificates.crt",
+        "/etc/pki/tls/certs/ca-bundle.crt",
+        "/etc/ssl/ca-bundle.pem",
+        "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem",
+        "/etc/ssl/cert.pem",
+    ):
+        if os.path.isfile(path):
+            os.environ["SSL_CERT_FILE"] = path
+            return
+
+
+_setup_ssl()
+
+
 def parse_image(image_str):
     """Parse an image string into (registry, repository).
 
@@ -277,8 +317,11 @@ def resolve_layers(image, reference):
         url = resolve_blob_url(registry, repository, digest, token)
         return {"digest": digest, "size": size, "url": url}
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
-        result = list(pool.map(_resolve, layers))
+    if os.environ.get("OCI_EXTRACT_PARALLEL", "1") == "0":
+        result = [_resolve(layer) for layer in layers]
+    else:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+            result = list(pool.map(_resolve, layers))
 
     return result
 
@@ -312,8 +355,12 @@ def extract_layers(layer_paths, output_dir):
 
     Layers must be provided in order (bottom to top).  Handles Docker
     whiteout files (.wh.*) for proper layer stacking.
+
+    Disable pigz with OCI_EXTRACT_PIGZ=0 for diagnostics.
     """
-    pigz = shutil.which("pigz")
+    pigz = (
+        shutil.which("pigz") if os.environ.get("OCI_EXTRACT_PIGZ", "1") != "0" else None
+    )
     os.makedirs(output_dir, exist_ok=True)
     if pigz:
         print(f"Using pigz: {pigz}", file=sys.stderr)
@@ -360,7 +407,7 @@ def extract_layer(tar_path, output_dir, pigz=None):
         proc.wait()
 
 
-_PIGZ = shutil.which("pigz")
+_PIGZ = shutil.which("pigz") if os.environ.get("OCI_EXTRACT_PIGZ", "1") != "0" else None
 
 
 def _extract_tar_members(tar, output_dir):

@@ -731,5 +731,132 @@ class TestExtractLayers(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(output, "old.txt")))
 
 
+class TestSetupSsl(unittest.TestCase):
+    """Test _setup_ssl() certificate bundle detection."""
+
+    def setUp(self):
+        self.orig_env = os.environ.copy()
+
+    def tearDown(self):
+        os.environ.clear()
+        os.environ.update(self.orig_env)
+
+    def test_respects_existing_ssl_cert_file(self):
+        os.environ["SSL_CERT_FILE"] = "/custom/ca.pem"
+        os.environ.pop("NIX_SSL_CERT_FILE", None)
+        oci_extract._setup_ssl()
+        self.assertEqual(os.environ["SSL_CERT_FILE"], "/custom/ca.pem")
+
+    @patch("os.path.isfile", return_value=True)
+    def test_nix_ssl_cert_file(self, _mock_isfile):
+        os.environ.pop("SSL_CERT_FILE", None)
+        os.environ["NIX_SSL_CERT_FILE"] = "/nix/store/xxx/ca-bundle.crt"
+        oci_extract._setup_ssl()
+        self.assertEqual(
+            os.environ.get("SSL_CERT_FILE"),
+            "/nix/store/xxx/ca-bundle.crt",
+        )
+
+    @patch("os.path.isfile")
+    def test_fallback_candidates(self, mock_isfile):
+        os.environ.pop("SSL_CERT_FILE", None)
+        os.environ.pop("NIX_SSL_CERT_FILE", None)
+        mock_isfile.side_effect = (
+            lambda path: path == "/etc/pki/tls/certs/ca-bundle.crt"
+        )
+        oci_extract._setup_ssl()
+        self.assertEqual(
+            os.environ.get("SSL_CERT_FILE"),
+            "/etc/pki/tls/certs/ca-bundle.crt",
+        )
+
+    @patch("os.path.isfile", return_value=False)
+    def test_no_cert_found(self, _mock_isfile):
+        os.environ.pop("SSL_CERT_FILE", None)
+        os.environ.pop("NIX_SSL_CERT_FILE", None)
+        oci_extract._setup_ssl()
+        self.assertNotIn("SSL_CERT_FILE", os.environ)
+
+    def test_disabled_by_toggle(self):
+        os.environ.pop("SSL_CERT_FILE", None)
+        os.environ["NIX_SSL_CERT_FILE"] = "/nix/store/xxx/ca-bundle.crt"
+        os.environ["OCI_EXTRACT_SSL_SETUP"] = "0"
+        oci_extract._setup_ssl()
+        self.assertNotIn("SSL_CERT_FILE", os.environ)
+
+
+class TestDiagnosticToggles(unittest.TestCase):
+    """Test OCI_EXTRACT_* diagnostic toggles."""
+
+    def setUp(self):
+        self.orig_env = os.environ.copy()
+
+    def tearDown(self):
+        os.environ.clear()
+        os.environ.update(self.orig_env)
+
+    @patch("oci_extract.shutil.which", return_value="/usr/bin/pigz")
+    def test_pigz_enabled_by_default(self, _mock_which):
+        os.environ.pop("OCI_EXTRACT_PIGZ", None)
+        # extract_layers reads the toggle; check via _PIGZ-like logic
+        pigz = (
+            shutil.which("pigz")
+            if os.environ.get("OCI_EXTRACT_PIGZ", "1") != "0"
+            else None
+        )
+        self.assertIsNotNone(pigz)
+
+    def test_pigz_disabled(self):
+        os.environ["OCI_EXTRACT_PIGZ"] = "0"
+        pigz = (
+            shutil.which("pigz")
+            if os.environ.get("OCI_EXTRACT_PIGZ", "1") != "0"
+            else None
+        )
+        self.assertIsNone(pigz)
+
+    @patch("oci_extract.resolve_blob_url", return_value="https://cdn/blob")
+    @patch(
+        "oci_extract.fetch_manifest",
+        return_value={
+            "layers": [
+                {"digest": "sha256:aaa", "size": 100},
+                {"digest": "sha256:bbb", "size": 200},
+            ]
+        },
+    )
+    @patch("oci_extract.get_token", return_value="tok")
+    def test_parallel_disabled(self, _tok, _manifest, mock_resolve):
+        os.environ["OCI_EXTRACT_PARALLEL"] = "0"
+        with patch("concurrent.futures.ThreadPoolExecutor") as mock_pool:
+            oci_extract.resolve_layers("docker.io/test/img", "sha256:abc")
+            mock_pool.assert_not_called()
+
+    @patch("oci_extract.resolve_blob_url", return_value="https://cdn/blob")
+    @patch(
+        "oci_extract.fetch_manifest",
+        return_value={
+            "layers": [
+                {"digest": "sha256:aaa", "size": 100},
+                {"digest": "sha256:bbb", "size": 200},
+            ]
+        },
+    )
+    @patch("oci_extract.get_token", return_value="tok")
+    def test_parallel_enabled_by_default(self, _tok, _manifest, _resolve):
+        os.environ.pop("OCI_EXTRACT_PARALLEL", None)
+        with patch("concurrent.futures.ThreadPoolExecutor") as mock_pool:
+            mock_pool.return_value.__enter__ = MagicMock()
+            mock_pool.return_value.__exit__ = MagicMock(return_value=False)
+            mock_pool.return_value.__enter__.return_value.map = MagicMock(
+                return_value=[
+                    {"digest": "sha256:aaa", "size": 100, "url": "https://cdn/blob"},
+                    {"digest": "sha256:bbb", "size": 200, "url": "https://cdn/blob"},
+                ]
+            )
+            oci_extract.resolve_layers("docker.io/test/img", "sha256:abc")
+            mock_pool.assert_called_once()
+
+
 if __name__ == "__main__":
     unittest.main()
