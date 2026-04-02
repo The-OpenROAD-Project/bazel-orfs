@@ -25,23 +25,26 @@ FAST_SETTINGS = {
     "TAPCELL_TCL": "",
 }
 
+# Full-flow smoke tests: these need real OpenROAD to produce valid metrics.
+# Tagged manual — run explicitly when real tools are configured.
 [orfs_flow(
     name = "lb_32x128_{}".format(pdk),
     arguments = FAST_SETTINGS | {
         "CORE_UTILIZATION": "3",
         "PLACE_DENSITY": "0.40",
     },
-    pdk = "@docker_orfs//:" + pdk,
+    pdk = "@orfs//flow:" + pdk,
     sources = {
         "SDC_FILE": ["//test:constraints-sram-sky130hd.sdc"],
     },
+    tags = ["manual"],
     top = "lb_32x128",
     verilog_files = ["//test:mock/lb_32x128.sv"],
     visibility = ["//:__subpackages__"],
 ) for pdk in PDKS]
 
-# Full-flow build tests: verify real OpenROAD completes for each PDK.
 [build_test(
     name = "lb_32x128_{}_build_test".format(pdk),
+    tags = ["manual"],
     targets = [":lb_32x128_{}_generate_abstract".format(pdk)],
 ) for pdk in PDKS]
