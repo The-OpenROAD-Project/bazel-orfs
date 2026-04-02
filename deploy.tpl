@@ -123,6 +123,9 @@ main() {
 #!/usr/bin/env bash
 set -exuo pipefail
 cd "\$(dirname "\$0")/_main"
+# Deployed files may be read-only (symlinks into Bazel cache).
+# Make them writable so that make targets can overwrite stage outputs.
+find . -not -perm -u+w -exec chmod u+w {} + 2>/dev/null || true
 exec ./$make "\$@"
 EOF
   chmod +x "$dst/make"
