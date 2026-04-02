@@ -34,6 +34,19 @@ local_path_override(
     path = "mock/yosys",
 )
 
+bazel_dep(name = "orfs")
+git_override(
+    module_name = "orfs",
+    commit = "f40d2f346e67ffe309a4f49b1897a560cf20c747",
+    patch_strip = 1,
+    patches = [
+        "//patches:0001-build-remove-stale-merge_lib.py-preprocessLib.py-fro.patch",
+        "//patches:0002-build-add-all-PDKs-and-export-variables.yaml.patch",
+        "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
+    ],
+    remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
+)
+
 bazel_dep(
     name = "rules_python",
     version = "1.8.5",
