@@ -95,6 +95,10 @@ def flow_attrs():
             default = Label("@bazel-orfs//:deploy.tpl"),
             allow_single_file = True,
         ),
+        "_package_stage": attr.label(
+            default = Label("@bazel-orfs//private:package_stage.py"),
+            allow_single_file = True,
+        ),
         "lint": attr.bool(
             doc = "Lint mode: minimal tool dependencies, skip full synthesis, silent make.",
             default = False,

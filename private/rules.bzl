@@ -59,6 +59,75 @@ load(
 
 # --- Shared helpers ---
 
+def _tar_paths(f):
+    """Map a file to its archive path(s).
+
+    External repo files need two entries:
+    - <repo>/path — for short_path refs from _main/ (../repo/path)
+    - _main/external/<repo>/path — for path refs (external/repo/path)
+    Everything else goes under _main/<short_path>.
+    """
+    sp = f.short_path
+    if sp.startswith("../"):
+        rel = sp[3:]
+        return [rel, "_main/external/" + rel]
+    return ["_main/" + sp]
+
+def _package_stage(ctx, config, make, runfiles_depset, renames = []):
+    """Create a portable .tar.gz from stage dependencies.
+
+    Returns the tar File.
+    """
+    tar = declare_artifact(ctx, "results", ctx.attr.name + "_deps.tar.gz")
+    manifest = declare_artifact(ctx, "results", ctx.attr.name + "_deps_manifest.txt")
+
+    # Generate top-level make wrapper script.
+    make_wrapper = declare_artifact(ctx, "results", ctx.attr.name + "_deps_make")
+    ctx.actions.write(
+        output = make_wrapper,
+        is_executable = True,
+        content = "#!/usr/bin/env bash\nset -euo pipefail\ncd \"$(dirname \"$0\")/_main\"\nexec ./{} \"$@\"\n".format(
+            make.short_path,
+        ),
+    )
+
+    # Build manifest: src_path\tdst_path
+    all_files = runfiles_depset.to_list()
+    lines = []
+    for f in all_files:
+        for dst in _tar_paths(f):
+            lines.append("{}\t{}".format(f.path, dst))
+
+    # Config goes to _main/config.mk
+    lines.append("{}\t_main/config.mk".format(config.path))
+
+    # Renames
+    for r in renames:
+        lines.append("{}\t_main/{}".format(r.src, r.dst))
+
+    # Make wrapper at top level
+    lines.append("{}\tmake".format(make_wrapper.path))
+
+    ctx.actions.write(
+        output = manifest,
+        content = "\n".join(lines) + "\n",
+    )
+
+    ctx.actions.run(
+        executable = ctx.executable._python,
+        arguments = [
+            ctx.file._package_stage.path,
+            manifest.path,
+            tar.path,
+        ],
+        inputs = depset([manifest, ctx.file._package_stage, config, make_wrapper] + all_files),
+        outputs = [tar],
+        mnemonic = "OrfsPackage",
+        progress_message = "Packaging %s" % ctx.label,
+    )
+
+    return tar
+
 def _expand_deploy_template(ctx, exe, config, make, genfiles, name = "", renames = []):
     """Expands the deploy template for a stage.
 
@@ -205,26 +274,20 @@ orfs_macro = rule(
 # --- Deps rule ---
 
 def _deps_impl(ctx):
-    exe = declare_artifact(ctx, "results", ctx.attr.name + ".sh")
-    _expand_deploy_template(
+    tar = _package_stage(
         ctx,
-        exe,
         config = ctx.attr.src[OrfsDepInfo].config,
         make = ctx.attr.src[OrfsDepInfo].make,
-        genfiles = ctx.attr.src[OrfsDepInfo].files.to_list(),
-        name = ctx.attr.name,
+        runfiles_depset = ctx.attr.src[OrfsDepInfo].runfiles.files,
         renames = ctx.attr.src[OrfsDepInfo].renames,
     )
     return [
         DefaultInfo(
-            executable = exe,
-            files = ctx.attr.src[OrfsDepInfo].files,
-            runfiles = ctx.attr.src[OrfsDepInfo].runfiles,
+            files = depset([tar]),
         ),
         ctx.attr.src[OrfsInfo],
         ctx.attr.src[PdkInfo],
         ctx.attr.src[TopInfo],
-        # Don't depend on the logs of the source; a circular dependency
         LoggingInfo(
             logs = depset(),
             reports = depset(),
@@ -237,7 +300,6 @@ def _deps_impl(ctx):
 orfs_deps = rule(
     implementation = _deps_impl,
     attrs = flow_attrs() | openroad_only_attrs() | yosys_only_attrs(),
-    executable = True,
 )
 
 # --- Run rule ---
@@ -841,9 +903,29 @@ def _yosys_impl(ctx):
         genfiles = [config_short] + outputs + canon_logs + synth_logs,
     )
 
-    # Deploy script for input-only deployment (on-demand deps).
-    # Only depends on config_short (cheap write action) and verilog source
-    # files -- never triggers the main synth action.
+    # Collect all files needed for deployment (tools, PDK, stage inputs).
+    deploy_files = depset(
+        [config_short, make] +
+        ctx.files.verilog_files +
+        ctx.files.extra_configs,
+        transitive = [
+            flow_inputs(ctx),
+            yosys_inputs(ctx),
+            data_inputs(ctx),
+            pdk_inputs(ctx),
+            deps_inputs(ctx),
+        ],
+    )
+
+    # Portable tarball for on-demand deployment.
+    deps_tar = _package_stage(
+        ctx,
+        config = config_short,
+        make = make,
+        runfiles_depset = deploy_files,
+    )
+
+    # Legacy deploy script (used by orfs_step for bazel run).
     deps_exe = declare_artifact(ctx, "results", ctx.attr.name + "_deps_deploy.sh")
     _expand_deploy_template(
         ctx,
@@ -876,11 +958,7 @@ def _yosys_impl(ctx):
         OutputGroupInfo(
             logs = depset(canon_logs + synth_logs),
             reports = depset([]),
-            deps = depset(
-                [deps_exe, config_short, make] +
-                ctx.files.verilog_files +
-                ctx.files.extra_configs,
-            ),
+            deps = depset([deps_tar]),
             **{f.basename: depset([f]) for f in [config] + outputs}
         ),
         OrfsDepInfo(
@@ -890,20 +968,7 @@ def _yosys_impl(ctx):
             files = depset(
                 [config_short] + ctx.files.verilog_files + ctx.files.extra_configs,
             ),
-            runfiles = ctx.runfiles(
-                transitive_files = depset(
-                    [config_short, make] +
-                    ctx.files.verilog_files +
-                    ctx.files.extra_configs,
-                    transitive = [
-                        flow_inputs(ctx),
-                        yosys_inputs(ctx),
-                        data_inputs(ctx),
-                        pdk_inputs(ctx),
-                        deps_inputs(ctx),
-                    ],
-                ),
-            ),
+            runfiles = ctx.runfiles(transitive_files = deploy_files),
         ),
         OrfsInfo(
             stage = "1_synth",
@@ -1113,9 +1178,28 @@ def _make_impl(
         genfiles = [config_short] + results + logs + reports + drcs + jsons,
     )
 
-    # Deploy script for input-only deployment (on-demand deps).
-    # Only depends on config_short (cheap write action) and source files
-    # from the previous stage -- never triggers the main make action.
+    # Collect all files needed for deployment.
+    stage_renames = renames(ctx, ctx.files.src, short = True)
+    deploy_files = depset(
+        [config_short, make] + ctx.files.src + ctx.files.extra_configs,
+        transitive = [
+            flow_inputs(ctx),
+            data_inputs(ctx),
+            source_inputs(ctx),
+            rename_inputs(ctx),
+        ],
+    )
+
+    # Portable tarball for on-demand deployment.
+    deps_tar = _package_stage(
+        ctx,
+        config = config_short,
+        make = make,
+        runfiles_depset = deploy_files,
+        renames = stage_renames,
+    )
+
+    # Legacy deploy script (used by orfs_step for bazel run).
     deps_exe = declare_artifact(ctx, "results", ctx.attr.name + "_deps_deploy.sh")
     _expand_deploy_template(
         ctx,
@@ -1124,7 +1208,7 @@ def _make_impl(
         make = make,
         genfiles = [config_short] + ctx.files.src + ctx.files.data + ctx.files.extra_configs,
         name = ctx.attr.name + "_deps",
-        renames = renames(ctx, ctx.files.src, short = True),
+        renames = stage_renames,
     )
 
     return [
@@ -1140,7 +1224,6 @@ def _make_impl(
                 ctx.files.extra_configs +
                 drcs +
                 jsons +
-                # Some of these files might be read by open.tcl
                 ctx.files.data,
                 transitive_files = depset(
                     transitive = [
@@ -1159,12 +1242,7 @@ def _make_impl(
             reports = depset(reports),
             jsons = depset(jsons),
             drcs = depset(drcs),
-            deps = depset(
-                [deps_exe, config_short, make] +
-                ctx.files.src +
-                ctx.files.data +
-                ctx.files.extra_configs,
-            ),
+            deps = depset([deps_tar]),
             **dict(
                 {
                     f.basename: depset([f])
@@ -1179,24 +1257,14 @@ def _make_impl(
         OrfsDepInfo(
             make = make,
             config = config_short,
-            renames = renames(ctx, ctx.files.src, short = True),
+            renames = stage_renames,
             files = depset(
                 [config_short] +
                 ctx.files.src +
                 ctx.files.data +
                 ctx.files.extra_configs,
             ),
-            runfiles = ctx.runfiles(
-                transitive_files = depset(
-                    [config_short, make] + ctx.files.src + ctx.files.extra_configs,
-                    transitive = [
-                        flow_inputs(ctx),
-                        data_inputs(ctx),
-                        source_inputs(ctx),
-                        rename_inputs(ctx),
-                    ],
-                ),
-            ),
+            runfiles = ctx.runfiles(transitive_files = deploy_files),
         ),
         OrfsInfo(
             stage = stage,
