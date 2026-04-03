@@ -309,6 +309,32 @@ def orfs_arguments(*args, short = False):
         )
     return arguments
 
+_ADDITIONAL_KEYS = ("ADDITIONAL_GDS", "ADDITIONAL_LEFS", "ADDITIONAL_LIBS")
+
+def merge_arguments(base, overlay):
+    """Merge two argument dicts, concatenating ADDITIONAL_* values.
+
+    For ADDITIONAL_GDS/LEFS/LIBS, values from both dicts are combined
+    (space-separated, deduplicated, sorted) instead of the overlay
+    overriding the base.  All other keys use standard dict merge
+    semantics (overlay wins).
+
+    Args:
+      base: Base argument dictionary.
+      overlay: Overlay argument dictionary (wins for non-ADDITIONAL keys).
+
+    Returns:
+      A merged dictionary.
+    """
+    result = base | overlay
+    for key in _ADDITIONAL_KEYS:
+        base_val = base.get(key, "")
+        overlay_val = overlay.get(key, "")
+        if base_val and overlay_val:
+            combined = sorted(set(base_val.split(" ") + overlay_val.split(" ")))
+            result[key] = " ".join(combined)
+    return result
+
 def verilog_arguments(files, short = False):
     return {
         "VERILOG_FILES": " ".join(

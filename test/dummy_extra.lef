@@ -1,0 +1,8 @@
+VERSION 5.8 ;
+BUSBITCHARS "[]" ;
+DIVIDERCHAR "/" ;
+MACRO dummy_extra
+  CLASS BLOCK ;
+  SIZE 1.0 BY 1.0 ;
+END dummy_extra
+END LIBRARY
