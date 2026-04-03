@@ -100,6 +100,18 @@ def _yosys_sources_impl(repository_ctx):
         output = "tcl-src",
     )
 
+    # --- Download flex source (for FlexLexer.h header) ---
+    repository_ctx.download_and_extract(
+        url = ["https://github.com/westes/flex/archive/refs/tags/v{version}.tar.gz".format(
+            version = repository_ctx.attr.flex_version,
+        )],
+        sha256 = repository_ctx.attr.flex_sha256,
+        stripPrefix = "flex-{version}".format(
+            version = repository_ctx.attr.flex_version,
+        ),
+        output = "flex-src",
+    )
+
     # --- Symlink the BUILD.bazel from the module ---
     repository_ctx.symlink(repository_ctx.attr._build_file, "BUILD.bazel")
 
@@ -120,6 +132,8 @@ yosys_sources = repository_rule(
         "fmt_sha256": attr.string(default = "", doc = "SHA256 of fmt source tarball"),
         "tcl_version": attr.string(default = "8.6.16", doc = "TCL version to download"),
         "tcl_sha256": attr.string(default = "", doc = "SHA256 of TCL source tarball"),
+        "flex_version": attr.string(default = "2.6.4", doc = "Flex version for FlexLexer.h header"),
+        "flex_sha256": attr.string(default = "", doc = "SHA256 of flex source tarball"),
         "_build_file": attr.label(default = Label("//:repo.BUILD.bazel"), doc = "BUILD file for the generated repo"),
     },
     doc = "Downloads Yosys + yosys-slang sources; builds via genrule in BUILD.bazel.",

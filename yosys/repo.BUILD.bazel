@@ -31,6 +31,11 @@ filegroup(
     srcs = glob(["tcl-src/**"]),
 )
 
+filegroup(
+    name = "flex_srcs",
+    srcs = glob(["flex-src/**"]),
+)
+
 extract_share(
     name = "yosys_share",
     tar = ":yosys-share.tar",
@@ -45,6 +50,7 @@ genrule(
         ":cxxopts_srcs",
         ":slang_srcs",
         ":tcl_srcs",
+        ":flex_srcs",
     ],
     outs = [
         "yosys",
@@ -68,6 +74,8 @@ genrule(
         "cd $$OLDPWD",
         "TCL_INCLUDE=$$TMPDIR/tcl-install/include",
         "TCL_LIBDIR=$$TMPDIR/tcl-install/lib",
+        # Locate FlexLexer.h from flex source (hermetic, no system libfl-dev needed)
+        "FLEX_INCLUDE=$$(pwd)/$$(find . -path '*/flex-src/src/FlexLexer.h' | head -1 | xargs dirname)",
         # Copy yosys source to writable location; link in submodule sources
         "YOSYS=$$(find . -name Makefile -path '*/yosys-src/Makefile' -not -path '*/abc/*' | head -1 | xargs dirname)",
         "ABC=$$(find . -path '*/abc-src/Makefile' | head -1 | xargs dirname)",
@@ -77,6 +85,7 @@ genrule(
         "cp -rL $$ABC $$TMPDIR/yosys-src/abc",
         "cp -rL $$CXXOPTS $$TMPDIR/yosys-src/libs/cxxopts",
         "cd $$TMPDIR/yosys-src",
+        "export CXXFLAGS=\"-I$$FLEX_INCLUDE\"",
         "make install -j$$(nproc)" +
         " PREFIX=$$TMPDIR/install" +
         " ENABLE_TCL=1 ENABLE_ABC=1 ENABLE_PLUGINS=1" +
