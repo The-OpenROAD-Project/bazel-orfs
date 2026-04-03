@@ -200,9 +200,22 @@ class ConfigMkParser:
         if "DESIGN_NAME" in raw_vars:
             result.design_name = raw_vars["DESIGN_NAME"][0].strip()
 
-        # Set design_nickname (defaults to design dir name)
+        # Set design_nickname (defaults to design dir name).
+        # Resolve variable references (e.g. ${TOP_DESIGN_NICKNAME}_${DESIGN_NAME})
+        # using already-known structural values.
         if "DESIGN_NICKNAME" in raw_vars:
-            result.design_nickname = raw_vars["DESIGN_NICKNAME"][0].strip()
+            nickname_raw = raw_vars["DESIGN_NICKNAME"][0].strip()
+            if "$" in nickname_raw:
+                early_ctx = {
+                    "DESIGN_NAME": result.design_name,
+                    "PLATFORM": result.platform,
+                }
+                if "TOP_DESIGN_NICKNAME" in raw_vars:
+                    early_ctx["TOP_DESIGN_NICKNAME"] = raw_vars["TOP_DESIGN_NICKNAME"][
+                        0
+                    ].strip()
+                nickname_raw = self._resolve_simple_refs(nickname_raw, early_ctx)
+            result.design_nickname = nickname_raw
         elif design_dir_name:
             result.design_nickname = design_dir_name
         elif result.design_name:

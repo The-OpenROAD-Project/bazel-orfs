@@ -97,22 +97,40 @@ def orfs_design(name = None, platform = None, design = None, designs = None, moc
                 )
 
     pkg = native.package_name()  # e.g., "flow/designs/asap7/gcd"
-    parts = pkg.split("/")
 
-    if not platform and len(parts) >= 3:
-        platform = parts[2]  # "asap7"
-    if not design and len(parts) >= 4:
-        design = parts[3]  # "gcd"
+    # Derive the DESIGNS lookup key from the package path by stripping
+    # the "flow/designs/" prefix.  For block sub-packages like
+    # "flow/designs/asap7/parent/block", the resulting key won't match
+    # any DESIGNS entry, so orfs_design() becomes a no-op (block targets
+    # are created by the parent's _create_block_targets()).
+    prefix = "flow/designs/"
+    if platform or design:
+        # Explicit overrides — fall back to positional extraction
+        parts = pkg.split("/")
+        if not platform and len(parts) >= 3:
+            platform = parts[2]
+        if not design and len(parts) >= 4:
+            design = parts[3]
+        key = "%s/%s" % (platform, design)
+    elif pkg.startswith(prefix):
+        key = pkg[len(prefix):]
+    else:
+        return
 
-    key = "%s/%s" % (platform, design)
     if key not in designs:
         # Platform/design not in the parsed config set — skip silently.
-        # This happens for platforms not listed in MODULE.bazel or when
-        # the directory name doesn't match the DESIGN_NICKNAME in config.mk.
+        # This happens for platforms not listed in MODULE.bazel, when
+        # the directory name doesn't match the DESIGN_NICKNAME in config.mk,
+        # or for block sub-packages (handled by the parent design).
         return
 
     config = designs[key]
+    platform = config["platform"]
     name = config["name"]
+
+    # Design directory name — used for block key construction in
+    # _create_block_targets().  Derived from the key after the platform prefix.
+    design = key[len(platform) + 1:] if key.startswith(platform + "/") else key
     sources = _convert_sources(config["sources"], pkg)
 
     # Auto-detect rules-base.json if present in the package
