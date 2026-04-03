@@ -87,7 +87,7 @@ def _package_stage(ctx, config, make, runfiles_depset, renames = []):
     ctx.actions.write(
         output = make_wrapper,
         is_executable = True,
-        content = "#!/usr/bin/env bash\nset -euo pipefail\ncd \"$(dirname \"$0\")/_main\"\nexec ./{} \"$@\"\n".format(
+        content = "#!/usr/bin/env bash\nset -euo pipefail\ncd \"$(dirname \"$0\")/_main\"\n# Satisfy rules_cc runfiles init for tools running outside Bazel sandbox\nexport RUNFILES_MANIFEST_FILE=/dev/null\nexec ./{} \"$@\"\n".format(
             make.short_path,
         ),
     )
