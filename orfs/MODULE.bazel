@@ -65,7 +65,7 @@ git_override(
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
 )
 
-# --- mock-openroad: fast lint binary (from bazel-orfs) ---
+# --- Mock binaries (from bazel-orfs) ---
 
 bazel_dep(name = "mock-klayout", version = "0.0.1")
 local_path_override(
@@ -101,3 +101,4 @@ orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
 orfs.default()
 use_repo(orfs, "docker_orfs")
 use_repo(orfs, "gnumake")
+use_repo(orfs, "yosys")

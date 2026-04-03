@@ -18,6 +18,8 @@ DIGEST = "deadbeef1234567890abcdef"
 BAZEL_ORFS_COMMIT = "new_bazel_orfs_aaa111"
 OPENROAD_COMMIT = "new_openroad_bbb222"
 ORFS_COMMIT = "new_orfs_ccc333"
+YOSYS_TAG = "v0.99"
+YOSYS_TAG_COMMIT = "new_yosys_ddd444"
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 
@@ -38,7 +40,15 @@ def mock_resolve_digest(_image, _tag):
     return DIGEST
 
 
-def apply_bump(fixture_name, mock_modules=None):
+def mock_fetch_release(_repo):
+    return YOSYS_TAG
+
+
+def mock_fetch_tag_commit(_repo, _tag):
+    return YOSYS_TAG_COMMIT
+
+
+def apply_bump(fixture_name, mock_modules=None, workspace_dir=None):
     """Copy a fixture, run bump on it, return the result content."""
     src = os.path.join(FIXTURES_DIR, fixture_name)
     tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".MODULE.bazel", delete=False)
@@ -51,6 +61,9 @@ def apply_bump(fixture_name, mock_modules=None):
         fetch_tag_fn=mock_fetch_tag,
         fetch_commit_fn=mock_fetch_commit,
         resolve_digest_fn=mock_resolve_digest,
+        fetch_release_fn=mock_fetch_release,
+        fetch_tag_commit_fn=mock_fetch_tag_commit,
+        workspace_dir=workspace_dir,
     )
 
     with open(tmp.name) as f:
@@ -77,6 +90,12 @@ class TestBazelOrfsProject(unittest.TestCase):
 
     def test_openroad_commit_updated(self):
         self.assertIn(OPENROAD_COMMIT, self.content)
+
+    def test_orfs_commit_updated(self):
+        self.assertIn(ORFS_COMMIT, self.content)
+
+    def test_old_orfs_commit_replaced(self):
+        self.assertNotIn("old_orfs_commit", self.content)
 
     def test_bazel_orfs_commit_not_updated(self):
         self.assertNotIn(
@@ -267,6 +286,8 @@ class TestDownstreamDoubleBump(unittest.TestCase):
             fetch_tag_fn=mock_fetch_tag,
             fetch_commit_fn=mock_fetch_commit,
             resolve_digest_fn=mock_resolve_digest,
+            fetch_release_fn=mock_fetch_release,
+            fetch_tag_commit_fn=mock_fetch_tag_commit,
         )
         bump.bump(tmp.name, **kwargs)
         bump.bump(tmp.name, **kwargs)
@@ -281,6 +302,46 @@ class TestDownstreamDoubleBump(unittest.TestCase):
             1,
             f"After double bump, boilerplate appears " f"{count} times (expected 1)",
         )
+
+
+class TestBazelOrfsYosysUpdate(unittest.TestCase):
+    """bazel-orfs project updates yosys commit in extension.bzl."""
+
+    def test_yosys_commit_updated_in_extension(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            main_file = os.path.join(tmpdir, "MODULE.bazel")
+            shutil.copy2(
+                os.path.join(FIXTURES_DIR, "self.MODULE.bazel"),
+                main_file,
+            )
+
+            ext_file = os.path.join(tmpdir, "extension.bzl")
+            with open(ext_file, "w") as f:
+                f.write(
+                    "yosys_build(\n"
+                    '    name = "yosys",\n'
+                    '    yosys_commit = "old_yosys_commit",\n'
+                    ")\n"
+                )
+
+            bump.bump(
+                main_file,
+                fetch_tag_fn=mock_fetch_tag,
+                fetch_commit_fn=mock_fetch_commit,
+                resolve_digest_fn=mock_resolve_digest,
+                fetch_release_fn=mock_fetch_release,
+                fetch_tag_commit_fn=mock_fetch_tag_commit,
+                workspace_dir=tmpdir,
+            )
+
+            with open(ext_file) as f:
+                ext_content = f.read()
+
+            self.assertIn(YOSYS_TAG_COMMIT, ext_content)
+            self.assertNotIn("old_yosys_commit", ext_content)
+        finally:
+            shutil.rmtree(tmpdir)
 
 
 class TestMockModuleUpdates(unittest.TestCase):
@@ -309,6 +370,8 @@ class TestMockModuleUpdates(unittest.TestCase):
                 fetch_tag_fn=mock_fetch_tag,
                 fetch_commit_fn=mock_fetch_commit,
                 resolve_digest_fn=mock_resolve_digest,
+                fetch_release_fn=mock_fetch_release,
+                fetch_tag_commit_fn=mock_fetch_tag_commit,
             )
 
             with open(mock_file) as f:
@@ -551,8 +614,10 @@ class TestBazelOrfsSkipsSelfCommit(unittest.TestCase):
     def setUp(self):
         self.content = apply_bump("self.MODULE.bazel")
 
-    def test_orfs_commit_not_in_output(self):
-        self.assertNotIn(ORFS_COMMIT, self.content, "ORFS commit is informational only")
+    def test_orfs_commit_updated(self):
+        self.assertIn(
+            ORFS_COMMIT, self.content, "ORFS commit should be updated for bazel-orfs"
+        )
 
     def test_no_image_tag(self):
         self.assertNotIn(
@@ -592,6 +657,8 @@ class TestSubmodulesDoubleUpdate(unittest.TestCase):
             fetch_tag_fn=mock_fetch_tag,
             fetch_commit_fn=mock_fetch_commit,
             resolve_digest_fn=mock_resolve_digest,
+            fetch_release_fn=mock_fetch_release,
+            fetch_tag_commit_fn=mock_fetch_tag_commit,
         )
         bump.bump(tmp.name, **kwargs)
         with open(tmp.name) as f:
@@ -629,6 +696,8 @@ class TestMockModuleSkipsNonOrfs(unittest.TestCase):
                 fetch_tag_fn=mock_fetch_tag,
                 fetch_commit_fn=mock_fetch_commit,
                 resolve_digest_fn=mock_resolve_digest,
+                fetch_release_fn=mock_fetch_release,
+                fetch_tag_commit_fn=mock_fetch_tag_commit,
             )
 
             with open(mock_file) as f:
@@ -654,6 +723,8 @@ class TestMockModuleMissingFile(unittest.TestCase):
                 fetch_tag_fn=mock_fetch_tag,
                 fetch_commit_fn=mock_fetch_commit,
                 resolve_digest_fn=mock_resolve_digest,
+                fetch_release_fn=mock_fetch_release,
+                fetch_tag_commit_fn=mock_fetch_tag_commit,
             )
         finally:
             os.unlink(tmp.name)
@@ -677,6 +748,8 @@ class TestNetworkErrorHandling(unittest.TestCase):
                     fetch_tag_fn=bad_fetch,
                     fetch_commit_fn=mock_fetch_commit,
                     resolve_digest_fn=mock_resolve_digest,
+                    fetch_release_fn=mock_fetch_release,
+                    fetch_tag_commit_fn=mock_fetch_tag_commit,
                 )
             finally:
                 os.unlink(tmp.name)
@@ -696,6 +769,8 @@ class TestNetworkErrorHandling(unittest.TestCase):
                     fetch_tag_fn=mock_fetch_tag,
                     fetch_commit_fn=bad_commit,
                     resolve_digest_fn=mock_resolve_digest,
+                    fetch_release_fn=mock_fetch_release,
+                    fetch_tag_commit_fn=mock_fetch_tag_commit,
                 )
             finally:
                 os.unlink(tmp.name)
@@ -715,6 +790,8 @@ class TestNetworkErrorHandling(unittest.TestCase):
                     fetch_tag_fn=mock_fetch_tag,
                     fetch_commit_fn=mock_fetch_commit,
                     resolve_digest_fn=bad_digest,
+                    fetch_release_fn=mock_fetch_release,
+                    fetch_tag_commit_fn=mock_fetch_tag_commit,
                 )
             finally:
                 os.unlink(tmp.name)
@@ -837,6 +914,8 @@ class TestBumpWithMigration(unittest.TestCase):
                 fetch_tag_fn=mock_fetch_tag,
                 fetch_commit_fn=mock_fetch_commit,
                 resolve_digest_fn=mock_resolve_digest,
+                fetch_release_fn=mock_fetch_release,
+                fetch_tag_commit_fn=mock_fetch_tag_commit,
                 workspace_dir=tmpdir,
             )
 
@@ -864,6 +943,8 @@ class TestBumpWithMigration(unittest.TestCase):
                 fetch_tag_fn=mock_fetch_tag,
                 fetch_commit_fn=mock_fetch_commit,
                 resolve_digest_fn=mock_resolve_digest,
+                fetch_release_fn=mock_fetch_release,
+                fetch_tag_commit_fn=mock_fetch_tag_commit,
                 workspace_dir=tmpdir,
             )
 

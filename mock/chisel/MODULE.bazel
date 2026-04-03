@@ -23,18 +23,6 @@ local_path_override(
     path = "../klayout",
 )
 
-bazel_dep(name = "mock-openroad", version = "0.0.1")
-local_path_override(
-    module_name = "mock-openroad",
-    path = "../openroad",
-)
-
-bazel_dep(name = "mock-yosys", version = "0.0.1")
-local_path_override(
-    module_name = "mock-yosys",
-    path = "../yosys",
-)
-
 bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",
@@ -52,6 +40,7 @@ orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
 orfs.default()
 use_repo(orfs, "docker_orfs")
 use_repo(orfs, "gnumake")
+use_repo(orfs, "yosys")
 
 # --- Chisel configuration ---
 #

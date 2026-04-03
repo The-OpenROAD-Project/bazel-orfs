@@ -52,6 +52,7 @@ orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
 orfs.default()
 use_repo(orfs, "docker_orfs")
 use_repo(orfs, "gnumake")
+use_repo(orfs, "yosys")
 
 # Uncomment to build OpenROAD from source.
 # See: https://github.com/The-OpenROAD-Project/bazel-orfs/blob/main/docs/openroad.md
@@ -62,7 +63,7 @@ use_repo(orfs, "gnumake")
 #     commit = "8b95fedee8f821345eb96ecc398f66678919bf9f",
 #     init_submodules = True,
 #     patch_strip = 1,
-#     patches = ["@bazel-orfs//:openroad-llvm-root-only.patch", "@bazel-orfs//:openroad-visibility.patch"],
+#     patches = ["@bazel-orfs//:openroad-visibility.patch"],
 #     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 # )
 # bazel_dep(name = "qt-bazel")
