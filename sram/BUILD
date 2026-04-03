@@ -18,10 +18,10 @@ orfs_flow(
     abstract_stage = "cts",
     arguments = FAST_SETTINGS | {
         "CORE_MARGIN": "2",
-        "CORE_UTILIZATION": "20",
+        "CORE_UTILIZATION": "15",
         "MACRO_PLACE_HALO": "30 30",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
-        "PLACE_DENSITY": "0.23",
+        "PLACE_DENSITY": "0.40",
         "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
     },
     mock_area = 0.95,
@@ -100,8 +100,7 @@ orfs_run(
     arguments = {
         "MESSAGE": "Hello world!",
     },
-    # Run only the steps we need, faster
-    cmd = "do-2_1_floorplan do-2_2_floorplan_macro run",
+    cmd = "run",
     script = ":write_macros.tcl",
 )
 
@@ -141,10 +140,10 @@ orfs_flow(
     abstract_stage = "place",
     arguments = FAST_SETTINGS | {
         "CORE_MARGIN": "2",
-        "CORE_UTILIZATION": "10",
+        "CORE_UTILIZATION": "8",
         "MACRO_PLACE_HALO": "30 30",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
-        "PLACE_DENSITY": "0.25",
+        "PLACE_DENSITY": "0.40",
         "SDC_FILE": "$(location :megaboom/constraints-sram.sdc)",
     },
     mock_area = 0.95,
