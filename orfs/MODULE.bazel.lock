@@ -747,9 +747,41 @@
   },
   "selectedYankedVersions": {},
   "moduleExtensions": {
+    "@@aspect_tools_telemetry+//:extension.bzl%telemetry": {
+      "general": {
+        "bzlTransitiveDigest": "cl5A2O84vDL6Tt+Qga8FCj1DUDGqn+e7ly5rZ+4xvcc=",
+        "usagesDigest": "I5uCfnurOPHwIjCmdeR4dKRx7L0kxC/bdZUfjabCtCw=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "aspect_tools_telemetry_report": {
+            "repoRuleId": "@@aspect_tools_telemetry+//:extension.bzl%tel_repository",
+            "attributes": {
+              "deps": {
+                "aspect_rules_js": "3.0.2",
+                "aspect_tools_telemetry": "0.3.3"
+              }
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "aspect_tools_telemetry+",
+            "bazel_lib",
+            "bazel_lib+"
+          ],
+          [
+            "aspect_tools_telemetry+",
+            "bazel_skylib",
+            "bazel_skylib+"
+          ]
+        ]
+      }
+    },
     "@@bazel-orfs+//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "YLcvbY+T7+T0r3CS/EcBZNt5YNtcrACR5qMLgnvuftA=",
+        "bzlTransitiveDigest": "MW+zQW8ML47qXpTIe8B8CAzxVJE2QWuoypZAvRnJq8E=",
         "usagesDigest": "+zxfwBXQ8Cpo9peTdEvYU12RjLlT6rS84/+OmnfM6Yo=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -770,11 +802,11 @@
               "make": "@@bazel-orfs++orfs_repositories+gnumake//:make",
               "makefile": "@@orfs+//flow:makefile",
               "makefile_yosys": "@@orfs+//flow:makefile_yosys",
-              "openroad": "@@mock-openroad+//src/bin:openroad",
-              "opensta": "@@bazel-orfs++orfs_repositories+docker_orfs//:sta",
+              "openroad": "@@openroad+//:openroad",
+              "opensta": "@@openroad+//src/sta:opensta",
               "pdk": "@@orfs+//flow:asap7",
-              "yosys": "@@mock-yosys+//src/bin:yosys",
-              "yosys_abc": "@@bazel-orfs++orfs_repositories+docker_orfs//:yosys-abc"
+              "yosys": "@@bazel-orfs-yosys+//:yosys",
+              "yosys_abc": "@@bazel-orfs-yosys+//:yosys-abc"
             }
           },
           "orfs_variable_metadata": {
@@ -785,6 +817,11 @@
           }
         },
         "recordedRepoMappingEntries": [
+          [
+            "bazel-orfs+",
+            "bazel-orfs-yosys",
+            "bazel-orfs-yosys+"
+          ],
           [
             "bazel-orfs+",
             "docker_orfs",
@@ -802,13 +839,8 @@
           ],
           [
             "bazel-orfs+",
-            "mock-openroad",
-            "mock-openroad+"
-          ],
-          [
-            "bazel-orfs+",
-            "mock-yosys",
-            "mock-yosys+"
+            "openroad",
+            "openroad+"
           ],
           [
             "bazel-orfs+",
@@ -816,6 +848,93 @@
             "orfs+"
           ]
         ]
+      }
+    },
+    "@@bazel-orfs-yosys+//:extension.bzl%yosys_ext": {
+      "general": {
+        "bzlTransitiveDigest": "wyaXrHzSoyalfiGr4wv5l9ZSbYULdL2Tt5UgoMGf0/g=",
+        "usagesDigest": "BvQfaG1sNFBQxD1HzAuDHGijh1ehTrkts5xKpbOSgbw=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "yosys": {
+            "repoRuleId": "@@bazel-orfs-yosys+//:extension.bzl%yosys_sources",
+            "attributes": {
+              "yosys_commit": "d3e297fcd479247322f83d14f42b3556db7acdfb",
+              "abc_commit": "8e401543d3ecf65e3a3631c7a271793a4d356cb0",
+              "cxxopts_commit": "4bf61f08697b110d9e3991864650a405b3dd515d",
+              "yosys_slang_commit": "64b44616a3798f07453b14ea03e4ac8a16b77313",
+              "slang_commit": "d7888c90a048e47384e530fef9863e65952c9e3c",
+              "fmt_commit": "553ec11ec06fbe0beebfbb45f9dc3c9eabd83d28"
+            }
+          }
+        },
+        "recordedRepoMappingEntries": []
+      }
+    },
+    "@@rules_bison+//bison/internal:default_toolchain_ext.bzl%default_toolchain_ext": {
+      "general": {
+        "bzlTransitiveDigest": "Vd3jEbJ8YAI/n4FupsISXkB0UZACFAUWLWiflmiPxDI=",
+        "usagesDigest": "FMYRjoxzvaVrxrTBGlNufDxx8OqUy39ltMVhPHrVLJg=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "bison_v3.3.2": {
+            "repoRuleId": "@@rules_bison+//bison/rules:bison_repository.bzl%bison_repository",
+            "attributes": {
+              "version": "3.3.2"
+            }
+          },
+          "bison": {
+            "repoRuleId": "@@rules_bison+//bison/rules:bison_toolchain_repository.bzl%bison_toolchain_repository",
+            "attributes": {
+              "bison_repository": "@bison_v3.3.2"
+            }
+          }
+        },
+        "moduleExtensionMetadata": {
+          "explicitRootModuleDirectDeps": [
+            "bison"
+          ],
+          "explicitRootModuleDirectDevDeps": [],
+          "useAllRepos": "NO",
+          "reproducible": false
+        },
+        "recordedRepoMappingEntries": []
+      }
+    },
+    "@@rules_flex+//flex/internal:default_toolchain_ext.bzl%default_toolchain_ext": {
+      "general": {
+        "bzlTransitiveDigest": "IyvJbFvAYvjVrhYqrB8CJ8qfee94/AdZQhknVQYlFb8=",
+        "usagesDigest": "cvCF4zkacU5rBKBo56xxmQ5DaxVfmtu1H2q2rfnAbig=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "flex_v2.6.4": {
+            "repoRuleId": "@@rules_flex+//flex/rules:flex_repository.bzl%flex_repository",
+            "attributes": {
+              "version": "2.6.4"
+            }
+          },
+          "flex": {
+            "repoRuleId": "@@rules_flex+//flex/rules:flex_toolchain_repository.bzl%flex_toolchain_repository",
+            "attributes": {
+              "flex_repository": "@flex_v2.6.4"
+            }
+          }
+        },
+        "moduleExtensionMetadata": {
+          "explicitRootModuleDirectDeps": [
+            "flex"
+          ],
+          "explicitRootModuleDirectDevDeps": [],
+          "useAllRepos": "NO",
+          "reproducible": false
+        },
+        "recordedRepoMappingEntries": []
       }
     },
     "@@rules_kotlin+//src/main/starlark/core/repositories:bzlmod_setup.bzl%rules_kotlin_extensions": {
@@ -880,6 +999,172 @@
             "bazel_tools"
           ]
         ]
+      }
+    },
+    "@@rules_m4+//m4/internal:default_toolchain_ext.bzl%default_toolchain_ext": {
+      "general": {
+        "bzlTransitiveDigest": "tsDFT9pkt4Tt3gpC3ufpCdpFRFHSoWSmGrgkKq1xiPM=",
+        "usagesDigest": "si5emwgpnDsU6P/27vQdYzLJhnlKDJjWt+beEA2/t08=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "m4_v1.4.18": {
+            "repoRuleId": "@@rules_m4+//m4/rules:m4_repository.bzl%m4_repository",
+            "attributes": {
+              "version": "1.4.18"
+            }
+          },
+          "m4": {
+            "repoRuleId": "@@rules_m4+//m4/rules:m4_toolchain_repository.bzl%m4_toolchain_repository",
+            "attributes": {
+              "m4_repository": "@m4_v1.4.18"
+            }
+          }
+        },
+        "moduleExtensionMetadata": {
+          "explicitRootModuleDirectDeps": [
+            "m4"
+          ],
+          "explicitRootModuleDirectDevDeps": [],
+          "useAllRepos": "NO",
+          "reproducible": false
+        },
+        "recordedRepoMappingEntries": []
+      }
+    },
+    "@@rules_nodejs+//nodejs:extensions.bzl%node": {
+      "general": {
+        "bzlTransitiveDigest": "4pUxCNc22K4I+6+4Nxu52Hur12tFRfa1JMsN5mdDv60=",
+        "usagesDigest": "OMOdrOXO2YY/kQN0ZEmz3te4pdKWCWYOe3ckE1fy0+8=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "nodejs_linux_amd64": {
+            "repoRuleId": "@@rules_nodejs+//nodejs:repositories.bzl%_nodejs_repositories",
+            "attributes": {
+              "node_download_auth": {},
+              "node_repositories": {},
+              "node_urls": [
+                "https://nodejs.org/dist/v{version}/{filename}"
+              ],
+              "node_version": "22.14.0",
+              "include_headers": false,
+              "platform": "linux_amd64"
+            }
+          },
+          "nodejs_linux_arm64": {
+            "repoRuleId": "@@rules_nodejs+//nodejs:repositories.bzl%_nodejs_repositories",
+            "attributes": {
+              "node_download_auth": {},
+              "node_repositories": {},
+              "node_urls": [
+                "https://nodejs.org/dist/v{version}/{filename}"
+              ],
+              "node_version": "22.14.0",
+              "include_headers": false,
+              "platform": "linux_arm64"
+            }
+          },
+          "nodejs_linux_s390x": {
+            "repoRuleId": "@@rules_nodejs+//nodejs:repositories.bzl%_nodejs_repositories",
+            "attributes": {
+              "node_download_auth": {},
+              "node_repositories": {},
+              "node_urls": [
+                "https://nodejs.org/dist/v{version}/{filename}"
+              ],
+              "node_version": "22.14.0",
+              "include_headers": false,
+              "platform": "linux_s390x"
+            }
+          },
+          "nodejs_linux_ppc64le": {
+            "repoRuleId": "@@rules_nodejs+//nodejs:repositories.bzl%_nodejs_repositories",
+            "attributes": {
+              "node_download_auth": {},
+              "node_repositories": {},
+              "node_urls": [
+                "https://nodejs.org/dist/v{version}/{filename}"
+              ],
+              "node_version": "22.14.0",
+              "include_headers": false,
+              "platform": "linux_ppc64le"
+            }
+          },
+          "nodejs_darwin_amd64": {
+            "repoRuleId": "@@rules_nodejs+//nodejs:repositories.bzl%_nodejs_repositories",
+            "attributes": {
+              "node_download_auth": {},
+              "node_repositories": {},
+              "node_urls": [
+                "https://nodejs.org/dist/v{version}/{filename}"
+              ],
+              "node_version": "22.14.0",
+              "include_headers": false,
+              "platform": "darwin_amd64"
+            }
+          },
+          "nodejs_darwin_arm64": {
+            "repoRuleId": "@@rules_nodejs+//nodejs:repositories.bzl%_nodejs_repositories",
+            "attributes": {
+              "node_download_auth": {},
+              "node_repositories": {},
+              "node_urls": [
+                "https://nodejs.org/dist/v{version}/{filename}"
+              ],
+              "node_version": "22.14.0",
+              "include_headers": false,
+              "platform": "darwin_arm64"
+            }
+          },
+          "nodejs_windows_amd64": {
+            "repoRuleId": "@@rules_nodejs+//nodejs:repositories.bzl%_nodejs_repositories",
+            "attributes": {
+              "node_download_auth": {},
+              "node_repositories": {},
+              "node_urls": [
+                "https://nodejs.org/dist/v{version}/{filename}"
+              ],
+              "node_version": "22.14.0",
+              "include_headers": false,
+              "platform": "windows_amd64"
+            }
+          },
+          "nodejs_windows_arm64": {
+            "repoRuleId": "@@rules_nodejs+//nodejs:repositories.bzl%_nodejs_repositories",
+            "attributes": {
+              "node_download_auth": {},
+              "node_repositories": {},
+              "node_urls": [
+                "https://nodejs.org/dist/v{version}/{filename}"
+              ],
+              "node_version": "22.14.0",
+              "include_headers": false,
+              "platform": "windows_arm64"
+            }
+          },
+          "nodejs": {
+            "repoRuleId": "@@rules_nodejs+//nodejs/private:nodejs_repo_host_os_alias.bzl%nodejs_repo_host_os_alias",
+            "attributes": {
+              "user_node_repository_name": "nodejs"
+            }
+          },
+          "nodejs_host": {
+            "repoRuleId": "@@rules_nodejs+//nodejs/private:nodejs_repo_host_os_alias.bzl%nodejs_repo_host_os_alias",
+            "attributes": {
+              "user_node_repository_name": "nodejs"
+            }
+          },
+          "nodejs_toolchains": {
+            "repoRuleId": "@@rules_nodejs+//nodejs/private:nodejs_toolchains_repo.bzl%nodejs_toolchains_repo",
+            "attributes": {
+              "user_node_repository_name": "nodejs"
+            }
+          }
+        },
+        "recordedRepoMappingEntries": []
       }
     },
     "@@rules_python+//python/extensions:config.bzl%config": {
@@ -1156,6 +1441,159 @@
             "platforms"
           ]
         ]
+      }
+    },
+    "@@toolchains_llvm+//toolchain/extensions:llvm.bzl%llvm": {
+      "general": {
+        "bzlTransitiveDigest": "SFT0LhY0ioB2PsbncmTCGyGh8M0OtAJ2fCq0fHtf7ps=",
+        "usagesDigest": "kJR0DoOwoVVn0dnLt8gc5tdLmV2575PksCtmb3LLBaw=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "llvm_toolchain_llvm": {
+            "repoRuleId": "@@toolchains_llvm+//toolchain:rules.bzl%llvm",
+            "attributes": {
+              "alternative_llvm_sources": [],
+              "auth_patterns": {},
+              "distribution": "auto",
+              "exec_arch": "",
+              "exec_os": "",
+              "extra_llvm_distributions": {},
+              "libclang_rt": {},
+              "llvm_mirror": "",
+              "llvm_version": "20.1.8",
+              "llvm_versions": {},
+              "netrc": "",
+              "sha256": {},
+              "strip_prefix": {},
+              "urls": {}
+            }
+          },
+          "llvm_toolchain": {
+            "repoRuleId": "@@toolchains_llvm+//toolchain:rules.bzl%toolchain",
+            "attributes": {
+              "absolute_paths": false,
+              "archive_flags": {},
+              "compile_flags": {},
+              "conly_flags": {},
+              "coverage_compile_flags": {},
+              "coverage_link_flags": {},
+              "cxx_builtin_include_directories": {},
+              "cxx_flags": {},
+              "cxx_standard": {},
+              "dbg_compile_flags": {},
+              "exec_arch": "",
+              "exec_os": "",
+              "extra_exec_compatible_with": {},
+              "extra_target_compatible_with": {},
+              "fastbuild_compile_flags": {},
+              "link_flags": {},
+              "link_libs": {},
+              "llvm_versions": {
+                "": "20.1.8"
+              },
+              "opt_compile_flags": {},
+              "opt_link_flags": {},
+              "stdlib": {},
+              "target_settings": {},
+              "unfiltered_compile_flags": {},
+              "toolchain_roots": {},
+              "sysroot": {}
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "toolchains_llvm+",
+            "bazel_skylib",
+            "bazel_skylib+"
+          ],
+          [
+            "toolchains_llvm+",
+            "bazel_tools",
+            "bazel_tools"
+          ],
+          [
+            "toolchains_llvm+",
+            "toolchains_llvm",
+            "toolchains_llvm+"
+          ]
+        ]
+      }
+    },
+    "@@yq.bzl+//yq:extensions.bzl%yq": {
+      "general": {
+        "bzlTransitiveDigest": "61Uz+o5PnlY0jJfPZEUNqsKxnM/UCLeWsn5VVCc8u5Y=",
+        "usagesDigest": "StSqjtWqzKAwXWT5ulrZfkU6ouX05lxDRtKkeIn1bYE=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "yq_darwin_amd64": {
+            "repoRuleId": "@@yq.bzl+//yq/toolchain:platforms.bzl%yq_platform_repo",
+            "attributes": {
+              "platform": "darwin_amd64",
+              "version": "4.45.1"
+            }
+          },
+          "yq_darwin_arm64": {
+            "repoRuleId": "@@yq.bzl+//yq/toolchain:platforms.bzl%yq_platform_repo",
+            "attributes": {
+              "platform": "darwin_arm64",
+              "version": "4.45.1"
+            }
+          },
+          "yq_linux_amd64": {
+            "repoRuleId": "@@yq.bzl+//yq/toolchain:platforms.bzl%yq_platform_repo",
+            "attributes": {
+              "platform": "linux_amd64",
+              "version": "4.45.1"
+            }
+          },
+          "yq_linux_arm64": {
+            "repoRuleId": "@@yq.bzl+//yq/toolchain:platforms.bzl%yq_platform_repo",
+            "attributes": {
+              "platform": "linux_arm64",
+              "version": "4.45.1"
+            }
+          },
+          "yq_linux_s390x": {
+            "repoRuleId": "@@yq.bzl+//yq/toolchain:platforms.bzl%yq_platform_repo",
+            "attributes": {
+              "platform": "linux_s390x",
+              "version": "4.45.1"
+            }
+          },
+          "yq_linux_riscv64": {
+            "repoRuleId": "@@yq.bzl+//yq/toolchain:platforms.bzl%yq_platform_repo",
+            "attributes": {
+              "platform": "linux_riscv64",
+              "version": "4.45.1"
+            }
+          },
+          "yq_linux_ppc64le": {
+            "repoRuleId": "@@yq.bzl+//yq/toolchain:platforms.bzl%yq_platform_repo",
+            "attributes": {
+              "platform": "linux_ppc64le",
+              "version": "4.45.1"
+            }
+          },
+          "yq_windows_amd64": {
+            "repoRuleId": "@@yq.bzl+//yq/toolchain:platforms.bzl%yq_platform_repo",
+            "attributes": {
+              "platform": "windows_amd64",
+              "version": "4.45.1"
+            }
+          },
+          "yq_toolchains": {
+            "repoRuleId": "@@yq.bzl+//yq/toolchain:toolchain.bzl%yq_toolchains_repo",
+            "attributes": {
+              "user_repository_name": "yq"
+            }
+          }
+        },
+        "recordedRepoMappingEntries": []
       }
     }
   },
