@@ -815,6 +815,44 @@ class TestBlocksSubMacros(unittest.TestCase):
         self.assertEqual(result.block_configs[0].design_name, "uart_rx")
         self.assertEqual(result.block_configs[0].arguments["CORE_UTILIZATION"], "30")
 
+    def test_block_nickname_with_variable_refs(self):
+        """DESIGN_NICKNAME using ${VAR} refs should be resolved from raw_vars."""
+        tmpdir = tempfile.mkdtemp()
+        base_dir = os.path.join(tmpdir, "flow/designs/ihp-sg13g2/parent")
+        os.makedirs(base_dir, exist_ok=True)
+
+        config = os.path.join(base_dir, "config.mk")
+        with open(config, "w") as f:
+            f.write("export PLATFORM = ihp-sg13g2\n")
+            f.write("export DESIGN_NAME = ParentTop\n")
+            f.write("export DESIGN_NICKNAME = parent\n")
+            f.write("export BLOCKS = ChildCtrl\n")
+
+        block_dir = os.path.join(base_dir, "ChildCtrl")
+        os.makedirs(block_dir, exist_ok=True)
+        with open(os.path.join(block_dir, "config.mk"), "w") as f:
+            f.write("export DESIGN_NAME = ChildCtrl\n")
+            f.write("export TOP_DESIGN_NICKNAME = parent\n")
+            f.write("export DESIGN_NICKNAME = ${TOP_DESIGN_NICKNAME}_${DESIGN_NAME}\n")
+            f.write("export PLATFORM = ihp-sg13g2\n")
+
+        result = self.parser.parse(config)
+        self.assertEqual(len(result.block_configs), 1)
+        self.assertEqual(result.block_configs[0].design_nickname, "parent_ChildCtrl")
+
+    def test_nickname_with_make_style_refs(self):
+        """DESIGN_NICKNAME using $(VAR) refs should also be resolved."""
+        config, _ = _write_config(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = MyDesign
+            export TOP_DESIGN_NICKNAME = top
+            export DESIGN_NICKNAME = $(TOP_DESIGN_NICKNAME)_$(DESIGN_NAME)
+        """
+        )
+        result = self.parser.parse(config)
+        self.assertEqual(result.design_nickname, "top_MyDesign")
+
 
 class TestGenerateOrfsFlow(unittest.TestCase):
     """Test orfs_flow() generation from ParsedDesign."""
