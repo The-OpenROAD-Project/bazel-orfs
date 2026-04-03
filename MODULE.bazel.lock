@@ -751,7 +751,7 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "MW+zQW8ML47qXpTIe8B8CAzxVJE2QWuoypZAvRnJq8E=",
+        "bzlTransitiveDigest": "6d1nqa3EVGF8zY8VufXsTTi0gfgNBjGf60qfq+M+qmw=",
         "usagesDigest": "l7AuNu0qosSMVZK5Aw58osFHDHuGO/ctJ2jy2OZ30Uo=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -776,7 +776,8 @@
               "opensta": "@@openroad+//src/sta:opensta",
               "pdk": "@@orfs+//flow:asap7",
               "yosys": "@@bazel-orfs-yosys+//:yosys",
-              "yosys_abc": "@@bazel-orfs-yosys+//:yosys-abc"
+              "yosys_abc": "@@bazel-orfs-yosys+//:yosys-abc",
+              "yosys_share": "@@bazel-orfs-yosys+//:yosys-share"
             }
           },
           "orfs_variable_metadata": {

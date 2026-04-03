@@ -9,3 +9,9 @@ alias(
     actual = "@yosys//:yosys-abc",
     visibility = ["//visibility:public"],
 )
+
+alias(
+    name = "yosys-share",
+    actual = "@yosys//:yosys_share",
+    visibility = ["//visibility:public"],
+)

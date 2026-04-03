@@ -166,7 +166,7 @@ def test_inputs(ctx):
 
 def yosys_inputs(ctx):
     return depset(
-        ctx.files._tcl,
+        ctx.files._tcl + ctx.files._yosys_share,
         transitive = [
             _runfiles(
                 [

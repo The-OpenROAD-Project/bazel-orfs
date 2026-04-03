@@ -65,6 +65,10 @@ _default_tag = tag_class(
             cfg = "exec",
             default = Label("@bazel-orfs-yosys//:yosys-abc"),
         ),
+        "yosys_share": attr.label(
+            mandatory = False,
+            default = Label("@bazel-orfs-yosys//:yosys-share"),
+        ),
     },
 )
 
@@ -87,6 +91,7 @@ def _orfs_repositories_impl(module_ctx):
             pdk = default.pdk,
             yosys = default.yosys,
             yosys_abc = default.yosys_abc,
+            yosys_share = default.yosys_share,
         )
 
         load_json_file(

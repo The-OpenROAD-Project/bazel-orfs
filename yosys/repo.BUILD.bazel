@@ -1,3 +1,5 @@
+load("@bazel-orfs-yosys//:rules.bzl", "extract_share")
+
 filegroup(
     name = "yosys_srcs",
     srcs = glob(
@@ -29,24 +31,33 @@ filegroup(
     srcs = glob(["tcl-src/**"]),
 )
 
+extract_share(
+    name = "yosys_share",
+    tar = ":yosys-share.tar",
+    visibility = ["//visibility:public"],
+)
+
 genrule(
     name = "yosys_make",
     srcs = [
         ":yosys_srcs",
         ":abc_srcs",
         ":cxxopts_srcs",
+        ":slang_srcs",
         ":tcl_srcs",
     ],
     outs = [
         "yosys",
         "yosys-abc",
         "yosys-config",
+        "yosys-share.tar",
     ],
     cmd = " && ".join([
         # Save absolute output paths before cd'ing
         "OUT_YOSYS=$$(pwd)/$(location yosys)",
         "OUT_ABC=$$(pwd)/$(location yosys-abc)",
         "OUT_CONFIG=$$(pwd)/$(location yosys-config)",
+        "OUT_SHARE=$$(pwd)/$(location yosys-share.tar)",
         # Build TCL from source (static library + headers)
         "TCL_SRC=$$(find . -path '*/tcl-src/unix/configure' | head -1 | xargs dirname | xargs dirname)",
         "cp -rL $$TCL_SRC $$TMPDIR/tcl-src",
@@ -76,6 +87,21 @@ genrule(
         "cp $$TMPDIR/install/bin/yosys $$OUT_YOSYS",
         "cp $$TMPDIR/install/bin/yosys-abc $$OUT_ABC",
         "cp $$TMPDIR/install/bin/yosys-config $$OUT_CONFIG",
+        # Build yosys-slang plugin
+        "cd $$OLDPWD",
+        "SLANG=$$(find . -name CMakeLists.txt -path '*/yosys-slang-src/CMakeLists.txt' | head -1 | xargs dirname)",
+        "cp -rL $$SLANG $$TMPDIR/yosys-slang-src",
+        "cd $$TMPDIR/yosys-slang-src",
+        "cmake -S . -B build" +
+        " -DCMAKE_CXX_STANDARD=20" +
+        " -DYOSYS_CONFIG=$$TMPDIR/install/bin/yosys-config" +
+        " -DCMAKE_BUILD_TYPE=Release" +
+        " 2>&1 | tail -20",
+        "cmake --build build -j$$(nproc) 2>&1 | tail -20",
+        # Package share directory (techmap, plugins, etc.) as a tar
+        "mkdir -p $$TMPDIR/install/share/yosys/plugins",
+        "cp $$TMPDIR/yosys-slang-src/build/slang.so $$TMPDIR/install/share/yosys/plugins/",
+        "tar -cf $$OUT_SHARE -C $$TMPDIR/install/share yosys",
     ]),
     visibility = ["//visibility:public"],
 )
