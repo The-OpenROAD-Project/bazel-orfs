@@ -30,6 +30,7 @@ load(
     "generation_commands",
     "hack_away_prefix",
     "input_commands",
+    "merge_arguments",
     "odb_arguments",
     "orfs_arguments",
     "pdk_inputs",
@@ -670,10 +671,10 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         ctx.actions.write(output = f, content = "")
 
 def _yosys_impl(ctx):
-    all_arguments = (
+    all_arguments = merge_arguments(
         data_arguments(ctx) |
-        required_arguments(ctx) |
-        orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps])
+        required_arguments(ctx),
+        orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]),
     )
     config = declare_artifact(ctx, "results", "1_synth.mk")
     ctx.actions.write(
@@ -816,10 +817,11 @@ def _yosys_impl(ctx):
         content = config_content(
             ctx,
             arguments = hack_away_prefix(
-                arguments = data_arguments(ctx) |
-                            required_arguments(ctx) |
-                            orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]) |
-                            verilog_arguments(ctx.files.verilog_files),
+                arguments = merge_arguments(
+                    data_arguments(ctx) |
+                    required_arguments(ctx),
+                    orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]),
+                ) | verilog_arguments(ctx.files.verilog_files),
                 prefix = config_short.root.path,
             ),
             paths = [file.short_path for file in ctx.files.extra_configs],
@@ -1019,11 +1021,11 @@ def _make_impl(
         A list of providers. The returned PdkInfo and TopInfo providers are taken from the first
         target of a ctx.attr.srcs list.
     """
-    all_arguments = (
+    all_arguments = merge_arguments(
         extra_arguments |
         data_arguments(ctx) |
-        required_arguments(ctx) |
-        orfs_arguments(ctx.attr.src[OrfsInfo])
+        required_arguments(ctx),
+        orfs_arguments(ctx.attr.src[OrfsInfo]),
     )
     config = declare_artifact(ctx, "results", stage + ".mk")
     ctx.actions.write(
@@ -1089,10 +1091,12 @@ def _make_impl(
         content = config_content(
             ctx,
             arguments = hack_away_prefix(
-                arguments = extra_arguments |
-                            data_arguments(ctx) |
-                            required_arguments(ctx) |
-                            orfs_arguments(ctx.attr.src[OrfsInfo]),
+                arguments = merge_arguments(
+                    extra_arguments |
+                    data_arguments(ctx) |
+                    required_arguments(ctx),
+                    orfs_arguments(ctx.attr.src[OrfsInfo]),
+                ),
                 prefix = config_short.root.path,
             ),
             paths = [file.short_path for file in ctx.files.extra_configs],

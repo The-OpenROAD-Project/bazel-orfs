@@ -939,6 +939,39 @@ build_test(
     targets = [":lb_32x128_top_mock_hierarchy_generate_abstract"],
 )
 
+# Test that ADDITIONAL_LEFS from sources (config.mk) and deps (macros)
+# are merged, not overridden. Without merge_arguments(), the dep LEF
+# would silently replace the source LEF.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128_top",
+    abstract_stage = "place",
+    arguments = SRAM_ARGUMENTS | {
+        "CORE_AREA": "2 2 23 23",
+        "CORE_MARGIN": "2",
+        "DIE_AREA": "0 0 25 25",
+        "GDS_ALLOW_EMPTY": "lb_32x128",
+        "MACRO_PLACE_HALO": "5 5",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+        "PLACE_DENSITY": "0.65",
+        "PWR_NETS_VOLTAGES": "",
+    },
+    macros = ["lb_32x128_mock_abstract_generate_abstract"],
+    openroad = "@mock-openroad//src/bin:openroad",
+    previous_stage = {"floorplan": ":lb_32x128_top_synth"},
+    sources = {
+        "ADDITIONAL_LEFS": [":dummy_extra.lef"],
+    },
+    stage_sources = LB_STAGE_SOURCES,
+    variant = "mock_hierarchy_merge",
+    verilog_files = ["rtl/lb_32x128_top.v"],
+)
+
+build_test(
+    name = "mock_hierarchy_merge_build_test",
+    targets = [":lb_32x128_top_mock_hierarchy_merge_generate_abstract"],
+)
+
 # Mock sweep test: tests orfs_sweep with macros + openroad override.
 # Uses mock-openroad for all stages. The sweep's "base" variant uses
 # lb_32x128_mock_abstract as a macro (hierarchical design).
