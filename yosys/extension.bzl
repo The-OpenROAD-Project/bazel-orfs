@@ -1,9 +1,8 @@
-"""Repository rule that downloads Yosys + yosys-slang sources.
+"""Module extension that downloads Yosys + yosys-slang sources.
 
-The actual build uses a genrule that calls make/cmake directly,
-giving full control over compiler flags. This avoids toolchains_llvm's
-broken __DATE__ redaction while keeping builds as proper Bazel actions
-(sandboxed, cacheable).
+The actual build uses a genrule in BUILD.bazel that calls make directly,
+giving full control over compiler flags while keeping builds as proper
+Bazel actions (sandboxed, cacheable).
 """
 
 _YOSYS_REPO = "https://github.com/The-OpenROAD-Project/yosys"
@@ -12,68 +11,6 @@ _ABC_REPO = "https://github.com/YosysHQ/abc"
 _SLANG_REPO = "https://github.com/MikePopoloski/slang"
 _FMT_REPO = "https://github.com/fmtlib/fmt"
 _CXXOPTS_REPO = "https://github.com/jarro2783/cxxopts"
-
-_BUILD_FILE = """\
-filegroup(
-    name = "yosys_srcs",
-    srcs = glob(
-        ["yosys-src/**"],
-        exclude = ["yosys-src/.git/**"],
-    ),
-)
-
-filegroup(
-    name = "abc_srcs",
-    srcs = glob(["abc-src/**"], allow_empty = True),
-)
-
-filegroup(
-    name = "cxxopts_srcs",
-    srcs = glob(["cxxopts-src/**"], allow_empty = True),
-)
-
-filegroup(
-    name = "slang_srcs",
-    srcs = glob(
-        ["yosys-slang-src/**"],
-        exclude = ["yosys-slang-src/.git/**"],
-    ),
-)
-
-genrule(
-    name = "yosys_make",
-    srcs = [":yosys_srcs", ":abc_srcs", ":cxxopts_srcs"],
-    outs = [
-        "yosys",
-        "yosys-abc",
-        "yosys-config",
-    ],
-    cmd = " && ".join([
-        # Save absolute output paths before cd'ing
-        "OUT_YOSYS=$$(pwd)/$(location yosys)",
-        "OUT_ABC=$$(pwd)/$(location yosys-abc)",
-        "OUT_CONFIG=$$(pwd)/$(location yosys-config)",
-        # Copy source to writable location; link in submodule sources
-        "YOSYS=$$(find . -name Makefile -path '*/yosys-src/Makefile' -not -path '*/abc/*' | head -1 | xargs dirname)",
-        "ABC=$$(find . -path '*/abc-src/Makefile' | head -1 | xargs dirname)",
-        "CXXOPTS=$$(find . -path '*/cxxopts-src/include/cxxopts.hpp' | head -1 | xargs dirname | xargs dirname)",
-        "cp -rL $$YOSYS $$TMPDIR/yosys-src",
-        "rm -rf $$TMPDIR/yosys-src/abc $$TMPDIR/yosys-src/libs/cxxopts",
-        "cp -rL $$ABC $$TMPDIR/yosys-src/abc",
-        "cp -rL $$CXXOPTS $$TMPDIR/yosys-src/libs/cxxopts",
-        "cd $$TMPDIR/yosys-src",
-        "make install -j$$(nproc)" +
-        " PREFIX=$$TMPDIR/install" +
-        " ENABLE_TCL=1 ENABLE_ABC=1 ENABLE_PLUGINS=1" +
-        " ENABLE_READLINE=0 ENABLE_EDITLINE=0" +
-        " ENABLE_LIBYOSYS=0 ENABLE_PYOSYS=0",
-        "cp $$TMPDIR/install/bin/yosys $$OUT_YOSYS",
-        "cp $$TMPDIR/install/bin/yosys-abc $$OUT_ABC",
-        "cp $$TMPDIR/install/bin/yosys-config $$OUT_CONFIG",
-    ]),
-    visibility = ["//visibility:public"],
-)
-"""
 
 def _yosys_sources_impl(repository_ctx):
     # --- Download yosys source ---
@@ -150,8 +87,21 @@ def _yosys_sources_impl(repository_ctx):
         output = "yosys-slang-src/third_party/fmt",
     )
 
-    # --- Generate BUILD.bazel ---
-    repository_ctx.file("BUILD.bazel", _BUILD_FILE)
+    # --- Download TCL source (for headers + static library build) ---
+    tcl_version = repository_ctx.attr.tcl_version
+    repository_ctx.download_and_extract(
+        url = ["https://github.com/tcltk/tcl/archive/refs/tags/core-{version}.tar.gz".format(
+            version = tcl_version.replace(".", "-"),
+        )],
+        sha256 = repository_ctx.attr.tcl_sha256,
+        stripPrefix = "tcl-core-{version}".format(
+            version = tcl_version.replace(".", "-"),
+        ),
+        output = "tcl-src",
+    )
+
+    # --- Symlink the BUILD.bazel from the module ---
+    repository_ctx.symlink(repository_ctx.attr._build_file, "BUILD.bazel")
 
 yosys_sources = repository_rule(
     implementation = _yosys_sources_impl,
@@ -168,6 +118,42 @@ yosys_sources = repository_rule(
         "slang_sha256": attr.string(default = "", doc = "SHA256 of slang source tarball"),
         "fmt_commit": attr.string(mandatory = True, doc = "fmt git commit SHA (yosys-slang submodule)"),
         "fmt_sha256": attr.string(default = "", doc = "SHA256 of fmt source tarball"),
+        "tcl_version": attr.string(default = "8.6.16", doc = "TCL version to download"),
+        "tcl_sha256": attr.string(default = "", doc = "SHA256 of TCL source tarball"),
+        "_build_file": attr.label(default = Label("//:repo.BUILD.bazel"), doc = "BUILD file for the generated repo"),
     },
-    doc = "Downloads Yosys + yosys-slang sources; builds via genrule in generated BUILD.",
+    doc = "Downloads Yosys + yosys-slang sources; builds via genrule in BUILD.bazel.",
+)
+
+_TCL_REPO = "https://github.com/tcltk/tcl"
+_TCL_VERSION = "8.6.16"
+
+_default_tag = tag_class(
+    attrs = {
+        "yosys_commit": attr.string(default = "d3e297fcd479247322f83d14f42b3556db7acdfb"),
+        "abc_commit": attr.string(default = "8e401543d3ecf65e3a3631c7a271793a4d356cb0"),
+        "cxxopts_commit": attr.string(default = "4bf61f08697b110d9e3991864650a405b3dd515d"),
+        "yosys_slang_commit": attr.string(default = "64b44616a3798f07453b14ea03e4ac8a16b77313"),
+        "slang_commit": attr.string(default = "d7888c90a048e47384e530fef9863e65952c9e3c"),
+        "fmt_commit": attr.string(default = "553ec11ec06fbe0beebfbb45f9dc3c9eabd83d28"),
+    },
+)
+
+def _yosys_ext_impl(module_ctx):
+    for default in module_ctx.modules[0].tags.default:
+        yosys_sources(
+            name = "yosys",
+            yosys_commit = default.yosys_commit,
+            abc_commit = default.abc_commit,
+            cxxopts_commit = default.cxxopts_commit,
+            yosys_slang_commit = default.yosys_slang_commit,
+            slang_commit = default.slang_commit,
+            fmt_commit = default.fmt_commit,
+        )
+
+yosys_ext = module_extension(
+    implementation = _yosys_ext_impl,
+    tag_classes = {
+        "default": _default_tag,
+    },
 )

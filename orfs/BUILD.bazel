@@ -1,5 +1,7 @@
 # ORFS integration test workspace — see README.md
 
+exports_files(["openroad-visibility.patch"])
+
 test_suite(
     name = "asap7_lint_tests",
     tests = [

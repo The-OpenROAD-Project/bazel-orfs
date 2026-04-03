@@ -751,7 +751,7 @@
   "moduleExtensions": {
     "//:extension.bzl%orfs_repositories": {
       "general": {
-        "bzlTransitiveDigest": "3JLZCFXA3jCYDBkNmQ6FqFrtFfpMTZbe08HZwy+0dLs=",
+        "bzlTransitiveDigest": "MW+zQW8ML47qXpTIe8B8CAzxVJE2QWuoypZAvRnJq8E=",
         "usagesDigest": "l7AuNu0qosSMVZK5Aw58osFHDHuGO/ctJ2jy2OZ30Uo=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -765,17 +765,6 @@
             "repoRuleId": "@@//:gnumake.bzl%gnumake",
             "attributes": {}
           },
-          "yosys": {
-            "repoRuleId": "@@//:yosys_build.bzl%yosys_sources",
-            "attributes": {
-              "yosys_commit": "d3e297fcd479247322f83d14f42b3556db7acdfb",
-              "abc_commit": "8e401543d3ecf65e3a3631c7a271793a4d356cb0",
-              "cxxopts_commit": "4bf61f08697b110d9e3991864650a405b3dd515d",
-              "yosys_slang_commit": "64b44616a3798f07453b14ea03e4ac8a16b77313",
-              "slang_commit": "d7888c90a048e47384e530fef9863e65952c9e3c",
-              "fmt_commit": "553ec11ec06fbe0beebfbb45f9dc3c9eabd83d28"
-            }
-          },
           "config": {
             "repoRuleId": "@@//:config.bzl%global_config",
             "attributes": {
@@ -786,8 +775,8 @@
               "openroad": "@@openroad+//:openroad",
               "opensta": "@@openroad+//src/sta:opensta",
               "pdk": "@@orfs+//flow:asap7",
-              "yosys": "@@+orfs_repositories+yosys//:yosys",
-              "yosys_abc": "@@+orfs_repositories+yosys//:yosys-abc"
+              "yosys": "@@bazel-orfs-yosys+//:yosys",
+              "yosys_abc": "@@bazel-orfs-yosys+//:yosys-abc"
             }
           },
           "orfs_variable_metadata": {
@@ -798,6 +787,11 @@
           }
         },
         "recordedRepoMappingEntries": [
+          [
+            "",
+            "bazel-orfs-yosys",
+            "bazel-orfs-yosys+"
+          ],
           [
             "",
             "docker_orfs",
@@ -822,11 +816,6 @@
             "",
             "orfs",
             "orfs+"
-          ],
-          [
-            "",
-            "yosys",
-            "+orfs_repositories+yosys"
           ]
         ]
       }
@@ -861,6 +850,29 @@
             "bazel_skylib+"
           ]
         ]
+      }
+    },
+    "@@bazel-orfs-yosys+//:extension.bzl%yosys_ext": {
+      "general": {
+        "bzlTransitiveDigest": "wyaXrHzSoyalfiGr4wv5l9ZSbYULdL2Tt5UgoMGf0/g=",
+        "usagesDigest": "BvQfaG1sNFBQxD1HzAuDHGijh1ehTrkts5xKpbOSgbw=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "yosys": {
+            "repoRuleId": "@@bazel-orfs-yosys+//:extension.bzl%yosys_sources",
+            "attributes": {
+              "yosys_commit": "d3e297fcd479247322f83d14f42b3556db7acdfb",
+              "abc_commit": "8e401543d3ecf65e3a3631c7a271793a4d356cb0",
+              "cxxopts_commit": "4bf61f08697b110d9e3991864650a405b3dd515d",
+              "yosys_slang_commit": "64b44616a3798f07453b14ea03e4ac8a16b77313",
+              "slang_commit": "d7888c90a048e47384e530fef9863e65952c9e3c",
+              "fmt_commit": "553ec11ec06fbe0beebfbb45f9dc3c9eabd83d28"
+            }
+          }
+        },
+        "recordedRepoMappingEntries": []
       }
     },
     "@@buildifier_prebuilt+//:defs.bzl%buildifier_prebuilt_deps_extension": {

@@ -1,5 +1,8 @@
 build --incompatible_strict_action_env
 
+# Required by OpenROAD (STA uses std::format_string from C++20)
+build --cxxopt "-std=c++20" --host_cxxopt "-std=c++20"
+
 common --incompatible_disallow_empty_glob
 
 # Required by OpenROAD's MODULE.bazel (uses isolate = True in use_extension)

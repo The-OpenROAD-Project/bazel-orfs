@@ -33,6 +33,12 @@ local_path_override(
     path = "mock/yosys",
 )
 
+bazel_dep(name = "bazel-orfs-yosys", version = "0.0.1")
+local_path_override(
+    module_name = "bazel-orfs-yosys",
+    path = "yosys",
+)
+
 bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",
@@ -119,5 +125,4 @@ orfs.default()
 use_repo(orfs, "docker_orfs")
 use_repo(orfs, "config")
 use_repo(orfs, "gnumake")
-use_repo(orfs, "yosys")
 use_repo(orfs, "orfs_variable_metadata")

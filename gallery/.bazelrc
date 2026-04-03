@@ -3,6 +3,12 @@
 
 build --incompatible_strict_action_env
 
+# Required by OpenROAD (STA uses std::format_string from C++20)
+build --cxxopt "-std=c++20" --host_cxxopt "-std=c++20"
+
+# Required by OpenROAD's MODULE.bazel (uses isolate = True in use_extension)
+common --experimental_isolated_extension_usages
+
 # User-local overrides (not tracked in git)
 # Set --disk_cache here for local builds. CI uses setup-bazel's cache.
 try-import %workspace%/user.bazelrc

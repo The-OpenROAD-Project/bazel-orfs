@@ -1,0 +1,81 @@
+filegroup(
+    name = "yosys_srcs",
+    srcs = glob(
+        ["yosys-src/**"],
+        exclude = ["yosys-src/.git/**"],
+    ),
+)
+
+filegroup(
+    name = "abc_srcs",
+    srcs = glob(["abc-src/**"], allow_empty = True),
+)
+
+filegroup(
+    name = "cxxopts_srcs",
+    srcs = glob(["cxxopts-src/**"], allow_empty = True),
+)
+
+filegroup(
+    name = "slang_srcs",
+    srcs = glob(
+        ["yosys-slang-src/**"],
+        exclude = ["yosys-slang-src/.git/**"],
+    ),
+)
+
+filegroup(
+    name = "tcl_srcs",
+    srcs = glob(["tcl-src/**"]),
+)
+
+genrule(
+    name = "yosys_make",
+    srcs = [
+        ":yosys_srcs",
+        ":abc_srcs",
+        ":cxxopts_srcs",
+        ":tcl_srcs",
+    ],
+    outs = [
+        "yosys",
+        "yosys-abc",
+        "yosys-config",
+    ],
+    cmd = " && ".join([
+        # Save absolute output paths before cd'ing
+        "OUT_YOSYS=$$(pwd)/$(location yosys)",
+        "OUT_ABC=$$(pwd)/$(location yosys-abc)",
+        "OUT_CONFIG=$$(pwd)/$(location yosys-config)",
+        # Build TCL from source (static library + headers)
+        "TCL_SRC=$$(find . -path '*/tcl-src/unix/configure' | head -1 | xargs dirname | xargs dirname)",
+        "cp -rL $$TCL_SRC $$TMPDIR/tcl-src",
+        "cd $$TMPDIR/tcl-src/unix",
+        "./configure --prefix=$$TMPDIR/tcl-install --disable-shared --enable-threads 2>&1 | tail -5",
+        "make -j$$(nproc) 2>&1 | tail -5",
+        "make install 2>&1 | tail -5",
+        "cd $$OLDPWD",
+        "TCL_INCLUDE=$$TMPDIR/tcl-install/include",
+        "TCL_LIBDIR=$$TMPDIR/tcl-install/lib",
+        # Copy yosys source to writable location; link in submodule sources
+        "YOSYS=$$(find . -name Makefile -path '*/yosys-src/Makefile' -not -path '*/abc/*' | head -1 | xargs dirname)",
+        "ABC=$$(find . -path '*/abc-src/Makefile' | head -1 | xargs dirname)",
+        "CXXOPTS=$$(find . -path '*/cxxopts-src/include/cxxopts.hpp' | head -1 | xargs dirname | xargs dirname)",
+        "cp -rL $$YOSYS $$TMPDIR/yosys-src",
+        "rm -rf $$TMPDIR/yosys-src/abc $$TMPDIR/yosys-src/libs/cxxopts",
+        "cp -rL $$ABC $$TMPDIR/yosys-src/abc",
+        "cp -rL $$CXXOPTS $$TMPDIR/yosys-src/libs/cxxopts",
+        "cd $$TMPDIR/yosys-src",
+        "make install -j$$(nproc)" +
+        " PREFIX=$$TMPDIR/install" +
+        " ENABLE_TCL=1 ENABLE_ABC=1 ENABLE_PLUGINS=1" +
+        " ENABLE_READLINE=0 ENABLE_EDITLINE=0" +
+        " ENABLE_LIBYOSYS=0 ENABLE_PYOSYS=0" +
+        " TCL_INCLUDE=$$TCL_INCLUDE" +
+        " TCL_LIBS=\"-L$$TCL_LIBDIR -ltcl8.6 -lpthread -ldl -lz -lm\"",
+        "cp $$TMPDIR/install/bin/yosys $$OUT_YOSYS",
+        "cp $$TMPDIR/install/bin/yosys-abc $$OUT_ABC",
+        "cp $$TMPDIR/install/bin/yosys-config $$OUT_CONFIG",
+    ]),
+    visibility = ["//visibility:public"],
+)

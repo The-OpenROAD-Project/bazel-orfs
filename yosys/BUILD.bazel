@@ -1,0 +1,11 @@
+alias(
+    name = "yosys",
+    actual = "@yosys//:yosys",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "yosys-abc",
+    actual = "@yosys//:yosys-abc",
+    visibility = ["//visibility:public"],
+)
