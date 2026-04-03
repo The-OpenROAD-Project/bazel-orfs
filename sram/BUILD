@@ -93,7 +93,7 @@ orfs_macro(
 # Use the macro placement from a different flow
 orfs_run(
     name = "top_write_macro_placement",
-    src = ":top_floorplan_deps",
+    src = ":top_floorplan",
     outs = [
         ":macro_placement.tcl",
     ],
