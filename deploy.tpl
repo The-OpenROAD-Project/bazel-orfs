@@ -126,8 +126,8 @@ cd "\$(dirname "\$0")/_main"
 # Deployed files may be read-only (symlinks into Bazel cache).
 # Make them writable so that make targets can overwrite stage outputs.
 find . -not -perm -u+w -exec chmod u+w {} + 2>/dev/null || true
-# Satisfy rules_cc runfiles init for tools running outside Bazel sandbox
-export RUNFILES_MANIFEST_FILE=/dev/null
+# Point rules_cc runfiles library at the deployed runfiles tree
+export RUNFILES_DIR="\$(pwd)/.."
 exec ./$make "\$@"
 EOF
   chmod +x "$dst/make"
