@@ -1,18 +1,14 @@
-"""Test rule to verify deps output group on ORFS stage targets."""
+"""Test rule to verify deps pkg_tar on ORFS stage targets."""
 
-def _deps_output_group_test_impl(ctx):
-    """Verifies an ORFS stage target has a valid deps output group.
-
-    The deps output group should contain a portable tarball with all
-    stage inputs (tools, config, PDK, previous stage outputs).
-    """
-    deps_files = ctx.attr.target[OutputGroupInfo].deps.to_list()
+def _deps_tar_test_impl(ctx):
+    """Verifies an ORFS stage target has a valid _deps pkg_tar companion."""
+    deps_files = ctx.attr.target[DefaultInfo].files.to_list()
     if not deps_files:
-        fail("Target {} has no 'deps' output group".format(ctx.attr.target.label))
+        fail("Target {} has no output files".format(ctx.attr.target.label))
 
-    tarballs = [f for f in deps_files if f.basename.endswith("_deps.tar.gz")]
+    tarballs = [f for f in deps_files if f.basename.endswith(".tar")]
     if not tarballs:
-        fail("Target {} deps output group has no tarball".format(ctx.attr.target.label))
+        fail("Target {} has no tarball".format(ctx.attr.target.label))
     tarball = tarballs[0]
 
     runner = ctx.actions.declare_file(ctx.attr.name + "_runner.sh")
@@ -28,22 +24,12 @@ if [ ! -f "$TARBALL" ]; then
     echo "FAIL: tarball not found: $TARBALL"
     exit 1
 fi
-# Verify it's a valid gzip archive.
-if ! gzip -t "$TARBALL" 2>/dev/null; then
-    echo "FAIL: tarball is not valid gzip"
+# Verify it contains a deploy manifest.
+if ! tar -tf "$TARBALL" | grep -q '_deploy_manifest\\.txt'; then
+    echo "FAIL: tarball missing deploy manifest"
     exit 1
 fi
-# Verify it contains a make wrapper.
-if ! tar -tzf "$TARBALL" | grep -q '^make$'; then
-    echo "FAIL: tarball missing top-level make wrapper"
-    exit 1
-fi
-# Verify it contains config.mk.
-if ! tar -tzf "$TARBALL" | grep -q 'config\\.mk$'; then
-    echo "FAIL: tarball missing config.mk"
-    exit 1
-fi
-echo "PASS: {label} deps output group tarball is valid"
+echo "PASS: {label} deps tarball is valid"
 """.format(
             path = tarball.short_path,
             label = ctx.attr.target.label,
@@ -56,11 +42,11 @@ echo "PASS: {label} deps output group tarball is valid"
     )]
 
 deps_output_group_test = rule(
-    implementation = _deps_output_group_test_impl,
+    implementation = _deps_tar_test_impl,
     attrs = {
         "target": attr.label(
             mandatory = True,
-            doc = "ORFS stage target to check for deps output group",
+            doc = "ORFS stage _deps pkg_tar target to validate",
         ),
     },
     test = True,
