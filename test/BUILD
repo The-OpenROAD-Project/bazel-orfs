@@ -1055,24 +1055,24 @@ sh_test(
     data = ["//:openroad"],
 )
 
-# --- Deps output group tests: verify on-demand deps deployment ---
+# --- Deps pkg_tar tests: verify on-demand deps deployment ---
 
-# Test deps output group on synth (yosys) stage
+# Test deps tarball on synth (yosys) stage
 deps_output_group_test(
     name = "deps_output_group_synth_test",
-    target = ":lb_32x128_synth",
+    target = ":lb_32x128_synth_deps",
 )
 
-# Test deps output group on floorplan (openroad) stage
+# Test deps tarball on floorplan (openroad) stage
 deps_output_group_test(
     name = "deps_output_group_floorplan_test",
-    target = ":lb_32x128_mock_openroad_floorplan",
+    target = ":lb_32x128_mock_openroad_floorplan_deps",
 )
 
-# Test deps output group on squashed flow stage
+# Test deps tarball on squashed flow stage
 deps_output_group_test(
     name = "deps_output_group_squashed_test",
-    target = ":lb_32x128_squashed_final_final",
+    target = ":lb_32x128_squashed_final_final_deps",
 )
 
 # --- Substep output group tests: verify per-substep .odb caching ---
@@ -1105,8 +1105,8 @@ output_group_test(
     target = ":lb_32x128_substeps_floorplan",
 )
 
-# deps output group still works alongside substeps=True
+# deps tarball still works alongside substeps=True
 deps_output_group_test(
     name = "deps_output_group_substeps_test",
-    target = ":lb_32x128_substeps_floorplan",
+    target = ":lb_32x128_substeps_floorplan_deps",
 )

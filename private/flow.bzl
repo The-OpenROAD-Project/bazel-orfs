@@ -1,5 +1,6 @@
 """Flow orchestration macros for OpenROAD-flow-scripts Bazel rules."""
 
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("//private:providers.bzl", "LoggingInfo")
 load(
     "//private:rules.bzl",
@@ -9,6 +10,7 @@ load(
     "STAGE_IMPLS",
     "TEST_STAGE_IMPL",
     "UPDATE_RULES_IMPL",
+    "orfs_deploy_srcs",
     "orfs_macro",
     "orfs_run",
     "orfs_squashed",
@@ -64,8 +66,34 @@ def _filter_stage_args(stage, **kwargs):
         **kwargs
     )
 
+def _create_deps_tar(stage_name, **kwargs):
+    """Generate pkg_tar companion targets for a stage target.
+
+    Creates:
+      {stage_name}_deploy_srcs — thin rule exposing OrfsDepInfo.runfiles
+      {stage_name}_deps — pkg_tar with include_runfiles=True
+
+    Both targets are tagged "manual" so they are excluded from wildcard
+    builds (bazel build //pkg:all) and only built when explicitly requested.
+    """
+    visibility = kwargs.get("visibility", None)
+    orfs_deploy_srcs(
+        name = stage_name + "_deploy_srcs",
+        src = ":" + stage_name,
+        visibility = visibility,
+        tags = ["manual"],
+    )
+    pkg_tar(
+        name = stage_name + "_deps",
+        srcs = [":" + stage_name + "_deploy_srcs"],
+        include_runfiles = True,
+        visibility = visibility,
+        tags = ["manual"],
+    )
+
 def orfs_synth(**kwargs):
-    return orfs_synth_rule(**_filter_stage_args("synth", **kwargs))
+    orfs_synth_rule(**_filter_stage_args("synth", **kwargs))
+    _create_deps_tar(kwargs.get("name"), **kwargs)
 
 def _step_name(name, variant, stage):
     if variant:
@@ -357,6 +385,7 @@ def _orfs_pass(
                 **kwargs
             )
         )
+        _create_deps_tar(step_name, **kwargs)
     if start_stage == 0:
         # implemented stage 0 above, so skip stage 0 below
         start_stage = 1
@@ -430,6 +459,7 @@ def _orfs_pass(
                 **kwargs
             )
             step_names.append(squash_name)
+            _create_deps_tar(squash_name, **kwargs)
 
             # Handle abstract generation for squashed flow
             if ABSTRACT_IMPL in steps:
@@ -489,7 +519,9 @@ def _orfs_pass(
         return step_name
 
     for step, prev in zip(steps[start_stage:], steps[start_stage - 1:]):
-        step_names.append(do_step(step, prev, kwargs))
+        sn = do_step(step, prev, kwargs)
+        step_names.append(sn)
+        _create_deps_tar(sn, **kwargs)
 
     if FINAL_STAGE_IMPL in steps:
         do_step(

@@ -2,5 +2,3 @@ package(default_visibility = [
     "//:__pkg__",
     "//private:__subpackages__",
 ])
-
-exports_files(["package_stage.py"])
