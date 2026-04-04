@@ -116,18 +116,18 @@ def flow_attrs():
             default = Label("@docker_orfs//:opengl"),
         ),
         "_openroad": attr.label(
-            doc = "OpenROAD binary.",
+            doc = "OpenROAD binary (fallback; prefer public 'openroad' attr).",
             executable = True,
             allow_files = True,
             cfg = "exec",
-            default = CONFIG_OPENROAD,
+            default = Label("@docker_orfs//:openroad"),
         ),
         "_opensta": attr.label(
-            doc = "OpenSTA binary.",
+            doc = "OpenSTA binary (fallback; prefer public 'opensta' attr).",
             executable = True,
             allow_files = True,
             cfg = "exec",
-            default = CONFIG_OPENSTA,
+            default = Label("@docker_orfs//:sta"),
         ),
         "_qt_plugins": attr.label(
             doc = "Qt plugins.",
@@ -149,6 +149,14 @@ def flow_attrs():
             executable = True,
             allow_files = True,
             cfg = "exec",
+            default = CONFIG_OPENROAD,
+        ),
+        "opensta": attr.label(
+            doc = "OpenSTA binary. Override to use a custom or locally-built opensta.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = CONFIG_OPENSTA,
         ),
     } | orfs_attrs()
 

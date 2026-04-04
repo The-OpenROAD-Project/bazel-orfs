@@ -19,6 +19,7 @@ load("//private:stages.bzl", "STAGE_METADATA", "get_sources", "get_stage_args")
 def _strip_tool_kwargs(**kwargs):
     """Strip tool-specific kwargs for non-stage targets (orfs_macro, orfs_run)."""
     kwargs.pop("openroad", None)
+    kwargs.pop("opensta", None)
     kwargs.pop("yosys", None)
     return kwargs
 
