@@ -61,6 +61,17 @@ def _openroad_executable(ctx):
     attr = _openroad_attr(ctx)
     return attr[DefaultInfo].files_to_run.executable.path
 
+def _opensta_attr(ctx):
+    """Returns the opensta attr, preferring public 'opensta' over private '_opensta'."""
+    if hasattr(ctx.attr, "opensta") and ctx.attr.opensta:
+        return ctx.attr.opensta
+    return ctx.attr._opensta
+
+def _opensta_executable(ctx):
+    """Returns the opensta executable path."""
+    attr = _opensta_attr(ctx)
+    return attr[DefaultInfo].files_to_run.executable.path
+
 def _klayout_executable(ctx):
     """Returns the klayout executable path."""
     attr = _klayout_attr(ctx)
@@ -71,7 +82,7 @@ def flow_environment(ctx):
         "FLOW_HOME": ctx.file._makefile.dirname,
         "KLAYOUT_CMD": _klayout_executable(ctx),
         "OPENROAD_EXE": _openroad_executable(ctx),
-        "OPENSTA_EXE": ctx.executable._opensta.path,
+        "OPENSTA_EXE": _opensta_executable(ctx),
     }
     if ctx.files._ruby_dynamic:
         env["DLN_LIBRARY_PATH"] = commonpath(ctx.files._ruby_dynamic)
@@ -123,7 +134,7 @@ def flow_inputs(ctx):
                     _klayout_attr(ctx),
                     ctx.attr._make,
                     _openroad_attr(ctx),
-                    ctx.attr._opensta,
+                    _opensta_attr(ctx),
                     ctx.attr._python,
                     ctx.attr._makefile,
                 ] +
@@ -229,7 +240,7 @@ def flow_substitutions(ctx):
         "${MAKE_PATH}": "./" + ctx.executable._make.short_path,
         # OpenROAD uses //:openroad, //:opensta here and puts the binary in the pwd
         "${OPENROAD_PATH}": "./" + _openroad_attr(ctx)[DefaultInfo].files_to_run.executable.short_path,
-        "${OPENSTA_PATH}": "./" + ctx.executable._opensta.short_path,
+        "${OPENSTA_PATH}": "./" + _opensta_attr(ctx)[DefaultInfo].files_to_run.executable.short_path,
         "${QT_PLUGIN_PATH}": _optional_commonpath(ctx.files._qt_plugins),
         "${RUBY_PATH}": _optional_commonpath(ctx.files._ruby),
         "${STDBUF_PATH}": "",

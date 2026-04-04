@@ -191,6 +191,7 @@ def orfs_design(name = None, platform = None, design = None, designs = None, moc
             variant = "lint",
             lint = True,
             openroad = mock_openroad,
+            opensta = Label("@docker_orfs//:sta"),
             tags = tags,
         )
         if mock_yosys:
