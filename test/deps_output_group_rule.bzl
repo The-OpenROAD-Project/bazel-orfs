@@ -3,16 +3,17 @@
 def _deps_output_group_test_impl(ctx):
     """Verifies an ORFS stage target has a valid deps output group.
 
-    The deps output group should contain a deploy script that only depends
-    on cheap actions (config write, template expansion), not the main
-    make action. This test verifies the output group exists and the
-    deploy script looks correct.
+    The deps output group should contain a portable tarball with all
+    stage inputs (tools, config, PDK, previous stage outputs).
     """
     deps_files = ctx.attr.target[OutputGroupInfo].deps.to_list()
     if not deps_files:
         fail("Target {} has no 'deps' output group".format(ctx.attr.target.label))
 
-    deploy_script = deps_files[0]
+    tarballs = [f for f in deps_files if f.basename.endswith("_deps.tar.gz")]
+    if not tarballs:
+        fail("Target {} deps output group has no tarball".format(ctx.attr.target.label))
+    tarball = tarballs[0]
 
     runner = ctx.actions.declare_file(ctx.attr.name + "_runner.sh")
     ctx.actions.write(
@@ -22,29 +23,36 @@ def _deps_output_group_test_impl(ctx):
 #!/bin/sh
 set -e
 RUNFILES="${{RUNFILES_DIR:-$0.runfiles}}"
-DEPLOY_SCRIPT="$RUNFILES/_main/{path}"
-if [ ! -f "$DEPLOY_SCRIPT" ]; then
-    echo "FAIL: deploy script not found: $DEPLOY_SCRIPT"
+TARBALL="$RUNFILES/_main/{path}"
+if [ ! -f "$TARBALL" ]; then
+    echo "FAIL: tarball not found: $TARBALL"
     exit 1
 fi
-if ! head -1 "$DEPLOY_SCRIPT" | grep -q '#!/usr/bin/env bash'; then
-    echo "FAIL: deploy script missing shebang"
+# Verify it's a valid gzip archive.
+if ! gzip -t "$TARBALL" 2>/dev/null; then
+    echo "FAIL: tarball is not valid gzip"
     exit 1
 fi
-if ! grep -q 'config.mk' "$DEPLOY_SCRIPT"; then
-    echo "FAIL: deploy script missing config.mk reference"
+# Verify it contains a make wrapper.
+if ! tar -tzf "$TARBALL" | grep -q '^make$'; then
+    echo "FAIL: tarball missing top-level make wrapper"
     exit 1
 fi
-echo "PASS: {label} deps output group is valid"
+# Verify it contains config.mk.
+if ! tar -tzf "$TARBALL" | grep -q 'config\\.mk$'; then
+    echo "FAIL: tarball missing config.mk"
+    exit 1
+fi
+echo "PASS: {label} deps output group tarball is valid"
 """.format(
-            path = deploy_script.short_path,
+            path = tarball.short_path,
             label = ctx.attr.target.label,
         ),
     )
 
     return [DefaultInfo(
         executable = runner,
-        runfiles = ctx.runfiles(files = [deploy_script]),
+        runfiles = ctx.runfiles(files = [tarball]),
     )]
 
 deps_output_group_test = rule(
@@ -63,7 +71,6 @@ def _output_group_test_impl(ctx):
     group_name = ctx.attr.output_group
     info = ctx.attr.target[OutputGroupInfo]
 
-    # Access the output group by name via getattr
     group = getattr(info, group_name, None)
     if group == None:
         fail("Target {} has no '{}' output group".format(
