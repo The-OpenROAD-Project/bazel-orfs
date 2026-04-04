@@ -30,6 +30,14 @@ filegroup(
 )
 
 filegroup(
+    name = "lib",
+    srcs = glob([
+        "lib/x86_64-linux-gnu/**/*.so*",
+        "usr/lib/x86_64-linux-gnu/*.so*",
+    ]),
+)
+
+filegroup(
     name = "libexec",
     srcs = glob(["libexec/**"]),
 )
@@ -38,6 +46,7 @@ filegroup(
     name = "openroad",
     data = [
         ":ld.so",
+        ":lib",
         ":libexec",
         ":qt_plugins",
     ],
@@ -49,6 +58,7 @@ filegroup(
     name = "sta",
     data = [
         ":ld.so",
+        ":lib",
         ":libexec",
     ],
     srcs = ["OpenROAD-flow-scripts/tools/install/OpenROAD/bin/sta"],
@@ -64,6 +74,7 @@ filegroup(
     name = "yosys",
     data = [
         ":ld.so",
+        ":lib",
         ":libexec",
         ":yosys_share",
     ],
@@ -75,6 +86,7 @@ filegroup(
     name = "make",
     data = [
         ":ld.so",
+        ":lib",
         ":libexec",
     ],
     srcs = ["usr/bin/make"],
@@ -85,6 +97,7 @@ filegroup(
     name = "yosys-abc",
     data = [
         ":ld.so",
+        ":lib",
         ":libexec",
     ],
     srcs = ["OpenROAD-flow-scripts/tools/install/yosys/bin/yosys-abc"],
@@ -95,6 +108,7 @@ filegroup(
     name = "klayout",
     data = [
         ":ld.so",
+        ":lib",
         ":libexec",
     ],
     srcs = ["usr/bin/klayout"],
