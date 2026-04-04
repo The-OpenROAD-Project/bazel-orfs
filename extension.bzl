@@ -1,8 +1,11 @@
 """
 This module extension provides rules for OpenROAD-flow-scripts build stages.
 
-All tools default to mock implementations (mock-openroad, mock-yosys,
-mock-klayout). Flow scripts and PDKs come from the @orfs bazel_dep.
+By default, tools are real implementations: OpenROAD and OpenSTA from
+the @openroad module, yosys+slang from source (@yosys via rules_foreign_cc),
+GNU Make from source (@gnumake).  Only klayout uses a mock (mock-klayout)
+since GDS generation is end-of-line and most users don't need it.
+
 Users override individual tools via orfs.default() tag attributes.
 
 A stub @docker_orfs repo with no-op executables is always created to
@@ -37,12 +40,12 @@ _default_tag = tag_class(
         "openroad": attr.label(
             mandatory = False,
             cfg = "exec",
-            default = Label("@mock-openroad//src/bin:openroad"),
+            default = Label("@openroad//:openroad"),
         ),
         "opensta": attr.label(
             mandatory = False,
             cfg = "exec",
-            default = Label("@docker_orfs//:sta"),
+            default = Label("@openroad//src/sta:opensta"),
         ),
         "pdk": attr.label(
             mandatory = False,
@@ -51,7 +54,7 @@ _default_tag = tag_class(
         "yosys": attr.label(
             mandatory = False,
             cfg = "exec",
-            default = Label("@mock-yosys//src/bin:yosys"),
+            default = Label("@bazel-orfs-yosys//:yosys"),
         ),
         "variables_yaml": attr.label(
             mandatory = False,
@@ -60,7 +63,11 @@ _default_tag = tag_class(
         "yosys_abc": attr.label(
             mandatory = False,
             cfg = "exec",
-            default = Label("@docker_orfs//:yosys-abc"),
+            default = Label("@bazel-orfs-yosys//:yosys-abc"),
+        ),
+        "yosys_share": attr.label(
+            mandatory = False,
+            default = Label("@bazel-orfs-yosys//:yosys-share"),
         ),
     },
 )
@@ -84,6 +91,7 @@ def _orfs_repositories_impl(module_ctx):
             pdk = default.pdk,
             yosys = default.yosys,
             yosys_abc = default.yosys_abc,
+            yosys_share = default.yosys_share,
         )
 
         load_json_file(

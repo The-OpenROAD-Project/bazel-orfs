@@ -18,6 +18,7 @@ CONFIG_OPENSTA = "{opensta}"
 CONFIG_PDK = "{pdk}"
 CONFIG_YOSYS = "{yosys}"
 CONFIG_YOSYS_ABC = "{yosys_abc}"
+CONFIG_YOSYS_SHARE = "{yosys_share}"
 NUM_CPUS = {num_cpus}
 """.format(
             klayout = repository_ctx.attr.klayout,
@@ -29,6 +30,7 @@ NUM_CPUS = {num_cpus}
             pdk = repository_ctx.attr.pdk,
             yosys = repository_ctx.attr.yosys,
             yosys_abc = repository_ctx.attr.yosys_abc,
+            yosys_share = repository_ctx.attr.yosys_share,
             num_cpus = num_cpus,
         ),
     )
@@ -66,6 +68,10 @@ global_config = repository_rule(
         "yosys_abc": attr.label(
             mandatory = True,
             cfg = "exec",
+        ),
+        "yosys_share": attr.label(
+            mandatory = False,
+            default = Label("@docker_orfs//:yosys_share"),
         ),
     },
     doc = "A repository that provides global configuration values as strings.",

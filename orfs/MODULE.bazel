@@ -65,7 +65,7 @@ git_override(
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
 )
 
-# --- mock-openroad: fast lint binary (from bazel-orfs) ---
+# --- Mock binaries (from bazel-orfs) ---
 
 bazel_dep(name = "mock-klayout", version = "0.0.1")
 local_path_override(
@@ -83,6 +83,48 @@ bazel_dep(name = "mock-yosys", version = "0.0.1")
 local_path_override(
     module_name = "mock-yosys",
     path = "../mock/yosys",
+)
+
+# --- Yosys built from source (shared with bazel-orfs) ---
+
+bazel_dep(name = "bazel-orfs-yosys", version = "0.0.1")
+local_path_override(
+    module_name = "bazel-orfs-yosys",
+    path = "../yosys",
+)
+
+# --- OpenROAD built from source ---
+
+bazel_dep(name = "openroad")
+git_override(
+    module_name = "openroad",
+    commit = "df79404cd806cc435b3c3b53678ebf2441c31313",
+    init_submodules = True,
+    patch_strip = 1,
+    patches = ["//:openroad-visibility.patch"],
+    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
+)
+
+bazel_dep(name = "qt-bazel")
+git_override(
+    module_name = "qt-bazel",
+    commit = "df022f4ebaa4130713692fffd2f519d49e9d0b97",
+    remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
+)
+
+bazel_dep(name = "toolchains_llvm", version = "1.5.0")
+
+llvm = use_extension(
+    "@toolchains_llvm//toolchain/extensions:llvm.bzl",
+    "llvm",
+)
+llvm.toolchain(
+    llvm_version = "20.1.8",
+)
+use_repo(llvm, "llvm_toolchain")
+
+register_toolchains(
+    "@llvm_toolchain//:all",
 )
 
 bazel_dep(name = "rules_python", version = "1.2.0")

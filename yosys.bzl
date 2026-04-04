@@ -48,7 +48,7 @@ yosys = rule(
             executable = True,
             allow_files = True,
             cfg = "exec",
-            default = Label("@mock-yosys//src/bin:yosys"),
+            default = Label("@bazel-orfs-yosys//:yosys"),
         ),
     },
     provides = [DefaultInfo],

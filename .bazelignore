@@ -6,6 +6,7 @@ tmp
 # heavy deps (chisel/scala/maven, verilator, kepler-formal, oss_cad_suite).
 chisel
 gallery
+yosys
 lec
 mock/chisel
 naja

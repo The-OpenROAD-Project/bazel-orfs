@@ -225,7 +225,6 @@ git_override(
     init_submodules = True,
     patch_strip = 1,
     patches = [
-        "@bazel-orfs//:openroad-llvm-root-only.patch",
         "@bazel-orfs//:openroad-visibility.patch",
     ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",

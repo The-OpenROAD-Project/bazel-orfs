@@ -12,6 +12,7 @@ load(
     "CONFIG_PDK",
     "CONFIG_YOSYS",
     "CONFIG_YOSYS_ABC",
+    "CONFIG_YOSYS_SHARE",
 )
 load(
     "//private:providers.bzl",
@@ -180,6 +181,11 @@ def yosys_only_attrs():
             allow_files = True,
             cfg = "exec",
             default = CONFIG_YOSYS,
+        ),
+        "_yosys_share": attr.label(
+            doc = "Yosys share directory (plugins, etc.).",
+            cfg = "exec",
+            default = CONFIG_YOSYS_SHARE,
         ),
     }
 
