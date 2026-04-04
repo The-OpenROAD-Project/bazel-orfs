@@ -33,6 +33,7 @@ filegroup(
     name = "lib",
     srcs = glob([
         "lib/x86_64-linux-gnu/**/*.so*",
+        "opt/or-tools/lib/*.so*",
         "usr/lib/x86_64-linux-gnu/*.so*",
         "OpenROAD-flow-scripts/tools/install/*/lib/*.so*",
     ]),

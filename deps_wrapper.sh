@@ -109,7 +109,7 @@ if [ -n "$MANIFEST" ]; then
                 src="${rename%%	*}"
                 dst="${rename#*	}"
                 mkdir -p "$DST/_main/$(dirname "$dst")"
-                cp -f --dereference "$src" "$DST/_main/$dst"
+                cp -f --dereference "$DST/_main/$src" "$DST/_main/$dst"
                 ;;
         esac
     done < "$MANIFEST"
