@@ -40,12 +40,12 @@ global_config = repository_rule(
         "klayout": attr.label(
             mandatory = False,
             cfg = "exec",
-            default = Label("@docker_orfs//:klayout"),
+            default = Label("@mock-klayout//src/bin:klayout"),
         ),
         "make": attr.label(
             mandatory = False,
             cfg = "exec",
-            default = Label("@docker_orfs//:make"),
+            default = Label("@gnumake//:make"),
         ),
         "makefile": attr.label(mandatory = True),
         "makefile_yosys": attr.label(mandatory = True),

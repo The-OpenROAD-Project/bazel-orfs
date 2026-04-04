@@ -309,12 +309,16 @@ def bump(
     project = detect_project(content)
     updated_modules = []
 
-    # --- Update ORFS image (all projects) ---
+    # --- Update ORFS image (downstream and openroad only) ---
+    # bazel-orfs itself no longer uses a Docker image; it fetches ORFS
+    # flow scripts via git_override.  Downstream projects may still use
+    # the image, so keep updating it for them.
     repo = "openroad/orfs"
     latest_tag = fetch_tag_fn(repo)
     digest = resolve_digest_fn(f"docker.io/{repo}", latest_tag)
-    content = update_orfs_image(content, latest_tag, digest)
-    updated_modules.append(f"ORFS image -> {latest_tag}")
+    if project != "bazel-orfs":
+        content = update_orfs_image(content, latest_tag, digest)
+        updated_modules.append(f"ORFS image -> {latest_tag}")
 
     # --- Update bazel-orfs commit (skip for bazel-orfs itself) ---
     if project != "bazel-orfs":

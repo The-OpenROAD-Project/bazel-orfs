@@ -65,11 +65,15 @@ class TestBazelOrfsProject(unittest.TestCase):
     def setUp(self):
         self.content = apply_bump("self.MODULE.bazel")
 
-    def test_docker_image_tag_updated(self):
-        self.assertIn(LATEST_TAG, self.content)
+    def test_no_docker_image_tag(self):
+        self.assertNotIn(
+            LATEST_TAG,
+            self.content,
+            "bazel-orfs no longer uses a Docker image",
+        )
 
-    def test_docker_sha256_updated(self):
-        self.assertIn(DIGEST, self.content)
+    def test_no_docker_sha256(self):
+        self.assertNotIn("sha256", self.content)
 
     def test_openroad_commit_updated(self):
         self.assertIn(OPENROAD_COMMIT, self.content)
@@ -550,8 +554,12 @@ class TestBazelOrfsSkipsSelfCommit(unittest.TestCase):
     def test_orfs_commit_not_in_output(self):
         self.assertNotIn(ORFS_COMMIT, self.content, "ORFS commit is informational only")
 
-    def test_image_tag_present(self):
-        self.assertIn(LATEST_TAG, self.content)
+    def test_no_image_tag(self):
+        self.assertNotIn(
+            LATEST_TAG,
+            self.content,
+            "bazel-orfs no longer uses a Docker image",
+        )
 
 
 class TestOpenroadSkipsSelfCommit(unittest.TestCase):

@@ -4,20 +4,21 @@ Date: Mon, 30 Mar 2026 22:42:43 +0200
 Subject: [PATCH 31/34] fix: remove non-root module overrides from MODULE.bazel
 
 When ORFS is fetched as a dependency (not the root module),
-local_path_override directives are illegal. The root module
-(orfs-integration in bazel-orfs) provides bazel-orfs and
-mock-openroad through its own overrides.
+local_path_override directives and orfs.default() with image
+attributes are illegal/unwanted.  The root module provides
+all tool overrides through its own MODULE.bazel.
+
+Signed-off-by: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 ---
- MODULE.bazel | 10 ----------
- 1 file changed, 10 deletions(-)
+ MODULE.bazel | 42 ------------------------------------------
+ 1 file changed, 42 deletions(-)
 
 diff --git a/MODULE.bazel b/MODULE.bazel
-index 4b6ea18f2..de200edbf 100644
 --- a/MODULE.bazel
 +++ b/MODULE.bazel
-@@ -7,17 +7,7 @@ module(
+@@ -7,17 +7,7 @@
  )
- 
+
  bazel_dep(name = "bazel-orfs")
 -local_path_override(
 -    module_name = "bazel-orfs",
@@ -32,7 +33,46 @@ index 4b6ea18f2..de200edbf 100644
 -
  bazel_dep(name = "rules_python", version = "1.2.0")
  bazel_dep(name = "rules_shell", version = "0.6.1")
- 
--- 
+
+@@ -37,38 +27,6 @@
+
+ orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
+
+-# Use docker image for yosys/klayout, local files for scripts and PDKs
+-orfs.default(
+-    image = "docker.io/openroad/orfs:26Q1-755-g7a3f3d5eb",
+-    makefile = "//flow:makefile",
+-    makefile_yosys = "//flow:makefile_yosys",
+-    pdk = "//flow:asap7",
+-    sha256 = "933f0179ba7feca829768ab2daebe6c1b8b458bf656ef4becc251887725ac7be",
+-    variables_yaml = "//flow:scripts/variables.yaml",
+-)
+-use_repo(orfs, "docker_orfs")
+-
+-# Uncomment to build OpenROAD from source instead of using the ORFS image.
+-# This is useful to test the latest OpenROAD before the ORFS image is updated.
+-# See: https://github.com/The-OpenROAD-Project/bazel-orfs/blob/main/docs/openroad.md
+-#
+-# bazel_dep(name = "openroad")
+-# git_override(
+-#     module_name = "openroad",
+-#     commit = "02507977b328194de770f321d89e3dae9d954a6d",
+-#     init_submodules = True,
+-#     patch_strip = 1,
+-#     patches = ["@bazel-orfs//:openroad-llvm-root-only.patch", "@bazel-orfs//:openroad-visibility.patch"],
+-#     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
+-# )
+-# bazel_dep(name = "qt-bazel")
+-# git_override(
+-#     module_name = "qt-bazel",
+-#     commit = "df022f4ebaa4130713692fffd2f519d49e9d0b97",
+-#     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
+-# )
+-# bazel_dep(name = "toolchains_llvm", version = "1.5.0")
+-
+ # Auto-generate orfs_flow() targets from config.mk files
+ # Designs with rules-base.json are CI-enabled; others get tags=["manual"]
+ orfs_designs = use_repo_rule("@bazel-orfs//private:designs.bzl", "orfs_designs")
+--
 2.51.0
 

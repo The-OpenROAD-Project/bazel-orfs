@@ -6,18 +6,52 @@ module(
 )
 
 bazel_dep(name = "bazel-orfs")
+local_path_override(
+    module_name = "bazel-orfs",
+    path = "../..",
+)
+
 bazel_dep(name = "bazel-orfs-verilog")
 local_path_override(
     module_name = "bazel-orfs-verilog",
     path = "../../verilog",
 )
 
-orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
-orfs.default(
-    image = "docker.io/openroad/orfs:26Q1-737-g2565e815a",
-    sha256 = "987073e847767a2856c3803d0ed9509a33f16f3ff2a6e01855a323458af5a940",
+bazel_dep(name = "mock-klayout", version = "0.0.1")
+local_path_override(
+    module_name = "mock-klayout",
+    path = "../klayout",
 )
+
+bazel_dep(name = "mock-openroad", version = "0.0.1")
+local_path_override(
+    module_name = "mock-openroad",
+    path = "../openroad",
+)
+
+bazel_dep(name = "mock-yosys", version = "0.0.1")
+local_path_override(
+    module_name = "mock-yosys",
+    path = "../yosys",
+)
+
+bazel_dep(name = "orfs")
+git_override(
+    module_name = "orfs",
+    commit = "f40d2f346e67ffe309a4f49b1897a560cf20c747",
+    patch_strip = 1,
+    patches = [
+        "//patches:0001-build-remove-stale-merge_lib.py-preprocessLib.py-fro.patch",
+        "//patches:0002-build-add-all-PDKs-and-export-variables.yaml.patch",
+        "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
+    ],
+    remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
+)
+
+orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
+orfs.default()
 use_repo(orfs, "docker_orfs")
+use_repo(orfs, "gnumake")
 
 # --- Chisel configuration ---
 #
