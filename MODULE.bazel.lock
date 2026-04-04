@@ -855,7 +855,7 @@
     },
     "@@bazel-orfs-yosys+//:extension.bzl%yosys_ext": {
       "general": {
-        "bzlTransitiveDigest": "wyaXrHzSoyalfiGr4wv5l9ZSbYULdL2Tt5UgoMGf0/g=",
+        "bzlTransitiveDigest": "6CraDNBVrJyEjrfT5v5+cl4aiNSEkyBq3yoSfibdFns=",
         "usagesDigest": "BvQfaG1sNFBQxD1HzAuDHGijh1ehTrkts5xKpbOSgbw=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},

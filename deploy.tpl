@@ -105,6 +105,15 @@ main() {
       ln -sf "$repo_dir" "$dst/_main/external/$repo_name"
     done
   fi
+  # Bazel modules use canonical names with '+' suffix (e.g. tcl_lang+).
+  # C++ runfiles libraries look up apparent names without '+' (e.g. tcl_lang).
+  # Create symlinks so both names resolve.
+  for repo_dir in "$dst"/*+/; do
+    [ -d "$repo_dir" ] || continue
+    apparent="${repo_dir%+/}"
+    [ -e "$apparent" ] && continue
+    ln -sf "$(basename "$repo_dir")" "$apparent"
+  done
   dst_main="$dst/_main"
 
   for file in $genfiles; do

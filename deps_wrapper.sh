@@ -67,6 +67,16 @@ fi
 mkdir -p "$DST"
 tar -xzf "$TARBALL" -C "$DST"
 
+# Bazel modules use canonical names with '+' suffix (e.g. tcl_lang+).
+# C++ runfiles libraries look up apparent names without '+' (e.g. tcl_lang).
+# Create symlinks so both names resolve.
+for repo_dir in "$DST"/*+/; do
+    [ -d "$repo_dir" ] || continue
+    apparent="${repo_dir%+/}"
+    [ -e "$apparent" ] && continue
+    ln -sf "$(basename "$repo_dir")" "$apparent"
+done
+
 echo "Deployed to: $DST"
 
 # Run make if extra args provided.
