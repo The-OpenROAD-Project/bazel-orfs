@@ -13,6 +13,7 @@ exports_files([
     "eqy-write-verilog.tcl",
     "make.tpl",
     "oci_extract.py",
+    "package_stage.py",
     "mock_area.tcl",
     "open_plots.sh",
     "openroad-llvm-root-only.patch",

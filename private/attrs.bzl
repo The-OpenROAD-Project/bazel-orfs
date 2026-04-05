@@ -88,6 +88,11 @@ def orfs_attrs():
             allow_files = True,
             default = Label("@docker_orfs//:tcl8.6"),
         ),
+        "_package_stage": attr.label(
+            doc = "Python script for creating portable stage tarballs.",
+            allow_single_file = True,
+            default = Label("@bazel-orfs//:package_stage.py"),
+        ),
     }
 
 def flow_attrs():
