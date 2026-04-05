@@ -160,6 +160,7 @@
     "https://bcr.bazel.build/modules/verilator/5.036.bcr.3/MODULE.bazel": "19ff7c6a9133f404157b0d499ff8c93bfc7e98e7e8d7569b51e50f79a5a33d1b",
     "https://bcr.bazel.build/modules/verilator/5.036.bcr.3/source.json": "d7aa35ef34334e9bf11ffc308c1fa7f44f313b45e4e80c497cbd26deb585bcbf",
     "https://bcr.bazel.build/modules/zlib/1.2.11/MODULE.bazel": "07b389abc85fdbca459b69e2ec656ae5622873af3f845e1c9d80fe179f3effa0",
+    "https://bcr.bazel.build/modules/zlib/1.3.1.bcr.3/MODULE.bazel": "af322bc08976524477c79d1e45e241b6efbeb918c497e8840b8ab116802dda79",
     "https://bcr.bazel.build/modules/zlib/1.3.1.bcr.5/MODULE.bazel": "eec517b5bbe5492629466e11dae908d043364302283de25581e3eb944326c4ca",
     "https://bcr.bazel.build/modules/zlib/1.3.1.bcr.7/MODULE.bazel": "26a6764cda2bfa720e5ea6bea9e6aa4282b69f96d3b9cfcfbce1ef596ce30e43",
     "https://bcr.bazel.build/modules/zlib/1.3.1.bcr.7/source.json": "086122bc43f9108094fed21aaace4c0affd5abd8364af0520dbacdb76cc0546d",
