@@ -1,0 +1,110 @@
+From b08709c6e1c29d7deb57df59193af8c2fc5eeeec Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 05:52:41 +0200
+Subject: [PATCH 06/31] build: switch to lint flow with local bazel-orfs and
+ mock-openroad
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- MODULE.bazel: use local_path_override for bazel-orfs and mock-openroad
+  pointing to ~/bazel-orfs (linting flow is beta)
+- orfs.bzl: pass lint=True and openroad=@mock-openroad to orfs_flow()
+  for seconds-fast feedback instead of hours-long full EDA flow
+- Re-enable disabled designs: cva6, mock-cpu, riscv32i, swerv_wrapper
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ MODULE.bazel                                 | 11 ++++++++---
+ flow/designs/asap7/cva6/BUILD.bazel          |  7 +++----
+ flow/designs/asap7/mock-cpu/BUILD.bazel      |  6 +++---
+ flow/designs/asap7/riscv32i/BUILD.bazel      |  7 +++----
+ flow/designs/asap7/swerv_wrapper/BUILD.bazel |  7 +++----
+ 5 files changed, 20 insertions(+), 18 deletions(-)
+
+diff --git a/MODULE.bazel b/MODULE.bazel
+index 7c115968b..d74647483 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -6,10 +6,15 @@ module(
+ )
+ 
+ bazel_dep(name = "bazel-orfs")
+-git_override(
++local_path_override(
+     module_name = "bazel-orfs",
+-    commit = "2dbd8f0fa9c1f1cc4bf5d52f680b9116fb204219",
+-    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",
++    path = "../bazel-orfs",
++)
++
++bazel_dep(name = "mock-openroad", version = "0.0.1")
++local_path_override(
++    module_name = "mock-openroad",
++    path = "../bazel-orfs/mock/openroad",
+ )
+ 
+ bazel_dep(name = "rules_python", version = "1.8.5")
+diff --git a/flow/designs/asap7/cva6/BUILD.bazel b/flow/designs/asap7/cva6/BUILD.bazel
+index 5d9662317..a8a5f264d 100644
+--- a/flow/designs/asap7/cva6/BUILD.bazel
++++ b/flow/designs/asap7/cva6/BUILD.bazel
+@@ -1,7 +1,6 @@
+-# load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-# load("@orfs_designs//:designs.bzl", "DESIGNS")
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
+ 
+ exports_files(glob(["*"]))
+ 
+-# FIXME later
+-# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+diff --git a/flow/designs/asap7/mock-cpu/BUILD.bazel b/flow/designs/asap7/mock-cpu/BUILD.bazel
+index 01deff0be..a8a5f264d 100644
+--- a/flow/designs/asap7/mock-cpu/BUILD.bazel
++++ b/flow/designs/asap7/mock-cpu/BUILD.bazel
+@@ -1,6 +1,6 @@
+-# load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-# load("@orfs_designs//:designs.bzl", "DESIGNS")
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
+ 
+ exports_files(glob(["*"]))
+ 
+-# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+diff --git a/flow/designs/asap7/riscv32i/BUILD.bazel b/flow/designs/asap7/riscv32i/BUILD.bazel
+index 3c61c7540..a8a5f264d 100644
+--- a/flow/designs/asap7/riscv32i/BUILD.bazel
++++ b/flow/designs/asap7/riscv32i/BUILD.bazel
+@@ -1,7 +1,6 @@
+-# FIXME later
+-# load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-# load("@orfs_designs//:designs.bzl", "DESIGNS")
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
+ 
+ exports_files(glob(["*"]))
+ 
+-# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+diff --git a/flow/designs/asap7/swerv_wrapper/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
+index 5d9662317..a8a5f264d 100644
+--- a/flow/designs/asap7/swerv_wrapper/BUILD.bazel
++++ b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
+@@ -1,7 +1,6 @@
+-# load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-# load("@orfs_designs//:designs.bzl", "DESIGNS")
++load("@bazel-orfs//:openroad.bzl", "orfs_design")
++load("@orfs_designs//:designs.bzl", "DESIGNS")
+ 
+ exports_files(glob(["*"]))
+ 
+-# FIXME later
+-# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-- 
+2.51.0
+

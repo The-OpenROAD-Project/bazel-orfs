@@ -1,0 +1,38 @@
+From 5dda60c11605aae9fde6e8b18c6edf1ac185ab90 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 22:42:43 +0200
+Subject: [PATCH 29/31] fix: remove non-root module overrides from MODULE.bazel
+
+When ORFS is fetched as a dependency (not the root module),
+local_path_override directives are illegal. The root module
+(orfs-integration in bazel-orfs) provides bazel-orfs and
+mock-openroad through its own overrides.
+---
+ MODULE.bazel | 10 ----------
+ 1 file changed, 10 deletions(-)
+
+diff --git a/MODULE.bazel b/MODULE.bazel
+index cca7ed8ab..a64081239 100644
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -6,17 +6,7 @@ module(
+ )
+ 
+ bazel_dep(name = "bazel-orfs")
+-local_path_override(
+-    module_name = "bazel-orfs",
+-    path = "../bazel-orfs",
+-)
+-
+ bazel_dep(name = "mock-openroad", version = "0.0.1")
+-local_path_override(
+-    module_name = "mock-openroad",
+-    path = "../bazel-orfs/mock/openroad",
+-)
+-
+ bazel_dep(name = "rules_python", version = "1.8.5")
+ bazel_dep(name = "rules_shell", version = "0.6.1")
+ 
+-- 
+2.51.0
+

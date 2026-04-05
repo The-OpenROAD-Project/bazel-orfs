@@ -1,0 +1,53 @@
+From 2af4e46c3d116b76d9db39ee774ec201cb31f16b Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 06:51:35 +0200
+Subject: [PATCH 10/31] build: sky130hd 4/6 designs pass lint, add chameleon
+ src BUILD files
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+sky130hd: aes, gcd, jpeg, riscv32i pass lint flow.
+Disabled: microwatt, chameleon (parser can't resolve VERILOG_FILES_BLACKBOX).
+Added BUILD.bazel for chameleon src subdirectories.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/designs/sky130hd/chameleon/BUILD.bazel | 7 ++++---
+ flow/designs/sky130hd/microwatt/BUILD.bazel | 7 ++++---
+ 2 files changed, 8 insertions(+), 6 deletions(-)
+
+diff --git a/flow/designs/sky130hd/chameleon/BUILD.bazel b/flow/designs/sky130hd/chameleon/BUILD.bazel
+index a8a5f264d..aeaf888d6 100644
+--- a/flow/designs/sky130hd/chameleon/BUILD.bazel
++++ b/flow/designs/sky130hd/chameleon/BUILD.bazel
+@@ -1,6 +1,7 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
++# TODO: parser can't resolve $(VERILOG_FILES_BLACKBOX) and wildcard in AHB_sys_0
++# load("@bazel-orfs//:openroad.bzl", "orfs_design")
++# load("@orfs_designs//:designs.bzl", "DESIGNS")
+ 
+ exports_files(glob(["*"]))
+ 
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+diff --git a/flow/designs/sky130hd/microwatt/BUILD.bazel b/flow/designs/sky130hd/microwatt/BUILD.bazel
+index a8a5f264d..601c93761 100644
+--- a/flow/designs/sky130hd/microwatt/BUILD.bazel
++++ b/flow/designs/sky130hd/microwatt/BUILD.bazel
+@@ -1,6 +1,7 @@
+-load("@bazel-orfs//:openroad.bzl", "orfs_design")
+-load("@orfs_designs//:designs.bzl", "DESIGNS")
++# TODO: parser can't resolve $(VERILOG_FILES_BLACKBOX) inside VERILOG_FILES wildcard
++# load("@bazel-orfs//:openroad.bzl", "orfs_design")
++# load("@orfs_designs//:designs.bzl", "DESIGNS")
+ 
+ exports_files(glob(["*"]))
+ 
+-orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-- 
+2.51.0
+
