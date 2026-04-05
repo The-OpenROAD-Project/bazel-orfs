@@ -1,0 +1,17 @@
+alias(
+    name = "yosys",
+    actual = "@yosys//:yosys",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "yosys-abc",
+    actual = "@yosys//:yosys-abc",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "yosys-share",
+    actual = "@yosys//:yosys_share",
+    visibility = ["//visibility:public"],
+)
