@@ -23,6 +23,7 @@ jobs:
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
+          disk-cache: lint
           repository-cache: true
 
       # Single source of truth: fix_lint.py handles buildifier (respecting
