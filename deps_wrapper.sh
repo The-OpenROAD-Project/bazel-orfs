@@ -38,7 +38,7 @@ bazelisk build "$DEPS_TARGET"
 
 # Locate the tarball.
 TARBALL="$(bazelisk cquery --output=files "$DEPS_TARGET" 2>/dev/null \
-    | grep '\.tar$')"
+    | grep '\.tar\.gz$')"
 
 if [ -z "$TARBALL" ]; then
     echo "Error: deps tarball not found for $DEPS_TARGET"
@@ -68,68 +68,20 @@ if [ -d "$DST" ]; then
     rm -rf "$DST"
 fi
 mkdir -p "$DST"
-tar -xf "$TARBALL" -C "$DST"
-
-# pkg_tar with include_runfiles places files under <target>.runfiles/.
-# Move the runfiles tree contents to the top level.
-RUNFILES_DIR="$(find "$DST" -maxdepth 1 -name '*.runfiles' -type d | head -1)"
-if [ -n "$RUNFILES_DIR" ]; then
-    # Move contents up and remove the wrapper directory.
-    mv "$RUNFILES_DIR"/* "$DST/" 2>/dev/null || true
-    rmdir "$RUNFILES_DIR" 2>/dev/null || true
-fi
-
-# Clean up repo_mapping if present.
-rm -f "$DST/_repo_mapping"
-
-# Create _main/external/<repo> symlinks for both path styles.
-if [ ! -d "$DST/_main/external" ]; then
-    mkdir -p "$DST/_main/external"
-    for repo_dir in "$DST"/*/; do
-        repo_name=$(basename "$repo_dir")
-        [ "$repo_name" = "_main" ] && continue
-        ln -sf "../../$repo_name" "$DST/_main/external/$repo_name"
-    done
-fi
+tar -xzf "$TARBALL" -C "$DST"
 
 # Make all files writable so make targets can overwrite stage outputs.
 find "$DST" -not -perm -u+w -exec chmod u+w {} + 2>/dev/null || true
 
-# Read the deploy manifest to find make script and config paths.
-MANIFEST="$(find "$DST/_main" -name '*_deploy_manifest.txt' | head -1)"
-MAKE_PATH=""
-CONFIG_PATH=""
-if [ -n "$MANIFEST" ]; then
-    while IFS= read -r line; do
-        case "$line" in
-            make=*)    MAKE_PATH="${line#make=}" ;;
-            config=*)  CONFIG_PATH="${line#config=}" ;;
-            rename=*)
-                rename="${line#rename=}"
-                src="${rename%%	*}"
-                dst="${rename#*	}"
-                mkdir -p "$DST/_main/$(dirname "$dst")"
-                cp -f --dereference "$DST/_main/$src" "$DST/_main/$dst"
-                ;;
-        esac
-    done < "$MANIFEST"
-fi
-
-# Create config.mk symlink at the stable location.
-if [ -n "$CONFIG_PATH" ] && [ -f "$DST/_main/$CONFIG_PATH" ]; then
-    ln -sf "$CONFIG_PATH" "$DST/_main/config.mk"
-fi
-
-# Create top-level make wrapper.
-if [ -n "$MAKE_PATH" ]; then
-    cat > "$DST/make" <<EOF
-#!/usr/bin/env bash
-set -euo pipefail
-cd "\$(dirname "\$0")/_main"
-exec ./$MAKE_PATH "\$@"
-EOF
-    chmod +x "$DST/make"
-fi
+# Bazel modules use canonical names with '+' suffix (e.g. tcl_lang+).
+# C++ runfiles libraries look up apparent names without '+' (e.g. tcl_lang).
+# Create symlinks so both names resolve.
+for repo_dir in "$DST"/*+/; do
+    [ -d "$repo_dir" ] || continue
+    apparent="${repo_dir%+/}"
+    [ -e "$apparent" ] && continue
+    ln -sf "$(basename "$repo_dir")" "$apparent"
+done
 
 echo "Deployed to: $DST"
 
