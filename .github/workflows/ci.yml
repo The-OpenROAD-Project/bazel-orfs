@@ -1,21 +1,20 @@
-name: bazel-orfs
+name: CI
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
 
 jobs:
-  test:
-    name: bazel-orfs unit tests
+  ci:
+    name: CI
     runs-on: ubuntu-22.04
     defaults:
       run:
         shell: bash
     env:
-      DEBIAN_FRONTEND: "noninteractive"
+      DEBIAN_FRONTEND: noninteractive
     steps:
       - name: Free Disk Space
         uses: jlumbroso/free-disk-space@main
@@ -27,22 +26,26 @@ jobs:
           docker-images: true
           large-packages: false
           swap-storage: false
-      - name: Checkout bazel-orfs
+
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.15.0
         with:
           bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}
+          disk-cache: ci
           repository-cache: true
 
-      - name: Launch Bazel
-        run: bazelisk build --nobuild ... --build_tests_only --profile=launch.profile
-      - name: Analyze launch
-        if: always()
-        run: bazelisk analyze-profile launch.profile
+      # --- Lint ---
+      - name: Lint and lockfile check
+        run: |
+          bazelisk run //:fix_lint
+          git diff --exit-code
 
+      # --- Unit tests ---
       - name: Build tests
         run: bazelisk build ... --build_tests_only --profile=build.profile
       - name: Analyze build
@@ -55,68 +58,53 @@ jobs:
         if: always()
         run: bazelisk analyze-profile test.profile
 
-  orfs-lint:
-    name: ORFS lint
-    runs-on: ubuntu-22.04
-    defaults:
-      run:
-        shell: bash
-    env:
-      DEBIAN_FRONTEND: "noninteractive"
-    steps:
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: false
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: true
-          large-packages: false
-          swap-storage: false
-      - name: Checkout bazel-orfs
-        uses: actions/checkout@v4
-
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.15.0
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}-orfs-lint
-          repository-cache: true
-
+      # --- ORFS integration ---
       - name: ORFS integration lint tests
         working-directory: orfs
         run: bazelisk test //:asap7_lint_tests --keep_going --test_output=errors
 
-  orfs-real:
-    name: ORFS real flow (gcd)
-    runs-on: ubuntu-22.04
-    defaults:
-      run:
-        shell: bash
-    env:
-      DEBIAN_FRONTEND: "noninteractive"
-    steps:
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: false
-          android: true
-          dotnet: true
-          haskell: true
-          docker-images: true
-          large-packages: false
-          swap-storage: false
-      - name: Checkout bazel-orfs
-        uses: actions/checkout@v4
-
-      - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.15.0
-        with:
-          bazelisk-cache: true
-          disk-cache: ${{ github.workflow }}-orfs-real
-          repository-cache: true
-
-      - name: ORFS real flow test (gcd)
+      - name: ORFS mock flow (gcd)
         working-directory: orfs
-        run: bazelisk test @orfs//flow/designs/asap7/gcd:gcd_test --test_output=errors
+        run: bazelisk build @orfs//flow/designs/asap7/gcd:gcd_generate_metadata
+
+      # --- Deps integration ---
+      - name: Deps integration tests
+        run: test/deps_integration_test.sh all
+
+      # --- Gallery ---
+      - name: Gallery query
+        working-directory: gallery
+        run: bazelisk query //...
+
+      - name: Gallery tests
+        working-directory: gallery
+        run: bazelisk test ... --keep_going --build_tests_only --test_output=errors --profile=gallery.profile
+      - name: Analyze gallery
+        if: always()
+        working-directory: gallery
+        run: bazelisk analyze-profile gallery.profile
+
+      # --- Submodules ---
+      - name: "Submodule: mock/chisel build"
+        working-directory: mock/chisel
+        run: >-
+          bazelisk build ... --keep_going
+          --override_module=bazel-orfs=${{ github.workspace }}
+          --profile=mock-chisel.profile
+      - name: "Submodule: chisel test"
+        working-directory: chisel
+        run: >-
+          bazelisk test ... --keep_going --build_tests_only --test_output=errors
+          --override_module=bazel-orfs=${{ github.workspace }}
+          --profile=chisel.profile
+      - name: "Submodule: sby test"
+        working-directory: sby
+        run: >-
+          bazelisk test ... --keep_going --build_tests_only --test_output=errors
+          --override_module=bazel-orfs=${{ github.workspace }}
+          --profile=sby.profile
+      - name: "Submodule: lec build"
+        working-directory: lec
+        run: >-
+          bazelisk build ... --keep_going
+          --profile=lec.profile
