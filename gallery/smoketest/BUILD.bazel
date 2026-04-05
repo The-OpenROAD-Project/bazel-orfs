@@ -48,7 +48,6 @@ demo_sram(
         "PLACE_DENSITY": "0.65",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
     },
-    base_tags = [],
     lint = True,
     mock_area = 1.0,
     sources = {
@@ -67,7 +66,6 @@ demo_hierarchical(
         "MACRO_PLACE_HALO": "1 1",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
     },
-    base_tags = [],
     lint = True,
     macros = [":tiny_sram_generate_abstract"],
     sources = {
