@@ -102,9 +102,11 @@ def _package_stage(ctx, config, make, runfiles_depset, renames = []):
     # Config goes to _main/config.mk
     lines.append("{}\t_main/config.mk".format(config.path))
 
-    # Renames
+    # Renames: r.src is a short_path string; resolve to actual path.
+    short_to_path = {f.short_path: f.path for f in all_files}
     for r in renames:
-        lines.append("{}\t_main/{}".format(r.src, r.dst))
+        real_src = short_to_path.get(r.src, r.src)
+        lines.append("{}\t_main/{}".format(real_src, r.dst))
 
     # Make wrapper at top level
     lines.append("{}\tmake".format(make_wrapper.path))

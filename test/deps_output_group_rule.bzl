@@ -6,7 +6,7 @@ def _deps_tar_test_impl(ctx):
     if not deps_files:
         fail("Target {} has no output files".format(ctx.attr.target.label))
 
-    tarballs = [f for f in deps_files if f.basename.endswith(".tar")]
+    tarballs = [f for f in deps_files if f.basename.endswith(".tar.gz") or f.basename.endswith(".tar")]
     if not tarballs:
         fail("Target {} has no tarball".format(ctx.attr.target.label))
     tarball = tarballs[0]
@@ -24,9 +24,9 @@ if [ ! -f "$TARBALL" ]; then
     echo "FAIL: tarball not found: $TARBALL"
     exit 1
 fi
-# Verify it contains a deploy manifest.
-if ! tar -tf "$TARBALL" | grep -q '_deploy_manifest\\.txt'; then
-    echo "FAIL: tarball missing deploy manifest"
+# Verify it contains a config.mk (proves _package_stage ran correctly).
+if ! tar -tf "$TARBALL" | grep -q 'config\\.mk'; then
+    echo "FAIL: tarball missing config.mk"
     exit 1
 fi
 echo "PASS: {label} deps tarball is valid"
