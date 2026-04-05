@@ -24,45 +24,54 @@ local_path_override(
 bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",
-    commit = "f5b9c3f0e9387f5e72302f531aff3de8f61c0409",
+    commit = "f40d2f346e67ffe309a4f49b1897a560cf20c747",
     patch_strip = 1,
     patches = [
-        "//patches:0001-build-add-all-PDKs-and-export-variables.yaml.patch",
-        "//patches:0002-build-add-exports_files-BUILD.bazel-to-all-src-direc.patch",
-        "//patches:0003-Add-orfs_design-designs-DESIGNS-mock_openroad-mock-o.patch",
-        "//patches:0004-build-remove-hand-written-design-BUILD-files.patch",
-        "//patches:0005-build-fix-config.mk-parser-and-add-missing-BUILD.baz.patch",
-        "//patches:0006-build-switch-to-lint-flow-with-local-bazel-orfs-and-.patch",
-        "//patches:0007-build-15-18-asap7-designs-pass-lint-flow.patch",
-        "//patches:0008-build-all-18-asap7-designs-pass-lint-flow-163-target.patch",
-        "//patches:0009-build-add-fakeram-blackbox-stubs-for-swerv_wrapper.patch",
-        "//patches:0010-build-sky130hd-4-6-designs-pass-lint-add-chameleon-s.patch",
-        "//patches:0011-build-lint-flow-passes-48-51-tests-across-all-6-plat.patch",
-        "//patches:0012-build-all-51-tests-pass-across-all-6-platforms.patch",
-        "//patches:0013-tools-add-rtlil-stats-command-fix-stage-isolation-an.patch",
-        "//patches:0014-build-add-tinyRocket-fakeram-blackbox-and-microwatt-.patch",
-        "//patches:0015-refactor-simplify-BUILD-files-exports_files-moved-in.patch",
-        "//patches:0016-build-CI-detection-all-platforms-skip-missing-source.patch",
-        "//patches:0017-fix-move-SYNTH_MEMORY_MAX_BITS-before-conditional-in.patch",
-        "//patches:0018-fix-add-mock-cpu-SDC-dependency-on-util.tcl-for-Baze.patch",
-        "//patches:0019-build-add-lef-lib-gds-BUILD-files-for-swerv_wrapper-.patch",
-        "//patches:0020-lint-take-default-branch-from-conditionals-instead-o.patch",
-        "//patches:0021-build-add-parallel-synthesis-infrastructure-keep-par.patch",
-        "//patches:0022-test-force-SYNTH_HIERARCHICAL-1-on-non-trivial-desig.patch",
-        "//patches:0023-build-support-SYNTH_BLACKBOXES-after-checkpoint-read.patch",
-        "//patches:0024-build-partition-synth-reads-keep-RTLIL-skips-coarse-.patch",
-        "//patches:0025-build-split-keep-RTLIL-and-JSON-extraction-into-sepa.patch",
-        "//patches:0026-fix-truncate-module-name-in-partition-log-filename-s.patch",
-        "//patches:0027-build-add-do-yosys-sdc-copy-target-for-parallel-synt.patch",
-        "//patches:0028-docs-add-parallel-synthesis-status-and-next-steps.patch",
-        "//patches:0029-fix-remove-non-root-module-overrides-from-MODULE.baz.patch",
-        "//patches:0030-fix-mock-cpu-io.tcl-source-util.tcl-via-env-var-for-.patch",
-        "//patches:0031-docs-update-README-with-config.mk-DSL-and-incrementa.patch",
+        "//patches:0001-build-remove-stale-merge_lib.py-preprocessLib.py-fro.patch",
+        "//patches:0002-build-add-all-PDKs-and-export-variables.yaml.patch",
+        "//patches:0003-build-add-exports_files-BUILD.bazel-to-all-src-direc.patch",
+        "//patches:0004-Add-orfs_design-designs-DESIGNS-mock_openroad-mock-o.patch",
+        "//patches:0005-docs-update-README-with-config.mk-DSL-and-incrementa.patch",
+        "//patches:0006-build-remove-hand-written-design-BUILD-files.patch",
+        "//patches:0007-build-fix-config.mk-parser-and-add-missing-BUILD.baz.patch",
+        "//patches:0008-build-switch-to-lint-flow-with-local-bazel-orfs-and-.patch",
+        "//patches:0009-build-15-18-asap7-designs-pass-lint-flow.patch",
+        "//patches:0010-build-all-18-asap7-designs-pass-lint-flow-163-target.patch",
+        "//patches:0011-build-add-fakeram-blackbox-stubs-for-swerv_wrapper.patch",
+        "//patches:0012-build-sky130hd-4-6-designs-pass-lint-add-chameleon-s.patch",
+        "//patches:0013-build-lint-flow-passes-48-51-tests-across-all-6-plat.patch",
+        "//patches:0014-build-all-51-tests-pass-across-all-6-platforms.patch",
+        "//patches:0015-tools-add-rtlil-stats-command-fix-stage-isolation-an.patch",
+        "//patches:0016-build-add-tinyRocket-fakeram-blackbox-and-microwatt-.patch",
+        "//patches:0017-refactor-simplify-BUILD-files-exports_files-moved-in.patch",
+        "//patches:0018-build-CI-detection-all-platforms-skip-missing-source.patch",
+        "//patches:0019-fix-move-SYNTH_MEMORY_MAX_BITS-before-conditional-in.patch",
+        "//patches:0020-fix-add-mock-cpu-SDC-dependency-on-util.tcl-for-Baze.patch",
+        "//patches:0021-build-add-lef-lib-gds-BUILD-files-for-swerv_wrapper-.patch",
+        "//patches:0022-lint-take-default-branch-from-conditionals-instead-o.patch",
+        "//patches:0023-build-add-parallel-synthesis-infrastructure-keep-par.patch",
+        "//patches:0024-test-force-SYNTH_HIERARCHICAL-1-on-non-trivial-desig.patch",
+        "//patches:0025-build-support-SYNTH_BLACKBOXES-after-checkpoint-read.patch",
+        "//patches:0026-build-partition-synth-reads-keep-RTLIL-skips-coarse-.patch",
+        "//patches:0027-build-split-keep-RTLIL-and-JSON-extraction-into-sepa.patch",
+        "//patches:0028-fix-truncate-module-name-in-partition-log-filename-s.patch",
+        "//patches:0029-build-add-do-yosys-sdc-copy-target-for-parallel-synt.patch",
+        "//patches:0030-docs-add-parallel-synthesis-status-and-next-steps.patch",
+        "//patches:0031-fix-remove-non-root-module-overrides-from-MODULE.baz.patch",
+        "//patches:0032-fix-add-ihp-sg13g2-IO-pad-libs-to-i2c-gpio-expander-.patch",
+        "//patches:0033-fix-mock-cpu-io.tcl-source-util.tcl-via-env-var-for-.patch",
+        "//patches:0034-fix-override-PDN_TCL-for-riscv32i-mock-sram-to-fix-P.patch",
     ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
 )
 
-# --- mock-openroad: fast lint binary (from bazel-orfs) ---
+# --- Mock binaries (from bazel-orfs) ---
+
+bazel_dep(name = "mock-klayout", version = "0.0.1")
+local_path_override(
+    module_name = "mock-klayout",
+    path = "../mock/klayout",
+)
 
 bazel_dep(name = "mock-openroad", version = "0.0.1")
 local_path_override(
@@ -74,6 +83,63 @@ bazel_dep(name = "mock-yosys", version = "0.0.1")
 local_path_override(
     module_name = "mock-yosys",
     path = "../mock/yosys",
+)
+
+# --- Yosys built from source (shared with bazel-orfs) ---
+
+bazel_dep(name = "bazel-orfs-yosys", version = "0.0.1")
+local_path_override(
+    module_name = "bazel-orfs-yosys",
+    path = "../yosys",
+)
+
+# --- OpenROAD built from source ---
+
+bazel_dep(name = "openroad")
+git_override(
+    module_name = "openroad",
+    commit = "df79404cd806cc435b3c3b53678ebf2441c31313",
+    init_submodules = True,
+    patch_strip = 1,
+    patches = ["//:openroad-visibility.patch"],
+    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
+)
+
+bazel_dep(name = "qt-bazel")
+git_override(
+    module_name = "qt-bazel",
+    commit = "df022f4ebaa4130713692fffd2f519d49e9d0b97",
+    remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
+)
+
+bazel_dep(name = "glpk", version = "5.0.bcr.4")
+archive_override(
+    module_name = "glpk",
+    integrity = "sha256-ShAT7rtQ9yj8YBvdgzsLKHAzPDs+WoFu66kh2VvsbxU=",
+    patch_strip = 1,
+    patches = ["//third_party/glpk:overlay.patch"],
+    strip_prefix = "glpk-5.0",
+    urls = [
+        "https://ftp.gnu.org/gnu/glpk/glpk-5.0.tar.gz",
+        "https://ftpmirror.gnu.org/glpk/glpk-5.0.tar.gz",
+        "https://mirrors.kernel.org/gnu/glpk/glpk-5.0.tar.gz",
+        "https://mirror.freedif.org/GNU/glpk/glpk-5.0.tar.gz",
+    ],
+)
+
+bazel_dep(name = "toolchains_llvm", version = "1.5.0")
+
+llvm = use_extension(
+    "@toolchains_llvm//toolchain/extensions:llvm.bzl",
+    "llvm",
+)
+llvm.toolchain(
+    llvm_version = "20.1.8",
+)
+use_repo(llvm, "llvm_toolchain")
+
+register_toolchains(
+    "@llvm_toolchain//:all",
 )
 
 bazel_dep(name = "rules_python", version = "1.2.0")
@@ -89,29 +155,6 @@ pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 use_repo(pip, "orfs-pip")
 
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
-orfs.default(
-    image = "docker.io/openroad/orfs:26Q1-843-gf5b9c3f0e",
-    sha256 = "8fd6d246245f646e9ce490dbddc3fbb9e1a5011db391d0ebd5fca380b72c82bd",
-)
+orfs.default()
 use_repo(orfs, "docker_orfs")
-
-# Uncomment to build OpenROAD from source instead of using the ORFS image.
-# This is useful to test the latest OpenROAD before the ORFS image is updated.
-# See: https://github.com/The-OpenROAD-Project/bazel-orfs/blob/main/docs/openroad.md
-#
-# bazel_dep(name = "openroad")
-# git_override(
-#     module_name = "openroad",
-#     commit = "f2408812b6fb56e150e1a0411b1ff28cde7026fc",
-#     init_submodules = True,
-#     patch_strip = 1,
-#     patches = ["@bazel-orfs//:openroad-llvm-root-only.patch", "@bazel-orfs//:openroad-visibility.patch"],
-#     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
-# )
-# bazel_dep(name = "qt-bazel")
-# git_override(
-#     module_name = "qt-bazel",
-#     commit = "df022f4ebaa4130713692fffd2f519d49e9d0b97",
-#     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
-# )
-# bazel_dep(name = "toolchains_llvm", version = "1.5.0")
+use_repo(orfs, "gnumake")
