@@ -12,6 +12,7 @@ load(
     "CONFIG_PDK",
     "CONFIG_YOSYS",
     "CONFIG_YOSYS_ABC",
+    "CONFIG_YOSYS_SHARE",
 )
 load(
     "//private:providers.bzl",
@@ -86,6 +87,11 @@ def orfs_attrs():
             doc = "Tcl library.",
             allow_files = True,
             default = Label("@docker_orfs//:tcl8.6"),
+        ),
+        "_package_stage": attr.label(
+            doc = "Python script for creating portable stage tarballs.",
+            allow_single_file = True,
+            default = Label("@bazel-orfs//:package_stage.py"),
         ),
     }
 
@@ -180,6 +186,11 @@ def yosys_only_attrs():
             allow_files = True,
             cfg = "exec",
             default = CONFIG_YOSYS,
+        ),
+        "_yosys_share": attr.label(
+            doc = "Yosys share directory (plugins, etc.).",
+            cfg = "exec",
+            default = CONFIG_YOSYS_SHARE,
         ),
     }
 

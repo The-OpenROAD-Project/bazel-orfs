@@ -1,6 +1,5 @@
 """Flow orchestration macros for OpenROAD-flow-scripts Bazel rules."""
 
-load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("//private:providers.bzl", "LoggingInfo")
 load(
     "//private:rules.bzl",
@@ -10,7 +9,7 @@ load(
     "STAGE_IMPLS",
     "TEST_STAGE_IMPL",
     "UPDATE_RULES_IMPL",
-    "orfs_deploy_srcs",
+    "orfs_deps",
     "orfs_macro",
     "orfs_run",
     "orfs_squashed",
@@ -67,23 +66,16 @@ def _filter_stage_args(stage, **kwargs):
     )
 
 def _create_deps_tar(stage_name, **kwargs):
-    """Generate pkg_tar companion targets for a stage target.
+    """Generate deps companion target for a stage target.
 
     Creates:
-      {stage_name}_deploy_srcs — thin rule exposing OrfsDepInfo.runfiles
-      {stage_name}_deps — pkg_tar with include_runfiles=True
+      {stage_name}_deps — portable tarball via orfs_deps rule
 
-    Both targets are tagged "manual" so they are excluded from wildcard
+    The target is tagged "manual" so it is excluded from wildcard
     builds (bazel build //pkg:all) and only built when explicitly requested.
     """
     visibility = kwargs.get("visibility", None)
-    orfs_deploy_srcs(
-        name = stage_name + "_deploy_srcs",
-        src = ":" + stage_name,
-        visibility = visibility,
-        tags = ["manual"],
-    )
-    pkg_tar(
+    orfs_deps(
         name = stage_name + "_deps",
         srcs = [":" + stage_name + "_deploy_srcs"],
         extension = "tar.gz",

@@ -26,8 +26,6 @@ package(default_visibility = ["//visibility:public"])
 # invoked on the mock/lint path.
 [sh_binary(name = n, srcs = ["noop.sh"]) for n in [
     "make",
-    "makefile",
-    "makefile_yosys",
     "sta",
     "openroad",
     "yosys",
