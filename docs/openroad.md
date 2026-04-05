@@ -40,7 +40,6 @@ git_override(
     init_submodules = True,
     patch_strip = 1,
     patches = [
-        "@bazel-orfs//:openroad-llvm-root-only.patch",
         "@bazel-orfs//:openroad-visibility.patch",
     ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
@@ -184,9 +183,8 @@ as the corresponding upstream fix lands:
 
 | Hack | Why | Remove when |
 |------|-----|-------------|
-| `openroad-llvm-root-only.patch` | `toolchains_llvm` extension enforces root-module-only usage; we patch it out of OpenROAD's MODULE.bazel and configure the llvm toolchain in the root module instead | OpenROAD makes llvm extension conditional on being root module |
 | `qt-bazel` git_override in root | bzlmod ignores git_override from non-root modules | qt-bazel is published to BCR |
-| llvm extension + register_toolchains in root MODULE.bazel | Moved here from OpenROAD because of root-only constraint | Same as patch above |
+| llvm extension + register_toolchains in root MODULE.bazel | `toolchains_llvm` extension enforces root-module-only usage; OpenROAD now marks it dev_dependency so the root module must provide it | OpenROAD publishes to BCR with toolchain config |
 
 ## Future Upstream Improvements
 

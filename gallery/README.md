@@ -168,20 +168,6 @@ bazel build //vlsiffra:multiplier_final
 bazel run //vlsiffra:multiplier_route -- $(pwd)/route gui_route
 ```
 
-## Testing
-
-`bazel test //...` is designed to be fast — it exercises the full ORFS flow
-using **mock tools** (mock-openroad + mock-yosys) that complete in seconds.
-Only one small design (`smoketest/counter`) also builds with real OpenROAD
-and Yosys, providing an A/B comparison between mock and real outputs.
-
-All other designs' real builds are tagged `manual` and skipped by
-`bazel test //...`. To run a specific design's real flow:
-
-```bash
-bazel build //serv:serv_rf_top_final
-```
-
 ## Build Times
 
 ![Build Times by Stage](docs/build_times.png)
