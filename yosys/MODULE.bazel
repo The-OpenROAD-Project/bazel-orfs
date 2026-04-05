@@ -1,0 +1,10 @@
+"""Yosys built from source with TCL built from source."""
+
+module(
+    name = "bazel-orfs-yosys",
+    version = "0.0.1",
+)
+
+yosys = use_extension(":extension.bzl", "yosys_ext")
+yosys.default()
+use_repo(yosys, "yosys")

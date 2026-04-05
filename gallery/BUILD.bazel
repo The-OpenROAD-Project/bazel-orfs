@@ -1,1 +1,4 @@
-exports_files(["requirements_lock.txt"])
+exports_files([
+    "openroad-visibility.patch",
+    "requirements_lock.txt",
+])

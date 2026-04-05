@@ -15,6 +15,12 @@ local_path_override(
 
 # --- Mock binaries (seconds-fast flow linter) ---
 
+bazel_dep(name = "mock-klayout", version = "0.0.1")
+local_path_override(
+    module_name = "mock-klayout",
+    path = "../mock/klayout",
+)
+
 bazel_dep(name = "mock-openroad", version = "0.0.1")
 local_path_override(
     module_name = "mock-openroad",
@@ -27,33 +33,84 @@ local_path_override(
     path = "../mock/yosys",
 )
 
-orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
-orfs.default(
-    image = "docker.io/openroad/orfs:26Q1-737-g2565e815a",
-    sha256 = "987073e847767a2856c3803d0ed9509a33f16f3ff2a6e01855a323458af5a940",
-)
-use_repo(orfs, "docker_orfs")
+# --- Yosys built from source (shared with bazel-orfs) ---
 
-# Uncomment to build OpenROAD from source instead of using the docker image.
-# This is useful to test the latest OpenROAD before the docker image is updated.
-# See: https://github.com/The-OpenROAD-Project/bazel-orfs/blob/main/docs/openroad.md
-#
-# bazel_dep(name = "openroad")
-# git_override(
-#     module_name = "openroad",
-#     commit = "8b95fedee8f821345eb96ecc398f66678919bf9f",
-#     init_submodules = True,
-#     patch_strip = 1,
-#     patches = ["@bazel-orfs//:openroad-llvm-root-only.patch", "@bazel-orfs//:openroad-visibility.patch"],
-#     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
-# )
-# bazel_dep(name = "qt-bazel")
-# git_override(
-#     module_name = "qt-bazel",
-#     commit = "df022f4ebaa4130713692fffd2f519d49e9d0b97",
-#     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
-# )
-# bazel_dep(name = "toolchains_llvm", version = "1.5.0")
+bazel_dep(name = "bazel-orfs-yosys", version = "0.0.1")
+local_path_override(
+    module_name = "bazel-orfs-yosys",
+    path = "../yosys",
+)
+
+# --- ORFS flow scripts (Makefile, TCL, PDKs) ---
+
+bazel_dep(name = "orfs")
+git_override(
+    module_name = "orfs",
+    commit = "f40d2f346e67ffe309a4f49b1897a560cf20c747",
+    patch_strip = 1,
+    patches = [
+        "//patches:0001-build-remove-stale-merge_lib.py-preprocessLib.py-fro.patch",
+        "//patches:0002-build-add-all-PDKs-and-export-variables.yaml.patch",
+        "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
+    ],
+    remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
+)
+
+orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
+orfs.default()
+use_repo(orfs, "docker_orfs")
+use_repo(orfs, "gnumake")
+
+# --- OpenROAD built from source ---
+# git_override is root-only in bzlmod, so each root module must provide it.
+# bump.py keeps commits in sync. Patches are single-sourced in bazel-orfs.
+
+bazel_dep(name = "openroad")
+git_override(
+    module_name = "openroad",
+    commit = "df79404cd806cc435b3c3b53678ebf2441c31313",
+    init_submodules = True,
+    patch_strip = 1,
+    patches = ["//:openroad-visibility.patch"],
+    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
+)
+
+bazel_dep(name = "qt-bazel")
+git_override(
+    module_name = "qt-bazel",
+    commit = "df022f4ebaa4130713692fffd2f519d49e9d0b97",
+    remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
+)
+
+bazel_dep(name = "glpk", version = "5.0.bcr.4")
+archive_override(
+    module_name = "glpk",
+    integrity = "sha256-ShAT7rtQ9yj8YBvdgzsLKHAzPDs+WoFu66kh2VvsbxU=",
+    patch_strip = 1,
+    patches = ["//third_party/glpk:overlay.patch"],
+    strip_prefix = "glpk-5.0",
+    urls = [
+        "https://ftp.gnu.org/gnu/glpk/glpk-5.0.tar.gz",
+        "https://ftpmirror.gnu.org/glpk/glpk-5.0.tar.gz",
+        "https://mirrors.kernel.org/gnu/glpk/glpk-5.0.tar.gz",
+        "https://mirror.freedif.org/GNU/glpk/glpk-5.0.tar.gz",
+    ],
+)
+
+bazel_dep(name = "toolchains_llvm", version = "1.5.0")
+
+llvm = use_extension(
+    "@toolchains_llvm//toolchain/extensions:llvm.bzl",
+    "llvm",
+)
+llvm.toolchain(
+    llvm_version = "20.1.8",
+)
+use_repo(llvm, "llvm_toolchain")
+
+register_toolchains(
+    "@llvm_toolchain//:all",
+)
 
 # --- rules_scala + Chisel: for building Chisel projects (Gemmini, etc.) ---
 

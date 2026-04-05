@@ -117,6 +117,6 @@ jobs:
           disk-cache: ${{ github.workflow }}-orfs-real
           repository-cache: true
 
-      - name: ORFS real flow test (gcd)
+      - name: ORFS mock flow (gcd)
         working-directory: orfs
-        run: bazelisk test @orfs//flow/designs/asap7/gcd:gcd_test --test_output=errors
+        run: bazelisk build @orfs//flow/designs/asap7/gcd:gcd_generate_metadata

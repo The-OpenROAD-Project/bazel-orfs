@@ -105,6 +105,15 @@ main() {
       ln -sf "$repo_dir" "$dst/_main/external/$repo_name"
     done
   fi
+  # Bazel modules use canonical names with '+' suffix (e.g. tcl_lang+).
+  # C++ runfiles libraries look up apparent names without '+' (e.g. tcl_lang).
+  # Create symlinks so both names resolve.
+  for repo_dir in "$dst"/*+/; do
+    [ -d "$repo_dir" ] || continue
+    apparent="${repo_dir%+/}"
+    [ -e "$apparent" ] && continue
+    ln -sf "$(basename "$repo_dir")" "$apparent"
+  done
   dst_main="$dst/_main"
 
   for file in $genfiles; do
@@ -126,6 +135,8 @@ cd "\$(dirname "\$0")/_main"
 # Deployed files may be read-only (symlinks into Bazel cache).
 # Make them writable so that make targets can overwrite stage outputs.
 find . -not -perm -u+w -exec chmod u+w {} + 2>/dev/null || true
+# Point rules_cc runfiles library at the deployed runfiles tree
+export RUNFILES_DIR="\$(pwd)/.."
 exec ./$make "\$@"
 EOF
   chmod +x "$dst/make"
