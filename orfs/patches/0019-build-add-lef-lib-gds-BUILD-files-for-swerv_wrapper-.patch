@@ -1,0 +1,110 @@
+From 0bb0b9e626508480f05fae1cc7e80da78b61796d Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 13:15:00 +0200
+Subject: [PATCH 19/31] build: add lef/lib/gds BUILD files for swerv_wrapper
+ and microwatt
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add filegroup targets so wildcard ADDITIONAL_LEFS/LIBS/GDS from
+config.mk resolve to valid Bazel labels.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/designs/asap7/swerv_wrapper/lef/BUILD.bazel | 10 ++++++++++
+ flow/designs/asap7/swerv_wrapper/lib/BUILD.bazel | 10 ++++++++++
+ flow/designs/sky130hd/microwatt/gds/BUILD.bazel  | 10 ++++++++++
+ flow/designs/sky130hd/microwatt/lef/BUILD.bazel  | 10 ++++++++++
+ flow/designs/sky130hd/microwatt/lib/BUILD.bazel  | 10 ++++++++++
+ 5 files changed, 50 insertions(+)
+ create mode 100644 flow/designs/asap7/swerv_wrapper/lef/BUILD.bazel
+ create mode 100644 flow/designs/asap7/swerv_wrapper/lib/BUILD.bazel
+ create mode 100644 flow/designs/sky130hd/microwatt/gds/BUILD.bazel
+ create mode 100644 flow/designs/sky130hd/microwatt/lef/BUILD.bazel
+ create mode 100644 flow/designs/sky130hd/microwatt/lib/BUILD.bazel
+
+diff --git a/flow/designs/asap7/swerv_wrapper/lef/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/lef/BUILD.bazel
+new file mode 100644
+index 000000000..4419ddd7a
+--- /dev/null
++++ b/flow/designs/asap7/swerv_wrapper/lef/BUILD.bazel
+@@ -0,0 +1,10 @@
++exports_files(
++    glob(["*.lef"]),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "lef",
++    srcs = glob(["*.lef"]),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/asap7/swerv_wrapper/lib/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/lib/BUILD.bazel
+new file mode 100644
+index 000000000..5a1c76dc0
+--- /dev/null
++++ b/flow/designs/asap7/swerv_wrapper/lib/BUILD.bazel
+@@ -0,0 +1,10 @@
++exports_files(
++    glob(["*.lib"]),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "lib",
++    srcs = glob(["*.lib"]),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/sky130hd/microwatt/gds/BUILD.bazel b/flow/designs/sky130hd/microwatt/gds/BUILD.bazel
+new file mode 100644
+index 000000000..79bbab335
+--- /dev/null
++++ b/flow/designs/sky130hd/microwatt/gds/BUILD.bazel
+@@ -0,0 +1,10 @@
++exports_files(
++    glob(["*.gds.gz"]),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "gds",
++    srcs = glob(["*.gds.gz"]),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/sky130hd/microwatt/lef/BUILD.bazel b/flow/designs/sky130hd/microwatt/lef/BUILD.bazel
+new file mode 100644
+index 000000000..4419ddd7a
+--- /dev/null
++++ b/flow/designs/sky130hd/microwatt/lef/BUILD.bazel
+@@ -0,0 +1,10 @@
++exports_files(
++    glob(["*.lef"]),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "lef",
++    srcs = glob(["*.lef"]),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/sky130hd/microwatt/lib/BUILD.bazel b/flow/designs/sky130hd/microwatt/lib/BUILD.bazel
+new file mode 100644
+index 000000000..5a1c76dc0
+--- /dev/null
++++ b/flow/designs/sky130hd/microwatt/lib/BUILD.bazel
+@@ -0,0 +1,10 @@
++exports_files(
++    glob(["*.lib"]),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "lib",
++    srcs = glob(["*.lib"]),
++    visibility = ["//visibility:public"],
++)
+-- 
+2.51.0
+
