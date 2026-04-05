@@ -8,6 +8,8 @@ def _gnumake_impl(repository_ctx):
         url = [
             "https://ftp.gnu.org/gnu/make/make-{version}.tar.gz".format(version = _VERSION),
             "https://ftpmirror.gnu.org/make/make-{version}.tar.gz".format(version = _VERSION),
+            "https://mirrors.kernel.org/gnu/make/make-{version}.tar.gz".format(version = _VERSION),
+            "https://mirror.freedif.org/GNU/make/make-{version}.tar.gz".format(version = _VERSION),
         ],
         sha256 = _SHA256,
         stripPrefix = "make-{version}".format(version = _VERSION),
