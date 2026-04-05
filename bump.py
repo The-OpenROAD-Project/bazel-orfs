@@ -208,8 +208,7 @@ BOILERPLATE_TEMPLATE = """\
 #     commit = "{openroad_commit}",
 #     init_submodules = True,
 #     patch_strip = 1,
-#     patches = ["@bazel-orfs//:openroad-llvm-root-only.patch", \
-"@bazel-orfs//:openroad-visibility.patch"],
+#     patches = ["@bazel-orfs//:openroad-visibility.patch"],
 #     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 # )
 # bazel_dep(name = "qt-bazel")
@@ -286,22 +285,64 @@ def resolve_image_digest(image, tag):
     return digest.replace("sha256:", "")
 
 
+def fetch_latest_github_release(github_repo):
+    """Get the latest release tag from a GitHub repo."""
+    url = f"https://api.github.com/repos/{github_repo}/releases/latest"
+    data = fetch_json(url)
+    tag = data.get("tag_name")
+    if not tag:
+        raise RuntimeError(f"No releases found for {github_repo}")
+    return tag
+
+
+def fetch_tag_commit(github_repo, tag):
+    """Get the commit SHA that a tag points to."""
+    url = f"https://api.github.com/repos/{github_repo}/git/ref/tags/{tag}"
+    data = fetch_json(url)
+    obj = data.get("object", {})
+    # If it's an annotated tag, dereference to the commit
+    if obj.get("type") == "tag":
+        tag_url = obj["url"]
+        tag_data = fetch_json(tag_url)
+        return tag_data["object"]["sha"]
+    return obj.get("sha", "")
+
+
+def update_yosys_build_bzl(filepath, yosys_commit):
+    """Update yosys_commit in yosys_build.bzl (inside extension.bzl yosys_build() call)."""
+    with open(filepath) as f:
+        content = f.read()
+
+    content = re.sub(
+        r'(yosys_commit\s*=\s*")[^"]*(")',
+        rf"\g<1>{yosys_commit}\2",
+        content,
+    )
+
+    with open(filepath, "w") as f:
+        f.write(content)
+
+    return content
+
+
 def bump(
     module_file,
     mock_modules=None,
     fetch_tag_fn=fetch_latest_docker_tag,
     fetch_commit_fn=fetch_latest_commit,
     resolve_digest_fn=resolve_image_digest,
+    fetch_release_fn=fetch_latest_github_release,
+    fetch_tag_commit_fn=fetch_tag_commit,
     workspace_dir=None,
 ):
     """Main bump orchestrator.
 
     Implements the project-type matrix:
-        Project      bazel-orfs   OpenROAD   docker   boilerplate
-                      commit       commit     image
-        bazel-orfs   skip(self)   yes        yes      skip(has it)
-        OpenROAD     yes          skip(self) yes      skip(is OR)
-        downstream   yes          if present yes      yes
+        Project      bazel-orfs  OpenROAD  ORFS     yosys    docker   boilerplate
+                      commit      commit   commit   release  image
+        bazel-orfs   skip(self)  yes       yes      yes      skip     skip(has it)
+        OpenROAD     yes         skip      skip     skip     yes      skip(is OR)
+        downstream   yes         if present skip    skip     yes      yes
     """
     with open(module_file) as f:
         content = f.read()
@@ -309,12 +350,16 @@ def bump(
     project = detect_project(content)
     updated_modules = []
 
-    # --- Update ORFS image (all projects) ---
+    # --- Update ORFS image (downstream and openroad only) ---
+    # bazel-orfs itself no longer uses a Docker image; it fetches ORFS
+    # flow scripts via git_override.  Downstream projects may still use
+    # the image, so keep updating it for them.
     repo = "openroad/orfs"
     latest_tag = fetch_tag_fn(repo)
     digest = resolve_digest_fn(f"docker.io/{repo}", latest_tag)
-    content = update_orfs_image(content, latest_tag, digest)
-    updated_modules.append(f"ORFS image -> {latest_tag}")
+    if project != "bazel-orfs":
+        content = update_orfs_image(content, latest_tag, digest)
+        updated_modules.append(f"ORFS image -> {latest_tag}")
 
     # --- Update bazel-orfs commit (skip for bazel-orfs itself) ---
     if project != "bazel-orfs":
@@ -333,10 +378,23 @@ def bump(
         content = update_git_override_commit(content, "openroad", openroad_commit)
         updated_modules.append(f"openroad -> {openroad_commit[:12]}")
 
-    # --- Informational: ORFS commit ---
+    # --- Update ORFS commit (bazel-orfs only — fetches flow scripts via git_override) ---
     orfs_commit = fetch_commit_fn(
         "The-OpenROAD-Project/OpenROAD-flow-scripts", "master"
     )
+    if project == "bazel-orfs":
+        content = update_git_override_commit(content, "orfs", orfs_commit)
+        updated_modules.append(f"orfs -> {orfs_commit[:12]}")
+
+    # --- Update yosys release (bazel-orfs only) ---
+    if project == "bazel-orfs":
+        yosys_tag = fetch_release_fn("YosysHQ/yosys")
+        yosys_commit = fetch_tag_commit_fn("YosysHQ/yosys", yosys_tag)
+        if workspace_dir:
+            ext_file = os.path.join(workspace_dir, "extension.bzl")
+            if os.path.exists(ext_file):
+                update_yosys_build_bzl(ext_file, yosys_commit)
+                updated_modules.append(f"yosys -> {yosys_tag} ({yosys_commit[:12]})")
 
     # --- Inject boilerplate (downstream only) ---
     if project == "downstream":
