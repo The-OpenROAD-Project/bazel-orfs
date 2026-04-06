@@ -1,0 +1,186 @@
+From 5d5ba4e3abd3c0eca02c2bcb6b32355f0579e7ae Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 14:23:40 +0200
+Subject: [PATCH 23/34] build: add parallel synthesis infrastructure (keep +
+ partition)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add synth_keep.tcl that runs coarse synthesis + keep_hierarchy to
+produce kept_modules.json listing modules to preserve. Add
+synth_partition.sh that reads the JSON and synthesizes assigned
+modules (index % N == partition_id) with all others blackboxed.
+
+This follows the megaboom gallery pattern from bazel-orfs: each
+module is synthesized independently with SYNTH_BLACKBOXES set to
+all other modules. Bazel runs N partitions in parallel = parallel ABC.
+
+New Makefile targets: do-yosys-keep, do-yosys-partition.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/Makefile                   |  8 ++++
+ flow/scripts/synth_keep.tcl     | 55 +++++++++++++++++++++++++++
+ flow/scripts/synth_partition.sh | 67 +++++++++++++++++++++++++++++++++
+ 3 files changed, 130 insertions(+)
+ create mode 100644 flow/scripts/synth_keep.tcl
+ create mode 100755 flow/scripts/synth_partition.sh
+
+diff --git a/flow/Makefile b/flow/Makefile
+index 7bccdc830..5387dba3c 100644
+--- a/flow/Makefile
++++ b/flow/Makefile
+@@ -272,6 +272,14 @@ do-yosys: yosys-dependencies
+ do-yosys-canonicalize: yosys-dependencies
+ 	$(SCRIPTS_DIR)/synth.sh $(SCRIPTS_DIR)/synth_canonicalize.tcl $(LOG_DIR)/1_1_yosys_canonicalize.log
+ 
++.PHONY: do-yosys-keep
++do-yosys-keep: yosys-dependencies
++	$(SCRIPTS_DIR)/synth.sh $(SCRIPTS_DIR)/synth_keep.tcl $(LOG_DIR)/1_1_yosys_keep.log
++
++.PHONY: do-yosys-partition
++do-yosys-partition: yosys-dependencies
++	$(SCRIPTS_DIR)/synth_partition.sh
++
+ $(RESULTS_DIR)/1_1_yosys_canonicalize.rtlil: $(YOSYS_DEPENDENCIES)
+ 	$(UNSET_AND_MAKE) do-yosys-canonicalize
+ 
+diff --git a/flow/scripts/synth_keep.tcl b/flow/scripts/synth_keep.tcl
+new file mode 100644
+index 000000000..60487f341
+--- /dev/null
++++ b/flow/scripts/synth_keep.tcl
+@@ -0,0 +1,55 @@
++# Coarse synthesis + keep_hierarchy decision.
++# Produces kept_modules.json listing modules to preserve.
++# This is the first half of synth.tcl (lines 34-85) extracted so
++# the keep list can be used to partition parallel synthesis jobs.
++
++source $::env(SCRIPTS_DIR)/synth_preamble.tcl
++read_checkpoint $::env(RESULTS_DIR)/1_1_yosys_canonicalize.rtlil
++
++hierarchy -check -top $::env(DESIGN_NAME)
++
++if { [env_var_exists_and_non_empty SYNTH_KEEP_MODULES] } {
++  foreach module $::env(SYNTH_KEEP_MODULES) {
++    select -module $module
++    setattr -mod -set keep_hierarchy 1
++    select -clear
++  }
++}
++
++# Coarse synthesis without flattening to get module sizes
++synth -run :fine
++
++if { [env_var_exists_and_non_empty SYNTH_MINIMUM_KEEP_SIZE] } {
++  set ungroup_threshold $::env(SYNTH_MINIMUM_KEEP_SIZE)
++  puts "Keep modules above estimated size of $ungroup_threshold gate equivalents"
++  convert_liberty_areas
++  keep_hierarchy -min_cost $ungroup_threshold
++} else {
++  keep_hierarchy
++}
++
++# Export kept module list as JSON
++set kept_raw [tee -q -s result.string ls -q A:keep_hierarchy=1]
++set kept_modules {}
++foreach line [split $kept_raw "\n"] {
++  set m [string trim $line]
++  if { $m ne "" } {
++    lappend kept_modules $m
++  }
++}
++
++set fp [open $::env(RESULTS_DIR)/kept_modules.json "w"]
++puts -nonewline $fp "\{\"modules\": \["
++set first 1
++foreach m $kept_modules {
++  if { !$first } { puts -nonewline $fp ", " }
++  puts -nonewline $fp "\"$m\""
++  set first 0
++}
++puts $fp "\]\}"
++close $fp
++
++# Save RTLIL checkpoint after keep_hierarchy decisions for partition reuse
++write_rtlil $::env(RESULTS_DIR)/1_1_yosys_keep.rtlil
++
++puts "Kept [llength $kept_modules] modules: $kept_modules"
+diff --git a/flow/scripts/synth_partition.sh b/flow/scripts/synth_partition.sh
+new file mode 100755
+index 000000000..0b8211d97
+--- /dev/null
++++ b/flow/scripts/synth_partition.sh
+@@ -0,0 +1,67 @@
++#!/usr/bin/env bash
++# Per-partition parallel synthesis.
++# Reads kept_modules.json, picks modules where index % N == partition_id,
++# and synthesizes each sequentially with all others blackboxed.
++#
++# Environment:
++#   SYNTH_PARTITION_ID   - this partition's index (0..N-1)
++#   SYNTH_NUM_PARTITIONS - total number of partitions
++#   RESULTS_DIR, SCRIPTS_DIR, etc. - standard ORFS env
++set -euo pipefail
++
++PARTITION_ID=${SYNTH_PARTITION_ID:?}
++NUM_PARTITIONS=${SYNTH_NUM_PARTITIONS:?}
++KEPT_JSON="$RESULTS_DIR/kept_modules.json"
++OUTPUT="$RESULTS_DIR/partition_${PARTITION_ID}.v"
++
++# Parse module list from JSON
++ALL_MODULES=$(python3 -c "
++import json, sys
++with open('$KEPT_JSON') as f:
++    data = json.load(f)
++for m in data['modules']:
++    print(m)
++")
++
++# Pick this partition's modules: index % N == partition_id
++MY_MODULES=()
++idx=0
++while IFS= read -r module; do
++  if (( idx % NUM_PARTITIONS == PARTITION_ID )); then
++    MY_MODULES+=("$module")
++  fi
++  ((idx++)) || true
++done <<< "$ALL_MODULES"
++
++if [ ${#MY_MODULES[@]} -eq 0 ]; then
++  # No modules assigned to this partition — produce empty output
++  touch "$OUTPUT"
++  exit 0
++fi
++
++echo "Partition $PARTITION_ID: synthesizing ${#MY_MODULES[@]} modules: ${MY_MODULES[*]}"
++
++# Build blackbox list: all modules except the one being synthesized
++> "$OUTPUT"  # truncate output file
++for module in "${MY_MODULES[@]}"; do
++  BLACKBOXES=""
++  while IFS= read -r m; do
++    if [ "$m" != "$module" ]; then
++      BLACKBOXES="${BLACKBOXES:+$BLACKBOXES }$m"
++    fi
++  done <<< "$ALL_MODULES"
++
++  echo "=== Synthesizing module: $module (blackboxing ${#MY_MODULES[@]}-1 + others) ==="
++
++  # Run full Yosys synthesis for this module
++  # SYNTH_BLACKBOXES: all other kept modules are blackboxed
++  # DESIGN_NAME: override to this module
++  SYNTH_BLACKBOXES="$BLACKBOXES" \
++  DESIGN_NAME="$module" \
++    "$SCRIPTS_DIR/synth.sh" \
++    "$SCRIPTS_DIR/synth.tcl" \
++    "$LOG_DIR/1_2_yosys_partition_${PARTITION_ID}_${module}.log"
++
++  # Append this module's netlist to partition output
++  cat "$RESULTS_DIR/1_2_yosys.v" >> "$OUTPUT"
++done
+-- 
+2.51.0
+
