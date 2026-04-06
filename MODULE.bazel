@@ -22,7 +22,11 @@ local_path_override(
     path = "mock/klayout",
 )
 
-bazel_dep(name = "bazel-orfs-yosys", version = "0.0.1")
+# dev_dependency: yosys is built from source with make/cmake and would
+# impose C++ toolchain requirements on consumers.  The orfs_repositories
+# extension creates @yosys internally so consumers get a working yosys
+# without this module bleeding into their build environment.
+bazel_dep(name = "bazel-orfs-yosys", version = "0.0.1", dev_dependency = True)
 local_path_override(
     module_name = "bazel-orfs-yosys",
     path = "yosys",
@@ -132,3 +136,4 @@ use_repo(orfs, "docker_orfs")
 use_repo(orfs, "config")
 use_repo(orfs, "gnumake")
 use_repo(orfs, "orfs_variable_metadata")
+use_repo(orfs, "yosys")
