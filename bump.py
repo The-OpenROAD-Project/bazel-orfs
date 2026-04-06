@@ -325,7 +325,7 @@ def read_bazel_orfs_overrides(bazel_orfs_module_path):
     return overrides
 
 
-BAZEL_ORFS_PATCHES_DIR = "bazel-orfs-patches"
+BAZEL_ORFS_PATCHES_DIR = "orfs-patches"
 
 
 def copy_patches(bazel_orfs_dir, workspace_dir):
