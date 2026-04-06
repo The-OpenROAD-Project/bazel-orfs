@@ -19,6 +19,14 @@ load("//:stub.bzl", "stub_docker_orfs")
 
 _default_tag = tag_class(
     attrs = {
+        "image": attr.string(
+            mandatory = False,
+            doc = "Deprecated: Docker image is no longer used. Accepted for backward compatibility.",
+        ),
+        "sha256": attr.string(
+            mandatory = False,
+            doc = "Deprecated: Docker image is no longer used. Accepted for backward compatibility.",
+        ),
         "klayout": attr.label(
             mandatory = False,
             cfg = "exec",
