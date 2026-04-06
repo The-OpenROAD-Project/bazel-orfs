@@ -201,11 +201,13 @@ def find_bazel_orfs_submodules(content):
 
 def has_bazel_dep(content, module_name):
     """Check if content has an active (uncommented) bazel_dep for the given module."""
-    return bool(re.search(
-        r'^bazel_dep\(.*?name\s*=\s*"' + re.escape(module_name) + r'"',
-        content,
-        re.MULTILINE,
-    ))
+    return bool(
+        re.search(
+            r'^bazel_dep\(.*?name\s*=\s*"' + re.escape(module_name) + r'"',
+            content,
+            re.MULTILINE,
+        )
+    )
 
 
 def find_starlark_call_end(content, start):
@@ -220,8 +222,8 @@ def find_starlark_call_end(content, start):
     while i < n:
         c = content[i]
         # Skip triple-quoted strings
-        if content[i:i+3] in ('"""', "'''"):
-            quote = content[i:i+3]
+        if content[i : i + 3] in ('"""', "'''"):
+            quote = content[i : i + 3]
             i += 3
             end = content.find(quote, i)
             if end == -1:
@@ -232,19 +234,19 @@ def find_starlark_call_end(content, start):
         if c in ('"', "'"):
             i += 1
             while i < n and content[i] != c:
-                if content[i] == '\\':
+                if content[i] == "\\":
                     i += 1
                 i += 1
             i += 1
             continue
         # Skip comments
-        if c == '#':
-            while i < n and content[i] != '\n':
+        if c == "#":
+            while i < n and content[i] != "\n":
                 i += 1
             continue
-        if c in ('(', '[', '{'):
+        if c in ("(", "[", "{"):
             depth += 1
-        elif c in (')', ']', '}'):
+        elif c in (")", "]", "}"):
             depth -= 1
             if depth == 0:
                 return i + 1
@@ -257,10 +259,10 @@ def find_git_override_block(content, module_name):
 
     Returns (start, end) tuple or None if not found.
     """
-    pattern = r'git_override\s*\('
+    pattern = r"git_override\s*\("
     for m in re.finditer(pattern, content):
         end = find_starlark_call_end(content, m.start())
-        block = content[m.start():end]
+        block = content[m.start() : end]
         if f'module_name = "{module_name}"' in block:
             return (m.start(), end)
     return None
@@ -272,8 +274,7 @@ def inject_submodule_overrides(content, commit):
     Inserts after the bazel-orfs git_override block.
     """
     missing = [
-        name for name in BAZEL_ORFS_SUBMODULES
-        if not has_bazel_dep(content, name)
+        name for name in BAZEL_ORFS_SUBMODULES if not has_bazel_dep(content, name)
     ]
     if not missing:
         return content
@@ -321,7 +322,7 @@ def read_bazel_orfs_overrides(bazel_orfs_module_path):
     for name in NON_BCR_DEPS:
         span = find_git_override_block(text, name)
         if span:
-            overrides[name] = text[span[0]:span[1]]
+            overrides[name] = text[span[0] : span[1]]
     return overrides
 
 
@@ -365,6 +366,7 @@ def rewrite_patch_labels(override_block):
     In downstream projects, these become:
         //bazel-orfs-patches:foo.patch
     """
+
     def rewrite(m):
         label = m.group(1)
         # Extract just the filename
@@ -409,9 +411,9 @@ def inject_non_bcr_deps(content, bazel_orfs_dir):
             block = overrides[name]
             block = rewrite_patch_labels(block)
             # Strip inline comments but preserve structure
-            lines = block.split('\n')
-            lines = [l for l in lines if not l.strip().startswith('#')]
-            block = '\n'.join(lines)
+            lines = block.split("\n")
+            lines = [l for l in lines if not l.strip().startswith("#")]
+            block = "\n".join(lines)
             blocks.append(f'\nbazel_dep(name = "{name}")\n' + block)
 
     if blocks:
@@ -627,9 +629,7 @@ def bump(
 
     # --- Update qt-bazel commit ---
     if has_bazel_dep(content, "qt-bazel"):
-        qt_commit = fetch_commit_fn(
-            "The-OpenROAD-Project/qt_bazel_prebuilts", "main"
-        )
+        qt_commit = fetch_commit_fn("The-OpenROAD-Project/qt_bazel_prebuilts", "main")
         content = update_git_override_commit(content, "qt-bazel", qt_commit)
         updated_modules.append(f"qt-bazel -> {qt_commit[:12]}")
 
