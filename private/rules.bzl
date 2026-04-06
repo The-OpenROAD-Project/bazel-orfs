@@ -277,16 +277,9 @@ orfs_macro = rule(
 # --- Deps rule ---
 
 def _deps_impl(ctx):
-    tar = _package_stage(
-        ctx,
-        config = ctx.attr.src[OrfsDepInfo].config,
-        make = ctx.attr.src[OrfsDepInfo].make,
-        runfiles_depset = ctx.attr.src[OrfsDepInfo].runfiles.files,
-        renames = ctx.attr.src[OrfsDepInfo].renames,
-    )
     return [
         DefaultInfo(
-            files = depset([tar]),
+            runfiles = ctx.attr.src[OrfsDepInfo].runfiles,
         ),
         ctx.attr.src[OrfsInfo],
         ctx.attr.src[PdkInfo],
@@ -303,6 +296,27 @@ def _deps_impl(ctx):
 orfs_deps = rule(
     implementation = _deps_impl,
     attrs = flow_attrs() | openroad_only_attrs() | yosys_only_attrs(),
+)
+
+# --- Deploy sources rule ---
+# Thin rule that exposes OrfsDepInfo.runfiles as DefaultInfo so that
+# pkg_tar(include_runfiles=True) can package them.
+
+def _deploy_srcs_impl(ctx):
+    dep = ctx.attr.src[OrfsDepInfo]
+    return [DefaultInfo(
+        files = depset([dep.make, dep.config]),
+        runfiles = dep.runfiles,
+    )]
+
+orfs_deploy_srcs = rule(
+    implementation = _deploy_srcs_impl,
+    attrs = {
+        "src": attr.label(
+            mandatory = True,
+            providers = [OrfsDepInfo],
+        ),
+    },
 )
 
 # --- Run rule ---
