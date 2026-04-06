@@ -86,6 +86,7 @@ def _create_deps_tar(stage_name, **kwargs):
     pkg_tar(
         name = stage_name + "_deps",
         srcs = [":" + stage_name + "_deploy_srcs"],
+        extension = "tar.gz",
         include_runfiles = True,
         visibility = visibility,
         tags = ["manual"],

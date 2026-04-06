@@ -80,7 +80,6 @@ def demo_flow(
         pdk = None,
         arguments = {},
         macros = [],
-
         lint = False,
         base_tags = ["manual"],
         **kwargs):
@@ -109,7 +108,6 @@ def demo_flow(
             verilog_files = verilog_files,
             arguments = merged_args,
             macros = macros,
-
             **kwargs
         )
         if pdk:
@@ -121,7 +119,6 @@ def demo_flow(
             verilog_files = verilog_files,
             arguments = merged_args,
             macros = macros,
-
             stage = "final",
             sweep = {
                 "base": {},
@@ -145,7 +142,6 @@ def demo_sram(
         abstract_stage = "cts",
         pdk = None,
         arguments = {},
-
         lint = False,
         lint_tags = [],
         base_tags = ["manual"],
@@ -179,7 +175,6 @@ def demo_sram(
             mock_area = mock_area,
             verilog_files = verilog_files,
             arguments = merged_args,
-
             **kwargs
         )
         if pdk:
@@ -198,7 +193,6 @@ def demo_sram(
             mock_area = mock_area,
             verilog_files = verilog_files,
             arguments = merged_args,
-
             tags = base_tags,
             **kwargs
         )
@@ -213,7 +207,6 @@ def demo_sram(
             arguments = merged_args,
             variant = "lint",
             lint = True,
-
             tags = lint_tags,
             openroad = _LINT_TOOLS["openroad"],
             yosys = _LINT_TOOLS["yosys"],
@@ -229,7 +222,6 @@ def demo_hierarchical(
         macros,
         pdk = None,
         arguments = {},
-
         lint = False,
         base_tags = ["manual"],
         **kwargs):
@@ -258,7 +250,6 @@ def demo_hierarchical(
             verilog_files = verilog_files,
             macros = macros,
             arguments = merged_args,
-
             **kwargs
         )
         if pdk:
@@ -270,7 +261,6 @@ def demo_hierarchical(
             verilog_files = verilog_files,
             arguments = merged_args,
             macros = macros,
-
             stage = "final",
             sweep = {
                 "base": {},
