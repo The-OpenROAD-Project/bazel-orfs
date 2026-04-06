@@ -1,0 +1,53 @@
+From 0c56d8a8080ee60f41e2716ab7fc2e7676620907 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Tue, 31 Mar 2026 15:17:25 +0200
+Subject: [PATCH 32/34] fix: add ihp-sg13g2 IO pad libs to i2c-gpio-expander
+ for all corners
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+The i2c-gpio-expander design instantiates IO pad cells but the platform
+config.mk adds the IO pad libraries conditionally (ifneq FOOTPRINT_TCL).
+Bazel does not evaluate Makefile conditionals, so the design must declare
+these dependencies explicitly.
+
+The previous patch only added ADDITIONAL_LIBS (typ corner). When CORNERS
+is set (slow fast), read_liberty.tcl loads SLOW_LIB_FILES and
+FAST_LIB_FILES which include ADDITIONAL_SLOW_LIBS and ADDITIONAL_FAST_LIBS
+respectively. Without the per-corner IO pad libs, OpenSTA cannot resolve
+sg13g2_IOPadIn and fails with STA-0453.
+
+Add ADDITIONAL_SLOW_LIBS, ADDITIONAL_FAST_LIBS, ADDITIONAL_GDS alongside
+the existing ADDITIONAL_LIBS/LEFS/VERILOG_FILES additions.
+
+Signed-off-by: Oyvind Harboe <oyvind.harboe@zylin.com>
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/designs/ihp-sg13g2/i2c-gpio-expander/config.mk | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+
+diff --git a/flow/designs/ihp-sg13g2/i2c-gpio-expander/config.mk b/flow/designs/ihp-sg13g2/i2c-gpio-expander/config.mk
+index 70ae7c201..ea4b08b7d 100644
+--- a/flow/designs/ihp-sg13g2/i2c-gpio-expander/config.mk
++++ b/flow/designs/ihp-sg13g2/i2c-gpio-expander/config.mk
+@@ -4,6 +4,15 @@ export PLATFORM = ihp-sg13g2
+ 
+ export VERILOG_FILES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/$(DESIGN_NAME).v \
+                        $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/I2cGpioExpander.v
++# IO pad cells -- platform config.mk adds these conditionally when
++# FOOTPRINT_TCL is set, but Bazel does not evaluate Makefile conditionals.
++export VERILOG_FILES += $(PLATFORM_DIR)/verilog/sg13g2_io.v
++export ADDITIONAL_LEFS += $(PLATFORM_DIR)/lef/sg13g2_io.lef \
++                          $(PLATFORM_DIR)/lef/bondpad_70x70.lef
++export ADDITIONAL_LIBS += $(PLATFORM_DIR)/lib/sg13g2_io_typ_1p2V_3p3V_25C.lib
++export ADDITIONAL_SLOW_LIBS += $(PLATFORM_DIR)/lib/sg13g2_io_slow_1p08V_3p0V_125C.lib
++export ADDITIONAL_FAST_LIBS += $(PLATFORM_DIR)/lib/sg13g2_io_fast_1p32V_3p6V_m40C.lib
++export ADDITIONAL_GDS += $(PLATFORM_DIR)/gds/sg13g2_io.gds
+ export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint.sdc
+ 
+ export SEAL_GDS = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/sealring.gds.gz
+-- 
+2.51.0
+

@@ -1,0 +1,105 @@
+From c9785cdd2834651ec393ced863e9d32c432db32a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 15:13:33 +0200
+Subject: [PATCH 27/34] build: split keep RTLIL and JSON extraction into
+ separate actions
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- synth_keep.tcl now only writes 1_1_yosys_keep.rtlil (no JSON)
+- rtlil_kept_modules.py extracts kept_modules.json from the RTLIL
+- New Makefile target do-yosys-kept-json for the fast Python step
+- Blackbox before hierarchy check in synth.tcl (catch unknown modules)
+- Unit test for RTLIL parsing
+
+This allows fast iteration on the JSON format without re-running Yosys.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/Makefile               |  4 ++++
+ flow/scripts/synth.tcl      | 10 ++++++----
+ flow/scripts/synth_keep.tcl | 27 +++------------------------
+ 3 files changed, 13 insertions(+), 28 deletions(-)
+
+diff --git a/flow/Makefile b/flow/Makefile
+index 5387dba3c..36f74bda2 100644
+--- a/flow/Makefile
++++ b/flow/Makefile
+@@ -276,6 +276,10 @@ do-yosys-canonicalize: yosys-dependencies
+ do-yosys-keep: yosys-dependencies
+ 	$(SCRIPTS_DIR)/synth.sh $(SCRIPTS_DIR)/synth_keep.tcl $(LOG_DIR)/1_1_yosys_keep.log
+ 
++.PHONY: do-yosys-kept-json
++do-yosys-kept-json:
++	$(PYTHON_EXE) $(SCRIPTS_DIR)/rtlil_kept_modules.py $(RESULTS_DIR)/1_1_yosys_keep.rtlil $(RESULTS_DIR)/kept_modules.json
++
+ .PHONY: do-yosys-partition
+ do-yosys-partition: yosys-dependencies
+ 	$(SCRIPTS_DIR)/synth_partition.sh
+diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
+index 3748571f2..65105f22b 100644
+--- a/flow/scripts/synth.tcl
++++ b/flow/scripts/synth.tcl
+@@ -38,15 +38,17 @@ if { [env_var_exists_and_non_empty SYNTH_CHECKPOINT] } {
+   read_checkpoint $::env(RESULTS_DIR)/1_1_yosys_canonicalize.rtlil
+ }
+ 
+-hierarchy -check -top $::env(DESIGN_NAME)
+-
+-# Blackbox modules after reading checkpoint (used by parallel partition synthesis)
++# Blackbox modules before hierarchy check (used by parallel partition synthesis)
+ if { [env_var_exists_and_non_empty SYNTH_BLACKBOXES] } {
+   foreach m $::env(SYNTH_BLACKBOXES) {
+-    blackbox $m
++    if { ![catch {blackbox $m}] } {
++      # silently skip modules not in the design
++    }
+   }
+ }
+ 
++hierarchy -check -top $::env(DESIGN_NAME)
++
+ if { $::env(SYNTH_GUT) } {
+   # /deletes all cells at the top level, which will quickly optimize away
+   # everything else, including macros.
+diff --git a/flow/scripts/synth_keep.tcl b/flow/scripts/synth_keep.tcl
+index 60487f341..99b1da8c5 100644
+--- a/flow/scripts/synth_keep.tcl
++++ b/flow/scripts/synth_keep.tcl
+@@ -28,28 +28,7 @@ if { [env_var_exists_and_non_empty SYNTH_MINIMUM_KEEP_SIZE] } {
+   keep_hierarchy
+ }
+ 
+-# Export kept module list as JSON
+-set kept_raw [tee -q -s result.string ls -q A:keep_hierarchy=1]
+-set kept_modules {}
+-foreach line [split $kept_raw "\n"] {
+-  set m [string trim $line]
+-  if { $m ne "" } {
+-    lappend kept_modules $m
+-  }
+-}
+-
+-set fp [open $::env(RESULTS_DIR)/kept_modules.json "w"]
+-puts -nonewline $fp "\{\"modules\": \["
+-set first 1
+-foreach m $kept_modules {
+-  if { !$first } { puts -nonewline $fp ", " }
+-  puts -nonewline $fp "\"$m\""
+-  set first 0
+-}
+-puts $fp "\]\}"
+-close $fp
+-
+-# Save RTLIL checkpoint after keep_hierarchy decisions for partition reuse
++# Save RTLIL checkpoint after keep_hierarchy decisions.
++# The kept module list (kept_modules.json) is extracted separately
++# by rtlil_kept_modules.py for fast iteration.
+ write_rtlil $::env(RESULTS_DIR)/1_1_yosys_keep.rtlil
+-
+-puts "Kept [llength $kept_modules] modules: $kept_modules"
+-- 
+2.51.0
+
