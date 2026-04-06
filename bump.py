@@ -137,7 +137,12 @@ def update_git_override_commit(content, module_name, new_commit):
     return content
 
 
-BAZEL_ORFS_SUBMODULES = ["bazel-orfs-verilog", "bazel-orfs-sby"]
+BAZEL_ORFS_SUBMODULES = {
+    "bazel-orfs-verilog": "verilog",
+    "bazel-orfs-sby": "sby",
+    "bazel-orfs-yosys": "yosys",
+    "mock-klayout": "mock/klayout",
+}
 
 # Old load path -> new load path.  Applied to BUILD* and *.bzl files
 # when bumping a downstream project so that moved .bzl files don't
@@ -192,6 +197,226 @@ def find_bazel_orfs_submodules(content):
             re.DOTALL,
         )
     ]
+
+
+def has_bazel_dep(content, module_name):
+    """Check if content has an active (uncommented) bazel_dep for the given module."""
+    return bool(re.search(
+        r'^bazel_dep\(.*?name\s*=\s*"' + re.escape(module_name) + r'"',
+        content,
+        re.MULTILINE,
+    ))
+
+
+def find_starlark_call_end(content, start):
+    """Find the closing paren of a Starlark function call starting at `start`.
+
+    Handles nested parens, brackets, braces, and triple-quoted strings.
+    Returns the index after the closing paren.
+    """
+    depth = 0
+    i = start
+    n = len(content)
+    while i < n:
+        c = content[i]
+        # Skip triple-quoted strings
+        if content[i:i+3] in ('"""', "'''"):
+            quote = content[i:i+3]
+            i += 3
+            end = content.find(quote, i)
+            if end == -1:
+                return n
+            i = end + 3
+            continue
+        # Skip single-quoted strings
+        if c in ('"', "'"):
+            i += 1
+            while i < n and content[i] != c:
+                if content[i] == '\\':
+                    i += 1
+                i += 1
+            i += 1
+            continue
+        # Skip comments
+        if c == '#':
+            while i < n and content[i] != '\n':
+                i += 1
+            continue
+        if c in ('(', '[', '{'):
+            depth += 1
+        elif c in (')', ']', '}'):
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return n
+
+
+def find_git_override_block(content, module_name):
+    """Find the full git_override() block for a module, handling nested strings.
+
+    Returns (start, end) tuple or None if not found.
+    """
+    pattern = r'git_override\s*\('
+    for m in re.finditer(pattern, content):
+        end = find_starlark_call_end(content, m.start())
+        block = content[m.start():end]
+        if f'module_name = "{module_name}"' in block:
+            return (m.start(), end)
+    return None
+
+
+def inject_submodule_overrides(content, commit):
+    """Inject bazel_dep + git_override blocks for missing bazel-orfs submodules.
+
+    Inserts after the bazel-orfs git_override block.
+    """
+    missing = [
+        name for name in BAZEL_ORFS_SUBMODULES
+        if not has_bazel_dep(content, name)
+    ]
+    if not missing:
+        return content
+
+    span = find_git_override_block(content, "bazel-orfs")
+    if not span:
+        return content
+
+    blocks = []
+    for name in missing:
+        strip_prefix = BAZEL_ORFS_SUBMODULES[name]
+        blocks.append(
+            f'\nbazel_dep(name = "{name}")\n'
+            f"git_override(\n"
+            f'    module_name = "{name}",\n'
+            f'    commit = "{commit}",\n'
+            f'    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs",\n'
+            f'    strip_prefix = "{strip_prefix}",\n'
+            f")"
+        )
+
+    insert_pos = span[1]
+    return content[:insert_pos] + "\n" + "\n".join(blocks) + content[insert_pos:]
+
+
+# Non-BCR deps that downstream projects need overrides for.
+# These are read from bazel-orfs's own MODULE.bazel and injected
+# into downstream projects during bump.
+NON_BCR_DEPS = [
+    "orfs",
+    "openroad",
+    "qt-bazel",
+]
+
+
+def read_bazel_orfs_overrides(bazel_orfs_module_path):
+    """Read git_override blocks from bazel-orfs's MODULE.bazel.
+
+    Returns dict of module_name -> (bazel_dep line, git_override block text).
+    """
+    with open(bazel_orfs_module_path) as f:
+        text = f.read()
+
+    overrides = {}
+    for name in NON_BCR_DEPS:
+        span = find_git_override_block(text, name)
+        if span:
+            overrides[name] = text[span[0]:span[1]]
+    return overrides
+
+
+BAZEL_ORFS_PATCHES_DIR = "bazel-orfs-patches"
+
+
+def copy_patches(bazel_orfs_dir, workspace_dir):
+    """Copy bazel-orfs patches into the downstream project.
+
+    Creates bazel-orfs-patches/ with a BUILD.bazel that exports all .patch files.
+    Returns the label prefix for referencing these patches.
+    """
+    import shutil
+
+    src_patches = os.path.join(bazel_orfs_dir, "patches")
+    dst_dir = os.path.join(workspace_dir, BAZEL_ORFS_PATCHES_DIR)
+    if not os.path.isdir(src_patches):
+        return
+
+    os.makedirs(dst_dir, exist_ok=True)
+    for f in os.listdir(src_patches):
+        if f.endswith(".patch"):
+            shutil.copy2(os.path.join(src_patches, f), dst_dir)
+
+    # Also copy root-level patches referenced as //:foo.patch
+    for f in os.listdir(bazel_orfs_dir):
+        if f.endswith(".patch"):
+            shutil.copy2(os.path.join(bazel_orfs_dir, f), dst_dir)
+
+    build_path = os.path.join(dst_dir, "BUILD.bazel")
+    if not os.path.exists(build_path):
+        with open(build_path, "w") as fh:
+            fh.write('exports_files(glob(["*.patch"]))\n')
+
+
+def rewrite_patch_labels(override_block):
+    """Rewrite patch labels to reference the local bazel-orfs-patches/ dir.
+
+    In bazel-orfs's MODULE.bazel, patches reference:
+        //patches:foo.patch  or  //:foo.patch
+    In downstream projects, these become:
+        //bazel-orfs-patches:foo.patch
+    """
+    def rewrite(m):
+        label = m.group(1)
+        # Extract just the filename
+        filename = label.split(":")[-1]
+        return f'"//{BAZEL_ORFS_PATCHES_DIR}:{filename}"'
+
+    override_block = re.sub(
+        r'"(//(?:patches|)[^"]*\.patch)"',
+        rewrite,
+        override_block,
+    )
+    return override_block
+
+
+def inject_non_bcr_deps(content, bazel_orfs_dir):
+    """Inject git_override blocks for non-BCR deps that downstream projects need.
+
+    Reads the override blocks from bazel-orfs's own MODULE.bazel and
+    injects them (with rewritten patch labels) into the downstream content.
+    """
+    module_path = os.path.join(bazel_orfs_dir, "MODULE.bazel")
+    if not os.path.exists(module_path):
+        return content
+
+    overrides = read_bazel_orfs_overrides(module_path)
+    missing = [name for name in NON_BCR_DEPS if not has_bazel_dep(content, name)]
+    if not missing:
+        return content
+
+    # Find insertion point: after the last bazel-orfs submodule git_override
+    insert_pos = 0
+    for name in list(BAZEL_ORFS_SUBMODULES) + ["bazel-orfs"]:
+        span = find_git_override_block(content, name)
+        if span and span[1] > insert_pos:
+            insert_pos = span[1]
+    if insert_pos == 0:
+        return content
+
+    blocks = []
+    for name in missing:
+        if name in overrides:
+            block = overrides[name]
+            block = rewrite_patch_labels(block)
+            # Strip inline comments but preserve structure
+            lines = block.split('\n')
+            lines = [l for l in lines if not l.strip().startswith('#')]
+            block = '\n'.join(lines)
+            blocks.append(f'\nbazel_dep(name = "{name}")\n' + block)
+
+    if blocks:
+        return content[:insert_pos] + "\n" + "\n".join(blocks) + content[insert_pos:]
+    return content
 
 
 BOILERPLATE_MARKER = "Uncomment to build OpenROAD from source"
@@ -361,15 +586,26 @@ def bump(
         content = update_orfs_image(content, latest_tag, digest)
         updated_modules.append(f"ORFS image -> {latest_tag}")
 
+    # --- Locate bazel-orfs source (for reading overrides and copying patches) ---
+    bazel_orfs_dir = os.path.dirname(os.path.abspath(__file__))
+
     # --- Update bazel-orfs commit (skip for bazel-orfs itself) ---
     if project != "bazel-orfs":
         bazel_orfs_commit = fetch_commit_fn("The-OpenROAD-Project/bazel-orfs", "main")
         content = update_git_override_commit(content, "bazel-orfs", bazel_orfs_commit)
         updated_modules.append(f"bazel-orfs -> {bazel_orfs_commit[:12]}")
+        # Inject git_override blocks for any missing submodules
+        content = inject_submodule_overrides(content, bazel_orfs_commit)
         # Submodules live in the same repo, so they share the same commit
         for submodule in find_bazel_orfs_submodules(content):
             content = update_git_override_commit(content, submodule, bazel_orfs_commit)
             updated_modules.append(f"{submodule} -> {bazel_orfs_commit[:12]}")
+
+        # Inject non-BCR deps (orfs, openroad, qt-bazel) with commits
+        # pinned to the same versions bazel-orfs uses
+        content = inject_non_bcr_deps(content, bazel_orfs_dir)
+        if workspace_dir:
+            copy_patches(bazel_orfs_dir, workspace_dir)
 
     # --- Update OpenROAD commit (skip for OpenROAD itself) ---
     openroad_commit = fetch_commit_fn("The-OpenROAD-Project/OpenROAD", "master")
@@ -378,13 +614,24 @@ def bump(
         content = update_git_override_commit(content, "openroad", openroad_commit)
         updated_modules.append(f"openroad -> {openroad_commit[:12]}")
 
-    # --- Update ORFS commit (bazel-orfs only — fetches flow scripts via git_override) ---
+    # --- Update ORFS commit ---
+    # For bazel-orfs itself: bump to latest ORFS.
+    # For downstream: ORFS commit is pinned by bazel-orfs (patches must match),
+    # so only update if the override was already present (user manages their own).
     orfs_commit = fetch_commit_fn(
         "The-OpenROAD-Project/OpenROAD-flow-scripts", "master"
     )
     if project == "bazel-orfs":
         content = update_git_override_commit(content, "orfs", orfs_commit)
         updated_modules.append(f"orfs -> {orfs_commit[:12]}")
+
+    # --- Update qt-bazel commit ---
+    if has_bazel_dep(content, "qt-bazel"):
+        qt_commit = fetch_commit_fn(
+            "The-OpenROAD-Project/qt_bazel_prebuilts", "main"
+        )
+        content = update_git_override_commit(content, "qt-bazel", qt_commit)
+        updated_modules.append(f"qt-bazel -> {qt_commit[:12]}")
 
     # --- Update yosys release (bazel-orfs only) ---
     if project == "bazel-orfs":
