@@ -70,8 +70,8 @@ clean_deploy() {
 
 test_single_synth() {
     echo "=== Test: single_synth ==="
-    local target="//test:lb_32x128_synth"
-    local deploy_dir="tmp/test/lb_32x128_synth_deps"
+    local target="//test:lb_32x128_mock_synth"
+    local deploy_dir="tmp/test/lb_32x128_mock_synth_deps"
 
     clean_deploy "$deploy_dir"
     deploy "$target"
@@ -84,8 +84,8 @@ test_single_synth() {
 
 test_single_floorplan() {
     echo "=== Test: single_floorplan ==="
-    local target="//test:lb_32x128_floorplan"
-    local deploy_dir="tmp/test/lb_32x128_floorplan_deps"
+    local target="//test:lb_32x128_mock_floorplan"
+    local deploy_dir="tmp/test/lb_32x128_mock_floorplan_deps"
 
     clean_deploy "$deploy_dir"
     deploy "$target"
@@ -103,8 +103,8 @@ test_single_floorplan() {
 
 test_real_floorplan() {
     echo "=== Test: real_floorplan ==="
-    local target="//test:tag_array_64x184_floorplan"
-    local deploy_dir="tmp/test/tag_array_64x184_floorplan_deps"
+    local target="//test:tag_array_64x184_mock_floorplan"
+    local deploy_dir="tmp/test/tag_array_64x184_mock_floorplan_deps"
 
     clean_deploy "$deploy_dir"
     deploy "$target"
@@ -122,8 +122,8 @@ test_real_floorplan() {
 
 test_hierarchy() {
     echo "=== Test: hierarchy ==="
-    local target="//test:lb_32x128_top_mock_hierarchy_floorplan"
-    local deploy_dir="tmp/test/lb_32x128_top_mock_hierarchy_floorplan_deps"
+    local target="//test:lb_32x128_top_mock_full_hierarchy_floorplan"
+    local deploy_dir="tmp/test/lb_32x128_top_mock_full_hierarchy_floorplan_deps"
 
     clean_deploy "$deploy_dir"
     deploy "$target"
@@ -139,8 +139,8 @@ test_hierarchy() {
 
 test_make_passthrough() {
     echo "=== Test: make_passthrough ==="
-    local target="//test:tag_array_64x184_floorplan"
-    local deploy_dir="tmp/test/tag_array_64x184_floorplan_deps"
+    local target="//test:tag_array_64x184_mock_floorplan"
+    local deploy_dir="tmp/test/tag_array_64x184_mock_floorplan_deps"
 
     clean_deploy "$deploy_dir"
 
@@ -153,16 +153,14 @@ test_make_passthrough() {
 
 test_run_substep() {
     echo "=== Test: run_substep ==="
-    local target="//test:tag_array_64x184_floorplan"
-    local deploy_dir="tmp/test/tag_array_64x184_floorplan_deps"
+    local target="//test:tag_array_64x184_mock_floorplan"
+    local deploy_dir="tmp/test/tag_array_64x184_mock_floorplan_deps"
 
     clean_deploy "$deploy_dir"
     deploy "$target"
 
     # Run a substep — this exercises the full local flow:
     # deploy inputs, then execute a stage substep via make.
-    # Uses real OpenROAD (not mock, which is a py_binary that
-    # doesn't work outside Bazel's runfiles wrapper).
     "$deploy_dir/make" do-2_1_floorplan
     pass "make do-2_1_floorplan completed"
 }

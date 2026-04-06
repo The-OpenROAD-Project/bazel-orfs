@@ -1055,6 +1055,76 @@ sh_test(
     data = ["//:openroad"],
 )
 
+# --- Fully-mock flows for deps integration tests ---
+# These use mock-yosys (synth) + mock-openroad (other stages) so the
+# deps integration test script needs no real tool builds.
+
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    arguments = LB_ARGS,
+    last_stage = "floorplan",
+    openroad = "@mock-openroad//src/bin:openroad",
+    stage_sources = LB_STAGE_SOURCES,
+    variant = "mock",
+    verilog_files = LB_VERILOG_FILES,
+    yosys = "@mock-yosys//src/bin:yosys",
+)
+
+# Cross-package verilog (//another:) exercises external package handling.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "tag_array_64x184",
+    arguments = TAG_ARRAY_ARGUMENTS,
+    last_stage = "floorplan",
+    openroad = "@mock-openroad//src/bin:openroad",
+    stage_sources = {
+        "floorplan": [":io-sram"],
+        "place": [":io-sram"],
+        "synth": [":constraints-sram"],
+    },
+    variant = "mock",
+    verilog_files = ["//another:tag_array_64x184.sv"],
+    yosys = "@mock-yosys//src/bin:yosys",
+)
+
+# Fully-mock abstract chain: reuses lb_32x128_mock_synth, adds
+# mock-openroad floorplan through cts for abstract generation.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    abstract_stage = "cts",
+    arguments = LB_ARGS | BLOCK_FLOORPLAN,
+    openroad = "@mock-openroad//src/bin:openroad",
+    previous_stage = {"floorplan": ":lb_32x128_mock_synth"},
+    stage_sources = LB_STAGE_SOURCES,
+    variant = "mock_full_abstract",
+    verilog_files = LB_VERILOG_FILES,
+)
+
+# Fully-mock hierarchical flow for deps integration tests.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128_top",
+    arguments = SRAM_ARGUMENTS | {
+        "CORE_AREA": "2 2 23 23",
+        "CORE_MARGIN": "2",
+        "DIE_AREA": "0 0 25 25",
+        "GDS_ALLOW_EMPTY": "lb_32x128",
+        "MACRO_PLACE_HALO": "5 5",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+        "PLACE_DENSITY": "0.65",
+        "PWR_NETS_VOLTAGES": "",
+    },
+    last_stage = "floorplan",
+    macros = ["lb_32x128_mock_full_abstract_generate_abstract"],
+    openroad = "@mock-openroad//src/bin:openroad",
+    stage_sources = LB_STAGE_SOURCES,
+    variant = "mock_full_hierarchy",
+    verilog_files = ["rtl/lb_32x128_top.v"],
+    yosys = "@mock-yosys//src/bin:yosys",
+)
+
 # --- Deps pkg_tar tests: verify on-demand deps deployment ---
 
 # Test deps tarball on synth (yosys) stage
