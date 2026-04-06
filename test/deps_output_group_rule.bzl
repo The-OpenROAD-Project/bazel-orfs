@@ -6,7 +6,7 @@ def _deps_tar_test_impl(ctx):
     if not deps_files:
         fail("Target {} has no output files".format(ctx.attr.target.label))
 
-    tarballs = [f for f in deps_files if f.basename.endswith(".tar")]
+    tarballs = [f for f in deps_files if f.basename.endswith(".tar.gz") or f.basename.endswith(".tar")]
     if not tarballs:
         fail("Target {} has no tarball".format(ctx.attr.target.label))
     tarball = tarballs[0]
