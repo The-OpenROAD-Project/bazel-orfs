@@ -15,12 +15,12 @@ sh_test(
         "rtl/counter.sv",
         "rtl/counter_with_sram.sv",
         "rtl/tiny_sram.sv",
-        "@mock-openroad//src/bin:openroad",
-        "@mock-yosys//src/bin:yosys",
+        "@bazel-orfs//mock/openroad/src/bin:openroad",
+        "@bazel-orfs//mock/yosys/src/bin:yosys",
     ],
     env = {
-        "LINT_OPENROAD_EXE": "$(rootpath @mock-openroad//src/bin:openroad)",
-        "LINT_YOSYS_EXE": "$(rootpath @mock-yosys//src/bin:yosys)",
+        "LINT_OPENROAD_EXE": "$(rootpath @bazel-orfs//mock/openroad/src/bin:openroad)",
+        "LINT_YOSYS_EXE": "$(rootpath @bazel-orfs//mock/yosys/src/bin:yosys)",
     },
     tags = ["manual"],  # requires ORFS checkout
 )

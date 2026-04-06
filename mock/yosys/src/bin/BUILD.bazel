@@ -6,7 +6,7 @@ sh_binary(
     data = [
         "yosys.py",
         "yosys_commands.py",
-        "@mock-openroad//src/bin:tcl_interpreter.py",
+        "//mock/openroad/src/bin:tcl_interpreter.py",
     ],
     visibility = ["//visibility:public"],
 )

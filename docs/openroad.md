@@ -126,22 +126,17 @@ or building from source via `git_override`.
 
 For CI and development, a mock openroad binary is provided that exits
 successfully without running real place-and-route. This is useful for testing
-the override mechanism without the cost of a real OpenROAD build:
+the override mechanism without the cost of a real OpenROAD build.
 
-```starlark
-bazel_dep(name = "mock-openroad", version = "0.0.1", dev_dependency = True)
-local_path_override(
-    module_name = "mock-openroad",
-    path = "mock/openroad",
-)
-```
+The mock binaries are regular packages within bazel-orfs, so downstream
+consumers reference them as `@bazel-orfs//mock/openroad/src/bin:openroad`.
 
 To use the mock per-target in tests:
 
 ```starlark
 orfs_flow(
     name = "my_design_mock_openroad",
-    openroad = "@mock-openroad//src/bin:openroad",
+    openroad = "//mock/openroad/src/bin:openroad",
     # ...
 )
 ```

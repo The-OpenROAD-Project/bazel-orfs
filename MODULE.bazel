@@ -22,18 +22,6 @@ local_path_override(
     path = "mock/klayout",
 )
 
-bazel_dep(name = "mock-openroad", version = "0.0.1", dev_dependency = True)
-local_path_override(
-    module_name = "mock-openroad",
-    path = "mock/openroad",
-)
-
-bazel_dep(name = "mock-yosys", version = "0.0.1", dev_dependency = True)
-local_path_override(
-    module_name = "mock-yosys",
-    path = "mock/yosys",
-)
-
 bazel_dep(name = "bazel-orfs-yosys", version = "0.0.1")
 local_path_override(
     module_name = "bazel-orfs-yosys",

@@ -6,7 +6,7 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
-Replaced by auto-generated orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad") targets from config.mk.
+Replaced by auto-generated orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad") targets from config.mk.
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
@@ -4551,7 +4551,7 @@ index a8a5f264d..000000000
 -
 -exports_files(glob(["*"]))
 -
--orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/ethmac_lvt/BUILD.bazel b/flow/designs/asap7/ethmac_lvt/BUILD.bazel
 deleted file mode 100644
 index a8a5f264d..000000000
@@ -4563,7 +4563,7 @@ index a8a5f264d..000000000
 -
 -exports_files(glob(["*"]))
 -
--orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/gcd/BUILD b/flow/designs/asap7/gcd/BUILD
 deleted file mode 100644
 index 0736578fe..000000000
@@ -4601,7 +4601,7 @@ index a8a5f264d..000000000
 -
 -exports_files(glob(["*"]))
 -
--orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/sky130hd/ibex/BUILD.bazel b/flow/designs/sky130hd/ibex/BUILD.bazel
 deleted file mode 100644
 index a8a5f264d..000000000
@@ -4613,7 +4613,7 @@ index a8a5f264d..000000000
 -
 -exports_files(glob(["*"]))
 -
--orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 -- 
 2.51.0
 

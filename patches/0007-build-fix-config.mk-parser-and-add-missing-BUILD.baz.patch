@@ -28,7 +28,7 @@ New BUILD.bazel files:
 - 21 cva6 src subdirectories for nested verilog/include files
 - ibex, jpeg include directories
 
-Disable orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad") for designs with pre-existing issues:
+Disable orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad") for designs with pre-existing issues:
 - cva6, minimal, mock-cpu, riscv32i, swerv_wrapper
 
 Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
@@ -104,7 +104,7 @@ index 000000000..a8a5f264d
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/cva6/BUILD.bazel b/flow/designs/asap7/cva6/BUILD.bazel
 index a8a5f264d..5d9662317 100644
 --- a/flow/designs/asap7/cva6/BUILD.bazel
@@ -117,9 +117,9 @@ index a8a5f264d..5d9662317 100644
  
  exports_files(glob(["*"]))
  
--orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 +# FIXME later
-+# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/ethmac_lvt/BUILD.bazel b/flow/designs/asap7/ethmac_lvt/BUILD.bazel
 new file mode 100644
 index 000000000..a8a5f264d
@@ -131,7 +131,7 @@ index 000000000..a8a5f264d
 +
 +exports_files(glob(["*"]))
 +
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/minimal/BUILD.bazel b/flow/designs/asap7/minimal/BUILD.bazel
 index a8a5f264d..d2275d7b1 100644
 --- a/flow/designs/asap7/minimal/BUILD.bazel
@@ -142,7 +142,7 @@ index a8a5f264d..d2275d7b1 100644
 -
 -exports_files(glob(["*"]))
 -
--orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 +# Note! This is a local make use only, not used with Bazel
 diff --git a/flow/designs/asap7/mock-cpu/BUILD.bazel b/flow/designs/asap7/mock-cpu/BUILD.bazel
 index a8a5f264d..01deff0be 100644
@@ -156,8 +156,8 @@ index a8a5f264d..01deff0be 100644
  
  exports_files(glob(["*"]))
  
--orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-+# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i/BUILD.bazel b/flow/designs/asap7/riscv32i/BUILD.bazel
 index a8a5f264d..3c61c7540 100644
 --- a/flow/designs/asap7/riscv32i/BUILD.bazel
@@ -171,8 +171,8 @@ index a8a5f264d..3c61c7540 100644
  
  exports_files(glob(["*"]))
  
--orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-+# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/swerv_wrapper/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 new file mode 100644
 index 000000000..5d9662317
@@ -185,7 +185,7 @@ index 000000000..5d9662317
 +exports_files(glob(["*"]))
 +
 +# FIXME later
-+# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/src/cva6/common/local/util/BUILD.bazel b/flow/designs/src/cva6/common/local/util/BUILD.bazel
 new file mode 100644
 index 000000000..5bdb9cc16
