@@ -45,6 +45,10 @@ jobs:
           bazelisk run //:fix_lint
           git diff --exit-code
 
+      # --- Deps integration ---
+      - name: Deps integration tests
+        run: test/deps_integration_test.sh all
+
       # --- Unit tests ---
       - name: Build tests
         run: bazelisk build ... --build_tests_only --profile=build.profile
@@ -66,10 +70,6 @@ jobs:
       - name: ORFS mock flow (gcd)
         working-directory: orfs
         run: bazelisk build @orfs//flow/designs/asap7/gcd:gcd_generate_metadata
-
-      # --- Deps integration ---
-      - name: Deps integration tests
-        run: test/deps_integration_test.sh all
 
       # --- Gallery ---
       - name: Gallery query

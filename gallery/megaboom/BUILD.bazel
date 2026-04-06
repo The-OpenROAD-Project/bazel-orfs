@@ -173,7 +173,10 @@ MEMORY_BLACKBOXES = [
 SRAM_OVERRIDES = {
     "array_64x1024": {"CORE_UTILIZATION": "20"},
     "regfile_128x65": {"CORE_UTILIZATION": "20"},
-    "ram_sink_2x4": {"CORE_UTILIZATION": "10", "CORE_ASPECT_RATIO": "1"},
+    "ram_sink_2x4": {
+        "CORE_UTILIZATION": "10",
+        "CORE_ASPECT_RATIO": "1",
+    },
 }
 
 [demo_sram(
