@@ -15,11 +15,9 @@ exports_files([
     "oci_extract.py",
     "package_stage.py",
     "mock_area.tcl",
-    "open_plots.sh",
     "openroad-llvm-root-only.patch",
     "openroad-visibility.patch",
     "oss_cad_suite.BUILD.bazel",
-    "power.tcl",
     "parallel_synth.mk",
     "rtlil_kept_modules.py",
     "sby.tpl",
@@ -52,19 +50,6 @@ compile_pip_requirements(
     src = "requirements_features.in",
     python_version = "3.13",
     requirements_txt = "requirements_features_lock_3_13.txt",
-)
-
-py_binary(
-    name = "plot_clock_period_tool",
-    srcs = [
-        "plot_clock_period.py",
-    ],
-    main = "plot_clock_period.py",
-    visibility = ["//visibility:public"],
-    deps = [
-        "@bazel-orfs-features-pip//matplotlib",
-        "@bazel-orfs-pip//pyyaml",
-    ],
 )
 
 # From any project using bazel-orfs run `bazelisk run @bazel-orfs//:bump`

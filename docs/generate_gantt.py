@@ -44,67 +44,93 @@ GROUP_COLORS = {
 # A commit counts toward an activity if it touched matching files.
 ACTIVITIES = [
     # --- Core Rules ---
-    ("Core rules (openroad.bzl)", "Core Rules",
-     [r"^openroad\.bzl$"], [r"\.lock$"]),
-    ("Deploy & local flow", "Core Rules",
-     [r"deploy\.tpl$", r"make\.tpl$", r"make_script"], []),
-    ("Variable metadata", "Core Rules",
-     [r"load_json_file\.bzl$", r"config\.bzl$", r"extension\.bzl$"], []),
+    ("Core rules (openroad.bzl)", "Core Rules", [r"^openroad\.bzl$"], [r"\.lock$"]),
+    (
+        "Deploy & local flow",
+        "Core Rules",
+        [r"deploy\.tpl$", r"make\.tpl$", r"make_script"],
+        [],
+    ),
+    (
+        "Variable metadata",
+        "Core Rules",
+        [r"load_json_file\.bzl$", r"config\.bzl$", r"extension\.bzl$"],
+        [],
+    ),
     # --- Features ---
-    ("Mock area & abstracts", "Features",
-     [r"mock_area", r"abstract"], []),
-    ("Sweep & DSE", "Features",
-     [r"sweep\.bzl$", r"sweep.*\.tcl$", r"sweep.*\.py$"], []),
-    ("PPA analysis", "Features",
-     [r"ppa\.bzl$", r"plot_clock_period"], []),
-    ("SRAM support", "Features",
-     [r"sram/"], []),
-    ("Naja post-synthesis", "Features",
-     [r"naja/"], []),
-    ("orfs_genrule", "Features",
-     [r"orfs_genrule\.bzl$"], []),
+    ("Mock area & abstracts", "Features", [r"mock_area", r"abstract"], []),
+    (
+        "Sweep & DSE",
+        "Features",
+        [r"sweep\.bzl$", r"sweep.*\.tcl$", r"sweep.*\.py$"],
+        [],
+    ),
+    ("PPA analysis", "Features", [r"ppa\.bzl$"], []),
+    ("SRAM support", "Features", [r"sram/"], []),
+    ("Naja post-synthesis", "Features", [r"naja/"], []),
+    ("orfs_genrule", "Features", [r"orfs_genrule\.bzl$"], []),
     # --- Verification ---
-    ("EQY equivalence checking", "Verification",
-     [r"eqy[\.-]", r"eqy\.bzl$"], []),
-    ("SBY formal verification", "Verification",
-     [r"sby[\./]", r"sby\.bzl$", r"sby\.tpl$"], []),
+    ("EQY equivalence checking", "Verification", [r"eqy[\.-]", r"eqy\.bzl$"], []),
+    (
+        "SBY formal verification",
+        "Verification",
+        [r"sby[\./]", r"sby\.bzl$", r"sby\.tpl$"],
+        [],
+    ),
     # --- Toolchains ---
-    ("Chisel & Scala", "Toolchains",
-     [r"chisel/", r"generate\.bzl$",
-      r"bloop", r"\.scala$"], []),
-    ("Verilog & Yosys", "Toolchains",
-     [r"verilog\.bzl$", r"yosys\.bzl$", r"slang/"], []),
-    ("Verilator", "Toolchains",
-     [r"verilator"], []),
+    (
+        "Chisel & Scala",
+        "Toolchains",
+        [r"chisel/", r"generate\.bzl$", r"bloop", r"\.scala$"],
+        [],
+    ),
+    (
+        "Verilog & Yosys",
+        "Toolchains",
+        [r"verilog\.bzl$", r"yosys\.bzl$", r"slang/"],
+        [],
+    ),
+    ("Verilator", "Toolchains", [r"verilator"], []),
     # --- Infrastructure ---
-    ("Docker image extraction", "Infrastructure",
-     [r"docker\.bzl$", r"docker\.BUILD", r"docker_shell",
-      r"patcher\.py$"], []),
-    ("PDK support", "Infrastructure",
-     [r"asap7/", r"sky130", r"ihp"], []),
-    ("Bazel module & deps", "Infrastructure",
-     [r"MODULE\.bazel$", r"WORKSPACE$", r"\.bazelversion$",
-      r"requirements.*\.txt$"], [r"\.lock$"]),
-    ("CI & GitHub Actions", "Infrastructure",
-     [r"\.github/", r"\.bazelrc$"], []),
-    ("Pin artifacts", "Infrastructure",
-     [r"pin\.bzl$", r"tools/pin/", r"extensions/pin"], []),
-    ("Documentation", "Project",
-     [r"README\.md$", r"docs/"], []),
+    (
+        "Docker image extraction",
+        "Infrastructure",
+        [r"docker\.bzl$", r"docker\.BUILD", r"docker_shell", r"patcher\.py$"],
+        [],
+    ),
+    ("PDK support", "Infrastructure", [r"asap7/", r"sky130", r"ihp"], []),
+    (
+        "Bazel module & deps",
+        "Infrastructure",
+        [r"MODULE\.bazel$", r"WORKSPACE$", r"\.bazelversion$", r"requirements.*\.txt$"],
+        [r"\.lock$"],
+    ),
+    ("CI & GitHub Actions", "Infrastructure", [r"\.github/", r"\.bazelrc$"], []),
+    (
+        "Pin artifacts",
+        "Infrastructure",
+        [r"pin\.bzl$", r"tools/pin/", r"extensions/pin"],
+        [],
+    ),
+    ("Documentation", "Project", [r"README\.md$", r"docs/"], []),
     # --- Retired ---
-    ("Docker shell (retired)", "Retired",
-     [r"docker_shell"], []),
-    ("netlistsvg (retired)", "Retired",
-     [r"netlistsvg", r"pnpm", r"rules_js", r"main\.js$"], []),
+    ("Docker shell (retired)", "Retired", [r"docker_shell"], []),
+    (
+        "netlistsvg (retired)",
+        "Retired",
+        [r"netlistsvg", r"pnpm", r"rules_js", r"main\.js$"],
+        [],
+    ),
 ]
 
 
 def get_git_numstat():
     """Get git log with --numstat."""
     result = subprocess.run(
-        ["git", "log", "--numstat",
-         "--format=COMMIT\t%ad\t%s", "--date=short"],
-        capture_output=True, text=True, check=True,
+        ["git", "log", "--numstat", "--format=COMMIT\t%ad\t%s", "--date=short"],
+        capture_output=True,
+        text=True,
+        check=True,
     )
     commits = []
     current = None
@@ -115,27 +141,19 @@ def get_git_numstat():
                 if current:
                     commits.append(current)
                 current = {
-                    "date": datetime.strptime(
-                        parts[1], "%Y-%m-%d"
-                    ),
+                    "date": datetime.strptime(parts[1], "%Y-%m-%d"),
                     "subject": parts[2],
                     "files": [],
                 }
         elif line.strip() and current is not None:
             parts = line.split("\t")
             if len(parts) >= 3:
-                added = (
-                    int(parts[0]) if parts[0] != "-" else 0
-                )
-                removed = (
-                    int(parts[1]) if parts[1] != "-" else 0
-                )
+                added = int(parts[0]) if parts[0] != "-" else 0
+                removed = int(parts[1]) if parts[1] != "-" else 0
                 filepath = parts[2]
                 if " => " in filepath:
                     filepath = filepath.split(" => ")[-1]
-                current["files"].append(
-                    (filepath, added + removed)
-                )
+                current["files"].append((filepath, added + removed))
     if current:
         commits.append(current)
     return commits
@@ -155,13 +173,9 @@ def classify_and_span(commits):
         for commit in commits:
             loc = 0
             for filepath, lines_changed in commit["files"]:
-                if any(
-                    re.search(e, filepath) for e in excludes
-                ):
+                if any(re.search(e, filepath) for e in excludes):
                     continue
-                if any(
-                    re.search(p, filepath) for p in patterns
-                ):
+                if any(re.search(p, filepath) for p in patterns):
                     loc += lines_changed
             if loc > 0:
                 date_locs.append((commit["date"], loc))
@@ -169,9 +183,7 @@ def classify_and_span(commits):
         if not date_locs:
             continue
 
-        sorted_entries = sorted(
-            date_locs, key=lambda x: x[0]
-        )
+        sorted_entries = sorted(date_locs, key=lambda x: x[0])
         total_loc = sum(loc for _, loc in sorted_entries)
 
         # Merge into segments
@@ -192,22 +204,15 @@ def classify_and_span(commits):
         segments.append((seg_start, seg_end, seg_loc))
 
         # Minimum 7-day visual width
-        segments = [
-            (s, max(e, s + timedelta(days=7)), loc)
-            for s, e, loc in segments
-        ]
-        spans[name] = (
-            segments, total_loc, len(sorted_entries)
-        )
+        segments = [(s, max(e, s + timedelta(days=7)), loc) for s, e, loc in segments]
+        spans[name] = (segments, total_loc, len(sorted_entries))
 
     return spans
 
 
 def render_gantt(spans, commits, output_file=None):
     activity_order = [
-        (name, group)
-        for name, group, _, _ in ACTIVITIES
-        if name in spans
+        (name, group) for name, group, _, _ in ACTIVITIES if name in spans
     ]
 
     if not activity_order:
@@ -215,9 +220,7 @@ def render_gantt(spans, commits, output_file=None):
         return
 
     fig, ax = plt.subplots(figsize=(18, 11))
-    fig.subplots_adjust(
-        left=0.22, right=0.88, top=0.92, bottom=0.10
-    )
+    fig.subplots_adjust(left=0.22, right=0.88, top=0.92, bottom=0.10)
 
     # Max segment LOC for alpha scaling
     all_seg_locs = []
@@ -244,27 +247,28 @@ def render_gantt(spans, commits, output_file=None):
 
         for seg_start, seg_end, seg_loc in segments:
             duration = (seg_end - seg_start).days
-            alpha = 0.35 + 0.65 * min(
-                1.0, seg_loc / (max_seg_loc * 0.3)
-            )
+            alpha = 0.35 + 0.65 * min(1.0, seg_loc / (max_seg_loc * 0.3))
             ax.barh(
-                y, duration,
+                y,
+                duration,
                 left=mdates.date2num(seg_start),
-                height=0.6, color=color, alpha=alpha,
-                edgecolor="white", linewidth=0.5,
+                height=0.6,
+                color=color,
+                alpha=alpha,
+                edgecolor="white",
+                linewidth=0.5,
             )
 
         last_end = max(e for _, e, _ in segments)
-        loc_str = (
-            f"{total_loc:,}"
-            if total_loc >= 1000
-            else str(total_loc)
-        )
+        loc_str = f"{total_loc:,}" if total_loc >= 1000 else str(total_loc)
         ax.text(
-            mdates.date2num(last_end) + 5, y,
+            mdates.date2num(last_end) + 5,
+            y,
             f"{loc_str} LOC  ({commit_count})",
-            va="center", ha="left",
-            fontsize=7, color="#555555",
+            va="center",
+            ha="left",
+            fontsize=7,
+            color="#555555",
         )
 
         y_labels.append(name)
@@ -279,19 +283,20 @@ def render_gantt(spans, commits, output_file=None):
         mid = (y_min + y_max) / 2
         color = GROUP_COLORS.get(group, "#999999")
         ax.text(
-            1.01, mid, group,
+            1.01,
+            mid,
+            group,
             transform=ax.get_yaxis_transform(),
-            va="center", ha="left",
-            fontsize=8, fontweight="bold", color=color,
+            va="center",
+            ha="left",
+            fontsize=8,
+            fontweight="bold",
+            color=color,
         )
 
     ax.xaxis_date()
-    ax.xaxis.set_major_locator(
-        mdates.MonthLocator(interval=2)
-    )
-    ax.xaxis.set_major_formatter(
-        mdates.DateFormatter("%b %Y")
-    )
+    ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
+    ax.xaxis.set_major_formatter(mdates.DateFormatter("%b %Y"))
     plt.xticks(rotation=45, ha="right", fontsize=8)
 
     ax.grid(axis="x", alpha=0.3, linestyle="--")
@@ -300,38 +305,49 @@ def render_gantt(spans, commits, output_file=None):
     ax.spines["right"].set_visible(False)
 
     ax.set_title(
-        "bazel-orfs Development Timeline"
-        " (by files changed)",
-        fontsize=14, fontweight="bold", pad=15,
+        "bazel-orfs Development Timeline" " (by files changed)",
+        fontsize=14,
+        fontweight="bold",
+        pad=15,
     )
     ax.set_xlabel("Date", fontsize=10)
 
-    legend_patches = [
-        mpatches.Patch(color=c, label=g)
-        for g, c in GROUP_COLORS.items()
-    ]
-    legend_patches.append(mpatches.Patch(
-        facecolor="#999999", alpha=0.35,
-        label="Low intensity",
-    ))
-    legend_patches.append(mpatches.Patch(
-        facecolor="#999999", alpha=1.0,
-        label="High intensity",
-    ))
+    legend_patches = [mpatches.Patch(color=c, label=g) for g, c in GROUP_COLORS.items()]
+    legend_patches.append(
+        mpatches.Patch(
+            facecolor="#999999",
+            alpha=0.35,
+            label="Low intensity",
+        )
+    )
+    legend_patches.append(
+        mpatches.Patch(
+            facecolor="#999999",
+            alpha=1.0,
+            label="High intensity",
+        )
+    )
     ax.legend(
-        handles=legend_patches, loc="upper left",
-        fontsize=8, framealpha=0.9, ncol=2,
+        handles=legend_patches,
+        loc="upper left",
+        fontsize=8,
+        framealpha=0.9,
+        ncol=2,
     )
 
     all_dates = [c["date"] for c in commits]
     date_min, date_max = min(all_dates), max(all_dates)
     total_loc = sum(loc for _, loc, _ in spans.values())
     ax.text(
-        0.99, 0.01,
+        0.99,
+        0.01,
         f"{len(commits)} commits | {total_loc:,} LOC | "
         f"{date_min:%b %Y} \u2013 {date_max:%b %Y}",
-        transform=ax.transAxes, ha="right", va="bottom",
-        fontsize=8, color="#999999",
+        transform=ax.transAxes,
+        ha="right",
+        va="bottom",
+        fontsize=8,
+        color="#999999",
     )
 
     if output_file:
@@ -343,11 +359,11 @@ def render_gantt(spans, commits, output_file=None):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate bazel-orfs development "
-        "Gantt chart"
+        description="Generate bazel-orfs development " "Gantt chart"
     )
     parser.add_argument(
-        "-o", "--output",
+        "-o",
+        "--output",
         help="Output file (e.g. docs/gantt.png)",
     )
     args = parser.parse_args()
