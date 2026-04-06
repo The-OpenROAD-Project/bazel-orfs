@@ -142,14 +142,15 @@ class TestOpenroadProject(unittest.TestCase):
         self.assertIn('openroad = "//:openroad"', self.content)
 
     def test_verilog_submodule_uses_same_variable(self):
-        """Both git_override blocks should reference the same variable."""
-        blocks = re.findall(
-            r"git_override\(.*?\)",
-            self.content,
-            re.DOTALL,
-        )
-        for block in blocks:
-            self.assertIn("BAZEL_ORFS_COMMIT", block)
+        """Pre-existing git_override blocks should reference the same variable."""
+        for name in ["bazel-orfs", "bazel-orfs-verilog"]:
+            block = re.search(
+                rf'git_override\(\s*module_name\s*=\s*"{name}".*?\)',
+                self.content,
+                re.DOTALL,
+            )
+            self.assertIsNotNone(block, f"{name} block not found")
+            self.assertIn("BAZEL_ORFS_COMMIT", block.group())
 
 
 class TestDownstreamFresh(unittest.TestCase):
@@ -233,17 +234,17 @@ class TestDownstreamWithSubmodules(unittest.TestCase):
         self.assertIn('strip_prefix = "sby"', self.content)
 
 
-class TestDownstreamWithoutSubmodules(unittest.TestCase):
-    """Bump should not inject submodule overrides that don't already exist."""
+class TestDownstreamSubmodulesInjected(unittest.TestCase):
+    """Bump should inject submodule overrides for downstream projects."""
 
     def setUp(self):
         self.content = apply_bump("downstream.MODULE.bazel")
 
-    def test_no_verilog_submodule_injected(self):
-        self.assertNotIn("bazel-orfs-verilog", self.content)
+    def test_verilog_submodule_injected(self):
+        self.assertIn("bazel-orfs-verilog", self.content)
 
-    def test_no_sby_submodule_injected(self):
-        self.assertNotIn("bazel-orfs-sby", self.content)
+    def test_sby_submodule_injected(self):
+        self.assertIn("bazel-orfs-sby", self.content)
 
 
 class TestFindBazelOrfsSubmodules(unittest.TestCase):
