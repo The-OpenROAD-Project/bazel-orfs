@@ -80,11 +80,12 @@ archive_override(
     ],
 )
 
-bazel_dep(name = "toolchains_llvm", version = "1.5.0")
+bazel_dep(name = "toolchains_llvm", version = "1.5.0", dev_dependency = True)
 
 llvm = use_extension(
     "@toolchains_llvm//toolchain/extensions:llvm.bzl",
     "llvm",
+    dev_dependency = True,
 )
 llvm.toolchain(
     llvm_version = "20.1.8",
@@ -93,6 +94,7 @@ use_repo(llvm, "llvm_toolchain")
 
 register_toolchains(
     "@llvm_toolchain//:all",
+    dev_dependency = True,
 )
 
 # --- oss-cad-suite (provides sby, yosys, yosys-abc binaries) ---
