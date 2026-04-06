@@ -66,10 +66,10 @@ def orfs_design(name = None, platform = None, design = None, designs = None, moc
         designs: The DESIGNS dict from the orfs_designs repository rule.
         mock_openroad: Label for mock-openroad binary. When set, generates
             lint flow targets (variant="lint") alongside real flow targets.
-            Example: "@mock-openroad//src/bin:openroad".
+            Example: "//mock/openroad/src/bin:openroad".
         mock_yosys: Label for mock-yosys binary. When set, lint flow uses
             this instead of real Yosys for synthesis.
-            Example: "@mock-yosys//src/bin:yosys".
+            Example: "//mock/yosys/src/bin:yosys".
     """
     if designs == None:
         fail("orfs_design() requires designs argument: pass DESIGNS from @orfs_designs//:designs.bzl")

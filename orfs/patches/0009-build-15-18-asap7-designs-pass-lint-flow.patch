@@ -76,8 +76,8 @@ index a8a5f264d..8c3488f49 100644
  
  exports_files(glob(["*"]))
  
--orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-+# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel b/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
 index a8a5f264d..0814451a5 100644
 --- a/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
@@ -92,8 +92,8 @@ index a8a5f264d..0814451a5 100644
  
  exports_files(glob(["*"]))
  
--orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-+# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel b/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
 index eb51c610f..bf158877f 100644
 --- a/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
@@ -111,8 +111,8 @@ index eb51c610f..bf158877f 100644
      visibility = ["//visibility:public"],
  )
  
--orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-+# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i/BUILD.bazel b/flow/designs/asap7/riscv32i/BUILD.bazel
 index a8a5f264d..6d2ac6bb0 100644
 --- a/flow/designs/asap7/riscv32i/BUILD.bazel
@@ -126,8 +126,8 @@ index a8a5f264d..6d2ac6bb0 100644
  
  exports_files(glob(["*"]))
  
--orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-+# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/swerv_wrapper/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 index a8a5f264d..6d2ac6bb0 100644
 --- a/flow/designs/asap7/swerv_wrapper/BUILD.bazel
@@ -141,8 +141,8 @@ index a8a5f264d..6d2ac6bb0 100644
  
  exports_files(glob(["*"]))
  
--orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-+# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 -- 
 2.51.0
 

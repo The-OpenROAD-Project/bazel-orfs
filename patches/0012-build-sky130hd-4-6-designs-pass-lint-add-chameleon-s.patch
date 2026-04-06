@@ -31,8 +31,8 @@ index a8a5f264d..aeaf888d6 100644
  
  exports_files(glob(["*"]))
  
--orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-+# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/sky130hd/microwatt/BUILD.bazel b/flow/designs/sky130hd/microwatt/BUILD.bazel
 index a8a5f264d..601c93761 100644
 --- a/flow/designs/sky130hd/microwatt/BUILD.bazel
@@ -46,8 +46,8 @@ index a8a5f264d..601c93761 100644
  
  exports_files(glob(["*"]))
  
--orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-+# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 -- 
 2.51.0
 

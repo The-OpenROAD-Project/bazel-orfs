@@ -43,8 +43,8 @@ index a8a5f264d..d275ff1ff 100644
  
  exports_files(glob(["*"]))
  
--orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-+# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel b/flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel
 index 78a31a278..dc3bf39ef 100644
 --- a/flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel
@@ -58,9 +58,9 @@ index 78a31a278..dc3bf39ef 100644
  
  exports_files(glob(["*"]))
  
--orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 -
-+# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
++# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/nangate45/tinyRocket/config.mk b/flow/designs/nangate45/tinyRocket/config.mk
 index d86621ba3..f18600e22 100644
 --- a/flow/designs/nangate45/tinyRocket/config.mk
@@ -88,8 +88,8 @@ index aeaf888d6..a8a5f264d 100644
  
  exports_files(glob(["*"]))
  
--# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
++orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/sky130hd/microwatt/BUILD.bazel b/flow/designs/sky130hd/microwatt/BUILD.bazel
 index 601c93761..a8a5f264d 100644
 --- a/flow/designs/sky130hd/microwatt/BUILD.bazel
@@ -103,8 +103,8 @@ index 601c93761..a8a5f264d 100644
  
  exports_files(glob(["*"]))
  
--# orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
-+orfs_design(designs = DESIGNS, mock_openroad = "@mock-openroad//src/bin:openroad")
+-# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
++orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 -- 
 2.51.0
 

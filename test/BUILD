@@ -753,7 +753,7 @@ orfs_flow(
     name = "lb_32x128",
     arguments = LB_ARGS,
     last_stage = "floorplan",
-    openroad = "@mock-openroad//src/bin:openroad",
+    openroad = "//mock/openroad/src/bin:openroad",
     previous_stage = {"floorplan": ":lb_32x128_synth"},
     stage_sources = LB_STAGE_SOURCES,
     variant = "mock_openroad",
@@ -785,7 +785,7 @@ orfs_flow(
     name = "lb_32x128",
     abstract_stage = "cts",
     arguments = LB_ARGS,
-    openroad = "@mock-openroad//src/bin:openroad",
+    openroad = "//mock/openroad/src/bin:openroad",
     previous_stage = {"floorplan": ":lb_32x128_synth"},
     squash = True,
     stage_sources = LB_STAGE_SOURCES,
@@ -800,7 +800,7 @@ orfs_flow(
     name = "lb_32x128",
     arguments = LB_ARGS,
     last_stage = "final",
-    openroad = "@mock-openroad//src/bin:openroad",
+    openroad = "//mock/openroad/src/bin:openroad",
     previous_stage = {"floorplan": ":lb_32x128_synth"},
     squash = True,
     stage_sources = LB_STAGE_SOURCES,
@@ -835,9 +835,9 @@ py_test(
         "mock_openroad_test.py",
     ],
     data = [
-        "@mock-openroad//src/bin:openroad.py",
-        "@mock-openroad//src/bin:openroad_commands.py",
-        "@mock-openroad//src/bin:tcl_interpreter.py",
+        "//mock/openroad/src/bin:openroad.py",
+        "//mock/openroad/src/bin:openroad_commands.py",
+        "//mock/openroad/src/bin:tcl_interpreter.py",
     ],
     imports = ["."],
 )
@@ -855,9 +855,9 @@ py_test(
 py_test(
     name = "openroad_commands_test",
     srcs = [
-        "@mock-openroad//src/bin:openroad_commands.py",
-        "@mock-openroad//src/bin:openroad_commands_test.py",
-        "@mock-openroad//src/bin:tcl_interpreter.py",
+        "//mock/openroad/src/bin:openroad_commands.py",
+        "//mock/openroad/src/bin:openroad_commands_test.py",
+        "//mock/openroad/src/bin:tcl_interpreter.py",
     ],
     imports = ["."],
     deps = ["@bazel-orfs-pip//pytest"],
@@ -866,8 +866,8 @@ py_test(
 py_test(
     name = "tcl_interpreter_test",
     srcs = [
-        "@mock-openroad//src/bin:tcl_interpreter.py",
-        "@mock-openroad//src/bin:tcl_interpreter_test.py",
+        "//mock/openroad/src/bin:tcl_interpreter.py",
+        "//mock/openroad/src/bin:tcl_interpreter_test.py",
     ],
     imports = ["."],
     deps = ["@bazel-orfs-pip//pytest"],
@@ -877,9 +877,9 @@ py_test(
     name = "yosys_commands_test",
     srcs = ["yosys_commands_test_wrapper.py"],
     data = [
-        "@mock-openroad//src/bin:tcl_interpreter.py",
-        "@mock-yosys//src/bin:yosys_commands.py",
-        "@mock-yosys//src/bin:yosys_commands_test.py",
+        "//mock/openroad/src/bin:tcl_interpreter.py",
+        "//mock/yosys/src/bin:yosys_commands.py",
+        "//mock/yosys/src/bin:yosys_commands_test.py",
     ],
     main = "yosys_commands_test_wrapper.py",
     deps = ["@bazel-orfs-pip//pytest"],
@@ -905,7 +905,7 @@ orfs_flow(
     name = "lb_32x128",
     abstract_stage = "cts",
     arguments = LB_ARGS | BLOCK_FLOORPLAN,
-    openroad = "@mock-openroad//src/bin:openroad",
+    openroad = "//mock/openroad/src/bin:openroad",
     previous_stage = {"floorplan": ":lb_32x128_synth"},
     stage_sources = LB_STAGE_SOURCES,
     variant = "mock_abstract",
@@ -927,7 +927,7 @@ orfs_flow(
         "PWR_NETS_VOLTAGES": "",
     },
     macros = ["lb_32x128_mock_abstract_generate_abstract"],
-    openroad = "@mock-openroad//src/bin:openroad",
+    openroad = "//mock/openroad/src/bin:openroad",
     previous_stage = {"floorplan": ":lb_32x128_top_synth"},
     stage_sources = LB_STAGE_SOURCES,
     variant = "mock_hierarchy",
@@ -957,7 +957,7 @@ orfs_flow(
         "PWR_NETS_VOLTAGES": "",
     },
     macros = ["lb_32x128_mock_abstract_generate_abstract"],
-    openroad = "@mock-openroad//src/bin:openroad",
+    openroad = "//mock/openroad/src/bin:openroad",
     previous_stage = {"floorplan": ":lb_32x128_top_synth"},
     sources = {
         "ADDITIONAL_LEFS": [":dummy_extra.lef"],
@@ -979,7 +979,7 @@ orfs_sweep(
     name = "mock_sweep_lb",
     abstract_stage = "cts",
     arguments = LB_ARGS,
-    openroad = "@mock-openroad//src/bin:openroad",
+    openroad = "//mock/openroad/src/bin:openroad",
     stage_sources = LB_STAGE_SOURCES,
     sweep = {
         "mock": {
@@ -1009,7 +1009,7 @@ orfs_flow(
     arguments = LB_ARGS,
     last_stage = "floorplan",
     lint = True,
-    openroad = "@mock-openroad//src/bin:openroad",
+    openroad = "//mock/openroad/src/bin:openroad",
     previous_stage = {"floorplan": ":lb_32x128_synth"},
     stage_sources = LB_STAGE_SOURCES,
     variant = "lite",
@@ -1064,11 +1064,11 @@ orfs_flow(
     name = "lb_32x128",
     arguments = LB_ARGS,
     last_stage = "floorplan",
-    openroad = "@mock-openroad//src/bin:openroad",
+    openroad = "//mock/openroad/src/bin:openroad",
     stage_sources = LB_STAGE_SOURCES,
     variant = "mock",
     verilog_files = LB_VERILOG_FILES,
-    yosys = "@mock-yosys//src/bin:yosys",
+    yosys = "//mock/yosys/src/bin:yosys",
 )
 
 # Cross-package verilog (//another:) exercises external package handling.
@@ -1077,7 +1077,7 @@ orfs_flow(
     name = "tag_array_64x184",
     arguments = TAG_ARRAY_ARGUMENTS,
     last_stage = "floorplan",
-    openroad = "@mock-openroad//src/bin:openroad",
+    openroad = "//mock/openroad/src/bin:openroad",
     stage_sources = {
         "floorplan": [":io-sram"],
         "place": [":io-sram"],
@@ -1085,7 +1085,7 @@ orfs_flow(
     },
     variant = "mock",
     verilog_files = ["//another:tag_array_64x184.sv"],
-    yosys = "@mock-yosys//src/bin:yosys",
+    yosys = "//mock/yosys/src/bin:yosys",
 )
 
 # Fully-mock abstract chain: reuses lb_32x128_mock_synth, adds
@@ -1095,7 +1095,7 @@ orfs_flow(
     name = "lb_32x128",
     abstract_stage = "cts",
     arguments = LB_ARGS | BLOCK_FLOORPLAN,
-    openroad = "@mock-openroad//src/bin:openroad",
+    openroad = "//mock/openroad/src/bin:openroad",
     previous_stage = {"floorplan": ":lb_32x128_mock_synth"},
     stage_sources = LB_STAGE_SOURCES,
     variant = "mock_full_abstract",
@@ -1118,11 +1118,11 @@ orfs_flow(
     },
     last_stage = "floorplan",
     macros = ["lb_32x128_mock_full_abstract_generate_abstract"],
-    openroad = "@mock-openroad//src/bin:openroad",
+    openroad = "//mock/openroad/src/bin:openroad",
     stage_sources = LB_STAGE_SOURCES,
     variant = "mock_full_hierarchy",
     verilog_files = ["rtl/lb_32x128_top.v"],
-    yosys = "@mock-yosys//src/bin:yosys",
+    yosys = "//mock/yosys/src/bin:yosys",
 )
 
 # --- Deps pkg_tar tests: verify on-demand deps deployment ---
@@ -1153,7 +1153,7 @@ orfs_flow(
     name = "lb_32x128",
     arguments = LB_ARGS,
     last_stage = "floorplan",
-    openroad = "@mock-openroad//src/bin:openroad",
+    openroad = "//mock/openroad/src/bin:openroad",
     previous_stage = {"floorplan": ":lb_32x128_synth"},
     stage_sources = LB_STAGE_SOURCES,
     substeps = True,
