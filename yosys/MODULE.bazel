@@ -1,9 +1,12 @@
-"""Yosys built from source with TCL built from source."""
+"""Yosys built from source with BCR dependencies."""
 
 module(
     name = "bazel-orfs-yosys",
     version = "0.0.1",
 )
+
+bazel_dep(name = "libffi", version = "3.4.7.bcr.4")
+bazel_dep(name = "tcl_lang", version = "8.6.16.bcr.1")
 
 yosys = use_extension(":extension.bzl", "yosys_ext")
 yosys.default()

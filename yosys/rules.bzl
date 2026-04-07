@@ -22,3 +22,17 @@ extract_share = rule(
         ),
     },
 )
+
+def _cc_files_impl(ctx):
+    """Extract raw header and library files from a cc_library for genrule use."""
+    cc_info = ctx.attr.dep[CcInfo]
+    headers = cc_info.compilation_context.headers.to_list()
+    default_files = ctx.attr.dep[DefaultInfo].files.to_list()
+    return [DefaultInfo(files = depset(headers + default_files))]
+
+cc_files = rule(
+    implementation = _cc_files_impl,
+    attrs = {
+        "dep": attr.label(mandatory = True, providers = [CcInfo]),
+    },
+)
