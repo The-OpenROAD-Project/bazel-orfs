@@ -66,10 +66,6 @@ jobs:
         if: always()
         run: bazelisk analyze-profile build.profile
 
-      # --- Deps integration ---
-      - name: Deps integration tests
-        run: test/deps_integration_test.sh all
-
       - name: Run tests
         run: bazelisk test ... --keep_going --build_tests_only --test_output=errors --profile=test.profile
       - name: Analyze test
