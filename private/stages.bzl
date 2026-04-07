@@ -148,6 +148,25 @@ ALL_VARIABLE_TO_STAGES = {
     for variable in union(*ALL_STAGE_TO_VARIABLES.values())
 }
 
+def check_variables(variables, label):
+    """Checks that all variable names are known in ORFS variables.yaml.
+
+    Args:
+        variables: iterable of variable names to check.
+        label: description of where the variables came from (for error messages).
+    """
+    unknown = sorted([v for v in variables if v not in ALL_VARIABLE_TO_STAGES])
+    if unknown:
+        fail(
+            "Unknown ORFS variable(s) in {label}: {unknown}. ".format(
+                label = label,
+                unknown = ", ".join(unknown),
+            ) +
+            "Check spelling against ORFS flow/scripts/variables.yaml. " +
+            "If the variable is correct but missing from variables.yaml, " +
+            "add it to your project's ORFS patch or file a PR against ORFS.",
+        )
+
 def get_stage_args(stage, stage_arguments = {}, arguments = {}, sources = {}):
     """Returns the arguments for a specific stage.
 
