@@ -103,8 +103,9 @@ register_toolchains(
 
 bazel_dep(name = "rules_cc", version = "0.0.17")
 bazel_dep(name = "rules_shell", version = "0.3.0")
-bazel_dep(name = "rules_verilator", version = "0.1.0")
-bazel_dep(name = "verilator", version = "5.036.bcr.3")
+bazel_dep(name = "rules_verilator", version = "0.3.1")
+bazel_dep(name = "rules_verilog", version = "1.1.1")
+bazel_dep(name = "verilator", version = "5.046.bcr.2")
 bazel_dep(name = "googletest", version = "1.17.0")
 
 # --- Chisel / Scala toolchain ---

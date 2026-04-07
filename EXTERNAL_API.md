@@ -15,7 +15,7 @@ consumers.
 | `openroad.bzl` | `orfs_flow`, `orfs_synth`, `orfs_update`, `orfs_run`, `orfs_test`, `orfs_macro`, `orfs_pdk`, `orfs_deps`, `orfs_floorplan`, `orfs_place`, `orfs_cts`, `orfs_grt`, `orfs_route`, `orfs_final`, `orfs_gds`, `orfs_abstract`, `orfs_generate_metadata`, `orfs_update_rules`, providers (`OrfsInfo`, `PdkInfo`, `TopInfo`, `OrfsDepInfo`, `LoggingInfo`) | `bazel_skylib` |
 | `extension.bzl` | `orfs_repositories` module extension | built-in only |
 | `ppa.bzl` | `orfs_ppa` | `rules_shell` |
-| `verilog.bzl` | `verilog_directory`, `verilog_file`, `verilog_single_file_library` | `rules_verilator` |
+| `verilog.bzl` | `verilog_directory`, `verilog_file`, `verilog_single_file_library` | `rules_verilog` |
 | `generate.bzl` | `fir_library` | none (`@circt` http_archive) |
 | `sby/sby.bzl` | `sby_test` | `bazel-orfs-verilog`, `oss_cad_suite` (in `bazel-orfs-sby` submodule) |
 | `eqy.bzl` | `eqy_test` | none |
@@ -29,7 +29,8 @@ downstream consumers may transitively evaluate:
 
 - `bazel_skylib` — `BuildSettingInfo` in private/attrs.bzl, private/environment.bzl
 - `rules_shell` — `sh_binary` in ppa.bzl, root BUILD
-- `rules_verilator` — verilog providers in verilog.bzl
+- `rules_verilog` — verilog providers in verilog.bzl
+- `rules_verilator` — verilator toolchain, verilator_cc_library
 - `verilator` — required by rules_verilator
 - `rules_python` — `py_binary` in root BUILD, pythonwrapper/BUILD
 
