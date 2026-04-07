@@ -11,7 +11,7 @@ constructs in the .fir won't match what this pass expects.
 See sby.bzl for an example of passing consistent options to both passes.
 """
 
-load("@rules_verilator//verilog:providers.bzl", "make_dag_entry", "make_verilog_info")
+load("@rules_verilog//verilog:defs.bzl", "VerilogInfo")
 
 def _verilog_impl(ctx, split):
     if split:
@@ -37,26 +37,21 @@ def _verilog_impl(ctx, split):
     )
 
     # TODO: Figure out how to get the directories w/o hardcoding
-    verilog_info = make_verilog_info(
-        new_entries = [
-            make_dag_entry(
-                srcs = [sv],
-                hdrs = [],
-                includes = [
-                    sv.path,
-                    sv.path + "/Simulation",
-                    sv.path + "/verification",
-                    sv.path + "/verification/assume",
-                    sv.path + "/verification/cover",
-                    sv.path + "/verification/assert",
-                ],
-                data = [],
-                deps = [],
-                label = ctx.label,
-                tags = [],
-            ),
-        ],
-        old_infos = [],
+    verilog_info = VerilogInfo(
+        srcs = depset([sv]),
+        hdrs = depset(),
+        includes = depset([
+            sv.path,
+            sv.path + "/Simulation",
+            sv.path + "/verification",
+            sv.path + "/verification/assume",
+            sv.path + "/verification/cover",
+            sv.path + "/verification/assert",
+        ]),
+        data = depset(),
+        deps = depset(),
+        standard = "",
+        top_module = "",
     )
 
     return [

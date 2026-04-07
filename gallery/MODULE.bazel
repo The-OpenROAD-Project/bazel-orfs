@@ -104,7 +104,8 @@ register_toolchains(
 # --- rules_scala + Chisel: for building Chisel projects (Gemmini, etc.) ---
 
 bazel_dep(name = "rules_chisel", version = "0.3.0")
-bazel_dep(name = "rules_verilator", version = "0.1.0")
+bazel_dep(name = "rules_verilator", version = "0.3.1")
+bazel_dep(name = "rules_verilog", version = "1.1.1")
 bazel_dep(name = "bazel-orfs-verilog")
 local_path_override(
     module_name = "bazel-orfs-verilog",
