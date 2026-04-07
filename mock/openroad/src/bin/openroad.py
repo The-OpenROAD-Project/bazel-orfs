@@ -19,8 +19,9 @@ def setup_module_path():
     # Runfiles: tcl_interpreter.py is a sibling in the same package,
     # but may be in the runfiles tree under mock-openroad+/src/bin/.
     for runfiles_base in [
-        os.path.join(script_dir, "openroad.runfiles", "mock-openroad+", "src", "bin"),
-        os.path.join(script_dir, "openroad.runfiles", "mock-openroad", "src", "bin"),
+        os.path.join(
+            script_dir, "openroad.runfiles", "_main", "mock", "openroad", "src", "bin"
+        ),
     ]:
         if os.path.isfile(os.path.join(runfiles_base, "tcl_interpreter.py")):
             if runfiles_base not in sys.path:
