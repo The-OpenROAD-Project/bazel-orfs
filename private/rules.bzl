@@ -534,7 +534,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     different core counts. Users who need reproducible builds should set a fixed
     SYNTH_NUM_PARTITIONS value.
 
-    When SYNTH_KEPT_MODULES is provided, the keep-hierarchy discovery step
+    When SYNTH_KEEP_MODULES is provided, the keep-hierarchy discovery step
     (synth_keep.tcl + rtlil_kept_modules.py) is skipped entirely.  The module
     list is written directly to kept_modules.json and partitions read from
     the canonical RTLIL, each running full coarse+fine synthesis with all
@@ -556,10 +556,10 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     parallel_makefile = ctx.file._parallel_synth_makefile
 
     kept_json = declare_artifact(ctx, "results", "kept_modules.json")
-    skip_keep = all_arguments.get("SYNTH_KEPT_MODULES", "")
+    skip_keep = all_arguments.get("SYNTH_KEEP_MODULES", "")
 
     if skip_keep:
-        # SYNTH_KEPT_MODULES provided: skip keep-hierarchy discovery.
+        # SYNTH_KEEP_MODULES provided: skip keep-hierarchy discovery.
         # Write kept_modules.json directly from the variable.
         modules = [m for m in skip_keep.split(" ") if m]
         modules_json = ", ".join(['"{}"'.format(m) for m in modules])
@@ -801,10 +801,10 @@ def _yosys_impl(ctx):
     )
 
     num_partitions = int(all_arguments.get("SYNTH_NUM_PARTITIONS", "0"))
-    if num_partitions == 0 and all_arguments.get("SYNTH_KEPT_MODULES"):
-        # SYNTH_KEPT_MODULES implies parallel synthesis; default to 1 partition
+    if num_partitions == 0 and all_arguments.get("SYNTH_KEEP_MODULES"):
+        # SYNTH_KEEP_MODULES implies parallel synthesis; default to 1 partition
         # when NUM_CPUS-based auto-detection hasn't run (direct orfs_synth call).
-        kept_count = len(all_arguments["SYNTH_KEPT_MODULES"].split(" "))
+        kept_count = len(all_arguments["SYNTH_KEEP_MODULES"].split(" "))
         num_partitions = max(1, kept_count)
 
     save_odb = ctx.attr.save_odb
