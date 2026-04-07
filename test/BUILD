@@ -1125,6 +1125,71 @@ orfs_flow(
     yosys = "//mock/yosys/src/bin:yosys",
 )
 
+# --- Deps deploy tests: verify end-to-end deploy workflow ---
+# These replace deps_integration_test.sh with Bazel-native tests
+# that receive pre-built tarballs — no nested bazelisk calls.
+
+sh_test(
+    name = "deps_deploy_synth_test",
+    srcs = ["deps_deploy_test.sh"],
+    args = [
+        "$(location :lb_32x128_mock_synth_deps.tar.gz)",
+        "dir_exists",
+    ],
+    data = [":lb_32x128_mock_synth_deps.tar.gz"],
+)
+
+sh_test(
+    name = "deps_deploy_floorplan_test",
+    srcs = ["deps_deploy_test.sh"],
+    args = [
+        "$(location :lb_32x128_mock_floorplan_deps.tar.gz)",
+        "print_flow_home",
+    ],
+    data = [":lb_32x128_mock_floorplan_deps.tar.gz"],
+)
+
+sh_test(
+    name = "deps_deploy_real_floorplan_test",
+    srcs = ["deps_deploy_test.sh"],
+    args = [
+        "$(location :tag_array_64x184_mock_floorplan_deps.tar.gz)",
+        "print_flow_home",
+    ],
+    data = [":tag_array_64x184_mock_floorplan_deps.tar.gz"],
+)
+
+sh_test(
+    name = "deps_deploy_hierarchy_test",
+    srcs = ["deps_deploy_test.sh"],
+    args = [
+        "$(location :lb_32x128_top_mock_full_hierarchy_floorplan_deps.tar.gz)",
+        "config_contains",
+        "ADDITIONAL_LEFS",
+    ],
+    data = [":lb_32x128_top_mock_full_hierarchy_floorplan_deps.tar.gz"],
+)
+
+sh_test(
+    name = "deps_deploy_make_passthrough_test",
+    srcs = ["deps_deploy_test.sh"],
+    args = [
+        "$(location :tag_array_64x184_mock_floorplan_deps.tar.gz)",
+        "make_passthrough",
+    ],
+    data = [":tag_array_64x184_mock_floorplan_deps.tar.gz"],
+)
+
+sh_test(
+    name = "deps_deploy_run_substep_test",
+    srcs = ["deps_deploy_test.sh"],
+    args = [
+        "$(location :tag_array_64x184_mock_floorplan_deps.tar.gz)",
+        "run_substep",
+    ],
+    data = [":tag_array_64x184_mock_floorplan_deps.tar.gz"],
+)
+
 # --- Deps pkg_tar tests: verify on-demand deps deployment ---
 
 # Test deps tarball on synth (yosys) stage
