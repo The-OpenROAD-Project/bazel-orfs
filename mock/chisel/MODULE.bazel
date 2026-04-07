@@ -23,10 +23,10 @@ local_path_override(
     path = "../klayout",
 )
 
-bazel_dep(name = "bazel-orfs-yosys", version = "0.0.1")
-local_path_override(
-    module_name = "bazel-orfs-yosys",
-    path = "../../yosys",
+single_version_override(
+    module_name = "yosys",
+    patches = ["//patches:yosys-visibility.patch"],
+    patch_strip = 1,
 )
 
 bazel_dep(name = "orfs")

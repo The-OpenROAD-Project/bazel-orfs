@@ -66,20 +66,18 @@ git_override(
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
 )
 
+single_version_override(
+    module_name = "yosys",
+    patches = ["//patches:yosys-visibility.patch"],
+    patch_strip = 1,
+)
+
 # --- Mock binaries (from bazel-orfs) ---
 
 bazel_dep(name = "mock-klayout", version = "0.0.1")
 local_path_override(
     module_name = "mock-klayout",
     path = "../mock/klayout",
-)
-
-# --- Yosys built from source (shared with bazel-orfs) ---
-
-bazel_dep(name = "bazel-orfs-yosys", version = "0.0.1")
-local_path_override(
-    module_name = "bazel-orfs-yosys",
-    path = "../yosys",
 )
 
 # --- OpenROAD built from source ---
