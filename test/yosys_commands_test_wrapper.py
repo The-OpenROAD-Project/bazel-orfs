@@ -3,11 +3,11 @@
 import os
 import sys
 
-# In Bazel runfiles, the modules live under their external repo dirs.
+# In Bazel runfiles, the modules live under the main repo's package dirs.
 _RUNFILES = os.environ.get("RUNFILES_DIR", "")
 for subdir in [
-    os.path.join(_RUNFILES, "mock-openroad+", "src", "bin"),
-    os.path.join(_RUNFILES, "mock-yosys+", "src", "bin"),
+    os.path.join(_RUNFILES, "_main", "mock", "openroad", "src", "bin"),
+    os.path.join(_RUNFILES, "_main", "mock", "yosys", "src", "bin"),
 ]:
     if os.path.isdir(subdir) and subdir not in sys.path:
         sys.path.insert(0, subdir)
@@ -19,7 +19,13 @@ sys.exit(
     pytest.main(
         [
             os.path.join(
-                _RUNFILES, "mock-yosys+", "src", "bin", "yosys_commands_test.py"
+                _RUNFILES,
+                "_main",
+                "mock",
+                "yosys",
+                "src",
+                "bin",
+                "yosys_commands_test.py",
             ),
             "-v",
         ]

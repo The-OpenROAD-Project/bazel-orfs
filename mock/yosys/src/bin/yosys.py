@@ -16,10 +16,11 @@ def setup_module_path():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     if script_dir not in sys.path:
         sys.path.insert(0, script_dir)
-    # Runfiles: tcl_interpreter.py comes from mock-openroad module.
+    # Runfiles: tcl_interpreter.py comes from mock/openroad package.
+    # Search for it relative to the script directory.
     d = script_dir
     for _ in range(6):
-        for name in ["mock-openroad+", "mock-openroad"]:
+        for name in ["mock/openroad", "mock-openroad+", "mock-openroad"]:
             candidate = os.path.join(d, name, "src", "bin")
             if os.path.isfile(os.path.join(candidate, "tcl_interpreter.py")):
                 if candidate not in sys.path:
