@@ -9,10 +9,9 @@ what goes out. Prepare commits, but stop before `git push`.
 
 ## Formatting
 
-Before committing, run `bazelisk run //:fix_lint` to format and lint all changed files. This is the single source of truth — do NOT run `buildifier`, `bazelisk mod tidy`, or `black` individually, as `fix_lint` handles all of them with the correct CI-compatible configuration:
+Before committing, run `bazelisk run //:fix_lint` to format and lint all changed files. This is the single source of truth — do NOT run `buildifier` or `black` individually, as `fix_lint` handles all of them with the correct CI-compatible configuration:
 
 - `buildifier` on changed `.bzl`/`BUILD`/`MODULE.bazel` files (respects `.bazelignore`)
-- `bazelisk mod tidy` with CI config when `MODULE.bazel` changed (ensures lockfile matches CI)
 - `black` on changed `.py` files
 
 Just run:
@@ -20,9 +19,6 @@ Just run:
 ```sh
 bazelisk run //:fix_lint
 ```
-
-CI config is applied automatically via `--bazelrc` flags — no `user.bazelrc` needed.
-This also handles sub-module lockfiles (e.g. `gallery/MODULE.bazel.lock`).
 
 ## Gallery
 

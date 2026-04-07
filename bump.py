@@ -712,20 +712,6 @@ def main():
     workspace = os.environ.get("BUILD_WORKSPACE_DIRECTORY", ".")
     bump(args.module_file, args.mock_modules, workspace_dir=workspace)
 
-    # Run bazelisk mod tidy
-    try:
-        subprocess.run(
-            ["bazelisk", "mod", "tidy"],
-            cwd=workspace,
-            check=True,
-        )
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
-        print(
-            f"WARNING: bazelisk mod tidy failed: {e}. "
-            "You may need to run it manually.",
-            file=sys.stderr,
-        )
-
 
 if __name__ == "__main__":
     main()

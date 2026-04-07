@@ -54,7 +54,7 @@ jobs:
         run: echo 'common --disk_cache=/home/runner/.cache/bazel-disk' >> ~/.bazelrc
 
       # --- Lint ---
-      - name: Lint and lockfile check
+      - name: Lint
         run: |
           bazelisk run //:fix_lint
           git diff --exit-code

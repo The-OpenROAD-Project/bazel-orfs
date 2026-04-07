@@ -124,23 +124,6 @@ def run_buildifier(buildifier, files):
         raise subprocess.CalledProcessError(ret, "buildifier -lint warn")
 
 
-def run_mod_tidy(module_files):
-    """Regenerate MODULE.bazel.lock for changed MODULE.bazel files."""
-    for mf in module_files:
-        d = os.path.dirname(mf) or "."
-        lockfile = os.path.join(d, "MODULE.bazel.lock")
-        if not os.path.isfile(lockfile):
-            continue
-        if d == ".":
-            print("mod tidy: root (with CI config)")
-            subprocess.check_call(
-                ["bazelisk", "--bazelrc=.github/ci.bazelrc", "mod", "tidy"]
-            )
-        else:
-            print(f"mod tidy: {d}")
-            subprocess.check_call(["bazelisk", "mod", "tidy"], cwd=d)
-
-
 def run_black(files):
     """Format Python files with black."""
     if not files or not shutil.which("black"):
@@ -159,11 +142,6 @@ def main():
 
     bazel_files = filter_ignored(changed_files(merge_base, *BAZEL_PATHSPECS), ignored)
     run_buildifier(buildifier, bazel_files)
-
-    module_files = filter_ignored(
-        changed_files(merge_base, "**/MODULE.bazel", "MODULE.bazel"), ignored
-    )
-    run_mod_tidy(module_files)
 
     py_files = filter_ignored(changed_files(merge_base, "*.py"), ignored)
     run_black(py_files)

@@ -1,5 +1,6 @@
 bazel-*
 user.bazelrc
+MODULE.bazel.lock
 .metals/
 .vscode/
 __pycache__/

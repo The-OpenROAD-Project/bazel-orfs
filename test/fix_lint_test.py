@@ -87,34 +87,6 @@ class TestFilterIgnored(unittest.TestCase):
         )
 
 
-class TestRunModTidy(unittest.TestCase):
-    @mock.patch("fix_lint.subprocess.check_call")
-    @mock.patch("fix_lint.os.path.isfile", return_value=True)
-    def test_root_uses_ci_bazelrc(self, _isfile, mock_call):
-        fix_lint.run_mod_tidy(["MODULE.bazel"])
-        mock_call.assert_called_once_with(
-            ["bazelisk", "--bazelrc=.github/ci.bazelrc", "mod", "tidy"]
-        )
-
-    @mock.patch("fix_lint.subprocess.check_call")
-    @mock.patch("fix_lint.os.path.isfile", return_value=True)
-    def test_subdir_runs_in_cwd(self, _isfile, mock_call):
-        fix_lint.run_mod_tidy(["gallery/MODULE.bazel"])
-        mock_call.assert_called_once_with(["bazelisk", "mod", "tidy"], cwd="gallery")
-
-    @mock.patch("fix_lint.subprocess.check_call")
-    @mock.patch("fix_lint.os.path.isfile", return_value=False)
-    def test_skips_without_lockfile(self, _isfile, mock_call):
-        fix_lint.run_mod_tidy(["no_lock/MODULE.bazel"])
-        mock_call.assert_not_called()
-
-    @mock.patch("fix_lint.subprocess.check_call")
-    @mock.patch("fix_lint.os.path.isfile", return_value=True)
-    def test_multiple_modules(self, _isfile, mock_call):
-        fix_lint.run_mod_tidy(["MODULE.bazel", "gallery/MODULE.bazel"])
-        self.assertEqual(mock_call.call_count, 2)
-
-
 class TestRunBuildifier(unittest.TestCase):
     @mock.patch("fix_lint.subprocess.call", return_value=0)
     @mock.patch("fix_lint.subprocess.check_call")

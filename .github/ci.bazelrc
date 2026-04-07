@@ -1,3 +1,0 @@
-# CI-specific Bazel configuration.
-# Currently empty — heavy deps (chisel, kepler-formal, etc.) have been
-# moved to sub-modules and are no longer resolved by the root module.

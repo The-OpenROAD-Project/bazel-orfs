@@ -31,21 +31,7 @@ bazelisk build //test:lb_32x128_mock_openroad_floorplan
 
 These exercise the mock openroad/klayout override paths and bump.sh logic cheaply.
 
-### 3c. Lockfile regeneration (~30s, only if MODULE.bazel changed)
-
-Regenerate `MODULE.bazel.lock` with the CI config applied (see CLAUDE.md for details):
-
-```sh
-echo 'import %workspace%/.github/ci.bazelrc' >> user.bazelrc
-bazelisk mod tidy
-rm user.bazelrc
-```
-
-IMPORTANT: Do NOT use `bazelisk mod deps --lockfile_mode=update` or plain `bazelisk mod tidy` — the CI uses `.github/ci.bazelrc` which overrides module resolution (e.g. `--override_module=kepler-formal=...`), so the lockfile generated without that config will differ from what CI expects, causing the "Generate configs" job to fail.
-
-Report whether the lockfile needed updating.
-
-### 3d. Check for .gitignore traps on new files
+### 3c. Check for .gitignore traps on new files
 
 ```sh
 git check-ignore $(git ls-files --others --exclude-standard)
