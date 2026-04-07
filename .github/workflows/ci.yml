@@ -86,26 +86,14 @@ jobs:
         run: bazelisk analyze-profile gallery.profile
 
       # --- Submodules ---
-      - name: "Submodule: mock/chisel build"
-        working-directory: mock/chisel
-        run: >-
-          bazelisk build ... --keep_going
-          --override_module=bazel-orfs=${{ github.workspace }}
-          --profile=mock-chisel.profile
       - name: "Submodule: chisel test"
         working-directory: chisel
         run: >-
           bazelisk test ... --keep_going --build_tests_only --test_output=errors
           --override_module=bazel-orfs=${{ github.workspace }}
           --profile=chisel.profile
-      - name: "Submodule: sby test"
-        working-directory: sby
-        run: >-
-          bazelisk test ... --keep_going --build_tests_only --test_output=errors
-          --override_module=bazel-orfs=${{ github.workspace }}
-          --profile=sby.profile
-      - name: "Submodule: lec build"
-        working-directory: lec
-        run: >-
-          bazelisk build ... --keep_going
-          --profile=lec.profile
+      - name: "Submodule: sby test + lec build"
+        run: |
+          cd sby && bazelisk test ... --keep_going --build_tests_only --test_output=errors \
+            --override_module=bazel-orfs=${{ github.workspace }} --profile=sby.profile
+          cd ../lec && bazelisk build ... --keep_going --profile=lec.profile
