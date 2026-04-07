@@ -89,6 +89,11 @@ filegroup(
     srcs = glob(["flex-src/**"]),
 )
 
+filegroup(
+    name = "libffi_srcs",
+    srcs = glob(["libffi-src/**"]),
+)
+
 extract_share(
     name = "yosys_share",
     tar = ":yosys-share.tar",
@@ -104,6 +109,7 @@ genrule(
         ":slang_srcs",
         ":tcl_srcs",
         ":flex_srcs",
+        ":libffi_srcs",
     ],
     outs = [
         "yosys",
@@ -129,6 +135,16 @@ genrule(
         "TCL_LIBDIR=$$TMPDIR/tcl-install/lib",
         # Locate FlexLexer.h from flex source (hermetic, no system libfl-dev needed)
         "FLEX_INCLUDE=$$(pwd)/$$(find . -path '*/flex-src/src/FlexLexer.h' | head -1 | xargs dirname)",
+        # Build libffi from source (hermetic, no system libffi-dev needed)
+        "FFI_SRC=$$(find . -path '*/libffi-src/configure' | head -1 | xargs dirname)",
+        "cp -rL $$FFI_SRC $$TMPDIR/libffi-src",
+        "cd $$TMPDIR/libffi-src",
+        "./configure --prefix=$$TMPDIR/libffi-install --disable-shared --enable-static --disable-docs 2>&1 | tail -5",
+        "make -j$$(nproc) 2>&1 | tail -5",
+        "make install 2>&1 | tail -5",
+        "cd $$OLDPWD",
+        "FFI_INCLUDE=$$TMPDIR/libffi-install/include",
+        "FFI_LIBDIR=$$TMPDIR/libffi-install/lib",
         # Copy yosys source to writable location; link in submodule sources
         "YOSYS=$$(find . -name Makefile -path '*/yosys-src/Makefile' -not -path '*/abc/*' | head -1 | xargs dirname)",
         "ABC=$$(find . -path '*/abc-src/Makefile' | head -1 | xargs dirname)",
@@ -138,7 +154,8 @@ genrule(
         "cp -rL $$ABC $$TMPDIR/yosys-src/abc",
         "cp -rL $$CXXOPTS $$TMPDIR/yosys-src/libs/cxxopts",
         "cd $$TMPDIR/yosys-src",
-        "export CXXFLAGS=\\"-I$$FLEX_INCLUDE\\"",
+        "export CXXFLAGS=\\"-I$$FLEX_INCLUDE -I$$FFI_INCLUDE\\"",
+        "export LIBRARY_PATH=$$FFI_LIBDIR$${LIBRARY_PATH:+:$$LIBRARY_PATH}",
         "make install -j$$(nproc)" +
         " PREFIX=$$TMPDIR/install" +
         " ENABLE_TCL=1 ENABLE_ABC=1 ENABLE_PLUGINS=1" +
@@ -269,6 +286,18 @@ def _yosys_sources_impl(repository_ctx):
         output = "flex-src",
     )
 
+    # --- Download libffi source (for ffi.h header + static library) ---
+    repository_ctx.download_and_extract(
+        url = ["https://github.com/libffi/libffi/releases/download/v{version}/libffi-{version}.tar.gz".format(
+            version = repository_ctx.attr.libffi_version,
+        )],
+        sha256 = repository_ctx.attr.libffi_sha256,
+        stripPrefix = "libffi-{version}".format(
+            version = repository_ctx.attr.libffi_version,
+        ),
+        output = "libffi-src",
+    )
+
     # --- Write BUILD and rules files directly into the repo ---
     repository_ctx.file("rules.bzl", _RULES_BZL)
     repository_ctx.file("BUILD.bazel", _BUILD_BAZEL)
@@ -292,6 +321,8 @@ yosys_sources = repository_rule(
         "tcl_sha256": attr.string(default = "", doc = "SHA256 of TCL source tarball"),
         "flex_version": attr.string(default = "2.6.4", doc = "Flex version for FlexLexer.h header"),
         "flex_sha256": attr.string(default = "", doc = "SHA256 of flex source tarball"),
+        "libffi_version": attr.string(default = "3.4.7", doc = "libffi version for plugin support"),
+        "libffi_sha256": attr.string(default = "", doc = "SHA256 of libffi source tarball"),
     },
     doc = "Downloads Yosys + yosys-slang sources; builds via genrule in BUILD.bazel.",
 )

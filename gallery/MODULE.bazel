@@ -21,7 +21,6 @@ local_path_override(
     path = "../mock/klayout",
 )
 
-
 # --- Yosys built from source (shared with bazel-orfs) ---
 
 bazel_dep(name = "bazel-orfs-yosys", version = "0.0.1")
