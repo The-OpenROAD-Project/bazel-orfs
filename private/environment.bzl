@@ -278,7 +278,7 @@ def required_arguments(ctx):
         "WORK_HOME": "./" + ctx.label.package,
     }
 
-def orfs_arguments(*args, short = False):
+def orfs_additional_arguments(*args, short = False):
     """Returns ADDITIONAL_GDS/LEFS/LIBS arguments from OrfsInfo providers.
 
     Args:
@@ -410,13 +410,16 @@ def _prefix_include_dirs(dirs_value, prefix):
         if p.strip()
     ])
 
-def config_content(ctx, arguments, paths):
+def config_content(ctx, arguments, paths, pre_paths = []):
     """Generate Makefile-style config content for an ORFS stage.
 
     Args:
       ctx: The rule context.
       arguments: Dictionary of config variables.
-      paths: List of additional config file paths to include.
+      paths: List of additional config file paths to include at the end.
+      pre_paths: List of config file paths to include at the top, before
+        the export lines. Included files set with ?= take precedence over
+        the export lines that follow.
 
     Returns:
       A string with export VAR?=value lines and include directives.
@@ -436,6 +439,7 @@ def config_content(ctx, arguments, paths):
         )
 
     return "".join(
+        ["include {}\n".format(path) for path in pre_paths] +
         sorted(
             [
                 "export {}?={}\n".format(*pair)

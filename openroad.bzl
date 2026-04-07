@@ -39,6 +39,7 @@ load(
     _TEST_STAGE_IMPL = "TEST_STAGE_IMPL",
     _UPDATE_RULES_IMPL = "UPDATE_RULES_IMPL",
     _orfs_abstract = "orfs_abstract",
+    _orfs_arguments = "orfs_arguments",
     _orfs_cts = "orfs_cts",
     _orfs_final = "orfs_final",
     _orfs_floorplan = "orfs_floorplan",
@@ -99,6 +100,7 @@ flow_provides = _flow_provides
 # Rules
 orfs_pdk = _orfs_pdk
 orfs_macro = _orfs_macro
+orfs_arguments = _orfs_arguments
 orfs_run = _orfs_run
 orfs_test = _orfs_test
 orfs_floorplan = _orfs_floorplan

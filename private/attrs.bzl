@@ -49,6 +49,11 @@ def orfs_attrs():
             doc = "Arguments with build settings.",
             providers = [BuildSettingInfo],
         ),
+        "extra_arguments": attr.label_list(
+            doc = "List of .json argument files to merge into stage config.",
+            allow_files = [".json"],
+            default = [],
+        ),
         "extra_configs": attr.label_list(
             doc = "List of additional flow configuration files.",
             allow_files = True,
@@ -87,6 +92,11 @@ def orfs_attrs():
             doc = "Tcl library.",
             allow_files = True,
             default = Label("@docker_orfs//:tcl8.6"),
+        ),
+        "_merge_arguments": attr.label(
+            doc = "Python script for merging .json argument files into .mk config.",
+            allow_single_file = True,
+            default = Label("@bazel-orfs//private:merge_arguments.py"),
         ),
         "_package_stage": attr.label(
             doc = "Python script for creating portable stage tarballs.",

@@ -32,7 +32,7 @@ load(
     "input_commands",
     "merge_arguments",
     "odb_arguments",
-    "orfs_arguments",
+    "orfs_additional_arguments",
     "pdk_inputs",
     "rename_inputs",
     "renames",
@@ -248,6 +248,7 @@ def _macro_impl(ctx):
             additional_gds = depset([]),
             additional_lefs = depset([]),
             additional_libs = depset([]),
+            arguments = depset([]),
         ),
         TopInfo(
             module_top = ctx.attr.module_top,
@@ -430,6 +431,87 @@ orfs_run = rule(
                     mandatory = True,
                     allow_empty = False,
                 ),
+                "script": attr.label(
+                    mandatory = True,
+                    allow_single_file = ["tcl"],
+                ),
+            },
+)
+
+# --- Arguments rule ---
+
+def _arguments_impl(ctx):
+    """Runs a Tcl script to compute flow arguments, outputs OrfsInfo with modified arguments."""
+    src_info = ctx.attr.src[OrfsInfo]
+    computed_json = ctx.actions.declare_file(ctx.attr.name + ".json")
+
+    ctx.actions.run_shell(
+        arguments = [
+            "--file",
+            ctx.file._makefile.path,
+        ],
+        command = " ".join(
+            [
+                ctx.executable._make.path,
+                "run",
+                "$@",
+            ],
+        ),
+        env = config_overrides(
+            ctx,
+            flow_environment(ctx) |
+            yosys_environment(ctx) |
+            config_environment(src_info.config) |
+            odb_arguments(ctx) |
+            data_arguments(ctx) |
+            run_arguments(ctx) |
+            {"OUTPUT": computed_json.basename},
+        ),
+        inputs = depset(
+            [src_info.config, ctx.file.script],
+            transitive = [
+                data_inputs(ctx),
+                source_inputs(ctx),
+            ],
+        ),
+        outputs = [computed_json],
+        tools = depset(
+            transitive = [
+                flow_inputs(ctx),
+                yosys_inputs(ctx),
+            ],
+        ),
+    )
+
+    return [
+        DefaultInfo(files = depset([computed_json])),
+        OrfsInfo(
+            stage = src_info.stage,
+            config = src_info.config,
+            variant = src_info.variant,
+            odb = src_info.odb,
+            gds = src_info.gds,
+            lef = src_info.lef,
+            lib = src_info.lib,
+            additional_gds = src_info.additional_gds,
+            additional_lefs = src_info.additional_lefs,
+            additional_libs = src_info.additional_libs,
+            arguments = depset(
+                [computed_json],
+                transitive = [src_info.arguments],
+            ),
+        ),
+        ctx.attr.src[PdkInfo],
+        ctx.attr.src[TopInfo],
+        ctx.attr.src[LoggingInfo],
+        ctx.attr.src[OrfsDepInfo],
+    ]
+
+orfs_arguments = rule(
+    implementation = _arguments_impl,
+    attrs = yosys_attrs() |
+            openroad_attrs() |
+            {
                 "script": attr.label(
                     mandatory = True,
                     allow_single_file = ["tcl"],
@@ -752,7 +834,7 @@ def _yosys_impl(ctx):
     all_arguments = merge_arguments(
         data_arguments(ctx) |
         required_arguments(ctx),
-        orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]),
+        orfs_additional_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]),
     )
     config = declare_artifact(ctx, "results", "1_synth.mk")
     ctx.actions.write(
@@ -898,7 +980,7 @@ def _yosys_impl(ctx):
                 arguments = merge_arguments(
                     data_arguments(ctx) |
                     required_arguments(ctx),
-                    orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]),
+                    orfs_additional_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]),
                 ) | verilog_arguments(ctx.files.verilog_files),
                 prefix = config_short.root.path,
             ),
@@ -1005,6 +1087,7 @@ def _yosys_impl(ctx):
             additional_libs = depset(
                 [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
             ),
+            arguments = depset([]),
         ),
         ctx.attr.pdk[PdkInfo],
         TopInfo(
@@ -1106,14 +1189,36 @@ def _make_impl(
         extra_arguments |
         data_arguments(ctx) |
         required_arguments(ctx),
-        orfs_arguments(ctx.attr.src[OrfsInfo]),
+        orfs_additional_arguments(ctx.attr.src[OrfsInfo]),
     )
+
+    # Write this stage's arguments to .json for downstream stages
+    stage_json = declare_artifact(ctx, "results", stage + ".args.json")
+    ctx.actions.write(
+        output = stage_json,
+        content = json.encode(data_arguments(ctx)),
+    )
+
+    # Merge inherited + extra + stage .json files into .mk at build time
+    inherited_jsons = ctx.attr.src[OrfsInfo].arguments.to_list()
+    extra_arg_files = ctx.files.extra_arguments
+    all_jsons = inherited_jsons + extra_arg_files + [stage_json]
+    args_mk = declare_artifact(ctx, "results", stage + ".args.mk")
+    ctx.actions.run(
+        executable = ctx.executable._python,
+        arguments = [ctx.file._merge_arguments.path, args_mk.path] +
+                    [f.path for f in all_jsons],
+        inputs = all_jsons + [ctx.file._merge_arguments],
+        outputs = [args_mk],
+    )
+
     config = declare_artifact(ctx, "results", stage + ".mk")
     ctx.actions.write(
         output = config,
         content = config_content(
             ctx,
             arguments = all_arguments,
+            pre_paths = [args_mk.path],
             paths = [file.path for file in ctx.files.extra_configs],
         ),
     )
@@ -1155,7 +1260,7 @@ def _make_impl(
             command = " && ".join(commands),
             env = config_overrides(ctx, flow_environment(ctx) | config_environment(config)),
             inputs = depset(
-                [config] + ctx.files.extra_configs,
+                [config, args_mk] + ctx.files.extra_configs + all_jsons,
                 transitive = [
                     data_inputs(ctx),
                     source_inputs(ctx),
@@ -1176,10 +1281,11 @@ def _make_impl(
                     extra_arguments |
                     data_arguments(ctx) |
                     required_arguments(ctx),
-                    orfs_arguments(ctx.attr.src[OrfsInfo]),
+                    orfs_additional_arguments(ctx.attr.src[OrfsInfo]),
                 ),
                 prefix = config_short.root.path,
             ),
+            pre_paths = [args_mk.short_path],
             paths = [file.short_path for file in ctx.files.extra_configs],
         ),
     )
@@ -1201,7 +1307,7 @@ def _make_impl(
     # Collect all files needed for deployment.
     stage_renames = renames(ctx, ctx.files.src, short = True)
     deploy_files = depset(
-        [config_short, make] + ctx.files.src + ctx.files.extra_configs,
+        [config_short, make, args_mk] + ctx.files.src + ctx.files.extra_configs + all_jsons,
         transitive = [
             flow_inputs(ctx),
             data_inputs(ctx),
@@ -1297,6 +1403,11 @@ def _make_impl(
             additional_gds = ctx.attr.src[OrfsInfo].additional_gds,
             additional_lefs = ctx.attr.src[OrfsInfo].additional_lefs,
             additional_libs = ctx.attr.src[OrfsInfo].additional_libs,
+            arguments = depset(
+                [stage_json],
+                transitive = [ctx.attr.src[OrfsInfo].arguments] +
+                             ([depset(extra_arg_files)] if extra_arg_files else []),
+            ),
         ),
         LoggingInfo(
             logs = depset(logs, transitive = [ctx.attr.src[LoggingInfo].logs]),
