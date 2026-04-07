@@ -87,19 +87,6 @@ def _yosys_sources_impl(repository_ctx):
         output = "yosys-slang-src/third_party/fmt",
     )
 
-    # --- Download TCL source (for headers + static library build) ---
-    tcl_version = repository_ctx.attr.tcl_version
-    repository_ctx.download_and_extract(
-        url = ["https://github.com/tcltk/tcl/archive/refs/tags/core-{version}.tar.gz".format(
-            version = tcl_version.replace(".", "-"),
-        )],
-        sha256 = repository_ctx.attr.tcl_sha256,
-        stripPrefix = "tcl-core-{version}".format(
-            version = tcl_version.replace(".", "-"),
-        ),
-        output = "tcl-src",
-    )
-
     # --- Download flex source (for FlexLexer.h header) ---
     repository_ctx.download_and_extract(
         url = ["https://github.com/westes/flex/archive/refs/tags/v{version}.tar.gz".format(
@@ -130,17 +117,12 @@ yosys_sources = repository_rule(
         "slang_sha256": attr.string(default = "", doc = "SHA256 of slang source tarball"),
         "fmt_commit": attr.string(mandatory = True, doc = "fmt git commit SHA (yosys-slang submodule)"),
         "fmt_sha256": attr.string(default = "", doc = "SHA256 of fmt source tarball"),
-        "tcl_version": attr.string(default = "8.6.16", doc = "TCL version to download"),
-        "tcl_sha256": attr.string(default = "", doc = "SHA256 of TCL source tarball"),
         "flex_version": attr.string(default = "2.6.4", doc = "Flex version for FlexLexer.h header"),
         "flex_sha256": attr.string(default = "", doc = "SHA256 of flex source tarball"),
         "_build_file": attr.label(default = Label("//:repo.BUILD.bazel"), doc = "BUILD file for the generated repo"),
     },
     doc = "Downloads Yosys + yosys-slang sources; builds via genrule in BUILD.bazel.",
 )
-
-_TCL_REPO = "https://github.com/tcltk/tcl"
-_TCL_VERSION = "8.6.16"
 
 _default_tag = tag_class(
     attrs = {
