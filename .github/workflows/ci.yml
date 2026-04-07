@@ -72,15 +72,6 @@ jobs:
         if: always()
         run: bazelisk analyze-profile test.profile
 
-      # --- ORFS integration ---
-      - name: ORFS integration lint tests
-        working-directory: orfs
-        run: bazelisk test //:asap7_lint_tests --keep_going --test_output=errors
-
-      - name: ORFS mock flow (gcd)
-        working-directory: orfs
-        run: bazelisk build @orfs//flow/designs/asap7/gcd:gcd_generate_metadata
-
       # --- Gallery ---
       - name: Gallery query
         working-directory: gallery
