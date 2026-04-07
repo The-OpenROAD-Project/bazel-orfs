@@ -982,7 +982,7 @@ orfs_sweep(
     openroad = "//mock/openroad/src/bin:openroad",
     stage_sources = LB_STAGE_SOURCES,
     sweep = {
-        "mock": {
+        "sweep": {
             "macros": ["lb_32x128_mock_abstract_generate_abstract"],
             "previous_stage": {"floorplan": "lb_32x128_synth"},
             "sources": {
@@ -995,7 +995,7 @@ orfs_sweep(
 
 build_test(
     name = "mock_sweep_build_test",
-    targets = [":mock_sweep_lb_mock_generate_abstract"],
+    targets = [":mock_sweep_lb_sweep_generate_abstract"],
 )
 # Pruning is validated implicitly: if orfs_sweep's previous_stage pruning
 # is broken, the lb_32x128 sweep targets would fail at analysis time
