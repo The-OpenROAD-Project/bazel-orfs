@@ -1,0 +1,11 @@
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -8,7 +8,7 @@
+ load("@rules_python//python:py_binary.bzl", "py_binary")
+ load(":yosys_utils.bzl", "share_dst", "share_tree")
+ 
+-package(default_visibility = ["//visibility:private"])
++package(default_visibility = ["//visibility:public"])
+ 
+ VERSION = "0.62"
+ 

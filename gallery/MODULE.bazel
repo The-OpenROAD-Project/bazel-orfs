@@ -21,12 +21,10 @@ local_path_override(
     path = "../mock/klayout",
 )
 
-# --- Yosys built from source (shared with bazel-orfs) ---
-
-bazel_dep(name = "bazel-orfs-yosys", version = "0.0.1")
-local_path_override(
-    module_name = "bazel-orfs-yosys",
-    path = "../yosys",
+single_version_override(
+    module_name = "yosys",
+    patches = ["//patches:yosys-visibility.patch"],
+    patch_strip = 1,
 )
 
 # --- ORFS flow scripts (Makefile, TCL, PDKs) ---

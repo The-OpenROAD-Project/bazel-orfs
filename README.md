@@ -235,8 +235,6 @@ git_override(
     commit = "df022f4ebaa4130713692fffd2f519d49e9d0b97",
     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
 )
-bazel_dep(name = "toolchains_llvm", version = "1.5.0")
-
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
 orfs.default(
     openroad = "@openroad//:openroad",

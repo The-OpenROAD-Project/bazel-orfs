@@ -20,16 +20,16 @@ local_path_override(
     path = "../verilog",
 )
 
-bazel_dep(name = "bazel-orfs-yosys", version = "0.0.1")
-local_path_override(
-    module_name = "bazel-orfs-yosys",
-    path = "../yosys",
-)
-
 bazel_dep(name = "mock-klayout", version = "0.0.1")
 local_path_override(
     module_name = "mock-klayout",
     path = "../mock/klayout",
+)
+
+single_version_override(
+    module_name = "yosys",
+    patches = ["//patches:yosys-visibility.patch"],
+    patch_strip = 1,
 )
 
 # --- Source-built tool overrides ---
