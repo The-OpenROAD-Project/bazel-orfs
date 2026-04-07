@@ -93,9 +93,9 @@ filegroup(
     ),
 )
 
-filegroup(
-    name = "tcl_srcs",
-    srcs = glob(["tcl-src/**"]),
+cc_files(
+    name = "tcl_files",
+    dep = "@tcl_lang//:Tcl",
 )
 
 filegroup(
@@ -121,7 +121,7 @@ genrule(
         ":abc_srcs",
         ":cxxopts_srcs",
         ":slang_srcs",
-        ":tcl_srcs",
+        ":tcl_files",
         ":flex_srcs",
         ":libffi_files",
     ],
@@ -137,16 +137,10 @@ genrule(
         "OUT_ABC=$$(pwd)/$(location yosys-abc)",
         "OUT_CONFIG=$$(pwd)/$(location yosys-config)",
         "OUT_SHARE=$$(pwd)/$(location yosys-share.tar)",
-        # Build TCL from source (static library + headers)
-        "TCL_SRC=$$(find . -path '*/tcl-src/unix/configure' | head -1 | xargs dirname | xargs dirname)",
-        "cp -rL $$TCL_SRC $$TMPDIR/tcl-src",
-        "cd $$TMPDIR/tcl-src/unix",
-        "./configure --prefix=$$TMPDIR/tcl-install --disable-shared --enable-threads 2>&1 | tail -5",
-        "make -j$$(nproc) 2>&1 | tail -5",
-        "make install 2>&1 | tail -5",
-        "cd $$OLDPWD",
-        "TCL_INCLUDE=$$TMPDIR/tcl-install/include",
-        "TCL_LIBDIR=$$TMPDIR/tcl-install/lib",
+        # Locate prebuilt TCL headers and library (from BCR @tcl_lang)
+        "TCL_INCLUDE=$$(pwd)/$$(dirname $$(find . -name 'tcl.h' -path '*/tcl_lang*' | head -1))",
+        "TCL_LIBDIR=$$(pwd)/$$(dirname $$(find . -name 'libTcl.a' | head -1))",
+        "ln -sf $$TCL_LIBDIR/libTcl.a $$TCL_LIBDIR/libtcl8.6.a",
         # Locate FlexLexer.h from flex source (hermetic, no system libfl-dev needed)
         "FLEX_INCLUDE=$$(pwd)/$$(find . -path '*/flex-src/src/FlexLexer.h' | head -1 | xargs dirname)",
         # Locate prebuilt libffi headers and library (from BCR @libffi)
@@ -269,19 +263,6 @@ def _yosys_sources_impl(repository_ctx):
         output = "yosys-slang-src/third_party/fmt",
     )
 
-    # --- Download TCL source (for headers + static library build) ---
-    tcl_version = repository_ctx.attr.tcl_version
-    repository_ctx.download_and_extract(
-        url = ["https://github.com/tcltk/tcl/archive/refs/tags/core-{version}.tar.gz".format(
-            version = tcl_version.replace(".", "-"),
-        )],
-        sha256 = repository_ctx.attr.tcl_sha256,
-        stripPrefix = "tcl-core-{version}".format(
-            version = tcl_version.replace(".", "-"),
-        ),
-        output = "tcl-src",
-    )
-
     # --- Download flex source (for FlexLexer.h header) ---
     repository_ctx.download_and_extract(
         url = ["https://github.com/westes/flex/archive/refs/tags/v{version}.tar.gz".format(
@@ -313,8 +294,6 @@ yosys_sources = repository_rule(
         "slang_sha256": attr.string(default = "", doc = "SHA256 of slang source tarball"),
         "fmt_commit": attr.string(mandatory = True, doc = "fmt git commit SHA (yosys-slang submodule)"),
         "fmt_sha256": attr.string(default = "", doc = "SHA256 of fmt source tarball"),
-        "tcl_version": attr.string(default = "8.6.16", doc = "TCL version to download"),
-        "tcl_sha256": attr.string(default = "", doc = "SHA256 of TCL source tarball"),
         "flex_version": attr.string(default = "2.6.4", doc = "Flex version for FlexLexer.h header"),
         "flex_sha256": attr.string(default = "", doc = "SHA256 of flex source tarball"),
     },
