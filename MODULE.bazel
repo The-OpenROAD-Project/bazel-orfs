@@ -68,19 +68,6 @@ git_override(
 )
 
 bazel_dep(name = "glpk", version = "5.0.bcr.4")
-archive_override(
-    module_name = "glpk",
-    integrity = "sha256-ShAT7rtQ9yj8YBvdgzsLKHAzPDs+WoFu66kh2VvsbxU=",
-    patch_strip = 1,
-    patches = ["//third_party/glpk:overlay.patch"],
-    strip_prefix = "glpk-5.0",
-    urls = [
-        "https://ftp.gnu.org/gnu/glpk/glpk-5.0.tar.gz",
-        "https://ftpmirror.gnu.org/glpk/glpk-5.0.tar.gz",
-        "https://mirrors.kernel.org/gnu/glpk/glpk-5.0.tar.gz",
-        "https://mirror.freedif.org/GNU/glpk/glpk-5.0.tar.gz",
-    ],
-)
 
 bazel_dep(name = "toolchains_llvm", version = "1.5.0", dev_dependency = True)
 
