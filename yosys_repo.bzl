@@ -48,10 +48,24 @@ extract_share = rule(
         ),
     },
 )
+
+def _cc_files_impl(ctx):
+    """Extract raw header and library files from a cc_library for genrule use."""
+    cc_info = ctx.attr.dep[CcInfo]
+    headers = cc_info.compilation_context.headers.to_list()
+    default_files = ctx.attr.dep[DefaultInfo].files.to_list()
+    return [DefaultInfo(files = depset(headers + default_files))]
+
+cc_files = rule(
+    implementation = _cc_files_impl,
+    attrs = {
+        "dep": attr.label(mandatory = True, providers = [CcInfo]),
+    },
+)
 '''
 
 _BUILD_BAZEL = '''\
-load("//:rules.bzl", "extract_share")
+load("//:rules.bzl", "cc_files", "extract_share")
 
 filegroup(
     name = "yosys_srcs",
@@ -89,9 +103,9 @@ filegroup(
     srcs = glob(["flex-src/**"]),
 )
 
-filegroup(
-    name = "libffi_srcs",
-    srcs = glob(["libffi-src/**"]),
+cc_files(
+    name = "libffi_files",
+    dep = "@libffi",
 )
 
 extract_share(
@@ -109,7 +123,7 @@ genrule(
         ":slang_srcs",
         ":tcl_srcs",
         ":flex_srcs",
-        ":libffi_srcs",
+        ":libffi_files",
     ],
     outs = [
         "yosys",
@@ -135,16 +149,10 @@ genrule(
         "TCL_LIBDIR=$$TMPDIR/tcl-install/lib",
         # Locate FlexLexer.h from flex source (hermetic, no system libfl-dev needed)
         "FLEX_INCLUDE=$$(pwd)/$$(find . -path '*/flex-src/src/FlexLexer.h' | head -1 | xargs dirname)",
-        # Build libffi from source (hermetic, no system libffi-dev needed)
-        "FFI_SRC=$$(find . -path '*/libffi-src/configure' | head -1 | xargs dirname)",
-        "cp -rL $$FFI_SRC $$TMPDIR/libffi-src",
-        "cd $$TMPDIR/libffi-src",
-        "./configure --prefix=$$TMPDIR/libffi-install --disable-shared --enable-static --disable-docs 2>&1 | tail -5",
-        "make -j$$(nproc) 2>&1 | tail -5",
-        "make install 2>&1 | tail -5",
-        "cd $$OLDPWD",
-        "FFI_INCLUDE=$$TMPDIR/libffi-install/include",
-        "FFI_LIBDIR=$$TMPDIR/libffi-install/lib",
+        # Locate prebuilt libffi headers and library (from BCR @libffi)
+        "FFI_INCLUDE=$$(pwd)/$$(dirname $$(find . -name 'ffi.h' -path '*/libffi*' | head -1))",
+        "FFI_LIBDIR=$$(pwd)/$$(dirname $$(find . -name 'liblibffi.a' | head -1))",
+        "ln -sf $$FFI_LIBDIR/liblibffi.a $$FFI_LIBDIR/libffi.a",
         # Copy yosys source to writable location; link in submodule sources
         "YOSYS=$$(find . -name Makefile -path '*/yosys-src/Makefile' -not -path '*/abc/*' | head -1 | xargs dirname)",
         "ABC=$$(find . -path '*/abc-src/Makefile' | head -1 | xargs dirname)",
@@ -286,18 +294,6 @@ def _yosys_sources_impl(repository_ctx):
         output = "flex-src",
     )
 
-    # --- Download libffi source (for ffi.h header + static library) ---
-    repository_ctx.download_and_extract(
-        url = ["https://github.com/libffi/libffi/releases/download/v{version}/libffi-{version}.tar.gz".format(
-            version = repository_ctx.attr.libffi_version,
-        )],
-        sha256 = repository_ctx.attr.libffi_sha256,
-        stripPrefix = "libffi-{version}".format(
-            version = repository_ctx.attr.libffi_version,
-        ),
-        output = "libffi-src",
-    )
-
     # --- Write BUILD and rules files directly into the repo ---
     repository_ctx.file("rules.bzl", _RULES_BZL)
     repository_ctx.file("BUILD.bazel", _BUILD_BAZEL)
@@ -321,8 +317,6 @@ yosys_sources = repository_rule(
         "tcl_sha256": attr.string(default = "", doc = "SHA256 of TCL source tarball"),
         "flex_version": attr.string(default = "2.6.4", doc = "Flex version for FlexLexer.h header"),
         "flex_sha256": attr.string(default = "", doc = "SHA256 of flex source tarball"),
-        "libffi_version": attr.string(default = "3.4.7", doc = "libffi version for plugin support"),
-        "libffi_sha256": attr.string(default = "", doc = "SHA256 of libffi source tarball"),
     },
     doc = "Downloads Yosys + yosys-slang sources; builds via genrule in BUILD.bazel.",
 )
