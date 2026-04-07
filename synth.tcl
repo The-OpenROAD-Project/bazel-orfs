@@ -57,7 +57,7 @@ if { $::env(SYNTH_GUT) } {
 
 if { [env_var_exists_and_non_empty SYNTH_KEEP_MODULES] } {
   foreach module $::env(SYNTH_KEEP_MODULES) {
-    select -module $module
+    select "${module}" "${module}\\$*"
     setattr -mod -set keep_hierarchy 1
     select -clear
   }
@@ -119,7 +119,7 @@ if { $::env(SYNTH_MOCK_LARGE_MEMORIES) } {
       puts "Shrunk memory $path from $size rows to 1"
       puts -nonewline $report_file "$module:\n  width: $width\n  size: $size\n"
       if { $::env(SYNTH_KEEP_MOCKED_MEMORIES) } {
-        select -module $module
+        select "${module}" "${module}\\$*"
         setattr -mod -set keep_hierarchy 1
         select -clear
       }

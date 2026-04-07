@@ -10,7 +10,7 @@ hierarchy -check -top $::env(DESIGN_NAME)
 
 if { [env_var_exists_and_non_empty SYNTH_KEEP_MODULES] } {
   foreach module $::env(SYNTH_KEEP_MODULES) {
-    select -module $module
+    select "${module}" "${module}\\$*"
     setattr -mod -set keep_hierarchy 1
     select -clear
   }
