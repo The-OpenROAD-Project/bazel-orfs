@@ -1,0 +1,27 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 7 Apr 2026 12:00:00 +0200
+Subject: [PATCH 35/35] fix: remove mock-openroad bazel_dep after inlining
+
+mock-openroad was inlined into bazel-orfs as a regular package.
+It no longer exists as a separate Bazel module, so the bazel_dep
+must be removed.
+
+Signed-off-by: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+---
+ MODULE.bazel | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/MODULE.bazel b/MODULE.bazel
+--- a/MODULE.bazel
++++ b/MODULE.bazel
+@@ -8,7 +8,6 @@
+
+ bazel_dep(name = "bazel-orfs")
+-bazel_dep(name = "mock-openroad", version = "0.0.1")
+ bazel_dep(name = "rules_python", version = "1.2.0")
+ bazel_dep(name = "rules_shell", version = "0.6.1")
+
+--
+2.51.0
+

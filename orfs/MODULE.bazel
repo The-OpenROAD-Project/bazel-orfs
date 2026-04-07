@@ -61,6 +61,7 @@ git_override(
         "//patches:0032-fix-add-ihp-sg13g2-IO-pad-libs-to-i2c-gpio-expander-.patch",
         "//patches:0033-fix-mock-cpu-io.tcl-source-util.tcl-via-env-var-for-.patch",
         "//patches:0034-fix-override-PDN_TCL-for-riscv32i-mock-sram-to-fix-P.patch",
+        "//patches:0035-fix-remove-mock-openroad-bazel_dep-after-inlining.patch",
     ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
 )
@@ -71,18 +72,6 @@ bazel_dep(name = "mock-klayout", version = "0.0.1")
 local_path_override(
     module_name = "mock-klayout",
     path = "../mock/klayout",
-)
-
-bazel_dep(name = "mock-openroad", version = "0.0.1")
-local_path_override(
-    module_name = "mock-openroad",
-    path = "../mock/openroad",
-)
-
-bazel_dep(name = "mock-yosys", version = "0.0.1")
-local_path_override(
-    module_name = "mock-yosys",
-    path = "../mock/yosys",
 )
 
 # --- Yosys built from source (shared with bazel-orfs) ---
