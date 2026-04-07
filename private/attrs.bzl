@@ -71,6 +71,13 @@ def orfs_attrs():
             cfg = "exec",
             default = CONFIG_MAKE,
         ),
+        "_time": attr.label(
+            doc = "GNU time binary.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = Label("@gnu_time//:time"),
+        ),
         "_makefile": attr.label(
             doc = "Top level makefile.",
             allow_single_file = ["Makefile"],

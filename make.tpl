@@ -8,6 +8,7 @@ if [ -z "$FLOW_HOME" ]; then
   export OPENSTA_EXE="${OPENSTA_PATH}"
   export KLAYOUT_CMD="${KLAYOUT_PATH}"
   export STDBUF_CMD="${STDBUF_PATH}"
+  export TIME_BIN="${TIME_PATH}"
   export FLOW_HOME="${FLOW_HOME}"
   export RUBYLIB="${RUBY_PATH}:${DLN_LIBRARY_PATH}"
   export DLN_LIBRARY_PATH="${DLN_LIBRARY_PATH}"

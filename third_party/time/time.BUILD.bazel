@@ -1,0 +1,21 @@
+cc_binary(
+    name = "time",
+    srcs = [
+        "config.h",
+        "error.h",
+        "progname.h",
+        "src/resuse.c",
+        "src/resuse.h",
+        "src/rusage-kb.c",
+        "src/rusage-kb.h",
+        "src/time.c",
+        "stubs.c",
+        "version-etc.h",
+    ],
+    copts = [
+        "-Iexternal/gnu_time",
+        "-std=gnu11",
+        "-Wno-parentheses",
+    ],
+    visibility = ["//visibility:public"],
+)

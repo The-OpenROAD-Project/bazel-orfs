@@ -138,6 +138,134 @@ pip_features.parse(
 )
 use_repo(pip_features, "bazel-orfs-features-pip")
 
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "gnu_time",
+    build_file = "//third_party/time:time.BUILD.bazel",
+    patch_cmds = [
+        # config.h -- Linux/glibc configuration for GNU time 1.9
+        """cat > config.h << 'CONF'
+#define _GNU_SOURCE
+#define HAVE_WAIT3 1
+#define GETRUSAGE_RETURNS_KB 1
+#define PACKAGE "time"
+#define PACKAGE_NAME "GNU Time"
+#define VERSION "1.9"
+#define PACKAGE_BUGREPORT "bug-time@gnu.org"
+#define PACKAGE_URL "https://www.gnu.org/software/time/"
+#define RETSIGTYPE void
+CONF""",
+        # progname.h -- minimal program name management
+        """cat > progname.h << 'CONF'
+#ifndef _PROGNAME_H
+#define _PROGNAME_H
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern const char *program_name;
+extern void set_program_name(const char *argv0);
+#ifdef __cplusplus
+}
+#endif
+#endif
+CONF""",
+        # error.h -- declarations matching glibc's error() interface
+        """cat > error.h << 'CONF'
+#ifndef _GL_ERROR_H
+#define _GL_ERROR_H 1
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern void error(int __status, int __errnum, const char *__format, ...)
+    __attribute__((__format__(__printf__, 3, 4)));
+extern void error_at_line(int __status, int __errnum, const char *__fname,
+    unsigned int __lineno, const char *__format, ...)
+    __attribute__((__format__(__printf__, 5, 6)));
+extern void (*error_print_progname)(void);
+extern unsigned int error_message_count;
+extern int error_one_per_line;
+#ifdef __cplusplus
+}
+#endif
+#endif
+CONF""",
+        # version-etc.h -- simplified version display
+        """cat > version-etc.h << 'CONF'
+#ifndef VERSION_ETC_H
+#define VERSION_ETC_H 1
+#include <stdarg.h>
+#include <stdio.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+extern const char version_etc_copyright[];
+extern void version_etc(FILE *stream, const char *command_name,
+    const char *package, const char *version, ...)
+    __attribute__((__sentinel__));
+extern void emit_bug_reporting_address(void);
+#ifdef __cplusplus
+}
+#endif
+#endif
+CONF""",
+        # stubs.c -- implementations for progname, version-etc, and error
+        """cat > stubs.c << 'CONF'
+#include "config.h"
+#include <errno.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "progname.h"
+#include "version-etc.h"
+
+const char *program_name = NULL;
+
+void set_program_name(const char *argv0) {
+    program_name = argv0;
+    program_invocation_name = (char *)argv0;
+}
+
+const char version_etc_copyright[] =
+    "Copyright %s %d Free Software Foundation, Inc.";
+
+void version_etc(FILE *stream, const char *command_name,
+    const char *package, const char *version, ...) {
+    if (command_name)
+        fprintf(stream, "%s (%s) %s\\n", command_name, package, version);
+    else
+        fprintf(stream, "%s %s\\n", package, version);
+    fprintf(stream, version_etc_copyright, "(C)", 2018);
+    fprintf(stream, "\\nLicense GPLv3+: GNU GPL version 3 or later"
+        " <https://gnu.org/licenses/gpl.html>.\\n"
+        "This is free software: you are free to change and redistribute it.\\n"
+        "There is NO WARRANTY, to the extent permitted by law.\\n\\n");
+    va_list authors;
+    va_start(authors, version);
+    const char *a = va_arg(authors, const char *);
+    if (a) {
+        fprintf(stream, "Written by %s", a);
+        while ((a = va_arg(authors, const char *)) != NULL)
+            fprintf(stream, ", %s", a);
+        fprintf(stream, ".\\n");
+    }
+    va_end(authors);
+}
+
+void emit_bug_reporting_address(void) {
+    printf("\\nReport bugs to: %s\\n", PACKAGE_BUGREPORT);
+    printf("%s home page: <%s>\\n", PACKAGE_NAME, PACKAGE_URL);
+}
+
+/* error() and error_at_line() are provided by glibc */
+CONF""",
+    ],
+    sha256 = "fbacf0c81e62429df3e33bda4cee38756604f18e01d977338e23306a3e3b521e",
+    strip_prefix = "time-1.9",
+    urls = ["https://ftp.gnu.org/gnu/time/time-1.9.tar.gz"],
+)
+
 orfs = use_extension("//:extension.bzl", "orfs_repositories")
 orfs.default()
 use_repo(orfs, "docker_orfs")

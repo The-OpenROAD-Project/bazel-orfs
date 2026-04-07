@@ -38,6 +38,7 @@ def orfs_environment(ctx):
         "HOME": _work_home(ctx),
         "PYTHON_EXE": ctx.executable._python.path,
         "STDBUF_CMD": "",
+        "TIME_BIN": ctx.executable._time.path,
         "WORK_HOME": _work_home(ctx),
     }
     if ctx.files._tcl:
@@ -133,6 +134,7 @@ def flow_inputs(ctx):
                 [
                     _klayout_attr(ctx),
                     ctx.attr._make,
+                    ctx.attr._time,
                     _openroad_attr(ctx),
                     _opensta_attr(ctx),
                     ctx.attr._python,
@@ -154,6 +156,7 @@ def flow_inputs_lite(ctx):
             _runfiles(
                 [
                     ctx.attr._make,
+                    ctx.attr._time,
                     _openroad_attr(ctx),
                     ctx.attr._python,
                     ctx.attr._makefile,
@@ -168,6 +171,7 @@ def test_inputs(ctx):
             _runfiles(
                 [
                     ctx.attr._make,
+                    ctx.attr._time,
                     ctx.attr._python,
                     ctx.attr._makefile,
                 ],
@@ -184,6 +188,7 @@ def yosys_inputs(ctx):
                     ctx.attr._abc,
                     ctx.attr.yosys,
                     ctx.attr._make,
+                    ctx.attr._time,
                     ctx.attr._makefile_yosys,
                     ctx.attr._python,
                 ],
@@ -245,6 +250,7 @@ def flow_substitutions(ctx):
         "${RUBY_PATH}": _optional_commonpath(ctx.files._ruby),
         "${STDBUF_PATH}": "",
         "${TCL_LIBRARY}": _optional_commonpath(ctx.files._tcl),
+        "${TIME_PATH}": ctx.executable._time.path,
     }
 
 def yosys_substitutions(ctx):
