@@ -26,6 +26,8 @@ local_path_override(
     path = "../mock/klayout",
 )
 
+# yosys is a transitive dep (via bazel-orfs); override makes yosys_share
+# publicly visible so the ORFS flow can reference it across module boundaries.
 single_version_override(
     module_name = "yosys",
     patches = ["//patches:yosys-visibility.patch"],

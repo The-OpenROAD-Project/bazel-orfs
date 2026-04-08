@@ -71,7 +71,7 @@ _default_tag = tag_class(
         "yosys_abc": attr.label(
             mandatory = False,
             cfg = "exec",
-            default = Label("@yosys//:yosys_abc"),
+            default = Label("@abc//:abc_bin"),
         ),
         "yosys_share": attr.label(
             mandatory = False,

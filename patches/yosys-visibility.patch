@@ -1,11 +1,9 @@
 --- a/BUILD.bazel
 +++ b/BUILD.bazel
-@@ -8,7 +8,7 @@
- load("@rules_python//python:py_binary.bzl", "py_binary")
- load(":yosys_utils.bzl", "share_dst", "share_tree")
- 
--package(default_visibility = ["//visibility:private"])
-+package(default_visibility = ["//visibility:public"])
- 
- VERSION = "0.62"
- 
+@@ -1,5 +1,6 @@
+ share_tree(
+     name = "yosys_share",
++    visibility = ["//visibility:public"],
+     file_map = {f: share_dst(f) for f in _TECHLIBS_SHARE_SRCS},
+     renames = [
+         # lattice files also appear under ecp5/ with renamed destinations

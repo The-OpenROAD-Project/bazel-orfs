@@ -22,6 +22,7 @@ local_path_override(
     path = "mock/klayout",
 )
 
+bazel_dep(name = "abc", version = "0.62-yosyshq")
 bazel_dep(name = "yosys", version = "0.62")
 single_version_override(
     module_name = "yosys",
