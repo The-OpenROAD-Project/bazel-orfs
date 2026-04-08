@@ -66,8 +66,8 @@ git_override(
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
 )
 
-# yosys is a transitive dep (via bazel-orfs); override makes yosys_share
-# publicly visible so the ORFS flow can reference it across module boundaries.
+bazel_dep(name = "yosys", version = "0.62")
+# Make yosys_share publicly visible for the ORFS flow (see bazel-orfs MODULE.bazel).
 single_version_override(
     module_name = "yosys",
     patches = ["//patches:yosys-visibility.patch"],

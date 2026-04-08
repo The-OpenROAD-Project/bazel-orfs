@@ -24,6 +24,9 @@ local_path_override(
 
 bazel_dep(name = "abc", version = "0.62-yosyshq")
 bazel_dep(name = "yosys", version = "0.62")
+
+# yosys_share (techlib data files) has package-private visibility in BCR yosys;
+# the ORFS flow needs it public so @yosys//:yosys_share is reachable across modules.
 single_version_override(
     module_name = "yosys",
     patch_strip = 1,
@@ -66,6 +69,24 @@ git_override(
 )
 
 bazel_dep(name = "glpk", version = "5.0.bcr.4")
+
+bazel_dep(name = "toolchains_llvm", version = "1.5.0", dev_dependency = True)
+
+llvm = use_extension(
+    "@toolchains_llvm//toolchain/extensions:llvm.bzl",
+    "llvm",
+    dev_dependency = True,
+)
+llvm.toolchain(
+    llvm_version = "20.1.8",
+)
+use_repo(llvm, "llvm_toolchain")
+
+register_toolchains(
+    "@llvm_toolchain//:all",
+    dev_dependency = True,
+)
+
 bazel_dep(
     name = "rules_python",
     version = "1.8.5",
