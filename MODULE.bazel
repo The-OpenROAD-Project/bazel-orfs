@@ -14,7 +14,7 @@ local_path_override(
 
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
-bazel_dep(name = "rules_pkg", version = "1.0.1")
+bazel_dep(name = "rules_pkg", version = "1.2.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
 bazel_dep(name = "mock-klayout", version = "0.0.1")
 local_path_override(
@@ -36,13 +36,12 @@ single_version_override(
 bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",
-    commit = "f40d2f346e67ffe309a4f49b1897a560cf20c747",
+    commit = "74271e42b301df0b3b84fb14d42282f9e8491cee",
     patch_strip = 1,
     # Minimal patches: only what's needed for extension.bzl flow targets
     # (PDK definitions, variables.yaml export). Design-specific patches
     # are only applied in the orfs/ integration workspace.
     patches = [
-        "//patches:0001-build-remove-stale-merge_lib.py-preprocessLib.py-fro.patch",
         "//patches:0002-build-add-all-PDKs-and-export-variables.yaml.patch",
         "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
     ],
@@ -52,11 +51,12 @@ git_override(
 bazel_dep(name = "openroad")
 git_override(
     module_name = "openroad",
-    commit = "df79404cd806cc435b3c3b53678ebf2441c31313",
+    commit = "d22045c978d037f7a5788c08f359aec471800c01",
     init_submodules = True,
     patch_strip = 1,
     patches = [
         "//:openroad-visibility.patch",
+        "//:openroad-remove-initrunfiles.patch",
     ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
@@ -64,7 +64,7 @@ git_override(
 bazel_dep(name = "qt-bazel")
 git_override(
     module_name = "qt-bazel",
-    commit = "df022f4ebaa4130713692fffd2f519d49e9d0b97",
+    commit = "886104974c2fd72439f2c33b5deebf0fe4649df7",
     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
 )
 

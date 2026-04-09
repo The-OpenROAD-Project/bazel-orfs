@@ -26,10 +26,10 @@ diff --git a/MODULE.bazel b/MODULE.bazel
 -    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",
 -)
 -
- bazel_dep(name = "rules_python", version = "1.2.0")
+ bazel_dep(name = "rules_python", version = "1.8.5")
  bazel_dep(name = "rules_shell", version = "0.6.1")
 
-@@ -33,15 +26,3 @@
+@@ -36,15 +29,3 @@
  use_repo(pip, "orfs-pip")
 
  orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
