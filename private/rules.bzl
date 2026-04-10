@@ -738,12 +738,12 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                     deps_inputs(ctx),
                 ],
             ),
-            outputs = [synth_outputs["1_synth.odb"]],
+            outputs = [synth_outputs["1_synth.odb"], synth_outputs["1_synth.sdc"]],
             tools = yosys_and_flow_tools,
         )
 
     # Stub outputs that the serial path produces but parallel does not
-    for name in ["1_synth.sdc", "mem.json"]:
+    for name in ["mem.json"]:
         ctx.actions.write(output = synth_outputs[name], content = "")
     for f in synth_logs + synth_reports:
         ctx.actions.write(output = f, content = "")
