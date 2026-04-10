@@ -1,0 +1,55 @@
+load("@bazel-orfs//:openroad.bzl", "orfs_flow")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
+load("@rules_verilog//verilog:defs.bzl", "verilog_library")
+load("//:merge_share.bzl", "merge_yosys_share")
+
+# Merge BCR yosys_share with slang plugin built from source
+merge_yosys_share(
+    name = "yosys_share_with_slang",
+    plugins = ["@yosys-slang//:slang.so"],
+    share = "@yosys//:yosys_share",
+)
+
+# Flat synthesis of a tiny SystemVerilog counter.
+# Exercises: slang frontend, yosys_share visibility, PDK access,
+# openroad from-source build (tcmalloc, C++20, toolchains_llvm).
+orfs_flow(
+    name = "counter",
+    arguments = {
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.65",
+        # slang is required for SystemVerilog `automatic` keyword
+        "SYNTH_HDL_FRONTEND": "slang",
+        "SLANG_PLUGIN_PATH": "$(location @yosys-slang//:slang.so)",
+    },
+    data = ["@yosys-slang//:slang.so"],
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    last_stage = "synth",
+    verilog_files = ["rtl/counter.sv"],
+)
+
+# --- Verilator simulation test ---
+
+verilog_library(
+    name = "counter_verilog",
+    srcs = ["rtl/counter.sv"],
+)
+
+verilator_cc_library(
+    name = "counter_verilator",
+    module = ":counter_verilog",
+    module_top = "counter",
+    trace = True,
+)
+
+cc_test(
+    name = "counter_test",
+    srcs = ["counter_test.cc"],
+    deps = [
+        ":counter_verilator",
+        "@googletest//:gtest_main",
+    ],
+)

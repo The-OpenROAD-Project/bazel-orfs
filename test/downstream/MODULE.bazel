@@ -1,0 +1,95 @@
+"""
+Downstream consumer test for bazel-orfs.
+
+See README.md for the strategy and catalog of known issues.
+"""
+
+module(
+    name = "downstream-test",
+    version = "0.0.1",
+)
+
+# --- bazel-orfs dependency (local checkout) ---
+bazel_dep(name = "bazel-orfs")
+local_path_override(
+    module_name = "bazel-orfs",
+    path = "../..",
+)
+
+bazel_dep(name = "bazel-orfs-verilog")
+local_path_override(
+    module_name = "bazel-orfs-verilog",
+    path = "../../verilog",
+)
+
+# --- Non-BCR deps that bazel-orfs needs (git_override is root-only) ---
+
+bazel_dep(name = "orfs")
+git_override(
+    module_name = "orfs",
+    commit = "74271e42b301df0b3b84fb14d42282f9e8491cee",
+    patch_strip = 1,
+    patches = [
+        "//patches:0002-build-add-all-PDKs-and-export-variables.yaml.patch",
+        "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
+        "//patches:orfs-slang-plugin-path.patch",
+    ],
+    remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
+)
+
+bazel_dep(name = "openroad")
+git_override(
+    module_name = "openroad",
+    commit = "d22045c978d037f7a5788c08f359aec471800c01",
+    init_submodules = True,
+    patch_strip = 1,
+    patches = [
+        "//patches:openroad-visibility.patch",
+        "//patches:openroad-remove-initrunfiles.patch",
+        "//patches:openroad-remove-isolate.patch",
+        "//patches:openroad-fix-sta-iterator-templates.patch",
+    ],
+    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
+)
+
+bazel_dep(name = "qt-bazel")
+git_override(
+    module_name = "qt-bazel",
+    commit = "886104974c2fd72439f2c33b5deebf0fe4649df7",
+    remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
+)
+
+# --- yosys visibility patch (single_version_override is root-only) ---
+bazel_dep(name = "yosys", version = "0.62")
+single_version_override(
+    module_name = "yosys",
+    patch_strip = 1,
+    patches = [
+        "//patches:yosys-visibility.patch",
+        "//patches:yosys-hdrs.patch",
+    ],
+)
+
+# --- Verilator simulation + Google Test ---
+bazel_dep(name = "rules_verilog", version = "1.1.1")
+bazel_dep(name = "rules_verilator", version = "0.3.1")
+bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
+
+# --- Python 3.13 toolchain (required by bazel-orfs pip deps) ---
+bazel_dep(name = "rules_python", version = "1.8.5")
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
+python.toolchain(
+    is_default = True,
+    python_version = "3.13",
+)
+
+# --- yosys-slang plugin (built from source) ---
+yosys_slang = use_extension("//:yosys_slang.bzl", "yosys_slang")
+use_repo(yosys_slang, "yosys-slang")
+
+# --- Use the extension to set up tools ---
+orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
+orfs.default(
+    yosys_share = "//:yosys_share_with_slang",
+)
+use_repo(orfs, "docker_orfs")
