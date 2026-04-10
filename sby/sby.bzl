@@ -81,7 +81,7 @@ if [ -n "$TEST_UNDECLARED_OUTPUTS_DIR" ]; then
 fi
 exit $rc
 """.format(
-            sby = ctx.executable._sby.short_path,
+            sby = ctx.executable.sby.short_path,
             sby_file = sby.short_path,
         ),
         is_executable = True,
@@ -94,9 +94,9 @@ exit $rc
             runfiles = ctx.runfiles(
                 files = [
                             sby,
-                            ctx.executable._sby,
-                            ctx.executable._yosys,
-                            ctx.executable._yosys_abc,
+                            ctx.executable.sby,
+                            ctx.executable.yosys,
+                            ctx.executable.yosys_abc,
                         ] +
                         ctx.files.verilog_files +
                         ctx.files.includes,
@@ -133,30 +133,30 @@ _sby_test = rule(
             allow_files = True,
             providers = [DefaultInfo],
         ),
-        "_sby": attr.label(
+        "sby": attr.label(
             doc = "sby binary.",
             executable = True,
             allow_files = True,
             cfg = "exec",
-            default = Label("@oss_cad_suite//:sby"),
+            mandatory = True,
         ),
         "_sby_template": attr.label(
             default = "sby.tpl",
             allow_single_file = True,
         ),
-        "_yosys": attr.label(
+        "yosys": attr.label(
             doc = "Yosys binary.",
             executable = True,
             allow_files = True,
             cfg = "exec",
-            default = Label("@oss_cad_suite//:yosys"),
+            mandatory = True,
         ),
-        "_yosys_abc": attr.label(
+        "yosys_abc": attr.label(
             doc = "yosys-abc binary (needed for abc pdr engine).",
             executable = True,
             allow_files = True,
             cfg = "exec",
-            default = Label("@oss_cad_suite//:yosys-abc"),
+            mandatory = True,
         ),
     },
     test = True,
@@ -172,6 +172,9 @@ def sby_test(
         firtool_options = None,
         verilog_files = [],
         includes = [],
+        sby = "@oss_cad_suite//:sby",
+        yosys = "@oss_cad_suite//:yosys",
+        yosys_abc = "@oss_cad_suite//:yosys-abc",
         **kwargs):
     """Run SymbiYosys formal verification on a Chisel-generated design.
 
@@ -242,5 +245,8 @@ def sby_test(
         module_top = module_top,
         verilog_files = verilog_files + [":{name}.sv".format(name = name)],
         includes = includes,
+        sby = sby,
+        yosys = yosys,
+        yosys_abc = yosys_abc,
         **kwargs
     )
