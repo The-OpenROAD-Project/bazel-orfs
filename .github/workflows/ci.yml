@@ -40,7 +40,14 @@ jobs:
         uses: bazel-contrib/setup-bazel@0.19.0
         with:
           bazelisk-cache: true
-          repository-cache: true
+
+      - name: Repository cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/bazel-repo
+          key: bazel-repo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            bazel-repo-${{ runner.os }}-
 
       - name: Disk cache
         uses: actions/cache@v4
@@ -50,8 +57,10 @@ jobs:
           restore-keys: |
             bazel-disk-${{ runner.os }}-
 
-      - name: Configure disk cache path
-        run: echo 'common --disk_cache=/home/runner/.cache/bazel-disk' >> ~/.bazelrc
+      - name: Configure caches
+        run: |
+          echo 'common --repository_cache=~/.cache/bazel-repo' >> ~/.bazelrc
+          echo 'common --disk_cache=~/.cache/bazel-disk' >> ~/.bazelrc
 
       # --- Lint ---
       - name: Lint
