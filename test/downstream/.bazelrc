@@ -1,0 +1,9 @@
+# Downstream consumer test .bazelrc.
+# Workarounds here are tracked as known issues in README.md.
+
+common --enable_workspace
+
+# Workaround: OpenROAD STA requires C++20 (README issue #5)
+build --cxxopt=-std=c++20 --host_cxxopt=-std=c++20
+
+try-import %workspace%/user.bazelrc
