@@ -102,12 +102,12 @@ exit $rc
                         ctx.files.includes,
                 transitive_files = depset(
                     transitive = [
-                        ctx.attr._sby[DefaultInfo].default_runfiles.files,
-                        ctx.attr._sby[DefaultInfo].default_runfiles.symlinks,
-                        ctx.attr._yosys[DefaultInfo].default_runfiles.files,
-                        ctx.attr._yosys[DefaultInfo].default_runfiles.symlinks,
-                        ctx.attr._yosys_abc[DefaultInfo].default_runfiles.files,
-                        ctx.attr._yosys_abc[DefaultInfo].default_runfiles.symlinks,
+                        ctx.attr.sby[DefaultInfo].default_runfiles.files,
+                        ctx.attr.sby[DefaultInfo].default_runfiles.symlinks,
+                        ctx.attr.yosys[DefaultInfo].default_runfiles.files,
+                        ctx.attr.yosys[DefaultInfo].default_runfiles.symlinks,
+                        ctx.attr.yosys_abc[DefaultInfo].default_runfiles.files,
+                        ctx.attr.yosys_abc[DefaultInfo].default_runfiles.symlinks,
                     ],
                 ),
             ),

@@ -48,6 +48,7 @@ jobs:
           key: bazel-repo-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
             bazel-repo-${{ runner.os }}-
+          save-always: true
 
       - name: Disk cache
         uses: actions/cache@v4
@@ -56,6 +57,7 @@ jobs:
           key: bazel-disk-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
             bazel-disk-${{ runner.os }}-
+          save-always: true
 
       - name: Configure caches
         run: |
