@@ -59,8 +59,8 @@ jobs:
 
       - name: Configure caches
         run: |
-          echo 'common --repository_cache=~/.cache/bazel-repo' >> ~/.bazelrc
-          echo 'common --disk_cache=~/.cache/bazel-disk' >> ~/.bazelrc
+          echo "common --repository_cache=$HOME/.cache/bazel-repo" >> ~/.bazelrc
+          echo "common --disk_cache=$HOME/.cache/bazel-disk" >> ~/.bazelrc
 
       # --- Lint ---
       - name: Lint
