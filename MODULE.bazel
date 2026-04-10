@@ -16,7 +16,8 @@ bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True
 
 bazel_dep(name = "rules_pkg", version = "1.2.0")
 bazel_dep(name = "rules_shell", version = "0.6.1")
-bazel_dep(name = "mock-klayout", version = "0.0.1")
+
+bazel_dep(name = "mock-klayout", version = "0.0.1", dev_dependency = True)
 local_path_override(
     module_name = "mock-klayout",
     path = "mock/klayout",

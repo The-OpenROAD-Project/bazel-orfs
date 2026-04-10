@@ -15,6 +15,7 @@ satisfy any residual label references in attrs.bzl.
 load("//:config.bzl", "global_config")
 load("//:gnumake.bzl", "gnumake")
 load("//:load_json_file.bzl", "load_json_file")
+load("//:mock_klayout.bzl", "mock_klayout")
 load("//:stub.bzl", "stub_docker_orfs")
 
 _default_tag = tag_class(
@@ -30,7 +31,6 @@ _default_tag = tag_class(
         "klayout": attr.label(
             mandatory = False,
             cfg = "exec",
-            default = Label("@mock-klayout//src/bin:klayout"),
         ),
         "make": attr.label(
             mandatory = False,
@@ -87,10 +87,14 @@ def _orfs_repositories_impl(module_ctx):
     # GNU Make built from source
     gnumake(name = "gnumake")
 
+    # Mock klayout that produces dummy GDS files — used as default
+    # when no real klayout is provided by the consumer.
+    mock_klayout(name = "mock_klayout")
+
     for default in module_ctx.modules[0].tags.default:
         global_config(
             name = "config",
-            klayout = default.klayout,
+            klayout = default.klayout if default.klayout else "@mock_klayout//:klayout",
             make = default.make,
             makefile = default.makefile,
             makefile_yosys = default.makefile_yosys,
