@@ -5,7 +5,7 @@ index a15adee..66f99d2 100644
 @@ -124,18 +124,12 @@ cc_library(
      }),
  )
- 
+
 -# shim old library as it is still referenced in src/sta, implementing the
 -# old behavior.
 +# Stub library kept for src/sta:opensta compatibility.
@@ -21,7 +21,7 @@ index a15adee..66f99d2 100644
 -    ],
 -    alwayslink = True,
  )
- 
+
  # small build test to check if "bazel build //src/sta:StaTclInitVar" works
 diff --git a/bazel/InitRunFiles.cpp b/bazel/InitRunFiles.cpp
 index 0651774..ece50b0 100644
@@ -117,24 +117,3 @@ index 0651774..ece50b0 100644
 +// Intentionally empty: tcl_library_init now handles Tcl setup.
 +// This file is kept because src/sta:opensta still references
 +// //bazel:runfiles in its srcs.
-diff --git a/bazel/tcl_library_init.cc b/bazel/tcl_library_init.cc
-index 4be9671..8306978 100644
---- a/bazel/tcl_library_init.cc
-+++ b/bazel/tcl_library_init.cc
-@@ -35,6 +35,16 @@ static std::optional<std::string> TclLibraryMountPoint(Tcl_Interp* interp)
-   return Tcl_GetStringResult(interp);
- #else
-   using rules_cc::cc::runfiles::Runfiles;
-+
-+  // Clear inherited RUNFILES_* env vars: when OpenROAD is invoked by
-+  // a build system that previously ran another Bazel binary (e.g. a
-+  // Python wrapper), those variables point to the *other* binary's
-+  // runfiles tree.  Runfiles::Create() checks env vars first, so it
-+  // would resolve paths in the wrong tree.  Unsetting forces it to
-+  // fall back to Tcl_GetNameOfExecutable(), which is always correct.
-+  unsetenv("RUNFILES_DIR");
-+  unsetenv("RUNFILES_MANIFEST_FILE");
-+
-   std::string error;
-   std::unique_ptr<Runfiles> runfiles(Runfiles::Create(
-       Tcl_GetNameOfExecutable(), BAZEL_CURRENT_REPOSITORY, &error));
