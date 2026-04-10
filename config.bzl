@@ -40,9 +40,8 @@ global_config = repository_rule(
     implementation = _global_config_impl,
     attrs = {
         "klayout": attr.label(
-            mandatory = False,
+            mandatory = True,
             cfg = "exec",
-            default = Label("@mock-klayout//src/bin:klayout"),
         ),
         "make": attr.label(
             mandatory = False,
