@@ -1,38 +1,8 @@
-From d5d1f113c0b4e81fcf54fa19474407c1682141b9 Mon Sep 17 00:00:00 2001
+From f3c4c632efeb386d652a8f76121d858d5a996dc5 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 00:23:23 +0200
-Subject: [PATCH 05/30] build: fix config.mk parser and add missing BUILD.bazel
- files
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:31 +0200
+Subject: [PATCH] 0005-build-fix-config.mk-parser-and-add-missing-BUILD.baz
 
-Fix several issues preventing `bazelisk test //flow/designs/asap7/...`
-from working:
-
-Parser fixes (config_mk_parser.py):
-- Add _tokenize_make_expr() to preserve $(...) nesting when splitting
-  multi-value VERILOG_FILES (fixes wildcard resolution for ibex, cva6)
-- Fix _dir_to_verilog_label() to preserve subdirectory paths instead
-  of collapsing all to top-level :verilog label
-- Fix _resolve_include_path() to find included files when repo rule
-  runs from a different CWD (fixes mock-alu defaults.mk include)
-- Skip tab-indented Make recipe lines (fixes mock-alu MOCK_ALU_WIDTH)
-
-Bazel rule fixes (orfs.bzl):
-- Add VERILOG_INCLUDE_DIRS directories as stage_data for synth so
-  include files are available in the Bazel sandbox
-
-New BUILD.bazel files:
-- 3 missing design dirs: aes, ethmac_lvt, swerv_wrapper
-- 21 cva6 src subdirectories for nested verilog/include files
-- ibex, jpeg include directories
-
-Disable orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad") for designs with pre-existing issues:
-- cva6, minimal, mock-cpu, riscv32i, swerv_wrapper
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/designs/asap7/aes/BUILD.bazel            |  6 +++++
  flow/designs/asap7/cva6/BUILD.bazel           |  7 ++++++
@@ -99,7 +69,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 
 diff --git a/flow/designs/asap7/aes/BUILD.bazel b/flow/designs/asap7/aes/BUILD.bazel
 new file mode 100644
-index 00000000..43c2e81a
+index 000000000..43c2e81a4
 --- /dev/null
 +++ b/flow/designs/asap7/aes/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -111,7 +81,7 @@ index 00000000..43c2e81a
 +orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/cva6/BUILD.bazel b/flow/designs/asap7/cva6/BUILD.bazel
 new file mode 100644
-index 00000000..07349329
+index 000000000..073493291
 --- /dev/null
 +++ b/flow/designs/asap7/cva6/BUILD.bazel
 @@ -0,0 +1,7 @@
@@ -124,7 +94,7 @@ index 00000000..07349329
 +# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/ethmac_lvt/BUILD.bazel b/flow/designs/asap7/ethmac_lvt/BUILD.bazel
 new file mode 100644
-index 00000000..43c2e81a
+index 000000000..43c2e81a4
 --- /dev/null
 +++ b/flow/designs/asap7/ethmac_lvt/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -136,14 +106,14 @@ index 00000000..43c2e81a
 +orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/minimal/BUILD.bazel b/flow/designs/asap7/minimal/BUILD.bazel
 new file mode 100644
-index 00000000..d2275d7b
+index 000000000..d2275d7b1
 --- /dev/null
 +++ b/flow/designs/asap7/minimal/BUILD.bazel
 @@ -0,0 +1 @@
 +# Note! This is a local make use only, not used with Bazel
 diff --git a/flow/designs/asap7/mock-cpu/BUILD.bazel b/flow/designs/asap7/mock-cpu/BUILD.bazel
 new file mode 100644
-index 00000000..1ba82536
+index 000000000..1ba82536e
 --- /dev/null
 +++ b/flow/designs/asap7/mock-cpu/BUILD.bazel
 @@ -0,0 +1,6 @@
@@ -155,7 +125,7 @@ index 00000000..1ba82536
 +# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i/BUILD.bazel b/flow/designs/asap7/riscv32i/BUILD.bazel
 new file mode 100644
-index 00000000..c0715a55
+index 000000000..c0715a554
 --- /dev/null
 +++ b/flow/designs/asap7/riscv32i/BUILD.bazel
 @@ -0,0 +1,7 @@
@@ -168,7 +138,7 @@ index 00000000..c0715a55
 +# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/swerv_wrapper/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 new file mode 100644
-index 00000000..07349329
+index 000000000..073493291
 --- /dev/null
 +++ b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 @@ -0,0 +1,7 @@
@@ -181,7 +151,7 @@ index 00000000..07349329
 +# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/src/cva6/common/local/util/BUILD.bazel b/flow/designs/src/cva6/common/local/util/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/common/local/util/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -200,7 +170,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/cva6/core/BUILD.bazel b/flow/designs/src/cva6/core/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/core/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -219,7 +189,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/cva6/core/cache_subsystem/BUILD.bazel b/flow/designs/src/cva6/core/cache_subsystem/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/core/cache_subsystem/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -238,7 +208,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/include/BUILD.bazel b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/include/BUILD.bazel
 new file mode 100644
-index 00000000..04b36977
+index 000000000..04b36977f
 --- /dev/null
 +++ b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/include/BUILD.bazel
 @@ -0,0 +1,22 @@
@@ -266,7 +236,7 @@ index 00000000..04b36977
 +)
 diff --git a/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/BUILD.bazel b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -285,7 +255,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/BUILD.bazel b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -304,7 +274,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/macros/blackbox/BUILD.bazel b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/macros/blackbox/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/common/macros/blackbox/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -323,7 +293,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/hwpf_stride/BUILD.bazel b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/hwpf_stride/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/hwpf_stride/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -342,7 +312,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/utils/BUILD.bazel b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/utils/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/core/cache_subsystem/hpdcache/rtl/src/utils/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -361,7 +331,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/cva6/core/cva6_mmu/BUILD.bazel b/flow/designs/src/cva6/core/cva6_mmu/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/core/cva6_mmu/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -380,7 +350,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/cva6/core/cvfpu/src/BUILD.bazel b/flow/designs/src/cva6/core/cvfpu/src/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/core/cvfpu/src/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -399,7 +369,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/cva6/core/cvfpu/src/common_cells/include/BUILD.bazel b/flow/designs/src/cva6/core/cvfpu/src/common_cells/include/BUILD.bazel
 new file mode 100644
-index 00000000..04b36977
+index 000000000..04b36977f
 --- /dev/null
 +++ b/flow/designs/src/cva6/core/cvfpu/src/common_cells/include/BUILD.bazel
 @@ -0,0 +1,22 @@
@@ -427,7 +397,7 @@ index 00000000..04b36977
 +)
 diff --git a/flow/designs/src/cva6/core/cvfpu/src/common_cells/include/common_cells/BUILD.bazel b/flow/designs/src/cva6/core/cvfpu/src/common_cells/include/common_cells/BUILD.bazel
 new file mode 100644
-index 00000000..04b36977
+index 000000000..04b36977f
 --- /dev/null
 +++ b/flow/designs/src/cva6/core/cvfpu/src/common_cells/include/common_cells/BUILD.bazel
 @@ -0,0 +1,22 @@
@@ -455,7 +425,7 @@ index 00000000..04b36977
 +)
 diff --git a/flow/designs/src/cva6/core/cvfpu/src/fpu_div_sqrt_mvp/hdl/BUILD.bazel b/flow/designs/src/cva6/core/cvfpu/src/fpu_div_sqrt_mvp/hdl/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/core/cvfpu/src/fpu_div_sqrt_mvp/hdl/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -474,7 +444,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/cva6/core/cvxif_example/include/BUILD.bazel b/flow/designs/src/cva6/core/cvxif_example/include/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/core/cvxif_example/include/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -493,7 +463,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/cva6/core/frontend/BUILD.bazel b/flow/designs/src/cva6/core/frontend/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/core/frontend/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -512,7 +482,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/cva6/core/include/BUILD.bazel b/flow/designs/src/cva6/core/include/BUILD.bazel
 new file mode 100644
-index 00000000..04b36977
+index 000000000..04b36977f
 --- /dev/null
 +++ b/flow/designs/src/cva6/core/include/BUILD.bazel
 @@ -0,0 +1,22 @@
@@ -540,7 +510,7 @@ index 00000000..04b36977
 +)
 diff --git a/flow/designs/src/cva6/core/pmp/src/BUILD.bazel b/flow/designs/src/cva6/core/pmp/src/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/core/pmp/src/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -559,7 +529,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/cva6/vendor/pulp-platform/axi/src/BUILD.bazel b/flow/designs/src/cva6/vendor/pulp-platform/axi/src/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/vendor/pulp-platform/axi/src/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -578,7 +548,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/cva6/vendor/pulp-platform/common_cells/src/BUILD.bazel b/flow/designs/src/cva6/vendor/pulp-platform/common_cells/src/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/vendor/pulp-platform/common_cells/src/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -597,7 +567,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/cva6/vendor/pulp-platform/tech_cells_generic/src/rtl/BUILD.bazel b/flow/designs/src/cva6/vendor/pulp-platform/tech_cells_generic/src/rtl/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/vendor/pulp-platform/tech_cells_generic/src/rtl/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -616,7 +586,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/ibex_sv/vendor/lowrisc_ip/prim/rtl/BUILD.bazel b/flow/designs/src/ibex_sv/vendor/lowrisc_ip/prim/rtl/BUILD.bazel
 new file mode 100644
-index 00000000..04b36977
+index 000000000..04b36977f
 --- /dev/null
 +++ b/flow/designs/src/ibex_sv/vendor/lowrisc_ip/prim/rtl/BUILD.bazel
 @@ -0,0 +1,22 @@
@@ -644,7 +614,7 @@ index 00000000..04b36977
 +)
 diff --git a/flow/designs/src/jpeg/include/BUILD.bazel b/flow/designs/src/jpeg/include/BUILD.bazel
 new file mode 100644
-index 00000000..04b36977
+index 000000000..04b36977f
 --- /dev/null
 +++ b/flow/designs/src/jpeg/include/BUILD.bazel
 @@ -0,0 +1,22 @@
@@ -671,7 +641,7 @@ index 00000000..04b36977
 +    visibility = ["//visibility:public"],
 +)
 diff --git a/flow/designs/src/mock-array/BUILD.bazel b/flow/designs/src/mock-array/BUILD.bazel
-index 5bdb9cc1..bf21414a 100644
+index 5bdb9cc16..bf21414ac 100644
 --- a/flow/designs/src/mock-array/BUILD.bazel
 +++ b/flow/designs/src/mock-array/BUILD.bazel
 @@ -1,5 +1,5 @@

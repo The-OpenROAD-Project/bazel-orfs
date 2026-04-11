@@ -1,26 +1,8 @@
-From 7fcd37bef532bab31734e1b45690fe62165fdba6 Mon Sep 17 00:00:00 2001
+From fb2d86ad3f8aa7788bad6f7195cc57f841d579b9 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 06:08:21 +0200
-Subject: [PATCH 07/30] build: 15/18 asap7 designs pass lint flow
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:32 +0200
+Subject: [PATCH] 0007-build-15-18-asap7-designs-pass-lint-flow
 
-All asap7 designs except cva6, riscv32i, riscv32i-mock-sram, and
-swerv_wrapper now build through all stages with lint=True + mock-openroad.
-
-Fixes:
-- Parser: platform file labels use //flow:platforms/... (//flow package)
-- flow/BUILD.bazel: export platform verilog/lef/lib files
-- orfs.bzl: stop filtering platform paths from verilog_files and sources
-
-Disabled designs (pre-existing config.mk issues):
-- riscv32i, swerv_wrapper: need fakeram verilog in VERILOG_FILES
-- riscv32i-mock-sram: hierarchical - mock .lib stubs empty
-- cva6: VERILOG_INCLUDE_DIRS subdirectory includes not in sandbox
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  MODULE.bazel.lock                                   |  2 +-
  flow/BUILD.bazel                                    |  7 ++++++-
@@ -34,7 +16,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100644 flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
 
 diff --git a/MODULE.bazel.lock b/MODULE.bazel.lock
-index 82e00c80..f16b7e59 100644
+index 82e00c802..f16b7e59b 100644
 --- a/MODULE.bazel.lock
 +++ b/MODULE.bazel.lock
 @@ -152,7 +152,7 @@
@@ -47,7 +29,7 @@ index 82e00c80..f16b7e59 100644
          "recordedDirentsInputs": {},
          "envVariables": {},
 diff --git a/flow/BUILD.bazel b/flow/BUILD.bazel
-index 0be37f13..d6d367d1 100644
+index 0be37f13b..d6d367d1e 100644
 --- a/flow/BUILD.bazel
 +++ b/flow/BUILD.bazel
 @@ -1,7 +1,12 @@
@@ -65,7 +47,7 @@ index 0be37f13..d6d367d1 100644
  )
  
 diff --git a/flow/designs/asap7/cva6/BUILD.bazel b/flow/designs/asap7/cva6/BUILD.bazel
-index 43c2e81a..a967509b 100644
+index 43c2e81a4..a967509b1 100644
 --- a/flow/designs/asap7/cva6/BUILD.bazel
 +++ b/flow/designs/asap7/cva6/BUILD.bazel
 @@ -1,6 +1,8 @@
@@ -82,7 +64,7 @@ index 43c2e81a..a967509b 100644
 +# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel b/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
 new file mode 100644
-index 00000000..5ae76a33
+index 000000000..5ae76a33e
 --- /dev/null
 +++ b/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
 @@ -0,0 +1,8 @@
@@ -96,7 +78,7 @@ index 00000000..5ae76a33
 +# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel b/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
 new file mode 100644
-index 00000000..3ef58ad8
+index 000000000..3ef58ad8e
 --- /dev/null
 +++ b/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -114,7 +96,7 @@ index 00000000..3ef58ad8
 +
 +# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i/BUILD.bazel b/flow/designs/asap7/riscv32i/BUILD.bazel
-index 43c2e81a..e12c1ad9 100644
+index 43c2e81a4..e12c1ad96 100644
 --- a/flow/designs/asap7/riscv32i/BUILD.bazel
 +++ b/flow/designs/asap7/riscv32i/BUILD.bazel
 @@ -1,6 +1,7 @@
@@ -129,7 +111,7 @@ index 43c2e81a..e12c1ad9 100644
 -orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 +# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/swerv_wrapper/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
-index 43c2e81a..e12c1ad9 100644
+index 43c2e81a4..e12c1ad96 100644
 --- a/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 +++ b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 @@ -1,6 +1,7 @@

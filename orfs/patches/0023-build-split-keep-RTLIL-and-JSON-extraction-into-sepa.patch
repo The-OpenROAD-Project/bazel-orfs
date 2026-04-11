@@ -1,22 +1,8 @@
-From 9bde1c00f2e86396e00029e746a781a503e7e3df Mon Sep 17 00:00:00 2001
+From fa5e75d63c330d4755ad61095ea1baf06ef6ebae Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 15:13:33 +0200
-Subject: [PATCH 23/30] build: split keep RTLIL and JSON extraction into
- separate actions
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:32 +0200
+Subject: [PATCH] 0023-build-split-keep-RTLIL-and-JSON-extraction-into-sepa
 
-- synth_keep.tcl now only writes 1_1_yosys_keep.rtlil (no JSON)
-- rtlil_kept_modules.py extracts kept_modules.json from the RTLIL
-- New Makefile target do-yosys-kept-json for the fast Python step
-- Blackbox before hierarchy check in synth.tcl (catch unknown modules)
-- Unit test for RTLIL parsing
-
-This allows fast iteration on the JSON format without re-running Yosys.
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/Makefile               |  4 ++++
  flow/scripts/synth.tcl      | 10 ++++++----
@@ -24,7 +10,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  3 files changed, 13 insertions(+), 28 deletions(-)
 
 diff --git a/flow/Makefile b/flow/Makefile
-index dbaab86d..5c8d5b16 100644
+index dbaab86d2..5c8d5b16e 100644
 --- a/flow/Makefile
 +++ b/flow/Makefile
 @@ -276,6 +276,10 @@ do-yosys-canonicalize: yosys-dependencies
@@ -39,7 +25,7 @@ index dbaab86d..5c8d5b16 100644
  do-yosys-partition: yosys-dependencies
  	$(SCRIPTS_DIR)/synth_partition.sh
 diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
-index 3748571f..65105f22 100644
+index 3748571f2..65105f22b 100644
 --- a/flow/scripts/synth.tcl
 +++ b/flow/scripts/synth.tcl
 @@ -38,15 +38,17 @@ if { [env_var_exists_and_non_empty SYNTH_CHECKPOINT] } {
@@ -65,7 +51,7 @@ index 3748571f..65105f22 100644
    # /deletes all cells at the top level, which will quickly optimize away
    # everything else, including macros.
 diff --git a/flow/scripts/synth_keep.tcl b/flow/scripts/synth_keep.tcl
-index 60487f34..99b1da8c 100644
+index 60487f341..99b1da8c5 100644
 --- a/flow/scripts/synth_keep.tcl
 +++ b/flow/scripts/synth_keep.tcl
 @@ -28,28 +28,7 @@ if { [env_var_exists_and_non_empty SYNTH_MINIMUM_KEEP_SIZE] } {

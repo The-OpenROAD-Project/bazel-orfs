@@ -1,6 +1,9 @@
 # ORFS integration test workspace — see README.md
 
-exports_files(["openroad-visibility.patch"])
+exports_files([
+    "openroad-toolchains-llvm-dev-dep.patch",
+    "openroad-visibility.patch",
+])
 
 test_suite(
     name = "asap7_lint_tests",

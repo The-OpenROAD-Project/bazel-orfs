@@ -1,26 +1,15 @@
-From c1f4a13ed8a3cab20e38b242debfb000541d4b92 Mon Sep 17 00:00:00 2001
+From fd74bfb3d5eaca444ce93b9b42b6bf55d0b03342 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 14:50:08 +0200
-Subject: [PATCH 22/30] build: partition synth reads keep RTLIL, skips coarse
- synth
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:32 +0200
+Subject: [PATCH] 0022-build-partition-synth-reads-keep-RTLIL-skips-coarse-
 
-When SYNTH_CHECKPOINT is set, synth.tcl skips the coarse synthesis
-and keep_hierarchy steps (already done in the keep action) and jumps
-straight to synth -flatten -run coarse:fine + ABC. This avoids
-re-doing the expensive single-threaded coarse synth in each partition.
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/scripts/synth.tcl          | 12 ++++++++++--
  flow/scripts/synth_partition.sh |  4 +++-
  2 files changed, 13 insertions(+), 3 deletions(-)
 
 diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
-index 41c8d5ca..3748571f 100644
+index 41c8d5ca5..3748571f2 100644
 --- a/flow/scripts/synth.tcl
 +++ b/flow/scripts/synth.tcl
 @@ -32,7 +32,11 @@ proc get_dfflegalize_args { file_path } {
@@ -50,7 +39,7 @@ index 41c8d5ca..3748571f 100644
    synth -flatten -run :fine {*}$synth_full_args
  } else {
 diff --git a/flow/scripts/synth_partition.sh b/flow/scripts/synth_partition.sh
-index 0b8211d9..298a2df0 100755
+index 0b8211d97..298a2df03 100755
 --- a/flow/scripts/synth_partition.sh
 +++ b/flow/scripts/synth_partition.sh
 @@ -53,9 +53,11 @@ for module in "${MY_MODULES[@]}"; do

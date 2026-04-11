@@ -1,25 +1,14 @@
-From 5206524ace1d80b72f31b8ec580b5f386c476851 Mon Sep 17 00:00:00 2001
+From 530de3262b0dbcec5dcbcab1adb348d7d718ea16 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Sun, 29 Mar 2026 23:14:44 +0200
-Subject: [PATCH 03/30] docs: update README with config.mk DSL and incremental
- caching
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:31 +0200
+Subject: [PATCH] 0003-docs-update-README-with-config.mk-DSL-and-incrementa
 
-Document the value proposition: think in Make, test with Make, get
-Bazel caching and parallelism. Add sections on incremental caching
-(changing CORE_UTILIZATION skips synthesis), quick start, and the
-config.mk DSL.
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  bazel/README.md | 123 +++++++++++++++++++++++++++++++++++-------------
  1 file changed, 91 insertions(+), 32 deletions(-)
 
 diff --git a/bazel/README.md b/bazel/README.md
-index 81f90b86..50ae9eb4 100644
+index 81f90b86f..50ae9eb40 100644
 --- a/bazel/README.md
 +++ b/bazel/README.md
 @@ -1,60 +1,119 @@

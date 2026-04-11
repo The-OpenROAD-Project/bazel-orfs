@@ -1,15 +1,8 @@
-From 5a3bd86b3b7e0440544e967594def95eb399675e Mon Sep 17 00:00:00 2001
+From 9661e5b69d24988711f6282aa6c19cc331f80edc Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Sun, 29 Mar 2026 23:15:32 +0200
-Subject: [PATCH 04/30] build: remove hand-written design BUILD files
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:31 +0200
+Subject: [PATCH] 0004-build-remove-hand-written-design-BUILD-files
 
-Replaced by auto-generated orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad") targets from config.mk.
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  MODULE.bazel                 |   43 +-
  MODULE.bazel.lock            | 4201 +++-------------------------------
@@ -18,7 +11,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  delete mode 100644 flow/designs/asap7/gcd/BUILD
 
 diff --git a/MODULE.bazel b/MODULE.bazel
-index 227f8f7f..626781cd 100644
+index 227f8f7f3..626781cd1 100644
 --- a/MODULE.bazel
 +++ b/MODULE.bazel
 @@ -6,11 +6,9 @@ module(
@@ -85,7 +78,7 @@ index 227f8f7f..626781cd 100644
 +    ],
 +)
 diff --git a/MODULE.bazel.lock b/MODULE.bazel.lock
-index ffe38671..82e00c80 100644
+index ffe386712..82e00c802 100644
 --- a/MODULE.bazel.lock
 +++ b/MODULE.bazel.lock
 @@ -1,5 +1,5 @@
@@ -4538,7 +4531,7 @@ index ffe38671..82e00c80 100644
  }
 diff --git a/flow/designs/asap7/gcd/BUILD b/flow/designs/asap7/gcd/BUILD
 deleted file mode 100644
-index 0736578f..00000000
+index 0736578fe..000000000
 --- a/flow/designs/asap7/gcd/BUILD
 +++ /dev/null
 @@ -1,20 +0,0 @@

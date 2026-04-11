@@ -1,18 +1,8 @@
-From 4624a3674b7ec53e37c939ad4ad4cfac1126a9b3 Mon Sep 17 00:00:00 2001
+From ac80811e21934cd367d8d4978bb533abb8b6aaea Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 06:51:35 +0200
-Subject: [PATCH 10/30] build: sky130hd 4/6 designs pass lint, add chameleon
- src BUILD files
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:32 +0200
+Subject: [PATCH] 0010-build-sky130hd-4-6-designs-pass-lint-add-chameleon-s
 
-sky130hd: aes, gcd, jpeg, riscv32i pass lint flow.
-Disabled: microwatt, chameleon (parser can't resolve VERILOG_FILES_BLACKBOX).
-Added BUILD.bazel for chameleon src subdirectories.
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/designs/sky130hd/chameleon/BUILD.bazel | 7 +++++++
  flow/designs/sky130hd/microwatt/BUILD.bazel | 7 +++++++
@@ -22,7 +12,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 
 diff --git a/flow/designs/sky130hd/chameleon/BUILD.bazel b/flow/designs/sky130hd/chameleon/BUILD.bazel
 new file mode 100644
-index 00000000..27abd6a7
+index 000000000..27abd6a78
 --- /dev/null
 +++ b/flow/designs/sky130hd/chameleon/BUILD.bazel
 @@ -0,0 +1,7 @@
@@ -35,7 +25,7 @@ index 00000000..27abd6a7
 +# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/sky130hd/microwatt/BUILD.bazel b/flow/designs/sky130hd/microwatt/BUILD.bazel
 new file mode 100644
-index 00000000..a11263fe
+index 000000000..a11263fe4
 --- /dev/null
 +++ b/flow/designs/sky130hd/microwatt/BUILD.bazel
 @@ -0,0 +1,7 @@

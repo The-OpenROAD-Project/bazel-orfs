@@ -1,26 +1,8 @@
-From a2647988da8ca6cb200e8a199b9cd7aa9b7cfa7f Mon Sep 17 00:00:00 2001
+From cd2323a95d77db2b4a899fbdcaa2e0a43af22a8c Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 06:58:33 +0200
-Subject: [PATCH 12/30] build: all 51 tests pass across all 6 platforms
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:32 +0200
+Subject: [PATCH] 0012-build-all-51-tests-pass-across-all-6-platforms
 
-Parser fixes:
-- Add VERILOG_FILES_BLACKBOX to resolution context for cross-variable substitution
-- Handle multi-path wildcards: $(sort $(wildcard dir1/*.v dir2/*.v))
-- Convert bare glob patterns (path/*.v) to :verilog labels
-
-New files:
-- nangate45/tinyRocket/fakeram_blackbox.v (blackbox stubs)
-- src/microwatt/IPs/BUILD.bazel
-
-Re-enabled: microwatt, chameleon, tinyRocket
-
-Only gf180/uart-blocks disabled (pre-existing design bug: port mismatch).
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/designs/gf180/uart-blocks/BUILD.bazel         | 8 ++++++++
  flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel | 7 +++++++
@@ -33,7 +15,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 
 diff --git a/flow/designs/gf180/uart-blocks/BUILD.bazel b/flow/designs/gf180/uart-blocks/BUILD.bazel
 new file mode 100644
-index 00000000..1562a81d
+index 000000000..1562a81de
 --- /dev/null
 +++ b/flow/designs/gf180/uart-blocks/BUILD.bazel
 @@ -0,0 +1,8 @@
@@ -47,7 +29,7 @@ index 00000000..1562a81d
 +# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel b/flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel
 new file mode 100644
-index 00000000..eb691d0a
+index 000000000..eb691d0a8
 --- /dev/null
 +++ b/flow/designs/gf180/uart-blocks/uart_rx/BUILD.bazel
 @@ -0,0 +1,7 @@
@@ -59,7 +41,7 @@ index 00000000..eb691d0a
 +
 +# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/nangate45/tinyRocket/config.mk b/flow/designs/nangate45/tinyRocket/config.mk
-index d86621ba..f18600e2 100644
+index d86621ba3..f18600e22 100644
 --- a/flow/designs/nangate45/tinyRocket/config.mk
 +++ b/flow/designs/nangate45/tinyRocket/config.mk
 @@ -10,7 +10,8 @@ export VERILOG_FILES = $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/AsyncResetReg.v \
@@ -73,7 +55,7 @@ index d86621ba..f18600e2 100644
  export SDC_FILE      = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint.sdc
  
 diff --git a/flow/designs/sky130hd/chameleon/BUILD.bazel b/flow/designs/sky130hd/chameleon/BUILD.bazel
-index 27abd6a7..43c2e81a 100644
+index 27abd6a78..43c2e81a4 100644
 --- a/flow/designs/sky130hd/chameleon/BUILD.bazel
 +++ b/flow/designs/sky130hd/chameleon/BUILD.bazel
 @@ -1,7 +1,6 @@
@@ -88,7 +70,7 @@ index 27abd6a7..43c2e81a 100644
 -# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 +orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/sky130hd/microwatt/BUILD.bazel b/flow/designs/sky130hd/microwatt/BUILD.bazel
-index a11263fe..43c2e81a 100644
+index a11263fe4..43c2e81a4 100644
 --- a/flow/designs/sky130hd/microwatt/BUILD.bazel
 +++ b/flow/designs/sky130hd/microwatt/BUILD.bazel
 @@ -1,7 +1,6 @@

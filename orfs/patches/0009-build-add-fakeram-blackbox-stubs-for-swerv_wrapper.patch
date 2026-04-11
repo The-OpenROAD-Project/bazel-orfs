@@ -1,17 +1,8 @@
-From 965f97adefe2c9ffe4964bd0ac82d1c00f6304c3 Mon Sep 17 00:00:00 2001
+From 807e8b974b88faafaf54ff11a97be5249924739f Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 06:46:30 +0200
-Subject: [PATCH 09/30] build: add fakeram blackbox stubs for swerv_wrapper
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:32 +0200
+Subject: [PATCH] 0009-build-add-fakeram-blackbox-stubs-for-swerv_wrapper
 
-Platform fakeram7 .v files contain specify blocks that Yosys cannot
-parse. Add blackbox module stubs so hierarchy check passes during
-canonicalization.
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  .../asap7/swerv_wrapper/fakeram_blackbox.v    | 31 +++++++++++++++++++
  1 file changed, 31 insertions(+)
@@ -19,7 +10,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 
 diff --git a/flow/designs/asap7/swerv_wrapper/fakeram_blackbox.v b/flow/designs/asap7/swerv_wrapper/fakeram_blackbox.v
 new file mode 100644
-index 00000000..7089543b
+index 000000000..7089543b9
 --- /dev/null
 +++ b/flow/designs/asap7/swerv_wrapper/fakeram_blackbox.v
 @@ -0,0 +1,31 @@
