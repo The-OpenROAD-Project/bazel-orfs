@@ -28,9 +28,6 @@ bazelisk test ...     # verilator simulation via cc_test + gtest
 
 ### Patches applied here (to be upstreamed)
 
-- **OpenROAD `isolate = True`** — `npm` `use_extension` uses experimental
-  `isolate` flag; patched out (`openroad-remove-isolate.patch`).
-
 - **ORFS slang plugin path** — `synth_preamble.tcl` hardcodes
   `plugin -i slang`; patched to respect `SLANG_PLUGIN_PATH` env var
   (`orfs-slang-plugin-path.patch`).

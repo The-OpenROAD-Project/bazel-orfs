@@ -34,10 +34,9 @@ single_version_override(
 bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",
-    commit = "2453de8ea1fcdcb5c4ce97d0568a41acb97db4f4",
+    commit = "d8c6b0cbd54d3a2d6e78671e80b7b479c10af6f6",
     patch_strip = 1,
     patches = [
-        "//patches:0002-build-add-all-PDKs-and-export-variables.yaml.patch",
         "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
     ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
@@ -55,12 +54,12 @@ use_repo(orfs, "gnumake")
 bazel_dep(name = "openroad")
 git_override(
     module_name = "openroad",
-    commit = "33c72bf7b8ce8a2dd81e2f6fbf0199a547b4f6a8",
+    commit = "576225905dd19b598947af86d108579e4053b86e",
     init_submodules = True,
     patch_strip = 1,
     patches = [
         "//:openroad-visibility.patch",
-        "//:openroad-remove-initrunfiles.patch",
+        "//:openroad-toolchains-llvm-dev-dep.patch",
     ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
