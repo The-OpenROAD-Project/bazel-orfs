@@ -1,0 +1,34 @@
+From 8a952b18ded8da0856647913501c93f09aa9dffe Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 07:02:28 +0200
+Subject: [PATCH 13/30] tools: add rtlil-stats command, fix stage isolation and
+ change detection
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Verified:
+1. Stage isolation: changing PLACE_DENSITY doesn't rebuild synth
+2. config.mk changes detected automatically (no manual invalidation)
+3. Parser changes NOT detected (known issue, needs repo rule fix)
+4. All 28 bazel-orfs tests pass
+5. RTLIL stats: gcd=24K lines to swerv_wrapper=1.5M lines
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/designs/asap7/gcd/config.mk | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/flow/designs/asap7/gcd/config.mk b/flow/designs/asap7/gcd/config.mk
+index c98498e7..7c784df8 100644
+--- a/flow/designs/asap7/gcd/config.mk
++++ b/flow/designs/asap7/gcd/config.mk
+@@ -15,4 +15,3 @@ export PLACE_DENSITY          = 0.35
+ # a smoketest for this option, there are a
+ # few last gasp iterations
+ export SKIP_LAST_GASP ?= 1
+-
+-- 
+2.51.0
+

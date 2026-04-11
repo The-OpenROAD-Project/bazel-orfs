@@ -1,0 +1,71 @@
+From c1f4a13ed8a3cab20e38b242debfb000541d4b92 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 14:50:08 +0200
+Subject: [PATCH 22/30] build: partition synth reads keep RTLIL, skips coarse
+ synth
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+When SYNTH_CHECKPOINT is set, synth.tcl skips the coarse synthesis
+and keep_hierarchy steps (already done in the keep action) and jumps
+straight to synth -flatten -run coarse:fine + ABC. This avoids
+re-doing the expensive single-threaded coarse synth in each partition.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/synth.tcl          | 12 ++++++++++--
+ flow/scripts/synth_partition.sh |  4 +++-
+ 2 files changed, 13 insertions(+), 3 deletions(-)
+
+diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
+index 41c8d5ca..3748571f 100644
+--- a/flow/scripts/synth.tcl
++++ b/flow/scripts/synth.tcl
+@@ -32,7 +32,11 @@ proc get_dfflegalize_args { file_path } {
+ }
+ 
+ source $::env(SCRIPTS_DIR)/synth_preamble.tcl
+-read_checkpoint $::env(RESULTS_DIR)/1_1_yosys_canonicalize.rtlil
++if { [env_var_exists_and_non_empty SYNTH_CHECKPOINT] } {
++  read_checkpoint $::env(SYNTH_CHECKPOINT)
++} else {
++  read_checkpoint $::env(RESULTS_DIR)/1_1_yosys_canonicalize.rtlil
++}
+ 
+ hierarchy -check -top $::env(DESIGN_NAME)
+ 
+@@ -72,7 +76,11 @@ if { [env_var_exists_and_non_empty SYNTH_OPT_HIER] } {
+   set synth_full_args [concat $synth_full_args -hieropt]
+ }
+ 
+-if { !$::env(SYNTH_HIERARCHICAL) } {
++if { [env_var_exists_and_non_empty SYNTH_CHECKPOINT] } {
++  # Partition mode: checkpoint already has coarse synth + keep_hierarchy done.
++  # Just flatten and continue.
++  synth -flatten -run coarse:fine {*}$synth_full_args
++} elseif { !$::env(SYNTH_HIERARCHICAL) } {
+   # Perform standard coarse-level synthesis script, flatten right away
+   synth -flatten -run :fine {*}$synth_full_args
+ } else {
+diff --git a/flow/scripts/synth_partition.sh b/flow/scripts/synth_partition.sh
+index 0b8211d9..298a2df0 100755
+--- a/flow/scripts/synth_partition.sh
++++ b/flow/scripts/synth_partition.sh
+@@ -53,9 +53,11 @@ for module in "${MY_MODULES[@]}"; do
+ 
+   echo "=== Synthesizing module: $module (blackboxing ${#MY_MODULES[@]}-1 + others) ==="
+ 
+-  # Run full Yosys synthesis for this module
++  # Run synthesis from keep checkpoint for this module.
++  # SYNTH_CHECKPOINT: skip coarse synth + keep_hierarchy (already done)
+   # SYNTH_BLACKBOXES: all other kept modules are blackboxed
+   # DESIGN_NAME: override to this module
++  SYNTH_CHECKPOINT="$RESULTS_DIR/1_1_yosys_keep.rtlil" \
+   SYNTH_BLACKBOXES="$BLACKBOXES" \
+   DESIGN_NAME="$module" \
+     "$SCRIPTS_DIR/synth.sh" \
+-- 
+2.51.0
+

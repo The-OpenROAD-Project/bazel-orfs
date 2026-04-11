@@ -1,0 +1,642 @@
+From e4d274a08e90ffb18c47b1564c45a3995af43526 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Sun, 29 Mar 2026 23:14:03 +0200
+Subject: [PATCH 02/30] build: add exports_files BUILD.bazel to all src/
+ directories
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Every flow/designs/src/<name>/ directory now has a BUILD.bazel with
+exports_files and a :verilog filegroup, enabling both single-file
+and glob references from orfs_flow() targets.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/designs/src/aes/BUILD.bazel             | 13 +++++++++++++
+ flow/designs/src/ariane/BUILD.bazel          | 13 +++++++++++++
+ flow/designs/src/ariane133/BUILD.bazel       | 13 +++++++++++++
+ flow/designs/src/ariane136/BUILD.bazel       | 13 +++++++++++++
+ flow/designs/src/black_parrot/BUILD.bazel    | 13 +++++++++++++
+ flow/designs/src/bp_be_top/BUILD.bazel       | 13 +++++++++++++
+ flow/designs/src/bp_fe_top/BUILD.bazel       | 13 +++++++++++++
+ flow/designs/src/bp_multi_top/BUILD.bazel    | 13 +++++++++++++
+ flow/designs/src/bp_quad/BUILD.bazel         | 13 +++++++++++++
+ flow/designs/src/chameleon/BUILD.bazel       | 13 +++++++++++++
+ flow/designs/src/chameleon_hier/BUILD.bazel  | 13 +++++++++++++
+ flow/designs/src/coyote/BUILD.bazel          | 13 +++++++++++++
+ flow/designs/src/cva6/BUILD.bazel            | 13 +++++++++++++
+ flow/designs/src/dynamic_node/BUILD.bazel    | 13 +++++++++++++
+ flow/designs/src/ethmac/BUILD.bazel          | 13 +++++++++++++
+ flow/designs/src/fifo/BUILD.bazel            | 13 +++++++++++++
+ flow/designs/src/gcd/BUILD.bazel             | 13 +++++++++++++
+ flow/designs/src/ibex_sv/BUILD.bazel         | 13 +++++++++++++
+ flow/designs/src/ibex_sv/syn/rtl/BUILD.bazel |  4 ++++
+ flow/designs/src/jpeg/BUILD.bazel            | 13 +++++++++++++
+ flow/designs/src/mempool_group/BUILD.bazel   | 13 +++++++++++++
+ flow/designs/src/microwatt/BUILD.bazel       | 13 +++++++++++++
+ flow/designs/src/mock-alu/BUILD.bazel        | 13 +++++++++++++
+ flow/designs/src/mock-array/BUILD.bazel      | 13 +++++++++++++
+ flow/designs/src/riscv32i/BUILD.bazel        | 13 +++++++++++++
+ flow/designs/src/spi/BUILD.bazel             | 13 +++++++++++++
+ flow/designs/src/swerv/BUILD.bazel           | 13 +++++++++++++
+ flow/designs/src/tinyRocket/BUILD.bazel      | 13 +++++++++++++
+ flow/designs/src/uart-no-param/BUILD.bazel   | 13 +++++++++++++
+ flow/designs/src/uart/BUILD.bazel            | 13 +++++++++++++
+ 30 files changed, 381 insertions(+)
+ create mode 100644 flow/designs/src/aes/BUILD.bazel
+ create mode 100644 flow/designs/src/ariane/BUILD.bazel
+ create mode 100644 flow/designs/src/ariane133/BUILD.bazel
+ create mode 100644 flow/designs/src/ariane136/BUILD.bazel
+ create mode 100644 flow/designs/src/black_parrot/BUILD.bazel
+ create mode 100644 flow/designs/src/bp_be_top/BUILD.bazel
+ create mode 100644 flow/designs/src/bp_fe_top/BUILD.bazel
+ create mode 100644 flow/designs/src/bp_multi_top/BUILD.bazel
+ create mode 100644 flow/designs/src/bp_quad/BUILD.bazel
+ create mode 100644 flow/designs/src/chameleon/BUILD.bazel
+ create mode 100644 flow/designs/src/chameleon_hier/BUILD.bazel
+ create mode 100644 flow/designs/src/coyote/BUILD.bazel
+ create mode 100644 flow/designs/src/cva6/BUILD.bazel
+ create mode 100644 flow/designs/src/dynamic_node/BUILD.bazel
+ create mode 100644 flow/designs/src/ethmac/BUILD.bazel
+ create mode 100644 flow/designs/src/fifo/BUILD.bazel
+ create mode 100644 flow/designs/src/gcd/BUILD.bazel
+ create mode 100644 flow/designs/src/ibex_sv/BUILD.bazel
+ create mode 100644 flow/designs/src/ibex_sv/syn/rtl/BUILD.bazel
+ create mode 100644 flow/designs/src/jpeg/BUILD.bazel
+ create mode 100644 flow/designs/src/mempool_group/BUILD.bazel
+ create mode 100644 flow/designs/src/microwatt/BUILD.bazel
+ create mode 100644 flow/designs/src/mock-alu/BUILD.bazel
+ create mode 100644 flow/designs/src/mock-array/BUILD.bazel
+ create mode 100644 flow/designs/src/riscv32i/BUILD.bazel
+ create mode 100644 flow/designs/src/spi/BUILD.bazel
+ create mode 100644 flow/designs/src/swerv/BUILD.bazel
+ create mode 100644 flow/designs/src/tinyRocket/BUILD.bazel
+ create mode 100644 flow/designs/src/uart-no-param/BUILD.bazel
+ create mode 100644 flow/designs/src/uart/BUILD.bazel
+
+diff --git a/flow/designs/src/aes/BUILD.bazel b/flow/designs/src/aes/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/aes/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/ariane/BUILD.bazel b/flow/designs/src/ariane/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/ariane/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/ariane133/BUILD.bazel b/flow/designs/src/ariane133/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/ariane133/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/ariane136/BUILD.bazel b/flow/designs/src/ariane136/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/ariane136/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/black_parrot/BUILD.bazel b/flow/designs/src/black_parrot/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/black_parrot/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/bp_be_top/BUILD.bazel b/flow/designs/src/bp_be_top/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/bp_be_top/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/bp_fe_top/BUILD.bazel b/flow/designs/src/bp_fe_top/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/bp_fe_top/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/bp_multi_top/BUILD.bazel b/flow/designs/src/bp_multi_top/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/bp_multi_top/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/bp_quad/BUILD.bazel b/flow/designs/src/bp_quad/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/bp_quad/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/chameleon/BUILD.bazel b/flow/designs/src/chameleon/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/chameleon/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/chameleon_hier/BUILD.bazel b/flow/designs/src/chameleon_hier/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/chameleon_hier/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/coyote/BUILD.bazel b/flow/designs/src/coyote/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/coyote/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/cva6/BUILD.bazel b/flow/designs/src/cva6/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/cva6/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/dynamic_node/BUILD.bazel b/flow/designs/src/dynamic_node/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/dynamic_node/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/ethmac/BUILD.bazel b/flow/designs/src/ethmac/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/ethmac/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/fifo/BUILD.bazel b/flow/designs/src/fifo/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/fifo/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/gcd/BUILD.bazel b/flow/designs/src/gcd/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/gcd/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/ibex_sv/BUILD.bazel b/flow/designs/src/ibex_sv/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/ibex_sv/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/ibex_sv/syn/rtl/BUILD.bazel b/flow/designs/src/ibex_sv/syn/rtl/BUILD.bazel
+new file mode 100644
+index 00000000..cf79c553
+--- /dev/null
++++ b/flow/designs/src/ibex_sv/syn/rtl/BUILD.bazel
+@@ -0,0 +1,4 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/jpeg/BUILD.bazel b/flow/designs/src/jpeg/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/jpeg/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/mempool_group/BUILD.bazel b/flow/designs/src/mempool_group/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/mempool_group/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/microwatt/BUILD.bazel b/flow/designs/src/microwatt/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/microwatt/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/mock-alu/BUILD.bazel b/flow/designs/src/mock-alu/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/mock-alu/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/mock-array/BUILD.bazel b/flow/designs/src/mock-array/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/mock-array/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/riscv32i/BUILD.bazel b/flow/designs/src/riscv32i/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/riscv32i/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/spi/BUILD.bazel b/flow/designs/src/spi/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/spi/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/swerv/BUILD.bazel b/flow/designs/src/swerv/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/swerv/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/tinyRocket/BUILD.bazel b/flow/designs/src/tinyRocket/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/tinyRocket/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/uart-no-param/BUILD.bazel b/flow/designs/src/uart-no-param/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/uart-no-param/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+diff --git a/flow/designs/src/uart/BUILD.bazel b/flow/designs/src/uart/BUILD.bazel
+new file mode 100644
+index 00000000..5bdb9cc1
+--- /dev/null
++++ b/flow/designs/src/uart/BUILD.bazel
+@@ -0,0 +1,13 @@
++exports_files(
++    glob(["*.v", "*.sv", "*.svh"], allow_empty = True),
++    visibility = ["//visibility:public"],
++)
++
++filegroup(
++    name = "verilog",
++    srcs = glob(
++        include = ["*.v", "*.sv"],
++        allow_empty = True,
++    ),
++    visibility = ["//visibility:public"],
++)
+-- 
+2.51.0
+
