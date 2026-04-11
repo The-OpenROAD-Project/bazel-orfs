@@ -1245,3 +1245,18 @@ deps_output_group_test(
     name = "deps_output_group_substeps_test",
     target = ":lb_32x128_substeps_floorplan_deps",
 )
+
+# --- Patched external target tests ---
+# Verify yosys patches applied via single_version_override work.
+# Header-only: no compilation, just glob + analysis validation.
+# BCR yosys is already fetched for @yosys//:yosys_share.
+
+build_test(
+    name = "yosys_hdrs_build_test",
+    targets = ["@yosys//:hdrs"],
+)
+
+build_test(
+    name = "yosys_share_build_test",
+    targets = ["@yosys//:yosys_share"],
+)
