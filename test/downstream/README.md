@@ -31,10 +31,6 @@ bazelisk test ...     # verilator simulation via cc_test + gtest
 - **OpenROAD `isolate = True`** — `npm` `use_extension` uses experimental
   `isolate` flag; patched out (`openroad-remove-isolate.patch`).
 
-- **OpenROAD STA `Iterator.hh`** — GCC 15 / clang 20 enforce
-  `-Wtemplate-body`; added `typename` and `this->` qualifiers
-  (`openroad-fix-sta-iterator-templates.patch`).
-
 - **ORFS slang plugin path** — `synth_preamble.tcl` hardcodes
   `plugin -i slang`; patched to respect `SLANG_PLUGIN_PATH` env var
   (`orfs-slang-plugin-path.patch`).

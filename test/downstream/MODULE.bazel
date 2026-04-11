@@ -47,7 +47,6 @@ git_override(
         "//patches:openroad-visibility.patch",
         "//patches:openroad-remove-initrunfiles.patch",
         "//patches:openroad-remove-isolate.patch",
-        "//patches:openroad-fix-sta-iterator-templates.patch",
     ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
