@@ -34,7 +34,7 @@ single_version_override(
 bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",
-    commit = "74271e42b301df0b3b84fb14d42282f9e8491cee",
+    commit = "2453de8ea1fcdcb5c4ce97d0568a41acb97db4f4",
     patch_strip = 1,
     patches = [
         "//patches:0002-build-add-all-PDKs-and-export-variables.yaml.patch",
@@ -55,7 +55,7 @@ use_repo(orfs, "gnumake")
 bazel_dep(name = "openroad")
 git_override(
     module_name = "openroad",
-    commit = "d22045c978d037f7a5788c08f359aec471800c01",
+    commit = "33c72bf7b8ce8a2dd81e2f6fbf0199a547b4f6a8",
     init_submodules = True,
     patch_strip = 1,
     patches = [
