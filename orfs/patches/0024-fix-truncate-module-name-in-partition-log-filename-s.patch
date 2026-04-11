@@ -1,0 +1,44 @@
+From 3f2ec06a4207d5c551a5dfcdb58a0a4893ce31ae Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 30 Mar 2026 15:43:33 +0200
+Subject: [PATCH 24/30] fix: truncate module name in partition log filename,
+ skip existing filegroups
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Long module names (e.g. bp_multi_top parameters) exceed filesystem
+path limits. Truncate to 80 chars in the log filename.
+
+Also skip creating filegroups in orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad") when they already
+exist in the BUILD.bazel (fixes riscv32i-mock-sram conflict).
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/synth_partition.sh | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/flow/scripts/synth_partition.sh b/flow/scripts/synth_partition.sh
+index 298a2df0..6696e50f 100755
+--- a/flow/scripts/synth_partition.sh
++++ b/flow/scripts/synth_partition.sh
+@@ -57,12 +57,14 @@ for module in "${MY_MODULES[@]}"; do
+   # SYNTH_CHECKPOINT: skip coarse synth + keep_hierarchy (already done)
+   # SYNTH_BLACKBOXES: all other kept modules are blackboxed
+   # DESIGN_NAME: override to this module
++  # Truncate module name in log filename to avoid filesystem limits
++  log_module="${module:0:80}"
+   SYNTH_CHECKPOINT="$RESULTS_DIR/1_1_yosys_keep.rtlil" \
+   SYNTH_BLACKBOXES="$BLACKBOXES" \
+   DESIGN_NAME="$module" \
+     "$SCRIPTS_DIR/synth.sh" \
+     "$SCRIPTS_DIR/synth.tcl" \
+-    "$LOG_DIR/1_2_yosys_partition_${PARTITION_ID}_${module}.log"
++    "$LOG_DIR/1_2_yosys_partition_${PARTITION_ID}_${log_module}.log"
+ 
+   # Append this module's netlist to partition output
+   cat "$RESULTS_DIR/1_2_yosys.v" >> "$OUTPUT"
+-- 
+2.51.0
+

@@ -34,10 +34,9 @@ single_version_override(
 bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",
-    commit = "f40d2f346e67ffe309a4f49b1897a560cf20c747",
+    commit = "2453de8ea1fcdcb5c4ce97d0568a41acb97db4f4",
     patch_strip = 1,
     patches = [
-        "//patches:0001-build-remove-stale-merge_lib.py-preprocessLib.py-fro.patch",
         "//patches:0002-build-add-all-PDKs-and-export-variables.yaml.patch",
         "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
     ],

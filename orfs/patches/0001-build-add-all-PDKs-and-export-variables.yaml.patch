@@ -1,0 +1,93 @@
+From 63d9ecc62c29e5285b5b8c8d3d63d4e0d7c1dd30 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Sun, 29 Mar 2026 23:13:49 +0200
+Subject: [PATCH 01/30] build: add all PDKs and export variables.yaml
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add gf180, ihp-sg13g2, nangate45, sky130hs PDK definitions with
+correct lib/ext patterns matching docker.BUILD.bazel.
+
+Add synth*.v to makefile_yosys glob for synth_wrap_operators-booth.v.
+Export scripts/variables.yaml for local variable metadata.
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/BUILD.bazel | 33 +++++++++++++++++++++++++++------
+ 1 file changed, 27 insertions(+), 6 deletions(-)
+
+diff --git a/flow/BUILD.bazel b/flow/BUILD.bazel
+index bed5d7e2..0be37f13 100644
+--- a/flow/BUILD.bazel
++++ b/flow/BUILD.bazel
+@@ -1,5 +1,10 @@
+ load("@bazel-orfs//:openroad.bzl", "orfs_pdk")
+ 
++exports_files(
++    ["scripts/variables.yaml"],
++    visibility = ["//visibility:public"],
++)
++
+ # files shared between scripts/synth.sh and scripts/flow.sh steps
+ MAKEFILE_SHARED = [
+     "scripts/*.py",
+@@ -16,6 +21,7 @@ filegroup(
+         "scripts/*.script",
+         "scripts/util.tcl",
+         "scripts/synth*.tcl",
++        "scripts/synth*.v",
+         "platforms/common/**/*.v",
+     ]) + [
+         "//flow/util:makefile_yosys",
+@@ -46,25 +52,40 @@ filegroup(
+         for ext in [
+             "gds",
+             "lef",
+-            "lib",
++            "lyp",
+             "lyt",
+             "mk",
+             "rules",
+             "tcl",
+             "v",
+         ] + {
+-            "sky130hd": ["tlef"],
+-            "asap7": [
+-                "lib.gz",
+-                "sdc",
+-            ],
++            "asap7": ["cfg", "json", "lib.gz", "sdc"],
++            "gf180": ["cfg", "layermap", "lyt_generic"],
++            "ihp-sg13g2": ["json"],
++            "nangate45": ["cfg"],
++            "sky130hd": ["json", "tlef"],
++            "sky130hs": ["json", "tlef"],
+         }.get(pdk, [])
+     ] + [
+         "platforms/common/**/*.v",
+     ]),
++    libs = glob([
++        "platforms/{pdk}/**/*.{ext}".format(
++            pdk = pdk,
++            ext = ext,
++        )
++        for ext in {
++            "asap7": ["lib", "lib.gz"],
++            "gf180": ["lib.gz"],
++        }.get(pdk, ["lib"])
++    ]),
+     config = ":platforms/{pdk}/config.mk".format(pdk = pdk),
+     visibility = ["//visibility:public"],
+ ) for pdk in [
+     "asap7",
++    "gf180",
++    "ihp-sg13g2",
++    "nangate45",
+     "sky130hd",
++    "sky130hs",
+ ]]
+-- 
+2.51.0
+
