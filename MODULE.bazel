@@ -57,6 +57,7 @@ git_override(
     init_submodules = True,
     patch_strip = 1,
     patches = [
+        "//:openroad-unsetenv-runfiles.patch",
         "//:openroad-visibility.patch",
     ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
