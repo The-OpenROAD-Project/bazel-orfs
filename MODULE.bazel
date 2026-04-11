@@ -40,13 +40,11 @@ single_version_override(
 bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",
-    commit = "dba71f511da765aa3bca38189b3b8b84370441ed",
+    commit = "d8c6b0cbd54d3a2d6e78671e80b7b479c10af6f6",
     patch_strip = 1,
-    # Minimal patches: only what's needed for extension.bzl flow targets
-    # (PDK definitions, variables.yaml export). Design-specific patches
-    # are only applied in the orfs/ integration workspace.
+    # Minimal patches: only what's needed when ORFS is a non-root module.
+    # Design-specific patches are only applied in the orfs/ integration workspace.
     patches = [
-        "//patches:0002-build-add-all-PDKs-and-export-variables.yaml.patch",
         "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
     ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
