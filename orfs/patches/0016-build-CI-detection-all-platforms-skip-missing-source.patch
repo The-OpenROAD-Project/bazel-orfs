@@ -1,27 +1,14 @@
-From 1f02054797c86213ba80d7f42749e7dedb68d43e Mon Sep 17 00:00:00 2001
+From 346bba38a1fb221cd9e8d2393f8be7b9225d1b40 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 13:14:31 +0200
-Subject: [PATCH 16/30] build: CI detection, all platforms, skip missing
- sources in repo rule
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:32 +0200
+Subject: [PATCH] 0016-build-CI-detection-all-platforms-skip-missing-source
 
-- Add ci flag per design based on rules-base.json presence; non-CI
-  designs get tags=["manual"] to exclude from wildcard builds
-- Remove gf12, gf55, rapidus2hp from platforms (confidential PDK)
-- Skip designs with missing source files (confidential designs)
-- Index designs by directory name when it differs from nickname
-- Soft return instead of fail() for unknown designs
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  MODULE.bazel | 1 +
  1 file changed, 1 insertion(+)
 
 diff --git a/MODULE.bazel b/MODULE.bazel
-index 50d9d2d6..1778032b 100644
+index 50d9d2d67..1778032b7 100644
 --- a/MODULE.bazel
 +++ b/MODULE.bazel
 @@ -70,6 +70,7 @@ use_repo(orfs, "docker_orfs")

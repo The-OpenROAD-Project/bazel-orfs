@@ -1,28 +1,14 @@
-From 1b6573d643509f7e779ff3775a1532d1a05903d4 Mon Sep 17 00:00:00 2001
+From 792d96d228740a6f61ec62e4776c78b11f8485d4 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Tue, 31 Mar 2026 15:05:19 +0200
-Subject: [PATCH 28/30] fix: override PDN_TCL for riscv32i-mock-sram to fix
- PDN-0232/0233
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:33 +0200
+Subject: [PATCH] 0028-fix-override-PDN_TCL-for-riscv32i-mock-sram-to-fix-P
 
-The platform default BLOCKS_grid_strategy.tcl defines an ElementGrid
-macro grid with only an M5-M6 connection rule but no stripes, producing
-empty macro PDN grids. Use BLOCK_grid_strategy.tcl instead, which has
-M4-M5 connections matching the block's MAX_ROUTING_LAYER=M4 constraint.
-
-This is the same pattern used by aes-block (via block.mk).
-
-Signed-off-by: Oyvind Harboe <oyvind.harboe@zylin.com>
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/designs/asap7/riscv32i-mock-sram/config.mk | 6 ++++++
  1 file changed, 6 insertions(+)
 
 diff --git a/flow/designs/asap7/riscv32i-mock-sram/config.mk b/flow/designs/asap7/riscv32i-mock-sram/config.mk
-index 12ef90ef..2a8b50b0 100644
+index 12ef90ef4..2a8b50b0a 100644
 --- a/flow/designs/asap7/riscv32i-mock-sram/config.mk
 +++ b/flow/designs/asap7/riscv32i-mock-sram/config.mk
 @@ -1,5 +1,11 @@

@@ -1,25 +1,14 @@
-From 9c5a33c1930eee51b723a97ea1d167167bb63de5 Mon Sep 17 00:00:00 2001
+From 1cb0026fee539b79872a06816d8b036ec7614b5a Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 13:14:48 +0200
-Subject: [PATCH 17/30] fix: add mock-cpu SDC dependency on util.tcl for Bazel
- sandbox
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:32 +0200
+Subject: [PATCH] 0017-fix-add-mock-cpu-SDC-dependency-on-util.tcl-for-Baze
 
-The SDC sources designs/src/mock-array/util.tcl which must be in the
-sandbox. Use SDC_FILE_EXTRA to declare the dependency and source
-$::env(SDC_FILE_EXTRA) for a portable Bazel-sandbox-compatible path.
-Export *.tcl from the mock-array BUILD.
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/designs/src/mock-array/BUILD.bazel | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/flow/designs/src/mock-array/BUILD.bazel b/flow/designs/src/mock-array/BUILD.bazel
-index 04b36977..1842c384 100644
+index 04b36977f..1842c384b 100644
 --- a/flow/designs/src/mock-array/BUILD.bazel
 +++ b/flow/designs/src/mock-array/BUILD.bazel
 @@ -1,5 +1,5 @@

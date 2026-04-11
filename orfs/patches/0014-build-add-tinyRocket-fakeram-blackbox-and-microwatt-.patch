@@ -1,14 +1,8 @@
-From 8d1b290c986875ac78164c6566d47909e65e2945 Mon Sep 17 00:00:00 2001
+From ef8b9a7f14932ba22fc078740eb5553eaa869180 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 07:06:46 +0200
-Subject: [PATCH 14/30] build: add tinyRocket fakeram blackbox and microwatt
- IPs BUILD
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:32 +0200
+Subject: [PATCH] 0014-build-add-tinyRocket-fakeram-blackbox-and-microwatt-
 
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  .../nangate45/tinyRocket/fakeram_blackbox.v   | 22 +++++++++++++++++++
  flow/designs/src/microwatt/IPs/BUILD.bazel    | 13 +++++++++++
@@ -18,7 +12,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 
 diff --git a/flow/designs/nangate45/tinyRocket/fakeram_blackbox.v b/flow/designs/nangate45/tinyRocket/fakeram_blackbox.v
 new file mode 100644
-index 00000000..ebf0ada4
+index 000000000..ebf0ada42
 --- /dev/null
 +++ b/flow/designs/nangate45/tinyRocket/fakeram_blackbox.v
 @@ -0,0 +1,22 @@
@@ -46,7 +40,7 @@ index 00000000..ebf0ada4
 +endmodule
 diff --git a/flow/designs/src/microwatt/IPs/BUILD.bazel b/flow/designs/src/microwatt/IPs/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/microwatt/IPs/BUILD.bazel
 @@ -0,0 +1,13 @@

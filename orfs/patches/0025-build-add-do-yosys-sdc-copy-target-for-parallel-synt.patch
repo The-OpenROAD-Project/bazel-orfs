@@ -1,25 +1,14 @@
-From a5ded438f0bad505ef42494cefa4223ceea8e4dd Mon Sep 17 00:00:00 2001
+From beb191192454f27022686b6993dd8640a56cb827 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 16:16:16 +0200
-Subject: [PATCH 25/30] build: add do-yosys-sdc-copy target for parallel synth
- path
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:32 +0200
+Subject: [PATCH] 0025-build-add-do-yosys-sdc-copy-target-for-parallel-synt
 
-The parallel synth path skips do-yosys (which copies SDC_FILE to
-1_2_yosys.sdc). Add a separate target for just the SDC copy, and
-run synth_odb after merging partitions to produce valid ODB for
-downstream stages.
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/Makefile | 4 ++++
  1 file changed, 4 insertions(+)
 
 diff --git a/flow/Makefile b/flow/Makefile
-index 5c8d5b16..8b4526e0 100644
+index 5c8d5b16e..8b4526e00 100644
 --- a/flow/Makefile
 +++ b/flow/Makefile
 @@ -276,6 +276,10 @@ do-yosys-canonicalize: yosys-dependencies

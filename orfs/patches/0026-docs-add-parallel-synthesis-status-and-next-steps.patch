@@ -1,18 +1,8 @@
-From 55894715cac455fb59e325361903dc6eb2bcff92 Mon Sep 17 00:00:00 2001
+From 7266ae68accce2fec7ea5efe26d8e2970c645b35 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 16:38:03 +0200
-Subject: [PATCH 26/30] docs: add parallel synthesis status and next steps
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:33 +0200
+Subject: [PATCH] 0026-docs-add-parallel-synthesis-status-and-next-steps
 
-Document the parallel synthesis architecture, what works (6.8x speedup),
-what's blocked (synth_odb Make dependency chain), and pre-existing issues.
-
-Also add do-yosys-sdc-copy Makefile target needed for the parallel path.
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  docs/parallel-synth-status.md | 88 +++++++++++++++++++++++++++++++++++
  1 file changed, 88 insertions(+)
@@ -20,7 +10,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 
 diff --git a/docs/parallel-synth-status.md b/docs/parallel-synth-status.md
 new file mode 100644
-index 00000000..d11cb460
+index 000000000..d11cb460b
 --- /dev/null
 +++ b/docs/parallel-synth-status.md
 @@ -0,0 +1,88 @@

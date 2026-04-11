@@ -1,20 +1,14 @@
-From 209cd80b233ba783df3138b46585805839a96c3e Mon Sep 17 00:00:00 2001
+From fdab4437d86a7400b68ca87b95330a03e8fbc45c Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 22:42:43 +0200
-Subject: [PATCH 27/30] fix: remove non-root module overrides from MODULE.bazel
+Date: Sat, 11 Apr 2026 16:32:33 +0200
+Subject: [PATCH] 0027-fix-remove-non-root-module-overrides-from-MODULE.baz
 
-When ORFS is fetched as a dependency (not the root module),
-local_path_override directives and orfs.default() with image
-attributes are illegal/unwanted.  The root module provides
-all tool overrides through its own MODULE.bazel.
-
-Signed-off-by: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
 ---
  MODULE.bazel | 43 -------------------------------------------
  1 file changed, 43 deletions(-)
 
 diff --git a/MODULE.bazel b/MODULE.bazel
-index 1778032b..8c0217df 100644
+index 1778032b7..8c0217df4 100644
 --- a/MODULE.bazel
 +++ b/MODULE.bazel
 @@ -6,17 +6,7 @@ module(

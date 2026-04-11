@@ -1,26 +1,14 @@
-From 378bc17696addaa55abf29e65b3aaf97de69df36 Mon Sep 17 00:00:00 2001
+From cf5ecf0142c8f6b774492815449c79ba0ed0c751 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 14:45:27 +0200
-Subject: [PATCH 21/30] build: support SYNTH_BLACKBOXES after checkpoint read
- in synth.tcl
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:32 +0200
+Subject: [PATCH] 0021-build-support-SYNTH_BLACKBOXES-after-checkpoint-read
 
-When running partitioned parallel synthesis, each partition sets
-SYNTH_BLACKBOXES to blackbox all modules except the one it's
-synthesizing. The blackboxing must happen after read_checkpoint
-since the preamble's blackbox logic only applies during source
-reading, not checkpoint loading.
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/scripts/synth.tcl | 7 +++++++
  1 file changed, 7 insertions(+)
 
 diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
-index 8554f6d6..41c8d5ca 100644
+index 8554f6d61..41c8d5ca5 100644
 --- a/flow/scripts/synth.tcl
 +++ b/flow/scripts/synth.tcl
 @@ -36,6 +36,13 @@ read_checkpoint $::env(RESULTS_DIR)/1_1_yosys_canonicalize.rtlil

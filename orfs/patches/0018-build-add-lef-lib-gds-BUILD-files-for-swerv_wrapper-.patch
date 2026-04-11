@@ -1,17 +1,8 @@
-From 2a5f2f287480f388dc3d3810708608b51dc49a43 Mon Sep 17 00:00:00 2001
+From bc73868b311175bb9eb30c9625237f7e3c99ff17 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 13:15:00 +0200
-Subject: [PATCH 18/30] build: add lef/lib/gds BUILD files for swerv_wrapper
- and microwatt
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:32 +0200
+Subject: [PATCH] 0018-build-add-lef-lib-gds-BUILD-files-for-swerv_wrapper-
 
-Add filegroup targets so wildcard ADDITIONAL_LEFS/LIBS/GDS from
-config.mk resolve to valid Bazel labels.
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/designs/asap7/swerv_wrapper/lef/BUILD.bazel | 10 ++++++++++
  flow/designs/asap7/swerv_wrapper/lib/BUILD.bazel | 10 ++++++++++
@@ -27,7 +18,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 
 diff --git a/flow/designs/asap7/swerv_wrapper/lef/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/lef/BUILD.bazel
 new file mode 100644
-index 00000000..4419ddd7
+index 000000000..4419ddd7a
 --- /dev/null
 +++ b/flow/designs/asap7/swerv_wrapper/lef/BUILD.bazel
 @@ -0,0 +1,10 @@
@@ -43,7 +34,7 @@ index 00000000..4419ddd7
 +)
 diff --git a/flow/designs/asap7/swerv_wrapper/lib/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/lib/BUILD.bazel
 new file mode 100644
-index 00000000..5a1c76dc
+index 000000000..5a1c76dc0
 --- /dev/null
 +++ b/flow/designs/asap7/swerv_wrapper/lib/BUILD.bazel
 @@ -0,0 +1,10 @@
@@ -59,7 +50,7 @@ index 00000000..5a1c76dc
 +)
 diff --git a/flow/designs/sky130hd/microwatt/gds/BUILD.bazel b/flow/designs/sky130hd/microwatt/gds/BUILD.bazel
 new file mode 100644
-index 00000000..79bbab33
+index 000000000..79bbab335
 --- /dev/null
 +++ b/flow/designs/sky130hd/microwatt/gds/BUILD.bazel
 @@ -0,0 +1,10 @@
@@ -75,7 +66,7 @@ index 00000000..79bbab33
 +)
 diff --git a/flow/designs/sky130hd/microwatt/lef/BUILD.bazel b/flow/designs/sky130hd/microwatt/lef/BUILD.bazel
 new file mode 100644
-index 00000000..4419ddd7
+index 000000000..4419ddd7a
 --- /dev/null
 +++ b/flow/designs/sky130hd/microwatt/lef/BUILD.bazel
 @@ -0,0 +1,10 @@
@@ -91,7 +82,7 @@ index 00000000..4419ddd7
 +)
 diff --git a/flow/designs/sky130hd/microwatt/lib/BUILD.bazel b/flow/designs/sky130hd/microwatt/lib/BUILD.bazel
 new file mode 100644
-index 00000000..5a1c76dc
+index 000000000..5a1c76dc0
 --- /dev/null
 +++ b/flow/designs/sky130hd/microwatt/lib/BUILD.bazel
 @@ -0,0 +1,10 @@

@@ -1,17 +1,8 @@
-From 316d20a3366313c4f97df09da26b7a5b2bce3bee Mon Sep 17 00:00:00 2001
+From 201ce5a3c7ed63ba3551aafb9ada9c538c9955b8 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Sat, 11 Apr 2026 14:27:19 +0200
-Subject: [PATCH 30/30] build: add flow/designs/BUILD.bazel for orfs_designs
- rule
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:33 +0200
+Subject: [PATCH] 0030-build-add-flow-designs-BUILD.bazel-for-orfs_designs-
 
-The orfs_designs repository rule references //flow/designs:BUILD.bazel
-to discover design directories. Create the file so the rule works.
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/designs/BUILD.bazel | 1 +
  1 file changed, 1 insertion(+)
@@ -19,7 +10,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 
 diff --git a/flow/designs/BUILD.bazel b/flow/designs/BUILD.bazel
 new file mode 100644
-index 00000000..ed4e50dd
+index 000000000..ed4e50dd7
 --- /dev/null
 +++ b/flow/designs/BUILD.bazel
 @@ -0,0 +1 @@

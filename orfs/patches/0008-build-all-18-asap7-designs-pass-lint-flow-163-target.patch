@@ -1,22 +1,8 @@
-From f4e40da33ff23fc8dc6b2dfc81967a7c171a012d Mon Sep 17 00:00:00 2001
+From f4d67e8d2503ea8c54bb3a8d67ecf441fbc668dc Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 06:44:12 +0200
-Subject: [PATCH 08/30] build: all 18 asap7 designs pass lint flow (163
- targets)
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:32 +0200
+Subject: [PATCH] 0008-build-all-18-asap7-designs-pass-lint-flow-163-target
 
-Fixes:
-- riscv32i: add platform fakeram7_256x32.sv to VERILOG_FILES
-- swerv_wrapper: add fakeram blackbox stubs (specify blocks break yosys)
-- cva6: recursive glob for common_cells/include subdirectory
-- mock-openroad: use real platform LEF/LIB when available for abstracts
-- flow/BUILD.bazel: export platform verilog/lef/lib/tcl files
-- Parser: platform file labels use //flow:platforms/... path
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/BUILD.bazel                              |  4 ++++
  flow/designs/asap7/cva6/BUILD.bazel           |  8 +++----
@@ -32,7 +18,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  delete mode 100644 flow/designs/src/cva6/core/cvfpu/src/common_cells/include/common_cells/BUILD.bazel
 
 diff --git a/flow/BUILD.bazel b/flow/BUILD.bazel
-index d6d367d1..bc538f3e 100644
+index d6d367d1e..bc538f3ed 100644
 --- a/flow/BUILD.bazel
 +++ b/flow/BUILD.bazel
 @@ -6,6 +6,10 @@ exports_files(
@@ -47,7 +33,7 @@ index d6d367d1..bc538f3e 100644
      visibility = ["//visibility:public"],
  )
 diff --git a/flow/designs/asap7/cva6/BUILD.bazel b/flow/designs/asap7/cva6/BUILD.bazel
-index a967509b..43c2e81a 100644
+index a967509b1..43c2e81a4 100644
 --- a/flow/designs/asap7/cva6/BUILD.bazel
 +++ b/flow/designs/asap7/cva6/BUILD.bazel
 @@ -1,8 +1,6 @@
@@ -63,7 +49,7 @@ index a967509b..43c2e81a 100644
 -# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 +orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel b/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
-index 5ae76a33..43c2e81a 100644
+index 5ae76a33e..43c2e81a4 100644
 --- a/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
 +++ b/flow/designs/asap7/riscv32i-mock-sram/BUILD.bazel
 @@ -1,8 +1,6 @@
@@ -79,7 +65,7 @@ index 5ae76a33..43c2e81a 100644
 -# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 +orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel b/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
-index 3ef58ad8..04d5af5a 100644
+index 3ef58ad8e..04d5af5ac 100644
 --- a/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
 +++ b/flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD.bazel
 @@ -1,6 +1,5 @@
@@ -98,7 +84,7 @@ index 3ef58ad8..04d5af5a 100644
 -# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 +orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i/BUILD.bazel b/flow/designs/asap7/riscv32i/BUILD.bazel
-index e12c1ad9..43c2e81a 100644
+index e12c1ad96..43c2e81a4 100644
 --- a/flow/designs/asap7/riscv32i/BUILD.bazel
 +++ b/flow/designs/asap7/riscv32i/BUILD.bazel
 @@ -1,7 +1,6 @@
@@ -113,7 +99,7 @@ index e12c1ad9..43c2e81a 100644
 -# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 +orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/riscv32i/config.mk b/flow/designs/asap7/riscv32i/config.mk
-index 6b4175b1..84cf9dff 100644
+index 6b4175b16..84cf9dffc 100644
 --- a/flow/designs/asap7/riscv32i/config.mk
 +++ b/flow/designs/asap7/riscv32i/config.mk
 @@ -6,7 +6,8 @@ export SYNTH_HIERARCHICAL ?= 1
@@ -127,7 +113,7 @@ index 6b4175b1..84cf9dff 100644
  
  ifeq ($(BLOCKS),)
 diff --git a/flow/designs/asap7/swerv_wrapper/BUILD.bazel b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
-index e12c1ad9..43c2e81a 100644
+index e12c1ad96..43c2e81a4 100644
 --- a/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 +++ b/flow/designs/asap7/swerv_wrapper/BUILD.bazel
 @@ -1,7 +1,6 @@
@@ -142,7 +128,7 @@ index e12c1ad9..43c2e81a 100644
 -# orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 +orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad")
 diff --git a/flow/designs/asap7/swerv_wrapper/config.mk b/flow/designs/asap7/swerv_wrapper/config.mk
-index 97410ab4..2ccf6fa0 100644
+index 97410ab47..2ccf6fa00 100644
 --- a/flow/designs/asap7/swerv_wrapper/config.mk
 +++ b/flow/designs/asap7/swerv_wrapper/config.mk
 @@ -45,7 +45,8 @@ export SYNTH_KEEP_MODULES ?= \
@@ -156,7 +142,7 @@ index 97410ab4..2ccf6fa0 100644
  
  export ADDITIONAL_LEFS = $(sort $(wildcard $(DESIGN_HOME)/$(PLATFORM)/swerv_wrapper/lef/*.lef))
 diff --git a/flow/designs/src/cva6/core/cvfpu/src/common_cells/include/BUILD.bazel b/flow/designs/src/cva6/core/cvfpu/src/common_cells/include/BUILD.bazel
-index 04b36977..11ffa901 100644
+index 04b36977f..11ffa901c 100644
 --- a/flow/designs/src/cva6/core/cvfpu/src/common_cells/include/BUILD.bazel
 +++ b/flow/designs/src/cva6/core/cvfpu/src/common_cells/include/BUILD.bazel
 @@ -1,12 +1,12 @@
@@ -185,7 +171,7 @@ index 04b36977..11ffa901 100644
      visibility = ["//visibility:public"],
 diff --git a/flow/designs/src/cva6/core/cvfpu/src/common_cells/include/common_cells/BUILD.bazel b/flow/designs/src/cva6/core/cvfpu/src/common_cells/include/common_cells/BUILD.bazel
 deleted file mode 100644
-index 04b36977..00000000
+index 04b36977f..000000000
 --- a/flow/designs/src/cva6/core/cvfpu/src/common_cells/include/common_cells/BUILD.bazel
 +++ /dev/null
 @@ -1,22 +0,0 @@

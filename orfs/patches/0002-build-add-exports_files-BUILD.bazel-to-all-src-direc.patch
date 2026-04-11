@@ -1,18 +1,8 @@
-From e4d274a08e90ffb18c47b1564c45a3995af43526 Mon Sep 17 00:00:00 2001
+From 6238b1b78644dfa28e52230ee5c3c8d6c83025e0 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Sun, 29 Mar 2026 23:14:03 +0200
-Subject: [PATCH 02/30] build: add exports_files BUILD.bazel to all src/
- directories
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:31 +0200
+Subject: [PATCH] 0002-build-add-exports_files-BUILD.bazel-to-all-src-direc
 
-Every flow/designs/src/<name>/ directory now has a BUILD.bazel with
-exports_files and a :verilog filegroup, enabling both single-file
-and glob references from orfs_flow() targets.
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/designs/src/aes/BUILD.bazel             | 13 +++++++++++++
  flow/designs/src/ariane/BUILD.bazel          | 13 +++++++++++++
@@ -78,7 +68,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 
 diff --git a/flow/designs/src/aes/BUILD.bazel b/flow/designs/src/aes/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/aes/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -97,7 +87,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/ariane/BUILD.bazel b/flow/designs/src/ariane/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/ariane/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -116,7 +106,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/ariane133/BUILD.bazel b/flow/designs/src/ariane133/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/ariane133/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -135,7 +125,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/ariane136/BUILD.bazel b/flow/designs/src/ariane136/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/ariane136/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -154,7 +144,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/black_parrot/BUILD.bazel b/flow/designs/src/black_parrot/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/black_parrot/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -173,7 +163,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/bp_be_top/BUILD.bazel b/flow/designs/src/bp_be_top/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/bp_be_top/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -192,7 +182,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/bp_fe_top/BUILD.bazel b/flow/designs/src/bp_fe_top/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/bp_fe_top/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -211,7 +201,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/bp_multi_top/BUILD.bazel b/flow/designs/src/bp_multi_top/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/bp_multi_top/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -230,7 +220,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/bp_quad/BUILD.bazel b/flow/designs/src/bp_quad/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/bp_quad/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -249,7 +239,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/chameleon/BUILD.bazel b/flow/designs/src/chameleon/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/chameleon/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -268,7 +258,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/chameleon_hier/BUILD.bazel b/flow/designs/src/chameleon_hier/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/chameleon_hier/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -287,7 +277,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/coyote/BUILD.bazel b/flow/designs/src/coyote/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/coyote/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -306,7 +296,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/cva6/BUILD.bazel b/flow/designs/src/cva6/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/cva6/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -325,7 +315,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/dynamic_node/BUILD.bazel b/flow/designs/src/dynamic_node/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/dynamic_node/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -344,7 +334,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/ethmac/BUILD.bazel b/flow/designs/src/ethmac/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/ethmac/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -363,7 +353,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/fifo/BUILD.bazel b/flow/designs/src/fifo/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/fifo/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -382,7 +372,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/gcd/BUILD.bazel b/flow/designs/src/gcd/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/gcd/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -401,7 +391,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/ibex_sv/BUILD.bazel b/flow/designs/src/ibex_sv/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/ibex_sv/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -420,7 +410,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/ibex_sv/syn/rtl/BUILD.bazel b/flow/designs/src/ibex_sv/syn/rtl/BUILD.bazel
 new file mode 100644
-index 00000000..cf79c553
+index 000000000..cf79c553b
 --- /dev/null
 +++ b/flow/designs/src/ibex_sv/syn/rtl/BUILD.bazel
 @@ -0,0 +1,4 @@
@@ -430,7 +420,7 @@ index 00000000..cf79c553
 +)
 diff --git a/flow/designs/src/jpeg/BUILD.bazel b/flow/designs/src/jpeg/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/jpeg/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -449,7 +439,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/mempool_group/BUILD.bazel b/flow/designs/src/mempool_group/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/mempool_group/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -468,7 +458,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/microwatt/BUILD.bazel b/flow/designs/src/microwatt/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/microwatt/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -487,7 +477,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/mock-alu/BUILD.bazel b/flow/designs/src/mock-alu/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/mock-alu/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -506,7 +496,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/mock-array/BUILD.bazel b/flow/designs/src/mock-array/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/mock-array/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -525,7 +515,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/riscv32i/BUILD.bazel b/flow/designs/src/riscv32i/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/riscv32i/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -544,7 +534,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/spi/BUILD.bazel b/flow/designs/src/spi/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/spi/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -563,7 +553,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/swerv/BUILD.bazel b/flow/designs/src/swerv/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/swerv/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -582,7 +572,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/tinyRocket/BUILD.bazel b/flow/designs/src/tinyRocket/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/tinyRocket/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -601,7 +591,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/uart-no-param/BUILD.bazel b/flow/designs/src/uart-no-param/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/uart-no-param/BUILD.bazel
 @@ -0,0 +1,13 @@
@@ -620,7 +610,7 @@ index 00000000..5bdb9cc1
 +)
 diff --git a/flow/designs/src/uart/BUILD.bazel b/flow/designs/src/uart/BUILD.bazel
 new file mode 100644
-index 00000000..5bdb9cc1
+index 000000000..5bdb9cc16
 --- /dev/null
 +++ b/flow/designs/src/uart/BUILD.bazel
 @@ -0,0 +1,13 @@

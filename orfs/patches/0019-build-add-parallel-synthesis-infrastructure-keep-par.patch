@@ -1,25 +1,8 @@
-From d3c31a78bba5c069024f60e4404c89fd7b55416f Mon Sep 17 00:00:00 2001
+From 9a3d4b2114451fb4051737e409629bb84035c10c Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 14:23:40 +0200
-Subject: [PATCH 19/30] build: add parallel synthesis infrastructure (keep +
- partition)
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:32 +0200
+Subject: [PATCH] 0019-build-add-parallel-synthesis-infrastructure-keep-par
 
-Add synth_keep.tcl that runs coarse synthesis + keep_hierarchy to
-produce kept_modules.json listing modules to preserve. Add
-synth_partition.sh that reads the JSON and synthesizes assigned
-modules (index % N == partition_id) with all others blackboxed.
-
-This follows the megaboom gallery pattern from bazel-orfs: each
-module is synthesized independently with SYNTH_BLACKBOXES set to
-all other modules. Bazel runs N partitions in parallel = parallel ABC.
-
-New Makefile targets: do-yosys-keep, do-yosys-partition.
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/Makefile                   |  8 ++++
  flow/scripts/synth_keep.tcl     | 55 +++++++++++++++++++++++++++
@@ -29,7 +12,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  create mode 100755 flow/scripts/synth_partition.sh
 
 diff --git a/flow/Makefile b/flow/Makefile
-index dbb4692d..dbaab86d 100644
+index dbb4692d9..dbaab86d2 100644
 --- a/flow/Makefile
 +++ b/flow/Makefile
 @@ -272,6 +272,14 @@ do-yosys: yosys-dependencies
@@ -49,7 +32,7 @@ index dbb4692d..dbaab86d 100644
  
 diff --git a/flow/scripts/synth_keep.tcl b/flow/scripts/synth_keep.tcl
 new file mode 100644
-index 00000000..60487f34
+index 000000000..60487f341
 --- /dev/null
 +++ b/flow/scripts/synth_keep.tcl
 @@ -0,0 +1,55 @@
@@ -110,7 +93,7 @@ index 00000000..60487f34
 +puts "Kept [llength $kept_modules] modules: $kept_modules"
 diff --git a/flow/scripts/synth_partition.sh b/flow/scripts/synth_partition.sh
 new file mode 100755
-index 00000000..0b8211d9
+index 000000000..0b8211d97
 --- /dev/null
 +++ b/flow/scripts/synth_partition.sh
 @@ -0,0 +1,67 @@

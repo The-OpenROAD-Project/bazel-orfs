@@ -1,26 +1,14 @@
-From 3f2ec06a4207d5c551a5dfcdb58a0a4893ce31ae Mon Sep 17 00:00:00 2001
+From dbce8b770b3d5f82daf8bdf9adb8bc24eb7ab064 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
-Date: Mon, 30 Mar 2026 15:43:33 +0200
-Subject: [PATCH 24/30] fix: truncate module name in partition log filename,
- skip existing filegroups
-MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Date: Sat, 11 Apr 2026 16:32:32 +0200
+Subject: [PATCH] 0024-fix-truncate-module-name-in-partition-log-filename-s
 
-Long module names (e.g. bp_multi_top parameters) exceed filesystem
-path limits. Truncate to 80 chars in the log filename.
-
-Also skip creating filegroups in orfs_design(designs = DESIGNS, mock_openroad = "@bazel-orfs//mock/openroad/src/bin:openroad") when they already
-exist in the BUILD.bazel (fixes riscv32i-mock-sram conflict).
-
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
-Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  flow/scripts/synth_partition.sh | 4 +++-
  1 file changed, 3 insertions(+), 1 deletion(-)
 
 diff --git a/flow/scripts/synth_partition.sh b/flow/scripts/synth_partition.sh
-index 298a2df0..6696e50f 100755
+index 298a2df03..6696e50f9 100755
 --- a/flow/scripts/synth_partition.sh
 +++ b/flow/scripts/synth_partition.sh
 @@ -57,12 +57,14 @@ for module in "${MY_MODULES[@]}"; do
