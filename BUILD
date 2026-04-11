@@ -15,7 +15,7 @@ exports_files([
     "oci_extract.py",
     "package_stage.py",
     "mock_area.tcl",
-    "openroad-llvm-root-only.patch",
+    "openroad-toolchains-llvm-dev-dep.patch",
     "openroad-visibility.patch",
     "oss_cad_suite.BUILD.bazel",
     "parallel_synth.mk",

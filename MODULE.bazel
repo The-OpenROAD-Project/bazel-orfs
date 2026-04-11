@@ -61,6 +61,7 @@ git_override(
     patches = [
         "//:openroad-visibility.patch",
         "//:openroad-remove-initrunfiles.patch",
+        "//:openroad-toolchains-llvm-dev-dep.patch",
     ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
