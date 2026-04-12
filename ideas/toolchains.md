@@ -1,17 +1,71 @@
-# Pain-Relief Toolchains and Packages
+# Caching and Pinning: Toolchains and Packages
 
 ## Context
 
-Two things make bazel-orfs painful for new users and CI:
+bazel-orfs relies on two large foundational tools -- yosys and
+OpenROAD -- plus ORFS flow scripts and PDK files. Getting these
+tools to users efficiently requires two complementary strategies:
 
-1. **Build time**: yosys takes 10-20 minutes from source, OpenROAD
-   takes 30-60+ minutes. Both require a C++20 compiler, cmake, and
-   platform-specific development headers.
+1. **Caching** -- Bazel's transparent build cache. When all inputs
+   are unchanged, skip the rebuild automatically. This is correct
+   by construction and works well for application code that changes
+   frequently.
 
-2. **Clone size**: ORFS is a 1.1 GB git checkout. bazel-orfs only
-   needs ~830 KB of scripts/makefiles plus PDK platform files, but
-   `git_override` clones the entire repo including 265 MB of unused
-   design examples.
+2. **Pinning** -- An explicit, intentional declaration: "use this
+   exact binary (identified by sha256) regardless of whether source
+   inputs have changed." Pinning is deliberate non-invalidation,
+   made with the understanding that in theory the tool should be
+   rebuilt, but in practice the rebuild is not worth the cost.
+
+Neither is right or wrong -- they serve different needs. For
+application RTL and flow scripts, caching is exactly what you want:
+change a Verilog file, re-synthesize automatically. For foundational
+tools that change rarely and cost dearly to rebuild (yosys: 10-20
+min, OpenROAD: 30-60+ min), pinning lets the user decide when an
+upgrade is worth the time. Both belong in the same build system.
+
+Today bazel-orfs has good caching but no pinning story. A one-line
+change in an OpenROAD header that is irrelevant to the user's flow
+correctly invalidates the cache and triggers a full rebuild. The
+user cannot express "I know the input changed, but I intentionally
+want to keep using the binary I have validated." A cache cannot and
+should not capture this intention -- that is what pinning is for.
+
+3. **Patching** -- Users hit bugs in upstream tools. Without
+   pinning, a broken upstream means an urgent fire: the build is
+   broken *now*, and the only options are to fix upstream (slow,
+   someone else's repo) or carry a source-build patch stack that
+   every developer must rebuild locally. Pinning changes the
+   equation: a user applies a patch, builds once, pins the
+   resulting binary by sha256, and shares it with their team.
+   The rest of the team downloads the pinned binary in seconds
+   without rebuilding. "Broken upstream" stops being an emergency
+   and becomes a tracked issue to resolve at the right time.
+   Pinning makes patching practical, and patching makes pinning
+   indispensable -- together they turn broken into non-urgent.
+
+   Crucially, patches carried this way can **build up and stabilize**
+   before being pitched upstream. A patch that fixes a crash in a
+   user's flow today may need reworking to meet upstream standards,
+   or may interact with other patches in ways that only become clear
+   over time. By carrying patches locally behind a pin, users can
+   let the patch stack mature -- merge related fixes, refine the
+   approach, confirm the fix holds across designs -- and only then
+   propose a well-tested PR upstream. This reduces stress and churn
+   for everyone: upstream maintainers review fewer, better patches,
+   and downstream users are not pressured to rush half-baked fixes
+   into someone else's repository just to unblock their builds.
+
+Additionally:
+
+- **Build time**: yosys takes 10-20 minutes from source, OpenROAD
+  takes 30-60+ minutes. Both require a C++20 compiler, cmake, and
+  platform-specific development headers.
+
+- **Clone size**: ORFS is a 1.1 GB git checkout. bazel-orfs only
+  needs ~830 KB of scripts/makefiles plus PDK platform files, but
+  `git_override` clones the entire repo including 265 MB of unused
+  design examples.
 
 The proper long-term fix is for yosys and OpenROAD to publish
 first-class Bazel modules on the Bazel Central Registry (BCR), with
@@ -22,8 +76,8 @@ These toolchains and packages are **pain-relief for bazel-orfs** --
 stop-gap solutions we own and ship today, hosted as GitHub Release
 assets on the `The-OpenROAD-Project/bazel-orfs` repository. When
 upstream tools eventually appear on the BCR, we retire these
-stop-gaps. Until then, they make bazel-orfs usable without waiting
-an hour for tools to compile or cloning a giant repo.
+stop-gaps. Until then, they give users both fast caching for their
+own code and intentional pinning for their tools.
 
 ### Expected savings
 
@@ -994,3 +1048,187 @@ This is the expected workflow:
   If demand justifies it, linux-aarch64 and macos-arm64 prebuilts
   can be added later. Users on those platforms build from source in
   the meantime -- it takes time but requires no configuration.
+
+---
+
+## Pinning and multi-registry artifact hosting
+
+### Why pinning matters (recap)
+
+As established in the Context section, caching and pinning are
+complementary. Caching handles the common case automatically;
+pinning handles the foundational-tool case intentionally. The
+mechanisms below implement the pinning side -- letting users
+declare exactly which tool binary to use and when to upgrade.
+
+The Docker-based approach (Phase 0 / current state) also suffers
+from coupling: a single monolithic image conflates tool versions
+with base OS and library versions, making it hard to pin one tool
+without pulling in everything else.
+
+### The pin is the sha256, not the URL
+
+The core abstraction: a `(tool, version, platform)` triple resolves
+to a URL + sha256, independent of where the artifact lives. Two
+users pointing at different URLs but the same sha256 get the same
+binary and the same Bazel cache behaviour. This makes the hosting
+backend a deployment detail, not a build system concern.
+
+`private/versions.bzl` is the single source of truth:
+
+```python
+# private/versions.bzl
+
+PINNED = {
+    "openroad": {
+        "version": "2.0-19336",
+        "commit": "66c2b5ed03ea15f4ab7631537c9380d8239ec67a",
+        "platforms": {
+            "linux-x86_64": {
+                "sha256": "abc123...",
+                "urls": [
+                    # Primary: bazel-orfs GitHub Releases (public)
+                    "https://github.com/The-OpenROAD-Project/bazel-orfs/releases/download/openroad/v2.0-19336/openroad-2.0-19336-linux-x86_64.tar.gz",
+                ],
+            },
+        },
+    },
+    "yosys": {
+        "version": "0.48",
+        "commit": "...",
+        "platforms": {
+            "linux-x86_64": {
+                "sha256": "def456...",
+                "urls": [
+                    "https://github.com/The-OpenROAD-Project/bazel-orfs/releases/download/yosys/v0.48/yosys-0.48-linux-x86_64.tar.gz",
+                ],
+            },
+        },
+    },
+}
+```
+
+The `urls` list is tried in order by `repository_ctx.download`, so
+users can prepend a private mirror and fall back to the public
+release.
+
+### Artifact source overrides in MODULE.bazel
+
+Users override the artifact source without changing rule definitions:
+
+```python
+# Public GitHub Releases (default -- no override needed)
+orfs.default()
+
+# Private GitHub Releases (fork with proprietary patches)
+orfs.default(
+    openroad_urls = [
+        "https://github.com/my-org/bazel-orfs/releases/download/openroad/v2.0-19336-patched/openroad-2.0-19336-patched-linux-x86_64.tar.gz",
+    ],
+    openroad_sha256 = "...",
+)
+
+# Google Artifact Registry / Cloud Storage
+orfs.default(
+    openroad_urls = [
+        "https://storage.googleapis.com/my-bucket/openroad/v2.0-19336/openroad-linux-x86_64.tar.gz",
+    ],
+    openroad_sha256 = "...",
+)
+
+# Any HTTPS endpoint (S3, Artifactory, internal mirror)
+orfs.default(
+    openroad_urls = [
+        "https://artifacts.example.com/openroad/v2.0-19336/openroad-linux-x86_64.tar.gz",
+    ],
+    openroad_sha256 = "...",
+)
+```
+
+### Supported hosting backends
+
+All backends use the same `urls` + `sha256` download mechanism.
+The difference is authentication:
+
+| Backend | Auth mechanism | Notes |
+|---------|---------------|-------|
+| **Public GitHub Releases** | None | Default. CDN-backed, immutable, 2 GB/asset limit. |
+| **Private GitHub Releases** | `GITHUB_TOKEN` env var with `contents:read` | `--repo_env=GITHUB_TOKEN` in `.bazelrc`. Repository rule passes token as auth header. |
+| **GCR / Artifact Registry** | `--credential_helper` or ambient ADC | Standard Bazel credential helpers handle GCP auth. No bazel-orfs changes needed. |
+| **S3 / generic HTTPS** | `--credential_helper` or pre-signed URLs | Pre-signed URLs work without any auth config. |
+
+Private GitHub Releases require the repository rule to pass the
+token:
+
+```python
+def _prebuilt_impl(repository_ctx):
+    token = repository_ctx.os.environ.get("GITHUB_TOKEN", "")
+    auth = {}
+    if token:
+        auth = {url: {
+            "type": "pattern",
+            "pattern": "token %s" % token,
+        } for url in urls}
+
+    repository_ctx.download_and_extract(
+        url = urls,
+        sha256 = sha256,
+        auth = auth,
+    )
+```
+
+For GCR and other backends, Bazel's built-in `--credential_helper`
+handles auth transparently -- no changes in bazel-orfs rules.
+
+### Build, pin, and share your own binaries
+
+Users who need custom patches build from source once, then pin
+and distribute the result:
+
+```bash
+# 1. Build from source with patches (one-time or in CI)
+bazelisk build @openroad//:openroad  # with git_override patches in MODULE.bazel
+
+# 2. Package into a release tarball
+bazelisk run //:package-openroad
+# Prints: openroad-2.0-19336-mypatch-linux-x86_64.tar.gz  sha256:abc123...
+
+# 3. Upload to your artifact host
+gh release create openroad/v2.0-19336-mypatch \
+  openroad-2.0-19336-mypatch-linux-x86_64.tar.gz \
+  --repo my-org/my-repo
+
+# 4. Pin in MODULE.bazel
+# orfs.default(
+#     openroad_urls = ["https://github.com/my-org/my-repo/releases/download/..."],
+#     openroad_sha256 = "abc123...",
+# )
+```
+
+This workflow gives full control: apply arbitrary patches, build
+once, pin the result, and share across team and CI. The sha256
+guarantees everyone gets the exact same binary regardless of which
+URL they download from.
+
+### Changes required for pinning support
+
+Most of the infrastructure already described in this document
+(prebuilt repository rules, versions.bzl, module extension tags)
+directly serves pinning. The additional pieces specific to
+multi-registry support:
+
+1. **`extension.bzl`** -- Add `openroad_urls`, `openroad_sha256`,
+   `yosys_urls`, `yosys_sha256` optional attributes to
+   `orfs.default()`. When set, these override the defaults in
+   `versions.bzl`.
+
+2. **`prebuilt.bzl`** -- Read `GITHUB_TOKEN` from environment for
+   private GitHub Release authentication. Pass through to
+   `repository_ctx.download_and_extract(auth=...)`.
+
+3. **`//:package-openroad`**, **`//:package-yosys`** (new) --
+   Build targets that produce relocatable tarballs (RPATH-patched,
+   bundled shared libs) suitable for upload to any hosting backend.
+
+4. **Documentation** -- Guide for private hosting setup: env var
+   configuration, credential helpers, pre-signed URL patterns.
