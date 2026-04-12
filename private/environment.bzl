@@ -234,7 +234,7 @@ def flow_substitutions(ctx):
     return {
         "${DLN_LIBRARY_PATH}": _optional_commonpath(ctx.files._ruby_dynamic),
         "${FLOW_HOME}": ctx.file._makefile.dirname,
-        "${KLAYOUT_PATH}": ctx.executable._klayout.path,
+        "${KLAYOUT_PATH}": "./" + _klayout_attr(ctx)[DefaultInfo].files_to_run.executable.short_path,
         "${LIBGL_DRIVERS_PATH}": _optional_commonpath(ctx.files._opengl),
         "${MAKEFILE_PATH}": ctx.file._makefile.path,
         "${MAKE_PATH}": "./" + ctx.executable._make.short_path,
@@ -249,8 +249,8 @@ def flow_substitutions(ctx):
 
 def yosys_substitutions(ctx):
     return {
-        "${ABC}": ctx.executable._abc.path,
-        "${YOSYS_PATH}": ctx.executable.yosys.path,
+        "${ABC}": "./" + ctx.executable._abc.short_path,
+        "${YOSYS_PATH}": "./" + ctx.executable.yosys.short_path,
     }
 
 def module_top(ctx):
