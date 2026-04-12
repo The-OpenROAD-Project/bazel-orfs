@@ -10,13 +10,23 @@ Users override individual tools via orfs.default() tag attributes.
 
 A stub @docker_orfs repo with no-op executables is always created to
 satisfy any residual label references in attrs.bzl.
+
+A docker_orfs_image repo is also created, providing the OpenROAD binary
+from the latest ORFS Docker image.  It is lazily fetched — the multi-GB
+download only happens when a target from @docker_orfs_image is built
+(e.g. via @bazel-orfs//:openroad-latest).
 """
 
 load("//:config.bzl", "global_config")
+load("//:docker.bzl", "docker_pkg")
 load("//:gnumake.bzl", "gnumake")
 load("//:load_json_file.bzl", "load_json_file")
 load("//:mock_klayout.bzl", "mock_klayout")
 load("//:stub.bzl", "stub_docker_orfs")
+
+# Latest ORFS Docker image — bump.py keeps these in sync.
+LATEST_ORFS_IMAGE = "docker.io/openroad/orfs:26Q2-32-gca75a11e2"
+LATEST_ORFS_SHA256 = "a50429aaed8cbaf2103b46196507f7c9445c95066d00a91953bd47c27dad6f31"
 
 _default_tag = tag_class(
     attrs = {
@@ -83,6 +93,24 @@ _default_tag = tag_class(
 def _orfs_repositories_impl(module_ctx):
     # Stub repo with no-op executables for residual @docker_orfs references
     stub_docker_orfs(name = "docker_orfs")
+
+    # Docker image repo — lazily fetched only when a target is built.
+    # Provides @docker_orfs_image//:openroad (aliased as @bazel-orfs//:openroad-latest).
+    docker_pkg(
+        name = "docker_orfs_image",
+        build_file = Label("//:docker_openroad.BUILD.bazel"),
+        image = LATEST_ORFS_IMAGE,
+        sha256 = LATEST_ORFS_SHA256,
+        # Post-extraction fixups:
+        # 1. Delete BUILD files that would create subpackages
+        # 2. Symlink libtclreadline.so into the tclreadline package dir
+        #    so Tcl's `load [file dirname [info script]]/libtclreadline.so`
+        #    finds it (the absolute /usr/lib/... path doesn't work in the sandbox)
+        patch_cmds = [
+            "find OpenROAD-flow-scripts -name BUILD -delete -o -name BUILD.bazel -delete",
+            "ln -sf ../../../x86_64-linux-gnu/libtclreadline-2.3.8.so usr/lib/tcltk/x86_64-linux-gnu/tclreadline2.3.8/libtclreadline.so || true",
+        ],
+    )
 
     # GNU Make built from source
     gnumake(name = "gnumake")
