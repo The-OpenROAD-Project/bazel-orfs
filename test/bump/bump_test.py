@@ -345,6 +345,46 @@ class TestBazelOrfsYosysUpdate(unittest.TestCase):
             shutil.rmtree(tmpdir)
 
 
+class TestBazelOrfsDockerImageUpdate(unittest.TestCase):
+    """bazel-orfs project updates Docker image constants in extension.bzl."""
+
+    def test_docker_image_constants_updated(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            main_file = os.path.join(tmpdir, "MODULE.bazel")
+            shutil.copy2(
+                os.path.join(FIXTURES_DIR, "self.MODULE.bazel"),
+                main_file,
+            )
+
+            ext_file = os.path.join(tmpdir, "extension.bzl")
+            with open(ext_file, "w") as f:
+                f.write(
+                    'LATEST_ORFS_IMAGE = "docker.io/openroad/orfs:old-tag"\n'
+                    'LATEST_ORFS_SHA256 = "olddigest"\n'
+                )
+
+            bump.bump(
+                main_file,
+                fetch_tag_fn=mock_fetch_tag,
+                fetch_commit_fn=mock_fetch_commit,
+                resolve_digest_fn=mock_resolve_digest,
+                fetch_release_fn=mock_fetch_release,
+                fetch_tag_commit_fn=mock_fetch_tag_commit,
+                workspace_dir=tmpdir,
+            )
+
+            with open(ext_file) as f:
+                ext_content = f.read()
+
+            self.assertIn(LATEST_TAG, ext_content)
+            self.assertIn(DIGEST, ext_content)
+            self.assertNotIn("old-tag", ext_content)
+            self.assertNotIn("olddigest", ext_content)
+        finally:
+            shutil.rmtree(tmpdir)
+
+
 class TestMockModuleUpdates(unittest.TestCase):
     """Test 6: mock/*/MODULE.bazel files also get updated."""
 

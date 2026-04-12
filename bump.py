@@ -548,6 +548,26 @@ def update_yosys_build_bzl(filepath, yosys_commit):
     with open(filepath, "w") as f:
         f.write(content)
 
+
+def update_docker_image_constants(filepath, tag, digest):
+    """Update LATEST_ORFS_IMAGE and LATEST_ORFS_SHA256 in extension.bzl."""
+    with open(filepath) as f:
+        content = f.read()
+
+    content = re.sub(
+        r'(LATEST_ORFS_IMAGE\s*=\s*"docker\.io/openroad/orfs:)[^"]*(")',
+        rf"\g<1>{tag}\2",
+        content,
+    )
+    content = re.sub(
+        r'(LATEST_ORFS_SHA256\s*=\s*")[^"]*(")',
+        rf"\g<1>{digest}\2",
+        content,
+    )
+
+    with open(filepath, "w") as f:
+        f.write(content)
+
     return content
 
 
@@ -576,14 +596,20 @@ def bump(
     project = detect_project(content)
     updated_modules = []
 
-    # --- Update ORFS image (downstream and openroad only) ---
-    # bazel-orfs itself no longer uses a Docker image; it fetches ORFS
-    # flow scripts via git_override.  Downstream projects may still use
-    # the image, so keep updating it for them.
+    # --- Update ORFS image ---
+    # Downstream/openroad: update image tag in orfs.default() in MODULE.bazel.
+    # bazel-orfs: update LATEST_ORFS_IMAGE/SHA256 constants in extension.bzl
+    # (used by @bazel-orfs//:openroad-latest).
     repo = "openroad/orfs"
     latest_tag = fetch_tag_fn(repo)
     digest = resolve_digest_fn(f"docker.io/{repo}", latest_tag)
-    if project != "bazel-orfs":
+    if project == "bazel-orfs":
+        if workspace_dir:
+            ext_file = os.path.join(workspace_dir, "extension.bzl")
+            if os.path.exists(ext_file):
+                update_docker_image_constants(ext_file, latest_tag, digest)
+                updated_modules.append(f"Docker image -> {latest_tag}")
+    else:
         content = update_orfs_image(content, latest_tag, digest)
         updated_modules.append(f"ORFS image -> {latest_tag}")
 
