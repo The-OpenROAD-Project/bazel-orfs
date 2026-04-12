@@ -314,10 +314,31 @@ def find_tcl_library(directory: str) -> Optional[str]:
     return None
 
 
+def find_tcl_package_dirs(directory: str) -> List[str]:
+    """Find directories containing Tcl packages (pkgIndex.tcl).
+
+    Returns paths relative to the extraction root.  These are added
+    to TCLLIBPATH so that ``package require`` can locate packages
+    like tclreadline that live outside the standard tcl library dir.
+    """
+    result = []
+    for root, dirs, files in os.walk(directory):
+        if "pkgIndex.tcl" in files:
+            # TCLLIBPATH entries should be the *parent* of the package
+            # directory so that Tcl's ``package require`` finds the
+            # subdirectory by name.
+            parent = os.path.dirname(root)
+            rel = os.path.relpath(parent, directory)
+            if rel not in result:
+                result.append(rel)
+    return result
+
+
 def generate_wrapper(
     args: argparse.Namespace,
     wrapper_info: dict,
     tcl_library: Optional[str] = None,
+    tcl_package_dirs: Optional[List[str]] = None,
 ):
     """
     Moves an ELF executable to libexec/ and creates a wrapper script
@@ -331,6 +352,8 @@ def generate_wrapper(
         Dictionary with keys: root, file, interpreter, library_paths
     tcl_library : Optional[str]
         TCL library path relative to extraction root
+    tcl_package_dirs : Optional[List[str]]
+        Tcl package directories relative to extraction root (for TCLLIBPATH)
     """
     root = wrapper_info["root"]
     file = wrapper_info["file"]
@@ -356,6 +379,13 @@ def generate_wrapper(
         env_lines.append(
             'export TCL_LIBRARY="${TCL_LIBRARY:-' "$top_dir/" + tcl_library + '}"'
         )
+    if tcl_package_dirs:
+        # TCLLIBPATH is a Tcl list (space-separated) of directories
+        # where ``package require`` looks for pkgIndex.tcl files.
+        # Prepend (not default) because ORFS Makefile sets TCLLIBPATH
+        # to "util/cell-veneer" which would otherwise override us.
+        tcl_lib_path = " ".join("$top_dir/" + d for d in tcl_package_dirs)
+        env_lines.append('export TCLLIBPATH="' + tcl_lib_path + ' $TCLLIBPATH"')
     env_exports = "".join(line + "\n" for line in env_lines)
 
     wrapper_content = WRAPPER_TEMPLATE.format(
@@ -501,9 +531,10 @@ def main():
         wrapper_info["interpreter"] = interp_map[old_interp]
 
     tcl_library = find_tcl_library(args.directory)
+    tcl_package_dirs = find_tcl_package_dirs(args.directory)
 
     for wrapper_info in wrappers:
-        generate_wrapper(args, wrapper_info, tcl_library)
+        generate_wrapper(args, wrapper_info, tcl_library, tcl_package_dirs)
 
     # Tools like yosys use proc_self_dirname() to find sibling
     # executables (e.g. yosys-abc). Since /proc/self/exe now

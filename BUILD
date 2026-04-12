@@ -5,6 +5,25 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
+# OpenROAD and OpenSTA binaries from the latest ORFS Docker image.
+# Downstream projects use these labels to skip building OpenROAD from source:
+#   orfs.default(
+#       openroad = "@bazel-orfs//:openroad-latest",
+#       opensta = "@bazel-orfs//:opensta-latest",
+#   )
+# The Docker image is only downloaded when these targets are actually built.
+alias(
+    name = "openroad-latest",
+    actual = "@docker_orfs_image//:openroad",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "opensta-latest",
+    actual = "@docker_orfs_image//:sta",
+    visibility = ["//visibility:public"],
+)
+
 exports_files([
     "bump.py",
     "config_mk_parser.py",
