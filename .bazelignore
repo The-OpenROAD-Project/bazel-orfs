@@ -12,4 +12,5 @@ mock/chisel
 naja
 orfs
 sby
+test/docker
 test/downstream
