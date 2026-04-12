@@ -70,22 +70,15 @@ orfs.default(
 
 ### GUI Builds
 
-The ORFS image ships OpenROAD with GUI support. To match this when building
-from source, use the `openroad-gui` config:
+The ORFS image ships OpenROAD with GUI support. bazel-orfs builds OpenROAD
+from source with GUI enabled by default (`--@openroad//:platform=gui` in
+`.bazelrc`) to match the Docker image.
 
-```sh
-bazelisk build --config=openroad-gui @openroad//:openroad
-```
-
-Or add to your `.bazelrc` to always build with GUI:
+To disable GUI (CLI-only mode), override in `user.bazelrc`:
 
 ```
-build --@openroad//:platform=gui
+build --@openroad//:platform=cli
 ```
-
-Without this flag, OpenROAD builds in CLI-only mode (the default in OpenROAD's
-build system). bazel-orfs provides a `build:openroad-gui` config in its
-`.bazelrc` for convenience.
 
 ## Per-Target Override
 

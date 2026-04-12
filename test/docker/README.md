@@ -43,19 +43,11 @@ bazelisk run //:counter_gui_synth
 ## Contrast: source-built OpenROAD with GUI
 
 When building OpenROAD from source (the default in bazel-orfs), GUI
-support requires the `--@openroad//:platform=gui` build flag:
+support is enabled by default via `--@openroad//:platform=gui` in
+`.bazelrc`, matching the Docker image.
 
-```bash
-# In .bazelrc:
-build --@openroad//:platform=gui
-
-# Or use the pre-defined config:
-bazelisk build --config=openroad-gui @openroad//:openroad
-```
-
-The Docker-based approach (`@bazel-orfs//:openroad-latest`) does not
-need this flag — the Docker image's OpenROAD binary already includes
-GUI support.
+The Docker-based approach (`@bazel-orfs//:openroad-latest`) gets GUI
+support from the pre-built binary in the Docker image instead.
 
 ## Updating the Docker image
 
