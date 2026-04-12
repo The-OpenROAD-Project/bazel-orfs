@@ -1,0 +1,9 @@
+# Stub targets for module-graph resolution.
+# The real OpenROAD binary comes from the Docker image via
+# @bazel-orfs//:openroad-latest — these stubs are never built.
+package(default_visibility = ["//visibility:public"])
+
+sh_binary(
+    name = "openroad",
+    srcs = ["noop.sh"],
+)
