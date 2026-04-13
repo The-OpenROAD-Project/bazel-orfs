@@ -1,0 +1,55 @@
+"""Manual test workspace for variable-name spelling validation."""
+
+module(
+    name = "spelling-error-test",
+    version = "0.0.1",
+)
+
+bazel_dep(name = "bazel-orfs")
+local_path_override(
+    module_name = "bazel-orfs",
+    path = "../..",
+)
+
+bazel_dep(name = "bazel-orfs-verilog")
+local_path_override(
+    module_name = "bazel-orfs-verilog",
+    path = "../../verilog",
+)
+
+bazel_dep(name = "orfs")
+git_override(
+    module_name = "orfs",
+    commit = "d8c6b0cbd54d3a2d6e78671e80b7b479c10af6f6",
+    patch_strip = 1,
+    patches = [
+        "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
+    ],
+    remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
+)
+
+orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
+orfs.default()
+use_repo(orfs, "docker_orfs")
+use_repo(orfs, "gnumake")
+
+bazel_dep(name = "openroad")
+git_override(
+    module_name = "openroad",
+    commit = "66c2b5ed03ea15f4ab7631537c9380d8239ec67a",
+    init_submodules = True,
+    patch_strip = 1,
+    patches = [
+        "//:openroad-visibility.patch",
+    ],
+    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
+)
+
+bazel_dep(name = "qt-bazel")
+git_override(
+    module_name = "qt-bazel",
+    commit = "886104974c2fd72439f2c33b5deebf0fe4649df7",
+    remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
+)
+
+bazel_dep(name = "glpk", version = "5.0.bcr.4")

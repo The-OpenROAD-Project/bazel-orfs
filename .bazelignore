@@ -14,3 +14,4 @@ orfs
 sby
 test/docker
 test/downstream
+test/spelling_error
