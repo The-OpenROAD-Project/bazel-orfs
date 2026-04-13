@@ -368,6 +368,25 @@ $ bazel run //test:tag_array_64x184_floorplan CORE_UTILIZATION=5 print-CORE_UTIL
 CORE_UTILIZATION: 5
 ```
 
+### Variable validation against `variables.yaml`
+
+bazel-orfs validates all variable names in `arguments` and `sources` against
+ORFS `flow/scripts/variables.yaml` at build time. Misspelled or unknown
+variables cause an immediate build failure with a clear error message, catching
+typos before they silently propagate to runtime.
+
+If a variable is not in `variables.yaml` but is needed for your design:
+
+1. **Create a patch against ORFS** for your project that adds the variable to
+   `variables.yaml`. This is the recommended approach — patches make the
+   implementation very straightforward and the only cost is occasionally
+   updating `variables.yaml` with a variable you need from bazel-orfs.
+
+2. Alternatively, we sometimes add the variable in bazel-orfs first and then
+   **file a PR against ORFS** with an updated `variables.yaml`.
+
+See [`patches/`](patches/) for examples of ORFS patches used by bazel-orfs.
+
 ### Pass constraints to stages
 
 Pass constraint files to `orfs_flow()` through `sources`:

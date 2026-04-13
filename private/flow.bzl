@@ -16,7 +16,7 @@ load(
     "orfs_squashed",
     "orfs_synth_rule",
 )
-load("//private:stages.bzl", "STAGE_METADATA", "get_sources", "get_stage_args")
+load("//private:stages.bzl", "STAGE_METADATA", "check_variables", "get_sources", "get_stage_args")
 
 def _strip_tool_kwargs(**kwargs):
     """Strip tool-specific kwargs for non-stage targets (orfs_macro, orfs_run)."""
@@ -164,6 +164,8 @@ def orfs_flow(
         includes modules without LEF masters. Default True.
       **kwargs: forward named args
     """
+    check_variables(arguments.keys(), "arguments")
+    check_variables(sources.keys(), "sources")
     if abstract_stage and last_stage:
         fail("abstract_stage and last_stage are mutually exclusive")
     if variant == "base":
