@@ -161,11 +161,19 @@ def orfs_design(name = None, platform = None, design = None, designs = None, moc
 
     # Real flow — uses Docker image with real OpenROAD/Yosys
     arguments = dict(config["arguments"])
+
+    # Default SYNTH_NUM_PARTITIONS to a static value so that the action graph
+    # is identical across machines and remote cache hits are possible.  Users
+    # who prefer local parallelism over caching can pass NUM_CPUS explicitly.
     if arguments.get("SYNTH_HIERARCHICAL") == "1":
         if "SYNTH_NUM_PARTITIONS" not in arguments:
-            arguments["SYNTH_NUM_PARTITIONS"] = str(NUM_CPUS)
+            keep_modules = arguments.get("SYNTH_KEEP_MODULES", "")
+            if keep_modules:
+                arguments["SYNTH_NUM_PARTITIONS"] = str(len(keep_modules.split()))
+            else:
+                arguments["SYNTH_NUM_PARTITIONS"] = "32"
     if arguments.get("SYNTH_KEPT_MODULES") and "SYNTH_NUM_PARTITIONS" not in arguments:
-        arguments["SYNTH_NUM_PARTITIONS"] = str(NUM_CPUS)
+        arguments["SYNTH_NUM_PARTITIONS"] = str(len(arguments["SYNTH_KEPT_MODULES"].split()))
 
     orfs_flow(
         name = name,
