@@ -1,0 +1,48 @@
+--- a/chisel/defs.bzl
++++ b/chisel/defs.bzl
+@@ -11,8 +11,9 @@ CHISEL_SCALACOPTS = [
+ ]
+
+ _DEFAULT_VERILATOR_DATA = [
++    "@verilator//:verilator",
+     "@verilator//:bin/verilator",
+-    "@verilator//:verilator_includes",
++    "@verilator//:verilator_includes"
+ ]
+
+ _VERILATOR_LAUNCHER_TEMPLATE = """#!/bin/bash
+@@ -18,11 +19,21 @@ _VERILATOR_LAUNCHER_TEMPLATE = """#!/bin/bash
+ set -euo pipefail
+ cd "$RUNFILES_DIR/_main" || exit 1
+
+-export VERILATOR_BIN="{verilator_bin}"
+-[[ "$VERILATOR_BIN" != /* ]] && export VERILATOR_BIN="$PWD/$VERILATOR_BIN"
+-export VERILATOR_ROOT="$(dirname "$(dirname "$VERILATOR_BIN")")"
+-export PATH="$(dirname "$VERILATOR_BIN"):$PATH"
++_VERILATOR_BIN="{verilator_bin}"
++[[ "$_VERILATOR_BIN" != /* ]] && _VERILATOR_BIN="$PWD/$_VERILATOR_BIN"
++export VERILATOR_ROOT="$(dirname "$(dirname "$_VERILATOR_BIN")")"
++export PATH="$(dirname "$_VERILATOR_BIN"):$PATH"
++
++# Replace symlinks in the verilator bin directory with real copies so that
++# Perl's $RealBin resolves to the runfiles directory (which has the correct
++# Bazel-generated headers) instead of the external repository source tree.
++for _f in "$VERILATOR_ROOT"/bin/*; do
++    [[ -L "$_f" ]] || continue
++    cp -L "$_f" "$_f.tmp" && mv "$_f.tmp" "$_f" && chmod +x "$_f"
++done
++
++# Link Bazel-built verilator binary so the perl wrapper can find it.
++ln -sf "$VERILATOR_ROOT/verilator" "$VERILATOR_ROOT/bin/verilator_bin" 2>/dev/null || true
+
+ # BCR Verilator workarounds.
+ if [[ ! -f "$VERILATOR_ROOT/include/verilated.mk" && -f "$VERILATOR_ROOT/include/verilated.mk.in" ]]; then
+@@ -31,7 +42,7 @@ if [[ ! -f "$VERILATOR_ROOT/include/verilated.mk" && -f "$VERILATOR_ROOT/includ
+ fi
+
+ if [[ ! -f "$VERILATOR_ROOT/include/verilated_config.h" && -f "$VERILATOR_ROOT/include/verilated_config.h.in" ]]; then
+-    sed 's/@PACKAGE_STRING@/Verilator 5.036/g; s/@CFG_WITH_CCWARN@/1/g; s/@CFG_WITH_LONGTESTS@/0/g; s/@[A-Z_]*@//g' \
++    sed 's/@PACKAGE_STRING@/Verilator/g; s/@CFG_WITH_CCWARN@/1/g; s/@CFG_WITH_LONGTESTS@/0/g; s/@[A-Z_]*@//g' \
+         "$VERILATOR_ROOT/include/verilated_config.h.in" > "$VERILATOR_ROOT/include/verilated_config.h"
+ fi
+
