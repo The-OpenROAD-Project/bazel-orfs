@@ -22,11 +22,12 @@ local_path_override(
 )
 
 bazel_dep(name = "yosys", version = "0.62")
+
 # Make yosys_share publicly visible for the ORFS flow (see bazel-orfs MODULE.bazel).
 single_version_override(
     module_name = "yosys",
-    patches = ["//patches:yosys-visibility.patch"],
     patch_strip = 1,
+    patches = ["//patches:yosys-visibility.patch"],
 )
 
 # --- ORFS flow scripts (Makefile, TCL, PDKs) ---
@@ -71,7 +72,6 @@ git_override(
 )
 
 bazel_dep(name = "glpk", version = "5.0.bcr.4")
-
 bazel_dep(name = "toolchains_llvm", version = "1.5.0")
 
 llvm = use_extension(
