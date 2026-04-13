@@ -68,7 +68,7 @@ single_version_override(
 
 # --- Verilator simulation + Google Test ---
 bazel_dep(name = "rules_verilog", version = "1.1.1")
-bazel_dep(name = "rules_verilator", version = "0.3.1")
+bazel_dep(name = "rules_verilator", version = "0.3.2")
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
 
 # --- Python 3.13 toolchain (required by bazel-orfs pip deps) ---
