@@ -96,11 +96,19 @@ def flow_environment(ctx):
     return env | orfs_environment(ctx)
 
 def yosys_environment(ctx):
-    return {
+    env = {
         "ABC": ctx.executable._abc.path,
         "FLOW_HOME": ctx.file._makefile_yosys.dirname,
         "YOSYS_EXE": ctx.executable.yosys.path,
     } | orfs_environment(ctx)
+
+    # When yosys_share is a single tree artifact (e.g. merged share with
+    # plugins), tell yosys where to find plugins via YOSYS_PLUGIN_PATH.
+    # BCR yosys discovers plugins via /proc/self/exe and won't find plugins
+    # that live outside its own share/ tree without this hint.
+    if len(ctx.files._yosys_share) == 1:
+        env["YOSYS_PLUGIN_PATH"] = ctx.files._yosys_share[0].path + "/plugins"
+    return env
 
 def config_environment(config):
     return {"DESIGN_CONFIG": config.path}
