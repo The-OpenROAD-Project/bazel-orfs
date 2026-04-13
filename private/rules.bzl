@@ -631,8 +631,23 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             deps_inputs(ctx),
         ],
     )
+
+    # Compute module-to-partition mapping for progress messages
+    kept_modules_list = [m for m in all_arguments.get("SYNTH_KEEP_MODULES", "").split(" ") if m]
+
     partition_outputs = []
     for i in range(num_partitions):
+        # Build a human-readable progress message showing which modules
+        # this partition will synthesize.
+        if kept_modules_list:
+            my_modules = [m for idx, m in enumerate(kept_modules_list) if idx % num_partitions == i]
+            if my_modules:
+                progress_msg = "Synthesizing partition {}/{}: {}".format(i, num_partitions, ", ".join(my_modules))
+            else:
+                progress_msg = "Synthesizing partition {}/{} (empty)".format(i, num_partitions)
+        else:
+            progress_msg = "Synthesizing partition {}/{}".format(i, num_partitions)
+
         part_output = declare_artifact(ctx, "results", "partition_{}.v".format(i))
         partition_outputs.append(part_output)
         part_commands = [_make_cmd(ctx)] + generation_commands([part_output])
@@ -653,6 +668,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             inputs = partition_inputs,
             outputs = [part_output],
             tools = yosys_and_flow_tools,
+            progress_message = progress_msg,
         )
 
     # Action 4: synthesize the top module with all kept modules blackboxed
@@ -675,6 +691,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         inputs = partition_inputs,
         outputs = [top_output],
         tools = yosys_and_flow_tools,
+        progress_message = "Synthesizing top module",
     )
 
     # Action 5: merge partition outputs + top module → 1_2_yosys.v
