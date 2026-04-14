@@ -15,6 +15,13 @@ A docker_orfs_image repo is also created, providing the OpenROAD binary
 from the latest ORFS Docker image.  It is lazily fetched — the multi-GB
 download only happens when a target from @docker_orfs_image is built
 (e.g. via @bazel-orfs//:openroad-latest).
+
+A parallel docker_orfs_yosys_image repo extracts yosys + plugins from
+the same image for designs that need the slang frontend or other
+plugins not shipped by the BCR @yosys module.  Lazily fetched, and
+shares layer downloads with docker_orfs_image via the content-
+addressed repository cache.  Access via @bazel-orfs//:yosys-latest,
+@bazel-orfs//:yosys-abc-latest, and @bazel-orfs//:yosys-share-latest.
 """
 
 load("//:config.bzl", "global_config")
@@ -109,6 +116,28 @@ def _orfs_repositories_impl(module_ctx):
         patch_cmds = [
             "find OpenROAD-flow-scripts -name BUILD -delete -o -name BUILD.bazel -delete",
             "ln -sf ../../../x86_64-linux-gnu/libtclreadline-2.3.8.so usr/lib/tcltk/x86_64-linux-gnu/tclreadline2.3.8/libtclreadline.so || true",
+        ],
+    )
+
+    # Separate lazy extraction of yosys from the same ORFS image.
+    # Kept as its own repo so users who don't need yosys+plugins don't
+    # pay the share-tree extraction cost. Bazel's content-addressed
+    # repository cache dedupes the layer downloads with docker_orfs_image,
+    # so using both pulls the image only once.
+    #
+    # Motivation: the yosys shipped in the ORFS image has extra plugins
+    # (notably yosys-slang for native SystemVerilog parsing) that are
+    # not available from the BCR @yosys module. Designs that set
+    # SYNTH_HDL_FRONTEND=slang can route orfs.default(yosys=...,
+    # yosys_abc=..., yosys_share=...) at @bazel-orfs//:yosys-latest
+    # et al. to pick up the image build.
+    docker_pkg(
+        name = "docker_orfs_yosys_image",
+        build_file = Label("//:docker_yosys.BUILD.bazel"),
+        image = LATEST_ORFS_IMAGE,
+        sha256 = LATEST_ORFS_SHA256,
+        patch_cmds = [
+            "find OpenROAD-flow-scripts -name BUILD -delete -o -name BUILD.bazel -delete",
         ],
     )
 

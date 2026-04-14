@@ -72,7 +72,7 @@ python.toolchain(
     python_version = "3.13",
 )
 
-# --- ORFS extension: use Docker image OpenROAD ---
+# --- ORFS extension: use Docker image OpenROAD + yosys ---
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
 orfs.default(
     # Use OpenROAD and OpenSTA from the latest ORFS Docker image instead
@@ -80,6 +80,13 @@ orfs.default(
     # @openroad//:openroad and @openroad//src/sta:opensta.
     openroad = "@bazel-orfs//:openroad-latest",
     opensta = "@bazel-orfs//:opensta-latest",
+    # Also take yosys from the image so the slang frontend and other
+    # plugins shipped in the ORFS yosys build are available. BCR
+    # @yosys doesn't ship the plugins directory.
+    yosys = "@bazel-orfs//:yosys-latest",
+    yosys_abc = "@bazel-orfs//:yosys-abc-latest",
+    yosys_share = "@bazel-orfs//:yosys-share-latest",
 )
 use_repo(orfs, "docker_orfs")
 use_repo(orfs, "docker_orfs_image")
+use_repo(orfs, "docker_orfs_yosys_image")

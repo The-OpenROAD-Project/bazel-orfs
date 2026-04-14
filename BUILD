@@ -5,11 +5,16 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
-# OpenROAD and OpenSTA binaries from the latest ORFS Docker image.
-# Downstream projects use these labels to skip building OpenROAD from source:
+# OpenROAD, OpenSTA, and yosys binaries from the latest ORFS Docker image.
+# Downstream projects use these labels to skip building these tools from source:
 #   orfs.default(
 #       openroad = "@bazel-orfs//:openroad-latest",
 #       opensta = "@bazel-orfs//:opensta-latest",
+#       # Optional: when the design needs yosys plugins (e.g. slang) that
+#       # the BCR @yosys package doesn't ship.
+#       yosys = "@bazel-orfs//:yosys-latest",
+#       yosys_abc = "@bazel-orfs//:yosys-abc-latest",
+#       yosys_share = "@bazel-orfs//:yosys-share-latest",
 #   )
 # The Docker image is only downloaded when these targets are actually built.
 alias(
@@ -21,6 +26,24 @@ alias(
 alias(
     name = "opensta-latest",
     actual = "@docker_orfs_image//:sta",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "yosys-latest",
+    actual = "@docker_orfs_yosys_image//:yosys",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "yosys-abc-latest",
+    actual = "@docker_orfs_yosys_image//:yosys-abc",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "yosys-share-latest",
+    actual = "@docker_orfs_yosys_image//:yosys_share",
     visibility = ["//visibility:public"],
 )
 
