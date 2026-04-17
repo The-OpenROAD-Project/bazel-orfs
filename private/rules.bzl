@@ -826,7 +826,7 @@ def _yosys_impl(ctx):
 
     save_odb = ctx.attr.save_odb
 
-    synth_logs = declare_artifacts(ctx, "logs", ["1_2_yosys.log", "1_2_yosys_metrics.log"])
+    synth_logs = declare_artifacts(ctx, "logs", ["1_2_yosys.log", "1_2_yosys_metrics.log"] + (["1_synth.log"] if save_odb else []))
 
     synth_outputs = {}
     for output in SYNTH_OUTPUTS + (["1_synth.odb"] if save_odb else []):
