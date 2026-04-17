@@ -77,6 +77,17 @@ bazel_dep(name = "qt-bazel")
 git_override(
     module_name = "qt-bazel",
     commit = "886104974c2fd72439f2c33b5deebf0fe4649df7",
+    # Build xcb-util-cursor from source so the Qt xcb platform plugin
+    # doesn't depend on the host having libxcb-cursor0 installed.
+    # qt-bazel upstream ships it as system_provided = True; we replace
+    # that with a static cc_library compiled from xcb-util-cursor 0.1.5.
+    patch_cmds = [
+        "curl -sL https://xorg.freedesktop.org/archive/individual/lib/xcb-util-cursor-0.1.5.tar.xz | tar xJ --strip-components=1 -C interface_libs/xcb xcb-util-cursor-0.1.5/cursor",
+    ],
+    patch_strip = 1,
+    patches = [
+        "//patches:qt-bazel-xcb-cursor-from-source.patch",
+    ],
     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
 )
 
