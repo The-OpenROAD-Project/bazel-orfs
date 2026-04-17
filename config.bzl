@@ -55,9 +55,8 @@ global_config = repository_rule(
             cfg = "exec",
         ),
         "opensta": attr.label(
-            mandatory = False,
+            mandatory = True,
             cfg = "exec",
-            default = Label("@docker_orfs//:sta"),
         ),
         "pdk": attr.label(mandatory = True),
         "yosys": attr.label(
@@ -68,10 +67,7 @@ global_config = repository_rule(
             mandatory = True,
             cfg = "exec",
         ),
-        "yosys_share": attr.label(
-            mandatory = False,
-            default = Label("@docker_orfs//:yosys_share"),
-        ),
+        "yosys_share": attr.label(mandatory = True),
     },
     doc = "A repository that provides global configuration values as strings.",
 )

@@ -5,25 +5,6 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
-# OpenROAD and OpenSTA binaries from the latest ORFS Docker image.
-# Downstream projects use these labels to skip building OpenROAD from source:
-#   orfs.default(
-#       openroad = "@bazel-orfs//:openroad-latest",
-#       opensta = "@bazel-orfs//:opensta-latest",
-#   )
-# The Docker image is only downloaded when these targets are actually built.
-alias(
-    name = "openroad-latest",
-    actual = "@docker_orfs_image//:openroad",
-    visibility = ["//visibility:public"],
-)
-
-alias(
-    name = "opensta-latest",
-    actual = "@docker_orfs_image//:sta",
-    visibility = ["//visibility:public"],
-)
-
 exports_files([
     "bump.py",
     "config_mk_parser.py",
@@ -31,7 +12,6 @@ exports_files([
     "eqy.tpl",
     "eqy-write-verilog.tcl",
     "make.tpl",
-    "oci_extract.py",
     "package_stage.py",
     "mock_area.tcl",
     "openroad-unsetenv-runfiles.patch",
@@ -75,27 +55,8 @@ compile_pip_requirements(
 py_binary(
     name = "bump",
     srcs = ["bump.py"],
-    data = ["oci_extract.py"],
     main = "bump.py",
     visibility = ["//visibility:public"],
-)
-
-py_test(
-    name = "oci_extract_test",
-    srcs = [
-        "oci_extract.py",
-        "oci_extract_test.py",
-    ],
-    main = "oci_extract_test.py",
-)
-
-py_test(
-    name = "patcher_test",
-    srcs = [
-        "patcher.py",
-        "patcher_test.py",
-    ],
-    main = "patcher_test.py",
 )
 
 # Run `bazelisk run //:monitor-test` to run tests with stage monitoring.

@@ -1,36 +1,26 @@
 # OpenROAD Integration
 
-OpenROAD is the core place-and-route tool in bazel-orfs. By default, it uses
-the pre-built binary from the ORFS image (`@docker_orfs//:openroad`).
-This is the fastest option and requires no compilation.
-
-For users who need to test a newer OpenROAD before the ORFS image is updated,
-bazel-orfs supports building OpenROAD from source via `bazel_dep` +
-`git_override`, or using a locally installed binary via a PATH wrapper.
+OpenROAD is the core place-and-route tool in bazel-orfs. It is built from
+source via the `@openroad` module (declared with `git_override` in the
+root `MODULE.bazel`). OpenROAD and OpenSTA come from the same source
+tree.
 
 ## Default Configuration
 
-The default uses the ORFS image binary, configured in `MODULE.bazel`:
+The default `orfs.default()` points at `@openroad//:openroad` and
+`@openroad//src/sta:opensta` — no explicit override is needed:
 
 ```starlark
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
-orfs.default(
-    image = "docker.io/openroad/orfs:...",
-    sha256 = "...",
-    # openroad defaults to @docker_orfs//:openroad (from ORFS image)
-)
+orfs.default()
 ```
 
-No additional setup is needed for the default configuration.
+## Root MODULE.bazel requirements
 
-## Building OpenROAD from Git Source
-
-OpenROAD has a native Bazel build (`cc_binary` at `//:openroad`). The easiest
-way to get started is to run `bazelisk run @bazel-orfs//:bump` — it injects
-commented-out boilerplate for building OpenROAD from source into your
-`MODULE.bazel`. Uncomment it to enable.
-
-Alternatively, add these to your `MODULE.bazel` manually:
+bzlmod only honors `git_override` from the root module, so every root
+module that depends on bazel-orfs must declare the OpenROAD and qt-bazel
+overrides. `bazelisk run @bazel-orfs//:bump` injects these automatically
+alongside the bazel-orfs pin:
 
 ```starlark
 bazel_dep(name = "openroad")
@@ -41,36 +31,20 @@ git_override(
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
 
-# Required: qt-bazel is not in BCR and must be overridden in the root module.
-# OpenROAD's own git_override is ignored because only root module overrides apply.
 bazel_dep(name = "qt-bazel")
 git_override(
     module_name = "qt-bazel",
-    commit = "df022f4ebaa4130713692fffd2f519d49e9d0b97",
+    commit = "<commit-sha>",
     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
 )
 
-# Required: OpenROAD needs the LLVM toolchain for compilation.
 bazel_dep(name = "toolchains_llvm", version = "1.5.0")
-```
-
-Then override the openroad binary globally:
-
-```starlark
-orfs.default(
-    image = "docker.io/openroad/orfs:...",
-    sha256 = "...",
-    openroad = "@openroad//:openroad",
-)
 ```
 
 ### GUI Builds
 
-The ORFS image ships OpenROAD with GUI support. bazel-orfs builds OpenROAD
-from source with GUI enabled by default (`--@openroad//:platform=gui` in
-`.bazelrc`) to match the Docker image.
-
-To disable GUI (CLI-only mode), override in `user.bazelrc`:
+bazel-orfs enables OpenROAD's GUI by default via `--@openroad//:platform=gui`
+in `.bazelrc`. To disable it (CLI-only mode), override in `user.bazelrc`:
 
 ```
 build --@openroad//:platform=cli
@@ -96,20 +70,18 @@ When not set, it defaults to the global openroad configured in `orfs.default()`.
 
 ## Using a Locally Installed OpenROAD
 
-To use an OpenROAD binary already installed on your system (e.g. one you built
-locally with GUI support):
+To use an OpenROAD binary already installed on your system (e.g. one you
+built locally):
 
 ```starlark
 orfs.default(
-    image = "docker.io/openroad/orfs:...",
-    sha256 = "...",
     openroad = "@bazel-orfs//:openroad",
 )
 ```
 
-The `@bazel-orfs//:openroad` wrapper executes whichever `openroad` binary is
-found on the system `PATH`. For hermetic builds, prefer the ORFS image default
-or building from source via `git_override`.
+The `@bazel-orfs//:openroad` wrapper execs whichever `openroad` binary is
+found on the system `PATH`. For hermetic builds, prefer the source-built
+default.
 
 ## Mock OpenROAD for Testing
 
@@ -160,24 +132,13 @@ Things that can surprise you when building OpenROAD from source:
   `.bazelrc` or on the command line, OpenROAD builds in CLI-only mode and
   `bazel run` targets that open the GUI will not work.
 
-## Current Workarounds
-
-These hacks are needed to use OpenROAD as a bazel_dep. Each will be removed
-as the corresponding upstream fix lands:
-
-| Hack | Why | Remove when |
-|------|-----|-------------|
-| `qt-bazel` git_override in root | bzlmod ignores git_override from non-root modules | qt-bazel is published to BCR |
-| llvm extension + register_toolchains in root MODULE.bazel | `toolchains_llvm` extension enforces root-module-only usage; OpenROAD now marks it dev_dependency so the root module must provide it | OpenROAD publishes to BCR with toolchain config |
-
 ## Future Upstream Improvements
 
 These changes in OpenROAD would improve the experience for downstream users:
 
 - **`toolchains_llvm` root-only workaround** — OpenROAD should make the llvm
   extension usage conditional on being the root module, or move to a different
-  toolchain configuration pattern that works from non-root modules. This would
-  eliminate the patch and root-module llvm configuration hack.
+  toolchain configuration pattern that works from non-root modules.
 
 - **qt-bazel in BCR** — would eliminate the `git_override` burden; currently
   every consumer must re-declare it.
@@ -200,17 +161,13 @@ These changes in OpenROAD would improve the experience for downstream users:
 bazel-orfs) is a single command that updates all version pins. It detects
 which project it's running in and does the right thing:
 
-| What it updates | bazel-orfs | OpenROAD | User project |
-|----------------|-----------|---------|-------------|
-| ORFS image + sha256 | yes | yes | yes |
-| bazel-orfs git commit | — (is self) | yes | yes |
-| OpenROAD git commit | yes | — (is self) | yes (if present) |
-| Inject commented-out OR-from-source | — (has it) | — (is OR) | yes |
-
-In a downstream project, after running bump, you'll see commented-out
-`bazel_dep` / `git_override` blocks for OpenROAD in your `MODULE.bazel`.
-Uncomment them to build OpenROAD from source. The OpenROAD commit is
-already filled in with the latest value.
+| What it updates       | bazel-orfs   | OpenROAD  | User project    |
+|-----------------------|--------------|-----------|-----------------|
+| bazel-orfs git commit | — (is self)  | yes       | yes             |
+| OpenROAD git commit   | yes          | — (is self) | yes (if present) |
+| ORFS git commit       | yes          | —         | —               |
+| qt-bazel git commit   | yes          | —         | yes (if present) |
+| Non-BCR deps injected | —            | —         | yes (on first bump) |
 
 Detection works by checking `module(name = ...)` in `MODULE.bazel`:
 `bazel-orfs` and `openroad` are recognized; everything else is treated
@@ -225,12 +182,10 @@ as a downstream project.
 bazelisk build //test:lb_32x128_mock_openroad_floorplan
 ```
 
-### Local: test latest OpenROAD GUI from source
-
-After bumping OpenROAD to the latest commit:
+### Local: test the source-built OpenROAD GUI
 
 ```sh
-# 1. Bump OpenROAD (and ORFS image) to latest versions
+# 1. Bump OpenROAD to the latest versions
 bazelisk run //:bump
 
 # 2. Open synthesis results in the source-built OpenROAD GUI

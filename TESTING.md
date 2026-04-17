@@ -21,7 +21,7 @@ timing tables.
 | `//test:mock_hierarchy_build_test` | Hierarchical design with macro: submacro abstract + parent flow | yes | — | asap7 | synth only |
 | `//test:mock_sweep_build_test` | `orfs_sweep` with macros, openroad override, previous_stage | yes | — | asap7 | synth only |
 | `//test:lint_build_test` | `lint=True` + `add_deps=False` builds successfully | yes | — | asap7 | synth only |
-| `//test:lint_no_heavy_deps_test` | Lint flow runfiles exclude klayout, opensta, ruby, tcl, opengl, qt | yes | — | asap7 | synth only |
+| `//test:lint_no_heavy_deps_test` | Lint flow runfiles exclude klayout and opensta | yes | — | asap7 | synth only |
 | `//test/smoketest:lb_32x128_asap7_build_test` | Full flow, all stages, all PDK-specific config | — | — | asap7 | yes |
 | `//test/smoketest:lb_32x128_gf180_build_test` | Full flow, all stages | — | — | gf180 | yes |
 | `//test/smoketest:lb_32x128_nangate45_build_test` | Full flow, all stages | — | — | nangate45 | yes |

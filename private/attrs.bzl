@@ -83,11 +83,6 @@ def orfs_attrs():
             cfg = "exec",
             default = Label("@bazel-orfs//pythonwrapper:python3"),
         ),
-        "_tcl": attr.label(
-            doc = "Tcl library.",
-            allow_files = True,
-            default = Label("@docker_orfs//:tcl8.6"),
-        ),
         "_package_stage": attr.label(
             doc = "Python script for creating portable stage tarballs.",
             allow_single_file = True,
@@ -115,40 +110,6 @@ def flow_attrs():
         "_make_template": attr.label(
             default = Label("@bazel-orfs//:make.tpl"),
             allow_single_file = True,
-        ),
-        "_opengl": attr.label(
-            doc = "OpenGL drivers.",
-            allow_files = True,
-            default = Label("@docker_orfs//:opengl"),
-        ),
-        "_openroad": attr.label(
-            doc = "OpenROAD binary (fallback; prefer public 'openroad' attr).",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:openroad"),
-        ),
-        "_opensta": attr.label(
-            doc = "OpenSTA binary (fallback; prefer public 'opensta' attr).",
-            executable = True,
-            allow_files = True,
-            cfg = "exec",
-            default = Label("@docker_orfs//:sta"),
-        ),
-        "_qt_plugins": attr.label(
-            doc = "Qt plugins.",
-            allow_files = True,
-            default = Label("@docker_orfs//:qt_plugins"),
-        ),
-        "_ruby": attr.label(
-            doc = "Ruby library.",
-            allow_files = True,
-            default = Label("@docker_orfs//:ruby3.0.0"),
-        ),
-        "_ruby_dynamic": attr.label(
-            doc = "Ruby dynamic library.",
-            allow_files = True,
-            default = Label("@docker_orfs//:ruby_dynamic3.0.0"),
         ),
         "openroad": attr.label(
             doc = "OpenROAD binary. Override to use a custom or locally-built openroad.",

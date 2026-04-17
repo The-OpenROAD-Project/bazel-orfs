@@ -1,7 +1,7 @@
 #!/bin/bash
 # Test that lint=True excludes heavy dependencies from runfiles.
 # The test's own runfiles (which include the lint flow target as data)
-# should NOT contain klayout, opensta, ruby, tcl, opengl, or qt_plugins.
+# should NOT contain klayout or opensta.
 set -euo pipefail
 
 # The test runfiles directory contains symlinks to the lint flow target's deps
@@ -13,11 +13,6 @@ manifest_content=$(find "$runfiles_dir" -type f -o -type l 2>/dev/null || true)
 HEAVY_DEPS=(
   "klayout"
   "opensta"
-  "/ruby"
-  "ruby_dynamic"
-  "/tcl/"
-  "opengl"
-  "qt_plugins"
 )
 
 errors=0

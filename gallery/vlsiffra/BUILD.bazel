@@ -13,7 +13,7 @@ genrule(
     outs = ["multiplier.v"],
     cmd = """
         export AMARANTH_USE_YOSYS=system
-        export PATH=$$(dirname $$(realpath $(execpath @docker_orfs//:yosys))):$$PATH
+        export PATH=$$(dirname $$(realpath $(execpath @yosys//:yosys))):$$PATH
         $(execpath @vlsiffra//:vlsi_multiplier) \
           --bits=32 \
           --algorithm=koggestone \
@@ -25,7 +25,7 @@ genrule(
     """,
     local = True,
     tools = [
-        "@docker_orfs//:yosys",
+        "@yosys//:yosys",
         "@vlsiffra//:vlsi_multiplier",
     ],
 )

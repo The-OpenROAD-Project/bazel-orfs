@@ -21,4 +21,3 @@ git_override(
 
 orfs = use_extension("//:extension.bzl", "orfs_repositories")
 orfs.default()
-use_repo(orfs, "docker_orfs")

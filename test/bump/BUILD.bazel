@@ -5,11 +5,9 @@ py_test(
     srcs = [
         "bump_test.py",
         "//:bump.py",
-        "//:oci_extract.py",
     ],
     data = [
         "fixtures/downstream.MODULE.bazel",
-        "fixtures/downstream-with-boilerplate.MODULE.bazel",
         "fixtures/downstream-with-submodules.MODULE.bazel",
         "fixtures/openroad.MODULE.bazel",
         "fixtures/self.MODULE.bazel",

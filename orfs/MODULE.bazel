@@ -128,5 +128,4 @@ use_repo(pip, "orfs-pip")
 
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
 orfs.default()
-use_repo(orfs, "docker_orfs")
 use_repo(orfs, "gnumake")

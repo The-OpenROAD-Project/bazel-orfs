@@ -1,5 +1,0 @@
-module(
-    name = "openroad",
-    version = "0.0.1",
-    compatibility_level = 0,
-)
