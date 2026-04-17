@@ -433,8 +433,6 @@ BOILERPLATE_TEMPLATE = """\
 #     module_name = "openroad",
 #     commit = "{openroad_commit}",
 #     init_submodules = True,
-#     patch_strip = 1,
-#     patches = ["@bazel-orfs//:openroad-visibility.patch"],
 #     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 # )
 # bazel_dep(name = "qt-bazel")

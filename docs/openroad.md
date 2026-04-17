@@ -38,10 +38,6 @@ git_override(
     module_name = "openroad",
     commit = "<commit-sha>",
     init_submodules = True,
-    patch_strip = 1,
-    patches = [
-        "@bazel-orfs//:openroad-visibility.patch",
-    ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
 
