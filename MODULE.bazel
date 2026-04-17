@@ -40,7 +40,7 @@ single_version_override(
 bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",
-    commit = "d8c6b0cbd54d3a2d6e78671e80b7b479c10af6f6",
+    commit = "3adda8b9d7cfc3f186e1a7748f0a230094e42805",
     patch_strip = 1,
     # Minimal patches: only what's needed when ORFS is a non-root module.
     # Design-specific patches are only applied in the orfs/ integration workspace.
@@ -53,12 +53,11 @@ git_override(
 bazel_dep(name = "openroad")
 git_override(
     module_name = "openroad",
-    commit = "66c2b5ed03ea15f4ab7631537c9380d8239ec67a",
+    commit = "6706cc06f8b2431a34e41f9f4f8857abf8e7aba5",
     init_submodules = True,
     patch_strip = 1,
     patches = [
         "//:openroad-unsetenv-runfiles.patch",
-        "//:openroad-visibility.patch",
     ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
