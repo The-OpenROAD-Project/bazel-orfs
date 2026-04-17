@@ -2,7 +2,7 @@ diff --git a/interface_libs/xcb/BUILD.bazel b/interface_libs/xcb/BUILD.bazel
 index c1c5b6b6..3a659170 100644
 --- a/interface_libs/xcb/BUILD.bazel
 +++ b/interface_libs/xcb/BUILD.bazel
-@@ -67,10 +67,39 @@ cc_import(
+@@ -67,10 +67,41 @@ cc_import(
      system_provided = True,
  )
  
@@ -35,6 +35,8 @@ index c1c5b6b6..3a659170 100644
 +    ],
 +    hdrs = ["cursor/xcb_cursor.h"],
 +    copts = [
++        # asprintf() is a GNU extension; glibc gates it behind _GNU_SOURCE.
++        "-D_GNU_SOURCE",
 +        "-DXCURSORPATH='\"~/.icons:/usr/share/icons:/usr/share/pixmaps:/usr/X11R6/lib/X11/icons\"'",
 +    ],
 +    include_prefix = "xcb",
@@ -46,7 +48,7 @@ index c1c5b6b6..3a659170 100644
  )
  
  cc_import(
-@@ -94,7 +123,7 @@ cc_library(
+@@ -94,7 +125,7 @@ cc_library(
      deps = select({
          "@platforms//cpu:aarch64": [],
          "//conditions:default": [
