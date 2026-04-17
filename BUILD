@@ -35,7 +35,6 @@ exports_files([
     "package_stage.py",
     "mock_area.tcl",
     "openroad-unsetenv-runfiles.patch",
-    "openroad-visibility.patch",
     "oss_cad_suite.BUILD.bazel",
     "parallel_synth.mk",
     "rtlil_kept_modules.py",
