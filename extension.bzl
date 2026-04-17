@@ -25,8 +25,8 @@ load("//:mock_klayout.bzl", "mock_klayout")
 load("//:stub.bzl", "stub_docker_orfs")
 
 # Latest ORFS Docker image — bump.py keeps these in sync.
-LATEST_ORFS_IMAGE = "docker.io/openroad/orfs:26Q2-32-gca75a11e2"
-LATEST_ORFS_SHA256 = "a50429aaed8cbaf2103b46196507f7c9445c95066d00a91953bd47c27dad6f31"
+LATEST_ORFS_IMAGE = "docker.io/openroad/orfs:26Q2-128-g8927648b4"
+LATEST_ORFS_SHA256 = "656da2c0739e136d7242629a86d3247c73bef01d50c45e52f7a02c48a1bd7933"
 
 _default_tag = tag_class(
     attrs = {
