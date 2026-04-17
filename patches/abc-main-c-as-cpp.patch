@@ -1,0 +1,20 @@
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -1436,9 +1436,16 @@
+     ],
+ )
+
++genrule(
++    name = "main_cc",
++    srcs = ["src/base/main/main.c"],
++    outs = ["main.cc"],
++    cmd = "cp $< $@",
++)
++
+ cc_binary(
+     name = "abc_bin",
+-    srcs = ["src/base/main/main.c"],
++    srcs = [":main_cc"],
+     copts = COPTS,
+     includes = ["src"],
+     linkopts = select({

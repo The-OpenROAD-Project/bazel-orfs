@@ -26,6 +26,17 @@ local_path_override(
 bazel_dep(name = "abc", version = "0.62-yosyshq")
 bazel_dep(name = "yosys", version = "0.62")
 
+# abc upstream compiles src/base/main/main.c as C; with a hermetic clang
+# toolchain the C frontend chokes on C++ headers pulled in transitively.
+# Copy the source to main.cc so it is built as C++ like the rest of abc.
+single_version_override(
+    module_name = "abc",
+    patch_strip = 1,
+    patches = [
+        "//patches:abc-main-c-as-cpp.patch",
+    ],
+)
+
 # yosys_share (techlib data files) has package-private visibility in BCR yosys;
 # the ORFS flow needs it public so @yosys//:yosys_share is reachable across modules.
 single_version_override(
