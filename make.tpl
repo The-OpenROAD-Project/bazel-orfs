@@ -27,4 +27,11 @@ fi
 # https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/issues/3907
 export LEC_CHECK=0
 
+# Default to offscreen Qt platform when no display server is available.
+# Prevents headless synthesis from loading the xcb platform plugin, which
+# pulls in libxcb-cursor0 — a library not shipped in the ORFS Docker image.
+if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; then
+  export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}"
+fi
+
 exec $MAKE_PATH --file "$FLOW_HOME/Makefile" "$@"
