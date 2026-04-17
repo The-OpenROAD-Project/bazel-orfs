@@ -57,6 +57,7 @@ git_override(
     # Design-specific patches are only applied in the orfs/ integration workspace.
     patches = [
         "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
+        "//patches:orfs-preserve-tool-exe-env.patch",
     ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
 )
