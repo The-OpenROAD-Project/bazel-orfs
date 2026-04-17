@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""Update ORFS image, bazel-orfs, and OpenROAD versions in MODULE.bazel.
-
-Replaces bump.sh with a testable Python implementation.
+"""Update bazel-orfs and OpenROAD versions in MODULE.bazel.
 
 Usage:
-    python bump.py [--module-file MODULE.bazel] [--mock-modules dir/MODULE.bazel ...]
+    python bump.py [--module-file MODULE.bazel]
 
 Run via Bazel:
     bazelisk run //:bump
@@ -14,12 +12,9 @@ import argparse
 import json
 import os
 import re
-import subprocess
 import sys
 import urllib.error
 import urllib.request
-
-import oci_extract
 
 
 def detect_project(content):
@@ -40,31 +35,6 @@ def detect_project(content):
     if name == "openroad":
         return "openroad"
     return "downstream"
-
-
-def update_orfs_image(content, tag, digest):
-    """Update image tag and sha256 in orfs.default() block."""
-
-    def replace_in_block(m):
-        block = m.group(0)
-        block = re.sub(
-            r'(image\s*=\s*"docker\.io/openroad/orfs:)[^"]*(")',
-            rf"\g<1>{tag}\2",
-            block,
-        )
-        block = re.sub(
-            r'(sha256\s*=\s*")[^"]*(")',
-            rf"\g<1>{digest}\2",
-            block,
-        )
-        return block
-
-    return re.sub(
-        r"orfs\.default\(.*?\)",
-        replace_in_block,
-        content,
-        flags=re.DOTALL,
-    )
 
 
 def update_git_override_commit(content, module_name, new_commit):
@@ -420,75 +390,11 @@ def inject_non_bcr_deps(content, bazel_orfs_dir):
     return content
 
 
-BOILERPLATE_MARKER = "Uncomment to build OpenROAD from source"
-
-BOILERPLATE_TEMPLATE = """\
-
-# Uncomment to build OpenROAD from source instead of using the ORFS image.
-# This is useful to test the latest OpenROAD before the ORFS image is updated.
-# See: https://github.com/The-OpenROAD-Project/bazel-orfs/blob/main/docs/openroad.md
-#
-# bazel_dep(name = "openroad")
-# git_override(
-#     module_name = "openroad",
-#     commit = "{openroad_commit}",
-#     init_submodules = True,
-#     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
-# )
-# bazel_dep(name = "qt-bazel")
-# git_override(
-#     module_name = "qt-bazel",
-#     commit = "df022f4ebaa4130713692fffd2f519d49e9d0b97",
-#     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
-# )
-# bazel_dep(name = "toolchains_llvm", version = "1.5.0")"""
-
-
-def inject_openroad_boilerplate(content, openroad_commit):
-    """Inject commented-out OpenROAD-from-source boilerplate.
-
-    Injected after the last use_repo(orfs, ...) line.
-    Only if not already present.
-    """
-    if BOILERPLATE_MARKER in content:
-        return content
-
-    lines = content.split("\n")
-    inject_after = None
-    for i, line in enumerate(lines):
-        if "use_repo(orfs" in line:
-            inject_after = i
-
-    if inject_after is None:
-        return content
-
-    boilerplate = BOILERPLATE_TEMPLATE.format(
-        openroad_commit=openroad_commit,
-    )
-
-    lines.insert(inject_after + 1, boilerplate)
-    return "\n".join(lines)
-
-
 def fetch_json(url):
     """Fetch JSON from a URL."""
     req = urllib.request.Request(url)
     with urllib.request.urlopen(req) as resp:
         return json.loads(resp.read())
-
-
-def fetch_latest_docker_tag(repo):
-    """Get the latest non-'latest' tag from Docker Hub."""
-    url = f"https://hub.docker.com/v2/repositories/{repo}" "/tags/?page_size=100"
-    data = fetch_json(url)
-    tags = sorted(
-        [t for t in data["results"] if t["name"] != "latest"],
-        key=lambda t: t["last_updated"],
-        reverse=True,
-    )
-    if not tags:
-        raise RuntimeError(f"No tags found for {repo}")
-    return tags[0]["name"]
 
 
 def fetch_latest_commit(github_repo, branch):
@@ -499,14 +405,6 @@ def fetch_latest_commit(github_repo, branch):
     if not sha:
         raise RuntimeError(f"Failed to fetch commit from {github_repo}/{branch}")
     return sha
-
-
-def resolve_image_digest(image, tag):
-    """Resolve an image tag to its sha256 digest."""
-    registry, repository = oci_extract.parse_image(image)
-    token = oci_extract.get_token(registry, repository)
-    digest = oci_extract.resolve_digest(registry, repository, tag, token)
-    return digest.replace("sha256:", "")
 
 
 def fetch_latest_github_release(github_repo):
@@ -547,34 +445,9 @@ def update_yosys_build_bzl(filepath, yosys_commit):
         f.write(content)
 
 
-def update_docker_image_constants(filepath, tag, digest):
-    """Update LATEST_ORFS_IMAGE and LATEST_ORFS_SHA256 in extension.bzl."""
-    with open(filepath) as f:
-        content = f.read()
-
-    content = re.sub(
-        r'(LATEST_ORFS_IMAGE\s*=\s*"docker\.io/openroad/orfs:)[^"]*(")',
-        rf"\g<1>{tag}\2",
-        content,
-    )
-    content = re.sub(
-        r'(LATEST_ORFS_SHA256\s*=\s*")[^"]*(")',
-        rf"\g<1>{digest}\2",
-        content,
-    )
-
-    with open(filepath, "w") as f:
-        f.write(content)
-
-    return content
-
-
 def bump(
     module_file,
-    mock_modules=None,
-    fetch_tag_fn=fetch_latest_docker_tag,
     fetch_commit_fn=fetch_latest_commit,
-    resolve_digest_fn=resolve_image_digest,
     fetch_release_fn=fetch_latest_github_release,
     fetch_tag_commit_fn=fetch_tag_commit,
     workspace_dir=None,
@@ -582,34 +455,17 @@ def bump(
     """Main bump orchestrator.
 
     Implements the project-type matrix:
-        Project      bazel-orfs  OpenROAD  ORFS     yosys    docker   boilerplate
-                      commit      commit   commit   release  image
-        bazel-orfs   skip(self)  yes       yes      yes      skip     skip(has it)
-        OpenROAD     yes         skip      skip     skip     yes      skip(is OR)
-        downstream   yes         if present skip    skip     yes      yes
+        Project      bazel-orfs  OpenROAD  ORFS     yosys
+                      commit      commit   commit   release
+        bazel-orfs   skip(self)  yes       yes      yes
+        OpenROAD     yes         skip      skip     skip
+        downstream   yes         if present skip    skip
     """
     with open(module_file) as f:
         content = f.read()
 
     project = detect_project(content)
     updated_modules = []
-
-    # --- Update ORFS image ---
-    # Downstream/openroad: update image tag in orfs.default() in MODULE.bazel.
-    # bazel-orfs: update LATEST_ORFS_IMAGE/SHA256 constants in extension.bzl
-    # (used by @bazel-orfs//:openroad-latest).
-    repo = "openroad/orfs"
-    latest_tag = fetch_tag_fn(repo)
-    digest = resolve_digest_fn(f"docker.io/{repo}", latest_tag)
-    if project == "bazel-orfs":
-        if workspace_dir:
-            ext_file = os.path.join(workspace_dir, "extension.bzl")
-            if os.path.exists(ext_file):
-                update_docker_image_constants(ext_file, latest_tag, digest)
-                updated_modules.append(f"Docker image -> {latest_tag}")
-    else:
-        content = update_orfs_image(content, latest_tag, digest)
-        updated_modules.append(f"ORFS image -> {latest_tag}")
 
     # --- Locate bazel-orfs source (for reading overrides and copying patches) ---
     bazel_orfs_dir = os.path.dirname(os.path.abspath(__file__))
@@ -666,10 +522,6 @@ def bump(
                 update_yosys_build_bzl(ext_file, yosys_commit)
                 updated_modules.append(f"yosys -> {yosys_tag} ({yosys_commit[:12]})")
 
-    # --- Inject boilerplate (downstream only) ---
-    if project == "downstream":
-        content = inject_openroad_boilerplate(content, openroad_commit)
-
     with open(module_file, "w") as f:
         f.write(content)
 
@@ -678,20 +530,6 @@ def bump(
         changes = migrate_load_paths(workspace_dir)
         for fpath, old, new in changes:
             updated_modules.append(f"load path {old} -> {new} in {fpath}")
-
-    # --- Update mock modules ---
-    if mock_modules:
-        for mock_file in mock_modules:
-            if not os.path.exists(mock_file):
-                continue
-            with open(mock_file) as f:
-                mock_content = f.read()
-            if "orfs.default" not in mock_content:
-                continue
-            mock_content = update_orfs_image(mock_content, latest_tag, digest)
-            with open(mock_file, "w") as f:
-                f.write(mock_content)
-            updated_modules.append(f"mock {mock_file}")
 
     # --- Summary ---
     print(f"Updated {module_file} ({project} project):")
@@ -702,7 +540,9 @@ def bump(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Bump ORFS and dependency versions")
+    parser = argparse.ArgumentParser(
+        description="Bump bazel-orfs and dependency versions"
+    )
     parser.add_argument(
         "--module-file",
         default=os.path.join(
@@ -711,29 +551,10 @@ def main():
         ),
         help="Path to MODULE.bazel",
     )
-    parser.add_argument(
-        "--mock-modules",
-        nargs="*",
-        default=None,
-        help="Additional MODULE.bazel files to update",
-    )
     args = parser.parse_args()
 
-    # Auto-discover mock modules if not specified
-    if args.mock_modules is None:
-        workspace = os.environ.get("BUILD_WORKSPACE_DIRECTORY", ".")
-        mock_dir = os.path.join(workspace, "mock")
-        if os.path.isdir(mock_dir):
-            args.mock_modules = [
-                os.path.join(mock_dir, d, "MODULE.bazel")
-                for d in os.listdir(mock_dir)
-                if os.path.isfile(os.path.join(mock_dir, d, "MODULE.bazel"))
-            ]
-        else:
-            args.mock_modules = []
-
     workspace = os.environ.get("BUILD_WORKSPACE_DIRECTORY", ".")
-    bump(args.module_file, args.mock_modules, workspace_dir=workspace)
+    bump(args.module_file, workspace_dir=workspace)
 
 
 if __name__ == "__main__":

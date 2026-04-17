@@ -128,8 +128,8 @@ And in the `OrfsDepInfo` runfiles (lines 844-854), same switch.
 
 ### What's kept in lite mode
 
-- `_make` — the Make binary (from docker_orfs)
-- `_openroad_attr(ctx)` — lint-openroad Python binary
+- `_make` — the Make binary (from @gnumake)
+- `ctx.attr.openroad` — lint-openroad Python binary
 - `_python` — Python interpreter (for lint tools)
 - `_makefile` — ORFS Makefile
 - `ctx.attr.tools` — user-specified extra tools

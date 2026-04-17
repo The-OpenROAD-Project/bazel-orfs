@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unit tests for bump.py — ported from bump_test.sh with additions."""
+"""Unit tests for bump.py."""
 
 import os
 import re
@@ -13,8 +13,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 import bump
 
 # Mock values matching the original bash tests
-LATEST_TAG = "26Q1-999-gtest12345"
-DIGEST = "deadbeef1234567890abcdef"
 BAZEL_ORFS_COMMIT = "new_bazel_orfs_aaa111"
 OPENROAD_COMMIT = "new_openroad_bbb222"
 ORFS_COMMIT = "new_orfs_ccc333"
@@ -22,10 +20,6 @@ YOSYS_TAG = "v0.99"
 YOSYS_TAG_COMMIT = "new_yosys_ddd444"
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
-
-
-def mock_fetch_tag(_repo):
-    return LATEST_TAG
 
 
 def mock_fetch_commit(repo, branch):
@@ -36,10 +30,6 @@ def mock_fetch_commit(repo, branch):
     return OPENROAD_COMMIT
 
 
-def mock_resolve_digest(_image, _tag):
-    return DIGEST
-
-
 def mock_fetch_release(_repo):
     return YOSYS_TAG
 
@@ -48,7 +38,7 @@ def mock_fetch_tag_commit(_repo, _tag):
     return YOSYS_TAG_COMMIT
 
 
-def apply_bump(fixture_name, mock_modules=None, workspace_dir=None):
+def apply_bump(fixture_name, workspace_dir=None):
     """Copy a fixture, run bump on it, return the result content."""
     src = os.path.join(FIXTURES_DIR, fixture_name)
     tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".MODULE.bazel", delete=False)
@@ -57,10 +47,7 @@ def apply_bump(fixture_name, mock_modules=None, workspace_dir=None):
 
     bump.bump(
         tmp.name,
-        mock_modules=mock_modules,
-        fetch_tag_fn=mock_fetch_tag,
         fetch_commit_fn=mock_fetch_commit,
-        resolve_digest_fn=mock_resolve_digest,
         fetch_release_fn=mock_fetch_release,
         fetch_tag_commit_fn=mock_fetch_tag_commit,
         workspace_dir=workspace_dir,
@@ -78,16 +65,6 @@ class TestBazelOrfsProject(unittest.TestCase):
     def setUp(self):
         self.content = apply_bump("self.MODULE.bazel")
 
-    def test_no_docker_image_tag(self):
-        self.assertNotIn(
-            LATEST_TAG,
-            self.content,
-            "bazel-orfs no longer uses a Docker image",
-        )
-
-    def test_no_docker_sha256(self):
-        self.assertNotIn("sha256", self.content)
-
     def test_openroad_commit_updated(self):
         self.assertIn(OPENROAD_COMMIT, self.content)
 
@@ -104,21 +81,12 @@ class TestBazelOrfsProject(unittest.TestCase):
             "bazel-orfs should not update its own commit",
         )
 
-    def test_no_boilerplate_injected(self):
-        self.assertNotIn(bump.BOILERPLATE_MARKER, self.content)
-
 
 class TestOpenroadProject(unittest.TestCase):
     """Test 2: OpenROAD project (uses variable-reference commit pattern)."""
 
     def setUp(self):
         self.content = apply_bump("openroad.MODULE.bazel")
-
-    def test_docker_image_tag_updated(self):
-        self.assertIn(LATEST_TAG, self.content)
-
-    def test_docker_sha256_updated(self):
-        self.assertIn(DIGEST, self.content)
 
     def test_bazel_orfs_commit_variable_updated(self):
         self.assertIn(f'BAZEL_ORFS_COMMIT = "{BAZEL_ORFS_COMMIT}"', self.content)
@@ -134,9 +102,6 @@ class TestOpenroadProject(unittest.TestCase):
         self.assertNotIn(
             OPENROAD_COMMIT, self.content, "OpenROAD should not update its own commit"
         )
-
-    def test_no_boilerplate_injected(self):
-        self.assertNotIn(bump.BOILERPLATE_MARKER, self.content)
 
     def test_openroad_label_preserved(self):
         self.assertIn('openroad = "//:openroad"', self.content)
@@ -154,51 +119,13 @@ class TestOpenroadProject(unittest.TestCase):
 
 
 class TestDownstreamFresh(unittest.TestCase):
-    """Test 3: downstream project (no prior boilerplate)."""
+    """Test 3: downstream project."""
 
     def setUp(self):
         self.content = apply_bump("downstream.MODULE.bazel")
 
-    def test_docker_image_tag_updated(self):
-        self.assertIn(LATEST_TAG, self.content)
-
-    def test_docker_sha256_updated(self):
-        self.assertIn(DIGEST, self.content)
-
     def test_bazel_orfs_commit_updated(self):
         self.assertIn(BAZEL_ORFS_COMMIT, self.content)
-
-    def test_boilerplate_injected(self):
-        self.assertIn(bump.BOILERPLATE_MARKER, self.content)
-
-    def test_boilerplate_has_openroad_commit(self):
-        self.assertIn(f'commit = "{OPENROAD_COMMIT}"', self.content)
-
-
-class TestDownstreamWithBoilerplate(unittest.TestCase):
-    """Test 4: downstream project (already has boilerplate)."""
-
-    def setUp(self):
-        self.content = apply_bump("downstream-with-boilerplate.MODULE.bazel")
-
-    def test_docker_image_tag_updated(self):
-        self.assertIn(LATEST_TAG, self.content)
-
-    def test_docker_sha256_updated(self):
-        self.assertIn(DIGEST, self.content)
-
-    def test_bazel_orfs_commit_updated(self):
-        self.assertIn(BAZEL_ORFS_COMMIT, self.content)
-
-    def test_old_openroad_commit_replaced(self):
-        self.assertNotIn("old_openroad_commit", self.content)
-
-    def test_new_openroad_commit_present(self):
-        self.assertIn(f'commit = "{OPENROAD_COMMIT}"', self.content)
-
-    def test_boilerplate_not_duplicated(self):
-        count = self.content.count(bump.BOILERPLATE_MARKER)
-        self.assertEqual(count, 1, f"Boilerplate appears {count} times, expected 1")
 
 
 class TestDownstreamWithSubmodules(unittest.TestCase):
@@ -272,39 +199,6 @@ class TestFindBazelOrfsSubmodules(unittest.TestCase):
         )
 
 
-class TestDownstreamDoubleBump(unittest.TestCase):
-    """Test 5: downstream project — bump twice, still idempotent."""
-
-    def test_boilerplate_appears_once(self):
-        src = os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel")
-        tmp = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".MODULE.bazel", delete=False
-        )
-        tmp.close()
-        shutil.copy2(src, tmp.name)
-
-        kwargs = dict(
-            fetch_tag_fn=mock_fetch_tag,
-            fetch_commit_fn=mock_fetch_commit,
-            resolve_digest_fn=mock_resolve_digest,
-            fetch_release_fn=mock_fetch_release,
-            fetch_tag_commit_fn=mock_fetch_tag_commit,
-        )
-        bump.bump(tmp.name, **kwargs)
-        bump.bump(tmp.name, **kwargs)
-
-        with open(tmp.name) as f:
-            content = f.read()
-        os.unlink(tmp.name)
-
-        count = content.count(bump.BOILERPLATE_MARKER)
-        self.assertEqual(
-            count,
-            1,
-            f"After double bump, boilerplate appears " f"{count} times (expected 1)",
-        )
-
-
 class TestBazelOrfsYosysUpdate(unittest.TestCase):
     """bazel-orfs project updates yosys commit in extension.bzl."""
 
@@ -328,9 +222,7 @@ class TestBazelOrfsYosysUpdate(unittest.TestCase):
 
             bump.bump(
                 main_file,
-                fetch_tag_fn=mock_fetch_tag,
                 fetch_commit_fn=mock_fetch_commit,
-                resolve_digest_fn=mock_resolve_digest,
                 fetch_release_fn=mock_fetch_release,
                 fetch_tag_commit_fn=mock_fetch_tag_commit,
                 workspace_dir=tmpdir,
@@ -341,85 +233,6 @@ class TestBazelOrfsYosysUpdate(unittest.TestCase):
 
             self.assertIn(YOSYS_TAG_COMMIT, ext_content)
             self.assertNotIn("old_yosys_commit", ext_content)
-        finally:
-            shutil.rmtree(tmpdir)
-
-
-class TestBazelOrfsDockerImageUpdate(unittest.TestCase):
-    """bazel-orfs project updates Docker image constants in extension.bzl."""
-
-    def test_docker_image_constants_updated(self):
-        tmpdir = tempfile.mkdtemp()
-        try:
-            main_file = os.path.join(tmpdir, "MODULE.bazel")
-            shutil.copy2(
-                os.path.join(FIXTURES_DIR, "self.MODULE.bazel"),
-                main_file,
-            )
-
-            ext_file = os.path.join(tmpdir, "extension.bzl")
-            with open(ext_file, "w") as f:
-                f.write(
-                    'LATEST_ORFS_IMAGE = "docker.io/openroad/orfs:old-tag"\n'
-                    'LATEST_ORFS_SHA256 = "olddigest"\n'
-                )
-
-            bump.bump(
-                main_file,
-                fetch_tag_fn=mock_fetch_tag,
-                fetch_commit_fn=mock_fetch_commit,
-                resolve_digest_fn=mock_resolve_digest,
-                fetch_release_fn=mock_fetch_release,
-                fetch_tag_commit_fn=mock_fetch_tag_commit,
-                workspace_dir=tmpdir,
-            )
-
-            with open(ext_file) as f:
-                ext_content = f.read()
-
-            self.assertIn(LATEST_TAG, ext_content)
-            self.assertIn(DIGEST, ext_content)
-            self.assertNotIn("old-tag", ext_content)
-            self.assertNotIn("olddigest", ext_content)
-        finally:
-            shutil.rmtree(tmpdir)
-
-
-class TestMockModuleUpdates(unittest.TestCase):
-    """Test 6: mock/*/MODULE.bazel files also get updated."""
-
-    def test_mock_modules_updated(self):
-        tmpdir = tempfile.mkdtemp()
-        try:
-            # Copy main fixture
-            main_file = os.path.join(tmpdir, "MODULE.bazel")
-            shutil.copy2(
-                os.path.join(FIXTURES_DIR, "self.MODULE.bazel"),
-                main_file,
-            )
-
-            # Create a mock module
-            mock_file = os.path.join(tmpdir, "mock.MODULE.bazel")
-            shutil.copy2(
-                os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel"),
-                mock_file,
-            )
-
-            bump.bump(
-                main_file,
-                mock_modules=[mock_file],
-                fetch_tag_fn=mock_fetch_tag,
-                fetch_commit_fn=mock_fetch_commit,
-                resolve_digest_fn=mock_resolve_digest,
-                fetch_release_fn=mock_fetch_release,
-                fetch_tag_commit_fn=mock_fetch_tag_commit,
-            )
-
-            with open(mock_file) as f:
-                mock_content = f.read()
-
-            self.assertIn(LATEST_TAG, mock_content)
-            self.assertIn(DIGEST, mock_content)
         finally:
             shutil.rmtree(tmpdir)
 
@@ -447,50 +260,6 @@ class TestDetectProject(unittest.TestCase):
     def test_module_single_line(self):
         content = 'module(name = "openroad")'
         self.assertEqual(bump.detect_project(content), "openroad")
-
-
-class TestUpdateOrfsImage(unittest.TestCase):
-    def test_updates_tag_and_digest(self):
-        content = (
-            "orfs.default(\n"
-            '    image = "docker.io/openroad/orfs:OLD-TAG",\n'
-            '    sha256 = "old_sha256",\n'
-            ")"
-        )
-        result = bump.update_orfs_image(content, "NEW-TAG", "new_digest")
-        self.assertIn("NEW-TAG", result)
-        self.assertIn("new_digest", result)
-        self.assertNotIn("OLD-TAG", result)
-        self.assertNotIn("old_sha256", result)
-
-    def test_preserves_other_fields(self):
-        content = (
-            "orfs.default(\n"
-            '    image = "docker.io/openroad/orfs:OLD",\n'
-            '    openroad = "//:openroad",\n'
-            '    sha256 = "old",\n'
-            ")"
-        )
-        result = bump.update_orfs_image(content, "NEW", "new")
-        self.assertIn('openroad = "//:openroad"', result)
-
-    def test_no_orfs_default_is_noop(self):
-        content = 'module(name = "foo")\n'
-        result = bump.update_orfs_image(content, "TAG", "DIGEST")
-        self.assertEqual(result, content)
-
-    def test_preserves_surrounding_content(self):
-        content = (
-            "# header\n"
-            "orfs.default(\n"
-            '    image = "docker.io/openroad/orfs:OLD",\n'
-            '    sha256 = "old",\n'
-            ")\n"
-            "# footer\n"
-        )
-        result = bump.update_orfs_image(content, "NEW", "new")
-        self.assertTrue(result.startswith("# header\n"))
-        self.assertTrue(result.endswith("# footer\n"))
 
 
 class TestUpdateGitOverride(unittest.TestCase):
@@ -617,38 +386,6 @@ class TestUpdateGitOverride(unittest.TestCase):
         self.assertIn("remote =", result)
 
 
-class TestInjectBoilerplate(unittest.TestCase):
-    def test_injects_after_use_repo(self):
-        content = 'use_repo(orfs, "docker_orfs")\n' "\n" "# other stuff\n"
-        result = bump.inject_openroad_boilerplate(content, "abc123")
-        self.assertIn(bump.BOILERPLATE_MARKER, result)
-        self.assertIn('commit = "abc123"', result)
-
-    def test_does_not_duplicate(self):
-        content = 'use_repo(orfs, "docker_orfs")\n' f"\n# {bump.BOILERPLATE_MARKER}\n"
-        result = bump.inject_openroad_boilerplate(content, "abc123")
-        count = result.count(bump.BOILERPLATE_MARKER)
-        self.assertEqual(count, 1)
-
-    def test_no_use_repo_is_noop(self):
-        content = 'module(name = "test")\n'
-        result = bump.inject_openroad_boilerplate(content, "abc123")
-        self.assertNotIn(bump.BOILERPLATE_MARKER, result)
-        self.assertEqual(result, content)
-
-    def test_boilerplate_placed_after_last_use_repo(self):
-        content = (
-            'use_repo(orfs, "docker_orfs")\n' 'use_repo(orfs, "other")\n' "# end\n"
-        )
-        result = bump.inject_openroad_boilerplate(content, "abc123")
-        lines = result.split("\n")
-        marker_idx = next(
-            i for i, l in enumerate(lines) if bump.BOILERPLATE_MARKER in l
-        )
-        use_repo_indices = [i for i, l in enumerate(lines) if "use_repo(orfs" in l]
-        self.assertGreater(marker_idx, max(use_repo_indices))
-
-
 class TestBazelOrfsSkipsSelfCommit(unittest.TestCase):
     """bazel-orfs project must not update its own git_override commit."""
 
@@ -658,13 +395,6 @@ class TestBazelOrfsSkipsSelfCommit(unittest.TestCase):
     def test_orfs_commit_updated(self):
         self.assertIn(
             ORFS_COMMIT, self.content, "ORFS commit should be updated for bazel-orfs"
-        )
-
-    def test_no_image_tag(self):
-        self.assertNotIn(
-            LATEST_TAG,
-            self.content,
-            "bazel-orfs no longer uses a Docker image",
         )
 
 
@@ -695,9 +425,7 @@ class TestSubmodulesDoubleUpdate(unittest.TestCase):
         shutil.copy2(src, tmp.name)
 
         kwargs = dict(
-            fetch_tag_fn=mock_fetch_tag,
             fetch_commit_fn=mock_fetch_commit,
-            resolve_digest_fn=mock_resolve_digest,
             fetch_release_fn=mock_fetch_release,
             fetch_tag_commit_fn=mock_fetch_tag_commit,
         )
@@ -713,87 +441,8 @@ class TestSubmodulesDoubleUpdate(unittest.TestCase):
         self.assertEqual(first, second, "Second bump should produce identical output")
 
 
-class TestMockModuleSkipsNonOrfs(unittest.TestCase):
-    """Mock modules without orfs.default() should be left untouched."""
-
-    def test_mock_without_orfs_default_unchanged(self):
-        tmpdir = tempfile.mkdtemp()
-        try:
-            main_file = os.path.join(tmpdir, "MODULE.bazel")
-            shutil.copy2(
-                os.path.join(FIXTURES_DIR, "self.MODULE.bazel"),
-                main_file,
-            )
-
-            mock_file = os.path.join(tmpdir, "mock.MODULE.bazel")
-            with open(mock_file, "w") as f:
-                f.write('module(name = "mock")\n')
-
-            original = open(mock_file).read()
-
-            bump.bump(
-                main_file,
-                mock_modules=[mock_file],
-                fetch_tag_fn=mock_fetch_tag,
-                fetch_commit_fn=mock_fetch_commit,
-                resolve_digest_fn=mock_resolve_digest,
-                fetch_release_fn=mock_fetch_release,
-                fetch_tag_commit_fn=mock_fetch_tag_commit,
-            )
-
-            with open(mock_file) as f:
-                self.assertEqual(f.read(), original)
-        finally:
-            shutil.rmtree(tmpdir)
-
-
-class TestMockModuleMissingFile(unittest.TestCase):
-    """Mock modules that don't exist should be silently skipped."""
-
-    def test_missing_mock_file_no_error(self):
-        src = os.path.join(FIXTURES_DIR, "self.MODULE.bazel")
-        tmp = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".MODULE.bazel", delete=False
-        )
-        tmp.close()
-        shutil.copy2(src, tmp.name)
-        try:
-            bump.bump(
-                tmp.name,
-                mock_modules=["/nonexistent/MODULE.bazel"],
-                fetch_tag_fn=mock_fetch_tag,
-                fetch_commit_fn=mock_fetch_commit,
-                resolve_digest_fn=mock_resolve_digest,
-                fetch_release_fn=mock_fetch_release,
-                fetch_tag_commit_fn=mock_fetch_tag_commit,
-            )
-        finally:
-            os.unlink(tmp.name)
-
-
 class TestNetworkErrorHandling(unittest.TestCase):
     """Test 7: verify clear error messages on failures."""
-
-    def test_tag_fetch_failure(self):
-        def bad_fetch(_repo):
-            raise RuntimeError("No tags found")
-
-        with self.assertRaises(RuntimeError):
-            src = os.path.join(FIXTURES_DIR, "self.MODULE.bazel")
-            tmp = tempfile.NamedTemporaryFile(suffix=".MODULE.bazel", delete=False)
-            tmp.close()
-            shutil.copy2(src, tmp.name)
-            try:
-                bump.bump(
-                    tmp.name,
-                    fetch_tag_fn=bad_fetch,
-                    fetch_commit_fn=mock_fetch_commit,
-                    resolve_digest_fn=mock_resolve_digest,
-                    fetch_release_fn=mock_fetch_release,
-                    fetch_tag_commit_fn=mock_fetch_tag_commit,
-                )
-            finally:
-                os.unlink(tmp.name)
 
     def test_commit_fetch_failure(self):
         def bad_commit(_repo, _branch):
@@ -807,30 +456,7 @@ class TestNetworkErrorHandling(unittest.TestCase):
             try:
                 bump.bump(
                     tmp.name,
-                    fetch_tag_fn=mock_fetch_tag,
                     fetch_commit_fn=bad_commit,
-                    resolve_digest_fn=mock_resolve_digest,
-                    fetch_release_fn=mock_fetch_release,
-                    fetch_tag_commit_fn=mock_fetch_tag_commit,
-                )
-            finally:
-                os.unlink(tmp.name)
-
-    def test_digest_resolve_failure(self):
-        def bad_digest(_image, _tag):
-            raise RuntimeError("Registry error")
-
-        with self.assertRaises(RuntimeError):
-            src = os.path.join(FIXTURES_DIR, "self.MODULE.bazel")
-            tmp = tempfile.NamedTemporaryFile(suffix=".MODULE.bazel", delete=False)
-            tmp.close()
-            shutil.copy2(src, tmp.name)
-            try:
-                bump.bump(
-                    tmp.name,
-                    fetch_tag_fn=mock_fetch_tag,
-                    fetch_commit_fn=mock_fetch_commit,
-                    resolve_digest_fn=bad_digest,
                     fetch_release_fn=mock_fetch_release,
                     fetch_tag_commit_fn=mock_fetch_tag_commit,
                 )
@@ -952,9 +578,7 @@ class TestBumpWithMigration(unittest.TestCase):
 
             bump.bump(
                 module_file,
-                fetch_tag_fn=mock_fetch_tag,
                 fetch_commit_fn=mock_fetch_commit,
-                resolve_digest_fn=mock_resolve_digest,
                 fetch_release_fn=mock_fetch_release,
                 fetch_tag_commit_fn=mock_fetch_tag_commit,
                 workspace_dir=tmpdir,
@@ -981,9 +605,7 @@ class TestBumpWithMigration(unittest.TestCase):
 
             bump.bump(
                 module_file,
-                fetch_tag_fn=mock_fetch_tag,
                 fetch_commit_fn=mock_fetch_commit,
-                resolve_digest_fn=mock_resolve_digest,
                 fetch_release_fn=mock_fetch_release,
                 fetch_tag_commit_fn=mock_fetch_tag_commit,
                 workspace_dir=tmpdir,

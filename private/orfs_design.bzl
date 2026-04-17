@@ -8,10 +8,6 @@ first to parse all config.mk files and generate the DESIGNS dict.
 """
 
 load(
-    "@config//:global_config.bzl",
-    "NUM_CPUS",
-)
-load(
     "//private:flow.bzl",
     "orfs_flow",
 )
@@ -199,7 +195,6 @@ def orfs_design(name = None, platform = None, design = None, designs = None, moc
             variant = "lint",
             lint = True,
             openroad = mock_openroad,
-            opensta = Label("@docker_orfs//:sta"),
             tags = tags,
         )
         if mock_yosys:

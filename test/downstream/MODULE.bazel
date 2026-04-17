@@ -88,4 +88,3 @@ orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
 orfs.default(
     yosys_share = "//:yosys_share_with_slang",
 )
-use_repo(orfs, "docker_orfs")
