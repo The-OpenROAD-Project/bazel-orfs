@@ -68,14 +68,6 @@ single_version_override(
     patch_strip = 1,
 )
 
-# --- Mock binaries (from bazel-orfs) ---
-
-bazel_dep(name = "mock-klayout", version = "0.0.1")
-local_path_override(
-    module_name = "mock-klayout",
-    path = "../mock/klayout",
-)
-
 # --- OpenROAD built from source ---
 
 bazel_dep(name = "openroad")

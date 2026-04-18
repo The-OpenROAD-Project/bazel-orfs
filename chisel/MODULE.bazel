@@ -19,12 +19,6 @@ local_path_override(
     path = "../verilog",
 )
 
-bazel_dep(name = "mock-klayout", version = "0.0.1")
-local_path_override(
-    module_name = "mock-klayout",
-    path = "../mock/klayout",
-)
-
 bazel_dep(name = "yosys", version = "0.62")
 
 # Make yosys_share publicly visible for the ORFS flow (see bazel-orfs MODULE.bazel).
