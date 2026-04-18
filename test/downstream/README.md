@@ -26,12 +26,6 @@ bazelisk test ...     # verilator simulation via cc_test + gtest
 - **mock-klayout leaks to downstream** — made `dev_dependency`, klayout
   now truly optional (`extension.bzl`, `config.bzl`, `environment.bzl`).
 
-### Patches applied here (to be upstreamed)
-
-- **ORFS slang plugin path** — `synth_preamble.tcl` hardcodes
-  `plugin -i slang`; patched to respect `SLANG_PLUGIN_PATH` env var
-  (`orfs-slang-plugin-path.patch`).
-
 ### Workarounds in `.bazelrc`
 
 - **C++20** — OpenROAD STA uses `std::bit_cast`, `std::format`,
