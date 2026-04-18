@@ -5,10 +5,11 @@ GDS generation is separated from the main flow (`orfs_flow`) into the
 standalone `orfs_gds` rule, so designs can complete synthesis through
 final reporting without requiring klayout.
 
-By default, bazel-orfs uses a mock klayout from `@mock-klayout` that
-produces dummy GDS files — useful for smoke-testing the flow in CI.
-Override it via `orfs.default()` or per-target on `orfs_gds` to use a
-real klayout.
+By default, bazel-orfs uses a mock klayout that produces dummy GDS
+files — useful for smoke-testing the flow in CI. The mock is
+materialized by the `orfs_repositories` extension and requires no
+`bazel_dep` in the consumer's `MODULE.bazel`. Override it via
+`orfs.default()` or per-target on `orfs_gds` to use a real klayout.
 
 ## Configuration
 
@@ -90,32 +91,17 @@ orfs_macro(
 ## Mock KLayout for Testing
 
 For CI and development, a mock klayout binary is provided that generates
-dummy GDS files without requiring a real klayout installation. The mock is
-configured as a dev dependency in this repository's `MODULE.bazel`:
-
-```starlark
-bazel_dep(name = "mock-klayout", version = "0.0.1", dev_dependency = True)
-
-local_path_override(
-    module_name = "mock-klayout",
-    path = "mock/klayout",
-)
-```
+dummy GDS files without requiring a real klayout installation. The mock
+is created as `@mock_klayout` by the `orfs_repositories` extension — no
+`bazel_dep` is needed in the consumer.
 
 The mock klayout handles `-v` (version query), `-rd out=<path>`, and
 `-rd out_file=<path>` arguments, creating minimal dummy GDS files at
 the specified output paths. This allows the GDS generation step to
 complete without a real klayout installation.
 
-To use the mock per-target in tests:
-
-```starlark
-orfs_gds(
-    name = "my_design_gds",
-    src = ":my_design_final",
-    klayout = "@mock-klayout//src/bin:klayout",
-)
-```
+`orfs.default()` picks it up automatically when no `klayout =` override
+is supplied.
 
 ## Testing
 

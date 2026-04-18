@@ -110,7 +110,6 @@ def update_git_override_commit(content, module_name, new_commit):
 BAZEL_ORFS_SUBMODULES = {
     "bazel-orfs-verilog": "verilog",
     "bazel-orfs-sby": "sby",
-    "mock-klayout": "mock/klayout",
 }
 
 # Old load path -> new load path.  Applied to BUILD* and *.bzl files
