@@ -1,4 +1,3 @@
 exports_files([
-    "openroad-visibility.patch",
     "requirements_lock.txt",
 ])

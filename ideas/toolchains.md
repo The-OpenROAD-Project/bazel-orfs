@@ -266,9 +266,6 @@ and `CONFIG_OPENSTA` in `global_config.bzl`, with per-rule attribute
 overrides. Runtime dependencies (TCL, Ruby, Qt, OpenGL libraries) come
 from a Docker image (`@docker_orfs`) or are stubbed out.
 
-A visibility patch (`openroad-visibility.patch`) is applied to expose
-internal libraries needed by bazel-orfs.
-
 ### Proposed structure
 
 Add a `bazel-orfs/openroad/` submodule (mirrors the yosys pattern):
@@ -927,8 +924,7 @@ user configuration needed either way.
 Users who need to push past issues in upstream OpenROAD or yosys can
 build from source with patches applied. This is a core workflow:
 bazel-orfs itself maintains a patch stack against ORFS and OpenROAD
-(see `patches/` and `openroad-visibility.patch`) to work around
-upstream issues. These patches are pruned as fixes -- often articulated
+(see `patches/`) to work around upstream issues. These patches are pruned as fixes -- often articulated
 differently -- land upstream and become unnecessary.
 
 Downstream users follow the same pattern for their own needs.
@@ -946,9 +942,6 @@ git_override(
     init_submodules = True,
     patch_strip = 1,
     patches = [
-        # bazel-orfs's own required patch
-        "@bazel-orfs//:openroad-visibility.patch",
-        # user's own patches
         "//:patches/openroad-fix-drt-crash.patch",
         "//:patches/openroad-add-metric-hook.patch",
     ],
