@@ -53,10 +53,6 @@ git_override(
     module_name = "openroad",
     commit = "66c2b5ed03ea15f4ab7631537c9380d8239ec67a",
     init_submodules = True,
-    patch_strip = 1,
-    patches = [
-        "//:openroad-visibility.patch",
-    ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
 
