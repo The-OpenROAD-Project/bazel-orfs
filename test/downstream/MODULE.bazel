@@ -27,11 +27,10 @@ local_path_override(
 bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",
-    commit = "d8c6b0cbd54d3a2d6e78671e80b7b479c10af6f6",
+    commit = "3adda8b9d7cfc3f186e1a7748f0a230094e42805",
     patch_strip = 1,
     patches = [
         "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
-        "//patches:orfs-slang-plugin-path.patch",
     ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
 )
