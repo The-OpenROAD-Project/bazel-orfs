@@ -213,13 +213,13 @@ orfs_flow(
 )
 
 # ============================================================================
-# Full BoomTile flow with SYNTH_KEPT_MODULES parallel synthesis.
+# Full BoomTile flow with SYNTH_KEEP_MODULES parallel synthesis.
 # ============================================================================
 
 orfs_flow(
     name = "BoomTile",
     arguments = FAST_SETTINGS | {
-        "SYNTH_KEPT_MODULES": " ".join(KEPT_MODULES),
+        "SYNTH_KEEP_MODULES": " ".join(KEPT_MODULES),
         "SYNTH_BLACKBOXES": " ".join(MEMORY_BLACKBOXES),
         "DIE_AREA": "0 0 1000 1000",
         "CORE_AREA": "2 2 998 998",

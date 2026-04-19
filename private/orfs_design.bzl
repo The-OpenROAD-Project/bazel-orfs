@@ -168,8 +168,6 @@ def orfs_design(name = None, platform = None, design = None, designs = None, moc
                 arguments["SYNTH_NUM_PARTITIONS"] = str(len(keep_modules.split()))
             else:
                 arguments["SYNTH_NUM_PARTITIONS"] = "32"
-    if arguments.get("SYNTH_KEPT_MODULES") and "SYNTH_NUM_PARTITIONS" not in arguments:
-        arguments["SYNTH_NUM_PARTITIONS"] = str(len(arguments["SYNTH_KEPT_MODULES"].split()))
 
     orfs_flow(
         name = name,

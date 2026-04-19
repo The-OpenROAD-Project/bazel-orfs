@@ -79,7 +79,7 @@ if { [env_var_exists_and_non_empty SYNTH_OPT_HIER] } {
 }
 
 if { [env_var_exists_and_non_empty SYNTH_CHECKPOINT] && [env_var_exists_and_non_empty SYNTH_SKIP_KEEP] } {
-  # Partition mode with SYNTH_KEPT_MODULES: checkpoint is canonical RTLIL
+  # Partition mode with SYNTH_KEEP_MODULES: checkpoint is canonical RTLIL
   # (no coarse synth done yet).  Run full coarse+fine synthesis, flattened.
   synth -flatten -run :fine {*}$synth_full_args
 } elseif { [env_var_exists_and_non_empty SYNTH_CHECKPOINT] } {
