@@ -23,17 +23,20 @@ local_path_override(
     path = "mock/klayout",
 )
 
-bazel_dep(name = "abc", version = "0.62-yosyshq")
+bazel_dep(name = "abc", version = "0.64-yosyshq")
 bazel_dep(name = "yosys", version = "0.62")
 
-# abc upstream compiles src/base/main/main.c as C; with a hermetic clang
-# toolchain the C frontend chokes on C++ headers pulled in transitively.
-# Copy the source to main.cc so it is built as C++ like the rest of abc.
+# BCR 0.64-yosyshq renames utilPth.c to .cpp via copy_file because it uses
+# <atomic> and must compile as C++ so rules_cc applies the hermetic libc++
+# stdlib instead of host libstdc++. sswPart.c has the same <atomic> usage
+# but was missed upstream. Apply the same copy_file pattern and add
+# src/proof/ssw to cc_library includes so sswPart.cpp's quoted sibling
+# include of "sswInt.h" still resolves after relocation into bazel-out/.
 single_version_override(
     module_name = "abc",
     patch_strip = 1,
     patches = [
-        "//patches:abc-main-c-as-cpp.patch",
+        "//patches:abc-sswpart-as-cpp.patch",
     ],
 )
 
