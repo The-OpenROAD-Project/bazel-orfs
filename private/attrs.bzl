@@ -83,6 +83,11 @@ def orfs_attrs():
             cfg = "exec",
             default = Label("@bazel-orfs//pythonwrapper:python3"),
         ),
+        "_merge_arguments": attr.label(
+            doc = "Python script for merging .json argument files into .mk config.",
+            allow_single_file = True,
+            default = Label("@bazel-orfs//private:merge_arguments.py"),
+        ),
         "_package_stage": attr.label(
             doc = "Python script for creating portable stage tarballs.",
             allow_single_file = True,
