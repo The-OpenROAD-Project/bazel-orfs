@@ -10,9 +10,9 @@ load(
     "STAGE_IMPLS",
     "TEST_STAGE_IMPL",
     "UPDATE_RULES_IMPL",
+    "orfs_arguments",
     "orfs_deploy_srcs",
     "orfs_macro",
-    "orfs_run",
     "orfs_squashed",
     "orfs_synth_rule",
 )
@@ -24,6 +24,13 @@ def _strip_tool_kwargs(**kwargs):
     kwargs.pop("opensta", None)
     kwargs.pop("yosys", None)
     return kwargs
+
+def _merge_extra_arguments(a, b):
+    """Merge two {stage: [label, ...]} dicts, concatenating per-stage lists."""
+    merged = dict(a)
+    for stage, labels in b.items():
+        merged[stage] = merged.get(stage, []) + labels
+    return merged
 
 def _filter_stage_args(stage, **kwargs):
     """Filter and prepare the arguments for a specific stage."""
@@ -209,7 +216,7 @@ def orfs_flow(
 
     mock_variant = _variant_name(variant, "mocked")
     mock_area_name = _step_name(name, mock_variant, "generate_area")
-    mock_configs = {
+    mock_extra_arguments = {
         "floorplan": [mock_area_name],
     }
 
@@ -223,8 +230,8 @@ def orfs_flow(
         stage_arguments = stage_arguments,
         renamed_inputs = {},
         arguments = arguments | {"SYNTH_GUT": "1"},
-        extra_arguments = extra_arguments,
-        extra_configs = extra_configs | mock_configs,
+        extra_arguments = _merge_extra_arguments(extra_arguments, mock_extra_arguments),
+        extra_configs = extra_configs,
         abstract_stage = "place",
         variant = mock_variant,
         abstract_variant = None,
@@ -236,15 +243,12 @@ def orfs_flow(
         **kwargs
     )
 
-    orfs_run(
+    orfs_arguments(
         name = mock_area_name,
         src = _step_name(name, variant, "floorplan"),
-        arguments = {
-            "MOCK_AREA": str(mock_area),
-            "OUTPUT": "{}.mk".format(mock_area_name),
-        },
-        outs = ["{}.mk".format(mock_area_name)],
+        arguments = {"MOCK_AREA": str(mock_area)},
         script = "@bazel-orfs//:mock_area.tcl",
+        variant = variant or "base",
         **_strip_tool_kwargs(**kwargs)
     )
 
