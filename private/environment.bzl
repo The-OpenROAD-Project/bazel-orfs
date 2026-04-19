@@ -229,7 +229,7 @@ def required_arguments(ctx):
         "WORK_HOME": "./" + ctx.label.package,
     }
 
-def orfs_arguments(*args, short = False):
+def orfs_additional_arguments(*args, short = False):
     """Returns ADDITIONAL_GDS/LEFS/LIBS arguments from OrfsInfo providers.
 
     Args:

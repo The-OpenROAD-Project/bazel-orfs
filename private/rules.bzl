@@ -32,7 +32,7 @@ load(
     "input_commands",
     "merge_arguments",
     "odb_arguments",
-    "orfs_arguments",
+    "orfs_additional_arguments",
     "pdk_inputs",
     "rename_inputs",
     "renames",
@@ -769,7 +769,7 @@ def _yosys_impl(ctx):
     all_arguments = merge_arguments(
         data_arguments(ctx) |
         required_arguments(ctx),
-        orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]),
+        orfs_additional_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]),
     )
     config = declare_artifact(ctx, "results", "1_synth.mk")
     ctx.actions.write(
@@ -915,7 +915,7 @@ def _yosys_impl(ctx):
                 arguments = merge_arguments(
                     data_arguments(ctx) |
                     required_arguments(ctx),
-                    orfs_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]),
+                    orfs_additional_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]),
                 ) | verilog_arguments(ctx.files.verilog_files),
                 prefix = config_short.root.path,
             ),
@@ -1123,7 +1123,7 @@ def _make_impl(
         extra_arguments |
         data_arguments(ctx) |
         required_arguments(ctx),
-        orfs_arguments(ctx.attr.src[OrfsInfo]),
+        orfs_additional_arguments(ctx.attr.src[OrfsInfo]),
     )
     config = declare_artifact(ctx, "results", stage + ".mk")
     ctx.actions.write(
@@ -1193,7 +1193,7 @@ def _make_impl(
                     extra_arguments |
                     data_arguments(ctx) |
                     required_arguments(ctx),
-                    orfs_arguments(ctx.attr.src[OrfsInfo]),
+                    orfs_additional_arguments(ctx.attr.src[OrfsInfo]),
                 ),
                 prefix = config_short.root.path,
             ),
