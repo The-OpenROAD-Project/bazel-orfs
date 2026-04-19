@@ -1,4 +1,4 @@
-// Minimal multi-module design for testing SYNTH_KEPT_MODULES.
+// Minimal multi-module design for testing SYNTH_KEEP_MODULES.
 // Three modules: two sub-modules (adder, counter) and a top.
 module adder(
   input  [7:0] a,

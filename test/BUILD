@@ -489,13 +489,13 @@ filegroup(
     output_group = "1_synth.v",
 )
 
-# Test SYNTH_KEPT_MODULES: skip keep-hierarchy discovery, go straight to
+# Test SYNTH_KEEP_MODULES: skip keep-hierarchy discovery, go straight to
 # parallel partition synthesis with a pre-specified module list.
 orfs_synth(
     name = "kept_modules_synth",
     arguments = {
         "SDC_FILE": "$(location :constraints-top.sdc)",
-        "SYNTH_KEPT_MODULES": "adder counter",
+        "SYNTH_KEEP_MODULES": "adder counter",
     },
     data = [":constraints-top.sdc"],
     module_top = "kept_modules_top",

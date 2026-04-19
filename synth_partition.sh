@@ -25,7 +25,7 @@ ALL_MODULES=$(sed 's/.*\[//;s/\].*//;s/"//g;s/,/\n/g;s/ //g' "$KEPT_JSON")
 # Partitions read from canonical RTLIL and run full synthesis (coarse+fine).
 if [ -n "${SYNTH_SKIP_KEEP:-}" ]; then
   CHECKPOINT="$RESULTS_DIR/1_1_yosys_canonicalize.rtlil"
-  # Validate that every SYNTH_KEPT_MODULES entry exists in the canonical RTLIL
+  # Validate that every SYNTH_KEEP_MODULES entry exists in the canonical RTLIL
   RTLIL_MODULES_FILE=$(mktemp)
   grep '^module \\' "$CHECKPOINT" | sed 's/^module \\//;s/ .*//' | grep -v '^$' > "$RTLIL_MODULES_FILE"
   # Map bare module names to canonical names. HDL frontends like slang add
@@ -40,7 +40,7 @@ if [ -n "${SYNTH_SKIP_KEEP:-}" ]; then
       # Try prefix match: "Name" matches "Name$..." in the RTLIL
       canonical=$(grep -m1 "^$(printf '%s' "$module" | sed 's/[.[\*^$()+?{|\\]/\\&/g')\\$" "$RTLIL_MODULES_FILE" || true)
       if [ -z "$canonical" ]; then
-        echo "ERROR: SYNTH_KEPT_MODULES lists '$module' but it does not exist in the design." >&2
+        echo "ERROR: SYNTH_KEEP_MODULES lists '$module' but it does not exist in the design." >&2
         echo "Available modules: $(tr '\n' ' ' < "$RTLIL_MODULES_FILE")" >&2
         rm -f "$RTLIL_MODULES_FILE"
         exit 1
