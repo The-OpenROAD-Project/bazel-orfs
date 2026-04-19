@@ -1130,14 +1130,16 @@ def _make_impl(
 
     # Write this stage's arguments to .json for downstream stages, then
     # merge inherited .json files and this stage's .json into a .mk that
-    # the stage config includes via pre_paths.
+    # the stage config includes via pre_paths. Precedence (later wins in
+    # merge_arguments.py): inherited < stage < extra.
     stage_json = declare_artifact(ctx, "results", stage + ".args.json")
     ctx.actions.write(
         output = stage_json,
         content = json.encode(data_arguments(ctx)),
     )
     inherited_jsons = ctx.attr.src[OrfsInfo].arguments.to_list()
-    all_jsons = inherited_jsons + [stage_json]
+    extra_arg_files = ctx.files.extra_arguments
+    all_jsons = inherited_jsons + [stage_json] + extra_arg_files
     args_mk = declare_artifact(ctx, "results", stage + ".args.mk")
     ctx.actions.run(
         executable = ctx.executable._python,
@@ -1340,7 +1342,8 @@ def _make_impl(
             additional_libs = ctx.attr.src[OrfsInfo].additional_libs,
             arguments = depset(
                 [stage_json],
-                transitive = [ctx.attr.src[OrfsInfo].arguments],
+                transitive = [ctx.attr.src[OrfsInfo].arguments] +
+                             ([depset(extra_arg_files)] if extra_arg_files else []),
             ),
         ),
         LoggingInfo(

@@ -34,6 +34,7 @@ def _filter_stage_args(stage, **kwargs):
     arguments = kwargs.pop("arguments", {})
     data = kwargs.pop("data", [])
     settings = kwargs.pop("settings", {})
+    extra_arguments = kwargs.pop("extra_arguments", {})
     extra_configs = kwargs.pop("extra_configs", {})
     sources = kwargs.pop("sources", {})
     stage_arguments = kwargs.pop("stage_arguments", {})
@@ -58,6 +59,7 @@ def _filter_stage_args(stage, **kwargs):
         data = get_sources(stage, stage_sources, sources) +
                stage_data.get(stage, []) +
                data,
+        extra_arguments = extra_arguments.get(stage, []),
         extra_configs = extra_configs.get(stage, []),
         settings = get_stage_args(
             stage,
@@ -114,6 +116,7 @@ def orfs_flow(
         stage_arguments = {},
         renamed_inputs = {},
         arguments = {},
+        extra_arguments = {},
         extra_configs = {},
         abstract_stage = None,
         last_stage = None,
@@ -143,6 +146,9 @@ def orfs_flow(
         Use stage_arguments only to override the automatic stage assignment.
       renamed_inputs: dictionary keyed by ORFS stages to rename inputs
       arguments: dictionary of additional arguments to the flow, automatically assigned to stages
+      extra_arguments: dictionary keyed by ORFS stages with lists of .json argument file labels.
+        These .json files are merged into the stage config, providing computed arguments
+        that flow through OrfsInfo to subsequent stages.
       extra_configs: dictionary keyed by ORFS stages with list of additional configuration files
       abstract_stage: string with physical design flow stage name which controls the name of the files generated in _generate_abstract stage
       last_stage: string with the last stage to run, stops the flow early without generating an abstract. Mutually exclusive with abstract_stage. Useful for fast testing.
@@ -183,6 +189,7 @@ def orfs_flow(
         stage_arguments = stage_arguments,
         renamed_inputs = renamed_inputs,
         arguments = arguments,
+        extra_arguments = extra_arguments,
         extra_configs = extra_configs,
         abstract_stage = abstract_stage,
         last_stage = last_stage,
@@ -218,6 +225,7 @@ def orfs_flow(
         stage_arguments = stage_arguments,
         renamed_inputs = {},
         arguments = arguments | {"SYNTH_GUT": "1"},
+        extra_arguments = extra_arguments,
         extra_configs = extra_configs | mock_configs,
         abstract_stage = "place",
         variant = mock_variant,
@@ -311,6 +319,7 @@ def _orfs_pass(
         stage_arguments,
         renamed_inputs,
         arguments,
+        extra_arguments,
         extra_configs,
         abstract_stage,
         variant,
@@ -382,6 +391,7 @@ def _orfs_pass(
                 pdk = pdk,
                 stage_sources = stage_sources,
                 settings = settings,
+                extra_arguments = extra_arguments,
                 extra_configs = extra_configs,
                 stage_data = stage_data,
                 save_odb = save_odb,
@@ -413,6 +423,7 @@ def _orfs_pass(
             all_drc_names = []
             all_arguments = {}
             all_data = []
+            all_extra_arguments = []
             all_extra_configs = []
             all_settings = {}
             for s in squash_steps:
@@ -432,6 +443,7 @@ def _orfs_pass(
                     sources = dict(sources),
                     stage_sources = dict(stage_sources),
                     settings = dict(settings),
+                    extra_arguments = dict(extra_arguments),
                     extra_configs = dict(extra_configs),
                     stage_data = dict(stage_data),
                 )
@@ -439,6 +451,9 @@ def _orfs_pass(
                 for d in stage_filtered.get("data", []):
                     if d not in all_data:
                         all_data.append(d)
+                for ea in stage_filtered.get("extra_arguments", []):
+                    if ea not in all_extra_arguments:
+                        all_extra_arguments.append(ea)
                 for c in stage_filtered.get("extra_configs", []):
                     if c not in all_extra_configs:
                         all_extra_configs.append(c)
@@ -457,6 +472,7 @@ def _orfs_pass(
                 variant = variant,
                 arguments = all_arguments,
                 data = all_data,
+                extra_arguments = all_extra_arguments,
                 extra_configs = all_extra_configs,
                 settings = all_settings,
                 **kwargs
@@ -480,6 +496,7 @@ def _orfs_pass(
                         sources = sources,
                         stage_sources = stage_sources,
                         settings = settings,
+                        extra_arguments = extra_arguments,
                         extra_configs = extra_configs,
                         src = squash_name,
                         variant = variant,
@@ -504,6 +521,7 @@ def _orfs_pass(
                 sources = sources,
                 stage_sources = stage_sources,
                 settings = settings,
+                extra_arguments = extra_arguments,
                 extra_configs = extra_configs,
                 src = src,
                 variant = variant,

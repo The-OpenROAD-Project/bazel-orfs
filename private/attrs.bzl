@@ -49,6 +49,11 @@ def orfs_attrs():
             doc = "Arguments with build settings.",
             providers = [BuildSettingInfo],
         ),
+        "extra_arguments": attr.label_list(
+            doc = "List of .json argument files to merge into stage config.",
+            allow_files = [".json"],
+            default = [],
+        ),
         "extra_configs": attr.label_list(
             doc = "List of additional flow configuration files.",
             allow_files = True,
