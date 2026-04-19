@@ -13,6 +13,7 @@ OrfsInfo = provider(
         "additional_gds",
         "additional_lefs",
         "additional_libs",
+        "arguments",
     ],
 )
 PdkInfo = provider(
