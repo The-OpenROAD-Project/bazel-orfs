@@ -2,7 +2,7 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_python//python:defs.bzl", "py_test")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
-load("//:openroad.bzl", "get_stage_args", "orfs_floorplan", "orfs_flow", "orfs_gds", "orfs_macro", "orfs_run", "orfs_synth")
+load("//:openroad.bzl", "get_stage_args", "orfs_arguments", "orfs_floorplan", "orfs_flow", "orfs_gds", "orfs_macro", "orfs_run", "orfs_synth")
 load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:sweep.bzl", "orfs_sweep")
 load(":deps_output_group_rule.bzl", "deps_output_group_test", "output_group_test")
@@ -340,6 +340,27 @@ sh_binary(
     ],
     data = [":lb_32x128_write_pin_placement"],
     tags = ["manual"],
+)
+
+# Auto-utilization: computes CORE_UTILIZATION and PLACE_DENSITY from synthesis
+# results via a Tcl heuristic, injecting them into OrfsInfo.arguments as .json.
+orfs_arguments(
+    name = "lb_32x128_auto_utilization",
+    src = ":lb_32x128_synth",
+    script = ":auto_utilization.tcl",
+    tags = ["manual"],
+)
+
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    arguments = LB_ARGS,
+    extra_arguments = {"floorplan": [":lb_32x128_auto_utilization"]},
+    last_stage = "floorplan",
+    stage_sources = LB_STAGE_SOURCES,
+    tags = ["manual"],
+    variant = "auto_util",
+    verilog_files = LB_VERILOG_FILES,
 )
 
 orfs_run(
