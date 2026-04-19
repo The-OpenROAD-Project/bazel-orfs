@@ -438,6 +438,90 @@ orfs_run = rule(
             },
 )
 
+# --- Arguments rule ---
+
+def _arguments_impl(ctx):
+    """Runs a Tcl script to compute flow arguments, outputs OrfsInfo with modified arguments."""
+    src_info = ctx.attr.src[OrfsInfo]
+
+    # Put the computed .json under the variant-keyed results/ path so
+    # extra_arguments consumers see a .json in DefaultInfo.files.
+    computed_json = declare_artifact(ctx, "results", ctx.attr.name + ".json")
+
+    ctx.actions.run_shell(
+        arguments = [
+            "--file",
+            ctx.file._makefile.path,
+        ],
+        command = " ".join(
+            [
+                ctx.executable._make.path,
+                "run",
+                "$@",
+            ],
+        ),
+        env = config_overrides(
+            ctx,
+            flow_environment(ctx) |
+            yosys_environment(ctx) |
+            config_environment(src_info.config) |
+            odb_arguments(ctx) |
+            data_arguments(ctx) |
+            run_arguments(ctx) |
+            {"OUTPUT": computed_json.path},
+        ),
+        inputs = depset(
+            [src_info.config, ctx.file.script],
+            transitive = [
+                data_inputs(ctx),
+                source_inputs(ctx),
+            ],
+        ),
+        outputs = [computed_json],
+        tools = depset(
+            transitive = [
+                flow_inputs(ctx),
+                yosys_inputs(ctx),
+            ],
+        ),
+    )
+
+    return [
+        DefaultInfo(files = depset([computed_json])),
+        OrfsInfo(
+            stage = src_info.stage,
+            config = src_info.config,
+            variant = src_info.variant,
+            odb = src_info.odb,
+            gds = src_info.gds,
+            lef = src_info.lef,
+            lib = src_info.lib,
+            additional_gds = src_info.additional_gds,
+            additional_lefs = src_info.additional_lefs,
+            additional_libs = src_info.additional_libs,
+            arguments = depset(
+                [computed_json],
+                transitive = [src_info.arguments],
+            ),
+        ),
+        ctx.attr.src[PdkInfo],
+        ctx.attr.src[TopInfo],
+        ctx.attr.src[LoggingInfo],
+        ctx.attr.src[OrfsDepInfo],
+    ]
+
+orfs_arguments = rule(
+    implementation = _arguments_impl,
+    attrs = yosys_attrs() |
+            openroad_attrs() |
+            {
+                "script": attr.label(
+                    mandatory = True,
+                    allow_single_file = ["tcl"],
+                ),
+            },
+)
+
 # --- Test rule ---
 
 def _test_impl(ctx):

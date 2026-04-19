@@ -39,6 +39,7 @@ load(
     _TEST_STAGE_IMPL = "TEST_STAGE_IMPL",
     _UPDATE_RULES_IMPL = "UPDATE_RULES_IMPL",
     _orfs_abstract = "orfs_abstract",
+    _orfs_arguments = "orfs_arguments",
     _orfs_cts = "orfs_cts",
     _orfs_final = "orfs_final",
     _orfs_floorplan = "orfs_floorplan",
@@ -111,6 +112,7 @@ orfs_gds = _orfs_gds
 orfs_generate_metadata = _orfs_generate_metadata
 orfs_update_rules = _orfs_update_rules
 orfs_abstract = _orfs_abstract
+orfs_arguments = _orfs_arguments
 STAGE_IMPLS = _STAGE_IMPLS
 FINAL_STAGE_IMPL = _FINAL_STAGE_IMPL
 GENERATE_METADATA_STAGE_IMPL = _GENERATE_METADATA_STAGE_IMPL
