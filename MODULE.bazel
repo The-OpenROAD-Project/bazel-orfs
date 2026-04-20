@@ -54,7 +54,7 @@ git_override(
 bazel_dep(name = "openroad")
 git_override(
     module_name = "openroad",
-    commit = "a81f97e1f11c945e9355b7f36126a84aea047fd8",
+    commit = "739b9a7846e1734a6f7efe655a9d9cff06b53ef2",
     init_submodules = True,
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
