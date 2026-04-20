@@ -1,6 +1,7 @@
 """Flow orchestration macros for OpenROAD-flow-scripts Bazel rules."""
 
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("//private:providers.bzl", "LoggingInfo")
 load(
     "//private:rules.bzl",
@@ -13,10 +14,14 @@ load(
     "orfs_arguments",
     "orfs_deploy_srcs",
     "orfs_macro",
+    "orfs_run",
     "orfs_squashed",
     "orfs_synth_rule",
 )
 load("//private:stages.bzl", "STAGE_METADATA", "check_variables", "get_sources", "get_stage_args")
+
+# Stages with an ODB that open.tcl can load for web_save_report.
+_HTML_STAGES = ["floorplan", "place", "cts", "grt", "route", "final"]
 
 def _strip_tool_kwargs(**kwargs):
     """Strip tool-specific kwargs for non-stage targets (orfs_macro, orfs_run)."""
@@ -73,6 +78,45 @@ def _filter_stage_args(stage, **kwargs):
             arguments = settings,
         ),
         **kwargs
+    )
+
+def _orfs_html_report(name, src, variant = None, openroad = None, visibility = None):
+    """Emit an HTML timing report plus a runnable opener for a single stage.
+
+    Creates {name}_gen (builds {name}_gen.html via OpenROAD's
+    web_save_report with 1000 setup + 1000 hold paths; requires OpenROAD
+    built with PR #10087) and {name} (sh_binary whose `bazel run` builds
+    the .html and opens it in the default browser via xdg-open).
+
+    Both targets are tagged "manual" so wildcard builds don't fail on
+    OpenROAD builds that lack web_save_report.
+    """
+    gen_name = name + "_gen"
+    run_kwargs = {}
+    if openroad != None:
+        run_kwargs["openroad"] = openroad
+    if visibility != None:
+        run_kwargs["visibility"] = visibility
+    orfs_run(
+        name = gen_name,
+        src = src,
+        outs = [gen_name + ".html"],
+        arguments = {
+            "GUI_TIMING": "1",
+            "OUTPUT": gen_name + ".html",
+        },
+        script = "@bazel-orfs//:html_timing_report.tcl",
+        variant = variant or "base",
+        tags = ["manual"],
+        **run_kwargs
+    )
+    sh_binary(
+        name = name,
+        srcs = ["@bazel-orfs//:open_html.sh"],
+        args = ["$(rootpath :" + gen_name + ")"],
+        data = [":" + gen_name],
+        tags = ["manual"],
+        visibility = visibility,
     )
 
 def _create_deps_tar(stage_name, **kwargs):
@@ -137,6 +181,7 @@ def orfs_flow(
         squash = False,
         substeps = False,
         save_odb = True,
+        html = False,
         **kwargs):
     """
     Creates targets for running physical design flow with OpenROAD-flow-scripts.
@@ -175,6 +220,11 @@ def orfs_flow(
         control cache budget -- enable for designs under active development.
       save_odb: if False, skip synth_odb generation. Needed when SYNTH_BLACKBOXES
         includes modules without LEF masters. Default True.
+      html: if True, emit per-stage runnable HTML timing report targets
+        `<name>[_<variant>]_<stage>_html`. `bazel run` builds the report
+        and opens it in the default browser via xdg-open. The report uses
+        OpenROAD's web_save_report command (PR #10087) with 1000 setup
+        and 1000 hold paths. Targets are tagged "manual". Default False.
       **kwargs: forward named args
     """
     check_variables(arguments.keys(), "arguments")
@@ -210,6 +260,7 @@ def orfs_flow(
         squash = squash,
         substeps = substeps,
         save_odb = save_odb,
+        html = html,
         **kwargs
     )
 
@@ -242,6 +293,7 @@ def orfs_flow(
         stage_data = stage_data,
         mock_area = True,
         settings = settings,
+        html = html,
         **kwargs
     )
 
@@ -337,6 +389,7 @@ def _orfs_pass(
         mock_area = False,
         squash = False,
         save_odb = True,
+        html = False,
         **kwargs):
     ALL_STAGES = [step.stage for step in STAGE_IMPLS]
     steps = []
@@ -403,6 +456,14 @@ def _orfs_pass(
             )
         )
         _create_deps_tar(step_name, **kwargs)
+        if html:
+            _orfs_html_report(
+                name = step_name + "_html",
+                src = step_name,
+                variant = variant,
+                openroad = kwargs.get("openroad"),
+                visibility = kwargs.get("visibility"),
+            )
     if start_stage == 0:
         # implemented stage 0 above, so skip stage 0 below
         start_stage = 1
@@ -483,6 +544,14 @@ def _orfs_pass(
             )
             step_names.append(squash_name)
             _create_deps_tar(squash_name, **kwargs)
+            if html:
+                _orfs_html_report(
+                    name = squash_name + "_html",
+                    src = squash_name,
+                    variant = variant,
+                    openroad = kwargs.get("openroad"),
+                    visibility = kwargs.get("visibility"),
+                )
 
             # Handle abstract generation for squashed flow
             if ABSTRACT_IMPL in steps:
@@ -547,6 +616,14 @@ def _orfs_pass(
         sn = do_step(step, prev, kwargs)
         step_names.append(sn)
         _create_deps_tar(sn, **kwargs)
+        if html and step.stage in _HTML_STAGES:
+            _orfs_html_report(
+                name = sn + "_html",
+                src = sn,
+                variant = variant,
+                openroad = kwargs.get("openroad"),
+                visibility = kwargs.get("visibility"),
+            )
 
     if FINAL_STAGE_IMPL in steps:
         do_step(
