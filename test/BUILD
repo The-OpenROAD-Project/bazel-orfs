@@ -407,6 +407,7 @@ orfs_sweep(
     name = "L1MetadataArray",
     abstract_stage = "cts",
     arguments = L1_ARGUMENTS,
+    html = True,
     other_variants = {
         "pin_placement": {
             "last_stage": "floorplan",
@@ -445,6 +446,21 @@ orfs_sweep(
         },
     },
     verilog_files = ["rtl/L1MetadataArray.sv"],
+)
+
+# Exercises the orfs_flow(html=True) plumbing end-to-end: builds the
+# HTML timing report artifact (requires OpenROAD with web_save_report
+# from PR #10087). Skipped by wildcard builds via "manual" tag on the
+# underlying _gen targets. Tagged manual here too since it depends on
+# an OpenROAD build that carries the PR.
+build_test(
+    name = "L1MetadataArray_html_build_test",
+    tags = ["manual"],
+    targets = [
+        ":L1MetadataArray_synth_html_gen",
+        ":L1MetadataArray_floorplan_html_gen",
+        ":L1MetadataArray_cts_html_gen",
+    ],
 )
 
 orfs_run(
