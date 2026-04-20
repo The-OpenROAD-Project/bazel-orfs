@@ -23,22 +23,8 @@ local_path_override(
     path = "mock/klayout",
 )
 
-bazel_dep(name = "abc", version = "0.64-yosyshq")
+bazel_dep(name = "abc", version = "0.64-yosyshq.bcr.1")
 bazel_dep(name = "yosys", version = "0.62")
-
-# BCR 0.64-yosyshq renames utilPth.c to .cpp via copy_file because it uses
-# <atomic> and must compile as C++ so rules_cc applies the hermetic libc++
-# stdlib instead of host libstdc++. sswPart.c has the same <atomic> usage
-# but was missed upstream. Apply the same copy_file pattern and add
-# src/proof/ssw to cc_library includes so sswPart.cpp's quoted sibling
-# include of "sswInt.h" still resolves after relocation into bazel-out/.
-single_version_override(
-    module_name = "abc",
-    patch_strip = 1,
-    patches = [
-        "//patches:abc-sswpart-as-cpp.patch",
-    ],
-)
 
 # yosys_share (techlib data files) has package-private visibility in BCR yosys;
 # the ORFS flow needs it public so @yosys//:yosys_share is reachable across modules.
