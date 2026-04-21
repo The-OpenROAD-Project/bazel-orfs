@@ -230,6 +230,10 @@ def _macro_impl(ctx):
                 continue
             info[file.extension] = file
 
+    lib_pre_layout = None
+    if ctx.attr.lib and OrfsInfo in ctx.attr.lib:
+        lib_pre_layout = ctx.attr.lib[OrfsInfo].lib_pre_layout
+
     return [
         DefaultInfo(
             files = depset(ctx.files.odb + ctx.files.gds + ctx.files.lef + ctx.files.lib),
@@ -245,7 +249,7 @@ def _macro_impl(ctx):
             gds = info.get("gds"),
             lef = info.get("lef"),
             lib = info.get("lib"),
-            lib_pre_layout = None,
+            lib_pre_layout = lib_pre_layout,
             additional_gds = depset([]),
             additional_lefs = depset([]),
             additional_libs = depset([]),
