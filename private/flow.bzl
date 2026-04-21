@@ -612,8 +612,71 @@ def _orfs_pass(
         )
         return step_name
 
+    def _place_target_label():
+        """Label of this flow's place stage (local or previous_stage), or None.
+
+        Only considers stages actually instantiated in this flow — if the
+        flow starts past place via `previous_stage`, the local place target
+        does not exist.
+        """
+        if "place" in previous_stage:
+            return previous_stage["place"]
+        for s in steps[start_stage:]:
+            if s.stage == "place":
+                return _step_name(name, variant, "place")
+        return None
+
+    def _emit_pre_layout_abstract():
+        """Emit a sibling abstract target fed from the post-place .odb.
+
+        Returns the bare target name (callers prefix with ':' for label use)
+        or None if no place target is available in this flow.
+        """
+        place_src = _place_target_label()
+        if not place_src:
+            return None
+        base_variant = abstract_variant if abstract_variant else variant
+        pre_layout_variant = _variant_name(base_variant, "pre_layout")
+        pre_layout_name = _step_name(
+            name,
+            pre_layout_variant,
+            "generate_abstract",
+        )
+        ABSTRACT_IMPL.impl(
+            **_filter_stage_args(
+                ABSTRACT_IMPL.stage,
+                name = pre_layout_name,
+                stage_arguments = stage_arguments,
+                arguments = arguments,
+                sources = sources,
+                stage_sources = stage_sources,
+                settings = settings,
+                extra_arguments = extra_arguments,
+                extra_configs = extra_configs,
+                src = place_src,
+                variant = pre_layout_variant,
+                stage_data = stage_data,
+                **(
+                    kwargs |
+                    _kwargs(ABSTRACT_IMPL.stage, renamed_inputs = renamed_inputs)
+                )
+            )
+        )
+        _create_deps_tar(pre_layout_name, **kwargs)
+        return pre_layout_name
+
     for step, prev in zip(steps[start_stage:], steps[start_stage - 1:]):
-        sn = do_step(step, prev, kwargs)
+        more_kwargs = {}
+
+        # When the abstract runs past place, also emit a sibling abstract at
+        # post-place so parent flows can feed ideal-clock .lib to their
+        # synth/floorplan/place and the canonical propagated one from CTS on.
+        if step == ABSTRACT_IMPL and abstract_stage and abstract_stage != "place":
+            pre_layout_name = _emit_pre_layout_abstract()
+            if pre_layout_name:
+                more_kwargs = {"pre_layout_abstract": ":" + pre_layout_name}
+
+        sn = do_step(step, prev, kwargs, more_kwargs = more_kwargs)
         step_names.append(sn)
         _create_deps_tar(sn, **kwargs)
         if html and step.stage in _HTML_STAGES:

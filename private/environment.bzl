@@ -161,6 +161,7 @@ def source_inputs(ctx):
             ctx.attr.src[OrfsInfo].additional_gds,
             ctx.attr.src[OrfsInfo].additional_lefs,
             ctx.attr.src[OrfsInfo].additional_libs,
+            ctx.attr.src[OrfsInfo].additional_libs_pre_layout,
             ctx.attr.src[PdkInfo].files,
             ctx.attr.src[PdkInfo].libs,
             # Accumulate all JSON reports, so depend on previous stage.
@@ -183,7 +184,12 @@ def deps_inputs(ctx):
     return depset(
         [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds] +
         [dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef] +
-        [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
+        [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib] +
+        [
+            dep[OrfsInfo].lib_pre_layout
+            for dep in ctx.attr.deps
+            if dep[OrfsInfo].lib_pre_layout
+        ],
     )
 
 def flow_substitutions(ctx):
@@ -229,28 +235,43 @@ def required_arguments(ctx):
         "WORK_HOME": "./" + ctx.label.package,
     }
 
-def orfs_additional_arguments(*args, short = False):
+def orfs_additional_arguments(infos, short = False, use_pre_layout = False):
     """Returns ADDITIONAL_GDS/LEFS/LIBS arguments from OrfsInfo providers.
 
     Args:
-      *args: OrfsInfo provider instances.
+      infos: list of OrfsInfo provider instances.
       short: If True, use short_path instead of path.
+      use_pre_layout: If True, use the pre-layout .lib variant of each dep
+        (falling back to the canonical .lib when a dep has none). Applied
+        to synth/floorplan/place where the parent has no real clock tree
+        yet and should see ideal-clock macro timing. .lef/.gds are
+        unaffected.
 
     Returns:
       A dictionary of ADDITIONAL_GDS/LEFS/LIBS arguments.
     """
     gds = depset(
-        [info.gds for info in args if info.gds],
-        transitive = [info.additional_gds for info in args],
+        [info.gds for info in infos if info.gds],
+        transitive = [info.additional_gds for info in infos],
     )
     lefs = depset(
-        [info.lef for info in args if info.lef],
-        transitive = [info.additional_lefs for info in args],
+        [info.lef for info in infos if info.lef],
+        transitive = [info.additional_lefs for info in infos],
     )
-    libs = depset(
-        [info.lib for info in args if info.lib],
-        transitive = [info.additional_libs for info in args],
-    )
+    if use_pre_layout:
+        libs = depset(
+            [
+                (info.lib_pre_layout or info.lib)
+                for info in infos
+                if (info.lib_pre_layout or info.lib)
+            ],
+            transitive = [info.additional_libs_pre_layout for info in infos],
+        )
+    else:
+        libs = depset(
+            [info.lib for info in infos if info.lib],
+            transitive = [info.additional_libs for info in infos],
+        )
 
     arguments = {}
     if gds.to_list():
@@ -459,16 +480,19 @@ def renames(ctx, inputs, short = False):
     result = []
     for file in inputs:
         if ctx.attr.src[OrfsInfo].variant != ctx.attr.variant:
-            result.append(
-                struct(
-                    src = file_path(file, short),
-                    dst = _remap(
-                        file_path(file, short),
-                        ctx.attr.src[OrfsInfo].variant,
-                        ctx.attr.variant,
-                    ),
-                ),
+            src_path = file_path(file, short)
+            dst_path = _remap(
+                src_path,
+                ctx.attr.src[OrfsInfo].variant,
+                ctx.attr.variant,
             )
+
+            # Files from a different variant than both the src and this
+            # stage (e.g., base synth outputs forwarded through a
+            # downstream-variant chain) aren't touched by _remap and end
+            # up with src == dst. Skip — `mv` would error on same file.
+            if src_path != dst_path:
+                result.append(struct(src = src_path, dst = dst_path))
 
     # renamed_inputs win over variant renaming
     for file in inputs:

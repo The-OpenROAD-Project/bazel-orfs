@@ -245,9 +245,11 @@ def _macro_impl(ctx):
             gds = info.get("gds"),
             lef = info.get("lef"),
             lib = info.get("lib"),
+            lib_pre_layout = None,
             additional_gds = depset([]),
             additional_lefs = depset([]),
             additional_libs = depset([]),
+            additional_libs_pre_layout = depset([]),
             arguments = depset([]),
         ),
         TopInfo(
@@ -496,9 +498,11 @@ def _arguments_impl(ctx):
             gds = src_info.gds,
             lef = src_info.lef,
             lib = src_info.lib,
+            lib_pre_layout = src_info.lib_pre_layout,
             additional_gds = src_info.additional_gds,
             additional_lefs = src_info.additional_lefs,
             additional_libs = src_info.additional_libs,
+            additional_libs_pre_layout = src_info.additional_libs_pre_layout,
             arguments = depset(
                 [computed_json],
                 transitive = [src_info.arguments],
@@ -854,7 +858,10 @@ def _yosys_impl(ctx):
     all_arguments = merge_arguments(
         data_arguments(ctx) |
         required_arguments(ctx),
-        orfs_additional_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]),
+        orfs_additional_arguments(
+            [dep[OrfsInfo] for dep in ctx.attr.deps],
+            use_pre_layout = True,
+        ),
     )
     config = declare_artifact(ctx, "results", "1_synth.mk")
     ctx.actions.write(
@@ -1000,7 +1007,7 @@ def _yosys_impl(ctx):
                 arguments = merge_arguments(
                     data_arguments(ctx) |
                     required_arguments(ctx),
-                    orfs_additional_arguments(*[dep[OrfsInfo] for dep in ctx.attr.deps]),
+                    orfs_additional_arguments([dep[OrfsInfo] for dep in ctx.attr.deps]),
                 ) | verilog_arguments(ctx.files.verilog_files),
                 prefix = config_short.root.path,
             ),
@@ -1098,6 +1105,7 @@ def _yosys_impl(ctx):
             gds = None,
             lef = None,
             lib = None,
+            lib_pre_layout = None,
             additional_gds = depset(
                 [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds],
             ),
@@ -1106,6 +1114,13 @@ def _yosys_impl(ctx):
             ),
             additional_libs = depset(
                 [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib],
+            ),
+            additional_libs_pre_layout = depset(
+                [
+                    (dep[OrfsInfo].lib_pre_layout or dep[OrfsInfo].lib)
+                    for dep in ctx.attr.deps
+                    if (dep[OrfsInfo].lib_pre_layout or dep[OrfsInfo].lib)
+                ],
             ),
             arguments = depset([]),
         ),
@@ -1170,6 +1185,8 @@ orfs_synth_rule = rule(
 
 # --- Make-based stage implementation ---
 
+_PRE_LAYOUT_STAGES = ("2_floorplan", "3_place")
+
 def _make_impl(
         ctx,
         stage,
@@ -1182,7 +1199,8 @@ def _make_impl(
         extra_arguments = {},
         json_names = [],
         drc_names = [],
-        substep_names = []):
+        substep_names = [],
+        lib_pre_layout = None):
     """
     Implementation function for the OpenROAD-flow-scripts stages.
 
@@ -1200,16 +1218,23 @@ def _make_impl(
       drc_names: The names of the DRC files.
       substep_names: Substep names whose intermediate .odb files should be
           captured as additional action outputs in per-substep output groups.
+      lib_pre_layout: Optional pre-layout .lib File to expose on this
+          stage's OrfsInfo. Used by orfs_abstract to surface the post-place
+          .lib alongside the canonical (post-final) one.
 
     Returns:
         A list of providers. The returned PdkInfo and TopInfo providers are taken from the first
         target of a ctx.attr.srcs list.
     """
+    use_pre_layout = stage in _PRE_LAYOUT_STAGES
     all_arguments = merge_arguments(
         extra_arguments |
         data_arguments(ctx) |
         required_arguments(ctx),
-        orfs_additional_arguments(ctx.attr.src[OrfsInfo]),
+        orfs_additional_arguments(
+            [ctx.attr.src[OrfsInfo]],
+            use_pre_layout = use_pre_layout,
+        ),
     )
 
     # Write this stage's arguments to .json for downstream stages, then
@@ -1302,7 +1327,10 @@ def _make_impl(
                     extra_arguments |
                     data_arguments(ctx) |
                     required_arguments(ctx),
-                    orfs_additional_arguments(ctx.attr.src[OrfsInfo]),
+                    orfs_additional_arguments(
+                        [ctx.attr.src[OrfsInfo]],
+                        use_pre_layout = use_pre_layout,
+                    ),
                 ),
                 prefix = config_short.root.path,
             ),
@@ -1380,6 +1408,7 @@ def _make_impl(
                         ctx.attr.src[OrfsInfo].additional_gds,
                         ctx.attr.src[OrfsInfo].additional_lefs,
                         ctx.attr.src[OrfsInfo].additional_libs,
+                        ctx.attr.src[OrfsInfo].additional_libs_pre_layout,
                     ],
                 ),
             ),
@@ -1421,9 +1450,11 @@ def _make_impl(
             gds = info.get("gds"),
             lef = info.get("lef"),
             lib = info.get("lib"),
+            lib_pre_layout = lib_pre_layout,
             additional_gds = ctx.attr.src[OrfsInfo].additional_gds,
             additional_lefs = ctx.attr.src[OrfsInfo].additional_lefs,
             additional_libs = ctx.attr.src[OrfsInfo].additional_libs,
+            additional_libs_pre_layout = ctx.attr.src[OrfsInfo].additional_libs_pre_layout,
             arguments = depset(
                 [stage_json],
                 transitive = [ctx.attr.src[OrfsInfo].arguments] +
@@ -1812,12 +1843,24 @@ orfs_abstract = rule(
         extra_arguments = {
             "ABSTRACT_SOURCE": extensionless_basename(ctx.attr.src[OrfsInfo].odb),
         },
+        lib_pre_layout = (
+            ctx.attr.pre_layout_abstract[OrfsInfo].lib if ctx.attr.pre_layout_abstract else None
+        ),
     ),
     attrs = openroad_attrs() |
             renamed_inputs_attr() |
             {
                 "_stage": attr.string(
                     default = "generate_abstract",
+                ),
+                "pre_layout_abstract": attr.label(
+                    providers = [OrfsInfo],
+                    doc = "Optional sibling abstract target emitted at the " +
+                          "post-`place` stage. Its .lib is exposed as this " +
+                          "target's OrfsInfo.lib_pre_layout so that parent " +
+                          "flows can consume ideal-clock timing for " +
+                          "synth/floorplan/place and the canonical " +
+                          "propagated-clock lib from CTS onward.",
                 ),
             },
     provides = flow_provides(),
