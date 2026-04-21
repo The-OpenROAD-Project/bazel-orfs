@@ -81,6 +81,28 @@ bazel_dep(name = "glpk", version = "5.0.bcr.4")
 
 bazel_dep(name = "toolchains_llvm", version = "1.5.0", dev_dependency = True)
 
+# Stub libxml2.so.2 — boarding up a broken window.
+# ld.lld from the LLVM release links libxml2 dynamically but only calls into
+# it for Windows manifest merging (lld/COFF). On Linux we get a useless
+# "no version information available" warning on every link and a hidden
+# host libxml2-dev requirement. We inject an abort-on-call stub into the
+# toolchain's lib/, which ld.lld's RUNPATH=$ORIGIN/../lib resolves before
+# the system library. See tools/xml-hack/README.md for deletion conditions.
+# toolchains_llvm has no patch_cmds hook, so we bring our own LLVM tarball
+# via an http_archive and point llvm.toolchain_root at it.
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "llvm_toolchain_llvm",
+    build_file = "//tools/xml-hack:BUILD.llvm_repo",
+    patch_cmds = [
+        """printf '%s\\n' 'extern void abort(void);' 'void *xmlFree=0;' 'void *xmlAddChild(void*p,void*c){abort();}' 'void *xmlCopyNamespace(void*n){abort();}' 'void xmlDocDumpFormatMemoryEnc(void*d,void*b,void*s,const char*e,int f){abort();}' 'void *xmlDocGetRootElement(void*d){abort();}' 'void *xmlDocSetRootElement(void*d,void*r){abort();}' 'void xmlFreeDoc(void*d){abort();}' 'void xmlFreeNode(void*n){abort();}' 'void xmlFreeNs(void*n){abort();}' 'void *xmlNewDoc(const void*v){abort();}' 'void *xmlNewNs(void*n,const void*h,const void*p){abort();}' 'void *xmlNewProp(void*n,const void*a,const void*v){abort();}' 'void *xmlReadMemory(const char*b,int sz,const char*u,const char*e,int o){abort();}' 'void xmlSetGenericErrorFunc(void*c,void*h){abort();}' 'void *xmlStrdup(const void*s){abort();}' 'void xmlUnlinkNode(void*n){abort();}' > _stub.c && printf '%s\\n' 'LIBXML2_2.4.30 { global: xmlAddChild; xmlCopyNamespace; xmlDocDumpFormatMemoryEnc; xmlDocGetRootElement; xmlDocSetRootElement; xmlFree; xmlFreeDoc; xmlFreeNode; xmlFreeNs; xmlNewDoc; xmlNewNs; xmlNewProp; xmlSetGenericErrorFunc; xmlStrdup; xmlUnlinkNode; local: *; };' 'LIBXML2_2.6.0 { global: xmlReadMemory; } LIBXML2_2.4.30;' > _stub.ver && ./bin/clang -nostdlib -nostdinc -fuse-ld=lld -shared -o lib/libxml2.so.2 -Wl,--version-script=_stub.ver -Wl,-soname,libxml2.so.2 _stub.c && rm _stub.c _stub.ver""",
+    ],
+    sha256 = "1ead36b3dfcb774b57be530df42bec70ab2d239fbce9889447c7a29a4ddc1ae6",
+    strip_prefix = "LLVM-20.1.8-Linux-X64",
+    url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-20.1.8/LLVM-20.1.8-Linux-X64.tar.xz",
+)
+
 llvm = use_extension(
     "@toolchains_llvm//toolchain/extensions:llvm.bzl",
     "llvm",
@@ -88,6 +110,10 @@ llvm = use_extension(
 )
 llvm.toolchain(
     llvm_version = "20.1.8",
+)
+llvm.toolchain_root(
+    name = "llvm_toolchain",
+    label = "@llvm_toolchain_llvm//:BUILD.bazel",
 )
 use_repo(llvm, "llvm_toolchain")
 
