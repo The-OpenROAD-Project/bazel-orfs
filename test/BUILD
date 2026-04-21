@@ -6,6 +6,7 @@ load("//:openroad.bzl", "get_stage_args", "orfs_arguments", "orfs_floorplan", "o
 load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:sweep.bzl", "orfs_sweep")
 load(":deps_output_group_rule.bzl", "deps_output_group_test", "output_group_test")
+load(":provider_test_rule.bzl", "lib_pre_layout_test")
 
 exports_files(
     glob([
@@ -1137,6 +1138,22 @@ orfs_flow(
     stage_sources = LB_STAGE_SOURCES,
     variant = "mock_full_abstract",
     verilog_files = LB_VERILOG_FILES,
+)
+
+# Verify that orfs_macro forwards lib_pre_layout from the inner
+# orfs_abstract. This is a bare orfs_macro wrapping the mock abstract
+# (which has abstract_stage="cts", past "place", so it emits a
+# pre-layout abstract). The test asserts lib_pre_layout is non-None.
+orfs_macro(
+    name = "lb_32x128_mock_macro_wrapper",
+    lef = ":lb_32x128_mock_full_abstract_generate_abstract",
+    lib = ":lb_32x128_mock_full_abstract_generate_abstract",
+    module_top = "lb_32x128",
+)
+
+lib_pre_layout_test(
+    name = "lib_pre_layout_macro_test",
+    target = ":lb_32x128_mock_macro_wrapper",
 )
 
 # Fully-mock hierarchical flow for deps integration tests.
