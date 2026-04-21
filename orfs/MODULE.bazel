@@ -56,6 +56,7 @@ git_override(
         "//patches:0028-fix-override-PDN_TCL-for-riscv32i-mock-sram-to-fix-P.patch",
         "//patches:0029-fix-remove-mock-openroad-bazel_dep-after-inlining.patch",
         "//patches:0030-build-add-flow-designs-BUILD.bazel-for-orfs_designs-.patch",
+        "//patches:0031-fix-log-cmd-skip-timing-when-clock-is-unavailable.patch",
     ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
 )

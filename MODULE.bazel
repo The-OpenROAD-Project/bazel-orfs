@@ -34,19 +34,21 @@ single_version_override(
     patches = [
         "//patches:yosys-visibility.patch",
         "//patches:yosys-hdrs.patch",
+        "//patches:yosys-tcl9-mp-to-ubin.patch",
     ],
 )
 
 bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",
-    commit = "bdb262792fef3797730e1b8341b946426272dcdc",
+    commit = "2f4de31a0f3f6402ca74887f67b75a9303c6e061",
     patch_strip = 1,
     # Minimal patches: only what's needed when ORFS is a non-root module.
     # Design-specific patches are only applied in the orfs/ integration workspace.
     patches = [
         "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
         "//patches:orfs-preserve-tool-exe-env.patch",
+        "//patches:orfs-log-cmd-clock-fallback.patch",
     ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
 )
@@ -54,7 +56,7 @@ git_override(
 bazel_dep(name = "openroad")
 git_override(
     module_name = "openroad",
-    commit = "739b9a7846e1734a6f7efe655a9d9cff06b53ef2",
+    commit = "5f1bd87f37fd3c6dc83ad2195cc63b7b366771bc",
     init_submodules = True,
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
