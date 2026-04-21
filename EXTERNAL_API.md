@@ -17,8 +17,6 @@ consumers.
 | `ppa.bzl` | `orfs_ppa` | `rules_shell` |
 | `verilog.bzl` | `verilog_directory`, `verilog_file`, `verilog_single_file_library` | `rules_verilog` |
 | `generate.bzl` | `fir_library` | none (`@circt` http_archive) |
-| `sby/sby.bzl` | `sby_test` | `bazel-orfs-verilog`, `oss_cad_suite` (in `bazel-orfs-sby` submodule) |
-| `eqy.bzl` | `eqy_test` | none |
 | `orfs_genrule.bzl` | `orfs_genrule` | none |
 | `sweep.bzl` | `sweep` | none (via openroad.bzl) |
 
@@ -37,7 +35,7 @@ downstream consumers may transitively evaluate:
 ## Dev-only files (not public API)
 
 - `chisel/test.bzl` — `chisel_bench_test` (needs `rules_cc`, `rules_chisel`, `rules_verilator`)
-- BUILD files under `chisel/`, `delivery/`, `sby/`, `mock/` — internal test targets
+- BUILD files under `chisel/`, `mock/` — internal test targets
 
 ## Dev-only bazel_dep entries
 

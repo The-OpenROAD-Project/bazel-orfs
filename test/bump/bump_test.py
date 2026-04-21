@@ -129,7 +129,7 @@ class TestDownstreamFresh(unittest.TestCase):
 
 
 class TestDownstreamWithSubmodules(unittest.TestCase):
-    """Test: downstream with bazel-orfs-verilog and bazel-orfs-sby submodules."""
+    """Test: downstream with bazel-orfs-verilog submodule."""
 
     def setUp(self):
         self.content = apply_bump("downstream-with-submodules.MODULE.bazel")
@@ -139,9 +139,6 @@ class TestDownstreamWithSubmodules(unittest.TestCase):
 
     def test_verilog_submodule_commit_updated(self):
         self.assertNotIn("old_verilog_commit", self.content)
-
-    def test_sby_submodule_commit_updated(self):
-        self.assertNotIn("old_sby_commit", self.content)
 
     def test_all_submodules_share_same_commit(self):
         """All bazel-orfs submodule overrides should use the same commit."""
@@ -154,11 +151,9 @@ class TestDownstreamWithSubmodules(unittest.TestCase):
         commits = {name: commit for name, commit in blocks}
         self.assertEqual(commits["bazel-orfs"], BAZEL_ORFS_COMMIT)
         self.assertEqual(commits["bazel-orfs-verilog"], BAZEL_ORFS_COMMIT)
-        self.assertEqual(commits["bazel-orfs-sby"], BAZEL_ORFS_COMMIT)
 
     def test_strip_prefix_preserved(self):
         self.assertIn('strip_prefix = "verilog"', self.content)
-        self.assertIn('strip_prefix = "sby"', self.content)
 
 
 def _apply_bump_with_workspace(fixture_name, build_files):
@@ -202,20 +197,6 @@ class TestDownstreamSubmodulesInjectedWhenUsed(unittest.TestCase):
         )
         self.assertIn('bazel_dep(name = "bazel-orfs-verilog")', content)
 
-    def test_sby_injected_when_referenced(self):
-        content = _apply_bump_with_workspace(
-            "downstream.MODULE.bazel",
-            {"hw/BUILD.bazel": 'load("@bazel-orfs-sby//:sby.bzl", "sby_test")\n'},
-        )
-        self.assertIn('bazel_dep(name = "bazel-orfs-sby")', content)
-
-    def test_sby_injected_for_pre_migration_load_path(self):
-        content = _apply_bump_with_workspace(
-            "downstream.MODULE.bazel",
-            {"hw/BUILD.bazel": 'load("@bazel-orfs//:sby/sby.bzl", "sby_test")\n'},
-        )
-        self.assertIn('bazel_dep(name = "bazel-orfs-sby")', content)
-
 
 class TestDownstreamSubmodulesNotInjectedWhenUnused(unittest.TestCase):
     """Submodules the workspace does not reference should be skipped."""
@@ -225,15 +206,6 @@ class TestDownstreamSubmodulesNotInjectedWhenUnused(unittest.TestCase):
             "downstream.MODULE.bazel",
             {"hw/BUILD.bazel": 'load("@bazel_skylib//lib:paths.bzl", "paths")\n'},
         )
-        self.assertNotIn('bazel_dep(name = "bazel-orfs-sby")', content)
-        self.assertNotIn('bazel_dep(name = "bazel-orfs-verilog")', content)
-
-    def test_only_used_submodule_injected(self):
-        content = _apply_bump_with_workspace(
-            "downstream.MODULE.bazel",
-            {"hw/BUILD.bazel": 'load("@bazel-orfs-sby//:sby.bzl", "sby_test")\n'},
-        )
-        self.assertIn('bazel_dep(name = "bazel-orfs-sby")', content)
         self.assertNotIn('bazel_dep(name = "bazel-orfs-verilog")', content)
 
 
@@ -253,55 +225,51 @@ class TestSubmoduleIsUsed(unittest.TestCase):
             f.write(content)
 
     def test_detects_direct_repo_ref(self):
-        self._write("BUILD.bazel", 'cc_library(deps = ["@bazel-orfs-sby//:foo"])\n')
-        self.assertTrue(bump.submodule_is_used("bazel-orfs-sby", self.tmpdir))
+        self._write(
+            "BUILD.bazel",
+            'cc_library(deps = ["@bazel-orfs-verilog//:foo"])\n',
+        )
+        self.assertTrue(bump.submodule_is_used("bazel-orfs-verilog", self.tmpdir))
 
     def test_ignores_non_build_files(self):
-        self._write("README.md", "See @bazel-orfs-sby// for details\n")
-        self.assertFalse(bump.submodule_is_used("bazel-orfs-sby", self.tmpdir))
+        self._write("README.md", "See @bazel-orfs-verilog// for details\n")
+        self.assertFalse(bump.submodule_is_used("bazel-orfs-verilog", self.tmpdir))
 
     def test_skips_bazel_output_dirs(self):
         self._write(
             "bazel-bin/BUILD.bazel",
-            'load("@bazel-orfs-sby//:sby.bzl", "sby_test")\n',
+            'load("@bazel-orfs-verilog//:defs.bzl", "verilog_library")\n',
         )
-        self.assertFalse(bump.submodule_is_used("bazel-orfs-sby", self.tmpdir))
+        self.assertFalse(bump.submodule_is_used("bazel-orfs-verilog", self.tmpdir))
 
     def test_skips_hidden_dirs(self):
         self._write(
             ".git/BUILD.bazel",
-            'load("@bazel-orfs-sby//:sby.bzl", "sby_test")\n',
+            'load("@bazel-orfs-verilog//:defs.bzl", "verilog_library")\n',
         )
-        self.assertFalse(bump.submodule_is_used("bazel-orfs-sby", self.tmpdir))
+        self.assertFalse(bump.submodule_is_used("bazel-orfs-verilog", self.tmpdir))
 
     def test_not_used_when_no_match(self):
         self._write("BUILD.bazel", 'cc_library(name = "foo")\n')
-        self.assertFalse(bump.submodule_is_used("bazel-orfs-sby", self.tmpdir))
+        self.assertFalse(bump.submodule_is_used("bazel-orfs-verilog", self.tmpdir))
 
 
 class TestFindBazelOrfsSubmodules(unittest.TestCase):
     def test_finds_present_submodules(self):
         content = (
-            'git_override(\n    module_name = "bazel-orfs-sby",\n'
+            'git_override(\n    module_name = "bazel-orfs-verilog",\n'
             '    commit = "abc",\n)\n'
         )
-        self.assertEqual(bump.find_bazel_orfs_submodules(content), ["bazel-orfs-sby"])
+        self.assertEqual(
+            bump.find_bazel_orfs_submodules(content),
+            ["bazel-orfs-verilog"],
+        )
 
     def test_empty_when_none_present(self):
         content = (
             'git_override(\n    module_name = "bazel-orfs",\n    commit = "x",\n)\n'
         )
         self.assertEqual(bump.find_bazel_orfs_submodules(content), [])
-
-    def test_finds_both(self):
-        content = (
-            'git_override(\n    module_name = "bazel-orfs-verilog",\n    commit = "a",\n)\n'
-            'git_override(\n    module_name = "bazel-orfs-sby",\n    commit = "b",\n)\n'
-        )
-        self.assertEqual(
-            bump.find_bazel_orfs_submodules(content),
-            ["bazel-orfs-verilog", "bazel-orfs-sby"],
-        )
 
 
 class TestBazelOrfsYosysUpdate(unittest.TestCase):
@@ -567,161 +535,6 @@ class TestNetworkErrorHandling(unittest.TestCase):
                 )
             finally:
                 os.unlink(tmp.name)
-
-
-class TestMigrateLoadPaths(unittest.TestCase):
-    """Test load() path migration for moved .bzl files."""
-
-    def setUp(self):
-        self.tmpdir = tempfile.mkdtemp()
-
-    def tearDown(self):
-        shutil.rmtree(self.tmpdir)
-
-    def _write(self, relpath, content):
-        fpath = os.path.join(self.tmpdir, relpath)
-        os.makedirs(os.path.dirname(fpath), exist_ok=True)
-        with open(fpath, "w") as f:
-            f.write(content)
-        return fpath
-
-    def _read(self, relpath):
-        with open(os.path.join(self.tmpdir, relpath)) as f:
-            return f.read()
-
-    def test_migrates_sby_load_in_build_file(self):
-        self._write(
-            "hardware/BUILD.bazel",
-            'load("@bazel-orfs//:sby.bzl", "sby_test")\n',
-        )
-        changes = bump.migrate_load_paths(self.tmpdir)
-        self.assertEqual(len(changes), 1)
-        self.assertEqual(changes[0][1], "@bazel-orfs//:sby.bzl")
-        self.assertEqual(changes[0][2], "@bazel-orfs//:sby/sby.bzl")
-        self.assertEqual(
-            self._read("hardware/BUILD.bazel"),
-            'load("@bazel-orfs//:sby/sby.bzl", "sby_test")\n',
-        )
-
-    def test_migrates_sby_load_in_bzl_file(self):
-        self._write(
-            "defs.bzl",
-            'load("@bazel-orfs//:sby.bzl", "sby_test")\n',
-        )
-        changes = bump.migrate_load_paths(self.tmpdir)
-        self.assertEqual(len(changes), 1)
-
-    def test_skips_already_migrated(self):
-        self._write(
-            "BUILD.bazel",
-            'load("@bazel-orfs//:sby/sby.bzl", "sby_test")\n',
-        )
-        changes = bump.migrate_load_paths(self.tmpdir)
-        self.assertEqual(len(changes), 0)
-
-    def test_skips_unrelated_files(self):
-        self._write("README.md", "@bazel-orfs//:sby.bzl\n")
-        self._write("src/main.py", 'print("@bazel-orfs//:sby.bzl")\n')
-        changes = bump.migrate_load_paths(self.tmpdir)
-        self.assertEqual(len(changes), 0)
-
-    def test_skips_bazel_output_dirs(self):
-        self._write(
-            "bazel-bin/BUILD.bazel",
-            'load("@bazel-orfs//:sby.bzl", "sby_test")\n',
-        )
-        changes = bump.migrate_load_paths(self.tmpdir)
-        self.assertEqual(len(changes), 0)
-
-    def test_skips_hidden_dirs(self):
-        self._write(
-            ".git/BUILD.bazel",
-            'load("@bazel-orfs//:sby.bzl", "sby_test")\n',
-        )
-        changes = bump.migrate_load_paths(self.tmpdir)
-        self.assertEqual(len(changes), 0)
-
-    def test_migrates_multiple_files(self):
-        self._write(
-            "a/BUILD.bazel",
-            'load("@bazel-orfs//:sby.bzl", "sby_test")\n',
-        )
-        self._write(
-            "b/BUILD",
-            'load("@bazel-orfs//:sby.bzl", "sby_test")\n',
-        )
-        changes = bump.migrate_load_paths(self.tmpdir)
-        self.assertEqual(len(changes), 2)
-
-    def test_preserves_other_loads(self):
-        content = (
-            'load("@bazel-orfs//:sby.bzl", "sby_test")\n'
-            'load("@bazel-orfs//:openroad.bzl", "orfs_flow")\n'
-        )
-        self._write("BUILD.bazel", content)
-        bump.migrate_load_paths(self.tmpdir)
-        result = self._read("BUILD.bazel")
-        self.assertIn("@bazel-orfs//:sby/sby.bzl", result)
-        self.assertIn("@bazel-orfs//:openroad.bzl", result)
-
-
-class TestBumpWithMigration(unittest.TestCase):
-    """Integration test: bump() migrates load paths in workspace."""
-
-    def test_bump_migrates_sby_load(self):
-        tmpdir = tempfile.mkdtemp()
-        try:
-            # Set up workspace with MODULE.bazel and a BUILD file with old load
-            src = os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel")
-            module_file = os.path.join(tmpdir, "MODULE.bazel")
-            shutil.copy2(src, module_file)
-
-            build_file = os.path.join(tmpdir, "hardware", "BUILD.bazel")
-            os.makedirs(os.path.dirname(build_file))
-            with open(build_file, "w") as f:
-                f.write('load("@bazel-orfs//:sby.bzl", "sby_test")\n')
-
-            bump.bump(
-                module_file,
-                fetch_commit_fn=mock_fetch_commit,
-                fetch_release_fn=mock_fetch_release,
-                fetch_tag_commit_fn=mock_fetch_tag_commit,
-                workspace_dir=tmpdir,
-            )
-
-            with open(build_file) as f:
-                result = f.read()
-            self.assertIn("@bazel-orfs//:sby/sby.bzl", result)
-            self.assertNotIn('@bazel-orfs//:sby.bzl"', result)
-        finally:
-            shutil.rmtree(tmpdir)
-
-    def test_bazel_orfs_project_skips_migration(self):
-        """bazel-orfs itself should not migrate its own load paths."""
-        tmpdir = tempfile.mkdtemp()
-        try:
-            src = os.path.join(FIXTURES_DIR, "self.MODULE.bazel")
-            module_file = os.path.join(tmpdir, "MODULE.bazel")
-            shutil.copy2(src, module_file)
-
-            build_file = os.path.join(tmpdir, "BUILD.bazel")
-            with open(build_file, "w") as f:
-                f.write('load("//:sby.bzl", "sby_test")\n')
-
-            bump.bump(
-                module_file,
-                fetch_commit_fn=mock_fetch_commit,
-                fetch_release_fn=mock_fetch_release,
-                fetch_tag_commit_fn=mock_fetch_tag_commit,
-                workspace_dir=tmpdir,
-            )
-
-            with open(build_file) as f:
-                result = f.read()
-            # bazel-orfs uses //:sby.bzl (no @bazel-orfs prefix), should be untouched
-            self.assertEqual(result, 'load("//:sby.bzl", "sby_test")\n')
-        finally:
-            shutil.rmtree(tmpdir)
 
 
 if __name__ == "__main__":

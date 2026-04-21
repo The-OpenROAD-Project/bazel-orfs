@@ -7,7 +7,6 @@ module(
 
 bazel_dep(name = "bazel-orfs")
 bazel_dep(name = "bazel-orfs-verilog")
-bazel_dep(name = "bazel-orfs-sby")
 
 git_override(
     module_name = "bazel-orfs",
@@ -20,13 +19,6 @@ git_override(
     commit = "old_verilog_commit",
     remote = "https://github.com/The-OpenROAD-Project/bazel-orfs",
     strip_prefix = "verilog",
-)
-
-git_override(
-    module_name = "bazel-orfs-sby",
-    commit = "old_sby_commit",
-    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs",
-    strip_prefix = "sby",
 )
 
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")

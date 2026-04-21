@@ -7,8 +7,6 @@ Chisel generator with firtool internally), the same firtool flags
 passed to verilog_directory / verilog_file via `opts`. The two firtool
 invocations must agree, otherwise layer bind files or randomization
 constructs in the .fir won't match what this pass expects.
-
-See sby.bzl for an example of passing consistent options to both passes.
 """
 
 load("@rules_verilog//verilog:defs.bzl", "VerilogInfo")

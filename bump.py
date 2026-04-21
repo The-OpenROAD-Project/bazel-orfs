@@ -109,7 +109,6 @@ def update_git_override_commit(content, module_name, new_commit):
 
 BAZEL_ORFS_SUBMODULES = {
     "bazel-orfs-verilog": "verilog",
-    "bazel-orfs-sby": "sby",
 }
 
 # Substrings that imply a consumer actually uses a given submodule.  Used
@@ -119,54 +118,7 @@ SUBMODULE_USAGE_PATTERNS = {
     "bazel-orfs-verilog": [
         "@bazel-orfs-verilog//",
     ],
-    "bazel-orfs-sby": [
-        "@bazel-orfs-sby//",
-        # Pre-migration load path still in use in some consumer trees.
-        "@bazel-orfs//:sby/sby.bzl",
-        "@bazel-orfs//:sby.bzl",
-    ],
 }
-
-# Old load path -> new load path.  Applied to BUILD* and *.bzl files
-# when bumping a downstream project so that moved .bzl files don't
-# break the build.
-LOAD_MIGRATIONS = {
-    "@bazel-orfs//:sby.bzl": "@bazel-orfs//:sby/sby.bzl",
-}
-
-
-def migrate_load_paths(workspace_dir):
-    """Rewrite load() statements in BUILD/bzl files for known .bzl moves.
-
-    Returns list of (filepath, old, new) tuples for each replacement made.
-    """
-    changes = []
-    for root, _dirs, files in os.walk(workspace_dir):
-        # Skip bazel output dirs and hidden dirs
-        rel = os.path.relpath(root, workspace_dir)
-        if rel != "." and any(
-            part.startswith(".") or part.startswith("bazel-")
-            for part in rel.split(os.sep)
-        ):
-            continue
-        for fname in files:
-            if not (
-                fname == "BUILD" or fname == "BUILD.bazel" or fname.endswith(".bzl")
-            ):
-                continue
-            fpath = os.path.join(root, fname)
-            with open(fpath) as f:
-                content = f.read()
-            new_content = content
-            for old_path, new_path in LOAD_MIGRATIONS.items():
-                new_content = new_content.replace(f'"{old_path}"', f'"{new_path}"')
-            if new_content != content:
-                with open(fpath, "w") as f:
-                    f.write(new_content)
-                for old_path, new_path in LOAD_MIGRATIONS.items():
-                    if f'"{old_path}"' in content:
-                        changes.append((fpath, old_path, new_path))
-    return changes
 
 
 def find_bazel_orfs_submodules(content):
@@ -578,12 +530,6 @@ def bump(
 
     with open(module_file, "w") as f:
         f.write(content)
-
-    # --- Migrate load() paths for moved .bzl files (downstream only) ---
-    if project != "bazel-orfs" and workspace_dir:
-        changes = migrate_load_paths(workspace_dir)
-        for fpath, old, new in changes:
-            updated_modules.append(f"load path {old} -> {new} in {fpath}")
 
     # --- Summary ---
     print(f"Updated {module_file} ({project} project):")

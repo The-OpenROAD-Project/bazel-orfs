@@ -2,7 +2,7 @@
 asap7 shared info
 """
 
-# Empty cells we don't need or want, eqy doesn't grok them
+# Empty cells we don't need or want — unparseable by some downstream equivalence tools
 ASAP7_REMOVE_CELLS = [
     "TAPCELL_ASAP7_75t_R",
     "FILLERxp5_ASAP7_75",

@@ -46,8 +46,6 @@ The same firtool flags (especially `-disable-layers`,
 constructs in the `.fir` won't match what the second pass expects, producing
 broken Verilog with dangling `` `include`` directives.
 
-See `sby.bzl` for an example of passing consistent options to both passes.
-
 ## Dependencies
 
 Requires `@circt` (http_archive for firtool) and `@rules_verilator` (for

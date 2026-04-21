@@ -37,7 +37,6 @@ and easily actionable github issues for the OpenROAD and ORFS maintainers.
 | Query timing interactively | [Query timing interactively](#query-timing-interactively) |
 | Monitor long-running builds | [Monitor long-running builds](#monitor-long-running-builds) |
 | Sweep design parameters | [Design space exploration](#design-space-exploration) |
-| Run formal verification | [sby/README.md](sby/README.md) |
 | Integrate Chisel designs | [chisel/README.md](chisel/README.md) |
 | Pin slow-to-build artifacts | [tools/pin/README.md](tools/pin/README.md) |
 | Debug or create issue archives | [Create a make issue archive](#create-a-make-issue-archive) |
@@ -881,7 +880,7 @@ bazel analyze-profile /tmp/profile.gz
 
 #### Smoketests (`bazel test ...`)
 
-The smoketests job builds *everything* including sram, chisel, sby, and sky130 targets.
+The smoketests job builds *everything* including sram, chisel, and sky130 targets.
 Critical path runs through the `sram/` hierarchical build (sdq_17x64 → top):
 
 ```
@@ -1023,12 +1022,9 @@ arguments and parsing PPA metrics from the build outputs.
 | Tool | Description | Documentation |
 |------|-------------|---------------|
 | Chisel integration | Build Chisel designs, run tests | [chisel](chisel/README.md) |
-| Formal verification | SymbiYosys bounded model checking (`bazel-orfs-sby` module) | [sby](sby/README.md) |
 | Artifact pinning | Cache long-running build results | [tools/pin](tools/pin/README.md) |
 | Post-synthesis cleanup | najaeda netlist cleaning (experimental) | [naja](naja/README.md) |
 | SRAM macros | fakeram and mock SRAM | [sram](sram/README.md) |
-| ASAP7 tech files | Modified ASAP7 files for eqy | [asap7](asap7/README.md) |
-| Equivalence checking (eqy) | Yosys-based combinational equivalence | [delivery](delivery/README.md) |
 | Equivalence checking (LEC) | kepler-formal logic equivalence | [lec](lec/README.md) |
 | Verilog generation | FIRRTL-to-SystemVerilog via firtool | [verilog](verilog/README.md) |
 
@@ -1040,28 +1036,20 @@ sub-module they use:
 
 | Sub-module directory | Bazel module name | What it provides |
 |----------------------|-------------------|------------------|
-| `sby/` | `bazel-orfs-sby` | `sby_test` rule for SymbiYosys formal verification |
 | `verilog/` | `bazel-orfs-verilog` | `verilog_files`, `fir_library` rules |
 | `lec/` | `bazel-orfs-lec` | Logic equivalence checking |
 
-Example for adding `bazel-orfs-sby` to a downstream `MODULE.bazel`:
+Example for adding `bazel-orfs-verilog` to a downstream `MODULE.bazel`:
 
 ```starlark
-bazel_dep(name = "bazel-orfs-sby")
+bazel_dep(name = "bazel-orfs-verilog")
 
 git_override(
-    module_name = "bazel-orfs-sby",
+    module_name = "bazel-orfs-verilog",
     commit = "<same commit as bazel-orfs>",
     remote = "https://github.com/The-OpenROAD-Project/bazel-orfs",
-    strip_prefix = "sby",
+    strip_prefix = "verilog",
 )
-```
-
-Then load rules from the sub-module, not the root:
-
-```starlark
-# Old (broken): load("@bazel-orfs//:sby.bzl", "sby_test")
-load("@bazel-orfs-sby//:sby.bzl", "sby_test")
 ```
 
 ## Reference
@@ -1262,7 +1250,7 @@ The root directory contains only external-facing concerns:
 
 - `.bzl` rule files (`openroad.bzl`, `sweep.bzl`, `ppa.bzl`, etc.) loaded by downstream consumers
 - `MODULE.bazel` and `BUILD` with public tools (`bump`, `plot_clock_period_tool`)
-- Template files consumed by rules (`make.tpl`, `deploy.tpl`, `eqy.tpl`, `mock_area.tcl`)
+- Template files consumed by rules (`make.tpl`, `deploy.tpl`, `mock_area.tcl`)
 - `tools/` (pin, deploy), `extensions/` (pin)
 
 Test and demo content lives in subdirectories:
@@ -1271,7 +1259,6 @@ Test and demo content lives in subdirectories:
 - `sram/` — SRAM macro tests with fakeram and megaboom variants
 - `subpackage/` — cross-package reference tests
 - `chisel/` — Chisel integration tests
-- `sby/` — formal verification tests
 
 ### Trivial test files
 
@@ -1282,8 +1269,7 @@ and simple RTL (`Mul.sv`, `lb_32x128_top.v`) are boilerplate — an LLM can
 regenerate them from the BUILD target definitions.
 
 Non-trivial files worth understanding: `wns_report.py` (complex report parsing),
-`L1MetadataArray.sv` (cache metadata controller), `patcher.py` (ld-linux wrapper
-generation for OCI-image-extracted binaries), and the plot scripts.
+`L1MetadataArray.sv` (cache metadata controller), and the plot scripts.
 
 ## Retired features
 
