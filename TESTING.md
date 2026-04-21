@@ -68,7 +68,6 @@ comm -23 \
 |--------|--------------|
 | `//test:lb_32x128_openroad_gui_*` | Source-built OpenROAD with GUI |
 | `//chisel:*` | Chisel integration (separate MODULE.bazel) |
-| `//sby:*` | Formal verification (separate MODULE.bazel) |
 
 ## Feature coverage
 
@@ -234,7 +233,6 @@ support. Each has its own `MODULE.bazel` for independent development
 |-----------|--------------|-------------------|
 | `chisel/` | Chisel integration examples/tests. Chisel rules already moved to BCR `rules_chisel`. | rules_chisel examples repo |
 | `lec/` | Bazel rules wrapping kepler-formal for logic equivalence checking | kepler-formal repo |
-| `sby/` | Bazel rules wrapping SymbiYosys for formal verification | oss-cad-suite or separate rules_sby repo |
 | `naja/` | Naja EDA netlist cleaning example | naja repo |
 
 These are tested post-merge to catch breakage, but don't block PRs.

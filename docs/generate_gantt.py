@@ -69,14 +69,6 @@ ACTIVITIES = [
     ("SRAM support", "Features", [r"sram/"], []),
     ("Naja post-synthesis", "Features", [r"naja/"], []),
     ("orfs_genrule", "Features", [r"orfs_genrule\.bzl$"], []),
-    # --- Verification ---
-    ("EQY equivalence checking", "Verification", [r"eqy[\.-]", r"eqy\.bzl$"], []),
-    (
-        "SBY formal verification",
-        "Verification",
-        [r"sby[\./]", r"sby\.bzl$", r"sby\.tpl$"],
-        [],
-    ),
     # --- Toolchains ---
     (
         "Chisel & Scala",

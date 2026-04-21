@@ -1,7 +1,7 @@
 """Rules for kepler-formal LEC (Logic Equivalence Checking).
 
-Pattern follows eqy.bzl -- generates a config file from template,
-runs kepler-formal, and reports pass/fail as a Bazel test.
+Generates a config file from template, runs kepler-formal, and
+reports pass/fail as a Bazel test.
 
 kepler-formal operates on Verilog netlists and checks combinational
 equivalence. Sequential boundary changes are not supported.

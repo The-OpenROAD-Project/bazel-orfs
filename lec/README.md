@@ -38,11 +38,6 @@ equivalence. The gold and gate netlists must satisfy:
 - **No name changes** for hierarchical instances, sequential instances, or
   top-level ports
 
-For deep structural rewrites where these constraints are hard to meet,
-consider `eqy_test` (Yosys-based) as an alternative. See
-[delivery/README.md](../delivery/README.md) for a complete workflow using
-both tools.
-
 ## Temporary home
 
 This directory is hosted in bazel-orfs temporarily until the kepler-formal

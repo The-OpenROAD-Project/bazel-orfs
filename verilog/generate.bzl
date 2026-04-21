@@ -8,8 +8,6 @@ Any firtool flags passed through `opts` (e.g. -disable-layers,
 .fir is later processed by verilog_directory / verilog_file, the same
 firtool flags must be passed there too, or the two passes will
 disagree on layer handling and produce broken Verilog.
-
-See sby.bzl for an example of passing consistent options to both passes.
 """
 
 # buildifier: disable=module-docstring

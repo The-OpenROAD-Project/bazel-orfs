@@ -61,12 +61,12 @@ class TestFilterIgnored(unittest.TestCase):
         self.assertEqual(fix_lint.filter_ignored([], {"mock/chisel"}), [])
 
     def test_multiple_ignored_entries(self):
-        ignored = {"mock/chisel", "chisel", "sby", "gallery"}
+        ignored = {"mock/chisel", "chisel", "lec", "gallery"}
         paths = [
             "MODULE.bazel",
             "mock/chisel/MODULE.bazel",
             "chisel/MODULE.bazel",
-            "sby/MODULE.bazel",
+            "lec/MODULE.bazel",
             "gallery/MODULE.bazel",
             "verilog/MODULE.bazel",
         ]
