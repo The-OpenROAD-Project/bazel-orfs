@@ -54,6 +54,7 @@ jobs:
         uses: bazel-contrib/setup-bazel@0.19.0
         with:
           bazelisk-cache: true
+          external-cache: true
 
       - name: Repository cache
         uses: actions/cache@v4
@@ -77,6 +78,11 @@ jobs:
         run: |
           echo "common --repository_cache=$HOME/.cache/bazel-repo" >> ~/.bazelrc
           echo "common --disk_cache=$HOME/.cache/bazel-disk" >> ~/.bazelrc
+
+      # Isolate the one-time Bazel module-graph resolution so the Lint step
+      # below reflects actual lint work, not first-invocation setup.
+      - name: Warm up Bazel
+        run: bazelisk mod graph >/dev/null
 
       # --- Lint ---
       - name: Lint
