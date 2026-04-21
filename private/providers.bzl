@@ -10,9 +10,11 @@ OrfsInfo = provider(
         "gds",
         "lef",
         "lib",
+        "lib_pre_layout",
         "additional_gds",
         "additional_lefs",
         "additional_libs",
+        "additional_libs_pre_layout",
         "arguments",
     ],
 )
