@@ -31,6 +31,7 @@ load(
     "hack_away_prefix",
     "input_commands",
     "merge_arguments",
+    "module_top",
     "odb_arguments",
     "orfs_additional_arguments",
     "pdk_inputs",
@@ -784,7 +785,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         inputs = partition_inputs,
         outputs = [top_output],
         tools = yosys_and_flow_tools,
-        progress_message = "Synthesizing top module",
+        progress_message = "Synthesizing top module %s" % module_top(ctx),
     )
 
     # Action 5: merge partition outputs + top module → 1_2_yosys.v
