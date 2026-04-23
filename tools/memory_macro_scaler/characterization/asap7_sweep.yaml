@@ -1,0 +1,37 @@
+# ASAP7 FF-memory characterization sweep
+# =======================================
+#
+# Committed output of the manual Bazel target
+# //tools/memory_macro_scaler/characterization:pin_asap7_sweep, which
+# harvests per-shape orfs_flow() abstracts on ASAP7 into a structured
+# YAML that memory_macro_scaler.py auto-loads and folds into its fit.
+#
+# Regenerate (after the per-shape abstracts have built):
+#
+#     bazel run //tools/memory_macro_scaler/characterization:pin_asap7_sweep
+#
+# Empty `runs: []` means "no sweep results harvested yet" — the tool
+# falls back to the built-in MEMORY_DATA_POINTS (OpenRAM/DFFRAM
+# numbers from public PDKs).
+#
+# Schema
+# ------
+# version: int (increment on incompatible schema changes)
+# runs:    list of characterized macros, each with:
+#   tech_nm:         int     technology node in nanometers
+#   kind:            str     "ff" | "sram"
+#   rows:            int     number of words
+#   bits:            int     word width in bits
+#   ports_key:       str     "1RW" | "1R1W" | "2R1W" | …
+#   write_mask_bits: int     byte-write = 8, whole-word = 0, etc.
+#   area_um2:        float   macro outline area
+#   access_time_ps:  float   reg-to-reg read delay worst-case
+#   setup_ps:        float   data-side setup wrt clock
+#   hold_ps:         float   data-side hold wrt clock
+#   wns_ps:          float   worst negative slack at clk_period_ps
+#   clk_period_ps:   float   target clock period used in the sweep
+#   tool:            str     toolchain tag, e.g. "orfs-0.0.0"
+#   notes:           str     free-form
+
+version: 1
+runs: []

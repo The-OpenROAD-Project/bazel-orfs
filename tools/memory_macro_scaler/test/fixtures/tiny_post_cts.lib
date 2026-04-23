@@ -1,0 +1,59 @@
+library(tiny_128x64) {
+  technology (cmos);
+  delay_model : table_lookup;
+  time_unit : "1ns";
+  voltage_unit : "1V";
+  current_unit : "1uA";
+  leakage_power_unit : "1nW";
+
+  type (tiny_128x64_DATA) {
+    base_type : array; data_type : bit;
+    bit_width : 64; bit_from : 63; bit_to : 0; downto : true;
+  }
+  type (tiny_128x64_ADDR) {
+    base_type : array; data_type : bit;
+    bit_width : 7; bit_from : 6; bit_to : 0; downto : true;
+  }
+
+  cell(tiny_128x64) {
+    area : 500.0;
+
+    pin(clk)       { direction : input; clock : true; capacitance : 2.0; }
+    bus(RW0_addr)  { bus_type : tiny_128x64_ADDR; direction : input;  }
+    bus(RW0_wdata) { bus_type : tiny_128x64_DATA; direction : input;  }
+    bus(RW0_rdata) { bus_type : tiny_128x64_DATA; direction : output; }
+    pin(RW0_wmode) { direction : input; }
+
+    pin(clk_tree_sink) {
+      direction : input;
+      timing() {
+        timing_type : max_clock_tree_path;
+        cell_rise(scalar) { values ("0.45") }
+        cell_fall(scalar) { values ("0.45") }
+      }
+      timing() {
+        timing_type : min_clock_tree_path;
+        cell_rise(scalar) { values ("0.35") }
+        cell_fall(scalar) { values ("0.35") }
+      }
+    }
+
+    pin(RW0_sample_delay) {
+      direction : output;
+      timing() {
+        related_pin : "clk";
+        timing_type : rising_edge;
+        cell_rise(scalar) { values ("0.50") }
+        cell_fall(scalar) { values ("0.45") }
+        rise_transition(scalar) { values ("0.08") }
+        fall_transition(scalar) { values ("0.07") }
+      }
+      timing() {
+        related_pin : "clk";
+        timing_type : setup_rising;
+        rise_constraint(scalar) { values ("0.12") }
+        fall_constraint(scalar) { values ("0.10") }
+      }
+    }
+  }
+}

@@ -19,6 +19,8 @@ consumers.
 | `generate.bzl` | `fir_library` | none (`@circt` http_archive) |
 | `orfs_genrule.bzl` | `orfs_genrule` | none |
 | `sweep.bzl` | `sweep` | none (via openroad.bzl) |
+| `tools/memory_macro_scaler/scale_macro.bzl` | `scale_macro` — dual-characterization macro scaler wiring | none (via openroad.bzl) |
+| `tools/memory_macro_scaler/scaled_macro_lib.bzl` | `scaled_macro_lib` — OrfsInfo-carrying wrapper around two scaled .lib files | none |
 
 ## Required non-dev bazel_dep entries
 

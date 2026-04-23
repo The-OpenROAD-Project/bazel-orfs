@@ -1,0 +1,45 @@
+VERSION 5.8 ;
+BUSBITCHARS "[]" ;
+DIVIDERCHAR "/" ;
+
+MACRO tiny_128x64
+  CLASS BLOCK ;
+  ORIGIN 0 0 ;
+  SIZE 20 BY 15 ;
+  PIN clk
+    DIRECTION INPUT ;
+    USE CLOCK ;
+    PORT
+      LAYER M5 ; RECT 9.9 14.9 10.0 15.0 ;
+    END
+  END clk
+  PIN RW0_addr
+    DIRECTION INPUT ;
+    PORT
+      LAYER M4 ; RECT 0.0 5.0 0.1 5.1 ;
+    END
+  END RW0_addr
+  PIN RW0_wdata
+    DIRECTION INPUT ;
+    PORT
+      LAYER M4 ; RECT 0.0 7.0 0.1 7.1 ;
+    END
+  END RW0_wdata
+  PIN RW0_wmode
+    DIRECTION INPUT ;
+    PORT
+      LAYER M4 ; RECT 0.0 9.0 0.1 9.1 ;
+    END
+  END RW0_wmode
+  PIN RW0_rdata
+    DIRECTION OUTPUT ;
+    PORT
+      LAYER M4 ; RECT 19.9 5.0 20.0 5.1 ;
+    END
+  END RW0_rdata
+  OBS
+    LAYER M4 ; RECT 1 1 19 14 ;
+  END
+END tiny_128x64
+
+END LIBRARY
