@@ -61,6 +61,15 @@ expect_failure multiple_typos "CORE_UTILIZATON, PLACE_DENSTY"
 # Control: valid variables load fine
 expect_success valid
 
+# user_arguments bypasses the spell-check for project-specific env vars
+expect_success user_args_pass
+
+# user_arguments refuses to shadow a known ORFS variable
+expect_failure user_args_shadow "user_arguments contains known ORFS variable(s): CORE_UTILIZATION"
+
+# Multiple shadowed vars are listed sorted in the error
+expect_failure user_args_multiple_shadow "CORE_UTILIZATION, PLACE_DENSITY"
+
 echo
 echo "=== Results: ${pass} passed, ${fail} failed ==="
 [ "$fail" -eq 0 ]
