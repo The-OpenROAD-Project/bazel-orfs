@@ -33,9 +33,12 @@ _RELATIVE_YAML = "tools/memory_macro_scaler/characterization/asap7_sweep.yaml"
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
-        "--result-files", nargs="*", default=[], type=Path,
+        "--result-files",
+        nargs="*",
+        default=[],
+        type=Path,
         help="Harvested .lib files from the per-shape abstract targets. "
-             "When empty, an empty runs list is written.",
+        "When empty, an empty runs list is written.",
     )
     args = p.parse_args(argv)
 
@@ -60,10 +63,14 @@ def main(argv=None):
 
     if not args.result_files:
         return _write_empty(out)
-    return generate_sweep.main([
-        "--result-files", *(str(p) for p in args.result_files),
-        "--output", str(out),
-    ])
+    return generate_sweep.main(
+        [
+            "--result-files",
+            *(str(p) for p in args.result_files),
+            "--output",
+            str(out),
+        ]
+    )
 
 
 _STUB_HEADER = """\
@@ -112,8 +119,11 @@ def _write_empty(out_path):
     the file is for.
     """
     out_path.write_text(_STUB_HEADER + "\nversion: 1\nruns: []\n")
-    print(f"pin_asap7_sweep: wrote empty stub to {out_path} "
-          "(no per-shape result files were passed)", file=sys.stderr)
+    print(
+        f"pin_asap7_sweep: wrote empty stub to {out_path} "
+        "(no per-shape result files were passed)",
+        file=sys.stderr,
+    )
     return 0
 
 

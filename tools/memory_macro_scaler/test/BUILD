@@ -5,10 +5,10 @@ load("//tools/memory_macro_scaler:scale_macro.bzl", "scale_macro")
 # Drive scale_macro() against hand-crafted tiny fixtures. No real flow runs.
 scale_macro(
     name = "tiny_scaled",
+    module_top = "tiny_128x64",
+    reference_lef = "fixtures/tiny.lef",
     reference_lib_post_cts = "fixtures/tiny_post_cts.lib",
     reference_lib_pre_layout = "fixtures/tiny_pre_layout.lib",
-    reference_lef = "fixtures/tiny.lef",
-    module_top = "tiny_128x64",
 )
 
 # Single-input variant: simulates a place-stage source macro where only
@@ -17,9 +17,9 @@ scale_macro(
 # arcs from the idiomatic table.
 scale_macro(
     name = "tiny_scaled_place_only",
-    reference_lib_post_cts = "fixtures/tiny_post_cts.lib",
-    reference_lef = "fixtures/tiny.lef",
     module_top = "tiny_128x64",
+    reference_lef = "fixtures/tiny.lef",
+    reference_lib_post_cts = "fixtures/tiny_post_cts.lib",
 )
 
 # (a) Analysis-level: the scaled orfs_macro() re-exposes OrfsInfo.lib_pre_layout.

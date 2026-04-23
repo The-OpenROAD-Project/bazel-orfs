@@ -33,8 +33,7 @@ try:
 except ImportError:  # pragma: no cover
     # Re-raise with a helpful message; bazel-orfs keeps PyYAML in its
     # requirements.in, so this should never fire inside the tool's py_binary.
-    print("error: PyYAML is required. Add it to the py_binary's deps.",
-          file=sys.stderr)
+    print("error: PyYAML is required. Add it to the py_binary's deps.", file=sys.stderr)
     raise
 
 
@@ -99,31 +98,39 @@ def harvest(result_paths):
     for p in sorted(result_paths):
         rows, bits, ports_key, wm = _parse_shape(_result_name_from_path(p))
         area, access, setup, hold = _parse_lib(p)
-        runs.append(dict(
-            tech_nm=7,
-            kind="ff",
-            rows=rows,
-            bits=bits,
-            ports_key=ports_key,
-            write_mask_bits=wm,
-            area_um2=area,
-            access_time_ps=access,
-            setup_ps=setup,
-            hold_ps=hold,
-            wns_ps=None,         # filled in by a future reporter
-            clk_period_ps=None,
-            tool="orfs-sweep",
-            notes="",
-        ))
+        runs.append(
+            dict(
+                tech_nm=7,
+                kind="ff",
+                rows=rows,
+                bits=bits,
+                ports_key=ports_key,
+                write_mask_bits=wm,
+                area_um2=area,
+                access_time_ps=access,
+                setup_ps=setup,
+                hold_ps=hold,
+                wns_ps=None,  # filled in by a future reporter
+                clk_period_ps=None,
+                tool="orfs-sweep",
+                notes="",
+            )
+        )
     return runs
 
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--result-files", nargs="+", required=True, type=Path,
-                   help="List of .lib paths harvested from the sweep.")
-    p.add_argument("--output", required=True, type=Path,
-                   help="Path to write asap7_sweep.yaml.")
+    p.add_argument(
+        "--result-files",
+        nargs="+",
+        required=True,
+        type=Path,
+        help="List of .lib paths harvested from the sweep.",
+    )
+    p.add_argument(
+        "--output", required=True, type=Path, help="Path to write asap7_sweep.yaml."
+    )
     args = p.parse_args(argv)
 
     runs = harvest(args.result_files)
