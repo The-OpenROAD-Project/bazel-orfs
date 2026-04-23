@@ -306,6 +306,30 @@ orfs_flow(
     verilog_files = LB_VERILOG_FILES,
 )
 
+# Exercises user_arguments: project-specific env vars that intentionally
+# bypass the variables.yaml spell-check.  Loading this target proves the
+# feature works; `bazelisk test //...` picks it up via build_test below.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    arguments = LB_ARGS,
+    last_stage = "floorplan",
+    openroad = "//mock/openroad/src/bin:openroad",
+    previous_stage = {"floorplan": ":lb_32x128_synth"},
+    stage_sources = LB_STAGE_SOURCES,
+    user_arguments = {
+        "ARRAY_COLS": "4",
+        "USER_PROJECT_KNOB": "42",
+    },
+    variant = "user_args",
+    verilog_files = LB_VERILOG_FILES,
+)
+
+build_test(
+    name = "lb_32x128_user_args_build_test",
+    targets = [":lb_32x128_user_args_floorplan"],
+)
+
 # Pin placement generation: shares synth, runs own floorplan without pinned IO.
 # buildifier: disable=duplicated-name
 orfs_flow(

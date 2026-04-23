@@ -18,7 +18,14 @@ load(
     "orfs_squashed",
     "orfs_synth_rule",
 )
-load("//private:stages.bzl", "STAGE_METADATA", "check_variables", "get_sources", "get_stage_args")
+load(
+    "//private:stages.bzl",
+    "ALL_VARIABLE_TO_STAGES",
+    "STAGE_METADATA",
+    "check_variables",
+    "get_sources",
+    "get_stage_args",
+)
 
 # Stages with an ODB that open.tcl can load for web_save_report.
 _HTML_STAGES = ["floorplan", "place", "cts", "grt", "route", "final"]
@@ -167,6 +174,7 @@ def orfs_flow(
         stage_arguments = {},
         renamed_inputs = {},
         arguments = {},
+        user_arguments = {},
         extra_arguments = {},
         extra_configs = {},
         abstract_stage = None,
@@ -198,6 +206,10 @@ def orfs_flow(
         Use stage_arguments only to override the automatic stage assignment.
       renamed_inputs: dictionary keyed by ORFS stages to rename inputs
       arguments: dictionary of additional arguments to the flow, automatically assigned to stages
+      user_arguments: dictionary of project-specific env vars to expose to every stage without
+        validating against ORFS variables.yaml. Use for vars read only by user-supplied .tcl/.mk
+        (e.g. ARRAY_COLS in a project's MACRO_PLACEMENT_TCL). Keys that collide with known ORFS
+        variables are rejected — route those through 'arguments' instead.
       extra_arguments: dictionary keyed by ORFS stages with lists of .json argument file labels.
         These .json files are merged into the stage config, providing computed arguments
         that flow through OrfsInfo to subsequent stages.
@@ -229,6 +241,14 @@ def orfs_flow(
     """
     check_variables(arguments.keys(), "arguments")
     check_variables(sources.keys(), "sources")
+    shadowed = sorted([k for k in user_arguments if k in ALL_VARIABLE_TO_STAGES])
+    if shadowed:
+        fail(
+            "user_arguments contains known ORFS variable(s): {shadowed}. ".format(
+                shadowed = ", ".join(shadowed),
+            ) +
+            "Use arguments= for ORFS variables; reserve user_arguments= for project-specific env vars.",
+        )
     if abstract_stage and last_stage:
         fail("abstract_stage and last_stage are mutually exclusive")
     if variant == "base":
@@ -245,7 +265,7 @@ def orfs_flow(
         stage_sources = stage_sources,
         stage_arguments = stage_arguments,
         renamed_inputs = renamed_inputs,
-        arguments = arguments,
+        arguments = arguments | user_arguments,
         extra_arguments = extra_arguments,
         extra_configs = extra_configs,
         abstract_stage = abstract_stage,
