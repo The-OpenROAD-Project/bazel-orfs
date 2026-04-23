@@ -462,9 +462,18 @@ def input_commands(renames):
     return cmds
 
 def _remap(s, a, b):
-    if s.endswith(a):
-        return s.replace("/" + a, "/" + b)
-    return s.replace("/" + a + "/", "/" + b + "/")
+    # Replace only the last occurrence of the variant path segment to avoid
+    # clobbering unrelated path components that happen to match the variant
+    # name (e.g., a Bazel package named "test" sharing a name with variant
+    # "test").
+    suffix = "/" + a
+    if s.endswith(suffix):
+        return s[:-len(suffix)] + "/" + b
+    key = "/" + a + "/"
+    idx = s.rfind(key)
+    if idx == -1:
+        return s
+    return s[:idx] + "/" + b + "/" + s[idx + len(key):]
 
 def renames(ctx, inputs, short = False):
     """Move inputs to the expected input locations.
