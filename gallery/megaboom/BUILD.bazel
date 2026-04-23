@@ -190,34 +190,20 @@ SRAM_OVERRIDES = {
 ) for name in MEMORY_BLACKBOXES]
 
 # ============================================================================
-# Behavioral-memory speedup path — experimental.
+# Behavioral-memory fast path — feeds ICache and BoomTile below.
 #
-# The demo_sram() loop above runs a full ORFS abstract per memory (minutes
-# each, ~40 memories, dominates the BoomTile build). The block below wires
-# the same MEMORY_BLACKBOXES list through
-# @bazel-orfs//tools/memory_macro_scaler:behavioral_macros, which emits
-# .lib + .lef for every module in pure Python (milliseconds per macro)
-# using an area/delay/power model fitted on published OpenRAM/DFFRAM
-# numbers. Expected DSE-grade accuracy (±25% area, calibrated access
-# time), documented in that tool's README.
-#
-# Tagged manual so it does not compete with the signoff demo_sram path
-# in CI; targets named `:<module>_behavioral` to keep namespaces
-# disjoint. To use from a downstream orfs_flow, swap a macro input
-# from `:<module>_generate_abstract` to `:<module>_behavioral`.
-#
-# The tool requires an explicit module list (Starlark cannot scan
-# Verilog at loading time) — we reuse MEMORY_BLACKBOXES, which the
-# scanner would rediscover anyway.
+# behavioral_macros() emits .lib + .lef per module in pure Python using an
+# area/delay/power model fitted on OpenRAM/DFFRAM data (±25% area, calibrated
+# access time), milliseconds per macro vs. the demo_sram() path's minutes.
+# Emitted target labels are `:<module>_behavioral`; the demo_sram() loop's
+# `:<module>_generate_abstract` labels remain available by name if a signoff
+# comparison flow is ever added.
 behavioral_macros(
     name = "behavioral_memory_macros",
     srcs = [":boom_sv"],
-    modules = MEMORY_BLACKBOXES,   # real module names in the scanned Verilog
-    target_suffix = "_behavioral", # Bazel labels: :<mod>_behavioral (avoids
-                                   # collision with the demo_sram() targets
-                                   # above that already use the bare <mod>)
+    modules = MEMORY_BLACKBOXES,
+    target_suffix = "_behavioral",
     tech_nm = 7,
-    tags = ["manual"],
 )
 
 icache_srams = [
@@ -234,7 +220,7 @@ orfs_flow(
         "MACRO_PLACE_HALO": "4 4",
         "PLACE_PINS_ARGS": "-annealing",
     },
-    macros = [":" + m + "_generate_abstract" for m in icache_srams],
+    macros = [":" + m + "_behavioral" for m in icache_srams],
     sources = {
         "SDC_FILE": [":constraints-sram.sdc"],
     },
@@ -259,7 +245,7 @@ orfs_flow(
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
         "PLACE_PINS_ARGS": "-annealing",
     },
-    macros = [":{}_generate_abstract".format(m) for m in MEMORY_BLACKBOXES],
+    macros = [":{}_behavioral".format(m) for m in MEMORY_BLACKBOXES],
     sources = {
         "SDC_FILE": [":constraints.sdc"],
     },

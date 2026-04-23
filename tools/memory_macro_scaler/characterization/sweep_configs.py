@@ -32,33 +32,29 @@ asap7_sweep.yaml.
 
 SWEEP_SHAPES = [
     # --- DFFRAM-grid cross-check at 32 bits, byte-write ---
-    dict(rows=32,   bits=32, ports_key="1RW", write_mask_bits=8),
-    dict(rows=128,  bits=32, ports_key="1RW", write_mask_bits=8),
-    dict(rows=256,  bits=32, ports_key="1RW", write_mask_bits=8),
-    dict(rows=512,  bits=32, ports_key="1RW", write_mask_bits=8),
+    dict(rows=32, bits=32, ports_key="1RW", write_mask_bits=8),
+    dict(rows=128, bits=32, ports_key="1RW", write_mask_bits=8),
+    dict(rows=256, bits=32, ports_key="1RW", write_mask_bits=8),
+    dict(rows=512, bits=32, ports_key="1RW", write_mask_bits=8),
     dict(rows=1024, bits=32, ports_key="1RW", write_mask_bits=8),
-
     # --- Width sweep at fixed 128 rows, 1RW ---
-    dict(rows=128, bits=8,   ports_key="1RW", write_mask_bits=0),
-    dict(rows=128, bits=16,  ports_key="1RW", write_mask_bits=0),
-    dict(rows=128, bits=32,  ports_key="1RW", write_mask_bits=0),
-    dict(rows=128, bits=64,  ports_key="1RW", write_mask_bits=0),
+    dict(rows=128, bits=8, ports_key="1RW", write_mask_bits=0),
+    dict(rows=128, bits=16, ports_key="1RW", write_mask_bits=0),
+    dict(rows=128, bits=32, ports_key="1RW", write_mask_bits=0),
+    dict(rows=128, bits=64, ports_key="1RW", write_mask_bits=0),
     dict(rows=128, bits=128, ports_key="1RW", write_mask_bits=0),
-
     # --- Port sweep at fixed 64x32 (RegFileStudy pattern) ---
-    dict(rows=64, bits=32, ports_key="1RW",  write_mask_bits=0),
+    dict(rows=64, bits=32, ports_key="1RW", write_mask_bits=0),
     dict(rows=64, bits=32, ports_key="1R1W", write_mask_bits=0),
     dict(rows=64, bits=32, ports_key="2R1W", write_mask_bits=0),
     dict(rows=64, bits=32, ports_key="3R1W", write_mask_bits=0),
     dict(rows=64, bits=32, ports_key="4R1W", write_mask_bits=0),
-
     # --- Bit-line-length sweep at 64 bits, 1RW (CACTI motivation) ---
     dict(rows=128, bits=64, ports_key="1RW", write_mask_bits=0),
     dict(rows=256, bits=64, ports_key="1RW", write_mask_bits=0),
     dict(rows=512, bits=64, ports_key="1RW", write_mask_bits=0),
-
     # --- Masked-write study at a modest size ---
-    dict(rows=128, bits=32, ports_key="1RW", write_mask_bits=1),   # bit-write
-    dict(rows=128, bits=32, ports_key="1RW", write_mask_bits=4),   # nibble
+    dict(rows=128, bits=32, ports_key="1RW", write_mask_bits=1),  # bit-write
+    dict(rows=128, bits=32, ports_key="1RW", write_mask_bits=4),  # nibble
     dict(rows=128, bits=32, ports_key="1RW", write_mask_bits=16),  # halfword
 ]

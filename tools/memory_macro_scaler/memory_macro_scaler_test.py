@@ -17,8 +17,10 @@ import memory_macro_scaler as mms
 # Fixture helpers
 # ---------------------------------------------------------------------------
 
+
 def _lib_header(name, time_unit='"1ns"'):
-    return textwrap.dedent(f"""\
+    return textwrap.dedent(
+        f"""\
         library({name}) {{
           technology (cmos);
           delay_model : table_lookup;
@@ -26,13 +28,16 @@ def _lib_header(name, time_unit='"1ns"'):
           voltage_unit : "1V";
           current_unit : "1uA";
           leakage_power_unit : "1nW";
-        """)
+        """
+    )
 
 
-def _firtool_sram_lib(name="tiny_8x8", nR=1, nW=1, nRW=0, rows=8, bits=8,
-                     ck_path_value=0.3):
+def _firtool_sram_lib(
+    name="tiny_8x8", nR=1, nW=1, nRW=0, rows=8, bits=8, ck_path_value=0.3
+):
     """Build a minimal Liberty file with firtool-style pins and a ck-path arc."""
     import math
+
     addr_bits = int(math.log2(rows))
     types = f"""
       type ({name}_DATA) {{
@@ -47,18 +52,34 @@ def _firtool_sram_lib(name="tiny_8x8", nR=1, nW=1, nRW=0, rows=8, bits=8,
     pins = []
     pins.append("    pin(clk) { direction : input; clock : true; capacitance : 2.0; }")
     for i in range(nR):
-        pins.append(f"    bus(R{i}_addr) {{ bus_type : {name}_ADDR; direction : input; }}")
-        pins.append(f"    bus(R{i}_data) {{ bus_type : {name}_DATA; direction : output; }}")
+        pins.append(
+            f"    bus(R{i}_addr) {{ bus_type : {name}_ADDR; direction : input; }}"
+        )
+        pins.append(
+            f"    bus(R{i}_data) {{ bus_type : {name}_DATA; direction : output; }}"
+        )
         pins.append(f"    pin(R{i}_en)   {{ direction : input; }}")
     for i in range(nW):
-        pins.append(f"    bus(W{i}_addr) {{ bus_type : {name}_ADDR; direction : input; }}")
-        pins.append(f"    bus(W{i}_data) {{ bus_type : {name}_DATA; direction : input; }}")
+        pins.append(
+            f"    bus(W{i}_addr) {{ bus_type : {name}_ADDR; direction : input; }}"
+        )
+        pins.append(
+            f"    bus(W{i}_data) {{ bus_type : {name}_DATA; direction : input; }}"
+        )
         pins.append(f"    pin(W{i}_en)   {{ direction : input; }}")
-        pins.append(f"    bus(W{i}_mask) {{ bus_type : {name}_DATA; direction : input; }}")
+        pins.append(
+            f"    bus(W{i}_mask) {{ bus_type : {name}_DATA; direction : input; }}"
+        )
     for i in range(nRW):
-        pins.append(f"    bus(RW{i}_addr)  {{ bus_type : {name}_ADDR; direction : input; }}")
-        pins.append(f"    bus(RW{i}_wdata) {{ bus_type : {name}_DATA; direction : input; }}")
-        pins.append(f"    bus(RW{i}_rdata) {{ bus_type : {name}_DATA; direction : output; }}")
+        pins.append(
+            f"    bus(RW{i}_addr)  {{ bus_type : {name}_ADDR; direction : input; }}"
+        )
+        pins.append(
+            f"    bus(RW{i}_wdata) {{ bus_type : {name}_DATA; direction : input; }}"
+        )
+        pins.append(
+            f"    bus(RW{i}_rdata) {{ bus_type : {name}_DATA; direction : output; }}"
+        )
         pins.append(f"    pin(RW{i}_wmode) {{ direction : input; }}")
 
     ck_arc = f"""
@@ -96,22 +117,22 @@ def _firtool_sram_lib(name="tiny_8x8", nR=1, nW=1, nRW=0, rows=8, bits=8,
     }
     """
     return (
-        _lib_header(name) +
-        types +
-        f"  cell({name}) {{\n" +
-        "    area : 300.0;\n" +
-        "\n".join(pins) + "\n" +
-        ck_arc +
-        data_arc +
-        "  }\n"
+        _lib_header(name)
+        + types
+        + f"  cell({name}) {{\n"
+        + "    area : 300.0;\n"
+        + "\n".join(pins)
+        + "\n"
+        + ck_arc
+        + data_arc
+        + "  }\n"
         "}\n"
     )
 
 
 def _memory_group_sram_lib(name="bram_64x32", addr_width=6, word_width=32):
     return (
-        _lib_header(name) +
-        f"  cell({name}) {{\n"
+        _lib_header(name) + f"  cell({name}) {{\n"
         "    area : 1200.0;\n"
         "    memory() {\n"
         "      type : ram;\n"
@@ -126,12 +147,11 @@ def _memory_group_sram_lib(name="bram_64x32", addr_width=6, word_width=32):
 
 def _flop_memory_lib(name="regs_16x8"):
     return (
-        _lib_header(name) +
-        f"  cell({name}) {{\n"
+        _lib_header(name) + f"  cell({name}) {{\n"
         "    area : 800.0;\n"
         "    ff(IQ,IQN) {\n"
-        "      clocked_on : \"clk\";\n"
-        "      next_state : \"D\";\n"
+        '      clocked_on : "clk";\n'
+        '      next_state : "D";\n'
         "    }\n"
         "    pin(clk) { direction : input; clock : true; }\n"
         "    pin(D)   { direction : input; }\n"
@@ -143,17 +163,16 @@ def _flop_memory_lib(name="regs_16x8"):
 
 def _non_memory_lib(name="INVx1"):
     return (
-        _lib_header(name) +
-        f"  cell({name}) {{\n"
+        _lib_header(name) + f"  cell({name}) {{\n"
         "    area : 0.5;\n"
         "    pin(A) { direction : input; capacitance : 1.0; }\n"
         "    pin(Y) {\n"
         "      direction : output;\n"
         "      timing() {\n"
-        "        related_pin : \"A\";\n"
+        '        related_pin : "A";\n'
         "        timing_type : combinational;\n"
-        "        cell_rise(scalar) { values (\"0.03\") }\n"
-        "        cell_fall(scalar) { values (\"0.025\") }\n"
+        '        cell_rise(scalar) { values ("0.03") }\n'
+        '        cell_fall(scalar) { values ("0.025") }\n'
         "      }\n"
         "    }\n"
         "  }\n"
@@ -162,8 +181,12 @@ def _non_memory_lib(name="INVx1"):
 
 
 def _tiny_lef(name, pins, width=10.0, height=10.0):
-    body = [f"MACRO {name}", "  CLASS BLOCK ;", "  ORIGIN 0 0 ;",
-            f"  SIZE {width} BY {height} ;"]
+    body = [
+        f"MACRO {name}",
+        "  CLASS BLOCK ;",
+        "  ORIGIN 0 0 ;",
+        f"  SIZE {width} BY {height} ;",
+    ]
     for p in pins:
         body.append(f"  PIN {p}")
         body.append("    DIRECTION INPUT ;")
@@ -178,6 +201,7 @@ def _tiny_lef(name, pins, width=10.0, height=10.0):
 # ---------------------------------------------------------------------------
 # Classification
 # ---------------------------------------------------------------------------
+
 
 class TestClassify(unittest.TestCase):
     def test_memory_group_is_sram(self):
@@ -232,11 +256,19 @@ class TestClassify(unittest.TestCase):
 # Idiomatic ASAP7 table
 # ---------------------------------------------------------------------------
 
+
 class TestIdiomaticTable(unittest.TestCase):
     def test_any_predicted_sram_has_aspect_in_1_to_4(self):
         """Every predicted outline over a reasonable shape sweep stays inside 1:1..1:4."""
-        shapes = [(64, 32), (128, 32), (128, 64), (256, 32), (256, 64),
-                  (1024, 32), (512, 128)]
+        shapes = [
+            (64, 32),
+            (128, 32),
+            (128, 64),
+            (256, 32),
+            (256, 64),
+            (1024, 32),
+            (512, 128),
+        ]
         for rows, bits in shapes:
             for ports in ("1RW", "1R1W", "2R1W"):
                 role = mms.MemoryRole(kind="sram", rows=rows, bits=bits, nRW=1)
@@ -257,7 +289,8 @@ class TestIdiomaticTable(unittest.TestCase):
         """The FreePDK45 128x32 1RW anchor (6967.66 um²) is in the training set —
         the fit should predict close to it when asked for the same shape + PDK."""
         area = mms.predict_area_um2(
-            rows=128, bits=32, ports_key="1RW", kind="sram", tech_nm=45)
+            rows=128, bits=32, ports_key="1RW", kind="sram", tech_nm=45
+        )
         # Allow 30% — the fit is coarse (pools FreePDK45 + sky130 points)
         # and pays for cross-PDK generalization with in-sample residuals.
         self.assertAlmostEqual(area / 6967.66, 1.0, delta=0.30)
@@ -265,27 +298,35 @@ class TestIdiomaticTable(unittest.TestCase):
     def test_fit_reproduces_openram_freepdk45_access_time(self):
         """FreePDK45 128x32 1RW → 322 ps is the calibration point — exact match."""
         d = mms.predict_access_time_ps(
-            rows=128, bits=32, ports_key="1RW", kind="sram", tech_nm=45)
+            rows=128, bits=32, ports_key="1RW", kind="sram", tech_nm=45
+        )
         self.assertAlmostEqual(d, 322.0, delta=1.0)
 
     def test_asap7_sram_area_is_much_smaller_than_sky130(self):
         """Scaling from 130 nm sky130 to 7 nm ASAP7 squeezes area by (7/130)^2 ~ 0.003x."""
         sram_sky130 = mms.predict_area_um2(
-            rows=256, bits=32, ports_key="1RW", kind="sram", tech_nm=130)
+            rows=256, bits=32, ports_key="1RW", kind="sram", tech_nm=130
+        )
         sram_asap7 = mms.predict_area_um2(
-            rows=256, bits=32, ports_key="1RW", kind="sram", tech_nm=7)
+            rows=256, bits=32, ports_key="1RW", kind="sram", tech_nm=7
+        )
         ratio = sram_asap7 / sram_sky130
-        self.assertTrue(0.001 < ratio < 0.01,
-                        f"7nm/130nm area ratio {ratio:.4f} outside expected range")
+        self.assertTrue(
+            0.001 < ratio < 0.01,
+            f"7nm/130nm area ratio {ratio:.4f} outside expected range",
+        )
 
     def test_port_factor_monotonic(self):
         """More ports -> more area, same rows/bits/tech."""
-        a1 = mms.predict_area_um2(rows=128, bits=32, ports_key="1RW",
-                                 kind="sram", tech_nm=7)
-        a2 = mms.predict_area_um2(rows=128, bits=32, ports_key="1R1W",
-                                 kind="sram", tech_nm=7)
-        a3 = mms.predict_area_um2(rows=128, bits=32, ports_key="2R1W",
-                                 kind="sram", tech_nm=7)
+        a1 = mms.predict_area_um2(
+            rows=128, bits=32, ports_key="1RW", kind="sram", tech_nm=7
+        )
+        a2 = mms.predict_area_um2(
+            rows=128, bits=32, ports_key="1R1W", kind="sram", tech_nm=7
+        )
+        a3 = mms.predict_area_um2(
+            rows=128, bits=32, ports_key="2R1W", kind="sram", tech_nm=7
+        )
         self.assertLess(a1, a2)
         self.assertLess(a2, a3)
 
@@ -310,16 +351,17 @@ class TestIdiomaticTable(unittest.TestCase):
         Regressions outside this band must either adjust the budget
         in the README or investigate (new data? model change?).
         """
-        ff_budget = 0.05     # ±5% per README
-        sram_budget = 0.25   # ±25% per README
+        ff_budget = 0.05  # ±5% per README
+        sram_budget = 0.25  # ±25% per README
         for tech, rows, bits, ports, kind, area, _ in mms.MEMORY_DATA_POINTS:
             pred = mms.predict_area_um2(
-                rows=rows, bits=bits, ports_key=ports,
-                kind=kind, tech_nm=tech)
+                rows=rows, bits=bits, ports_key=ports, kind=kind, tech_nm=tech
+            )
             rel_err = abs(pred - area) / area
             budget = ff_budget if kind == "ff" else sram_budget
             self.assertLess(
-                rel_err, budget,
+                rel_err,
+                budget,
                 f"{kind} {tech}nm {rows}x{bits} {ports}: residual "
                 f"{rel_err*100:.1f}% exceeds DSE budget {budget*100:.0f}%",
             )
@@ -329,9 +371,11 @@ class TestIdiomaticTable(unittest.TestCase):
 # .lib scaling
 # ---------------------------------------------------------------------------
 
+
 def _extract_values(text):
-    return [float(m.group(1))
-            for m in re.finditer(r'values\s*\(\s*"(-?[\d.]+)"\s*\)', text)]
+    return [
+        float(m.group(1)) for m in re.finditer(r'values\s*\(\s*"(-?[\d.]+)"\s*\)', text)
+    ]
 
 
 def _extract_ck_values(text):
@@ -388,10 +432,18 @@ class TestScaleLibText(unittest.TestCase):
         # Pre-scale the ck-tree arcs to 0 so we can look past them to the data arc.
         scaled = mms.scale_lib_text(text, timing_scale=0.5, ck_insertion_ps=0.0)
         # Data arc in fixture: cell_rise=0.5, cell_fall=0.45 (after scale stays 10:9).
-        rises = [float(m.group(1)) for m in re.finditer(
-            r'cell_rise\(scalar\)\s*\{\s*values\s*\(\s*"([\d.]+)"', scaled)]
-        falls = [float(m.group(1)) for m in re.finditer(
-            r'cell_fall\(scalar\)\s*\{\s*values\s*\(\s*"([\d.]+)"', scaled)]
+        rises = [
+            float(m.group(1))
+            for m in re.finditer(
+                r'cell_rise\(scalar\)\s*\{\s*values\s*\(\s*"([\d.]+)"', scaled
+            )
+        ]
+        falls = [
+            float(m.group(1))
+            for m in re.finditer(
+                r'cell_fall\(scalar\)\s*\{\s*values\s*\(\s*"([\d.]+)"', scaled
+            )
+        ]
         # Find a non-zero (= data arc) rise/fall pair.
         data_rise = next(v for v in rises if v > 0)
         data_fall = next(v for v in falls if v > 0)
@@ -414,6 +466,7 @@ class TestScaleLibText(unittest.TestCase):
 # End-to-end
 # ---------------------------------------------------------------------------
 
+
 class TestScaleReference(unittest.TestCase):
     def test_library_name_mismatch_raises(self):
         post = _firtool_sram_lib("tiny_128x64", nRW=1, rows=128, bits=64)
@@ -427,10 +480,15 @@ class TestScaleReference(unittest.TestCase):
             )
 
     def test_sram_dual_scale_produces_different_ck_values(self):
-        post = _firtool_sram_lib("tiny_128x64", nRW=1, rows=128, bits=64, ck_path_value=0.5)
-        pre = _firtool_sram_lib("tiny_128x64", nRW=1, rows=128, bits=64, ck_path_value=0.5)
-        lef = _tiny_lef("tiny_128x64",
-                       ["clk", "RW0_addr", "RW0_rdata", "RW0_wdata", "RW0_wmode"])
+        post = _firtool_sram_lib(
+            "tiny_128x64", nRW=1, rows=128, bits=64, ck_path_value=0.5
+        )
+        pre = _firtool_sram_lib(
+            "tiny_128x64", nRW=1, rows=128, bits=64, ck_path_value=0.5
+        )
+        lef = _tiny_lef(
+            "tiny_128x64", ["clk", "RW0_addr", "RW0_rdata", "RW0_wdata", "RW0_wmode"]
+        )
         sp, spre, sle, role, bucket, _ = mms.scale_reference(
             lib_post_cts_text=post,
             lib_pre_layout_text=pre,
@@ -459,18 +517,22 @@ class TestScaleReference(unittest.TestCase):
 
     def test_single_input_emits_both_outputs(self):
         """Place-stage macros supply only one .lib; tool synthesizes both views."""
-        post = _firtool_sram_lib("tiny_128x64", nRW=1, rows=128, bits=64,
-                                ck_path_value=0.5)
-        lef = _tiny_lef("tiny_128x64",
-                       ["clk", "RW0_addr", "RW0_rdata", "RW0_wdata", "RW0_wmode"])
+        post = _firtool_sram_lib(
+            "tiny_128x64", nRW=1, rows=128, bits=64, ck_path_value=0.5
+        )
+        lef = _tiny_lef(
+            "tiny_128x64", ["clk", "RW0_addr", "RW0_rdata", "RW0_wdata", "RW0_wmode"]
+        )
         sp, spre, sle, role, bucket, _ = mms.scale_reference(
             lib_post_cts_text=post,
             lib_pre_layout_text=None,
             lef_text=lef,
             emit_pre_layout=True,
         )
-        self.assertIsNotNone(spre,
-            "single-input mode with emit_pre_layout=True must produce pre_layout output")
+        self.assertIsNotNone(
+            spre,
+            "single-input mode with emit_pre_layout=True must produce pre_layout output",
+        )
         post_ck = _extract_ck_values(sp)
         pre_ck = _extract_ck_values(spre)
         # Pre-layout ck arcs are clamped to 0.
@@ -496,8 +558,9 @@ class TestScaleReference(unittest.TestCase):
 
     def test_sram_lef_rewrite_places_pins_on_edges(self):
         post = _firtool_sram_lib("tiny_128x64", nRW=1, rows=128, bits=64)
-        lef = _tiny_lef("tiny_128x64",
-                       ["clk", "RW0_addr", "RW0_rdata", "RW0_wdata", "RW0_wmode"])
+        lef = _tiny_lef(
+            "tiny_128x64", ["clk", "RW0_addr", "RW0_rdata", "RW0_wdata", "RW0_wmode"]
+        )
         _, _, scaled_lef, role, bucket, _ = mms.scale_reference(
             lib_post_cts_text=post,
             lib_pre_layout_text=None,
@@ -506,28 +569,41 @@ class TestScaleReference(unittest.TestCase):
         # Grab every PIN block's first RECT; check x-coordinates.
         pin_rects = re.findall(
             r"PIN\s+(\S+).*?RECT\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)",
-            scaled_lef, re.DOTALL,
+            scaled_lef,
+            re.DOTALL,
         )
-        by_pin = {p: (float(x0), float(y0), float(x1), float(y1))
-                  for p, x0, y0, x1, y1 in pin_rects}
+        by_pin = {
+            p: (float(x0), float(y0), float(x1), float(y1))
+            for p, x0, y0, x1, y1 in pin_rects
+        }
         # Output pin lands on the right edge (x0 near width_um).
-        self.assertAlmostEqual(by_pin["RW0_rdata"][0], bucket["width_um"] - mms._M4_PITCH_UM,
-                               places=3)
+        self.assertAlmostEqual(
+            by_pin["RW0_rdata"][0], bucket["width_um"] - mms._M4_PITCH_UM, places=3
+        )
         # Input pin lands on the left edge (x0 == 0).
         self.assertEqual(by_pin["RW0_addr"][0], 0.0)
         # Clock lands on the top edge (y0 near height_um).
-        self.assertAlmostEqual(by_pin["clk"][1], bucket["height_um"] - mms._M5_PITCH_UM,
-                               places=3)
+        self.assertAlmostEqual(
+            by_pin["clk"][1], bucket["height_um"] - mms._M5_PITCH_UM, places=3
+        )
 
 
 # ---------------------------------------------------------------------------
 # CLI shim
 # ---------------------------------------------------------------------------
 
+
 class TestGenerateFromScratch(unittest.TestCase):
     def test_generate_lib_has_memory_group(self):
-        role = mms.MemoryRole(kind="sram", rows=128, bits=64, nR=1, nW=1,
-                             library_name="mem", cell_name="mem")
+        role = mms.MemoryRole(
+            kind="sram",
+            rows=128,
+            bits=64,
+            nR=1,
+            nW=1,
+            library_name="mem",
+            cell_name="mem",
+        )
         lib = mms.generate_lib(role, tech_nm=7)
         self.assertIn("memory()", lib)
         self.assertIn("type : ram", lib)
@@ -535,33 +611,43 @@ class TestGenerateFromScratch(unittest.TestCase):
         self.assertIn("word_width : 64", lib)
 
     def test_generate_lib_has_power_arcs(self):
-        role = mms.MemoryRole(kind="sram", rows=128, bits=64, nRW=1,
-                             library_name="mem", cell_name="mem")
+        role = mms.MemoryRole(
+            kind="sram", rows=128, bits=64, nRW=1, library_name="mem", cell_name="mem"
+        )
         lib = mms.generate_lib(role, tech_nm=7)
         self.assertIn("internal_power()", lib)
         self.assertIn("default_cell_leakage_power", lib)
         # At least one rise_power with a nonzero value.
-        rp = re.findall(r'rise_power\(scalar\)\s*\{\s*values\s*\(\s*"([\d.]+)"',
-                        lib)
-        self.assertTrue(any(float(v) > 0 for v in rp),
-                       "expected nonzero rise_power for at least one arc")
+        rp = re.findall(r'rise_power\([a-z_]+\)\s*\{\s*values\s*\(\s*"([\d.]+)', lib)
+        self.assertTrue(
+            any(float(v) > 0 for v in rp),
+            "expected nonzero rise_power for at least one arc",
+        )
 
     def test_generate_lib_has_setup_hold(self):
-        role = mms.MemoryRole(kind="sram", rows=128, bits=64, nR=1, nW=1,
-                             library_name="mem", cell_name="mem")
+        role = mms.MemoryRole(
+            kind="sram",
+            rows=128,
+            bits=64,
+            nR=1,
+            nW=1,
+            library_name="mem",
+            cell_name="mem",
+        )
         lib = mms.generate_lib(role, tech_nm=7)
         self.assertIn("setup_rising", lib)
         self.assertIn("hold_rising", lib)
 
     def test_generate_lef_outline_and_pins(self):
-        role = mms.MemoryRole(kind="sram", rows=128, bits=64, nRW=1,
-                             library_name="mem", cell_name="mem")
+        role = mms.MemoryRole(
+            kind="sram", rows=128, bits=64, nRW=1, library_name="mem", cell_name="mem"
+        )
         lef = mms.generate_lef(role, tech_nm=7)
         self.assertIn("MACRO mem", lef)
         self.assertIn("SIZE ", lef)
         self.assertIn("PIN RW0_addr", lef)
         self.assertIn("PIN RW0_rdata", lef)
-        self.assertIn("PIN clk", lef)
+        self.assertIn("PIN RW0_clk", lef)
 
 
 class TestBanking(unittest.TestCase):
@@ -600,7 +686,9 @@ class TestBanking(unittest.TestCase):
         big_area, _ = mms.predict_idiomatic(big, tech_nm=7)
         # 1024 / 32 = 32x more bits → area should be 20–50x larger (banking
         # adds periphery per bank but the fit exponent is close to 1).
-        ratio = big_area["area_um2"] / (small_area["width_um"] * small_area["height_um"])
+        ratio = big_area["area_um2"] / (
+            small_area["width_um"] * small_area["height_um"]
+        )
         self.assertGreater(ratio, 15)
         self.assertLess(ratio, 80)
 
@@ -621,7 +709,8 @@ class TestBanking(unittest.TestCase):
 
 class TestVerilogScanner(unittest.TestCase):
     def test_scan_detects_firtool_sram(self):
-        sv = textwrap.dedent("""\
+        sv = textwrap.dedent(
+            """\
             module data_128x64(
               input         clk,
               input  [6:0]  R0_addr,
@@ -638,7 +727,8 @@ class TestVerilogScanner(unittest.TestCase):
               output y
             );
             endmodule
-        """)
+        """
+        )
         roles = mms.scan_verilog_for_memories(sv)
         self.assertIn("data_128x64", roles)
         r = roles["data_128x64"]
@@ -650,7 +740,8 @@ class TestVerilogScanner(unittest.TestCase):
         self.assertNotIn("unrelated", roles)
 
     def test_scan_detects_flop_memory_by_name(self):
-        sv = textwrap.dedent("""\
+        sv = textwrap.dedent(
+            """\
             module regfile_16x32(
               input clk,
               input [3:0] addr,
@@ -662,7 +753,8 @@ class TestVerilogScanner(unittest.TestCase):
               always @(posedge clk) if (we) mem[addr] <= d;
               assign q = mem[addr];
             endmodule
-        """)
+        """
+        )
         roles = mms.scan_verilog_for_memories(sv)
         self.assertIn("regfile_16x32", roles)
         r = roles["regfile_16x32"]
@@ -681,13 +773,19 @@ class TestCli(unittest.TestCase):
             lef.write_text(_tiny_lef("INVx1", ["A", "Y"]))
             out_lib = d / "out.lib"
             out_lef = d / "out.lef"
-            rc = mms.main([
-                "--in-lib-post-cts", str(lib),
-                "--in-lef", str(lef),
-                "--out-lib-post-cts", str(out_lib),
-                "--out-lef", str(out_lef),
-                "--dry-run",
-            ])
+            rc = mms.main(
+                [
+                    "--in-lib-post-cts",
+                    str(lib),
+                    "--in-lef",
+                    str(lef),
+                    "--out-lib-post-cts",
+                    str(out_lib),
+                    "--out-lef",
+                    str(out_lef),
+                    "--dry-run",
+                ]
+            )
             self.assertEqual(rc, 0)
             self.assertFalse(out_lib.exists())
             self.assertFalse(out_lef.exists())
@@ -698,18 +796,24 @@ class TestCli(unittest.TestCase):
             post = d / "post.lib"
             post.write_text(_firtool_sram_lib("tiny_128x64", nRW=1, rows=128, bits=64))
             lef = d / "in.lef"
-            lef.write_text(_tiny_lef("tiny_128x64",
-                                    ["clk", "RW0_addr", "RW0_rdata"]))
+            lef.write_text(_tiny_lef("tiny_128x64", ["clk", "RW0_addr", "RW0_rdata"]))
             out_post = d / "out_post.lib"
             out_pre = d / "out_pre.lib"
             out_lef = d / "out.lef"
-            rc = mms.main([
-                "--in-lib-post-cts", str(post),
-                "--in-lef", str(lef),
-                "--out-lib-post-cts", str(out_post),
-                "--out-lib-pre-layout", str(out_pre),
-                "--out-lef", str(out_lef),
-            ])
+            rc = mms.main(
+                [
+                    "--in-lib-post-cts",
+                    str(post),
+                    "--in-lef",
+                    str(lef),
+                    "--out-lib-post-cts",
+                    str(out_post),
+                    "--out-lib-pre-layout",
+                    str(out_pre),
+                    "--out-lef",
+                    str(out_lef),
+                ]
+            )
             self.assertEqual(rc, 0)
             self.assertTrue(out_post.read_text())
             self.assertTrue(out_pre.read_text())
@@ -718,20 +822,31 @@ class TestCli(unittest.TestCase):
     def test_dual_input_writes_both(self):
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
-            post = d / "post.lib"; post.write_text(_firtool_sram_lib("tiny_128x64", nRW=1, rows=128, bits=64))
-            pre = d / "pre.lib"; pre.write_text(_firtool_sram_lib("tiny_128x64", nRW=1, rows=128, bits=64))
-            lef = d / "in.lef"; lef.write_text(_tiny_lef("tiny_128x64", ["clk", "RW0_addr", "RW0_rdata"]))
+            post = d / "post.lib"
+            post.write_text(_firtool_sram_lib("tiny_128x64", nRW=1, rows=128, bits=64))
+            pre = d / "pre.lib"
+            pre.write_text(_firtool_sram_lib("tiny_128x64", nRW=1, rows=128, bits=64))
+            lef = d / "in.lef"
+            lef.write_text(_tiny_lef("tiny_128x64", ["clk", "RW0_addr", "RW0_rdata"]))
             out_post = d / "out_post.lib"
             out_pre = d / "out_pre.lib"
             out_lef = d / "out.lef"
-            rc = mms.main([
-                "--in-lib-post-cts", str(post),
-                "--in-lib-pre-layout", str(pre),
-                "--in-lef", str(lef),
-                "--out-lib-post-cts", str(out_post),
-                "--out-lib-pre-layout", str(out_pre),
-                "--out-lef", str(out_lef),
-            ])
+            rc = mms.main(
+                [
+                    "--in-lib-post-cts",
+                    str(post),
+                    "--in-lib-pre-layout",
+                    str(pre),
+                    "--in-lef",
+                    str(lef),
+                    "--out-lib-post-cts",
+                    str(out_post),
+                    "--out-lib-pre-layout",
+                    str(out_pre),
+                    "--out-lef",
+                    str(out_lef),
+                ]
+            )
             self.assertEqual(rc, 0)
             self.assertTrue(out_post.read_text())
             self.assertTrue(out_pre.read_text())

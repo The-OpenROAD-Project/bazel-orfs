@@ -120,17 +120,17 @@ import math
 # their source in a trailing comment.
 MEMORY_DATA_POINTS = [
     # [1] OpenRAM FreePDK45 — Cornell ECE5745 tutorial SRAM_32x128_1rw.
-    (45,  128,  32, "1RW", "sram",  6967.66, 322.0),
+    (45, 128, 32, "1RW", "sram", 6967.66, 322.0),
     # [2] DFFRAM sky130A — byte-write 32-bit-word register RAM, 1RW.
-    (130,  128, 32, "1RW", "ff",   396.52 * 388.96, None),   # 512 B
-    (130,  256, 32, "1RW", "ff",   792.58 * 397.12, None),   # 1 KB
-    (130,  512, 32, "1RW", "ff",   792.58 * 786.08, None),   # 2 KB
-    (130, 1024, 32, "1RW", "ff",  1584.24 * 788.80, None),   # 4 KB
-    (130, 2048, 32, "1RW", "ff",  1589.00 * 1572.00, None),  # 8 KB
+    (130, 128, 32, "1RW", "ff", 396.52 * 388.96, None),  # 512 B
+    (130, 256, 32, "1RW", "ff", 792.58 * 397.12, None),  # 1 KB
+    (130, 512, 32, "1RW", "ff", 792.58 * 786.08, None),  # 2 KB
+    (130, 1024, 32, "1RW", "ff", 1584.24 * 788.80, None),  # 4 KB
+    (130, 2048, 32, "1RW", "ff", 1589.00 * 1572.00, None),  # 8 KB
     # [2] OpenRAM sky130A — from the same DFFRAM README table.
-    (130,  256, 32, "1RW", "sram",  386.00 * 456.00, None),  # 1 KB
-    (130,  512, 32, "1RW", "sram",  659.98 * 398.18, None),  # 2 KB
-    (130, 1024, 32, "1RW", "sram",  670.86 * 651.14, None),  # 4 KB
+    (130, 256, 32, "1RW", "sram", 386.00 * 456.00, None),  # 1 KB
+    (130, 512, 32, "1RW", "sram", 659.98 * 398.18, None),  # 2 KB
+    (130, 1024, 32, "1RW", "sram", 670.86 * 651.14, None),  # 4 KB
 ]
 
 
@@ -175,26 +175,39 @@ class BankPlan:
       num_banks     : total macro count = slices * row_banks * read_copies
                                            * write_addr_banks
     """
-    __slots__ = ("rows_per_bank", "bits_per_bank",
-                 "nR_per_bank", "nW_per_bank", "nRW_per_bank",
-                 "word_slices", "row_banks", "read_copies",
-                 "write_addr_banks", "num_banks")
+
+    __slots__ = (
+        "rows_per_bank",
+        "bits_per_bank",
+        "nR_per_bank",
+        "nW_per_bank",
+        "nRW_per_bank",
+        "word_slices",
+        "row_banks",
+        "read_copies",
+        "write_addr_banks",
+        "num_banks",
+    )
 
     def __init__(self, **kw):
         for k in self.__slots__:
             setattr(self, k, kw.get(k, 0))
         self.num_banks = (
-            self.word_slices * self.row_banks
-            * max(self.read_copies, 1) * max(self.write_addr_banks, 1)
+            self.word_slices
+            * self.row_banks
+            * max(self.read_copies, 1)
+            * max(self.write_addr_banks, 1)
         )
 
     def __repr__(self):
-        return (f"BankPlan(rows/bank={self.rows_per_bank} "
-                f"bits/bank={self.bits_per_bank} "
-                f"slices={self.word_slices} row_banks={self.row_banks} "
-                f"read_copies={self.read_copies} "
-                f"write_addr_banks={self.write_addr_banks} "
-                f"total_banks={self.num_banks})")
+        return (
+            f"BankPlan(rows/bank={self.rows_per_bank} "
+            f"bits/bank={self.bits_per_bank} "
+            f"slices={self.word_slices} row_banks={self.row_banks} "
+            f"read_copies={self.read_copies} "
+            f"write_addr_banks={self.write_addr_banks} "
+            f"total_banks={self.num_banks})"
+        )
 
 
 def _ceil_div(a, b):
@@ -273,14 +286,14 @@ def _per_bank_ports_key(plan):
 # macro that pushes periphery down so the per-port area cost is closer
 # to the bit-cell ratio than the full 2.4x.
 PORT_AREA_FACTOR = {
-    "1RW":  1.00,
-    "1R1W": 1.35,   # 1 read + 1 write: added read-only word-line
-    "2R1W": 1.80,   # 2 read + 1 write: two read-only word-lines
+    "1RW": 1.00,
+    "1R1W": 1.35,  # 1 read + 1 write: added read-only word-line
+    "2R1W": 1.80,  # 2 read + 1 write: two read-only word-lines
 }
 
 # Access-path delay overhead vs 1RW (small; multi-port adds mux select only).
 PORT_DELAY_FACTOR = {
-    "1RW":  1.00,
+    "1RW": 1.00,
     "1R1W": 1.05,
     "2R1W": 1.10,
 }
@@ -290,6 +303,7 @@ PORT_DELAY_FACTOR = {
 # Pure-stdlib two-parameter linear regression in log space:
 #   log(area / tech_nm^2) = a + b * log(rows * bits * port_factor)
 # Fit per kind independently. We do not depend on numpy/scipy.
+
 
 def _linear_regression(xs, ys):
     """Return (a, b) minimizing sum((a + b*x_i - y_i)^2). Needs >= 2 points."""
@@ -351,25 +365,28 @@ def _load_sweep_yaml(path):
     out = []
     for r in runs:
         try:
-            out.append((
-                int(r["tech_nm"]),
-                int(r["rows"]),
-                int(r["bits"]),
-                str(r["ports_key"]),
-                str(r["kind"]),
-                float(r["area_um2"]),
-                float(r["access_time_ps"])
-                    if r.get("access_time_ps") is not None else None,
-            ))
+            out.append(
+                (
+                    int(r["tech_nm"]),
+                    int(r["rows"]),
+                    int(r["bits"]),
+                    str(r["ports_key"]),
+                    str(r["kind"]),
+                    float(r["area_um2"]),
+                    (
+                        float(r["access_time_ps"])
+                        if r.get("access_time_ps") is not None
+                        else None
+                    ),
+                )
+            )
         except (KeyError, ValueError, TypeError):
             continue
     return out
 
 
 # Load committed sweep results (if any) and mix them into the fit.
-_SWEEP_YAML = (
-    Path(__file__).parent / "characterization" / "asap7_sweep.yaml"
-)
+_SWEEP_YAML = Path(__file__).parent / "characterization" / "asap7_sweep.yaml"
 MEMORY_DATA_POINTS = MEMORY_DATA_POINTS + _load_sweep_yaml(_SWEEP_YAML)
 _AREA_FIT = _fit_area_model(MEMORY_DATA_POINTS)
 
@@ -378,7 +395,7 @@ def predict_area_um2(*, rows, bits, ports_key, kind, tech_nm):
     """Predicted macro outline area at the given shape + technology node."""
     a, b = _AREA_FIT[kind]
     pf = PORT_AREA_FACTOR.get(ports_key, 1.0)
-    return math.exp(a) * (tech_nm ** 2) * ((rows * bits * pf) ** b)
+    return math.exp(a) * (tech_nm**2) * ((rows * bits * pf) ** b)
 
 
 def predict_access_time_ps(*, rows, bits, ports_key, kind, tech_nm):
@@ -413,11 +430,9 @@ def predict_transition_ps(tech_nm):
 
 def predict_clk_period_min_ps(*, rows, bits, ports_key, kind, tech_nm):
     """Min clock period = access + setup + margin."""
-    return (
-        predict_access_time_ps(rows=rows, bits=bits, ports_key=ports_key,
-                               kind=kind, tech_nm=tech_nm)
-        + 2 * predict_setup_ps(tech_nm)
-    )
+    return predict_access_time_ps(
+        rows=rows, bits=bits, ports_key=ports_key, kind=kind, tech_nm=tech_nm
+    ) + 2 * predict_setup_ps(tech_nm)
 
 
 def predict_read_energy_fj(*, rows, bits, ports_key, kind, tech_nm):
@@ -451,10 +466,13 @@ def predict_write_energy_fj(*, rows, bits, ports_key, kind, tech_nm):
     the addressed row) and ~constant in rows.
     """
     if kind == "ff":
-        k = 100.0 / (45.0 * 32.0)  # ~100 fJ at 45nm, 32-bit word → scales with tech_nm, bits
+        k = 100.0 / (
+            45.0 * 32.0
+        )  # ~100 fJ at 45nm, 32-bit word → scales with tech_nm, bits
         return k * tech_nm * bits
     return 2.0 * predict_read_energy_fj(
-        rows=rows, bits=bits, ports_key=ports_key, kind=kind, tech_nm=tech_nm)
+        rows=rows, bits=bits, ports_key=ports_key, kind=kind, tech_nm=tech_nm
+    )
 
 
 def predict_leakage_pw(*, rows, bits, ports_key, kind, tech_nm):
@@ -498,11 +516,12 @@ def _predict_outline(area_um2, rows, bits):
     get taller outlines).
     """
     import math as _m
+
     if area_um2 <= 0:
         return 1.0, 1.0
     # Desired width/height ratio: clamp log-ratio to keep aspect in [1, 4].
     raw = rows / max(bits, 1)
-    ratio = max(0.5, min(raw, 2.0))   # caps composite aspect at 4:1
+    ratio = max(0.5, min(raw, 2.0))  # caps composite aspect at 4:1
     height = _m.sqrt(area_um2 * ratio)
     width = area_um2 / height
     return width, height
@@ -541,8 +560,8 @@ def predict_idiomatic(role, tech_nm=DEFAULT_TECH_NM):
     # levels.  Read-copy replication is free (no shared mux — each copy
     # serves its own read port).
     access_per_bank = predict_access_time_ps(
-        rows=rows_pb, bits=bits_pb, ports_key=per_bank_ports,
-        kind=kind, tech_nm=tech_nm)
+        rows=rows_pb, bits=bits_pb, ports_key=per_bank_ports, kind=kind, tech_nm=tech_nm
+    )
     bank_mux_ps = 0.0
     if plan.row_banks > 1:
         bank_mux_ps = math.log2(plan.row_banks) * tech_nm * 4.0
@@ -553,20 +572,20 @@ def predict_idiomatic(role, tech_nm=DEFAULT_TECH_NM):
     # only one fires — so on a per-access basis read energy multiplies
     # by word_slices, not num_banks.
     read_fj_per_bank = predict_read_energy_fj(
-        rows=rows_pb, bits=bits_pb, ports_key=per_bank_ports,
-        kind=kind, tech_nm=tech_nm)
+        rows=rows_pb, bits=bits_pb, ports_key=per_bank_ports, kind=kind, tech_nm=tech_nm
+    )
     read_fj = read_fj_per_bank * plan.word_slices
 
     # Write energy: same pattern — word_slices banks fire per write.
     write_fj_per_bank = predict_write_energy_fj(
-        rows=rows_pb, bits=bits_pb, ports_key=per_bank_ports,
-        kind=kind, tech_nm=tech_nm)
+        rows=rows_pb, bits=bits_pb, ports_key=per_bank_ports, kind=kind, tech_nm=tech_nm
+    )
     write_fj = write_fj_per_bank * plan.word_slices
 
     # Leakage: sum over every bank (all powered, whether firing or not).
     leakage_per_bank = predict_leakage_pw(
-        rows=rows_pb, bits=bits_pb, ports_key=per_bank_ports,
-        kind=kind, tech_nm=tech_nm)
+        rows=rows_pb, bits=bits_pb, ports_key=per_bank_ports, kind=kind, tech_nm=tech_nm
+    )
     leakage_pw = leakage_per_bank * plan.num_banks
 
     bucket = dict(
@@ -584,8 +603,12 @@ def predict_idiomatic(role, tech_nm=DEFAULT_TECH_NM):
     )
     if kind == "sram":
         area_per_bank = predict_area_um2(
-            rows=rows_pb, bits=bits_pb, ports_key=per_bank_ports,
-            kind=kind, tech_nm=tech_nm)
+            rows=rows_pb,
+            bits=bits_pb,
+            ports_key=per_bank_ports,
+            kind=kind,
+            tech_nm=tech_nm,
+        )
         total_area = area_per_bank * plan.num_banks
         w, h = _predict_outline(total_area, role.rows, role.bits)
         bucket["width_um"] = w
@@ -646,6 +669,12 @@ class MemoryRole:
     library_name: str = ""
     cell_name: str = ""
     port_pin_names: dict = field(default_factory=dict)
+    # Per-pin widths in bits, keyed by pin name. Populated when the role
+    # comes from a Verilog scan; empty when it comes from .lib classify().
+    # Used by generate_lib() to emit correct type() bit_widths for pins
+    # whose width diverges from the word width — e.g. RW0_wmask on a 512-
+    # bit memory may be 8 bits (byte enables), not 512.
+    pin_widths: dict = field(default_factory=dict)
 
     @property
     def ports_key(self):
@@ -677,7 +706,7 @@ def classify(lib_text):
     if mem_m:
         addr_bits = int(mem_m.group(1))
         role.kind = "sram"
-        role.rows = 2 ** addr_bits
+        role.rows = 2**addr_bits
         role.bits = int(mem_m.group(2))
         _count_ports_firtool(role, lib_text)
         if role.nR == 0 and role.nW == 0 and role.nRW == 0:
@@ -743,11 +772,13 @@ def _infer_dims_from_pin_widths(lib_text, firtool_hits):
     types = {name: int(width) for name, width in _TYPE_BLOCK_RE.findall(lib_text)}
 
     # Find each bus's bus_type using a simple regex; not a full LEF/lib parser.
-    bus_types = dict(re.findall(
-        r"\bbus\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\s*\{[^}]*?bus_type\s*:\s*([A-Za-z_][A-Za-z0-9_]*)",
-        lib_text,
-        flags=re.DOTALL,
-    ))
+    bus_types = dict(
+        re.findall(
+            r"\bbus\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)\s*\{[^}]*?bus_type\s*:\s*([A-Za-z_][A-Za-z0-9_]*)",
+            lib_text,
+            flags=re.DOTALL,
+        )
+    )
 
     addr_bits = 0
     data_bits = 0
@@ -760,7 +791,7 @@ def _infer_dims_from_pin_widths(lib_text, firtool_hits):
             addr_bits = max(addr_bits, width)
         elif tail in ("data", "rdata", "wdata"):
             data_bits = max(data_bits, width)
-    rows = (2 ** addr_bits) if addr_bits else 0
+    rows = (2**addr_bits) if addr_bits else 0
     return rows, data_bits
 
 
@@ -782,6 +813,7 @@ def _scale_values_line(line, factor):
     def repl(m):
         val = float(m.group(2)) * factor
         return m.group(1) + f"{val:.6g}" + m.group(3)
+
     return re.sub(
         r'(values\s*\(\s*")(-?[\d.]+(?:[eE][+-]?\d+)?)("\s*\))',
         repl,
@@ -813,7 +845,11 @@ def scale_lib_text(
 
     # time_unit lets us convert ck_insertion_ps -> library unit value.
     time_unit_factor = _parse_time_unit(text)  # e.g. 1e-9 for "1ns"
-    ck_target = (ck_insertion_ps * 1e-12 / time_unit_factor) if ck_insertion_ps is not None else None
+    ck_target = (
+        (ck_insertion_ps * 1e-12 / time_unit_factor)
+        if ck_insertion_ps is not None
+        else None
+    )
 
     for line in text.splitlines(keepends=True):
         opens = line.count("{")
@@ -885,7 +921,9 @@ def compute_timing_scale(role, bucket, reference_text):
     time_unit = _parse_time_unit(reference_text)
     vals = [
         float(m.group(1))
-        for m in re.finditer(r'values\s*\(\s*"(-?[\d.]+(?:[eE][+-]?\d+)?)"\s*\)', reference_text)
+        for m in re.finditer(
+            r'values\s*\(\s*"(-?[\d.]+(?:[eE][+-]?\d+)?)"\s*\)', reference_text
+        )
     ]
     if not vals or target == 0.0:
         return 1.0
@@ -912,7 +950,9 @@ def _is_output_pin(name):
 
 
 def _is_clock_pin(name):
-    return name.lower() in ("clk", "clock") or re.match(r"^R\d+_clk$|^W\d+_clk$|^RW\d+_clk$", name)
+    return name.lower() in ("clk", "clock") or re.match(
+        r"^R\d+_clk$|^W\d+_clk$|^RW\d+_clk$", name
+    )
 
 
 def _is_power_pin(name):
@@ -937,13 +977,13 @@ def rewrite_lef(lef_text, role, bucket):
     macro_m = re.search(r"^MACRO\s+(\S+)\s*$", lef_text, re.MULTILINE)
     if not macro_m:
         return lef_text
-    preamble = lef_text[:macro_m.start()]
+    preamble = lef_text[: macro_m.start()]
     macro_name = macro_m.group(1)
     pins = _PIN_OR_BUS_RE.findall(lef_text) or []
     # Extract all PIN names from LEF (distinct from .lib pins).
-    pin_names = [m.group(1) for m in re.finditer(
-        r"^\s*PIN\s+(\S+)\s*$", lef_text, re.MULTILINE
-    )]
+    pin_names = [
+        m.group(1) for m in re.finditer(r"^\s*PIN\s+(\S+)\s*$", lef_text, re.MULTILINE)
+    ]
 
     width = bucket["width_um"]
     height = bucket["height_um"]
@@ -959,10 +999,15 @@ def rewrite_lef(lef_text, role, bucket):
     clocks = sorted([p for p in pin_names if _is_clock_pin(p)])
     powers = sorted([p for p in pin_names if _is_power_pin(p)])
 
-    def _bank(edge_count, edge_length):
+    def _bank(edge_count, edge_length, pitch):
+        # Evenly space pins along the edge, but snap the spacing to a
+        # multiple of `pitch` so every pin lands on a routing track.
+        # OpenROAD's macro placer rejects off-grid pins on RightWayOnGridOnly
+        # layers (MPL-0005), so this snap is load-bearing.
         if edge_count == 0:
             return []
-        step = edge_length / (edge_count + 1)
+        ideal_step = edge_length / (edge_count + 1)
+        step = max(pitch, round(ideal_step / pitch) * pitch)
         return [step * (i + 1) for i in range(edge_count)]
 
     lines = [preamble.rstrip("\n") + "\n" if preamble else ""]
@@ -972,31 +1017,56 @@ def rewrite_lef(lef_text, role, bucket):
     lines.append(f"  SIZE {width:.3f} BY {height:.3f} ;\n")
 
     # Inputs on the left edge (x=0), on M4.
-    for name, y in zip(inputs, _bank(len(inputs), height)):
-        _emit_pin(lines, name, "INPUT", layer="M4",
-                  x=0.0, y=y, w=_M4_PITCH_UM, h=_M4_PITCH_UM)
+    for name, y in zip(inputs, _bank(len(inputs), height, _M4_PITCH_UM)):
+        _emit_pin(
+            lines, name, "INPUT", layer="M4", x=0.0, y=y, w=_M4_PITCH_UM, h=_M4_PITCH_UM
+        )
     # Outputs on the right edge (x=width), on M4.
-    for name, y in zip(outputs, _bank(len(outputs), height)):
-        _emit_pin(lines, name, "OUTPUT", layer="M4",
-                  x=width - _M4_PITCH_UM, y=y, w=_M4_PITCH_UM, h=_M4_PITCH_UM)
+    for name, y in zip(outputs, _bank(len(outputs), height, _M4_PITCH_UM)):
+        _emit_pin(
+            lines,
+            name,
+            "OUTPUT",
+            layer="M4",
+            x=width - _M4_PITCH_UM,
+            y=y,
+            w=_M4_PITCH_UM,
+            h=_M4_PITCH_UM,
+        )
     # Clocks on the top edge (y=height), on M5.
-    for name, x in zip(clocks, _bank(len(clocks), width)):
-        _emit_pin(lines, name, "INPUT", layer="M5",
-                  x=x, y=height - _M5_PITCH_UM, w=_M5_PITCH_UM, h=_M5_PITCH_UM,
-                  use="CLOCK")
+    for name, x in zip(clocks, _bank(len(clocks), width, _M5_PITCH_UM)):
+        _emit_pin(
+            lines,
+            name,
+            "INPUT",
+            layer="M5",
+            x=x,
+            y=height - _M5_PITCH_UM,
+            w=_M5_PITCH_UM,
+            h=_M5_PITCH_UM,
+            use="CLOCK",
+        )
     # Power pins preserved at well-known positions (top-left / top-right).
     for i, name in enumerate(powers):
-        _emit_pin(lines, name, "INOUT", layer="M5",
-                  x=(width * 0.25) + (width * 0.5 * i),
-                  y=height - _M5_PITCH_UM,
-                  w=_M5_PITCH_UM, h=_M5_PITCH_UM,
-                  use="POWER" if name.upper().startswith("VDD") else "GROUND")
+        _emit_pin(
+            lines,
+            name,
+            "INOUT",
+            layer="M5",
+            x=(width * 0.25) + (width * 0.5 * i),
+            y=height - _M5_PITCH_UM,
+            w=_M5_PITCH_UM,
+            h=_M5_PITCH_UM,
+            use="POWER" if name.upper().startswith("VDD") else "GROUND",
+        )
 
     # One OBS rectangle covering the interior (conservative blockage).
     inset = _M4_PITCH_UM
     lines.append("  OBS\n")
-    lines.append(f"    LAYER M4 ; RECT {inset:.3f} {inset:.3f} "
-                 f"{width - inset:.3f} {height - inset:.3f} ;\n")
+    lines.append(
+        f"    LAYER M4 ; RECT {inset:.3f} {inset:.3f} "
+        f"{width - inset:.3f} {height - inset:.3f} ;\n"
+    )
     lines.append("  END\n")
     lines.append(f"END {macro_name}\n")
     return "".join(lines)
@@ -1068,6 +1138,41 @@ def _addr_bits(rows):
     return b
 
 
+_DELAY_KINDS = {"cell_rise", "cell_fall", "rise_transition", "fall_transition"}
+_CONSTRAINT_KINDS = {"rise_constraint", "fall_constraint"}
+_POWER_KINDS = {"rise_power", "fall_power"}
+
+
+def _scalar_block(emit, indent, kind, value):
+    # Emit a constant-value table tied to the appropriate 2-axis template
+    # (delay / constraint / power). OpenSTA's table_lookup model rejects
+    # single-point (scalar) templates with STA-0242; we use a small 2x2
+    # (or 1x2 for power) constant grid instead. Yosys's Liberty parser
+    # also requires multi-line nested blocks — so both constraints are
+    # satisfied by this shape.
+    v = f"{value:.6g}"
+    if kind in _DELAY_KINDS:
+        tpl = "delay_template"
+        rows = [f'"{v}, {v}"', f'"{v}, {v}"']
+    elif kind in _CONSTRAINT_KINDS:
+        tpl = "constraint_template"
+        rows = [f'"{v}, {v}"', f'"{v}, {v}"']
+    elif kind in _POWER_KINDS:
+        tpl = "power_template"
+        rows = [f'"{v}, {v}"']
+    else:
+        raise ValueError(f"_scalar_block: unknown kind {kind!r}")
+    emit(f"{indent}{kind}({tpl}) {{")
+    if len(rows) == 1:
+        emit(f"{indent}  values ({rows[0]});")
+    else:
+        emit(f"{indent}  values ({rows[0]}, \\")
+        for r in rows[1:-1]:
+            emit(f"{indent}          {r}, \\")
+        emit(f"{indent}          {rows[-1]});")
+    emit(f"{indent}}}")
+
+
 def generate_lib(role, tech_nm=DEFAULT_TECH_NM):
     """Return Liberty text for the role, synthesized from scratch.
 
@@ -1095,126 +1200,160 @@ def generate_lib(role, tech_nm=DEFAULT_TECH_NM):
     post_cts_ck_ns = bucket["post_cts_ck_insertion_ps"] / 1000.0
     area = bucket.get("width_um", 10.0) * bucket.get("height_um", 10.0)
     leak_uw = bucket["leakage_pw"] * 1e-6  # pW → µW for Liberty default units
-    read_e = bucket["read_energy_fj"]   # fJ per edge; Liberty power unit is derived from voltage/current units
+    read_e = bucket[
+        "read_energy_fj"
+    ]  # fJ per edge; Liberty power unit is derived from voltage/current units
     write_e = bucket["write_energy_fj"]
 
     lines = []
     a = lines.append
     a(f"library({name}) {{")
-    a('  technology (cmos);')
-    a('  delay_model : table_lookup;')
+    a("  technology (cmos);")
+    a("  delay_model : table_lookup;")
     a('  time_unit : "1ns";')
     a('  voltage_unit : "1V";')
     a('  current_unit : "1uA";')
     a('  leakage_power_unit : "1pW";')
-    a('  capacitive_load_unit (1, ff);')
+    a("  capacitive_load_unit (1, ff);")
     a('  pulling_resistance_unit : "1kohm";')
-    a('  nom_process : 1.0;')
-    a('  nom_voltage : 0.70;')
-    a('  nom_temperature : 25.0;')
-    a('  operating_conditions(typ) { process : 1; temperature : 25; '
-      'voltage : 0.70; tree_type : balanced_tree; }')
-    a('  default_operating_conditions : typ;')
-    a(f'  default_cell_leakage_power : {leak_uw:.6g};')
-    a(f'  default_max_transition : {trans_ns * 4:.6g};')
-    # Minimal 1-D LU templates so OpenSTA accepts the file.
-    a('  lu_table_template(scalar) { variable_1 : input_net_transition; index_1("1000"); }')
+    a("  nom_process : 1.0;")
+    a("  nom_voltage : 0.70;")
+    a("  nom_temperature : 25.0;")
+    a(
+        "  operating_conditions(typ) { process : 1; temperature : 25; "
+        "voltage : 0.70; tree_type : balanced_tree; }"
+    )
+    a("  default_operating_conditions : typ;")
+    a(f"  default_cell_leakage_power : {leak_uw:.6g};")
+    a(f"  default_max_transition : {trans_ns * 4:.6g};")
+    # Minimal 2x2 LU templates. OpenSTA rejects single-point templates for
+    # delay_model : table_lookup (STA-0242 "unsupported table axes"), so we
+    # emit 2-point grids even though our fitted model is constant — every
+    # value fills a 2x2 constant table.
+    a("  lu_table_template(delay_template) {")
+    a("    variable_1 : input_net_transition;")
+    a("    variable_2 : total_output_net_capacitance;")
+    a('    index_1 ("0.001, 0.1");')
+    a('    index_2 ("0.001, 0.1");')
+    a("  }")
+    a("  lu_table_template(constraint_template) {")
+    a("    variable_1 : related_pin_transition;")
+    a("    variable_2 : constrained_pin_transition;")
+    a('    index_1 ("0.001, 0.1");')
+    a('    index_2 ("0.001, 0.1");')
+    a("  }")
+    a("  lu_table_template(power_template) {")
+    a("    variable_1 : input_transition_time;")
+    a('    index_1 ("0.001, 0.1");')
+    a("  }")
 
     if role.kind == "sram":
         for port in _port_pin_names(role).values():
             for pn, _, is_bus in port:
                 if pn.endswith(("_addr",)):
-                    a(f'  type({name}_ADDR_{pn}) {{ base_type : array; data_type : bit; '
-                      f'bit_width : {addr_w}; bit_from : {addr_w - 1}; bit_to : 0; downto : true; }}')
+                    w = role.pin_widths.get(pn, addr_w)
+                    a(
+                        f"  type({name}_ADDR_{pn}) {{ base_type : array; data_type : bit; "
+                        f"bit_width : {w}; bit_from : {w - 1}; bit_to : 0; downto : true; }}"
+                    )
                 elif pn.endswith(("_data", "_rdata", "_wdata", "_mask", "_wmask")):
-                    a(f'  type({name}_DATA_{pn}) {{ base_type : array; data_type : bit; '
-                      f'bit_width : {data_w}; bit_from : {data_w - 1}; bit_to : 0; downto : true; }}')
+                    # Mask pins can be narrower than the word width (byte-
+                    # or chunk-level enables); fall back to data_w only when
+                    # the Verilog scan didn't record a real width.
+                    w = role.pin_widths.get(pn, data_w)
+                    a(
+                        f"  type({name}_DATA_{pn}) {{ base_type : array; data_type : bit; "
+                        f"bit_width : {w}; bit_from : {w - 1}; bit_to : 0; downto : true; }}"
+                    )
 
-    a(f'  cell({name}) {{')
-    a(f'    area : {area:.6g};')
-    a(f'    interface_timing : true;')
+    a(f"  cell({name}) {{")
+    a(f"    area : {area:.6g};")
+    a(f"    interface_timing : true;")
     if role.kind == "sram":
-        a('    memory() {')
-        a(f'      type : ram;')
-        a(f'      address_width : {addr_w};')
-        a(f'      word_width : {data_w};')
-        a('    }')
+        a("    memory() {")
+        a(f"      type : ram;")
+        a(f"      address_width : {addr_w};")
+        a(f"      word_width : {data_w};")
+        a("    }")
 
-    # Unified clk pin — used by all ports in our firtool-style memories.
-    a('    pin(clk) {')
-    a('      direction : input;')
-    a('      clock : true;')
-    a(f'      capacitance : {2.0:.6g};')
-    a(f'      min_period : {clk_period:.6g};')
-    a('      internal_power() {')
-    a('        when : "1";')
+    # firtool-convention memories declare one clock pin per port
+    # (R0_clk / W0_clk / RW0_clk …), all driven by the same master clock
+    # in practice. Emit each port's clock pin carrying the full timing &
+    # power characteristics, and reference it from that port's arcs.
     # Per-edge total internal energy: weight by (read + write) average access.
     # SAIF activity on clk multiplied by this number gives OpenSTA the
     # dynamic-power estimate for a read-or-write per cycle at this pin.
     avg_edge_fj = (read_e + write_e) / 2.0
-    a(f'        rise_power(scalar) {{ values ("{avg_edge_fj:.6g}") }}')
-    a(f'        fall_power(scalar) {{ values ("{avg_edge_fj:.6g}") }}')
-    a('      }')
-    a(f'      timing() {{ timing_type : min_clock_tree_path; '
-      f'cell_rise(scalar) {{ values ("{post_cts_ck_ns:.6g}") }} '
-      f'cell_fall(scalar) {{ values ("{post_cts_ck_ns:.6g}") }} }}')
-    a(f'      timing() {{ timing_type : max_clock_tree_path; '
-      f'cell_rise(scalar) {{ values ("{post_cts_ck_ns:.6g}") }} '
-      f'cell_fall(scalar) {{ values ("{post_cts_ck_ns:.6g}") }} }}')
-    a('    }')
-
-    # Per-port pins + timing arcs.
     for port_id, port_pins in _port_pin_names(role).items():
+        clk_pn = f"{port_id}_clk"
+        a(f"    pin({clk_pn}) {{")
+        a("      direction : input;")
+        a("      clock : true;")
+        a(f"      capacitance : {2.0:.6g};")
+        a(f"      min_period : {clk_period:.6g};")
+        a("      internal_power() {")
+        a('        when : "1";')
+        _scalar_block(a, "        ", "rise_power", avg_edge_fj)
+        _scalar_block(a, "        ", "fall_power", avg_edge_fj)
+        a("      }")
+        for ttype in ("min_clock_tree_path", "max_clock_tree_path"):
+            a("      timing() {")
+            a(f"        timing_type : {ttype};")
+            _scalar_block(a, "        ", "cell_rise", post_cts_ck_ns)
+            _scalar_block(a, "        ", "cell_fall", post_cts_ck_ns)
+            a("      }")
+        a("    }")
+
         for pn, direction, is_bus in port_pins:
-            if pn == f"{port_id}_clk":
-                # Modeled through the main clk pin; skip.
-                continue
+            if pn == clk_pn:
+                continue  # Already emitted as the clock pin above.
             if is_bus and role.kind == "sram":
-                a(f'    bus({pn}) {{')
-                a(f'      bus_type : {name}_{"ADDR" if pn.endswith("_addr") else "DATA"}_{pn};')
+                a(f"    bus({pn}) {{")
+                a(
+                    f'      bus_type : {name}_{"ADDR" if pn.endswith("_addr") else "DATA"}_{pn};'
+                )
             else:
-                a(f'    pin({pn}) {{')
-            a(f'      direction : {direction};')
-            a(f'      capacitance : {1.0:.6g};')
+                a(f"    pin({pn}) {{")
+            a(f"      direction : {direction};")
+            a(f"      capacitance : {1.0:.6g};")
             if direction == "output":
                 # Clk → data access arc.
-                a('      timing() {')
-                a('        related_pin : "clk";')
-                a('        timing_type : rising_edge;')
-                a(f'        cell_rise(scalar) {{ values ("{access_ns:.6g}") }}')
-                a(f'        cell_fall(scalar) {{ values ("{access_ns:.6g}") }}')
-                a(f'        rise_transition(scalar) {{ values ("{trans_ns:.6g}") }}')
-                a(f'        fall_transition(scalar) {{ values ("{trans_ns:.6g}") }}')
-                a('      }')
+                a("      timing() {")
+                a(f'        related_pin : "{clk_pn}";')
+                a("        timing_type : rising_edge;")
+                _scalar_block(a, "        ", "cell_rise", access_ns)
+                _scalar_block(a, "        ", "cell_fall", access_ns)
+                _scalar_block(a, "        ", "rise_transition", trans_ns)
+                _scalar_block(a, "        ", "fall_transition", trans_ns)
+                a("      }")
             else:
                 # Data/addr/en → clk setup/hold.
-                a('      timing() {')
-                a('        related_pin : "clk";')
-                a('        timing_type : setup_rising;')
-                a(f'        rise_constraint(scalar) {{ values ("{setup_ns:.6g}") }}')
-                a(f'        fall_constraint(scalar) {{ values ("{setup_ns:.6g}") }}')
-                a('      }')
-                a('      timing() {')
-                a('        related_pin : "clk";')
-                a('        timing_type : hold_rising;')
-                a(f'        rise_constraint(scalar) {{ values ("{hold_ns:.6g}") }}')
-                a(f'        fall_constraint(scalar) {{ values ("{hold_ns:.6g}") }}')
-                a('      }')
+                a("      timing() {")
+                a(f'        related_pin : "{clk_pn}";')
+                a("        timing_type : setup_rising;")
+                _scalar_block(a, "        ", "rise_constraint", setup_ns)
+                _scalar_block(a, "        ", "fall_constraint", setup_ns)
+                a("      }")
+                a("      timing() {")
+                a(f'        related_pin : "{clk_pn}";')
+                a("        timing_type : hold_rising;")
+                _scalar_block(a, "        ", "rise_constraint", hold_ns)
+                _scalar_block(a, "        ", "fall_constraint", hold_ns)
+                a("      }")
                 # Per-pin switching-power contribution — OpenSTA integrates
                 # these with SAIF toggle counts to get dynamic power.
-                per_pin_fj = (read_e if "data" in pn or "rdata" in pn
-                              else read_e / 4.0)
-                a('      internal_power() {')
-                a('        related_pin : "clk";')
+                per_pin_fj = read_e if "data" in pn or "rdata" in pn else read_e / 4.0
+                a("      internal_power() {")
+                a(f'        related_pin : "{clk_pn}";')
                 a('        when : "1";')
-                a(f'        rise_power(scalar) {{ values ("{per_pin_fj:.6g}") }}')
-                a(f'        fall_power(scalar) {{ values ("{per_pin_fj:.6g}") }}')
-                a('      }')
-            a(f'      {"}}" if is_bus and role.kind == "sram" else "}"}')
-        # nothing to close per port
+                _scalar_block(a, "        ", "rise_power", per_pin_fj)
+                _scalar_block(a, "        ", "fall_power", per_pin_fj)
+                a("      }")
+            # Close the pin()/bus() block — one brace in both cases.
+            a("    }")
 
-    a(f'  }}')  # close cell
-    a('}')       # close library
+    a(f"  }}")  # close cell
+    a("}")  # close library
     return "\n".join(lines) + "\n"
 
 
@@ -1234,27 +1373,28 @@ def generate_lef(role, tech_nm=DEFAULT_TECH_NM):
     name = role.cell_name or role.library_name or f"mem_{role.rows}x{role.bits}"
     # Build a stub LEF with just the name and a placeholder outline, then
     # let rewrite_lef() do the real pin placement from our known pin set.
-    stub = [f"VERSION 5.8 ;",
-            f"BUSBITCHARS \"[]\" ;",
-            f"DIVIDERCHAR \"/\" ;",
-            f"",
-            f"MACRO {name}",
-            f"  CLASS BLOCK ;",
-            f"  ORIGIN 0 0 ;",
-            f"  SIZE 1 BY 1 ;"]
+    stub = [
+        f"VERSION 5.8 ;",
+        f'BUSBITCHARS "[]" ;',
+        f'DIVIDERCHAR "/" ;',
+        f"",
+        f"MACRO {name}",
+        f"  CLASS BLOCK ;",
+        f"  ORIGIN 0 0 ;",
+        f"  SIZE 1 BY 1 ;",
+    ]
     for port in _port_pin_names(role).values():
         for pn, direction, _ in port:
-            if pn.endswith("_clk"):
-                continue
             stub.append(f"  PIN {pn}")
-            stub.append(f"    DIRECTION {'OUTPUT' if direction == 'output' else 'INPUT'} ;")
-            stub.append(f"    PORT LAYER M4 ; RECT 0 0 0.1 0.1 ; END")
+            stub.append(
+                f"    DIRECTION {'OUTPUT' if direction == 'output' else 'INPUT'} ;"
+            )
+            if pn.endswith("_clk"):
+                stub.append(f"    USE CLOCK ;")
+                stub.append(f"    PORT LAYER M5 ; RECT 0 0 0.1 0.1 ; END")
+            else:
+                stub.append(f"    PORT LAYER M4 ; RECT 0 0 0.1 0.1 ; END")
             stub.append(f"  END {pn}")
-    stub.append(f"  PIN clk")
-    stub.append(f"    DIRECTION INPUT ;")
-    stub.append(f"    USE CLOCK ;")
-    stub.append(f"    PORT LAYER M5 ; RECT 0 0 0.1 0.1 ; END")
-    stub.append(f"  END clk")
     stub.append(f"END {name}")
     stub.append("")
     stub.append("END LIBRARY")
@@ -1344,8 +1484,9 @@ def _extract_verilog_pins(body):
 
 def _classify_verilog_pins(module_name, pins):
     """Build a MemoryRole from a list of (pin_name, direction, width)."""
-    role = MemoryRole(kind="non_memory", library_name=module_name,
-                     cell_name=module_name)
+    role = MemoryRole(
+        kind="non_memory", library_name=module_name, cell_name=module_name
+    )
     # Count firtool-style R*/W*/RW* port groups, pull width from _addr/_data.
     seen = {"R": set(), "W": set(), "RW": set()}
     addr_bits = 0
@@ -1356,6 +1497,7 @@ def _classify_verilog_pins(module_name, pins):
             continue
         kind, num, tail = m.group(1), m.group(2), m.group(3)
         seen[kind].add(num)
+        role.pin_widths[pn] = width
         if tail == "addr":
             addr_bits = max(addr_bits, width)
         elif tail in ("data", "rdata", "wdata"):
@@ -1484,8 +1626,9 @@ def generate_abstracts_from_verilog(
     for name, role in roles.items():
         lib_text = generate_lib(role, tech_nm=tech_nm)
         # Pre-layout = ideal-clock version of the same .lib (ck_insertion=0).
-        pre_layout_text = scale_lib_text(lib_text, timing_scale=1.0,
-                                         ck_insertion_ps=0.0)
+        pre_layout_text = scale_lib_text(
+            lib_text, timing_scale=1.0, ck_insertion_ps=0.0
+        )
         lef_text = generate_lef(role, tech_nm=tech_nm)
         (out_dir / f"{name}.lib").write_text(lib_text)
         (out_dir / f"{name}_pre_layout.lib").write_text(pre_layout_text)
@@ -1514,18 +1657,35 @@ def main(argv=None):
     p.add_argument("--out-lib-post-cts", type=Path, default=None)
     p.add_argument("--out-lib-pre-layout", type=Path, default=None)
     p.add_argument("--out-lef", type=Path, default=None)
-    p.add_argument("--timing-scale", type=float, default=None,
-                   help="Override the computed data-path timing scale.")
+    p.add_argument(
+        "--timing-scale",
+        type=float,
+        default=None,
+        help="Override the computed data-path timing scale.",
+    )
 
     # Verilog-mode inputs.
-    p.add_argument("--verilog", action="append", default=None, type=Path,
-                   help="Path to a .sv/.v file or a directory tree; "
-                        "repeat for multiple sources. Triggers behavioral-"
-                        "memory mode.")
-    p.add_argument("--out-dir", type=Path, default=None,
-                   help="Output directory for behavioral-memory mode.")
-    p.add_argument("--module", action="append", default=None,
-                   help="Only emit this module name (repeatable).")
+    p.add_argument(
+        "--verilog",
+        action="append",
+        default=None,
+        type=Path,
+        help="Path to a .sv/.v file or a directory tree; "
+        "repeat for multiple sources. Triggers behavioral-"
+        "memory mode.",
+    )
+    p.add_argument(
+        "--out-dir",
+        type=Path,
+        default=None,
+        help="Output directory for behavioral-memory mode.",
+    )
+    p.add_argument(
+        "--module",
+        action="append",
+        default=None,
+        help="Only emit this module name (repeatable).",
+    )
     p.add_argument("--tech-nm", type=int, default=DEFAULT_TECH_NM)
 
     p.add_argument("--dry-run", action="store_true")
@@ -1535,9 +1695,16 @@ def main(argv=None):
         if args.out_dir is None:
             p.error("--out-dir is required with --verilog")
         return _main_from_verilog(args)
-    if args.in_lib_post_cts is None or args.in_lef is None or args.out_lib_post_cts is None or args.out_lef is None:
-        p.error("scaling mode requires --in-lib-post-cts, --in-lef, "
-                "--out-lib-post-cts, --out-lef")
+    if (
+        args.in_lib_post_cts is None
+        or args.in_lef is None
+        or args.out_lib_post_cts is None
+        or args.out_lef is None
+    ):
+        p.error(
+            "scaling mode requires --in-lib-post-cts, --in-lef, "
+            "--out-lib-post-cts, --out-lef"
+        )
     return _main_scale(p, args)
 
 
@@ -1555,8 +1722,11 @@ def _main_from_verilog(args):
     )
     for name, role in roles.items():
         _log_role(role, None, None)
-        print(f"  {name}: {role.kind} rows={role.rows} bits={role.bits} "
-              f"ports={role.ports_key}", file=sys.stderr)
+        print(
+            f"  {name}: {role.kind} rows={role.rows} bits={role.bits} "
+            f"ports={role.ports_key}",
+            file=sys.stderr,
+        )
     return 0
 
 

@@ -77,6 +77,7 @@ def behavioral_macros(
             module_top = m,
         )
         targets.append(":" + t)
+
     # Aggregate filegroup for convenience.
     native.filegroup(
         name = name,

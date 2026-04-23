@@ -63,4 +63,7 @@ py_binary(
     deps = [":generate_sweep_lib"],
 )
 
-exports_files(["asap7_sweep.yaml", "sweep_configs.py"])
+exports_files([
+    "asap7_sweep.yaml",
+    "sweep_configs.py",
+])
