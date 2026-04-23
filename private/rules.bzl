@@ -1394,7 +1394,7 @@ def _make_impl(
     return [
         DefaultInfo(
             executable = exe,
-            files = depset(forwards + results + reports),
+            files = depset(forwards + results + reports + [args_mk]),
             runfiles = ctx.runfiles(
                 [config_short, make, args_mk] +
                 forwards +
