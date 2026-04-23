@@ -855,5 +855,372 @@ class TestCli(unittest.TestCase):
             self.assertNotEqual(out_post.read_text(), out_pre.read_text())
 
 
+# ---------------------------------------------------------------------------
+# Read-mode (sync vs async) distinction — the Q-pin arc shape that STA sees
+# ---------------------------------------------------------------------------
+
+
+def _q_pin_blocks(lib_text, pin_name):
+    """Return the text body of each `pin(pin_name){...}` / `bus(pin_name){...}`.
+
+    Handles nested braces with a brace-depth walk.
+    """
+    out = []
+    for opener in (f"pin({pin_name})", f"bus({pin_name})"):
+        i = 0
+        while True:
+            j = lib_text.find(opener, i)
+            if j < 0:
+                break
+            # Advance to the opening brace.
+            k = lib_text.find("{", j)
+            depth = 1
+            end = k + 1
+            while depth and end < len(lib_text):
+                if lib_text[end] == "{":
+                    depth += 1
+                elif lib_text[end] == "}":
+                    depth -= 1
+                end += 1
+            out.append(lib_text[k + 1 : end - 1])
+            i = end
+    return out
+
+
+def _async_sram_lib(name="async_8x8", rows=8, bits=8):
+    """Minimal firtool-style .lib with a combinational ADDR→Q arc on R0_data."""
+    import math
+
+    addr_bits = int(math.log2(rows))
+    types = f"""
+      type ({name}_DATA) {{
+        base_type : array; data_type : bit;
+        bit_width : {bits}; bit_from : {bits-1}; bit_to : 0; downto : true;
+      }}
+      type ({name}_ADDR) {{
+        base_type : array; data_type : bit;
+        bit_width : {addr_bits}; bit_from : {addr_bits-1}; bit_to : 0; downto : true;
+      }}
+    """
+    body = f"""
+      bus(R0_addr) {{ bus_type : {name}_ADDR; direction : input; }}
+      pin(R0_en)   {{ direction : input; }}
+      pin(R0_clk)  {{ direction : input; clock : true; }}
+      bus(R0_data) {{
+        bus_type : {name}_DATA;
+        direction : output;
+        timing() {{
+          related_pin : "R0_addr";
+          timing_type : combinational;
+          cell_rise(scalar) {{ values ("0.5") }}
+          cell_fall(scalar) {{ values ("0.45") }}
+        }}
+      }}
+    """
+    return (
+        _lib_header(name)
+        + types
+        + f"  cell({name}) {{\n"
+        + "    area : 300.0;\n"
+        + body
+        + "  }\n"
+        + "}\n"
+    )
+
+
+class TestReadMode(unittest.TestCase):
+    """Verify that generate_lib() emits the correct arc shape on Q pins.
+
+    Sync read → `timing_type : rising_edge` with `related_pin` = clock pin.
+    Async read → `timing_type : combinational` with `related_pin` = addr pin.
+    Getting this wrong silently breaks STA: sync-as-async pushes reads
+    across a register boundary; async-as-sync hides a full cycle of delay.
+    """
+
+    def _lib(self, read_mode, *, nR=1, nW=1, nRW=0):
+        role = mms.MemoryRole(
+            kind="sram",
+            rows=128,
+            bits=64,
+            nR=nR,
+            nW=nW,
+            nRW=nRW,
+            library_name="mem",
+            cell_name="mem",
+            read_mode=read_mode,
+        )
+        return mms.generate_lib(role, tech_nm=7)
+
+    def test_sync_sram_emits_rising_edge_q_arc(self):
+        lib = self._lib("sync")
+        (q_block,) = _q_pin_blocks(lib, "R0_data")
+        self.assertRegex(q_block, r'related_pin\s*:\s*"R0_clk"')
+        self.assertRegex(q_block, r"timing_type\s*:\s*rising_edge")
+        self.assertNotRegex(q_block, r"timing_type\s*:\s*combinational")
+
+    def test_async_sram_emits_combinational_q_arc(self):
+        lib = self._lib("async")
+        (q_block,) = _q_pin_blocks(lib, "R0_data")
+        self.assertRegex(q_block, r'related_pin\s*:\s*"R0_addr"')
+        self.assertRegex(q_block, r"timing_type\s*:\s*combinational")
+        self.assertNotRegex(q_block, r"timing_type\s*:\s*rising_edge")
+
+    def test_async_sram_read_addr_has_no_setup_hold(self):
+        lib = self._lib("async")
+        (addr_block,) = _q_pin_blocks(lib, "R0_addr")
+        self.assertNotIn("setup_rising", addr_block)
+        self.assertNotIn("hold_rising", addr_block)
+
+    def test_async_sram_write_side_stays_synchronous(self):
+        lib = self._lib("async")
+        (w_addr_block,) = _q_pin_blocks(lib, "W0_addr")
+        self.assertIn("setup_rising", w_addr_block)
+        self.assertIn("hold_rising", w_addr_block)
+        (w_data_block,) = _q_pin_blocks(lib, "W0_data")
+        self.assertIn("setup_rising", w_data_block)
+
+    def test_async_rw_preserves_addr_setup_hold_for_writes(self):
+        # Shared-address RW: the write side still needs setup/hold to clock,
+        # even though the read side is combinational.
+        lib = self._lib("async", nR=0, nW=0, nRW=1)
+        (addr_block,) = _q_pin_blocks(lib, "RW0_addr")
+        self.assertIn("setup_rising", addr_block)
+        self.assertIn("hold_rising", addr_block)
+        (rdata_block,) = _q_pin_blocks(lib, "RW0_rdata")
+        self.assertRegex(rdata_block, r'related_pin\s*:\s*"RW0_addr"')
+        self.assertRegex(rdata_block, r"timing_type\s*:\s*combinational")
+        self.assertNotRegex(rdata_block, r"timing_type\s*:\s*rising_edge")
+
+    def test_sync_is_the_default(self):
+        # Backwards-compat guard: roles constructed without read_mode get sync.
+        role = mms.MemoryRole(
+            kind="sram",
+            rows=128,
+            bits=64,
+            nR=1,
+            nW=1,
+            library_name="mem",
+            cell_name="mem",
+        )
+        self.assertEqual(role.read_mode, "sync")
+        lib = mms.generate_lib(role, tech_nm=7)
+        (q_block,) = _q_pin_blocks(lib, "R0_data")
+        self.assertRegex(q_block, r"timing_type\s*:\s*rising_edge")
+
+
+class TestVerilogScannerReadMode(unittest.TestCase):
+    """Verilog-body heuristic for sync vs async read classification."""
+
+    def test_posedge_always_nonblocking_rdata_is_sync(self):
+        sv = textwrap.dedent(
+            """\
+            module sram_8x8(
+              input         R0_clk,
+              input  [2:0]  R0_addr,
+              input         R0_en,
+              output [7:0]  R0_data,
+              input  [2:0]  W0_addr,
+              input         W0_en,
+              input  [7:0]  W0_data,
+              input  [7:0]  W0_mask
+            );
+              reg [7:0] Memory [7:0];
+              always @(posedge R0_clk) begin
+                R0_data <= Memory[R0_addr];
+              end
+            endmodule
+            """
+        )
+        roles = mms.scan_verilog_for_memories(sv)
+        self.assertEqual(roles["sram_8x8"].read_mode, "sync")
+
+    def test_registered_stage_assigned_to_rdata_is_sync(self):
+        # Firtool-style: Memory[R0_addr] is sampled into a register on posedge,
+        # then continuously assigned to the output. Still a synchronous read.
+        sv = textwrap.dedent(
+            """\
+            module sram_8x8(
+              input         R0_clk,
+              input  [2:0]  R0_addr,
+              input         R0_en,
+              output [7:0]  R0_data,
+              input  [2:0]  W0_addr,
+              input         W0_en,
+              input  [7:0]  W0_data,
+              input  [7:0]  W0_mask
+            );
+              reg [7:0] Memory [7:0];
+              reg [7:0] Memory_R0_data;
+              always @(posedge R0_clk) begin
+                Memory_R0_data <= Memory[R0_addr];
+              end
+              assign R0_data = Memory_R0_data;
+            endmodule
+            """
+        )
+        roles = mms.scan_verilog_for_memories(sv)
+        self.assertEqual(roles["sram_8x8"].read_mode, "sync")
+
+    def test_continuous_assign_rdata_from_memory_is_async(self):
+        sv = textwrap.dedent(
+            """\
+            module sram_8x8(
+              input         R0_clk,
+              input  [2:0]  R0_addr,
+              input         R0_en,
+              output [7:0]  R0_data,
+              input  [2:0]  W0_addr,
+              input         W0_en,
+              input  [7:0]  W0_data,
+              input  [7:0]  W0_mask
+            );
+              reg [7:0] Memory [7:0];
+              always @(posedge W0_clk) begin
+                if (W0_en) Memory[W0_addr] <= W0_data;
+              end
+              assign R0_data = Memory[R0_addr];
+            endmodule
+            """
+        )
+        roles = mms.scan_verilog_for_memories(sv)
+        self.assertEqual(roles["sram_8x8"].read_mode, "async")
+
+    def test_ambiguous_body_defaults_to_sync(self):
+        # No explicit drive of R0_data in the body (e.g. stubbed out) — keep
+        # the current implicit behavior rather than silently flipping.
+        sv = textwrap.dedent(
+            """\
+            module sram_8x8(
+              input         R0_clk,
+              input  [2:0]  R0_addr,
+              input         R0_en,
+              output [7:0]  R0_data,
+              input  [2:0]  W0_addr,
+              input         W0_en,
+              input  [7:0]  W0_data,
+              input  [7:0]  W0_mask
+            );
+            endmodule
+            """
+        )
+        roles = mms.scan_verilog_for_memories(sv)
+        self.assertEqual(roles["sram_8x8"].read_mode, "sync")
+
+    def test_flop_memory_defaults_to_async(self):
+        # Flop-based memories (by name suffix) are always async-read by
+        # construction — the Verilog-body heuristic shouldn't override that.
+        sv = textwrap.dedent(
+            """\
+            module regfile_16x32(
+              input         clk,
+              input  [3:0]  addr,
+              output [31:0] q,
+              input         we,
+              input  [31:0] d
+            );
+              reg [31:0] mem [15:0];
+              always @(posedge clk) if (we) mem[addr] <= d;
+              assign q = mem[addr];
+            endmodule
+            """
+        )
+        roles = mms.scan_verilog_for_memories(sv)
+        self.assertEqual(roles["regfile_16x32"].kind, "flop_memory")
+        self.assertEqual(roles["regfile_16x32"].read_mode, "async")
+
+
+class TestScaleLibTextCombinationalPassthrough(unittest.TestCase):
+    """scale_lib_text() must not silently convert `combinational` arcs."""
+
+    def test_scale_preserves_combinational_timing_type(self):
+        text = _async_sram_lib()
+        scaled = mms.scale_lib_text(text, timing_scale=2.0)
+        # timing_type stays as combinational (no sync/async semantic shift).
+        self.assertIn("timing_type : combinational", scaled)
+        self.assertNotIn("timing_type : rising_edge", scaled)
+        # Numeric values did scale 2×: 0.5 → 1.0, 0.45 → 0.9.
+        (q_block,) = _q_pin_blocks(scaled, "R0_data")
+        rise = re.search(
+            r'cell_rise\(scalar\)\s*\{\s*values\s*\(\s*"([\d.]+)"', q_block
+        )
+        fall = re.search(
+            r'cell_fall\(scalar\)\s*\{\s*values\s*\(\s*"([\d.]+)"', q_block
+        )
+        self.assertAlmostEqual(float(rise.group(1)), 1.0, places=5)
+        self.assertAlmostEqual(float(fall.group(1)), 0.9, places=5)
+
+
+class TestBehavioralMacrosReadMode(unittest.TestCase):
+    """End-to-end: Verilog → generated .lib must respect read mode."""
+
+    def test_async_verilog_produces_combinational_q_arc_in_generated_lib(self):
+        sv = textwrap.dedent(
+            """\
+            module async_sram_8x8(
+              input         R0_clk,
+              input  [2:0]  R0_addr,
+              input         R0_en,
+              output [7:0]  R0_data,
+              input  [2:0]  W0_addr,
+              input         W0_en,
+              input  [7:0]  W0_data,
+              input  [7:0]  W0_mask,
+              input         W0_clk
+            );
+              reg [7:0] Memory [7:0];
+              always @(posedge W0_clk) if (W0_en) Memory[W0_addr] <= W0_data;
+              assign R0_data = Memory[R0_addr];
+            endmodule
+            """
+        )
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            v = d / "async.sv"
+            v.write_text(sv)
+            out = d / "out"
+            roles = mms.generate_abstracts_from_verilog(
+                verilog_paths=[v], out_dir=out, tech_nm=7
+            )
+            self.assertEqual(roles["async_sram_8x8"].read_mode, "async")
+            lib = (out / "async_sram_8x8.lib").read_text()
+            (q_block,) = _q_pin_blocks(lib, "R0_data")
+            self.assertRegex(q_block, r"timing_type\s*:\s*combinational")
+            self.assertNotRegex(q_block, r"timing_type\s*:\s*rising_edge")
+
+    def test_sync_verilog_produces_rising_edge_q_arc_in_generated_lib(self):
+        sv = textwrap.dedent(
+            """\
+            module sync_sram_8x8(
+              input         R0_clk,
+              input  [2:0]  R0_addr,
+              input         R0_en,
+              output [7:0]  R0_data,
+              input  [2:0]  W0_addr,
+              input         W0_en,
+              input  [7:0]  W0_data,
+              input  [7:0]  W0_mask,
+              input         W0_clk
+            );
+              reg [7:0] Memory [7:0];
+              always @(posedge R0_clk) R0_data <= Memory[R0_addr];
+              always @(posedge W0_clk) if (W0_en) Memory[W0_addr] <= W0_data;
+            endmodule
+            """
+        )
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            v = d / "sync.sv"
+            v.write_text(sv)
+            out = d / "out"
+            roles = mms.generate_abstracts_from_verilog(
+                verilog_paths=[v], out_dir=out, tech_nm=7
+            )
+            self.assertEqual(roles["sync_sram_8x8"].read_mode, "sync")
+            lib = (out / "sync_sram_8x8.lib").read_text()
+            (q_block,) = _q_pin_blocks(lib, "R0_data")
+            self.assertRegex(q_block, r"timing_type\s*:\s*rising_edge")
+            self.assertNotRegex(q_block, r"timing_type\s*:\s*combinational")
+
+
 if __name__ == "__main__":
     unittest.main()
