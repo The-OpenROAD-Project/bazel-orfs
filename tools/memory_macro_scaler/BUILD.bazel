@@ -1,0 +1,26 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+py_library(
+    name = "memory_macro_scaler_lib",
+    srcs = ["memory_macro_scaler.py"],
+    imports = ["."],
+)
+
+py_binary(
+    name = "memory_macro_scaler",
+    srcs = ["memory_macro_scaler.py"],
+    main = "memory_macro_scaler.py",
+    visibility = ["//visibility:public"],
+    deps = [":memory_macro_scaler_lib"],
+)
+
+py_test(
+    name = "memory_macro_scaler_test",
+    srcs = ["memory_macro_scaler_test.py"],
+    deps = [":memory_macro_scaler_lib"],
+)
+
+exports_files([
+    "scale_macro.bzl",
+    "scaled_macro_lib.bzl",
+])
