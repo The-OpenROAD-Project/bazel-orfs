@@ -675,6 +675,12 @@ class MemoryRole:
     # whose width diverges from the word width — e.g. RW0_wmask on a 512-
     # bit memory may be 8 bits (byte enables), not 512.
     pin_widths: dict = field(default_factory=dict)
+    # "sync" = read-data output is registered (CLK → Q arc, timing_type
+    # rising_edge). "async" = read-data output is combinational from the
+    # read address (ADDR → Q arc, timing_type combinational). Flop memories
+    # default to async because their physical implementation is a decoded
+    # mux over flops — STA must see the read as combinational.
+    read_mode: str = "sync"
 
     @property
     def ports_key(self):
@@ -734,6 +740,7 @@ def classify(lib_text):
     dims = _dims_from_name(cell_name or library_name)
     if dims and _FF_GROUP_RE.search(lib_text):
         role.kind = "flop_memory"
+        role.read_mode = "async"
         role.rows, role.bits = dims
         return role
 
@@ -1304,6 +1311,17 @@ def generate_lib(role, tech_nm=DEFAULT_TECH_NM):
             a("      }")
         a("    }")
 
+        # Pure-R ports with async read have no clock-referenced timing
+        # on their address/enable pins; those pins only drive the
+        # combinational read path. RW ports stay synchronous on the
+        # input side because the same addr/en pins also serve the write
+        # function, which is always registered.
+        is_pure_read_port = port_id.startswith("R") and not port_id.startswith("RW")
+        async_read_port = role.read_mode == "async" and (
+            is_pure_read_port or port_id.startswith("RW")
+        )
+        read_addr_pn = f"{port_id}_addr" if async_read_port else None
+
         for pn, direction, is_bus in port_pins:
             if pn == clk_pn:
                 continue  # Already emitted as the clock pin above.
@@ -1317,38 +1335,56 @@ def generate_lib(role, tech_nm=DEFAULT_TECH_NM):
             a(f"      direction : {direction};")
             a(f"      capacitance : {1.0:.6g};")
             if direction == "output":
-                # Clk → data access arc.
-                a("      timing() {")
-                a(f'        related_pin : "{clk_pn}";')
-                a("        timing_type : rising_edge;")
-                _scalar_block(a, "        ", "cell_rise", access_ns)
-                _scalar_block(a, "        ", "cell_fall", access_ns)
-                _scalar_block(a, "        ", "rise_transition", trans_ns)
-                _scalar_block(a, "        ", "fall_transition", trans_ns)
-                a("      }")
+                if async_read_port:
+                    # Combinational ADDR → Q arc — STA sees the read as a
+                    # mux-style propagation delay, not a flip-flop output.
+                    a("      timing() {")
+                    a(f'        related_pin : "{read_addr_pn}";')
+                    a("        timing_type : combinational;")
+                    _scalar_block(a, "        ", "cell_rise", access_ns)
+                    _scalar_block(a, "        ", "cell_fall", access_ns)
+                    _scalar_block(a, "        ", "rise_transition", trans_ns)
+                    _scalar_block(a, "        ", "fall_transition", trans_ns)
+                    a("      }")
+                else:
+                    # Sync read: Clk → data access arc.
+                    a("      timing() {")
+                    a(f'        related_pin : "{clk_pn}";')
+                    a("        timing_type : rising_edge;")
+                    _scalar_block(a, "        ", "cell_rise", access_ns)
+                    _scalar_block(a, "        ", "cell_fall", access_ns)
+                    _scalar_block(a, "        ", "rise_transition", trans_ns)
+                    _scalar_block(a, "        ", "fall_transition", trans_ns)
+                    a("      }")
             else:
-                # Data/addr/en → clk setup/hold.
-                a("      timing() {")
-                a(f'        related_pin : "{clk_pn}";')
-                a("        timing_type : setup_rising;")
-                _scalar_block(a, "        ", "rise_constraint", setup_ns)
-                _scalar_block(a, "        ", "fall_constraint", setup_ns)
-                a("      }")
-                a("      timing() {")
-                a(f'        related_pin : "{clk_pn}";')
-                a("        timing_type : hold_rising;")
-                _scalar_block(a, "        ", "rise_constraint", hold_ns)
-                _scalar_block(a, "        ", "fall_constraint", hold_ns)
-                a("      }")
-                # Per-pin switching-power contribution — OpenSTA integrates
-                # these with SAIF toggle counts to get dynamic power.
-                per_pin_fj = read_e if "data" in pn or "rdata" in pn else read_e / 4.0
-                a("      internal_power() {")
-                a(f'        related_pin : "{clk_pn}";')
-                a('        when : "1";')
-                _scalar_block(a, "        ", "rise_power", per_pin_fj)
-                _scalar_block(a, "        ", "fall_power", per_pin_fj)
-                a("      }")
+                # Write-side pins (data/addr/en/mask/wmode) keep setup/hold
+                # to clock. For pure-R ports with async read we skip the
+                # constraint arcs — the pin has no clock relationship.
+                emit_constraints = not (is_pure_read_port and role.read_mode == "async")
+                if emit_constraints:
+                    a("      timing() {")
+                    a(f'        related_pin : "{clk_pn}";')
+                    a("        timing_type : setup_rising;")
+                    _scalar_block(a, "        ", "rise_constraint", setup_ns)
+                    _scalar_block(a, "        ", "fall_constraint", setup_ns)
+                    a("      }")
+                    a("      timing() {")
+                    a(f'        related_pin : "{clk_pn}";')
+                    a("        timing_type : hold_rising;")
+                    _scalar_block(a, "        ", "rise_constraint", hold_ns)
+                    _scalar_block(a, "        ", "fall_constraint", hold_ns)
+                    a("      }")
+                    # Per-pin switching-power contribution — OpenSTA integrates
+                    # these with SAIF toggle counts to get dynamic power.
+                    per_pin_fj = (
+                        read_e if "data" in pn or "rdata" in pn else read_e / 4.0
+                    )
+                    a("      internal_power() {")
+                    a(f'        related_pin : "{clk_pn}";')
+                    a('        when : "1";')
+                    _scalar_block(a, "        ", "rise_power", per_pin_fj)
+                    _scalar_block(a, "        ", "fall_power", per_pin_fj)
+                    a("      }")
             # Close the pin()/bus() block — one brace in both cases.
             a("    }")
 
@@ -1442,9 +1478,63 @@ def scan_verilog_for_memories(text):
         if not pins:
             continue
         role = _classify_verilog_pins(name, pins)
+        if role.kind == "sram":
+            role.read_mode = _detect_read_mode(body, role)
         if role.kind in ("sram", "flop_memory"):
             out[name] = role
     return out
+
+
+def _detect_read_mode(body, role):
+    """Classify the read-data path of `role` as "sync" or "async" from `body`.
+
+    Heuristic, firtool-friendly:
+      - `assign <rdata_pin> = <ident>[...]` or `assign <rdata_pin> = <ident>`
+        where the RHS is a memory-array read (not a registered staging
+        signal) → "async".
+      - a `<rdata_pin> <= ...` non-blocking assignment inside an
+        `always @(posedge ...)` block → "sync".
+      - ambiguous → "sync" (firtool's default for SRAM; matches the
+        tool's pre-existing implicit behavior).
+    """
+    output_pins = []
+    for i in range(role.nR):
+        output_pins.append(f"R{i}_data")
+    for i in range(role.nRW):
+        output_pins.append(f"RW{i}_rdata")
+    if not output_pins:
+        return role.read_mode
+
+    # Collect signals assigned non-blocking inside a posedge-always block —
+    # those are registered, so even a continuous-assign of an rdata pin
+    # from one of them is still a sync read.
+    registered = set()
+    for m in _POSEDGE_ALWAYS_RE.finditer(body):
+        # Scan the block body until the matching end / endalways heuristic.
+        # The firtool style always places the NBA on the very next lines,
+        # so a bounded window is plenty.
+        window = body[m.end() : m.end() + 2000]
+        for nm in _NONBLOCKING_LHS_RE.finditer(window):
+            registered.add(nm.group(1))
+
+    for pn in output_pins:
+        # Non-blocking assignment to the rdata pin directly ⇒ sync.
+        if re.search(rf"\b{re.escape(pn)}\s*<=", body):
+            return "sync"
+        # Continuous-assign patterns.
+        for am in re.finditer(rf"\bassign\s+{re.escape(pn)}\s*=\s*([^;]+);", body):
+            rhs = am.group(1)
+            # assign rdata = some_reg;  where some_reg is registered ⇒ sync.
+            rhs_ident = re.match(r"\s*(\w+)\s*$", rhs)
+            if rhs_ident and rhs_ident.group(1) in registered:
+                return "sync"
+            # assign rdata = Memory[...]  or assign rdata = <non-registered> ⇒ async.
+            return "async"
+    return "sync"
+
+
+_POSEDGE_ALWAYS_RE = re.compile(r"\balways(?:_ff)?\s*@\s*\(\s*posedge\b")
+_NONBLOCKING_LHS_RE = re.compile(r"\b(\w+)\s*<=")
 
 
 def scan_verilog_files(paths):
@@ -1514,6 +1604,7 @@ def _classify_verilog_pins(module_name, pins):
         dims = _dims_from_name(module_name)
         if dims:
             role.kind = "flop_memory"
+            role.read_mode = "async"
             role.rows, role.bits = dims
     return role
 
