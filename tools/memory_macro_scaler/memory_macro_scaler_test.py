@@ -649,6 +649,38 @@ class TestGenerateFromScratch(unittest.TestCase):
         self.assertIn("PIN RW0_rdata", lef)
         self.assertIn("PIN RW0_clk", lef)
 
+    def test_generate_lef_has_pg_pins(self):
+        """Behavioral macros must declare VDD/VSS pins so PDN can stitch
+        them to the parent power grid; without these the parent floorplan
+        emits PDN-0231 'not connected to any power/ground nets' for every
+        macro instance and the downstream power flow sees zero macro power.
+        """
+        role = mms.MemoryRole(
+            kind="sram", rows=128, bits=64, nRW=1, library_name="mem", cell_name="mem"
+        )
+        lef = mms.generate_lef(role, tech_nm=7)
+        # PG pins present with the right USE classification.
+        self.assertIn("PIN VDD", lef)
+        self.assertIn("USE POWER", lef)
+        self.assertIn("PIN VSS", lef)
+        self.assertIn("USE GROUND", lef)
+        # And they must land as full-width M4 stripes — small disconnected
+        # rects don't overlap parent PDN stripes and PDN-0231 fires anyway.
+        m = re.search(r"SIZE\s+([\d.]+)\s+BY\s+([\d.]+)", lef)
+        self.assertIsNotNone(m)
+        width = float(m.group(1))
+        for pg in ("VDD", "VSS"):
+            block = re.search(
+                rf"PIN {pg}.*?END {pg}", lef, re.DOTALL
+            ).group(0)
+            stripe = re.search(
+                r"LAYER M4 ; RECT ([\d.]+) [\d.]+ ([\d.]+) [\d.]+", block
+            )
+            self.assertIsNotNone(stripe, f"{pg} stripe not found on M4")
+            x_lo, x_hi = float(stripe.group(1)), float(stripe.group(2))
+            self.assertEqual(x_lo, 0.0)
+            self.assertAlmostEqual(x_hi, width, places=3)
+
 
 class TestBanking(unittest.TestCase):
     def test_small_memory_is_single_bank(self):

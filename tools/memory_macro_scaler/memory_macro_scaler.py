@@ -1053,27 +1053,55 @@ def rewrite_lef(lef_text, role, bucket):
             h=_M5_PITCH_UM,
             use="CLOCK",
         )
-    # Power pins preserved at well-known positions (top-left / top-right).
+    # Power pins as full-width horizontal M4 stripes — PDN searches for
+    # USE POWER / USE GROUND macro pins on a stripe layer and stitches them
+    # to the parent grid via vias. Small disconnected rects (the previous
+    # M5 corner placement) didn't overlap parent PDN stripes, so floorplan
+    # PDN reported PDN-0231 "<inst> not connected to any power/ground nets"
+    # for every behavioral macro and the parent's downstream power analysis
+    # saw zero macro power. The fakeram_*.lef shipped with the asap7
+    # platform uses exactly this shape (multiple full-width M4 stripes per
+    # rail); one stripe per rail is the minimum that PDN can find.
     for i, name in enumerate(powers):
+        is_power = name.upper().startswith("VDD")
+        # Two stripes per macro evenly split the interior on the y axis;
+        # alternate VDD high / VSS low so the rails don't collide.
+        y_frac = 0.66 if is_power else 0.33
+        stripe_y = y_frac * height - _M4_PITCH_UM / 2.0
         _emit_pin(
             lines,
             name,
             "INOUT",
-            layer="M5",
-            x=(width * 0.25) + (width * 0.5 * i),
-            y=height - _M5_PITCH_UM,
-            w=_M5_PITCH_UM,
-            h=_M5_PITCH_UM,
-            use="POWER" if name.upper().startswith("VDD") else "GROUND",
+            layer="M4",
+            x=0.0,
+            y=stripe_y,
+            w=width,
+            h=_M4_PITCH_UM,
+            use="POWER" if is_power else "GROUND",
         )
 
-    # One OBS rectangle covering the interior (conservative blockage).
+    # One OBS rectangle covering the interior (conservative blockage). Carve
+    # out the M4 stripe rows so PDN sees the PG pin geometry, otherwise the
+    # blockage hides the stripes from the macro-pin search.
     inset = _M4_PITCH_UM
     lines.append("  OBS\n")
-    lines.append(
-        f"    LAYER M4 ; RECT {inset:.3f} {inset:.3f} "
-        f"{width - inset:.3f} {height - inset:.3f} ;\n"
+    pg_y_fracs = sorted(set(0.66 if n.upper().startswith("VDD") else 0.33 for n in powers))
+    cuts = sorted(
+        f * height - _M4_PITCH_UM / 2.0 for f in pg_y_fracs
     )
+    cur_y = inset
+    for cy in cuts:
+        if cy > cur_y:
+            lines.append(
+                f"    LAYER M4 ; RECT {inset:.3f} {cur_y:.3f} "
+                f"{width - inset:.3f} {cy:.3f} ;\n"
+            )
+        cur_y = cy + _M4_PITCH_UM
+    if cur_y < height - inset:
+        lines.append(
+            f"    LAYER M4 ; RECT {inset:.3f} {cur_y:.3f} "
+            f"{width - inset:.3f} {height - inset:.3f} ;\n"
+        )
     lines.append("  END\n")
     lines.append(f"END {macro_name}\n")
     return "".join(lines)
@@ -1431,6 +1459,18 @@ def generate_lef(role, tech_nm=DEFAULT_TECH_NM):
             else:
                 stub.append(f"    PORT LAYER M4 ; RECT 0 0 0.1 0.1 ; END")
             stub.append(f"  END {pn}")
+    # Power/ground pins. rewrite_lef() turns these into full-width M4
+    # stripes that PDN can stitch to the parent power grid; without them
+    # the floorplan's PDN stage warns PDN-0231 "<inst> not connected to
+    # any power/ground nets" for every behavioral macro and the parent's
+    # downstream power analysis sees zero macro power. _is_power_pin()
+    # already classifies VDD / VSS, so only the stub entries are new.
+    for pg, use in (("VDD", "POWER"), ("VSS", "GROUND")):
+        stub.append(f"  PIN {pg}")
+        stub.append(f"    DIRECTION INOUT ;")
+        stub.append(f"    USE {use} ;")
+        stub.append(f"    PORT LAYER M4 ; RECT 0 0 0.1 0.1 ; END")
+        stub.append(f"  END {pg}")
     stub.append(f"END {name}")
     stub.append("")
     stub.append("END LIBRARY")
