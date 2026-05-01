@@ -6,6 +6,9 @@ def _global_config_impl(repository_ctx):
         num_cpus = int(result.stdout.strip())
     else:
         num_cpus = 4
+    yosys_plugins_repr = "[" + ", ".join(
+        ['"{}"'.format(p) for p in repository_ctx.attr.yosys_plugins],
+    ) + "]"
     repository_ctx.file(
         "global_config.bzl",
         """
@@ -19,6 +22,7 @@ CONFIG_PDK = "{pdk}"
 CONFIG_YOSYS = "{yosys}"
 CONFIG_YOSYS_ABC = "{yosys_abc}"
 CONFIG_YOSYS_SHARE = "{yosys_share}"
+CONFIG_YOSYS_PLUGINS = {yosys_plugins}
 NUM_CPUS = {num_cpus}
 """.format(
             klayout = repository_ctx.attr.klayout,
@@ -31,6 +35,7 @@ NUM_CPUS = {num_cpus}
             yosys = repository_ctx.attr.yosys,
             yosys_abc = repository_ctx.attr.yosys_abc,
             yosys_share = repository_ctx.attr.yosys_share,
+            yosys_plugins = yosys_plugins_repr,
             num_cpus = num_cpus,
         ),
     )
@@ -68,6 +73,7 @@ global_config = repository_rule(
             cfg = "exec",
         ),
         "yosys_share": attr.label(mandatory = True),
+        "yosys_plugins": attr.label_list(),
     },
     doc = "A repository that provides global configuration values as strings.",
 )
