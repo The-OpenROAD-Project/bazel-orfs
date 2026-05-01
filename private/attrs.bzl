@@ -12,6 +12,7 @@ load(
     "CONFIG_PDK",
     "CONFIG_YOSYS",
     "CONFIG_YOSYS_ABC",
+    "CONFIG_YOSYS_PLUGINS",
     "CONFIG_YOSYS_SHARE",
 )
 load(
@@ -162,6 +163,12 @@ def yosys_only_attrs():
             doc = "Yosys share directory (plugins, etc.).",
             cfg = "exec",
             default = CONFIG_YOSYS_SHARE,
+        ),
+        "_yosys_plugins": attr.label_list(
+            doc = "Extra .so plugin files exposed via YOSYS_PLUGIN_PATH.",
+            allow_files = True,
+            cfg = "exec",
+            default = CONFIG_YOSYS_PLUGINS,
         ),
     }
 

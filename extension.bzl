@@ -66,6 +66,12 @@ _default_tag = tag_class(
             mandatory = False,
             default = Label("@yosys//:yosys_share"),
         ),
+        "yosys_plugins": attr.label_list(
+            mandatory = False,
+            doc = "Extra .so plugin files to expose via YOSYS_PLUGIN_PATH " +
+                  "during yosys actions. Use to load out-of-tree plugins " +
+                  "(e.g. yosys-slang) without merging them into yosys_share.",
+        ),
     },
 )
 
@@ -90,6 +96,7 @@ def _orfs_repositories_impl(module_ctx):
             yosys = default.yosys,
             yosys_abc = default.yosys_abc,
             yosys_share = default.yosys_share,
+            yosys_plugins = default.yosys_plugins,
         )
 
         load_json_file(

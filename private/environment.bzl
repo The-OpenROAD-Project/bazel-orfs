@@ -55,11 +55,19 @@ def yosys_environment(ctx):
         "YOSYS_EXE": ctx.executable.yosys.path,
     } | orfs_environment(ctx)
 
-    # When yosys_share is a single tree artifact (e.g. merged share with
-    # plugins), tell yosys where to find plugins via YOSYS_PLUGIN_PATH.
-    # BCR yosys discovers plugins via /proc/self/exe and won't find plugins
-    # that live outside its own share/ tree without this hint.
-    if len(ctx.files._yosys_share) == 1:
+    # Tell yosys where to find out-of-tree plugins (e.g. yosys-slang)
+    # via YOSYS_PLUGIN_PATH. BCR yosys discovers plugins via
+    # /proc/self/exe and won't find plugins that live outside its own
+    # share/ tree without this hint.
+    plugin_dirs = []
+    for f in ctx.files._yosys_plugins:
+        if f.dirname not in plugin_dirs:
+            plugin_dirs.append(f.dirname)
+    if plugin_dirs:
+        env["YOSYS_PLUGIN_PATH"] = ":".join(plugin_dirs)
+    elif len(ctx.files._yosys_share) == 1:
+        # Backwards-compat: a single tree-artifact yosys_share with a
+        # plugins/ subdir still works.
         env["YOSYS_PLUGIN_PATH"] = ctx.files._yosys_share[0].path + "/plugins"
     return env
 
@@ -133,7 +141,7 @@ def test_inputs(ctx):
 
 def yosys_inputs(ctx):
     return depset(
-        ctx.files._yosys_share,
+        ctx.files._yosys_share + ctx.files._yosys_plugins,
         transitive = [
             _runfiles(
                 [
