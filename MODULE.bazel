@@ -24,20 +24,7 @@ local_path_override(
 )
 
 bazel_dep(name = "abc", version = "0.64-yosyshq.bcr.1")
-bazel_dep(name = "yosys", version = "0.62")
-
-# yosys_share (techlib data files) has package-private visibility in BCR yosys;
-# the ORFS flow needs it public so @yosys//:yosys_share is reachable across modules.
-single_version_override(
-    module_name = "yosys",
-    patch_strip = 1,
-    patches = [
-        "//patches:yosys-visibility.patch",
-        "//patches:yosys-hdrs.patch",
-        "//patches:yosys-tcl9-mp-to-ubin.patch",
-    ],
-)
-
+bazel_dep(name = "yosys", version = "0.62.bcr.2")
 bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",

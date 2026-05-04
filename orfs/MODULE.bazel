@@ -61,13 +61,7 @@ git_override(
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
 )
 
-bazel_dep(name = "yosys", version = "0.62")
-# Make yosys_share publicly visible for the ORFS flow (see bazel-orfs MODULE.bazel).
-single_version_override(
-    module_name = "yosys",
-    patches = ["//patches:yosys-visibility.patch"],
-    patch_strip = 1,
-)
+bazel_dep(name = "yosys", version = "0.62.bcr.2")
 
 # --- OpenROAD built from source ---
 

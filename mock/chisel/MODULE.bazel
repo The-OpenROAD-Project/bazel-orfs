@@ -17,13 +17,7 @@ local_path_override(
     path = "../../verilog",
 )
 
-bazel_dep(name = "yosys", version = "0.62")
-# Make yosys_share publicly visible for the ORFS flow (see bazel-orfs MODULE.bazel).
-single_version_override(
-    module_name = "yosys",
-    patches = ["//patches:yosys-visibility.patch"],
-    patch_strip = 1,
-)
+bazel_dep(name = "yosys", version = "0.62.bcr.2")
 
 bazel_dep(name = "orfs")
 git_override(
