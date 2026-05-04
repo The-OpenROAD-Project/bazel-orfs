@@ -50,16 +50,7 @@ git_override(
     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
 )
 
-# --- yosys visibility patch (single_version_override is root-only) ---
-bazel_dep(name = "yosys", version = "0.62")
-single_version_override(
-    module_name = "yosys",
-    patch_strip = 1,
-    patches = [
-        "//patches:yosys-visibility.patch",
-        "//patches:yosys-hdrs.patch",
-    ],
-)
+bazel_dep(name = "yosys", version = "0.62.bcr.2")
 
 # --- Verilator simulation + Google Test ---
 bazel_dep(name = "rules_verilog", version = "1.1.1")

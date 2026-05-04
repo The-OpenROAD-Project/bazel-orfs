@@ -45,13 +45,6 @@ would deliver these through its extension.
 bazel-orfs pip deps are locked to Python 3.13. The root module must
 register it as the default toolchain via `python.toolchain(is_default = True)`.
 
-### yosys visibility and headers patches
-
-BCR yosys has `package(default_visibility = ["//visibility:private"])`.
-Downstream consumers must duplicate the `yosys-visibility.patch` and add
-a `yosys-hdrs.patch` for plugin compilation (`single_version_override` is
-root-only).
-
 ### yosys-slang not on BCR
 
 The slang yosys plugin must be built from source. This test includes a

@@ -13,17 +13,7 @@ local_path_override(
     path = "..",
 )
 
-bazel_dep(name = "yosys", version = "0.62")
-
-# Make yosys_share publicly visible for the ORFS flow (see bazel-orfs MODULE.bazel).
-single_version_override(
-    module_name = "yosys",
-    patch_strip = 1,
-    patches = [
-        "//patches:yosys-visibility.patch",
-        "//patches:yosys-tcl9-mp-to-ubin.patch",
-    ],
-)
+bazel_dep(name = "yosys", version = "0.62.bcr.2")
 
 # --- ORFS flow scripts (Makefile, TCL, PDKs) ---
 
