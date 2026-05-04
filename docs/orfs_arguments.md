@@ -309,7 +309,8 @@ constants depend on **netlist structure** (macro:std ratio,
 hierarchy depth, how aggressively `repair_design` will inflate
 buffers in a given design), not technology. A generic "auto-X" rule
 for everyone would either re-implement per-design Tcl in Starlark
-or ship a heuristic that is wrong for half the customers. The split
+or ship a heuristic that is wrong for half the designs that use it.
+The split
 this section advocates: ship the mechanism, parameterise the
 constants, document calibration so users can recalibrate.
 
