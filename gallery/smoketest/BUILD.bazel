@@ -1,3 +1,6 @@
+load("@bazel-orfs//:openroad.bzl", "orfs_arguments")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_python//python:defs.bzl", "py_test")
 load("//:defs.bzl", "demo_flow", "demo_hierarchical", "demo_sram")
 
 exports_files(["mock_compare_test.py"])
@@ -25,19 +28,91 @@ sh_test(
     tags = ["manual"],  # requires ORFS checkout
 )
 
-# --- Flat design: A/B flow with real + lint variants ---
+# --- Flat design: counter, demonstrating computed flow arguments ---
+#
+# CORE_UTILIZATION and CORE_MARGIN are computed from the synth-stage ODB
+# by `compute_floorplan_shape.tcl`; SETUP/HOLD_SLACK_MARGIN are computed
+# from the prior stage's worst slack by `compute_slack_margin.tcl`. Only
+# PLACE_DENSITY remains as a static argument here.
+#
+# `lint = False` because the lint variant uses the mock OpenROAD, which
+# cannot evaluate the real OpenDB / OpenSTA queries these scripts make.
+# Lint coverage for the smoketest is preserved by tiny_sram and
+# counter_with_sram below.
 demo_flow(
     name = "counter",
     arguments = {
-        "CORE_UTILIZATION": "40",
         "PLACE_DENSITY": "0.65",
+        # Disable slang frontend: default-set CI here doesn't have the
+        # yosys-slang plugin wired in, and counter.sv is plain Verilog
+        # so the built-in yosys frontend handles it. Other smoketest
+        # designs keep slang via _GLOBAL_SETTINGS.
+        "SYNTH_HDL_FRONTEND": "",
     },
     base_tags = ["manual"],
-    lint = True,
+    extra_arguments = {
+        "floorplan": [
+            ":counter_floorplan_shape",
+            ":counter_floorplan_slack",
+        ],
+        "place": [":counter_place_slack"],
+        "cts": [":counter_cts_slack"],
+    },
+    lint = False,
     sources = {
         "SDC_FILE": [":constraints.sdc"],
     },
     verilog_files = ["rtl/counter.sv"],
+)
+
+orfs_arguments(
+    name = "counter_floorplan_shape",
+    src = ":counter_synth",
+    script = "@bazel-orfs//:compute_floorplan_shape.tcl",
+)
+
+orfs_arguments(
+    name = "counter_floorplan_slack",
+    src = ":counter_synth",
+    script = "@bazel-orfs//:compute_slack_margin.tcl",
+)
+
+orfs_arguments(
+    name = "counter_place_slack",
+    src = ":counter_floorplan",
+    script = "@bazel-orfs//:compute_slack_margin.tcl",
+)
+
+orfs_arguments(
+    name = "counter_cts_slack",
+    src = ":counter_place",
+    script = "@bazel-orfs//:compute_slack_margin.tcl",
+)
+
+# Default-set test: build the JSON outputs of the computed-arguments
+# targets and assert the expected ORFS variables appear with sensible
+# values. Cheap (synth-only chain) and gives `bazelisk test //...`
+# coverage of both compute scripts without a manual tag.
+build_test(
+    name = "counter_computed_arguments_build_test",
+    targets = [
+        ":counter_floorplan_shape",
+        ":counter_floorplan_slack",
+    ],
+)
+
+py_test(
+    name = "counter_computed_arguments_test",
+    srcs = ["check_computed_arguments.py"],
+    args = [
+        "$(rootpath :counter_floorplan_shape)",
+        "$(rootpath :counter_floorplan_slack)",
+    ],
+    data = [
+        ":counter_floorplan_shape",
+        ":counter_floorplan_slack",
+    ],
+    main = "check_computed_arguments.py",
 )
 
 # --- Sub-macro: SRAM-like block built through CTS ---

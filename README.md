@@ -1013,6 +1013,17 @@ invalidate the synthesis cache.
 DSE by scripting `bazel build` invocations with different `--//pkg:flag=value`
 arguments and parsing PPA metrics from the build outputs.
 
+**Computed arguments — a precursor to DSE.** Before sweeping a parameter, it is
+often cheaper to *compute* a defensible value from the synthesised netlist or
+prior-stage ODB. bazel-orfs ships two ready-to-use Tcl scripts at the repository
+root for this — `compute_floorplan_shape.tcl` (emits `CORE_UTILIZATION` /
+`CORE_MARGIN`) and `compute_slack_margin.tcl` (emits
+`SETUP_/HOLD_SLACK_MARGIN`) — both invoked through the existing `orfs_arguments`
+rule. Computed arguments and AutoTuner compose: compute the seed, then let an
+external optimizer explore the local neighbourhood. See
+[docs/orfs_arguments.md](docs/orfs_arguments.md#a-way-out-of-parameter-guess-pray-stare-at-logs-hell)
+for the longer write-up and `gallery/smoketest/BUILD.bazel` for a worked example.
+
 ### Examples
 
 <!-- Add links to DSE example repos or PRs here -->
