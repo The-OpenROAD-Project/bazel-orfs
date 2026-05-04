@@ -7,6 +7,8 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 exports_files([
     "bump.py",
+    "compute_floorplan_shape.tcl",
+    "compute_slack_margin.tcl",
     "config_mk_parser.py",
     "deploy.tpl",
     "html_timing_report.tcl",
