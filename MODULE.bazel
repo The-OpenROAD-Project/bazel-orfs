@@ -28,7 +28,7 @@ bazel_dep(name = "yosys", version = "0.62.bcr.2")
 bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",
-    commit = "10a2baea2171059ec14cda9a5855aa26dd7572c6",
+    commit = "523bbbb42e8e33b40d3979b873a422a2fdb01e00",
     patch_strip = 1,
     # Minimal patches: only what's needed when ORFS is a non-root module.
     # Design-specific patches are only applied in the orfs/ integration workspace.
@@ -41,7 +41,7 @@ git_override(
 bazel_dep(name = "openroad")
 git_override(
     module_name = "openroad",
-    commit = "559a32007597782afb3c4d537d257fd89667ef3b",
+    commit = "07427ed02e015d7d9793eae2b6f710b05fae0a5a",
     init_submodules = True,
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
