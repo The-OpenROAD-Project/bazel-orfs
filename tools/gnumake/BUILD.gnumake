@@ -1,0 +1,69 @@
+# Source list mirrors gmake 4.4.1's autoconf-resolved make_OBJECTS +
+# libgnu_a_OBJECTS for a POSIX (non-w32, non-vms, non-amiga) build with
+# remote-stub.c. Re-derived by reading make_SRCS, am__append_4 (posixos),
+# am__append_6 (remote-stub), and the lib/Makefile am_libgnu_a_OBJECTS
+# from a configure run on Linux glibc. See tools/gnumake/config.h for the
+# matching #define set.
+cc_binary(
+    name = "make",
+    srcs = [
+        "src/ar.c",
+        "src/arscan.c",
+        "src/commands.c",
+        "src/default.c",
+        "src/dir.c",
+        "src/expand.c",
+        "src/file.c",
+        "src/function.c",
+        "src/getopt.c",
+        "src/getopt1.c",
+        "src/guile.c",
+        "src/hash.c",
+        "src/implicit.c",
+        "src/job.c",
+        "src/load.c",
+        "src/loadapi.c",
+        "src/main.c",
+        "src/misc.c",
+        "src/output.c",
+        "src/posixos.c",
+        "src/read.c",
+        "src/remake.c",
+        "src/remote-stub.c",
+        "src/rule.c",
+        "src/shuffle.c",
+        "src/signame.c",
+        "src/strcache.c",
+        "src/variable.c",
+        "src/version.c",
+        "src/vpath.c",
+        "lib/concat-filename.c",
+        "lib/findprog-in.c",
+        "lib/fnmatch.c",
+        "lib/glob.c",
+    ] + glob([
+        "src/*.h",
+        "lib/*.h",
+    ]),
+    copts = [
+        "-DHAVE_CONFIG_H",
+        # gmake's remake.c / read.c reference these as install-prefix paths
+        # (.LIBPATTERNS, dlopen search). Match autotools' default --prefix
+        # so behavior is identical to a stock distro build.
+        '-DLIBDIR=\\"/usr/local/lib\\"',
+        '-DLOCALEDIR=\\"/usr/local/share/locale\\"',
+        '-DINCLUDEDIR=\\"/usr/local/include\\"',
+    ],
+    includes = [
+        "lib",
+        "src",
+    ],
+    # Hermeticity within a fixed cc_toolchain: kill the random ELF build-id
+    # and strip symbols/debug info so the binary content depends only on
+    # source + toolchain, not on the build host or wall clock.
+    linkopts = [
+        "-Wl,--build-id=none",
+        "-Wl,-s",
+    ],
+    visibility = ["//visibility:public"],
+)

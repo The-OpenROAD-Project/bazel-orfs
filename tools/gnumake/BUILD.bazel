@@ -1,0 +1,7 @@
+exports_files(
+    [
+        "BUILD.gnumake",
+        "config.h",
+    ],
+    visibility = ["//visibility:public"],
+)
