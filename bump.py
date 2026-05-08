@@ -9,6 +9,8 @@ Run via Bazel:
 """
 
 import argparse
+import base64
+import hashlib
 import json
 import os
 import re
@@ -201,6 +203,91 @@ def find_git_override_block(content, module_name):
         if f'module_name = "{module_name}"' in block:
             return (m.start(), end)
     return None
+
+
+def find_archive_override_block(content, module_name):
+    """Find the full archive_override() block for a module.
+
+    Returns (start, end) tuple or None if not found.
+    """
+    pattern = r"archive_override\s*\("
+    for m in re.finditer(pattern, content):
+        end = find_starlark_call_end(content, m.start())
+        block = content[m.start() : end]
+        if f'module_name = "{module_name}"' in block:
+            return (m.start(), end)
+    return None
+
+
+def github_archive_url(github_repo, commit):
+    """Compose the GitHub /archive/<sha>.tar.gz tarball URL for a commit."""
+    return f"https://github.com/{github_repo}/archive/{commit}.tar.gz"
+
+
+def github_archive_strip_prefix(github_repo, commit):
+    """The directory prefix inside a GitHub /archive/<sha>.tar.gz tarball."""
+    repo_basename = github_repo.split("/")[-1]
+    return f"{repo_basename}-{commit}"
+
+
+def compute_integrity(url):
+    """Download URL and return SRI integrity (``sha256-<base64>``).
+
+    Streams the response in chunks so the full archive (potentially tens of
+    MB for ORFS) never materializes in memory.
+    """
+    h = hashlib.sha256()
+    with urllib.request.urlopen(url) as resp:
+        while True:
+            chunk = resp.read(64 * 1024)
+            if not chunk:
+                break
+            h.update(chunk)
+    return "sha256-" + base64.b64encode(h.digest()).decode("ascii")
+
+
+def update_archive_override(
+    content,
+    module_name,
+    github_repo,
+    new_commit,
+    new_integrity,
+):
+    """Update urls, integrity, strip_prefix in archive_override(module_name=...).
+
+    Targets the first ``"..."`` inside the ``urls = [...]`` list — single-URL
+    mirror lists are the only shape used by bazel-orfs today.  Returns the
+    content unchanged if no matching block exists.
+    """
+    span = find_archive_override_block(content, module_name)
+    if not span:
+        return content
+    start, end = span
+    block = content[start:end]
+
+    new_url = github_archive_url(github_repo, new_commit)
+    new_strip = github_archive_strip_prefix(github_repo, new_commit)
+
+    block = re.sub(
+        r'(urls\s*=\s*\[\s*")[^"]*(")',
+        rf"\g<1>{new_url}\2",
+        block,
+        count=1,
+    )
+    block = re.sub(
+        r'(integrity\s*=\s*")[^"]*(")',
+        rf"\g<1>{new_integrity}\2",
+        block,
+        count=1,
+    )
+    block = re.sub(
+        r'(strip_prefix\s*=\s*")[^"]*(")',
+        rf"\g<1>{new_strip}\2",
+        block,
+        count=1,
+    )
+
+    return content[:start] + block + content[end:]
 
 
 def submodule_is_used(name, workspace_dir):
@@ -455,6 +542,7 @@ def bump(
     fetch_commit_fn=fetch_latest_commit,
     fetch_release_fn=fetch_latest_github_release,
     fetch_tag_commit_fn=fetch_tag_commit,
+    fetch_integrity_fn=compute_integrity,
     workspace_dir=None,
 ):
     """Main bump orchestrator.
@@ -505,11 +593,19 @@ def bump(
     # For bazel-orfs itself: bump to latest ORFS.
     # For downstream: ORFS commit is pinned by bazel-orfs (patches must match),
     # so only update if the override was already present (user manages their own).
-    orfs_commit = fetch_commit_fn(
-        "The-OpenROAD-Project/OpenROAD-flow-scripts", "master"
-    )
+    orfs_repo = "The-OpenROAD-Project/OpenROAD-flow-scripts"
+    orfs_commit = fetch_commit_fn(orfs_repo, "master")
     if project == "bazel-orfs":
-        content = update_git_override_commit(content, "orfs", orfs_commit)
+        # Dispatch on which override style ORFS uses.  archive_override is
+        # required when fetching ORFS via git is blocked (e.g. inside the
+        # maintainers org); git_override is the historical default.
+        if find_archive_override_block(content, "orfs"):
+            integrity = fetch_integrity_fn(github_archive_url(orfs_repo, orfs_commit))
+            content = update_archive_override(
+                content, "orfs", orfs_repo, orfs_commit, integrity
+            )
+        else:
+            content = update_git_override_commit(content, "orfs", orfs_commit)
         updated_modules.append(f"orfs -> {orfs_commit[:12]}")
 
     # --- Update qt-bazel commit ---

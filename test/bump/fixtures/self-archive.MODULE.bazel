@@ -1,0 +1,28 @@
+"""Self (bazel-orfs) fixture with ORFS pinned via archive_override."""
+
+module(
+    name = "bazel-orfs",
+    version = "0.0.1",
+)
+
+bazel_dep(name = "orfs")
+archive_override(
+    module_name = "orfs",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/old_orfs_commit.tar.gz"],
+    integrity = "sha256-OLDOLDOLDOLDOLDOLDOLDOLDOLDOLDOLDOLDOLDOLDA=",
+    strip_prefix = "OpenROAD-flow-scripts-old_orfs_commit",
+    patch_strip = 1,
+    patches = [
+        "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
+    ],
+)
+
+bazel_dep(name = "openroad")
+git_override(
+    module_name = "openroad",
+    commit = "old_openroad_commit",
+    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
+)
+
+orfs = use_extension("//:extension.bzl", "orfs_repositories")
+orfs.default()
