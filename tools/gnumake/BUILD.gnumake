@@ -48,11 +48,13 @@ cc_binary(
     copts = [
         "-DHAVE_CONFIG_H",
         # gmake's remake.c / read.c reference these as install-prefix paths
-        # (.LIBPATTERNS, dlopen search). Match autotools' default --prefix
-        # so behavior is identical to a stock distro build.
-        '-DLIBDIR=\\"/usr/local/lib\\"',
-        '-DLOCALEDIR=\\"/usr/local/share/locale\\"',
-        '-DINCLUDEDIR=\\"/usr/local/include\\"',
+        # (default `.LIBPATTERNS`, dlopen search). The bazel-built make is
+        # never `make install`-ed, so no host filesystem layout applies —
+        # set them empty rather than lie about /usr/local. Per hzeller on
+        # PR #717.
+        '-DLIBDIR=\\"\\"',
+        '-DLOCALEDIR=\\"\\"',
+        '-DINCLUDEDIR=\\"\\"',
     ],
     includes = [
         "lib",
