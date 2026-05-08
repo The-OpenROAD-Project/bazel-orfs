@@ -18,7 +18,6 @@ supports today.
 """
 
 _MAKE_VERSION = "4.4.1"
-_MAKE_SHA256 = "dd16fb1d67bfab79a72f5e8390735c49e3e8e70b4945a15ab1f81ddb78658fb3"
 
 def _gnumake_impl(repository_ctx):
     repository_ctx.download_and_extract(
@@ -28,7 +27,7 @@ def _gnumake_impl(repository_ctx):
             "https://mirrors.kernel.org/gnu/make/make-{v}.tar.gz".format(v = _MAKE_VERSION),
             "https://mirror.freedif.org/GNU/make/make-{v}.tar.gz".format(v = _MAKE_VERSION),
         ],
-        sha256 = _MAKE_SHA256,
+        sha256 = "dd16fb1d67bfab79a72f5e8390735c49e3e8e70b4945a15ab1f81ddb78658fb3",
         stripPrefix = "make-{v}".format(v = _MAKE_VERSION),
     )
 
