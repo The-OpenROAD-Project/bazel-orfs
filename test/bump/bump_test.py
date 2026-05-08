@@ -18,6 +18,7 @@ OPENROAD_COMMIT = "new_openroad_bbb222"
 ORFS_COMMIT = "new_orfs_ccc333"
 YOSYS_TAG = "v0.99"
 YOSYS_TAG_COMMIT = "new_yosys_ddd444"
+MOCK_INTEGRITY = "sha256-MOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCK="
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 
@@ -38,6 +39,10 @@ def mock_fetch_tag_commit(_repo, _tag):
     return YOSYS_TAG_COMMIT
 
 
+def mock_fetch_integrity(_url):
+    return MOCK_INTEGRITY
+
+
 def apply_bump(fixture_name, workspace_dir=None):
     """Copy a fixture, run bump on it, return the result content."""
     src = os.path.join(FIXTURES_DIR, fixture_name)
@@ -50,6 +55,7 @@ def apply_bump(fixture_name, workspace_dir=None):
         fetch_commit_fn=mock_fetch_commit,
         fetch_release_fn=mock_fetch_release,
         fetch_tag_commit_fn=mock_fetch_tag_commit,
+        fetch_integrity_fn=mock_fetch_integrity,
         workspace_dir=workspace_dir,
     )
 
@@ -177,6 +183,7 @@ def _apply_bump_with_workspace(fixture_name, build_files):
             fetch_commit_fn=mock_fetch_commit,
             fetch_release_fn=mock_fetch_release,
             fetch_tag_commit_fn=mock_fetch_tag_commit,
+            fetch_integrity_fn=mock_fetch_integrity,
             workspace_dir=tmpdir,
         )
         with open(module_file) as f:
@@ -535,6 +542,165 @@ class TestNetworkErrorHandling(unittest.TestCase):
                 )
             finally:
                 os.unlink(tmp.name)
+
+
+class TestBazelOrfsArchiveOverride(unittest.TestCase):
+    """bazel-orfs project bumping ORFS pinned via archive_override.
+
+    Mirrors TestBazelOrfsProject but expects archive_override-shape rewrites:
+    urls, integrity, and strip_prefix all change; patches stay put.
+    """
+
+    def setUp(self):
+        self.content = apply_bump("self-archive.MODULE.bazel")
+
+    def test_urls_contain_new_commit(self):
+        expected_url = (
+            "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/"
+            f"archive/{ORFS_COMMIT}.tar.gz"
+        )
+        self.assertIn(expected_url, self.content)
+
+    def test_old_url_replaced(self):
+        self.assertNotIn("old_orfs_commit.tar.gz", self.content)
+
+    def test_integrity_updated(self):
+        self.assertIn(f'integrity = "{MOCK_INTEGRITY}"', self.content)
+        self.assertNotIn("OLDOLDOLDOLDOLDOLDOLDOLDOLDOLDOLDOLDOLDOLDA=", self.content)
+
+    def test_strip_prefix_updated(self):
+        self.assertIn(
+            f'strip_prefix = "OpenROAD-flow-scripts-{ORFS_COMMIT}"',
+            self.content,
+        )
+        self.assertNotIn(
+            'strip_prefix = "OpenROAD-flow-scripts-old_orfs_commit"',
+            self.content,
+        )
+
+    def test_patches_preserved(self):
+        self.assertIn(
+            "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
+            self.content,
+        )
+        self.assertIn("patch_strip = 1", self.content)
+
+    def test_openroad_git_override_still_updated(self):
+        """Switching ORFS to archive_override mustn't disturb other modules."""
+        self.assertIn(OPENROAD_COMMIT, self.content)
+        self.assertNotIn("old_openroad_commit", self.content)
+
+
+class TestArchiveOverrideDoubleBumpIdempotent(unittest.TestCase):
+    """Two bumps in a row must produce identical output."""
+
+    def test_double_bump_idempotent(self):
+        src = os.path.join(FIXTURES_DIR, "self-archive.MODULE.bazel")
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".MODULE.bazel", delete=False
+        )
+        tmp.close()
+        shutil.copy2(src, tmp.name)
+
+        kwargs = dict(
+            fetch_commit_fn=mock_fetch_commit,
+            fetch_release_fn=mock_fetch_release,
+            fetch_tag_commit_fn=mock_fetch_tag_commit,
+            fetch_integrity_fn=mock_fetch_integrity,
+        )
+        bump.bump(tmp.name, **kwargs)
+        with open(tmp.name) as f:
+            first = f.read()
+
+        bump.bump(tmp.name, **kwargs)
+        with open(tmp.name) as f:
+            second = f.read()
+
+        os.unlink(tmp.name)
+        self.assertEqual(first, second)
+
+
+class TestUpdateArchiveOverride(unittest.TestCase):
+    """Unit tests for the archive_override block rewriter."""
+
+    def _block(self, **overrides):
+        defaults = dict(
+            url="https://github.com/Owner/Repo/archive/oldsha.tar.gz",
+            integrity="sha256-OLD=",
+            strip_prefix="Repo-oldsha",
+        )
+        defaults.update(overrides)
+        return (
+            "archive_override(\n"
+            '    module_name = "orfs",\n'
+            f'    urls = ["{defaults["url"]}"],\n'
+            f'    integrity = "{defaults["integrity"]}",\n'
+            f'    strip_prefix = "{defaults["strip_prefix"]}",\n'
+            ")"
+        )
+
+    def test_rewrites_url_integrity_strip_prefix(self):
+        result = bump.update_archive_override(
+            self._block(),
+            "orfs",
+            "Owner/Repo",
+            "newsha",
+            "sha256-NEW=",
+        )
+        self.assertIn(
+            'urls = ["https://github.com/Owner/Repo/archive/newsha.tar.gz"]', result
+        )
+        self.assertIn('integrity = "sha256-NEW="', result)
+        self.assertIn('strip_prefix = "Repo-newsha"', result)
+
+    def test_no_match_is_noop(self):
+        content = (
+            "archive_override(\n"
+            '    module_name = "other",\n'
+            '    urls = ["https://example/x.tar.gz"],\n'
+            '    integrity = "sha256-X=",\n'
+            '    strip_prefix = "x",\n'
+            ")"
+        )
+        result = bump.update_archive_override(
+            content, "orfs", "Owner/Repo", "newsha", "sha256-NEW="
+        )
+        self.assertEqual(result, content)
+
+    def test_other_modules_block_untouched(self):
+        content = (
+            "archive_override(\n"
+            '    module_name = "other",\n'
+            '    urls = ["https://example/x.tar.gz"],\n'
+            '    integrity = "sha256-X=",\n'
+            '    strip_prefix = "x",\n'
+            ")\n" + self._block()
+        )
+        result = bump.update_archive_override(
+            content, "orfs", "Owner/Repo", "newsha", "sha256-NEW="
+        )
+        self.assertIn('integrity = "sha256-X="', result)
+        self.assertIn("https://example/x.tar.gz", result)
+        self.assertIn(
+            'urls = ["https://github.com/Owner/Repo/archive/newsha.tar.gz"]', result
+        )
+
+
+class TestFindArchiveOverrideBlock(unittest.TestCase):
+    def test_finds_block(self):
+        content = (
+            "archive_override(\n"
+            '    module_name = "orfs",\n'
+            '    urls = ["https://example/x.tar.gz"],\n'
+            ")"
+        )
+        span = bump.find_archive_override_block(content, "orfs")
+        self.assertIsNotNone(span)
+        self.assertIn("orfs", content[span[0] : span[1]])
+
+    def test_returns_none_when_absent(self):
+        content = 'git_override(\n    module_name = "orfs",\n    commit = "x",\n)'
+        self.assertIsNone(bump.find_archive_override_block(content, "orfs"))
 
 
 if __name__ == "__main__":

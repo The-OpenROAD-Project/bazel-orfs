@@ -26,22 +26,27 @@ local_path_override(
 bazel_dep(name = "abc", version = "0.64-yosyshq.bcr.1")
 bazel_dep(name = "yosys", version = "0.62.bcr.2")
 bazel_dep(name = "orfs")
-git_override(
+
+# Pinned via archive_override (HTTPS tarball) rather than git_override so
+# bzlmod resolution works in environments where git access to ORFS is
+# blocked (e.g. inside the maintainers organization).
+archive_override(
     module_name = "orfs",
-    commit = "523bbbb42e8e33b40d3979b873a422a2fdb01e00",
+    integrity = "sha256-2Gx8cjYjNr15RjhDvDPK9j0vqAlZJ0bqpmuEvEUuY54=",
     patch_strip = 1,
     # Minimal patches: only what's needed when ORFS is a non-root module.
     # Design-specific patches are only applied in the orfs/ integration workspace.
     patches = [
         "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
     ],
-    remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
+    strip_prefix = "OpenROAD-flow-scripts-cabb23df1d101fadb7a7f8654b6cd259064840c2",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/cabb23df1d101fadb7a7f8654b6cd259064840c2.tar.gz"],
 )
 
 bazel_dep(name = "openroad")
 git_override(
     module_name = "openroad",
-    commit = "07427ed02e015d7d9793eae2b6f710b05fae0a5a",
+    commit = "35443bc74824e6aab95a2d8636df60007de768d4",
     init_submodules = True,
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
