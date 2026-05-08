@@ -8,6 +8,12 @@ module, yosys from the Bazel Central Registry (@yosys), ABC from BCR
 don't need it.
 
 Users override individual tools via orfs.default() tag attributes.
+
+To replace the bazel-built @gnumake//:make with a host-installed make
+(e.g. on macOS where the LLVM toolchain isn't registered), use Bazel's
+standard --override_repository=+orfs_repositories+gnumake=... flag in
+user.bazelrc — see the docstring in //:gnumake.bzl for a copy-paste
+overlay example.
 """
 
 load("//:config.bzl", "global_config")
