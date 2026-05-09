@@ -11,6 +11,7 @@ py_test(
         "fixtures/downstream-with-submodules.MODULE.bazel",
         "fixtures/openroad.MODULE.bazel",
         "fixtures/self.MODULE.bazel",
+        "fixtures/self-archive.MODULE.bazel",
     ],
     main = "bump_test.py",
 )
