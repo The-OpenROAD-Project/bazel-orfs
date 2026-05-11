@@ -586,6 +586,44 @@ class TestVariableClassification(unittest.TestCase):
         result = self.parser.parse(config)
         self.assertIn("SYNTH_HIERARCHICAL", result.arguments)
 
+    def test_verilog_files_blackbox_is_source(self):
+        """VERILOG_FILES_BLACKBOX is a SOURCE_VAR — routes to sources, not arguments.
+
+        Callers can declare it in config.mk and pass it through to
+        orfs_design()'s local_arguments= to drop it before orfs_flow().
+        """
+        config, _ = _write_config(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = gcd
+            export VERILOG_FILES_BLACKBOX = $(DESIGN_HOME)/src/gcd/bbox.v
+        """
+        )
+        result = self.parser.parse(config)
+        self.assertIn("VERILOG_FILES_BLACKBOX", result.sources)
+        self.assertNotIn("VERILOG_FILES_BLACKBOX", result.arguments)
+        labels = result.sources["VERILOG_FILES_BLACKBOX"]
+        self.assertTrue(any("bbox.v" in lbl for lbl in labels))
+
+    def test_verilog_files_blackbox_expands_in_verilog_files(self):
+        """$(VERILOG_FILES_BLACKBOX) inside VERILOG_FILES is resolved.
+
+        This is the local-helper use case: declare a file list once and
+        reference it via $(VAR) expansion within the same config.mk.
+        """
+        config, _ = _write_config(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = gcd
+            export VERILOG_FILES_BLACKBOX = $(DESIGN_HOME)/src/gcd/bbox.v
+            export VERILOG_FILES = $(DESIGN_HOME)/src/gcd/top.v $(VERILOG_FILES_BLACKBOX)
+        """
+        )
+        result = self.parser.parse(config)
+        joined = " ".join(result.verilog_files)
+        self.assertIn("top.v", joined)
+        self.assertIn("bbox.v", joined)
+
 
 class TestConditionalParsing(unittest.TestCase):
     """Test parsing of conditional blocks (ifeq, ifdef, etc.)."""
