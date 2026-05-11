@@ -47,7 +47,7 @@ def _convert_sources(sources, pkg):
             result[var] = converted
     return result
 
-def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = []):  # buildifier: disable=unused-variable
+def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], local_arguments = []):  # buildifier: disable=unused-variable
     """Create orfs_flow() targets for a design based on its parsed config.mk.
 
     Usage:
@@ -79,6 +79,12 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
             Routed through orfs_flow(user_arguments=...) to bypass the
             variables.yaml validator instead of being checked as known
             ORFS arguments.
+        local_arguments: List of variable names that are only used for
+            $(VAR) expansion within the same config.mk and are not read
+            by ORFS or by any user .tcl/.mk (e.g. VERILOG_FILES_BLACKBOX,
+            which appears verbatim inside VERILOG_FILES). These are
+            dropped entirely before orfs_flow() is invoked — neither
+            validated against variables.yaml nor exposed as env vars.
     """
     if designs == None:
         fail("orfs_design() requires designs: load orfs_design from @orfs_designs//:designs.bzl")
@@ -171,6 +177,16 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
 
     # Real flow — uses Docker image with real OpenROAD/Yosys
     arguments = dict(config["arguments"])
+
+    # Drop caller-flagged local helper vars used only via $(VAR)
+    # expansion within the same config.mk (e.g. VERILOG_FILES_BLACKBOX).
+    # They must not reach orfs_flow — they would either fail validation
+    # or be exposed as noise env vars. The config.mk parser may classify
+    # such helpers as either arguments or sources (e.g. when they expand
+    # to file globs), so drop from both.
+    for var in local_arguments:
+        arguments.pop(var, None)
+        sources.pop(var, None)
 
     # Move caller-flagged design-specific knobs out of arguments and into
     # user_arguments so they bypass the variables.yaml validator.
