@@ -146,8 +146,28 @@ def _orfs_designs_impl(repository_ctx):
                 "blocks": [],
             }
 
-    # Generate designs.bzl
-    bzl_content = "DESIGNS = %s\n" % repr(designs)
+    # Generate designs.bzl with both the raw DESIGNS dict (for backward
+    # compatibility) and an orfs_design() wrapper that bakes in DESIGNS
+    # so BUILD files can simply do:
+    #     load("@orfs_designs//:designs.bzl", "orfs_design")
+    #     orfs_design(config = "config.mk")
+    bzl_content = '''"""Auto-generated design configurations from config.mk files."""
+
+load("@bazel-orfs//private:orfs_design.bzl", _orfs_design = "orfs_design")
+
+DESIGNS = %s
+
+def orfs_design(config = "config.mk", **kwargs):
+    """Create orfs_flow() targets for this design.
+
+    Args:
+        config: The config.mk file that drives this design.
+            Makes the BUILD file self-documenting.
+        **kwargs: Forwarded to the underlying orfs_design implementation
+            (platform, design, mock_openroad, mock_yosys, user_arguments).
+    """
+    _orfs_design(config = config, designs = DESIGNS, **kwargs)
+''' % repr(designs)
     repository_ctx.file("designs.bzl", bzl_content)
     repository_ctx.file("BUILD.bazel", "")
 
