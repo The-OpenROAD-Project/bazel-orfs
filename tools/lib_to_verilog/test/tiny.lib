@@ -1,0 +1,38 @@
+/* Minimal Liberty fixture covering the three cell shapes lib_to_verilog
+ * has to emit: a combinational cell (INV), a flip-flop (DFFP), and a
+ * latch (LATCH). Kept tiny so the integration test runs in milliseconds.
+ */
+library (tiny) {
+  technology (cmos);
+  time_unit : "1ns";
+
+  cell (INVx1) {
+    pin (A) { direction : input; }
+    pin (Y) {
+      direction : output;
+      function : "!A";
+    }
+  }
+
+  cell (DFFx1) {
+    ff (IQ, IQN) {
+      clocked_on : "CLK";
+      next_state : "D";
+    }
+    pin (CLK) { direction : input; }
+    pin (D)   { direction : input; }
+    pin (Q)   { direction : output; function : "IQ"; }
+    pin (QN)  { direction : output; function : "IQN"; }
+  }
+
+  cell (LATCHx1) {
+    latch (IQ, IQN) {
+      enable    : "E";
+      data_in   : "D";
+    }
+    pin (E)  { direction : input; }
+    pin (D)  { direction : input; }
+    pin (Q)  { direction : output; function : "IQ"; }
+    pin (QN) { direction : output; function : "IQN"; }
+  }
+}
