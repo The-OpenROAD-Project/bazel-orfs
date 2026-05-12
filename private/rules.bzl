@@ -614,6 +614,133 @@ orfs_test = rule(
     test = True,
 )
 
+# --- Run-executable rule ---
+#
+# Like orfs_run, but builds a `bazelisk run` target instead of a build-time
+# action. The emitted wrapper exposes the same env that orfs_run sets, plus a
+# pass-through for CLI args: every `KEY=VALUE` positional received after
+# `bazelisk run //path:target -- ...` is forwarded to make as a variable
+# override, which becomes an environment variable when make invokes the Tcl
+# script. Make's last-wins rule means CLI overrides beat the BUILD-time
+# `arguments` dict.
+#
+# Use this when the script has a parameter the user wants to vary
+# per-invocation (e.g. an endpoint glob for a timing-path drill-down) and
+# wiring a separate orfs_run target per parameter value would be tedious.
+
+def _run_executable_impl(ctx):
+    config = ctx.attr.src[OrfsDepInfo].config
+
+    wrapper = ctx.actions.declare_file(
+        "run_{}_{}_executable".format(ctx.attr.name, ctx.attr.variant),
+    )
+
+    # For external repo targets, WORK_HOME must include the external/<repo>/
+    # prefix so Make finds results/reports at the correct runfiles path.
+    # Matches orfs_test's handling.
+    if ctx.label.workspace_name:
+        parts = ["external", ctx.label.workspace_name]
+        if ctx.label.package:
+            parts.append(ctx.label.package)
+        work_home = "/".join(parts)
+    else:
+        work_home = None
+
+    # Convert a `.short_path` (which uses `../<repo>/...` for external repos
+    # in Bazel 7+) into an `external/<repo>/...` form. Combined with the
+    # `external -> $(pwd)/..` symlink the wrapper sets up at runtime, this
+    # gives us cwd-invariant paths into the runfiles tree — important when
+    # the orfs Makefile cds into a results dir before invoking openroad.
+    def _runtime_path(short_path):
+        if short_path.startswith("../"):
+            return "external/" + short_path[3:]
+        return short_path
+
+    openroad_path = _runtime_path(ctx.attr.openroad[DefaultInfo].files_to_run.executable.short_path)
+    opensta_path = _runtime_path(ctx.attr.opensta[DefaultInfo].files_to_run.executable.short_path)
+    klayout_path = _runtime_path(ctx.attr._klayout[DefaultInfo].files_to_run.executable.short_path)
+    flow_home = _runtime_path(ctx.file._makefile.dirname)
+    makefile_runtime_path = _runtime_path(ctx.file._makefile.short_path)
+    make_runtime_path = _runtime_path(ctx.executable._make.short_path)
+
+    moreargs = environment_string(
+        hack_away_prefix(
+            arguments = odb_arguments(ctx) | data_arguments(ctx),
+            prefix = config.root.path,
+        ) |
+        {
+            "DESIGN_CONFIG": config.short_path,
+            "OPENROAD_EXE": openroad_path,
+            "OPENSTA_EXE": opensta_path,
+            "KLAYOUT_CMD": klayout_path,
+            "FLOW_HOME": flow_home,
+        } |
+        ({"WORK_HOME": work_home} if work_home else {}),
+    )
+
+    ctx.actions.write(
+        output = wrapper,
+        is_executable = True,
+        content = """#!/bin/sh
+set -e
+if [ ! -e external ]; then
+    # Needed as of Bazel >= 8
+    ln -sf $(realpath $(pwd)/..) external
+fi
+export ORFS_MAKE_EXE={make}
+export ORFS_MAKEFILE={makefile}
+export ORFS_CMD={cmd}
+exec {py_run_executable} {moreargs} "$@"
+""".format(
+            make = make_runtime_path,
+            makefile = makefile_runtime_path,
+            cmd = ctx.attr.cmd,
+            moreargs = moreargs,
+            py_run_executable = ctx.executable._run_executable.short_path,
+        ),
+    )
+
+    return [
+        ctx.attr.src[PdkInfo],
+        ctx.attr.src[TopInfo],
+        DefaultInfo(
+            executable = wrapper,
+            runfiles = ctx.runfiles(
+                transitive_files = depset(
+                    [config, wrapper],
+                    transitive = [
+                        flow_inputs(ctx),
+                        yosys_inputs(ctx),
+                        data_inputs(ctx),
+                        source_inputs(ctx),
+                    ],
+                ),
+            ).merge(ctx.attr._run_executable[DefaultInfo].default_runfiles),
+        ),
+    ]
+
+orfs_run_executable = rule(
+    implementation = _run_executable_impl,
+    attrs = yosys_attrs() |
+            openroad_attrs() |
+            {
+                "cmd": attr.string(
+                    mandatory = False,
+                    default = "run",
+                ),
+                "script": attr.label(
+                    mandatory = True,
+                    allow_single_file = ["tcl"],
+                ),
+                "_run_executable": attr.label(
+                    default = "@bazel-orfs//:run_executable",
+                    executable = True,
+                    cfg = "exec",
+                ),
+            },
+    executable = True,
+)
+
 # --- Synthesis rule ---
 
 CANON_OUTPUT = "1_1_yosys_canonicalize.rtlil"
