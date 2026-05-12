@@ -952,18 +952,29 @@ _M4_PITCH_UM = 0.048  # ASAP7 M4 track pitch
 _M5_PITCH_UM = 0.068  # ASAP7 M5 track pitch
 
 
+# Per-bit pin entries (e.g. R0_data[5]) classify the same as the parent
+# bus, so strip a trailing [N] before matching.
+_BIT_SUFFIX_RE = re.compile(r"\[\d+\]$")
+
+
+def _strip_bit(name):
+    return _BIT_SUFFIX_RE.sub("", name)
+
+
 def _is_output_pin(name):
-    return bool(re.match(r"^R\d+_(data|rdata)$|^RW\d+_rdata$", name))
+    base = _strip_bit(name)
+    return bool(re.match(r"^R\d+_(data|rdata)$|^RW\d+_rdata$", base))
 
 
 def _is_clock_pin(name):
-    return name.lower() in ("clk", "clock") or re.match(
-        r"^R\d+_clk$|^W\d+_clk$|^RW\d+_clk$", name
+    base = _strip_bit(name)
+    return base.lower() in ("clk", "clock") or bool(
+        re.match(r"^R\d+_clk$|^W\d+_clk$|^RW\d+_clk$", base)
     )
 
 
 def _is_power_pin(name):
-    return name.upper() in ("VDD", "VSS", "VDDPE", "VSSE", "VDDCE")
+    return _strip_bit(name).upper() in ("VDD", "VSS", "VDDPE", "VSSE", "VDDCE")
 
 
 def _is_input_pin(name):
@@ -1413,6 +1424,26 @@ def generate_lib(role, tech_nm=DEFAULT_TECH_NM):
                     _scalar_block(a, "        ", "rise_power", per_pin_fj)
                     _scalar_block(a, "        ", "fall_power", per_pin_fj)
                     a("      }")
+            # For bus pins: emit per-bit pin("name[N]") siblings inside the
+            # bus block. yosys's read_liberty needs these to connect bit
+            # ports at parent macro instances — without them, bit
+            # connections are silently dropped and the parent's synthesized
+            # netlist references only the scalar (clk/en) pins.
+            # Each bit-pin carries only direction + capacitance; Liberty
+            # bus inheritance applies the bus-level timing & power arcs to
+            # every bit.
+            if is_bus and role.kind == "sram":
+                if pn.endswith(("_addr",)):
+                    bus_w = role.pin_widths.get(pn, addr_w)
+                elif pn.endswith(("_data", "_rdata", "_wdata", "_mask", "_wmask")):
+                    bus_w = role.pin_widths.get(pn, data_w)
+                else:
+                    bus_w = role.pin_widths.get(pn, 1)
+                for bit in range(bus_w - 1, -1, -1):
+                    a(f'      pin("{pn}[{bit}]") {{')
+                    a(f"        direction : {direction};")
+                    a(f"        capacitance : {1.0:.6g};")
+                    a("      }")
             # Close the pin()/bus() block — one brace in both cases.
             a("    }")
 
@@ -1447,18 +1478,35 @@ def generate_lef(role, tech_nm=DEFAULT_TECH_NM):
         f"  ORIGIN 0 0 ;",
         f"  SIZE 1 BY 1 ;",
     ]
+    addr_w = _addr_bits(role.rows)
+    data_w = role.bits
     for port in _port_pin_names(role).values():
-        for pn, direction, _ in port:
-            stub.append(f"  PIN {pn}")
-            stub.append(
-                f"    DIRECTION {'OUTPUT' if direction == 'output' else 'INPUT'} ;"
-            )
-            if pn.endswith("_clk"):
-                stub.append(f"    USE CLOCK ;")
-                stub.append(f"    PORT LAYER M5 ; RECT 0 0 0.1 0.1 ; END")
+        for pn, direction, is_bus in port:
+            # For bus pins, emit one PIN entry per bit (PIN R0_addr[0], …).
+            # Aggregate PIN entries cause yosys's bus elaboration to silently
+            # drop bit connections at parent macro instances, leaving the
+            # synthesized parent netlist referencing only the scalar pins.
+            if is_bus and role.kind == "sram":
+                if pn.endswith(("_addr",)):
+                    bus_w = role.pin_widths.get(pn, addr_w)
+                elif pn.endswith(("_data", "_rdata", "_wdata", "_mask", "_wmask")):
+                    bus_w = role.pin_widths.get(pn, data_w)
+                else:
+                    bus_w = role.pin_widths.get(pn, 1)
+                names = [f"{pn}[{b}]" for b in range(bus_w)]
             else:
-                stub.append(f"    PORT LAYER M4 ; RECT 0 0 0.1 0.1 ; END")
-            stub.append(f"  END {pn}")
+                names = [pn]
+            for nm in names:
+                stub.append(f"  PIN {nm}")
+                stub.append(
+                    f"    DIRECTION {'OUTPUT' if direction == 'output' else 'INPUT'} ;"
+                )
+                if nm.endswith("_clk"):
+                    stub.append(f"    USE CLOCK ;")
+                    stub.append(f"    PORT LAYER M5 ; RECT 0 0 0.1 0.1 ; END")
+                else:
+                    stub.append(f"    PORT LAYER M4 ; RECT 0 0 0.1 0.1 ; END")
+                stub.append(f"  END {nm}")
     # Power/ground pins. rewrite_lef() turns these into full-width M4
     # stripes that PDN can stitch to the parent power grid; without them
     # the floorplan's PDN stage warns PDN-0231 "<inst> not connected to

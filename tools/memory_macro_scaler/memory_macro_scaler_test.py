@@ -649,6 +649,61 @@ class TestGenerateFromScratch(unittest.TestCase):
         self.assertIn("PIN RW0_rdata", lef)
         self.assertIn("PIN RW0_clk", lef)
 
+    def test_generate_lib_has_per_bit_bus_pins(self):
+        """Regression for yosys-#22358: each bus() block in the .lib must
+        carry per-bit pin("name[N]") siblings, otherwise yosys's
+        read_liberty silently drops bit connections at parent macro
+        instances and the synthesized parent netlist references only the
+        scalar (clk/en) pins on every memory.
+        """
+        role = mms.MemoryRole(
+            kind="sram",
+            rows=128,  # log2(128) = 7 addr bits
+            bits=64,
+            nRW=1,
+            library_name="mem",
+            cell_name="mem",
+        )
+        lib = mms.generate_lib(role, tech_nm=7)
+        # Bus block is still emitted (bus_type kept for documentation).
+        self.assertIn("bus(RW0_addr)", lib)
+        # First and last addr bits — proves the bit range is correct
+        # (addr_bits(128) = 7 ⇒ bits 0..6).
+        self.assertIn('pin("RW0_addr[0]")', lib)
+        self.assertIn('pin("RW0_addr[6]")', lib)
+        # Bits 7+ must NOT appear (would mean wrong addr width).
+        self.assertNotIn('pin("RW0_addr[7]")', lib)
+        # Data buses on the same port.
+        self.assertIn('pin("RW0_rdata[0]")', lib)
+        self.assertIn('pin("RW0_rdata[63]")', lib)
+        self.assertIn('pin("RW0_wdata[0]")', lib)
+        self.assertIn('pin("RW0_wdata[63]")', lib)
+
+    def test_generate_lef_has_per_bit_pins(self):
+        """Regression for yosys-#22358: LEF must emit per-bit PIN entries
+        (PIN RW0_addr[0], PIN RW0_addr[1], …) instead of one aggregate
+        PIN RW0_addr. Aggregate names trigger the same yosys bit-drop bug
+        downstream of OpenROAD's read_lef.
+        """
+        role = mms.MemoryRole(
+            kind="sram",
+            rows=128,
+            bits=64,
+            nRW=1,
+            library_name="mem",
+            cell_name="mem",
+        )
+        lef = mms.generate_lef(role, tech_nm=7)
+        # Per-bit address and data pins.
+        self.assertIn("PIN RW0_addr[0]", lef)
+        self.assertIn("PIN RW0_addr[6]", lef)
+        self.assertNotIn("PIN RW0_addr[7]", lef)
+        self.assertIn("PIN RW0_rdata[0]", lef)
+        self.assertIn("PIN RW0_rdata[63]", lef)
+        # Scalar pins still aggregate.
+        self.assertIn("PIN RW0_clk", lef)
+        self.assertIn("PIN RW0_en", lef)
+
     def test_generate_lef_has_pg_pins(self):
         """Behavioral macros must declare VDD/VSS pins so PDN can stitch
         them to the parent power grid; without these the parent floorplan
