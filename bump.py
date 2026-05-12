@@ -14,6 +14,7 @@ import hashlib
 import json
 import os
 import re
+import subprocess
 import sys
 import urllib.error
 import urllib.request
@@ -635,6 +636,25 @@ def bump(
     return content
 
 
+def run_mod_tidy(workspace_dir):
+    """Run ``bazelisk mod tidy`` to refresh MODULE.bazel.lock.
+
+    The git_override commits rewritten by bump() invalidate the lockfile;
+    `mod tidy` resolves the new graph and writes the updated lock (and
+    tidies any stale use_repo entries while it's there).
+
+    The MODULE.bazel rewrite already happened — if mod tidy fails (e.g.
+    a patch no longer applies against a freshly-bumped commit), leave the
+    rewritten file in place so the human can inspect, and exit with the
+    subprocess's status. A Python traceback would just hide the real error
+    that bazelisk already printed to stderr.
+    """
+    print("Running bazelisk mod tidy to update MODULE.bazel.lock...")
+    result = subprocess.run(["bazelisk", "mod", "tidy"], cwd=workspace_dir)
+    if result.returncode != 0:
+        sys.exit(result.returncode)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Bump bazel-orfs and dependency versions"
@@ -651,6 +671,7 @@ def main():
 
     workspace = os.environ.get("BUILD_WORKSPACE_DIRECTORY", ".")
     bump(args.module_file, workspace_dir=workspace)
+    run_mod_tidy(workspace)
 
 
 if __name__ == "__main__":
