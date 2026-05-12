@@ -646,12 +646,50 @@ def _run_executable_impl(ctx):
     else:
         work_home = None
 
+    # Convert a `.short_path` (which uses `../<repo>/...` for external repos
+    # in Bazel 7+) into an `external/<repo>/...` form. Combined with the
+    # `external -> $(pwd)/..` symlink the wrapper sets up at runtime, this
+    # gives us cwd-invariant paths into the runfiles tree — important when
+    # the orfs Makefile cds into a results dir before invoking openroad.
+    def _runtime_path(short_path):
+        if short_path.startswith("../"):
+            return "external/" + short_path[3:]
+        return short_path
+
+    # Workspace-relative paths live at `_main/<short_path>` in the runfiles
+    # tree (where `_main` is the main workspace's repo dir), so we anchor
+    # them off `$RUNFILES/_main`. External-repo paths (`../<repo>/...` form
+    # of short_path) live at `$RUNFILES/<repo>/...` directly. Either way,
+    # using absolute paths derived from $RUNFILES makes the variables
+    # invariant to make-recipe cwd changes (the orfs Makefile cds into a
+    # results dir before invoking openroad).
+    def _absolute_runtime(short_path, runfiles_var):
+        if short_path.startswith("../"):
+            return "{}/{}".format(runfiles_var, short_path[3:])
+        return "{}/_main/{}".format(runfiles_var, short_path)
+
+    runfiles_var = "$RUNFILES"
+    openroad_path = _absolute_runtime(ctx.attr.openroad[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
+    opensta_path = _absolute_runtime(ctx.attr.opensta[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
+    klayout_path = _absolute_runtime(ctx.attr._klayout[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
+    flow_home = _absolute_runtime(ctx.file._makefile.dirname, runfiles_var)
+    makefile_runtime_path = _absolute_runtime(ctx.file._makefile.short_path, runfiles_var)
+    make_runtime_path = _absolute_runtime(ctx.executable._make.short_path, runfiles_var)
+    run_script_path = _absolute_runtime(ctx.file.script.short_path, runfiles_var)
+
     moreargs = environment_string(
         hack_away_prefix(
             arguments = odb_arguments(ctx) | data_arguments(ctx),
             prefix = config.root.path,
         ) |
-        {"DESIGN_CONFIG": config.short_path} |
+        {
+            "DESIGN_CONFIG": config.short_path,
+            "OPENROAD_EXE": openroad_path,
+            "OPENSTA_EXE": opensta_path,
+            "KLAYOUT_CMD": klayout_path,
+            "FLOW_HOME": flow_home,
+            "RUN_SCRIPT": run_script_path,
+        } |
         ({"WORK_HOME": work_home} if work_home else {}),
     )
 
@@ -660,17 +698,18 @@ def _run_executable_impl(ctx):
         is_executable = True,
         content = """#!/bin/sh
 set -e
+RUNFILES="$(realpath "$(pwd)/..")"
 if [ ! -e external ]; then
     # Needed as of Bazel >= 8
-    ln -sf $(realpath $(pwd)/..) external
+    ln -sf "$RUNFILES" external
 fi
 export ORFS_MAKE_EXE={make}
 export ORFS_MAKEFILE={makefile}
 export ORFS_CMD={cmd}
 exec {py_run_executable} {moreargs} "$@"
 """.format(
-            make = ctx.executable._make.short_path,
-            makefile = ctx.file._makefile.path,
+            make = make_runtime_path,
+            makefile = makefile_runtime_path,
             cmd = ctx.attr.cmd,
             moreargs = moreargs,
             py_run_executable = ctx.executable._run_executable.short_path,
@@ -684,7 +723,7 @@ exec {py_run_executable} {moreargs} "$@"
             executable = wrapper,
             runfiles = ctx.runfiles(
                 transitive_files = depset(
-                    [config, wrapper],
+                    [config, wrapper, ctx.file.script],
                     transitive = [
                         flow_inputs(ctx),
                         yosys_inputs(ctx),
