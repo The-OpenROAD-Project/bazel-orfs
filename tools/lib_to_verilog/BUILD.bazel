@@ -1,0 +1,32 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+# Liberty .lib -> behavioral Verilog tool. Generates Verilator-simulable
+# stdcell models from a PDK's .lib files, plus empty-module stubs for
+# physical-only cells (TAPCELL, FILLER, DECAP) detected in .lef files.
+#
+# Replaces the UDP-based Verilog that some PDKs ship (ASAP7) which
+# Verilator cannot simulate.
+
+py_library(
+    name = "lib_to_verilog_lib",
+    srcs = ["lib_to_verilog.py"],
+    imports = ["."],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "lib_to_verilog",
+    srcs = ["lib_to_verilog.py"],
+    imports = ["."],
+    main = "lib_to_verilog.py",
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "lib_to_verilog_test",
+    srcs = ["lib_to_verilog_test.py"],
+    imports = ["."],
+    deps = [":lib_to_verilog_lib"],
+)
+
+exports_files(["lib_to_verilog.bzl"])

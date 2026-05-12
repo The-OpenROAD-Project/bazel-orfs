@@ -1,0 +1,30 @@
+VERSION 5.8 ;
+BUSBITCHARS "[]" ;
+DIVIDERCHAR "/" ;
+
+# Physical-only cells that have no .lib entry — lib_to_verilog must emit
+# empty-module stubs for these.
+MACRO FILLER1
+  CLASS CORE SPACER ;
+  ORIGIN 0 0 ;
+  SIZE 0.054 BY 1.08 ;
+END FILLER1
+
+MACRO TAPCELL
+  CLASS CORE WELLTAP ;
+  ORIGIN 0 0 ;
+  SIZE 0.054 BY 1.08 ;
+END TAPCELL
+
+# Cells that DO have a .lib entry — these must NOT appear as stubs.
+MACRO INVx1
+  CLASS CORE ;
+  SIZE 0.108 BY 1.08 ;
+END INVx1
+
+MACRO DFFx1
+  CLASS CORE ;
+  SIZE 0.432 BY 1.08 ;
+END DFFx1
+
+END LIBRARY
