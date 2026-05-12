@@ -51,6 +51,7 @@ load(
     _orfs_place = "orfs_place",
     _orfs_route = "orfs_route",
     _orfs_run = "orfs_run",
+    _orfs_run_executable = "orfs_run_executable",
     _orfs_test = "orfs_test",
     _orfs_update_rules = "orfs_update_rules",
 )
@@ -101,6 +102,7 @@ flow_provides = _flow_provides
 orfs_pdk = _orfs_pdk
 orfs_macro = _orfs_macro
 orfs_run = _orfs_run
+orfs_run_executable = _orfs_run_executable
 orfs_test = _orfs_test
 orfs_floorplan = _orfs_floorplan
 orfs_place = _orfs_place

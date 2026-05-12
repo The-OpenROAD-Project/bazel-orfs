@@ -117,6 +117,15 @@ py_test(
     deps = [":rtlil_kept_modules_lib"],
 )
 
+# Entry point for the orfs_run_executable rule's emitted shell wrapper.
+# Forwards bazelisk-run CLI args to make as variable overrides which become
+# env vars in the Tcl script.
+py_binary(
+    name = "run_executable",
+    srcs = ["run_executable.py"],
+    visibility = ["//visibility:public"],
+)
+
 # Run `bazelisk run //:fix_lint` to format all files changed since origin/main.
 py_library(
     name = "fix_lint_lib",

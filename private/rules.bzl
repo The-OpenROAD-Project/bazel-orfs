@@ -614,6 +614,110 @@ orfs_test = rule(
     test = True,
 )
 
+# --- Run-executable rule ---
+#
+# Like orfs_run, but builds a `bazelisk run` target instead of a build-time
+# action. The emitted wrapper exposes the same env that orfs_run sets, plus a
+# pass-through for CLI args: every `KEY=VALUE` positional received after
+# `bazelisk run //path:target -- ...` is forwarded to make as a variable
+# override, which becomes an environment variable when make invokes the Tcl
+# script. Make's last-wins rule means CLI overrides beat the BUILD-time
+# `arguments` dict.
+#
+# Use this when the script has a parameter the user wants to vary
+# per-invocation (e.g. an endpoint glob for a timing-path drill-down) and
+# wiring a separate orfs_run target per parameter value would be tedious.
+
+def _run_executable_impl(ctx):
+    config = ctx.attr.src[OrfsDepInfo].config
+
+    wrapper = ctx.actions.declare_file(
+        "run_{}_{}_executable".format(ctx.attr.name, ctx.attr.variant),
+    )
+
+    # For external repo targets, WORK_HOME must include the external/<repo>/
+    # prefix so Make finds results/reports at the correct runfiles path.
+    # Matches orfs_test's handling.
+    if ctx.label.workspace_name:
+        parts = ["external", ctx.label.workspace_name]
+        if ctx.label.package:
+            parts.append(ctx.label.package)
+        work_home = "/".join(parts)
+    else:
+        work_home = None
+
+    moreargs = environment_string(
+        hack_away_prefix(
+            arguments = odb_arguments(ctx) | data_arguments(ctx),
+            prefix = config.root.path,
+        ) |
+        {"DESIGN_CONFIG": config.short_path} |
+        ({"WORK_HOME": work_home} if work_home else {}),
+    )
+
+    ctx.actions.write(
+        output = wrapper,
+        is_executable = True,
+        content = """#!/bin/sh
+set -e
+if [ ! -e external ]; then
+    # Needed as of Bazel >= 8
+    ln -sf $(realpath $(pwd)/..) external
+fi
+export ORFS_MAKE_EXE={make}
+export ORFS_MAKEFILE={makefile}
+export ORFS_CMD={cmd}
+exec {py_run_executable} {moreargs} "$@"
+""".format(
+            make = ctx.executable._make.short_path,
+            makefile = ctx.file._makefile.path,
+            cmd = ctx.attr.cmd,
+            moreargs = moreargs,
+            py_run_executable = ctx.executable._run_executable.short_path,
+        ),
+    )
+
+    return [
+        ctx.attr.src[PdkInfo],
+        ctx.attr.src[TopInfo],
+        DefaultInfo(
+            executable = wrapper,
+            runfiles = ctx.runfiles(
+                transitive_files = depset(
+                    [config, wrapper],
+                    transitive = [
+                        flow_inputs(ctx),
+                        yosys_inputs(ctx),
+                        data_inputs(ctx),
+                        source_inputs(ctx),
+                    ],
+                ),
+            ).merge(ctx.attr._run_executable[DefaultInfo].default_runfiles),
+        ),
+    ]
+
+orfs_run_executable = rule(
+    implementation = _run_executable_impl,
+    attrs = yosys_attrs() |
+            openroad_attrs() |
+            {
+                "cmd": attr.string(
+                    mandatory = False,
+                    default = "run",
+                ),
+                "script": attr.label(
+                    mandatory = True,
+                    allow_single_file = ["tcl"],
+                ),
+                "_run_executable": attr.label(
+                    default = "@bazel-orfs//:run_executable",
+                    executable = True,
+                    cfg = "exec",
+                ),
+            },
+    executable = True,
+)
+
 # --- Synthesis rule ---
 
 CANON_OUTPUT = "1_1_yosys_canonicalize.rtlil"
