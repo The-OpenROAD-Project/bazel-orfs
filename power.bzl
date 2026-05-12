@@ -14,7 +14,6 @@ expensive (Verilator + OpenSTA) and is opt-in.
 """
 
 load("@bazel-orfs//:openroad.bzl", "orfs_run")
-load("@bazel-orfs//:orfs_genrule.bzl", "orfs_genrule")
 
 # ORFS stage stems used as POWER_STAGE by power.tcl / power_per_module.tcl.
 _POWER_STAGE_STEM = {

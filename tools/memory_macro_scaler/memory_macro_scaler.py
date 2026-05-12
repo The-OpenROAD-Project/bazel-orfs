@@ -1096,10 +1096,10 @@ def rewrite_lef(lef_text, role, bucket):
     # blockage hides the stripes from the macro-pin search.
     inset = _M4_PITCH_UM
     lines.append("  OBS\n")
-    pg_y_fracs = sorted(set(0.66 if n.upper().startswith("VDD") else 0.33 for n in powers))
-    cuts = sorted(
-        f * height - _M4_PITCH_UM / 2.0 for f in pg_y_fracs
+    pg_y_fracs = sorted(
+        set(0.66 if n.upper().startswith("VDD") else 0.33 for n in powers)
     )
+    cuts = sorted(f * height - _M4_PITCH_UM / 2.0 for f in pg_y_fracs)
     cur_y = inset
     for cy in cuts:
         if cy > cur_y:

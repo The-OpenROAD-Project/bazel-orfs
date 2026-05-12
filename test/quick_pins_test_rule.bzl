@@ -10,7 +10,6 @@ def _quick_pins_data_dep_test_impl(ctx):
     expected = sorted(ctx.attr.expected_basenames)
     runfiles = ctx.attr.target[DefaultInfo].data_runfiles
     names = sorted([f.basename for f in runfiles.files.to_list()])
-    found = [b for b in expected if b in names]
     missing = [b for b in expected if b not in names]
 
     runner = ctx.actions.declare_file(ctx.attr.name + "_runner.sh")
