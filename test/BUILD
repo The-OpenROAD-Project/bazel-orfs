@@ -1338,3 +1338,25 @@ build_test(
     name = "yosys_share_build_test",
     targets = ["@yosys//:yosys_share"],
 )
+
+# Guards the {*}-expansion of SYNTH_RETIME_MODULES in synth.tcl. Without
+# `{*}`, `select $::env(SYNTH_RETIME_MODULES)` passes a space-separated value
+# as a single bogus pattern and silently disables retime across every named
+# module — see commit message and synth_retime_select_test.tcl for details.
+# Fast: drives yosys directly on a 4-module fixture, no ORFS flow.
+sh_test(
+    name = "synth_retime_select_test",
+    srcs = ["synth_retime_select_test.sh"],
+    args = [
+        "$(location @yosys//:yosys)",
+        "$(location :synth_retime_select_test.tcl)",
+        "$(location :synth_retime_select_test.v)",
+        "$(location //:synth.tcl)",
+    ],
+    data = [
+        ":synth_retime_select_test.tcl",
+        ":synth_retime_select_test.v",
+        "//:synth.tcl",
+        "@yosys",
+    ],
+)
