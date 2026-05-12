@@ -13,7 +13,7 @@ archive_override(
     strip_prefix = "OpenROAD-flow-scripts-old_orfs_commit",
     patch_strip = 1,
     patches = [
-        "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
+        "//patches:fixture-patch.patch",
     ],
 )
 
