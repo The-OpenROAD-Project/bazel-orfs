@@ -32,21 +32,15 @@ bazel_dep(name = "orfs")
 # blocked (e.g. inside the maintainers organization).
 archive_override(
     module_name = "orfs",
-    integrity = "sha256-2Gx8cjYjNr15RjhDvDPK9j0vqAlZJ0bqpmuEvEUuY54=",
-    patch_strip = 1,
-    # Minimal patches: only what's needed when ORFS is a non-root module.
-    # Design-specific patches are only applied in the orfs/ integration workspace.
-    patches = [
-        "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
-    ],
-    strip_prefix = "OpenROAD-flow-scripts-cabb23df1d101fadb7a7f8654b6cd259064840c2",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/cabb23df1d101fadb7a7f8654b6cd259064840c2.tar.gz"],
+    integrity = "sha256-3ysGrHZtnTKnf8NeeViMqxjmbTjkHIw0W9zsfhwZNP0=",
+    strip_prefix = "OpenROAD-flow-scripts-87b01b74b92d6e77edcdbe86949ee7eb6017ac7d",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/87b01b74b92d6e77edcdbe86949ee7eb6017ac7d.tar.gz"],
 )
 
 bazel_dep(name = "openroad")
 git_override(
     module_name = "openroad",
-    commit = "35443bc74824e6aab95a2d8636df60007de768d4",
+    commit = "8546cd026d1c573c9e68e52e01cb7b04aed511d9",
     init_submodules = True,
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
