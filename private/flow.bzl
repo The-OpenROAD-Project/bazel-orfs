@@ -189,6 +189,7 @@ def orfs_flow(
         squash = False,
         substeps = False,
         save_odb = True,
+        quick_pins = False,
         html = False,
         **kwargs):
     """
@@ -237,8 +238,19 @@ def orfs_flow(
         and opens it in the default browser via xdg-open. The report uses
         OpenROAD's web_save_report command (PR #10087) with 1000 setup
         and 1000 hold paths. Targets are tagged "manual". Default False.
+      quick_pins: if True, skip `global_placement -skip_io` and place pins
+        directly via PRE_GLOBAL_PLACE_SKIP_IO_TCL. Trades suboptimal pin
+        placement for a large wall-time saving on the GP-skip-io step on
+        big designs. Suitable for RTL exploration; not for tape-out.
+        Default False.
       **kwargs: forward named args
     """
+    if quick_pins:
+        sources = sources | {
+            "PRE_GLOBAL_PLACE_SKIP_IO_TCL": ["@bazel-orfs//:quick_pins.tcl"],
+            "FOOTPRINT_TCL": ["@bazel-orfs//:quick_pins_footprint_stub.tcl"],
+        }
+
     check_variables(arguments.keys(), "arguments")
     check_variables(sources.keys(), "sources")
     shadowed = sorted([k for k in user_arguments if k in ALL_VARIABLE_TO_STAGES])

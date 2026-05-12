@@ -17,6 +17,8 @@ exports_files([
     "open_html.sh",
     "package_stage.py",
     "parallel_synth.mk",
+    "quick_pins.tcl",
+    "quick_pins_footprint_stub.tcl",
     "rtlil_kept_modules.py",
     "synth.tcl",
     "synth_keep.tcl",

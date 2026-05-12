@@ -7,6 +7,7 @@ load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:sweep.bzl", "orfs_sweep")
 load(":deps_output_group_rule.bzl", "deps_output_group_test", "output_group_test")
 load(":provider_test_rule.bzl", "lib_pre_layout_test")
+load(":quick_pins_test_rule.bzl", "quick_pins_data_dep_test")
 
 exports_files(
     glob([
@@ -952,6 +953,43 @@ py_test(
 build_test(
     name = "mock_openroad_floorplan_build_test",
     targets = [":lb_32x128_mock_openroad_floorplan"],
+)
+
+# --- quick_pins flag wiring test ---
+#
+# Verifies orfs_flow(quick_pins=True) injects the two TCL hooks as data deps
+# on the place stage:
+#   PRE_GLOBAL_PLACE_SKIP_IO_TCL -> @bazel-orfs//:quick_pins.tcl
+#   FOOTPRINT_TCL                -> @bazel-orfs//:quick_pins_footprint_stub.tcl
+# Pure analysis-time check; no OpenROAD invocation.
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128",
+    arguments = LB_ARGS,
+    last_stage = "place",
+    openroad = "//mock/openroad/src/bin:openroad",
+    previous_stage = {"floorplan": ":lb_32x128_synth"},
+    quick_pins = True,
+    stage_sources = LB_STAGE_SOURCES,
+    variant = "quick_pins",
+    verilog_files = LB_VERILOG_FILES,
+)
+
+quick_pins_data_dep_test(
+    name = "quick_pins_place_data_dep_test",
+    expected_basenames = ["quick_pins.tcl"],
+    target = ":lb_32x128_quick_pins_place",
+)
+
+quick_pins_data_dep_test(
+    name = "quick_pins_floorplan_data_dep_test",
+    expected_basenames = ["quick_pins_footprint_stub.tcl"],
+    target = ":lb_32x128_quick_pins_floorplan",
+)
+
+build_test(
+    name = "quick_pins_place_build_test",
+    targets = [":lb_32x128_quick_pins_place"],
 )
 
 build_test(
