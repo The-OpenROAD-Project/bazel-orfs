@@ -52,7 +52,8 @@ class TestLibertyExprToVerilog:
 
 class TestParseLibCells:
     def test_simple_dff(self):
-        lib = textwrap.dedent("""\
+        lib = textwrap.dedent(
+            """\
             library (test) {
               cell (DFFx1) {
                 pin (Q) {
@@ -71,7 +72,8 @@ class TestParseLibCells:
                 }
               }
             }
-        """)
+        """
+        )
         cells = parse_lib_cells(lib)
         assert len(cells) == 1
         c = cells[0]
@@ -84,7 +86,8 @@ class TestParseLibCells:
         assert len(c.pins) == 3
 
     def test_dff_with_inverted_output(self):
-        lib = textwrap.dedent("""\
+        lib = textwrap.dedent(
+            """\
             library (test) {
               cell (DFFHQNx1) {
                 pin (QN) {
@@ -103,7 +106,8 @@ class TestParseLibCells:
                 }
               }
             }
-        """)
+        """
+        )
         cells = parse_lib_cells(lib)
         assert len(cells) == 1
         c = cells[0]
@@ -111,7 +115,8 @@ class TestParseLibCells:
         assert c.ff.next_state == "!D"
 
     def test_dff_with_async_reset(self):
-        lib = textwrap.dedent("""\
+        lib = textwrap.dedent(
+            """\
             library (test) {
               cell (DFFASRx1) {
                 pin (QN) {
@@ -138,7 +143,8 @@ class TestParseLibCells:
                 }
               }
             }
-        """)
+        """
+        )
         cells = parse_lib_cells(lib)
         assert len(cells) == 1
         c = cells[0]
@@ -146,7 +152,8 @@ class TestParseLibCells:
         assert c.ff.preset == "!RESETN"
 
     def test_latch(self):
-        lib = textwrap.dedent("""\
+        lib = textwrap.dedent(
+            """\
             library (test) {
               cell (DLLx1) {
                 pin (Q) {
@@ -165,7 +172,8 @@ class TestParseLibCells:
                 }
               }
             }
-        """)
+        """
+        )
         cells = parse_lib_cells(lib)
         assert len(cells) == 1
         c = cells[0]
@@ -174,7 +182,8 @@ class TestParseLibCells:
         assert c.latch.data_in == "D"
 
     def test_keeps_combinational_cells(self):
-        lib = textwrap.dedent("""\
+        lib = textwrap.dedent(
+            """\
             library (test) {
               cell (INVx1) {
                 pin (Y) {
@@ -186,7 +195,8 @@ class TestParseLibCells:
                 }
               }
             }
-        """)
+        """
+        )
         cells = parse_lib_cells(lib)
         assert len(cells) == 1
         c = cells[0]
@@ -198,18 +208,21 @@ class TestParseLibCells:
 
     def test_skips_pure_physical_cells(self):
         """A cell with no ff/latch and no function on its outputs is dropped."""
-        lib = textwrap.dedent("""\
+        lib = textwrap.dedent(
+            """\
             library (test) {
               cell (TAPCELL) {
                 pin (VDD) { direction : input; }
               }
             }
-        """)
+        """
+        )
         cells = parse_lib_cells(lib)
         assert len(cells) == 0
 
     def test_multiple_cells(self):
-        lib = textwrap.dedent("""\
+        lib = textwrap.dedent(
+            """\
             library (test) {
               cell (DFFx1) {
                 pin (Q) { direction : output; function : "IQ"; }
@@ -228,7 +241,8 @@ class TestParseLibCells:
                 ff (IQ,IQN) { clocked_on : "CLK"; next_state : "D"; }
               }
             }
-        """)
+        """
+        )
         cells = parse_lib_cells(lib)
         assert len(cells) == 3
         assert cells[0].name == "DFFx1"
@@ -237,7 +251,8 @@ class TestParseLibCells:
 
     def test_nested_braces_in_timing(self):
         """Verify parser handles deeply nested timing groups without confusion."""
-        lib = textwrap.dedent("""\
+        lib = textwrap.dedent(
+            """\
             library (test) {
               cell (DFFx1) {
                 pin (Q) {
@@ -259,14 +274,16 @@ class TestParseLibCells:
                 ff (IQ,IQN) { clocked_on : "CLK"; next_state : "D"; }
               }
             }
-        """)
+        """
+        )
         cells = parse_lib_cells(lib)
         assert len(cells) == 1
         assert cells[0].ff.clocked_on == "CLK"
 
     def test_ignores_power_down_function(self):
         """power_down_function should not override function."""
-        lib = textwrap.dedent("""\
+        lib = textwrap.dedent(
+            """\
             library (test) {
               cell (DFFx1) {
                 pin (QN) {
@@ -279,14 +296,16 @@ class TestParseLibCells:
                 ff (IQN,IQNN) { clocked_on : "CLK"; next_state : "!D"; }
               }
             }
-        """)
+        """
+        )
         cells = parse_lib_cells(lib)
         assert len(cells) == 1
         assert cells[0].pins[0].function == "IQN"
 
     def test_ignores_pg_pins(self):
         """pg_pin (VDD/VSS) should not appear as regular pins."""
-        lib = textwrap.dedent("""\
+        lib = textwrap.dedent(
+            """\
             library (test) {
               cell (DFFx1) {
                 pg_pin (VDD) { pg_type : primary_power; }
@@ -297,7 +316,8 @@ class TestParseLibCells:
                 ff (IQ,IQN) { clocked_on : "CLK"; next_state : "D"; }
               }
             }
-        """)
+        """
+        )
         cells = parse_lib_cells(lib)
         assert len(cells) == 1
         pin_names = [p.name for p in cells[0].pins]
@@ -348,9 +368,12 @@ class TestGenerateFFVerilog:
                 Pin("SETN", "input"),
             ],
             ff=FfInfo(
-                var1="IQN", var2="IQNN",
-                clocked_on="CLK", next_state="!D",
-                clear="!SETN", preset="!RESETN",
+                var1="IQN",
+                var2="IQNN",
+                clocked_on="CLK",
+                next_state="!D",
+                clear="!SETN",
+                preset="!RESETN",
             ),
         )
         v = generate_ff_verilog(cell)
@@ -449,7 +472,8 @@ class TestGenerateCombinationalVerilog:
 
 class TestParseLefMacros:
     def test_basic(self):
-        lef = textwrap.dedent("""\
+        lef = textwrap.dedent(
+            """\
             MACRO TAPCELL_ASAP7_75t_R
               CLASS CORE ENDCAP ;
               SIZE 0.27 BY 0.27 ;
@@ -459,7 +483,8 @@ class TestParseLefMacros:
               CLASS CORE ;
               SIZE 0.54 BY 0.27 ;
             END INVx1_ASAP7_75t_R
-        """)
+        """
+        )
         macros = parse_lef_macros(lef)
         assert macros == {"TAPCELL_ASAP7_75t_R", "INVx1_ASAP7_75t_R"}
 
@@ -525,7 +550,8 @@ class TestGenerateDffV:
 class TestRealAsap7Lib:
     """Integration tests using real ASAP7 .lib data snippets."""
 
-    ASAP7_DFFHQN = textwrap.dedent("""\
+    ASAP7_DFFHQN = textwrap.dedent(
+        """\
         library (asap7) {
           cell (DFFHQNx1_ASAP7_75t_R) {
             area : 0.2916;
@@ -587,7 +613,8 @@ class TestRealAsap7Lib:
             }
           }
         }
-    """)
+    """
+    )
 
     def test_parse_asap7_dff(self):
         cells = parse_lib_cells(self.ASAP7_DFFHQN)
@@ -606,7 +633,10 @@ class TestRealAsap7Lib:
         cells = parse_lib_cells(self.ASAP7_DFFHQN)
         for c in cells:
             v = generate_ff_verilog(c)
-            assert f"module {c.name} (QN, D, CLK);" in v or f"module {c.name} (QN, CLK, D);" in v
+            assert (
+                f"module {c.name} (QN, D, CLK);" in v
+                or f"module {c.name} (QN, CLK, D);" in v
+            )
             assert "always @(posedge CLK)" in v
             assert "QN <= ~D;" in v
             assert "endmodule" in v

@@ -725,9 +725,7 @@ class TestGenerateFromScratch(unittest.TestCase):
         self.assertIsNotNone(m)
         width = float(m.group(1))
         for pg in ("VDD", "VSS"):
-            block = re.search(
-                rf"PIN {pg}.*?END {pg}", lef, re.DOTALL
-            ).group(0)
+            block = re.search(rf"PIN {pg}.*?END {pg}", lef, re.DOTALL).group(0)
             stripe = re.search(
                 r"LAYER M4 ; RECT ([\d.]+) [\d.]+ ([\d.]+) [\d.]+", block
             )

@@ -33,17 +33,19 @@ class Pin:
 @dataclass
 class FfInfo:
     """Liberty ff() group data."""
+
     var1: str  # e.g. "IQN" or "IQ"
     var2: str  # e.g. "IQNN" or "IQN"
     clocked_on: str = ""
     next_state: str = ""
-    clear: str = ""       # async reset (sets to 0)
-    preset: str = ""      # async set (sets to 1)
+    clear: str = ""  # async reset (sets to 0)
+    preset: str = ""  # async set (sets to 1)
 
 
 @dataclass
 class LatchInfo:
     """Liberty latch() group data."""
+
     var1: str  # e.g. "IQ"
     var2: str  # e.g. "IQN"
     enable: str = ""
@@ -86,7 +88,7 @@ def parse_lib_cells(text: str) -> list[Cell]:
         closes = stripped.count("}")
 
         # Cell start — match before updating depth so cell_depth is correct
-        m = re.match(r'cell\s*\(\s*(\S+)\s*\)', stripped)
+        m = re.match(r"cell\s*\(\s*(\S+)\s*\)", stripped)
         if m and not stripped.startswith("cell_"):
             brace_depth += opens - closes
             cell = Cell(name=m.group(1))
@@ -105,8 +107,7 @@ def parse_lib_cells(text: str) -> list[Cell]:
         # Cell end
         if brace_depth < cell_depth:
             has_combinational = any(
-                p.direction == "output" and p.function
-                for p in cell.pins
+                p.direction == "output" and p.function for p in cell.pins
             )
             if cell.ff or cell.latch or has_combinational:
                 cells.append(cell)
@@ -114,8 +115,8 @@ def parse_lib_cells(text: str) -> list[Cell]:
             continue
 
         # Pin start (don't continue — attributes may be on same line)
-        m = re.search(r'(?<![pg_])pin\s*\(\s*(\S+)\s*\)', stripped)
-        if m and not re.search(r'pg_pin', stripped):
+        m = re.search(r"(?<![pg_])pin\s*\(\s*(\S+)\s*\)", stripped)
+        if m and not re.search(r"pg_pin", stripped):
             current_pin = Pin(name=m.group(1), direction="")
             pin_depth = brace_depth
             cell.pins.append(current_pin)
@@ -127,7 +128,7 @@ def parse_lib_cells(text: str) -> list[Cell]:
 
         # Pin attributes (use re.search for inline)
         if current_pin:
-            m = re.search(r'direction\s*:\s*(\w+)', stripped)
+            m = re.search(r"direction\s*:\s*(\w+)", stripped)
             if m:
                 current_pin.direction = m.group(1)
             m = re.search(r'(?<!\w)function\s*:\s*"([^"]*)"', stripped)
@@ -139,14 +140,14 @@ def parse_lib_cells(text: str) -> list[Cell]:
             current_pin = None
 
         # ff group start
-        m = re.search(r'ff\s*\(\s*(\w+)\s*,\s*(\w+)\s*\)', stripped)
+        m = re.search(r"ff\s*\(\s*(\w+)\s*,\s*(\w+)\s*\)", stripped)
         if m:
             cell.ff = FfInfo(var1=m.group(1), var2=m.group(2))
             in_ff = True
             ff_depth = brace_depth
 
         # latch group start
-        m = re.search(r'latch\s*\(\s*(\w+)\s*,\s*(\w+)\s*\)', stripped)
+        m = re.search(r"latch\s*\(\s*(\w+)\s*,\s*(\w+)\s*\)", stripped)
         if m:
             cell.latch = LatchInfo(var1=m.group(1), var2=m.group(2))
             in_latch = True
@@ -249,7 +250,9 @@ def generate_ff_verilog(cell: Cell) -> str:
         elif func:
             # Try to map: if function is negation of var1
             neg = liberty_expr_to_verilog(func)
-            out_assigns.append((p.name, neg.replace(ff.var1, "next_val").replace(ff.var2, "~next_val")))
+            out_assigns.append(
+                (p.name, neg.replace(ff.var1, "next_val").replace(ff.var2, "~next_val"))
+            )
         else:
             out_assigns.append((p.name, "next_val"))
 
@@ -284,7 +287,9 @@ def generate_ff_verilog(cell: Cell) -> str:
                 lines.append(f"            {name} <= {val};")
         lines.append("        else begin")
         for name, expr in out_assigns:
-            lines.append(f"            {name} <= {expr.replace('next_val', next_expr)};")
+            lines.append(
+                f"            {name} <= {expr.replace('next_val', next_expr)};"
+            )
         lines.append("        end")
         lines.append("    end")
     else:
@@ -330,7 +335,14 @@ def generate_latch_verilog(cell: Cell) -> str:
             out_assigns.append((p.name, "~data_val"))
         elif func:
             neg = liberty_expr_to_verilog(func)
-            out_assigns.append((p.name, neg.replace(latch.var1, "data_val").replace(latch.var2, "~data_val")))
+            out_assigns.append(
+                (
+                    p.name,
+                    neg.replace(latch.var1, "data_val").replace(
+                        latch.var2, "~data_val"
+                    ),
+                )
+            )
         else:
             out_assigns.append((p.name, "data_val"))
 
@@ -449,16 +461,33 @@ def main():
     )
     # action="extend" so repeated `--lib FOO --lib BAR` accumulate; with the
     # default `store` action argparse silently keeps only the last invocation.
-    parser.add_argument("--lib", nargs="+", action="extend", default=[],
-                        help="Liberty .lib file(s) (may be .gz)")
-    parser.add_argument("--lef", nargs="+", action="extend", default=[],
-                        help="LEF file(s) for physical-only cell detection")
-    parser.add_argument("--srcs", nargs="+", action="extend", default=[],
-                        help="Mixed .lib/.lib.gz/.lef files (auto-classified)")
-    parser.add_argument("--dff", required=True,
-                        help="Output path for sequential cell behavioral models")
-    parser.add_argument("--empty", required=True,
-                        help="Output path for physical-only cell empty stubs")
+    parser.add_argument(
+        "--lib",
+        nargs="+",
+        action="extend",
+        default=[],
+        help="Liberty .lib file(s) (may be .gz)",
+    )
+    parser.add_argument(
+        "--lef",
+        nargs="+",
+        action="extend",
+        default=[],
+        help="LEF file(s) for physical-only cell detection",
+    )
+    parser.add_argument(
+        "--srcs",
+        nargs="+",
+        action="extend",
+        default=[],
+        help="Mixed .lib/.lib.gz/.lef files (auto-classified)",
+    )
+    parser.add_argument(
+        "--dff", required=True, help="Output path for sequential cell behavioral models"
+    )
+    parser.add_argument(
+        "--empty", required=True, help="Output path for physical-only cell empty stubs"
+    )
     args = parser.parse_args()
 
     # Auto-classify --srcs by extension

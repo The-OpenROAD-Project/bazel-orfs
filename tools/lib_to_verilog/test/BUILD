@@ -6,8 +6,8 @@ load("//tools/lib_to_verilog:lib_to_verilog.bzl", "stdcell_verilog")
 # milliseconds.
 stdcell_verilog(
     name = "tiny_stdcell",
-    libs = ["tiny.lib"],
     lefs = ["tiny.lef"],
+    libs = ["tiny.lib"],
 )
 
 sh_test(

@@ -30,8 +30,8 @@ genrule(
 
 verilator_saif(
     name = "mock_run_saif",
-    extra_args = "extra-arg-one extra-arg-two 0x42",
     out = "mock_run_saif.saif",
+    extra_args = "extra-arg-one extra-arg-two 0x42",
     saif_run = ":mock_verilator",
     stimulus = ":mock_stimulus.bin",
 )
