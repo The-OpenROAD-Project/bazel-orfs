@@ -1360,3 +1360,28 @@ sh_test(
         "@yosys",
     ],
 )
+
+# Guards the SYNTH_KEEP_MODULES typo-check in synth.tcl / synth_keep.tcl.
+# Pre-fix: `select "$mod" "$mod\\$*"` silently no-matched on a misspelled name,
+# so a typo in SYNTH_KEEP_MODULES dropped keep_hierarchy without complaint.
+# Post-fix: walk via `catch {rtlil::set_attr -mod $module keep_hierarchy 1}`,
+# accumulate missing names, error at end. Partition synthesis (SYNTH_BLACKBOXES)
+# skips the strict check. Fast: drives yosys directly on a 4-module fixture.
+sh_test(
+    name = "synth_keep_modules_check_test",
+    srcs = ["synth_keep_modules_check_test.sh"],
+    args = [
+        "$(location @yosys//:yosys)",
+        "$(location :synth_keep_modules_check_test.tcl)",
+        "$(location :synth_keep_modules_check_test.v)",
+        "$(location //:synth.tcl)",
+        "$(location //:synth_keep.tcl)",
+    ],
+    data = [
+        ":synth_keep_modules_check_test.tcl",
+        ":synth_keep_modules_check_test.v",
+        "//:synth.tcl",
+        "//:synth_keep.tcl",
+        "@yosys",
+    ],
+)

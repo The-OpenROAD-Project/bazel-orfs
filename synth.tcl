@@ -56,10 +56,22 @@ if { $::env(SYNTH_GUT) } {
 }
 
 if { [env_var_exists_and_non_empty SYNTH_KEEP_MODULES] } {
+  # In partition mode (SYNTH_BLACKBOXES set) only the partition's top module
+  # plus its own subhierarchy is present; the other kept modules are
+  # blackboxed and won't be found. Skip the typo check there.
+  set strict [expr { ![env_var_exists_and_non_empty SYNTH_BLACKBOXES] }]
+  set missing [list]
   foreach module $::env(SYNTH_KEEP_MODULES) {
-    select "${module}" "${module}\\$*"
-    setattr -mod -set keep_hierarchy 1
-    select -clear
+    # rtlil::set_attr throws a clean Tcl error ("module not found") when the
+    # module isn't in the elaborated design — caught silently here. Using
+    # `select` instead would emit a "did not match any module" warning we
+    # don't want on the happy path.
+    if { [catch {rtlil::set_attr -mod $module keep_hierarchy 1}] && $strict } {
+      lappend missing $module
+    }
+  }
+  if { [llength $missing] > 0 } {
+    error "SYNTH_KEEP_MODULES contains [llength $missing] module name(s) not present in the elaborated design (typos, post-refactor renames, or wrong-design list): [join $missing {, }]"
   }
 }
 
