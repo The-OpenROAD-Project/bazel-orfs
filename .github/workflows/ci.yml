@@ -54,24 +54,28 @@ jobs:
         uses: bazel-contrib/setup-bazel@0.19.0
         with:
           bazelisk-cache: true
-          external-cache: true
+          external-cache: |
+            manifest:
+              openroad+:
+                - MODULE.bazel
+                - .github/openroad-cache-version
 
       - name: Repository cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/bazel-repo
-          key: bazel-repo-${{ runner.os }}-${{ github.sha }}
+          key: bazel-repo-v2-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
-            bazel-repo-${{ runner.os }}-
+            bazel-repo-v2-${{ runner.os }}-
           save-always: true
 
       - name: Disk cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/bazel-disk
-          key: bazel-disk-${{ runner.os }}-${{ github.sha }}
+          key: bazel-disk-v2-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
-            bazel-disk-${{ runner.os }}-
+            bazel-disk-v2-${{ runner.os }}-
           save-always: true
 
       - name: Configure caches
