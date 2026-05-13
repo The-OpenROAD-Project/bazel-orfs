@@ -32,19 +32,19 @@ bazel_dep(name = "orfs")
 # blocked (e.g. inside the maintainers organization).
 archive_override(
     module_name = "orfs",
-    integrity = "sha256-3ysGrHZtnTKnf8NeeViMqxjmbTjkHIw0W9zsfhwZNP0=",
+    integrity = "sha256-djJj3NacrLqI2TWWYz/qrQdCCr71V92LX1vfLW+9WlI=",
     patch_strip = 1,
     patches = [
         "//patches:0036-fix-bazel-orfs-bazel_dep-non-dev-for-load-visibility.patch",
     ],
-    strip_prefix = "OpenROAD-flow-scripts-87b01b74b92d6e77edcdbe86949ee7eb6017ac7d",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/87b01b74b92d6e77edcdbe86949ee7eb6017ac7d.tar.gz"],
+    strip_prefix = "OpenROAD-flow-scripts-ae34c73b7ddc382179dad3ac4653806cf6f81ee5",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/ae34c73b7ddc382179dad3ac4653806cf6f81ee5.tar.gz"],
 )
 
 bazel_dep(name = "openroad")
 git_override(
     module_name = "openroad",
-    commit = "8546cd026d1c573c9e68e52e01cb7b04aed511d9",
+    commit = "5cee43de602ff83936130928481ac7b94840dc50",
     init_submodules = True,
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
