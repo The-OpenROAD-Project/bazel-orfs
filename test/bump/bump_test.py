@@ -16,8 +16,9 @@ import bump
 BAZEL_ORFS_COMMIT = "new_bazel_orfs_aaa111"
 OPENROAD_COMMIT = "new_openroad_bbb222"
 ORFS_COMMIT = "new_orfs_ccc333"
-YOSYS_TAG = "v0.99"
-YOSYS_TAG_COMMIT = "new_yosys_ddd444"
+YOSYS_TOOLS_COMMIT = "new_yosys_ddd444"
+YOSYS_SLANG_TOOLS_COMMIT = "new_yosys_slang_eee555"
+UPSTREAM_HEAD_COMMIT = "upstream_head_fff666"
 MOCK_INTEGRITY = "sha256-MOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCK="
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
@@ -28,22 +29,38 @@ def mock_fetch_commit(repo, branch):
         return BAZEL_ORFS_COMMIT
     if "OpenROAD-flow-scripts" in repo:
         return ORFS_COMMIT
-    return OPENROAD_COMMIT
+    # --head=<tool> resolves to upstream HEAD for any of yosys/openroad/yosys-slang.
+    return UPSTREAM_HEAD_COMMIT
 
 
-def mock_fetch_release(_repo):
-    return YOSYS_TAG
+def mock_fetch_orfs_tool_sha(_orfs_commit, tool):
+    return {
+        "yosys": YOSYS_TOOLS_COMMIT,
+        "OpenROAD": OPENROAD_COMMIT,
+        "yosys-slang": YOSYS_SLANG_TOOLS_COMMIT,
+    }[tool]
 
 
-def mock_fetch_tag_commit(_repo, _tag):
-    return YOSYS_TAG_COMMIT
+def mock_fetch_compare_status_ahead(_repo, _base, _head):
+    """ORFS is at-or-past the floor — follow ORFS."""
+    return "identical"
+
+
+def mock_fetch_compare_status_behind(_repo, _base, _head):
+    """ORFS lags the floor — hold at the floor."""
+    return "behind"
 
 
 def mock_fetch_integrity(_url):
     return MOCK_INTEGRITY
 
 
-def apply_bump(fixture_name, workspace_dir=None):
+def apply_bump(
+    fixture_name,
+    workspace_dir=None,
+    compare_status_fn=mock_fetch_compare_status_ahead,
+    head_tools=None,
+):
     """Copy a fixture, run bump on it, return the result content."""
     src = os.path.join(FIXTURES_DIR, fixture_name)
     tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".MODULE.bazel", delete=False)
@@ -53,10 +70,11 @@ def apply_bump(fixture_name, workspace_dir=None):
     bump.bump(
         tmp.name,
         fetch_commit_fn=mock_fetch_commit,
-        fetch_release_fn=mock_fetch_release,
-        fetch_tag_commit_fn=mock_fetch_tag_commit,
         fetch_integrity_fn=mock_fetch_integrity,
+        fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+        fetch_compare_status_fn=compare_status_fn,
         workspace_dir=workspace_dir,
+        head_tools=head_tools,
     )
 
     with open(tmp.name) as f:
@@ -162,11 +180,18 @@ class TestDownstreamWithSubmodules(unittest.TestCase):
         self.assertIn('strip_prefix = "verilog"', self.content)
 
 
-def _apply_bump_with_workspace(fixture_name, build_files):
+def _apply_bump_with_workspace(
+    fixture_name,
+    build_files,
+    compare_status_fn=mock_fetch_compare_status_ahead,
+    head_tools=None,
+):
     """Copy a fixture into a temp workspace with the given BUILD files.
 
-    build_files is a dict of relpath -> content.  Returns the resulting
-    MODULE.bazel content.
+    build_files is a dict of relpath -> content.  Returns (MODULE.bazel
+    content, workspace dir).  Caller is responsible for cleanup if it
+    needs to read more files; this helper cleans up only on the no-need
+    paths via the simpler `_apply_bump_in_workspace` below.
     """
     tmpdir = tempfile.mkdtemp()
     try:
@@ -181,10 +206,11 @@ def _apply_bump_with_workspace(fixture_name, build_files):
         bump.bump(
             module_file,
             fetch_commit_fn=mock_fetch_commit,
-            fetch_release_fn=mock_fetch_release,
-            fetch_tag_commit_fn=mock_fetch_tag_commit,
             fetch_integrity_fn=mock_fetch_integrity,
+            fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+            fetch_compare_status_fn=compare_status_fn,
             workspace_dir=tmpdir,
+            head_tools=head_tools,
         )
         with open(module_file) as f:
             return f.read()
@@ -277,44 +303,6 @@ class TestFindBazelOrfsSubmodules(unittest.TestCase):
             'git_override(\n    module_name = "bazel-orfs",\n    commit = "x",\n)\n'
         )
         self.assertEqual(bump.find_bazel_orfs_submodules(content), [])
-
-
-class TestBazelOrfsYosysUpdate(unittest.TestCase):
-    """bazel-orfs project updates yosys commit in extension.bzl."""
-
-    def test_yosys_commit_updated_in_extension(self):
-        tmpdir = tempfile.mkdtemp()
-        try:
-            main_file = os.path.join(tmpdir, "MODULE.bazel")
-            shutil.copy2(
-                os.path.join(FIXTURES_DIR, "self.MODULE.bazel"),
-                main_file,
-            )
-
-            ext_file = os.path.join(tmpdir, "extension.bzl")
-            with open(ext_file, "w") as f:
-                f.write(
-                    "yosys_build(\n"
-                    '    name = "yosys",\n'
-                    '    yosys_commit = "old_yosys_commit",\n'
-                    ")\n"
-                )
-
-            bump.bump(
-                main_file,
-                fetch_commit_fn=mock_fetch_commit,
-                fetch_release_fn=mock_fetch_release,
-                fetch_tag_commit_fn=mock_fetch_tag_commit,
-                workspace_dir=tmpdir,
-            )
-
-            with open(ext_file) as f:
-                ext_content = f.read()
-
-            self.assertIn(YOSYS_TAG_COMMIT, ext_content)
-            self.assertNotIn("old_yosys_commit", ext_content)
-        finally:
-            shutil.rmtree(tmpdir)
 
 
 class TestDetectProject(unittest.TestCase):
@@ -506,8 +494,8 @@ class TestSubmodulesDoubleUpdate(unittest.TestCase):
 
         kwargs = dict(
             fetch_commit_fn=mock_fetch_commit,
-            fetch_release_fn=mock_fetch_release,
-            fetch_tag_commit_fn=mock_fetch_tag_commit,
+            fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+            fetch_compare_status_fn=mock_fetch_compare_status_ahead,
         )
         bump.bump(tmp.name, **kwargs)
         with open(tmp.name) as f:
@@ -537,8 +525,8 @@ class TestNetworkErrorHandling(unittest.TestCase):
                 bump.bump(
                     tmp.name,
                     fetch_commit_fn=bad_commit,
-                    fetch_release_fn=mock_fetch_release,
-                    fetch_tag_commit_fn=mock_fetch_tag_commit,
+                    fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+                    fetch_compare_status_fn=mock_fetch_compare_status_ahead,
                 )
             finally:
                 os.unlink(tmp.name)
@@ -604,8 +592,8 @@ class TestArchiveOverrideDoubleBumpIdempotent(unittest.TestCase):
 
         kwargs = dict(
             fetch_commit_fn=mock_fetch_commit,
-            fetch_release_fn=mock_fetch_release,
-            fetch_tag_commit_fn=mock_fetch_tag_commit,
+            fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+            fetch_compare_status_fn=mock_fetch_compare_status_ahead,
             fetch_integrity_fn=mock_fetch_integrity,
         )
         bump.bump(tmp.name, **kwargs)
@@ -701,6 +689,178 @@ class TestFindArchiveOverrideBlock(unittest.TestCase):
     def test_returns_none_when_absent(self):
         content = 'git_override(\n    module_name = "orfs",\n    commit = "x",\n)'
         self.assertIsNone(bump.find_archive_override_block(content, "orfs"))
+
+
+class TestDownstreamOrfsToolsFlow(unittest.TestCase):
+    """Downstream: yosys/openroad commits come from ORFS tools/ submodules."""
+
+    def setUp(self):
+        self.content = apply_bump("downstream.MODULE.bazel")
+
+    def test_orfs_commit_updated(self):
+        # New: downstream bumps ORFS too (used to be bazel-orfs-project only).
+        self.assertIn(ORFS_COMMIT, self.content)
+        self.assertNotIn("old_orfs_commit", self.content)
+
+    def test_yosys_pinned_to_orfs_tools_sha(self):
+        self.assertIn(YOSYS_TOOLS_COMMIT, self.content)
+        self.assertNotIn("old_yosys_commit", self.content)
+
+    def test_openroad_pinned_to_orfs_tools_sha(self):
+        self.assertIn(OPENROAD_COMMIT, self.content)
+        self.assertNotIn("old_openroad_commit", self.content)
+
+
+class TestYosysSlangFloorGate(unittest.TestCase):
+    """yosys-slang follows ORFS unless ORFS lags YOSYS_SLANG_MIN_COMMIT."""
+
+    def _run(self, compare_status_fn):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            module_file = os.path.join(tmpdir, "MODULE.bazel")
+            shutil.copy2(
+                os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel"), module_file
+            )
+            slang_path = os.path.join(tmpdir, "yosys_slang.bzl")
+            with open(slang_path, "w") as f:
+                f.write(
+                    'load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")\n'
+                    "\n"
+                    "def _impl(_ctx):\n"
+                    "    new_git_repository(\n"
+                    '        name = "yosys-slang",\n'
+                    '        remote = "https://github.com/povik/yosys-slang.git",\n'
+                    '        commit = "old_yosys_slang_commit",\n'
+                    "    )\n"
+                )
+            bump.bump(
+                module_file,
+                fetch_commit_fn=mock_fetch_commit,
+                fetch_integrity_fn=mock_fetch_integrity,
+                fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+                fetch_compare_status_fn=compare_status_fn,
+                workspace_dir=tmpdir,
+            )
+            with open(slang_path) as f:
+                return f.read()
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_orfs_at_or_past_floor_uses_orfs_pin(self):
+        slang = self._run(mock_fetch_compare_status_ahead)
+        self.assertIn(YOSYS_SLANG_TOOLS_COMMIT, slang)
+        self.assertNotIn(bump.YOSYS_SLANG_MIN_COMMIT, slang)
+        self.assertNotIn("old_yosys_slang_commit", slang)
+
+    def test_orfs_lags_floor_holds_at_floor(self):
+        slang = self._run(mock_fetch_compare_status_behind)
+        self.assertIn(bump.YOSYS_SLANG_MIN_COMMIT, slang)
+        self.assertNotIn(YOSYS_SLANG_TOOLS_COMMIT, slang)
+
+
+class TestHeadFlagOverrides(unittest.TestCase):
+    """--head=<tool> bypasses ORFS-tools sha and (for yosys-slang) the floor."""
+
+    def test_head_yosys_uses_upstream_head(self):
+        content = apply_bump(
+            "downstream.MODULE.bazel",
+            head_tools={"yosys"},
+        )
+        self.assertIn(UPSTREAM_HEAD_COMMIT, content)
+        # The ORFS-tools sha for yosys must NOT appear (was bypassed).
+        # OpenROAD's ORFS-tools sha still does — only yosys was --head'd.
+        block = re.search(
+            r'git_override\(\s*module_name\s*=\s*"yosys".*?\)',
+            content,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(block)
+        self.assertIn(UPSTREAM_HEAD_COMMIT, block.group())
+        self.assertNotIn(YOSYS_TOOLS_COMMIT, block.group())
+
+    def test_head_openroad_uses_upstream_head(self):
+        content = apply_bump(
+            "downstream.MODULE.bazel",
+            head_tools={"openroad"},
+        )
+        block = re.search(
+            r'git_override\(\s*module_name\s*=\s*"openroad".*?\)',
+            content,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(block)
+        self.assertIn(UPSTREAM_HEAD_COMMIT, block.group())
+        self.assertNotIn(OPENROAD_COMMIT, block.group())
+
+    def test_head_yosys_slang_bypasses_floor(self):
+        # Even with ORFS lagging (would otherwise hold at floor), --head wins.
+        tmpdir = tempfile.mkdtemp()
+        try:
+            module_file = os.path.join(tmpdir, "MODULE.bazel")
+            shutil.copy2(
+                os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel"), module_file
+            )
+            slang_path = os.path.join(tmpdir, "yosys_slang.bzl")
+            with open(slang_path, "w") as f:
+                f.write(
+                    "new_git_repository(\n"
+                    '    remote = "https://github.com/povik/yosys-slang.git",\n'
+                    '    commit = "old",\n'
+                    ")\n"
+                )
+            bump.bump(
+                module_file,
+                fetch_commit_fn=mock_fetch_commit,
+                fetch_integrity_fn=mock_fetch_integrity,
+                fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+                fetch_compare_status_fn=mock_fetch_compare_status_behind,
+                workspace_dir=tmpdir,
+                head_tools={"yosys-slang"},
+            )
+            with open(slang_path) as f:
+                slang = f.read()
+            self.assertIn(UPSTREAM_HEAD_COMMIT, slang)
+            self.assertNotIn(bump.YOSYS_SLANG_MIN_COMMIT, slang)
+            self.assertNotIn(YOSYS_SLANG_TOOLS_COMMIT, slang)
+        finally:
+            shutil.rmtree(tmpdir)
+
+
+class TestUpdateYosysSlangCommit(unittest.TestCase):
+    """update_yosys_slang_commit rewrites the right commit literal."""
+
+    def test_rewrites_when_remote_matches(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(tmpdir, "yosys_slang.bzl"), "w") as f:
+                f.write(
+                    "new_git_repository(\n"
+                    '    remote = "https://github.com/povik/yosys-slang.git",\n'
+                    '    commit = "old_slang_commit",\n'
+                    ")\n"
+                )
+            self.assertTrue(bump.update_yosys_slang_commit(tmpdir, "new_slang"))
+            with open(os.path.join(tmpdir, "yosys_slang.bzl")) as f:
+                self.assertIn('commit = "new_slang"', f.read())
+        finally:
+            shutil.rmtree(tmpdir)
+
+    def test_noop_when_no_matching_file(self):
+        tmpdir = tempfile.mkdtemp()
+        try:
+            # An unrelated .bzl file with a commit literal — must not be touched.
+            with open(os.path.join(tmpdir, "other.bzl"), "w") as f:
+                f.write(
+                    "git_repository(\n"
+                    '    remote = "https://github.com/foo/bar.git",\n'
+                    '    commit = "keep_this",\n'
+                    ")\n"
+                )
+            self.assertFalse(bump.update_yosys_slang_commit(tmpdir, "new_slang"))
+            with open(os.path.join(tmpdir, "other.bzl")) as f:
+                self.assertIn('commit = "keep_this"', f.read())
+        finally:
+            shutil.rmtree(tmpdir)
 
 
 if __name__ == "__main__":
