@@ -853,6 +853,78 @@ class TestBlocksSubMacros(unittest.TestCase):
         self.assertEqual(result.block_configs[0].design_name, "uart_rx")
         self.assertEqual(result.block_configs[0].arguments["CORE_UTILIZATION"], "30")
 
+    def test_block_config_shared_block_mk(self):
+        """Fall back to shared block.mk when no per-block sub-dir exists.
+
+        Mirrors make's flow/Makefile GENERATE_ABSTRACT_RULE second branch:
+        BLOCKS=… without per-block config.mk uses a sibling block.mk
+        parameterised by DESIGN_NAME=<block> and
+        DESIGN_NICKNAME=<parent_nickname>_<block>. asap7/aes-block is the
+        canonical case.
+        """
+        tmpdir = tempfile.mkdtemp()
+        base_dir = os.path.join(tmpdir, "flow/designs/asap7/parent-block")
+        os.makedirs(base_dir, exist_ok=True)
+
+        # Parent declares BLOCKS=… with no per-block sub-directories.
+        config = os.path.join(base_dir, "config.mk")
+        with open(config, "w") as f:
+            f.write("export PLATFORM = asap7\n")
+            f.write("export DESIGN_NAME = parent\n")
+            f.write("export DESIGN_NICKNAME = parent-block\n")
+            f.write("export BLOCKS = b1 b2\n")
+
+        # Shared block.mk — DESIGN_NAME is a placeholder; the parser
+        # overrides it per block via the caller-supplied overrides.
+        block_mk = os.path.join(base_dir, "block.mk")
+        with open(block_mk, "w") as f:
+            f.write("export PLATFORM = asap7\n")
+            f.write("export DESIGN_NAME = placeholder\n")
+            f.write("export CORE_UTILIZATION = 30\n")
+
+        result = self.parser.parse(config)
+        self.assertEqual(result.blocks, ["b1", "b2"])
+        self.assertEqual(len(result.block_configs), 2)
+
+        self.assertEqual(result.block_configs[0].design_name, "b1")
+        self.assertEqual(result.block_configs[0].design_nickname, "parent-block_b1")
+        self.assertEqual(result.block_configs[0].arguments["CORE_UTILIZATION"], "30")
+
+        self.assertEqual(result.block_configs[1].design_name, "b2")
+        self.assertEqual(result.block_configs[1].design_nickname, "parent-block_b2")
+
+    def test_block_config_per_block_takes_precedence(self):
+        """Per-block sub-dir config.mk wins over a sibling block.mk."""
+        tmpdir = tempfile.mkdtemp()
+        base_dir = os.path.join(tmpdir, "flow/designs/asap7/mixed-block")
+        os.makedirs(base_dir, exist_ok=True)
+
+        config = os.path.join(base_dir, "config.mk")
+        with open(config, "w") as f:
+            f.write("export PLATFORM = asap7\n")
+            f.write("export DESIGN_NAME = parent\n")
+            f.write("export DESIGN_NICKNAME = mixed-block\n")
+            f.write("export BLOCKS = b1 b2\n")
+
+        # b1 has its own sub-dir config.mk; b2 falls through to block.mk.
+        b1_dir = os.path.join(base_dir, "b1")
+        os.makedirs(b1_dir, exist_ok=True)
+        with open(os.path.join(b1_dir, "config.mk"), "w") as f:
+            f.write("export PLATFORM = asap7\n")
+            f.write("export DESIGN_NAME = b1_per_block\n")
+
+        with open(os.path.join(base_dir, "block.mk"), "w") as f:
+            f.write("export PLATFORM = asap7\n")
+            f.write("export DESIGN_NAME = placeholder\n")
+
+        result = self.parser.parse(config)
+        self.assertEqual(len(result.block_configs), 2)
+        # b1 from sub-dir config.mk: DESIGN_NAME comes from the file.
+        self.assertEqual(result.block_configs[0].design_name, "b1_per_block")
+        # b2 from shared block.mk: DESIGN_NAME comes from the override.
+        self.assertEqual(result.block_configs[1].design_name, "b2")
+        self.assertEqual(result.block_configs[1].design_nickname, "mixed-block_b2")
+
     def test_block_nickname_with_variable_refs(self):
         """DESIGN_NICKNAME using ${VAR} refs should be resolved from raw_vars."""
         tmpdir = tempfile.mkdtemp()
@@ -1084,12 +1156,19 @@ class TestIntegrationComplex(unittest.TestCase):
         self.assertTrue(len(result.block_configs) == 1)
 
     def test_asap7_aes_block(self):
-        """Has BLOCKS for hierarchical synthesis."""
+        """Has BLOCKS for hierarchical synthesis via a shared block.mk."""
         config = str(DESIGNS_DIR / "asap7" / "aes-block" / "config.mk")
         result = self.parser.parse(config)
         self.assertEqual(result.platform, "asap7")
         self.assertEqual(result.design_name, "aes_cipher_top")
         self.assertEqual(result.blocks, ["aes_rcon", "aes_sbox"])
+        # aes-block ships block.mk shared between aes_rcon and aes_sbox
+        # (no per-block sub-dir config.mk). The shared-block.mk
+        # fallback should populate block_configs with both blocks,
+        # each pinned via DESIGN_NAME / DESIGN_NICKNAME overrides.
+        self.assertEqual(len(result.block_configs), 2)
+        self.assertEqual(result.block_configs[0].design_name, "aes_rcon")
+        self.assertEqual(result.block_configs[1].design_name, "aes_sbox")
 
     def test_ihp_i2c_gpio_expander(self):
         """Has BLOCKS with sub-macro using ${VAR} syntax."""
