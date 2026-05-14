@@ -525,14 +525,27 @@ def fetch_tag_commit(github_repo, tag):
 
 # Source of truth for EDA tool versions: ORFS's tools/ submodules at master.
 # The bumper reads each submodule's pinned sha at the just-bumped ORFS commit
-# and applies it to the consumer's git_override blocks.
+# and applies it to the consumer's git_override blocks.  yosys is the odd
+# one out — it ships on BCR, so we resolve ORFS's tools/yosys sha to a BCR
+# version string and rewrite the ``bazel_dep`` instead of writing a
+# ``git_override``.  See ``bump_yosys_bcr``.
 ORFS_REPO = "The-OpenROAD-Project/OpenROAD-flow-scripts"
 ORFS_TOOLS = {
     # tools/ subdir name -> (MODULE.bazel module name, upstream repo for --head)
-    "yosys": ("yosys", "YosysHQ/yosys"),
     "OpenROAD": ("openroad", "The-OpenROAD-Project/OpenROAD"),
     "yosys-slang": ("yosys-slang", "povik/yosys-slang"),
 }
+
+# yosys is consumed from the Bazel Central Registry.  ORFS's tools/yosys pins
+# a specific master commit (often between tagged releases), so we read the
+# ``YOSYS_VER`` line from yosys/Makefile at that commit to learn the (M, m)
+# release ORFS expects, then pick the highest BCR variant with base <= (M, m).
+YOSYS_REPO = "YosysHQ/yosys"
+YOSYS_BCR_MODULE = "yosys"
+BCR_METADATA_URL = (
+    "https://raw.githubusercontent.com/bazelbuild/bazel-central-registry/"
+    "main/modules/{module}/metadata.json"
+)
 
 # The oldest povik/yosys-slang sha that satisfies today's build.  Once ORFS's
 # tools/yosys-slang submodule advances past this, the floor becomes a no-op
@@ -557,6 +570,75 @@ def fetch_orfs_tool_sha(orfs_commit, tool):
             f"tools/{tool} is not a submodule at {orfs_commit} (got {data.get('type')!r})"
         )
     return data["sha"]
+
+
+def fetch_yosys_makefile_version(sha):
+    """Read ``YOSYS_VER`` from yosys/Makefile at a commit sha.
+
+    Yosys's Makefile carries a literal ``YOSYS_VER := M.m`` line that
+    advances every release.  ORFS pins tools/yosys to master commits that
+    aren't always tagged, so this is the only reliable way to learn which
+    BCR release ORFS expects.  Returns the ``(major, minor)`` tuple.
+    """
+    url = f"https://api.github.com/repos/{YOSYS_REPO}/contents/Makefile?ref={sha}"
+    data = fetch_json(url)
+    text = base64.b64decode(data["content"]).decode()
+    m = re.search(r"^\s*YOSYS_VER\s*:=\s*(\d+)\.(\d+)", text, re.MULTILINE)
+    if not m:
+        raise RuntimeError(
+            f"YOSYS_VER not found in {YOSYS_REPO} Makefile at {sha[:12]}"
+        )
+    return (int(m.group(1)), int(m.group(2)))
+
+
+def fetch_bcr_versions(module_name):
+    """List published BCR versions for a module from the public registry."""
+    return fetch_json(BCR_METADATA_URL.format(module=module_name)).get("versions", [])
+
+
+_BCR_VERSION_RE = re.compile(r"^(\d+)\.(\d+)(?:\.bcr\.(\d+))?$")
+
+
+def _bcr_version_key(v):
+    """Sort key for BCR-style version strings like '0.62.bcr.2' / '0.63'."""
+    m = _BCR_VERSION_RE.match(v)
+    if not m:
+        return (-1, -1, -1)
+    return (int(m.group(1)), int(m.group(2)), int(m.group(3) or 0))
+
+
+def pick_bcr_yosys_version(bcr_versions, orfs_yosys_version):
+    """Highest BCR yosys version whose base ``(M, m)`` is <= ORFS's pin.
+
+    BCR may publish a new yosys before ORFS bumps to it, or lag behind it.
+    Capping by ORFS's ``YOSYS_VER`` keeps us inside the range ORFS tests.
+    """
+    target = orfs_yosys_version
+    candidates = [
+        (key, v)
+        for v in bcr_versions
+        for key in (_bcr_version_key(v),)
+        if key != (-1, -1, -1) and (key[0], key[1]) <= target
+    ]
+    if not candidates:
+        raise RuntimeError(
+            f"No BCR yosys version <= ORFS tools/yosys {target[0]}.{target[1]}"
+        )
+    return max(candidates)[1]
+
+
+def update_bazel_dep_version(content, module_name, new_version):
+    """Rewrite ``version`` in ``bazel_dep(name="<module>", version="...")``.
+
+    Touches the first such occurrence only; consumers carry exactly one
+    bazel_dep per module name.  Returns content unchanged if not found.
+    """
+    pattern = (
+        r'(bazel_dep\(\s*name\s*=\s*"'
+        + re.escape(module_name)
+        + r'"\s*,\s*version\s*=\s*")[^"]*(")'
+    )
+    return re.sub(pattern, rf"\g<1>{new_version}\2", content, count=1)
 
 
 def fetch_compare_status(repo, base, head):
@@ -612,17 +694,22 @@ def bump(
     fetch_integrity_fn=compute_integrity,
     fetch_orfs_tool_sha_fn=fetch_orfs_tool_sha,
     fetch_compare_status_fn=fetch_compare_status,
+    fetch_yosys_makefile_version_fn=fetch_yosys_makefile_version,
+    fetch_bcr_versions_fn=fetch_bcr_versions,
     workspace_dir=None,
     head_tools=None,
 ):
     """Main bump orchestrator.
 
-    Versions for yosys / openroad / yosys-slang come from ORFS's tools/
-    submodules at the just-bumped ORFS master HEAD.  yosys-slang is gated
-    against ``YOSYS_SLANG_MIN_COMMIT`` so we never regress past the floor
-    when ORFS lags upstream.  ``head_tools`` (set of tool names) forces
-    individual tools to chase upstream HEAD instead — escape hatch for
-    debugging against an older ORFS pin.
+    Versions for openroad and yosys-slang come from ORFS's tools/ submodules
+    at the just-bumped ORFS master HEAD and are applied as git_override
+    commit pins.  yosys is on BCR: its ORFS tools/yosys pin is read to find
+    ORFS's expected ``YOSYS_VER`` (M.m), and we pick the highest BCR
+    variant with base <= that, then rewrite the ``bazel_dep`` version.
+    yosys-slang is gated against ``YOSYS_SLANG_MIN_COMMIT`` so we never
+    regress past the floor when ORFS lags upstream.  ``head_tools`` (set of
+    tool names) forces individual tools to chase upstream HEAD instead —
+    escape hatch for debugging against an older ORFS pin.
 
     Project-type matrix (for the bazel-orfs / orfs commits proper):
         Project      bazel-orfs  ORFS
@@ -684,7 +771,21 @@ def bump(
         content = update_git_override_commit(content, "qt-bazel", qt_commit)
         updated_modules.append(f"qt-bazel -> {qt_commit[:12]}")
 
-    # --- Update EDA tools from ORFS tools/ (yosys, openroad, yosys-slang) ---
+    # --- Bump yosys to latest BCR version capped by ORFS tools/yosys ---
+    if orfs_commit is not None and has_bazel_dep(content, YOSYS_BCR_MODULE):
+        orfs_yosys_sha = fetch_orfs_tool_sha_fn(orfs_commit, "yosys")
+        orfs_yosys_ver = fetch_yosys_makefile_version_fn(orfs_yosys_sha)
+        bcr_versions = fetch_bcr_versions_fn(YOSYS_BCR_MODULE)
+        bcr_version = pick_bcr_yosys_version(bcr_versions, orfs_yosys_ver)
+        new_content = update_bazel_dep_version(content, YOSYS_BCR_MODULE, bcr_version)
+        if new_content != content:
+            content = new_content
+            updated_modules.append(
+                f"yosys -> {bcr_version} (BCR <= ORFS tools/yosys "
+                f"{orfs_yosys_ver[0]}.{orfs_yosys_ver[1]})"
+            )
+
+    # --- Update remaining EDA tools from ORFS tools/ (openroad, yosys-slang) ---
     if orfs_commit is not None:
         for tool, (module_name, upstream_repo) in ORFS_TOOLS.items():
             if module_name in head_tools:

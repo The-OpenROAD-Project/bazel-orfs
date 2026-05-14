@@ -21,6 +21,17 @@ YOSYS_SLANG_TOOLS_COMMIT = "new_yosys_slang_eee555"
 UPSTREAM_HEAD_COMMIT = "upstream_head_fff666"
 MOCK_INTEGRITY = "sha256-MOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCK="
 
+# ORFS pins tools/yosys to a 0.64-dev commit; BCR has up to 0.63.
+MOCK_ORFS_YOSYS_VERSION = (0, 64)
+MOCK_BCR_YOSYS_VERSIONS = [
+    "0.57",
+    "0.57.bcr.3",
+    "0.62",
+    "0.62.bcr.2",
+    "0.63",
+]
+EXPECTED_YOSYS_BCR_VERSION = "0.63"
+
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 
 
@@ -29,7 +40,7 @@ def mock_fetch_commit(repo, branch):
         return BAZEL_ORFS_COMMIT
     if "OpenROAD-flow-scripts" in repo:
         return ORFS_COMMIT
-    # --head=<tool> resolves to upstream HEAD for any of yosys/openroad/yosys-slang.
+    # --head=<tool> resolves to upstream HEAD for any of openroad/yosys-slang.
     return UPSTREAM_HEAD_COMMIT
 
 
@@ -39,6 +50,14 @@ def mock_fetch_orfs_tool_sha(_orfs_commit, tool):
         "OpenROAD": OPENROAD_COMMIT,
         "yosys-slang": YOSYS_SLANG_TOOLS_COMMIT,
     }[tool]
+
+
+def mock_fetch_yosys_makefile_version(_sha):
+    return MOCK_ORFS_YOSYS_VERSION
+
+
+def mock_fetch_bcr_versions(_module_name):
+    return list(MOCK_BCR_YOSYS_VERSIONS)
 
 
 def mock_fetch_compare_status_ahead(_repo, _base, _head):
@@ -73,6 +92,8 @@ def apply_bump(
         fetch_integrity_fn=mock_fetch_integrity,
         fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
         fetch_compare_status_fn=compare_status_fn,
+        fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+        fetch_bcr_versions_fn=mock_fetch_bcr_versions,
         workspace_dir=workspace_dir,
         head_tools=head_tools,
     )
@@ -209,6 +230,8 @@ def _apply_bump_with_workspace(
             fetch_integrity_fn=mock_fetch_integrity,
             fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
             fetch_compare_status_fn=compare_status_fn,
+            fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+            fetch_bcr_versions_fn=mock_fetch_bcr_versions,
             workspace_dir=tmpdir,
             head_tools=head_tools,
         )
@@ -496,6 +519,8 @@ class TestSubmodulesDoubleUpdate(unittest.TestCase):
             fetch_commit_fn=mock_fetch_commit,
             fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
             fetch_compare_status_fn=mock_fetch_compare_status_ahead,
+            fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+            fetch_bcr_versions_fn=mock_fetch_bcr_versions,
         )
         bump.bump(tmp.name, **kwargs)
         with open(tmp.name) as f:
@@ -527,6 +552,8 @@ class TestNetworkErrorHandling(unittest.TestCase):
                     fetch_commit_fn=bad_commit,
                     fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
                     fetch_compare_status_fn=mock_fetch_compare_status_ahead,
+                    fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+                    fetch_bcr_versions_fn=mock_fetch_bcr_versions,
                 )
             finally:
                 os.unlink(tmp.name)
@@ -595,6 +622,8 @@ class TestArchiveOverrideDoubleBumpIdempotent(unittest.TestCase):
             fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
             fetch_compare_status_fn=mock_fetch_compare_status_ahead,
             fetch_integrity_fn=mock_fetch_integrity,
+            fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+            fetch_bcr_versions_fn=mock_fetch_bcr_versions,
         )
         bump.bump(tmp.name, **kwargs)
         with open(tmp.name) as f:
@@ -692,7 +721,7 @@ class TestFindArchiveOverrideBlock(unittest.TestCase):
 
 
 class TestDownstreamOrfsToolsFlow(unittest.TestCase):
-    """Downstream: yosys/openroad commits come from ORFS tools/ submodules."""
+    """Downstream: openroad commit and yosys BCR version follow ORFS tools/."""
 
     def setUp(self):
         self.content = apply_bump("downstream.MODULE.bazel")
@@ -702,9 +731,14 @@ class TestDownstreamOrfsToolsFlow(unittest.TestCase):
         self.assertIn(ORFS_COMMIT, self.content)
         self.assertNotIn("old_orfs_commit", self.content)
 
-    def test_yosys_pinned_to_orfs_tools_sha(self):
-        self.assertIn(YOSYS_TOOLS_COMMIT, self.content)
-        self.assertNotIn("old_yosys_commit", self.content)
+    def test_yosys_bcr_version_bumped(self):
+        # ORFS pins yosys to YOSYS_VER 0.64; latest BCR <= 0.64 is 0.63.
+        self.assertIn(
+            f'bazel_dep(name = "yosys", version = "{EXPECTED_YOSYS_BCR_VERSION}")',
+            self.content,
+        )
+        # No git_override block should be written for yosys.
+        self.assertNotIn('module_name = "yosys"', self.content)
 
     def test_openroad_pinned_to_orfs_tools_sha(self):
         self.assertIn(OPENROAD_COMMIT, self.content)
@@ -739,6 +773,8 @@ class TestYosysSlangFloorGate(unittest.TestCase):
                 fetch_integrity_fn=mock_fetch_integrity,
                 fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
                 fetch_compare_status_fn=compare_status_fn,
+                fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+                fetch_bcr_versions_fn=mock_fetch_bcr_versions,
                 workspace_dir=tmpdir,
             )
             with open(slang_path) as f:
@@ -760,23 +796,6 @@ class TestYosysSlangFloorGate(unittest.TestCase):
 
 class TestHeadFlagOverrides(unittest.TestCase):
     """--head=<tool> bypasses ORFS-tools sha and (for yosys-slang) the floor."""
-
-    def test_head_yosys_uses_upstream_head(self):
-        content = apply_bump(
-            "downstream.MODULE.bazel",
-            head_tools={"yosys"},
-        )
-        self.assertIn(UPSTREAM_HEAD_COMMIT, content)
-        # The ORFS-tools sha for yosys must NOT appear (was bypassed).
-        # OpenROAD's ORFS-tools sha still does — only yosys was --head'd.
-        block = re.search(
-            r'git_override\(\s*module_name\s*=\s*"yosys".*?\)',
-            content,
-            re.DOTALL,
-        )
-        self.assertIsNotNone(block)
-        self.assertIn(UPSTREAM_HEAD_COMMIT, block.group())
-        self.assertNotIn(YOSYS_TOOLS_COMMIT, block.group())
 
     def test_head_openroad_uses_upstream_head(self):
         content = apply_bump(
@@ -814,6 +833,8 @@ class TestHeadFlagOverrides(unittest.TestCase):
                 fetch_integrity_fn=mock_fetch_integrity,
                 fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
                 fetch_compare_status_fn=mock_fetch_compare_status_behind,
+                fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+                fetch_bcr_versions_fn=mock_fetch_bcr_versions,
                 workspace_dir=tmpdir,
                 head_tools={"yosys-slang"},
             )
@@ -861,6 +882,52 @@ class TestUpdateYosysSlangCommit(unittest.TestCase):
                 self.assertIn('commit = "keep_this"', f.read())
         finally:
             shutil.rmtree(tmpdir)
+
+
+class TestPickBcrYosysVersion(unittest.TestCase):
+    """Unit tests for pick_bcr_yosys_version()."""
+
+    BCR = ["0.57", "0.57.bcr.3", "0.62", "0.62.bcr.1", "0.62.bcr.2", "0.63"]
+
+    def test_picks_highest_at_or_below_target(self):
+        # ORFS pins YOSYS_VER 0.64; latest BCR <= 0.64 is 0.63.
+        self.assertEqual(bump.pick_bcr_yosys_version(self.BCR, (0, 64)), "0.63")
+
+    def test_exact_match_prefers_highest_bcr_variant(self):
+        # ORFS pins 0.62; 0.62.bcr.2 outranks 0.62.bcr.1 and bare 0.62.
+        self.assertEqual(bump.pick_bcr_yosys_version(self.BCR, (0, 62)), "0.62.bcr.2")
+
+    def test_below_minimum_raises(self):
+        # Nothing in BCR is <= 0.56.
+        with self.assertRaises(RuntimeError):
+            bump.pick_bcr_yosys_version(self.BCR, (0, 56))
+
+
+class TestUpdateBazelDepVersion(unittest.TestCase):
+    """Unit tests for update_bazel_dep_version()."""
+
+    def test_rewrites_matching_version(self):
+        content = 'bazel_dep(name = "yosys", version = "0.62.bcr.2")\n'
+        self.assertEqual(
+            bump.update_bazel_dep_version(content, "yosys", "0.63"),
+            'bazel_dep(name = "yosys", version = "0.63")\n',
+        )
+
+    def test_leaves_other_deps_alone(self):
+        content = (
+            'bazel_dep(name = "abc", version = "0.64-yosyshq.bcr.1")\n'
+            'bazel_dep(name = "yosys", version = "0.62.bcr.2")\n'
+        )
+        result = bump.update_bazel_dep_version(content, "yosys", "0.63")
+        self.assertIn('bazel_dep(name = "abc", version = "0.64-yosyshq.bcr.1")', result)
+        self.assertIn('bazel_dep(name = "yosys", version = "0.63")', result)
+
+    def test_noop_when_module_absent(self):
+        content = 'bazel_dep(name = "abc", version = "0.64-yosyshq.bcr.1")\n'
+        self.assertEqual(
+            bump.update_bazel_dep_version(content, "yosys", "0.63"),
+            content,
+        )
 
 
 if __name__ == "__main__":
