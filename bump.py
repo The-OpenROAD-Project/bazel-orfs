@@ -20,6 +20,36 @@ import urllib.error
 import urllib.request
 
 
+class BumpError(RuntimeError):
+    """Raised when an expected MODULE.bazel rewrite finds no match.
+
+    The bumper guards each ``update_*`` call site with :func:`_expect` so
+    a missing ``git_override`` / ``archive_override`` / ``bazel_dep``
+    block surfaces as a loud failure instead of a silent no-op.
+    ``bazelisk run //:bump --ignore`` downgrades it to a warning.
+    """
+
+
+def _expect(condition, description, ignore_errors=False):
+    """Assert that ``condition`` is truthy, or fail (or warn under --ignore).
+
+    Used as a precondition check before each ``update_*`` call site that
+    the bumper has already decided must apply: existence of the target
+    ``git_override`` / ``archive_override`` / ``bazel_dep`` block.  If the
+    block is absent the MODULE.bazel is in an unexpected shape — e.g. the
+    consumer renamed a module or hand-wired a variable — and silently
+    no-oping would hide the divergence.  Under ``--ignore`` we warn and
+    keep going so partially-updatable files still get the parts we know.
+    """
+    if condition:
+        return
+    msg = f"Expected {description} in MODULE.bazel but found no match"
+    if ignore_errors:
+        print(f"WARNING: {msg}", file=sys.stderr)
+        return
+    raise BumpError(msg)
+
+
 def detect_project(content):
     """Detect project type from MODULE.bazel content.
 
@@ -698,6 +728,7 @@ def bump(
     fetch_bcr_versions_fn=fetch_bcr_versions,
     workspace_dir=None,
     head_tools=None,
+    ignore_errors=False,
 ):
     """Main bump orchestrator.
 
@@ -732,6 +763,11 @@ def bump(
     # --- Update bazel-orfs commit (skip for bazel-orfs itself) ---
     if project != "bazel-orfs":
         bazel_orfs_commit = fetch_commit_fn("The-OpenROAD-Project/bazel-orfs", "main")
+        _expect(
+            find_git_override_block(content, "bazel-orfs"),
+            'git_override(module_name = "bazel-orfs")',
+            ignore_errors,
+        )
         content = update_git_override_commit(content, "bazel-orfs", bazel_orfs_commit)
         updated_modules.append(f"bazel-orfs -> {bazel_orfs_commit[:12]}")
         # Inject git_override blocks for any missing submodules that the
@@ -739,6 +775,7 @@ def bump(
         content = inject_submodule_overrides(content, bazel_orfs_commit, workspace_dir)
         # Submodules live in the same repo, so they share the same commit
         for submodule in find_bazel_orfs_submodules(content):
+            # Existence is guaranteed by find_bazel_orfs_submodules.
             content = update_git_override_commit(content, submodule, bazel_orfs_commit)
             updated_modules.append(f"{submodule} -> {bazel_orfs_commit[:12]}")
 
@@ -748,12 +785,12 @@ def bump(
         if workspace_dir:
             copy_patches(bazel_orfs_dir, workspace_dir)
 
-    # --- Update ORFS commit (skip for OpenROAD itself) ---
+    # --- Update ORFS commit (skip for OpenROAD itself or projects without ORFS) ---
     # bazel-orfs and downstream both follow ORFS master; downstream's tool
-    # overrides (yosys/openroad/yosys-slang below) are then resolved at the
+    # overrides (openroad/yosys/yosys-slang below) are then resolved at the
     # new ORFS commit so the whole stack moves coherently.
     orfs_commit = None
-    if project != "openroad":
+    if project != "openroad" and has_bazel_dep(content, "orfs"):
         orfs_commit = fetch_commit_fn(ORFS_REPO, "master")
         if project == "bazel-orfs" and find_archive_override_block(content, "orfs"):
             # bazel-orfs's archive_override path needs an SRI integrity refresh.
@@ -762,12 +799,22 @@ def bump(
                 content, "orfs", ORFS_REPO, orfs_commit, integrity
             )
         else:
+            _expect(
+                find_git_override_block(content, "orfs"),
+                'git_override(module_name = "orfs")',
+                ignore_errors,
+            )
             content = update_git_override_commit(content, "orfs", orfs_commit)
         updated_modules.append(f"orfs -> {orfs_commit[:12]}")
 
     # --- Update qt-bazel commit ---
     if has_bazel_dep(content, "qt-bazel"):
         qt_commit = fetch_commit_fn("The-OpenROAD-Project/qt_bazel_prebuilts", "main")
+        _expect(
+            find_git_override_block(content, "qt-bazel"),
+            'git_override(module_name = "qt-bazel")',
+            ignore_errors,
+        )
         content = update_git_override_commit(content, "qt-bazel", qt_commit)
         updated_modules.append(f"qt-bazel -> {qt_commit[:12]}")
 
@@ -778,16 +825,29 @@ def bump(
         bcr_versions = fetch_bcr_versions_fn(YOSYS_BCR_MODULE)
         bcr_version = pick_bcr_yosys_version(bcr_versions, orfs_yosys_ver)
         new_content = update_bazel_dep_version(content, YOSYS_BCR_MODULE, bcr_version)
-        if new_content != content:
-            content = new_content
-            updated_modules.append(
-                f"yosys -> {bcr_version} (BCR <= ORFS tools/yosys "
-                f"{orfs_yosys_ver[0]}.{orfs_yosys_ver[1]})"
-            )
+        # has_bazel_dep matched.  If the rewrite changed nothing AND the
+        # bazel_dep isn't already pinned to bcr_version, the version field
+        # is in an unexpected shape (e.g. variable-bound).
+        already_pinned = (
+            f'bazel_dep(name = "{YOSYS_BCR_MODULE}", version = "{bcr_version}")'
+            in content
+        )
+        _expect(
+            new_content != content or already_pinned,
+            f'bazel_dep(name = "{YOSYS_BCR_MODULE}", version = "...")',
+            ignore_errors,
+        )
+        content = new_content
+        updated_modules.append(
+            f"yosys -> {bcr_version} (BCR <= ORFS tools/yosys "
+            f"{orfs_yosys_ver[0]}.{orfs_yosys_ver[1]})"
+        )
 
     # --- Update remaining EDA tools from ORFS tools/ (openroad, yosys-slang) ---
     if orfs_commit is not None:
         for tool, (module_name, upstream_repo) in ORFS_TOOLS.items():
+            if module_name == "openroad" and not has_bazel_dep(content, "openroad"):
+                continue
             if module_name in head_tools:
                 # --head=<module_name> bypasses ORFS entirely.
                 upstream_branch = (
@@ -814,13 +874,19 @@ def bump(
                     source = f"ORFS tools/{tool}"
 
             if module_name == "yosys-slang":
+                # No MODULE.bazel signal — workspace .bzl walk is itself the
+                # gate.  Skip silently when the consumer doesn't ship the
+                # plugin loader.
                 if workspace_dir and update_yosys_slang_commit(workspace_dir, sha):
                     updated_modules.append(f"{module_name} -> {sha[:12]} ({source})")
             else:
-                new_content = update_git_override_commit(content, module_name, sha)
-                if new_content != content:
-                    content = new_content
-                    updated_modules.append(f"{module_name} -> {sha[:12]} ({source})")
+                _expect(
+                    find_git_override_block(content, module_name),
+                    f'git_override(module_name = "{module_name}")',
+                    ignore_errors,
+                )
+                content = update_git_override_commit(content, module_name, sha)
+                updated_modules.append(f"{module_name} -> {sha[:12]} ({source})")
 
     with open(module_file, "w") as f:
         f.write(content)
@@ -879,10 +945,25 @@ def main():
             "hasn't picked up yet."
         ),
     )
+    parser.add_argument(
+        "--ignore",
+        action="store_true",
+        help=(
+            "Downgrade 'expected to update X but found no match' failures "
+            "to warnings.  Useful when MODULE.bazel has hand-edits the "
+            "bumper doesn't recognize (e.g. a variable-bound version "
+            "literal) and you still want the recognizable parts updated."
+        ),
+    )
     args = parser.parse_args()
 
     workspace = os.environ.get("BUILD_WORKSPACE_DIRECTORY", ".")
-    bump(args.module_file, workspace_dir=workspace, head_tools=set(args.head))
+    bump(
+        args.module_file,
+        workspace_dir=workspace,
+        head_tools=set(args.head),
+        ignore_errors=args.ignore,
+    )
     run_mod_tidy(workspace)
 
 

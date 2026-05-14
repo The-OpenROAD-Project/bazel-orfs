@@ -930,5 +930,119 @@ class TestUpdateBazelDepVersion(unittest.TestCase):
         )
 
 
+class TestStrictModeFailures(unittest.TestCase):
+    """Default mode: missing expected MODULE.bazel block -> BumpError."""
+
+    def _run_on(self, content):
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".MODULE.bazel", delete=False
+        )
+        tmp.write(content)
+        tmp.close()
+        try:
+            bump.bump(
+                tmp.name,
+                fetch_commit_fn=mock_fetch_commit,
+                fetch_integrity_fn=mock_fetch_integrity,
+                fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+                fetch_compare_status_fn=mock_fetch_compare_status_ahead,
+                fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+                fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+            )
+            with open(tmp.name) as f:
+                return f.read()
+        finally:
+            os.unlink(tmp.name)
+
+    def test_missing_bazel_orfs_git_override_raises(self):
+        # bazel_dep without matching git_override.
+        content = (
+            'module(name = "my-chip", version = "0.0.1")\n'
+            'bazel_dep(name = "bazel-orfs")\n'
+        )
+        with self.assertRaises(bump.BumpError) as cm:
+            self._run_on(content)
+        self.assertIn("bazel-orfs", str(cm.exception))
+
+    def test_missing_orfs_git_override_raises(self):
+        # bazel-orfs handled, but orfs bazel_dep has no override block.
+        content = (
+            'module(name = "my-chip", version = "0.0.1")\n'
+            'bazel_dep(name = "bazel-orfs")\n'
+            "git_override(\n"
+            '    module_name = "bazel-orfs",\n'
+            '    commit = "old",\n'
+            '    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",\n'
+            ")\n"
+            'bazel_dep(name = "orfs")\n'
+        )
+        with self.assertRaises(bump.BumpError) as cm:
+            self._run_on(content)
+        self.assertIn("orfs", str(cm.exception))
+
+    def test_unexpected_yosys_version_shape_raises(self):
+        # yosys bazel_dep present but version is variable-bound (not inline).
+        content = (
+            'module(name = "my-chip", version = "0.0.1")\n'
+            'bazel_dep(name = "bazel-orfs")\n'
+            "git_override(\n"
+            '    module_name = "bazel-orfs",\n'
+            '    commit = "old",\n'
+            '    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",\n'
+            ")\n"
+            'bazel_dep(name = "orfs")\n'
+            "git_override(\n"
+            '    module_name = "orfs",\n'
+            '    commit = "old",\n'
+            '    remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",\n'
+            ")\n"
+            'YOSYS_VERSION = "0.62.bcr.2"\n'
+            'bazel_dep(name = "yosys", version = YOSYS_VERSION)\n'
+        )
+        with self.assertRaises(bump.BumpError) as cm:
+            self._run_on(content)
+        self.assertIn("yosys", str(cm.exception))
+
+
+class TestIgnoreModeWarnsAndContinues(unittest.TestCase):
+    """--ignore: missing blocks become warnings, recognizable parts still update."""
+
+    def test_missing_orfs_block_warns_and_updates_bazel_orfs(self):
+        content = (
+            'module(name = "my-chip", version = "0.0.1")\n'
+            'bazel_dep(name = "bazel-orfs")\n'
+            "git_override(\n"
+            '    module_name = "bazel-orfs",\n'
+            '    commit = "old_bazel_orfs_commit",\n'
+            '    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",\n'
+            ")\n"
+            'bazel_dep(name = "orfs")\n'  # orfs lacks a git_override block
+        )
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".MODULE.bazel", delete=False
+        )
+        tmp.write(content)
+        tmp.close()
+        try:
+            # Captures warnings via stderr; primary check is no exception.
+            bump.bump(
+                tmp.name,
+                fetch_commit_fn=mock_fetch_commit,
+                fetch_integrity_fn=mock_fetch_integrity,
+                fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+                fetch_compare_status_fn=mock_fetch_compare_status_ahead,
+                fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+                fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+                ignore_errors=True,
+            )
+            with open(tmp.name) as f:
+                result = f.read()
+            # bazel-orfs was bumped; orfs left as-is.
+            self.assertIn(BAZEL_ORFS_COMMIT, result)
+            self.assertNotIn("old_bazel_orfs_commit", result)
+        finally:
+            os.unlink(tmp.name)
+
+
 if __name__ == "__main__":
     unittest.main()
