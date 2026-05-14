@@ -247,3 +247,103 @@ bazelisk run //:monitor-test
 bazelisk test ... --build_tests_only --keep_going --profile=build.profile
 bazelisk analyze-profile build.profile
 ```
+
+## Debugging OpenROAD determinism (bazel vs make)
+
+When a `bazelisk test //flow/designs/.../...:<name>_test` fails on
+QoR, the question is almost always: real bazel-vs-make OpenROAD
+divergence on this design, or a yosys-environment false positive?
+Two helpers answer it directly.
+
+The commands below use the `@bazel-orfs//:` label form, which is how
+a workspace embedding bazel-orfs (e.g. OpenROAD-flow-scripts) invokes
+them. From this repo, the bare `//:yosys-check` and
+`//:make-yosys-netlist` forms work equivalently.
+
+**TL;DR.** OpenROAD is bit-deterministic across the bazel-test build
+and the `tools/install` build when given the same yosys netlist.
+Yosys, however, is sensitive to its build environment (abc version,
+cxxopts version, compile flags), so bazel-built yosys and make-built
+yosys routinely produce different `1_2_yosys.v` for the same RTL.
+That netlist drift propagates into different placement/routing
+metrics, which can push a design past `rules-base.json` thresholds
+and fail the bazel `_test`. These failures are not bazel-orfs or
+OpenROAD bugs.
+
+Two wrappers prove this bidirectionally:
+
+### Check a failing design for yosys-environment false positives
+
+If a bazel `_test` is failing QoR on a specific design, run:
+
+```bash
+bazelisk run @bazel-orfs//:make-yosys-netlist //flow/designs/asap7/uart:uart_test
+```
+
+This:
+1. Builds the design's full bazel flow (yields a "bazel-natural"
+   `.odb` chain).
+2. Runs the full classic make flow (yields make's `.odb` chain from
+   make's `1_2_yosys.v`).
+3. Re-runs the full bazel flow with **make's** `1_2_yosys.v` injected
+   via `SYNTH_NETLIST_FILES` ("bazel+make-netlist").
+4. SHA-compares every stage three ways.
+
+Interpretation:
+
+- **Every stage MATCH in the `bazel+make-netlist` column** →
+  confirmed yosys-environment false positive. bazel-test OpenROAD
+  ≡ `tools/install` OpenROAD given the same starting netlist. The
+  only variable making the bazel test fail QoR is yosys's build
+  environment. Move on (or relax the threshold).
+- **Any DIFFER in the `bazel+make-netlist` column** → real
+  bazel-vs-make OpenROAD divergence on this design. Worth filing
+  the per-stage SHA matrix as an issue.
+- **Wrapper refuses with "design uses BLOCKS=…"** → bazel-orfs's
+  `BLOCKS=` handling for hierarchical designs diverges from make's
+  (sub-block `.lef`/`.lib` abstracts aren't staged into the parent
+  synth action). Known gap; not a yosys-false-positive question.
+  See `asap7/aes-block` for the canonical example.
+
+### Reverse-direction sanity check
+
+```bash
+bazelisk run @bazel-orfs//:yosys-check //flow/designs/asap7/uart:uart_test
+```
+
+Same fundamental check, opposite direction: feeds **bazel's** netlist
+into a fresh make-flow run. Use when you want to start from the
+bazel side or as a second opinion.
+
+### Manual override
+
+Both wrappers ultimately invoke bazel-orfs's documented positional
+`KEY=VAL` mechanism (see "Bazel run with ORFS variable overrides" in
+[README.md](README.md)):
+
+```bash
+# bazel side: re-run a stage with an injected netlist
+bazelisk run //flow/designs/asap7/uart:uart_final -- \
+    SYNTH_NETLIST_FILES=/tmp/my-1_2_yosys.v
+
+# make side: same via make's hook
+cd flow
+make clean_all DESIGN_CONFIG=designs/asap7/uart/config.mk
+make finish    DESIGN_CONFIG=designs/asap7/uart/config.mk \
+               SYNTH_NETLIST_FILES=/tmp/my-1_2_yosys.v
+```
+
+Stage the netlist to a writable temp first —
+`flow/scripts/synth_preamble.tcl` uses `cp -p`, so a read-only
+bazel-out source makes the second invocation (do-yosys after
+do-yosys-canonicalize) fail with "Permission denied".
+
+### BLOCKS= caveat
+
+For designs that set `BLOCKS=` (hierarchical synthesis with sub-block
+abstracts — e.g. `asap7/aes-block`), bazel-orfs and make currently
+disagree on how the parent's synth_odb action sees the sub-block
+`.lef`/`.lib` abstracts. Both wrappers refuse to run on these
+designs because the per-stage `.odb` comparison wouldn't be
+apples-to-apples. This is a bazel-orfs gap independent of OpenROAD
+determinism.
