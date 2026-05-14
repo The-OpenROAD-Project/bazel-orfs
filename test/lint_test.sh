@@ -17,16 +17,28 @@ runfiles_dir="${TEST_SRCDIR:-$0.runfiles}"
 # List all files in the runfiles tree
 manifest_content=$(find "$runfiles_dir" -type f -o -type l 2>/dev/null || true)
 
-HEAVY_DEPS=(
+# Match heavy dependencies as the binary itself — a runfile whose basename
+# is exactly the tool name.  Broader substring matches (e.g. plain
+# "klayout") false-positive on ORFS's flow scripts (klayout.tcl,
+# generate_klayout_tech.py, platforms/asap7/KLayout/...) that the makefile
+# filegroup ships alongside the heavy binary and that lint=True can't
+# strip without forking ORFS.
+HEAVY_DEP_BASENAMES=(
   "klayout"
   "opensta"
 )
 
 errors=0
-for dep in "${HEAVY_DEPS[@]}"; do
-  if echo "$manifest_content" | grep -qi "$dep"; then
+for dep in "${HEAVY_DEP_BASENAMES[@]}"; do
+  # Capture into a variable rather than piping to `grep -q`: with
+  # `set -o pipefail`, `grep -q` exits at the first match and SIGPIPEs
+  # the upstream `echo`, which under some bash builds (5.2 locally,
+  # 5.1 on CI) flips the pipeline's exit code and silently hides
+  # genuine matches.
+  matches=$(echo "$manifest_content" | grep -E "/${dep}\$" || true)
+  if [ -n "$matches" ]; then
     echo "FAIL: Found heavy dependency '$dep' in lint flow runfiles:"
-    echo "$manifest_content" | grep -i "$dep" | head -3
+    echo "$matches" | head -3
     errors=$((errors + 1))
   fi
 done
