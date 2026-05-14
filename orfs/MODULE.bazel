@@ -61,7 +61,7 @@ git_override(
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
 )
 
-bazel_dep(name = "yosys", version = "0.62.bcr.2")
+bazel_dep(name = "yosys", version = "0.63")
 
 # --- OpenROAD built from source ---
 
