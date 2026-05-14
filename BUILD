@@ -42,6 +42,26 @@ sh_binary(
     visibility = ["//visibility:public"],
 )
 
+# Triage a failing bazel `_test` against the classic make flow to
+# decide whether it's a real bazel-vs-make OpenROAD divergence or a
+# yosys-environment false positive. See TESTING.md "Debugging OpenROAD
+# determinism (bazel vs make)" for the workflow.
+sh_binary(
+    name = "yosys-check",
+    srcs = ["yosys-check.sh"],
+    visibility = ["//visibility:public"],
+)
+
+# Symmetric companion to //:yosys-check. Feeds make's pre-built yosys
+# netlist into a fresh bazel flow and SHA-compares every stage's .odb
+# against make's; all MATCH proves bazel-test OpenROAD is bit-identical
+# to tools/install OpenROAD given the same starting netlist.
+sh_binary(
+    name = "make-yosys-netlist",
+    srcs = ["make-yosys-netlist.sh"],
+    visibility = ["//visibility:public"],
+)
+
 compile_pip_requirements(
     name = "requirements",
     src = "requirements.in",
