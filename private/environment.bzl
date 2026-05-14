@@ -40,10 +40,19 @@ def orfs_environment(ctx):
 def _executable_path(attr):
     return attr[DefaultInfo].files_to_run.executable.path
 
+def _klayout_attr(ctx):
+    """Resolve which klayout binary the action should invoke.
+
+    Honors a rule's public `klayout` attr (orfs_gds defines one) when set,
+    otherwise falls back to the private CONFIG_KLAYOUT-defaulted `_klayout`.
+    """
+    pub = getattr(ctx.attr, "klayout", None)
+    return pub if pub else ctx.attr._klayout
+
 def flow_environment(ctx):
     return {
         "FLOW_HOME": ctx.file._makefile.dirname,
-        "KLAYOUT_CMD": _executable_path(ctx.attr._klayout),
+        "KLAYOUT_CMD": _executable_path(_klayout_attr(ctx)),
         "OPENROAD_EXE": _executable_path(ctx.attr.openroad),
         "OPENSTA_EXE": _executable_path(ctx.attr.opensta),
     } | orfs_environment(ctx)
@@ -95,7 +104,7 @@ def flow_inputs(ctx):
         transitive = [
             _runfiles(
                 [
-                    ctx.attr._klayout,
+                    _klayout_attr(ctx),
                     ctx.attr._make,
                     ctx.attr.openroad,
                     ctx.attr.opensta,
@@ -203,7 +212,7 @@ def deps_inputs(ctx):
 def flow_substitutions(ctx):
     return {
         "${FLOW_HOME}": ctx.file._makefile.dirname,
-        "${KLAYOUT_PATH}": "./" + ctx.attr._klayout[DefaultInfo].files_to_run.executable.short_path,
+        "${KLAYOUT_PATH}": "./" + _klayout_attr(ctx)[DefaultInfo].files_to_run.executable.short_path,
         "${MAKEFILE_PATH}": ctx.file._makefile.path,
         "${MAKE_PATH}": "./" + ctx.executable._make.short_path,
         # OpenROAD uses //:openroad, //:opensta here and puts the binary in the pwd

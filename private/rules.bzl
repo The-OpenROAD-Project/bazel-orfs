@@ -1888,6 +1888,7 @@ orfs_final = rule(
             "VSS.rpt",
         ],
         result_names = [
+            "6_final.def",
             "6_final.odb",
             "6_final.sdc",
             "6_final.spef",

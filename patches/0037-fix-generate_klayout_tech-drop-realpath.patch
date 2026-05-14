@@ -1,0 +1,58 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 14 May 2026 09:00:00 +0200
+Subject: [PATCH] fix(generate_klayout_tech): drop realpath() — breaks Bazel
+ sandbox
+
+`os.path.realpath()` follows symlinks. Inside a Bazel sandbox, the
+`bazel-out/` tree is symlinked from the sandbox back to the bare
+execroot; `realpath` resolves through that symlink and yields the
+bare-execroot path, not the sandbox path.
+
+That alone doesn't matter for `os.path.relpath(a, b)` when both
+operands are realpath'd from the same sandbox — the relative result
+is unchanged. But the resulting `<lef-files>` path in the generated
+klayout.lyt is later resolved by klayout against the LYT file's
+location. Klayout opens the LYT (also through a symlink), resolves
+through to the bare execroot, and then looks for the sibling
+`klayout_tech.lef` at the bare-execroot path — where the in-flight
+file does not exist during action execution (only the sandbox copy
+does), so def2stream fails with errno=2.
+
+Fix: don't realpath. `os.path.relpath` produces the correct relative
+path from sandbox-relative inputs directly. Map files keep their
+absolute form via `abspath` for the unchanged-under-non-sandbox case.
+
+Signed-off-by: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+---
+ flow/util/generate_klayout_tech.py | 13 ++++++-------
+ 1 file changed, 6 insertions(+), 7 deletions(-)
+
+diff --git a/flow/util/generate_klayout_tech.py b/flow/util/generate_klayout_tech.py
+--- a/flow/util/generate_klayout_tech.py
++++ b/flow/util/generate_klayout_tech.py
+@@ -51,16 +51,15 @@ def generate_klayout_tech(
+     with open(template_lyt, "r") as f:
+         content = f.read()
+
+-    # Both modes use relative paths from reference_dir, matching the
+-    # original sed-based behavior which always uses realpath --relative-to.
+-    resolved_lefs = [
+-        os.path.relpath(os.path.realpath(f), os.path.realpath(reference_dir))
+-        for f in lef_files
+-    ]
++    # Compute relpath without realpath(): under a Bazel sandbox, bazel-out/
++    # entries are symlinks to the bare execroot; realpath follows them and
++    # makes the generated LYT reference files at the bare-execroot path,
++    # where in-flight outputs do not exist during action execution.
++    resolved_lefs = [os.path.relpath(f, reference_dir) for f in lef_files]
+
+     content = replace_lef_files(content, resolved_lefs)
+
+-    resolved_maps = [os.path.realpath(f) for f in map_files]
++    resolved_maps = [os.path.abspath(f) for f in map_files]
+     content = replace_map_files(content, resolved_maps)
+
+     with open(output_lyt, "w") as f:
+--
+2.51.0
