@@ -156,13 +156,17 @@ class ConfigMkParser:
         self.designs_home = designs_home
         self.flow_home = flow_home
 
-    def parse(self, config_path, base_dir=None):
+    def parse(self, config_path, base_dir=None, overrides=None):
         """Parse a config.mk file and return a ParsedDesign.
 
         Args:
             config_path: Path to the config.mk file.
             base_dir: Base directory for resolving relative include paths.
                       Defaults to the directory containing config_path.
+            overrides: Optional dict of structural-var overrides applied
+                      after file parsing. Used by the shared-block.mk
+                      BLOCKS path to pin DESIGN_NAME / DESIGN_NICKNAME per
+                      block (mirrors make's GENERATE_ABSTRACT_RULE).
 
         Returns:
             ParsedDesign with all parsed information.
@@ -221,6 +225,16 @@ class ConfigMkParser:
         elif result.design_name:
             result.design_nickname = result.design_name
 
+        # Apply caller-supplied overrides to structural vars. Used by the
+        # shared-block.mk BLOCKS path below to parameterise the same
+        # block.mk for each entry of BLOCKS=, mirroring make's
+        # flow/Makefile GENERATE_ABSTRACT_RULE second branch.
+        if overrides:
+            if "DESIGN_NAME" in overrides:
+                result.design_name = overrides["DESIGN_NAME"]
+            if "DESIGN_NICKNAME" in overrides:
+                result.design_nickname = overrides["DESIGN_NICKNAME"]
+
         # Check structural vars for deprecated patterns
         for var_name in ("DESIGN_NICKNAME", "DESIGN_NAME", "PLATFORM"):
             if var_name in raw_vars:
@@ -277,13 +291,32 @@ class ConfigMkParser:
             elif var_name not in NON_ARGUMENT_VARS:
                 result.arguments[var_name] = resolved
 
-        # Process BLOCKS — discover and parse sub-macro configs
+        # Process BLOCKS — discover and parse sub-macro configs.
         if result.blocks:
             config_dir = os.path.dirname(config_path)
+            shared_block_mk = os.path.join(config_dir, "block.mk")
             for block_name in result.blocks:
+                # Path 1: per-block config.mk in a sub-directory.
                 block_config = os.path.join(config_dir, block_name, "config.mk")
                 if os.path.exists(block_config):
                     block_parsed = self.parse(block_config)
+                    result.block_configs.append(block_parsed)
+                    continue
+                # Path 2: shared block.mk parameterised by DESIGN_NAME.
+                # Matches make's flow/Makefile GENERATE_ABSTRACT_RULE
+                # second branch:
+                #     $(MAKE) DESIGN_NAME=<block> \
+                #             DESIGN_NICKNAME=<parent>_<block> \
+                #             DESIGN_CONFIG=<parent_dir>/block.mk \
+                #             generate_abstract
+                if os.path.exists(shared_block_mk):
+                    block_parsed = self.parse(
+                        shared_block_mk,
+                        overrides={
+                            "DESIGN_NAME": block_name,
+                            "DESIGN_NICKNAME": f"{result.design_nickname}_{block_name}",
+                        },
+                    )
                     result.block_configs.append(block_parsed)
 
         return result
@@ -811,6 +844,12 @@ class ConfigMkParser:
         """Convert a resolved file path to a proper //pkg:file Bazel label."""
         if not path:
             return path
+
+        # Normalize leading "./" — block.mk-style relative paths
+        # (e.g. ./designs/asap7/aes/constraint.sdc). Without this they
+        # become malformed labels like //./designs/asap7/aes:foo.
+        while path.startswith("./"):
+            path = path[2:]
 
         # Already a label
         if path.startswith("//") or path.startswith("@"):
