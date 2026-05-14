@@ -27,12 +27,16 @@ FAST_SETTINGS = {
 
 # Full-flow smoke tests: these need real OpenROAD to produce valid metrics.
 # Tagged manual — run explicitly when real tools are configured.
+# blender=True only on sky130hd: BlenderGDS ships a built-in SKY130 stackup
+# YAML, so that variant gets a runnable :lb_32x128_sky130hd_final_blender
+# target without us hand-rolling a config.
 [orfs_flow(
     name = "lb_32x128_{}".format(pdk),
     arguments = FAST_SETTINGS | {
         "CORE_UTILIZATION": "3",
         "PLACE_DENSITY": "0.40",
     },
+    blender = pdk == "sky130hd",
     pdk = "@orfs//flow:" + pdk,
     sources = {
         "SDC_FILE": ["//test:constraints-sram-sky130hd.sdc"],

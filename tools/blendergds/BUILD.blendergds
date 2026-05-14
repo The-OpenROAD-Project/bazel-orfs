@@ -1,0 +1,37 @@
+# Overlay BUILD for the BlenderGDS pre-built linux_x64 extension zip.
+# The zip is extracted by http_archive into the root of this repo, so this
+# file lives next to __init__.py, configs/, and wheels/. Designed to be
+# upstreamable to aesc-silicon/BlenderGDS — it carries no bazel-orfs
+# specifics.
+
+package(default_visibility = ["//visibility:public"])
+
+# The addon module sources (importable as a Python package once added to
+# sys.path together with its parent directory). The configs/ subdir is part
+# of the addon and is read at import time via Path(__file__).parent.
+filegroup(
+    name = "addon",
+    srcs = [
+        "__init__.py",
+        "blender_manifest.toml",
+    ] + glob([
+        "configs/**",
+    ]),
+)
+
+# Pre-built Python wheels bundled with the extension. Both cp311 (Blender 4.2)
+# and cp313 (Blender 4.4+) wheels are present; render_gds.py picks the right
+# pair at runtime via sys.version_info.
+filegroup(
+    name = "wheels",
+    srcs = glob(["wheels/*.whl"]),
+)
+
+# Everything together — the unit of work passed to render_gds.py.
+filegroup(
+    name = "all",
+    srcs = [
+        ":addon",
+        ":wheels",
+    ],
+)

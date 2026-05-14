@@ -87,6 +87,8 @@ bazel_dep(name = "toolchains_llvm", version = "1.5.0", dev_dependency = True)
 # via an http_archive and point llvm.toolchain_root at it.
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
+http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
+
 http_archive(
     name = "llvm_toolchain_llvm",
     build_file = "//tools/xml-hack:BUILD.llvm_repo",
@@ -153,3 +155,34 @@ orfs.default()
 use_repo(orfs, "config")
 use_repo(orfs, "gnumake")
 use_repo(orfs, "orfs_variable_metadata")
+
+# Hermetic Blender + BlenderGDS addon for orfs_blender() — 3D viewer of the
+# final-stage GDS. Both archives are extracted in-place by http_archive; we
+# never install anything on the host (oss-cad-suite style). Linux-x64 only;
+# targets that depend on @blender// are tagged "manual" so wildcard builds
+# on other platforms don't pull these archives.
+http_archive(
+    name = "blender",
+    build_file = "//tools/blender:BUILD.blender",
+    sha256 = "3a64efd1982465395abab4259b4091d5c8c56054c7267e9633e4f702a71ea3f4",
+    strip_prefix = "blender-4.2.3-linux-x64",
+    url = "https://download.blender.org/release/Blender4.2/blender-4.2.3-linux-x64.tar.xz",
+)
+
+http_archive(
+    name = "blendergds",
+    build_file = "//tools/blendergds:BUILD.blendergds",
+    sha256 = "ef2613d87fcd8afd04e61c2a9b00feedfbfd92fc0e5beeebd5a1da2e52efbc18",
+    type = "zip",
+    url = "https://github.com/aesc-silicon/BlenderGDS/releases/download/v1.0.2/import_gdsii-1.0.2-linux_x64.zip",
+)
+
+# Google's <model-viewer> web component — inlined into the static .html
+# emitted by orfs_blender()'s _html sub-target so the page is fully
+# self-contained (no CDN dependency at view time). Apache 2.0.
+http_file(
+    name = "model_viewer_js",
+    downloaded_file_path = "model-viewer.min.js",
+    sha256 = "774edda21e1be2a0934e460ca5943af1fe3f88da130a9f98bd6a9d611576cacf",
+    url = "https://unpkg.com/@google/model-viewer@4.0.0/dist/model-viewer.min.js",
+)

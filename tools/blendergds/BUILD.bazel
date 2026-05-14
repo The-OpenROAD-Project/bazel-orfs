@@ -1,0 +1,8 @@
+exports_files(
+    [
+        "BUILD.blendergds",
+        "render_gds.py",
+        "viewer_template.html",
+    ],
+    visibility = ["//visibility:public"],
+)

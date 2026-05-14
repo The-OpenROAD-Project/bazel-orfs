@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{TITLE}} — 3D layout</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0a0a0e; color: #ddd;
+               font-family: system-ui, sans-serif; }
+  header { padding: 8px 12px; font-size: 14px;
+           border-bottom: 1px solid #222; }
+  header b { color: #fff; }
+  model-viewer { width: 100%; height: calc(100% - 36px); background: #0a0a0e; }
+</style>
+<script type="module">{{MODEL_VIEWER_JS}}</script>
+</head>
+<body>
+<header><b>{{TITLE}}</b> &mdash; drag to orbit, scroll to zoom, shift-drag to pan</header>
+<model-viewer
+  src="data:model/gltf-binary;base64,{{GLB_B64}}"
+  camera-controls
+  touch-action="pan-y"
+  shadow-intensity="0"
+  exposure="1"
+  environment-image="neutral">
+</model-viewer>
+</body>
+</html>

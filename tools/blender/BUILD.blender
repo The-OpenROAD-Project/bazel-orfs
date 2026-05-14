@@ -1,0 +1,30 @@
+# Overlay BUILD for the official Blender 4.2.3 linux-x64 tarball.
+# Bazel's http_archive extracts the tarball into this repo; we never install
+# Blender on the host (oss-cad-suite style). The extracted tree is exposed
+# as the `blender_runtime` filegroup; the runnable wrapper that exec's the
+# `blender` ELF with LD_LIBRARY_PATH set lives at
+# //tools/blender:blender to avoid a target/file name collision.
+
+package(default_visibility = ["//visibility:public"])
+
+# The bare ELF, individually addressable so launchers can $(rootpath) it
+# without ambiguity. Its actual data deps (lib/, 4.2/, etc.) come via
+# the blender_runtime filegroup below.
+exports_files(["blender"])
+
+filegroup(
+    name = "blender_runtime",
+    srcs = glob(
+        [
+            "blender",
+            "blender-launcher",
+            "blender-softwaregl",
+            "blender-thumbnailer",
+            "lib/**",
+            "4.2/**",
+            "usd/**",
+            "textures/**",
+        ],
+        allow_empty = True,
+    ),
+)

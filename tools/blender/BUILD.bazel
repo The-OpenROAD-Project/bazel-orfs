@@ -1,0 +1,20 @@
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+exports_files(
+    [
+        "BUILD.blender",
+        "blender_wrapper.sh",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# Hermetic Blender executable: the oss-cad-suite-style wrapper plus the
+# entire extracted Blender 4.2.3 tree as runfiles. Lives in this package
+# (not in @blender//) so the wrapper target name "blender" doesn't collide
+# with the `blender` ELF file inside the tarball.
+sh_binary(
+    name = "blender",
+    srcs = ["blender_wrapper.sh"],
+    data = ["@blender//:blender_runtime"],
+    visibility = ["//visibility:public"],
+)
