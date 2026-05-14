@@ -171,6 +171,7 @@ def orfs_flow(
         verilog_files = [],
         macros = [],
         sources = {},
+        user_sources = {},
         stage_sources = {},
         stage_arguments = {},
         renamed_inputs = {},
@@ -213,6 +214,12 @@ def orfs_flow(
         validating against ORFS variables.yaml. Use for vars read only by user-supplied .tcl/.mk
         (e.g. ARRAY_COLS in a project's MACRO_PLACEMENT_TCL). Keys that collide with known ORFS
         variables are rejected — route those through 'arguments' instead.
+      user_sources: dictionary of project-specific source-typed (path-label) env vars to expose
+        to every stage without validating against ORFS variables.yaml. The path is still staged
+        into the sandbox like a normal source — only the variable name skips the validator.
+        Use for path hooks read only by user-supplied .tcl/.mk (e.g. an extra-SDC hook
+        source'd from the design's own io.tcl). Keys that collide with known ORFS variables
+        are rejected — route those through 'sources' instead.
       extra_arguments: dictionary keyed by ORFS stages with lists of .json argument file labels.
         These .json files are merged into the stage config, providing computed arguments
         that flow through OrfsInfo to subsequent stages.
@@ -269,6 +276,14 @@ def orfs_flow(
             ) +
             "Use arguments= for ORFS variables; reserve user_arguments= for project-specific env vars.",
         )
+    shadowed_srcs = sorted([k for k in user_sources if k in ALL_VARIABLE_TO_STAGES])
+    if shadowed_srcs:
+        fail(
+            "user_sources contains known ORFS variable(s): {shadowed}. ".format(
+                shadowed = ", ".join(shadowed_srcs),
+            ) +
+            "Use sources= for ORFS variables; reserve user_sources= for project-specific path hooks.",
+        )
     if abstract_stage and last_stage:
         fail("abstract_stage and last_stage are mutually exclusive")
     if variant == "base":
@@ -281,7 +296,7 @@ def orfs_flow(
         top = top,
         verilog_files = verilog_files,
         macros = macros,
-        sources = sources,
+        sources = sources | user_sources,
         stage_sources = stage_sources,
         stage_arguments = stage_arguments,
         renamed_inputs = renamed_inputs,
@@ -319,7 +334,7 @@ def orfs_flow(
         top = top,
         verilog_files = verilog_files,
         macros = macros,
-        sources = sources,
+        sources = sources | user_sources,
         stage_sources = stage_sources,
         stage_arguments = stage_arguments,
         renamed_inputs = {},

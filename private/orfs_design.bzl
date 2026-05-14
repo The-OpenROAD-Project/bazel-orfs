@@ -47,7 +47,7 @@ def _convert_sources(sources, pkg):
             result[var] = converted
     return result
 
-def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], local_arguments = []):  # buildifier: disable=unused-variable
+def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], local_arguments = []):  # buildifier: disable=unused-variable
     """Create orfs_flow() targets for a design based on its parsed config.mk.
 
     Usage:
@@ -79,6 +79,13 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
             Routed through orfs_flow(user_arguments=...) to bypass the
             variables.yaml validator instead of being checked as known
             ORFS arguments.
+        user_sources: List of source-typed variable names (vars in
+            SOURCE_VARS) that are project-specific path hooks read only
+            by user-supplied .tcl/.mk, not by ORFS itself (e.g. a
+            per-design extra-SDC hook source'd from the design's own
+            io.tcl). Routed through orfs_flow(user_sources=...) so the
+            file is still staged into the sandbox, but the variable
+            name bypasses the variables.yaml validator.
         local_arguments: List of variable names that are only used for
             $(VAR) expansion within the same config.mk and are not read
             by ORFS or by any user .tcl/.mk (e.g. VERILOG_FILES_BLACKBOX,
@@ -195,6 +202,15 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
         if var in arguments:
             user_args[var] = arguments.pop(var)
 
+    # Same idea for source-typed (path-label) project-specific knobs:
+    # variables that are in SOURCE_VARS (so the parser staged the path
+    # as a label) but are read only by user .tcl/.mk and have no
+    # variables.yaml entry.
+    user_srcs = {}
+    for var in user_sources:
+        if var in sources:
+            user_srcs[var] = sources.pop(var)
+
     # Default SYNTH_NUM_PARTITIONS to a static value so that the action graph
     # is identical across machines and remote cache hits are possible.  Users
     # who prefer local parallelism over caching can pass NUM_CPUS explicitly.
@@ -213,6 +229,7 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
         arguments = arguments,
         user_arguments = user_args,
         sources = sources,
+        user_sources = user_srcs,
         macros = macros if macros else [],
         stage_data = {"synth": extra_data} if extra_data else {},
         tags = tags,
