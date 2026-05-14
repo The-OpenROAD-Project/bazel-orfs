@@ -91,6 +91,58 @@ gui::show
 
 GUI and CLI are available for these stages: `floorplan`, `place`, `cts`, `grt`, `route`, `final`.
 
+### View the final GDS in 3D
+
+Set `blender = True` on an `orfs_flow()` target to emit a runnable 3D
+viewer for the design's final GDS:
+
+```starlark
+orfs_flow(
+    name = "lb_32x128",
+    blender = True,
+    pdk = "@orfs//flow:sky130hd",
+    ...
+)
+```
+
+This emits two sibling run targets next to the flow's other stage
+targets.
+
+**Static HTML viewer (recommended; sharable).** A single self-contained
+HTML file with the design's geometry embedded as glTF and rendered by
+Google's [`<model-viewer>`](https://modelviewer.dev/) web component.
+Open in any browser; drop into a PR comment, attach to an email.
+
+```bash
+bazelisk run //test/smoketest:lb_32x128_sky130hd_final_blender_html
+```
+
+**Interactive Blender (local only).** Opens the design in a hermetic
+Blender 4.2.3 (downloaded by Bazel; nothing installed on the host) with
+each metal layer extruded as its own collection. Useful if you want
+Blender's full editing/rendering capabilities locally.
+
+```bash
+bazelisk run //test/smoketest:lb_32x128_sky130hd_final_blender
+```
+
+Both viewers use the [BlenderGDS](https://github.com/aesc-silicon/BlenderGDS)
+add-on. Supported PDKs: `sky130hd`, `sky130hs`, `gf180`, `ihp-sg13g2`.
+For asap7/nangate45 the macro fails with a clear message — add a
+stackup YAML and an entry in `private/blender.bzl` to support more PDKs.
+
+For one-off use, call the macro directly without `blender = True`:
+
+```starlark
+load("@bazel-orfs//:openroad.bzl", "orfs_blender")
+
+orfs_blender(
+    name = "my_design_blender",
+    src = ":my_design_final",
+    pdk = "@orfs//flow:sky130hd",
+)
+```
+
 ### Use the local flow
 
 The local flow lets you build with a locally compiled [ORFS](https://openroad-flow-scripts.readthedocs.io/en/latest/user/UserGuide.html) instead of the pre-built ORFS image.

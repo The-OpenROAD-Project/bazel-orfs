@@ -12,7 +12,7 @@ consumers.
 
 | File | Exports | External deps |
 |---|---|---|
-| `openroad.bzl` | `orfs_flow`, `orfs_synth`, `orfs_update`, `orfs_run`, `orfs_run_executable`, `orfs_test`, `orfs_macro`, `orfs_pdk`, `orfs_deps`, `orfs_floorplan`, `orfs_place`, `orfs_cts`, `orfs_grt`, `orfs_route`, `orfs_final`, `orfs_gds`, `orfs_abstract`, `orfs_generate_metadata`, `orfs_update_rules`, providers (`OrfsInfo`, `PdkInfo`, `TopInfo`, `OrfsDepInfo`, `LoggingInfo`) | `bazel_skylib` |
+| `openroad.bzl` | `orfs_flow`, `orfs_synth`, `orfs_update`, `orfs_run`, `orfs_run_executable`, `orfs_test`, `orfs_macro`, `orfs_pdk`, `orfs_deps`, `orfs_floorplan`, `orfs_place`, `orfs_cts`, `orfs_grt`, `orfs_route`, `orfs_final`, `orfs_gds`, `orfs_abstract`, `orfs_blender`, `orfs_generate_metadata`, `orfs_update_rules`, providers (`OrfsInfo`, `PdkInfo`, `TopInfo`, `OrfsDepInfo`, `LoggingInfo`) | `bazel_skylib` |
 | `extension.bzl` | `orfs_repositories` module extension | built-in only |
 | `ppa.bzl` | `orfs_ppa` | `rules_shell` |
 | `verilog.bzl` | `verilog_directory`, `verilog_file`, `verilog_single_file_library` | `rules_verilog` |
