@@ -20,11 +20,6 @@ git_override(
 )
 
 bazel_dep(name = "yosys", version = "0.62.bcr.2")
-git_override(
-    module_name = "yosys",
-    commit = "old_yosys_commit",
-    remote = "https://github.com/YosysHQ/yosys.git",
-)
 
 bazel_dep(name = "openroad")
 git_override(
