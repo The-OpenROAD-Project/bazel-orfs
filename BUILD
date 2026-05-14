@@ -14,6 +14,7 @@ exports_files([
     "html_timing_report.tcl",
     "make.tpl",
     "mock_area.tcl",
+    "open_blend.sh",
     "open_html.sh",
     "package_stage.py",
     "parallel_synth.mk",
