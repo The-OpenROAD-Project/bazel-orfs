@@ -114,7 +114,19 @@ echo "==> Re-running bazel flow with make's netlist injected via SYNTH_NETLIST_F
 # bazel-orfs supports positional KEY=VAL args after `bazel run` (see
 # bazel-orfs/README.md:354-368).  The override propagates to make on
 # the command line where it wins over the design config.
-bazelisk run "$FINAL_TARGET" -- SYNTH_NETLIST_FILES="$MAKE_NETLIST"
+#
+# Also override VERILOG_FILES= to clear it. When SYNTH_NETLIST_FILES is
+# set, synth_preamble.tcl just `cp -p`s the netlist and exits without
+# reading any .v file. But flow/Makefile's
+#   YOSYS_DEPENDENCIES = $(LIB_FILES) ... $(VERILOG_FILES) ...
+# is unconditional, so make insists the .v files exist as targets.
+# They aren't in _final's runfiles (synth is the upstream-stage that
+# bundled them), so make errors with "No rule to make target ...uart.v".
+# Empty VERILOG_FILES sidesteps that — yosys doesn't need them in this
+# code path anyway.
+bazelisk run "$FINAL_TARGET" -- \
+    SYNTH_NETLIST_FILES="$MAKE_NETLIST" \
+    VERILOG_FILES=
 
 # The second run wrote fresh .odb to the same bazel-bin path.
 BAZEL_OVERLAY="$BAZEL_NATURAL"
