@@ -987,6 +987,16 @@ quick_pins_data_dep_test(
     target = ":lb_32x128_quick_pins_floorplan",
 )
 
+# Regression test for the synth → generate_metadata data-dep wiring in
+# private/flow.bzl. Without it, genMetrics.py reads 1_2_yosys.v from a
+# sandbox path that does not exist and synth__netlist__hash lands as
+# "N/A". The metadata target's runfiles must carry the post-ABC netlist.
+quick_pins_data_dep_test(
+    name = "generate_metadata_synth_data_dep_test",
+    expected_basenames = ["1_2_yosys.v"],
+    target = ":regfile_128x65_generate_metadata",
+)
+
 build_test(
     name = "quick_pins_place_build_test",
     targets = [":lb_32x128_quick_pins_place"],

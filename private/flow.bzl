@@ -790,6 +790,14 @@ def _orfs_pass(
             data = [
                 # Need 2_floorplan.sdc
                 _step_name(name, variant, "floorplan"),
+                # Need 1_2_yosys.v for `synth__netlist__hash` and any
+                # other genMetrics.py field that reads synth results
+                # past the canonicalize RTLIL.  Only canonicalize is
+                # threaded through `forwarded_names = [CANON_OUTPUT]`
+                # along the floorplan→cts chain; the post-ABC netlist
+                # is not.  Pulling synth's outputs in via `data =`
+                # gives metadata access without touching every stage.
+                _step_name(name, variant, "synth"),
             ],
             kwargs = kwargs,
         )
