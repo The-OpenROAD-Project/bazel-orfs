@@ -3,7 +3,17 @@ set -e
 
 if [ -z "$FLOW_HOME" ]; then
   export MAKE_PATH="${MAKE_PATH}"
-  export YOSYS_EXE="${YOSYS_PATH}"
+  # Yosys-stage runners pass yosys_substitutions(ctx) and get a concrete
+  # ${YOSYS_PATH} substituted in. Openroad-stage runners (orfs_final etc.)
+  # use only flow_substitutions(ctx) and leave ${YOSYS_PATH} as a literal,
+  # which the shell then expands to empty. Only export YOSYS_EXE when
+  # we actually got a path; otherwise fall back to the caller's env so
+  # `bazel run :_final -- SYNTH_NETLIST_FILES=...` (used by
+  # //:make-yosys-netlist for re-synth) can supply yosys via YOSYS_EXE
+  # from the user shell.
+  if [ -n "${YOSYS_PATH}" ]; then
+    export YOSYS_EXE="${YOSYS_PATH}"
+  fi
   export OPENROAD_EXE="${OPENROAD_PATH}"
   export OPENSTA_EXE="${OPENSTA_PATH}"
   export KLAYOUT_CMD="${KLAYOUT_PATH}"
