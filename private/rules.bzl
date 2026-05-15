@@ -1146,6 +1146,21 @@ def _yosys_impl(ctx):
 
     outputs = [canon_output, variables] + synth_outputs.values()
 
+    # Write synth's data_arguments to a JSON so downstream stages
+    # inherit synth-time variables (SDC_FILE, VERILOG_FILES, SYNTH_*)
+    # via OrfsInfo.arguments propagation. Without this, `bazel run :_final
+    # -- SYNTH_NETLIST_FILES=...` (used by //:make-yosys-netlist to feed
+    # make's netlist into the bazel flow) fails inside the resulting
+    # re-synth: synth_preamble.tcl reads $::env(SDC_FILE) but _final's
+    # args.mk only contains openroad-stage data_arguments.
+    synth_args_json = declare_artifact(ctx, "results", "1_synth.args.json")
+    ctx.actions.write(
+        output = synth_args_json,
+        content = json.encode(
+            data_arguments(ctx) | verilog_arguments(ctx.files.verilog_files),
+        ),
+    )
+
     config_short = declare_artifact(ctx, "results", "1_synth.short.mk")
     ctx.actions.write(
         output = config_short,
@@ -1270,7 +1285,7 @@ def _yosys_impl(ctx):
                     if (dep[OrfsInfo].lib_pre_layout or dep[OrfsInfo].lib)
                 ],
             ),
-            arguments = depset([]),
+            arguments = depset([synth_args_json]),
         ),
         ctx.attr.pdk[PdkInfo],
         TopInfo(
