@@ -4,6 +4,7 @@ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     "//private:providers.bzl",
     "LoggingInfo",
+    "OrfsDepInfo",
     "OrfsInfo",
     "PdkInfo",
     "TopInfo",
@@ -175,6 +176,19 @@ def source_inputs(ctx):
     return depset(
         ctx.files.src,
         transitive = [
+            # Pull in src's OrfsDepInfo.files so action inputs include
+            # the design's per-stage source files (sources= -> data= via
+            # get_sources, e.g. ADDITIONAL_LEFS from $(wildcard
+            # $(DESIGN_DIR)/lef/*.lef)). OrfsInfo.additional_lefs only
+            # carries block-macro LEFs from deps, not the design's own
+            # macro LEFs, so without this propagation orfs_gds runs with
+            # the LEF paths in args.mk but the LEF files missing from the
+            # sandbox -- klayout def2stream fails errno=2 on first read.
+            # We pick OrfsDepInfo.files rather than default_runfiles.files
+            # because the latter also carries the previous stage's logs,
+            # which are read-only in the sandbox and collide with the new
+            # stage's same-named log writes (Permission denied).
+            ctx.attr.src[OrfsDepInfo].files,
             ctx.attr.src[OrfsInfo].additional_gds,
             ctx.attr.src[OrfsInfo].additional_lefs,
             ctx.attr.src[OrfsInfo].additional_libs,
