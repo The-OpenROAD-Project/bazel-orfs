@@ -52,6 +52,16 @@ def _pdk_to_blendergds(pdk):
         )
     return _PDK_TO_BLENDERGDS[short]
 
+def blender_supports_pdk(pdk):
+    """True iff orfs_blender() will accept this PDK label.
+
+    Lets higher-level macros (e.g. orfs_design) decide whether to request
+    `blender = True` from orfs_flow without provoking the loud fail() in
+    _pdk_to_blendergds. Accepts either a bare short name (`"sky130hd"`)
+    or a label (`"//flow:sky130hd"`).
+    """
+    return _pdk_short_name(pdk) in _PDK_TO_BLENDERGDS
+
 def _find_addon_root(addon_files):
     """Locate the BlenderGDS addon root via the dir of __init__.py."""
     for f in addon_files:
