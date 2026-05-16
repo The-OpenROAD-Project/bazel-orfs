@@ -11,6 +11,10 @@ first to parse all config.mk files and generate the DESIGNS dict.
 """
 
 load(
+    "//private:blender.bzl",
+    "blender_supports_pdk",
+)
+load(
     "//private:flow.bzl",
     "orfs_flow",
 )
@@ -47,7 +51,7 @@ def _convert_sources(sources, pkg):
             result[var] = converted
     return result
 
-def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], local_arguments = []):  # buildifier: disable=unused-variable
+def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], local_arguments = [], blender = False):  # buildifier: disable=unused-variable
     """Create orfs_flow() targets for a design based on its parsed config.mk.
 
     Usage:
@@ -92,6 +96,11 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
             which appears verbatim inside VERILOG_FILES). These are
             dropped entirely before orfs_flow() is invoked — neither
             validated against variables.yaml nor exposed as env vars.
+        blender: if True, request the orfs_flow blender 3D-viewer targets
+            for this design. Silently downgraded to False on PDKs that
+            have no BlenderGDS stackup (see blender_supports_pdk in
+            private/blender.bzl), so callers can flip this on globally
+            without having to enumerate supported PDKs.
     """
     if designs == None:
         fail("orfs_design() requires designs: load orfs_design from @orfs_designs//:designs.bzl")
@@ -233,6 +242,7 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
         macros = macros if macros else [],
         stage_data = {"synth": extra_data} if extra_data else {},
         tags = tags,
+        blender = blender and blender_supports_pdk("//flow:" + platform),
     )
 
     # Lint flow — fast validation with mock-openroad (only if configured)
