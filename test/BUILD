@@ -2,12 +2,13 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("@rules_python//python:defs.bzl", "py_test")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
-load("//:openroad.bzl", "get_stage_args", "orfs_arguments", "orfs_floorplan", "orfs_flow", "orfs_gds", "orfs_macro", "orfs_run", "orfs_synth")
+load("//:openroad.bzl", "get_stage_args", "orfs_arguments", "orfs_floorplan", "orfs_flow", "orfs_gds", "orfs_macro", "orfs_place", "orfs_run", "orfs_synth")
 load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:sweep.bzl", "orfs_sweep")
 load(":deps_output_group_rule.bzl", "deps_output_group_test", "output_group_test")
 load(":provider_test_rule.bzl", "lib_pre_layout_test")
 load(":quick_pins_test_rule.bzl", "quick_pins_data_dep_test")
+load(":source_input_propagation_test.bzl", "source_input_propagation_test")
 
 exports_files(
     glob([
@@ -550,6 +551,44 @@ filegroup(
         "Mul_synth",
     ],
     output_group = "1_synth.v",
+)
+
+# Regression fixture for environment.bzl source_inputs(ctx) propagating
+# the src target's OrfsDepInfo.files into the action input depset.
+# dummy_extra.lef is attached to the floorplan stage's `data =`; the
+# patch's job is to make it reach the chained place stage's action
+# inputs as well. Without the patch the LEF is staged for floorplan
+# only and the chained place stage sees a stale path for it in args.mk
+# that is missing from the sandbox -- klayout / openroad fail errno=2
+# on first read.
+#
+# Chained off the existing :Mul_synth target (cheapest available synth
+# fixture). The synth stage builds OrfsDepInfo.files differently
+# (verilog_files instead of ctx.files.data, see private/rules.bzl
+# _yosys_impl) so the propagation we're testing only kicks in once
+# the upstream stage is also _make_impl-based -- which is the case
+# from floorplan onward.
+orfs_floorplan(
+    name = "src_propagation_floorplan",
+    src = ":Mul_synth",
+    arguments = {},
+    data = [":dummy_extra.lef"],
+    tags = ["manual"],
+    variant = "src_propagation",
+)
+
+orfs_place(
+    name = "src_propagation_place",
+    src = ":src_propagation_floorplan",
+    arguments = {},
+    tags = ["manual"],
+    variant = "src_propagation",
+)
+
+source_input_propagation_test(
+    name = "src_data_propagation_test",
+    expected_basename = "dummy_extra.lef",
+    target_under_test = ":src_propagation_place",
 )
 
 # Test SYNTH_KEEP_MODULES: skip keep-hierarchy discovery, go straight to
