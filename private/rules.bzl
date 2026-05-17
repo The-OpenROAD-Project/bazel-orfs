@@ -55,6 +55,10 @@ load(
     "TopInfo",
 )
 load(
+    "//private:runfiles_paths.bzl",
+    "absolute_runtime",
+)
+load(
     "//private:stages.bzl",
     "STAGE_SUBSTEPS",
 )
@@ -646,36 +650,14 @@ def _run_executable_impl(ctx):
     else:
         work_home = None
 
-    # Convert a `.short_path` (which uses `../<repo>/...` for external repos
-    # in Bazel 7+) into an `external/<repo>/...` form. Combined with the
-    # `external -> $(pwd)/..` symlink the wrapper sets up at runtime, this
-    # gives us cwd-invariant paths into the runfiles tree — important when
-    # the orfs Makefile cds into a results dir before invoking openroad.
-    def _runtime_path(short_path):
-        if short_path.startswith("../"):
-            return "external/" + short_path[3:]
-        return short_path
-
-    # Workspace-relative paths live at `_main/<short_path>` in the runfiles
-    # tree (where `_main` is the main workspace's repo dir), so we anchor
-    # them off `$RUNFILES/_main`. External-repo paths (`../<repo>/...` form
-    # of short_path) live at `$RUNFILES/<repo>/...` directly. Either way,
-    # using absolute paths derived from $RUNFILES makes the variables
-    # invariant to make-recipe cwd changes (the orfs Makefile cds into a
-    # results dir before invoking openroad).
-    def _absolute_runtime(short_path, runfiles_var):
-        if short_path.startswith("../"):
-            return "{}/{}".format(runfiles_var, short_path[3:])
-        return "{}/_main/{}".format(runfiles_var, short_path)
-
     runfiles_var = "$RUNFILES"
-    openroad_path = _absolute_runtime(ctx.attr.openroad[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
-    opensta_path = _absolute_runtime(ctx.attr.opensta[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
-    klayout_path = _absolute_runtime(ctx.attr._klayout[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
-    flow_home = _absolute_runtime(ctx.file._makefile.dirname, runfiles_var)
-    makefile_runtime_path = _absolute_runtime(ctx.file._makefile.short_path, runfiles_var)
-    make_runtime_path = _absolute_runtime(ctx.executable._make.short_path, runfiles_var)
-    run_script_path = _absolute_runtime(ctx.file.script.short_path, runfiles_var)
+    openroad_path = absolute_runtime(ctx.attr.openroad[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
+    opensta_path = absolute_runtime(ctx.attr.opensta[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
+    klayout_path = absolute_runtime(ctx.attr._klayout[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
+    flow_home = absolute_runtime(ctx.file._makefile.dirname, runfiles_var)
+    makefile_runtime_path = absolute_runtime(ctx.file._makefile.short_path, runfiles_var)
+    make_runtime_path = absolute_runtime(ctx.executable._make.short_path, runfiles_var)
+    run_script_path = absolute_runtime(ctx.file.script.short_path, runfiles_var)
 
     moreargs = environment_string(
         hack_away_prefix(
