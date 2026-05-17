@@ -1,3 +1,5 @@
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
 exports_files(
     [
         "BUILD.blendergds",
@@ -5,4 +7,16 @@ exports_files(
         "viewer_template.html",
     ],
     visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "render_gds_lib",
+    srcs = ["render_gds.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "render_gds_test",
+    srcs = ["render_gds_test.py"],
+    deps = [":render_gds_lib"],
 )
