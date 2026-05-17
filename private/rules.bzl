@@ -849,9 +849,69 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             tools = [ctx.executable._python],
         )
 
+    # Optional pre-synth validation of kept_macros against the canonical
+    # RTLIL. Runs in seconds; on mismatch prints a paste-ready corrected
+    # dict to stderr and fails the build before any partition synth.
+    # Gated on kept_macros_enabled so disabled call sites pay nothing.
+    validated_kept_macros_json = None
+    if ctx.attr.kept_macros_enabled:
+        validated_kept_macros_json = declare_artifact(
+            ctx,
+            "results",
+            "validated_kept_macros.json",
+        )
+        user_dict_json = ctx.actions.declare_file(
+            ctx.label.name + "_user_kept_macros.json",
+        )
+        ctx.actions.write(
+            output = user_dict_json,
+            content = json.encode(ctx.attr.kept_macros),
+        )
+        macro_names_json = ctx.actions.declare_file(
+            ctx.label.name + "_macro_names.json",
+        )
+
+        # Use TopInfo.module_top (the Verilog module name) — that's what
+        # the RTLIL hierarchy contains. label.name has stage suffixes
+        # like _behavioral / _generate_abstract that don't match RTLIL.
+        ctx.actions.write(
+            output = macro_names_json,
+            content = json.encode([dep[TopInfo].module_top for dep in ctx.attr.deps]),
+        )
+        ctx.actions.run_shell(
+            command = "{py} {script} --rtlil {rtlil} --kept-modules {kj} --macros {mj} --user-kept-macros {uj} --top {top} --output {out}".format(
+                py = ctx.executable._python.path,
+                script = ctx.file._rtlil_kept_macros.path,
+                rtlil = canon_output.path,
+                kj = kept_json.path,
+                mj = macro_names_json.path,
+                uj = user_dict_json.path,
+                top = module_top(ctx),
+                out = validated_kept_macros_json.path,
+            ),
+            inputs = [
+                canon_output,
+                kept_json,
+                macro_names_json,
+                user_dict_json,
+                ctx.file._rtlil_kept_macros,
+            ],
+            outputs = [validated_kept_macros_json],
+            tools = [ctx.executable._python],
+            progress_message = "Validating kept_macros against canonicalize RTLIL for %s" % module_top(ctx),
+        )
+
     # Actions 3..N: partition (parallel)
     # Uses wrapper Makefile for yosys-dependencies + do-yosys-partition
     partition_env_extra = {"SYNTH_SKIP_KEEP": "1"} if skip_keep else {}
+
+    # Gate partition actions on the kept_macros validation output.
+    # Doesn't change inputs they actually read — purely a build-graph
+    # dependency so a validation failure prevents partition synth from
+    # starting.
+    extra_partition_inputs = (
+        [validated_kept_macros_json] if validated_kept_macros_json else []
+    )
     partition_inputs = depset(
         [
             checkpoint_output,
@@ -860,7 +920,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             parallel_makefile,
             ctx.file._synth_partition_script,
             ctx.file._synth_tcl,
-        ] +
+        ] + extra_partition_inputs +
         ctx.files.extra_configs,
         transitive = [
             data_inputs(ctx),
@@ -1328,6 +1388,10 @@ orfs_synth_rule = rule(
                 "_rtlil_kept_modules": attr.label(
                     allow_single_file = True,
                     default = Label("//:rtlil_kept_modules.py"),
+                ),
+                "_rtlil_kept_macros": attr.label(
+                    allow_single_file = True,
+                    default = Label("//:rtlil_kept_macros.py"),
                 ),
                 "_synth_tcl": attr.label(
                     allow_single_file = True,
