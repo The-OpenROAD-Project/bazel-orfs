@@ -185,6 +185,26 @@ def synth_attrs():
             default = [],
             providers = [OrfsInfo, TopInfo],
         ),
+        "kept_macros": attr.string_list_dict(
+            default = {},
+            doc = "Per-kept-module macro allowlist. Keys are kept-module " +
+                  "names (a subset of SYNTH_KEEP_MODULES); values are " +
+                  "short names of macros in `deps` that the kept module " +
+                  "instantiates (transitively, stopping at descendant " +
+                  "kept modules). Active only when kept_macros_enabled. " +
+                  "Empty dict ({}) opts into a pre-synth validation that " +
+                  "prints the correct dict and errors. Non-empty dict " +
+                  "scopes each parallel partition's macro inputs to the " +
+                  "union of macros for its assigned modules.",
+        ),
+        "kept_macros_enabled": attr.bool(
+            default = False,
+            doc = "Set automatically by the orfs_flow() wrapper when the " +
+                  "user passes kept_macros=. Distinguishes 'unset' " +
+                  "(False, default → all macros to all partitions, no " +
+                  "validation) from 'empty dict opt-in' (True with " +
+                  "kept_macros={}).",
+        ),
         "module_top": attr.string(mandatory = True),
         "pdk": attr.label(
             doc = "Process design kit.",

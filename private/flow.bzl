@@ -154,6 +154,14 @@ def _create_deps_tar(stage_name, **kwargs):
     )
 
 def orfs_synth(**kwargs):
+    # Normalise the kept_macros sentinel: None / absent → feature off
+    # (existing all-macros-to-all-partitions behaviour); any value
+    # passed in (including {}) → enabled. The rule has two attrs to
+    # encode this because attr.string_list_dict can't represent None.
+    if "kept_macros" in kwargs:
+        km = kwargs.pop("kept_macros")
+        kwargs["kept_macros"] = km if km != None else {}
+        kwargs["kept_macros_enabled"] = km != None
     orfs_synth_rule(**_filter_stage_args("synth", **kwargs))
     _create_deps_tar(kwargs.get("name"), **kwargs)
 
@@ -170,6 +178,7 @@ def orfs_flow(
         top = None,
         verilog_files = [],
         macros = [],
+        kept_macros = None,
         sources = {},
         user_sources = {},
         stage_sources = {},
@@ -203,6 +212,13 @@ def orfs_flow(
       top: Verilog top level module name, default is 'name'
       verilog_files: list of verilog sources of the design
       macros: list of macros required to run physical design flow for this design
+      kept_macros: optional dict mapping kept-module name → list of macro short names
+        the module instantiates (transitively, stopping at descendant kept modules).
+        Default None disables the feature and preserves the existing behaviour where
+        every parallel synth partition depends on every macro. Set to {} to opt into
+        a pre-synth validation that prints the correct dict and errors out. Set to a
+        non-empty dict to scope each partition's macro inputs — partitions that
+        don't need a macro no longer wait on that macro's upstream PnR.
       sources: dictionary keyed by ORFS variables with lists of sources
       stage_sources: dictionary keyed by ORFS stages with lists of stage-specific sources
       stage_arguments: dictionary keyed by ORFS stages with lists of stage-specific arguments.
@@ -296,6 +312,7 @@ def orfs_flow(
         top = top,
         verilog_files = verilog_files,
         macros = macros,
+        kept_macros = kept_macros,
         sources = sources | user_sources,
         stage_sources = stage_sources,
         stage_arguments = stage_arguments,
@@ -334,6 +351,7 @@ def orfs_flow(
         top = top,
         verilog_files = verilog_files,
         macros = macros,
+        kept_macros = kept_macros,
         sources = sources | user_sources,
         stage_sources = stage_sources,
         stage_arguments = stage_arguments,
@@ -441,6 +459,7 @@ def _orfs_pass(
         pdk,
         settings,
         stage_data,
+        kept_macros = None,
         last_stage = None,
         test_kwargs = {},
         mock_area = False,
@@ -500,6 +519,8 @@ def _orfs_pass(
                 arguments = arguments,
                 sources = sources,
                 deps = macros,
+                kept_macros = kept_macros if kept_macros != None else {},
+                kept_macros_enabled = kept_macros != None,
                 module_top = top,
                 variant = variant,
                 verilog_files = verilog_files,
