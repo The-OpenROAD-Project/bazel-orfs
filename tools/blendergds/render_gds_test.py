@@ -3,15 +3,19 @@
 
 The bpy-touching code path (``main``) needs real Blender; these tests
 cover only the pure-Python helpers — argument splitting, argparse,
-python-tag detection, and wheel staging. Wheel staging is exercised
-against a small in-test wheel fixture so we don't need any real wheels.
+python-tag detection, wheel staging, phase logging, and layerstack
+trimming. Wheel staging is exercised against a small in-test wheel
+fixture so we don't need any real wheels.
 """
 
+import contextlib
 import io
 import os
 import sys
 import tempfile
+import types
 import unittest
+import unittest.mock as mock
 import zipfile
 from pathlib import Path
 
@@ -20,6 +24,13 @@ if THIS_DIR not in sys.path:
     sys.path.insert(0, THIS_DIR)
 
 import render_gds  # noqa: E402
+
+try:
+    import yaml  # noqa: F401
+
+    _HAS_YAML = True
+except ImportError:
+    _HAS_YAML = False
 
 
 def _make_wheel(dest_dir, name, payload_files):
@@ -235,6 +246,155 @@ class TestWriteHtml(unittest.TestCase):
             import shutil
 
             shutil.rmtree(tmp, ignore_errors=True)
+
+
+class TestLogPhase(unittest.TestCase):
+    """_log_phase writes one grep-friendly line per phase boundary."""
+
+    def _capture(self, *args, **kwargs):
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            render_gds._log_phase(*args, **kwargs)
+        return buf.getvalue()
+
+    def test_writes_phase_marker(self):
+        out = self._capture("startup")
+        # Format is "render_gds.py [<phase>] VmRSS=… VmPeak=…" — the
+        # bracketed phase name is what action-log greps key on.
+        self.assertIn("[startup]", out)
+        self.assertIn("VmRSS=", out)
+        self.assertIn("VmPeak=", out)
+
+    def test_appends_extra(self):
+        out = self._capture("gdsii-imported", extra="meshes=42 polygons=123")
+        self.assertIn("[gdsii-imported]", out)
+        self.assertIn("meshes=42 polygons=123", out)
+
+    def test_no_extra_means_no_trailing_blank(self):
+        out = self._capture("addon-registered")
+        # The function appends " {extra}" only when extra is truthy; the
+        # bare-phase line must not end with a stray space + newline.
+        self.assertTrue(out.endswith("\n"))
+        self.assertFalse(out.endswith(" \n"))
+
+    def test_survives_missing_proc(self):
+        # On platforms without /proc/self/status (or when the file isn't
+        # readable), the OSError must not propagate — VmRSS / VmPeak just
+        # fall back to "?" and the rest of the line still prints.
+        with mock.patch("builtins.open", side_effect=OSError("nope")):
+            out = self._capture("startup")
+        self.assertIn("[startup]", out)
+        self.assertIn("VmRSS=?", out)
+        self.assertIn("VmPeak=?", out)
+
+
+class TestTrimLayerstack(unittest.TestCase):
+    """_trim_layerstack returns None on every well-defined error path so
+    callers can fall through to the addon's default stackup."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addon_root = Path(self.tmp) / "addon_root"
+        self.addon_root.mkdir()
+
+    def tearDown(self):
+        import shutil
+
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _make_addon(self, pdk_configs=None):
+        m = types.ModuleType("fake_addon")
+        if pdk_configs is not None:
+            m.PDK_CONFIGS = pdk_configs
+        return m
+
+    def test_pdk_without_preset_returns_none(self):
+        # GF180MCU is a real BlenderGDS PDK but has no preset in
+        # _LAYER_PRESETS — fall-through is required so non-sky130 designs
+        # get the full default stack rather than an empty trim.
+        addon = self._make_addon({"GF180MCU": {"config_path": "x.yaml"}})
+        result = render_gds._trim_layerstack(
+            addon, str(self.addon_root), "GF180MCU", self.tmp
+        )
+        self.assertIsNone(result)
+
+    def test_addon_missing_pdk_configs_returns_none(self):
+        addon = self._make_addon(pdk_configs=None)
+        # SKY130 has a preset but the addon doesn't carry PDK_CONFIGS at
+        # all — should not crash.
+        result = render_gds._trim_layerstack(
+            addon, str(self.addon_root), "SKY130", self.tmp
+        )
+        self.assertIsNone(result)
+
+    def test_missing_config_path_key_returns_none(self):
+        addon = self._make_addon({"SKY130": {}})  # no config_path
+        result = render_gds._trim_layerstack(
+            addon, str(self.addon_root), "SKY130", self.tmp
+        )
+        self.assertIsNone(result)
+
+    def test_missing_yaml_file_returns_none(self):
+        addon = self._make_addon({"SKY130": {"config_path": "does_not_exist.yaml"}})
+        result = render_gds._trim_layerstack(
+            addon, str(self.addon_root), "SKY130", self.tmp
+        )
+        self.assertIsNone(result)
+
+    @unittest.skipIf(not _HAS_YAML, "pyyaml not available in test toolchain")
+    def test_trims_to_preset_keeping_yaml_order(self):
+        # Build a layerstack YAML with the SKY130 preset's keys + extras;
+        # the trimmed output must contain exactly the preset keys, in the
+        # order they appear in the input file. Bottom-up extrusion in
+        # the addon depends on YAML iteration order.
+        cfg = self.addon_root / "stack.yaml"
+        cfg.write_text(
+            "li1:\n  height: 0.1\n"
+            "nwell:\n  height: 0.2\n"
+            "mcon:\n  height: 0.3\n"
+            "met3:\n  height: 0.4\n"
+            "via4:\n  height: 0.5\n"
+            "met4:\n  height: 0.6\n"
+            "met5:\n  height: 0.7\n",
+        )
+        addon = self._make_addon({"SKY130": {"config_path": "stack.yaml"}})
+
+        result = render_gds._trim_layerstack(
+            addon, str(self.addon_root), "SKY130", self.tmp
+        )
+        self.assertIsNotNone(result)
+        out_path, kept, missing = result
+
+        # Preset for SKY130: ["nwell", "met3", "via4", "met4", "met5"].
+        # The dropped ones (li1, mcon) must not appear; the preserved
+        # ones must appear in the same order they had in the source.
+        self.assertEqual(kept, ["nwell", "met3", "via4", "met4", "met5"])
+        self.assertEqual(missing, set())
+        self.assertTrue(out_path.is_file())
+        body = out_path.read_text()
+        self.assertNotIn("li1:", body)
+        self.assertNotIn("mcon:", body)
+        self.assertIn("nwell:", body)
+        self.assertIn("met5:", body)
+
+    @unittest.skipIf(not _HAS_YAML, "pyyaml not available in test toolchain")
+    def test_reports_missing_preset_layers(self):
+        # If the source YAML lacks one of the preset's layers, _trim
+        # still returns the partial trim plus the missing set so the
+        # caller can log it (visibility — silent omission would hide
+        # PDK-side rename drift).
+        cfg = self.addon_root / "partial.yaml"
+        cfg.write_text("nwell:\n  height: 0.2\nmet5:\n  height: 0.7\n")
+        addon = self._make_addon({"SKY130": {"config_path": "partial.yaml"}})
+
+        out_path, kept, missing = render_gds._trim_layerstack(
+            addon,
+            str(self.addon_root),
+            "SKY130",
+            self.tmp,
+        )
+        self.assertEqual(kept, ["nwell", "met5"])
+        self.assertEqual(missing, {"met3", "via4", "met4"})
 
 
 if __name__ == "__main__":
