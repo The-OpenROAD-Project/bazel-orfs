@@ -1044,5 +1044,164 @@ class TestIgnoreModeWarnsAndContinues(unittest.TestCase):
             os.unlink(tmp.name)
 
 
+class TestCheckYosysAbcPair(unittest.TestCase):
+    """Cover check_yosys_abc_pair — lockstep guard for downstream MODULE.bazel.
+
+    YosysHQ/yosys's abc submodule pins a specific abc revision per yosys
+    release; mixing an unrelated abc override has caused real synthesis
+    quality regressions, so the bumper treats it as a hard error.
+    """
+
+    def test_neither_declared_is_ok(self):
+        ok, msg = bump.check_yosys_abc_pair('module(name = "x")\n')
+        self.assertTrue(ok)
+        self.assertEqual(msg, "")
+
+    def test_only_yosys_is_ok_with_skip_note(self):
+        content = 'bazel_dep(name = "yosys", version = "0.63")\n'
+        ok, msg = bump.check_yosys_abc_pair(content)
+        self.assertTrue(ok)
+        self.assertIn("only one of yosys/abc", msg)
+
+    def test_only_abc_is_ok_with_skip_note(self):
+        content = 'bazel_dep(name = "abc", version = "0.63-yosyshq")\n'
+        ok, msg = bump.check_yosys_abc_pair(content)
+        self.assertTrue(ok)
+        self.assertIn("only one of yosys/abc", msg)
+
+    def test_matched_pair_is_ok(self):
+        content = (
+            'bazel_dep(name = "yosys", version = "0.63")\n'
+            'bazel_dep(name = "abc", version = "0.63-yosyshq")\n'
+        )
+        ok, msg = bump.check_yosys_abc_pair(content)
+        self.assertTrue(ok)
+        self.assertEqual(msg, "")
+
+    def test_yosys_bcr_suffix_reduces_to_series(self):
+        # 0.62.bcr.2 must collapse to series 0.62 -> abc 0.62-yosyshq.
+        content = (
+            'bazel_dep(name = "yosys", version = "0.62.bcr.2")\n'
+            'bazel_dep(name = "abc", version = "0.62-yosyshq")\n'
+        )
+        ok, msg = bump.check_yosys_abc_pair(content)
+        self.assertTrue(ok)
+        self.assertEqual(msg, "")
+
+    def test_mismatched_pair_fails_with_hint(self):
+        content = (
+            'bazel_dep(name = "yosys", version = "0.63")\n'
+            'bazel_dep(name = "abc", version = "0.62-yosyshq")\n'
+        )
+        ok, msg = bump.check_yosys_abc_pair(content)
+        self.assertFalse(ok)
+        self.assertIn("expects abc", msg)
+        self.assertIn("'0.63-yosyshq'", msg)
+        self.assertIn("'0.62-yosyshq'", msg)
+
+    def test_unknown_yosys_series_fails(self):
+        content = (
+            'bazel_dep(name = "yosys", version = "9.99")\n'
+            'bazel_dep(name = "abc", version = "9.99-yosyshq")\n'
+        )
+        ok, msg = bump.check_yosys_abc_pair(content)
+        self.assertFalse(ok)
+        self.assertIn("no known abc pairing", msg)
+        self.assertIn("YOSYS_ABC_PAIRS", msg)
+
+    def test_abc_via_single_version_override_is_read(self):
+        # downstream sometimes overrides via single_version_override.
+        content = (
+            'bazel_dep(name = "yosys", version = "0.63")\n'
+            'bazel_dep(name = "abc")\n'
+            "single_version_override(\n"
+            '    module_name = "abc",\n'
+            '    version = "0.63-yosyshq",\n'
+            ")\n"
+        )
+        ok, msg = bump.check_yosys_abc_pair(content)
+        self.assertTrue(ok)
+        self.assertEqual(msg, "")
+
+    def test_single_version_override_paren_in_patch_cmds_does_not_confuse_parser(self):
+        # A patch_cmds triple-quoted string can contain ')' on its own line;
+        # the parser must only treat ')' at column 0 as block end.
+        content = (
+            'bazel_dep(name = "yosys", version = "0.63")\n'
+            'bazel_dep(name = "abc")\n'
+            "single_version_override(\n"
+            '    module_name = "abc",\n'
+            '    version = "0.63-yosyshq",\n'
+            '    patch_cmds = ["""sed -i \'s/foo(.*)/foo()/g\' file"""],\n'
+            ")\n"
+        )
+        ok, msg = bump.check_yosys_abc_pair(content)
+        self.assertTrue(ok)
+        self.assertEqual(msg, "")
+
+    def test_single_version_override_for_other_module_ignored(self):
+        # An override on yosys (not abc) must not be picked up as abc's pin.
+        content = (
+            'bazel_dep(name = "yosys", version = "0.63")\n'
+            "single_version_override(\n"
+            '    module_name = "yosys",\n'
+            '    version = "0.63",\n'
+            ")\n"
+        )
+        ok, msg = bump.check_yosys_abc_pair(content)
+        # yosys declared, abc not -> ok with skip note.
+        self.assertTrue(ok)
+        self.assertIn("only one of yosys/abc", msg)
+
+
+class TestReadModuleHelpers(unittest.TestCase):
+    """Cover the small parsing helpers feeding check_yosys_abc_pair."""
+
+    def test_read_bazel_dep_version_basic(self):
+        content = 'bazel_dep(name = "yosys", version = "0.63")\n'
+        self.assertEqual(bump._read_bazel_dep_version(content, "yosys"), "0.63")
+
+    def test_read_bazel_dep_version_missing(self):
+        self.assertIsNone(bump._read_bazel_dep_version("", "yosys"))
+
+    def test_read_bazel_dep_version_multiline(self):
+        content = (
+            "bazel_dep(\n" '    name = "yosys",\n' '    version = "0.62.bcr.2",\n' ")\n"
+        )
+        self.assertEqual(
+            bump._read_bazel_dep_version(content, "yosys"),
+            "0.62.bcr.2",
+        )
+
+    def test_read_bazel_dep_version_does_not_match_substring_module_name(self):
+        # "yosys" must not match "yosys-slang".
+        content = 'bazel_dep(name = "yosys-slang", version = "0.1")\n'
+        self.assertIsNone(bump._read_bazel_dep_version(content, "yosys"))
+
+    def test_read_single_version_override_basic(self):
+        content = (
+            "single_version_override(\n"
+            '    module_name = "abc",\n'
+            '    version = "0.65-yosyshq",\n'
+            ")\n"
+        )
+        self.assertEqual(
+            bump._read_single_version_override(content, "abc"),
+            "0.65-yosyshq",
+        )
+
+    def test_read_single_version_override_missing(self):
+        self.assertIsNone(bump._read_single_version_override("", "abc"))
+
+    def test_yosys_major_minor_strips_bcr_suffix(self):
+        self.assertEqual(bump._yosys_major_minor("0.62.bcr.2"), "0.62")
+
+    def test_yosys_major_minor_plain(self):
+        self.assertEqual(bump._yosys_major_minor("0.65"), "0.65")
+
+    def test_yosys_major_minor_bad_input(self):
+        self.assertIsNone(bump._yosys_major_minor("not-a-version"))
+
+
 if __name__ == "__main__":
     unittest.main()

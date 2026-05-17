@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """Update bazel-orfs and OpenROAD versions in MODULE.bazel.
 
+Also enforces lockstep between the ``yosys`` and ``abc`` bazel_deps when
+both are declared by a downstream MODULE.bazel.  YosysHQ/yosys's abc
+submodule pins a specific abc revision per yosys release; the BCR
+``abc/0.NN-yosyshq`` modules expose those revisions individually.  Mixing
+a ``yosys = "0.NN"`` bazel_dep with an unrelated ``abc = "0.MM-yosyshq"``
+override has caused real synthesis-quality regressions, so we treat it as
+a hard error rather than a warning.
+
 Usage:
     python bump.py [--module-file MODULE.bazel]
 
@@ -18,6 +26,17 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
+
+
+# Map yosys MAJOR.MINOR -> the abc module version it ships against.  Update
+# this whenever a new yosys release is added to a BCR registry.  The
+# right-hand value matches the BCR ``abc`` module ``version`` field.
+YOSYS_ABC_PAIRS = {
+    "0.62": "0.62-yosyshq",
+    "0.63": "0.63-yosyshq",
+    "0.64": "0.64-yosyshq.bcr.1",
+    "0.65": "0.65-yosyshq",
+}
 
 
 class BumpError(RuntimeError):
@@ -553,6 +572,94 @@ def fetch_tag_commit(github_repo, tag):
     return obj.get("sha", "")
 
 
+def _read_bazel_dep_version(content, module_name):
+    """Return the version string of a ``bazel_dep(name=..., version=...)`` or None."""
+    m = re.search(
+        r'bazel_dep\s*\([^)]*name\s*=\s*"'
+        + re.escape(module_name)
+        + r'"[^)]*version\s*=\s*"([^"]+)"',
+        content,
+        re.DOTALL,
+    )
+    if m:
+        return m.group(1)
+    return None
+
+
+def _read_single_version_override(content, module_name):
+    """Return the version pinned by ``single_version_override(...)`` or None.
+
+    Identifies blocks by ``single_version_override(`` at the start of a line
+    and the matching ``)`` at the start of a line (Bazel/Buildifier formatting
+    convention).  This is robust against parens embedded in multi-line
+    ``patch_cmds`` triple-quoted strings, which would defeat a naive
+    paren-balanced regex.
+    """
+    lines = content.split("\n")
+    i = 0
+    while i < len(lines):
+        if re.match(r"^single_version_override\s*\(", lines[i]):
+            j = i + 1
+            while j < len(lines) and not lines[j].startswith(")"):
+                j += 1
+            block = "\n".join(lines[i : j + 1])
+            if f'module_name = "{module_name}"' in block:
+                m = re.search(r'\bversion\s*=\s*"([^"]+)"', block)
+                if m:
+                    return m.group(1)
+            i = j + 1
+        else:
+            i += 1
+    return None
+
+
+def _yosys_major_minor(version):
+    """Reduce a yosys version like '0.62.bcr.2' or '0.65' to '0.62' / '0.65'."""
+    m = re.match(r"(\d+\.\d+)", version)
+    return m.group(1) if m else None
+
+
+def check_yosys_abc_pair(content):
+    """Return (ok, message). Empty message on success.
+
+    Validates the yosys/abc pairing in a downstream MODULE.bazel:
+      * If neither is declared, returns ok.
+      * If only one is declared, returns ok with a note.
+      * If both are declared and match YOSYS_ABC_PAIRS, returns ok.
+      * Otherwise returns (False, hint).
+    """
+    yosys_version = _read_bazel_dep_version(content, "yosys")
+    abc_version = _read_single_version_override(
+        content, "abc"
+    ) or _read_bazel_dep_version(content, "abc")
+
+    if yosys_version is None and abc_version is None:
+        return True, ""
+
+    if yosys_version is None or abc_version is None:
+        return True, (
+            "yosys-abc lockstep: only one of yosys/abc is declared; "
+            "skipping pairing check."
+        )
+
+    series = _yosys_major_minor(yosys_version)
+    expected_abc = YOSYS_ABC_PAIRS.get(series)
+    if expected_abc is None:
+        return False, (
+            f"yosys-abc lockstep: no known abc pairing for yosys {yosys_version}. "
+            f"Add an entry to YOSYS_ABC_PAIRS in bazel-orfs/bump.py "
+            f"(see https://github.com/YosysHQ/yosys/tree/v{series}/abc "
+            f"for the abc submodule SHA shipped with this yosys)."
+        )
+    if abc_version != expected_abc:
+        return False, (
+            f"yosys-abc lockstep: yosys {yosys_version} expects abc "
+            f"{expected_abc!r}, but MODULE.bazel pins abc {abc_version!r}. "
+            f"Update the abc pin to match, or change yosys."
+        )
+    return True, ""
+
+
 # Source of truth for EDA tool versions: ORFS's tools/ submodules at master.
 # The bumper reads each submodule's pinned sha at the just-bumped ORFS commit
 # and applies it to the consumer's git_override blocks.  yosys is the odd
@@ -888,6 +995,11 @@ def bump(
                 content = update_git_override_commit(content, module_name, sha)
                 updated_modules.append(f"{module_name} -> {sha[:12]} ({source})")
 
+    # --- Validate yosys/abc lockstep (downstream MODULE.bazel) ---
+    ok, msg = check_yosys_abc_pair(content)
+    if not ok:
+        raise SystemExit(msg)
+
     with open(module_file, "w") as f:
         f.write(content)
 
@@ -955,7 +1067,22 @@ def main():
             "literal) and you still want the recognizable parts updated."
         ),
     )
+    parser.add_argument(
+        "--check-yosys-abc",
+        action="store_true",
+        help="Only validate yosys/abc lockstep; don't modify MODULE.bazel.",
+    )
     args = parser.parse_args()
+
+    if args.check_yosys_abc:
+        with open(args.module_file) as f:
+            ok, msg = check_yosys_abc_pair(f.read())
+        if not ok:
+            sys.stderr.write(msg + "\n")
+            sys.exit(1)
+        if msg:
+            sys.stderr.write(msg + "\n")
+        return
 
     workspace = os.environ.get("BUILD_WORKSPACE_DIRECTORY", ".")
     bump(
