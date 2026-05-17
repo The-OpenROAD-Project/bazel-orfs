@@ -34,11 +34,11 @@ _BLEND_STUB = b"BLENDER-v404\x00\x00\x00"
 # Minimal glTF binary (GLB) header — a 12-byte header followed by an
 # empty JSON chunk. Enough to satisfy a "is this a GLB?" magic check.
 _GLB_STUB = (
-    b"glTF"                  # magic
-    b"\x02\x00\x00\x00"       # version 2
-    b"\x14\x00\x00\x00"       # total length: 12-byte header + 8-byte JSON chunk header
-    + b"\x00\x00\x00\x00"     # JSON chunk length: 0
-    + b"JSON"                 # JSON chunk type
+    b"glTF"  # magic
+    b"\x02\x00\x00\x00"  # version 2
+    b"\x14\x00\x00\x00"  # total length: 12-byte header + 8-byte JSON chunk header
+    + b"\x00\x00\x00\x00"  # JSON chunk length: 0
+    + b"JSON"  # JSON chunk type
 )
 
 
@@ -80,8 +80,12 @@ class _OpNamespace:
 
     def __getattr__(self, name):
         full = "{}.{}".format(self._prefix, name) if self._prefix else name
-        if "." not in full and full not in ("wm", "preferences",
-                                            "import_scene", "export_scene"):
+        if "." not in full and full not in (
+            "wm",
+            "preferences",
+            "import_scene",
+            "export_scene",
+        ):
             # Unknown top-level area — still allow nested lookup. Fall
             # through to creating a sub-namespace.
             pass
@@ -95,6 +99,7 @@ class _OpNamespace:
 
 class _ContextScene:
     """Attribute bag — addon code does `bpy.context.scene.foo = bar`."""
+
     pass
 
 

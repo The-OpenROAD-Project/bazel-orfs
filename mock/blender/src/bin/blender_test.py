@@ -17,8 +17,17 @@ import blender  # noqa: E402
 class TestParseBlenderArgv(unittest.TestCase):
     def test_python_and_inner_args(self):
         script, inner = blender._parse_blender_argv(
-            ["--background", "--factory-startup", "--python", "/s.py",
-             "--", "--gds", "x.gds", "--out", "/o.blend"],
+            [
+                "--background",
+                "--factory-startup",
+                "--python",
+                "/s.py",
+                "--",
+                "--gds",
+                "x.gds",
+                "--out",
+                "/o.blend",
+            ],
         )
         self.assertEqual(script, "/s.py")
         self.assertEqual(inner, ["--gds", "x.gds", "--out", "/o.blend"])
@@ -112,8 +121,7 @@ class TestEndToEnd(unittest.TestCase):
                 "bpy.ops.wm.save_as_mainfile(filepath=marker, copy=True)\n",
             )
             rc = blender.main(
-                ["--background", "--factory-startup",
-                 "--python", script, "--", marker],
+                ["--background", "--factory-startup", "--python", script, "--", marker],
             )
             self.assertEqual(rc, 0)
             self.assertTrue(os.path.isfile(marker))
@@ -124,6 +132,7 @@ class TestEndToEnd(unittest.TestCase):
         # We capture stdout by redirecting in this test process.
         import io
         import contextlib
+
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             rc = blender.main(["--version"])
