@@ -24,6 +24,7 @@ exports_files([
     "power_per_module.tcl",
     "quick_pins.tcl",
     "quick_pins_footprint_stub.tcl",
+    "rtlil_kept_macros.py",
     "rtlil_kept_modules.py",
     "synth.tcl",
     "synth_keep.tcl",
@@ -151,6 +152,24 @@ py_binary(
     name = "run_executable",
     srcs = ["run_executable.py"],
     visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "rtlil_kept_macros_lib",
+    srcs = ["rtlil_kept_macros.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "rtlil_kept_macros",
+    srcs = ["rtlil_kept_macros.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "rtlil_kept_macros_test",
+    srcs = ["rtlil_kept_macros_test.py"],
+    deps = [":rtlil_kept_macros_lib"],
 )
 
 # Run `bazelisk run //:fix_lint` to format all files changed since origin/main.
