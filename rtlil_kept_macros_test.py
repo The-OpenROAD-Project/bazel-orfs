@@ -18,7 +18,9 @@ from rtlil_kept_macros import (
 def _write(rtlil_text):
     """Materialise RTLIL text into a temp file. Returns path; caller unlinks."""
     f = tempfile.NamedTemporaryFile(
-        mode="w", suffix=".rtlil", delete=False,
+        mode="w",
+        suffix=".rtlil",
+        delete=False,
     )
     f.write(rtlil_text)
     f.close()
@@ -166,7 +168,11 @@ class TestCollectMacrosUnder(unittest.TestCase):
             os.unlink(path)
         by_base = build_base_to_full(modules)
         found = collect_macros_under(
-            "top", modules, by_base, kept_bases=set(), macro_bases={"sram"},
+            "top",
+            modules,
+            by_base,
+            kept_bases=set(),
+            macro_bases={"sram"},
         )
         self.assertEqual(found, {"sram"})
 
@@ -180,13 +186,17 @@ class TestCollectMacrosUnder(unittest.TestCase):
             os.unlink(path)
         by_base = build_base_to_full(modules)
         top_found = collect_macros_under(
-            "top", modules, by_base,
+            "top",
+            modules,
+            by_base,
             kept_bases={"inner_kept"},
             macro_bases={"sram_a", "sram_b"},
         )
         self.assertEqual(top_found, {"sram_a"})
         inner_found = collect_macros_under(
-            "inner_kept", modules, by_base,
+            "inner_kept",
+            modules,
+            by_base,
             kept_bases={"inner_kept"},
             macro_bases={"sram_a", "sram_b"},
         )
@@ -200,7 +210,9 @@ class TestCollectMacrosUnder(unittest.TestCase):
             os.unlink(path)
         by_base = build_base_to_full(modules)
         found = collect_macros_under(
-            "top", modules, by_base,
+            "top",
+            modules,
+            by_base,
             kept_bases=set(),
             macro_bases={"sram"},
         )
@@ -218,7 +230,10 @@ class TestDeriveKeptMacros(unittest.TestCase):
         finally:
             os.unlink(path)
         derived = derive_kept_macros(
-            modules, top, kept_modules=[], macros=["sram"],
+            modules,
+            top,
+            kept_modules=[],
+            macros=["sram"],
         )
         self.assertEqual(derived, {"_top": ["sram"]})
 
@@ -229,7 +244,8 @@ class TestDeriveKeptMacros(unittest.TestCase):
         finally:
             os.unlink(path)
         derived = derive_kept_macros(
-            modules, top,
+            modules,
+            top,
             kept_modules=["inner_kept"],
             macros=["sram_a", "sram_b"],
         )
@@ -254,7 +270,8 @@ class TestDeriveKeptMacros(unittest.TestCase):
         finally:
             os.unlink(path)
         derived = derive_kept_macros(
-            modules, top,
+            modules,
+            top,
             kept_modules=["empty_kept"],
             macros=["sram"],
         )
