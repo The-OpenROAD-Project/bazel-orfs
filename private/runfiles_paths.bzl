@@ -16,11 +16,12 @@ forms to the on-disk runfiles layout that the wrapper sees at runtime.
 _EXTERNAL_SHORT_PATH_PREFIX = "../"
 
 def runtime_path(short_path):
-    """Convert a `.short_path` to its `external/<repo>/...` form for an
-    external-repo file, or pass through unchanged for a workspace file.
+    """Normalise a `.short_path` to its on-disk runfiles form.
 
-    Combined with the `external -> $(pwd)/..` symlink the wrapper
-    creates at runtime, this yields a cwd-invariant runfiles path.
+    External-repo files (`../<repo>/...`) become `external/<repo>/...`;
+    workspace files pass through unchanged. Combined with the
+    `external -> $(pwd)/..` symlink the wrapper creates at runtime, this
+    yields a cwd-invariant runfiles path.
     """
     if short_path.startswith(_EXTERNAL_SHORT_PATH_PREFIX):
         return "external/" + short_path[len(_EXTERNAL_SHORT_PATH_PREFIX):]

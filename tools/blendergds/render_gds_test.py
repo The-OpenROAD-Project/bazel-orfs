@@ -37,7 +37,8 @@ class TestSplitArgv(unittest.TestCase):
         try:
             sys.argv = ["blender", "--background", "--", "--gds", "x.gds"]
             self.assertEqual(
-                render_gds._split_argv(), ["--gds", "x.gds"],
+                render_gds._split_argv(),
+                ["--gds", "x.gds"],
             )
         finally:
             sys.argv = orig
@@ -70,8 +71,16 @@ class TestParseArgs(unittest.TestCase):
 
     def test_blend_only(self):
         args = self._with_argv(
-            ["--gds", "a.gds", "--addon-root", "/r", "--pdk", "SKY130",
-             "--out", "/tmp/out.blend"],
+            [
+                "--gds",
+                "a.gds",
+                "--addon-root",
+                "/r",
+                "--pdk",
+                "SKY130",
+                "--out",
+                "/tmp/out.blend",
+            ],
         )
         self.assertEqual(args.gds, "a.gds")
         self.assertEqual(args.pdk, "SKY130")
@@ -83,8 +92,16 @@ class TestParseArgs(unittest.TestCase):
         # --out-html alone must error out — exits with code 2.
         with self.assertRaises(SystemExit) as ctx:
             self._with_argv(
-                ["--gds", "a.gds", "--addon-root", "/r", "--pdk", "SKY130",
-                 "--out-html", "/tmp/out.html"],
+                [
+                    "--gds",
+                    "a.gds",
+                    "--addon-root",
+                    "/r",
+                    "--pdk",
+                    "SKY130",
+                    "--out-html",
+                    "/tmp/out.html",
+                ],
             )
         self.assertEqual(ctx.exception.code, 2)
 
@@ -98,11 +115,22 @@ class TestParseArgs(unittest.TestCase):
 
     def test_html_with_template_and_js_ok(self):
         args = self._with_argv(
-            ["--gds", "a.gds", "--addon-root", "/r", "--pdk", "GF180MCU",
-             "--out-html", "/tmp/o.html",
-             "--html-template", "/t.html",
-             "--model-viewer-js", "/mv.js",
-             "--title", "My Chip"],
+            [
+                "--gds",
+                "a.gds",
+                "--addon-root",
+                "/r",
+                "--pdk",
+                "GF180MCU",
+                "--out-html",
+                "/tmp/o.html",
+                "--html-template",
+                "/t.html",
+                "--model-viewer-js",
+                "/mv.js",
+                "--title",
+                "My Chip",
+            ],
         )
         self.assertEqual(args.out_html, "/tmp/o.html")
         self.assertEqual(args.title, "My Chip")
@@ -124,6 +152,7 @@ class TestStageWheels(unittest.TestCase):
 
     def tearDown(self):
         import shutil
+
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_extracts_pure_python_wheel(self):
@@ -204,6 +233,7 @@ class TestWriteHtml(unittest.TestCase):
             self.assertIn("R0xCREFUQQ==", html)
         finally:
             import shutil
+
             shutil.rmtree(tmp, ignore_errors=True)
 
 

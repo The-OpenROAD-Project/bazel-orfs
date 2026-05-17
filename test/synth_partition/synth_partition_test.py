@@ -20,17 +20,13 @@ import unittest
 # The exact parser line in synth_partition.sh, isolated. If
 # synth_partition.sh's parsing logic changes, update this string so the
 # test exercises the real script's regex.
-PARSER_CMD = (
-    "grep -oE '\"[^\"]+\"' \"$KEPT_JSON\" | tail -n +2 | sed 's/\"//g'"
-)
+PARSER_CMD = 'grep -oE \'"[^"]+"\' "$KEPT_JSON" | tail -n +2 | sed \'s/"//g\''
 
 
 def _run_parser(json_text):
     """Run the parser snippet against a temp JSON file. Returns the list
     of module names (one per line, in input order)."""
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".json", delete=False
-    ) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         f.write(json_text)
         path = f.name
     try:
@@ -54,12 +50,8 @@ class TestKeptModulesParser(unittest.TestCase):
     def test_slang_bracket_indices_not_collapsed(self):
         # Regression: greedy 's/.*\\[//;s/\\].*//' collapsed this name
         # to "0". The new parser must preserve the full string.
-        elaborated = (
-            "tcdm_adapter$mempool_group.gen_tiles[0].i_tile.gen_banks[3]"
-        )
-        modules = _run_parser(
-            '{"modules": ["' + elaborated + '", "second"]}'
-        )
+        elaborated = "tcdm_adapter$mempool_group.gen_tiles[0].i_tile.gen_banks[3]"
+        modules = _run_parser('{"modules": ["' + elaborated + '", "second"]}')
         self.assertEqual(modules, [elaborated, "second"])
 
     def test_multiple_bracket_indices_preserved(self):
@@ -68,9 +60,7 @@ class TestKeptModulesParser(unittest.TestCase):
             "core.tile[0]",
             "core.tile[12].bank[7].adapter",
         ]
-        modules = _run_parser(
-            '{"modules": ["' + names[0] + '", "' + names[1] + '"]}'
-        )
+        modules = _run_parser('{"modules": ["' + names[0] + '", "' + names[1] + '"]}')
         self.assertEqual(modules, names)
 
     def test_empty_module_list(self):
@@ -80,12 +70,7 @@ class TestKeptModulesParser(unittest.TestCase):
     def test_pretty_printed_json(self):
         # The parser must work on indented JSON too (json.dump default).
         text = (
-            "{\n"
-            '  "modules": [\n'
-            '    "foo",\n'
-            '    "bar.baz[0]"\n'
-            "  ]\n"
-            "}\n"
+            "{\n" '  "modules": [\n' '    "foo",\n' '    "bar.baz[0]"\n' "  ]\n" "}\n"
         )
         modules = _run_parser(text)
         self.assertEqual(modules, ["foo", "bar.baz[0]"])

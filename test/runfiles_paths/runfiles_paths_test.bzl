@@ -20,6 +20,7 @@ _runtime_path_external_test = unittest.make(_runtime_path_external_test_impl)
 
 def _runtime_path_workspace_test_impl(ctx):
     env = unittest.begin(ctx)
+
     # A workspace-local short_path has no `../<repo>/` prefix, so it
     # passes through untouched.
     asserts.equals(
@@ -33,6 +34,7 @@ _runtime_path_workspace_test = unittest.make(_runtime_path_workspace_test_impl)
 
 def _runtime_path_handles_repo_with_plus_test_impl(ctx):
     env = unittest.begin(ctx)
+
     # bzlmod repos like `openroad+` and `bazel-orfs++orfs_repositories+...`
     # carry '+' in their names; the prefix check must not depend on the
     # repo name shape, only on the leading "../".
@@ -51,6 +53,7 @@ _runtime_path_handles_repo_with_plus_test = unittest.make(
 
 def _absolute_runtime_external_test_impl(ctx):
     env = unittest.begin(ctx)
+
     # External-repo files are anchored directly under $RUNFILES — no
     # `_main/` segment (that's only for workspace files).
     asserts.equals(
@@ -66,6 +69,7 @@ _absolute_runtime_external_test = unittest.make(
 
 def _absolute_runtime_workspace_test_impl(ctx):
     env = unittest.begin(ctx)
+
     # Workspace-local files live under $RUNFILES/_main/<short_path>.
     asserts.equals(
         env,
@@ -80,6 +84,7 @@ _absolute_runtime_workspace_test = unittest.make(
 
 def _absolute_runtime_respects_runfiles_var_test_impl(ctx):
     env = unittest.begin(ctx)
+
     # The caller controls the variable name; we just splice it in.
     asserts.equals(
         env,
@@ -94,6 +99,7 @@ _absolute_runtime_respects_runfiles_var_test = unittest.make(
 
 def _absolute_runtime_main_workspace_handles_nested_path_test_impl(ctx):
     env = unittest.begin(ctx)
+
     # Multi-segment workspace paths must keep their structure intact —
     # we only prepend `$RUNFILES/_main/`, never split or rewrite.
     asserts.equals(
