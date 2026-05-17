@@ -912,7 +912,10 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     extra_partition_inputs = (
         [validated_kept_macros_json] if validated_kept_macros_json else []
     )
-    partition_inputs = depset(
+
+    # Base inputs common to every partition (no macros yet — those are
+    # added per partition below).
+    base_partition_inputs = depset(
         [
             checkpoint_output,
             kept_json,
@@ -925,17 +928,48 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         transitive = [
             data_inputs(ctx),
             pdk_inputs(ctx),
-            deps_inputs(ctx),
         ],
     )
 
+    # Full macro inputs — used by the top action, and as the fallback
+    # for every partition when per-partition scoping is disabled.
+    all_macro_files = deps_inputs(ctx)
+
+    # Per-macro lookup tables, keyed by Verilog module name
+    # (TopInfo.module_top — what the RTLIL hierarchy contains). Used
+    # below to build per-partition inputs and per-partition config.mk
+    # from ctx.attr.kept_macros. Macros without LEF aren't
+    # physically-realised; safe to skip.
+    macro_files_by_name = {}
+    macro_dep_by_name = {}
+    for dep in ctx.attr.deps:
+        info = dep[OrfsInfo]
+        if not info.lef:
+            continue
+        files = [info.gds, info.lef, info.lib]
+        if info.lib_pre_layout:
+            files.append(info.lib_pre_layout)
+        name = dep[TopInfo].module_top
+        macro_files_by_name[name] = depset([f for f in files if f])
+        macro_dep_by_name[name] = dep
+
+    # Base arguments common to every partition config (data + required;
+    # ADDITIONAL_* gets layered on per-partition).
+    base_arguments = data_arguments(ctx) | required_arguments(ctx)
+    extra_config_paths = [file.path for file in ctx.files.extra_configs]
+
     # Compute module-to-partition mapping for progress messages
     kept_modules_list = [m for m in all_arguments.get("SYNTH_KEEP_MODULES", "").split(" ") if m]
+
+    use_kept_macros_scoping = (
+        ctx.attr.kept_macros_enabled and bool(ctx.attr.kept_macros)
+    )
 
     partition_outputs = []
     for i in range(num_partitions):
         # Build a human-readable progress message showing which modules
         # this partition will synthesize.
+        my_modules = []
         if kept_modules_list:
             my_modules = [m for idx, m in enumerate(kept_modules_list) if idx % num_partitions == i]
             if my_modules:
@@ -944,6 +978,54 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 progress_msg = "Synthesizing partition {}/{} (empty)".format(i, num_partitions)
         else:
             progress_msg = "Synthesizing partition {}/{}".format(i, num_partitions)
+
+        # Scope this partition's macro inputs to just the macros listed
+        # for the kept modules it synthesises. Also generate a partition-
+        # specific config.mk whose ADDITIONAL_LIBS/LEFS/GDS list ONLY
+        # those macros — otherwise `yosys-dependencies` would expect the
+        # full macro set as Make prereqs and fail with "no rule to make
+        # target" on the macros we've excluded from inputs.
+        if use_kept_macros_scoping:
+            macro_name_set = {}
+            for m in my_modules:
+                for macro_name in ctx.attr.kept_macros.get(m, []):
+                    macro_name_set[macro_name] = True
+            my_macro_files = depset(
+                transitive = [
+                    macro_files_by_name[n]
+                    for n in macro_name_set
+                    if n in macro_files_by_name
+                ],
+            )
+            my_deps_infos = [
+                macro_dep_by_name[n][OrfsInfo]
+                for n in macro_name_set
+                if n in macro_dep_by_name
+            ]
+            my_arguments = merge_arguments(
+                base_arguments,
+                orfs_additional_arguments(my_deps_infos, use_pre_layout = True),
+            )
+            my_config = declare_artifact(
+                ctx,
+                "results",
+                "1_synth_partition_{}.mk".format(i),
+            )
+            ctx.actions.write(
+                output = my_config,
+                content = config_content(ctx, my_arguments, extra_config_paths),
+            )
+            extra_partition_config = [my_config]
+            partition_env_override = {"DESIGN_CONFIG": my_config.path}
+        else:
+            my_macro_files = all_macro_files
+            extra_partition_config = []
+            partition_env_override = {}
+
+        partition_inputs = depset(
+            [base_inp for base_inp in extra_partition_config],
+            transitive = [base_partition_inputs, my_macro_files],
+        )
 
         part_output = declare_artifact(ctx, "results", "partition_{}.v".format(i))
         partition_outputs.append(part_output)
@@ -957,7 +1039,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 "SYNTH_PARTITION_SCRIPT=" + ctx.file._synth_partition_script.path,
             ],
             command = " && ".join(part_commands),
-            env = config_overrides(ctx, base_env | partition_env_extra | {
+            env = config_overrides(ctx, base_env | partition_env_extra | partition_env_override | {
                 "SYNTH_PARTITION_ID": str(i),
                 "SYNTH_NUM_PARTITIONS": str(num_partitions),
                 "SYNTH_TCL": ctx.file._synth_tcl.path,
@@ -968,7 +1050,13 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             progress_message = progress_msg,
         )
 
-    # Action 4: synthesize the top module with all kept modules blackboxed
+    # Action 4: synthesize the top module with all kept modules blackboxed.
+    # Top integration always sees the full macro set — it stitches every
+    # partition together and is the join point of the synth phase, so
+    # scoping its inputs doesn't help wall time.
+    top_partition_inputs = depset(
+        transitive = [base_partition_inputs, all_macro_files],
+    )
     top_output = declare_artifact(ctx, "results", "partition_top.v")
     top_commands = [_make_cmd(ctx)] + generation_commands([top_output])
     ctx.actions.run_shell(
@@ -985,7 +1073,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             "SYNTH_NUM_PARTITIONS": str(num_partitions),
             "SYNTH_TCL": ctx.file._synth_tcl.path,
         }),
-        inputs = partition_inputs,
+        inputs = top_partition_inputs,
         outputs = [top_output],
         tools = yosys_and_flow_tools,
         progress_message = "Synthesizing top module %s" % module_top(ctx),
