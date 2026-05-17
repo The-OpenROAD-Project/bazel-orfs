@@ -1064,15 +1064,15 @@ class TestCheckYosysAbcPair(unittest.TestCase):
         self.assertIn("only one of yosys/abc", msg)
 
     def test_only_abc_is_ok_with_skip_note(self):
-        content = 'bazel_dep(name = "abc", version = "0.63-yosyshq")\n'
+        content = 'bazel_dep(name = "abc", version = "0.62-yosyshq")\n'
         ok, msg = bump.check_yosys_abc_pair(content)
         self.assertTrue(ok)
         self.assertIn("only one of yosys/abc", msg)
 
     def test_matched_pair_is_ok(self):
         content = (
-            'bazel_dep(name = "yosys", version = "0.63")\n'
-            'bazel_dep(name = "abc", version = "0.63-yosyshq")\n'
+            'bazel_dep(name = "yosys", version = "0.62")\n'
+            'bazel_dep(name = "abc", version = "0.62-yosyshq")\n'
         )
         ok, msg = bump.check_yosys_abc_pair(content)
         self.assertTrue(ok)
@@ -1090,14 +1090,26 @@ class TestCheckYosysAbcPair(unittest.TestCase):
 
     def test_mismatched_pair_fails_with_hint(self):
         content = (
-            'bazel_dep(name = "yosys", version = "0.63")\n'
+            'bazel_dep(name = "yosys", version = "0.64")\n'
             'bazel_dep(name = "abc", version = "0.62-yosyshq")\n'
         )
         ok, msg = bump.check_yosys_abc_pair(content)
         self.assertFalse(ok)
         self.assertIn("expects abc", msg)
-        self.assertIn("'0.63-yosyshq'", msg)
+        self.assertIn("'0.64-yosyshq.bcr.1'", msg)
         self.assertIn("'0.62-yosyshq'", msg)
+
+    def test_yosys_version_without_bcr_abc_fails_as_unknown_series(self):
+        # yosys 0.63 is on BCR but no matching abc is — the table omits 0.63
+        # deliberately, so the check yields the 'no known pairing' error
+        # rather than a misleading 'expected 0.63-yosyshq' suggestion.
+        content = (
+            'bazel_dep(name = "yosys", version = "0.63")\n'
+            'bazel_dep(name = "abc", version = "0.64-yosyshq.bcr.1")\n'
+        )
+        ok, msg = bump.check_yosys_abc_pair(content)
+        self.assertFalse(ok)
+        self.assertIn("no known abc pairing", msg)
 
     def test_unknown_yosys_series_fails(self):
         content = (
@@ -1112,11 +1124,11 @@ class TestCheckYosysAbcPair(unittest.TestCase):
     def test_abc_via_single_version_override_is_read(self):
         # downstream sometimes overrides via single_version_override.
         content = (
-            'bazel_dep(name = "yosys", version = "0.63")\n'
+            'bazel_dep(name = "yosys", version = "0.62")\n'
             'bazel_dep(name = "abc")\n'
             "single_version_override(\n"
             '    module_name = "abc",\n'
-            '    version = "0.63-yosyshq",\n'
+            '    version = "0.62-yosyshq",\n'
             ")\n"
         )
         ok, msg = bump.check_yosys_abc_pair(content)
@@ -1127,11 +1139,11 @@ class TestCheckYosysAbcPair(unittest.TestCase):
         # A patch_cmds triple-quoted string can contain ')' on its own line;
         # the parser must only treat ')' at column 0 as block end.
         content = (
-            'bazel_dep(name = "yosys", version = "0.63")\n'
+            'bazel_dep(name = "yosys", version = "0.62")\n'
             'bazel_dep(name = "abc")\n'
             "single_version_override(\n"
             '    module_name = "abc",\n'
-            '    version = "0.63-yosyshq",\n'
+            '    version = "0.62-yosyshq",\n'
             '    patch_cmds = ["""sed -i \'s/foo(.*)/foo()/g\' file"""],\n'
             ")\n"
         )
@@ -1142,10 +1154,10 @@ class TestCheckYosysAbcPair(unittest.TestCase):
     def test_single_version_override_for_other_module_ignored(self):
         # An override on yosys (not abc) must not be picked up as abc's pin.
         content = (
-            'bazel_dep(name = "yosys", version = "0.63")\n'
+            'bazel_dep(name = "yosys", version = "0.62")\n'
             "single_version_override(\n"
             '    module_name = "yosys",\n'
-            '    version = "0.63",\n'
+            '    version = "0.62",\n'
             ")\n"
         )
         ok, msg = bump.check_yosys_abc_pair(content)
