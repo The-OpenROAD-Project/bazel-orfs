@@ -1,0 +1,26 @@
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
+sh_binary(
+    name = "blender",
+    srcs = ["blender.sh"],
+    data = ["blender.py"],
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    ["blender.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_library(
+    name = "blender_lib",
+    srcs = ["blender.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "blender_test",
+    srcs = ["blender_test.py"],
+    deps = [":blender_lib"],
+)

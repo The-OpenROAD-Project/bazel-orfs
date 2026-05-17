@@ -1,0 +1,7 @@
+module(
+    name = "mock-blender",
+    version = "0.0.1",
+)
+
+bazel_dep(name = "rules_python", version = "1.8.5")
+bazel_dep(name = "rules_shell", version = "0.6.1")
