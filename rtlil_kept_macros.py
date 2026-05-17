@@ -122,7 +122,11 @@ def derive_kept_macros(modules, top, kept_modules, macros):
         union = set()
         for full in by_base.get(base, []):
             union |= collect_macros_under(
-                full, modules, by_base, kept_bases, macro_bases,
+                full,
+                modules,
+                by_base,
+                kept_bases,
+                macro_bases,
             )
         if union:
             derived[base] = sorted(union)
@@ -133,10 +137,18 @@ def derive_kept_macros(modules, top, kept_modules, macros):
         top_full_candidates = by_base.get(_base(top), [])
         # The actual top module has the `\\top` attribute and was identified
         # by name during parsing — start from that exact full name.
-        start = top if top in modules else (top_full_candidates[0] if top_full_candidates else None)
+        start = (
+            top
+            if top in modules
+            else (top_full_candidates[0] if top_full_candidates else None)
+        )
         if start is not None:
             top_macros = collect_macros_under(
-                start, modules, by_base, kept_bases, macro_bases,
+                start,
+                modules,
+                by_base,
+                kept_bases,
+                macro_bases,
             )
             if top_macros:
                 derived["_top"] = sorted(top_macros)
@@ -149,9 +161,9 @@ def format_dict(d):
         return "kept_macros = {}"
     lines = ["kept_macros = {"]
     for k in sorted(d):
-        lines.append("    \"{}\": [".format(k))
+        lines.append('    "{}": ['.format(k))
         for m in d[k]:
-            lines.append("        \"{}\",".format(m))
+            lines.append('        "{}",'.format(m))
         lines.append("    ],")
     lines.append("}")
     return "\n".join(lines)
@@ -160,15 +172,27 @@ def format_dict(d):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--rtlil", required=True)
-    ap.add_argument("--kept-modules", required=True,
-                    help="JSON: {\"modules\": [...]} (same shape as kept_modules.json)")
-    ap.add_argument("--macros", required=True,
-                    help="JSON: [\"macro_name\", ...] — base names of macros in deps")
-    ap.add_argument("--user-kept-macros", required=True,
-                    help="JSON: {\"M\": [\"macro\", ...], ...} user-supplied dict")
+    ap.add_argument(
+        "--kept-modules",
+        required=True,
+        help='JSON: {"modules": [...]} (same shape as kept_modules.json)',
+    )
+    ap.add_argument(
+        "--macros",
+        required=True,
+        help='JSON: ["macro_name", ...] — base names of macros in deps',
+    )
+    ap.add_argument(
+        "--user-kept-macros",
+        required=True,
+        help='JSON: {"M": ["macro", ...], ...} user-supplied dict',
+    )
     ap.add_argument("--top", required=True, help="Design top module name (base form)")
-    ap.add_argument("--output", required=True,
-                    help="Output validated_kept_macros.json (success only)")
+    ap.add_argument(
+        "--output",
+        required=True,
+        help="Output validated_kept_macros.json (success only)",
+    )
     args = ap.parse_args()
 
     with open(args.kept_modules) as f:
