@@ -29,13 +29,14 @@ import urllib.request
 
 
 # Map yosys MAJOR.MINOR -> the abc module version it ships against.  Update
-# this whenever a new yosys release is added to a BCR registry.  The
-# right-hand value matches the BCR ``abc`` module ``version`` field.
+# this whenever a new (yosys, abc) pair lands on a BCR registry.  Only list
+# pairs that are *actually published* on BCR — yosys 0.63 is on BCR but no
+# matching abc 0.63-yosyshq is, so omit it (the check then yields the
+# 'unknown pairing' message rather than a stale 'expected X' suggestion).
+# The right-hand value matches the BCR ``abc`` module ``version`` field.
 YOSYS_ABC_PAIRS = {
     "0.62": "0.62-yosyshq",
-    "0.63": "0.63-yosyshq",
     "0.64": "0.64-yosyshq.bcr.1",
-    "0.65": "0.65-yosyshq",
 }
 
 
@@ -996,9 +997,14 @@ def bump(
                 updated_modules.append(f"{module_name} -> {sha[:12]} ({source})")
 
     # --- Validate yosys/abc lockstep (downstream MODULE.bazel) ---
+    # In the bump path this is informational: BCR availability and yosys
+    # release cadence don't always line up (e.g. yosys 0.63 ships without
+    # a matching abc 0.63-yosyshq on BCR), and blocking the bumper on that
+    # would be more disruptive than the lurking quality risk. CI gets the
+    # hard check via the `--check-yosys-abc` entrypoint.
     ok, msg = check_yosys_abc_pair(content)
     if not ok:
-        raise SystemExit(msg)
+        sys.stderr.write("WARNING: " + msg + "\n")
 
     with open(module_file, "w") as f:
         f.write(content)
