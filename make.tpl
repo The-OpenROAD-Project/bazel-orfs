@@ -14,7 +14,16 @@ if [ -z "$FLOW_HOME" ]; then
   if [ -n "${YOSYS_PATH}" ]; then
     export YOSYS_EXE="${YOSYS_PATH}"
   fi
-  export OPENROAD_EXE="${OPENROAD_PATH}"
+  # Select the Qt-linked openroad only when the caller asked for a
+  # gui_* make target. Build-time stages and the portable tarball
+  # invoke CLI make targets and therefore keep ${OPENROAD_PATH}.
+  _openroad_exe="${OPENROAD_PATH}"
+  for _arg in "$@"; do
+    case "$_arg" in
+      gui_*|gui-*) _openroad_exe="${OPENROAD_QT_PATH}"; break ;;
+    esac
+  done
+  export OPENROAD_EXE="$_openroad_exe"
   export OPENSTA_EXE="${OPENSTA_PATH}"
   export KLAYOUT_CMD="${KLAYOUT_PATH}"
   export STDBUF_CMD="${STDBUF_PATH}"

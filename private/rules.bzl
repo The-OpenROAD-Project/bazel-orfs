@@ -417,7 +417,7 @@ def _run_impl(ctx):
                 transitive_files = depset(
                     [ctx.attr.src[OrfsDepInfo].config, make, ctx.file.script],
                     transitive = [
-                        flow_runfiles(ctx),
+                        flow_inputs(ctx),
                         data_inputs(ctx),
                         source_inputs(ctx),
                     ],
@@ -1325,12 +1325,16 @@ def _yosys_impl(ctx):
     )
 
     # Collect all files needed for deployment (tools, PDK, stage inputs).
+    # Uses flow_inputs (CLI openroad), not flow_runfiles: the tarball and
+    # the OrfsDepInfo.runfiles consumed by downstream rules (orfs_step,
+    # orfs_deploy_srcs) are headless paths. openroad_qt is only added to
+    # DefaultInfo.runfiles below so `bazelisk run :synth gui_synth` works.
     deploy_files = depset(
         [config_short, make] +
         ctx.files.verilog_files +
         ctx.files.extra_configs,
         transitive = [
-            flow_runfiles(ctx),
+            flow_inputs(ctx),
             yosys_inputs(ctx),
             data_inputs(ctx),
             pdk_inputs(ctx),
@@ -1357,22 +1361,33 @@ def _yosys_impl(ctx):
         name = ctx.attr.name + "_deps",
     )
 
+    _runfiles_files = [config_short, make] + outputs + canon_logs + synth_logs + ctx.files.extra_configs
+    _runfiles_common = depset(
+        transitive = [
+            deps_inputs(ctx),
+            pdk_inputs(ctx),
+        ],
+    )
     return [
         DefaultInfo(
             executable = exe,
             files = depset(outputs),
-            runfiles = ctx.runfiles(
-                [config_short, make] +
-                outputs +
-                canon_logs +
-                synth_logs +
-                ctx.files.extra_configs,
+            # default_runfiles includes openroad_qt so `bazelisk run
+            # :synth gui_synth` finds the Qt-linked binary in the
+            # deployed temp folder. data_runfiles deliberately omits
+            # openroad_qt so downstream rules that consume this stage
+            # via `data =` (e.g. orfs_generate_metadata) do not drag
+            # the Qt binary into their build action graph.
+            default_runfiles = ctx.runfiles(
+                _runfiles_files,
                 transitive_files = depset(
-                    transitive = [
-                        flow_runfiles(ctx),
-                        deps_inputs(ctx),
-                        pdk_inputs(ctx),
-                    ],
+                    transitive = [flow_runfiles(ctx), _runfiles_common],
+                ),
+            ),
+            data_runfiles = ctx.runfiles(
+                _runfiles_files,
+                transitive_files = depset(
+                    transitive = [flow_inputs(ctx), _runfiles_common],
                 ),
             ),
         ),
@@ -1652,11 +1667,15 @@ def _make_impl(
     )
 
     # Collect all files needed for deployment.
+    # Uses flow_inputs (CLI openroad), not flow_runfiles: the tarball and
+    # the OrfsDepInfo.runfiles consumed by downstream rules (orfs_step,
+    # orfs_deploy_srcs) are headless paths. openroad_qt is only added to
+    # DefaultInfo.runfiles below so `bazelisk run :stage gui_<stage>` works.
     stage_renames = renames(ctx, ctx.files.src, short = True)
     deploy_files = depset(
         [config_short, make, args_mk] + ctx.files.src + ctx.files.extra_configs + all_jsons,
         transitive = [
-            flow_runfiles(ctx),
+            flow_inputs(ctx),
             data_inputs(ctx),
             source_inputs(ctx),
             rename_inputs(ctx),
@@ -1684,30 +1703,48 @@ def _make_impl(
         renames = stage_renames,
     )
 
+    _runfiles_files = (
+        [config_short, make, args_mk] +
+        forwards +
+        results +
+        logs +
+        reports +
+        ctx.files.extra_configs +
+        drcs +
+        jsons +
+        ctx.files.data
+    )
+    _runfiles_common = depset(
+        transitive = [
+            ctx.attr.src[PdkInfo].files,
+            ctx.attr.src[PdkInfo].libs,
+            ctx.attr.src[OrfsInfo].additional_gds,
+            ctx.attr.src[OrfsInfo].additional_lefs,
+            ctx.attr.src[OrfsInfo].additional_libs,
+            ctx.attr.src[OrfsInfo].additional_libs_pre_layout,
+        ],
+    )
     return [
         DefaultInfo(
             executable = exe,
             files = depset(forwards + results + reports + [args_mk]),
-            runfiles = ctx.runfiles(
-                [config_short, make, args_mk] +
-                forwards +
-                results +
-                logs +
-                reports +
-                ctx.files.extra_configs +
-                drcs +
-                jsons +
-                ctx.files.data,
+            # default_runfiles includes openroad_qt so `bazelisk run
+            # :stage gui_<stage>` finds the Qt-linked binary in the
+            # deployed temp folder. data_runfiles deliberately omits
+            # openroad_qt so downstream rules that consume this stage
+            # via `data =` (e.g. orfs_generate_metadata pulling synth
+            # and floorplan outputs) do not drag the Qt binary into
+            # their build action graph.
+            default_runfiles = ctx.runfiles(
+                _runfiles_files,
                 transitive_files = depset(
-                    transitive = [
-                        flow_runfiles(ctx),
-                        ctx.attr.src[PdkInfo].files,
-                        ctx.attr.src[PdkInfo].libs,
-                        ctx.attr.src[OrfsInfo].additional_gds,
-                        ctx.attr.src[OrfsInfo].additional_lefs,
-                        ctx.attr.src[OrfsInfo].additional_libs,
-                        ctx.attr.src[OrfsInfo].additional_libs_pre_layout,
-                    ],
+                    transitive = [flow_runfiles(ctx), _runfiles_common],
+                ),
+            ),
+            data_runfiles = ctx.runfiles(
+                _runfiles_files,
+                transitive_files = depset(
+                    transitive = [flow_inputs(ctx), _runfiles_common],
                 ),
             ),
         ),
