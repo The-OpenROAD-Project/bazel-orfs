@@ -136,6 +136,23 @@ def flow_inputs_lite(ctx):
         ],
     )
 
+def flow_runfiles(ctx):
+    """Runfiles for `bazelisk run` wrappers: flow_inputs + openroad_qt.
+
+    The Qt-linked openroad binary is needed at runtime so wrapper
+    scripts (make.tpl-expanded) can invoke `gui_<stage>` make targets.
+    It is deliberately kept out of flow_inputs / flow_inputs_lite so
+    that build-time actions (synth, floorplan, place, route, ...) do
+    not list it as a tool — that would force a Qt-linked rebuild
+    every time the user tinkers with GUI source code.
+    """
+    return depset(
+        transitive = [
+            flow_inputs(ctx),
+            _runfiles([ctx.attr.openroad_qt]),
+        ],
+    )
+
 def test_inputs(ctx):
     return depset(
         transitive = [
@@ -229,8 +246,11 @@ def flow_substitutions(ctx):
         "${KLAYOUT_PATH}": "./" + _klayout_attr(ctx)[DefaultInfo].files_to_run.executable.short_path,
         "${MAKEFILE_PATH}": ctx.file._makefile.path,
         "${MAKE_PATH}": "./" + ctx.executable._make.short_path,
-        # OpenROAD uses //:openroad, //:opensta here and puts the binary in the pwd
-        "${OPENROAD_PATH}": "./" + ctx.attr.openroad[DefaultInfo].files_to_run.executable.short_path,
+        # Wrapper scripts expanded from make.tpl are only used by
+        # `bazelisk run` — point at the Qt-linked binary so `gui_<stage>`
+        # make targets work. The CLI `openroad` is still used for
+        # build-time actions via flow_environment().
+        "${OPENROAD_PATH}": "./" + ctx.attr.openroad_qt[DefaultInfo].files_to_run.executable.short_path,
         "${OPENSTA_PATH}": "./" + ctx.attr.opensta[DefaultInfo].files_to_run.executable.short_path,
         "${STDBUF_PATH}": "",
     }

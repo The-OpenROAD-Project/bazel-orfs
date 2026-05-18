@@ -26,6 +26,7 @@ load(
     "extensionless_basename",
     "flow_environment",
     "flow_inputs",
+    "flow_runfiles",
     "flow_substitutions",
     "generation_commands",
     "hack_away_prefix",
@@ -416,7 +417,7 @@ def _run_impl(ctx):
                 transitive_files = depset(
                     [ctx.attr.src[OrfsDepInfo].config, make, ctx.file.script],
                     transitive = [
-                        flow_inputs(ctx),
+                        flow_runfiles(ctx),
                         data_inputs(ctx),
                         source_inputs(ctx),
                     ],
@@ -1329,7 +1330,7 @@ def _yosys_impl(ctx):
         ctx.files.verilog_files +
         ctx.files.extra_configs,
         transitive = [
-            flow_inputs(ctx),
+            flow_runfiles(ctx),
             yosys_inputs(ctx),
             data_inputs(ctx),
             pdk_inputs(ctx),
@@ -1368,7 +1369,7 @@ def _yosys_impl(ctx):
                 ctx.files.extra_configs,
                 transitive_files = depset(
                     transitive = [
-                        flow_inputs(ctx),
+                        flow_runfiles(ctx),
                         deps_inputs(ctx),
                         pdk_inputs(ctx),
                     ],
@@ -1655,7 +1656,7 @@ def _make_impl(
     deploy_files = depset(
         [config_short, make, args_mk] + ctx.files.src + ctx.files.extra_configs + all_jsons,
         transitive = [
-            flow_inputs(ctx),
+            flow_runfiles(ctx),
             data_inputs(ctx),
             source_inputs(ctx),
             rename_inputs(ctx),
@@ -1699,7 +1700,7 @@ def _make_impl(
                 ctx.files.data,
                 transitive_files = depset(
                     transitive = [
-                        flow_inputs(ctx),
+                        flow_runfiles(ctx),
                         ctx.attr.src[PdkInfo].files,
                         ctx.attr.src[PdkInfo].libs,
                         ctx.attr.src[OrfsInfo].additional_gds,

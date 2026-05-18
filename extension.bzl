@@ -45,6 +45,11 @@ _default_tag = tag_class(
             cfg = "exec",
             default = Label("@openroad//:openroad"),
         ),
+        "openroad_qt": attr.label(
+            mandatory = False,
+            cfg = "exec",
+            default = Label("@openroad//:openroad-qt"),
+        ),
         "opensta": attr.label(
             mandatory = False,
             cfg = "exec",
@@ -97,6 +102,7 @@ def _orfs_repositories_impl(module_ctx):
             makefile = default.makefile,
             makefile_yosys = default.makefile_yosys,
             openroad = default.openroad,
+            openroad_qt = default.openroad_qt,
             opensta = default.opensta,
             pdk = default.pdk,
             yosys = default.yosys,
