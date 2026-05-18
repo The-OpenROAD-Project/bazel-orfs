@@ -39,8 +39,16 @@ use_repo(orfs, "gnumake")
 bazel_dep(name = "openroad")
 git_override(
     module_name = "openroad",
-    commit = "559a32007597782afb3c4d537d257fd89667ef3b",
+    commit = "08f67ee5ecd14db5a42be8c610bbfd1ccf079299",
     init_submodules = True,
+    # Mirrors //MODULE.bazel: pulls in the openroad-qt patch (PR #10384)
+    # so the openroad_qt attribute that bazel-orfs's flow_attrs()
+    # declares resolves to a real target in gallery too. Drop this
+    # patch and bump `commit` once OpenROAD PR #10384 merges upstream.
+    patch_strip = 1,
+    patches = [
+        "//patches:openroad-10384-add-openroad-qt.patch",
+    ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
 
