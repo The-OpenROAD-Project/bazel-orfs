@@ -1,5 +1,5 @@
 diff --git a/BUILD.bazel b/BUILD.bazel
-index 7322e6027bb..b24530e5f7e 100644
+index 7322e6027b..fc1ebee49e 100644
 --- a/BUILD.bazel
 +++ b/BUILD.bazel
 @@ -1,6 +1,7 @@
@@ -24,7 +24,7 @@ index 7322e6027bb..b24530e5f7e 100644
  
  # Flags applied to top-level OpenROAD targets only. Flags that apply
  # globally to every cc_* target (-Wall, -Wextra, -Wno-sign-compare,
-@@ -174,45 +170,111 @@ cc_library(
+@@ -174,45 +170,112 @@ cc_library(
      ],
  )
  
@@ -66,6 +66,7 @@ index 7322e6027bb..b24530e5f7e 100644
 +            ":platform_cli": [
 +                ":openroad_lib",
 +                "//src/gui",
++                "//src/gui:gui_stub",
 +            ],
 +            ":platform_gui": [
 +                ":openroad_lib_qt",
@@ -155,7 +156,7 @@ index 7322e6027bb..b24530e5f7e 100644
      srcs = [
          "src/Design.cc",
          "src/OpenRoad.cc",
-@@ -222,13 +284,14 @@ cc_library(
+@@ -222,13 +285,14 @@ cc_library(
          ":openroad_tcl",
      ],
      copts = OPENROAD_COPTS,
@@ -171,7 +172,15 @@ index 7322e6027bb..b24530e5f7e 100644
          "//src/sta:opensta_lib",
          "@abseil-cpp//absl/base:core_headers",
          "@abseil-cpp//absl/synchronization",
-@@ -460,6 +523,14 @@ sh_test(
+@@ -329,6 +393,7 @@ cc_binary(
+         "//src/gpl",
+         "//src/grt",
+         "//src/gui",
++        "//src/gui:gui_stub",
+         "//src/ifp",
+         "//src/odb",
+         "//src/par",
+@@ -460,6 +525,14 @@ sh_test(
      tags = ["local"],
  )
  
@@ -186,3 +195,51 @@ index 7322e6027bb..b24530e5f7e 100644
  # ---------------------------------------------------------------------------
  # Lint & tidy targets
  #
+diff --git a/src/gui/BUILD b/src/gui/BUILD
+index 9b32ad42b3..6b3d09a6bb 100644
+--- a/src/gui/BUILD
++++ b/src/gui/BUILD
+@@ -31,7 +31,6 @@ cc_library(
+         "src/insertBufferDialog.h",
+         "src/staDescriptors.cpp",
+         "src/staDescriptors.h",
+-        "src/stub.cpp",
+         ":tcl",
+     ],
+     hdrs = [
+@@ -58,6 +57,35 @@ cc_library(
+     ],
+ )
+ 
++# CLI-only stub implementations of GUI dispatch symbols (Gui::enabled,
++# startGui, initGui, Painter::getOptions, ...). Split out of :gui so
++# that :openroad-qt — which links //src/gui:gui_qt for the real Qt
++# implementations and pulls :gui transitively via :ui modules — does
++# NOT also link the stub. With --allow-multiple-definition in effect
++# (LLVM toolchain default), having both stub and gui_qt definitions
++# present at link time causes the stub to silently win for symbols
++# like Gui::enabled, and the GUI never opens at runtime.
++#
++# Only the CLI :openroad binary (and :_openroadpy.so) need to dep
++# :gui_stub explicitly to satisfy those undefined references in :gui's
++# heatMapCore.cpp et al.
++cc_library(
++    name = "gui_stub",
++    srcs = [
++        "src/bufferTreeDescriptor.h",
++        "src/stub.cpp",
++        ":tcl",
++    ],
++    deps = [
++        ":gui",
++        "//src/odb",
++        "//src/sta:opensta_lib",
++        "//src/utl",
++        "@spdlog",
++        "@tcl_lang//:tcl",
++    ],
++)
++
+ # A Qt 'headless' build is added for environments that require GUI features
+ # but do not have an attached display. This requires setting 'qt_gui_platform'
+ # to `headless`, and subsituting the dependency in the top-level BUILD.
