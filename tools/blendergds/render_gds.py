@@ -72,9 +72,9 @@ def _trim_layerstack(addon_module, addon_root, pdk_selection, tmpdir):
     """Build a trimmed layerstack YAML containing only the entries listed
     in _LAYER_PRESETS[pdk_selection], in the original YAML's order.
 
-    Returns the path to the trimmed YAML to feed back into the addon via
-    `gdsii_use_custom_config=True` + `gdsii_config_path=<this>`, or None
-    if the PDK has no preset (fall through to the addon's default stack).
+    Returns the path to the trimmed YAML to feed back into the addon by
+    monkey-patching `PDK_CONFIGS[pdk]['config_path']`, or None if the
+    PDK has no preset (fall through to the addon's default stack).
     """
     preset = _LAYER_PRESETS.get(pdk_selection)
     if not preset:
@@ -289,11 +289,19 @@ def main():
         # in seconds rather than 5-7 minutes + 16 GB RSS.  No-op for
         # PDKs without a preset and for designs whose full stack is
         # already small enough.
+        # We can't go through the addon's `gdsii_use_custom_config = True`
+        # path: that branch in `import_gdsii` skips initialising
+        # `pdk_info` and `addon_dir`, both of which are still used
+        # afterwards to resolve `color_path` -- so a custom YAML trips
+        # `UnboundLocalError: pdk_info` inside the addon.  Instead,
+        # monkey-patch PDK_CONFIGS[pdk]['config_path'] to point at the
+        # trimmed YAML (absolute path -- `addon_dir / Path("/abs")`
+        # evaluates to the absolute path in pathlib, so the else branch
+        # in the addon picks it up correctly).
         trimmed = _trim_layerstack(addon, addon_root, args.pdk, tmp)
         if trimmed is not None:
             yaml_path, kept_layers, missing = trimmed
-            bpy.context.scene.gdsii_use_custom_config = True
-            bpy.context.scene.gdsii_config_path = str(yaml_path)
+            addon.PDK_CONFIGS.setdefault(args.pdk, {})["config_path"] = str(yaml_path)
             _log_phase(
                 "layerstack-trimmed",
                 extra=(
