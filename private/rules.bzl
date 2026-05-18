@@ -651,7 +651,7 @@ def _run_executable_impl(ctx):
         work_home = None
 
     runfiles_var = "$RUNFILES"
-    openroad_path = absolute_runtime(ctx.attr.openroad[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
+    openroad_path = absolute_runtime(ctx.attr.openroad_qt[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
     opensta_path = absolute_runtime(ctx.attr.opensta[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
     klayout_path = absolute_runtime(ctx.attr._klayout[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
     flow_home = absolute_runtime(ctx.file._makefile.dirname, runfiles_var)
@@ -713,7 +713,13 @@ exec {py_run_executable} {moreargs} "$@"
                         source_inputs(ctx),
                     ],
                 ),
-            ).merge(ctx.attr._run_executable[DefaultInfo].default_runfiles),
+            ).merge_all([
+                ctx.attr._run_executable[DefaultInfo].default_runfiles,
+                # openroad_qt isn't in flow_inputs (which feeds build-time
+                # action inputs); pulling it into runfiles only here keeps
+                # build-time stages independent of the Qt-linked binary.
+                ctx.attr.openroad_qt[DefaultInfo].default_runfiles,
+            ]),
         ),
     ]
 

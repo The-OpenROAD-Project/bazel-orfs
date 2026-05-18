@@ -8,6 +8,7 @@ load(
     "CONFIG_MAKEFILE",
     "CONFIG_MAKEFILE_YOSYS",
     "CONFIG_OPENROAD",
+    "CONFIG_OPENROAD_QT",
     "CONFIG_OPENSTA",
     "CONFIG_PDK",
     "CONFIG_YOSYS",
@@ -128,6 +129,16 @@ def flow_attrs():
             allow_files = True,
             cfg = "exec",
             default = CONFIG_OPENROAD,
+        ),
+        "openroad_qt": attr.label(
+            doc = "OpenROAD binary with Qt GUI linked in. Used by " +
+                  "`bazelisk run <target> gui_<stage>` so opening the " +
+                  "GUI reuses the CLI binary's cache instead of " +
+                  "triggering a full Qt-linked rebuild.",
+            executable = True,
+            allow_files = True,
+            cfg = "exec",
+            default = CONFIG_OPENROAD_QT,
         ),
         "opensta": attr.label(
             doc = "OpenSTA binary. Override to use a custom or locally-built opensta.",
