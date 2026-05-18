@@ -26,6 +26,7 @@ load(
     "extensionless_basename",
     "flow_environment",
     "flow_inputs",
+    "flow_runfiles",
     "flow_substitutions",
     "generation_commands",
     "hack_away_prefix",
@@ -416,7 +417,7 @@ def _run_impl(ctx):
                 transitive_files = depset(
                     [ctx.attr.src[OrfsDepInfo].config, make, ctx.file.script],
                     transitive = [
-                        flow_inputs(ctx),
+                        flow_runfiles(ctx),
                         data_inputs(ctx),
                         source_inputs(ctx),
                     ],
@@ -651,7 +652,7 @@ def _run_executable_impl(ctx):
         work_home = None
 
     runfiles_var = "$RUNFILES"
-    openroad_path = absolute_runtime(ctx.attr.openroad_qt[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
+    openroad_path = absolute_runtime(ctx.attr.openroad[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
     opensta_path = absolute_runtime(ctx.attr.opensta[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
     klayout_path = absolute_runtime(ctx.attr._klayout[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
     flow_home = absolute_runtime(ctx.file._makefile.dirname, runfiles_var)
@@ -713,13 +714,7 @@ exec {py_run_executable} {moreargs} "$@"
                         source_inputs(ctx),
                     ],
                 ),
-            ).merge_all([
-                ctx.attr._run_executable[DefaultInfo].default_runfiles,
-                # openroad_qt isn't in flow_inputs (which feeds build-time
-                # action inputs); pulling it into runfiles only here keeps
-                # build-time stages independent of the Qt-linked binary.
-                ctx.attr.openroad_qt[DefaultInfo].default_runfiles,
-            ]),
+            ).merge(ctx.attr._run_executable[DefaultInfo].default_runfiles),
         ),
     ]
 
@@ -1335,7 +1330,7 @@ def _yosys_impl(ctx):
         ctx.files.verilog_files +
         ctx.files.extra_configs,
         transitive = [
-            flow_inputs(ctx),
+            flow_runfiles(ctx),
             yosys_inputs(ctx),
             data_inputs(ctx),
             pdk_inputs(ctx),
@@ -1374,7 +1369,7 @@ def _yosys_impl(ctx):
                 ctx.files.extra_configs,
                 transitive_files = depset(
                     transitive = [
-                        flow_inputs(ctx),
+                        flow_runfiles(ctx),
                         deps_inputs(ctx),
                         pdk_inputs(ctx),
                     ],
@@ -1661,7 +1656,7 @@ def _make_impl(
     deploy_files = depset(
         [config_short, make, args_mk] + ctx.files.src + ctx.files.extra_configs + all_jsons,
         transitive = [
-            flow_inputs(ctx),
+            flow_runfiles(ctx),
             data_inputs(ctx),
             source_inputs(ctx),
             rename_inputs(ctx),
@@ -1705,7 +1700,7 @@ def _make_impl(
                 ctx.files.data,
                 transitive_files = depset(
                     transitive = [
-                        flow_inputs(ctx),
+                        flow_runfiles(ctx),
                         ctx.attr.src[PdkInfo].files,
                         ctx.attr.src[PdkInfo].libs,
                         ctx.attr.src[OrfsInfo].additional_gds,
