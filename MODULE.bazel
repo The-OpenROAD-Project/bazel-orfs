@@ -53,6 +53,13 @@ git_override(
     module_name = "openroad",
     commit = "08f67ee5ecd14db5a42be8c610bbfd1ccf079299",
     init_submodules = True,
+    # Adds //:openroad-qt as a separate Qt-GUI binary so `bazelisk run
+    # <target> gui_<stage>` doesn't cache-bust the CLI build. Drop this
+    # patch and bump `commit` once OpenROAD PR #10384 merges upstream.
+    patch_strip = 1,
+    patches = [
+        "//patches:openroad-10384-add-openroad-qt.patch",
+    ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
 
