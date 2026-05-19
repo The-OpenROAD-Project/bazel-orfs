@@ -27,7 +27,7 @@ local_path_override(
 bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",
-    commit = "3adda8b9d7cfc3f186e1a7748f0a230094e42805",
+    commit = "74b5f9610c107e9a155ac50e6eac4ad146e75344",
     patch_strip = 1,
     patches = [
         "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
@@ -38,7 +38,7 @@ git_override(
 bazel_dep(name = "openroad")
 git_override(
     module_name = "openroad",
-    commit = "66c2b5ed03ea15f4ab7631537c9380d8239ec67a",
+    commit = "08f67ee5ecd14db5a42be8c610bbfd1ccf079299",
     init_submodules = True,
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
@@ -59,6 +59,7 @@ bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
 
 # --- Python 3.13 toolchain (required by bazel-orfs pip deps) ---
 bazel_dep(name = "rules_python", version = "1.8.5")
+
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
     is_default = True,

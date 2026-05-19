@@ -24,7 +24,7 @@ bazel_dep(name = "yosys", version = "0.63")
 bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",
-    commit = "d8c6b0cbd54d3a2d6e78671e80b7b479c10af6f6",
+    commit = "74b5f9610c107e9a155ac50e6eac4ad146e75344",
     patch_strip = 1,
     patches = [
         "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
@@ -42,7 +42,7 @@ use_repo(orfs, "gnumake")
 bazel_dep(name = "openroad")
 git_override(
     module_name = "openroad",
-    commit = "66c2b5ed03ea15f4ab7631537c9380d8239ec67a",
+    commit = "08f67ee5ecd14db5a42be8c610bbfd1ccf079299",
     init_submodules = True,
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
 )
