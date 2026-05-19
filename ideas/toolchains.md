@@ -423,9 +423,9 @@ own BUILD logic, not upstream ORFS content.
 
 - The 1.1 GB ORFS git clone (replaced by ~1 MB tarball download).
 - The `git_override` for ORFS in `MODULE.bazel`.
-- The patch stack against ORFS (`patches/0001-...`, `patches/0002-...`,
-  `patches/0035-...`) -- the patches exist to inject Bazel build logic
-  into ORFS; with a standalone package, the BUILD file ships directly.
+- The patch stack against ORFS (`patches/0036-...`, `patches/0037-...`)
+  -- the patches exist to inject Bazel build logic into ORFS; with a
+  standalone package, the BUILD file ships directly.
 
 ---
 
