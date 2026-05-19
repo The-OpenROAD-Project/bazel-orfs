@@ -25,6 +25,11 @@ bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",
     commit = "74b5f9610c107e9a155ac50e6eac4ad146e75344",
+    patch_strip = 1,
+    patches = [
+        "//patches:0036-fix-bazel-orfs-bazel_dep-non-dev-for-load-visibility.patch",
+        "//patches:0037-fix-generate_klayout_tech-drop-realpath.patch",
+    ],
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
 )
 
