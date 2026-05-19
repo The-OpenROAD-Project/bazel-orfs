@@ -1301,7 +1301,10 @@ def _yosys_impl(ctx):
                 arguments = merge_arguments(
                     data_arguments(ctx) |
                     required_arguments(ctx),
-                    orfs_additional_arguments([dep[OrfsInfo] for dep in ctx.attr.deps]),
+                    orfs_additional_arguments(
+                        [dep[OrfsInfo] for dep in ctx.attr.deps],
+                        use_pre_layout = True,
+                    ),
                 ) | verilog_arguments(ctx.files.verilog_files),
                 prefix = config_short.root.path,
             ),
