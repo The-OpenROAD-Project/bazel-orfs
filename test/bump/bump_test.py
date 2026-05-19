@@ -595,7 +595,7 @@ class TestBazelOrfsArchiveOverride(unittest.TestCase):
 
     def test_patches_preserved(self):
         self.assertIn(
-            "//patches:0035-fix-remove-non-root-overrides-from-MODULE.bazel.patch",
+            "//patches:0036-fix-bazel-orfs-bazel_dep-non-dev-for-load-visibility.patch",
             self.content,
         )
         self.assertIn("patch_strip = 1", self.content)
