@@ -38,20 +38,19 @@ bazel_dep(name = "orfs")
 # blocked (e.g. inside the maintainers organization).
 archive_override(
     module_name = "orfs",
-    integrity = "sha256-He5e7aJ0yMXHALyuIl+S+4vavTIT9Cber8s8xHvKxRE=",
+    integrity = "sha256-TbnoXM5Z1DmsYvI7KxLeRYiMUNnsVY0iPdWh3xOL4HY=",
     patch_strip = 1,
     patches = [
         "//patches:0036-fix-bazel-orfs-bazel_dep-non-dev-for-load-visibility.patch",
-        "//patches:0037-fix-generate_klayout_tech-drop-realpath.patch",
     ],
-    strip_prefix = "OpenROAD-flow-scripts-74b5f9610c107e9a155ac50e6eac4ad146e75344",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/74b5f9610c107e9a155ac50e6eac4ad146e75344.tar.gz"],
+    strip_prefix = "OpenROAD-flow-scripts-b23706a6c819d073aa826bc51a6f2267a4697d70",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/b23706a6c819d073aa826bc51a6f2267a4697d70.tar.gz"],
 )
 
 bazel_dep(name = "openroad")
 git_override(
     module_name = "openroad",
-    commit = "08f67ee5ecd14db5a42be8c610bbfd1ccf079299",
+    commit = "5e0c640405ef0d3c93cadbfd738a8a594ab60aca",
     init_submodules = True,
     # Adds //:openroad-qt as a separate Qt-GUI binary so `bazelisk run
     # <target> gui_<stage>` doesn't cache-bust the CLI build. Drop this

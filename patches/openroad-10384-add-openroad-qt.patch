@@ -178,7 +178,7 @@ index 7322e6027b..fc1ebee49e 100644
          "//src/gui",
 +        "//src/gui:gui_stub",
          "//src/ifp",
-         "//src/odb",
+         "//src/odb/src/db",
          "//src/par",
 @@ -460,6 +525,14 @@ sh_test(
      tags = ["local"],
@@ -207,10 +207,10 @@ index 9b32ad42b3..6b3d09a6bb 100644
          ":tcl",
      ],
      hdrs = [
-@@ -58,6 +57,35 @@ cc_library(
+@@ -58,6 +57,33 @@ cc_library(
      ],
  )
- 
+
 +# CLI-only stub implementations of GUI dispatch symbols (Gui::enabled,
 +# startGui, initGui, Painter::getOptions, ...). Split out of :gui so
 +# that :openroad-qt — which links //src/gui:gui_qt for the real Qt
@@ -228,14 +228,12 @@ index 9b32ad42b3..6b3d09a6bb 100644
 +    srcs = [
 +        "src/bufferTreeDescriptor.h",
 +        "src/stub.cpp",
-+        ":tcl",
 +    ],
 +    deps = [
 +        ":gui",
-+        "//src/odb",
++        "//src/odb/src/db",
 +        "//src/sta:opensta_lib",
 +        "//src/utl",
-+        "@spdlog",
 +        "@tcl_lang//:tcl",
 +    ],
 +)
