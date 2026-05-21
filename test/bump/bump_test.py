@@ -743,6 +743,162 @@ class TestFindArchiveOverrideBlock(unittest.TestCase):
         content = 'git_override(\n    module_name = "orfs",\n    commit = "x",\n)'
         self.assertIsNone(bump.find_archive_override_block(content, "orfs"))
 
+    def test_ignores_match_inside_comment_before_real_block(self):
+        # A prose comment that wraps an ``archive_override(`` mention across
+        # lines — opening paren on one comment line, closing paren on a
+        # *subsequent* comment line — is the realistic shape this guard
+        # protects against.  ``find_starlark_call_end`` skips comment-line
+        # interiors when it encounters ``#``, so the closing ``)`` on the
+        # next comment line is silently consumed; without the comment
+        # filter on ``re.finditer`` matches, the scan would then walk on,
+        # increment depth at the real ``archive_override(`` below, and only
+        # exit at some later stray ``)`` — wrapping the real block (and
+        # everything between) inside one runaway "block" that the rewriter
+        # then either no-ops or corrupts.
+        content = (
+            "# Pinned via archive_override (GitHub /archive/<sha>.tar.gz +\n"
+            "# patch_cmds for submodules) rather than git_override +\n"
+            "# init_submodules — the latter has a non-atomic-fetch bug.\n"
+            "archive_override(\n"
+            '    module_name = "orfs",\n'
+            '    urls = ["https://example/x.tar.gz"],\n'
+            ")"
+        )
+        span = bump.find_archive_override_block(content, "orfs")
+        self.assertIsNotNone(span)
+        block = content[span[0] : span[1]]
+        self.assertTrue(block.startswith("archive_override("))
+        self.assertTrue(block.endswith(")"))
+        self.assertNotIn("Pinned via", block)
+        self.assertNotIn("# patch_cmds for submodules", block)
+
+    def test_ignores_match_in_indented_comment(self):
+        # Comments aren't always at column 0 — buildifier preserves leading
+        # whitespace before ``#``.  Indented prose with an unbalanced ``(``
+        # on the same line as the call mention must still be skipped.
+        comment = (
+            "    # see archive_override( above for the parent pin;\n"
+            "    # the close-paren is on this trailing comment line ).\n"
+        )
+        active = 'archive_override(\n    module_name = "orfs",\n)'
+        content = comment + active
+        span = bump.find_archive_override_block(content, "orfs")
+        self.assertIsNotNone(span)
+        # The span must start at the active block, not at the comment.
+        self.assertEqual(span[0], len(comment))
+        block = content[span[0] : span[1]]
+        self.assertEqual(block, active)
+
+    def test_only_commented_block_returns_none(self):
+        # If every occurrence is inside a comment, the finder must return
+        # None.  Returning a runaway span (or a bogus in-comment span) would
+        # make ``update_openroad_archive_override`` either rewrite the
+        # comment in place or corrupt unrelated code below it.
+        content = (
+            "# archive_override(\n"
+            '#     module_name = "orfs",\n'
+            "# )\n"
+            'git_override(\n    module_name = "other",\n    commit = "x",\n)'
+        )
+        self.assertIsNone(bump.find_archive_override_block(content, "orfs"))
+
+
+class TestFindGitOverrideBlock(unittest.TestCase):
+    def test_ignores_match_inside_comment_before_real_block(self):
+        # Same hazard as the archive_override case: a commented-out
+        # ``# git_override(`` ahead of the real block must be skipped so the
+        # finder doesn't return a span that begins inside the comment.
+        content = (
+            "# Worker-wrapper fork — swap the git_override( above to enable.\n"
+            "# git_override(\n"
+            '#     module_name = "bazel-orfs",\n'
+            '#     commit = "old",\n'
+            "# )\n"
+            "\n"
+            "git_override(\n"
+            '    module_name = "bazel-orfs",\n'
+            '    commit = "real",\n'
+            ")"
+        )
+        span = bump.find_git_override_block(content, "bazel-orfs")
+        self.assertIsNotNone(span)
+        block = content[span[0] : span[1]]
+        self.assertTrue(block.startswith("git_override("))
+        self.assertIn('commit = "real"', block)
+        self.assertNotIn("Worker-wrapper", block)
+        self.assertNotIn('commit = "old"', block)
+
+    def test_only_commented_block_returns_none(self):
+        content = (
+            "# git_override(\n"
+            '#     module_name = "bazel-orfs",\n'
+            '#     commit = "old",\n'
+            "# )\n"
+        )
+        self.assertIsNone(bump.find_git_override_block(content, "bazel-orfs"))
+
+
+class TestUpdateOpenroadArchiveOverrideAroundComments(unittest.TestCase):
+    """Regression: comments mentioning ``archive_override(`` next to the
+    real block must not derail the openroad rewriter.
+
+    The original bug: a downstream MODULE.bazel with a leading prose
+    comment ``# Pinned via archive_override (...)`` caused
+    ``find_archive_override_block`` to match inside the comment.
+    ``find_starlark_call_end`` then walked from the ``#`` line into the
+    real block and beyond, returning a runaway span.  The rewriter then
+    either no-oped (because depth tracking landed at the wrong ``)``) or
+    corrupted everything between the comment and the next stray ``)`` in
+    the file.
+    """
+
+    def test_rewrite_targets_active_block_not_comment(self):
+        # Realistic comment shape: ``(`` on one comment line, ``)`` on a
+        # later one — Starlark-call-end skips the inner ``#`` lines, so the
+        # unbalanced ``(`` in the comment used to leak into the real block
+        # below and produce a runaway span.
+        content = (
+            "# Pinned via archive_override (GitHub /archive/<sha>.tar.gz +\n"
+            "# patch_cmds for submodules) so the submodule-fetch race in\n"
+            "# git_override + init_submodules can't strand us.\n"
+            "archive_override(\n"
+            '    module_name = "openroad",\n'
+            '    integrity = "sha256-OLD=",\n'
+            '    patches = [],\n'
+            '    strip_prefix = "OpenROAD-old_openroad_commit",\n'
+            '    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/old_openroad_commit.tar.gz"],\n'
+            ")\n"
+        )
+
+        def fake_int(_url):
+            return "sha256-NEW="
+
+        def fake_hex(_url):
+            return "f" * 64
+
+        def fake_sub(_repo, _commit, path):
+            return OPENROAD_SUBMODULE_SHAS[path]
+
+        new_content = bump.update_openroad_archive_override(
+            content,
+            "new_openroad_commit",
+            fetch_integrity_fn=fake_int,
+            fetch_sha256_hex_fn=fake_hex,
+            fetch_submodule_sha_fn=fake_sub,
+        )
+        # The active block was actually rewritten — old SHA is gone.
+        self.assertNotIn("old_openroad_commit", new_content)
+        self.assertIn(
+            'strip_prefix = "OpenROAD-new_openroad_commit"', new_content
+        )
+        self.assertIn("new_openroad_commit.tar.gz", new_content)
+        # And the comment block is intact (not consumed by a runaway span).
+        self.assertIn("# Pinned via archive_override (GitHub", new_content)
+        self.assertIn(
+            "# patch_cmds for submodules) so the submodule-fetch race",
+            new_content,
+        )
+
 
 class TestDownstreamOrfsToolsFlow(unittest.TestCase):
     """Downstream: openroad commit and yosys BCR version follow ORFS tools/."""

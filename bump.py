@@ -242,6 +242,39 @@ def find_starlark_call_end(content, start):
     return n
 
 
+def _position_is_in_comment(content, pos):
+    """True if ``content[pos]`` is in a ``#`` line comment.
+
+    Walks the current line from its start, tracking single- and double-quoted
+    strings (so a ``#`` inside a string is not treated as a comment marker)
+    and returns True the moment an unquoted ``#`` is seen before ``pos``.
+
+    Used by the override-block finders below to skip regex matches that
+    fall inside a comment — e.g. a documentation line that mentions
+    ``archive_override(`` would otherwise be treated as the start of a real
+    Starlark call, with ``find_starlark_call_end`` then walking past the
+    comment lines into unrelated code and returning a runaway span.
+    """
+    line_start = content.rfind("\n", 0, pos) + 1
+    in_str = None
+    i = line_start
+    while i < pos:
+        c = content[i]
+        if in_str:
+            if c == "\\":
+                i += 2
+                continue
+            if c == in_str:
+                in_str = None
+        else:
+            if c in ('"', "'"):
+                in_str = c
+            elif c == "#":
+                return True
+        i += 1
+    return False
+
+
 def find_git_override_block(content, module_name):
     """Find the full git_override() block for a module, handling nested strings.
 
@@ -249,6 +282,8 @@ def find_git_override_block(content, module_name):
     """
     pattern = r"git_override\s*\("
     for m in re.finditer(pattern, content):
+        if _position_is_in_comment(content, m.start()):
+            continue
         end = find_starlark_call_end(content, m.start())
         block = content[m.start() : end]
         if f'module_name = "{module_name}"' in block:
@@ -263,6 +298,8 @@ def find_archive_override_block(content, module_name):
     """
     pattern = r"archive_override\s*\("
     for m in re.finditer(pattern, content):
+        if _position_is_in_comment(content, m.start()):
+            continue
         end = find_starlark_call_end(content, m.start())
         block = content[m.start() : end]
         if f'module_name = "{module_name}"' in block:
