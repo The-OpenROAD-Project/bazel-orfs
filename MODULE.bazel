@@ -38,13 +38,13 @@ bazel_dep(name = "orfs")
 # blocked (e.g. inside the maintainers organization).
 archive_override(
     module_name = "orfs",
-    integrity = "sha256-TbnoXM5Z1DmsYvI7KxLeRYiMUNnsVY0iPdWh3xOL4HY=",
+    integrity = "sha256-mi8RbzPEC7itHqhc3eALDhCxafruYRsrSnORqX5sw1U=",
     patch_strip = 1,
     patches = [
         "//patches:0036-fix-bazel-orfs-bazel_dep-non-dev-for-load-visibility.patch",
     ],
-    strip_prefix = "OpenROAD-flow-scripts-b23706a6c819d073aa826bc51a6f2267a4697d70",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/b23706a6c819d073aa826bc51a6f2267a4697d70.tar.gz"],
+    strip_prefix = "OpenROAD-flow-scripts-a8b85cd6c83181683ac4dc121615b422a4b13830",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/a8b85cd6c83181683ac4dc121615b422a4b13830.tar.gz"],
 )
 
 bazel_dep(name = "openroad")
