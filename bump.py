@@ -379,20 +379,22 @@ def update_archive_override(
 def _openroad_submodule_patch_cmd(path, github_repo, sha, sha256_hex):
     """Render one patch_cmds curl-extract line for an OpenROAD submodule.
 
-    Format: download to a SHA-suffixed temp file, verify with sha256sum,
+    Format: download to a SHA-suffixed staging file *inside the repo's own
+    workdir* (not /tmp — many hosts mount /tmp as tmpfs and the OpenROAD
+    submodule tarballs are large enough to matter), verify with sha256sum,
     untar with --strip-components=1 into the empty submodule directory the
     parent archive left behind, clean up.  --retry absorbs transient
     network blips (mirrors the qt-bazel xcb-util-cursor pattern in
     //MODULE.bazel).
     """
     archive_url = f"https://github.com/{github_repo}/archive/{sha}.tar.gz"
-    tmpfile = f"/tmp/openroad-{path.replace('/', '-')}-{sha}.tar.gz"
+    stagefile = f".openroad-submodule-{path.replace('/', '-')}-{sha}.tar.gz"
     return (
         f"curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 "
-        f"-o {tmpfile} {archive_url} && "
-        f"echo '{sha256_hex}  {tmpfile}' | sha256sum -c - && "
-        f"tar xzf {tmpfile} --strip-components=1 -C {path} && "
-        f"rm {tmpfile}"
+        f"-o {stagefile} {archive_url} && "
+        f"echo '{sha256_hex}  {stagefile}' | sha256sum -c - && "
+        f"tar xzf {stagefile} --strip-components=1 -C {path} && "
+        f"rm {stagefile}"
     )
 
 
