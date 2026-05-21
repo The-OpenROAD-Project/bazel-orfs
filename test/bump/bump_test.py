@@ -21,6 +21,16 @@ YOSYS_SLANG_TOOLS_COMMIT = "new_yosys_slang_eee555"
 UPSTREAM_HEAD_COMMIT = "upstream_head_fff666"
 MOCK_INTEGRITY = "sha256-MOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCK="
 
+# OpenROAD submodule mocks: SHAs and sha256 hex digests for the two
+# submodules the openroad archive_override patch_cmds vendor in
+# (src/sta=OpenSTA, third-party/abc=abc).  Real bumps fetch these from
+# GitHub; tests substitute these constants via the injection points.
+OPENROAD_SUBMODULE_SHAS = {
+    "src/sta": "new_opensta_sha_aaaa",
+    "third-party/abc": "new_abc_sha_bbbb",
+}
+MOCK_SUB_SHA256_HEX = "deadbeef" * 8  # 64-char hex matches sha256sum -c shape
+
 # ORFS pins tools/yosys to a 0.64-dev commit; BCR has up to 0.63.
 MOCK_ORFS_YOSYS_VERSION = (0, 64)
 MOCK_BCR_YOSYS_VERSIONS = [
@@ -74,6 +84,14 @@ def mock_fetch_integrity(_url):
     return MOCK_INTEGRITY
 
 
+def mock_fetch_sha256_hex(_url):
+    return MOCK_SUB_SHA256_HEX
+
+
+def mock_fetch_submodule_sha(_parent_repo, _parent_commit, path):
+    return OPENROAD_SUBMODULE_SHAS[path]
+
+
 def apply_bump(
     fixture_name,
     workspace_dir=None,
@@ -94,6 +112,8 @@ def apply_bump(
         fetch_compare_status_fn=compare_status_fn,
         fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
         fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+        fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+        fetch_submodule_sha_fn=mock_fetch_submodule_sha,
         workspace_dir=workspace_dir,
         head_tools=head_tools,
     )
@@ -232,6 +252,8 @@ def _apply_bump_with_workspace(
             fetch_compare_status_fn=compare_status_fn,
             fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
             fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+            fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+            fetch_submodule_sha_fn=mock_fetch_submodule_sha,
             workspace_dir=tmpdir,
             head_tools=head_tools,
         )
@@ -624,6 +646,8 @@ class TestArchiveOverrideDoubleBumpIdempotent(unittest.TestCase):
             fetch_integrity_fn=mock_fetch_integrity,
             fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
             fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+            fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+            fetch_submodule_sha_fn=mock_fetch_submodule_sha,
         )
         bump.bump(tmp.name, **kwargs)
         with open(tmp.name) as f:
@@ -775,6 +799,8 @@ class TestYosysSlangFloorGate(unittest.TestCase):
                 fetch_compare_status_fn=compare_status_fn,
                 fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
                 fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+                fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+                fetch_submodule_sha_fn=mock_fetch_submodule_sha,
                 workspace_dir=tmpdir,
             )
             with open(slang_path) as f:
@@ -798,18 +824,17 @@ class TestHeadFlagOverrides(unittest.TestCase):
     """--head=<tool> bypasses ORFS-tools sha and (for yosys-slang) the floor."""
 
     def test_head_openroad_uses_upstream_head(self):
+        # openroad is pinned via archive_override (not git_override) after the
+        # switch to fix submodule-fetch races — see OPENROAD_REPO in bump.py.
         content = apply_bump(
             "downstream.MODULE.bazel",
             head_tools={"openroad"},
         )
-        block = re.search(
-            r'git_override\(\s*module_name\s*=\s*"openroad".*?\)',
-            content,
-            re.DOTALL,
-        )
-        self.assertIsNotNone(block)
-        self.assertIn(UPSTREAM_HEAD_COMMIT, block.group())
-        self.assertNotIn(OPENROAD_COMMIT, block.group())
+        span = bump.find_archive_override_block(content, "openroad")
+        self.assertIsNotNone(span)
+        block = content[span[0] : span[1]]
+        self.assertIn(UPSTREAM_HEAD_COMMIT, block)
+        self.assertNotIn(OPENROAD_COMMIT, block)
 
     def test_head_yosys_slang_bypasses_floor(self):
         # Even with ORFS lagging (would otherwise hold at floor), --head wins.
@@ -835,6 +860,8 @@ class TestHeadFlagOverrides(unittest.TestCase):
                 fetch_compare_status_fn=mock_fetch_compare_status_behind,
                 fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
                 fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+                fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+                fetch_submodule_sha_fn=mock_fetch_submodule_sha,
                 workspace_dir=tmpdir,
                 head_tools={"yosys-slang"},
             )
@@ -1213,6 +1240,220 @@ class TestReadModuleHelpers(unittest.TestCase):
 
     def test_yosys_major_minor_bad_input(self):
         self.assertIsNone(bump._yosys_major_minor("not-a-version"))
+
+
+class TestOpenroadSubmoduleConversion(unittest.TestCase):
+    """git_override(openroad, init_submodules=True) → archive_override + patch_cmds.
+
+    The conversion eliminates the non-atomic submodule-fetch bug (where an
+    interrupted fetch leaves empty ``src/sta/`` and Bazel reuses the broken
+    state).  Replacement is archive_override over GitHub's auto-archive of
+    the parent commit + curl-and-extract patch_cmds for OpenSTA / abc from
+    their own GitHub auto-archives.
+    """
+
+    def setUp(self):
+        # self.MODULE.bazel has git_override(openroad, init_submodules=True,
+        # patches=[openroad-qt]) — the realistic shape this conversion targets.
+        self.content = apply_bump("self.MODULE.bazel")
+        span = bump.find_archive_override_block(self.content, "openroad")
+        self.assertIsNotNone(span, "openroad must end up as archive_override")
+        self.block = self.content[span[0] : span[1]]
+
+    def test_no_git_override_left(self):
+        self.assertIsNone(
+            bump.find_git_override_block(self.content, "openroad"),
+            "Legacy git_override(openroad,...) must be replaced, not duplicated",
+        )
+
+    def test_parent_url_uses_github_archive(self):
+        self.assertIn(
+            f"https://github.com/The-OpenROAD-Project/OpenROAD/archive/{OPENROAD_COMMIT}.tar.gz",
+            self.block,
+        )
+
+    def test_parent_strip_prefix(self):
+        self.assertIn(f'strip_prefix = "OpenROAD-{OPENROAD_COMMIT}"', self.block)
+
+    def test_parent_integrity(self):
+        self.assertIn(f'integrity = "{MOCK_INTEGRITY}"', self.block)
+
+    def test_patch_cmds_vendors_opensta(self):
+        sta_sha = OPENROAD_SUBMODULE_SHAS["src/sta"]
+        self.assertIn(
+            f"https://github.com/The-OpenROAD-Project/OpenSTA/archive/{sta_sha}.tar.gz",
+            self.block,
+        )
+        # sha256sum -c verification line.
+        self.assertIn(MOCK_SUB_SHA256_HEX, self.block)
+        # Extracted into the empty src/sta/ directory left by the parent.
+        self.assertIn("-C src/sta", self.block)
+
+    def test_patch_cmds_vendors_abc(self):
+        abc_sha = OPENROAD_SUBMODULE_SHAS["third-party/abc"]
+        self.assertIn(
+            f"https://github.com/The-OpenROAD-Project/abc/archive/{abc_sha}.tar.gz",
+            self.block,
+        )
+        self.assertIn("-C third-party/abc", self.block)
+
+    def test_curl_has_retry(self):
+        # --retry guards against transient network blips during fetch
+        # (mirrors the xcb-util-cursor pattern in //MODULE.bazel).
+        self.assertIn("--retry 5", self.block)
+
+    def test_existing_patches_preserved(self):
+        self.assertIn(
+            "//patches:openroad-10384-add-openroad-qt.patch",
+            self.block,
+        )
+        self.assertIn("patch_strip = 1", self.block)
+
+    def test_old_commit_gone(self):
+        self.assertNotIn("old_openroad_commit", self.content)
+
+
+class TestOpenroadConversionPreservesAbsentPatches(unittest.TestCase):
+    """downstream.MODULE.bazel has no openroad patches — none must appear."""
+
+    def setUp(self):
+        self.content = apply_bump("downstream.MODULE.bazel")
+        span = bump.find_archive_override_block(self.content, "openroad")
+        self.assertIsNotNone(span)
+        self.block = self.content[span[0] : span[1]]
+
+    def test_no_patches_attribute(self):
+        self.assertNotIn("patches = [", self.block)
+        self.assertNotIn("patch_strip", self.block)
+
+
+class TestOpenroadConversionIdempotent(unittest.TestCase):
+    """Re-bumping a self.MODULE.bazel that's already archive_override is a no-op."""
+
+    def test_double_bump_idempotent(self):
+        src = os.path.join(FIXTURES_DIR, "self.MODULE.bazel")
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".MODULE.bazel", delete=False
+        )
+        tmp.close()
+        shutil.copy2(src, tmp.name)
+
+        kwargs = dict(
+            fetch_commit_fn=mock_fetch_commit,
+            fetch_integrity_fn=mock_fetch_integrity,
+            fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+            fetch_compare_status_fn=mock_fetch_compare_status_ahead,
+            fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+            fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+            fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+            fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+        )
+        bump.bump(tmp.name, **kwargs)
+        with open(tmp.name) as f:
+            first = f.read()
+        bump.bump(tmp.name, **kwargs)
+        with open(tmp.name) as f:
+            second = f.read()
+        os.unlink(tmp.name)
+        self.assertEqual(first, second, "Second bump should be a no-op")
+
+
+class TestUpdateOpenroadArchiveOverride(unittest.TestCase):
+    """Direct unit test of the conversion function — no bump() orchestration."""
+
+    def _stub_integrity(self, _url):
+        return "sha256-PARENT="
+
+    def _stub_sha256(self, _url):
+        return "f" * 64
+
+    def _stub_submodule_sha(self, _parent_repo, _parent_commit, path):
+        return {"src/sta": "stasha", "third-party/abc": "abcsha"}[path]
+
+    def test_converts_git_override(self):
+        content = (
+            "git_override(\n"
+            '    module_name = "openroad",\n'
+            '    commit = "oldsha",\n'
+            "    init_submodules = True,\n"
+            '    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",\n'
+            ")\n"
+        )
+        result = bump.update_openroad_archive_override(
+            content,
+            "newsha",
+            fetch_integrity_fn=self._stub_integrity,
+            fetch_sha256_hex_fn=self._stub_sha256,
+            fetch_submodule_sha_fn=self._stub_submodule_sha,
+        )
+        self.assertIn("archive_override(", result)
+        self.assertNotIn("git_override(", result)
+        self.assertIn(
+            "https://github.com/The-OpenROAD-Project/OpenROAD/archive/newsha.tar.gz",
+            result,
+        )
+        self.assertIn("OpenSTA/archive/stasha.tar.gz", result)
+        self.assertIn("abc/archive/abcsha.tar.gz", result)
+        self.assertIn('integrity = "sha256-PARENT="', result)
+
+    def test_no_op_when_openroad_absent(self):
+        content = 'bazel_dep(name = "yosys", version = "0.63")\n'
+        result = bump.update_openroad_archive_override(
+            content,
+            "newsha",
+            fetch_integrity_fn=self._stub_integrity,
+            fetch_sha256_hex_fn=self._stub_sha256,
+            fetch_submodule_sha_fn=self._stub_submodule_sha,
+        )
+        self.assertEqual(result, content)
+
+    def test_updates_existing_archive_override(self):
+        # Pre-existing archive_override — must be regenerated against new commit.
+        content = (
+            "archive_override(\n"
+            '    module_name = "openroad",\n'
+            '    integrity = "sha256-OLD=",\n'
+            "    patch_cmds = [\n"
+            '        "curl ... oldsta ...",\n'
+            "    ],\n"
+            '    strip_prefix = "OpenROAD-oldsha",\n'
+            '    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/oldsha.tar.gz"],\n'
+            ")\n"
+        )
+        result = bump.update_openroad_archive_override(
+            content,
+            "newsha",
+            fetch_integrity_fn=self._stub_integrity,
+            fetch_sha256_hex_fn=self._stub_sha256,
+            fetch_submodule_sha_fn=self._stub_submodule_sha,
+        )
+        self.assertIn("newsha.tar.gz", result)
+        self.assertNotIn("oldsha", result)
+        self.assertIn("stasha", result)
+        self.assertIn("abcsha", result)
+
+    def test_preserves_patches_during_conversion(self):
+        content = (
+            "git_override(\n"
+            '    module_name = "openroad",\n'
+            '    commit = "old",\n'
+            "    init_submodules = True,\n"
+            "    patch_strip = 1,\n"
+            "    patches = [\n"
+            '        "//patches:openroad-foo.patch",\n'
+            "    ],\n"
+            '    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",\n'
+            ")\n"
+        )
+        result = bump.update_openroad_archive_override(
+            content,
+            "new",
+            fetch_integrity_fn=self._stub_integrity,
+            fetch_sha256_hex_fn=self._stub_sha256,
+            fetch_submodule_sha_fn=self._stub_submodule_sha,
+        )
+        self.assertIn("//patches:openroad-foo.patch", result)
+        self.assertIn("patch_strip = 1", result)
 
 
 if __name__ == "__main__":

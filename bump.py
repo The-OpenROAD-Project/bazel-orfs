@@ -297,6 +297,41 @@ def compute_integrity(url):
     return "sha256-" + base64.b64encode(h.digest()).decode("ascii")
 
 
+def compute_sha256_hex(url):
+    """Download URL and return sha256 hex digest.
+
+    Hex (not SRI) so the value can be fed directly to ``sha256sum -c`` inside
+    a patch_cmds line.  Streams the same way ``compute_integrity`` does.
+    """
+    h = hashlib.sha256()
+    with urllib.request.urlopen(url) as resp:
+        while True:
+            chunk = resp.read(64 * 1024)
+            if not chunk:
+                break
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def fetch_submodule_sha(parent_repo, parent_commit, path):
+    """Submodule SHA at ``path`` inside ``parent_repo`` at ``parent_commit``.
+
+    Same shape as ``fetch_orfs_tool_sha`` (which is specialized to ORFS tools)
+    but generic: used for OpenROAD's src/sta and third-party/abc.
+    """
+    url = (
+        f"https://api.github.com/repos/{parent_repo}/contents/{path}"
+        f"?ref={parent_commit}"
+    )
+    data = fetch_json(url)
+    if data.get("type") != "submodule":
+        raise RuntimeError(
+            f"{parent_repo}/{path} is not a submodule at {parent_commit} "
+            f"(got {data.get('type')!r})"
+        )
+    return data["sha"]
+
+
 def update_archive_override(
     content,
     module_name,
@@ -339,6 +374,124 @@ def update_archive_override(
     )
 
     return content[:start] + block + content[end:]
+
+
+def _openroad_submodule_patch_cmd(path, github_repo, sha, sha256_hex):
+    """Render one patch_cmds curl-extract line for an OpenROAD submodule.
+
+    Format: download to a SHA-suffixed temp file, verify with sha256sum,
+    untar with --strip-components=1 into the empty submodule directory the
+    parent archive left behind, clean up.  --retry absorbs transient
+    network blips (mirrors the qt-bazel xcb-util-cursor pattern in
+    //MODULE.bazel).
+    """
+    archive_url = f"https://github.com/{github_repo}/archive/{sha}.tar.gz"
+    tmpfile = f"/tmp/openroad-{path.replace('/', '-')}-{sha}.tar.gz"
+    return (
+        f"curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 "
+        f"-o {tmpfile} {archive_url} && "
+        f"echo '{sha256_hex}  {tmpfile}' | sha256sum -c - && "
+        f"tar xzf {tmpfile} --strip-components=1 -C {path} && "
+        f"rm {tmpfile}"
+    )
+
+
+def _format_openroad_archive_override(
+    openroad_commit, parent_integrity, submodule_info, patches
+):
+    """Render the openroad archive_override block as Starlark source text.
+
+    ``submodule_info``: list of ``(path, github_repo, sha, sha256_hex)``.
+    ``patches``: list of patch label strings (empty -> no patches/patch_strip).
+
+    Attribute order matches buildifier convention: ``module_name`` first,
+    rest alphabetical.  fix_lint will re-format anyway, but landing close
+    to the final shape keeps diffs small.
+    """
+    parent_url = f"https://github.com/{OPENROAD_REPO}/archive/{openroad_commit}.tar.gz"
+    parent_strip = f"OpenROAD-{openroad_commit}"
+
+    lines = [
+        "archive_override(",
+        '    module_name = "openroad",',
+        f'    integrity = "{parent_integrity}",',
+        "    # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,",
+        "    # so vendor src/sta (OpenSTA) and third-party/abc from their own",
+        "    # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins",
+        "    # to.  sha256sum -c verifies each tarball since patch_cmds bytes",
+        "    # aren't covered by archive_override's integrity.  Regenerated",
+        "    # by bump.py on every commit bump; do not edit by hand.",
+        "    patch_cmds = [",
+    ]
+    for path, github_repo, sha, sha256_hex in submodule_info:
+        cmd = _openroad_submodule_patch_cmd(path, github_repo, sha, sha256_hex)
+        lines.append(f"        {cmd!r},")
+    lines.append("    ],")
+    if patches:
+        lines.append("    patch_strip = 1,")
+        lines.append("    patches = [")
+        for p in patches:
+            lines.append(f'        "{p}",')
+        lines.append("    ],")
+    lines.append(f'    strip_prefix = "{parent_strip}",')
+    lines.append(f'    urls = ["{parent_url}"],')
+    lines.append(")")
+    return "\n".join(lines)
+
+
+def _extract_patches(block):
+    """Return the list of patch labels found inside a Starlark block.
+
+    Matches ``"//<path>:foo.patch"`` and ``"//:foo.patch"`` style labels —
+    the only shapes used by bazel-orfs's openroad overrides today.
+    """
+    return re.findall(r'"(//[^"]*\.patch)"', block)
+
+
+def update_openroad_archive_override(
+    content,
+    openroad_commit,
+    fetch_integrity_fn=compute_integrity,
+    fetch_sha256_hex_fn=compute_sha256_hex,
+    fetch_submodule_sha_fn=fetch_submodule_sha,
+):
+    """Convert ``git_override(openroad, init_submodules=True)`` to
+    ``archive_override`` with submodule ``patch_cmds`` — or re-update an
+    existing ``archive_override(openroad)`` block in place.
+
+    git_override + init_submodules has a long-standing reliability bug
+    (interrupted fetches leave empty submodule directories that Bazel then
+    reuses); archive_override is atomic.  GitHub's auto-archive of the
+    parent doesn't include submodules, so this regenerates patch_cmds that
+    curl each submodule's own /archive/<sha>.tar.gz and extract it in
+    place.
+
+    Returns ``content`` unchanged if neither shape is found.  Idempotent:
+    invoking twice with the same commit produces identical output.
+    """
+    git_span = find_git_override_block(content, "openroad")
+    arc_span = find_archive_override_block(content, "openroad")
+    span = arc_span or git_span
+    if span is None:
+        return content
+    start, end = span
+    old_block = content[start:end]
+
+    patches = _extract_patches(old_block)
+
+    parent_url = f"https://github.com/{OPENROAD_REPO}/archive/{openroad_commit}.tar.gz"
+    parent_integrity = fetch_integrity_fn(parent_url)
+    submodule_info = []
+    for path, github_repo in OPENROAD_SUBMODULES:
+        sub_sha = fetch_submodule_sha_fn(OPENROAD_REPO, openroad_commit, path)
+        sub_url = f"https://github.com/{github_repo}/archive/{sub_sha}.tar.gz"
+        sub_sha256 = fetch_sha256_hex_fn(sub_url)
+        submodule_info.append((path, github_repo, sub_sha, sub_sha256))
+
+    new_block = _format_openroad_archive_override(
+        openroad_commit, parent_integrity, submodule_info, patches
+    )
+    return content[:start] + new_block + content[end:]
 
 
 def submodule_is_used(name, workspace_dir):
@@ -674,6 +827,22 @@ ORFS_TOOLS = {
     "yosys-slang": ("yosys-slang", "povik/yosys-slang"),
 }
 
+# OpenROAD is pinned via ``archive_override`` (GitHub /archive/<sha>.tar.gz)
+# rather than ``git_override`` because git_repository + init_submodules isn't
+# atomic: an interrupted fetch can leave the on-disk external repo with empty
+# submodule directories ("BUILD file not found in directory 'src/sta'"), and
+# Bazel reuses that broken state on subsequent builds.  GitHub's auto-archive
+# of the parent doesn't carry submodules, so the missing pieces are vendored
+# via ``patch_cmds`` that curl each submodule's own GitHub auto-archive and
+# extract it in place.  Bazel docs recommend http_archive over git_repository
+# for exactly this reliability reason.
+OPENROAD_REPO = "The-OpenROAD-Project/OpenROAD"
+OPENROAD_SUBMODULES = [
+    # (in-repo path,            github repo)
+    ("src/sta", "The-OpenROAD-Project/OpenSTA"),
+    ("third-party/abc", "The-OpenROAD-Project/abc"),
+]
+
 # yosys is consumed from the Bazel Central Registry.  ORFS's tools/yosys pins
 # a specific master commit (often between tagged releases), so we read the
 # ``YOSYS_VER`` line from yosys/Makefile at that commit to learn the (M, m)
@@ -834,6 +1003,8 @@ def bump(
     fetch_compare_status_fn=fetch_compare_status,
     fetch_yosys_makefile_version_fn=fetch_yosys_makefile_version,
     fetch_bcr_versions_fn=fetch_bcr_versions,
+    fetch_sha256_hex_fn=compute_sha256_hex,
+    fetch_submodule_sha_fn=fetch_submodule_sha,
     workspace_dir=None,
     head_tools=None,
     ignore_errors=False,
@@ -987,6 +1158,26 @@ def bump(
                 # plugin loader.
                 if workspace_dir and update_yosys_slang_commit(workspace_dir, sha):
                     updated_modules.append(f"{module_name} -> {sha[:12]} ({source})")
+            elif module_name == "openroad":
+                # openroad is pinned via archive_override + submodule patch_cmds
+                # rather than git_override (the latter's init_submodules path
+                # has a non-atomic-fetch bug — see OPENROAD_REPO comment).
+                # Convert legacy git_override blocks on first sight; otherwise
+                # re-regenerate the existing archive_override in place.
+                _expect(
+                    find_git_override_block(content, "openroad")
+                    or find_archive_override_block(content, "openroad"),
+                    'git_override or archive_override(module_name = "openroad")',
+                    ignore_errors,
+                )
+                content = update_openroad_archive_override(
+                    content,
+                    sha,
+                    fetch_integrity_fn=fetch_integrity_fn,
+                    fetch_sha256_hex_fn=fetch_sha256_hex_fn,
+                    fetch_submodule_sha_fn=fetch_submodule_sha_fn,
+                )
+                updated_modules.append(f"{module_name} -> {sha[:12]} ({source})")
             else:
                 _expect(
                     find_git_override_block(content, module_name),
