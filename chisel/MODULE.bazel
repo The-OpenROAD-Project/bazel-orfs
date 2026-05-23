@@ -19,7 +19,7 @@ local_path_override(
     path = "../verilog",
 )
 
-bazel_dep(name = "yosys", version = "0.63")
+bazel_dep(name = "yosys", version = "0.64")
 
 bazel_dep(name = "orfs")
 git_override(

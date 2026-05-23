@@ -1,6 +1,14 @@
 # OpenROAD Demo Project
 # Common settings for bazel-orfs builds
 
+# yosys 0.64 is not yet in BCR; add the unmerged PR's fork as a fallback
+# registry until bazelbuild/bazel-central-registry#8862 lands.  BCR is
+# listed first so all other modules resolve from the official source;
+# the fork is only consulted for modules/versions BCR doesn't carry yet.
+# The commit hash makes the fork reference immutable.
+common --registry=https://bcr.bazel.build/
+common --registry=https://raw.githubusercontent.com/oharboe/bazel-central-registry/0586b398db6edd245da97cbec29e26c5e2a808d7/
+
 build --incompatible_strict_action_env
 
 # Required by OpenROAD (STA uses std::format_string from C++20)

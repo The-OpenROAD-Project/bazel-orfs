@@ -30,7 +30,7 @@ local_path_override(
 )
 
 bazel_dep(name = "abc", version = "0.64-yosyshq.bcr.1")
-bazel_dep(name = "yosys", version = "0.63")
+bazel_dep(name = "yosys", version = "0.64")
 bazel_dep(name = "orfs")
 
 # Pinned via archive_override (HTTPS tarball) rather than git_override so
