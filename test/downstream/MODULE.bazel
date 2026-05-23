@@ -60,7 +60,7 @@ git_override(
     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
 )
 
-bazel_dep(name = "yosys", version = "0.63")
+bazel_dep(name = "yosys", version = "0.64")
 
 # --- Verilator simulation + Google Test ---
 bazel_dep(name = "rules_verilog", version = "1.1.1")
