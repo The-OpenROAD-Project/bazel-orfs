@@ -27,7 +27,6 @@ import sys
 import urllib.error
 import urllib.request
 
-
 # Map yosys MAJOR.MINOR -> the abc module version it ships against.  Update
 # this whenever a new (yosys, abc) pair lands on a BCR registry.  Only list
 # pairs that are *actually published* on BCR — yosys 0.63 is on BCR but no
@@ -880,6 +879,7 @@ OPENROAD_SUBMODULES = [
     # (in-repo path,            github repo)
     ("src/sta", "The-OpenROAD-Project/OpenSTA"),
     ("third-party/abc", "The-OpenROAD-Project/abc"),
+    ("third-party/slang-elab", "povik/yosys-slang"),
 ]
 
 # yosys is consumed from the Bazel Central Registry.  ORFS's tools/yosys pins

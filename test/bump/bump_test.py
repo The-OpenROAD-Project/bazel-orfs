@@ -23,11 +23,13 @@ MOCK_INTEGRITY = "sha256-MOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCK="
 
 # OpenROAD submodule mocks: SHAs and sha256 hex digests for the two
 # submodules the openroad archive_override patch_cmds vendor in
-# (src/sta=OpenSTA, third-party/abc=abc).  Real bumps fetch these from
-# GitHub; tests substitute these constants via the injection points.
+# (src/sta=OpenSTA, third-party/abc=abc, third-party/slang-elab=yosys-slang).
+# Real bumps fetch these from GitHub; tests substitute these constants via
+# the injection points.
 OPENROAD_SUBMODULE_SHAS = {
     "src/sta": "new_opensta_sha_aaaa",
     "third-party/abc": "new_abc_sha_bbbb",
+    "third-party/slang-elab": "new_slang_elab_sha_cccc",
 }
 MOCK_SUB_SHA256_HEX = "deadbeef" * 8  # 64-char hex matches sha256sum -c shape
 
@@ -864,7 +866,7 @@ class TestUpdateOpenroadArchiveOverrideAroundComments(unittest.TestCase):
             "archive_override(\n"
             '    module_name = "openroad",\n'
             '    integrity = "sha256-OLD=",\n'
-            '    patches = [],\n'
+            "    patches = [],\n"
             '    strip_prefix = "OpenROAD-old_openroad_commit",\n'
             '    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/old_openroad_commit.tar.gz"],\n'
             ")\n"
@@ -888,9 +890,7 @@ class TestUpdateOpenroadArchiveOverrideAroundComments(unittest.TestCase):
         )
         # The active block was actually rewritten — old SHA is gone.
         self.assertNotIn("old_openroad_commit", new_content)
-        self.assertIn(
-            'strip_prefix = "OpenROAD-new_openroad_commit"', new_content
-        )
+        self.assertIn('strip_prefix = "OpenROAD-new_openroad_commit"', new_content)
         self.assertIn("new_openroad_commit.tar.gz", new_content)
         # And the comment block is intact (not consumed by a runaway span).
         self.assertIn("# Pinned via archive_override (GitHub", new_content)
@@ -1524,7 +1524,11 @@ class TestUpdateOpenroadArchiveOverride(unittest.TestCase):
         return "f" * 64
 
     def _stub_submodule_sha(self, _parent_repo, _parent_commit, path):
-        return {"src/sta": "stasha", "third-party/abc": "abcsha"}[path]
+        return {
+            "src/sta": "stasha",
+            "third-party/abc": "abcsha",
+            "third-party/slang-elab": "slangsha",
+        }[path]
 
     def test_converts_git_override(self):
         content = (
