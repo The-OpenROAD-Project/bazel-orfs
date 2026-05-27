@@ -1,13 +1,11 @@
 .bazelbsp
 tmp
 # Sub-modules: these directories have their own MODULE.bazel and are
-# developed/tested independently (cd chisel && bazelisk test ...).
+# developed/tested independently (cd gallery && bazelisk test ...).
 # Excluding them from //... keeps the root module fast by avoiding
-# heavy deps (chisel/scala/maven, verilator, kepler-formal).
-chisel
+# heavy deps (kepler-formal).
 gallery
 lec
-mock/chisel
 naja
 test/docker
 test/downstream
