@@ -81,6 +81,35 @@ single_version_override(
     version = "10.0.1-20260316-f04e8156",
 )
 
+# sed-4.9 ships gnulib's lib/memchr.c, which compiles cleanly only
+# when `memchr` is not a function-like macro at the point it defines
+# `__memchr (...)`.  Its own guard
+#
+#   #undef __memchr
+#   #ifdef _LIBC
+#   # undef memchr
+#   #endif
+#   #ifndef weak_alias
+#   # define __memchr memchr
+#   #endif
+#   __memchr (void const *s, int c_in, size_t n)
+#
+# only undef's `memchr` inside glibc's own build (_LIBC).  Outside
+# _LIBC, on glibc 2.41+, <string.h> defines `memchr` as a _Generic
+# macro (`__glibc_const_generic`) — so `__memchr` expands to
+# `memchr`, which expands to the macro, and the function header
+# becomes "_Generic(...)(...)" and clang rejects it with
+# "expected identifier or '('".  Force the existing `# undef memchr`
+# to run unconditionally; the bcr.5 bump is otherwise just BUILD
+# refactoring.
+single_version_override(
+    module_name = "sed",
+    patch_cmds = [
+        "sed -i 's|^#ifdef _LIBC$|#if 1|' lib/memchr.c",
+    ],
+    version = "4.9.bcr.5",
+)
+
 # sv-lang pulls in rules_pycross, whose toolchain extension fails on Python
 # 3.8 (transitively registered via or-tools -> pybind11_abseil, dropped
 # from rules_python 2.0.0's MINOR_MAPPING). pycross.configure_environments
