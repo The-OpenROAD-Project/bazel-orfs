@@ -1,11 +1,14 @@
-"""orfs_genrule: a genrule variant where srcs use cfg = "exec".
+"""orfs_genrule: a genrule variant with a tools attr and select() in srcs.
 
-Native genrule forces srcs into the target configuration. When srcs
-come from ORFS rules (which build in the exec configuration), this
-causes the entire ORFS pipeline to be rebuilt in a second configuration.
+Native genrule does not separate executable tools from data srcs and
+does not allow select() in srcs. orfs_genrule adds both: declare
+executable tools on the tools attr (cfg = "exec"), data on srcs
+(caller's config), and parameterise srcs with select() where useful.
 
-orfs_genrule avoids that by keeping srcs in exec configuration,
-matching where ORFS outputs already live.
+ORFS rules (orfs_run, orfs_synth, orfs_floorplan, ...) build in target
+config, so leaving srcs in the caller's (target) config keeps
+orfs_genrule consumers on the same action keys as orfs_run consumers
+of the same pipeline.
 
 Supports the same cmd substitutions as native genrule:
   $(location label), $(locations label),
@@ -60,7 +63,6 @@ orfs_genrule = rule(
         "cmd": attr.string(mandatory = True),
         "outs": attr.output_list(mandatory = True),
         "srcs": attr.label_list(
-            cfg = "exec",
             allow_files = True,
             default = [],
         ),
