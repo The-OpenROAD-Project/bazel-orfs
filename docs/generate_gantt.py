@@ -71,15 +71,9 @@ ACTIVITIES = [
     ("orfs_genrule", "Features", [r"orfs_genrule\.bzl$"], []),
     # --- Toolchains ---
     (
-        "Chisel & Scala",
-        "Toolchains",
-        [r"chisel/", r"generate\.bzl$", r"bloop", r"\.scala$"],
-        [],
-    ),
-    (
         "Verilog & Yosys",
         "Toolchains",
-        [r"verilog\.bzl$", r"yosys\.bzl$", r"slang/"],
+        [r"verilog\.bzl$", r"yosys\.bzl$", r"slang/", r"generate\.bzl$"],
         [],
     ),
     ("Verilator", "Toolchains", [r"verilator"], []),
@@ -107,6 +101,12 @@ ACTIVITIES = [
     ("Documentation", "Project", [r"README\.md$", r"docs/"], []),
     # --- Retired ---
     ("Docker shell (retired)", "Retired", [r"docker_shell"], []),
+    (
+        "Chisel & Scala (retired)",
+        "Retired",
+        [r"chisel/", r"bloop", r"\.scala$"],
+        [],
+    ),
     (
         "netlistsvg (retired)",
         "Retired",

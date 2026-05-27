@@ -37,7 +37,6 @@ and easily actionable github issues for the OpenROAD and ORFS maintainers.
 | Query timing interactively | [Query timing interactively](#query-timing-interactively) |
 | Monitor long-running builds | [Monitor long-running builds](#monitor-long-running-builds) |
 | Sweep design parameters | [Design space exploration](#design-space-exploration) |
-| Integrate Chisel designs | [chisel/README.md](chisel/README.md) |
 | Pin slow-to-build artifacts | [tools/pin/README.md](tools/pin/README.md) |
 | Debug or create issue archives | [Create a make issue archive](#create-a-make-issue-archive) |
 | Upgrade bazel-orfs or ORFS | [Upgrade bazel-orfs](#upgrade-bazel-orfs) |
@@ -932,7 +931,7 @@ bazel analyze-profile /tmp/profile.gz
 
 #### Smoketests (`bazel test ...`)
 
-The smoketests job builds *everything* including sram, chisel, and sky130 targets.
+The smoketests job builds *everything* including sram and sky130 targets.
 Critical path runs through the `sram/` hierarchical build (sdq_17x64 → top):
 
 ```
@@ -1084,7 +1083,6 @@ for the longer write-up and `gallery/smoketest/BUILD.bazel` for a worked example
 
 | Tool | Description | Documentation |
 |------|-------------|---------------|
-| Chisel integration | Build Chisel designs, run tests | [chisel](chisel/README.md) |
 | Artifact pinning | Cache long-running build results | [tools/pin](tools/pin/README.md) |
 | Post-synthesis cleanup | najaeda netlist cleaning (experimental) | [naja](naja/README.md) |
 | SRAM macros | fakeram and mock SRAM | [sram](sram/README.md) |
@@ -1321,7 +1319,6 @@ Test and demo content lives in subdirectories:
 - `test/` — CI test flows (tag_array_64x184, lb_32x128, L1MetadataArray, etc.) and supporting files
 - `sram/` — SRAM macro tests with fakeram and megaboom variants
 - `subpackage/` — cross-package reference tests
-- `chisel/` — Chisel integration tests
 
 ### Trivial test files
 
