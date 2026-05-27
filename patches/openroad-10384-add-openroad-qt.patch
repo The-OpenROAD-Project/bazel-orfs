@@ -1,0 +1,243 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+index 7322e6027b..fc1ebee49e 100644
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: BSD-3-Clause
+ # Copyright (c) 2025-2025, The OpenROAD Authors
+ 
++load("@bazel_skylib//rules:build_test.bzl", "build_test")
+ load("@bazel_skylib//rules:common_settings.bzl", "string_flag")
+ load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+ load("@rules_cc//cc:cc_library.bzl", "cc_library")
+@@ -130,12 +131,7 @@ OPENROAD_LIBRARY_DEPS = [
+     "//src/web:ui",
+     "@abc",
+     ":ord",
+-] + select(
+-    {
+-        ":platform_cli": ["//src/gui"],
+-        ":platform_gui": ["//src/gui:gui_qt"],
+-    },
+-)
++]
+ 
+ # Flags applied to top-level OpenROAD targets only. Flags that apply
+ # globally to every cc_* target (-Wall, -Wextra, -Wno-sign-compare,
+@@ -174,45 +170,112 @@ cc_library(
+     ],
+ )
+ 
++# Deps shared by :openroad and :openroad-qt. Kept as a Starlark list
++# rather than a cc_library wrapper because layering_check is enabled
++# package-wide: a deps-only cc_library does not re-export its deps'
++# headers to consumers, so direct binary deps are what each Main.cc
++# include needs to see.
++OPENROAD_MAIN_DEPS = [
++    ":openroad_version",
++    ":opt_notification",
++    ":ord",
++    ":tcl_readline_setup",
++    "//bazel:tcl_library_init",
++    "//src/cut",
++    "//src/sta:opensta_lib",
++    "//src/utl",
++    "//src/web",
++    "@boost.stacktrace",
++    "@rules_cc//cc/runfiles",  # sets BAZEL_CURRENT_REPOSITORY
++    "@tcl_lang//:tcl",
++]
++
+ cc_binary(
+     name = "openroad",
+     srcs = [
+         "src/Main.cc",
+     ],
+     copts = OPENROAD_COPTS,
++    defines = OPENROAD_DEFINES,
+     features = ["-use_header_modules"],
+     malloc = select({
+         "@platforms//os:linux": "@tcmalloc//tcmalloc",
+         "@platforms//os:macos": "@bazel_tools//tools/cpp:malloc",
+     }),
+     visibility = ["//visibility:public"],
++    deps = OPENROAD_MAIN_DEPS + select(
++        {
++            ":platform_cli": [
++                ":openroad_lib",
++                "//src/gui",
++                "//src/gui:gui_stub",
++            ],
++            ":platform_gui": [
++                ":openroad_lib_qt",
++                "//src/gui:gui_qt",
++            ],
++        },
++    ),
++)
++
++# Qt GUI variant. Build explicitly when the interactive GUI is wanted:
++#   bazelisk build //:openroad-qt
++# Additive to the existing `--//:platform=gui //:openroad` flag path —
++# this target is preferable for ad-hoc GUI builds because it does not
++# invalidate `:openroad`'s cache the way flipping the flag does.
++cc_binary(
++    name = "openroad-qt",
++    srcs = [
++        "src/Main.cc",
++    ],
++    copts = OPENROAD_COPTS,
++    defines = OPENROAD_DEFINES,
++    features = ["-use_header_modules"],
++    malloc = select({
++        "@platforms//os:linux": "@tcmalloc//tcmalloc",
++        "@platforms//os:macos": "@bazel_tools//tools/cpp:malloc",
++    }),
++    visibility = ["//visibility:public"],
++    deps = OPENROAD_MAIN_DEPS + [
++        ":openroad_lib_qt",
++        "//src/gui:gui_qt",
++    ],
++)
++
++# CLI variant: the default. What downstream rule libraries pull as a
++# build-time tool, and what `bazelisk build //:openroad` produces.
++cc_library(
++    name = "openroad_lib",
++    srcs = [
++        "src/Design.cc",
++        "src/OpenRoad.cc",
++        "src/Tech.cc",
++        "src/Timing.cc",
++        ":openroad_swig",
++        ":openroad_tcl",
++    ],
++    copts = OPENROAD_COPTS,
++    defines = OPENROAD_DEFINES + ["BUILD_GUI=false"],
++    features = ["-use_header_modules"],
++    includes = [
++        "include",
++    ],
++    visibility = ["//:__subpackages__"],
+     deps = [
+-        ":openroad_lib",
+-        ":openroad_version",
+-        ":opt_notification",
+-        ":ord",
+-        ":tcl_readline_setup",
+-        "//bazel:tcl_library_init",
+-        "//src/cut",
+         "//src/gui",
+         "//src/sta:opensta_lib",
+-        "//src/utl",
+-        "//src/web",
++        "@abseil-cpp//absl/base:core_headers",
++        "@abseil-cpp//absl/synchronization",
+         "@boost.stacktrace",
+-        "@rules_cc//cc/runfiles",  # sets BAZEL_CURRENT_REPOSITORY
+         "@tcl_lang//:tcl",
+-    ],
+-)
+-
+-GUI_BUILD_FLAGS = select(
+-    {
+-        ":platform_cli": ["BUILD_GUI=false"],
+-        ":platform_gui": ["BUILD_GUI=true"],
+-    },
++    ] + OPENROAD_LIBRARY_DEPS,
+ )
+ 
++# Qt variant: same sources, linked against the Qt GUI implementation.
++# Used by :openroad-qt, and by :openroad when --//:platform=gui is set.
++# Compiled separately (different `BUILD_GUI` define + different gui dep).
+ cc_library(
+-    name = "openroad_lib",
++    name = "openroad_lib_qt",
+     srcs = [
+         "src/Design.cc",
+         "src/OpenRoad.cc",
+@@ -222,13 +285,14 @@ cc_library(
+         ":openroad_tcl",
+     ],
+     copts = OPENROAD_COPTS,
+-    defines = OPENROAD_DEFINES + GUI_BUILD_FLAGS,
++    defines = OPENROAD_DEFINES + ["BUILD_GUI=true"],
+     features = ["-use_header_modules"],
+     includes = [
+         "include",
+     ],
+     visibility = ["//:__subpackages__"],
+     deps = [
++        "//src/gui:gui_qt",
+         "//src/sta:opensta_lib",
+         "@abseil-cpp//absl/base:core_headers",
+         "@abseil-cpp//absl/synchronization",
+@@ -329,6 +393,7 @@ cc_binary(
+         "//src/gpl",
+         "//src/grt",
+         "//src/gui",
++        "//src/gui:gui_stub",
+         "//src/ifp",
+         "//src/odb/src/db",
+         "//src/par",
+@@ -460,6 +525,14 @@ sh_test(
+     tags = ["local"],
+ )
+ 
++# Make sure the Qt GUI variant keeps building. :openroad is exercised by
++# downstream rule libraries that pull it as a tool; :openroad-qt has no
++# such consumer in CI, so a build_test pins its compilability.
++build_test(
++    name = "openroad_qt_build_test",
++    targets = [":openroad-qt"],
++)
++
+ # ---------------------------------------------------------------------------
+ # Lint & tidy targets
+ #
+diff --git a/src/gui/BUILD b/src/gui/BUILD
+index 9b32ad42b3..6b3d09a6bb 100644
+--- a/src/gui/BUILD
++++ b/src/gui/BUILD
+@@ -31,7 +31,6 @@ cc_library(
+         "src/insertBufferDialog.h",
+         "src/staDescriptors.cpp",
+         "src/staDescriptors.h",
+-        "src/stub.cpp",
+         ":tcl",
+     ],
+     hdrs = [
+@@ -58,6 +57,33 @@ cc_library(
+     ],
+ )
+
++# CLI-only stub implementations of GUI dispatch symbols (Gui::enabled,
++# startGui, initGui, Painter::getOptions, ...). Split out of :gui so
++# that :openroad-qt — which links //src/gui:gui_qt for the real Qt
++# implementations and pulls :gui transitively via :ui modules — does
++# NOT also link the stub. With --allow-multiple-definition in effect
++# (LLVM toolchain default), having both stub and gui_qt definitions
++# present at link time causes the stub to silently win for symbols
++# like Gui::enabled, and the GUI never opens at runtime.
++#
++# Only the CLI :openroad binary (and :_openroadpy.so) need to dep
++# :gui_stub explicitly to satisfy those undefined references in :gui's
++# heatMapCore.cpp et al.
++cc_library(
++    name = "gui_stub",
++    srcs = [
++        "src/bufferTreeDescriptor.h",
++        "src/stub.cpp",
++    ],
++    deps = [
++        ":gui",
++        "//src/odb/src/db",
++        "//src/sta:opensta_lib",
++        "//src/utl",
++        "@tcl_lang//:tcl",
++    ],
++)
++
+ # A Qt 'headless' build is added for environments that require GUI features
+ # but do not have an attached display. This requires setting 'qt_gui_platform'
+ # to `headless`, and subsituting the dependency in the top-level BUILD.
