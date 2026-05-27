@@ -781,9 +781,10 @@ genrule(
     tags = ["manual"],
 )
 
-# Same as gatelist_wc but using orfs_genrule to keep srcs in exec config.
-# Native genrule forces srcs into target config, causing ORFS outputs to
-# be rebuilt in a second configuration.
+# Same as gatelist_wc but using orfs_genrule -- exercises the rule's
+# tools attr and select()-friendly srcs. Both srcs and outputs stay in
+# target config; the orfs_genrule consumer hits the same action keys
+# as orfs_run consumers of the same gatelist/spef pipeline.
 orfs_genrule(
     name = "gatelist_wc_orfs_genrule",
     srcs = [
