@@ -107,7 +107,7 @@ bazel_dep(name = "rules_verilator", version = "0.3.2")
 bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
 
 # --- Python 3.13 toolchain (required by bazel-orfs pip deps) ---
-bazel_dep(name = "rules_python", version = "1.8.5")
+bazel_dep(name = "rules_python", version = "1.9.0")
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
