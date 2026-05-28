@@ -464,6 +464,15 @@ def _format_openroad_archive_override(
     for path, github_repo, sha, sha256_hex in submodule_info:
         cmd = _openroad_submodule_patch_cmd(path, github_repo, sha, sha256_hex)
         lines.append(f"        {cmd!r},")
+    # OpenROAD aliases @slang -> @sv-lang//:libsvlang via
+    # new_local_repository(name="slang", path="bazel"), and Bazel resolves
+    # `path` against the *consumer* workspace root.  Consumers don't have
+    # OpenROAD's bazel/ directory there, so the alias fetch fails the moment
+    # anything references @slang.  Rewrite the lone reference in slang-elab
+    # to use @sv-lang directly so the alias is never triggered.
+    lines.append(
+        r"""        "sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|' third-party/slang-elab/src/BUILD","""
+    )
     lines.append("    ],")
     if patches:
         lines.append("    patch_strip = 1,")
