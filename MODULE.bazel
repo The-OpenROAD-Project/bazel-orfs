@@ -38,19 +38,19 @@ bazel_dep(name = "orfs")
 # blocked (e.g. inside the maintainers organization).
 archive_override(
     module_name = "orfs",
-    integrity = "sha256-o20Z4RCv3sWXtdRHYZjQupYCME3ZZpC3JPWHm6O+TBY=",
+    integrity = "sha256-mAqlLynBNOx/poiXu+BLa7s1cJcpDR21u5leDEUF3JY=",
     patch_strip = 1,
     patches = [
         "//patches:0036-fix-bazel-orfs-bazel_dep-non-dev-for-load-visibility.patch",
     ],
-    strip_prefix = "OpenROAD-flow-scripts-91d5e6af43ec5935b024d966e67c1f21a54170b0",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/91d5e6af43ec5935b024d966e67c1f21a54170b0.tar.gz"],
+    strip_prefix = "OpenROAD-flow-scripts-d90873f47b79f343c6be15210ce398e1383c08d2",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/d90873f47b79f343c6be15210ce398e1383c08d2.tar.gz"],
 )
 
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-2jY7mMoVfKpqmqSjAfRxrRuR2MtFlFUfDXP9mwbzmOA=",
+    integrity = "sha256-69usuVgG/PLsXp9KcGvsndunHbJJzLFUFrlVUjORu/8=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor src/sta (OpenSTA) and third-party/abc from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -63,8 +63,8 @@ archive_override(
         "curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz https://github.com/povik/yosys-slang/archive/82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz && echo 'd319a1f49116fb9f30341bf06324e40e0ceadfe05d0fa7b00aed4dc0dc6723f1  .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz --strip-components=1 -C third-party/slang-elab && rm .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz",
         "sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|' third-party/slang-elab/src/BUILD",
     ],
-    strip_prefix = "OpenROAD-04cbde6e14ad4f94ab65f0fef83d3923a44d269b",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/04cbde6e14ad4f94ab65f0fef83d3923a44d269b.tar.gz"],
+    strip_prefix = "OpenROAD-299f30154c9a3621a701763263dc532f835ab4a5",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/299f30154c9a3621a701763263dc532f835ab4a5.tar.gz"],
 )
 
 # OpenROAD pins sv-lang 10.0.bcr.2, which is not yet published in BCR.
