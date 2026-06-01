@@ -1484,7 +1484,7 @@ orfs_synth_rule = rule(
                 ),
                 "_synth_tcl": attr.label(
                     allow_single_file = True,
-                    default = Label("//:synth.tcl"),
+                    default = Label("@orfs//flow:scripts/synth.tcl"),
                 ),
             },
     provides = [
