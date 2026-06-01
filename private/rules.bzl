@@ -1164,6 +1164,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         ),
         inputs = all_parts,
         outputs = [synth_outputs["1_2_yosys.v"]],
+        progress_message = "Merging synthesized partitions for %s" % module_top(ctx),
     )
 
     # Action 5: SDC copy → 1_2_yosys.sdc
@@ -1186,6 +1187,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         ),
         outputs = [synth_outputs["1_2_yosys.sdc"]],
         tools = yosys_and_flow_tools,
+        progress_message = "Generating SDC for %s" % module_top(ctx),
     )
 
     # Action 6: ODB generation → 1_synth.odb
@@ -1218,6 +1220,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             ),
             outputs = [synth_outputs["1_synth.odb"], synth_outputs["1_synth.sdc"]],
             tools = yosys_and_flow_tools,
+            progress_message = "Building synth ODB for %s" % module_top(ctx),
         )
 
     # Stub outputs that the serial path produces but parallel does not
@@ -1357,6 +1360,7 @@ def _yosys_impl(ctx):
         ),
         outputs = [canon_output] + canon_logs,
         tools = yosys_inputs(ctx),
+        progress_message = "Canonicalizing RTL for %s" % module_top(ctx),
     )
 
     num_partitions = int(all_arguments.get("SYNTH_NUM_PARTITIONS", "0"))
