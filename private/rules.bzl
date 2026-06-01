@@ -896,11 +896,87 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         [validated_kept_macros_json] if validated_kept_macros_json else []
     )
 
+    # Compute the kept-module list once so the per-module canonicalize
+    # actions and the partition loop below agree on names and ordering.
+    kept_modules_list = [m for m in all_arguments.get("SYNTH_KEEP_MODULES", "").split(" ") if m]
+
+    # Actions 2c (one per kept module): re-canonicalize each kept module
+    # into its own RTLIL slice. The slice has all other kept modules
+    # blackboxed and the target renamed to its bare name, so it serves as
+    # a self-contained checkpoint for the partition action that consumes
+    # it. Byte-stable under upstream edits that don't touch the module's
+    # body — restores the canonicalize-as-cache-barrier intent at the
+    # partition layer (matching what `synth-no-verilog-in-depinfo.patch`
+    # did for post-synth stages downstream of `1_synth.v`).
+    #
+    # Filename sanitisation must match synth_partition.sh's `sanitize()`
+    # and parallel_synth.mk's log path.
+    per_module_rtlil = {}
+    per_module_name_file = {}
+    for module in kept_modules_list:
+        sanitized = module.replace("$", "_").replace(".", "_").replace("[", "_").replace("]", "_")
+        per_module_out = declare_artifact(
+            ctx,
+            "results",
+            "partition_{}_canonical.rtlil".format(sanitized),
+        )
+        per_module_name_out = declare_artifact(
+            ctx,
+            "results",
+            "partition_{}_canonical.name".format(sanitized),
+        )
+        blackboxes = [m for m in kept_modules_list if m != module]
+        per_module_commands = [_make_cmd(ctx)] + generation_commands(
+            [per_module_out, per_module_name_out],
+        )
+        ctx.actions.run_shell(
+            arguments = [
+                "--file",
+                parallel_makefile.path,
+                "do-yosys-canonicalize-module",
+                "SYNTH_CANONICALIZE_MODULE_SCRIPT=" + ctx.file._synth_canonicalize_module_script.path,
+            ],
+            command = " && ".join(per_module_commands),
+            env = config_overrides(ctx, base_env | partition_env_extra | {
+                "SYNTH_CHECKPOINT": checkpoint_output.path,
+                "MODULE_BLACKBOXES": " ".join(blackboxes),
+                "MODULE_TARGET_NAME": module,
+                "MODULE_RTLIL_OUT": per_module_out.path,
+                "MODULE_NAME_OUT": per_module_name_out.path,
+                # Byte-stable per-module RTLIL is the whole point of this
+                # action — partition synth caches on its hash. Force
+                # SYNTH_REPEATABLE_BUILD=1 here regardless of the user's
+                # variables.yaml default (0): src/area/capacitance attrs
+                # MUST be stripped for the slice to be stable across
+                # upstream PnR runs that re-characterise SHARED_LOGIC
+                # macro .libs.
+                "SYNTH_REPEATABLE_BUILD": "1",
+            }),
+            inputs = depset(
+                [
+                    checkpoint_output,
+                    config,
+                    parallel_makefile,
+                    ctx.file._synth_canonicalize_module_script,
+                ] + extra_partition_inputs + ctx.files.extra_configs,
+                transitive = [
+                    data_inputs(ctx),
+                    pdk_inputs(ctx),
+                ],
+            ),
+            outputs = [per_module_out, per_module_name_out],
+            tools = yosys_and_flow_tools,
+            progress_message = "Re-canonicalize for partition cache: {}".format(module),
+        )
+        per_module_rtlil[module] = per_module_out
+        per_module_name_file[module] = per_module_name_out
+
     # Base inputs common to every partition (no macros yet — those are
-    # added per partition below).
+    # added per partition below). checkpoint_output is NOT included here:
+    # non-top partitions consume per-module RTLIL slices instead. The top
+    # partition adds it back explicitly below.
     base_partition_inputs = depset(
         [
-            checkpoint_output,
             kept_json,
             config,
             parallel_makefile,
@@ -941,8 +1017,8 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     base_arguments = data_arguments(ctx) | required_arguments(ctx)
     extra_config_paths = [file.path for file in ctx.files.extra_configs]
 
-    # Compute module-to-partition mapping for progress messages
-    kept_modules_list = [m for m in all_arguments.get("SYNTH_KEEP_MODULES", "").split(" ") if m]
+    # kept_modules_list is computed earlier (before Action 2c per-module
+    # canonicalize) so we don't recompute it here.
 
     use_kept_macros_scoping = (
         ctx.attr.kept_macros_enabled and bool(ctx.attr.kept_macros)
@@ -1005,8 +1081,20 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             extra_partition_config = []
             partition_env_override = {}
 
+        # Add per-module RTLIL slices for this partition's modules, plus
+        # their canonical-name sidecars (synth_partition.sh reads the
+        # sidecar to pass DESIGN_NAME=<canonical> to synth.tcl). Each
+        # slice + sidecar is byte-stable under upstream edits that don't
+        # touch the module's body, so the partition action's input set
+        # is stable too — restoring the canonicalize-as-cache-barrier
+        # intent at the partition layer.
+        my_per_module_files = []
+        for m in my_modules:
+            if m in per_module_rtlil:
+                my_per_module_files.append(per_module_rtlil[m])
+                my_per_module_files.append(per_module_name_file[m])
         partition_inputs = depset(
-            [base_inp for base_inp in extra_partition_config],
+            [base_inp for base_inp in extra_partition_config] + my_per_module_files,
             transitive = [base_partition_inputs, my_macro_files],
         )
 
@@ -1036,8 +1124,11 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     # Action 4: synthesize the top module with all kept modules blackboxed.
     # Top integration always sees the full macro set — it stitches every
     # partition together and is the join point of the synth phase, so
-    # scoping its inputs doesn't help wall time.
+    # scoping its inputs doesn't help wall time. Top synth reads the
+    # global checkpoint directly (not a per-module slice), so include
+    # checkpoint_output explicitly here.
     top_partition_inputs = depset(
+        [checkpoint_output],
         transitive = [base_partition_inputs, all_macro_files],
     )
     top_output = declare_artifact(ctx, "results", "partition_top.v")
@@ -1473,6 +1564,10 @@ orfs_synth_rule = rule(
                 "_synth_partition_script": attr.label(
                     allow_single_file = True,
                     default = Label("//:synth_partition.sh"),
+                ),
+                "_synth_canonicalize_module_script": attr.label(
+                    allow_single_file = True,
+                    default = Label("//:synth_canonicalize_module.tcl"),
                 ),
                 "_rtlil_kept_modules": attr.label(
                     allow_single_file = True,

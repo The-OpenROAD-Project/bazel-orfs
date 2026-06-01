@@ -27,6 +27,7 @@ exports_files([
     "rtlil_kept_macros.py",
     "rtlil_kept_modules.py",
     "synth.tcl",
+    "synth_canonicalize_module.tcl",
     "synth_keep.tcl",
     "synth_partition.sh",
 ])
