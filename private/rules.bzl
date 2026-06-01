@@ -888,13 +888,15 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     # Uses wrapper Makefile for yosys-dependencies + do-yosys-partition
     partition_env_extra = {"SYNTH_SKIP_KEEP": "1"} if skip_keep else {}
 
-    # Gate partition actions on the kept_macros validation output.
-    # Doesn't change inputs they actually read — purely a build-graph
-    # dependency so a validation failure prevents partition synth from
-    # starting.
-    extra_partition_inputs = (
-        [validated_kept_macros_json] if validated_kept_macros_json else []
-    )
+    # kept_macros validation is NOT gated onto the build graph here. The
+    # validation output (validated_kept_macros.json) carries no data the
+    # partition or per-module canonicalize actions read — gating on it only
+    # serialized every partition behind the validation action, which itself
+    # waits on the global canonicalize (and thus all macro PnR abstracts).
+    # Instead validated_kept_macros_json is surfaced in OutputGroupInfo so a
+    # build_test can run it off the critical path; a stale dict fails that
+    # test rather than blocking synth.
+    extra_partition_inputs = []
 
     # Compute the kept-module list once so the per-module canonicalize
     # actions and the partition loop below agree on names and ordering.
@@ -1224,6 +1226,8 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     for f in synth_logs + synth_reports:
         ctx.actions.write(output = f, content = "")
 
+    return validated_kept_macros_json
+
 def _yosys_impl(ctx):
     all_arguments = merge_arguments(
         data_arguments(ctx) |
@@ -1298,12 +1302,16 @@ def _yosys_impl(ctx):
 
     variables = declare_artifact(ctx, "results", "1_synth.vars")
 
+    # Populated only by the parallel-synth path when kept_macros validation
+    # is enabled; surfaced via the kept_macros_validation output group.
+    validated_kept_macros_json = None
+
     if ctx.attr.lint:
         # Lint mode: only canonicalization runs; stub remaining synth outputs.
         for f in synth_outputs.values() + synth_logs + synth_reports + [variables]:
             ctx.actions.write(output = f, content = "")
     elif num_partitions > 0:
-        _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_reports, num_partitions, save_odb, all_arguments)
+        validated_kept_macros_json = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_reports, num_partitions, save_odb, all_arguments)
     else:
         # SYNTH_NETLIST_FILES will not create an .rtlil file or reports, so we need
         # an empty placeholder in that case.
@@ -1489,6 +1497,9 @@ def _yosys_impl(ctx):
             logs = depset(canon_logs + synth_logs),
             reports = depset([]),
             deps = depset([deps_tar]),
+            kept_macros_validation = depset(
+                [validated_kept_macros_json] if validated_kept_macros_json else [],
+            ),
             **{f.basename: depset([f]) for f in [config] + outputs}
         ),
         OrfsDepInfo(
