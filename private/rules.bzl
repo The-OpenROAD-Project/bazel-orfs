@@ -1247,6 +1247,82 @@ def _yosys_impl(ctx):
         ),
     )
 
+    # Canonicalize only needs each macro's port interface to blackbox it, not
+    # its PnR'd lef/lib/gds. The caller-named macros (canon_blackbox_macros)
+    # are blackboxed by name at slang read time via `--blackboxed-module`,
+    # appended to the design's SYNTH_SLANG_ARGS in a scoped canonicalize
+    # config: the interface comes from the design's own Verilog, the module
+    # keeps its bare name (so downstream OpenROAD's LEF-master lookup matches),
+    # and the macro's abstract files drop out of the canonicalize action
+    # entirely — so canonicalize no longer waits on their place-and-route.
+    # Gated on kept_macros scoping so non-scoped bazel-orfs designs keep
+    # today's behavior.
+    #
+    # Blackboxing AFTER elaboration (a yosys `blackbox` pass) was rejected:
+    # slang mangles elaborated module names to <bare>$<instance-path>, which
+    # then fails the ODB LEF-master lookup (ORD-2013). Blackboxing at read
+    # keeps the bare name.
+    canon_config = config
+    canon_deps = deps_inputs(ctx)
+    if ctx.attr.kept_macros_enabled and ctx.attr.canon_blackbox_macros:
+        # The caller names exactly the macros to blackbox at canonicalize
+        # (canon_blackbox_macros — e.g. the SHARED_LOGIC macros). They are
+        # blackboxed by name via slang --blackboxed-module, so canonicalize
+        # reads no liberty for them and does not wait on their PnR. Every
+        # other dep (memory macros etc.) stays liberty-blackboxed via its
+        # cheap pre-layout lib — blackboxing those by name would instead
+        # elaborate their bodies into every partition slice.
+        blackbox = {m: True for m in ctx.attr.canon_blackbox_macros}
+        hardened_names = [
+            dep[TopInfo].module_top
+            for dep in ctx.attr.deps
+            if dep[TopInfo].module_top in blackbox
+        ]
+        soft_infos = [
+            dep[OrfsInfo]
+            for dep in ctx.attr.deps
+            if dep[TopInfo].module_top not in blackbox
+        ]
+        if hardened_names:
+            canon_arguments = merge_arguments(
+                data_arguments(ctx) | required_arguments(ctx),
+                orfs_additional_arguments(soft_infos, use_pre_layout = True),
+            )
+
+            # Append --blackboxed-module for each hardened macro to the
+            # design's existing SYNTH_SLANG_ARGS rather than replacing it:
+            # the design relies on flags there (e.g.
+            # --disable-instance-caching=false, which dedups identical module
+            # instances) — clobbering them bloats the canonicalize ~3x.
+            blackbox_slang = " ".join([
+                "--blackboxed-module " + n
+                for n in hardened_names
+            ])
+            existing_slang = canon_arguments.get("SYNTH_SLANG_ARGS", "")
+            canon_arguments = canon_arguments | {
+                "SYNTH_SLANG_ARGS": (existing_slang + " " + blackbox_slang) if existing_slang else blackbox_slang,
+            }
+
+            canon_config = declare_artifact(ctx, "results", "1_1_yosys_canonicalize.mk")
+            ctx.actions.write(
+                output = canon_config,
+                content = config_content(
+                    ctx,
+                    canon_arguments,
+                    [file.path for file in ctx.files.extra_configs],
+                ),
+            )
+            canon_deps = depset(
+                [info.gds for info in soft_infos if info.gds] +
+                [info.lef for info in soft_infos if info.lef] +
+                [info.lib for info in soft_infos if info.lib] +
+                [
+                    info.lib_pre_layout
+                    for info in soft_infos
+                    if info.lib_pre_layout
+                ],
+            )
+
     canon_logs = declare_artifacts(ctx, "logs", ["1_1_yosys_canonicalize.log"])
 
     canon_output = declare_artifact(ctx, "results", CANON_OUTPUT)
@@ -1269,14 +1345,14 @@ def _yosys_impl(ctx):
             ctx,
             verilog_arguments(ctx.files.verilog_files) |
             yosys_environment(ctx) |
-            config_environment(config),
+            config_environment(canon_config),
         ),
         inputs = depset(
-            [config] + ctx.files.verilog_files + ctx.files.extra_configs,
+            [canon_config] + ctx.files.verilog_files + ctx.files.extra_configs,
             transitive = [
                 data_inputs(ctx),
                 pdk_inputs(ctx),
-                deps_inputs(ctx),
+                canon_deps,
             ],
         ),
         outputs = [canon_output] + canon_logs,

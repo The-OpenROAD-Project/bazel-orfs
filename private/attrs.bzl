@@ -208,6 +208,19 @@ def synth_attrs():
                   "scopes each parallel partition's macro inputs to the " +
                   "union of macros for its assigned modules.",
         ),
+        "canon_blackbox_macros": attr.string_list(
+            default = [],
+            doc = "Module names (subset of `deps`) to blackbox at the global " +
+                  "canonicalize via slang --blackboxed-module, instead of " +
+                  "reading their liberty. Use for hardened logic macros whose " +
+                  "only liberty is a post-PnR abstract (e.g. SHARED_LOGIC): " +
+                  "blackboxing them by name takes the interface from the " +
+                  "design Verilog and keeps the bare module name (so OpenROAD's " +
+                  "LEF-master lookup still matches), so canonicalize no longer " +
+                  "depends on their place-and-route. Leave memory macros out — " +
+                  "they have cheap pre-layout liberty and blackboxing them by " +
+                  "name would elaborate their bodies into every partition slice.",
+        ),
         "kept_macros_enabled": attr.bool(
             default = False,
             doc = "Set automatically by the orfs_flow() wrapper when the " +
