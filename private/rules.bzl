@@ -1405,7 +1405,7 @@ def _yosys_impl(ctx):
             config = config_short,
             renames = [],
             files = depset(
-                [config_short] + ctx.files.verilog_files + ctx.files.extra_configs,
+                [config_short] + ctx.files.extra_configs,
             ),
             runfiles = ctx.runfiles(transitive_files = deploy_files),
         ),
