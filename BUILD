@@ -4,6 +4,7 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load(":yosys_pkg.bzl", "yosys_prefix_tar")
 
 exports_files([
     "bump.py",
@@ -30,6 +31,14 @@ exports_files([
     "synth_keep.tcl",
     "synth_partition.sh",
 ])
+
+# Relocatable PREFIX tarball of the hermetic yosys build (bin/yosys,
+# bin/yosys-abc, share/yosys/...). Consumers that want plugins bundled
+# (e.g. yosys-slang) instantiate yosys_prefix_tar() themselves.
+yosys_prefix_tar(
+    name = "yosys_tar",
+    visibility = ["//visibility:public"],
+)
 
 sh_binary(
     name = "klayout",
