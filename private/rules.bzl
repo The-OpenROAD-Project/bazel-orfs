@@ -1586,8 +1586,13 @@ def _yosys_impl(ctx):
             make = make,
             config = config_short,
             renames = [],
+            # Include the stage data (sources= files) like the PnR stage
+            # rule does: orfs_arguments/orfs_run consumers stage
+            # OrfsDepInfo.files, and the synth config can reference
+            # sources= paths (e.g. LAYER_PARASITICS_FILE) that load.tcl
+            # sources at load_design time.
             files = depset(
-                [config_short] + ctx.files.extra_configs,
+                [config_short] + ctx.files.data + ctx.files.extra_configs,
             ),
             runfiles = ctx.runfiles(transitive_files = deploy_files),
         ),
