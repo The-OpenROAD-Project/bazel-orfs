@@ -743,7 +743,10 @@ orfs_run_executable = rule(
 # --- Synthesis rule ---
 
 CANON_OUTPUT = "1_1_yosys_canonicalize.rtlil"
-SYNTH_OUTPUTS = ["1_2_yosys.v", "1_2_yosys.sdc", "1_synth.sdc", "mem.json"]
+
+# 1_synth.odb/.sdc are not listed here: they are produced by do-1_synth
+# (synth_odb.tcl), not yosys, and are only declared when save_odb=True.
+SYNTH_OUTPUTS = ["1_2_yosys.v", "1_2_yosys.sdc", "mem.json"]
 SYNTH_REPORTS = ["synth_stat.txt", "synth_mocked_memories.txt"]
 
 def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_reports, num_partitions, save_odb, all_arguments = {}):
@@ -1194,9 +1197,10 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     # do-1_synth is a .PHONY target that runs synth_odb.tcl to read the
     # merged Verilog and produce the ODB; it does not trigger yosys rebuilds.
     if save_odb:
-        odb_commands = [_make_cmd(ctx)] + generation_commands(
-            [synth_outputs["1_synth.odb"]],
-        )
+        # No generation_commands: 1_synth.odb/.sdc are the step's
+        # contract; a missing one must fail the action, not be
+        # papered over with a touched empty file.
+        odb_commands = [_make_cmd(ctx)]
         ctx.actions.run_shell(
             arguments = [
                 "--file",
@@ -1375,7 +1379,7 @@ def _yosys_impl(ctx):
     synth_logs = declare_artifacts(ctx, "logs", ["1_2_yosys.log", "1_2_yosys_metrics.log"] + (["1_synth.log"] if save_odb else []))
 
     synth_outputs = {}
-    for output in SYNTH_OUTPUTS + (["1_synth.odb"] if save_odb else []):
+    for output in SYNTH_OUTPUTS + (["1_synth.odb", "1_synth.sdc"] if save_odb else []):
         synth_outputs[output] = declare_artifact(ctx, "results", output)
 
     synth_reports = declare_artifacts(ctx, "reports", SYNTH_REPORTS)
@@ -1393,10 +1397,13 @@ def _yosys_impl(ctx):
     elif num_partitions > 0:
         validated_kept_macros_json = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_reports, num_partitions, save_odb, all_arguments)
     else:
-        # SYNTH_NETLIST_FILES will not create an .rtlil file or reports, so we need
-        # an empty placeholder in that case.
+        # SYNTH_NETLIST_FILES will not create an .rtlil file, logs,
+        # reports or mem.json, so touch empty placeholders for those.
+        # Primary artifacts (1_2_yosys.v/.sdc, 1_synth.odb/.sdc) are
+        # deliberately excluded: a missing one must fail the action,
+        # not be papered over with a touched empty file.
         commands = [_make_cmd(ctx)] + generation_commands(
-            synth_logs + synth_outputs.values() + synth_reports,
+            synth_logs + synth_reports + [synth_outputs["mem.json"]],
         )
         ctx.actions.run_shell(
             arguments = [
