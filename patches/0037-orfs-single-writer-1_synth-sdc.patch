@@ -1,0 +1,100 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 6 Jul 2026 09:58:32 +0200
+Subject: [PATCH] synth: single writer for 1_synth.sdc
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+1_synth.sdc had two writers: yosys' synth.tcl copied the user's
+SDC_FILE into place (a leftover from before SDC canonicalization
+existed, "one day a more sophisticated synthesis..."), then
+synth_odb.tcl overwrote it in place with the OpenSTA-canonicalized
+version. cp preserves the source's mode bits, so when SDC_FILE is a
+read-only build input (bazel RBE), the copy is read-only and the
+canonicalization write fails. Locally sources are writable, so this
+only accidentally worked.
+
+Drop the copies from synth.tcl and synth_preamble.tcl:
+synth_odb.tcl/synth_syn.tcl are the sole writers of 1_synth.sdc.
+1_2_yosys.sdc (copied by the do-yosys make recipe) remains the raw
+SDC the yosys stage hands to synth_odb.tcl.
+
+Also write 1_synth.odb/.sdc unconditionally in synth_odb.tcl and
+synth_syn.tcl instead of via the orfs_write_* wrappers: producing
+those files is the step's contract, and the
+WRITE_ODB_AND_SDC_EACH_STAGE=0 no-op silently left downstream stages
+consuming the stale, non-canonicalized copy.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/synth.tcl          | 4 ----
+ flow/scripts/synth_odb.tcl      | 9 ++++++---
+ flow/scripts/synth_preamble.tcl | 1 -
+ flow/scripts/synth_syn.tcl      | 9 ++++++---
+ 4 files changed, 12 insertions(+), 11 deletions(-)
+
+diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
+index fa7982990..8f22a9c99 100644
+--- a/flow/scripts/synth.tcl
++++ b/flow/scripts/synth.tcl
+@@ -299,7 +299,3 @@ if {
+ 
+ # Write synthesized design
+ write_verilog -nohex -nodec $::env(RESULTS_DIR)/1_2_yosys.v
+-# One day a more sophisticated synthesis will write out a modified
+-# .sdc file after synthesis. For now, just copy the input .sdc file,
+-# making synthesis more consistent with other stages.
+-log_cmd exec cp $::env(SDC_FILE) $::env(RESULTS_DIR)/1_synth.sdc
+diff --git a/flow/scripts/synth_odb.tcl b/flow/scripts/synth_odb.tcl
+index 63bdc98cd..234512889 100644
+--- a/flow/scripts/synth_odb.tcl
++++ b/flow/scripts/synth_odb.tcl
+@@ -28,9 +28,12 @@ report_design_area
+ report_design_area_metrics
+ 
+ source_step_tcl POST SYNTH
+-orfs_write_db $::env(RESULTS_DIR)/1_synth.odb
++# Producing 1_synth.odb/.sdc is this step's contract:
++# unconditional, no WRITE_ODB_AND_SDC_EACH_STAGE.
++log_cmd write_db $::env(RESULTS_DIR)/1_synth.odb
+ # Canonicalize 1_synth.sdc. The original SDC_FILE provided by
+ # the user could have dependencies, such as sourcing util.tcl,
+ # which are read in here and a canonicalized version is written
+-# out by OpenSTA that has no dependencies.
+-orfs_write_sdc $::env(RESULTS_DIR)/1_synth.sdc
++# out by OpenSTA that has no dependencies. Sole writer of
++# 1_synth.sdc.
++log_cmd write_sdc -no_timestamp $::env(RESULTS_DIR)/1_synth.sdc
+diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
+index af43512c0..58c016a7a 100644
+--- a/flow/scripts/synth_preamble.tcl
++++ b/flow/scripts/synth_preamble.tcl
+@@ -14,7 +14,6 @@ if { [env_var_exists_and_non_empty SYNTH_NETLIST_FILES] } {
+     # keep things simple we just use the creation date
+     log_cmd exec cat {*}$::env(SYNTH_NETLIST_FILES) > $::env(RESULTS_DIR)/1_2_yosys.v
+   }
+-  log_cmd exec cp -p $::env(SDC_FILE) $::env(RESULTS_DIR)/1_synth.sdc
+   if { [env_var_exists_and_non_empty CACHED_REPORTS] } {
+     log_cmd exec cp -p {*}$::env(CACHED_REPORTS) $::env(REPORTS_DIR)/.
+   }
+diff --git a/flow/scripts/synth_syn.tcl b/flow/scripts/synth_syn.tcl
+index f0469dce0..f013fd5ea 100644
+--- a/flow/scripts/synth_syn.tcl
++++ b/flow/scripts/synth_syn.tcl
+@@ -68,9 +68,12 @@ log_cmd repair_design -pre_placement
+ 
+ report_metrics 1 "synth" false false
+ 
+-orfs_write_db $::env(RESULTS_DIR)/1_synth.odb
++# Producing 1_synth.odb/.sdc is this step's contract:
++# unconditional, no WRITE_ODB_AND_SDC_EACH_STAGE.
++log_cmd write_db $::env(RESULTS_DIR)/1_synth.odb
+ # Canonicalize 1_synth.sdc. The original SDC_FILE provided by
+ # the user could have dependencies, such as sourcing util.tcl,
+ # which are read in here and a canonicalized version is written
+-# out by OpenSTA that has no dependencies.
+-orfs_write_sdc $::env(RESULTS_DIR)/1_synth.sdc
++# out by OpenSTA that has no dependencies. Sole writer of
++# 1_synth.sdc.
++log_cmd write_sdc -no_timestamp $::env(RESULTS_DIR)/1_synth.sdc
