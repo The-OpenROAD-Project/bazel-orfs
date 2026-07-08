@@ -4,6 +4,8 @@
 # am__append_6 (remote-stub), and the lib/Makefile am_libgnu_a_OBJECTS
 # from a configure run on Linux glibc. See tools/gnumake/config.h for the
 # matching #define set.
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
 cc_binary(
     name = "make",
     srcs = [
