@@ -27,7 +27,7 @@ local_path_override(
 bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",
-    commit = "fb65d5b487d2afd443fc1892330f622c776a57ac",
+    commit = "4b3f2663609fd3f6fd8d862729de1ec5967eb4e6",
     patch_strip = 1,
     patches = [
         "//patches:0036-fix-bazel-orfs-bazel_dep-non-dev-for-load-visibility.patch",
@@ -38,7 +38,7 @@ git_override(
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-011veekekQGPjuDtDyxBsYmW7JkC6T2PqNhlCK7hCDk=",
+    integrity = "sha256-nQIBpccvBFfMuJPQ61QNSL4grgezwFOMEPe65zrT8ko=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor src/sta (OpenSTA) and third-party/abc from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -46,13 +46,13 @@ archive_override(
     # aren't covered by archive_override's integrity.  Regenerated
     # by bump.py on every commit bump; do not edit by hand.
     patch_cmds = [
-        "curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o .openroad-submodule-src-sta-8572175ac45c42ce8d3d772f73bbb059786b9c66.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/8572175ac45c42ce8d3d772f73bbb059786b9c66.tar.gz && echo '805fbf8fef8ff35bc03e1d7fc3eb15760f886a4735e9c96adec303904b5d7d3e  .openroad-submodule-src-sta-8572175ac45c42ce8d3d772f73bbb059786b9c66.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-8572175ac45c42ce8d3d772f73bbb059786b9c66.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-8572175ac45c42ce8d3d772f73bbb059786b9c66.tar.gz",
+        "curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o .openroad-submodule-src-sta-3ab3337d1b8f13bd15d80786ec771e1c6388d24a.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/3ab3337d1b8f13bd15d80786ec771e1c6388d24a.tar.gz && echo '49b6df67dd69f916993374b28ef48590d427099117fdaa79e4f0d46a4fb85934  .openroad-submodule-src-sta-3ab3337d1b8f13bd15d80786ec771e1c6388d24a.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-3ab3337d1b8f13bd15d80786ec771e1c6388d24a.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-3ab3337d1b8f13bd15d80786ec771e1c6388d24a.tar.gz",
         "curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz https://github.com/The-OpenROAD-Project/abc/archive/d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz && echo '0cbf538e60d0303d0e00360d8973aaad7dae198954bed6e34cc31c9a13b3f802  .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz --strip-components=1 -C third-party/abc && rm .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz",
         "curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz https://github.com/povik/yosys-slang/archive/82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz && echo 'ea31b4a205ebb1fe5ec3789bcd66f21f4975e73c0901622af667f843b833ff10  .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz --strip-components=1 -C third-party/slang-elab && rm .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz",
         "sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|' third-party/slang-elab/src/BUILD",
     ],
-    strip_prefix = "OpenROAD-b65c274cadefe2151aa7eee32e1be9026e8ff14a",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/b65c274cadefe2151aa7eee32e1be9026e8ff14a.tar.gz"],
+    strip_prefix = "OpenROAD-e82300449bc71da46a0959fdb67ab6686f7b1240",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/e82300449bc71da46a0959fdb67ab6686f7b1240.tar.gz"],
 )
 
 # OpenROAD pins sv-lang 10.0.bcr.2, which is not yet published in BCR.
