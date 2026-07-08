@@ -13,7 +13,7 @@ merge_yosys_share(
 
 # Flat synthesis of a tiny SystemVerilog counter.
 # Exercises: slang frontend, yosys_share visibility, PDK access,
-# openroad from-source build (tcmalloc, C++20, toolchains_llvm).
+# openroad from-source build (tcmalloc, C++20, OpenROAD's hermetic toolchain).
 orfs_flow(
     name = "counter",
     arguments = {

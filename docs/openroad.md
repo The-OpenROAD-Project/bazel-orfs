@@ -38,8 +38,15 @@ git_override(
     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
 )
 
-bazel_dep(name = "toolchains_llvm", version = "1.5.0")
+bazel_dep(name = "llvm", version = "0.8.11")
+
+register_toolchains("@llvm//toolchain:all")
 ```
+
+The `llvm` module (hermetic-llvm) provides the C++ toolchain OpenROAD builds
+against. OpenROAD registers it only as a `dev_dependency`, so it does not
+propagate to downstream roots — each root building OpenROAD from source must
+register `@llvm//toolchain:all` itself.
 
 ### GUI Builds
 
@@ -114,10 +121,12 @@ Things that can surprise you when building OpenROAD from source:
   tcmalloc, Qt, eigen, swig, and more. Expect 30-60+ minutes for a cold build.
   Subsequent builds are incremental.
 
-- **`toolchains_llvm` is pulled in**. OpenROAD pins LLVM 20.1.8 as its C++
-  compiler toolchain. This may conflict with your local compiler setup or other
-  toolchain registrations. Non-root toolchain registrations have lower priority,
-  so it won't override your root module's toolchain if you have one.
+- **You must register the `llvm` (hermetic-llvm) toolchain yourself**. OpenROAD
+  builds against the BCR `llvm` module (a statically linked, zero-sysroot LLVM),
+  but registers it only as a `dev_dependency` — which bzlmod ignores for non-root
+  modules. So `@openroad` as a dependency does not bring a toolchain with it;
+  each root building OpenROAD from source must declare `bazel_dep(name = "llvm")`
+  and `register_toolchains("@llvm//toolchain:all")`.
 
 - **Dependency version conflicts**. OpenROAD may require newer versions of
   shared dependencies (`rules_cc`, `rules_shell`, etc.) than your project uses.
@@ -136,14 +145,17 @@ Things that can surprise you when building OpenROAD from source:
 
 These changes in OpenROAD would improve the experience for downstream users:
 
-- **`toolchains_llvm` root-only workaround** — OpenROAD should make the llvm
-  extension usage conditional on being the root module, or move to a different
-  toolchain configuration pattern that works from non-root modules.
+- **Hermetic toolchain doesn't propagate to consumers** — OpenROAD registers
+  the `llvm` (hermetic-llvm) toolchain only as a `dev_dependency`, so every
+  downstream root that builds OpenROAD from source has to re-declare
+  `bazel_dep(name = "llvm")` + `register_toolchains("@llvm//toolchain:all")`.
+  A propagating registration (or a documented shared macro) would remove that
+  duplication.
 
 - **qt-bazel in BCR** — would eliminate the `git_override` burden; currently
   every consumer must re-declare it.
 
-- **Make more dependencies `dev_dependency`** — `toolchains_llvm`, many boost
+- **Make more dependencies `dev_dependency`** — many boost
   modules, `or-tools`, `tcmalloc`, `eigen`, `swig` etc. are pulled into every
   downstream project's dependency graph. Making non-essential-for-API deps into
   `dev_dependency` would reduce the transitive dependency burden.

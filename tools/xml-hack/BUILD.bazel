@@ -1,5 +1,0 @@
-exports_files([
-    "BUILD.llvm_repo",
-    "libxml2_stub.c",
-    "libxml2_stub.ver",
-])
