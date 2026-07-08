@@ -1,13 +1,5 @@
 build --incompatible_strict_action_env
 
-# yosys 0.64 is not yet in BCR; add the unmerged PR's fork as a fallback
-# registry until bazelbuild/bazel-central-registry#8862 lands. BCR is listed
-# first; the fork is only consulted for versions BCR doesn't carry yet. The
-# commit hash makes the fork reference immutable. Drop once yosys 0.64 lands
-# on BCR.
-common --registry=https://bcr.bazel.build/
-common --registry=https://raw.githubusercontent.com/oharboe/bazel-central-registry/c220c8fc735c0e05c0354330b8885ca36275bd02/
-
 # Required by OpenROAD (STA uses std::format_string from C++20)
 build --cxxopt "-std=c++20" --host_cxxopt "-std=c++20"
 
