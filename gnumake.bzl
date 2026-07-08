@@ -8,6 +8,15 @@ Instead, we download Zig and bootstrap with `zig cc`. On Linux we statically
 link against musl so the output is byte-identical across machines regardless
 of host glibc or host compiler version; on macOS we target the native libc
 (Apple doesn't allow fully-static libc linking).
+
+The repository rule only *downloads* Zig and the GNU Make source; the actual
+`./configure` + bootstrap runs in the `//:make` genrule, i.e. as a normal
+build action. That way the compiled binary is an ordinary build artifact and
+is stored in / served from the Bazel remote cache, instead of being rebuilt
+during the fetch phase in every fresh output base (repository-rule execution
+is not covered by the remote or disk action cache). The downloads stay in the
+fetch phase, where they are covered by --repository_cache and the remote
+downloader (Remote Asset API).
 """
 
 _MAKE_VERSION = "4.4.1"
@@ -65,18 +74,93 @@ def _host_key(repository_ctx):
         ))
     return key
 
-_CC_WRAPPER = """#!/bin/sh
-# configure invokes this as $CC; delegate to `zig cc` with a pinned target
-# and reproducibility flags so the output is byte-identical across hosts:
-#   -ffile-prefix-map=...    strip absolute paths from __FILE__ and debug info
-#   -Wl,--build-id=none      suppress the randomly-generated ELF build-id
-#   -Wl,--strip-all          drop .debug_* and .symtab from the final binary
-# (-static, where applicable, is folded into extra_flags below.)
-exec {zig} cc -target {target} {extra_flags} \
-    -ffile-prefix-map={repo}= \
-    -Wl,--build-id=none \
-    -Wl,--strip-all \
-    "$@"
+# Bootstrap script run by the //:make genrule (i.e. as a build action, not in
+# the fetch phase). Compiles make with `zig cc` and copies the result to the
+# declared output. Kept verbatim (no .format templating) so shell $-expansions
+# survive; the host-specific target/flags arrive as positional arguments.
+_BUILD_MAKE_SH = """#!/bin/sh
+# Args: zig_bin make_src_dir out target extra_flags
+set -eu
+
+zig_bin=$1
+src_dir=$2
+out=$3
+target=$4
+extra_flags=$5
+
+root=$(pwd)
+build_dir="$root/_gnumake_build"
+rm -rf "$build_dir"
+mkdir -p "$build_dir"
+
+# configure/build.sh write into the source tree, but Bazel inputs are
+# read-only symlinks; work on a private, writable copy.
+cp -RL "$src_dir"/. "$build_dir"/
+
+# cc wrapper: pin the zig target + reproducibility flags so the binary is
+# byte-identical across machines (a prerequisite for sharing remote-cache
+# hits):
+#   -ffile-prefix-map=...   strip the build path from __FILE__ / debug info
+#   -Wl,--build-id=none     suppress the randomly-generated ELF build-id
+#   -Wl,--strip-all         drop .debug_* and .symtab from the final binary
+# (-static, where applicable, arrives in extra_flags.)
+cat > "$build_dir/cc-wrapper.sh" <<EOF
+#!/bin/sh
+exec "$root/$zig_bin" cc -target $target $extra_flags \\
+    -ffile-prefix-map=$build_dir= \\
+    -Wl,--build-id=none \\
+    -Wl,--strip-all \\
+    "\\$@"
+EOF
+chmod +x "$build_dir/cc-wrapper.sh"
+
+# Keep zig's own build cache inside the action's scratch dir.
+export CC="$build_dir/cc-wrapper.sh"
+export ZIG_LOCAL_CACHE_DIR="$build_dir/zig-cache"
+export ZIG_GLOBAL_CACHE_DIR="$build_dir/zig-cache"
+# --incompatible_strict_action_env gives actions a minimal PATH; configure
+# needs the standard POSIX tools.
+export PATH="/usr/bin:/bin:${PATH:-}"
+
+cd "$build_dir"
+./configure --without-guile --disable-nls
+# Bootstrap build — compiles make using only the C compiler, no pre-existing
+# make binary required.
+sh build.sh
+cp "$build_dir/make" "$root/$out"
+"""
+
+# BUILD.bazel for the generated repo. The genrule runs _BUILD_MAKE_SH as a
+# build action; {target}/{extra_flags} are the host-specific zig settings.
+_BUILD_BAZEL = """\
+filegroup(
+    name = "zig_toolchain",
+    srcs = glob(["zig/**"]),
+)
+
+filegroup(
+    name = "make_src",
+    srcs = glob(["make-src/**"]),
+)
+
+genrule(
+    name = "make",
+    srcs = [
+        "build_make.sh",
+        "zig/zig",
+        "make-src/configure",
+        ":zig_toolchain",
+        ":make_src",
+    ],
+    outs = ["make"],
+    cmd = "$(execpath build_make.sh) $(execpath zig/zig) " +
+          "$$(dirname $(execpath make-src/configure)) $@ " +
+          "'{target}' '{extra_flags}'",
+    # Single executable output, so `attr.label(executable = True)` consumers
+    # (private/attrs.bzl `_make`) can use it via ctx.executable._make.
+    executable = True,
+    visibility = ["//visibility:public"],
+)
 """
 
 def _gnumake_impl(repository_ctx):
@@ -95,9 +179,8 @@ def _gnumake_impl(repository_ctx):
         stripPrefix = host.subdir.format(_ZIG_VERSION),
         output = "zig",
     )
-    zig = repository_ctx.path("zig/zig")
 
-    # GNU Make source.
+    # GNU Make source — unpacked under make-src/.
     repository_ctx.download_and_extract(
         url = [
             "https://ftp.gnu.org/gnu/make/make-{v}.tar.gz".format(v = _MAKE_VERSION),
@@ -107,53 +190,14 @@ def _gnumake_impl(repository_ctx):
         ],
         sha256 = _MAKE_SHA256,
         stripPrefix = "make-{v}".format(v = _MAKE_VERSION),
+        output = "make-src",
     )
 
-    # cc wrapper that pins target + reproducibility flags.
-    repository_ctx.file(
-        "cc-wrapper.sh",
-        _CC_WRAPPER.format(
-            zig = zig,
-            target = host.target,
-            extra_flags = host.extra_flags,
-            repo = str(repository_ctx.path(".")),
-        ),
-        executable = True,
-    )
-    cc = str(repository_ctx.path("cc-wrapper.sh"))
-
-    # Keep zig's own build cache inside the repo so it's hermetic and cleaned
-    # up with `bazel clean --expunge`.
-    env = {
-        "CC": cc,
-        "ZIG_LOCAL_CACHE_DIR": str(repository_ctx.path("zig-cache")),
-        "ZIG_GLOBAL_CACHE_DIR": str(repository_ctx.path("zig-cache")),
-    }
-
-    result = repository_ctx.execute(
-        ["./configure", "--without-guile", "--disable-nls"],
-        timeout = 300,
-        environment = env,
-    )
-    if result.return_code != 0:
-        fail("GNU Make configure failed:\nstdout:\n{}\nstderr:\n{}".format(result.stdout, result.stderr))
-
-    # Bootstrap build — compiles make using only the C compiler, no
-    # pre-existing make binary required.
-    result = repository_ctx.execute(
-        ["sh", "build.sh"],
-        timeout = 600,
-        environment = env,
-    )
-    if result.return_code != 0:
-        fail("GNU Make bootstrap build failed:\nstdout:\n{}\nstderr:\n{}".format(result.stdout, result.stderr))
-
-    repository_ctx.file("BUILD.bazel", """\
-exports_files(
-    ["make"],
-    visibility = ["//visibility:public"],
-)
-""")
+    repository_ctx.file("build_make.sh", _BUILD_MAKE_SH, executable = True)
+    repository_ctx.file("BUILD.bazel", _BUILD_BAZEL.format(
+        target = host.target,
+        extra_flags = host.extra_flags,
+    ))
 
 gnumake = repository_rule(
     implementation = _gnumake_impl,
