@@ -75,17 +75,6 @@ single_version_override(
     version = "10.0.1-20260316-f04e8156",
 )
 
-# scip 9.2.3 (pulled transitively by OpenROAD) vendors a tinycthread that
-# #defines once_flag/call_once, colliding with glibc 2.41+'s <threads.h> and
-# failing to compile.  9.2.3.bcr.1 carries the upstream rename fix
-# (scipopt/scip@cc917e07) but isn't on official BCR yet, so it's hosted in the
-# fork registry pinned in .bazelrc.  Nothing in the graph requests .bcr.1, so
-# force it here.  Drop both once BCR ships scip > 9.2.3.
-single_version_override(
-    module_name = "scip",
-    version = "9.2.3.bcr.1",
-)
-
 # sed (transitive: abc -> ncurses -> sed): its vendored gnulib headers shadow
 # libc headers (stdio.h, error.h), which hermetic-llvm's explicit libc -isystem
 # entries outrank, so 4.9.bcr.3 fails to compile (BCR #7642). 4.9.bcr.5 carries
