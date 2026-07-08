@@ -5,15 +5,15 @@ cascades into Bazel remote cache misses for every orfs_run / orfs_flow
 action (make is the Makefile-wrapper entrypoint for every stage).
 
 The BUILD file overlay (//tools/gnumake:BUILD.gnumake) compiles gmake as a
-plain `cc_binary` against the project's registered hermetic clang
-(`@llvm_toolchain` from toolchains_llvm) — the same toolchain used to build
-yosys and openroad — with `-Wl,--build-id=none -Wl,-s` to strip the random
-build-id and symbols. Output is deterministic on a fixed host. Strict
-cross-distro byte identity (the previous zig+musl-static guarantee) would
-require vendoring a sysroot and is out of scope here; it would benefit
+plain `cc_binary` against the project's registered hermetic clang (the BCR
+`llvm` / hermetic-llvm toolchain) — the same toolchain used to build yosys
+and openroad — with `-Wl,--build-id=none -Wl,-s` to strip the random
+build-id and symbols. Output is deterministic on a fixed host. Strict cross-distro
+byte identity (the previous zig+musl-static guarantee) would require
+vendoring a sysroot and is out of scope here; it would benefit
 yosys/openroad equally and should be a project-wide change.
 
-Linux x86_64 only — that's the only host the registered LLVM tarball
+Linux x86_64 only — that's the only host the registered LLVM toolchain
 supports today.
 
 Substituting a host make

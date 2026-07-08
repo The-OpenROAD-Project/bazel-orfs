@@ -74,19 +74,69 @@ single_version_override(
     version = "9.2.3.bcr.1",
 )
 
-# sed-4.9 ships gnulib's lib/memchr.c, which compiles cleanly only
-# when `memchr` is not a function-like macro at the point it defines
-# `__memchr (...)`. The existing `# undef memchr` is gated on _LIBC
-# (glibc's own build), so outside _LIBC the system <string.h>'s
-# `__glibc_const_generic` _Generic macro survives and clang rejects
-# the function header with "expected identifier or '('".  Force the
-# `# undef memchr` to run unconditionally.
+# sed (transitive: abc -> ncurses -> sed): its vendored gnulib headers shadow
+# libc headers (stdio.h, error.h), which hermetic-llvm's explicit libc -isystem
+# entries outrank, so 4.9.bcr.3 fails to compile (BCR #7642). 4.9.bcr.5 carries
+# the upstream fix (BCR #7915). (The old toolchains_llvm-era memchr patch_cmds
+# is gone: it dodged a host glibc 2.41+ _Generic collision that the zero-sysroot
+# hermetic-llvm toolchain no longer triggers.)
 single_version_override(
     module_name = "sed",
-    patch_cmds = [
-        "sed -i 's|^#ifdef _LIBC$|#if 1|' lib/memchr.c",
-    ],
     version = "4.9.bcr.5",
+)
+
+# --- hermetic-llvm compatibility (mirrored from OpenROAD's root MODULE.bazel) ---
+# The BCR "llvm" toolchain is zero-sysroot: glibc headers arrive as explicit
+# -isystem dirs that outrank the vendored gnulib/minizip headers these
+# build-time deps ship. OpenROAD applies these fixes as the root module, so
+# they don't propagate when we build @openroad as a dependency — every root
+# that builds OpenROAD from source must repeat them. Keep in sync on each bump.
+
+# bison (transitive: rules_bison -> bison): gnulib wrapper headers must precede
+# libc via -I, not -isystem (BCR #7642). Proposed upstream as 3.8.2.bcr.8.
+single_version_override(
+    module_name = "bison",
+    patch_strip = 1,
+    patches = [
+        "//patches:0001-gnulib-wrapper-headers-use-I-not-isystem.patch",
+    ],
+    version = "3.8.2.bcr.7",
+)
+
+# boost.icl: exclusive_less_than violates strict weak ordering (boostorg/icl#51);
+# under libc++ this leaves phantom intervals after interval_set subtraction
+# (#55), misplacing pad fillers. Upstream fix (#54) lands after boost 1.90.
+single_version_override(
+    module_name = "boost.icl",
+    patch_strip = 1,
+    patches = [
+        "//patches:0001-refactor-interval-lookup-operations-icl-54.patch",
+    ],
+)
+
+# gawk (transitive: abc -> ncurses -> gawk; yosys -> gawk): same gnulib
+# libc-header shadowing as sed (BCR #7642); 5.3.2.bcr.7 has the fix (BCR #7989).
+single_version_override(
+    module_name = "gawk",
+    version = "5.3.2.bcr.7",
+)
+
+# m4 (transitive: rules_bison/rules_flex -> m4): same gnulib libc-header
+# shadowing under hermetic-llvm (BCR #7642).
+single_version_override(
+    module_name = "m4",
+    version = "1.4.21.bcr.4",
+)
+
+# tcl_lang: tclZipfs.c's #include "crypt.h" resolves to glibc's crypt.h under
+# hermetic-llvm's explicit -isystem glibc dirs; include the vendored minizip
+# header by path instead. Drop when fixed in a tcl_lang BCR release.
+single_version_override(
+    module_name = "tcl_lang",
+    patch_strip = 1,
+    patches = [
+        "//patches:0001-tclZipfs-include-vendored-minizip-crypt.h-by-path.patch",
+    ],
 )
 
 # sv-lang pulls in rules_pycross, whose toolchain extension fails on Python
@@ -106,40 +156,21 @@ git_override(
 )
 
 bazel_dep(name = "glpk", version = "5.0.bcr.4")
-bazel_dep(name = "toolchains_llvm", version = "1.5.0")
 
-# Stub libxml2.so.2 — see @bazel-orfs//tools/xml-hack/README.md for the full
-# story and deletion conditions. Mirrors the block in //MODULE.bazel because
-# llvm.toolchain_root is a root-module tag and gallery is its own root.
-http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-http_archive(
-    name = "llvm_toolchain_llvm",
-    build_file = "@bazel-orfs//tools/xml-hack:BUILD.llvm_repo",
-    patch_cmds = [
-        """printf '%s\\n' 'extern void abort(void);' 'void *xmlFree=0;' 'void *xmlAddChild(void*p,void*c){abort();}' 'void *xmlCopyNamespace(void*n){abort();}' 'void xmlDocDumpFormatMemoryEnc(void*d,void*b,void*s,const char*e,int f){abort();}' 'void *xmlDocGetRootElement(void*d){abort();}' 'void *xmlDocSetRootElement(void*d,void*r){abort();}' 'void xmlFreeDoc(void*d){abort();}' 'void xmlFreeNode(void*n){abort();}' 'void xmlFreeNs(void*n){abort();}' 'void *xmlNewDoc(const void*v){abort();}' 'void *xmlNewNs(void*n,const void*h,const void*p){abort();}' 'void *xmlNewProp(void*n,const void*a,const void*v){abort();}' 'void *xmlReadMemory(const char*b,int sz,const char*u,const char*e,int o){abort();}' 'void xmlSetGenericErrorFunc(void*c,void*h){abort();}' 'void *xmlStrdup(const void*s){abort();}' 'void xmlUnlinkNode(void*n){abort();}' > _stub.c && printf '%s\\n' 'LIBXML2_2.4.30 { global: xmlAddChild; xmlCopyNamespace; xmlDocDumpFormatMemoryEnc; xmlDocGetRootElement; xmlDocSetRootElement; xmlFree; xmlFreeDoc; xmlFreeNode; xmlFreeNs; xmlNewDoc; xmlNewNs; xmlNewProp; xmlSetGenericErrorFunc; xmlStrdup; xmlUnlinkNode; local: *; };' 'LIBXML2_2.6.0 { global: xmlReadMemory; } LIBXML2_2.4.30;' > _stub.ver && ./bin/clang -nostdlib -nostdinc -fuse-ld=lld -shared -o lib/libxml2.so.2 -Wl,--version-script=_stub.ver -Wl,-soname,libxml2.so.2 _stub.c && rm _stub.c _stub.ver""",
-    ],
-    sha256 = "1ead36b3dfcb774b57be530df42bec70ab2d239fbce9889447c7a29a4ddc1ae6",
-    strip_prefix = "LLVM-20.1.8-Linux-X64",
-    url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-20.1.8/LLVM-20.1.8-Linux-X64.tar.xz",
-)
-
-llvm = use_extension(
-    "@toolchains_llvm//toolchain/extensions:llvm.bzl",
-    "llvm",
-)
-llvm.toolchain(
-    llvm_version = "20.1.8",
-)
-llvm.toolchain_root(
-    name = "llvm_toolchain",
-    label = "@llvm_toolchain_llvm//:BUILD.bazel",
-)
-use_repo(llvm, "llvm_toolchain")
+# Hermetic C++ toolchain for building OpenROAD from source: the BCR "llvm"
+# module (hermetic-llvm), the same statically linked, zero-sysroot LLVM that
+# OpenROAD itself uses. Replaces the old toolchains_llvm / patched LLVM tarball
+# / xml-hack libxml2 stub that this root used to mirror from bazel-orfs.
+# OpenROAD registers this toolchain only as a dev_dependency, so each root
+# building OpenROAD from source must register it themselves.
+bazel_dep(name = "llvm", version = "0.8.11")
 
 register_toolchains(
-    "@llvm_toolchain//:all",
+    "@llvm//toolchain:all",
 )
+
+# http_archive repo rule, used below to vendor the Chisel/RTL source archives.
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 # --- rules_scala + Chisel: for building Chisel projects (Gemmini, etc.) ---
 
