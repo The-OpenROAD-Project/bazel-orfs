@@ -53,6 +53,22 @@ Just run:
 bazelisk run //:fix_lint
 ```
 
+## Debugging OpenROAD/ORFS failures
+
+When an ORFS stage fails in openroad/yosys/opensta — a crash, a hang, a
+parallel race, or a nondeterministic result — the `.claude/commands/`
+slash-commands are the single source of truth. Downstream projects that
+consume bazel-orfs should point at these rather than duplicating the
+mechanics:
+
+- `/openroad-debug` — diagnose the failure (decode the exit code,
+  characterize a hang vs race with the `-threads 1` test, set up a fast
+  `_deps` + bring-your-own-binary edit/measure loop, split a stage at an ODB
+  checkpoint) and shape a self-contained reproducer.
+- `/openroad-issue` — file it upstream as a `git am` patch + failing bazel test.
+- `/untar-and-run-report` — ship it as an untar-and-run `.tar.gz` archive.
+- `/odb-to-cpp` — turn a whittled `.odb` into a self-contained C++ unit test.
+
 ## Gallery
 
 `gallery/` is a separate Bazel workspace with its own `MODULE.bazel`.
