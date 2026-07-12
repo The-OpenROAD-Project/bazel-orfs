@@ -17,7 +17,6 @@ BAZEL_ORFS_COMMIT = "new_bazel_orfs_aaa111"
 OPENROAD_COMMIT = "new_openroad_bbb222"
 ORFS_COMMIT = "new_orfs_ccc333"
 YOSYS_TOOLS_COMMIT = "new_yosys_ddd444"
-YOSYS_SLANG_TOOLS_COMMIT = "new_yosys_slang_eee555"
 UPSTREAM_HEAD_COMMIT = "upstream_head_fff666"
 MOCK_INTEGRITY = "sha256-MOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCKMOCK="
 
@@ -52,7 +51,7 @@ def mock_fetch_commit(repo, branch):
         return BAZEL_ORFS_COMMIT
     if "OpenROAD-flow-scripts" in repo:
         return ORFS_COMMIT
-    # --head=<tool> resolves to upstream HEAD for any of openroad/yosys-slang.
+    # --head=openroad resolves to the tool's upstream HEAD.
     return UPSTREAM_HEAD_COMMIT
 
 
@@ -60,7 +59,6 @@ def mock_fetch_orfs_tool_sha(_orfs_commit, tool):
     return {
         "yosys": YOSYS_TOOLS_COMMIT,
         "OpenROAD": OPENROAD_COMMIT,
-        "yosys-slang": YOSYS_SLANG_TOOLS_COMMIT,
     }[tool]
 
 
@@ -73,13 +71,9 @@ def mock_fetch_bcr_versions(_module_name):
 
 
 def mock_fetch_compare_status_ahead(_repo, _base, _head):
-    """ORFS is at-or-past the floor — follow ORFS."""
+    """Unused since yosys-slang floor-gating was removed; kept for the
+    bump() signature the helpers still pass through."""
     return "identical"
-
-
-def mock_fetch_compare_status_behind(_repo, _base, _head):
-    """ORFS lags the floor — hold at the floor."""
-    return "behind"
 
 
 def mock_fetch_integrity(_url):
@@ -925,59 +919,8 @@ class TestDownstreamOrfsToolsFlow(unittest.TestCase):
         self.assertNotIn("old_openroad_commit", self.content)
 
 
-class TestYosysSlangFloorGate(unittest.TestCase):
-    """yosys-slang follows ORFS unless ORFS lags YOSYS_SLANG_MIN_COMMIT."""
-
-    def _run(self, compare_status_fn):
-        tmpdir = tempfile.mkdtemp()
-        try:
-            module_file = os.path.join(tmpdir, "MODULE.bazel")
-            shutil.copy2(
-                os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel"), module_file
-            )
-            slang_path = os.path.join(tmpdir, "yosys_slang.bzl")
-            with open(slang_path, "w") as f:
-                f.write(
-                    'load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")\n'
-                    "\n"
-                    "def _impl(_ctx):\n"
-                    "    new_git_repository(\n"
-                    '        name = "yosys-slang",\n'
-                    '        remote = "https://github.com/povik/yosys-slang.git",\n'
-                    '        commit = "old_yosys_slang_commit",\n'
-                    "    )\n"
-                )
-            bump.bump(
-                module_file,
-                fetch_commit_fn=mock_fetch_commit,
-                fetch_integrity_fn=mock_fetch_integrity,
-                fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
-                fetch_compare_status_fn=compare_status_fn,
-                fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
-                fetch_bcr_versions_fn=mock_fetch_bcr_versions,
-                fetch_sha256_hex_fn=mock_fetch_sha256_hex,
-                fetch_submodule_sha_fn=mock_fetch_submodule_sha,
-                workspace_dir=tmpdir,
-            )
-            with open(slang_path) as f:
-                return f.read()
-        finally:
-            shutil.rmtree(tmpdir)
-
-    def test_orfs_at_or_past_floor_uses_orfs_pin(self):
-        slang = self._run(mock_fetch_compare_status_ahead)
-        self.assertIn(YOSYS_SLANG_TOOLS_COMMIT, slang)
-        self.assertNotIn(bump.YOSYS_SLANG_MIN_COMMIT, slang)
-        self.assertNotIn("old_yosys_slang_commit", slang)
-
-    def test_orfs_lags_floor_holds_at_floor(self):
-        slang = self._run(mock_fetch_compare_status_behind)
-        self.assertIn(bump.YOSYS_SLANG_MIN_COMMIT, slang)
-        self.assertNotIn(YOSYS_SLANG_TOOLS_COMMIT, slang)
-
-
 class TestHeadFlagOverrides(unittest.TestCase):
-    """--head=<tool> bypasses ORFS-tools sha and (for yosys-slang) the floor."""
+    """--head=openroad bypasses the ORFS-tools sha, using the tool's own HEAD."""
 
     def test_head_openroad_uses_upstream_head(self):
         # openroad is pinned via archive_override (not git_override) after the
@@ -991,80 +934,6 @@ class TestHeadFlagOverrides(unittest.TestCase):
         block = content[span[0] : span[1]]
         self.assertIn(UPSTREAM_HEAD_COMMIT, block)
         self.assertNotIn(OPENROAD_COMMIT, block)
-
-    def test_head_yosys_slang_bypasses_floor(self):
-        # Even with ORFS lagging (would otherwise hold at floor), --head wins.
-        tmpdir = tempfile.mkdtemp()
-        try:
-            module_file = os.path.join(tmpdir, "MODULE.bazel")
-            shutil.copy2(
-                os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel"), module_file
-            )
-            slang_path = os.path.join(tmpdir, "yosys_slang.bzl")
-            with open(slang_path, "w") as f:
-                f.write(
-                    "new_git_repository(\n"
-                    '    remote = "https://github.com/povik/yosys-slang.git",\n'
-                    '    commit = "old",\n'
-                    ")\n"
-                )
-            bump.bump(
-                module_file,
-                fetch_commit_fn=mock_fetch_commit,
-                fetch_integrity_fn=mock_fetch_integrity,
-                fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
-                fetch_compare_status_fn=mock_fetch_compare_status_behind,
-                fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
-                fetch_bcr_versions_fn=mock_fetch_bcr_versions,
-                fetch_sha256_hex_fn=mock_fetch_sha256_hex,
-                fetch_submodule_sha_fn=mock_fetch_submodule_sha,
-                workspace_dir=tmpdir,
-                head_tools={"yosys-slang"},
-            )
-            with open(slang_path) as f:
-                slang = f.read()
-            self.assertIn(UPSTREAM_HEAD_COMMIT, slang)
-            self.assertNotIn(bump.YOSYS_SLANG_MIN_COMMIT, slang)
-            self.assertNotIn(YOSYS_SLANG_TOOLS_COMMIT, slang)
-        finally:
-            shutil.rmtree(tmpdir)
-
-
-class TestUpdateYosysSlangCommit(unittest.TestCase):
-    """update_yosys_slang_commit rewrites the right commit literal."""
-
-    def test_rewrites_when_remote_matches(self):
-        tmpdir = tempfile.mkdtemp()
-        try:
-            with open(os.path.join(tmpdir, "yosys_slang.bzl"), "w") as f:
-                f.write(
-                    "new_git_repository(\n"
-                    '    remote = "https://github.com/povik/yosys-slang.git",\n'
-                    '    commit = "old_slang_commit",\n'
-                    ")\n"
-                )
-            self.assertTrue(bump.update_yosys_slang_commit(tmpdir, "new_slang"))
-            with open(os.path.join(tmpdir, "yosys_slang.bzl")) as f:
-                self.assertIn('commit = "new_slang"', f.read())
-        finally:
-            shutil.rmtree(tmpdir)
-
-    def test_noop_when_no_matching_file(self):
-        tmpdir = tempfile.mkdtemp()
-        try:
-            # An unrelated .bzl file with a commit literal — must not be touched.
-            with open(os.path.join(tmpdir, "other.bzl"), "w") as f:
-                f.write(
-                    "git_repository(\n"
-                    '    remote = "https://github.com/foo/bar.git",\n'
-                    '    commit = "keep_this",\n'
-                    ")\n"
-                )
-            self.assertFalse(bump.update_yosys_slang_commit(tmpdir, "new_slang"))
-            with open(os.path.join(tmpdir, "other.bzl")) as f:
-                self.assertIn('commit = "keep_this"', f.read())
-        finally:
-            shutil.rmtree(tmpdir)
 
 
 class TestPickBcrYosysVersion(unittest.TestCase):
@@ -1279,7 +1148,7 @@ class TestCheckYosysAbcPair(unittest.TestCase):
         ok, msg = bump.check_yosys_abc_pair(content)
         self.assertFalse(ok)
         self.assertIn("expects abc", msg)
-        self.assertIn("'0.64-yosyshq.bcr.1'", msg)
+        self.assertIn("'0.64-yosyshq.bcr.2'", msg)
         self.assertIn("'0.62-yosyshq'", msg)
 
     def test_yosys_version_without_bcr_abc_fails_as_unknown_series(self):

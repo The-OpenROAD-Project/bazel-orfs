@@ -871,7 +871,6 @@ ORFS_REPO = "The-OpenROAD-Project/OpenROAD-flow-scripts"
 ORFS_TOOLS = {
     # tools/ subdir name -> (MODULE.bazel module name, upstream repo for --head)
     "OpenROAD": ("openroad", "The-OpenROAD-Project/OpenROAD"),
-    "yosys-slang": ("yosys-slang", "povik/yosys-slang"),
 }
 
 # OpenROAD is pinned via ``archive_override`` (GitHub /archive/<sha>.tar.gz)
@@ -901,12 +900,6 @@ BCR_METADATA_URL = (
     "https://raw.githubusercontent.com/bazelbuild/bazel-central-registry/"
     "main/modules/{module}/metadata.json"
 )
-
-# The oldest povik/yosys-slang sha that satisfies today's build.  Once ORFS's
-# tools/yosys-slang submodule advances past this, the floor becomes a no-op
-# and the bumper transparently switches back to following ORFS's pin.  Update
-# this constant when a newer yosys-slang feature is needed.
-YOSYS_SLANG_MIN_COMMIT = "4e53d772996184b07e9bfe784060f96e6cb0a267"
 
 
 def fetch_orfs_tool_sha(orfs_commit, tool):
@@ -1002,47 +995,6 @@ def fetch_compare_status(repo, base, head):
     return fetch_json(url).get("status")
 
 
-def update_yosys_slang_commit(workspace_dir, new_commit):
-    """Rewrite the povik/yosys-slang commit pin in a workspace .bzl file.
-
-    Walks ``workspace_dir`` for ``*.bzl`` files that fetch yosys-slang from
-    ``povik/yosys-slang.git`` and rewrites the single ``commit = "..."``
-    literal inside that call.  Scoped by the remote URL so unrelated commit
-    fields aren't touched.  No-op (returns False) if no such file exists
-    — bazel-orfs itself doesn't carry yosys-slang.
-    """
-    needle = "povik/yosys-slang.git"
-    for root, _dirs, files in os.walk(workspace_dir):
-        rel = os.path.relpath(root, workspace_dir)
-        if rel != "." and any(
-            part.startswith(".") or part.startswith("bazel-")
-            for part in rel.split(os.sep)
-        ):
-            continue
-        for fname in files:
-            if not fname.endswith(".bzl"):
-                continue
-            fpath = os.path.join(root, fname)
-            try:
-                with open(fpath) as fh:
-                    text = fh.read()
-            except OSError:
-                continue
-            if needle not in text:
-                continue
-            new_text, n = re.subn(
-                r'(commit\s*=\s*")[^"]*(")',
-                rf"\g<1>{new_commit}\2",
-                text,
-                count=1,
-            )
-            if n:
-                with open(fpath, "w") as fh:
-                    fh.write(new_text)
-                return True
-    return False
-
-
 def bump(
     module_file,
     fetch_commit_fn=fetch_latest_commit,
@@ -1059,15 +1011,13 @@ def bump(
 ):
     """Main bump orchestrator.
 
-    Versions for openroad and yosys-slang come from ORFS's tools/ submodules
-    at the just-bumped ORFS master HEAD and are applied as git_override
-    commit pins.  yosys is on BCR: its ORFS tools/yosys pin is read to find
-    ORFS's expected ``YOSYS_VER`` (M.m), and we pick the highest BCR
-    variant with base <= that, then rewrite the ``bazel_dep`` version.
-    yosys-slang is gated against ``YOSYS_SLANG_MIN_COMMIT`` so we never
-    regress past the floor when ORFS lags upstream.  ``head_tools`` (set of
-    tool names) forces individual tools to chase upstream HEAD instead —
-    escape hatch for debugging against an older ORFS pin.
+    The openroad version comes from ORFS's tools/OpenROAD submodule at the
+    just-bumped ORFS master HEAD and is applied to the archive_override.
+    yosys is on BCR: its ORFS tools/yosys pin is read to find ORFS's
+    expected ``YOSYS_VER`` (M.m), and we pick the highest BCR variant with
+    base <= that, then rewrite the ``bazel_dep`` version.  ``head_tools``
+    (set of tool names) forces individual tools to chase upstream HEAD
+    instead — escape hatch for debugging against an older ORFS pin.
 
     Project-type matrix (for the bazel-orfs / orfs commits proper):
         Project      bazel-orfs  ORFS
@@ -1114,8 +1064,8 @@ def bump(
 
     # --- Update ORFS commit (skip for OpenROAD itself or projects without ORFS) ---
     # bazel-orfs and downstream both follow ORFS master; downstream's tool
-    # overrides (openroad/yosys/yosys-slang below) are then resolved at the
-    # new ORFS commit so the whole stack moves coherently.
+    # overrides (openroad/yosys below) are then resolved at the new ORFS
+    # commit so the whole stack moves coherently.
     orfs_commit = None
     if project != "openroad" and has_bazel_dep(content, "orfs"):
         orfs_commit = fetch_commit_fn(ORFS_REPO, "master")
@@ -1170,43 +1120,20 @@ def bump(
             f"{orfs_yosys_ver[0]}.{orfs_yosys_ver[1]})"
         )
 
-    # --- Update remaining EDA tools from ORFS tools/ (openroad, yosys-slang) ---
+    # --- Update openroad from ORFS tools/OpenROAD (or its own HEAD) ---
     if orfs_commit is not None:
         for tool, (module_name, upstream_repo) in ORFS_TOOLS.items():
             if module_name == "openroad" and not has_bazel_dep(content, "openroad"):
                 continue
             if module_name in head_tools:
-                # --head=<module_name> bypasses ORFS entirely.
-                upstream_branch = (
-                    "main" if upstream_repo.startswith("povik/") else "master"
-                )
-                sha = fetch_commit_fn(upstream_repo, upstream_branch)
+                # --head=openroad bypasses ORFS entirely.
+                sha = fetch_commit_fn(upstream_repo, "master")
                 source = f"HEAD of {upstream_repo}"
             else:
-                orfs_sha = fetch_orfs_tool_sha_fn(orfs_commit, tool)
-                if module_name == "yosys-slang":
-                    # Gate against the hardcoded floor: if ORFS's pin is at-or-
-                    # past the floor, follow ORFS; otherwise hold at the floor.
-                    status = fetch_compare_status_fn(
-                        upstream_repo, YOSYS_SLANG_MIN_COMMIT, orfs_sha
-                    )
-                    if status in ("ahead", "identical"):
-                        sha = orfs_sha
-                        source = f"ORFS tools/{tool}"
-                    else:
-                        sha = YOSYS_SLANG_MIN_COMMIT
-                        source = f"yosys-slang floor (ORFS {status})"
-                else:
-                    sha = orfs_sha
-                    source = f"ORFS tools/{tool}"
+                sha = fetch_orfs_tool_sha_fn(orfs_commit, tool)
+                source = f"ORFS tools/{tool}"
 
-            if module_name == "yosys-slang":
-                # No MODULE.bazel signal — workspace .bzl walk is itself the
-                # gate.  Skip silently when the consumer doesn't ship the
-                # plugin loader.
-                if workspace_dir and update_yosys_slang_commit(workspace_dir, sha):
-                    updated_modules.append(f"{module_name} -> {sha[:12]} ({source})")
-            elif module_name == "openroad":
+            if module_name == "openroad":
                 # openroad is pinned via archive_override + submodule patch_cmds
                 # rather than git_override (the latter's init_submodules path
                 # has a non-atomic-fetch bug — see OPENROAD_REPO comment).
