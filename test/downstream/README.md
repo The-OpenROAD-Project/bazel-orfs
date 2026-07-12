@@ -45,9 +45,9 @@ would deliver these through its extension.
 bazel-orfs pip deps are locked to Python 3.13. The root module must
 register it as the default toolchain via `python.toolchain(is_default = True)`.
 
-### yosys-slang not on BCR
+### slang yosys plugin from BCR (sv-elab)
 
-The slang yosys plugin must be built from source. This test includes a
-native Bazel build (`yosys_slang.BUILD.bazel`) that compiles slang, fmt,
-and yosys-slang into `slang.so`. A `merge_yosys_share` rule combines the
-BCR yosys share tree with the plugin.
+The slang yosys plugin comes from the `sv-elab` module on the Bazel
+Central Registry (the project formerly known as `yosys-slang`), via
+`@sv-elab//src/yosys_plugin:slang.so`. A `merge_yosys_share` rule combines
+the BCR yosys share tree with the plugin.

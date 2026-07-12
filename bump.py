@@ -35,7 +35,7 @@ import urllib.request
 # The right-hand value matches the BCR ``abc`` module ``version`` field.
 YOSYS_ABC_PAIRS = {
     "0.62": "0.62-yosyshq",
-    "0.64": "0.64-yosyshq.bcr.1",
+    "0.64": "0.64-yosyshq.bcr.2",
 }
 
 

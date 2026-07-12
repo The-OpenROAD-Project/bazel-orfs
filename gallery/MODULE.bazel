@@ -15,21 +15,27 @@ local_path_override(
 
 bazel_dep(name = "yosys", version = "0.64")
 
+# The slang yosys frontend plugin (slang.so), from BCR sv-elab (formerly
+# yosys-slang). Not bundled in BCR yosys, so it's loaded as an out-of-tree
+# plugin via orfs.default(yosys_plugins=...) below. Gallery uses the slang
+# frontend by default (see defs.bzl SYNTH_HDL_FRONTEND).
+bazel_dep(name = "sv-elab", version = "2026-07-07")
+
 # --- ORFS flow scripts (Makefile, TCL, PDKs) ---
 
 bazel_dep(name = "orfs")
 git_override(
     module_name = "orfs",
-    commit = "4b3f2663609fd3f6fd8d862729de1ec5967eb4e6",
-    patch_strip = 1,
-    patches = [
-        "//patches:0036-fix-bazel-orfs-bazel_dep-non-dev-for-load-visibility.patch",
-    ],
+    commit = "c90beac0945588840cf07b7b4cc6d1b20ac66ddf",
     remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
 )
 
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
-orfs.default()
+orfs.default(
+    # Expose the slang yosys plugin (from BCR sv-elab) via
+    # YOSYS_PLUGIN_PATH so SYNTH_HDL_FRONTEND=slang works.
+    yosys_plugins = ["@sv-elab//src/yosys_plugin:slang.so"],
+)
 use_repo(orfs, "gnumake")
 
 # --- OpenROAD built from source ---
@@ -39,7 +45,7 @@ use_repo(orfs, "gnumake")
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-nQIBpccvBFfMuJPQ61QNSL4grgezwFOMEPe65zrT8ko=",
+    integrity = "sha256-pkGtoioFJ7VomHlnfwK+FG3s+bGM7CJTu9VajBVo1wM=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor src/sta (OpenSTA) and third-party/abc from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -52,8 +58,8 @@ archive_override(
         "curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz https://github.com/povik/yosys-slang/archive/82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz && echo 'ea31b4a205ebb1fe5ec3789bcd66f21f4975e73c0901622af667f843b833ff10  .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz --strip-components=1 -C third-party/slang-elab && rm .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz",
         "sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|' third-party/slang-elab/src/BUILD",
     ],
-    strip_prefix = "OpenROAD-e82300449bc71da46a0959fdb67ab6686f7b1240",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/e82300449bc71da46a0959fdb67ab6686f7b1240.tar.gz"],
+    strip_prefix = "OpenROAD-c724b7da0f4f8b2abc86b0b31c5d51d3740804e0",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/c724b7da0f4f8b2abc86b0b31c5d51d3740804e0.tar.gz"],
 )
 
 # OpenROAD pins sv-lang 10.0.bcr.2, which is not yet published in BCR.
@@ -140,11 +146,11 @@ pycross.configure_environments(python_versions = ["3.13"])
 bazel_dep(name = "qt-bazel")
 git_override(
     module_name = "qt-bazel",
-    commit = "886104974c2fd72439f2c33b5deebf0fe4649df7",
+    commit = "541ebf6df76eef96c4de6343316b1c9d63e296f6",
     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
 )
 
-bazel_dep(name = "glpk", version = "5.0.bcr.4")
+bazel_dep(name = "glpk", version = "5.0.bcr.5")
 
 # Hermetic C++ toolchain for building OpenROAD from source: the BCR "llvm"
 # module (hermetic-llvm), the same statically linked, zero-sysroot LLVM that
