@@ -7,7 +7,7 @@ load("//:merge_share.bzl", "merge_yosys_share")
 # Merge BCR yosys_share with slang plugin built from source
 merge_yosys_share(
     name = "yosys_share_with_slang",
-    plugins = ["@yosys-slang//:slang.so"],
+    plugins = ["@sv-elab//src/yosys_plugin:slang.so"],
     share = "@yosys//:yosys_share",
 )
 
@@ -21,9 +21,9 @@ orfs_flow(
         "PLACE_DENSITY": "0.65",
         # slang is required for SystemVerilog `automatic` keyword
         "SYNTH_HDL_FRONTEND": "slang",
-        "SLANG_PLUGIN_PATH": "$(location @yosys-slang//:slang.so)",
+        "SLANG_PLUGIN_PATH": "$(location @sv-elab//src/yosys_plugin:slang.so)",
     },
-    data = ["@yosys-slang//:slang.so"],
+    data = ["@sv-elab//src/yosys_plugin:slang.so"],
     sources = {
         "SDC_FILE": [":constraints.sdc"],
     },
