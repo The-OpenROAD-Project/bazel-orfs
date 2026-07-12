@@ -287,7 +287,9 @@ use_repo(orfs, "gnumake")
 ```
 
 First build takes 30-60 minutes; subsequent builds are incremental.
-See [docs/openroad.md](docs/openroad.md) for details and gotchas.
+See [docs/openroad.md](docs/openroad.md) for details and gotchas, and
+[docs/debugging.md](docs/debugging.md) for debugging tips (synthesis, bumps,
+from-source toolchain, overrides).
 
 #### Use locally installed tools
 
