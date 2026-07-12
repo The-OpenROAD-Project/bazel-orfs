@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh pr create:*)",
+      "Bash(gh pr comment:*)",
+      "Bash(git push:*)"
+    ],
+    "deny": [
+      "Bash(gh pr merge:*)"
+    ]
+  }
+}

@@ -9,8 +9,9 @@ changed files, and the top-level README.md to understand project conventions.
 
 **Branch protection is enabled on `main`** — all changes must go through
 a pull request. Direct pushes to `main` are blocked. Create a feature
-branch for reviewed changes. **Do not run `gh pr create`** — the human
-creates PRs.
+branch for reviewed changes. You may run `gh pr create` yourself **after
+running the Confidentiality purge** (see the root `CLAUDE.md`); merging
+(`gh pr merge`) stays human-only.
 
 ## 2. Determine scope
 
