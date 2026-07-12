@@ -58,19 +58,65 @@ single_version_override(
     version = "10.0.1-20260316-f04e8156",
 )
 
-# sed-4.9 ships gnulib's lib/memchr.c, which compiles cleanly only
-# when `memchr` is not a function-like macro at the point it defines
-# `__memchr (...)`. The existing `# undef memchr` is gated on _LIBC
-# (glibc's own build), so outside _LIBC the system <string.h>'s
-# `__glibc_const_generic` _Generic macro survives and clang rejects
-# the function header with "expected identifier or '('".  Force the
-# `# undef memchr` to run unconditionally.
+# --- hermetic-llvm compatibility (mirrored from bazel-orfs's root MODULE.bazel) ---
+# The BCR "llvm" toolchain is zero-sysroot: glibc headers arrive as explicit
+# -isystem dirs that outrank the vendored gnulib/minizip headers these
+# build-time deps ship. Every root that builds OpenROAD from source must repeat
+# these. Keep in sync with the root MODULE.bazel on each bump.
+
+# sed (transitive: abc -> ncurses -> sed): gnulib headers shadow libc headers
+# under hermetic-llvm's explicit -isystem entries (BCR #7642); 4.9.bcr.5 has the
+# upstream fix (BCR #7915).
 single_version_override(
     module_name = "sed",
-    patch_cmds = [
-        "sed -i 's|^#ifdef _LIBC$|#if 1|' lib/memchr.c",
-    ],
     version = "4.9.bcr.5",
+)
+
+# bison (transitive: rules_bison -> bison): gnulib wrapper headers must precede
+# libc via -I, not -isystem (BCR #7642). Proposed upstream as 3.8.2.bcr.8.
+single_version_override(
+    module_name = "bison",
+    patch_strip = 1,
+    patches = [
+        "//patches:0001-gnulib-wrapper-headers-use-I-not-isystem.patch",
+    ],
+    version = "3.8.2.bcr.7",
+)
+
+# boost.icl: exclusive_less_than violates strict weak ordering (boostorg/icl#51);
+# under libc++ this leaves phantom intervals after interval_set subtraction
+# (#55), misplacing pad fillers. Upstream fix (#54) lands after boost 1.90.
+single_version_override(
+    module_name = "boost.icl",
+    patch_strip = 1,
+    patches = [
+        "//patches:0001-refactor-interval-lookup-operations-icl-54.patch",
+    ],
+)
+
+# gawk (transitive: abc -> ncurses -> gawk; yosys -> gawk): same gnulib
+# libc-header shadowing as sed (BCR #7642); 5.3.2.bcr.7 has the fix (BCR #7989).
+single_version_override(
+    module_name = "gawk",
+    version = "5.3.2.bcr.7",
+)
+
+# m4 (transitive: rules_bison/rules_flex -> m4): same gnulib libc-header
+# shadowing under hermetic-llvm (BCR #7642).
+single_version_override(
+    module_name = "m4",
+    version = "1.4.21.bcr.4",
+)
+
+# tcl_lang: tclZipfs.c's #include "crypt.h" resolves to glibc's crypt.h under
+# hermetic-llvm's explicit -isystem glibc dirs; include the vendored minizip
+# header by path instead. Drop when fixed in a tcl_lang BCR release.
+single_version_override(
+    module_name = "tcl_lang",
+    patch_strip = 1,
+    patches = [
+        "//patches:0001-tclZipfs-include-vendored-minizip-crypt.h-by-path.patch",
+    ],
 )
 
 # sv-lang pulls in rules_pycross, whose toolchain extension fails on Python
@@ -88,6 +134,14 @@ git_override(
     commit = "541ebf6df76eef96c4de6343316b1c9d63e296f6",
     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
 )
+
+# Hermetic C++ toolchain for building OpenROAD (and yosys) from source: the BCR
+# "llvm" module, the same zero-sysroot LLVM the root and gallery workspaces use.
+# Without it this downstream test falls back to the host compiler and breaks on
+# newer glibc (e.g. @scip/tinycthread on glibc 2.41).
+bazel_dep(name = "llvm", version = "0.8.11")
+
+register_toolchains("@llvm//toolchain:all")
 
 bazel_dep(name = "yosys", version = "0.64")
 

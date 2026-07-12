@@ -45,6 +45,16 @@ would deliver these through its extension.
 bazel-orfs pip deps are locked to Python 3.13. The root module must
 register it as the default toolchain via `python.toolchain(is_default = True)`.
 
+### Hermetic C++ toolchain must be registered by root module
+
+Building OpenROAD (and yosys) from source needs the zero-sysroot BCR `llvm`
+toolchain: `bazel_dep(name = "llvm", …)` + `register_toolchains("@llvm//toolchain:all")`,
+plus the small set of hermetic-llvm compatibility `single_version_override`s
+(sed, bison, boost.icl, gawk, m4, tcl_lang) mirrored from bazel-orfs's root
+MODULE.bazel. Without the toolchain the build falls back to the host compiler
+and breaks on newer glibc (e.g. `@scip`/`tinycthread` on glibc 2.41). These
+overrides are root-module-only, so every downstream repeats them.
+
 ### slang yosys plugin from BCR (sv-elab)
 
 The slang yosys plugin comes from the `sv-elab` module on the Bazel
