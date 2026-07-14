@@ -1056,6 +1056,60 @@ class TestStrictModeFailures(unittest.TestCase):
         self.assertIn("yosys", str(cm.exception))
 
 
+class TestYosysAlreadyPinnedWithExtraAttrs(unittest.TestCase):
+    """A yosys pin already at the picked BCR version must be a no-op.
+
+    OpenROAD's line carries a trailing ``dev_dependency = True``; the old
+    exact-string already-pinned fallback didn't match it and raised a
+    spurious BumpError whenever the version didn't change.
+    """
+
+    def test_no_error_when_pinned_with_dev_dependency(self):
+        content = (
+            'module(name = "my-chip", version = "0.0.1")\n'
+            'bazel_dep(name = "bazel-orfs")\n'
+            "git_override(\n"
+            '    module_name = "bazel-orfs",\n'
+            '    commit = "old",\n'
+            '    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",\n'
+            ")\n"
+            'bazel_dep(name = "orfs")\n'
+            "git_override(\n"
+            '    module_name = "orfs",\n'
+            '    commit = "old",\n'
+            '    remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",\n'
+            ")\n"
+            f'bazel_dep(name = "yosys", version = "{EXPECTED_YOSYS_BCR_VERSION}", '
+            "dev_dependency = True)\n"
+        )
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".MODULE.bazel", delete=False
+        )
+        tmp.write(content)
+        tmp.close()
+        try:
+            bump.bump(
+                tmp.name,
+                fetch_commit_fn=mock_fetch_commit,
+                fetch_integrity_fn=mock_fetch_integrity,
+                fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+                fetch_compare_status_fn=mock_fetch_compare_status_ahead,
+                fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+                fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+                fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+                fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+            )
+            with open(tmp.name) as f:
+                result = f.read()
+            self.assertIn(
+                f'bazel_dep(name = "yosys", version = "{EXPECTED_YOSYS_BCR_VERSION}", '
+                "dev_dependency = True)",
+                result,
+            )
+        finally:
+            os.unlink(tmp.name)
+
+
 class TestIgnoreModeWarnsAndContinues(unittest.TestCase):
     """--ignore: missing blocks become warnings, recognizable parts still update."""
 
