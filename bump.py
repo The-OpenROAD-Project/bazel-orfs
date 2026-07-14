@@ -1104,10 +1104,12 @@ def bump(
         new_content = update_bazel_dep_version(content, YOSYS_BCR_MODULE, bcr_version)
         # has_bazel_dep matched.  If the rewrite changed nothing AND the
         # bazel_dep isn't already pinned to bcr_version, the version field
-        # is in an unexpected shape (e.g. variable-bound).
+        # is in an unexpected shape (e.g. variable-bound).  Read the pin
+        # via the parser rather than an exact-string match so extra
+        # attributes (OpenROAD's ``dev_dependency = True``) don't turn a
+        # correctly-pinned no-op into a spurious failure.
         already_pinned = (
-            f'bazel_dep(name = "{YOSYS_BCR_MODULE}", version = "{bcr_version}")'
-            in content
+            _read_bazel_dep_version(content, YOSYS_BCR_MODULE) == bcr_version
         )
         _expect(
             new_content != content or already_pinned,
