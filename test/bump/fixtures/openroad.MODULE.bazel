@@ -1,7 +1,21 @@
-"""OpenROAD project fixture for bump tests."""
+"""OpenROAD project fixture for bump tests.
+
+Mirrors the shapes in the real OpenROAD MODULE.bazel: bazel-orfs pinned via
+a commit variable, orfs pinned via archive_override with a sha256 hex digest
+and an ORFS_COMMIT variable concatenated into strip_prefix/urls, and yosys
+pinned as a dev_dependency bazel_dep.
+"""
 
 module(
     name = "openroad",
+)
+
+bazel_dep(name = "qt-bazel")
+
+git_override(
+    module_name = "qt-bazel",
+    commit = "old_qt_commit",
+    remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts.git",
 )
 
 bazel_dep(name = "bazel-orfs", dev_dependency = True)
@@ -23,6 +37,18 @@ git_override(
     remote = BAZEL_ORFS_REMOTE,
     strip_prefix = "verilog",
 )
+
+ORFS_COMMIT = "old_orfs_commit"
+
+bazel_dep(name = "orfs", dev_dependency = True)
+archive_override(
+    module_name = "orfs",
+    sha256 = "oldsoldsoldsoldsoldsoldsoldsoldsoldsoldsoldsoldsoldsoldsoldsolds",
+    strip_prefix = "OpenROAD-flow-scripts-" + ORFS_COMMIT,
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/" + ORFS_COMMIT + ".tar.gz"],
+)
+
+bazel_dep(name = "yosys", version = "0.62", dev_dependency = True)
 
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories", dev_dependency = True)
 orfs.default(
