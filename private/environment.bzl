@@ -18,6 +18,12 @@ def odb_arguments(ctx, short = False):
         return {"ODB_FILE": file_path(odb, short)}
     return {}
 
+def sdc_arguments(ctx, short = False):
+    if ctx.attr.src[OrfsInfo].sdc:
+        sdc = ctx.attr.src[OrfsInfo].sdc
+        return {"SDC_FILE": file_path(sdc, short)}
+    return {}
+
 def _work_home(ctx):
     # For external repo targets, declared files are placed under
     # bin/external/<repo>/<package>, but genfiles_dir.path is just bin/.
