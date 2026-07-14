@@ -167,6 +167,37 @@ class TestOpenroadProject(unittest.TestCase):
     def test_openroad_label_preserved(self):
         self.assertIn('openroad = "//:openroad"', self.content)
 
+    def test_orfs_commit_variable_updated(self):
+        self.assertIn(f'ORFS_COMMIT = "{ORFS_COMMIT}"', self.content)
+        self.assertNotIn('ORFS_COMMIT = "old_orfs_commit"', self.content)
+
+    def test_orfs_variable_not_clobbering_bazel_orfs_variable(self):
+        # ``BAZEL_ORFS_COMMIT = "`` contains ``ORFS_COMMIT = "`` as a
+        # substring; an unanchored assignment rewrite would overwrite the
+        # just-bumped bazel-orfs pin with the ORFS sha.
+        self.assertNotIn(f'BAZEL_ORFS_COMMIT = "{ORFS_COMMIT}"', self.content)
+
+    def test_orfs_concatenation_preserved(self):
+        """The commit stays in the variable; the concatenated fields keep it."""
+        self.assertIn(
+            'strip_prefix = "OpenROAD-flow-scripts-" + ORFS_COMMIT', self.content
+        )
+        self.assertIn('+ ORFS_COMMIT + ".tar.gz"', self.content)
+
+    def test_orfs_sha256_updated(self):
+        self.assertIn(f'sha256 = "{MOCK_SUB_SHA256_HEX}"', self.content)
+        self.assertNotIn("oldsolds", self.content)
+
+    def test_yosys_bumped_with_dev_dependency_preserved(self):
+        self.assertIn(
+            f'bazel_dep(name = "yosys", version = "{EXPECTED_YOSYS_BCR_VERSION}", '
+            "dev_dependency = True)",
+            self.content,
+        )
+
+    def test_qt_bazel_commit_updated(self):
+        self.assertNotIn("old_qt_commit", self.content)
+
     def test_verilog_submodule_uses_same_variable(self):
         """Pre-existing git_override blocks should reference the same variable."""
         for name in ["bazel-orfs", "bazel-orfs-verilog"]:
@@ -522,6 +553,45 @@ class TestOpenroadSkipsSelfCommit(unittest.TestCase):
         self.assertIn(f'BAZEL_ORFS_COMMIT = "{BAZEL_ORFS_COMMIT}"', self.content)
 
 
+class TestOpenroadDoubleBumpIdempotent(unittest.TestCase):
+    """Two bumps in a row on the OpenROAD shape must produce identical output.
+
+    Also regression-covers the yosys already-pinned check: the second run
+    rewrites ``version = "0.63"`` to itself, and with the trailing
+    ``dev_dependency = True`` the old exact-string fallback raised a
+    spurious BumpError.
+    """
+
+    def test_double_bump_idempotent(self):
+        src = os.path.join(FIXTURES_DIR, "openroad.MODULE.bazel")
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".MODULE.bazel", delete=False
+        )
+        tmp.close()
+        shutil.copy2(src, tmp.name)
+
+        kwargs = dict(
+            fetch_commit_fn=mock_fetch_commit,
+            fetch_integrity_fn=mock_fetch_integrity,
+            fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+            fetch_compare_status_fn=mock_fetch_compare_status_ahead,
+            fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+            fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+            fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+            fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+        )
+        bump.bump(tmp.name, **kwargs)
+        with open(tmp.name) as f:
+            first = f.read()
+
+        bump.bump(tmp.name, **kwargs)
+        with open(tmp.name) as f:
+            second = f.read()
+
+        os.unlink(tmp.name)
+        self.assertEqual(first, second, "Second bump should produce identical output")
+
+
 class TestSubmodulesDoubleUpdate(unittest.TestCase):
     """Bumping a file with submodules twice should be idempotent."""
 
@@ -721,6 +791,117 @@ class TestUpdateArchiveOverride(unittest.TestCase):
         self.assertIn(
             'urls = ["https://github.com/Owner/Repo/archive/newsha.tar.gz"]', result
         )
+
+
+class TestUpdateOrfsArchiveOverride(unittest.TestCase):
+    """Unit tests for the shape-dispatching orfs archive_override updater."""
+
+    NEW_COMMIT = "newsha"
+    NEW_URL = (
+        "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/"
+        "archive/newsha.tar.gz"
+    )
+
+    def _stub_integrity(self, _url):
+        return "sha256-NEW="
+
+    def _stub_sha256(self, _url):
+        return "f" * 64
+
+    def _update(self, content, **kwargs):
+        return bump.update_orfs_archive_override(
+            content,
+            self.NEW_COMMIT,
+            fetch_integrity_fn=self._stub_integrity,
+            fetch_sha256_hex_fn=self._stub_sha256,
+            **kwargs,
+        )
+
+    def test_variable_shape(self):
+        content = (
+            'BAZEL_ORFS_COMMIT = "keep_this"\n'
+            "\n"
+            'ORFS_COMMIT = "oldsha"\n'
+            "\n"
+            "archive_override(\n"
+            '    module_name = "orfs",\n'
+            '    sha256 = "oldhexoldhex",\n'
+            '    strip_prefix = "OpenROAD-flow-scripts-" + ORFS_COMMIT,\n'
+            '    urls = ["https://github.com/The-OpenROAD-Project/'
+            'OpenROAD-flow-scripts/archive/" + ORFS_COMMIT + ".tar.gz"],\n'
+            ")\n"
+        )
+        result = self._update(content)
+        self.assertIn('ORFS_COMMIT = "newsha"', result)
+        self.assertIn(f'sha256 = "{"f" * 64}"', result)
+        # Concatenations stay; the anchored rewrite leaves the other var alone.
+        self.assertIn('"OpenROAD-flow-scripts-" + ORFS_COMMIT', result)
+        self.assertIn('+ ORFS_COMMIT + ".tar.gz"', result)
+        self.assertIn('BAZEL_ORFS_COMMIT = "keep_this"', result)
+
+    def test_literal_shape_with_integrity(self):
+        content = (
+            "archive_override(\n"
+            '    module_name = "orfs",\n'
+            '    integrity = "sha256-OLD=",\n'
+            '    strip_prefix = "OpenROAD-flow-scripts-oldsha",\n'
+            '    urls = ["https://github.com/The-OpenROAD-Project/'
+            'OpenROAD-flow-scripts/archive/oldsha.tar.gz"],\n'
+            ")\n"
+        )
+        result = self._update(content)
+        self.assertIn(f'urls = ["{self.NEW_URL}"]', result)
+        self.assertIn('integrity = "sha256-NEW="', result)
+        self.assertIn('strip_prefix = "OpenROAD-flow-scripts-newsha"', result)
+
+    def test_literal_shape_with_sha256(self):
+        content = (
+            "archive_override(\n"
+            '    module_name = "orfs",\n'
+            '    sha256 = "oldhexoldhex",\n'
+            '    strip_prefix = "OpenROAD-flow-scripts-oldsha",\n'
+            '    urls = ["https://github.com/The-OpenROAD-Project/'
+            'OpenROAD-flow-scripts/archive/oldsha.tar.gz"],\n'
+            ")\n"
+        )
+        result = self._update(content)
+        self.assertIn(f'urls = ["{self.NEW_URL}"]', result)
+        self.assertIn(f'sha256 = "{"f" * 64}"', result)
+        self.assertIn('strip_prefix = "OpenROAD-flow-scripts-newsha"', result)
+
+    def test_absent_block_is_noop(self):
+        content = 'git_override(\n    module_name = "orfs",\n    commit = "x",\n)\n'
+        self.assertEqual(self._update(content), content)
+
+    def test_mixed_shape_raises(self):
+        # strip_prefix uses the variable but urls is a stale literal —
+        # updating the variable alone would silently half-update.
+        content = (
+            'ORFS_COMMIT = "oldsha"\n'
+            "archive_override(\n"
+            '    module_name = "orfs",\n'
+            '    sha256 = "oldhexoldhex",\n'
+            '    strip_prefix = "OpenROAD-flow-scripts-" + ORFS_COMMIT,\n'
+            '    urls = ["https://github.com/The-OpenROAD-Project/'
+            'OpenROAD-flow-scripts/archive/oldsha.tar.gz"],\n'
+            ")\n"
+        )
+        with self.assertRaises(bump.BumpError):
+            self._update(content)
+
+    def test_mixed_shape_warns_under_ignore(self):
+        content = (
+            'ORFS_COMMIT = "oldsha"\n'
+            "archive_override(\n"
+            '    module_name = "orfs",\n'
+            '    sha256 = "oldhexoldhex",\n'
+            '    strip_prefix = "OpenROAD-flow-scripts-" + ORFS_COMMIT,\n'
+            '    urls = ["https://github.com/The-OpenROAD-Project/'
+            'OpenROAD-flow-scripts/archive/oldsha.tar.gz"],\n'
+            ")\n"
+        )
+        result = self._update(content, ignore_errors=True)
+        self.assertIn('ORFS_COMMIT = "newsha"', result)
 
 
 class TestFindArchiveOverrideBlock(unittest.TestCase):

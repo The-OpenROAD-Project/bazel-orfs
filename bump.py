@@ -412,6 +412,125 @@ def update_archive_override(
     return content[:start] + block + content[end:]
 
 
+def _find_commit_var_in_block(block):
+    """Return the variable name concatenated into strip_prefix/urls, or None.
+
+    Detects the OpenROAD-style archive_override shape where the commit
+    lives in a top-level variable spliced into two fields::
+
+        strip_prefix = "OpenROAD-flow-scripts-" + ORFS_COMMIT,
+        urls = [".../archive/" + ORFS_COMMIT + ".tar.gz"],
+    """
+    m = re.search(
+        r"(?:strip_prefix|urls)\s*=[^,\n]*?\+\s*([A-Za-z_][A-Za-z_0-9]*)",
+        block,
+    )
+    return m.group(1) if m else None
+
+
+def _update_block_digest(
+    block, github_repo, new_commit, fetch_integrity_fn, fetch_sha256_hex_fn
+):
+    """Rewrite whichever digest field an override block carries.
+
+    Handles both ``integrity = "sha256-<base64>"`` (SRI) and
+    ``sha256 = "<hex>"``.  Downloads the tarball once, for the digest kind
+    actually present.
+    """
+    url = github_archive_url(github_repo, new_commit)
+    if re.search(r'integrity\s*=\s*"', block):
+        block = re.sub(
+            r'(integrity\s*=\s*")[^"]*(")',
+            rf"\g<1>{fetch_integrity_fn(url)}\2",
+            block,
+            count=1,
+        )
+    elif re.search(r'sha256\s*=\s*"', block):
+        block = re.sub(
+            r'(sha256\s*=\s*")[^"]*(")',
+            rf"\g<1>{fetch_sha256_hex_fn(url)}\2",
+            block,
+            count=1,
+        )
+    return block
+
+
+def update_orfs_archive_override(
+    content,
+    orfs_commit,
+    fetch_integrity_fn=compute_integrity,
+    fetch_sha256_hex_fn=compute_sha256_hex,
+    ignore_errors=False,
+):
+    """Update an ``archive_override(module_name = "orfs")`` block.
+
+    Two shapes exist in the wild:
+
+    * literal (bazel-orfs's own MODULE.bazel): commit embedded in the
+      ``urls``/``strip_prefix`` string literals — rewrite them in place.
+    * variable (OpenROAD's MODULE.bazel): a top-level ``ORFS_COMMIT = "..."``
+      assignment concatenated into both fields — rewrite the assignment and
+      the digest, leaving the concatenation intact.
+
+    Returns ``content`` unchanged if no block exists (caller guards).
+    """
+    span = find_archive_override_block(content, "orfs")
+    if not span:
+        return content
+    start, end = span
+    block = content[start:end]
+
+    var = _find_commit_var_in_block(block)
+    if var is None:
+        # Literal shape: rewrite urls/strip_prefix, then the digest.
+        if re.search(r'integrity\s*=\s*"', block):
+            integrity = fetch_integrity_fn(github_archive_url(ORFS_REPO, orfs_commit))
+            return update_archive_override(
+                content, "orfs", ORFS_REPO, orfs_commit, integrity
+            )
+        block = re.sub(
+            r'(urls\s*=\s*\[\s*")[^"]*(")',
+            rf"\g<1>{github_archive_url(ORFS_REPO, orfs_commit)}\2",
+            block,
+            count=1,
+        )
+        block = re.sub(
+            r'(strip_prefix\s*=\s*")[^"]*(")',
+            rf"\g<1>{github_archive_strip_prefix(ORFS_REPO, orfs_commit)}\2",
+            block,
+            count=1,
+        )
+        block = _update_block_digest(
+            block, ORFS_REPO, orfs_commit, fetch_integrity_fn, fetch_sha256_hex_fn
+        )
+        return content[:start] + block + content[end:]
+
+    # Variable shape: both fields must reference the variable — a mixed
+    # shape (one field a stale literal) would silently half-update.
+    for field in ("strip_prefix", "urls"):
+        _expect(
+            re.search(
+                field + r"\s*=[^,\n]*?\+\s*" + re.escape(var) + r"\b",
+                block,
+            ),
+            f'{field} referencing {var} in archive_override(module_name = "orfs")',
+            ignore_errors,
+        )
+    block = _update_block_digest(
+        block, ORFS_REPO, orfs_commit, fetch_integrity_fn, fetch_sha256_hex_fn
+    )
+    content = content[:start] + block + content[end:]
+    # Rewrite the top-level assignment.  Anchored at line start:
+    # ``BAZEL_ORFS_COMMIT = "`` contains ``ORFS_COMMIT = "`` as a substring,
+    # and an unanchored sub would clobber the just-bumped bazel-orfs pin.
+    return re.sub(
+        r"^(" + re.escape(var) + r'\s*=\s*")[^"]*(")',
+        rf"\g<1>{orfs_commit}\2",
+        content,
+        flags=re.MULTILINE,
+    )
+
+
 def _openroad_submodule_patch_cmd(path, github_repo, sha, sha256_hex):
     """Render one patch_cmds curl-extract line for an OpenROAD submodule.
 
@@ -1022,8 +1141,12 @@ def bump(
     Project-type matrix (for the bazel-orfs / orfs commits proper):
         Project      bazel-orfs  ORFS
         bazel-orfs   skip(self)  yes
-        OpenROAD     yes         skip
+        OpenROAD     yes         yes
         downstream   yes         yes
+
+    (OpenROAD never bumps its own commit: the tools loop below only
+    touches an ``openroad`` *bazel_dep*, which OpenROAD's own
+    MODULE.bazel doesn't have.)
     """
     if head_tools is None:
         head_tools = set()
@@ -1062,18 +1185,23 @@ def bump(
         if workspace_dir:
             copy_patches(bazel_orfs_dir, workspace_dir)
 
-    # --- Update ORFS commit (skip for OpenROAD itself or projects without ORFS) ---
-    # bazel-orfs and downstream both follow ORFS master; downstream's tool
-    # overrides (openroad/yosys below) are then resolved at the new ORFS
-    # commit so the whole stack moves coherently.
+    # --- Update ORFS commit (skip for projects without ORFS) ---
+    # Every consumer follows ORFS master — including OpenROAD, whose orfs
+    # pin gates its bazel-orfs integration tests; the tool overrides
+    # (openroad/yosys below) are then resolved at the new ORFS commit so
+    # the whole stack moves coherently.  Dispatch on the override shape,
+    # not the project type: archive_override (literal or commit-variable
+    # form) vs git_override.
     orfs_commit = None
-    if project != "openroad" and has_bazel_dep(content, "orfs"):
+    if has_bazel_dep(content, "orfs"):
         orfs_commit = fetch_commit_fn(ORFS_REPO, "master")
-        if project == "bazel-orfs" and find_archive_override_block(content, "orfs"):
-            # bazel-orfs's archive_override path needs an SRI integrity refresh.
-            integrity = fetch_integrity_fn(github_archive_url(ORFS_REPO, orfs_commit))
-            content = update_archive_override(
-                content, "orfs", ORFS_REPO, orfs_commit, integrity
+        if find_archive_override_block(content, "orfs"):
+            content = update_orfs_archive_override(
+                content,
+                orfs_commit,
+                fetch_integrity_fn=fetch_integrity_fn,
+                fetch_sha256_hex_fn=fetch_sha256_hex_fn,
+                ignore_errors=ignore_errors,
             )
         else:
             _expect(
