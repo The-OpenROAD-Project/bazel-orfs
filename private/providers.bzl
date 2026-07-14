@@ -7,6 +7,7 @@ OrfsInfo = provider(
         "config",
         "variant",
         "odb",
+        "sdc",
         "gds",
         "lef",
         "lib",

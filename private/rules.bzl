@@ -40,6 +40,7 @@ load(
     "renames",
     "required_arguments",
     "run_arguments",
+    "sdc_arguments",
     "source_inputs",
     "test_inputs",
     "verilog_arguments",
@@ -252,6 +253,7 @@ def _macro_impl(ctx):
         ),
         OrfsInfo(
             odb = info.get("odb"),
+            sdc = info.get("sdc"),
             gds = info.get("gds"),
             lef = info.get("lef"),
             lib = info.get("lib"),
@@ -359,6 +361,7 @@ def _run_impl(ctx):
             yosys_environment(ctx) |
             config_environment(config) |
             odb_arguments(ctx) |
+            sdc_arguments(ctx) |
             data_arguments(ctx) |
             run_arguments(ctx),
         ),
@@ -389,6 +392,7 @@ def _run_impl(ctx):
                             '"$@"': environment_string(
                                         hack_away_prefix(
                                             arguments = odb_arguments(ctx) |
+                                                        sdc_arguments(ctx) |
                                                         data_arguments(ctx) |
                                                         run_arguments(ctx),
                                             prefix = config.root.path,
@@ -478,6 +482,7 @@ def _arguments_impl(ctx):
             yosys_environment(ctx) |
             config_environment(src_info.config) |
             odb_arguments(ctx) |
+            sdc_arguments(ctx) |
             data_arguments(ctx) |
             run_arguments(ctx) |
             {"OUTPUT": computed_json.path},
@@ -505,6 +510,7 @@ def _arguments_impl(ctx):
             config = src_info.config,
             variant = src_info.variant,
             odb = src_info.odb,
+            sdc = src_info.sdc,
             gds = src_info.gds,
             lef = src_info.lef,
             lib = src_info.lib,
@@ -579,7 +585,7 @@ fi
                 makefile = ctx.file._makefile.path,
                 moreargs = environment_string(
                     hack_away_prefix(
-                        arguments = odb_arguments(ctx) | data_arguments(ctx),
+                        arguments = odb_arguments(ctx) | sdc_arguments(ctx) | data_arguments(ctx),
                         prefix = config.root.path,
                     ) |
                     {"DESIGN_CONFIG": config.short_path} |
@@ -662,7 +668,7 @@ def _run_executable_impl(ctx):
 
     moreargs = environment_string(
         hack_away_prefix(
-            arguments = odb_arguments(ctx) | data_arguments(ctx),
+            arguments = odb_arguments(ctx) | sdc_arguments(ctx) | data_arguments(ctx),
             prefix = config.root.path,
         ) |
         {
@@ -1608,6 +1614,7 @@ def _yosys_impl(ctx):
             config = config,
             variant = ctx.attr.variant,
             odb = synth_outputs.get("1_synth.odb"),
+            sdc = synth_outputs.get("1_synth.sdc"),
             gds = None,
             lef = None,
             lib = None,
@@ -1983,6 +1990,7 @@ def _make_impl(
             config = config,
             variant = ctx.attr.variant,
             odb = info.get("odb"),
+            sdc = info.get("sdc"),
             gds = info.get("gds"),
             lef = info.get("lef"),
             lib = info.get("lib"),
