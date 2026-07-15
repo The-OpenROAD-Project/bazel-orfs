@@ -182,7 +182,16 @@ def main():
 
         dir, _ = os.path.splitext(args.lock)
         name = os.path.join(args.package, dir, sha256.hexdigest() + ".tar")
-        subprocess.run(["gsutil", "mv", "-n", "-Z", tar_path, gs(args.bucket, name)])
+        # A failed upload must never yield a lock file pointing at a
+        # missing object: check=True makes the mv fatal, and the stat
+        # proves the object is actually fetchable before the lock is
+        # written. A no-clobber (-n) skip of an already-present object
+        # still exits 0, so legitimate content-addressed re-pins pass.
+        subprocess.run(
+            ["gsutil", "mv", "-n", "-Z", tar_path, gs(args.bucket, name)],
+            check=True,
+        )
+        subprocess.run(["gsutil", "stat", gs(args.bucket, name)], check=True)
 
         with open(
             os.path.join(
