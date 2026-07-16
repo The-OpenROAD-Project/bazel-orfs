@@ -51,7 +51,7 @@ def _convert_sources(sources, pkg):
             result[var] = converted
     return result
 
-def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], local_arguments = [], blender = False):  # buildifier: disable=unused-variable
+def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], local_arguments = [], blender = False, extra = None):  # buildifier: disable=unused-variable
     """Create orfs_flow() targets for a design based on its parsed config.mk.
 
     Usage:
@@ -101,6 +101,12 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
             have no BlenderGDS stackup (see blender_supports_pdk in
             private/blender.bzl), so callers can flip this on globally
             without having to enumerate supported PDKs.
+        extra: optional callable invoked after the real flow with the
+            fully-processed design data (name, platform, verilog_files,
+            arguments, user_arguments, sources, user_sources, macros,
+            stage_data, tags) so callers can attach additional
+            per-design targets (extra flow variants, reporting targets)
+            without orfs_design knowing their policy.
     """
     if designs == None:
         fail("orfs_design() requires designs: load orfs_design from @orfs_designs//:designs.bzl")
@@ -244,6 +250,24 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
         tags = tags,
         blender = blender and blender_supports_pdk("//flow:" + platform),
     )
+
+    # Caller extension hook: invoked with the fully-processed design data
+    # (labels converted, local/user arguments routed) so consumers can
+    # attach additional per-design targets — e.g. ORFS's OpenROAD-SYN
+    # status flows — without teaching orfs_design about their policy.
+    if extra:
+        extra(
+            name = name,
+            platform = platform,
+            verilog_files = verilog_files,
+            arguments = arguments,
+            user_arguments = user_args,
+            sources = sources,
+            user_sources = user_srcs,
+            macros = macros if macros else [],
+            stage_data = {"synth": extra_data} if extra_data else {},
+            tags = tags,
+        )
 
     # Lint flow — fast validation with mock-openroad (only if configured)
     if mock_openroad:
