@@ -409,7 +409,14 @@ logs="{logs}"
 cp $logs $BUILD_WORKSPACE_DIRECTORY/$rules_json
 """.format(
             rules_json = ctx.file.rules_json.path,
-            logs = " ".join([log.short_path for log in ctx.files.logs]),
+            # The update_rules stage's DefaultInfo carries rules.json plus
+            # bookkeeping files (update_rules.args.mk); only rules.json may
+            # be copied — cp with several sources needs a directory target.
+            logs = " ".join([
+                log.short_path
+                for log in ctx.files.logs
+                if log.basename == "rules.json"
+            ]),
         ),
     )
 
