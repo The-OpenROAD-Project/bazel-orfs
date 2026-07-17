@@ -511,9 +511,11 @@ def _orfs_pass(
         )
 
     step_names = []
+    synth_target = None
     if start_stage < 1:
         synth_step = steps[0]
         step_name = _step_name(name, variant, synth_step.stage)
+        synth_target = step_name
         step_names.append(step_name)
         synth_step.impl(
             **_filter_stage_args(
@@ -671,12 +673,13 @@ def _orfs_pass(
                 )
             return
 
-    def do_step(step, prev, kwargs, more_kwargs = {}, data = []):
-        stage_variant = (
+    def do_step(step, prev, kwargs, more_kwargs = {}, data = [], variant_override = None, src = None):
+        stage_variant = variant_override or (
             abstract_variant if step.stage == ABSTRACT_IMPL.stage and abstract_variant else variant
         )
         step_name = _step_name(name, stage_variant, step.stage)
-        src = previous_stage.get(step.stage, _step_name(name, variant, prev.stage))
+        if src == None:
+            src = previous_stage.get(step.stage, _step_name(name, variant, prev.stage))
         step.impl(
             **_filter_stage_args(
                 step.stage,
@@ -689,7 +692,7 @@ def _orfs_pass(
                 extra_arguments = extra_arguments,
                 extra_configs = extra_configs,
                 src = src,
-                variant = variant,
+                variant = variant_override or variant,
                 stage_data = stage_data,
                 data = data,
                 **(
@@ -833,4 +836,52 @@ def _orfs_pass(
                 rules_json = sources["RULES_JSON"][0],
                 logs = [rules_name],
                 **_strip_tool_kwargs(**update_kwargs)
+            )
+
+    # Fast synthesis-stage QoR pre-check: any flow that runs its own synth
+    # stage and has RULES_JSON also gets <synth>_generate_metadata (a
+    # metadata.json built from the synth stage alone — genMetrics.py
+    # tolerates a synthesis-only tree) and <synth>_test, which gates it
+    # with `make metadata-check-synth`: only the synth__/constraints__
+    # subset of the same rules file the full-flow test checks. It shares
+    # the flow's synth action, so it is a minutes-scale proxy for the
+    # full-flow test — same rules, same checker, subset of the fields.
+    # QoR only: without LEC it says nothing about functional correctness,
+    # so the full-flow test remains the real gate.
+    #
+    # The pair lives in its own "<variant>_synth" sub-variant so its
+    # metadata.json and config artifacts cannot collide with the
+    # full-flow chain's (both would otherwise be declared under the same
+    # variant-scoped paths). The synth inputs staged under the parent
+    # variant's tree are remapped by the stage's cross-variant renaming
+    # (rename_data on orfs_generate_metadata).
+    if synth_target != None and not mock_area:
+        test_args = get_stage_args(
+            TEST_STAGE_IMPL.stage,
+            stage_arguments,
+            arguments,
+            sources,
+        )
+        if "RULES_JSON" in test_args:
+            fast_variant = _variant_name(variant, "synth")
+            fast_metadata_name = do_step(
+                GENERATE_METADATA_STAGE_IMPL,
+                steps[0],
+                data = [
+                    # Stage synth's logs (1_synth.log, 1_synth.json) via
+                    # data_runfiles; source_inputs deliberately omits
+                    # LoggingInfo.logs, and genMetrics.py reads both.
+                    synth_target,
+                ],
+                kwargs = kwargs,
+                variant_override = fast_variant,
+                src = synth_target,
+            )
+            do_step(
+                TEST_STAGE_IMPL,
+                GENERATE_METADATA_STAGE_IMPL,
+                kwargs = kwargs | {"tags": []} | test_kwargs,
+                more_kwargs = {"cmd": "metadata-check-synth"},
+                variant_override = fast_variant,
+                src = fast_metadata_name,
             )
