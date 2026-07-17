@@ -1040,15 +1040,36 @@ def fetch_orfs_tool_sha(orfs_commit, tool):
 
 
 def fetch_yosys_makefile_version(sha):
-    """Read ``YOSYS_VER`` from yosys/Makefile at a commit sha.
+    """Read yosys's ``(major, minor)`` version at a commit sha.
 
-    Yosys's Makefile carries a literal ``YOSYS_VER := M.m`` line that
-    advances every release.  ORFS pins tools/yosys to master commits that
-    aren't always tagged, so this is the only reliable way to learn which
-    BCR release ORFS expects.  Returns the ``(major, minor)`` tuple.
+    Yosys carried a literal ``YOSYS_VER := M.m`` line in its top-level
+    Makefile until the CMake migration deleted that file; since then the
+    numbers live in ``cmake/YosysVersionData.cmake`` as
+    ``set(YOSYS_VERSION_MAJOR M)`` / ``set(YOSYS_VERSION_MINOR m)``.
+    ORFS pins tools/yosys to master commits that aren't always tagged, so
+    reading the version file at the pinned sha is the only reliable way to
+    learn which BCR release ORFS expects.  Returns ``(major, minor)``.
     """
     url = f"https://api.github.com/repos/{YOSYS_REPO}/contents/Makefile?ref={sha}"
-    data = fetch_json(url)
+    try:
+        data = fetch_json(url)
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            raise
+        url = (
+            f"https://api.github.com/repos/{YOSYS_REPO}/contents/"
+            f"cmake/YosysVersionData.cmake?ref={sha}"
+        )
+        data = fetch_json(url)
+        text = base64.b64decode(data["content"]).decode()
+        major = re.search(r"set\(YOSYS_VERSION_MAJOR\s+(\d+)\)", text)
+        minor = re.search(r"set\(YOSYS_VERSION_MINOR\s+(\d+)\)", text)
+        if not (major and minor):
+            raise RuntimeError(
+                f"YOSYS_VERSION_MAJOR/MINOR not found in {YOSYS_REPO} "
+                f"cmake/YosysVersionData.cmake at {sha[:12]}"
+            )
+        return (int(major.group(1)), int(minor.group(1)))
     text = base64.b64decode(data["content"]).decode()
     m = re.search(r"^\s*YOSYS_VER\s*:=\s*(\d+)\.(\d+)", text, re.MULTILINE)
     if not m:
