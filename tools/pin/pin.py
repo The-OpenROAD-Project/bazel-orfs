@@ -188,10 +188,13 @@ def main():
         # written. A no-clobber (-n) skip of an already-present object
         # still exits 0, so legitimate content-addressed re-pins pass.
         subprocess.run(
-            ["gsutil", "mv", "-n", "-Z", tar_path, gs(args.bucket, name)],
+            ["gcloud", "storage", "mv", "-n", "-Z", tar_path, gs(args.bucket, name)],
             check=True,
         )
-        subprocess.run(["gsutil", "stat", gs(args.bucket, name)], check=True)
+        subprocess.run(
+            ["gcloud", "storage", "objects", "describe", gs(args.bucket, name)],
+            check=True,
+        )
 
         with open(
             os.path.join(
