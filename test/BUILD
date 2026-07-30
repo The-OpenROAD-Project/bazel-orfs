@@ -1473,3 +1473,30 @@ sh_test(
         "@yosys",
     ],
 )
+
+load("//:openroad.bzl", "orfs_variables")
+
+orfs_variables(
+    name = "my_variables",
+    arguments = {
+        "MY_CUSTOM_VAR": "42",
+    },
+)
+
+orfs_run(
+    name = "my_run_test",
+    src = ":lb_32x128_synth",
+    outs = ["my_run_test.txt"],
+    arguments = {
+        "OUTPUT": "$(location :my_run_test.txt)",
+    },
+    extra_arguments = [":my_variables"],
+    script = "write_my_var.tcl",
+)
+
+sh_test(
+    name = "extra_arguments_test",
+    srcs = ["verify_my_var.sh"],
+    args = ["$(location :my_run_test.txt)"],
+    data = [":my_run_test.txt"],
+)
