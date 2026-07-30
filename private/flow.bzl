@@ -18,6 +18,7 @@ load(
     "orfs_run",
     "orfs_squashed",
     "orfs_synth_rule",
+    "orfs_variables",
 )
 load(
     "//private:stages.bzl",
@@ -339,6 +340,11 @@ def orfs_flow(
         **kwargs
     )
 
+    orfs_variables(
+        name = _step_name(name, variant, "variables"),
+        arguments = arguments | user_arguments,
+    )
+
     if not mock_area:
         return
 
@@ -374,7 +380,6 @@ def orfs_flow(
         blender = blender,
         **kwargs
     )
-
     orfs_arguments(
         name = mock_area_name,
         src = _step_name(name, variant, "floorplan"),
