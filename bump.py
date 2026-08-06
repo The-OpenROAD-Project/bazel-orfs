@@ -554,12 +554,13 @@ def _openroad_submodule_patch_cmd(path, github_repo, sha, sha256_hex):
 
 
 def _format_openroad_archive_override(
-    openroad_commit, parent_integrity, submodule_info, patches
+    openroad_commit, parent_integrity, submodule_info, patches, patch_cmds_suffix=""
 ):
     """Render the openroad archive_override block as Starlark source text.
 
     ``submodule_info``: list of ``(path, github_repo, sha, sha256_hex)``.
     ``patches``: list of patch label strings (empty -> no patches/patch_strip).
+    ``patch_cmds_suffix``: optional string like ``+ OPENROAD_CUSTOM_PATCH_CMDS`` to append.
 
     Attribute order matches buildifier convention: ``module_name`` first,
     rest alphabetical.  fix_lint will re-format anyway, but landing close
@@ -592,7 +593,12 @@ def _format_openroad_archive_override(
     lines.append(
         r"""        "sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|' third-party/slang-elab/src/BUILD","""
     )
-    lines.append("    ],")
+    
+    if patch_cmds_suffix:
+        lines.append(f"    ] {patch_cmds_suffix},")
+    else:
+        lines.append("    ],")
+        
     if patches:
         lines.append("    patch_strip = 1,")
         lines.append("    patches = [")
@@ -612,6 +618,23 @@ def _extract_patches(block):
     the only shapes used by bazel-orfs's openroad overrides today.
     """
     return re.findall(r'"(//[^"]*\.patch)"', block)
+
+
+def _extract_patch_cmds(block):
+    """Return the list of patch_cmds strings found inside a Starlark block."""
+    m = re.search(r'patch_cmds\s*=\s*\[(.*?)\]', block, re.DOTALL)
+    if not m:
+        return []
+    return [match.group(1) for match in re.finditer(r'"((?:\\.|[^"\\])*)"', m.group(1))]
+
+
+def _is_custom_patch_cmd(cmd):
+    """Return True if a patch_cmd was manually added (not bump.py generated)."""
+    if cmd.startswith("curl -sSfL") and "tar xzf" in cmd:
+        return False
+    if 's|\\"@slang\\"|\\"@sv-lang//:libsvlang\\"|' in cmd or 's|"@slang"|"@sv-lang//:libsvlang"|' in cmd:
+        return False
+    return True
 
 
 def update_openroad_archive_override(
@@ -643,6 +666,39 @@ def update_openroad_archive_override(
     start, end = span
     old_block = content[start:end]
 
+    m_suffix = re.search(r'patch_cmds\s*=\s*\[.*?\](\s*\+\s*[A-Za-z0-9_]+)?,', old_block, re.DOTALL)
+    patch_cmds_suffix = ""
+    if m_suffix and m_suffix.group(1):
+        patch_cmds_suffix = m_suffix.group(1).strip()
+
+    old_patch_cmds = _extract_patch_cmds(old_block)
+    custom_cmds = [cmd for cmd in old_patch_cmds if _is_custom_patch_cmd(cmd)]
+    if custom_cmds:
+        raise BumpError("Custom patch_cmds found in archive_override(openroad). "
+                        "bump.py would silently delete them. Please extract them "
+                        "into a variable (e.g. + OPENROAD_CUSTOM_PATCH_CMDS) "
+                        "and restore them after bumping.")
+
+    generated_comments = {
+        "# GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,",
+        "# so vendor src/sta (OpenSTA) and third-party/abc from their own",
+        "# GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins",
+        "# to.  sha256sum -c verifies each tarball since patch_cmds bytes",
+        "# aren't covered by archive_override's integrity.  Regenerated",
+        "# by bump.py on every commit bump; do not edit by hand.",
+        "# by bump.py on every commit bump.",
+    }
+    custom_comments = []
+    for line in old_block.splitlines():
+        line_stripped = line.strip()
+        if line_stripped.startswith("#") and line_stripped not in generated_comments:
+            custom_comments.append(line_stripped)
+    
+    if custom_comments:
+        raise BumpError(f"Custom comments found in archive_override(openroad). "
+                        f"bump.py would silently delete them. Please move them "
+                        f"outside the block. Found: {custom_comments}")
+
     patches = _extract_patches(old_block)
 
     parent_url = f"https://github.com/{OPENROAD_REPO}/archive/{openroad_commit}.tar.gz"
@@ -655,7 +711,7 @@ def update_openroad_archive_override(
         submodule_info.append((path, github_repo, sub_sha, sub_sha256))
 
     new_block = _format_openroad_archive_override(
-        openroad_commit, parent_integrity, submodule_info, patches
+        openroad_commit, parent_integrity, submodule_info, patches, patch_cmds_suffix
     )
     return content[:start] + new_block + content[end:]
 
