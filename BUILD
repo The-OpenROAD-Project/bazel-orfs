@@ -83,7 +83,10 @@ compile_pip_requirements(
 # to upgrade ORFS and bazel-orfs.
 py_binary(
     name = "bump",
-    srcs = ["bump.py", "bump_impl.py"],
+    srcs = [
+        "bump.py",
+        "bump_impl.py",
+    ],
     main = "bump.py",
     visibility = ["//visibility:public"],
 )

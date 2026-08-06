@@ -1082,9 +1082,15 @@ class TestUpdateOpenroadArchiveOverrideFailEarly(unittest.TestCase):
     # My custom comment
     patch_cmds = [],
 )"""
-        with self.assertRaisesRegex(bump.BumpError, "Custom comments found in archive_override"):
+        with self.assertRaisesRegex(
+            bump.BumpError, "Custom comments found in archive_override"
+        ):
             bump.update_openroad_archive_override(
-                content, "new_commit", lambda x: "int", lambda x: "hex", lambda x, y, z: "sha"
+                content,
+                "new_commit",
+                lambda x: "int",
+                lambda x: "hex",
+                lambda x, y, z: "sha",
             )
 
     def test_custom_patch_cmds_fail_early(self):
@@ -1094,26 +1100,38 @@ class TestUpdateOpenroadArchiveOverrideFailEarly(unittest.TestCase):
         "echo custom",
     ],
 )"""
-        with self.assertRaisesRegex(bump.BumpError, "Manual submodule patch_cmds found in archive_override"):
+        with self.assertRaisesRegex(
+            bump.BumpError, "Manual submodule patch_cmds found in archive_override"
+        ):
             bump.update_openroad_archive_override(
-                content, "new_commit", lambda x: "int", lambda x: "hex", lambda x, y, z: "sha"
+                content,
+                "new_commit",
+                lambda x: "int",
+                lambda x: "hex",
+                lambda x, y, z: "sha",
             )
 
     def test_base64_generation_for_submodules(self):
         import tempfile
         import os
+
         with tempfile.TemporaryDirectory() as d:
             patch_path = "test.patch"
             full_path = os.path.join(d, patch_path)
             with open(full_path, "w") as f:
                 f.write("--- a/src/sta/foo\n+++ b/src/sta/foo\n")
-            
+
             content = f"""archive_override(
     module_name = "openroad",
     patches = ["//:{patch_path}"],
 )"""
             new_content = bump.update_openroad_archive_override(
-                content, "new_commit", lambda x: "int", lambda x: "hex", lambda x, y, z: "sha", workspace_dir=d
+                content,
+                "new_commit",
+                lambda x: "int",
+                lambda x: "hex",
+                lambda x, y, z: "sha",
+                workspace_dir=d,
             )
             self.assertIn("echo ", new_content)
             self.assertIn("| base64 -d | patch -p1", new_content)
