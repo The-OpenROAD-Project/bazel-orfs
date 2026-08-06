@@ -554,12 +554,14 @@ def _openroad_submodule_patch_cmd(path, github_repo, sha, sha256_hex):
 
 
 def _format_openroad_archive_override(
-    openroad_commit, parent_integrity, submodule_info, patches
+    openroad_commit, parent_integrity, submodule_info, patches, patch_cmds_suffix="", submodule_patch_cmds=None
 ):
     """Render the openroad archive_override block as Starlark source text.
 
     ``submodule_info``: list of ``(path, github_repo, sha, sha256_hex)``.
     ``patches``: list of patch label strings (empty -> no patches/patch_strip).
+    ``patch_cmds_suffix``: optional string like ``+ OPENROAD_CUSTOM_PATCH_CMDS`` to append.
+    ``submodule_patch_cmds``: optional list of ``(label, cmd_string)`` for base64-encoded patches.
 
     Attribute order matches buildifier convention: ``module_name`` first,
     rest alphabetical.  fix_lint will re-format anyway, but landing close
@@ -567,6 +569,7 @@ def _format_openroad_archive_override(
     """
     parent_url = f"https://github.com/{OPENROAD_REPO}/archive/{openroad_commit}.tar.gz"
     parent_strip = f"OpenROAD-{openroad_commit}"
+    submodule_patch_cmds = submodule_patch_cmds or []
 
     lines = [
         "archive_override(",
@@ -592,7 +595,16 @@ def _format_openroad_archive_override(
     lines.append(
         r"""        "sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|' third-party/slang-elab/src/BUILD","""
     )
-    lines.append("    ],")
+    
+    for label, cmd in submodule_patch_cmds:
+        lines.append(f"        # Extracted from {label}")
+        lines.append(f"        {cmd},")
+    
+    if patch_cmds_suffix:
+        lines.append(f"    ] {patch_cmds_suffix},")
+    else:
+        lines.append("    ],")
+        
     if patches:
         lines.append("    patch_strip = 1,")
         lines.append("    patches = [")
@@ -614,12 +626,32 @@ def _extract_patches(block):
     return re.findall(r'"(//[^"]*\.patch)"', block)
 
 
+def _extract_patch_cmds(block):
+    """Return the list of patch_cmds strings found inside a Starlark block."""
+    m = re.search(r'patch_cmds\s*=\s*\[(.*?)\]', block, re.DOTALL)
+    if not m:
+        return []
+    return [match.group(1) for match in re.finditer(r'"((?:\\.|[^"\\])*)"', m.group(1))]
+
+
+def _is_custom_patch_cmd(cmd):
+    """Return True if a patch_cmd was manually added (not bump.py generated)."""
+    if cmd.startswith("curl -sSfL") and "tar xzf" in cmd:
+        return False
+    if 's|\\"@slang\\"|\\"@sv-lang//:libsvlang\\"|' in cmd or 's|"@slang"|"@sv-lang//:libsvlang"|' in cmd:
+        return False
+    if cmd.startswith("echo ") and "| base64 -d | patch " in cmd:
+        return False
+    return True
+
+
 def update_openroad_archive_override(
     content,
     openroad_commit,
     fetch_integrity_fn=compute_integrity,
     fetch_sha256_hex_fn=compute_sha256_hex,
     fetch_submodule_sha_fn=fetch_submodule_sha,
+    workspace_dir=None,
 ):
     """Convert ``git_override(openroad, init_submodules=True)`` to
     ``archive_override`` with submodule ``patch_cmds`` — or re-update an
@@ -643,7 +675,78 @@ def update_openroad_archive_override(
     start, end = span
     old_block = content[start:end]
 
+    m_suffix = re.search(r'patch_cmds\s*=\s*\[.*?\](\s*\+\s*[A-Za-z0-9_]+)?,', old_block, re.DOTALL)
+    patch_cmds_suffix = ""
+    if m_suffix and m_suffix.group(1):
+        patch_cmds_suffix = m_suffix.group(1).strip()
+
+    old_patch_cmds = _extract_patch_cmds(old_block)
+    custom_cmds = [cmd for cmd in old_patch_cmds if _is_custom_patch_cmd(cmd)]
+    if custom_cmds:
+        raise BumpError("Manual submodule patch_cmds found in archive_override(openroad). "
+                        "bump.py now automatically base64 encodes submodule patches. "
+                        "Please move these patches back into the standard `patches = [...]` list "
+                        "and remove any manual patch_cmds.")
+
+    generated_comments = {
+        "# GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,",
+        "# so vendor src/sta (OpenSTA) and third-party/abc from their own",
+        "# GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins",
+        "# to.  sha256sum -c verifies each tarball since patch_cmds bytes",
+        "# aren't covered by archive_override's integrity.  Regenerated",
+        "# by bump.py on every commit bump; do not edit by hand.",
+        "# by bump.py on every commit bump.",
+    }
+    custom_comments = []
+    for line in old_block.splitlines():
+        line_stripped = line.strip()
+        if line_stripped.startswith("#") and line_stripped not in generated_comments and not line_stripped.startswith("# Extracted from"):
+            custom_comments.append(line_stripped)
+    
+    if custom_comments:
+        raise BumpError(f"Custom comments found in archive_override(openroad). "
+                        f"bump.py would silently delete them. Please move them "
+                        f"outside the block. Found: {custom_comments}")
+
     patches = _extract_patches(old_block)
+    top_patches = []
+    submodule_patch_cmds = []
+
+    if workspace_dir:
+        for p in patches:
+            # e.g. "//orfs-patches:foo.patch" -> "orfs-patches/foo.patch"
+            if p.startswith("//"):
+                parts = p[2:].split(":")
+                rel_path = f"{parts[0]}/{parts[1]}" if parts[0] else parts[1]
+                full_path = os.path.join(workspace_dir, rel_path)
+            else:
+                full_path = os.path.join(workspace_dir, p)
+
+            if not os.path.exists(full_path):
+                top_patches.append(p)
+                continue
+
+            with open(full_path, "r", encoding="utf-8", errors="replace") as f:
+                patch_content = f.read()
+
+            touches_submodule = False
+            for sub_path, _ in OPENROAD_SUBMODULES:
+                # E.g. --- a/src/sta/ or +++ b/src/sta/
+                if re.search(r"^[+-]{3} [ab]/" + re.escape(sub_path) + r"/", patch_content, re.MULTILINE):
+                    touches_submodule = True
+                    break
+
+            if touches_submodule:
+                normalized = patch_content.replace("\r\n", "\n").replace("\r", "\n")
+                if normalized and not normalized.endswith("\n"):
+                    normalized += "\n"
+                b64 = base64.b64encode(normalized.encode("utf-8")).decode("ascii")
+                cmd = f"echo {b64} | base64 -d | patch -p1 || (echo 'ERROR: Patch {p} failed to apply to submodule. Please rebase the source of truth patch at {p}.' && exit 1)"
+                submodule_patch_cmds.append((p, f'"{cmd}"'))
+            else:
+                top_patches.append(p)
+    else:
+        top_patches = patches
 
     parent_url = f"https://github.com/{OPENROAD_REPO}/archive/{openroad_commit}.tar.gz"
     parent_integrity = fetch_integrity_fn(parent_url)
@@ -655,7 +758,7 @@ def update_openroad_archive_override(
         submodule_info.append((path, github_repo, sub_sha, sub_sha256))
 
     new_block = _format_openroad_archive_override(
-        openroad_commit, parent_integrity, submodule_info, patches
+        openroad_commit, parent_integrity, submodule_info, top_patches, patch_cmds_suffix, submodule_patch_cmds
     )
     return content[:start] + new_block + content[end:]
 
@@ -855,6 +958,9 @@ def inject_non_bcr_deps(content, bazel_orfs_dir):
 def fetch_json(url):
     """Fetch JSON from a URL."""
     req = urllib.request.Request(url)
+    github_token = os.environ.get("GITHUB_TOKEN")
+    if github_token and "api.github.com" in url:
+        req.add_header("Authorization", f"Bearer {github_token}")
     with urllib.request.urlopen(req) as resp:
         return json.loads(resp.read())
 
@@ -1302,6 +1408,7 @@ def bump(
                     fetch_integrity_fn=fetch_integrity_fn,
                     fetch_sha256_hex_fn=fetch_sha256_hex_fn,
                     fetch_submodule_sha_fn=fetch_submodule_sha_fn,
+                    workspace_dir=workspace_dir,
                 )
                 updated_modules.append(f"{module_name} -> {sha[:12]} ({source})")
             else:
