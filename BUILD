@@ -7,6 +7,7 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 exports_files([
     "bump.py",
+    "bump_impl.py",
     "compute_floorplan_shape.tcl",
     "compute_slack_margin.tcl",
     "config_mk_parser.py",
@@ -82,7 +83,7 @@ compile_pip_requirements(
 # to upgrade ORFS and bazel-orfs.
 py_binary(
     name = "bump",
-    srcs = ["bump.py"],
+    srcs = ["bump.py", "bump_impl.py"],
     main = "bump.py",
     visibility = ["//visibility:public"],
 )

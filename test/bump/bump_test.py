@@ -8,9 +8,9 @@ import sys
 import tempfile
 import unittest
 
-# Add repo root to path so we can import bump
+# Add repo root to path so we can import bump_impl as bump
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
-import bump
+import bump_impl as bump
 
 # Mock values matching the original bash tests
 BAZEL_ORFS_COMMIT = "new_bazel_orfs_aaa111"
