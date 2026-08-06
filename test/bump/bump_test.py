@@ -1075,6 +1075,31 @@ class TestUpdateOpenroadArchiveOverrideAroundComments(unittest.TestCase):
         )
 
 
+class TestUpdateOpenroadArchiveOverrideFailEarly(unittest.TestCase):
+    def test_custom_comments_fail_early(self):
+        content = """archive_override(
+    module_name = "openroad",
+    # My custom comment
+    patch_cmds = [],
+)"""
+        with self.assertRaisesRegex(bump.BumpError, "Custom comments found in archive_override"):
+            bump.update_openroad_archive_override(
+                content, "new_commit", lambda x: "int", lambda x: "hex", lambda x, y, z: "sha"
+            )
+
+    def test_custom_patch_cmds_fail_early(self):
+        content = """archive_override(
+    module_name = "openroad",
+    patch_cmds = [
+        "echo custom",
+    ],
+)"""
+        with self.assertRaisesRegex(bump.BumpError, "Custom patch_cmds found in archive_override"):
+            bump.update_openroad_archive_override(
+                content, "new_commit", lambda x: "int", lambda x: "hex", lambda x, y, z: "sha"
+            )
+
+
 class TestDownstreamOrfsToolsFlow(unittest.TestCase):
     """Downstream: openroad commit and yosys BCR version follow ORFS tools/."""
 
@@ -1678,7 +1703,7 @@ class TestUpdateOpenroadArchiveOverride(unittest.TestCase):
             '    module_name = "openroad",\n'
             '    integrity = "sha256-OLD=",\n'
             "    patch_cmds = [\n"
-            '        "curl ... oldsta ...",\n'
+            '        "curl -sSfL ... tar xzf ...",\n'
             "    ],\n"
             '    strip_prefix = "OpenROAD-oldsha",\n'
             '    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/oldsha.tar.gz"],\n'
