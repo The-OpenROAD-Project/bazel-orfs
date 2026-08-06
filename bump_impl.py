@@ -554,7 +554,12 @@ def _openroad_submodule_patch_cmd(path, github_repo, sha, sha256_hex):
 
 
 def _format_openroad_archive_override(
-    openroad_commit, parent_integrity, submodule_info, patches, patch_cmds_suffix="", submodule_patch_cmds=None
+    openroad_commit,
+    parent_integrity,
+    submodule_info,
+    patches,
+    patch_cmds_suffix="",
+    submodule_patch_cmds=None,
 ):
     """Render the openroad archive_override block as Starlark source text.
 
@@ -595,16 +600,19 @@ def _format_openroad_archive_override(
     lines.append(
         r"""        "find . -name BUILD -exec sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|g' {} +","""
     )
-    
+    lines.append(
+        r"""        "sed -i 's|defines = \\[|copts = [\"-include\", \"fmt/format.h\"],\\n    defines = [|' src/syn/src/elab/BUILD third-party/slang-elab/src/BUILD","""
+    )
+
     for label, cmd in submodule_patch_cmds:
         lines.append(f"        # Extracted from {label}")
         lines.append(f"        {cmd},")
-    
+
     if patch_cmds_suffix:
         lines.append(f"    ] {patch_cmds_suffix},")
     else:
         lines.append("    ],")
-        
+
     if patches:
         lines.append("    patch_strip = 1,")
         lines.append("    patches = [")
@@ -615,6 +623,63 @@ def _format_openroad_archive_override(
     lines.append(f'    urls = ["{parent_url}"],')
     lines.append(")")
     return "\n".join(lines)
+
+
+def validate_bazel_patch(patch_path, patch_content):
+    """Validate that a patch conforms to Bazel's strict builtin patcher requirements."""
+    in_hunk = False
+    old_expected = 0
+    new_expected = 0
+    old_actual = 0
+    new_actual = 0
+    hunk_header = ""
+    line_num = 0
+
+    for line in patch_content.splitlines():
+        line_num += 1
+        if line.startswith("@@ "):
+            if in_hunk:
+                if old_expected != old_actual or new_expected != new_actual:
+                    raise BumpError(
+                        f"Patch {patch_path} has invalid hunk header '{hunk_header}': expected ({old_expected},{new_expected}) but found ({old_actual},{new_actual}). Bazel's strict patcher will fail."
+                    )
+
+            in_hunk = True
+            hunk_header = line.strip()
+            m = re.match(r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@", line)
+            if m:
+                old_expected = int(m.group(2)) if m.group(2) else 1
+                new_expected = int(m.group(4)) if m.group(4) else 1
+                old_actual = 0
+                new_actual = 0
+            else:
+                in_hunk = False
+        elif in_hunk:
+            if line.startswith("+"):
+                new_actual += 1
+            elif line.startswith("-"):
+                old_actual += 1
+            elif line.startswith(" "):
+                old_actual += 1
+                new_actual += 1
+            elif line == "":
+                raise BumpError(
+                    f"Patch {patch_path} has an empty context line at line {line_num} ('{hunk_header}'). Bazel's strict patcher requires a leading space for empty context lines."
+                )
+            elif line.startswith("\\ No newline at end of file"):
+                pass
+            else:
+                if old_expected != old_actual or new_expected != new_actual:
+                    raise BumpError(
+                        f"Patch {patch_path} has invalid hunk header '{hunk_header}': expected ({old_expected},{new_expected}) but found ({old_actual},{new_actual}). Bazel's strict patcher will fail."
+                    )
+                in_hunk = False
+
+    if in_hunk:
+        if old_expected != old_actual or new_expected != new_actual:
+            raise BumpError(
+                f"Patch {patch_path} has invalid hunk header '{hunk_header}': expected ({old_expected},{new_expected}) but found ({old_actual},{new_actual}). Bazel's strict patcher will fail."
+            )
 
 
 def _extract_patches(block):
@@ -628,7 +693,7 @@ def _extract_patches(block):
 
 def _extract_patch_cmds(block):
     """Return the list of patch_cmds strings found inside a Starlark block."""
-    m = re.search(r'patch_cmds\s*=\s*\[(.*?)\]', block, re.DOTALL)
+    m = re.search(r"patch_cmds\s*=\s*\[(.*?)\]", block, re.DOTALL)
     if not m:
         return []
     return [match.group(1) for match in re.finditer(r'"((?:\\.|[^"\\])*)"', m.group(1))]
@@ -638,9 +703,14 @@ def _is_custom_patch_cmd(cmd):
     """Return True if a patch_cmd was manually added (not bump.py generated)."""
     if cmd.startswith("curl -sSfL") and "tar xzf" in cmd:
         return False
-    if 's|\\"@slang\\"|\\"@sv-lang//:libsvlang\\"|' in cmd or 's|"@slang"|"@sv-lang//:libsvlang"|' in cmd:
+    if (
+        's|\\"@slang\\"|\\"@sv-lang//:libsvlang\\"|' in cmd
+        or 's|"@slang"|"@sv-lang//:libsvlang"|' in cmd
+    ):
         return False
     if cmd.startswith("echo ") and "| base64 -d | patch " in cmd:
+        return False
+    if "fmt/format.h" in cmd and "defines = [" in cmd:
         return False
     return True
 
@@ -675,7 +745,9 @@ def update_openroad_archive_override(
     start, end = span
     old_block = content[start:end]
 
-    m_suffix = re.search(r'patch_cmds\s*=\s*\[.*?\](\s*\+\s*[A-Za-z0-9_]+)?,', old_block, re.DOTALL)
+    m_suffix = re.search(
+        r"patch_cmds\s*=\s*\[.*?\](\s*\+\s*[A-Za-z0-9_]+)?,", old_block, re.DOTALL
+    )
     patch_cmds_suffix = ""
     if m_suffix and m_suffix.group(1):
         patch_cmds_suffix = m_suffix.group(1).strip()
@@ -683,10 +755,12 @@ def update_openroad_archive_override(
     old_patch_cmds = _extract_patch_cmds(old_block)
     custom_cmds = [cmd for cmd in old_patch_cmds if _is_custom_patch_cmd(cmd)]
     if custom_cmds:
-        raise BumpError("Manual submodule patch_cmds found in archive_override(openroad). "
-                        "bump.py now automatically base64 encodes submodule patches. "
-                        "Please move these patches back into the standard `patches = [...]` list "
-                        "and remove any manual patch_cmds.")
+        raise BumpError(
+            "Manual submodule patch_cmds found in archive_override(openroad). "
+            "bump.py now automatically base64 encodes submodule patches. "
+            "Please move these patches back into the standard `patches = [...]` list "
+            "and remove any manual patch_cmds."
+        )
 
     generated_comments = {
         "# GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,",
@@ -700,13 +774,19 @@ def update_openroad_archive_override(
     custom_comments = []
     for line in old_block.splitlines():
         line_stripped = line.strip()
-        if line_stripped.startswith("#") and line_stripped not in generated_comments and not line_stripped.startswith("# Extracted from"):
+        if (
+            line_stripped.startswith("#")
+            and line_stripped not in generated_comments
+            and not line_stripped.startswith("# Extracted from")
+        ):
             custom_comments.append(line_stripped)
-    
+
     if custom_comments:
-        raise BumpError(f"Custom comments found in archive_override(openroad). "
-                        f"bump.py would silently delete them. Please move them "
-                        f"outside the block. Found: {custom_comments}")
+        raise BumpError(
+            f"Custom comments found in archive_override(openroad). "
+            f"bump.py would silently delete them. Please move them "
+            f"outside the block. Found: {custom_comments}"
+        )
 
     patches = _extract_patches(old_block)
     top_patches = []
@@ -729,10 +809,16 @@ def update_openroad_archive_override(
             with open(full_path, "r", encoding="utf-8", errors="replace") as f:
                 patch_content = f.read()
 
+            validate_bazel_patch(full_path, patch_content)
+
             touches_submodule = False
             for sub_path, _ in OPENROAD_SUBMODULES:
                 # E.g. --- a/src/sta/ or +++ b/src/sta/
-                if re.search(r"^[+-]{3} [ab]/" + re.escape(sub_path) + r"/", patch_content, re.MULTILINE):
+                if re.search(
+                    r"^[+-]{3} [ab]/" + re.escape(sub_path) + r"/",
+                    patch_content,
+                    re.MULTILINE,
+                ):
                     touches_submodule = True
                     break
 
@@ -758,7 +844,12 @@ def update_openroad_archive_override(
         submodule_info.append((path, github_repo, sub_sha, sub_sha256))
 
     new_block = _format_openroad_archive_override(
-        openroad_commit, parent_integrity, submodule_info, top_patches, patch_cmds_suffix, submodule_patch_cmds
+        openroad_commit,
+        parent_integrity,
+        submodule_info,
+        top_patches,
+        patch_cmds_suffix,
+        submodule_patch_cmds,
     )
     return content[:start] + new_block + content[end:]
 
