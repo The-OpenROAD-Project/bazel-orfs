@@ -5,6 +5,7 @@ py_test(
     srcs = [
         "bump_test.py",
         "//:bump.py",
+        "//:bump_impl.py",
     ],
     data = [
         "fixtures/downstream.MODULE.bazel",
