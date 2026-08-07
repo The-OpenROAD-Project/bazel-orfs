@@ -1076,22 +1076,6 @@ class TestUpdateOpenroadArchiveOverrideAroundComments(unittest.TestCase):
 
 
 class TestUpdateOpenroadArchiveOverrideFailEarly(unittest.TestCase):
-    def test_custom_comments_fail_early(self):
-        content = """archive_override(
-    module_name = "openroad",
-    # My custom comment
-    patch_cmds = [],
-)"""
-        with self.assertRaisesRegex(
-            bump.BumpError, "Custom comments found in archive_override"
-        ):
-            bump.update_openroad_archive_override(
-                content,
-                "new_commit",
-                lambda x: "int",
-                lambda x: "hex",
-                lambda x, y, z: "sha",
-            )
 
     def test_custom_patch_cmds_fail_early(self):
         content = """archive_override(

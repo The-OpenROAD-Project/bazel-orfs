@@ -791,11 +791,15 @@ def update_openroad_archive_override(
             and not line_stripped.startswith("# Extracted from")
         ):
             current_comments.append(line_stripped)
-        elif line_stripped.startswith('"//') and ".patch" in line_stripped:
-            m = re.search(r'"(//[^"]*\.patch)"', line_stripped)
-            if m:
-                patches_with_comments.append((current_comments, m.group(1)))
-                current_comments = []
+        elif '"//' in line_stripped and '.patch' in line_stripped:
+            matches = re.findall(r'"(//[^"]*\.patch)"', line_stripped)
+            if matches:
+                for idx, match in enumerate(matches):
+                    if idx == 0:
+                        patches_with_comments.append((current_comments, match))
+                        current_comments = []
+                    else:
+                        patches_with_comments.append(([], match))
         elif line_stripped == ")" or line_stripped == "],":
             trailing_comments.extend(current_comments)
             current_comments = []
