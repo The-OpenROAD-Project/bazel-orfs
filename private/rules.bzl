@@ -63,6 +63,8 @@ load(
 )
 load(
     "//private:stages.bzl",
+    "ALL_STAGE_TO_VARIABLES",
+    "ALL_VARIABLE_TO_STAGES",
     "STAGE_SUBSTEPS",
 )
 
@@ -350,10 +352,37 @@ def _run_impl(ctx):
     all_jsons = ctx.files.extra_arguments + (ctx.attr.src[OrfsInfo].arguments.to_list() if OrfsInfo in ctx.attr.src else [])
     if all_jsons:
         args_mk = declare_artifact(ctx, "results", ctx.attr.name + ".args.mk")
+
+        args = [ctx.file._merge_arguments.path, args_mk.path]
+        inputs = all_jsons + [ctx.file._merge_arguments]
+
+        if OrfsInfo in ctx.attr.src:
+            stage = ctx.attr.src[OrfsInfo].stage
+            filter_json = declare_artifact(ctx, "results", ctx.attr.name + ".filter.json")
+
+            # Resolve canonical stage name
+            canonical_stage = stage
+            for s in ALL_STAGE_TO_VARIABLES.keys():
+                if stage.endswith("_" + s) or stage == s:
+                    canonical_stage = s
+                    break
+
+            ctx.actions.write(
+                output = filter_json,
+                content = json.encode({
+                    "allowed": ALL_STAGE_TO_VARIABLES.get(canonical_stage, []),
+                    "known": ALL_VARIABLE_TO_STAGES.keys(),
+                }),
+            )
+            args.extend(["--filter", filter_json.path])
+            inputs.append(filter_json)
+
+        args.extend([f.path for f in all_jsons])
+
         ctx.actions.run(
             executable = ctx.executable._python,
-            arguments = [ctx.file._merge_arguments.path, args_mk.path] + [f.path for f in all_jsons],
-            inputs = all_jsons + [ctx.file._merge_arguments],
+            arguments = args,
+            inputs = inputs,
             outputs = [args_mk],
         )
         new_config = declare_artifact(ctx, "results", ctx.attr.name + ".config.mk")
@@ -1898,11 +1927,27 @@ def _make_impl(
     extra_arg_files = ctx.files.extra_arguments
     all_jsons = inherited_jsons + [stage_json] + extra_arg_files
     args_mk = declare_artifact(ctx, "results", stage + ".args.mk")
+
+    canonical_stage = stage
+    for s in ALL_STAGE_TO_VARIABLES.keys():
+        if stage.endswith("_" + s) or stage == s:
+            canonical_stage = s
+            break
+
+    filter_json = declare_artifact(ctx, "results", stage + ".filter.json")
+    ctx.actions.write(
+        output = filter_json,
+        content = json.encode({
+            "allowed": ALL_STAGE_TO_VARIABLES.get(canonical_stage, []),
+            "known": ALL_VARIABLE_TO_STAGES.keys(),
+        }),
+    )
+
     ctx.actions.run(
         executable = ctx.executable._python,
-        arguments = [ctx.file._merge_arguments.path, args_mk.path] +
+        arguments = [ctx.file._merge_arguments.path, args_mk.path, "--filter", filter_json.path] +
                     [f.path for f in all_jsons],
-        inputs = all_jsons + [ctx.file._merge_arguments],
+        inputs = all_jsons + [ctx.file._merge_arguments, filter_json],
         outputs = [args_mk],
     )
 

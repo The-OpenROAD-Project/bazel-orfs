@@ -1,4 +1,5 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_python//python:defs.bzl", "py_test")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
@@ -1499,4 +1500,38 @@ sh_test(
     srcs = ["verify_my_var.sh"],
     args = ["$(location :my_run_test.txt)"],
     data = [":my_run_test.txt"],
+)
+
+write_file(
+    name = "dump_floorplan_vars_tcl",
+    out = "dump_floorplan_vars.tcl",
+    content = ["""
+set out_file $env(OUT_vars_txt)
+set fp [open $out_file w]
+foreach var {CORE_UTILIZATION CORE_MARGIN PLACE_DENSITY} {
+    if {[info exists env($var)]} {
+        puts $fp "$var=$env($var)"
+    } else {
+        puts $fp "$var=MISSING"
+    }
+}
+close $fp
+"""],
+)
+
+orfs_run(
+    name = "verify_synth_propagated_vars",
+    src = ":lb_32x128_synth",
+    outs = ["propagated_vars.txt"],
+    arguments = {
+        "OUT_vars_txt": "$(location :propagated_vars.txt)",
+    },
+    script = ":dump_floorplan_vars_tcl",
+)
+
+sh_test(
+    name = "orfs_run_info_propagation_test",
+    srcs = ["verify_orfs_run_vars.sh"],
+    args = ["$(location :propagated_vars.txt)"],
+    data = [":propagated_vars.txt"],
 )
