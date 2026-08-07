@@ -1521,7 +1521,7 @@ close $fp
 
 orfs_run(
     name = "verify_synth_propagated_vars",
-    src = ":lb_32x128_synth",
+    src = ":lb_32x128_shared_synth_floorplan",
     outs = ["propagated_vars.txt"],
     arguments = {
         "OUT_vars_txt": "$(location :propagated_vars.txt)",
