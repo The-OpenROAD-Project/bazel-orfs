@@ -560,6 +560,7 @@ def _format_openroad_archive_override(
     patches,
     patch_cmds_suffix="",
     submodule_patch_cmds=None,
+    trailing_comments=None,
 ):
     """Render the openroad archive_override block as Starlark source text.
 
@@ -575,6 +576,7 @@ def _format_openroad_archive_override(
     parent_url = f"https://github.com/{OPENROAD_REPO}/archive/{openroad_commit}.tar.gz"
     parent_strip = f"OpenROAD-{openroad_commit}"
     submodule_patch_cmds = submodule_patch_cmds or []
+    trailing_comments = trailing_comments or []
 
     lines = [
         "archive_override(",
@@ -604,7 +606,9 @@ def _format_openroad_archive_override(
         r"""        "sed -i 's|defines = \\[|copts = [\"-include\", \"fmt/format.h\"],\\n    defines = [|' src/syn/src/elab/BUILD third-party/slang-elab/src/BUILD","""
     )
 
-    for label, cmd in submodule_patch_cmds:
+    for comments, label, cmd in submodule_patch_cmds:
+        for c in comments:
+            lines.append(f"        {c}")
         lines.append(f"        # Extracted from {label}")
         lines.append(f"        {cmd},")
 
@@ -616,9 +620,13 @@ def _format_openroad_archive_override(
     if patches:
         lines.append("    patch_strip = 1,")
         lines.append("    patches = [")
-        for p in patches:
+        for comments, p in patches:
+            for c in comments:
+                lines.append(f"        {c}")
             lines.append(f'        "{p}",')
         lines.append("    ],")
+    for c in trailing_comments:
+        lines.append(f"    {c}")
     lines.append(f'    strip_prefix = "{parent_strip}",')
     lines.append(f'    urls = ["{parent_url}"],')
     lines.append(")")
@@ -771,7 +779,10 @@ def update_openroad_archive_override(
         "# by bump.py on every commit bump; do not edit by hand.",
         "# by bump.py on every commit bump.",
     }
-    custom_comments = []
+    patches_with_comments = []
+    trailing_comments = []
+    current_comments = []
+    
     for line in old_block.splitlines():
         line_stripped = line.strip()
         if (
@@ -779,21 +790,21 @@ def update_openroad_archive_override(
             and line_stripped not in generated_comments
             and not line_stripped.startswith("# Extracted from")
         ):
-            custom_comments.append(line_stripped)
+            current_comments.append(line_stripped)
+        elif line_stripped.startswith('"//') and ".patch" in line_stripped:
+            m = re.search(r'"(//[^"]*\.patch)"', line_stripped)
+            if m:
+                patches_with_comments.append((current_comments, m.group(1)))
+                current_comments = []
+        elif line_stripped == ")" or line_stripped == "],":
+            trailing_comments.extend(current_comments)
+            current_comments = []
 
-    if custom_comments:
-        raise BumpError(
-            f"Custom comments found in archive_override(openroad). "
-            f"bump.py would silently delete them. Please move them "
-            f"outside the block. Found: {custom_comments}"
-        )
-
-    patches = _extract_patches(old_block)
     top_patches = []
     submodule_patch_cmds = []
 
     if workspace_dir:
-        for p in patches:
+        for comments, p in patches_with_comments:
             # e.g. "//orfs-patches:foo.patch" -> "orfs-patches/foo.patch"
             if p.startswith("//"):
                 parts = p[2:].split(":")
@@ -803,7 +814,7 @@ def update_openroad_archive_override(
                 full_path = os.path.join(workspace_dir, p)
 
             if not os.path.exists(full_path):
-                top_patches.append(p)
+                top_patches.append((comments, p))
                 continue
 
             with open(full_path, "r", encoding="utf-8", errors="replace") as f:
@@ -828,11 +839,11 @@ def update_openroad_archive_override(
                     normalized += "\n"
                 b64 = base64.b64encode(normalized.encode("utf-8")).decode("ascii")
                 cmd = f"echo {b64} | base64 -d | patch -p1 || (echo 'ERROR: Patch {p} failed to apply to submodule. Please rebase the source of truth patch at {p}.' && exit 1)"
-                submodule_patch_cmds.append((p, f'"{cmd}"'))
+                submodule_patch_cmds.append((comments, p, f'"{cmd}"'))
             else:
-                top_patches.append(p)
+                top_patches.append((comments, p))
     else:
-        top_patches = patches
+        top_patches = patches_with_comments
 
     parent_url = f"https://github.com/{OPENROAD_REPO}/archive/{openroad_commit}.tar.gz"
     parent_integrity = fetch_integrity_fn(parent_url)
@@ -850,6 +861,7 @@ def update_openroad_archive_override(
         top_patches,
         patch_cmds_suffix,
         submodule_patch_cmds,
+        trailing_comments,
     )
     return content[:start] + new_block + content[end:]
 
