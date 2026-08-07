@@ -91,6 +91,18 @@ py_binary(
     visibility = ["//visibility:public"],
 )
 
+py_library(
+    name = "bump_impl_lib",
+    srcs = ["bump_impl.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "bump_impl_test",
+    srcs = ["bump_impl_test.py"],
+    deps = [":bump_impl_lib"],
+)
+
 # Run `bazelisk run //:monitor-test` to run tests with stage monitoring.
 # Usage: bazelisk run //:monitor-test -- //test/...
 py_binary(
