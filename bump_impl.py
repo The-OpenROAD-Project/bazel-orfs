@@ -159,18 +159,12 @@ def update_git_override_commit(content, module_name, new_commit):
     return content
 
 
-BAZEL_ORFS_SUBMODULES = {
-    "bazel-orfs-verilog": "verilog",
-}
+BAZEL_ORFS_SUBMODULES = {}
 
 # Substrings that imply a consumer actually uses a given submodule.  Used
 # to gate submodule injection so downstream projects don't pick up
 # dependencies they never reference.  Match against BUILD/*.bzl contents.
-SUBMODULE_USAGE_PATTERNS = {
-    "bazel-orfs-verilog": [
-        "@bazel-orfs-verilog//",
-    ],
-}
+SUBMODULE_USAGE_PATTERNS = {}
 
 
 def find_bazel_orfs_submodules(content):

@@ -1,25 +1,7 @@
-"""Test fixture for downstream project with submodule overrides."""
-
-module(
-    name = "my-chip",
-    version = "0.0.1",
-)
-
+module(name = "downstream-with-submodules")
 bazel_dep(name = "bazel-orfs")
-bazel_dep(name = "bazel-orfs-verilog")
-
 git_override(
     module_name = "bazel-orfs",
     commit = "old_bazel_orfs_commit",
     remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",
 )
-
-git_override(
-    module_name = "bazel-orfs-verilog",
-    commit = "old_verilog_commit",
-    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs",
-    strip_prefix = "verilog",
-)
-
-orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
-orfs.default()

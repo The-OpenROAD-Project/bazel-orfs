@@ -1,0 +1,157 @@
+diff -ru a/MODULE.bazel b/MODULE.bazel
+--- a/MODULE.bazel	2026-08-08 11:08:10.333842134 +0200
++++ b/MODULE.bazel	2026-08-08 11:08:10.333915238 +0200
+@@ -41,3 +41,22 @@
+ )
+ 
+ bazel_dep(name = "rules_python", version = "1.7.0", dev_dependency = True)
++
++bazel_dep(name = "rules_verilog", version = "1.1.1")
++
++http_archive = use_repo_rule(
++    "@bazel_tools//tools/build_defs/repo:http.bzl",
++    "http_archive",
++)
++
++http_archive(
++    name = "circt",
++    build_file_content = """
++package(default_visibility = ["//visibility:public"])
++
++exports_files(["bin/firtool"])
++""",
++    sha256 = "c00d58b93c9d7ad13f0e95e78cef180a5dfb9a416cd11a2dd7814fdbe4132439",
++    strip_prefix = "firtool-1.137.0",
++    url = "https://github.com/llvm/circt/releases/download/firtool-1.137.0/circt-full-static-linux-x64.tar.gz",
++)
+diff -ru a/verilog/defs.bzl b/verilog/defs.bzl
+--- a/verilog/defs.bzl	2026-08-08 11:08:10.333942479 +0200
++++ b/verilog/defs.bzl	2026-08-08 11:08:10.333963828 +0200
+@@ -1,5 +1,127 @@
+ """Verilog helpers exported by rules_chisel."""
+ 
+ load("//chisel:defs.bzl", _verilog_single_file_library = "verilog_single_file_library")
++load("@rules_verilog//verilog:defs.bzl", "VerilogInfo")
+ 
+ verilog_single_file_library = _verilog_single_file_library
++
++def _fir_library_impl(ctx):
++    fir = ctx.actions.declare_file(ctx.attr.name + ".fir")
++
++    args = ctx.actions.args()
++    args.add_all([ctx.expand_location(opt, ctx.attr.data) for opt in ctx.attr.opts])
++    args.add("-o", fir)
++    ctx.actions.run(
++        arguments = [args],
++        executable = ctx.executable.generator,
++        env = {
++            "CHISEL_FIRTOOL_PATH": ctx.executable._firtool.dirname,
++        },
++        inputs = ctx.attr.generator[DefaultInfo].default_runfiles.files.to_list() +
++                 [ctx.executable._firtool] +
++                 ctx.files.data,
++        outputs = [fir],
++        mnemonic = "FirGeneration",
++    )
++    return [
++        DefaultInfo(
++            runfiles = ctx.runfiles(files = []),
++            files = depset([fir]),
++        ),
++    ]
++
++fir_library = rule(
++    implementation = _fir_library_impl,
++    attrs = {
++        "data": attr.label_list(
++            allow_files = True,
++        ),
++        "generator": attr.label(
++            cfg = "exec",
++            executable = True,
++            mandatory = True,
++        ),
++        "opts": attr.string_list(default = []),
++        "_firtool": attr.label(
++            doc = "Firtool binary.",
++            executable = True,
++            allow_files = True,
++            cfg = "exec",
++            default = Label("@circt//:bin/firtool"),
++        ),
++    },
++)
++
++def _verilog_impl(ctx, split):
++    if split:
++        sv = ctx.actions.declare_directory(ctx.attr.name)
++    else:
++        sv = ctx.actions.declare_file(ctx.attr.name)
++
++    args = ctx.actions.args()
++    args.add("--format=mlir")
++    if split:
++        args.add("--split-verilog")
++
++    args.add_all(ctx.attr.opts)
++    args.add_all(ctx.files.srcs)
++    args.add("-o", sv.path)
++
++    ctx.actions.run(
++        arguments = [args],
++        executable = ctx.executable._firtool,
++        inputs = ctx.files.srcs,
++        outputs = [sv],
++        mnemonic = "VerilogGeneration",
++    )
++
++    verilog_info = VerilogInfo(
++        srcs = depset([sv]),
++        hdrs = depset(),
++        includes = depset([
++            sv.path,
++            sv.path + "/Simulation",
++            sv.path + "/verification",
++            sv.path + "/verification/assume",
++            sv.path + "/verification/cover",
++            sv.path + "/verification/assert",
++        ]),
++        data = depset(),
++        deps = depset(),
++        standard = "",
++        top_module = "",
++    )
++
++    return [
++        DefaultInfo(
++            runfiles = ctx.runfiles(files = []),
++            files = depset([sv]),
++        ),
++        verilog_info,
++    ]
++
++def verilog_attrs():
++    return {
++        "opts": attr.string_list(default = []),
++        "srcs": attr.label_list(
++            doc = "Cell library.",
++            allow_files = True,
++        ),
++        "_firtool": attr.label(
++            doc = "Firtool binary.",
++            executable = True,
++            allow_files = True,
++            cfg = "exec",
++            default = Label("@circt//:bin/firtool"),
++        ),
++    }
++
++verilog_directory = rule(
++    implementation = lambda ctx: _verilog_impl(ctx, split = True),
++    attrs = verilog_attrs(),
++)
++
++verilog_file = rule(
++    implementation = lambda ctx: _verilog_impl(ctx, split = False),
++    attrs = verilog_attrs(),
++)
