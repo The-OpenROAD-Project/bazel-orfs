@@ -171,10 +171,10 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 
 bazel_dep(name = "rules_chisel", version = "0.3.1")
 bazel_dep(name = "rules_verilator", version = "0.3.2")
-bazel_dep(name = "bazel-orfs-verilog")
-local_path_override(
-    module_name = "bazel-orfs-verilog",
-    path = "../verilog",
+git_override(
+    module_name = "rules_chisel",
+    remote = "https://github.com/hw-bzl/rules_chisel.git",
+    commit = "19fb922fa33797e051f0baa757be6a3cf85c5ea4",
 )
 
 # Import chisel_maven repo for chisel_library/chisel_binary rules.
