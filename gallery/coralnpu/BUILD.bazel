@@ -1,7 +1,6 @@
 load("//:defs.bzl", "demo_flow", "demo_sram")
 load("//:gallery.bzl", "demo_gallery_image", "demo_stage_images", "orfs_run")
-load("@bazel-orfs-verilog//:generate.bzl", "fir_library")
-load("@bazel-orfs-verilog//:verilog.bzl", "verilog_directory")
+load("@rules_chisel//verilog:defs.bzl", "fir_library", "verilog_directory")
 load("@bazel-orfs//:openroad.bzl", "orfs_synth")
 load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
 

@@ -9,7 +9,6 @@ py_test(
     ],
     data = [
         "fixtures/downstream.MODULE.bazel",
-        "fixtures/downstream-with-submodules.MODULE.bazel",
         "fixtures/openroad.MODULE.bazel",
         "fixtures/self.MODULE.bazel",
         "fixtures/self-archive.MODULE.bazel",
