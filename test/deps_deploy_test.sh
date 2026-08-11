@@ -35,14 +35,14 @@ if [ -d "$RUNFILES_DIR" ]; then
 fi
 
 # Find the make binary
-MAKE_BIN="$(echo "$DST"/make_*)"
-if [ ! -f "$MAKE_BIN" ]; then
-    echo "FAIL: make binary not found in $DST"
+MAKE_BIN="$(find "$DST/_main" -path "$DST/_main/external" -prune -o -type f -name 'make_*' -print | head -1)"
+if [ -z "$MAKE_BIN" ] || [ ! -f "$MAKE_BIN" ]; then
+    echo "FAIL: make binary not found in $DST/_main"
     exit 1
 fi
 
 # Find the config file (*.short.mk)
-CONFIG="$(echo "$DST"/*.short.mk)"
+CONFIG="$(find "$DST" -type f -name '*.short.mk' | head -1)"
 
 # Create _main/config.mk from the short config
 if [ -f "$CONFIG" ]; then
@@ -50,14 +50,14 @@ if [ -f "$CONFIG" ]; then
 fi
 
 # Create the make wrapper script
-MAKE_REL="$(basename "$MAKE_BIN")"
+MAKE_REL="${MAKE_BIN#$DST/_main/}"
 cat > "$DST/make" <<WRAPPER
 #!/usr/bin/env bash
 set -exuo pipefail
 cd "\$(dirname "\$0")/_main"
 find . -not -perm -u+w -exec chmod u+w {} + 2>/dev/null || true
 export RUNFILES_DIR="\$(pwd)/.."
-exec ../$MAKE_REL "\$@"
+exec "./$MAKE_REL" "\$@"
 WRAPPER
 chmod +x "$DST/make"
 

@@ -1300,61 +1300,61 @@ sh_test(
     name = "deps_deploy_synth_test",
     srcs = ["deps_deploy_test.sh"],
     args = [
-        "$(location :lb_32x128_mock_synth_deps.tar.gz)",
+        "$(location :lb_32x128_mock_synth_deps_tar.tar.gz)",
         "dir_exists",
     ],
-    data = [":lb_32x128_mock_synth_deps.tar.gz"],
+    data = [":lb_32x128_mock_synth_deps_tar.tar.gz"],
 )
 
 sh_test(
     name = "deps_deploy_floorplan_test",
     srcs = ["deps_deploy_test.sh"],
     args = [
-        "$(location :lb_32x128_mock_floorplan_deps.tar.gz)",
+        "$(location :lb_32x128_mock_floorplan_deps_tar.tar.gz)",
         "print_flow_home",
     ],
-    data = [":lb_32x128_mock_floorplan_deps.tar.gz"],
+    data = [":lb_32x128_mock_floorplan_deps_tar.tar.gz"],
 )
 
 sh_test(
     name = "deps_deploy_real_floorplan_test",
     srcs = ["deps_deploy_test.sh"],
     args = [
-        "$(location :tag_array_64x184_mock_floorplan_deps.tar.gz)",
+        "$(location :tag_array_64x184_mock_floorplan_deps_tar.tar.gz)",
         "print_flow_home",
     ],
-    data = [":tag_array_64x184_mock_floorplan_deps.tar.gz"],
+    data = [":tag_array_64x184_mock_floorplan_deps_tar.tar.gz"],
 )
 
 sh_test(
     name = "deps_deploy_hierarchy_test",
     srcs = ["deps_deploy_test.sh"],
     args = [
-        "$(location :lb_32x128_top_mock_full_hierarchy_floorplan_deps.tar.gz)",
+        "$(location :lb_32x128_top_mock_full_hierarchy_floorplan_deps_tar.tar.gz)",
         "config_contains",
         "ADDITIONAL_LEFS",
     ],
-    data = [":lb_32x128_top_mock_full_hierarchy_floorplan_deps.tar.gz"],
+    data = [":lb_32x128_top_mock_full_hierarchy_floorplan_deps_tar.tar.gz"],
 )
 
 sh_test(
     name = "deps_deploy_make_passthrough_test",
     srcs = ["deps_deploy_test.sh"],
     args = [
-        "$(location :tag_array_64x184_mock_floorplan_deps.tar.gz)",
+        "$(location :tag_array_64x184_mock_floorplan_deps_tar.tar.gz)",
         "make_passthrough",
     ],
-    data = [":tag_array_64x184_mock_floorplan_deps.tar.gz"],
+    data = [":tag_array_64x184_mock_floorplan_deps_tar.tar.gz"],
 )
 
 sh_test(
     name = "deps_deploy_run_substep_test",
     srcs = ["deps_deploy_test.sh"],
     args = [
-        "$(location :tag_array_64x184_mock_floorplan_deps.tar.gz)",
+        "$(location :tag_array_64x184_mock_floorplan_deps_tar.tar.gz)",
         "run_substep",
     ],
-    data = [":tag_array_64x184_mock_floorplan_deps.tar.gz"],
+    data = [":tag_array_64x184_mock_floorplan_deps_tar.tar.gz"],
 )
 
 # --- Deps pkg_tar tests: verify on-demand deps deployment ---
