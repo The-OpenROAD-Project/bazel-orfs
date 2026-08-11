@@ -322,17 +322,50 @@ orfs_deps = rule(
 
 def _deploy_srcs_impl(ctx):
     dep = ctx.attr.src[OrfsDepInfo]
+    exe = ctx.actions.declare_file(ctx.attr.name + ".sh")
+    _expand_deploy_template(
+        ctx,
+        exe,
+        config = dep.config,
+        make = dep.make,
+        genfiles = dep.files.to_list(),
+        name = ctx.attr.name,
+        renames = dep.renames,
+    )
+    wrapper = ctx.actions.declare_file(ctx.attr.name + "_run.sh")
+    ctx.actions.write(
+        output = wrapper,
+        is_executable = True,
+        content = """\
+#!/bin/bash
+RUNFILES="${{RUNFILES_DIR:-$0.runfiles}}"
+DEPLOY="$RUNFILES/_main/{deploy}"
+ln -sfn "$RUNFILES" "$DEPLOY.runfiles"
+"$DEPLOY" "$@"
+echo "Reproducer installed to: ${{BUILD_WORKSPACE_DIRECTORY:-$PWD}}/tmp/{package}/{name}"
+""".format(
+            deploy = exe.short_path,
+            package = ctx.label.package,
+            name = ctx.attr.name,
+        ),
+    )
     return [DefaultInfo(
-        files = depset([dep.make, dep.config]),
-        runfiles = dep.runfiles,
+        executable = wrapper,
+        files = depset([exe, wrapper], transitive = [dep.files]),
+        runfiles = ctx.runfiles(files = [exe, wrapper]).merge(dep.runfiles),
     )]
 
 orfs_deploy_srcs = rule(
     implementation = _deploy_srcs_impl,
+    executable = True,
     attrs = {
         "src": attr.label(
             mandatory = True,
             providers = [OrfsDepInfo],
+        ),
+        "_deploy_template": attr.label(
+            default = Label("//:deploy.tpl"),
+            allow_single_file = True,
         ),
     },
 )

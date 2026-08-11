@@ -140,14 +140,14 @@ def _create_deps_tar(stage_name, **kwargs):
     """
     visibility = kwargs.get("visibility", None)
     orfs_deploy_srcs(
-        name = stage_name + "_deploy_srcs",
+        name = stage_name + "_deps",
         src = ":" + stage_name,
         visibility = visibility,
         tags = ["manual"],
     )
     pkg_tar(
-        name = stage_name + "_deps",
-        srcs = [":" + stage_name + "_deploy_srcs"],
+        name = stage_name + "_deps_tar",
+        srcs = [":" + stage_name + "_deps"],
         extension = "tar.gz",
         include_runfiles = True,
         visibility = visibility,
