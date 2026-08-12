@@ -400,10 +400,17 @@ def _run_impl(ctx):
                     canonical_stage = s
                     break
 
+            allowed_vars = []
+            if getattr(ctx.attr, "stages", []):
+                for s in ctx.attr.stages:
+                    allowed_vars.extend(ALL_STAGE_TO_VARIABLES.get(s, []))
+            else:
+                allowed_vars = ALL_STAGE_TO_VARIABLES.get(canonical_stage, [])
+
             ctx.actions.write(
                 output = filter_json,
                 content = json.encode({
-                    "allowed": ALL_STAGE_TO_VARIABLES.get(canonical_stage, []),
+                    "allowed": allowed_vars,
                     "known": ALL_VARIABLE_TO_STAGES.keys(),
                 }),
             )
@@ -537,6 +544,10 @@ orfs_run = rule(
                     mandatory = True,
                     allow_single_file = ["tcl"],
                 ),
+                "stages": attr.string_list(
+                    mandatory = False,
+                    default = [],
+                ),
             },
 )
 
@@ -634,6 +645,10 @@ orfs_arguments = rule(
                 "script": attr.label(
                     mandatory = True,
                     allow_single_file = ["tcl"],
+                ),
+                "stages": attr.string_list(
+                    mandatory = False,
+                    default = [],
                 ),
             },
 )
