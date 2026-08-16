@@ -754,9 +754,7 @@ orfs_test = rule(
 def _run_executable_impl(ctx):
     config = ctx.attr.src[OrfsDepInfo].config
 
-    wrapper = ctx.actions.declare_file(
-        "run_{}_{}_executable".format(ctx.attr.name, ctx.attr.variant),
-    )
+    wrapper = ctx.actions.declare_file(ctx.attr.name)
 
     # For external repo targets, WORK_HOME must include the external/<repo>/
     # prefix so Make finds results/reports at the correct runfiles path.
@@ -774,10 +772,10 @@ def _run_executable_impl(ctx):
     opensta_path = absolute_runtime(ctx.attr.opensta[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
     klayout_path = absolute_runtime(ctx.attr._klayout[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
     flow_home = absolute_runtime(ctx.file._makefile.dirname, runfiles_var)
-    makefile_runtime_path = absolute_runtime(ctx.file._makefile.short_path, runfiles_var)
-    make_runtime_path = absolute_runtime(ctx.executable._make.short_path, runfiles_var)
     run_script_path = absolute_runtime(ctx.file.script.short_path, runfiles_var)
 
+    # Create full string for the actual environments that make uses, mimicking the
+    # environment setting from the shell wrapper in standard runs.
     moreargs = environment_string(
         hack_away_prefix(
             arguments = odb_arguments(ctx) | sdc_arguments(ctx) | data_arguments(ctx),
@@ -793,28 +791,34 @@ def _run_executable_impl(ctx):
         } |
         ({"WORK_HOME": work_home} if work_home else {}),
     )
-
-    ctx.actions.write(
+    
+    # We parse the moreargs back into a dictionary to embed in the tuner.py.tpl
+    
+    # We can't parse moreargs directly easily in starlark since it's a bash string
+    # BUT, we can just use the dictionary we passed to environment_string!
+    env_dict = hack_away_prefix(
+        arguments = odb_arguments(ctx) | sdc_arguments(ctx) | data_arguments(ctx),
+        prefix = config.root.path,
+    ) | {
+        "DESIGN_CONFIG": config.short_path,
+        "OPENROAD_EXE": openroad_path,
+        "OPENSTA_EXE": opensta_path,
+        "KLAYOUT_CMD": klayout_path,
+        "FLOW_HOME": flow_home,
+        "RUN_SCRIPT": run_script_path,
+        "BAZEL_PACKAGE": ctx.label.package,
+    }
+    if work_home:
+        env_dict["WORK_HOME"] = work_home
+        
+    ctx.actions.expand_template(
+        template = ctx.file._template,
         output = wrapper,
         is_executable = True,
-        content = """#!/bin/sh
-set -e
-RUNFILES="$(realpath "$(pwd)/..")"
-if [ ! -e external ]; then
-    # Needed as of Bazel >= 8
-    ln -sf "$RUNFILES" external
-fi
-export ORFS_MAKE_EXE={make}
-export ORFS_MAKEFILE={makefile}
-export ORFS_CMD={cmd}
-exec {py_run_executable} {moreargs} "$@"
-""".format(
-            make = make_runtime_path,
-            makefile = makefile_runtime_path,
-            cmd = ctx.attr.cmd,
-            moreargs = moreargs,
-            py_run_executable = ctx.executable._run_executable.short_path,
-        ),
+        substitutions = {
+            "%{ENV_JSON}": json.encode(env_dict),
+            "%{MOREARGS}": moreargs, # Keep this around if we need it
+        },
     )
 
     return [
@@ -832,7 +836,7 @@ exec {py_run_executable} {moreargs} "$@"
                         source_inputs(ctx),
                     ],
                 ),
-            ).merge(ctx.attr._run_executable[DefaultInfo].default_runfiles),
+            ),
         ),
     ]
 
@@ -849,10 +853,9 @@ orfs_run_executable = rule(
                     mandatory = True,
                     allow_single_file = ["tcl"],
                 ),
-                "_run_executable": attr.label(
-                    default = "@bazel-orfs//:run_executable",
-                    executable = True,
-                    cfg = "exec",
+                "_template": attr.label(
+                    default = "//private:tuner.py.tpl",
+                    allow_single_file = True,
                 ),
             },
     executable = True,

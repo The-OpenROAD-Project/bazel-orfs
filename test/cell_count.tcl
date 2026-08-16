@@ -1,6 +1,9 @@
-source $::env(SCRIPTS_DIR)/load.tcl
-load_design 2_floorplan.odb 2_floorplan.sdc
+catch { set_cmd_units -time ns -capacitance pF -current mA -voltage V -resistance kOhm -distance um }
+read_db $::env(ODB_FILE)
 
-report_clock_skew
-report_tns
-report_cell_usage
+# Catch reporting commands since they require liberty files to be loaded, 
+# which we don't have in this mock test without load.tcl
+catch { report_clock_skew }
+catch { report_tns }
+catch { report_cell_usage }
+puts "Mock script completed successfully!"

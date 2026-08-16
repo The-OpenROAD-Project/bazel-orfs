@@ -3,7 +3,7 @@ load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_python//python:defs.bzl", "py_test")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
-load("//:openroad.bzl", "get_stage_args", "orfs_arguments", "orfs_floorplan", "orfs_flow", "orfs_gds", "orfs_macro", "orfs_place", "orfs_run", "orfs_synth")
+load("//:openroad.bzl", "get_stage_args", "orfs_arguments", "orfs_floorplan", "orfs_flow", "orfs_gds", "orfs_macro", "orfs_place", "orfs_run", "orfs_run_executable", "orfs_synth")
 load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:sweep.bzl", "orfs_sweep")
 load(":deps_output_group_rule.bzl", "deps_output_group_test", "output_group_test")
@@ -1534,4 +1534,17 @@ sh_test(
     srcs = ["verify_orfs_run_vars.sh"],
     args = ["$(location :propagated_vars.txt)"],
     data = [":propagated_vars.txt"],
+)
+
+orfs_run_executable(
+    name = "mock_tuner_executable",
+    src = ":lb_32x128_floorplan",
+    script = ":cell_count.tcl",
+    tags = ["manual"],
+)
+
+py_test(
+    name = "mock_optuna_test",
+    srcs = ["mock_optuna_test.py"],
+    data = [":mock_tuner_executable"],
 )
