@@ -12,7 +12,12 @@ def main():
         epilog="Use cases: AI iteration, debugging in gdb, whittle.py, hyperparameter tuning."
     )
     parser.add_argument("--byo-openroad-cmd-line", action="store_true", help="Print standalone command line for gdb or BYO openroad.")
-    parser.add_argument("--variable", action="append", metavar="KEY=VALUE", default=[], help="Variable overrides.")
+    parser.add_argument("--variable", action="append", default=[], help="Override variables, e.g. PLACE_DENSITY=0.6")
+    parser.add_argument("--keep", action="store_true", help="Keep the temporary execution directory instead of deleting it")
+    parser.add_argument("--tmp-dir", help="Directory to create the temporary execution folder in")
+    parser.add_argument("--log-file", help="File to redirect OpenROAD stdout/stderr to")
+    parser.add_argument("--source", action="append", default=[], help="Path to Tcl files to source before the main script")
+    parser.add_argument("--tcl-command", action="append", default=[], help="Tcl commands to run before the main script")
     parser.add_argument("--output", help="Output file path (optional).")
     parser.add_argument("--cmd", help="Override the make target (if running via make).", default=None)
     
@@ -155,7 +160,16 @@ def main():
 
     # Generate a TCL wrapper that sets all the environment variables as defaults,
     # then sources the original RUN_SCRIPT.
-    tmpdir = os.environ.get("TEST_TMPDIR", os.environ.get("TMPDIR", "/tmp"))
+    import tempfile
+    
+    # Determine base tmpdir
+    base_tmpdir = args.tmp_dir
+    if not base_tmpdir:
+        base_tmpdir = os.environ.get("TEST_TMPDIR")
+    
+    # Use a unique temp directory for concurrency
+    tmpdir = tempfile.mkdtemp(dir=base_tmpdir, prefix="orfs_tuner_")
+    
     wrapper_tcl_path = os.path.join(tmpdir, "tuner_wrapper.tcl")
     
     # Re-evaluate env now that all paths are resolved
@@ -184,6 +198,16 @@ def main():
             
         # Mock scripts don't have LIB_FILES passed by bazel, so set units explicitly
         f.write('catch { set_cmd_units -time ns -capacitance pF -current mA -voltage V -resistance kOhm -distance um }\n')
+        
+        # Inject dynamic Tcl configurations
+        for src in args.source:
+            # make sure it is absolute
+            src_abs = src if os.path.isabs(src) else os.path.abspath(src)
+            f.write(f'source "{src_abs}"\n')
+            
+        for cmd_str in args.tcl_command:
+            f.write(f'{cmd_str}\n')
+            
         f.write(f'source "{run_script}"\n')
 
     metrics = os.path.join(tmpdir, "metrics.json")
@@ -191,13 +215,42 @@ def main():
 
     if args.byo_openroad_cmd_line:
         print(" ".join(cmd))
+        if not args.keep:
+            import shutil
+            shutil.rmtree(tmpdir, ignore_errors=True)
         return
 
     # Run it
+    log_file = None
+    if args.log_file:
+        log_file = open(args.log_file, "w")
+    
     try:
-        subprocess.run(cmd, env=env, cwd=work_dir, check=True)
+        if log_file:
+            subprocess.run(cmd, env=env, cwd=work_dir, stdout=log_file, stderr=subprocess.STDOUT, check=True)
+        else:
+            subprocess.run(cmd, env=env, cwd=work_dir, check=True)
+            
+        # If success, print the metrics json to stdout
+        if os.path.exists(metrics):
+            with open(metrics, "r") as mf:
+                sys.stdout.write(mf.read())
+                
     except subprocess.CalledProcessError as e:
+        sys.stderr.write(f"\\nError: OpenROAD run failed. ")
+        if args.log_file:
+            sys.stderr.write(f"See log file: {args.log_file}\\n")
+        if not args.keep:
+            sys.stderr.write(f"Use --keep to inspect the temporary wrapper script.\\n")
         sys.exit(e.returncode)
+    finally:
+        if log_file:
+            log_file.close()
+        if args.keep:
+            sys.stderr.write(f"\\nKept temporary execution directory: {tmpdir}\\n")
+        else:
+            import shutil
+            shutil.rmtree(tmpdir, ignore_errors=True)
 
 if __name__ == "__main__":
     main()
