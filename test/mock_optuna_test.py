@@ -5,11 +5,12 @@ import subprocess
 import sys
 import unittest
 
+
 class TestMockOptuna(unittest.TestCase):
     def test_tuner_executable(self):
         # Find the executable in the runfiles
         executable_path = "test/mock_tuner_executable"
-        
+
         # In a bazel py_test, runfiles are available and the working directory is the runfiles root
         if not os.path.exists(executable_path):
             self.skipTest(f"Executable not found at {executable_path}")
@@ -19,7 +20,7 @@ class TestMockOptuna(unittest.TestCase):
             [executable_path, "--byo-openroad-cmd-line"],
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
         output = result.stdout.strip()
         self.assertIn("openroad", output)
@@ -34,12 +35,13 @@ class TestMockOptuna(unittest.TestCase):
             [executable_path, "--variable", "PLACE_DENSITY=0.42"],
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
-        
+
         # cell_count.tcl is a real script in the repo, check that it executed successfully.
         # (It just counts cells and doesn't do much if we don't pass an output arg, but it succeeds)
         self.assertEqual(result.returncode, 0)
+
 
 if __name__ == "__main__":
     unittest.main()

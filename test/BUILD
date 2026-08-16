@@ -1475,8 +1475,6 @@ sh_test(
     ],
 )
 
-load("//:openroad.bzl", "orfs_variables")
-
 orfs_variables(
     name = "my_variables",
     arguments = {
