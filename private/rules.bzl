@@ -791,9 +791,9 @@ def _run_executable_impl(ctx):
         } |
         ({"WORK_HOME": work_home} if work_home else {}),
     )
-    
+
     # We parse the moreargs back into a dictionary to embed in the tuner.py.tpl
-    
+
     # We can't parse moreargs directly easily in starlark since it's a bash string
     # BUT, we can just use the dictionary we passed to environment_string!
     env_dict = hack_away_prefix(
@@ -810,14 +810,14 @@ def _run_executable_impl(ctx):
     }
     if work_home:
         env_dict["WORK_HOME"] = work_home
-        
+
     ctx.actions.expand_template(
         template = ctx.file._template,
         output = wrapper,
         is_executable = True,
         substitutions = {
             "%{ENV_JSON}": json.encode(env_dict),
-            "%{MOREARGS}": moreargs, # Keep this around if we need it
+            "%{MOREARGS}": moreargs,  # Keep this around if we need it
         },
     )
 
