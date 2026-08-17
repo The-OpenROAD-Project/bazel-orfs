@@ -1,9 +1,5 @@
 load("//:openroad.bzl", "orfs_flow")
 
-FLOOR_PLACE_ARGUMENTS = {
-    "IO_CONSTRAINTS": "$(location //test:io)",
-}
-
 FAST_SETTINGS = {
     "FILL_CELLS": "",
     "GLOBAL_PLACEMENT_ARGS": "-overflow 0.2",
@@ -21,7 +17,7 @@ FAST_SETTINGS = {
 orfs_flow(
     name = "L1MetadataArray",
     abstract_stage = "place",
-    arguments = FAST_SETTINGS | FLOOR_PLACE_ARGUMENTS | {
+    arguments = FAST_SETTINGS | {
         "CORE_AREA": "2 2 20 80",
         "CORE_MARGIN": "2",
         "DIE_AREA": "0 0 22 82",
@@ -29,14 +25,12 @@ orfs_flow(
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
         "PLACE_DENSITY": "0.40",
         "PLACE_PINS_ARGS": "-annealing",
-        "SDC_FILE": "$(location //test:constraints-top.sdc)",
         "SYNTH_HIERARCHICAL": "1",
     },
     macros = ["//test:tag_array_64x184_generate_abstract"],
-    stage_sources = {
-        "floorplan": ["//test:io"],
-        "place": ["//test:io"],
-        "synth": ["//test:constraints-top.sdc"],
+    sources = {
+        "IO_CONSTRAINTS": ["//test:io"],
+        "SDC_FILE": ["//test:constraints-top.sdc"],
     },
     verilog_files = ["//test:rtl/L1MetadataArray.sv"],
 )
@@ -47,16 +41,13 @@ orfs_flow(
     arguments = FAST_SETTINGS | {
         "CORE_AREA": "1.026 1.080 7.560 50.220",
         "DIE_AREA": "0 0 8.586 51.300",
-        "IO_CONSTRAINTS": "$(location //test:io-sram)",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
         "PLACE_DENSITY": "0.65",
         "PLACE_PINS_ARGS": "-min_distance 2 -min_distance_in_tracks",
-        "SDC_FILE": "$(location //test:constraints-sram)",
     },
-    stage_sources = {
-        "floorplan": ["//test:io-sram"],
-        "place": ["//test:io-sram"],
-        "synth": ["//test:constraints-sram"],
+    sources = {
+        "IO_CONSTRAINTS": ["//test:io-sram"],
+        "SDC_FILE": ["//test:constraints-sram"],
     },
     verilog_files = ["//test:mock/tag_array_64x184.sv"],
 )
