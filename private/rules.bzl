@@ -15,6 +15,7 @@ load(
 load(
     "//private:environment.bzl",
     "EXPAND_VERILOG_DIRS",
+    "config_arguments",
     "config_content",
     "config_environment",
     "config_overrides",
@@ -384,9 +385,9 @@ def _run_impl(ctx):
     original_config = config
     all_jsons = ctx.files.extra_arguments + (ctx.attr.src[OrfsInfo].arguments.to_list() if OrfsInfo in ctx.attr.src else [])
     if all_jsons:
-        args_mk = declare_artifact(ctx, "results", ctx.attr.name + ".args.mk")
+        new_config = declare_artifact(ctx, "results", ctx.attr.name + ".config.mk")
 
-        args = [ctx.file._merge_arguments.path, args_mk.path]
+        args = [ctx.file._merge_arguments.path, new_config.path]
         inputs = all_jsons + [ctx.file._merge_arguments]
 
         if OrfsInfo in ctx.attr.src:
@@ -417,21 +418,18 @@ def _run_impl(ctx):
             args.extend(["--filter", filter_json.path])
             inputs.append(filter_json)
 
+        args.extend(["--include", original_config.path])
+        inputs.append(original_config)
         args.extend([f.path for f in all_jsons])
 
         ctx.actions.run(
             executable = ctx.executable._python,
             arguments = args,
             inputs = inputs,
-            outputs = [args_mk],
-        )
-        new_config = declare_artifact(ctx, "results", ctx.attr.name + ".config.mk")
-        ctx.actions.write(
-            output = new_config,
-            content = "include {args}\ninclude {config}\n".format(args = args_mk.path, config = original_config.path),
+            outputs = [new_config],
         )
         config = new_config
-        extra_files = [args_mk, original_config]
+        extra_files = [original_config]
     else:
         extra_files = [original_config]
 
@@ -1156,6 +1154,16 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     )
 
     partition_outputs = []
+
+    filter_json = declare_artifact(ctx, "results", "1_synth_partition.filter.json")
+    ctx.actions.write(
+        output = filter_json,
+        content = json.encode({
+            "allowed": ALL_STAGE_TO_VARIABLES.get("synth", []),
+            "known": ALL_VARIABLE_TO_STAGES.keys(),
+        }),
+    )
+
     for i in range(num_partitions):
         # Build a human-readable progress message showing which modules
         # this partition will synthesize.
@@ -1196,14 +1204,35 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 base_arguments,
                 orfs_additional_arguments(my_deps_infos, use_pre_layout = True),
             )
+            my_analysis_args = config_arguments(ctx, my_arguments)
+            my_analysis_json = declare_artifact(ctx, "results", "1_synth_partition_{}.analysis.json".format(i))
+            ctx.actions.write(
+                output = my_analysis_json,
+                content = json.encode(my_analysis_args),
+            )
+
             my_config = declare_artifact(
                 ctx,
                 "results",
                 "1_synth_partition_{}.mk".format(i),
             )
-            ctx.actions.write(
-                output = my_config,
-                content = config_content(ctx, my_arguments, extra_config_paths),
+            my_jsons = [my_analysis_json] + ctx.files.extra_arguments
+
+            my_args = [
+                ctx.file._merge_arguments.path,
+                my_config.path,
+                "--filter",
+                filter_json.path,
+            ]
+            for f in ctx.files.extra_configs:
+                my_args.extend(["--include", f.path])
+            my_args.extend([f.path for f in my_jsons])
+
+            ctx.actions.run(
+                executable = ctx.executable._python,
+                arguments = my_args,
+                inputs = my_jsons + [ctx.file._merge_arguments, filter_json] + ctx.files.extra_configs,
+                outputs = [my_config],
             )
             extra_partition_config = [my_config]
             partition_env_override = {"DESIGN_CONFIG": my_config.path}
@@ -1375,14 +1404,41 @@ def _yosys_impl(ctx):
             use_pre_layout = True,
         ),
     )
-    config = declare_artifact(ctx, "results", "1_synth.mk")
+
+    analysis_args = config_arguments(ctx, all_arguments)
+    analysis_json = declare_artifact(ctx, "results", "1_synth.analysis.json")
     ctx.actions.write(
-        output = config,
-        content = config_content(
-            ctx,
-            all_arguments,
-            [file.path for file in ctx.files.extra_configs],
-        ),
+        output = analysis_json,
+        content = json.encode(analysis_args),
+    )
+
+    filter_json = declare_artifact(ctx, "results", "1_synth.filter.json")
+    ctx.actions.write(
+        output = filter_json,
+        content = json.encode({
+            "allowed": ALL_STAGE_TO_VARIABLES.get("synth", []),
+            "known": ALL_VARIABLE_TO_STAGES.keys(),
+        }),
+    )
+
+    config = declare_artifact(ctx, "results", "1_synth.mk")
+    all_jsons = [analysis_json] + ctx.files.extra_arguments
+
+    args = [
+        ctx.file._merge_arguments.path,
+        config.path,
+        "--filter",
+        filter_json.path,
+    ]
+    for f in ctx.files.extra_configs:
+        args.extend(["--include", f.path])
+    args.extend([f.path for f in all_jsons])
+
+    ctx.actions.run(
+        executable = ctx.executable._python,
+        arguments = args,
+        inputs = all_jsons + [ctx.file._merge_arguments, filter_json] + ctx.files.extra_configs,
+        outputs = [config],
     )
 
     # Canonicalize only needs each macro's port interface to blackbox it, not
@@ -1441,14 +1497,31 @@ def _yosys_impl(ctx):
                 "SYNTH_SLANG_ARGS": (existing_slang + " " + blackbox_slang) if existing_slang else blackbox_slang,
             }
 
-            canon_config = declare_artifact(ctx, "results", "1_1_yosys_canonicalize.mk")
+            canon_analysis_args = config_arguments(ctx, canon_arguments)
+            canon_analysis_json = declare_artifact(ctx, "results", "1_1_yosys_canonicalize.analysis.json")
             ctx.actions.write(
-                output = canon_config,
-                content = config_content(
-                    ctx,
-                    canon_arguments,
-                    [file.path for file in ctx.files.extra_configs],
-                ),
+                output = canon_analysis_json,
+                content = json.encode(canon_analysis_args),
+            )
+
+            canon_config = declare_artifact(ctx, "results", "1_1_yosys_canonicalize.mk")
+            canon_jsons = [canon_analysis_json] + ctx.files.extra_arguments
+
+            canon_args = [
+                ctx.file._merge_arguments.path,
+                canon_config.path,
+                "--filter",
+                filter_json.path,
+            ]
+            for f in ctx.files.extra_configs:
+                canon_args.extend(["--include", f.path])
+            canon_args.extend([f.path for f in canon_jsons])
+
+            ctx.actions.run(
+                executable = ctx.executable._python,
+                arguments = canon_args,
+                inputs = canon_jsons + [ctx.file._merge_arguments, filter_json] + ctx.files.extra_configs,
+                outputs = [canon_config],
             )
             canon_deps = depset(
                 [info.gds for info in soft_infos if info.gds] +
@@ -1685,23 +1758,38 @@ def _yosys_impl(ctx):
     )
 
     config_short = declare_artifact(ctx, "results", "1_synth.short.mk")
-    ctx.actions.write(
-        output = config_short,
-        content = config_content(
-            ctx,
-            arguments = hack_away_prefix(
-                arguments = merge_arguments(
-                    data_arguments(ctx) |
-                    required_arguments(ctx),
-                    orfs_additional_arguments(
-                        [dep[OrfsInfo] for dep in ctx.attr.deps],
-                        use_pre_layout = True,
-                    ),
-                ) | verilog_arguments(ctx.files.verilog_files),
-                prefix = config_short.root.path,
-            ),
-            paths = [file.short_path for file in ctx.files.extra_configs],
+    short_all_args = merge_arguments(
+        data_arguments(ctx) |
+        required_arguments(ctx),
+        orfs_additional_arguments(
+            [dep[OrfsInfo] for dep in ctx.attr.deps],
+            use_pre_layout = True,
         ),
+    ) | verilog_arguments(ctx.files.verilog_files)
+
+    short_analysis_args = config_arguments(ctx, hack_away_prefix(short_all_args, config_short.root.path))
+    short_analysis_json = declare_artifact(ctx, "results", "1_synth.short.analysis.json")
+    ctx.actions.write(
+        output = short_analysis_json,
+        content = json.encode(short_analysis_args),
+    )
+
+    short_args = [
+        ctx.file._merge_arguments.path,
+        config_short.path,
+        "--filter",
+        filter_json.path,
+    ]
+    for f in ctx.files.extra_configs:
+        short_args.extend(["--include", f.short_path])
+    short_args.append(short_analysis_json.path)
+    short_args.extend([f.path for f in ctx.files.extra_arguments])
+
+    ctx.actions.run(
+        executable = ctx.executable._python,
+        arguments = short_args,
+        inputs = [short_analysis_json] + ctx.files.extra_arguments + [ctx.file._merge_arguments, filter_json] + ctx.files.extra_configs,
+        outputs = [config_short],
     )
 
     make = _create_make_script(
@@ -1965,52 +2053,58 @@ def _make_impl(
         ),
     )
 
-    # Write this stage's arguments to .json for downstream stages, then
-    # merge inherited .json files and this stage's .json into a .mk that
-    # the stage config includes via pre_paths. Precedence (later wins in
-    # merge_arguments.py): inherited < stage < extra.
-    stage_json = declare_artifact(ctx, "results", stage + ".args.json")
+    # Write this stage's analysis arguments to .json for downstream stages, then
+    # merge inherited .json files and this stage's .json into the final .mk.
+    # Precedence (later wins in merge_arguments.py): inherited < stage < extra.
+    analysis_args = config_arguments(ctx, all_arguments)
+    analysis_json = declare_artifact(ctx, "results", stage + ".analysis.json")
     ctx.actions.write(
-        output = stage_json,
-        content = json.encode(data_arguments(ctx)),
+        output = analysis_json,
+        content = json.encode(analysis_args),
     )
     inherited_jsons = ctx.attr.src[OrfsInfo].arguments.to_list()
     extra_arg_files = ctx.files.extra_arguments
-    all_jsons = inherited_jsons + [stage_json] + extra_arg_files
-    args_mk = declare_artifact(ctx, "results", stage + ".args.mk")
+    all_jsons = inherited_jsons + [analysis_json] + extra_arg_files
 
-    canonical_stage = stage
-    for s in ALL_STAGE_TO_VARIABLES.keys():
-        if stage.endswith("_" + s) or stage == s:
-            canonical_stage = s
-            break
+    if hasattr(ctx.attr, "stages") and ctx.attr.stages:
+        allowed_vars = []
+        for s in ctx.attr.stages:
+            allowed_vars.extend(ALL_STAGE_TO_VARIABLES.get(s, []))
+    elif hasattr(ctx.attr, "_stage") and ctx.attr._stage in ALL_STAGE_TO_VARIABLES:
+        allowed_vars = ALL_STAGE_TO_VARIABLES[ctx.attr._stage]
+    else:
+        canonical_stage = stage
+        for s in ALL_STAGE_TO_VARIABLES.keys():
+            if stage.endswith("_" + s) or stage == s or (s == "generate_abstract" and "abstract" in stage):
+                canonical_stage = s
+                break
+        allowed_vars = ALL_STAGE_TO_VARIABLES.get(canonical_stage, [])
 
     filter_json = declare_artifact(ctx, "results", stage + ".filter.json")
     ctx.actions.write(
         output = filter_json,
         content = json.encode({
-            "allowed": ALL_STAGE_TO_VARIABLES.get(canonical_stage, []),
+            "allowed": allowed_vars,
             "known": ALL_VARIABLE_TO_STAGES.keys(),
         }),
     )
 
+    config = declare_artifact(ctx, "results", stage + ".mk")
+    args = [
+        ctx.file._merge_arguments.path,
+        config.path,
+        "--filter",
+        filter_json.path,
+    ]
+    for f in ctx.files.extra_configs:
+        args.extend(["--include", f.path])
+    args.extend([f.path for f in all_jsons])
+
     ctx.actions.run(
         executable = ctx.executable._python,
-        arguments = [ctx.file._merge_arguments.path, args_mk.path, "--filter", filter_json.path] +
-                    [f.path for f in all_jsons],
-        inputs = all_jsons + [ctx.file._merge_arguments, filter_json],
-        outputs = [args_mk],
-    )
-
-    config = declare_artifact(ctx, "results", stage + ".mk")
-    ctx.actions.write(
-        output = config,
-        content = config_content(
-            ctx,
-            arguments = all_arguments,
-            pre_paths = [args_mk.path],
-            paths = [file.path for file in ctx.files.extra_configs],
-        ),
+        arguments = args,
+        inputs = all_jsons + [ctx.file._merge_arguments, filter_json] + ctx.files.extra_configs,
+        outputs = [config],
     )
 
     results = declare_artifacts(ctx, "results", result_names)
@@ -2056,7 +2150,7 @@ def _make_impl(
             command = " && ".join(commands),
             env = config_overrides(ctx, flow_environment(ctx) | config_environment(config)),
             inputs = depset(
-                [config, args_mk] + ctx.files.extra_configs + all_jsons,
+                [config] + ctx.files.extra_configs + all_jsons,
                 transitive = [
                     data_inputs(ctx),
                     source_inputs(ctx),
@@ -2068,25 +2162,30 @@ def _make_impl(
         )
 
     config_short = declare_artifact(ctx, "results", stage + ".short.mk")
+    short_analysis_args = config_arguments(ctx, hack_away_prefix(all_arguments, config_short.root.path))
+    short_analysis_json = declare_artifact(ctx, "results", stage + ".short.analysis.json")
     ctx.actions.write(
-        output = config_short,
-        content = config_content(
-            ctx,
-            arguments = hack_away_prefix(
-                arguments = merge_arguments(
-                    extra_arguments |
-                    data_arguments(ctx) |
-                    required_arguments(ctx),
-                    orfs_additional_arguments(
-                        [ctx.attr.src[OrfsInfo]],
-                        use_pre_layout = use_pre_layout,
-                    ),
-                ),
-                prefix = config_short.root.path,
-            ),
-            pre_paths = [args_mk.short_path],
-            paths = [file.short_path for file in ctx.files.extra_configs],
-        ),
+        output = short_analysis_json,
+        content = json.encode(short_analysis_args),
+    )
+
+    short_args = [
+        ctx.file._merge_arguments.path,
+        config_short.path,
+        "--filter",
+        filter_json.path,
+    ]
+    for f in ctx.files.extra_configs:
+        short_args.extend(["--include", f.short_path])
+    short_args.extend([f.path for f in inherited_jsons])
+    short_args.append(short_analysis_json.path)
+    short_args.extend([f.path for f in extra_arg_files])
+
+    ctx.actions.run(
+        executable = ctx.executable._python,
+        arguments = short_args,
+        inputs = inherited_jsons + [short_analysis_json] + extra_arg_files + [ctx.file._merge_arguments, filter_json] + ctx.files.extra_configs,
+        outputs = [config_short],
     )
 
     make = _create_make_script(
@@ -2110,7 +2209,7 @@ def _make_impl(
     # DefaultInfo.runfiles below so `bazelisk run :stage gui_<stage>` works.
     stage_renames = renames(ctx, ctx.files.src, short = True)
     deploy_files = depset(
-        [config_short, make, args_mk] + ctx.files.src + ctx.files.extra_configs + all_jsons,
+        [config_short, make] + ctx.files.src + ctx.files.extra_configs + all_jsons,
         transitive = [
             flow_inputs(ctx),
             data_inputs(ctx),
@@ -2141,7 +2240,7 @@ def _make_impl(
     )
 
     _runfiles_files = (
-        [config_short, make, args_mk] +
+        [config_short, make] +
         forwards +
         results +
         logs +
@@ -2164,7 +2263,7 @@ def _make_impl(
     return [
         DefaultInfo(
             executable = exe,
-            files = depset(forwards + results + reports + [args_mk]),
+            files = depset(forwards + results + reports),
             # default_runfiles includes openroad_qt so `bazelisk run
             # :stage gui_<stage>` finds the Qt-linked binary in the
             # deployed temp folder. data_runfiles deliberately omits
@@ -2207,7 +2306,7 @@ def _make_impl(
             config = config_short,
             renames = stage_renames,
             files = depset(
-                [config_short, args_mk] +
+                [config_short] +
                 ctx.files.src +
                 ctx.files.data +
                 ctx.files.extra_configs,
@@ -2229,7 +2328,7 @@ def _make_impl(
             additional_libs = ctx.attr.src[OrfsInfo].additional_libs,
             additional_libs_pre_layout = ctx.attr.src[OrfsInfo].additional_libs_pre_layout,
             arguments = depset(
-                [stage_json],
+                [analysis_json],
                 transitive = [ctx.attr.src[OrfsInfo].arguments] +
                              ([depset(extra_arg_files)] if extra_arg_files else []),
             ),
@@ -2329,6 +2428,7 @@ orfs_squashed = rule(
             renamed_inputs_attr() |
             {
                 "stage_name": attr.string(mandatory = True),
+                "stages": attr.string_list(default = []),
                 "make_targets": attr.string_list(mandatory = True),
                 "log_names": attr.string_list(default = []),
                 "json_names": attr.string_list(default = []),
@@ -2585,7 +2685,9 @@ orfs_generate_metadata = rule(
         # staged under the parent variant's tree.
         rename_data = True,
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr(),
+    attrs = openroad_attrs() | renamed_inputs_attr() | {
+        "_stage": attr.string(default = "generate_metadata"),
+    },
     provides = flow_provides(),
     executable = True,
 )
@@ -2601,7 +2703,9 @@ orfs_update_rules = rule(
         report_names = ["rules.json"],
         result_names = [],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr(),
+    attrs = openroad_attrs() | renamed_inputs_attr() | {
+        "_stage": attr.string(default = "update_rules"),
+    },
     provides = flow_provides(),
     executable = True,
 )

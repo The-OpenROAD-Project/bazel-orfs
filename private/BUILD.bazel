@@ -3,7 +3,13 @@ package(default_visibility = [
     "//private:__subpackages__",
 ])
 
-exports_files([
-    "merge_arguments.py",
-    "tuner.py.tpl",
-])
+exports_files(
+    glob(["**"]),
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "merge_arguments_test",
+    srcs = ["merge_arguments_test.py"],
+    data = ["merge_arguments.py"],
+)
