@@ -330,6 +330,11 @@ def orfs_flow(
     orfs_variables(
         name = _step_name(name, variant, "variables"),
         arguments = arguments | user_arguments,
+        data = depset(
+            kwargs.get("data", []) +
+            [v for vs in (sources | user_sources).values() for v in vs] +
+            [v for vs in stage_sources.values() for v in vs],
+        ).to_list(),
     )
 
     if not mock_area:
@@ -606,6 +611,7 @@ def _orfs_pass(
             orfs_squashed(
                 name = squash_name,
                 stage_name = last_meta.stage_name,
+                stages = [s.stage for s in squash_steps],
                 make_targets = all_make_targets,
                 log_names = all_log_names,
                 json_names = all_json_names,

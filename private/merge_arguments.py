@@ -4,10 +4,27 @@ import argparse
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Merge .json argument files into a Makefile-style config.")
+    parser = argparse.ArgumentParser(
+        description="Merge .json argument files into a Makefile-style config."
+    )
     parser.add_argument("output_path", help="Path to write the args.mk file")
-    parser.add_argument("--filter", help="Path to JSON file containing 'allowed' and 'known' variables", default=None)
-    parser.add_argument("json_paths", nargs="+", help="Paths to the input .json files")
+    parser.add_argument(
+        "--filter",
+        help="Path to JSON file containing 'allowed' and 'known' variables",
+        default=None,
+    )
+    parser.add_argument(
+        "--include",
+        "--mk-include",
+        "--mk-includes",
+        action="append",
+        dest="mk_includes",
+        help="Path to .mk file to include at the end",
+        default=[],
+    )
+    parser.add_argument(
+        "json_paths", nargs="*", help="Paths to the input .json files", default=[]
+    )
     args = parser.parse_args()
 
     result = {}
@@ -30,6 +47,9 @@ def main():
                 if k in known and k not in allowed:
                     continue
             out.write("export {}?={}\n".format(k, v))
+
+        for inc in args.mk_includes:
+            out.write("include {}\n".format(inc))
 
 
 if __name__ == "__main__":

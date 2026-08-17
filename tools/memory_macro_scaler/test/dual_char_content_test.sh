@@ -25,8 +25,10 @@ extract_ck () {
     awk '
         /timing_type *: *max_clock_tree_path/ { flag = 1; next }
         flag && /values/ {
-            match($0, /values *\(\s*"([-0-9.e+]+)"/, arr)
-            if (arr[1] != "") { print arr[1]; exit }
+            sub(/.*values[ \t]*\([ \t]*"/, "")
+            sub(/".*/, "")
+            print $0
+            exit
         }
     ' "$1"
 }
