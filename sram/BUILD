@@ -22,11 +22,10 @@ orfs_flow(
         "MACRO_PLACE_HALO": "30 30",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
         "PLACE_DENSITY": "0.40",
-        "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
     },
     mock_area = 0.95,
-    stage_sources = {
-        "synth": [":fakeram/constraints-sram.sdc"],
+    sources = {
+        "SDC_FILE": [":fakeram/constraints-sram.sdc"],
     },
     verilog_files = [":fakeram/sdq_17x64.sv"],
 )
@@ -40,11 +39,10 @@ orfs_flow(
         "DIE_AREA": "0 0 80 80",
         "MACRO_PLACE_HALO": "2 2",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
-        "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
     },
     macros = [":sdq_17x64_generate_abstract"],
-    stage_sources = {
-        "synth": [":fakeram/constraints-sram.sdc"],
+    sources = {
+        "SDC_FILE": [":fakeram/constraints-sram.sdc"],
     },
     verilog_files = [":fakeram/top.v"],
 )
@@ -65,7 +63,6 @@ orfs_flow(
         "CORE_MARGIN": "2",
         "DIE_AREA": "0 0 30 30",
         "MACRO_PLACE_HALO": "2 2",
-        "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
     },
     macros = [":fakeram"],
     sources = {
@@ -118,9 +115,7 @@ orfs_flow(
     name = "top",
     abstract_stage = "cts",
     arguments = FAST_SETTINGS | {
-        "MACRO_PLACEMENT_TCL": "$(location :macro_placement.tcl)",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
-        "SDC_FILE": "$(location :fakeram/constraints-sram.sdc)",
     },
     extra_configs = {"floorplan": [":floorplan.config"]},
     macros = [
@@ -144,11 +139,10 @@ orfs_flow(
         "MACRO_PLACE_HALO": "30 30",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
         "PLACE_DENSITY": "0.40",
-        "SDC_FILE": "$(location :megaboom/constraints-sram.sdc)",
     },
     mock_area = 0.95,
-    stage_sources = {
-        "synth": [":megaboom/constraints-sram.sdc"],
+    sources = {
+        "SDC_FILE": [":megaboom/constraints-sram.sdc"],
     },
     variant = "megaboom",
     verilog_files = [":megaboom/sdq_17x64.sv"],
@@ -164,11 +158,10 @@ orfs_flow(
         "DIE_AREA": "0 0 100 100",
         "MACRO_PLACE_HALO": "2 2",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
-        "SDC_FILE": "$(location :megaboom/constraints-top.sdc)",
     },
     macros = [":sdq_17x64_megaboom_generate_abstract"],
-    stage_sources = {
-        "synth": [":megaboom/constraints-top.sdc"],
+    sources = {
+        "SDC_FILE": [":megaboom/constraints-top.sdc"],
     },
     variant = "megaboom",
     verilog_files = [":megaboom/top.v"],

@@ -109,12 +109,6 @@ SRAM_SOURCES = {
     "IO_CONSTRAINTS": [":io-sram"],
 }
 
-SRAM_STAGE_SOURCES = {
-    "synth": [":constraints-sram.sdc"],
-    "floorplan": [":io-sram"],
-    "place": [":io-sram"],
-}
-
 # ============================================================================
 # All behavioral memory modules to blackbox during synthesis.
 # These are explicit RTL modules with reg arrays — SYNTH_MOCK_LARGE_MEMORIES
@@ -184,7 +178,6 @@ SRAM_OVERRIDES = {
     arguments = SRAM_SETTINGS | {"CORE_ASPECT_RATIO": "4"} | SRAM_OVERRIDES.get(name, {}),
     mock_area = 1.0,
     sources = SRAM_SOURCES,
-    stage_sources = SRAM_STAGE_SOURCES,
     verilog_files = [":boom_sv"],
 ) for name in MEMORY_BLACKBOXES]
 
@@ -223,9 +216,6 @@ orfs_flow(
     sources = {
         "SDC_FILE": [":constraints-sram.sdc"],
     },
-    stage_sources = {
-        "synth": [":constraints-sram.sdc"],
-    },
     verilog_files = [":boom_sv"],
 )
 
@@ -247,10 +237,7 @@ orfs_flow(
     macros = [":{}_behavioral".format(m) for m in MEMORY_BLACKBOXES],
     sources = {
         "SDC_FILE": [":constraints.sdc"],
-    },
-    stage_sources = {
-        "floorplan": [":io-boomtile"],
-        "place": [":io-boomtile"],
+        "IO_CONSTRAINTS": [":io-boomtile"],
     },
     tags = ["manual"],
     top = "BoomTile",
