@@ -9,10 +9,6 @@ load(
     _flow_provides = "flow_provides",
 )
 load(
-    "//private:blender.bzl",
-    _orfs_blender = "orfs_blender",
-)
-load(
     "//private:designs.bzl",
     _orfs_designs = "orfs_designs",
 )
@@ -132,7 +128,6 @@ ABSTRACT_IMPL = _ABSTRACT_IMPL
 NUM_CPUS = _NUM_CPUS
 
 # Flow macros
-orfs_blender = _orfs_blender
 orfs_flow = _orfs_flow
 orfs_synth = _orfs_synth
 orfs_update = _orfs_update
