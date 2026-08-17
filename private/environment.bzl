@@ -413,18 +413,9 @@ export VERILOG_FILES="$_expanded"
 """
 
 def config_overrides(ctx, arguments):
-    has_stage = hasattr(ctx.attr, "_stage")
     defines_for_stage = {
         var: value
         for var, value in ctx.var.items()
-        if has_stage and
-           var in
-           (
-               ALL_STAGE_TO_VARIABLES[ctx.attr._stage] +
-               # FIXME delete this hotfix on next ORFS update
-               # https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/pull/3746
-               {"synth": ["VERILOG_TOP_PARAMS"]}.get(ctx.attr._stage, [])
-           )
     }
     settings = {
         var: value[BuildSettingInfo].value

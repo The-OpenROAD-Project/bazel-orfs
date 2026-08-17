@@ -432,6 +432,7 @@ def _run_impl(ctx):
         )
         config = new_config
         extra_files = [args_mk, original_config]
+        print("orfs_run extra_files: ", extra_files)
     else:
         extra_files = [original_config]
 
@@ -875,7 +876,7 @@ SYNTH_OUTPUTS = ["1_2_yosys.v", "1_2_yosys.sdc", "mem.json"]
 SYN_OUTPUTS = ["1_synth.odb", "1_synth.sdc", "1_synth.v"]
 SYNTH_REPORTS = ["synth_stat.txt", "synth_mocked_memories.txt"]
 
-def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments = {}):
+def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments = {}, base_arguments = {}, args_mk = None):
     """Parallel synthesis: keep → kept-json → N partitions → merge.
 
     Yosys is not deterministic when using host threads, so SYNTH_NUM_PARTITIONS
@@ -936,7 +937,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             command = " && ".join(keep_commands),
             env = config_overrides(ctx, base_env),
             inputs = depset(
-                [canon_output, config, parallel_makefile, ctx.file._synth_keep_script] +
+                [canon_output, config, args_mk, parallel_makefile, ctx.file._synth_keep_script] +
                 ctx.files.extra_configs,
                 transitive = [
                     data_inputs(ctx),
@@ -1087,6 +1088,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 [
                     checkpoint_output,
                     config,
+                    args_mk,
                     parallel_makefile,
                     ctx.file._synth_canonicalize_module_script,
                 ] + extra_partition_inputs + ctx.files.extra_configs,
@@ -1110,6 +1112,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         [
             kept_json,
             config,
+            args_mk,
             parallel_makefile,
             ctx.file._synth_partition_script,
             ctx.file._synth_tcl,
@@ -1143,9 +1146,6 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         macro_files_by_name[name] = depset([f for f in files if f])
         macro_dep_by_name[name] = dep
 
-    # Base arguments common to every partition config (data + required;
-    # ADDITIONAL_* gets layered on per-partition).
-    base_arguments = data_arguments(ctx) | required_arguments(ctx)
     extra_config_paths = [file.path for file in ctx.files.extra_configs]
 
     # kept_modules_list is computed earlier (before Action 2c per-module
@@ -1203,7 +1203,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             )
             ctx.actions.write(
                 output = my_config,
-                content = config_content(ctx, my_arguments, extra_config_paths),
+                content = config_content(ctx, arguments = my_arguments, pre_paths = [args_mk.path], paths = extra_config_paths),
             )
             extra_partition_config = [my_config]
             partition_env_override = {"DESIGN_CONFIG": my_config.path}
@@ -1307,7 +1307,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         command = "{make} $@".format(make = ctx.executable._make.path),
         env = config_overrides(ctx, base_env),
         inputs = depset(
-            [config, parallel_makefile] + ctx.files.extra_configs,
+            [config, args_mk, parallel_makefile] + ctx.files.extra_configs,
             transitive = [
                 data_inputs(ctx),
                 pdk_inputs(ctx),
@@ -1345,6 +1345,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                     synth_outputs["1_2_yosys.v"],
                     synth_outputs["1_2_yosys.sdc"],
                     config,
+                    args_mk,
                     parallel_makefile,
                 ] + ctx.files.extra_configs,
                 transitive = [
@@ -1367,21 +1368,52 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     return validated_kept_macros_json
 
 def _yosys_impl(ctx):
-    all_arguments = merge_arguments(
-        data_arguments(ctx) |
+    base_arguments = merge_arguments(
         required_arguments(ctx),
         orfs_additional_arguments(
             [dep[OrfsInfo] for dep in ctx.attr.deps],
             use_pre_layout = True,
         ),
     )
+    all_arguments = merge_arguments(
+        data_arguments(ctx),
+        base_arguments,
+    )
+
+    stage_json = declare_artifact(ctx, "results", "synth.args.json")
+    ctx.actions.write(
+        output = stage_json,
+        content = json.encode(data_arguments(ctx)),
+    )
+    extra_arg_files = ctx.files.extra_arguments
+    all_jsons = [stage_json] + extra_arg_files
+    args_mk = declare_artifact(ctx, "results", "synth.args.mk")
+
+    filter_json = declare_artifact(ctx, "results", "synth.filter.json")
+    ctx.actions.write(
+        output = filter_json,
+        content = json.encode({
+            "allowed": ALL_STAGE_TO_VARIABLES.get("synth", []),
+            "known": ALL_VARIABLE_TO_STAGES.keys(),
+        }),
+    )
+
+    ctx.actions.run(
+        executable = ctx.executable._python,
+        arguments = [ctx.file._merge_arguments.path, args_mk.path, "--filter", filter_json.path] +
+                    [f.path for f in all_jsons],
+        inputs = all_jsons + [ctx.file._merge_arguments, filter_json],
+        outputs = [args_mk],
+    )
+
     config = declare_artifact(ctx, "results", "1_synth.mk")
     ctx.actions.write(
         output = config,
         content = config_content(
             ctx,
-            all_arguments,
-            [file.path for file in ctx.files.extra_configs],
+            arguments = base_arguments,
+            pre_paths = [args_mk.path],
+            paths = [file.path for file in ctx.files.extra_configs],
         ),
     )
 
@@ -1422,8 +1454,8 @@ def _yosys_impl(ctx):
             if dep[TopInfo].module_top not in blackbox
         ]
         if hardened_names:
-            canon_arguments = merge_arguments(
-                data_arguments(ctx) | required_arguments(ctx),
+            canon_base_arguments = merge_arguments(
+                required_arguments(ctx),
                 orfs_additional_arguments(soft_infos, use_pre_layout = True),
             )
 
@@ -1436,8 +1468,8 @@ def _yosys_impl(ctx):
                 "--blackboxed-module " + n
                 for n in hardened_names
             ])
-            existing_slang = canon_arguments.get("SYNTH_SLANG_ARGS", "")
-            canon_arguments = canon_arguments | {
+            existing_slang = all_arguments.get("SYNTH_SLANG_ARGS", "")
+            canon_base_arguments = canon_base_arguments | {
                 "SYNTH_SLANG_ARGS": (existing_slang + " " + blackbox_slang) if existing_slang else blackbox_slang,
             }
 
@@ -1446,8 +1478,9 @@ def _yosys_impl(ctx):
                 output = canon_config,
                 content = config_content(
                     ctx,
-                    canon_arguments,
-                    [file.path for file in ctx.files.extra_configs],
+                    arguments = canon_base_arguments,
+                    pre_paths = [args_mk.path],
+                    paths = [file.path for file in ctx.files.extra_configs],
                 ),
             )
             canon_deps = depset(
@@ -1500,7 +1533,7 @@ def _yosys_impl(ctx):
                 config_environment(canon_config),
             ),
             inputs = depset(
-                [canon_config] + ctx.files.verilog_files + ctx.files.extra_configs,
+                [canon_config, args_mk] + ctx.files.verilog_files + ctx.files.extra_configs,
                 transitive = [
                     data_inputs(ctx),
                     pdk_inputs(ctx),
@@ -1589,7 +1622,7 @@ def _yosys_impl(ctx):
                 config_environment(config),
             ),
             inputs = depset(
-                [config] + ctx.files.verilog_files + ctx.files.extra_configs,
+                [config, args_mk] + ctx.files.verilog_files + ctx.files.extra_configs,
                 transitive = [
                     data_inputs(ctx),
                     pdk_inputs(ctx),
@@ -1601,7 +1634,7 @@ def _yosys_impl(ctx):
             progress_message = "OpenROAD-SYN synthesis for %s" % module_top(ctx),
         )
     elif num_partitions > 0:
-        validated_kept_macros_json = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments)
+        validated_kept_macros_json = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments, base_arguments, args_mk)
     else:
         # SYNTH_NETLIST_FILES will not create an .rtlil file, logs,
         # reports or mem.json, so touch empty placeholders for those.
@@ -1627,7 +1660,7 @@ def _yosys_impl(ctx):
                 config_environment(config),
             ),
             inputs = depset(
-                [canon_output, config] + ctx.files.extra_configs,
+                [canon_output, config, args_mk] + ctx.files.extra_configs,
                 transitive = [
                     data_inputs(ctx),
                     pdk_inputs(ctx),
@@ -1656,7 +1689,7 @@ def _yosys_impl(ctx):
                 config_environment(config),
             ),
             inputs = depset(
-                [canon_output, config] + ctx.files.extra_configs,
+                [canon_output, config, args_mk] + ctx.files.extra_configs,
                 transitive = [
                     data_inputs(ctx),
                     pdk_inputs(ctx),
@@ -1805,7 +1838,7 @@ def _yosys_impl(ctx):
             # sources= paths (e.g. LAYER_PARASITICS_FILE) that load.tcl
             # sources at load_design time.
             files = depset(
-                [config_short] + ctx.files.data + ctx.files.extra_configs,
+                [config_short, args_mk] + ctx.files.data + ctx.files.extra_configs,
             ),
             runfiles = ctx.runfiles(transitive_files = deploy_files),
         ),
@@ -1955,14 +1988,16 @@ def _make_impl(
         target of a ctx.attr.srcs list.
     """
     use_pre_layout = stage in _PRE_LAYOUT_STAGES
-    all_arguments = merge_arguments(
-        extra_arguments |
-        data_arguments(ctx) |
+    base_arguments = merge_arguments(
         required_arguments(ctx),
         orfs_additional_arguments(
             [ctx.attr.src[OrfsInfo]],
             use_pre_layout = use_pre_layout,
         ),
+    )
+    all_arguments = merge_arguments(
+        extra_arguments | data_arguments(ctx),
+        base_arguments,
     )
 
     # Write this stage's arguments to .json for downstream stages, then
@@ -2007,7 +2042,7 @@ def _make_impl(
         output = config,
         content = config_content(
             ctx,
-            arguments = all_arguments,
+            arguments = base_arguments,
             pre_paths = [args_mk.path],
             paths = [file.path for file in ctx.files.extra_configs],
         ),

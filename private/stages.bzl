@@ -202,23 +202,9 @@ def get_stage_args(stage, stage_arguments = {}, arguments = {}, sources = {}):
       A dictionary of arguments for the stage.
     """
     unsorted_dict = {
-        arg: value
-        for arg, value in (
-            {
-                arg: " ".join(["$(locations {})".format(v) for v in value])
-                for arg, value in sources.items()
-                if arg in ALL_STAGE_TO_VARIABLES[stage] or
-                   arg not in ALL_VARIABLE_TO_STAGES
-            } |
-            {
-                arg: value
-                for arg, value in arguments.items()
-                if arg in ALL_STAGE_TO_VARIABLES[stage] or
-                   arg not in ALL_VARIABLE_TO_STAGES
-            }
-        ).items()
-        if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLE_TO_STAGES
-    } | stage_arguments.get(stage, {})
+        arg: " ".join(["$(locations {})".format(v) for v in value])
+        for arg, value in sources.items()
+    } | arguments | stage_arguments.get(stage, {})
     return dict(sorted(unsorted_dict.items()))
 
 def get_sources(stage, stage_sources, sources):
@@ -231,16 +217,12 @@ def get_sources(stage, stage_sources, sources):
     Returns:
       A list of sources for the stage.
     """
+    all_sources = []
+    for s in stage_sources.values():
+        all_sources.extend(s)
+    for s in sources.values():
+        all_sources.extend(s)
+    
     return sorted(
-        set(
-            stage_sources.get(stage, []) +
-            flatten(
-                [
-                    source_list
-                    for variable, source_list in sources.items()
-                    if variable in ALL_STAGE_TO_VARIABLES[stage] or
-                       variable not in ALL_VARIABLE_TO_STAGES
-                ],
-            ),
-        ),
+        {s: None for s in all_sources}.keys()
     )

@@ -1,0 +1,57 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_python//python:defs.bzl", "py_test")
+load("//private:flow.bzl", "orfs_flow")
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
+load("//private:rules.bzl", "orfs_run_executable", "orfs_deploy_srcs", "orfs_arguments", "orfs_run")
+
+orfs_flow(
+    variant = "default",
+    name = "TinyTunerTest_flow",
+    top = "TinyTunerTest",
+    verilog_files = ["TinyTunerTest.sv"],
+    pdk = "@orfs//flow:asap7",
+    sources = {
+        "IO_CONSTRAINTS": [":io_constraints.tcl"],
+        "SDC_FILE": [":TinyTunerTest.sdc"],
+    },
+    arguments = {
+        "DIE_AREA": "0 0 50 50",
+        "CORE_AREA": "5 5 45 45",
+    },
+)
+
+# A mock estimator just to test basic wiring
+orfs_run_executable(
+    name = "TinyTunerTest_estimator_mock",
+    src = ":TinyTunerTest_flow_default_grt",
+    script = ":mock_estimator.tcl",
+)
+
+# Correlation stages using ci_estimator.tcl
+
+orfs_run(
+    name = "orfs_run_dummy",
+    src = ":TinyTunerTest_flow_default_synth",
+    script = "dummy.tcl",
+    stages = ["floorplan"],
+    arguments = {
+        "DIE_AREA": "0 0 100 100",
+        "OUT_DUMMY": "$(location dummy.out)",
+    },
+    outs = ["dummy.out"],
+)
+
+build_test(
+    name = "orfs_run_build_test",
+    targets = [":orfs_run_dummy"],
+)
+
+py_test(
+    name = "orfs_clock_estimator",
+    srcs = ["orfs_clock_estimator.py"],
+    data = [":level_%s.json" % level for level in range(2, 7)],
+    env = {
+        "LEVEL_JSON_%s" % level: "$(location :level_%s.json)" % level
+        for level in range(2, 7)
+    },
+)

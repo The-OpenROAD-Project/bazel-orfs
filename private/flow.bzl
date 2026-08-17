@@ -343,6 +343,8 @@ def orfs_flow(
     orfs_variables(
         name = _step_name(name, variant, "variables"),
         arguments = arguments | user_arguments,
+        data = get_sources("variables", stage_sources, sources) + kwargs.get("data", []),
+        settings = settings,
     )
 
     if not mock_area:
