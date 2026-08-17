@@ -13,6 +13,7 @@ load("//private:utils.bzl", "flatten", "set", "union")
 BAZEL_VARIABLE_TO_STAGES = {
     # Set in orfs_design.bzl when SYNTH_HIERARCHICAL=1.
     "SYNTH_NUM_PARTITIONS": ["synth"],
+    "SDC_FILE": ["synth"],
 }
 
 BAZEL_STAGE_TO_VARIABLES = {
@@ -190,14 +191,15 @@ def check_variables(variables, label):
             "add it to your project's ORFS patch or file a PR against ORFS.",
         )
 
-def get_stage_args(stage, stage_arguments = {}, arguments = {}, sources = {}):
+def get_stage_args(stage, stage_arguments = {}, arguments = {}, sources = {}, stage_sources = {}):
     """Returns the arguments for a specific stage.
 
     Args:
         stage: The stage name.
         stage_arguments: the dictionary of stages with each stage having a dictionary of arguments
         arguments: a dictionary of arguments automatically assigned to a stage
-        sources: a dictionary of variables and source files
+        sources: a dictionary of variables or stages and source files
+        stage_sources: deprecated, use sources instead.
     Returns:
       A dictionary of arguments for the stage.
     """
@@ -207,8 +209,9 @@ def get_stage_args(stage, stage_arguments = {}, arguments = {}, sources = {}):
             {
                 arg: " ".join(["$(locations {})".format(v) for v in value])
                 for arg, value in sources.items()
-                if arg in ALL_STAGE_TO_VARIABLES[stage] or
-                   arg not in ALL_VARIABLE_TO_STAGES
+                # If it's a known variable or an unknown variable that isn't a stage name
+                if (arg in ALL_VARIABLE_TO_STAGES and stage in ALL_VARIABLE_TO_STAGES[arg]) or
+                   (arg not in ALL_VARIABLE_TO_STAGES and arg not in ALL_STAGES)
             } |
             {
                 arg: value
@@ -226,20 +229,21 @@ def get_sources(stage, stage_sources, sources):
 
     Args:
         stage: The stage name.
-        stage_sources: the dictionary of stages with each stage having a list of sources
-        sources: a dictionary of variable names with a list of sources to a stage
+        stage_sources: deprecated, use sources instead.
+        sources: a dictionary of variable or stage names with a list of sources.
     Returns:
       A list of sources for the stage.
     """
     return sorted(
         set(
             stage_sources.get(stage, []) +
+            sources.get(stage, []) +
             flatten(
                 [
                     source_list
                     for variable, source_list in sources.items()
-                    if variable in ALL_STAGE_TO_VARIABLES[stage] or
-                       variable not in ALL_VARIABLE_TO_STAGES
+                    if (variable in ALL_VARIABLE_TO_STAGES and stage in ALL_VARIABLE_TO_STAGES[variable]) or
+                       (variable not in ALL_VARIABLE_TO_STAGES and variable not in ALL_STAGES)
                 ],
             ),
         ),

@@ -99,10 +99,13 @@ FAST_SETTINGS = {
 }
 
 SRAM_ARGUMENTS = FAST_SETTINGS | {
-    "IO_CONSTRAINTS": "$(location :io-sram)",
     "PLACE_DENSITY": "0.65",
     "PLACE_PINS_ARGS": "-min_distance 2 -min_distance_in_tracks",
-    "SDC_FILE": "$(location :constraints-sram)",
+}
+
+SRAM_SOURCES = {
+    "IO_CONSTRAINTS": [":io-sram"],
+    "SDC_FILE": [":constraints-sram"],
 }
 
 BLOCK_FLOORPLAN = {
@@ -132,23 +135,21 @@ orfs_sweep(
             "tags": ["manual"],
         },
     },
+    sources = SRAM_SOURCES,
     stage_sources = {
         "place": [":io-sram"],
         "synth": [":constraints-sram"],
     },
     sweep = {
         "base": {
-            "arguments": {
-                "IO_CONSTRAINTS": "$(location :tag_array_64x184_io-placement.tcl)",
+            "sources": {
+                "IO_CONSTRAINTS": [":tag_array_64x184_io-placement.tcl"],
             },
             # CI regression test for stage_arguments override of automatic stage assignment
             "stage_arguments": {
                 "floorplan": {
                     "SKIP_REPORT_METRICS": "1",
                 },
-            },
-            "stage_sources": {
-                "floorplan": [":tag_array_64x184_io-placement.tcl"],
             },
         },
     },
@@ -204,12 +205,13 @@ orfs_flow(
         "CORE_ASPECT_RATIO": "",
         "CORE_UTILIZATION": "",
         "DIE_AREA": "0 0 7.400 4.700",
-        "IO_CONSTRAINTS": "$(location :lb_32x128_io-placement.tcl)",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
     },
     mock_area = 0.7,
+    sources = SRAM_SOURCES | {
+        "IO_CONSTRAINTS": [":lb_32x128_io-placement.tcl"],
+    },
     stage_sources = {
-        "floorplan": [":lb_32x128_io-placement.tcl"],
         "place": [":io-sram"],
         "synth": [":constraints-sram"],
     },
@@ -236,7 +238,6 @@ orfs_flow(
         "DIE_AREA": "0 0 25 25",
         "GDS_ALLOW_EMPTY": "lb_32x128",
         "GND_NETS_VOLTAGES": "",
-        "IO_CONSTRAINTS": "$(location :lb_32x128_top_io-placement.tcl)",
         "MACRO_PLACE_HALO": "5 5",
         "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
         "PLACE_DENSITY": "0.65",
@@ -245,8 +246,10 @@ orfs_flow(
         "PWR_NETS_VOLTAGES": "",
     },
     macros = ["lb_32x128_generate_abstract"],
+    sources = SRAM_SOURCES | {
+        "IO_CONSTRAINTS": [":lb_32x128_top_io-placement.tcl"],
+    },
     stage_sources = {
-        "floorplan": [":lb_32x128_top_io-placement.tcl"],
         "place": [":io-sram"],
         "synth": [":constraints-sram"],
     },
@@ -449,27 +452,17 @@ orfs_sweep(
     },
     sweep = {
         "1": {
-            "arguments": {
-                "IO_CONSTRAINTS": "$(location :L1MetadataArray_io-placement.tcl)",
-            },
             "macros": ["amalgam"],
             "sources": {
                 "SDC_FILE": [":constraints-top.sdc"],
-            },
-            "stage_sources": {
-                "floorplan": [":L1MetadataArray_io-placement.tcl"],
+                "IO_CONSTRAINTS": [":L1MetadataArray_io-placement.tcl"],
             },
         },
         "base": {
-            "arguments": {
-                "IO_CONSTRAINTS": "$(location :L1MetadataArray_io-placement.tcl)",
-            },
             "macros": ["tag_array_64x184_generate_abstract"],
             "sources": {
                 "SDC_FILE": [":constraints-top.sdc"],
-            },
-            "stage_sources": {
-                "floorplan": [":L1MetadataArray_io-placement.tcl"],
+                "IO_CONSTRAINTS": [":L1MetadataArray_io-placement.tcl"],
             },
         },
     },
@@ -637,11 +630,8 @@ orfs_sweep(
     },
     sweep = {
         "base": {
-            "arguments": {
-                "IO_CONSTRAINTS": "$(location :regfile_128x65_io-placement.tcl)",
-            },
-            "stage_sources": {
-                "floorplan": [":regfile_128x65_io-placement.tcl"],
+            "sources": {
+                "IO_CONSTRAINTS": [":regfile_128x65_io-placement.tcl"],
             },
         },
     },
@@ -688,6 +678,7 @@ orfs_sweep(
         },
     },
     stage = "cts",
+    sources = SRAM_SOURCES,
     stage_sources = {
         "floorplan": [":io-sram"],
         "place": [":io-sram"],
@@ -700,12 +691,11 @@ orfs_sweep(
                 "CORE_ASPECT_RATIO": "",
                 "CORE_UTILIZATION": "",
                 "DIE_AREA": "0 0 4.700 7.400",
-                "IO_CONSTRAINTS": "$(location :lb_32x128_sweep_io-placement.tcl)",
                 "PLACE_DENSITY": "0.65",
             },
             "previous_stage": {"floorplan": "lb_32x128_synth"},
-            "stage_sources": {
-                "floorplan": [":lb_32x128_sweep_io-placement.tcl"],
+            "sources": {
+                "IO_CONSTRAINTS": [":lb_32x128_sweep_io-placement.tcl"],
             },
         },
         "2": {
@@ -1058,6 +1048,7 @@ orfs_flow(
     arguments = LB_ARGS | BLOCK_FLOORPLAN,
     openroad = "//mock/openroad/src/bin:openroad",
     previous_stage = {"floorplan": ":lb_32x128_synth"},
+    sources = SRAM_SOURCES,
     stage_sources = LB_STAGE_SOURCES,
     variant = "mock_abstract",
     verilog_files = LB_VERILOG_FILES,
@@ -1080,6 +1071,7 @@ orfs_flow(
     macros = ["lb_32x128_mock_abstract_generate_abstract"],
     openroad = "//mock/openroad/src/bin:openroad",
     previous_stage = {"floorplan": ":lb_32x128_top_synth"},
+    sources = SRAM_SOURCES,
     stage_sources = LB_STAGE_SOURCES,
     variant = "mock_hierarchy",
     verilog_files = ["rtl/lb_32x128_top.v"],
@@ -1110,7 +1102,7 @@ orfs_flow(
     macros = ["lb_32x128_mock_abstract_generate_abstract"],
     openroad = "//mock/openroad/src/bin:openroad",
     previous_stage = {"floorplan": ":lb_32x128_top_synth"},
-    sources = {
+    sources = SRAM_SOURCES | {
         "ADDITIONAL_LEFS": [":dummy_extra.lef"],
     },
     stage_sources = LB_STAGE_SOURCES,
@@ -1162,6 +1154,7 @@ orfs_flow(
     lint = True,
     openroad = "//mock/openroad/src/bin:openroad",
     previous_stage = {"floorplan": ":lb_32x128_synth"},
+    sources = SRAM_SOURCES,
     stage_sources = LB_STAGE_SOURCES,
     variant = "lite",
     verilog_files = LB_VERILOG_FILES,
@@ -1216,6 +1209,7 @@ orfs_flow(
     arguments = LB_ARGS,
     last_stage = "floorplan",
     openroad = "//mock/openroad/src/bin:openroad",
+    sources = SRAM_SOURCES,
     stage_sources = LB_STAGE_SOURCES,
     variant = "mock",
     verilog_files = LB_VERILOG_FILES,
@@ -1229,6 +1223,7 @@ orfs_flow(
     arguments = TAG_ARRAY_ARGUMENTS,
     last_stage = "floorplan",
     openroad = "//mock/openroad/src/bin:openroad",
+    sources = SRAM_SOURCES,
     stage_sources = {
         "floorplan": [":io-sram"],
         "place": [":io-sram"],
@@ -1248,6 +1243,7 @@ orfs_flow(
     arguments = LB_ARGS | BLOCK_FLOORPLAN,
     openroad = "//mock/openroad/src/bin:openroad",
     previous_stage = {"floorplan": ":lb_32x128_mock_synth"},
+    sources = SRAM_SOURCES,
     stage_sources = LB_STAGE_SOURCES,
     variant = "mock_full_abstract",
     verilog_files = LB_VERILOG_FILES,
@@ -1286,6 +1282,7 @@ orfs_flow(
     last_stage = "floorplan",
     macros = ["lb_32x128_mock_full_abstract_generate_abstract"],
     openroad = "//mock/openroad/src/bin:openroad",
+    sources = SRAM_SOURCES,
     stage_sources = LB_STAGE_SOURCES,
     variant = "mock_full_hierarchy",
     verilog_files = ["rtl/lb_32x128_top.v"],
