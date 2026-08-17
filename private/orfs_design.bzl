@@ -11,10 +11,6 @@ first to parse all config.mk files and generate the DESIGNS dict.
 """
 
 load(
-    "//private:blender.bzl",
-    "blender_supports_pdk",
-)
-load(
     "//private:flow.bzl",
     "orfs_flow",
 )
@@ -51,7 +47,7 @@ def _convert_sources(sources, pkg):
             result[var] = converted
     return result
 
-def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], local_arguments = [], blender = False, extra = None):  # buildifier: disable=unused-variable
+def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], local_arguments = [], extra = None):  # buildifier: disable=unused-variable
     """Create orfs_flow() targets for a design based on its parsed config.mk.
 
     Usage:
@@ -96,11 +92,6 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
             which appears verbatim inside VERILOG_FILES). These are
             dropped entirely before orfs_flow() is invoked — neither
             validated against variables.yaml nor exposed as env vars.
-        blender: if True, request the orfs_flow blender 3D-viewer targets
-            for this design. Silently downgraded to False on PDKs that
-            have no BlenderGDS stackup (see blender_supports_pdk in
-            private/blender.bzl), so callers can flip this on globally
-            without having to enumerate supported PDKs.
         extra: optional callable invoked after the real flow with the
             fully-processed design data (name, platform, verilog_files,
             arguments, user_arguments, sources, user_sources, macros,
@@ -248,7 +239,6 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
         macros = macros if macros else [],
         stage_data = {"synth": extra_data} if extra_data else {},
         tags = tags,
-        blender = blender and blender_supports_pdk("//flow:" + platform),
     )
 
     # Caller extension hook: invoked with the fully-processed design data

@@ -2,7 +2,6 @@
 
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
-load("//private:blender.bzl", "orfs_blender")
 load("//private:providers.bzl", "LoggingInfo")
 load(
     "//private:rules.bzl",
@@ -204,7 +203,6 @@ def orfs_flow(
         save_odb = True,
         quick_pins = False,
         html = False,
-        blender = False,
         **kwargs):
     """
     Creates targets for running physical design flow with OpenROAD-flow-scripts.
@@ -265,12 +263,6 @@ def orfs_flow(
         and opens it in the default browser via xdg-open. The report uses
         OpenROAD's web_save_report command (PR #10087) with 1000 setup
         and 1000 hold paths. Targets are tagged "manual". Default False.
-      blender: if True, emit a runnable 3D-viewer target
-        `<name>[_<variant>]_final_blender` which, on `bazel run`, opens
-        the design's final GDS in the hermetic Blender shipped under
-        @blender// via the BlenderGDS add-on. Only supported for PDKs
-        with a BlenderGDS stackup YAML (see _PDK_TO_BLENDERGDS in
-        private/blender.bzl). Target is tagged "manual". Default False.
       quick_pins: if True, skip `global_placement -skip_io` and place pins
         directly via PRE_GLOBAL_PLACE_SKIP_IO_TCL. Trades suboptimal pin
         placement for a large wall-time saving on the GP-skip-io step on
@@ -336,7 +328,6 @@ def orfs_flow(
         substeps = substeps,
         save_odb = save_odb,
         html = html,
-        blender = blender,
         **kwargs
     )
 
@@ -377,7 +368,6 @@ def orfs_flow(
         mock_area = True,
         settings = settings,
         html = html,
-        blender = blender,
         **kwargs
     )
     orfs_arguments(
@@ -482,7 +472,6 @@ def _orfs_pass(
         squash = False,
         save_odb = True,
         html = False,
-        blender = False,
         **kwargs):
     ALL_STAGES = [step.stage for step in STAGE_IMPLS]
     steps = []
@@ -650,14 +639,6 @@ def _orfs_pass(
                     openroad = kwargs.get("openroad"),
                     visibility = kwargs.get("visibility"),
                 )
-            if blender and last_step.stage == "final":
-                orfs_blender(
-                    name = squash_name + "_blender",
-                    src = squash_name,
-                    pdk = pdk,
-                    variant = variant,
-                    visibility = kwargs.get("visibility"),
-                )
 
             # Handle abstract generation for squashed flow
             if ABSTRACT_IMPL in steps:
@@ -794,15 +775,6 @@ def _orfs_pass(
                 openroad = kwargs.get("openroad"),
                 visibility = kwargs.get("visibility"),
             )
-        if blender and step.stage == "final":
-            orfs_blender(
-                name = sn + "_blender",
-                src = sn,
-                pdk = pdk,
-                variant = variant,
-                visibility = kwargs.get("visibility"),
-            )
-
     if FINAL_STAGE_IMPL in steps:
         do_step(
             GENERATE_METADATA_STAGE_IMPL,
