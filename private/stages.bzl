@@ -221,19 +221,17 @@ def get_stage_args(stage, stage_arguments = {}, arguments = {}, sources = {}):
     } | stage_arguments.get(stage, {})
     return dict(sorted(unsorted_dict.items()))
 
-def get_sources(stage, stage_sources, sources):
+def get_sources(stage, sources):
     """Returns the sources for a specific stage.
 
     Args:
         stage: The stage name.
-        stage_sources: the dictionary of stages with each stage having a list of sources
         sources: a dictionary of variable names with a list of sources to a stage
     Returns:
       A list of sources for the stage.
     """
     return sorted(
         set(
-            stage_sources.get(stage, []) +
             flatten(
                 [
                     source_list

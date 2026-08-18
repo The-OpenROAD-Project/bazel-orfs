@@ -299,8 +299,7 @@ intermediate step is verified.
    BUILD.bazel setting, or Tcl script, understand why it was set that way.
    Check `variables.yaml` in bazel-orfs for per-stage variable routing —
    `sources` variables like `IO_CONSTRAINTS` are automatically distributed
-   to the correct stage. Don't use `stage_sources` unless you have a
-   specific reason to override the automatic routing.
+   to the correct stage.
 
    **Substep targets vs `_deps`**: Substep targets (`bazel run ..._<substep>`)
    are the primary iteration tool — one command, automatic dependency chain,

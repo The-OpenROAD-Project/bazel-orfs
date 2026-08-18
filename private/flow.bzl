@@ -58,7 +58,6 @@ def _filter_stage_args(stage, **kwargs):
     extra_configs = kwargs.pop("extra_configs", {})
     sources = kwargs.pop("sources", {})
     stage_arguments = kwargs.pop("stage_arguments", {})
-    stage_sources = kwargs.pop("stage_sources", {})
     stage_data = kwargs.pop("stage_data", {})
 
     # yosys attribute only applies to synth stage
@@ -76,7 +75,7 @@ def _filter_stage_args(stage, **kwargs):
             sources = sources,
             stage_arguments = stage_arguments,
         ),
-        data = get_sources(stage, stage_sources, sources) +
+        data = get_sources(stage, sources) +
                stage_data.get(stage, []) +
                data,
         extra_arguments = extra_arguments.get(stage, []),
@@ -182,7 +181,6 @@ def orfs_flow(
         canon_blackbox_macros = [],
         sources = {},
         user_sources = {},
-        stage_sources = {},
         stage_arguments = {},
         renamed_inputs = {},
         arguments = {},
@@ -220,7 +218,6 @@ def orfs_flow(
         non-empty dict to scope each partition's macro inputs — partitions that
         don't need a macro no longer wait on that macro's upstream PnR.
       sources: dictionary keyed by ORFS variables with lists of sources
-      stage_sources: dictionary keyed by ORFS stages with lists of stage-specific sources
       stage_arguments: dictionary keyed by ORFS stages with lists of stage-specific arguments.
         Prefer 'arguments' which automatically assigns variables to the correct stages.
         Use stage_arguments only to override the automatic stage assignment.
@@ -309,7 +306,6 @@ def orfs_flow(
         kept_macros = kept_macros,
         canon_blackbox_macros = canon_blackbox_macros,
         sources = sources | user_sources,
-        stage_sources = stage_sources,
         stage_arguments = stage_arguments,
         renamed_inputs = renamed_inputs,
         arguments = arguments | user_arguments,
@@ -353,7 +349,6 @@ def orfs_flow(
         kept_macros = kept_macros,
         canon_blackbox_macros = canon_blackbox_macros,
         sources = sources | user_sources,
-        stage_sources = stage_sources,
         stage_arguments = stage_arguments,
         renamed_inputs = {},
         arguments = arguments | {"SYNTH_GUT": "1"},
@@ -451,7 +446,6 @@ def _orfs_pass(
         verilog_files,
         macros,
         sources,
-        stage_sources,
         stage_arguments,
         renamed_inputs,
         arguments,
@@ -533,7 +527,6 @@ def _orfs_pass(
                 variant = variant,
                 verilog_files = verilog_files,
                 pdk = pdk,
-                stage_sources = stage_sources,
                 settings = settings,
                 extra_arguments = extra_arguments,
                 extra_configs = extra_configs,
@@ -593,7 +586,6 @@ def _orfs_pass(
                     stage_arguments = dict(stage_arguments),
                     arguments = dict(arguments),
                     sources = dict(sources),
-                    stage_sources = dict(stage_sources),
                     settings = dict(settings),
                     extra_arguments = dict(extra_arguments),
                     extra_configs = dict(extra_configs),
@@ -654,7 +646,6 @@ def _orfs_pass(
                         stage_arguments = stage_arguments,
                         arguments = arguments,
                         sources = sources,
-                        stage_sources = stage_sources,
                         settings = settings,
                         extra_arguments = extra_arguments,
                         extra_configs = extra_configs,
@@ -680,7 +671,6 @@ def _orfs_pass(
                 stage_arguments = stage_arguments,
                 arguments = arguments,
                 sources = sources,
-                stage_sources = stage_sources,
                 settings = settings,
                 extra_arguments = extra_arguments,
                 extra_configs = extra_configs,
@@ -737,7 +727,6 @@ def _orfs_pass(
                 stage_arguments = stage_arguments,
                 arguments = arguments,
                 sources = sources,
-                stage_sources = stage_sources,
                 settings = settings,
                 extra_arguments = extra_arguments,
                 extra_configs = extra_configs,

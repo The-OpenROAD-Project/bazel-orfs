@@ -175,12 +175,8 @@ Override `IO_CONSTRAINTS` and add the pin file to floorplan sources:
 
 ```starlark
 orfs_flow(
-    arguments = LB_ARGS | {
-        "IO_CONSTRAINTS": "$(location :lb_32x128_io-placement.tcl)",
-    },
-    stage_sources = {
-        "floorplan": [":lb_32x128_io-placement.tcl"],
-        ...
+    sources = {
+        "IO_CONSTRAINTS": [":lb_32x128_io-placement.tcl"],
     },
 )
 ```

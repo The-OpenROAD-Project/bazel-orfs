@@ -452,10 +452,9 @@ orfs_flow(
         "CORE_UTILIZATION": "40",
         "PLACE_DENSITY": "0.65",
     },
-    stage_sources = {
-        "floorplan": [":io-sram"],
-        "place": [":io-sram"],
-        "synth": [":constraints-sram"],
+    sources = {
+        "IO_CONSTRAINTS": [":io-sram"],
+        "SDC_FILE": [":constraints-sram"],
     },
     verilog_files = ["//another:tag_array_64x184.sv"],
     visibility = [":__subpackages__"],
@@ -487,7 +486,7 @@ orfs_flow(
     name = "lb_32x128",
     arguments = LB_ARGS,
     mock_area = 0.5,
-    stage_sources = LB_STAGE_SOURCES,
+    sources = LB_SOURCES,
     verilog_files = LB_VERILOG_FILES,
 )
 ```

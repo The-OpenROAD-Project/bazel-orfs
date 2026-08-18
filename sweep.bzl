@@ -18,7 +18,6 @@ def orfs_sweep(
         sweep,
         verilog_files,
         top = None,
-        stage_sources = {},
         sources = {},
         other_variants = {},
         stage = "floorplan",
@@ -37,12 +36,11 @@ def orfs_sweep(
         sweep: The dictionary describing the variables to sweep
         other_variants: Dictionary with other variants to generate, but not as part of the sweep.
             Per-variant keys: arguments, dissolve, macros, openroad, previous_stage,
-            renamed_inputs, stage_arguments, stage_sources, description, sources, yosys,
+            renamed_inputs, stage_arguments, description, sources, yosys,
             abstract_stage, last_stage, tags
         stage: The stage to do the sweep on
         macros: name of modules to use as macros
         verilog_files: The Verilog files to build
-        stage_sources: dictionary with list of sources to use for the stage
         abstract_stage: generate abstract from this stage
         visibility: list of visibility labels
         sources: forwarded to orfs_flow
@@ -77,7 +75,6 @@ def orfs_sweep(
                 "previous_stage",
                 "renamed_inputs",
                 "stage_arguments",
-                "stage_sources",
                 "description",
                 "sources",
                 "yosys",
@@ -112,16 +109,6 @@ def orfs_sweep(
             previous_stage = all_variants[variant].get("previous_stage", {}),
             renamed_inputs = all_variants[variant].get("renamed_inputs", {}),
             stage_arguments = all_variants[variant].get("stage_arguments", {}),
-            stage_sources = {
-                stage: set(
-                    stage_sources.get(stage, []) +
-                    all_variants[variant].get("stage_sources", {}).get(stage, []),
-                )
-                for stage in set(
-                    stage_sources.keys() +
-                    all_variants[variant].get("stage_sources", {}).keys(),
-                )
-            },
             variant = variant,
             verilog_files = verilog_files,
             sources = sources | all_variants[variant].get("sources", {}),
