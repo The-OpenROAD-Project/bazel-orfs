@@ -143,6 +143,12 @@ single_version_override(
 # from rules_python 2.0.0's MINOR_MAPPING). pycross.configure_environments
 # is root-honored only, so the workaround must live here (mirrored from
 # upstream OpenROAD's MODULE.bazel, which can't apply it from non-root).
+single_version_override(
+    module_name = "rules_pycross",
+    patch_strip = 0,
+    patches = ["//patches:rules_pycross_no_warning.patch"],
+)
+
 bazel_dep(name = "rules_pycross", version = "0.8.1")
 
 pycross = use_extension("@rules_pycross//pycross/extensions:pycross.bzl", "pycross")
@@ -188,7 +194,7 @@ register_toolchains(
 
 bazel_dep(
     name = "rules_python",
-    version = "1.9.0",
+    version = "2.0.0",
 )
 
 python = use_extension(
@@ -203,16 +209,24 @@ use_repo(python, "python_3_13_host")
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
+    extra_pip_args = [
+        "--index-url=https://pypi.org/simple",
+    ],
     hub_name = "bazel-orfs-pip",
     python_version = "3.13",
+    quiet = True,
     requirements_lock = "//:requirements_lock_3_13.txt",
 )
 use_repo(pip, "bazel-orfs-pip")
 
 pip_features = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip_features.parse(
+    extra_pip_args = [
+        "--index-url=https://pypi.org/simple",
+    ],
     hub_name = "bazel-orfs-features-pip",
     python_version = "3.13",
+    quiet = True,
     requirements_lock = "//:requirements_features_lock_3_13.txt",
 )
 use_repo(pip_features, "bazel-orfs-features-pip")

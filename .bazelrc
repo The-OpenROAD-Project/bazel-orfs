@@ -1,5 +1,12 @@
 build --incompatible_strict_action_env
 
+# Treat include paths into external/ (bzlmod/BCR deps) as -isystem to silence third-party warnings
+build --features=external_include_paths
+
+# For 3rd party code: Disable warnings entirely.
+build --per_file_copt=.*external/.*@-w
+build --host_per_file_copt=.*external/.*@-w
+
 # Required by OpenROAD (STA uses std::format_string from C++20)
 build --cxxopt "-std=c++20" --host_cxxopt "-std=c++20"
 
