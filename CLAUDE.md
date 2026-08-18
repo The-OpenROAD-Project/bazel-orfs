@@ -69,22 +69,11 @@ mechanics:
 - `/untar-and-run-report` — ship it as an untar-and-run `.tar.gz` archive.
 - `/odb-to-cpp` — turn a whittled `.odb` into a self-contained C++ unit test.
 
-## Gallery
-
-`gallery/` is a separate Bazel workspace with its own `MODULE.bazel`.
-It contains example ORFS designs that exercise bazel-orfs features.
-
-- **bazelisk** commands for gallery targets require `cd gallery` first
-- gallery uses `local_path_override(path = "..")` to reference bazel-orfs,
-  so changes to bazel-orfs rules are immediately visible in gallery builds
-- Gallery-specific skills are prefixed with `demo-` (e.g., `/demo-add`,
-  `/demo-debug`, `/demo-update`)
-- Gallery has its own `.bazelrc` and `user.bazelrc` (gitignored)
 
 ### External actions
 
 The Git policy above (push / PR / merge rules) and the Confidentiality
-purge apply to gallery and external repos too. In short: after a
+purge apply to external repos too. In short: after a
 confidentiality purge you may push feature branches and open, comment on,
 and update PRs on any repo. `gh pr merge` and pushes to `main`/protected
 branches stay human-only everywhere. Use other GitHub API writes (`gh api`

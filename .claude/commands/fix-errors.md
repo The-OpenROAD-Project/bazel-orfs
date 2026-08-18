@@ -75,7 +75,4 @@ bazel build <target>
 
 If it passes, run the next stage to check for cascading issues.
 
-## 5. Update /demo-add
 
-If this error revealed a new lesson, update `.claude/commands/demo-add.md`
-with the fix so future projects avoid the same problem.

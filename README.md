@@ -1022,7 +1022,7 @@ root for this — `compute_floorplan_shape.tcl` (emits `CORE_UTILIZATION` /
 rule. Computed arguments and AutoTuner compose: compute the seed, then let an
 external optimizer explore the local neighbourhood. See
 [docs/orfs_arguments.md](docs/orfs_arguments.md#a-way-out-of-parameter-guess-pray-stare-at-logs-hell)
-for the longer write-up and `gallery/smoketest/BUILD.bazel` for a worked example.
+for the longer write-up.
 
 ### Examples
 

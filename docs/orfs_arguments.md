@@ -297,9 +297,7 @@ orfs_flow(
 )
 ```
 
-A worked example lives in `gallery/smoketest/BUILD.bazel`
-(`counter` flow) and is exercised by the default-set test
-`//smoketest:counter_computed_arguments_test`.
+
 
 ### Why design-specific calibration is the right boundary
 
