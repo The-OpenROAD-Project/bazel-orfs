@@ -281,7 +281,7 @@ bazel run //tools/memory_macro_scaler/characterization:pin_asap7_sweep
 Uses `BUILD_WORKSPACE_DIRECTORY` to write back into the source tree.
 With no per-shape result files wired yet, writes a schema-documented
 empty stub. The per-shape `orfs_flow()` targets are declared by the
-consumer (ascenium, gallery, etc.) — this tool only harvests.
+consumer (e.g. downstream projects) — this tool only harvests.
 
 ## Testing
 

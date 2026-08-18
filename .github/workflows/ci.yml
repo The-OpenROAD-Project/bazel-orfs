@@ -107,19 +107,6 @@ jobs:
         if: always()
         run: bazelisk analyze-profile test.profile
 
-      # --- Gallery ---
-      - name: Gallery query
-        working-directory: gallery
-        run: bazelisk query //...
-
-      - name: Gallery tests
-        working-directory: gallery
-        run: bazelisk test ... --keep_going --build_tests_only --test_output=errors --profile=gallery.profile
-      - name: Analyze gallery
-        if: always()
-        working-directory: gallery
-        run: bazelisk analyze-profile gallery.profile
-
       # --- Submodules ---
       - name: "Submodule: lec build"
         working-directory: lec

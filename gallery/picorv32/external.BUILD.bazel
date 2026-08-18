@@ -1,5 +1,0 @@
-filegroup(
-    name = "rtl",
-    srcs = ["picorv32.v"],
-    visibility = ["//visibility:public"],
-)

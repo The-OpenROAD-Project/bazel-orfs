@@ -9,8 +9,8 @@
 # directory, and optionally runs a make target.
 #
 # Examples:
-#   bazel run //:deps -- //gallery/picorv32:picorv32_place
-#   bazel run //:deps -- //gallery/picorv32:picorv32_place do-3_4_place_resized
+#   bazel run //:deps -- //test/asic:mock_place
+#   bazel run //:deps -- //test/asic:mock_place do-3_4_place_resized
 
 set -euo pipefail
 
@@ -20,8 +20,8 @@ if [ $# -lt 1 ]; then
     echo "Deploy stage inputs for interactive debugging."
     echo ""
     echo "Examples:"
-    echo "  bazel run //:deps -- //gallery/picorv32:picorv32_place"
-    echo "  bazel run //:deps -- //gallery/picorv32:picorv32_place do-3_4_place_resized"
+    echo "  bazel run //:deps -- //test/asic:mock_place"
+    echo "  bazel run //:deps -- //test/asic:mock_place do-3_4_place_resized"
     exit 1
 fi
 

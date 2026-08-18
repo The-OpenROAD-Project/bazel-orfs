@@ -136,7 +136,7 @@ git_override(
 )
 
 # Hermetic C++ toolchain for building OpenROAD (and yosys) from source: the BCR
-# "llvm" module, the same zero-sysroot LLVM the root and gallery workspaces use.
+# "llvm" module, the same zero-sysroot LLVM the root workspace uses.
 # Without it this downstream test falls back to the host compiler and breaks on
 # newer glibc (e.g. @scip/tinycthread on glibc 2.41).
 bazel_dep(name = "llvm", version = "0.8.11")
