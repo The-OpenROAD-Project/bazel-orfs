@@ -9,6 +9,8 @@ MULTIPLIER_SOURCES = {
 
 MULTIPLIER_ARGS = {
     "DESIGN_NAME": "multiplier",
+    "CORE_UTILIZATION": "40",
+    "CORE_ASPECT_RATIO": "1",
 }
 
 # Base flow target synthesizing the pipelined multiplier
@@ -18,13 +20,16 @@ orfs_flow(
     top = "multiplier",
     pdk = "@orfs//flow:asap7",
     sources = MULTIPLIER_SOURCES,
+    arguments = MULTIPLIER_ARGS,
     stage_sources = {
         "synth": ["multiplier.sv", "constraints.sdc"],
     },
 )
 
 # Common configuration shared across the estimation ladder (DRY & SSOT)
-ESTIMATOR_SOURCES = MULTIPLIER_SOURCES | {
+ESTIMATOR_SOURCES = {
+    
+    
     "ESTIMATOR_TCL": ["estimator.tcl"],
 }
 
@@ -42,7 +47,7 @@ ESTIMATION_LADDER_STAGES = {
         src = ":multiplier_asap7_synth",
         script = "estimator.tcl",
         cmd = "run",
-        stages = stages_up_to,
+        stages = ["synth", "floorplan", "place", "grt", "route"],
         arguments = MULTIPLIER_ARGS | {
             "ESTIMATION_STAGE": stage,
             "OUTPUT_YAML": "$(location :multiplier_{}_estimate.yaml)".format(stage),
@@ -54,6 +59,23 @@ ESTIMATION_LADDER_STAGES = {
     )
     for stage, stages_up_to in ESTIMATION_LADDER_STAGES.items()
 ]
+
+# Ground Truth measurement using actual grt output from orfs_flow
+orfs_run(
+    name = "multiplier_estimate_grt_true",
+    src = ":multiplier_asap7_grt",
+    script = "estimator.tcl",
+    cmd = "run",
+    stages = ["synth", "floorplan", "place", "grt", "route"],
+    arguments = MULTIPLIER_ARGS | {
+        "ESTIMATION_STAGE": "grt_true",
+        "OUTPUT_YAML": "$(location :multiplier_grt_true_estimate.yaml)",
+    },
+    sources = ESTIMATOR_SOURCES,
+    outs = [
+        "multiplier_grt_true_estimate.yaml",
+    ],
+)
 
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
@@ -67,6 +89,7 @@ ESTIMATES = [
     "multiplier_floorplan_estimate.yaml",
     "multiplier_place_estimate.yaml",
     "multiplier_grt_estimate.yaml",
+    "multiplier_grt_true_estimate.yaml",
 ]
 
 genrule(

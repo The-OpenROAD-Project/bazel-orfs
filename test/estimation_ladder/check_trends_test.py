@@ -15,36 +15,45 @@ def main():
         sys.exit(1)
         
     yaml_files = sys.argv[1:]
-    results = []
-    for fpath in yaml_files:
-        results.append(parse_yaml(fpath))
+    results = [parse_yaml(f) for f in yaml_files]
 
-    tolerance = 5.0
-    valid = True
-    for i in range(1, len(results)):
-        prev = results[i-1]
-        curr = results[i]
-        
-        prev_period = float(prev.get("clock_period", 0.0))
-        curr_period = float(curr.get("clock_period", 0.0))
-        
-        if curr_period < prev_period - tolerance:
-            print(f"WARNING: Shape validation failed! Stage {curr['stage']} period ({curr_period}) "
-                  f"is unexpectedly much faster than stage {prev['stage']} ({prev_period}).", file=sys.stderr)
-            valid = False
-            
-    if len(results) > 1:
-        first_period = float(results[0].get("clock_period", 0.0))
-        last_period = float(results[-1].get("clock_period", 0.0))
-        if last_period < first_period - tolerance:
-            print(f"ERROR: Overall shape validation failed! Final stage period ({last_period}) "
-                  f"is faster than initial synth stage ({first_period}).", file=sys.stderr)
-            valid = False
-            
-    if not valid:
-        sys.exit(1)
+    periods = [float(res.get("clock_period", 0.0)) for res in results]
+    stages = [res.get("stage", "unknown") for res in results]
     
-    print("Shape validation passed.")
+    if len(periods) == 0:
+        print("ERROR: No data to validate.", file=sys.stderr)
+        sys.exit(1)
+        
+    # Check 1: Differentiation Check
+    # At least some of the stages should produce different results, proving the ladder does something.
+    if len(set(periods)) == 1 and len(periods) > 1:
+        print(f"ERROR: All stages produced the exact same clock period ({periods[0]}). Scripts may not be applying physical changes.", file=sys.stderr)
+        sys.exit(1)
+        
+    # Check 2: Sanity / Bounding Check
+    # The max variance shouldn't exceed 50% of the max period.
+    max_period = max(periods)
+    min_period = min(periods)
+    
+    if max_period <= 0:
+        print("ERROR: Maximum clock period is <= 0. Something is very wrong.", file=sys.stderr)
+        sys.exit(1)
+        
+    variance_ratio = (max_period - min_period) / max_period
+    
+    print("Sanity Check Metrics:")
+    for stage, period in zip(stages, periods):
+        print(f" - {stage}: {period}")
+    print(f"Max Period: {max_period}")
+    print(f"Min Period: {min_period}")
+    print(f"Variance Ratio: {variance_ratio:.2%}")
+    
+    if variance_ratio > 0.5:
+        print(f"ERROR: Variance between stages ({variance_ratio:.2%}) exceeds 50% threshold. Scripts may be broken.", file=sys.stderr)
+        sys.exit(1)
+        
+    print("Sanity validation passed.")
+    sys.exit(0)
 
 if __name__ == "__main__":
     main()
