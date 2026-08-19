@@ -1149,6 +1149,21 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     # kept_modules_list is computed earlier (before Action 2c per-module
     # canonicalize) so we don't recompute it here.
 
+    macro_info_dict = {}
+    for name, dep in macro_dep_by_name.items():
+        info = dep[OrfsInfo]
+        macro_info_dict[name] = {
+            "lib": info.lib.path if info.lib else "",
+            "lib_pre_layout": info.lib_pre_layout.path if info.lib_pre_layout else "",
+            "lef": info.lef.path if info.lef else "",
+            "gds": info.gds.path if info.gds else "",
+        }
+    macros_json_file = ctx.actions.declare_file(ctx.label.name + "_macros_info.json")
+    ctx.actions.write(
+        output = macros_json_file,
+        content = json.encode(macro_info_dict),
+    )
+
     use_kept_macros_scoping = (
         ctx.attr.kept_macros_enabled and bool(ctx.attr.kept_macros)
     )
@@ -1183,7 +1198,70 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         # those macros — otherwise `yosys-dependencies` would expect the
         # full macro set as Make prereqs and fail with "no rule to make
         # target" on the macros we've excluded from inputs.
-        if use_kept_macros_scoping:
+        if getattr(ctx.file, "filter_script", None):
+            filtered_macros_dir = ctx.actions.declare_directory(
+                ctx.label.name + "_filtered_macros_" + str(i),
+            )
+            ctx.actions.run(
+                executable = ctx.executable._python,
+                arguments = [
+                    ctx.file.filter_script.path,
+                    "--rtlil",
+                    canon_output.path,
+                    "--kept-modules",
+                    kept_json.path,
+                    "--macros-json",
+                    macros_json_file.path,
+                    "--out-dir",
+                    filtered_macros_dir.path,
+                ],
+                inputs = [ctx.file.filter_script, canon_output, kept_json, macros_json_file] + all_macro_files.to_list(),
+                outputs = [filtered_macros_dir],
+                mnemonic = "FilterPartitionMacros",
+                progress_message = "Filtering macros for partition {}".format(i),
+            )
+
+            my_macro_files = depset([filtered_macros_dir])
+            my_arguments = merge_arguments(
+                base_arguments,
+                {},
+            )
+            my_analysis_args = config_arguments(ctx, my_arguments)
+            my_analysis_json = declare_artifact(ctx, "results", "1_synth_partition_{}.analysis.json".format(i))
+            ctx.actions.write(
+                output = my_analysis_json,
+                content = json.encode(my_analysis_args),
+            )
+
+            my_config = declare_artifact(
+                ctx,
+                "results",
+                "1_synth_partition_{}.mk".format(i),
+            )
+            my_jsons = [my_analysis_json] + ctx.files.extra_arguments
+
+            my_args = [
+                ctx.file._merge_arguments.path,
+                my_config.path,
+                "--filter",
+                filter_json.path,
+            ]
+            for f in ctx.files.extra_configs + [filtered_macros_dir]:
+                if f == filtered_macros_dir:
+                    my_args.extend(["--include", filtered_macros_dir.path + "/filtered_config.mk"])
+                else:
+                    my_args.extend(["--include", f.path])
+            my_args.extend([f.path for f in my_jsons])
+
+            ctx.actions.run(
+                executable = ctx.executable._python,
+                arguments = my_args,
+                inputs = my_jsons + [ctx.file._merge_arguments, filter_json, filtered_macros_dir] + ctx.files.extra_configs,
+                outputs = [my_config],
+            )
+            extra_partition_config = [my_config]
+            partition_env_override = {"DESIGN_CONFIG": my_config.path}
+        elif use_kept_macros_scoping:
             macro_name_set = {}
             for m in my_modules:
                 for macro_name in ctx.attr.kept_macros.get(m, []):
@@ -1962,6 +2040,9 @@ orfs_synth_rule = rule(
                 "_synth_partition_script": attr.label(
                     allow_single_file = True,
                     default = Label("//:synth_partition.sh"),
+                ),
+                "filter_script": attr.label(
+                    allow_single_file = True,
                 ),
                 "_synth_canonicalize_module_script": attr.label(
                     allow_single_file = True,

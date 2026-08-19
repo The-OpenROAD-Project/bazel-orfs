@@ -63,6 +63,7 @@ def _filter_stage_args(stage, **kwargs):
     # yosys attribute only applies to synth stage
     if stage != "synth":
         kwargs.pop("yosys", None)
+        kwargs.pop("filter_script", None)
 
     # substeps attribute only applies to openroad stages, not synth
     if stage == "synth":
