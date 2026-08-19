@@ -1,191 +1,43 @@
-# bazel-orfs: Lint-Optimized Flow Changes
+# Estimation Ladder Scaling Plan
 
-## Background
+The baseline Optuna campaign for extracting early Pareto-front estimates from the OpenROAD flow has been successfully demonstrated on a small testcase (`multiplier` / `asap7`). The ground-truth is now decoupled from the Python script, allowing exact path matching without compounding placement errors.
 
-openroad-demo has lint OpenROAD/Yosys — Python drop-in replacements that
-validate ORFS parameters in seconds. They use `orfs_flow` with per-variant
-tool overrides (`openroad = "@lint-openroad//..."`). This works but creates
-massive runfiles overhead: ~4,691 symlinks per stage, 99.9% identical.
+The next step is to scale this infrastructure to support large designs containing macros and cross-chip signals, such as the `megaboom` testcase.
 
-## Problem 1: `_deps` targets (33% of all targets)
+## Phase 1: Parameterize the Python Harness
+1. **Refactor `optuna_study.py` to use `argparse`**:
+   Remove all hardcoded paths (e.g., `multiplier_asap7_grt_deps_tar.tar.gz`, `1_synth.odb`, `asap7` directories). Instead, it will accept these inputs purely via command-line arguments:
+   * `--deps-tar`: Path to the OpenROAD environment dependencies.
+   * `--synth-odb` and `--synth-sdc`: The starting database.
+   * `--ground-truth-json`: The target endpoint timings.
+   * `--design-name` and `--platform`: To construct the correct Make commands internally.
+   * `--runfiles-dir`: To safely resolve the scratch directory relative to the Bazel execution root.
 
-Every stage unconditionally creates a `_deps` target for GUI debugging.
-These are never used in CI or production builds.
+## Phase 2: Create a Reusable Bazel Macro (`estimation.bzl`)
+1. **Create `test/estimation_ladder/estimation.bzl`**:
+   Write a generalized Bazel macro named `orfs_estimation_campaign`. This macro will take a base `orfs_flow` target (like `//sram:top_megaboom`) and automatically generate:
+   * The `extract_ground_truth` target using that flow's `_grt` output.
+   * The fast estimator target that starts from that flow's `_synth` output.
+   * The Python `py_binary` target that orchestrates the study, with all the `args` strictly mapped to the flow's artifacts.
 
-### Fix: `add_deps` parameter
+## Phase 3: Instantiate Megaboom & Multiplier
+1. **Refactor `test/estimation_ladder/BUILD.bazel`**:
+   Remove the hardcoded multiplier targets. We will import `orfs_estimation_campaign` and call it twice:
+   ```python
+   orfs_estimation_campaign(
+       name = "multiplier",
+       flow_target = ":multiplier_asap7",
+       design_name = "multiplier",
+       platform = "asap7",
+       # ...
+   )
 
-**File: `private/flow.bzl`**
-
-In `_orfs_pass()`, the `orfs_deps()` call is unconditional. Gate it:
-
-```python
-def _orfs_pass(
-        ...,
-        add_deps = False,
-        ...):
-    ...
-    # Currently ~line 70-80 in _orfs_pass:
-    # orfs_deps(name = step + "_deps", src = ":" + step, ...)
-    # Change to:
-    if add_deps:
-        orfs_deps(name = step + "_deps", src = ":" + step, ...)
-```
-
-**File: `private/flow.bzl`**
-
-Thread `add_deps` through `orfs_flow()` → `_orfs_pass()`:
-
-```python
-def orfs_flow(
-        ...,
-        add_deps = False,
-        ...):
-    ...
-    _orfs_pass(..., add_deps = add_deps, ...)
-```
-
-**File: `sweep.bzl`**
-
-Thread `add_deps` through `orfs_sweep()` → `orfs_flow()`.
-
-### Testing
-
-```bash
-# Existing tests should still pass (add_deps defaults to False,
-# but tests that use _deps targets need add_deps=True)
-bazelisk test //...
-
-# Check _deps targets are gone by default
-bazelisk query 'kind(".*", //test/...)' | grep _deps
-# Should be empty unless test explicitly sets add_deps=True
-```
-
-## Problem 2: `flow_inputs()` pulls everything
-
-**File: `private/environment.bzl`, line 94**
-
-`flow_inputs(ctx)` returns a depset with klayout, opensta, ruby, tcl,
-opengl, qt_plugins — ~4,500 files that lint tools don't need.
-
-### Fix: `flow_inputs_lite()`
-
-**File: `private/environment.bzl`**
-
-Add after `flow_inputs()`:
-
-```python
-def flow_inputs_lite(ctx):
-    """Minimal tool inputs for lightweight flows (lint/mock).
-
-    Excludes klayout, opensta, ruby, tcl, opengl, qt — only includes
-    make, openroad (or its replacement), makefile, and user tools.
-    """
-    return depset(
-        transitive = [
-            _runfiles([
-                ctx.attr._make,
-                _openroad_attr(ctx),
-                ctx.attr._python,
-                ctx.attr._makefile,
-            ] + ctx.attr.tools),
-        ],
-    )
-```
-
-**File: `private/attrs.bzl`**
-
-Add `lite_flow` attribute to `flow_attrs()`:
-
-```python
-def flow_attrs():
-    return {
-        ...
-        "lite_flow": attr.bool(
-            doc = "Use minimal tool dependencies (for lint/mock flows).",
-            default = False,
-        ),
-        ...
-    }
-```
-
-**File: `private/rules.bzl`**
-
-In `_make_impl()` (line 751-764), switch based on `lite_flow`:
-
-```python
-    tools_depset = flow_inputs_lite(ctx) if ctx.attr.lite_flow else flow_inputs(ctx)
-
-    ctx.actions.run_shell(
-        ...
-        tools = tools_depset,
-    )
-
-    # Also update runfiles (lines 801-822):
-    runfiles_transitive = [tools_depset, ...]
-```
-
-And in the `OrfsDepInfo` runfiles (lines 844-854), same switch.
-
-### What's kept in lite mode
-
-- `_make` — the Make binary (from @gnumake)
-- `ctx.attr.openroad` — lint-openroad Python binary
-- `_python` — Python interpreter (for lint tools)
-- `_makefile` — ORFS Makefile
-- `ctx.attr.tools` — user-specified extra tools
-
-### What's dropped in lite mode
-
-- `_klayout` — not used by lint
-- `_opensta` — not used by lint
-- `_ruby`, `_ruby_dynamic` — klayout dependency
-- `_tcl` — klayout dependency
-- `_opengl`, `_qt_plugins` — GUI dependencies
-
-### Testing
-
-```bash
-# Existing non-lite tests unchanged
-bazelisk test //...
-
-# Test lite flow with mock/lint tools
-# (need a test design that uses lite_flow=True)
-```
-
-## Problem 3: Per-stage runfiles duplication (future)
-
-Even with `flow_inputs_lite()`, each stage still creates its own runfiles
-tree. With lite mode this is ~200 symlinks per stage instead of ~4,691,
-which is acceptable for now.
-
-The ultimate fix is a shared deploy target, but that's a larger refactor:
-stage rules would need to receive tool paths from a provider instead of
-having their own tool attributes.
-
-## Implementation Order
-
-1. Add `add_deps` parameter (smallest, most contained change)
-2. Add `lite_flow` + `flow_inputs_lite()` (second change)
-3. Thread both through `orfs_flow()` and `orfs_sweep()`
-4. Test with existing test suite
-5. Test with openroad-demo lint variant
-
-## Files Changed
-
-| File | Change |
-|------|--------|
-| `private/flow.bzl` | `add_deps` param in `orfs_flow` + `_orfs_pass` |
-| `private/environment.bzl` | Add `flow_inputs_lite()` |
-| `private/attrs.bzl` | Add `lite_flow` attr |
-| `private/rules.bzl` | Use `lite_flow` in `_make_impl` runfiles |
-| `sweep.bzl` | Forward `add_deps` + `lite_flow` |
-| `openroad.bzl` | Re-export new params |
-
-## Debugging
-
-To verify the changes work, add a test in ~/bazel-orfs/ that creates a
-flow with `lite_flow=True` and `add_deps=False`, then checks:
-
-1. No `_deps` targets created
-2. Runfiles manifest is < 500 lines (vs ~4,700 for full flow)
-3. The stage still completes (make + openroad binary accessible)
+   orfs_estimation_campaign(
+       name = "megaboom",
+       flow_target = "//sram:top_megaboom",
+       design_name = "top",
+       platform = "asap7", # or sky130, whichever it is configured for
+       # ...
+   )
+   ```
+2. This means you will immediately be able to run `bazel run //test/estimation_ladder:megaboom_optuna_study` (or test on the mock megaboom to ensure the plumbing works) and all the wiring will be mathematically correct.
