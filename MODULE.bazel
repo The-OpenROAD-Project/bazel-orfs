@@ -149,6 +149,15 @@ single_version_override(
     patches = ["//patches:rules_pycross_no_warning.patch"],
 )
 
+# protoc-gen-validate: requirements.txt is unpinned/unhashed, causing rules_python
+# to emit DEBUG warnings during pip.parse unless quiet = True is set.
+single_version_override(
+    module_name = "protoc-gen-validate",
+    patch_strip = 0,
+    patches = ["//patches:protoc_gen_validate_quiet.patch"],
+    version = "1.0.4.bcr.2",
+)
+
 bazel_dep(name = "rules_pycross", version = "0.8.1")
 
 pycross = use_extension("@rules_pycross//pycross/extensions:pycross.bzl", "pycross")
@@ -202,7 +211,7 @@ python = use_extension(
     "python",
 )
 python.toolchain(
-    ignore_root_user_error = True,
+    is_default = True,
     python_version = "3.13",
 )
 use_repo(python, "python_3_13_host")

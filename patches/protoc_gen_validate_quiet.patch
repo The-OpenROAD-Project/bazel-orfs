@@ -1,0 +1,10 @@
+--- MODULE.bazel
++++ MODULE.bazel
+@@ -80,6 +80,7 @@
+     pip.parse(
+         hub_name = "pgv_pip_deps",
+         python_version = python_version,
++        quiet = True,
+         requirements_lock = "//python:requirements.txt",
+     )
+     for python_version in PYTHON_VERSIONS
