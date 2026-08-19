@@ -1681,7 +1681,13 @@ def _yosys_impl(ctx):
         # Primary artifacts (1_2_yosys.v/.sdc, 1_synth.odb/.sdc) are
         # deliberately excluded: a missing one must fail the action,
         # not be papered over with a touched empty file.
-        commands = [_make_cmd(ctx)] + generation_commands(
+        sdc_file_raw = all_arguments.get("SDC_FILE")
+        sdc_path = ctx.expand_location(sdc_file_raw, ctx.attr.data) if sdc_file_raw else None
+        commands = ([
+            "cp {sdc} {out}".format(sdc = sdc_path, out = synth_outputs["1_2_yosys.sdc"].path),
+        ] if sdc_path else [
+            "touch {out}".format(out = synth_outputs["1_2_yosys.sdc"].path),
+        ]) + [_make_cmd(ctx)] + generation_commands(
             synth_logs + synth_reports + [synth_outputs["mem.json"]],
         ) + json_fallback
         ctx.actions.run_shell(
