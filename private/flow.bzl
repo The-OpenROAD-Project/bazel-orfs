@@ -333,7 +333,7 @@ def orfs_flow(
         data = depset(
             kwargs.get("data", []) +
             [v for vs in (sources | user_sources).values() for v in vs] +
-            [v for vs in stage_sources.values() for v in vs],
+            [v for vs in sources.values() for v in vs],
         ).to_list(),
     )
 
