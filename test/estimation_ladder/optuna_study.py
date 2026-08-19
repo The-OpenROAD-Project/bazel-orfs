@@ -122,7 +122,7 @@ def main():
         return corr, rt
 
     study = optuna.create_study(directions=["maximize", "minimize"])
-    study.optimize(objective, n_trials=3, n_jobs=1)
+    study.optimize(objective, n_trials=15, n_jobs=1)
 
     print("Study finished!")
     trials = study.best_trials
