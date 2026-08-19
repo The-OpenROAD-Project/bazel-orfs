@@ -4,18 +4,18 @@ set stage_name [expr {[info exists env(ESTIMATION_STAGE)] ? $env(ESTIMATION_STAG
 
 puts "Running estimation ladder step for stage: $stage_name"
 
-# Extract basic timing metrics if timing graph is loaded
-set wns "0.0"
-set tns "0.0"
+# Extract minimum achievable clock period for the reg2reg path group
+set clock_period [get_property [get_clocks core_clock] period]
+set min_period 0.0
+
 catch {
-    set wns [sta::worst_slack -max]
-    set tns [sta::total_negative_slack -max]
+    set wns_reg2reg [sta::worst_slack -max -group reg2reg]
+    set min_period [expr {$clock_period - $wns_reg2reg}]
 }
 
 set fp [open $output_yaml "w"]
 puts $fp "stage: $stage_name"
-puts $fp "wns: $wns"
-puts $fp "tns: $tns"
+puts $fp "clock_period: $min_period"
 close $fp
 
 puts "Wrote estimation metrics to $output_yaml"
