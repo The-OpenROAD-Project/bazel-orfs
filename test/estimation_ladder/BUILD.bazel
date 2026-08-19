@@ -2,26 +2,29 @@ load("//:openroad.bzl", "orfs_flow", "orfs_run")
 
 package(default_visibility = ["//visibility:public"])
 
+# Single Source of Truth for the multiplier design
+MULTIPLIER_SOURCES = {
+    "SDC_FILE": ["constraints.sdc"],
+}
+
+MULTIPLIER_ARGS = {
+    "DESIGN_NAME": "multiplier",
+}
+
 # Base flow target synthesizing the pipelined multiplier
 orfs_flow(
-    name = "multiplier_nangate45",
+    name = "multiplier_asap7",
     verilog_files = ["multiplier.sv"],
     top = "multiplier",
-    pdk = "@orfs//flow:nangate45",
-    sources = {
-        "SDC_FILE": ["constraints.sdc"],
-    },
+    pdk = "@orfs//flow:asap7",
+    sources = MULTIPLIER_SOURCES,
     stage_sources = {
         "synth": ["multiplier.sv", "constraints.sdc"],
     },
 )
 
 # Common configuration shared across the estimation ladder (DRY & SSOT)
-COMMON_ESTIMATE_ARGS = {
-    "DESIGN_NAME": "multiplier",
-}
-
-COMMON_ESTIMATE_SOURCES = {
+ESTIMATOR_SOURCES = MULTIPLIER_SOURCES | {
     "ESTIMATOR_TCL": ["estimator.tcl"],
 }
 
@@ -36,15 +39,15 @@ ESTIMATION_LADDER_STAGES = {
 [
     orfs_run(
         name = "multiplier_estimate_{}".format(stage),
-        src = ":multiplier_nangate45_synth",
+        src = ":multiplier_asap7_synth",
         script = "estimator.tcl",
         cmd = "run",
         stages = stages_up_to,
-        arguments = COMMON_ESTIMATE_ARGS | {
+        arguments = MULTIPLIER_ARGS | {
             "ESTIMATION_STAGE": stage,
             "OUTPUT_YAML": "$(location :multiplier_{}_estimate.yaml)".format(stage),
         },
-        sources = COMMON_ESTIMATE_SOURCES,
+        sources = ESTIMATOR_SOURCES,
         outs = [
             "multiplier_{}_estimate.yaml".format(stage),
         ],
