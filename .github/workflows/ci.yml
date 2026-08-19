@@ -41,7 +41,6 @@ jobs:
           libxcb-render-util0
           libxcb-shape0
           libxcb-util1
-          libxcb-xinput0
           libxcb-xkb1
           libxkbcommon-x11-0
 
