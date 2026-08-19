@@ -55,12 +55,12 @@ def run_script(make_dir, script_path, db_path, sdc_path, out_json, env_vars=None
         f"RESULTS_DIR={os.path.dirname(db_path)}",
     ]
     
-    print(f"Running: {' '.join(cmd)} in {make_dir}")
-    
     env = os.environ.copy()
     for k, v in env_vars.items():
-        if k == "SAMPLED_PATHS_JSON":
+        if k == "GROUND_TRUTH_JSON":
             cmd.insert(cmd.index("run") + 1, f"{k}={v}")
+        else:
+            env[k] = v
     
     if os.path.exists(out_json):
         os.remove(out_json)
@@ -87,25 +87,11 @@ def main():
     print("Starting Optuna Campaign for Fast Estimator...")
     make_dir = extract_deps()
     
-    # synth_db doesn't have floorplan set up which breaks OpenROAD placement logic, so use grt db
-    fp_db = get_runfile("test/estimation_ladder/results/asap7/multiplier/base/5_1_grt.odb")
+    synth_db = get_runfile("test/estimation_ladder/results/asap7/multiplier/base/1_synth.odb")
     synth_sdc = get_runfile("test/estimation_ladder/results/asap7/multiplier/base/1_synth.sdc")
-    grt_db = get_runfile("test/estimation_ladder/results/asap7/multiplier/base/5_1_grt.odb")
+    ground_truth_json = get_runfile("test/estimation_ladder/ground_truth.json")
     
-    sampler_script = os.environ.get("BUILD_WORKSPACE_DIRECTORY", ".") + "/test/estimation_ladder/sampler.tcl"
     estimator_script = os.environ.get("BUILD_WORKSPACE_DIRECTORY", ".") + "/test/estimation_ladder/fast_estimator.tcl"
-    
-    # 1. Run Sampler on synth
-    print("Sampling paths...")
-    sampled_paths = os.path.abspath(os.path.join(make_dir, "sampled_paths.json"))
-    run_script(make_dir, sampler_script, fp_db, synth_sdc, sampled_paths)
-    print(f"What was OUT_JSON? {sampled_paths}")
-    print(f"SAMPLED PATHS WAS PASSED TO RUN_SCRIPT AS: {sampled_paths}")
-    print(f"Sampled paths created? {os.path.exists(sampled_paths)}")
-    
-    # 2. Extract Ground Truth from GRT
-    print("Extracting Ground Truth...")
-    run_script(make_dir, estimator_script, grt_db, synth_sdc, os.path.abspath(os.path.join(make_dir, "ground_truth.json")), env_vars={"RUN_PLACE": "0", "RUN_GRT": "0", "SAMPLED_PATHS_JSON": sampled_paths}) # wait, ground_truth needs sampled_paths! it should be from the sampler!
     
     def objective(trial):
         env = {
@@ -118,26 +104,21 @@ def main():
             env["PLACE_ROUTABILITY"] = str(trial.suggest_categorical("place_routability", [0, 1]))
             env["RUN_GRT"] = str(trial.suggest_categorical("run_grt", [0, 1]))
             if env["RUN_GRT"] == "1":
-    
                 env["GRT_ITERATIONS"] = str(trial.suggest_int("grt_iterations", 0, 5))
         else:
             env["RUN_GRT"] = "0"
-        env["SAMPLED_PATHS_JSON"] = sampled_paths
             
+        env["GROUND_TRUTH_JSON"] = ground_truth_json
         out_json = os.path.abspath(os.path.join(make_dir, "est_results.json"))
-        env["SAMPLED_PATHS_JSON"] = sampled_paths
         
-        res = run_script(make_dir, estimator_script, fp_db, synth_sdc, out_json, env_vars=env)
+        res = run_script(make_dir, estimator_script, synth_db, synth_sdc, out_json, env_vars=env)
         
         try:
-            corr, rt = compute_correlation(os.path.abspath(os.path.join(make_dir, "ground_truth.json")), out_json)
+            corr, rt = compute_correlation(ground_truth_json, out_json)
         except Exception as e:
-            # Bad execution
             print("Failed trial!")
-            print(res.stderr)
             return 0.0, 999999
             
-        # Maximize correlation, minimize runtime
         return corr, rt
 
     study = optuna.create_study(directions=["maximize", "minimize"])
@@ -158,13 +139,10 @@ def main():
     print(df.to_string(index=False))
     
     out_csv = "test/estimation_ladder/pareto_front.csv"
-    
-    # We must write to the actual source directory since bazel run is read-only
     src_dir = os.environ.get("BUILD_WORKSPACE_DIRECTORY", ".")
     df.to_csv(os.path.join(src_dir, out_csv), index=False)
     print(f"\nSaved pareto front to {out_csv}")
 
 if __name__ == "__main__":
-    # Override get_runfile context inside the scratch dir
     RUNFILES_DIR = os.path.join("/tmp/orfs_optuna_scratch", "multiplier_asap7_grt_deps_run.sh.runfiles")
     main()

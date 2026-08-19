@@ -9,19 +9,21 @@ set start_time [clock clicks -milliseconds]
 # 1. Basic Floorplan
 if {[info exists ::env(DIE_AREA)]} { unset ::env(DIE_AREA) }
 if {[info exists ::env(CORE_AREA)]} { unset ::env(CORE_AREA) }
-set ::env(CORE_MARGIN) 2
-# initialize_floorplan -site $::env(PLACE_SITE) -utilization $::env(CORE_UTILIZATION) -aspect_ratio $::env(CORE_ASPECT_RATIO) -core_space $::env(CORE_MARGIN)
 
+if {![info exists ::env(CORE_UTILIZATION)]} { set ::env(CORE_UTILIZATION) 40 }
+if {![info exists ::env(CORE_ASPECT_RATIO)]} { set ::env(CORE_ASPECT_RATIO) 1 }
+if {![info exists ::env(CORE_MARGIN)]} { set ::env(CORE_MARGIN) 1.0 }
+
+set ::env(SKIP_REPAIR_TIE_FANOUT) 1
+set ::env(REMOVE_ABC_BUFFERS) 0
+
+# Just let the flow handle floorplan properly
+source $::env(SCRIPTS_DIR)/floorplan.tcl
 
 # 2. Place Pins
-if {![info exists ::env(IO_ROUTING_LAYER)]} { set ::env(IO_ROUTING_LAYER) "M2" }
-# place_pins -hor_layers $::env(IO_ROUTING_LAYER) -ver_layers $::env(IO_ROUTING_LAYER_VER)
-
-if {[info exists ::env(RUN_PLACE)] && $::env(RUN_PLACE) == 1} {
-    puts "Removing placement to run our own..."
-    # Need to remove the placement from the DB so we can re-place it.
-    # Wait, can we do that? global_placement usually just overrides, let's just let it overwrite.
-}
+if {![info exists ::env(IO_ROUTING_LAYER)]} { set ::env(IO_ROUTING_LAYER) "M4" }
+if {![info exists ::env(IO_ROUTING_LAYER_VER)]} { set ::env(IO_ROUTING_LAYER_VER) "M5" }
+place_pins -hor_layers $::env(IO_ROUTING_LAYER) -ver_layers $::env(IO_ROUTING_LAYER_VER)
 
 # 3. Global Place (Parameterized)
 if {[info exists ::env(RUN_PLACE)] && $::env(RUN_PLACE) == 1} {
@@ -32,7 +34,7 @@ if {[info exists ::env(RUN_PLACE)] && $::env(RUN_PLACE) == 1} {
     if {[info exists ::env(PLACE_ROUTABILITY)] && $::env(PLACE_ROUTABILITY) == 1} {
         append gp_args " -routability_driven"
     }
-    catch { eval global_placement $gp_args }
+    eval global_placement $gp_args
 }
 
 # 4. Global Route (Parameterized)
@@ -43,12 +45,10 @@ if {[info exists ::env(RUN_GRT)] && $::env(RUN_GRT) == 1} {
 }
 
 # 5. Parasitics
-catch {
 if {[info exists ::env(RUN_GRT)] && $::env(RUN_GRT) == 1} {
     estimate_parasitics -global_routing
 } else {
     estimate_parasitics -placement
-}
 }
 
 set end_time [clock clicks -milliseconds]
@@ -56,7 +56,7 @@ set elapsed_time [expr {$end_time - $start_time}]
 puts "FAST_ESTIMATOR_RUNTIME: $elapsed_time ms"
 
 # Measure Target Paths
-set sampled_file [string trim $::env(SAMPLED_PATHS_JSON) "'\""]
+set sampled_file [string trim $::env(GROUND_TRUTH_JSON) "'\""]
 set fp [open $sampled_file r]
 set path_data [read $fp]
 close $fp
@@ -79,9 +79,8 @@ foreach pt $target_paths {
     set start [lindex $pt 0]
     set end [lindex $pt 1]
     
-    if {[catch {set paths [find_timing_paths -from $start -to $end]}]} {
-        set paths []
-    }
+    # Do not use catch, fail loudly if paths are not found!
+    set paths [find_timing_paths -from $start -to $end]
 
     if {[llength $paths] > 0} {
         set slack [sta::format_time [[[lindex $paths 0] path] slack] 4]
@@ -99,4 +98,3 @@ puts $out_fp "}"
 close $out_fp
 
 exit 0
-puts "Fast estimator finished."

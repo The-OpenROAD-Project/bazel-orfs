@@ -77,6 +77,23 @@ orfs_run(
     ],
 )
 
+orfs_run(
+    name = "extract_ground_truth",
+    src = ":multiplier_asap7_grt",
+    script = "extract.tcl",
+    cmd = "run",
+    stages = ["synth", "floorplan", "place", "grt", "route"],
+    arguments = MULTIPLIER_ARGS | {
+        "OUTPUT_JSON": "$(location ground_truth.json)",
+    },
+    sources = {
+        "EXTRACT_TCL": ["extract.tcl"],
+    },
+    outs = [
+        "ground_truth.json",
+    ],
+)
+
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
 py_binary(
@@ -114,6 +131,7 @@ py_binary(
         ":multiplier_asap7_grt_deps_tar.tar.gz",
         ":multiplier_asap7_synth",
         ":multiplier_asap7_grt",
+        "ground_truth.json",
     ],
     deps = [
         "@bazel-orfs-pip//optuna",

@@ -49,14 +49,17 @@ for {set i 0} {$i < $num_buckets} {incr i} {
 if {[llength $selected_paths] == 0} { puts "ERROR: No paths found!"; exit 1 }
 
 set fp [open $::env(OUTPUT_JSON) w]
-puts $fp "\["
+puts $fp "{"
+puts $fp "\"runtime_ms\": 0,"
+puts $fp "\"paths\": \["
 set is_first 1
 foreach pt $selected_paths {
     if {$is_first == 0} { puts $fp "," }
     set is_first 0
-    puts -nonewline $fp "  {\"start\": \"[lindex $pt 0]\", \"end\": \"[lindex $pt 1]\"}"
+    puts -nonewline $fp "  {\"start\": \"[lindex $pt 0]\", \"end\": \"[lindex $pt 1]\", \"slack\": [lindex $pt 2]}"
 }
 puts $fp ""
 puts $fp "\]"
+puts $fp "}"
 close $fp
 exit 0
