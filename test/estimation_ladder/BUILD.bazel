@@ -106,3 +106,18 @@ py_test(
     data = ESTIMATES,
     args = ["$(location %s)" % e for e in ESTIMATES],
 )
+
+py_binary(
+    name = "optuna_study",
+    srcs = ["optuna_study.py"],
+    data = [
+        ":multiplier_asap7_grt_deps_tar.tar.gz",
+        ":multiplier_asap7_synth",
+        ":multiplier_asap7_grt",
+    ],
+    deps = [
+        "@bazel-orfs-pip//optuna",
+        "@bazel-orfs-pip//pandas",
+        "@bazel-orfs-pip//scipy",
+    ],
+)
