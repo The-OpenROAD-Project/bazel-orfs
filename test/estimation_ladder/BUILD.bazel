@@ -1,0 +1,51 @@
+load("//:openroad.bzl", "orfs_flow", "orfs_run")
+
+package(default_visibility = ["//visibility:public"])
+
+# Base flow target synthesizing the pipelined multiplier
+orfs_flow(
+    name = "multiplier_nangate45",
+    srcs = ["multiplier.sv"],
+    design = "multiplier",
+    pdk = "@nangate45//:nangate45",
+    sdc = "constraints.sdc",
+    stage_sources = {
+        "synth": ["multiplier.sv", "constraints.sdc"],
+    },
+)
+
+# Common configuration shared across the estimation ladder (DRY & SSOT)
+COMMON_ESTIMATE_ARGS = {
+    "DESIGN_NAME": "multiplier",
+}
+
+COMMON_ESTIMATE_SOURCES = {
+    "ESTIMATOR_TCL": ["estimator.tcl"],
+}
+
+ESTIMATION_LADDER_STAGES = {
+    "synth": ["synth"],
+    "floorplan": ["synth", "floorplan"],
+    "place": ["synth", "floorplan", "place"],
+    "grt": ["synth", "floorplan", "place", "grt"],
+}
+
+# Composable estimation ladder expressed via list comprehension of orfs_run targets
+[
+    orfs_run(
+        name = "multiplier_estimate_{}".format(stage),
+        src = ":multiplier_nangate45_synth",
+        script = "estimator.tcl",
+        cmd = "run",
+        stages = stages_up_to,
+        arguments = COMMON_ESTIMATE_ARGS | {
+            "ESTIMATION_STAGE": stage,
+            "OUTPUT_YAML": "$(location :multiplier_{}_estimate.yaml)".format(stage),
+        },
+        sources = COMMON_ESTIMATE_SOURCES,
+        outs = [
+            "multiplier_{}_estimate.yaml".format(stage),
+        ],
+    )
+    for stage, stages_up_to in ESTIMATION_LADDER_STAGES.items()
+]
