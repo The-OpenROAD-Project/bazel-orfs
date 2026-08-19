@@ -52,28 +52,31 @@ ESTIMATION_LADDER_STAGES = {
     for stage, stages_up_to in ESTIMATION_LADDER_STAGES.items()
 ]
 
-load("@rules_python//python:defs.bzl", "py_binary")
-load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
 py_binary(
-    name = "check_trends",
-    srcs = ["check_trends.py"],
+    name = "generate_report",
+    srcs = ["generate_report.py"],
 )
+
+ESTIMATES = [
+    "multiplier_synth_estimate.yaml",
+    "multiplier_floorplan_estimate.yaml",
+    "multiplier_place_estimate.yaml",
+    "multiplier_grt_estimate.yaml",
+]
 
 genrule(
     name = "estimation_report",
-    srcs = [
-        "multiplier_synth_estimate.yaml",
-        "multiplier_floorplan_estimate.yaml",
-        "multiplier_place_estimate.yaml",
-        "multiplier_grt_estimate.yaml",
-    ],
+    srcs = ESTIMATES,
     outs = ["report.md"],
-    cmd = "$(location :check_trends) $(SRCS) --output-report $@",
-    tools = [":check_trends"],
+    cmd = "$(location :generate_report) $(SRCS) --output-report $@",
+    tools = [":generate_report"],
 )
 
-build_test(
-    name = "estimation_report_test",
-    targets = [":estimation_report"],
+py_test(
+    name = "check_trends_test",
+    srcs = ["check_trends_test.py"],
+    data = ESTIMATES,
+    args = ["$(location %s)" % e for e in ESTIMATES],
 )

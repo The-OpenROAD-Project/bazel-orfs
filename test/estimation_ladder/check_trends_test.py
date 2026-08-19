@@ -1,4 +1,3 @@
-import argparse
 import sys
 
 def parse_yaml(fpath):
@@ -11,13 +10,13 @@ def parse_yaml(fpath):
     return data
 
 def main():
-    parser = argparse.ArgumentParser(description="Validate estimation ladder trends and generate a report.")
-    parser.add_argument("yaml_files", nargs="+", help="Ordered list of estimation YAML files")
-    parser.add_argument("--output-report", required=True, help="Path to write the markdown report")
-    args = parser.parse_args()
-
+    if len(sys.argv) < 2:
+        print("Usage: check_trends_test.py <yaml_file1> <yaml_file2> ...")
+        sys.exit(1)
+        
+    yaml_files = sys.argv[1:]
     results = []
-    for fpath in args.yaml_files:
+    for fpath in yaml_files:
         results.append(parse_yaml(fpath))
 
     tolerance = 5.0
@@ -41,17 +40,11 @@ def main():
             print(f"ERROR: Overall shape validation failed! Final stage period ({last_period}) "
                   f"is faster than initial synth stage ({first_period}).", file=sys.stderr)
             valid = False
-
-    with open(args.output_report, 'w') as f:
-        f.write("# Estimation Ladder Report\n\n")
-        f.write("| Stage | Estimated Min Clock Period (ps) |\n")
-        f.write("| --- | --- |\n")
-        for res in results:
-            period = float(res.get("clock_period", 0.0))
-            f.write(f"| {res.get('stage', 'unknown')} | {period:.2f} |\n")
-
+            
     if not valid:
         sys.exit(1)
+    
+    print("Shape validation passed.")
 
 if __name__ == "__main__":
     main()
