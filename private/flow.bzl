@@ -180,6 +180,7 @@ def orfs_flow(
         kept_macros = None,
         canon_blackbox_macros = [],
         sources = {},
+        stage_sources = {},
         user_sources = {},
         stage_arguments = {},
         renamed_inputs = {},

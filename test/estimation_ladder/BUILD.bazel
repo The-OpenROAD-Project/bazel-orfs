@@ -5,10 +5,12 @@ package(default_visibility = ["//visibility:public"])
 # Base flow target synthesizing the pipelined multiplier
 orfs_flow(
     name = "multiplier_nangate45",
-    srcs = ["multiplier.sv"],
-    design = "multiplier",
-    pdk = "@nangate45//:nangate45",
-    sdc = "constraints.sdc",
+    verilog_files = ["multiplier.sv"],
+    top = "multiplier",
+    pdk = "@orfs//flow:nangate45",
+    sources = {
+        "SDC_FILE": ["constraints.sdc"],
+    },
     stage_sources = {
         "synth": ["multiplier.sv", "constraints.sdc"],
     },
