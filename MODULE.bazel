@@ -158,6 +158,15 @@ single_version_override(
     version = "1.0.4.bcr.2",
 )
 
+# grpc: strip unused python/pip extensions whose unhashed
+# requirements.txt causes rules_python to emit hundreds of DEBUG warnings.
+single_version_override(
+    module_name = "grpc",
+    patch_strip = 0,
+    patches = ["//patches:grpc_quiet.patch"],
+    version = "1.69.0",
+)
+
 # rules_jvm_external emits a DEBUG message when multiple modules contribute
 # to the maven repo.
 single_version_override(
