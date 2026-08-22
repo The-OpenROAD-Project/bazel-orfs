@@ -3,10 +3,8 @@
 import argparse
 import json
 import os
-import re
 import subprocess
 import sys
-import tempfile
 
 def main():
     parser = argparse.ArgumentParser(
@@ -58,27 +56,23 @@ def main():
         else:
             resolved_env[k] = str(v)
             
-    # Start with resolved_env as defaults, allow os.environ to override, and CLI args to take highest precedence
-    env = dict(resolved_env)
-    env.update(os.environ)
-
     # apply overrides from args.variable
     for var in args.variable:
         if "=" in var:
             k, v = var.split("=", 1)
             resolved_env[k] = v
-            env[k] = v
             
     # positional KEY=VALUE overrides (to match old run_executable behavior if needed)
     for arg in unknown:
         if "=" in arg:
             k, v = arg.split("=", 1)
             resolved_env[k] = v
-            env[k] = v
+            
+    env = dict(os.environ)
+    env.update(resolved_env)
     
     if args.output:
         env["OUTPUT"] = args.output
-        resolved_env["OUTPUT"] = args.output
 
     openroad_exe = resolved_env.get("OPENROAD_EXE", "openroad")
     run_script = resolved_env.get("RUN_SCRIPT")
@@ -140,10 +134,29 @@ def main():
         work_dir = os.path.dirname(resolved_env["ODB_FILE"])
         
     # Variables that are typically populated by the ORFS make wrappers or variables.yaml but could be missing
+    if "LIB_FILES" not in resolved_env:
+        resolved_env["LIB_FILES"] = ""
     if "OPENROAD_HIERARCHICAL" not in resolved_env:
         resolved_env["OPENROAD_HIERARCHICAL"] = "0"
-    if "KEEP_VARS" not in resolved_env:
-        resolved_env["KEEP_VARS"] = "0"
+    if "DESIGN_CONFIG" in resolved_env and os.path.exists(resolved_env["DESIGN_CONFIG"]):
+        with open(resolved_env["DESIGN_CONFIG"], "r") as f:
+            for line in f:
+                if line.startswith("export "):
+                    # export VAR?=VALUE
+                    parts = line[7:].split("?=", 1)
+                    if len(parts) == 2:
+                        var = parts[0].strip()
+                        val = parts[1].strip()
+                        if var not in resolved_env:
+                            resolved_env[var] = val
+                            
+    # Make PLATFORM_DIR absolute if we extracted it
+    if "PLATFORM_DIR" in resolved_env and not os.path.isabs(resolved_env["PLATFORM_DIR"]):
+        val = resolved_env["PLATFORM_DIR"]
+        if val.startswith("external/"):
+            resolved_env["PLATFORM_DIR"] = os.path.join(runfiles_dir, val[9:])
+        else:
+            resolved_env["PLATFORM_DIR"] = os.path.join(runfiles_dir, "_main", val)
 
     # Generate a TCL wrapper that sets all the environment variables as defaults,
     # then sources the original RUN_SCRIPT.
@@ -160,8 +173,8 @@ def main():
     wrapper_tcl_path = os.path.join(tmpdir, "tuner_wrapper.tcl")
     
     # Re-evaluate env now that all paths are resolved
-    env = dict(resolved_env)
-    env.update(os.environ)
+    env = dict(os.environ)
+    env.update(resolved_env)
     if args.output:
         env["OUTPUT"] = args.output
         
@@ -169,6 +182,7 @@ def main():
         f.write("# Generated wrapper for BYO openroad / debugging\n")
         
         # Do a simple $(VAR) substitution pass in Python before writing to TCL
+        import re
         def resolve_vars(v):
             def repl(m):
                 varname = m.group(1)
@@ -177,8 +191,6 @@ def main():
             return re.sub(r'\$\(([A-Za-z0-9_]+)\)', repl, str(v))
             
         for k, v in resolved_env.items():
-            if not re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', k):
-                continue
             v_eval = resolve_vars(v)
             # escape backslashes, quotes, and tcl specials
             v_escaped = v_eval.replace('\\', '\\\\').replace('"', '\\"').replace('$', '\\$').replace('[', '\\[').replace(']', '\\]')

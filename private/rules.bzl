@@ -804,18 +804,6 @@ def orfs_test(**kwargs):
 def _run_executable_impl(ctx):
     config = ctx.attr.src[OrfsDepInfo].config
 
-    inherited_jsons = ctx.attr.src[OrfsInfo].arguments.to_list() if OrfsInfo in ctx.attr.src else []
-
-    config, extra_files = merge_and_filter_arguments(
-        ctx,
-        category = "results",
-        name = ctx.attr.name,
-        original_config = config,
-        inherited_jsons = inherited_jsons,
-        extra_jsons = getattr(ctx.files, "extra_arguments", []),
-        stages = [],
-    )
-
     wrapper = ctx.actions.declare_file(ctx.attr.name)
 
     # For external repo targets, WORK_HOME must include the external/<repo>/
@@ -854,16 +842,14 @@ def _run_executable_impl(ctx):
         ({"WORK_HOME": work_home} if work_home else {}),
     )
 
-    req_args = required_arguments(ctx)
-    pdk_libs = [f.short_path for f in ctx.attr.src[PdkInfo].libs.to_list()] if PdkInfo in ctx.attr.src else []
-    if OrfsInfo in ctx.attr.src:
-        pdk_libs.extend([f.short_path for f in ctx.attr.src[OrfsInfo].additional_libs.to_list()])
-
     # We parse the moreargs back into a dictionary to embed in the tuner.py.tpl
+
+    # We can't parse moreargs directly easily in starlark since it's a bash string
+    # BUT, we can just use the dictionary we passed to environment_string!
     env_dict = hack_away_prefix(
         arguments = odb_arguments(ctx) | sdc_arguments(ctx) | data_arguments(ctx),
         prefix = config.root.path,
-    ) | req_args | {
+    ) | {
         "DESIGN_CONFIG": config.short_path,
         "OPENROAD_EXE": openroad_path,
         "OPENSTA_EXE": opensta_path,
@@ -871,7 +857,6 @@ def _run_executable_impl(ctx):
         "FLOW_HOME": flow_home,
         "RUN_SCRIPT": run_script_path,
         "BAZEL_PACKAGE": ctx.label.package,
-        "LIB_FILES": " ".join(pdk_libs),
     }
     if work_home:
         env_dict["WORK_HOME"] = work_home
@@ -893,24 +878,22 @@ def _run_executable_impl(ctx):
             executable = wrapper,
             runfiles = ctx.runfiles(
                 transitive_files = depset(
-                    [config, wrapper, ctx.file.script] + extra_files,
+                    [config, wrapper, ctx.file.script],
                     transitive = [
                         flow_inputs(ctx),
                         yosys_inputs(ctx),
                         data_inputs(ctx),
                         source_inputs(ctx),
-                        ctx.attr.src[OrfsDepInfo].files,
                     ],
                 ),
-            ).merge(ctx.attr.src[DefaultInfo].default_runfiles).merge(ctx.attr.src[OrfsDepInfo].runfiles),
+            ),
         ),
     ]
 
-_orfs_rule_run_executable = rule(
+orfs_run_executable = rule(
     implementation = _run_executable_impl,
     attrs = yosys_attrs() |
             openroad_attrs() |
-            flow_attrs() |
             {
                 "cmd": attr.string(
                     mandatory = False,
@@ -927,14 +910,6 @@ _orfs_rule_run_executable = rule(
             },
     executable = True,
 )
-
-def orfs_run_executable(**kwargs):
-    """Rule wrapper for orfs_run_executable to populate data dependencies and CLI arguments from explicitly specified sources.
-
-    Args:
-        **kwargs: The keyword arguments to pass to the underlying _orfs_rule_run_executable.
-    """
-    _orfs_rule_run_executable(**_expand_sources(kwargs))
 
 # --- Synthesis rule ---
 
