@@ -30,18 +30,21 @@ if {[llength $selected_paths] < 5} {
     exit 1
 }
 
-set fp [open $::env(OUTPUT_JSON) w]
-puts $fp "{"
-puts $fp "\"runtime_ms\": 0,"
-puts $fp "\"paths\": \["
-set is_first 1
+package require json::write
+
+set path_json_entries []
 foreach pt $selected_paths {
-    if {$is_first == 0} { puts $fp "," }
-    set is_first 0
-    puts -nonewline $fp "  {\"start\": \"[lindex $pt 0]\", \"end\": \"[lindex $pt 1]\", \"slack\": [lindex $pt 2]}"
+    lappend path_json_entries [json::write object \
+        "start" [json::write string [lindex $pt 0]] \
+        "end"   [json::write string [lindex $pt 1]] \
+        "slack" [lindex $pt 2]]
 }
-puts $fp ""
-puts $fp "\]"
-puts $fp "}"
+
+set out_json [json::write object \
+    "runtime_ms" 0 \
+    "paths" [json::write array {*}$path_json_entries]]
+
+set fp [open $::env(OUTPUT_JSON) w]
+puts $fp $out_json
 close $fp
 exit 0

@@ -42,38 +42,39 @@ set end_time [clock clicks -milliseconds]
 set elapsed_time [expr {$end_time - $start_time}]
 puts "ESTIMATOR_RUNTIME: $elapsed_time ms"
 
-# Measure Target Paths against Ground Truth using idiomatic json parser
 package require json
+package require json::write
 
 set fp [open $::env(GROUND_TRUTH_JSON) r]
 set gt_dict [json::json2dict [read $fp]]
 close $fp
 
-set out_fp [open $::env(OUTPUT_JSON) w]
-puts $out_fp "{"
-puts $out_fp "\"runtime_ms\": $elapsed_time,"
-puts $out_fp "\"paths\": \["
-
-set is_first 1
+set path_json_entries []
 foreach pt [dict get $gt_dict paths] {
     set start [dict get $pt start]
     set end [dict get $pt end]
     
-    set paths [find_timing_paths -from $start -to $end]
+    set paths [find_timing_paths -from $start -to $end -sort_by_slack -group_count 1]
 
-    if {[llength $paths] > 0} {
-        set slack [sta::format_time [[[lindex $paths 0] path] slack] 4]
-    } else {
-        set slack 0.0
+    if {[llength $paths] == 0} {
+        puts stderr "ERROR: No timing path found from $start to $end"
+        exit 1
     }
+
+    set slack [sta::format_time [[[lindex $paths 0] path] slack] 4]
     
-    if {$is_first == 0} { puts $out_fp "," }
-    set is_first 0
-    puts -nonewline $out_fp "  {\"start\": \"$start\", \"end\": \"$end\", \"slack\": $slack}"
+    lappend path_json_entries [json::write object \
+        "start" [json::write string $start] \
+        "end"   [json::write string $end] \
+        "slack" $slack]
 }
-puts $out_fp ""
-puts $out_fp "\]"
-puts $out_fp "}"
+
+set out_json [json::write object \
+    "runtime_ms" $elapsed_time \
+    "paths" [json::write array {*}$path_json_entries]]
+
+set out_fp [open $::env(OUTPUT_JSON) w]
+puts $out_fp $out_json
 close $out_fp
 
 exit 0
