@@ -5,44 +5,30 @@ set clk [lindex [all_clocks] 0]
 set clk_period [get_property $clk period]
 set wns [sta::worst_slack -max]
 
-set paths [find_timing_paths -sort_by_slack -group_count 1000]
-set valid_paths []
-
-foreach path $paths {
-    set sp [get_property $path startpoint]
-    set ep [get_property $path endpoint]
-    
-    set sp_name [get_full_name $sp]
-    set ep_name [get_full_name $ep]
-    
-    set slack [sta::format_time [[$path path] slack] 4]
-    lappend valid_paths [list $sp_name $ep_name $slack]
-}
-
 set num_buckets 10
-set step [expr {($clk_period - $wns) / $num_buckets}]
+set step [expr {($clk_period - $wns) / double($num_buckets)}]
 set selected_paths []
 
 for {set i 0} {$i < $num_buckets} {incr i} {
-    set target_slack [expr {$wns + ($i * $step)}]
-    set best_path ""
-    set best_diff 9999.0
+    set b_min [expr {$wns + $i * $step}]
+    set b_max [expr {$wns + ($i + 1) * $step}]
     
-    foreach pt $valid_paths {
-        set slack [lindex $pt 2]
-        set diff [expr {abs($slack - $target_slack)}]
-        if {$diff < $best_diff} {
-            set best_diff $diff
-            set best_path $pt
-        }
-    }
-    
-    if {$best_path != ""} {
-        lappend selected_paths $best_path
+    set paths [find_timing_paths -slack_min $b_min -slack_max $b_max -sort_by_slack -group_count 1]
+    if {[llength $paths] > 0} {
+        set path [lindex $paths 0]
+        set sp [get_property $path startpoint]
+        set ep [get_property $path endpoint]
+        set sp_name [get_full_name $sp]
+        set ep_name [get_full_name $ep]
+        set slack [sta::format_time [[$path path] slack] 4]
+        lappend selected_paths [list $sp_name $ep_name $slack]
     }
 }
 
-if {[llength $selected_paths] == 0} { puts "ERROR: No paths found!"; exit 1 }
+if {[llength $selected_paths] < 5} {
+    puts "ERROR: Too few valid timing path buckets found ([llength $selected_paths] < 5)!"
+    exit 1
+}
 
 set fp [open $::env(OUTPUT_JSON) w]
 puts $fp "{"

@@ -9,9 +9,7 @@ initialize_floorplan -utilization $::env(CORE_UTILIZATION) \
     -core_space $::env(CORE_MARGIN) \
     -site $::env(PLACE_SITE)
 
-if {[file exists $::env(MAKE_TRACKS)]} {
-    source $::env(MAKE_TRACKS)
-}
+source $::env(MAKE_TRACKS)
 
 # 2. Place Pins
 place_pins -hor_layers $::env(IO_PLACER_H) -ver_layers $::env(IO_PLACER_V)
@@ -36,7 +34,7 @@ if {$::env(RUN_GRT) == 1} {
 # 5. Parasitics
 if {$::env(RUN_GRT) == 1} {
     estimate_parasitics -global_routing
-} else {
+} elseif {$::env(RUN_PLACE) == 1} {
     estimate_parasitics -placement
 }
 
