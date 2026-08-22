@@ -32,6 +32,7 @@ load(
     "generation_commands",
     "hack_away_prefix",
     "input_commands",
+    "merge_and_filter_arguments",
     "merge_arguments",
     "module_top",
     "odb_arguments",
@@ -382,55 +383,18 @@ def _run_impl(ctx):
         outs.extend(getattr(ctx.outputs, k))
 
     original_config = config
-    all_jsons = ctx.files.extra_arguments + (ctx.attr.src[OrfsInfo].arguments.to_list() if OrfsInfo in ctx.attr.src else [])
-    if all_jsons:
-        new_config = declare_artifact(ctx, "results", ctx.attr.name + ".config.mk")
+    all_jsons = ctx.files.extra_arguments
+    inherited_jsons = ctx.attr.src[OrfsInfo].arguments.to_list() if OrfsInfo in ctx.attr.src else []
 
-        args = [ctx.file._merge_arguments.path, new_config.path]
-        inputs = all_jsons + [ctx.file._merge_arguments]
-
-        if OrfsInfo in ctx.attr.src:
-            stage = ctx.attr.src[OrfsInfo].stage
-            filter_json = declare_artifact(ctx, "results", ctx.attr.name + ".filter.json")
-
-            # Resolve canonical stage name
-            canonical_stage = stage
-            for s in ALL_STAGE_TO_VARIABLES.keys():
-                if stage.endswith("_" + s) or stage == s:
-                    canonical_stage = s
-                    break
-
-            allowed_vars = []
-            if getattr(ctx.attr, "stages", []):
-                for s in ctx.attr.stages:
-                    allowed_vars.extend(ALL_STAGE_TO_VARIABLES.get(s, []))
-            else:
-                allowed_vars = ALL_STAGE_TO_VARIABLES.get(canonical_stage, [])
-
-            ctx.actions.write(
-                output = filter_json,
-                content = json.encode({
-                    "allowed": allowed_vars,
-                    "known": ALL_VARIABLE_TO_STAGES.keys(),
-                }),
-            )
-            args.extend(["--filter", filter_json.path])
-            inputs.append(filter_json)
-
-        args.extend(["--include", original_config.path])
-        inputs.append(original_config)
-        args.extend([f.path for f in all_jsons])
-
-        ctx.actions.run(
-            executable = ctx.executable._python,
-            arguments = args,
-            inputs = inputs,
-            outputs = [new_config],
-        )
-        config = new_config
-        extra_files = [original_config]
-    else:
-        extra_files = [original_config]
+    config, extra_files = merge_and_filter_arguments(
+        ctx,
+        category = "results",
+        name = ctx.attr.name,
+        original_config = original_config,
+        inherited_jsons = inherited_jsons,
+        extra_jsons = all_jsons,
+        stages = getattr(ctx.attr, "stages", []),
+    )
 
     ctx.actions.run_shell(
         arguments = [
@@ -688,9 +652,23 @@ orfs_arguments = rule(
 def _test_impl(ctx):
     config = ctx.attr.src[OrfsDepInfo].config
 
+    inherited_jsons = ctx.attr.src[OrfsInfo].arguments.to_list() if OrfsInfo in ctx.attr.src else []
+
+    config, extra_files = merge_and_filter_arguments(
+        ctx,
+        category = "results",
+        name = ctx.attr.name,
+        original_config = config,
+        inherited_jsons = inherited_jsons,
+        extra_jsons = getattr(ctx.files, "extra_arguments", []),
+        stages = getattr(ctx.attr, "stages", []),
+    )
+
     test = ctx.actions.declare_file(
         "make_{}_{}_test".format(ctx.attr.name, ctx.attr.variant),
     )
+
+    script_inputs = []
 
     if ctx.attr.lint:
         # Lint mode: test just verifies the dependency chain builds.
@@ -711,15 +689,22 @@ def _test_impl(ctx):
         else:
             work_home = None
 
+        if hasattr(ctx.attr, "script") and ctx.file.script:
+            script_inputs = [ctx.file.script]
+            script_arg = {"RUN_SCRIPT": ctx.file.script.path}
+        else:
+            script_inputs = []
+            script_arg = {}
+
         tool_env = {
-            "ABC": ctx.executable._abc.short_path,
-            "FLOW_HOME": ctx.file._makefile.dirname,
-            "KLAYOUT_CMD": ctx.executable._klayout.short_path if hasattr(ctx.executable, "_klayout") and ctx.executable._klayout else "",
             "OPENROAD_EXE": ctx.executable.openroad.short_path,
             "OPENSTA_EXE": ctx.executable.opensta.short_path,
-            "PYTHON_EXE": ctx.executable._python.short_path,
-            "STDBUF_CMD": "",
             "YOSYS_EXE": ctx.executable.yosys.short_path,
+            "KLAYOUT_CMD": ctx.executable._klayout.short_path if hasattr(ctx.executable, "_klayout") and ctx.executable._klayout else "",
+            "PYTHON_EXE": ctx.executable._python.short_path,
+            "ABC": ctx.executable._abc.short_path,
+            "FLOW_HOME": ctx.file._makefile.dirname,
+            "STDBUF_CMD": "",
         }
 
         ctx.actions.write(
@@ -732,14 +717,17 @@ if [ ! -e external ]; then
     # Needed as of Bazel >= 8
     ln -sf $(realpath $(pwd)/..) external
 fi
+mkdir -p $(dirname {bin_dir})
+ln -sfn $(pwd) {bin_dir}
 {make} --file {makefile} {moreargs} {cmd}
 """.format(
                 cmd = ctx.attr.cmd,
                 make = ctx.executable._make.short_path,
                 makefile = ctx.file._makefile.path,
+                bin_dir = ctx.bin_dir.path,
                 moreargs = environment_string(
                     hack_away_prefix(
-                        arguments = odb_arguments(ctx) | sdc_arguments(ctx) | data_arguments(ctx) | tool_env,
+                        arguments = odb_arguments(ctx) | sdc_arguments(ctx) | data_arguments(ctx) | script_arg | tool_env,
                         prefix = config.root.path,
                     ) |
                     {"DESIGN_CONFIG": config.short_path} |
@@ -755,16 +743,17 @@ fi
             executable = test,
             runfiles = ctx.runfiles(
                 transitive_files = depset(
-                    [config, test],
+                    [config, test] + script_inputs + extra_files,
                     transitive = [
                         test_inputs(ctx),
                         data_inputs(ctx),
                         source_inputs(ctx),
                         flow_inputs(ctx),
                         yosys_inputs(ctx),
+                        ctx.attr.src[OrfsDepInfo].files,
                     ],
                 ),
-            ),
+            ).merge(ctx.attr.src[DefaultInfo].default_runfiles).merge(ctx.attr.src[OrfsDepInfo].runfiles),
         ),
     ]
 
@@ -772,10 +761,19 @@ _orfs_rule_test = rule(
     implementation = _test_impl,
     attrs = yosys_attrs() |
             openroad_attrs() |
+            flow_attrs() |
             {
                 "cmd": attr.string(
                     mandatory = False,
                     default = "metadata-check",
+                ),
+                "script": attr.label(
+                    mandatory = False,
+                    allow_single_file = ["tcl", "sh", "py"],
+                ),
+                "stages": attr.string_list(
+                    mandatory = False,
+                    default = [],
                 ),
             },
     test = True,
@@ -1887,11 +1885,17 @@ def _yosys_impl(ctx):
     # re-synth: synth_preamble.tcl reads $::env(SDC_FILE) but _final's
     # args.mk only contains openroad-stage data_arguments.
     synth_args_json = declare_artifact(ctx, "results", "1_synth.args.json")
+    synth_all_args = merge_arguments(
+        data_arguments(ctx) |
+        required_arguments(ctx),
+        orfs_additional_arguments(
+            [dep[OrfsInfo] for dep in ctx.attr.deps],
+            use_pre_layout = True,
+        ),
+    ) | verilog_arguments(ctx.files.verilog_files)
     ctx.actions.write(
         output = synth_args_json,
-        content = json.encode(
-            data_arguments(ctx) | verilog_arguments(ctx.files.verilog_files),
-        ),
+        content = json.encode(synth_all_args),
     )
 
     config_short = declare_artifact(ctx, "results", "1_synth.short.mk")
