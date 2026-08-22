@@ -1590,3 +1590,57 @@ orfs_test(
         ],
     },
 )
+
+orfs_test(
+    name = "test_leak_single_stage",
+    src = ":lb_32x128_place",
+    cmd = "run",
+    script = ":verify_no_leak.tcl",
+    stages = ["synth"],
+)
+
+orfs_test(
+    name = "test_leak_two_stages",
+    src = ":lb_32x128_place",
+    cmd = "run",
+    script = ":verify_no_leak.tcl",
+    stages = [
+        "synth",
+        "floorplan",
+    ],
+)
+
+orfs_test(
+    name = "test_leak_empty_stages",
+    src = ":lb_32x128_place",
+    cmd = "run",
+    script = ":verify_leak.tcl",
+    stages = [],
+)
+
+orfs_test(
+    name = "test_platform_not_filtered",
+    src = ":lb_32x128_place",
+    cmd = "run",
+    script = ":verify_platform.tcl",
+)
+
+orfs_test(
+    name = "test_macro_synth",
+    src = ":lb_32x128_top_synth",
+    cmd = "run",
+    openroad = "//mock/openroad/src/bin:openroad",
+    script = ":verify_macro_collateral.tcl",
+    stages = ["synth"],
+    yosys = "//mock/yosys/src/bin:yosys",
+)
+
+orfs_test(
+    name = "test_macro_floorplan",
+    src = ":lb_32x128_top_floorplan",
+    cmd = "run",
+    openroad = "//mock/openroad/src/bin:openroad",
+    script = ":verify_macro_collateral.tcl",
+    stages = ["floorplan"],
+    yosys = "//mock/yosys/src/bin:yosys",
+)

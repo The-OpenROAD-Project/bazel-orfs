@@ -9,7 +9,7 @@ load(
     "PdkInfo",
     "TopInfo",
 )
-load("//private:stages.bzl", "ALL_STAGE_TO_VARIABLES")
+load("//private:stages.bzl", "ALL_STAGE_TO_VARIABLES", "ALL_VARIABLE_TO_STAGES")
 load("//private:utils.bzl", "file_path", "flatten")
 
 def odb_arguments(ctx, short = False):
@@ -65,6 +65,14 @@ def flow_environment(ctx):
     } | orfs_environment(ctx)
 
 def yosys_environment(ctx):
+    """Returns the environment dictionary for Yosys.
+
+    Args:
+      ctx: The rule context.
+
+    Returns:
+      A dictionary representing the Yosys environment.
+    """
     env = {
         "ABC": ctx.executable._abc.path,
         "FLOW_HOME": ctx.file._makefile_yosys.dirname,
@@ -454,6 +462,15 @@ def _prefix_include_dirs(dirs_value, prefix):
     ])
 
 def config_arguments(ctx, arguments):
+    """Adds overrides and workarounds to the provided arguments dictionary.
+
+    Args:
+      ctx: The rule context.
+      arguments: The dictionary of arguments to augment.
+
+    Returns:
+      A dictionary of the arguments including overrides.
+    """
     workaround = {
         # https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/issues/3907
         "LEC_CHECK": "0",
@@ -624,3 +641,70 @@ def declare_artifacts(ctx, category, names):
 
 def extensionless_basename(file):
     return file.basename.removesuffix("." + file.extension)
+
+def merge_and_filter_arguments(ctx, category, name, original_config, inherited_jsons, extra_jsons, stages):
+    """
+    Merges configuration jsons and optionally filters them by stages.
+
+    Args:
+      ctx: The rule context.
+      category: output category for declare_artifact.
+      name: prefix string for the generated files (e.g. ctx.attr.name).
+      original_config: The .mk file to include if filtering is NOT applied.
+      inherited_jsons: list of .json files from OrfsInfo.
+      extra_jsons: list of extra .json files (e.g., extra_arguments).
+      stages: list of stages to filter by. If empty, no filtering is applied.
+
+    Returns:
+      A tuple of (new_config_file, extra_files_list)
+    """
+    all_jsons = inherited_jsons + extra_jsons
+
+    if stages:
+        allowed_vars = []
+        for s in stages:
+            allowed_vars.extend(ALL_STAGE_TO_VARIABLES.get(s, []))
+
+        filter_json = declare_artifact(ctx, category, name + ".filter.json")
+        ctx.actions.write(
+            output = filter_json,
+            content = json.encode({
+                "allowed": allowed_vars,
+                "known": ALL_VARIABLE_TO_STAGES.keys(),
+            }),
+        )
+
+        new_config = declare_artifact(ctx, category, name + ".config.mk")
+        args = [
+            ctx.file._merge_arguments.path,
+            new_config.path,
+            "--filter",
+            filter_json.path,
+        ]
+        args.extend([f.path for f in all_jsons])
+
+        ctx.actions.run(
+            executable = ctx.executable._python,
+            arguments = args,
+            inputs = all_jsons + [ctx.file._merge_arguments, filter_json],
+            outputs = [new_config],
+        )
+        return new_config, []
+    elif all_jsons:
+        new_config = declare_artifact(ctx, category, name + ".config.mk")
+        args = [ctx.file._merge_arguments.path, new_config.path]
+        inputs = all_jsons + [ctx.file._merge_arguments]
+
+        args.extend(["--include", original_config.path])
+        inputs.append(original_config)
+        args.extend([f.path for f in all_jsons])
+
+        ctx.actions.run(
+            executable = ctx.executable._python,
+            arguments = args,
+            inputs = inputs,
+            outputs = [new_config],
+        )
+        return new_config, [original_config]
+
+    return original_config, [original_config]

@@ -10,29 +10,7 @@ load("//private:utils.bzl", "flatten", "set", "union")
 # Variables auto-injected by bazel-orfs (not present in ORFS variables.yaml)
 # are registered here so that check_variables() does not flag them as
 # unknown when downstream callers see them in arguments.
-BAZEL_VARIABLE_TO_STAGES = {
-    # Set in orfs_design.bzl when SYNTH_HIERARCHICAL=1.
-    "SYNTH_NUM_PARTITIONS": ["synth"],
-}
-
-BAZEL_STAGE_TO_VARIABLES = {
-    stage: [v for v, stages in BAZEL_VARIABLE_TO_STAGES.items() if stage in stages]
-    for stage in [
-        "synth",
-        "floorplan",
-        "place",
-        "cts",
-        "grt",
-        "route",
-        "final",
-        "generate_abstract",
-        "generate_metadata",
-        "test",
-        "update_rules",
-    ]
-}
-
-ALL_STAGES = [
+ALL_STAGES_LIST = [
     "synth",
     "floorplan",
     "place",
@@ -45,6 +23,21 @@ ALL_STAGES = [
     "test",
     "update_rules",
 ]
+
+BAZEL_VARIABLE_TO_STAGES = {
+    # Set in orfs_design.bzl when SYNTH_HIERARCHICAL=1.
+    "SYNTH_NUM_PARTITIONS": ["synth"],
+    "PLATFORM": ALL_STAGES_LIST,
+    "PLATFORM_DIR": ALL_STAGES_LIST,
+    "DESIGN_NAME": ALL_STAGES_LIST,
+}
+
+BAZEL_STAGE_TO_VARIABLES = {
+    stage: [v for v, stages in BAZEL_VARIABLE_TO_STAGES.items() if stage in stages]
+    for stage in ALL_STAGES_LIST
+}
+
+ALL_STAGES = ALL_STAGES_LIST
 
 # Substep names within each stage, using ORFS naming directly.
 # This is the single source of truth; log_names and json_names in stage
