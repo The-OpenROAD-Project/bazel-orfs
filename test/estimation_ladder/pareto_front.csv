@@ -1,0 +1,3 @@
+correlation,runtime_ms,place_density,place_timing,place_routability,run_grt,grt_iterations
+0.999904,8801.0,0.413205,1,1,1,5.0
+0.999581,1472.0,0.584105,0,1,0,
