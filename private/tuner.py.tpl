@@ -139,72 +139,11 @@ def main():
     if "ODB_FILE" in resolved_env:
         work_dir = os.path.dirname(resolved_env["ODB_FILE"])
         
-    def resolve_path(val):
-        if not val or os.path.isabs(val):
-            return val
-        norm = os.path.normpath(val)
-        candidates = [
-            os.path.join(runfiles_dir, norm),
-            os.path.join(runfiles_dir, "_main", norm),
-        ]
-        if norm.startswith("external/"):
-            candidates.append(os.path.join(runfiles_dir, norm[9:]))
-        if norm.startswith("../"):
-            candidates.append(os.path.join(runfiles_dir, norm[3:]))
-        parts = norm.split(os.sep)
-        if len(parts) > 1 and parts[0] == "_main" and parts[1] == "external":
-            candidates.append(os.path.join(runfiles_dir, *parts[2:]))
-        for c in candidates:
-            cn = os.path.normpath(c)
-            if os.path.exists(cn):
-                return cn
-        return os.path.normpath(candidates[0])
-
     # Variables that are typically populated by the ORFS make wrappers or variables.yaml but could be missing
     if "OPENROAD_HIERARCHICAL" not in resolved_env:
         resolved_env["OPENROAD_HIERARCHICAL"] = "0"
     if "KEEP_VARS" not in resolved_env:
         resolved_env["KEEP_VARS"] = "0"
-
-    # Make PLATFORM_DIR absolute if we extracted it
-    if "PLATFORM_DIR" in resolved_env:
-        resolved_env["PLATFORM_DIR"] = resolve_path(resolved_env["PLATFORM_DIR"])
-
-    configs_to_read = []
-    if "DESIGN_CONFIG" in resolved_env and os.path.exists(resolved_env["DESIGN_CONFIG"]):
-        configs_to_read.append(resolved_env["DESIGN_CONFIG"])
-    if "PLATFORM_DIR" in resolved_env:
-        plat_mk = os.path.join(resolved_env["PLATFORM_DIR"], "config.mk")
-        if os.path.exists(plat_mk):
-            configs_to_read.append(plat_mk)
-
-    for cfg in configs_to_read:
-        with open(cfg, "r") as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith("export "):
-                    content = line[7:].strip()
-                    if "?=" in content:
-                        var, val = content.split("?=", 1)
-                    elif "=" in content:
-                        var, val = content.split("=", 1)
-                    else:
-                        continue
-                    var = var.strip()
-                    val = val.strip()
-                    if re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', var) and var not in resolved_env:
-                        resolved_env[var] = val
-
-    # Expand $(PLATFORM_DIR) in extracted variables
-    if "PLATFORM_DIR" in resolved_env:
-        for k, v in list(resolved_env.items()):
-            if isinstance(v, str) and "$(PLATFORM_DIR)" in v:
-                resolved_env[k] = v.replace("$(PLATFORM_DIR)", resolved_env["PLATFORM_DIR"])
-
-    # Make LIB_FILES paths absolute against runfiles
-    if "LIB_FILES" in resolved_env and resolved_env["LIB_FILES"]:
-        libs = resolved_env["LIB_FILES"].split()
-        resolved_env["LIB_FILES"] = " ".join([resolve_path(lib) for lib in libs])
 
     # Generate a TCL wrapper that sets all the environment variables as defaults,
     # then sources the original RUN_SCRIPT.

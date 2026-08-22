@@ -44,7 +44,7 @@ def main():
     def objective(trial):
         env = {
             "RUN_PLACE": "1",
-            "PLACE_DENSITY": str(trial.suggest_float("place_density", 0.4, 0.9)),
+            "PLACE_DENSITY": "0.65",
             "PLACE_TIMING": str(trial.suggest_categorical("place_timing", [0, 1])),
             "PLACE_ROUTABILITY": str(trial.suggest_categorical("place_routability", [0, 1])),
             "RUN_GRT": str(trial.suggest_categorical("run_grt", [0, 1])),

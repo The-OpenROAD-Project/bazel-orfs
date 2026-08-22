@@ -35,7 +35,6 @@ orfs_run(
     src = ":multiplier_asap7_grt",
     script = "extract.tcl",
     cmd = "run",
-    stages = ["synth", "floorplan", "place", "grt", "route"],
     arguments = MULTIPLIER_ARGS | {
         "OUTPUT_JSON": "$(location ground_truth.json)",
     },
@@ -53,7 +52,6 @@ orfs_run_executable(
     src = ":multiplier_asap7_synth",
     script = "estimator.tcl",
     cmd = "run",
-    stages = ["synth", "floorplan", "place", "grt", "route"],
     arguments = MULTIPLIER_ARGS,
     sources = ESTIMATOR_SOURCES,
 )

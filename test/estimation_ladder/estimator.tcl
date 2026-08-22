@@ -9,7 +9,7 @@ initialize_floorplan -utilization $::env(CORE_UTILIZATION) \
     -core_space $::env(CORE_MARGIN) \
     -site $::env(PLACE_SITE)
 
-if {[info exists ::env(MAKE_TRACKS)] && [file exists $::env(MAKE_TRACKS)]} {
+if {[file exists $::env(MAKE_TRACKS)]} {
     source $::env(MAKE_TRACKS)
 }
 
@@ -17,26 +17,24 @@ if {[info exists ::env(MAKE_TRACKS)] && [file exists $::env(MAKE_TRACKS)]} {
 place_pins -hor_layers $::env(IO_PLACER_H) -ver_layers $::env(IO_PLACER_V)
 
 # 3. Global Placement (Parameterized via environment)
-if {[info exists ::env(RUN_PLACE)] && $::env(RUN_PLACE) == 1} {
+if {$::env(RUN_PLACE) == 1} {
     set gp_args "-density $::env(PLACE_DENSITY) -pad_left 0 -pad_right 0 -force_center_initial_place"
-    if {[info exists ::env(PLACE_TIMING)] && $::env(PLACE_TIMING) == 1} {
+    if {$::env(PLACE_TIMING) == 1} {
         append gp_args " -timing_driven"
     }
-    if {[info exists ::env(PLACE_ROUTABILITY)] && $::env(PLACE_ROUTABILITY) == 1} {
+    if {$::env(PLACE_ROUTABILITY) == 1} {
         append gp_args " -routability_driven"
     }
     eval global_placement $gp_args
 }
 
 # 4. Global Routing (Parameterized via environment)
-if {[info exists ::env(RUN_GRT)] && $::env(RUN_GRT) == 1} {
-    set grt_iters 0
-    if {[info exists ::env(GRT_ITERATIONS)]} { set grt_iters $::env(GRT_ITERATIONS) }
-    global_route -congestion_iterations $grt_iters
+if {$::env(RUN_GRT) == 1} {
+    global_route -congestion_iterations $::env(GRT_ITERATIONS)
 }
 
 # 5. Parasitics
-if {[info exists ::env(RUN_GRT)] && $::env(RUN_GRT) == 1} {
+if {$::env(RUN_GRT) == 1} {
     estimate_parasitics -global_routing
 } else {
     estimate_parasitics -placement
@@ -46,18 +44,12 @@ set end_time [clock clicks -milliseconds]
 set elapsed_time [expr {$end_time - $start_time}]
 puts "ESTIMATOR_RUNTIME: $elapsed_time ms"
 
-# Measure Target Paths against Ground Truth
-set sampled_file [string trim $::env(GROUND_TRUTH_JSON) "'\""]
-set fp [open $sampled_file r]
-set path_data [read $fp]
-close $fp
+# Measure Target Paths against Ground Truth using idiomatic json parser
+package require json
 
-set target_paths []
-foreach line [split $path_data "\n"] {
-    if {[regexp {"start": "([^"]+)", "end": "([^"]+)"} $line match start end]} {
-        lappend target_paths [list $start $end]
-    }
-}
+set fp [open $::env(GROUND_TRUTH_JSON) r]
+set gt_dict [json::json2dict [read $fp]]
+close $fp
 
 set out_fp [open $::env(OUTPUT_JSON) w]
 puts $out_fp "{"
@@ -65,9 +57,9 @@ puts $out_fp "\"runtime_ms\": $elapsed_time,"
 puts $out_fp "\"paths\": \["
 
 set is_first 1
-foreach pt $target_paths {
-    set start [lindex $pt 0]
-    set end [lindex $pt 1]
+foreach pt [dict get $gt_dict paths] {
+    set start [dict get $pt start]
+    set end [dict get $pt end]
     
     set paths [find_timing_paths -from $start -to $end]
 

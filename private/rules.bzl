@@ -813,7 +813,7 @@ def _run_executable_impl(ctx):
         original_config = config,
         inherited_jsons = inherited_jsons,
         extra_jsons = getattr(ctx.files, "extra_arguments", []),
-        stages = getattr(ctx.attr, "stages", []),
+        stages = [],
     )
 
     wrapper = ctx.actions.declare_file(ctx.attr.name)
@@ -919,10 +919,6 @@ _orfs_rule_run_executable = rule(
                 "script": attr.label(
                     mandatory = True,
                     allow_single_file = ["tcl"],
-                ),
-                "stages": attr.string_list(
-                    mandatory = False,
-                    default = [],
                 ),
                 "_template": attr.label(
                     default = "//private:tuner.py.tpl",

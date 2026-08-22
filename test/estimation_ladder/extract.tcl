@@ -1,10 +1,11 @@
 source $::env(SCRIPTS_DIR)/load.tcl
 load_design [file tail $::env(ODB_FILE)] [file tail $::env(SDC_FILE)]
 
-set paths [find_timing_paths -sort_by_slack -group_count 1000]
+set clk [lindex [all_clocks] 0]
+set clk_period [get_property $clk period]
+set wns [sta::worst_slack -max]
 
-set max_slack -9999.0
-set min_slack 9999.0
+set paths [find_timing_paths -sort_by_slack -group_count 1000]
 set valid_paths []
 
 foreach path $paths {
@@ -16,16 +17,14 @@ foreach path $paths {
     
     set slack [sta::format_time [[$path path] slack] 4]
     lappend valid_paths [list $sp_name $ep_name $slack]
-    if {$slack > $max_slack} { set max_slack $slack }
-    if {$slack < $min_slack} { set min_slack $slack }
 }
 
 set num_buckets 10
-set step [expr {($max_slack - $min_slack) / $num_buckets}]
+set step [expr {($clk_period - $wns) / $num_buckets}]
 set selected_paths []
 
 for {set i 0} {$i < $num_buckets} {incr i} {
-    set target_slack [expr {$min_slack + ($i * $step)}]
+    set target_slack [expr {$wns + ($i * $step)}]
     set best_path ""
     set best_diff 9999.0
     
