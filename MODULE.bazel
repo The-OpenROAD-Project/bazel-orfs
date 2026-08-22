@@ -158,6 +158,14 @@ single_version_override(
     version = "1.0.4.bcr.2",
 )
 
+# rules_jvm_external emits a DEBUG message when multiple modules contribute
+# to the maven repo.
+single_version_override(
+    module_name = "rules_jvm_external",
+    patch_strip = 0,
+    patches = ["//patches:rules_jvm_external_quiet.patch"],
+)
+
 bazel_dep(name = "rules_pycross", version = "0.8.1")
 
 pycross = use_extension("@rules_pycross//pycross/extensions:pycross.bzl", "pycross")
