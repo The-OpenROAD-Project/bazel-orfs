@@ -1,0 +1,75 @@
+load("//:openroad.bzl", "orfs_flow", "orfs_run", "orfs_run_executable")
+
+package(default_visibility = ["//visibility:public"])
+
+# Single Source of Truth for the multiplier design
+MULTIPLIER_SOURCES = {
+    "SDC_FILE": ["constraints.sdc"],
+}
+
+MULTIPLIER_ARGS = {
+    "DESIGN_NAME": "multiplier",
+    "CORE_UTILIZATION": "40",
+    "CORE_ASPECT_RATIO": "1",
+    "CORE_MARGIN": "2",
+}
+
+# Base flow target synthesizing the pipelined multiplier
+orfs_flow(
+    name = "multiplier_asap7",
+    verilog_files = ["multiplier.sv"],
+    top = "multiplier",
+    pdk = "@orfs//flow:asap7",
+    sources = MULTIPLIER_SOURCES,
+    arguments = MULTIPLIER_ARGS,
+)
+
+# Common configuration shared across the estimator
+ESTIMATOR_SOURCES = {
+    "ESTIMATOR_TCL": ["estimator.tcl"],
+}
+
+# Ground Truth measurement using actual grt output from orfs_flow
+orfs_run(
+    name = "extract_ground_truth",
+    src = ":multiplier_asap7_grt",
+    script = "extract.tcl",
+    cmd = "run",
+    arguments = MULTIPLIER_ARGS | {
+        "OUTPUT_JSON": "$(location ground_truth.json)",
+    },
+    sources = {
+        "EXTRACT_TCL": ["extract.tcl"],
+    },
+    outs = [
+        "ground_truth.json",
+    ],
+)
+
+# Standalone fast estimator executable target for Optuna hyperparameter exploration
+orfs_run_executable(
+    name = "fast_estimator_executable",
+    src = ":multiplier_asap7_synth",
+    script = "estimator.tcl",
+    cmd = "run",
+    arguments = MULTIPLIER_ARGS,
+    sources = ESTIMATOR_SOURCES,
+)
+
+load("@rules_python//python:defs.bzl", "py_binary")
+
+py_binary(
+    name = "optuna_study",
+    srcs = ["optuna_study.py"],
+    data = [
+        ":fast_estimator_executable",
+        ":multiplier_asap7_synth",
+        ":multiplier_asap7_grt",
+        "ground_truth.json",
+    ],
+    deps = [
+        "@bazel-orfs-pip//optuna",
+        "@bazel-orfs-pip//pandas",
+        "@bazel-orfs-pip//scipy",
+    ],
+)
