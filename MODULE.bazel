@@ -149,8 +149,8 @@ single_version_override(
     patches = ["//patches:rules_pycross_no_warning.patch"],
 )
 
-# protoc-gen-validate: requirements.txt is unpinned/unhashed, causing rules_python
-# to emit DEBUG warnings during pip.parse unless quiet = True is set.
+# protoc-gen-validate: strip unused python/pip extensions whose unhashed
+# requirements.txt causes rules_python to emit hundreds of DEBUG warnings.
 single_version_override(
     module_name = "protoc-gen-validate",
     patch_strip = 0,
