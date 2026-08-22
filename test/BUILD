@@ -3,7 +3,7 @@ load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_python//python:defs.bzl", "py_test")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
-load("//:openroad.bzl", "get_stage_args", "orfs_arguments", "orfs_floorplan", "orfs_flow", "orfs_gds", "orfs_macro", "orfs_place", "orfs_run", "orfs_run_executable", "orfs_synth", "orfs_variables")
+load("//:openroad.bzl", "get_stage_args", "orfs_arguments", "orfs_floorplan", "orfs_flow", "orfs_gds", "orfs_macro", "orfs_place", "orfs_run", "orfs_run_executable", "orfs_synth", "orfs_test", "orfs_variables")
 load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:sweep.bzl", "orfs_sweep")
 load(":deps_output_group_rule.bzl", "deps_output_group_test", "output_group_test")
@@ -1518,4 +1518,75 @@ py_test(
     name = "mock_optuna_test",
     srcs = ["mock_optuna_test.py"],
     data = [":mock_tuner_executable"],
+)
+
+write_file(
+    name = "test_source_1",
+    out = "test_source_1.txt",
+    content = ["test_source_content"],
+)
+
+write_file(
+    name = "test_source_2",
+    out = "test_source_2.txt",
+    content = ["second_source_content"],
+)
+
+write_file(
+    name = "dump_sources_tcl",
+    out = "dump_sources.tcl",
+    content = ["""
+set fp [open $::env(OUT_vars_txt) w]
+set fd1 [open $::env(TEST_SOURCE_1) r]
+puts $fp [read $fd1]
+close $fd1
+foreach src $::env(TEST_SOURCES) {
+    set fdn [open $src r]
+    puts $fp [read $fdn]
+    close $fdn
+}
+close $fp
+"""],
+)
+
+orfs_run(
+    name = "test_orfs_run_sources",
+    src = ":lb_32x128_synth",
+    outs = ["test_orfs_run_sources.txt"],
+    arguments = {
+        "OUT_vars_txt": "$(location :test_orfs_run_sources.txt)",
+    },
+    script = ":dump_sources_tcl",
+    sources = {
+        "TEST_SOURCE_1": ":test_source_1",
+        "TEST_SOURCES": [
+            ":test_source_1",
+            ":test_source_2",
+        ],
+    },
+)
+
+sh_test(
+    name = "orfs_run_sources_test",
+    srcs = ["verify_orfs_run_sources.sh"],
+    args = ["$(location :test_orfs_run_sources.txt)"],
+    data = [":test_orfs_run_sources.txt"],
+)
+
+orfs_test(
+    name = "test_orfs_test_sources",
+    src = ":lb_32x128_mock_openroad_floorplan",
+    arguments = {
+        "SCRIPT": "$(location :verify_orfs_test_sources.tcl)",
+    },
+    cmd = "run",
+    data = [":verify_orfs_test_sources.tcl"],
+    openroad = "//mock/openroad/src/bin:openroad",
+    sources = {
+        "TEST_SOURCE_1": ":test_source_1",
+        "TEST_SOURCES": [
+            ":test_source_1",
+            ":test_source_2",
+        ],
+    },
 )
