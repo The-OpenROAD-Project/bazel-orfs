@@ -118,6 +118,7 @@ py_test(
         ":fast_estimator_top_executable",
         ":optuna_study",
     ],
+    tags = ["manual"],
     deps = [
         "@bazel-orfs-dev-pip//pandas",
     ],

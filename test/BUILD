@@ -1525,9 +1525,29 @@ orfs_run_executable(
 )
 
 py_test(
-    name = "mock_optuna_test",
-    srcs = ["mock_optuna_test.py"],
-    data = [":mock_tuner_executable"],
+    name = "run_executable_test",
+    srcs = ["run_executable_test.py"],
+    data = [
+        ":mock_tuner_executable",
+        ":run_executable_custom_cmd",
+        ":run_executable_with_args",
+    ],
+)
+
+orfs_run_executable(
+    name = "run_executable_with_args",
+    src = ":lb_32x128_floorplan",
+    arguments = {"PLACE_DENSITY": "0.10"},
+    script = ":cell_count.tcl",
+    tags = ["manual"],
+)
+
+orfs_run_executable(
+    name = "run_executable_custom_cmd",
+    src = ":lb_32x128_floorplan",
+    cmd = "print-PLACE_DENSITY",
+    script = ":cell_count.tcl",
+    tags = ["manual"],
 )
 
 write_file(
