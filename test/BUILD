@@ -10,6 +10,7 @@ load(":deps_output_group_rule.bzl", "deps_output_group_test", "output_group_test
 load(":provider_test_rule.bzl", "lib_pre_layout_test")
 load(":quick_pins_test_rule.bzl", "quick_pins_data_dep_test")
 load(":source_input_propagation_test.bzl", "source_input_propagation_test")
+load(":stages_filter_test.bzl", "stages_filter_test_suite")
 
 exports_files(
     glob([
@@ -577,6 +578,9 @@ source_input_propagation_test(
     expected_basename = "dummy_extra.lef",
     target_under_test = ":src_propagation_place",
 )
+
+# Unit tests for the stage variable filtering helpers (stages.bzl).
+stages_filter_test_suite(name = "stages_filter_test")
 
 # Test SYNTH_KEEP_MODULES: skip keep-hierarchy discovery, go straight to
 # parallel partition synthesis with a pre-specified module list.
