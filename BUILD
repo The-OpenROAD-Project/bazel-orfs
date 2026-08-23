@@ -104,6 +104,17 @@ py_test(
     deps = [":bump_impl_lib"],
 )
 
+# The PreToolUse guard shared by Claude Code (.claude/settings.json) and
+# antigravity (.agents/hooks.json, via the .agents/scripts symlink).
+py_test(
+    name = "guard_tool_test",
+    srcs = [
+        ".claude/hooks/guard_tool.py",
+        ".claude/hooks/guard_tool_test.py",
+    ],
+    main = ".claude/hooks/guard_tool_test.py",
+)
+
 # Run `bazelisk run //:monitor-test` to run tests with stage monitoring.
 # Usage: bazelisk run //:monitor-test -- //test/...
 py_binary(
