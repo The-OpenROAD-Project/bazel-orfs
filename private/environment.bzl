@@ -660,6 +660,15 @@ def merge_and_filter_arguments(ctx, category, name, original_config, inherited_j
     """
     all_jsons = inherited_jsons + extra_jsons
 
+    # MORATORIUM(filter-branch): the filter branch below builds new_config
+    # PURELY from the filtered jsons and must NOT --include original_config —
+    # doing so would reintroduce the unfiltered base config variables and
+    # defeat the filter. The merge branch (no stages) DOES --include it and
+    # must keep it as an input.
+    # MORATORIUM(filter-parity): the {allowed, known} contract written here
+    # feeds merge_arguments.py's keep/drop, which mirrors stages.bzl's
+    # analysis-time predicate. Keep the three in lockstep — see the
+    # MORATORIUM(filter-parity) block in private/stages.bzl.
     if stages:
         allowed_vars = []
         for s in stages:

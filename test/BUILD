@@ -213,8 +213,14 @@ orfs_flow(
 orfs_floorplan(
     name = "lb_32x128_shared_synth_floorplan",
     src = ":lb_32x128_synth",
-    # Make sure we're not passing in any non-floorplan arguments
-    arguments = get_stage_args("floorplan", {}, LB_ARGS, {}),
+    # Make sure we're not passing in any non-floorplan arguments.
+    # get_stage_args takes a LIST of stages now (empty = no filtering).
+    arguments = get_stage_args(
+        ["floorplan"],
+        {},
+        LB_ARGS,
+        {},
+    ),
     data = LB_SOURCES["IO_CONSTRAINTS"],
     variant = "blah",
 )
