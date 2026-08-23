@@ -1,0 +1,170 @@
+load("//:openroad.bzl", "orfs_flow", "orfs_macro", "orfs_run", "orfs_run_executable")
+
+package(default_visibility = ["//visibility:public"])
+
+# Single Source of Truth for the multiplier design
+MULTIPLIER_SOURCES = {
+    "SDC_FILE": ["constraints.sdc"],
+}
+
+MULTIPLIER_ARGS = {
+    "DESIGN_NAME": "multiplier",
+    "DIE_AREA": "0 0 40 40",
+    "CORE_AREA": "2 2 38 38",
+    "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
+    "PLACE_DENSITY": "0.65",
+}
+
+# Base flow target synthesizing the pipelined multiplier
+orfs_flow(
+    name = "multiplier_asap7",
+    abstract_stage = "grt",
+    arguments = MULTIPLIER_ARGS,
+    sources = MULTIPLIER_SOURCES,
+    tags = ["manual"],
+    top = "multiplier",
+    verilog_files = ["multiplier.sv"],
+)
+
+# Common configuration shared across the estimator
+MULTIPLIER_SOURCES = {
+    "ESTIMATOR_TCL": ["estimator.tcl"],
+}
+
+# Ground Truth measurement using actual grt output from orfs_flow
+orfs_run(
+    name = "extract_ground_truth",
+    src = ":multiplier_asap7_grt",
+    outs = [
+        "ground_truth.json",
+    ],
+    arguments = MULTIPLIER_ARGS | {
+        "OUTPUT_JSON": "$(location ground_truth.json)",
+    },
+    cmd = "run",
+    script = "extract.tcl",
+    sources = {
+        "EXTRACT_TCL": ["extract.tcl"],
+    },
+)
+
+# Standalone fast estimator executable target for Optuna hyperparameter exploration
+orfs_run_executable(
+    name = "fast_estimator_executable",
+    src = ":multiplier_asap7_synth",
+    arguments = MULTIPLIER_ARGS,
+    cmd = "run",
+    script = "estimator.tcl",
+    sources = MULTIPLIER_SOURCES,
+)
+
+load("@rules_python//python:defs.bzl", "py_binary")
+
+py_binary(
+    name = "optuna_study",
+    srcs = ["optuna_study.py"],
+    args = [
+        "$(location :fast_estimator_executable)",
+        "$(location ground_truth.json)",
+        "multiplier",
+    ],
+    data = [
+        "ground_truth.json",
+        ":fast_estimator_executable",
+        ":multiplier_asap7_grt",
+        ":multiplier_asap7_synth",
+    ],
+    deps = [
+        "@bazel-orfs-dev-pip//optuna",
+        "@bazel-orfs-dev-pip//pandas",
+        "@bazel-orfs-dev-pip//scipy",
+    ],
+)
+
+py_binary(
+    name = "update-readme",
+    srcs = ["update_readme.py"],
+    main = "update_readme.py",
+    deps = [
+        "@bazel-orfs-dev-pip//matplotlib",
+        "@bazel-orfs-dev-pip//pandas",
+        "@bazel-orfs-dev-pip//tabulate",
+    ],
+)
+
+py_test(
+    name = "optuna_study_test",
+    srcs = ["optuna_study_test.py"],
+    args = [
+        "$(location :optuna_study)",
+        "$(location :fast_estimator_executable)",
+        "$(location ground_truth.json)",
+        "$(location :fast_estimator_top_executable)",
+        "$(location ground_truth_top.json)",
+    ],
+    data = [
+        "ground_truth.json",
+        "ground_truth_top.json",
+        ":fast_estimator_executable",
+        ":fast_estimator_top_executable",
+        ":optuna_study",
+    ],
+    deps = [
+        "@bazel-orfs-dev-pip//pandas",
+    ],
+)
+
+# -------------------------------------------------------------
+# Complex Macro-Based Design Target
+# -------------------------------------------------------------
+
+MULTIPLIER_TOP_SOURCES = {
+    "SDC_FILE": ["constraints.sdc"],
+    "IO_CONSTRAINTS": ["io_constraints.tcl"],
+}
+
+MULTIPLIER_TOP_ARGS = {
+    "DESIGN_NAME": "multiplier_top",
+    "DIE_AREA": "0 0 400 400",
+    "CORE_AREA": "4 4 396 396",
+    "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+    "PLACE_DENSITY": "0.65",
+}
+
+orfs_flow(
+    name = "multiplier_top_asap7",
+    arguments = MULTIPLIER_TOP_ARGS,
+    macros = [":multiplier_asap7_generate_abstract"],
+    sources = MULTIPLIER_TOP_SOURCES,
+    tags = ["manual"],
+    top = "multiplier_top",
+    verilog_files = [
+        "multiplier_top.sv",
+        "multiplier.sv",
+    ],
+)
+
+orfs_run(
+    name = "extract_ground_truth_top",
+    src = ":multiplier_top_asap7_grt",
+    outs = [
+        "ground_truth_top.json",
+    ],
+    arguments = MULTIPLIER_TOP_ARGS | {
+        "OUTPUT_JSON": "$(location ground_truth_top.json)",
+    },
+    cmd = "run",
+    script = "extract.tcl",
+    sources = {
+        "EXTRACT_TCL": ["extract.tcl"],
+    },
+)
+
+orfs_run_executable(
+    name = "fast_estimator_top_executable",
+    src = ":multiplier_top_asap7_synth",
+    arguments = MULTIPLIER_TOP_ARGS,
+    cmd = "run",
+    script = "estimator.tcl",
+    sources = MULTIPLIER_SOURCES,
+)
