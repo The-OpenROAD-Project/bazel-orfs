@@ -81,3 +81,11 @@ POST/PUT/PATCH/DELETE) only for an action that is already allowed,
 post-purge — never for merges, branch protection, or repo administration.
 
 Prepare the content, run the purge, then publish.
+
+## AI Guardrails
+
+To prevent accidental destruction of the Bazel cache and state corruption, the agent is configured with hard stops for certain actions:
+- `bazelisk clean` and `bazel clean` are blocked.
+- Git operations (`checkout`, `rebase`, `merge`, `reset`, `pull`) on local `master` or `main` branches are blocked. Use remote-tracking branches or detached HEADs instead.
+- Spelunking in `bazel-*` output directories and `.cache` using native tools (`grep`, `find`, `cat`) or agent file-reading tools is blocked to prevent context explosion.
+- The use of the global `/tmp` directory is blocked. Always use a local `./tmp` directory for scratch work.

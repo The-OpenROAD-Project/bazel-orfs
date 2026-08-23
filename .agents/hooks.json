@@ -1,0 +1,15 @@
+{
+  "bazel-guard": {
+    "PreToolUse": [
+      {
+        "matcher": "run_command|grep_search|list_dir|view_file|write_to_file|replace_file_content|multi_replace_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "./scripts/guard_tool.py"
+          }
+        ]
+      }
+    ]
+  }
+}
