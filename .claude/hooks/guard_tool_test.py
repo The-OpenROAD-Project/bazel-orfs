@@ -63,6 +63,18 @@ CASES = [
     ("path", "src/main.py", None),
     ("cwd", "bazel-out", "context explosion"),
     ("cwd", "/home/u/bazel-orfs", None),
+    # --- prose is not code ----------------------------------------------
+    # Writing *about* a forbidden command must stay possible; a guard that
+    # blocks its own commit messages and documentation is unusable.
+    ("command", "git commit -m 'do not run bazel clean, it wipes the cache'", None),
+    ("command", "git commit -m \"blocked: git checkout main\"", None),
+    ("command", "echo 'grep -rn foo bazel-out/x is forbidden'", None),
+    ("command", "echo \"scratch goes in ./tmp, never /tmp\"", None),
+    # ... but a quoted single argument is still an argument.
+    ("command", "grep -rn foo \"bazel-out/k8-fastbuild\"", "context explosion"),
+    ("command", 'git checkout "main"', "verboten"),
+    ("command", 'cat "/tmp/x"', "./tmp"),
+    ("command", "cat <<'EOF' > note.md\nnever run bazel clean\nEOF", None),
     # --- /tmp ------------------------------------------------------------
     ("command", "mkdir -p /tmp/scratch", "./tmp"),
     ("command", "python3 run.py --out /tmp/x.json", "./tmp"),
