@@ -183,6 +183,41 @@ def check_variables(variables, label):
             "add it to your project's ORFS patch or file a PR against ORFS.",
         )
 
+def _check_user_hatch(user_dict, label, use_instead):
+    """Fails if a project-specific escape hatch names a known ORFS variable."""
+    shadowed = sorted([k for k in user_dict if k in ALL_VARIABLE_TO_STAGES])
+    if shadowed:
+        fail(
+            "{label} contains known ORFS variable(s): {shadowed}. ".format(
+                label = label,
+                shadowed = ", ".join(shadowed),
+            ) +
+            "Use {use_instead}= for ORFS variables; reserve {label}= for ".format(
+                label = label,
+                use_instead = use_instead,
+            ) +
+            "project-specific values.",
+        )
+
+def check_stage_variables(arguments, sources, user_arguments, user_sources):
+    """Validates a stage target's variable dicts and their escape hatches.
+
+    Shared by every public stage macro (orfs_flow and the per-stage macros in
+    flow.bzl) so that a bare orfs_floorplan() gets the same spell-check and
+    the same escape-hatch discipline as a full orfs_flow().
+
+    Args:
+        arguments: ORFS variable dict; every key must be known.
+        sources: ORFS variable dict of source labels; every key must be known.
+        user_arguments: project-specific env vars, exempt from the spell-check
+            but forbidden from shadowing a known ORFS variable.
+        user_sources: as user_arguments, for path hooks.
+    """
+    check_variables(arguments.keys(), "arguments")
+    check_variables(sources.keys(), "sources")
+    _check_user_hatch(user_arguments, "user_arguments", "arguments")
+    _check_user_hatch(user_sources, "user_sources", "sources")
+
 # ---------------------------------------------------------------------------
 # Stage variable filtering — the two time domains
 #

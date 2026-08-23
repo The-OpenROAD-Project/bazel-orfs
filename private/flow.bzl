@@ -30,9 +30,8 @@ load(
 )
 load(
     "//private:stages.bzl",
-    "ALL_VARIABLE_TO_STAGES",
     "STAGE_METADATA",
-    "check_variables",
+    "check_stage_variables",
     "get_sources",
     "get_stage_args",
 )
@@ -68,6 +67,15 @@ def _filter_stage_args(stage, **kwargs):
     sources = kwargs.pop("sources", {})
     stage_arguments = kwargs.pop("stage_arguments", {})
     stage_data = kwargs.pop("stage_data", {})
+    user_arguments = kwargs.pop("user_arguments", {})
+    user_sources = kwargs.pop("user_sources", {})
+
+    # Validate before merging: the escape hatches are exempt from the
+    # spell-check, so they cannot be folded in first.  See "The two escape
+    # hatches" in private/stages.bzl.
+    check_stage_variables(arguments, sources, user_arguments, user_sources)
+    arguments = arguments | user_arguments
+    sources = sources | user_sources
 
     # yosys attribute only applies to synth stage
     if stage != "synth":
@@ -167,10 +175,11 @@ def _create_deps_tar(stage_name, **kwargs):
 def _orfs_stage(stage, impl, **kwargs):
     """Instantiates one stage target the way orfs_flow does.
 
-    orfs_flow already pairs a filtered rule instantiation with the companion
-    _deps targets at every stage it emits; this is that pair, named, so a
-    standalone stage target can reuse it instead of reimplementing it at the
-    call site.
+    The whole point of the public stage macros: a standalone
+    orfs_floorplan() gets exactly what a floorplan target inside an
+    orfs_flow() gets — arguments/sources/settings filtered to this stage,
+    extra_arguments/extra_configs narrowed by stage key, the ORFS variable
+    spell-check, the escape-hatch guard, and the companion _deps targets.
 
     Args:
         stage: canonical stage key, e.g. "floorplan".
@@ -343,24 +352,11 @@ def orfs_flow(
             "FOOTPRINT_TCL": ["@bazel-orfs//:quick_pins_footprint_stub.tcl"],
         }
 
-    check_variables(arguments.keys(), "arguments")
-    check_variables(sources.keys(), "sources")
-    shadowed = sorted([k for k in user_arguments if k in ALL_VARIABLE_TO_STAGES])
-    if shadowed:
-        fail(
-            "user_arguments contains known ORFS variable(s): {shadowed}. ".format(
-                shadowed = ", ".join(shadowed),
-            ) +
-            "Use arguments= for ORFS variables; reserve user_arguments= for project-specific env vars.",
-        )
-    shadowed_srcs = sorted([k for k in user_sources if k in ALL_VARIABLE_TO_STAGES])
-    if shadowed_srcs:
-        fail(
-            "user_sources contains known ORFS variable(s): {shadowed}. ".format(
-                shadowed = ", ".join(shadowed_srcs),
-            ) +
-            "Use sources= for ORFS variables; reserve user_sources= for project-specific path hooks.",
-        )
+    # Validated per-stage by _filter_stage_args via check_stage_variables(),
+    # the same guard a bare orfs_floorplan() gets.  Validate here too so a
+    # typo in a flow that instantiates no stage (last_stage past its own
+    # start) still fails loudly.
+    check_stage_variables(arguments, sources, user_arguments, user_sources)
     if abstract_stage and last_stage:
         fail("abstract_stage and last_stage are mutually exclusive")
     if variant == "base":
@@ -375,10 +371,12 @@ def orfs_flow(
         macros = macros,
         kept_macros = kept_macros,
         canon_blackbox_macros = canon_blackbox_macros,
-        sources = sources | user_sources,
+        sources = sources,
+        user_sources = user_sources,
         stage_arguments = stage_arguments,
         renamed_inputs = renamed_inputs,
-        arguments = arguments | user_arguments,
+        arguments = arguments,
+        user_arguments = user_arguments,
         extra_arguments = extra_arguments,
         extra_configs = extra_configs,
         abstract_stage = abstract_stage,
@@ -423,10 +421,12 @@ def orfs_flow(
         macros = macros,
         kept_macros = kept_macros,
         canon_blackbox_macros = canon_blackbox_macros,
-        sources = sources | user_sources,
+        sources = sources,
+        user_sources = user_sources,
         stage_arguments = stage_arguments,
         renamed_inputs = {},
         arguments = arguments | {"SYNTH_GUT": "1"},
+        user_arguments = user_arguments,
         extra_arguments = _merge_extra_arguments(extra_arguments, mock_extra_arguments),
         extra_configs = extra_configs,
         abstract_stage = "place",
@@ -524,6 +524,8 @@ def _orfs_pass(
         stage_arguments,
         renamed_inputs,
         arguments,
+        user_arguments,
+        user_sources,
         extra_arguments,
         extra_configs,
         abstract_stage,
@@ -593,7 +595,9 @@ def _orfs_pass(
                 name = step_name,
                 stage_arguments = stage_arguments,
                 arguments = arguments,
+                user_arguments = user_arguments,
                 sources = sources,
+                user_sources = user_sources,
                 deps = macros,
                 kept_macros = kept_macros if kept_macros != None else {},
                 kept_macros_enabled = kept_macros != None,
@@ -660,7 +664,9 @@ def _orfs_pass(
                     s.stage,
                     stage_arguments = dict(stage_arguments),
                     arguments = dict(arguments),
+                    user_arguments = dict(user_arguments),
                     sources = dict(sources),
+                    user_sources = dict(user_sources),
                     settings = dict(settings),
                     extra_arguments = dict(extra_arguments),
                     extra_configs = dict(extra_configs),
@@ -721,7 +727,9 @@ def _orfs_pass(
                         name = abstract_step_name,
                         stage_arguments = stage_arguments,
                         arguments = arguments,
+                        user_arguments = user_arguments,
                         sources = sources,
+                        user_sources = user_sources,
                         settings = settings,
                         extra_arguments = extra_arguments,
                         extra_configs = extra_configs,
@@ -746,7 +754,9 @@ def _orfs_pass(
                 name = step_name,
                 stage_arguments = stage_arguments,
                 arguments = arguments,
+                user_arguments = user_arguments,
                 sources = sources,
+                user_sources = user_sources,
                 settings = settings,
                 extra_arguments = extra_arguments,
                 extra_configs = extra_configs,
@@ -802,7 +812,9 @@ def _orfs_pass(
                 name = pre_layout_name,
                 stage_arguments = stage_arguments,
                 arguments = arguments,
+                user_arguments = user_arguments,
                 sources = sources,
+                user_sources = user_sources,
                 settings = settings,
                 extra_arguments = extra_arguments,
                 extra_configs = extra_configs,
