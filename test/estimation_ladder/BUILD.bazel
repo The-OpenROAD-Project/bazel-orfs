@@ -271,3 +271,26 @@ py_binary(
         "@bazel-orfs-dev-pip//scikit_learn",
     ],
 )
+
+# Fit the calibration constant on the simple design, apply it unchanged
+# to the macro design. Fitting and scoring on the same ground truth
+# would measure nothing but the free parameter, so the two designs are
+# wired in deliberately.
+py_binary(
+    name = "calibration_transfer",
+    srcs = ["calibration.py"],
+    args = [
+        "$(location :fast_estimator_executable)",
+        "$(location ground_truth.json)",
+        "$(location :fast_estimator_top_executable)",
+        "$(location ground_truth_top.json)",
+    ],
+    data = [
+        "ground_truth.json",
+        "ground_truth_top.json",
+        ":fast_estimator_executable",
+        ":fast_estimator_top_executable",
+    ],
+    main = "calibration.py",
+    deps = [":optuna_study_lib"],
+)
