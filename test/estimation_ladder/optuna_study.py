@@ -1,150 +1,220 @@
-import sys
+"""Rung A of the estimation ladder study: the correlation sweep.
+
+This rung searches the estimator's knob space for accuracy alone and
+deliberately does *not* optimize runtime.  It runs many estimators
+concurrently, so every wall-clock number it observes is contaminated by
+contention between them -- a configuration is not slow because of its
+knobs, it is slow because seven siblings were competing for the machine.
+Accuracy has no such problem: it is a property of the placement and the
+parasitics, not of the scheduler.
+
+Runtime is measured separately, one process at a time, by
+measure_runtime.py (rung B), which picks the configurations to time out
+of the archive this rung writes.
+"""
+
+import argparse
+import json
 import os
 import subprocess
-import json
-import optuna
 import tempfile
-import pandas as pd
+
+import optuna
+
+from estimation_metrics import compute_metrics
 
 
-def compute_mean_rel_err(truth_json, est_json):
-    with open(truth_json, "r") as f:
-        truth = json.load(f)
-    with open(est_json, "r") as f:
-        est = json.load(f)
+def build_env(trial):
+    """Sample one estimator configuration.
 
-    truth_paths = {(p["start"], p["end"]): p["min_period"] for p in truth["paths"]}
-    est_paths = {(p["start"], p["end"]): p["min_period"] for p in est["paths"]}
-    if set(truth_paths) != set(est_paths):
-        raise ValueError(
-            "Estimator path set differs from ground truth: "
-            f"missing {set(truth_paths) - set(est_paths)}, "
-            f"extra {set(est_paths) - set(truth_paths)}"
-        )
+    Knobs are only sampled for rungs that actually run, so an archive row
+    never reports a setting that had no effect on the result.
+    """
+    env = {}
 
-    mean_rel_err = sum(
-        abs(est_paths[k] - truth_paths[k]) / truth_paths[k] for k in truth_paths
-    ) / len(truth_paths)
-    runtime = est["runtime_s"]
+    run_place = trial.suggest_categorical("run_place", [0, 1])
+    env["RUN_PLACE"] = str(run_place)
+    env["RUN_MACRO_PLACE"] = str(trial.suggest_categorical("run_macro_place", [0, 1]))
 
-    return mean_rel_err, runtime
-
-
-def main():
-    print("Starting Optuna Campaign for Fast Estimator...")
-
-    if len(sys.argv) < 4:
-        sys.exit(
-            "Usage: optuna_study.py <estimator_exe> <ground_truth_json> <design_name>"
-        )
-
-    estimator_exe = sys.argv[1]
-    ground_truth_json = sys.argv[2]
-    design_name = sys.argv[3]
-
-    if not os.path.exists(estimator_exe):
-        sys.exit(f"Estimator executable not found at {estimator_exe}")
-    if not os.path.exists(ground_truth_json):
-        sys.exit(f"Ground truth JSON not found at {ground_truth_json}")
-
-    def objective(trial):
-        run_place = trial.suggest_categorical("run_place", [0, 1])
-        env = {
-            "RUN_PLACE": str(run_place),
-            "GPL_TIMING_DRIVEN": "0",
-            "GPL_ROUTABILITY_DRIVEN": "0",
-            "RUN_GRT": "0",
-            "GRT_ITERATIONS": "0",
-            "GROUND_TRUTH_JSON": ground_truth_json,
-        }
-
-        # The ladder is synth -> +place -> +grt: only suggest parameters
-        # for rungs that actually run, so Pareto front rows don't report
-        # knobs that had no effect.
-        if run_place == 1:
+    gp_args = []
+    if run_place == 1:
+        # -place_ios is a branch rather than another dimension: gpl
+        # refuses it alongside -timing_driven and -routability_driven, so
+        # sampling them independently would waste trials on combinations
+        # the tool rejects outright.
+        place_ios = trial.suggest_categorical("place_ios", [0, 1])
+        env["PLACE_IOS"] = str(place_ios)
+        if place_ios == 0:
             env["GPL_TIMING_DRIVEN"] = str(
                 trial.suggest_categorical("place_timing", [0, 1])
             )
             env["GPL_ROUTABILITY_DRIVEN"] = str(
                 trial.suggest_categorical("place_routability", [0, 1])
             )
-            env["RUN_GRT"] = str(trial.suggest_categorical("run_grt", [0, 1]))
+            if env["GPL_ROUTABILITY_DRIVEN"] == "1":
+                gp_args += [
+                    "-routability_check_overflow",
+                    str(trial.suggest_float("routability_check_overflow", 0.2, 0.5)),
+                ]
+                if trial.suggest_categorical("routability_use_grt", [0, 1]):
+                    gp_args.append("-routability_use_grt")
 
-        if env["RUN_GRT"] == "1":
-            env["GRT_ITERATIONS"] = str(trial.suggest_int("grt_iterations", 1, 5))
+        # The Nesterov termination threshold: the single largest runtime
+        # dial in gpl, and the one most likely to trade accuracy for it.
+        gp_args += ["-overflow", str(trial.suggest_float("overflow", 0.05, 0.40))]
+        gp_args += [
+            "-initial_place_max_iter",
+            str(trial.suggest_int("initial_place_max_iter", 0, 20)),
+        ]
+        gp_args += [
+            "-initial_place_max_fanout",
+            str(trial.suggest_int("initial_place_max_fanout", 50, 400)),
+        ]
+        gp_args += [
+            "-init_wirelength_coef",
+            str(trial.suggest_float("init_wirelength_coef", 0.05, 1.0)),
+        ]
+        bin_grid = trial.suggest_categorical("bin_grid_count", [0, 64, 128, 256])
+        if bin_grid:
+            gp_args += ["-bin_grid_count", str(bin_grid)]
 
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
-            out_json = tf.name
+        min_phi = trial.suggest_float("min_phi_coef", 0.85, 1.0)
+        max_phi = trial.suggest_float("max_phi_coef", 1.0, 1.15)
+        gp_args += ["-min_phi_coef", str(min_phi), "-max_phi_coef", str(max_phi)]
 
-        env["OUTPUT_JSON"] = out_json
+        # The virtual clock tree lives inside global placement, so it is
+        # only reachable on this branch.
+        env["GPL_VIRTUAL_CTS"] = str(trial.suggest_categorical("virtual_cts", [0, 1]))
 
-        cmd = [estimator_exe]
-        for k, v in env.items():
-            cmd.append(f"{k}={v}")
-
-        try:
-            full_env = os.environ.copy()
-            full_env.update(env)
-
-            res = subprocess.run(
-                cmd,
-                env=full_env,
-                capture_output=True,
-                text=True,
-            )
-            if res.returncode != 0:
-                print(
-                    f"Estimator failed (code {res.returncode}):\nstdout: {res.stdout}\nstderr: {res.stderr}"
-                )
-                raise optuna.TrialPruned()
-
-            rel_err, rt = compute_mean_rel_err(ground_truth_json, out_json)
-        finally:
-            if os.path.exists(out_json):
-                os.remove(out_json)
-
-        return rel_err, rt
-
-    study = optuna.create_study(directions=["minimize", "minimize"])
-    study.optimize(objective, n_trials=15, n_jobs=8)
-
-    print("Study finished!")
-    trials = study.best_trials
-
-    if not trials:
-        print("No valid trials found!")
-        df = pd.DataFrame(
-            columns=[
-                "mean_rel_err",
-                "runtime_s",
-                "run_place",
-                "place_timing",
-                "place_routability",
-                "run_grt",
-            ]
+        clock_mode = trial.suggest_categorical(
+            "clock_mode", ["none", "propagated", "real"]
         )
-    else:
-        data = []
-        for t in trials:
-            row = {"mean_rel_err": t.values[0], "runtime_s": t.values[1]}
-            row.update(t.params)
-            data.append(row)
+        env["CLOCK_MODE"] = clock_mode
+        if clock_mode == "real":
+            env["CTS_DPL"] = str(trial.suggest_categorical("cts_dpl", [0, 1]))
 
-        df = pd.DataFrame(data)
-        # Repeated trials with identical parameters land on the Pareto
-        # front as identical rows; they carry no information.
-        df = df.drop_duplicates()
-        df = df.sort_values(by="mean_rel_err", ascending=True)
+        if trial.suggest_categorical("repair_design", [0, 1]):
+            env["RUN_REPAIR_DESIGN"] = "1"
+            rd = []
+            if trial.suggest_categorical("repair_design_pre_placement", [0, 1]):
+                rd.append("-pre_placement")
+            rd += ["-slew_margin", str(trial.suggest_float("slew_margin", 0.0, 20.0))]
+            rd += ["-cap_margin", str(trial.suggest_float("cap_margin", 0.0, 20.0))]
+            env["REPAIR_DESIGN_ARGS"] = " ".join(rd)
 
-    print("\n--- PARETO FRONT ---")
-    print(df.to_string(index=False))
+        run_grt = trial.suggest_categorical("run_grt", [0, 1])
+        env["RUN_GRT"] = str(run_grt)
+        if run_grt == 1:
+            env["GRT_ITERATIONS"] = str(trial.suggest_int("grt_iterations", 1, 30))
+            grt = []
+            if trial.suggest_categorical("grt_use_cugr", [0, 1]):
+                grt.append("-use_cugr")
+            if trial.suggest_categorical("grt_allow_congestion", [0, 1]):
+                grt.append("-allow_congestion")
+            grt += [
+                "-critical_nets_percentage",
+                str(trial.suggest_float("critical_nets_percentage", 0.0, 30.0)),
+            ]
+            env["GRT_ARGS"] = " ".join(grt)
+
+        # repair_timing is only meaningful once there are parasitics to
+        # repair against, and -hold is excluded on purpose: the metric is
+        # the minimum clock period, so hold repair can only cost runtime.
+        if trial.suggest_categorical("repair_timing", [0, 1]):
+            env["RUN_REPAIR_TIMING"] = "1"
+            rt = [
+                "-sequence",
+                trial.suggest_categorical(
+                    "repair_timing_sequence",
+                    ["vt_swap", "vt_swap reroute", "buffer vt_swap reroute"],
+                ),
+                "-repair_tns",
+                str(trial.suggest_categorical("repair_tns", [0, 50, 100])),
+                "-max_passes",
+                str(trial.suggest_int("repair_max_passes", 1, 10)),
+            ]
+            if trial.suggest_categorical("repair_skip_last_gasp", [0, 1]):
+                rt.append("-skip_last_gasp")
+            if trial.suggest_categorical("repair_skip_gate_cloning", [0, 1]):
+                rt.append("-skip_gate_cloning")
+            env["REPAIR_TIMING_ARGS"] = " ".join(rt)
+
+    if gp_args:
+        env["GP_ARGS"] = " ".join(gp_args)
+    return env
+
+
+def run_estimator(estimator_exe, env, ground_truth_json):
+    """Run one estimator configuration and return its metrics."""
+    env = dict(env)
+    env["GROUND_TRUTH_JSON"] = ground_truth_json
+
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
+        out_json = tf.name
+    env["OUTPUT_JSON"] = out_json
+
+    cmd = [estimator_exe] + [f"{k}={v}" for k, v in env.items()]
+    try:
+        full_env = os.environ.copy()
+        full_env.update(env)
+        res = subprocess.run(cmd, env=full_env, capture_output=True, text=True)
+        if res.returncode != 0:
+            raise RuntimeError(
+                f"estimator exited {res.returncode}\n"
+                f"stdout: {res.stdout[-4000:]}\nstderr: {res.stderr[-4000:]}"
+            )
+        metrics, _ = compute_metrics(ground_truth_json, out_json)
+    finally:
+        if os.path.exists(out_json):
+            os.remove(out_json)
+    return metrics
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("estimator_exe")
+    ap.add_argument("ground_truth_json")
+    ap.add_argument("design_name")
+    ap.add_argument("--trials", type=int, default=400)
+    ap.add_argument("--jobs", type=int, default=8)
+    args = ap.parse_args()
+
+    for path in (args.estimator_exe, args.ground_truth_json):
+        if not os.path.exists(path):
+            raise SystemExit(f"not found: {path}")
+
+    archive = []
+
+    def objective(trial):
+        env = build_env(trial)
+        metrics = run_estimator(args.estimator_exe, env, args.ground_truth_json)
+        trial.set_user_attr("env", env)
+        for key, value in metrics.items():
+            if key != "phases":
+                trial.set_user_attr(key, value)
+        archive.append({"number": trial.number, "env": env, "metrics": metrics})
+        # Maximizing rank correlation and minimizing the *magnitude* of
+        # the bias: a large bias that is consistent is a calibration
+        # constant, so it should not be penalized by its sign.
+        return metrics["kendall_tau"], abs(metrics["bias"])
+
+    study = optuna.create_study(
+        directions=["maximize", "minimize"],
+        sampler=optuna.samplers.NSGAIISampler(seed=1),
+    )
+    study.optimize(
+        objective,
+        n_trials=args.trials,
+        n_jobs=args.jobs,
+        catch=(RuntimeError, ValueError),
+    )
 
     ws = os.environ.get("BUILD_WORKSPACE_DIRECTORY") or os.environ.get("PWD", ".")
-    out_path = os.path.join(
-        ws, f"test/estimation_ladder/pareto_front_{design_name}.csv"
-    )
-    df.to_csv(out_path, index=False)
-    print(f"\nSaved pareto front to {out_path}")
+    out_dir = os.path.join(ws, "test/estimation_ladder")
+    archive_path = os.path.join(out_dir, f"archive_{args.design_name}.json")
+    with open(archive_path, "w") as f:
+        json.dump(archive, f, indent=2, sort_keys=True)
+    print(f"Wrote {len(archive)} trials to {archive_path}")
 
 
 if __name__ == "__main__":
