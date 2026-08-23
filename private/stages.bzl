@@ -277,6 +277,31 @@ def check_stage_variables(arguments, sources, user_arguments, user_sources):
 # off the critical build graph. Copy that shape rather than growing a new
 # execution-time filter.
 #
+# ---------------------------------------------------------------------------
+# The two escape hatches
+#
+# Two different things a caller may want to bypass, and they are NOT
+# interchangeable:
+#
+# 1. stage_arguments= bypasses THE FILTER, for one named stage.
+#    MORATORIUM(stage-arguments-bypass), applied in get_stage_args() below.
+#    The live case is narrowing a variable that variables.yaml marks "All
+#    stages" down to a single stage — SKIP_REPORT_METRICS on floorplan only,
+#    say (test/BUILD). Neither alternative can express that: arguments= fans
+#    the variable out to every stage, and user_arguments= is a hard fail() on
+#    a known variable (see check_stage_variables above).
+#
+# 2. user_arguments= / user_sources= bypass THE SPELL-CHECK, for all stages.
+#    A project-specific env var that ORFS has never heard of is unmapped, so
+#    the filter's escape hatch keeps it everywhere; check_variables() would
+#    otherwise reject it as a typo. They must not name a known ORFS variable —
+#    that would be a silent split-brain between two dicts with different
+#    precedence, so it is a fail().
+#
+# Rule of thumb: a known variable in the wrong stages -> stage_arguments; an
+# unknown variable -> user_arguments. Never reach for the other one.
+# ---------------------------------------------------------------------------
+#
 # The `stages` parameter is always a LIST (empty = no filtering). flow.bzl
 # wraps its single stage as [stage]; orfs_run passes its stages string_list.
 # ---------------------------------------------------------------------------
