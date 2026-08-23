@@ -40,9 +40,7 @@ class TestMergeArguments(unittest.TestCase):
 
     def test_filtering(self):
         json_data = self.write_json("data.json", {"A": "1", "B": "2", "C": "3"})
-        filter_json = self.write_json(
-            "filter.json", {"allowed": ["A", "C"], "known": ["A", "B", "C"]}
-        )
+        filter_json = self.write_json("filter.json", {"drop": ["B"]})
         out_mk = os.path.join(self.temp_dir.name, "out.mk")
 
         self.run_script([out_mk, "--filter", filter_json, json_data])
@@ -53,15 +51,13 @@ class TestMergeArguments(unittest.TestCase):
         expected = "export A?=1\n" "export C?=3\n"
         self.assertEqual(content, expected)
 
-    def test_filtering_keeps_unknown(self):
-        # A variable NOT in `known` is the unmapped escape hatch and must
-        # always survive the filter, even when filtering is active. This
-        # mirrors stages.bzl's `arg not in ALL_VARIABLE_TO_STAGES` branch —
-        # see MORATORIUM(filter-parity) in private/stages.bzl.
+    def test_filtering_keeps_everything_not_on_the_denylist(self):
+        # MORATORIUM(filter-decided-once): the script applies the denylist and
+        # decides nothing. A variable unknown to ORFS variables.yaml is simply
+        # never put on the denylist by dropped_variables(), which is how the
+        # escape hatch survives — see private/stages.bzl.
         json_data = self.write_json("data.json", {"A": "1", "B": "2", "CUSTOM": "9"})
-        filter_json = self.write_json(
-            "filter.json", {"allowed": ["A"], "known": ["A", "B"]}
-        )
+        filter_json = self.write_json("filter.json", {"drop": ["B"]})
         out_mk = os.path.join(self.temp_dir.name, "out.mk")
 
         self.run_script([out_mk, "--filter", filter_json, json_data])
@@ -69,9 +65,20 @@ class TestMergeArguments(unittest.TestCase):
         with open(out_mk) as f:
             content = f.read()
 
-        # A: known+allowed -> kept. B: known, not allowed -> dropped.
-        # CUSTOM: unknown -> kept (escape hatch).
         expected = "export A?=1\n" "export CUSTOM?=9\n"
+        self.assertEqual(content, expected)
+
+    def test_empty_denylist_keeps_everything(self):
+        json_data = self.write_json("data.json", {"A": "1", "B": "2"})
+        filter_json = self.write_json("filter.json", {"drop": []})
+        out_mk = os.path.join(self.temp_dir.name, "out.mk")
+
+        self.run_script([out_mk, "--filter", filter_json, json_data])
+
+        with open(out_mk) as f:
+            content = f.read()
+
+        expected = "export A?=1\n" "export B?=2\n"
         self.assertEqual(content, expected)
 
     def test_mk_includes(self):

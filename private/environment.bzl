@@ -9,7 +9,7 @@ load(
     "PdkInfo",
     "TopInfo",
 )
-load("//private:stages.bzl", "ALL_STAGE_TO_VARIABLES", "ALL_VARIABLE_TO_STAGES")
+load("//private:stages.bzl", "ALL_STAGE_TO_VARIABLES", "dropped_variables")
 load("//private:utils.bzl", "file_path", "flatten")
 
 def odb_arguments(ctx, short = False):
@@ -642,6 +642,30 @@ def declare_artifacts(ctx, category, names):
 def extensionless_basename(file):
     return file.basename.removesuffix("." + file.extension)
 
+def write_stage_filter(ctx, category, name, stages):
+    """Writes the execution-time variable denylist consumed by merge_arguments.py.
+
+    MORATORIUM(filter-decided-once): the ONLY writer of a filter .json. The
+    denylist is computed by stages.bzl's dropped_variables(); merge_arguments.py
+    applies it without re-deriving anything. See the two-time-domains block in
+    private/stages.bzl.
+
+    Args:
+      ctx: The rule context.
+      category: output category for declare_artifact.
+      name: prefix for the generated file (e.g. the stage or target name).
+      stages: list of stages whose variables are kept. Empty drops nothing.
+
+    Returns:
+      The declared filter .json File.
+    """
+    filter_json = declare_artifact(ctx, category, name + ".filter.json")
+    ctx.actions.write(
+        output = filter_json,
+        content = json.encode({"drop": dropped_variables(stages)}),
+    )
+    return filter_json
+
 def merge_and_filter_arguments(ctx, category, name, original_config, inherited_jsons, extra_jsons, stages):
     """
     Merges configuration jsons and optionally filters them by stages.
@@ -665,23 +689,8 @@ def merge_and_filter_arguments(ctx, category, name, original_config, inherited_j
     # doing so would reintroduce the unfiltered base config variables and
     # defeat the filter. The merge branch (no stages) DOES --include it and
     # must keep it as an input.
-    # MORATORIUM(filter-parity): the {allowed, known} contract written here
-    # feeds merge_arguments.py's keep/drop, which mirrors stages.bzl's
-    # analysis-time predicate. Keep the three in lockstep — see the
-    # MORATORIUM(filter-parity) block in private/stages.bzl.
     if stages:
-        allowed_vars = []
-        for s in stages:
-            allowed_vars.extend(ALL_STAGE_TO_VARIABLES.get(s, []))
-
-        filter_json = declare_artifact(ctx, category, name + ".filter.json")
-        ctx.actions.write(
-            output = filter_json,
-            content = json.encode({
-                "allowed": allowed_vars,
-                "known": ALL_VARIABLE_TO_STAGES.keys(),
-            }),
-        )
+        filter_json = write_stage_filter(ctx, category, name, stages)
 
         new_config = declare_artifact(ctx, category, name + ".config.mk")
         args = [

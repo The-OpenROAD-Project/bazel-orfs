@@ -184,38 +184,63 @@ def check_variables(variables, label):
         )
 
 # ---------------------------------------------------------------------------
-# Stage variable filtering
+# Stage variable filtering — the two time domains
 #
-# get_stage_args() and get_sources() implement the SAME keep/drop predicate:
+# The keep/drop predicate is ONE rule:
 #
 #     keep variable V for stage-set S  iff
 #         S is empty (no filtering)
-#         OR V belongs to some stage in S         # union over stages
+#         OR V belongs to some stage in S          # union over stages
 #         OR V is unmapped (not in variables.yaml) # the escape hatch
 #
-# This module is the canonical documentation hub for the filter invariants;
-# other sites point back here by MORATORIUM tag (grep `MORATORIUM(` to
-# enumerate all fences).
+# It is DECIDED here, at Bazel ANALYSIS time, and nowhere else. It has to be
+# APPLIED in two places, because those two places see different things.
 #
-# MORATORIUM(filter-parity): This predicate is mirrored at EXECUTION time by
-# merge_arguments.py (`drop iff k in known and k not in allowed`) and by the
-# inline filter_json in rules.bzl (synth partitions). All three MUST agree —
-# if they drift, a variable can be kept at analysis time but dropped at
-# execution time (or vice-versa), causing missing-input failures or silent
-# variable loss on specific stages. Change them together; the filter-parity
-# behavior is locked by test/stages_filter_test.bzl and merge_arguments_test.py.
+# 1. ANALYSIS time — get_stage_args() / get_sources() below.
 #
-# MORATORIUM(source-filtering-is-analysis-time): get_sources() filters at
-# Bazel ANALYSIS time on purpose, and a source's $(locations) argument is
-# filtered here in lockstep with its data entry. This is not optional:
-#   * it prevents circular dependencies (a source consumed by a downstream
-#     stage must not be wired into an upstream stage's data),
-#   * fewer inputs per action lets the action start sooner, and
-#   * it lets callers declare one DRY sources={} dict in BUILD.bazel and have
-#     each stage take only the subset it needs.
-# Never defer source->data filtering to merge_arguments.py. You also cannot
-# emit $(locations X) for a label pruned from data (location-expansion error),
-# which is why the source-derived args live here and not with plain args.
+#    This one is not really about variables, it is about the ACTION'S INPUT
+#    SET: dropping V for a stage also drops the labels in sources[V] from that
+#    action's data. That cannot move later:
+#      * it prevents circular dependencies (a file produced by a downstream
+#        stage must not be wired into an upstream stage's data),
+#      * fewer inputs per action lets the action start sooner and cache better,
+#      * it lets callers declare one DRY sources={} dict in BUILD.bazel and
+#        have each stage take only the subset it needs, and
+#      * you CANNOT emit $(locations X) for a label pruned from data —
+#        location expansion fails. So the source-derived args must be filtered
+#        here, in lockstep with the data entries they name.
+#    MORATORIUM(source-filtering-is-analysis-time): never defer source->data
+#    filtering to merge_arguments.py.
+#
+# 2. EXECUTION time — merge_arguments.py, fed the filter .json written by
+#    write_stage_filter() in environment.bzl.
+#
+#    This exists because THE MERGED VARIABLE SET IS NOT KNOWABLE AT ANALYSIS
+#    TIME. merge_and_filter_arguments() merges OrfsInfo.arguments, a depset of
+#    .json ACTION OUTPUTS:
+#      * orfs_arguments (rules.bzl) runs a Tcl script through ORFS — e.g.
+#        compute_floorplan_shape.tcl or compute_slack_margin.tcl — and the keys
+#        and values it emits only exist after that action has run;
+#      * extra_arguments accepts arbitrary generated .json files.
+#    A variable can therefore enter the config from a file Starlark has never
+#    seen, so the keep/drop has to be applied again by a program running at
+#    execution time. That program does NOT re-implement the predicate:
+#    Starlark hands it a precomputed DENYLIST (dropped_variables() below) and
+#    it applies it verbatim.
+#    MORATORIUM(filter-decided-once): merge_arguments.py must stay a denylist
+#    APPLIER. Writing the predicate in Python again reintroduces the drift bug
+#    this contract removed — a variable kept at analysis time but dropped at
+#    execution time (or vice-versa) shows up as a missing-input failure or as
+#    silent variable loss on one stage. Locked by test/stages_filter_test.bzl
+#    and merge_arguments_test.py.
+#
+# For inputs only the flow can discover — which macros a synthesized module
+# actually instantiates, say — there is a third pattern: DECLARE at analysis
+# time, VALIDATE at execution time. kept_macros is declared in BUILD.bazel, so
+# macro LEF/lib data can be pruned from action inputs, and rtlil_kept_macros.py
+# only checks that declaration against the canonicalized RTLIL, deliberately
+# off the critical build graph. Copy that shape rather than growing a new
+# execution-time filter.
 #
 # The `stages` parameter is always a LIST (empty = no filtering). flow.bzl
 # wraps its single stage as [stage]; orfs_run passes its stages string_list.
@@ -240,9 +265,29 @@ def _allowed_predicate(stages):
     return True, allowed
 
 def _keep(arg, filtering, allowed):
-    # See the MORATORIUM(filter-parity) note above — this is the single
-    # analysis-time keep/drop predicate.
+    # The single keep/drop predicate — see the two-time-domains block above.
     return (not filtering) or (arg in allowed) or (arg not in ALL_VARIABLE_TO_STAGES)
+
+def dropped_variables(stages):
+    """Returns the denylist that merge_arguments.py applies at execution time.
+
+    Same rule as _keep(), precomputed into the only form merge_arguments.py
+    needs: the known variables this stage-set does not own. Unmapped variables
+    are never in the list, which is how the escape hatch survives.
+
+    MORATORIUM(filter-decided-once): this is the ONLY place the execution-time
+    denylist is computed. See the two-time-domains block above.
+
+    Args:
+        stages: list of stage names. Empty means no filtering, so nothing is
+            dropped.
+    Returns:
+      A sorted list of variable names to drop.
+    """
+    filtering, allowed = _allowed_predicate(stages)
+    if not filtering:
+        return []
+    return sorted([v for v in ALL_VARIABLE_TO_STAGES.keys() if v not in allowed])
 
 def get_stage_args(stages, stage_arguments = {}, arguments = {}, sources = {}):
     """Returns the arguments for a set of stages.

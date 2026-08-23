@@ -7,6 +7,9 @@ and the invariants documented by the MORATORIUM blocks in private/stages.bzl:
   * unmapped variables (absent from variables.yaml) always survive (the
     escape hatch);
   * MORATORIUM(stage-arguments-bypass): stage_arguments bypass the filter;
+  * MORATORIUM(filter-decided-once): dropped_variables(), the denylist handed
+    to merge_arguments.py at execution time, is the exact complement of the
+    analysis-time keep predicate;
   * output is sorted/deterministic;
   * list union — a variable in ANY requested stage is kept.
 
@@ -19,6 +22,7 @@ load(
     "//private:stages.bzl",
     "ALL_STAGE_TO_VARIABLES",
     "ALL_VARIABLE_TO_STAGES",
+    "dropped_variables",
     "get_sources",
     "get_stage_args",
 )
@@ -96,6 +100,46 @@ def _stage_arguments_bypass_filter_test(ctx):
     asserts.equals(env, "forced", result.get(_VAR_B))
     return unittest.end(env)
 
+def _denylist_is_the_complement_of_keep_test(ctx):
+    env = unittest.begin(ctx)
+
+    # MORATORIUM(filter-decided-once): the execution-time denylist must agree
+    # with the analysis-time keep predicate for every known variable, so that
+    # merge_arguments.py never has to re-derive it.
+    dropped = dropped_variables([_STAGE_A])
+    kept = ALL_STAGE_TO_VARIABLES[_STAGE_A]
+
+    # Nothing this stage owns is dropped, and every known variable it does not
+    # own is.
+    asserts.equals(env, [], [v for v in dropped if v in kept])
+    asserts.equals(
+        env,
+        [],
+        [v for v in ALL_VARIABLE_TO_STAGES.keys() if v not in kept and v not in dropped],
+    )
+
+    # Unmapped variables are never on the denylist — the escape hatch.
+    asserts.false(env, _UNMAPPED in dropped)
+
+    # Sorted for deterministic action inputs.
+    asserts.equals(env, sorted(dropped), dropped)
+
+    # No stages means no filtering, so nothing is dropped.
+    asserts.equals(env, [], dropped_variables([]))
+    return unittest.end(env)
+
+def _denylist_union_over_stages_test(ctx):
+    env = unittest.begin(ctx)
+
+    # A variable owned by either stage survives a two-stage filter.
+    dropped = dropped_variables([_STAGE_A, _STAGE_B])
+    asserts.false(env, _VAR_A in dropped)
+    asserts.false(env, _VAR_B in dropped)
+
+    # ... but it is dropped when only the other stage is requested.
+    asserts.true(env, _VAR_B in dropped_variables([_STAGE_A]))
+    return unittest.end(env)
+
 def _sorted_output_test(ctx):
     env = unittest.begin(ctx)
 
@@ -108,6 +152,8 @@ empty_stages_keeps_everything_test = unittest.make(_empty_stages_keeps_everythin
 filter_drops_out_of_stage_keeps_unmapped_test = unittest.make(_filter_drops_out_of_stage_keeps_unmapped_test)
 union_over_stages_test = unittest.make(_union_over_stages_test)
 stage_arguments_bypass_filter_test = unittest.make(_stage_arguments_bypass_filter_test)
+denylist_is_the_complement_of_keep_test = unittest.make(_denylist_is_the_complement_of_keep_test)
+denylist_union_over_stages_test = unittest.make(_denylist_union_over_stages_test)
 sorted_output_test = unittest.make(_sorted_output_test)
 
 def stages_filter_test_suite(name):
@@ -117,5 +163,7 @@ def stages_filter_test_suite(name):
         filter_drops_out_of_stage_keeps_unmapped_test,
         union_over_stages_test,
         stage_arguments_bypass_filter_test,
+        denylist_is_the_complement_of_keep_test,
+        denylist_union_over_stages_test,
         sorted_output_test,
     )
