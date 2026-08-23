@@ -148,6 +148,10 @@ if {$clock_mode eq "real"} {
         repair_clock_inverters
         set cts_args [list -sink_clustering_enable -repair_clock_nets]
         eval clock_tree_synthesis $cts_args [est_args CTS_ARGS_EXTRA]
+        # Order follows ORFS cts.tcl: re-estimate straight after CTS,
+        # which has just inserted buffers and dummy loads, and only then
+        # propagate the clock.
+        estimate_parasitics -placement
         set_propagated_clock [all_clocks]
         estimate_parasitics -placement
     }
@@ -155,13 +159,26 @@ if {$clock_mode eq "real"} {
     set_propagated_clock [all_clocks]
 }
 
+# Re-estimate against whichever source is current.  repair_design and
+# repair_timing open an incremental-parasitics guard that errors out
+# (EST-0104) if anything upstream -- CTS inserting buffers and dummy
+# loads, most notably -- left parasitics invalid.
+proc est_refresh_parasitics { } {
+    if {[est_flag RUN_GRT 0] == 1 && [grt::have_routes]} {
+        estimate_parasitics -global_routing
+    } else {
+        estimate_parasitics -placement
+    }
+}
+
 # 7. Repair design.  The ground-truth ODB has been through repair_design
 # and repair_timing; without them the estimate carries a systematic
 # optimism no placement knob can remove.
 if {[est_flag RUN_REPAIR_DESIGN 0] == 1} {
     time_phase repair_design {
+        est_refresh_parasitics
         eval repair_design [est_args REPAIR_DESIGN_ARGS]
-        estimate_parasitics -placement
+        est_refresh_parasitics
     }
 }
 
@@ -179,12 +196,9 @@ if {[est_flag RUN_GRT 0] == 1} {
 # the minimum clock period, so -hold can only cost runtime.
 if {[est_flag RUN_REPAIR_TIMING 0] == 1} {
     time_phase repair_timing {
+        est_refresh_parasitics
         eval repair_timing -setup [est_args REPAIR_TIMING_ARGS]
-        if {[est_flag RUN_GRT 0] == 1} {
-            estimate_parasitics -global_routing
-        } else {
-            estimate_parasitics -placement
-        }
+        est_refresh_parasitics
     }
 }
 
