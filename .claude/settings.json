@@ -2,11 +2,25 @@
   "permissions": {
     "allow": [
       "Bash(gh pr create:*)",
-      "Bash(gh pr comment:*)",
-      "Bash(git push:*)"
+      "Bash(gh pr comment:*)"
     ],
     "deny": [
-      "Bash(gh pr merge:*)"
+      "Bash(gh pr merge:*)",
+      "Bash(bazel clean:*)",
+      "Bash(bazelisk clean:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Read|Edit|Write|NotebookEdit|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/guard_tool.py\""
+          }
+        ]
+      }
     ]
   }
 }
