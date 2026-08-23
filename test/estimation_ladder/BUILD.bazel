@@ -1,7 +1,14 @@
-load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("//:openroad.bzl", "orfs_flow", "orfs_run", "orfs_run_executable")
 
 package(default_visibility = ["//visibility:public"])
+
+# Shared accuracy metrics, used by both rungs of the study.
+py_library(
+    name = "estimation_metrics",
+    srcs = ["estimation_metrics.py"],
+    deps = ["@bazel-orfs-dev-pip//scipy"],
+)
 
 # Single Source of Truth for the multiplier design
 MULTIPLIER_SOURCES = {
@@ -76,6 +83,7 @@ py_binary(
         ":multiplier_asap7_synth",
     ],
     deps = [
+        ":estimation_metrics",
         "@bazel-orfs-dev-pip//optuna",
         "@bazel-orfs-dev-pip//pandas",
     ],
@@ -195,7 +203,66 @@ py_binary(
     ],
     main = "optuna_study.py",
     deps = [
+        ":estimation_metrics",
         "@bazel-orfs-dev-pip//optuna",
         "@bazel-orfs-dev-pip//pandas",
+    ],
+)
+
+# -------------------------------------------------------------
+# Rung B: adaptive runtime measurement
+#
+# Kept separate from the rung A binaries on purpose: rung A runs
+# estimators concurrently and must never be in the same process as the
+# rung that times them one at a time.
+# -------------------------------------------------------------
+
+py_library(
+    name = "optuna_study_lib",
+    srcs = ["optuna_study.py"],
+    deps = [
+        ":estimation_metrics",
+        "@bazel-orfs-dev-pip//optuna",
+    ],
+)
+
+py_binary(
+    name = "measure_runtime",
+    srcs = ["measure_runtime.py"],
+    args = [
+        "$(location :fast_estimator_executable)",
+        "$(location ground_truth.json)",
+        "multiplier",
+        "--archive",
+        "archive_multiplier.json",
+    ],
+    data = [
+        "ground_truth.json",
+        ":fast_estimator_executable",
+    ],
+    deps = [
+        ":optuna_study_lib",
+        "@bazel-orfs-dev-pip//scikit_learn",
+    ],
+)
+
+py_binary(
+    name = "measure_runtime_top",
+    srcs = ["measure_runtime.py"],
+    args = [
+        "$(location :fast_estimator_top_executable)",
+        "$(location ground_truth_top.json)",
+        "multiplier_top",
+        "--archive",
+        "archive_multiplier_top.json",
+    ],
+    data = [
+        "ground_truth_top.json",
+        ":fast_estimator_top_executable",
+    ],
+    main = "measure_runtime.py",
+    deps = [
+        ":optuna_study_lib",
+        "@bazel-orfs-dev-pip//scikit_learn",
     ],
 )

@@ -1,74 +1,107 @@
-import sys
+"""Machinery check for rung A of the estimation ladder study.
+
+This test does not evaluate the study's conclusions -- it runs a handful
+of trials on both designs and checks that the sweep produces a usable
+archive, and that the ladder's basic premise still holds: the macro
+design, whose near-critical paths are dominated by wires that do not
+exist until placement, must be estimated *worse* by a synthesis-only
+rung than the small wire-poor design is.
+
+It runs the trials concurrently on purpose. Only the runtime axis is
+sensitive to that, and this test does not look at runtime.
+"""
+
+import json
 import os
-import subprocess
-import pandas as pd
-import tempfile
 import shutil
+import subprocess
+import sys
+import tempfile
+
+TRIALS = "8"
+JOBS = "8"
 
 
 def run_study(study_exe, estimator_exe, ground_truth, design_name, env):
-    print(f"Running optuna_study for {design_name}...")
+    print(f"Running rung A for {design_name}...")
     res = subprocess.run(
-        [study_exe, estimator_exe, ground_truth, design_name],
+        [
+            study_exe,
+            estimator_exe,
+            ground_truth,
+            design_name,
+            "--trials",
+            TRIALS,
+            "--jobs",
+            JOBS,
+        ],
         env=env,
         capture_output=True,
         text=True,
     )
     if res.returncode != 0:
-        sys.exit(f"optuna_study for {design_name} failed!\n{res.stdout}\n{res.stderr}")
+        sys.exit(f"rung A for {design_name} failed!\n{res.stdout}\n{res.stderr}")
+
+
+def best_synth_only(archive):
+    """Lowest mean relative error among trials that ran no placement."""
+    errs = [
+        row["metrics"]["mean_rel_err"]
+        for row in archive
+        if str(row["env"].get("RUN_PLACE", "0")) != "1"
+    ]
+    return min(errs) if errs else None
 
 
 def main():
     if len(sys.argv) < 6:
         sys.exit(
-            "Usage: optuna_study_test.py <optuna_study_exe> <estimator_exe> <ground_truth_json> <estimator_top_exe> <ground_truth_top_json>"
+            "Usage: optuna_study_test.py <optuna_study_exe> <estimator_exe> "
+            "<ground_truth_json> <estimator_top_exe> <ground_truth_top_json>"
         )
 
-    study_exe = sys.argv[1]
-    estimator_exe = sys.argv[2]
-    ground_truth = sys.argv[3]
-    estimator_top_exe = sys.argv[4]
-    ground_truth_top = sys.argv[5]
+    study_exe, estimator_exe, ground_truth, estimator_top_exe, ground_truth_top = (
+        sys.argv[1:6]
+    )
 
-    # We will run optuna_study using subprocess and check its output pareto front
     temp_dir = tempfile.mkdtemp()
     try:
         env = os.environ.copy()
         env["BUILD_WORKSPACE_DIRECTORY"] = temp_dir
-
-        # Creating a dummy test/estimation_ladder directory in the temp dir so study can save the csv
-        os.makedirs(os.path.join(temp_dir, "test/estimation_ladder"), exist_ok=True)
+        out_dir = os.path.join(temp_dir, "test/estimation_ladder")
+        os.makedirs(out_dir, exist_ok=True)
 
         run_study(study_exe, estimator_exe, ground_truth, "multiplier", env)
         run_study(study_exe, estimator_top_exe, ground_truth_top, "multiplier_top", env)
 
-        df_simple = pd.read_csv(
-            os.path.join(temp_dir, "test/estimation_ladder/pareto_front_multiplier.csv")
-        )
-        df_top = pd.read_csv(
-            os.path.join(
-                temp_dir, "test/estimation_ladder/pareto_front_multiplier_top.csv"
-            )
-        )
+        archives = {}
+        for design in ("multiplier", "multiplier_top"):
+            path = os.path.join(out_dir, f"archive_{design}.json")
+            with open(path) as f:
+                archives[design] = json.load(f)
+            if not archives[design]:
+                sys.exit(f"FAIL: empty archive for {design}")
+            required = {"mean_rel_err", "bias", "spread", "kendall_tau", "worst_recall"}
+            missing = required - set(archives[design][0]["metrics"])
+            if missing:
+                sys.exit(f"FAIL: {design} archive is missing metrics {missing}")
 
-        synth_only_simple = df_simple[df_simple["run_place"] == 0]["mean_rel_err"]
-        synth_only_top = df_top[df_top["run_place"] == 0]["mean_rel_err"]
-        if synth_only_simple.empty or synth_only_top.empty:
-            sys.exit("FAIL: No synth-only (run_place=0) trial on a Pareto front")
-
-        synth_simple = synth_only_simple.min()
-        synth_top = synth_only_top.min()
+        synth_simple = best_synth_only(archives["multiplier"])
+        synth_top = best_synth_only(archives["multiplier_top"])
+        if synth_simple is None or synth_top is None:
+            sys.exit("FAIL: no synthesis-only trial in one of the archives")
 
         print(f"Best synth-only mean relative error (simple): {synth_simple}")
         print(f"Best synth-only mean relative error (top): {synth_top}")
 
         if synth_top <= synth_simple:
             sys.exit(
-                f"FAIL: Expected complex top design to have WORSE synth-only relative error ({synth_top}) than simple design ({synth_simple})"
+                "FAIL: expected the macro design to have WORSE synth-only "
+                f"relative error ({synth_top}) than the simple design "
+                f"({synth_simple})"
             )
 
-        print("PASS: Estimation ladder evaluated for both designs.")
-
+        print("PASS: rung A produced usable archives for both designs.")
     finally:
         shutil.rmtree(temp_dir)
 
