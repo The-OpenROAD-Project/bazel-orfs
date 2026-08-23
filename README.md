@@ -1017,11 +1017,7 @@ Alternatively, for tight-loop optimizers where the Bazel server overhead is unde
 you can use the `orfs_run_executable` rule to compile a standalone Make wrapper. This 
 produces a binary that invokes the underlying tool (e.g. OpenROAD) directly.
 
-**Important constraints for `orfs_run_executable`**:
-- **What the framework writes**: for the default `cmd = "run"`, the ORFS Makefile's `run` target does `mkdir -p` on `RESULTS_DIR`, `LOG_DIR`, `REPORTS_DIR` and `OBJECTS_DIR`, and writes exactly one file: `$(LOG_DIR)/$(RUN_LOG_NAME_STEM).log` (default `run.log`) — the full tool output plus a final elapsed-time line, opened in overwrite mode on every invocation. No metrics JSON is produced (unlike the flow stages).
-- **Pass LOG_DIR**: the executable runs with its working directory (`pwd`) set to the Bazel runfiles tree, so the default `LOG_DIR` resolves *inside the runfiles tree* — the framework then writes `run.log` into Bazel's output tree. Pass `LOG_DIR=<absolute path>` (it is created if missing) to keep runfiles pristine. Concurrent invocations of the same executable (e.g. an Optuna study with `n_jobs > 1`) must each get their own `LOG_DIR` (or `RUN_LOG_NAME_STEM`), or they overwrite each other's `run.log`.
-- **Read-only ORFS outputs**: scripts must treat the staged flow outputs under `RESULTS_DIR`, `REPORTS_DIR` and `OBJECTS_DIR` as read-only.
-- **Absolute paths for custom outputs**: what the script itself writes is the script author's responsibility; any script-specific output locations must be passed as custom `KEY=VALUE` variables using **absolute paths**.
+See the `orfs_run_executable` rule docstring in `private/rules.bzl` for important execution constraints regarding logging, output directories, and parallel invocations.
 
 ```python
 # In your bazel-run Python script or objective function:
@@ -1159,21 +1155,7 @@ GUI and CLI are available for: `floorplan`, `place`, `cts`, `grt`, `route`, `fin
 
 ### orfs_genrule
 
-`orfs_genrule` is a drop-in replacement for Bazel's native `genrule` that keeps
-`srcs` and `tools` in the **exec** configuration (`cfg = "exec"`).
-
-Native `genrule` forces `srcs` into the **target** configuration. When `srcs`
-reference targets produced by ORFS rules (which always build in the exec
-configuration), this configuration mismatch causes the entire ORFS pipeline —
-synthesis, placement, routing — to be **rebuilt a second time** under the target
-configuration. For large designs this can add hours to the build.
-
-`orfs_genrule` avoids this by matching the configuration where ORFS outputs
-already live. Use it for any post-processing rule (reports, plots, CSV
-transformations) whose inputs come from `orfs_flow` or `orfs_synth` targets.
-
-It supports the same `cmd` substitutions as native `genrule`:
-`$(location)`, `$(execpath)`, `$(SRCS)`, `$(OUTS)`, `$<`, `$@`, `$$`.
+See `orfs_genrule.bzl` for the rule docstring and usage. It is a drop-in replacement for Bazel's native `genrule` that correctly separates executable tools from data srcs (putting tools in the `exec` configuration) and allows `select()` in `srcs`.
 
 ```starlark
 load("@bazel-orfs//:orfs_genrule.bzl", "orfs_genrule")
