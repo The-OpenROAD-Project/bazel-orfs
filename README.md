@@ -1018,23 +1018,28 @@ you can use the `orfs_run_executable` rule to compile a standalone Make wrapper.
 produces a binary that invokes the underlying tool (e.g. OpenROAD) directly.
 
 **Important constraints for `orfs_run_executable`**:
-- **Read-only ORFS outputs**: The executable treats the standard ORFS output directories (`RESULTS_DIR`, `REPORTS_DIR`, `OBJECTS_DIR`) as read-only.
-- **Absolute paths for custom outputs**: Because the executable runs with its working directory (`pwd`) set to the Bazel runfiles tree, any script-specific output locations must be passed as custom `KEY=VALUE` variables using **absolute paths**.
+- **What the framework writes**: for the default `cmd = "run"`, the ORFS Makefile's `run` target does `mkdir -p` on `RESULTS_DIR`, `LOG_DIR`, `REPORTS_DIR` and `OBJECTS_DIR`, and writes exactly one file: `$(LOG_DIR)/$(RUN_LOG_NAME_STEM).log` (default `run.log`) — the full tool output plus a final elapsed-time line, opened in overwrite mode on every invocation. No metrics JSON is produced (unlike the flow stages).
+- **Pass LOG_DIR**: the executable runs with its working directory (`pwd`) set to the Bazel runfiles tree, so the default `LOG_DIR` resolves *inside the runfiles tree* — the framework then writes `run.log` into Bazel's output tree. Pass `LOG_DIR=<absolute path>` (it is created if missing) to keep runfiles pristine. Concurrent invocations of the same executable (e.g. an Optuna study with `n_jobs > 1`) must each get their own `LOG_DIR` (or `RUN_LOG_NAME_STEM`), or they overwrite each other's `run.log`.
+- **Read-only ORFS outputs**: scripts must treat the staged flow outputs under `RESULTS_DIR`, `REPORTS_DIR` and `OBJECTS_DIR` as read-only.
+- **Absolute paths for custom outputs**: what the script itself writes is the script author's responsibility; any script-specific output locations must be passed as custom `KEY=VALUE` variables using **absolute paths**.
 
 ```python
 # In your bazel-run Python script or objective function:
 import os
 import subprocess
+import tempfile
 
 # Drive the compiled wrapper directly with KEY=VALUE overrides.
-# We pass an absolute path for the output file since the executable
-# runs inside its own runfiles directory.
-metrics_out = os.path.abspath("metrics.json")
+# Absolute paths: the executable runs inside its own runfiles directory.
+# A per-invocation LOG_DIR keeps runfiles pristine and keeps parallel
+# trials from overwriting each other's run.log.
+trial_dir = tempfile.mkdtemp()
 result = subprocess.run(
     [
-        "path/to/my_run_executable", 
-        "PLACE_DENSITY=0.6", 
-        f"METRICS_OUT={metrics_out}"
+        "path/to/my_run_executable",
+        "PLACE_DENSITY=0.6",
+        f"LOG_DIR={trial_dir}",
+        f"METRICS_OUT={trial_dir}/metrics.json",
     ],
     capture_output=True, text=True, check=True
 )

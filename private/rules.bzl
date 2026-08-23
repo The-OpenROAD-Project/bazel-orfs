@@ -917,18 +917,35 @@ def orfs_run_executable(**kwargs):
     like Optuna, where the overhead of a full `bazel build` would be too slow.
 
     **Execution Constraints**:
-    1. **Read-only ORFS outputs**: The executable treats the standard ORFS output
-       directories (`RESULTS_DIR`, `REPORTS_DIR`, `OBJECTS_DIR`) as read-only.
-    2. **Absolute paths for custom outputs**: The executable sets its working directory
-       (`pwd`) to the Bazel runfiles root. Script-specific output destinations must
-       be passed via custom variables as **absolute paths** to write back to the workspace.
+    1. **What the framework writes**: for the default `cmd = "run"`, the ORFS
+       Makefile's `run` target does `mkdir -p` on `RESULTS_DIR`, `LOG_DIR`,
+       `REPORTS_DIR` and `OBJECTS_DIR`, and writes exactly one file:
+       `$(LOG_DIR)/$(RUN_LOG_NAME_STEM).log` (default `run.log`) — the full
+       tool output plus a final elapsed-time line, opened in overwrite mode
+       on every invocation. Nothing else is written by the framework; no
+       metrics JSON is produced (unlike the flow stages).
+    2. **Pass LOG_DIR**: the executable sets its working directory (`pwd`) to
+       the Bazel runfiles root, so the default `LOG_DIR` resolves *inside the
+       runfiles tree* — the framework then writes `run.log` into Bazel's
+       output tree. Pass `LOG_DIR=<absolute path>` (it is created if missing)
+       to keep runfiles pristine. Concurrent invocations of the same
+       executable (e.g. an Optuna study with `n_jobs > 1`) MUST each get
+       their own `LOG_DIR` (or `RUN_LOG_NAME_STEM`), or they overwrite each
+       other's `run.log`.
+    3. **Read-only ORFS outputs**: scripts must treat the staged flow outputs
+       under `RESULTS_DIR`, `REPORTS_DIR` and `OBJECTS_DIR` as read-only.
+    4. **Absolute paths for custom outputs**: what the script itself writes is
+       the script author's responsibility; script-specific output destinations
+       must be passed via custom variables as **absolute paths** to write back
+       to the workspace.
 
     The compiled binary accepts `KEY=VALUE` positional arguments which become
     Make variable overrides, and an optional `--cmd` flag to override the default
     Make target (`run`).
 
     Example:
-        $ ./bazel-bin/pkg/my_tuner PLACE_DENSITY=0.45 MY_OUT_FILE=/tmp/out.json
+        $ ./bazel-bin/pkg/my_tuner PLACE_DENSITY=0.45 \\
+              LOG_DIR=/tmp/trial42 MY_OUT_FILE=/tmp/trial42/out.json
 
     Args:
         **kwargs: The keyword arguments to pass to the underlying _orfs_rule_run_executable.
