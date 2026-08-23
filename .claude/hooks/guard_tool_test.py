@@ -13,7 +13,9 @@ import subprocess
 import sys
 import unittest
 
-GUARD = os.path.join(os.path.dirname(os.path.abspath(__file__)), "guard_tool.py")
+HERE = os.path.dirname(os.path.abspath(__file__))
+GUARD = os.path.join(HERE, "guard_tool.py")
+CLAUDE_MD = os.path.join(HERE, os.pardir, os.pardir, "CLAUDE.md")
 
 # (field, value, expected) — expected is None for "allowed", otherwise a
 # substring the deny reason must contain.
@@ -89,11 +91,11 @@ CASES = [
     # Writing *about* a forbidden command must stay possible; a guard that
     # blocks its own commit messages and documentation is unusable.
     ("command", "git commit -m 'do not run bazel clean, it wipes the cache'", None),
-    ("command", "git commit -m \"blocked: git checkout main\"", None),
+    ("command", 'git commit -m "blocked: git checkout main"', None),
     ("command", "echo 'grep -rn foo bazel-out/x is forbidden'", None),
-    ("command", "echo \"scratch goes in ./tmp, never /tmp\"", None),
+    ("command", 'echo "scratch goes in ./tmp, never /tmp"', None),
     # ... but a quoted single argument is still an argument.
-    ("command", "grep -rn foo \"bazel-out/k8-fastbuild\"", "context explosion"),
+    ("command", 'grep -rn foo "bazel-out/k8-fastbuild"', "context explosion"),
     ("command", 'git checkout "main"', "verboten"),
     ("command", 'cat "/tmp/x"', "./tmp"),
     ("command", "cat <<'EOF' > note.md\nnever run bazel clean\nEOF", None),
@@ -118,9 +120,7 @@ ANTIGRAVITY_PAYLOAD = {
     "command": lambda v: {
         "toolCall": {"name": "run_command", "args": {"CommandLine": v}}
     },
-    "path": lambda v: {
-        "toolCall": {"name": "view_file", "args": {"AbsolutePath": v}}
-    },
+    "path": lambda v: {"toolCall": {"name": "view_file", "args": {"AbsolutePath": v}}},
     "cwd": lambda v: {"toolCall": {"name": "run_command", "args": {"Cwd": v}}},
 }
 
@@ -163,9 +163,7 @@ class PolicyTest(unittest.TestCase):
         stdout = run_guard(builders[field](value))
         reason = extract(stdout)
         if expected is None:
-            self.assertIsNone(
-                reason, f"{dialect}: {field}={value!r} should be allowed"
-            )
+            self.assertIsNone(reason, f"{dialect}: {field}={value!r} should be allowed")
         else:
             self.assertIsNotNone(
                 reason, f"{dialect}: {field}={value!r} should be denied"
@@ -228,19 +226,42 @@ class ProtocolTest(unittest.TestCase):
         self.assertEqual(result.stdout.strip(), "")
 
 
+def explain():
+    """The policy as rendered for documentation."""
+    return subprocess.run(
+        [sys.executable, GUARD, "--explain"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+
+def claude_md_guardrails():
+    """The bullet list under CLAUDE.md's "AI Guardrails" heading."""
+    with open(CLAUDE_MD) as handle:
+        lines = handle.read().splitlines()
+    start = lines.index("## AI Guardrails")
+    bullets = []
+    for line in lines[start + 1 :]:
+        if line.startswith("## "):
+            break
+        if line.startswith("- "):
+            bullets.append(line)
+    return "\n".join(bullets)
+
+
 class ExplainTest(unittest.TestCase):
-    def test_explain_lists_every_rule(self):
-        result = subprocess.run(
-            [sys.executable, GUARD, "--explain"],
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        bullets = [
-            line for line in result.stdout.splitlines() if line.startswith("- ")
-        ]
-        self.assertEqual(len(bullets), len(result.stdout.strip().splitlines()))
-        self.assertTrue(bullets)
+    def test_explain_is_a_markdown_bullet_list(self):
+        rendered = explain()
+        self.assertTrue(rendered)
+        for line in rendered.splitlines():
+            self.assertTrue(line.startswith("- "), line)
+
+    def test_claude_md_does_not_drift_from_the_policy(self):
+        # The prose in CLAUDE.md is what both agents read; if it can drift from
+        # the code, the repository documents stops it does not have. That is
+        # exactly the state this whole change set is fixing.
+        self.assertEqual(claude_md_guardrails(), explain())
 
 
 if __name__ == "__main__":
