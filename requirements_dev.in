@@ -1,5 +1,6 @@
 optuna
 pandas
 scipy
+scikit-learn
 matplotlib
 tabulate
