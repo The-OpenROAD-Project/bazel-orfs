@@ -204,3 +204,9 @@ py_binary(
     main = "fix_lint.py",
     visibility = ["//visibility:public"],
 )
+
+compile_pip_requirements(
+    name = "requirements_dev",
+    src = "requirements_dev.in",
+    requirements_txt = "requirements_dev_lock_3_13.txt",
+)

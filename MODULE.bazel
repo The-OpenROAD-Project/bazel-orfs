@@ -238,6 +238,18 @@ pip.parse(
 )
 use_repo(pip, "bazel-orfs-pip")
 
+pip_dev = use_extension("@rules_python//python/extensions:pip.bzl", "pip", dev_dependency = True)
+pip_dev.parse(
+    extra_pip_args = [
+        "--index-url=https://pypi.org/simple",
+    ],
+    hub_name = "bazel-orfs-dev-pip",
+    python_version = "3.13",
+    quiet = True,
+    requirements_lock = "//:requirements_dev_lock_3_13.txt",
+)
+use_repo(pip_dev, "bazel-orfs-dev-pip")
+
 pip_features = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip_features.parse(
     extra_pip_args = [
