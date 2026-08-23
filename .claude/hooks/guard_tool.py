@@ -86,8 +86,7 @@ PROTECTED_REF = re.compile(r"(?<![\w\-/])(?:master|main)(?![\w\-])")
 
 GIT_PUSH = re.compile(r"\bgit\s+(?:-c\s+\S+\s+)*push\b")
 GIT_BRANCH_REWRITE = re.compile(
-    r"\bgit\s+branch\b[^;&|]*"
-    r"(?:\s-(?:D|d|f|m|M)\b|\s--(?:delete|force|move)\b)"
+    r"\bgit\s+branch\b[^;&|]*" r"(?:\s-(?:D|d|f|m|M)\b|\s--(?:delete|force|move)\b)"
 )
 GIT_UPDATE_REF = re.compile(r"\bgit\s+update-ref\b[^;&|]*refs/heads/(?:master|main)\b")
 GIT_WORKTREE_ADD = re.compile(r"\bgit\s+worktree\s+add\b")
@@ -183,9 +182,7 @@ def check_git_protected_ref(request):
     for segment in segments(request.code):
         if GIT_UPDATE_REF.search(segment):
             return "Rewriting refs/heads/master or refs/heads/main => verboten."
-        rewrite = GIT_BRANCH_REWRITE.search(segment) or GIT_WORKTREE_ADD.search(
-            segment
-        )
+        rewrite = GIT_BRANCH_REWRITE.search(segment) or GIT_WORKTREE_ADD.search(segment)
         if rewrite and touches_protected_branch(segment):
             return (
                 "Deleting, moving or force-updating a local master/main branch "

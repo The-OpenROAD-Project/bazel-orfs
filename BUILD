@@ -112,6 +112,8 @@ py_test(
         ".claude/hooks/guard_tool.py",
         ".claude/hooks/guard_tool_test.py",
     ],
+    # The test asserts CLAUDE.md's guardrail list equals --explain output.
+    data = ["CLAUDE.md"],
     main = ".claude/hooks/guard_tool_test.py",
 )
 

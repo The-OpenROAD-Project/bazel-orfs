@@ -84,8 +84,20 @@ Prepare the content, run the purge, then publish.
 
 ## AI Guardrails
 
-To prevent accidental destruction of the Bazel cache and state corruption, the agent is configured with hard stops for certain actions:
+To prevent accidental destruction of the Bazel cache and state corruption,
+both Claude Code and antigravity run the shared PreToolUse guard in
+`.claude/hooks/guard_tool.py` — the single source of truth for these hard
+stops. Antigravity reaches the same file through
+`.agents/scripts/guard_tool.py`, so a rule can never be live for one agent
+and missing for the other.
+
 - `bazelisk clean` and `bazel clean` are blocked.
-- Git operations (`checkout`, `rebase`, `merge`, `reset`, `pull`) on local `master` or `main` branches are blocked. Use remote-tracking branches or detached HEADs instead.
+- Git operations (`checkout`, `switch`, `rebase`, `cherry-pick`, `merge`, `reset`, `pull`) on local `master` or `main` branches are blocked. Use remote-tracking branches or detached HEADs instead.
+- `git push` to `master` or `main` is blocked; push a feature branch and open a pull request instead.
+- Deleting, moving or force-updating a local `master`/`main` (`git branch -f/-D`, `git update-ref`, `git worktree add`) is blocked.
+- Merging pull requests (`gh pr merge`, or a merge or branch-protection write through `gh api`) is blocked; merging is the human's call.
 - Spelunking in `bazel-*` output directories and `.cache` using native tools (`grep`, `find`, `cat`) or agent file-reading tools is blocked to prevent context explosion.
 - The use of the global `/tmp` directory is blocked. Always use a local `./tmp` directory for scratch work.
+
+The list above is asserted equal to `guard_tool.py --explain` by
+`//:guard_tool_test`, so it cannot drift from what is actually enforced.
