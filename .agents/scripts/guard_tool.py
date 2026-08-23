@@ -27,7 +27,7 @@ def process_request(payload):
         content = str(path_or_cmd).lower()
         if 'bazel-testlogs' in content:
             return "Do not read raw bazel-testlogs directly to avoid context explosion. Extract failures using a targeted script."
-        if '.v' in content or 'netlist' in content or 'bazel-bin' in content:
+        if 'netlist' in content or 'bazel-bin' in content:
             return "Do not grep raw generated files in bazel-bin or netlists to avoid context explosion."
         if 'cache' in content or 'external' in content:
             return "Do not spelunk in bazel cache. Clone dependencies into ./tmp if you need to inspect or patch them."
