@@ -81,6 +81,8 @@ jobs:
         run: |
           echo "common --repository_cache=$HOME/.cache/bazel-repo" >> ~/.bazelrc
           echo "common --disk_cache=$HOME/.cache/bazel-disk" >> ~/.bazelrc
+          echo "common --show_progress_rate_limit=60" >> ~/.bazelrc
+          echo "test --test_summary=terse" >> ~/.bazelrc
 
       # Isolate the one-time Bazel module-graph resolution so the Lint step
       # below reflects actual lint work, not first-invocation setup.
