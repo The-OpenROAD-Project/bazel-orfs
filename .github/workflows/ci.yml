@@ -45,13 +45,14 @@ jobs:
           libxkbcommon-x11-0
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup Bazel
         uses: bazel-contrib/setup-bazel@0.19.0
         with:
+          cache-save: ${{ github.ref == 'refs/heads/main' }}
           bazelisk-cache: true
           external-cache: |
             manifest:
@@ -60,22 +61,20 @@ jobs:
                 - .github/openroad-cache-version
 
       - name: Repository cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/bazel-repo
           key: bazel-repo-v2-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
             bazel-repo-v2-${{ runner.os }}-
-          save-always: true
 
       - name: Disk cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/bazel-disk
           key: bazel-disk-v2-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
             bazel-disk-v2-${{ runner.os }}-
-          save-always: true
 
       - name: Configure caches
         run: |
@@ -113,3 +112,18 @@ jobs:
         working-directory: lec
         run: >-
           bazelisk build ... --keep_going --profile=lec.profile
+
+      # --- Save caches (main branch only) ---
+      - name: Save Repository cache
+        if: always() && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/bazel-repo
+          key: bazel-repo-v2-${{ runner.os }}-${{ github.sha }}
+
+      - name: Save Disk cache
+        if: always() && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/bazel-disk
+          key: bazel-disk-v2-${{ runner.os }}-${{ github.sha }}
