@@ -30,6 +30,7 @@ import json
 import math
 import os
 import statistics
+import zlib
 
 from sklearn.ensemble import RandomForestRegressor
 
@@ -50,13 +51,19 @@ REPEATS = 3
 # the median is not yet trustworthy.
 CV_TOLERANCE = 0.05
 MAX_REPEATS = 7
+# Rung B only ever times configurations that already finished inside rung
+# A's own timeout, so this is a guard against a hang rather than a real
+# bound on the search.
+RUN_TIMEOUT = 3600.0
 
 
 def featurize(env, keys):
     """Encode an estimator environment as a numeric vector.
 
-    Values are mostly numbers or flags; anything else is hashed into a
-    stable integer, which is all a tree ensemble needs from a category.
+    Values are mostly numbers or flags; anything else is hashed into an
+    integer, which is all a tree ensemble needs from a category.  crc32
+    rather than hash(): str hashing is salted per process, so the same
+    configuration would featurize differently between runs.
     """
     row = []
     for k in keys:
@@ -67,7 +74,7 @@ def featurize(env, keys):
         try:
             row.append(float(v))
         except ValueError:
-            row.append(float(abs(hash(v)) % 1000))
+            row.append(float(zlib.crc32(v.encode()) % 1000))
     return row
 
 
@@ -76,7 +83,9 @@ def measure(estimator_exe, env, ground_truth_json):
     runtimes = []
     metrics = None
     while len(runtimes) < MAX_REPEATS:
-        metrics = run_estimator(estimator_exe, env, ground_truth_json)
+        metrics = run_estimator(
+            estimator_exe, env, ground_truth_json, timeout_s=RUN_TIMEOUT
+        )
         runtimes.append(metrics["runtime_s"])
         if len(runtimes) >= REPEATS:
             med = statistics.median(runtimes)
@@ -162,7 +171,12 @@ def main():
         )
 
     by_depth = sorted(candidates, key=lambda i: rung_depth(candidates[i]))
-    seeds = [by_depth[0], by_depth[len(by_depth) // 3], by_depth[2 * len(by_depth) // 3], by_depth[-1]]
+    seeds = [
+        by_depth[0],
+        by_depth[len(by_depth) // 3],
+        by_depth[2 * len(by_depth) // 3],
+        by_depth[-1],
+    ]
     seeds = list(dict.fromkeys(seeds))
 
     measured = {}
@@ -181,7 +195,9 @@ def main():
                 "runtime_s": runtime,
                 "repeats": repeats,
                 "phases": metrics["phases"],
-                **{k: v for k, v in metrics.items() if k not in ("phases", "runtime_s")},
+                **{
+                    k: v for k, v in metrics.items() if k not in ("phases", "runtime_s")
+                },
             }
             print(
                 f"measured #{idx}: {runtime:.3f}s "
@@ -210,7 +226,10 @@ def main():
         X = [featurize(m["env"], keys) for m in measured.values()]
         models = {}
         for phase in phase_names:
-            y = [math.log10(max(m["phases"].get(phase, 0.0), 1e-4)) for m in measured.values()]
+            y = [
+                math.log10(max(m["phases"].get(phase, 0.0), 1e-4))
+                for m in measured.values()
+            ]
             model = RandomForestRegressor(n_estimators=100, random_state=1)
             model.fit(X, y)
             models[phase] = model

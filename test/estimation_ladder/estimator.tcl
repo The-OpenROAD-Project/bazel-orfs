@@ -87,12 +87,15 @@ if {[est_flag RUN_MACRO_PLACE 1] == 1 && [find_macros] != ""} {
 # 5. Global Placement
 if {[est_flag RUN_PLACE 0] == 1} {
     time_phase global_place {
-        # CELL_PAD_IN_SITES_GLOBAL_PLACEMENT, not 0: the ground truth was
-        # placed with ORFS's padding, and pinning it to 0 here spreads the
-        # cells differently than the flow being estimated.
+        # Follow ORFS's padding rather than pinning it to 0: the ground
+        # truth was placed with it, and a different pad spreads the cells
+        # differently than the flow being estimated.  The variable is
+        # scoped to the place/floorplan stages and this script runs off
+        # the synth target, so fall back to ORFS's own default of 0
+        # instead of failing on an unset variable.
+        set cell_pad [est_flag CELL_PAD_IN_SITES_GLOBAL_PLACEMENT 0]
         set gp_args "-density [place_density_with_lb_addon]"
-        append gp_args " -pad_left $::env(CELL_PAD_IN_SITES_GLOBAL_PLACEMENT)"
-        append gp_args " -pad_right $::env(CELL_PAD_IN_SITES_GLOBAL_PLACEMENT)"
+        append gp_args " -pad_left $cell_pad -pad_right $cell_pad"
         append gp_args " -force_center_initial_place"
 
         # -place_ios is a branch, not another dimension: gpl rejects it
