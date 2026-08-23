@@ -5,22 +5,29 @@ import json
 import optuna
 import tempfile
 import pandas as pd
-import scipy.stats
 
 
-def compute_correlation(truth_json, est_json):
+def compute_mean_rel_err(truth_json, est_json):
     with open(truth_json, "r") as f:
         truth = json.load(f)
     with open(est_json, "r") as f:
         est = json.load(f)
 
-    truth_slacks = [p["min_period"] for p in truth["paths"]]
-    est_slacks = [p["min_period"] for p in est["paths"]]
+    truth_paths = {(p["start"], p["end"]): p["min_period"] for p in truth["paths"]}
+    est_paths = {(p["start"], p["end"]): p["min_period"] for p in est["paths"]}
+    if set(truth_paths) != set(est_paths):
+        raise ValueError(
+            "Estimator path set differs from ground truth: "
+            f"missing {set(truth_paths) - set(est_paths)}, "
+            f"extra {set(est_paths) - set(truth_paths)}"
+        )
 
-    corr, _ = scipy.stats.pearsonr(truth_slacks, est_slacks)
-    runtime = est["runtime_ms"]
+    mean_rel_err = sum(
+        abs(est_paths[k] - truth_paths[k]) / truth_paths[k] for k in truth_paths
+    ) / len(truth_paths)
+    runtime = est["runtime_s"]
 
-    return corr, runtime
+    return mean_rel_err, runtime
 
 
 def main():
@@ -41,20 +48,30 @@ def main():
         sys.exit(f"Ground truth JSON not found at {ground_truth_json}")
 
     def objective(trial):
+        run_place = trial.suggest_categorical("run_place", [0, 1])
         env = {
-            "RUN_PLACE": str(trial.suggest_categorical("run_place", [0, 1])),
-            "GPL_TIMING_DRIVEN": str(trial.suggest_categorical("place_timing", [0, 1])),
-            "GPL_ROUTABILITY_DRIVEN": str(
-                trial.suggest_categorical("place_routability", [0, 1])
-            ),
-            "RUN_GRT": str(trial.suggest_categorical("run_grt", [0, 1])),
+            "RUN_PLACE": str(run_place),
+            "GPL_TIMING_DRIVEN": "0",
+            "GPL_ROUTABILITY_DRIVEN": "0",
+            "RUN_GRT": "0",
+            "GRT_ITERATIONS": "0",
             "GROUND_TRUTH_JSON": ground_truth_json,
         }
 
+        # The ladder is synth -> +place -> +grt: only suggest parameters
+        # for rungs that actually run, so Pareto front rows don't report
+        # knobs that had no effect.
+        if run_place == 1:
+            env["GPL_TIMING_DRIVEN"] = str(
+                trial.suggest_categorical("place_timing", [0, 1])
+            )
+            env["GPL_ROUTABILITY_DRIVEN"] = str(
+                trial.suggest_categorical("place_routability", [0, 1])
+            )
+            env["RUN_GRT"] = str(trial.suggest_categorical("run_grt", [0, 1]))
+
         if env["RUN_GRT"] == "1":
             env["GRT_ITERATIONS"] = str(trial.suggest_int("grt_iterations", 1, 5))
-        else:
-            env["GRT_ITERATIONS"] = "0"
 
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
             out_json = tf.name
@@ -79,28 +96,27 @@ def main():
                 print(
                     f"Estimator failed (code {res.returncode}):\nstdout: {res.stdout}\nstderr: {res.stderr}"
                 )
-                return 0.0, 999999
+                raise optuna.TrialPruned()
 
-            corr, rt = compute_correlation(ground_truth_json, out_json)
+            rel_err, rt = compute_mean_rel_err(ground_truth_json, out_json)
         finally:
             if os.path.exists(out_json):
                 os.remove(out_json)
 
-        return corr, rt
+        return rel_err, rt
 
-    study = optuna.create_study(directions=["maximize", "minimize"])
-    n_jobs = 8 if "TEST_TMPDIR" in os.environ or "TEST_WORKSPACE" in os.environ else 1
-    study.optimize(objective, n_trials=15, n_jobs=n_jobs)
+    study = optuna.create_study(directions=["minimize", "minimize"])
+    study.optimize(objective, n_trials=15, n_jobs=8)
 
     print("Study finished!")
-    trials = [t for t in study.best_trials if t.values[0] > 0]
+    trials = study.best_trials
 
     if not trials:
         print("No valid trials found!")
         df = pd.DataFrame(
             columns=[
-                "correlation",
-                "runtime_ms",
+                "mean_rel_err",
+                "runtime_s",
                 "run_place",
                 "place_timing",
                 "place_routability",
@@ -110,12 +126,15 @@ def main():
     else:
         data = []
         for t in trials:
-            row = {"correlation": t.values[0], "runtime_ms": t.values[1]}
+            row = {"mean_rel_err": t.values[0], "runtime_s": t.values[1]}
             row.update(t.params)
             data.append(row)
 
         df = pd.DataFrame(data)
-        df = df.sort_values(by="correlation", ascending=False)
+        # Repeated trials with identical parameters land on the Pareto
+        # front as identical rows; they carry no information.
+        df = df.drop_duplicates()
+        df = df.sort_values(by="mean_rel_err", ascending=True)
 
     print("\n--- PARETO FRONT ---")
     print(df.to_string(index=False))

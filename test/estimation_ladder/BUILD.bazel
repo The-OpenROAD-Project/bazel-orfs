@@ -1,10 +1,12 @@
-load("//:openroad.bzl", "orfs_flow", "orfs_macro", "orfs_run", "orfs_run_executable")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("//:openroad.bzl", "orfs_flow", "orfs_run", "orfs_run_executable")
 
 package(default_visibility = ["//visibility:public"])
 
 # Single Source of Truth for the multiplier design
 MULTIPLIER_SOURCES = {
     "SDC_FILE": ["constraints.sdc"],
+    "IO_CONSTRAINTS": ["io_constraints.tcl"],
 }
 
 MULTIPLIER_ARGS = {
@@ -27,8 +29,9 @@ orfs_flow(
 )
 
 # Common configuration shared across the estimator
-MULTIPLIER_SOURCES = {
+ESTIMATOR_SOURCES = {
     "ESTIMATOR_TCL": ["estimator.tcl"],
+    "IO_CONSTRAINTS": ["io_constraints.tcl"],
 }
 
 # Ground Truth measurement using actual grt output from orfs_flow
@@ -55,10 +58,8 @@ orfs_run_executable(
     arguments = MULTIPLIER_ARGS,
     cmd = "run",
     script = "estimator.tcl",
-    sources = MULTIPLIER_SOURCES,
+    sources = ESTIMATOR_SOURCES,
 )
-
-load("@rules_python//python:defs.bzl", "py_binary")
 
 py_binary(
     name = "optuna_study",
@@ -77,13 +78,20 @@ py_binary(
     deps = [
         "@bazel-orfs-dev-pip//optuna",
         "@bazel-orfs-dev-pip//pandas",
-        "@bazel-orfs-dev-pip//scipy",
     ],
 )
 
 py_binary(
     name = "update-readme",
     srcs = ["update_readme.py"],
+    args = [
+        "$(location ground_truth.json)",
+        "$(location ground_truth_top.json)",
+    ],
+    data = [
+        "ground_truth.json",
+        "ground_truth_top.json",
+    ],
     main = "update_readme.py",
     deps = [
         "@bazel-orfs-dev-pip//matplotlib",
@@ -94,6 +102,7 @@ py_binary(
 
 py_test(
     name = "optuna_study_test",
+    timeout = "eternal",
     srcs = ["optuna_study_test.py"],
     args = [
         "$(location :optuna_study)",
@@ -166,5 +175,26 @@ orfs_run_executable(
     arguments = MULTIPLIER_TOP_ARGS,
     cmd = "run",
     script = "estimator.tcl",
-    sources = MULTIPLIER_SOURCES,
+    sources = ESTIMATOR_SOURCES,
+)
+
+py_binary(
+    name = "optuna_study_top",
+    srcs = ["optuna_study.py"],
+    args = [
+        "$(location :fast_estimator_top_executable)",
+        "$(location ground_truth_top.json)",
+        "multiplier_top",
+    ],
+    data = [
+        "ground_truth_top.json",
+        ":fast_estimator_top_executable",
+        ":multiplier_top_asap7_grt",
+        ":multiplier_top_asap7_synth",
+    ],
+    main = "optuna_study.py",
+    deps = [
+        "@bazel-orfs-dev-pip//optuna",
+        "@bazel-orfs-dev-pip//pandas",
+    ],
 )

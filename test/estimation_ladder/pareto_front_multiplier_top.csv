@@ -1,0 +1,4 @@
+mean_rel_err,runtime_s,run_place,place_timing,place_routability,run_grt,grt_iterations
+0.05915251595703669,198.203,1,0.0,1.0,1.0,1.0
+0.0780000994402044,178.172,1,0.0,1.0,0.0,
+0.30031408398907117,59.799,0,,,,
