@@ -420,6 +420,11 @@ def _run_impl(ctx):
             transitive = [
                 data_inputs(ctx),
                 source_inputs(ctx),
+                # The src stage's accumulated logs, so run scripts can read
+                # e.g. stage elapsed times. Safe here, unlike in
+                # source_inputs: the run action writes only run.log, never
+                # a stage log name, so there is no sandbox collision.
+                ctx.attr.src[LoggingInfo].logs if LoggingInfo in ctx.attr.src else depset(),
             ],
         ),
         outputs = outs,
@@ -842,8 +847,10 @@ def _run_executable_impl(ctx):
         content = """#!/bin/sh
 set -e
 if [ ! -e external ]; then
-    # Needed as of Bazel >= 8
-    ln -sf $(realpath $(pwd)/..) external
+    # Needed as of Bazel >= 8. Concurrent invocations (e.g. an Optuna
+    # study with n_jobs > 1) race to create the symlink; losing the race
+    # is fine as long as the link exists afterwards.
+    ln -sf $(realpath $(pwd)/..) external 2>/dev/null || [ -e external ]
 fi
 export ORFS_MAKE_EXE={make}
 export ORFS_MAKEFILE={makefile}

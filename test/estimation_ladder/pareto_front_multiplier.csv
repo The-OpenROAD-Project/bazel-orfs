@@ -1,2 +1,4 @@
-correlation,runtime_ms,run_place,place_timing,place_routability,run_grt
-0.9994368668486519,22.0,0,0,1,0
+mean_rel_err,runtime_s,run_place,place_timing,place_routability,run_grt,grt_iterations
+0.054032512547468575,20.581,1,1.0,0.0,1.0,1.0
+0.06386904978442313,8.362,1,0.0,1.0,1.0,2.0
+0.21028862136628235,0.021,0,,,,

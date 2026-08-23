@@ -15,11 +15,16 @@ if {$::env(MAKE_TRACKS) ne ""} {
 }
 
 # 2. Place Pins
+source $::env(IO_CONSTRAINTS)
 place_pins -hor_layers $::env(IO_PLACER_H) -ver_layers $::env(IO_PLACER_V)
 
-# 3. Global Placement (Parameterized via environment)
-if {[llength [get_cells -hierarchical -filter "is_macro"]] > 0} {
-    macro_placement
+# 3. Macro Placement (mirrors ORFS macro_place_util.tcl)
+if {[find_macros] != ""} {
+    lassign $::env(MACRO_PLACE_HALO) halo_x halo_y
+    rtl_macro_placer \
+        -halo_width $halo_x \
+        -halo_height $halo_y \
+        -target_util [place_density_with_lb_addon]
 }
 
 if {$::env(RUN_PLACE) == 1} {
@@ -47,8 +52,8 @@ if {$::env(RUN_GRT) == 1} {
 }
 
 set end_time [clock clicks -milliseconds]
-set elapsed_time [expr {$end_time - $start_time}]
-puts "ESTIMATOR_RUNTIME: $elapsed_time ms"
+set elapsed_s [expr {($end_time - $start_time) / 1000.0}]
+puts "ESTIMATOR_RUNTIME: $elapsed_s s"
 
 # Measure Target Paths against Ground Truth
 set sampled_file [string trim $::env(GROUND_TRUTH_JSON) "'\""]
@@ -65,7 +70,7 @@ foreach line [split $path_data "\n"] {
 
 set out_fp [open $::env(OUTPUT_JSON) w]
 puts $out_fp "{"
-puts $out_fp "\"runtime_ms\": $elapsed_time,"
+puts $out_fp "\"runtime_s\": $elapsed_s,"
 puts $out_fp "\"paths\": \["
 
 set is_first 1
@@ -74,15 +79,13 @@ foreach pt $target_paths {
     set end [lindex $pt 1]
     set paths [find_timing_paths -sort_by_slack -group_path_count 1 -from $start -to $end]
 
-    if {[llength $paths] > 0} {
-        set slack [sta::format_time [[[lindex $paths 0] path] slack] 4]
-        set clk_period [get_property [lindex [get_clocks] 0] period]
-        set min_period [expr {$clk_period - $slack}]
-    } else {
-        set clk_period [get_property [lindex [get_clocks] 0] period]
-        set min_period $clk_period
+    if {[llength $paths] == 0} {
+        error "No timing path found from $start to $end"
     }
-    
+    set slack [get_property [lindex $paths 0] slack]
+    set clk_period [get_property [lindex [get_clocks] 0] period]
+    set min_period [expr {$clk_period - $slack}]
+
     if {$is_first == 0} { puts $out_fp "," }
     set is_first 0
     puts -nonewline $out_fp "  {\"start\": \"$start\", \"end\": \"$end\", \"min_period\": $min_period}"
