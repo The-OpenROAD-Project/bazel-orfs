@@ -50,6 +50,28 @@ CASES = [
     ("command", "git checkout -b feature-x", None),
     ("command", "git checkout mainline", None),
     ("command", "git merge --abort", None),
+    # --- pushing to a protected branch -----------------------------------
+    ("command", "git push origin main", "human-only"),
+    ("command", "git push --force origin master", "human-only"),
+    ("command", "git push origin HEAD:main", "human-only"),
+    ("command", "git push origin agent-guardrails", None),
+    ("command", "git push -u origin feature/x", None),
+    ("command", "git push --force-with-lease origin feature/x", None),
+    # --- rewriting a protected ref ---------------------------------------
+    ("command", "git branch -f main HEAD", "verboten"),
+    ("command", "git branch -D master", "verboten"),
+    ("command", "git update-ref refs/heads/main abc1234", "verboten"),
+    ("command", "git worktree add ../wt main", "verboten"),
+    ("command", "git worktree add ../wt origin/main", None),
+    ("command", "git branch -D feature/x", None),
+    ("command", "git branch --show-current", None),
+    # --- merging is the human's call --------------------------------------
+    ("command", "gh pr merge 42 --squash", "human-only"),
+    ("command", "gh api -X PUT repos/o/r/pulls/42/merge", "human-only"),
+    ("command", "gh api -X PUT repos/o/r/branches/main/protection", "human-only"),
+    ("command", "gh pr create --fill", None),
+    ("command", "gh pr comment 42 --body ack", None),
+    ("command", "gh api repos/o/r/pulls/42", None),
     # --- spelunking ------------------------------------------------------
     ("command", "grep -rn foo bazel-out/k8-fastbuild", "context explosion"),
     ("command", "cat bazel-testlogs/x/test.log", "bazel-testlogs"),

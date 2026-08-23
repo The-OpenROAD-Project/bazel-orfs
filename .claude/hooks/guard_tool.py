@@ -84,6 +84,20 @@ GIT_LOCAL_MUTATE = re.compile(
 REMOTE_REF = re.compile(r"\b[\w.-]+/(?:master|main)\b")
 PROTECTED_REF = re.compile(r"(?<![\w\-/])(?:master|main)(?![\w\-])")
 
+GIT_PUSH = re.compile(r"\bgit\s+(?:-c\s+\S+\s+)*push\b")
+GIT_BRANCH_REWRITE = re.compile(
+    r"\bgit\s+branch\b[^;&|]*"
+    r"(?:\s-(?:D|d|f|m|M)\b|\s--(?:delete|force|move)\b)"
+)
+GIT_UPDATE_REF = re.compile(r"\bgit\s+update-ref\b[^;&|]*refs/heads/(?:master|main)\b")
+GIT_WORKTREE_ADD = re.compile(r"\bgit\s+worktree\s+add\b")
+
+GH_MERGE = re.compile(
+    r"\bgh\s+pr\s+merge\b"
+    r"|\bgh\s+api\b[^;&|]*(?:pulls/\d+/merge|/merge(?![\w-])"
+    r"|branches/[^/\s]+/protection)"
+)
+
 TMP_MESSAGE = "Using /tmp is forbidden (it is small and shared). Always use ./tmp."
 
 
@@ -155,6 +169,41 @@ def check_git_local_branch(request):
     return None
 
 
+def check_git_push(request):
+    for segment in segments(request.code):
+        if GIT_PUSH.search(segment) and touches_protected_branch(segment):
+            return (
+                "git push to master/main is human-only. Push a feature branch "
+                "and open a pull request instead."
+            )
+    return None
+
+
+def check_git_protected_ref(request):
+    for segment in segments(request.code):
+        if GIT_UPDATE_REF.search(segment):
+            return "Rewriting refs/heads/master or refs/heads/main => verboten."
+        rewrite = GIT_BRANCH_REWRITE.search(segment) or GIT_WORKTREE_ADD.search(
+            segment
+        )
+        if rewrite and touches_protected_branch(segment):
+            return (
+                "Deleting, moving or force-updating a local master/main branch "
+                "=> verboten. Work on a feature branch."
+            )
+    return None
+
+
+def check_merge(request):
+    for segment in segments(request.code):
+        if GH_MERGE.search(segment):
+            return (
+                "Merging a pull request and changing branch protection are "
+                "human-only. Ask, do not merge."
+            )
+    return None
+
+
 def check_spelunking(request):
     for segment in segments(request.code):
         if SPELUNK_IN_COMMAND.search(segment):
@@ -188,6 +237,24 @@ RULES = (
         "`reset`, `pull`) on local `master` or `main` branches are blocked. Use "
         "remote-tracking branches or detached HEADs instead.",
         check_git_local_branch,
+    ),
+    (
+        "git-push-protected",
+        "`git push` to `master` or `main` is blocked; push a feature branch and "
+        "open a pull request instead.",
+        check_git_push,
+    ),
+    (
+        "git-protected-ref",
+        "Deleting, moving or force-updating a local `master`/`main` "
+        "(`git branch -f/-D`, `git update-ref`, `git worktree add`) is blocked.",
+        check_git_protected_ref,
+    ),
+    (
+        "merge",
+        "Merging pull requests (`gh pr merge`, or a merge or branch-protection "
+        "write through `gh api`) is blocked; merging is the human's call.",
+        check_merge,
     ),
     (
         "spelunking",
