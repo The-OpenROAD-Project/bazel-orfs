@@ -2643,7 +2643,7 @@ orfs_squashed = rule(
 
 # --- Stage rule declarations ---
 
-orfs_floorplan = rule(
+orfs_floorplan_rule = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "2_floorplan",
@@ -2671,7 +2671,7 @@ orfs_floorplan = rule(
     executable = True,
 )
 
-orfs_place = rule(
+orfs_place_rule = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "3_place",
@@ -2697,7 +2697,7 @@ orfs_place = rule(
     executable = True,
 )
 
-orfs_cts = rule(
+orfs_cts_rule = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "4_cts",
@@ -2725,7 +2725,7 @@ orfs_cts = rule(
     executable = True,
 )
 
-orfs_grt = rule(
+orfs_grt_rule = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "5_1_grt",
@@ -2764,7 +2764,7 @@ orfs_grt = rule(
     executable = True,
 )
 
-orfs_route = rule(
+orfs_route_rule = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "5_2_route",
@@ -2796,7 +2796,7 @@ orfs_route = rule(
     executable = True,
 )
 
-orfs_final = rule(
+orfs_final_rule = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "6_final",
@@ -2832,7 +2832,7 @@ orfs_final = rule(
     executable = True,
 )
 
-orfs_gds = rule(
+orfs_gds_rule = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "6_gds",
@@ -2866,7 +2866,7 @@ orfs_gds = rule(
     executable = True,
 )
 
-orfs_generate_metadata = rule(
+orfs_generate_metadata_rule = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "generate_metadata",
@@ -2910,7 +2910,7 @@ orfs_update_rules = rule(
     executable = True,
 )
 
-orfs_abstract = rule(
+orfs_abstract_rule = rule(
     implementation = lambda ctx: _make_impl(
         ctx = ctx,
         stage = "7_abstract",
@@ -2951,11 +2951,11 @@ orfs_abstract = rule(
 
 # --- Stage implementation structs ---
 
-FINAL_STAGE_IMPL = struct(stage = "final", impl = orfs_final)
+FINAL_STAGE_IMPL = struct(stage = "final", impl = orfs_final_rule)
 
 GENERATE_METADATA_STAGE_IMPL = struct(
     stage = "generate_metadata",
-    impl = orfs_generate_metadata,
+    impl = orfs_generate_metadata_rule,
 )
 UPDATE_RULES_IMPL = struct(stage = "update_rules", impl = orfs_update_rules)
 
@@ -2963,12 +2963,12 @@ TEST_STAGE_IMPL = struct(stage = "test", impl = orfs_test)
 
 STAGE_IMPLS = [
     struct(stage = "synth", impl = orfs_synth_rule),
-    struct(stage = "floorplan", impl = orfs_floorplan),
-    struct(stage = "place", impl = orfs_place),
-    struct(stage = "cts", impl = orfs_cts),
-    struct(stage = "grt", impl = orfs_grt),
-    struct(stage = "route", impl = orfs_route),
+    struct(stage = "floorplan", impl = orfs_floorplan_rule),
+    struct(stage = "place", impl = orfs_place_rule),
+    struct(stage = "cts", impl = orfs_cts_rule),
+    struct(stage = "grt", impl = orfs_grt_rule),
+    struct(stage = "route", impl = orfs_route_rule),
     FINAL_STAGE_IMPL,
 ]
 
-ABSTRACT_IMPL = struct(stage = "generate_abstract", impl = orfs_abstract)
+ABSTRACT_IMPL = struct(stage = "generate_abstract", impl = orfs_abstract_rule)

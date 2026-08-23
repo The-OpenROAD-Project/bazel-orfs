@@ -241,6 +241,9 @@ def orfs_flow(
         a pre-synth validation that prints the correct dict and errors out. Set to a
         non-empty dict to scope each partition's macro inputs — partitions that
         don't need a macro no longer wait on that macro's upstream PnR.
+      canon_blackbox_macros: list of macro module names to blackbox during
+        canonicalization via slang --blackboxed-module instead of reading their
+        Verilog.
       sources: dictionary keyed by ORFS variables with lists of sources
       stage_arguments: dictionary keyed by ORFS stages with lists of stage-specific arguments.
         Prefer 'arguments' which automatically assigns variables to the correct stages.
