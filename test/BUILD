@@ -3,7 +3,7 @@ load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_python//python:defs.bzl", "py_test")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@rules_shell//shell:sh_test.bzl", "sh_test")
-load("//:openroad.bzl", "get_stage_args", "orfs_arguments", "orfs_floorplan", "orfs_flow", "orfs_gds", "orfs_macro", "orfs_place", "orfs_run", "orfs_run_executable", "orfs_synth", "orfs_test", "orfs_variables")
+load("//:openroad.bzl", "orfs_arguments", "orfs_floorplan", "orfs_flow", "orfs_gds", "orfs_macro", "orfs_place", "orfs_run", "orfs_run_executable", "orfs_synth", "orfs_test", "orfs_variables")
 load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:sweep.bzl", "orfs_sweep")
 load(":deps_output_group_rule.bzl", "deps_output_group_test", "output_group_test")
@@ -211,19 +211,43 @@ orfs_flow(
 )
 
 # buildifier: disable=duplicated-name
+# Standalone stage target sharing another flow's synth.  It hands the macro
+# the same undifferentiated LB_ARGS/LB_SOURCES dicts an orfs_flow() gets and
+# relies on it to keep only what floorplan owns — the filtering used to be
+# spelled out here with a call-site get_stage_args(["floorplan"], ...) and a
+# hand-picked LB_SOURCES["IO_CONSTRAINTS"].
 orfs_floorplan(
     name = "lb_32x128_shared_synth_floorplan",
     src = ":lb_32x128_synth",
-    # Make sure we're not passing in any non-floorplan arguments.
-    # get_stage_args takes a LIST of stages now (empty = no filtering).
-    arguments = get_stage_args(
-        ["floorplan"],
-        {},
-        LB_ARGS,
-        {},
-    ),
-    data = LB_SOURCES["IO_CONSTRAINTS"],
+    arguments = LB_ARGS,
+    sources = LB_SOURCES,
     variant = "blah",
+)
+
+# Standalone stage macros get the full orfs_flow treatment: undifferentiated
+# arguments=/sources= dicts filtered down to the stage, extra_arguments keyed
+# by stage the way orfs_flow takes it, and user_arguments/user_sources as the
+# spell-check escape hatch.  Analysis alone is the assertion here:
+#   * a stage-keyed extra_arguments dict reaching the rule unnarrowed would be
+#     a dict where a label_list is expected;
+#   * an unfiltered sources= would emit $(locations) for a label the stage
+#     pruned from data, which is a location-expansion error; and
+#   * post-#820 a stage the macro failed to declare is a hard fail() in
+#     _make_impl rather than a silently empty allow-list.
+orfs_place(
+    name = "lb_32x128_standalone_place",
+    src = ":lb_32x128_floorplan",
+    arguments = LB_ARGS,
+    extra_arguments = {"place": [":lb_32x128_auto_utilization"]},
+    sources = LB_SOURCES,
+    tags = ["manual"],
+    user_arguments = {"USER_PROJECT_KNOB": "42"},
+    variant = "standalone",
+)
+
+build_test(
+    name = "lb_32x128_standalone_place_build_test",
+    targets = [":lb_32x128_standalone_place"],
 )
 
 orfs_flow(

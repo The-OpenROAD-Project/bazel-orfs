@@ -10,6 +10,9 @@ and the invariants documented by the MORATORIUM blocks in private/stages.bzl:
   * MORATORIUM(filter-decided-once): dropped_variables(), the denylist handed
     to merge_arguments.py at execution time, is the exact complement of the
     analysis-time keep predicate;
+  * check_stage_variables() accepts the one legitimate combination — known
+    arguments/sources plus unmapped user_arguments/user_sources — and the
+    unmapped hatch variables then survive the filter on every stage;
   * output is sorted/deterministic;
   * list union — a variable in ANY requested stage is kept.
 
@@ -22,6 +25,7 @@ load(
     "//private:stages.bzl",
     "ALL_STAGE_TO_VARIABLES",
     "ALL_VARIABLE_TO_STAGES",
+    "check_stage_variables",
     "dropped_variables",
     "get_sources",
     "get_stage_args",
@@ -140,6 +144,33 @@ def _denylist_union_over_stages_test(ctx):
     asserts.true(env, _VAR_B in dropped_variables([_STAGE_A]))
     return unittest.end(env)
 
+def _user_hatch_survives_the_filter_test(ctx):
+    env = unittest.begin(ctx)
+
+    # The combination every public stage macro must accept: ORFS variables in
+    # arguments=/sources=, project-specific ones in the user_* hatches. This
+    # call fails the build outright if the guard is wrong, which is the only
+    # way to assert a macro-time fail() from Starlark — the failing direction
+    # (a hatch shadowing a known variable) aborts package loading and so
+    # cannot be covered here.
+    check_stage_variables(
+        {_VAR_A: "1"},
+        {_VAR_B: ["//b:lb"]},
+        {_UNMAPPED: "42"},
+        {_UNMAPPED + "_SRC": ["//u:lu"]},
+    )
+
+    # Merged as the macros merge them, the unmapped hatch variables reach
+    # every stage while the known ones stay in their own lane.
+    merged = get_stage_args(
+        [_STAGE_A],
+        arguments = {_VAR_A: "1", _VAR_B: "2"} | {_UNMAPPED: "42"},
+    )
+    asserts.equals(env, "42", merged.get(_UNMAPPED))
+    asserts.equals(env, "1", merged.get(_VAR_A))
+    asserts.false(env, _VAR_B in merged)
+    return unittest.end(env)
+
 def _sorted_output_test(ctx):
     env = unittest.begin(ctx)
 
@@ -154,6 +185,7 @@ union_over_stages_test = unittest.make(_union_over_stages_test)
 stage_arguments_bypass_filter_test = unittest.make(_stage_arguments_bypass_filter_test)
 denylist_is_the_complement_of_keep_test = unittest.make(_denylist_is_the_complement_of_keep_test)
 denylist_union_over_stages_test = unittest.make(_denylist_union_over_stages_test)
+user_hatch_survives_the_filter_test = unittest.make(_user_hatch_survives_the_filter_test)
 sorted_output_test = unittest.make(_sorted_output_test)
 
 def stages_filter_test_suite(name):
@@ -165,5 +197,6 @@ def stages_filter_test_suite(name):
         stage_arguments_bypass_filter_test,
         denylist_is_the_complement_of_keep_test,
         denylist_union_over_stages_test,
+        user_hatch_survives_the_filter_test,
         sorted_output_test,
     )
