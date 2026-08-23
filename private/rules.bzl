@@ -63,6 +63,8 @@ load(
     "ALL_STAGE_TO_VARIABLES",
     "ALL_VARIABLE_TO_STAGES",
     "STAGE_SUBSTEPS",
+    "get_sources",
+    "get_stage_args",
 )
 
 # --- Shared helpers ---
@@ -514,21 +516,43 @@ _orfs_run_rule = rule(
 )
 
 def _expand_sources(kwargs):
-    """Processes the 'sources' attribute into 'data' and 'arguments'."""
+    """Processes the 'sources' attribute into 'data' and 'arguments'.
+
+    Runs at MACRO-EXPANSION time: it mutates raw kwargs before the rule is
+    instantiated, so `data`/`arguments` are set as attributes and Bazel
+    expands `$(locations ...)` later.
+
+    Source filtering is done at ANALYSIS time via the shared stages.bzl
+    helpers, keyed by the target's `stages` (empty = no filtering):
+      * sources -> data and sources -> $(locations) args are filtered
+        together, by the same predicate (you cannot emit $(locations X) for a
+        label pruned from data — see MORATORIUM(source-filtering-is-analysis-time)
+        in private/stages.bzl);
+      * plain string `arguments` are left UNTOUCHED here and filtered at
+        EXECUTION time by merge_and_filter_arguments (more code under test).
+        Do NOT route them through get_stage_args.
+    """
     sources = kwargs.pop("sources", {})
     if sources:
+        # Normalize scalar source values to lists; the helpers expect lists.
+        sources = {
+            var: (labels if type(labels) == "list" else [labels])
+            for var, labels in sources.items()
+        }
+        stages = kwargs.get("stages", [])
+
         data = kwargs.pop("data", [])
         if type(data) != "list":
             data = list(data)
-        arguments = dict(kwargs.pop("arguments", {}))
+        for label in get_sources(stages, sources):
+            if label not in data:
+                data.append(label)
 
-        for var, labels in sources.items():
-            if type(labels) != "list":
-                labels = [labels]
-            for label in labels:
-                if label not in data:
-                    data.append(label)
-            locs = " ".join(["$(locations {})".format(label) for label in labels])
+        # get_stage_args(sources=...) returns ONLY the source-derived
+        # $(locations) args, filtered by stage. Plain args stay as-is; append
+        # source locs to any plain arg that shares a variable name.
+        arguments = dict(kwargs.pop("arguments", {}))
+        for var, locs in get_stage_args(stages, sources = sources).items():
             if var in arguments:
                 arguments[var] = arguments[var] + " " + locs
             else:
@@ -1269,6 +1293,9 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
 
     partition_outputs = []
 
+    # MORATORIUM(filter-parity): {allowed, known} contract fed to
+    # merge_arguments.py; mirrors stages.bzl's analysis-time predicate. Keep
+    # all filter sites in lockstep — see MORATORIUM(filter-parity) in stages.bzl.
     filter_json = declare_artifact(ctx, "results", "1_synth_partition.filter.json")
     ctx.actions.write(
         output = filter_json,
@@ -1589,6 +1616,8 @@ def _yosys_impl(ctx):
         content = json.encode(analysis_args),
     )
 
+    # MORATORIUM(filter-parity): keep in lockstep with stages.bzl and
+    # merge_arguments.py — see MORATORIUM(filter-parity) in stages.bzl.
     filter_json = declare_artifact(ctx, "results", "1_synth.filter.json")
     ctx.actions.write(
         output = filter_json,
@@ -2272,6 +2301,8 @@ def _make_impl(
                 break
         allowed_vars = ALL_STAGE_TO_VARIABLES.get(canonical_stage, [])
 
+    # MORATORIUM(filter-parity): keep in lockstep with stages.bzl and
+    # merge_arguments.py — see MORATORIUM(filter-parity) in stages.bzl.
     filter_json = declare_artifact(ctx, "results", stage + ".filter.json")
     ctx.actions.write(
         output = filter_json,

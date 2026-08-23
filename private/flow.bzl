@@ -69,20 +69,22 @@ def _filter_stage_args(stage, **kwargs):
     if stage == "synth":
         kwargs.pop("substeps", None)
 
+    # get_stage_args/get_sources take a LIST of stages (empty = no filtering);
+    # a flow stage target filters by exactly one stage, so wrap [stage].
     return _args(
         arguments = get_stage_args(
-            stage,
+            [stage],
             arguments = arguments,
             sources = sources,
             stage_arguments = stage_arguments,
         ),
-        data = get_sources(stage, sources) +
+        data = get_sources([stage], sources) +
                stage_data.get(stage, []) +
                data,
         extra_arguments = extra_arguments.get(stage, []),
         extra_configs = extra_configs.get(stage, []),
         settings = get_stage_args(
-            stage,
+            [stage],
             arguments = settings,
         ),
         **kwargs
@@ -791,7 +793,7 @@ def _orfs_pass(
         )
 
         test_args = get_stage_args(
-            TEST_STAGE_IMPL.stage,
+            [TEST_STAGE_IMPL.stage],
             stage_arguments,
             arguments,
             sources,
@@ -837,7 +839,7 @@ def _orfs_pass(
     # (rename_data on orfs_generate_metadata).
     if synth_target != None and not mock_area:
         test_args = get_stage_args(
-            TEST_STAGE_IMPL.stage,
+            [TEST_STAGE_IMPL.stage],
             stage_arguments,
             arguments,
             sources,

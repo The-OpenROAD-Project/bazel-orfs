@@ -183,54 +183,126 @@ def check_variables(variables, label):
             "add it to your project's ORFS patch or file a PR against ORFS.",
         )
 
-def get_stage_args(stage, stage_arguments = {}, arguments = {}, sources = {}):
-    """Returns the arguments for a specific stage.
+# ---------------------------------------------------------------------------
+# Stage variable filtering
+#
+# get_stage_args() and get_sources() implement the SAME keep/drop predicate:
+#
+#     keep variable V for stage-set S  iff
+#         S is empty (no filtering)
+#         OR V belongs to some stage in S         # union over stages
+#         OR V is unmapped (not in variables.yaml) # the escape hatch
+#
+# This module is the canonical documentation hub for the filter invariants;
+# other sites point back here by MORATORIUM tag (grep `MORATORIUM(` to
+# enumerate all fences).
+#
+# MORATORIUM(filter-parity): This predicate is mirrored at EXECUTION time by
+# merge_arguments.py (`drop iff k in known and k not in allowed`) and by the
+# inline filter_json in rules.bzl (synth partitions). All three MUST agree —
+# if they drift, a variable can be kept at analysis time but dropped at
+# execution time (or vice-versa), causing missing-input failures or silent
+# variable loss on specific stages. Change them together; the filter-parity
+# behavior is locked by test/stages_filter_test.bzl and merge_arguments_test.py.
+#
+# MORATORIUM(source-filtering-is-analysis-time): get_sources() filters at
+# Bazel ANALYSIS time on purpose, and a source's $(locations) argument is
+# filtered here in lockstep with its data entry. This is not optional:
+#   * it prevents circular dependencies (a source consumed by a downstream
+#     stage must not be wired into an upstream stage's data),
+#   * fewer inputs per action lets the action start sooner, and
+#   * it lets callers declare one DRY sources={} dict in BUILD.bazel and have
+#     each stage take only the subset it needs.
+# Never defer source->data filtering to merge_arguments.py. You also cannot
+# emit $(locations X) for a label pruned from data (location-expansion error),
+# which is why the source-derived args live here and not with plain args.
+#
+# The `stages` parameter is always a LIST (empty = no filtering). flow.bzl
+# wraps its single stage as [stage]; orfs_run passes its stages string_list.
+# ---------------------------------------------------------------------------
+
+def _allowed_predicate(stages):
+    """Returns (filtering, allowed) for the keep/drop predicate.
 
     Args:
-        stage: The stage name.
-        stage_arguments: the dictionary of stages with each stage having a dictionary of arguments
+        stages: list of stage names. Empty means no filtering.
+    Returns:
+      A tuple (filtering, allowed) where `filtering` is True when a non-empty
+      stage list was given, and `allowed` is an O(1)-membership dict of the
+      variables owned by any of those stages.
+    """
+    if not stages:
+        return False, {}
+    allowed = {}
+    for stage in stages:
+        for variable in ALL_STAGE_TO_VARIABLES[stage]:
+            allowed[variable] = True
+    return True, allowed
+
+def _keep(arg, filtering, allowed):
+    # See the MORATORIUM(filter-parity) note above — this is the single
+    # analysis-time keep/drop predicate.
+    return (not filtering) or (arg in allowed) or (arg not in ALL_VARIABLE_TO_STAGES)
+
+def get_stage_args(stages, stage_arguments = {}, arguments = {}, sources = {}):
+    """Returns the arguments for a set of stages.
+
+    Args:
+        stages: list of stage names to keep arguments for (empty = keep all).
+        stage_arguments: dict keyed by stage, each holding a dict of arguments.
+            These are authored per-stage and BYPASS the variable filter on
+            purpose — do not fold them into the filtered dict below.
+            MORATORIUM(stage-arguments-bypass): locked by
+            test/stages_filter_test.bzl.
         arguments: a dictionary of arguments automatically assigned to a stage
         sources: a dictionary of variables and source files
     Returns:
-      A dictionary of arguments for the stage.
+      A dictionary of arguments for the stage(s).
     """
+    filtering, allowed = _allowed_predicate(stages)
+
+    # stage_arguments are pre-scoped by stage key, so they are added AFTER the
+    # filter (MORATORIUM(stage-arguments-bypass)). Merge every requested stage.
+    stage_specific = {}
+    for stage in stages:
+        stage_specific.update(stage_arguments.get(stage, {}))
+
     unsorted_dict = {
+        arg: " ".join(["$(locations {})".format(v) for v in value])
+        for arg, value in sources.items()
+        if _keep(arg, filtering, allowed)
+    }
+    unsorted_dict.update({
         arg: value
-        for arg, value in (
-            {
-                arg: " ".join(["$(locations {})".format(v) for v in value])
-                for arg, value in sources.items()
-                if arg in ALL_STAGE_TO_VARIABLES[stage] or
-                   arg not in ALL_VARIABLE_TO_STAGES
-            } |
-            {
-                arg: value
-                for arg, value in arguments.items()
-                if arg in ALL_STAGE_TO_VARIABLES[stage] or
-                   arg not in ALL_VARIABLE_TO_STAGES
-            }
-        ).items()
-        if arg in ALL_STAGE_TO_VARIABLES[stage] or arg not in ALL_VARIABLE_TO_STAGES
-    } | stage_arguments.get(stage, {})
+        for arg, value in arguments.items()
+        if _keep(arg, filtering, allowed)
+    })
+    unsorted_dict.update(stage_specific)
+
+    # sorted() output is load-bearing for deterministic action command lines
+    # — do not remove.
     return dict(sorted(unsorted_dict.items()))
 
-def get_sources(stage, sources):
-    """Returns the sources for a specific stage.
+def get_sources(stages, sources):
+    """Returns the sources for a set of stages.
 
     Args:
-        stage: The stage name.
+        stages: list of stage names to keep sources for (empty = keep all).
         sources: a dictionary of variable names with a list of sources to a stage
     Returns:
-      A list of sources for the stage.
+      A sorted, de-duplicated list of sources for the stage(s).
     """
+    filtering, allowed = _allowed_predicate(stages)
+
+    # sorted(set(...)) is load-bearing: set() de-duplicates sources shared
+    # across variables, sorted() gives deterministic inputs.
     return sorted(
         set(
             flatten(
                 [
                     source_list
                     for variable, source_list in sources.items()
-                    if variable in ALL_STAGE_TO_VARIABLES[stage] or
-                       variable not in ALL_VARIABLE_TO_STAGES
+                    if _keep(variable, filtering, allowed)
                 ],
             ),
         ),

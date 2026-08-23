@@ -42,6 +42,13 @@ def main():
         known = set()
 
     with open(args.output_path, "w") as out:
+        # MORATORIUM(filter-parity): this drop condition is the EXECUTION-time
+        # mirror of the ANALYSIS-time predicate in stages.bzl
+        # (get_stage_args/get_sources). "drop iff known-but-not-allowed" is
+        # logically identical to "keep iff in-a-requested-stage or unmapped".
+        # If you change one, change the other (and rules.bzl's filter_json).
+        # See the MORATORIUM(filter-parity) block in private/stages.bzl.
+        # Unknown vars (not in `known`) are always kept — the escape hatch.
         for k, v in sorted(result.items()):
             if args.filter:
                 if k in known and k not in allowed:
