@@ -144,8 +144,15 @@ def build_env(trial):
     return env
 
 
-def run_estimator(estimator_exe, env, ground_truth_json):
-    """Run one estimator configuration and return its metrics."""
+def run_estimator(estimator_exe, env, ground_truth_json, timeout_s=None):
+    """Run one estimator configuration and return its metrics.
+
+    A timeout is not a nicety for an unattended sweep: the knob space
+    contains configurations -- thirty congestion iterations alongside a
+    full repair_timing sequence -- that can run far longer than any rung
+    worth putting on a Pareto front, and one of them would otherwise
+    stall the study for hours.
+    """
     env = dict(env)
     env["GROUND_TRUTH_JSON"] = ground_truth_json
 
@@ -157,7 +164,16 @@ def run_estimator(estimator_exe, env, ground_truth_json):
     try:
         full_env = os.environ.copy()
         full_env.update(env)
-        res = subprocess.run(cmd, env=full_env, capture_output=True, text=True)
+        try:
+            res = subprocess.run(
+                cmd,
+                env=full_env,
+                capture_output=True,
+                text=True,
+                timeout=timeout_s,
+            )
+        except subprocess.TimeoutExpired:
+            raise TimeoutError(f"estimator exceeded {timeout_s}s; treating as unusable")
         if res.returncode != 0:
             raise RuntimeError(
                 f"estimator exited {res.returncode}\n"
@@ -177,6 +193,12 @@ def main():
     ap.add_argument("design_name")
     ap.add_argument("--trials", type=int, default=400)
     ap.add_argument("--jobs", type=int, default=8)
+    ap.add_argument(
+        "--trial-timeout",
+        type=float,
+        default=1800.0,
+        help="seconds before a single estimator run is abandoned",
+    )
     args = ap.parse_args()
 
     for path in (args.estimator_exe, args.ground_truth_json):
@@ -187,7 +209,12 @@ def main():
 
     def objective(trial):
         env = build_env(trial)
-        metrics = run_estimator(args.estimator_exe, env, args.ground_truth_json)
+        metrics = run_estimator(
+            args.estimator_exe,
+            env,
+            args.ground_truth_json,
+            timeout_s=args.trial_timeout,
+        )
         trial.set_user_attr("env", env)
         for key, value in metrics.items():
             if key != "phases":
@@ -206,7 +233,7 @@ def main():
         objective,
         n_trials=args.trials,
         n_jobs=args.jobs,
-        catch=(RuntimeError, ValueError),
+        catch=(RuntimeError, ValueError, TimeoutError),
     )
 
     ws = os.environ.get("BUILD_WORKSPACE_DIRECTORY") or os.environ.get("PWD", ".")
