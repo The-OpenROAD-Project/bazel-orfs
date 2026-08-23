@@ -53,6 +53,13 @@ PATH_KEYS = (
 # innocent segment cannot be flagged by a neighbour's arguments.
 SEGMENT_SPLIT = re.compile(r"&&|\|\||[;|\n]")
 
+# Text that is *data*, not code: heredoc bodies and quoted spans. A commit
+# message or a documentation edit that quotes a forbidden command is not an
+# attempt to run it, and a guard that cannot tell the difference forbids
+# writing about its own rules.
+HEREDOC_BODY = re.compile(r"<<-?\s*(['\"]?)(\w+)\1.*?^\2$", re.S | re.M)
+QUOTED_SPAN = re.compile(r"'[^']*'|\"[^\"]*\"", re.S)
+
 # `bazel`, `bazelisk`, `bazel-7.4.0`, `/usr/bin/bazel` — but not `bazel-orfs`.
 BAZEL = r"(?<![\w.-])(?:bazelisk|bazel-[0-9][\w.]*|bazel)(?![\w-])"
 BAZEL_CLEAN = re.compile(BAZEL + r"(?:\s+--?\S+)*\s+clean(?![\w-])")
@@ -78,6 +85,22 @@ REMOTE_REF = re.compile(r"\b[\w.-]+/(?:master|main)\b")
 PROTECTED_REF = re.compile(r"(?<![\w\-/])(?:master|main)(?![\w\-])")
 
 TMP_MESSAGE = "Using /tmp is forbidden (it is small and shared). Always use ./tmp."
+
+
+def strip_data_spans(command):
+    """Drop prose from a command line, keeping the part that is really code.
+
+    Heredoc bodies go entirely. A quoted span goes only if it contains
+    whitespace, i.e. it reads as prose (a `git commit -m` message); a quoted
+    span without whitespace is almost always a single argument such as a
+    path, so its contents are kept and only the quote characters are removed.
+    """
+
+    def unquote(match):
+        inner = match.group(0)[1:-1]
+        return inner if inner and not re.search(r"\s", inner) else " "
+
+    return QUOTED_SPAN.sub(unquote, HEREDOC_BODY.sub(" ", command))
 
 
 def segments(command):
@@ -115,14 +138,14 @@ def spelunk_message(text):
 
 
 def check_bazel_clean(request):
-    for segment in segments(request.command):
+    for segment in segments(request.code):
         if BAZEL_CLEAN.search(segment):
             return "bazelisk clean and bazel clean => verboten, protects bazel cache."
     return None
 
 
 def check_git_local_branch(request):
-    for segment in segments(request.command):
+    for segment in segments(request.code):
         if GIT_LOCAL_MUTATE.search(segment) and touches_protected_branch(segment):
             return (
                 "git checkout/switch/rebase/cherry-pick/merge/reset/pull "
@@ -133,7 +156,7 @@ def check_git_local_branch(request):
 
 
 def check_spelunking(request):
-    for segment in segments(request.command):
+    for segment in segments(request.code):
         if SPELUNK_IN_COMMAND.search(segment):
             return spelunk_message(segment)
     for path in request.paths:
@@ -143,7 +166,7 @@ def check_spelunking(request):
 
 
 def check_tmp(request):
-    if request.command and TMP_IN_COMMAND.search(request.command):
+    if request.code and TMP_IN_COMMAND.search(request.code):
         return TMP_MESSAGE
     for path in request.paths:
         if TMP_DIR.match(path):
@@ -188,6 +211,9 @@ class Request:
     def __init__(self, dialect, command, paths):
         self.dialect = dialect
         self.command = command
+        # The command line with prose removed. Every command rule matches
+        # against this view, never against the raw line.
+        self.code = strip_data_spans(command)
         self.paths = paths
 
 
