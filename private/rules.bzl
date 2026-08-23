@@ -59,10 +59,6 @@ load(
     "TopInfo",
 )
 load(
-    "//private:runfiles_paths.bzl",
-    "absolute_runtime",
-)
-load(
     "//private:stages.bzl",
     "ALL_STAGE_TO_VARIABLES",
     "ALL_VARIABLE_TO_STAGES",
@@ -804,7 +800,9 @@ def orfs_test(**kwargs):
 def _run_executable_impl(ctx):
     config = ctx.attr.src[OrfsDepInfo].config
 
-    wrapper = ctx.actions.declare_file(ctx.attr.name)
+    wrapper = ctx.actions.declare_file(
+        "run_{}_{}_executable".format(ctx.attr.name, ctx.attr.variant),
+    )
 
     # For external repo targets, WORK_HOME must include the external/<repo>/
     # prefix so Make finds results/reports at the correct runfiles path.
@@ -817,58 +815,58 @@ def _run_executable_impl(ctx):
     else:
         work_home = None
 
-    runfiles_var = "$RUNFILES"
-    openroad_path = absolute_runtime(ctx.attr.openroad[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
-    opensta_path = absolute_runtime(ctx.attr.opensta[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
-    klayout_path = absolute_runtime(ctx.attr._klayout[DefaultInfo].files_to_run.executable.short_path, runfiles_var)
-    flow_home = absolute_runtime(ctx.file._makefile.dirname, runfiles_var)
-    run_script_path = absolute_runtime(ctx.file.script.short_path, runfiles_var)
+    tool_env = {
+        "OPENROAD_EXE": ctx.executable.openroad.short_path,
+        "OPENSTA_EXE": ctx.executable.opensta.short_path,
+        "YOSYS_EXE": ctx.executable.yosys.short_path,
+        "KLAYOUT_CMD": ctx.executable._klayout.short_path if hasattr(ctx.executable, "_klayout") and ctx.executable._klayout else "",
+        "PYTHON_EXE": ctx.executable._python.short_path,
+        "ABC": ctx.executable._abc.short_path,
+        "FLOW_HOME": ctx.file._makefile.dirname,
+        "STDBUF_CMD": "",
+        "RUN_SCRIPT": ctx.file.script.path,
+    }
 
-    # Create full string for the actual environments that make uses, mimicking the
-    # environment setting from the shell wrapper in standard runs.
     moreargs = environment_string(
         hack_away_prefix(
-            arguments = odb_arguments(ctx) | sdc_arguments(ctx) | data_arguments(ctx),
+            arguments = odb_arguments(ctx) | data_arguments(ctx) | tool_env,
             prefix = config.root.path,
         ) |
-        {
-            "DESIGN_CONFIG": config.short_path,
-            "OPENROAD_EXE": openroad_path,
-            "OPENSTA_EXE": opensta_path,
-            "KLAYOUT_CMD": klayout_path,
-            "FLOW_HOME": flow_home,
-            "RUN_SCRIPT": run_script_path,
-        } |
+        {"DESIGN_CONFIG": config.short_path} |
         ({"WORK_HOME": work_home} if work_home else {}),
     )
 
-    # We parse the moreargs back into a dictionary to embed in the tuner.py.tpl
-
-    # We can't parse moreargs directly easily in starlark since it's a bash string
-    # BUT, we can just use the dictionary we passed to environment_string!
-    env_dict = hack_away_prefix(
-        arguments = odb_arguments(ctx) | sdc_arguments(ctx) | data_arguments(ctx),
-        prefix = config.root.path,
-    ) | {
-        "DESIGN_CONFIG": config.short_path,
-        "OPENROAD_EXE": openroad_path,
-        "OPENSTA_EXE": opensta_path,
-        "KLAYOUT_CMD": klayout_path,
-        "FLOW_HOME": flow_home,
-        "RUN_SCRIPT": run_script_path,
-        "BAZEL_PACKAGE": ctx.label.package,
-    }
-    if work_home:
-        env_dict["WORK_HOME"] = work_home
-
-    ctx.actions.expand_template(
-        template = ctx.file._template,
+    ctx.actions.write(
         output = wrapper,
         is_executable = True,
-        substitutions = {
-            "%{ENV_JSON}": json.encode(env_dict),
-            "%{MOREARGS}": moreargs,  # Keep this around if we need it
-        },
+        content = """#!/bin/sh
+set -e
+if [ ! -e external ]; then
+    # Needed as of Bazel >= 8
+    ln -sf $(realpath $(pwd)/..) external
+fi
+export ORFS_MAKE_EXE={make}
+export ORFS_MAKEFILE={makefile}
+export ORFS_CMD={cmd}
+PYTHON="{python_exe}"
+case "$PYTHON" in
+  */*) ;;
+  *) PYTHON="./$PYTHON" ;;
+esac
+SCRIPT="{py_script}"
+case "$SCRIPT" in
+  */*) ;;
+  *) SCRIPT="./$SCRIPT" ;;
+esac
+exec "$PYTHON" "$SCRIPT" {moreargs} "$@"
+""".format(
+            make = ctx.executable._make.short_path,
+            makefile = ctx.file._makefile.path,
+            cmd = ctx.attr.cmd,
+            moreargs = moreargs,
+            python_exe = ctx.executable._python.short_path,
+            py_script = ctx.file._run_executable_script.short_path,
+        ),
     )
 
     return [
@@ -878,7 +876,7 @@ def _run_executable_impl(ctx):
             executable = wrapper,
             runfiles = ctx.runfiles(
                 transitive_files = depset(
-                    [config, wrapper, ctx.file.script],
+                    [config, wrapper, ctx.file._run_executable_script, ctx.file.script],
                     transitive = [
                         flow_inputs(ctx),
                         yosys_inputs(ctx),
@@ -890,7 +888,7 @@ def _run_executable_impl(ctx):
         ),
     ]
 
-orfs_run_executable = rule(
+_orfs_rule_run_executable = rule(
     implementation = _run_executable_impl,
     attrs = yosys_attrs() |
             openroad_attrs() |
@@ -903,13 +901,39 @@ orfs_run_executable = rule(
                     mandatory = True,
                     allow_single_file = ["tcl"],
                 ),
-                "_template": attr.label(
-                    default = "//private:tuner.py.tpl",
+                "_run_executable_script": attr.label(
+                    default = "//:run_executable.py",
                     allow_single_file = True,
                 ),
             },
     executable = True,
 )
+
+def orfs_run_executable(**kwargs):
+    """Rule wrapper for orfs_run_executable to populate data dependencies and CLI arguments from explicitly specified sources.
+
+    This rule produces a standalone executable that invokes GNU Make with the
+    target's configuration and tools. It is designed for tight-loop optimizers
+    like Optuna, where the overhead of a full `bazel build` would be too slow.
+
+    **Execution Constraints**:
+    1. **Read-only ORFS outputs**: The executable treats the standard ORFS output
+       directories (`RESULTS_DIR`, `REPORTS_DIR`, `OBJECTS_DIR`) as read-only.
+    2. **Absolute paths for custom outputs**: The executable sets its working directory
+       (`pwd`) to the Bazel runfiles root. Script-specific output destinations must
+       be passed via custom variables as **absolute paths** to write back to the workspace.
+
+    The compiled binary accepts `KEY=VALUE` positional arguments which become
+    Make variable overrides, and an optional `--cmd` flag to override the default
+    Make target (`run`).
+
+    Example:
+        $ ./bazel-bin/pkg/my_tuner PLACE_DENSITY=0.45 MY_OUT_FILE=/tmp/out.json
+
+    Args:
+        **kwargs: The keyword arguments to pass to the underlying _orfs_rule_run_executable.
+    """
+    _orfs_rule_run_executable(**_expand_sources(kwargs))
 
 # --- Synthesis rule ---
 

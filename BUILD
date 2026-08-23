@@ -6,6 +6,7 @@ load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 exports_files([
+    "run_executable.py",
     "bump.py",
     "bump_impl.py",
     "compute_floorplan_shape.tcl",

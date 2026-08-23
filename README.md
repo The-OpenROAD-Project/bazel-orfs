@@ -1011,7 +1011,34 @@ invalidate the synthesis cache.
 
 **External optimizers:** Any optimizer (Optuna, Vizier, hyperopt, etc.) can drive
 DSE by scripting `bazel build` invocations with different `--//pkg:flag=value`
-arguments and parsing PPA metrics from the build outputs.
+arguments and parsing PPA metrics from the build outputs. 
+
+Alternatively, for tight-loop optimizers where the Bazel server overhead is undesirable,
+you can use the `orfs_run_executable` rule to compile a standalone Make wrapper. This 
+produces a binary that invokes the underlying tool (e.g. OpenROAD) directly.
+
+**Important constraints for `orfs_run_executable`**:
+- **Read-only ORFS outputs**: The executable treats the standard ORFS output directories (`RESULTS_DIR`, `REPORTS_DIR`, `OBJECTS_DIR`) as read-only.
+- **Absolute paths for custom outputs**: Because the executable runs with its working directory (`pwd`) set to the Bazel runfiles tree, any script-specific output locations must be passed as custom `KEY=VALUE` variables using **absolute paths**.
+
+```python
+# In your bazel-run Python script or objective function:
+import os
+import subprocess
+
+# Drive the compiled wrapper directly with KEY=VALUE overrides.
+# We pass an absolute path for the output file since the executable
+# runs inside its own runfiles directory.
+metrics_out = os.path.abspath("metrics.json")
+result = subprocess.run(
+    [
+        "path/to/my_run_executable", 
+        "PLACE_DENSITY=0.6", 
+        f"METRICS_OUT={metrics_out}"
+    ],
+    capture_output=True, text=True, check=True
+)
+```
 
 **Computed arguments — a precursor to DSE.** Before sweeping a parameter, it is
 often cheaper to *compute* a defensible value from the synthesised netlist or
