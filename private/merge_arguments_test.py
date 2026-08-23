@@ -53,6 +53,27 @@ class TestMergeArguments(unittest.TestCase):
         expected = "export A?=1\n" "export C?=3\n"
         self.assertEqual(content, expected)
 
+    def test_filtering_keeps_unknown(self):
+        # A variable NOT in `known` is the unmapped escape hatch and must
+        # always survive the filter, even when filtering is active. This
+        # mirrors stages.bzl's `arg not in ALL_VARIABLE_TO_STAGES` branch —
+        # see MORATORIUM(filter-parity) in private/stages.bzl.
+        json_data = self.write_json("data.json", {"A": "1", "B": "2", "CUSTOM": "9"})
+        filter_json = self.write_json(
+            "filter.json", {"allowed": ["A"], "known": ["A", "B"]}
+        )
+        out_mk = os.path.join(self.temp_dir.name, "out.mk")
+
+        self.run_script([out_mk, "--filter", filter_json, json_data])
+
+        with open(out_mk) as f:
+            content = f.read()
+
+        # A: known+allowed -> kept. B: known, not allowed -> dropped.
+        # CUSTOM: unknown -> kept (escape hatch).
+        expected = "export A?=1\n" "export CUSTOM?=9\n"
+        self.assertEqual(content, expected)
+
     def test_mk_includes(self):
         json_data = self.write_json("data.json", {"A": "1"})
         out_mk = os.path.join(self.temp_dir.name, "out.mk")
