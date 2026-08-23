@@ -37,19 +37,19 @@ bazel_dep(name = "orfs")
 # blocked (e.g. inside the maintainers organization).
 archive_override(
     module_name = "orfs",
-    integrity = "sha256-l7XEY34Sn3l8GxN9Jjex2hP1aCTDueaeDab77FVLwF8=",
+    integrity = "sha256-msMzEaX0tultTr1dYB7GCFIZwJbnN0P+6W35dKVKG6U=",
     patch_strip = 1,
     patches = [
         "//patches:0037-orfs-single-writer-1_synth-sdc.patch",
     ],
-    strip_prefix = "OpenROAD-flow-scripts-c90beac0945588840cf07b7b4cc6d1b20ac66ddf",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/c90beac0945588840cf07b7b4cc6d1b20ac66ddf.tar.gz"],
+    strip_prefix = "OpenROAD-flow-scripts-8c009b0b663703fc3fe2f474eab918b12fffbaf6",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/8c009b0b663703fc3fe2f474eab918b12fffbaf6.tar.gz"],
 )
 
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-pkGtoioFJ7VomHlnfwK+FG3s+bGM7CJTu9VajBVo1wM=",
+    integrity = "sha256-qjGwZR/PLR/BZz1KsPzZVO38VC9a3Rk02QFPw7s3Dts=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor src/sta (OpenSTA) and third-party/abc from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -57,13 +57,14 @@ archive_override(
     # aren't covered by archive_override's integrity.  Regenerated
     # by bump.py on every commit bump; do not edit by hand.
     patch_cmds = [
-        "curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o .openroad-submodule-src-sta-3ab3337d1b8f13bd15d80786ec771e1c6388d24a.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/3ab3337d1b8f13bd15d80786ec771e1c6388d24a.tar.gz && echo '49b6df67dd69f916993374b28ef48590d427099117fdaa79e4f0d46a4fb85934  .openroad-submodule-src-sta-3ab3337d1b8f13bd15d80786ec771e1c6388d24a.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-3ab3337d1b8f13bd15d80786ec771e1c6388d24a.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-3ab3337d1b8f13bd15d80786ec771e1c6388d24a.tar.gz",
+        "curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o .openroad-submodule-src-sta-509913b1398b36eda23caa1f1f380167465dceee.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/509913b1398b36eda23caa1f1f380167465dceee.tar.gz && echo '680920e76cdb2f9add4de04db4b24500ef7faa0405c9802f815e7286c106a2ec  .openroad-submodule-src-sta-509913b1398b36eda23caa1f1f380167465dceee.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-509913b1398b36eda23caa1f1f380167465dceee.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-509913b1398b36eda23caa1f1f380167465dceee.tar.gz",
         "curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz https://github.com/The-OpenROAD-Project/abc/archive/d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz && echo '0cbf538e60d0303d0e00360d8973aaad7dae198954bed6e34cc31c9a13b3f802  .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz --strip-components=1 -C third-party/abc && rm .openroad-submodule-third-party-abc-d527cfab4ad731b767ea0a2be2021d920d3afece.tar.gz",
         "curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz https://github.com/povik/yosys-slang/archive/82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz && echo 'ea31b4a205ebb1fe5ec3789bcd66f21f4975e73c0901622af667f843b833ff10  .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz --strip-components=1 -C third-party/slang-elab && rm .openroad-submodule-third-party-slang-elab-82effc8d9541be69e1ed3ec44759a4449f5d9247.tar.gz",
-        "sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|' third-party/slang-elab/src/BUILD",
+        "find . -name BUILD -exec sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|g' {} +",
+        "sed -i 's|defines = \\[|copts = [\"-include\", \"fmt/format.h\"],\\n    defines = [|' src/syn/src/elab/BUILD third-party/slang-elab/src/BUILD",
     ],
-    strip_prefix = "OpenROAD-c724b7da0f4f8b2abc86b0b31c5d51d3740804e0",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/c724b7da0f4f8b2abc86b0b31c5d51d3740804e0.tar.gz"],
+    strip_prefix = "OpenROAD-f34c1bcd954a4ecfe33233466e03782cb2d5442d",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/f34c1bcd954a4ecfe33233466e03782cb2d5442d.tar.gz"],
 )
 
 # OpenROAD pins sv-lang 10.0.bcr.2, which is not yet published in BCR.
@@ -125,17 +126,6 @@ single_version_override(
 single_version_override(
     module_name = "m4",
     version = "1.4.21.bcr.4",
-)
-
-# tcl_lang: tclZipfs.c's #include "crypt.h" resolves to glibc's crypt.h under
-# hermetic-llvm's explicit -isystem glibc dirs; include the vendored minizip
-# header by path instead. Drop when fixed in a tcl_lang BCR release.
-single_version_override(
-    module_name = "tcl_lang",
-    patch_strip = 1,
-    patches = [
-        "//patches:0001-tclZipfs-include-vendored-minizip-crypt.h-by-path.patch",
-    ],
 )
 
 # sv-lang pulls in rules_pycross, whose toolchain extension fails on Python
