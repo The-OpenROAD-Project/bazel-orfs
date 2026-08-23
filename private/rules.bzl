@@ -46,6 +46,7 @@ load(
     "source_inputs",
     "test_inputs",
     "verilog_arguments",
+    "write_stage_filter",
     "yosys_environment",
     "yosys_inputs",
     "yosys_substitutions",
@@ -60,8 +61,8 @@ load(
 )
 load(
     "//private:stages.bzl",
+    "ALL_STAGES",
     "ALL_STAGE_TO_VARIABLES",
-    "ALL_VARIABLE_TO_STAGES",
     "STAGE_SUBSTEPS",
     "get_sources",
     "get_stage_args",
@@ -1293,17 +1294,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
 
     partition_outputs = []
 
-    # MORATORIUM(filter-parity): {allowed, known} contract fed to
-    # merge_arguments.py; mirrors stages.bzl's analysis-time predicate. Keep
-    # all filter sites in lockstep — see MORATORIUM(filter-parity) in stages.bzl.
-    filter_json = declare_artifact(ctx, "results", "1_synth_partition.filter.json")
-    ctx.actions.write(
-        output = filter_json,
-        content = json.encode({
-            "allowed": ALL_STAGE_TO_VARIABLES.get("synth", []),
-            "known": ALL_VARIABLE_TO_STAGES.keys(),
-        }),
-    )
+    filter_json = write_stage_filter(ctx, "results", "1_synth_partition", ["synth"])
 
     for i in range(num_partitions):
         # Build a human-readable progress message showing which modules
@@ -1616,16 +1607,7 @@ def _yosys_impl(ctx):
         content = json.encode(analysis_args),
     )
 
-    # MORATORIUM(filter-parity): keep in lockstep with stages.bzl and
-    # merge_arguments.py — see MORATORIUM(filter-parity) in stages.bzl.
-    filter_json = declare_artifact(ctx, "results", "1_synth.filter.json")
-    ctx.actions.write(
-        output = filter_json,
-        content = json.encode({
-            "allowed": ALL_STAGE_TO_VARIABLES.get("synth", []),
-            "known": ALL_VARIABLE_TO_STAGES.keys(),
-        }),
-    )
+    filter_json = write_stage_filter(ctx, "results", "1_synth", ["synth"])
 
     config = declare_artifact(ctx, "results", "1_synth.mk")
     all_jsons = [analysis_json] + ctx.files.extra_arguments
@@ -2287,30 +2269,25 @@ def _make_impl(
     extra_arg_files = ctx.files.extra_arguments
     all_jsons = inherited_jsons + [analysis_json] + extra_arg_files
 
+    # Which canonical stages own this action's variables. `stages` is set by
+    # the squashed multi-stage rule; every other rule carries a single
+    # `_stage`. Both are declared, never sniffed out of the ORFS stage name
+    # (`stage` here is an ORFS name like "2_floorplan", not a stage key). Name
+    # sniffing used to be the fallback, and a name it failed to resolve fell
+    # through to an empty allow-list — every known variable silently dropped
+    # from the stage's config. An unresolvable stage is an error instead.
     if hasattr(ctx.attr, "stages") and ctx.attr.stages:
-        allowed_vars = []
-        for s in ctx.attr.stages:
-            allowed_vars.extend(ALL_STAGE_TO_VARIABLES.get(s, []))
+        filter_stages = ctx.attr.stages
     elif hasattr(ctx.attr, "_stage") and ctx.attr._stage in ALL_STAGE_TO_VARIABLES:
-        allowed_vars = ALL_STAGE_TO_VARIABLES[ctx.attr._stage]
+        filter_stages = [ctx.attr._stage]
     else:
-        canonical_stage = stage
-        for s in ALL_STAGE_TO_VARIABLES.keys():
-            if stage.endswith("_" + s) or stage == s or (s == "generate_abstract" and "abstract" in stage):
-                canonical_stage = s
-                break
-        allowed_vars = ALL_STAGE_TO_VARIABLES.get(canonical_stage, [])
+        fail(
+            "Cannot resolve the canonical stage(s) for '{stage}'. ".format(stage = stage) +
+            "Set the rule's `stages` attribute (or its `_stage` default) to " +
+            "one of: {known}.".format(known = ", ".join(ALL_STAGES)),
+        )
 
-    # MORATORIUM(filter-parity): keep in lockstep with stages.bzl and
-    # merge_arguments.py — see MORATORIUM(filter-parity) in stages.bzl.
-    filter_json = declare_artifact(ctx, "results", stage + ".filter.json")
-    ctx.actions.write(
-        output = filter_json,
-        content = json.encode({
-            "allowed": allowed_vars,
-            "known": ALL_VARIABLE_TO_STAGES.keys(),
-        }),
-    )
+    filter_json = write_stage_filter(ctx, "results", stage, filter_stages)
 
     config = declare_artifact(ctx, "results", stage + ".mk")
     args = [

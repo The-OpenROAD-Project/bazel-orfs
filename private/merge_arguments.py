@@ -10,7 +10,7 @@ def main():
     parser.add_argument("output_path", help="Path to write the args.mk file")
     parser.add_argument(
         "--filter",
-        help="Path to JSON file containing 'allowed' and 'known' variables",
+        help="Path to JSON file containing the 'drop' variable denylist",
         default=None,
     )
     parser.add_argument(
@@ -34,25 +34,22 @@ def main():
 
     if args.filter:
         with open(args.filter) as f:
-            filter_data = json.load(f)
-        allowed = set(filter_data.get("allowed", []))
-        known = set(filter_data.get("known", []))
+            drop = set(json.load(f).get("drop", []))
     else:
-        allowed = set()
-        known = set()
+        drop = set()
 
     with open(args.output_path, "w") as out:
-        # MORATORIUM(filter-parity): this drop condition is the EXECUTION-time
-        # mirror of the ANALYSIS-time predicate in stages.bzl
-        # (get_stage_args/get_sources). "drop iff known-but-not-allowed" is
-        # logically identical to "keep iff in-a-requested-stage or unmapped".
-        # If you change one, change the other (and rules.bzl's filter_json).
-        # See the MORATORIUM(filter-parity) block in private/stages.bzl.
-        # Unknown vars (not in `known`) are always kept — the escape hatch.
+        # MORATORIUM(filter-decided-once): this is a denylist APPLIER, not a
+        # keep/drop predicate. The decision is made once at analysis time by
+        # dropped_variables() in private/stages.bzl and handed over as
+        # {"drop": [...]}; re-deriving it here is what used to let the two
+        # time domains drift apart. Variables absent from the denylist —
+        # including every variable unknown to ORFS variables.yaml, which is
+        # the escape hatch — are kept.
+        # See the two-time-domains block in private/stages.bzl.
         for k, v in sorted(result.items()):
-            if args.filter:
-                if k in known and k not in allowed:
-                    continue
+            if k in drop:
+                continue
             out.write("export {}?={}\n".format(k, v))
 
         for inc in args.mk_includes:
