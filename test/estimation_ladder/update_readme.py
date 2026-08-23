@@ -54,10 +54,13 @@ FRONT_COLUMNS = [
 
 def rung_label(env):
     """A short description of which rungs of the ladder a config used."""
-    parts = []
     if str(env.get("RUN_PLACE", "0")) != "1":
-        parts.append("no place")
-    else:
+        return "synth only"
+    # "place" is the base of every remaining rung, and naming it matters:
+    # falling through to a generic label made a 90s global placement read
+    # as the 0.02s synthesis rung.
+    parts = ["place"]
+    if True:
         if str(env.get("PLACE_IOS", "0")) == "1":
             parts.append("place_ios")
         if str(env.get("GPL_TIMING_DRIVEN", "0")) == "1":
@@ -77,7 +80,7 @@ def rung_label(env):
             parts.append(f"GRT({env.get('GRT_ITERATIONS', '?')})")
         if str(env.get("RUN_REPAIR_TIMING", "0")) == "1":
             parts.append("rt")
-    return ", ".join(parts) if parts else "synth"
+    return ", ".join(parts)
 
 
 def load(directory, design):
@@ -225,7 +228,7 @@ def spread_note(front):
     )
 
 
-def render(data, gt_runtimes, image_prefix=""):
+def render(data, gt_runtimes, image_prefix="", image_suffix=""):
     out = ["# Estimation Ladder", ""]
     out += [
         "How accurately can early flow stages estimate the minimum clock period",
@@ -244,9 +247,9 @@ def render(data, gt_runtimes, image_prefix=""):
         "which contention does not affect. Runtime is plotted on a log axis",
         "because the ladder spans several orders of magnitude.",
         "",
-        f"![Pareto Plot]({image_prefix}{MAIN_PLOT})",
+        f"![Pareto Plot]({image_prefix}{MAIN_PLOT}{image_suffix})",
         "",
-        f"![Bias and spread]({image_prefix}{BIAS_PLOT})",
+        f"![Bias and spread]({image_prefix}{BIAS_PLOT}{image_suffix})",
         "",
     ]
     for design, title in DESIGNS:
@@ -298,7 +301,10 @@ def main():
 
     if args.pr_body:
         prefix = args.pr_body if args.pr_body.endswith("/") else args.pr_body + "/"
-        body = render(data, gt_runtimes, image_prefix=prefix)
+        # ?raw=true: a bare blob URL renders GitHub's HTML page for the
+        # file, not the image itself, so the PR body would show a link
+        # where the figure should be.
+        body = render(data, gt_runtimes, image_prefix=prefix, image_suffix="?raw=true")
         with open(os.path.join(directory, "README.pr.md"), "w") as f:
             f.write(body + "\n")
         print("Wrote README.pr.md")
