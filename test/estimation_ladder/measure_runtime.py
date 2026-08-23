@@ -151,7 +151,16 @@ def main():
     ap.add_argument("--accuracy-key", default="mean_rel_err")
     args = ap.parse_args()
 
-    with open(args.archive) as f:
+    # bazel runs this from a runfiles tree, so a relative --archive is
+    # resolved against the workspace where rung A wrote it.
+    archive_path = args.archive
+    if not os.path.isabs(archive_path):
+        ws = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
+        if ws and not os.path.exists(archive_path):
+            archive_path = os.path.join(ws, "test/estimation_ladder", args.archive)
+    if not os.path.exists(archive_path):
+        raise SystemExit(f"archive not found: {archive_path}; run rung A first")
+    with open(archive_path) as f:
         archive = json.load(f)
     if not archive:
         raise SystemExit("empty archive; run rung A first")

@@ -95,9 +95,13 @@ def build_env(trial):
 
         if trial.suggest_categorical("repair_design", [0, 1]):
             env["RUN_REPAIR_DESIGN"] = "1"
+            # No -pre_placement here: it is gain-based buffering for the
+            # post-synthesis state, before a placement exists, and ORFS
+            # only ever calls it that way. Against a placed design with
+            # placement parasitics it trips EST-0104, so sampling it
+            # would only burn trials on a configuration OpenROAD
+            # refuses to run.
             rd = []
-            if trial.suggest_categorical("repair_design_pre_placement", [0, 1]):
-                rd.append("-pre_placement")
             rd += ["-slew_margin", str(trial.suggest_float("slew_margin", 0.0, 20.0))]
             rd += ["-cap_margin", str(trial.suggest_float("cap_margin", 0.0, 20.0))]
             env["REPAIR_DESIGN_ARGS"] = " ".join(rd)
@@ -122,12 +126,17 @@ def build_env(trial):
         # the minimum clock period, so hold repair can only cost runtime.
         if trial.suggest_categorical("repair_timing", [0, 1]):
             env["RUN_REPAIR_TIMING"] = "1"
+            # Braced: the estimator evals this string as Tcl, so a
+            # multi-word sequence would otherwise arrive as trailing
+            # positional arguments and repair_timing rejects those
+            # (STA-0564).
+            sequence = trial.suggest_categorical(
+                "repair_timing_sequence",
+                ["vt_swap", "vt_swap reroute", "buffer vt_swap reroute"],
+            )
             rt = [
                 "-sequence",
-                trial.suggest_categorical(
-                    "repair_timing_sequence",
-                    ["vt_swap", "vt_swap reroute", "buffer vt_swap reroute"],
-                ),
+                "{" + sequence + "}",
                 "-repair_tns",
                 str(trial.suggest_categorical("repair_tns", [0, 50, 100])),
                 "-max_passes",

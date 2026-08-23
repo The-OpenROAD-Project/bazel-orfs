@@ -7,6 +7,10 @@ package(default_visibility = ["//visibility:public"])
 py_library(
     name = "estimation_metrics",
     srcs = ["estimation_metrics.py"],
+    # Importable as a bare module name rather than by its full package
+    # path, so the study scripts read the same run under bazel and when
+    # run directly.
+    imports = ["."],
     deps = ["@bazel-orfs-dev-pip//scipy"],
 )
 
@@ -220,6 +224,7 @@ py_binary(
 py_library(
     name = "optuna_study_lib",
     srcs = ["optuna_study.py"],
+    imports = ["."],
     deps = [
         ":estimation_metrics",
         "@bazel-orfs-dev-pip//optuna",
