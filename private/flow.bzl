@@ -155,7 +155,29 @@ def _create_deps_tar(stage_name, **kwargs):
         tags = ["manual"],
     )
 
+def _orfs_stage(stage, impl, **kwargs):
+    """Instantiates one stage target the way orfs_flow does.
+
+    orfs_flow already pairs a filtered rule instantiation with the companion
+    _deps targets at every stage it emits; this is that pair, named, so a
+    standalone stage target can reuse it instead of reimplementing it at the
+    call site.
+
+    Args:
+        stage: canonical stage key, e.g. "floorplan".
+        impl: the underlying *_rule for that stage.
+        **kwargs: forwarded to _filter_stage_args and the rule.
+    """
+    impl(**_filter_stage_args(stage, **kwargs))
+    _create_deps_tar(kwargs.get("name"), **kwargs)
+
 def orfs_synth(**kwargs):
+    """Instantiates a standalone synthesis stage target.
+
+    Args:
+        **kwargs: forwarded to _orfs_stage and orfs_synth_rule.
+    """
+
     # Normalise the kept_macros sentinel: None / absent → feature off
     # (existing all-macros-to-all-partitions behaviour); any value
     # passed in (including {}) → enabled. The rule has two attrs to
@@ -164,8 +186,7 @@ def orfs_synth(**kwargs):
         km = kwargs.pop("kept_macros")
         kwargs["kept_macros"] = km if km != None else {}
         kwargs["kept_macros_enabled"] = km != None
-    orfs_synth_rule(**_filter_stage_args("synth", **kwargs))
-    _create_deps_tar(kwargs.get("name"), **kwargs)
+    _orfs_stage("synth", orfs_synth_rule, **kwargs)
 
 def _step_name(name, variant, stage):
     if variant:
