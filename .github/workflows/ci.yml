@@ -95,14 +95,8 @@ jobs:
           git diff --exit-code
 
       # --- Unit tests ---
-      - name: Build tests
-        run: bazelisk build ... --build_tests_only --profile=build.profile
-      - name: Analyze build
-        if: always()
-        run: bazelisk analyze-profile build.profile
-
       - name: Run tests
-        run: bazelisk test ... --keep_going --build_tests_only --test_output=errors --profile=test.profile
+        run: bazelisk test ... --build_tests_only --test_output=errors --profile=test.profile
       - name: Analyze test
         if: always()
         run: bazelisk analyze-profile test.profile
