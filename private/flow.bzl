@@ -11,9 +11,18 @@ load(
     "STAGE_IMPLS",
     "TEST_STAGE_IMPL",
     "UPDATE_RULES_IMPL",
+    "orfs_abstract_rule",
     "orfs_arguments",
+    "orfs_cts_rule",
     "orfs_deploy_srcs",
+    "orfs_final_rule",
+    "orfs_floorplan_rule",
+    "orfs_gds_rule",
+    "orfs_generate_metadata_rule",
+    "orfs_grt_rule",
     "orfs_macro",
+    "orfs_place_rule",
+    "orfs_route_rule",
     "orfs_run",
     "orfs_squashed",
     "orfs_synth_rule",
@@ -187,6 +196,40 @@ def orfs_synth(**kwargs):
         kwargs["kept_macros"] = km if km != None else {}
         kwargs["kept_macros_enabled"] = km != None
     _orfs_stage("synth", orfs_synth_rule, **kwargs)
+
+# Public per-stage macros.  Written out one by one because Starlark has no
+# nested def and no way to synthesise a function, so a loop over
+# STAGE_IMPLS cannot produce them.  Each forwards to the rule that declares
+# the matching `_stage` default — never to a rule whose stage has to be
+# inferred, which _make_impl now rejects with a fail().
+def orfs_floorplan(**kwargs):
+    _orfs_stage("floorplan", orfs_floorplan_rule, **kwargs)
+
+def orfs_place(**kwargs):
+    _orfs_stage("place", orfs_place_rule, **kwargs)
+
+def orfs_cts(**kwargs):
+    _orfs_stage("cts", orfs_cts_rule, **kwargs)
+
+def orfs_grt(**kwargs):
+    _orfs_stage("grt", orfs_grt_rule, **kwargs)
+
+def orfs_route(**kwargs):
+    _orfs_stage("route", orfs_route_rule, **kwargs)
+
+def orfs_final(**kwargs):
+    _orfs_stage("final", orfs_final_rule, **kwargs)
+
+# orfs_gds runs KLayout over the final stage's results, so it declares
+# _stage = "final" — there is no "gds" key in ALL_STAGES_LIST.
+def orfs_gds(**kwargs):
+    _orfs_stage("final", orfs_gds_rule, **kwargs)
+
+def orfs_abstract(**kwargs):
+    _orfs_stage("generate_abstract", orfs_abstract_rule, **kwargs)
+
+def orfs_generate_metadata(**kwargs):
+    _orfs_stage("generate_metadata", orfs_generate_metadata_rule, **kwargs)
 
 def _step_name(name, variant, stage):
     if variant:
