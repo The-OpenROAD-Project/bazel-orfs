@@ -736,8 +736,13 @@ def headline(data, gt_runtimes):  # noqa: C901
         gt = gt_runtimes.get(design)
         if not (front and front["front"] and gt):
             continue
+        # Each study is scored against its own error: the macro study on
+        # the paths that touch a macro pin, the others on all of them.
+        key = ACCURACY_KEY.get(design, "mean_rel_err")
         placed = [
-            p for p in front["front"] if str(p["env"].get("RUN_PLACE", "0")) == "1"
+            p
+            for p in front["front"]
+            if str(p["env"].get("RUN_PLACE", "0")) == "1" and key in p
         ]
         if not placed:
             continue
@@ -1007,6 +1012,12 @@ def main():
     }
     data = {design: load(directory, design) for design, _ in DESIGNS}
 
+    # The macro study is the same design and the same flow, scored on a
+    # subset of the paths, so it shares multiplier_top's baseline and
+    # stage breakdown. Its chance level, though, is set by how many macro
+    # paths there are, not by the full sample.
+    gt_runtimes["multiplier_top_macro"] = gt_runtimes.get("multiplier_top")
+
     # How many paths were sampled sets the chance baseline for recall@10.
     path_counts = {}
     for design, gt_path in (
@@ -1020,6 +1031,13 @@ def main():
         "multiplier": ground_truth_stages(args.ground_truth_json),
         "multiplier_top": ground_truth_stages(args.ground_truth_top_json),
     }
+
+    macro_front = data.get("multiplier_top_macro", (None, None))[0]
+    if macro_front and macro_front["front"]:
+        n_macro = macro_front["front"][0].get("n_macro")
+        if n_macro:
+            path_counts["multiplier_top_macro"] = n_macro
+    flow_stages["multiplier_top_macro"] = flow_stages.get("multiplier_top", {})
 
     for design, title in DESIGNS:
         front, _ = data[design]
