@@ -37,7 +37,18 @@ import pandas as pd  # noqa: E402
 DESIGNS = [
     ("multiplier", "multiplier (simple)"),
     ("multiplier_top", "multiplier_top (macro array)"),
+    # Same design, same estimator runs, scored only on the paths that
+    # touch a macro pin -- a separate population, and a separate
+    # question: what does it take to estimate macro timing?
+    ("multiplier_top_macro", "multiplier_top, macro paths only"),
 ]
+
+# Which error each study is built against.
+ACCURACY_KEY = {
+    "multiplier": "mean_rel_err",
+    "multiplier_top": "mean_rel_err",
+    "multiplier_top_macro": "mean_rel_err_macro",
+}
 
 
 # One figure per panel rather than a grid: a 2x2 tiling left every rung
@@ -57,6 +68,16 @@ FRONT_COLUMNS = [
     "bias",
     "spread",
     "worst_recall",
+]
+
+# Only present on a design that has macros, and worth its own columns
+# there: averaging the two populations together hid the fact that the
+# estimator orders the macro paths backwards.
+MACRO_COLUMNS = [
+    "mean_rel_err_nonmacro",
+    "kendall_tau_nonmacro",
+    "mean_rel_err_macro",
+    "kendall_tau_macro",
 ]
 
 
@@ -173,28 +194,34 @@ def _ground_truth_line(ax, gt):
 
 
 def plot_error(directory, design, title, front, gt):
+    key = ACCURACY_KEY.get(design, "mean_rel_err")
     fig, ax = plt.subplots(figsize=(10, 6))
     if front:
         ax.scatter(
-            [m["runtime_s"] for m in front["measured"]],
-            [m["mean_rel_err"] for m in front["measured"]],
+            [m["runtime_s"] for m in front["measured"] if key in m],
+            [m[key] for m in front["measured"] if key in m],
             s=22,
             color="0.72",
             label="measured",
         )
-        pts = sorted(front["front"], key=lambda p: p["runtime_s"])
+        pts = [
+            p for p in sorted(front["front"], key=lambda p: p["runtime_s"]) if key in p
+        ]
         ax.plot(
             [p["runtime_s"] for p in pts],
-            [p["mean_rel_err"] for p in pts],
+            [p[key] for p in pts],
             "o-",
             color="tab:blue",
             label="Pareto front (numbered as in the table)",
         )
-        _annotate_numbered(ax, pts, "mean_rel_err")
+        _annotate_numbered(ax, pts, key)
     _ground_truth_line(ax, gt)
     ax.set_xscale("log")
     ax.set_xlabel("runtime (s, log scale)")
-    ax.set_ylabel("mean relative error")
+    ax.set_ylabel(
+        "mean relative error"
+        + (" (macro paths only)" if key.endswith("_macro") else "")
+    )
     ax.set_title(f"{title}: accuracy vs runtime")
     ax.grid(alpha=0.3)
     ax.legend(fontsize=9)
@@ -302,10 +329,13 @@ def plot_bias(directory, design, title, front):
 def front_table(front):
     if not front:
         return "_No measured front yet._"
+    pts = sorted(front["front"], key=lambda p: p["runtime_s"])
+    has_macro = any("mean_rel_err_macro" in p for p in pts)
+    cols = FRONT_COLUMNS + (MACRO_COLUMNS if has_macro else [])
     rows = []
-    for p in sorted(front["front"], key=lambda p: p["runtime_s"]):
-        row = {"rungs": rung_label(p["env"])}
-        row.update({c: p.get(c) for c in FRONT_COLUMNS})
+    for n, p in enumerate(pts, 1):
+        row = {"#": n, "rungs": rung_label(p["env"])}
+        row.update({c: p.get(c) for c in cols})
         rows.append(row)
     return pd.DataFrame(rows).to_markdown(index=False, floatfmt=".4g")
 
@@ -693,7 +723,7 @@ def methods_section(path_counts):
     ]
 
 
-def headline(data, gt_runtimes):
+def headline(data, gt_runtimes):  # noqa: C901
     """The result, for a reader who knows EDA and not statistics.
 
     Deliberately free of tau, bias, spread and Pareto vocabulary: those
@@ -714,9 +744,9 @@ def headline(data, gt_runtimes):
         # The rung someone would actually choose: the cheapest one within
         # a percentage point of the best accuracy on offer, rather than
         # the most accurate at any price.
-        best_err = min(p["mean_rel_err"] for p in placed)
+        best_err = min(p[key] for p in placed)
         pick = min(
-            (p for p in placed if p["mean_rel_err"] <= best_err + 0.01),
+            (p for p in placed if p[key] <= best_err + 0.01),
             key=lambda p: p["runtime_s"],
         )
         ph = pick.get("phases", {})
@@ -729,7 +759,7 @@ def headline(data, gt_runtimes):
             )
         out.append(
             f"- **{title}**: the flow takes **{gt:.0f}s**. The estimator gets "
-            f"within **{pick['mean_rel_err']:.1%}** of it in "
+            f"within **{pick[key]:.1%}** of it in "
             f"**{pick['runtime_s']:.3g}s**{detail}."
         )
     return out
@@ -899,6 +929,32 @@ def render(
             out += [
                 f"**What each stage costs**, from the deepest rung measured "
                 f"({rung_label(deepest['env'])}): {costs}.",
+                "",
+            ]
+
+        # The split that the aggregate was hiding.
+        pts = sorted(front["front"], key=lambda p: p["runtime_s"]) if front else []
+        macro_pts = [p for p in pts if "kendall_tau_macro" in p]
+        if macro_pts:
+            worst = min(macro_pts, key=lambda p: p["kendall_tau_macro"])
+            best = max(macro_pts, key=lambda p: p["kendall_tau_macro"])
+            n_m = worst.get("n_macro")
+            n_n = worst.get("n_nonmacro")
+            out += [
+                f"**Macro paths behave differently, and worse.** Of the "
+                f"{(n_m or 0) + (n_n or 0)} sampled paths, {n_m} touch a macro "
+                f"pin and {n_n} do not, and the two are separate populations: "
+                f"the macro paths run faster and none of them is among the ten "
+                f"worst overall, which is why a slack-ranked sample reaches "
+                f"almost none of them and has to be told to go and find them. "
+                f"Scored on their own, rank correlation across the front runs "
+                f"from {worst['kendall_tau_macro']:+.2f} to "
+                f"{best['kendall_tau_macro']:+.2f} against "
+                f"{worst['kendall_tau_nonmacro']:+.2f} to "
+                f"{best['kendall_tau_nonmacro']:+.2f} on everything else. Where "
+                f"that number is negative the estimator is ordering the macro "
+                f"paths backwards, and the healthy-looking aggregate is the "
+                f"non-macro majority outvoting them.",
                 "",
             ]
 

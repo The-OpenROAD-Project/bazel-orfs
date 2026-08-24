@@ -173,7 +173,14 @@ def main():
     ap.add_argument("ground_truth_json")
     ap.add_argument("design_name")
     ap.add_argument("--archive", required=True, help="rung A archive JSON")
-    ap.add_argument("--accuracy-key", default="mean_rel_err")
+    ap.add_argument(
+        "--accuracy-key",
+        default="mean_rel_err",
+        help=(
+            "which error to build the front against; mean_rel_err_macro "
+            "restricts it to the paths that touch a macro pin"
+        ),
+    )
     args = ap.parse_args()
 
     # bazel runs this from a runfiles tree, so a relative --archive is

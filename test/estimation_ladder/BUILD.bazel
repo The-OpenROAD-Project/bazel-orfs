@@ -345,3 +345,60 @@ py_binary(
         "@bazel-orfs-dev-pip//scipy",
     ],
 )
+
+# -------------------------------------------------------------
+# The macro-path study.
+#
+# The same design and the same estimator runs, scored only on the paths
+# that touch a macro pin. They are a separate population -- faster than
+# the top-level logic, never among the worst paths, and ordered far
+# worse by the estimator -- so a sweep guided by the combined average
+# optimises for the non-macro majority and never explores what the macro
+# paths need. What it takes to estimate macro timing is its own
+# question, and it gets its own study.
+# -------------------------------------------------------------
+
+py_binary(
+    name = "optuna_study_top_macro",
+    srcs = ["optuna_study.py"],
+    args = [
+        "$(location :fast_estimator_top_executable)",
+        "$(location ground_truth_top.json)",
+        "multiplier_top_macro",
+        "--subset",
+        "macro",
+    ],
+    data = [
+        "ground_truth_top.json",
+        ":fast_estimator_top_executable",
+    ],
+    main = "optuna_study.py",
+    deps = [
+        ":estimation_metrics",
+        "@bazel-orfs-dev-pip//optuna",
+        "@bazel-orfs-dev-pip//pandas",
+    ],
+)
+
+py_binary(
+    name = "measure_runtime_top_macro",
+    srcs = ["measure_runtime.py"],
+    args = [
+        "$(location :fast_estimator_top_executable)",
+        "$(location ground_truth_top.json)",
+        "multiplier_top_macro",
+        "--archive",
+        "archive_multiplier_top_macro.json",
+        "--accuracy-key",
+        "mean_rel_err_macro",
+    ],
+    data = [
+        "ground_truth_top.json",
+        ":fast_estimator_top_executable",
+    ],
+    main = "measure_runtime.py",
+    deps = [
+        ":optuna_study_lib",
+        "@bazel-orfs-dev-pip//scikit_learn",
+    ],
+)

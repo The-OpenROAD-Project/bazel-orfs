@@ -208,6 +208,18 @@ def main():
     ap.add_argument("--trials", type=int, default=400)
     ap.add_argument("--jobs", type=int, default=8)
     ap.add_argument(
+        "--subset",
+        choices=["all", "macro", "nonmacro"],
+        default="all",
+        help=(
+            "which population to optimize for. On a macro design the macro "
+            "paths are a separate population with their own error structure "
+            "-- faster, never near-critical, and ordered far worse -- so a "
+            "sweep guided by the combined average optimizes for the non-macro "
+            "majority and never explores what the macro paths need."
+        ),
+    )
+    ap.add_argument(
         "--trial-timeout",
         type=float,
         default=1800.0,
@@ -237,7 +249,12 @@ def main():
         # Maximizing rank correlation and minimizing the *magnitude* of
         # the bias: a large bias that is consistent is a calibration
         # constant, so it should not be penalized by its sign.
-        return metrics["kendall_tau"], abs(metrics["bias"])
+        suffix = "" if args.subset == "all" else f"_{args.subset}"
+        tau = metrics.get(f"kendall_tau{suffix}")
+        bias = metrics.get(f"bias{suffix}")
+        if tau is None or bias is None or tau != tau:
+            raise ValueError(f"no {args.subset} metrics for this trial")
+        return tau, abs(bias)
 
     study = optuna.create_study(
         directions=["maximize", "minimize"],
