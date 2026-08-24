@@ -242,6 +242,23 @@ def synth_attrs():
         ),
     }
 
+def fork_attrs():
+    """The fork/join idiom files shipped to every run script.
+
+    Scripts opt in with `source $::env(ORFS_FORK_TCL)`; the two files cost
+    nothing when unused. See fork/fork.tcl.
+    """
+    return {
+        "_fork_lib": attr.label(
+            default = "//fork:liborfsfork.so",
+            allow_single_file = True,
+        ),
+        "_fork_tcl": attr.label(
+            default = "//fork:fork.tcl",
+            allow_single_file = True,
+        ),
+    }
+
 def openroad_only_attrs():
     return {
         "src": attr.label(

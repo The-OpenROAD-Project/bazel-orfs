@@ -508,6 +508,28 @@ def data_arguments(ctx):
 def run_arguments(ctx):
     return {"RUN_SCRIPT": ctx.file.script.path}
 
+def fork_arguments(ctx, short = False):
+    """The fork/join idiom files (see fork/fork.tcl).
+
+    Any run script may `source $::env(ORFS_FORK_TCL)`, which loads the
+    raw-primitive extension from $ORFS_FORK_LIB.
+    """
+    return {
+        "ORFS_FORK_LIB": file_path(ctx.file._fork_lib, short),
+        "ORFS_FORK_TCL": file_path(ctx.file._fork_tcl, short),
+    }
+
+def out_dir_arguments(out_dir):
+    """Points run scripts at their declared output directory, if any.
+
+    Deliberately not named RESULTS_DIR: the ORFS Makefile owns that
+    variable (staged flow outputs live there), so overriding it would
+    break input loading.
+    """
+    if out_dir:
+        return {"RUN_OUTPUT_DIR": out_dir.path}
+    return {}
+
 def environment_string(env):
     return " ".join(['{}="{}"'.format(*pair) for pair in env.items()])
 

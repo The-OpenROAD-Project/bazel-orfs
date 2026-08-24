@@ -873,6 +873,42 @@ orfs_flow(
     verilog_files = LB_VERILOG_FILES,
 )
 
+# Exercise orfs_run's out_dir (tree-artifact output directory): the script
+# decides at runtime what files land in $RUN_OUTPUT_DIR. Fast in CI via
+# mock-openroad.
+orfs_run(
+    name = "run_out_dir_mock",
+    src = ":lb_32x128_mock_openroad_floorplan",
+    openroad = "//mock/openroad/src/bin:openroad",
+    out_dir = "run_out_dir_mock_out",
+    script = ":run_out_dir.tcl",
+)
+
+sh_test(
+    name = "run_out_dir_test",
+    srcs = ["run_out_dir_test.sh"],
+    args = ["$(rootpath :run_out_dir_mock)"],
+    data = [":run_out_dir_mock"],
+)
+
+# fork/join smoke on real OpenROAD (see fork/fork.tcl): a nested tree walk
+# after load_design writing one JSON per leaf into out_dir, with an OpenSTA
+# query in every forked child and a deliberate failing leaf.
+orfs_run(
+    name = "fork_smoke",
+    src = ":lb_32x128_floorplan",
+    openroad = "@openroad//:openroad",
+    out_dir = "fork_smoke_out",
+    script = ":fork_smoke.tcl",
+    tags = ["manual"],
+)
+
+build_test(
+    name = "fork_smoke_test",
+    tags = ["manual"],
+    targets = [":fork_smoke"],
+)
+
 # Manual target for testing the source-built OpenROAD GUI locally.
 # Run: bazelisk run //test:lb_32x128_openroad_gui_synth
 # This builds OpenROAD from source with GUI and opens the synthesis

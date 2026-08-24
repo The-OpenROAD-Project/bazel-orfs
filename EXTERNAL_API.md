@@ -28,6 +28,12 @@ These are loaded by the public `.bzl` files above or by BUILD files that
 downstream consumers may transitively evaluate:
 
 - `rules_shell` — `sh_binary` in ppa.bzl, root BUILD
+- `rules_cc` — `cc_binary` in fork/BUILD.bazel (the fork/join Tcl extension,
+  a default attr of `orfs_run`/`orfs_run_executable`)
+- `tcl_lang` — `tclstub` dependency of fork/BUILD.bazel; pinned to the same
+  version the openroad module embeds so the loadable extension always
+  matches the interpreter
+- `platforms` — `target_compatible_with` in fork/BUILD.bazel
 - `rules_verilog` — verilog providers in verilog.bzl
 - `rules_verilator` — verilator toolchain, verilator_cc_library
 - `verilator` — required by rules_verilator
@@ -47,7 +53,6 @@ These are only used by dev-only extensions, toolchains, or BUILD files:
 - `rules_java` — transitive dep of rules_scala
 - `rules_scala` — scala_config/scala_deps extensions
 - `rules_chisel` — chisel/test.bzl, dev BUILD files
-- `rules_cc` — chisel/test.bzl, dev BUILD files
 
 ## PDK extensibility
 

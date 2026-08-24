@@ -6,6 +6,9 @@ module(
 )
 
 bazel_dep(name = "bazel_skylib", version = "1.9.0", dev_dependency = True)
+
+bazel_dep(name = "platforms", version = "1.0.0")
+
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
 bazel_dep(name = "rules_pkg", version = "1.2.0")
@@ -20,6 +23,12 @@ local_path_override(
 
 bazel_dep(name = "abc", version = "0.64-yosyshq.bcr.2")
 bazel_dep(name = "yosys", version = "0.64")
+
+# Tcl, for //fork: the fork/join extension is compiled against the same
+# @tcl_lang the openroad module embeds (MVS keeps the two in lockstep), so
+# the loadable .so always matches the interpreter that `load`s it. Non-dev:
+# downstream roots build //fork:liborfsfork.so through orfs_run targets.
+bazel_dep(name = "tcl_lang", version = "9.0.2.bcr.2")
 
 # The slang yosys frontend plugin (slang.so). yosys-slang was renamed to
 # sv-elab and published on BCR; it's not bundled in BCR yosys, so we load

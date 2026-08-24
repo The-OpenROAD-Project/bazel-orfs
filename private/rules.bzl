@@ -4,6 +4,7 @@ load(
     "//private:attrs.bzl",
     "flow_attrs",
     "flow_provides",
+    "fork_attrs",
     "openroad_attrs",
     "openroad_only_attrs",
     "orfs_attrs",
@@ -28,6 +29,7 @@ load(
     "flow_inputs",
     "flow_runfiles",
     "flow_substitutions",
+    "fork_arguments",
     "generation_commands",
     "hack_away_prefix",
     "input_commands",
@@ -36,6 +38,7 @@ load(
     "module_top",
     "odb_arguments",
     "orfs_additional_arguments",
+    "out_dir_arguments",
     "pdk_inputs",
     "rename_inputs",
     "renames",
@@ -380,6 +383,13 @@ def _run_impl(ctx):
     for k in dir(ctx.outputs):
         outs.extend(getattr(ctx.outputs, k))
 
+    out_dir = None
+    if ctx.attr.out_dir:
+        out_dir = ctx.actions.declare_directory(ctx.attr.out_dir)
+        outs.append(out_dir)
+    if not outs:
+        fail("orfs_run requires at least one of `outs` or `out_dir`")
+
     original_config = config
     all_jsons = ctx.files.extra_arguments
     inherited_jsons = ctx.attr.src[OrfsInfo].arguments.to_list() if OrfsInfo in ctx.attr.src else []
@@ -413,9 +423,11 @@ def _run_impl(ctx):
               odb_arguments(ctx) |
               sdc_arguments(ctx) |
               data_arguments(ctx) |
-              run_arguments(ctx),
+              run_arguments(ctx) |
+              fork_arguments(ctx) |
+              out_dir_arguments(out_dir),
         inputs = depset(
-            [config, ctx.file.script] + extra_files,
+            [config, ctx.file.script, ctx.file._fork_tcl, ctx.file._fork_lib] + extra_files,
             transitive = [
                 data_inputs(ctx),
                 source_inputs(ctx),
@@ -448,7 +460,9 @@ def _run_impl(ctx):
                                             arguments = odb_arguments(ctx) |
                                                         sdc_arguments(ctx) |
                                                         data_arguments(ctx) |
-                                                        run_arguments(ctx),
+                                                        run_arguments(ctx) |
+                                                        fork_arguments(ctx) |
+                                                        out_dir_arguments(out_dir),
                                             prefix = config.root.path,
                                         ) |
                                         {
@@ -470,10 +484,10 @@ def _run_impl(ctx):
             make = make,
             config = config,
             renames = [],
-            files = depset([config, ctx.file.script] + extra_files),
+            files = depset([config, ctx.file.script, ctx.file._fork_tcl, ctx.file._fork_lib] + extra_files),
             runfiles = ctx.runfiles(
                 transitive_files = depset(
-                    [config, make, ctx.file.script] + extra_files,
+                    [config, make, ctx.file.script, ctx.file._fork_tcl, ctx.file._fork_lib] + extra_files,
                     transitive = [
                         flow_inputs(ctx),
                         data_inputs(ctx),
@@ -488,6 +502,7 @@ _orfs_run_rule = rule(
     implementation = _run_impl,
     attrs = yosys_attrs() |
             openroad_attrs() |
+            fork_attrs() |
             {
                 "cmd": attr.string(
                     mandatory = False,
@@ -497,9 +512,19 @@ _orfs_run_rule = rule(
                     mandatory = False,
                     default = "",
                 ),
+                "out_dir": attr.string(
+                    mandatory = False,
+                    default = "",
+                    doc = "Name of a declared output directory (a tree " +
+                          "artifact). Its path reaches the run script as " +
+                          "$RUN_OUTPUT_DIR; the script decides what files " +
+                          "to put there. Use for scripts whose set of " +
+                          "output files is not known in advance (e.g. a " +
+                          "fork/join tree walk writing one JSON per leaf).",
+                ),
                 "outs": attr.output_list(
-                    mandatory = True,
-                    allow_empty = False,
+                    mandatory = False,
+                    allow_empty = True,
                 ),
                 "script": attr.label(
                     mandatory = True,
@@ -848,7 +873,7 @@ def _run_executable_impl(ctx):
         "FLOW_HOME": ctx.file._makefile.dirname,
         "STDBUF_CMD": "",
         "RUN_SCRIPT": ctx.file.script.path,
-    }
+    } | fork_arguments(ctx, short = True)
 
     moreargs = environment_string(
         hack_away_prefix(
@@ -901,7 +926,7 @@ exec "$PYTHON" "$SCRIPT" {moreargs} "$@"
             executable = wrapper,
             runfiles = ctx.runfiles(
                 transitive_files = depset(
-                    [config, wrapper, ctx.file._run_executable_script, ctx.file.script],
+                    [config, wrapper, ctx.file._run_executable_script, ctx.file.script, ctx.file._fork_tcl, ctx.file._fork_lib],
                     transitive = [
                         flow_inputs(ctx),
                         yosys_inputs(ctx),
@@ -917,6 +942,7 @@ _orfs_rule_run_executable = rule(
     implementation = _run_executable_impl,
     attrs = yosys_attrs() |
             openroad_attrs() |
+            fork_attrs() |
             {
                 "cmd": attr.string(
                     mandatory = False,
@@ -963,6 +989,12 @@ def orfs_run_executable(**kwargs):
        the script author's responsibility; script-specific output destinations
        must be passed via custom variables as **absolute paths** to write back
        to the workspace.
+    5. **Results folders**: a script that produces a folder of files (e.g. a
+       fork/join tree walk writing one JSON per leaf — see docs/fork.md)
+       takes the folder as such an absolute-path variable, supplied by the
+       caller per invocation exactly like `LOG_DIR`; concurrent invocations
+       must not share it. (The build-time sibling `orfs_run` declares the
+       folder itself via its `out_dir` attribute instead.)
 
     The compiled binary accepts `KEY=VALUE` positional arguments which become
     Make variable overrides, and an optional `--cmd` flag to override the default
