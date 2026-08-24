@@ -1,0 +1,2338 @@
+{
+  "accuracy_key": "mean_rel_err",
+  "front": [
+    {
+      "bias": -0.2131544723524306,
+      "env": {
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "0"
+      },
+      "index": 0,
+      "kendall_tau": 0.8532494758909853,
+      "mean_rel_err": 0.2131544723524306,
+      "phases": {
+        "floorplan": 0.002,
+        "place_pins": 0.009
+      },
+      "repeats": [
+        0.012,
+        0.013,
+        0.013
+      ],
+      "runtime_s": 0.013,
+      "spearman_rho": 0.9685153421002476,
+      "spread": 0.013668841382874762,
+      "worst_recall": 0.8
+    },
+    {
+      "bias": -0.052920046173958644,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.38076596311201716 -initial_place_max_iter 3 -initial_place_max_fanout 269 -init_wirelength_coef 0.8146550006214303 -bin_grid_count 128 -min_phi_coef 0.8936701345860645 -max_phi_coef 1.1475871014738301",
+        "GRT_ARGS": "-critical_nets_percentage 23.463214786687338",
+        "GRT_ITERATIONS": "1",
+        "PLACE_IOS": "0",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1"
+      },
+      "index": 158,
+      "kendall_tau": 0.8518518518518517,
+      "mean_rel_err": 0.052920046173958644,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 0.323,
+        "global_route": 0.243,
+        "place_pins": 0.01
+      },
+      "repeats": [
+        0.962,
+        0.952,
+        0.928
+      ],
+      "runtime_s": 0.952,
+      "spearman_rho": 0.9629502572898798,
+      "spread": 0.02335222123798094,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.045661063112008425,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.33935618673301565 -initial_place_max_iter 3 -initial_place_max_fanout 374 -init_wirelength_coef 0.6960489509944183 -bin_grid_count 128 -min_phi_coef 0.8814810522623556 -max_phi_coef 1.1355481308209308",
+        "GRT_ARGS": "-allow_congestion -critical_nets_percentage 22.404041275665108",
+        "GRT_ITERATIONS": "11",
+        "PLACE_IOS": "1",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1"
+      },
+      "index": 38,
+      "kendall_tau": 0.7833682739343115,
+      "mean_rel_err": 0.04740476500561831,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 0.396,
+        "global_route": 0.265,
+        "place_pins": 0.008
+      },
+      "repeats": [
+        1.023,
+        1.035,
+        1.019
+      ],
+      "runtime_s": 1.023,
+      "spearman_rho": 0.9294835143891746,
+      "spread": 0.03353171291287394,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.021037308520240335,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.24534046177369712 -initial_place_max_iter 14 -initial_place_max_fanout 236 -init_wirelength_coef 0.8012345077040972 -min_phi_coef 0.9052770837488626 -max_phi_coef 1.0833769493687417",
+        "GRT_ARGS": "-use_cugr -critical_nets_percentage 28.397885274016957",
+        "GRT_ITERATIONS": "19",
+        "PLACE_IOS": "1",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 17.027975563096756 -cap_margin 14.682078657632536",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 86,
+      "kendall_tau": 0.5709294199860236,
+      "mean_rel_err": 0.04298993119617087,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 0.586,
+        "global_route": 0.989,
+        "place_pins": 0.008,
+        "repair_design": 0.857
+      },
+      "repeats": [
+        2.8,
+        2.794,
+        2.808
+      ],
+      "runtime_s": 2.8,
+      "spearman_rho": 0.7238803125595578,
+      "spread": 0.053453579447069,
+      "worst_recall": 0.5
+    },
+    {
+      "bias": -0.02570603018146079,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "1",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.3016354047247578 -initial_place_max_iter 3 -initial_place_max_fanout 373 -init_wirelength_coef 0.33341051690790385 -min_phi_coef 0.9018427679849204 -max_phi_coef 1.0709655437956094",
+        "GRT_ARGS": "-use_cugr -critical_nets_percentage 16.572507381207753",
+        "GRT_ITERATIONS": "1",
+        "PLACE_IOS": "0",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 16.48131118168347 -cap_margin 9.116398242246444",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 154,
+      "kendall_tau": 0.864430468204053,
+      "mean_rel_err": 0.02570603018146079,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 2.25,
+        "global_route": 0.285,
+        "place_pins": 0.009,
+        "repair_design": 0.705
+      },
+      "repeats": [
+        3.541,
+        3.511,
+        3.552
+      ],
+      "runtime_s": 3.541,
+      "spearman_rho": 0.9705736611396988,
+      "spread": 0.0140183511578022,
+      "worst_recall": 0.8
+    },
+    {
+      "bias": -0.01411354731338412,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_ROUTABILITY_DRIVEN": "1",
+        "GPL_TIMING_DRIVEN": "1",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-routability_check_overflow 0.30768440953367204 -overflow 0.388533363213426 -initial_place_max_iter 20 -initial_place_max_fanout 151 -init_wirelength_coef 0.5724271389803847 -bin_grid_count 256 -min_phi_coef 0.9479139809472408 -max_phi_coef 1.0260459729106837",
+        "GRT_ARGS": "-use_cugr -allow_congestion -critical_nets_percentage 18.92181368095281",
+        "GRT_ITERATIONS": "28",
+        "PLACE_IOS": "0",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap reroute} -repair_tns 50 -max_passes 6 -skip_last_gasp -skip_gate_cloning",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 72,
+      "kendall_tau": 0.8630328441649197,
+      "mean_rel_err": 0.01605679720538046,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 5.394,
+        "global_route": 0.28,
+        "place_pins": 0.01,
+        "repair_timing": 0.395
+      },
+      "repeats": [
+        6.339,
+        6.351,
+        6.401
+      ],
+      "runtime_s": 6.351,
+      "spearman_rho": 0.9663045549838002,
+      "spread": 0.011610726804171984,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.008003490735004047,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "1",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "1",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.2687746852445831 -initial_place_max_iter 14 -initial_place_max_fanout 105 -init_wirelength_coef 0.5478517783439126 -bin_grid_count 64 -min_phi_coef 0.9575357168631204 -max_phi_coef 1.0561538866244438",
+        "GRT_ARGS": "-use_cugr -critical_nets_percentage 12.366050069080389",
+        "GRT_ITERATIONS": "18",
+        "PLACE_IOS": "0",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 15.240994572499192 -cap_margin 8.2917830394313",
+        "REPAIR_TIMING_ARGS": "-sequence {buffer vt_swap reroute} -repair_tns 0 -max_passes 2",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 204,
+      "kendall_tau": 0.8798043326345212,
+      "mean_rel_err": 0.010819659598470545,
+      "phases": {
+        "cts": 2.718,
+        "floorplan": 0.002,
+        "global_place": 2.344,
+        "global_route": 0.327,
+        "place_pins": 0.009,
+        "repair_design": 0.731,
+        "repair_timing": 0.442
+      },
+      "repeats": [
+        6.952,
+        7.01,
+        6.891
+      ],
+      "runtime_s": 6.952,
+      "spearman_rho": 0.9723270440251571,
+      "spread": 0.010097839431439644,
+      "worst_recall": 0.6
+    }
+  ],
+  "measured": [
+    {
+      "bias": -0.2131544723524306,
+      "env": {
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "0"
+      },
+      "index": 0,
+      "kendall_tau": 0.8532494758909853,
+      "mean_rel_err": 0.2131544723524306,
+      "phases": {
+        "floorplan": 0.002,
+        "place_pins": 0.009
+      },
+      "repeats": [
+        0.012,
+        0.013,
+        0.013
+      ],
+      "runtime_s": 0.013,
+      "spearman_rho": 0.9685153421002476,
+      "spread": 0.013668841382874762,
+      "worst_recall": 0.8
+    },
+    {
+      "bias": -0.052920046173958644,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.38076596311201716 -initial_place_max_iter 3 -initial_place_max_fanout 269 -init_wirelength_coef 0.8146550006214303 -bin_grid_count 128 -min_phi_coef 0.8936701345860645 -max_phi_coef 1.1475871014738301",
+        "GRT_ARGS": "-critical_nets_percentage 23.463214786687338",
+        "GRT_ITERATIONS": "1",
+        "PLACE_IOS": "0",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1"
+      },
+      "index": 158,
+      "kendall_tau": 0.8518518518518517,
+      "mean_rel_err": 0.052920046173958644,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 0.323,
+        "global_route": 0.243,
+        "place_pins": 0.01
+      },
+      "repeats": [
+        0.962,
+        0.952,
+        0.928
+      ],
+      "runtime_s": 0.952,
+      "spearman_rho": 0.9629502572898798,
+      "spread": 0.02335222123798094,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.045661063112008425,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.33935618673301565 -initial_place_max_iter 3 -initial_place_max_fanout 374 -init_wirelength_coef 0.6960489509944183 -bin_grid_count 128 -min_phi_coef 0.8814810522623556 -max_phi_coef 1.1355481308209308",
+        "GRT_ARGS": "-allow_congestion -critical_nets_percentage 22.404041275665108",
+        "GRT_ITERATIONS": "11",
+        "PLACE_IOS": "1",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1"
+      },
+      "index": 38,
+      "kendall_tau": 0.7833682739343115,
+      "mean_rel_err": 0.04740476500561831,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 0.396,
+        "global_route": 0.265,
+        "place_pins": 0.008
+      },
+      "repeats": [
+        1.023,
+        1.035,
+        1.019
+      ],
+      "runtime_s": 1.023,
+      "spearman_rho": 0.9294835143891746,
+      "spread": 0.03353171291287394,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.13132166126976336,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_ROUTABILITY_DRIVEN": "1",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-routability_check_overflow 0.24935768790600202 -overflow 0.3634745206404385 -initial_place_max_iter 5 -initial_place_max_fanout 277 -init_wirelength_coef 0.0579699642416959 -bin_grid_count 64 -min_phi_coef 0.8783850869050016 -max_phi_coef 1.0409277452428949",
+        "PLACE_IOS": "0",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1"
+      },
+      "index": 178,
+      "kendall_tau": 0.8364779874213836,
+      "mean_rel_err": 0.13132166126976336,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 0.93,
+        "place_pins": 0.009
+      },
+      "repeats": [
+        1.151,
+        1.107,
+        1.109
+      ],
+      "runtime_s": 1.109,
+      "spearman_rho": 0.9539546407470934,
+      "spread": 0.01613031474775797,
+      "worst_recall": 0.8
+    },
+    {
+      "bias": -0.15334573030833298,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.1337418018733565 -initial_place_max_iter 14 -initial_place_max_fanout 103 -init_wirelength_coef 0.5616023411377228 -min_phi_coef 0.9620965333864032 -max_phi_coef 1.1383515545165295",
+        "PLACE_IOS": "1",
+        "REPAIR_TIMING_ARGS": "-sequence {buffer vt_swap reroute} -repair_tns 100 -max_passes 3 -skip_last_gasp -skip_gate_cloning",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 229,
+      "kendall_tau": 0.7987421383647798,
+      "mean_rel_err": 0.15334573030833298,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 0.472,
+        "place_pins": 0.007,
+        "repair_timing": 0.468
+      },
+      "repeats": [
+        1.149,
+        1.149,
+        1.143
+      ],
+      "runtime_s": 1.149,
+      "spearman_rho": 0.9382504288164664,
+      "spread": 0.040432642764082476,
+      "worst_recall": 0.5
+    },
+    {
+      "bias": -0.08878329755877737,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.14668431143696603 -initial_place_max_iter 6 -initial_place_max_fanout 371 -init_wirelength_coef 0.09875525334136492 -min_phi_coef 0.8523240399509606 -max_phi_coef 1.1024649043564498",
+        "GRT_ARGS": "-use_cugr -allow_congestion -critical_nets_percentage 25.060757014968843",
+        "GRT_ITERATIONS": "12",
+        "PLACE_IOS": "1",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1"
+      },
+      "index": 224,
+      "kendall_tau": 0.8630328441649197,
+      "mean_rel_err": 0.08878329755877737,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 0.682,
+        "global_route": 0.293,
+        "place_pins": 0.009
+      },
+      "repeats": [
+        1.291,
+        1.299,
+        1.347
+      ],
+      "runtime_s": 1.299,
+      "spearman_rho": 0.9705736611396988,
+      "spread": 0.02180927407950075,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.12272040333329984,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.07493797790410764 -initial_place_max_iter 1 -initial_place_max_fanout 322 -init_wirelength_coef 0.3864041132696344 -bin_grid_count 64 -min_phi_coef 0.9834510081186582 -max_phi_coef 1.0365500353040238",
+        "PLACE_IOS": "1",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1"
+      },
+      "index": 228,
+      "kendall_tau": 0.8504542278127184,
+      "mean_rel_err": 0.12272040333329984,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 1.099,
+        "place_pins": 0.007
+      },
+      "repeats": [
+        1.294,
+        1.31,
+        1.302
+      ],
+      "runtime_s": 1.302,
+      "spearman_rho": 0.9611968744044214,
+      "spread": 0.019198328282237487,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.12319506954643689,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.2257287068894661 -initial_place_max_iter 11 -initial_place_max_fanout 144 -init_wirelength_coef 0.7028989585998394 -bin_grid_count 64 -min_phi_coef 0.9497676835210992 -max_phi_coef 1.0329011014074887",
+        "PLACE_IOS": "1",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1"
+      },
+      "index": 18,
+      "kendall_tau": 0.8672257162823199,
+      "mean_rel_err": 0.12319506954643689,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 1.111,
+        "place_pins": 0.008
+      },
+      "repeats": [
+        1.306,
+        1.296,
+        1.309
+      ],
+      "runtime_s": 1.306,
+      "spearman_rho": 0.9701162569087095,
+      "spread": 0.01550374464136968,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.07872782246438649,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.12116518065517566 -initial_place_max_iter 17 -initial_place_max_fanout 152 -init_wirelength_coef 0.9202232295845522 -bin_grid_count 64 -min_phi_coef 0.9826635164136508 -max_phi_coef 1.0692040745711258",
+        "GRT_ARGS": "-critical_nets_percentage 12.542700516688164",
+        "GRT_ITERATIONS": "3",
+        "PLACE_IOS": "1",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1"
+      },
+      "index": 23,
+      "kendall_tau": 0.8630328441649197,
+      "mean_rel_err": 0.07872782246438649,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 0.775,
+        "global_route": 0.222,
+        "place_pins": 0.008
+      },
+      "repeats": [
+        1.345,
+        1.314,
+        1.337
+      ],
+      "runtime_s": 1.337,
+      "spearman_rho": 0.966228320945302,
+      "spread": 0.019650924520314937,
+      "worst_recall": 0.8
+    },
+    {
+      "bias": -0.12652502494742282,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_ROUTABILITY_DRIVEN": "1",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-routability_check_overflow 0.45001274413804254 -overflow 0.3575019375090103 -initial_place_max_iter 13 -initial_place_max_fanout 365 -init_wirelength_coef 0.5924778064524874 -bin_grid_count 64 -min_phi_coef 0.8994206942702314 -max_phi_coef 1.0268936917166083",
+        "PLACE_IOS": "0",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1"
+      },
+      "index": 226,
+      "kendall_tau": 0.8336827393431167,
+      "mean_rel_err": 0.12652502494742282,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 1.151,
+        "place_pins": 0.009
+      },
+      "repeats": [
+        1.341,
+        1.381,
+        1.336
+      ],
+      "runtime_s": 1.341,
+      "spearman_rho": 0.9537259386315989,
+      "spread": 0.01955689166772985,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.11128158932529032,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.23377747219013845 -initial_place_max_iter 11 -initial_place_max_fanout 185 -init_wirelength_coef 0.6866830683602249 -bin_grid_count 256 -min_phi_coef 0.9582148239870747 -max_phi_coef 1.126679679166433",
+        "PLACE_IOS": "1",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1"
+      },
+      "index": 105,
+      "kendall_tau": 0.8490566037735848,
+      "mean_rel_err": 0.11128158932529032,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 1.189,
+        "place_pins": 0.008
+      },
+      "repeats": [
+        1.313,
+        1.351,
+        1.385
+      ],
+      "runtime_s": 1.351,
+      "spearman_rho": 0.9639412997903563,
+      "spread": 0.0262423801195742,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.0653301336090666,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.07097849522123498 -initial_place_max_iter 17 -initial_place_max_fanout 249 -init_wirelength_coef 0.7478411129759988 -bin_grid_count 128 -min_phi_coef 0.9933448013196378 -max_phi_coef 1.1294080098273034",
+        "GRT_ARGS": "-critical_nets_percentage 2.3898196479628653",
+        "GRT_ITERATIONS": "7",
+        "PLACE_IOS": "1",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1"
+      },
+      "index": 132,
+      "kendall_tau": 0.8658280922431866,
+      "mean_rel_err": 0.0653301336090666,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 0.758,
+        "global_route": 0.242,
+        "place_pins": 0.008
+      },
+      "repeats": [
+        1.364,
+        1.424,
+        1.355
+      ],
+      "runtime_s": 1.364,
+      "spearman_rho": 0.9640175338288545,
+      "spread": 0.022729608067351102,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.11607760236960697,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.2732965151509218 -initial_place_max_iter 16 -initial_place_max_fanout 151 -init_wirelength_coef 0.625973777348767 -bin_grid_count 256 -min_phi_coef 0.8623189444076802 -max_phi_coef 1.09596957720127",
+        "PLACE_IOS": "1",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1"
+      },
+      "index": 176,
+      "kendall_tau": 0.8476589797344514,
+      "mean_rel_err": 0.11607760236960697,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 1.431,
+        "place_pins": 0.009
+      },
+      "repeats": [
+        1.606,
+        1.672,
+        1.628
+      ],
+      "runtime_s": 1.628,
+      "spearman_rho": 0.9598246617114541,
+      "spread": 0.027470887588503377,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.12057288233609187,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.37098580097852435 -initial_place_max_iter 15 -initial_place_max_fanout 188 -init_wirelength_coef 0.09112954445347024 -bin_grid_count 256 -min_phi_coef 0.922756684158542 -max_phi_coef 1.0979630732569674",
+        "PLACE_IOS": "1",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1"
+      },
+      "index": 139,
+      "kendall_tau": 0.8211041229909153,
+      "mean_rel_err": 0.12057288233609187,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 1.626,
+        "place_pins": 0.008
+      },
+      "repeats": [
+        1.941,
+        1.846,
+        1.823
+      ],
+      "runtime_s": 1.846,
+      "spearman_rho": 0.9479321517057364,
+      "spread": 0.021480269432633176,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.13596626022491054,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.11196250319167986 -initial_place_max_iter 2 -initial_place_max_fanout 269 -init_wirelength_coef 0.7833617448769182 -bin_grid_count 128 -min_phi_coef 0.8652278892387423 -max_phi_coef 1.0593703031740302",
+        "GRT_ARGS": "-use_cugr -allow_congestion -critical_nets_percentage 11.045342314565366",
+        "GRT_ITERATIONS": "13",
+        "PLACE_IOS": "0",
+        "REPAIR_TIMING_ARGS": "-sequence {buffer vt_swap reroute} -repair_tns 0 -max_passes 7 -skip_last_gasp -skip_gate_cloning",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 125,
+      "kendall_tau": 0.837875611460517,
+      "mean_rel_err": 0.13596626022491054,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 0.859,
+        "global_route": 0.289,
+        "place_pins": 0.009,
+        "repair_timing": 0.525
+      },
+      "repeats": [
+        2.027,
+        2.039,
+        2.035
+      ],
+      "runtime_s": 2.035,
+      "spearman_rho": 0.957004002287021,
+      "spread": 0.013410261557315893,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.05560774946700167,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.34769029521193634 -initial_place_max_iter 18 -initial_place_max_fanout 362 -init_wirelength_coef 0.10517580668128076 -bin_grid_count 128 -min_phi_coef 0.9135308663893765 -max_phi_coef 1.0956837776317916",
+        "PLACE_IOS": "1",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap} -repair_tns 50 -max_passes 2",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 163,
+      "kendall_tau": 0.858839972047519,
+      "mean_rel_err": 0.05560774946700167,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 1.028,
+        "place_pins": 0.007,
+        "repair_timing": 0.913
+      },
+      "repeats": [
+        2.112,
+        2.234,
+        2.157
+      ],
+      "runtime_s": 2.157,
+      "spearman_rho": 0.9648561082523346,
+      "spread": 0.019751598677788994,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.12975264121672628,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.3288869775344716 -initial_place_max_iter 15 -initial_place_max_fanout 97 -init_wirelength_coef 0.12239132728744895 -bin_grid_count 128 -min_phi_coef 0.969362765728151 -max_phi_coef 1.0753137291139951",
+        "GRT_ARGS": "-use_cugr -allow_congestion -critical_nets_percentage 10.550478821302228",
+        "GRT_ITERATIONS": "12",
+        "PLACE_IOS": "1",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap reroute} -repair_tns 50 -max_passes 1 -skip_last_gasp -skip_gate_cloning",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 203,
+      "kendall_tau": 0.8532494758909853,
+      "mean_rel_err": 0.12975264121672628,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 1.082,
+        "global_route": 0.31,
+        "place_pins": 0.007,
+        "repair_timing": 0.526
+      },
+      "repeats": [
+        2.334,
+        2.286,
+        2.292
+      ],
+      "runtime_s": 2.292,
+      "spearman_rho": 0.9653897465218217,
+      "spread": 0.021967409476511185,
+      "worst_recall": 0.8
+    },
+    {
+      "bias": -0.0586409937637491,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "1",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.2708196410057585 -initial_place_max_iter 0 -initial_place_max_fanout 372 -init_wirelength_coef 0.5561535833687372 -bin_grid_count 64 -min_phi_coef 0.9417982397306761 -max_phi_coef 1.0628592489667195",
+        "PLACE_IOS": "0",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1"
+      },
+      "index": 135,
+      "kendall_tau": 0.758211041229909,
+      "mean_rel_err": 0.0586409937637491,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 2.164,
+        "place_pins": 0.009
+      },
+      "repeats": [
+        2.304,
+        2.315,
+        2.316
+      ],
+      "runtime_s": 2.315,
+      "spearman_rho": 0.913931770535544,
+      "spread": 0.01806697049078508,
+      "worst_recall": 0.3
+    },
+    {
+      "bias": -0.14277497059965372,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_ROUTABILITY_DRIVEN": "1",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-routability_check_overflow 0.26636360344993504 -routability_use_grt -overflow 0.20069499309522992 -initial_place_max_iter 18 -initial_place_max_fanout 300 -init_wirelength_coef 0.7516734020846435 -bin_grid_count 128 -min_phi_coef 0.9618284148775008 -max_phi_coef 1.1452979653898356",
+        "GRT_ARGS": "-use_cugr -allow_congestion -critical_nets_percentage 10.19843524196114",
+        "GRT_ITERATIONS": "4",
+        "PLACE_IOS": "0",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 6.271782956175733 -cap_margin 8.80141478753567",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 137,
+      "kendall_tau": 0.840670859538784,
+      "mean_rel_err": 0.14277497059965372,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 0.798,
+        "global_route": 0.321,
+        "place_pins": 0.009,
+        "repair_design": 0.858
+      },
+      "repeats": [
+        2.377,
+        2.338,
+        2.328
+      ],
+      "runtime_s": 2.338,
+      "spearman_rho": 0.9549456832475699,
+      "spread": 0.02439493752339003,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.11395349001786192,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.1730355985932696 -initial_place_max_iter 10 -initial_place_max_fanout 344 -init_wirelength_coef 0.1664642636428827 -bin_grid_count 64 -min_phi_coef 0.8738876681814188 -max_phi_coef 1.027182208714806",
+        "PLACE_IOS": "1",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1"
+      },
+      "index": 188,
+      "kendall_tau": 0.8336827393431167,
+      "mean_rel_err": 0.11395349001786192,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 2.182,
+        "place_pins": 0.009
+      },
+      "repeats": [
+        2.418,
+        2.398,
+        2.382
+      ],
+      "runtime_s": 2.398,
+      "spearman_rho": 0.9524299599771296,
+      "spread": 0.019816717095649007,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.07460592377678825,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.379714799182745 -initial_place_max_iter 17 -initial_place_max_fanout 344 -init_wirelength_coef 0.1863920490078096 -bin_grid_count 256 -min_phi_coef 0.9264177368360869 -max_phi_coef 1.1196733471975577",
+        "GRT_ARGS": "-critical_nets_percentage 12.092119910913949",
+        "GRT_ITERATIONS": "24",
+        "PLACE_IOS": "0",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 2.678283039767022 -cap_margin 15.127093451404685",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 99,
+      "kendall_tau": 0.8336827393431167,
+      "mean_rel_err": 0.07460592377678825,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 1.158,
+        "global_route": 0.207,
+        "place_pins": 0.009,
+        "repair_design": 0.757
+      },
+      "repeats": [
+        2.502,
+        2.512,
+        2.48
+      ],
+      "runtime_s": 2.502,
+      "spearman_rho": 0.9491518963217076,
+      "spread": 0.015266877715475673,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.021037308520240335,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.24534046177369712 -initial_place_max_iter 14 -initial_place_max_fanout 236 -init_wirelength_coef 0.8012345077040972 -min_phi_coef 0.9052770837488626 -max_phi_coef 1.0833769493687417",
+        "GRT_ARGS": "-use_cugr -critical_nets_percentage 28.397885274016957",
+        "GRT_ITERATIONS": "19",
+        "PLACE_IOS": "1",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 17.027975563096756 -cap_margin 14.682078657632536",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 86,
+      "kendall_tau": 0.5709294199860236,
+      "mean_rel_err": 0.04298993119617087,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 0.586,
+        "global_route": 0.989,
+        "place_pins": 0.008,
+        "repair_design": 0.857
+      },
+      "repeats": [
+        2.8,
+        2.794,
+        2.808
+      ],
+      "runtime_s": 2.8,
+      "spearman_rho": 0.7238803125595578,
+      "spread": 0.053453579447069,
+      "worst_recall": 0.5
+    },
+    {
+      "bias": -0.05585936534988308,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_ROUTABILITY_DRIVEN": "1",
+        "GPL_TIMING_DRIVEN": "1",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-routability_check_overflow 0.21979286522379063 -routability_use_grt -overflow 0.29421131560837704 -initial_place_max_iter 12 -initial_place_max_fanout 145 -init_wirelength_coef 0.6905946945615786 -bin_grid_count 64 -min_phi_coef 0.8713445553159571 -max_phi_coef 1.1144426305832893",
+        "GRT_ARGS": "-use_cugr -critical_nets_percentage 28.326120258185174",
+        "GRT_ITERATIONS": "10",
+        "PLACE_IOS": "0",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1"
+      },
+      "index": 212,
+      "kendall_tau": 0.8616352201257861,
+      "mean_rel_err": 0.05585936534988308,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 2.186,
+        "global_route": 0.301,
+        "place_pins": 0.009
+      },
+      "repeats": [
+        2.841,
+        2.798,
+        2.838
+      ],
+      "runtime_s": 2.838,
+      "spearman_rho": 0.9680579378692585,
+      "spread": 0.012017839084609766,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.13684686619567946,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.18243477654005463 -initial_place_max_iter 18 -initial_place_max_fanout 349 -init_wirelength_coef 0.15984413784078721 -bin_grid_count 256 -min_phi_coef 0.9508652989716557 -max_phi_coef 1.1076861564827638",
+        "GRT_ARGS": "-use_cugr -critical_nets_percentage 20.354004589975982",
+        "GRT_ITERATIONS": "26",
+        "PLACE_IOS": "0",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 9.268268462164107 -cap_margin 7.841324460419521",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 166,
+      "kendall_tau": 0.8728162124388539,
+      "mean_rel_err": 0.13684686619567946,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 1.544,
+        "global_route": 0.32,
+        "place_pins": 0.009,
+        "repair_design": 0.783
+      },
+      "repeats": [
+        2.968,
+        2.967,
+        3.014
+      ],
+      "runtime_s": 2.968,
+      "spearman_rho": 0.9716409376786734,
+      "spread": 0.016285627528596712,
+      "worst_recall": 0.8
+    },
+    {
+      "bias": -0.13305962287514295,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.3177544510891194 -initial_place_max_iter 8 -initial_place_max_fanout 322 -init_wirelength_coef 0.2810535458442712 -bin_grid_count 256 -min_phi_coef 0.8965350593173343 -max_phi_coef 1.0442279874664404",
+        "GRT_ARGS": "-use_cugr -allow_congestion -critical_nets_percentage 2.6050512924990676",
+        "GRT_ITERATIONS": "1",
+        "PLACE_IOS": "0",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1"
+      },
+      "index": 76,
+      "kendall_tau": 0.8238993710691823,
+      "mean_rel_err": 0.13305962287514295,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 2.456,
+        "global_route": 0.289,
+        "place_pins": 0.01
+      },
+      "repeats": [
+        3.154,
+        3.115,
+        3.107
+      ],
+      "runtime_s": 3.115,
+      "spearman_rho": 0.9478559176672383,
+      "spread": 0.021203377917191294,
+      "worst_recall": 0.5
+    },
+    {
+      "bias": -0.1585090343973162,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.29334577768147146 -initial_place_max_iter 2 -initial_place_max_fanout 66 -init_wirelength_coef 0.351258850046714 -bin_grid_count 256 -min_phi_coef 0.8560852204986915 -max_phi_coef 1.0772617374329103",
+        "PLACE_IOS": "1",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 9.751453485397485 -cap_margin 18.094954189988087",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap} -repair_tns 0 -max_passes 4 -skip_last_gasp -skip_gate_cloning",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 47,
+      "kendall_tau": 0.8225017470300487,
+      "mean_rel_err": 0.1585090343973162,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 1.815,
+        "place_pins": 0.007,
+        "repair_design": 0.791,
+        "repair_timing": 0.48
+      },
+      "repeats": [
+        3.238,
+        3.256,
+        3.289
+      ],
+      "runtime_s": 3.256,
+      "spearman_rho": 0.9519725557461405,
+      "spread": 0.02998511951801727,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.08910626478917273,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_ROUTABILITY_DRIVEN": "1",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-routability_check_overflow 0.44618602079418357 -routability_use_grt -overflow 0.30617385810614567 -initial_place_max_iter 6 -initial_place_max_fanout 174 -init_wirelength_coef 0.16411339790774876 -bin_grid_count 128 -min_phi_coef 0.8877484666296019 -max_phi_coef 1.0182120167876074",
+        "GRT_ARGS": "-use_cugr -allow_congestion -critical_nets_percentage 28.19209358867312",
+        "GRT_ITERATIONS": "4",
+        "PLACE_IOS": "0",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1"
+      },
+      "index": 80,
+      "kendall_tau": 0.8560447239692521,
+      "mean_rel_err": 0.08910626478917273,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 2.659,
+        "global_route": 0.295,
+        "place_pins": 0.009
+      },
+      "repeats": [
+        3.308,
+        3.341,
+        3.303
+      ],
+      "runtime_s": 3.308,
+      "spearman_rho": 0.9639412997903563,
+      "spread": 0.016761392865369158,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.10347425028637582,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.34367845541184544 -initial_place_max_iter 20 -initial_place_max_fanout 236 -init_wirelength_coef 0.27722605310999693 -bin_grid_count 256 -min_phi_coef 0.9311665454679428 -max_phi_coef 1.0548316178780106",
+        "PLACE_IOS": "1",
+        "REPAIR_TIMING_ARGS": "-sequence {buffer vt_swap reroute} -repair_tns 0 -max_passes 7",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 119,
+      "kendall_tau": 0.7861635220125786,
+      "mean_rel_err": 0.10347425028637582,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 2.666,
+        "place_pins": 0.009,
+        "repair_timing": 0.56
+      },
+      "repeats": [
+        3.478,
+        3.389,
+        3.423
+      ],
+      "runtime_s": 3.423,
+      "spearman_rho": 0.9172098341909661,
+      "spread": 0.029575356567627446,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.12577156798689992,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.0971349784961997 -initial_place_max_iter 1 -initial_place_max_fanout 195 -init_wirelength_coef 0.9472659730279616 -min_phi_coef 0.8581958197657024 -max_phi_coef 1.0164511631572888",
+        "PLACE_IOS": "1",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 0.2612902252261473 -cap_margin 16.36682887687455",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 180,
+      "kendall_tau": 0.8462613556953178,
+      "mean_rel_err": 0.12577156798689992,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 2.599,
+        "place_pins": 0.009,
+        "repair_design": 0.752
+      },
+      "repeats": [
+        3.492,
+        3.508,
+        3.55
+      ],
+      "runtime_s": 3.508,
+      "spearman_rho": 0.9615780445969123,
+      "spread": 0.016532588143457937,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.02570603018146079,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "1",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.3016354047247578 -initial_place_max_iter 3 -initial_place_max_fanout 373 -init_wirelength_coef 0.33341051690790385 -min_phi_coef 0.9018427679849204 -max_phi_coef 1.0709655437956094",
+        "GRT_ARGS": "-use_cugr -critical_nets_percentage 16.572507381207753",
+        "GRT_ITERATIONS": "1",
+        "PLACE_IOS": "0",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 16.48131118168347 -cap_margin 9.116398242246444",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 154,
+      "kendall_tau": 0.864430468204053,
+      "mean_rel_err": 0.02570603018146079,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 2.25,
+        "global_route": 0.285,
+        "place_pins": 0.009,
+        "repair_design": 0.705
+      },
+      "repeats": [
+        3.541,
+        3.511,
+        3.552
+      ],
+      "runtime_s": 3.541,
+      "spearman_rho": 0.9705736611396988,
+      "spread": 0.0140183511578022,
+      "worst_recall": 0.8
+    },
+    {
+      "bias": -0.06092347413816001,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.33566463457328133 -initial_place_max_iter 18 -initial_place_max_fanout 387 -init_wirelength_coef 0.27540451828751783 -bin_grid_count 64 -min_phi_coef 0.8766510435473722 -max_phi_coef 1.1074671196295998",
+        "GRT_ARGS": "-use_cugr -allow_congestion -critical_nets_percentage 25.557458878868914",
+        "GRT_ITERATIONS": "16",
+        "PLACE_IOS": "1",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 2.9605855305537543 -cap_margin 17.80993575010089",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 27,
+      "kendall_tau": 0.6184486373165619,
+      "mean_rel_err": 0.06891807346937638,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 0.678,
+        "global_route": 1.614,
+        "place_pins": 0.007,
+        "repair_design": 0.87
+      },
+      "repeats": [
+        3.549,
+        3.598,
+        3.549
+      ],
+      "runtime_s": 3.549,
+      "spearman_rho": 0.8019439679817038,
+      "spread": 0.0645491558439543,
+      "worst_recall": 0.5
+    },
+    {
+      "bias": -0.02937476938325629,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.21896463916043996 -initial_place_max_iter 10 -initial_place_max_fanout 221 -init_wirelength_coef 0.8215772854659856 -bin_grid_count 64 -min_phi_coef 0.8605133519928443 -max_phi_coef 1.0164379807393575",
+        "GRT_ARGS": "-allow_congestion -critical_nets_percentage 19.470868014248804",
+        "GRT_ITERATIONS": "24",
+        "PLACE_IOS": "1",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 13.453296347670214 -cap_margin 12.873336081334955",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 225,
+      "kendall_tau": 0.8155136268343814,
+      "mean_rel_err": 0.03151258228976531,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 2.163,
+        "global_route": 0.213,
+        "place_pins": 0.007,
+        "repair_design": 0.855
+      },
+      "repeats": [
+        3.549,
+        3.562,
+        3.568
+      ],
+      "runtime_s": 3.562,
+      "spearman_rho": 0.9366495140080044,
+      "spread": 0.029995859288592462,
+      "worst_recall": 0.8
+    },
+    {
+      "bias": -0.02371781376288429,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "1",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.23411847241665412 -initial_place_max_iter 9 -initial_place_max_fanout 203 -init_wirelength_coef 0.6985828922663929 -bin_grid_count 128 -min_phi_coef 0.9806323914040979 -max_phi_coef 1.1007595879509857",
+        "GRT_ARGS": "-critical_nets_percentage 19.383718831469388",
+        "GRT_ITERATIONS": "26",
+        "PLACE_IOS": "0",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 8.492972975068653 -cap_margin 6.529790874071281",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap} -repair_tns 50 -max_passes 9 -skip_last_gasp -skip_gate_cloning",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 191,
+      "kendall_tau": 0.76659678546471,
+      "mean_rel_err": 0.02715719808822317,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 2.289,
+        "global_route": 0.194,
+        "place_pins": 0.01,
+        "repair_design": 0.706,
+        "repair_timing": 0.393
+      },
+      "repeats": [
+        3.931,
+        3.85,
+        3.889
+      ],
+      "runtime_s": 3.889,
+      "spearman_rho": 0.9294835143891746,
+      "spread": 0.021930951945787768,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.10910736672964526,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.21457760759646144 -initial_place_max_iter 6 -initial_place_max_fanout 361 -init_wirelength_coef 0.5310518016636542 -bin_grid_count 128 -min_phi_coef 0.9129638277757256 -max_phi_coef 1.0164107187635134",
+        "PLACE_IOS": "1",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 16.00793755317072 -cap_margin 11.985666780517443",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 143,
+      "kendall_tau": 0.8518518518518517,
+      "mean_rel_err": 0.10910736672964526,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 3.533,
+        "place_pins": 0.008,
+        "repair_design": 0.751
+      },
+      "repeats": [
+        4.478,
+        4.558,
+        4.481
+      ],
+      "runtime_s": 4.481,
+      "spearman_rho": 0.9616542786354106,
+      "spread": 0.016444039885470198,
+      "worst_recall": 0.8
+    },
+    {
+      "bias": -0.038441523026684174,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "1",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.1654359016404616 -initial_place_max_iter 3 -initial_place_max_fanout 219 -init_wirelength_coef 0.6542604573892595 -bin_grid_count 128 -min_phi_coef 0.8620423000855189 -max_phi_coef 1.111627667306918",
+        "GRT_ARGS": "-use_cugr -allow_congestion -critical_nets_percentage 9.174601876462647",
+        "GRT_ITERATIONS": "12",
+        "PLACE_IOS": "1",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap} -repair_tns 100 -max_passes 2 -skip_last_gasp",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 223,
+      "kendall_tau": 0.758211041229909,
+      "mean_rel_err": 0.048464099287177154,
+      "phases": {
+        "cts": 2.64,
+        "floorplan": 0.002,
+        "global_place": 0.619,
+        "global_route": 0.393,
+        "place_pins": 0.008,
+        "repair_timing": 0.598
+      },
+      "repeats": [
+        4.574,
+        4.566,
+        4.62
+      ],
+      "runtime_s": 4.574,
+      "spearman_rho": 0.9031065370688011,
+      "spread": 0.04020081671851221,
+      "worst_recall": 0.5
+    },
+    {
+      "bias": -0.03838681185008976,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.204826279548395 -initial_place_max_iter 13 -initial_place_max_fanout 233 -init_wirelength_coef 0.8757624904774775 -min_phi_coef 0.9753581500532453 -max_phi_coef 1.1396342054214204",
+        "GRT_ARGS": "-critical_nets_percentage 3.002750497913158",
+        "GRT_ITERATIONS": "17",
+        "PLACE_IOS": "1",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap reroute} -repair_tns 50 -max_passes 8 -skip_gate_cloning",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 172,
+      "kendall_tau": 0.8322851153039832,
+      "mean_rel_err": 0.03989364177167634,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 0.473,
+        "global_route": 0.282,
+        "place_pins": 0.01,
+        "repair_timing": 3.685
+      },
+      "repeats": [
+        4.734,
+        4.725,
+        4.806
+      ],
+      "runtime_s": 4.734,
+      "spearman_rho": 0.9531160663236133,
+      "spread": 0.026537154089736968,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.14102912700026837,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_ROUTABILITY_DRIVEN": "1",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-routability_check_overflow 0.3745853980773193 -overflow 0.36961403565209866 -initial_place_max_iter 14 -initial_place_max_fanout 221 -init_wirelength_coef 0.7284133463735443 -bin_grid_count 256 -min_phi_coef 0.9938888845675825 -max_phi_coef 1.1273951393932755",
+        "GRT_ARGS": "-use_cugr -critical_nets_percentage 6.391466475969134",
+        "GRT_ITERATIONS": "13",
+        "PLACE_IOS": "0",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 9.187208795625681 -cap_margin 18.17983932709604",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap} -repair_tns 50 -max_passes 4 -skip_gate_cloning",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 175,
+      "kendall_tau": 0.8266946191474492,
+      "mean_rel_err": 0.14102912700026837,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 0.972,
+        "global_route": 0.315,
+        "place_pins": 0.009,
+        "repair_design": 0.812,
+        "repair_timing": 2.399
+      },
+      "repeats": [
+        4.871,
+        4.942,
+        4.861
+      ],
+      "runtime_s": 4.871,
+      "spearman_rho": 0.9457975986277872,
+      "spread": 0.017733568752177478,
+      "worst_recall": 0.8
+    },
+    {
+      "bias": -0.1301249148506941,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.35459285779407484 -initial_place_max_iter 20 -initial_place_max_fanout 261 -init_wirelength_coef 0.2298352297927806 -min_phi_coef 0.8634944265510481 -max_phi_coef 1.0117048713132988",
+        "PLACE_IOS": "1",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap} -repair_tns 50 -max_passes 6",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 156,
+      "kendall_tau": 0.6939203354297693,
+      "mean_rel_err": 0.1301249148506941,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 3.926,
+        "place_pins": 0.008,
+        "repair_timing": 0.799
+      },
+      "repeats": [
+        4.93,
+        4.905,
+        4.927
+      ],
+      "runtime_s": 4.927,
+      "spearman_rho": 0.8701734324375833,
+      "spread": 0.03617922342113196,
+      "worst_recall": 0.5
+    },
+    {
+      "bias": -0.12666178849160373,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.13152604099059406 -initial_place_max_iter 15 -initial_place_max_fanout 278 -init_wirelength_coef 0.4090610289234935 -bin_grid_count 64 -min_phi_coef 0.9982080850809241 -max_phi_coef 1.0131547300494816",
+        "PLACE_IOS": "1",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap reroute} -repair_tns 50 -max_passes 2 -skip_last_gasp -skip_gate_cloning",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 50,
+      "kendall_tau": 0.8602375960866526,
+      "mean_rel_err": 0.12666178849160373,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 4.583,
+        "place_pins": 0.008,
+        "repair_timing": 0.427
+      },
+      "repeats": [
+        5.16,
+        5.214,
+        5.209
+      ],
+      "runtime_s": 5.209,
+      "spearman_rho": 0.9681341719077566,
+      "spread": 0.02976446053451318,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.06376574119900817,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "1",
+        "GPL_ROUTABILITY_DRIVEN": "1",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-routability_check_overflow 0.3707691452655908 -overflow 0.1531635025241591 -initial_place_max_iter 7 -initial_place_max_fanout 253 -init_wirelength_coef 0.2399630079713465 -bin_grid_count 128 -min_phi_coef 0.9263057786470348 -max_phi_coef 1.1034344209519356",
+        "GRT_ARGS": "-critical_nets_percentage 28.96285376970409",
+        "GRT_ITERATIONS": "15",
+        "PLACE_IOS": "0",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 14.606629771477412 -cap_margin 12.35785017336534",
+        "REPAIR_TIMING_ARGS": "-sequence {buffer vt_swap reroute} -repair_tns 50 -max_passes 10 -skip_last_gasp -skip_gate_cloning",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 211,
+      "kendall_tau": 0.814116002795248,
+      "mean_rel_err": 0.06376574119900817,
+      "phases": {
+        "cts": 2.718,
+        "floorplan": 0.002,
+        "global_place": 0.813,
+        "global_route": 0.243,
+        "place_pins": 0.01,
+        "repair_design": 0.848,
+        "repair_timing": 0.59
+      },
+      "repeats": [
+        5.446,
+        5.503,
+        5.549
+      ],
+      "runtime_s": 5.503,
+      "spearman_rho": 0.9470173432437582,
+      "spread": 0.017397579386057942,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.07153667913829163,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "1",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.20250635936713401 -initial_place_max_iter 1 -initial_place_max_fanout 313 -init_wirelength_coef 0.4361751536488302 -bin_grid_count 256 -min_phi_coef 0.9763779843310457 -max_phi_coef 1.1189756659141197",
+        "GRT_ARGS": "-use_cugr -allow_congestion -critical_nets_percentage 6.012589044825084",
+        "GRT_ITERATIONS": "19",
+        "PLACE_IOS": "1",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 6.944409339547379 -cap_margin 15.178971107800844",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 75,
+      "kendall_tau": 0.8504542278127184,
+      "mean_rel_err": 0.07153667913829163,
+      "phases": {
+        "cts": 2.628,
+        "floorplan": 0.002,
+        "global_place": 1.291,
+        "global_route": 0.418,
+        "place_pins": 0.007,
+        "repair_design": 0.819
+      },
+      "repeats": [
+        5.548,
+        5.611,
+        5.525
+      ],
+      "runtime_s": 5.548,
+      "spearman_rho": 0.9628740232513816,
+      "spread": 0.029393022047303558,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.09608914596425822,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "1",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.22479130826390692 -initial_place_max_iter 4 -initial_place_max_fanout 135 -init_wirelength_coef 0.7659316798852952 -bin_grid_count 128 -min_phi_coef 0.8934538736840567 -max_phi_coef 1.1217754862931402",
+        "PLACE_IOS": "1",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 0.6769812870813974 -cap_margin 13.036617778640808",
+        "REPAIR_TIMING_ARGS": "-sequence {buffer vt_swap reroute} -repair_tns 0 -max_passes 5",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 142,
+      "kendall_tau": 0.7973445143256463,
+      "mean_rel_err": 0.09608914596425822,
+      "phases": {
+        "cts": 2.622,
+        "floorplan": 0.002,
+        "global_place": 0.513,
+        "place_pins": 0.007,
+        "repair_design": 0.812,
+        "repair_timing": 1.637
+      },
+      "repeats": [
+        5.864,
+        5.832,
+        5.787
+      ],
+      "runtime_s": 5.832,
+      "spearman_rho": 0.9409948542024013,
+      "spread": 0.03313347930785694,
+      "worst_recall": 0.5
+    },
+    {
+      "bias": -0.07944155197993112,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "0",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "1",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.3669199483856428 -initial_place_max_iter 12 -initial_place_max_fanout 320 -init_wirelength_coef 0.14436153762203535 -bin_grid_count 64 -min_phi_coef 0.9498858023543666 -max_phi_coef 1.1152378451209883",
+        "PLACE_IOS": "0",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 9.44393536850306 -cap_margin 18.202989722980305",
+        "REPAIR_TIMING_ARGS": "-sequence {buffer vt_swap reroute} -repair_tns 0 -max_passes 6 -skip_gate_cloning",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 81,
+      "kendall_tau": 0.7526205450733752,
+      "mean_rel_err": 0.07944155197993112,
+      "phases": {
+        "cts": 2.568,
+        "floorplan": 0.002,
+        "global_place": 2.113,
+        "place_pins": 0.009,
+        "repair_design": 0.724,
+        "repair_timing": 0.368
+      },
+      "repeats": [
+        5.929,
+        5.909,
+        5.927
+      ],
+      "runtime_s": 5.927,
+      "spearman_rho": 0.9132456641890603,
+      "spread": 0.02127559303035292,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.043298631989872126,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "1",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "1",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.27331851196027634 -initial_place_max_iter 3 -initial_place_max_fanout 163 -init_wirelength_coef 0.6062435160626691 -bin_grid_count 64 -min_phi_coef 0.8645568112610034 -max_phi_coef 1.0325684555138566",
+        "PLACE_IOS": "0",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 2.4945259058667135 -cap_margin 1.457466443463531",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 215,
+      "kendall_tau": 0.7414395527603074,
+      "mean_rel_err": 0.043403977995723333,
+      "phases": {
+        "cts": 2.669,
+        "floorplan": 0.002,
+        "global_place": 2.585,
+        "place_pins": 0.009,
+        "repair_design": 0.723
+      },
+      "repeats": [
+        6.148,
+        6.15,
+        6.129
+      ],
+      "runtime_s": 6.148,
+      "spearman_rho": 0.8989898989898989,
+      "spread": 0.02338284126106299,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.01411354731338412,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_ROUTABILITY_DRIVEN": "1",
+        "GPL_TIMING_DRIVEN": "1",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-routability_check_overflow 0.30768440953367204 -overflow 0.388533363213426 -initial_place_max_iter 20 -initial_place_max_fanout 151 -init_wirelength_coef 0.5724271389803847 -bin_grid_count 256 -min_phi_coef 0.9479139809472408 -max_phi_coef 1.0260459729106837",
+        "GRT_ARGS": "-use_cugr -allow_congestion -critical_nets_percentage 18.92181368095281",
+        "GRT_ITERATIONS": "28",
+        "PLACE_IOS": "0",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap reroute} -repair_tns 50 -max_passes 6 -skip_last_gasp -skip_gate_cloning",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 72,
+      "kendall_tau": 0.8630328441649197,
+      "mean_rel_err": 0.01605679720538046,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 5.394,
+        "global_route": 0.28,
+        "place_pins": 0.01,
+        "repair_timing": 0.395
+      },
+      "repeats": [
+        6.339,
+        6.351,
+        6.401
+      ],
+      "runtime_s": 6.351,
+      "spearman_rho": 0.9663045549838002,
+      "spread": 0.011610726804171984,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.0359782719745233,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "1",
+        "GPL_ROUTABILITY_DRIVEN": "1",
+        "GPL_TIMING_DRIVEN": "1",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-routability_check_overflow 0.3097230895121033 -routability_use_grt -overflow 0.19300386347638876 -initial_place_max_iter 7 -initial_place_max_fanout 109 -init_wirelength_coef 0.5470476465416952 -bin_grid_count 128 -min_phi_coef 0.9356022234871614 -max_phi_coef 1.1449987549710596",
+        "GRT_ARGS": "-use_cugr -critical_nets_percentage 9.662995677109736",
+        "GRT_ITERATIONS": "18",
+        "PLACE_IOS": "0",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1"
+      },
+      "index": 183,
+      "kendall_tau": 0.7945492662473793,
+      "mean_rel_err": 0.03740498646409008,
+      "phases": {
+        "cts": 2.665,
+        "floorplan": 0.002,
+        "global_place": 3.355,
+        "global_route": 0.334,
+        "place_pins": 0.01
+      },
+      "repeats": [
+        6.749,
+        6.759,
+        6.709
+      ],
+      "runtime_s": 6.749,
+      "spearman_rho": 0.9361158757385171,
+      "spread": 0.02485474864416688,
+      "worst_recall": 0.5
+    },
+    {
+      "bias": -0.1071673233872042,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "0",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.3210326753869406 -initial_place_max_iter 0 -initial_place_max_fanout 160 -init_wirelength_coef 0.35205447938008255 -bin_grid_count 256 -min_phi_coef 0.939927016472716 -max_phi_coef 1.0396089167264952",
+        "PLACE_IOS": "0",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 17.29220349466081 -cap_margin 3.636546742849127",
+        "REPAIR_TIMING_ARGS": "-sequence {buffer vt_swap reroute} -repair_tns 100 -max_passes 6 -skip_last_gasp -skip_gate_cloning",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 165,
+      "kendall_tau": 0.8183088749126485,
+      "mean_rel_err": 0.1071673233872042,
+      "phases": {
+        "cts": 2.592,
+        "floorplan": 0.003,
+        "global_place": 2.664,
+        "place_pins": 0.009,
+        "repair_design": 0.828,
+        "repair_timing": 0.57
+      },
+      "repeats": [
+        6.926,
+        6.824,
+        6.856
+      ],
+      "runtime_s": 6.856,
+      "spearman_rho": 0.9453401943967981,
+      "spread": 0.01949861788875738,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.008003490735004047,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "1",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "1",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.2687746852445831 -initial_place_max_iter 14 -initial_place_max_fanout 105 -init_wirelength_coef 0.5478517783439126 -bin_grid_count 64 -min_phi_coef 0.9575357168631204 -max_phi_coef 1.0561538866244438",
+        "GRT_ARGS": "-use_cugr -critical_nets_percentage 12.366050069080389",
+        "GRT_ITERATIONS": "18",
+        "PLACE_IOS": "0",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 15.240994572499192 -cap_margin 8.2917830394313",
+        "REPAIR_TIMING_ARGS": "-sequence {buffer vt_swap reroute} -repair_tns 0 -max_passes 2",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 204,
+      "kendall_tau": 0.8798043326345212,
+      "mean_rel_err": 0.010819659598470545,
+      "phases": {
+        "cts": 2.718,
+        "floorplan": 0.002,
+        "global_place": 2.344,
+        "global_route": 0.327,
+        "place_pins": 0.009,
+        "repair_design": 0.731,
+        "repair_timing": 0.442
+      },
+      "repeats": [
+        6.952,
+        7.01,
+        6.891
+      ],
+      "runtime_s": 6.952,
+      "spearman_rho": 0.9723270440251571,
+      "spread": 0.010097839431439644,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.060893935024637746,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "0",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.11150992654129485 -initial_place_max_iter 10 -initial_place_max_fanout 386 -init_wirelength_coef 0.19422896299270304 -min_phi_coef 0.895063496939951 -max_phi_coef 1.1203759081857843",
+        "GRT_ARGS": "-allow_congestion -critical_nets_percentage 5.593761045081244",
+        "GRT_ITERATIONS": "27",
+        "PLACE_IOS": "1",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 15.847823980833478 -cap_margin 0.5093652809565041",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap} -repair_tns 50 -max_passes 3",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 106,
+      "kendall_tau": 0.8518518518518517,
+      "mean_rel_err": 0.060893935024637746,
+      "phases": {
+        "cts": 2.571,
+        "floorplan": 0.002,
+        "global_place": 0.638,
+        "global_route": 0.225,
+        "place_pins": 0.009,
+        "repair_design": 0.797,
+        "repair_timing": 2.695
+      },
+      "repeats": [
+        7.256,
+        7.324,
+        7.283
+      ],
+      "runtime_s": 7.283,
+      "spearman_rho": 0.9631027253668761,
+      "spread": 0.020855557017973456,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.05586429358044388,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "1",
+        "GPL_ROUTABILITY_DRIVEN": "1",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-routability_check_overflow 0.4221956369180586 -overflow 0.24293184815193214 -initial_place_max_iter 0 -initial_place_max_fanout 372 -init_wirelength_coef 0.8853866297098476 -min_phi_coef 0.9813292234155486 -max_phi_coef 1.0559010253175616",
+        "GRT_ARGS": "-allow_congestion -critical_nets_percentage 17.918317011913054",
+        "GRT_ITERATIONS": "25",
+        "PLACE_IOS": "0",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 0.962896053166693 -cap_margin 16.81597331730764",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap} -repair_tns 100 -max_passes 10",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 126,
+      "kendall_tau": 0.8504542278127184,
+      "mean_rel_err": 0.05586429358044388,
+      "phases": {
+        "cts": 2.707,
+        "floorplan": 0.002,
+        "global_place": 0.629,
+        "global_route": 0.264,
+        "place_pins": 0.009,
+        "repair_design": 0.849,
+        "repair_timing": 2.751
+      },
+      "repeats": [
+        7.535,
+        7.562,
+        7.54
+      ],
+      "runtime_s": 7.54,
+      "spearman_rho": 0.9647798742138363,
+      "spread": 0.017605214567800353,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.08808658866704423,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.1996969333815804 -initial_place_max_iter 1 -initial_place_max_fanout 100 -init_wirelength_coef 0.3348842462785229 -min_phi_coef 0.9677222219097703 -max_phi_coef 1.0611812155457656",
+        "GRT_ARGS": "-use_cugr -critical_nets_percentage 1.4519044536166914",
+        "GRT_ITERATIONS": "9",
+        "PLACE_IOS": "0",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap} -repair_tns 100 -max_passes 5 -skip_gate_cloning",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 162,
+      "kendall_tau": 0.8490566037735848,
+      "mean_rel_err": 0.08808658866704423,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 0.605,
+        "global_route": 0.29,
+        "place_pins": 0.009,
+        "repair_timing": 6.453
+      },
+      "repeats": [
+        7.702,
+        7.746,
+        7.711
+      ],
+      "runtime_s": 7.711,
+      "spearman_rho": 0.961044406327425,
+      "spread": 0.016046073315131124,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.034188734182737025,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "1",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.08813143394950049 -initial_place_max_iter 6 -initial_place_max_fanout 256 -init_wirelength_coef 0.5974388294835288 -bin_grid_count 64 -min_phi_coef 0.9200768831909423 -max_phi_coef 1.0797480739636207",
+        "GRT_ARGS": "-critical_nets_percentage 26.36743581290233",
+        "GRT_ITERATIONS": "20",
+        "PLACE_IOS": "1",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 7.80407780749619 -cap_margin 11.74060797076762",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap} -repair_tns 100 -max_passes 10 -skip_gate_cloning",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 164,
+      "kendall_tau": 0.8280922431865827,
+      "mean_rel_err": 0.034188734182737025,
+      "phases": {
+        "cts": 2.656,
+        "floorplan": 0.002,
+        "global_place": 0.618,
+        "global_route": 0.254,
+        "place_pins": 0.007,
+        "repair_design": 0.79,
+        "repair_timing": 3.361
+      },
+      "repeats": [
+        8.043,
+        8.133,
+        8.044
+      ],
+      "runtime_s": 8.044,
+      "spearman_rho": 0.9486182580522201,
+      "spread": 0.016624754627251975,
+      "worst_recall": 0.8
+    },
+    {
+      "bias": -0.053924958665797974,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "0",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "1",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.1713501142790582 -initial_place_max_iter 15 -initial_place_max_fanout 325 -init_wirelength_coef 0.1441751542690763 -bin_grid_count 64 -min_phi_coef 0.9794587489788393 -max_phi_coef 1.0905608855390068",
+        "GRT_ARGS": "-use_cugr -critical_nets_percentage 7.901704710992643",
+        "GRT_ITERATIONS": "13",
+        "PLACE_IOS": "0",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 13.017917857931636 -cap_margin 10.029075933041538",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap reroute} -repair_tns 50 -max_passes 4 -skip_last_gasp",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 190,
+      "kendall_tau": 0.7763801537386442,
+      "mean_rel_err": 0.053924958665797974,
+      "phases": {
+        "cts": 2.574,
+        "floorplan": 0.002,
+        "global_place": 3.701,
+        "global_route": 0.318,
+        "place_pins": 0.01,
+        "repair_design": 0.719,
+        "repair_timing": 0.435
+      },
+      "repeats": [
+        8.071,
+        8.107,
+        8.071
+      ],
+      "runtime_s": 8.071,
+      "spearman_rho": 0.9255193443872688,
+      "spread": 0.019070707315318878,
+      "worst_recall": 0.8
+    },
+    {
+      "bias": -0.039611375780124934,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "1",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "1",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.34016822440508787 -initial_place_max_iter 5 -initial_place_max_fanout 125 -init_wirelength_coef 0.3298593722550327 -bin_grid_count 64 -min_phi_coef 0.9787950234114025 -max_phi_coef 1.006182861785267",
+        "PLACE_IOS": "0",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap} -repair_tns 0 -max_passes 10 -skip_last_gasp",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 205,
+      "kendall_tau": 0.8728162124388539,
+      "mean_rel_err": 0.039611375780124934,
+      "phases": {
+        "cts": 2.733,
+        "floorplan": 0.002,
+        "global_place": 5.752,
+        "place_pins": 0.009,
+        "repair_timing": 0.366
+      },
+      "repeats": [
+        8.975,
+        9.043,
+        9.003
+      ],
+      "runtime_s": 9.003,
+      "spearman_rho": 0.9717171717171716,
+      "spread": 0.011977751851326013,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.1357926262483293,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.20010839168954053 -initial_place_max_iter 14 -initial_place_max_fanout 169 -init_wirelength_coef 0.8264261047838792 -bin_grid_count 256 -min_phi_coef 0.9951723730410852 -max_phi_coef 1.0166415733099217",
+        "GRT_ARGS": "-use_cugr -critical_nets_percentage 2.6627917507785757",
+        "GRT_ITERATIONS": "20",
+        "PLACE_IOS": "0",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 14.473135770566095 -cap_margin 16.11941604867403",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 217,
+      "kendall_tau": 0.8197064989517819,
+      "mean_rel_err": 0.1357926262483293,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 7.769,
+        "global_route": 0.312,
+        "place_pins": 0.009,
+        "repair_design": 0.783
+      },
+      "repeats": [
+        9.351,
+        9.283,
+        9.228
+      ],
+      "runtime_s": 9.283,
+      "spearman_rho": 0.9470935772822564,
+      "spread": 0.02484663561475248,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.06626261771671853,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "0",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.21427959243076367 -initial_place_max_iter 17 -initial_place_max_fanout 201 -init_wirelength_coef 0.5209984054816517 -bin_grid_count 256 -min_phi_coef 0.9115724039058434 -max_phi_coef 1.021851567469789",
+        "GRT_ARGS": "-use_cugr -allow_congestion -critical_nets_percentage 20.503662438953775",
+        "GRT_ITERATIONS": "12",
+        "PLACE_IOS": "1",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 11.400398743891646 -cap_margin 4.777563596762436",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 110,
+      "kendall_tau": 0.8364779874213836,
+      "mean_rel_err": 0.06626261771671853,
+      "phases": {
+        "cts": 2.594,
+        "floorplan": 0.002,
+        "global_place": 6.368,
+        "global_route": 0.392,
+        "place_pins": 0.009,
+        "repair_design": 0.802
+      },
+      "repeats": [
+        10.487,
+        10.566,
+        10.517
+      ],
+      "runtime_s": 10.517,
+      "spearman_rho": 0.9592147894034685,
+      "spread": 0.019044479708013515,
+      "worst_recall": 0.8
+    },
+    {
+      "bias": -0.17194195904956658,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.07763462548968203 -initial_place_max_iter 9 -initial_place_max_fanout 123 -init_wirelength_coef 0.8937922363990187 -bin_grid_count 128 -min_phi_coef 0.8717659948797146 -max_phi_coef 1.0001300956340577",
+        "PLACE_IOS": "1",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 1.7049882866781019 -cap_margin 8.553015642270614",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 200,
+      "kendall_tau": 0.8574423480083857,
+      "mean_rel_err": 0.17194195904956658,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 10.888,
+        "place_pins": 0.015,
+        "repair_design": 0.74
+      },
+      "repeats": [
+        11.909,
+        11.906,
+        11.841
+      ],
+      "runtime_s": 11.906,
+      "spearman_rho": 0.970268724985706,
+      "spread": 0.012777466474318681,
+      "worst_recall": 0.8
+    },
+    {
+      "bias": -0.14073654272789757,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.25121607905523463 -initial_place_max_iter 7 -initial_place_max_fanout 212 -init_wirelength_coef 0.24780929158469367 -bin_grid_count 128 -min_phi_coef 0.9471061435217885 -max_phi_coef 1.0048443599696721",
+        "GRT_ARGS": "-critical_nets_percentage 26.194360812804955",
+        "GRT_ITERATIONS": "13",
+        "PLACE_IOS": "0",
+        "REPAIR_TIMING_ARGS": "-sequence {vt_swap reroute} -repair_tns 50 -max_passes 10",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 219,
+      "kendall_tau": 0.8225017470300487,
+      "mean_rel_err": 0.14073654272789757,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 7.643,
+        "global_route": 0.204,
+        "place_pins": 0.009,
+        "repair_timing": 4.902
+      },
+      "repeats": [
+        13.143,
+        13.072,
+        13.094
+      ],
+      "runtime_s": 13.094,
+      "spearman_rho": 0.9515913855536495,
+      "spread": 0.02080399672002597,
+      "worst_recall": 0.6
+    },
+    {
+      "bias": -0.07204220179106674,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_ROUTABILITY_DRIVEN": "1",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-routability_check_overflow 0.25705257484808375 -overflow 0.20805622602326895 -initial_place_max_iter 4 -initial_place_max_fanout 288 -init_wirelength_coef 0.5253209034866653 -bin_grid_count 256 -min_phi_coef 0.949442976801334 -max_phi_coef 1.0108241590675824",
+        "GRT_ARGS": "-use_cugr -critical_nets_percentage 28.11212317081659",
+        "GRT_ITERATIONS": "19",
+        "PLACE_IOS": "0",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 9.311026553907961 -cap_margin 9.089875614188434",
+        "REPAIR_TIMING_ARGS": "-sequence {buffer vt_swap reroute} -repair_tns 100 -max_passes 2 -skip_last_gasp",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1",
+        "RUN_REPAIR_TIMING": "1"
+      },
+      "index": 96,
+      "kendall_tau": 0.83508036338225,
+      "mean_rel_err": 0.07204220179106674,
+      "phases": {
+        "floorplan": 0.002,
+        "global_place": 27.219,
+        "global_route": 0.28,
+        "place_pins": 0.009,
+        "repair_design": 0.791,
+        "repair_timing": 0.463
+      },
+      "repeats": [
+        28.749,
+        28.878,
+        29.095
+      ],
+      "runtime_s": 28.878,
+      "spearman_rho": 0.9573089384410137,
+      "spread": 0.01802521196563733,
+      "worst_recall": 0.7
+    },
+    {
+      "bias": -0.03628413818269772,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "1",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "1",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.15827278826648838 -initial_place_max_iter 4 -initial_place_max_fanout 321 -init_wirelength_coef 0.7958882375749584 -bin_grid_count 256 -min_phi_coef 0.9150042358489118 -max_phi_coef 1.0225178187788329",
+        "GRT_ARGS": "-use_cugr -critical_nets_percentage 7.94477406881143",
+        "GRT_ITERATIONS": "11",
+        "PLACE_IOS": "0",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1"
+      },
+      "index": 240,
+      "kendall_tau": 0.8672257162823199,
+      "mean_rel_err": 0.0365426921556993,
+      "phases": {
+        "cts": 2.657,
+        "floorplan": 0.002,
+        "global_place": 30.899,
+        "global_route": 0.329,
+        "place_pins": 0.01
+      },
+      "repeats": [
+        33.782,
+        33.981,
+        34.222
+      ],
+      "runtime_s": 33.981,
+      "spearman_rho": 0.9667619592147892,
+      "spread": 0.017178631457228002,
+      "worst_recall": 0.7
+    }
+  ]
+}
