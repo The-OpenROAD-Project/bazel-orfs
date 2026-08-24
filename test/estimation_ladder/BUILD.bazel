@@ -294,3 +294,16 @@ py_binary(
     main = "calibration.py",
     deps = [":optuna_study_lib"],
 )
+
+# Fit alternative calibration models to the per-path pairs the transfer
+# test already produced. Pure post-processing -- seconds against runs
+# that cost minutes -- so it takes no estimator dependency.
+py_binary(
+    name = "calibration_models",
+    srcs = ["calibration_models.py"],
+    deps = [
+        "@bazel-orfs-dev-pip//numpy",
+        "@bazel-orfs-dev-pip//scikit_learn",
+        "@bazel-orfs-dev-pip//scipy",
+    ],
+)
