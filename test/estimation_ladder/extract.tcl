@@ -83,7 +83,10 @@ for {set i 0} {$i < $num_buckets} {incr i} {
 # exists to exercise unmeasured, so sample the macro paths explicitly as
 # well and tag them, rather than hoping they fall out of a slack ranking.
 lassign [macro_pin_names] macro_outs macro_ins
-set macro_target 30
+# Enough macro paths to support a study of their own rather than a tag
+# on a handful: they are a separate population with their own error
+# structure, and twenty-eight is too few to rank or fit anything on.
+set macro_target 80
 set macro_added 0
 puts "Macro pins: [llength $macro_outs] outputs, [llength $macro_ins] inputs"
 

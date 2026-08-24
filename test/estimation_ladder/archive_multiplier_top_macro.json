@@ -1,0 +1,309 @@
+[
+  {
+    "env": {
+      "RUN_MACRO_PLACE": "1",
+      "RUN_PLACE": "0"
+    },
+    "metrics": {
+      "bias": -0.3210094305020485,
+      "bias_macro": -0.38207753838700287,
+      "bias_nonmacro": -0.27289516368359956,
+      "kendall_tau": 0.7603662607650643,
+      "kendall_tau_macro": 0.27345673514077534,
+      "kendall_tau_nonmacro": 0.707276850133993,
+      "mean_rel_err": 0.3210094305020485,
+      "mean_rel_err_macro": 0.38207753838700287,
+      "mean_rel_err_nonmacro": 0.27289516368359956,
+      "n_macro": 78,
+      "n_nonmacro": 99,
+      "phases": {
+        "floorplan": 0.024,
+        "load": 2.624,
+        "macro_place": 116.52,
+        "place_pins": 0.03,
+        "sta": 9.589
+      },
+      "runtime_s": 128.815,
+      "spearman_rho": 0.919855220723808,
+      "spread": 0.0841153303054844,
+      "worst_recall": 0.1
+    },
+    "number": 1
+  },
+  {
+    "env": {
+      "CLOCK_MODE": "propagated",
+      "GPL_VIRTUAL_CTS": "0",
+      "GP_ARGS": "-overflow 0.0769657609601122 -initial_place_max_iter 13 -initial_place_max_fanout 342 -init_wirelength_coef 0.7152145614442526 -min_phi_coef 0.9827113194694646 -max_phi_coef 1.075893687307095",
+      "PLACE_IOS": "1",
+      "REPAIR_TIMING_ARGS": "-sequence {vt_swap} -repair_tns 0 -max_passes 5 -skip_last_gasp",
+      "RUN_GRT": "0",
+      "RUN_MACRO_PLACE": "0",
+      "RUN_PLACE": "1",
+      "RUN_REPAIR_TIMING": "1"
+    },
+    "metrics": {
+      "bias": 1.313853060743908,
+      "bias_macro": -0.8066532906536755,
+      "bias_nonmacro": 2.984555034572307,
+      "kendall_tau": 0.6422701592193117,
+      "kendall_tau_macro": 0.1615051615051615,
+      "kendall_tau_nonmacro": 0.3984745413316842,
+      "mean_rel_err": 2.4627069808088513,
+      "mean_rel_err_macro": 1.7905427569196604,
+      "mean_rel_err_nonmacro": 2.9922909147821533,
+      "n_macro": 78,
+      "n_nonmacro": 99,
+      "phases": {
+        "floorplan": 0.015,
+        "global_place": 55.092,
+        "load": 2.567,
+        "place_pins": 0.042,
+        "repair_timing": 7.724,
+        "sta": 158.902
+      },
+      "runtime_s": 225.176,
+      "spearman_rho": 0.8535625248870345,
+      "spread": 2.349844936710571,
+      "worst_recall": 0.4
+    },
+    "number": 3
+  },
+  {
+    "env": {
+      "RUN_MACRO_PLACE": "1",
+      "RUN_PLACE": "0"
+    },
+    "metrics": {
+      "bias": -0.3210094305020485,
+      "bias_macro": -0.38207753838700287,
+      "bias_nonmacro": -0.27289516368359956,
+      "kendall_tau": 0.7603662607650643,
+      "kendall_tau_macro": 0.27345673514077534,
+      "kendall_tau_nonmacro": 0.707276850133993,
+      "mean_rel_err": 0.3210094305020485,
+      "mean_rel_err_macro": 0.38207753838700287,
+      "mean_rel_err_nonmacro": 0.27289516368359956,
+      "n_macro": 78,
+      "n_nonmacro": 99,
+      "phases": {
+        "floorplan": 0.05,
+        "load": 3.254,
+        "macro_place": 98.323,
+        "place_pins": 0.077,
+        "sta": 8.36
+      },
+      "runtime_s": 110.11200000000001,
+      "spearman_rho": 0.919855220723808,
+      "spread": 0.0841153303054844,
+      "worst_recall": 0.1
+    },
+    "number": 4
+  },
+  {
+    "env": {
+      "RUN_MACRO_PLACE": "1",
+      "RUN_PLACE": "0"
+    },
+    "metrics": {
+      "bias": -0.3210094305020485,
+      "bias_macro": -0.38207753838700287,
+      "bias_nonmacro": -0.27289516368359956,
+      "kendall_tau": 0.7603662607650643,
+      "kendall_tau_macro": 0.27345673514077534,
+      "kendall_tau_nonmacro": 0.707276850133993,
+      "mean_rel_err": 0.3210094305020485,
+      "mean_rel_err_macro": 0.38207753838700287,
+      "mean_rel_err_nonmacro": 0.27289516368359956,
+      "n_macro": 78,
+      "n_nonmacro": 99,
+      "phases": {
+        "floorplan": 0.015,
+        "load": 2.329,
+        "macro_place": 88.818,
+        "place_pins": 0.033,
+        "sta": 7.364
+      },
+      "runtime_s": 98.586,
+      "spearman_rho": 0.919855220723808,
+      "spread": 0.0841153303054844,
+      "worst_recall": 0.1
+    },
+    "number": 5
+  },
+  {
+    "env": {
+      "CLOCK_MODE": "propagated",
+      "GPL_ROUTABILITY_DRIVEN": "1",
+      "GPL_TIMING_DRIVEN": "0",
+      "GPL_VIRTUAL_CTS": "0",
+      "GP_ARGS": "-routability_check_overflow 0.3604687301603644 -overflow 0.34512831629522683 -initial_place_max_iter 14 -initial_place_max_fanout 339 -init_wirelength_coef 0.8512544128512275 -bin_grid_count 256 -min_phi_coef 0.9892848617540086 -max_phi_coef 1.1273967456689387",
+      "PLACE_IOS": "0",
+      "REPAIR_DESIGN_ARGS": "-slew_margin 11.987683748420945 -cap_margin 9.873584825961103",
+      "REPAIR_TIMING_ARGS": "-sequence {vt_swap reroute} -repair_tns 50 -max_passes 1 -skip_last_gasp",
+      "RUN_GRT": "0",
+      "RUN_MACRO_PLACE": "0",
+      "RUN_PLACE": "1",
+      "RUN_REPAIR_DESIGN": "1",
+      "RUN_REPAIR_TIMING": "1"
+    },
+    "metrics": {
+      "bias": -0.30296597559948624,
+      "bias_macro": -1.273963184687111,
+      "bias_nonmacro": 0.4620621285301574,
+      "kendall_tau": 0.4180790960451978,
+      "kendall_tau_macro": 0.1754911754911755,
+      "kendall_tau_nonmacro": 0.22861265718408577,
+      "mean_rel_err": 1.2441598703698273,
+      "mean_rel_err_macro": 2.1851508779621747,
+      "mean_rel_err_nonmacro": 0.5027730159031293,
+      "n_macro": 78,
+      "n_nonmacro": 99,
+      "phases": {
+        "floorplan": 0.014,
+        "global_place": 47.177,
+        "load": 2.463,
+        "place_pins": 0.035,
+        "repair_design": 8.669,
+        "repair_timing": 16.549,
+        "sta": 384.163
+      },
+      "runtime_s": 459.65,
+      "spearman_rho": 0.5775544917851146,
+      "spread": 2.243138398993701,
+      "worst_recall": 0.0
+    },
+    "number": 0
+  },
+  {
+    "env": {
+      "CLOCK_MODE": "none",
+      "GPL_VIRTUAL_CTS": "1",
+      "GP_ARGS": "-overflow 0.26796724420549084 -initial_place_max_iter 18 -initial_place_max_fanout 120 -init_wirelength_coef 0.70990626784684 -min_phi_coef 0.9681316985341357 -max_phi_coef 1.1244412815707667",
+      "GRT_ARGS": "-critical_nets_percentage 17.238464329300275",
+      "GRT_ITERATIONS": "6",
+      "PLACE_IOS": "1",
+      "REPAIR_TIMING_ARGS": "-sequence {vt_swap reroute} -repair_tns 100 -max_passes 10",
+      "RUN_GRT": "1",
+      "RUN_MACRO_PLACE": "1",
+      "RUN_PLACE": "1",
+      "RUN_REPAIR_TIMING": "1"
+    },
+    "metrics": {
+      "bias": -0.08414887383395303,
+      "bias_macro": -0.12474594590587142,
+      "bias_nonmacro": -0.052163301898502185,
+      "kendall_tau": 0.6922187981510015,
+      "kendall_tau_macro": 0.17216117216117216,
+      "kendall_tau_nonmacro": 0.5539064110492682,
+      "mean_rel_err": 0.10413017121259117,
+      "mean_rel_err_macro": 0.1544884027943626,
+      "mean_rel_err_nonmacro": 0.06445398875422582,
+      "n_macro": 78,
+      "n_nonmacro": 99,
+      "phases": {
+        "floorplan": 0.014,
+        "global_place": 65.61,
+        "global_route": 9.801,
+        "load": 2.332,
+        "macro_place": 102.602,
+        "place_pins": 0.066,
+        "repair_timing": 79.076,
+        "sta": 6.074
+      },
+      "runtime_s": 266.88100000000003,
+      "spearman_rho": 0.8885515313100536,
+      "spread": 0.11054254007625541,
+      "worst_recall": 0.0
+    },
+    "number": 7
+  },
+  {
+    "env": {
+      "CLOCK_MODE": "propagated",
+      "GPL_ROUTABILITY_DRIVEN": "0",
+      "GPL_TIMING_DRIVEN": "1",
+      "GPL_VIRTUAL_CTS": "0",
+      "GP_ARGS": "-overflow 0.32894511386743724 -initial_place_max_iter 13 -initial_place_max_fanout 363 -init_wirelength_coef 0.1828747573397263 -min_phi_coef 0.9003095384133991 -max_phi_coef 1.068508896227674",
+      "GRT_ARGS": "-use_cugr -allow_congestion -critical_nets_percentage 15.634433921761122",
+      "GRT_ITERATIONS": "11",
+      "PLACE_IOS": "0",
+      "RUN_GRT": "1",
+      "RUN_MACRO_PLACE": "0",
+      "RUN_PLACE": "1"
+    },
+    "metrics": {
+      "bias": 0.15152770335434734,
+      "bias_macro": -0.20902490537170434,
+      "bias_nonmacro": 0.4355994556839638,
+      "kendall_tau": 0.42462763225475086,
+      "kendall_tau_macro": -0.045621045621045624,
+      "kendall_tau_nonmacro": 0.505256648113791,
+      "mean_rel_err": 1.1470101007115616,
+      "mean_rel_err_macro": 1.9325493189436862,
+      "mean_rel_err_nonmacro": 0.5281004136195844,
+      "n_macro": 78,
+      "n_nonmacro": 99,
+      "phases": {
+        "floorplan": 0.014,
+        "global_place": 61.252,
+        "global_route": 231.949,
+        "load": 2.622,
+        "place_pins": 0.041,
+        "sta": 384.999
+      },
+      "runtime_s": 682.3710000000001,
+      "spearman_rho": 0.4953234016031579,
+      "spread": 1.5794198427212625,
+      "worst_recall": 0.0
+    },
+    "number": 2
+  },
+  {
+    "env": {
+      "CLOCK_MODE": "real",
+      "CTS_DPL": "0",
+      "GPL_ROUTABILITY_DRIVEN": "1",
+      "GPL_TIMING_DRIVEN": "0",
+      "GPL_VIRTUAL_CTS": "0",
+      "GP_ARGS": "-routability_check_overflow 0.33378990280527376 -overflow 0.25726256914628715 -initial_place_max_iter 12 -initial_place_max_fanout 205 -init_wirelength_coef 0.9287254743778035 -min_phi_coef 0.9074104994274188 -max_phi_coef 1.0087228380541087",
+      "PLACE_IOS": "0",
+      "REPAIR_DESIGN_ARGS": "-slew_margin 0.5538783226157329 -cap_margin 18.537200417629993",
+      "REPAIR_TIMING_ARGS": "-sequence {vt_swap reroute} -repair_tns 100 -max_passes 3 -skip_gate_cloning",
+      "RUN_GRT": "0",
+      "RUN_MACRO_PLACE": "1",
+      "RUN_PLACE": "1",
+      "RUN_REPAIR_DESIGN": "1",
+      "RUN_REPAIR_TIMING": "1"
+    },
+    "metrics": {
+      "bias": -0.014934440745876573,
+      "bias_macro": -0.10647775097872743,
+      "bias_nonmacro": 0.057190591558793795,
+      "kendall_tau": 0.7375449409347714,
+      "kendall_tau_macro": 0.21345321345321347,
+      "kendall_tau_nonmacro": 0.6553287981859411,
+      "mean_rel_err": 0.09634408987177472,
+      "mean_rel_err_macro": 0.13425287488733698,
+      "mean_rel_err_nonmacro": 0.06647656228375594,
+      "n_macro": 78,
+      "n_nonmacro": 99,
+      "phases": {
+        "cts": 2.037,
+        "floorplan": 0.013,
+        "global_place": 486.879,
+        "load": 2.504,
+        "macro_place": 93.689,
+        "place_pins": 0.038,
+        "repair_design": 1.765,
+        "repair_timing": 15.5,
+        "sta": 4.714
+      },
+      "runtime_s": 607.4900000000001,
+      "spearman_rho": 0.9118133342566784,
+      "spread": 0.1294470141580516,
+      "worst_recall": 0.2
+    },
+    "number": 6
+  }
+]
