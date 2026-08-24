@@ -989,22 +989,12 @@ Potential improvements to the bazel-orfs CI pipeline:
 
 ## Design space exploration
 
-bazel-orfs supports design space exploration (DSE) by parameterizing
-`orfs_flow()` targets with Bazel build settings. This lets you sweep or
-optimize parameters like core utilization and placement density across
-multiple flow instances, with Bazel handling parallelism and caching.
+bazel-orfs supports design space exploration (DSE) by fanning out
+`orfs_flow()` variants in the BUILD file — see the `orfs_sweep` macro in
+`sweep.bzl` — with Bazel handling parallelism and caching.
 
 **Use-case:** Find parameter combinations (utilization, density, clock period,
 macro placement, etc.) that optimize area, timing, or power for a given design.
-
-**How it works:**
-
-1. Declare parameters as `string_flag` build settings
-2. Map them to ORFS variables via `orfs_flow(settings = {...})`
-3. Create N parallel flow instances using list comprehensions
-4. Invoke with overrides: `bazel build --//pkg:density0=0.7 --//pkg:util0=40 //pkg:design_0_place`
-
-The `orfs_sweep` macro in `sweep.bzl` wraps this pattern for common cases.
 
 Parameters only propagate to relevant stages — changing `PLACE_DENSITY` does not
 invalidate the synthesis cache.
@@ -1305,8 +1295,12 @@ Features removed from bazel-orfs. Check git history for the original implementat
   DSE with multi-fidelity (synth→place→grt) progressive refinement. Included a
   parameterized `mock-cpu.sv` test design. See `optuna/` in git history.
 - **dse/** — Bazel-native DSE example using `string_flag` build settings with
-  `orfs_flow(settings = {...})` to sweep utilization and density. The pattern
-  is now documented in the DSE section above. See `dse/` in git history.
+  `orfs_flow(settings = {...})` to sweep utilization and density. The
+  `settings` attribute and the `--define` variable-override channel were
+  later removed as well: overriding ORFS variables from the Bazel command
+  line invalidates every stage the variable touches, and the
+  `orfs_arguments`/`extra_arguments` JSON overlay plus `orfs_run_executable`
+  replaced it. See `dse/` in git history.
 
 ### Deprecated
 

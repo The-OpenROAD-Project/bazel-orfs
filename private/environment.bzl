@@ -1,6 +1,5 @@
 """Environment, input, and configuration helper functions for OpenROAD-flow-scripts rules."""
 
-load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     "//private:providers.bzl",
     "LoggingInfo",
@@ -9,7 +8,7 @@ load(
     "PdkInfo",
     "TopInfo",
 )
-load("//private:stages.bzl", "ALL_STAGE_TO_VARIABLES", "dropped_variables")
+load("//private:stages.bzl", "dropped_variables")
 load("//private:utils.bzl", "file_path", "flatten")
 
 def odb_arguments(ctx, short = False):
@@ -420,26 +419,6 @@ done
 export VERILOG_FILES="$_expanded"
 """
 
-def config_overrides(ctx, arguments):
-    has_stage = hasattr(ctx.attr, "_stage")
-    defines_for_stage = {
-        var: value
-        for var, value in ctx.var.items()
-        if has_stage and
-           var in
-           (
-               ALL_STAGE_TO_VARIABLES[ctx.attr._stage] +
-               # FIXME delete this hotfix on next ORFS update
-               # https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/pull/3746
-               {"synth": ["VERILOG_TOP_PARAMS"]}.get(ctx.attr._stage, [])
-           )
-    }
-    settings = {
-        var: value[BuildSettingInfo].value
-        for var, value in ctx.attr.settings.items()
-    }
-    return arguments | defines_for_stage | settings
-
 def _workspace_prefix(ctx):
     """Return the execroot-relative prefix for the workspace containing ctx.
 
@@ -462,14 +441,14 @@ def _prefix_include_dirs(dirs_value, prefix):
     ])
 
 def config_arguments(ctx, arguments):
-    """Adds overrides and workarounds to the provided arguments dictionary.
+    """Adds workarounds to the provided arguments dictionary.
 
     Args:
       ctx: The rule context.
       arguments: The dictionary of arguments to augment.
 
     Returns:
-      A dictionary of the arguments including overrides.
+      A dictionary of the arguments including workarounds.
     """
     workaround = {
         # https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/issues/3907
@@ -485,7 +464,7 @@ def config_arguments(ctx, arguments):
             prefix,
         )
 
-    return config_overrides(ctx, workaround)
+    return workaround
 
 def config_content(ctx, arguments, paths, pre_paths = []):
     """Generate Makefile-style config content for an ORFS stage.
