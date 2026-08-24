@@ -1009,6 +1009,12 @@ produces a binary that invokes the underlying tool (e.g. OpenROAD) directly.
 
 See the `orfs_run_executable` rule docstring in `private/rules.bzl` for important execution constraints regarding logging, output directories, and parallel invocations.
 
+When trials share a common flow prefix (a decision *tree* rather than a flat
+list), a run script can walk the whole tree in one OpenROAD process with the
+`fork` snapshot idiom, paying each shared stage once and writing one result
+file per leaf into an output folder (`orfs_run(out_dir = ...)` /
+`$RUN_OUTPUT_DIR`). See `docs/fork.md`.
+
 ```python
 # In your bazel-run Python script or objective function:
 import os

@@ -24,5 +24,40 @@ Because realistic physical design flows often involve feedback loops—such as a
    - Users define shared configuration dictionaries and sources in their `BUILD.bazel` or `.bzl` files, rather than relying on rule internals to guess dependencies.
    - This approach allows multi-stage ladders (such as generic estimators) to be cleanly expressed via list comprehensions over `orfs_run()` targets without risking cyclic dependencies.
 
+## Output directories
+
+`outs` names individual output files known in advance. When the *set* of
+output files is only known at runtime — a tree-walking study writing one
+JSON per leaf, a report generator emitting one file per violation class —
+declare a directory instead:
+
+```python
+orfs_run(
+    name = "study",
+    src = ":design_synth",
+    out_dir = "study_results",
+    script = ":study.tcl",
+)
+```
+
+The rule declares `study_results` as a tree artifact and exports its path
+to the script as `$RUN_OUTPUT_DIR`; the script decides what files land
+there. `outs` and `out_dir` compose (at least one is required). The name is
+deliberately not `RESULTS_DIR` — the ORFS Makefile owns that variable for
+staged flow outputs.
+
+For `orfs_run_executable` the same contract is by convention: the caller
+passes an absolute scratch path per invocation (like `LOG_DIR`), e.g.
+`RESULTS_OUT=/abs/scratch/trial42`, and concurrent invocations must not
+share it.
+
+## fork/join tree walks
+
+Run scripts can walk a decision tree in one OpenROAD process, paying every
+shared stage exactly once, with the `fork` idiom — see `docs/fork.md`.
+Every `orfs_run`/`orfs_run_executable` script gets `$ORFS_FORK_TCL` and
+`$ORFS_FORK_LIB` automatically; pair `fork` with `out_dir` so each leaf
+writes an independent result file.
+
 ## Example Usage
 See `test/estimation_ladder/BUILD.bazel` for a demonstration of composing multi-stage targets using explicit `sources`.

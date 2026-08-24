@@ -610,6 +610,9 @@ class TclInterpreter:
         elif len(remaining) == 1:
             msg = remaining[0]
         end = "" if nonewline else "\n"
+        if hasattr(self, "_channels") and channel in self._channels:
+            self._channels[channel].write(msg + end)
+            return ""
         out = sys.stderr if channel == "stderr" else sys.stdout
         out.write(msg + end)
         return ""

@@ -1,0 +1,38 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+# Loadable Tcl extension with the raw POSIX primitives behind fork.tcl.
+# Linked against @tcl_lang//:tclstub (USE_TCL_STUBS), so the .so resolves
+# the interpreter through the stub table of whatever host `load`s it —
+# tclsh and the statically linked openroad alike. @tcl_lang resolves to the
+# same version the openroad module embeds (MVS), so host and extension can
+# never drift apart.
+cc_binary(
+    name = "liborfsfork.so",
+    srcs = ["orfsfork.c"],
+    linkshared = True,
+    linkstatic = True,
+    local_defines = ["USE_TCL_STUBS"],
+    target_compatible_with = ["@platforms//os:linux"],
+    visibility = ["//visibility:public"],
+    deps = ["@tcl_lang//:tclstub"],
+)
+
+exports_files(["fork.tcl"])
+
+sh_test(
+    name = "fork_test",
+    srcs = ["fork_test.sh"],
+    data = [
+        "fork.tcl",
+        "fork_test.tcl",
+        ":liborfsfork.so",
+        "@tcl_lang//:tclsh",
+    ],
+    env = {
+        "FORK_TEST_TCL": "$(rootpath fork_test.tcl)",
+        "ORFS_FORK_LIB": "$(rootpath :liborfsfork.so)",
+        "ORFS_FORK_TCL": "$(rootpath fork.tcl)",
+        "TCLSH": "$(rootpath @tcl_lang//:tclsh)",
+    },
+)
