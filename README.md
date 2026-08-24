@@ -1291,8 +1291,8 @@ context. The TCL scripts (`cell_count.tcl`, `check_mock_area.tcl`, `report.tcl`,
 and simple RTL (`Mul.sv`, `lb_32x128_top.v`) are boilerplate — an LLM can
 regenerate them from the BUILD target definitions.
 
-Non-trivial files worth understanding: `wns_report.py` (complex report parsing),
-`L1MetadataArray.sv` (cache metadata controller), and the plot scripts.
+Non-trivial files worth understanding: `L1MetadataArray.sv` (cache metadata
+controller) and the plot scripts.
 
 ## Retired features
 
