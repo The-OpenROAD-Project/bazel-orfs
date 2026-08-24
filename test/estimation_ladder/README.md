@@ -7,8 +7,16 @@ The baseline throughout is running floorplan through global route and
 reading the timing off the result. Everything here is measured against
 that, because that is the thing you would otherwise have to do.
 
-- **multiplier (simple)**: the flow takes 41s. The estimator gets within **1.6%** of it in **6.35s** -- about **7x faster**.
-- **multiplier_top (macro array)**: the flow takes 668s. The estimator gets within **3.7%** of it in **29.8s** -- about **22x faster**.
+- **multiplier (simple)**: the flow takes **41s**. The estimator gets within **1.6%** of it in **9.05s**, of which 2.43s is loading the design and running the timing query -- overhead any rung pays.
+- **multiplier_top (macro array)**: the flow takes **668s**. The estimator gets within **3.7%** of it in **42.1s**, of which 3.76s is loading the design and running the timing query -- overhead any rung pays.
+
+The synthesis-only rung is in the tables below as an accuracy
+floor -- what you get for reading the netlist and asking OpenSTA --
+not as a speedup to quote. Almost all of its runtime is loading the
+design and running the timing query, and both of those grow with
+design size while the flow grows faster still. Read its ratio as an
+artifact of these designs being small, not as something that would
+hold on a real one.
 
 ### Why the estimate is off at all
 
@@ -78,23 +86,38 @@ not placements.
 
 ## multiplier (simple)
 
-Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **41s**. The cheapest rung on the front is 3442x faster than that at 21.3% error, and the most accurate is 6x faster at 1.1%.
+Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **41s**. The cheapest rung on the front is 15x faster than that at 21.3% error, and the most accurate is 3x faster at 1.1%.
 
 Sampled 54 near-critical reg2reg paths. Recall@10 by chance is 0.19: a rung scoring at or below that has no skill at picking the critical paths.
 
 Rung A explored 241 configurations.
 
-7 front points across 0.012s to 6.91s. The widest gap (0.690) spans 0.012s to 0.96s and is structural rather than unexplored: it separates the configurations that skip placement from those that run it. Of 59 placed configurations timed here the fastest took 0.96s, so there is no cheap-but-placed estimate to be found in between -- the choice is binary.
+5 front points across 2.79s to 13.6s; widest normalized gap 0.349, so **a gap exceeds** the 0.15 target and the budget did not fill it.
 
 | rungs                                       |   runtime_s |   mean_rel_err |   kendall_tau |      bias |   spread |   worst_recall |
 |:--------------------------------------------|------------:|---------------:|--------------:|----------:|---------:|---------------:|
-| synth only                                  |       0.012 |        0.2132  |        0.8532 | -0.2132   |  0.01367 |            0.8 |
-| place, GRT(1)                               |       0.96  |        0.05292 |        0.8519 | -0.05292  |  0.02335 |            0.7 |
-| place, NO macro place, place_ios, GRT(11)   |       1.05  |        0.0474  |        0.7834 | -0.04566  |  0.03353 |            0.7 |
-| place, place_ios, vCTS, prop, rd, GRT(19)   |       2.849 |        0.04299 |        0.5709 | -0.02104  |  0.05345 |            0.5 |
-| place, NO macro place, TD, vCTS, rd, GRT(1) |       3.541 |        0.02571 |        0.8644 | -0.02571  |  0.01402 |            0.8 |
-| place, NO macro place, TD, RD, GRT(28), rt  |       6.348 |        0.01606 |        0.863  | -0.01411  |  0.01161 |            0.7 |
-| place, TD, vCTS, CTS, rd, GRT(18), rt       |       6.906 |        0.01082 |        0.8798 | -0.008003 |  0.0101  |            0.6 |
+| synth only                                  |       2.793 |        0.2132  |        0.8532 | -0.2132   |  0.01367 |            0.8 |
+| place, NO macro place, place_ios, GRT(11)   |       3.485 |        0.0474  |        0.7834 | -0.04566  |  0.03353 |            0.7 |
+| place, NO macro place, TD, vCTS, rd, GRT(1) |       6.065 |        0.02571 |        0.8644 | -0.02571  |  0.01402 |            0.8 |
+| place, NO macro place, TD, RD, GRT(28), rt  |       9.052 |        0.01606 |        0.863  | -0.01411  |  0.01161 |            0.7 |
+| place, TD, vCTS, CTS, rd, GRT(18), rt       |      13.65  |        0.01082 |        0.8798 | -0.008003 |  0.0101  |            0.6 |
+
+**Where the flow's time goes**, largest first: global_route 14s, global_place 8s, cts 6s, floorplan 5s, detailed_place 4s, repair_design 3s, place_pins 1s, macro_place 1s. The single biggest stage is global_route at 35% of the flow, and the estimator does not skip it so much as run a far cheaper version of it -- which is where the saving comes from.
+
+**What each stage costs**, from the deepest rung measured (place, TD, vCTS, CTS, rd, GRT(18), rt): global_place 4.54s, cts 3.22s, repair_design 0.921s, repair_timing 0.534s, global_route 0.452s, place_pins 0.01s, floorplan 0.002s.
+
+**Where each rung's time goes.** Overhead is loading the design and running the timing query, which cost the same whatever the rung does.
+
+| rung                                           |   total_s |   overhead_s |   work_s |   overhead_pct | vs flow   |
+|:-----------------------------------------------|----------:|-------------:|---------:|---------------:|:----------|
+| the full flow (baseline)                       |     41.3  |       nan    |    41.3  |          nan   | 1x        |
+| 1. synth only                                  |      2.79 |         2.77 |     0.02 |           99.3 | 15x       |
+| 2. place, NO macro place, place_ios, GRT(11)   |      3.48 |         2.42 |     1.07 |           69.4 | 12x       |
+| 3. place, NO macro place, TD, vCTS, rd, GRT(1) |      6.06 |         2.4  |     3.66 |           39.6 | 7x        |
+| 4. place, NO macro place, TD, RD, GRT(28), rt  |      9.05 |         2.43 |     6.62 |           26.8 | 5x        |
+| 5. place, TD, vCTS, CTS, rd, GRT(18), rt       |     13.6  |         3.84 |     9.8  |           28.1 | 3x        |
+
+![multiplier (simple) time breakdown](time_multiplier.png)
 
 ![multiplier (simple) accuracy](pareto_multiplier.png)
 
@@ -104,22 +127,40 @@ Rung A explored 241 configurations.
 
 ## multiplier_top (macro array)
 
-Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **668s**. The cheapest rung on the front is 27840x faster than that at 27.3% error, and the most accurate is 10x faster at 3.4%.
+Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **668s**. The cheapest rung on the front is 203x faster than that at 27.3% error, and the most accurate is 8x faster at 3.4%.
 
 Sampled 99 near-critical reg2reg paths. Recall@10 by chance is 0.10: a rung scoring at or below that has no skill at picking the critical paths.
 
 Rung A explored 228 configurations.
 
-6 front points across 0.024s to 65.9s. The widest gap (0.808) spans 0.024s to 14.4s and is structural rather than unexplored: it separates the configurations that skip placement from those that run it. Of 13 placed configurations timed here the fastest took 14.4s, so there is no cheap-but-placed estimate to be found in between -- the choice is binary.
+6 front points across 3.3s to 81.1s. The widest gap (0.594) spans 3.3s to 22.1s and is structural rather than unexplored: it separates the configurations that skip placement from those that run it. Of 15 placed configurations timed here the fastest took 22.1s, so there is no cheap-but-placed estimate to be found in between -- the choice is binary.
 
 | rungs                                     |   runtime_s |   mean_rel_err |   kendall_tau |      bias |   spread |   worst_recall |
 |:------------------------------------------|------------:|---------------:|--------------:|----------:|---------:|---------------:|
-| synth only                                |       0.024 |        0.2729  |        0.7073 | -0.2729   |  0.04208 |            0.1 |
-| place, NO macro place, RD, CTS            |      14.42  |        0.1504  |        0.7675 |  0.1349   |  0.08277 |            0.3 |
-| place, NO macro place, TD, RD, vCTS, prop |      21.15  |        0.05026 |        0.6562 | -0.04012  |  0.05995 |            0.2 |
-| place, NO macro place, TD, RD, vCTS, CTS  |      29.28  |        0.04917 |        0.5143 | -0.007675 |  0.07096 |            0   |
-| place, NO macro place, rd, GRT(1)         |      29.77  |        0.03718 |        0.7168 | -0.006053 |  0.06823 |            0.2 |
-| place, place_ios, vCTS, CTS, rd           |      65.94  |        0.03433 |        0.7287 | -0.0105   |  0.05078 |            0.1 |
+| synth only                                |       3.296 |        0.2729  |        0.7073 | -0.2729   |  0.04208 |            0.1 |
+| place, NO macro place, TD, RD             |      22.12  |        0.07683 |        0.5803 |  0.05706  |  0.07381 |            0   |
+| place, NO macro place, TD, RD, vCTS, prop |      30.66  |        0.05026 |        0.6562 | -0.04012  |  0.05995 |            0.2 |
+| place, NO macro place, rd, GRT(1)         |      42.07  |        0.03718 |        0.7168 | -0.006053 |  0.06823 |            0.2 |
+| place, place_ios, vCTS, GRT(11)           |      58.36  |        0.03587 |        0.7394 | -0.02103  |  0.05577 |            0.2 |
+| place, place_ios, vCTS, CTS, rd           |      81.09  |        0.03433 |        0.7287 | -0.0105   |  0.05078 |            0.1 |
+
+**Where the flow's time goes**, largest first: global_route 374s, global_place 200s, cts 39s, floorplan 21s, macro_place 21s, detailed_place 8s, repair_design 5s, place_pins 1s. The single biggest stage is global_route at 56% of the flow, and the estimator does not skip it so much as run a far cheaper version of it -- which is where the saving comes from.
+
+**What each stage costs**, from the deepest rung measured (place, place_ios, vCTS, CTS, rd): global_place 45.3s, macro_place 17.4s, cts 2.89s, repair_design 1.66s, place_pins 0.042s, floorplan 0.006s.
+
+**Where each rung's time goes.** Overhead is loading the design and running the timing query, which cost the same whatever the rung does.
+
+| rung                                         |   total_s |   overhead_s |   work_s |   overhead_pct | vs flow   |
+|:---------------------------------------------|----------:|-------------:|---------:|---------------:|:----------|
+| the full flow (baseline)                     |     668   |       nan    |  668     |         nan    | 1x        |
+| 1. synth only                                |       3.3 |         3.27 |    0.025 |          99.2  | 203x      |
+| 2. place, NO macro place, TD, RD             |      22.1 |         4.46 |   17.7   |          20.1  | 30x       |
+| 3. place, NO macro place, TD, RD, vCTS, prop |      30.7 |         4.5  |   26.2   |          14.7  | 22x       |
+| 4. place, NO macro place, rd, GRT(1)         |      42.1 |         3.76 |   38.3   |           8.93 | 16x       |
+| 5. place, place_ios, vCTS, GRT(11)           |      58.4 |         3.58 |   54.8   |           6.14 | 11x       |
+| 6. place, place_ios, vCTS, CTS, rd           |      81.1 |         8.02 |   73.1   |           9.88 | 8x        |
+
+![multiplier_top (macro array) time breakdown](time_multiplier_top.png)
 
 ![multiplier_top (macro array) accuracy](pareto_multiplier_top.png)
 
@@ -169,6 +210,38 @@ The flow runtime it is compared against is the floorplan-through-
 global-route stages summed from their own logs. Synthesis is excluded
 from both sides, since both start from the same post-synthesis
 netlist.
+
+### What a runtime includes
+
+Everything from having the post-synthesis netlist to having a timing
+number: reading the ODB, the SDC and the liberties, whatever flow
+stages the rung runs, and the timing queries themselves. OpenSTA
+builds its graph and computes delays on the first query, so the query
+is not bookkeeping around the result -- on a rung that runs no flow
+stages it is most of the work. An earlier version of this study timed
+only the flow stages, which reported a rung whose real cost is 3.5s at
+0.024s and made it look thousands of times faster than the flow rather
+than a couple of hundred.
+
+The flow baseline is summed from its own stage logs, each of which
+includes that stage's load, so both sides are counted the same way.
+
+Load and timing-query cost scale with design size. On a design much
+larger than these the fixed overhead grows, and the cheapest rungs
+lose most of their apparent advantage; the rungs that run real flow
+stages are affected proportionally less.
+
+### How these times would scale
+
+Not measured -- there is no large design here -- but the components
+scale differently and it is worth knowing which way. Loading grows
+with netlist size. The timing query grows with the number of paths
+and their depth. Global placement grows faster than linearly in
+instance count. Global routing grows with net count and, badly, with
+congestion. The fixed overhead therefore grows more slowly than the
+flow does, so the rungs that run real stages should hold their
+advantage on a larger design while the near-empty rungs lose most of
+theirs.
 
 ### Why runtime and accuracy are measured separately
 

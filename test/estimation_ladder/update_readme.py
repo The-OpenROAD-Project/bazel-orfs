@@ -110,6 +110,38 @@ def ground_truth_runtime(path):
     return json.load(open(path)).get("runtime_s")
 
 
+def ground_truth_stages(path):
+    """The flow's own stages. "The flow takes 668s" says nothing about
+    what the estimator is declining to run, and it turns out over half of
+    it is a single stage."""
+    if not os.path.exists(path):
+        return {}
+    raw = json.load(open(path)).get("stages", {})
+    # 2_floorplan -> floorplan, 5_1_grt -> global_route, and so on.
+    # Onto the estimator's own phase names, so the same work is the same
+    # colour on both bars and the two are actually comparable.
+    rename = {
+        "floorplan": "floorplan",
+        "floorplan_pdn": "floorplan",
+        "floorplan_tapcell": "floorplan",
+        "floorplan_macro": "macro_place",
+        "place_iop": "place_pins",
+        "place_gp_skip_io": "global_place",
+        "place_gp": "global_place",
+        "place_resized": "repair_design",
+        "place_dp": "detailed_place",
+        "cts": "cts",
+        "grt": "global_route",
+        "route": "global_route",
+    }
+    out = {}
+    for k, v in raw.items():
+        tail = k.split("_", 1)[-1].lstrip("0123456789_")
+        name = rename.get(tail, tail)
+        out[name] = out.get(name, 0.0) + v
+    return out
+
+
 def _annotate_numbered(ax, pts, key):
     """Number the front points instead of labelling them in place.
 
@@ -384,6 +416,140 @@ def calibration_section(directory, image_prefix=""):
     ]
 
 
+# Phases in the order they run, so a stacked bar reads left to right as
+# the rung actually executes.
+PHASE_ORDER = [
+    "load",
+    "floorplan",
+    "place_pins",
+    "macro_place",
+    "global_place",
+    "cts",
+    "repair_design",
+    "global_route",
+    "detailed_place",
+    "repair_timing",
+    "sta",
+]
+PHASE_COLORS = {
+    # load and sta are deliberately the two greys: they are the overhead
+    # every rung pays regardless of what it runs.  Nothing else should be
+    # grey, or the distinction stops carrying meaning.
+    "load": "0.78",
+    "floorplan": "tab:purple",
+    "place_pins": "tab:olive",
+    "macro_place": "tab:orange",
+    "global_place": "tab:blue",
+    "cts": "tab:green",
+    "repair_design": "tab:cyan",
+    "global_route": "tab:red",
+    "detailed_place": "tab:pink",
+    "repair_timing": "tab:brown",
+    "sta": "0.45",
+}
+# Overhead you pay to get any timing number at all, whatever the rung.
+FIXED_PHASES = {"load", "sta"}
+
+
+def plot_time_breakdown(directory, design, title, front, flow_stages):
+    """Where the seconds go, on both sides of the comparison.
+
+    A speedup ratio is a conclusion; this is the thing the conclusion
+    comes from.  The flow's own stages sit on the same axis as the rungs,
+    so it is visible at a glance that the estimator is not skipping
+    routing so much as running a far cheaper version of it, and that the
+    cheapest rungs are almost entirely fixed overhead.
+    """
+    if not front or not front["front"]:
+        return
+    pts = sorted(front["front"], key=lambda p: p["runtime_s"])
+    labels, stacks = [], []
+
+    if flow_stages:
+        labels.append("the full flow")
+        stacks.append(dict(flow_stages))
+
+    for n, p in enumerate(pts, 1):
+        labels.append(f"{n}. {rung_label(p['env'])}")
+        stacks.append(dict(p.get("phases", {})))
+
+    keys = [k for k in PHASE_ORDER if any(k in st for st in stacks)]
+    extra = sorted({k for st in stacks for k in st} - set(PHASE_ORDER))
+    keys += extra
+
+    totals = [sum(st.values()) or 1.0 for st in stacks]
+    fig, ax = plt.subplots(figsize=(11, 1.2 + 0.55 * len(labels)))
+    ypos = range(len(labels))
+    left = [0.0] * len(labels)
+    for k in keys:
+        vals = [100.0 * st.get(k, 0.0) / t for st, t in zip(stacks, totals)]
+        ax.barh(
+            list(ypos),
+            vals,
+            left=left,
+            label=k,
+            color=PHASE_COLORS.get(k, "tab:purple"),
+            edgecolor="white",
+            height=0.7,
+        )
+        left = [a + b for a, b in zip(left, vals)]
+    for y, total in zip(ypos, totals):
+        ax.text(101, y, f"{total:.3g}s", va="center", fontsize=9, fontweight="bold")
+    ax.set_yticks(list(ypos))
+    ax.set_yticklabels(labels, fontsize=8)
+    ax.invert_yaxis()
+    ax.set_xlim(0, 112)
+    ax.set_xlabel("share of that row's runtime (%) -- absolute total at right")
+    ax.set_title(f"{title}: where the time goes")
+    ax.legend(fontsize=8, ncol=5, loc="upper center", bbox_to_anchor=(0.5, -0.18))
+    ax.grid(alpha=0.3, axis="x")
+    fig.tight_layout()
+    fig.savefig(os.path.join(directory, f"time_{design}.png"), dpi=120)
+    plt.close(fig)
+
+
+def breakdown_table(front, flow_stages, flow_total):
+    """Fixed overhead against estimation work, per rung.
+
+    The split that makes the cheap rungs honest: loading the design and
+    running the timing query cost the same whatever the rung does, so a
+    rung that runs almost no flow stages is nearly all overhead, and its
+    speedup is a property of these designs being small rather than of the
+    method.
+    """
+    if not front or not front["front"]:
+        return []
+    rows = []
+    if flow_stages:
+        rows.append(
+            {
+                "rung": "the full flow (baseline)",
+                "total_s": flow_total,
+                "overhead_s": None,
+                "work_s": flow_total,
+                "overhead_pct": None,
+                "vs flow": "1x",
+            }
+        )
+    prev = None
+    for n, p in enumerate(sorted(front["front"], key=lambda p: p["runtime_s"]), 1):
+        ph = p.get("phases", {})
+        fixed = sum(v for k, v in ph.items() if k in FIXED_PHASES)
+        total = p["runtime_s"]
+        rows.append(
+            {
+                "rung": f"{n}. {rung_label(p['env'])}",
+                "total_s": total,
+                "overhead_s": fixed,
+                "work_s": max(total - fixed, 0.0),
+                "overhead_pct": (100.0 * fixed / total) if total else None,
+                "vs flow": f"{flow_total / total:.0f}x" if flow_total else "",
+            }
+        )
+        prev = p
+    return rows
+
+
 def methods_section(path_counts):
     """Everything statistical, kept out of the way of the result.
 
@@ -417,6 +583,38 @@ def methods_section(path_counts):
         "global-route stages summed from their own logs. Synthesis is excluded",
         "from both sides, since both start from the same post-synthesis",
         "netlist.",
+        "",
+        "### What a runtime includes",
+        "",
+        "Everything from having the post-synthesis netlist to having a timing",
+        "number: reading the ODB, the SDC and the liberties, whatever flow",
+        "stages the rung runs, and the timing queries themselves. OpenSTA",
+        "builds its graph and computes delays on the first query, so the query",
+        "is not bookkeeping around the result -- on a rung that runs no flow",
+        "stages it is most of the work. An earlier version of this study timed",
+        "only the flow stages, which reported a rung whose real cost is 3.5s at",
+        "0.024s and made it look thousands of times faster than the flow rather",
+        "than a couple of hundred.",
+        "",
+        "The flow baseline is summed from its own stage logs, each of which",
+        "includes that stage's load, so both sides are counted the same way.",
+        "",
+        "Load and timing-query cost scale with design size. On a design much",
+        "larger than these the fixed overhead grows, and the cheapest rungs",
+        "lose most of their apparent advantage; the rungs that run real flow",
+        "stages are affected proportionally less.",
+        "",
+        "### How these times would scale",
+        "",
+        "Not measured -- there is no large design here -- but the components",
+        "scale differently and it is worth knowing which way. Loading grows",
+        "with netlist size. The timing query grows with the number of paths",
+        "and their depth. Global placement grows faster than linearly in",
+        "instance count. Global routing grows with net count and, badly, with",
+        "congestion. The fixed overhead therefore grows more slowly than the",
+        "flow does, so the rungs that run real stages should hold their",
+        "advantage on a larger design while the near-empty rungs lose most of",
+        "theirs.",
         "",
         "### Why runtime and accuracy are measured separately",
         "",
@@ -521,18 +719,32 @@ def headline(data, gt_runtimes):
             (p for p in placed if p["mean_rel_err"] <= best_err + 0.01),
             key=lambda p: p["runtime_s"],
         )
+        ph = pick.get("phases", {})
+        fixed = sum(v for k, v in ph.items() if k in FIXED_PHASES)
+        detail = ""
+        if fixed:
+            detail = (
+                f", of which {fixed:.3g}s is loading the design and running "
+                f"the timing query -- overhead any rung pays"
+            )
         out.append(
-            f"- **{title}**: the flow takes {gt:.0f}s. The estimator gets "
+            f"- **{title}**: the flow takes **{gt:.0f}s**. The estimator gets "
             f"within **{pick['mean_rel_err']:.1%}** of it in "
-            f"**{pick['runtime_s']:.3g}s** -- about "
-            f"**{gt / pick['runtime_s']:.0f}x faster**."
+            f"**{pick['runtime_s']:.3g}s**{detail}."
         )
     return out
 
 
 def render(
-    data, gt_runtimes, path_counts, image_prefix="", image_suffix="", directory="."
+    data,
+    gt_runtimes,
+    path_counts,
+    image_prefix="",
+    image_suffix="",
+    directory=".",
+    flow_stages=None,
 ):
+    flow_stages = flow_stages or {}
     out = ["# Estimation Ladder", ""]
     out += [
         "**How close can you get to the clock period the flow would give you,",
@@ -545,6 +757,14 @@ def render(
     ]
     out += headline(data, gt_runtimes)
     out += [
+        "",
+        "The synthesis-only rung is in the tables below as an accuracy",
+        "floor -- what you get for reading the netlist and asking OpenSTA --",
+        "not as a speedup to quote. Almost all of its runtime is loading the",
+        "design and running the timing query, and both of those grow with",
+        "design size while the flow grows faster still. Read its ratio as an",
+        "artifact of these designs being small, not as something that would",
+        "hold on a real one.",
         "",
         "### Why the estimate is off at all",
         "",
@@ -649,6 +869,51 @@ def render(
         if note:
             out += [note, ""]
         out += [front_table(front), ""]
+        stages = flow_stages.get(design, {})
+        if stages:
+            ordered = sorted(stages.items(), key=lambda kv: -kv[1])
+            total = sum(stages.values()) or 1.0
+            name, cost = ordered[0]
+            share = 100.0 * cost / total
+            out += [
+                "**Where the flow's time goes**, largest first: "
+                + ", ".join(f"{k} {v:.0f}s" for k, v in ordered)
+                + f". The single biggest stage is {name} at {share:.0f}% of the "
+                f"flow, and the estimator does not skip it so much as run a far "
+                f"cheaper version of it -- which is where the saving comes from.",
+                "",
+            ]
+        # What each stage adds, taken from the rung that runs the most of
+        # them: this is how someone decides what to switch on, and it is
+        # where repair_timing costing more than CTS and global routing
+        # together becomes obvious.
+        deepest = None
+        if front and front["front"]:
+            deepest = max(front["front"], key=lambda p: len(p.get("phases", {})))
+        if deepest and len(deepest.get("phases", {})) > 3:
+            costs = ", ".join(
+                f"{k} {v:.3g}s"
+                for k, v in sorted(deepest["phases"].items(), key=lambda kv: -kv[1])
+                if k not in FIXED_PHASES
+            )
+            out += [
+                f"**What each stage costs**, from the deepest rung measured "
+                f"({rung_label(deepest['env'])}): {costs}.",
+                "",
+            ]
+
+        rows = breakdown_table(front, stages, gt)
+        if rows:
+            out += [
+                "**Where each rung's time goes.** Overhead is loading the design "
+                "and running the timing query, which cost the same whatever the "
+                "rung does.",
+                "",
+                pd.DataFrame(rows).to_markdown(index=False, floatfmt=".3g"),
+                "",
+                f"![{title} time breakdown]({image_prefix}time_{design}.png{image_suffix})",
+                "",
+            ]
         out += [
             f"![{title} accuracy]({image_prefix}{figs['pareto']}{image_suffix})",
             "",
@@ -695,8 +960,16 @@ def main():
         if os.path.exists(gt_path):
             path_counts[design] = len(json.load(open(gt_path))["paths"])
 
+    flow_stages = {
+        "multiplier": ground_truth_stages(args.ground_truth_json),
+        "multiplier_top": ground_truth_stages(args.ground_truth_top_json),
+    }
+
     for design, title in DESIGNS:
         front, _ = data[design]
+        plot_time_breakdown(
+            directory, design, title, front, flow_stages.get(design, {})
+        )
         plot_error(directory, design, title, front, gt_runtimes.get(design))
         plot_ranking(
             directory,
@@ -708,10 +981,12 @@ def main():
         )
         plot_bias(directory, design, title, front)
 
-    readme = render(data, gt_runtimes, path_counts, directory=directory)
+    readme = render(
+        data, gt_runtimes, path_counts, directory=directory, flow_stages=flow_stages
+    )
     with open(os.path.join(directory, "README.md"), "w") as f:
         f.write(readme + "\n")
-    print(f"Wrote README.md and {3 * len(DESIGNS)} figures")
+    print(f"Wrote README.md and {4 * len(DESIGNS)} figures")
 
     if args.pr_body:
         prefix = args.pr_body if args.pr_body.endswith("/") else args.pr_body + "/"
@@ -723,6 +998,7 @@ def main():
             gt_runtimes,
             path_counts,
             image_prefix=prefix,
+            flow_stages=flow_stages,
             image_suffix="?raw=true",
             directory=directory,
         )

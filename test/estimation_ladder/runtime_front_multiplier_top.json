@@ -12,50 +12,52 @@
       "mean_rel_err": 0.27289516368359956,
       "phases": {
         "floorplan": 0.007,
-        "place_pins": 0.016
+        "load": 1.183,
+        "place_pins": 0.016,
+        "sta": 2.088
       },
       "repeats": [
-        0.024,
-        0.024,
-        0.024
+        3.299,
+        3.296,
+        3.2960000000000003
       ],
-      "runtime_s": 0.024,
+      "runtime_s": 3.2960000000000003,
       "spearman_rho": 0.8973778602350031,
       "spread": 0.04208119836042368,
       "worst_recall": 0.1
     },
     {
-      "bias": 0.1348905150864049,
+      "bias": 0.05706156413187141,
       "env": {
-        "CLOCK_MODE": "real",
-        "CTS_DPL": "0",
+        "CLOCK_MODE": "none",
         "GPL_ROUTABILITY_DRIVEN": "1",
-        "GPL_TIMING_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "1",
         "GPL_VIRTUAL_CTS": "0",
-        "GP_ARGS": "-routability_check_overflow 0.31211154990743095 -overflow 0.2989741647971742 -initial_place_max_iter 3 -initial_place_max_fanout 261 -init_wirelength_coef 0.6713745293941219 -bin_grid_count 128 -min_phi_coef 0.9821308614167236 -max_phi_coef 1.1164835581184158",
+        "GP_ARGS": "-routability_check_overflow 0.3192589661029335 -routability_use_grt -overflow 0.34270787736578595 -initial_place_max_iter 9 -initial_place_max_fanout 400 -init_wirelength_coef 0.8853468669580119 -bin_grid_count 64 -min_phi_coef 0.9402520533064618 -max_phi_coef 1.1360251298217945",
         "PLACE_IOS": "0",
         "RUN_GRT": "0",
         "RUN_MACRO_PLACE": "0",
         "RUN_PLACE": "1"
       },
-      "index": 156,
-      "kendall_tau": 0.7674706246134818,
-      "mean_rel_err": 0.15044282934373931,
+      "index": 113,
+      "kendall_tau": 0.5802927231498661,
+      "mean_rel_err": 0.0768337613968079,
       "phases": {
-        "cts": 1.888,
-        "floorplan": 0.006,
-        "global_place": 12.196,
-        "place_pins": 0.015
+        "floorplan": 0.008,
+        "global_place": 17.505,
+        "load": 1.397,
+        "place_pins": 0.018,
+        "sta": 3.061
       },
       "repeats": [
-        14.41,
-        14.482,
-        14.424
+        22.117,
+        22.125,
+        22.322
       ],
-      "runtime_s": 14.424,
-      "spearman_rho": 0.9274829931972789,
-      "spread": 0.08276732282585071,
-      "worst_recall": 0.3
+      "runtime_s": 22.125,
+      "spearman_rho": 0.7760791589363016,
+      "spread": 0.07380951775213909,
+      "worst_recall": 0.0
     },
     {
       "bias": -0.04012349867206483,
@@ -74,52 +76,21 @@
       "kendall_tau": 0.6561533704390848,
       "mean_rel_err": 0.050260269683448634,
       "phases": {
-        "floorplan": 0.007,
-        "global_place": 20.822,
-        "place_pins": 0.016
+        "floorplan": 0.008,
+        "global_place": 25.792,
+        "load": 1.348,
+        "place_pins": 0.021,
+        "sta": 3.151
       },
       "repeats": [
-        21.166,
-        21.125,
-        21.151
+        30.499,
+        30.676000000000002,
+        30.659
       ],
-      "runtime_s": 21.151,
+      "runtime_s": 30.659,
       "spearman_rho": 0.8477922077922077,
       "spread": 0.059947615441427154,
       "worst_recall": 0.2
-    },
-    {
-      "bias": -0.007675096883747675,
-      "env": {
-        "CLOCK_MODE": "real",
-        "CTS_DPL": "0",
-        "GPL_ROUTABILITY_DRIVEN": "1",
-        "GPL_TIMING_DRIVEN": "1",
-        "GPL_VIRTUAL_CTS": "1",
-        "GP_ARGS": "-routability_check_overflow 0.4509728527929167 -overflow 0.32117548901708654 -initial_place_max_iter 16 -initial_place_max_fanout 109 -init_wirelength_coef 0.6161776367112987 -bin_grid_count 128 -min_phi_coef 0.9851053122684225 -max_phi_coef 1.0561183103307654",
-        "PLACE_IOS": "0",
-        "RUN_GRT": "0",
-        "RUN_MACRO_PLACE": "0",
-        "RUN_PLACE": "1"
-      },
-      "index": 170,
-      "kendall_tau": 0.5143269428983714,
-      "mean_rel_err": 0.04917397011620784,
-      "phases": {
-        "cts": 1.981,
-        "floorplan": 0.006,
-        "global_place": 27.107,
-        "place_pins": 0.015
-      },
-      "repeats": [
-        29.209,
-        29.279,
-        29.41
-      ],
-      "runtime_s": 29.279,
-      "spearman_rho": 0.7066914038342609,
-      "spread": 0.0709551353177121,
-      "worst_recall": 0.0
     },
     {
       "bias": -0.006053400715027249,
@@ -143,19 +114,56 @@
       "mean_rel_err": 0.037184381904147606,
       "phases": {
         "floorplan": 0.007,
-        "global_place": 19.868,
-        "global_route": 7.527,
-        "place_pins": 0.015,
-        "repair_design": 1.477
+        "global_place": 26.791,
+        "global_route": 9.085,
+        "load": 1.387,
+        "place_pins": 0.023,
+        "repair_design": 1.714,
+        "sta": 2.369
       },
       "repeats": [
-        29.775,
-        29.758,
-        29.814
+        41.376,
+        42.067,
+        42.379
       ],
-      "runtime_s": 29.775,
+      "runtime_s": 42.067,
       "spearman_rho": 0.8890043290043289,
       "spread": 0.0682281716884984,
+      "worst_recall": 0.2
+    },
+    {
+      "bias": -0.02102959538791585,
+      "env": {
+        "CLOCK_MODE": "none",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.15584881968968006 -initial_place_max_iter 18 -initial_place_max_fanout 289 -init_wirelength_coef 0.559407851099429 -bin_grid_count 64 -min_phi_coef 0.8967439530154097 -max_phi_coef 1.0598526305201479",
+        "GRT_ARGS": "-allow_congestion -critical_nets_percentage 5.3777578863086815",
+        "GRT_ITERATIONS": "11",
+        "PLACE_IOS": "1",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1"
+      },
+      "index": 135,
+      "kendall_tau": 0.7394351680065967,
+      "mean_rel_err": 0.0358653390367141,
+      "phases": {
+        "floorplan": 0.008,
+        "global_place": 28.816,
+        "global_route": 6.589,
+        "load": 1.259,
+        "macro_place": 18.5,
+        "place_pins": 0.056,
+        "sta": 2.322
+      },
+      "repeats": [
+        59.891999999999996,
+        56.143,
+        58.359
+      ],
+      "runtime_s": 58.359,
+      "spearman_rho": 0.9068769325912184,
+      "spread": 0.05576928535800186,
       "worst_recall": 0.2
     },
     {
@@ -176,19 +184,25 @@
       "kendall_tau": 0.7287157287157288,
       "mean_rel_err": 0.03433342921967653,
       "phases": {
-        "cts": 2.824,
+        "cts": 2.886,
         "floorplan": 0.006,
-        "global_place": 43.848,
-        "macro_place": 17.317,
+        "global_place": 45.342,
+        "load": 1.182,
+        "macro_place": 17.368,
         "place_pins": 0.042,
-        "repair_design": 1.563
+        "repair_design": 1.658,
+        "sta": 6.833
       },
       "repeats": [
-        68.839,
-        65.785,
-        65.938
+        81.093,
+        86.527,
+        110.86,
+        91.62400000000001,
+        77.454,
+        76.24499999999999,
+        75.661
       ],
-      "runtime_s": 65.938,
+      "runtime_s": 81.093,
       "spearman_rho": 0.9066666666666665,
       "spread": 0.050783097322016836,
       "worst_recall": 0.1
@@ -206,115 +220,87 @@
       "mean_rel_err": 0.27289516368359956,
       "phases": {
         "floorplan": 0.007,
-        "place_pins": 0.016
+        "load": 1.183,
+        "place_pins": 0.016,
+        "sta": 2.088
       },
       "repeats": [
-        0.024,
-        0.024,
-        0.024
+        3.299,
+        3.296,
+        3.2960000000000003
       ],
-      "runtime_s": 0.024,
+      "runtime_s": 3.2960000000000003,
       "spearman_rho": 0.8973778602350031,
       "spread": 0.04208119836042368,
       "worst_recall": 0.1
     },
     {
-      "bias": 0.1348905150864049,
+      "bias": 0.05706156413187141,
       "env": {
-        "CLOCK_MODE": "real",
-        "CTS_DPL": "0",
-        "GPL_ROUTABILITY_DRIVEN": "1",
-        "GPL_TIMING_DRIVEN": "0",
-        "GPL_VIRTUAL_CTS": "0",
-        "GP_ARGS": "-routability_check_overflow 0.31211154990743095 -overflow 0.2989741647971742 -initial_place_max_iter 3 -initial_place_max_fanout 261 -init_wirelength_coef 0.6713745293941219 -bin_grid_count 128 -min_phi_coef 0.9821308614167236 -max_phi_coef 1.1164835581184158",
-        "PLACE_IOS": "0",
-        "RUN_GRT": "0",
-        "RUN_MACRO_PLACE": "0",
-        "RUN_PLACE": "1"
-      },
-      "index": 156,
-      "kendall_tau": 0.7674706246134818,
-      "mean_rel_err": 0.15044282934373931,
-      "phases": {
-        "cts": 1.888,
-        "floorplan": 0.006,
-        "global_place": 12.196,
-        "place_pins": 0.015
-      },
-      "repeats": [
-        14.41,
-        14.482,
-        14.424
-      ],
-      "runtime_s": 14.424,
-      "spearman_rho": 0.9274829931972789,
-      "spread": 0.08276732282585071,
-      "worst_recall": 0.3
-    },
-    {
-      "bias": -0.04012349867206483,
-      "env": {
-        "CLOCK_MODE": "propagated",
+        "CLOCK_MODE": "none",
         "GPL_ROUTABILITY_DRIVEN": "1",
         "GPL_TIMING_DRIVEN": "1",
-        "GPL_VIRTUAL_CTS": "1",
-        "GP_ARGS": "-routability_check_overflow 0.38989376969582656 -overflow 0.30299959882071226 -initial_place_max_iter 3 -initial_place_max_fanout 203 -init_wirelength_coef 0.8461451386556894 -bin_grid_count 64 -min_phi_coef 0.940611448273114 -max_phi_coef 1.0762303394557422",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-routability_check_overflow 0.3192589661029335 -routability_use_grt -overflow 0.34270787736578595 -initial_place_max_iter 9 -initial_place_max_fanout 400 -init_wirelength_coef 0.8853468669580119 -bin_grid_count 64 -min_phi_coef 0.9402520533064618 -max_phi_coef 1.1360251298217945",
         "PLACE_IOS": "0",
         "RUN_GRT": "0",
         "RUN_MACRO_PLACE": "0",
         "RUN_PLACE": "1"
       },
-      "index": 186,
-      "kendall_tau": 0.6561533704390848,
-      "mean_rel_err": 0.050260269683448634,
+      "index": 113,
+      "kendall_tau": 0.5802927231498661,
+      "mean_rel_err": 0.0768337613968079,
       "phases": {
-        "floorplan": 0.007,
-        "global_place": 20.822,
-        "place_pins": 0.016
+        "floorplan": 0.008,
+        "global_place": 17.505,
+        "load": 1.397,
+        "place_pins": 0.018,
+        "sta": 3.061
       },
       "repeats": [
-        21.166,
-        21.125,
-        21.151
+        22.117,
+        22.125,
+        22.322
       ],
-      "runtime_s": 21.151,
-      "spearman_rho": 0.8477922077922077,
-      "spread": 0.059947615441427154,
-      "worst_recall": 0.2
+      "runtime_s": 22.125,
+      "spearman_rho": 0.7760791589363016,
+      "spread": 0.07380951775213909,
+      "worst_recall": 0.0
     },
     {
-      "bias": -0.10773353783134576,
+      "bias": 0.34653698839386304,
       "env": {
-        "CLOCK_MODE": "real",
-        "CTS_DPL": "0",
-        "GPL_ROUTABILITY_DRIVEN": "1",
-        "GPL_TIMING_DRIVEN": "0",
-        "GPL_VIRTUAL_CTS": "0",
-        "GP_ARGS": "-routability_check_overflow 0.4205659980031077 -overflow 0.24446067744411693 -initial_place_max_iter 4 -initial_place_max_fanout 274 -init_wirelength_coef 0.7066742542282407 -bin_grid_count 128 -min_phi_coef 0.9747328699086873 -max_phi_coef 1.087731199030812",
-        "PLACE_IOS": "0",
+        "CLOCK_MODE": "none",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.3113079119773879 -initial_place_max_iter 0 -initial_place_max_fanout 394 -init_wirelength_coef 0.23059708284880098 -bin_grid_count 128 -min_phi_coef 0.9592039583643371 -max_phi_coef 1.028836373342326",
+        "PLACE_IOS": "1",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 10.682800903285127 -cap_margin 11.420557568027924",
         "RUN_GRT": "0",
         "RUN_MACRO_PLACE": "1",
-        "RUN_PLACE": "1"
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
       },
-      "index": 75,
-      "kendall_tau": 0.7262420119562978,
-      "mean_rel_err": 0.10773353783134576,
+      "index": 132,
+      "kendall_tau": 0.5341166769738198,
+      "mean_rel_err": 0.35148299241488873,
       "phases": {
-        "cts": 1.898,
-        "floorplan": 0.007,
-        "global_place": 1.676,
-        "macro_place": 18.687,
-        "place_pins": 0.017
+        "floorplan": 0.008,
+        "global_place": 1.478,
+        "load": 1.384,
+        "macro_place": 19.224,
+        "place_pins": 0.041,
+        "repair_design": 1.843,
+        "sta": 2.313
       },
       "repeats": [
-        22.513,
-        22.835,
-        22.608
+        26.669999999999998,
+        26.738000000000003,
+        26.676
       ],
-      "runtime_s": 22.608,
-      "spearman_rho": 0.9059987631416201,
-      "spread": 0.045016819104998225,
-      "worst_recall": 0.2
+      "runtime_s": 26.676,
+      "spearman_rho": 0.7006555349412492,
+      "spread": 0.1071167131586732,
+      "worst_recall": 0.7
     },
     {
       "bias": 0.15465942207447744,
@@ -338,53 +324,91 @@
       "mean_rel_err": 0.1716696586939343,
       "phases": {
         "floorplan": 0.007,
-        "global_place": 10.736,
-        "place_pins": 0.015,
-        "repair_design": 1.471,
-        "repair_timing": 13.432
+        "global_place": 10.922,
+        "load": 1.182,
+        "place_pins": 0.016,
+        "repair_design": 1.481,
+        "repair_timing": 13.412,
+        "sta": 2.126
       },
       "repeats": [
-        26.066,
-        26.159,
-        26.0
+        29.435,
+        29.407000000000004,
+        29.485
       ],
-      "runtime_s": 26.066,
+      "runtime_s": 29.435,
       "spearman_rho": 0.9233024118738404,
       "spread": 0.09021606451675587,
       "worst_recall": 0.2
     },
     {
-      "bias": -0.007675096883747675,
+      "bias": -0.04012349867206483,
       "env": {
-        "CLOCK_MODE": "real",
-        "CTS_DPL": "0",
+        "CLOCK_MODE": "propagated",
         "GPL_ROUTABILITY_DRIVEN": "1",
         "GPL_TIMING_DRIVEN": "1",
         "GPL_VIRTUAL_CTS": "1",
-        "GP_ARGS": "-routability_check_overflow 0.4509728527929167 -overflow 0.32117548901708654 -initial_place_max_iter 16 -initial_place_max_fanout 109 -init_wirelength_coef 0.6161776367112987 -bin_grid_count 128 -min_phi_coef 0.9851053122684225 -max_phi_coef 1.0561183103307654",
+        "GP_ARGS": "-routability_check_overflow 0.38989376969582656 -overflow 0.30299959882071226 -initial_place_max_iter 3 -initial_place_max_fanout 203 -init_wirelength_coef 0.8461451386556894 -bin_grid_count 64 -min_phi_coef 0.940611448273114 -max_phi_coef 1.0762303394557422",
         "PLACE_IOS": "0",
         "RUN_GRT": "0",
         "RUN_MACRO_PLACE": "0",
         "RUN_PLACE": "1"
       },
-      "index": 170,
-      "kendall_tau": 0.5143269428983714,
-      "mean_rel_err": 0.04917397011620784,
+      "index": 186,
+      "kendall_tau": 0.6561533704390848,
+      "mean_rel_err": 0.050260269683448634,
       "phases": {
-        "cts": 1.981,
-        "floorplan": 0.006,
-        "global_place": 27.107,
-        "place_pins": 0.015
+        "floorplan": 0.008,
+        "global_place": 25.792,
+        "load": 1.348,
+        "place_pins": 0.021,
+        "sta": 3.151
       },
       "repeats": [
-        29.209,
-        29.279,
-        29.41
+        30.499,
+        30.676000000000002,
+        30.659
       ],
-      "runtime_s": 29.279,
-      "spearman_rho": 0.7066914038342609,
-      "spread": 0.0709551353177121,
-      "worst_recall": 0.0
+      "runtime_s": 30.659,
+      "spearman_rho": 0.8477922077922077,
+      "spread": 0.059947615441427154,
+      "worst_recall": 0.2
+    },
+    {
+      "bias": -0.10773353783134576,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "0",
+        "GPL_ROUTABILITY_DRIVEN": "1",
+        "GPL_TIMING_DRIVEN": "0",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-routability_check_overflow 0.4205659980031077 -overflow 0.24446067744411693 -initial_place_max_iter 4 -initial_place_max_fanout 274 -init_wirelength_coef 0.7066742542282407 -bin_grid_count 128 -min_phi_coef 0.9747328699086873 -max_phi_coef 1.087731199030812",
+        "PLACE_IOS": "0",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1"
+      },
+      "index": 75,
+      "kendall_tau": 0.7262420119562978,
+      "mean_rel_err": 0.10773353783134576,
+      "phases": {
+        "cts": 2.105,
+        "floorplan": 0.008,
+        "global_place": 2.058,
+        "load": 1.345,
+        "macro_place": 20.752,
+        "place_pins": 0.019,
+        "sta": 5.661
+      },
+      "repeats": [
+        32.626999999999995,
+        32.339,
+        32.306999999999995
+      ],
+      "runtime_s": 32.339,
+      "spearman_rho": 0.9059987631416201,
+      "spread": 0.045016819104998225,
+      "worst_recall": 0.2
     },
     {
       "bias": -0.006053400715027249,
@@ -408,20 +432,57 @@
       "mean_rel_err": 0.037184381904147606,
       "phases": {
         "floorplan": 0.007,
-        "global_place": 19.868,
-        "global_route": 7.527,
-        "place_pins": 0.015,
-        "repair_design": 1.477
+        "global_place": 26.791,
+        "global_route": 9.085,
+        "load": 1.387,
+        "place_pins": 0.023,
+        "repair_design": 1.714,
+        "sta": 2.369
       },
       "repeats": [
-        29.775,
-        29.758,
-        29.814
+        41.376,
+        42.067,
+        42.379
       ],
-      "runtime_s": 29.775,
+      "runtime_s": 42.067,
       "spearman_rho": 0.8890043290043289,
       "spread": 0.0682281716884984,
       "worst_recall": 0.2
+    },
+    {
+      "bias": -0.007675096883747675,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "0",
+        "GPL_ROUTABILITY_DRIVEN": "1",
+        "GPL_TIMING_DRIVEN": "1",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-routability_check_overflow 0.4509728527929167 -overflow 0.32117548901708654 -initial_place_max_iter 16 -initial_place_max_fanout 109 -init_wirelength_coef 0.6161776367112987 -bin_grid_count 128 -min_phi_coef 0.9851053122684225 -max_phi_coef 1.0561183103307654",
+        "PLACE_IOS": "0",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1"
+      },
+      "index": 170,
+      "kendall_tau": 0.5143269428983714,
+      "mean_rel_err": 0.04917397011620784,
+      "phases": {
+        "cts": 2.3,
+        "floorplan": 0.01,
+        "global_place": 33.53,
+        "load": 1.363,
+        "place_pins": 0.018,
+        "sta": 9.186
+      },
+      "repeats": [
+        46.50099999999999,
+        46.116,
+        46.746
+      ],
+      "runtime_s": 46.50099999999999,
+      "spearman_rho": 0.7066914038342609,
+      "spread": 0.0709551353177121,
+      "worst_recall": 0.0
     },
     {
       "bias": -0.016890480819181264,
@@ -440,54 +501,96 @@
       "kendall_tau": 0.6697588126159555,
       "mean_rel_err": 0.04006020456717041,
       "phases": {
-        "floorplan": 0.007,
-        "global_place": 34.214,
-        "place_pins": 0.016
+        "floorplan": 0.009,
+        "global_place": 43.803,
+        "load": 1.355,
+        "place_pins": 0.02,
+        "sta": 3.316
       },
       "repeats": [
-        34.812,
-        34.673,
-        34.513
+        48.772,
+        48.945,
+        48.804
       ],
-      "runtime_s": 34.673,
+      "runtime_s": 48.804,
       "spearman_rho": 0.8666295609152751,
       "spread": 0.06266682441219312,
       "worst_recall": 0.0
     },
     {
-      "bias": 0.017627727633625,
+      "bias": -0.02102959538791585,
       "env": {
-        "CLOCK_MODE": "real",
-        "CTS_DPL": "0",
-        "GPL_ROUTABILITY_DRIVEN": "1",
-        "GPL_TIMING_DRIVEN": "0",
+        "CLOCK_MODE": "none",
         "GPL_VIRTUAL_CTS": "1",
-        "GP_ARGS": "-routability_check_overflow 0.4356365101993203 -overflow 0.2940320863544037 -initial_place_max_iter 8 -initial_place_max_fanout 70 -init_wirelength_coef 0.8002315382335755 -bin_grid_count 64 -min_phi_coef 0.8792836915845416 -max_phi_coef 1.1220455601681532",
-        "PLACE_IOS": "0",
-        "REPAIR_TIMING_ARGS": "-sequence {buffer vt_swap reroute} -repair_tns 100 -max_passes 1",
-        "RUN_GRT": "0",
-        "RUN_MACRO_PLACE": "0",
-        "RUN_PLACE": "1",
-        "RUN_REPAIR_TIMING": "1"
+        "GP_ARGS": "-overflow 0.15584881968968006 -initial_place_max_iter 18 -initial_place_max_fanout 289 -init_wirelength_coef 0.559407851099429 -bin_grid_count 64 -min_phi_coef 0.8967439530154097 -max_phi_coef 1.0598526305201479",
+        "GRT_ARGS": "-allow_congestion -critical_nets_percentage 5.3777578863086815",
+        "GRT_ITERATIONS": "11",
+        "PLACE_IOS": "1",
+        "RUN_GRT": "1",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1"
       },
-      "index": 180,
-      "kendall_tau": 0.6767676767676768,
-      "mean_rel_err": 0.046335934407914746,
+      "index": 135,
+      "kendall_tau": 0.7394351680065967,
+      "mean_rel_err": 0.0358653390367141,
       "phases": {
-        "cts": 1.892,
-        "floorplan": 0.007,
-        "global_place": 11.872,
-        "place_pins": 0.016,
-        "repair_timing": 27.408
+        "floorplan": 0.008,
+        "global_place": 28.816,
+        "global_route": 6.589,
+        "load": 1.259,
+        "macro_place": 18.5,
+        "place_pins": 0.056,
+        "sta": 2.322
       },
       "repeats": [
-        41.417,
-        41.639,
-        41.518
+        59.891999999999996,
+        56.143,
+        58.359
       ],
-      "runtime_s": 41.518,
-      "spearman_rho": 0.8686209029066172,
-      "spread": 0.07162412957751639,
+      "runtime_s": 58.359,
+      "spearman_rho": 0.9068769325912184,
+      "spread": 0.05576928535800186,
+      "worst_recall": 0.2
+    },
+    {
+      "bias": -0.010504861908199893,
+      "env": {
+        "CLOCK_MODE": "real",
+        "CTS_DPL": "1",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.34824624611419047 -initial_place_max_iter 6 -initial_place_max_fanout 215 -init_wirelength_coef 0.20626741496317547 -min_phi_coef 0.9783205181772552 -max_phi_coef 1.060258053514876",
+        "PLACE_IOS": "1",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 11.053668078269457 -cap_margin 19.72619792859106",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "1",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 196,
+      "kendall_tau": 0.7287157287157288,
+      "mean_rel_err": 0.03433342921967653,
+      "phases": {
+        "cts": 2.886,
+        "floorplan": 0.006,
+        "global_place": 45.342,
+        "load": 1.182,
+        "macro_place": 17.368,
+        "place_pins": 0.042,
+        "repair_design": 1.658,
+        "sta": 6.833
+      },
+      "repeats": [
+        81.093,
+        86.527,
+        110.86,
+        91.62400000000001,
+        77.454,
+        76.24499999999999,
+        75.661
+      ],
+      "runtime_s": 81.093,
+      "spearman_rho": 0.9066666666666665,
+      "spread": 0.050783097322016836,
       "worst_recall": 0.1
     },
     {
@@ -508,56 +611,23 @@
       "kendall_tau": 0.6652236652236653,
       "mean_rel_err": 0.03991965433883309,
       "phases": {
-        "cts": 1.781,
+        "cts": 2.057,
         "floorplan": 0.007,
-        "global_place": 20.899,
-        "global_route": 23.874,
-        "macro_place": 17.201,
-        "place_pins": 0.047
+        "global_place": 25.911,
+        "global_route": 27.964,
+        "load": 1.356,
+        "macro_place": 19.533,
+        "place_pins": 0.051,
+        "sta": 5.975
       },
       "repeats": [
-        64.073,
-        64.175,
-        64.585
+        83.51700000000001,
+        84.096,
+        83.72699999999999
       ],
-      "runtime_s": 64.175,
+      "runtime_s": 83.72699999999999,
       "spearman_rho": 0.8595794681508967,
       "spread": 0.06708361249176767,
-      "worst_recall": 0.1
-    },
-    {
-      "bias": -0.010504861908199893,
-      "env": {
-        "CLOCK_MODE": "real",
-        "CTS_DPL": "1",
-        "GPL_VIRTUAL_CTS": "1",
-        "GP_ARGS": "-overflow 0.34824624611419047 -initial_place_max_iter 6 -initial_place_max_fanout 215 -init_wirelength_coef 0.20626741496317547 -min_phi_coef 0.9783205181772552 -max_phi_coef 1.060258053514876",
-        "PLACE_IOS": "1",
-        "REPAIR_DESIGN_ARGS": "-slew_margin 11.053668078269457 -cap_margin 19.72619792859106",
-        "RUN_GRT": "0",
-        "RUN_MACRO_PLACE": "1",
-        "RUN_PLACE": "1",
-        "RUN_REPAIR_DESIGN": "1"
-      },
-      "index": 196,
-      "kendall_tau": 0.7287157287157288,
-      "mean_rel_err": 0.03433342921967653,
-      "phases": {
-        "cts": 2.824,
-        "floorplan": 0.006,
-        "global_place": 43.848,
-        "macro_place": 17.317,
-        "place_pins": 0.042,
-        "repair_design": 1.563
-      },
-      "repeats": [
-        68.839,
-        65.785,
-        65.938
-      ],
-      "runtime_s": 65.938,
-      "spearman_rho": 0.9066666666666665,
-      "spread": 0.050783097322016836,
       "worst_recall": 0.1
     },
     {
@@ -581,22 +651,94 @@
       "kendall_tau": 0.7167594310451454,
       "mean_rel_err": 0.08966910319873891,
       "phases": {
-        "floorplan": 0.006,
-        "global_place": 67.136,
-        "global_route": 9.676,
-        "place_pins": 0.019,
-        "repair_design": 1.459,
-        "repair_timing": 2.015
+        "floorplan": 0.007,
+        "global_place": 69.367,
+        "global_route": 9.991,
+        "load": 1.193,
+        "place_pins": 0.02,
+        "repair_design": 1.51,
+        "repair_timing": 2.054,
+        "sta": 2.14
       },
       "repeats": [
-        81.3,
-        81.403,
-        81.303
+        86.365,
+        86.994,
+        87.307
       ],
-      "runtime_s": 81.303,
+      "runtime_s": 86.994,
       "spearman_rho": 0.8982931354359925,
       "spread": 0.07871415453584095,
       "worst_recall": 0.4
+    },
+    {
+      "bias": 0.5467295783976803,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_VIRTUAL_CTS": "0",
+        "GP_ARGS": "-overflow 0.2079413668262582 -initial_place_max_iter 13 -initial_place_max_fanout 355 -init_wirelength_coef 0.9343684949083054 -bin_grid_count 64 -min_phi_coef 0.9145801190092879 -max_phi_coef 1.0802130116225417",
+        "PLACE_IOS": "1",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 17.55316113806239 -cap_margin 7.104407037098985",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 25,
+      "kendall_tau": 0.6796536796536797,
+      "mean_rel_err": 0.563510271611523,
+      "phases": {
+        "floorplan": 0.007,
+        "global_place": 19.655,
+        "load": 1.352,
+        "place_pins": 0.024,
+        "repair_design": 2.676,
+        "sta": 73.605
+      },
+      "repeats": [
+        97.013,
+        97.595,
+        97.697
+      ],
+      "runtime_s": 97.595,
+      "spearman_rho": 0.8643537414965986,
+      "spread": 0.3226523673445558,
+      "worst_recall": 0.3
+    },
+    {
+      "bias": 2.033639643205584,
+      "env": {
+        "CLOCK_MODE": "propagated",
+        "GPL_VIRTUAL_CTS": "1",
+        "GP_ARGS": "-overflow 0.33778587674310234 -initial_place_max_iter 0 -initial_place_max_fanout 64 -init_wirelength_coef 0.9212734819774965 -bin_grid_count 64 -min_phi_coef 0.978044324432095 -max_phi_coef 1.0252910400842252",
+        "PLACE_IOS": "1",
+        "REPAIR_DESIGN_ARGS": "-slew_margin 4.770820639958922 -cap_margin 8.460776039514764",
+        "RUN_GRT": "0",
+        "RUN_MACRO_PLACE": "0",
+        "RUN_PLACE": "1",
+        "RUN_REPAIR_DESIGN": "1"
+      },
+      "index": 68,
+      "kendall_tau": -0.21995464852607713,
+      "mean_rel_err": 2.138590474550627,
+      "phases": {
+        "floorplan": 0.007,
+        "global_place": 39.685,
+        "load": 1.23,
+        "place_pins": 0.05,
+        "repair_design": 2.394,
+        "sta": 72.21
+      },
+      "repeats": [
+        128.608,
+        115.233,
+        115.631,
+        114.048,
+        115.905
+      ],
+      "runtime_s": 115.631,
+      "spearman_rho": -0.40129870129870127,
+      "spread": 1.3158365398251668,
+      "worst_recall": 0.0
     },
     {
       "bias": -0.1250871464991119,
@@ -620,57 +762,30 @@
       "kendall_tau": 0.6524427952999382,
       "mean_rel_err": 0.1250871464991119,
       "phases": {
-        "cts": 4.036,
-        "floorplan": 0.007,
-        "global_place": 4.271,
-        "global_route": 33.266,
-        "macro_place": 18.982,
-        "place_pins": 0.015,
-        "repair_timing": 37.462
+        "cts": 4.824,
+        "floorplan": 0.008,
+        "global_place": 4.962,
+        "global_route": 37.181,
+        "load": 1.372,
+        "macro_place": 20.877,
+        "place_pins": 0.018,
+        "repair_timing": 43.968,
+        "sta": 7.131
       },
       "repeats": [
-        98.197,
-        98.087,
-        98.75
+        110.339,
+        107.73000000000002,
+        127.474,
+        114.02000000000001,
+        115.889,
+        122.356,
+        121.113
       ],
-      "runtime_s": 98.197,
+      "runtime_s": 115.889,
       "spearman_rho": 0.8502164502164501,
       "spread": 0.04170288107505806,
       "worst_recall": 0.0
-    },
-    {
-      "bias": 0.014102407214630895,
-      "env": {
-        "CLOCK_MODE": "none",
-        "GPL_VIRTUAL_CTS": "0",
-        "GP_ARGS": "-overflow 0.309257414205334 -initial_place_max_iter 11 -initial_place_max_fanout 285 -init_wirelength_coef 0.20768864362717915 -bin_grid_count 64 -min_phi_coef 0.9450366077189006 -max_phi_coef 1.0101847102258357",
-        "PLACE_IOS": "1",
-        "REPAIR_TIMING_ARGS": "-sequence {buffer vt_swap reroute} -repair_tns 100 -max_passes 5 -skip_last_gasp",
-        "RUN_GRT": "0",
-        "RUN_MACRO_PLACE": "1",
-        "RUN_PLACE": "1",
-        "RUN_REPAIR_TIMING": "1"
-      },
-      "index": 104,
-      "kendall_tau": 0.6722325293753866,
-      "mean_rel_err": 0.04322502171030007,
-      "phases": {
-        "floorplan": 0.007,
-        "global_place": 229.937,
-        "macro_place": 17.367,
-        "place_pins": 0.048,
-        "repair_timing": 1.095
-      },
-      "repeats": [
-        248.212,
-        248.152,
-        248.791
-      ],
-      "runtime_s": 248.212,
-      "spearman_rho": 0.8592949907235621,
-      "spread": 0.0626651318447273,
-      "worst_recall": 0.2
     }
   ],
-  "structural_gap": "0.024s..14.4s"
+  "structural_gap": "3.3s..22.1s"
 }
