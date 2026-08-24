@@ -1,7 +1,6 @@
 """Sweep OpenROAD stages"""
 
-load("@bazel-orfs//:openroad.bzl", "orfs_flow", "set")
-load(":write_binary.bzl", "write_binary")
+load("@bazel-orfs//:openroad.bzl", "orfs_flow")
 
 all_stages = [
     "floorplan",
@@ -50,18 +49,7 @@ def orfs_sweep(
     """
     if top == None:
         top = name
-    sweep_json = {
-        "base": arguments,
-        "name": name,
-        "stage": stage,
-        "stages": all_stages[0:all_stages.index(stage) + 1],
-        "sweep": sweep,
-    }
-    write_binary(
-        name = name + "_sweep.json",
-        data = str(sweep_json),
-        tags = tags,
-    )
+    stages = all_stages[0:all_stages.index(stage) + 1]
 
     all_variants = sweep | other_variants
 
@@ -126,12 +114,12 @@ def orfs_sweep(
                 name +
                 "_" +
                 ("" if variant == "base" else variant + "_") +
-                sweep_json["stage"],
+                stage,
             ],
             output_group = (
-                               "5_1_grt" if sweep_json["stage"] == "grt" else str(sweep_json["stages"].index(sweep_json["stage"]) + 2) +
-                                                                              "_" +
-                                                                              sweep_json["stage"]
+                               "5_1_grt" if stage == "grt" else str(stages.index(stage) + 2) +
+                                                                "_" +
+                                                                stage
                            ) +
                            ".odb",
             visibility = [":__subpackages__"],
@@ -141,22 +129,10 @@ def orfs_sweep(
         native.filegroup(
             name = name + "_" + variant + "_logs",
             srcs = [
-                ":" + name + "_" + ("" if variant == "base" else variant + "_") + stage
-                for stage in sweep_json["stages"]
+                ":" + name + "_" + ("" if variant == "base" else variant + "_") + s
+                for s in stages
             ],
             output_group = "logs",
             visibility = visibility,
             tags = tags,
         )
-
-    # This can be built in parallel, but grt needs to be build in serial, or
-    # we will run out of memory
-    native.filegroup(
-        name = name + "_sweep_parallel",
-        srcs = [
-            name + "_" + ("" if variant == "base" else variant + "_") + "cts"
-            for variant in sweep
-        ],
-        visibility = visibility,
-        tags = tags,
-    )
