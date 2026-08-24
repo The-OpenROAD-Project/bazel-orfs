@@ -101,9 +101,10 @@ def mean_rel_err(truth, est, scale=1.0):
 
 def evaluate(estimator_exe, ground_truth, env, out_dir, tag):
     out = os.path.join(out_dir, f"calib_{tag}.json")
-    env = dict(env)
-    env["OUTPUT_JSON"] = out
-    run_estimator(estimator_exe, env, ground_truth, timeout_s=3600)
+    # out_json rather than setting OUTPUT_JSON in the environment: the
+    # sweep's runner hands the estimator a scratch file and deletes it,
+    # and the calibration needs the per-path periods to survive.
+    run_estimator(estimator_exe, dict(env), ground_truth, timeout_s=3600, out_json=out)
     return paths_of(ground_truth), paths_of(out)
 
 

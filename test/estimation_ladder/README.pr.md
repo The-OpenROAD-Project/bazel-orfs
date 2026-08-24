@@ -16,9 +16,9 @@ concurrent trials; accuracy comes from a much wider concurrent sweep,
 which contention does not affect. Runtime is plotted on a log axis
 because the ladder spans several orders of magnitude.
 
-![Pareto Plot](pareto_plot.png)
+![Pareto Plot](https://github.com/The-OpenROAD-Project/bazel-orfs/blob/estimation-ladder-study/test/estimation_ladder/pareto_plot.png?raw=true)
 
-![Bias and spread](bias_spread.png)
+![Bias and spread](https://github.com/The-OpenROAD-Project/bazel-orfs/blob/estimation-ladder-study/test/estimation_ladder/bias_spread.png?raw=true)
 
 ## multiplier (simple)
 
