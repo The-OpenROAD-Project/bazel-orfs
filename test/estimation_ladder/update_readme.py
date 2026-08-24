@@ -60,6 +60,11 @@ def rung_label(env):
     # falling through to a generic label made a 90s global placement read
     # as the 0.02s synthesis rung.
     parts = ["place"]
+    # Whether the macros were placed is the most consequential thing
+    # about a configuration on a macro design, and its absence from the
+    # label made several front rungs unreadable.
+    if str(env.get("RUN_MACRO_PLACE", "1")) != "1":
+        parts.append("NO macro place")
     if True:
         if str(env.get("PLACE_IOS", "0")) == "1":
             parts.append("place_ios")
