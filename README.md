@@ -999,13 +999,14 @@ macro placement, etc.) that optimize area, timing, or power for a given design.
 Parameters only propagate to relevant stages — changing `PLACE_DENSITY` does not
 invalidate the synthesis cache.
 
-**External optimizers:** Any optimizer (Optuna, Vizier, hyperopt, etc.) can drive
-DSE by scripting `bazel build` invocations with different `--//pkg:flag=value`
-arguments and parsing PPA metrics from the build outputs. 
-
-Alternatively, for tight-loop optimizers where the Bazel server overhead is undesirable,
-you can use the `orfs_run_executable` rule to compile a standalone Make wrapper. This 
-produces a binary that invokes the underlying tool (e.g. OpenROAD) directly.
+**External optimizers:** Use the `orfs_run_executable` rule to compile a
+standalone Make wrapper — a binary that invokes the underlying tool (e.g.
+OpenROAD) directly with `KEY=VALUE` variable overrides. Bazel builds the
+wrapper and its inputs once; the optimizer (Optuna, Vizier, hyperopt, etc.)
+then drives the wrapper in its inner loop. Do not script `bazel build`
+invocations from the optimizer instead: Bazel and a trial loop are a poor
+impedance match — per-trial server and analysis overhead, and every variable
+override invalidates the cache for all stages that read it.
 
 See the `orfs_run_executable` rule docstring in `private/rules.bzl` for important execution constraints regarding logging, output directories, and parallel invocations.
 
@@ -1044,7 +1045,10 @@ for the longer write-up.
 
 ### Examples
 
-<!-- Add links to DSE example repos or PRs here -->
+[test/estimation_ladder](test/estimation_ladder/) is a worked example: an
+out-of-Bazel Optuna study drives a fast estimator built with
+`orfs_run_executable`, trading estimator runtime against clock-period
+estimation accuracy, with an `orfs_flow` global-route flow as ground truth.
 
 ## Additional tools and integrations
 
@@ -1301,6 +1305,15 @@ Features removed from bazel-orfs. Check git history for the original implementat
   line invalidates every stage the variable touches, and the
   `orfs_arguments`/`extra_arguments` JSON overlay plus `orfs_run_executable`
   replaced it. See `dse/` in git history.
+- **Sweep reports** — `orfs_sweep` emitted a `<name>_sweep.json` description
+  of the sweep (via `write_binary.bzl`) for out-of-band WNS report scripts
+  (`test/wns_report.py`, `test/sweep-wns.tcl`, `test/plot-retiming.py`).
+  None of the scripts had BUILD targets; all removed together. See git
+  history.
+- **orfs_tuner proposal** — `ideas/optimization-function.md` sketched a rule
+  emitting a Bazel-less tuner executable for a DSE engine. Superseded by
+  `orfs_run_executable`, which already provides the standalone binary with
+  `KEY=VALUE` variable overrides. See git history.
 
 ### Deprecated
 
