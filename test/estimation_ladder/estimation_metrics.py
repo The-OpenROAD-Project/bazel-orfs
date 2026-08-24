@@ -42,6 +42,19 @@ def load_paths(path_json):
     return data, {(p["start"], p["end"]): p["min_period"] for p in data["paths"]}
 
 
+def macro_keys(path_json):
+    """Which sampled paths touch a macro pin.
+
+    Worth separating: on the macro design the macro paths turn out to be
+    a distinct and systematically faster population that a slack-ranked
+    sample never reaches, so a single average over both hides whichever
+    one the estimator handles worse.
+    """
+    with open(path_json, "r") as f:
+        data = json.load(f)
+    return {(p["start"], p["end"]) for p in data["paths"] if p.get("macro_path")}
+
+
 def compute_metrics(truth_json, est_json):
     """Return (metrics dict, raw estimator JSON).
 
@@ -61,6 +74,7 @@ def compute_metrics(truth_json, est_json):
 
     keys = sorted(truth_paths)
     rel = [(est_paths[k] - truth_paths[k]) / truth_paths[k] for k in keys]
+    macros = macro_keys(truth_json)
 
     truth_vals = [truth_paths[k] for k in keys]
     est_vals = [est_paths[k] for k in keys]
@@ -74,4 +88,24 @@ def compute_metrics(truth_json, est_json):
         "worst_recall": worst_recall(truth_paths, est_paths, k=10),
         "runtime_s": est.get("runtime_s"),
         "phases": est.get("phases", {}),
+        **_subset_metrics(truth_paths, est_paths, macros),
     }, est
+
+
+def _subset_metrics(truth_paths, est_paths, macros):
+    """Error on the macro paths and on the rest, reported separately."""
+    out = {}
+    for name, subset in (
+        ("macro", [k for k in sorted(truth_paths) if k in macros]),
+        ("nonmacro", [k for k in sorted(truth_paths) if k not in macros]),
+    ):
+        if len(subset) < 2:
+            continue
+        rel = [(est_paths[k] - truth_paths[k]) / truth_paths[k] for k in subset]
+        tv = [truth_paths[k] for k in subset]
+        ev = [est_paths[k] for k in subset]
+        out[f"mean_rel_err_{name}"] = sum(abs(r) for r in rel) / len(rel)
+        out[f"bias_{name}"] = statistics.fmean(rel)
+        out[f"kendall_tau_{name}"] = float(kendalltau(tv, ev).statistic)
+        out[f"n_{name}"] = len(subset)
+    return out

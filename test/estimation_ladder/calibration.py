@@ -84,6 +84,18 @@ def paths_of(json_path):
     return {(p["start"], p["end"]): p["min_period"] for p in data["paths"]}
 
 
+FEATURES = ("dist_um", "macro_ends", "fanout")
+
+
+def features_of(json_path):
+    with open(json_path) as f:
+        data = json.load(f)
+    return {
+        (p["start"], p["end"]): {k: p[k] for k in FEATURES if k in p}
+        for p in data["paths"]
+    }
+
+
 def scale_factor(truth, est):
     """The constant that best removes the systematic offset.
 
@@ -105,8 +117,13 @@ def evaluate(estimator_exe, ground_truth, env, out_dir, tag):
     # out_json rather than setting OUTPUT_JSON in the environment: the
     # sweep's runner hands the estimator a scratch file and deletes it,
     # and the calibration needs the per-path periods to survive.
-    run_estimator(estimator_exe, dict(env), ground_truth, timeout_s=3600, out_json=out)
-    return paths_of(ground_truth), paths_of(out)
+    env = dict(env)
+    # Per-path features cost an ODB lookup each and are only wanted here,
+    # where the question is whether anything about an individual path
+    # predicts its own error.
+    env["DUMP_FEATURES"] = "1"
+    run_estimator(estimator_exe, env, ground_truth, timeout_s=3600, out_json=out)
+    return paths_of(ground_truth), paths_of(out), features_of(out)
 
 
 def main():
@@ -131,12 +148,12 @@ def main():
     scratch = tempfile.TemporaryDirectory()
     out_dir_runs = scratch.name
     for name, env in RUNGS.items():
-        fit_truth, fit_est = evaluate(
+        fit_truth, fit_est, fit_feat = evaluate(
             args.fit_exe, args.fit_ground_truth, env, out_dir_runs, f"fit_{name}"
         )
         scale = scale_factor(fit_truth, fit_est)
 
-        app_truth, app_est = evaluate(
+        app_truth, app_est, app_feat = evaluate(
             args.apply_exe, args.apply_ground_truth, env, out_dir_runs, f"apply_{name}"
         )
         raw = mean_rel_err(app_truth, app_est)
@@ -153,11 +170,17 @@ def main():
         # and re-deriving them for every model family would be waste.
         path_pairs[name] = {
             "fit": [
-                {"path": list(k), "est": fit_est[k], "truth": fit_truth[k]}
+                dict(
+                    {"path": list(k), "est": fit_est[k], "truth": fit_truth[k]},
+                    **fit_feat.get(k, {}),
+                )
                 for k in sorted(fit_truth)
             ],
             "apply": [
-                {"path": list(k), "est": app_est[k], "truth": app_truth[k]}
+                dict(
+                    {"path": list(k), "est": app_est[k], "truth": app_truth[k]},
+                    **app_feat.get(k, {}),
+                )
                 for k in sorted(app_truth)
             ],
         }

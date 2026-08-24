@@ -323,3 +323,25 @@ orfs_run_executable(
         "IO_CONSTRAINTS": ["io_constraints.tcl"],
     },
 )
+
+orfs_run_executable(
+    name = "nameprobe",
+    src = ":multiplier_top_asap7_synth",
+    arguments = MULTIPLIER_TOP_ARGS,
+    cmd = "run",
+    script = "nameprobe.tcl",
+    sources = {"NAMEPROBE_TCL": ["nameprobe.tcl"]},
+)
+
+# C2: can a per-path feature fix the ordering, which no correction
+# reading only the estimate can? Post-processing over the pairs the
+# transfer test already collected.
+py_binary(
+    name = "feature_models",
+    srcs = ["feature_models.py"],
+    deps = [
+        "@bazel-orfs-dev-pip//numpy",
+        "@bazel-orfs-dev-pip//scikit_learn",
+        "@bazel-orfs-dev-pip//scipy",
+    ],
+)
