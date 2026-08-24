@@ -409,3 +409,132 @@ py_binary(
         "@bazel-orfs-dev-pip//scikit_learn",
     ],
 )
+
+orfs_run_executable(
+    name = "layer_probe",
+    src = ":multiplier_top_asap7_synth",
+    arguments = MULTIPLIER_TOP_ARGS,
+    cmd = "run",
+    script = "layer_probe.tcl",
+    sources = {"LAYER_PROBE_TCL": ["layer_probe.tcl"]},
+)
+
+# B4: which routing layer should stand in for "an average wire"? One
+# knob, one rung held fixed, every layer run on both designs -- a
+# controlled experiment rather than an association pulled out of a sweep.
+py_binary(
+    name = "rc_sweep",
+    srcs = ["rc_sweep.py"],
+    args = [
+        "$(location :fast_estimator_executable)",
+        "$(location ground_truth.json)",
+        "multiplier",
+    ],
+    data = [
+        "ground_truth.json",
+        ":fast_estimator_executable",
+    ],
+    deps = [":optuna_study_lib"],
+)
+
+py_binary(
+    name = "rc_sweep_top",
+    srcs = ["rc_sweep.py"],
+    args = [
+        "$(location :fast_estimator_top_executable)",
+        "$(location ground_truth_top.json)",
+        "multiplier_top",
+    ],
+    data = [
+        "ground_truth_top.json",
+        ":fast_estimator_top_executable",
+    ],
+    main = "rc_sweep.py",
+    deps = [":optuna_study_lib"],
+)
+
+# -------------------------------------------------------------
+# B3: does the bias cancel when comparing two designs?
+#
+# Absolute error is what the study has measured so far, and it is not
+# what an engineer iterating on RTL asks. They ask whether variant B is
+# faster than variant A, and by how much. Both estimates are optimistic;
+# if they are optimistic by a similar amount then the difference between
+# them survives even though neither number does -- and a difference that
+# survives is worth much more than the absolute accuracy suggests.
+#
+# The variants are the same RTL synthesised against different clock
+# targets: genuinely different netlists, close enough together to be the
+# A/B case rather than the two-unrelated-designs case already measured.
+# -------------------------------------------------------------
+
+AB_PERIODS = [
+    "700",
+    "800",
+    "900",
+    "1000",
+    "1100",
+]
+
+[
+    orfs_flow(
+        name = "ab_asap7",
+        abstract_stage = "grt",
+        arguments = MULTIPLIER_ARGS,
+        sources = {
+            "SDC_FILE": ["constraints_%s.sdc" % period],
+            "IO_CONSTRAINTS": ["io_constraints.tcl"],
+        },
+        tags = ["manual"],
+        top = "multiplier",
+        # A variant per clock target: the same design name would collide
+        # on every intermediate file, since ORFS keys its output tree on
+        # the design and the variant rather than the target name.
+        variant = "p%s" % period,
+        verilog_files = ["multiplier.sv"],
+    )
+    for period in AB_PERIODS
+]
+
+[
+    orfs_run(
+        name = "ab_%s_ground_truth" % period,
+        src = ":ab_asap7_p%s_grt" % period,
+        outs = ["ab_%s_truth.json" % period],
+        arguments = MULTIPLIER_ARGS | {
+            "OUTPUT_JSON": "$(location ab_%s_truth.json)" % period,
+        },
+        cmd = "run",
+        script = "extract.tcl",
+        sources = {"EXTRACT_TCL": ["extract.tcl"]},
+    )
+    for period in AB_PERIODS
+]
+
+[
+    orfs_run_executable(
+        name = "ab_%s_estimator" % period,
+        src = ":ab_asap7_p%s_synth" % period,
+        arguments = MULTIPLIER_ARGS,
+        cmd = "run",
+        script = "estimator.tcl",
+        sources = ESTIMATOR_SOURCES,
+    )
+    for period in AB_PERIODS
+]
+
+py_binary(
+    name = "ab_compare",
+    srcs = ["ab_compare.py"],
+    args = [
+        "--variant=%s=$(location :ab_%s_estimator)=$(location ab_%s_truth.json)" % (p, p, p)
+        for p in AB_PERIODS
+    ],
+    data = [":ab_%s_estimator" % p for p in AB_PERIODS] +
+           ["ab_%s_truth.json" % p for p in AB_PERIODS],
+    deps = [
+        ":estimation_metrics",
+        ":optuna_study_lib",
+        "@bazel-orfs-dev-pip//scipy",
+    ],
+)
