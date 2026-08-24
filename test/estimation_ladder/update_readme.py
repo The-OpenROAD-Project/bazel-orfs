@@ -120,19 +120,37 @@ def plot_fronts(directory, data, gt_runtimes):
                     label="measured",
                 )
                 pts = sorted(front["front"], key=lambda p: p["runtime_s"])
-                ax.plot(
-                    [p["runtime_s"] for p in pts],
-                    [p[key] for p in pts],
-                    "o-",
-                    color="tab:blue",
-                    label="Pareto front",
-                )
-                for p in pts:
-                    ax.annotate(
-                        rung_label(p["env"]),
-                        (p["runtime_s"], p[key]),
-                        fontsize=7,
-                        alpha=0.75,
+                # The front is defined on (runtime, error).  Joining the
+                # same points in the rank-correlation panel would draw a
+                # frontier that does not exist there -- tau is not what
+                # they were selected for, and it does not move
+                # monotonically along them -- so only the error panel
+                # gets a line, and only it carries the labels.
+                if key == "mean_rel_err":
+                    ax.plot(
+                        [p["runtime_s"] for p in pts],
+                        [p[key] for p in pts],
+                        "o-",
+                        color="tab:blue",
+                        label="Pareto front",
+                    )
+                    for p in pts:
+                        ax.annotate(
+                            rung_label(p["env"]),
+                            (p["runtime_s"], p[key]),
+                            fontsize=6,
+                            alpha=0.8,
+                            xytext=(4, 3),
+                            textcoords="offset points",
+                        )
+                else:
+                    ax.scatter(
+                        [p["runtime_s"] for p in pts],
+                        [p[key] for p in pts],
+                        s=42,
+                        color="tab:blue",
+                        zorder=3,
+                        label="on the runtime/error front",
                     )
             gt = gt_runtimes.get(design)
             if gt:
@@ -210,7 +228,17 @@ def front_table(front):
 
 
 def spread_note(front):
-    """State plainly whether the front is actually filled."""
+    """State plainly whether the front is actually filled -- and, when it
+    is not, whether the hole is something a bigger budget would close.
+
+    The ladder is quantised: skipping placement costs milliseconds,
+    running it costs seconds, and the space contains nothing in between.
+    A gap straddling that boundary is a property of the ladder, not a
+    failure of the search, and calling it a hole would misdescribe the
+    result.  The distinction is made from measurements rather than from
+    a model -- if dozens of placed configurations were timed and the
+    fastest still sits above the gap, that is the evidence.
+    """
     if not front:
         return ""
     pts = sorted(front["front"], key=lambda p: p["runtime_s"])
@@ -220,15 +248,92 @@ def spread_note(front):
     span = logs[-1] - logs[0]
     gaps = [(b - a) / span for a, b in zip(logs, logs[1:])] if span > 0 else [0.0]
     worst = max(gaps)
-    verdict = "no gap exceeds" if worst <= 0.15 else "**a gap exceeds**"
-    return (
+    head = (
         f"{len(pts)} front points across "
-        f"{10 ** logs[0]:.3g}s to {10 ** logs[-1]:.3g}s; "
-        f"widest normalized gap {worst:.3f}, so {verdict} the 0.15 target."
+        f"{10 ** logs[0]:.3g}s to {10 ** logs[-1]:.3g}s"
+    )
+    if worst <= 0.15:
+        return f"{head}; widest normalized gap {worst:.3f}, within the 0.15 target."
+
+    i = gaps.index(worst)
+    lo, hi = pts[i], pts[i + 1]
+    placed = [
+        m
+        for m in front.get("measured", [])
+        if str(m["env"].get("RUN_PLACE", "0")) == "1"
+    ]
+    crosses_placement = (
+        str(lo["env"].get("RUN_PLACE", "0")) != "1"
+        and str(hi["env"].get("RUN_PLACE", "0")) == "1"
+    )
+    if crosses_placement and placed:
+        fastest = min(m["runtime_s"] for m in placed)
+        return (
+            f"{head}. The widest gap ({worst:.3f}) spans "
+            f"{lo['runtime_s']:.3g}s to {hi['runtime_s']:.3g}s and is "
+            f"structural rather than unexplored: it separates the "
+            f"configurations that skip placement from those that run it. "
+            f"Of {len(placed)} placed configurations timed here the "
+            f"fastest took {fastest:.3g}s, so there is no cheap-but-placed "
+            f"estimate to be found in between -- the choice is binary."
+        )
+    return (
+        f"{head}; widest normalized gap {worst:.3f}, so **a gap exceeds** "
+        f"the 0.15 target and the budget did not fill it."
     )
 
 
-def render(data, gt_runtimes, image_prefix="", image_suffix=""):
+def calibration_section(directory, image_prefix=""):
+    """The transfer test, reported with its own yardstick.
+
+    The estimator is optimistic by close to a constant fraction, so
+    multiplying by one number removes most of the error.  Fitting that
+    number against the ground truth it is then scored on measures the
+    free parameter and nothing else, so the constant here is fitted on
+    one design and applied to the other, and the oracle column says what
+    a constant fitted on the target itself would have managed.  A rung
+    whose transferred error sits near its oracle has a bias that belongs
+    to the method; one whose transferred error is worse than its raw
+    error has a bias that belongs to the design.
+    """
+    path = os.path.join(directory, "calibration_transfer.json")
+    if not os.path.exists(path):
+        return []
+    data = json.load(open(path))
+    fit, apply_to = data["fit_design"], data["apply_design"]
+    rows = []
+    for r in data["rungs"]:
+        rows.append(
+            {
+                "rung": r["rung"],
+                "scale": r["scale_fitted_on_" + fit],
+                "raw err": r["raw_err"],
+                "transferred": r["transferred_err"],
+                "oracle": r["oracle_err"],
+                "helped": "yes" if r["transferred_err"] < r["raw_err"] else "no",
+            }
+        )
+    table = pd.DataFrame(rows).to_markdown(index=False, floatfmt=".4g")
+    return [
+        "## Does the bias transfer between designs?",
+        "",
+        f"The scale factor is fitted on `{fit}` and applied unchanged to",
+        f"`{apply_to}`, which never contributed to it. **oracle** is what a",
+        f"constant fitted on `{apply_to}`'s own ground truth would have",
+        "achieved -- the ceiling the transferred number is measured against,",
+        "not a result in itself.",
+        "",
+        table,
+        "",
+        "Rank correlation is absent from this table on purpose: it is",
+        "invariant under a positive scale factor, so calibration cannot",
+        "change the order the paths come out in, only how wrong the numbers",
+        "are.",
+        "",
+    ]
+
+
+def render(data, gt_runtimes, image_prefix="", image_suffix="", directory="."):
     out = ["# Estimation Ladder", ""]
     out += [
         "How accurately can early flow stages estimate the minimum clock period",
@@ -264,6 +369,7 @@ def render(data, gt_runtimes, image_prefix="", image_suffix=""):
         if note:
             out += [note, ""]
         out += [front_table(front), ""]
+    out += calibration_section(directory, image_prefix)
     return "\n".join(out)
 
 
@@ -294,7 +400,7 @@ def main():
     plot_fronts(directory, data, gt_runtimes)
     plot_bias_spread(directory, data)
 
-    readme = render(data, gt_runtimes)
+    readme = render(data, gt_runtimes, directory=directory)
     with open(os.path.join(directory, "README.md"), "w") as f:
         f.write(readme + "\n")
     print("Wrote README.md, " + MAIN_PLOT + ", " + BIAS_PLOT)
@@ -304,7 +410,13 @@ def main():
         # ?raw=true: a bare blob URL renders GitHub's HTML page for the
         # file, not the image itself, so the PR body would show a link
         # where the figure should be.
-        body = render(data, gt_runtimes, image_prefix=prefix, image_suffix="?raw=true")
+        body = render(
+            data,
+            gt_runtimes,
+            image_prefix=prefix,
+            image_suffix="?raw=true",
+            directory=directory,
+        )
         with open(os.path.join(directory, "README.pr.md"), "w") as f:
             f.write(body + "\n")
         print("Wrote README.pr.md")

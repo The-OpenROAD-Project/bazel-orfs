@@ -153,7 +153,7 @@ def build_env(trial):
     return env
 
 
-def run_estimator(estimator_exe, env, ground_truth_json, timeout_s=None):
+def run_estimator(estimator_exe, env, ground_truth_json, timeout_s=None, out_json=None):
     """Run one estimator configuration and return its metrics.
 
     A timeout is not a nicety for an unattended sweep: the knob space
@@ -165,8 +165,13 @@ def run_estimator(estimator_exe, env, ground_truth_json, timeout_s=None):
     env = dict(env)
     env["GROUND_TRUTH_JSON"] = ground_truth_json
 
-    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
-        out_json = tf.name
+    # Callers that want the per-path output kept -- the calibration
+    # transfer needs the periods themselves, not just the summary --
+    # pass a path; the sweep does not, and gets a scratch file.
+    keep = out_json is not None
+    if not keep:
+        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
+            out_json = tf.name
     env["OUTPUT_JSON"] = out_json
 
     cmd = [estimator_exe] + [f"{k}={v}" for k, v in env.items()]
@@ -190,7 +195,7 @@ def run_estimator(estimator_exe, env, ground_truth_json, timeout_s=None):
             )
         metrics, _ = compute_metrics(ground_truth_json, out_json)
     finally:
-        if os.path.exists(out_json):
+        if not keep and os.path.exists(out_json):
             os.remove(out_json)
     return metrics
 

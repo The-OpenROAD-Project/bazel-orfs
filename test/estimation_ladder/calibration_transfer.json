@@ -1,0 +1,54 @@
+{
+  "apply_design": "multiplier_top",
+  "fit_design": "multiplier",
+  "rungs": [
+    {
+      "oracle_err": 0.024114707788620942,
+      "oracle_scale": 1.1037265620153434,
+      "raw_err": 0.09285082142037486,
+      "rung": "place_only",
+      "scale_fitted_on_multiplier": 1.1210493171347724,
+      "transferred_err": 0.028989154173046008
+    },
+    {
+      "oracle_err": 0.032561831697939636,
+      "oracle_scale": 1.1947506108184753,
+      "raw_err": 0.1610918188002245,
+      "rung": "place_ios",
+      "scale_fitted_on_multiplier": 1.1185735623732194,
+      "transferred_err": 0.06452855655741085
+    },
+    {
+      "oracle_err": 0.031250604616970275,
+      "oracle_scale": 1.1278988127654817,
+      "raw_err": 0.11202360861951614,
+      "rung": "virtual_cts",
+      "scale_fitted_on_multiplier": 1.1576905589992925,
+      "transferred_err": 0.03955858415675195
+    },
+    {
+      "oracle_err": 0.029015045466394874,
+      "oracle_scale": 1.0659512124309891,
+      "raw_err": 0.06057563859125547,
+      "rung": "cts",
+      "scale_fitted_on_multiplier": 1.1049433933504667,
+      "transferred_err": 0.04608902213099622
+    },
+    {
+      "oracle_err": 0.03330695141920529,
+      "oracle_scale": 1.0049427128957278,
+      "raw_err": 0.03252326841555022,
+      "rung": "cts_grt",
+      "scale_fitted_on_multiplier": 1.0528545767476811,
+      "transferred_err": 0.05957325354655409
+    },
+    {
+      "oracle_err": 0.0333069459462684,
+      "oracle_scale": 1.0049427060587544,
+      "raw_err": 0.03252326435752111,
+      "rung": "cts_grt_repair",
+      "scale_fitted_on_multiplier": 1.0528545767476811,
+      "transferred_err": 0.059573249274039564
+    }
+  ]
+}
