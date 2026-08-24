@@ -60,7 +60,8 @@ puts "Sampled [llength $selected_paths] reg2reg paths."
 # synthesis, summed from the floorplan..grt stage logs (synthesis is the
 # common starting point for both the ground truth and the estimator).
 set gt_runtime_s 0.0
-set stage_logs [glob -directory $::env(LOG_DIR) {[2-5]_*.log}]
+set stage_breakdown [dict create]
+set stage_logs [lsort [glob -directory $::env(LOG_DIR) {[2-5]_*.log}]]
 foreach stage_log $stage_logs {
     set lfp [open $stage_log r]
     set content [read $lfp]
@@ -69,13 +70,28 @@ foreach stage_log $stage_logs {
         error "No elapsed time found in $stage_log"
     }
     if {$hours eq ""} { set hours 0 }
-    set gt_runtime_s [expr {$gt_runtime_s + $hours * 3600 + $mins * 60 + $secs}]
+    set stage_s [expr {$hours * 3600 + $mins * 60 + $secs}]
+    set gt_runtime_s [expr {$gt_runtime_s + $stage_s}]
+    # Per stage, not just the total: "the flow takes 668s" says nothing
+    # about what the estimator is declining to run, and it turns out over
+    # half of it is one stage.
+    dict set stage_breakdown [file rootname [file tail $stage_log]] $stage_s
 }
+foreach {k v} $stage_breakdown { puts "GT_STAGE $k $v" }
 puts "Ground truth flow runtime: $gt_runtime_s s ([llength $stage_logs] stages)"
 
 set fp [open $::env(OUTPUT_JSON) w]
 puts $fp "{"
 puts $fp "\"runtime_s\": $gt_runtime_s,"
+puts $fp "\"stages\": \{"
+set sfirst 1
+foreach {k v} $stage_breakdown {
+    if {$sfirst == 0} { puts $fp "," }
+    set sfirst 0
+    puts -nonewline $fp "  \"$k\": $v"
+}
+puts $fp ""
+puts $fp "\},"
 puts $fp "\"paths\": \["
 set is_first 1
 foreach pt $selected_paths {

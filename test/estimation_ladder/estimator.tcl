@@ -1,7 +1,18 @@
+# The clock starts here, not after the design is loaded.  What the study
+# claims to measure is how long it takes to get a timing number out of a
+# post-synthesis netlist, and reading the ODB, the SDC and the liberties
+# is part of that.  Excluding it flattered the cheap rungs enormously --
+# a rung that runs no flow stages at all was being reported at 0.024s
+# when nearly all of its real cost is the load and the timing query --
+# and it made the comparison unfair besides, since the flow baseline is
+# summed from stage logs that each include their own load.
+set script_start [clock clicks -milliseconds]
+
 source $::env(SCRIPTS_DIR)/load.tcl
 set odb_tail [file tail $::env(ODB_FILE)]
 set sdc_tail [file rootname $odb_tail].sdc
 load_design $odb_tail $sdc_tail
+set load_s [expr {([clock clicks -milliseconds] - $script_start) / 1000.0}]
 
 # Every rung of the ladder is gated by an environment variable so the
 # Optuna study owns the search space and this script stays a thin,
@@ -203,8 +214,8 @@ if {[est_flag RUN_REPAIR_TIMING 0] == 1} {
 }
 
 set end_time [clock clicks -milliseconds]
-set elapsed_s [expr {($end_time - $start_time) / 1000.0}]
-puts "ESTIMATOR_RUNTIME: $elapsed_s s"
+set estimate_s [expr {($end_time - $start_time) / 1000.0}]
+dict set ::phase_times load $load_s
 
 # Measure Target Paths against Ground Truth.  Deliberately after
 # end_time: the study measures how long until a timing signal is
@@ -221,9 +232,36 @@ foreach line [split $path_data "\n"] {
     }
 }
 
+set sta_start [clock clicks -milliseconds]
+set measured []
+foreach pt $target_paths {
+    set start [lindex $pt 0]
+    set end [lindex $pt 1]
+    set paths [find_timing_paths -sort_by_slack -group_path_count 1 -from $start -to $end]
+
+    if {[llength $paths] == 0} {
+        error "No timing path found from $start to $end"
+    }
+    set slack [get_property [lindex $paths 0] slack]
+    set clk_period [get_property [lindex [get_clocks] 0] period]
+    lappend measured [list $start $end [expr {$clk_period - $slack}]]
+}
+# OpenSTA builds the timing graph and computes delays on the first
+# query, so this is not bookkeeping around the result -- it is where a
+# large part of the work happens, and on a rung that runs no flow stages
+# it is very nearly all of it.
+set sta_s [expr {([clock clicks -milliseconds] - $sta_start) / 1000.0}]
+dict set ::phase_times sta $sta_s
+
+set total_s [expr {$load_s + $estimate_s + $sta_s}]
+puts "ESTIMATOR_RUNTIME: $total_s s (load $load_s, estimate $estimate_s, sta $sta_s)"
+
 set out_fp [open $::env(OUTPUT_JSON) w]
 puts $out_fp "{"
-puts $out_fp "\"runtime_s\": $elapsed_s,"
+puts $out_fp "\"runtime_s\": $total_s,"
+puts $out_fp "\"load_s\": $load_s,"
+puts $out_fp "\"estimate_s\": $estimate_s,"
+puts $out_fp "\"sta_s\": $sta_s,"
 puts $out_fp "\"phases\": \{"
 set phase_first 1
 foreach {phase_name phase_s} $::phase_times {
@@ -236,18 +274,8 @@ puts $out_fp "\},"
 puts $out_fp "\"paths\": \["
 
 set is_first 1
-foreach pt $target_paths {
-    set start [lindex $pt 0]
-    set end [lindex $pt 1]
-    set paths [find_timing_paths -sort_by_slack -group_path_count 1 -from $start -to $end]
-
-    if {[llength $paths] == 0} {
-        error "No timing path found from $start to $end"
-    }
-    set slack [get_property [lindex $paths 0] slack]
-    set clk_period [get_property [lindex [get_clocks] 0] period]
-    set min_period [expr {$clk_period - $slack}]
-
+foreach m $measured {
+    lassign $m start end min_period
     if {$is_first == 0} { puts $out_fp "," }
     set is_first 0
     puts -nonewline $out_fp "  {\"start\": \"$start\", \"end\": \"$end\", \"min_period\": $min_period}"
