@@ -1,6 +1,5 @@
 """Attribute builders for OpenROAD-flow-scripts Bazel rules."""
 
-load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
 load(
     "@config//:global_config.bzl",
     "CONFIG_KLAYOUT",
@@ -46,10 +45,6 @@ def orfs_attrs():
             doc = "List of additional flow data.",
             allow_files = True,
             default = [],
-        ),
-        "settings": attr.string_keyed_label_dict(
-            doc = "Arguments with build settings.",
-            providers = [BuildSettingInfo],
         ),
         "extra_arguments": attr.label_list(
             doc = "List of .json argument files to merge into stage config.",

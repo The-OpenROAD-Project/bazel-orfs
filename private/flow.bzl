@@ -61,7 +61,6 @@ def _filter_stage_args(stage, **kwargs):
 
     arguments = kwargs.pop("arguments", {})
     data = kwargs.pop("data", [])
-    settings = kwargs.pop("settings", {})
     extra_arguments = kwargs.pop("extra_arguments", {})
     extra_configs = kwargs.pop("extra_configs", {})
     sources = kwargs.pop("sources", {})
@@ -100,10 +99,6 @@ def _filter_stage_args(stage, **kwargs):
                data,
         extra_arguments = extra_arguments.get(stage, []),
         extra_configs = extra_configs.get(stage, []),
-        settings = get_stage_args(
-            [stage],
-            arguments = settings,
-        ),
         **kwargs
     )
 
@@ -177,7 +172,7 @@ def _orfs_stage(stage, impl, **kwargs):
 
     The whole point of the public stage macros: a standalone
     orfs_floorplan() gets exactly what a floorplan target inside an
-    orfs_flow() gets — arguments/sources/settings filtered to this stage,
+    orfs_flow() gets — arguments/sources filtered to this stage,
     extra_arguments/extra_configs narrowed by stage key, the ORFS variable
     spell-check, the escape-hatch guard, and the companion _deps targets.
 
@@ -269,7 +264,6 @@ def orfs_flow(
         mock_area = None,
         previous_stage = {},
         pdk = None,
-        settings = {},
         stage_data = {},
         test_kwargs = {},
         squash = False,
@@ -321,7 +315,6 @@ def orfs_flow(
       variant: name of the target variant, added right after the module name
       mock_area: floating point number, scale the die width/height by this amount, default no scaling
       previous_stage: a dictionary with the input for a stage, default is previous stage. Useful when running experiments that share preceeding stages, like share synthesis for floorplan variants.
-      settings: dictionary with variable to BuildSettingInfo mappings
       pdk: name of the PDK to use, default is asap7
       stage_data: dictionary keyed by ORFS stages with lists of stage-specific data files
       test_kwargs: dictionary of arguments to pass to orfs_test
@@ -386,7 +379,6 @@ def orfs_flow(
         previous_stage = previous_stage,
         pdk = pdk,
         stage_data = stage_data,
-        settings = settings,
         test_kwargs = test_kwargs,
         squash = squash,
         substeps = substeps,
@@ -436,7 +428,6 @@ def orfs_flow(
         pdk = pdk,
         stage_data = stage_data,
         mock_area = True,
-        settings = settings,
         html = html,
         **kwargs
     )
@@ -533,7 +524,6 @@ def _orfs_pass(
         abstract_variant,
         previous_stage,
         pdk,
-        settings,
         stage_data,
         kept_macros = None,
         canon_blackbox_macros = [],
@@ -606,7 +596,6 @@ def _orfs_pass(
                 variant = variant,
                 verilog_files = verilog_files,
                 pdk = pdk,
-                settings = settings,
                 extra_arguments = extra_arguments,
                 extra_configs = extra_configs,
                 stage_data = stage_data,
@@ -649,7 +638,6 @@ def _orfs_pass(
             all_data = []
             all_extra_arguments = []
             all_extra_configs = []
-            all_settings = {}
             for s in squash_steps:
                 meta = STAGE_METADATA[s.stage]
                 all_make_targets.extend(meta.make_targets)
@@ -667,7 +655,6 @@ def _orfs_pass(
                     user_arguments = dict(user_arguments),
                     sources = dict(sources),
                     user_sources = dict(user_sources),
-                    settings = dict(settings),
                     extra_arguments = dict(extra_arguments),
                     extra_configs = dict(extra_configs),
                     stage_data = dict(stage_data),
@@ -682,7 +669,6 @@ def _orfs_pass(
                 for c in stage_filtered.get("extra_configs", []):
                     if c not in all_extra_configs:
                         all_extra_configs.append(c)
-                all_settings.update(stage_filtered.get("settings", {}))
 
             orfs_squashed(
                 name = squash_name,
@@ -700,7 +686,6 @@ def _orfs_pass(
                 data = all_data,
                 extra_arguments = all_extra_arguments,
                 extra_configs = all_extra_configs,
-                settings = all_settings,
                 **kwargs
             )
             step_names.append(squash_name)
@@ -730,7 +715,6 @@ def _orfs_pass(
                         user_arguments = user_arguments,
                         sources = sources,
                         user_sources = user_sources,
-                        settings = settings,
                         extra_arguments = extra_arguments,
                         extra_configs = extra_configs,
                         src = squash_name,
@@ -757,7 +741,6 @@ def _orfs_pass(
                 user_arguments = user_arguments,
                 sources = sources,
                 user_sources = user_sources,
-                settings = settings,
                 extra_arguments = extra_arguments,
                 extra_configs = extra_configs,
                 src = src,
@@ -815,7 +798,6 @@ def _orfs_pass(
                 user_arguments = user_arguments,
                 sources = sources,
                 user_sources = user_sources,
-                settings = settings,
                 extra_arguments = extra_arguments,
                 extra_configs = extra_configs,
                 src = place_src,

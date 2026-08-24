@@ -17,7 +17,6 @@ load(
     "EXPAND_VERILOG_DIRS",
     "config_arguments",
     "config_environment",
-    "config_overrides",
     "data_arguments",
     "data_inputs",
     "declare_artifact",
@@ -408,16 +407,13 @@ def _run_impl(ctx):
                 "$@",
             ],
         ),
-        env = config_overrides(
-            ctx,
-            flow_environment(ctx) |
-            yosys_environment(ctx) |
-            config_environment(config) |
-            odb_arguments(ctx) |
-            sdc_arguments(ctx) |
-            data_arguments(ctx) |
-            run_arguments(ctx),
-        ),
+        env = flow_environment(ctx) |
+              yosys_environment(ctx) |
+              config_environment(config) |
+              odb_arguments(ctx) |
+              sdc_arguments(ctx) |
+              data_arguments(ctx) |
+              run_arguments(ctx),
         inputs = depset(
             [config, ctx.file.script] + extra_files,
             transitive = [
@@ -603,17 +599,14 @@ def _arguments_impl(ctx):
                 "$@",
             ],
         ),
-        env = config_overrides(
-            ctx,
-            flow_environment(ctx) |
-            yosys_environment(ctx) |
-            config_environment(src_info.config) |
-            odb_arguments(ctx) |
-            sdc_arguments(ctx) |
-            data_arguments(ctx) |
-            run_arguments(ctx) |
-            {"OUTPUT": computed_json.path},
-        ),
+        env = flow_environment(ctx) |
+              yosys_environment(ctx) |
+              config_environment(src_info.config) |
+              odb_arguments(ctx) |
+              sdc_arguments(ctx) |
+              data_arguments(ctx) |
+              run_arguments(ctx) |
+              {"OUTPUT": computed_json.path},
         inputs = depset(
             [src_info.config, ctx.file.script],
             transitive = [
@@ -1057,7 +1050,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 "SYNTH_KEEP_SCRIPT=" + ctx.file._synth_keep_script.path,
             ],
             command = " && ".join(keep_commands),
-            env = config_overrides(ctx, base_env),
+            env = base_env,
             inputs = depset(
                 [canon_output, config, parallel_makefile, ctx.file._synth_keep_script] +
                 ctx.files.extra_configs,
@@ -1191,7 +1184,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 "SYNTH_CANONICALIZE_MODULE_SCRIPT=" + ctx.file._synth_canonicalize_module_script.path,
             ],
             command = " && ".join(per_module_commands),
-            env = config_overrides(ctx, base_env | partition_env_extra | {
+            env = base_env | partition_env_extra | {
                 "SYNTH_CHECKPOINT": checkpoint_output.path,
                 "MODULE_BLACKBOXES": " ".join(blackboxes),
                 "MODULE_TARGET_NAME": module,
@@ -1205,7 +1198,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 # upstream PnR runs that re-characterise SHARED_LOGIC
                 # macro .libs.
                 "SYNTH_REPEATABLE_BUILD": "1",
-            }),
+            },
             inputs = depset(
                 [
                     checkpoint_output,
@@ -1465,11 +1458,11 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 "SYNTH_PARTITION_SCRIPT=" + ctx.file._synth_partition_script.path,
             ],
             command = " && ".join(part_commands),
-            env = config_overrides(ctx, base_env | partition_env_extra | partition_env_override | {
+            env = base_env | partition_env_extra | partition_env_override | {
                 "SYNTH_PARTITION_ID": str(i),
                 "SYNTH_NUM_PARTITIONS": str(num_partitions),
                 "SYNTH_TCL": ctx.file._synth_tcl.path,
-            }),
+            },
             inputs = partition_inputs,
             outputs = [part_output],
             tools = yosys_and_flow_tools,
@@ -1497,11 +1490,11 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             "SYNTH_PARTITION_SCRIPT=" + ctx.file._synth_partition_script.path,
         ],
         command = " && ".join(top_commands),
-        env = config_overrides(ctx, base_env | partition_env_extra | {
+        env = base_env | partition_env_extra | {
             "SYNTH_PARTITION_ID": "top",
             "SYNTH_NUM_PARTITIONS": str(num_partitions),
             "SYNTH_TCL": ctx.file._synth_tcl.path,
-        }),
+        },
         inputs = top_partition_inputs,
         outputs = [top_output],
         tools = yosys_and_flow_tools,
@@ -1529,7 +1522,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             "do-yosys-sdc-copy",
         ],
         command = "{make} $@".format(make = ctx.executable._make.path),
-        env = config_overrides(ctx, base_env),
+        env = base_env,
         inputs = depset(
             [config, parallel_makefile] + ctx.files.extra_configs,
             transitive = [
@@ -1563,7 +1556,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 "do-1_synth",
             ],
             command = " && ".join(odb_commands),
-            env = config_overrides(ctx, base_env),
+            env = base_env,
             inputs = depset(
                 [
                     synth_outputs["1_2_yosys.v"],
@@ -1754,12 +1747,9 @@ def _yosys_impl(ctx):
                 "do-yosys-canonicalize",
             ],
             command = EXPAND_VERILOG_DIRS + " && ".join(commands),
-            env = config_overrides(
-                ctx,
-                verilog_arguments(ctx.files.verilog_files) |
-                yosys_environment(ctx) |
-                config_environment(canon_config),
-            ),
+            env = verilog_arguments(ctx.files.verilog_files) |
+                  yosys_environment(ctx) |
+                  config_environment(canon_config),
             inputs = depset(
                 [canon_config] + ctx.files.verilog_files + ctx.files.extra_configs,
                 transitive = [
@@ -1843,12 +1833,9 @@ def _yosys_impl(ctx):
                 "do-1_synth",
             ],
             command = EXPAND_VERILOG_DIRS + " && ".join(commands),
-            env = config_overrides(
-                ctx,
-                verilog_arguments(ctx.files.verilog_files) |
-                flow_environment(ctx) |
-                config_environment(config),
-            ),
+            env = verilog_arguments(ctx.files.verilog_files) |
+                  flow_environment(ctx) |
+                  config_environment(config),
             inputs = depset(
                 [config] + ctx.files.verilog_files + ctx.files.extra_configs,
                 transitive = [
@@ -1886,13 +1873,10 @@ def _yosys_impl(ctx):
                 "do-yosys",
             ] + (["do-1_synth"] if save_odb else []),
             command = " && ".join(commands),
-            env = config_overrides(
-                ctx,
-                verilog_arguments([]) |
-                flow_environment(ctx) |
-                yosys_environment(ctx) |
-                config_environment(config),
-            ),
+            env = verilog_arguments([]) |
+                  flow_environment(ctx) |
+                  yosys_environment(ctx) |
+                  config_environment(config),
             inputs = depset(
                 [canon_output, config] + ctx.files.extra_configs,
                 transitive = [
@@ -1915,13 +1899,10 @@ def _yosys_impl(ctx):
             command = """
             {make} $@ > {out}
             """.format(make = ctx.executable._make.path, out = variables.path),
-            env = config_overrides(
-                ctx,
-                verilog_arguments([]) |
-                flow_environment(ctx) |
-                yosys_environment(ctx) |
-                config_environment(config),
-            ),
+            env = verilog_arguments([]) |
+                  flow_environment(ctx) |
+                  yosys_environment(ctx) |
+                  config_environment(config),
             inputs = depset(
                 [canon_output, config] + ctx.files.extra_configs,
                 transitive = [
@@ -2348,7 +2329,7 @@ def _make_impl(
         ctx.actions.run_shell(
             arguments = ["--file", ctx.file._makefile.path] + steps,
             command = " && ".join(commands),
-            env = config_overrides(ctx, flow_environment(ctx) | config_environment(config)),
+            env = flow_environment(ctx) | config_environment(config),
             inputs = depset(
                 [config] + ctx.files.extra_configs + all_jsons,
                 transitive = [
