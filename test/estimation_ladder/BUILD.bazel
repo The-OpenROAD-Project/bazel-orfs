@@ -307,3 +307,19 @@ py_binary(
         "@bazel-orfs-dev-pip//scipy",
     ],
 )
+
+# B1: what happens to the macros when rtl_macro_placer is skipped? Four
+# of the six front points on the macro design skip it, so whether global
+# placement positions the macros sensibly or leaves them stacked decides
+# whether those points mean anything.
+orfs_run_executable(
+    name = "macro_probe",
+    src = ":multiplier_top_asap7_synth",
+    arguments = MULTIPLIER_TOP_ARGS,
+    cmd = "run",
+    script = "macro_probe.tcl",
+    sources = {
+        "MACRO_PROBE_TCL": ["macro_probe.tcl"],
+        "IO_CONSTRAINTS": ["io_constraints.tcl"],
+    },
+)
