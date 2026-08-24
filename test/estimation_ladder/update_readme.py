@@ -384,26 +384,233 @@ def calibration_section(directory, image_prefix=""):
     ]
 
 
+def methods_section(path_counts):
+    """Everything statistical, kept out of the way of the result.
+
+    A reader who wants the answer should not have to work through rank
+    correlation and cross-validation to reach it, and a reader who
+    doubts the answer should be able to find exactly how it was
+    established.  Those are different readers and they want different
+    pages.
+    """
+    chance = ", ".join(
+        f"{design}: {10.0 / n:.2f}" for design, n in sorted(path_counts.items()) if n
+    )
+    return [
+        "---",
+        "",
+        "## How we measured it",
+        "",
+        "### The ground truth",
+        "",
+        "The flow is run properly -- floorplan, placement, CTS, global route --",
+        "and the timing read off the result with propagated clocks and",
+        "global-routing parasitics. Up to 100 reg2reg paths are sampled from",
+        "the worst quarter of the period range, in ten buckets, so the sample",
+        "is spread across the near-critical paths rather than piled on the",
+        "single worst one. A *register* here can be a macro. The estimator has",
+        "to report every sampled path: one it cannot find is an error, not a",
+        "path to quietly drop, because dropping the awkward ones would make any",
+        "configuration look good.",
+        "",
+        "The flow runtime it is compared against is the floorplan-through-",
+        "global-route stages summed from their own logs. Synthesis is excluded",
+        "from both sides, since both start from the same post-synthesis",
+        "netlist.",
+        "",
+        "### Why runtime and accuracy are measured separately",
+        "",
+        "Accuracy is a property of the placement and the parasitics, so many",
+        "estimators can run at once without affecting it. Runtime is not: eight",
+        "concurrent runs measure contention between siblings as much as the",
+        "settings under test. So there are two passes. The first sweeps the",
+        "knob space concurrently and records accuracy only. The second re-runs",
+        "selected configurations one at a time and times them, with whatever",
+        "thread count ORFS hands the tool, three times over, taking the median",
+        "and adding repeats when they disagree by more than 5%.",
+        "",
+        "The second pass chooses what to measure adaptively. Because the first",
+        "pass already knows every configuration's accuracy, the only open",
+        "question is whether a configuration is fast enough to matter, so it",
+        "measures wherever a runtime model thinks a configuration might beat",
+        "the best already timed at that accuracy.",
+        "",
+        "### The accuracy numbers",
+        "",
+        "- **mean relative error** -- the average of |estimate - truth| / truth",
+        "  over the sampled paths.",
+        "- **bias** and **spread** -- the average signed error, and the",
+        "  variation around it. Reported separately because they mean different",
+        "  things: an estimator that is wrong by a consistent amount can be",
+        "  corrected with one number, and one that is wrong erratically cannot,",
+        "  even when their mean relative errors match.",
+        "- **Kendall tau** -- rank correlation between estimated and true path",
+        "  order. 1 is perfect agreement, 0 is unrelated.",
+        f"- **recall@10** -- of the ten truly worst paths, how many the",
+        f"  estimator also puts in its worst ten. Chance level is ten divided",
+        f"  by the number of sampled paths ({chance}); a rung at or below that",
+        "  has no skill at all rather than a little.",
+        "",
+        "### The correction",
+        "",
+        "Ten families were fitted -- a multiplicative constant, an additive",
+        "offset, an affine fit, a power law, quadratic and cubic polynomials,",
+        "an isotonic fit, a Gaussian process, and Bayesian linear regression --",
+        "and each was scored three ways: on the design it was fitted to, on",
+        "held-out paths of that design, and on the *other* design entirely.",
+        "Only the third number says anything, because a correction fitted",
+        "against the ground truth it is then graded on is measuring its own",
+        "free parameter.",
+        "",
+        "Every one of these reads only the estimate, and a function of the",
+        "estimate alone cannot reorder the paths. So none of them can improve",
+        "rank correlation or worst-path recall -- the ordering after correction",
+        "is identical, which is checked rather than assumed. Fixing the order",
+        "would need a per-path correction using features of each path, which is",
+        "a different study.",
+        "",
+        "### What the numbers do not cover",
+        "",
+        "Two small designs, one of which is 400um square. The knob-to-outcome",
+        "associations come from a sweep that concentrates its sampling near the",
+        "best configurations, so they are suggestive rather than controlled",
+        "experiments. The macro design's front rests on 14 timed",
+        "configurations, and the simple design's search hit its budget before",
+        "meeting its own spread criterion.",
+        "",
+        "### Reproducing it",
+        "",
+        "```sh",
+        "bazel build //test/estimation_ladder:extract_ground_truth \\",
+        "            //test/estimation_ladder:extract_ground_truth_top",
+        "bazel run //test/estimation_ladder:optuna_study        # accuracy sweep",
+        "bazel run //test/estimation_ladder:optuna_study_top",
+        "bazel run //test/estimation_ladder:measure_runtime     # timed pass",
+        "bazel run //test/estimation_ladder:measure_runtime_top",
+        "bazel run //test/estimation_ladder:calibration_transfer",
+        "bazel run //test/estimation_ladder:calibration_models",
+        "bazel run //test/estimation_ladder:update-readme",
+        "```",
+        "",
+    ]
+
+
+def headline(data, gt_runtimes):
+    """The result, for a reader who knows EDA and not statistics.
+
+    Deliberately free of tau, bias, spread and Pareto vocabulary: those
+    are how the result was established rather than what it says, and
+    they live in the methods section at the bottom.
+    """
+    out = []
+    for design, title in DESIGNS:
+        front, _ = data[design]
+        gt = gt_runtimes.get(design)
+        if not (front and front["front"] and gt):
+            continue
+        placed = [
+            p for p in front["front"] if str(p["env"].get("RUN_PLACE", "0")) == "1"
+        ]
+        if not placed:
+            continue
+        # The rung someone would actually choose: the cheapest one within
+        # a percentage point of the best accuracy on offer, rather than
+        # the most accurate at any price.
+        best_err = min(p["mean_rel_err"] for p in placed)
+        pick = min(
+            (p for p in placed if p["mean_rel_err"] <= best_err + 0.01),
+            key=lambda p: p["runtime_s"],
+        )
+        out.append(
+            f"- **{title}**: the flow takes {gt:.0f}s. The estimator gets "
+            f"within **{pick['mean_rel_err']:.1%}** of it in "
+            f"**{pick['runtime_s']:.3g}s** -- about "
+            f"**{gt / pick['runtime_s']:.0f}x faster**."
+        )
+    return out
+
+
 def render(
     data, gt_runtimes, path_counts, image_prefix="", image_suffix="", directory="."
 ):
     out = ["# Estimation Ladder", ""]
     out += [
-        "How accurately can early flow stages estimate the minimum clock period",
-        "of the near-critical reg2reg paths, compared to a global-routed ground",
-        "truth -- and at what runtime cost?",
+        "**How close can you get to the clock period the flow would give you,",
+        "without running the flow?**",
         "",
-        "Synthesis-only timing is optimistic: it sees no wires, and on a design",
-        "with macros it does not see the clock tree either, so macro clock",
-        "insertion latency lands straight in the estimated period. Adding early",
-        "placement, a clock tree, resizing and global routing buys that back at",
-        "increasing runtime -- the estimation ladder.",
+        "The baseline throughout is running floorplan through global route and",
+        "reading the timing off the result. Everything here is measured against",
+        "that, because that is the thing you would otherwise have to do.",
         "",
-        "Runtimes come from a separate measurement pass that runs one estimator",
-        "at a time, so they are not contaminated by contention between",
-        "concurrent trials; accuracy comes from a much wider concurrent sweep,",
-        "which contention does not affect. Runtime is plotted on a log axis",
-        "because the ladder spans several orders of magnitude.",
+    ]
+    out += headline(data, gt_runtimes)
+    out += [
+        "",
+        "### Why the estimate is off at all",
+        "",
+        "The estimator places cells but never routes them, so it works from",
+        "straight-line wire estimates. The router builds longer wires than that",
+        "-- detours, congestion, vias -- so every path comes out optimistic.",
+        "That is what pre-route means, and it is not a defect.",
+        "",
+        "### The useful part: it is off by nearly the same amount everywhere",
+        "",
+        "The estimator is not erratic, it is consistently optimistic. Almost",
+        "every path is short by close to the same amount, so **one correction",
+        "term removes most of the error**, and a term worked out on one design",
+        "still helps on another. Adding that correction to plain global",
+        "placement beats an uncorrected run that also pays for a clock tree and",
+        "global routing, at a fraction of the runtime. Much of what the",
+        "expensive stages appear to buy is an offset you can subtract for free.",
+        "",
+        "The correction is worth more to the cheap rungs than the expensive",
+        "ones. On rungs that are already accurate, a correction borrowed from",
+        "another design makes them worse, because what is left of their error",
+        "belongs to that particular design.",
+        "",
+        "### The limit: a good speedometer, a poor map",
+        "",
+        "It predicts the period well and it is poor at telling you *which*",
+        "paths are critical. Of the ten genuinely worst paths, the estimator",
+        "puts only one to three of them in its own worst ten on the macro",
+        "design -- and picking at random would get one. Spending more runtime",
+        "does not fix it: on the simple design the 0.012s synthesis-only",
+        "estimate finds more of the worst paths than the 6.9s estimate that",
+        "predicts the period twenty times more precisely.",
+        "",
+        "So for *what clock period will this close at*, the estimator works.",
+        "For *which path do I go fix*, it does not replace the flow.",
+        "",
+        "### What did not help",
+        "",
+        "- `-place_ios`, letting placement move the IO pins: fastest rung,",
+        "  worst accuracy.",
+        "- `-virtual_cts`, a cheap stand-in clock tree: worse than doing",
+        "  nothing about the clock at all.",
+        "- `repair_timing` at its default setting: 48s of runtime, no",
+        "  measurable change to the answer.",
+        "- Fancier corrections. A cubic, an isotonic fit, a Gaussian process --",
+        "  all fit the design they were tuned on better and all transfer to a",
+        "  new design worse. The Gaussian process reaches zero error on its own",
+        "  design, which is memorisation, and then does worse than no",
+        "  correction at all on the other one.",
+        "",
+        "A real clock tree, by contrast, was worth it: it cut the error by a",
+        "third for under two seconds, because it captures the insertion delay",
+        "through the macros that an ideal clock hides.",
+        "",
+        "### One thing to know before copying a configuration",
+        "",
+        "Several of the fastest rungs skip the macro placer. Global placement",
+        "does then position the macros itself, and their locations are real --",
+        "but twelve of the hundred and twenty macro pairs end up overlapping,",
+        "where the macro placer leaves none. That is serviceable to estimate",
+        "timing from and impossible as a floorplan. These rungs are estimators,",
+        "not placements.",
+        "",
+        "---",
+        "",
+        "## Results per design",
         "",
     ]
     for design, title in DESIGNS:
@@ -451,6 +658,7 @@ def render(
             "",
         ]
     out += calibration_section(directory, image_prefix)
+    out += methods_section(path_counts)
     return "\n".join(out)
 
 
