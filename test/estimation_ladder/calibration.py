@@ -36,6 +36,7 @@ import argparse
 import json
 import os
 import statistics
+import tempfile
 
 from optuna_study import run_estimator
 
@@ -123,14 +124,19 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
 
     results = []
+    # Per-rung estimator output is scratch: the summary below is the
+    # result worth keeping, and twelve intermediate files in the source
+    # tree are just noise.
+    scratch = tempfile.TemporaryDirectory()
+    out_dir_runs = scratch.name
     for name, env in RUNGS.items():
         fit_truth, fit_est = evaluate(
-            args.fit_exe, args.fit_ground_truth, env, out_dir, f"fit_{name}"
+            args.fit_exe, args.fit_ground_truth, env, out_dir_runs, f"fit_{name}"
         )
         scale = scale_factor(fit_truth, fit_est)
 
         app_truth, app_est = evaluate(
-            args.apply_exe, args.apply_ground_truth, env, out_dir, f"apply_{name}"
+            args.apply_exe, args.apply_ground_truth, env, out_dir_runs, f"apply_{name}"
         )
         raw = mean_rel_err(app_truth, app_est)
         transferred = mean_rel_err(app_truth, app_est, scale)
