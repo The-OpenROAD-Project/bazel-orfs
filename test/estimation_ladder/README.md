@@ -16,13 +16,11 @@ concurrent trials; accuracy comes from a much wider concurrent sweep,
 which contention does not affect. Runtime is plotted on a log axis
 because the ladder spans several orders of magnitude.
 
-![Pareto Plot](pareto_plot.png)
-
-![Bias and spread](bias_spread.png)
-
 ## multiplier (simple)
 
-Ground truth flow runtime: 41 s.
+Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **41s**. The cheapest rung on the front is 3442x faster than that at 21.3% error, and the most accurate is 6x faster at 1.1%.
+
+Sampled 54 near-critical reg2reg paths. Recall@10 by chance is 0.19: a rung scoring at or below that has no skill at picking the critical paths.
 
 Rung A explored 241 configurations.
 
@@ -38,9 +36,17 @@ Rung A explored 241 configurations.
 | place, NO macro place, TD, RD, GRT(28), rt  |       6.348 |        0.01606 |        0.863  | -0.01411  |  0.01161 |            0.7 |
 | place, TD, vCTS, CTS, rd, GRT(18), rt       |       6.906 |        0.01082 |        0.8798 | -0.008003 |  0.0101  |            0.6 |
 
+![multiplier (simple) accuracy](pareto_multiplier.png)
+
+![multiplier (simple) ranking](ranking_multiplier.png)
+
+![multiplier (simple) bias](bias_multiplier.png)
+
 ## multiplier_top (macro array)
 
-Ground truth flow runtime: 668 s.
+Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **668s**. The cheapest rung on the front is 27840x faster than that at 27.3% error, and the most accurate is 10x faster at 3.4%.
+
+Sampled 99 near-critical reg2reg paths. Recall@10 by chance is 0.10: a rung scoring at or below that has no skill at picking the critical paths.
 
 Rung A explored 228 configurations.
 
@@ -54,6 +60,12 @@ Rung A explored 228 configurations.
 | place, NO macro place, TD, RD, vCTS, CTS  |      29.28  |        0.04917 |        0.5143 | -0.007675 |  0.07096 |            0   |
 | place, NO macro place, rd, GRT(1)         |      29.77  |        0.03718 |        0.7168 | -0.006053 |  0.06823 |            0.2 |
 | place, place_ios, vCTS, CTS, rd           |      65.94  |        0.03433 |        0.7287 | -0.0105   |  0.05078 |            0.1 |
+
+![multiplier_top (macro array) accuracy](pareto_multiplier_top.png)
+
+![multiplier_top (macro array) ranking](ranking_multiplier_top.png)
+
+![multiplier_top (macro array) bias](bias_multiplier_top.png)
 
 ## Does the bias transfer between designs?
 

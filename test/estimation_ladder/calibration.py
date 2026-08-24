@@ -124,6 +124,7 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
 
     results = []
+    path_pairs = {}
     # Per-rung estimator output is scratch: the summary below is the
     # result worth keeping, and twelve intermediate files in the source
     # tree are just noise.
@@ -146,6 +147,20 @@ def main():
         oracle_scale = scale_factor(app_truth, app_est)
         oracle = mean_rel_err(app_truth, app_est, oracle_scale)
 
+        # Keep the per-path pairs.  Fitting alternative calibration
+        # models is pure post-processing -- seconds of CPU against runs
+        # that cost minutes -- so the pairs are the reusable artifact
+        # and re-deriving them for every model family would be waste.
+        path_pairs[name] = {
+            "fit": [
+                {"path": list(k), "est": fit_est[k], "truth": fit_truth[k]}
+                for k in sorted(fit_truth)
+            ],
+            "apply": [
+                {"path": list(k), "est": app_est[k], "truth": app_truth[k]}
+                for k in sorted(app_truth)
+            ],
+        }
         results.append(
             {
                 "rung": name,
@@ -160,6 +175,20 @@ def main():
             f"{name:16s} scale={scale:6.4f}  raw={raw:.4f}  "
             f"transferred={transferred:.4f}  oracle={oracle:.4f}"
         )
+
+    pairs_out = os.path.join(out_dir, "calibration_paths.json")
+    with open(pairs_out, "w") as f:
+        json.dump(
+            {
+                "fit_design": args.fit_name,
+                "apply_design": args.apply_name,
+                "rungs": path_pairs,
+            },
+            f,
+            indent=2,
+            sort_keys=True,
+        )
+    print(f"Wrote {pairs_out}")
 
     out = os.path.join(out_dir, "calibration_transfer.json")
     with open(out, "w") as f:
