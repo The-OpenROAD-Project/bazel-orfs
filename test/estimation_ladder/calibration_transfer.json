@@ -3,52 +3,52 @@
   "fit_design": "multiplier",
   "rungs": [
     {
-      "oracle_err": 0.024114707788620942,
-      "oracle_scale": 1.1037265620153434,
-      "raw_err": 0.09285082142037486,
+      "oracle_err": 0.1139428857244507,
+      "oracle_scale": 1.0680412908662877,
+      "raw_err": 0.13813759861263783,
       "rung": "place_only",
       "scale_fitted_on_multiplier": 1.1210493171347724,
-      "transferred_err": 0.028989154173046008
+      "transferred_err": 0.11771079291546084
     },
     {
-      "oracle_err": 0.032561831697939636,
-      "oracle_scale": 1.1947506108184753,
-      "raw_err": 0.1610918188002245,
+      "oracle_err": 0.07942520259348074,
+      "oracle_scale": 1.2257089906721408,
+      "raw_err": 0.18412081347761206,
       "rung": "place_ios",
       "scale_fitted_on_multiplier": 1.1185735623732194,
-      "transferred_err": 0.06452855655741085
+      "transferred_err": 0.10795229689638264
     },
     {
-      "oracle_err": 0.031250604616970275,
-      "oracle_scale": 1.1278988127654817,
-      "raw_err": 0.11202360861951614,
+      "oracle_err": 0.11495567695136093,
+      "oracle_scale": 1.088030859098765,
+      "raw_err": 0.14502487471480555,
       "rung": "virtual_cts",
       "scale_fitted_on_multiplier": 1.1576905589992925,
-      "transferred_err": 0.03955858415675195
+      "transferred_err": 0.12433002640656737
     },
     {
-      "oracle_err": 0.029015045466394874,
-      "oracle_scale": 1.0659512124309891,
-      "raw_err": 0.06057563859125547,
+      "oracle_err": 0.10730727588032032,
+      "oracle_scale": 1.0462781197717625,
+      "raw_err": 0.1184803723079071,
       "rung": "cts",
       "scale_fitted_on_multiplier": 1.1049433933504667,
-      "transferred_err": 0.04608902213099622
+      "transferred_err": 0.12470968695240241
     },
     {
-      "oracle_err": 0.03330695141920529,
-      "oracle_scale": 1.0049427128957278,
-      "raw_err": 0.03252326841555022,
+      "oracle_err": 0.10002267179322513,
+      "oracle_scale": 1.0107917640661448,
+      "raw_err": 0.09770670679034703,
       "rung": "cts_grt",
       "scale_fitted_on_multiplier": 1.0528545767476811,
-      "transferred_err": 0.05957325354655409
+      "transferred_err": 0.11818450866837338
     },
     {
-      "oracle_err": 0.0333069459462684,
-      "oracle_scale": 1.0049427060587544,
-      "raw_err": 0.03252326435752111,
+      "oracle_err": 0.10000284757512644,
+      "oracle_scale": 1.0107672165099668,
+      "raw_err": 0.09769370505063917,
       "rung": "cts_grt_repair",
       "scale_fitted_on_multiplier": 1.0528545767476811,
-      "transferred_err": 0.059573249274039564
+      "transferred_err": 0.11820923012523987
     }
   ]
 }

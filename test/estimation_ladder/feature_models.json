@@ -1,0 +1,236 @@
+{
+  "cts": {
+    "models": [
+      {
+        "cv_err": 0.10815422785359252,
+        "cv_tau": 0.7208963585434175,
+        "model": "scale (estimate only)",
+        "transfer_err": 0.12470968695240242,
+        "transfer_recall": 0.3,
+        "transfer_tau": 0.7121212121212122
+      },
+      {
+        "cv_err": 0.07107039980318608,
+        "cv_tau": 0.6507936507936508,
+        "model": "ridge + features",
+        "transfer_err": 0.15083451330031608,
+        "transfer_recall": 0.3,
+        "transfer_tau": 0.7109655880842322
+      },
+      {
+        "cv_err": 0.025384396363499317,
+        "cv_tau": 0.8447561428664132,
+        "model": "gradient boosting + features",
+        "transfer_err": 0.15293526322504988,
+        "transfer_recall": 0.0,
+        "transfer_tau": 0.585508119935274
+      },
+      {
+        "cv_err": 0.022593739426385612,
+        "cv_tau": 0.8632843985488117,
+        "model": "random forest + features",
+        "transfer_err": 0.14944426147608963,
+        "transfer_recall": 0.0,
+        "transfer_tau": 0.6362427643382101
+      }
+    ],
+    "n_paths": 177,
+    "raw_recall": 0.3,
+    "raw_tau": 0.7121212121212122
+  },
+  "cts_grt": {
+    "models": [
+      {
+        "cv_err": 0.10066846856759207,
+        "cv_tau": 0.7137628384687209,
+        "model": "scale (estimate only)",
+        "transfer_err": 0.11818450866837324,
+        "transfer_recall": 0.3,
+        "transfer_tau": 0.7116076014381099
+      },
+      {
+        "cv_err": 0.07145021998083703,
+        "cv_tau": 0.6455275443510737,
+        "model": "ridge + features",
+        "transfer_err": 0.13011714825388754,
+        "transfer_recall": 0.3,
+        "transfer_tau": 0.7104519774011299
+      },
+      {
+        "cv_err": 0.026280032979460233,
+        "cv_tau": 0.835390087101018,
+        "model": "gradient boosting + features",
+        "transfer_err": 0.1391255936494005,
+        "transfer_recall": 0.0,
+        "transfer_tau": 0.6047699464737329
+      },
+      {
+        "cv_err": 0.021788468752931472,
+        "cv_tau": 0.8602508219278351,
+        "model": "random forest + features",
+        "transfer_err": 0.13965252856493748,
+        "transfer_recall": 0.0,
+        "transfer_tau": 0.6194097491476106
+      }
+    ],
+    "n_paths": 177,
+    "raw_recall": 0.3,
+    "raw_tau": 0.7116076014381099
+  },
+  "cts_grt_repair": {
+    "models": [
+      {
+        "cv_err": 0.10064897056230411,
+        "cv_tau": 0.7137628384687209,
+        "model": "scale (estimate only)",
+        "transfer_err": 0.11820923012523978,
+        "transfer_recall": 0.3,
+        "transfer_tau": 0.7117360041088854
+      },
+      {
+        "cv_err": 0.07144497261590113,
+        "cv_tau": 0.6448552754435107,
+        "model": "ridge + features",
+        "transfer_err": 0.13014142273581622,
+        "transfer_recall": 0.3,
+        "transfer_tau": 0.7104519774011299
+      },
+      {
+        "cv_err": 0.02629345287127427,
+        "cv_tau": 0.8354256365131241,
+        "model": "gradient boosting + features",
+        "transfer_err": 0.1391255936494005,
+        "transfer_recall": 0.0,
+        "transfer_tau": 0.6047699464737329
+      },
+      {
+        "cv_err": 0.02178875409364227,
+        "cv_tau": 0.8602508219278351,
+        "model": "random forest + features",
+        "transfer_err": 0.13965252856493748,
+        "transfer_recall": 0.0,
+        "transfer_tau": 0.6194097491476106
+      }
+    ],
+    "n_paths": 177,
+    "raw_recall": 0.3,
+    "raw_tau": 0.7117360041088854
+  },
+  "place_ios": {
+    "models": [
+      {
+        "cv_err": 0.08013456782038557,
+        "cv_tau": 0.7797198879551821,
+        "model": "scale (estimate only)",
+        "transfer_err": 0.10795229689638264,
+        "transfer_recall": 0.1,
+        "transfer_tau": 0.7731124807395994
+      },
+      {
+        "cv_err": 0.05989806140794498,
+        "cv_tau": 0.7685527544351073,
+        "model": "ridge + features",
+        "transfer_err": 0.09133685732370089,
+        "transfer_recall": 0.1,
+        "transfer_tau": 0.6906779661016949
+      },
+      {
+        "cv_err": 0.03334216843524167,
+        "cv_tau": 0.8160571958153622,
+        "model": "gradient boosting + features",
+        "transfer_err": 0.11444361315975166,
+        "transfer_recall": 0.1,
+        "transfer_tau": 0.7519109346049426
+      },
+      {
+        "cv_err": 0.032696487541024354,
+        "cv_tau": 0.8230484989610114,
+        "model": "random forest + features",
+        "transfer_err": 0.12033864727664939,
+        "transfer_recall": 0.0,
+        "transfer_tau": 0.7662075119893692
+      }
+    ],
+    "n_paths": 177,
+    "raw_recall": 0.1,
+    "raw_tau": 0.7731124807395994
+  },
+  "place_only": {
+    "models": [
+      {
+        "cv_err": 0.11516136701243467,
+        "cv_tau": 0.7251914098972924,
+        "model": "scale (estimate only)",
+        "transfer_err": 0.11771079291546084,
+        "transfer_recall": 0.3,
+        "transfer_tau": 0.7164869029275809
+      },
+      {
+        "cv_err": 0.07246497233909324,
+        "cv_tau": 0.6877684407096172,
+        "model": "ridge + features",
+        "transfer_err": 0.11364312526316458,
+        "transfer_recall": 0.3,
+        "transfer_tau": 0.7173857216230097
+      },
+      {
+        "cv_err": 0.026591837317143242,
+        "cv_tau": 0.8524548743133245,
+        "model": "gradient boosting + features",
+        "transfer_err": 0.1551441389843237,
+        "transfer_recall": 0.0,
+        "transfer_tau": 0.6341945737832515
+      },
+      {
+        "cv_err": 0.021469783083473897,
+        "cv_tau": 0.879730198133055,
+        "model": "random forest + features",
+        "transfer_err": 0.15191117888700573,
+        "transfer_recall": 0.0,
+        "transfer_tau": 0.6320867091930162
+      }
+    ],
+    "n_paths": 177,
+    "raw_recall": 0.3,
+    "raw_tau": 0.7164869029275809
+  },
+  "virtual_cts": {
+    "models": [
+      {
+        "cv_err": 0.11612630978400648,
+        "cv_tau": 0.6942296918767508,
+        "model": "scale (estimate only)",
+        "transfer_err": 0.1243300264065675,
+        "transfer_recall": 0.0,
+        "transfer_tau": 0.6866974833076528
+      },
+      {
+        "cv_err": 0.07758561227445877,
+        "cv_tau": 0.728888888888889,
+        "model": "ridge + features",
+        "transfer_err": 0.15633025287847646,
+        "transfer_recall": 0.0,
+        "transfer_tau": 0.5951463790446841
+      },
+      {
+        "cv_err": 0.02676775340363887,
+        "cv_tau": 0.8541023352239472,
+        "model": "gradient boosting + features",
+        "transfer_err": 0.15395189101828938,
+        "transfer_recall": 0.0,
+        "transfer_tau": 0.47098853098649524
+      },
+      {
+        "cv_err": 0.02479282854461283,
+        "cv_tau": 0.855909399573164,
+        "model": "random forest + features",
+        "transfer_err": 0.15249714395269667,
+        "transfer_recall": 0.0,
+        "transfer_tau": 0.5384895024868254
+      }
+    ],
+    "n_paths": 177,
+    "raw_recall": 0.0,
+    "raw_tau": 0.6866974833076528
+  }
+}
