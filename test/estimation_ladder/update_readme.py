@@ -39,8 +39,16 @@ DESIGNS = [
     ("multiplier_top", "multiplier_top (macro array)"),
 ]
 
-MAIN_PLOT = "pareto_plot.png"
-BIAS_PLOT = "bias_spread.png"
+
+# One figure per panel rather than a grid: a 2x2 tiling left every rung
+# label overlapping its neighbours and unreadable.
+def figure_names(design):
+    return {
+        "pareto": f"pareto_{design}.png",
+        "ranking": f"ranking_{design}.png",
+        "bias": f"bias_{design}.png",
+    }
+
 
 FRONT_COLUMNS = [
     "runtime_s",
@@ -102,123 +110,161 @@ def ground_truth_runtime(path):
     return json.load(open(path)).get("runtime_s")
 
 
-def plot_fronts(directory, data, gt_runtimes):
-    fig, axes = plt.subplots(
-        len(DESIGNS), 2, figsize=(13, 5 * len(DESIGNS)), squeeze=False
-    )
-    for row, (design, title) in enumerate(DESIGNS):
-        front, archive = data[design]
-        for col, (key, ylabel) in enumerate(
-            [
-                ("mean_rel_err", "mean relative error"),
-                ("kendall_tau", "Kendall tau (rank correlation)"),
-            ]
-        ):
-            ax = axes[row][col]
-            if front:
-                measured = front["measured"]
-                ax.scatter(
-                    [m["runtime_s"] for m in measured],
-                    [m[key] for m in measured],
-                    s=18,
-                    color="0.7",
-                    label="measured",
-                )
-                pts = sorted(front["front"], key=lambda p: p["runtime_s"])
-                # The front is defined on (runtime, error).  Joining the
-                # same points in the rank-correlation panel would draw a
-                # frontier that does not exist there -- tau is not what
-                # they were selected for, and it does not move
-                # monotonically along them -- so only the error panel
-                # gets a line, and only it carries the labels.
-                if key == "mean_rel_err":
-                    ax.plot(
-                        [p["runtime_s"] for p in pts],
-                        [p[key] for p in pts],
-                        "o-",
-                        color="tab:blue",
-                        label="Pareto front",
-                    )
-                    for p in pts:
-                        ax.annotate(
-                            rung_label(p["env"]),
-                            (p["runtime_s"], p[key]),
-                            fontsize=6,
-                            alpha=0.8,
-                            xytext=(4, 3),
-                            textcoords="offset points",
-                        )
-                else:
-                    ax.scatter(
-                        [p["runtime_s"] for p in pts],
-                        [p[key] for p in pts],
-                        s=42,
-                        color="tab:blue",
-                        zorder=3,
-                        label="on the runtime/error front",
-                    )
-            gt = gt_runtimes.get(design)
-            if gt:
-                ax.axvline(
-                    gt,
-                    linestyle="--",
-                    color="tab:red",
-                    label=f"ground truth flow ({gt:.0f}s)",
-                )
-            ax.set_xscale("log")
-            ax.set_xlabel("runtime (s, log scale)")
-            ax.set_ylabel(ylabel)
-            ax.set_title(f"{title}: {ylabel}")
-            ax.grid(alpha=0.3)
-            ax.legend(fontsize=8)
-    fig.tight_layout()
-    out = os.path.join(directory, MAIN_PLOT)
-    fig.savefig(out, dpi=110)
-    plt.close(fig)
-    return out
+def _annotate_numbered(ax, pts, key):
+    """Number the front points instead of labelling them in place.
 
-
-def plot_bias_spread(directory, data):
-    """Bias and spread side by side.
-
-    The point of separating them: a rung with a large bias but a small
-    spread is wrong by a constant, which a calibration term can remove.
-    A rung with a small bias and a large spread is not correctable that
-    way, no matter how appealing its mean relative error looks.
+    A rung label like "place, NO macro place, TD, RD, vCTS, CTS" cannot
+    sit beside a marker at any figure size without colliding with its
+    neighbours, so the plot carries an index and the README table --
+    already sorted by runtime -- is the key.
     """
-    fig, axes = plt.subplots(
-        1, len(DESIGNS), figsize=(6.5 * len(DESIGNS), 5), squeeze=False
-    )
-    for col, (design, title) in enumerate(DESIGNS):
-        ax = axes[0][col]
-        front, _ = data[design]
-        if front:
-            pts = sorted(front["front"], key=lambda p: p["runtime_s"])
-            idx = range(len(pts))
-            ax.errorbar(
-                list(idx),
-                [p["bias"] for p in pts],
-                yerr=[p["spread"] for p in pts],
-                fmt="o",
-                capsize=4,
-                color="tab:purple",
-            )
-            ax.axhline(0.0, color="0.4", linewidth=1)
-            ax.set_xticks(list(idx))
-            ax.set_xticklabels(
-                [f"{p['runtime_s']:.2g}s\n{rung_label(p['env'])}" for p in pts],
-                rotation=45,
-                ha="right",
-                fontsize=7,
-            )
-        ax.set_ylabel("signed relative error (bar = 1 sd)")
-        ax.set_title(f"{title}: bias and spread")
-        ax.grid(alpha=0.3, axis="y")
+    for n, p in enumerate(pts, 1):
+        ax.annotate(
+            str(n),
+            (p["runtime_s"], p[key]),
+            fontsize=9,
+            fontweight="bold",
+            color="tab:blue",
+            xytext=(6, 4),
+            textcoords="offset points",
+        )
+
+
+def _ground_truth_line(ax, gt):
+    if gt:
+        ax.axvline(
+            gt,
+            linestyle="--",
+            color="tab:red",
+            label=f"full flow ({gt:.0f}s)",
+        )
+
+
+def plot_error(directory, design, title, front, gt):
+    fig, ax = plt.subplots(figsize=(10, 6))
+    if front:
+        ax.scatter(
+            [m["runtime_s"] for m in front["measured"]],
+            [m["mean_rel_err"] for m in front["measured"]],
+            s=22,
+            color="0.72",
+            label="measured",
+        )
+        pts = sorted(front["front"], key=lambda p: p["runtime_s"])
+        ax.plot(
+            [p["runtime_s"] for p in pts],
+            [p["mean_rel_err"] for p in pts],
+            "o-",
+            color="tab:blue",
+            label="Pareto front (numbered as in the table)",
+        )
+        _annotate_numbered(ax, pts, "mean_rel_err")
+    _ground_truth_line(ax, gt)
+    ax.set_xscale("log")
+    ax.set_xlabel("runtime (s, log scale)")
+    ax.set_ylabel("mean relative error")
+    ax.set_title(f"{title}: accuracy vs runtime")
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=9)
     fig.tight_layout()
-    out = os.path.join(directory, BIAS_PLOT)
-    fig.savefig(out, dpi=110)
+    out = os.path.join(directory, f"pareto_{design}.png")
+    fig.savefig(out, dpi=120)
     plt.close(fig)
-    return out
+
+
+def plot_ranking(directory, design, title, front, gt, n_paths):
+    """Rank correlation and worst-path recall, with recall's chance line.
+
+    Recall@10 is meaningless without it: picking 10 of n paths at random
+    scores 10/n, so a rung at 0.10 on a 99-path design has no skill at
+    all rather than a little.
+    """
+    fig, ax = plt.subplots(figsize=(10, 6))
+    ax2 = ax.twinx()
+    if front:
+        pts = sorted(front["front"], key=lambda p: p["runtime_s"])
+        ax.plot(
+            [p["runtime_s"] for p in pts],
+            [p["kendall_tau"] for p in pts],
+            "o-",
+            color="tab:blue",
+            label="Kendall tau (left)",
+        )
+        _annotate_numbered(ax, pts, "kendall_tau")
+        ax2.plot(
+            [p["runtime_s"] for p in pts],
+            [p["worst_recall"] for p in pts],
+            "s--",
+            color="tab:green",
+            label="recall@10 (right)",
+        )
+    if n_paths:
+        chance = 10.0 / n_paths
+        ax2.axhline(
+            chance,
+            linestyle=":",
+            color="tab:red",
+            label=f"recall@10 by chance ({chance:.2f})",
+        )
+    _ground_truth_line(ax, gt)
+    ax.set_xscale("log")
+    ax.set_xlabel("runtime (s, log scale)")
+    ax.set_ylabel("Kendall tau")
+    ax2.set_ylabel("recall@10")
+    ax2.set_ylim(-0.05, 1.05)
+    ax.set_title(f"{title}: does the ladder rank the critical paths?")
+    ax.grid(alpha=0.3)
+    lines, labels = ax.get_legend_handles_labels()
+    l2, lb2 = ax2.get_legend_handles_labels()
+    # Below the axes: recall runs along the bottom of the plot, so an
+    # in-axes legend sits on top of the data it is describing.
+    ax.legend(
+        lines + l2,
+        labels + lb2,
+        fontsize=9,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.10),
+        ncol=4,
+    )
+    fig.tight_layout()
+    out = os.path.join(directory, f"ranking_{design}.png")
+    fig.savefig(out, dpi=120)
+    plt.close(fig)
+
+
+def plot_bias(directory, design, title, front):
+    """Bias and spread separately.
+
+    A rung with a large bias but a small spread is wrong by a constant,
+    which one number can remove.  A rung with a small bias and a large
+    spread is not correctable that way however good its mean absolute
+    error looks.
+    """
+    fig, ax = plt.subplots(figsize=(10, 6))
+    if front:
+        pts = sorted(front["front"], key=lambda p: p["runtime_s"])
+        idx = list(range(1, len(pts) + 1))
+        ax.errorbar(
+            idx,
+            [p["bias"] for p in pts],
+            yerr=[p["spread"] for p in pts],
+            fmt="o",
+            capsize=5,
+            color="tab:purple",
+        )
+        ax.axhline(0.0, color="0.4", linewidth=1)
+        ax.set_xticks(idx)
+        ax.set_xticklabels(
+            [f"{n}\n{p['runtime_s']:.3g}s" for n, p in zip(idx, pts)], fontsize=9
+        )
+    ax.set_xlabel("front point (numbered as in the table)")
+    ax.set_ylabel("signed relative error (bar = 1 sd)")
+    ax.set_title(f"{title}: is the error an offset or is it scatter?")
+    ax.grid(alpha=0.3, axis="y")
+    fig.tight_layout()
+    out = os.path.join(directory, f"bias_{design}.png")
+    fig.savefig(out, dpi=120)
+    plt.close(fig)
 
 
 def front_table(front):
@@ -338,7 +384,9 @@ def calibration_section(directory, image_prefix=""):
     ]
 
 
-def render(data, gt_runtimes, image_prefix="", image_suffix="", directory="."):
+def render(
+    data, gt_runtimes, path_counts, image_prefix="", image_suffix="", directory="."
+):
     out = ["# Estimation Ladder", ""]
     out += [
         "How accurately can early flow stages estimate the minimum clock period",
@@ -357,23 +405,51 @@ def render(data, gt_runtimes, image_prefix="", image_suffix="", directory="."):
         "which contention does not affect. Runtime is plotted on a log axis",
         "because the ladder spans several orders of magnitude.",
         "",
-        f"![Pareto Plot]({image_prefix}{MAIN_PLOT}{image_suffix})",
-        "",
-        f"![Bias and spread]({image_prefix}{BIAS_PLOT}{image_suffix})",
-        "",
     ]
     for design, title in DESIGNS:
         front, archive = data[design]
+        figs = figure_names(design)
         out += [f"## {title}", ""]
         gt = gt_runtimes.get(design)
+        n_paths = path_counts.get(design)
         if gt:
-            out += [f"Ground truth flow runtime: {gt:.0f} s.", ""]
+            speed = ""
+            if front and front["front"]:
+                pts = sorted(front["front"], key=lambda p: p["runtime_s"])
+                fastest, best = pts[0], pts[-1]
+                speed = (
+                    f" The cheapest rung on the front is {gt / fastest['runtime_s']:.0f}x "
+                    f"faster than that at {fastest['mean_rel_err']:.1%} error, and the "
+                    f"most accurate is {gt / best['runtime_s']:.0f}x faster at "
+                    f"{best['mean_rel_err']:.1%}."
+                )
+            out += [
+                f"Running the flow itself -- floorplan through global route, "
+                f"the baseline this is all measured against -- takes "
+                f"**{gt:.0f}s**.{speed}",
+                "",
+            ]
+        if n_paths:
+            out += [
+                f"Sampled {n_paths} near-critical reg2reg paths. Recall@10 "
+                f"by chance is {10.0 / n_paths:.2f}: a rung scoring at or "
+                f"below that has no skill at picking the critical paths.",
+                "",
+            ]
         if archive:
             out += [f"Rung A explored {len(archive)} configurations.", ""]
         note = spread_note(front)
         if note:
             out += [note, ""]
         out += [front_table(front), ""]
+        out += [
+            f"![{title} accuracy]({image_prefix}{figs['pareto']}{image_suffix})",
+            "",
+            f"![{title} ranking]({image_prefix}{figs['ranking']}{image_suffix})",
+            "",
+            f"![{title} bias]({image_prefix}{figs['bias']}{image_suffix})",
+            "",
+        ]
     out += calibration_section(directory, image_prefix)
     return "\n".join(out)
 
@@ -402,13 +478,32 @@ def main():
     }
     data = {design: load(directory, design) for design, _ in DESIGNS}
 
-    plot_fronts(directory, data, gt_runtimes)
-    plot_bias_spread(directory, data)
+    # How many paths were sampled sets the chance baseline for recall@10.
+    path_counts = {}
+    for design, gt_path in (
+        ("multiplier", args.ground_truth_json),
+        ("multiplier_top", args.ground_truth_top_json),
+    ):
+        if os.path.exists(gt_path):
+            path_counts[design] = len(json.load(open(gt_path))["paths"])
 
-    readme = render(data, gt_runtimes, directory=directory)
+    for design, title in DESIGNS:
+        front, _ = data[design]
+        plot_error(directory, design, title, front, gt_runtimes.get(design))
+        plot_ranking(
+            directory,
+            design,
+            title,
+            front,
+            gt_runtimes.get(design),
+            path_counts.get(design),
+        )
+        plot_bias(directory, design, title, front)
+
+    readme = render(data, gt_runtimes, path_counts, directory=directory)
     with open(os.path.join(directory, "README.md"), "w") as f:
         f.write(readme + "\n")
-    print("Wrote README.md, " + MAIN_PLOT + ", " + BIAS_PLOT)
+    print(f"Wrote README.md and {3 * len(DESIGNS)} figures")
 
     if args.pr_body:
         prefix = args.pr_body if args.pr_body.endswith("/") else args.pr_body + "/"
@@ -418,6 +513,7 @@ def main():
         body = render(
             data,
             gt_runtimes,
+            path_counts,
             image_prefix=prefix,
             image_suffix="?raw=true",
             directory=directory,
