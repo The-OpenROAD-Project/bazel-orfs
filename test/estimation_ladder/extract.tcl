@@ -30,6 +30,40 @@ set step [expr {0.25 * $max_period / $num_buckets}]
 set selected_paths []
 set seen [dict create]
 
+# Record a path once, tagged with whether it touches a macro pin.
+proc add_path { path is_macro } {
+    set sp [get_full_name [get_property $path startpoint]]
+    set ep [get_full_name [get_property $path endpoint]]
+    if {[dict exists $::seen "$sp|$ep"]} { return 0 }
+    dict set ::seen "$sp|$ep" 1
+    set slack [get_property $path slack]
+    set period [expr {$::clk_period - $slack}]
+    lappend ::selected_paths [list $sp $ep $period $is_macro]
+    return 1
+}
+
+# Macro pins as OpenSTA names them.  ODB escapes Verilog identifiers and
+# OpenSTA does not, so the escapes have to come out or nothing matches.
+proc macro_pin_names { } {
+    set blk [ord::get_db_block]
+    set outs {}
+    set ins {}
+    foreach inst [$blk getInsts] {
+        if { ![[$inst getMaster] isBlock] } { continue }
+        set iname [string map {"\\" ""} [$inst getName]]
+        foreach it [$inst getITerms] {
+            if { [$it getSigType] ne "SIGNAL" } { continue }
+            set pin "$iname/[[$it getMTerm] getName]"
+            if { [$it getIoType] eq "OUTPUT" } {
+                lappend outs $pin
+            } else {
+                lappend ins $pin
+            }
+        }
+    }
+    return [list $outs $ins]
+}
+
 for {set i 0} {$i < $num_buckets} {incr i} {
     set b_min [expr {$wns + ($i * $step)}]
     set b_max [expr {$wns + (($i + 1) * $step)}]
@@ -38,23 +72,43 @@ for {set i 0} {$i < $num_buckets} {incr i} {
         -slack_min $b_min -slack_max $b_max \
         -sort_by_slack -group_path_count $paths_per_bucket]
     foreach path $paths {
-        set sp [get_full_name [get_property $path startpoint]]
-        set ep [get_full_name [get_property $path endpoint]]
-        if {[dict exists $seen "$sp|$ep"]} {
-            continue
-        }
-        dict set seen "$sp|$ep" 1
-        set slack [get_property $path slack]
-        set min_period [expr {$clk_period - $slack}]
-        lappend selected_paths [list $sp $ep $min_period]
+        add_path $path 0
     }
 }
+
+# The general spread above is worst-slack driven, and on a design that is
+# an array of macros it turns out to contain almost no macro pins at all
+# -- two paths in ninety-nine.  That characterises the design by its
+# top-level flop-to-flop logic and leaves the very thing the design
+# exists to exercise unmeasured, so sample the macro paths explicitly as
+# well and tag them, rather than hoping they fall out of a slack ranking.
+lassign [macro_pin_names] macro_outs macro_ins
+set macro_target 30
+set macro_added 0
+puts "Macro pins: [llength $macro_outs] outputs, [llength $macro_ins] inputs"
+
+foreach {dir pins} [list -from $macro_outs -to $macro_ins] {
+    if {[llength $pins] == 0} { continue }
+    if {[catch {
+        set paths [find_timing_paths $dir $pins -path_group reg2reg \
+            -sort_by_slack -group_path_count $macro_target]
+    } err]} {
+        puts "WARNING: macro path query $dir failed: $err"
+        continue
+    }
+    foreach path $paths {
+        incr macro_added [add_path $path 1]
+    }
+}
+puts "Sampled $macro_added macro paths in addition to the general spread."
 
 if {[llength $selected_paths] < 20} {
     puts "ERROR: Found only [llength $selected_paths] unique reg2reg paths in the worst-25% window. Design is too trivial."
     exit 1
 }
-puts "Sampled [llength $selected_paths] reg2reg paths."
+set n_macro 0
+foreach pt $selected_paths { incr n_macro [lindex $pt 3] }
+puts "Sampled [llength $selected_paths] reg2reg paths ($n_macro touching a macro pin)."
 
 # Ground truth runtime: the cost of producing the grt ODB beyond
 # synthesis, summed from the floorplan..grt stage logs (synthesis is the
@@ -97,7 +151,7 @@ set is_first 1
 foreach pt $selected_paths {
     if {$is_first == 0} { puts $fp "," }
     set is_first 0
-    puts -nonewline $fp "  {\"start\": \"[lindex $pt 0]\", \"end\": \"[lindex $pt 1]\", \"min_period\": [lindex $pt 2]}"
+    puts -nonewline $fp "  {\"start\": \"[lindex $pt 0]\", \"end\": \"[lindex $pt 1]\", \"min_period\": [lindex $pt 2], \"macro_path\": [lindex $pt 3]}"
 }
 puts $fp ""
 puts $fp "\]"

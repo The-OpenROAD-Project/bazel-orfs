@@ -170,6 +170,69 @@ if {$clock_mode eq "real"} {
     set_propagated_clock [all_clocks]
 }
 
+
+# Per-path features, for the question calibration cannot touch.
+#
+# Any correction that reads only the estimate is a monotone function of
+# it and so cannot reorder the paths -- which is exactly what the
+# estimator gets wrong.  Reordering needs to know something about the
+# individual path, and the obvious candidate is how far it physically
+# reaches: the error is wire-related, and a path whose endpoints sit far
+# apart has more room for the router to add detour than a local one.
+# Gated because it costs an ODB lookup per path and only the feature
+# study wants it.
+proc est_pin_xy { name } {
+    set blk [ord::get_db_block]
+    # Split on the last separator and go via the instance: findITerm on
+    # the block does not resolve the names OpenSTA reports for escaped
+    # Verilog identifiers like sum_stage1[2][78]$_DFF_PP0_/QN.
+    # ODB stores escaped Verilog identifiers -- sum_stage1\[0\]\[42\] --
+    # while OpenSTA reports them unescaped, so a direct lookup of the
+    # name STA gives back finds nothing at all.
+    set idx [string last "/" $name]
+    if {$idx > 0} {
+        set inst_name [string range $name 0 [expr {$idx - 1}]]
+        set term_name [string range $name [expr {$idx + 1}] end]
+        set inst [$blk findInst $inst_name]
+        if {$inst eq "NULL"} {
+            set inst [$blk findInst \
+                [string map [list "\[" "\\\[" "\]" "\\\]"] $inst_name]]
+        }
+        if {$inst ne "NULL"} {
+            set it [$inst findITerm $term_name]
+            if {$it ne "NULL"} {
+                set is_macro [[$inst getMaster] isBlock]
+                set net [$it getNet]
+                set fan [expr {$net eq "NULL" ? 0 : [$net getITermCount]}]
+                lassign [$it getAvgXY] ok x y
+                if {$ok} { return [list $x $y $is_macro $fan] }
+                lassign [$inst getOrigin] x y
+                return [list $x $y $is_macro $fan]
+            }
+        }
+    }
+    set bt [$blk findBTerm $name]
+    if {$bt ne "NULL"} {
+        set bb [$bt getBBox]
+        return [list [expr {([$bb xMin] + [$bb xMax]) / 2}] \
+                     [expr {([$bb yMin] + [$bb yMax]) / 2}] 0 0]
+    }
+    return {}
+}
+
+proc est_features { start end } {
+    set a [est_pin_xy $start]
+    set b [est_pin_xy $end]
+    if {[llength $a] == 0 || [llength $b] == 0} {
+        return "\"dist_um\": -1, \"macro_ends\": 0, \"fanout\": 0"
+    }
+    lassign $a ax ay amacro afan
+    lassign $b bx by bmacro bfan
+    set dbu [[[ord::get_db] getTech] getDbUnitsPerMicron]
+    set dist [expr {(abs($ax - $bx) + abs($ay - $by)) / double($dbu)}]
+    return "\"dist_um\": $dist, \"macro_ends\": [expr {$amacro + $bmacro}], \"fanout\": [expr {$afan + $bfan}]"
+}
+
 # Re-estimate against whichever source is current.  repair_design and
 # repair_timing open an incremental-parasitics guard that errors out
 # (EST-0104) if anything upstream -- CTS inserting buffers and dummy
@@ -278,7 +341,11 @@ foreach m $measured {
     lassign $m start end min_period
     if {$is_first == 0} { puts $out_fp "," }
     set is_first 0
-    puts -nonewline $out_fp "  {\"start\": \"$start\", \"end\": \"$end\", \"min_period\": $min_period}"
+    set extra ""
+    if {[est_flag DUMP_FEATURES 0] == 1} {
+        set extra ", [est_features $start $end]"
+    }
+    puts -nonewline $out_fp "  {\"start\": \"$start\", \"end\": \"$end\", \"min_period\": $min_period$extra}"
 }
 puts $out_fp ""
 puts $out_fp "\]"
