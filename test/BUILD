@@ -1298,6 +1298,68 @@ build_test(
     targets = [":lb_32x128_top_mock_hierarchy_merge_generate_abstract"],
 )
 
+# Fixture for the macro-GDS input-scoping tests: a macro carrying a
+# .gds, consumed by a full flow. Never built (manual) — the
+# analysistests below only inspect its action graph.
+write_file(
+    name = "gds_scope_dummy_gds",
+    out = "gds_scope_dummy.gds",
+    content = ["dummy"],
+)
+
+orfs_macro(
+    name = "gds_scope_macro",
+    gds = ":gds_scope_dummy_gds",
+    lef = ":lb_32x128_mock_abstract_generate_abstract",
+    lib = ":lb_32x128_mock_abstract_generate_abstract",
+    module_top = "lb_32x128",
+)
+
+# buildifier: disable=duplicated-name
+orfs_flow(
+    name = "lb_32x128_top",
+    arguments = SRAM_ARGUMENTS | {
+        "CORE_AREA": "2 2 23 23",
+        "CORE_MARGIN": "2",
+        "DIE_AREA": "0 0 25 25",
+        "GDS_ALLOW_EMPTY": "lb_32x128",
+        "MACRO_PLACE_HALO": "5 5",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+        "PLACE_DENSITY": "0.65",
+        "PWR_NETS_VOLTAGES": "",
+    },
+    macros = ["gds_scope_macro"],
+    sources = LB_SOURCES,
+    tags = ["manual"],
+    variant = "gds_scope",
+    verilog_files = ["rtl/lb_32x128_top.v"],
+)
+
+# A macro's .gds is read only by the GDS-emitting steps: synthesis and
+# the PnR stages before final must not carry it (a macro .gds change
+# with stable .lef/.lib used to re-run the parent's whole chain), while
+# the final stage's klayout wrap keeps it.
+synth_action_inputs_test(
+    name = "macro_gds_synth_excluded_test",
+    forbidden_input_basenames = ["gds_scope_dummy.gds"],
+    output_basename = "1_2_yosys.v",
+    target_under_test = ":lb_32x128_top_gds_scope_synth",
+)
+
+synth_action_inputs_test(
+    name = "macro_gds_floorplan_excluded_test",
+    forbidden_input_basenames = ["gds_scope_dummy.gds"],
+    output_basename = "2_floorplan.odb",
+    target_under_test = ":lb_32x128_top_gds_scope_floorplan",
+)
+
+synth_action_inputs_test(
+    name = "macro_gds_final_included_test",
+    output_basename = "6_final.odb",
+    required_input_basenames = ["gds_scope_dummy.gds"],
+    target_under_test = ":lb_32x128_top_gds_scope_final",
+)
+
 # Mock sweep test: tests orfs_sweep with macros + openroad override.
 # Uses mock-openroad for all stages. The sweep's "base" variant uses
 # lb_32x128_mock_abstract as a macro (hierarchical design).

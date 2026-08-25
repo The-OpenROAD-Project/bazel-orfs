@@ -1117,7 +1117,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 transitive = [
                     synth_data_inputs,
                     pdk_inputs(ctx),
-                    deps_inputs(ctx),
+                    deps_inputs(ctx, gds = False),
                 ],
             ),
             outputs = [checkpoint_output] + keep_logs,
@@ -1303,7 +1303,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
 
     # Full macro inputs — used by the top action, and as the fallback
     # for every partition when per-partition scoping is disabled.
-    all_macro_files = deps_inputs(ctx)
+    all_macro_files = deps_inputs(ctx, gds = False)
 
     # Per-macro lookup tables, keyed by Verilog module name
     # (TopInfo.module_top — what the RTLIL hierarchy contains). Used
@@ -1316,7 +1316,9 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         info = dep[OrfsInfo]
         if not info.lef:
             continue
-        files = [info.gds, info.lef, info.lib]
+
+        # No .gds: partition synthesis never reads it (see deps_inputs).
+        files = [info.lef, info.lib]
         if info.lib_pre_layout:
             files.append(info.lib_pre_layout)
         name = dep[TopInfo].module_top
@@ -1592,7 +1594,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             transitive = [
                 data_inputs(ctx),
                 pdk_inputs(ctx),
-                deps_inputs(ctx),
+                deps_inputs(ctx, gds = False),
             ],
         ),
         outputs = [synth_outputs["1_2_yosys.sdc"]],
@@ -1631,7 +1633,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 transitive = [
                     data_inputs(ctx),
                     pdk_inputs(ctx),
-                    deps_inputs(ctx),
+                    deps_inputs(ctx, gds = False),
                 ],
             ),
             outputs = [synth_outputs["1_synth.odb"], synth_outputs["1_synth.sdc"]] + synth_jsons,
@@ -1702,7 +1704,7 @@ def _yosys_impl(ctx):
     # then fails the ODB LEF-master lookup (ORD-2013). Blackboxing at read
     # keeps the bare name.
     canon_config = config
-    canon_deps = deps_inputs(ctx)
+    canon_deps = deps_inputs(ctx, gds = False)
     if ctx.attr.kept_macros_enabled and ctx.attr.canon_blackbox_macros:
         # The caller names exactly the macros to blackbox at canonicalize
         # (canon_blackbox_macros — e.g. the SHARED_LOGIC macros). They are
@@ -1768,8 +1770,9 @@ def _yosys_impl(ctx):
                 inputs = canon_jsons + [ctx.file._merge_arguments, filter_json] + ctx.files.extra_configs,
                 outputs = [canon_config],
             )
+
+            # No .gds: canonicalize reads liberty to blackbox, never GDS.
             canon_deps = depset(
-                [info.gds for info in soft_infos if info.gds] +
                 [info.lef for info in soft_infos if info.lef] +
                 [info.lib for info in soft_infos if info.lib] +
                 [
@@ -1952,7 +1955,7 @@ def _yosys_impl(ctx):
                 transitive = [
                     data_inputs(ctx),
                     pdk_inputs(ctx),
-                    deps_inputs(ctx),
+                    deps_inputs(ctx, gds = False),
                 ],
             ),
             outputs = synth_outputs.values() + synth_logs + synth_jsons + synth_reports,
@@ -2016,7 +2019,7 @@ def _yosys_impl(ctx):
                 transitive = [
                     synth_data_inputs,
                     pdk_inputs(ctx),
-                    deps_inputs(ctx),
+                    deps_inputs(ctx, gds = False),
                 ],
             ),
             outputs = [synth_outputs["1_2_yosys.v"], synth_outputs["mem.json"]] +
@@ -2043,7 +2046,7 @@ def _yosys_impl(ctx):
                     transitive = [
                         data_inputs(ctx),
                         pdk_inputs(ctx),
-                        deps_inputs(ctx),
+                        deps_inputs(ctx, gds = False),
                     ],
                 ),
                 outputs = [synth_outputs["1_synth.odb"], synth_outputs["1_synth.sdc"]] +
@@ -2075,7 +2078,7 @@ def _yosys_impl(ctx):
                 transitive = [
                     synth_data_inputs,
                     pdk_inputs(ctx),
-                    deps_inputs(ctx),
+                    deps_inputs(ctx, gds = False),
                 ],
             ),
             outputs = [variables],
@@ -2530,6 +2533,11 @@ def _make_impl(
         lib_selection = use_pre_layout
         if getattr(ctx.attr, "stages", None) and len(ctx.attr.stages) > 1:
             lib_selection = None
+
+        # Macro .gds is read only by the GDS-emitting make steps (the
+        # klayout wrap under do-gds / do-final); a squashed action ending
+        # at final carries stage == "6_final" and keeps it.
+        include_gds = stage in ("6_final", "6_gds")
         ctx.actions.run_shell(
             arguments = ["--file", ctx.file._makefile.path] + steps,
             command = " && ".join(commands),
@@ -2538,7 +2546,11 @@ def _make_impl(
                 [config] + ctx.files.extra_configs + all_jsons,
                 transitive = [
                     data_inputs(ctx),
-                    source_inputs(ctx, use_pre_layout = lib_selection),
+                    source_inputs(
+                        ctx,
+                        use_pre_layout = lib_selection,
+                        gds = include_gds,
+                    ),
                     rename_inputs(ctx),
                 ],
             ),
