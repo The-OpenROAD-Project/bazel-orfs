@@ -547,3 +547,38 @@ orfs_run_executable(
     script = "unit_probe.tcl",
     sources = {"UNIT_PROBE_TCL": ["unit_probe.tcl"]},
 )
+
+# One knob at a time, everything else fixed. The Optuna archive cannot
+# attribute an effect to a single knob -- the sampler concentrates near
+# the front and confounds everything with everything -- so the knobs a
+# person would actually reach for get measured directly.
+py_binary(
+    name = "knob_sweep",
+    srcs = ["knob_sweep.py"],
+    args = [
+        "$(location :fast_estimator_executable)",
+        "$(location ground_truth.json)",
+        "multiplier",
+    ],
+    data = [
+        "ground_truth.json",
+        ":fast_estimator_executable",
+    ],
+    deps = [":optuna_study_lib"],
+)
+
+py_binary(
+    name = "knob_sweep_top",
+    srcs = ["knob_sweep.py"],
+    args = [
+        "$(location :fast_estimator_top_executable)",
+        "$(location ground_truth_top.json)",
+        "multiplier_top",
+    ],
+    data = [
+        "ground_truth_top.json",
+        ":fast_estimator_top_executable",
+    ],
+    main = "knob_sweep.py",
+    deps = [":optuna_study_lib"],
+)
