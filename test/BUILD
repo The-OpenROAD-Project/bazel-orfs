@@ -700,6 +700,17 @@ synth_action_inputs_test(
     target_under_test = ":kept_modules_synth",
 )
 
+# The raw SDC is a synth-only concern: downstream stages consume the
+# canonicalized 1_synth.sdc (write_sdc output) and must never see the
+# raw SDC_FILE — otherwise every raw-SDC edit re-runs floorplan+.
+synth_action_inputs_test(
+    name = "sdc_isolated_to_synth_test",
+    forbidden_input_basenames = ["constraints-combinational.sdc"],
+    output_basename = "2_floorplan.odb",
+    required_input_basenames = ["1_synth.sdc"],
+    target_under_test = ":src_propagation_floorplan",
+)
+
 REGFILE_ARGUMENTS = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
     "CORE_AREA": "1.026 1.080 4.914 4.860",
     "DIE_AREA": "0 0 5.940 5.940",

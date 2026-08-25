@@ -563,6 +563,20 @@ def _orfs_pass(
     if abstract_stage or not last_stage:
         steps.append(ABSTRACT_IMPL)
 
+    # Post-synth stages consume the previous stage's written .odb/.sdc
+    # (for floorplan, the canonicalized 1_synth.odb/.sdc) — never the raw
+    # SDC_FILE. save_odb = False generates neither, so a flow that
+    # continues past synth would fail obscurely at floorplan; fail loudly
+    # here instead.
+    if not save_odb and len(steps) > 1:
+        fail(
+            "save_odb = False generates no 1_synth.odb/.sdc, but this " +
+            "flow has post-synth stages ({stages}) that consume them. " +
+            "Set last_stage = 'synth' or drop save_odb = False.".format(
+                stages = ", ".join([s.stage for s in steps[1:]]),
+            ),
+        )
+
     # Prune stages unused due to previous_stage
     if len(previous_stage) > 1:
         fail("Maximum previous stages is 1")
