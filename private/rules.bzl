@@ -2538,6 +2538,14 @@ def _make_impl(
         # klayout wrap under do-gds / do-final); a squashed action ending
         # at final carries stage == "6_final" and keeps it.
         include_gds = stage in ("6_final", "6_gds")
+
+        # The src chain's metrics .json / report files are read only by
+        # genMetrics.py — the metadata stages declare them; the PnR make
+        # steps never open an upstream stage's .json or .rpt, and while
+        # the jsons are supposed to be byte-stable, OpenROAD is not
+        # trusted on that: consumers state the dependency, nobody gets
+        # fed it for convenience.
+        include_logging = stage in ("generate_metadata", "update_rules")
         ctx.actions.run_shell(
             arguments = ["--file", ctx.file._makefile.path] + steps,
             command = " && ".join(commands),
@@ -2550,6 +2558,7 @@ def _make_impl(
                         ctx,
                         use_pre_layout = lib_selection,
                         gds = include_gds,
+                        logging = include_logging,
                     ),
                     rename_inputs(ctx),
                 ],
