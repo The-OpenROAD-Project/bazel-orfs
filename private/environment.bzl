@@ -237,7 +237,7 @@ def data_inputs_excluding(ctx, exclude_path):
         if f.path != exclude_path
     ])
 
-def source_inputs(ctx, use_pre_layout = None, gds = True):
+def source_inputs(ctx, use_pre_layout = None, gds = True, logging = True):
     """Inputs a stage action takes from its ``src`` stage.
 
     Args:
@@ -253,6 +253,14 @@ def source_inputs(ctx, use_pre_layout = None, gds = True):
             squashed multi-stage actions that span both timing domains.
         gds: whether the macro .gds files are staged. Only the
             GDS-emitting make steps read them (do-gds, do-final).
+        logging: whether the src chain's accumulated metrics .json and
+            report files are staged. Only genMetrics.py reads them
+            (generate_metadata / update_rules); nothing in the PnR make
+            steps opens an upstream stage's .json or .rpt. They are
+            SUPPOSED to be byte-stable, but OpenROAD is not trusted on
+            that — consumers declare the dependency instead of being fed
+            it for convenience. Default True for orfs_run/orfs_test/
+            orfs_arguments, whose user scripts may read them.
     Returns:
         A depset of files.
     """
@@ -270,6 +278,10 @@ def source_inputs(ctx, use_pre_layout = None, gds = True):
     # scripts may read them.
     if gds:
         lib_depsets.append(ctx.attr.src[OrfsInfo].additional_gds)
+    if logging:
+        # Accumulate all JSON metrics and reports from the src chain.
+        lib_depsets.append(ctx.attr.src[LoggingInfo].jsons)
+        lib_depsets.append(ctx.attr.src[LoggingInfo].reports)
     return depset(
         ctx.files.src,
         transitive = [
@@ -289,11 +301,9 @@ def source_inputs(ctx, use_pre_layout = None, gds = True):
             ctx.attr.src[OrfsInfo].additional_lefs,
             ctx.attr.src[PdkInfo].files,
             ctx.attr.src[PdkInfo].libs,
-            # Accumulate all JSON reports, so depend on previous stage.
-            ctx.attr.src[LoggingInfo].jsons,
-            ctx.attr.src[LoggingInfo].reports,
-            # non-idempotent by design transitive dependencies
-            # ctx.attr.src[LoggingInfo].logs,
+            # LoggingInfo.jsons/.reports are gated by `logging` above;
+            # LoggingInfo.logs never: non-idempotent by design (wall-clock
+            # lines on every run) and a sandbox-collision hazard.
         ] + lib_depsets,
     )
 

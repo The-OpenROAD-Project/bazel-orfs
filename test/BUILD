@@ -1360,6 +1360,37 @@ synth_action_inputs_test(
     target_under_test = ":lb_32x128_top_gds_scope_final",
 )
 
+# Upstream metrics .json / report files feed only genMetrics.py: the
+# PnR stage actions never open them, so they are declared by the
+# metadata stages and dropped everywhere else (the jsons are supposed
+# to be byte-stable, but OpenROAD is not trusted on that — consumers
+# state the dependency, nobody is fed it for convenience).
+synth_action_inputs_test(
+    name = "metrics_jsons_not_in_cts_test",
+    # 2_1_floorplan.json rides only LoggingInfo and is gone. The
+    # previous stage's own reports (2_floorplan_final.rpt) still arrive
+    # through its DefaultInfo.files (ctx.files.src) — that over-feed is
+    # the OrfsDepInfo/ctx.files.src narrowing, a separate concern.
+    forbidden_input_basenames = [
+        "1_synth.json",
+        "2_1_floorplan.json",
+    ],
+    output_basename = "4_cts.odb",
+    target_under_test = ":lb_32x128_cts",
+)
+
+# Pins the intended consumer so an input-hygiene refactor can't
+# silently starve genMetrics.py (it reads stage logs AND jsons).
+synth_action_inputs_test(
+    name = "metrics_jsons_reach_metadata_test",
+    output_basename = "metadata.json",
+    required_input_basenames = [
+        "1_synth.log",
+        "2_1_floorplan.json",
+    ],
+    target_under_test = ":lb_32x128_top_gds_scope_generate_metadata",
+)
+
 # Mock sweep test: tests orfs_sweep with macros + openroad override.
 # Uses mock-openroad for all stages. The sweep's "base" variant uses
 # lb_32x128_mock_abstract as a macro (hierarchical design).
