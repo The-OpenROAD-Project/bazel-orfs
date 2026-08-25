@@ -662,9 +662,19 @@ def cmd_global_route(interp, args):
     return ""
 
 
+def cmd_grt_have_routes(interp, args):
+    """grt::have_routes — returns 1 (pretend global routing succeeded)."""
+    return "1"
+
+
 def cmd_detailed_route(interp, args):
     print("lint: detailed_route (skipped)", file=sys.stderr)
     return ""
+
+
+def cmd_design_is_routed(interp, args):
+    """design_is_routed — returns 1 (pretend detailed routing succeeded)."""
+    return "1"
 
 
 def cmd_estimate_parasitics(interp, args):
@@ -672,6 +682,10 @@ def cmd_estimate_parasitics(interp, args):
 
 
 # --- Repair / Optimization ---
+
+
+def cmd_repair_antennas(interp, args):
+    return "0"
 
 
 def cmd_repair_timing(interp, args):
@@ -880,7 +894,21 @@ def cmd_get_pins(interp, args):
 
 
 def cmd_get_clocks(interp, args):
+    if _state.clocks:
+        return " ".join(sorted(_state.clocks.keys()))
     return ""
+
+
+def cmd_all_clocks(interp, args):
+    return cmd_get_clocks(interp, args)
+
+
+def cmd_current_design(interp, args):
+    return _state.design_name
+
+
+def cmd_all_pins_placed(interp, args):
+    return "0"
 
 
 def cmd_all_registers(interp, args):
@@ -1279,11 +1307,11 @@ def cmd_filler_placement(interp, args):
 
 
 def cmd_check_placement(interp, args):
-    return ""
+    return "0"
 
 
 def cmd_check_antennas(interp, args):
-    return ""
+    return "0"
 
 
 def cmd_density_fill(interp, args):
@@ -1296,7 +1324,19 @@ def cmd_write_def(interp, args):
     return ""
 
 
-# --- utl namespace ---
+# --- utl / gpl / gui / sta helpers ---
+
+
+def cmd_gpl_get_global_placement_uniform_density(interp, args):
+    return "0.5"
+
+
+def cmd_ord_openroad_gui_compiled(interp, args):
+    return "0"
+
+
+def cmd_gui_enabled(interp, args):
+    return "0"
 
 
 def cmd_utl_set_metrics_stage(interp, args):
@@ -1321,6 +1361,46 @@ def cmd_utl_report(interp, args):
     return ""
 
 
+def cmd_utl_metric_int(interp, args):
+    return ""
+
+
+def cmd_utl_metric_float(interp, args):
+    return ""
+
+
+def cmd_utl_push_metrics_stage(interp, args):
+    return ""
+
+
+def cmd_utl_pop_metrics_stage(interp, args):
+    return ""
+
+
+def cmd_sta_limit(interp, args):
+    return "1e30"
+
+
+def cmd_sta_slack(interp, args):
+    return "0.0"
+
+
+def cmd_sta_count(interp, args):
+    return "0"
+
+
+def cmd_sta_format_time(interp, args):
+    return args[0] if args else "0.0"
+
+
+def cmd_sta_leaf_instance_count(interp, args):
+    return str(_state.cell_count)
+
+
+def cmd_sta_leaf_pin_count(interp, args):
+    return str(_state.cell_count * 4)
+
+
 def register_all(interp):
     """Register all lint OpenROAD commands on a TclInterpreter."""
     commands = {
@@ -1340,6 +1420,7 @@ def register_all(interp):
         "write_verilog": cmd_write_verilog,
         "write_spef": cmd_write_spef,
         # Design
+        "current_design": cmd_current_design,
         "link_design": cmd_link_design,
         "initialize_floorplan": cmd_initialize_floorplan,
         "make_tracks": cmd_make_tracks,
@@ -1347,6 +1428,7 @@ def register_all(interp):
         "add_global_connection": cmd_add_global_connection,
         "set_global_routing_layer_adjustment": cmd_set_global_routing_layer_adjustment,
         # Placement
+        "all_pins_placed": cmd_all_pins_placed,
         "global_placement": cmd_global_placement,
         "detailed_placement": cmd_detailed_placement,
         "improve_placement": cmd_improve_placement,
@@ -1357,8 +1439,10 @@ def register_all(interp):
         # Routing
         "global_route": cmd_global_route,
         "detailed_route": cmd_detailed_route,
+        "design_is_routed": cmd_design_is_routed,
         "estimate_parasitics": cmd_estimate_parasitics,
         # Repair
+        "repair_antennas": cmd_repair_antennas,
         "repair_timing": cmd_repair_timing,
         "repair_design": cmd_repair_design,
         "repair_tie_fanout": cmd_repair_tie_fanout,
@@ -1383,6 +1467,7 @@ def register_all(interp):
         "get_nets": cmd_get_nets,
         "get_pins": cmd_get_pins,
         "get_clocks": cmd_get_clocks,
+        "all_clocks": cmd_all_clocks,
         "all_registers": cmd_all_registers,
         "all_inputs": cmd_all_inputs,
         "all_outputs": cmd_all_outputs,
@@ -1436,5 +1521,45 @@ def register_all(interp):
     interp.register_command("utl::warn", cmd_utl_warn)
     interp.register_command("utl::error", cmd_utl_error)
     interp.register_command("utl::report", cmd_utl_report)
+    interp.register_command("utl::metric_int", cmd_utl_metric_int)
+    interp.register_command("utl::metric_float", cmd_utl_metric_float)
+    interp.register_command("utl::push_metrics_stage", cmd_utl_push_metrics_stage)
+    interp.register_command("utl::pop_metrics_stage", cmd_utl_pop_metrics_stage)
+
+    # Register grt:: namespace commands
+    interp.register_command("grt::have_routes", cmd_grt_have_routes)
+
+    # Register gpl:: namespace commands
+    interp.register_command(
+        "gpl::get_global_placement_uniform_density",
+        cmd_gpl_get_global_placement_uniform_density,
+    )
+
+    # Register ord:: and gui:: namespace commands
     interp.register_command("ord::get_db", cmd_get_db)
     interp.register_command("ord::get_db_block", cmd_get_db_block)
+    interp.register_command("ord::openroad_gui_compiled", cmd_ord_openroad_gui_compiled)
+    interp.register_command("gui::enabled", cmd_gui_enabled)
+
+    # Register sta:: namespace commands
+    interp.register_command("sta::max_slew_check_limit", cmd_sta_limit)
+    interp.register_command("sta::max_fanout_check_limit", cmd_sta_limit)
+    interp.register_command("sta::max_capacitance_check_limit", cmd_sta_limit)
+    interp.register_command("sta::max_slew_check_slack_limit", cmd_sta_limit)
+    interp.register_command("sta::max_fanout_check_slack_limit", cmd_sta_limit)
+    interp.register_command("sta::max_capacitance_check_slack_limit", cmd_sta_limit)
+    interp.register_command("sta::max_slew_check_slack", cmd_sta_slack)
+    interp.register_command("sta::max_fanout_check_slack", cmd_sta_slack)
+    interp.register_command("sta::max_capacitance_check_slack", cmd_sta_slack)
+    interp.register_command("sta::max_slew_violation_count", cmd_sta_count)
+    interp.register_command("sta::max_fanout_violation_count", cmd_sta_count)
+    interp.register_command("sta::max_capacitance_violation_count", cmd_sta_count)
+    interp.register_command("sta::endpoint_count", cmd_sta_count)
+    interp.register_command("sta::endpoint_violation_count", cmd_sta_count)
+    interp.register_command("sta::worst_slack_cmd", cmd_sta_slack)
+    interp.register_command("sta::time_sta_ui", cmd_sta_count)
+    interp.register_command("sta::format_time", cmd_sta_format_time)
+    interp.register_command(
+        "sta::network_leaf_instance_count", cmd_sta_leaf_instance_count
+    )
+    interp.register_command("sta::network_leaf_pin_count", cmd_sta_leaf_pin_count)

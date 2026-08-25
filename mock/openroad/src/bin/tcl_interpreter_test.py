@@ -225,6 +225,82 @@ class TestExpr:
         result = interp.eval("expr $x * 2")
         assert result == "20"
 
+    def test_ternary(self, interp):
+        assert interp.eval('expr { 1 ? "a" : "b" }') == "a"
+        assert interp.eval('expr { 0 ? "a" : "b" }') == "b"
+        assert interp.eval("expr { 2 > 1 ? 10 : 20 }") == "10"
+
+    def test_ternary_bare_word_branches(self, interp):
+        # The generate_abstract.tcl shape: branches are bare words
+        # ("4_cts"), spread over multiple lines, condition from a
+        # command substitution. Must yield the branch VALUE, never the
+        # unevaluated expression text.
+        interp.eval("set stage 4_cts")
+        result = interp.eval('expr {\n  1 ?\n  $stage :\n  "6_final"\n}')
+        assert result == "4_cts"
+
+    def test_ternary_nested(self, interp):
+        assert interp.eval('expr { 1 ? 0 ? "x" : "y" : "z" }') == "y"
+        assert interp.eval('expr { 0 ? "x" : 1 ? "y" : "z" }') == "y"
+
+    def test_ternary_condition_variable(self, interp):
+        interp.eval("set flag 0")
+        assert interp.eval('expr { $flag ? "on" : "off" }') == "off"
+
+    def test_empty_command_result_comparison(self, interp):
+        # [unknown_cmd] substitutes to "" and would leave a dangling
+        # operand; TCL compares the empty string.
+        assert interp.eval('expr { [unknown_command_xyz] != "" }') == "0"
+        assert interp.eval('expr { [unknown_command_xyz] == "" }') == "1"
+
+    def test_unquoted_bare_word_comparisons(self, interp):
+        interp.eval("set platform asap7")
+        assert interp.eval('expr { $platform == "" }') == "0"
+        assert interp.eval('expr { $platform != "" }') == "1"
+        assert interp.eval('expr { $platform == "asap7" }') == "1"
+        assert interp.eval("expr { $platform == asap7 }") == "1"
+        assert interp.eval('expr { !1 || $platform == "" }') == "0"
+
+    def test_stage_name_comparisons(self, interp):
+        interp.eval("set stage 4_cts")
+        assert interp.eval('expr { $stage == "4_cts" }') == "1"
+        assert interp.eval('expr { $stage != "6_final" }') == "1"
+        assert interp.eval("expr { $stage == 4_cts }") == "1"
+        interp.eval("set file 1_2_yosys.v")
+        assert interp.eval('expr { $file == "1_2_yosys.v" }') == "1"
+        assert interp.eval('expr { $file == "" }') == "0"
+
+
+class TestLassign:
+    def test_lassign_basic(self, interp):
+        interp.eval("lassign {10 20} x y")
+        assert interp.eval("set x") == "10"
+        assert interp.eval("set y") == "20"
+
+    def test_lassign_missing_values_empty(self, interp):
+        interp.eval("lassign {only} a b")
+        assert interp.eval("set a") == "only"
+        assert interp.eval("set b") == ""
+
+    def test_lassign_returns_leftovers(self, interp):
+        assert interp.eval("lassign {1 2 3 4} a b") == "3 4"
+
+
+class TestExit:
+    def test_exit_raises_system_exit(self, interp):
+        import pytest
+
+        with pytest.raises(SystemExit) as excinfo:
+            interp.eval("exit 3")
+        assert excinfo.value.code == 3
+
+    def test_exit_default_code_zero(self, interp):
+        import pytest
+
+        with pytest.raises(SystemExit) as excinfo:
+            interp.eval("exit")
+        assert (excinfo.value.code or 0) == 0
+
 
 # --- List operations ---
 
@@ -592,6 +668,28 @@ class TestFRC:
         interp.eval("file exists /nonexistent/foo.txt")
         captured = capsys.readouterr()
         assert "FRC" not in captured.err
+
+
+class TestExec:
+    def test_exec_echo(self, interp):
+        res = interp.eval('exec echo "hello world"')
+        assert "hello world" in res
+
+    def test_exec_cp(self, interp, tmp_path):
+        src = tmp_path / "src.txt"
+        dst = tmp_path / "dst.txt"
+        src.write_text("content")
+        interp.eval(f"exec cp {src} {dst}")
+        assert dst.read_text() == "content"
+
+
+class TestEnvArray:
+    def test_env_read_and_exists(self, interp, monkeypatch):
+        monkeypatch.setenv("TEST_VAR_123", "abc")
+        assert interp.eval("info exists env(TEST_VAR_123)") == "1"
+        assert interp.eval("info exists ::env(TEST_VAR_123)") == "1"
+        assert interp.eval("set x $env(TEST_VAR_123)") == "abc"
+        assert interp.eval("set y $::env(TEST_VAR_123)") == "abc"
 
 
 if __name__ == "__main__":

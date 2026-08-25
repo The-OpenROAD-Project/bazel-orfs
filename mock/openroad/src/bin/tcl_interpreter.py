@@ -71,12 +71,16 @@ class TclInterpreter:
 
     def set_array(self, array_name, key, value):
         """Set an array element."""
+        if array_name in ("env", "::env"):
+            os.environ[key] = str(value)
         if array_name not in self.arrays:
             self.arrays[array_name] = {}
         self.arrays[array_name][key] = str(value)
 
     def get_array(self, array_name, key):
         """Get an array element."""
+        if array_name in ("env", "::env"):
+            return os.environ.get(key, "")
         if array_name in self.arrays and key in self.arrays[array_name]:
             return self.arrays[array_name][key]
         raise TclError(f'can\'t read "{array_name}({key})": no such element in array')
@@ -529,6 +533,8 @@ class TclInterpreter:
         self.commands["source"] = self._cmd_source
         self.commands["catch"] = self._cmd_catch
         self.commands["error"] = self._cmd_error
+        self.commands["exit"] = self._cmd_exit
+        self.commands["lassign"] = self._cmd_lassign
         self.commands["list"] = self._cmd_list
         self.commands["lappend"] = self._cmd_lappend
         self.commands["lindex"] = self._cmd_lindex
@@ -562,6 +568,7 @@ class TclInterpreter:
         self.commands["switch"] = self._cmd_switch
         self.commands["rename"] = self._cmd_rename
         self.commands["eval"] = self._cmd_eval
+        self.commands["exec"] = self._cmd_exec
         self.commands["namespace"] = self._cmd_namespace
         self.commands["package"] = self._cmd_package
         self.commands["variable"] = self._cmd_variable
@@ -765,6 +772,29 @@ class TclInterpreter:
         if len(args) < 1:
             raise TclError('wrong # args: should be "error message"')
         raise TclError(args[0])
+
+    def _cmd_lassign(self, interp, args):
+        if len(args) < 1:
+            raise TclError('wrong # args: should be "lassign list ?varName ...?"')
+        values = self._parse_list(args[0])
+        names = args[1:]
+        for i, name in enumerate(names):
+            self.variables[name] = values[i] if i < len(values) else ""
+        return " ".join(values[len(names) :])
+
+    def _cmd_exit(self, interp, args):
+        # Terminate like real TCL: a script's `exit 1` must fail the
+        # process, not be swallowed as an unknown command (that swallow
+        # once let execution run past a fatal ORFS error and fabricate
+        # outputs). SystemExit deliberately bypasses `except Exception`
+        # handlers between here and main().
+        code = 0
+        if args:
+            try:
+                code = int(args[0])
+            except ValueError:
+                raise TclError(f'expected integer but got "{args[0]}"')
+        raise SystemExit(code)
 
     # --- List commands ---
 
@@ -1124,17 +1154,15 @@ class TclInterpreter:
         elif subcmd == "delete":
             force = "-force" in sargs
             for f in sargs:
-                if f == "-force":
+                if f in ("-force", "--"):
                     continue
                 try:
                     if os.path.isdir(f):
                         import shutil
 
                         shutil.rmtree(f)
-                    elif os.path.exists(f):
+                    elif os.path.exists(f) or os.path.islink(f):
                         os.remove(f)
-                    elif not force:
-                        raise TclError(f'could not delete "{f}": no such file')
                 except OSError as e:
                     if not force:
                         raise TclError(str(e))
@@ -1231,7 +1259,19 @@ class TclInterpreter:
             return ""
         subcmd = args[0]
         if subcmd == "exists":
-            return "1" if args[1] in self.variables else "0"
+            varname = args[1] if len(args) > 1 else ""
+            if varname.startswith("::env(") or varname.startswith("env("):
+                key = varname[varname.index("(") + 1 : -1] if ")" in varname else ""
+                return "1" if key in os.environ else "0"
+            if "(" in varname and varname.endswith(")"):
+                arr = varname[: varname.index("(")].lstrip(":")
+                key = varname[varname.index("(") + 1 : -1]
+                return "1" if arr in self.arrays and key in self.arrays[arr] else "0"
+            return (
+                "1"
+                if varname in self.variables or varname.lstrip(":") in self.variables
+                else "0"
+            )
         elif subcmd == "procs":
             pattern = args[1] if len(args) > 1 else "*"
             return self._to_list(list(self.procs.keys()))
@@ -1407,6 +1447,24 @@ class TclInterpreter:
 
     def _cmd_eval(self, interp, args):
         return self._eval_script(" ".join(args))
+
+    def _cmd_exec(self, interp, args):
+        import subprocess
+
+        if not args:
+            return ""
+        cmd_args = [a for a in args if a != "--"]
+        if not cmd_args:
+            return ""
+        try:
+            res = subprocess.run(cmd_args, check=True, text=True, capture_output=True)
+            return res.stdout
+        except subprocess.CalledProcessError as e:
+            raise TclError(f"exec failed: {e}")
+        except FileNotFoundError as e:
+            raise TclError(
+                f'couldn\'t execute "{cmd_args[0]}": no such file or directory'
+            )
 
     def _cmd_namespace(self, interp, args):
         if not args:
@@ -1587,8 +1645,134 @@ class TclInterpreter:
     def _eval_expr(self, expr_str):
         """Evaluate a TCL expression. Returns result as appropriate Python type."""
         # First, substitute variables and commands
-        substituted = self._substitute(expr_str)
+        return self._eval_substituted_expr(self._substitute(expr_str))
 
+    @staticmethod
+    def _quote_bare_words(s):
+        """Quote unquoted string literals in TCL expressions so Python eval handles them."""
+        known_funcs = {
+            "int",
+            "float",
+            "round",
+            "abs",
+            "sqrt",
+            "pow",
+            "log",
+            "log10",
+            "ceil",
+            "floor",
+            "sin",
+            "cos",
+            "tan",
+            "max",
+            "min",
+            "double",
+            "wide",
+        }
+        keywords = {
+            "and",
+            "or",
+            "not",
+            "in",
+            "is",
+            "True",
+            "False",
+            "true",
+            "false",
+            "yes",
+            "no",
+            "on",
+            "off",
+        }
+
+        def is_number(token):
+            try:
+                float(token)
+                return True
+            except ValueError:
+                return False
+
+        pattern = re.compile(
+            r"\"(?:\\.|[^\"])*\"|\'[^\']*\'|[a-zA-Z0-9_./\-]+|==|!=|<=|>=|&&|\|\||//|\*\*|[^\s]"
+        )
+        pos = 0
+        res = []
+        for m in pattern.finditer(s):
+            res.append(s[pos : m.start()])
+            tok = m.group(0)
+            pos = m.end()
+            if (tok.startswith('"') and tok.endswith('"')) or (
+                tok.startswith("'") and tok.endswith("'")
+            ):
+                res.append(tok)
+            elif is_number(tok):
+                res.append(tok)
+            elif tok in keywords or tok in known_funcs:
+                res.append(tok)
+            elif re.match(r"^[a-zA-Z0-9_./\-]+$", tok) and tok not in (
+                "+",
+                "-",
+                "*",
+                "/",
+                "%",
+            ):
+                rest_of_s = s[pos:].lstrip()
+                if rest_of_s.startswith("("):
+                    res.append(tok)
+                else:
+                    res.append(f'"{tok}"')
+            else:
+                res.append(tok)
+        res.append(s[pos:])
+        return "".join(res)
+
+    @staticmethod
+    def _split_ternary(s):
+        """Split a top-level TCL ternary ``cond ? then : else``.
+
+        Returns (cond, then, else) or None when s has no top-level ``?``.
+        Skips over quoted strings and any parenthesis/bracket/brace
+        nesting; a nested ternary in the then-branch keeps its own ``:``.
+        """
+
+        def scan(start, stop_chars, pending_ternaries):
+            depth = 0
+            in_quote = False
+            i = start
+            while i < len(s):
+                c = s[i]
+                if in_quote:
+                    if c == "\\":
+                        i += 2
+                        continue
+                    if c == '"':
+                        in_quote = False
+                elif c == '"':
+                    in_quote = True
+                elif c in "([{":
+                    depth += 1
+                elif c in ")]}":
+                    depth -= 1
+                elif depth == 0 and c in stop_chars:
+                    if c == ":" and pending_ternaries[0] > 0:
+                        pending_ternaries[0] -= 1
+                    elif c == "?" and ":" in stop_chars:
+                        pending_ternaries[0] += 1
+                    else:
+                        return i
+                i += 1
+            return -1
+
+        q = scan(0, "?", [0])
+        if q < 0:
+            return None
+        colon = scan(q + 1, "?:", [0])
+        if colon < 0:
+            return None
+        return (s[:q], s[q + 1 : colon], s[colon + 1 :])
+
+    def _eval_substituted_expr(self, substituted):
+        """Evaluate an already-substituted TCL expression string."""
         # Handle TCL boolean literals
         s = substituted.strip()
         if s.lower() in ("true", "yes", "on"):
@@ -1596,9 +1780,38 @@ class TclInterpreter:
         if s.lower() in ("false", "no", "off"):
             return 0
 
-        # Replace TCL operators with Python equivalents
+        # TCL ternary: expr { cond ? a : b }. Python has no ?: and the
+        # branches may be bare words (e.g. "4_cts"), so evaluate the
+        # condition and recurse into only the chosen branch.
+        ternary = self._split_ternary(s)
+        if ternary is not None:
+            cond, then_branch, else_branch = ternary
+            chosen = (
+                then_branch
+                if self._truthy(self._eval_substituted_expr(cond))
+                else else_branch
+            ).strip()
+            if len(chosen) >= 2 and chosen[0] == chosen[-1] == '"':
+                return chosen[1:-1]
+            if len(chosen) >= 2 and chosen[0] == "{" and chosen[-1] == "}":
+                return chosen[1:-1]
+            return self._eval_substituted_expr(chosen)
+
+        # A command substitution that produced "" leaves a dangling
+        # comparison operand ('[find_macros] != ""' arrives as ' != ""');
+        # TCL would compare the empty string, so restore it.
+        if re.match(r"^\s*(?:==|!=|<=|>=|<|>|eq\b|ne\b)", s):
+            s = '""' + s
+        if re.search(r"(?:==|!=|<=|>=|<|>|\beq|\bne)\s*$", s):
+            s = s + '""'
+
+        # Quote bare string words before operator substitution so that
+        # unquoted strings (e.g. $PLATFORM expanding to asap7) compare correctly.
         s = re.sub(r"\beq\b", "==", s)
         s = re.sub(r"\bne\b", "!=", s)
+        s = self._quote_bare_words(s)
+
+        # Replace TCL operators with Python equivalents
         s = s.replace("&&", " and ")
         s = s.replace("||", " or ")
         s = s.replace("!", " not ")
@@ -1606,9 +1819,6 @@ class TclInterpreter:
         s = s.replace(" not =", "!=")
         # TCL integer division: use //
         s = re.sub(r"(?<!\/)\/(?!\/)", "//", s)
-
-        # Handle TCL ternary: expr { cond ? a : b }
-        # Python eval handles this natively
 
         # Handle double(x), int(x), etc.
         s = re.sub(r"\bdouble\s*\(", "float(", s)
@@ -1643,6 +1853,12 @@ class TclInterpreter:
                     "min": min,
                     "True": 1,
                     "False": 0,
+                    "true": 1,
+                    "false": 0,
+                    "yes": 1,
+                    "no": 0,
+                    "on": 1,
+                    "off": 0,
                 },
             )
             if isinstance(result, bool):
@@ -1656,12 +1872,23 @@ class TclInterpreter:
                 return int(result)
             return result
         except Exception:
-            # If eval fails, return as string
+            # If eval fails, return as string. That is how bare words pass
+            # through ("expr {abc}" -> "abc"), but a string that still
+            # carries operators is a real expression this interpreter
+            # failed to evaluate — say so instead of silently returning
+            # source text as a value (that is how the unevaluated ternary
+            # ended up spliced into a results filename once).
+            if any(op in s for op in ("?", "&&", "||", "<", ">", "==", "!=", "\n")):
+                print(
+                    f"mock-openroad: warning: expr not evaluated, "
+                    f"returning as string: {s!r}",
+                    file=sys.stderr,
+                )
             return s
 
-    def _expr_bool(self, expr_str):
-        """Evaluate an expression and return as boolean."""
-        result = self._eval_expr(expr_str)
+    @staticmethod
+    def _truthy(result):
+        """TCL truthiness of an already-evaluated expression result."""
         if isinstance(result, str):
             s = result.strip().lower()
             if s in ("0", "false", "no", "off", ""):
@@ -1676,3 +1903,7 @@ class TclInterpreter:
                 except ValueError:
                     return bool(s)
         return bool(result)
+
+    def _expr_bool(self, expr_str):
+        """Evaluate an expression and return as boolean."""
+        return self._truthy(self._eval_expr(expr_str))
