@@ -8,8 +8,8 @@ reading the timing off the result. Everything here is measured against
 that, because that is the thing you would otherwise have to do.
 
 - **multiplier (simple)**: the flow takes **41s**. The estimator gets within **1.9%** of it in **5.38s**, of which 2.37s is loading the design and running the timing query -- overhead any rung pays.
-- **multiplier_top (macro array)**: the flow takes **668s**. The estimator gets within **6.0%** of it in **51s**, of which 4.3s is loading the design and running the timing query -- overhead any rung pays.
-- **multiplier_top, macro paths only**: the flow takes **668s**. The estimator gets within **9.0%** of it in **20s**, of which 3.71s is loading the design and running the timing query -- overhead any rung pays.
+- **multiplier_top (macro array)**: the flow takes **668s**. The estimator gets within **6.9%** of it in **66.1s**, of which 9.02s is loading the design and running the timing query -- overhead any rung pays.
+- **multiplier_top, macro paths only**: the flow takes **668s**. The estimator gets within **6.1%** of it in **34s**, of which 3.95s is loading the design and running the timing query -- overhead any rung pays.
 
 The synthesis-only rung is in the tables below as an accuracy
 floor -- what you get for reading the netlist and asking OpenSTA --
@@ -138,36 +138,40 @@ Rung A explored 238 configurations.
 
 ## multiplier_top (macro array)
 
-Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **668s**. The cheapest rung on the front is 183x faster than that at 32.1% error, and the most accurate is 13x faster at 6.0%.
+Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **668s**. The cheapest rung on the front is 169x faster than that at 32.1% error, and the most accurate is 10x faster at 6.9%.
 
 Sampled 177 near-critical reg2reg paths. Recall@10 by chance is 0.06: a rung scoring at or below that has no skill at picking the critical paths.
 
 Rung A explored 231 configurations.
 
-4 front points across 3.65s to 51s. The widest gap (0.763) spans 3.65s to 27.3s and is structural rather than unexplored: it separates the configurations that skip placement from those that run it. Of 8 placed configurations timed here the fastest took 27.3s, so there is no cheap-but-placed estimate to be found in between -- the choice is binary.
+6 front points across 3.96s to 66.1s. The widest gap (0.718) spans 3.96s to 29.8s and is structural rather than unexplored: it separates the configurations that skip placement from those that run it. Of 7 placed configurations timed here the fastest took 29.8s, so there is no cheap-but-placed estimate to be found in between -- the choice is binary.
 
-|   # | rungs                                       |   runtime_s |   mean_rel_err |   kendall_tau |     bias |   spread |   worst_recall |   mean_rel_err_nonmacro |   kendall_tau_nonmacro |   mean_rel_err_macro |   kendall_tau_macro |
-|----:|:--------------------------------------------|------------:|---------------:|--------------:|---------:|---------:|---------------:|------------------------:|-----------------------:|---------------------:|--------------------:|
-|   1 | synth only                                  |       3.653 |        0.321   |        0.7604 | -0.321   |  0.08412 |            0.1 |                 0.2729  |                 0.7073 |              0.3821  |             0.2735  |
-|   2 | place, NO macro place, place_ios, vCTS, CTS |      27.29  |        0.2097  |        0.6758 |  0.1091  |  0.204   |            0.3 |                 0.2496  |                 0.6512 |              0.1591  |            -0.03563 |
-|   3 | place, RD, vCTS, GRT(23), rt                |      35.22  |        0.07914 |        0.844  | -0.05938 |  0.08004 |            0.2 |                 0.0605  |                 0.7304 |              0.1028  |             0.645   |
-|   4 | place, TD                                   |      50.96  |        0.06046 |        0.7788 | -0.01192 |  0.08569 |            0.2 |                 0.03324 |                 0.7675 |              0.09499 |             0.3     |
+|   # | rungs                                        |   runtime_s |   mean_rel_err |   kendall_tau |     bias |   spread |   worst_recall |   mean_rel_err_nonmacro |   kendall_tau_nonmacro |   mean_rel_err_macro |   kendall_tau_macro |
+|----:|:---------------------------------------------|------------:|---------------:|--------------:|---------:|---------:|---------------:|------------------------:|-----------------------:|---------------------:|--------------------:|
+|   1 | synth only                                   |       3.956 |        0.321   |        0.7604 | -0.321   |  0.08412 |            0.1 |                 0.2729  |                 0.7073 |               0.3821 |             0.2735  |
+|   2 | place, NO macro place, TD, RD, vCTS, CTS, rd |      29.84  |        0.1392  |        0.7492 | -0.02325 |  0.1899  |            0   |                 0.08275 |                 0.5597 |               0.2109 |             0.4705  |
+|   3 | place, NO macro place, GRT(11), rt           |      41.23  |        0.1259  |        0.7205 | -0.02993 |  0.1587  |            0.2 |                 0.09379 |                 0.6895 |               0.1666 |             0.1242  |
+|   4 | place, place_ios, vCTS, prop                 |      47.76  |        0.1151  |        0.7185 | -0.03034 |  0.148   |            0.4 |                 0.06858 |                 0.6887 |               0.1741 |             0.09091 |
+|   5 | place, NO macro place, vCTS, rd, GRT(29), rt |      48.24  |        0.1087  |        0.7203 | -0.08287 |  0.1394  |            0.2 |                 0.03916 |                 0.7048 |               0.197  |             0.08492 |
+|   6 | place, RD, vCTS, CTS, rd, GRT(9), rt         |      66.08  |        0.06919 |        0.7793 | -0.01845 |  0.09514 |            0.2 |                 0.03549 |                 0.76   |               0.112  |             0.2954  |
 
 **Where the flow's time goes**, largest first: global_route 374s, global_place 200s, cts 39s, floorplan 21s, macro_place 21s, detailed_place 8s, repair_design 5s, place_pins 1s. The single biggest stage is global_route at 56% of the flow, and the estimator does not skip it so much as run a far cheaper version of it -- which is where the saving comes from.
 
-**What each stage costs**, from the deepest rung measured (place, RD, vCTS, GRT(23), rt): macro_place 18.8s, global_route 5.64s, global_place 4.37s, repair_timing 2.01s, place_pins 0.017s, floorplan 0.007s.
+**What each stage costs**, from the deepest rung measured (place, RD, vCTS, CTS, rd, GRT(9), rt): macro_place 20.9s, global_route 18.6s, cts 6.33s, global_place 5.2s, repair_design 3.87s, repair_timing 2.57s, place_pins 0.02s, floorplan 0.008s.
 
-**Macro paths behave differently, and worse.** Of the 177 sampled paths, 78 touch a macro pin and 99 do not, and the two are separate populations: the macro paths run faster and none of them is among the ten worst overall, which is why a slack-ranked sample reaches almost none of them and has to be told to go and find them. Scored on their own, rank correlation across the front runs from -0.04 to +0.65 against +0.65 to +0.73 on everything else. Where that number is negative the estimator is ordering the macro paths backwards, and the healthy-looking aggregate is the non-macro majority outvoting them.
+**Macro paths behave differently, and worse.** Of the 177 sampled paths, 78 touch a macro pin and 99 do not, and the two are separate populations: the macro paths run faster and none of them is among the ten worst overall, which is why a slack-ranked sample reaches almost none of them and has to be told to go and find them. Scored on their own, rank correlation across the front runs from +0.08 to +0.47 against +0.70 to +0.56 on everything else. Where that number is negative the estimator is ordering the macro paths backwards, and the healthy-looking aggregate is the non-macro majority outvoting them.
 
 **Where each rung's time goes.** Overhead is loading the design and running the timing query, which cost the same whatever the rung does.
 
-| rung                                           |   total_s |   overhead_s |   work_s |   overhead_pct | vs flow   |
-|:-----------------------------------------------|----------:|-------------:|---------:|---------------:|:----------|
-| the full flow (baseline)                       |    668    |       nan    |  668     |         nan    | 1x        |
-| 1. synth only                                  |      3.65 |         3.64 |    0.017 |          99.5  | 183x      |
-| 2. place, NO macro place, place_ios, vCTS, CTS |     27.3  |         5.78 |   21.5   |          21.2  | 24x       |
-| 3. place, RD, vCTS, GRT(23), rt                |     35.2  |         3.73 |   31.5   |          10.6  | 19x       |
-| 4. place, TD                                   |     51    |         4.3  |   46.7   |           8.44 | 13x       |
+| rung                                            |   total_s |   overhead_s |   work_s |   overhead_pct | vs flow   |
+|:------------------------------------------------|----------:|-------------:|---------:|---------------:|:----------|
+| the full flow (baseline)                        |    668    |       nan    |   668    |         nan    | 1x        |
+| 1. synth only                                   |      3.96 |         3.95 |     0.01 |          99.7  | 169x      |
+| 2. place, NO macro place, TD, RD, vCTS, CTS, rd |     29.8  |         8.72 |    21.1  |          29.2  | 22x       |
+| 3. place, NO macro place, GRT(11), rt           |     41.2  |         3.97 |    37.3  |           9.62 | 16x       |
+| 4. place, place_ios, vCTS, prop                 |     47.8  |         3.72 |    44    |           7.79 | 14x       |
+| 5. place, NO macro place, vCTS, rd, GRT(29), rt |     48.2  |         3.65 |    44.6  |           7.56 | 14x       |
+| 6. place, RD, vCTS, CTS, rd, GRT(9), rt         |     66.1  |         9.02 |    57.1  |          13.6  | 10x       |
 
 ![multiplier_top (macro array) time breakdown](time_multiplier_top.png)
 
@@ -179,38 +183,32 @@ Rung A explored 231 configurations.
 
 ## multiplier_top, macro paths only
 
-Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **668s**. The cheapest rung on the front is 183x faster than that at 32.1% error, and the most accurate is 8x faster at 7.9%.
+Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **668s**. The cheapest rung on the front is 45x faster than that at 18.7% error, and the most accurate is 20x faster at 6.2%.
 
 Sampled 78 near-critical reg2reg paths. Recall@10 by chance is 0.13: a rung scoring at or below that has no skill at picking the critical paths.
 
-Rung A explored 226 configurations.
+Rung A explored 234 configurations.
 
-5 front points across 3.65s to 88.9s. The widest gap (0.518) spans 3.65s to 19s and is structural rather than unexplored: it separates the configurations that skip placement from those that run it. Of 18 placed configurations timed here the fastest took 19s, so there is no cheap-but-placed estimate to be found in between -- the choice is binary.
+2 front points across 14.9s to 34s. 21 of 23 measured configurations are dominated -- slower and no more accurate -- so the front is narrow because the trade-off runs out, not because the search budget did. Beyond the last point, more runtime buys nothing.
 
-|   # | rungs                                             |   runtime_s |   mean_rel_err |   kendall_tau |     bias |   spread |   worst_recall |   mean_rel_err_nonmacro |   kendall_tau_nonmacro |   mean_rel_err_macro |   kendall_tau_macro |
-|----:|:--------------------------------------------------|------------:|---------------:|--------------:|---------:|---------:|---------------:|------------------------:|-----------------------:|---------------------:|--------------------:|
-|   1 | synth only                                        |       3.646 |         0.321  |        0.7604 | -0.321   |  0.08412 |            0.1 |                 0.2729  |                 0.7073 |              0.3821  |              0.2735 |
-|   2 | place, NO macro place, place_ios                  |      19.04  |         0.2937 |        0.6614 |  0.2349  |  0.2485  |            0   |                 0.4287  |                 0.4566 |              0.1225  |              0.1755 |
-|   3 | place, NO macro place, place_ios, rd              |      20     |         0.1878 |        0.7685 |  0.1158  |  0.1844  |            0.2 |                 0.2645  |                 0.692  |              0.0904  |              0.3427 |
-|   4 | place, NO macro place, place_ios, CTS, rd, GRT(6) |      35.23  |         0.1797 |        0.756  |  0.1087  |  0.1785  |            0   |                 0.2513  |                 0.6281 |              0.08894 |              0.346  |
-|   5 | place, TD, CTS, GRT(17), rt                       |      88.92  |         0.0785 |        0.7838 |  0.04569 |  0.08002 |            0   |                 0.07141 |                 0.6281 |              0.0875  |              0.4872 |
+|   # | rungs                                  |   runtime_s |   mean_rel_err |   kendall_tau |     bias |   spread |   worst_recall |   mean_rel_err_nonmacro |   kendall_tau_nonmacro |   mean_rel_err_macro |   kendall_tau_macro |
+|----:|:---------------------------------------|------------:|---------------:|--------------:|---------:|---------:|---------------:|------------------------:|-----------------------:|---------------------:|--------------------:|
+|   1 | place, NO macro place, place_ios, prop |       14.89 |        0.1869  |        0.7682 |  0.1186  |  0.1845  |              0 |                 0.2681  |                 0.5226 |              0.08383 |              0.5764 |
+|   2 | place, TD, GRT(3)                      |       34.02 |        0.06164 |        0.8175 | -0.02387 |  0.07016 |              0 |                 0.06251 |                 0.6417 |              0.06053 |              0.7043 |
 
 **Where the flow's time goes**, largest first: global_route 374s, global_place 200s, cts 39s, floorplan 21s, macro_place 21s, detailed_place 8s, repair_design 5s, place_pins 1s. The single biggest stage is global_route at 56% of the flow, and the estimator does not skip it so much as run a far cheaper version of it -- which is where the saving comes from.
 
-**What each stage costs**, from the deepest rung measured (place, TD, CTS, GRT(17), rt): global_route 35.7s, macro_place 18.8s, global_place 17.2s, cts 4.73s, repair_timing 1.97s, place_pins 0.016s, floorplan 0.006s.
+**What each stage costs**, from the deepest rung measured (place, TD, GRT(3)): macro_place 18.7s, global_route 5.61s, global_place 4.64s, place_pins 0.017s, floorplan 0.007s.
 
-**Macro paths behave differently, and worse.** Of the 177 sampled paths, 78 touch a macro pin and 99 do not, and the two are separate populations: the macro paths run faster and none of them is among the ten worst overall, which is why a slack-ranked sample reaches almost none of them and has to be told to go and find them. Scored on their own, rank correlation across the front runs from +0.18 to +0.49 against +0.46 to +0.63 on everything else. Where that number is negative the estimator is ordering the macro paths backwards, and the healthy-looking aggregate is the non-macro majority outvoting them.
+**Macro paths behave differently, and worse.** Of the 177 sampled paths, 78 touch a macro pin and 99 do not, and the two are separate populations: the macro paths run faster and none of them is among the ten worst overall, which is why a slack-ranked sample reaches almost none of them and has to be told to go and find them. Scored on their own, rank correlation across the front runs from +0.58 to +0.70 against +0.52 to +0.64 on everything else. Where that number is negative the estimator is ordering the macro paths backwards, and the healthy-looking aggregate is the non-macro majority outvoting them.
 
 **Where each rung's time goes.** Overhead is loading the design and running the timing query, which cost the same whatever the rung does.
 
-| rung                                                 |   total_s |   overhead_s |   work_s |   overhead_pct | vs flow   |
-|:-----------------------------------------------------|----------:|-------------:|---------:|---------------:|:----------|
-| the full flow (baseline)                             |    668    |       nan    |  668     |          nan   | 1x        |
-| 1. synth only                                        |      3.65 |         3.62 |    0.023 |           99.4 | 183x      |
-| 2. place, NO macro place, place_ios                  |     19    |         3.67 |   15.4   |           19.3 | 35x       |
-| 3. place, NO macro place, place_ios, rd              |     20    |         3.71 |   16.3   |           18.5 | 33x       |
-| 4. place, NO macro place, place_ios, CTS, rd, GRT(6) |     35.2  |         4.94 |   30.3   |           14   | 19x       |
-| 5. place, TD, CTS, GRT(17), rt                       |     88.9  |         9.66 |   79.3   |           10.9 | 8x        |
+| rung                                      |   total_s |   overhead_s |   work_s |   overhead_pct | vs flow   |
+|:------------------------------------------|----------:|-------------:|---------:|---------------:|:----------|
+| the full flow (baseline)                  |     668   |       nan    |    668   |          nan   | 1x        |
+| 1. place, NO macro place, place_ios, prop |      14.9 |         3.73 |     11.2 |           25   | 45x       |
+| 2. place, TD, GRT(3)                      |      34   |         3.95 |     30.1 |           11.6 | 20x       |
 
 ![multiplier_top, macro paths only time breakdown](time_multiplier_top_macro.png)
 

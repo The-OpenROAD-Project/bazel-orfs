@@ -390,6 +390,20 @@ def spread_note(front):
             f"fastest took {fastest:.3g}s, so there is no cheap-but-placed "
             f"estimate to be found in between -- the choice is binary."
         )
+    # A gap is only a hole if something could have filled it, and with
+    # two or three front points the interval trivially spans most of the
+    # range -- the number is arithmetic, not evidence. Judge that on the
+    # point count alone: most measurements are dominated in any Pareto
+    # search, so that ratio says nothing about how wide the front is.
+    measured = front.get("measured", [])
+    dominated = len(measured) - len(pts)
+    if measured and len(pts) < 4:
+        return (
+            f"{head}. {dominated} of {len(measured)} measured configurations "
+            f"are dominated -- slower and no more accurate -- so the front is "
+            f"narrow because the trade-off runs out, not because the search "
+            f"budget did. Beyond the last point, more runtime buys nothing."
+        )
     return (
         f"{head}; widest normalized gap {worst:.3f}, so **a gap exceeds** "
         f"the 0.15 target and the budget did not fill it."
