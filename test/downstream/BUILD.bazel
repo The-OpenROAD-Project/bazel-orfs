@@ -23,11 +23,11 @@ orfs_flow(
         "SYNTH_HDL_FRONTEND": "slang",
         "SLANG_PLUGIN_PATH": "$(location @sv-elab//src/yosys_plugin:slang.so)",
     },
-    data = ["@sv-elab//src/yosys_plugin:slang.so"],
     sources = {
         "SDC_FILE": [":constraints.sdc"],
     },
     last_stage = "synth",
+    stage_data = {"synth": ["@sv-elab//src/yosys_plugin:slang.so"]},
     verilog_files = ["rtl/counter.sv"],
 )
 
