@@ -105,3 +105,33 @@ synth_action_inputs_test = analysistest.make(
         ),
     },
 )
+
+def _runfiles_contents_test_impl(ctx):
+    env = analysistest.begin(ctx)
+
+    target = analysistest.target_under_test(env)
+    basenames = {
+        f.basename: True
+        for f in target[DefaultInfo].data_runfiles.files.to_list()
+    }
+    for required in ctx.attr.required_basenames:
+        asserts.true(
+            env,
+            required in basenames,
+            "Expected %s in the data_runfiles of %s" % (required, target.label),
+        )
+
+    return analysistest.end(env)
+
+runfiles_contents_test = analysistest.make(
+    _runfiles_contents_test_impl,
+    attrs = {
+        "required_basenames": attr.string_list(
+            mandatory = True,
+            doc = "Basenames that must appear in the target's " +
+                  "data_runfiles — files tooling recovers by globbing " +
+                  "runfiles (e.g. *.vars) even when they are not in " +
+                  "DefaultInfo.files.",
+        ),
+    },
+)

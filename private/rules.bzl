@@ -2092,7 +2092,13 @@ def _yosys_impl(ctx):
     # stage's action inputs (ctx.files.src → source_inputs) and re-run
     # floorplan+ on every raw-SDC edit; the downstream contract is the
     # canonicalized 1_synth.sdc.
-    outputs = [canon_output, variables] + [
+    #
+    # 1_synth.vars likewise leaves DefaultInfo.files: no stage reads it,
+    # so it has no business in downstream action inputs — but it MUST
+    # stay in the runfiles and the deploy set: odb-debug-style tooling
+    # recovers LIB_FILES by globbing *.vars in a synth target's runfiles
+    # and fails silently without it.
+    outputs = [canon_output] + [
         f
         for name, f in synth_outputs.items()
         if name != "1_2_yosys.sdc"
@@ -2166,7 +2172,7 @@ def _yosys_impl(ctx):
         exe,
         config = config_short,
         make = make,
-        genfiles = [config_short] + outputs + canon_logs + synth_logs + synth_jsons,
+        genfiles = [config_short, variables] + outputs + canon_logs + synth_logs + synth_jsons,
     )
 
     # Collect all files needed for deployment (tools, PDK, stage inputs).
@@ -2206,7 +2212,7 @@ def _yosys_impl(ctx):
         name = ctx.attr.name + "_deps",
     )
 
-    _runfiles_files = [config_short, make] + outputs + canon_logs + synth_logs + synth_jsons + ctx.files.extra_configs + ctx.files.data
+    _runfiles_files = [config_short, make, variables] + outputs + canon_logs + synth_logs + synth_jsons + ctx.files.extra_configs + ctx.files.data
     _runfiles_common = depset(
         transitive = [
             deps_inputs(ctx),
@@ -2243,12 +2249,12 @@ def _yosys_impl(ctx):
             kept_macros_validation = depset(
                 [validated_kept_macros_json] if validated_kept_macros_json else [],
             ),
-            # 1_2_yosys.sdc left DefaultInfo.files (see the outputs
-            # comment above) but stays inspectable on demand:
-            # bazelisk build --output_groups=1_2_yosys.sdc <synth target>.
+            # 1_2_yosys.sdc and 1_synth.vars left DefaultInfo.files (see
+            # the outputs comment above) but stay inspectable on demand:
+            # bazelisk build --output_groups=<basename> <synth target>.
             **{
                 f.basename: depset([f])
-                for f in [config] + outputs + (
+                for f in [config, variables] + outputs + (
                     [synth_outputs["1_2_yosys.sdc"]] if "1_2_yosys.sdc" in synth_outputs else []
                 )
             }
@@ -2711,9 +2717,20 @@ def _make_impl(
             make = make,
             config = config_short,
             renames = stage_renames,
+            # This stage's OWN data (sources= files) and configs — what the
+            # next stage's source_inputs() legitimately needs beyond the
+            # results/reports it already takes from DefaultInfo via
+            # ctx.files.src. Deliberately NOT ctx.files.src: that is the
+            # PREVIOUS stage's whole DefaultInfo, and re-feeding it here
+            # handed stage N-1's results (1_synth netlist/RTLIL/…) to
+            # stage N+1's action inputs, one hop past every reader — a
+            # N-1 output change stage N absorbed still re-ran N+1. The
+            # forwarded subset (forwards) already travels via
+            # DefaultInfo.files. The deploy set (OrfsDepInfo.runfiles =
+            # deploy_files) keeps ctx.files.src — a deployed re-run of
+            # this stage's make reads the previous stage's results.
             files = depset(
                 [config_short] +
-                ctx.files.src +
                 ctx.files.data +
                 ctx.files.extra_configs,
             ),

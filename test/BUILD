@@ -9,7 +9,7 @@ load("//:sweep.bzl", "orfs_sweep")
 load(":deps_output_group_rule.bzl", "deps_output_group_test", "output_group_test")
 load(":provider_test_rule.bzl", "lib_pre_layout_test")
 load(":quick_pins_test_rule.bzl", "quick_pins_data_dep_test")
-load(":sdc_clock_period_test.bzl", "synth_action_inputs_test")
+load(":sdc_clock_period_test.bzl", "runfiles_contents_test", "synth_action_inputs_test")
 load(":source_input_propagation_test.bzl", "source_input_propagation_test")
 load(":stages_filter_test.bzl", "stages_filter_test_suite")
 
@@ -1367,16 +1367,50 @@ synth_action_inputs_test(
 # state the dependency, nobody is fed it for convenience).
 synth_action_inputs_test(
     name = "metrics_jsons_not_in_cts_test",
-    # 2_1_floorplan.json rides only LoggingInfo and is gone. The
-    # previous stage's own reports (2_floorplan_final.rpt) still arrive
-    # through its DefaultInfo.files (ctx.files.src) — that over-feed is
-    # the OrfsDepInfo/ctx.files.src narrowing, a separate concern.
+    # 2_1_floorplan.json rides only LoggingInfo; 2_floorplan_final.rpt
+    # and 2_floorplan.odb used to arrive one hop past their readers via
+    # the src's OrfsDepInfo.files re-feeding the previous stage's whole
+    # DefaultInfo (cts legitimately reads only place's own results).
     forbidden_input_basenames = [
         "1_synth.json",
         "2_1_floorplan.json",
+        "2_floorplan.odb",
+        "2_floorplan_final.rpt",
     ],
     output_basename = "4_cts.odb",
     target_under_test = ":lb_32x128_cts",
+)
+
+# A stage's action inputs stop one hop back: place reads floorplan's
+# results (and the deliberately forwarded canonicalize RTLIL), never
+# synth's netlist or ODB — those reached place only through floorplan's
+# OrfsDepInfo.files re-feeding synth's whole DefaultInfo.
+synth_action_inputs_test(
+    name = "no_n_minus_2_inputs_place_test",
+    forbidden_input_basenames = [
+        "1_2_yosys.v",
+        "1_synth.odb",
+        "1_synth.vars",
+    ],
+    output_basename = "3_place.odb",
+    required_input_basenames = ["2_floorplan.odb"],
+    target_under_test = ":lb_32x128_top_gds_scope_place",
+)
+
+# 1_synth.vars left synth's DefaultInfo.files (no stage reads it) but
+# MUST stay in the runfiles: odb-debug-style tooling recovers LIB_FILES
+# by globbing *.vars there and fails silently without it.
+runfiles_contents_test(
+    name = "synth_vars_in_runfiles_test",
+    required_basenames = ["1_synth.vars"],
+    target_under_test = ":Mul_synth",
+)
+
+synth_action_inputs_test(
+    name = "synth_vars_not_in_floorplan_test",
+    forbidden_input_basenames = ["1_synth.vars"],
+    output_basename = "2_floorplan.odb",
+    target_under_test = ":lb_32x128_top_gds_scope_floorplan",
 )
 
 # Pins the intended consumer so an input-hygiene refactor can't
