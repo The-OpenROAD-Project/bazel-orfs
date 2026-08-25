@@ -105,9 +105,7 @@ def main():
 
     if rows:
         best = min(rows, key=lambda r: r["mean_rel_err"])
-        default = next(
-            (r for r in rows if r["layer"] == "(platform default)"), None
-        )
+        default = next((r for r in rows if r["layer"] == "(platform default)"), None)
         print(f"best layer: {best['layer']} at {best['mean_rel_err']:.4f}")
         if default:
             gain = default["mean_rel_err"] - best["mean_rel_err"]

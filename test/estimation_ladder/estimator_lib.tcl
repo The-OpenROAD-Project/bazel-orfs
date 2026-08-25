@@ -311,6 +311,11 @@ proc est_write_json { out_json load_s estimate_s sta_s } {
     set out_fp [open $out_json w]
     puts $out_fp "{"
     puts $out_fp "\"runtime_s\": $total_s,"
+    # From OpenSTA rather than assumed: periods come out in whatever the
+    # liberty and SDC use, picoseconds on asap7 and nanoseconds
+    # elsewhere, so a report that hardcodes a suffix is wrong by a factor
+    # of a thousand on another platform and silently so.
+    puts $out_fp "\"time_unit\": \"[sta::unit_scale_abbreviation time][sta::unit_suffix time]\","
     puts $out_fp "\"load_s\": $load_s,"
     puts $out_fp "\"estimate_s\": $estimate_s,"
     puts $out_fp "\"sta_s\": $sta_s,"

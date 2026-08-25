@@ -34,7 +34,7 @@ import statistics
 
 from scipy.stats import kendalltau
 
-from estimation_metrics import load_paths
+from estimation_metrics import load_paths, time_unit
 from optuna_study import run_estimator
 
 # The rung to compare with. Cheap enough to be the one someone would
@@ -67,6 +67,7 @@ def main():
     ws = os.environ.get("BUILD_WORKSPACE_DIRECTORY") or os.getcwd()
     out_dir = os.path.join(ws, "test/estimation_ladder")
 
+    unit = None
     rows = []
     for spec in args.variant:
         name, exe, truth = spec.split("=", 2)
@@ -77,6 +78,7 @@ def main():
         run_estimator(exe, env, truth, timeout_s=3600, out_json=out_json)
         _, est_paths = load_paths(out_json)
         _, true_paths = load_paths(truth)
+        unit = unit or time_unit(truth)
         os.remove(out_json)
         rows.append(
             {
@@ -124,18 +126,54 @@ def main():
     mean_delta = statistics.fmean(p["delta_err"] for p in scored) if scored else None
     sign_ok = sum(1 for p in scored if p["sign_ok"])
 
-    print(f"\nvariant ranking: kendall tau {tau:+.3f}")
-    print(f"absolute error, mean over variants: {mean_abs:.1%}")
+    # Compare like with like.  The absolute error is a fraction of a
+    # period and the delta error is a fraction of a difference between
+    # periods, so putting those two percentages side by side compares
+    # different denominators and means nothing.  In picoseconds they are
+    # commensurable: if the bias cancelled, the error on a difference
+    # would be smaller than the error on either number it came from.
+    abs_ps = statistics.fmean(abs(r["est"] - r["true"]) for r in rows)
+    delta_ps = (
+        statistics.fmean(abs(p["est_delta"] - p["true_delta"]) for p in scored)
+        if scored
+        else None
+    )
+    bias_swing = max(r["est"] - r["true"] for r in rows) - min(
+        r["est"] - r["true"] for r in rows
+    )
+    typical_delta = (
+        statistics.fmean(abs(p["true_delta"]) for p in scored) if scored else 0.0
+    )
+
+    # Lead with what works.  Ranking and direction are the question most
+    # often asked of an estimator -- did this change help? -- and burying
+    # a perfect answer under a verdict about magnitudes misreports it.
+    print(
+        f"\nWhich variant is faster: kendall tau {tau:+.3f}, "
+        f"direction correct on {sign_ok}/{len(scored)} pairs"
+    )
+    if delta_ps is not None:
+        print(
+            f"By how much: delta error {delta_ps:.1f}{unit} against an absolute "
+            f"error of {abs_ps:.1f}{unit} on the numbers themselves"
+        )
+        if delta_ps < abs_ps:
+            print(
+                "  the bias largely cancels -- a difference is more "
+                "trustworthy than either number in it"
+            )
+        else:
+            print(
+                f"  the bias does not cancel: it is not constant across "
+                f"variants but swings over {bias_swing:.0f}{unit}, against "
+                f"differences of typically {typical_delta:.0f}{unit}. Use this to "
+                f"pick the better variant, not to quote the improvement -- and "
+                f"expect the direction to start failing for changes smaller "
+                f"than about {bias_swing:.0f}{unit}."
+            )
+    print(f"\nabsolute error, mean over variants: {mean_abs:.1%}")
     if mean_delta is not None:
         print(f"delta error, mean over pairs:       {mean_delta:.1%}")
-        print(f"direction correct: {sign_ok}/{len(scored)} pairs")
-        verdict = (
-            "the bias largely cancels -- the difference is better than the numbers"
-            if mean_delta < mean_abs
-            else "the bias does NOT cancel -- the difference is no better than the "
-            "numbers, and may be worse"
-        )
-        print(f"\n{verdict}")
 
     print(f"\n{'pair':>22s} {'true delta':>11s} {'est delta':>10s} {'err':>8s} sign")
     for p in pairs:
@@ -156,6 +194,11 @@ def main():
                 "variant_tau": tau,
                 "mean_abs_err": mean_abs,
                 "mean_delta_err": mean_delta,
+                "time_unit": unit,
+                "abs_err": abs_ps,
+                "delta_err": delta_ps,
+                "bias_swing": bias_swing,
+                "typical_delta": typical_delta,
                 "sign_correct": sign_ok,
                 "pairs_scored": len(scored),
             },

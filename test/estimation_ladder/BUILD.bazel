@@ -538,3 +538,12 @@ py_binary(
         "@bazel-orfs-dev-pip//scipy",
     ],
 )
+
+orfs_run_executable(
+    name = "unit_probe",
+    src = ":multiplier_asap7_synth",
+    arguments = MULTIPLIER_ARGS,
+    cmd = "run",
+    script = "unit_probe.tcl",
+    sources = {"UNIT_PROBE_TCL": ["unit_probe.tcl"]},
+)

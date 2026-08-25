@@ -42,6 +42,19 @@ def load_paths(path_json):
     return data, {(p["start"], p["end"]): p["min_period"] for p in data["paths"]}
 
 
+def time_unit(path_json, default=""):
+    """The unit periods are reported in, as OpenSTA sees it.
+
+    Not every PDK is asap7: the liberty and SDC set the scale, so a
+    report that hardcodes picoseconds is wrong by a factor of a thousand
+    on a platform that works in nanoseconds, and silently so. The
+    fallback is empty rather than a guess -- printing a bare number
+    admits we do not know, printing the wrong unit does not.
+    """
+    with open(path_json, "r") as f:
+        return json.load(f).get("time_unit") or default
+
+
 def macro_keys(path_json):
     """Which sampled paths touch a macro pin.
 
