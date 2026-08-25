@@ -20,6 +20,7 @@ load(
     "config_environment",
     "data_arguments",
     "data_inputs",
+    "data_inputs_excluding",
     "declare_artifact",
     "declare_artifacts",
     "deps_inputs",
@@ -1023,13 +1024,19 @@ SYNTH_OUTPUTS = ["1_2_yosys.v", "1_2_yosys.sdc", "mem.json"]
 SYN_OUTPUTS = ["1_synth.odb", "1_synth.sdc", "1_synth.v"]
 SYNTH_REPORTS = ["synth_stat.txt", "synth_mocked_memories.txt"]
 
-def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments = {}):
+def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments = {}, clock_period = None, sdc_overrides = [], synth_data_inputs = None):
     """Parallel synthesis: keep → kept-json → N partitions → merge.
 
     Yosys is not deterministic when using host threads, so SYNTH_NUM_PARTITIONS
     defaulting to NUM_CPUS means synthesis results vary across machines with
     different core counts. Users who need reproducible builds should set a fixed
     SYNTH_NUM_PARTITIONS value.
+
+    clock_period / sdc_overrides / synth_data_inputs carry the caller's
+    clock-period extraction (see _yosys_impl): the preamble-sourcing yosys
+    actions (keep, partitions, top) read SDC_FILE_CLOCK_PERIOD instead of
+    the raw SDC, whose only legitimate consumers here are the sdc-copy and
+    do-1_synth actions.
 
     When SYNTH_KEEP_MODULES is provided, the keep-hierarchy discovery step
     (synth_keep.tcl + rtlil_kept_modules.py) is skipped entirely.  The module
@@ -1051,6 +1058,9 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     )
     yosys_and_flow_tools = depset(transitive = [yosys_inputs(ctx), flow_inputs(ctx)])
     parallel_makefile = ctx.file._parallel_synth_makefile
+    if synth_data_inputs == None:
+        synth_data_inputs = data_inputs(ctx)
+    clock_period_inputs = [clock_period] if clock_period else []
 
     kept_json = declare_artifact(ctx, "results", "kept_modules.json")
     skip_keep = all_arguments.get("SYNTH_KEEP_MODULES", "")
@@ -1080,14 +1090,14 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 "yosys-dependencies",
                 "do-yosys-keep",
                 "SYNTH_KEEP_SCRIPT=" + ctx.file._synth_keep_script.path,
-            ],
+            ] + sdc_overrides,
             command = " && ".join(keep_commands),
             env = base_env,
             inputs = depset(
                 [canon_output, config, parallel_makefile, ctx.file._synth_keep_script] +
-                ctx.files.extra_configs,
+                clock_period_inputs + ctx.files.extra_configs,
                 transitive = [
-                    data_inputs(ctx),
+                    synth_data_inputs,
                     pdk_inputs(ctx),
                     deps_inputs(ctx),
                 ],
@@ -1214,7 +1224,11 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 parallel_makefile.path,
                 "do-yosys-canonicalize-module",
                 "SYNTH_CANONICALIZE_MODULE_SCRIPT=" + ctx.file._synth_canonicalize_module_script.path,
-            ],
+                # No yosys-dependencies goal and no synth_preamble.tcl here,
+                # so the clock period is never read — only the raw SDC needs
+                # to stay out (dangling-path hygiene; the input set below
+                # already excludes it).
+            ] + (["SDC_FILE="] if sdc_overrides else []),
             command = " && ".join(per_module_commands),
             env = base_env | partition_env_extra | {
                 "SYNTH_CHECKPOINT": checkpoint_output.path,
@@ -1239,7 +1253,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                     ctx.file._synth_canonicalize_module_script,
                 ] + extra_partition_inputs + ctx.files.extra_configs,
                 transitive = [
-                    data_inputs(ctx),
+                    synth_data_inputs,
                     pdk_inputs(ctx),
                 ],
             ),
@@ -1261,10 +1275,10 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             parallel_makefile,
             ctx.file._synth_partition_script,
             ctx.file._synth_tcl,
-        ] + extra_partition_inputs +
+        ] + clock_period_inputs + extra_partition_inputs +
         ctx.files.extra_configs,
         transitive = [
-            data_inputs(ctx),
+            synth_data_inputs,
             pdk_inputs(ctx),
         ],
     )
@@ -1488,7 +1502,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 "yosys-dependencies",
                 "do-yosys-partition",
                 "SYNTH_PARTITION_SCRIPT=" + ctx.file._synth_partition_script.path,
-            ],
+            ] + sdc_overrides,
             command = " && ".join(part_commands),
             env = base_env | partition_env_extra | partition_env_override | {
                 "SYNTH_PARTITION_ID": str(i),
@@ -1520,7 +1534,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             "yosys-dependencies",
             "do-yosys-partition",
             "SYNTH_PARTITION_SCRIPT=" + ctx.file._synth_partition_script.path,
-        ],
+        ] + sdc_overrides,
         command = " && ".join(top_commands),
         env = base_env | partition_env_extra | {
             "SYNTH_PARTITION_ID": "top",
@@ -1753,6 +1767,52 @@ def _yosys_impl(ctx):
     # come through arguments/stage_arguments, not extra_arguments .json files.
     use_syn = all_arguments.get("SYNTH_USE_SYN") == "1"
 
+    # Clock-period extraction. The yosys side never reads the raw SDC:
+    # synth_preamble.tcl consumes only SDC_FILE_CLOCK_PERIOD (the abc -D
+    # value), which ORFS's do-sdc-clock-period target derives from the SDC
+    # in a make blink. Run that derivation as its own cheap action so a
+    # period-preserving SDC edit re-runs only this step; the expensive
+    # yosys actions get SDC_FILE_CLOCK_PERIOD=<artifact> and SDC_FILE=
+    # (empty — variables.mk guards every SDC_FILE use with $(wildcard))
+    # on the make command line and the raw SDC dropped from their inputs.
+    # SDC_FILE_CLOCK_PERIOD is not in variables.yaml, so it must ride the
+    # command line, not the config. The SYNTH_USE_SYN engine bypasses
+    # yosys and reads SDC_FILE directly, so it keeps the raw SDC.
+    sdc_file_raw = all_arguments.get("SDC_FILE")
+    sdc_path = ctx.expand_location(sdc_file_raw, ctx.attr.data) if sdc_file_raw else None
+    clock_period = None
+    sdc_overrides = []
+    synth_data_inputs = data_inputs(ctx)
+    if sdc_path and not use_syn:
+        clock_period = declare_artifact(ctx, "results", "clock_period.txt")
+        ctx.actions.run_shell(
+            arguments = [
+                "--file",
+                ctx.file._makefile_yosys.path,
+                "do-sdc-clock-period",
+                "SDC_FILE_CLOCK_PERIOD=" + clock_period.path,
+            ],
+            command = _make_cmd(ctx),
+            env = verilog_arguments([]) |
+                  yosys_environment(ctx) |
+                  config_environment(config),
+            inputs = depset(
+                [config] + ctx.files.extra_configs,
+                transitive = [
+                    data_inputs(ctx),
+                    pdk_inputs(ctx),
+                ],
+            ),
+            outputs = [clock_period],
+            tools = yosys_inputs(ctx),
+            progress_message = "Extracting clock period from SDC for %s" % module_top(ctx),
+        )
+        sdc_overrides = [
+            "SDC_FILE_CLOCK_PERIOD=" + clock_period.path,
+            "SDC_FILE=",
+        ]
+        synth_data_inputs = data_inputs_excluding(ctx, sdc_path)
+
     canon_logs = declare_artifacts(ctx, "logs", ["1_1_yosys_canonicalize.log"])
 
     canon_output = declare_artifact(ctx, "results", CANON_OUTPUT)
@@ -1777,15 +1837,16 @@ def _yosys_impl(ctx):
                 ctx.file._makefile_yosys.path,
                 "yosys-dependencies",
                 "do-yosys-canonicalize",
-            ],
+            ] + sdc_overrides,
             command = EXPAND_VERILOG_DIRS + " && ".join(commands),
             env = verilog_arguments(ctx.files.verilog_files) |
                   yosys_environment(ctx) |
                   config_environment(canon_config),
             inputs = depset(
-                [canon_config] + ctx.files.verilog_files + ctx.files.extra_configs,
+                [canon_config] + ([clock_period] if clock_period else []) +
+                ctx.files.verilog_files + ctx.files.extra_configs,
                 transitive = [
-                    data_inputs(ctx),
+                    synth_data_inputs,
                     pdk_inputs(ctx),
                     canon_deps,
                 ],
@@ -1881,45 +1942,97 @@ def _yosys_impl(ctx):
             progress_message = "OpenROAD-SYN synthesis for %s" % module_top(ctx),
         )
     elif num_partitions > 0:
-        validated_kept_macros_json = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments)
+        validated_kept_macros_json = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments, clock_period, sdc_overrides, synth_data_inputs)
     else:
+        # Serial path, split into three actions mirroring the parallel
+        # path so the raw SDC feeds only the cheap sdc-copy step:
+        #   1. sdc-copy: raw SDC -> 1_2_yosys.sdc (empty placeholder for
+        #      SYNTH_NETLIST_FILES designs with no SDC).
+        #   2. do-yosys: the expensive synthesis; reads the canonicalized
+        #      RTLIL and clock_period.txt, never the raw SDC.
+        #   3. do-1_synth (save_odb only): 1_synth.odb/.sdc from
+        #      1_2_yosys.v/.sdc.
         # SYNTH_NETLIST_FILES will not create an .rtlil file, logs,
         # reports or mem.json, so touch empty placeholders for those.
         # Primary artifacts (1_2_yosys.v/.sdc, 1_synth.odb/.sdc) are
         # deliberately excluded: a missing one must fail the action,
         # not be papered over with a touched empty file.
-        sdc_file_raw = all_arguments.get("SDC_FILE")
-        sdc_path = ctx.expand_location(sdc_file_raw, ctx.attr.data) if sdc_file_raw else None
-        commands = ([
-            "cp {sdc} {out}".format(sdc = sdc_path, out = synth_outputs["1_2_yosys.sdc"].path),
-        ] if sdc_path else [
-            "touch {out}".format(out = synth_outputs["1_2_yosys.sdc"].path),
-        ]) + [_make_cmd(ctx)] + generation_commands(
-            synth_logs + synth_reports + [synth_outputs["mem.json"]],
-        ) + json_fallback
+        serial_env = (
+            verilog_arguments([]) |
+            flow_environment(ctx) |
+            yosys_environment(ctx) |
+            config_environment(config)
+        )
+        serial_tools = depset(transitive = [yosys_inputs(ctx), flow_inputs(ctx)])
+        if sdc_path:
+            ctx.actions.run_shell(
+                command = "cp {sdc} {out}".format(
+                    sdc = sdc_path,
+                    out = synth_outputs["1_2_yosys.sdc"].path,
+                ),
+                inputs = data_inputs(ctx),
+                outputs = [synth_outputs["1_2_yosys.sdc"]],
+                progress_message = "Generating SDC for %s" % module_top(ctx),
+            )
+        else:
+            ctx.actions.write(output = synth_outputs["1_2_yosys.sdc"], content = "")
+
+        yosys_logs = [f for f in synth_logs if f.basename != "1_synth.log"]
+        odb_logs = [f for f in synth_logs if f.basename == "1_synth.log"]
+        yosys_commands = [_make_cmd(ctx)] + generation_commands(
+            yosys_logs + synth_reports + [synth_outputs["mem.json"]],
+        )
         ctx.actions.run_shell(
             arguments = [
                 "--file",
                 ctx.file._makefile_yosys.path,
                 "yosys-dependencies",
                 "do-yosys",
-            ] + (["do-1_synth"] if save_odb else []),
-            command = " && ".join(commands),
-            env = verilog_arguments([]) |
-                  flow_environment(ctx) |
-                  yosys_environment(ctx) |
-                  config_environment(config),
+            ] + sdc_overrides,
+            command = " && ".join(yosys_commands),
+            env = serial_env,
             inputs = depset(
-                [canon_output, config] + ctx.files.extra_configs,
+                [canon_output, config] +
+                ([clock_period] if clock_period else []) +
+                ctx.files.extra_configs,
                 transitive = [
-                    data_inputs(ctx),
+                    synth_data_inputs,
                     pdk_inputs(ctx),
                     deps_inputs(ctx),
                 ],
             ),
-            outputs = synth_outputs.values() + synth_logs + synth_jsons + synth_reports,
-            tools = depset(transitive = [yosys_inputs(ctx), flow_inputs(ctx)]),
+            outputs = [synth_outputs["1_2_yosys.v"], synth_outputs["mem.json"]] +
+                      yosys_logs + synth_reports,
+            tools = serial_tools,
         )
+
+        if save_odb:
+            odb_commands = [_make_cmd(ctx)] + generation_commands(odb_logs) + json_fallback
+            ctx.actions.run_shell(
+                arguments = [
+                    "--file",
+                    ctx.file._makefile_yosys.path,
+                    "do-1_synth",
+                ],
+                command = " && ".join(odb_commands),
+                env = serial_env,
+                inputs = depset(
+                    [
+                        synth_outputs["1_2_yosys.v"],
+                        synth_outputs["1_2_yosys.sdc"],
+                        config,
+                    ] + ctx.files.extra_configs,
+                    transitive = [
+                        data_inputs(ctx),
+                        pdk_inputs(ctx),
+                        deps_inputs(ctx),
+                    ],
+                ),
+                outputs = [synth_outputs["1_synth.odb"], synth_outputs["1_synth.sdc"]] +
+                          odb_logs + synth_jsons,
+                tools = serial_tools,
+                progress_message = "Building synth ODB for %s" % module_top(ctx),
+            )
 
     if not ctx.attr.lint:
         ctx.actions.run_shell(

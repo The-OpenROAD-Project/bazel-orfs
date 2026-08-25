@@ -9,6 +9,7 @@ load("//:sweep.bzl", "orfs_sweep")
 load(":deps_output_group_rule.bzl", "deps_output_group_test", "output_group_test")
 load(":provider_test_rule.bzl", "lib_pre_layout_test")
 load(":quick_pins_test_rule.bzl", "quick_pins_data_dep_test")
+load(":sdc_clock_period_test.bzl", "synth_action_inputs_test")
 load(":source_input_propagation_test.bzl", "source_input_propagation_test")
 load(":stages_filter_test.bzl", "stages_filter_test_suite")
 
@@ -622,6 +623,81 @@ orfs_synth(
 build_test(
     name = "kept_modules_synth_test",
     targets = [":kept_modules_synth"],
+)
+
+# Lock the SDC/clock-period split on the serial synth path (Mul_synth):
+# the expensive actions read only the extracted clock_period.txt; the raw
+# SDC feeds only the cheap extraction and sdc-copy actions, so a
+# period-preserving SDC edit never re-runs synthesis.
+synth_action_inputs_test(
+    name = "sdc_serial_clock_period_extraction_test",
+    output_basename = "clock_period.txt",
+    required_input_basenames = ["constraints-combinational.sdc"],
+    target_under_test = ":Mul_synth",
+)
+
+synth_action_inputs_test(
+    name = "sdc_serial_canonicalize_test",
+    forbidden_input_basenames = ["constraints-combinational.sdc"],
+    output_basename = "1_1_yosys_canonicalize.rtlil",
+    required_input_basenames = ["clock_period.txt"],
+    target_under_test = ":Mul_synth",
+)
+
+synth_action_inputs_test(
+    name = "sdc_serial_do_yosys_test",
+    forbidden_input_basenames = ["constraints-combinational.sdc"],
+    output_basename = "1_2_yosys.v",
+    required_input_basenames = [
+        "1_1_yosys_canonicalize.rtlil",
+        "clock_period.txt",
+    ],
+    target_under_test = ":Mul_synth",
+)
+
+synth_action_inputs_test(
+    name = "sdc_serial_sdc_copy_test",
+    output_basename = "1_2_yosys.sdc",
+    required_input_basenames = ["constraints-combinational.sdc"],
+    target_under_test = ":Mul_synth",
+)
+
+synth_action_inputs_test(
+    name = "sdc_serial_odb_test",
+    output_basename = "1_synth.odb",
+    required_input_basenames = [
+        "1_2_yosys.sdc",
+        "1_2_yosys.v",
+    ],
+    target_under_test = ":Mul_synth",
+)
+
+# Same split on the parallel/hierarchical path (kept_modules_synth).
+synth_action_inputs_test(
+    name = "sdc_parallel_partition_test",
+    forbidden_input_basenames = ["constraints-top.sdc"],
+    output_basename = "partition_top.v",
+    required_input_basenames = ["clock_period.txt"],
+    target_under_test = ":kept_modules_synth",
+)
+
+# Per-module canonicalize never sources synth_preamble.tcl, so it needs
+# neither the raw SDC nor the extracted period.
+synth_action_inputs_test(
+    name = "sdc_parallel_module_canonicalize_test",
+    forbidden_input_basenames = [
+        "clock_period.txt",
+        "constraints-top.sdc",
+    ],
+    output_basename = "partition_adder_canonical.rtlil",
+    target_under_test = ":kept_modules_synth",
+)
+
+synth_action_inputs_test(
+    name = "sdc_parallel_sdc_copy_test",
+    output_basename = "1_2_yosys.sdc",
+    required_input_basenames = ["constraints-top.sdc"],
+    target_under_test = ":kept_modules_synth",
 )
 
 REGFILE_ARGUMENTS = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
