@@ -47,7 +47,7 @@ def _convert_sources(sources, pkg):
             result[var] = converted
     return result
 
-def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], local_arguments = [], extra = None):  # buildifier: disable=unused-variable
+def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], extra = None):  # buildifier: disable=unused-variable
     """Create orfs_flow() targets for a design based on its parsed config.mk.
 
     Usage:
@@ -86,6 +86,12 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
             io.tcl). Routed through orfs_flow(user_sources=...) so the
             file is still staged into the sandbox, but the variable
             name bypasses the variables.yaml validator.
+        user_stages: additive sidecar scoping user_arguments/user_sources
+            variables to the stages that read them, e.g.
+            {"MY_HOOK": ["floorplan"]}. Unlisted user variables keep the
+            default kept-in-every-stage behavior; scoping a user source
+            stops its file edits from re-running stages that never read
+            it. Routed through orfs_flow(user_stages=...).
         local_arguments: List of variable names that are only used for
             $(VAR) expansion within the same config.mk and are not read
             by ORFS or by any user .tcl/.mk (e.g. VERILOG_FILES_BLACKBOX,
@@ -94,8 +100,8 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
             validated against variables.yaml nor exposed as env vars.
         extra: optional callable invoked after the real flow with the
             fully-processed design data (name, platform, verilog_files,
-            arguments, user_arguments, sources, user_sources, macros,
-            stage_data, tags) so callers can attach additional
+            arguments, user_arguments, sources, user_sources, user_stages,
+            macros, stage_data, tags) so callers can attach additional
             per-design targets (extra flow variants, reporting targets)
             without orfs_design knowing their policy.
     """
@@ -236,6 +242,7 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
         user_arguments = user_args,
         sources = sources,
         user_sources = user_srcs,
+        user_stages = user_stages,
         macros = macros if macros else [],
         stage_data = {"synth": extra_data} if extra_data else {},
         tags = tags,
@@ -254,6 +261,7 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
             user_arguments = user_args,
             sources = sources,
             user_sources = user_srcs,
+            user_stages = user_stages,
             macros = macros if macros else [],
             stage_data = {"synth": extra_data} if extra_data else {},
             tags = tags,
