@@ -732,6 +732,29 @@ synth_action_inputs_test(
     target_under_test = "//test/estimation_ladder:extract_ground_truth",
 )
 
+# A stage's inputs carry only the macro .lib variant its args.mk
+# references (orfs_additional_arguments use_pre_layout): floorplan/place
+# take the pre-layout (ideal-clock) libs, later stages the post-layout
+# ones. Both .lib variants share a basename and differ only in the
+# variant directory, hence the path matching. Without the split, a
+# macro re-characterization that touches one variant re-ran stages that
+# only reference the other.
+synth_action_inputs_test(
+    name = "lib_pre_layout_inputs_floorplan_test",
+    forbidden_input_path_contains = ["base/lb_32x128_typ.lib"],
+    output_basename = "2_floorplan.odb",
+    required_input_path_contains = ["pre_layout/lb_32x128_typ.lib"],
+    target_under_test = ":lb_32x128_top_mock_hierarchy_floorplan",
+)
+
+synth_action_inputs_test(
+    name = "lib_post_layout_inputs_abstract_test",
+    forbidden_input_path_contains = ["pre_layout/lb_32x128_typ.lib"],
+    output_basename = "lb_32x128_top.lef",
+    required_input_path_contains = ["base/lb_32x128_typ.lib"],
+    target_under_test = ":lb_32x128_top_mock_hierarchy_generate_abstract",
+)
+
 REGFILE_ARGUMENTS = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
     "CORE_AREA": "1.026 1.080 4.914 4.860",
     "DIE_AREA": "0 0 5.940 5.940",

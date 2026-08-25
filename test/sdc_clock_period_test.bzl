@@ -34,7 +34,8 @@ def _synth_action_inputs_test_impl(ctx):
     )
 
     for action in matching:
-        input_basenames = {f.basename: True for f in action.inputs.to_list()}
+        inputs = action.inputs.to_list()
+        input_basenames = {f.basename: True for f in inputs}
         for required in ctx.attr.required_input_basenames:
             asserts.true(
                 env,
@@ -49,6 +50,28 @@ def _synth_action_inputs_test_impl(ctx):
                 env,
                 forbidden in input_basenames,
                 "Expected %s NOT to be an input of the action producing %s" % (
+                    forbidden,
+                    ctx.attr.output_basename,
+                ),
+            )
+
+        # Path-substring matching, for inputs whose basenames collide —
+        # e.g. a macro's pre- and post-layout .lib are both
+        # <design>_typ.lib, distinguished only by the variant directory.
+        for required in ctx.attr.required_input_path_contains:
+            asserts.true(
+                env,
+                any([required in f.path for f in inputs]),
+                "Expected an input path containing %s in the action producing %s" % (
+                    required,
+                    ctx.attr.output_basename,
+                ),
+            )
+        for forbidden in ctx.attr.forbidden_input_path_contains:
+            asserts.false(
+                env,
+                any([forbidden in f.path for f in inputs]),
+                "Expected NO input path containing %s in the action producing %s" % (
                     forbidden,
                     ctx.attr.output_basename,
                 ),
@@ -71,6 +94,14 @@ synth_action_inputs_test = analysistest.make(
         "forbidden_input_basenames": attr.string_list(
             doc = "Basenames that must NOT appear among the selected " +
                   "action's inputs.",
+        ),
+        "required_input_path_contains": attr.string_list(
+            doc = "Substrings each of which must appear in at least one " +
+                  "input's path of the selected action.",
+        ),
+        "forbidden_input_path_contains": attr.string_list(
+            doc = "Substrings none of which may appear in any input's " +
+                  "path of the selected action.",
         ),
     },
 )

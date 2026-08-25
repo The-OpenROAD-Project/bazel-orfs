@@ -2523,6 +2523,13 @@ def _make_impl(
             [_make_cmd(ctx)]
         )
 
+        # Stage only the macro .lib variant this stage's args.mk references
+        # (mirrors the orfs_additional_arguments(use_pre_layout) selection
+        # above). Squashed multi-stage actions span both timing domains,
+        # so they keep both variants.
+        lib_selection = use_pre_layout
+        if getattr(ctx.attr, "stages", None) and len(ctx.attr.stages) > 1:
+            lib_selection = None
         ctx.actions.run_shell(
             arguments = ["--file", ctx.file._makefile.path] + steps,
             command = " && ".join(commands),
@@ -2531,7 +2538,7 @@ def _make_impl(
                 [config] + ctx.files.extra_configs + all_jsons,
                 transitive = [
                     data_inputs(ctx),
-                    source_inputs(ctx),
+                    source_inputs(ctx, use_pre_layout = lib_selection),
                     rename_inputs(ctx),
                 ],
             ),
