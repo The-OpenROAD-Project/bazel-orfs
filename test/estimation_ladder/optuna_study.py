@@ -16,6 +16,7 @@ of the archive this rung writes.
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 
@@ -200,6 +201,98 @@ def run_estimator(estimator_exe, env, ground_truth_json, timeout_s=None, out_jso
     return metrics
 
 
+def run_estimator_batch(
+    estimator_exe,
+    envs_by_id,
+    ground_truth_json,
+    timeout_s=None,
+    parallel=False,
+    subtree_timeout_s=None,
+):
+    """Run many configurations in ONE estimator process.
+
+    The estimator walks the configurations as a decision tree, forking at
+    each divergence (see estimator_batch.tcl), so a stage shared by two
+    trials -- most importantly the design load and floorplan every trial
+    shares -- is paid once instead of once per trial.
+
+    The walk is sequential by default (one active run owns the machine,
+    the honest setting for anything that reads runtimes); parallel=True
+    forks divergent subtrees concurrently, which restores the old
+    jobs-style concurrency for accuracy-only callers.
+
+    Returns {id: metrics or None}: an id whose subtree crashed has no leaf
+    JSON and maps to None, while its siblings still report.
+    """
+    work = tempfile.mkdtemp(prefix="est_batch_")
+    manifest_dir = os.path.join(work, "manifest")
+    results_dir = os.path.join(work, "results")
+    os.makedirs(manifest_dir)
+    os.makedirs(results_dir)
+    ground_truth = os.path.abspath(ground_truth_json)
+    try:
+        for cid, env in envs_by_id.items():
+            with open(os.path.join(manifest_dir, f"{cid}.cfg"), "w") as f:
+                for key, value in env.items():
+                    f.write(f"{key}={value}\n")
+
+        cmd = [
+            estimator_exe,
+            f"EST_MANIFEST_DIR={manifest_dir}",
+            f"EST_RESULTS_DIR={results_dir}",
+            f"GROUND_TRUTH_JSON={ground_truth}",
+            f"LOG_DIR={work}",
+        ]
+        if parallel:
+            cmd.append("EST_PARALLEL=1")
+            # Every forked child inherits the tool's thread count; a wave
+            # of concurrent subtrees each sized for the whole machine is
+            # oversubscription, not speed. Divide the machine instead.
+            threads = max(1, (os.cpu_count() or 8) // max(1, len(envs_by_id)))
+            cmd.append(f"NUM_CORES={threads}")
+        if subtree_timeout_s is not None:
+            # The batch-level timeout below is a backstop; this is the
+            # per-trial budget, enforced inside the walk (a runaway
+            # subtree is killed, its siblings still report).
+            cmd.append(f"EST_SUBTREE_TIMEOUT={subtree_timeout_s}")
+        try:
+            res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
+        except subprocess.TimeoutExpired:
+            raise TimeoutError(f"estimator batch exceeded {timeout_s}s")
+        if res.returncode != 0:
+            raise RuntimeError(
+                f"estimator batch exited {res.returncode}\n"
+                f"stdout: {res.stdout[-4000:]}\nstderr: {res.stderr[-4000:]}"
+            )
+
+        results = {}
+        for cid in envs_by_id:
+            leaf = os.path.join(results_dir, f"{cid}.json")
+            if os.path.exists(leaf):
+                metrics, _ = compute_metrics(ground_truth, leaf)
+                results[cid] = metrics
+            else:
+                results[cid] = None
+        return results
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+
+
+def objective_values(metrics, subset):
+    """The study's two objectives, or ValueError if the subset is empty.
+
+    Maximizing rank correlation and minimizing the *magnitude* of the
+    bias: a large bias that is consistent is a calibration constant, so
+    it should not be penalized by its sign.
+    """
+    suffix = "" if subset == "all" else f"_{subset}"
+    tau = metrics.get(f"kendall_tau{suffix}")
+    bias = metrics.get(f"bias{suffix}")
+    if tau is None or bias is None or tau != tau:
+        raise ValueError(f"no {subset} metrics for this trial")
+    return tau, abs(bias)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("estimator_exe")
@@ -225,6 +318,30 @@ def main():
         default=1800.0,
         help="seconds before a single estimator run is abandoned",
     )
+    ap.add_argument(
+        "--batch-size",
+        type=int,
+        default=0,
+        help=(
+            "run trials in fork/join batches of this size: one estimator "
+            "process walks each batch as a decision tree, paying shared "
+            "stages (load, floorplan, common placements) once instead of "
+            "once per trial. 0 keeps the one-process-per-trial behavior. "
+            "--jobs applies only to that legacy mode; the batch walk is "
+            "sequential by default, one active run at a time. The batch "
+            "timeout is --trial-timeout times the batch size."
+        ),
+    )
+    ap.add_argument(
+        "--batch-parallel",
+        action="store_true",
+        help=(
+            "fork divergent subtrees of a batch concurrently instead of "
+            "sequentially. Runtime numbers become contention-contaminated, "
+            "so this is for accuracy-only sweeps (this rung's purpose) and "
+            "the machinery test; leave it off when runtimes matter."
+        ),
+    )
     args = ap.parse_args()
 
     for path in (args.estimator_exe, args.ground_truth_json):
@@ -232,6 +349,13 @@ def main():
             raise SystemExit(f"not found: {path}")
 
     archive = []
+
+    def record(trial, env, metrics):
+        trial.set_user_attr("env", env)
+        for key, value in metrics.items():
+            if key != "phases":
+                trial.set_user_attr(key, value)
+        archive.append({"number": trial.number, "env": env, "metrics": metrics})
 
     def objective(trial):
         env = build_env(trial)
@@ -241,31 +365,47 @@ def main():
             args.ground_truth_json,
             timeout_s=args.trial_timeout,
         )
-        trial.set_user_attr("env", env)
-        for key, value in metrics.items():
-            if key != "phases":
-                trial.set_user_attr(key, value)
-        archive.append({"number": trial.number, "env": env, "metrics": metrics})
-        # Maximizing rank correlation and minimizing the *magnitude* of
-        # the bias: a large bias that is consistent is a calibration
-        # constant, so it should not be penalized by its sign.
-        suffix = "" if args.subset == "all" else f"_{args.subset}"
-        tau = metrics.get(f"kendall_tau{suffix}")
-        bias = metrics.get(f"bias{suffix}")
-        if tau is None or bias is None or tau != tau:
-            raise ValueError(f"no {args.subset} metrics for this trial")
-        return tau, abs(bias)
+        record(trial, env, metrics)
+        return objective_values(metrics, args.subset)
 
     study = optuna.create_study(
         directions=["maximize", "minimize"],
         sampler=optuna.samplers.NSGAIISampler(seed=1),
     )
-    study.optimize(
-        objective,
-        n_trials=args.trials,
-        n_jobs=args.jobs,
-        catch=(RuntimeError, ValueError, TimeoutError),
-    )
+    if args.batch_size > 0:
+        done = 0
+        while done < args.trials:
+            wave = min(args.batch_size, args.trials - done)
+            trials = [study.ask() for _ in range(wave)]
+            envs = {str(t.number): build_env(t) for t in trials}
+            batch = run_estimator_batch(
+                args.estimator_exe,
+                envs,
+                args.ground_truth_json,
+                timeout_s=args.trial_timeout * wave,
+                parallel=args.batch_parallel,
+                subtree_timeout_s=args.trial_timeout,
+            )
+            for t in trials:
+                metrics = batch.get(str(t.number))
+                try:
+                    if metrics is None:
+                        raise RuntimeError("subtree crashed; no leaf JSON")
+                    values = objective_values(metrics, args.subset)
+                except (RuntimeError, ValueError) as e:
+                    print(f"trial {t.number} failed: {e}")
+                    study.tell(t, state=optuna.trial.TrialState.FAIL)
+                    continue
+                record(t, envs[str(t.number)], metrics)
+                study.tell(t, values)
+            done += wave
+    else:
+        study.optimize(
+            objective,
+            n_trials=args.trials,
+            n_jobs=args.jobs,
+            catch=(RuntimeError, ValueError, TimeoutError),
+        )
 
     ws = os.environ.get("BUILD_WORKSPACE_DIRECTORY") or os.environ.get("PWD", ".")
     out_dir = os.path.join(ws, "test/estimation_ladder")
