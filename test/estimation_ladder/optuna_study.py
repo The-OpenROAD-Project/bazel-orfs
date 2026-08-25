@@ -37,6 +37,17 @@ def build_env(trial):
     env["RUN_PLACE"] = str(run_place)
     env["RUN_MACRO_PLACE"] = str(trial.suggest_categorical("run_macro_place", [0, 1]))
 
+    # Which routing layer prices a wire. Free at runtime, and measured
+    # separately as the most effective single knob in the study -- it is
+    # in the search space now because leaving it out is what made an
+    # earlier sweep conclude that nothing could fix macro path ordering.
+    wire_rc = trial.suggest_categorical(
+        "wire_rc_layer",
+        ["default", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9"],
+    )
+    if wire_rc != "default":
+        env["WIRE_RC_LAYER_OVERRIDE"] = wire_rc
+
     gp_args = []
     if run_place == 1:
         # -place_ios is a branch rather than another dimension: gpl

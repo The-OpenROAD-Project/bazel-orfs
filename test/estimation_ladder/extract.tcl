@@ -140,6 +140,7 @@ puts "Ground truth flow runtime: $gt_runtime_s s ([llength $stage_logs] stages)"
 set fp [open $::env(OUTPUT_JSON) w]
 puts $fp "{"
 puts $fp "\"runtime_s\": $gt_runtime_s,"
+puts $fp "\"time_unit\": \"[sta::unit_scale_abbreviation time][sta::unit_suffix time]\","
 puts $fp "\"stages\": \{"
 set sfirst 1
 foreach {k v} $stage_breakdown {
