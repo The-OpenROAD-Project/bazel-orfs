@@ -432,11 +432,17 @@ def _run_impl(ctx):
             transitive = [
                 data_inputs(ctx),
                 source_inputs(ctx),
-                # The src stage's accumulated logs, so run scripts can read
-                # e.g. stage elapsed times. Safe here, unlike in
-                # source_inputs: the run action writes only run.log, never
-                # a stage log name, so there is no sandbox collision.
-                ctx.attr.src[LoggingInfo].logs if LoggingInfo in ctx.attr.src else depset(),
+                # The src stage's accumulated logs, opt-in via src_logs=
+                # for run scripts that read e.g. stage elapsed times.
+                # Sandbox-safe here, unlike in source_inputs: the run
+                # action writes only run.log, never a stage log name.
+                # Opt-in because logs are never byte-stable (every one
+                # carries Elapsed/CPU/Peak-memory lines), so as a default
+                # input they re-ran every orfs_run whenever any upstream
+                # stage re-executed, byte-identical artifacts or not.
+                ctx.attr.src[LoggingInfo].logs if (
+                    ctx.attr.src_logs and LoggingInfo in ctx.attr.src
+                ) else depset(),
             ],
         ),
         outputs = outs,
@@ -530,6 +536,18 @@ _orfs_run_rule = rule(
                 "script": attr.label(
                     mandatory = True,
                     allow_single_file = ["tcl"],
+                ),
+                "src_logs": attr.bool(
+                    default = False,
+                    doc = "Stage the src stage's accumulated logs into the " +
+                          "run action's inputs, for scripts that read them " +
+                          "(e.g. stage elapsed times from $LOG_DIR/*.log). " +
+                          "Off by default: every log carries wall-clock/" +
+                          "CPU/memory lines, so a log input re-runs this " +
+                          "action whenever ANY upstream stage re-executes — " +
+                          "even when the artifacts it actually reads are " +
+                          "byte-identical — and guarantees remote-cache " +
+                          "misses across machines.",
                 ),
                 "stages": attr.string_list(
                     mandatory = False,
