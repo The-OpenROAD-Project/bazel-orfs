@@ -208,6 +208,7 @@ def run_estimator_batch(
     timeout_s=None,
     parallel=False,
     subtree_timeout_s=None,
+    keep_results_dir=None,
 ):
     """Run many configurations in ONE estimator process.
 
@@ -273,6 +274,10 @@ def run_estimator_batch(
                 results[cid] = metrics
             else:
                 results[cid] = None
+        if keep_results_dir:
+            # Preserve the wave's leaf JSONs and edges.jsonl (the per-edge
+            # instrumentation wave_savings.py aggregates).
+            shutil.copytree(results_dir, keep_results_dir)
         return results
     finally:
         shutil.rmtree(work, ignore_errors=True)
@@ -333,6 +338,17 @@ def main():
         ),
     )
     ap.add_argument(
+        "--keep-waves",
+        default="",
+        metavar="DIR",
+        help=(
+            "preserve each batch wave's results folder (leaf JSONs plus "
+            "edges.jsonl) under DIR/wave_NNN, for wave_savings.py to "
+            "estimate what a resident-root or snapshot-cache mode would "
+            "have saved across the study"
+        ),
+    )
+    ap.add_argument(
         "--batch-parallel",
         action="store_true",
         help=(
@@ -374,10 +390,14 @@ def main():
     )
     if args.batch_size > 0:
         done = 0
+        wave_number = 0
         while done < args.trials:
             wave = min(args.batch_size, args.trials - done)
             trials = [study.ask() for _ in range(wave)]
             envs = {str(t.number): build_env(t) for t in trials}
+            keep = None
+            if args.keep_waves:
+                keep = os.path.join(args.keep_waves, f"wave_{wave_number:03d}")
             batch = run_estimator_batch(
                 args.estimator_exe,
                 envs,
@@ -385,7 +405,9 @@ def main():
                 timeout_s=args.trial_timeout * wave,
                 parallel=args.batch_parallel,
                 subtree_timeout_s=args.trial_timeout,
+                keep_results_dir=keep,
             )
+            wave_number += 1
             for t in trials:
                 metrics = batch.get(str(t.number))
                 try:

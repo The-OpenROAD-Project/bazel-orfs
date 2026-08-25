@@ -96,6 +96,11 @@ py_binary(
 )
 
 py_binary(
+    name = "wave_savings",
+    srcs = ["wave_savings.py"],
+)
+
+py_binary(
     name = "update-readme",
     srcs = ["update_readme.py"],
     args = [

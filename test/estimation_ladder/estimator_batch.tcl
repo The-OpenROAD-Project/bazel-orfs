@@ -102,13 +102,30 @@ proc est_stage_key { cfg knobs } {
     return $key
 }
 
-proc est_apply_stage { stage knobs cfg } {
+# Edge log: one JSON line per executed tree edge, appended as it
+# completes (children inherit ::est_path across fork, so the path is the
+# edge's identity in the trie). This is the instrumentation behind the
+# resident-root / snapshot-cache decision: wave_savings.py sums, across a
+# study's waves, the time spent re-computing edges an earlier wave had
+# already paid for -- the upper bound on what keeping snapshots alive
+# between waves would save.
+proc est_log_edge { stage seconds } {
+    set path [string map {\\ \\\\ \" \\\"} [join $::est_path " > "]]
+    set fp [open [file join $::env(EST_RESULTS_DIR) edges.jsonl] a]
+    puts $fp "{\"path\": \"$path\", \"stage\": \"$stage\", \"seconds\": $seconds}"
+    close $fp
+}
+
+proc est_apply_stage { stage knobs key cfg } {
     foreach k $knobs {
         if {[dict exists $cfg $k]} {
             dict set ::est_cfg $k [dict get $cfg $k]
         }
     }
+    lappend ::est_path $key
+    set t0 [clock clicks -milliseconds]
     est_stage_$stage
+    est_log_edge $stage [expr {([clock clicks -milliseconds] - $t0) / 1000.0}]
 }
 
 # At the bottom of the tree the remaining configurations are identical in
@@ -118,6 +135,7 @@ proc est_run_leaves { configs } {
     dict set ::phase_times load $::load_s
     est_measure_paths
     set sta_s [dict get $::phase_times sta]
+    est_log_edge sta $sta_s
     set estimate_s 0.0
     dict for {name secs} $::phase_times {
         if {$name ni {load sta}} {
@@ -153,15 +171,16 @@ proc est_walk { configs depth } {
     if {[dict size $groups] == 1} {
         # Sole subtree: this process is already dedicated to it, so an
         # inline stage costs nothing a fork would buy.
-        set sub [lindex [dict values $groups] 0]
-        est_apply_stage $stage $knobs [lindex [dict values $sub] 0]
+        set key [lindex [dict keys $groups] 0]
+        set sub [dict get $groups $key]
+        est_apply_stage $stage $knobs $key [lindex [dict values $sub] 0]
         est_walk $sub [expr {$depth + 1}]
         return
     }
 
     set statuses [fork {*}$::est_fork_opts key [dict keys $groups] {
         set sub [dict get $groups $key]
-        est_apply_stage $stage $knobs [lindex [dict values $sub] 0]
+        est_apply_stage $stage $knobs $key [lindex [dict values $sub] 0]
         est_walk $sub [expr {$depth + 1}]
     }]
     dict for {key code} $statuses {
@@ -177,5 +196,8 @@ if {[dict size $est_configs] == 0} {
     error "no .cfg files in EST_MANIFEST_DIR=$::env(EST_MANIFEST_DIR)"
 }
 puts "estimator batch: walking [dict size $est_configs] configurations"
+set ::est_path {}
+est_log_edge load $::load_s
+est_log_edge floorplan [dict get $::phase_times floorplan]
 est_walk $est_configs 0
 puts "estimator batch: walk complete"
