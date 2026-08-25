@@ -237,7 +237,7 @@ def data_inputs_excluding(ctx, exclude_path):
         if f.path != exclude_path
     ])
 
-def source_inputs(ctx, use_pre_layout = None):
+def source_inputs(ctx, use_pre_layout = None, gds = True):
     """Inputs a stage action takes from its ``src`` stage.
 
     Args:
@@ -251,6 +251,8 @@ def source_inputs(ctx, use_pre_layout = None):
             None (default) stages both: for orfs_run/orfs_test/
             orfs_arguments, whose user scripts may read either, and for
             squashed multi-stage actions that span both timing domains.
+        gds: whether the macro .gds files are staged. Only the
+            GDS-emitting make steps read them (do-gds, do-final).
     Returns:
         A depset of files.
     """
@@ -259,6 +261,15 @@ def source_inputs(ctx, use_pre_layout = None):
         lib_depsets.append(ctx.attr.src[OrfsInfo].additional_libs_pre_layout)
     if use_pre_layout != True:
         lib_depsets.append(ctx.attr.src[OrfsInfo].additional_libs)
+
+    # Macro .gds files are read only where GDS is emitted (ORFS consumes
+    # ADDITIONAL_GDS solely in the klayout wrap of the final/gds path).
+    # Staging them everywhere re-ran the whole PnR chain when a macro's
+    # .gds changed while its .lef/.lib did not (klayout tech-file edits,
+    # a macro final-stage rerun). Default True: orfs_run/orfs_test user
+    # scripts may read them.
+    if gds:
+        lib_depsets.append(ctx.attr.src[OrfsInfo].additional_gds)
     return depset(
         ctx.files.src,
         transitive = [
@@ -275,7 +286,6 @@ def source_inputs(ctx, use_pre_layout = None):
             # which are read-only in the sandbox and collide with the new
             # stage's same-named log writes (Permission denied).
             ctx.attr.src[OrfsDepInfo].files,
-            ctx.attr.src[OrfsInfo].additional_gds,
             ctx.attr.src[OrfsInfo].additional_lefs,
             ctx.attr.src[PdkInfo].files,
             ctx.attr.src[PdkInfo].libs,
@@ -295,9 +305,21 @@ def rename_inputs(ctx):
 def pdk_inputs(ctx):
     return depset(transitive = [ctx.attr.pdk[PdkInfo].files, ctx.attr.pdk[PdkInfo].libs])
 
-def deps_inputs(ctx):
+def deps_inputs(ctx, gds = True):
+    """Macro dep collateral for action inputs.
+
+    Args:
+        ctx: Rule context.
+        gds: whether macro .gds files are included. The synth/yosys
+            actions never read GDS (YOSYS_DEPENDENCIES and do-1_synth's
+            prereqs carry no GDS), so they pass False — a macro .gds
+            change with stable .lef/.lib then no longer re-synthesizes
+            the parent.
+    Returns:
+        A depset of files.
+    """
     return depset(
-        [dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds] +
+        ([dep[OrfsInfo].gds for dep in ctx.attr.deps if dep[OrfsInfo].gds] if gds else []) +
         [dep[OrfsInfo].lef for dep in ctx.attr.deps if dep[OrfsInfo].lef] +
         [dep[OrfsInfo].lib for dep in ctx.attr.deps if dep[OrfsInfo].lib] +
         [
