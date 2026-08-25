@@ -2040,6 +2040,10 @@ def _yosys_impl(ctx):
                 "--file",
                 ctx.file._makefile_yosys.path,
                 "print-LIB_FILES",
+                # A make-parse-only action: LIB_FILES never involves the
+                # SDC, so don't let raw-SDC edits re-run it (the input set
+                # below excludes the SDC accordingly).
+                "SDC_FILE=",
             ],
             command = """
             {make} $@ > {out}
@@ -2051,7 +2055,7 @@ def _yosys_impl(ctx):
             inputs = depset(
                 [canon_output, config] + ctx.files.extra_configs,
                 transitive = [
-                    data_inputs(ctx),
+                    synth_data_inputs,
                     pdk_inputs(ctx),
                     deps_inputs(ctx),
                 ],
@@ -2060,7 +2064,18 @@ def _yosys_impl(ctx):
             tools = depset(transitive = [flow_inputs(ctx)]),
         )
 
-    outputs = [canon_output, variables] + synth_outputs.values()
+    # 1_2_yosys.sdc is a verbatim copy of the raw SDC feeding do-1_synth —
+    # an intermediate, not a deliverable (nothing in the repo consumes it,
+    # and a deployed re-run regenerates it via ORFS's own file rule).
+    # Keeping it in DefaultInfo.files would land it in every downstream
+    # stage's action inputs (ctx.files.src → source_inputs) and re-run
+    # floorplan+ on every raw-SDC edit; the downstream contract is the
+    # canonicalized 1_synth.sdc.
+    outputs = [canon_output, variables] + [
+        f
+        for name, f in synth_outputs.items()
+        if name != "1_2_yosys.sdc"
+    ]
 
     # Write synth's data_arguments to a JSON so downstream stages
     # inherit synth-time variables (SDC_FILE, VERILOG_FILES, SYNTH_*)
@@ -2207,7 +2222,15 @@ def _yosys_impl(ctx):
             kept_macros_validation = depset(
                 [validated_kept_macros_json] if validated_kept_macros_json else [],
             ),
-            **{f.basename: depset([f]) for f in [config] + outputs}
+            # 1_2_yosys.sdc left DefaultInfo.files (see the outputs
+            # comment above) but stays inspectable on demand:
+            # bazelisk build --output_groups=1_2_yosys.sdc <synth target>.
+            **{
+                f.basename: depset([f])
+                for f in [config] + outputs + (
+                    [synth_outputs["1_2_yosys.sdc"]] if "1_2_yosys.sdc" in synth_outputs else []
+                )
+            }
         ),
         OrfsDepInfo(
             make = make,
@@ -2218,8 +2241,19 @@ def _yosys_impl(ctx):
             # OrfsDepInfo.files, and the synth config can reference
             # sources= paths (e.g. LAYER_PARASITICS_FILE) that load.tcl
             # sources at load_design time.
+            #
+            # EXCEPT the raw SDC: downstream's contract is the previous
+            # stage's written .odb/.sdc (for floorplan, the canonicalized
+            # 1_synth.sdc via OrfsInfo.sdc — write_sdc resolves every
+            # dependency the raw SDC_FILE may source), and nothing after
+            # synth reads SDC_FILE (open.tcl's fallback never fires once
+            # an N_*.sdc exists). Keeping it here would feed it into
+            # floorplan's inputs via source_inputs() and re-run floorplan
+            # on every raw-SDC edit, period-preserving or not.
             files = depset(
-                [config_short] + ctx.files.data + ctx.files.extra_configs,
+                [config_short] +
+                [f for f in ctx.files.data if f.path != sdc_path] +
+                ctx.files.extra_configs,
             ),
             runfiles = ctx.runfiles(transitive_files = deploy_files),
         ),
