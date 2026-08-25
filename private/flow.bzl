@@ -32,6 +32,7 @@ load(
     "//private:stages.bzl",
     "STAGE_METADATA",
     "check_stage_variables",
+    "check_user_stages",
     "get_sources",
     "get_stage_args",
 )
@@ -74,11 +75,13 @@ def _filter_stage_args(stage, **kwargs):
     stage_data = kwargs.pop("stage_data", {})
     user_arguments = kwargs.pop("user_arguments", {})
     user_sources = kwargs.pop("user_sources", {})
+    user_stages = kwargs.pop("user_stages", {})
 
     # Validate before merging: the escape hatches are exempt from the
     # spell-check, so they cannot be folded in first.  See "The two escape
     # hatches" in private/stages.bzl.
     check_stage_variables(arguments, sources, user_arguments, user_sources)
+    check_user_stages(user_stages, user_arguments, user_sources)
     arguments = arguments | user_arguments
     sources = sources | user_sources
 
@@ -99,8 +102,9 @@ def _filter_stage_args(stage, **kwargs):
             arguments = arguments,
             sources = sources,
             stage_arguments = stage_arguments,
+            user_stages = user_stages,
         ),
-        data = get_sources([stage], sources) +
+        data = get_sources([stage], sources, user_stages = user_stages) +
                stage_data.get(stage, []) +
                data,
         extra_arguments = extra_arguments.get(stage, []),
@@ -312,6 +316,10 @@ def orfs_flow(
         Use for path hooks read only by user-supplied .tcl/.mk (e.g. an extra-SDC hook
         source'd from the design's own io.tcl). Keys that collide with known ORFS variables
         are rejected — route those through 'sources' instead.
+      user_stages: additive sidecar scoping user_arguments/user_sources variables to the
+        stages that read them, e.g. {"MY_HOOK": ["floorplan"]}. Unlisted user variables keep
+        the default kept-in-every-stage behavior. Scoping a user source stops its file edits
+        from re-running stages that never read it. (Passed via **kwargs.)
       extra_arguments: dictionary keyed by ORFS stages with lists of .json argument file labels.
         These .json files are merged into the stage config, providing computed arguments
         that flow through OrfsInfo to subsequent stages.
@@ -356,6 +364,7 @@ def orfs_flow(
     # typo in a flow that instantiates no stage (last_stage past its own
     # start) still fails loudly.
     check_stage_variables(arguments, sources, user_arguments, user_sources)
+    check_user_stages(kwargs.get("user_stages", {}), user_arguments, user_sources)
     if "data" in kwargs:
         fail(
             "orfs_flow(data = ...) fans the files out to every stage — " +

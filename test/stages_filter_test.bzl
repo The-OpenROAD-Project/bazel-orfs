@@ -171,6 +171,40 @@ def _user_hatch_survives_the_filter_test(ctx):
     asserts.false(env, _VAR_B in merged)
     return unittest.end(env)
 
+def _user_stages_sidecar_scopes_test(ctx):
+    env = unittest.begin(ctx)
+
+    user_stages = {_UNMAPPED: [_STAGE_A]}
+    sources = {_UNMAPPED: ["//u:lu"]}
+    arguments = {_UNMAPPED: "42"}
+
+    # Owned stage keeps the variable (arg and source, in lockstep).
+    args_a = get_stage_args([_STAGE_A], arguments = arguments, user_stages = user_stages)
+    asserts.equals(env, "42", args_a.get(_UNMAPPED))
+    asserts.equals(env, ["//u:lu"], get_sources([_STAGE_A], sources, user_stages = user_stages))
+
+    # A non-owning stage drops it — the sidecar replaces the
+    # kept-everywhere escape hatch for the variables it lists.
+    args_b = get_stage_args([_STAGE_B], arguments = arguments, user_stages = user_stages)
+    asserts.false(env, _UNMAPPED in args_b)
+    asserts.equals(env, [], get_sources([_STAGE_B], sources, user_stages = user_stages))
+
+    # Union semantics match the known-variable filter.
+    args_ab = get_stage_args([_STAGE_B, _STAGE_A], arguments = arguments, user_stages = user_stages)
+    asserts.equals(env, "42", args_ab.get(_UNMAPPED))
+
+    # Empty stages still means "no filtering".
+    args_none = get_stage_args([], arguments = arguments, user_stages = user_stages)
+    asserts.equals(env, "42", args_none.get(_UNMAPPED))
+
+    # An unlisted user variable keeps today's kept-everywhere hatch
+    # (the additive-default pin: adding the sidecar changed nothing
+    # for existing callers).
+    args_unlisted = get_stage_args([_STAGE_B], arguments = arguments)
+    asserts.equals(env, "42", args_unlisted.get(_UNMAPPED))
+
+    return unittest.end(env)
+
 def _sorted_output_test(ctx):
     env = unittest.begin(ctx)
 
@@ -186,6 +220,7 @@ stage_arguments_bypass_filter_test = unittest.make(_stage_arguments_bypass_filte
 denylist_is_the_complement_of_keep_test = unittest.make(_denylist_is_the_complement_of_keep_test)
 denylist_union_over_stages_test = unittest.make(_denylist_union_over_stages_test)
 user_hatch_survives_the_filter_test = unittest.make(_user_hatch_survives_the_filter_test)
+user_stages_sidecar_scopes_test = unittest.make(_user_stages_sidecar_scopes_test)
 sorted_output_test = unittest.make(_sorted_output_test)
 
 def stages_filter_test_suite(name):
@@ -198,5 +233,6 @@ def stages_filter_test_suite(name):
         denylist_is_the_complement_of_keep_test,
         denylist_union_over_stages_test,
         user_hatch_survives_the_filter_test,
+        user_stages_sidecar_scopes_test,
         sorted_output_test,
     )

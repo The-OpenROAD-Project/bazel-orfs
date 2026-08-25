@@ -324,9 +324,51 @@ def _allowed_predicate(stages):
             allowed[variable] = True
     return True, allowed
 
-def _keep(arg, filtering, allowed):
+def _keep(arg, filtering, allowed, stages = [], user_stages = {}):
     # The single keep/drop predicate — see the two-time-domains block above.
-    return (not filtering) or (arg in allowed) or (arg not in ALL_VARIABLE_TO_STAGES)
+    if not filtering:
+        return True
+    if arg in user_stages:
+        # The additive user_stages sidecar: an unknown (user) variable the
+        # caller has scoped to specific stages loses the keep-everywhere
+        # escape hatch and is owned by exactly those stages.
+        return any([stage in stages for stage in user_stages[arg]])
+    return (arg in allowed) or (arg not in ALL_VARIABLE_TO_STAGES)
+
+def check_user_stages(user_stages, user_arguments, user_sources):
+    """Validates a user_stages sidecar dict.
+
+    Every key must name a variable from user_arguments/user_sources (a
+    known ORFS variable is already stage-scoped by variables.yaml — use
+    stage_arguments to override that), and every value must list known
+    stages.
+
+    Args:
+        user_stages: dict of user variable name -> list of stage names.
+        user_arguments: the user_arguments dict the keys must come from.
+        user_sources: the user_sources dict the keys may come from.
+    """
+    for variable, stages in user_stages.items():
+        if variable not in user_arguments and variable not in user_sources:
+            fail(
+                "user_stages names '{variable}', which is not in ".format(
+                    variable = variable,
+                ) +
+                "user_arguments or user_sources. Known ORFS variables are " +
+                "stage-scoped by variables.yaml; use stage_arguments to " +
+                "override that scoping.",
+            )
+        for stage in stages:
+            if stage not in ALL_STAGES:
+                fail(
+                    "user_stages['{variable}'] names unknown stage ".format(
+                        variable = variable,
+                    ) +
+                    "'{stage}'. Known stages: {known}.".format(
+                        stage = stage,
+                        known = ", ".join(ALL_STAGES),
+                    ),
+                )
 
 def dropped_variables(stages):
     """Returns the denylist that merge_arguments.py applies at execution time.
@@ -349,7 +391,7 @@ def dropped_variables(stages):
         return []
     return sorted([v for v in ALL_VARIABLE_TO_STAGES.keys() if v not in allowed])
 
-def get_stage_args(stages, stage_arguments = {}, arguments = {}, sources = {}):
+def get_stage_args(stages, stage_arguments = {}, arguments = {}, sources = {}, user_stages = {}):
     """Returns the arguments for a set of stages.
 
     Args:
@@ -361,6 +403,10 @@ def get_stage_args(stages, stage_arguments = {}, arguments = {}, sources = {}):
             test/stages_filter_test.bzl.
         arguments: a dictionary of arguments automatically assigned to a stage
         sources: a dictionary of variables and source files
+        user_stages: additive sidecar scoping user (unknown) variables to
+            the stages that read them, e.g. {"MY_HOOK": ["floorplan"]}.
+            An unlisted user variable keeps today's kept-everywhere
+            escape hatch.
     Returns:
       A dictionary of arguments for the stage(s).
     """
@@ -375,12 +421,12 @@ def get_stage_args(stages, stage_arguments = {}, arguments = {}, sources = {}):
     unsorted_dict = {
         arg: " ".join(["$(locations {})".format(v) for v in value])
         for arg, value in sources.items()
-        if _keep(arg, filtering, allowed)
+        if _keep(arg, filtering, allowed, stages, user_stages)
     }
     unsorted_dict.update({
         arg: value
         for arg, value in arguments.items()
-        if _keep(arg, filtering, allowed)
+        if _keep(arg, filtering, allowed, stages, user_stages)
     })
     unsorted_dict.update(stage_specific)
 
@@ -388,12 +434,17 @@ def get_stage_args(stages, stage_arguments = {}, arguments = {}, sources = {}):
     # — do not remove.
     return dict(sorted(unsorted_dict.items()))
 
-def get_sources(stages, sources):
+def get_sources(stages, sources, user_stages = {}):
     """Returns the sources for a set of stages.
 
     Args:
         stages: list of stage names to keep sources for (empty = keep all).
         sources: a dictionary of variable names with a list of sources to a stage
+        user_stages: additive sidecar scoping user (unknown) variables to
+            the stages that read them — MUST be the same dict handed to
+            get_stage_args: a $(locations X) arg whose label is pruned
+            from data fails location expansion, so the two prune in
+            lockstep (MORATORIUM(source-filtering-is-analysis-time)).
     Returns:
       A sorted, de-duplicated list of sources for the stage(s).
     """
@@ -407,7 +458,7 @@ def get_sources(stages, sources):
                 [
                     source_list
                     for variable, source_list in sources.items()
-                    if _keep(variable, filtering, allowed)
+                    if _keep(variable, filtering, allowed, stages, user_stages)
                 ],
             ),
         ),
