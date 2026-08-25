@@ -237,7 +237,28 @@ def data_inputs_excluding(ctx, exclude_path):
         if f.path != exclude_path
     ])
 
-def source_inputs(ctx):
+def source_inputs(ctx, use_pre_layout = None):
+    """Inputs a stage action takes from its ``src`` stage.
+
+    Args:
+        ctx: Rule context.
+        use_pre_layout: selects which macro .lib variant is staged, with
+            the SAME meaning as orfs_additional_arguments(use_pre_layout):
+            True stages only the pre-layout (ideal-clock) libs, False only
+            the post-layout ones — matching what the stage's args.mk
+            actually references, so a macro re-characterization that
+            touches only the other variant no longer re-runs the stage.
+            None (default) stages both: for orfs_run/orfs_test/
+            orfs_arguments, whose user scripts may read either, and for
+            squashed multi-stage actions that span both timing domains.
+    Returns:
+        A depset of files.
+    """
+    lib_depsets = []
+    if use_pre_layout != False:
+        lib_depsets.append(ctx.attr.src[OrfsInfo].additional_libs_pre_layout)
+    if use_pre_layout != True:
+        lib_depsets.append(ctx.attr.src[OrfsInfo].additional_libs)
     return depset(
         ctx.files.src,
         transitive = [
@@ -256,8 +277,6 @@ def source_inputs(ctx):
             ctx.attr.src[OrfsDepInfo].files,
             ctx.attr.src[OrfsInfo].additional_gds,
             ctx.attr.src[OrfsInfo].additional_lefs,
-            ctx.attr.src[OrfsInfo].additional_libs,
-            ctx.attr.src[OrfsInfo].additional_libs_pre_layout,
             ctx.attr.src[PdkInfo].files,
             ctx.attr.src[PdkInfo].libs,
             # Accumulate all JSON reports, so depend on previous stage.
@@ -265,7 +284,7 @@ def source_inputs(ctx):
             ctx.attr.src[LoggingInfo].reports,
             # non-idempotent by design transitive dependencies
             # ctx.attr.src[LoggingInfo].logs,
-        ],
+        ] + lib_depsets,
     )
 
 def rename_inputs(ctx):
