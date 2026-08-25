@@ -332,6 +332,22 @@ def main():
 
         spent = time.monotonic() - started
         if len(measured) >= MAX_MEASUREMENTS or spent > TIME_BUDGET_S:
+            # A gap is only a hole if something could have filled
+            # it, and with two or three front points the single interval
+            # trivially spans the range. Judge on the point count: most
+            # measurements are dominated in any Pareto search, so that
+            # ratio says nothing about how wide the front is.
+            dominated = len(measured) - len(front)
+            if len(front) < 4:
+                print(
+                    f"stopped after {len(measured)} measurements / "
+                    f"{spent / 60:.0f} min with {len(front)} front points. "
+                    f"{dominated} of {len(measured)} measured configurations "
+                    f"are dominated -- slower and no more accurate -- so the "
+                    f"front is narrow because the trade-off runs out, not "
+                    f"because the budget did."
+                )
+                break
             print(
                 f"stopped after {len(measured)} measurements / "
                 f"{spent / 60:.0f} min with "
