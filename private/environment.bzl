@@ -209,6 +209,13 @@ def data_inputs(ctx):
     # action graph. Stage rules set default_runfiles = flow_runfiles
     # (with qt) and data_runfiles = flow_inputs (without qt); for plain
     # file/filegroup targets the two are equal so behavior is unchanged.
+    #
+    # HAZARD: a STAGE TARGET in data= brings that stage's data_runfiles
+    # wholesale — including its timestamp-bearing logs — so the consuming
+    # action re-runs whenever the stage re-executes, byte-identical
+    # artifacts or not. generate_metadata does this deliberately
+    # (genMetrics.py reads logs and jsons); anything else should depend
+    # on the specific OutputGroupInfo sub-depset instead.
     return depset(
         ctx.files.data,
         transitive = [datum.data_runfiles.files for datum in ctx.attr.data] +

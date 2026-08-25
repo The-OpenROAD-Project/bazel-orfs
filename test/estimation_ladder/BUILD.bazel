@@ -62,6 +62,7 @@ orfs_run(
     sources = {
         "EXTRACT_TCL": ["extract.tcl"],
     },
+    src_logs = True,
 )
 
 # Standalone fast estimator executable target for Optuna hyperparameter exploration
@@ -187,6 +188,7 @@ orfs_run(
     sources = {
         "EXTRACT_TCL": ["extract.tcl"],
     },
+    src_logs = True,
 )
 
 orfs_run_executable(
@@ -507,6 +509,7 @@ AB_PERIODS = [
         cmd = "run",
         script = "extract.tcl",
         sources = {"EXTRACT_TCL": ["extract.tcl"]},
+        src_logs = True,
     )
     for period in AB_PERIODS
 ]

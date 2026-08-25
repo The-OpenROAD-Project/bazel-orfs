@@ -711,6 +711,27 @@ synth_action_inputs_test(
     target_under_test = ":src_propagation_floorplan",
 )
 
+# Stage logs are timestamped (Elapsed/CPU/Peak-memory on every run), so
+# they enter an orfs_run's inputs only via src_logs = True — a default
+# log input re-ran every orfs_run whenever any upstream stage
+# re-executed, byte-identical artifacts or not.
+synth_action_inputs_test(
+    name = "orfs_run_no_src_logs_by_default_test",
+    forbidden_input_basenames = [
+        "1_synth.log",
+        "2_1_floorplan.log",
+    ],
+    output_basename = "lb_32x128_io-placement.tcl",
+    target_under_test = ":lb_32x128_write_pin_placement",
+)
+
+synth_action_inputs_test(
+    name = "orfs_run_src_logs_opt_in_test",
+    output_basename = "ground_truth.json",
+    required_input_basenames = ["5_1_grt.log"],
+    target_under_test = "//test/estimation_ladder:extract_ground_truth",
+)
+
 REGFILE_ARGUMENTS = SRAM_ARGUMENTS | BLOCK_FLOORPLAN | {
     "CORE_AREA": "1.026 1.080 4.914 4.860",
     "DIE_AREA": "0 0 5.940 5.940",
