@@ -60,6 +60,12 @@ def _filter_stage_args(stage, **kwargs):
         return kwargs
 
     arguments = kwargs.pop("arguments", {})
+
+    # A `data` in kwargs here is PER-STAGE (an internal caller wiring one
+    # stage's own inputs, e.g. generate_metadata's stage-target deps) and
+    # passes through as the stage rule's data attr. The flow-level
+    # fan-out — one dict concatenated into every stage — is rejected in
+    # orfs_flow() itself; use stage_data= there instead.
     data = kwargs.pop("data", [])
     extra_arguments = kwargs.pop("extra_arguments", {})
     extra_configs = kwargs.pop("extra_configs", {})
@@ -350,6 +356,13 @@ def orfs_flow(
     # typo in a flow that instantiates no stage (last_stage past its own
     # start) still fails loudly.
     check_stage_variables(arguments, sources, user_arguments, user_sources)
+    if "data" in kwargs:
+        fail(
+            "orfs_flow(data = ...) fans the files out to every stage — " +
+            "any edit re-runs the whole flow. Use " +
+            'stage_data = {"<stage>": [...]} to scope them to the ' +
+            "stage(s) that read them.",
+        )
     if abstract_stage and last_stage:
         fail("abstract_stage and last_stage are mutually exclusive")
     if variant == "base":
@@ -391,7 +404,6 @@ def orfs_flow(
         name = _step_name(name, variant, "variables"),
         arguments = arguments | user_arguments,
         data = depset(
-            kwargs.get("data", []) +
             [v for vs in (sources | user_sources).values() for v in vs] +
             [v for vs in sources.values() for v in vs],
         ).to_list(),
