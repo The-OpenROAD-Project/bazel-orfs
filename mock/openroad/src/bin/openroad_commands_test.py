@@ -851,5 +851,29 @@ class TestCoreAreaBbox:
         del os.environ["CORE_AREA"]
 
 
+class TestRoutingAndFlowPredicates:
+    def test_grt_have_routes(self, interp):
+        assert interp.eval("grt::have_routes") == "1"
+        assert interp.eval("expr {![grt::have_routes]}") == "0"
+
+    def test_design_is_routed(self, interp):
+        assert interp.eval("design_is_routed") == "1"
+        assert interp.eval("expr {![design_is_routed]}") == "0"
+
+    def test_check_antennas_and_placement_falsy(self, interp):
+        assert interp.eval("check_antennas") == "0"
+        assert interp.eval("check_placement") == "0"
+        assert interp.eval("repair_antennas") == "0"
+
+    def test_all_clocks_and_design(self, interp, state):
+        state.clocks = {"clk1": "clk1_port", "clk2": "clk2_port"}
+        state.design_name = "test_top"
+        assert interp.eval("all_clocks") == "clk1 clk2"
+        assert interp.eval("current_design") == "test_top"
+
+    def test_gpl_uniform_density(self, interp):
+        assert interp.eval("gpl::get_global_placement_uniform_density") == "0.5"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

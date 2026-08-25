@@ -164,11 +164,30 @@ def main(argv=None):
             continue
         try:
             interp.eval_file(script_path)
+        except SystemExit as e:
+            # TCL `exit`: real TCL semantics. A clean `exit` stops the
+            # scripts but still writes the -metrics file below; a nonzero
+            # exit fails the action.
+            code = e.code or 0
+            if code:
+                print(
+                    f"mock-openroad: {script_path} exited with code {code}",
+                    file=sys.stderr,
+                )
+                return code
+            break
         except Exception as e:
             print(f"mock-openroad: error in {script_path}: {e}", file=sys.stderr)
-            # Don't fail — ORFS scripts may reference things we don't
-            # implement yet. Create expected output files based on env vars.
-            _create_fallback_outputs(state)
+            # Tolerance for UNIMPLEMENTED commands lives in the
+            # interpreter (unknown commands return ""), so an exception
+            # here means the script genuinely broke. Fail the action —
+            # the silent alternative once shipped a fabricated 10x10
+            # abstract for every mock LEF. The old fabricate-and-succeed
+            # behavior remains available as an explicit escape hatch.
+            if os.environ.get("MOCK_OPENROAD_TOLERATE_TCL_ERRORS") == "1":
+                _create_fallback_outputs(state)
+            else:
+                return 1
 
     # Write metrics JSON if requested (real OpenROAD writes metrics here;
     # genMetrics.py later reads these files).
