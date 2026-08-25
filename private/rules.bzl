@@ -867,6 +867,46 @@ def orfs_test(**kwargs):
 def _run_executable_impl(ctx):
     config = ctx.attr.src[OrfsDepInfo].config
 
+    # With `stages`, reproduce orfs_run's stage-scoped configuration: merge
+    # the src's inherited argument jsons and any extra_arguments jsons,
+    # filtered to the named stages, into a fresh DESIGN_CONFIG. A script
+    # that re-runs later flow stages off an early ODB (an estimator walking
+    # floorplan..grt off a synth stage) reads the same stage-scoped
+    # variables it would under orfs_run — config identity between the
+    # build-time rule and the executable. Without `stages` the behavior is
+    # unchanged: the src stage's config is used as-is.
+    extra_files = []
+    if ctx.attr.stages:
+        inherited_jsons = ctx.attr.src[OrfsInfo].arguments.to_list() if OrfsInfo in ctx.attr.src else []
+        config, extra_files = merge_and_filter_arguments(
+            ctx,
+            category = "results",
+            name = ctx.attr.name,
+            original_config = config,
+            inherited_jsons = inherited_jsons,
+            extra_jsons = ctx.files.extra_arguments,
+            stages = ctx.attr.stages,
+        )
+
+        # The merged jsons name generated inputs by their execroot paths
+        # (bazel-out/<cfg>/bin/...), which the runfiles tree the executable
+        # runs from does not have — there a generated file sits at its
+        # workspace-relative path, next to the sources. Strip the output
+        # root so both kinds resolve at run time.
+        runfiles_config = ctx.actions.declare_file(
+            "{}_{}_runfiles_config.mk".format(ctx.attr.name, ctx.attr.variant),
+        )
+        ctx.actions.run_shell(
+            inputs = [config],
+            outputs = [runfiles_config],
+            command = "sed 's|{}/||g' '{}' > '{}'".format(
+                config.root.path,
+                config.path,
+                runfiles_config.path,
+            ),
+        )
+        config = runfiles_config
+
     wrapper = ctx.actions.declare_file(
         "run_{}_{}_executable".format(ctx.attr.name, ctx.attr.variant),
     )
@@ -945,7 +985,7 @@ exec "$PYTHON" "$SCRIPT" {moreargs} "$@"
             executable = wrapper,
             runfiles = ctx.runfiles(
                 transitive_files = depset(
-                    [config, wrapper, ctx.file._run_executable_script, ctx.file.script, ctx.file._fork_tcl, ctx.file._fork_lib],
+                    [config, wrapper, ctx.file._run_executable_script, ctx.file.script, ctx.file._fork_tcl, ctx.file._fork_lib] + extra_files,
                     transitive = [
                         flow_inputs(ctx),
                         yosys_inputs(ctx),
@@ -970,6 +1010,15 @@ _orfs_rule_run_executable = rule(
                 "script": attr.label(
                     mandatory = True,
                     allow_single_file = ["tcl"],
+                ),
+                "stages": attr.string_list(
+                    mandatory = False,
+                    default = [],
+                    doc = "Stages whose scoped variables the executable's " +
+                          "DESIGN_CONFIG carries, merged from the src's " +
+                          "inherited argument jsons and extra_arguments " +
+                          "exactly as orfs_run does. Empty keeps the src " +
+                          "stage's config unchanged.",
                 ),
                 "_run_executable_script": attr.label(
                     default = "//:run_executable.py",
