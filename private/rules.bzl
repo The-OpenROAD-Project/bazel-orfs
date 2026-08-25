@@ -1042,7 +1042,7 @@ SYNTH_OUTPUTS = ["1_2_yosys.v", "1_2_yosys.sdc", "mem.json"]
 SYN_OUTPUTS = ["1_synth.odb", "1_synth.sdc", "1_synth.v"]
 SYNTH_REPORTS = ["synth_stat.txt", "synth_mocked_memories.txt"]
 
-def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments = {}, clock_period = None, sdc_overrides = [], synth_data_inputs = None):
+def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments = {}, clock_period = None, sdc_overrides = [], synth_data_inputs = None, sdc_only_inputs = None):
     """Parallel synthesis: keep → kept-json → N partitions → merge.
 
     Yosys is not deterministic when using host threads, so SYNTH_NUM_PARTITIONS
@@ -1078,6 +1078,8 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     parallel_makefile = ctx.file._parallel_synth_makefile
     if synth_data_inputs == None:
         synth_data_inputs = data_inputs(ctx)
+    if sdc_only_inputs == None:
+        sdc_only_inputs = data_inputs(ctx)
     clock_period_inputs = [clock_period] if clock_period else []
 
     kept_json = declare_artifact(ctx, "results", "kept_modules.json")
@@ -1580,7 +1582,9 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     )
 
     # Action 5: SDC copy → 1_2_yosys.sdc
-    # Uses wrapper Makefile so SDC_FILE is resolved from DESIGN_CONFIG
+    # Uses wrapper Makefile so SDC_FILE is resolved from DESIGN_CONFIG.
+    # A cp of the raw SDC: make parse (config + platform includes) plus
+    # the SDC itself — no design data, no macro collateral.
     ctx.actions.run_shell(
         arguments = [
             "--file",
@@ -1592,9 +1596,8 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         inputs = depset(
             [config, parallel_makefile] + ctx.files.extra_configs,
             transitive = [
-                data_inputs(ctx),
+                sdc_only_inputs,
                 pdk_inputs(ctx),
-                deps_inputs(ctx, gds = False),
             ],
         ),
         outputs = [synth_outputs["1_2_yosys.sdc"]],
@@ -1801,6 +1804,14 @@ def _yosys_impl(ctx):
     # yosys and reads SDC_FILE directly, so it keeps the raw SDC.
     sdc_file_raw = all_arguments.get("SDC_FILE")
     sdc_path = ctx.expand_location(sdc_file_raw, ctx.attr.data) if sdc_file_raw else None
+
+    # The raw SDC as File(s) — for the cheap actions that read ONLY it
+    # (clock-period extraction, sdc-copy). Handing them the full data set
+    # would re-run them, harmlessly but noisily, on every data edit.
+    # Falls back to the full data set when the SDC_FILE path cannot be
+    # matched to a data file (a literal path spelled without $(location)).
+    sdc_files = [f for f in data_inputs(ctx).to_list() if f.path == sdc_path]
+    sdc_only_inputs = depset(sdc_files) if sdc_files else data_inputs(ctx)
     clock_period = None
     sdc_overrides = []
     synth_data_inputs = data_inputs(ctx)
@@ -1817,10 +1828,12 @@ def _yosys_impl(ctx):
             env = verilog_arguments([]) |
                   yosys_environment(ctx) |
                   config_environment(config),
+            # Make parse (config + platform includes) plus the SDC the
+            # period is regexed out of — nothing else is opened.
             inputs = depset(
                 [config] + ctx.files.extra_configs,
                 transitive = [
-                    data_inputs(ctx),
+                    sdc_only_inputs,
                     pdk_inputs(ctx),
                 ],
             ),
@@ -1963,7 +1976,7 @@ def _yosys_impl(ctx):
             progress_message = "OpenROAD-SYN synthesis for %s" % module_top(ctx),
         )
     elif num_partitions > 0:
-        validated_kept_macros_json = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments, clock_period, sdc_overrides, synth_data_inputs)
+        validated_kept_macros_json = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments, clock_period, sdc_overrides, synth_data_inputs, sdc_only_inputs)
     else:
         # Serial path, split into three actions mirroring the parallel
         # path so the raw SDC feeds only the cheap sdc-copy step:
@@ -1991,7 +2004,8 @@ def _yosys_impl(ctx):
                     sdc = sdc_path,
                     out = synth_outputs["1_2_yosys.sdc"].path,
                 ),
-                inputs = data_inputs(ctx),
+                # A cp of the raw SDC reads exactly one file.
+                inputs = sdc_only_inputs,
                 outputs = [synth_outputs["1_2_yosys.sdc"]],
                 progress_message = "Generating SDC for %s" % module_top(ctx),
             )
@@ -2073,12 +2087,13 @@ def _yosys_impl(ctx):
                   flow_environment(ctx) |
                   yosys_environment(ctx) |
                   config_environment(config),
+            # A pure make-variable expansion: parses the config and the
+            # platform includes, opens no design file — neither the
+            # canonicalized RTLIL nor the data/macro collateral.
             inputs = depset(
-                [canon_output, config] + ctx.files.extra_configs,
+                [config] + ctx.files.extra_configs,
                 transitive = [
-                    synth_data_inputs,
                     pdk_inputs(ctx),
-                    deps_inputs(ctx, gds = False),
                 ],
             ),
             outputs = [variables],

@@ -672,6 +672,19 @@ synth_action_inputs_test(
     target_under_test = ":Mul_synth",
 )
 
+# print-LIB_FILES is a pure make-variable expansion: config + platform
+# includes only — it opens neither the RTLIL nor the SDC, so neither
+# may re-run it.
+synth_action_inputs_test(
+    name = "sdc_serial_vars_test",
+    forbidden_input_basenames = [
+        "1_1_yosys_canonicalize.rtlil",
+        "constraints-combinational.sdc",
+    ],
+    output_basename = "1_synth.vars",
+    target_under_test = ":Mul_synth",
+)
+
 # Same split on the parallel/hierarchical path (kept_modules_synth).
 synth_action_inputs_test(
     name = "sdc_parallel_partition_test",
