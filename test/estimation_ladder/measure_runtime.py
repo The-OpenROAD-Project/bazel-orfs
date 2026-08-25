@@ -6,6 +6,15 @@ time so nothing competes for the machine, with whatever thread count
 ORFS hands the tool -- the question is how fast the estimator goes on
 the whole machine, not how it behaves pinned to one core.
 
+This rung deliberately does NOT use the fork/join batch mode rung A runs
+on: its whole contract is wall-clock purity of a standalone run, and a
+tree walk replaces the repeated measurements of the shared prefix with a
+single one, quietly changing what repeat convergence means.  If this
+rung ever needs the speedup, the honest variant is batching the REPEATS
+of one configuration (the same config N times in one manifest), which
+measures the load phase once -- the per-phase surrogate already treats
+load as its own phase.
+
 Measuring every archived configuration would cost hours, and measuring
 an arbitrary ten of them tends to produce ten points bunched at one end
 of the range.  Which configurations would spread the front out is not

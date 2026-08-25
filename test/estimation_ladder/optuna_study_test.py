@@ -7,8 +7,12 @@ design, whose near-critical paths are dominated by wires that do not
 exist until placement, must be estimated *worse* by a synthesis-only
 rung than the small wire-poor design is.
 
-It runs the trials concurrently on purpose. Only the runtime axis is
-sensitive to that, and this test does not look at runtime.
+It runs all trials as ONE fork/join batch per design: a single estimator
+process walks the trials as a decision tree, so the design load and every
+shared stage are paid once instead of once per trial -- a machinery check
+for the batch mode itself.  The walk forks divergent subtrees in parallel
+(--batch-parallel) on purpose: only the runtime axis is sensitive to
+contention, and this test does not look at runtime.
 """
 
 import json
@@ -19,7 +23,11 @@ import sys
 import tempfile
 
 TRIALS = "8"
-JOBS = "8"
+BATCH_SIZE = TRIALS
+# Machinery check, not a study: a trial too slow for this budget is told
+# FAIL and the archive assertions run on the survivors, keeping the whole
+# test comfortably inside bazel's test timeout.
+TRIAL_TIMEOUT = "600"
 
 
 def run_study(study_exe, estimator_exe, ground_truth, design_name, env):
@@ -32,8 +40,11 @@ def run_study(study_exe, estimator_exe, ground_truth, design_name, env):
             design_name,
             "--trials",
             TRIALS,
-            "--jobs",
-            JOBS,
+            "--batch-size",
+            BATCH_SIZE,
+            "--batch-parallel",
+            "--trial-timeout",
+            TRIAL_TIMEOUT,
         ],
         env=env,
         capture_output=True,

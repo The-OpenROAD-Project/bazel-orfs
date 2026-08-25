@@ -41,6 +41,8 @@ orfs_flow(
 
 # Common configuration shared across the estimator
 ESTIMATOR_SOURCES = {
+    "ESTIMATOR_BATCH_TCL": ["estimator_batch.tcl"],
+    "ESTIMATOR_LIB_TCL": ["estimator_lib.tcl"],
     "ESTIMATOR_TCL": ["estimator.tcl"],
     "IO_CONSTRAINTS": ["io_constraints.tcl"],
 }
