@@ -178,13 +178,6 @@ def yosys_only_attrs():
         ),
     }
 
-def renamed_inputs_attr():
-    return {
-        "renamed_inputs": attr.string_keyed_label_dict(
-            default = {},
-        ),
-    }
-
 def synth_attrs():
     return {
         "deps": attr.label_list(

@@ -35,8 +35,8 @@ def orfs_sweep(
         sweep: The dictionary describing the variables to sweep
         other_variants: Dictionary with other variants to generate, but not as part of the sweep.
             Per-variant keys: arguments, dissolve, macros, openroad, previous_stage,
-            renamed_inputs, stage_arguments, description, sources, yosys,
-            abstract_stage, last_stage, tags
+            stage_arguments, description, sources, yosys, abstract_stage,
+            last_stage, tags
         stage: The stage to do the sweep on
         macros: name of modules to use as macros
         verilog_files: The Verilog files to build
@@ -61,7 +61,6 @@ def orfs_sweep(
                 "macros",
                 "openroad",
                 "previous_stage",
-                "renamed_inputs",
                 "stage_arguments",
                 "description",
                 "sources",
@@ -95,7 +94,6 @@ def orfs_sweep(
                      ] +
                      all_variants[variant].get("macros", []),
             previous_stage = all_variants[variant].get("previous_stage", {}),
-            renamed_inputs = all_variants[variant].get("renamed_inputs", {}),
             stage_arguments = all_variants[variant].get("stage_arguments", {}),
             variant = variant,
             verilog_files = verilog_files,

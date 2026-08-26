@@ -307,11 +307,6 @@ def source_inputs(ctx, use_pre_layout = None, gds = True, logging = True):
         ] + lib_depsets,
     )
 
-def rename_inputs(ctx):
-    return depset(
-        transitive = [target.files for target in ctx.attr.renamed_inputs.values()],
-    )
-
 def pdk_inputs(ctx):
     return depset(transitive = [ctx.attr.pdk[PdkInfo].files, ctx.attr.pdk[PdkInfo].libs])
 
@@ -689,21 +684,6 @@ def renames(ctx, inputs, short = False):
             # up with src == dst. Skip — `mv` would error on same file.
             if src_path != dst_path:
                 result.append(struct(src = src_path, dst = dst_path))
-
-    # renamed_inputs win over variant renaming
-    for file in inputs:
-        if file.basename in ctx.attr.renamed_inputs:
-            for src in ctx.attr.renamed_inputs[file.basename].files.to_list():
-                result.append(
-                    struct(
-                        src = file_path(src, short),
-                        dst = _remap(
-                            file_path(file, short),
-                            ctx.attr.src[OrfsInfo].variant,
-                            ctx.attr.variant,
-                        ),
-                    ),
-                )
     return result
 
 def _artifact_name(ctx, category, name = None):

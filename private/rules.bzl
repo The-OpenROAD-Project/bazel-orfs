@@ -8,7 +8,6 @@ load(
     "openroad_attrs",
     "openroad_only_attrs",
     "orfs_attrs",
-    "renamed_inputs_attr",
     "synth_attrs",
     "yosys_attrs",
     "yosys_only_attrs",
@@ -43,7 +42,6 @@ load(
     "orfs_additional_arguments",
     "out_dir_arguments",
     "pdk_inputs",
-    "rename_inputs",
     "renames",
     "required_arguments",
     "run_arguments",
@@ -2641,7 +2639,6 @@ def _make_impl(
                         gds = include_gds,
                         logging = include_logging,
                     ),
-                    rename_inputs(ctx),
                 ],
             ),
             outputs = all_outputs,
@@ -2701,7 +2698,6 @@ def _make_impl(
             flow_inputs(ctx),
             data_inputs(ctx),
             source_inputs(ctx),
-            rename_inputs(ctx),
         ],
     )
 
@@ -2924,7 +2920,6 @@ def _squashed_impl(ctx):
 orfs_squashed = rule(
     implementation = _squashed_impl,
     attrs = openroad_attrs() |
-            renamed_inputs_attr() |
             {
                 "stage_name": attr.string(mandatory = True),
                 "stages": attr.string_list(default = []),
@@ -2960,7 +2955,6 @@ orfs_floorplan_rule = rule(
         substep_names = STAGE_SUBSTEPS["floorplan"] if ctx.attr.substeps else [],
     ),
     attrs = openroad_attrs() |
-            renamed_inputs_attr() |
             {
                 "_stage": attr.string(
                     default = "floorplan",
@@ -2986,7 +2980,6 @@ orfs_place_rule = rule(
         substep_names = STAGE_SUBSTEPS["place"] if ctx.attr.substeps else [],
     ),
     attrs = openroad_attrs() |
-            renamed_inputs_attr() |
             {
                 "_stage": attr.string(
                     default = "place",
@@ -3014,7 +3007,6 @@ orfs_cts_rule = rule(
         substep_names = STAGE_SUBSTEPS["cts"] if ctx.attr.substeps else [],
     ),
     attrs = openroad_attrs() |
-            renamed_inputs_attr() |
             {
                 "_stage": attr.string(
                     default = "cts",
@@ -3053,7 +3045,6 @@ orfs_grt_rule = rule(
         substep_names = STAGE_SUBSTEPS["grt"] if ctx.attr.substeps else [],
     ),
     attrs = openroad_attrs() |
-            renamed_inputs_attr() |
             {
                 "_stage": attr.string(
                     default = "grt",
@@ -3085,7 +3076,6 @@ orfs_route_rule = rule(
         substep_names = STAGE_SUBSTEPS["route"] if ctx.attr.substeps else [],
     ),
     attrs = openroad_attrs() |
-            renamed_inputs_attr() |
             {
                 "_stage": attr.string(
                     default = "route",
@@ -3121,7 +3111,6 @@ orfs_final_rule = rule(
         substep_names = STAGE_SUBSTEPS["final"] if ctx.attr.substeps else [],
     ),
     attrs = openroad_attrs() |
-            renamed_inputs_attr() |
             {
                 "_stage": attr.string(
                     default = "final",
@@ -3149,7 +3138,6 @@ orfs_gds_rule = rule(
         ],
     ),
     attrs = openroad_attrs() |
-            renamed_inputs_attr() |
             {
                 "_stage": attr.string(
                     default = "final",
@@ -3184,7 +3172,7 @@ orfs_generate_metadata_rule = rule(
         # staged under the parent variant's tree.
         rename_data = True,
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr() | {
+    attrs = openroad_attrs() | {
         "_stage": attr.string(default = "generate_metadata"),
     },
     provides = flow_provides(),
@@ -3202,7 +3190,7 @@ orfs_update_rules = rule(
         report_names = ["rules.json"],
         result_names = [],
     ),
-    attrs = openroad_attrs() | renamed_inputs_attr() | {
+    attrs = openroad_attrs() | {
         "_stage": attr.string(default = "update_rules"),
     },
     provides = flow_provides(),
@@ -3229,7 +3217,6 @@ orfs_abstract_rule = rule(
         ),
     ),
     attrs = openroad_attrs() |
-            renamed_inputs_attr() |
             {
                 "_stage": attr.string(
                     default = "generate_abstract",

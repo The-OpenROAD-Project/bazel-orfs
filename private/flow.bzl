@@ -263,7 +263,6 @@ def orfs_flow(
         sources = {},
         user_sources = {},
         stage_arguments = {},
-        renamed_inputs = {},
         arguments = {},
         user_arguments = {},
         extra_arguments = {},
@@ -304,7 +303,6 @@ def orfs_flow(
       stage_arguments: dictionary keyed by ORFS stages with lists of stage-specific arguments.
         Prefer 'arguments' which automatically assigns variables to the correct stages.
         Use stage_arguments only to override the automatic stage assignment.
-      renamed_inputs: dictionary keyed by ORFS stages to rename inputs
       arguments: dictionary of additional arguments to the flow, automatically assigned to stages
       user_arguments: dictionary of project-specific env vars to expose to every stage without
         validating against ORFS variables.yaml. Use for vars read only by user-supplied .tcl/.mk
@@ -389,7 +387,6 @@ def orfs_flow(
         sources = sources,
         user_sources = user_sources,
         stage_arguments = stage_arguments,
-        renamed_inputs = renamed_inputs,
         arguments = arguments,
         user_arguments = user_arguments,
         extra_arguments = extra_arguments,
@@ -437,7 +434,6 @@ def orfs_flow(
         sources = sources,
         user_sources = user_sources,
         stage_arguments = stage_arguments,
-        renamed_inputs = {},
         arguments = arguments | {"SYNTH_GUT": "1"},
         user_arguments = user_arguments,
         extra_arguments = _merge_extra_arguments(extra_arguments, mock_extra_arguments),
@@ -468,9 +464,6 @@ def orfs_flow(
         module_top = name,
         **_strip_tool_kwargs(**kwargs)
     )
-
-def _kwargs(stage, **kwargs):
-    return {k: v[stage] for k, v in kwargs.items() if stage in v and v[stage]}
 
 def _update_rules_impl(ctx):
     script = ctx.actions.declare_file(ctx.attr.name + "_update.sh")
@@ -534,7 +527,6 @@ def _orfs_pass(
         macros,
         sources,
         stage_arguments,
-        renamed_inputs,
         arguments,
         user_arguments,
         user_sources,
@@ -782,14 +774,7 @@ def _orfs_pass(
                 variant = variant_override or variant,
                 stage_data = stage_data,
                 data = data,
-                **(
-                    kwargs |
-                    _kwargs(
-                        step.stage,
-                        renamed_inputs = renamed_inputs,
-                    ) |
-                    more_kwargs
-                )
+                **(kwargs | more_kwargs)
             )
         )
         return step_name
@@ -838,10 +823,7 @@ def _orfs_pass(
                 src = place_src,
                 variant = pre_layout_variant,
                 stage_data = stage_data,
-                **(
-                    kwargs |
-                    _kwargs(ABSTRACT_IMPL.stage, renamed_inputs = renamed_inputs)
-                )
+                **kwargs
             )
         )
         _create_deps_tar(pre_layout_name, **kwargs)

@@ -98,7 +98,6 @@ comm -23 \
 | Feature | Notes |
 |---------|-------|
 | `stage_data` | Parameter exists in `orfs_flow`, never exercised |
-| `renamed_inputs` | Exists in flow.bzl/sweep.bzl, never tested |
 | `dissolve` in sweep | Feature exists (sweep.bzl), never used |
 | `orfs_update` | Rule exported, no test |
 | `save_odb=False` | Synthesis attribute, never tested |
