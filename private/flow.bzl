@@ -1,6 +1,5 @@
 """Flow orchestration macros for OpenROAD-flow-scripts Bazel rules."""
 
-load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("//private:providers.bzl", "LoggingInfo")
 load(
@@ -11,10 +10,10 @@ load(
     "STAGE_IMPLS",
     "TEST_STAGE_IMPL",
     "UPDATE_RULES_IMPL",
+    "create_deps_tar",
     "orfs_abstract_rule",
     "orfs_arguments",
     "orfs_cts_rule",
-    "orfs_deploy_srcs",
     "orfs_final_rule",
     "orfs_floorplan_rule",
     "orfs_gds_rule",
@@ -151,32 +150,6 @@ def _orfs_html_report(name, src, variant = None, openroad = None, visibility = N
         visibility = visibility,
     )
 
-def _create_deps_tar(stage_name, **kwargs):
-    """Generate pkg_tar companion targets for a stage target.
-
-    Creates:
-      {stage_name}_deploy_srcs — thin rule exposing OrfsDepInfo.runfiles
-      {stage_name}_deps — pkg_tar with include_runfiles=True
-
-    Both targets are tagged "manual" so they are excluded from wildcard
-    builds (bazel build //pkg:all) and only built when explicitly requested.
-    """
-    visibility = kwargs.get("visibility", None)
-    orfs_deploy_srcs(
-        name = stage_name + "_deps",
-        src = ":" + stage_name,
-        visibility = visibility,
-        tags = ["manual"],
-    )
-    pkg_tar(
-        name = stage_name + "_deps_tar",
-        srcs = [":" + stage_name + "_deps"],
-        extension = "tar.gz",
-        include_runfiles = True,
-        visibility = visibility,
-        tags = ["manual"],
-    )
-
 def _orfs_stage(stage, impl, **kwargs):
     """Instantiates one stage target the way orfs_flow does.
 
@@ -192,7 +165,7 @@ def _orfs_stage(stage, impl, **kwargs):
         **kwargs: forwarded to _filter_stage_args and the rule.
     """
     impl(**_filter_stage_args(stage, **kwargs))
-    _create_deps_tar(kwargs.get("name"), **kwargs)
+    create_deps_tar(kwargs.get("name"), kwargs.get("visibility", None))
 
 def orfs_synth(**kwargs):
     """Instantiates a standalone synthesis stage target.
@@ -638,7 +611,7 @@ def _orfs_pass(
                 **kwargs
             )
         )
-        _create_deps_tar(step_name, **kwargs)
+        create_deps_tar(step_name, kwargs.get("visibility", None))
         if html:
             _orfs_html_report(
                 name = step_name + "_html",
@@ -724,7 +697,7 @@ def _orfs_pass(
                 **kwargs
             )
             step_names.append(squash_name)
-            _create_deps_tar(squash_name, **kwargs)
+            create_deps_tar(squash_name, kwargs.get("visibility", None))
             if html:
                 _orfs_html_report(
                     name = squash_name + "_html",
@@ -844,7 +817,7 @@ def _orfs_pass(
                 )
             )
         )
-        _create_deps_tar(pre_layout_name, **kwargs)
+        create_deps_tar(pre_layout_name, kwargs.get("visibility", None))
         return pre_layout_name
 
     for step, prev in zip(steps[start_stage:], steps[start_stage - 1:]):
@@ -860,7 +833,7 @@ def _orfs_pass(
 
         sn = do_step(step, prev, kwargs, more_kwargs = more_kwargs)
         step_names.append(sn)
-        _create_deps_tar(sn, **kwargs)
+        create_deps_tar(sn, kwargs.get("visibility", None))
         if html and step.stage in _HTML_STAGES:
             _orfs_html_report(
                 name = sn + "_html",
