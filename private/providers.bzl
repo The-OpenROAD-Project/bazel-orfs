@@ -47,6 +47,10 @@ OrfsDepInfo = provider(
 LoggingInfo = provider(
     "Logs and reports for current and previous stages",
     fields = [
+        # The directory the flow's logs accumulate in, exec-root relative.
+        # A consuming orfs_run cannot derive it: it depends on the package
+        # and variant of the flow, not of the consumer.
+        "log_dir",
         "logs",
         "reports",
         "drcs",

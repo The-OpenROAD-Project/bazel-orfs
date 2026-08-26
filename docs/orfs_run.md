@@ -24,6 +24,31 @@ Because realistic physical design flows often involve feedback loops—such as a
    - Users define shared configuration dictionaries and sources in their `BUILD.bazel` or `.bzl` files, rather than relying on rule internals to guess dependencies.
    - This approach allows multi-stage ladders (such as generic estimators) to be cleanly expressed via list comprehensions over `orfs_run()` targets without risking cyclic dependencies.
 
+## Reading the flow's stage logs
+
+`$LOG_DIR` names the log directory of the flow the `src` stage belongs to
+— where the stage logs accumulate — whatever package and variant the
+`orfs_run` itself has. The logs are staged into the action's inputs only
+with `src_logs = True`:
+
+```python
+orfs_run(
+    name = "extract_ground_truth",
+    src = ":design_grt",
+    outs = ["ground_truth.json"],
+    arguments = {"OUTPUT_JSON": "$(location ground_truth.json)"},
+    script = "extract.tcl",
+    src_logs = True,
+)
+```
+
+It is opt-in because every log carries Elapsed / CPU / Peak-memory lines
+and so is never byte-identical between two runs: as an input it re-runs
+the action whenever any upstream stage re-executes, byte-identical
+artifacts or not, and misses the remote cache across machines. Take it
+for what only the logs carry (stage wall-clock), not for anything an
+artifact already states.
+
 ## Output directories
 
 `outs` names individual output files known in advance. When the *set* of
