@@ -1442,6 +1442,57 @@ synth_action_inputs_test(
     target_under_test = ":lb_32x128_top_gds_scope_final",
 )
 
+# --- Forked variants: reading one variant, writing another ---
+#
+# ORFS resolves a stage's reads through INPUT_RESULTS_DIR, which
+# FLOW_INPUT_VARIANT names, so a variant that forks off a shared
+# upstream stage reads that stage's results where they already sit.
+# Nothing is copied into the forked variant's own directory first —
+# the cross-variant `mv` that used to precede every stage's make is
+# gone, and these pin down what replaced it.
+#
+# Variant "3" of the lb_32x128 sweep forks at cts: its cts stage takes
+# base's 3_place.odb (previous_stage = {"cts": "lb_32x128_place"}).
+
+filegroup(
+    name = "lb_32x128_3_cts_config",
+    srcs = [":lb_32x128_3_cts"],
+    output_group = "4_cts.mk",
+)
+
+sh_test(
+    name = "forked_variant_input_variant_test",
+    srcs = ["check_flow_input_variant.sh"],
+    args = [
+        "$(location :lb_32x128_3_cts_config)",
+        "base",
+        "3",
+    ],
+    data = [":lb_32x128_3_cts_config"],
+)
+
+# The src's results stay at the src variant's path: the forked stage
+# never sees a copy of them under its own results directory.
+synth_action_inputs_test(
+    name = "forked_variant_reads_src_variant_test",
+    forbidden_input_path_contains = ["/lb_32x128/3/3_place.odb"],
+    output_basename = "4_cts.odb",
+    required_input_path_contains = ["/lb_32x128/base/3_place.odb"],
+    target_under_test = ":lb_32x128_3_cts",
+)
+
+# End to end: a forked stage's make now finds its inputs only because
+# FLOW_INPUT_VARIANT points at them. Naming the targets in a test keeps
+# `bazel test` covering that, not just a wildcard build.
+build_test(
+    name = "forked_variant_build_test",
+    targets = [
+        ":lb_32x128_1_floorplan",
+        ":lb_32x128_2_place",
+        ":lb_32x128_3_cts",
+    ],
+)
+
 # Upstream metrics .json / report files feed only genMetrics.py: the
 # PnR stage actions never open them, so they are declared by the
 # metadata stages and dropped everywhere else (the jsons are supposed
