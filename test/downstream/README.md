@@ -34,6 +34,21 @@ bazelisk test ...     # verilator simulation via cc_test + gtest
 
 ## Remaining issues
 
+### Every @orfs patch must be re-listed here
+
+This is a root module, so bazel-orfs's own `archive_override` is invisible
+to it and its `orfs` override has to repeat the full patch list. When it
+carried none, it was silently running unpatched ORFS. Adding a patch to
+the root `MODULE.bazel` without adding it here reintroduces that.
+
+### verilator and the hermetic toolchain
+
+verilator's BCR overlay hardcodes `-latomic` in its linux `linkopts`, and
+the zero-sysroot `llvm` toolchain ships no libatomic, so `ld.lld` fails
+with `unable to find library -latomic`. Dropped via a `patch_cmds` on a
+`single_version_override`; clang lowers x86-64 atomics inline, so nothing
+needs the library. Drop the override if the BCR module stops hardcoding it.
+
 ### Non-BCR deps require root-module overrides
 
 `orfs`, `openroad`, and `qt-bazel` are not on BCR. Downstream consumers

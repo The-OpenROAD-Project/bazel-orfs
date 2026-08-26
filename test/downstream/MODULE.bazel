@@ -16,19 +16,23 @@ local_path_override(
     path = "../..",
 )
 
-bazel_dep(name = "bazel-orfs-verilog")
-local_path_override(
-    module_name = "bazel-orfs-verilog",
-    path = "../../verilog",
-)
-
 # --- Non-BCR deps that bazel-orfs needs (git_override is root-only) ---
 
 bazel_dep(name = "orfs")
-git_override(
+
+# Mirrors the root MODULE.bazel: same pin, same patch list. A root
+# module carries its own overrides, so bazel-orfs's are invisible here
+# and every @orfs patch it depends on has to be re-listed.
+archive_override(
     module_name = "orfs",
-    commit = "c90beac0945588840cf07b7b4cc6d1b20ac66ddf",
-    remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
+    integrity = "sha256-hAos8HgYSs5NZlc3wWPKCT7dbZB23Poyqo4cqha6YwA=",
+    patch_strip = 1,
+    patches = [
+        "//patches:0037-orfs-single-writer-1_synth-sdc.patch",
+        "//patches:0039-orfs-slang-plugin-fallback.patch",
+    ],
+    strip_prefix = "OpenROAD-flow-scripts-427bd762b7b7448f8bb6bc4e14207aa3963fca30",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/427bd762b7b7448f8bb6bc4e14207aa3963fca30.tar.gz"],
 )
 
 bazel_dep(name = "openroad")
@@ -108,15 +112,14 @@ single_version_override(
     version = "1.4.21.bcr.4",
 )
 
-# tcl_lang: tclZipfs.c's #include "crypt.h" resolves to glibc's crypt.h under
-# hermetic-llvm's explicit -isystem glibc dirs; include the vendored minizip
-# header by path instead. Drop when fixed in a tcl_lang BCR release.
+# verilator: the BCR overlay's BUILD.bazel hardcodes "-latomic" in the
+# linux linkopts, but the zero-sysroot hermetic-llvm toolchain ships no
+# libatomic -- clang lowers x86-64 atomics inline, so the library is not
+# needed here. ld.lld fails with "unable to find library -latomic"
+# otherwise.
 single_version_override(
-    module_name = "tcl_lang",
-    patch_strip = 1,
-    patches = [
-        "//patches:0001-tclZipfs-include-vendored-minizip-crypt.h-by-path.patch",
-    ],
+    module_name = "verilator",
+    patch_cmds = ["sed -i '/\"-latomic\",/d' BUILD.bazel"],
 )
 
 # sv-lang pulls in rules_pycross, whose toolchain extension fails on Python
