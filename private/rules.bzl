@@ -1,5 +1,6 @@
 """Rule implementations and declarations for OpenROAD-flow-scripts Bazel rules."""
 
+load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load(
     "//private:attrs.bzl",
     "flow_attrs",
@@ -375,6 +376,38 @@ orfs_deploy_srcs = rule(
         ),
     },
 )
+
+def create_deps_tar(name, visibility = None):
+    """Generate the _deps reproducer companions for an ORFS target.
+
+    Creates:
+      {name}_deps — runnable orfs_deploy_srcs wrapper that installs a
+        self-contained reproducer under ./tmp
+      {name}_deps_tar — pkg_tar of the same runfiles, for offline
+        archives and upstream bug reports
+
+    Both are tagged "manual" so wildcard builds (bazel build //pkg:all) skip
+    them; they build only when named. The target must provide OrfsDepInfo.
+
+    Args:
+      name: the ORFS target to deploy, in this package. The companions are
+        named after it.
+      visibility: visibility for the generated companions.
+    """
+    orfs_deploy_srcs(
+        name = name + "_deps",
+        src = ":" + name,
+        visibility = visibility,
+        tags = ["manual"],
+    )
+    pkg_tar(
+        name = name + "_deps_tar",
+        srcs = [":" + name + "_deps"],
+        extension = "tar.gz",
+        include_runfiles = True,
+        visibility = visibility,
+        tags = ["manual"],
+    )
 
 # --- Run rule ---
 
