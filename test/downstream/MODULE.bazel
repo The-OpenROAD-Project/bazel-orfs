@@ -25,10 +25,20 @@ local_path_override(
 # --- Non-BCR deps that bazel-orfs needs (git_override is root-only) ---
 
 bazel_dep(name = "orfs")
-git_override(
+
+# Mirrors the root MODULE.bazel: same pin, same patch list. A root
+# module carries its own overrides, so bazel-orfs's are invisible here
+# and an ORFS patch that bazel-orfs depends on has to be re-listed.
+archive_override(
     module_name = "orfs",
-    commit = "c90beac0945588840cf07b7b4cc6d1b20ac66ddf",
-    remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
+    integrity = "sha256-hAos8HgYSs5NZlc3wWPKCT7dbZB23Poyqo4cqha6YwA=",
+    patch_strip = 1,
+    patches = [
+        "//patches:0037-orfs-single-writer-1_synth-sdc.patch",
+        "//patches:0038-orfs-flow-input-variant.patch",
+    ],
+    strip_prefix = "OpenROAD-flow-scripts-427bd762b7b7448f8bb6bc4e14207aa3963fca30",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/427bd762b7b7448f8bb6bc4e14207aa3963fca30.tar.gz"],
 )
 
 bazel_dep(name = "openroad")

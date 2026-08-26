@@ -49,6 +49,7 @@ archive_override(
     patch_strip = 1,
     patches = [
         "//patches:0037-orfs-single-writer-1_synth-sdc.patch",
+        "//patches:0038-orfs-flow-input-variant.patch",
         "//patches:0039-orfs-slang-plugin-fallback.patch",
     ],
     strip_prefix = "OpenROAD-flow-scripts-427bd762b7b7448f8bb6bc4e14207aa3963fca30",

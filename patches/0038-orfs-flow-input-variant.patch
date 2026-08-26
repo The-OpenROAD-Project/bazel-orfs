@@ -1,0 +1,407 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 26 Aug 2026 12:23:40 +0200
+Subject: [PATCH] variables: FLOW_INPUT_VARIANT, read inputs from another
+ variant
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+FLOW_VARIANT names the directory a run writes to. It also names the
+directory a run reads from, which means a variant that wants to reuse
+an upstream variant's results has to physically copy them into its own
+directory first. Sharing an expensive front end across experiments —
+one synthesis, one floorplan, many routing variants — is a `cp -r` per
+fork today.
+
+Split the two. FLOW_INPUT_VARIANT names the variant a run reads from
+and gives INPUT_RESULTS_DIR, INPUT_LOG_DIR, INPUT_REPORTS_DIR and
+INPUT_OBJECTS_DIR alongside the existing output directories. It
+defaults to FLOW_VARIANT, so every INPUT_*_DIR expands to a string
+identical to its *_DIR counterpart and an unchanged run is unchanged.
+
+Reads resolve against a search path: RESULTS_DIR first,
+INPUT_RESULTS_DIR second. RESULTS_DIR has to come first because a
+stage runs several steps in one process — do-place writes
+3_1_place_gp_skip_io.odb and the next step reads it back — and a file
+this run just wrote must win over the upstream variant's copy of it.
+orfs_input_path and orfs_input_glob in util.tcl are the search; every
+write still goes straight to RESULTS_DIR.
+
+load_design is the chokepoint: all 18 stage scripts hand it a bare
+basename, so routing it through orfs_input_path covers the whole flow.
+The remaining reads are the AUTO_MEMORIES globs, find_sdc_file, the
+abstract's .spef, yosys_load's netlist, and genMetrics' log/report/
+result directories.
+
+find_sdc_file's candidate ordering now compares basenames rather than
+full paths. With one directory the two are equivalent, since every
+candidate shares a prefix; with two, the directory prefix would
+otherwise decide which .sdc wins.
+
+The Makefile's prerequisite graph is deliberately untouched: it still
+names $(RESULTS_DIR). A forked variant is driven through the do-
+targets, which is what the flow.sh path does anyway.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ docs/user/FlowVariables.md         | 66 +++++++++++++++++++++++++++
+ flow/scripts/generate_abstract.tcl |  4 +-
+ flow/scripts/load.tcl              |  8 ++--
+ flow/scripts/read_liberty.tcl      |  2 +-
+ flow/scripts/synth_preamble.tcl    |  2 +-
+ flow/scripts/util.tcl              | 71 ++++++++++++++++++++++++++----
+ flow/scripts/variables.mk          | 14 ++++++
+ flow/scripts/variables.yaml        |  9 ++++
+ flow/scripts/yosys_load.tcl        |  3 +-
+ flow/util/utils.mk                 | 12 ++---
+ 10 files changed, 167 insertions(+), 24 deletions(-)
+
+diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
+index cd80fc4e5..b51cfbdb8 100644
+--- a/docs/user/FlowVariables.md
++++ b/docs/user/FlowVariables.md
+@@ -84,6 +84,70 @@ These are optional variables that may be over-ridden/appended with
+ default value from the platform `config.mk` by defining in the design
+ configuration file.
+ 
++## Variant directories: reading from one variant, writing to another
++
++`FLOW_VARIANT` names the directory a run writes to: `RESULTS_DIR`,
++`LOG_DIR`, `REPORTS_DIR` and `OBJECTS_DIR` all end in the variant name.
++`FLOW_INPUT_VARIANT` names the directory a run *reads* from, through the
++matching `INPUT_RESULTS_DIR`, `INPUT_LOG_DIR`, `INPUT_REPORTS_DIR` and
++`INPUT_OBJECTS_DIR`. It defaults to `FLOW_VARIANT`, so by default the
++two are the same directory and nothing about a normal run changes.
++
++Setting it forks a variant off a shared upstream one. The forked run
++reads the upstream variant's results and writes only its own, so the
++shared stages are never re-run and never copied. Results are looked up
++in `RESULTS_DIR` first and `INPUT_RESULTS_DIR` second, so a file an
++earlier step of the same run just wrote always wins over the upstream
++variant's copy of it.
++
++This is how to share an expensive front end across experiments — run
++synthesis, floorplan, placement and CTS once as `base`, then fork a
++variant per routing experiment:
++
++```shell
++make DESIGN_CONFIG=... FLOW_VARIANT=base cts
++make DESIGN_CONFIG=... FLOW_INPUT_VARIANT=base FLOW_VARIANT=high_effort do-grt do-route do-final
++```
++
++The same mechanism lets one fork produce an input for another. A custom
++flow computes the pin layout: it runs with `FLOW_INPUT_VARIANT=base
++FLOW_VARIANT=io`, reads the shared floorplan, and writes `io.tcl` into
++the `io` variant. The main flow then re-runs from floorplan with
++`IO_CONSTRAINTS` pointing at it, still reusing the same `base`
++synthesis:
++
++```mermaid
++flowchart LR
++  subgraph base["FLOW_VARIANT=base — shared front end"]
++    S["1_synth"] --> F["2_floorplan"] --> P["3_place"] --> C["4_cts"]
++  end
++
++  subgraph io["FLOW_INPUT_VARIANT=base, FLOW_VARIANT=io"]
++    Q["quick pin placement"] --> IOTCL["io.tcl"]
++  end
++
++  subgraph main["FLOW_INPUT_VARIANT=base, FLOW_VARIANT=main"]
++    G["5_grt"] --> R["5_route"] --> FIN["6_final"]
++  end
++
++  subgraph hi["FLOW_INPUT_VARIANT=base, FLOW_VARIANT=high_effort"]
++    G2["5_grt (higher effort)"] --> R2["5_route"] --> FIN2["6_final"]
++  end
++
++  F -. "reads base results" .-> Q
++  C -. "reads base results" .-> G
++  C -. "reads base results" .-> G2
++  IOTCL -- "IO_CONSTRAINTS" --> F
++```
++
++Dashed edges are reads across variants. Without `FLOW_INPUT_VARIANT`,
++each fork needs a physical copy of the `base` directories before it can
++start.
++
++Because `INPUT_*_DIR` are `?=`, a caller that repoints an output
++directory somewhere that is not variant-shaped can repoint the matching
++input directory too, independently of `FLOW_INPUT_VARIANT`.
++
+ # Automatically generated tables from flow/scripts/variables.yaml
+ ## Variables in alphabetic order
+ 
+@@ -151,6 +215,7 @@ configuration file.
+ | <a name="FILL_CELLS"></a>FILL_CELLS| Fill cells are used to fill empty sites. If not set or empty, fill cell insertion is skipped.| |
+ | <a name="FILL_CONFIG"></a>FILL_CONFIG| JSON rule file for metal fill during chip finishing.| |
+ | <a name="FLOORPLAN_DEF"></a>FLOORPLAN_DEF| Use the DEF file to initialize floorplan. Mutually exclusive with FOOTPRINT or DIE_AREA/CORE_AREA or CORE_UTILIZATION.| |
++| <a name="FLOW_INPUT_VARIANT"></a>FLOW_INPUT_VARIANT| Flow variant a stage reads its inputs from, used in the INPUT_RESULTS_DIR/INPUT_LOG_DIR/INPUT_REPORTS_DIR/INPUT_OBJECTS_DIR directory names. Defaults to FLOW_VARIANT, i.e. a stage reads from the same variant directory it writes to. Set it to fork a variant off a shared upstream one: the forked variant reads the upstream results and writes only its own, so the shared stages are never re-run.| |
+ | <a name="FLOW_VARIANT"></a>FLOW_VARIANT| Flow variant to use, used in the flow variant directory name.| base|
+ | <a name="FOOTPRINT"></a>FOOTPRINT| Custom footprint definition file for ICeWall-based floorplan initialization. Mutually exclusive with FLOORPLAN_DEF or DIE_AREA/CORE_AREA or CORE_UTILIZATION.| |
+ | <a name="FOOTPRINT_TCL"></a>FOOTPRINT_TCL| Specifies a Tcl script with custom footprint-related commands for floorplan setup.| |
+@@ -652,6 +717,7 @@ configuration file.
+ - [ENABLE_DPO](#ENABLE_DPO)
+ - [FASTROUTE_TCL](#FASTROUTE_TCL)
+ - [FILL_CONFIG](#FILL_CONFIG)
++- [FLOW_INPUT_VARIANT](#FLOW_INPUT_VARIANT)
+ - [FLOW_VARIANT](#FLOW_VARIANT)
+ - [GDS_FILES](#GDS_FILES)
+ - [GENERATE_ARTIFACTS_ON_FAILURE](#GENERATE_ARTIFACTS_ON_FAILURE)
+diff --git a/flow/scripts/generate_abstract.tcl b/flow/scripts/generate_abstract.tcl
+index 3f860034f..4a24b6cd3 100644
+--- a/flow/scripts/generate_abstract.tcl
++++ b/flow/scripts/generate_abstract.tcl
+@@ -13,8 +13,8 @@ set sdc_file [lindex $result 1]
+ 
+ log_cmd load_design $stem.odb [file tail $sdc_file]
+ 
+-if { $design_stage >= 6 && [file exists $::env(RESULTS_DIR)/$stem.spef] } {
+-  log_cmd read_spef $::env(RESULTS_DIR)/$stem.spef
++if { $design_stage >= 6 && [file exists [orfs_input_path $stem.spef]] } {
++  log_cmd read_spef [orfs_input_path $stem.spef]
+ } elseif { $design_stage >= 3 } {
+   log_cmd estimate_parasitics -placement
+ }
+diff --git a/flow/scripts/load.tcl b/flow/scripts/load.tcl
+index 1b3a6c463..fd29176db 100644
+--- a/flow/scripts/load.tcl
++++ b/flow/scripts/load.tcl
+@@ -26,20 +26,20 @@ proc load_design { design_file sdc_file } {
+     # AUTO_MEMORIES: abstract LEFs generated pre-synthesis; globbed
+     # because the file names are only known at run time.
+     if { [env_var_equals AUTO_MEMORIES 1] } {
+-      foreach lef [glob -nocomplain $::env(RESULTS_DIR)/memories/*.lef] {
++      foreach lef [orfs_input_glob memories/*.lef] {
+         read_lef $lef
+       }
+     }
+-    read_verilog $::env(RESULTS_DIR)/$design_file
++    read_verilog [orfs_input_path $design_file]
+     log_cmd link_design {*}[hier_options] $::env(DESIGN_NAME)
+   } elseif { $ext == ".odb" } {
+-    log_cmd read_db {*}[hier_options] $::env(RESULTS_DIR)/$design_file
++    log_cmd read_db {*}[hier_options] [orfs_input_path $design_file]
+   } else {
+     error "Unrecognized input file $design_file"
+   }
+ 
+   # Read SDC file
+-  log_cmd read_sdc $::env(RESULTS_DIR)/$sdc_file
++  log_cmd read_sdc [orfs_input_path $sdc_file]
+ 
+   if { [file exists $::env(PLATFORM_DIR)/derate.tcl] } {
+     log_cmd source $::env(PLATFORM_DIR)/derate.tcl
+diff --git a/flow/scripts/read_liberty.tcl b/flow/scripts/read_liberty.tcl
+index 1c013611d..c68724646 100644
+--- a/flow/scripts/read_liberty.tcl
++++ b/flow/scripts/read_liberty.tcl
+@@ -23,7 +23,7 @@ if { [env_var_exists_and_non_empty CORNERS] } {
+ # LIB_FILES. The _pre_layout variants (ideal clock) are for pre-CTS
+ # consumers that select lib files themselves.
+ if { [env_var_equals AUTO_MEMORIES 1] } {
+-  foreach libFile [glob -nocomplain $::env(RESULTS_DIR)/memories/*.lib] {
++  foreach libFile [orfs_input_glob memories/*.lib] {
+     if { [string match *_pre_layout.lib $libFile] } {
+       continue
+     }
+diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
+index 14a9d70d7..187e0e485 100644
+--- a/flow/scripts/synth_preamble.tcl
++++ b/flow/scripts/synth_preamble.tcl
+@@ -51,7 +51,7 @@ proc auto_memories_blackboxes { } {
+   if { ![env_var_equals AUTO_MEMORIES 1] } {
+     return {}
+   }
+-  set f "$::env(RESULTS_DIR)/memories/blackboxes.txt"
++  set f [orfs_input_path memories/blackboxes.txt]
+   if { ![file exists $f] } {
+     error "AUTO_MEMORIES=1 but $f is missing;\
+       the do-auto-memories step must run before synthesis"
+diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
+index 5b7d98c8d..b274536ad 100644
+--- a/flow/scripts/util.tcl
++++ b/flow/scripts/util.tcl
+@@ -73,6 +73,54 @@ proc recover_power_helper { } {
+   report_power
+ }
+ 
++# The results search path: this variant's own RESULTS_DIR first, then
++# the INPUT_RESULTS_DIR it was forked from. RESULTS_DIR comes first so
++# that a stage reading a file an earlier step of the same run just wrote
++# picks up the fresh one rather than the upstream variant's copy. The
++# two are the same directory unless FLOW_INPUT_VARIANT says otherwise.
++proc orfs_input_dirs { } {
++  set dirs [list $::env(RESULTS_DIR)]
++  if {
++    [info exists ::env(INPUT_RESULTS_DIR)] &&
++    $::env(INPUT_RESULTS_DIR) ne $::env(RESULTS_DIR)
++  } {
++    lappend dirs $::env(INPUT_RESULTS_DIR)
++  }
++  return $dirs
++}
++
++# Resolve a result file by name against the results search path.
++proc orfs_input_path { name } {
++  foreach dir [orfs_input_dirs] {
++    set path [file join $dir $name]
++    if { [file exists $path] } {
++      return $path
++    }
++  }
++  # Nowhere on the path: return the RESULTS_DIR path so the caller
++  # reports the file missing where it would have been written.
++  return [file join $::env(RESULTS_DIR) $name]
++}
++
++# Glob a pattern across the results search path. Same precedence as
++# orfs_input_path: a basename present in more than one directory
++# resolves to the earliest one, and the later copies are dropped.
++proc orfs_input_glob { pattern } {
++  set result {}
++  set seen {}
++  foreach dir [orfs_input_dirs] {
++    foreach path [lsort [glob -nocomplain -directory $dir $pattern]] {
++      set name [file tail $path]
++      if { [lsearch -exact $seen $name] != -1 } {
++        continue
++      }
++      lappend seen $name
++      lappend result $path
++    }
++  }
++  return $result
++}
++
+ proc extract_stage { input_file } {
+   # Match the stage prefix on the basename, not the full path: an ancestor
+   # dir like ".../4_something/3_place.odb" would otherwise match "4_" -> stage 4.
+@@ -91,10 +139,10 @@ proc extract_stage { input_file } {
+ 
+ proc find_sdc_file { input_file } {
+   # canonicalize input file, sometimes it is called with an input
+-  # file relative to $::env(RESULTS_DIR), other times with
++  # file relative to the results search path, other times with
+   # an absolute path
+   if { ![file exists $input_file] } {
+-    set input_file [file join $::env(RESULTS_DIR) $input_file]
++    set input_file [orfs_input_path $input_file]
+   }
+   set input_file [file normalize $input_file]
+ 
+@@ -102,14 +150,19 @@ proc find_sdc_file { input_file } {
+   set design_stage [lindex $stage 0]
+   set sdc_file ""
+ 
+-  set exact_sdc [string map {.odb .sdc} $input_file]
+-  set sdc_files \
+-    [glob -nocomplain -directory $::env(RESULTS_DIR) -types f "\[1-9+\]_\[1-9_A-Za-z\]*\.sdc"]
+-  set sdc_files [lsort -decreasing -dictionary $sdc_files]
+-  set sdc_files [lmap file $sdc_files { file normalize $file }]
+-  foreach name $sdc_files {
++  # Pick the latest .sdc at or before this stage. The ordering is on the
++  # basename, not the full path: candidates can come from either
++  # directory on the results search path and the directory prefix must
++  # not decide which one wins.
++  set exact_sdc [string map {.odb .sdc} [file tail $input_file]]
++  set candidates {}
++  foreach path [orfs_input_glob "\[1-9+\]_\[1-9_A-Za-z\]*\.sdc"] {
++    lappend candidates [list [file tail $path] [file normalize $path]]
++  }
++  foreach candidate [lsort -decreasing -dictionary -index 0 $candidates] {
++    set name [lindex $candidate 0]
+     if { [lindex [lsort -decreasing -dictionary [list $name $exact_sdc]] 0] == $exact_sdc } {
+-      set sdc_file $name
++      set sdc_file [lindex $candidate 1]
+       break
+     }
+   }
+diff --git a/flow/scripts/variables.mk b/flow/scripts/variables.mk
+index 656773715..cf8bf445a 100644
+--- a/flow/scripts/variables.mk
++++ b/flow/scripts/variables.mk
+@@ -48,6 +48,20 @@ export OBJECTS_DIR = $(WORK_HOME)/objects/$(PLATFORM)/$(DESIGN_NICKNAME)/$(FLOW_
+ export REPORTS_DIR = $(WORK_HOME)/reports/$(PLATFORM)/$(DESIGN_NICKNAME)/$(FLOW_VARIANT)
+ export RESULTS_DIR = $(WORK_HOME)/results/$(PLATFORM)/$(DESIGN_NICKNAME)/$(FLOW_VARIANT)
+ 
++# Where a stage reads its inputs, as opposed to where it writes its
++# outputs. FLOW_INPUT_VARIANT names the variant a stage reads from;
++# defaulting it to FLOW_VARIANT makes every INPUT_*_DIR expand to a
++# string identical to its *_DIR counterpart, so nothing changes until a
++# variant is deliberately forked off another one. The INPUT_*_DIR are
++# ?= so a caller that repoints an output directory to something not
++# variant-shaped can repoint the matching input directory too.
++export FLOW_INPUT_VARIANT ?= $(FLOW_VARIANT)
++
++export INPUT_LOG_DIR     ?= $(WORK_HOME)/logs/$(PLATFORM)/$(DESIGN_NICKNAME)/$(FLOW_INPUT_VARIANT)
++export INPUT_OBJECTS_DIR ?= $(WORK_HOME)/objects/$(PLATFORM)/$(DESIGN_NICKNAME)/$(FLOW_INPUT_VARIANT)
++export INPUT_REPORTS_DIR ?= $(WORK_HOME)/reports/$(PLATFORM)/$(DESIGN_NICKNAME)/$(FLOW_INPUT_VARIANT)
++export INPUT_RESULTS_DIR ?= $(WORK_HOME)/results/$(PLATFORM)/$(DESIGN_NICKNAME)/$(FLOW_INPUT_VARIANT)
++
+ #-------------------------------------------------------------------------------
+ ifeq (,$(strip $(NUM_CORES)))
+   # Linux (utility program)
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index f51b647ed..3cdc3578f 100644
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -1532,6 +1532,15 @@ FLOW_VARIANT:
+   description: >
+     Flow variant to use, used in the flow variant directory name.
+   default: base
++FLOW_INPUT_VARIANT:
++  description: >
++    Flow variant a stage reads its inputs from, used in the
++    INPUT_RESULTS_DIR/INPUT_LOG_DIR/INPUT_REPORTS_DIR/INPUT_OBJECTS_DIR
++    directory names. Defaults to FLOW_VARIANT, i.e. a stage reads from
++    the same variant directory it writes to. Set it to fork a variant
++    off a shared upstream one: the forked variant reads the upstream
++    results and writes only its own, so the shared stages are never
++    re-run.
+ RULES_JSON:
+   description: >
+     json files with the metrics baseline regression rules.
+diff --git a/flow/scripts/yosys_load.tcl b/flow/scripts/yosys_load.tcl
+index 2d6fe387f..bff9781b0 100644
+--- a/flow/scripts/yosys_load.tcl
++++ b/flow/scripts/yosys_load.tcl
+@@ -1,6 +1,7 @@
+ # Load synthesis result
+ yosys -import
+ 
++source $::env(SCRIPTS_DIR)/util.tcl
+ source $::env(SCRIPTS_DIR)/synth_stdcells.tcl
+ 
+-read_verilog $::env(RESULTS_DIR)/1_synth.v
++read_verilog [orfs_input_path 1_synth.v]
+diff --git a/flow/util/utils.mk b/flow/util/utils.mk
+index c3b56a1e7..f8a756d3b 100644
+--- a/flow/util/utils.mk
++++ b/flow/util/utils.mk
+@@ -23,9 +23,9 @@ metadata-generate:
+ 	$(PYTHON_EXE) $(UTILS_DIR)/genMetrics.py -d $(DESIGN_NICKNAME) \
+ 	    -p $(PLATFORM) \
+ 	    -v $(FLOW_VARIANT) \
+-	    --logs $(LOG_DIR) \
+-	    --reports $(REPORTS_DIR) \
+-	    --results $(RESULTS_DIR) \
++	    --logs $(INPUT_LOG_DIR) \
++	    --reports $(INPUT_REPORTS_DIR) \
++	    --results $(INPUT_RESULTS_DIR) \
+ 	    -o $(REPORTS_DIR)/metadata.json 2>&1 \
+ 	    | tee $(abspath $(REPORTS_DIR)/metadata-generate.log)
+ 
+@@ -100,9 +100,9 @@ update_metadata_autotuner:
+ 	$(PYTHON_EXE) $(UTILS_DIR)/genMetrics.py -d $(DESIGN_NICKNAME) \
+ 	    -p $(PLATFORM) \
+ 	    -v $(FLOW_VARIANT) \
+-	    --logs $(LOG_DIR) \
+-	    --reports $(REPORTS_DIR) \
+-	    --results $(RESULTS_DIR) \
++	    --logs $(INPUT_LOG_DIR) \
++	    --reports $(INPUT_REPORTS_DIR) \
++	    --results $(INPUT_RESULTS_DIR) \
+ 	    -o $(DESIGN_DIR)/metadata-$(FLOW_VARIANT)-at.json -x
+ 
+ #-------------------------------------------------------------------------------
