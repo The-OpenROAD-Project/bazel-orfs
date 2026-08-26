@@ -1028,6 +1028,36 @@ exec "$PYTHON" "$SCRIPT" {moreargs} "$@"
         ),
     )
 
+    # The executable drives make through run_executable.py, so it never
+    # needed the make wrapper script the flow rules deploy. A reproducer
+    # does: deploy.tpl runs `./make <cmd>` against config.mk. Mint one with
+    # the same arguments the wrapper bakes in, de-prefixed for the deployed
+    # tree the way orfs_run does.
+    deploy_make = _create_make_script(
+        ctx,
+        "make_{}_{}_run_executable".format(ctx.attr.name, ctx.attr.variant),
+        extra_substitutions = {
+            '"$@"': environment_string(
+                hack_away_prefix(
+                    arguments = odb_arguments(ctx) |
+                                data_arguments(ctx) |
+                                run_arguments(ctx) |
+                                fork_arguments(ctx),
+                    prefix = config.root.path,
+                ) |
+                {"DESIGN_CONFIG": "config.mk"},
+            ) + ' "$@"',
+        },
+    )
+
+    reproducer_files = [
+        config,
+        deploy_make,
+        ctx.file.script,
+        ctx.file._fork_tcl,
+        ctx.file._fork_lib,
+    ] + extra_files
+
     return [
         ctx.attr.src[PdkInfo],
         ctx.attr.src[TopInfo],
@@ -1039,6 +1069,22 @@ exec "$PYTHON" "$SCRIPT" {moreargs} "$@"
                     transitive = [
                         flow_inputs(ctx),
                         yosys_inputs(ctx),
+                        data_inputs(ctx),
+                        source_inputs(ctx),
+                    ],
+                ),
+            ),
+        ),
+        OrfsDepInfo(
+            make = deploy_make,
+            config = config,
+            renames = [],
+            files = depset(reproducer_files),
+            runfiles = ctx.runfiles(
+                transitive_files = depset(
+                    reproducer_files,
+                    transitive = [
+                        flow_inputs(ctx),
                         data_inputs(ctx),
                         source_inputs(ctx),
                     ],
@@ -1078,7 +1124,7 @@ _orfs_rule_run_executable = rule(
     executable = True,
 )
 
-def orfs_run_executable(**kwargs):
+def orfs_run_executable(deps = False, **kwargs):
     """Rule wrapper for orfs_run_executable to populate data dependencies and CLI arguments from explicitly specified sources.
 
     This rule produces a standalone executable that invokes GNU Make with the
@@ -1124,9 +1170,13 @@ def orfs_run_executable(**kwargs):
               LOG_DIR=/tmp/trial42 MY_OUT_FILE=/tmp/trial42/out.json
 
     Args:
+        deps: Also emit the {name}_deps / {name}_deps_tar reproducer
+            companions. Opt-in for the same reason as orfs_run's.
         **kwargs: The keyword arguments to pass to the underlying _orfs_rule_run_executable.
     """
     _orfs_rule_run_executable(**_expand_sources(kwargs))
+    if deps:
+        create_deps_tar(kwargs.get("name"), kwargs.get("visibility", None))
 
 # --- Synthesis rule ---
 
