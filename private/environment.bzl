@@ -650,49 +650,6 @@ def generation_commands(optional_files):
         ]
     return []
 
-def _remap(s, a, b):
-    # Replace only the last occurrence of the variant path segment to avoid
-    # clobbering unrelated path components that happen to match the variant
-    # name (e.g., a Bazel package named "test" sharing a name with variant
-    # "test").
-    suffix = "/" + a
-    if s.endswith(suffix):
-        return s[:-len(suffix)] + "/" + b
-    key = "/" + a + "/"
-    idx = s.rfind(key)
-    if idx == -1:
-        return s
-    return s[:idx] + "/" + b + "/" + s[idx + len(key):]
-
-def renames(ctx, inputs, short = False):
-    """Move inputs to the expected input locations.
-
-    Args:
-      ctx: The rule context.
-      inputs: List of input files to potentially rename.
-      short: If True, use short_path instead of path.
-
-    Returns:
-      A list of structs with src and dst fields for renaming.
-    """
-    result = []
-    for file in inputs:
-        if ctx.attr.src[OrfsInfo].variant != ctx.attr.variant:
-            src_path = file_path(file, short)
-            dst_path = _remap(
-                src_path,
-                ctx.attr.src[OrfsInfo].variant,
-                ctx.attr.variant,
-            )
-
-            # Files from a different variant than both the src and this
-            # stage (e.g., base synth outputs forwarded through a
-            # downstream-variant chain) aren't touched by _remap and end
-            # up with src == dst. Skip — `mv` would error on same file.
-            if src_path != dst_path:
-                result.append(struct(src = src_path, dst = dst_path))
-    return result
-
 def _artifact_name(ctx, category, name = None):
     return "/".join(
         [

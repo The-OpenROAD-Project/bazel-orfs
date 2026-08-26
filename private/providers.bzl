@@ -38,7 +38,6 @@ OrfsDepInfo = provider(
     fields = [
         "make",
         "config",
-        "renames",
         "files",
         "runfiles",
     ],

@@ -41,7 +41,6 @@ load(
     "orfs_additional_arguments",
     "out_dir_arguments",
     "pdk_inputs",
-    "renames",
     "required_arguments",
     "run_arguments",
     "sdc_arguments",
@@ -86,7 +85,7 @@ def _tar_paths(f):
         return [rel, "_main/external/" + rel]
     return ["_main/" + sp]
 
-def _package_stage(ctx, config, make, runfiles_depset, renames = []):
+def _package_stage(ctx, config, make, runfiles_depset):
     """Create a portable .tar.gz from stage dependencies.
 
     Returns the tar File.
@@ -114,12 +113,6 @@ def _package_stage(ctx, config, make, runfiles_depset, renames = []):
     # Config goes to _main/config.mk
     lines.append("{}\t_main/config.mk".format(config.path))
 
-    # Renames: r.src is a short_path string; resolve to actual path.
-    short_to_path = {f.short_path: f.path for f in all_files}
-    for r in renames:
-        real_src = short_to_path.get(r.src, r.src)
-        lines.append("{}\t_main/{}".format(real_src, r.dst))
-
     # Make wrapper at top level
     lines.append("{}\tmake".format(make_wrapper.path))
 
@@ -143,7 +136,7 @@ def _package_stage(ctx, config, make, runfiles_depset, renames = []):
 
     return tar
 
-def _expand_deploy_template(ctx, exe, config, make, genfiles, name = "", renames = []):
+def _expand_deploy_template(ctx, exe, config, make, genfiles, name = ""):
     """Expands the deploy template for a stage.
 
     Args:
@@ -153,7 +146,6 @@ def _expand_deploy_template(ctx, exe, config, make, genfiles, name = "", renames
       make: The make script File.
       genfiles: List of Files to include in the deploy directory.
       name: Deploy folder name. Only deps targets set this to get per-target folders.
-      renames: List of rename structs (src, dst). Only used by deps rule.
     """
     ctx.actions.expand_template(
         template = ctx.file._deploy_template,
@@ -164,9 +156,6 @@ def _expand_deploy_template(ctx, exe, config, make, genfiles, name = "", renames
             "${MAKE}": make.short_path,
             "${NAME}": name,
             "${PACKAGE}": ctx.label.package,
-            "${RENAMES}": " ".join(
-                ["{}:{}".format(r.src, r.dst) for r in renames],
-            ),
         },
     )
 
@@ -333,7 +322,6 @@ def _deploy_srcs_impl(ctx):
         make = dep.make,
         genfiles = dep.files.to_list(),
         name = ctx.attr.name,
-        renames = dep.renames,
     )
     wrapper = ctx.actions.declare_file(ctx.attr.name + "_run.sh")
     ctx.actions.write(
@@ -495,7 +483,6 @@ def _run_impl(ctx):
         OrfsDepInfo(
             make = make,
             config = config,
-            renames = [],
             files = depset([config, ctx.file.script, ctx.file._fork_tcl, ctx.file._fork_lib] + extra_files),
             runfiles = ctx.runfiles(
                 transitive_files = depset(
@@ -2333,7 +2320,6 @@ def _yosys_impl(ctx):
         OrfsDepInfo(
             make = make,
             config = config_short,
-            renames = [],
             # Include the stage data (sources= files) like the PnR stage
             # rule does: orfs_arguments/orfs_run consumers stage
             # OrfsDepInfo.files, and the synth config can reference
@@ -2676,7 +2662,6 @@ def _make_impl(
     # the OrfsDepInfo.runfiles consumed by downstream rules (orfs_step,
     # orfs_deploy_srcs) are headless paths. openroad_qt is only added to
     # DefaultInfo.runfiles below so `bazelisk run :stage gui_<stage>` works.
-    stage_renames = renames(ctx, ctx.files.src, short = True)
     deploy_files = depset(
         [config_short, make] + ctx.files.src + ctx.files.extra_configs + all_jsons,
         transitive = [
@@ -2692,7 +2677,6 @@ def _make_impl(
         config = config_short,
         make = make,
         runfiles_depset = deploy_files,
-        renames = stage_renames,
     )
 
     # Legacy deploy script (used by orfs_step for bazel run).
@@ -2704,7 +2688,6 @@ def _make_impl(
         make = make,
         genfiles = [config_short] + ctx.files.src + ctx.files.data + ctx.files.extra_configs,
         name = ctx.attr.name + "_deps",
-        renames = stage_renames,
     )
 
     _runfiles_files = (
@@ -2772,7 +2755,6 @@ def _make_impl(
         OrfsDepInfo(
             make = make,
             config = config_short,
-            renames = stage_renames,
             # This stage's OWN data (sources= files) and configs — what the
             # next stage's source_inputs() legitimately needs beyond the
             # results/reports it already takes from DefaultInfo via
@@ -2839,7 +2821,6 @@ def _step_impl(ctx):
         make = ctx.attr.src[OrfsDepInfo].make,
         genfiles = ctx.attr.src[OrfsDepInfo].files.to_list(),
         name = deploy_name,
-        renames = ctx.attr.src[OrfsDepInfo].renames,
     )
 
     # Wrapper that symlinks runfiles so the deploy script can find them,
