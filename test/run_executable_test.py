@@ -35,6 +35,31 @@ class TestRunExecutable(unittest.TestCase):
         )
         self.assertIn("PLACE_DENSITY: 0.42", result.stdout)
 
+    def test_openroad_exe_override(self):
+        """BYO openroad: a CLI override reaches make, beating the baked path.
+
+        The rule bakes OPENROAD_EXE from its `openroad` attr into the
+        wrapper's arguments; run_executable.py appends user args after
+        those, so make's last-wins rule lets a locally-built binary be
+        substituted without rebuilding the target.
+        """
+        executable_path = "test/run_executable_with_args"
+        if not os.path.exists(executable_path):
+            self.skipTest(f"Executable not found at {executable_path}")
+
+        result = subprocess.run(
+            [
+                executable_path,
+                "OPENROAD_EXE=/nonexistent/byo/openroad",
+                "--cmd",
+                "print-OPENROAD_EXE",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        self.assertIn("OPENROAD_EXE: /nonexistent/byo/openroad", result.stdout)
+
     def test_cli_cmd_override(self):
         executable_path = "test/mock_tuner_executable"
         if not os.path.exists(executable_path):
