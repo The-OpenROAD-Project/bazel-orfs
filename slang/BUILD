@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//:openroad.bzl", "orfs_flow", "orfs_synth")
 
 # The slang yosys plugin (slang.so) is provided from BCR sv-elab via
@@ -36,4 +37,17 @@ orfs_synth(
         "SDC_FILE": ["constraints.sdc"],
     },
     verilog_files = ["blackbox.sv"],
+)
+
+# ci.yml runs `bazelisk test ... --build_tests_only`, so these targets --
+# which no test depended on -- were never built there, and the CI
+# coverage the blackbox_synth comment above promises did not exist. They
+# had been failing since ORFS dropped the slang plugin load. Naming them
+# in a build_test is what makes that comment true.
+build_test(
+    name = "slang_build_test",
+    targets = [
+        ":blackbox_synth",
+        ":test_place",
+    ],
 )
