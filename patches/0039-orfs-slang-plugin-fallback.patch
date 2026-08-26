@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Wed, 26 Aug 2026 14:18:38 +0200
+Subject: [PATCH] synth: load the slang plugin when read_slang is not built in
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Yosys 0.67 vendors the slang frontend under frontends/slang, so
+read_slang is a built-in command there and the explicit plugin load
+was dropped. Yosys 0.66 and older do not have it, and the same code is
+available to them as an out-of-tree plugin (povik/sv-elab, formerly
+yosys-slang) -- which is what the Bazel build in bazel-orfs supplies,
+since the BCR yosys module is still on 0.64.
+
+On such a Yosys, SYNTH_HDL_FRONTEND=slang now fails with
+
+  ERROR: No such command: read_slang (type 'help' for a command overview)
+
+even though the plugin is on YOSYS_PLUGIN_PATH, because nothing loads
+it any more.
+
+Load it when, and only when, the command is absent. `plugin -i slang`
+resolves through YOSYS_PLUGIN_PATH, and the guard makes this a no-op
+on a Yosys that has the frontend built in, so ORFS works against
+either without the caller having to say which it has.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/synth_preamble.tcl | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
+index 14a9d70d7..ef142be96 100644
+--- a/flow/scripts/synth_preamble.tcl
++++ b/flow/scripts/synth_preamble.tcl
+@@ -76,7 +76,14 @@ proc read_design_sources { } {
+   }
+ 
+   if { [env_var_equals SYNTH_HDL_FRONTEND slang] } {
+-    # read_slang is built into Yosys (>=0.67); no plugin load needed.
++    # read_slang is built into Yosys >= 0.67, which vendors the frontend
++    # under frontends/slang. Older Yosys needs the same code loaded as an
++    # out-of-tree plugin; `plugin -i` finds it on YOSYS_PLUGIN_PATH. The
++    # guard makes this a no-op on a Yosys that has the frontend built in,
++    # so a build system is free to supply either one.
++    if { [info commands read_slang] eq "" } {
++      plugin -i slang
++    }
+     set slang_args [list \
+       -D SYNTHESIS --keep-hierarchy --compat=vcs --ignore-assertions --top $::env(DESIGN_NAME) \
+       {*}$vIdirsArgs {*}[env_var_or_empty VERILOG_DEFINES]]
