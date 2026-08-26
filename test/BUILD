@@ -1721,6 +1721,16 @@ sh_test(
 )
 
 sh_test(
+    name = "deps_deploy_openroad_exe_env_test",
+    srcs = ["deps_deploy_test.sh"],
+    args = [
+        "$(location :lb_32x128_mock_floorplan_deps_tar.tar.gz)",
+        "openroad_exe_env",
+    ],
+    data = [":lb_32x128_mock_floorplan_deps_tar.tar.gz"],
+)
+
+sh_test(
     name = "deps_deploy_make_passthrough_test",
     srcs = ["deps_deploy_test.sh"],
     args = [

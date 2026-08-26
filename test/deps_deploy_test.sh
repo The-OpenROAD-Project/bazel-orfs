@@ -105,6 +105,15 @@ case "$CHECK" in
         [ -n "$FLOW_HOME" ] || { echo "FAIL: print-FLOW_HOME returned empty"; exit 1; }
         echo "PASS: print-FLOW_HOME returned: $FLOW_HOME"
         ;;
+    openroad_exe_env)
+        # BYO openroad: the deployed make wrapper must not clobber a
+        # caller-supplied binary with its own baked path.
+        OUT=$(OPENROAD_EXE=/nonexistent/byo/openroad "$DST/make" print-OPENROAD_EXE 2>&1 | tail -1)
+        case "$OUT" in
+            *"/nonexistent/byo/openroad"*) echo "PASS: openroad_exe_env ($OUT)" ;;
+            *) echo "FAIL: caller OPENROAD_EXE ignored, got: $OUT"; exit 1 ;;
+        esac
+        ;;
     make_passthrough)
         "$DST/make" print-DESIGN_NAME || { echo "FAIL: make passthrough failed"; exit 1; }
         echo "PASS: make_passthrough"
