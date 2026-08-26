@@ -413,14 +413,31 @@ orfs_flow(
     verilog_files = LB_VERILOG_FILES,
 )
 
+# Demonstrates the DSE/AutoTuner contract README.md documents: the script
+# reports its objective by writing JSON to METRICS_OUT, which the caller
+# names. cell_count.tcl errors out when METRICS_OUT is unset, so it is
+# part of the contract rather than an option. It rides on extra_args
+# rather than arguments= because the value has to name a declared output
+# under $WORK_HOME, and only extra_args is shell-expanded -- a
+# "$(WORK_HOME)/..." in arguments= reaches the script verbatim.
 orfs_run(
     name = "cell_count",
     src = ":lb_32x128_floorplan",
     outs = [
+        "cell_count_metrics.json",
         "test.txt",
     ],
-    extra_args = "> $WORK_HOME/test.txt",
+    extra_args = "METRICS_OUT=$WORK_HOME/cell_count_metrics.json > $WORK_HOME/test.txt",
     script = ":cell_count.tcl",
+)
+
+# ci.yml runs `bazelisk test ... --build_tests_only`, so a target no test
+# depends on is never built there. cell_count is such a target, and it
+# silently stopped building when cell_count.tcl grew its METRICS_OUT
+# requirement. Naming it in a build_test is what puts it back under CI.
+build_test(
+    name = "cell_count_build_test",
+    targets = [":cell_count"],
 )
 
 filegroup(
