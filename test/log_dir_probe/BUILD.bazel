@@ -1,0 +1,30 @@
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//:openroad.bzl", "orfs_run")
+
+# The same probe as //test:log_dir_probe_mock, one package away from the
+# flow it runs on: LOG_DIR must still name the flow's log directory, where
+# the stage logs staged by src_logs actually are.
+orfs_run(
+    name = "log_dir_probe_mock",
+    src = "//test:log_dir_probe_src",
+    outs = ["log_dir_probe.txt"],
+    arguments = {
+        "OUTPUT": "$(location log_dir_probe.txt)",
+    },
+    openroad = "//mock/openroad/src/bin:openroad",
+    script = "//test:log_dir_probe.tcl",
+    src_logs = True,
+)
+
+sh_test(
+    name = "log_dir_probe_test",
+    srcs = ["//test:log_dir_probe_test.sh"],
+    args = [
+        "$(rootpath //test:log_dir_probe_expected.txt)",
+        "$(rootpath :log_dir_probe.txt)",
+    ],
+    data = [
+        ":log_dir_probe.txt",
+        "//test:log_dir_probe_expected.txt",
+    ],
+)

@@ -16,6 +16,7 @@ load(
 load(
     "//private:environment.bzl",
     "EXPAND_VERILOG_DIRS",
+    "artifact_dir",
     "config_arguments",
     "config_environment",
     "data_arguments",
@@ -34,6 +35,7 @@ load(
     "generation_commands",
     "hack_away_prefix",
     "input_commands",
+    "log_dir_arguments",
     "merge_and_filter_arguments",
     "merge_arguments",
     "module_top",
@@ -306,6 +308,7 @@ def _deps_impl(ctx):
         ctx.attr.src[PdkInfo],
         ctx.attr.src[TopInfo],
         LoggingInfo(
+            log_dir = ctx.attr.src[LoggingInfo].log_dir,
             logs = depset(),
             reports = depset(),
             drcs = depset([]),
@@ -415,6 +418,10 @@ def _run_impl(ctx):
                 ctx.executable._make.path,
                 ctx.expand_location(ctx.attr.cmd, ctx.attr.data),
                 ctx.expand_location(ctx.attr.extra_args, ctx.attr.data),
+                # A make command-line variable, not an environment one:
+                # variables.mk assigns LOG_DIR with `=`, which beats the
+                # environment. Same form the deploy script passes it in.
+                environment_string(log_dir_arguments(ctx)),
                 "$@",
             ],
         ),
@@ -468,6 +475,7 @@ def _run_impl(ctx):
                                                         sdc_arguments(ctx) |
                                                         data_arguments(ctx) |
                                                         run_arguments(ctx) |
+                                                        log_dir_arguments(ctx) |
                                                         fork_arguments(ctx) |
                                                         out_dir_arguments(out_dir),
                                             prefix = config.root.path,
@@ -541,7 +549,8 @@ _orfs_run_rule = rule(
                     default = False,
                     doc = "Stage the src stage's accumulated logs into the " +
                           "run action's inputs, for scripts that read them " +
-                          "(e.g. stage elapsed times from $LOG_DIR/*.log). " +
+                          "(e.g. stage elapsed times from $LOG_DIR/*.log, " +
+                          "which names the src flow's log directory). " +
                           "Off by default: every log carries wall-clock/" +
                           "CPU/memory lines, so a log input re-runs this " +
                           "action whenever ANY upstream stage re-executes — " +
@@ -995,10 +1004,11 @@ def orfs_run_executable(**kwargs):
        on every invocation. Nothing else is written by the framework; no
        metrics JSON is produced (unlike the flow stages).
     2. **Pass LOG_DIR**: the executable sets its working directory (`pwd`) to
-       the Bazel runfiles root, so the default `LOG_DIR` resolves *inside the
-       runfiles tree* — the framework then writes `run.log` into Bazel's
-       output tree. Pass `LOG_DIR=<absolute path>` (it is created if missing)
-       to keep runfiles pristine. Concurrent invocations of the same
+       the Bazel runfiles root, and `LOG_DIR` defaults to the log directory of
+       the flow the `src` stage belongs to — where the stage logs are, and
+       *inside the runfiles tree*, so the framework writes `run.log` into
+       Bazel's output tree. Pass `LOG_DIR=<absolute path>` (it is created if
+       missing) to keep runfiles pristine. Concurrent invocations of the same
        executable (e.g. an Optuna study with `n_jobs > 1`) MUST each get
        their own `LOG_DIR` (or `RUN_LOG_NAME_STEM`), or they overwrite each
        other's `run.log`.
@@ -2311,6 +2321,7 @@ def _yosys_impl(ctx):
             module_top = ctx.attr.module_top,
         ),
         LoggingInfo(
+            log_dir = artifact_dir(ctx, "logs"),
             logs = depset(canon_logs + synth_logs),
             reports = depset(synth_reports),
             drcs = depset([]),
@@ -2731,6 +2742,7 @@ def _make_impl(
             ),
         ),
         LoggingInfo(
+            log_dir = artifact_dir(ctx, "logs"),
             logs = depset(logs, transitive = [ctx.attr.src[LoggingInfo].logs]),
             reports = depset(reports, transitive = [ctx.attr.src[LoggingInfo].reports]),
             drcs = depset(drcs, transitive = [ctx.attr.src[LoggingInfo].drcs]),

@@ -1022,6 +1022,58 @@ sh_test(
     data = [":run_out_dir_mock"],
 )
 
+# LOG_DIR names the log directory of the flow the src stage belongs to —
+# where every stage's log and metrics json accumulates — not one derived
+# from the consuming run's own package and variant. The two coincide only
+# when the run is co-located with its src, so both cases are pinned: a run
+# whose package differs from its src's (//test/log_dir_probe) found an
+# empty LOG_DIR and left every src_logs consumer to hand-derive the path
+# from an artifact it happened to know. A variant of its own is fine:
+# LOG_DIR follows the src stage's FLOW_VARIANT, not this target's.
+#
+# The squashed cts flow is the src because it accumulates floorplan,
+# place and cts in one directory, so the expected set spans stages.
+orfs_run(
+    name = "log_dir_probe_mock",
+    src = ":lb_32x128_squashed_cts",
+    outs = ["log_dir_probe.txt"],
+    arguments = {
+        "OUTPUT": "$(location log_dir_probe.txt)",
+    },
+    openroad = "//mock/openroad/src/bin:openroad",
+    script = ":log_dir_probe.tcl",
+    src_logs = True,
+    variant = "log_dir_probe",
+)
+
+sh_test(
+    name = "log_dir_probe_test",
+    srcs = ["log_dir_probe_test.sh"],
+    args = [
+        "$(rootpath :log_dir_probe_expected.txt)",
+        "$(rootpath :log_dir_probe.txt)",
+    ],
+    data = [
+        ":log_dir_probe.txt",
+        ":log_dir_probe_expected.txt",
+    ],
+)
+
+exports_files(
+    [
+        "log_dir_probe.tcl",
+        "log_dir_probe_expected.txt",
+        "log_dir_probe_test.sh",
+    ],
+    visibility = ["//test:__subpackages__"],
+)
+
+alias(
+    name = "log_dir_probe_src",
+    actual = ":lb_32x128_squashed_cts",
+    visibility = ["//test:__subpackages__"],
+)
+
 # fork/join smoke on real OpenROAD (see fork/fork.tcl): a nested tree walk
 # after load_design writing one JSON per leaf into out_dir, with an OpenSTA
 # query in every forked child and a deliberate failing leaf.

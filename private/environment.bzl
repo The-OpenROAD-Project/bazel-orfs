@@ -571,6 +571,26 @@ def data_arguments(ctx):
 def run_arguments(ctx):
     return {"RUN_SCRIPT": ctx.file.script.path}
 
+def log_dir_arguments(ctx):
+    """Points a run at the log directory of the flow its src belongs to.
+
+    That is where the stage logs accumulate (and what src_logs stages into
+    the action), so it is where a run script reading them has to look. The
+    ORFS default derives LOG_DIR from the consuming target's own WORK_HOME,
+    which names the flow's directory only when the run happens to sit in
+    the same package as its src.
+
+    Args:
+      ctx: Rule context.
+
+    Returns:
+      {"LOG_DIR": ...} for a src that carries logs, otherwise empty.
+    """
+    if LoggingInfo not in ctx.attr.src:
+        return {}
+    log_dir = ctx.attr.src[LoggingInfo].log_dir
+    return {"LOG_DIR": log_dir} if log_dir else {}
+
 def fork_arguments(ctx, short = False):
     """The fork/join idiom files (see fork/fork.tcl).
 
@@ -683,12 +703,25 @@ def _artifact_name(ctx, category, name = None):
             platform(ctx),
             module_top(ctx),
             ctx.attr.variant,
-            name,
-        ],
+        ] + ([name] if name else []),
     )
 
 def declare_artifact(ctx, category, name):
     return ctx.actions.declare_file(_artifact_name(ctx, category, name))
+
+def artifact_dir(ctx, category):
+    """The directory declare_artifact(ctx, category, ...) files land in.
+
+    Exec-root relative, i.e. the same form the flow's *_DIR variables take.
+
+    Args:
+      ctx: Rule context.
+      category: Artifact category (e.g. "results", "logs", "reports").
+
+    Returns:
+      The directory path as a string.
+    """
+    return "/".join([_work_home(ctx), _artifact_name(ctx, category)])
 
 def declare_artifacts(ctx, category, names):
     """Declares multiple artifacts in one call.
