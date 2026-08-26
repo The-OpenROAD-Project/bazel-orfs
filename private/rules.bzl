@@ -645,13 +645,21 @@ def _expand_sources(kwargs):
         kwargs["arguments"] = arguments
     return kwargs
 
-def orfs_run(**kwargs):
+def orfs_run(deps = False, **kwargs):
     """Rule wrapper for orfs_run to populate data dependencies and CLI arguments from explicitly specified sources.
 
     Args:
+        deps: Also emit the {name}_deps / {name}_deps_tar reproducer
+            companions, the way the flow stage macros do. Opt-in: most
+            orfs_run targets are build steps nobody reproduces by hand, and
+            the companions would be dead targets in every package. Turn it
+            on for a run whose failures get debugged interactively or filed
+            upstream.
         **kwargs: The keyword arguments to pass to the underlying _orfs_run_rule.
     """
     _orfs_run_rule(**_expand_sources(kwargs))
+    if deps:
+        create_deps_tar(kwargs.get("name"), kwargs.get("visibility", None))
 
 def _variables_impl(ctx):
     out = ctx.actions.declare_file(ctx.attr.name + ".json")
