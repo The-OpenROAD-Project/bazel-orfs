@@ -1966,6 +1966,32 @@ py_test(
     ],
 )
 
+# orfs_run_executable(deps = True): the executable is deployable, so a bug
+# hit in a tight-loop run can be handed over as a self-contained reproducer.
+orfs_run_executable(
+    name = "mock_tuner_executable_with_deps",
+    src = ":lb_32x128_mock_floorplan",
+    script = ":cell_count.tcl",
+    tags = ["manual"],
+    deps = True,
+)
+
+deps_output_group_test(
+    name = "deps_output_group_run_executable_test",
+    target = ":mock_tuner_executable_with_deps_deps_tar",
+)
+
+sh_test(
+    name = "deps_deploy_run_executable_test",
+    srcs = ["deps_deploy_test.sh"],
+    args = [
+        "$(location :mock_tuner_executable_with_deps_deps_tar.tar.gz)",
+        "config_contains",
+        "DESIGN_NAME",
+    ],
+    data = [":mock_tuner_executable_with_deps_deps_tar.tar.gz"],
+)
+
 orfs_run_executable(
     name = "run_executable_with_args",
     src = ":lb_32x128_floorplan",
