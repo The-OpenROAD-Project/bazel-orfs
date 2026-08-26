@@ -1675,6 +1675,38 @@ orfs_flow(
     yosys = "//mock/yosys/src/bin:yosys",
 )
 
+# --- orfs_run(deps = True): the reproducer companions on a run target ---
+# Fully mock (mock openroad + mock yosys), so this costs no real tool build.
+
+orfs_run(
+    name = "lb_32x128_mock_run_with_deps",
+    src = ":lb_32x128_mock_floorplan",
+    outs = ["lb_32x128_mock_run_with_deps.yaml"],
+    arguments = {
+        "OUTPUT": "lb_32x128_mock_run_with_deps.yaml",
+    },
+    script = ":report_named.tcl",
+    tags = ["manual"],
+    deps = True,
+)
+
+# The deployed reproducer carries a usable config.mk, same as a stage's.
+sh_test(
+    name = "deps_deploy_run_test",
+    srcs = ["deps_deploy_test.sh"],
+    args = [
+        "$(location :lb_32x128_mock_run_with_deps_deps_tar.tar.gz)",
+        "config_contains",
+        "DESIGN_NAME",
+    ],
+    data = [":lb_32x128_mock_run_with_deps_deps_tar.tar.gz"],
+)
+
+deps_output_group_test(
+    name = "deps_output_group_run_test",
+    target = ":lb_32x128_mock_run_with_deps_deps_tar",
+)
+
 # --- Deps deploy tests: verify end-to-end deploy workflow ---
 # These replace deps_integration_test.sh with Bazel-native tests
 # that receive pre-built tarballs — no nested bazelisk calls.
