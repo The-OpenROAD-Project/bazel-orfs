@@ -14,15 +14,22 @@ if [ -z "$FLOW_HOME" ]; then
   if [ -n "${YOSYS_PATH}" ]; then
     export YOSYS_EXE="${YOSYS_PATH}"
   fi
-  # Select the Qt-linked openroad only when the caller asked for a
-  # gui_* make target. Build-time stages and the portable tarball
-  # invoke CLI make targets and therefore keep ${OPENROAD_PATH}.
-  _openroad_exe="${OPENROAD_PATH}"
-  for _arg in "$@"; do
-    case "$_arg" in
-      gui_*|gui-*) _openroad_exe="${OPENROAD_QT_PATH}"; break ;;
-    esac
-  done
+  # A caller-supplied OPENROAD_EXE wins. Pointing a deployed reproducer at
+  # a locally built openroad is what the _deps tarball is for, and the
+  # deployed tree is the one place the binary is not a bazel label.
+  if [ -n "${OPENROAD_EXE:-}" ]; then
+    _openroad_exe="$OPENROAD_EXE"
+  else
+    # Select the Qt-linked openroad only when the caller asked for a
+    # gui_* make target. Build-time stages and the portable tarball
+    # invoke CLI make targets and therefore keep ${OPENROAD_PATH}.
+    _openroad_exe="${OPENROAD_PATH}"
+    for _arg in "$@"; do
+      case "$_arg" in
+        gui_*|gui-*) _openroad_exe="${OPENROAD_QT_PATH}"; break ;;
+      esac
+    done
+  fi
   export OPENROAD_EXE="$_openroad_exe"
   export OPENSTA_EXE="${OPENSTA_PATH}"
   export KLAYOUT_CMD="${KLAYOUT_PATH}"
