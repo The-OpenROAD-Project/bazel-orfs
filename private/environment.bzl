@@ -372,7 +372,7 @@ def platform_config(ctx):
     ).config.files.to_list()[0]
 
 def required_arguments(ctx):
-    return {
+    arguments = {
         "DESIGN_NAME": module_top(ctx),
         "FLOW_VARIANT": ctx.attr.variant,
         "GENERATE_ARTIFACTS_ON_FAILURE": "1",
@@ -380,6 +380,18 @@ def required_arguments(ctx):
         "PLATFORM_DIR": platform_config(ctx).dirname,
         "WORK_HOME": "./" + ctx.label.package,
     }
+
+    # A stage writes to its own variant's directories and reads its src's.
+    # ORFS resolves reads against INPUT_RESULTS_DIR, which FLOW_INPUT_VARIANT
+    # names; the two variants agree for most of the flow, and differ wherever
+    # a variant forks off a shared upstream one (a sweep, a mocked/unmocked
+    # abstract, the QoR pre-check's "<variant>_synth"). Only the variant path
+    # segment ever differs — WORK_HOME and DESIGN_NICKNAME are shared, so the
+    # ORFS-side derivation of INPUT_*_DIR lands on the src's directories.
+    if hasattr(ctx.attr, "src") and OrfsInfo in ctx.attr.src:
+        arguments["FLOW_INPUT_VARIANT"] = ctx.attr.src[OrfsInfo].variant
+
+    return arguments
 
 def orfs_additional_arguments(infos, short = False, use_pre_layout = False):
     """Returns ADDITIONAL_GDS/LEFS/LIBS arguments from OrfsInfo providers.
@@ -585,16 +597,24 @@ def log_dir_arguments(ctx):
     which names the flow's directory only when the run happens to sit in
     the same package as its src.
 
+    INPUT_LOG_DIR comes along: the src's logs are both where the run reads
+    from and where it writes to, and the ORFS-side derivation of
+    INPUT_LOG_DIR from FLOW_INPUT_VARIANT assumes this target's WORK_HOME,
+    which is the assumption this override exists to break.
+
     Args:
       ctx: Rule context.
 
     Returns:
-      {"LOG_DIR": ...} for a src that carries logs, otherwise empty.
+      {"LOG_DIR": ..., "INPUT_LOG_DIR": ...} for a src that carries logs,
+      otherwise empty.
     """
     if LoggingInfo not in ctx.attr.src:
         return {}
     log_dir = ctx.attr.src[LoggingInfo].log_dir
-    return {"LOG_DIR": log_dir} if log_dir else {}
+    if not log_dir:
+        return {}
+    return {"LOG_DIR": log_dir, "INPUT_LOG_DIR": log_dir}
 
 def fork_arguments(ctx, short = False):
     """The fork/join idiom files (see fork/fork.tcl).
@@ -629,19 +649,6 @@ def generation_commands(optional_files):
             "touch " + " ".join(sorted([result.path for result in optional_files])),
         ]
     return []
-
-def _mv_cmds(src, dst):
-    dir, _, _ = dst.rpartition("/")
-    return [
-        "mkdir -p {}".format(dir),
-        "mv {} {}".format(src, dst),
-    ]
-
-def input_commands(renames):
-    cmds = []
-    for rename in renames:
-        cmds.extend(_mv_cmds(rename.src, rename.dst))
-    return cmds
 
 def _remap(s, a, b):
     # Replace only the last occurrence of the variant path segment to avoid

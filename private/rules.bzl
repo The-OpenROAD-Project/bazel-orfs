@@ -33,7 +33,6 @@ load(
     "fork_arguments",
     "generation_commands",
     "hack_away_prefix",
-    "input_commands",
     "log_dir_arguments",
     "merge_and_filter_arguments",
     "merge_arguments",
@@ -2472,8 +2471,7 @@ def _make_impl(
         json_names = [],
         drc_names = [],
         substep_names = [],
-        lib_pre_layout = None,
-        rename_data = False):
+        lib_pre_layout = None):
     """
     Implementation function for the OpenROAD-flow-scripts stages.
 
@@ -2491,12 +2489,6 @@ def _make_impl(
       drc_names: The names of the DRC files.
       substep_names: Substep names whose intermediate .odb files should be
           captured as additional action outputs in per-substep output groups.
-      rename_data: Also apply cross-variant input renaming to data and
-          logging inputs, not just `src` results. Needed when a stage of
-          a sub-variant (e.g. the fast synthesis QoR pre-check's
-          "<variant>_synth") consumes logs/jsons staged under the parent
-          variant's tree — make and genMetrics.py resolve those paths
-          from this stage's FLOW_VARIANT.
       lib_pre_layout: Optional pre-layout .lib File to expose on this
           stage's OrfsInfo. Used by orfs_abstract to surface the post-place
           .lib alongside the canonical (post-final) one.
@@ -2593,15 +2585,8 @@ def _make_impl(
         for f in all_outputs:
             ctx.actions.write(output = f, content = "{}" if f in json_set else "")
     else:
-        rename_candidates = ctx.files.src
-        if rename_data:
-            rename_candidates = depset(
-                ctx.files.src,
-                transitive = [data_inputs(ctx), source_inputs(ctx)],
-            ).to_list()
         commands = (
             generation_commands(reports + logs + jsons + drcs + substep_odbs) +
-            input_commands(renames(ctx, rename_candidates)) +
             [_make_cmd(ctx)]
         )
 
@@ -3167,10 +3152,6 @@ orfs_generate_metadata_rule = rule(
             "metadata.json",
         ],
         result_names = [],
-        # The fast synthesis QoR pre-check runs this rule under a
-        # "<variant>_synth" sub-variant whose logs/jsons inputs are
-        # staged under the parent variant's tree.
-        rename_data = True,
     ),
     attrs = openroad_attrs() | {
         "_stage": attr.string(default = "generate_metadata"),

@@ -912,9 +912,9 @@ def _orfs_pass(
     # The pair lives in its own "<variant>_synth" sub-variant so its
     # metadata.json and config artifacts cannot collide with the
     # full-flow chain's (both would otherwise be declared under the same
-    # variant-scoped paths). The synth inputs staged under the parent
-    # variant's tree are remapped by the stage's cross-variant renaming
-    # (rename_data on orfs_generate_metadata).
+    # variant-scoped paths). The synth inputs stay staged under the
+    # parent variant's tree; the stage reads them there because its
+    # FLOW_INPUT_VARIANT names the parent.
     if synth_target != None and not mock_area:
         test_args = get_stage_args(
             [TEST_STAGE_IMPL.stage],
