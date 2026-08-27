@@ -416,6 +416,75 @@ class TestOpenroadDoubleBumpIdempotent(unittest.TestCase):
         self.assertEqual(first, second, "Second bump should produce identical output")
 
 
+class TestUnchangedPinSkipsRehash(unittest.TestCase):
+    """A re-bump at an unchanged commit must not re-download any tarball.
+
+    Hashing the ORFS, OpenROAD and OpenROAD-submodule archives is the bulk
+    of a bump's wall clock, and at an unchanged commit every digest already
+    in MODULE.bazel describes the very tarball we would fetch.
+    """
+
+    def test_second_bump_fetches_no_archives(self):
+        src = os.path.join(FIXTURES_DIR, "self.MODULE.bazel")
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".MODULE.bazel", delete=False
+        )
+        tmp.close()
+        shutil.copy2(src, tmp.name)
+
+        calls = []
+
+        def counting_integrity(url):
+            calls.append(url)
+            return MOCK_INTEGRITY
+
+        def counting_sha256(url):
+            calls.append(url)
+            return MOCK_SUB_SHA256_HEX
+
+        kwargs = dict(
+            fetch_commit_fn=mock_fetch_commit,
+            fetch_integrity_fn=counting_integrity,
+            fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+            fetch_compare_status_fn=mock_fetch_compare_status_ahead,
+            fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+            fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+            fetch_sha256_hex_fn=counting_sha256,
+            fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+        )
+        try:
+            bump.bump(tmp.name, **kwargs)
+            self.assertTrue(calls, "first bump must hash the archives")
+            calls.clear()
+            bump.bump(tmp.name, **kwargs)
+            self.assertEqual(
+                calls, [], "re-bump at an unchanged commit must hash nothing"
+            )
+        finally:
+            os.unlink(tmp.name)
+
+
+class TestParseSubmoduleDigests(unittest.TestCase):
+    """The generated patch_cmds must be readable back for digest reuse."""
+
+    def test_roundtrips_generated_patch_cmd(self):
+        cmd = bump._openroad_submodule_patch_cmd(
+            "src/sta",
+            "The-OpenROAD-Project/OpenSTA",
+            "abc123",
+            MOCK_SUB_SHA256_HEX,
+        )
+        block = 'archive_override(\n    patch_cmds = [\n        "' + cmd + '",\n    ],\n)'
+        self.assertEqual(
+            bump._parse_submodule_digests(block),
+            {"src/sta": ("abc123", MOCK_SUB_SHA256_HEX)},
+        )
+
+    def test_parent_commit_read_from_strip_prefix(self):
+        block = 'archive_override(\n    strip_prefix = "OpenROAD-deadbeef",\n)'
+        self.assertEqual(bump._parse_openroad_parent_commit(block), "deadbeef")
+
+
 class TestNetworkErrorHandling(unittest.TestCase):
     """Test 7: verify clear error messages on failures."""
 

@@ -18,6 +18,7 @@ Run via Bazel:
 
 import argparse
 import base64
+import concurrent.futures
 import hashlib
 import json
 import os
@@ -401,6 +402,18 @@ def _find_commit_var_in_block(block):
     return m.group(1) if m else None
 
 
+def _block_pins_commit(block, commit):
+    """True if the block's ``urls`` already points at ``commit``.
+
+    When it does, the digest fields describe the very tarball we would
+    otherwise download and re-hash, so the whole fetch can be skipped.  The
+    inverse case — a hand-edited url with a stale digest left behind — is
+    caught loudly by Bazel's own integrity check on the next fetch.
+    """
+    m = re.search(r'urls\s*=\s*\[\s*"([^"]*)"', block)
+    return bool(m and commit in m.group(1))
+
+
 def _update_block_digest(
     block, github_repo, new_commit, fetch_integrity_fn, fetch_sha256_hex_fn
 ):
@@ -455,6 +468,11 @@ def update_orfs_archive_override(
 
     var = _find_commit_var_in_block(block)
     if var is None:
+        # Already at the target commit: the digest fields describe the same
+        # tarball, so skip the download entirely.
+        if _block_pins_commit(block, orfs_commit):
+            print("  orfs already at target commit; skipping re-hash")
+            return content
         # Literal shape: rewrite urls/strip_prefix, then the digest.
         if re.search(r'integrity\s*=\s*"', block):
             integrity = fetch_integrity_fn(github_archive_url(ORFS_REPO, orfs_commit))
@@ -489,6 +507,12 @@ def update_orfs_archive_override(
             f'{field} referencing {var} in archive_override(module_name = "orfs")',
             ignore_errors,
         )
+    m_var = re.search(
+        r"^" + re.escape(var) + r'\s*=\s*"([^"]*)"', content, flags=re.MULTILINE
+    )
+    if m_var and m_var.group(1) == orfs_commit:
+        print("  orfs already at target commit; skipping re-hash")
+        return content
     block = _update_block_digest(
         block, ORFS_REPO, orfs_commit, fetch_integrity_fn, fetch_sha256_hex_fn
     )
@@ -696,6 +720,59 @@ def _is_custom_patch_cmd(cmd):
     return True
 
 
+def _parse_openroad_parent_commit(block):
+    """Return the parent commit an openroad archive_override is pinned to."""
+    m = re.search(r'strip_prefix\s*=\s*"OpenROAD-([^"]+)"', block)
+    return m.group(1) if m else None
+
+
+def _parse_submodule_digests(block):
+    """Map submodule path -> (sha, sha256_hex) from generated patch_cmds.
+
+    Reads back what :func:`_openroad_submodule_patch_cmd` wrote.  Lets a
+    re-bump at an unchanged parent commit reuse the digests instead of
+    re-downloading every submodule tarball just to hash it to the same
+    value: the submodule shas are a function of the parent commit.
+    """
+    digests = {}
+    for cmd in _extract_patch_cmds(block):
+        m_sha = re.search(r"/archive/([^/\s]+?)\.tar\.gz", cmd)
+        m_hex = re.search(r"echo '([0-9a-f]{64})  ", cmd)
+        m_path = re.search(r"--strip-components=1 -C (\S+) ", cmd)
+        if m_sha and m_hex and m_path:
+            digests[m_path.group(1)] = (m_sha.group(1), m_hex.group(1))
+    return digests
+
+
+def _resolve_openroad_archives(
+    openroad_commit, fetch_integrity_fn, fetch_sha256_hex_fn, fetch_submodule_sha_fn
+):
+    """Hash the parent archive and every submodule archive, concurrently.
+
+    Four multi-MB tarballs get downloaded purely to be hashed; doing them
+    serially dominated the wall clock of a bump.  Each submodule's sha
+    lookup and tarball hash stay sequential with respect to each other
+    (the sha names the tarball), but the submodules run alongside one
+    another and alongside the parent.
+    """
+    parent_url = github_archive_url(OPENROAD_REPO, openroad_commit)
+
+    def resolve_submodule(path, github_repo):
+        sub_sha = fetch_submodule_sha_fn(OPENROAD_REPO, openroad_commit, path)
+        sub_url = f"https://github.com/{github_repo}/archive/{sub_sha}.tar.gz"
+        return (path, github_repo, sub_sha, fetch_sha256_hex_fn(sub_url))
+
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=1 + len(OPENROAD_SUBMODULES)
+    ) as pool:
+        parent = pool.submit(fetch_integrity_fn, parent_url)
+        subs = [
+            pool.submit(resolve_submodule, path, github_repo)
+            for path, github_repo in OPENROAD_SUBMODULES
+        ]
+        return parent.result(), [f.result() for f in subs]
+
+
 def update_openroad_archive_override(
     content,
     openroad_commit,
@@ -822,14 +899,29 @@ def update_openroad_archive_override(
     else:
         top_patches = patches_with_comments
 
-    parent_url = f"https://github.com/{OPENROAD_REPO}/archive/{openroad_commit}.tar.gz"
-    parent_integrity = fetch_integrity_fn(parent_url)
+    # Already pinned to this commit?  Every digest in the block describes a
+    # tarball we would re-download only to hash it to the same value, so
+    # reuse them and regenerate the block (patches may still have changed).
+    parent_integrity = None
     submodule_info = []
-    for path, github_repo in OPENROAD_SUBMODULES:
-        sub_sha = fetch_submodule_sha_fn(OPENROAD_REPO, openroad_commit, path)
-        sub_url = f"https://github.com/{github_repo}/archive/{sub_sha}.tar.gz"
-        sub_sha256 = fetch_sha256_hex_fn(sub_url)
-        submodule_info.append((path, github_repo, sub_sha, sub_sha256))
+    if _parse_openroad_parent_commit(old_block) == openroad_commit:
+        digests = _parse_submodule_digests(old_block)
+        m_integrity = re.search(r'integrity\s*=\s*"([^"]*)"', old_block)
+        if m_integrity and all(path in digests for path, _ in OPENROAD_SUBMODULES):
+            parent_integrity = m_integrity.group(1)
+            submodule_info = [
+                (path, github_repo) + digests[path]
+                for path, github_repo in OPENROAD_SUBMODULES
+            ]
+            print("  openroad already at target commit; skipping re-hash")
+
+    if parent_integrity is None:
+        parent_integrity, submodule_info = _resolve_openroad_archives(
+            openroad_commit,
+            fetch_integrity_fn,
+            fetch_sha256_hex_fn,
+            fetch_submodule_sha_fn,
+        )
 
     new_block = _format_openroad_archive_override(
         openroad_commit,
