@@ -185,6 +185,55 @@ Detection works by checking `module(name = ...)` in `MODULE.bazel`:
 `bazel-orfs` and `openroad` are recognized; everything else is treated
 as a downstream project.
 
+### Supported window
+
+**`//:bump` supports MODULE.bazel files whose `bazel-orfs` pin is at most
+30 days old.** Older pins are a hard stop, not a warning.
+
+`bump.py` is a thin loader: it downloads the newest `bump_impl.py` from
+`main` on every run, so the implementation is never stale. The only thing
+that can be out of date is *your* `MODULE.bazel` — the override shapes the
+bumper has to recognize in order to rewrite them. Carrying migration paths
+for every shape bazel-orfs has ever emitted made the bumper slower, larger
+and riskier than the thing it was migrating, so those paths are deleted on
+the same 30-day cadence instead.
+
+The gate measures one thing: the committer date of the commit your
+`git_override(module_name = "bazel-orfs")` pins. That commit dates the
+*shape* of the file, because every other override in a consumer's
+`MODULE.bazel` was written by whichever `bump_impl.py` that bazel-orfs
+shipped. It costs one API call and runs before any tarball is fetched. A
+pin that GitHub cannot date — a fork, a local commit, a rewritten branch —
+is the same hard stop, for the same reason: an unverifiable shape.
+
+If you are outside the window, pick one:
+
+1. **Re-seed** — copy the current `MODULE.bazel` template from
+   [README.md](../README.md) ("Add OpenROAD to your `MODULE.bazel`"),
+   re-apply your local edits, re-run `//:bump`.
+2. **Step forward** — hand-edit the `bazel-orfs` commit to one no more than
+   30 days newer than the current pin, run `//:bump`, repeat until current.
+3. **`--allow-stale-pin`** — run anyway. Unsupported, best-effort, and the
+   resulting diff is yours to review.
+
+Editing or disabling the check is not one of the options. It exists so that
+an old shape fails loudly and early instead of being half-rewritten into
+something that neither Bazel nor the next bump can make sense of.
+
+### Cleanup policy
+
+The window cuts both ways: compatibility code in `bump_impl.py` gets 30
+days, then goes. Every migration branch is introduced with a marker naming
+the date the old shape stopped being written:
+
+```python
+# COMPAT(2026-08-27): consumers bumped before this date pin openroad via
+# git_override; drop this branch once the window has passed.
+```
+
+`//:bump_compat_test` fails once a marker is more than 30 days old. The fix
+is to delete the branch it guards — never to re-date the marker.
+
 ## Testing
 
 ### CI (fast, uses mock)
