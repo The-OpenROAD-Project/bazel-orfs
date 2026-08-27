@@ -1,3 +1,4 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//:openroad.bzl", "orfs_flow", "orfs_macro", "orfs_run")
 
 FAST_SETTINGS = {
@@ -165,4 +166,34 @@ orfs_flow(
     },
     variant = "megaboom",
     verilog_files = [":megaboom/top.v"],
+)
+
+# ci.yml runs `bazelisk test ... --build_tests_only`, which builds only
+# what a test depends on. No test reached anything in this package, so
+# none of its 57 non-manual targets was ever built in CI -- the whole
+# SRAM/macro story (mocked vs unmocked abstracts, fakeram, the megaboom
+# and mix hierarchies) was covered by local wildcard builds only.
+#
+# These 11 pull the other 46 in transitively: each flow's terminal
+# generate_abstract drags its synth -> floorplan -> place -> cts chain,
+# and each _variables target drags the macro collateral. Verified with
+#
+#   bazelisk query --keep_going 'deps(set(<these>), 10)'
+#
+# covering every non-manual target in the package.
+build_test(
+    name = "sram_build_test",
+    targets = [
+        ":lef_file",
+        ":sdq_17x64_megaboom_variables",
+        ":sdq_17x64_variables",
+        ":top_fakeram_generate_abstract",
+        ":top_fakeram_variables",
+        ":top_generate_abstract",
+        ":top_megaboom_generate_abstract",
+        ":top_megaboom_variables",
+        ":top_mix_generate_abstract",
+        ":top_mix_variables",
+        ":top_variables",
+    ],
 )
