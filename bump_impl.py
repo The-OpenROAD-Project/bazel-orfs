@@ -900,23 +900,21 @@ def update_openroad_archive_override(
     fetch_submodule_sha_fn=fetch_submodule_sha,
     workspace_dir=None,
 ):
-    """Convert ``git_override(openroad, init_submodules=True)`` to
-    ``archive_override`` with submodule ``patch_cmds`` — or re-update an
-    existing ``archive_override(openroad)`` block in place.
+    """Regenerate the ``archive_override(module_name = "openroad")`` block.
 
-    git_override + init_submodules has a long-standing reliability bug
-    (interrupted fetches leave empty submodule directories that Bazel then
-    reuses); archive_override is atomic.  GitHub's auto-archive of the
-    parent doesn't include submodules, so this regenerates patch_cmds that
-    curl each submodule's own /archive/<sha>.tar.gz and extract it in
-    place.
+    openroad is pinned via archive_override rather than git_override +
+    init_submodules, which has a long-standing reliability bug (interrupted
+    fetches leave empty submodule directories that Bazel then reuses).
+    GitHub's auto-archive of the parent doesn't include submodules, so this
+    regenerates patch_cmds that curl each submodule's own
+    /archive/<sha>.tar.gz and extract it in place.
 
-    Returns ``content`` unchanged if neither shape is found.  Idempotent:
-    invoking twice with the same commit produces identical output.
+    Returns ``content`` unchanged if there is no such block — a legacy
+    git_override(openroad) is outside the supported window and is reported
+    by the caller's ``_expect``.  Idempotent: invoking twice with the same
+    commit produces identical output.
     """
-    git_span = find_git_override_block(content, "openroad")
-    arc_span = find_archive_override_block(content, "openroad")
-    span = arc_span or git_span
+    span = find_archive_override_block(content, "openroad")
     if span is None:
         return content
     start, end = span
@@ -1531,21 +1529,18 @@ def bump(
     orfs_commit = None
     if has_bazel_dep(content, "orfs"):
         orfs_commit = fetch_commit_fn(ORFS_REPO, "master")
-        if find_archive_override_block(content, "orfs"):
-            content = update_orfs_archive_override(
-                content,
-                orfs_commit,
-                fetch_integrity_fn=fetch_integrity_fn,
-                fetch_sha256_hex_fn=fetch_sha256_hex_fn,
-                ignore_errors=ignore_errors,
-            )
-        else:
-            _expect(
-                find_git_override_block(content, "orfs"),
-                'git_override(module_name = "orfs")',
-                ignore_errors,
-            )
-            content = update_git_override_commit(content, "orfs", orfs_commit)
+        _expect(
+            find_archive_override_block(content, "orfs"),
+            'archive_override(module_name = "orfs")',
+            ignore_errors,
+        )
+        content = update_orfs_archive_override(
+            content,
+            orfs_commit,
+            fetch_integrity_fn=fetch_integrity_fn,
+            fetch_sha256_hex_fn=fetch_sha256_hex_fn,
+            ignore_errors=ignore_errors,
+        )
         updated_modules.append(f"orfs -> {orfs_commit[:12]}")
 
     # --- Update qt-bazel commit ---
@@ -1600,15 +1595,13 @@ def bump(
                 source = f"ORFS tools/{tool}"
 
             if module_name == "openroad":
-                # openroad is pinned via archive_override + submodule patch_cmds
-                # rather than git_override (the latter's init_submodules path
-                # has a non-atomic-fetch bug — see OPENROAD_REPO comment).
-                # Convert legacy git_override blocks on first sight; otherwise
-                # re-regenerate the existing archive_override in place.
+                # openroad is pinned via archive_override + submodule
+                # patch_cmds rather than git_override (the latter's
+                # init_submodules path has a non-atomic-fetch bug — see the
+                # OPENROAD_REPO comment).  The block is regenerated in place.
                 _expect(
-                    find_git_override_block(content, "openroad")
-                    or find_archive_override_block(content, "openroad"),
-                    'git_override or archive_override(module_name = "openroad")',
+                    find_archive_override_block(content, "openroad"),
+                    'archive_override(module_name = "openroad")',
                     ignore_errors,
                 )
                 content = update_openroad_archive_override(

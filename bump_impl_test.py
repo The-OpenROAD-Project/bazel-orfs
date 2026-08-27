@@ -3,7 +3,7 @@ import bump_impl
 
 class TestUpdateOpenroadArchiveOverride(unittest.TestCase):
     def test_preserves_custom_comments(self):
-        content = """git_override(
+        content = """archive_override(
     module_name = "openroad",
     integrity = "sha256-foo",
     patch_cmds = [],
