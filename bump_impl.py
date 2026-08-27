@@ -19,6 +19,7 @@ Run via Bazel:
 import argparse
 import base64
 import concurrent.futures
+import datetime
 import hashlib
 import json
 import os
@@ -38,6 +39,19 @@ YOSYS_ABC_PAIRS = {
     "0.62": "0.62-yosyshq",
     "0.64": "0.64-yosyshq.bcr.2",
 }
+
+
+# The bumper supports a rolling window of MODULE.bazel shapes: a consumer
+# whose bazel-orfs pin is older than this many days is outside it.  bump.py
+# always downloads the newest bump_impl.py, so the only compatibility
+# surface is the *consumer's file*, and migration paths for shapes older
+# than the window are deleted rather than maintained.  See the cleanup
+# policy in CLAUDE.md and docs/openroad.md.
+BUMP_SUPPORT_WINDOW_DAYS = 30
+
+
+class StalePinError(RuntimeError):
+    """Raised when the bazel-orfs pin predates the supported window."""
 
 
 class BumpError(RuntimeError):
@@ -88,6 +102,111 @@ def detect_project(content):
     if name == "openroad":
         return "openroad"
     return "downstream"
+
+
+def read_git_override_commit(content, module_name):
+    """Return the commit a git_override pins, or None.
+
+    Handles both ``commit = "<sha>"`` and the variable-bound
+    ``commit = SOME_VAR`` shape (resolving the top-level assignment), which
+    is what OpenROAD's MODULE.bazel uses.
+    """
+    span = find_git_override_block(content, module_name)
+    if not span:
+        return None
+    block = content[span[0] : span[1]]
+    m = re.search(r'commit\s*=\s*"([^"]*)"', block)
+    if m:
+        return m.group(1)
+    m_var = re.search(r"commit\s*=\s*([A-Za-z_][A-Za-z_0-9]*)", block)
+    if not m_var:
+        return None
+    m_assign = re.search(
+        r"^" + re.escape(m_var.group(1)) + r'\s*=\s*"([^"]*)"',
+        content,
+        flags=re.MULTILINE,
+    )
+    return m_assign.group(1) if m_assign else None
+
+
+def fetch_commit_date(repo, sha):
+    """Committer date of ``sha`` in ``repo`` as an aware UTC datetime."""
+    data = fetch_json(f"https://api.github.com/repos/{repo}/commits/{sha}")
+    stamp = data["commit"]["committer"]["date"]
+    return datetime.datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ").replace(
+        tzinfo=datetime.timezone.utc
+    )
+
+
+def _stale_pin_message(reason, remedy):
+    """Compose the hard-stop text pointing at the rolling-window policy."""
+    return (
+        f"{reason}\n\n"
+        f"//:bump supports a {BUMP_SUPPORT_WINDOW_DAYS}-day rolling window of "
+        "MODULE.bazel shapes.  Migration paths for older shapes are deleted, "
+        "not maintained, so bumping from this pin is unsupported and may "
+        "corrupt MODULE.bazel.\n\n"
+        f"{remedy}\n"
+        "  * Or step forward: hand-edit the bazel-orfs commit to one no more\n"
+        f"    than {BUMP_SUPPORT_WINDOW_DAYS} days newer than the current pin, "
+        "re-run //:bump, and\n"
+        "    repeat until current.\n"
+        "  * --allow-stale-pin proceeds anyway: unsupported, best-effort, and\n"
+        "    on you to review the resulting diff.\n\n"
+        'Policy: docs/openroad.md, "Supported window".  Read it before '
+        "working around this check."
+    )
+
+
+def check_pin_age(
+    content,
+    fetch_commit_date_fn=fetch_commit_date,
+    now=None,
+    window_days=BUMP_SUPPORT_WINDOW_DAYS,
+):
+    """Hard-stop when the consumer's bazel-orfs pin is outside the window.
+
+    Only the bazel-orfs pin is measured: it is the one commit that dates
+    the *shape* of the file, since every other override in a consumer's
+    MODULE.bazel is written by whichever bump_impl.py that bazel-orfs
+    shipped.  Returns the pin's age in days on success.
+    """
+    if detect_project(content) == "bazel-orfs":
+        return None
+    commit = read_git_override_commit(content, "bazel-orfs")
+    if commit is None:
+        # No readable pin: _expect at the call sites reports the missing
+        # block far more precisely than an age check could.
+        return None
+
+    try:
+        pinned_at = fetch_commit_date_fn(
+            "The-OpenROAD-Project/bazel-orfs", commit
+        )
+    except Exception as e:
+        raise StalePinError(
+            _stale_pin_message(
+                f"Cannot date the pinned bazel-orfs commit {commit} ({e}). "
+                "It is not a commit on The-OpenROAD-Project/bazel-orfs, so "
+                "its age — and the shape of this MODULE.bazel — cannot be "
+                "checked.",
+                "  * Re-pin bazel-orfs to a commit on the upstream repository.",
+            )
+        ) from e
+
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    age = (now - pinned_at).days
+    if age > window_days:
+        raise StalePinError(
+            _stale_pin_message(
+                f"The pinned bazel-orfs commit {commit[:12]} is {age} days "
+                f"old ({pinned_at.date().isoformat()}).",
+                "  * Re-seed MODULE.bazel from the current template in "
+                "bazel-orfs's\n"
+                "    README.md, re-apply your local edits, then re-run //:bump.",
+            )
+        )
+    return age
 
 
 def update_git_override_commit(content, module_name, new_commit):
@@ -1588,6 +1707,15 @@ def main():
         ),
     )
     parser.add_argument(
+        "--allow-stale-pin",
+        action="store_true",
+        help=(
+            f"Bump even when the bazel-orfs pin is older than "
+            f"{BUMP_SUPPORT_WINDOW_DAYS} days.  Unsupported and "
+            "best-effort: the migration paths for that shape are gone."
+        ),
+    )
+    parser.add_argument(
         "--check-yosys-abc",
         action="store_true",
         help="Only validate yosys/abc lockstep; don't modify MODULE.bazel.",
@@ -1603,6 +1731,21 @@ def main():
         if msg:
             sys.stderr.write(msg + "\n")
         return
+
+    # Rolling-window gate: refuse a MODULE.bazel whose shape predates what
+    # this bumper still knows how to rewrite.  Runs before any tarball is
+    # touched so the failure is immediate.
+    if not args.allow_stale_pin:
+        with open(args.module_file) as f:
+            module_content = f.read()
+        try:
+            age = check_pin_age(module_content)
+        except StalePinError as e:
+            # A traceback would bury the policy text this is here to deliver.
+            sys.stderr.write(f"\nERROR: {e}\n")
+            sys.exit(1)
+        if age is not None:
+            print(f"bazel-orfs pin is {age} days old (window: {BUMP_SUPPORT_WINDOW_DAYS} days)")
 
     workspace = os.environ.get("BUILD_WORKSPACE_DIRECTORY", ".")
     bump(

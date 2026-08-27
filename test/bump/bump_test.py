@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Unit tests for bump.py."""
 
+import datetime
 import os
 import re
 import shutil
@@ -199,6 +200,89 @@ class TestOpenroadProject(unittest.TestCase):
         self.assertNotIn("old_qt_commit", self.content)
 
 
+
+
+class TestCheckPinAge(unittest.TestCase):
+    """The 30-day rolling window is a hard stop, not a warning."""
+
+    DOWNSTREAM = (
+        'module(name = "my-chip", version = "0.0.1")\n'
+        'bazel_dep(name = "bazel-orfs")\n'
+        "git_override(\n"
+        '    module_name = "bazel-orfs",\n'
+        '    commit = "abc123",\n'
+        '    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",\n'
+        ")\n"
+    )
+
+    @staticmethod
+    def _dated(days_ago):
+        stamp = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+            days=days_ago
+        )
+        return lambda _repo, _sha: stamp
+
+    def test_fresh_pin_returns_age(self):
+        self.assertEqual(
+            bump.check_pin_age(self.DOWNSTREAM, fetch_commit_date_fn=self._dated(5)), 5
+        )
+
+    def test_pin_at_window_edge_is_allowed(self):
+        self.assertEqual(
+            bump.check_pin_age(self.DOWNSTREAM, fetch_commit_date_fn=self._dated(30)),
+            30,
+        )
+
+    def test_pin_past_window_raises(self):
+        with self.assertRaises(bump.StalePinError) as cm:
+            bump.check_pin_age(self.DOWNSTREAM, fetch_commit_date_fn=self._dated(31))
+        msg = str(cm.exception)
+        self.assertIn("31 days", msg)
+        self.assertIn("--allow-stale-pin", msg)
+        self.assertIn("docs/openroad.md", msg)
+
+    def test_undatable_pin_raises(self):
+        def not_found(_repo, _sha):
+            raise RuntimeError("HTTP Error 404: Not Found")
+
+        with self.assertRaises(bump.StalePinError) as cm:
+            bump.check_pin_age(self.DOWNSTREAM, fetch_commit_date_fn=not_found)
+        self.assertIn("404", str(cm.exception))
+
+    def test_bazel_orfs_itself_is_exempt(self):
+        def unreachable(_repo, _sha):
+            raise AssertionError("bazel-orfs has no bazel-orfs pin to date")
+
+        content = open(
+            os.path.join(FIXTURES_DIR, "self.MODULE.bazel")
+        ).read()
+        self.assertIsNone(
+            bump.check_pin_age(content, fetch_commit_date_fn=unreachable)
+        )
+
+    def test_missing_pin_defers_to_expect(self):
+        content = 'module(name = "my-chip")\nbazel_dep(name = "bazel-orfs")\n'
+        self.assertIsNone(
+            bump.check_pin_age(content, fetch_commit_date_fn=self._dated(1))
+        )
+
+    def test_variable_bound_pin_is_read(self):
+        content = (
+            'module(name = "openroad")\n'
+            'BAZEL_ORFS_COMMIT = "def456"\n'
+            "git_override(\n"
+            '    module_name = "bazel-orfs",\n'
+            "    commit = BAZEL_ORFS_COMMIT,\n"
+            ")\n"
+        )
+        seen = []
+
+        def record(repo, sha):
+            seen.append((repo, sha))
+            return datetime.datetime.now(datetime.timezone.utc)
+
+        bump.check_pin_age(content, fetch_commit_date_fn=record)
+        self.assertEqual(seen, [("The-OpenROAD-Project/bazel-orfs", "def456")])
 
 
 class TestDetectProject(unittest.TestCase):

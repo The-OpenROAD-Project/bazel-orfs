@@ -66,6 +66,11 @@ registered in that workspace.
 
 ## Dependency bumps
 
+### `//:bump` only supports a 30-day-old pin
+A `bazel-orfs` pin older than 30 days is refused outright — the migration
+paths for that shape are deleted, not maintained. The error names the
+remedies; [Supported window](openroad.md#supported-window) has the details.
+
 ### `--head=openroad` bumps to origin/master
 `bazelisk run //:bump -- --head=openroad` bumps ORFS to master and pins OpenROAD
 to its own `origin/master` HEAD, regenerating the archive_override integrity +

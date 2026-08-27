@@ -1268,6 +1268,12 @@ In downstream projects, it also injects commented-out boilerplate for
 latest OpenROAD before the ORFS image catches up. This is useful when an
 OpenROAD bug fix or feature hasn't made it into the ORFS image yet.
 
+`//:bump` supports `MODULE.bazel` files whose `bazel-orfs` pin is **at most
+30 days old** — an older pin is a hard stop that tells you how to re-seed
+the file. See
+[Supported window](docs/openroad.md#supported-window) for why, and for the
+matching cleanup policy on the bumper's own compatibility code.
+
 ## Repository layout
 
 The root directory contains only external-facing concerns:
