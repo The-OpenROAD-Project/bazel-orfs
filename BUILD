@@ -109,7 +109,10 @@ py_test(
 py_test(
     name = "bump_compat_test",
     srcs = ["bump_compat_test.py"],
-    data = ["bump_impl.py"],
+    data = [
+        "bump_impl.py",
+        "bump_reference_date.txt",
+    ],
     deps = [":bump_impl_lib"],
 )
 

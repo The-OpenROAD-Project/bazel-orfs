@@ -188,7 +188,14 @@ as a downstream project.
 ### Supported window
 
 **`//:bump` supports MODULE.bazel files whose `bazel-orfs` pin is at most
-30 days old.** Older pins are a hard stop, not a warning.
+30 days behind the commit the bump targets.** Older pins are a hard stop,
+not a warning.
+
+The 30 days are measured **between two commit dates** — the pinned
+`bazel-orfs` commit and the `main` commit this bump would move it to —
+never against the wall clock. The same pair of commits therefore always
+produces the same verdict: a bump is reproducible, a build re-run months
+later cannot flip, and a rejected pin cannot be waited out.
 
 `bump.py` is a thin loader: it downloads the newest `bump_impl.py` from
 `main` on every run, so the implementation is never stale. The only thing
@@ -198,13 +205,14 @@ for every shape bazel-orfs has ever emitted made the bumper slower, larger
 and riskier than the thing it was migrating, so those paths are deleted on
 the same 30-day cadence instead.
 
-The gate measures one thing: the committer date of the commit your
-`git_override(module_name = "bazel-orfs")` pins. That commit dates the
-*shape* of the file, because every other override in a consumer's
-`MODULE.bazel` was written by whichever `bump_impl.py` that bazel-orfs
-shipped. It costs one API call and runs before any tarball is fetched. A
-pin that GitHub cannot date — a fork, a local commit, a rewritten branch —
-is the same hard stop, for the same reason: an unverifiable shape.
+The gate measures one thing: the span between the committer date of the
+commit your `git_override(module_name = "bazel-orfs")` pins and that of the
+commit being bumped to. That pin dates the *shape* of the file, because
+every other override in a consumer's `MODULE.bazel` was written by
+whichever `bump_impl.py` that bazel-orfs shipped. It costs two API calls
+and runs before any tarball is fetched. A pin that GitHub cannot date — a
+fork, a local commit, a rewritten branch — is the same hard stop, for the
+same reason: an unverifiable shape.
 
 If you are outside the window, pick one:
 
@@ -231,8 +239,17 @@ the date the old shape stopped being written:
 # git_override; drop this branch once the window has passed.
 ```
 
-`//:bump_compat_test` fails once a marker is more than 30 days old. The fix
-is to delete the branch it guards — never to re-date the marker.
+`//:bump_compat_test` fails once a marker is more than 30 days older than
+the tree's anchor. The fix is to delete the branch it guards — never to
+re-date the marker.
+
+That anchor is `bump_reference_date.txt`: the commit date of the ORFS pin
+in `MODULE.bazel`, written by `//:bump` on a bazel-orfs self-bump. Using it
+rather than `date.today()` keeps the cleanup policy on the same footing as
+the window itself — decided by commit dates, so a given tree always gets
+the same verdict. It also means the deadline advances when the dependency
+stack advances: compatibility code ages as bazel-orfs bumps, not as the
+calendar turns, and a red build is never something you can wait out.
 
 ## Testing
 
