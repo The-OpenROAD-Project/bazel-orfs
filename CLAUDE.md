@@ -53,6 +53,33 @@ Just run:
 bazelisk run //:fix_lint
 ```
 
+## Bumping: the 30-day rolling window
+
+`bazelisk run //:bump` supports `MODULE.bazel` files whose `bazel-orfs`
+pin is **at most 30 days old**. An older pin — or one GitHub cannot date —
+is a hard stop, by design.
+
+`bump.py` always downloads the newest `bump_impl.py`, so the bumper is
+never stale; the only thing that can be out of date is the consumer's
+file. When the check fires, fix the file, do not route around the check:
+
+1. Re-seed `MODULE.bazel` from the template in `README.md` and re-apply
+   the local edits, or
+2. step the `bazel-orfs` commit forward ≤30 days at a time, re-running
+   `//:bump` each step.
+
+`--allow-stale-pin` exists for the human to decide to use. Do not reach
+for it, edit `check_pin_age`, or change `BUMP_SUPPORT_WINDOW_DAYS` to get
+a bump through — the migration paths for out-of-window shapes are
+*deleted*, so a forced bump can leave `MODULE.bazel` half-rewritten.
+
+The same window governs the bumper's own compatibility code: introduce a
+migration branch with a `# COMPAT(YYYY-MM-DD)` marker naming the date the
+old shape stopped being written, and delete the branch when it ages out.
+`//:bump_compat_test` fails on a marker older than the window; the fix is
+to delete the code, never to re-date the marker. Full policy:
+`docs/openroad.md`, "Supported window" and "Cleanup policy".
+
 ## Debugging OpenROAD/ORFS failures
 
 When an ORFS stage fails in openroad/yosys/opensta — a crash, a hang, a

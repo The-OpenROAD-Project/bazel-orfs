@@ -200,8 +200,6 @@ class TestOpenroadProject(unittest.TestCase):
         self.assertNotIn("old_qt_commit", self.content)
 
 
-
-
 class TestCheckPinAge(unittest.TestCase):
     """The 30-day rolling window is a hard stop, not a warning."""
 
@@ -253,12 +251,8 @@ class TestCheckPinAge(unittest.TestCase):
         def unreachable(_repo, _sha):
             raise AssertionError("bazel-orfs has no bazel-orfs pin to date")
 
-        content = open(
-            os.path.join(FIXTURES_DIR, "self.MODULE.bazel")
-        ).read()
-        self.assertIsNone(
-            bump.check_pin_age(content, fetch_commit_date_fn=unreachable)
-        )
+        content = open(os.path.join(FIXTURES_DIR, "self.MODULE.bazel")).read()
+        self.assertIsNone(bump.check_pin_age(content, fetch_commit_date_fn=unreachable))
 
     def test_missing_pin_defers_to_expect(self):
         content = 'module(name = "my-chip")\nbazel_dep(name = "bazel-orfs")\n'
@@ -558,7 +552,9 @@ class TestParseSubmoduleDigests(unittest.TestCase):
             "abc123",
             MOCK_SUB_SHA256_HEX,
         )
-        block = 'archive_override(\n    patch_cmds = [\n        "' + cmd + '",\n    ],\n)'
+        block = (
+            'archive_override(\n    patch_cmds = [\n        "' + cmd + '",\n    ],\n)'
+        )
         self.assertEqual(
             bump._parse_submodule_digests(block),
             {"src/sta": ("abc123", MOCK_SUB_SHA256_HEX)},

@@ -104,6 +104,15 @@ py_test(
     deps = [":bump_impl_lib"],
 )
 
+# Enforces the 30-day cleanup policy on the bumper's compatibility code:
+# a COMPAT(YYYY-MM-DD) marker older than the supported window fails here.
+py_test(
+    name = "bump_compat_test",
+    srcs = ["bump_compat_test.py"],
+    data = ["bump_impl.py"],
+    deps = [":bump_impl_lib"],
+)
+
 # The PreToolUse guard shared by Claude Code (.claude/settings.json) and
 # antigravity (.agents/hooks.json, via the .agents/scripts symlink).
 py_test(

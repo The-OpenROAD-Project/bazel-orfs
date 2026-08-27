@@ -180,9 +180,7 @@ def check_pin_age(
         return None
 
     try:
-        pinned_at = fetch_commit_date_fn(
-            "The-OpenROAD-Project/bazel-orfs", commit
-        )
+        pinned_at = fetch_commit_date_fn("The-OpenROAD-Project/bazel-orfs", commit)
     except Exception as e:
         raise StalePinError(
             _stale_pin_message(
@@ -949,7 +947,7 @@ def update_openroad_archive_override(
     patches_with_comments = []
     trailing_comments = []
     current_comments = []
-    
+
     for line in old_block.splitlines():
         line_stripped = line.strip()
         if (
@@ -958,7 +956,7 @@ def update_openroad_archive_override(
             and not line_stripped.startswith("# Extracted from")
         ):
             current_comments.append(line_stripped)
-        elif '"//' in line_stripped and '.patch' in line_stripped:
+        elif '"//' in line_stripped and ".patch" in line_stripped:
             matches = re.findall(r'"(//[^"]*\.patch)"', line_stripped)
             if matches:
                 for idx, match in enumerate(matches):
@@ -1738,7 +1736,9 @@ def main():
             sys.stderr.write(f"\nERROR: {e}\n")
             sys.exit(1)
         if age is not None:
-            print(f"bazel-orfs pin is {age} days old (window: {BUMP_SUPPORT_WINDOW_DAYS} days)")
+            print(
+                f"bazel-orfs pin is {age} days old (window: {BUMP_SUPPORT_WINDOW_DAYS} days)"
+            )
 
     workspace = os.environ.get("BUILD_WORKSPACE_DIRECTORY", ".")
     bump(

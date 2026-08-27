@@ -29,6 +29,7 @@ timing tables.
 | `//test/smoketest:lb_32x128_sky130hs_build_test` | Full flow, all stages | — | — | sky130hs | yes |
 | `//test/smoketest:lb_32x128_ihp-sg13g2_build_test` | Full flow, all stages | — | — | ihp-sg13g2 | yes |
 | `//test/bump:bump_test` | `bump.sh` MODULE.bazel version update logic | — | — | — | — |
+| `//:bump_compat_test` | COMPAT markers in `bump_impl.py` stay inside the 30-day window | — | — | — | — |
 
 ## User-facing binaries
 
@@ -39,6 +40,7 @@ Tests mock the external environment so they run in the Bazel sandbox.
 |--------|----------|------|-----------------|
 | `//:deps` | Deploy stage inputs for interactive debugging | `deps.yml` CI workflow | Real end-to-end: deploy + make (4 cases) |
 | `//:bump` | Upgrade ORFS/bazel-orfs/OpenROAD versions | `//test/bump:bump_test` | Mock fetch functions, fixture MODULE.bazel |
+| `//:bump` (window policy) | Refuse a bazel-orfs pin older than 30 days | `//test/bump:bump_test`, `//:bump_compat_test` | Mock commit dates; scan for aged COMPAT markers |
 | `//:fix_lint` | Format changed Bazel/Python files | `//test:fix_lint_test` | Unit test core logic, mock git/buildifier |
 | `//:klayout` | Launch KLayout viewer | `//test:klayout_wrapper_test` | Mock klayout on PATH |
 | `//:openroad` | Launch OpenROAD CLI | `//test:openroad_wrapper_test` | Mock openroad on PATH |
