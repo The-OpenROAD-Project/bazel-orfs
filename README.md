@@ -1269,8 +1269,9 @@ latest OpenROAD before the ORFS image catches up. This is useful when an
 OpenROAD bug fix or feature hasn't made it into the ORFS image yet.
 
 `//:bump` supports `MODULE.bazel` files whose `bazel-orfs` pin is **at most
-30 days old** — an older pin is a hard stop that tells you how to re-seed
-the file. See
+30 days behind the commit being bumped to** — measured between commit
+dates, not against the clock. An older pin is a hard stop that tells you
+how to re-seed the file. See
 [Supported window](docs/openroad.md#supported-window) for why, and for the
 matching cleanup policy on the bumper's own compatibility code.
 

@@ -89,6 +89,13 @@ def mock_fetch_submodule_sha(_parent_repo, _parent_commit, path):
     return OPENROAD_SUBMODULE_SHAS[path]
 
 
+MOCK_COMMIT_DATE = datetime.datetime(2026, 8, 25, tzinfo=datetime.timezone.utc)
+
+
+def mock_fetch_commit_date(_repo, _sha):
+    return MOCK_COMMIT_DATE
+
+
 def apply_bump(
     fixture_name,
     workspace_dir=None,
@@ -111,6 +118,7 @@ def apply_bump(
         fetch_bcr_versions_fn=mock_fetch_bcr_versions,
         fetch_sha256_hex_fn=mock_fetch_sha256_hex,
         fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+        fetch_commit_date_fn=mock_fetch_commit_date,
         workspace_dir=workspace_dir,
         head_tools=head_tools,
     )
@@ -200,8 +208,13 @@ class TestOpenroadProject(unittest.TestCase):
         self.assertNotIn("old_qt_commit", self.content)
 
 
-class TestCheckPinAge(unittest.TestCase):
-    """The 30-day rolling window is a hard stop, not a warning."""
+class TestCheckPinWindow(unittest.TestCase):
+    """The 30-day window is a hard stop, measured between commit dates.
+
+    Wall-clock time must not be an input: the same (pin, target) pair has
+    to give the same verdict whenever it is evaluated, so that a bump is
+    reproducible and re-running an old build cannot change the answer.
+    """
 
     DOWNSTREAM = (
         'module(name = "my-chip", version = "0.0.1")\n'
@@ -213,38 +226,65 @@ class TestCheckPinAge(unittest.TestCase):
         ")\n"
     )
 
-    @staticmethod
-    def _dated(days_ago):
-        stamp = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
-            days=days_ago
-        )
-        return lambda _repo, _sha: stamp
+    # Fixed dates, far in the past: nothing here may depend on "today".
+    PINNED_AT = datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)
 
-    def test_fresh_pin_returns_age(self):
+    @classmethod
+    def _dates(cls, span_days):
+        """Date fn where the target commit is span_days after the pin."""
+        target = cls.PINNED_AT + datetime.timedelta(days=span_days)
+        return lambda _repo, sha: cls.PINNED_AT if sha == "abc123" else target
+
+    def test_pin_within_window_returns_span(self):
         self.assertEqual(
-            bump.check_pin_age(self.DOWNSTREAM, fetch_commit_date_fn=self._dated(5)), 5
+            bump.check_pin_window(
+                self.DOWNSTREAM, "target", fetch_commit_date_fn=self._dates(5)
+            ),
+            5,
         )
 
     def test_pin_at_window_edge_is_allowed(self):
         self.assertEqual(
-            bump.check_pin_age(self.DOWNSTREAM, fetch_commit_date_fn=self._dated(30)),
+            bump.check_pin_window(
+                self.DOWNSTREAM, "target", fetch_commit_date_fn=self._dates(30)
+            ),
             30,
         )
 
     def test_pin_past_window_raises(self):
         with self.assertRaises(bump.StalePinError) as cm:
-            bump.check_pin_age(self.DOWNSTREAM, fetch_commit_date_fn=self._dated(31))
+            bump.check_pin_window(
+                self.DOWNSTREAM, "target", fetch_commit_date_fn=self._dates(31)
+            )
         msg = str(cm.exception)
-        self.assertIn("31 days", msg)
+        self.assertIn("31 days behind", msg)
         self.assertIn("--allow-stale-pin", msg)
         self.assertIn("docs/openroad.md", msg)
 
+    def test_verdict_does_not_depend_on_when_it_is_evaluated(self):
+        """Same commits, decades apart: same answer.  No clock input."""
+        ancient = lambda _repo, sha: (
+            datetime.datetime(1999, 1, 1, tzinfo=datetime.timezone.utc)
+            if sha == "abc123"
+            else datetime.datetime(1999, 1, 11, tzinfo=datetime.timezone.utc)
+        )
+        self.assertEqual(
+            bump.check_pin_window(
+                self.DOWNSTREAM, "target", fetch_commit_date_fn=ancient
+            ),
+            10,
+        )
+
     def test_undatable_pin_raises(self):
-        def not_found(_repo, _sha):
-            raise RuntimeError("HTTP Error 404: Not Found")
+        def not_found(_repo, sha):
+            if sha == "abc123":
+                raise RuntimeError("HTTP Error 404: Not Found")
+            return self.PINNED_AT
 
         with self.assertRaises(bump.StalePinError) as cm:
-            bump.check_pin_age(self.DOWNSTREAM, fetch_commit_date_fn=not_found)
+            bump.check_pin_window(
+                self.DOWNSTREAM, "target", fetch_commit_date_fn=not_found
+            )
         self.assertIn("404", str(cm.exception))
 
     def test_bazel_orfs_itself_is_exempt(self):
@@ -252,12 +292,16 @@ class TestCheckPinAge(unittest.TestCase):
             raise AssertionError("bazel-orfs has no bazel-orfs pin to date")
 
         content = open(os.path.join(FIXTURES_DIR, "self.MODULE.bazel")).read()
-        self.assertIsNone(bump.check_pin_age(content, fetch_commit_date_fn=unreachable))
+        self.assertIsNone(
+            bump.check_pin_window(content, "target", fetch_commit_date_fn=unreachable)
+        )
 
     def test_missing_pin_defers_to_expect(self):
         content = 'module(name = "my-chip")\nbazel_dep(name = "bazel-orfs")\n'
         self.assertIsNone(
-            bump.check_pin_age(content, fetch_commit_date_fn=self._dated(1))
+            bump.check_pin_window(
+                content, "target", fetch_commit_date_fn=self._dates(1)
+            )
         )
 
     def test_variable_bound_pin_is_read(self):
@@ -273,10 +317,66 @@ class TestCheckPinAge(unittest.TestCase):
 
         def record(repo, sha):
             seen.append((repo, sha))
-            return datetime.datetime.now(datetime.timezone.utc)
+            return self.PINNED_AT
 
-        bump.check_pin_age(content, fetch_commit_date_fn=record)
-        self.assertEqual(seen, [("The-OpenROAD-Project/bazel-orfs", "def456")])
+        bump.check_pin_window(content, "target", fetch_commit_date_fn=record)
+        self.assertEqual(seen[0], ("The-OpenROAD-Project/bazel-orfs", "def456"))
+
+
+class TestSelfBumpRecordsReferenceDate(unittest.TestCase):
+    """A bazel-orfs self-bump records the tree's compat-cleanup anchor.
+
+    That anchor is what //:bump_compat_test measures COMPAT markers
+    against, which is what keeps the cleanup policy on commit dates.
+    """
+
+    def test_writes_the_orfs_pin_commit_date(self):
+        with tempfile.TemporaryDirectory() as workspace:
+            apply_bump("self.MODULE.bazel", workspace_dir=workspace)
+            path = os.path.join(workspace, bump.BUMP_REFERENCE_DATE_FILE)
+            with open(path) as f:
+                self.assertEqual(
+                    bump.read_reference_date(f.read()), MOCK_COMMIT_DATE.date()
+                )
+
+    def test_downstream_bump_writes_no_anchor(self):
+        with tempfile.TemporaryDirectory() as workspace:
+            apply_bump("downstream.MODULE.bazel", workspace_dir=workspace)
+            self.assertFalse(
+                os.path.exists(os.path.join(workspace, bump.BUMP_REFERENCE_DATE_FILE)),
+                "only bazel-orfs itself dates the tree",
+            )
+
+
+class TestBumpUsesPreResolvedCommit(unittest.TestCase):
+    """bump() must write the commit the gate measured, not re-resolve it."""
+
+    def test_supplied_commit_wins(self):
+        src = os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel")
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".MODULE.bazel", delete=False
+        )
+        tmp.close()
+        shutil.copy2(src, tmp.name)
+        try:
+            bump.bump(
+                tmp.name,
+                fetch_commit_fn=mock_fetch_commit,
+                fetch_integrity_fn=mock_fetch_integrity,
+                fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+                fetch_compare_status_fn=mock_fetch_compare_status_ahead,
+                fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+                fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+                fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+                fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+                bazel_orfs_commit="gated_commit_eee555",
+            )
+            with open(tmp.name) as f:
+                result = f.read()
+        finally:
+            os.unlink(tmp.name)
+        self.assertIn("gated_commit_eee555", result)
+        self.assertNotIn(BAZEL_ORFS_COMMIT, result)
 
 
 class TestDetectProject(unittest.TestCase):

@@ -66,9 +66,11 @@ registered in that workspace.
 
 ## Dependency bumps
 
-### `//:bump` only supports a 30-day-old pin
-A `bazel-orfs` pin older than 30 days is refused outright — the migration
-paths for that shape are deleted, not maintained. The error names the
+### `//:bump` only supports a pin 30 commit-days behind
+A `bazel-orfs` pin more than 30 days behind the commit being bumped to is
+refused outright — the migration paths for that shape are deleted, not
+maintained. The span is between commit dates, so re-running later changes
+nothing. The error names the
 remedies; [Supported window](openroad.md#supported-window) has the details.
 
 ### `--head=openroad` bumps to origin/master
