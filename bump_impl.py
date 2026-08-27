@@ -159,27 +159,6 @@ def update_git_override_commit(content, module_name, new_commit):
     return content
 
 
-BAZEL_ORFS_SUBMODULES = {}
-
-# Substrings that imply a consumer actually uses a given submodule.  Used
-# to gate submodule injection so downstream projects don't pick up
-# dependencies they never reference.  Match against BUILD/*.bzl contents.
-SUBMODULE_USAGE_PATTERNS = {}
-
-
-def find_bazel_orfs_submodules(content):
-    """Return the subset of BAZEL_ORFS_SUBMODULES that have git_override blocks."""
-    return [
-        name
-        for name in BAZEL_ORFS_SUBMODULES
-        if re.search(
-            r'git_override\(.*?module_name\s*=\s*"' + re.escape(name) + r'"',
-            content,
-            re.DOTALL,
-        )
-    ]
-
-
 def has_bazel_dep(content, module_name):
     """Check if content has an active (uncommented) bazel_dep for the given module."""
     return bool(
@@ -864,77 +843,6 @@ def update_openroad_archive_override(
     return content[:start] + new_block + content[end:]
 
 
-def submodule_is_used(name, workspace_dir):
-    """Return True if the workspace references the given bazel-orfs submodule.
-
-    Scans BUILD/BUILD.bazel/*.bzl files for substrings listed in
-    SUBMODULE_USAGE_PATTERNS.  Skips hidden and bazel output dirs.
-    """
-    patterns = SUBMODULE_USAGE_PATTERNS.get(name, [])
-    if not patterns:
-        return True
-    for root, _dirs, files in os.walk(workspace_dir):
-        rel = os.path.relpath(root, workspace_dir)
-        if rel != "." and any(
-            part.startswith(".") or part.startswith("bazel-")
-            for part in rel.split(os.sep)
-        ):
-            continue
-        for fname in files:
-            if not (
-                fname == "BUILD" or fname == "BUILD.bazel" or fname.endswith(".bzl")
-            ):
-                continue
-            fpath = os.path.join(root, fname)
-            try:
-                with open(fpath) as f:
-                    text = f.read()
-            except OSError:
-                continue
-            if any(p in text for p in patterns):
-                return True
-    return False
-
-
-def inject_submodule_overrides(content, commit, workspace_dir=None):
-    """Inject bazel_dep + git_override blocks for missing bazel-orfs submodules.
-
-    Inserts after the bazel-orfs git_override block.  Only injects a
-    submodule the consumer actually references; requires workspace_dir
-    to inspect BUILD/*.bzl files.  When workspace_dir is not provided,
-    no injection is performed.
-    """
-    if workspace_dir is None:
-        return content
-    missing = [
-        name
-        for name in BAZEL_ORFS_SUBMODULES
-        if not has_bazel_dep(content, name) and submodule_is_used(name, workspace_dir)
-    ]
-    if not missing:
-        return content
-
-    span = find_git_override_block(content, "bazel-orfs")
-    if not span:
-        return content
-
-    blocks = []
-    for name in missing:
-        strip_prefix = BAZEL_ORFS_SUBMODULES[name]
-        blocks.append(
-            f'\nbazel_dep(name = "{name}")\n'
-            f"git_override(\n"
-            f'    module_name = "{name}",\n'
-            f'    commit = "{commit}",\n'
-            f'    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs",\n'
-            f'    strip_prefix = "{strip_prefix}",\n'
-            f")"
-        )
-
-    insert_pos = span[1]
-    return content[:insert_pos] + "\n" + "\n".join(blocks) + content[insert_pos:]
-
-
 # Non-BCR deps that downstream projects need overrides for.
 # These are read from bazel-orfs's own MODULE.bazel and injected
 # into downstream projects during bump.
@@ -1031,14 +939,11 @@ def inject_non_bcr_deps(content, bazel_orfs_dir):
     if not missing:
         return content
 
-    # Find insertion point: after the last bazel-orfs submodule git_override
-    insert_pos = 0
-    for name in list(BAZEL_ORFS_SUBMODULES) + ["bazel-orfs"]:
-        span = find_git_override_block(content, name)
-        if span and span[1] > insert_pos:
-            insert_pos = span[1]
-    if insert_pos == 0:
+    # Find insertion point: after the bazel-orfs git_override
+    span = find_git_override_block(content, "bazel-orfs")
+    if not span:
         return content
+    insert_pos = span[1]
 
     blocks = []
     for name in missing:
@@ -1398,14 +1303,6 @@ def bump(
         )
         content = update_git_override_commit(content, "bazel-orfs", bazel_orfs_commit)
         updated_modules.append(f"bazel-orfs -> {bazel_orfs_commit[:12]}")
-        # Inject git_override blocks for any missing submodules that the
-        # consumer actually uses.
-        content = inject_submodule_overrides(content, bazel_orfs_commit, workspace_dir)
-        # Submodules live in the same repo, so they share the same commit
-        for submodule in find_bazel_orfs_submodules(content):
-            # Existence is guaranteed by find_bazel_orfs_submodules.
-            content = update_git_override_commit(content, submodule, bazel_orfs_commit)
-            updated_modules.append(f"{submodule} -> {bazel_orfs_commit[:12]}")
 
         # Inject non-BCR deps (orfs, openroad, qt-bazel) with commits
         # pinned to the same versions bazel-orfs uses
