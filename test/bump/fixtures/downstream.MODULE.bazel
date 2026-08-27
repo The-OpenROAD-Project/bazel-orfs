@@ -13,20 +13,34 @@ git_override(
 )
 
 bazel_dep(name = "orfs")
-git_override(
+archive_override(
     module_name = "orfs",
-    commit = "old_orfs_commit",
-    remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",
+    integrity = "sha256-OLDOLDOLDOLDOLDOLDOLDOLDOLDOLDOLDOLDOLDOLDA=",
+    strip_prefix = "OpenROAD-flow-scripts-old_orfs_commit",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/old_orfs_commit.tar.gz"],
 )
 
 bazel_dep(name = "yosys", version = "0.62.bcr.2")
 
 bazel_dep(name = "openroad")
-git_override(
+archive_override(
     module_name = "openroad",
-    commit = "old_openroad_commit",
-    init_submodules = True,
-    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",
+    integrity = "sha256-OLDOPENROADOLDOPENROADOLDOPENROADOLDOPENRB=",
+    # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
+    # so vendor src/sta (OpenSTA) and third-party/abc from their own
+    # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
+    # to.  sha256sum -c verifies each tarball since patch_cmds bytes
+    # aren't covered by archive_override's integrity.  Regenerated
+    # by bump.py on every commit bump; do not edit by hand.
+    patch_cmds = [
+        "curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o .openroad-submodule-src-sta-old_opensta_sha.tar.gz https://github.com/The-OpenROAD-Project/OpenSTA/archive/old_opensta_sha.tar.gz && echo 'beefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdead  .openroad-submodule-src-sta-old_opensta_sha.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-src-sta-old_opensta_sha.tar.gz --strip-components=1 -C src/sta && rm .openroad-submodule-src-sta-old_opensta_sha.tar.gz",
+        "curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o .openroad-submodule-third-party-abc-old_abc_sha.tar.gz https://github.com/The-OpenROAD-Project/abc/archive/old_abc_sha.tar.gz && echo 'beefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdead  .openroad-submodule-third-party-abc-old_abc_sha.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-abc-old_abc_sha.tar.gz --strip-components=1 -C third-party/abc && rm .openroad-submodule-third-party-abc-old_abc_sha.tar.gz",
+        "curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 -o .openroad-submodule-third-party-slang-elab-old_slang_elab_sha.tar.gz https://github.com/povik/yosys-slang/archive/old_slang_elab_sha.tar.gz && echo 'beefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdead  .openroad-submodule-third-party-slang-elab-old_slang_elab_sha.tar.gz' | sha256sum -c - && tar xzf .openroad-submodule-third-party-slang-elab-old_slang_elab_sha.tar.gz --strip-components=1 -C third-party/slang-elab && rm .openroad-submodule-third-party-slang-elab-old_slang_elab_sha.tar.gz",
+        "find . -name BUILD -exec sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|g' {} +",
+        "sed -i 's|defines = \\[|copts = [\"-include\", \"fmt/format.h\"],\\n    defines = [|' src/syn/src/elab/BUILD third-party/slang-elab/src/BUILD",
+    ],
+    strip_prefix = "OpenROAD-old_openroad_commit",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/old_openroad_commit.tar.gz"],
 )
 
 orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")

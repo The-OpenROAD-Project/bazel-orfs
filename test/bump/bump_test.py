@@ -602,7 +602,7 @@ class TestBazelOrfsArchiveOverride(unittest.TestCase):
     """
 
     def setUp(self):
-        self.content = apply_bump("self-archive.MODULE.bazel")
+        self.content = apply_bump("self.MODULE.bazel")
 
     def test_urls_contain_new_commit(self):
         expected_url = (
@@ -635,17 +635,17 @@ class TestBazelOrfsArchiveOverride(unittest.TestCase):
         )
         self.assertIn("patch_strip = 1", self.content)
 
-    def test_openroad_git_override_still_updated(self):
-        """Switching ORFS to archive_override mustn't disturb other modules."""
+    def test_openroad_override_still_updated(self):
+        """Rewriting the ORFS block mustn't disturb the openroad one."""
         self.assertIn(OPENROAD_COMMIT, self.content)
         self.assertNotIn("old_openroad_commit", self.content)
 
 
 class TestArchiveOverrideDoubleBumpIdempotent(unittest.TestCase):
-    """Two bumps in a row must produce identical output."""
+    """Two bumps in a row on the bazel-orfs shape must be identical."""
 
     def test_double_bump_idempotent(self):
-        src = os.path.join(FIXTURES_DIR, "self-archive.MODULE.bazel")
+        src = os.path.join(FIXTURES_DIR, "self.MODULE.bazel")
         tmp = tempfile.NamedTemporaryFile(
             mode="w", suffix=".MODULE.bazel", delete=False
         )
@@ -1192,7 +1192,7 @@ class TestStrictModeFailures(unittest.TestCase):
             self._run_on(content)
         self.assertIn("bazel-orfs", str(cm.exception))
 
-    def test_missing_orfs_git_override_raises(self):
+    def test_missing_orfs_archive_override_raises(self):
         # bazel-orfs handled, but orfs bazel_dep has no override block.
         content = (
             'module(name = "my-chip", version = "0.0.1")\n'
@@ -1219,10 +1219,11 @@ class TestStrictModeFailures(unittest.TestCase):
             '    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",\n'
             ")\n"
             'bazel_dep(name = "orfs")\n'
-            "git_override(\n"
+            "archive_override(\n"
             '    module_name = "orfs",\n'
-            '    commit = "old",\n'
-            '    remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",\n'
+            '    integrity = "sha256-OLD=",\n'
+            '    strip_prefix = "OpenROAD-flow-scripts-old",\n'
+            '    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/old.tar.gz"],\n'
             ")\n"
             'YOSYS_VERSION = "0.62.bcr.2"\n'
             'bazel_dep(name = "yosys", version = YOSYS_VERSION)\n'
@@ -1230,6 +1231,122 @@ class TestStrictModeFailures(unittest.TestCase):
         with self.assertRaises(bump.BumpError) as cm:
             self._run_on(content)
         self.assertIn("yosys", str(cm.exception))
+
+
+class TestOutOfWindowShapesRejected(unittest.TestCase):
+    """Shapes older than the supported window fail loudly, not silently.
+
+    bump no longer converts git_override(orfs) or
+    git_override(openroad, init_submodules = True) into archive_override —
+    those migration paths aged out of the 30-day window.  A file still
+    carrying them must stop the bumper rather than get half-rewritten.
+    """
+
+    HEADER = (
+        'module(name = "my-chip", version = "0.0.1")\n'
+        'bazel_dep(name = "bazel-orfs")\n'
+        "git_override(\n"
+        '    module_name = "bazel-orfs",\n'
+        '    commit = "old_bazel_orfs_commit",\n'
+        '    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",\n'
+        ")\n"
+    )
+
+    ORFS_ARCHIVE = (
+        'bazel_dep(name = "orfs")\n'
+        "archive_override(\n"
+        '    module_name = "orfs",\n'
+        '    integrity = "sha256-OLD=",\n'
+        '    strip_prefix = "OpenROAD-flow-scripts-old",\n'
+        '    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/old.tar.gz"],\n'
+        ")\n"
+    )
+
+    def _run_on(self, content):
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".MODULE.bazel", delete=False
+        )
+        tmp.write(content)
+        tmp.close()
+        try:
+            bump.bump(
+                tmp.name,
+                fetch_commit_fn=mock_fetch_commit,
+                fetch_integrity_fn=mock_fetch_integrity,
+                fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+                fetch_compare_status_fn=mock_fetch_compare_status_ahead,
+                fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+                fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+                fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+                fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+            )
+            with open(tmp.name) as f:
+                return f.read()
+        finally:
+            os.unlink(tmp.name)
+
+    def test_legacy_orfs_git_override_raises(self):
+        content = (
+            self.HEADER + 'bazel_dep(name = "orfs")\n'
+            "git_override(\n"
+            '    module_name = "orfs",\n'
+            '    commit = "old_orfs_commit",\n'
+            '    remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",\n'
+            ")\n"
+        )
+        with self.assertRaises(bump.BumpError) as cm:
+            self._run_on(content)
+        self.assertIn('archive_override(module_name = "orfs")', str(cm.exception))
+
+    def test_legacy_openroad_git_override_raises(self):
+        content = (
+            self.HEADER + self.ORFS_ARCHIVE + 'bazel_dep(name = "openroad")\n'
+            "git_override(\n"
+            '    module_name = "openroad",\n'
+            '    commit = "old_openroad_commit",\n'
+            "    init_submodules = True,\n"
+            '    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",\n'
+            ")\n"
+        )
+        with self.assertRaises(bump.BumpError) as cm:
+            self._run_on(content)
+        self.assertIn('archive_override(module_name = "openroad")', str(cm.exception))
+
+    def test_legacy_openroad_left_untouched_under_ignore(self):
+        """--ignore warns; the unrecognized block must not be half-rewritten."""
+        content = (
+            self.HEADER + self.ORFS_ARCHIVE + 'bazel_dep(name = "openroad")\n'
+            "git_override(\n"
+            '    module_name = "openroad",\n'
+            '    commit = "old_openroad_commit",\n'
+            "    init_submodules = True,\n"
+            '    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",\n'
+            ")\n"
+        )
+        tmp = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".MODULE.bazel", delete=False
+        )
+        tmp.write(content)
+        tmp.close()
+        try:
+            bump.bump(
+                tmp.name,
+                fetch_commit_fn=mock_fetch_commit,
+                fetch_integrity_fn=mock_fetch_integrity,
+                fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+                fetch_compare_status_fn=mock_fetch_compare_status_ahead,
+                fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+                fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+                fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+                fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+                ignore_errors=True,
+            )
+            with open(tmp.name) as f:
+                result = f.read()
+        finally:
+            os.unlink(tmp.name)
+        self.assertIn('commit = "old_openroad_commit"', result)
+        self.assertIn(BAZEL_ORFS_COMMIT, result)
 
 
 class TestYosysAlreadyPinnedWithExtraAttrs(unittest.TestCase):
@@ -1250,10 +1367,11 @@ class TestYosysAlreadyPinnedWithExtraAttrs(unittest.TestCase):
             '    remote = "https://github.com/The-OpenROAD-Project/bazel-orfs.git",\n'
             ")\n"
             'bazel_dep(name = "orfs")\n'
-            "git_override(\n"
+            "archive_override(\n"
             '    module_name = "orfs",\n'
-            '    commit = "old",\n'
-            '    remote = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts.git",\n'
+            '    integrity = "sha256-OLD=",\n'
+            '    strip_prefix = "OpenROAD-flow-scripts-old",\n'
+            '    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/old.tar.gz"],\n'
             ")\n"
             f'bazel_dep(name = "yosys", version = "{EXPECTED_YOSYS_BCR_VERSION}", '
             "dev_dependency = True)\n"
@@ -1497,28 +1615,25 @@ class TestReadModuleHelpers(unittest.TestCase):
         self.assertIsNone(bump._yosys_major_minor("not-a-version"))
 
 
-class TestOpenroadSubmoduleConversion(unittest.TestCase):
-    """git_override(openroad, init_submodules=True) → archive_override + patch_cmds.
+class TestOpenroadSubmoduleVendoring(unittest.TestCase):
+    """archive_override(openroad) + curl-and-extract submodule patch_cmds.
 
-    The conversion eliminates the non-atomic submodule-fetch bug (where an
-    interrupted fetch leaves empty ``src/sta/`` and Bazel reuses the broken
-    state).  Replacement is archive_override over GitHub's auto-archive of
-    the parent commit + curl-and-extract patch_cmds for OpenSTA / abc from
-    their own GitHub auto-archives.
+    archive_override avoids the non-atomic submodule-fetch bug (where an
+    interrupted git fetch leaves empty ``src/sta/`` and Bazel reuses the
+    broken state), at the cost of vendoring OpenSTA / abc / slang-elab from
+    their own GitHub auto-archives — which bump regenerates every time.
     """
 
     def setUp(self):
-        # self.MODULE.bazel has git_override(openroad, init_submodules=True,
-        # patches=[openroad-qt]) — the realistic shape this conversion targets.
         self.content = apply_bump("self.MODULE.bazel")
         span = bump.find_archive_override_block(self.content, "openroad")
         self.assertIsNotNone(span, "openroad must end up as archive_override")
         self.block = self.content[span[0] : span[1]]
 
-    def test_no_git_override_left(self):
+    def test_no_git_override_emitted(self):
         self.assertIsNone(
             bump.find_git_override_block(self.content, "openroad"),
-            "Legacy git_override(openroad,...) must be replaced, not duplicated",
+            "openroad must stay an archive_override",
         )
 
     def test_parent_url_uses_github_archive(self):
@@ -1568,7 +1683,7 @@ class TestOpenroadSubmoduleConversion(unittest.TestCase):
         self.assertNotIn("old_openroad_commit", self.content)
 
 
-class TestOpenroadConversionPreservesAbsentPatches(unittest.TestCase):
+class TestOpenroadPreservesAbsentPatches(unittest.TestCase):
     """downstream.MODULE.bazel has no openroad patches — none must appear."""
 
     def setUp(self):
@@ -1580,37 +1695,6 @@ class TestOpenroadConversionPreservesAbsentPatches(unittest.TestCase):
     def test_no_patches_attribute(self):
         self.assertNotIn("patches = [", self.block)
         self.assertNotIn("patch_strip", self.block)
-
-
-class TestOpenroadConversionIdempotent(unittest.TestCase):
-    """Re-bumping a self.MODULE.bazel that's already archive_override is a no-op."""
-
-    def test_double_bump_idempotent(self):
-        src = os.path.join(FIXTURES_DIR, "self.MODULE.bazel")
-        tmp = tempfile.NamedTemporaryFile(
-            mode="w", suffix=".MODULE.bazel", delete=False
-        )
-        tmp.close()
-        shutil.copy2(src, tmp.name)
-
-        kwargs = dict(
-            fetch_commit_fn=mock_fetch_commit,
-            fetch_integrity_fn=mock_fetch_integrity,
-            fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
-            fetch_compare_status_fn=mock_fetch_compare_status_ahead,
-            fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
-            fetch_bcr_versions_fn=mock_fetch_bcr_versions,
-            fetch_sha256_hex_fn=mock_fetch_sha256_hex,
-            fetch_submodule_sha_fn=mock_fetch_submodule_sha,
-        )
-        bump.bump(tmp.name, **kwargs)
-        with open(tmp.name) as f:
-            first = f.read()
-        bump.bump(tmp.name, **kwargs)
-        with open(tmp.name) as f:
-            second = f.read()
-        os.unlink(tmp.name)
-        self.assertEqual(first, second, "Second bump should be a no-op")
 
 
 class TestUpdateOpenroadArchiveOverride(unittest.TestCase):
@@ -1629,13 +1713,37 @@ class TestUpdateOpenroadArchiveOverride(unittest.TestCase):
             "third-party/slang-elab": "slangsha",
         }[path]
 
-    def test_converts_git_override(self):
+    def test_legacy_git_override_is_not_rewritten(self):
+        """git_override(openroad) is outside the window: left for _expect."""
         content = (
             "git_override(\n"
             '    module_name = "openroad",\n'
             '    commit = "oldsha",\n'
             "    init_submodules = True,\n"
             '    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",\n'
+            ")\n"
+        )
+        self.assertEqual(
+            bump.update_openroad_archive_override(
+                content,
+                "newsha",
+                fetch_integrity_fn=self._stub_integrity,
+                fetch_sha256_hex_fn=self._stub_sha256,
+                fetch_submodule_sha_fn=self._stub_submodule_sha,
+            ),
+            content,
+        )
+
+    def test_regenerates_archive_override(self):
+        content = (
+            "archive_override(\n"
+            '    module_name = "openroad",\n'
+            '    integrity = "sha256-OLD=",\n'
+            "    patch_cmds = [\n"
+            '        "curl -sSfL ... tar xzf ...",\n'
+            "    ],\n"
+            '    strip_prefix = "OpenROAD-oldsha",\n'
+            '    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/oldsha.tar.gz"],\n'
             ")\n"
         )
         result = bump.update_openroad_archive_override(
@@ -1691,17 +1799,17 @@ class TestUpdateOpenroadArchiveOverride(unittest.TestCase):
         self.assertIn("stasha", result)
         self.assertIn("abcsha", result)
 
-    def test_preserves_patches_during_conversion(self):
+    def test_preserves_patches(self):
         content = (
-            "git_override(\n"
+            "archive_override(\n"
             '    module_name = "openroad",\n'
-            '    commit = "old",\n'
-            "    init_submodules = True,\n"
+            '    integrity = "sha256-OLD=",\n'
             "    patch_strip = 1,\n"
             "    patches = [\n"
             '        "//patches:openroad-foo.patch",\n'
             "    ],\n"
-            '    remote = "https://github.com/The-OpenROAD-Project/OpenROAD.git",\n'
+            '    strip_prefix = "OpenROAD-old",\n'
+            '    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/old.tar.gz"],\n'
             ")\n"
         )
         result = bump.update_openroad_archive_override(
