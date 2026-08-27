@@ -1,6 +1,7 @@
 import unittest
 import bump_impl
 
+
 class TestUpdateOpenroadArchiveOverride(unittest.TestCase):
     def test_preserves_custom_comments(self):
         content = """archive_override(
@@ -18,10 +19,11 @@ class TestUpdateOpenroadArchiveOverride(unittest.TestCase):
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/12345.tar.gz"],
 )
 """
+
         # Mocking the fetch functions and workspace_dir = None (no file check)
         def mock_fetch_integrity(url):
             return "sha256-bar"
-        
+
         def mock_fetch_sha256_hex(url):
             return "bar_hex"
 
@@ -68,6 +70,7 @@ class TestUpdateOpenroadArchiveOverride(unittest.TestCase):
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/12345.tar.gz"],
 )
 """
+
         def mock_fetch_integrity(url):
             return "sha256-bar"
 
@@ -76,7 +79,10 @@ class TestUpdateOpenroadArchiveOverride(unittest.TestCase):
             openroad_commit="67890",
             fetch_integrity_fn=mock_fetch_integrity,
             fetch_sha256_hex_fn=lambda u: "bar_hex",
-            fetch_submodule_sha_fn=lambda r, c, p: ("new_sub_sha", "new_sub_sha256_hex"),
+            fetch_submodule_sha_fn=lambda r, c, p: (
+                "new_sub_sha",
+                "new_sub_sha256_hex",
+            ),
             workspace_dir=None,
         )
 
@@ -85,6 +91,7 @@ class TestUpdateOpenroadArchiveOverride(unittest.TestCase):
         trailing_idx = new_content.find("# This is a trailing comment")
         strip_idx = new_content.find('strip_prefix = "OpenROAD-67890"')
         self.assertLess(trailing_idx, strip_idx)
+
 
 if __name__ == "__main__":
     unittest.main()
