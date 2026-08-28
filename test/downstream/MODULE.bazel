@@ -146,7 +146,7 @@ bazel_dep(name = "llvm", version = "0.8.11")
 
 register_toolchains("@llvm//toolchain:all")
 
-bazel_dep(name = "yosys", version = "0.64")
+bazel_dep(name = "yosys", version = "0.68.bcr.1")
 
 # yosys-slang was renamed to sv-elab and is now published on the Bazel
 # Central Registry; the slang yosys plugin comes from
