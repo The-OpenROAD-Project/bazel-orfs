@@ -38,6 +38,7 @@ import urllib.request
 YOSYS_ABC_PAIRS = {
     "0.62": "0.62-yosyshq",
     "0.64": "0.64-yosyshq.bcr.2",
+    "0.68": "0.68-yosyshq.bcr.1",
 }
 
 
