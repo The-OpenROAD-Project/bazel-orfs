@@ -21,8 +21,8 @@ local_path_override(
     path = "mock/klayout",
 )
 
-bazel_dep(name = "abc", version = "0.64-yosyshq.bcr.2")
-bazel_dep(name = "yosys", version = "0.64")
+bazel_dep(name = "abc", version = "0.68-yosyshq.bcr.1")
+bazel_dep(name = "yosys", version = "0.68.bcr.1")
 
 # Tcl, for //fork: the fork/join extension is compiled against the same
 # @tcl_lang the openroad module embeds (MVS keeps the two in lockstep), so
