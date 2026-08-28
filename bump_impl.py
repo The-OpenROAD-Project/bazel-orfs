@@ -1492,18 +1492,11 @@ def update_bazel_dep_version(content, module_name, new_version):
     return re.sub(pattern, rf"\g<1>{new_version}\2", content, count=1)
 
 
-def fetch_compare_status(repo, base, head):
-    """Return the GitHub /compare status: 'ahead' | 'behind' | 'identical' | 'diverged'."""
-    url = f"https://api.github.com/repos/{repo}/compare/{base}...{head}"
-    return fetch_json(url).get("status")
-
-
 def bump(
     module_file,
     fetch_commit_fn=fetch_latest_commit,
     fetch_integrity_fn=compute_integrity,
     fetch_orfs_tool_sha_fn=fetch_orfs_tool_sha,
-    fetch_compare_status_fn=fetch_compare_status,
     fetch_yosys_makefile_version_fn=fetch_yosys_makefile_version,
     fetch_bcr_versions_fn=fetch_bcr_versions,
     fetch_sha256_hex_fn=compute_sha256_hex,
