@@ -65,7 +65,7 @@ register it as the default toolchain via `python.toolchain(is_default = True)`.
 Building OpenROAD (and yosys) from source needs the zero-sysroot BCR `llvm`
 toolchain: `bazel_dep(name = "llvm", …)` + `register_toolchains("@llvm//toolchain:all")`,
 plus the small set of hermetic-llvm compatibility `single_version_override`s
-(sed, bison, boost.icl, gawk, m4, tcl_lang) mirrored from bazel-orfs's root
+(sed, bison, boost.icl, gawk, m4, verilator) mirrored from bazel-orfs's root
 MODULE.bazel. Without the toolchain the build falls back to the host compiler
 and breaks on newer glibc (e.g. `@scip`/`tinycthread` on glibc 2.41). These
 overrides are root-module-only, so every downstream repeats them.
