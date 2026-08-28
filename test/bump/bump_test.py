@@ -71,12 +71,6 @@ def mock_fetch_bcr_versions(_module_name):
     return list(MOCK_BCR_YOSYS_VERSIONS)
 
 
-def mock_fetch_compare_status_ahead(_repo, _base, _head):
-    """Unused since yosys-slang floor-gating was removed; kept for the
-    bump() signature the helpers still pass through."""
-    return "identical"
-
-
 def mock_fetch_integrity(_url):
     return MOCK_INTEGRITY
 
@@ -99,7 +93,6 @@ def mock_fetch_commit_date(_repo, _sha):
 def apply_bump(
     fixture_name,
     workspace_dir=None,
-    compare_status_fn=mock_fetch_compare_status_ahead,
     head_tools=None,
 ):
     """Copy a fixture, run bump on it, return the result content."""
@@ -113,7 +106,6 @@ def apply_bump(
         fetch_commit_fn=mock_fetch_commit,
         fetch_integrity_fn=mock_fetch_integrity,
         fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
-        fetch_compare_status_fn=compare_status_fn,
         fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
         fetch_bcr_versions_fn=mock_fetch_bcr_versions,
         fetch_sha256_hex_fn=mock_fetch_sha256_hex,
@@ -364,7 +356,6 @@ class TestBumpUsesPreResolvedCommit(unittest.TestCase):
                 fetch_commit_fn=mock_fetch_commit,
                 fetch_integrity_fn=mock_fetch_integrity,
                 fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
-                fetch_compare_status_fn=mock_fetch_compare_status_ahead,
                 fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
                 fetch_bcr_versions_fn=mock_fetch_bcr_versions,
                 fetch_sha256_hex_fn=mock_fetch_sha256_hex,
@@ -576,7 +567,6 @@ class TestOpenroadDoubleBumpIdempotent(unittest.TestCase):
             fetch_commit_fn=mock_fetch_commit,
             fetch_integrity_fn=mock_fetch_integrity,
             fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
-            fetch_compare_status_fn=mock_fetch_compare_status_ahead,
             fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
             fetch_bcr_versions_fn=mock_fetch_bcr_versions,
             fetch_sha256_hex_fn=mock_fetch_sha256_hex,
@@ -624,7 +614,6 @@ class TestUnchangedPinSkipsRehash(unittest.TestCase):
             fetch_commit_fn=mock_fetch_commit,
             fetch_integrity_fn=counting_integrity,
             fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
-            fetch_compare_status_fn=mock_fetch_compare_status_ahead,
             fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
             fetch_bcr_versions_fn=mock_fetch_bcr_versions,
             fetch_sha256_hex_fn=counting_sha256,
@@ -682,7 +671,6 @@ class TestNetworkErrorHandling(unittest.TestCase):
                     tmp.name,
                     fetch_commit_fn=bad_commit,
                     fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
-                    fetch_compare_status_fn=mock_fetch_compare_status_ahead,
                     fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
                     fetch_bcr_versions_fn=mock_fetch_bcr_versions,
                 )
@@ -751,7 +739,6 @@ class TestArchiveOverrideDoubleBumpIdempotent(unittest.TestCase):
         kwargs = dict(
             fetch_commit_fn=mock_fetch_commit,
             fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
-            fetch_compare_status_fn=mock_fetch_compare_status_ahead,
             fetch_integrity_fn=mock_fetch_integrity,
             fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
             fetch_bcr_versions_fn=mock_fetch_bcr_versions,
@@ -1269,7 +1256,6 @@ class TestStrictModeFailures(unittest.TestCase):
                 fetch_commit_fn=mock_fetch_commit,
                 fetch_integrity_fn=mock_fetch_integrity,
                 fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
-                fetch_compare_status_fn=mock_fetch_compare_status_ahead,
                 fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
                 fetch_bcr_versions_fn=mock_fetch_bcr_versions,
             )
@@ -1370,7 +1356,6 @@ class TestOutOfWindowShapesRejected(unittest.TestCase):
                 fetch_commit_fn=mock_fetch_commit,
                 fetch_integrity_fn=mock_fetch_integrity,
                 fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
-                fetch_compare_status_fn=mock_fetch_compare_status_ahead,
                 fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
                 fetch_bcr_versions_fn=mock_fetch_bcr_versions,
                 fetch_sha256_hex_fn=mock_fetch_sha256_hex,
@@ -1430,7 +1415,6 @@ class TestOutOfWindowShapesRejected(unittest.TestCase):
                 fetch_commit_fn=mock_fetch_commit,
                 fetch_integrity_fn=mock_fetch_integrity,
                 fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
-                fetch_compare_status_fn=mock_fetch_compare_status_ahead,
                 fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
                 fetch_bcr_versions_fn=mock_fetch_bcr_versions,
                 fetch_sha256_hex_fn=mock_fetch_sha256_hex,
@@ -1483,7 +1467,6 @@ class TestYosysAlreadyPinnedWithExtraAttrs(unittest.TestCase):
                 fetch_commit_fn=mock_fetch_commit,
                 fetch_integrity_fn=mock_fetch_integrity,
                 fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
-                fetch_compare_status_fn=mock_fetch_compare_status_ahead,
                 fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
                 fetch_bcr_versions_fn=mock_fetch_bcr_versions,
                 fetch_sha256_hex_fn=mock_fetch_sha256_hex,
@@ -1526,7 +1509,6 @@ class TestIgnoreModeWarnsAndContinues(unittest.TestCase):
                 fetch_commit_fn=mock_fetch_commit,
                 fetch_integrity_fn=mock_fetch_integrity,
                 fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
-                fetch_compare_status_fn=mock_fetch_compare_status_ahead,
                 fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
                 fetch_bcr_versions_fn=mock_fetch_bcr_versions,
                 ignore_errors=True,
