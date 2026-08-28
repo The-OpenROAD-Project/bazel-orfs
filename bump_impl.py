@@ -1686,7 +1686,8 @@ def bump(
     # release cadence don't always line up (e.g. yosys 0.63 ships without
     # a matching abc 0.63-yosyshq on BCR), and blocking the bumper on that
     # would be more disruptive than the lurking quality risk. CI gets the
-    # hard check via the `--check-yosys-abc` entrypoint.
+    # hard check via //:bump_yosys_abc_test; consumers get it via the
+    # `--check-yosys-abc` entrypoint.
     ok, msg = check_yosys_abc_pair(content)
     if not ok:
         sys.stderr.write("WARNING: " + msg + "\n")

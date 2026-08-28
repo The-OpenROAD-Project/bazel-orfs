@@ -104,6 +104,16 @@ py_test(
     deps = [":bump_impl_lib"],
 )
 
+# Enforces the yosys<->abc lockstep pairing on this repo's MODULE.bazel.
+# The bump path only warns on a violation (BCR availability and yosys
+# release cadence don't always line up); the hard check is here.
+py_test(
+    name = "bump_yosys_abc_test",
+    srcs = ["bump_yosys_abc_test.py"],
+    data = ["MODULE.bazel"],
+    deps = [":bump_impl_lib"],
+)
+
 # Enforces the 30-day cleanup policy on the bumper's compatibility code:
 # a COMPAT(YYYY-MM-DD) marker older than the supported window fails here.
 py_test(
