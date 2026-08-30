@@ -624,7 +624,18 @@ def out_dir_arguments(out_dir):
     return {}
 
 def environment_string(env):
-    return " ".join(['{}="{}"'.format(*pair) for pair in env.items()])
+    """KEY=VALUE pairs quoted for embedding in a shell command line.
+
+    Single quotes, not double: every call site is a shell context (the
+    run_executable wrapper, the deploy make scripts, run_shell commands)
+    and the values are meant to reach make literally.  Under double
+    quotes a make-style reference in an argument value -- PDN_TCL =
+    "$(PLATFORM_DIR)/..." -- is shell command substitution and silently
+    becomes the empty string before make ever sees it.
+    """
+    return " ".join(
+        ["{}='{}'".format(k, v.replace("'", "'\\''")) for k, v in env.items()],
+    )
 
 def generation_commands(optional_files):
     if optional_files:
