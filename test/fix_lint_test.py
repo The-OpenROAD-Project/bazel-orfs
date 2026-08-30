@@ -2,6 +2,7 @@
 """Unit tests for fix_lint.py."""
 
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -34,6 +35,47 @@ class TestLoadBazelignore(unittest.TestCase):
 
     def test_missing_file_returns_empty(self):
         self.assertEqual(fix_lint.load_bazelignore("/nonexistent"), set())
+
+
+class TestFindBuildifier(unittest.TestCase):
+    """@buildifier_prebuilt//:buildifier changed shape between 6.x and 8.x."""
+
+    def _runfiles(self, relpath):
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root)
+        tool = os.path.join(root, relpath)
+        os.makedirs(os.path.dirname(tool))
+        with open(tool, "w") as f:
+            f.write("#!/bin/sh\n")
+        os.chmod(tool, 0o755)
+        return root, tool
+
+    def test_finds_6x_prebuilt_binary(self):
+        root, tool = self._runfiles("buildifier_prebuilt+/buildifier/buildifier")
+        self.assertEqual(fix_lint.find_buildifier(root), tool)
+
+    def test_finds_8x_bash_runner(self):
+        """8.5.1.4 ships a generated runner, not the binary (PR #862)."""
+        root, tool = self._runfiles("buildifier_prebuilt+/buildifier/buildifier.bash")
+        self.assertEqual(fix_lint.find_buildifier(root), tool)
+
+    def test_finds_pre_bazel_7_1_tilde_separator(self):
+        root, tool = self._runfiles("buildifier_prebuilt~/buildifier/buildifier")
+        self.assertEqual(fix_lint.find_buildifier(root), tool)
+
+    def test_missing_buildifier_exits(self):
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root)
+        with self.assertRaises(SystemExit):
+            fix_lint.find_buildifier(root)
+
+
+class TestBuildifierEnv(unittest.TestCase):
+    def test_anchors_working_directory_at_cwd(self):
+        """The 8.x runner chdirs to $BUILD_WORKING_DIRECTORY before running."""
+        with mock.patch.dict(os.environ, {"BUILD_WORKING_DIRECTORY": "/elsewhere"}):
+            env = fix_lint.buildifier_env()
+        self.assertEqual(env["BUILD_WORKING_DIRECTORY"], os.getcwd())
 
 
 class TestFilterIgnored(unittest.TestCase):
@@ -92,11 +134,12 @@ class TestRunBuildifier(unittest.TestCase):
     @mock.patch("fix_lint.subprocess.check_call")
     def test_formats_and_lints(self, mock_check_call, mock_call):
         fix_lint.run_buildifier("/path/to/buildifier", ["a.bzl", "BUILD"])
+        env = fix_lint.buildifier_env()
         mock_check_call.assert_called_once_with(
-            ["/path/to/buildifier", "a.bzl", "BUILD"]
+            ["/path/to/buildifier", "a.bzl", "BUILD"], env=env
         )
         mock_call.assert_called_once_with(
-            ["/path/to/buildifier", "-lint", "warn", "a.bzl", "BUILD"]
+            ["/path/to/buildifier", "-lint", "warn", "a.bzl", "BUILD"], env=env
         )
 
     @mock.patch("fix_lint.subprocess.call", return_value=4)
