@@ -7,9 +7,9 @@ The baseline throughout is running floorplan through global route and
 reading the timing off the result. Everything here is measured against
 that, because that is the thing you would otherwise have to do.
 
-- **multiplier (simple)**: the flow takes **42s**. The estimator gets within **1.9%** of it in **5.38s**, of which 2.37s is loading the design and running the timing query -- overhead any rung pays.
-- **multiplier_top (macro array)**: the flow takes **900s**. The estimator gets within **6.9%** of it in **66.1s**, of which 9.02s is loading the design and running the timing query -- overhead any rung pays.
-- **multiplier_top, macro paths only**: the flow takes **900s**. The estimator gets within **6.1%** of it in **34s**, of which 3.95s is loading the design and running the timing query -- overhead any rung pays.
+- **multiplier (simple)**: the flow takes **49s**. The estimator gets within **1.9%** of it in **5.38s**, of which 2.37s is loading the design and running the timing query -- overhead any rung pays.
+- **multiplier_top (macro array)**: the flow takes **737s**. The estimator gets within **6.9%** of it in **66.1s**, of which 9.02s is loading the design and running the timing query -- overhead any rung pays.
+- **multiplier_top, macro paths only**: the flow takes **737s**. The estimator gets within **6.1%** of it in **34s**, of which 3.95s is loading the design and running the timing query -- overhead any rung pays.
 
 The synthesis-only rung is in the tables below as an accuracy
 floor -- what you get for reading the netlist and asking OpenSTA --
@@ -87,7 +87,7 @@ not placements.
 
 ## multiplier (simple)
 
-Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **42s**. The cheapest rung on the front is 17x faster than that at 21.3% error, and the most accurate is 4x faster at 1.3%.
+Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **49s**. The cheapest rung on the front is 20x faster than that at 21.3% error, and the most accurate is 4x faster at 1.3%.
 
 Sampled 54 near-critical reg2reg paths. Recall@10 by chance is 0.19: a rung scoring at or below that has no skill at picking the critical paths.
 
@@ -108,7 +108,7 @@ Rung A explored 238 configurations.
 |   9 | place, NO macro place, TD, RD, rd, GRT(28), rt  |       7.097 |        0.01575 |        0.8113 | -0.0116   |  0.01603 |            0.5 |
 |  10 | place, NO macro place, TD, RD, CTS, GRT(2), rt  |      10.87  |        0.0131  |        0.8393 | -0.007871 |  0.01363 |            0.6 |
 
-**Where the flow's time goes**, largest first: global_route 15s, global_place 8s, cts 6s, floorplan 5s, detailed_place 4s, repair_design 3s, place_pins 1s, macro_place 1s. The single biggest stage is global_route at 35% of the flow, and the estimator does not skip it so much as run a far cheaper version of it -- which is where the saving comes from.
+**Where the flow's time goes**, largest first: global_route 12s, global_place 11s, cts 8s, floorplan 6s, detailed_place 4s, repair_design 4s, place_pins 1s, macro_place 1s. The single biggest stage is global_route at 25% of the flow, and the estimator does not skip it so much as run a far cheaper version of it -- which is where the saving comes from.
 
 **What each stage costs**, from the deepest rung measured (place, TD, rd, GRT(13), rt): global_place 2.38s, repair_design 0.728s, repair_timing 0.402s, global_route 0.192s, place_pins 0.009s, floorplan 0.002s.
 
@@ -116,16 +116,16 @@ Rung A explored 238 configurations.
 
 | rung                                               |   total_s |   overhead_s |   work_s |   overhead_pct | vs flow   |
 |:---------------------------------------------------|----------:|-------------:|---------:|---------------:|:----------|
-| the full flow (baseline)                           |     42.1  |       nan    |   42.1   |          nan   | 1x        |
-| 1. synth only                                      |      2.44 |         2.42 |    0.018 |           99.3 | 17x       |
-| 2. place, place_ios, prop                          |      3.66 |         2.45 |    1.21  |           67   | 12x       |
-| 3. place, NO macro place, place_ios, vCTS, GRT(21) |      3.67 |         2.36 |    1.31  |           64.4 | 11x       |
-| 4. place, NO macro place, place_ios, vCTS, rd      |      3.96 |         2.36 |    1.6   |           59.6 | 11x       |
-| 5. place, NO macro place, place_ios, GRT(15)       |      4.02 |         2.52 |    1.5   |           62.7 | 10x       |
-| 6. place, NO macro place, TD, prop                 |      5.35 |         3.04 |    2.31  |           56.8 | 8x        |
-| 7. place, NO macro place, TD, RD, GRT(20)          |      5.38 |         2.37 |    3.01  |           44.1 | 8x        |
-| 8. place, TD, rd, GRT(13), rt                      |      6.36 |         2.42 |    3.94  |           38.1 | 7x        |
-| 9. place, NO macro place, TD, RD, rd, GRT(28), rt  |      7.1  |         2.41 |    4.69  |           33.9 | 6x        |
+| the full flow (baseline)                           |     48.5  |       nan    |   48.5   |          nan   | 1x        |
+| 1. synth only                                      |      2.44 |         2.42 |    0.018 |           99.3 | 20x       |
+| 2. place, place_ios, prop                          |      3.66 |         2.45 |    1.21  |           67   | 13x       |
+| 3. place, NO macro place, place_ios, vCTS, GRT(21) |      3.67 |         2.36 |    1.31  |           64.4 | 13x       |
+| 4. place, NO macro place, place_ios, vCTS, rd      |      3.96 |         2.36 |    1.6   |           59.6 | 12x       |
+| 5. place, NO macro place, place_ios, GRT(15)       |      4.02 |         2.52 |    1.5   |           62.7 | 12x       |
+| 6. place, NO macro place, TD, prop                 |      5.35 |         3.04 |    2.31  |           56.8 | 9x        |
+| 7. place, NO macro place, TD, RD, GRT(20)          |      5.38 |         2.37 |    3.01  |           44.1 | 9x        |
+| 8. place, TD, rd, GRT(13), rt                      |      6.36 |         2.42 |    3.94  |           38.1 | 8x        |
+| 9. place, NO macro place, TD, RD, rd, GRT(28), rt  |      7.1  |         2.41 |    4.69  |           33.9 | 7x        |
 | 10. place, NO macro place, TD, RD, CTS, GRT(2), rt |     10.9  |         3.55 |    7.32  |           32.7 | 4x        |
 
 ![multiplier (simple) time breakdown](time_multiplier.png)
@@ -138,7 +138,7 @@ Rung A explored 238 configurations.
 
 ## multiplier_top (macro array)
 
-Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **900s**. The cheapest rung on the front is 227x faster than that at 32.1% error, and the most accurate is 14x faster at 6.9%.
+Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **737s**. The cheapest rung on the front is 186x faster than that at 32.1% error, and the most accurate is 11x faster at 6.9%.
 
 Sampled 177 near-critical reg2reg paths. Recall@10 by chance is 0.06: a rung scoring at or below that has no skill at picking the critical paths.
 
@@ -155,7 +155,7 @@ Rung A explored 231 configurations.
 |   5 | place, NO macro place, vCTS, rd, GRT(29), rt |      48.24  |        0.1087  |        0.7203 | -0.08287 |  0.1394  |            0.2 |                 0.03916 |                 0.7048 |               0.197  |             0.08492 |
 |   6 | place, RD, vCTS, CTS, rd, GRT(9), rt         |      66.08  |        0.06919 |        0.7793 | -0.01845 |  0.09514 |            0.2 |                 0.03549 |                 0.76   |               0.112  |             0.2954  |
 
-**Where the flow's time goes**, largest first: global_route 475s, global_place 271s, cts 78s, floorplan 24s, macro_place 22s, detailed_place 17s, repair_design 12s, place_pins 2s. The single biggest stage is global_route at 53% of the flow, and the estimator does not skip it so much as run a far cheaper version of it -- which is where the saving comes from.
+**Where the flow's time goes**, largest first: global_route 385s, global_place 220s, cts 53s, macro_place 34s, floorplan 27s, detailed_place 9s, repair_design 7s, place_pins 2s. The single biggest stage is global_route at 52% of the flow, and the estimator does not skip it so much as run a far cheaper version of it -- which is where the saving comes from.
 
 **What each stage costs**, from the deepest rung measured (place, RD, vCTS, CTS, rd, GRT(9), rt): macro_place 20.9s, global_route 18.6s, cts 6.33s, global_place 5.2s, repair_design 3.87s, repair_timing 2.57s, place_pins 0.02s, floorplan 0.008s.
 
@@ -165,13 +165,13 @@ Rung A explored 231 configurations.
 
 | rung                                            |   total_s |   overhead_s |   work_s |   overhead_pct | vs flow   |
 |:------------------------------------------------|----------:|-------------:|---------:|---------------:|:----------|
-| the full flow (baseline)                        |    900    |       nan    |   900    |         nan    | 1x        |
-| 1. synth only                                   |      3.96 |         3.95 |     0.01 |          99.7  | 227x      |
-| 2. place, NO macro place, TD, RD, vCTS, CTS, rd |     29.8  |         8.72 |    21.1  |          29.2  | 30x       |
-| 3. place, NO macro place, GRT(11), rt           |     41.2  |         3.97 |    37.3  |           9.62 | 22x       |
-| 4. place, place_ios, vCTS, prop                 |     47.8  |         3.72 |    44    |           7.79 | 19x       |
-| 5. place, NO macro place, vCTS, rd, GRT(29), rt |     48.2  |         3.65 |    44.6  |           7.56 | 19x       |
-| 6. place, RD, vCTS, CTS, rd, GRT(9), rt         |     66.1  |         9.02 |    57.1  |          13.6  | 14x       |
+| the full flow (baseline)                        |    737    |       nan    |   737    |         nan    | 1x        |
+| 1. synth only                                   |      3.96 |         3.95 |     0.01 |          99.7  | 186x      |
+| 2. place, NO macro place, TD, RD, vCTS, CTS, rd |     29.8  |         8.72 |    21.1  |          29.2  | 25x       |
+| 3. place, NO macro place, GRT(11), rt           |     41.2  |         3.97 |    37.3  |           9.62 | 18x       |
+| 4. place, place_ios, vCTS, prop                 |     47.8  |         3.72 |    44    |           7.79 | 15x       |
+| 5. place, NO macro place, vCTS, rd, GRT(29), rt |     48.2  |         3.65 |    44.6  |           7.56 | 15x       |
+| 6. place, RD, vCTS, CTS, rd, GRT(9), rt         |     66.1  |         9.02 |    57.1  |          13.6  | 11x       |
 
 ![multiplier_top (macro array) time breakdown](time_multiplier_top.png)
 
@@ -183,7 +183,7 @@ Rung A explored 231 configurations.
 
 ## multiplier_top, macro paths only
 
-Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **900s**. The cheapest rung on the front is 60x faster than that at 18.7% error, and the most accurate is 26x faster at 6.2%.
+Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **737s**. The cheapest rung on the front is 50x faster than that at 18.7% error, and the most accurate is 22x faster at 6.2%.
 
 Sampled 78 near-critical reg2reg paths. Recall@10 by chance is 0.13: a rung scoring at or below that has no skill at picking the critical paths.
 
@@ -196,7 +196,7 @@ Rung A explored 234 configurations.
 |   1 | place, NO macro place, place_ios, prop |       14.89 |        0.1869  |        0.7682 |  0.1186  |  0.1845  |              0 |                 0.2681  |                 0.5226 |              0.08383 |              0.5764 |
 |   2 | place, TD, GRT(3)                      |       34.02 |        0.06164 |        0.8175 | -0.02387 |  0.07016 |              0 |                 0.06251 |                 0.6417 |              0.06053 |              0.7043 |
 
-**Where the flow's time goes**, largest first: global_route 475s, global_place 271s, cts 78s, floorplan 24s, macro_place 22s, detailed_place 17s, repair_design 12s, place_pins 2s. The single biggest stage is global_route at 53% of the flow, and the estimator does not skip it so much as run a far cheaper version of it -- which is where the saving comes from.
+**Where the flow's time goes**, largest first: global_route 385s, global_place 220s, cts 53s, macro_place 34s, floorplan 27s, detailed_place 9s, repair_design 7s, place_pins 2s. The single biggest stage is global_route at 52% of the flow, and the estimator does not skip it so much as run a far cheaper version of it -- which is where the saving comes from.
 
 **What each stage costs**, from the deepest rung measured (place, TD, GRT(3)): macro_place 18.7s, global_route 5.61s, global_place 4.64s, place_pins 0.017s, floorplan 0.007s.
 
@@ -206,9 +206,9 @@ Rung A explored 234 configurations.
 
 | rung                                      |   total_s |   overhead_s |   work_s |   overhead_pct | vs flow   |
 |:------------------------------------------|----------:|-------------:|---------:|---------------:|:----------|
-| the full flow (baseline)                  |     900   |       nan    |    900   |          nan   | 1x        |
-| 1. place, NO macro place, place_ios, prop |      14.9 |         3.73 |     11.2 |           25   | 60x       |
-| 2. place, TD, GRT(3)                      |      34   |         3.95 |     30.1 |           11.6 | 26x       |
+| the full flow (baseline)                  |     737   |       nan    |    737   |          nan   | 1x        |
+| 1. place, NO macro place, place_ios, prop |      14.9 |         3.73 |     11.2 |           25   | 50x       |
+| 2. place, TD, GRT(3)                      |      34   |         3.95 |     30.1 |           11.6 | 22x       |
 
 ![multiplier_top, macro paths only time breakdown](time_multiplier_top_macro.png)
 
@@ -595,6 +595,108 @@ bazel run //test/estimation_ladder:ci_gate_demo_small    # below the floor
 `method_validation` is not optional before using the gate on a new
 design: it is what sets the accuracy floor, and the floor is
 design-specific.
+
+---
+
+## Where in the flow is the noise born?
+
+Everything the seed-sensitivity study measures is the ESTIMATOR's
+stability; the flow's own dispersion was declared out of its scope.
+This campaign is that flow-side arm: the production ORFS stage
+scripts floorplan..grt in one OpenROAD process, an ensemble forked
+off each stage boundary -- `GPL_RANDOM_SEED` at place, a 1ps-scale
+clock nudge at cts (which exposes no seed; the nudge cancels in
+`min_period = clk_period - slack`, so what survives is tool noise),
+`GRT_SEED` at grt -- and every member running the production tail
+to grt, measured there by the same instrument as the ground truth.
+A stage's spread therefore includes whatever the stages after it
+amplify it into, and an all-levers arm supplies the directly
+measured total the per-arm decomposition must predict: under
+independence the variances add, and the residual is the interaction
+the per-stage view cannot see.
+
+The sigmas below are of KPI *candidates*, not of a chosen KPI:
+extremal statistics track what tapeout cares about but inherit the
+tail's noise; aggregates average the tail away but measure
+something softer. The KPI is PPA-shaped -- performance and
+std-cell area now, power recorded equal to area and left as a
+TODO -- and picking the compromise is a decision for whoever reads
+the table, not for this campaign.
+
+### multiplier_top
+
+Per-arm sigma of each KPI candidate, in % of the spine's value
+-- the noise born at that stage, as seen at flow end:
+
+| KPI        |      spine |   sigma_place_pct |   sigma_cts_pct |   sigma_grt_pct |   sigma_all_pct | decomposition   |
+|:-----------|-----------:|------------------:|----------------:|----------------:|----------------:|:----------------|
+| achieved   |   1.08e+03 |             0.684 |          0.358  |          0.134  |           1.44  | consistent      |
+| top10_mean |   1.07e+03 |             0.72  |          0.367  |          0.113  |           1.44  | consistent      |
+| p95        |   1.07e+03 |             0.738 |          0.38   |          0.137  |           1.48  | consistent      |
+| mean       | 832        |             0.848 |          0.184  |          0.154  |           1.45  | consistent      |
+| area       |   2.07e+03 |             0.435 |          0.0669 |          0.0376 |           0.452 | consistent      |
+
+Every null member reproduced the spine exactly and every nudge landed.
+
+What an ensemble buys, per generator: a member re-runs only its
+arm's tail (`c` seconds), and k members resolve
+`delta_min = 1.96 * sigma * sqrt(2/k)`:
+
+| generator   | KPI        |   c_s |   dmin@k=5 (%) |   dmin@k=10 (%) |   dmin@k=20 (%) |   dmin@k=40 (%) |
+|:------------|:-----------|------:|---------------:|----------------:|----------------:|----------------:|
+| all         | achieved   |   848 |          1.79  |          1.26   |          0.894  |          0.632  |
+| all         | mean       |   848 |          1.8   |          1.27   |          0.9    |          0.636  |
+| all         | top10_mean |   848 |          1.79  |          1.27   |          0.895  |          0.633  |
+| cts         | achieved   |   527 |          0.443 |          0.314  |          0.222  |          0.157  |
+| cts         | mean       |   527 |          0.228 |          0.161  |          0.114  |          0.0805 |
+| cts         | top10_mean |   527 |          0.455 |          0.321  |          0.227  |          0.161  |
+| grt         | achieved   |   459 |          0.167 |          0.118  |          0.0833 |          0.0589 |
+| grt         | mean       |   459 |          0.19  |          0.135  |          0.0952 |          0.0673 |
+| grt         | top10_mean |   459 |          0.139 |          0.0986 |          0.0697 |          0.0493 |
+| place       | achieved   |   832 |          0.848 |          0.599  |          0.424  |          0.3    |
+| place       | mean       |   832 |          1.05  |          0.744  |          0.526  |          0.372  |
+| place       | top10_mean |   832 |          0.893 |          0.632  |          0.447  |          0.316  |
+
+### multiplier
+
+Per-arm sigma of each KPI candidate, in % of the spine's value
+-- the noise born at that stage, as seen at flow end:
+
+| KPI        |   spine |   sigma_place_pct |   sigma_cts_pct |   sigma_grt_pct |   sigma_all_pct | decomposition   |
+|:-----------|--------:|------------------:|----------------:|----------------:|----------------:|:----------------|
+| achieved   |     918 |            0.428  |        1.69e-06 |        0        |           0.565 | consistent      |
+| top10_mean |     911 |            0.391  |        1.78e-06 |        0.0027   |           0.35  | consistent      |
+| p95        |     912 |            0.395  |        1.73e-06 |        6.33e-06 |           0.369 | consistent      |
+| mean       |     845 |            0.41   |        1.98e-06 |        0.00125  |           0.567 | consistent      |
+| area       |     576 |            0.0944 |        0        |        0        |           0.121 | consistent      |
+
+Every null member reproduced the spine exactly and every nudge landed.
+
+What an ensemble buys, per generator: a member re-runs only its
+arm's tail (`c` seconds), and k members resolve
+`delta_min = 1.96 * sigma * sqrt(2/k)`:
+
+| generator   | KPI        |   c_s |   dmin@k=5 (%) |   dmin@k=10 (%) |   dmin@k=20 (%) |   dmin@k=40 (%) |
+|:------------|:-----------|------:|---------------:|----------------:|----------------:|----------------:|
+| all         | achieved   |  94.3 |       0.7      |        0.495    |        0.35     |        0.247    |
+| all         | mean       |  94.3 |       0.703    |        0.497    |        0.351    |        0.248    |
+| all         | top10_mean |  94.3 |       0.434    |        0.307    |        0.217    |        0.154    |
+| cts         | achieved   |  85.2 |       2.1e-06  |        1.48e-06 |        1.05e-06 |        7.42e-07 |
+| cts         | mean       |  85.2 |       2.45e-06 |        1.73e-06 |        1.23e-06 |        8.67e-07 |
+| cts         | top10_mean |  85.2 |       2.21e-06 |        1.56e-06 |        1.1e-06  |        7.81e-07 |
+| grt         | achieved   |  80   |       0        |        0        |        0        |        0        |
+| grt         | mean       |  80   |       0.00154  |        0.00109  |        0.000772 |        0.000546 |
+| grt         | top10_mean |  80   |       0.00335  |        0.00237  |        0.00167  |        0.00118  |
+| place       | achieved   |  95   |       0.531    |        0.375    |        0.265    |        0.188    |
+| place       | mean       |  95   |       0.508    |        0.359    |        0.254    |        0.18     |
+| place       | top10_mean |  95   |       0.485    |        0.343    |        0.243    |        0.171    |
+
+### Reproducing the decomposition
+
+```sh
+bazel run //test/estimation_ladder:stage_variance_small  # ~minutes
+bazel run //test/estimation_ladder:stage_variance_top    # hours
+```
 
 ---
 
