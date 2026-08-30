@@ -67,9 +67,7 @@ class KpiCandidates(unittest.TestCase):
         self.assertEqual(k["power_todo"], 100.0)
         self.assertAlmostEqual(k["ppa_geomean"], (929.0 * 100.0 * 100.0) ** (1 / 3))
         # The trimmed mean drops the 3 worst and 3 best of 30.
-        self.assertAlmostEqual(
-            k["trimmed_mean_10"], sum(BASE_PERIODS[3:-3]) / 24
-        )
+        self.assertAlmostEqual(k["trimmed_mean_10"], sum(BASE_PERIODS[3:-3]) / 24)
 
     def test_empty_paths_is_an_error(self):
         with self.assertRaises(ValueError):
@@ -174,9 +172,7 @@ class Analyze(unittest.TestCase):
         leaves = {("spine", "base"): leaf("spine", "base", BASE_PERIODS)}
         for arm, sigma in (("place", 4.0), ("grt", 1.0)):
             tags = list(range(1, 7))
-            leaves.update(
-                ensemble(arm, tags, {t: rng.gauss(0, sigma) for t in tags})
-            )
+            leaves.update(ensemble(arm, tags, {t: rng.gauss(0, sigma) for t in tags}))
             leaves[(arm, "null")] = leaf(arm, "null", BASE_PERIODS)
         eps_shift = {e: rng.gauss(0, 2.0) for e in cts_eps}
         leaves.update(

@@ -252,9 +252,7 @@ def analyze(leaves, walk, cts_eps, all_k, design="multiplier_top", gpl_seeds=Non
     per_arm_kpis = {}
     for arm in ("place", "cts", "grt", "all"):
         members = {
-            tag: leaf
-            for (a, tag), leaf in leaves.items()
-            if a == arm and tag != "null"
+            tag: leaf for (a, tag), leaf in leaves.items() if a == arm and tag != "null"
         }
         kpis = {tag: kpi_candidates(leaf) for tag, leaf in members.items()}
         per_arm_kpis[arm] = kpis
@@ -303,8 +301,7 @@ def analyze(leaves, walk, cts_eps, all_k, design="multiplier_top", gpl_seeds=Non
     gpl_seeds = gpl_seeds or DEFAULT_GPL_SEEDS
     paired = {}
     pairs = [
-        (str(i), str(gpl_seeds[(i - 1) % len(gpl_seeds)]))
-        for i in range(1, all_k + 1)
+        (str(i), str(gpl_seeds[(i - 1) % len(gpl_seeds)])) for i in range(1, all_k + 1)
     ]
     pairs = [
         (a, p)
@@ -480,7 +477,11 @@ def main():
             result["guards"]["null_failures"] + result["guards"]["nudge_failures"]
         )
         expected = (
-            len(args.gpl_seeds) + len(args.grt_seeds) + len(args.cts_eps) + args.all_k + 4
+            len(args.gpl_seeds)
+            + len(args.grt_seeds)
+            + len(args.cts_eps)
+            + args.all_k
+            + 4
         )
         got = len(leaves)
         print(f"stage_variance: {got}/{expected} leaves")
