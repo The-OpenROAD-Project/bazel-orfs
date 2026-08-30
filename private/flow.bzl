@@ -882,6 +882,7 @@ def _orfs_pass(
             update_kwargs = dict(kwargs)
             update_kwargs.pop("substeps", None)
             update_kwargs.pop("lint", None)
+            update_kwargs.pop("user_stages", None)
             orfs_update(
                 name = _step_name(name, variant, "update"),
                 rules_json = sources["RULES_JSON"][0],

@@ -47,7 +47,7 @@ def _convert_sources(sources, pkg):
             result[var] = converted
     return result
 
-def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], extra = None):  # buildifier: disable=unused-variable
+def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], extra = None, blender = False):  # buildifier: disable=unused-variable
     """Create orfs_flow() targets for a design based on its parsed config.mk.
 
     Usage:
@@ -98,6 +98,11 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
             which appears verbatim inside VERILOG_FILES). These are
             dropped entirely before orfs_flow() is invoked — neither
             validated against variables.yaml nor exposed as env vars.
+        blender: accepted and ignored. The Blender 3D-viewer integration
+            was removed from bazel-orfs, but ORFS's flow/designs/design.bzl
+            still passes blender = True; tolerating the argument keeps the
+            @orfs design packages loadable with bazel-orfs as the root
+            module.
         extra: optional callable invoked after the real flow with the
             fully-processed design data (name, platform, verilog_files,
             arguments, user_arguments, sources, user_sources, user_stages,
