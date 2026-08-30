@@ -1,3 +1,4 @@
+load("@orfs_designs//:designs.bzl", "DESIGNS")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("//:openroad.bzl", "orfs_flow", "orfs_run", "orfs_run_executable")
 
@@ -1653,4 +1654,159 @@ py_test(
     srcs = ["macro_score_test.py"],
     main = "macro_score_test.py",
     deps = [":macro_score_lib"],
+)
+
+# -------------------------------------------------------------
+# swerv_wrapper (asap7): the macro-placement campaign's real
+# target (ideas/rtl-mpl.md).  multiplier_top's 16 identical macros
+# make it the easiest possible macro problem -- a pure permutation
+# -- and it becomes the null control; swerv_wrapper's ~28 SRAM
+# macros in three fakeram sizes are the design the selector has to
+# earn its keep on.
+#
+# The flow targets themselves come from the pinned ORFS tree
+# (@orfs//flow/designs/asap7/swerv_wrapper, parsed from its
+# config.mk by @orfs_designs), built with the carried-patch
+# OpenROAD.  The parsed config is reused below so the consumer
+# variant is the production configuration plus exactly one change:
+# MACRO_PLACEMENT_TCL pointing at the selector's winner.
+# -------------------------------------------------------------
+
+SWERV = DESIGNS["asap7/swerv_wrapper"]
+
+SWERV_SYNTH = "@orfs//flow/designs/asap7/swerv_wrapper:swerv_wrapper_synth"
+
+# Labels in the parsed config.mk are relative to the ORFS repo.
+SWERV_SOURCES = {
+    var: ["@orfs" + label if label.startswith("//") else label for label in labels]
+    for var, labels in SWERV["sources"].items()
+}
+
+SWERV_VERILOG = [
+    "@orfs" + f if f.startswith("//") else f
+    for f in SWERV["verilog_files"]
+    if "$(" not in f
+]
+
+# Campaign step 2: swerv's own noise floor and delta_tie.  Never
+# reuse multiplier_top's numbers -- the resolvable delta is a
+# property of the design.
+orfs_run_executable(
+    name = "stage_variance_swerv_executable",
+    src = SWERV_SYNTH,
+    arguments = SWERV["arguments"],
+    cmd = "run",
+    script = "stage_variance.tcl",
+    sources = SWERV_SOURCES | {
+        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+    },
+    stages = [
+        "floorplan",
+        "place",
+        "cts",
+        "grt",
+    ],
+)
+
+py_binary(
+    name = "stage_variance_swerv",
+    srcs = ["stage_variance.py"],
+    args = [
+        "$(location :stage_variance_swerv_executable)",
+        "swerv_wrapper",
+    ],
+    data = [
+        ":stage_variance_swerv_executable",
+    ],
+    main = "stage_variance.py",
+    deps = [":optuna_study_lib"],
+)
+
+# Campaign step 3: the objective audit on a macro-heterogeneous
+# design -- baseline P_pick / AUC / regret the selector must beat.
+# The py driver is wired up once stage_variance_swerv has produced
+# stage_variance_swerv_wrapper.json (the delta_tie input), the same
+# order the multiplier_top campaign ran in.
+orfs_run_executable(
+    name = "macro_score_swerv_executable",
+    src = SWERV_SYNTH,
+    arguments = SWERV["arguments"],
+    cmd = "run",
+    script = "macro_score.tcl",
+    sources = SWERV_SOURCES | {
+        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+    },
+    stages = [
+        "floorplan",
+        "place",
+        "cts",
+        "grt",
+    ],
+)
+
+# Campaign step 4: the selector.  Consumes the synthesis output,
+# generates k seed-perturbed RTL-MP candidates over one shared
+# production floorplan spine, scores each with the fast
+# non-timing-driven global placement rung, and materializes the
+# winner as macro.tcl -- the file the flow variant below injects
+# through MACRO_PLACEMENT_TCL.  Per-candidate evidence (scores,
+# runtimes, peak RSS, the sampled paths) lands in the out_dir.
+orfs_run(
+    name = "swerv_macro_select",
+    src = SWERV_SYNTH,
+    outs = ["macro.tcl"],
+    arguments = SWERV["arguments"],
+    cmd = "run",
+    out_dir = "macro_select_evidence",
+    script = "macro_select.tcl",
+    sources = SWERV_SOURCES | {
+        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+    },
+    stages = [
+        "floorplan",
+        "place",
+    ],
+    tags = ["manual"],
+)
+
+# The same walk as a bazelisk-run executable, for the parallelism
+# calibration experiment: KEY=VALUE overrides pick the execution
+# shape (MS_JOBS=N for fork-parallel single-threaded candidates,
+# MS_SERIAL_THREADS=N for sequential candidates with N threads
+# each) and MS_K/MS_OUT_DIR/MS_WORK size and place the run.  The
+# winning static shape for this machine class is recorded in the
+# README and baked into the swerv_macro_select defaults.
+orfs_run_executable(
+    name = "swerv_macro_select_executable",
+    src = SWERV_SYNTH,
+    arguments = SWERV["arguments"],
+    cmd = "run",
+    script = "macro_select.tcl",
+    sources = SWERV_SOURCES | {
+        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+    },
+    stages = [
+        "floorplan",
+        "place",
+    ],
+)
+
+# Campaign step 5/6: the consumer.  The main base flow variant of
+# swerv_wrapper in this package: the production configuration from
+# the pinned ORFS tree, sharing the same synthesis action as the
+# @orfs baseline, with the selector's winner injected through
+# MACRO_PLACEMENT_TCL.  A/B against
+# @orfs//flow/designs/asap7/swerv_wrapper:swerv_wrapper_grt with
+# the macro_score KPI menu, gated on stage_variance_swerv's
+# delta_tie.
+orfs_flow(
+    name = "swerv_wrapper",
+    arguments = SWERV["arguments"],
+    previous_stage = {"floorplan": SWERV_SYNTH},
+    sources = SWERV_SOURCES | {
+        "MACRO_PLACEMENT_TCL": [":macro.tcl"],
+    },
+    tags = ["manual"],
+    top = "swerv_wrapper",
+    verilog_files = SWERV_VERILOG,
 )

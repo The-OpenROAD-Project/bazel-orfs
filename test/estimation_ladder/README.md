@@ -760,6 +760,82 @@ bazel run //test/estimation_ladder:macro_score_top     # the audit
 
 ---
 
+## Measured selection: the swerv_wrapper campaign
+
+The audit above says the objective's pick is close to a coin
+flip, so the improvement is not a better trust in the objective
+but a better *selection*: generate k candidates with RTL-MP
+itself, score each with a fast non-timing-driven global
+placement -- a measurement taken on the far side of the fog
+that implicitly prices density and congestion -- and
+materialize the winner. multiplier_top's 16 identical macros
+make it the easiest possible macro problem (a pure permutation)
+and it becomes the null control; `swerv_wrapper` (asap7, ~28
+SRAM macros in three fakeram sizes, real timing paths through
+memories) is the design the selector has to earn its keep on.
+
+The toolchain is four OpenROAD patches carried on the
+`archive_override` until upstream absorbs them (see
+`patches/0040..0043-openroad-mpl-*.patch`): re-run fix,
+`rtl_macro_placer -random_seed` (deterministic candidate
+generation), snap-inside-core containment (the winner's
+placement file round-trips through `place_macro`), and
+standard-cell seeding parity on the all-fixed path (injection
+is production-equivalent, so shipping coordinates is honest).
+
+The selector is `//test/estimation_ladder:swerv_macro_select`,
+an `orfs_run()` off the pinned ORFS tree's
+`swerv_wrapper_synth`: one shared production floorplan spine,
+`//fork` children per seed running the production
+`macro_place.tcl` (each with `-random_seed` appended to ORFS's
+own argument list), the gate-rung scoring pass, and a join that
+copies the winning candidate to the declared `macro.tcl`
+output. The consumer is this package's `swerv_wrapper` flow --
+the production configuration parsed from the same config.mk
+(`@orfs_designs`), sharing the baseline's synthesis action,
+plus exactly one change: `MACRO_PLACEMENT_TCL` pointing at
+`macro.tcl`. A/B is against
+`@orfs//flow/designs/asap7/swerv_wrapper:swerv_wrapper_grt`,
+gated on swerv's own `delta_tie`.
+
+### Parallelism calibration
+
+TODO(campaign): fill in from the calibration run. The scoring
+sweep has two credible shapes on a many-core box: `fork -jobs
+N` (parallel candidates, single-threaded each -- fork quiesces
+`set_thread_count`, and a child must not raise it) or
+sequential candidates with `set_thread_count N` each (global
+placement saturates on internal parallelism well below the core
+count). The winning static shape for the 24C/48T, 64GB
+Threadripper class this campaign runs on is decided by
+measuring candidates/hour and peak per-child RSS over a fixed
+population, via:
+
+```sh
+bazel run //test/estimation_ladder:swerv_macro_select_executable -- \
+  MS_K=8 MS_JOBS=8 MS_OUT_DIR=$PWD/calib_j8 MS_WORK=$PWD/calib_j8_work
+bazel run //test/estimation_ladder:swerv_macro_select_executable -- \
+  MS_K=8 MS_SERIAL_THREADS=16 MS_OUT_DIR=$PWD/calib_t16 ...
+```
+
+### Campaign state
+
+Step order and status (each lands with its numbers):
+
+1. swerv flow targets from the pinned ORFS tree -- done (two
+   compat fixes and one carried ORFS patch, see git log).
+2. `stage_variance_swerv` -- swerv's own noise floor and
+   `delta_tie`. TODO(campaign).
+3. `macro_score` audit on swerv -- baseline P_pick / AUC /
+   regret on a macro-heterogeneous design. TODO(campaign).
+4. The selector, scored against arm 3 with the same audit math.
+   TODO(campaign).
+5. Verdict table per KPI, and the go/no-go: does measured
+   selection beat objective-trust by more than `delta_tie` at a
+   nightly-affordable cost? TODO(campaign).
+
+---
+
 ## How we measured it
 
 ### The ground truth
