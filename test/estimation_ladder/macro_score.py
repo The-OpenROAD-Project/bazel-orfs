@@ -122,6 +122,8 @@ def fence_cfg(box):
         "RTLMP_FENCE_UX": ux,
         "RTLMP_FENCE_UY": uy,
     }
+
+
 PLACE_RE = re.compile(
     r"place_macro\s+-macro_name\s+\{(.*)\}\s+-location\s+"
     r"\{([-0-9.eE]+)\s+([-0-9.eE]+)\}\s+-orientation\s+(\S+)"
@@ -249,7 +251,7 @@ SUMMARY_RE = re.compile(r"(Cluster|Macro) Placement Summary")
 
 def parse_log_tables(log_text):
     """{tag: {"tables": [{kind, rows{name: {weight, value, norm}}}],
-              "compliance_um": float or None}}"""
+    "compliance_um": float or None}}"""
     out = {}
     tag = None
     tables = None
@@ -405,9 +407,7 @@ def audit(candidates, spine_kpis, delta_tie):
         s_sorted = sorted(range(len(tags)), key=lambda i: s[i])
         regret = y[best_by_s] - y[best_by_y]
 
-        pick_w, _ = kendall_pick(
-            [s[i] for i in w_idx], [y[i] for i in w_idx], tie
-        )
+        pick_w, _ = kendall_pick([s[i] for i in w_idx], [y[i] for i in w_idx], tie)
 
         stratum_median = {}
         for label in sorted(set(strata.values())):
@@ -424,9 +424,9 @@ def audit(candidates, spine_kpis, delta_tie):
             "auc_score_W_vs_D": auc_s,
             "auc_flow_W_vs_D": auc_y,
             "regret": regret,
-            "regret_pct": 100.0 * regret / abs(spine_kpis[kpi])
-            if spine_kpis.get(kpi)
-            else None,
+            "regret_pct": (
+                100.0 * regret / abs(spine_kpis[kpi]) if spine_kpis.get(kpi) else None
+            ),
             "flow_rank_of_score_pick": y_sorted.index(best_by_s) + 1,
             "score_rank_of_flow_best": s_sorted.index(best_by_y) + 1,
             "p_pick_within_W": pick_w,
@@ -528,9 +528,7 @@ def main():
         w_nudges = [-1] if args.smoke else W_NUDGES
         t_specs = {"t_wl1": T_SPECS["t_wl1"]} if args.smoke else T_SPECS
         fences = (
-            {"d_fence_corner": D_FENCES["d_fence_corner"]}
-            if args.smoke
-            else D_FENCES
+            {"d_fence_corner": D_FENCES["d_fence_corner"]} if args.smoke else D_FENCES
         )
         gen_entries = {"w_base": {"CORE_AREA": BASE_CORE}}
         for e in w_nudges:
@@ -553,25 +551,19 @@ def main():
         with open(os.path.join(out_dir, "generate.log"), "w") as f:
             f.write(gen_log)
 
-        base_placements = parse_place_file(
-            os.path.join(out_dir, "w_base.place.tcl")
-        )
+        base_placements = parse_place_file(os.path.join(out_dir, "w_base.place.tcl"))
         with open(os.path.join(out_dir, "w_base.macros.json")) as f:
             sizes = json.load(f)
         degraded = synthesize_degraded(base_placements, sizes)
         if args.smoke:
-            degraded = {
-                t: degraded[t] for t in ("d_swap2_1", "d_clump")
-            }
+            degraded = {t: degraded[t] for t in ("d_swap2_1", "d_clump")}
         for tag, (placements, _) in degraded.items():
-            write_place_file(
-                os.path.join(out_dir, f"{tag}.place.tcl"), placements
-            )
+            write_place_file(os.path.join(out_dir, f"{tag}.place.tcl"), placements)
 
         all_tags = [
-            t for t in gen_entries if os.path.exists(
-                os.path.join(out_dir, f"{t}.place.tcl")
-            )
+            t
+            for t in gen_entries
+            if os.path.exists(os.path.join(out_dir, f"{t}.place.tcl"))
         ] + list(degraded)
 
         def stratum(tag):
@@ -603,9 +595,7 @@ def main():
         # geometry -- measured ~2% on the achieved period here, and
         # reported by the driver as injection_offset.
         eval_entries["null_wbase"] = {
-            "PLACE_FILE": os.path.abspath(
-                os.path.join(out_dir, "w_base.place.tcl")
-            ),
+            "PLACE_FILE": os.path.abspath(os.path.join(out_dir, "w_base.place.tcl")),
             "STRATUM": "null",
         }
         write_manifest(os.path.join(work, "manifest_eval"), eval_entries)
@@ -661,9 +651,7 @@ def analyze_out_dir(out_dir, delta_tie, design):
     spine_kpis = kpi_candidates(spine)
 
     # Fixed normalization: the base winner's raw components.
-    base_components = raw_components(
-        score_tables.get("w_base", {}).get("tables", [])
-    )
+    base_components = raw_components(score_tables.get("w_base", {}).get("tables", []))
     if not base_components:
         raise RuntimeError("no penalty tables parsed for w_base")
 
@@ -733,13 +721,9 @@ def analyze_out_dir(out_dir, delta_tie, design):
     all_pop = dict(candidates) | unscored
     flow_auc_all = {}
     for kpi in KPIS:
-        w_vals = [
-            c["kpis"][kpi] for c in all_pop.values() if c["stratum"] == "W"
-        ]
+        w_vals = [c["kpis"][kpi] for c in all_pop.values() if c["stratum"] == "W"]
         d_vals = [
-            c["kpis"][kpi]
-            for c in all_pop.values()
-            if c["stratum"].startswith("D")
+            c["kpis"][kpi] for c in all_pop.values() if c["stratum"].startswith("D")
         ]
         flow_auc_all[kpi] = auc(d_vals, w_vals)
 
@@ -763,13 +747,10 @@ def analyze_out_dir(out_dir, delta_tie, design):
         "audit": audit_doc,
         "injection_offset": injection_offset,
         "unscored": {
-            t: {k: v for k, v in c.items() if k != "raw"}
-            for t, c in unscored.items()
+            t: {k: v for k, v in c.items() if k != "raw"} for t, c in unscored.items()
         },
         "auc_flow_W_vs_D_all_candidates": flow_auc_all,
-        "score_tables": {
-            t: e.get("tables", []) for t, e in score_tables.items()
-        },
+        "score_tables": {t: e.get("tables", []) for t, e in score_tables.items()},
         "guards": {"failures": guards},
         "headline": headline,
     }

@@ -13,8 +13,7 @@ import unittest
 import macro_score as ms
 
 BASE = [
-    (f"m{i}", 10.0 + 90.0 * (i % 4), 10.0 + 80.0 * (i // 4), "R0")
-    for i in range(16)
+    (f"m{i}", 10.0 + 90.0 * (i % 4), 10.0 + 80.0 * (i // 4), "R0") for i in range(16)
 ]
 SIZES = {f"m{i}": {"w": 89.0, "h": 78.0} for i in range(16)}
 
@@ -28,15 +27,12 @@ class Generator(unittest.TestCase):
                 sorted((x, y) for _, x, y, _ in perm),
                 sorted((x, y) for _, x, y, _ in BASE),
             )
-            self.assertEqual(
-                sorted(n for n, *_ in perm), sorted(n for n, *_ in BASE)
-            )
+            self.assertEqual(sorted(n for n, *_ in perm), sorted(n for n, *_ in BASE))
 
     def test_swap_severity_is_graded(self):
         rng = random.Random(2)
         moved2 = sum(
-            a != b
-            for a, b in zip(ms.permute_assignment(BASE, rng, num_swaps=2), BASE)
+            a != b for a, b in zip(ms.permute_assignment(BASE, rng, num_swaps=2), BASE)
         )
         # Two swaps move at most four macros, and at least two.
         self.assertGreaterEqual(moved2, 2)
@@ -129,9 +125,7 @@ class LogParser(unittest.TestCase):
         parsed = ms.parse_log_tables(SYNTHETIC_LOG)
         base = ms.raw_components(parsed["w_base"]["tables"])
         s_base = ms.default_cost(base, base)
-        s_bad = ms.default_cost(
-            ms.raw_components(parsed["d_bad"]["tables"]), base
-        )
+        s_bad = ms.default_cost(ms.raw_components(parsed["d_bad"]["tables"]), base)
         # Normalized against itself, each present term contributes its
         # weight; the degraded candidate's 3x wirelength dominates.
         self.assertGreater(s_bad, s_base)
@@ -183,16 +177,16 @@ class AuditMath(unittest.TestCase):
                 "score": 60.0 + rng.gauss(0, 5),
                 "kpis": {k: y for k in ms.KPIS},
             }
-        doc = ms.audit(candidates, {k: 1000.0 for k in ms.KPIS}, {k: 1.0 for k in ms.KPIS})
+        doc = ms.audit(
+            candidates, {k: 1000.0 for k in ms.KPIS}, {k: 1.0 for k in ms.KPIS}
+        )
         a = doc["achieved"]
         self.assertGreater(a["p_pick"], 0.8)
         self.assertGreater(a["auc_score_W_vs_D"], 0.9)
         self.assertGreater(a["auc_flow_W_vs_D"], 0.9)
         self.assertGreaterEqual(a["regret"], 0.0)
         self.assertIn("W", a["stratum_median_y"])
-        self.assertLess(
-            a["stratum_median_y"]["W"], a["stratum_median_y"]["D_shuffle"]
-        )
+        self.assertLess(a["stratum_median_y"]["W"], a["stratum_median_y"]["D_shuffle"])
 
     def test_blind_score_is_a_coin_flip(self):
         rng = random.Random(5)
@@ -204,7 +198,9 @@ class AuditMath(unittest.TestCase):
             }
             for i in range(20)
         }
-        doc = ms.audit(candidates, {k: 1000.0 for k in ms.KPIS}, {k: 0.0 for k in ms.KPIS})
+        doc = ms.audit(
+            candidates, {k: 1000.0 for k in ms.KPIS}, {k: 0.0 for k in ms.KPIS}
+        )
         p = doc["achieved"]["p_pick"]
         self.assertGreater(p, 0.25)
         self.assertLess(p, 0.75)
