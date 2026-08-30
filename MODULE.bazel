@@ -102,7 +102,9 @@ single_version_override(
 # that builds OpenROAD from source must repeat them. Keep in sync on each bump.
 
 # bison (transitive: rules_bison -> bison): gnulib wrapper headers must precede
-# libc via -I, not -isystem (BCR #7642). Proposed upstream as 3.8.2.bcr.8.
+# libc via -I, not -isystem (BCR #7642). Still unfixed upstream: 3.8.2.bcr.8
+# is published but is an unrelated change (its BUILD.bazel overlay is
+# byte-identical to bcr.7's), so the patch stays and the pin stays here.
 single_version_override(
     module_name = "bison",
     patch_strip = 1,
