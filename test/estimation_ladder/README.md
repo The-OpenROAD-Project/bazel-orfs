@@ -7,9 +7,9 @@ The baseline throughout is running floorplan through global route and
 reading the timing off the result. Everything here is measured against
 that, because that is the thing you would otherwise have to do.
 
-- **multiplier (simple)**: the flow takes **41s**. The estimator gets within **1.9%** of it in **5.38s**, of which 2.37s is loading the design and running the timing query -- overhead any rung pays.
-- **multiplier_top (macro array)**: the flow takes **668s**. The estimator gets within **6.9%** of it in **66.1s**, of which 9.02s is loading the design and running the timing query -- overhead any rung pays.
-- **multiplier_top, macro paths only**: the flow takes **668s**. The estimator gets within **6.1%** of it in **34s**, of which 3.95s is loading the design and running the timing query -- overhead any rung pays.
+- **multiplier (simple)**: the flow takes **42s**. The estimator gets within **1.9%** of it in **5.38s**, of which 2.37s is loading the design and running the timing query -- overhead any rung pays.
+- **multiplier_top (macro array)**: the flow takes **900s**. The estimator gets within **6.9%** of it in **66.1s**, of which 9.02s is loading the design and running the timing query -- overhead any rung pays.
+- **multiplier_top, macro paths only**: the flow takes **900s**. The estimator gets within **6.1%** of it in **34s**, of which 3.95s is loading the design and running the timing query -- overhead any rung pays.
 
 The synthesis-only rung is in the tables below as an accuracy
 floor -- what you get for reading the netlist and asking OpenSTA --
@@ -87,7 +87,7 @@ not placements.
 
 ## multiplier (simple)
 
-Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **41s**. The cheapest rung on the front is 17x faster than that at 21.3% error, and the most accurate is 4x faster at 1.3%.
+Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **42s**. The cheapest rung on the front is 17x faster than that at 21.3% error, and the most accurate is 4x faster at 1.3%.
 
 Sampled 54 near-critical reg2reg paths. Recall@10 by chance is 0.19: a rung scoring at or below that has no skill at picking the critical paths.
 
@@ -108,7 +108,7 @@ Rung A explored 238 configurations.
 |   9 | place, NO macro place, TD, RD, rd, GRT(28), rt  |       7.097 |        0.01575 |        0.8113 | -0.0116   |  0.01603 |            0.5 |
 |  10 | place, NO macro place, TD, RD, CTS, GRT(2), rt  |      10.87  |        0.0131  |        0.8393 | -0.007871 |  0.01363 |            0.6 |
 
-**Where the flow's time goes**, largest first: global_route 14s, global_place 8s, cts 6s, floorplan 5s, detailed_place 4s, repair_design 3s, place_pins 1s, macro_place 1s. The single biggest stage is global_route at 35% of the flow, and the estimator does not skip it so much as run a far cheaper version of it -- which is where the saving comes from.
+**Where the flow's time goes**, largest first: global_route 15s, global_place 8s, cts 6s, floorplan 5s, detailed_place 4s, repair_design 3s, place_pins 1s, macro_place 1s. The single biggest stage is global_route at 35% of the flow, and the estimator does not skip it so much as run a far cheaper version of it -- which is where the saving comes from.
 
 **What each stage costs**, from the deepest rung measured (place, TD, rd, GRT(13), rt): global_place 2.38s, repair_design 0.728s, repair_timing 0.402s, global_route 0.192s, place_pins 0.009s, floorplan 0.002s.
 
@@ -116,15 +116,15 @@ Rung A explored 238 configurations.
 
 | rung                                               |   total_s |   overhead_s |   work_s |   overhead_pct | vs flow   |
 |:---------------------------------------------------|----------:|-------------:|---------:|---------------:|:----------|
-| the full flow (baseline)                           |     41.3  |       nan    |   41.3   |          nan   | 1x        |
+| the full flow (baseline)                           |     42.1  |       nan    |   42.1   |          nan   | 1x        |
 | 1. synth only                                      |      2.44 |         2.42 |    0.018 |           99.3 | 17x       |
-| 2. place, place_ios, prop                          |      3.66 |         2.45 |    1.21  |           67   | 11x       |
+| 2. place, place_ios, prop                          |      3.66 |         2.45 |    1.21  |           67   | 12x       |
 | 3. place, NO macro place, place_ios, vCTS, GRT(21) |      3.67 |         2.36 |    1.31  |           64.4 | 11x       |
-| 4. place, NO macro place, place_ios, vCTS, rd      |      3.96 |         2.36 |    1.6   |           59.6 | 10x       |
+| 4. place, NO macro place, place_ios, vCTS, rd      |      3.96 |         2.36 |    1.6   |           59.6 | 11x       |
 | 5. place, NO macro place, place_ios, GRT(15)       |      4.02 |         2.52 |    1.5   |           62.7 | 10x       |
 | 6. place, NO macro place, TD, prop                 |      5.35 |         3.04 |    2.31  |           56.8 | 8x        |
 | 7. place, NO macro place, TD, RD, GRT(20)          |      5.38 |         2.37 |    3.01  |           44.1 | 8x        |
-| 8. place, TD, rd, GRT(13), rt                      |      6.36 |         2.42 |    3.94  |           38.1 | 6x        |
+| 8. place, TD, rd, GRT(13), rt                      |      6.36 |         2.42 |    3.94  |           38.1 | 7x        |
 | 9. place, NO macro place, TD, RD, rd, GRT(28), rt  |      7.1  |         2.41 |    4.69  |           33.9 | 6x        |
 | 10. place, NO macro place, TD, RD, CTS, GRT(2), rt |     10.9  |         3.55 |    7.32  |           32.7 | 4x        |
 
@@ -138,7 +138,7 @@ Rung A explored 238 configurations.
 
 ## multiplier_top (macro array)
 
-Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **668s**. The cheapest rung on the front is 169x faster than that at 32.1% error, and the most accurate is 10x faster at 6.9%.
+Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **900s**. The cheapest rung on the front is 227x faster than that at 32.1% error, and the most accurate is 14x faster at 6.9%.
 
 Sampled 177 near-critical reg2reg paths. Recall@10 by chance is 0.06: a rung scoring at or below that has no skill at picking the critical paths.
 
@@ -155,7 +155,7 @@ Rung A explored 231 configurations.
 |   5 | place, NO macro place, vCTS, rd, GRT(29), rt |      48.24  |        0.1087  |        0.7203 | -0.08287 |  0.1394  |            0.2 |                 0.03916 |                 0.7048 |               0.197  |             0.08492 |
 |   6 | place, RD, vCTS, CTS, rd, GRT(9), rt         |      66.08  |        0.06919 |        0.7793 | -0.01845 |  0.09514 |            0.2 |                 0.03549 |                 0.76   |               0.112  |             0.2954  |
 
-**Where the flow's time goes**, largest first: global_route 374s, global_place 200s, cts 39s, floorplan 21s, macro_place 21s, detailed_place 8s, repair_design 5s, place_pins 1s. The single biggest stage is global_route at 56% of the flow, and the estimator does not skip it so much as run a far cheaper version of it -- which is where the saving comes from.
+**Where the flow's time goes**, largest first: global_route 475s, global_place 271s, cts 78s, floorplan 24s, macro_place 22s, detailed_place 17s, repair_design 12s, place_pins 2s. The single biggest stage is global_route at 53% of the flow, and the estimator does not skip it so much as run a far cheaper version of it -- which is where the saving comes from.
 
 **What each stage costs**, from the deepest rung measured (place, RD, vCTS, CTS, rd, GRT(9), rt): macro_place 20.9s, global_route 18.6s, cts 6.33s, global_place 5.2s, repair_design 3.87s, repair_timing 2.57s, place_pins 0.02s, floorplan 0.008s.
 
@@ -165,13 +165,13 @@ Rung A explored 231 configurations.
 
 | rung                                            |   total_s |   overhead_s |   work_s |   overhead_pct | vs flow   |
 |:------------------------------------------------|----------:|-------------:|---------:|---------------:|:----------|
-| the full flow (baseline)                        |    668    |       nan    |   668    |         nan    | 1x        |
-| 1. synth only                                   |      3.96 |         3.95 |     0.01 |          99.7  | 169x      |
-| 2. place, NO macro place, TD, RD, vCTS, CTS, rd |     29.8  |         8.72 |    21.1  |          29.2  | 22x       |
-| 3. place, NO macro place, GRT(11), rt           |     41.2  |         3.97 |    37.3  |           9.62 | 16x       |
-| 4. place, place_ios, vCTS, prop                 |     47.8  |         3.72 |    44    |           7.79 | 14x       |
-| 5. place, NO macro place, vCTS, rd, GRT(29), rt |     48.2  |         3.65 |    44.6  |           7.56 | 14x       |
-| 6. place, RD, vCTS, CTS, rd, GRT(9), rt         |     66.1  |         9.02 |    57.1  |          13.6  | 10x       |
+| the full flow (baseline)                        |    900    |       nan    |   900    |         nan    | 1x        |
+| 1. synth only                                   |      3.96 |         3.95 |     0.01 |          99.7  | 227x      |
+| 2. place, NO macro place, TD, RD, vCTS, CTS, rd |     29.8  |         8.72 |    21.1  |          29.2  | 30x       |
+| 3. place, NO macro place, GRT(11), rt           |     41.2  |         3.97 |    37.3  |           9.62 | 22x       |
+| 4. place, place_ios, vCTS, prop                 |     47.8  |         3.72 |    44    |           7.79 | 19x       |
+| 5. place, NO macro place, vCTS, rd, GRT(29), rt |     48.2  |         3.65 |    44.6  |           7.56 | 19x       |
+| 6. place, RD, vCTS, CTS, rd, GRT(9), rt         |     66.1  |         9.02 |    57.1  |          13.6  | 14x       |
 
 ![multiplier_top (macro array) time breakdown](time_multiplier_top.png)
 
@@ -183,7 +183,7 @@ Rung A explored 231 configurations.
 
 ## multiplier_top, macro paths only
 
-Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **668s**. The cheapest rung on the front is 45x faster than that at 18.7% error, and the most accurate is 20x faster at 6.2%.
+Running the flow itself -- floorplan through global route, the baseline this is all measured against -- takes **900s**. The cheapest rung on the front is 60x faster than that at 18.7% error, and the most accurate is 26x faster at 6.2%.
 
 Sampled 78 near-critical reg2reg paths. Recall@10 by chance is 0.13: a rung scoring at or below that has no skill at picking the critical paths.
 
@@ -196,7 +196,7 @@ Rung A explored 234 configurations.
 |   1 | place, NO macro place, place_ios, prop |       14.89 |        0.1869  |        0.7682 |  0.1186  |  0.1845  |              0 |                 0.2681  |                 0.5226 |              0.08383 |              0.5764 |
 |   2 | place, TD, GRT(3)                      |       34.02 |        0.06164 |        0.8175 | -0.02387 |  0.07016 |              0 |                 0.06251 |                 0.6417 |              0.06053 |              0.7043 |
 
-**Where the flow's time goes**, largest first: global_route 374s, global_place 200s, cts 39s, floorplan 21s, macro_place 21s, detailed_place 8s, repair_design 5s, place_pins 1s. The single biggest stage is global_route at 56% of the flow, and the estimator does not skip it so much as run a far cheaper version of it -- which is where the saving comes from.
+**Where the flow's time goes**, largest first: global_route 475s, global_place 271s, cts 78s, floorplan 24s, macro_place 22s, detailed_place 17s, repair_design 12s, place_pins 2s. The single biggest stage is global_route at 53% of the flow, and the estimator does not skip it so much as run a far cheaper version of it -- which is where the saving comes from.
 
 **What each stage costs**, from the deepest rung measured (place, TD, GRT(3)): macro_place 18.7s, global_route 5.61s, global_place 4.64s, place_pins 0.017s, floorplan 0.007s.
 
@@ -206,9 +206,9 @@ Rung A explored 234 configurations.
 
 | rung                                      |   total_s |   overhead_s |   work_s |   overhead_pct | vs flow   |
 |:------------------------------------------|----------:|-------------:|---------:|---------------:|:----------|
-| the full flow (baseline)                  |     668   |       nan    |    668   |          nan   | 1x        |
-| 1. place, NO macro place, place_ios, prop |      14.9 |         3.73 |     11.2 |           25   | 45x       |
-| 2. place, TD, GRT(3)                      |      34   |         3.95 |     30.1 |           11.6 | 20x       |
+| the full flow (baseline)                  |     900   |       nan    |    900   |          nan   | 1x        |
+| 1. place, NO macro place, place_ios, prop |      14.9 |         3.73 |     11.2 |           25   | 60x       |
+| 2. place, TD, GRT(3)                      |      34   |         3.95 |     30.1 |           11.6 | 26x       |
 
 ![multiplier_top, macro paths only time breakdown](time_multiplier_top_macro.png)
 
@@ -239,6 +239,316 @@ Rank correlation is absent from this table on purpose: it is
 invariant under a positive scale factor, so calibration cannot
 change the order the paths come out in, only how wrong the numbers
 are.
+
+---
+
+## How stable is any of this?
+
+Every number above comes from one run per configuration, and
+adjacent rungs on the front sit 0.0005 apart in mean relative
+error. `knob_sweep.py` states the assumption that makes that
+acceptable -- accuracy is deterministic for a given configuration,
+so repeating it would measure nothing -- and it is true. An
+identical re-run reproduces exactly.
+
+Determinism is not stability. The question is what happens when an
+input moves by an amount nobody would call a design change.
+
+This is somebody else's experiment. Kahng & Mantik (ISQED 2002)
+gave the taxonomy of perturbations that leave a solution
+well-formed and measured tool noise with it; Jeong & Kahng found a
+1ps timing-constraint change moving post-synthesis area by up to
+16.4%; Chan, Kahng & Woo (SLIP 2020) re-ran both on commercial
+tools, found 7% on routed wirelength from netlist reordering and
+11.5% from nudging a placement blockage, and framed the result as
+a *noise floor* -- a lower bound on how accurate any predictor of
+that flow can be. Nothing about the method here is new. What is
+new is the subject (OpenROAD, not a commercial tool), the target
+(a predictor being audited rather than a flow characterised), and
+the per-stage attribution, which is affordable only because `fork`
+makes the shared prefix free.
+
+### Which stage manufactures the noise
+
+A clock-period nudge of 1-10ps cannot legitimately move the
+answer: `min_period = clk_period - slack`, so the constraint
+cancels out of the metric exactly. Anything that survives is
+tool noise. Applied at each stage in turn, the nudge persisting
+to the end of the run, so the difference between consecutive
+stages isolates one stage's contribution:
+
+| rung     | perturbation    | stage         | class        |   period range % |   err span |
+|:---------|:----------------|:--------------|:-------------|-----------------:|-----------:|
+| cheap    | floorplan_area  | floorplan     | geometric    |           5.0376 |    0.02088 |
+| cheap    | floorplan_clock | floorplan     | null_control |           0      |    0       |
+| cheap    | floorplan_rows  | floorplan     | geometric    |           4.4527 |    0.01908 |
+| cheap    | macro_density   | macro_place   | geometric    |           0.8125 |    0.00228 |
+| cheap    | pins_clock      | pins_pre      | null_control |           0      |    0       |
+| middle   | floorplan_area  | floorplan     | geometric    |           2.8731 |    0.02547 |
+| middle   | floorplan_clock | floorplan     | constraint   |           2.7929 |    0.02995 |
+| middle   | floorplan_rows  | floorplan     | geometric    |           3.84   |    0.02308 |
+| middle   | grt_clock       | grt           | constraint   |           0      |    0       |
+| middle   | macro_density   | macro_place   | geometric    |           1.0264 |    0.0119  |
+| middle   | pins_clock      | pins_pre      | constraint   |           2.7929 |    0.02995 |
+| middle   | place_clock     | global_place  | constraint   |           2.7825 |    0.02995 |
+| middle   | repair_clock    | repair_design | constraint   |           0      |    0       |
+| accurate | cts_clock       | clock         | constraint   |           0      |    0       |
+| accurate | floorplan_area  | floorplan     | geometric    |           3.0037 |    0.02328 |
+| accurate | floorplan_clock | floorplan     | constraint   |           3.1387 |    0.03117 |
+| accurate | floorplan_rows  | floorplan     | geometric    |           4.3477 |    0.02081 |
+| accurate | grt_clock       | grt           | constraint   |           0      |    0       |
+| accurate | macro_clock     | macro_place   | constraint   |           3.1219 |    0.03117 |
+| accurate | macro_density   | macro_place   | geometric    |           1.0995 |    0.01213 |
+| accurate | pins_clock      | pins_pre      | constraint   |           3.1387 |    0.03117 |
+| accurate | place_clock     | global_place  | constraint   |           3.1219 |    0.03117 |
+| accurate | repair_clock    | repair_design | constraint   |           0      |    0       |
+
+On the middle rung the spread is **0.0300** in
+mean relative error, against that rung's own error of
+**0.0630**. The noise is about half
+the size of the quantity being measured, and it is
+60x the smallest gap the front
+is ranked by. Resolving that gap at this spread would need
+roughly **28709 runs** per configuration.
+
+Nudges at CTS, repair_design and global route move the answer
+by **exactly zero**. All of it comes from timing-driven global
+placement.
+
+**What this is not.** Var(E - T) = sigma_E^2 + sigma_T^2, and
+the noise floor in Chan/Kahng/Woo's sense is sigma_T: the
+perturbation is not an input the estimator is given, so no
+predictor can beat its target's own dispersion. The flow is
+not re-run here, so what is measured is sigma_E. That bounds
+how reproducible the front is, not how accurate an estimator
+could ever be.
+
+## Can it tell you whether your change helped?
+
+That is the question a developer actually asks, and the reason
+it is hard is not that the flow is slow. One flow run is one
+draw from a distribution wider than most changes. An infinitely
+fast flow would still not answer it.
+
+Eleven RTL variants were run through the real flow and through
+the estimator, each at five site-aligned core-area
+perturbations. Three variants are equivalence-preserving, so
+their true effect on the achieved period is exactly zero; the
+rest move it by a real and measured amount.
+
+### Provisioning an ensemble
+
+What an extra ensemble member costs is not a whole run's
+memory. Fork children are copy-on-write, so shared pages are
+paid once and the marginal cost is the pages a child dirties
+after the fork:
+
+| stage         |   private dirty MB |
+|:--------------|-------------------:|
+| sta           |              770   |
+| repair_timing |              742.4 |
+| grt           |              742.3 |
+| repair_design |              189.1 |
+| clock         |              189   |
+| global_place  |              188.9 |
+| load          |              135.5 |
+| macro_place   |               60.3 |
+| pins_pre      |               17.7 |
+| wire_rc       |                5.6 |
+| floorplan     |                5.6 |
+
+So a member forked before global placement costs single-digit
+megabytes, and one forked after it costs a few hundred. On any
+plausible CI machine cores bind the ensemble long before
+memory does.
+
+### Reproducing the stability results
+
+```sh
+bazel test //test/estimation_ladder:seed_sensitivity_test
+bazel run  //test/estimation_ladder:seed_sensitivity
+bazel run  //test/estimation_ladder:fuzz_floor
+```
+
+---
+
+## Can a PR be given a quantified verdict?
+
+The question a developer asks is whether their change helped.
+The usual answer is to run the flow and compare -- and on a design
+with macros that answer is worth very little, for a reason that has
+nothing to do with how long the flow takes.
+
+### Macro placement is reproducible, and chaotic
+
+`rtl_macro_placer` is deterministic -- a forked re-run of an
+identical configuration reproduces every macro exactly -- and
+independent of thread count. Neither was safe to assume: the
+RTL-MP papers describe a multi-start scheme across ten threads.
+
+But nudging the core edge by **one site (0.054um, 0.014% of
+a 392um core)** moves **16 of 16 macros**, by **144um on average** and 285um at worst, flipping 8 of them.
+
+The achieved period across five such nudges spans **24.7%**. Nothing is monotone: two
+sites in one direction barely moves anything while one site
+moves everything.
+
+For comparison, the same class of perturbation moves the
+wire-only `multiplier` design by 1.2%. So a single flow run
+on a macro design is one draw from a wide distribution, and
+**an infinitely fast flow would still not answer the
+question**. Latency was never the binding constraint;
+variance is.
+
+### Ensembles buy resolution
+
+The spread is noise and it averages away: the resolvable
+difference falls roughly as 1/sqrt(k). What does *not* average
+away is the effect underneath -- `roworder`'s estimated shift
+holds near +7.8% while its interval shrinks, which is the
+signature of signal.
+
+| variant   |   k |   resolvable % |   estimated shift % |
+|:----------|----:|---------------:|--------------------:|
+| roworder  |   5 |          13.95 |                7.41 |
+| roworder  |  10 |          10.04 |                7.71 |
+| roworder  |  20 |           7.95 |                7.85 |
+| roworder  |  40 |           5.73 |                7.79 |
+| stage1    |   5 |          10.94 |               -0.06 |
+| stage1    |  10 |           8.55 |               -0.43 |
+| stage1    |  20 |           6.04 |               -0.37 |
+| stage1    |  40 |           4.26 |               -0.28 |
+
+### Does the estimator reach the flow's verdict? (`multiplier`)
+
+41 perturbations per arm; the flow is 47s here. Magnitudes are not expected to match -- the
+estimator is biased and its per-perturbation response is
+uncorrelated with the flow's. Only the *ordering* has to
+carry over.
+
+| variant   |   flow shift % | flow verdict   |   est shift % | est verdict   | agree   |
+|:----------|---------------:|:---------------|--------------:|:--------------|:--------|
+| load8     |           0.45 | worse          |         -0.1  | none          | no      |
+| split     |           9.43 | worse          |         26.78 | worse         | yes     |
+
+It catches the large regression and is blind to the small
+one. The failure direction is the tolerable one: on `load8`
+the estimator returns inconclusive rather than a confident
+wrong answer.
+
+**Precision is not accuracy.** On `load8` the estimator's own
+bootstrap is tight -- -0.10% [-0.19, +0.04] -- while the truth
+is +0.45%. The ensemble is *precisely wrong*, and more `k`
+narrows that interval without moving it toward truth. So the
+gate requires two bars: the interval must exclude no-change,
+**and** the shift must exceed a validated accuracy floor.
+
+Without the second bar the gate reports `+65.6 points`
+(improved) for a change the flow says is 0.45% *worse* --
+exactly the failure that ends a KPI's credibility the first
+time someone checks it by hand.
+
+### Does the estimator reach the flow's verdict? (`multiplier_top`)
+
+9 perturbations per arm; the flow is 900s, so the reference is itself underpowered. Magnitudes are not expected to match -- the
+estimator is biased and its per-perturbation response is
+uncorrelated with the flow's. Only the *ordering* has to
+carry over.
+
+| variant   |   flow shift % | flow verdict   |   est shift % | est verdict   | agree   |
+|:----------|---------------:|:---------------|--------------:|:--------------|:--------|
+| roworder  |           1.52 | none           |          9.72 | worse         | no      |
+| stage1    |          -1.06 | none           |         -0.45 | none          | yes     |
+| stage4    |          19.68 | worse          |         37.78 | worse         | yes     |
+
+**The failure mode inverts on the macro design, and it
+inverts the wrong way.** On `multiplier` the estimator
+under-claims: it returns inconclusive where the flow sees an
+effect, which is the safe direction. Here it *over*-claims --
+`roworder` is called a confident ~10% regression where the
+flow cannot detect a change at all. A false alarm is the
+failure that ends a KPI, because the first developer to check
+one by hand finds nothing there.
+
+So the accuracy floor for this design is **at least 10%**,
+not the 1% measured on `multiplier`. That is the same warning
+as before, now with a number attached: the machinery
+transfers and the magnitudes do not.
+
+Two things soften it without excusing it. The flow reference
+is itself underpowered -- nine runs give it a +-5% interval,
+so 'inconclusive' partly means the reference cannot resolve
+7.8% either. And the estimator overstates magnitudes by a
+fairly consistent factor (37.8% against 19.7% on `stage4`,
+26.8% against 9.4% on `split`), which suggests a calibration
+rather than a randomly wrong answer. Neither is measured well
+enough to act on.
+
+`stage4` is the positive control and it agrees, so the
+comparison itself is sound; it is the estimator's confidence
+that is not.
+
+### What it costs
+
+Every other runtime in this study was measured under `fork`:
+contended, and single-threaded because `fork` quiesces the host
+before forking. Neither is the number to plan a CI budget from,
+so a gate member is timed alone on the machine with all its
+threads.
+
+| design         | one member, all threads, alone   |   threads |
+|:---------------|:---------------------------------|----------:|
+| multiplier     | 4.9s                             |        16 |
+| multiplier_top | 86.2s                            |        16 |
+
+On `multiplier_top` that is 86s against ~470s single-threaded, a
+5.4x difference -- which is why an ensemble runs as separate
+processes rather than as a forked walk. Thread scaling is
+sublinear while process parallelism is not, so the right
+arrangement flips at k = cores: below it, spend spare cores on
+threads within each member; at or above it, one thread each.
+
+For `multiplier_top` on 64 cores: k=8 takes ~2 min per arm, k=16
+~2.9 min, k=40 ~7.8 min. A single flow run is 900s. So for the
+wall-clock of **one** flow sample you can have a 40-member
+ensemble on **both** arms -- and a cached merge-base halves it.
+
+### Calibrating this on another design
+
+The machinery transfers. **The magnitudes do not**, and neither does
+the accuracy floor: the perturbation that moves `multiplier` by 1.2%
+moves `multiplier_top` by 25%. Run these in order before showing
+anyone a KPI, because each one can change what the next should be:
+
+1. `macro_stability` -- is the placer deterministic, thread-
+   independent, and how chaotic? Minutes, and it can invalidate the
+   rest.
+2. `k_scaling` -- does an ensemble buy resolution, and how much `k`
+   does the effect size you care about need?
+3. `method_validation` -- **not optional.** It sets the accuracy
+   floor by comparing against real flow ensembles. Until it has run,
+   the gate reports a precision it cannot back: on `load8` it would
+   otherwise have called a 0.45% regression a +65.6 point
+   improvement.
+4. `ci_gate` -- only now.
+
+Step 3 needs a design whose flow you can afford to ensemble. Where
+you cannot, validate the method on a smaller vehicle and carry over
+the *mechanism*, never the numbers.
+
+### Reproducing the gate campaign
+
+```sh
+bazel run //test/estimation_ladder:macro_stability_top   # is the placer chaotic?
+bazel run //test/estimation_ladder:k_scaling_top         # does ensemble buy resolution?
+bazel run //test/estimation_ladder:method_validation     # does it match the flow?
+bazel run //test/estimation_ladder:ci_gate_demo          # a large regression
+bazel run //test/estimation_ladder:ci_gate_demo_small    # below the floor
+```
+
+`method_validation` is not optional before using the gate on a new
+design: it is what sets the accuracy floor, and the floor is
+design-specific.
 
 ---
 

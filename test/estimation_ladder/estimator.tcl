@@ -23,26 +23,18 @@ source $::env(ESTIMATOR_LIB_TCL)
 
 set start_time [clock clicks -milliseconds]
 
-# 1. Floorplan.  Common to every configuration -- in batch mode it is the
-# root of the tree and is paid exactly once.
-time_phase floorplan {
-    initialize_floorplan -die_area $::env(DIE_AREA) \
-        -core_area $::env(CORE_AREA) \
-        -site $::env(PLACE_SITE)
-
-    if {$::env(MAKE_TRACKS) ne ""} {
-        source $::env(MAKE_TRACKS)
-    }
-}
-
 # Batch mode: walk a whole tree of configurations in this one process,
 # forking at each divergence so a shared stage is paid exactly once.  One
-# leaf JSON per configuration lands in EST_RESULTS_DIR.
+# leaf JSON per configuration lands in EST_RESULTS_DIR.  The floorplan is
+# the tree's first stage rather than a preamble here, so the walk can fork
+# a configuration that perturbs the core rectangle; with every
+# configuration agreeing on it the walk runs it inline and forks nothing.
 if {[info exists ::env(EST_MANIFEST_DIR)] && $::env(EST_MANIFEST_DIR) ne ""} {
     source $::env(ESTIMATOR_BATCH_TCL)
     exit 0
 }
 
+est_stage_floorplan
 est_stage_wire_rc
 est_stage_pins_pre
 est_stage_macro_place

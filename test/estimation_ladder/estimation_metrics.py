@@ -68,22 +68,34 @@ def macro_keys(path_json):
     return {(p["start"], p["end"]) for p in data["paths"] if p.get("macro_path")}
 
 
-def compute_metrics(truth_json, est_json):
+def compute_metrics(truth_json, est_json, allow_missing=False):
     """Return (metrics dict, raw estimator JSON).
 
     A path the estimator could not measure is an error, not a fallback:
     silently dropping it would let a configuration look accurate by
     reporting only the paths it happened to find.
+
+    allow_missing scores the intersection instead, and exists for the one
+    caller where a vanished path is the measurement rather than a fault:
+    the seed-sensitivity study's synthesis arm re-synthesises against a
+    nudged constraint, so the cells a path ran through may genuinely no
+    longer exist.  It reports n_scored and n_absent so the survival rate
+    stays visible, and never silently hides a shrinking sample.  Extra
+    paths are still an error either way -- those cannot come from
+    attrition.
     """
     _, truth_paths = load_paths(truth_json)
     est, est_paths = load_paths(est_json)
 
-    if set(truth_paths) != set(est_paths):
+    absent = set(truth_paths) - set(est_paths)
+    extra = set(est_paths) - set(truth_paths)
+    if extra or (absent and not allow_missing):
         raise ValueError(
             "Estimator path set differs from ground truth: "
-            f"missing {set(truth_paths) - set(est_paths)}, "
-            f"extra {set(est_paths) - set(truth_paths)}"
+            f"missing {absent}, extra {extra}"
         )
+    if absent:
+        truth_paths = {k: v for k, v in truth_paths.items() if k not in absent}
 
     keys = sorted(truth_paths)
     rel = [(est_paths[k] - truth_paths[k]) / truth_paths[k] for k in keys]
@@ -99,6 +111,8 @@ def compute_metrics(truth_json, est_json):
         "kendall_tau": float(kendalltau(truth_vals, est_vals).statistic),
         "spearman_rho": float(spearmanr(truth_vals, est_vals).statistic),
         "worst_recall": worst_recall(truth_paths, est_paths, k=10),
+        "n_scored": len(keys),
+        "n_absent": len(absent),
         "runtime_s": est.get("runtime_s"),
         "phases": est.get("phases", {}),
         **_subset_metrics(truth_paths, est_paths, macros),

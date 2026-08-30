@@ -14,11 +14,14 @@ of the archive this rung writes.
 """
 
 import argparse
+import collections
+import concurrent.futures
 import json
 import os
 import shutil
 import subprocess
 import tempfile
+import time
 
 import optuna
 
@@ -182,7 +185,9 @@ def run_estimator(estimator_exe, env, ground_truth_json, timeout_s=None, out_jso
     # pass a path; the sweep does not, and gets a scratch file.
     keep = out_json is not None
     if not keep:
-        with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tf:
+        with tempfile.NamedTemporaryFile(
+            suffix=".json", delete=False, dir=scratch_root()
+        ) as tf:
             out_json = tf.name
     env["OUTPUT_JSON"] = out_json
 
@@ -190,6 +195,11 @@ def run_estimator(estimator_exe, env, ground_truth_json, timeout_s=None, out_jso
     try:
         full_env = os.environ.copy()
         full_env.update(env)
+        # /tmp here is tmpfs -- 16GB of RAM on this machine -- so anything
+        # the tools spill there is spent from the same pool the 16
+        # concurrent children are already using. Point them at the
+        # workspace instead.
+        full_env.setdefault("TMPDIR", scratch_root())
         try:
             res = subprocess.run(
                 cmd,
@@ -210,6 +220,23 @@ def run_estimator(estimator_exe, env, ground_truth_json, timeout_s=None, out_jso
         if not keep and os.path.exists(out_json):
             os.remove(out_json)
     return metrics
+
+
+def scratch_root():
+    """Where a wave's working files go.
+
+    Under the workspace rather than /tmp: a long walk writes a leaf per
+    configuration and those are the only way to see how far it has got
+    while it is still running, so they need to be somewhere inspectable.
+    /tmp on this machine is tmpfs -- 16GB carved out of 30GB of RAM --
+    so a wave of sixteen children spilling there competes for memory with
+    the very tools doing the work, and a wide campaign can exhaust it.
+    This repo bans /tmp for that reason.
+    """
+    ws = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
+    root = os.path.join(ws, "tmp") if ws else os.path.join(os.getcwd(), "tmp")
+    os.makedirs(root, exist_ok=True)
+    return root
 
 
 def run_estimator_batch(
@@ -236,7 +263,7 @@ def run_estimator_batch(
     Returns {id: metrics or None}: an id whose subtree crashed has no leaf
     JSON and maps to None, while its siblings still report.
     """
-    work = tempfile.mkdtemp(prefix="est_batch_")
+    work = tempfile.mkdtemp(prefix="est_batch_", dir=scratch_root())
     manifest_dir = os.path.join(work, "manifest")
     results_dir = os.path.join(work, "results")
     os.makedirs(manifest_dir)
@@ -257,25 +284,64 @@ def run_estimator_batch(
         ]
         if parallel:
             cmd.append("EST_PARALLEL=1")
-            # Every forked child inherits the tool's thread count; a wave
-            # of concurrent subtrees each sized for the whole machine is
-            # oversubscription, not speed. Divide the machine instead.
-            threads = max(1, (os.cpu_count() or 8) // max(1, len(envs_by_id)))
-            cmd.append(f"NUM_CORES={threads}")
+            # Concurrency is bounded by the fork pool now, not by starving
+            # each child of threads. An earlier version divided the
+            # machine by the manifest size, which for any wave wider than
+            # the core count rounded to one thread each and then forked
+            # every child anyway -- 41 OpenROAD processes on 16 cores.
+            #
+            # fork quiesces the host to a single thread before forking, so
+            # a child is single-threaded regardless; the honest knob is
+            # how many children run at once, and one per core is the same
+            # rule a build tool uses.
+            cmd.append("NUM_CORES=1")
+            cmd.append(f"ORFS_FORK_JOBS={os.cpu_count() or 8}")
         if subtree_timeout_s is not None:
             # The batch-level timeout below is a backstop; this is the
             # per-trial budget, enforced inside the walk (a runaway
             # subtree is killed, its siblings still report).
             cmd.append(f"EST_SUBTREE_TIMEOUT={subtree_timeout_s}")
+        # Streamed rather than captured. A wide walk on a big design runs
+        # for tens of minutes and the walk is depth-first, so leaves land
+        # steadily throughout -- but capture_output holds every line until
+        # the process exits, which makes a running batch indistinguishable
+        # from a hung one. Only the lines worth watching are echoed; the
+        # rest is kept for the failure message.
+        batch_env = os.environ.copy()
+        batch_env["TMPDIR"] = scratch_root()
+        done = 0
+        total = len(envs_by_id)
+        tail = collections.deque(maxlen=200)
         try:
-            res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
-        except subprocess.TimeoutExpired:
-            raise TimeoutError(f"estimator batch exceeded {timeout_s}s")
-        if res.returncode != 0:
-            raise RuntimeError(
-                f"estimator batch exited {res.returncode}\n"
-                f"stdout: {res.stdout[-4000:]}\nstderr: {res.stderr[-4000:]}"
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1,
+                env=batch_env,
             )
+            start = time.time()
+            for line in proc.stdout:
+                tail.append(line)
+                if "leaf" in line and "done" in line:
+                    done += 1
+                    elapsed = time.time() - start
+                    rate = elapsed / done
+                    eta = rate * (total - done)
+                    print(
+                        f"  [{done}/{total}] {elapsed / 60.0:.1f}min elapsed,"
+                        f" ~{eta / 60.0:.1f}min left",
+                        flush=True,
+                    )
+                elif "subtree" in line and "failed" in line:
+                    print(f"  {line.rstrip()}", flush=True)
+            rc = proc.wait(timeout=timeout_s)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            raise TimeoutError(f"estimator batch exceeded {timeout_s}s")
+        if rc != 0:
+            raise RuntimeError(f"estimator batch exited {rc}\n" + "".join(tail))
 
         results = {}
         for cid in envs_by_id:
@@ -292,6 +358,95 @@ def run_estimator_batch(
         return results
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+
+def run_estimator_pool(
+    estimator_exe,
+    envs_by_id,
+    ground_truth_json,
+    timeout_s=None,
+    jobs=None,
+    threads=None,
+    keep_results_dir=None,
+    progress=True,
+):
+    """Run configurations as separate processes, not as one forked walk.
+
+    Which tool is right depends entirely on how deep the shared prefix
+    is, and for an ensemble it is shallow. Members differ in the
+    perturbation, which is applied at the floorplan, so they diverge at
+    the ROOT of the walk and share only the design load -- about 9s of a
+    470s leaf on multiplier_top, or 2%. Against that, forking costs
+    something much larger: a forked child cannot raise its thread count
+    (//test:fork_smoke proves it deadlocks in futex_do_wait), so every
+    member is single-threaded.
+
+    That is fine when the fan-out is at least the core count, where
+    single-threaded processes are the fastest arrangement anyway. It is
+    badly wrong for a CI gate, which wants a small ensemble answered
+    quickly: eight forked children on a 64-core machine use eight cores
+    and idle the other 56, and nothing inside the walk can spend them.
+
+    So: a pool of independent processes, each multi-threaded, sized so
+    jobs * threads is the machine. Use run_estimator_batch instead
+    wherever configurations share a deep prefix -- a sweep over late
+    stages -- where the walk really does pay each shared stage once.
+    """
+    cpus = os.cpu_count() or 8
+    if jobs is None:
+        jobs = min(len(envs_by_id), cpus) or 1
+    if threads is None:
+        threads = max(1, cpus // max(1, jobs))
+
+    results = {}
+    keep = keep_results_dir
+    if keep:
+        os.makedirs(keep, exist_ok=True)
+    work = tempfile.mkdtemp(prefix="est_pool_", dir=scratch_root())
+    started = time.time()
+    done = 0
+
+    def one(cid, env):
+        out = os.path.join(keep or work, f"{cid}.json")
+        run_estimator(
+            estimator_exe,
+            dict(env, NUM_CORES=str(threads)),
+            ground_truth_json,
+            timeout_s=timeout_s,
+            out_json=out,
+        )
+        return cid, out
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=jobs) as pool:
+            futures = {
+                pool.submit(one, cid, env): cid for cid, env in envs_by_id.items()
+            }
+            for fut in concurrent.futures.as_completed(futures):
+                cid = futures[fut]
+                try:
+                    _, out = fut.result()
+                    results[cid] = compute_metrics(ground_truth_json, out)[0]
+                except Exception as exc:  # noqa: BLE001 - one member, not the run
+                    # A member that dies loses only itself, matching the
+                    # forked walk: a crashed subtree records a status and
+                    # its siblings still report.
+                    print(f"  member {cid} failed: {exc}", flush=True)
+                    results[cid] = None
+                done += 1
+                if progress:
+                    elapsed = time.time() - started
+                    eta = elapsed / done * (len(futures) - done)
+                    print(
+                        f"  [{done}/{len(futures)}] {elapsed / 60.0:.1f}min"
+                        f" elapsed, ~{eta / 60.0:.1f}min left"
+                        f" ({jobs} jobs x {threads} threads)",
+                        flush=True,
+                    )
+    finally:
+        if not keep:
+            shutil.rmtree(work, ignore_errors=True)
+    return results
 
 
 def objective_values(metrics, subset):

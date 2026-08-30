@@ -20,3 +20,6 @@ bep.json
 # and the PR-body rendering of its README.
 test/estimation_ladder/calib_*.json
 test/estimation_ladder/README.pr.md
+
+# Verilator build artifacts from the equivalence smoke checks
+obj_dir/

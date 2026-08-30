@@ -130,6 +130,39 @@ set st [fork -parallel x {1 2 3} {
 }]
 check "parallel barrier" {1 0 2 0 3 0} $st
 
+# 10. -jobs bounds how many children are alive at once. Each child marks
+# itself present, waits long enough for any siblings that were going to be
+# forked alongside it, counts the marks, then clears its own and reports
+# the count. With a cap of 2 no child may ever see 3.
+set st [fork -jobs 2 x {1 2 3 4 5 6} {
+    close [open $dir/live.$x w]
+    after 150
+    set n [llength [glob -nocomplain -directory $dir live.*]]
+    file delete $dir/live.$x
+    ::orfs::posix_exit $n
+}]
+set over [list]
+dict for {v n} $st {
+    if {$n > 2} {
+        lappend over "$v saw $n"
+    }
+}
+if {[llength $over]} {
+    puts stderr "FAIL: -jobs 2 let more than 2 children run: [join $over {, }]"
+    incr ::failures
+} else {
+    puts "ok: jobs bound"
+}
+
+# 11. -jobs and -parallel disagree about whether siblings are guaranteed
+# to coexist, so asking for both is a bug rather than a preference.
+if {![catch {fork -parallel -jobs 2 x {1} {::orfs::posix_exit 0}} msg]} {
+    puts stderr "FAIL: -parallel with -jobs was accepted"
+    incr ::failures
+} else {
+    puts "ok: parallel+jobs rejected"
+}
+
 if {$failures > 0} {
     puts stderr "$failures test(s) failed"
     exit 1

@@ -1,0 +1,624 @@
+{
+  "accurate": {
+    "per_stage": {
+      "cts_clock": {
+        "kendall_tau_span": 0.0,
+        "kind": "constraint",
+        "knob": "CLK_PERIOD_EPS_CLOCK",
+        "mean_rel_err_span": 4.372257567802906e-08,
+        "period": {
+          "n": 5,
+          "range_pct": 4.327133589478677e-06,
+          "stdev": 1.475127109442524e-05
+        },
+        "stage": "clock",
+        "tail_s": 94.337,
+        "unchanged": true,
+        "values": [
+          "1",
+          "2",
+          "5",
+          "10"
+        ],
+        "worst_recall_span": 0.0,
+        "worst_rel_diff": 1.8235778849730667e-07
+      },
+      "floorplan_area": {
+        "kendall_tau_span": 0.10761705101327734,
+        "kind": "geometric",
+        "knob": "CORE_AREA_EPS_SITES",
+        "mean_rel_err_span": 0.023280495848615336,
+        "period": {
+          "n": 5,
+          "range_pct": 3.0037086654504757,
+          "stdev": 9.025192024382589
+        },
+        "stage": "floorplan",
+        "tail_s": 87.89725000000001,
+        "unchanged": false,
+        "values": [
+          "-2",
+          "-1",
+          "1",
+          "2"
+        ],
+        "worst_recall_span": 0.19999999999999996,
+        "worst_rel_diff": 0.07165126277477647
+      },
+      "floorplan_clock": {
+        "kendall_tau_span": 0.02935010482180289,
+        "kind": "constraint",
+        "knob": "CLK_PERIOD_EPS_FLOORPLAN",
+        "mean_rel_err_span": 0.031166403682976896,
+        "period": {
+          "n": 3,
+          "range_pct": 3.1387498355033236,
+          "stdev": 11.684717240151345
+        },
+        "stage": "floorplan",
+        "tail_s": 92.804,
+        "unchanged": false,
+        "values": [
+          "1",
+          "10"
+        ],
+        "worst_recall_span": 0.30000000000000004,
+        "worst_rel_diff": 0.07941839431682872
+      },
+      "floorplan_rows": {
+        "kendall_tau_span": 0.0656883298392732,
+        "kind": "geometric",
+        "knob": "CORE_AREA_EPS_ROWS",
+        "mean_rel_err_span": 0.020811178213097893,
+        "period": {
+          "n": 3,
+          "range_pct": 4.34773803843729,
+          "stdev": 15.75346524669983
+        },
+        "stage": "floorplan",
+        "tail_s": 85.709,
+        "unchanged": false,
+        "values": [
+          "-1",
+          "1"
+        ],
+        "worst_recall_span": 0.09999999999999998,
+        "worst_rel_diff": 0.0729401265553404
+      },
+      "grt_clock": {
+        "kendall_tau_span": 0.0,
+        "kind": "constraint",
+        "knob": "CLK_PERIOD_EPS_GRT",
+        "mean_rel_err_span": 4.372257567802906e-08,
+        "period": {
+          "n": 5,
+          "range_pct": 4.327133589478677e-06,
+          "stdev": 1.475127109442524e-05
+        },
+        "stage": "grt",
+        "tail_s": 90.88499999999999,
+        "unchanged": true,
+        "values": [
+          "1",
+          "2",
+          "5",
+          "10"
+        ],
+        "worst_recall_span": 0.0,
+        "worst_rel_diff": 1.8235778849730667e-07
+      },
+      "macro_clock": {
+        "kendall_tau_span": 0.030747728860936463,
+        "kind": "constraint",
+        "knob": "CLK_PERIOD_EPS_MACRO_PLACE",
+        "mean_rel_err_span": 0.031166403682976896,
+        "period": {
+          "n": 5,
+          "range_pct": 3.1219020300002462,
+          "stdev": 10.895725387296663
+        },
+        "stage": "macro_place",
+        "tail_s": 91.31049999999999,
+        "unchanged": false,
+        "values": [
+          "1",
+          "2",
+          "5",
+          "10"
+        ],
+        "worst_recall_span": 0.30000000000000004,
+        "worst_rel_diff": 0.08163285969266919
+      },
+      "macro_density": {
+        "kendall_tau_span": 0.039133473095737226,
+        "kind": "geometric",
+        "knob": "PLACE_DENSITY_EPS",
+        "mean_rel_err_span": 0.01212774469423391,
+        "period": {
+          "n": 3,
+          "range_pct": 1.0995447849749103,
+          "stdev": 4.2269618391065364
+        },
+        "stage": "macro_place",
+        "tail_s": 93.82249999999999,
+        "unchanged": false,
+        "values": [
+          "0.001",
+          "-0.001"
+        ],
+        "worst_recall_span": 0.09999999999999998,
+        "worst_rel_diff": 0.07697293399965739
+      },
+      "pins_clock": {
+        "kendall_tau_span": 0.02935010482180289,
+        "kind": "constraint",
+        "knob": "CLK_PERIOD_EPS_PINS_PRE",
+        "mean_rel_err_span": 0.031166403682976896,
+        "period": {
+          "n": 3,
+          "range_pct": 3.1387498355033236,
+          "stdev": 11.684717240151345
+        },
+        "stage": "pins_pre",
+        "tail_s": 85.1315,
+        "unchanged": false,
+        "values": [
+          "1",
+          "10"
+        ],
+        "worst_recall_span": 0.30000000000000004,
+        "worst_rel_diff": 0.07941839431682872
+      },
+      "place_clock": {
+        "kendall_tau_span": 0.030747728860936463,
+        "kind": "constraint",
+        "knob": "CLK_PERIOD_EPS_GLOBAL_PLACE",
+        "mean_rel_err_span": 0.031166403682976896,
+        "period": {
+          "n": 5,
+          "range_pct": 3.1219020300002462,
+          "stdev": 10.895725387296663
+        },
+        "stage": "global_place",
+        "tail_s": 84.66225,
+        "unchanged": false,
+        "values": [
+          "1",
+          "2",
+          "5",
+          "10"
+        ],
+        "worst_recall_span": 0.30000000000000004,
+        "worst_rel_diff": 0.08163285969266919
+      },
+      "repair_clock": {
+        "kendall_tau_span": 0.0,
+        "kind": "constraint",
+        "knob": "CLK_PERIOD_EPS_REPAIR_DESIGN",
+        "mean_rel_err_span": 4.372257567802906e-08,
+        "period": {
+          "n": 5,
+          "range_pct": 4.327133589478677e-06,
+          "stdev": 1.475127109442524e-05
+        },
+        "stage": "repair_design",
+        "tail_s": 92.6165,
+        "unchanged": true,
+        "values": [
+          "1",
+          "2",
+          "5",
+          "10"
+        ],
+        "worst_recall_span": 0.0,
+        "worst_rel_diff": 1.8235778849730667e-07
+      }
+    },
+    "rung": {
+      "CLOCK_MODE": "real",
+      "GPL_ROUTABILITY_DRIVEN": "1",
+      "GPL_TIMING_DRIVEN": "1",
+      "GRT_ITERATIONS": "9",
+      "REPAIR_TIMING_ARGS": "-sequence {vt_swap reroute}",
+      "RUN_GRT": "1",
+      "RUN_MACRO_PLACE": "1",
+      "RUN_PLACE": "1",
+      "RUN_REPAIR_DESIGN": "1",
+      "RUN_REPAIR_TIMING": "1"
+    },
+    "spine": {
+      "bias": -0.056206549502870025,
+      "bias_nonmacro": -0.056206549502870025,
+      "kendall_tau": 0.7092941998602376,
+      "kendall_tau_nonmacro": 0.7092941998602376,
+      "mean_rel_err": 0.05646078725718417,
+      "mean_rel_err_nonmacro": 0.05646078725718417,
+      "n_absent": 0,
+      "n_nonmacro": 54,
+      "n_scored": 54,
+      "phases": {
+        "cts": 15.857,
+        "floorplan": 0.003,
+        "global_place": 34.019,
+        "global_route": 1.083,
+        "load": 1.88,
+        "place_pins": 0.015,
+        "repair_design": 3.742,
+        "repair_timing": 3.902,
+        "sta": 26.543
+      },
+      "runtime_s": 87.044,
+      "spearman_rho": 0.8890794739851342,
+      "spread": 0.027623284491813057,
+      "worst_recall": 0.5
+    },
+    "verdict": {
+      "front_gap": 0.0005,
+      "k_needed": 31084,
+      "min_detectable_diff": 0.08815190155772142,
+      "resolvable_at_k1": false,
+      "selection_bias": {
+        "expected_optimism": 0.10310636466522231,
+        "n_explored": 238
+      },
+      "worst_perturbation": "floorplan_clock",
+      "worst_span": 0.031166403682976896,
+      "worst_stage": "floorplan"
+    }
+  },
+  "cheap": {
+    "per_stage": {
+      "floorplan_area": {
+        "kendall_tau_span": 0.06289308176100616,
+        "kind": "geometric",
+        "knob": "CORE_AREA_EPS_SITES",
+        "mean_rel_err_span": 0.020878943657688817,
+        "period": {
+          "n": 5,
+          "range_pct": 5.037579790432523,
+          "stdev": 16.267908947593146
+        },
+        "stage": "floorplan",
+        "tail_s": 36.83225,
+        "unchanged": false,
+        "values": [
+          "-2",
+          "-1",
+          "1",
+          "2"
+        ],
+        "worst_recall_span": 0.30000000000000004,
+        "worst_rel_diff": 0.0608314595667147
+      },
+      "floorplan_clock": {
+        "kendall_tau_span": 0.0,
+        "kind": "null_control",
+        "knob": "CLK_PERIOD_EPS_FLOORPLAN",
+        "mean_rel_err_span": 4.282069622496554e-08,
+        "period": {
+          "n": 3,
+          "range_pct": 3.5004141407574165e-06,
+          "stdev": 1.414213564161798e-05
+        },
+        "stage": "floorplan",
+        "tail_s": 37.542,
+        "unchanged": true,
+        "values": [
+          "1",
+          "10"
+        ],
+        "worst_recall_span": 0.0,
+        "worst_rel_diff": 9.955345941976448e-08
+      },
+      "floorplan_rows": {
+        "kendall_tau_span": 0.016771488469601747,
+        "kind": "geometric",
+        "knob": "CORE_AREA_EPS_ROWS",
+        "mean_rel_err_span": 0.019082766061654294,
+        "period": {
+          "n": 3,
+          "range_pct": 4.452672782672192,
+          "stdev": 15.264681758903642
+        },
+        "stage": "floorplan",
+        "tail_s": 40.17,
+        "unchanged": false,
+        "values": [
+          "-1",
+          "1"
+        ],
+        "worst_recall_span": 0.20000000000000007,
+        "worst_rel_diff": 0.0575665795716548
+      },
+      "macro_density": {
+        "kendall_tau_span": 0.04192872117400415,
+        "kind": "geometric",
+        "knob": "PLACE_DENSITY_EPS",
+        "mean_rel_err_span": 0.0022791997834752664,
+        "period": {
+          "n": 3,
+          "range_pct": 0.8124590960980769,
+          "stdev": 3.21654781467035
+        },
+        "stage": "macro_place",
+        "tail_s": 39.432500000000005,
+        "unchanged": false,
+        "values": [
+          "0.001",
+          "-0.001"
+        ],
+        "worst_recall_span": 0.10000000000000009,
+        "worst_rel_diff": 0.013971296323495112
+      },
+      "pins_clock": {
+        "kendall_tau_span": 0.0,
+        "kind": "null_control",
+        "knob": "CLK_PERIOD_EPS_PINS_PRE",
+        "mean_rel_err_span": 4.282069622496554e-08,
+        "period": {
+          "n": 3,
+          "range_pct": 3.5004141407574165e-06,
+          "stdev": 1.414213564161798e-05
+        },
+        "stage": "pins_pre",
+        "tail_s": 39.098,
+        "unchanged": true,
+        "values": [
+          "1",
+          "10"
+        ],
+        "worst_recall_span": 0.0,
+        "worst_rel_diff": 9.955345941976448e-08
+      }
+    },
+    "rung": {
+      "PLACE_IOS": "1",
+      "RUN_MACRO_PLACE": "0",
+      "RUN_PLACE": "1"
+    },
+    "spine": {
+      "bias": -0.10523058224975189,
+      "bias_nonmacro": -0.10523058224975189,
+      "kendall_tau": 0.840670859538784,
+      "kendall_tau_nonmacro": 0.840670859538784,
+      "mean_rel_err": 0.10523058224975189,
+      "mean_rel_err_nonmacro": 0.10523058224975189,
+      "n_absent": 0,
+      "n_nonmacro": 54,
+      "n_scored": 54,
+      "phases": {
+        "floorplan": 0.013,
+        "global_place": 27.964,
+        "load": 2.086,
+        "place_pins": 0.029,
+        "sta": 8.537
+      },
+      "runtime_s": 38.629,
+      "spearman_rho": 0.9524299599771296,
+      "spread": 0.02624623110739824,
+      "worst_recall": 0.8
+    },
+    "verdict": null
+  },
+  "design": "multiplier",
+  "front_gap": 0.0005,
+  "middle": {
+    "per_stage": {
+      "floorplan_area": {
+        "kendall_tau_span": 0.12299091544374552,
+        "kind": "geometric",
+        "knob": "CORE_AREA_EPS_SITES",
+        "mean_rel_err_span": 0.02547392071170597,
+        "period": {
+          "n": 5,
+          "range_pct": 2.8730537146342394,
+          "stdev": 8.242796870245963
+        },
+        "stage": "floorplan",
+        "tail_s": 53.0325,
+        "unchanged": false,
+        "values": [
+          "-2",
+          "-1",
+          "1",
+          "2"
+        ],
+        "worst_recall_span": 0.29999999999999993,
+        "worst_rel_diff": 0.06642633203156986
+      },
+      "floorplan_clock": {
+        "kendall_tau_span": 0.02655485674353597,
+        "kind": "constraint",
+        "knob": "CLK_PERIOD_EPS_FLOORPLAN",
+        "mean_rel_err_span": 0.029952171560726326,
+        "period": {
+          "n": 3,
+          "range_pct": 2.7929262348944777,
+          "stdev": 10.18543298905749
+        },
+        "stage": "floorplan",
+        "tail_s": 54.135000000000005,
+        "unchanged": false,
+        "values": [
+          "1",
+          "10"
+        ],
+        "worst_recall_span": 0.30000000000000004,
+        "worst_rel_diff": 0.07351968401045243
+      },
+      "floorplan_rows": {
+        "kendall_tau_span": 0.04612159329140464,
+        "kind": "geometric",
+        "knob": "CORE_AREA_EPS_ROWS",
+        "mean_rel_err_span": 0.02308151283248165,
+        "period": {
+          "n": 3,
+          "range_pct": 3.8400328912545003,
+          "stdev": 13.846629973147685
+        },
+        "stage": "floorplan",
+        "tail_s": 52.33,
+        "unchanged": false,
+        "values": [
+          "-1",
+          "1"
+        ],
+        "worst_recall_span": 0.09999999999999998,
+        "worst_rel_diff": 0.07461404673014446
+      },
+      "grt_clock": {
+        "kendall_tau_span": 0.0,
+        "kind": "constraint",
+        "knob": "CLK_PERIOD_EPS_GRT",
+        "mean_rel_err_span": 4.478658063855612e-08,
+        "period": {
+          "n": 5,
+          "range_pct": 5.165047235319613e-06,
+          "stdev": 1.799999995455437e-05
+        },
+        "stage": "grt",
+        "tail_s": 54.62675,
+        "unchanged": true,
+        "values": [
+          "1",
+          "2",
+          "5",
+          "10"
+        ],
+        "worst_recall_span": 0.0,
+        "worst_rel_diff": 8.253640136356121e-08
+      },
+      "macro_density": {
+        "kendall_tau_span": 0.04472396925227107,
+        "kind": "geometric",
+        "knob": "PLACE_DENSITY_EPS",
+        "mean_rel_err_span": 0.011896971681552099,
+        "period": {
+          "n": 3,
+          "range_pct": 1.026386620950782,
+          "stdev": 3.887627610698213
+        },
+        "stage": "macro_place",
+        "tail_s": 57.42850000000001,
+        "unchanged": false,
+        "values": [
+          "0.001",
+          "-0.001"
+        ],
+        "worst_recall_span": 0.0,
+        "worst_rel_diff": 0.07796143376916291
+      },
+      "pins_clock": {
+        "kendall_tau_span": 0.02655485674353597,
+        "kind": "constraint",
+        "knob": "CLK_PERIOD_EPS_PINS_PRE",
+        "mean_rel_err_span": 0.029952171560726326,
+        "period": {
+          "n": 3,
+          "range_pct": 2.7929262348944777,
+          "stdev": 10.18543298905749
+        },
+        "stage": "pins_pre",
+        "tail_s": 53.27600000000001,
+        "unchanged": false,
+        "values": [
+          "1",
+          "10"
+        ],
+        "worst_recall_span": 0.30000000000000004,
+        "worst_rel_diff": 0.07351968401045243
+      },
+      "place_clock": {
+        "kendall_tau_span": 0.033542976939203384,
+        "kind": "constraint",
+        "knob": "CLK_PERIOD_EPS_GLOBAL_PLACE",
+        "mean_rel_err_span": 0.029952171560726326,
+        "period": {
+          "n": 5,
+          "range_pct": 2.7824908645754367,
+          "stdev": 9.222322198909017
+        },
+        "stage": "global_place",
+        "tail_s": 52.35925,
+        "unchanged": false,
+        "values": [
+          "1",
+          "2",
+          "5",
+          "10"
+        ],
+        "worst_recall_span": 0.30000000000000004,
+        "worst_rel_diff": 0.07948254523823288
+      },
+      "repair_clock": {
+        "kendall_tau_span": 0.0,
+        "kind": "constraint",
+        "knob": "CLK_PERIOD_EPS_REPAIR_DESIGN",
+        "mean_rel_err_span": 4.478658063855612e-08,
+        "period": {
+          "n": 5,
+          "range_pct": 5.165047235319613e-06,
+          "stdev": 1.799999995455437e-05
+        },
+        "stage": "repair_design",
+        "tail_s": 55.96125,
+        "unchanged": true,
+        "values": [
+          "1",
+          "2",
+          "5",
+          "10"
+        ],
+        "worst_recall_span": 0.0,
+        "worst_rel_diff": 8.253640136356121e-08
+      }
+    },
+    "rung": {
+      "GPL_TIMING_DRIVEN": "1",
+      "GRT_ITERATIONS": "20",
+      "RUN_GRT": "1",
+      "RUN_MACRO_PLACE": "0",
+      "RUN_PLACE": "1",
+      "RUN_REPAIR_DESIGN": "1"
+    },
+    "spine": {
+      "bias": -0.06304967664937523,
+      "bias_nonmacro": -0.06304967664937523,
+      "kendall_tau": 0.7134870719776379,
+      "kendall_tau_nonmacro": 0.7134870719776379,
+      "mean_rel_err": 0.06304967664937523,
+      "mean_rel_err_nonmacro": 0.06304967664937523,
+      "n_absent": 0,
+      "n_nonmacro": 54,
+      "n_scored": 54,
+      "phases": {
+        "floorplan": 0.02,
+        "global_place": 35.479,
+        "global_route": 3.017,
+        "load": 1.438,
+        "place_pins": 0.053,
+        "repair_design": 5.264,
+        "sta": 11.496
+      },
+      "runtime_s": 56.76700000000001,
+      "spearman_rho": 0.8901467505241089,
+      "spread": 0.02794133636891351,
+      "worst_recall": 0.5
+    },
+    "verdict": {
+      "front_gap": 0.0005,
+      "k_needed": 28709,
+      "min_detectable_diff": 0.08471753448740978,
+      "resolvable_at_k1": false,
+      "selection_bias": {
+        "expected_optimism": 0.09908937697365315,
+        "n_explored": 238
+      },
+      "worst_perturbation": "floorplan_clock",
+      "worst_span": 0.029952171560726326,
+      "worst_stage": "floorplan"
+    }
+  },
+  "null_controls_passed": true,
+  "time_unit": "ps"
+}

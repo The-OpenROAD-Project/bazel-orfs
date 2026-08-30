@@ -1,0 +1,66 @@
+{
+  "above_accuracy_floor": false,
+  "accuracy_floor_pct": 1.0,
+  "base_periods": [
+    864.08223,
+    862.299088,
+    861.447159,
+    863.164459,
+    863.006134,
+    864.484955,
+    865.545441,
+    865.858475
+  ],
+  "change_periods": [
+    861.829529,
+    862.463181,
+    862.0897669999999,
+    862.851929,
+    863.516678,
+    861.057358,
+    860.541214,
+    861.6465000000001
+  ],
+  "conclusive": false,
+  "k": 8,
+  "kpi_points": 65.625,
+  "kpi_points_ci": [
+    15.625,
+    100.0
+  ],
+  "perturbations": [
+    -4,
+    -3,
+    -2,
+    -1,
+    1,
+    2,
+    3,
+    4
+  ],
+  "prob_better": 0.828125,
+  "prob_better_ci": [
+    0.578125,
+    1.0
+  ],
+  "repeatable": true,
+  "resolvable_points": 42.1875,
+  "rung": {
+    "CLOCK_MODE": "none",
+    "GPL_ROUTABILITY_DRIVEN": "0",
+    "GPL_TIMING_DRIVEN": "0",
+    "GPL_VIRTUAL_CTS": "0",
+    "PLACE_IOS": "0",
+    "RUN_GRT": "0",
+    "RUN_MACRO_PLACE": "1",
+    "RUN_PLACE": "1",
+    "RUN_REPAIR_DESIGN": "0",
+    "RUN_REPAIR_TIMING": "0"
+  },
+  "shift": -1.695449999999994,
+  "shift_ci": [
+    -3.0822600000000193,
+    -0.38980100000003404
+  ],
+  "shift_pct": -0.19631822261376977
+}
