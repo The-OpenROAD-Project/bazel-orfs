@@ -700,6 +700,66 @@ bazel run //test/estimation_ladder:stage_variance_top    # hours
 
 ---
 
+## Does the macro placer's objective predict the flow?
+
+The variance decomposition put the birthplace of the noise at
+macro placement, which makes RTL-MP's choice of placement a
+choice of downstream outcome -- selected by an internal
+annealing cost that had never been compared against the flow.
+This audit runs a population of candidate placements through
+the production tail: the placer's own winners (W), optima of
+singly-distorted objectives (T), its best efforts inside
+adversarial fences (D_fence -- worse by its own accounting),
+and injected permutations of the winner's slots.
+
+A finding before the first number: **RTL-MP cannot be made to
+score an external placement.** It has no evaluate-only entry
+point; the Total Cost it prints is normalized per run, so even
+its own totals are not comparable across runs; and forcing the
+annealer onto a target via guidance regions fails structurally
+-- the annealer explores sequence-pair packings, and arbitrary
+geometry is not in that space (measured 80-247um of
+non-compliance, including against its own winner). Every score
+below therefore comes from a placement RTL-MP itself produced:
+raw penalty values parsed from its debug table and recombined
+into the default objective under one fixed normalization. The
+injected permutations are evaluated on the flow side only,
+reported as unscored.
+
+Candidates: 21; pair ties below the
+variance campaign's measured downstream noise are discarded, so
+none of the numbers below reward noise-chasing.
+
+`P_pick` is the probability the objective picks the better of
+two candidates (0.5 = coin flip) counting only pairs separated
+by more than the flow's measured noise floor; `P_pick raw`
+counts every pair, defensible because injection is
+deterministic. The AUC pair asks whether the
+score and the flow can each tell winners from degraded
+placements; regret is what the objective's favorite costs
+against the best candidate on the table.
+
+| KPI        |   P_pick | P_pick CI   |   P_pick raw |   AUC score |   AUC flow |   regret % |   P_pick in W |
+|:-----------|---------:|:------------|-------------:|------------:|-----------:|-----------:|--------------:|
+| achieved   |    0.378 | 0.00..0.83  |        0.55  |       0.325 |      0.25  |       1.68 |         0.4   |
+| top10_mean |    0.417 | 0.00..0.88  |        0.522 |       0.325 |      0.275 |       1.58 |         0.4   |
+| p95        |    0.464 | 0.20..1.00  |        0.512 |       0.325 |      0.325 |       1.59 |         0.333 |
+| mean       |    0.61  | 0.27..0.93  |        0.498 |       0.325 |      0.525 |       3.4  |         0.714 |
+| area       |    0.684 | 0.53..0.84  |        0.636 |       0.325 |      0.4   |       3.42 |         0.357 |
+
+Including the unscored injected permutations, the flow's own
+winners-vs-degraded separation (achieved period) is AUC 0.42 -- whether bad macro placements even hurt at
+grt, independent of anyone's scoring function.
+
+### Reproducing the audit
+
+```sh
+bazel run //test/estimation_ladder:stage_variance_top  # delta_tie first
+bazel run //test/estimation_ladder:macro_score_top     # the audit
+```
+
+---
+
 ## How we measured it
 
 ### The ground truth
