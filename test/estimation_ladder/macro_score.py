@@ -314,12 +314,22 @@ def default_cost(components, norms):
     across runs; this recomputation uses the base winner's component
     values as the normalization for everyone, which preserves the
     default weighting and makes the scale shared.
+
+    A component that is ZERO in the normalization base (Soft Blockage on
+    a design without blockages, Outline when everything fits) cannot be
+    normalized and is skipped rather than divided by a fallback: the
+    first campaign showed a raw Soft Blockage value of 1e8 pinned two
+    candidates to the worst ranks through nothing but the fallback
+    scale.  Skipped components stay visible in each candidate's raw
+    component record.
     """
     cost = 0.0
     for name, w in DEFAULT_WEIGHTS.items():
         if name not in components or w == 0.0:
             continue
-        norm = norms.get(name) or 1.0
+        norm = norms.get(name)
+        if not norm:
+            continue
         cost += w * components[name] / norm
     return cost
 
