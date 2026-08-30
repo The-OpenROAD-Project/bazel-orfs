@@ -1584,3 +1584,73 @@ py_binary(
     main = "stage_variance.py",
     deps = [":optuna_study_lib"],
 )
+
+# -------------------------------------------------------------
+# Is RTL-MP's scoring function any good?
+#
+# stage_variance located the noise at macro placement: downstream of a
+# fixed placement the flow is quiet, while the placer's response to its
+# input swings the achieved period ~25%.  Choosing a placement is
+# therefore choosing a downstream outcome -- and RTL-MP chooses with an
+# internal annealing cost never checked against the flow.  This
+# campaign runs a population of candidate placements -- the placer's
+# own winners, optima of distorted objectives, and deliberately
+# degraded permutations -- through the production tail, and reports
+# how well the objective predicts the KPI menu at grt: pairwise pick
+# accuracy, winner-vs-degraded separation, and selection regret.
+# Mechanics and math in macro_score.py's docstring.
+# -------------------------------------------------------------
+orfs_run_executable(
+    name = "macro_score_top_executable",
+    src = ":multiplier_top_asap7_synth",
+    arguments = MULTIPLIER_TOP_ARGS,
+    cmd = "run",
+    script = "macro_score.tcl",
+    sources = {
+        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+        "IO_CONSTRAINTS": ["io_constraints.tcl"],
+    },
+    stages = [
+        "floorplan",
+        "place",
+        "cts",
+        "grt",
+    ],
+)
+
+py_binary(
+    name = "macro_score_top",
+    srcs = ["macro_score.py"],
+    args = [
+        "$(location :macro_score_top_executable)",
+        "multiplier_top",
+        "$(location stage_variance_multiplier_top.json)",
+    ],
+    data = [
+        "stage_variance_multiplier_top.json",
+        ":macro_score_top_executable",
+    ],
+    main = "macro_score.py",
+    deps = [
+        ":optuna_study_lib",
+        ":stage_variance_lib",
+    ],
+)
+
+py_library(
+    name = "macro_score_lib",
+    srcs = ["macro_score.py"],
+    imports = ["."],
+    deps = [":stage_variance_lib"],
+)
+
+# The audit math alone -- generator legality, the penalty-table parser,
+# the fixed-normalization score, pick accuracy / AUC / regret with tie
+# handling -- on synthetic populations.  The campaign itself is hours
+# of flow runtime and stays manual.
+py_test(
+    name = "macro_score_test",
+    srcs = ["macro_score_test.py"],
+    main = "macro_score_test.py",
+    deps = [":macro_score_lib"],
+)

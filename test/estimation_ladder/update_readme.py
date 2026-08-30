@@ -1001,6 +1001,7 @@ def render(
     out += stability_section(directory)
     out += gate_section(directory)
     out += stage_variance_section(directory)
+    out += macro_score_section(directory)
     out += methods_section(path_counts)
     return "\n".join(out)
 
@@ -1708,6 +1709,104 @@ def stage_variance_section(directory):
         "```sh",
         "bazel run //test/estimation_ladder:stage_variance_small  # ~minutes",
         "bazel run //test/estimation_ladder:stage_variance_top    # hours",
+        "```",
+        "",
+    ]
+    return out
+
+
+def macro_score_section(directory):
+    """The RTL-MP scoring-function audit: does the number the macro
+    placer optimizes predict what the flow delivers?
+
+    Renders only when the campaign JSON is present.
+    """
+    path = os.path.join(directory, "macro_score_multiplier_top.json")
+    if not os.path.exists(path):
+        return []
+    with open(path, "r") as f:
+        doc = json.load(f)
+
+    out = [
+        "---",
+        "",
+        "## Does the macro placer's objective predict the flow?",
+        "",
+        "The variance decomposition put the birthplace of the noise at",
+        "macro placement, which makes RTL-MP's choice of placement a",
+        "choice of downstream outcome -- selected by an internal",
+        "annealing cost that had never been compared against the flow.",
+        "This audit runs a population of candidate placements through",
+        "the production tail: the placer's own winners (W), optima of",
+        "singly-distorted objectives (T), its best efforts inside",
+        "adversarial fences (D_fence -- worse by its own accounting),",
+        "and injected permutations of the winner's slots.",
+        "",
+        "A finding before the first number: **RTL-MP cannot be made to",
+        "score an external placement.** It has no evaluate-only entry",
+        "point; the Total Cost it prints is normalized per run, so even",
+        "its own totals are not comparable across runs; and forcing the",
+        "annealer onto a target via guidance regions fails structurally",
+        "-- the annealer explores sequence-pair packings, and arbitrary",
+        "geometry is not in that space (measured 80-247um of",
+        "non-compliance, including against its own winner). Every score",
+        "below therefore comes from a placement RTL-MP itself produced:",
+        "raw penalty values parsed from its debug table and recombined",
+        "into the default objective under one fixed normalization. The",
+        "injected permutations are evaluated on the flow side only,",
+        "reported as unscored.",
+        "",
+        f"Candidates: {len(doc['candidates'])}; pair ties below the",
+        "variance campaign's measured downstream noise are discarded, so",
+        "none of the numbers below reward noise-chasing.",
+        "",
+    ]
+
+    rows = []
+    for kpi, a in doc["audit"].items():
+        if a["p_pick"] is None:
+            rows.append({"KPI": kpi, "P_pick": None})
+            continue
+        rows.append(
+            {
+                "KPI": kpi,
+                "P_pick": a["p_pick"],
+                "P_pick CI": "%.2f..%.2f" % tuple(a["p_pick_ci"]),
+                "P_pick raw": a.get("p_pick_raw"),
+                "AUC score": a["auc_score_W_vs_D"],
+                "AUC flow": a["auc_flow_W_vs_D"],
+                "regret %": a["regret_pct"],
+                "P_pick in W": a["p_pick_within_W"],
+            }
+        )
+    out += [
+        "`P_pick` is the probability the objective picks the better of",
+        "two candidates (0.5 = coin flip) counting only pairs separated",
+        "by more than the flow's measured noise floor; `P_pick raw`",
+        "counts every pair, defensible because injection is",
+        "deterministic. The AUC pair asks whether the",
+        "score and the flow can each tell winners from degraded",
+        "placements; regret is what the objective's favorite costs",
+        "against the best candidate on the table.",
+        "",
+        pd.DataFrame(rows).to_markdown(index=False, floatfmt=".3g"),
+        "",
+    ]
+    flow_all = doc.get("auc_flow_W_vs_D_all_candidates", {}).get("achieved")
+    if flow_all is not None:
+        out += [
+            "Including the unscored injected permutations, the flow's own",
+            f"winners-vs-degraded separation (achieved period) is AUC"
+            f" {flow_all:.2f} -- whether bad macro placements even hurt at",
+            "grt, independent of anyone's scoring function.",
+            "",
+        ]
+    out += [
+        "### Reproducing the audit",
+        "",
+        "```sh",
+        "bazel run //test/estimation_ladder:stage_variance_top  # delta_tie first",
+        "bazel run //test/estimation_ladder:macro_score_top     # the audit",
         "```",
         "",
     ]
