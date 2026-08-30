@@ -1000,6 +1000,7 @@ def render(
     out += calibration_section(directory, image_prefix)
     out += stability_section(directory)
     out += gate_section(directory)
+    out += stage_variance_section(directory)
     out += methods_section(path_counts)
     return "\n".join(out)
 
@@ -1579,6 +1580,135 @@ def gate_section(directory):
         "`method_validation` is not optional before using the gate on a new",
         "design: it is what sets the accuracy floor, and the floor is",
         "design-specific.",
+        "",
+    ]
+    return out
+
+
+# The candidates worth a column in the README; the JSON holds them all.
+SV_CANDIDATES = ["achieved", "top10_mean", "p95", "mean", "area"]
+
+
+def stage_variance_section(directory):
+    """The flow-side variance decomposition: where is the noise born,
+    and what KPI could a PR verdict afford?
+
+    Renders only when the campaign JSONs are present, so a README
+    regenerated without them omits the section rather than inventing one.
+    """
+    designs = [
+        ("multiplier_top", "stage_variance_multiplier_top.json"),
+        ("multiplier", "stage_variance_multiplier.json"),
+    ]
+    found = [
+        (design, os.path.join(directory, name))
+        for design, name in designs
+        if os.path.exists(os.path.join(directory, name))
+    ]
+    if not found:
+        return []
+
+    out = [
+        "---",
+        "",
+        "## Where in the flow is the noise born?",
+        "",
+        "Everything the seed-sensitivity study measures is the ESTIMATOR's",
+        "stability; the flow's own dispersion was declared out of its scope.",
+        "This campaign is that flow-side arm: the production ORFS stage",
+        "scripts floorplan..grt in one OpenROAD process, an ensemble forked",
+        "off each stage boundary -- `GPL_RANDOM_SEED` at place, a 1ps-scale",
+        "clock nudge at cts (which exposes no seed; the nudge cancels in",
+        "`min_period = clk_period - slack`, so what survives is tool noise),",
+        "`GRT_SEED` at grt -- and every member running the production tail",
+        "to grt, measured there by the same instrument as the ground truth.",
+        "A stage's spread therefore includes whatever the stages after it",
+        "amplify it into, and an all-levers arm supplies the directly",
+        "measured total the per-arm decomposition must predict: under",
+        "independence the variances add, and the residual is the interaction",
+        "the per-stage view cannot see.",
+        "",
+        "The sigmas below are of KPI *candidates*, not of a chosen KPI:",
+        "extremal statistics track what tapeout cares about but inherit the",
+        "tail's noise; aggregates average the tail away but measure",
+        "something softer. The KPI is PPA-shaped -- performance and",
+        "std-cell area now, power recorded equal to area and left as a",
+        "TODO -- and picking the compromise is a decision for whoever reads",
+        "the table, not for this campaign.",
+        "",
+    ]
+
+    for design, path in found:
+        with open(path, "r") as f:
+            doc = json.load(f)
+        spine = doc["spine"]["kpis"]
+        arms = doc["arms"]
+
+        rows = []
+        for cand in SV_CANDIDATES:
+            base = spine.get(cand)
+            if not base:
+                continue
+            row = {"KPI": cand, "spine": f"{base:.4g}"}
+            for arm in ("place", "cts", "grt", "all"):
+                sd = arms.get(arm, {}).get("stats", {}).get(cand, {}).get("stdev")
+                row[f"sigma_{arm}_pct"] = (
+                    100.0 * sd / abs(base) if sd is not None else None
+                )
+            dec = doc["decomposition"].get(cand, {})
+            if dec:
+                row["decomposition"] = dec["verdict"].split(":")[0].split(" (")[0]
+            rows.append(row)
+
+        guards = doc.get("guards", {})
+        failures = guards.get("null_failures", []) + guards.get("nudge_failures", [])
+        guard_line = (
+            "Every null member reproduced the spine exactly and every nudge" " landed."
+            if not failures
+            else f"**{len(failures)} guard failure(s)** -- see the JSON."
+        )
+
+        out += [
+            f"### {design}",
+            "",
+            "Per-arm sigma of each KPI candidate, in % of the spine's value",
+            "-- the noise born at that stage, as seen at flow end:",
+            "",
+            pd.DataFrame(rows).to_markdown(index=False, floatfmt=".3g"),
+            "",
+            guard_line,
+            "",
+            "What an ensemble buys, per generator: a member re-runs only its",
+            "arm's tail (`c` seconds), and k members resolve",
+            "`delta_min = 1.96 * sigma * sqrt(2/k)`:",
+            "",
+        ]
+
+        menu_rows = []
+        by_key = {}
+        for row in doc.get("pareto", []):
+            by_key.setdefault((row["generator"], row["kpi"]), {})[row["k"]] = row
+        for (gen, cand), ks in sorted(by_key.items()):
+            if cand not in ("achieved", "top10_mean", "mean"):
+                continue
+            c = arms[gen]["median_tail_s"]
+            entry = {"generator": gen, "KPI": cand, "c_s": c}
+            for k in sorted(ks):
+                entry[f"dmin@k={k} (%)"] = ks[k]["delta_min_pct"]
+            menu_rows.append(entry)
+        if menu_rows:
+            out += [
+                pd.DataFrame(menu_rows).to_markdown(index=False, floatfmt=".3g"),
+                "",
+            ]
+
+    out += [
+        "### Reproducing the decomposition",
+        "",
+        "```sh",
+        "bazel run //test/estimation_ladder:stage_variance_small  # ~minutes",
+        "bazel run //test/estimation_ladder:stage_variance_top    # hours",
+        "```",
         "",
     ]
     return out

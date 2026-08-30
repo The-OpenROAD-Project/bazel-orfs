@@ -60,6 +60,7 @@ orfs_run(
     cmd = "run",
     script = "extract.tcl",
     sources = {
+        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
         "EXTRACT_TCL": ["extract.tcl"],
     },
     src_logs = True,
@@ -186,6 +187,7 @@ orfs_run(
     cmd = "run",
     script = "extract.tcl",
     sources = {
+        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
         "EXTRACT_TCL": ["extract.tcl"],
     },
     src_logs = True,
@@ -508,7 +510,10 @@ AB_PERIODS = [
         },
         cmd = "run",
         script = "extract.tcl",
-        sources = {"EXTRACT_TCL": ["extract.tcl"]},
+        sources = {
+            "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+            "EXTRACT_TCL": ["extract.tcl"],
+        },
         src_logs = True,
     )
     for period in AB_PERIODS
@@ -810,7 +815,10 @@ FUZZ_CORE_AREA = {
         },
         cmd = "run",
         script = "extract.tcl",
-        sources = {"EXTRACT_TCL": ["extract.tcl"]},
+        sources = {
+            "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+            "EXTRACT_TCL": ["extract.tcl"],
+        },
         src_logs = True,
     )
     for name in FUZZ_VARIANTS
@@ -997,7 +1005,10 @@ FUZZ_TOP_ARGS = MULTIPLIER_TOP_ARGS | {"DESIGN_NAME": "multiplier_top_fuzz"}
         },
         cmd = "run",
         script = "extract.tcl",
-        sources = {"EXTRACT_TCL": ["extract.tcl"]},
+        sources = {
+            "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+            "EXTRACT_TCL": ["extract.tcl"],
+        },
         src_logs = True,
     )
     for name in FUZZ_TOP_VARIANTS
@@ -1163,7 +1174,10 @@ WIDE_VARIANTS = [
         },
         cmd = "run",
         script = "extract.tcl",
-        sources = {"EXTRACT_TCL": ["extract.tcl"]},
+        sources = {
+            "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+            "EXTRACT_TCL": ["extract.tcl"],
+        },
         src_logs = True,
     )
     for name in WIDE_VARIANTS
@@ -1402,7 +1416,10 @@ TOP_REF_VARIANTS = [
         },
         cmd = "run",
         script = "extract.tcl",
-        sources = {"EXTRACT_TCL": ["extract.tcl"]},
+        sources = {
+            "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+            "EXTRACT_TCL": ["extract.tcl"],
+        },
         src_logs = True,
     )
     for name in TOP_REF_VARIANTS
@@ -1454,4 +1471,116 @@ py_binary(
         ":ci_gate_lib",
         ":optuna_study_lib",
     ],
+)
+
+# -------------------------------------------------------------
+# Flow-side per-stage variance decomposition: where is the noise born?
+#
+# seed_sensitivity measures the ESTIMATOR's per-stage stability and is
+# explicit that the flow-side dispersion is out of its scope.  This is
+# that flow-side arm: the production ORFS stage scripts floorplan..grt
+# chained in ONE OpenROAD process (the KEEP_VARS trick ORFS's own
+# floorplan_to_place.tcl uses), with an ensemble forked off each stage
+# boundary -- GPL_RANDOM_SEED at place, a 1ps-scale clock nudge at cts
+# (which exposes no seed), GRT_SEED at grt, and an all-levers arm whose
+# directly measured variance the per-arm decomposition must predict.
+# Every member runs the production tail to grt and is measured there by
+# extract_lib.tcl, the same instrument as the ground truth.
+#
+# The spine is paid once; a member costs only its tail, so the whole
+# 30-odd-member campaign costs a handful of flow-equivalents rather
+# than 30.  Members are single-threaded (threads do not survive fork,
+# docs/fork.md); the driver bounds concurrency via ORFS_FORK_JOBS.
+#
+# The output is a menu, not a verdict: sigma and the resolvable effect
+# delta_min = z*sigma*sqrt(2/k) per KPI candidate (max / quantiles /
+# top-N means / mean of the sampled worst-25% paths, plus std-cell
+# area; power is recorded equal to area, TODO), and CPU-cost-vs-
+# resolution rows per candidate ensemble generator.  Deciding which
+# compromise to gate PRs on comes after these numbers exist, not
+# before.
+# -------------------------------------------------------------
+orfs_run_executable(
+    name = "stage_variance_top_executable",
+    src = ":multiplier_top_asap7_synth",
+    arguments = MULTIPLIER_TOP_ARGS,
+    cmd = "run",
+    script = "stage_variance.tcl",
+    sources = {
+        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+        "IO_CONSTRAINTS": ["io_constraints.tcl"],
+    },
+    stages = [
+        "floorplan",
+        "place",
+        "cts",
+        "grt",
+    ],
+)
+
+py_binary(
+    name = "stage_variance_top",
+    srcs = ["stage_variance.py"],
+    args = [
+        "$(location :stage_variance_top_executable)",
+        "multiplier_top",
+    ],
+    data = [
+        ":stage_variance_top_executable",
+    ],
+    main = "stage_variance.py",
+    deps = [":optuna_study_lib"],
+)
+
+py_library(
+    name = "stage_variance_lib",
+    srcs = ["stage_variance.py"],
+    imports = ["."],
+)
+
+# The aggregation math alone -- KPI candidates, k-sizing, the variance
+# decomposition and its interaction flag, the determinism and
+# nudge-landed guards -- on synthetic ensembles.  The only CI-visible
+# piece of the campaign; the walk itself is hours of flow runtime.
+py_test(
+    name = "stage_variance_test",
+    srcs = ["stage_variance_test.py"],
+    main = "stage_variance_test.py",
+    deps = [":stage_variance_lib"],
+)
+
+# The same walk on the simple multiplier: a fifteen-minute smoke loop
+# for the harness, and a second design's data point for free -- whether
+# the noise is born in the same stage on a design with no macros is
+# itself part of the answer.
+orfs_run_executable(
+    name = "stage_variance_executable",
+    src = ":multiplier_asap7_synth",
+    arguments = MULTIPLIER_ARGS,
+    cmd = "run",
+    script = "stage_variance.tcl",
+    sources = {
+        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+        "IO_CONSTRAINTS": ["io_constraints.tcl"],
+    },
+    stages = [
+        "floorplan",
+        "place",
+        "cts",
+        "grt",
+    ],
+)
+
+py_binary(
+    name = "stage_variance_small",
+    srcs = ["stage_variance.py"],
+    args = [
+        "$(location :stage_variance_executable)",
+        "multiplier",
+    ],
+    data = [
+        ":stage_variance_executable",
+    ],
+    main = "stage_variance.py",
+    deps = [":optuna_study_lib"],
 )
