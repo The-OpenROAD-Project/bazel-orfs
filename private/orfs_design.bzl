@@ -251,6 +251,10 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
         macros = macros if macros else [],
         stage_data = {"synth": extra_data} if extra_data else {},
         tags = tags,
+        # Public like the filegroups above: a root module consuming the
+        # design repo (e.g. bazel-orfs itself building an @orfs design)
+        # hangs orfs_run()s and flow variants off these stage targets.
+        visibility = ["//visibility:public"],
     )
 
     # Caller extension hook: invoked with the fully-processed design data
@@ -295,7 +299,18 @@ def _filter_verilog_files(raw_verilog_files):
     """Filter verilog_files: skip unresolved Make variables and invalid labels."""
     verilog_files = []
     for vf in raw_verilog_files:
-        if "$(" in vf or "${" in vf or "*" in vf or "))" in vf:
+        if "$(" in vf or "${" in vf:
+            # A dropped source file is a wrong build, not a smaller one:
+            # swerv_wrapper's $(CLKGATE_MAP_FILE) was silently discarded
+            # here and the miss only surfaced minutes into elaboration
+            # ("unknown module OPENROAD_CLKGATE"). Fail at load time with
+            # the fix spelled out instead.
+            fail(("VERILOG_FILES entry '%s' is an unresolved Make " +
+                  "reference the config.mk parser cannot turn into a " +
+                  "label. Reference the file by a resolvable path " +
+                  "($(DESIGN_HOME)/..., $(PLATFORM_DIR)/...) or teach " +
+                  "config_mk_parser.py the variable.") % vf)
+        if "*" in vf or "))" in vf:
             continue
         if "//." in vf or vf.endswith(":"):
             continue

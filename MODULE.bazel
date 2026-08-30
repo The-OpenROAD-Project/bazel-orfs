@@ -58,9 +58,26 @@ archive_override(
     patches = [
         "//patches:0037-orfs-single-writer-1_synth-sdc.patch",
         "//patches:0039-orfs-slang-plugin-fallback.patch",
+        # swerv_wrapper's clkgate mapping model referenced by resolved
+        # path so the config.mk parser can labelize it (the RTL
+        # instantiates OPENROAD_CLKGATE; $(CLKGATE_MAP_FILE) needs make
+        # functions the parser cannot evaluate).
+        "//patches:0044-orfs-swerv-clkgate-verilog.patch",
     ],
     strip_prefix = "OpenROAD-flow-scripts-be0dca0b1fd41df54792b3012350cd52bccd99bb",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/be0dca0b1fd41df54792b3012350cd52bccd99bb.tar.gz"],
+)
+
+# Parsed config.mk data for the designs in the pinned ORFS tree, so
+# in-repo packages can instantiate flow variants of an ORFS design (the
+# production configuration plus a targeted override) without duplicating
+# its config.mk by hand. Same repo rule ORFS itself uses as root.
+orfs_designs = use_repo_rule("//private:designs.bzl", "orfs_designs")
+
+orfs_designs(
+    name = "orfs_designs",
+    designs_dir = "@orfs//flow/designs:BUILD",
+    platforms = ["asap7"],
 )
 
 bazel_dep(name = "openroad")
