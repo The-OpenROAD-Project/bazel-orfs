@@ -27,26 +27,37 @@ def find_runfiles():
     return None
 
 
-def find_buildifier():
+# @buildifier_prebuilt//:buildifier is a plain prebuilt binary up to 6.x and a
+# generated bash runner from 8.x on; the repo directory separator is "+" on
+# Bazel 7.1+ and "~" before it.  Try every combination rather than pinning one
+# layout, so a buildifier_prebuilt bump does not silently break //:fix_lint.
+BUILDIFIER_RUNFILES_CANDIDATES = [
+    os.path.join("buildifier_prebuilt" + sep, "buildifier", name)
+    for sep in ("+", "~")
+    for name in ("buildifier", "buildifier.bash")
+]
+
+
+def find_buildifier(runfiles=None):
     """Resolve buildifier from Bazel runfiles."""
-    runfiles = find_runfiles()
+    if runfiles is None:
+        runfiles = find_runfiles()
     if runfiles is None:
         print(
             "error: cannot locate runfiles; " "run via 'bazelisk run //:fix_lint'",
             file=sys.stderr,
         )
         sys.exit(1)
-    buildifier = os.path.join(
-        runfiles, "buildifier_prebuilt+", "buildifier", "buildifier"
+    for candidate in BUILDIFIER_RUNFILES_CANDIDATES:
+        buildifier = os.path.join(runfiles, candidate)
+        if os.access(buildifier, os.X_OK):
+            return buildifier
+    print(
+        "error: buildifier not found in runfiles; "
+        "run via 'bazelisk run //:fix_lint'",
+        file=sys.stderr,
     )
-    if not os.access(buildifier, os.X_OK):
-        print(
-            "error: buildifier not found in runfiles; "
-            "run via 'bazelisk run //:fix_lint'",
-            file=sys.stderr,
-        )
-        sys.exit(1)
-    return buildifier
+    sys.exit(1)
 
 
 def get_merge_base():
@@ -113,13 +124,28 @@ BAZEL_PATHSPECS = [
 ]
 
 
+def buildifier_env():
+    """Environment that anchors buildifier's cwd at the workspace root.
+
+    The 8.x bash runner chdirs to $BUILD_WORKING_DIRECTORY -- the directory
+    `bazelisk run` was invoked from -- which would break the repo-relative
+    paths we hand it whenever that is not the workspace root.  main() has
+    already chdir'd to the root, so point the runner at the same place.  The
+    6.x binary ignores this.
+    """
+    env = dict(os.environ)
+    env["BUILD_WORKING_DIRECTORY"] = os.getcwd()
+    return env
+
+
 def run_buildifier(buildifier, files):
     """Format and lint Bazel files with buildifier."""
     if not files:
         return
     print(f"buildifier: {len(files)} file(s)")
-    subprocess.check_call([buildifier] + files)
-    ret = subprocess.call([buildifier, "-lint", "warn"] + files)
+    env = buildifier_env()
+    subprocess.check_call([buildifier] + files, env=env)
+    ret = subprocess.call([buildifier, "-lint", "warn"] + files, env=env)
     if ret not in (0, 4):
         raise subprocess.CalledProcessError(ret, "buildifier -lint warn")
 
