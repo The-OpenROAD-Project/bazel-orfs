@@ -154,12 +154,12 @@ bazel_dep(name = "yosys", version = "0.68.bcr.1")
 bazel_dep(name = "sv-elab", version = "2026-07-07")
 
 # --- Verilator simulation + Google Test ---
-bazel_dep(name = "rules_verilog", version = "1.1.1")
-bazel_dep(name = "rules_verilator", version = "0.3.2")
-bazel_dep(name = "googletest", version = "1.17.0.bcr.2")
+bazel_dep(name = "rules_verilog", version = "1.4.2")
+bazel_dep(name = "rules_verilator", version = "1.1.2")
+bazel_dep(name = "googletest", version = "1.18.0.bcr.1")
 
 # --- Python 3.13 toolchain (required by bazel-orfs pip deps) ---
-bazel_dep(name = "rules_python", version = "1.9.0")
+bazel_dep(name = "rules_python", version = "2.0.0")
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
