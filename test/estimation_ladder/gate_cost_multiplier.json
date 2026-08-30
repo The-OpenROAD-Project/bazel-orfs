@@ -1,0 +1,22 @@
+{
+  "design": "multiplier",
+  "median_s": 4.923508405685425,
+  "rung": {
+    "CLOCK_MODE": "none",
+    "GPL_ROUTABILITY_DRIVEN": "0",
+    "GPL_TIMING_DRIVEN": "0",
+    "GPL_VIRTUAL_CTS": "0",
+    "PLACE_IOS": "0",
+    "RUN_GRT": "0",
+    "RUN_MACRO_PLACE": "1",
+    "RUN_PLACE": "1",
+    "RUN_REPAIR_DESIGN": "0",
+    "RUN_REPAIR_TIMING": "0"
+  },
+  "threads": 16,
+  "times_s": [
+    4.923508405685425,
+    4.362015724182129,
+    5.341494798660278
+  ]
+}

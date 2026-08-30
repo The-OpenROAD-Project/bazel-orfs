@@ -551,6 +551,20 @@ orfs_run_executable(
     sources = {"UNIT_PROBE_TCL": ["unit_probe.tcl"]},
 )
 
+# The site grid, for expressing the seed-sensitivity study's geometric
+# perturbation in whole sites and whole rows. initialize_floorplan snaps
+# the core to the site grid, so a nudge that is not a whole multiple of
+# the pitch can snap back to nothing while still being reported as a
+# perturbation.
+orfs_run_executable(
+    name = "site_probe",
+    src = ":multiplier_asap7_synth",
+    arguments = MULTIPLIER_ARGS,
+    cmd = "run",
+    script = "site_probe.tcl",
+    sources = {"SITE_PROBE_TCL": ["site_probe.tcl"]},
+)
+
 # One knob at a time, everything else fixed. The Optuna archive cannot
 # attribute an effect to a single knob -- the sampler concentrates near
 # the front and confounds everything with everything -- so the knobs a
@@ -584,4 +598,860 @@ py_binary(
     ],
     main = "knob_sweep.py",
     deps = [":optuna_study_lib"],
+)
+
+# -------------------------------------------------------------
+# Seed sensitivity: is the published front reproducible?
+#
+# Every number on the front comes from one run, and adjacent rungs sit
+# 0.0005 to 0.006 apart in mean_rel_err. Nothing so far establishes that
+# the front is reproducible to that precision -- only that an identical
+# re-run reproduces, which is a different claim.
+#
+# No stage exposes a random seed, so the study uses the literature's
+# substitute (Kahng & Mantik ISQED'02, Chan/Kahng/Woo SLIP'20): perturb an
+# input by an amount nobody would call a design change and read the
+# spread.
+#
+# It measures the spread of the ESTIMATE, not of the flow, so it is not a
+# noise floor in Chan/Kahng/Woo's sense -- that would be the dispersion of
+# the target, which bounds achievable accuracy and needs the flow re-run.
+# What this bounds is narrower: whether ranking two rungs by one run each
+# is a measurement or a coin flip.
+#
+# It is cheap because the perturbation is keyed per stage, so the
+# batch walk shares the whole prefix above the perturbed stage and pays
+# only the tail below it -- see seed_sensitivity.py.
+# -------------------------------------------------------------
+py_binary(
+    name = "seed_sensitivity",
+    srcs = ["seed_sensitivity.py"],
+    args = [
+        "$(location :fast_estimator_executable)",
+        "$(location ground_truth.json)",
+        "multiplier",
+    ],
+    data = [
+        "ground_truth.json",
+        ":fast_estimator_executable",
+    ],
+    deps = [":optuna_study_lib"],
+)
+
+py_binary(
+    name = "seed_sensitivity_top",
+    srcs = ["seed_sensitivity.py"],
+    args = [
+        "$(location :fast_estimator_top_executable)",
+        "$(location ground_truth_top.json)",
+        "multiplier_top",
+    ],
+    data = [
+        "ground_truth_top.json",
+        ":fast_estimator_top_executable",
+    ],
+    main = "seed_sensitivity.py",
+    deps = [":optuna_study_lib"],
+)
+
+# The null control as a test: a clock-period nudge at floorplan and at
+# place_pins, neither of which reads timing, must leave every sampled
+# path bit-identical.
+#
+# This is the guard the whole study rests on. A perturbation that
+# silently failed to apply would pass every accuracy check and then
+# report a spread of exactly zero -- the one wrong answer that looks
+# like a clean result. It also exercises fork reproducibility, which is
+# not free: threads do not survive fork() and the pools are respawned in
+# each child.
+py_test(
+    name = "seed_sensitivity_test",
+    timeout = "eternal",
+    srcs = [
+        "seed_sensitivity.py",
+        "seed_sensitivity_test.py",
+    ],
+    args = [
+        "$(location :fast_estimator_executable)",
+        "$(location ground_truth.json)",
+    ],
+    data = [
+        "ground_truth.json",
+        ":fast_estimator_executable",
+    ],
+    main = "seed_sensitivity_test.py",
+    tags = ["manual"],
+    deps = [":optuna_study_lib"],
+)
+
+# -------------------------------------------------------------
+# Are real RTL changes below the flow's own fuzzing floor?
+#
+# The developer's question is "did my change help", and the theory is that
+# running the real flow cannot answer it -- not because the flow is slow,
+# but because one flow run is one draw from a distribution wider than the
+# effect being looked for. If that holds, an infinitely fast flow would
+# still be useless, and the only way to answer the question is an
+# ensemble, which is affordable for the estimator and not for the flow.
+#
+# Testing it needs RTL edits whose true effect is known. multiplier_fuzz.sv
+# provides both kinds: three equivalence-preserving edits whose true effect
+# on the achieved period is exactly zero, and an effect-size dial whose
+# effect is real and monotone. Each is run at five site-aligned core-area
+# perturbations, through the real flow AND through the estimator, so the
+# same perturbation set blocks both arms -- common random numbers, which is
+# what lets the comparison be paired rather than unpaired.
+#
+# CORE_AREA is nudged in whole sites (0.054um on asap7, from
+# //test/estimation_ladder:site_probe). initialize_floorplan snaps the core
+# to the site grid, so a sub-site nudge can snap back to nothing while
+# still being reported as a perturbation.
+# -------------------------------------------------------------
+
+# The variant family spans true effects from provably zero up to huge, so
+# detectability can be plotted against effect size rather than asserted at
+# one point. The load* settings exist because every EXTRA_ADD_STAGES
+# setting landed far above the flow's own 1.24% spread, which is exactly
+# the regime the theory is about.
+FUZZ_VARIANTS = {
+    # name: (VERILOG_DEFINES, true effect on the achieved period)
+    "base": ("", "reference"),
+    "order": ("-D FUZZ_ORDER=1", "zero"),
+    "alias": ("-D FUZZ_ALIAS=1", "zero"),
+    "split": ("-D FUZZ_SPLIT=1", "zero"),
+    "load1": ("-D EXTRA_LOAD_BITS=1", "real"),
+    "load8": ("-D EXTRA_LOAD_BITS=8", "real"),
+    "load32": ("-D EXTRA_LOAD_BITS=32", "real"),
+    "dial1": ("-D EXTRA_ADD_STAGES=1", "real"),
+    "dial2": ("-D EXTRA_ADD_STAGES=2", "real"),
+    "dial4": ("-D EXTRA_ADD_STAGES=4", "real"),
+    "dial8": ("-D EXTRA_ADD_STAGES=8", "real"),
+}
+
+FUZZ_EPS = [
+    -2,
+    -1,
+    0,
+    1,
+    2,
+]
+
+FUZZ_ARGS = MULTIPLIER_ARGS | {"DESIGN_NAME": "multiplier_fuzz"}
+
+# Precomputed rather than built by a helper: BUILD files may not define
+# functions.
+FUZZ_EPS_TAG = {
+    -2: "m2",
+    -1: "m1",
+    0: "0",
+    1: "p1",
+    2: "p2",
+}
+
+# The core x-edge moved by eps whole sites: 38.000um +/- eps * 0.054um.
+# Written out rather than computed, because Starlark's % has no zero-padded
+# integer conversion and the arithmetic is more legible as its result.
+FUZZ_CORE_AREA = {
+    -2: "2 2 37.892 38",
+    -1: "2 2 37.946 38",
+    0: "2 2 38 38",
+    1: "2 2 38.054 38",
+    2: "2 2 38.108 38",
+}
+
+[
+    orfs_flow(
+        name = "fuzz_asap7",
+        abstract_stage = "grt",
+        arguments = FUZZ_ARGS | {
+            "VERILOG_DEFINES": FUZZ_VARIANTS[name][0],
+            "CORE_AREA": FUZZ_CORE_AREA[eps],
+        },
+        sources = {
+            "SDC_FILE": ["constraints.sdc"],
+            "IO_CONSTRAINTS": ["io_constraints.tcl"],
+        },
+        tags = ["manual"],
+        top = "multiplier_fuzz",
+        variant = "%s_%s" % (
+            name,
+            FUZZ_EPS_TAG[eps],
+        ),
+        verilog_files = ["multiplier_fuzz.sv"],
+    )
+    for name in FUZZ_VARIANTS
+    for eps in FUZZ_EPS
+]
+
+# The flow arm: the achieved period the real flow reports for this variant
+# at this perturbation. Five of these per variant is the ground-truth
+# distribution, which is the thing the theory is about and the thing a
+# single flow run cannot show you.
+[
+    orfs_run(
+        name = "fuzz_truth_%s_%s" % (
+            name,
+            FUZZ_EPS_TAG[eps],
+        ),
+        src = ":fuzz_asap7_%s_%s_grt" % (
+            name,
+            FUZZ_EPS_TAG[eps],
+        ),
+        outs = ["fuzz_truth_%s_%s.json" % (
+            name,
+            FUZZ_EPS_TAG[eps],
+        )],
+        arguments = FUZZ_ARGS | {
+            "CORE_AREA": FUZZ_CORE_AREA[eps],
+            "OUTPUT_JSON": "$(location fuzz_truth_%s_%s.json)" % (
+                name,
+                FUZZ_EPS_TAG[eps],
+            ),
+        },
+        cmd = "run",
+        script = "extract.tcl",
+        sources = {"EXTRACT_TCL": ["extract.tcl"]},
+        src_logs = True,
+    )
+    for name in FUZZ_VARIANTS
+    for eps in FUZZ_EPS
+]
+
+# The estimator arm: one executable per variant, off that variant's
+# unperturbed synthesis. The core-area perturbation is applied inside the
+# estimator (CORE_AREA_EPS_SITES) rather than by re-synthesising, so the
+# estimator ensemble costs one process per variant instead of one per
+# perturbation -- and the fork walk shares the design load across the
+# whole ensemble.
+[
+    orfs_run_executable(
+        name = "fuzz_estimator_%s" % name,
+        src = ":fuzz_asap7_%s_0_synth" % name,
+        arguments = FUZZ_ARGS | {"VERILOG_DEFINES": FUZZ_VARIANTS[name][0]},
+        cmd = "run",
+        script = "estimator.tcl",
+        sources = ESTIMATOR_SOURCES,
+    )
+    for name in FUZZ_VARIANTS
+]
+
+# The analysis: a power curve and a false-positive rate, for the flow and
+# for the estimator, over the same perturbation set.
+py_binary(
+    name = "fuzz_floor",
+    srcs = ["fuzz_floor.py"],
+    args = [
+        "--flow=%s:%s:$(location fuzz_truth_%s_%s.json)" % (
+            name,
+            FUZZ_EPS_TAG[eps],
+            name,
+            FUZZ_EPS_TAG[eps],
+        )
+        for name in FUZZ_VARIANTS
+        for eps in FUZZ_EPS
+    ] + [
+        "--estimator=%s:$(location :fuzz_estimator_%s):$(location fuzz_truth_%s_0.json)" % (
+            name,
+            name,
+            name,
+        )
+        for name in FUZZ_VARIANTS
+    ],
+    data = [
+        "fuzz_truth_%s_%s.json" % (
+            name,
+            FUZZ_EPS_TAG[eps],
+        )
+        for name in FUZZ_VARIANTS
+        for eps in FUZZ_EPS
+    ] + [
+        ":fuzz_estimator_%s" % name
+        for name in FUZZ_VARIANTS
+    ],
+    deps = [":optuna_study_lib"],
+)
+
+# -------------------------------------------------------------
+# Phase 1 of the multiplier_top CI-gate campaign: is rtl_macro_placer
+# deterministic, thread-independent, and stable?
+#
+# Runs first because any of the three answers changes the rest of the
+# campaign, and it costs minutes rather than the 7.5 CPU-hours the flow
+# reference does. Global placement is off, so the recorded macro origins
+# are the macro placer's output and nothing else's.
+#
+# The RTL-MP papers describe a multi-start "go-with-the-winners" scheme
+# across 10 threads, which is a specific reason to doubt determinism at
+# this one stage -- and threads do not survive fork(), so a thread-
+# dependent placer would make run_estimator_batch's cores//len(manifest)
+# split an uncontrolled perturbation.
+# -------------------------------------------------------------
+py_binary(
+    name = "macro_stability_top",
+    srcs = ["macro_stability.py"],
+    args = [
+        "$(location :fast_estimator_top_executable)",
+        "$(location ground_truth_top.json)",
+        "multiplier_top",
+    ],
+    data = [
+        "ground_truth_top.json",
+        ":fast_estimator_top_executable",
+    ],
+    main = "macro_stability.py",
+    deps = [":optuna_study_lib"],
+)
+
+# -------------------------------------------------------------
+# The multiplier_top CI-gate campaign: flow reference verdicts.
+#
+# Six top-level RTL variants at five site-aligned core-area
+# perturbations, through the real flow. This is the reference the
+# estimator's verdicts are scored against, and at ~900s a run it is the
+# dominant cost of the campaign -- so the variant list is deliberately
+# short and chosen from what the multiplier campaign actually learned.
+#
+# Statement-order and identity-wire fuzzes are absent on purpose: yosys
+# canonicalised both away there, giving a timing fingerprint identical to
+# the base at every perturbation, and each would cost five 900s runs to
+# learn the same nothing. The reassociation fuzzes are the ones that
+# reached the netlist.
+#
+# The macro's CONTENTS are constant -- every variant consumes the same
+# :multiplier_asap7_generate_abstract, hardened once. Its PLACEMENT is
+# not: rtl_macro_placer runs for every variant and every perturbation,
+# because macro placement is the biggest lever on top-level QoR and
+# frequently the thing a change is trying to move, and nothing can tell
+# us programmatically which changes affect it.
+# -------------------------------------------------------------
+
+FUZZ_TOP_VARIANTS = {
+    # name: (VERILOG_DEFINES, true effect on the achieved period)
+    "base": ("", "reference"),
+    "roworder": ("-D FUZZ_TOP_ROWORDER=1", "zero"),
+    "tree": ("-D FUZZ_TOP_TREE=1", "zero"),
+    "stage1": ("-D EXTRA_TOP_STAGES=1", "real"),
+    "stage2": ("-D EXTRA_TOP_STAGES=2", "real"),
+    "stage4": ("-D EXTRA_TOP_STAGES=4", "real"),
+}
+
+# The core x-edge moved by whole sites: 396.000um +/- eps * 0.054um,
+# the asap7 site width from //test/estimation_ladder:site_probe.
+# initialize_floorplan snaps the core to the site grid, so a sub-site
+# nudge can snap back to nothing while still being reported as a
+# perturbation.
+FUZZ_TOP_CORE_AREA = {
+    -2: "4 4 395.892 396",
+    -1: "4 4 395.946 396",
+    0: "4 4 396 396",
+    1: "4 4 396.054 396",
+    2: "4 4 396.108 396",
+}
+
+FUZZ_TOP_ARGS = MULTIPLIER_TOP_ARGS | {"DESIGN_NAME": "multiplier_top_fuzz"}
+
+[
+    orfs_flow(
+        name = "fuzz_top_asap7",
+        arguments = FUZZ_TOP_ARGS | {
+            "VERILOG_DEFINES": FUZZ_TOP_VARIANTS[name][0],
+            "CORE_AREA": FUZZ_TOP_CORE_AREA[eps],
+        },
+        macros = [":multiplier_asap7_generate_abstract"],
+        sources = MULTIPLIER_TOP_SOURCES,
+        tags = ["manual"],
+        top = "multiplier_top_fuzz",
+        variant = "%s_%s" % (
+            name,
+            FUZZ_EPS_TAG[eps],
+        ),
+        verilog_files = [
+            "multiplier_top_fuzz.sv",
+            "multiplier.sv",
+        ],
+    )
+    for name in FUZZ_TOP_VARIANTS
+    for eps in FUZZ_EPS
+]
+
+[
+    orfs_run(
+        name = "fuzz_top_truth_%s_%s" % (
+            name,
+            FUZZ_EPS_TAG[eps],
+        ),
+        src = ":fuzz_top_asap7_%s_%s_grt" % (
+            name,
+            FUZZ_EPS_TAG[eps],
+        ),
+        outs = ["fuzz_top_truth_%s_%s.json" % (
+            name,
+            FUZZ_EPS_TAG[eps],
+        )],
+        arguments = FUZZ_TOP_ARGS | {
+            "CORE_AREA": FUZZ_TOP_CORE_AREA[eps],
+            "OUTPUT_JSON": "$(location fuzz_top_truth_%s_%s.json)" % (
+                name,
+                FUZZ_EPS_TAG[eps],
+            ),
+        },
+        cmd = "run",
+        script = "extract.tcl",
+        sources = {"EXTRACT_TCL": ["extract.tcl"]},
+        src_logs = True,
+    )
+    for name in FUZZ_TOP_VARIANTS
+    for eps in FUZZ_EPS
+]
+
+# One estimator per variant, off that variant's unperturbed synthesis.
+# The core-area perturbation is applied inside the estimator rather than
+# by re-synthesising, so an ensemble costs one process per variant.
+[
+    orfs_run_executable(
+        name = "fuzz_top_estimator_%s" % name,
+        src = ":fuzz_top_asap7_%s_0_synth" % name,
+        arguments = FUZZ_TOP_ARGS | {"VERILOG_DEFINES": FUZZ_TOP_VARIANTS[name][0]},
+        cmd = "run",
+        script = "estimator.tcl",
+        sources = ESTIMATOR_SOURCES,
+    )
+    for name in FUZZ_TOP_VARIANTS
+]
+
+# The decisive pre-flight for the top gate: what difference can an
+# estimator ensemble actually resolve on a design with macros?
+#
+# Estimator arm only -- no --flow arguments -- because the 900s flow
+# reference is the expensive part and there is no point paying for it
+# until the paired resolution is known. Phase 1 found the raw spread on
+# this design to be ~25% of the achieved period, so an unpaired
+# comparison is hopeless; the question is how much of that cancels when
+# base and change see the same perturbations.
+py_binary(
+    name = "gate_probe_top",
+    srcs = ["fuzz_floor.py"],
+    args = [
+        "--macro-rungs",
+    ] + [
+        "--estimator=%s:$(location :fuzz_top_estimator_%s):$(location ground_truth_top.json)" % (name, name)
+        for name in FUZZ_TOP_VARIANTS
+    ],
+    data = [
+        "ground_truth_top.json",
+    ] + [
+        ":fuzz_top_estimator_%s" % name
+        for name in FUZZ_TOP_VARIANTS
+    ],
+    main = "fuzz_floor.py",
+    deps = [":optuna_study_lib"],
+)
+
+# Does more ensemble buy resolution on a macro design, or is the spread a
+# bias that no averaging removes? This is the measurement that decides
+# whether a top-level gate is possible at all, and it runs before the
+# 7.5 CPU-hour flow reference is committed.
+#
+# roworder is the variant that matters: its true effect on the function is
+# exactly zero, and at k=5 it was reported as an 11.8% regression. If that
+# delta shrinks with k it was noise; if it holds while its interval
+# shrinks, a semantically neutral edit really does cost QoR through macro
+# placement -- which is what split turned out to be on the multiplier
+# design.
+py_binary(
+    name = "k_scaling_top",
+    srcs = ["k_scaling.py"],
+    args = [
+        "$(location :fuzz_top_estimator_base)",
+        "$(location ground_truth_top.json)",
+        "multiplier_top",
+        "--variant=roworder:$(location :fuzz_top_estimator_roworder)",
+        "--variant=stage1:$(location :fuzz_top_estimator_stage1)",
+    ],
+    data = [
+        "ground_truth_top.json",
+        ":fuzz_top_estimator_base",
+        ":fuzz_top_estimator_roworder",
+        ":fuzz_top_estimator_stage1",
+    ],
+    main = "k_scaling.py",
+    deps = [":optuna_study_lib"],
+)
+
+# -------------------------------------------------------------
+# Validating the method: does the estimator's distributional verdict
+# agree with the flow's?
+#
+# This is the measurement that licenses using an estimator ensemble where
+# a flow ensemble is unaffordable -- which is the whole premise for a big
+# design. It runs on multiplier precisely because that flow is 47s, so a
+# 41-run ensemble per variant costs half an hour instead of ten.
+#
+# Three variants, chosen for what they are known to be: base; split,
+# which is provably equivalence-preserving yet costs 9.6% of the achieved
+# period; and load8, a real but small change. Between them they cover a
+# true zero, a large effect from a semantically neutral edit, and a small
+# real effect.
+# -------------------------------------------------------------
+
+WIDE_EPS = list(range(-20, 21))
+
+WIDE_EPS_TAG = {
+    e: ("m%d" % -e if e < 0 else ("p%d" % e if e > 0 else "0"))
+    for e in WIDE_EPS
+}
+
+# 38.000um +/- eps * 0.054um, in exact integer nanometres so no float
+# repr artefact reaches a make variable.
+WIDE_CORE_AREA = {
+    e: "2 2 %d.%s 38" % (
+        (38000 + e * 54) // 1000,
+        str(1000 + (38000 + e * 54) % 1000)[1:],
+    )
+    for e in WIDE_EPS
+}
+
+WIDE_VARIANTS = [
+    "base",
+    "split",
+    "load8",
+]
+
+[
+    orfs_flow(
+        name = "wide_asap7",
+        arguments = FUZZ_ARGS | {
+            "VERILOG_DEFINES": FUZZ_VARIANTS[name][0],
+            "CORE_AREA": WIDE_CORE_AREA[eps],
+        },
+        sources = {
+            "SDC_FILE": ["constraints.sdc"],
+            "IO_CONSTRAINTS": ["io_constraints.tcl"],
+        },
+        tags = ["manual"],
+        top = "multiplier_fuzz",
+        variant = "w%s_%s" % (
+            name,
+            WIDE_EPS_TAG[eps],
+        ),
+        verilog_files = ["multiplier_fuzz.sv"],
+    )
+    for name in WIDE_VARIANTS
+    for eps in WIDE_EPS
+]
+
+[
+    orfs_run(
+        name = "wide_truth_%s_%s" % (
+            name,
+            WIDE_EPS_TAG[eps],
+        ),
+        src = ":wide_asap7_w%s_%s_grt" % (
+            name,
+            WIDE_EPS_TAG[eps],
+        ),
+        outs = ["wide_truth_%s_%s.json" % (
+            name,
+            WIDE_EPS_TAG[eps],
+        )],
+        arguments = FUZZ_ARGS | {
+            "CORE_AREA": WIDE_CORE_AREA[eps],
+            "OUTPUT_JSON": "$(location wide_truth_%s_%s.json)" % (
+                name,
+                WIDE_EPS_TAG[eps],
+            ),
+        },
+        cmd = "run",
+        script = "extract.tcl",
+        sources = {"EXTRACT_TCL": ["extract.tcl"]},
+        src_logs = True,
+    )
+    for name in WIDE_VARIANTS
+    for eps in WIDE_EPS
+]
+
+# The deliverable: a quantified, actionable PR verdict.
+#
+# Both arms are ensembles, because a single run of anything -- flow or
+# estimator -- is one draw from a distribution wide enough to swamp most
+# changes. The KPI is rank-based (Hodges-Lehmann shift, Mann-Whitney win
+# probability) since the measured behaviour of this flow violates what a
+# mean-and-t-interval assumes.
+#
+# Every verdict carries the difference the ensemble could actually
+# resolve. Without that line a KPI on a design with this noise floor
+# hands someone a "win" every other PR, and dies the first time it
+# contradicts what a developer can see for themselves.
+#
+# Demonstrated here with base vs split: an edit that provably cannot
+# change what the circuit computes, and costs 9.6% of the achieved
+# period. Real gate usage substitutes the merge-base and PR estimators.
+py_binary(
+    name = "ci_gate_demo",
+    srcs = ["ci_gate.py"],
+    args = [
+        "$(location :fuzz_estimator_base)",
+        "$(location :fuzz_estimator_split)",
+        "$(location fuzz_truth_base_0.json)",
+        "-k",
+        "8",
+    ],
+    data = [
+        "fuzz_truth_base_0.json",
+        ":fuzz_estimator_base",
+        ":fuzz_estimator_split",
+    ],
+    main = "ci_gate.py",
+    deps = [":optuna_study_lib"],
+)
+
+# The measurement that licenses the gate: does an estimator ensemble
+# reach the same verdict a flow ensemble would?
+#
+# On multiplier, because that flow is 47s and can therefore be
+# ensembled. Magnitudes are not expected to match -- the estimator is
+# biased and its per-perturbation response is uncorrelated with the
+# flow's -- only the ordering has to carry over, which is the weakest
+# claim the gate needs and the only one with a chance of holding.
+py_binary(
+    name = "method_validation",
+    srcs = ["method_validation.py"],
+    args = [
+        "$(location fuzz_truth_base_0.json)",
+    ] + [
+        "--flow=%s:%d:$(location wide_truth_%s_%s.json)" % (
+            name,
+            eps,
+            name,
+            WIDE_EPS_TAG[eps],
+        )
+        for name in WIDE_VARIANTS
+        for eps in WIDE_EPS
+    ] + [
+        "--estimator=%s:$(location :fuzz_estimator_%s)" % (name, name)
+        for name in WIDE_VARIANTS
+    ],
+    data = [
+        "fuzz_truth_base_0.json",
+    ] + [
+        "wide_truth_%s_%s.json" % (
+            name,
+            WIDE_EPS_TAG[eps],
+        )
+        for name in WIDE_VARIANTS
+        for eps in WIDE_EPS
+    ] + [
+        ":fuzz_estimator_%s" % name
+        for name in WIDE_VARIANTS
+    ],
+    main = "method_validation.py",
+    deps = [
+        ":ci_gate_lib",
+        ":optuna_study_lib",
+    ],
+)
+
+py_library(
+    name = "ci_gate_lib",
+    srcs = ["ci_gate.py"],
+    imports = ["."],
+    deps = [":optuna_study_lib"],
+)
+
+# The negative case, which matters more than the positive one: load8 is a
+# real change the flow resolves at +0.45%, and the estimator was measured
+# getting its direction wrong. The gate must decline to call it rather
+# than confidently report the wrong sign.
+py_binary(
+    name = "ci_gate_demo_small",
+    srcs = ["ci_gate.py"],
+    args = [
+        "$(location :fuzz_estimator_base)",
+        "$(location :fuzz_estimator_load8)",
+        "$(location fuzz_truth_base_0.json)",
+        "-k",
+        "8",
+    ],
+    data = [
+        "fuzz_truth_base_0.json",
+        ":fuzz_estimator_base",
+        ":fuzz_estimator_load8",
+    ],
+    main = "ci_gate.py",
+    deps = [":optuna_study_lib"],
+)
+
+# What one gate ensemble member costs, measured the way a CI budget needs
+# it: alone on the machine, with all its threads. Every other runtime in
+# this study was measured under fork -- contended, and single-threaded
+# because fork quiesces the host before forking -- so none of them is the
+# number to plan against.
+[
+    py_binary(
+        name = "gate_cost_%s" % suffix,
+        srcs = ["gate_cost.py"],
+        args = [
+            "$(location :%s)" % exe,
+            "$(location %s)" % truth,
+            design,
+        ],
+        data = [
+            truth,
+            ":%s" % exe,
+        ],
+        main = "gate_cost.py",
+        deps = [":optuna_study_lib"],
+    )
+    for suffix, exe, truth, design in [
+        ("small", "fuzz_estimator_base", "fuzz_truth_base_0.json", "multiplier"),
+        ("top", "fuzz_top_estimator_base", "ground_truth_top.json", "multiplier_top"),
+    ]
+]
+
+# -------------------------------------------------------------
+# The flow reference for multiplier_top -- the measurement the campaign
+# was missing.
+#
+# Everything known about the macro design so far concerns the ESTIMATOR:
+# that its spread is ~25%, that an ensemble buys resolution, that
+# roworder reads as 7.8% worse. Whether the flow agrees was never
+# measured, because at 900s a run the ensemble is expensive.
+#
+# Sized rather than guessed. The flow's spread on this design is about
+# 25% of the achieved period, so s ~ 6%, and resolving roworder's 7.8%
+# needs z*s*sqrt(2/k) < 7.8 -- k of about ten. Fifteen leaves margin.
+#
+# Four variants: base; roworder, whose true functional effect is exactly
+# zero and which the estimator calls 7.8% worse; stage1, which the
+# estimator cannot distinguish; and stage4, a large effect that serves as
+# a positive control -- if the flow and the estimator disagree even there,
+# something is wrong with the comparison rather than with the estimator.
+# -------------------------------------------------------------
+
+# k=9 rather than 15: at ~8 flow runs an hour, nine perturbations
+# already resolve roworder's 7.8% (z*s*sqrt(2/9) ~ 5.7% at s ~ 6%),
+# and the extra six would have cost another two hours for margin
+# that changes no conclusion.
+TOP_EPS = list(range(-4, 5))
+
+TOP_EPS_TAG = {
+    e: ("m%d" % -e if e < 0 else ("p%d" % e if e > 0 else "0"))
+    for e in TOP_EPS
+}
+
+# 396.000um +/- eps * 0.054um, in exact integer nanometres.
+TOP_CORE_AREA = {
+    e: "4 4 %d.%s 396" % (
+        (396000 + e * 54) // 1000,
+        str(1000 + (396000 + e * 54) % 1000)[1:],
+    )
+    for e in TOP_EPS
+}
+
+TOP_REF_VARIANTS = [
+    "base",
+    "roworder",
+    "stage1",
+    "stage4",
+]
+
+[
+    orfs_flow(
+        name = "topref_asap7",
+        arguments = FUZZ_TOP_ARGS | {
+            "VERILOG_DEFINES": FUZZ_TOP_VARIANTS[name][0],
+            "CORE_AREA": TOP_CORE_AREA[eps],
+        },
+        macros = [":multiplier_asap7_generate_abstract"],
+        sources = MULTIPLIER_TOP_SOURCES,
+        tags = ["manual"],
+        top = "multiplier_top_fuzz",
+        variant = "r%s_%s" % (
+            name,
+            TOP_EPS_TAG[eps],
+        ),
+        verilog_files = [
+            "multiplier_top_fuzz.sv",
+            "multiplier.sv",
+        ],
+    )
+    for name in TOP_REF_VARIANTS
+    for eps in TOP_EPS
+]
+
+[
+    orfs_run(
+        name = "topref_truth_%s_%s" % (
+            name,
+            TOP_EPS_TAG[eps],
+        ),
+        src = ":topref_asap7_r%s_%s_grt" % (
+            name,
+            TOP_EPS_TAG[eps],
+        ),
+        outs = ["topref_truth_%s_%s.json" % (
+            name,
+            TOP_EPS_TAG[eps],
+        )],
+        arguments = FUZZ_TOP_ARGS | {
+            "CORE_AREA": TOP_CORE_AREA[eps],
+            "OUTPUT_JSON": "$(location topref_truth_%s_%s.json)" % (
+                name,
+                TOP_EPS_TAG[eps],
+            ),
+        },
+        cmd = "run",
+        script = "extract.tcl",
+        sources = {"EXTRACT_TCL": ["extract.tcl"]},
+        src_logs = True,
+    )
+    for name in TOP_REF_VARIANTS
+    for eps in TOP_EPS
+]
+
+# The same validation, on the design that actually has macros.
+#
+# Everything measured about multiplier_top so far concerns the estimator.
+# This is the first measurement of whether the flow agrees with it -- and
+# the one variant that matters is roworder, whose true functional effect
+# is exactly zero and which the estimator calls 7.8% worse.
+py_binary(
+    name = "method_validation_top",
+    srcs = ["method_validation.py"],
+    args = [
+        "$(location ground_truth_top.json)",
+        "--macro-rung",
+        "--eps",
+        "top",
+    ] + [
+        "--flow=%s:%d:$(location topref_truth_%s_%s.json)" % (
+            name,
+            eps,
+            name,
+            TOP_EPS_TAG[eps],
+        )
+        for name in TOP_REF_VARIANTS
+        for eps in TOP_EPS
+    ] + [
+        "--estimator=%s:$(location :fuzz_top_estimator_%s)" % (name, name)
+        for name in TOP_REF_VARIANTS
+    ],
+    data = [
+        "ground_truth_top.json",
+    ] + [
+        "topref_truth_%s_%s.json" % (
+            name,
+            TOP_EPS_TAG[eps],
+        )
+        for name in TOP_REF_VARIANTS
+        for eps in TOP_EPS
+    ] + [
+        ":fuzz_top_estimator_%s" % name
+        for name in TOP_REF_VARIANTS
+    ],
+    main = "method_validation.py",
+    deps = [
+        ":ci_gate_lib",
+        ":optuna_study_lib",
+    ],
 )

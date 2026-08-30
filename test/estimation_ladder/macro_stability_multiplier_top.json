@@ -1,0 +1,78 @@
+{
+  "chaos": {
+    "-1": {
+      "max_um": 285.438,
+      "mean_um": 143.756375,
+      "moved": 16,
+      "n_macros": 16,
+      "orientation_changed": 8
+    },
+    "-2": {
+      "max_um": 220.791,
+      "mean_um": 75.843125,
+      "moved": 12,
+      "n_macros": 16,
+      "orientation_changed": 4
+    },
+    "1": {
+      "max_um": 160.923,
+      "mean_um": 28.82,
+      "moved": 16,
+      "n_macros": 16,
+      "orientation_changed": 6
+    },
+    "2": {
+      "max_um": 0.764,
+      "mean_um": 0.573,
+      "moved": 12,
+      "n_macros": 16,
+      "orientation_changed": 0
+    }
+  },
+  "design": "multiplier_top",
+  "determinism": {
+    "max_um": 0.0,
+    "mean_um": 0.0,
+    "moved": 0,
+    "n_macros": 16,
+    "orientation_changed": 0
+  },
+  "placed": {
+    "periods": {
+      "eps-1": 1022.812641,
+      "eps-2": 1294.134064,
+      "eps1": 1319.710266,
+      "eps2": 1205.152893,
+      "spine": 1200.756973
+    },
+    "range_pct": 24.725871402455727
+  },
+  "rung": {
+    "CLOCK_MODE": "none",
+    "GPL_ROUTABILITY_DRIVEN": "0",
+    "GPL_TIMING_DRIVEN": "0",
+    "GPL_VIRTUAL_CTS": "0",
+    "PLACE_IOS": "0",
+    "RUN_GRT": "0",
+    "RUN_MACRO_PLACE": "1",
+    "RUN_PLACE": "0",
+    "RUN_REPAIR_DESIGN": "0",
+    "RUN_REPAIR_TIMING": "0"
+  },
+  "threads": {
+    "16": {
+      "max_um": 0.0,
+      "mean_um": 0.0,
+      "moved": 0,
+      "n_macros": 16,
+      "orientation_changed": 0
+    },
+    "4": {
+      "max_um": 0.0,
+      "mean_um": 0.0,
+      "moved": 0,
+      "n_macros": 16,
+      "orientation_changed": 0
+    }
+  }
+}

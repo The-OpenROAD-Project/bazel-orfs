@@ -998,8 +998,544 @@ def render(
             "",
         ]
     out += calibration_section(directory, image_prefix)
+    out += stability_section(directory)
+    out += gate_section(directory)
     out += methods_section(path_counts)
     return "\n".join(out)
+
+
+def stability_section(directory):
+    """The two seed-sensitivity studies: is the front reproducible, and can
+    the estimator answer better-or-worse?
+
+    Both are optional -- the JSONs only exist once the studies have been
+    run -- so a README regenerated without them simply omits the section
+    rather than inventing one.
+    """
+    out = []
+    seed_path = os.path.join(directory, "seed_sensitivity_multiplier.json")
+    fuzz_path = os.path.join(directory, "fuzz_floor.json")
+    if not os.path.exists(seed_path) and not os.path.exists(fuzz_path):
+        return out
+
+    out += [
+        "---",
+        "",
+        "## How stable is any of this?",
+        "",
+        "Every number above comes from one run per configuration, and",
+        "adjacent rungs on the front sit 0.0005 apart in mean relative",
+        "error. `knob_sweep.py` states the assumption that makes that",
+        "acceptable -- accuracy is deterministic for a given configuration,",
+        "so repeating it would measure nothing -- and it is true. An",
+        "identical re-run reproduces exactly.",
+        "",
+        "Determinism is not stability. The question is what happens when an",
+        "input moves by an amount nobody would call a design change.",
+        "",
+        "This is somebody else's experiment. Kahng & Mantik (ISQED 2002)",
+        "gave the taxonomy of perturbations that leave a solution",
+        "well-formed and measured tool noise with it; Jeong & Kahng found a",
+        "1ps timing-constraint change moving post-synthesis area by up to",
+        "16.4%; Chan, Kahng & Woo (SLIP 2020) re-ran both on commercial",
+        "tools, found 7% on routed wirelength from netlist reordering and",
+        "11.5% from nudging a placement blockage, and framed the result as",
+        "a *noise floor* -- a lower bound on how accurate any predictor of",
+        "that flow can be. Nothing about the method here is new. What is",
+        "new is the subject (OpenROAD, not a commercial tool), the target",
+        "(a predictor being audited rather than a flow characterised), and",
+        "the per-stage attribution, which is affordable only because `fork`",
+        "makes the shared prefix free.",
+        "",
+    ]
+
+    if os.path.exists(seed_path):
+        with open(seed_path, "r") as f:
+            seed = json.load(f)
+        out += [
+            "### Which stage manufactures the noise",
+            "",
+            "A clock-period nudge of 1-10ps cannot legitimately move the",
+            "answer: `min_period = clk_period - slack`, so the constraint",
+            "cancels out of the metric exactly. Anything that survives is",
+            "tool noise. Applied at each stage in turn, the nudge persisting",
+            "to the end of the run, so the difference between consecutive",
+            "stages isolates one stage's contribution:",
+            "",
+        ]
+        rows = []
+        for rung in ("cheap", "middle", "accurate"):
+            info = seed.get(rung)
+            if not info:
+                continue
+            for name, st in sorted(info["per_stage"].items()):
+                if st.get("failed"):
+                    continue
+                rows.append(
+                    {
+                        "rung": rung,
+                        "perturbation": name,
+                        "stage": st["stage"],
+                        "class": st["kind"],
+                        "period range %": round(st["period"]["range_pct"], 4),
+                        "err span": round(st["mean_rel_err_span"], 5),
+                    }
+                )
+        if rows:
+            out += [pd.DataFrame(rows).to_markdown(index=False), ""]
+        mid = seed.get("middle", {})
+        v = mid.get("verdict") or {}
+        if v:
+            out += [
+                f"On the middle rung the spread is **{v['worst_span']:.4f}** in",
+                f"mean relative error, against that rung's own error of",
+                f"**{mid['spine']['mean_rel_err']:.4f}**. The noise is about half",
+                "the size of the quantity being measured, and it is",
+                f"{v['worst_span'] / v['front_gap']:.0f}x the smallest gap the front",
+                "is ranked by. Resolving that gap at this spread would need",
+                f"roughly **{v['k_needed']} runs** per configuration.",
+                "",
+                "Nudges at CTS, repair_design and global route move the answer",
+                "by **exactly zero**. All of it comes from timing-driven global",
+                "placement.",
+                "",
+                "**What this is not.** Var(E - T) = sigma_E^2 + sigma_T^2, and",
+                "the noise floor in Chan/Kahng/Woo's sense is sigma_T: the",
+                "perturbation is not an input the estimator is given, so no",
+                "predictor can beat its target's own dispersion. The flow is",
+                "not re-run here, so what is measured is sigma_E. That bounds",
+                "how reproducible the front is, not how accurate an estimator",
+                "could ever be.",
+                "",
+            ]
+
+    if os.path.exists(fuzz_path):
+        with open(fuzz_path, "r") as f:
+            fuzz = json.load(f)
+        out += [
+            "## Can it tell you whether your change helped?",
+            "",
+            "That is the question a developer actually asks, and the reason",
+            "it is hard is not that the flow is slow. One flow run is one",
+            "draw from a distribution wider than most changes. An infinitely",
+            "fast flow would still not answer it.",
+            "",
+            "Eleven RTL variants were run through the real flow and through",
+            "the estimator, each at five site-aligned core-area",
+            "perturbations. Three variants are equivalence-preserving, so",
+            "their true effect on the achieved period is exactly zero; the",
+            "rest move it by a real and measured amount.",
+            "",
+        ]
+        absorbed = fuzz.get("absorbed_by_synthesis") or []
+        if absorbed:
+            out += [
+                f"Two of the three zero-effect edits -- {', '.join(sorted(absorbed))}",
+                "-- never reached the netlist at all: yosys canonicalises",
+                "statement order and identity wires away, and the timing",
+                "fingerprint is identical to the base at every perturbation.",
+                "They are not a test of the flow, but they are an end-to-end",
+                "check that a true zero reads as exactly zero, which both arms",
+                "give.",
+                "",
+            ]
+        flow_arm = fuzz.get("flow", {})
+        split = flow_arm.get("split", {}).get("effect")
+        if split:
+            base_range = flow_arm.get("base", {}).get("spread", {})
+            out += [
+                "The third is the interesting one. An algebraically identical",
+                "split multiply -- a rewrite that provably cannot change what",
+                "the circuit computes -- costs",
+                f"**{split['mean_delta_pct']:.1f}%** of the achieved period,",
+                f"against a flow whose own spread under the perturbation is"
+                f" **{100.0 * base_range.get('range', 0) / base_range.get('mean', 1):.2f}%**.",
+                "A semantically neutral edit is not a small perturbation to",
+                "the flow's answer. That is the same phenomenon, at a",
+                "comparable magnitude, that Chan, Kahng & Woo report for",
+                "commercial tools.",
+                "",
+                "The dial is also not monotone: adding logic made the design",
+                "*faster* in several settings.",
+                "",
+            ]
+        # The power curve: what size of real change each configuration can
+        # actually see. This is the table a CI configuration is chosen
+        # from, so it goes in ahead of the summary.
+        rung_names = list((fuzz.get("rungs") or {}).keys())
+        curve = []
+        for variant, info in (fuzz.get("flow") or {}).items():
+            eff = info.get("effect")
+            if not eff:
+                continue
+            row = {
+                "variant": variant,
+                "true effect %": round(eff["mean_delta_pct"], 2),
+            }
+            for rung in rung_names:
+                arm = fuzz.get("est:%s" % rung, {}).get(variant, {}).get("effect")
+                row[rung] = (
+                    "-" if not arm else ("seen" if arm["detectable"] else "quiet")
+                )
+            curve.append(row)
+        curve.sort(key=lambda r: abs(r["true effect %"]))
+        if curve:
+            out += [
+                "### What size of change can each configuration see?",
+                "",
+                "The true effect is what the flow's own ensemble measured, so",
+                "`split` appears here as a real 10% change even though it is",
+                "semantically a no-op -- the flow really does build a slower",
+                "chip from that rewrite.",
+                "",
+                pd.DataFrame(curve).to_markdown(index=False),
+                "",
+            ]
+
+        agreement = fuzz.get("agreement") or {}
+        if agreement:
+            rows = []
+            for rung, a in agreement.items():
+                rows.append(
+                    {
+                        "rung": rung,
+                        "agrees with flow": a["agree"],
+                        "missed": a["missed"],
+                        "false positives": a["false_positive"],
+                        "sign flips": a["sign_flip"],
+                        "resolvable diff %": round(a["mean_mdd_pct"], 2),
+                        "median s": round(a["median_runtime_s"], 1),
+                    }
+                )
+            out += [
+                "### The decision: which configuration should CI run?",
+                "",
+                pd.DataFrame(rows).to_markdown(index=False),
+                "",
+                "**Timing-driven global placement is a pure noise generator",
+                "for this purpose.** It was already the sole amplifier of",
+                "constraint noise above; it turns out not to be the source of",
+                "the signal. Switching it off resolves a difference five times",
+                "smaller, detects three more of the real changes, and runs",
+                "faster.",
+                "",
+                "Correlation between the two arms across perturbations is",
+                "about zero everywhere, while the verdicts agree nine times in",
+                "ten. The estimator does not need to track the flow's",
+                "distribution to answer better-or-worse. It needs its own",
+                "distribution to be consistently ordered, which is a much",
+                "weaker requirement -- and the one that holds.",
+                "",
+            ]
+        mem = fuzz.get("memory") or {}
+        if mem:
+            worst = {}
+            for per_stage in mem.values():
+                for stage, m in per_stage.items():
+                    worst[stage] = max(worst.get(stage, 0), m["max_private_dirty_mb"])
+            rows = [
+                {"stage": st, "private dirty MB": round(v, 1)}
+                for st, v in sorted(worst.items(), key=lambda kv: -kv[1])
+            ]
+            out += [
+                "### Provisioning an ensemble",
+                "",
+                "What an extra ensemble member costs is not a whole run's",
+                "memory. Fork children are copy-on-write, so shared pages are",
+                "paid once and the marginal cost is the pages a child dirties",
+                "after the fork:",
+                "",
+                pd.DataFrame(rows).to_markdown(index=False),
+                "",
+                "So a member forked before global placement costs single-digit",
+                "megabytes, and one forked after it costs a few hundred. On any",
+                "plausible CI machine cores bind the ensemble long before",
+                "memory does.",
+                "",
+            ]
+
+    out += [
+        "### Reproducing the stability results",
+        "",
+        "```sh",
+        "bazel test //test/estimation_ladder:seed_sensitivity_test",
+        "bazel run  //test/estimation_ladder:seed_sensitivity",
+        "bazel run  //test/estimation_ladder:fuzz_floor",
+        "```",
+        "",
+    ]
+    return out
+
+
+def gate_section(directory):
+    """The CI-gate campaign: can a PR get a quantified verdict?
+
+    Renders only when the campaign's JSONs are present, so a README
+    regenerated without them omits the section rather than inventing one.
+    """
+    out = []
+    mv = os.path.join(directory, "method_validation.json")
+    ms = os.path.join(directory, "macro_stability_multiplier_top.json")
+    ks = os.path.join(directory, "k_scaling_multiplier_top.json")
+    if not any(os.path.exists(p) for p in (mv, ms, ks)):
+        return out
+
+    out += [
+        "---",
+        "",
+        "## Can a PR be given a quantified verdict?",
+        "",
+        "The question a developer asks is whether their change helped.",
+        "The usual answer is to run the flow and compare -- and on a design",
+        "with macros that answer is worth very little, for a reason that has",
+        "nothing to do with how long the flow takes.",
+        "",
+    ]
+
+    if os.path.exists(ms):
+        with open(ms, "r") as f:
+            m = json.load(f)
+        det = m.get("determinism") or {}
+        chaos = m.get("chaos") or {}
+        placed = m.get("placed") or {}
+        worst = max(
+            (v for v in chaos.values() if v),
+            key=lambda v: v["mean_um"],
+            default=None,
+        )
+        out += [
+            "### Macro placement is reproducible, and chaotic",
+            "",
+            "`rtl_macro_placer` is deterministic -- a forked re-run of an",
+            "identical configuration reproduces every macro exactly -- and",
+            "independent of thread count. Neither was safe to assume: the",
+            "RTL-MP papers describe a multi-start scheme across ten threads.",
+            "",
+        ]
+        if worst and det is not None:
+            out += [
+                f"But nudging the core edge by **one site (0.054um, 0.014% of",
+                f"a 392um core)** moves **{worst['moved']} of"
+                f" {worst['n_macros']} macros**, by"
+                f" **{worst['mean_um']:.0f}um on average** and"
+                f" {worst['max_um']:.0f}um at worst, flipping"
+                f" {worst['orientation_changed']} of them.",
+                "",
+            ]
+        if placed:
+            out += [
+                f"The achieved period across five such nudges spans"
+                f" **{placed['range_pct']:.1f}%**. Nothing is monotone: two",
+                "sites in one direction barely moves anything while one site",
+                "moves everything.",
+                "",
+                "For comparison, the same class of perturbation moves the",
+                "wire-only `multiplier` design by 1.2%. So a single flow run",
+                "on a macro design is one draw from a wide distribution, and",
+                "**an infinitely fast flow would still not answer the",
+                "question**. Latency was never the binding constraint;",
+                "variance is.",
+                "",
+            ]
+
+    if os.path.exists(ks):
+        with open(ks, "r") as f:
+            k = json.load(f)
+        rows = []
+        for name in sorted(x for x in k if isinstance(k[x], dict) and "rows" in k[x]):
+            for r in k[name]["rows"]:
+                rows.append(
+                    {
+                        "variant": name,
+                        "k": r["k"],
+                        "resolvable %": round(r["mdd_pct"], 2),
+                        "estimated shift %": round(r["delta_pct"], 2),
+                    }
+                )
+        if rows:
+            out += [
+                "### Ensembles buy resolution",
+                "",
+                "The spread is noise and it averages away: the resolvable",
+                "difference falls roughly as 1/sqrt(k). What does *not* average",
+                "away is the effect underneath -- `roworder`'s estimated shift",
+                "holds near +7.8% while its interval shrinks, which is the",
+                "signature of signal.",
+                "",
+                pd.DataFrame(rows).to_markdown(index=False),
+                "",
+            ]
+
+    for mvpath, design, note in (
+        (mv, "multiplier", "41 perturbations per arm; the flow is 47s here"),
+        (
+            os.path.join(directory, "method_validation_top.json"),
+            "multiplier_top",
+            "9 perturbations per arm; the flow is 900s, so the reference is "
+            "itself underpowered",
+        ),
+    ):
+        if not os.path.exists(mvpath):
+            continue
+        with open(mvpath, "r") as f:
+            v = json.load(f)
+        rows = []
+        for name, r in sorted(v.get("variants", {}).items()):
+            fv, ev = r.get("flow"), r.get("estimator")
+            if not fv or not ev:
+                continue
+            rows.append(
+                {
+                    "variant": name,
+                    "flow shift %": round(fv["shift_pct"], 2),
+                    "flow verdict": fv["direction"] if fv["conclusive"] else "none",
+                    "est shift %": round(ev["shift_pct"], 2),
+                    "est verdict": ev["direction"] if ev["conclusive"] else "none",
+                    "agree": "yes" if r.get("agree") else "no",
+                }
+            )
+        if rows:
+            out += [
+                f"### Does the estimator reach the flow's verdict? (`{design}`)",
+                "",
+                f"{note}. Magnitudes are not expected to match -- the",
+                "estimator is biased and its per-perturbation response is",
+                "uncorrelated with the flow's. Only the *ordering* has to",
+                "carry over.",
+                "",
+                pd.DataFrame(rows).to_markdown(index=False),
+                "",
+            ]
+        if rows and design == "multiplier_top":
+            out += [
+                "**The failure mode inverts on the macro design, and it",
+                "inverts the wrong way.** On `multiplier` the estimator",
+                "under-claims: it returns inconclusive where the flow sees an",
+                "effect, which is the safe direction. Here it *over*-claims --",
+                "`roworder` is called a confident ~10% regression where the",
+                "flow cannot detect a change at all. A false alarm is the",
+                "failure that ends a KPI, because the first developer to check",
+                "one by hand finds nothing there.",
+                "",
+                "So the accuracy floor for this design is **at least 10%**,",
+                "not the 1% measured on `multiplier`. That is the same warning",
+                "as before, now with a number attached: the machinery",
+                "transfers and the magnitudes do not.",
+                "",
+                "Two things soften it without excusing it. The flow reference",
+                "is itself underpowered -- nine runs give it a +-5% interval,",
+                "so 'inconclusive' partly means the reference cannot resolve",
+                "7.8% either. And the estimator overstates magnitudes by a",
+                "fairly consistent factor (37.8% against 19.7% on `stage4`,",
+                "26.8% against 9.4% on `split`), which suggests a calibration",
+                "rather than a randomly wrong answer. Neither is measured well",
+                "enough to act on.",
+                "",
+                "`stage4` is the positive control and it agrees, so the",
+                "comparison itself is sound; it is the estimator's confidence",
+                "that is not.",
+                "",
+            ]
+        if rows and design == "multiplier":
+            out += [
+                "It catches the large regression and is blind to the small",
+                "one. The failure direction is the tolerable one: on `load8`",
+                "the estimator returns inconclusive rather than a confident",
+                "wrong answer.",
+                "",
+                "**Precision is not accuracy.** On `load8` the estimator's own",
+                "bootstrap is tight -- -0.10% [-0.19, +0.04] -- while the truth",
+                "is +0.45%. The ensemble is *precisely wrong*, and more `k`",
+                "narrows that interval without moving it toward truth. So the",
+                "gate requires two bars: the interval must exclude no-change,",
+                "**and** the shift must exceed a validated accuracy floor.",
+                "",
+                "Without the second bar the gate reports `+65.6 points`",
+                "(improved) for a change the flow says is 0.45% *worse* --",
+                "exactly the failure that ends a KPI's credibility the first",
+                "time someone checks it by hand.",
+                "",
+            ]
+
+    costs = []
+    for design in ("multiplier", "multiplier_top"):
+        cp = os.path.join(directory, "gate_cost_%s.json" % design)
+        if os.path.exists(cp):
+            with open(cp, "r") as f:
+                c = json.load(f)
+            costs.append(
+                {
+                    "design": design,
+                    "one member, all threads, alone": "%.1fs" % c["median_s"],
+                    "threads": c["threads"],
+                }
+            )
+    if costs:
+        out += [
+            "### What it costs",
+            "",
+            "Every other runtime in this study was measured under `fork`:",
+            "contended, and single-threaded because `fork` quiesces the host",
+            "before forking. Neither is the number to plan a CI budget from,",
+            "so a gate member is timed alone on the machine with all its",
+            "threads.",
+            "",
+            pd.DataFrame(costs).to_markdown(index=False),
+            "",
+            "On `multiplier_top` that is 86s against ~470s single-threaded, a",
+            "5.4x difference -- which is why an ensemble runs as separate",
+            "processes rather than as a forked walk. Thread scaling is",
+            "sublinear while process parallelism is not, so the right",
+            "arrangement flips at k = cores: below it, spend spare cores on",
+            "threads within each member; at or above it, one thread each.",
+            "",
+            "For `multiplier_top` on 64 cores: k=8 takes ~2 min per arm, k=16",
+            "~2.9 min, k=40 ~7.8 min. A single flow run is 900s. So for the",
+            "wall-clock of **one** flow sample you can have a 40-member",
+            "ensemble on **both** arms -- and a cached merge-base halves it.",
+            "",
+        ]
+
+    out += [
+        "### Calibrating this on another design",
+        "",
+        "The machinery transfers. **The magnitudes do not**, and neither does",
+        "the accuracy floor: the perturbation that moves `multiplier` by 1.2%",
+        "moves `multiplier_top` by 25%. Run these in order before showing",
+        "anyone a KPI, because each one can change what the next should be:",
+        "",
+        "1. `macro_stability` -- is the placer deterministic, thread-",
+        "   independent, and how chaotic? Minutes, and it can invalidate the",
+        "   rest.",
+        "2. `k_scaling` -- does an ensemble buy resolution, and how much `k`",
+        "   does the effect size you care about need?",
+        "3. `method_validation` -- **not optional.** It sets the accuracy",
+        "   floor by comparing against real flow ensembles. Until it has run,",
+        "   the gate reports a precision it cannot back: on `load8` it would",
+        "   otherwise have called a 0.45% regression a +65.6 point",
+        "   improvement.",
+        "4. `ci_gate` -- only now.",
+        "",
+        "Step 3 needs a design whose flow you can afford to ensemble. Where",
+        "you cannot, validate the method on a smaller vehicle and carry over",
+        "the *mechanism*, never the numbers.",
+        "",
+        "### Reproducing the gate campaign",
+        "",
+        "```sh",
+        "bazel run //test/estimation_ladder:macro_stability_top   # is the placer chaotic?",
+        "bazel run //test/estimation_ladder:k_scaling_top         # does ensemble buy resolution?",
+        "bazel run //test/estimation_ladder:method_validation     # does it match the flow?",
+        "bazel run //test/estimation_ladder:ci_gate_demo          # a large regression",
+        "bazel run //test/estimation_ladder:ci_gate_demo_small    # below the floor",
+        "```",
+        "",
+        "`method_validation` is not optional before using the gate on a new",
+        "design: it is what sets the accuracy floor, and the floor is",
+        "design-specific.",
+        "",
+    ]
+    return out
 
 
 def main():

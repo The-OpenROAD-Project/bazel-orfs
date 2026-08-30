@@ -33,7 +33,7 @@ fork gp_mode {plain timing_driven} {
 }
 ```
 
-`fork ?-parallel? ?-timeout seconds? varName valueList body` forks one
+`fork ?-parallel? ?-jobs N? ?-timeout seconds? varName valueList body` forks one
 copy-on-write child per value; the child sets `varName` in the caller's
 scope, evals `body` there, and `_exit`s. The join is implicit: `fork`
 returns once every child is reaped, with a dict mapping each value to its
@@ -48,6 +48,30 @@ stdout pipe open; deadlines do not survive fork, so nested forks pass
 their own `-timeout`. `-parallel` forks all children before joining —
 shared edges are still paid once, but siblings contend for the machine,
 so use it only when nothing downstream reads runtimes.
+
+**`-parallel` is unbounded, and that is a guarantee rather than an
+oversight**: every child is alive at once, so a body may rendezvous
+across siblings. The cost is that a wide value list oversubscribes the
+machine — a 41-leaf wave put 41 OpenROAD processes on 16 cores, which
+does not make the walk faster and does make its runtimes meaningless.
+
+**`-jobs N` is the option for a wide fan-out.** It keeps at most `N`
+children alive, forking the next only as one is reaped — a bounded worker
+pool, the way a build tool schedules. `-jobs default` takes the count
+from `ORFS_FORK_JOBS`, else `nproc`, which honours CPU affinity so a
+`taskset`- or cgroup-confined run gets what it is actually allowed. Since
+`fork` has already quiesced the host to a single thread, one child per
+core is one tool process per core.
+
+The two are mutually exclusive and `fork` rejects both together, because
+they promise opposite things: **under `-jobs` a body must never wait on a
+sibling**, which may not have been forked yet. That deadlocks; rendezvous
+needs `-parallel`.
+
+Reaping is oldest-first, because `waitpid` takes a specific pid — a child
+that finishes early is not reaped until those ahead of it are. That costs
+a little throughput when durations vary and keeps the bound exact, which
+is the property worth having.
 
 Raw primitives (`::orfs::posix_fork`, `::orfs::posix_waitpid`,
 `::orfs::posix_exit`) live in `//fork:liborfsfork.so`, a Tcl-stubs
@@ -69,6 +93,26 @@ leaves' files intact:
 
 ## Fork hazards (read before writing a walk)
 
+- **A child cannot raise its own thread count.** `fork` quiesces the host
+  to one thread before forking, and it is tempting to think that makes it
+  safe for a child to raise the count again — it does not.
+  `//test:fork_smoke` probes exactly this: the child wedges in
+  `futex_do_wait` with a single thread while the parent sits in
+  `do_wait`, indefinitely. The probe carries a `-timeout` so it reports
+  status 142 instead of hanging the suite.
+
+  This sets a scheduling rule, since every ensemble member is therefore
+  single-threaded. When the fan-out is at least the core count that is
+  the fastest arrangement anyway — tool thread-scaling is sublinear while
+  process parallelism is not. When the fan-out is *smaller* than the core
+  count, `fork` leaves the machine idle and nothing inside the walk can
+  spend the rest, so separate processes are the better tool. And `fork`
+  only earns its keep through the shared prefix: configurations diverging
+  at a late stage share nearly everything, while an ensemble that
+  perturbs the floorplan diverges at the root and shares only the design
+  load — ~9s of a ~470s leaf on `multiplier_top`. Measure the prefix
+  before reaching for `fork`.
+
 - **Threads do not survive fork**: only the forking thread exists in the
   child. OpenSTA/OpenROAD respawn their worker pools on demand (validated
   by `//test:fork_smoke`, which runs timing queries in forked
@@ -88,7 +132,8 @@ leaves' files intact:
 ## Tests
 
 - `//fork:fork_test` — the idiom's semantics in hermetic tclsh
-  (sequencing, statuses, crash tolerance, nesting, `-parallel` barrier).
+  (sequencing, statuses, crash tolerance, nesting, `-parallel` barrier,
+  the `-jobs` bound, and that the two are rejected together).
 - `//test:run_out_dir_test` — `out_dir` / `$RUN_OUTPUT_DIR` end to end
   (fast, mock-openroad).
 - `//test:fork_smoke_test` (manual) — the walk inside real OpenROAD after
