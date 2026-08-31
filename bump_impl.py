@@ -441,6 +441,11 @@ def find_archive_override_block(content, module_name):
     return None
 
 
+_GITHUB_ARCHIVE_URL_RE = re.compile(
+    r"https://github\.com/[^/]+/[^/]+/archive/[^/]+\.tar\.gz"
+)
+
+
 def github_archive_url(github_repo, commit):
     """Compose the GitHub /archive/<sha>.tar.gz tarball URL for a commit."""
     return f"https://github.com/{github_repo}/archive/{commit}.tar.gz"
@@ -689,8 +694,48 @@ def update_orfs_archive_override(
     )
 
 
-def _openroad_submodule_patch_cmd(path, github_repo, sha, sha256_hex):
-    """Render one patch_cmds curl-extract line for an OpenROAD submodule.
+# The digest check that always follows the download in a generated submodule
+# patch_cmd.  Everything before it is the fetch step, which a consumer may
+# have redirected at a mirror.
+_SUBMODULE_FETCH_END = " && echo '"
+
+# The staging filename the generator picks, which carries the submodule sha.
+# Read the sha from here rather than from the download URL: a mirrored fetch
+# names its object however the mirror does, but the staging file is ours.
+_SUBMODULE_STAGEFILE_RE = re.compile(
+    r"\.openroad-submodule-.+?-([0-9a-f]{40})\.tar\.gz"
+)
+
+
+def _is_submodule_fetch_cmd(cmd):
+    """Is this patch_cmd a generated "fetch, verify, extract a submodule" line?
+
+    Keyed on the verify-and-extract tail the generator always writes, so a
+    fetch step pointed at a mirror still reads as generated.
+    """
+    return (
+        _SUBMODULE_FETCH_END in cmd
+        and "| sha256sum -c - &&" in cmd
+        and "--strip-components=1 -C " in cmd
+    )
+
+
+def _submodule_fetch_step(cmd):
+    """The download portion of a generated submodule patch_cmd, or None."""
+    if not _is_submodule_fetch_cmd(cmd):
+        return None
+    return cmd[: cmd.index(_SUBMODULE_FETCH_END)]
+
+
+def _is_default_submodule_fetch(fetch):
+    """Is this the curl-from-GitHub fetch step the generator writes by default?"""
+    return fetch.startswith("curl -sSfL") and "https://github.com/" in fetch
+
+
+def _openroad_submodule_patch_cmd(
+    path, github_repo, sha, sha256_hex, fetch_template=None
+):
+    """Render one patch_cmds fetch-extract line for an OpenROAD submodule.
 
     Format: download to a SHA-suffixed staging file *inside the repo's own
     workdir* (not /tmp — many hosts mount /tmp as tmpfs and the OpenROAD
@@ -699,12 +744,23 @@ def _openroad_submodule_patch_cmd(path, github_repo, sha, sha256_hex):
     parent archive left behind, clean up.  --retry absorbs transient
     network blips (mirrors the qt-bazel xcb-util-cursor pattern in
     //MODULE.bazel).
+
+    ``fetch_template`` replaces the default curl-from-GitHub download with a
+    consumer's mirror fetch, with ``{sha}`` and ``{sha256}`` substituted.  The
+    verify, extract and cleanup steps stay generated either way, so the digest
+    is still checked no matter where the bytes came from.
     """
-    archive_url = f"https://github.com/{github_repo}/archive/{sha}.tar.gz"
     stagefile = f".openroad-submodule-{path.replace('/', '-')}-{sha}.tar.gz"
+    if fetch_template:
+        fetch = fetch_template.replace("{sha}", sha).replace("{sha256}", sha256_hex)
+    else:
+        archive_url = f"https://github.com/{github_repo}/archive/{sha}.tar.gz"
+        fetch = (
+            f"curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 "
+            f"-o {stagefile} {archive_url}"
+        )
     return (
-        f"curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 "
-        f"-o {stagefile} {archive_url} && "
+        f"{fetch} && "
         f"echo '{sha256_hex}  {stagefile}' | sha256sum -c - && "
         f"tar xzf {stagefile} --strip-components=1 -C {path} && "
         f"rm {stagefile}"
@@ -719,6 +775,8 @@ def _format_openroad_archive_override(
     patch_cmds_suffix="",
     submodule_patch_cmds=None,
     trailing_comments=None,
+    mirror_url_templates=None,
+    submodule_fetch_templates=None,
 ):
     """Render the openroad archive_override block as Starlark source text.
 
@@ -726,6 +784,10 @@ def _format_openroad_archive_override(
     ``patches``: list of patch label strings (empty -> no patches/patch_strip).
     ``patch_cmds_suffix``: optional string like ``+ OPENROAD_CUSTOM_PATCH_CMDS`` to append.
     ``submodule_patch_cmds``: optional list of ``(label, cmd_string)`` for base64-encoded patches.
+    ``mirror_url_templates``: optional mirror URLs for the parent archive,
+    listed ahead of the GitHub URL; ``{commit}`` is substituted.
+    ``submodule_fetch_templates``: optional ``path -> fetch step`` overrides,
+    see :func:`_openroad_submodule_patch_cmd`.
 
     Attribute order matches buildifier convention: ``module_name`` first,
     rest alphabetical.  fix_lint will re-format anyway, but landing close
@@ -735,6 +797,11 @@ def _format_openroad_archive_override(
     parent_strip = f"OpenROAD-{openroad_commit}"
     submodule_patch_cmds = submodule_patch_cmds or []
     trailing_comments = trailing_comments or []
+    submodule_fetch_templates = submodule_fetch_templates or {}
+    parent_urls = [
+        t.replace("{commit}", openroad_commit) for t in mirror_url_templates or []
+    ]
+    parent_urls.append(parent_url)
 
     lines = [
         "archive_override(",
@@ -749,7 +816,13 @@ def _format_openroad_archive_override(
         "    patch_cmds = [",
     ]
     for path, github_repo, sha, sha256_hex in submodule_info:
-        cmd = _openroad_submodule_patch_cmd(path, github_repo, sha, sha256_hex)
+        cmd = _openroad_submodule_patch_cmd(
+            path,
+            github_repo,
+            sha,
+            sha256_hex,
+            submodule_fetch_templates.get(path),
+        )
         lines.append(f"        {cmd!r},")
     # OpenROAD aliases @slang -> @sv-lang//:libsvlang via
     # new_local_repository(name="slang", path="bazel"), and Bazel resolves
@@ -786,7 +859,13 @@ def _format_openroad_archive_override(
     for c in trailing_comments:
         lines.append(f"    {c}")
     lines.append(f'    strip_prefix = "{parent_strip}",')
-    lines.append(f'    urls = ["{parent_url}"],')
+    if len(parent_urls) == 1:
+        lines.append(f'    urls = ["{parent_urls[0]}"],')
+    else:
+        lines.append("    urls = [")
+        for url in parent_urls:
+            lines.append(f'        "{url}",')
+        lines.append("    ],")
     lines.append(")")
     return "\n".join(lines)
 
@@ -869,6 +948,8 @@ def _is_custom_patch_cmd(cmd):
     """Return True if a patch_cmd was manually added (not bump.py generated)."""
     if cmd.startswith("curl -sSfL") and "tar xzf" in cmd:
         return False
+    if _is_submodule_fetch_cmd(cmd):
+        return False
     if (
         's|\\"@slang\\"|\\"@sv-lang//:libsvlang\\"|' in cmd
         or 's|"@slang"|"@sv-lang//:libsvlang"|' in cmd
@@ -897,12 +978,58 @@ def _parse_submodule_digests(block):
     """
     digests = {}
     for cmd in _extract_patch_cmds(block):
-        m_sha = re.search(r"/archive/([^/\s]+?)\.tar\.gz", cmd)
+        m_sha = _SUBMODULE_STAGEFILE_RE.search(cmd) or re.search(
+            r"/archive/([^/\s]+?)\.tar\.gz", cmd
+        )
         m_hex = re.search(r"echo '([0-9a-f]{64})  ", cmd)
         m_path = re.search(r"--strip-components=1 -C (\S+) ", cmd)
         if m_sha and m_hex and m_path:
             digests[m_path.group(1)] = (m_sha.group(1), m_hex.group(1))
     return digests
+
+
+def _parse_submodule_mirror_fetches(block):
+    """Map submodule path -> fetch-step template for redirected fetches.
+
+    GitHub's codeload cache has been observed serving HTTP 400 for the
+    tar.gz-by-sha key of individual commits, which leaves a consumer no
+    option but to fetch that submodule from a mirror.  Capture such a fetch
+    step with the sha and digest reduced to ``{sha}`` / ``{sha256}``
+    placeholders, so regenerating the block re-renders it at the new commit
+    instead of dropping it.
+    """
+    fetches = {}
+    for cmd in _extract_patch_cmds(block):
+        fetch = _submodule_fetch_step(cmd)
+        if fetch is None or _is_default_submodule_fetch(fetch):
+            continue
+        m_path = re.search(r"--strip-components=1 -C (\S+) ", cmd)
+        m_hex = re.search(r"echo '([0-9a-f]{64})  ", cmd)
+        m_sha = _SUBMODULE_STAGEFILE_RE.search(cmd)
+        if not (m_path and m_hex and m_sha):
+            continue
+        template = fetch.replace(m_sha.group(1), "{sha}")
+        template = template.replace(m_hex.group(1), "{sha256}")
+        fetches[m_path.group(1)] = template
+    return fetches
+
+
+def _parse_mirror_urls(block, commit):
+    """The non-GitHub entries of ``urls = [...]``, as templates.
+
+    ``commit`` (the commit the block is currently pinned to) is reduced to a
+    ``{commit}`` placeholder so a mirror URL naming the archive by sha
+    re-renders at the new commit.
+    """
+    m = re.search(r"urls\s*=\s*\[(.*?)\]", block, re.DOTALL)
+    if not m:
+        return []
+    templates = []
+    for url in re.findall(r'"([^"]*)"', m.group(1)):
+        if _GITHUB_ARCHIVE_URL_RE.fullmatch(url):
+            continue
+        templates.append(url.replace(commit, "{commit}") if commit else url)
+    return templates
 
 
 def _resolve_openroad_archives(
@@ -1083,6 +1210,8 @@ def update_openroad_archive_override(
             fetch_submodule_sha_fn,
         )
 
+    # Mirrors a consumer added are configuration, not hand-edits to undo:
+    # carry them over at the new commit rather than regenerating them away.
     new_block = _format_openroad_archive_override(
         openroad_commit,
         parent_integrity,
@@ -1091,6 +1220,8 @@ def update_openroad_archive_override(
         patch_cmds_suffix,
         submodule_patch_cmds,
         trailing_comments,
+        _parse_mirror_urls(old_block, _parse_openroad_parent_commit(old_block)),
+        _parse_submodule_mirror_fetches(old_block),
     )
     return content[:start] + new_block + content[end:]
 
