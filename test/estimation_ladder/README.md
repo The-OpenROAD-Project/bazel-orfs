@@ -849,6 +849,15 @@ bazel run //test/estimation_ladder:swerv_macro_select_executable -- \
   MS_MACRO_TCL=$PWD/calib/macro.tcl LOG_DIR=$PWD/calib/logs
 ```
 
+### The goal axis
+
+"Improve" in this campaign means **clock period**. Area and power
+come later: one axis at a time, because this is design-space
+exploration — if an axis cannot be pushed to the goal on its own,
+the combined point does not exist on the product Pareto front. Area
+and runtime are recorded next to every verdict as diagnostics
+(effort masking), never as consolation prizes.
+
 ### Campaign state
 
 Step order and status (each lands with its numbers):

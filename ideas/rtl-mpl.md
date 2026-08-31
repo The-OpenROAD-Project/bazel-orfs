@@ -44,6 +44,16 @@ see). Global route itself we'd plot *over time*, not per-PR. That is
 a comparison problem, not a prediction problem — and comparisons are
 governed by noise, not by estimator accuracy.
 
+One scoping rule before any data: **"improve" here means clock
+period.** Area and power come later. We separate concerns and push
+one axis at a time — not because the axes aren't interlinked, but
+because this is design-space exploration: if an individual axis
+cannot be pushed to the goal on its own, the combined point does not
+exist on the product's Pareto front, and it is cheapest to learn that
+early. Area and runtime are still recorded next to every period
+verdict, but as diagnostics (they expose repair buying period with
+area and runtime — effort masking), never as consolation prizes.
+
 ## 4. Where the noise lives
 
 So we measured where the noise originates (`stage_variance`, PR #866
@@ -240,10 +250,11 @@ What we run today (bazel-orfs `test/estimation_ladder/`,
    the verdict next to delta_tie, and materialize the winner.
 
 First A/B on swerv_wrapper at grt (n=1 per arm, delta_tie walk in
-flight): the selected placement wins where aggregate KPIs can see
-macro quality — macro-path mean −11.2%, std-cell area −4.5% — and
-gives up 2.9% on the extremal achieved period, a delta whose
-significance is exactly what the noise floor will decide. That the
+flight): on the goal axis — period — the selected placement wins the
+macro-path mean by 11.2% and gives up 2.9% on the extremal achieved
+period, a delta whose significance is exactly what the noise floor
+will decide. The −4.5% std-cell area rides along as a diagnostic
+(less repair effort spent), not as the verdict. That the
 proxy and grt disagree by a hair on the general-path aggregate is the
 P_pick question, now being quantified on this design with the same
 audit math that condemned the objective.
