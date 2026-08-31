@@ -52,12 +52,25 @@ That's it. Bazel builds OpenROAD, OpenSTA, Yosys, ABC, GNU Make, and Qt from sou
 
 ## Get started
 
+The `//test:...` targets used as examples throughout this document are
+bazel-orfs's own test designs, so run them from a clone of this repository:
+
+```bash
+git clone https://github.com/The-OpenROAD-Project/bazel-orfs.git
+cd bazel-orfs
+```
+
+Labels of the `@bazel-orfs//...` form appear only where a *separate*
+workspace refers to bazel-orfs as an external dependency — see
+[Use bazel-orfs as an external dependency](#use-bazel-orfs-as-an-external-dependency).
+The `//test:...` package is not part of that public surface.
+
 ### Run your first build
 
 To build the `cts` (Clock Tree Synthesis) stage of the `L1MetadataArray` target, run:
 
 ```bash
-bazel run @bazel-orfs//test:L1MetadataArray_cts
+bazel run //test:L1MetadataArray_cts
 ```
 
 Bazel automatically downloads the pre-built ORFS environment and runs the flow. Results are placed in the `tmp/results` directory under the workspace root.
@@ -73,13 +86,13 @@ bazel run <target>_<stage> gui_<stage>
 For example, to view the route stage of `L1MetadataArray`:
 
 ```bash
-bazel run @bazel-orfs//test:L1MetadataArray_route gui_route
+bazel run //test:L1MetadataArray_route gui_route
 ```
 
 You can also run the build and view results in two steps:
 
 ```bash
-bazel run @bazel-orfs//test:L1MetadataArray_route
+bazel run //test:L1MetadataArray_route
 # Start the GUI
 tmp/test/L1MetadataArray_route/make gui_route
 
@@ -523,7 +536,7 @@ bazel query '...:*' | grep 'L1MetadataArray'
 The abstract target always follows the `<target>_generate_abstract` naming pattern:
 
 ```bash
-bazel build @bazel-orfs//test:L1MetadataArray_generate_abstract
+bazel build //test:L1MetadataArray_generate_abstract
 ```
 
 The output `LEF` file can be found under `bazel-bin/results/<module>/<target>/base/<target.lef>`.
@@ -555,7 +568,7 @@ To apply and view the changes:
 
 ```bash
 # Build and view in GUI
-bazel run @bazel-orfs//test:tag_array_64x184_floorplan gui_floorplan
+bazel run //test:tag_array_64x184_floorplan gui_floorplan
 ```
 
 ### Substep targets
@@ -657,7 +670,7 @@ If remote caching is enabled for Bazel, reverting a change and rebuilding comple
 git restore test/BUILD
 
 # Rebuild — instant cache hit
-bazel run @bazel-orfs//test:tag_array_64x184_floorplan gui_floorplan
+bazel run //test:tag_array_64x184_floorplan gui_floorplan
 ```
 
 ## Speed up your builds
@@ -1243,7 +1256,7 @@ This runs all synth targets in the workspace and places the results in the `tmp/
 ### Build the immediate dependencies of a target
 
 ```bash
-bazel build --output_groups=deps @bazel-orfs//test:L1MetadataArray_synth
+bazel build --output_groups=deps //test:L1MetadataArray_synth
 ```
 
 This builds the immediate dependencies of the `L1MetadataArray` target up to the `synth` stage and places the results in the `bazel-bin` directory.
