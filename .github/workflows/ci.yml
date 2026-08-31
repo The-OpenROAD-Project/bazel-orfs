@@ -97,9 +97,6 @@ jobs:
       # --- Unit tests ---
       - name: Run tests
         run: bazelisk test ... --build_tests_only --test_output=errors --profile=test.profile
-      - name: Analyze test
-        if: always()
-        run: bazelisk analyze-profile test.profile
 
       # --- Submodules ---
       - name: "Submodule: lec build"
