@@ -1749,6 +1749,16 @@ class TestOpenroadSubmoduleVendoring(unittest.TestCase):
         # --retry guards against transient network blips during fetch
         # (mirrors the xcb-util-cursor pattern in //MODULE.bazel).
         self.assertIn("--retry 5", self.block)
+        # --retry-connrefused is curl 7.52 (2016).
+        self.assertIn("--retry-connrefused", self.block)
+
+    def test_curl_flags_reach_old_hosts(self):
+        # patch_cmds run in the host shell, so a flag newer than the distro's
+        # curl is a hard fetch failure, not a degraded fetch.
+        # --retry-all-errors is curl 7.71 (2020); RHEL 8 ships 7.61.
+        # The fixture this rewrites still carries the old flag, so this also
+        # proves the regenerated block replaces it rather than preserving it.
+        self.assertNotIn("--retry-all-errors", self.block)
 
     def test_existing_patches_preserved(self):
         self.assertIn(

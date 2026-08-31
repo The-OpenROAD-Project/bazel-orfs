@@ -745,6 +745,12 @@ def _openroad_submodule_patch_cmd(
     network blips (mirrors the qt-bazel xcb-util-cursor pattern in
     //MODULE.bazel).
 
+    The flags stay within reach of an old host curl: patch_cmds run in the
+    host shell, so anything newer than the distro's curl turns a fetch into
+    a hard repository-rule failure.  --retry-connrefused is curl 7.52
+    (2016); --retry-all-errors would be 7.71 (2020) and breaks e.g. RHEL 8's
+    7.61.
+
     ``fetch_template`` replaces the default curl-from-GitHub download with a
     consumer's mirror fetch, with ``{sha}`` and ``{sha256}`` substituted.  The
     verify, extract and cleanup steps stay generated either way, so the digest
@@ -756,7 +762,7 @@ def _openroad_submodule_patch_cmd(
     else:
         archive_url = f"https://github.com/{github_repo}/archive/{sha}.tar.gz"
         fetch = (
-            f"curl -sSfL --retry 5 --retry-all-errors --retry-delay 5 "
+            f"curl -sSfL --retry 5 --retry-connrefused --retry-delay 5 "
             f"-o {stagefile} {archive_url}"
         )
     return (
