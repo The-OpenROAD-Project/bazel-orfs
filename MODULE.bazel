@@ -104,12 +104,16 @@ archive_override(
     #   0041 -> no issue: -random_seed feature, re-upstream when quiet
     #   0042 -> OpenROAD issue #11278 (snap residue past core, MPL-0034)
     #   0043 -> OpenROAD issue #11279 (all-fixed skips std-cell seeding)
+    #   0045 -> OpenROAD PR #11262 (gpl parallel density scatter; the
+    #            selector's scoring gpl is macro01-shaped, -42% there,
+    #            and it makes threaded-sequential scoring viable)
     patch_strip = 1,
     patches = [
         "//patches:0040-openroad-mpl-rerun-segfault.patch",
         "//patches:0041-openroad-mpl-random-seed.patch",
         "//patches:0042-openroad-mpl-snap-inside-core.patch",
         "//patches:0043-openroad-mpl-all-fixed-std-seed.patch",
+        "//patches:0045-openroad-gpl-parallel-density-scatter.patch",
     ],
     strip_prefix = "OpenROAD-3ca581e384324a1d09a53d29b00d4fad1c365e70",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/3ca581e384324a1d09a53d29b00d4fad1c365e70.tar.gz"],
