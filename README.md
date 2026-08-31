@@ -41,6 +41,7 @@ and easily actionable github issues for the OpenROAD and ORFS maintainers.
 | Debug or create issue archives | [Create a make issue archive](#create-a-make-issue-archive) |
 | Upgrade bazel-orfs or ORFS | [Upgrade bazel-orfs](#upgrade-bazel-orfs) |
 | Override configuration variables | [Override configuration variables](#override-configuration-variables) |
+| Diagnose a build failure on my host | [docs/debugging.md](docs/debugging.md#host-platform--older-distributions) |
 
 ## Requirements
 
@@ -237,7 +238,7 @@ use_repo(orfs, "gnumake")
 First build takes 30-60 minutes; subsequent builds are incremental.
 See [docs/openroad.md](docs/openroad.md) for details and gotchas, and
 [docs/debugging.md](docs/debugging.md) for debugging tips (synthesis, bumps,
-from-source toolchain, overrides).
+from-source toolchain, overrides, host platform).
 
 #### Use locally installed tools
 

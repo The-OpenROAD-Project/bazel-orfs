@@ -64,6 +64,80 @@ can hit host-glibc issues (e.g. glibc-2.41 `@scip`/`tinycthread`). A host-gcc
 error in a from-source build usually means the hermetic LLVM toolchain isn't
 registered in that workspace.
 
+## Host platform / older distributions
+
+This section is about setting expectations, not about discouraging bug
+reports. Please do file issues. The point of the checks below is to tell you
+early which project can actually act on your failure, so you don't spend days
+waiting on a fix that cannot come from here — a long walk down a windy beach
+to a cafe that turns out to be closed.
+
+### Check OpenROAD standalone first — it bounds what bazel-orfs can fix
+bazel-orfs builds OpenROAD from source. If OpenROAD's own Bazel build does not
+work on your host, there is nothing bazel-orfs can do about it: the rules here
+orchestrate the flow, they don't influence how OpenROAD compiles. So build
+[OpenROAD](https://github.com/The-OpenROAD-Project/OpenROAD) on its own first:
+
+```bash
+git clone --recursive https://github.com/The-OpenROAD-Project/OpenROAD.git
+cd OpenROAD
+bazelisk build //:openroad //:openroad-qt //src/sta:opensta
+```
+
+All three are required by bazel-orfs. `openroad-qt` lands in the
+`bazelisk run :<target>_<stage> gui_<stage>` runfiles, so it has to build even
+for headless flows, and `//src/sta:opensta` is the OpenSTA binary bazel-orfs
+runs (it lives in the `src/sta` submodule, hence `--recursive`).
+
+That one command tells you where you stand:
+
+- **All three build** — your failure is in bazel-orfs's own territory and an
+  issue here is the right place for it.
+- **Any of them fails** — the failure is upstream, and a bazel-orfs issue can
+  only
+  forward it. File it against OpenROAD with that command as the reproducer:
+  it's a smaller, faster reproducer than an ORFS flow target, and it reaches
+  the people who can fix it. Meanwhile, the bring-your-own-binary route below
+  may get you running today.
+
+yosys, abc, GNU Make and Qt come from their own modules, so they are additional
+from-source surface beyond what this check covers.
+
+### Bring your own OpenROAD when the from-source build won't go
+If the standalone build fails on your host but you have a working OpenROAD
+installed some other way (e.g. built with the classic CMake flow via
+OpenROAD's `etc/DependencyInstaller.sh`), point bazel-orfs at it and skip the
+from-source build entirely:
+
+```starlark
+orfs.default(
+    openroad = "@bazel-orfs//:openroad",     # execs `openroad` from PATH
+    openroad_qt = "@bazel-orfs//:openroad",  # only if that binary has the GUI
+)
+```
+
+`@bazel-orfs//:openroad` is a two-line wrapper that `exec`s whichever
+`openroad` is on `PATH`. Reuse it for `openroad_qt` only when the PATH binary
+was built with GUI support; a headless build works for the flow stages but not
+for `gui_<stage>`. This does not make the build hermetic and does not remove
+the remaining from-source deps (yosys, abc, GNU Make), but it is often enough
+to get a flow running on a host the full source build can't handle. See
+[openroad.md](openroad.md), "Using a Locally Installed OpenROAD".
+
+### No CI below ubuntu-22.04 — old distributions are unsupported in practice
+bazel-orfs CI runs on `ubuntu-22.04` and nothing else
+(`.github/workflows/ci.yml`). OpenROAD's Bazel CI runs on `ubuntu-latest` and
+`macos-latest`. Neither project has a Bazel lane on an older or
+enterprise-LTS distribution, so a fix that makes one of them build on such a
+host can regress silently on the next dependency bump. Worth knowing before
+you invest: individual snags on an old host are often fixable, but a
+one-off fix is not a support promise, and the next bump can undo it.
+
+Note that OpenROAD's *CMake* build supports considerably more platforms than
+its Bazel build — `etc/DependencyInstaller.sh` covers RHEL/Rocky/Alma,
+openSUSE and Debian. A distribution appearing there says nothing about the
+Bazel path bazel-orfs uses; that combination is the bring-your-own case above.
+
 ## Dependency bumps
 
 ### `//:bump` only supports a pin 30 commit-days behind
