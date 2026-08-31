@@ -116,6 +116,13 @@ unselected flow ships — happened to be the worst of the 24:
 
 ![swerv_wrapper seed distribution](../test/estimation_ladder/seed_distribution_swerv.png)
 
+(Read this as a distribution plot, not a validation plot: the curve is
+monotone by construction — any score sorted against itself looks this
+smooth, a random one included. What it shows is the spread and where
+the unselected default lands. Whether the score *ranks* correctly is a
+question about score vs independent outcome — the two-row figure
+below.)
+
 Best-of-k arithmetic says what selection is worth: the expected gain
 of taking the best of k draws from spread sigma is roughly
 sigma·sqrt(2·ln k) — strongly worth having at k around 10–20,
