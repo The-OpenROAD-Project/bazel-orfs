@@ -139,6 +139,28 @@ single_version_override(
     version = "1.4.21.bcr.4",
 )
 
+# rules_flex (transitive: openroad/orfs -> rules_flex): 0.3.1 reads the CcInfo
+# global, which Bazel 9 removed. 0.4.1 loads it from @rules_cc.
+single_version_override(
+    module_name = "rules_flex",
+    version = "0.4.1",
+)
+
+# rules_bison (transitive: openroad/orfs -> rules_bison): 0.3.x's generated
+# bison repository BUILD calls the cc_* rules Bazel 9 removed from the global
+# namespace. 0.4 emits the @rules_cc loads.
+single_version_override(
+    module_name = "rules_bison",
+    version = "0.4.bcr.1",
+)
+
+# scip (transitive: openroad -> or-tools -> scip): the 9.2.3 BCR overlay BUILD
+# calls cc_library without a load; the .bcr.1 revision adds it.
+single_version_override(
+    module_name = "scip",
+    version = "9.2.3.bcr.1",
+)
+
 # sv-lang pulls in rules_pycross, whose toolchain extension fails on Python
 # 3.8 (transitively registered via or-tools -> pybind11_abseil, dropped
 # from rules_python 2.0.0's MINOR_MAPPING). pycross.configure_environments

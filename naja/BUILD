@@ -1,3 +1,4 @@
+load("@rules_python//python:defs.bzl", "py_binary")
 load("//:openroad.bzl", "orfs_deps", "orfs_synth")
 load(":orfs_libs.bzl", "orfs_libs")
 
