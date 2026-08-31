@@ -10,7 +10,7 @@ module(
     # does not have to agree with ours for it to bite.
     #
     # Kept equal to .bazelversion by //:bazel_version_test.
-    bazel_compatibility = [">=8.6.0"],
+    bazel_compatibility = [">=9.1.1"],
 )
 
 bazel_dep(name = "bazel_skylib", version = "1.9.2", dev_dependency = True)
