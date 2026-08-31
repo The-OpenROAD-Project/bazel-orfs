@@ -64,7 +64,13 @@ set ::ms_work [ms_env MS_WORK [file join $::env(WORK_HOME) macro_select_work]]
 set ::ms_k [ms_env MS_K 24]
 set ::ms_jobs [ms_env MS_JOBS 12]
 set ::ms_serial_threads [ms_env MS_SERIAL_THREADS 0]
-set ::ms_kpi [ms_env MS_SELECT_KPI wq25]
+# Default selection KPI: the macro-path aggregate. The E1 campaign
+# measured period at grt as macro-placement-insensitive at this
+# utilization (every candidate inside delta_tie) while the macro-path
+# mean spans ~300ps and is ranked by this proxy at rho +0.72; at tight
+# utilization macro paths become the period, so the KPI is
+# regime-robust (see ideas/rtl-mpl.md and score_vs_flow_swerv.json).
+set ::ms_kpi [ms_env MS_SELECT_KPI macro_mean]
 set ::ms_macro_tcl [ms_env MS_MACRO_TCL [file join $::env(WORK_HOME) macro.tcl]]
 set ::ms_fork_opts [list -timeout [ms_env MS_CHILD_TIMEOUT 14400]]
 file mkdir $::ms_out

@@ -157,13 +157,46 @@ such a score even in principle (section 5). The figure below is the
 direct comparison — the same 24 candidates, the same design, the same
 flow outcomes at grt; only the x-axis changes between rows:
 
-*[Figure: score_vs_flow — row 1: RTL-MP objective (raw debug-table
-components recombined under one fixed normalization) vs flow KPIs at
-grt; row 2: fast-GPL proxy score vs the same KPIs. One point per
-candidate, Spearman rho with bootstrap 95% CI per panel, the
-±delta_tie band from the design's own stage_variance walk shaded on
-the timing panels. Generator: `test/estimation_ladder/score_vs_flow.py`;
-the panel data lands when the swerv evaluate campaign completes.]*
+![score vs flow, swerv_wrapper](../test/estimation_ladder/score_vs_flow_swerv.png)
+
+(Row 1: RTL-MP objective, raw debug-table components recombined under
+one fixed normalization. Row 2: the fast-GPL proxy. Same 24
+candidates, same grt outcomes; the gray band is ±delta_tie from the
+design's own stage_variance walk. Generator and joined data:
+`test/estimation_ladder/score_vs_flow.py` / `score_vs_flow_swerv.json`.)
+
+The campaign's answer arrived with a twist that sharpens the whole
+story. **At this operating point (30% utilization), period at grt is
+macro-placement-insensitive: the tie band swallows both period panels
+whole.** Across 24 candidates whose proxy scores span 45%, achieved
+period spans 23.8 ps against a 48.8 ps noise floor, and the
+general-path aggregate 20.4 ps against 26.5 — every candidate ties.
+The fog is not merely forgiving the worst path; at loose utilization
+it forgives *every* path, for a fee paid in area (score-vs-area rho
++0.65/+0.47) — the effort masking of #867, now measured at population
+scale. What repair can never buy back is distance to a memory: the
+**macro-path mean spans 296.6 ps** — six times the noise floor — and
+both scores rank it (objective rho +0.57 [0.24, 0.79], proxy +0.72
+[0.48, 0.84]; the difference between the two rankers is not
+resolvable at n=24). Both scores see pre-fog geometry quality; the
+flow decides which downstream KPIs that quality reaches.
+
+Three consequences:
+
+- **The selection KPI is the macro-path aggregate.** At loose
+  utilization it is the only axis macro placement controls; at tight
+  utilization macro paths become the critical paths, i.e. the period.
+  Regime-robust either way.
+- **The free prefilter is validated.** The internal objective's +0.57
+  on the live axis costs nothing (it is printed during generation),
+  so a pruning cascade — objective prefilter, then measured scoring
+  for the survivors — is supported by data, not just arithmetic.
+- **Where selection buys period is a denser operating point** —
+  exactly the regime the utilization shmoo drives toward (smallest
+  core whose raced winner still closes), and the decisive open
+  question is which ranker tracks period *there*. That is the next
+  design up the ladder (cva6, 70% utilization) and the auto-floorplan
+  campaign.
 
 Two disciplines come with the distribution view, both borrowed from
 the noise work:
@@ -258,12 +291,12 @@ What we run today (bazel-orfs `test/estimation_ladder/`,
 3. **Select** on an aggregate sampled-path KPI (never WNS), publish
    the verdict next to delta_tie, and materialize the winner.
 
-First A/B on swerv_wrapper at grt (n=1 per arm, delta_tie walk in
-flight): on the goal axis — period — the selected placement wins the
-macro-path mean by 11.2% and gives up 2.9% on the extremal achieved
-period, a delta whose significance is exactly what the noise floor
-will decide. The −4.5% std-cell area rides along as a diagnostic
-(less repair effort spent), not as the verdict. That the
+First A/B on swerv_wrapper at grt, judged against the measured floor:
+the 2.9% extremal-period delta sits inside delta_tie (44.2 vs 48.8 ps)
+— a tie, consistent with the population result above that every
+candidate ties on period at this utilization. The macro-path win
+(−11.2%, six sigma-classes deep) and the area win (−685 um2 vs a
+472.5 threshold) are real. That the
 proxy and grt disagree by a hair on the general-path aggregate is the
 P_pick question, now being quantified on this design with the same
 audit math that condemned the objective.

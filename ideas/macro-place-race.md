@@ -175,6 +175,25 @@ it: seeds were only the first candidate coordinate.
   Same offline grading pattern as E3, on a density ladder instead of
   a seed population.
 
+## E1 verdict (2026-08-31, evening)
+
+E1 is in: `test/estimation_ladder/score_vs_flow_swerv.{png,json}`.
+Headline — **period at grt is macro-placement-insensitive at 30%
+utilization** (achieved spans 23.8ps vs delta_tie 48.8; general-path
+aggregate 20.4 vs 26.5: all 24 candidates tie on both), while the
+**macro-path mean spans 296.6ps** and is ranked by the proxy at rho
++0.72 [0.48, 0.84] and by the internal objective at +0.57 [0.24,
+0.79] (rankers not separable at n=24). Score-vs-area rho +0.65/+0.47:
+the fog flattens period by spending area. Consequences applied:
+selection KPI default is now the macro-path aggregate
+(macro_select.tcl); the cascade's free objective prefilter is
+validated by data; the decisive ranker-vs-period question moves to
+the dense regime (cva6 / the utilization shmoo). E6 evidence banked:
+the generate pass reproduced all 24 place.tcl **bit-identical across
+the 0045 binary change**. E7's paired-seed A/B is superseded on this
+design by the population result (everything ties on period); it
+returns at the dense operating point.
+
 ## Status snapshot (2026-08-31)
 
 Done: patches 0040–0043 carried + issues filed (#11277–#11279),

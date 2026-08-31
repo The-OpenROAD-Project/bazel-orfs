@@ -864,15 +864,24 @@ Step order and status (each lands with its numbers):
 
 1. swerv flow targets from the pinned ORFS tree -- done (two
    compat fixes and one carried ORFS patch, see git log).
-2. `stage_variance_swerv` -- swerv's own noise floor and
-   `delta_tie`. TODO(campaign).
-3. `macro_score` audit on swerv -- baseline P_pick / AUC /
-   regret on a macro-heterogeneous design. TODO(campaign).
-4. The selector, scored against arm 3 with the same audit math.
-   TODO(campaign).
-5. Verdict table per KPI, and the go/no-go: does measured
-   selection beat objective-trust by more than `delta_tie` at a
-   nightly-affordable cost? TODO(campaign).
+2. `stage_variance_swerv` -- done: 36/36 leaves, all guards
+   consistent, interaction CI contains zero on every KPI (the
+   fenced sub-sweep additivity assumption holds).
+   delta_tie(achieved) = 48.8ps (sigma 17.61, ~1.1%).
+3. + 4. done together over the 24-seed population
+   (`score_vs_flow_swerv.{png,json}`): period at grt is
+   macro-placement-insensitive at this utilization (achieved
+   range 23.8ps < 48.8 tie; general-path aggregate 20.4 < 26.5
+   -- all ties), macro-path mean spans 296.6ps and is ranked by
+   the proxy at rho +0.72 [0.48,0.84], by the internal objective
+   at +0.57 [0.24,0.79] (not separable at n=24); score-vs-area
+   +0.65/+0.47 = the fog flattens period by spending area.
+5. Verdict: selection cannot buy period *here* (axis saturated
+   -- a legal DSE answer), buys macro-path slack and area;
+   selection KPI default switched to the macro-path aggregate;
+   the period question moves to the dense regime (cva6, the
+   utilization shmoo). Determinism banked: 24/24 regenerated
+   place.tcl bit-identical across the gpl-patch binary change.
 
 ---
 
