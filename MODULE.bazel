@@ -133,6 +133,42 @@ single_version_override(
     ],
 )
 
+# rules_flex (transitive: openroad -> rules_flex): 0.3.1 uses the global
+# `CcInfo` symbol, which Bazel 9 removed in favour of an explicit
+# `load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")`. 0.4 adds that load
+# and changes nothing else, so it is a no-op on Bazel 8.
+#
+# Not 0.4.1: it deletes flex/internal/toolchain_info.bzl, which is what puts
+# `M4` (and the rest of m4_env) into `flex_toolchain.flex_env`. 0.4.1 sets M4
+# inside its own flex_action instead, so a rule that drives flex from the
+# toolchain directly gets an empty environment and flex dies looking for m4.
+# @openroad's bazel/flex.bzl genlex is exactly such a rule -- it reads
+# flex_env and rewrites the .runfiles/ paths in it -- so 0.4.1 breaks every
+# OpenSTA lexer with a bare `flex failed: (Exit 1)`.
+single_version_override(
+    module_name = "rules_flex",
+    version = "0.4",
+)
+
+# scip (transitive: openroad -> or-tools -> scip): 9.2.3's BUILD overlay
+# calls cc_library with no load(); Bazel 9 removed the autoloaded native
+# rules. 9.2.3.bcr.1 is the same SCIP with the load() added.
+single_version_override(
+    module_name = "scip",
+    version = "9.2.3.bcr.1",
+)
+
+# rules_bison (transitive: openroad -> rules_bison): the BUILD its
+# bison_repository generates calls cc_binary/cc_library with no load(),
+# which Bazel 9 rejects. 0.4.bcr.1 emits the loads; its toolchain_info.bzl is
+# unchanged from 0.3.1, so @openroad's bazel/bison.bzl genyacc -- which reads
+# `bison_env["M4"]` and `["BISON_PKGDATADIR"]` straight off the toolchain --
+# keeps working.
+single_version_override(
+    module_name = "rules_bison",
+    version = "0.4.bcr.1",
+)
+
 # gawk (transitive: abc -> ncurses -> gawk; yosys -> gawk): same gnulib
 # libc-header shadowing as sed (BCR #7642); 5.3.2.bcr.7 has the fix (BCR #7989).
 single_version_override(
