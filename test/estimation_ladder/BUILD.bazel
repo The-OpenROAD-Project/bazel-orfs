@@ -1870,3 +1870,86 @@ py_binary(
         ":stage_variance_lib",
     ],
 )
+
+# -------------------------------------------------------------
+# Phase A: cva6 (asap7) -- the dense operating point. 70%
+# utilization, 5um halos, heterogeneous macros: the design where
+# the period axis should come alive (swerv@30% measured it dead:
+# all candidates inside delta_tie). Same walks, nothing tuned.
+# -------------------------------------------------------------
+
+CVA6 = DESIGNS["asap7/cva6"]
+
+CVA6_SYNTH = "@orfs//flow/designs/asap7/cva6:cva6_synth"
+
+CVA6_SOURCES = {
+    var: ["@orfs" + label if label.startswith("//") else label for label in labels]
+    for var, labels in CVA6["sources"].items()
+}
+
+orfs_run_executable(
+    name = "stage_variance_cva6_executable",
+    src = CVA6_SYNTH,
+    arguments = CVA6["arguments"],
+    cmd = "run",
+    script = "stage_variance.tcl",
+    sources = CVA6_SOURCES | {
+        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+    },
+    stages = [
+        "floorplan",
+        "place",
+        "cts",
+        "grt",
+    ],
+    tags = ["manual"],
+)
+
+py_binary(
+    name = "stage_variance_cva6",
+    srcs = ["stage_variance.py"],
+    args = [
+        "$(location :stage_variance_cva6_executable)",
+        "cva6",
+    ],
+    data = [
+        ":stage_variance_cva6_executable",
+    ],
+    main = "stage_variance.py",
+    tags = ["manual"],
+    deps = [":optuna_study_lib"],
+)
+
+orfs_run_executable(
+    name = "macro_score_cva6_executable",
+    src = CVA6_SYNTH,
+    arguments = CVA6["arguments"],
+    cmd = "run",
+    script = "macro_score.tcl",
+    sources = CVA6_SOURCES | {
+        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+    },
+    stages = [
+        "floorplan",
+        "place",
+        "cts",
+        "grt",
+    ],
+    tags = ["manual"],
+)
+
+orfs_run_executable(
+    name = "cva6_macro_select_executable",
+    src = CVA6_SYNTH,
+    arguments = CVA6["arguments"],
+    cmd = "run",
+    script = "macro_select.tcl",
+    sources = CVA6_SOURCES | {
+        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+    },
+    stages = [
+        "floorplan",
+        "place",
+    ],
+    tags = ["manual"],
+)
