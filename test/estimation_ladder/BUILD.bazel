@@ -1706,6 +1706,7 @@ orfs_run_executable(
         "cts",
         "grt",
     ],
+    tags = ["manual"],
 )
 
 py_binary(
@@ -1719,6 +1720,7 @@ py_binary(
         ":stage_variance_swerv_executable",
     ],
     main = "stage_variance.py",
+    tags = ["manual"],
     deps = [":optuna_study_lib"],
 )
 
@@ -1742,6 +1744,7 @@ orfs_run_executable(
         "cts",
         "grt",
     ],
+    tags = ["manual"],
 )
 
 # Campaign step 4: the selector.  Consumes the synthesis output,
@@ -1789,6 +1792,7 @@ orfs_run_executable(
         "floorplan",
         "place",
     ],
+    tags = ["manual"],
 )
 
 # Campaign step 5/6: the consumer.  The main base flow variant of
@@ -1860,6 +1864,7 @@ py_binary(
         ":macro_score_swerv_executable",
     ],
     main = "macro_score.py",
+    tags = ["manual"],
     deps = [
         ":optuna_study_lib",
         ":stage_variance_lib",
