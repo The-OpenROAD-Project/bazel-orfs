@@ -673,6 +673,18 @@ def _remap(s, a, b):
         return s
     return s[:idx] + "/" + b + "/" + s[idx + len(key):]
 
+def _work_home_short(ctx):
+    """_work_home in short_path form, for runfiles contexts."""
+    parts = []
+    if ctx.label.workspace_name:
+        parts.append("..")
+        parts.append(ctx.label.workspace_name)
+    if ctx.label.package:
+        parts.append(ctx.label.package)
+    return "/".join(parts)
+
+_ARTIFACT_CATEGORIES = ("results", "logs", "reports", "objects")
+
 def renames(ctx, inputs, short = False):
     """Move inputs to the expected input locations.
 
@@ -685,21 +697,38 @@ def renames(ctx, inputs, short = False):
       A list of structs with src and dst fields for renaming.
     """
     result = []
+    my_home = _work_home_short(ctx) if short else _work_home(ctx)
     for file in inputs:
+        src_path = file_path(file, short)
+        dst_path = src_path
+
+        # A src from another package — e.g. previous_stage pointed at a
+        # design in the pinned ORFS repo — leaves its artifacts under the
+        # producer's work home, while the Makefile's *_DIR variables all
+        # point into this flow's. Relocate such artifacts, keeping the
+        # <category>/<platform>/<top>/<variant> tail.
+        for category in _ARTIFACT_CATEGORIES:
+            key = "/" + category + "/"
+            idx = src_path.rfind(key)
+            if idx == -1:
+                continue
+            if src_path[:idx] != my_home:
+                dst_path = my_home + src_path[idx:]
+            break
+
         if ctx.attr.src[OrfsInfo].variant != ctx.attr.variant:
-            src_path = file_path(file, short)
             dst_path = _remap(
-                src_path,
+                dst_path,
                 ctx.attr.src[OrfsInfo].variant,
                 ctx.attr.variant,
             )
 
-            # Files from a different variant than both the src and this
-            # stage (e.g., base synth outputs forwarded through a
-            # downstream-variant chain) aren't touched by _remap and end
-            # up with src == dst. Skip — `mv` would error on same file.
-            if src_path != dst_path:
-                result.append(struct(src = src_path, dst = dst_path))
+        # Files from a different variant than both the src and this
+        # stage (e.g., base synth outputs forwarded through a
+        # downstream-variant chain) aren't touched by _remap and end
+        # up with src == dst. Skip — `mv` would error on same file.
+        if src_path != dst_path:
+            result.append(struct(src = src_path, dst = dst_path))
 
     # renamed_inputs win over variant renaming
     for file in inputs:
