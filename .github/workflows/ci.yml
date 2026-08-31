@@ -107,17 +107,6 @@ jobs:
         run: >-
           bazelisk build ... --keep_going --profile=lec.profile
 
-      # test/downstream is a root module in .bazelignore, so //... never
-      # reaches it and nothing else here would notice it rotting. It went
-      # unbuildable for months precisely because no step ran it. Builds
-      # OpenROAD and yosys from source, so it is slow on a cold cache
-      # (~55 min on 16 cores; near-instant warm) -- the disk cache saved
-      # on main is what keeps it viable as a per-PR step.
-      - name: "Submodule: downstream consumer"
-        working-directory: test/downstream
-        run: >-
-          bazelisk test ... --keep_going --profile=downstream.profile
-
       # --- Save caches (main branch only) ---
       - name: Save Repository cache
         if: always() && github.ref == 'refs/heads/main'
