@@ -97,11 +97,13 @@ archive_override(
         "find . -name BUILD -exec sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|g' {} +",
         "sed -i 's|defines = \\[|copts = [\"-include\", \"fmt/format.h\"],\\n    defines = [|' src/syn/src/elab/BUILD third-party/slang-elab/src/BUILD",
     ],
-    # Macro-placement patches carried until upstream absorbs them; drop
-    # each at the bump whose pin contains its merged PR:
-    #   0040+0041 -> OpenROAD PR #11274 (rerun fix + -random_seed)
-    #   0042      -> OpenROAD PR #11275 (snap inside core)
-    #   0043      -> OpenROAD PR #11276 (all-fixed std-cell seeding)
+    # Macro-placement patches carried while upstream mpl churns (the
+    # PRs were parked in favor of issues with minimal reproducers; drop
+    # each patch at the bump whose pin fixes its issue):
+    #   0040 -> OpenROAD issue #11277 (rerun segfault)
+    #   0041 -> no issue: -random_seed feature, re-upstream when quiet
+    #   0042 -> OpenROAD issue #11278 (snap residue past core, MPL-0034)
+    #   0043 -> OpenROAD issue #11279 (all-fixed skips std-cell seeding)
     patch_strip = 1,
     patches = [
         "//patches:0040-openroad-mpl-rerun-segfault.patch",
