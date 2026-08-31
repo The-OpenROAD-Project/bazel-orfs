@@ -36,6 +36,8 @@ One-time setup (any path of the user's choosing):
     EOF
     chmod +x ~/.config/bazel/host_make/make.sh
     cat > ~/.config/bazel/host_make/BUILD.bazel <<'EOF'
+    load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+
     sh_binary(
         name = "make",
         srcs = ["make.sh"],
