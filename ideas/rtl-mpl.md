@@ -1,5 +1,14 @@
 # How can we improve RTL-MP?
 
+**TL;DR — A flow result is a draw from a distribution, so seed sweeps
+are not optional. Macro placement today uses a cost function to
+generate a single draw; it should generate a distribution that is run
+through an estimator whose scoring is ranking-accurate.** Note the
+weakened requirement: the estimator does not have to be *accurate* —
+thirty years of route estimation says it can't be — it only has to
+rank. An estimator that is 20% optimistic on every candidate ranks
+perfectly; absolute error was never the enemy, rank inversions are.
+
 Written for OpenROAD maintainers. This is an FYI, not a feature
 request: an account of what we needed from RTL-MP, what we measured,
 and the small set of properties that turned out to matter — so the
