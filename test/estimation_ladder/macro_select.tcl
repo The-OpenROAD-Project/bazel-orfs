@@ -55,8 +55,14 @@ if { $::ms_out eq "" } {
     error "macro_select: set MS_OUT_DIR or declare out_dir"
 }
 set ::ms_work [ms_env MS_WORK [file join $::env(WORK_HOME) macro_select_work]]
-set ::ms_k [ms_env MS_K 12]
-set ::ms_jobs [ms_env MS_JOBS default]
+# Defaults calibrated on the campaign machine class (24C/48T, 64GB
+# Threadripper; README "Parallelism calibration"): fork -jobs 12 is the
+# throughput knee at 65 candidates/hour -- jobs 24 buys 1% for double
+# the per-child latency, and the serial multi-threaded shape is 3x
+# slower because global placement saturates on internal parallelism.
+# 24 candidates therefore cost ~22 minutes.
+set ::ms_k [ms_env MS_K 24]
+set ::ms_jobs [ms_env MS_JOBS 12]
 set ::ms_serial_threads [ms_env MS_SERIAL_THREADS 0]
 set ::ms_kpi [ms_env MS_SELECT_KPI wq25]
 set ::ms_macro_tcl [ms_env MS_MACRO_TCL [file join $::env(WORK_HOME) macro.tcl]]

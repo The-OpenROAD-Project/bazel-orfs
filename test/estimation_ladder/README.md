@@ -800,22 +800,43 @@ gated on swerv's own `delta_tie`.
 
 ### Parallelism calibration
 
-TODO(campaign): fill in from the calibration run. The scoring
-sweep has two credible shapes on a many-core box: `fork -jobs
-N` (parallel candidates, single-threaded each -- fork quiesces
-`set_thread_count`, and a child must not raise it) or
-sequential candidates with `set_thread_count N` each (global
-placement saturates on internal parallelism well below the core
-count). The winning static shape for the 24C/48T, 64GB
-Threadripper class this campaign runs on is decided by
-measuring candidates/hour and peak per-child RSS over a fixed
-population, via:
+The scoring sweep has two credible shapes on a many-core box:
+`fork -jobs N` (parallel candidates, single-threaded each --
+fork quiesces `set_thread_count`, and a child must not raise
+it) or sequential candidates with `set_thread_count N` each
+(global placement saturates on internal parallelism well below
+the core count). Measured on the campaign machine class (24C /
+48T Threadripper, 64GB), 24 seed candidates for the fork arms
+and 8 for the serial arms, one arm at a time on an otherwise
+idle machine:
+
+| arm        | candidates/h | mean place/gpl per cand (s) | peak child RSS |
+|:-----------|-------------:|:----------------------------|---------------:|
+| fork j4    |         39.1 | 123 / 101                   |        1.34 GB |
+| fork j8    |         59.2 | 162 / 166                   |        1.34 GB |
+| **fork j12** |     **65.0** | 218 / 268                   |        1.34 GB |
+| fork j24   |         65.6 | 431 / 639                   |        1.35 GB |
+| serial t8  |         20.1 | 102 / 48                    |        1.61 GB |
+| serial t16 |         21.6 | 101 / 46                    |        1.62 GB |
+
+`fork -jobs 12` is the static default baked into
+`macro_select.tcl`: the throughput knee (jobs 24 buys 1% for
+double the per-child latency), and 3x the serial
+multi-threaded shape -- threads barely help the gpl proxy (46s
+at 16 threads vs 48s at 8), confirming the internal-parallelism
+saturation the experiment was designed to measure. Memory is a
+non-factor at ~1.4GB per child. A cross-check for free: all
+four fork arms picked the identical winner with the identical
+score (execution shape does not leak into candidate results),
+and the k=24 winner (seed 16, wq25 1545.3ps) beats the default
+seed-0 placement (2785.7ps) by 44% on the scoring proxy.
+
+Reproduce an arm with:
 
 ```sh
 bazel run //test/estimation_ladder:swerv_macro_select_executable -- \
-  MS_K=8 MS_JOBS=8 MS_OUT_DIR=$PWD/calib_j8 MS_WORK=$PWD/calib_j8_work
-bazel run //test/estimation_ladder:swerv_macro_select_executable -- \
-  MS_K=8 MS_SERIAL_THREADS=16 MS_OUT_DIR=$PWD/calib_t16 ...
+  MS_K=24 MS_JOBS=12 MS_OUT_DIR=$PWD/calib/out MS_WORK=$PWD/calib/work \
+  MS_MACRO_TCL=$PWD/calib/macro.tcl LOG_DIR=$PWD/calib/logs
 ```
 
 ### Campaign state
