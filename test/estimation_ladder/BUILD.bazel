@@ -1810,3 +1810,39 @@ orfs_flow(
     top = "swerv_wrapper",
     verilog_files = SWERV_VERILOG,
 )
+
+# A/B measurement with the shared instrument: the same KPI menu at grt
+# for the selector-fed variant and the untouched baseline.
+orfs_run(
+    name = "swerv_ab_selected",
+    src = ":swerv_wrapper_grt",
+    outs = ["swerv_ab_selected.json"],
+    arguments = SWERV["arguments"] | {
+        "OUTPUT_JSON": "$(location swerv_ab_selected.json)",
+    },
+    cmd = "run",
+    script = "extract_from_src.tcl",
+    sources = SWERV_SOURCES | {
+        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+        "EXTRACT_TCL": ["extract.tcl"],
+    },
+    src_logs = True,
+    tags = ["manual"],
+)
+
+orfs_run(
+    name = "swerv_ab_baseline",
+    src = "@orfs//flow/designs/asap7/swerv_wrapper:swerv_wrapper_grt",
+    outs = ["swerv_ab_baseline.json"],
+    arguments = SWERV["arguments"] | {
+        "OUTPUT_JSON": "$(location swerv_ab_baseline.json)",
+    },
+    cmd = "run",
+    script = "extract_from_src.tcl",
+    sources = SWERV_SOURCES | {
+        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+        "EXTRACT_TCL": ["extract.tcl"],
+    },
+    src_logs = True,
+    tags = ["manual"],
+)
