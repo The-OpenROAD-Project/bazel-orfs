@@ -190,9 +190,7 @@ def main():
             if is_timing and delta_tie.get("achieved"):
                 mid = sum(ys_all) / len(ys_all)
                 tie = delta_tie["achieved"]
-                ax.axhspan(
-                    mid - tie, mid + tie, color=BAND, alpha=0.5, zorder=0, lw=0
-                )
+                ax.axhspan(mid - tie, mid + tie, color=BAND, alpha=0.5, zorder=0, lw=0)
 
             ax.scatter(
                 xs_all,

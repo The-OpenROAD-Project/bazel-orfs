@@ -56,9 +56,7 @@ def main():
     xs = list(range(len(ordered)))
     ys = [v for _, v in ordered]
     colors = [ORANGE if seed == winner_seed else BLUE for seed, _ in ordered]
-    ax.scatter(
-        xs, ys, s=52, c=colors, edgecolors="white", linewidths=0.8, zorder=3
-    )
+    ax.scatter(xs, ys, s=52, c=colors, edgecolors="white", linewidths=0.8, zorder=3)
 
     for x, (seed, value) in zip(xs, ordered):
         if seed == winner_seed:
