@@ -126,6 +126,20 @@ py_test(
     deps = [":bump_impl_lib"],
 )
 
+# The Bazel floor that an obsolete Bazel cannot walk past. Checked during
+# module resolution, and inherited by downstream consumers of bazel-orfs.
+py_test(
+    name = "bazel_version_test",
+    srcs = ["bazel_version_test.py"],
+    # The test asserts MODULE.bazel's floor, and the one README.md quotes to
+    # consumers, both equal the pinned version.
+    data = [
+        ".bazelversion",
+        "MODULE.bazel",
+        "README.md",
+    ],
+)
+
 # The PreToolUse guard shared by Claude Code (.claude/settings.json) and
 # antigravity (.agents/hooks.json, via the .agents/scripts symlink).
 py_test(
