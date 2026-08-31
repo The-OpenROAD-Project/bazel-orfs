@@ -148,6 +148,33 @@ E1 is in flight; E2–E5 come free or cheap off E1's artifacts.
   candidate 0 across an actual RTL edit; verify loud failure on name
   churn; measure hysteresis behavior against delta_tie.
 
+## Phase 2: raced floorplan parameters (after E1–E7)
+
+PLACE_DENSITY is a manual estimator of the fog: utilization gives the
+computable lower bound (place_density_with_lb_addon), and the ADDON
+margin encodes unmodeled downstream growth (repair/CTS insertions)
+plus congestion headroom — the canonical AutoTuner knob, i.e. exactly
+the per-design search the no-magic-knobs rule bans. The race absorbs
+it: seeds were only the first candidate coordinate.
+
+- **Density**: computed lower bound stays (measured); race steps
+  above it; the scorer sees the congestion half (overflow, RUDY) and
+  the repair-growth half is one ladder rung up (RUN_REPAIR_DESIGN in
+  the scoring pass — extend E3's fidelity curve to decide). Also
+  feeds RTL-MP's -target_util, fixing both consumers.
+- **Area**: never blended into the period objective (bigger is always
+  easier) — a constraint or frontier axis: the race is the oracle
+  inside a utilization shmoo, "smallest area whose raced winner meets
+  the period target."
+- **Aspect ratio**: raced per area point.
+- Cost: area/aspect candidates forfeit the shared floorplan spine
+  (~30–60s own floorplan each) but clustering is netlist-only and
+  amortizes even across outlines.
+- **E9 — density race fidelity**: does the scorer (± the repair rung)
+  rank density steps consistently with grt-after-repair outcomes?
+  Same offline grading pattern as E3, on a density ladder instead of
+  a seed population.
+
 ## Status snapshot (2026-08-31)
 
 Done: patches 0040–0043 carried + issues filed (#11277–#11279),
