@@ -3,6 +3,14 @@
 module(
     name = "bazel-orfs",
     version = "0.0.1",
+    # A hard stop, checked during module resolution before anything is
+    # fetched or built, so an obsolete Bazel fails in seconds with a clear
+    # message instead of hours later with a confusing one. It fires for
+    # downstream consumers too, not just this repo, and their .bazelversion
+    # does not have to agree with ours for it to bite.
+    #
+    # Kept equal to .bazelversion by //:bazel_version_test.
+    bazel_compatibility = [">=8.6.0"],
 )
 
 bazel_dep(name = "bazel_skylib", version = "1.9.2", dev_dependency = True)

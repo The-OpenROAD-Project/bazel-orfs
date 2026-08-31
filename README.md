@@ -46,6 +46,14 @@ and easily actionable github issues for the OpenROAD and ORFS maintainers.
 
 * [Bazelisk](https://bazel.build/install/bazelisk) or [Bazel](https://bazel.build/install) - if using Bazel, please refer to [.bazelversion](./.bazelversion) file for the recommended version of the tool.
 
+  That version is also a hard minimum, not merely a recommendation:
+  `MODULE.bazel` declares `bazel_compatibility = [">=8.6.0"]`, so an older
+  Bazel — including one an obsolete Bazelisk picks — stops during module
+  resolution with an explicit version error, instead of failing later in a
+  way that looks like a build bug. The floor applies to projects that depend
+  on bazel-orfs too, whatever their own `.bazelversion` says. The fix is to
+  upgrade Bazelisk, or to pin a new enough version in `.bazelversion`.
+
 That's it. Bazel builds OpenROAD, OpenSTA, Yosys, ABC, GNU Make, and Qt from source, and manages all other dependencies (Python, toolchains) hermetically. No Docker, no system packages beyond a standard Linux installation.
 
 * (Optional) Locally built [ORFS](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts). To use it, `env.sh` file from OpenROAD-flow-scripts has to be sourced or `FLOW_HOME` environment variable has to be set to the path of the local `OpenROAD-flow-scripts/flow` installation.
