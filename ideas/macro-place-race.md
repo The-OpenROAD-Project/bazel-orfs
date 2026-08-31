@@ -194,6 +194,35 @@ the 0045 binary change**. E7's paired-seed A/B is superseded on this
 design by the population result (everything ties on period); it
 returns at the dense operating point.
 
+## E2/E3/E4 verdicts (2026-08-31, night)
+
+Data: `test/estimation_ladder/race_milestones_swerv.json` (24
+trajectories) and the E4 arms under the calibration harness.
+
+- **E3 headline — drop the STA.** Raw gpl HPWL ranks the grt
+  macro-path mean at rho +0.67 vs the full STA proxy's +0.72 (n=24,
+  CIs overlap): the analytic no-STA readout is ranking-equivalent,
+  and the scorer becomes gpl-only.
+- **E2 — ranking saturates by overflow ~0.6.** rho(HPWL@overflow vs
+  grt) plateaus at 0.61–0.68 from overflow 0.7–0.6 onward (final
+  0.67); stopping at 0.6 spends ~70% of the iterations for all of the
+  ranking power. Combined with E3: scorer ~22s threaded, ~2.5x
+  cheaper, no new knobs (0.6 enters as a validated-once constant; the
+  dominance rule itself remains per-pair and threshold-free).
+- **E2 caveat that validates the cascade** — the podium churns:
+  top-3 membership is unstable across milestones because the top
+  candidates sit within a sigma class of each other. Field-ranking is
+  cheap; podium decisions are exactly what the dominance rule
+  promotes to the next fidelity rung (full gpl, then STA if ever
+  needed) for the 2–3 survivors.
+- **E4 — patch 0045 works but doesn't rescue serial.** Threaded gpl
+  scoring drops 24–30% (t16 gpl 31.7s vs 45.5 pre-patch); serial
+  throughput rises only 21.6→23.8 cand/h vs fork's 65 because
+  generation (~100s, thread-insensitive RTL-MP) now dominates the
+  serial shape. The in-process path's viability therefore rests on
+  amortized clustering (settled-architecture item 9), not on scorer
+  threading — as the plan predicted, now with numbers.
+
 ## Status snapshot (2026-08-31)
 
 Done: patches 0040–0043 carried + issues filed (#11277–#11279),
