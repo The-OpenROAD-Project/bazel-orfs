@@ -763,12 +763,22 @@ bazel run //test/estimation_ladder:macro_score_top     # the audit
 ## Measured selection: the swerv_wrapper campaign
 
 The audit above says the objective's pick is close to a coin
-flip, so the improvement is not a better trust in the objective
-but a better *selection*: generate k candidates with RTL-MP
-itself, score each with a fast non-timing-driven global
-placement -- a measurement taken on the far side of the fog
-that implicitly prices density and congestion -- and
-materialize the winner. multiplier_top's 16 identical macros
+flip -- and fixing the in-anneal estimator is a fool's errand
+for structural reasons that won't move: the cost is evaluated
+on a coarse clustered model mid-anneal (it can never see
+post-fog reality), the annealer explores sequence-pair packings
+(a perfect score could only rank that space), and the per-run
+normalization makes scores incomparable between runs anyway.
+So the architecture is: **RTL-MP is a distribution generator**
+whose objective only needs to keep candidates legal and
+diverse, **and every candidate is run through the fast-GPL
+approximator** -- a measurement taken on the far side of the
+fog that implicitly prices density and congestion. Generate k
+candidates with -random_seed, score each with the
+non-timing-driven global placement rung, materialize the
+winner. (The Partcl contest winners drew the same line: their
+scoring intelligence lived in the external ranker, not in the
+generator's anneal.) multiplier_top's 16 identical macros
 make it the easiest possible macro problem (a pure permutation)
 and it becomes the null control; `swerv_wrapper` (asap7, ~28
 SRAM macros in three fakeram sizes, real timing paths through
