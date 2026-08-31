@@ -1846,3 +1846,22 @@ orfs_run(
     src_logs = True,
     tags = ["manual"],
 )
+
+py_binary(
+    name = "macro_score_swerv",
+    srcs = ["macro_score.py"],
+    args = [
+        "$(location :macro_score_swerv_executable)",
+        "swerv_wrapper",
+        "$(location stage_variance_swerv_wrapper.json)",
+    ],
+    data = [
+        "stage_variance_swerv_wrapper.json",
+        ":macro_score_swerv_executable",
+    ],
+    main = "macro_score.py",
+    deps = [
+        ":optuna_study_lib",
+        ":stage_variance_lib",
+    ],
+)
