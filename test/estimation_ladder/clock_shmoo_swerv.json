@@ -1,0 +1,26 @@
+{
+ "design": "swerv_wrapper (asap7), stock utilization, clock shmoo",
+ "protocol": "per step: k=24 race, trimmed per-step stage_variance (delta_tie), 8 candidates spanning proxy ranks through the production tail; full-24 evaluate reserved for the most-live step (ranker capstone)",
+ "steps": {
+  "c1600": {
+   "delta_tie_achieved": 48.8,
+   "achieved_range": 23.8,
+   "liveness": 0.49,
+   "note": "from the E1 full-24 campaign; all ties",
+   "n_eval": 24
+  },
+  "c1400": {
+   "delta_tie_achieved": 15.4,
+   "achieved_range": 42.0,
+   "liveness": 2.73,
+   "grt_macro_mean_range": 116.8,
+   "grt_area_range": 642.5,
+   "proxy_macro_mean_min": 1103,
+   "achieved_median": 1458,
+   "rho_proxy_vs_achieved_n7": 0.14,
+   "rho_proxy_vs_macro_mean_n7": 0.57,
+   "n_eval": 7,
+   "note": "AXIS LIVE, earlier than the headroom extrapolation predicted; noise floor tightened 48.8->15.4 as the clock hardened (cva6 pattern); ranker grade at n=7 not meaningful"
+  }
+ }
+}
