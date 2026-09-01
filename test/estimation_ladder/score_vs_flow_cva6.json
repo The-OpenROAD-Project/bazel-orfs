@@ -1,0 +1,359 @@
+{
+ "design": "cva6 (asap7, 70% util)",
+ "population": "rtl_macro_placer -random_seed 0..23, one shared floorplan",
+ "normalization_base": "cand_s0 raw components",
+ "delta_tie": {
+  "achieved": 7.314973119432007,
+  "area": 9.28311750943482,
+  "mean": 21.505349471644625,
+  "p90": 19.476852615852938,
+  "p95": 11.014869101856686,
+  "p99": 6.679251946822203,
+  "power_todo": 9.28311750943482,
+  "ppa_geomean": 13.949107190917978,
+  "top10_mean": 6.442960607487516,
+  "top20_mean": 9.372114783427937,
+  "top5_mean": 6.4419991059207335,
+  "trimmed_mean_10": 25.44605320146066
+ },
+ "verdict": "period all-ties (achieved range 4.0ps vs delta_tie 7.31); macro-path axis quiet too (48.8ps range, proxy rho +0.12): at 70% util with 5um halos the geometry over-constrains placement -- dense is macro-determined, not macro-limited. Macro paths sit ~10% below the critical tail (headroom ~70-120ps), so no placement can move period; headroom, not utilization, is the liveness variable.",
+ "determinism": "24/24 generate-pass place.tcl bit-identical to the race's",
+ "candidates": {
+  "cand_s0": {
+   "grt": {
+    "achieved": 997.771338,
+    "general_paths_mean": 885.34230511,
+    "macro_paths_mean": 925.6137833269231,
+    "stdcell_um2": 14310.0804600087,
+    "tail_s": 2642.639
+   },
+   "proxy": {
+    "wq25": 7346.81016770213,
+    "macro_mean": 3572.014448887499
+   },
+   "objective_fixed_norm": 200.1
+  },
+  "cand_s1": {
+   "grt": {
+    "achieved": 999.779177,
+    "general_paths_mean": 887.18775229,
+    "macro_paths_mean": 912.351840325,
+    "stdcell_um2": 14331.717180008729,
+    "tail_s": 2710.111
+   },
+   "proxy": {
+    "wq25": 8473.86612411111,
+    "macro_mean": 3640.209929293749
+   },
+   "objective_fixed_norm": 231.97901216192417
+  },
+  "cand_s2": {
+   "grt": {
+    "achieved": 998.510858,
+    "general_paths_mean": 885.8608468299999,
+    "macro_paths_mean": 908.0562988355263,
+    "stdcell_um2": 14311.859220008675,
+    "tail_s": 2808.1879999999996
+   },
+   "proxy": {
+    "wq25": 6946.74391868687,
+    "macro_mean": 3501.4907398187506
+   },
+   "objective_fixed_norm": 216.037613032954
+  },
+  "cand_s3": {
+   "grt": {
+    "achieved": 999.729772,
+    "general_paths_mean": 887.0802174700001,
+    "macro_paths_mean": 900.0317251509434,
+    "stdcell_um2": 14310.619920008696,
+    "tail_s": 2133.679
+   },
+   "proxy": {
+    "wq25": 7094.164052095746,
+    "macro_mean": 3484.096705237499
+   },
+   "objective_fixed_norm": 222.16318531489412
+  },
+  "cand_s4": {
+   "grt": {
+    "achieved": 999.893419,
+    "general_paths_mean": 887.28745279,
+    "macro_paths_mean": 914.3760039496855,
+    "stdcell_um2": 14304.029760008672,
+    "tail_s": 2527.511
+   },
+   "proxy": {
+    "wq25": 6520.186210293481,
+    "macro_mean": 3437.8263663999983
+   },
+   "objective_fixed_norm": 198.160668661954
+  },
+  "cand_s5": {
+   "grt": {
+    "achieved": 999.886646,
+    "general_paths_mean": 887.24281257,
+    "macro_paths_mean": 889.1044866226415,
+    "stdcell_um2": 14332.72320000873,
+    "tail_s": 2383.816
+   },
+   "proxy": {
+    "wq25": 6492.272662619566,
+    "macro_mean": 3418.4315090000027
+   },
+   "objective_fixed_norm": 200.77193249369606
+  },
+  "cand_s6": {
+   "grt": {
+    "achieved": 999.935496,
+    "general_paths_mean": 887.3185576999999,
+    "macro_paths_mean": 920.7687862738854,
+    "stdcell_um2": 14351.618880008695,
+    "tail_s": 3063.6769999999997
+   },
+   "proxy": {
+    "wq25": 6623.526062666666,
+    "macro_mean": 3522.2248954562515
+   },
+   "objective_fixed_norm": 194.9784267292931
+  },
+  "cand_s7": {
+   "grt": {
+    "achieved": 995.896727,
+    "general_paths_mean": 883.18783732,
+    "macro_paths_mean": 876.78516624375,
+    "stdcell_um2": 14369.435640008478,
+    "tail_s": 2735.083
+   },
+   "proxy": {
+    "wq25": 6377.454277339999,
+    "macro_mean": 3556.985471349999
+   },
+   "objective_fixed_norm": 220.39824521183974
+  },
+  "cand_s8": {
+   "grt": {
+    "achieved": 998.879119,
+    "general_paths_mean": 886.3325331,
+    "macro_paths_mean": 923.7441653624999,
+    "stdcell_um2": 14324.456340008668,
+    "tail_s": 3076.25
+   },
+   "proxy": {
+    "wq25": 6755.588846600004,
+    "macro_mean": 3456.678495781248
+   },
+   "objective_fixed_norm": 133.99704325877047
+  },
+  "cand_s9": {
+   "grt": {
+    "achieved": 998.055,
+    "general_paths_mean": 885.46213733,
+    "macro_paths_mean": 879.5965524999999,
+    "stdcell_um2": 14357.917440008758,
+    "tail_s": 2932.911
+   },
+   "proxy": {
+    "wq25": 6517.537010648939,
+    "macro_mean": 3482.4472645187498
+   },
+   "objective_fixed_norm": 159.92882499951187
+  },
+  "cand_s10": {
+   "grt": {
+    "achieved": 999.824474,
+    "general_paths_mean": 887.14697663,
+    "macro_paths_mean": 904.4396793875,
+    "stdcell_um2": 14307.339420008702,
+    "tail_s": 3606.9490000000005
+   },
+   "proxy": {
+    "wq25": 7355.137293788887,
+    "macro_mean": 3608.2595294875005
+   },
+   "objective_fixed_norm": 309.9996307775318
+  },
+  "cand_s11": {
+   "grt": {
+    "achieved": 999.701461,
+    "general_paths_mean": 887.11281414,
+    "macro_paths_mean": 907.361675345912,
+    "stdcell_um2": 14321.613240008728,
+    "tail_s": 2721.8779999999997
+   },
+   "proxy": {
+    "wq25": 7972.707626375,
+    "macro_mean": 3659.8887466687484
+   },
+   "objective_fixed_norm": 226.9475477678068
+  },
+  "cand_s12": {
+   "grt": {
+    "achieved": 999.019007,
+    "general_paths_mean": 886.01758393,
+    "macro_paths_mean": 893.2639137197452,
+    "stdcell_um2": 14302.790460008575,
+    "tail_s": 2654.598
+   },
+   "proxy": {
+    "wq25": 6856.704709199998,
+    "macro_mean": 3434.3771896312514
+   },
+   "objective_fixed_norm": 215.97257837745494
+  },
+  "cand_s13": {
+   "grt": {
+    "achieved": 999.294564,
+    "general_paths_mean": 886.65085242,
+    "macro_paths_mean": 912.8595855562501,
+    "stdcell_um2": 14304.831660008698,
+    "tail_s": 2666.845
+   },
+   "proxy": {
+    "wq25": 6553.541997560438,
+    "macro_mean": 3485.321001437501
+   },
+   "objective_fixed_norm": 293.4808607027679
+  },
+  "cand_s14": {
+   "grt": {
+    "achieved": 996.611488,
+    "general_paths_mean": 884.20487795,
+    "macro_paths_mean": 908.27012174375,
+    "stdcell_um2": 14332.635720008742,
+    "tail_s": 2964.034
+   },
+   "proxy": {
+    "wq25": 8034.831093730006,
+    "macro_mean": 3596.7363742999996
+   },
+   "objective_fixed_norm": 165.6866811232577
+  },
+  "cand_s15": {
+   "grt": {
+    "achieved": 998.382849,
+    "general_paths_mean": 885.7776946399999,
+    "macro_paths_mean": 900.0308516556291,
+    "stdcell_um2": 14290.907760008678,
+    "tail_s": 2542.625
+   },
+   "proxy": {
+    "wq25": 7209.901915199999,
+    "macro_mean": 3424.417400331251
+   },
+   "objective_fixed_norm": 129.80413123265043
+  },
+  "cand_s16": {
+   "grt": {
+    "achieved": 998.953948,
+    "general_paths_mean": 886.36574735,
+    "macro_paths_mean": 900.55269476875,
+    "stdcell_um2": 14299.641180008688,
+    "tail_s": 2466.033
+   },
+   "proxy": {
+    "wq25": 6606.442919969999,
+    "macro_mean": 3407.7768184500005
+   },
+   "objective_fixed_norm": 182.81768759204763
+  },
+  "cand_s17": {
+   "grt": {
+    "achieved": 999.263256,
+    "general_paths_mean": 886.64830178,
+    "macro_paths_mean": 907.0885483032258,
+    "stdcell_um2": 14334.604020008448,
+    "tail_s": 3583.441
+   },
+   "proxy": {
+    "wq25": 7392.935074052633,
+    "macro_mean": 3684.718162874998
+   },
+   "objective_fixed_norm": 191.59364985474016
+  },
+  "cand_s18": {
+   "grt": {
+    "achieved": 999.893419,
+    "general_paths_mean": 887.28745279,
+    "macro_paths_mean": 914.3760039496855,
+    "stdcell_um2": 14304.029760008672,
+    "tail_s": 2934.342
+   },
+   "proxy": {
+    "wq25": 6607.671201179997,
+    "macro_mean": 3482.4150215
+   },
+   "objective_fixed_norm": 197.1090654120603
+  },
+  "cand_s19": {
+   "grt": {
+    "achieved": 999.412359,
+    "general_paths_mean": 886.7442804499999,
+    "macro_paths_mean": 900.6393342151898,
+    "stdcell_um2": 14314.833540008678,
+    "tail_s": 3054.502
+   },
+   "proxy": {
+    "wq25": 7189.867232793811,
+    "macro_mean": 3687.721939824997
+   },
+   "objective_fixed_norm": 263.62029853311685
+  },
+  "cand_s20": {
+   "grt": {
+    "achieved": 999.506728,
+    "general_paths_mean": 886.6746259399999,
+    "macro_paths_mean": 895.9814524875001,
+    "stdcell_um2": 14320.650960008707,
+    "tail_s": 2745.067
+   },
+   "proxy": {
+    "wq25": 6922.709836357139,
+    "macro_mean": 3452.702253725
+   },
+   "objective_fixed_norm": 303.0930341684427
+  },
+  "cand_s21": {
+   "grt": {
+    "achieved": 999.784506,
+    "general_paths_mean": 887.1631761,
+    "macro_paths_mean": 912.8393319177216,
+    "stdcell_um2": 14297.031360008687,
+    "tail_s": 2590.7519999999995
+   },
+   "proxy": {
+    "wq25": 7536.171899379999,
+    "macro_mean": 3422.57823711875
+   },
+   "objective_fixed_norm": 137.21850572110498
+  },
+  "cand_s22": {
+   "grt": {
+    "achieved": 999.449662,
+    "general_paths_mean": 886.78238598,
+    "macro_paths_mean": 922.6610017151899,
+    "stdcell_um2": 14328.232560008688,
+    "tail_s": 3012.8689999999997
+   },
+   "proxy": {
+    "wq25": 7951.810178042553,
+    "macro_mean": 3534.8076828187504
+   },
+   "objective_fixed_norm": 222.17257714403192
+  },
+  "cand_s23": {
+   "grt": {
+    "achieved": 999.686029,
+    "general_paths_mean": 887.01503167,
+    "macro_paths_mean": 897.9096282531646,
+    "stdcell_um2": 14323.275360008729,
+    "tail_s": 2001.242
+   },
+   "proxy": {
+    "wq25": 7976.4471984125,
+    "macro_mean": 3934.5601657687503
+   },
+   "objective_fixed_norm": 134.81457648967185
+  }
+ }
+}
