@@ -195,7 +195,20 @@ it: seeds were only the first candidate coordinate.
   fidelity dial between today's flat scorer (1:1) and RTL-MP's
   internal cost (static) becomes continuous, and the operating point
   is graded, not argued: prototype over the 24 archived swerv
-  candidates, rho vs the committed grt truth. Fidelity trap and fix:
+  candidates, rho vs the committed grt truth. Grading protocol, with
+  the repair objection built in: the truth is grt after the ENTIRE
+  production tail (repair_design/repair_timing/CTS/route included),
+  so rho(clustered) vs rho(flat) per KPI IS the measured price of the
+  reduction, repair-blindness and all. Note the structural limit:
+  a clustered netlist forfeits the repair rung as an option (rsz
+  works on real cells, not soft clusters) -- any repair-awareness gap
+  is closed by field surrogates (overflow/density/RUDY,
+  cluster-native) or by cascade promotion of unresolved survivors to
+  the flat rung, never by running rsz on clusters. Evidence the gap
+  may be small: the flat scorer is also repair-blind and raw HPWL
+  still ranked the repair-inclusive truth at +0.67; repair effort is
+  caused by the pressure the field solve measures (the +0.65
+  score-vs-area correlation is repair's bill, priced in advance). Fidelity trap and fix:
   clustering smears macro-pin geometry, the exact thing the live KPI
   reads — keep cells within 1–2 hops of macro pins flat (halo-flat
   coarsening), cluster the rest. Arithmetic: ~10:1 movables, bins
