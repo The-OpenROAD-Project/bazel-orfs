@@ -175,6 +175,34 @@ it: seeds were only the first candidate coordinate.
   Same offline grading pattern as E3, on a density ladder instead of
   a seed population.
 
+## Parked designs (gated, sketched)
+
+- **GPU scorer** (sketched 2026-09-01): a cc_binary linking OpenROAD
+  module libraries (`@openroad//src/odb` etc., the opensta precedent)
+  implementing the batched inner loop with runtime CPU/GPU dispatch;
+  integer accumulators keep scores path-invariant so fallback is safe.
+  Three gates, none met today: in-process generation landed (else
+  Amdahl: 20s scoring vs 100s generation), Partcl-scale populations,
+  GPU-worthy hardware (the campaign machine's Quadro P620 has no
+  bandwidth edge over its own CPU and 2GB VRAM).
+- **E12 — the clustered scorer** (idea 2026-09-01): reduce the
+  scoring problem instead of accelerating it. Reuse RTL-MP's own
+  physical hierarchy (std-cell clusters + bundled nets — already
+  built, amortized across candidates and milestones) as the scoring
+  netlist; spread those soft clusters electrostatically around each
+  candidate's fixed macros; read bundled-net HPWL. This is the
+  measured version of what the SA cost computes statically — the
+  fidelity dial between today's flat scorer (1:1) and RTL-MP's
+  internal cost (static) becomes continuous, and the operating point
+  is graded, not argued: prototype over the 24 archived swerv
+  candidates, rho vs the committed grt truth. Fidelity trap and fix:
+  clustering smears macro-pin geometry, the exact thing the live KPI
+  reads — keep cells within 1–2 hops of macro pins flat (halo-flat
+  coarsening), cluster the rest. Arithmetic: ~10:1 movables, bins
+  coarsen along, stacked on early-stop and no-STA → ~2–3s/candidate
+  CPU, and the batched problem shrinks enough to reopen the GPU door
+  on small-VRAM hardware.
+
 ## E1 verdict (2026-08-31, evening)
 
 E1 is in: `test/estimation_ladder/score_vs_flow_swerv.{png,json}`.
