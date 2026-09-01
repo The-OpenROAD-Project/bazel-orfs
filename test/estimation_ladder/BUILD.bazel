@@ -1953,3 +1953,120 @@ orfs_run_executable(
     ],
     tags = ["manual"],
 )
+
+# -------------------------------------------------------------
+# Phase B': the clock shmoo. Phase A falsified the density
+# hypothesis and named the real liveness variable: macro-path
+# HEADROOM (critical period minus the macro-path aggregate).
+# Sweep the clock target down at stock utilization until the
+# headroom crosses zero; the prediction is that the period axis
+# switches on exactly there. Each step is a full operating point
+# (the SDC drives synthesis); delta_tie is re-measured per step.
+# -------------------------------------------------------------
+
+CLOCK_STEPS = [
+    1400,
+    1300,
+    1200,
+    1100,
+]
+
+# buildifier: disable=duplicated-name
+[
+    orfs_flow(
+        name = "swerv_wrapper",
+        arguments = SWERV["arguments"],
+        last_stage = "synth",
+        sources = {
+            var: labels
+            for var, labels in SWERV_SOURCES.items()
+            if var != "SDC_FILE"
+        } | {
+            "SDC_FILE": ["sdc/swerv_c%d.sdc" % period],
+        },
+        tags = ["manual"],
+        top = "swerv_wrapper",
+        variant = "c%d" % period,
+        verilog_files = SWERV_VERILOG,
+    )
+    for period in CLOCK_STEPS
+]
+
+[
+    orfs_run_executable(
+        name = "swerv_c%d_macro_select_executable" % period,
+        src = ":swerv_wrapper_c%d_synth" % period,
+        arguments = SWERV["arguments"],
+        cmd = "run",
+        script = "macro_select.tcl",
+        sources = SWERV_SOURCES | {
+            "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+        },
+        stages = [
+            "floorplan",
+            "place",
+        ],
+        tags = ["manual"],
+    )
+    for period in CLOCK_STEPS
+]
+
+[
+    orfs_run_executable(
+        name = "swerv_c%d_macro_score_executable" % period,
+        src = ":swerv_wrapper_c%d_synth" % period,
+        arguments = SWERV["arguments"],
+        cmd = "run",
+        script = "macro_score.tcl",
+        sources = SWERV_SOURCES | {
+            "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+        },
+        stages = [
+            "floorplan",
+            "place",
+            "cts",
+            "grt",
+        ],
+        tags = ["manual"],
+    )
+    for period in CLOCK_STEPS
+]
+
+[
+    orfs_run_executable(
+        name = "swerv_c%d_stage_variance_executable" % period,
+        src = ":swerv_wrapper_c%d_synth" % period,
+        arguments = SWERV["arguments"],
+        cmd = "run",
+        script = "stage_variance.tcl",
+        sources = SWERV_SOURCES | {
+            "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+        },
+        stages = [
+            "floorplan",
+            "place",
+            "cts",
+            "grt",
+        ],
+        tags = ["manual"],
+    )
+    for period in CLOCK_STEPS
+]
+
+[
+    py_binary(
+        name = "swerv_c%d_stage_variance" % period,
+        srcs = ["stage_variance.py"],
+        args = [
+            "$(location :swerv_c%d_stage_variance_executable)" % period,
+            "swerv_c%d" % period,
+        ],
+        data = [
+            ":swerv_c%d_stage_variance_executable" % period,
+        ],
+        main = "stage_variance.py",
+        tags = ["manual"],
+        deps = [":optuna_study_lib"],
+    )
+    for period in CLOCK_STEPS
+]
