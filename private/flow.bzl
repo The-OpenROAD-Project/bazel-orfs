@@ -23,6 +23,7 @@ load(
     "orfs_place_rule",
     "orfs_route_rule",
     "orfs_run",
+    "orfs_run_executable",
     "orfs_squashed",
     "orfs_synth_rule",
     "orfs_variables",
@@ -111,17 +112,22 @@ def _filter_stage_args(stage, **kwargs):
         **kwargs
     )
 
-def _orfs_estimate_report(name, src, variant = None, openroad = None, visibility = None):
-    """Emit the fast estimate report for a flow's floorplan stage.
+def _orfs_estimate_report(name, src, arguments = {}, sources = {}, variant = None, openroad = None, visibility = None):
+    """Emit the fast estimate oracle for a flow's synthesis output.
 
     Creates {name} (an orfs_run producing {name}.json): a deterministic,
-    ~seconds-to-a-minute estimate of what the floorplan can achieve --
-    estimated achievable clock period (pre-route optimistic; for
-    differential use where the uniform bias cancels), utilization,
-    place density vs its computed floor -- via a non-timing-driven,
-    early-stopped global placement in its own process. Runs parallel
-    to the place stage by DAG construction and cannot perturb flow
-    artifacts. Thesis, calibration and limits: docs/estimate.md.
+    ~one-to-two-minute estimate of what the design can achieve at a
+    given set of floorplan parameters -- the floorplan is built
+    in-script from the same variables the production stage reads, so
+    one estimate is one point in floorplan-parameter space. Also
+    creates {name}_run (an orfs_run_executable): the same script with
+    run-time KEY=VALUE parameter overrides, one Pareto point per
+    invocation. Estimated achievable clock period is pre-route
+    optimistic, for differential and ranking use where the bias
+    cancels. Parallel to the entire physical flow by DAG construction;
+    cannot perturb flow artifacts. Thesis, the division of labor with
+    ORFS's config.mk pin machinery, calibration and limits:
+    docs/estimate.md.
     """
     run_kwargs = {}
     if openroad != None:
@@ -132,11 +138,29 @@ def _orfs_estimate_report(name, src, variant = None, openroad = None, visibility
         name = name,
         src = src,
         outs = [name + ".json"],
-        arguments = {
+        arguments = arguments | {
             "OUTPUT": name + ".json",
         },
         script = "@bazel-orfs//:estimate.tcl",
+        sources = sources,
         stages = [
+            "synth",
+            "floorplan",
+            "place",
+        ],
+        variant = variant or "base",
+        **run_kwargs
+    )
+    orfs_run_executable(
+        name = name + "_run",
+        src = src,
+        arguments = arguments | {
+            "OUTPUT": name + ".json",
+        },
+        script = "@bazel-orfs//:estimate.tcl",
+        sources = sources,
+        stages = [
+            "synth",
             "floorplan",
             "place",
         ],
@@ -645,6 +669,16 @@ def _orfs_pass(
             )
         )
         create_deps_tar(step_name, kwargs.get("visibility", None))
+        if save_odb and not kwargs.get("lint"):
+            _orfs_estimate_report(
+                name = _step_name(name, variant, "estimate"),
+                src = step_name,
+                arguments = arguments,
+                sources = sources,
+                variant = variant,
+                openroad = kwargs.get("openroad"),
+                visibility = kwargs.get("visibility"),
+            )
         if html:
             _orfs_html_report(
                 name = step_name + "_html",
@@ -867,14 +901,6 @@ def _orfs_pass(
         sn = do_step(step, prev, kwargs, more_kwargs = more_kwargs)
         step_names.append(sn)
         create_deps_tar(sn, kwargs.get("visibility", None))
-        if step.stage == "floorplan" and not kwargs.get("lint"):
-            _orfs_estimate_report(
-                name = _step_name(name, variant, "estimate"),
-                src = sn,
-                variant = variant,
-                openroad = kwargs.get("openroad"),
-                visibility = kwargs.get("visibility"),
-            )
         if html and step.stage in _HTML_STAGES:
             _orfs_html_report(
                 name = sn + "_html",
