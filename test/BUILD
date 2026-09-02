@@ -7,6 +7,7 @@ load("//:openroad.bzl", "orfs_arguments", "orfs_floorplan", "orfs_flow", "orfs_g
 load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:sweep.bzl", "orfs_sweep")
 load(":deps_output_group_rule.bzl", "deps_output_group_test", "output_group_test")
+load(":keep_modules_test.bzl", "keep_modules_test_suite")
 load(":provider_test_rule.bzl", "lib_pre_layout_test")
 load(":quick_pins_test_rule.bzl", "quick_pins_data_dep_test")
 load(":sdc_clock_period_test.bzl", "runfiles_contents_test", "synth_action_inputs_test")
@@ -622,6 +623,8 @@ source_input_propagation_test(
 )
 
 # Unit tests for the stage variable filtering helpers (stages.bzl).
+keep_modules_test_suite(name = "keep_modules_test")
+
 stages_filter_test_suite(name = "stages_filter_test")
 
 # Test SYNTH_KEEP_MODULES: skip keep-hierarchy discovery, go straight to

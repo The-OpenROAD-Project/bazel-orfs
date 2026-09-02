@@ -14,6 +14,10 @@ load(
     "//private:flow.bzl",
     "orfs_flow",
 )
+load(
+    "//private:stages.bzl",
+    "keep_modules",
+)
 
 def _convert_sources(sources, pkg):
     """Convert absolute source labels to relative when in the current package.
@@ -227,12 +231,26 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
     # is identical across machines and remote cache hits are possible.  Users
     # who prefer local parallelism over caching can pass NUM_CPUS explicitly.
     if arguments.get("SYNTH_HIERARCHICAL") == "1":
+        kept = keep_modules(arguments)
+        if not kept:
+            fail(
+                ("%s sets SYNTH_HIERARCHICAL=1 with no SYNTH_KEEP_MODULES.\n" +
+                 "Parallel synthesis declares one per-module " +
+                 "re-canonicalization action per kept module, so the names " +
+                 "must be known at analysis time. Discovered inside a build " +
+                 "action they come too late: the partition actions are still " +
+                 "emitted, no per-module checkpoint exists to feed them, and " +
+                 "every partition fails with\n" +
+                 "  ERROR: per-module checkpoint missing: " +
+                 "partition_<Module>_canonical.rtlil\n" +
+                 "Pin the list in the design's config.mk; capture it with\n" +
+                 "  make DESIGN_CONFIG=<config.mk> SYNTH_KEEP_MODULES= " +
+                 "clean_synth synth\n" +
+                 "then read results/<platform>/<design>/base/" +
+                 "kept_modules.json.") % name,
+            )
         if "SYNTH_NUM_PARTITIONS" not in arguments:
-            keep_modules = arguments.get("SYNTH_KEEP_MODULES", "")
-            if keep_modules:
-                arguments["SYNTH_NUM_PARTITIONS"] = str(len(keep_modules.split()))
-            else:
-                arguments["SYNTH_NUM_PARTITIONS"] = "32"
+            arguments["SYNTH_NUM_PARTITIONS"] = str(len(kept))
 
     orfs_flow(
         name = name,

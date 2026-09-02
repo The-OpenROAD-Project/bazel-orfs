@@ -164,6 +164,23 @@ ALL_VARIABLE_TO_STAGES = {
     for variable in union(*ALL_STAGE_TO_VARIABLES.values())
 }
 
+def keep_modules(arguments):
+    """The kept-module names from SYNTH_KEEP_MODULES, as a list.
+
+    Parallel synthesis declares one per-module re-canonicalization action
+    per kept module, so bazel needs these names at analysis time; the
+    count also sets SYNTH_NUM_PARTITIONS.
+
+    The value arrives from a config.mk, where the list is usually spread
+    over backslash-continued lines and reaches us as a single string with
+    runs of spaces. Empty fields must therefore be dropped, or the count
+    is inflated by the separators. This helper exists because the same
+    string was being parsed three different ways -- correctly in one
+    place, miscounted in another, and with a bare split() (which Starlark
+    rejects, it requires a separator) in a third.
+    """
+    return [m for m in arguments.get("SYNTH_KEEP_MODULES", "").split(" ") if m]
+
 def check_variables(variables, label):
     """Checks that all variable names are known in ORFS variables.yaml.
 

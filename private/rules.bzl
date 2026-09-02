@@ -72,6 +72,7 @@ load(
     "STAGE_SUBSTEPS",
     "get_sources",
     "get_stage_args",
+    "keep_modules",
 )
 
 # --- Shared helpers ---
@@ -1357,7 +1358,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
 
     # Compute the kept-module list once so the per-module canonicalize
     # actions and the partition loop below agree on names and ordering.
-    kept_modules_list = [m for m in all_arguments.get("SYNTH_KEEP_MODULES", "").split(" ") if m]
+    kept_modules_list = keep_modules(all_arguments)
 
     # Actions 2c (one per kept module): re-canonicalize each kept module
     # into its own RTLIL slice. The slice has all other kept modules
@@ -2044,7 +2045,7 @@ def _yosys_impl(ctx):
     if num_partitions == 0 and all_arguments.get("SYNTH_KEEP_MODULES"):
         # SYNTH_KEEP_MODULES implies parallel synthesis; default to 1 partition
         # when NUM_CPUS-based auto-detection hasn't run (direct orfs_synth call).
-        kept_count = len(all_arguments["SYNTH_KEEP_MODULES"].split(" "))
+        kept_count = len(keep_modules(all_arguments))
         num_partitions = max(1, kept_count)
     if use_syn:
         # Parallel/hierarchical synthesis is a yosys-flow concept; the
