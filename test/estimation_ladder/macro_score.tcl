@@ -269,6 +269,22 @@ proc ms_leaf { tag stratum displacement } {
     puts "macro_score: leaf $tag done (tail ${::ms_tail_s}s)"
 }
 
+# A cfg's MS_SEED runs the candidate's generation with rtl_macro_placer
+# -random_seed (carried OpenROAD patch): the seed-population arm of the
+# audit, where the placer is a distribution generator and each
+# candidate is reproducible by its seed alone. Appends to the exact
+# argument list ORFS's macro_place_util.tcl constructs (RTLMP_ARGS
+# would replace it, dropping halos and target_util).
+proc ms_wrap_placer_seed { seed } {
+    if { [info commands ms_real_rtl_macro_placer] eq "" } {
+        rename rtl_macro_placer ms_real_rtl_macro_placer
+        proc rtl_macro_placer { args } {
+            ms_real_rtl_macro_placer {*}$args -random_seed $::ms_seed
+        }
+    }
+    set ::ms_seed $seed
+}
+
 set FLOORPLAN_ONLY {floorplan.tcl}
 set MACRO_STEP {macro_place.tcl}
 set EVAL_TAIL {tapcell.tcl pdn.tcl global_place_skip_io.tcl io_placement.tcl
@@ -292,7 +308,11 @@ if { $::ms_mode eq "generate" } {
         file copy -force [file rootname $::env(ODB_FILE)].sdc \
             [file join $::env(RESULTS_DIR) 1_synth.sdc]
         dict for {k v} [dict get $configs $tag] {
-            if {$k ne "TAG"} { set ::env($k) $v }
+            if {$k eq "MS_SEED"} {
+                ms_wrap_placer_seed $v
+            } elseif {$k ne "TAG"} {
+                set ::env($k) $v
+            }
         }
         set_debug_level MPL hierarchical_macro_placement 1
         puts "MS_TABLE_BEGIN $tag"
