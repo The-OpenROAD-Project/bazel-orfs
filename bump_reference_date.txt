@@ -1,4 +1,4 @@
 # Commit date of the ORFS pin in MODULE.bazel, written by //:bump.
 # The anchor //:bump_compat_test measures COMPAT markers against, so
 # that the cleanup policy runs on commit dates and not on the clock.
-2026-08-25
+2026-09-02
