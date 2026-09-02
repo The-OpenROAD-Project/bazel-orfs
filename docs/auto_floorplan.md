@@ -205,6 +205,61 @@ and let the pin fill in the floorplan:
 bazelisk run //flow/designs/<platform>/<design>:<name>_auto_floorplan_pin
 ```
 
+## Pinning a design in another repository
+
+The config path the pin target passes is relative to the repository the
+design lives in, so for an ORFS design it is relative to an ORFS
+checkout -- not to the bazel workspace you ran from, and not to the
+fetched archive, which is read-only. Pass the checkout to edit:
+
+```bash
+bazelisk run @orfs//flow/designs/asap7/gcd:gcd_auto_floorplan_pin ~/ORFS
+```
+
+Without that argument the pin falls back to `BUILD_WORKSPACE_DIRECTORY`,
+which is right only when the design and the workspace are the same
+repository -- a design in this repo, or ORFS built as the root module.
+
+## After pinning: rules-base.json comes from CI, not from here
+
+A pinned floorplan changes the design's QoR, so its `rules-base.json`
+bounds no longer describe it. **Do not regenerate them from a local
+run.**
+
+The bounds are golden values for CI, and a local flow does not reproduce
+what CI measured. Yosys is not idempotent -- the same RTL through the
+same version can yield a different netlist, and ORFS upstream treats
+that pointer-iteration drift as expected rather than as a bug -- and
+tool versions, thread counts and the platform all move the numbers
+besides. Bounds derived locally therefore encode local noise, and the
+next CI run fails against them for reasons that have nothing to do with
+the design.
+
+This is not hypothetical. `//test:orfs_design_tests` carries `mock-alu`
+as a `build_test` rather than a `<design>_test` for exactly this reason:
+its metric comparison missed one of 27 bounds by 0.9%
+(`finish__timing__setup__tns` -18663.9 against -18500) with zero DRC
+errors and every other check passing, purely from an OpenROAD bump
+against bounds tuned at the previous pin.
+
+The supported path is the ORFS-side one, driven by CI:
+
+  * `.github/workflows/github-actions-update-rules.yml` fires on a
+    `set-new-golden` `repository_dispatch` and runs
+    `flow/util/updateRules.py --commitSHA <sha>`, which pulls the
+    metrics **CI itself measured** for that commit from the metrics API
+    and opens a draft PR with the updated rules files.
+  * `flow/util/genRuleFile.py` and `genAllRuleFiles.sh` are what that
+    path uses underneath (`--update`, `--tighten`, `--failing`,
+    `--metrics`). Running them by hand against local metrics is the
+    thing to avoid.
+
+So after pinning a floorplan: land the `config.mk` change, let CI
+measure it, and request the golden update for that commit. Read a local
+metrics diff as a sanity check on direction and magnitude -- did the
+area move the way the derivation predicted -- never as the values to
+commit.
+
 ## When to re-run it
 
 | | cadence |

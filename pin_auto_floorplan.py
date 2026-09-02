@@ -19,6 +19,15 @@ and let this fill in the floorplan.
 
 Usage (via the generated bazel target):
     bazelisk run //flow/designs/<platform>/<design>:<name>_auto_floorplan_pin
+
+For a design in another repository, pass that repository's root:
+    bazelisk run @orfs//flow/designs/asap7/gcd:gcd_auto_floorplan_pin ~/ORFS
+
+The config path the target passes is relative to the repository the
+design lives in, so for an @orfs design it is relative to an ORFS
+checkout -- not to the bazel workspace this ran from, and not to the
+fetched archive, which is read-only. BUILD_WORKSPACE_DIRECTORY is the
+right default only when the design and the workspace are the same repo.
 """
 
 import argparse
@@ -159,13 +168,40 @@ def plan(config_text, winner):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("evidence", help="floorplan stage log, or evidence JSON")
-    ap.add_argument("config", help="config.mk path, relative to the workspace")
+    ap.add_argument(
+        "config",
+        help="config.mk path, relative to the repository the design is in",
+    )
+    ap.add_argument(
+        "root",
+        nargs="?",
+        help=(
+            "root of the checkout to edit. Required for a design in "
+            "another repository -- e.g. an @orfs design, whose config "
+            "path is relative to an ORFS checkout and whose fetched copy "
+            "is read-only. Defaults to BUILD_WORKSPACE_DIRECTORY, which "
+            "is correct only when the design lives in the workspace this "
+            "was run from."
+        ),
+    )
     args = ap.parse_args()
 
-    root = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
+    root = args.root or os.environ.get("BUILD_WORKSPACE_DIRECTORY")
     config_path = os.path.join(root, args.config) if root else args.config
     if not os.path.isfile(config_path):
-        sys.exit(f"[ERROR] no config.mk at {config_path}")
+        if args.root:
+            sys.exit(
+                f"[ERROR] no {args.config} under {args.root}.\n"
+                f"        {args.root} does not look like a checkout holding "
+                f"this design -- pass the root of one, e.g. ~/ORFS for an "
+                f"@orfs design."
+            )
+        sys.exit(
+            f"[ERROR] no config.mk at {config_path}.\n"
+            f"        If this design lives in another repository, pass that "
+            f"checkout's root as a third argument, e.g.\n"
+            f"          bazelisk run <target> ~/ORFS"
+        )
 
     ev = extract_evidence(args.evidence)
     winner = ev.get("winner")

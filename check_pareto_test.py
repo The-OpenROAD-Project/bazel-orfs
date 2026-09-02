@@ -185,7 +185,6 @@ class TestCheckPareto(unittest.TestCase):
         self.assertIn("no baseline value for", out)
 
 
-
 class TestMeasuredBaseline(unittest.TestCase):
     """--baseline takes the reference from a measured run, not from rules.
 
