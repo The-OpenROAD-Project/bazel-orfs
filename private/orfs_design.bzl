@@ -177,7 +177,10 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
     tags = [] if config.get("ci", False) else ["manual"]
 
     # Filter verilog_files: skip unresolved Make variables and invalid labels
-    verilog_files = _filter_verilog_files(config["verilog_files"])
+    verilog_files = _filter_verilog_files(
+        config["verilog_files"],
+        design = config["name"],
+    )
 
     # Collect extra data dependencies for VERILOG_INCLUDE_DIRS
     extra_data = _collect_include_dirs(config["arguments"])
@@ -286,17 +289,46 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
             lint_kwargs["yosys"] = mock_yosys
         orfs_flow(**lint_kwargs)
 
-def _filter_verilog_files(raw_verilog_files):
-    """Filter verilog_files: skip unresolved Make variables and invalid labels."""
+def _filter_verilog_files(raw_verilog_files, design = None):
+    """Filter verilog_files: skip unresolved Make variables and invalid labels.
+
+    Entries the config.mk parser cannot turn into labels have to go, but
+    dropping one silently loses a real source file and the failure surfaces
+    far away: the design elaborates without it and yosys or OpenROAD-SYN
+    reports an undefined module, with nothing pointing back here. asap7's
+    swerv_wrapper listed its clock-gate model as $(CLKGATE_MAP_FILE) and
+    lost it exactly this way.
+
+    Include directories are a deliberate exclusion rather than a loss, so
+    only the two lossy cases are reported.
+    """
     verilog_files = []
+    dropped = []
     for vf in raw_verilog_files:
         if "$(" in vf or "${" in vf or "*" in vf or "))" in vf:
+            dropped.append((vf, "unresolved make variable or wildcard"))
             continue
         if "//." in vf or vf.endswith(":"):
+            dropped.append((vf, "not a usable bazel label"))
             continue
         if vf.endswith(":include") or "/include" in vf.split(":")[-1]:
             continue
         verilog_files.append(vf)
+
+    if dropped:
+        # A warning rather than a hard failure: designs carrying such an
+        # entry are broken under bazel today, and failing here would stop
+        # their package loading outright rather than letting the rest of
+        # the repo build.
+        print("%s: dropped %d VERILOG_FILES entr%s that could not be made into labels; the design will elaborate without %s:\n%s\nSpell the path out in config.mk if the file is needed under bazel." % (
+            # buildifier: disable=print
+            design or "orfs_design",
+            len(dropped),
+            "y" if len(dropped) == 1 else "ies",
+            "it" if len(dropped) == 1 else "them",
+            "\n".join(["  %s (%s)" % (vf, why) for vf, why in dropped]),
+        ))
+
     return verilog_files
 
 def _collect_include_dirs(arguments):
