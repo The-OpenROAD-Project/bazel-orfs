@@ -23,16 +23,36 @@ def sdc_arguments(ctx, short = False):
         return {"SDC_FILE": file_path(sdc, short)}
     return {}
 
+def work_home_relative(ctx):
+    """WORK_HOME relative to the root of a runfiles or deployed tree.
+
+    An external repository's files live under `external/<repo>/` in
+    bazel's exec root, in its runfiles layout, and in the tree deploy.tpl
+    lays out for `bazelisk run`. So a target in, say,
+    @orfs//flow/designs/asap7/gcd has to look for its results under
+    external/orfs+/flow/designs/asap7/gcd -- under the main repo's own
+    package path there is nothing of that design at all.
+
+    Args:
+      ctx: The rule context.
+
+    Returns:
+      A path string relative to the tree root, with no leading "./".
+    """
+    return "/".join([
+        part
+        for part in [_workspace_prefix(ctx), ctx.label.package]
+        if part
+    ])
+
 def _work_home(ctx):
     # For external repo targets, declared files are placed under
     # bin/external/<repo>/<package>, but genfiles_dir.path is just bin/.
     # Use the declared file path of a known output to derive the correct prefix.
     parts = [ctx.genfiles_dir.path]
-    if ctx.label.workspace_name:
-        parts.append("external")
-        parts.append(ctx.label.workspace_name)
-    if ctx.label.package:
-        parts.append(ctx.label.package)
+    rel = work_home_relative(ctx)
+    if rel:
+        parts.append(rel)
     return "/".join(parts)
 
 def orfs_environment(ctx):
@@ -383,7 +403,7 @@ def required_arguments(ctx):
         "GENERATE_ARTIFACTS_ON_FAILURE": "1",
         "PLATFORM": platform(ctx),
         "PLATFORM_DIR": platform_config(ctx).dirname,
-        "WORK_HOME": "./" + ctx.label.package,
+        "WORK_HOME": "./" + work_home_relative(ctx),
     }
 
 def orfs_additional_arguments(infos, short = False, use_pre_layout = False):

@@ -52,6 +52,7 @@ load(
     "source_inputs",
     "test_inputs",
     "verilog_arguments",
+    "work_home_relative",
     "write_stage_filter",
     "yosys_environment",
     "yosys_inputs",
@@ -805,13 +806,7 @@ def _test_impl(ctx):
     else:
         # For external repo targets, WORK_HOME must include the external/<repo>/
         # prefix so Make finds results/reports at the correct runfiles path.
-        if ctx.label.workspace_name:
-            parts = ["external", ctx.label.workspace_name]
-            if ctx.label.package:
-                parts.append(ctx.label.package)
-            work_home = "/".join(parts)
-        else:
-            work_home = None
+        work_home = work_home_relative(ctx) if ctx.label.workspace_name else None
 
         if hasattr(ctx.attr, "script") and ctx.file.script:
             script_inputs = [ctx.file.script]
@@ -974,14 +969,7 @@ def _run_executable_impl(ctx):
 
     # For external repo targets, WORK_HOME must include the external/<repo>/
     # prefix so Make finds results/reports at the correct runfiles path.
-    # Matches orfs_test's handling.
-    if ctx.label.workspace_name:
-        parts = ["external", ctx.label.workspace_name]
-        if ctx.label.package:
-            parts.append(ctx.label.package)
-        work_home = "/".join(parts)
-    else:
-        work_home = None
+    work_home = work_home_relative(ctx) if ctx.label.workspace_name else None
 
     tool_env = {
         "OPENROAD_EXE": ctx.executable.openroad.short_path,

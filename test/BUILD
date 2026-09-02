@@ -13,6 +13,7 @@ load(":quick_pins_test_rule.bzl", "quick_pins_data_dep_test")
 load(":sdc_clock_period_test.bzl", "runfiles_contents_test", "synth_action_inputs_test")
 load(":source_input_propagation_test.bzl", "source_input_propagation_test")
 load(":stages_filter_test.bzl", "stages_filter_test_suite")
+load(":work_home_test.bzl", "work_home_test_suite")
 
 exports_files(
     glob([
@@ -624,6 +625,8 @@ source_input_propagation_test(
 
 # Unit tests for the stage variable filtering helpers (stages.bzl).
 keep_modules_test_suite(name = "keep_modules_test")
+
+work_home_test_suite(name = "work_home_test")
 
 stages_filter_test_suite(name = "stages_filter_test")
 
