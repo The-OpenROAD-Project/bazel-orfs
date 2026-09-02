@@ -162,8 +162,18 @@ Total concurrency is `--jobs × AF_JOBS × AF_THREADS`. Pick a shape:
 
 | goal | `--jobs` | `AF_JOBS` | `AF_THREADS` |
 |---|---|---|---|
-| one design, all cores | 1 | 8 | 4 |
+| one small design, all cores | 1 | 8 | 4 |
+| one large design | 1 | 4 | 2 |
 | many designs at once | 8 | 2 | 2 |
+
+**Size `AF_JOBS` by memory, not by cores.** Each candidate holds a whole
+flow in RAM. A `swerv_wrapper` candidate peaks near 18 GB, so `AF_JOBS=8`
+wants about 144 GB while occupying only 16 cores — that ran for four
+hours on a 122 GB machine and was then OOM-killed, losing the run.
+Candidates reach their detailed-route peak at different moments, so the
+ceiling is not hit until several coincide, and a run that looks healthy
+for hours can still die. Budget
+`AF_JOBS <= (RAM - a few GB) / peak-RSS-per-candidate`.
 
 ## What the pin writes
 
