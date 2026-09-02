@@ -111,6 +111,39 @@ def _filter_stage_args(stage, **kwargs):
         **kwargs
     )
 
+def _orfs_estimate_report(name, src, variant = None, openroad = None, visibility = None):
+    """Emit the fast estimate report for a flow's floorplan stage.
+
+    Creates {name} (an orfs_run producing {name}.json): a deterministic,
+    ~seconds-to-a-minute estimate of what the floorplan can achieve --
+    estimated achievable clock period (pre-route optimistic; for
+    differential use where the uniform bias cancels), utilization,
+    place density vs its computed floor -- via a non-timing-driven,
+    early-stopped global placement in its own process. Runs parallel
+    to the place stage by DAG construction and cannot perturb flow
+    artifacts. Thesis, calibration and limits: docs/estimate.md.
+    """
+    run_kwargs = {}
+    if openroad != None:
+        run_kwargs["openroad"] = openroad
+    if visibility != None:
+        run_kwargs["visibility"] = visibility
+    orfs_run(
+        name = name,
+        src = src,
+        outs = [name + ".json"],
+        arguments = {
+            "OUTPUT": name + ".json",
+        },
+        script = "@bazel-orfs//:estimate.tcl",
+        stages = [
+            "floorplan",
+            "place",
+        ],
+        variant = variant or "base",
+        **run_kwargs
+    )
+
 def _orfs_html_report(name, src, variant = None, openroad = None, visibility = None):
     """Emit an HTML timing report plus a runnable opener for a single stage.
 
@@ -834,6 +867,14 @@ def _orfs_pass(
         sn = do_step(step, prev, kwargs, more_kwargs = more_kwargs)
         step_names.append(sn)
         create_deps_tar(sn, kwargs.get("visibility", None))
+        if step.stage == "floorplan" and not kwargs.get("lint"):
+            _orfs_estimate_report(
+                name = _step_name(name, variant, "estimate"),
+                src = sn,
+                variant = variant,
+                openroad = kwargs.get("openroad"),
+                visibility = kwargs.get("visibility"),
+            )
         if html and step.stage in _HTML_STAGES:
             _orfs_html_report(
                 name = sn + "_html",

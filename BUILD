@@ -17,6 +17,7 @@ exports_files([
     "compute_slack_margin.tcl",
     "config_mk_parser.py",
     "deploy.tpl",
+    "estimate.tcl",
     "html_timing_report.tcl",
     "make.tpl",
     "mock_area.tcl",

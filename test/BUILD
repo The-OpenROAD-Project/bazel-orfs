@@ -2192,3 +2192,13 @@ orfs_test(
     stages = ["floorplan"],
     yosys = "//mock/yosys/src/bin:yosys",
 )
+
+# The <flow>_estimate report (docs/estimate.md): generated for every
+# flow with a floorplan stage. Assert the JSON exists and carries the
+# fields the differential protocol reads.
+sh_test(
+    name = "lb_32x128_estimate_test",
+    srcs = ["estimate_test.sh"],
+    args = ["$(rootpath :lb_32x128_estimate.json)"],
+    data = [":lb_32x128_estimate.json"],
+)
