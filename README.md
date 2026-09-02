@@ -42,6 +42,7 @@ and easily actionable github issues for the OpenROAD and ORFS maintainers.
 | Upgrade bazel-orfs or ORFS | [Upgrade bazel-orfs](#upgrade-bazel-orfs) |
 | Override configuration variables | [Override configuration variables](#override-configuration-variables) |
 | Diagnose a build failure on my host | [docs/debugging.md](docs/debugging.md#host-platform--older-distributions) |
+| Fast PPA estimate / gate a PR against merge-base | [docs/estimate.md](docs/estimate.md) |
 
 ## Requirements
 
