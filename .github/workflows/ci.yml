@@ -115,12 +115,6 @@ jobs:
       - name: Run tests
         run: bazelisk test ... --build_tests_only --test_output=errors --profile=test.profile
 
-      # --- Submodules ---
-      - name: "Submodule: lec build"
-        working-directory: lec
-        run: >-
-          bazelisk build ... --keep_going --profile=lec.profile
-
       # --- Save caches (main branch only) ---
       - name: Save Repository cache
         if: always() && github.ref == 'refs/heads/main'
