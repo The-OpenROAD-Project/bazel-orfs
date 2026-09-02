@@ -21,6 +21,21 @@
    "rho_proxy_vs_macro_mean_n7": 0.57,
    "n_eval": 7,
    "note": "AXIS LIVE, earlier than the headroom extrapolation predicted; noise floor tightened 48.8->15.4 as the clock hardened (cva6 pattern); ranker grade at n=7 not meaningful"
+  },
+  "c1300": {
+   "delta_tie_achieved": 14.0,
+   "achieved_range": 45.4,
+   "liveness": 3.24,
+   "achieved_band": [
+    1429,
+    1474
+   ],
+   "grt_macro_mean_range": 301.7,
+   "grt_area_range": 235.9,
+   "rho_proxy_vs_achieved_n8": -0.19,
+   "rho_proxy_vs_macro_mean_n8": 0.62,
+   "n_eval": 8,
+   "closes_target": "0/8 -- the design's capability wall is ~1430ps; past it the target only changes how hard synthesis/repair fight"
   }
  }
 }
