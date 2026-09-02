@@ -36,6 +36,21 @@
    "rho_proxy_vs_macro_mean_n8": 0.62,
    "n_eval": 8,
    "closes_target": "0/8 -- the design's capability wall is ~1430ps; past it the target only changes how hard synthesis/repair fight"
+  },
+  "c1200": {
+   "delta_tie_achieved": 10.9,
+   "achieved_range": 27.5,
+   "liveness": 2.52,
+   "achieved_band": [
+    1437,
+    1464
+   ],
+   "grt_macro_mean_range": 214.7,
+   "rho_proxy_vs_achieved_n8": 0.07,
+   "rho_proxy_vs_macro_mean_n8": 0.95,
+   "n_eval": 8,
+   "closes_target": "0/8",
+   "note": "liveness plateaus at the ~1430ps wall; macro-path ranking STRENGTHENS under pressure (+0.95); achieved-period channel still unranked by the macro proxy at toy-n -- third consecutive near-zero"
   }
  }
 }
