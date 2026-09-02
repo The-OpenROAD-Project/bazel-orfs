@@ -216,6 +216,23 @@ it: seeds were only the first candidate coordinate.
   CPU, and the batched problem shrinks enough to reopen the GPU door
   on small-VRAM hardware.
 
+- **E13 — the over-provisioning warning and fast path** (idea
+  2026-09-02): one early-stopped scorer solve plus the estimation
+  ladder's corrected period estimate (~7% absolute error on macro
+  designs -- warning-grade, fired only above ~2x its own error bar)
+  detects an over-provisioned operating point at macro-place time:
+  clock headroom vs estimated achievable, density vs the computed
+  floor, area from how trivially overflow resolves. When estimated
+  headroom >> the candidate spread the scorer sees, every candidate
+  ties downstream on period -- the race degenerates to k=1 honestly:
+  return the first workable placement, WARN with the three estimated
+  tightenings, note that a race would still buy macro-slack and area,
+  and name the clock target that would make the period axis
+  measurable (the CI-blindness fix, in-log). Ground truth for grading
+  the trigger: the clock shmoo's liveness curve (c1600 must warn,
+  c1400 must not). Prototype flow-side in macro_select.tcl; upstream
+  with the -candidates package.
+
 ## E1 verdict (2026-08-31, evening)
 
 E1 is in: `test/estimation_ladder/score_vs_flow_swerv.{png,json}`.
