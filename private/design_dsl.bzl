@@ -19,6 +19,9 @@ generated @orfs_designs//:designs.bzl supplies it, exactly as that file
 already does for orfs_design().
 """
 
+load("@rules_python//python:defs.bzl", "py_binary")
+load("//private:rules.bzl", "orfs_run")
+
 # Per filegroup target: extensions included in the filegroup.
 # config_mk_parser produces these target names from VERILOG_FILES
 # wildcard patterns.
@@ -83,8 +86,106 @@ def export_design_files():
         visibility = ["//visibility:private"],
     )
 
+# Candidates run concurrently inside the single derive action, each with
+# AF_THREADS threads, so one design occupies AF_JOBS * AF_THREADS cores.
+# Empty means "let the driver use its own default" and keeps the value out
+# of the action key.
+AF_JOBS = ""
+
+AF_THREADS = ""
+
+def _auto_floorplan(designs, config):
+    """Generate the floorplan derivation and pinning targets.
+
+    Deriving a floorplan means running the production flow several times
+    over, so it is a job you run rather than something a build does:
+
+        bazelisk build //flow/designs/asap7/gcd:gcd_auto_floorplan_data
+        bazelisk run   //flow/designs/asap7/gcd:gcd_auto_floorplan_pin
+
+    Split in two so the expensive half is paid once. _data races the
+    candidates and writes auto_floorplan.json as a declared output, so
+    bazel caches it: iterating on the pin never re-derives. _pin depends
+    on _data, which is what stops it ever writing stale values -- bazel's
+    dependency graph is the freshness check, so a changed netlist, SDC or
+    toolchain re-derives before the pin sees it. Nothing lands in the
+    source tree except the config.mk edit.
+
+    Both are manual: no wildcard build should start a derivation.
+
+    Args:
+        designs: the per-consumer DESIGNS dict, bound by the generated
+            @orfs_designs//:designs.bzl.
+        config: the design's config.mk, the file the pin edits.
+    """
+
+    # The last two path components are the DESIGNS key ("asap7/gcd"),
+    # whatever depth the consumer's designs_dir sits at.
+    parts = native.package_name().split("/")
+    if len(parts) < 2:
+        return
+    entry = designs.get(parts[-2] + "/" + parts[-1])
+    if not entry:
+        return
+    name = entry["name"]
+
+    orfs_run(
+        name = name + "_auto_floorplan_data",
+        src = ":" + name + "_synth",
+        outs = ["auto_floorplan.json"],
+        arguments = entry["arguments"] | {
+            "AF_EVIDENCE": "$(location auto_floorplan.json)",
+            # The three scripts ship from here while SCRIPTS_DIR points at
+            # ORFS's flow/scripts, so the driver cannot find its siblings
+            # by directory the way it could when all three lived there.
+            "AF_CANDIDATE_TCL": "$(location %s)" % Label("//:auto_floorplan_candidate.tcl"),
+            "AF_FLOW_TCL": "$(location %s)" % Label("//:auto_floorplan_flow.tcl"),
+        } | {
+            # Provisioning. These have to be declared rather than passed
+            # on the command line: orfs_run builds the action with a fixed
+            # environment, so --action_env never reaches the driver. Raise
+            # AF_JOBS for a big design derived on its own -- the phases are
+            # serialised, so a ladder that does not fit in one batch per
+            # phase pays a full candidate's wall time for every extra one.
+            k: v
+            for k, v in [
+                ("AF_JOBS", AF_JOBS),
+                ("AF_THREADS", AF_THREADS),
+            ]
+            if v
+        },
+        data = [
+            Label("//:auto_floorplan_candidate.tcl"),
+            Label("//:auto_floorplan_flow.tcl"),
+        ],
+        script = Label("//:auto_floorplan.tcl"),
+        # The candidates run the flow from floorplan to finish, so every
+        # stage's variables have to reach them.
+        stages = [
+            "floorplan",
+            "place",
+            "cts",
+            "grt",
+            "route",
+            "final",
+        ],
+        tags = ["manual"],
+    )
+    py_binary(
+        name = name + "_auto_floorplan_pin",
+        srcs = [Label("//:pin_auto_floorplan.py")],
+        main = Label("//:pin_auto_floorplan.py"),
+        args = [
+            "$(location :auto_floorplan.json)",
+            native.package_name() + "/" + config,
+        ],
+        data = [":auto_floorplan.json"],
+        tags = ["manual"],
+    )
+
 def design(
         orfs_design,
+        designs,
         config = "config.mk",
         user_arguments = [],
         user_sources = [],
@@ -96,6 +197,8 @@ def design(
         orfs_design: the DESIGNS-bound orfs_design() from the generated
             @orfs_designs//:designs.bzl. Passed in rather than loaded
             because DESIGNS is per-consumer.
+        designs: that same per-consumer DESIGNS dict, read by the
+            floorplan derivation targets.
         config: The config.mk file that drives this design.
         user_arguments: config.mk var names that are project-specific
             (read by the design's own .tcl/.mk, not by ORFS) and should
@@ -122,6 +225,7 @@ def design(
         local_arguments = local_arguments,
         visibility = visibility,
     )
+    _auto_floorplan(designs, config)
 
 def files(group, extra_srcs = None):
     """Named filegroup over conventional extensions.

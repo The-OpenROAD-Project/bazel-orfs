@@ -184,7 +184,7 @@ def design(**kwargs):
         **kwargs: Forwarded to design() -- config, user_arguments,
             user_sources, local_arguments.
     """
-    _design(orfs_design, **kwargs)
+    _design(orfs_design, DESIGNS, **kwargs)
 
 files = _files
 ''' % repr(designs)

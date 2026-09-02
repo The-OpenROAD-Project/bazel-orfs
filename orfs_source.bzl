@@ -43,6 +43,15 @@ ORFS_BAZEL_PLATFORMS = [
 ORFS_PATCHES = [
     Label("//patches:0037-orfs-single-writer-1_synth-sdc.patch"),
     Label("//patches:0039-orfs-slang-plugin-fallback.patch"),
+    # flow.tcl as a label, so the floorplan derivation's drift test can
+    # compare its duplicated stage sequence against the one that runs.
+    #
+    # This patch edits ORFS's own flow/BUILD, so it stops applying once
+    # ORFS deletes that file. _GENERATE_FLOW_BUILD therefore exports
+    # scripts/flow.tcl too, and //test:orfs_flow_build_test requires it.
+    # Both mechanisms are needed: the patch covers an ORFS that still
+    # ships flow/BUILD, the generated file covers one that does not.
+    Label("//patches:0047-orfs-export-flow-tcl.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
@@ -163,6 +172,7 @@ exports_files(
 
 exports_files(
     [
+        "scripts/flow.tcl",
         "scripts/synth.tcl",
         "scripts/variables.yaml",
     ],

@@ -16,8 +16,12 @@ exports_files([
     "orfs_design_builds.bzl",
     "record_orfs_builds.py",
     "run_executable.py",
+    "auto_floorplan.tcl",
+    "auto_floorplan_candidate.tcl",
+    "auto_floorplan_flow.tcl",
     "bump.py",
     "bump_impl.py",
+    "check_pareto.py",
     "compute_floorplan_shape.tcl",
     "compute_slack_margin.tcl",
     "config_mk_parser.py",
@@ -30,6 +34,7 @@ exports_files([
     "open_html.sh",
     "package_stage.py",
     "parallel_synth.mk",
+    "pin_auto_floorplan.py",
     "power.bzl",
     "power.tcl",
     "power_base.tcl",
@@ -268,4 +273,47 @@ compile_pip_requirements(
     name = "requirements_dev",
     src = "requirements_dev.in",
     requirements_txt = "requirements_dev_lock_3_13.txt",
+)
+
+# --- floorplan derivation ------------------------------------------------
+#
+# compute_floorplan_shape.tcl predicts CORE_UTILIZATION and CORE_MARGIN
+# from synth-stage area. This derives them instead, by running the
+# production flow per candidate floorplan and reading what it achieved.
+# The two are not rivals yet: the derivation is what can grade the
+# heuristic, per design, because it produces the flow's own answer on the
+# same ladder.
+
+py_binary(
+    name = "pin_auto_floorplan",
+    srcs = ["pin_auto_floorplan.py"],
+    visibility = ["//visibility:public"],
+)
+
+py_test(
+    name = "pin_auto_floorplan_test",
+    srcs = ["pin_auto_floorplan_test.py"],
+    deps = [":pin_auto_floorplan"],
+)
+
+py_test(
+    name = "check_pareto_test",
+    srcs = ["check_pareto_test.py"],
+    data = ["check_pareto.py"],
+)
+
+# Fails if auto_floorplan_flow.tcl stops being flow.tcl's tail. flow.tcl
+# is read from the pinned @orfs archive so the comparison is against the
+# sequence that actually runs; see patches/0047.
+py_test(
+    name = "auto_floorplan_flow_test",
+    srcs = ["auto_floorplan_flow_test.py"],
+    data = [
+        "auto_floorplan_flow.tcl",
+        "@orfs//flow:scripts/flow.tcl",
+    ],
+    env = {
+        "AF_FLOW_TCL": "$(location auto_floorplan_flow.tcl)",
+        "ORFS_FLOW_TCL": "$(location @orfs//flow:scripts/flow.tcl)",
+    },
 )
