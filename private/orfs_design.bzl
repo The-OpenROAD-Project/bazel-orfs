@@ -236,24 +236,28 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
     if arguments.get("SYNTH_HIERARCHICAL") == "1":
         kept = keep_modules(arguments)
         if not kept:
-            fail(
-                ("%s sets SYNTH_HIERARCHICAL=1 with no SYNTH_KEEP_MODULES.\n" +
-                 "Parallel synthesis declares one per-module " +
-                 "re-canonicalization action per kept module, so the names " +
-                 "must be known at analysis time. Discovered inside a build " +
-                 "action they come too late: the partition actions are still " +
-                 "emitted, no per-module checkpoint exists to feed them, and " +
-                 "every partition fails with\n" +
-                 "  ERROR: per-module checkpoint missing: " +
-                 "partition_<Module>_canonical.rtlil\n" +
-                 "Pin the list in the design's config.mk; capture it with\n" +
-                 "  make DESIGN_CONFIG=<config.mk> SYNTH_KEEP_MODULES= " +
-                 "clean_synth synth\n" +
-                 "then read results/<platform>/<design>/base/" +
-                 "kept_modules.json.") % name,
-            )
+            # A warning, not a failure. These designs are already broken
+            # under bazel -- with no kept-module list rules.bzl declares no
+            # per-module re-canonicalization actions, while
+            # SYNTH_NUM_PARTITIONS below still asks for partitions, so every
+            # partition dies with "per-module checkpoint missing". But
+            # fail() here stops the design's whole package from LOADING,
+            # which is worse than the build failure it replaces: 20 designs
+            # in ORFS carry this combination today (ariane133, black_parrot,
+            # mempool_group, microwatt, riscv32i, minimal, ...), and taking
+            # them out at load time also takes out every other target in
+            # their packages and any //... pattern that has to parse them.
+            #
+            # Same reasoning as the dropped-VERILOG_FILES warning: report at
+            # the point the information exists, and let the build proceed as
+            # far as it can.
+            print("%s sets SYNTH_HIERARCHICAL=1 with no SYNTH_KEEP_MODULES, so parallel synthesis will fail with 'per-module checkpoint missing'. Parallel synthesis declares one per-module re-canonicalization action per kept module, so the names must be known at analysis time; discovered inside a build action they arrive too late. Pin the list in the design's config.mk -- capture it with `make DESIGN_CONFIG=<config.mk> SYNTH_KEEP_MODULES= clean_synth synth` and read results/<platform>/<design>/base/kept_modules.json." % name)  # buildifier: disable=print
+
         if "SYNTH_NUM_PARTITIONS" not in arguments:
-            arguments["SYNTH_NUM_PARTITIONS"] = str(len(kept))
+            # 32 preserves the pre-existing default for the no-list case;
+            # it does not work, but neither did failing, and this keeps the
+            # action graph identical to what it was before.
+            arguments["SYNTH_NUM_PARTITIONS"] = str(len(kept)) if kept else "32"
 
     orfs_flow(
         name = name,
