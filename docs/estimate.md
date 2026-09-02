@@ -197,6 +197,62 @@ Pending, tracked in the campaign plan:
   optimistic; differential use does not need the correction, absolute
   use does).
 
+## Cadence: estimate always, audit as you can afford, pin occasionally
+
+Three layers, each with the cadence its measurement dictates:
+
+| layer | cadence | sweeps? | writes anything? |
+|---|---|---|---|
+| **estimate** | every commit + nightly | never | JSON only |
+| **seed-sweep audit** | overnight, over merged work | yes — its whole job | reverts |
+| **auto-floorplan re-pin** | signal-driven or on demand | yes — the race | config.mk via ORFS mechanics, plus a fresh receipt |
+
+The estimate is *purposely* sweep-free — and it is stronger than a
+choice: the estimate has no sampling noise to sweep away. It is
+deterministic end to end, so a sweep inside it would multiply cost by
+k while measuring a different quantity entirely (draw sensitivity, an
+occasional diagnostic). The chaos worth sweeping lives in the macro
+placer's draw and in the downstream stages the estimate deliberately
+does not run.
+
+**The pin receipt.** When pin machinery writes config.mk (the
+`pinAutoFloorplan.py` mechanics of OpenROAD-flow-scripts PR #4487),
+it should store the estimate JSON of that moment beside the update —
+a receipt. The always-on estimate then diffs itself against the
+receipt, and pin staleness becomes measured drift rather than a
+calendar: achievable-period headroom shifted, utilization crept,
+the density floor rose toward the configured value, the macro-path
+channel degraded against what the pinned draw delivered, or the pin
+failed to apply at all. Per the house rule the estimate reports the
+deltas, never "re-pin now" — the policy belongs to the consumer. The
+mechanism needs no new code: a committed JSON and a file diff.
+
+### The audit you can afford
+
+An explicit k-seed sweep of a large design is an adorable aspiration;
+the compute usually does not exist. What exists is the natural
+experiment: every commit changes the inputs, so **the nightly build
+over evolving commits is a seed sweep smeared across time**. Each
+point confounds two variables — the hoped-for improvement and a fresh
+draw — and per-point they cannot be separated. Beggars can't be
+choosers; the framework is built to work anyway:
+
+- Single points are weak verdicts: a bad night may be a bad draw.
+- The trend averages over draws, and large effects still stand out —
+  the exponential tails of the walk model do not care about the
+  confound.
+- **Detrended nightly residuals estimate the draw-noise floor**: the
+  natural experiment yields its own delta_tie over time, without a
+  dedicated sweep ever being purchased. The audit layer's resolution
+  degrades gracefully from measured-by-sweep to
+  estimated-from-residuals; the drift theorem's structure is
+  unchanged, only the parameter's provenance.
+- The consequence for this report's rank: when audit compute is
+  starved, the deterministic estimate delta is the **only noise-free
+  per-commit measurement in the system**. The cheap layer becomes
+  more load-bearing exactly when you are poorest — which is the
+  right way around.
+
 ## Own your scoring function
 
 The impossible thing was a universal, accurate estimator — so the
