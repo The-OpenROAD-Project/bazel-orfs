@@ -86,6 +86,14 @@ scoped this down.
 
 ## The ORFS cleanup PR
 
+> Superseded in scope by
+> [plans/orfs-as-file-store.md](plans/orfs-as-file-store.md): rather than
+> deleting the 56 uniform BUILD files and keeping the rest, that plan
+> removes ORFS's bazel surface entirely -- design BUILDs, `flow/BUILD`
+> and `MODULE.bazel` -- as one PR. The verification recipe below still
+> applies; only the file list grows.
+
+
 ### Delete
 
 Every `flow/designs/**/BUILD` whose entire content, ignoring comments and
