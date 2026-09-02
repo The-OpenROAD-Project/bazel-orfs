@@ -76,6 +76,16 @@ load(
 
 # --- Shared helpers ---
 
+# buildifier: disable=external-path
+#
+# The external-path warning exists to catch code that reaches into another
+# repository's layout by hand, which is fragile. This function is the one
+# place where that layout is the subject rather than an assumption: it
+# builds a portable tar whose entries have to match bazel's own runfiles
+# layout, in which an external repo's files appear under
+# external/<repo>/. Spelling that prefix out is what makes the archive
+# loadable by a consumer using either short_path or path references, so
+# the literal is the contract, not a shortcut around one.
 def _tar_paths(f):
     """Map a file to its archive path(s).
 
