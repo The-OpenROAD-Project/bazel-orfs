@@ -61,6 +61,30 @@ It claims something weaker that turns out to be sufficient: a
   its side, and the comparison is a file diff. Built nightly, the
   same artifact is a trend line at roughly one percent of flow cost.
 
+## Why the estimator is shaped this way
+
+The estimator's design is not aesthetic — it is shaped by where the
+noise turned out to live. In the campaign work this document distills
+(breadcrumbs below), we decomposed a flow's run-to-run variance stage
+by stage and found it is not spread evenly: downstream of a fixed
+macro placement the flow is comparatively quiet, while the placer's
+response to its inputs dominates — choosing a macro placement is
+choosing the downstream outcome. Timing-driven global placement added
+noise without adding any ability to compare. The repair stages
+flattened period differences by spending area and runtime, so at
+relaxed constraints most placements tie and the surviving signal
+lives in the macro paths. And ranking power saturated long before
+placement convergence. Each choice in `estimate.tcl` answers one of
+these findings: non-timing-driven, because determinism buys
+comparability and TD bought only noise; early-stopped, because the
+ranking is decided well before convergence; scored before repair,
+because repair's effort is largely the price of what the placement
+fields already show — and the resulting uniform optimism cancels in
+differential use; the macro-path channel reported separately, because
+it is the one quantity macro placement demonstrably controls; and a
+single deterministic draw rather than a sweep, with pinning and
+receipts carrying the burden that sweeps cannot affordably carry.
+
 ## The math of gating with a fast, imperfect signal
 
 Model development as a guided random walk toward a PPA goal G. Each
@@ -169,33 +193,48 @@ macro-path fields are the channel macro placement controls
 racing and selecting the pin is the macro-placement campaign's
 business (PR #868).
 
-## Calibration status and provenance
+## Provenance, trust, and breadcrumbs
 
-Measured, with data committed in the macro-placement campaign
-(bazel-orfs PR #868 and `test/estimation_ladder/`):
+The lessons above come from exploratory campaigns: one machine, a
+handful of designs, instruments that evolved mid-flight, data hoarded
+rather than curated. This document is a thesis, not a paper. It has
+no obligation to establish exactly where each number was measured or
+whether it was measured correctly — and you should extend it the same
+courtesy: **do not trust the numbers below, or the archived data
+behind them, without re-measuring**. They are breadcrumbs with
+pointers, left so a proper follow-up study can be done by someone
+with the time to do it right.
 
-- Early stopping at overflow 0.6: ranking power of the placement
-  saturates there (trajectory replay over 24 candidates; rho within
-  noise of full convergence at ~70% of the iterations).
-- STA-free ranking: raw HPWL ranked post-route macro-path timing at
-  rho +0.67 vs the full instrument's +0.72 (n=24, overlapping CIs).
+Observed once, pointer attached:
+
+- Early stopping at overflow 0.6: ranking power appeared to saturate
+  there (~70% of the iterations for all of the ranking).
+- STA-free ranking: raw HPWL ranked post-route macro-path timing
+  about as well as the full instrument (rho +0.67 vs +0.72, n=24,
+  overlapping CIs).
 - Estimator-vs-flow ranking across configurations: Kendall tau
-  0.80–0.87 (the estimation ladder's fronts).
+  0.80–0.87 on two small designs.
 - Area fidelity: estimate-to-route rho ≈ +0.5–0.65 across two
   designs.
-- Determinism: placements and scores bit-identical across thread
-  counts, execution shapes and a compiler/binary change (24/24).
+- Determinism held everywhere it was checked: placements and scores
+  bit-identical across thread counts, execution shapes and a
+  binary change.
 
-Pending, tracked in the campaign plan:
+Never measured at all, and needed before trusting deltas as
+magnitudes rather than ordering evidence: the PR-vs-merge-base
+transfer error for logic changes (a backtest over historical or
+synthetic commits), and a validated absolute correction (differential
+use does not need one; absolute use does).
 
-- σ_f for logic deltas — the PR-vs-merge-base transfer error — via a
-  backtest over historical or synthetic changes (E14). Until it
-  lands, treat est_achievable deltas as ordering evidence with the
-  config-ranking tau above as the prior, not as calibrated
-  magnitudes.
-- A validated absolute correction (the raw estimate is uniformly
-  optimistic; differential use does not need the correction, absolute
-  use does).
+The trail: bazel-orfs PR #868 (the macro-placement selection
+campaign: noise decomposition, the seed-population experiments, the
+figures and their JSON records — the branch and its `ideas/` docs are
+the evidence and its flaws in one place), OpenROAD-flow-scripts PRs
+#4487 (floorplan-parameter racing and the config.mk pin mechanics)
+and #4492 (the clustered-scorer question, pre-registered), and
+OpenROAD issues #11277–#11279 — minimal reproducers verified against
+stock master, the most independently trustworthy artifacts in the
+pile.
 
 ## Cadence: estimate always, audit as you can afford, pin occasionally
 
