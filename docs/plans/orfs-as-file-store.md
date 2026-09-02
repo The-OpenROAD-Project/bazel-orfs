@@ -4,8 +4,13 @@
 > stands: ORFS `8c0616910`, bazel-orfs `main`, OpenROAD's
 > `MODULE.bazel` at the commit ORFS's submodule points to. Section 3 is
 > the constraint that decides the design; everything else follows from
-> it. Claims not yet proven by a running build are marked
-> **(unproven)** and are the content of step A4.
+> it.
+>
+> **The bazel-orfs side of this is implemented and measured.** Where the
+> first draft carried **(unproven)** markers, section 6 now carries what
+> a running build actually did, including two claims the work reversed.
+> Section 7 records which steps are done. The remaining step is the ORFS
+> pull request, which is open as a draft.
 
 ---
 
@@ -189,6 +194,12 @@ and tight. When an ORFS bump breaks a design here, fixing it in
 bazel-orfs is cheap -- these designs exist for experiments, not for
 production tapeouts.
 
+**Measured, not assumed.** The first bump after the design landed moved
+ORFS 55 commits (`427bd762` -> `8c0616910`) and OpenROAD with it. It
+cost **zero fixes**: 4135 targets, 0 errors, and the only output was
+pre-existing warn-not-fail diagnostics. That is one data point, not a
+law, but it is the data point the bet needed.
+
 So the testing policy is deliberately narrow:
 
 - **Keep the load guard.** CI runs
@@ -223,27 +234,73 @@ second is allowed to.
   `MODULE.bazel`, where the bazel-orfs dep is deliberately *not*
   dev-only just so `flow/BUILD` can load `orfs_pdk` at non-root
   consumption.
-- **ORFS stays a bazel module.** `http_archive` ignores `MODULE.bazel`
-  entirely, so ORFS may keep one and remain consumable as a module by
-  anyone who wants that. We simply stop consuming it that way. The two
-  goals are compatible; only *our* dependency edge changes.
-- **(unproven)** `http_archive` inside a module extension taking
-  `patches` as labels. The repo rule accepts label patches, but an
-  extension resolves labels through its own repo mapping; if that does
-  not work, patching falls back to `patch_cmds` shell, which this design
-  already leans on for BUILD generation.
-- **(unproven)** that a generated `flow/BUILD` reproduces the current
-  PDK targets exactly. The check is a target-list diff, described below.
+- **ORFS need not stay a bazel module.** The first draft said ORFS could
+  keep its `MODULE.bazel` and stay consumable as a module, since
+  `http_archive` ignores it. True in principle, but it does not survive
+  contact: `MODULE.bazel` references `//flow:util/requirements_lock.txt`
+  and `//flow/designs:BUILD`, so it cannot outlive the deletion of
+  `flow/BUILD`. The ORFS PR deletes it, and ORFS stops being
+  bazel-buildable -- which is the thesis, not a side effect.
+
+### What the implementation settled
+
+- **Label `patches` inside a module extension work.**
+  `http_archive(patches = [Label("//patches:0037-...")])` applies from
+  `orfs_source.bzl`, resolved through bazel-orfs's own repo mapping. No
+  `patch_cmds` fallback was needed.
+- **A generated `flow/BUILD` reproduces the PDK targets exactly.**
+  Measured against an ORFS with all 179 of its bazel files deleted:
+  `bazelisk query '@orfs//flow/designs/...:*'` gives **4135 targets, 0
+  errors, and a target list byte-identical to the same query before the
+  deletion** -- 0 added, 0 lost. `@orfs//flow:asap7`, `:sky130hd`,
+  `:makefile` and `:makefile_yosys` all resolve from the generated file,
+  and `@orfs//flow/designs/asap7/gcd:gcd_final` builds.
+- **`@orfs_designs` had to move here**, which the first draft did not
+  anticipate. ORFS declared it in its own `MODULE.bazel` via
+  `use_repo_rule`, and that file is never read for an archive. It still
+  resolves from inside `@orfs`'s generated BUILD files, because an
+  extension-created repo inherits the repo mapping of the module that
+  created it. Net simplification: one declaration instead of one per
+  consumer.
+- **`MODULE.bazel` cannot `load()`**, so the platform list is spelled
+  out there for `orfs_designs()` and again as `ORFS_BAZEL_PLATFORMS`.
+  `//test:orfs_platforms_test` holds the two copies in agreement.
+- **117 design BUILDs are carried as recorded data, not generated.**
+  Section 4's table called them "patched"; a patch cannot work here,
+  because it has to match what ORFS ships and therefore breaks the
+  moment ORFS deletes the file -- the very transition this is for. They
+  are recorded verbatim by `record_orfs_builds.py` and written back
+  absent-only. `flow/designs/design.bzl` moved the same way, from patch
+  `0046` to an unconditional write.
+- **GitHub's `/archive/<sha>.tar.gz` on the canonical repo does not
+  reliably serve a fork-only commit**, reversing a claim made during the
+  work. It served one commit and returned 404 for the next -- same fork,
+  same open pull request, that PR's head -- while the fork's own URL
+  served both. Hence `orfs.source(urls = [...])`, which is worth having
+  anyway for mirrors and air-gapped caches.
+- **A one-level walk was not enough.** The design-BUILD generator globbed
+  `flow/designs/$platform/*`; hierarchical flows nest a block's design
+  directory inside its parent's, and ORFS ships three. First run against
+  a tree with the BUILDs deleted: 56 deleted, 54 regenerated. Nothing
+  local could have caught it -- against an ORFS that still ships them the
+  generator writes nothing, and `--override_repository` cannot substitute
+  either, because it replaces the *fetched* repo with a raw directory so
+  `patch_cmds` never runs. Pinning a real commit is the only way to
+  exercise the real path.
 
 ## 7. Steps
 
-**A1** This document.
+Status as of the merge of the bazel-orfs side: **A1-A5 done, B open as a
+draft, C deferred.**
 
-**A2** Merge #881 (the estimation-ladder findings; unrelated, just open).
+**A1** This document. *(#889)*
+
+**A2** Merge #881 (the estimation-ladder findings; unrelated, just open). *(merged)*
 
 **A3** Bump the ORFS pin `427bd762` -> `8c0616910` (55 commits) with
 `bump.py`. Exercises the load guard against churn it has never seen, and
 measures how cheap bump-and-fix actually is before the design bets on it.
+*(#891 -- zero fixes; see section 5.)*
 
 **A4** The spike, and the only step that can fail interestingly:
 `orfs.source()` tag, `http_archive` in the extension,
@@ -252,15 +309,25 @@ Success criterion: `bazelisk build
 @orfs//flow/designs/asap7/gcd:gcd_final` with **ORFS's own bazel files
 deleted from the fetched tree** -- the honest test of "zero bazel
 surface", rather than of "we patched over them".
+*(#893, #894 -- criterion met: all 179 files deleted, target list
+identical, `gcd_final` builds. #894 also carries the 117 recorded design
+BUILDs and `design.bzl`.)*
 
 **A5** Narrow CI per section 5: keep the load guard, pick 2-3 small
-asap7 designs by measured runtime.
+asap7 designs by measured runtime. *(#893 -- `gcd` for the OpenROAD-SYN
+path and `uart` for the slang frontend as `<design>_test`, plus
+`mock-alu` as a `build_test`: its `<design>_test` compares metrics
+against a `rules-base.json` whose fixed bounds cannot survive a tool
+bump, and yosys is not idempotent, so the comparison is noise rather
+than a gate.)*
 
 **B** ORFS PR: delete the whole bazel surface from section 2. One PR,
 one review. Verification in the body is a target-list diff --
-`bazelisk query '@orfs//flow/designs/...:*'` before and after, expected
-byte-identical at 3,889 targets -- so a reviewer checks two lists
-without needing to know bazel.
+`bazelisk query '@orfs//flow/designs/...:*'` before and after -- so a
+reviewer checks two lists without needing to know bazel.
+*(The-OpenROAD-Project/OpenROAD-flow-scripts#4501, open as a draft
+marked do-not-review: 179 files, 1509 deletions, measured
+byte-identical at 4135 targets. Held until the ORFS maintainer is back.)*
 
 **C** OpenROAD PR: replace `bazel_dep` + `archive_override` with one
 `orfs.source()` tag. Removes lines; carries no patches. Independent of
@@ -278,3 +345,12 @@ Recorded so it can be revisited on evidence rather than re-argued:
   is stable.
 - If a third consumer appeared that needs `@orfs` as a module *and*
   needs it patched, root-only tags would stop being sufficient.
+
+One thing that has *not* turned out to be a reason to revisit it: tool
+bumps breaking designs. The one ABC segfault this campaign left
+unexplained -- `nangate45/swerv_wrapper` crashing under bazel's yosys
+0.64 -- simply stopped reproducing at yosys 0.68, before anyone
+investigated it. That is the regime section 5 describes: with a narrow
+CI set and a cheap bump loop, some breakage costs nothing because it
+expires on its own. The corollary is that a broad design-coverage CI
+would have spent real effort on it.
