@@ -314,6 +314,69 @@ basis for each clause:
 This report ships a general-purpose default; treat it as the
 starting point the protocol calibrates, not as the answer.
 
+## Negative findings of importance
+
+Results that did not go the way the programme assumed. They are recorded
+because each one invalidates something a later experiment would otherwise
+have built on.
+
+**"Drop the STA" does not reproduce.** The estimation ladder concluded
+that a raw HPWL readout was ranking-equivalent to the full proxy (+0.67
+against +0.72 on the macro-path KPI). Re-measured on an independently
+constructed population of 23 candidates with truth taken through the
+whole production tail, raw HPWL ranks that KPI at **+0.24 [-0.24, +0.65]**
+-- interval spanning zero, i.e. no demonstrable signal -- while the same
+rung's STA aggregate ranks it at **+0.61 [+0.29, +0.78]**. The
+phenomenon the ladder is built on reproduces; the claim that the STA is
+droppable does not. Anything that assumes a wirelength-only score suffices
+needs to re-derive that first.
+
+**A cheaper scorer can be faithful and still not rank.** A clustered
+global placement reproduced the flat rung's HPWL at rho +0.66
+[+0.34, +0.86] for a quarter of the runtime, and ranked the truth at
++0.26 -- statistically indistinguishable from flat HPWL's +0.24. The
+abstraction was not the limitation; the scalar it read was. Cost
+reductions and ranking accuracy are independent axes, and a reduction
+that faithfully reproduces a weak signal is still weak.
+
+**Some reductions structurally exclude their own fix.** `placement_cluster`
+places every member instance at its cluster centre, so a clustered
+placement is a few point-masses and any STA taken off it is meaningless.
+A clustered rung therefore cannot carry the readout that was measured to
+work. Check whether a proposed reduction forecloses the repair before
+adopting it.
+
+**An archived score/truth pair cannot grade a later re-run.** Regenerating
+a seeded population with the same design, the same ORFS commit and an
+OpenROAD with zero source differences still produced candidates
+uncorrelated with the archive: re-measured truth against archived truth
+rho **-0.26 [-0.65, +0.24]** on the macro-path KPI and +0.07 on achieved
+period. The archive stayed internally consistent and still reproduced its
+own published +0.72. The difference was traced to the bazel-orfs pin,
+which changes the synthesis netlist and therefore the candidates.
+**Provenance for an archived population has to include the bazel-orfs
+commit**, or the archive can only ever grade itself.
+
+**A candidate can be infeasible, and no wirelength score can say so.** One
+placement in 24 left a channel the power grid could not repair
+(`PDN-0179`); the flow cannot complete on it at any effort. A selector
+ranking that candidate on wirelength would have shipped a design that
+does not build. Feasibility is a separate outcome from score, and
+"fraction of candidates infeasible" is worth tracking as its own number.
+
+**A confidence interval spanning [-1, +1] is not a pass.** On a
+four-candidate population a gate phrased as "rho lands inside the
+reference interval" reported PASS at rho +0.80 with a bootstrap interval
+covering the entire range -- any value at all would have landed inside.
+A ranking claim needs its interval clear of zero before the point
+estimate means anything, which is the criterion the ladder's own money
+figure already used. Gates should say *inconclusive*, because an
+uninformative measurement is neither a pass nor a failure.
+
+The apparatus, evidence and per-candidate data behind these are in
+[ORFS#4492](https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/pull/4492)
+and `ideas/e12-clustered-scorer.md`.
+
 ## Limits
 
 - **A speedometer, not a map**: the estimate tracks *whether* the
