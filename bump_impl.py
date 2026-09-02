@@ -607,6 +607,74 @@ def _update_block_digest(
     return block
 
 
+def find_orfs_source_tag(content):
+    """Find the ``orfs.source(...)`` tag block.
+
+    ORFS is consumed as an http_archive created by bazel-orfs's module
+    extension rather than as a bazel_dep, because ``patches`` on an
+    override is honoured only from the root module and would therefore
+    land on whoever is root. The root module picks the version with a tag
+    instead, so that is what this bumper rewrites.
+
+    Returns ``(start, end)`` or ``None``.
+    """
+    for m in re.finditer(r"^\s*orfs\.source\s*\(", content, flags=re.MULTILINE):
+        if _position_is_in_comment(content, m.start()):
+            continue
+        start = content.index("orfs.source", m.start())
+        return (start, find_starlark_call_end(content, start))
+    return None
+
+
+def update_orfs_source_tag(
+    content,
+    orfs_commit,
+    fetch_integrity_fn=compute_integrity,
+    ignore_errors=False,
+):
+    """Rewrite the commit and integrity of an ``orfs.source()`` tag.
+
+    Both attributes live in one call, so unlike the archive_override
+    shapes there is no variable form to handle and no way for the two to
+    half-update.
+
+    Returns ``content`` unchanged if no tag exists (caller guards).
+    """
+    span = find_orfs_source_tag(content)
+    if not span:
+        return content
+    start, end = span
+    block = content[start:end]
+
+    m_commit = re.search(r'commit\s*=\s*"([0-9a-f]{7,40})"', block)
+    _expect(m_commit, 'commit = "<sha>" in orfs.source()', ignore_errors)
+    if not m_commit:
+        return content
+    if m_commit.group(1) == orfs_commit:
+        print("  orfs already at target commit; skipping re-hash")
+        return content
+
+    _expect(
+        re.search(r'integrity\s*=\s*"', block),
+        'integrity = "sha256-..." in orfs.source()',
+        ignore_errors,
+    )
+    integrity = fetch_integrity_fn(github_archive_url(ORFS_REPO, orfs_commit))
+    block = re.sub(
+        r'(commit\s*=\s*")[^"]*(")',
+        rf"\g<1>{orfs_commit}\2",
+        block,
+        count=1,
+    )
+    block = re.sub(
+        r'(integrity\s*=\s*")[^"]*(")',
+        rf"\g<1>{integrity}\2",
+        block,
+        count=1,
+    )
+    return content[:start] + block + content[end:]
+
+
 def update_orfs_archive_override(
     content,
     orfs_commit,
@@ -1719,6 +1787,18 @@ def bump(
             orfs_commit,
             fetch_integrity_fn=fetch_integrity_fn,
             fetch_sha256_hex_fn=fetch_sha256_hex_fn,
+            ignore_errors=ignore_errors,
+        )
+        updated_modules.append(f"orfs -> {orfs_commit[:12]}")
+    elif find_orfs_source_tag(content):
+        # ORFS as an extension-created http_archive: the version is an
+        # orfs.source() tag rather than an override, so that bazel-orfs
+        # owns the patches for every root module.
+        orfs_commit = fetch_commit_fn(ORFS_REPO, "master")
+        content = update_orfs_source_tag(
+            content,
+            orfs_commit,
+            fetch_integrity_fn=fetch_integrity_fn,
             ignore_errors=ignore_errors,
         )
         updated_modules.append(f"orfs -> {orfs_commit[:12]}")

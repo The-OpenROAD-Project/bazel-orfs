@@ -16,10 +16,27 @@ user.bazelrc — see the docstring in //:gnumake.bzl for a copy-paste
 overlay example.
 """
 
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("//:config.bzl", "global_config")
 load("//:gnumake.bzl", "gnumake")
 load("//:load_json_file.bzl", "load_json_file")
 load("//:mock_klayout.bzl", "mock_klayout")
+load("//:orfs_source.bzl", "orfs_archive_args")
+
+_source_tag = tag_class(
+    attrs = {
+        "commit": attr.string(
+            doc = "ORFS commit to fetch. Required: there is no default, " +
+                  "because the ORFS commit decides which designs, PDKs " +
+                  "and flow scripts you build against.",
+        ),
+        "integrity": attr.string(
+            doc = "Subresource Integrity string for the ORFS tarball, " +
+                  "e.g. \"sha256-...\". Required. A failing fetch prints " +
+                  "the observed value.",
+        ),
+    },
+)
 
 _default_tag = tag_class(
     attrs = {
@@ -87,6 +104,41 @@ _default_tag = tag_class(
 )
 
 def _orfs_repositories_impl(module_ctx):
+    # ORFS itself, fetched and patched here rather than declared as a
+    # bazel_dep. `patches` on archive_override/git_override is honoured
+    # only from the root module, so a module dependency would put the
+    # patching on whoever is root -- OpenROAD would have to carry ORFS
+    # patches, and bazel-orfs could not patch ORFS at all when it is not
+    # root. A module extension runs either way. The root module chooses
+    # the version with orfs.source() and carries no patches.
+    #
+    # modules[0] is the root module, matching how orfs.default() below
+    # already resolves.
+    # No default pin. The ORFS commit decides which designs, PDKs and
+    # flow scripts you build against, so inheriting one silently from
+    # whatever bazel-orfs happened to be developed against is worse than
+    # being told to choose. There is then exactly one place to look for
+    # the version, and one place for //:bump to rewrite.
+    sources = module_ctx.modules[0].tags.source
+    if len(sources) != 1:
+        fail(
+            "expected exactly one orfs.source() tag in the root module, " +
+            "got {}. Add to MODULE.bazel:\n".format(len(sources)) +
+            '    orfs = use_extension("@bazel-orfs//:extension.bzl", ' +
+            '"orfs_repositories")\n' +
+            '    orfs.source(commit = "<sha>", integrity = "sha256-...")\n' +
+            "and keep it current with `bazelisk run @bazel-orfs//:bump`.",
+        )
+    source = sources[0]
+    for attr in ("commit", "integrity"):
+        if not getattr(source, attr):
+            fail("orfs.source() needs {} =".format(attr))
+
+    http_archive(
+        name = "orfs",
+        **orfs_archive_args(source.commit, source.integrity)
+    )
+
     # GNU Make built from source
     gnumake(name = "gnumake")
 
@@ -120,5 +172,6 @@ orfs_repositories = module_extension(
     implementation = _orfs_repositories_impl,
     tag_classes = {
         "default": _default_tag,
+        "source": _source_tag,
     },
 )

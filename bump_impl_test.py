@@ -223,5 +223,87 @@ class TestMirrorPreservation(unittest.TestCase):
         self.assertEqual(digests["third-party/abc"], (OLD_SHA, OLD_HEX))
 
 
+class TestUpdateOrfsSourceTag(unittest.TestCase):
+    """ORFS as an extension-created http_archive.
+
+    `patches` on an override is honoured only from the root module, so
+    ORFS is fetched by bazel-orfs's module extension and the root picks
+    the version with an orfs.source() tag. The bumper has to rewrite that
+    shape as well as the two archive_override shapes.
+    """
+
+    CONTENT = """orfs = use_extension("@bazel-orfs//:extension.bzl", "orfs_repositories")
+
+# Rewritten by //:bump.
+orfs.source(
+    commit = "427bd762b7b7448f8bb6bc4e14207aa3963fca30",
+    integrity = "sha256-old",
+)
+
+orfs.default(
+    yosys_plugins = ["@sv-elab//src/yosys_plugin:slang.so"],
+)
+"""
+
+    @staticmethod
+    def _integrity(url):
+        return "sha256-new"
+
+    def test_rewrites_commit_and_integrity(self):
+        new = bump_impl.update_orfs_source_tag(
+            self.CONTENT,
+            "8c0616910615e843780ba527526f2b83a564ba70",
+            fetch_integrity_fn=self._integrity,
+        )
+        self.assertIn(
+            'commit = "8c0616910615e843780ba527526f2b83a564ba70"',
+            new,
+        )
+        self.assertIn('integrity = "sha256-new"', new)
+        self.assertNotIn("427bd762", new)
+        self.assertNotIn("sha256-old", new)
+
+    def test_leaves_the_default_tag_alone(self):
+        # orfs.default() sits right after orfs.source() and must not be
+        # swept into the rewritten span.
+        new = bump_impl.update_orfs_source_tag(
+            self.CONTENT,
+            "8c0616910615e843780ba527526f2b83a564ba70",
+            fetch_integrity_fn=self._integrity,
+        )
+        self.assertIn(
+            'yosys_plugins = ["@sv-elab//src/yosys_plugin:slang.so"]',
+            new,
+        )
+        self.assertIn("orfs.default(", new)
+
+    def test_same_commit_skips_the_download(self):
+        def explode(url):
+            raise AssertionError("re-hashed a tarball already pinned")
+
+        new = bump_impl.update_orfs_source_tag(
+            self.CONTENT,
+            "427bd762b7b7448f8bb6bc4e14207aa3963fca30",
+            fetch_integrity_fn=explode,
+        )
+        self.assertEqual(new, self.CONTENT)
+
+    def test_absent_tag_is_a_no_op(self):
+        content = 'bazel_dep(name = "orfs")\n'
+        self.assertIsNone(bump_impl.find_orfs_source_tag(content))
+        self.assertEqual(
+            bump_impl.update_orfs_source_tag(
+                content,
+                "8c0616910615e843780ba527526f2b83a564ba70",
+                fetch_integrity_fn=self._integrity,
+            ),
+            content,
+        )
+
+    def test_commented_out_tag_is_not_found(self):
+        content = '# orfs.source(commit = "dead", integrity = "sha256-x")\n'
+        self.assertIsNone(bump_impl.find_orfs_source_tag(content))
+
+
 if __name__ == "__main__":
     unittest.main()
