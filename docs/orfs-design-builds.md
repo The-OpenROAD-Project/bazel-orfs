@@ -13,6 +13,30 @@ nothing but which kind of files the directory holds:
 Their only reader is bazel, which ORFS does not itself use. bazel-orfs
 now generates them, so ORFS can stop carrying them.
 
+## Driving an ORFS design from bazel-orfs
+
+The whole point of owning this knowledge here: an ORFS design can be built
+and inspected from a bazel-orfs workspace, without an ORFS checkout.
+
+```sh
+bazelisk run @orfs//flow/designs/asap7/gcd:gcd_synth gui_synth
+bazelisk run @orfs//flow/designs/asap7/gcd:gcd_final
+bazelisk test @orfs//flow/designs/asap7/gcd:gcd_test
+```
+
+Note the path: designs live under **`flow/designs/`**, not `designs/`.
+`@orfs//designs/asap7/gcd` fails with
+
+```
+no such package '@@orfs+//designs/asap7/gcd': BUILD file not found
+```
+
+`gui_<stage>` works because the stage rules put the Qt-linked
+`openroad_qt` into `DefaultInfo.runfiles` for exactly this, while keeping
+it out of build actions -- so the GUI is available to `bazelisk run`
+without forcing a Qt-linked binary into every build. The first invocation
+builds OpenROAD with Qt, which is not quick; later ones are cached.
+
 ## How generation works
 
 A `patch_cmds` step in bazel-orfs's `archive_override` for `@orfs` walks
