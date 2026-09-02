@@ -226,10 +226,14 @@ it: seeds were only the first candidate coordinate.
   headroom >> the candidate spread the scorer sees, every candidate
   ties downstream on period -- the race degenerates to k=1 honestly:
   return the first workable placement and WARN with a single brief
-  line carrying the three estimated tightenings and the action taken,
-  nothing else. Warnings carry data, not advice: no embedded
-  recommendations, no vendored judgment -- the log's reader (a human
-  or their AI) owns the decision, and terse numeric lines are what
+  line, each clause carrying the current setting AND its
+  measured/estimated counterpart as absolute numbers (clock period
+  1600ps, est. achievable ~1430ps; utilization 30%, est. workable
+  ~38%; density 0.60, computed floor 0.40) -- a delta alone is not
+  actionable when the reader cannot see its base; every parenthesis
+  is the value you would set. No embedded recommendations beyond the
+  numbers and the action taken: the log's reader (a human or their
+  AI) owns the judgment, and self-contained numeric lines are what
   scales in AI-driven flows. Ground truth for grading
   the trigger: the clock shmoo's liveness curve (c1600 must warn,
   c1400 must not). Prototype flow-side in macro_select.tcl; upstream
