@@ -41,7 +41,8 @@ candidate, ~1 h wall for all 23 at 4-way parallel).
 | flat, STA macro aggregate | +0.59 [+0.20, +0.80] | ranks |
 | flat, raw HPWL | +0.24 [-0.24, +0.65] | no evidence |
 | clustered HPWL | +0.26 [-0.22, +0.66] | no evidence |
-| clustered **macro-cone** HPWL | +0.39 [-0.01, +0.72] | just misses |
+| clustered **macro-cone** HPWL, 1 hop | +0.39 [-0.01, +0.72] | just misses |
+| clustered **macro-cone** HPWL, 2 hops | +0.42 [-0.02, +0.73] | still misses, 2.3x the cost |
 
 Cost, same population: clustered 14.7 s and 0.87 GB against the flat
 rung's 63.0 s and 2.43 GB. Agreement between the two on the same scalar:
@@ -73,6 +74,37 @@ readout at +0.39, best of the HPWL family and short of significance by
 so by restricting the sum to nets within reach of a macro pin -- i.e. by
 aiming the score at the structure the KPI actually reads.
 
+### That thread was pulled, and it does not lead anywhere
+
+The obvious next move is to widen the cone: if aiming the sum at
+macro-reachable nets bought +0.15 over full HPWL, aim it at more of
+them. So the whole population was re-scored at 2 hops.
+
+| | 1 hop | 2 hops |
+|---|---|---|
+| cone rho vs `macro_paths_mean` | +0.39 [-0.01, +0.72] | +0.42 [-0.02, +0.73] |
+| full clustered HPWL rho | +0.26 [-0.22, +0.66] | +0.32 [-0.13, +0.68] |
+| agreement with the flat rung | +0.66 [+0.34, +0.86] | +0.71 [+0.41, +0.89] |
+| instances held out of clusters | 1458 | 2380 |
+| nets in the cone | 2940 | 3923 |
+| `gpl` time | 14.7 s | 34.4 s |
+| cheaper than the flat rung by | 4.3x | 1.8x |
+
+The point estimate moves by +0.02 and the interval still straddles zero,
+so the second hop buys nothing that can be distinguished from noise --
+while the cost more than doubles, because holding 922 more instances out
+of the clusters is exactly what a coarsening rung must not do. At 2 hops
+the rung has spent most of its speed advantage over the flat scorer and
+bought no ranking with it.
+
+Read together, the two rows say the cone was never close: +0.39 and
++0.42 are the same number at n=23, and the +0.01 shortfall at 1 hop was
+a coincidence of where the interval fell, not a near miss to be closed
+by tuning. **The macro-cone readout is not an underpowered version of a
+working idea.** The remaining HPWL variants are the same scalar seen
+through slightly different windows, and none of them has demonstrable
+signal on this setup.
+
 ## Why the divergence was not a bug
 
 At the pre-registered default the clustered solve diverges on this
@@ -99,9 +131,12 @@ as exploratory rather than as a gate result.
 
 ## If someone picks this up
 
-1. **Chase the cone, not the clusters.** Re-score at wider hop counts and
-   with cone-only readouts. The truth is already measured, so each
-   variant costs minutes.
+1. **Do not chase the cone.** That was this document's recommendation
+   until the 2-hop re-score above was run; widening the cone costs 2.3x
+   and buys +0.02, inside noise. Any further HPWL window is the same
+   scalar reshaped, so a new rung has to leave the wirelength family --
+   and `placement_cluster`'s point-masses rule out STA on a clustered
+   placement, which is what makes this hard rather than merely unfinished.
 2. **Re-derive E3 before building on it.** Raw HPWL did not rank here
    (+0.24, interval spanning zero) against a published +0.67.
 3. **Do not reuse an archived score/truth pair to grade a re-run** unless
