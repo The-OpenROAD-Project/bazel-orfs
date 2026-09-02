@@ -885,3 +885,31 @@ bazel run //test/estimation_ladder:calibration_models
 bazel run //test/estimation_ladder:update-readme
 ```
 
+## The macro-placement selector apparatus
+
+`macro_select.tcl`, `macro_score.tcl`, `seed_distribution.py`,
+`score_vs_flow.py`, `extract_from_src.tcl` and `sdc/swerv_c*.sdc` are the
+rig from the macro-placement selection study: RTL-MP driven as a
+distribution generator, a report-only global placement used to rank the
+candidates it produces, and the accuracy analysis over the result.
+
+The findings are in `../../docs/estimate.md` ("Negative findings of
+importance") and `../../ideas/e12-clustered-scorer.md`. Two of the
+OpenROAD-side conclusions are filed upstream as
+The-OpenROAD-Project/OpenROAD#11315 (`rtl_macro_placer` has no
+`-random_seed`, so its anneal cannot be used as a candidate generator)
+and #11316 (`gpl` fillers and nets ignore `placement_cluster`).
+
+**The measured populations are deliberately not carried here.** They run
+to some 84,000 lines of JSON -- the per-candidate scores, the stage
+variance sweeps and the clock shmoo -- and they live on the
+`macro-selector` branch and its pull request, both immutable. Anyone who
+doubts a published number has to regenerate the population anyway: these
+scripts are what regenerate it, and a seeded rerun is the check, not a
+diff against an archive. That last point is not incidental. An archived
+score/truth pair turned out to be unusable for grading a later rerun at
+all, because the bazel-orfs pin changes the synthesis netlist and
+therefore the candidates -- see the negative findings.
+
+The bazel targets that drove these scripts are on that branch too, since
+several of them take an archived population as an input.
