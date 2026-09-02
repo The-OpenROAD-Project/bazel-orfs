@@ -882,6 +882,13 @@ def _orfs_pass(
             update_kwargs = dict(kwargs)
             update_kwargs.pop("substeps", None)
             update_kwargs.pop("lint", None)
+
+            # orfs_update takes only logs and rules_json. user_stages is a
+            # flow-level sidecar that was added after this pop list was
+            # written, so it reached the rule and every design with a
+            # RULES_JSON failed to load with
+            #   no such attribute 'user_stages' in 'orfs_update' rule
+            update_kwargs.pop("user_stages", None)
             orfs_update(
                 name = _step_name(name, variant, "update"),
                 rules_json = sources["RULES_JSON"][0],
