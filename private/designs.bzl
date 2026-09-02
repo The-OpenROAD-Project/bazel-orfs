@@ -153,6 +153,11 @@ def _orfs_designs_impl(repository_ctx):
     #     orfs_design(config = "config.mk")
     bzl_content = '''"""Auto-generated design configurations from config.mk files."""
 
+load(
+    "@bazel-orfs//private:design_dsl.bzl",
+    _design = "design",
+    _files = "files",
+)
 load("@bazel-orfs//private:orfs_design.bzl", _orfs_design = "orfs_design")
 
 DESIGNS = %s
@@ -167,6 +172,21 @@ def orfs_design(config = "config.mk", **kwargs):
             (platform, design, mock_openroad, mock_yosys, user_arguments).
     """
     _orfs_design(config = config, designs = DESIGNS, **kwargs)
+
+def design(**kwargs):
+    """Standard BUILD body for a design package.
+
+    The DSL lives in bazel-orfs (private/design_dsl.bzl) so it stays in
+    step with the rules it drives; DESIGNS is per-consumer, so it is bound
+    here rather than there.
+
+    Args:
+        **kwargs: Forwarded to design() -- config, user_arguments,
+            user_sources, local_arguments.
+    """
+    _design(orfs_design, **kwargs)
+
+files = _files
 ''' % repr(designs)
     repository_ctx.file("designs.bzl", bzl_content)
     repository_ctx.file("BUILD.bazel", "")

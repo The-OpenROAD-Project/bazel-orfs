@@ -624,6 +624,49 @@ source_input_propagation_test(
 )
 
 # Unit tests for the stage variable filtering helpers (stages.bzl).
+# Guards the generated-BUILD mechanism: that the generator in
+# MODULE.bazel's patch_cmds agrees with the canonical BUILDs ORFS still
+# ships, and that it behaves against a fixture tree. It reads the
+# generator out of MODULE.bazel rather than keeping a copy, so the two
+# cannot drift.
+py_test(
+    name = "orfs_design_builds_test",
+    size = "small",
+    srcs = ["orfs_design_builds_test.py"],
+    data = ["//:MODULE.bazel"],
+    main = "orfs_design_builds_test.py",
+)
+
+# ORFS tests we regression-test here, enumerated deliberately.
+#
+# `...` expands to the main repository only, so an @orfs test is invisible
+# to `bazelisk test ...`. A test_suite is the idiomatic bridge: `...`
+# expands suites into their members, so naming a test here is enough and
+# CI needs no separate target list.
+#
+# This is a curated list, not "every ORFS test". ORFS is an immutable
+# store of reference designs, scripts, PDKs and metadata; the knowledge of
+# which of its tests are worth running under bazel lives here, and grows
+# as features earn regression coverage.
+#
+# Adding one: the test must be a real target in @orfs and visible --
+# test_suite membership is a dependency edge, unlike a command-line
+# target, which is why design() makes flow targets public. Prefer the
+# smallest design that exercises the feature; a full flow per entry is the
+# cost.
+#
+#   asap7/gcd:gcd_test -- the smallest CI design (grt in ~50s). Runs the
+#       flow and checks the design's own rules file, so it covers
+#       everything from the module boundary down to metadata generation.
+ORFS_TESTS = [
+    "@orfs//flow/designs/asap7/gcd:gcd_test",
+]
+
+test_suite(
+    name = "orfs_design_tests",
+    tests = ORFS_TESTS,
+)
+
 keep_modules_test_suite(name = "keep_modules_test")
 
 work_home_test_suite(name = "work_home_test")

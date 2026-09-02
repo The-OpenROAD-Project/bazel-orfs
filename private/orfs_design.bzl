@@ -51,7 +51,7 @@ def _convert_sources(sources, pkg):
             result[var] = converted
     return result
 
-def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], extra = None):  # buildifier: disable=unused-variable
+def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], extra = None, visibility = None):  # buildifier: disable=unused-variable
     """Create orfs_flow() targets for a design based on its parsed config.mk.
 
     Usage:
@@ -96,6 +96,12 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
             default kept-in-every-stage behavior; scoping a user source
             stops its file edits from re-running stages that never read
             it. Routed through orfs_flow(user_stages=...).
+        visibility: visibility for the generated flow targets. Defaults to
+            package-private, which is right for a design consumed only
+            within its own repository. A consumer that drives designs from
+            another module needs them visible: command-line targets ignore
+            visibility, but a dependency edge -- a test_suite collecting a
+            design's <design>_test, say -- does not.
         local_arguments: List of variable names that are only used for
             $(VAR) expansion within the same config.mk and are not read
             by ORFS or by any user .tcl/.mk (e.g. VERILOG_FILES_BLACKBOX,
@@ -271,6 +277,7 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
         macros = macros if macros else [],
         stage_data = {"synth": extra_data} if extra_data else {},
         tags = tags,
+        visibility = visibility,
     )
 
     # Caller extension hook: invoked with the fully-processed design data
