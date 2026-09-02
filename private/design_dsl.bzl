@@ -90,6 +90,15 @@ def export_design_files():
 # AF_THREADS threads, so one design occupies AF_JOBS * AF_THREADS cores.
 # Empty means "let the driver use its own default" and keeps the value out
 # of the action key.
+#
+# Size AF_JOBS by MEMORY, not by cores. Each candidate holds a full flow in
+# RAM, and on a large design that peaks far higher than the core count
+# suggests: a swerv_wrapper candidate peaks near 18 GB, so AF_JOBS = 8
+# wants ~144 GB while using only 16 cores. That configuration ran four
+# hours on a 122 GB machine and was then OOM-killed, losing the run --
+# candidates reach their detailed-route peak at different times, so the
+# ceiling is not hit until several coincide. Budget
+# AF_JOBS <= (RAM - a few GB) / peak-RSS-per-candidate.
 AF_JOBS = ""
 
 AF_THREADS = ""
