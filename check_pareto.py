@@ -288,9 +288,7 @@ def main():
         print("[INFO] every axis within its tie band — no measurable movement")
 
     if args.require_improvement and not improved and not errors:
-        errors.append(
-            "--require-improvement: no axis improved beyond its tie band"
-        )
+        errors.append("--require-improvement: no axis improved beyond its tie band")
 
     for e in errors:
         print(f"[ERROR] {e}")

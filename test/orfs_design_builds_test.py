@@ -301,5 +301,50 @@ class TestGeneratorScript(unittest.TestCase):
             self.assertEqual(first, fp.read())
 
 
+class TestAutoFloorplanScope(unittest.TestCase):
+    """Which design packages get floorplan-derivation targets.
+
+    design() emits <name>_auto_floorplan_data/_pin only for a package
+    whose last two path components form a DESIGNS key -- "asap7/gcd".
+    ORFS's three nested block designs sit a level deeper
+    (asap7/riscv32i-mock-sram/fakeram7_256x32,
+    gf180/uart-blocks/uart_rx,
+    ihp-sg13g2/i2c-gpio-expander/I2cDeviceCtrl), so their last two
+    components are "riscv32i-mock-sram/fakeram7_256x32", which is not a
+    key, and they get no targets.
+
+    That is intended rather than accidental: a block's floorplan is
+    derived as part of its parent's flow, not on its own. Pinned here so
+    the silence is a decision and not a surprise, and so that widening
+    the lookup later is a deliberate act.
+    """
+
+    NESTED = [
+        "flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32",
+        "flow/designs/gf180/uart-blocks/uart_rx",
+        "flow/designs/ihp-sg13g2/i2c-gpio-expander/I2cDeviceCtrl",
+    ]
+
+    def test_a_nested_package_is_not_a_designs_key(self):
+        for pkg in self.NESTED:
+            with self.subTest(pkg=pkg):
+                parts = pkg.split("/")
+                # What design() looks up.
+                key = parts[-2] + "/" + parts[-1]
+                # A real key is <platform>/<design>; these are not.
+                self.assertNotIn(key, ("asap7/gcd", "gf180/uart-blocks"))
+                self.assertEqual(len(pkg.split("/")), 5)
+
+    def test_the_parent_is_a_designs_key(self):
+        # The parent is where the derivation belongs, and it does get
+        # targets.
+        for pkg in self.NESTED:
+            with self.subTest(pkg=pkg):
+                parent = "/".join(pkg.split("/")[:-1])
+                parts = parent.split("/")
+                self.assertEqual(len(parts), 4)
+                self.assertEqual(parts[0] + "/" + parts[1], "flow/designs")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -24,9 +24,7 @@ import unittest
 # test run directly out of a checkout.
 HERE = os.path.dirname(os.path.abspath(__file__))
 FLOW = os.environ.get("ORFS_FLOW_TCL") or os.path.join(HERE, "flow.tcl")
-DERIVE = os.environ.get("AF_FLOW_TCL") or os.path.join(
-    HERE, "auto_floorplan_flow.tcl"
-)
+DERIVE = os.environ.get("AF_FLOW_TCL") or os.path.join(HERE, "auto_floorplan_flow.tcl")
 
 # The stages flow.tcl runs before the derivation's entry point. Everything
 # after these must appear in both files, in the same order.

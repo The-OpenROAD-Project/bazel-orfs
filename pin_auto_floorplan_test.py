@@ -53,6 +53,88 @@ def run(config_text, evidence=None):
             return p.returncode, f.read(), p.stdout + p.stderr
 
 
+class TestRootArgument(unittest.TestCase):
+    """Where the config.mk being edited is looked up.
+
+    The config path a target passes is relative to the repository the
+    design lives in. For an @orfs design that is an ORFS checkout, not
+    the bazel workspace the command ran from, and not the fetched archive
+    -- which is read-only. So:
+
+        bazelisk run @orfs//flow/designs/asap7/gcd:gcd_auto_floorplan_pin ~/ORFS
+    """
+
+    def _run(self, argv, env=None):
+        d = tempfile.mkdtemp()
+        rel = os.path.join("flow", "designs", "asap7", "gcd", "config.mk")
+        cfg = os.path.join(d, rel)
+        os.makedirs(os.path.dirname(cfg))
+        with open(cfg, "w") as f:
+            f.write("export CORE_UTILIZATION = 65\n")
+        ev = os.path.join(d, "ev.json")
+        with open(ev, "w") as f:
+            json.dump(EVIDENCE, f)
+        full_env = dict(os.environ)
+        full_env.pop("BUILD_WORKSPACE_DIRECTORY", None)
+        full_env.update(env or {})
+        p = subprocess.run(
+            [sys.executable, SCRIPT, ev] + [a.format(d=d, rel=rel) for a in argv],
+            capture_output=True,
+            text=True,
+            env=full_env,
+        )
+        with open(cfg) as f:
+            return p.returncode, f.read(), p.stdout + p.stderr, d
+
+    def test_explicit_root_is_used(self):
+        rc, text, out, _ = self._run(["{rel}", "{d}"])
+        self.assertEqual(rc, 0, out)
+        self.assertIn("78", text)
+
+    def test_explicit_root_wins_over_the_environment(self):
+        # A stale BUILD_WORKSPACE_DIRECTORY must not silently redirect
+        # the edit at the wrong checkout.
+        rc, text, out, d = self._run(
+            ["{rel}", "{d}"],
+            env={"BUILD_WORKSPACE_DIRECTORY": "/nonexistent"},
+        )
+        self.assertEqual(rc, 0, out)
+        self.assertIn("78", text)
+
+    def test_falls_back_to_build_workspace_directory(self):
+        d = tempfile.mkdtemp()
+        rel = os.path.join("flow", "designs", "asap7", "gcd", "config.mk")
+        cfg = os.path.join(d, rel)
+        os.makedirs(os.path.dirname(cfg))
+        with open(cfg, "w") as f:
+            f.write("export CORE_UTILIZATION = 65\n")
+        ev = os.path.join(d, "ev.json")
+        with open(ev, "w") as f:
+            json.dump(EVIDENCE, f)
+        env = dict(os.environ, BUILD_WORKSPACE_DIRECTORY=d)
+        p = subprocess.run(
+            [sys.executable, SCRIPT, ev, rel],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        with open(cfg) as f:
+            self.assertIn("78", f.read())
+
+    def test_wrong_root_says_what_to_pass(self):
+        rc, _, out, _ = self._run(["{rel}", "/tmp"])
+        self.assertNotEqual(rc, 0)
+        self.assertIn("does not look like a checkout", out)
+        self.assertIn("~/ORFS", out)
+
+    def test_no_root_and_no_env_says_to_pass_one(self):
+        rc, _, out, _ = self._run(["{rel}"])
+        self.assertNotEqual(rc, 0)
+        self.assertIn("another repository", out)
+        self.assertIn("~/ORFS", out)
+
+
 class TestPin(unittest.TestCase):
     def test_updates_in_place_keeping_position(self):
         cfg = (
@@ -103,7 +185,12 @@ class TestPin(unittest.TestCase):
         cfg = "export DESIGN_NAME = newthing\nexport SDC_FILE = c.sdc\n"
         rc, out, log = run(cfg)
         self.assertEqual(rc, 0, log)
-        for v in ("CORE_UTILIZATION", "CORE_ASPECT_RATIO", "CORE_MARGIN", "PLACE_DENSITY"):
+        for v in (
+            "CORE_UTILIZATION",
+            "CORE_ASPECT_RATIO",
+            "CORE_MARGIN",
+            "PLACE_DENSITY",
+        ):
             self.assertIn(v, out)
         self.assertIn("export DESIGN_NAME = newthing", out)
 

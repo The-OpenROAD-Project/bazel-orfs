@@ -130,6 +130,9 @@ def _auto_floorplan(designs, config):
 
     # The last two path components are the DESIGNS key ("asap7/gcd"),
     # whatever depth the consumer's designs_dir sits at.
+    if not designs:
+        return
+
     parts = native.package_name().split("/")
     if len(parts) < 2:
         return
@@ -194,7 +197,7 @@ def _auto_floorplan(designs, config):
 
 def design(
         orfs_design,
-        designs,
+        designs = None,
         config = "config.mk",
         user_arguments = [],
         user_sources = [],
@@ -207,7 +210,10 @@ def design(
             @orfs_designs//:designs.bzl. Passed in rather than loaded
             because DESIGNS is per-consumer.
         designs: that same per-consumer DESIGNS dict, read by the
-            floorplan derivation targets.
+            floorplan derivation targets. Optional: omitting it simply
+            skips those targets, so a caller written against the older
+            two-argument signature keeps working and this addition stays
+            additive.
         config: The config.mk file that drives this design.
         user_arguments: config.mk var names that are project-specific
             (read by the design's own .tcl/.mk, not by ORFS) and should
