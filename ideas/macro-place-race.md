@@ -225,10 +225,12 @@ it: seeds were only the first candidate coordinate.
   floor, area from how trivially overflow resolves. When estimated
   headroom >> the candidate spread the scorer sees, every candidate
   ties downstream on period -- the race degenerates to k=1 honestly:
-  return the first workable placement, WARN with the three estimated
-  tightenings, note that a race would still buy macro-slack and area,
-  and name the clock target that would make the period axis
-  measurable (the CI-blindness fix, in-log). Ground truth for grading
+  return the first workable placement and WARN with a single brief
+  line carrying the three estimated tightenings and the action taken,
+  nothing else. Warnings carry data, not advice: no embedded
+  recommendations, no vendored judgment -- the log's reader (a human
+  or their AI) owns the decision, and terse numeric lines are what
+  scales in AI-driven flows. Ground truth for grading
   the trigger: the clock shmoo's liveness curve (c1600 must warn,
   c1400 must not). Prototype flow-side in macro_select.tcl; upstream
   with the -candidates package.
