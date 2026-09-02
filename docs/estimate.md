@@ -110,9 +110,11 @@ to the cheap audit and to the exponential tails.
 | `wns` | worst reg2reg slack at placement parasitics |
 | `utilization`, `core_um2`, `cell_um2` | area occupancy of the floorplan |
 | `num_macros` | macros in the design (placed by the floorplan stage) |
-| `place_density`, `density_floor` | configured density and the computed lower bound |
+| `place_density`, `density_lb_addon` | configured density and the computed lower bound plus the configured addon |
 | `gp_overflow_target` | the early-stop point (see below) |
-| `runtime_s` | cost of this report |
+
+Timing values are OpenSTA units (`time_unit`); the report's own
+wall-clock cost is in the run log's `Elapsed time` line.
 
 ## Calibration status and provenance
 
