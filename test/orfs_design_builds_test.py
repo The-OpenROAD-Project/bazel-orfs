@@ -157,7 +157,7 @@ design(
 
 
 def _generator_script():
-    """The patch_cmds generator, read out of MODULE.bazel.
+    """The design-BUILD generator, read out of orfs_source.bzl.
 
     Extracted rather than copied: a second copy would drift from the one
     that actually runs, and this generator has already shipped broken
@@ -167,14 +167,28 @@ def _generator_script():
     Against the pinned ORFS it writes nothing, because every design under
     a bazel platform already has a BUILD, so without this the only thing
     exercising it is a future ORFS that has deleted them.
+
+    It moved here from MODULE.bazel's archive_override when ORFS became
+    an extension-created http_archive; the platform list it interpolates
+    is held against orfs_designs() by //test:orfs_platforms_test.
     """
-    module = pathlib.Path(__file__).resolve().parents[1] / "MODULE.bazel"
-    text = module.read_text()
-    start = text.index('module_name = "orfs"')
-    block = text[start : text.index("\n)", start)]
-    open_marker = 'patch_cmds = [\n        """'
-    body_start = block.index(open_marker) + len(open_marker)
-    return block[body_start : block.index('"""', body_start)]
+    src = pathlib.Path(__file__).resolve().parents[1] / "orfs_source.bzl"
+    text = src.read_text()
+    open_marker = '_GENERATE_DESIGN_BUILDS = """'
+    body_start = text.index(open_marker) + len(open_marker)
+    body = text[body_start : text.index('"""', body_start)]
+    # The Starlark source is a .format() template: {platforms} is the
+    # substitution and {{ }} are escaped shell braces.
+    platforms = " ".join(_generator_platforms())
+    return body.replace("{platforms}", platforms).replace("{{", "{").replace("}}", "}")
+
+
+def _generator_platforms():
+    """ORFS_BAZEL_PLATFORMS, the list the generator interpolates."""
+    src = pathlib.Path(__file__).resolve().parents[1] / "orfs_source.bzl"
+    text = src.read_text()
+    start = text.index("ORFS_BAZEL_PLATFORMS = [")
+    return re.findall(r'"([^"]+)"', text[start : text.index("]", start)])
 
 
 class TestGeneratorScript(unittest.TestCase):

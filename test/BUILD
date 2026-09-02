@@ -630,10 +630,19 @@ source_input_propagation_test(
 # generator out of MODULE.bazel rather than keeping a copy, so the two
 # cannot drift.
 py_test(
+    name = "orfs_platforms_test",
+    srcs = ["orfs_platforms_test.py"],
+    data = [
+        "//:MODULE.bazel",
+        "//:orfs_source.bzl",
+    ],
+)
+
+py_test(
     name = "orfs_design_builds_test",
     size = "small",
     srcs = ["orfs_design_builds_test.py"],
-    data = ["//:MODULE.bazel"],
+    data = ["//:orfs_source.bzl"],
     main = "orfs_design_builds_test.py",
 )
 

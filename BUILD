@@ -7,9 +7,12 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 
 exports_files([
     # Read by //test:orfs_design_builds_test, which extracts the
-    # design-BUILD generator out of patch_cmds rather than keeping a copy
-    # that could drift from the one that actually runs.
+    # design-BUILD generator out of orfs_source.bzl rather than keeping a
+    # copy that could drift from the one that actually runs, and by
+    # //test:orfs_platforms_test, which holds MODULE.bazel's
+    # orfs_designs() platform list and ORFS_BAZEL_PLATFORMS in agreement.
     "MODULE.bazel",
+    "orfs_source.bzl",
     "run_executable.py",
     "bump.py",
     "bump_impl.py",
