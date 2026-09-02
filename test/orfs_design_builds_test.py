@@ -212,6 +212,48 @@ class TestGeneratorScript(unittest.TestCase):
     def _run(self):
         subprocess.run(["bash", "-c", self.script], cwd=self.tmp, check=True)
 
+    def test_nested_block_design_is_covered(self):
+        # Hierarchical flows nest a block's design directory inside its
+        # parent's. ORFS ships three:
+        #   asap7/riscv32i-mock-sram/fakeram7_256x32
+        #   gf180/uart-blocks/uart_rx
+        #   ihp-sg13g2/i2c-gpio-expander/I2cDeviceCtrl
+        # A `$platform/*` walk missed all three, and a fixture with only
+        # flat designs did not notice. This is that fixture case.
+        self._design("asap7", "riscv32i-mock-sram")
+        self._design("asap7", "riscv32i-mock-sram/fakeram7_256x32")
+        self._run()
+        nested = os.path.join(
+            self.tmp,
+            "flow/designs/asap7/riscv32i-mock-sram/fakeram7_256x32/BUILD",
+        )
+        self.assertTrue(os.path.exists(nested), "nested design got no BUILD")
+        with open(nested, encoding="utf-8") as fp:
+            self.assertIn('design(config = "config.mk")', fp.read())
+
+    def test_nested_design_with_its_own_build_is_left_alone(self):
+        self._design("asap7", "parent")
+        self._design(
+            "asap7",
+            "parent/block",
+            build='# hand written\nload(":x.bzl", "y")\n',
+        )
+        self._run()
+        with open(
+            os.path.join(self.tmp, "flow/designs/asap7/parent/block/BUILD"),
+            encoding="utf-8",
+        ) as fp:
+            self.assertIn("hand written", fp.read())
+
+    def test_a_directory_without_config_mk_gets_nothing(self):
+        # The recursive walk keys on config.mk, so intermediate
+        # directories that merely hold sources must not become packages.
+        self._design("asap7", "holder", files=())
+        self._run()
+        self.assertFalse(
+            os.path.exists(os.path.join(self.tmp, "flow/designs/asap7/holder/BUILD")),
+        )
+
     def test_writes_a_loadable_build_for_a_design_without_one(self):
         d = self._design("asap7", "widget")
         self._run()

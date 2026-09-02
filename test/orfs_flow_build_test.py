@@ -99,7 +99,14 @@ class TestFlowBuildGenerator(unittest.TestCase):
         exts = self.text["flow/BUILD"]
         self.assertIn("orfs_pdk(", exts)
         declared = set(re.findall(r'^    "([a-z0-9-]+)": \[', exts, re.M))
-        for platform in ("asap7", "sky130hd", "nangate45", "gf180", "sky130hs", "ihp-sg13g2"):
+        for platform in (
+            "asap7",
+            "sky130hd",
+            "nangate45",
+            "gf180",
+            "sky130hs",
+            "ihp-sg13g2",
+        ):
             with self.subTest(platform=platform):
                 self.assertIn(platform, declared)
 
