@@ -13,6 +13,8 @@ exports_files([
     # orfs_designs() platform list and ORFS_BAZEL_PLATFORMS in agreement.
     "MODULE.bazel",
     "orfs_source.bzl",
+    "orfs_design_builds.bzl",
+    "record_orfs_builds.py",
     "run_executable.py",
     "bump.py",
     "bump_impl.py",

@@ -20,6 +20,8 @@ and carries no patches, no strip_prefix and no URL construction.
 See docs/plans/orfs-as-file-store.md for the full design.
 """
 
+load("//:orfs_design_builds.bzl", "RECORDED_BUILDS")
+
 ORFS_URL_TEMPLATE = "https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/archive/{}.tar.gz"
 
 ORFS_STRIP_PREFIX_TEMPLATE = "OpenROAD-flow-scripts-{}"
@@ -41,19 +43,6 @@ ORFS_BAZEL_PLATFORMS = [
 ORFS_PATCHES = [
     Label("//patches:0037-orfs-single-writer-1_synth-sdc.patch"),
     Label("//patches:0039-orfs-slang-plugin-fallback.patch"),
-    # The config.mk BUILD DSL (design(), files()) lives here, in
-    # private/design_dsl.bzl, bound to this consumer's DESIGNS by the
-    # generated @orfs_designs//:designs.bzl. ORFS keeps a re-export for
-    # the BUILD files it still ships, so those are untouched.
-    #
-    # Owning the DSL keeps it in step with the rules it drives. It had
-    # drifted: ORFS passed a `blender` argument for some time after
-    # bazel-orfs removed the parameter, so every @orfs design package
-    # failed to load with
-    #   Error: orfs_design() got unexpected keyword argument: blender
-    # The CI step that loads every @orfs design package guards against a
-    # repeat.
-    Label("//patches:0046-orfs-design-dsl-reexport.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
@@ -276,19 +265,105 @@ ORFS_FLOW_UTIL_BUILD_EOF
 fi
 """
 
+# flow/designs/design.bzl, written unconditionally rather than patched.
+#
+# This file is a pure re-export of design() and files() -- bazel-orfs
+# owns every line of it -- so writing it is both simpler and more robust
+# than patching it. A patch has to match what ORFS ships, which means it
+# breaks the moment ORFS changes or deletes the file; that is exactly the
+# transition we are trying to make survivable. This replaces patch
+# 0046-orfs-design-dsl-reexport.patch.
+#
+# Unconditional, not absent-only, and deliberately so: while ORFS still
+# ships its own copy that copy is the problem. It passed a `blender`
+# argument for some time after bazel-orfs removed the parameter, so every
+# @orfs design package failed to load with
+#   Error: orfs_design() got unexpected keyword argument: blender
+_WRITE_DESIGN_BZL = """
+mkdir -p flow/designs
+cat > flow/designs/design.bzl <<'ORFS_DESIGN_BZL_EOF'
+'''BUILD boilerplate for flow/designs/.
+
+Written by bazel-orfs: see orfs_source.bzl. The DSL itself lives in
+bazel-orfs (private/design_dsl.bzl), bound to this consumer's DESIGNS by
+the generated @orfs_designs//:designs.bzl. Keeping it there keeps it in
+step with the rules it drives.
+
+Design BUILD files are unchanged -- they still load design() and files()
+from here.
+'''
+
+load("@orfs_designs//:designs.bzl", _design = "design", _files = "files")
+
+design = _design
+
+files = _files
+ORFS_DESIGN_BZL_EOF
+"""
+
+# The design BUILD files that cannot be generated, written back
+# absent-only from a recorded copy.
+#
+# A files() group name is decided by which label *other* designs'
+# config.mk files reference, not by the directory's contents -- src/cva6
+# declares files("verilog") while holding no .v or .sv at all, and
+# prim/rtl holds both .sv and .svh but declares files("include"). So
+# these 117 files are carried as data rather than guessed at. That is the
+# distinction: generating a name that happens to be wrong renames a
+# target and breaks a reference in an unrelated design's config, far from
+# the guess.
+#
+# Recorded by ./record_orfs_builds.py from a clean ORFS checkout, which
+# refuses a dirty tree -- a first run against a campaign branch captured
+# 119 files, the two extras being uncommitted local edits.
+#
+# Absent-only, so this is a no-op against an ORFS that still ships them
+# and correct against one that has deleted them. Together with the
+# config.mk generator and _GENERATE_FLOW_BUILD, it means ORFS need carry
+# no bazel files at all.
+#
+# The heredoc is single-quoted, so no shell expansion touches content
+# that is full of $(MAKE_VARIABLES); record_orfs_builds.py rejects any
+# file containing the delimiter.
+def _write_recorded_builds():
+    """Shell to write every recorded BUILD file that is absent.
+
+    Returns:
+      A single shell script string for patch_cmds.
+    """
+    parts = []
+    for path in sorted(RECORDED_BUILDS):
+        parts.append(
+            ("if [ ! -e {path} ] && [ ! -e {dir}/BUILD.bazel ] && " +
+             "[ ! -e {dir}/BUILD ]; then\n" +
+             "mkdir -p {dir}\n" +
+             "cat > {path} <<'ORFS_RECORDED_BUILD_EOF'\n" +
+             "{content}ORFS_RECORDED_BUILD_EOF\n" +
+             "fi\n").format(
+                path = path,
+                dir = path.rsplit("/", 1)[0],
+                content = RECORDED_BUILDS[path],
+            ),
+        )
+    return "".join(parts)
+
 ORFS_PATCH_CMDS = [
+    _WRITE_DESIGN_BZL,
+    _write_recorded_builds(),
     _GENERATE_DESIGN_BUILDS.format(
         platforms = " ".join(ORFS_BAZEL_PLATFORMS),
     ),
     _GENERATE_FLOW_BUILD,
 ]
 
-def orfs_archive_args(commit, integrity):
+def orfs_archive_args(commit, integrity, urls = []):
     """http_archive arguments for an ORFS commit.
 
     Args:
       commit: the ORFS commit to fetch.
       integrity: Subresource Integrity string for the tarball.
+      urls: optional override for where the tarball comes from. Empty
+        means the canonical ORFS GitHub archive for `commit`.
 
     Returns:
       A dict of http_archive keyword arguments.
@@ -299,5 +374,5 @@ def orfs_archive_args(commit, integrity):
         "patch_cmds": ORFS_PATCH_CMDS,
         "patches": ORFS_PATCHES,
         "strip_prefix": ORFS_STRIP_PREFIX_TEMPLATE.format(commit),
-        "urls": [ORFS_URL_TEMPLATE.format(commit)],
+        "urls": urls if urls else [ORFS_URL_TEMPLATE.format(commit)],
     }
