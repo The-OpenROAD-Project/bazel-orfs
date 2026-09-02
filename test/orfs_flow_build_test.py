@@ -32,6 +32,11 @@ _REQUIRED_TARGETS = [
 ]
 
 _REQUIRED_EXPORTS = [
+    # The floorplan derivation compares its duplicated stage sequence
+    # against the one that actually runs, so it needs flow.tcl as a
+    # label. Patch 0047 adds this to the flow/BUILD ORFS still ships;
+    # this list covers the generated one that replaces it.
+    "scripts/flow.tcl",
     "scripts/synth.tcl",
     # bazel-orfs's variables_yaml default. ORFS itself does not export
     # this; it resolves today only because load_json_file is a repository

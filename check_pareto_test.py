@@ -1,0 +1,267 @@
+#!/usr/bin/env python3
+
+"""Tests for check_pareto.py.
+
+The interesting cases are the ones the existing rules check cannot
+express: a genuine trade must pass, a dominated point must fail, and a
+lost timing closure must fail even though it looks like a small delta.
+"""
+
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+SCRIPT = os.path.join(HERE, "check_pareto.py")
+
+# A baseline that meets timing with margin, so closure cases are testable.
+CLOCK = 1000.0
+
+BASE = {
+    "constraints__clocks__details": [f"core_clock {CLOCK} ..."],
+    "finish__timing__setup__ws": 10.0,
+    "finish__timing__setup__tns": -100.0,
+    "finish__design__core__area": 1000.0,
+    "finish__design__instance__area": 800.0,
+    "finish__power__total": 0.001,
+    "detailedroute__route__drc_errors": 0,
+    "detailedplace__design__violations": 0,
+    "detailedroute__antenna__violating__nets": 0,
+}
+
+
+def rules_from(base, tie=None):
+    out = {}
+    for k, v in base.items():
+        if not isinstance(v, (int, float)):
+            continue  # clock details are metadata, not a rule
+        entry = {"value": v, "compare": "<=", "golden": v}
+        if tie and k in tie:
+            entry["tie"] = tie[k]
+        out[k] = entry
+    return out
+
+
+def run_baseline(metadata, baseline, extra=()):
+    """The measured-baseline mode: both arms are metadata.json files."""
+    with tempfile.TemporaryDirectory() as d:
+        m, b = os.path.join(d, "m.json"), os.path.join(d, "b.json")
+        with open(m, "w") as f:
+            json.dump(metadata, f)
+        with open(b, "w") as f:
+            json.dump(baseline, f)
+        p = subprocess.run(
+            [sys.executable, SCRIPT, "-m", m, "-b", b, *extra],
+            capture_output=True,
+            text=True,
+        )
+        return p.returncode, p.stdout + p.stderr
+
+
+def run(metadata, rules, extra=()):
+    with tempfile.TemporaryDirectory() as d:
+        m, r = os.path.join(d, "m.json"), os.path.join(d, "r.json")
+        with open(m, "w") as f:
+            json.dump(metadata, f)
+        with open(r, "w") as f:
+            json.dump(rules, f)
+        p = subprocess.run(
+            [sys.executable, SCRIPT, "-m", m, "-r", r, *extra],
+            capture_output=True,
+            text=True,
+        )
+        return p.returncode, p.stdout + p.stderr
+
+
+class TestCheckPareto(unittest.TestCase):
+    def test_identical_passes(self):
+        rc, out = run(dict(BASE), rules_from(BASE))
+        self.assertEqual(rc, 0, out)
+        self.assertIn("no measurable movement", out)
+
+    def test_strict_improvement_passes(self):
+        new = dict(BASE)
+        new["finish__design__core__area"] = 900.0  # -10%
+        rc, out = run(new, rules_from(BASE))
+        self.assertEqual(rc, 0, out)
+        self.assertIn("strict improvement", out)
+
+    def test_genuine_trade_passes(self):
+        # Core area down 10%, achieved period up ~1% (WNS 10 -> 0.5 ps on a
+        # 1000 ps clock): a real move along the front. The existing rules
+        # check would fail on the slack half and say nothing about the area
+        # half. WNS deliberately stays positive so this exercises the trade
+        # path and not the closure check.
+        new = dict(BASE)
+        new["finish__design__core__area"] = 900.0
+        new["finish__timing__setup__ws"] = 0.5
+        rc, out = run(new, rules_from(BASE))
+        self.assertEqual(rc, 0, out)
+        self.assertIn("trade:", out)
+
+    def test_dominated_fails(self):
+        # Everything worse, nothing better -- and still meeting timing, so
+        # this is dominance rather than a closure failure.
+        new = dict(BASE)
+        new["finish__design__core__area"] = 1200.0
+        new["finish__timing__setup__ws"] = 2.0
+        rc, out = run(new, rules_from(BASE))
+        self.assertEqual(rc, 1, out)
+        self.assertIn("dominated", out)
+
+    def test_within_tie_band_passes(self):
+        # 1% area change against a 1.5% default band is not movement.
+        new = dict(BASE)
+        new["finish__design__core__area"] = 990.0
+        rc, out = run(new, rules_from(BASE))
+        self.assertEqual(rc, 0, out)
+        self.assertIn("no measurable movement", out)
+
+    def test_hard_constraint_regression_fails(self):
+        # A DRC error is never a trade, even alongside a big area win.
+        new = dict(BASE)
+        new["finish__design__core__area"] = 500.0
+        new["detailedroute__route__drc_errors"] = 3
+        rc, out = run(new, rules_from(BASE))
+        self.assertEqual(rc, 1, out)
+        self.assertIn("hard constraint", out)
+
+    def test_losing_closure_fails(self):
+        # +10 ps -> -3 ps. Small in percentage terms, and a change in kind.
+        # This is the ibex case from the AUTO_FLOORPLAN sweep.
+        new = dict(BASE)
+        new["finish__timing__setup__ws"] = -3.0
+        new["finish__design__core__area"] = 750.0  # even with a 25% area win
+        rc, out = run(new, rules_from(BASE))
+        self.assertEqual(rc, 1, out)
+        self.assertIn("change in kind", out)
+
+    def test_still_missing_closure_is_not_a_closure_failure(self):
+        # A design that already missed timing has no closure to lose; it
+        # is judged on the axes like anything else.
+        base = dict(BASE)
+        base["finish__timing__setup__ws"] = -50.0
+        new = dict(base)
+        new["finish__timing__setup__ws"] = -55.0
+        new["finish__design__core__area"] = 900.0
+        rc, out = run(new, rules_from(base))
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("change in kind", out)
+
+    def test_require_improvement_fails_on_no_movement(self):
+        rc, out = run(dict(BASE), rules_from(BASE), extra=("--require-improvement",))
+        self.assertEqual(rc, 1, out)
+        self.assertIn("no axis improved", out)
+
+    def test_measured_tie_band_overrides_default(self):
+        # A 4% area regression passes when the measured band is 5%.
+        new = dict(BASE)
+        new["finish__design__core__area"] = 1040.0
+        rules = rules_from(BASE, tie={"finish__design__core__area": 0.05})
+        rc, out = run(new, rules)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("measured", out)
+
+    def test_tiny_wns_swing_is_not_a_huge_period_change(self):
+        # WNS +5.8 -> +0.9 ps is an 85% "loss" of WNS and 0.5% of the
+        # clock. Judged on WNS it looks catastrophic; judged on achieved
+        # period it is inside the tie band, which is the point.
+        base = dict(BASE)
+        base["finish__timing__setup__ws"] = 5.8
+        new = dict(base)
+        new["finish__timing__setup__ws"] = 0.9
+        rc, out = run(new, rules_from(base))
+        self.assertEqual(rc, 0, out)
+        self.assertIn("no measurable movement", out)
+
+    def test_missing_golden_is_warned_not_fatal(self):
+        rules = rules_from(BASE)
+        del rules["finish__design__core__area"]["golden"]
+        rc, out = run(dict(BASE), rules)
+        self.assertEqual(rc, 0, out)
+        self.assertIn("no baseline value for", out)
+
+
+
+class TestMeasuredBaseline(unittest.TestCase):
+    """--baseline takes the reference from a measured run, not from rules.
+
+    Checked-in rules-base.json lags the toolchain by however long since
+    the last regeneration, so its goldens describe a flow that may no
+    longer exist. On asap7 that drift has been seen at 9 ps of setup
+    slack over six weeks -- the same size as the effects being judged,
+    which is enough to invert a verdict. Both arms measured on the same
+    toolchain is the only comparison that isolates a change.
+    """
+
+    def test_agrees_with_rules_mode_on_identical_baselines(self):
+        new = dict(BASE, finish__design__core__area=900.0)
+        rc_r, out_r = run(new, rules_from(BASE))
+        rc_b, out_b = run_baseline(new, BASE)
+        self.assertEqual(rc_r, rc_b)
+        self.assertIn("improved", out_b)
+        self.assertEqual(rc_b, 0)
+
+    def test_lost_closure_fails(self):
+        # The aes_lvt shape: a much smaller core bought by spending all
+        # the setup margin and crossing zero.
+        new = dict(
+            BASE,
+            finish__timing__setup__ws=-0.5,
+            finish__design__core__area=700.0,
+        )
+        rc, out = run_baseline(new, BASE)
+        self.assertNotEqual(rc, 0)
+        self.assertIn("was meeting the constraint", out)
+
+    def test_a_stale_reference_can_invert_the_verdict(self):
+        # The aes_lvt numbers, scaled to this fixture's 1000 ps clock.
+        # A rules file generated weeks ago recorded ws = 0.0; the design
+        # has since drifted to ws = +9.0 on the current toolchain. The
+        # candidate lands at ws = +0.5, giving up the drift but still
+        # closing, so the closure check -- which only looks at the sign --
+        # stays quiet and the whole verdict rests on the period axis.
+        stale = dict(BASE, finish__timing__setup__ws=0.0)
+        fresh = dict(BASE, finish__timing__setup__ws=9.0)
+        new = dict(BASE, finish__timing__setup__ws=0.5)
+
+        rc_stale, out_stale = run_baseline(new, stale)
+        rc_fresh, out_fresh = run_baseline(new, fresh)
+
+        # Against the stale reference the design looks untouched...
+        self.assertEqual(rc_stale, 0)
+        self.assertIn("tied", out_stale)
+        # ...against the truth it gave up 0.86% of period for nothing.
+        self.assertNotEqual(rc_fresh, 0)
+        self.assertIn("dominated", out_fresh)
+
+    def test_baseline_and_rules_are_mutually_exclusive(self):
+        with tempfile.TemporaryDirectory() as d:
+            m = os.path.join(d, "m.json")
+            with open(m, "w") as f:
+                json.dump(BASE, f)
+            p = subprocess.run(
+                [sys.executable, SCRIPT, "-m", m, "-b", m, "-r", m],
+                capture_output=True,
+                text=True,
+            )
+        self.assertNotEqual(p.returncode, 0)
+
+    def test_one_of_them_is_required(self):
+        with tempfile.TemporaryDirectory() as d:
+            m = os.path.join(d, "m.json")
+            with open(m, "w") as f:
+                json.dump(BASE, f)
+            p = subprocess.run(
+                [sys.executable, SCRIPT, "-m", m],
+                capture_output=True,
+                text=True,
+            )
+        self.assertNotEqual(p.returncode, 0)
+
+
+if __name__ == "__main__":
+    unittest.main()

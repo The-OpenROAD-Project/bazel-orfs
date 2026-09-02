@@ -1,0 +1,28 @@
+Expose flow.tcl as an addressable source label.
+
+bazel-orfs's floorplan derivation runs the production flow from floorplan
+to finish in one process, which means auto_floorplan_flow.tcl duplicates
+flow.tcl's stage sequence -- flow.tcl runs on source and offers no seam to
+enter after synthesis. A duplicated sequence that has to stay in step rots
+silently: a stage added to flow.tcl would simply not be measured, and the
+derived floorplan would be chosen against a flow that no longer exists.
+
+auto_floorplan_flow_test.py makes that failure loud by extracting the
+stage order from both files, which needs flow.tcl as a label.
+
+Same argument, and the same shape, as the scripts/synth.tcl export
+immediately above: read the file that actually runs rather than vendor a
+copy that can drift.
+
+diff --git a/flow/BUILD b/flow/BUILD
+--- a/flow/BUILD
++++ b/flow/BUILD
+@@ -24,7 +24,7 @@
+ # instead of vendoring its own (drifting) copy at the bazel-orfs repo
+ # root. See bazel-orfs `private/rules.bzl`.
+ exports_files(
+-    ["scripts/synth.tcl"],
++    ["scripts/synth.tcl", "scripts/flow.tcl"],
+     visibility = ["//visibility:public"],
+ )
+ 
