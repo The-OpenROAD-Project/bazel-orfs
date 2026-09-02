@@ -1,5 +1,16 @@
 # Deriving a floorplan
 
+> **A demonstration, not a supported feature.** This is a worked idea:
+> that the floorplan numbers in a `config.mk` are measurable rather than
+> guessable, and roughly what it costs to measure them. It lives here so
+> the idea is concrete and runnable, and the expectation is that anyone
+> who wants it in earnest reimplements it inside their own project,
+> against their own designs, provisioning and definition of "better".
+>
+> So read the ladders, the tie bands and the winner rule as one set of
+> choices that worked on a handful of ORFS designs, not as an interface
+> to build on. Nothing in the normal flow depends on any of it.
+
 A design's `config.mk` carries a handful of numbers that decide its
 floorplan:
 
