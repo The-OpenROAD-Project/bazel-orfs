@@ -94,6 +94,23 @@ jobs:
           bazelisk run //:fix_lint
           git diff --exit-code
 
+      # --- @orfs design packages ---
+      #
+      # Loading every design package catches API skew between this repo and
+      # the ORFS it pins. Two such skews had accumulated unnoticed -- ORFS
+      # passing a `blender` argument after it was removed here, and
+      # user_stages reaching orfs_update -- because nothing built @orfs
+      # designs from this workspace.
+      #
+      # query, not `build --nobuild`: this guards LOADING, and analysis
+      # drags in unrelated pre-existing breakage (ORFS's gcd_single_flow_*
+      # tests reference @openroad, which is not visible from @orfs when
+      # @orfs is a non-root dependency). Loading every package is the part
+      # that catches DSL and rule-signature skew, and it costs seconds --
+      # 3889 targets across every platform.
+      - name: Load @orfs design packages
+        run: bazelisk query '@orfs//flow/designs/...:*' > /dev/null
+
       # --- Unit tests ---
       - name: Run tests
         run: bazelisk test ... --build_tests_only --test_output=errors --profile=test.profile
