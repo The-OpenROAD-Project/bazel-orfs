@@ -35,6 +35,14 @@ _source_tag = tag_class(
                   "e.g. \"sha256-...\". Required. A failing fetch prints " +
                   "the observed value.",
         ),
+        "urls": attr.string_list(
+            doc = "Override where the tarball comes from. Defaults to " +
+                  "the canonical ORFS GitHub archive for `commit`. Use " +
+                  "for a mirror, an air-gapped cache, or a fork -- " +
+                  "GitHub's /archive/<sha> on the canonical repo does " +
+                  "not reliably serve a commit that exists only on a " +
+                  "fork, even one that is an open PR's head.",
+        ),
     },
 )
 
@@ -136,7 +144,7 @@ def _orfs_repositories_impl(module_ctx):
 
     http_archive(
         name = "orfs",
-        **orfs_archive_args(source.commit, source.integrity)
+        **orfs_archive_args(source.commit, source.integrity, source.urls)
     )
 
     # GNU Make built from source
