@@ -1,18 +1,32 @@
 # The `<flow>_estimate` report
 
-Every `orfs_flow()` with a floorplan stage grows a
-`<name>[_variant]_estimate` target: a deterministic, seconds-to-a-
-minute estimate of what that floorplan can achieve — estimated
-achievable clock period, utilization, place density against its
-computed floor — produced by a non-timing-driven, early-stopped
-global placement in its own process, off the saved floorplan
-artifact. It runs in parallel with the place stage by DAG
-construction and cannot perturb any flow artifact.
+Every `orfs_flow()` that runs synthesis grows two targets:
+
+- **`<name>[_variant]_estimate`**: a deterministic, one-to-two-minute
+  estimate of what the design can achieve at its configured floorplan
+  parameters — estimated achievable clock period, the macro-path
+  channel, utilization, density against its computed bound — built
+  from the **synthesis output**: the floorplan is initialized
+  in-script from the same variables the production floorplan stage
+  reads, macros placed by the production placer, then a
+  non-timing-driven, early-stopped global placement.
+- **`<name>[_variant]_estimate_run`**: the same script as a
+  `bazelisk run` executable taking run-time `KEY=VALUE` parameter
+  overrides — one point in floorplan-parameter space per invocation.
 
 ```sh
-bazelisk build //test:lb_32x128_estimate
-cat bazel-bin/test/lb_32x128_estimate.json
+bazelisk build //test/smoketest:lb_32x128_asap7_estimate
+cat bazel-bin/test/smoketest/lb_32x128_asap7_estimate.json
+
+bazelisk run //test/smoketest:lb_32x128_asap7_estimate_run -- \
+  CORE_UTILIZATION=10 PLACE_DENSITY=0.6 OUTPUT=$PWD/point.json \
+  LOG_DIR=$PWD/logs
 ```
+
+Because the estimate builds its own floorplan, it is independent of —
+and parallel to — the flow's entire physical implementation, and it
+can measure parameter points the flow never runs. It cannot perturb
+any flow artifact.
 
 This document is the thesis behind the report: why a *fast, less
 accurate* signal is the right tool for gating changes, what the
@@ -110,11 +124,50 @@ to the cheap audit and to the exponential tails.
 | `wns` | worst reg2reg slack at placement parasitics |
 | `utilization`, `core_um2`, `cell_um2` | area occupancy of the floorplan |
 | `num_macros` | macros in the design (placed by the floorplan stage) |
-| `place_density`, `density_lb_addon` | configured density and the computed lower bound plus the configured addon |
+| `macro_paths_mean`, `macro_paths_worst`, `macro_paths_sampled` | the macro-path channel — the KPI macro placement actually controls; zeroed when the design has no macros |
+| `macros_pinned` | whether MACRO_PLACEMENT_TCL held the macro placement constant — see "Macro designs" |
+| `density_lb_addon` | the computed lower bound plus the configured addon; also the estimate's placement density |
 | `gp_overflow_target` | the early-stop point (see below) |
+| `params` | the floorplan parameters in force, under their **exact ORFS variable names** — a chosen point is directly consumable by config.mk pin machinery |
 
 Timing values are OpenSTA units (`time_unit`); the report's own
 wall-clock cost is in the run log's `Elapsed time` line.
+
+## Division of labor: recommendations here, mechanics in ORFS
+
+This report is the *oracle* half of floorplan-parameter automation:
+`_estimate_run` produces self-describing points, a session (human or
+AI) assembles the Pareto front and picks a recommendation, and ORFS's
+pin machinery writes it into config.mk (`pinAutoFloorplan.py` and the
+`<name>_auto_floorplan_pin` target of OpenROAD-flow-scripts PR #4487,
+which preserves the design's existing rect-vs-utilization form and
+density form in place). bazel-orfs computes recommendations; it never
+writes config.mk. `checkPareto.py` (same PR) then guards merged work:
+a trade along the front passes, a dominated point fails.
+
+Constraints imported from that PR's measured negative results:
+utilization enters only as constraint satisfaction — the smallest
+core no worse than the incumbent — never blended into a period
+objective (measured rho −1.0 on gcd for the blended form); and every
+parameter ladder may report "did not resolve" against its noise
+floor, which keeps the incumbent. Its in-flow scorer measures after
+global route (realistic, noise floors 22–32% of clock); this oracle
+measures pre-route (optimistic, deterministic, minutes) — the
+differential protocol is what licenses the cheap one.
+
+## Macro designs
+
+The floorplan built here includes the production macro placer's
+single default draw — and macro placement is chaotic in the netlist,
+so on macro designs an *unpinned* estimate delta between two commits
+carries placement-draw variance (measured at up-to-25%-scale swings)
+on top of the change being measured. `macros_pinned` says which
+regime a JSON was produced in: with `MACRO_PLACEMENT_TCL` set (stock
+ORFS), the draw is held constant and deltas are clean. The
+macro-path fields are the channel macro placement controls
+(measured: ~300ps spread across draws while general paths tie);
+racing and selecting the pin is the macro-placement campaign's
+business (PR #868).
 
 ## Calibration status and provenance
 
