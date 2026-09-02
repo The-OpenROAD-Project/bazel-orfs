@@ -142,6 +142,28 @@ Pending, tracked in the campaign plan:
   optimistic; differential use does not need the correction, absolute
   use does).
 
+## Own your scoring function
+
+The impossible thing was a universal, accurate estimator — so the
+achievable thing is a local, owned, revisable ranking function. Write
+your own scoring for your design and the development phase you are
+in, and plan to revise it as the design progresses. The measured
+basis for each clause:
+
+- Corrections fitted on one design transfer worse than no correction
+  at all (the estimation ladder's transfer study — its most flexible
+  fit memorized its own design and then lost to nothing on the next).
+- The live KPI moves with the operating point: at loose constraints
+  the period axis is dead and area/macro-path slack are what a score
+  can see; near the design's capability wall, period wakes up. Gate
+  on the axis that is alive where you are.
+- The noise floor is a property of the operating point too (measured
+  48.8 -> 15.4 -> 7.3 ps across one design's clock sweep), so even a
+  perfect scorer's thresholds go stale as constraints tighten.
+
+This report ships a general-purpose default; treat it as the
+starting point the protocol calibrates, not as the answer.
+
 ## Limits
 
 - **A speedometer, not a map**: the estimate tracks *whether* the
