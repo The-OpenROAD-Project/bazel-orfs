@@ -364,6 +364,25 @@ ranking that candidate on wirelength would have shipped a design that
 does not build. Feasibility is a separate outcome from score, and
 "fraction of candidates infeasible" is worth tracking as its own number.
 
+**A near miss at small n is often not near anything.** The best of the
+cheap readouts landed at rho +0.39 [-0.01, +0.72] -- short of clearing
+zero by 0.01, which invites one more turn of the crank. Taking that turn
+(doubling the readout's support) moved it to +0.42 [-0.02, +0.73] at
+2.3x the cost, and it *still* straddled zero. At n=23 those two are the
+same measurement, and the 0.01 shortfall was where the interval happened
+to fall rather than a gap that tuning could close. Before spending on a
+variant of a near miss, ask what the interval width says the measurement
+can resolve; here it could not resolve the difference the variant was
+built to produce.
+
+**A coarsening rung pays for every exception it makes.** The same
+experiment held instances near macro pins out of the clusters to keep
+their pin geometry exact. Going from one hop to two raised that
+exempt set from 1458 instances to 2380 and cut the speedup over the flat
+scorer from 4.3x to 1.8x -- most of the rung's reason to exist, spent on
+fidelity that bought no ranking. Exemptions from an abstraction are
+charged at the un-abstracted rate, so they need their own budget.
+
 **A confidence interval spanning [-1, +1] is not a pass.** On a
 four-candidate population a gate phrased as "rho lands inside the
 reference interval" reported PASS at rho +0.80 with a bootstrap interval
