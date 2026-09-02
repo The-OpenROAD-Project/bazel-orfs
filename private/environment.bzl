@@ -96,6 +96,13 @@ def yosys_environment(ctx):
         "ABC": ctx.executable._abc.path,
         "FLOW_HOME": ctx.file._makefile_yosys.dirname,
         "YOSYS_EXE": ctx.executable.yosys.path,
+        # yosys' abc pass runs its ABC invocations on a thread pool and the
+        # resulting netlist depends on their completion order, so synthesis
+        # is not reproducible with more than one thread:
+        # https://github.com/YosysHQ/yosys/issues/6170
+        # Modules are already synthesised as separate Bazel actions, so the
+        # in-process threads add no parallelism here.
+        "YOSYS_MAX_THREADS": "1",
     } | orfs_environment(ctx)
 
     # Tell yosys where to find out-of-tree plugins (e.g. yosys-slang)
