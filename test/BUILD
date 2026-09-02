@@ -675,13 +675,60 @@ py_test(
 #   asap7/gcd:gcd_test -- the smallest CI design (grt in ~50s). Runs the
 #       flow and checks the design's own rules file, so it covers
 #       everything from the module boundary down to metadata generation.
+# ORFS designs whose flow this repository regression-tests, enumerated
+# deliberately rather than swept up.
+#
+# These answer a different question from the "Load @orfs design packages"
+# CI step, and the split is intentional. That step loads every design
+# package -- 4135 targets, seconds -- and must never break, because DSL
+# or rule-signature skew breaks every design at once; that is how the
+# `blender` argument went unnoticed. These build and run a flow, and are
+# allowed to break: an ORFS bump that upsets one design is a fix here,
+# not an incident, because these designs exist for experiments rather
+# than for tapeouts.
+#
+# So the list stays small and asap7-only, chosen for runtime rather than
+# coverage. Each `<design>_test` runs the flow and compares metrics
+# against the design's own rules-base.json.
+#
+# Add one only when a feature earns regression coverage, and be willing
+# to drop one that turns out slow or noisy -- broad design coverage is
+# explicitly not the deal. See docs/plans/orfs-as-file-store.md.
 ORFS_TESTS = [
+    # The smallest design in the flow, the one every example in the docs
+    # uses, and SYNTH_USE_SYN=1 -- so it covers the OpenROAD-SYN path.
     "@orfs//flow/designs/asap7/gcd:gcd_test",
+    # SYNTH_HDL_FRONTEND=slang, so this is what covers the yosys-slang
+    # plugin path that orfs.default(yosys_plugins=...) wires up. Also
+    # SYNTH_BLACKBOXES and VERILOG_TOP_PARAMS.
+    "@orfs//flow/designs/asap7/uart:uart_test",
 ]
 
 test_suite(
     name = "orfs_design_tests",
-    tests = ORFS_TESTS,
+    tests = ORFS_TESTS + [":orfs_mock_alu_build_test"],
+)
+
+# mock-alu covers what neither design above reaches:
+# OPENROAD_HIERARCHICAL=1, SWAP_ARITH_OPERATORS=1, and a config.mk that
+# `include`s designs/src/mock-alu/defaults.mk -- an included makefile is
+# a shape config_mk_parser has to resolve.
+#
+# It is a build_test rather than a member of ORFS_TESTS on purpose.
+# `<design>_test` runs the flow *and* compares metrics against the
+# design's rules-base.json, and at the current pin mock-alu misses one
+# of 27 bounds by 0.9% -- finish__timing__setup__tns -18663.9 against
+# -18500 -- with 0 DRCs and every other check passing. That is QoR drift
+# from the OpenROAD bump measured against bounds tuned at the old pin,
+# in a file that belongs to ORFS.
+#
+# Gating our CI on it would mean red on every tool bump until somebody
+# re-tunes someone else's file. A build_test asks the question we
+# actually want asked of this design -- does the flow still run -- and
+# leaves the metric bounds to the repository that owns them.
+build_test(
+    name = "orfs_mock_alu_build_test",
+    targets = ["@orfs//flow/designs/asap7/mock-alu:MockAlu_final"],
 )
 
 keep_modules_test_suite(name = "keep_modules_test")
