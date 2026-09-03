@@ -4,9 +4,17 @@ Status: **run, and answered.** The idea as posed does not survive its own
 evidence. A smaller idea inside it does, and is cheaper than the one that
 was asked for.
 
-The apparatus is committed alongside this document so the numbers can be
-disputed; if you are reading this after `ideas/eta/` was deleted, it is
-recoverable from the commit named at the bottom.
+The apparatus was committed alongside this document and then retired, so
+the numbers can still be disputed by anyone willing to restore it:
+
+```sh
+git show 02cbd2b --stat          # what was built
+git checkout 02cbd2b -- ideas/eta
+```
+
+That commit carries the parsers, the three forecasters, the backtest
+harness, the TimesFM binary with its pinned lock, and `corpus.jsonl` --
+the 81 series every number below is computed from.
 
 ## The question
 
@@ -304,6 +312,8 @@ tuning of the existing forecasters. Those all improve the number that was
 measured to be irrelevant.
 
 ## Reproducing
+
+Restore the apparatus first (see the top of this document), then:
 
 ```sh
 bazelisk build --@bazel-orfs//:log_timestamps @orfs//flow/designs/asap7/ibex:ibex_core_grt
