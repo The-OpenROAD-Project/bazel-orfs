@@ -8,13 +8,18 @@ The apparatus was committed alongside this document and then retired, so
 the numbers can still be disputed by anyone willing to restore it:
 
 ```sh
-git show 02cbd2b --stat          # what was built
-git checkout 02cbd2b -- ideas/eta
+# Find it by message rather than by hash: the hash changes whenever the
+# branch is rebased, including on merge, so a hash written *inside* the
+# commit it names is wrong by the time anyone reads it.
+SHA=$(git log --all --format=%H --grep="measure whether ORFS grinds")
+git show "$SHA" --stat            # what was built
+git checkout "$SHA" -- ideas/eta  # restore it
 ```
 
-That commit carries the parsers, the three forecasters, the backtest
-harness, the TimesFM binary with its pinned lock, and `corpus.jsonl` --
-the 81 series every number below is computed from.
+At the time of writing that resolves to `573dbf5`. The commit carries the
+parsers, the three forecasters, the backtest harness, the TimesFM binary
+with its pinned lock, and `corpus.jsonl` -- the 81 series every number
+below is computed from.
 
 ## The question
 
