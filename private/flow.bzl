@@ -134,6 +134,12 @@ def _orfs_estimate_report(name, src, arguments = {}, sources = {}, variant = Non
         run_kwargs["openroad"] = openroad
     if visibility != None:
         run_kwargs["visibility"] = visibility
+
+    # The oracle is a diagnostic, not part of anyone's build: a wildcard
+    # pattern that swept it up would run place_pins on whatever die the
+    # flow's variables imply, which fails outright for a mocked macro whose
+    # stub die cannot hold the module's ports.
+    run_kwargs["tags"] = ["manual"]
     orfs_run(
         name = name,
         src = src,
