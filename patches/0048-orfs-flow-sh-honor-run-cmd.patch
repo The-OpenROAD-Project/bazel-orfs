@@ -1,0 +1,41 @@
+Let flow.sh honor RUN_CMD, like the rest of the flow does.
+
+variables.mk defines RUN_CMD as the way a logged tool invocation is run,
+and every logged target in flow/Makefile goes through it -- yosys
+metrics, generate_abstract, the merge/drc/cdl/lvs steps, `run`. The one
+exception is flow.sh, which every *stage* goes through, and which spells
+out `$PYTHON_EXE $SCRIPTS_DIR/run_command.py` by hand.
+
+The effect is that RUN_CMD governs the peripheral logs and not one of
+the logs anyone actually reads. Overriding it -- to timestamp lines, to
+tee somewhere else, to wrap the tool -- silently misses floorplan,
+place, cts, grt and route.
+
+Defaulting to the current command keeps the behavior identical when
+RUN_CMD is unset, so this is a no-op for a normal `make` and makes the
+variable mean what its name says everywhere.
+
+diff --git a/flow/scripts/flow.sh b/flow/scripts/flow.sh
+--- a/flow/scripts/flow.sh
++++ b/flow/scripts/flow.sh
+@@ -3,6 +3,11 @@ set -euo pipefail
+ 
+ mkdir -p "$RESULTS_DIR" "$LOG_DIR" "$REPORTS_DIR" "$OBJECTS_DIR"
+ 
++# The rest of the flow runs logged commands through RUN_CMD; do the same
++# here so an override reaches the stage logs too. Unset -- a plain `make`
++# -- keeps exactly the command this script used to spell out inline.
++RUN_CMD="${RUN_CMD:-$PYTHON_EXE $SCRIPTS_DIR/run_command.py}"
++
+ echo "Running $2.tcl, stage $1"
+ 
+ (
+@@ -11,7 +16,7 @@ echo "Running $2.tcl, stage $1"
+   eval "$OPENROAD_EXE $OPENROAD_ARGS -exit \"$SCRIPTS_DIR/noop.tcl\"" \
+     >"$LOG_DIR/$1.tmp.log" 2>&1
+ 
+-  $PYTHON_EXE "$SCRIPTS_DIR/run_command.py" --log "$(realpath "$LOG_DIR/$1.tmp.log")" --append --tee -- \
++  $RUN_CMD --log "$(realpath "$LOG_DIR/$1.tmp.log")" --append --tee -- \
+     $OPENROAD_CMD -no_splash "$SCRIPTS_DIR/$2.tcl" -metrics "$LOG_DIR/$1.json"
+ )
+ 
