@@ -128,6 +128,11 @@ def _orfs_estimate_report(name, src, arguments = {}, sources = {}, variant = Non
     cannot perturb flow artifacts. Thesis, the division of labor with
     ORFS's config.mk pin machinery, calibration and limits:
     docs/estimate.md.
+
+    Both targets are tagged "manual": estimates are on-demand oracles
+    requested explicitly (by a CI job or a parameter sweep), not build
+    artifacts -- a wildcard build must not pay for a synth + estimate
+    of every flow in a package.
     """
     run_kwargs = {}
     if openroad != None:
@@ -148,6 +153,7 @@ def _orfs_estimate_report(name, src, arguments = {}, sources = {}, variant = Non
             "floorplan",
             "place",
         ],
+        tags = ["manual"],
         variant = variant or "base",
         **run_kwargs
     )
@@ -164,6 +170,7 @@ def _orfs_estimate_report(name, src, arguments = {}, sources = {}, variant = Non
             "floorplan",
             "place",
         ],
+        tags = ["manual"],
         variant = variant or "base",
         **run_kwargs
     )
