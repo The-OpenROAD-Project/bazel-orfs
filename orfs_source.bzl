@@ -52,6 +52,10 @@ ORFS_PATCHES = [
     # Both mechanisms are needed: the patch covers an ORFS that still
     # ships flow/BUILD, the generated file covers one that does not.
     Label("//patches:0047-orfs-export-flow-tcl.patch"),
+    # flow.sh spells out run_command.py by hand instead of going through
+    # RUN_CMD, so an override reaches every logged target except the
+    # stage logs. --@bazel-orfs//:log_timestamps overrides RUN_CMD.
+    Label("//patches:0048-orfs-flow-sh-honor-run-cmd.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
