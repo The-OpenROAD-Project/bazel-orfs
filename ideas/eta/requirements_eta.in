@@ -1,4 +1,0 @@
-# Deliberately isolated from the repo's other requirements: this is
-# study machinery, it pulls torch, and it is meant to be deletable in
-# one commit along with the rest of ideas/eta/.
-timesfm[torch]==3.0.1
