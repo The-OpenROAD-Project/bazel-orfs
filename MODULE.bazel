@@ -278,6 +278,24 @@ pip_dev.parse(
 )
 use_repo(pip_dev, "bazel-orfs-dev-pip")
 
+# The ideas/eta study's TimesFM leg. Isolated in its own hub so torch
+# reaches nothing else, and so deleting ideas/eta/ deletes this too.
+pip_eta = use_extension("@rules_python//python/extensions:pip.bzl", "pip", dev_dependency = True)
+pip_eta.parse(
+    extra_pip_args = [
+        "--index-url=https://pypi.org/simple",
+        # CPU wheels: the default PyPI torch drags in the whole nvidia-*
+        # stack, which is not something to put in a committed lock for a
+        # study that may be deleted next week.
+        "--extra-index-url=https://download.pytorch.org/whl/cpu",
+    ],
+    hub_name = "bazel-orfs-eta-pip",
+    python_version = "3.13",
+    quiet = True,
+    requirements_lock = "//ideas/eta:requirements_eta_lock_3_13.txt",
+)
+use_repo(pip_eta, "bazel-orfs-eta-pip")
+
 pip_features = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip_features.parse(
     extra_pip_args = [
