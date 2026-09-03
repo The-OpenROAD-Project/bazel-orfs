@@ -43,6 +43,46 @@ RTL canonicalization uses the plugin (2). `Can't load module './slang': …
 cannot open slang.so` means the plugin isn't wired (yosys fell back to its
 `share/plugins` dir); set `yosys_plugins`.
 
+## Reading stage logs
+
+### Timestamp log lines with `--@bazel-orfs//:log_timestamps`
+An ORFS log tells you what a stage did, not when. `Took N seconds:`
+(`util.tcl`) and the closing `Elapsed time:` line are both written after the
+fact, so a log that took four hours does not say which part of it took the
+four hours.
+
+    bazelisk build --@bazel-orfs//:log_timestamps //your:target_place
+
+prefixes every logged line with elapsed wall seconds since the command
+started:
+
+    [    0.000] [INFO ODB-0227] LEF file: ..., created 13 layers
+    [  184.421]      1300 |   0.0912 | 1.234560e+06 |  -0.31% | 4.12e+04 |
+    [  391.887]      1310 |   0.0904 | 1.233210e+06 |  -0.11% | 4.28e+04 |
+
+which is enough to see where the time actually went — a slow global-place
+iteration, a `repair_timing` pass that stopped converging, a single
+long-running command between two cheap ones.
+
+Mechanically it replaces ORFS's `RUN_CMD` (`flow/scripts/variables.mk`, the
+one variable every logged tool invocation goes through) with
+`log_timestamps.py`, which delegates the actual work back to ORFS's
+`run_command.py` and only adds the stamp and the log write. No ORFS patch is
+involved, and every logged tool is stamped, not just OpenROAD.
+
+Scope is the build actions — `bazelisk build` and `bazelisk test`. A tree
+deployed by `//:deps` runs ORFS's own `RUN_CMD` and logs unstamped.
+
+Two things to know:
+
+* **It costs a rebuild.** Stamping changes the log bytes, so a stamped stage
+  does not share cache entries with an unstamped one. This is a debugging
+  flag, off by default; leaving it off is the normal state.
+* **Stamps are read times, not emission times.** The clock is read as each
+  line comes out of the child's pipe. OpenROAD's logger flushes as it goes,
+  so the two coincide; a tool that block-buffers instead shows up as a burst
+  of near-identical stamps — which is worth knowing in its own right.
+
 ## Builds & the from-source toolchain
 
 ### "up-to-date, 0 processes" is a cache hit, not a compile

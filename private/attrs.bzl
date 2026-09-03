@@ -95,6 +95,15 @@ def orfs_attrs():
             allow_single_file = True,
             default = Label("@bazel-orfs//:package_stage.py"),
         ),
+        "_log_timestamps": attr.label(
+            doc = "Whether to prefix log lines with elapsed seconds.",
+            default = Label("@bazel-orfs//:log_timestamps"),
+        ),
+        "_log_timestamps_script": attr.label(
+            doc = "RUN_CMD replacement that stamps log lines.",
+            allow_single_file = True,
+            default = Label("@bazel-orfs//:log_timestamps.py"),
+        ),
     }
 
 def flow_attrs():
