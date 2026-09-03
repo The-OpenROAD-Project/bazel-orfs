@@ -366,7 +366,7 @@ ORFS_PATCH_CMDS = [
     _GENERATE_FLOW_BUILD,
 ]
 
-def orfs_archive_args(commit, integrity, urls = []):
+def orfs_archive_args(commit, integrity, urls = [], patches = [], patch_cmds = []):
     """http_archive arguments for an ORFS commit.
 
     Args:
@@ -374,6 +374,9 @@ def orfs_archive_args(commit, integrity, urls = []):
       integrity: Subresource Integrity string for the tarball.
       urls: optional override for where the tarball comes from. Empty
         means the canonical ORFS GitHub archive for `commit`.
+      patches: extra patches applied after this repository's own, for a
+        consumer carrying site-specific ORFS changes. -p1, as ours are.
+      patch_cmds: extra patch commands, run after this repository's own.
 
     Returns:
       A dict of http_archive keyword arguments.
@@ -381,8 +384,8 @@ def orfs_archive_args(commit, integrity, urls = []):
     return {
         "integrity": integrity,
         "patch_args": ["-p1"],
-        "patch_cmds": ORFS_PATCH_CMDS,
-        "patches": ORFS_PATCHES,
+        "patch_cmds": ORFS_PATCH_CMDS + patch_cmds,
+        "patches": ORFS_PATCHES + patches,
         "strip_prefix": ORFS_STRIP_PREFIX_TEMPLATE.format(commit),
         "urls": urls if urls else [ORFS_URL_TEMPLATE.format(commit)],
     }
