@@ -51,6 +51,20 @@
    "n_eval": 8,
    "closes_target": "0/8",
    "note": "liveness plateaus at the ~1430ps wall; macro-path ranking STRENGTHENS under pressure (+0.95); achieved-period channel still unranked by the macro proxy at toy-n -- third consecutive near-zero"
+  },
+  "c1100": {
+   "delta_tie_achieved": 16.8,
+   "achieved_range": 52.9,
+   "liveness": 3.15,
+   "achieved_band": [
+    1435,
+    1488
+   ],
+   "rho_proxy_vs_achieved_n7": -0.43,
+   "rho_proxy_vs_macro_mean_n7": 0.89,
+   "n_eval": 7,
+   "closes_target": "0/7",
+   "note": "sweep complete. Curve: 0.49 / 2.73 / 3.24 / 2.52 / 3.15 -- switch-on between 1600 and 1400, plateau ~2.5-3.2 at the ~1430ps wall. Macro-path ranking robust under pressure (+0.89/+0.95); achieved channel at toy-n reads zero-or-below four straight steps"
   }
  }
 }
