@@ -193,6 +193,19 @@ macro-path fields are the channel macro placement controls
 racing and selecting the pin is the macro-placement campaign's
 business (PR #868).
 
+The macro-path fields also answer whether that campaign is worth
+running on a given design at all. The campaign's capstone (24 draws
+through the full flow at swerv's most-live clock step) found the
+achieved period set entirely by generic std-cell paths — Spearman
++0.97 against the general-path mean, worst path a macro path in 0/23
+implementable draws — while the macro-path channel, rankable by a
+fast placement proxy at +0.74, sat 130ps+ below the generic floor
+and never bound. Macro-placement selection moves the clock only when
+macro paths bind, and `macro_paths_worst` against the general-path
+floor in one estimate is that test, per design, before any race is
+paid for. (The 24th draw was infeasible outright — see the PDN-0179
+negative finding below.)
+
 ## Provenance, trust, and breadcrumbs
 
 The lessons above come from exploratory campaigns: one machine, a
@@ -218,7 +231,15 @@ Observed once, pointer attached:
   designs.
 - Determinism held everywhere it was checked: placements and scores
   bit-identical across thread counts, execution shapes and a
-  binary change.
+  binary change (including 24/24 in the capstone re-generation).
+- The capstone (n=23 at swerv's most-live clock step,
+  `score_vs_flow_swerv_c1300.json` on the #868 branch): achieved
+  period unrankable by any macro-placement score (proxy rho −0.08,
+  CI [−0.47, +0.31]) for a structural reason — generic std-cell
+  paths set the clock (+0.97) and macro paths never bind; the
+  macro-path channel itself rankable at +0.74 with 301.7ps of range
+  against a 14.0ps tie band. This is the measurement behind the
+  macro-path fields in the JSON.
 
 Never measured at all, and needed before trusting deltas as
 magnitudes rather than ordering evidence: the PR-vs-merge-base
