@@ -4,6 +4,7 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("//private:settings.bzl", "orfs_bool_flag")
 
 exports_files([
     # Read by //test:orfs_design_builds_test, which extracts the
@@ -28,6 +29,7 @@ exports_files([
     "deploy.tpl",
     "estimate.tcl",
     "html_timing_report.tcl",
+    "log_timestamps.py",
     "make.tpl",
     "mock_area.tcl",
     "open_blend.sh",
@@ -48,6 +50,20 @@ exports_files([
     "synth_keep.tcl",
     "synth_partition.sh",
 ])
+
+# Prefix every ORFS log line with elapsed seconds:
+#
+#   bazelisk build --@bazel-orfs//:log_timestamps //your:target_place
+#
+# Additive and off by default. Stamping changes the log bytes, so a
+# stamped run does not share cache entries with an unstamped one and
+# turning it on costs a rebuild of the stages you ask for. See
+# docs/debugging.md.
+orfs_bool_flag(
+    name = "log_timestamps",
+    build_setting_default = False,
+    visibility = ["//visibility:public"],
+)
 
 sh_binary(
     name = "klayout",

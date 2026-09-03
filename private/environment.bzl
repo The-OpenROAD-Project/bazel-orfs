@@ -8,6 +8,7 @@ load(
     "PdkInfo",
     "TopInfo",
 )
+load("//private:settings.bzl", "OrfsFlagInfo")
 load("//private:stages.bzl", "dropped_variables")
 load("//private:utils.bzl", "file_path", "flatten")
 
@@ -138,10 +139,38 @@ def _runfiles(attrs):
         ),
     )
 
+def log_timestamps_enabled(ctx):
+    """Whether --@bazel-orfs//:log_timestamps asked for stamped logs."""
+    flag = getattr(ctx.attr, "_log_timestamps", None)
+    return bool(flag) and flag[OrfsFlagInfo].value
+
+def log_timestamps_make_arg(ctx):
+    """A make command-line RUN_CMD override, or "" when the flag is off.
+
+    ORFS routes every logged tool invocation through RUN_CMD
+    (flow/scripts/variables.mk), so replacing it stamps every stage log
+    without patching ORFS. It has to be a make *command-line*
+    assignment: variables.mk sets RUN_CMD with `=`, which beats both the
+    environment and the `?=` lines of the generated argument include.
+    """
+    if not log_timestamps_enabled(ctx):
+        return ""
+    return "RUN_CMD='{python} {script}' ".format(
+        python = ctx.executable._python.path,
+        script = ctx.file._log_timestamps_script.path,
+    )
+
+def log_timestamps_inputs(ctx):
+    """The stamper script, when it is going to be invoked."""
+    if not log_timestamps_enabled(ctx):
+        return []
+    return [ctx.file._log_timestamps_script]
+
 def flow_inputs(ctx):
     if ctx.attr.lint:
         return flow_inputs_lite(ctx)
     return depset(
+        log_timestamps_inputs(ctx),
         transitive = [
             _runfiles(
                 [
@@ -164,6 +193,7 @@ def flow_inputs_lite(ctx):
     makefile, and user tools.
     """
     return depset(
+        log_timestamps_inputs(ctx),
         transitive = [
             _runfiles(
                 [

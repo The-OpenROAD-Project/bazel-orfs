@@ -37,6 +37,7 @@ load(
     "hack_away_prefix",
     "input_commands",
     "log_dir_arguments",
+    "log_timestamps_make_arg",
     "merge_and_filter_arguments",
     "merge_arguments",
     "module_top",
@@ -188,9 +189,12 @@ def _expand_deploy_template(ctx, exe, config, make, genfiles, name = "", renames
 
 def _make_cmd(ctx):
     """Returns the make command prefix, with --silent in lint mode."""
-    if getattr(ctx.attr, "lint", False):
-        return ctx.executable._make.path + " --silent $@"
-    return ctx.executable._make.path + " $@"
+    silent = "--silent " if getattr(ctx.attr, "lint", False) else ""
+    return "{make} {silent}{stamp}$@".format(
+        make = ctx.executable._make.path,
+        silent = silent,
+        stamp = log_timestamps_make_arg(ctx),
+    )
 
 def _create_make_script(ctx, name, extra_substitutions = {}):
     """Creates the make wrapper script via template expansion.
