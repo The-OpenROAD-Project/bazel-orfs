@@ -66,11 +66,18 @@ log_cmd global_placement -density $density_lb_addon -overflow 0.6
 estimate_parasitics -placement
 set_propagated_clock [all_clocks]
 
+# The reg2reg path group: defined here rather than inherited, because
+# only some platform SDCs (asap7's, for one) create it and design SDCs
+# generally do not. Registered endpoints are what a floorplan-parameter
+# estimate can speak to; in2out flight time is the SDC's business.
+group_path -name reg2reg -from [all_registers] -to [all_registers]
+
 set wns_path [find_timing_paths -path_group reg2reg -sort_by_slack \
     -group_path_count 1]
 if { [llength $wns_path] == 0 } {
-    error "estimate: no reg2reg timing paths; the platform SDC defines\
-        no reg2reg group for this design"
+    error "estimate: no register-to-register paths; a design whose\
+        registers all live inside macro abstracts (or that has none)\
+        has no reg2reg channel for a floorplan estimate to measure"
 }
 set wns [get_property [lindex $wns_path 0] slack]
 set clk_period [get_property [lindex [get_clocks] 0] period]
