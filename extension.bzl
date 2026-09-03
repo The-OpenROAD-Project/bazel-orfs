@@ -43,6 +43,19 @@ _source_tag = tag_class(
                   "not reliably serve a commit that exists only on a " +
                   "fork, even one that is an open PR's head.",
         ),
+        "patches": attr.label_list(
+            doc = "Site-specific ORFS patches, applied with -p1 after " +
+                  "this repository's own. bazel-orfs patches ORFS here " +
+                  "rather than as a bazel_dep so that patching works " +
+                  "whoever is root; that reasoning says nothing about " +
+                  "a consumer's own ORFS changes, which have nowhere " +
+                  "else to go once ORFS is no longer overridable from " +
+                  "the root module.",
+        ),
+        "patch_cmds": attr.string_list(
+            doc = "Site-specific patch commands, run after this " +
+                  "repository's own.",
+        ),
     },
 )
 
@@ -144,7 +157,13 @@ def _orfs_repositories_impl(module_ctx):
 
     http_archive(
         name = "orfs",
-        **orfs_archive_args(source.commit, source.integrity, source.urls)
+        **orfs_archive_args(
+            source.commit,
+            source.integrity,
+            source.urls,
+            source.patches,
+            source.patch_cmds,
+        )
     )
 
     # GNU Make built from source
