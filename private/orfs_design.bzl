@@ -242,27 +242,20 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
     if arguments.get("SYNTH_HIERARCHICAL") == "1":
         kept = keep_modules(arguments)
         if not kept:
-            # A warning, not a failure. These designs are already broken
-            # under bazel -- with no kept-module list rules.bzl declares no
-            # per-module re-canonicalization actions, while
-            # SYNTH_NUM_PARTITIONS below still asks for partitions, so every
-            # partition dies with "per-module checkpoint missing". But
-            # fail() here stops the design's whole package from LOADING,
-            # which is worse than the build failure it replaces: 20 designs
-            # in ORFS carry this combination today (ariane133, black_parrot,
-            # mempool_group, microwatt, riscv32i, minimal, ...), and taking
-            # them out at load time also takes out every other target in
-            # their packages and any //... pattern that has to parse them.
-            #
-            # Same reasoning as the dropped-VERILOG_FILES warning: report at
-            # the point the information exists, and let the build proceed as
-            # far as it can.
-            print("%s sets SYNTH_HIERARCHICAL=1 with no SYNTH_KEEP_MODULES, so parallel synthesis will fail with 'per-module checkpoint missing'. Parallel synthesis declares one per-module re-canonicalization action per kept module, so the names must be known at analysis time; discovered inside a build action they arrive too late. Pin the list in the design's config.mk -- capture it with `make DESIGN_CONFIG=<config.mk> SYNTH_KEEP_MODULES= clean_synth synth` and read results/<platform>/<design>/base/kept_modules.json." % name)  # buildifier: disable=print
+            # Discovery mode: synth_keep.tcl finds the kept modules inside
+            # a build action and the partitions read the global keep
+            # checkpoint. It works, but every partition re-runs on any RTL
+            # edit, because none of them can key on a per-module slice
+            # (rules.bzl declares those from the names, which do not exist
+            # at analysis time). Pinning the list is the cache fix, and
+            # the capture recipe is the same as ORFS's.
+            print("%s sets SYNTH_HIERARCHICAL=1 with no SYNTH_KEEP_MODULES: parallel synthesis discovers the kept modules at build time, so every partition re-synthesizes on any RTL edit. To make partitions cache per module, pin the list in the design's config.mk -- capture it with `make DESIGN_CONFIG=<config.mk> SYNTH_KEEP_MODULES= clean_synth synth` and read results/<platform>/<design>/base/kept_modules.json." % name)  # buildifier: disable=print
 
         if "SYNTH_NUM_PARTITIONS" not in arguments:
-            # 32 preserves the pre-existing default for the no-list case;
-            # it does not work, but neither did failing, and this keeps the
-            # action graph identical to what it was before.
+            # One partition per pinned module; a static 32 in discovery
+            # mode, where the count cannot follow a list that does not
+            # exist yet. Static rather than NUM_CPUS so the action graph
+            # is the same on every machine (18cf9af).
             arguments["SYNTH_NUM_PARTITIONS"] = str(len(kept)) if kept else "32"
 
     orfs_flow(

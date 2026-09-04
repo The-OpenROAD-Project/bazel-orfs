@@ -763,6 +763,55 @@ build_test(
     targets = [":kept_modules_synth"],
 )
 
+# The other branch of parallel synthesis: SYNTH_HIERARCHICAL=1 with no
+# SYNTH_KEEP_MODULES, so the kept modules are discovered by synth_keep.tcl
+# at build time and each partition synthesizes from the global keep
+# checkpoint. This is the path every ORFS hierarchical design without a
+# pinned list takes (asap7/coralnpu, asap7/riscv32i, sky130hd/microwatt,
+# ...); it had no in-repo test, and f3c5254 broke it unnoticed for three
+# months -- every partition died with "per-module checkpoint missing".
+# Two partitions over a three-module fixture: seconds of yosys.
+orfs_synth(
+    name = "discovered_modules_synth",
+    arguments = {
+        "SDC_FILE": "$(location :constraints-top.sdc)",
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_NUM_PARTITIONS": "2",
+    },
+    data = [":constraints-top.sdc"],
+    module_top = "kept_modules_top",
+    # Same module_top as kept_modules_synth; a distinct variant keeps
+    # the two result trees from claiming the same output paths.
+    variant = "discovered",
+    verilog_files = ["rtl/kept_modules_top.v"],
+)
+
+build_test(
+    name = "discovered_modules_synth_test",
+    targets = [":discovered_modules_synth"],
+)
+
+filegroup(
+    name = "discovered_modules_synth_netlist",
+    srcs = [":discovered_modules_synth"],
+    output_group = "1_2_yosys.v",
+)
+
+# Completion is not enough: prove the partitions produced the kept
+# modules, so a regression to a flattened or empty merge is caught.
+sh_test(
+    name = "discovered_modules_netlist_test",
+    size = "small",
+    srcs = ["synth_discovery_netlist_test.sh"],
+    args = [
+        "$(location :discovered_modules_synth_netlist)",
+        "adder",
+        "counter",
+        "kept_modules_top",
+    ],
+    data = [":discovered_modules_synth_netlist"],
+)
+
 # Lock the SDC/clock-period split on the serial synth path (Mul_synth):
 # the expensive actions read only the extracted clock_period.txt; the raw
 # SDC feeds only the cheap extraction and sdc-copy actions, so a

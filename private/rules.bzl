@@ -1279,11 +1279,13 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             tools = yosys_and_flow_tools,
         )
 
-        # Action 2b: kept-json → kept_modules.json
+        # Action 2b: kept-json → kept_modules.json. The top is excluded:
+        # the top partition synthesizes it, so it is not a kept submodule.
         ctx.actions.run_shell(
-            command = "{python} {script} {rtlil} {json}".format(
+            command = "{python} {script} --top {top} {rtlil} {json}".format(
                 python = ctx.executable._python.path,
                 script = ctx.file._rtlil_kept_modules.path,
+                top = module_top(ctx),
                 rtlil = checkpoint_output.path,
                 json = kept_json.path,
             ),
@@ -1657,11 +1659,21 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
         # touch the module's body, so the partition action's input set
         # is stable too — restoring the canonicalize-as-cache-barrier
         # intent at the partition layer.
+        #
+        # With no pinned list there are no slices: the kept modules were
+        # discovered by synth_keep.tcl inside a build action, too late to
+        # declare an action per name. Every partition then reads the
+        # global keep checkpoint, exactly as the top partition does, and
+        # synth_partition.sh blackboxes the other kept modules itself.
+        # That trades the per-module cache barrier for a working build;
+        # pinning SYNTH_KEEP_MODULES buys the barrier back.
         my_per_module_files = []
         for m in my_modules:
             if m in per_module_rtlil:
                 my_per_module_files.append(per_module_rtlil[m])
                 my_per_module_files.append(per_module_name_file[m])
+        if not kept_modules_list:
+            my_per_module_files.append(checkpoint_output)
         partition_inputs = depset(
             [base_inp for base_inp in extra_partition_config] + my_per_module_files,
             transitive = [base_partition_inputs, my_macro_files],
