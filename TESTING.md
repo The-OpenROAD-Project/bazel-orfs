@@ -29,6 +29,7 @@ timing tables.
 | `//test/smoketest:lb_32x128_sky130hs_build_test` | Full flow, all stages | — | — | sky130hs | yes |
 | `//test/smoketest:lb_32x128_ihp-sg13g2_build_test` | Full flow, all stages | — | — | ihp-sg13g2 | yes |
 | `//test/bump:bump_test` | `bump.sh` MODULE.bazel version update logic | — | — | — | — |
+| `//examples:mac_build_test` | The documented example flow, all stages through `final`. An example first and a test second: see `examples/README.md` | — | — | asap7 | yes |
 | `//:bump_compat_test` | COMPAT markers in `bump_impl.py` stay inside the 30-day window | — | — | — | — |
 
 ## User-facing binaries
