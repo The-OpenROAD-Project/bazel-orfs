@@ -223,6 +223,59 @@ class TestMirrorPreservation(unittest.TestCase):
         self.assertEqual(digests["third-party/abc"], (OLD_SHA, OLD_HEX))
 
 
+REHASH_HEX = "e" * 64
+
+SUBMODULE_PATHS = [path for path, _ in bump_impl.OPENROAD_SUBMODULES]
+
+
+class TestSubmoduleDigestStability(unittest.TestCase):
+    """A submodule's digest may not move unless its sha moves.
+
+    GitHub's archives are not byte-stable, so re-hashing an unchanged
+    submodule can hand back a different digest for identical content.  That
+    breaks a consumer mirror keyed by digest outright, and it costs the
+    digest its meaning: a mismatch should say the content changed.
+    """
+
+    def _regenerate(self, content, sha256_fn, sub_sha=OLD_SHA):
+        return bump_impl.update_openroad_archive_override(
+            content=content,
+            openroad_commit="67890",
+            fetch_integrity_fn=lambda u: "sha256-bar",
+            fetch_sha256_hex_fn=sha256_fn,
+            fetch_submodule_sha_fn=lambda r, c, p: sub_sha,
+            workspace_dir=None,
+        )
+
+    def test_unchanged_submodule_sha_keeps_its_digest(self):
+        content = _block([_submodule_cmd(path) for path in SUBMODULE_PATHS])
+        out = self._regenerate(content, lambda u: REHASH_HEX)
+        self.assertIn(OLD_HEX, out)
+        self.assertNotIn(REHASH_HEX, out)
+
+    def test_unchanged_submodule_is_not_re_downloaded(self):
+        """The parent commit moving is not a reason to re-fetch every tarball."""
+        content = _block([_submodule_cmd(path) for path in SUBMODULE_PATHS])
+        urls = []
+
+        def spy(url):
+            urls.append(url)
+            return REHASH_HEX
+
+        self._regenerate(content, spy)
+        self.assertEqual(urls, [], "re-hashed a submodule whose sha did not move")
+
+    def test_changed_submodule_sha_is_still_rehashed(self):
+        """Reuse is keyed on the sha, so a moved submodule must not be cached."""
+        out = self._regenerate(
+            _block([_submodule_cmd("third-party/abc")]),
+            lambda u: NEW_HEX,
+            sub_sha=NEW_SHA,
+        )
+        self.assertIn(NEW_HEX, out)
+        self.assertNotIn(OLD_HEX, out)
+
+
 class TestUpdateOrfsSourceTag(unittest.TestCase):
     """ORFS as an extension-created http_archive.
 

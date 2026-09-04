@@ -1107,7 +1107,11 @@ def _parse_mirror_urls(block, commit):
 
 
 def _resolve_openroad_archives(
-    openroad_commit, fetch_integrity_fn, fetch_sha256_hex_fn, fetch_submodule_sha_fn
+    openroad_commit,
+    fetch_integrity_fn,
+    fetch_sha256_hex_fn,
+    fetch_submodule_sha_fn,
+    known_digests=None,
 ):
     """Hash the parent archive and every submodule archive, concurrently.
 
@@ -1116,11 +1120,24 @@ def _resolve_openroad_archives(
     lookup and tarball hash stay sequential with respect to each other
     (the sha names the tarball), but the submodules run alongside one
     another and alongside the parent.
+
+    ``known_digests`` maps submodule path -> (sha, sha256_hex) as already
+    recorded in the block being regenerated.  A submodule whose sha the new
+    parent commit leaves unchanged keeps its recorded digest: re-hashing it
+    would download a tarball to arrive at the digest we already hold, and
+    GitHub's archives are not byte-stable, so the value can come back
+    *different* for identical content.  A digest that moves without its sha
+    moving invalidates any mirror keyed by digest, and stops a mismatch from
+    meaning what it should.
     """
     parent_url = github_archive_url(OPENROAD_REPO, openroad_commit)
+    known_digests = known_digests or {}
 
     def resolve_submodule(path, github_repo):
         sub_sha = fetch_submodule_sha_fn(OPENROAD_REPO, openroad_commit, path)
+        known = known_digests.get(path)
+        if known and known[0] == sub_sha:
+            return (path, github_repo, sub_sha, known[1])
         sub_url = f"https://github.com/{github_repo}/archive/{sub_sha}.tar.gz"
         return (path, github_repo, sub_sha, fetch_sha256_hex_fn(sub_url))
 
@@ -1282,6 +1299,7 @@ def update_openroad_archive_override(
             fetch_integrity_fn,
             fetch_sha256_hex_fn,
             fetch_submodule_sha_fn,
+            _parse_submodule_digests(old_block),
         )
 
     # Mirrors a consumer added are configuration, not hand-edits to undo:
