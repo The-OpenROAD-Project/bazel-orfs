@@ -13,6 +13,12 @@ from the directory's contents. While ORFS carries the files this compares
 generation against the real answer; once ORFS deletes them there is
 nothing left to disagree with, and the target-list diff in
 docs/orfs-design-builds.md is the check that matters.
+
+Source directories (flow/designs/src/**) are the one place the generator
+does guess a files() group from contents, and only where neither ORFS nor
+the recorded set (orfs_design_builds.bzl) provides a BUILD. So the
+invariant there is weaker and stated exactly: every canonical files()
+BUILD ORFS ships is either recorded verbatim or reproduced by the rule.
 """
 
 import os
@@ -23,16 +29,26 @@ import subprocess
 import tempfile
 import unittest
 
-# Mirrors the patch_cmds rules in MODULE.bazel.
+# Mirrors the generator in orfs_source.bzl.
 #
-# config.mk only. A files() group ("verilog", "include", "lef", ...) is
-# decided by which label other designs reference, not by what the
-# directory holds -- src/cva6 declares files("verilog") while holding no
-# .v/.sv, and prim/rtl holds both .sv and .svh but declares
-# files("include"). So those BUILDs stay in ORFS; see
+# Under a platform: config.mk only. A files() group ("verilog", "include",
+# "lef", ...) is decided by which label other designs reference, not by
+# what the directory holds -- src/cva6 declares files("verilog") while
+# holding no .v/.sv, and prim/rtl holds both .sv and .svh but declares
+# files("include"). Those BUILDs are recorded, not generated; see
 # docs/orfs-design-builds.md.
 _RULES = [
     ("design", lambda names: "config.mk" in names),
+]
+
+# Under flow/designs/src: a files() group by content, for a directory
+# that has no BUILD from any source. Wrong for prim/rtl (.sv + .svh,
+# declares "include") and for src/cva6 (no sources, declares "verilog"),
+# which is exactly why those two are recorded and this rule never reaches
+# them.
+_SRC_RULES = [
+    ("verilog", lambda names: any(n.endswith((".v", ".sv")) for n in names)),
+    ("include", lambda names: any(n.endswith(".svh") for n in names)),
 ]
 
 _CANONICAL = re.compile(
@@ -60,11 +76,30 @@ def _canonical_form(text):
     return "design" if match.group(1) == "design" else match.group(2)
 
 
-def _generated_form(names):
-    for form, matches in _RULES:
+def _generated_form(names, rules=_RULES):
+    for form, matches in rules:
         if matches(names):
             return form
     return None
+
+
+def _src_form(names):
+    return _generated_form(names, _SRC_RULES)
+
+
+def _recorded_paths():
+    """The repo-relative paths in RECORDED_BUILDS, or an empty set.
+
+    Read as Starlark-that-is-also-Python, the same way
+    orfs_recorded_builds_test.py does. The file is a data dep of the
+    bazel test; when run by hand from the repo root it is found there.
+    """
+    path = pathlib.Path(__file__).resolve().parents[1] / "orfs_design_builds.bzl"
+    if not path.exists():
+        return set()
+    ns = {}
+    exec(path.read_text(), ns)  # noqa: S102 - our own generated data file
+    return set(ns["RECORDED_BUILDS"])
 
 
 def _designs_root():
@@ -102,10 +137,8 @@ class TestGeneratorAgreesWithOrfs(unittest.TestCase):
             with open(os.path.join(dirpath, "BUILD"), encoding="utf-8") as fp:
                 declared = _canonical_form(fp.read())
             if declared != "design":
-                # Either bespoke, or a files() group the generator
-                # deliberately does not attempt (see the note on _RULES).
-                # Nothing to agree about: the generator never touches a
-                # directory that already has a BUILD.
+                # Either bespoke, or a files() group; those are checked
+                # by test_shipped_files_groups_are_recorded_or_reproduced.
                 continue
             checked += 1
             generated = _generated_form(filenames)
@@ -117,6 +150,36 @@ class TestGeneratorAgreesWithOrfs(unittest.TestCase):
         self.assertEqual([], disagreements)
         self.assertGreater(checked, 0, "found no canonical design BUILDs to check")
 
+    def test_shipped_files_groups_are_recorded_or_reproduced(self):
+        """Every shipped canonical files() BUILD under src/ is covered.
+
+        Either it is in RECORDED_BUILDS, so it comes back verbatim, or
+        the content rule reproduces it. A shipped group that is neither
+        would silently change name the day ORFS deletes the file.
+        """
+        recorded = _recorded_paths()
+        src_root = os.path.join(self.root, "src")
+        checked = 0
+        uncovered = []
+        for dirpath, _, filenames in os.walk(src_root):
+            if "BUILD" not in filenames:
+                continue
+            with open(os.path.join(dirpath, "BUILD"), encoding="utf-8") as fp:
+                declared = _canonical_form(fp.read())
+            if declared in (None, "design"):
+                continue
+            checked += 1
+            rel = os.path.relpath(dirpath, self.root)
+            if "flow/designs/%s/BUILD" % rel in recorded:
+                continue
+            if _src_form(filenames) != declared:
+                uncovered.append(
+                    "%s: ORFS says %r, rule would say %r, not recorded"
+                    % (rel, declared, _src_form(filenames))
+                )
+        self.assertEqual([], uncovered)
+        self.assertGreater(checked, 0, "found no canonical files() BUILDs to check")
+
 
 class TestRules(unittest.TestCase):
     """The rule table itself, independent of any checkout."""
@@ -126,19 +189,42 @@ class TestRules(unittest.TestCase):
         # would replace the flow targets with a filegroup.
         self.assertEqual("design", _generated_form(["config.mk", "macros.v", "io.tcl"]))
 
-    def test_file_groups_are_not_guessed(self):
-        """The cases that make guessing a files() group unsafe.
+    def test_file_groups_are_not_guessed_under_a_platform(self):
+        """A platform directory without config.mk gets nothing.
 
-        src/cva6 declares files("verilog") holding no .v/.sv at all, and
-        prim/rtl holds both .sv and .svh but declares files("include").
-        Neither is recoverable from the directory, so the generator must
-        decline rather than guess -- these BUILDs stay in ORFS.
+        The files() BUILDs under platforms (swerv_wrapper/lef, lib,
+        chameleon/gds, ...) are recorded, and their group names are not
+        derivable from contents in general. The design rule declines.
         """
         self.assertIsNone(_generated_form(["gcd.v", "top.sv"]))
-        self.assertIsNone(_generated_form(["prim_assert.sv", "x.svh"]))
         self.assertIsNone(_generated_form(["fakeram45_64x32.lef"]))
         self.assertIsNone(_generated_form(["README.md"]))
         self.assertIsNone(_generated_form([]))
+
+    def test_src_groups_are_guessed_from_contents(self):
+        """Under src/, contents decide -- where nothing else exists.
+
+        This is the guessing the platform rule refuses, allowed here
+        because the rule runs only in a directory with no shipped and no
+        recorded BUILD, where the alternative is no package at all.
+        """
+        self.assertEqual("verilog", _src_form(["CoreMiniAxi.sv"]))
+        self.assertEqual("verilog", _src_form(["gcd.v", "README.md"]))
+        self.assertEqual("include", _src_form(["defs.svh"]))
+        self.assertIsNone(_src_form(["README.md"]))
+        self.assertIsNone(_src_form([]))
+
+    def test_src_rule_would_be_wrong_for_the_recorded_exceptions(self):
+        """The two shapes that make the rule unsafe in general.
+
+        prim/rtl holds .sv and .svh and declares files("include");
+        src/cva6 holds no sources and declares files("verilog"). The rule
+        gets both wrong, which is why they are carried in RECORDED_BUILDS
+        and the generator never reaches them. Pinned so that nobody
+        "fixes" the rule to cover them and loses the recording.
+        """
+        self.assertEqual("verilog", _src_form(["prim_assert.sv", "x.svh"]))
+        self.assertIsNone(_src_form(["README.md"]))
 
     def test_canonical_form_ignores_comments_and_spacing(self):
         text = """# a comment
@@ -209,8 +295,22 @@ class TestGeneratorScript(unittest.TestCase):
                 fp.write(build)
         return d
 
+    def _src(self, name, files=(), build=None):
+        d = os.path.join(self.tmp, "flow", "designs", "src", name)
+        os.makedirs(d, exist_ok=True)
+        for f in files:
+            open(os.path.join(d, f), "w").close()
+        if build is not None:
+            with open(os.path.join(d, "BUILD"), "w") as fp:
+                fp.write(build)
+        return d
+
     def _run(self):
         subprocess.run(["bash", "-c", self.script], cwd=self.tmp, check=True)
+
+    def _read(self, d):
+        with open(os.path.join(d, "BUILD"), encoding="utf-8") as fp:
+            return fp.read()
 
     def test_nested_block_design_is_covered(self):
         # Hierarchical flows nest a block's design directory inside its
@@ -299,6 +399,70 @@ class TestGeneratorScript(unittest.TestCase):
         self._run()
         with open(os.path.join(d, "BUILD"), encoding="utf-8") as fp:
             self.assertEqual(first, fp.read())
+
+    def test_src_directory_with_sources_gets_files_verilog(self):
+        # The coralnpu shape: ORFS #4474 added src/coralnpu/CoreMiniAxi.sv
+        # with no BUILD, and asap7/coralnpu's config.mk references the
+        # file by label.
+        d = self._src("coralnpu", files=("CoreMiniAxi.sv",))
+        self._run()
+        content = self._read(d)
+        self.assertIn('load("@orfs_designs//:designs.bzl", "files")', content)
+        self.assertIn('files("verilog")', content)
+        self.assertEqual("verilog", _canonical_form(content))
+
+    def test_src_directory_with_only_headers_gets_files_include(self):
+        d = self._src("hdrs", files=("defs.svh",))
+        self._run()
+        self.assertEqual("include", _canonical_form(self._read(d)))
+
+    def test_src_directory_with_sources_and_headers_gets_verilog(self):
+        # The prim/rtl shape. The rule says verilog; ORFS says include.
+        # That is why prim/rtl is recorded -- this test pins what the
+        # rule does so the recording is known to be load-bearing.
+        d = self._src("prim", files=("prim_assert.sv", "prim_assert.svh"))
+        self._run()
+        self.assertEqual("verilog", _canonical_form(self._read(d)))
+
+    def test_src_directory_without_sources_gets_nothing(self):
+        for name, files in (("readme", ("README.md",)), ("empty", ())):
+            d = self._src(name, files=files)
+            self._run()
+            self.assertFalse(
+                os.path.exists(os.path.join(d, "BUILD")),
+                "generated a BUILD for src/%s" % name,
+            )
+        # src/ itself holds no sources either.
+        self.assertFalse(
+            os.path.exists(os.path.join(self.tmp, "flow/designs/src/BUILD")),
+        )
+
+    def test_src_directory_with_a_build_is_left_alone(self):
+        # The recorded BUILDs are written before the generator runs, so
+        # this is how src/cva6 keeps files("verilog") over no sources
+        # and prim/rtl keeps files("include") over .sv + .svh.
+        recorded = 'load("//flow/designs:design.bzl", "files")\n\nfiles("include")\n'
+        d = self._src("prim_rtl", files=("x.sv", "x.svh"), build=recorded)
+        self._run()
+        self.assertEqual(recorded, self._read(d))
+
+    def test_nested_src_directory_is_covered(self):
+        # cva6 and mempool_group nest sources several levels deep, and
+        # each level that holds sources is its own package.
+        d = self._src("deep/rtl/src", files=("x.sv",))
+        self._src("deep", files=("README.md",))
+        self._run()
+        self.assertEqual("verilog", _canonical_form(self._read(d)))
+        self.assertFalse(
+            os.path.exists(os.path.join(self.tmp, "flow/designs/src/deep/BUILD")),
+        )
+
+    def test_src_generation_is_idempotent(self):
+        d = self._src("again", files=("a.v",))
+        self._run()
+        first = self._read(d)
+        self._run()
+        self.assertEqual(first, self._read(d))
 
 
 class TestAutoFloorplanScope(unittest.TestCase):
