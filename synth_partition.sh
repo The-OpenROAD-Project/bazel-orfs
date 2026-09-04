@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Per-partition parallel synthesis.
 # Reads kept_modules.json, picks modules where index % N == partition_id,
-# and synthesizes each from its dedicated per-module RTLIL slice (produced
-# by synth_canonicalize_module.tcl). The per-module slice already has all
-# other kept modules blackboxed and the target renamed to its bare name,
-# so synth.tcl just needs DESIGN_NAME=<bare> and SYNTH_CHECKPOINT=<slice>.
+# and synthesizes each one. With a pinned SYNTH_KEEP_MODULES the source is
+# the module's dedicated per-module RTLIL slice (produced by
+# synth_canonicalize_module.tcl, all other kept modules blackboxed);
+# with a discovered list it is the global keep checkpoint plus
+# SYNTH_BLACKBOXES. See the comment above the module loop.
 #
 # When SYNTH_PARTITION_ID=top, synthesizes the top module (DESIGN_NAME)
 # with all kept modules blackboxed against the global checkpoint (the top
@@ -96,15 +97,47 @@ fi
 
 echo "Partition $PARTITION_ID: synthesizing ${#MY_MODULES[@]} modules: ${MY_MODULES[*]}"
 
-# Each MY_MODULES[i] is synthesised from its dedicated per-module RTLIL
-# slice, which has all other kept modules blackboxed. The slice keeps
-# the target module under its canonical (slang-elaborated) name — the
-# canonical name is in a sidecar .name file produced by
-# synth_canonicalize_module.tcl, and we pass it to synth.tcl as
-# DESIGN_NAME so the emitted 1_2_yosys.v keeps the canonical name that
-# downstream OpenROAD parent placement expects.
+# Two modes, decided by whether SYNTH_KEEP_MODULES was pinned:
+#
+# Pinned (SYNTH_SKIP_KEEP=1): each module is synthesised from its
+# dedicated per-module RTLIL slice, which has all other kept modules
+# blackboxed. The slice keeps the target module under its canonical
+# (slang-elaborated) name — the canonical name is in a sidecar .name
+# file produced by synth_canonicalize_module.tcl, and we pass it to
+# synth.tcl as DESIGN_NAME so the emitted 1_2_yosys.v keeps the
+# canonical name that downstream OpenROAD parent placement expects.
+# The slices exist because bazel could declare one action per name at
+# analysis time.
+#
+# Discovered (no list): the kept modules were found by synth_keep.tcl
+# inside a build action, so no per-module slice could be declared. Each
+# module is synthesised from the global keep checkpoint with every other
+# kept module blackboxed via SYNTH_BLACKBOXES. Names in kept_modules.json
+# came out of the RTLIL, so they are already canonical. This is the
+# original partition loop, before per-module slices (f3c5254) made the
+# pinned mode cache-stable; it costs cache stability, not correctness.
 > "$OUTPUT"  # truncate output file
 for module in "${MY_MODULES[@]}"; do
+  # Truncate module name in log filename to avoid filesystem limits
+  log_module="${module:0:80}"
+  if [ "${SYNTH_SKIP_KEEP:-0}" != "1" ]; then
+    BLACKBOXES=""
+    while IFS= read -r m; do
+      if [ "$m" != "$module" ]; then
+        BLACKBOXES="${BLACKBOXES:+$BLACKBOXES }$m"
+      fi
+    done <<< "$ALL_MODULES"
+    echo "=== Synthesizing module: $module (from 1_1_yosys_keep.rtlil, blackboxes: $BLACKBOXES) ==="
+    SYNTH_CHECKPOINT="$RESULTS_DIR/1_1_yosys_keep.rtlil" \
+    SYNTH_BLACKBOXES="$BLACKBOXES" \
+    DESIGN_NAME="$module" \
+      "$SCRIPTS_DIR/synth.sh" \
+      "$SYNTH_TCL" \
+      "$LOG_DIR/1_2_yosys_partition_${PARTITION_ID}_${log_module}.log"
+    cat "$RESULTS_DIR/1_2_yosys.v" >> "$OUTPUT"
+    continue
+  fi
+
   sanitized=$(sanitize "$module")
   MODULE_CHECKPOINT="$RESULTS_DIR/partition_${sanitized}_canonical.rtlil"
   MODULE_NAME_FILE="$RESULTS_DIR/partition_${sanitized}_canonical.name"
@@ -118,8 +151,6 @@ for module in "${MY_MODULES[@]}"; do
   fi
   canonical_name=$(cat "$MODULE_NAME_FILE")
   echo "=== Synthesizing module: $module → $canonical_name (from $(basename "$MODULE_CHECKPOINT")) ==="
-  # Truncate module name in log filename to avoid filesystem limits
-  log_module="${module:0:80}"
   SYNTH_CHECKPOINT="$MODULE_CHECKPOINT" \
   DESIGN_NAME="$canonical_name" \
     "$SCRIPTS_DIR/synth.sh" \
