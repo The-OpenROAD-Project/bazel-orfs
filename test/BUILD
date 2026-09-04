@@ -658,7 +658,10 @@ py_test(
     name = "orfs_design_builds_test",
     size = "small",
     srcs = ["orfs_design_builds_test.py"],
-    data = ["//:orfs_source.bzl"],
+    data = [
+        "//:orfs_design_builds.bzl",
+        "//:orfs_source.bzl",
+    ],
     main = "orfs_design_builds_test.py",
 )
 

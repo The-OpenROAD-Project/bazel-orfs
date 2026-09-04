@@ -84,6 +84,33 @@ holds the line: it compares the generator's rule against every canonical
 BUILD ORFS still ships, and it is what caught the 24 disagreements that
 scoped this down.
 
+## Source directories ORFS never gave a BUILD
+
+The recorded set (`orfs_design_builds.bzl`) covers the `files()` BUILDs
+that existed when it was recorded. It cannot cover a source directory ORFS
+adds later, and ORFS adds them without BUILDs because it does not run
+bazel: `flow/designs/src/coralnpu/CoreMiniAxi.sv` arrived that way (ORFS
+#4474), and `asap7/coralnpu` failed at analysis with
+
+```
+no such package '@orfs//flow/designs/src/coralnpu': BUILD file not found
+```
+
+For `flow/designs/src/**` the generator therefore *does* guess, absent-only:
+`files("verilog")` if the directory holds any `.v` or `.sv`,
+`files("include")` if it holds only `.svh`, nothing otherwise. This is not
+the guessing the previous section refuses. That argument is about a
+directory whose shipped BUILD the guess could contradict; here the rule
+runs only where ORFS ships no BUILD and the recorded copy, written first,
+has none either. `src/cva6` and `prim/rtl` keep their recorded names. Where
+nothing exists at all, the choice is between a guessed package and no
+package, and no package fails every design that references it.
+
+The test's invariant for `src/` is stated exactly: every canonical
+`files()` BUILD ORFS ships is either recorded verbatim or reproduced by
+the rule. Run it against a real tree with `ORFS_DESIGNS_DIR` as described
+in the test file.
+
 ## The ORFS cleanup PR
 
 > Superseded in scope by
