@@ -131,29 +131,42 @@ stated rather than discovered.
 
 `--remote_cache` is single-valued. A user or organisation that already
 runs its own remote cache, typically configured in `~/.bazelrc` so it
-applies to every project, cannot have both. Bazel reads the workspace
-`.bazelrc` first and the home `.bazelrc` after it, and the last value
-wins, so the user's cache wins over ours. That is the right precedence,
-but it means neither side sees the other:
+applies to every project, cannot have both. Which one wins is decided by
+a rule that is easy to get wrong, so here it is as `--announce_rc`
+reports it: Bazel applies rc options **scope first, then file**. Every
+`common` line from every rc file is applied, then every `build` line from
+every rc file, and within a scope the workspace `.bazelrc` comes before
+`~/.bazelrc`. The last value of a flag wins. Two consequences:
 
-- With a private cache in `~/.bazelrc`, the project's public cache is
-  never consulted. The user pays the first compile of every tool bump
-  into their own cache and gets nothing from ours. Hits from the public
-  cache and hits from a private one do not add up.
-- A `user.bazelrc` pulled in by the workspace `try-import` sits before
-  the home rc, so it cannot override a home-rc cache either; only a
-  command-line flag or a later rc can.
-- `--remote_upload_local_results` and `--remote_header` from a home rc
-  also apply to whichever cache ends up selected. Pointing uploads at a
-  cache one has no credential for is harmless, the writes are rejected,
-  but it is a surprise in the log.
+- A `common --remote_cache=` in `~/.bazelrc` **loses** to a
+  `build --remote_cache=` in the project's `.bazelrc`, because all
+  `build` lines come after all `common` lines. Only a `build` line in
+  `~/.bazelrc` is applied after the project's `build` lines and wins.
+- The flags do not travel together. If the home rc's `common` scope
+  also sets `--experimental_remote_downloader=grpc://...` and the
+  project's `build` scope replaces the cache with an `https://` one,
+  the effective pair is an HTTPS cache with a gRPC downloader, which
+  Bazel rejects outright: *The remote downloader can only be used in
+  combination with gRPC caching*. Verified against OpenROAD's
+  `.bazelrc`, which is exactly this shape. A project cache line does not
+  merely shadow a user's setup; it can break their build.
 
-So the project line is a default for people who have nothing, and a
-no-op for people who have something better. Both should be true and
-documented. The escape hatches are `--remote_cache=` on the command line
-or in a later rc to disable, and a home-rc cache to replace. A private
-cache that wants the best of both would have to proxy to the public one
-as an upstream, which is a server-side feature and out of scope here.
+Whoever wins, neither side sees the other: with a private cache in
+effect the project's public cache is never consulted, and hits from the
+two do not add up. `--remote_upload_local_results` and `--remote_header`
+follow the same scope rule and apply to whichever cache ends up selected.
+
+So a project line is a default for people who have nothing, and either a
+no-op or a trap for people who have something better, depending on which
+scope they wrote theirs in. If bazel-orfs ships one, it should be in
+`build` scope (matching OpenROAD, so the rule is the same in both
+repositories), the README should state the scope rule and tell users
+with their own cache to write it as `build` lines in `~/.bazelrc`, and
+the downloader should be set in the same scope and same line group as
+the cache so the two cannot come apart. The escape hatch is
+`--remote_cache=` on the command line or in a later rc. A private cache
+that wants the best of both would have to proxy to the public one as an
+upstream, which is a server-side feature and out of scope here.
 
 ### 3. Conditions for a hit, and how to check them
 
