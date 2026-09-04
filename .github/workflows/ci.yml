@@ -111,6 +111,26 @@ jobs:
       - name: Load @orfs design packages
         run: bazelisk query '@orfs//flow/designs/...:*' > /dev/null
 
+      # Loading a package does not resolve the labels its rules reference.
+      # asap7/coralnpu loaded fine while its synth target pointed at
+      # //flow/designs/src/coralnpu, a directory ORFS had added with no
+      # BUILD; only analysis sees that edge. So analyse the flow targets
+      # themselves -- every design's _route, which pulls in synth through
+      # grt -- with --nobuild. Filtering to _route keeps out the bespoke
+      # ORFS targets (gcd_single_flow_*) that reference @openroad, which
+      # is why the step above is a query. ~1 minute for every platform.
+      #
+      # nangate45/mempool_group is excluded: its shipped
+      # src/mempool_group/rtl/BUILD is a bespoke filegroup with no
+      # exports_files, so the per-file labels config_mk_parser emits for
+      # it fail visibility. Pre-existing and unrelated to the generator;
+      # drop the exclusion when that BUILD is fixed.
+      - name: Analyse @orfs design flow targets
+        run: >
+          bazelisk build --nobuild --keep_going
+          $(bazelisk query 'filter("_route$", kind(rule, @orfs//flow/designs/...))
+          except @orfs//flow/designs/nangate45/mempool_group:all')
+
       # --- Unit tests ---
       - name: Run tests
         run: bazelisk test ... --build_tests_only --test_output=errors --profile=test.profile
