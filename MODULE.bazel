@@ -203,9 +203,12 @@ single_version_override(
     patches = ["//patches:rules_jvm_external_quiet.patch"],
 )
 
-bazel_dep(name = "rules_pycross", version = "0.8.3")
+# dev_dependency: configure_environments above is root-honored only, so
+# this pair does nothing for a downstream root, which must repeat it (as
+# ORFS does). sv-lang keeps pulling rules_pycross in transitively.
+bazel_dep(name = "rules_pycross", version = "0.8.3", dev_dependency = True)
 
-pycross = use_extension("@rules_pycross//pycross/extensions:pycross.bzl", "pycross")
+pycross = use_extension("@rules_pycross//pycross/extensions:pycross.bzl", "pycross", dev_dependency = True)
 pycross.configure_environments(python_versions = ["3.13"])
 
 bazel_dep(name = "qt-bazel")
