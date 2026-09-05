@@ -56,6 +56,11 @@ ORFS_PATCHES = [
     # RUN_CMD, so an override reaches every logged target except the
     # stage logs. --@bazel-orfs//:log_timestamps overrides RUN_CMD.
     Label("//patches:0048-orfs-flow-sh-honor-run-cmd.patch"),
+    # src/mempool_group/rtl's shipped BUILD is a bare filegroup, so the
+    # per-file labels config_mk_parser emits for nangate45/mempool_group
+    # are not visible. Not upstreamed yet -- carried here until it has
+    # proven itself; retire at the bump onto an ORFS that carries it.
+    Label("//patches:0049-orfs-mempool-rtl-files-include.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
