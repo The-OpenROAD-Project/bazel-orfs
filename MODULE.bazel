@@ -278,18 +278,6 @@ pip_dev.parse(
 )
 use_repo(pip_dev, "bazel-orfs-dev-pip")
 
-pip_features = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
-pip_features.parse(
-    extra_pip_args = [
-        "--index-url=https://pypi.org/simple",
-    ],
-    hub_name = "bazel-orfs-features-pip",
-    python_version = "3.13",
-    quiet = True,
-    requirements_lock = "//:requirements_features_lock_3_13.txt",
-)
-use_repo(pip_features, "bazel-orfs-features-pip")
-
 orfs = use_extension("//:extension.bzl", "orfs_repositories")
 
 # The ORFS version. This is the same public API bazel-orfs asks its

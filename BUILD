@@ -104,13 +104,6 @@ compile_pip_requirements(
     requirements_txt = "requirements_lock_3_13.txt",
 )
 
-compile_pip_requirements(
-    name = "requirements_features",
-    src = "requirements_features.in",
-    python_version = "3.13",
-    requirements_txt = "requirements_features_lock_3_13.txt",
-)
-
 # From any project using bazel-orfs run `bazelisk run @bazel-orfs//:bump`
 # to upgrade ORFS and bazel-orfs.
 py_binary(
@@ -288,6 +281,7 @@ py_binary(
 compile_pip_requirements(
     name = "requirements_dev",
     src = "requirements_dev.in",
+    python_version = "3.13",
     requirements_txt = "requirements_dev_lock_3_13.txt",
 )
 
