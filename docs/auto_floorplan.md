@@ -231,6 +231,10 @@ Without that argument the pin falls back to `BUILD_WORKSPACE_DIRECTORY`,
 which is right only when the design and the workspace are the same
 repository -- a design in this repo, or ORFS built as the root module.
 
+Running this campaign across ORFS's designs from a bazel-orfs checkout is
+the reason the `config.mk` DSL exists; see
+[docs/orfs-design-builds.md](orfs-design-builds.md#what-it-is-for).
+
 ## After pinning: rules-base.json comes from CI, not from here
 
 A pinned floorplan changes the design's QoR, so its `rules-base.json`

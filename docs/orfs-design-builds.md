@@ -13,6 +13,64 @@ nothing but which kind of files the directory holds:
 Their only reader is bazel, which ORFS does not itself use. bazel-orfs
 now generates them, so ORFS can stop carrying them.
 
+## What it is for
+
+The normal use case of bazel-orfs is idiomatic Bazel: a project writes
+`orfs_flow()` in its own BUILD file, next to its RTL and constraints, as
+[examples/BUILD](../examples/BUILD) does. That is the product. The
+`config.mk` DSL is the lab bench: it turns ORFS's own designs into Bazel
+targets so that an experiment can be run across all of them from this
+repository, with everything the experiment needs in a single pull
+request.
+
+One PR can carry an ORFS patch under `patches/`, an OpenROAD or Yosys
+patch on its `archive_override`, a change to bazel-orfs itself, and be
+judged against real designs by the CI steps that load and analyse every
+`@orfs//flow/designs` flow target. The pieces are upstreamed one by one
+when the churn is over, and the patches deleted here as they land. The
+[README](../README.md#carry-patches-while-upstream-decides) describes
+the patch-carrying side; this page describes the design side.
+
+The ORFS designs are the right test bed for two reasons. They are
+real: gcd through swerv_wrapper, six platforms, macros, hierarchy, the
+designs ORFS's own QoR dashboard tracks. And the OpenROAD maintainers
+know every pebble on that beach. A shift in `ibex` on asap7 or `aes` on
+nangate45 is recognised at a glance for what it is, noise, regression
+or improvement, in a way no private design can offer.
+
+The canonical experiment is parameter tuning. `CORE_UTILIZATION`,
+`CORE_MARGIN` and `PLACE_DENSITY` are human predictions standing where
+measurements should be; the auto-floorplan targets measure them
+instead. From this workspace, race candidate floorplans for as many
+designs as the machine warrants:
+
+```sh
+bazelisk build --keep_going \
+  @orfs//flow/designs/asap7/gcd:gcd_auto_floorplan_data \
+  @orfs//flow/designs/asap7/ibex:ibex_core_auto_floorplan_data
+```
+
+then write each winner into the design's `config.mk` in an ORFS checkout
+as ordinary variables, with the estimate JSON of that moment as the
+receipt:
+
+```sh
+bazelisk run @orfs//flow/designs/asap7/gcd:gcd_auto_floorplan_pin ~/ORFS
+```
+
+[docs/auto_floorplan.md](auto_floorplan.md) covers the race, the pin and
+the receipt; [docs/estimate.md](estimate.md#division-of-labor-recommendations-here-mechanics-in-orfs)
+the division of labour with ORFS's pin machinery. The same shape fits
+any theory that has to hold across designs rather than on one: a
+synthesis engine A/B (the `_syn_*` and `_yosys_*` variants the DSL
+emits), a repair_timing change, a new default for a flow variable.
+
+What it is not: a supported way to build every ORFS design, a DSL for
+describing your own project, or available downstream. Not all designs
+are hooked up, an ORFS bump that upsets one is a fix here rather than
+an incident, and the `@orfs_designs` repository only exists with
+bazel-orfs as the root module (see the next section).
+
 ## Driving an ORFS design from bazel-orfs
 
 The whole point of owning this knowledge here: an ORFS design can be built
