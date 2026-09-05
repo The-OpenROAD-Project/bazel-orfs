@@ -92,6 +92,34 @@ diff --git a/test/BUILD b/test/BUILD
      },
 ```
 
+### Hierarchical synthesis: discovered or pinned kept modules
+
+`SYNTH_HIERARCHICAL=1` synthesizes the kept modules in parallel, one
+yosys process per partition. Which modules are kept is decided one of two
+ways:
+
+- **Discovered** (no `SYNTH_KEEP_MODULES`): `synth_keep.tcl` runs ORFS's
+  keep decision, `keep_hierarchy -min_cost $SYNTH_MINIMUM_KEEP_SIZE`, at
+  build time, and a static 32 partitions divide the result. This is what
+  most hierarchical ORFS designs do, and it needs nothing from you.
+- **Pinned** (`SYNTH_KEEP_MODULES = a b c`): one partition and one
+  re-canonicalized RTLIL slice per named module. An RTL edit then re-runs
+  only the partitions whose module changed; in discovery mode every
+  partition re-runs, because none can key on a per-module slice.
+
+So pinning is a caching optimisation for a design you iterate on, not a
+requirement. To capture the list ORFS would discover:
+
+```sh
+make DESIGN_CONFIG=<config.mk> SYNTH_KEEP_MODULES= clean_synth synth
+cat results/<platform>/<design>/base/kept_modules.json
+```
+
+and paste the names into `SYNTH_KEEP_MODULES` in the design's config.mk
+or `arguments`. `asap7/swerv_wrapper` in ORFS is the worked example. The
+list drifts with the RTL: a renamed or removed module fails synthesis
+with a clear message rather than silently flattening.
+
 ## Work with macros and abstracts
 
 ### Generate abstracts
