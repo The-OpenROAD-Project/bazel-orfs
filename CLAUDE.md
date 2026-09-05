@@ -58,6 +58,12 @@ Just run:
 bazelisk run //:fix_lint
 ```
 
+When touching `MODULE.bazel` or a `visibility`, also run
+`bazelisk run //:public_surface`. It fails on a non-dev `bazel_dep`
+nothing shipped uses, on a shipped file naming a dev-only repo, and on a
+public target under `test/`; the docstring in `public_surface.py` is the
+policy. CI runs it after lint.
+
 ## Bumping: the 30-day rolling window
 
 `bazelisk run //:bump` supports `MODULE.bazel` files whose `bazel-orfs`

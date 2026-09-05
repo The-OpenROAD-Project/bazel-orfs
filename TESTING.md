@@ -43,6 +43,7 @@ Tests mock the external environment so they run in the Bazel sandbox.
 | `//:bump` | Upgrade ORFS/bazel-orfs/OpenROAD versions | `//test/bump:bump_test` | Mock fetch functions, fixture MODULE.bazel |
 | `//:bump` (window policy) | Refuse a bazel-orfs pin older than 30 days | `//test/bump:bump_test`, `//:bump_compat_test` | Mock commit dates; scan for aged COMPAT markers |
 | `//:fix_lint` | Format changed Bazel/Python files | `//test:fix_lint_test` | Unit test core logic, mock git/buildifier |
+| `//:public_surface` | Check MODULE.bazel's dev/non-dev split against shipped files | `//test:public_surface_test` | Synthetic trees per rule; CI runs it on the real tree |
 | `//:klayout` | Launch KLayout viewer | `//test:klayout_wrapper_test` | Mock klayout on PATH |
 | `//:openroad` | Launch OpenROAD CLI | `//test:openroad_wrapper_test` | Mock openroad on PATH |
 | `//:plot_clock_period_tool` | Generate PPA plots from metrics | `//test:plot_clock_period_test` | Fixture YAML inputs, verify CSV/YAML output |

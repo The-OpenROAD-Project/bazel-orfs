@@ -270,6 +270,23 @@ py_library(
     visibility = ["//test:__pkg__"],
 )
 
+# `bazelisk run //:public_surface` checks MODULE.bazel's dev/non-dev split
+# against what actually ships: no non-dev bazel_dep nothing shipped uses,
+# no shipped file naming a dev-only repo, nothing public under test/. CI
+# runs it after lint. Reads the tree through git, so it is a run, not a
+# hermetic test; //test:public_surface_test covers the rules.
+py_library(
+    name = "public_surface_lib",
+    srcs = ["public_surface.py"],
+    visibility = ["//test:__pkg__"],
+)
+
+py_binary(
+    name = "public_surface",
+    srcs = ["public_surface.py"],
+    main = "public_surface.py",
+)
+
 # Not public: buildifier_prebuilt is a dev dependency, so this can only
 # ever run from a clone of this repo.
 py_binary(
