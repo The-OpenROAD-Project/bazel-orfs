@@ -63,7 +63,7 @@ py_binary(
     name = "naja_clean",
     srcs = ["naja_clean.py"],
     deps = [
-        "@bazel-orfs-features-pip//najaeda",
+        "@bazel-orfs-dev-pip//najaeda",
         "@bazel-orfs-pip//pyyaml",
     ],
 )
