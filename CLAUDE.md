@@ -5,15 +5,20 @@
 Always use `git commit -s` to include a `Signed-off-by` trailer.
 
 You may push feature branches and open, comment on, and update pull
-requests yourself — on this repo and on external repos (via forks) — but
-**only after running the Confidentiality purge** (see below) over
-everything that will leave this machine.
+requests yourself **on this repo** — but **only after running the
+Confidentiality purge** (see below) over everything that will leave this
+machine.
 
 **Always human-only, on every repo** — never do these yourself:
 
 - `gh pr merge` (or merging via `gh api`) — merging is the human's call.
 - `git push` to `main` or any protected branch. Push to a feature branch
   and open a PR instead.
+- **Anything that writes to an upstream repository** — ORFS, OpenROAD,
+  yosys, the BCR, any repo that is not bazel-orfs: opening a pull request
+  or issue, commenting on one, pushing a branch to a fork for one. See
+  "Upstream repositories" below. The human decides if and when to
+  upstream; you carry the fix here as a patch until then.
 
 If you are on `main` or a detached `HEAD`, create a feature branch before
 committing.
@@ -101,17 +106,30 @@ mechanics:
 - `/odb-to-cpp` — turn a whittled `.odb` into a self-contained C++ unit test.
 
 
-### External actions
+### Upstream repositories: moratorium on pull requests
 
-The Git policy above (push / PR / merge rules) and the Confidentiality
-purge apply to external repos too. In short: after a
-confidentiality purge you may push feature branches and open, comment on,
-and update PRs on any repo. `gh pr merge` and pushes to `main`/protected
-branches stay human-only everywhere. Use other GitHub API writes (`gh api`
-POST/PUT/PATCH/DELETE) only for an action that is already allowed,
-post-purge — never for merges, branch protection, or repo administration.
+Upstream repositories are **read-only for you** unless the human gives an
+explicit order for a specific change. That covers every write: opening a
+pull request or issue, commenting on one, pushing a branch to a fork in
+preparation for one, any `gh api` write. It applies to ORFS, OpenROAD,
+OpenSTA, yosys, the BCR and its modules, and every other repository that
+is not bazel-orfs. A fix being correct, small, or obviously wanted is not
+permission; neither is the fix having been carried here for a while.
 
-Prepare the content, run the purge, then publish.
+When a fix is needed upstream, **carry it here as a patch**: a
+`patches/00NN-orfs-*.patch` listed in `ORFS_PATCHES` (`orfs_source.bzl`)
+for ORFS, the equivalent override mechanism for other modules. The patch
+header says what it fixes, that it is not upstreamed, and how it retires
+(the `//:bump` onto an upstream that carries the change). Carrying it
+here is what proves the fix is needed and lets it churn where the churn is
+cheap; the human prompts the upstream PR when the fix has settled and the
+timing is right. Report carried patches as candidates for upstreaming;
+do not act on them.
+
+Within this repo, the Git policy above and the Confidentiality purge
+still govern every push and PR. Use `gh api` writes here only for an
+action that is already allowed, post-purge — never for merges, branch
+protection, or repo administration.
 
 ## AI Guardrails
 
