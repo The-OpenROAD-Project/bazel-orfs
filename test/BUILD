@@ -857,6 +857,55 @@ sh_test(
     data = [":flattened_modules_synth_netlist"],
 )
 
+# The config.mk DSL end to end, in seconds. kept_modules_synth and
+# discovered_modules_synth above drive orfs_synth directly; nothing
+# drove private/orfs_design.bzl -- the SYNTH_NUM_PARTITIONS defaulting,
+# the SYNTH_KEEP_MODULES parsing, the discovery-mode note -- although it
+# is the path every ORFS design takes. Discovery mode was broken for
+# three months (f3c5254 .. #911) without a test noticing. These two
+# fixtures under flow/designs/asap7/ (see flow/BUILD) are the same
+# three-module design through design(), one branch each.
+[
+    (
+        build_test(
+            name = "dsl_%s_synth_test" % fixture,
+            targets = ["//flow/designs/asap7/%s:kept_modules_top_synth" % fixture],
+        ),
+        filegroup(
+            name = "dsl_%s_netlist" % fixture,
+            srcs = ["//flow/designs/asap7/%s:kept_modules_top_synth" % fixture],
+            output_group = "1_2_yosys.v",
+        ),
+        sh_test(
+            name = "dsl_%s_netlist_test" % fixture,
+            size = "small",
+            srcs = ["synth_discovery_netlist_test.sh"],
+            args = [
+                "$(location :dsl_%s_netlist)" % fixture,
+                "adder",
+                "counter",
+                "kept_modules_top",
+            ],
+            data = [":dsl_%s_netlist" % fixture],
+        ),
+    )
+    for fixture in [
+        "hier_discovery",
+        "hier_pinned",
+    ]
+]
+
+# One real ORFS design in discovery mode, minutes: 24 modules, and at its
+# SYNTH_MINIMUM_KEEP_SIZE of 10000 exactly one (dmem) stays a boundary.
+# It is what caught both the top-module-in-the-kept-list bug (#911) and
+# the ignored threshold (#913): the 30-gate shifter, kept when it should
+# not have been, has `input signed` ports OpenSTA rejects. A build_test
+# for the same reason mock-alu is one: the flow running is the question.
+build_test(
+    name = "orfs_riscv32i_synth_build_test",
+    targets = ["@orfs//flow/designs/asap7/riscv32i:riscv_top_synth"],
+)
+
 # Lock the SDC/clock-period split on the serial synth path (Mul_synth):
 # the expensive actions read only the extracted clock_period.txt; the raw
 # SDC feeds only the cheap extraction and sdc-copy actions, so a
