@@ -94,6 +94,11 @@ jobs:
           bazelisk run //:fix_lint
           git diff --exit-code
 
+      # MODULE.bazel's dev/non-dev split against what ships: see
+      # public_surface.py for the three rules it enforces.
+      - name: Public surface
+        run: bazelisk run //:public_surface
+
       # --- @orfs design packages ---
       #
       # Loading every design package catches API skew between this repo and

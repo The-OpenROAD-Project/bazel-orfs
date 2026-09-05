@@ -1743,6 +1743,12 @@ py_test(
     deps = ["//:fix_lint_lib"],
 )
 
+py_test(
+    name = "public_surface_test",
+    srcs = ["public_surface_test.py"],
+    deps = ["//:public_surface_lib"],
+)
+
 sh_test(
     name = "klayout_wrapper_test",
     srcs = ["tool_wrapper_test.sh"],
