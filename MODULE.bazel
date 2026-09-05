@@ -223,8 +223,6 @@ git_override(
     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
 )
 
-bazel_dep(name = "glpk", version = "5.0.bcr.5")
-
 # Hermetic C++ toolchain for building OpenROAD (and yosys, gnumake) from
 # source: the BCR "llvm" module (hermetic-llvm) — the same statically linked,
 # zero-sysroot LLVM that OpenROAD itself registers. No host compiler and no
@@ -252,7 +250,6 @@ python.toolchain(
     is_default = True,
     python_version = "3.13",
 )
-use_repo(python, "python_3_13_host")
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
