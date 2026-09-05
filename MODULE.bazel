@@ -208,7 +208,11 @@ bazel_dep(name = "rules_pycross", version = "0.8.3")
 pycross = use_extension("@rules_pycross//pycross/extensions:pycross.bzl", "pycross")
 pycross.configure_environments(python_versions = ["3.13"])
 
-bazel_dep(name = "qt-bazel")
+# dev_dependency: this version-less bazel_dep only exists so the root-only
+# git_override below has something to apply to. Downstream, openroad's own
+# bazel_dep(qt-bazel) plus the consumer's root override carry it, as
+# README.md and docs/openroad.md already require.
+bazel_dep(name = "qt-bazel", dev_dependency = True)
 git_override(
     module_name = "qt-bazel",
     commit = "5587ebcaf61bab7abe8e69c4db6d068b35562245",
