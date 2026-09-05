@@ -1,0 +1,42 @@
+Use files() for src/mempool_group/rtl so its sources export individually.
+
+nangate45/mempool_group's VERILOG_FILES names the files under
+src/mempool_group/rtl one by one. config_mk_parser turns each into a
+per-file label, and ORFS's bare filegroup over a glob makes those files
+private to the package, so the design fails analysis with a visibility
+error on every one of them. files("include", extra_srcs = ...) is the
+same filegroup -- same glob, same five sibling-package headers -- plus
+the per-file exports.
+
+Not upstreamed. Carried here until the fix has proven itself and the
+maintainer decides the timing is right for an ORFS pull request; retire
+the patch at the first //:bump onto an ORFS that carries the change, and
+re-record orfs_design_builds.bzl then.
+
+diff --git a/flow/designs/src/mempool_group/rtl/BUILD b/flow/designs/src/mempool_group/rtl/BUILD
+index c9161cd38..d43f51f4c 100644
+--- a/flow/designs/src/mempool_group/rtl/BUILD
++++ b/flow/designs/src/mempool_group/rtl/BUILD
+@@ -1,11 +1,18 @@
+-filegroup(
+-    name = "include",
+-    srcs = glob(["*.v", "*.sv", "*.svh"], allow_empty = True) + [
++load("//flow/designs:design.bzl", "files")
++
++# files() rather than a bare filegroup: the globbed sources are then also
++# exported as individual labels, which the config.mk parser in bazel-orfs
++# needs -- nangate45/mempool_group's VERILOG_FILES names files in this
++# directory one by one, and a bare filegroup makes them private to it.
++# The extra sources are the headers from sibling packages that the
++# include group has always carried.
++files(
++    "include",
++    extra_srcs = [
+         "//flow/designs/src/mempool_group/rtl/axi:assign.svh",
+         "//flow/designs/src/mempool_group/rtl/axi:typedef.svh",
+         "//flow/designs/src/mempool_group/rtl/common_cells:assertions.svh",
+         "//flow/designs/src/mempool_group/rtl/common_cells:registers.svh",
+         "//flow/designs/src/mempool_group/rtl/mempool:mempool.svh",
+     ],
+-    visibility = ["//visibility:public"],
+ )
