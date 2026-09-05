@@ -199,8 +199,8 @@ patch if it's redundant.
 
 ### Direct-dependency drift
 A master bump pulls newer transitive versions; `root requires X but got Y`
-warnings mean you should sync the direct-dep pins (e.g. `rules_cc`, `abc`,
-`glpk`) and any lockstep maps (yosys ↔ abc in `bump.py`).
+warnings mean you should sync the direct-dep pins (e.g. `rules_cc`, `abc`)
+and any lockstep maps (yosys ↔ abc in `bump.py`).
 
 ### `--lockfile_mode=off`
 This repo runs with `--lockfile_mode=off`, so there is no `MODULE.bazel.lock` to
