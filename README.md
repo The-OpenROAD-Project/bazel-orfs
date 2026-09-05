@@ -308,7 +308,6 @@ one by one and deleted here as they land.
 | Pin slow-to-build artifacts | [tools/pin/README.md](tools/pin/README.md) |
 | Upgrade bazel-orfs, ORFS or OpenROAD | [Upgrade bazel-orfs](#upgrade-bazel-orfs) |
 | Target and stage naming, internals | [docs/reference.md](docs/reference.md) |
-| Retired features | [docs/history.md](docs/history.md) |
 
 ### Additional tools and integrations
 
