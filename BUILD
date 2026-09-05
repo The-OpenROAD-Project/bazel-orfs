@@ -277,12 +277,13 @@ py_library(
     visibility = ["//test:__pkg__"],
 )
 
+# Not public: buildifier_prebuilt is a dev dependency, so this can only
+# ever run from a clone of this repo.
 py_binary(
     name = "fix_lint",
     srcs = ["fix_lint.py"],
     data = ["@buildifier_prebuilt//:buildifier"],
     main = "fix_lint.py",
-    visibility = ["//visibility:public"],
 )
 
 compile_pip_requirements(
