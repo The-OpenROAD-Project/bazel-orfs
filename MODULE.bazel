@@ -325,6 +325,10 @@ orfs_designs = use_repo_rule("//private:designs.bzl", "orfs_designs")
 orfs_designs(
     name = "orfs_designs",
     designs_dir = "@orfs//flow/designs:BUILD",
+    # Only bazel-orfs as root loads @orfs//flow/designs/...; ORFS and
+    # OpenROAD instantiate their own orfs_designs, so this one is dev-only
+    # and a downstream root never has to resolve it.
+    dev_dependency = True,
     # MODULE.bazel cannot load(), so this list is spelled out rather
     # than shared with ORFS_BAZEL_PLATFORMS in orfs_source.bzl, which
     # drives design BUILD generation. //test:orfs_platforms_test holds

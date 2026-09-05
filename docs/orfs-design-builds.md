@@ -24,6 +24,15 @@ bazelisk run @orfs//flow/designs/asap7/gcd:gcd_final
 bazelisk test @orfs//flow/designs/asap7/gcd:gcd_test
 ```
 
+This works from a clone of bazel-orfs only. The `@orfs_designs` repository
+the generated BUILDs load from is declared `dev_dependency = True` in
+`MODULE.bazel`, so a downstream root that depends on bazel-orfs does not
+get it, and `@orfs//flow/designs/...` fails to load there with "no
+repository visible as `@orfs_designs`". ORFS and OpenROAD each declare
+their own `orfs_designs` for their own design trees, and a project that
+wants ORFS's designs from its own workspace does the same (see the
+`orfs_designs` call at the end of `MODULE.bazel`).
+
 Note the path: designs live under **`flow/designs/`**, not `designs/`.
 `@orfs//designs/asap7/gcd` fails with
 
