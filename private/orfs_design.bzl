@@ -240,16 +240,16 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
     # is identical across machines and remote cache hits are possible.  Users
     # who prefer local parallelism over caching can pass NUM_CPUS explicitly.
     if arguments.get("SYNTH_HIERARCHICAL") == "1":
+        # No SYNTH_KEEP_MODULES is discovery mode: synth_keep.tcl finds the
+        # kept modules inside a build action and the partitions read the
+        # global keep checkpoint. It works; what a pinned list adds is a
+        # per-module cache barrier (rules.bzl declares one slice action per
+        # name, which needs the names at analysis time). That is a
+        # performance choice for the design's owner, documented in
+        # docs/customize.md, not something to print at every load of the
+        # package -- twenty ORFS designs are in this mode, and a
+        # load-time note for a working configuration is noise.
         kept = keep_modules(arguments)
-        if not kept:
-            # Discovery mode: synth_keep.tcl finds the kept modules inside
-            # a build action and the partitions read the global keep
-            # checkpoint. It works, but every partition re-runs on any RTL
-            # edit, because none of them can key on a per-module slice
-            # (rules.bzl declares those from the names, which do not exist
-            # at analysis time). Pinning the list is the cache fix, and
-            # the capture recipe is the same as ORFS's.
-            print("%s sets SYNTH_HIERARCHICAL=1 with no SYNTH_KEEP_MODULES: parallel synthesis discovers the kept modules at build time, so every partition re-synthesizes on any RTL edit. To make partitions cache per module, pin the list in the design's config.mk -- capture it with `make DESIGN_CONFIG=<config.mk> SYNTH_KEEP_MODULES= clean_synth synth` and read results/<platform>/<design>/base/kept_modules.json." % name)  # buildifier: disable=print
 
         if "SYNTH_NUM_PARTITIONS" not in arguments:
             # One partition per pinned module; a static 32 in discovery
