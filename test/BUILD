@@ -779,6 +779,9 @@ orfs_synth(
     arguments = {
         "SDC_FILE": "$(location :constraints-top.sdc)",
         "SYNTH_HIERARCHICAL": "1",
+        # Keep every module regardless of size: adder and counter are a
+        # few dozen gates, far under asap7's platform default of 1000.
+        "SYNTH_MINIMUM_KEEP_SIZE": "0",
         "SYNTH_NUM_PARTITIONS": "2",
     },
     data = [":constraints-top.sdc"],
@@ -813,6 +816,45 @@ sh_test(
         "kept_modules_top",
     ],
     data = [":discovered_modules_synth_netlist"],
+)
+
+# The threshold's other side: with SYNTH_MINIMUM_KEEP_SIZE above every
+# module's estimated size, discovery keeps nothing, every partition is
+# empty and the top partition synthesizes the whole flattened design.
+# This is the ORFS behaviour e46fca0 lost -- asap7/riscv32i's 30-gate
+# shifter stayed a boundary and its `input signed` ports broke
+# do-1_synth -- pinned here so the threshold is known to be honoured.
+orfs_synth(
+    name = "flattened_modules_synth",
+    arguments = {
+        "SDC_FILE": "$(location :constraints-top.sdc)",
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_MINIMUM_KEEP_SIZE": "100000",
+        "SYNTH_NUM_PARTITIONS": "2",
+    },
+    data = [":constraints-top.sdc"],
+    module_top = "kept_modules_top",
+    variant = "flattened",
+    verilog_files = ["rtl/kept_modules_top.v"],
+)
+
+filegroup(
+    name = "flattened_modules_synth_netlist",
+    srcs = [":flattened_modules_synth"],
+    output_group = "1_2_yosys.v",
+)
+
+sh_test(
+    name = "flattened_modules_netlist_test",
+    size = "small",
+    srcs = ["synth_discovery_netlist_test.sh"],
+    args = [
+        "$(location :flattened_modules_synth_netlist)",
+        "kept_modules_top",
+        "!adder",
+        "!counter",
+    ],
+    data = [":flattened_modules_synth_netlist"],
 )
 
 # Lock the SDC/clock-period split on the serial synth path (Mul_synth):
