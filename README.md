@@ -80,18 +80,24 @@ bazelisk query '@orfs//flow/designs/nangate45/aes:*' | grep '_final$'
 bazelisk run @orfs//flow/designs/nangate45/aes:aes_cipher_top_grt gui_grt
 ```
 
-Mileage varies. This is a testing facility, not a supported way to build
-every ORFS design: not all designs are hooked up, and an ORFS bump that
-upsets one is a fix here, not an incident. Nor is consuming `config.mk`
-as a domain-specific language the recommended way to describe your own
-project. For that, write idiomatic Bazel as in the next section.
+This is not how you describe your own project. The expectation is
+idiomatic Bazel: an `orfs_flow()` in your own BUILD file, as in the next
+section and in [examples/](examples/). Consuming `config.mk` as a
+domain-specific language is a facility for experiments inside bazel-orfs:
+try a theory across many real designs, carrying the OpenROAD, ORFS and
+bazel-orfs patches it needs in a single pull request, before anything is
+upstreamed. The canonical experiment is parameter tuning, such as racing
+and pinning floorplan parameters across every ORFS design with the
+auto-floorplan targets ([docs/auto_floorplan.md](docs/auto_floorplan.md)).
+The ORFS designs are the right test bed for that because the OpenROAD
+maintainers know every pebble on that beach: a shift in any of them is
+recognised for what it is.
 
-It exists here for one reason: a single pull request against bazel-orfs
-can exercise a change to bazel-orfs, ORFS, OpenROAD and Yosys at once,
-against real designs, before the pieces are upstreamed as individual PRs
-once the churn is over. See
-[docs/orfs-design-builds.md](docs/orfs-design-builds.md) for how the
-`config.mk` files are consumed.
+Mileage varies. It is a testing facility, not a supported way to build
+every ORFS design: not all designs are hooked up, and an ORFS bump that
+upsets one is a fix here, not an incident. See
+[docs/orfs-design-builds.md](docs/orfs-design-builds.md) for what the
+facility is for and how the `config.mk` files are consumed.
 
 ### Build the example flow
 
@@ -301,7 +307,7 @@ one by one and deleted here as they land.
 | Monitor a long-running build | [docs/performance.md](docs/performance.md#monitor-long-running-builds) |
 | Understand where CI time goes | [docs/performance.md](docs/performance.md#where-ci-time-goes) |
 | Query timing interactively | [docs/performance.md](docs/performance.md#query-timing-interactively) |
-| Build an ORFS design from `config.mk` | [docs/orfs-design-builds.md](docs/orfs-design-builds.md) |
+| Experiment across ORFS designs (the `config.mk` DSL) | [docs/orfs-design-builds.md](docs/orfs-design-builds.md) |
 | Debug or create a `make issue` archive | [docs/reference.md](docs/reference.md#create-a-make-issue-archive), [docs/debugging.md](docs/debugging.md) |
 | Diagnose a build failure on my host | [docs/debugging.md](docs/debugging.md#host-platform--older-distributions) |
 | Fast PPA estimate, gate a PR against merge-base | [docs/estimate.md](docs/estimate.md) |
