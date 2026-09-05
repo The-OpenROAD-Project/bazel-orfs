@@ -338,3 +338,15 @@ orfs_designs(
         "sky130hs",
     ],
 )
+
+# The config.mk DSL fixtures under flow/designs/ (see flow/BUILD): the same
+# repository rule, parsing this repository's own fixture configs, so the
+# DSL path every ORFS design takes can be tested here in seconds. Must
+# stay below the ORFS instance: //test:orfs_platforms_test reads the
+# first orfs_designs() call it finds.
+orfs_designs(
+    name = "bazel_orfs_test_designs",
+    designs_dir = "//flow/designs:BUILD",
+    dev_dependency = True,
+    platforms = ["asap7"],
+)
