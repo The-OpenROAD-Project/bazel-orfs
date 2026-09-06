@@ -1,0 +1,2147 @@
+{
+  "collected": "2026-09-06",
+  "repository": "The-OpenROAD-Project/OpenROAD",
+  "sample_per_state": 120,
+  "summary": [
+    {
+      "label": "merged",
+      "pull_requests": 112,
+      "bot_threads": 248,
+      "human_threads": 52,
+      "bot_thread_share": 0.827,
+      "zero_human_engagement": 12,
+      "zero_human_engagement_share": 0.107,
+      "commits_after_bot_before_human": 45,
+      "commits_after_bot_before_human_share": 0.402,
+      "median_days_open": 0.96
+    },
+    {
+      "label": "abandoned",
+      "pull_requests": 99,
+      "bot_threads": 431,
+      "human_threads": 45,
+      "bot_thread_share": 0.905,
+      "zero_human_engagement": 30,
+      "zero_human_engagement_share": 0.303,
+      "commits_after_bot_before_human": 36,
+      "commits_after_bot_before_human_share": 0.364,
+      "median_days_open": 9.24
+    }
+  ],
+  "rows": {
+    "merged": [
+      {
+        "number": 11262,
+        "merged": true,
+        "bot_threads": 6,
+        "human_threads": 0,
+        "human_engagement": 6,
+        "commits": 4,
+        "commits_after_bot_before_human": 2,
+        "days_open": 7.769016203703703
+      },
+      {
+        "number": 9169,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.3370486111111111
+      },
+      {
+        "number": 11224,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 10,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 11.026284722222222
+      },
+      {
+        "number": 11330,
+        "merged": true,
+        "bot_threads": 3,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 8,
+        "commits_after_bot_before_human": 3,
+        "days_open": 0.964224537037037
+      },
+      {
+        "number": 11342,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.002685185185185185
+      },
+      {
+        "number": 11341,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.005092592592592593
+      },
+      {
+        "number": 11331,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.4056828703703704
+      },
+      {
+        "number": 11319,
+        "merged": true,
+        "bot_threads": 2,
+        "human_threads": 0,
+        "human_engagement": 4,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 1.7367939814814815
+      },
+      {
+        "number": 11332,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 1,
+        "days_open": 0.2532986111111111
+      },
+      {
+        "number": 11313,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.4790625
+      },
+      {
+        "number": 11282,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 2,
+        "human_engagement": 4,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 1.8581712962962964
+      },
+      {
+        "number": 11268,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 2.906388888888889
+      },
+      {
+        "number": 11299,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.14748842592592593
+      },
+      {
+        "number": 11255,
+        "merged": true,
+        "bot_threads": 2,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 16,
+        "commits_after_bot_before_human": 0,
+        "days_open": 5.373402777777778
+      },
+      {
+        "number": 11294,
+        "merged": true,
+        "bot_threads": 3,
+        "human_threads": 0,
+        "human_engagement": 4,
+        "commits": 2,
+        "commits_after_bot_before_human": 1,
+        "days_open": 0.3216550925925926
+      },
+      {
+        "number": 11284,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 1.283599537037037
+      },
+      {
+        "number": 11288,
+        "merged": true,
+        "bot_threads": 3,
+        "human_threads": 1,
+        "human_engagement": 5,
+        "commits": 7,
+        "commits_after_bot_before_human": 2,
+        "days_open": 0.9120254629629629
+      },
+      {
+        "number": 10977,
+        "merged": true,
+        "bot_threads": 5,
+        "human_threads": 2,
+        "human_engagement": 6,
+        "commits": 44,
+        "commits_after_bot_before_human": 4,
+        "days_open": 40.11122685185185
+      },
+      {
+        "number": 11232,
+        "merged": true,
+        "bot_threads": 2,
+        "human_threads": 0,
+        "human_engagement": 3,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 7.228310185185185
+      },
+      {
+        "number": 11289,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 5,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.26438657407407407
+      },
+      {
+        "number": 11256,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 3,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.16677083333333334
+      },
+      {
+        "number": 11121,
+        "merged": true,
+        "bot_threads": 2,
+        "human_threads": 2,
+        "human_engagement": 7,
+        "commits": 24,
+        "commits_after_bot_before_human": 14,
+        "days_open": 19.863344907407406
+      },
+      {
+        "number": 11264,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 1,
+        "human_engagement": 3,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 1.5708333333333333
+      },
+      {
+        "number": 11252,
+        "merged": true,
+        "bot_threads": 2,
+        "human_threads": 0,
+        "human_engagement": 3,
+        "commits": 8,
+        "commits_after_bot_before_human": 1,
+        "days_open": 0.9363078703703703
+      },
+      {
+        "number": 11257,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.008946759259259258
+      },
+      {
+        "number": 11243,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 4,
+        "commits": 3,
+        "commits_after_bot_before_human": 0,
+        "days_open": 1.3399421296296297
+      },
+      {
+        "number": 11246,
+        "merged": true,
+        "bot_threads": 5,
+        "human_threads": 0,
+        "human_engagement": 3,
+        "commits": 17,
+        "commits_after_bot_before_human": 1,
+        "days_open": 0.8772453703703704
+      },
+      {
+        "number": 11251,
+        "merged": true,
+        "bot_threads": 6,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 1,
+        "days_open": 0.7226851851851852
+      },
+      {
+        "number": 11181,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 9,
+        "commits_after_bot_before_human": 0,
+        "days_open": 7.98869212962963
+      },
+      {
+        "number": 11254,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.01607638888888889
+      },
+      {
+        "number": 11230,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 5,
+        "commits_after_bot_before_human": 3,
+        "days_open": 0.4163425925925926
+      },
+      {
+        "number": 11244,
+        "merged": true,
+        "bot_threads": 2,
+        "human_threads": 1,
+        "human_engagement": 5,
+        "commits": 10,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.20041666666666666
+      },
+      {
+        "number": 11239,
+        "merged": true,
+        "bot_threads": 6,
+        "human_threads": 0,
+        "human_engagement": 5,
+        "commits": 6,
+        "commits_after_bot_before_human": 4,
+        "days_open": 0.6516203703703703
+      },
+      {
+        "number": 11233,
+        "merged": true,
+        "bot_threads": 4,
+        "human_threads": 1,
+        "human_engagement": 10,
+        "commits": 7,
+        "commits_after_bot_before_human": 3,
+        "days_open": 0.95625
+      },
+      {
+        "number": 11212,
+        "merged": true,
+        "bot_threads": 8,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 5,
+        "commits_after_bot_before_human": 4,
+        "days_open": 2.8093518518518517
+      },
+      {
+        "number": 11240,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.04880787037037037
+      },
+      {
+        "number": 11238,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.07228009259259259
+      },
+      {
+        "number": 11102,
+        "merged": true,
+        "bot_threads": 7,
+        "human_threads": 1,
+        "human_engagement": 8,
+        "commits": 15,
+        "commits_after_bot_before_human": 13,
+        "days_open": 18.05369212962963
+      },
+      {
+        "number": 11227,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.7565393518518518
+      },
+      {
+        "number": 11231,
+        "merged": true,
+        "bot_threads": 3,
+        "human_threads": 1,
+        "human_engagement": 5,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.3661111111111111
+      },
+      {
+        "number": 11228,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 1,
+        "days_open": 0.6816782407407408
+      },
+      {
+        "number": 11235,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.12284722222222222
+      },
+      {
+        "number": 11089,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 1,
+        "human_engagement": 8,
+        "commits": 20,
+        "commits_after_bot_before_human": 1,
+        "days_open": 14.74900462962963
+      },
+      {
+        "number": 11216,
+        "merged": true,
+        "bot_threads": 2,
+        "human_threads": 2,
+        "human_engagement": 8,
+        "commits": 8,
+        "commits_after_bot_before_human": 0,
+        "days_open": 1.140648148148148
+      },
+      {
+        "number": 10706,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 65.51524305555556
+      },
+      {
+        "number": 11215,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 3,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 1.2829745370370371
+      },
+      {
+        "number": 11207,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 2.8319907407407405
+      },
+      {
+        "number": 11201,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 4,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 3.3729282407407406
+      },
+      {
+        "number": 11221,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.055011574074074074
+      },
+      {
+        "number": 11220,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.040636574074074075
+      },
+      {
+        "number": 11213,
+        "merged": true,
+        "bot_threads": 2,
+        "human_threads": 1,
+        "human_engagement": 4,
+        "commits": 5,
+        "commits_after_bot_before_human": 1,
+        "days_open": 0.7642245370370371
+      },
+      {
+        "number": 10972,
+        "merged": true,
+        "bot_threads": 8,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 12,
+        "commits_after_bot_before_human": 6,
+        "days_open": 32.29613425925926
+      },
+      {
+        "number": 11210,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.5627893518518519
+      },
+      {
+        "number": 10966,
+        "merged": true,
+        "bot_threads": 10,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 11,
+        "commits_after_bot_before_human": 6,
+        "days_open": 32.50853009259259
+      },
+      {
+        "number": 10946,
+        "merged": true,
+        "bot_threads": 5,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 5,
+        "commits_after_bot_before_human": 3,
+        "days_open": 35.98517361111111
+      },
+      {
+        "number": 10910,
+        "merged": true,
+        "bot_threads": 6,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 9,
+        "commits_after_bot_before_human": 2,
+        "days_open": 39.178263888888885
+      },
+      {
+        "number": 11193,
+        "merged": true,
+        "bot_threads": 3,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 4,
+        "commits_after_bot_before_human": 1,
+        "days_open": 2.1133217592592595
+      },
+      {
+        "number": 11208,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.07393518518518519
+      },
+      {
+        "number": 10878,
+        "merged": true,
+        "bot_threads": 5,
+        "human_threads": 2,
+        "human_engagement": 7,
+        "commits": 7,
+        "commits_after_bot_before_human": 0,
+        "days_open": 42.308877314814815
+      },
+      {
+        "number": 11202,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 4,
+        "commits_after_bot_before_human": 1,
+        "days_open": 0.4409722222222222
+      },
+      {
+        "number": 11155,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 8,
+        "human_engagement": 11,
+        "commits": 4,
+        "commits_after_bot_before_human": 0,
+        "days_open": 5.8435648148148145
+      },
+      {
+        "number": 11203,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.32180555555555557
+      },
+      {
+        "number": 11187,
+        "merged": true,
+        "bot_threads": 3,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 5,
+        "commits_after_bot_before_human": 4,
+        "days_open": 1.9706712962962962
+      },
+      {
+        "number": 11195,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 4,
+        "commits": 4,
+        "commits_after_bot_before_human": 0,
+        "days_open": 1.0064814814814815
+      },
+      {
+        "number": 11206,
+        "merged": true,
+        "bot_threads": 2,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.07587962962962963
+      },
+      {
+        "number": 11186,
+        "merged": true,
+        "bot_threads": 3,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 4,
+        "commits_after_bot_before_human": 0,
+        "days_open": 1.784560185185185
+      },
+      {
+        "number": 11190,
+        "merged": true,
+        "bot_threads": 5,
+        "human_threads": 3,
+        "human_engagement": 11,
+        "commits": 2,
+        "commits_after_bot_before_human": 1,
+        "days_open": 1.0983912037037038
+      },
+      {
+        "number": 11199,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.18182870370370371
+      },
+      {
+        "number": 11134,
+        "merged": true,
+        "bot_threads": 7,
+        "human_threads": 8,
+        "human_engagement": 23,
+        "commits": 6,
+        "commits_after_bot_before_human": 1,
+        "days_open": 7.913043981481482
+      },
+      {
+        "number": 11194,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.047581018518518516
+      },
+      {
+        "number": 11191,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 2,
+        "commits_after_bot_before_human": 1,
+        "days_open": 0.12148148148148148
+      },
+      {
+        "number": 10726,
+        "merged": true,
+        "bot_threads": 4,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 60.449930555555554
+      },
+      {
+        "number": 11185,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.7981018518518519
+      },
+      {
+        "number": 11177,
+        "merged": true,
+        "bot_threads": 3,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 23,
+        "commits_after_bot_before_human": 3,
+        "days_open": 1.0651388888888889
+      },
+      {
+        "number": 11136,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 1,
+        "human_engagement": 4,
+        "commits": 6,
+        "commits_after_bot_before_human": 3,
+        "days_open": 6.3836458333333335
+      },
+      {
+        "number": 11176,
+        "merged": true,
+        "bot_threads": 3,
+        "human_threads": 1,
+        "human_engagement": 3,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 1.1122800925925926
+      },
+      {
+        "number": 11184,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.05193287037037037
+      },
+      {
+        "number": 11154,
+        "merged": true,
+        "bot_threads": 4,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 2,
+        "commits_after_bot_before_human": 1,
+        "days_open": 3.7100115740740742
+      },
+      {
+        "number": 11182,
+        "merged": true,
+        "bot_threads": 2,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.07961805555555555
+      },
+      {
+        "number": 11145,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 4,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 4.684641203703704
+      },
+      {
+        "number": 11149,
+        "merged": true,
+        "bot_threads": 2,
+        "human_threads": 0,
+        "human_engagement": 9,
+        "commits": 2,
+        "commits_after_bot_before_human": 1,
+        "days_open": 4.04537037037037
+      },
+      {
+        "number": 11095,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 8,
+        "commits_after_bot_before_human": 0,
+        "days_open": 11.03587962962963
+      },
+      {
+        "number": 11174,
+        "merged": true,
+        "bot_threads": 5,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 5,
+        "commits_after_bot_before_human": 5,
+        "days_open": 0.12726851851851853
+      },
+      {
+        "number": 11173,
+        "merged": true,
+        "bot_threads": 4,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.06759259259259259
+      },
+      {
+        "number": 11172,
+        "merged": true,
+        "bot_threads": 6,
+        "human_threads": 0,
+        "human_engagement": 4,
+        "commits": 3,
+        "commits_after_bot_before_human": 1,
+        "days_open": 0.16163194444444445
+      },
+      {
+        "number": 11112,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 8.178460648148148
+      },
+      {
+        "number": 11147,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 3.819027777777778
+      },
+      {
+        "number": 11161,
+        "merged": true,
+        "bot_threads": 3,
+        "human_threads": 2,
+        "human_engagement": 7,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 1.0172916666666667
+      },
+      {
+        "number": 11168,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 4,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.6165972222222222
+      },
+      {
+        "number": 11170,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 3,
+        "commits_after_bot_before_human": 1,
+        "days_open": 0.1373611111111111
+      },
+      {
+        "number": 10975,
+        "merged": true,
+        "bot_threads": 2,
+        "human_threads": 7,
+        "human_engagement": 19,
+        "commits": 17,
+        "commits_after_bot_before_human": 0,
+        "days_open": 26.086030092592594
+      },
+      {
+        "number": 11138,
+        "merged": true,
+        "bot_threads": 9,
+        "human_threads": 2,
+        "human_engagement": 7,
+        "commits": 22,
+        "commits_after_bot_before_human": 11,
+        "days_open": 4.185381944444444
+      },
+      {
+        "number": 11148,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 2.9304050925925926
+      },
+      {
+        "number": 11101,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 3,
+        "commits_after_bot_before_human": 0,
+        "days_open": 1.6591203703703703
+      },
+      {
+        "number": 11113,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.3352199074074074
+      },
+      {
+        "number": 11053,
+        "merged": true,
+        "bot_threads": 6,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 28,
+        "commits_after_bot_before_human": 23,
+        "days_open": 14.201099537037036
+      },
+      {
+        "number": 11156,
+        "merged": true,
+        "bot_threads": 2,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 3,
+        "commits_after_bot_before_human": 2,
+        "days_open": 0.2884837962962963
+      },
+      {
+        "number": 11157,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.27828703703703705
+      },
+      {
+        "number": 11158,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.15855324074074073
+      },
+      {
+        "number": 11144,
+        "merged": true,
+        "bot_threads": 3,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 4,
+        "commits_after_bot_before_human": 2,
+        "days_open": 1.3169212962962964
+      },
+      {
+        "number": 11150,
+        "merged": true,
+        "bot_threads": 26,
+        "human_threads": 0,
+        "human_engagement": 13,
+        "commits": 8,
+        "commits_after_bot_before_human": 4,
+        "days_open": 0.49265046296296294
+      },
+      {
+        "number": 11107,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 3,
+        "commits": 4,
+        "commits_after_bot_before_human": 1,
+        "days_open": 5.269780092592592
+      },
+      {
+        "number": 11143,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.42721064814814813
+      },
+      {
+        "number": 11141,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 1,
+        "human_engagement": 3,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.7556828703703704
+      },
+      {
+        "number": 11142,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 2,
+        "commits_after_bot_before_human": 1,
+        "days_open": 0.6396527777777777
+      },
+      {
+        "number": 10931,
+        "merged": true,
+        "bot_threads": 2,
+        "human_threads": 0,
+        "human_engagement": 3,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.277662037037037
+      },
+      {
+        "number": 11035,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 6,
+        "commits_after_bot_before_human": 3,
+        "days_open": 8.73542824074074
+      },
+      {
+        "number": 11139,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.02607638888888889
+      },
+      {
+        "number": 11125,
+        "merged": true,
+        "bot_threads": 4,
+        "human_threads": 0,
+        "human_engagement": 3,
+        "commits": 11,
+        "commits_after_bot_before_human": 5,
+        "days_open": 2.2711111111111113
+      },
+      {
+        "number": 11057,
+        "merged": true,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 4,
+        "commits_after_bot_before_human": 2,
+        "days_open": 9.627465277777778
+      },
+      {
+        "number": 11092,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 1,
+        "human_engagement": 6,
+        "commits": 4,
+        "commits_after_bot_before_human": 0,
+        "days_open": 6.276400462962963
+      },
+      {
+        "number": 11131,
+        "merged": true,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 3,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.9355324074074074
+      }
+    ],
+    "abandoned": [
+      {
+        "number": 8040,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.28954861111111113
+      },
+      {
+        "number": 10633,
+        "merged": false,
+        "bot_threads": 6,
+        "human_threads": 0,
+        "human_engagement": 4,
+        "commits": 7,
+        "commits_after_bot_before_human": 0,
+        "days_open": 85.98016203703703
+      },
+      {
+        "number": 11099,
+        "merged": false,
+        "bot_threads": 8,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 18,
+        "commits_after_bot_before_human": 2,
+        "days_open": 27.974247685185187
+      },
+      {
+        "number": 11253,
+        "merged": false,
+        "bot_threads": 6,
+        "human_threads": 3,
+        "human_engagement": 10,
+        "commits": 6,
+        "commits_after_bot_before_human": 0,
+        "days_open": 8.581400462962963
+      },
+      {
+        "number": 10776,
+        "merged": false,
+        "bot_threads": 3,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 66.32981481481481
+      },
+      {
+        "number": 11236,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 9.134328703703703
+      },
+      {
+        "number": 11214,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 4,
+        "human_engagement": 9,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 10.512071759259259
+      },
+      {
+        "number": 10630,
+        "merged": false,
+        "bot_threads": 2,
+        "human_threads": 0,
+        "human_engagement": 3,
+        "commits": 1,
+        "commits_after_bot_before_human": 1,
+        "days_open": 15.504166666666666
+      },
+      {
+        "number": 10647,
+        "merged": false,
+        "bot_threads": 4,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 2,
+        "commits_after_bot_before_human": 1,
+        "days_open": 13.20835648148148
+      },
+      {
+        "number": 10631,
+        "merged": false,
+        "bot_threads": 3,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 1,
+        "days_open": 15.175266203703703
+      },
+      {
+        "number": 10678,
+        "merged": false,
+        "bot_threads": 4,
+        "human_threads": 0,
+        "human_engagement": 7,
+        "commits": 3,
+        "commits_after_bot_before_human": 1,
+        "days_open": 8.851435185185185
+      },
+      {
+        "number": 10638,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 1,
+        "days_open": 81.43842592592593
+      },
+      {
+        "number": 11249,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 1,
+        "human_engagement": 3,
+        "commits": 3,
+        "commits_after_bot_before_human": 0,
+        "days_open": 3.9829050925925924
+      },
+      {
+        "number": 11152,
+        "merged": false,
+        "bot_threads": 13,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 8,
+        "commits_after_bot_before_human": 6,
+        "days_open": 15.711458333333333
+      },
+      {
+        "number": 11276,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.15091435185185184
+      },
+      {
+        "number": 11275,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.15091435185185184
+      },
+      {
+        "number": 11274,
+        "merged": false,
+        "bot_threads": 2,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.15091435185185184
+      },
+      {
+        "number": 11260,
+        "merged": false,
+        "bot_threads": 3,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.06547453703703704
+      },
+      {
+        "number": 11259,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.006597222222222222
+      },
+      {
+        "number": 9743,
+        "merged": false,
+        "bot_threads": 2,
+        "human_threads": 1,
+        "human_engagement": 5,
+        "commits": 4,
+        "commits_after_bot_before_human": 0,
+        "days_open": 167.84491898148147
+      },
+      {
+        "number": 11084,
+        "merged": false,
+        "bot_threads": 4,
+        "human_threads": 0,
+        "human_engagement": 4,
+        "commits": 1,
+        "commits_after_bot_before_human": 1,
+        "days_open": 8.367106481481482
+      },
+      {
+        "number": 11086,
+        "merged": false,
+        "bot_threads": 23,
+        "human_threads": 0,
+        "human_engagement": 25,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 8.290868055555556
+      },
+      {
+        "number": 11072,
+        "merged": false,
+        "bot_threads": 4,
+        "human_threads": 0,
+        "human_engagement": 3,
+        "commits": 4,
+        "commits_after_bot_before_human": 1,
+        "days_open": 9.315555555555555
+      },
+      {
+        "number": 11073,
+        "merged": false,
+        "bot_threads": 3,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 2,
+        "commits_after_bot_before_human": 1,
+        "days_open": 9.244814814814815
+      },
+      {
+        "number": 10049,
+        "merged": false,
+        "bot_threads": 3,
+        "human_threads": 1,
+        "human_engagement": 3,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 144.84381944444445
+      },
+      {
+        "number": 11189,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 4.864710648148148
+      },
+      {
+        "number": 10520,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 3,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 87.66401620370371
+      },
+      {
+        "number": 10581,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 7,
+        "commits_after_bot_before_human": 1,
+        "days_open": 81.02731481481482
+      },
+      {
+        "number": 10231,
+        "merged": false,
+        "bot_threads": 10,
+        "human_threads": 3,
+        "human_engagement": 25,
+        "commits": 12,
+        "commits_after_bot_before_human": 1,
+        "days_open": 120.95601851851852
+      },
+      {
+        "number": 10721,
+        "merged": false,
+        "bot_threads": 3,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 61.48778935185185
+      },
+      {
+        "number": 10725,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 3,
+        "commits_after_bot_before_human": 2,
+        "days_open": 60.63390046296296
+      },
+      {
+        "number": 10184,
+        "merged": false,
+        "bot_threads": 6,
+        "human_threads": 6,
+        "human_engagement": 21,
+        "commits": 3,
+        "commits_after_bot_before_human": 0,
+        "days_open": 123.41954861111111
+      },
+      {
+        "number": 11166,
+        "merged": false,
+        "bot_threads": 5,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 20,
+        "commits_after_bot_before_human": 1,
+        "days_open": 1.9409722222222223
+      },
+      {
+        "number": 11151,
+        "merged": false,
+        "bot_threads": 14,
+        "human_threads": 1,
+        "human_engagement": 24,
+        "commits": 3,
+        "commits_after_bot_before_human": 2,
+        "days_open": 3.5980555555555553
+      },
+      {
+        "number": 11146,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 4.751469907407407
+      },
+      {
+        "number": 11179,
+        "merged": false,
+        "bot_threads": 4,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.25376157407407407
+      },
+      {
+        "number": 11164,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.9439930555555556
+      },
+      {
+        "number": 10803,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 3,
+        "commits": 11,
+        "commits_after_bot_before_human": 0,
+        "days_open": 45.2962037037037
+      },
+      {
+        "number": 10489,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 2,
+        "human_engagement": 15,
+        "commits": 3,
+        "commits_after_bot_before_human": 0,
+        "days_open": 86.9816087962963
+      },
+      {
+        "number": 11133,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 4,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.7710069444444444
+      },
+      {
+        "number": 11135,
+        "merged": false,
+        "bot_threads": 14,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 2,
+        "commits_after_bot_before_human": 2,
+        "days_open": 0.22177083333333333
+      },
+      {
+        "number": 11023,
+        "merged": false,
+        "bot_threads": 4,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 3,
+        "commits_after_bot_before_human": 1,
+        "days_open": 0.19436342592592593
+      },
+      {
+        "number": 11032,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.1774537037037037
+      },
+      {
+        "number": 10484,
+        "merged": false,
+        "bot_threads": 5,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 81.04445601851852
+      },
+      {
+        "number": 11108,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.004525462962962963
+      },
+      {
+        "number": 11036,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 7.913055555555555
+      },
+      {
+        "number": 11008,
+        "merged": false,
+        "bot_threads": 5,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 10.79238425925926
+      },
+      {
+        "number": 11071,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 3,
+        "human_engagement": 15,
+        "commits": 5,
+        "commits_after_bot_before_human": 0,
+        "days_open": 1.9083101851851851
+      },
+      {
+        "number": 10788,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 2,
+        "commits_after_bot_before_human": 1,
+        "days_open": 36.76643518518519
+      },
+      {
+        "number": 10988,
+        "merged": false,
+        "bot_threads": 4,
+        "human_threads": 0,
+        "human_engagement": 9,
+        "commits": 3,
+        "commits_after_bot_before_human": 2,
+        "days_open": 1.3019791666666667
+      },
+      {
+        "number": 11083,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.005532407407407408
+      },
+      {
+        "number": 10987,
+        "merged": false,
+        "bot_threads": 3,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 2,
+        "commits_after_bot_before_human": 1,
+        "days_open": 9.45619212962963
+      },
+      {
+        "number": 10430,
+        "merged": false,
+        "bot_threads": 7,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 1,
+        "days_open": 81.18335648148148
+      },
+      {
+        "number": 10405,
+        "merged": false,
+        "bot_threads": 4,
+        "human_threads": 1,
+        "human_engagement": 14,
+        "commits": 3,
+        "commits_after_bot_before_human": 1,
+        "days_open": 82.72878472222222
+      },
+      {
+        "number": 11051,
+        "merged": false,
+        "bot_threads": 2,
+        "human_threads": 1,
+        "human_engagement": 3,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.1110300925925926
+      },
+      {
+        "number": 11044,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.016793981481481483
+      },
+      {
+        "number": 10394,
+        "merged": false,
+        "bot_threads": 10,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 6,
+        "commits_after_bot_before_human": 0,
+        "days_open": 81.09703703703704
+      },
+      {
+        "number": 10724,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 3,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 24.46736111111111
+      },
+      {
+        "number": 9704,
+        "merged": false,
+        "bot_threads": 5,
+        "human_threads": 0,
+        "human_engagement": 7,
+        "commits": 10,
+        "commits_after_bot_before_human": 1,
+        "days_open": 141.8977199074074
+      },
+      {
+        "number": 10985,
+        "merged": false,
+        "bot_threads": 2,
+        "human_threads": 0,
+        "human_engagement": 4,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 1.2192939814814814
+      },
+      {
+        "number": 10942,
+        "merged": false,
+        "bot_threads": 3,
+        "human_threads": 0,
+        "human_engagement": 7,
+        "commits": 2,
+        "commits_after_bot_before_human": 1,
+        "days_open": 7.650752314814815
+      },
+      {
+        "number": 10943,
+        "merged": false,
+        "bot_threads": 5,
+        "human_threads": 0,
+        "human_engagement": 3,
+        "commits": 3,
+        "commits_after_bot_before_human": 2,
+        "days_open": 1.1566087962962963
+      },
+      {
+        "number": 10980,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.00125
+      },
+      {
+        "number": 9192,
+        "merged": false,
+        "bot_threads": 6,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 32,
+        "commits_after_bot_before_human": 13,
+        "days_open": 100.26318287037037
+      },
+      {
+        "number": 9578,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 13,
+        "commits": 5,
+        "commits_after_bot_before_human": 0,
+        "days_open": 143.69208333333333
+      },
+      {
+        "number": 10876,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 18,
+        "commits_after_bot_before_human": 0,
+        "days_open": 11.23204861111111
+      },
+      {
+        "number": 10583,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 49.10123842592593
+      },
+      {
+        "number": 10954,
+        "merged": false,
+        "bot_threads": 2,
+        "human_threads": 0,
+        "human_engagement": 4,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.8488078703703704
+      },
+      {
+        "number": 10295,
+        "merged": false,
+        "bot_threads": 3,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 4,
+        "commits_after_bot_before_human": 1,
+        "days_open": 82.26049768518519
+      },
+      {
+        "number": 10753,
+        "merged": false,
+        "bot_threads": 4,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.005868055555555555
+      },
+      {
+        "number": 10174,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 1,
+        "human_engagement": 5,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 90.87091435185185
+      },
+      {
+        "number": 10758,
+        "merged": false,
+        "bot_threads": 7,
+        "human_threads": 0,
+        "human_engagement": 4,
+        "commits": 5,
+        "commits_after_bot_before_human": 0,
+        "days_open": 20.667349537037037
+      },
+      {
+        "number": 10923,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.0069328703703703705
+      },
+      {
+        "number": 10912,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.19532407407407407
+      },
+      {
+        "number": 10818,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 12,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.7586458333333334
+      },
+      {
+        "number": 10822,
+        "merged": false,
+        "bot_threads": 13,
+        "human_threads": 0,
+        "human_engagement": 7,
+        "commits": 14,
+        "commits_after_bot_before_human": 0,
+        "days_open": 7.948206018518518
+      },
+      {
+        "number": 10872,
+        "merged": false,
+        "bot_threads": 11,
+        "human_threads": 0,
+        "human_engagement": 11,
+        "commits": 26,
+        "commits_after_bot_before_human": 10,
+        "days_open": 3.6764699074074074
+      },
+      {
+        "number": 10797,
+        "merged": false,
+        "bot_threads": 4,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 11,
+        "commits_after_bot_before_human": 0,
+        "days_open": 11.936944444444444
+      },
+      {
+        "number": 10222,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 3,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 83.05122685185185
+      },
+      {
+        "number": 10871,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 2.3837152777777777
+      },
+      {
+        "number": 10891,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.21685185185185185
+      },
+      {
+        "number": 10202,
+        "merged": false,
+        "bot_threads": 5,
+        "human_threads": 2,
+        "human_engagement": 7,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 81.92597222222223
+      },
+      {
+        "number": 10857,
+        "merged": false,
+        "bot_threads": 5,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 8,
+        "commits_after_bot_before_human": 0,
+        "days_open": 1.2380555555555555
+      },
+      {
+        "number": 10851,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 0,
+        "human_engagement": 1,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 1.6985416666666666
+      },
+      {
+        "number": 10821,
+        "merged": false,
+        "bot_threads": 0,
+        "human_threads": 1,
+        "human_engagement": 2,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 4.9612847222222225
+      },
+      {
+        "number": 10183,
+        "merged": false,
+        "bot_threads": 6,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 2,
+        "commits_after_bot_before_human": 1,
+        "days_open": 81.04201388888889
+      },
+      {
+        "number": 5352,
+        "merged": false,
+        "bot_threads": 60,
+        "human_threads": 0,
+        "human_engagement": 59,
+        "commits": 30,
+        "commits_after_bot_before_human": 0,
+        "days_open": 729.2909490740741
+      },
+      {
+        "number": 10170,
+        "merged": false,
+        "bot_threads": 3,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 81.21438657407407
+      },
+      {
+        "number": 10164,
+        "merged": false,
+        "bot_threads": 8,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 81.07010416666667
+      },
+      {
+        "number": 10809,
+        "merged": false,
+        "bot_threads": 2,
+        "human_threads": 0,
+        "human_engagement": 3,
+        "commits": 1,
+        "commits_after_bot_before_human": 1,
+        "days_open": 0.016608796296296295
+      },
+      {
+        "number": 10823,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 1,
+        "human_engagement": 6,
+        "commits": 3,
+        "commits_after_bot_before_human": 2,
+        "days_open": 0.281875
+      },
+      {
+        "number": 10365,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 3,
+        "commits": 2,
+        "commits_after_bot_before_human": 0,
+        "days_open": 58.051770833333336
+      },
+      {
+        "number": 10091,
+        "merged": false,
+        "bot_threads": 9,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 6,
+        "commits_after_bot_before_human": 5,
+        "days_open": 86.9065625
+      },
+      {
+        "number": 10719,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 3,
+        "commits_after_bot_before_human": 2,
+        "days_open": 12.188148148148148
+      },
+      {
+        "number": 9809,
+        "merged": false,
+        "bot_threads": 33,
+        "human_threads": 0,
+        "human_engagement": 13,
+        "commits": 10,
+        "commits_after_bot_before_human": 6,
+        "days_open": 107.8228125
+      },
+      {
+        "number": 10121,
+        "merged": false,
+        "bot_threads": 5,
+        "human_threads": 0,
+        "human_engagement": 0,
+        "commits": 1,
+        "commits_after_bot_before_human": 1,
+        "days_open": 81.51166666666667
+      },
+      {
+        "number": 10417,
+        "merged": false,
+        "bot_threads": 14,
+        "human_threads": 13,
+        "human_engagement": 37,
+        "commits": 44,
+        "commits_after_bot_before_human": 11,
+        "days_open": 50.327777777777776
+      },
+      {
+        "number": 10791,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 0.3276851851851852
+      },
+      {
+        "number": 10760,
+        "merged": false,
+        "bot_threads": 1,
+        "human_threads": 0,
+        "human_engagement": 2,
+        "commits": 1,
+        "commits_after_bot_before_human": 0,
+        "days_open": 5.178587962962963
+      }
+    ]
+  }
+}
