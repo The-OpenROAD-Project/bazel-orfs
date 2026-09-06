@@ -63,6 +63,15 @@ def _orfs_designs_impl(repository_ctx):
     for config_file in config_files:
         repository_ctx.read(config_file)
 
+    # Reading the config.mk files found on THIS fetch watches only the files
+    # that already exist. A design added later -- by an ORFS patch, say --
+    # is in no watch set, so Bazel never re-fetches, DESIGNS never gains the
+    # key, and orfs_design() silently returns without declaring a single
+    # target: the design's package parses, its filegroups appear, and the
+    # flow targets simply do not exist. watch_tree covers creations and
+    # deletions as well as edits.
+    repository_ctx.watch_tree(designs_path.dirname)
+
     platforms_arg = ",".join(repository_ctx.attr.platforms)
     result = repository_ctx.execute(
         [python, str(parser_path), "--all", designs_dir, "--platforms", platforms_arg, "--json"],
