@@ -1,0 +1,76 @@
+Make the global-route incremental-repair phase forkable.
+
+global_route.tcl runs pin_access, global_route and then an incremental
+repair-design/repair-timing phase in one straight line. A QoR study of a
+repair change therefore re-runs pin_access and global_route -- the
+majority of the stage's runtime -- once per configuration, even though
+routing is identical across all of them. On asap7/riscv32i that is ~113s
+of re-routing per configuration to reach a ~183s repair.
+
+Factor the incremental-repair phase into grt_incremental_repair and let
+GRT_REPAIR_HOOK_TCL stand in for the call, so one routed design can feed
+many repair configurations: the hook branches (fork, loop) and calls the
+proc itself.
+
+The phase's two bare `return`s meant "abandon the rest of
+global_route_helper" and, moved inside a proc, would only have abandoned
+the proc.  They become `return 0`, the phase returns 1 on success, and
+the caller propagates -- so the no-hook path behaves exactly as before.
+
+Not upstreamed. Carried here until the hook has proven itself and the
+maintainer decides the timing is right for an ORFS pull request; retire
+the patch at the first //:bump onto an ORFS that carries the change.
+
+diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
+--- a/flow/scripts/global_route.tcl
++++ b/flow/scripts/global_route.tcl
+@@ -71,7 +71,14 @@
+     set_dont_use $::env(DONT_USE_CELLS)
+   }
+ 
+-  if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
++  # The incremental-repair phase is a proc, and a hook may stand in for
++  # the call, so that one routed design can feed many repair
++  # configurations. A QoR study of a repair change otherwise re-runs
++  # pin_access and global_route -- the majority of the stage -- once per
++  # configuration, even though routing is identical across them. The hook
++  # is expected to branch (fork, loop) and call grt_incremental_repair
++  # itself.
++  proc grt_incremental_repair { res_aware } {
+     if { $::env(DETAILED_METRICS) } {
+       report_metrics 5 "global route pre repair design"
+     }
+@@ -91,7 +98,7 @@
+       ![run_global_route_and_catch_failures -end_incremental {*}$res_aware \
+         -congestion_report_file $::env(REPORTS_DIR)/congestion_post_repair_design.rpt]
+     } {
+-      return
++      return 0
+     }
+ 
+     # Repair timing using global route parasitics
+@@ -112,7 +119,7 @@
+       ![run_global_route_and_catch_failures -end_incremental {*}$res_aware \
+         -congestion_report_file $::env(REPORTS_DIR)/congestion_post_repair_timing.rpt]
+     } {
+-      return
++      return 0
+     }
+ 
+     log_cmd estimate_parasitics -global_routing
+@@ -132,6 +139,15 @@
+         report_metrics 5 "global route post repair timing_opt_wns"
+       }
+     }
++    return 1
++  }
++
++  if { !$::env(SKIP_INCREMENTAL_REPAIR) } {
++    if { [env_var_exists_and_non_empty GRT_REPAIR_HOOK_TCL] } {
++      source $::env(GRT_REPAIR_HOOK_TCL)
++    } elseif { ![grt_incremental_repair $res_aware] } {
++      return
++    }
+   }
+ 
+   if { !$::env(OPT_POST_GRT_WNS) } {
