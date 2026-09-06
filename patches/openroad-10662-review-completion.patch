@@ -1,0 +1,77 @@
+Complete OpenROAD PR 10662 from its own review: drop the footprint filter.
+
+Applies on top of patches/openroad-10662-buffer-to-inverters.patch. This
+one IS ours -- it is the study's "review completed" arm, and it exists to
+answer a question the pull request thread already asked and answered but
+nobody applied.
+
+WHAT THE REVIEW SAID
+
+The pull request's automated reviewer flagged this at high severity:
+
+  "buffers and inverters ... will almost always have different footprints
+   in Liberty libraries (e.g. buf vs inv). If -match_cell_footprint is
+   enabled, this check will prevent the generator from finding any valid
+   inverter replacement, effectively disabling the move."
+
+A maintainer endorsed it in the same thread -- "This feedback looks
+valid. It is better to remove the footprint checker for this move." -- and
+the check is still in the code at head 0c49c2bd. The pull request then
+went stale.
+
+WHY IT MATTERS HERE, MEASURABLY
+
+The filter is not hypothetical on the public designs. ORFS sets
+MATCH_CELL_FOOTPRINT=1 for sky130hd and forwards it into repair_timing as
+-match_cell_footprint from both repair_timing_helper and the post-GRT WNS
+pass. In sky130hd's liberty every buffer carries cell_footprint
+"sky130_fd_sc_hd__buf" (or "__clkbuf") and every inverter "__inv" (or
+"__clkinv"). Both strings are non-empty and never equal, so the filter
+discards every candidate inverter, best_inv stays null, and the move
+cannot fire on any sky130hd design at all.
+
+That makes the two arms a clean prediction rather than a hope: as
+submitted, the move commits zero buffer_to_inverters moves on sky130hd;
+with this patch, it can commit some. The asap7 and nangate45 platforms set
+no MATCH_CELL_FOOTPRINT, so they are unaffected either way and act as the
+control.
+
+WHAT THIS PATCH DELIBERATELY DOES NOT DO
+
+The reviewer offered an alternative -- replace the footprint check with a
+Vt-class match. That is a design decision for the pull request's author
+and maintainers, not for a study, so this patch only removes what the
+thread agreed was wrong and adds nothing in its place.
+
+The one other live review finding, that BufferToInvertersCandidate does
+not override estimate() and so the multi-threaded policy cannot rank the
+move, is not addressed here. ORFS drives SETUP_MOVE_SEQUENCE through
+repair_timing_helper into the legacy path, so estimate() does not bite in
+the flow this study measures; fixing it would change the patch under test
+without changing what is measured.
+
+Retire when 10662 merges, is closed, or applies the change itself.
+
+diff --git a/src/rsz/src/move/BufferToInvertersGenerator.cc b/src/rsz/src/move/BufferToInvertersGenerator.cc
+--- a/src/rsz/src/move/BufferToInvertersGenerator.cc
++++ b/src/rsz/src/move/BufferToInvertersGenerator.cc
+@@ -87,7 +87,6 @@
+   // cannot fail partway through the netlist mutation. Filter dont_use and
+   // non-link cells.
+   const float target_res = resizer_.cellDriveResistance(drvr_cell);
+-  const std::string& drvr_footprint = drvr_cell->footprint();
+   sta::LibertyCell* best_inv = nullptr;
+   float min_diff = std::numeric_limits<float>::max();
+ 
+@@ -103,11 +102,6 @@
+       if (resizer_.dontUse(cell) || !resizer_.isLinkCell(cell)) {
+         continue;
+       }
+-      if (run_config_.match_cell_footprint && !drvr_footprint.empty()
+-          && !cell->footprint().empty()
+-          && drvr_footprint != cell->footprint()) {
+-        continue;
+-      }
+       sta::LibertyPort* in_port = nullptr;
+       sta::LibertyPort* out_port = nullptr;
+       cell->bufferPorts(in_port, out_port);
