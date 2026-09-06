@@ -1,0 +1,100 @@
+Add asap7/aes_multivt: aes with the full RVT/LVT/SLVT ladder.
+
+ASAP7_USE_VT selects which VT liberties AND LEFs the flow reads, and it is
+declared for "All stages", so it cannot be applied to an already-placed
+design: load_design on a .odb calls read_db, not read_lef, and the master
+set was frozen at floorplan time. Setting it at run time over a pre-built
+ODB reads 15 liberty files and adds zero db masters -- measured as RVT
+202 cells/212 masters, LVT 202/0, SLVT 202/0 -- so the resizer cannot
+instantiate any of them, hasVtSwapCells() stays false, and the run
+completes with bit-identical results and no diagnostic of any kind.
+
+A VT variant is therefore a whole flow from synthesis onward, which in
+ORFS is spelled as a sibling design directory -- the same thing aes_lvt
+already does, and this follows aes_lvt's lead in the part that matters
+most.
+
+aes_lvt retimes the clock from aes's 380ps to 360ps. That is not
+incidental: ORFS designs sit a percent or two PAST closure (asap7/aes
+-4.78ps on 380ps, -1.3%; asap7/riscv32i -18.9ps on 950ps, -2.0%), which
+is what makes them useful QoR test cases -- there is work for
+optimization to do, but the design is not hopeless. A faster library at
+an unchanged period destroys that calibration: keeping 380ps with the
+full RVT/LVT/SLVT ladder closes the design outright (+0.09ps WNS, 0.0
+TNS) and a repair-stage experiment on it measures nothing at all,
+because there is no negative slack to repair.
+
+So the period here is retuned for the faster ladder, exactly as aes_lvt
+does for LVT.
+
+Used to measure how much a repair move that trades drive strength is
+worth when vt_swap is available to spend instead.
+
+Not upstreamed. Carried here until it has proven itself and the
+maintainer decides the timing is right for an ORFS pull request; retire
+the patch at the first //:bump onto an ORFS that carries the design.
+
+diff --git a/flow/designs/asap7/aes_multivt/config.mk b/flow/designs/asap7/aes_multivt/config.mk
+new file mode 100644
+--- /dev/null
++++ b/flow/designs/asap7/aes_multivt/config.mk
+@@ -0,0 +1,29 @@
++export PLATFORM               = asap7
++
++export DESIGN_NAME            = aes_cipher_top
++export DESIGN_NICKNAME        = aes_multivt
++
++# Same RTL as asap7/aes, with the clock retuned for the faster ladder --
++# the same thing aes_lvt does for LVT (360ps vs aes's 380ps).
++#
++# ORFS designs sit a percent or two PAST closure, which is what makes them
++# useful QoR test cases: there is work for optimization to do, but the
++# design is not hopeless. Keeping aes's 380ps with the full RVT/LVT/SLVT
++# ladder closes the design outright (+0.09ps WNS, 0.0 TNS) and any
++# repair-stage measurement on it is vacuous. Measured bracket:
++#
++#   304ps  +0.02ps WNS  (+0.01% of period)  -- closes
++#   285ps -10.35ps WNS  (-3.63% of period)  -- chosen
++#   266ps -28.37ps WNS (-10.67% of period)  -- too far gone
++export VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/aes/*.v))
++export SDC_FILE      = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint.sdc
++
++export ASAP7_USE_VT             = RVT LVT SLVT
++
++export CORE_UTILIZATION         = 70
++export CORE_ASPECT_RATIO        = 1
++export CORE_MARGIN              = 2
++export PLACE_DENSITY            = 0.65
++export TNS_END_PERCENT          = 100
++
++export SYNTH_USE_SYN = 1
+diff --git a/flow/designs/asap7/aes_multivt/constraint.sdc b/flow/designs/asap7/aes_multivt/constraint.sdc
+new file mode 100644
+--- /dev/null
++++ b/flow/designs/asap7/aes_multivt/constraint.sdc
+@@ -0,0 +1,17 @@
++set clk_name clk
++set clk_port_name clk
++set clk_period 285
++set clk_io_pct 0.2
++
++set clk_port [get_ports $clk_port_name]
++
++create_clock -name $clk_name -period $clk_period $clk_port
++set clk_io_name vclk_$clk_name
++create_clock -name $clk_io_name -period $clk_period
++set_clock_latency 77.930 [get_clocks $clk_name]
++set_clock_latency 77.930 [get_clocks $clk_io_name]
++
++set non_clock_inputs [all_inputs -no_clocks]
++
++set_input_delay [expr $clk_period * $clk_io_pct] -clock $clk_io_name $non_clock_inputs
++set_output_delay [expr $clk_period * $clk_io_pct] -clock $clk_io_name [all_outputs]
+diff --git a/flow/designs/asap7/aes_multivt/BUILD b/flow/designs/asap7/aes_multivt/BUILD
+new file mode 100644
+--- /dev/null
++++ b/flow/designs/asap7/aes_multivt/BUILD
+@@ -0,0 +1,3 @@
++load("//flow/designs:design.bzl", "design")
++
++design(config = "config.mk")

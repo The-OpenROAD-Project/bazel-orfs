@@ -61,6 +61,18 @@ ORFS_PATCHES = [
     # are not visible. Not upstreamed yet -- carried here until it has
     # proven itself; retire at the bump onto an ORFS that carries it.
     Label("//patches:0049-orfs-mempool-rtl-files-include.patch"),
+    # global_route.tcl runs routing and the incremental repair phase in one
+    # straight line, so a repair study re-routes once per configuration.
+    # The patch factors the repair phase into a proc a hook can call, which
+    # is what //study forks on. Not upstreamed yet -- retire at the //:bump
+    # onto an ORFS that carries the hook.
+    Label("//patches:0050-orfs-forkable-grt-incremental-repair.patch"),
+    # asap7/aes with the full RVT/LVT/SLVT ladder and otherwise identical
+    # to asap7/aes, so a QoR delta between them isolates the VT ladder.
+    # A VT variant cannot be a run-time override: .odb fixes the master
+    # set at floorplan time. Not upstreamed -- retire at the //:bump onto
+    # an ORFS that carries the design.
+    Label("//patches:0051-orfs-asap7-aes-multivt-design.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
