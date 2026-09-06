@@ -19,6 +19,63 @@ or rebaselines them, which converts every quality trade into "the goldens
 moved" -- a fact carrying no direction. A contributor who improves WNS at the
 cost of area has no vocabulary to say so and no way to be believed.
 
+### How often that happens
+
+`docs/studies/pr-lifecycle/` measures it. The 120 most recently updated
+OpenROAD pull requests in each state, bot-authored ones dropped, collected
+2026-09-06; `collect.py` regenerates `data.json`.
+
+| | merged | abandoned |
+|---|---|---|
+| pull requests in sample | 112 | 99 |
+| inline review threads opened by bots | 248 | 431 |
+| inline review threads opened by humans | 52 | 45 |
+| bot share of review threads | 83% | 90% |
+| **pull requests with zero human engagement** | **11%** | **30%** |
+| commits after bot feedback, before any human | 40% | 36% |
+| median days open | 0.96 | 9.24 |
+
+Machines write most of the review, and the volume does not discriminate: the
+abandoned population received *more* machine attention than the merged one and
+*less* human attention. What separates them is whether any person said
+anything at all, and there the gap is near enough three times. Merged pull
+requests close in about a day; abandoned ones take nine, which is not a quick
+no but a long silence.
+
+This does not show the machine comments are wrong or trivial -- the automated
+reviewer labels its own inline threads medium and above, and this did not
+adjudicate them -- nor does it show causation. It shows that machine review is
+most of the volume and does not predict the outcome, while sparse human review
+does. A score exists to make the human half cheap enough to happen.
+
+### What a stalled pull request looks like up close
+
+OpenROAD PR 10662 adds a resizer move that replaces one buffer with a pair of
+cascaded inverters. Its eight inline review threads, checked against the code
+at its head commit rather than against the discussion:
+
+| finding | source | severity | status at head |
+|---|---|---|---|
+| footprint filter rejects every inverter, disabling the move | bot | high | **live, unfixed** |
+| `makeInstance` return values unchecked | bot | medium | fixed by the author |
+| driver location ignored for block terminals | bot | medium | not applicable -- the code uses `dbNetwork::location()`, which resolves BTerms |
+| load centroid excludes block terminals | bot | medium | not applicable -- same |
+| move type naming | human | -- | fixed by the author |
+| naming suggestion answered | human | -- | applied |
+| `estimate()` not overridden, so the MT policy cannot rank the move | human | -- | live, deferred by the author |
+| endorsement of the footprint finding | human | -- | -- |
+
+Of the automated reviewer's four findings, one was real and important, one had
+already been fixed, and two did not apply to the code as written. The real one
+disables the move on an entire platform; a maintainer agreed in the thread
+that the check should go; it is still there. The pull request was then marked
+stale.
+
+The question that would have unblocked it -- *"Do you have QoR results for the
+public designs?"* -- is not among the inline threads at all. Nobody answered
+it. That is the gap a score is for, and it is why the review being thorough
+did not help.
+
 ## What was measured
 
 These numbers come from an actual run, not an estimate. sky130hd/aes, 18383
@@ -157,6 +214,40 @@ What 30 minutes buys:
 request. What can run per-commit is the free tier; the measured tier runs on
 demand and its output is the ledger. Confusing the two turns an instrument
 into an unmaintainable CI burden.
+
+## The weakness: bespoke cost per pull request
+
+The strongest objection, and it comes from the exercise that motivated this
+document. Scoring 10662 needed work that no harness derived:
+
+* **A seam in ORFS.** `patches/0050` cuts `global_route.tcl` between routing
+  and incremental repair so one routed design can feed many repair
+  configurations. Worth being precise about what it bought: without it the
+  study still works, each leaf just re-runs pin access and routing for another
+  13 minutes. **The seam bought budget compliance, not correctness.** It is
+  also per *stage*, not per pull request -- every post-GR repair change reuses
+  it -- so the cost is bounded at maybe five to ten seams for the whole flow.
+* **Per-change semantics, which do not automate away.** Where the change acts,
+  what turns it on, and what counts as "it fired". For 10662: a repair move,
+  opt-in via `-sequence`, self-reporting through `Replaced N buffers with
+  inverters`. All three came from reading the source.
+* **Instrumentation asymmetry, the worst case.** The admission rule rests on
+  the algorithm reporting its own actions. rsz happens to print that count; a
+  change in `gpl` or `drt` may print nothing comparable, and then counting has
+  to be *added*. Add it only to the arm and the comparison is corrupted; add
+  it to both and neither binary is the one under review. There is no clean
+  answer, only disclosure.
+
+So the honest scope is narrower than the pitch: **cheap for the Nth pull
+request in a class already paid for, expensive for the first of a new class.**
+The rsz move cohort is cheap now because 10662 paid the entry fee; a `drt`
+change starts from zero.
+
+That should be falsifiable rather than argued. **Record the setup cost per
+pull request in the ledger** beside the verdict -- seams written, gate
+predicate lines, whether instrumentation was needed. If that cost does not
+fall sharply by the second and third pull request in a class, the idea has
+failed on its own terms and should be dropped rather than defended.
 
 ## What is deliberately not decided
 
