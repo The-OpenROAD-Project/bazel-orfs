@@ -32,6 +32,46 @@ reproducible and hermetic). It is the wrong thing for an **iteration loop**:
 BYO removes both: the working tree **is** the source, so there is nothing to
 re-encode and nothing to silently reject.
 
+## Prove the swap before you trust it
+
+BYO removes the silent-reject failure, it does not remove the *silently wrong
+binary* failure — a stale build, a wrong path, or a rebuild that did not happen
+all leave you measuring one binary twice. Before any long run, execute a cheap
+in-tree regression whose goldens your change moves, once per binary, and diff
+the two outputs:
+
+```bash
+cd src/<tool>/test
+for arm in a b; do "$ARM_A_OR_B/openroad" -no_init -exit <test>.tcl > /tmp/$arm.log; done
+diff /tmp/a.log /tmp/b.log     # identical output means the swap did not take
+```
+
+Seconds of work, and it converts the most expensive failure mode into an
+immediate one.
+
+## A `.odb` freezes the cell masters — a library change cannot be a runtime override
+
+`load_design` on a `.odb` calls `read_db`, **not** `read_lef`: the master set
+was fixed when the design was floorplanned. So handing a later stage a different
+library selection does not give the tools new cells to use.
+
+The failure is completely silent. Setting `ASAP7_USE_VT="RVT LVT SLVT"` on a run
+over a pre-built ODB reads all fifteen liberty files without complaint and adds
+**zero** masters — measured as RVT 202 liberty cells / 212 db masters, LVT 202 /
+**0**, SLVT 202 / **0**. The resizer cannot instantiate a cell with no master,
+so `hasVtSwapCells()` stays false, `VtSwapMove` never enters the sequence, and
+the run finishes with bit-identical results and no diagnostic of any kind.
+
+**Count masters, not liberty cells**, when checking whether a library actually
+arrived:
+
+```tcl
+foreach lib [[ord::get_db] getLibs] { foreach m [$lib getMasters] { ... } }
+```
+
+A library variant is a whole flow from synthesis onward — in ORFS, a sibling
+design directory.
+
 ## The BYO loop
 
 ```bash
