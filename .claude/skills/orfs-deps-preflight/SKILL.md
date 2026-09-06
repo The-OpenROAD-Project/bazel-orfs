@@ -62,5 +62,34 @@ grt pulls on as slow prep *before* `repair_timing`. Seeing another module's tag
 is not evidence of a mis-run stage; check the actual command sequence, not the
 tag prefixes.
 
+## Is there anything for the run to optimize?
+
+An optimization stage measures nothing on a design that already meets its
+constraints, and it will say so in the most misleading way available: clean
+zeros, no violations, no error. Before a long run whose point is a QoR effect,
+check that the baseline actually has a problem to solve — `report_wns` /
+`report_tns` on the input, and stop if TNS is 0.
+
+ORFS designs are **calibrated** for this. They sit a percent or two past
+closure — asap7/aes −4.78ps on a 380ps period (−1.3%), asap7/riscv32i −18.9ps on
+950ps (−2.0%) — which is what makes them useful: there is work to do, and the
+design is not hopeless.
+
+That calibration is fragile, and **anything that makes the design faster
+silently destroys it**. A faster cell library at an unchanged period is the easy
+way to do this by accident: asap7/aes with the full RVT/LVT/SLVT ladder at aes's
+own 380ps closes outright (+0.09ps WNS, 0.0 TNS) and any repair-stage
+measurement on it is vacuous. This is why ORFS's own `aes_lvt` retimes its clock
+to 360ps rather than inheriting aes's 380ps.
+
+So if you introduce a library variant, retune the period and *measure* where it
+landed rather than assuming. Bracketing costs one short run per point:
+
+```
+304ps  +0.02ps  (+0.01% of period)  closes -- useless
+285ps -10.35ps  (-3.63% of period)  chosen
+266ps -28.37ps (-10.67% of period)  too far gone
+```
+
 Pairs with `repair-timing-grt` (a skip-repair grt measures nothing about repair)
 and `byo-openroad`.
