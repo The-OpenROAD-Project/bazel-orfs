@@ -150,7 +150,13 @@ proc committed_moves { logfile } {
     return $n
   }
   # No line at all means the move committed nothing -- repair_timing only
-  # prints the summary when the count is non-zero.
+  # prints the summary when the count is non-zero. That reading is ONLY
+  # valid for a phase that ran to completion: a leaf killed at a budget
+  # wall has no summary line either, and reporting it as 0 would turn a
+  # timeout into an "inert" verdict -- a null published as a result,
+  # which is the one error this harness exists to prevent. The caller
+  # asserts completion before trusting this, and -1 is the value that
+  # says "unknown" if it ever slips through.
   return 0
 }
 
@@ -263,6 +269,10 @@ proc study_grt_fork { res_aware } {
     }
     set elapsed [expr { [clock seconds] - $leaf_start }]
 
+    # Completion first, count second. grt_incremental_repair returning
+    # true is what makes the absence of a summary line mean "committed
+    # nothing" rather than "never finished"; without this order a killed
+    # or aborted leaf reads as inert.
     set committed [committed_moves $::study_out/$tag/logs/repair.log]
     # A leaf whose sequence names the move but which committed nothing is
     # a real and reportable outcome -- on a platform whose footprint
