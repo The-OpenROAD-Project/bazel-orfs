@@ -1,0 +1,1134 @@
+OpenROAD PR 10662 -- rsz: BufferToInverters move -- as submitted.
+
+Carried here so the study's "as submitted" arm is reproducible from this
+repository rather than from a fork that may be rebased or deleted. This
+is not a bazel-orfs fix and nothing here is ours: the change is erendn's,
+taken verbatim from the pull request.
+
+  https://github.com/The-OpenROAD-Project/OpenROAD/pull/10662
+  merge base 14b1ef13293b2a4c165d67cd81b4c48a4be9c5f4  (2026-06-12)
+  head       0c49c2bd5ace59b8048373343c66f70669941bea  (2026-06-17)
+
+The move replaces one buffer with a pair of cascaded inverters placed at
+the thirds of the fanout. It is not in the default sequence: it runs only
+when "buffer_to_inverters" is named in repair_timing -sequence, which is
+what SETUP_MOVE_SEQUENCE feeds through repair_timing_helper.
+
+APPLIES TO THE MERGE BASE, NOT TO THE MODULE PIN. The @openroad pin in
+MODULE.bazel is 2364 commits ahead of this patch's merge base, so the
+patch does not apply to the pinned tree as-is. Forward-porting it is part
+of the study, not an accident of packaging: a pull request that waits
+three months for a decision acquires a rebase cost that did not exist
+when it was opened, and that cost is one of the things being measured.
+
+Retire when 10662 merges or is closed upstream. Do not edit the diff
+below -- an edited copy stops being the thing under test. Corrections
+that came out of the pull request's own review live in a separate patch.
+
+diff --git a/src/rsz/BUILD b/src/rsz/BUILD
+index 17dda8b71b9..708313fa8c6 100644
+--- a/src/rsz/BUILD
++++ b/src/rsz/BUILD
+@@ -52,6 +52,10 @@ cc_library(
+         "src/move/BufferCandidate.hh",
+         "src/move/BufferGenerator.cc",
+         "src/move/BufferGenerator.hh",
++        "src/move/BufferToInvertersCandidate.cc",
++        "src/move/BufferToInvertersCandidate.hh",
++        "src/move/BufferToInvertersGenerator.cc",
++        "src/move/BufferToInvertersGenerator.hh",
+         "src/move/CloneCandidate.cc",
+         "src/move/CloneCandidate.hh",
+         "src/move/CloneGenerator.cc",
+diff --git a/src/rsz/README.md b/src/rsz/README.md
+index ffdb0834494..2e419af5e94 100644
+--- a/src/rsz/README.md
++++ b/src/rsz/README.md
+@@ -226,6 +226,7 @@ repair_timing
+     [-skip_size_down_fanout]
+     [-skip_buffering]
+     [-skip_buffer_removal]
++    [-skip_buffer_to_inverters]
+     [-skip_last_gasp]
+     [-skip_vt_swap]
+     [-skip_crit_vt_swap]
+@@ -256,6 +257,7 @@ repair_timing
+ | `-skip_size_down_fanout` | Flag to skip fanout gate down sizing. The default is to perform non-critical fanout gate down sizing transform during setup fixing. |
+ | `-skip_buffering` | Flag to skip rebuffering and load splitting. The default is to perform rebuffering and load splitting transforms during setup fixing. |
+ | `-skip_buffer_removal` | Flag to skip buffer removal.  The default is to perform buffer removal transform during setup fixing. |
++| `-skip_buffer_to_inverters` | Flag to skip buffer-inverters swap.  The default is to perform buffer-to-double inverter replacement transform during setup fixing. |
+ | `-skip_last_gasp` | Flag to skip final ("last gasp") optimizations.  The default is to perform greedy sizing at the end of optimization. |
+ | `-skip_vt_swap` | Flag to skip threshold voltage (VT) swap optimizations.  The default is to perform VT swap optimization to improve timing QoR. |
+ | `-skip_crit_vt_swap` | Flag to skip critical threshold voltage (VT) swap optimizations at the end of optimization.  The default is to perform critical VT swap optimization to improve timing QoR beyond repairing just the worst path per each violating endpoint. |
+diff --git a/src/rsz/include/rsz/Resizer.hh b/src/rsz/include/rsz/Resizer.hh
+index d6830214029..0623c15f19e 100644
+--- a/src/rsz/include/rsz/Resizer.hh
++++ b/src/rsz/include/rsz/Resizer.hh
+@@ -109,6 +109,7 @@ enum class MoveType : uint8_t
+   kUnbuffer,
+   kSplitLoad,
+   kReroute,
++  kBufferToInverters,
+   kCount
+ };
+ 
+@@ -349,6 +350,7 @@ class Resizer : public sta::dbStaState, public sta::dbNetworkObserver
+                    bool skip_size_down_fanout,
+                    bool skip_buffering,
+                    bool skip_buffer_removal,
++                   bool skip_buffer_to_inverters,
+                    bool skip_last_gasp,
+                    bool skip_vt_swap,
+                    bool skip_crit_vt_swap);
+diff --git a/src/rsz/src/CMakeLists.txt b/src/rsz/src/CMakeLists.txt
+index f40ce05362d..eb3c5d53870 100644
+--- a/src/rsz/src/CMakeLists.txt
++++ b/src/rsz/src/CMakeLists.txt
+@@ -45,6 +45,8 @@ add_library(rsz_lib
+     move/BufferGenerator.cc
+     move/CloneCandidate.cc
+     move/CloneGenerator.cc
++    move/BufferToInvertersCandidate.cc
++    move/BufferToInvertersGenerator.cc
+     move/MeasuredVtSwapCandidate.cc
+     move/MeasuredVtSwapGenerator.cc
+     move/MoveCandidate.cc
+diff --git a/src/rsz/src/OptimizerTypes.hh b/src/rsz/src/OptimizerTypes.hh
+index 0ca33772d84..425864687be 100644
+--- a/src/rsz/src/OptimizerTypes.hh
++++ b/src/rsz/src/OptimizerTypes.hh
+@@ -398,6 +398,7 @@ struct OptimizerRunConfig
+   bool skip_size_down_fanout{false};
+   bool skip_buffering{false};
+   bool skip_buffer_removal{false};
++  bool skip_buffer_to_inverters{false};
+   bool skip_last_gasp{false};
+   bool skip_vt_swap{false};
+   bool skip_crit_vt_swap{false};
+@@ -451,6 +452,8 @@ inline const char* moveName(const MoveType move_type)
+       return "SplitLoadMove";
+     case MoveType::kReroute:
+       return "RerouteMove";
++    case MoveType::kBufferToInverters:
++      return "BufferToInvertersMove";
+     case MoveType::kCount:
+       break;
+   }
+diff --git a/src/rsz/src/Resizer-py.i b/src/rsz/src/Resizer-py.i
+index 7b2c6801d9c..73c0524b76b 100644
+--- a/src/rsz/src/Resizer-py.i
++++ b/src/rsz/src/Resizer-py.i
+@@ -36,7 +36,7 @@ using namespace rsz;
+ %ignore rsz::Resizer::repairSetup(double, double, int, int, int, bool, bool,
+                                   const std::vector<rsz::MoveType>&,
+                                   const char*,
+-                                  bool, bool, bool, bool, bool, bool, bool, bool);
++                                  bool, bool, bool, bool, bool, bool, bool, bool, bool);
+ 
+ %ignore rsz::Resizer::computeNewDelaysSlews;
+ %ignore rsz::Resizer::estimateSlewsAfterBufferRemoval;
+@@ -88,6 +88,7 @@ using namespace rsz;
+                    bool skip_size_down_fanout,
+                    bool skip_buffering,
+                    bool skip_buffer_removal,
++                   bool skip_buffer_to_inverters,
+                    bool skip_last_gasp,
+                    bool skip_vt_swap,
+                    bool skip_crit_vt_swap)
+@@ -99,7 +100,7 @@ using namespace rsz;
+                               match_cell_footprint, verbose, move_seq,
+                               phases ? phases : "",
+                               skip_pin_swap, skip_gate_cloning, skip_size_down_fanout,
+-                              skip_buffering, skip_buffer_removal,
++                              skip_buffering, skip_buffer_removal, skip_buffer_to_inverters,
+                               skip_last_gasp, skip_vt_swap, skip_crit_vt_swap);
+   }
+ }
+diff --git a/src/rsz/src/Resizer.cc b/src/rsz/src/Resizer.cc
+index 3a168ba48dc..4b7b3f6db9a 100644
+--- a/src/rsz/src/Resizer.cc
++++ b/src/rsz/src/Resizer.cc
+@@ -3059,6 +3059,7 @@ void Resizer::findResizeSlacks(bool run_journal_restore,
+         /*skip_size_down=*/false,
+         /*skip_buffering=*/false,
+         /*skip_buffer_removal=*/false,
++        /*skip_buffer_to_inverters=*/false,
+         /*skip_last_gasp=*/true,  // skip aggressive last-resort passes
+         /*skip_vt_swap=*/true,    // post-placement optimization
+         /*skip_crit_vt_swap=*/true);
+@@ -4912,6 +4913,7 @@ bool Resizer::repairSetup(double setup_margin,
+                           bool skip_size_down_fanout,
+                           bool skip_buffering,
+                           bool skip_buffer_removal,
++                          bool skip_buffer_to_inverters,
+                           bool skip_last_gasp,
+                           bool skip_vt_swap,
+                           bool skip_crit_vt_swap)
+@@ -4932,6 +4934,7 @@ bool Resizer::repairSetup(double setup_margin,
+   config.skip_size_down_fanout = skip_size_down_fanout;
+   config.skip_buffering = skip_buffering;
+   config.skip_buffer_removal = skip_buffer_removal;
++  config.skip_buffer_to_inverters = skip_buffer_to_inverters;
+   config.skip_last_gasp = skip_last_gasp;
+   config.skip_vt_swap = skip_vt_swap;
+   config.skip_crit_vt_swap = skip_crit_vt_swap;
+@@ -6111,6 +6114,9 @@ MoveType Resizer::moveTypeFromString(const std::string& s)
+   if (lower == "reroute") {
+     return MoveType::kReroute;
+   }
++  if (lower == "buffer_to_inverters") {
++    return MoveType::kBufferToInverters;
++  }
+   throw std::invalid_argument("Invalid move type: " + s);
+ }
+ 
+diff --git a/src/rsz/src/Resizer.i b/src/rsz/src/Resizer.i
+index b1c993189c3..9a54e972f36 100644
+--- a/src/rsz/src/Resizer.i
++++ b/src/rsz/src/Resizer.i
+@@ -370,6 +370,7 @@ repair_setup(double setup_margin,
+              bool skip_size_down_fanout,
+              bool skip_buffering,
+              bool skip_buffer_removal,
++             bool skip_buffer_to_inverters,
+              bool skip_last_gasp,
+              bool skip_vt_swap,
+              bool skip_crit_vt_swap)
+@@ -382,7 +383,7 @@ repair_setup(double setup_margin,
+                        verbose, sequence, phases,
+                        skip_pin_swap, skip_gate_cloning,
+                        skip_size_down_fanout,
+-                       skip_buffering, skip_buffer_removal,
++                       skip_buffering, skip_buffer_removal, skip_buffer_to_inverters,
+                        skip_last_gasp, skip_vt_swap, skip_crit_vt_swap);
+ }
+ 
+diff --git a/src/rsz/src/Resizer.tcl b/src/rsz/src/Resizer.tcl
+index 5ecf9fe282f..b53ba743eb8 100644
+--- a/src/rsz/src/Resizer.tcl
++++ b/src/rsz/src/Resizer.tcl
+@@ -247,6 +247,7 @@ sta::define_cmd_args "repair_timing" {[-setup] [-hold]\
+                                         [-skip_size_down]\
+                                         [-skip_buffering]\
+                                         [-skip_buffer_removal]\
++                                        [-skip_buffer_to_inverters]\
+                                         [-skip_last_gasp]\
+                                         [-skip_vt_swap]\
+                                         [-skip_crit_vt_swap]\
+@@ -269,8 +270,9 @@ proc repair_timing { args } {
+             -phases -policy -policies \
+             -recover_power -repair_tns -max_passes -max_iterations -max_repairs_per_pass} \
+     flags {-setup -hold -allow_setup_violations -skip_pin_swap -skip_gate_cloning \
+-             -skip_size_down -skip_buffering -skip_buffer_removal -skip_last_gasp \
+-             -skip_vt_swap -skip_crit_vt_swap -match_cell_footprint -verbose}
++             -skip_size_down -skip_buffering -skip_buffer_removal -skip_buffer_to_inverters \
++             -skip_last_gasp -skip_vt_swap -skip_crit_vt_swap -match_cell_footprint \
++             -verbose}
+ 
+   set setup [info exists flags(-setup)]
+   set hold [info exists flags(-hold)]
+@@ -322,6 +324,7 @@ proc repair_timing { args } {
+   set skip_size_down_fanout [info exists flags(-skip_size_down)]
+   set skip_buffering [info exists flags(-skip_buffering)]
+   set skip_buffer_removal [info exists flags(-skip_buffer_removal)]
++  set skip_buffer_to_inverters [info exists flags(-skip_buffer_to_inverters)]
+   set skip_last_gasp [info exists flags(-skip_last_gasp)]
+   set skip_vt_swap [info exists flags(-skip_vt_swap)]
+   set skip_crit_vt_swap [info exists flags(-skip_crit_vt_swap)]
+@@ -386,7 +389,8 @@ proc repair_timing { args } {
+         $max_iterations $max_repairs_per_pass $match_cell_footprint $verbose \
+         $sequence $phases \
+         $skip_pin_swap $skip_gate_cloning $skip_size_down_fanout $skip_buffering \
+-        $skip_buffer_removal $skip_last_gasp $skip_vt_swap $skip_crit_vt_swap]
++        $skip_buffer_removal $skip_buffer_to_inverters $skip_last_gasp $skip_vt_swap \
++        $skip_crit_vt_swap]
+     }
+     if { $hold } {
+       set repaired_hold [rsz::repair_hold $setup_margin $hold_margin \
+diff --git a/src/rsz/src/move/BufferToInvertersCandidate.cc b/src/rsz/src/move/BufferToInvertersCandidate.cc
+new file mode 100644
+index 00000000000..e00d48f9c89
+--- /dev/null
++++ b/src/rsz/src/move/BufferToInvertersCandidate.cc
+@@ -0,0 +1,237 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026-2026, The OpenROAD Authors
++
++#include "BufferToInvertersCandidate.hh"
++
++#include <cstdint>
++#include <memory>
++#include <string>
++
++#include "MoveCandidate.hh"
++#include "OptimizerTypes.hh"
++#include "db_sta/dbNetwork.hh"
++#include "db_sta/dbSta.hh"
++#include "odb/db.h"
++#include "odb/dbTypes.h"
++#include "odb/geom.h"
++#include "rsz/Resizer.hh"
++#include "sta/Graph.hh"
++#include "sta/Liberty.hh"
++#include "sta/NetworkClass.hh"
++#include "sta/Path.hh"
++#include "utl/Logger.h"
++
++namespace rsz {
++
++using utl::RSZ;
++
++BufferToInvertersCandidate::BufferToInvertersCandidate(
++    Resizer& resizer,
++    const Target& target,
++    sta::Instance* buffer,
++    sta::LibertyCell* inv_cell)
++    : MoveCandidate(resizer, target), buffer_(buffer), inv_cell_(inv_cell)
++{
++}
++
++MoveResult BufferToInvertersCandidate::apply()
++{
++  sta::dbNetwork* db_network = resizer_.dbNetwork();
++  sta::dbSta* sta = resizer_.sta();
++  utl::Logger* logger = resizer_.logger();
++
++  // === Pre-resolve everything before touching the netlist ===================
++  // Once we delete the buffer the only safe thing apply() can do is finish
++  // the inverter chain. All resolution that can fail (port lookups, pin
++  // resolution, location queries) happens up front so a failure path returns
++  // rejectedMove() without having mutated anything.
++
++  const sta::Path* prev_path = target_.prevDriverPath(resizer_);
++  sta::Vertex* prev_vertex = prev_path ? prev_path->vertex(sta) : nullptr;
++  if (prev_vertex == nullptr) {
++    return rejectedMove();
++  }
++
++  sta::LibertyCell* orig_cell = db_network->libertyCell(buffer_);
++  if (orig_cell == nullptr || !orig_cell->isBuffer()) {
++    return rejectedMove();
++  }
++
++  sta::LibertyPort* orig_in_port = nullptr;
++  sta::LibertyPort* orig_out_port = nullptr;
++  orig_cell->bufferPorts(orig_in_port, orig_out_port);
++  if (orig_in_port == nullptr || orig_out_port == nullptr) {
++    return rejectedMove();
++  }
++
++  sta::LibertyPort* inv_in_port = nullptr;
++  sta::LibertyPort* inv_out_port = nullptr;
++  inv_cell_->bufferPorts(inv_in_port, inv_out_port);
++  if (inv_in_port == nullptr || inv_out_port == nullptr) {
++    return rejectedMove();
++  }
++
++  sta::Pin* buffer_in_pin = db_network->findPin(buffer_, orig_in_port);
++  sta::Pin* buffer_out_pin = db_network->findPin(buffer_, orig_out_port);
++  if (buffer_in_pin == nullptr || buffer_out_pin == nullptr) {
++    return rejectedMove();
++  }
++
++  // Cache the flat dbNets and any hierarchical modnets on each side separately
++  odb::dbNet* input_flat_db_net = db_network->flatNet(buffer_in_pin);
++  odb::dbNet* output_flat_db_net = db_network->flatNet(buffer_out_pin);
++  if (input_flat_db_net == nullptr || output_flat_db_net == nullptr) {
++    return rejectedMove();
++  }
++  odb::dbModNet* input_hier_db_net = db_network->hierNet(buffer_in_pin);
++  odb::dbModNet* output_hier_db_net = db_network->hierNet(buffer_out_pin);
++
++  sta::Net* input_net = db_network->dbToSta(input_flat_db_net);
++  sta::Net* output_net = db_network->dbToSta(output_flat_db_net);
++
++  odb::dbInst* db_buffer = db_network->staToDb(buffer_);
++  if (db_buffer == nullptr) {
++    return rejectedMove();
++  }
++
++  // The new inverters and the mid net must live in the buffer's parent module,
++  // not at the top, so hierarchy is preserved.
++  sta::Instance* parent = db_network->getOwningInstanceParent(buffer_in_pin);
++
++  // Buffer location (anchor when the upstream driver cannot be resolved)
++  odb::Point buffer_loc;
++  {
++    int bx = 0;
++    int by = 0;
++    db_buffer->getLocation(bx, by);
++    buffer_loc = {bx, by};
++  }
++
++  // Upstream driver location
++  const sta::Pin* prev_pin = prev_vertex->pin();
++  odb::Point drvr_loc = resizer_.dbNetwork()->location(prev_pin);
++
++  // Load centroid for the second inverter
++  int64_t lx_sum = 0;
++  int64_t ly_sum = 0;
++  int load_count = 0;
++  {
++    std::unique_ptr<sta::NetConnectedPinIterator> pin_iter(
++        db_network->connectedPinIterator(output_net));
++    while (pin_iter->hasNext()) {
++      const sta::Pin* pin = pin_iter->next();
++      if (!db_network->isLoad(pin)) {
++        continue;
++      }
++      odb::Point loc = resizer_.dbNetwork()->location(pin);
++      lx_sum += loc.x();
++      ly_sum += loc.y();
++      ++load_count;
++    }
++  }
++  const odb::Point load_centroid
++      = (load_count > 0) ? odb::Point{static_cast<int>(lx_sum / load_count),
++                                      static_cast<int>(ly_sum / load_count)}
++                         : buffer_loc;
++
++  // Interpolate inverter positions at 1/3 and 2/3 between upstream driver and
++  // load centroid. Fall back to the buffer location as the upstream anchor
++  // when prev driver did not resolve, so both inverters do not collapse to one
++  // point.
++  const odb::Point inv1_loc{
++      drvr_loc.x() + (load_centroid.x() - drvr_loc.x()) / 3,
++      drvr_loc.y() + (load_centroid.y() - drvr_loc.y()) / 3};
++  const odb::Point inv2_loc{
++      drvr_loc.x() + 2 * (load_centroid.x() - drvr_loc.x()) / 3,
++      drvr_loc.y() + 2 * (load_centroid.y() - drvr_loc.y()) / 3};
++
++  // Snapshot the buffer's name before deletion; we use it to derive base names
++  // for the new inverters and mid net.
++  const std::string buffer_name = db_network->name(buffer_);
++  const std::string base_inv1 = buffer_name + "_inv1";
++  const std::string base_inv2 = buffer_name + "_inv2";
++  const std::string base_mid = buffer_name + "_mid_net";
++
++  // Sig type for the new mid net so it matches the surrounding signal
++  const odb::dbSigType mid_sig_type = input_flat_db_net->getSigType();
++
++  // === Mutate ===============================================================
++  // All netlist mutation goes through Resizer/dbNetwork helpers that the ECO
++  // journal can replay. Resizer::makeInstance handles uniquification, sets the
++  // placement status, legalizes the cell position, and increments the design
++  // area; dbNetwork::makeNet handles net-name uniquification.
++
++  sta->disconnectPin(buffer_in_pin);
++  sta->disconnectPin(buffer_out_pin);
++  sta->deleteInstance(buffer_);
++
++  sta::Instance* inv1
++      = resizer_.makeInstance(inv_cell_,
++                              base_inv1.c_str(),
++                              parent,
++                              inv1_loc,
++                              odb::dbNameUniquifyType::IF_NEEDED);
++  sta::Instance* inv2
++      = resizer_.makeInstance(inv_cell_,
++                              base_inv2.c_str(),
++                              parent,
++                              inv2_loc,
++                              odb::dbNameUniquifyType::IF_NEEDED);
++  if (inv1 == nullptr || inv2 == nullptr) {
++    return rejectedMove();
++  }
++
++  sta::Net* mid_net = db_network->makeNet(
++      base_mid, parent, odb::dbNameUniquifyType::IF_NEEDED);
++  if (odb::dbNet* mid_db_net = db_network->staToDb(mid_net)) {
++    mid_db_net->setSigType(mid_sig_type);
++  }
++
++  sta->connectPin(inv1, inv_in_port, input_net);
++  sta->connectPin(inv1, inv_out_port, mid_net);
++  sta->connectPin(inv2, inv_in_port, mid_net);
++  sta->connectPin(inv2, inv_out_port, output_net);
++
++  // Re-attach hierarchical (mod) nets on the endpoints so write_verilog and
++  // hierarchical STA see the same connectivity the original buffer had.
++  // The mid net is purely local between the two inverters, so it needs no
++  // modnet.
++  if (input_hier_db_net != nullptr) {
++    if (sta::Pin* inv1_in_pin = db_network->findPin(inv1, inv_in_port)) {
++      if (odb::dbITerm* inv1_in_iterm = db_network->flatPin(inv1_in_pin)) {
++        inv1_in_iterm->connect(input_hier_db_net);
++      }
++    }
++  }
++  if (output_hier_db_net != nullptr) {
++    if (sta::Pin* inv2_out_pin = db_network->findPin(inv2, inv_out_port)) {
++      if (odb::dbITerm* inv2_out_iterm = db_network->flatPin(inv2_out_pin)) {
++        inv2_out_iterm->connect(output_hier_db_net);
++      }
++    }
++  }
++
++  // Topology of input_net, the new mid_net, and output_net changed; their
++  // parasitic estimates must be rebuilt on the next STA update.
++  resizer_.invalidateParasitics(input_net);
++  resizer_.invalidateParasitics(mid_net);
++  resizer_.invalidateParasitics(output_net);
++
++  debugPrint(
++      logger,
++      RSZ,
++      "buffer_to_inverters_move",
++      1,
++      "ACCEPT BufferToInvertersMove: Replaced buffer {} with two {} inverters",
++      buffer_name,
++      inv_cell_->name());
++
++  return {
++      .accepted = true,
++      .type = MoveType::kBufferToInverters,
++      .move_count = 1,
++      .touched_instances = {inv1, inv2},
++  };
++}
++
++}  // namespace rsz
+diff --git a/src/rsz/src/move/BufferToInvertersCandidate.hh b/src/rsz/src/move/BufferToInvertersCandidate.hh
+new file mode 100644
+index 00000000000..64dfecf108a
+--- /dev/null
++++ b/src/rsz/src/move/BufferToInvertersCandidate.hh
+@@ -0,0 +1,36 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026-2026, The OpenROAD Authors
++
++#pragma once
++
++#include "MoveCandidate.hh"
++#include "OptimizerTypes.hh"
++#include "rsz/Resizer.hh"
++
++namespace sta {
++class Instance;
++class LibertyCell;
++class Pin;
++}  // namespace sta
++
++namespace rsz {
++
++// This move replaces a buffer with two inverters evenly placed along
++// the fanout wire.
++class BufferToInvertersCandidate : public MoveCandidate
++{
++ public:
++  BufferToInvertersCandidate(Resizer& resizer,
++                             const Target& target,
++                             sta::Instance* buffer,
++                             sta::LibertyCell* inv_cell);
++
++  MoveResult apply() override;
++  MoveType type() const override { return MoveType::kBufferToInverters; }
++
++ private:
++  sta::Instance* buffer_{nullptr};
++  sta::LibertyCell* inv_cell_{nullptr};
++};
++
++}  // namespace rsz
+diff --git a/src/rsz/src/move/BufferToInvertersGenerator.cc b/src/rsz/src/move/BufferToInvertersGenerator.cc
+new file mode 100644
+index 00000000000..8aa2d2aea4e
+--- /dev/null
++++ b/src/rsz/src/move/BufferToInvertersGenerator.cc
+@@ -0,0 +1,141 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026-2026, The OpenROAD Authors
++
++#include "BufferToInvertersGenerator.hh"
++
++#include <cmath>
++#include <limits>
++#include <memory>
++#include <string>
++#include <vector>
++
++#include "BufferToInvertersCandidate.hh"
++#include "MoveCommitter.hh"
++#include "MoveGenerator.hh"
++#include "OptimizerTypes.hh"
++#include "db_sta/dbNetwork.hh"
++#include "rsz/Resizer.hh"
++#include "sta/Liberty.hh"
++#include "sta/LibertyClass.hh"
++#include "sta/NetworkClass.hh"
++#include "sta/Path.hh"
++#include "utl/Logger.h"
++
++namespace rsz {
++
++using utl::RSZ;
++
++BufferToInvertersGenerator::BufferToInvertersGenerator(
++    const GeneratorContext& context)
++    : MoveGenerator(context)
++{
++}
++
++std::vector<std::unique_ptr<MoveCandidate>>
++BufferToInvertersGenerator::generate(const Target& target)
++{
++  std::vector<std::unique_ptr<MoveCandidate>> candidates;
++
++  if (!target.canBePathDriver() || target.path_index < 2) {
++    return candidates;
++  }
++
++  sta::Pin* drvr_pin = target.driver_pin;
++  if (drvr_pin == nullptr && target.endpoint_path != nullptr) {
++    drvr_pin = target.endpoint_path->pin(resizer_.staState());
++  }
++  if (drvr_pin == nullptr) {
++    return candidates;
++  }
++
++  sta::dbNetwork* db_network = resizer_.dbNetwork();
++  sta::Instance* drvr = db_network->instance(drvr_pin);
++  sta::LibertyCell* drvr_cell
++      = drvr != nullptr ? db_network->libertyCell(drvr) : nullptr;
++  if (drvr == nullptr || drvr_cell == nullptr || !drvr_cell->isBuffer()) {
++    return candidates;
++  }
++
++  // Reject if another pending/committed move on this buffer already claims it.
++  // Same guard the unbuffer generator uses; note that the predicate returns
++  // true when there is a blocking move.
++  std::string reason;
++  if (committer_.hasBlockingBufferRemovalMove(drvr, reason)) {
++    debugPrint(resizer_.logger(),
++               RSZ,
++               "buffer_to_inverters_move",
++               4,
++               "Buffer {} is not inv-buffered because {}",
++               db_network->name(drvr),
++               reason);
++    return candidates;
++  }
++
++  // Honor dont_touch / port-driven / multi-driver / SDC guards on the buffer
++  if (!resizer_.canRemoveBuffer(drvr, /*honor_dont_touch_fixed=*/true)) {
++    debugPrint(
++        resizer_.logger(),
++        RSZ,
++        "buffer_to_inverters_move",
++        4,
++        "Buffer {} is not inv-buffered because canRemoveBuffer rejected it",
++        db_network->name(drvr));
++    return candidates;
++  }
++
++  // Pick a replacement inverter cell with usable buffer ports, so apply()
++  // cannot fail partway through the netlist mutation. Filter dont_use and
++  // non-link cells.
++  const float target_res = resizer_.cellDriveResistance(drvr_cell);
++  const std::string& drvr_footprint = drvr_cell->footprint();
++  sta::LibertyCell* best_inv = nullptr;
++  float min_diff = std::numeric_limits<float>::max();
++
++  std::unique_ptr<sta::LibertyLibraryIterator> lib_iter(
++      db_network->libertyLibraryIterator());
++  while (lib_iter->hasNext()) {
++    sta::LibertyLibrary* lib = lib_iter->next();
++    const sta::LibertyCellSeq* inverters = lib->inverters();
++    if (inverters == nullptr) {
++      continue;
++    }
++    for (sta::LibertyCell* cell : *inverters) {
++      if (resizer_.dontUse(cell) || !resizer_.isLinkCell(cell)) {
++        continue;
++      }
++      if (run_config_.match_cell_footprint && !drvr_footprint.empty()
++          && !cell->footprint().empty()
++          && drvr_footprint != cell->footprint()) {
++        continue;
++      }
++      sta::LibertyPort* in_port = nullptr;
++      sta::LibertyPort* out_port = nullptr;
++      cell->bufferPorts(in_port, out_port);
++      if (in_port == nullptr || out_port == nullptr) {
++        continue;
++      }
++      const float diff
++          = std::abs(resizer_.cellDriveResistance(cell) - target_res);
++      if (diff < min_diff) {
++        min_diff = diff;
++        best_inv = cell;
++      }
++    }
++  }
++
++  if (best_inv == nullptr) {
++    debugPrint(resizer_.logger(),
++               RSZ,
++               "buffer_to_inverters_move",
++               4,
++               "Buffer {} has no usable inverter replacement",
++               db_network->name(drvr));
++    return candidates;
++  }
++
++  candidates.push_back(std::make_unique<BufferToInvertersCandidate>(
++      resizer_, target, drvr, best_inv));
++  return candidates;
++}
++
++}  // namespace rsz
+diff --git a/src/rsz/src/move/BufferToInvertersGenerator.hh b/src/rsz/src/move/BufferToInvertersGenerator.hh
+new file mode 100644
+index 00000000000..3231a4ece3a
+--- /dev/null
++++ b/src/rsz/src/move/BufferToInvertersGenerator.hh
+@@ -0,0 +1,30 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026-2026, The OpenROAD Authors
++
++#pragma once
++
++#include <memory>
++#include <vector>
++
++#include "MoveGenerator.hh"
++#include "OptimizerTypes.hh"
++#include "rsz/Resizer.hh"
++
++namespace rsz {
++
++// Replace one buffer instance with a pair of cascaded inverters. The generator
++// picks an inverter cell whose drive resistance is closest to the original
++// buffer's, and emits a single BufferToInvertersCandidate when the buffer can
++// be safely deleted.
++class BufferToInvertersGenerator : public MoveGenerator
++{
++ public:
++  explicit BufferToInvertersGenerator(const GeneratorContext& context);
++
++  MoveType type() const override { return MoveType::kBufferToInverters; }
++
++  std::vector<std::unique_ptr<MoveCandidate>> generate(
++      const Target& target) override;
++};
++
++}  // namespace rsz
+diff --git a/src/rsz/src/policy/OptimizationPolicy.cc b/src/rsz/src/policy/OptimizationPolicy.cc
+index 58a7d84d4bc..f3776940f30 100644
+--- a/src/rsz/src/policy/OptimizationPolicy.cc
++++ b/src/rsz/src/policy/OptimizationPolicy.cc
+@@ -12,6 +12,7 @@
+ #include <vector>
+ 
+ #include "BufferGenerator.hh"
++#include "BufferToInvertersGenerator.hh"
+ #include "CloneGenerator.hh"
+ #include "DelayEstimator.hh"
+ #include "MoveCommitter.hh"
+@@ -200,6 +201,8 @@ bool OptimizationPolicy::reportRepairSummary() const
+       = committer_.summaryCommittedMoves(MoveType::kSizeUpMatch);
+   const int reroute_moves
+       = committer_.summaryCommittedMoves(MoveType::kReroute);
++  const int buffer_to_inverters_moves
++      = committer_.summaryCommittedMoves(MoveType::kBufferToInverters);
+ 
+   if (unbuffer_moves > 0) {
+     repaired = true;
+@@ -217,6 +220,13 @@ bool OptimizationPolicy::reportRepairSummary() const
+                     split_load_moves);
+     }
+   }
++  if (buffer_to_inverters_moves > 0) {
++    repaired = true;
++    logger_->info(utl::RSZ,
++                  109,
++                  "Replaced {} buffers with inverters.",
++                  buffer_to_inverters_moves);
++  }
+   logger_->metric("design__instance__count__setup_buffer",
+                   buffer_moves + split_load_moves);
+   if (size_up_moves + size_down_fanout_moves + size_up_match_moves
+@@ -324,6 +334,9 @@ void OptimizationPolicy::buildMoveGenerators(
+       case MoveType::kUnbuffer:
+         generator = std::make_unique<UnbufferGenerator>(context);
+         break;
++      case MoveType::kBufferToInverters:
++        generator = std::make_unique<BufferToInvertersGenerator>(context);
++        break;
+       case MoveType::kReroute:
+         generator = std::make_unique<RerouteGenerator>(context);
+         break;
+diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
+index d6d63b90acf..50d3fe9ded7 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.cc
++++ b/src/rsz/src/policy/SetupLegacyBase.cc
+@@ -188,6 +188,10 @@ void SetupLegacyBase::buildMainMoveSequence(const bool log_sequence)
+         case MoveType::kReroute:
+           move_sequence_.push_back(MoveType::kReroute);
+           break;
++        case MoveType::kBufferToInverters:
++          pushMoveIfEnabled(!config_.skip_buffer_to_inverters,
++                            MoveType::kBufferToInverters);
++          break;
+         case MoveType::kCount:
+           break;
+       }
+@@ -592,7 +596,13 @@ void SetupLegacyBase::logRepairTarget(const Target& target) const
+ int SetupLegacyBase::repairProgressIncrement(const MoveType type,
+                                              const int repairs_per_pass)
+ {
+-  return type == MoveType::kUnbuffer ? repairs_per_pass : 1;
++  switch (type) {
++    case MoveType::kUnbuffer:
++    case MoveType::kBufferToInverters:
++      return repairs_per_pass;
++    default:
++      return 1;
++  }
+ }
+ 
+ bool SetupLegacyBase::allowsBatchRepair(const MoveType type)
+diff --git a/src/rsz/src/policy/SetupLegacyMtPolicy.cc b/src/rsz/src/policy/SetupLegacyMtPolicy.cc
+index b62559c48ff..cc2ae31f1de 100644
+--- a/src/rsz/src/policy/SetupLegacyMtPolicy.cc
++++ b/src/rsz/src/policy/SetupLegacyMtPolicy.cc
+@@ -12,6 +12,7 @@
+ #include <vector>
+ 
+ #include "BufferGenerator.hh"
++#include "BufferToInvertersGenerator.hh"
+ #include "CloneGenerator.hh"
+ #include "MoveCandidate.hh"
+ #include "MoveGenerator.hh"
+@@ -95,6 +96,9 @@ void SetupLegacyMtPolicy::buildMoveGenerators(
+       case MoveType::kReroute:
+         generator = std::make_unique<RerouteGenerator>(context);
+         break;
++      case MoveType::kBufferToInverters:
++        generator = std::make_unique<BufferToInvertersGenerator>(context);
++        break;
+       case MoveType::kCount:
+         break;
+     }
+diff --git a/src/rsz/src/policy/SetupMt1Policy.cc b/src/rsz/src/policy/SetupMt1Policy.cc
+index df325e62239..132cf65cd69 100644
+--- a/src/rsz/src/policy/SetupMt1Policy.cc
++++ b/src/rsz/src/policy/SetupMt1Policy.cc
+@@ -81,6 +81,7 @@ void SetupMt1Policy::buildMoveGenerators(
+       case MoveType::kUnbuffer:
+       case MoveType::kSplitLoad:
+       case MoveType::kReroute:
++      case MoveType::kBufferToInverters:
+       case MoveType::kCount:
+         break;
+     }
+diff --git a/src/rsz/test/BUILD b/src/rsz/test/BUILD
+index bcc465efd76..2382c85a45d 100644
+--- a/src/rsz/test/BUILD
++++ b/src/rsz/test/BUILD
+@@ -159,6 +159,8 @@ TESTS = [
+     "repair_setup_sizeup_match_prev_fanout",
+     "repair_setup_splitload_legacy_basic",
+     "repair_setup_swappins_legacy_flat",
++    "repair_setup_buffer_to_inverters",
++    "repair_setup_buffer_to_inverters_hier",
+     "repair_setup_unbuffer_legacy_bufx2",
+     "repair_setup_unbuffer_legacy_bufx8",
+     "repair_setup_undo1",
+diff --git a/src/rsz/test/CMakeLists.txt b/src/rsz/test/CMakeLists.txt
+index 3c9670fe024..1db09af289f 100644
+--- a/src/rsz/test/CMakeLists.txt
++++ b/src/rsz/test/CMakeLists.txt
+@@ -116,6 +116,8 @@ or_integration_tests(
+     repair_setup_sizeup_match_prev_fanout
+     repair_setup_splitload_legacy_basic
+     repair_setup_swappins_legacy_flat
++    repair_setup_buffer_to_inverters
++    repair_setup_buffer_to_inverters_hier
+     repair_setup_unbuffer_legacy_bufx2
+     repair_setup_unbuffer_legacy_bufx8
+     repair_setup1
+diff --git a/src/rsz/test/repair_setup_buffer_to_inverters.def b/src/rsz/test/repair_setup_buffer_to_inverters.def
+new file mode 100644
+index 00000000000..73a62cd7146
+--- /dev/null
++++ b/src/rsz/test/repair_setup_buffer_to_inverters.def
+@@ -0,0 +1,35 @@
++# BufferToInvertersMove fixture: a single buffer drives a long wire to a far flop.
++# Splitting that wire with two cascaded inverters at 1/3 and 2/3 of the
++# driver-to-load span shortens each segment enough that the cell-delay cost
++# of the extra inverter is paid back many times over in wire-delay savings.
++VERSION 5.8 ;
++DIVIDERCHAR "/" ;
++BUSBITCHARS "[]" ;
++DESIGN reg1 ;
++UNITS DISTANCE MICRONS 1000 ;
++DIEAREA ( 0 0 ) ( 100000 3000000 ) ;
++
++COMPONENTS 3 ;
++- r1 DFF_X1 + PLACED   ( 50000 2900000 ) N ;
++- u1 BUF_X4 + PLACED   ( 50000 2850000 ) N ;
++- r2 DFF_X1 + PLACED   ( 50000  100000 ) N ;
++END COMPONENTS
++
++PINS 1 ;
++    - clk + NET clk + DIRECTION INPUT + USE SIGNAL + FIXED ( 10000 3333 ) N + LAYER metal2 ( 0 0 ) ( 0 0 ) ;
++END PINS
++
++SPECIALNETS 2 ;
++- VSS  ( * VSS )
++  + USE GROUND ;
++- VDD  ( * VDD )
++  + USE POWER ;
++END SPECIALNETS
++
++NETS 3 ;
++- clk ( PIN clk ) ( r1 CK ) ( r2 CK ) + USE SIGNAL ;
++- r1q ( r1 Q ) ( u1 A ) + USE SIGNAL ;
++- u1z ( u1 Z ) ( r2 D ) + USE SIGNAL ;
++END NETS
++
++END DESIGN
+diff --git a/src/rsz/test/repair_setup_buffer_to_inverters.ok b/src/rsz/test/repair_setup_buffer_to_inverters.ok
+new file mode 100644
+index 00000000000..9e5966715c4
+--- /dev/null
++++ b/src/rsz/test/repair_setup_buffer_to_inverters.ok
+@@ -0,0 +1,48 @@
++[INFO ODB-0227] LEF file: Nangate45/Nangate45.lef, created 22 layers, 27 vias, 135 library cells
++[INFO ODB-0128] Design: reg1
++[INFO ODB-0130]     Created 1 pins.
++[INFO ODB-0131]     Created 3 components and 16 component-terminals.
++[INFO ODB-0132]     Created 2 special nets and 6 connections.
++[INFO ODB-0133]     Created 3 nets and 6 connections.
++[INFO RSZ-0100] Repair move sequence: BufferToInvertersMove 
++[INFO RSZ-0094] Found 1 endpoints with setup violations.
++[INFO RSZ-0099] Repairing 1 out of 1 (100.00%) violating endpoints...
++   Iter   | Removed | Resized | Inserted | Cloned |  Pin  |   Area   |    WNS   |   StTNS    |   EnTNS    |  Viol  |  Worst  
++          | Buffers |  Gates  | Buffers  |  Gates | Swaps |          |          |            |            | Endpts | St/EnPt 
++------------------------------------------------------------------------------------------------------------------------------
++       0* |       0 |       0 |        0 |      0 |     0 |    +0.0% |   -0.182 |       -0.2 |       -0.2 |      1 | r2/D
++       2* |       0 |       0 |        0 |      0 |     0 |    +7.3% |    0.282 |        0.0 |        0.0 |      1 | r2/D
++    final |       0 |       0 |        0 |      0 |     0 |    +7.3% |    0.282 |        0.0 |        0.0 |      0 | r2/D
++------------------------------------------------------------------------------------------------------------------------------
++[INFO RSZ-0109] Replaced 1 buffers with inverters.
++Startpoint: r1 (rising edge-triggered flip-flop clocked by clk)
++Endpoint: r2 (rising edge-triggered flip-flop clocked by clk)
++Path Group: clk
++Path Type: max
++
++   Delay     Time   Description
++-----------------------------------------------------------
++   0.000    0.000   clock clk (rise edge)
++   0.000    0.000   clock network delay (ideal)
++   0.000    0.000 ^ r1/CK (DFF_X1)
++   0.211    0.211 ^ r1/Q (DFF_X1)
++   0.123    0.335 ^ u1_inv1/A (INV_X4)
++   0.043    0.378 v u1_inv1/ZN (INV_X4)
++   0.106    0.484 v u1_inv2/A (INV_X4)
++   0.089    0.573 ^ u1_inv2/ZN (INV_X4)
++   0.096    0.669 ^ r2/D (DFF_X1)
++            0.669   data arrival time
++
++   1.000    1.000   clock clk (rise edge)
++   0.000    1.000   clock network delay (ideal)
++   0.000    1.000   clock reconvergence pessimism
++            1.000 ^ r2/CK (DFF_X1)
++  -0.049    0.951   library setup time
++            0.951   data required time
++-----------------------------------------------------------
++            0.951   data required time
++           -0.669   data arrival time
++-----------------------------------------------------------
++            0.282   slack (MET)
++
++
+diff --git a/src/rsz/test/repair_setup_buffer_to_inverters.tcl b/src/rsz/test/repair_setup_buffer_to_inverters.tcl
+new file mode 100644
+index 00000000000..9acd0312d61
+--- /dev/null
++++ b/src/rsz/test/repair_setup_buffer_to_inverters.tcl
+@@ -0,0 +1,16 @@
++# BufferToInvertersMove coverage: one BUF_X4 drives a 2.75 mm wire to a far flop.
++# Repair_timing -setup -sequence "buffer_to_inverters" should pick this buffer and
++# replace it with two cascaded inverters placed along the long wire,
++# committing at least one BufferToInvertersMove.
++source "helpers.tcl"
++read_liberty Nangate45/Nangate45_typ.lib
++read_lef Nangate45/Nangate45.lef
++read_def repair_setup_buffer_to_inverters.def
++create_clock -period 1.0 clk
++set_load 0.0 [all_outputs]
++
++source Nangate45/Nangate45.rc
++set_wire_rc -layer metal3
++estimate_parasitics -placement
++repair_timing -setup -sequence "buffer_to_inverters" -max_passes 20
++report_checks -fields input -digits 3
+diff --git a/src/rsz/test/repair_setup_buffer_to_inverters_hier.def b/src/rsz/test/repair_setup_buffer_to_inverters_hier.def
+new file mode 100644
+index 00000000000..941ce6dd0b0
+--- /dev/null
++++ b/src/rsz/test/repair_setup_buffer_to_inverters_hier.def
+@@ -0,0 +1,29 @@
++# Hierarchical BufferToInvertersMove fixture: same geometry as the flat variant,
++# but the BUF_X4 lives inside submod m1, so its iterms carry modnets after
++# link_design -hier. The instance name in DEF must match the post-link flat
++# name (m1/u1).
++VERSION 5.8 ;
++DIVIDERCHAR "/" ;
++BUSBITCHARS "[]" ;
++DESIGN reg1 ;
++UNITS DISTANCE MICRONS 1000 ;
++DIEAREA ( 0 0 ) ( 100000 3000000 ) ;
++
++COMPONENTS 3 ;
++- r1 DFF_X1 + PLACED   ( 50000 2900000 ) N ;
++- m1/u1 BUF_X4 + PLACED   ( 50000 2850000 ) N ;
++- r2 DFF_X1 + PLACED   ( 50000  100000 ) N ;
++END COMPONENTS
++
++PINS 1 ;
++    - clk + NET clk + DIRECTION INPUT + USE SIGNAL + FIXED ( 10000 3333 ) N + LAYER metal2 ( 0 0 ) ( 0 0 ) ;
++END PINS
++
++SPECIALNETS 2 ;
++- VSS  ( * VSS )
++  + USE GROUND ;
++- VDD  ( * VDD )
++  + USE POWER ;
++END SPECIALNETS
++
++END DESIGN
+diff --git a/src/rsz/test/repair_setup_buffer_to_inverters_hier.ok b/src/rsz/test/repair_setup_buffer_to_inverters_hier.ok
+new file mode 100644
+index 00000000000..42217fd3511
+--- /dev/null
++++ b/src/rsz/test/repair_setup_buffer_to_inverters_hier.ok
+@@ -0,0 +1,49 @@
++[INFO ODB-0227] LEF file: Nangate45/Nangate45.lef, created 22 layers, 27 vias, 135 library cells
++[WARNING ORD-0011] Hierarchical flow (-hier) is currently in development and may cause multiple issues. Do not use in production environments.
++[INFO ODB-0128] Design: reg1
++[WARNING ODB-0249] skipping undefined net VSS encountered in FLOORPLAN DEF
++[WARNING ODB-0249] skipping undefined net VDD encountered in FLOORPLAN DEF
++[INFO ODB-0252]     Updated 1 pins.
++[INFO ODB-0253]     Updated 3 components.
++[INFO RSZ-0100] Repair move sequence: BufferToInvertersMove 
++[INFO RSZ-0094] Found 1 endpoints with setup violations.
++[INFO RSZ-0099] Repairing 1 out of 1 (100.00%) violating endpoints...
++   Iter   | Removed | Resized | Inserted | Cloned |  Pin  |   Area   |    WNS   |   StTNS    |   EnTNS    |  Viol  |  Worst  
++          | Buffers |  Gates  | Buffers  |  Gates | Swaps |          |          |            |            | Endpts | St/EnPt 
++------------------------------------------------------------------------------------------------------------------------------
++       0* |       0 |       0 |        0 |      0 |     0 |    +0.0% |   -0.182 |       -0.2 |       -0.2 |      1 | r2/D
++       2* |       0 |       0 |        0 |      0 |     0 |    +7.3% |    0.282 |        0.0 |        0.0 |      1 | r2/D
++    final |       0 |       0 |        0 |      0 |     0 |    +7.3% |    0.282 |        0.0 |        0.0 |      0 | r2/D
++------------------------------------------------------------------------------------------------------------------------------
++[INFO RSZ-0109] Replaced 1 buffers with inverters.
++Startpoint: r1 (rising edge-triggered flip-flop clocked by clk)
++Endpoint: r2 (rising edge-triggered flip-flop clocked by clk)
++Path Group: clk
++Path Type: max
++
++   Delay     Time   Description
++-----------------------------------------------------------
++   0.000    0.000   clock clk (rise edge)
++   0.000    0.000   clock network delay (ideal)
++   0.000    0.000 ^ r1/CK (DFF_X1)
++   0.211    0.211 ^ r1/Q (DFF_X1)
++   0.123    0.335 ^ m1/u1_inv1/A (INV_X4)
++   0.043    0.378 v m1/u1_inv1/ZN (INV_X4)
++   0.106    0.484 v m1/u1_inv2/A (INV_X4)
++   0.089    0.573 ^ m1/u1_inv2/ZN (INV_X4)
++   0.096    0.669 ^ r2/D (DFF_X1)
++            0.669   data arrival time
++
++   1.000    1.000   clock clk (rise edge)
++   0.000    1.000   clock network delay (ideal)
++   0.000    1.000   clock reconvergence pessimism
++            1.000 ^ r2/CK (DFF_X1)
++  -0.049    0.951   library setup time
++            0.951   data required time
++-----------------------------------------------------------
++            0.951   data required time
++           -0.669   data arrival time
++-----------------------------------------------------------
++            0.282   slack (MET)
++
++
+diff --git a/src/rsz/test/repair_setup_buffer_to_inverters_hier.tcl b/src/rsz/test/repair_setup_buffer_to_inverters_hier.tcl
+new file mode 100644
+index 00000000000..ac0d0bec5d0
+--- /dev/null
++++ b/src/rsz/test/repair_setup_buffer_to_inverters_hier.tcl
+@@ -0,0 +1,19 @@
++# BufferToInvertersMove coverage on a hierarchical netlist. Same long-wire geometry
++# as repair_setup_buffer_to_inverters, but the BUF_X4 lives in submod m1 and its iterms
++# carry modnets after link_design -hier. Before the fix, dbNetwork::net(pin)
++# returned the modnet wrapper which sta::Sta::connectPin then reinterpret_cast
++# to a dbNet, segfaulting inside dbITerm::connect. The fix makes
++# BufferToInvertersCandidate cache flat dbNets and modnets separately.
++source "helpers.tcl"
++read_liberty Nangate45/Nangate45_typ.lib
++read_lef Nangate45/Nangate45.lef
++read_verilog repair_setup_buffer_to_inverters_hier.v
++link_design reg1 -hier
++read_def -floorplan_initialize repair_setup_buffer_to_inverters_hier.def
++create_clock -period 1.0 clk
++set_load 0.0 [all_outputs]
++source Nangate45/Nangate45.rc
++set_wire_rc -layer metal3
++estimate_parasitics -placement
++repair_timing -setup -sequence "buffer_to_inverters" -max_passes 20
++report_checks -fields input -digits 3
+diff --git a/src/rsz/test/repair_setup_buffer_to_inverters_hier.v b/src/rsz/test/repair_setup_buffer_to_inverters_hier.v
+new file mode 100644
+index 00000000000..2385aa75e80
+--- /dev/null
++++ b/src/rsz/test/repair_setup_buffer_to_inverters_hier.v
+@@ -0,0 +1,26 @@
++// Hierarchical version of repair_setup_buffer_to_inverters:
++// the BUF_X4 lives inside submodule m1 with both its A pin (driven by the
++// top-level r1q wire crossing the module boundary) and its Z pin (driving the
++// m1 output port that feeds top-level r2/D) carrying modnets after
++// link_design -hier. This is the netlist shape that crashed BufferToInvertersMove
++// before the flat/hier net-handling fix.
++
++module submod(in, out);
++ input in;
++ output out;
++ BUF_X4 u1 (.A(in),
++            .Z(out));
++endmodule
++
++module reg1(clk);
++ input clk;
++ wire r1q;
++ wire u1z;
++ DFF_X1 r1 (.D(1'b0),
++            .CK(clk),
++            .Q(r1q));
++ submod m1 (.in(r1q),
++            .out(u1z));
++ DFF_X1 r2 (.D(u1z),
++            .CK(clk));
++endmodule
+diff --git a/src/rsz/test/rsz_aux.py b/src/rsz/test/rsz_aux.py
+index 131629a89a2..7f92e424426 100644
+--- a/src/rsz/test/rsz_aux.py
++++ b/src/rsz/test/rsz_aux.py
+@@ -88,6 +88,7 @@ def repair_timing(
+     skip_size_down_fanout=False,
+     skip_buffering=False,
+     skip_buffer_removal=False,
++    skip_buffer_to_inverters=False,
+     skip_last_gasp=False,
+     skip_vt_swap=False,
+     skip_crit_vt_swap=False,
+@@ -144,6 +145,7 @@ def repair_timing(
+             skip_size_down_fanout,
+             skip_buffering,
+             skip_buffer_removal,
++            skip_buffer_to_inverters,
+             skip_last_gasp,
+             skip_vt_swap,
+             skip_crit_vt_swap,
