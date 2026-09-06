@@ -67,6 +67,45 @@ Look for:
 - Temporary workarounds that should be documented
 - Files that look generated but were hand-edited
 
+## 6b. The cruft test: does everybody benefit, or does everybody pay?
+
+Cruft is **whatever is a net negative summed across all users** — carried,
+read, reviewed, maintained and kept working at every bump by people who never
+wanted it, to save one person from recreating it.
+
+bazel-orfs is shared and public, so weigh every permanent addition — file,
+macro, flag, target, skill — against that sum, and note which way the economics
+now point:
+
+**Throwaway is cheaper than it used to be; generic is not.** AI has collapsed
+the cost of writing a hack that is used once and deleted, while the cost of a
+generic feature is mostly *after* it is written — review, documentation,
+maintenance, the behaviour it locks in, the bump that breaks it. So the
+category of things better done ad-hoc and thrown away is **growing**, and the
+threshold a change must clear to earn permanence has risen with it. The default
+is throwaway; permanence is what needs justifying.
+
+The question to ask is therefore not "is this useful?" but:
+
+- **Would recreating this ad-hoc next time be cheaper than everyone carrying
+  it?** If yes, throw it away. Being genuinely useful once is not an argument
+  for keeping it.
+- **Would a stranger who never heard of the task that motivated it benefit?**
+  If it only makes sense for one experiment, one design, one vendor PR or one
+  debugging session, it is cruft here however good it is.
+- **Is it named after an occasion rather than a capability?** A macro, skill or
+  target named for a specific study, PR number or investigation is a strong
+  signal its lifetime should have been that occasion.
+- **Is there an existing home?** A lesson usually belongs appended to the skill
+  or doc where someone will trip over it, not in a new document. New surface is
+  the fallback, not the reflex.
+- **Does it have a retirement path?** Occasion-specific things belong in a
+  carried patch with a `retire at the //:bump onto ...` header, or in a
+  reference PR that is opened and closed — not merged into the shared tree.
+
+When a change mixes both, split it: land the part everyone benefits from as its
+own single-concern PR, and keep the occasion-specific part out of the tree.
+
 ## 7. Security review
 
 Scan changed files for common security concerns:
