@@ -278,3 +278,48 @@ normalize away the trigger (e.g. constant/tie nets that drive `sta::Sim` /
 shipping it; if it doesn't while the `read_db -hier` ODB path does, that's a
 useful finding (the bug needs the dbSta/ODB representation) — keep the
 ODB-based reproducer.
+
+## 9. When the script runs clean and did nothing: ORFS/OpenROAD TCL traps
+
+The hardest failures here are not crashes — they are runs that finish, report
+success, and produce complete, plausible output for work that never happened.
+Four traps that all present this way.
+
+### `repair_timing` (etc.) never ran, because ORFS caught the failure
+
+ORFS deliberately catches a failed `global_route`, writes artifacts and
+*returns*, so a flow can produce something debuggable. Inside a script that
+means the rest of the phase is skipped while your own code carries on and
+reports whatever the design happens to look like. Check the return status of
+ORFS helpers rather than assuming a raised error, and assert the step you care
+about actually executed — the stage log ending early is the tell.
+
+### A constraint that did not take
+
+`[$clk period]` is in STA-internal units (seconds); `create_clock -period`
+expects the *user* unit. Passing one straight to the other creates a
+~zero-period clock — worst slack goes to −954, `repair_timing` grinds for ten
+minutes on a hopeless design, and it reads as "this design is slow" rather than
+"the constraint is wrong". `sta::time_sta_ui` converts; `Sdc.tcl` uses
+`time_ui_sta` in the other direction. **Read every derived constraint back and
+assert it**.
+
+### `tee` will hand your command the wrong arguments — three ways
+
+- It evaluates its body as `{*}$body`, which splits a braced body into words
+  **without substituting them**, so `tee -file f { cmd $x }` passes the literal
+  string `$x`. Build the command with `[list cmd $x]` so substitution happens at
+  the call site.
+- `-variable v` **stores** the captured text in `v` and **returns the wrapped
+  command's own result**. `set out [tee -variable v ...]` gets the result, not
+  the output.
+- `utl::tee` is ambiguous with the C++ `teeFileBegin`/`teeStringBegin` helpers
+  in the same namespace. Call `tee` unqualified.
+
+### A report parser that matches nothing
+
+`report_equiv_cells` and friends print *tables* — header, separators, then rows.
+Treating each line as a bare value silently matches nothing and yields a
+confident, uniform number (in one case 0% across every design tested). **A
+metric that is suspiciously uniform across different inputs is a parser bug
+until proven otherwise.**
