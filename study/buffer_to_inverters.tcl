@@ -1,10 +1,13 @@
-# A/B study of OpenROAD PR 11320 (rsz: size_down_fanout less conservative
-# and high-fanout aware), as a fork/join walk over the global-route
-# incremental-repair phase.
+# A/B study of OpenROAD PR 10662 (rsz: BufferToInverters move), as a
+# fork/join walk over the global-route incremental-repair phase.
 #
 # Which binary runs the walk is chosen OUTSIDE this script (fork cannot
 # swap the executable mid-process), so an arm is one invocation with a
-# different OPENROAD_EXE. Everything below is identical across arms.
+# different OPENROAD_EXE. Everything below is identical across arms:
+#
+#   base      the pull request's merge base
+#   pr        base + patches/openroad-10662-buffer-to-inverters.patch
+#   completed pr + patches/openroad-10662-review-completion.patch
 #
 # WHERE THE FORK POINT IS, AND WHY
 #
@@ -26,6 +29,16 @@
 # forked one. Setting it after routing would constrain a design that had
 # already been placed, routed and CTS'd against a different target.
 #
+# WHAT THIS MEASURES, AND WHAT IT CANNOT
+#
+# Only the post-GR repair. The pull request claims an average improvement
+# "in post-CTS and post-GRT timing repair"; forking at CTS instead would
+# forfeit the shared routing prefix and roughly triple the cost, so the
+# post-CTS half is not measured and the report must say so. The
+# OPT_POST_GRT_WNS pass is also out of reach: it hardcodes
+# -sequence "vt_swap reroute", so the move can never run there whatever
+# SETUP_MOVE_SEQUENCE says.
+#
 # KEEP_VARS=1 is required: erase_non_stage_variables would otherwise strip
 # the per-leaf variables the leaves set.
 
@@ -44,11 +57,21 @@ file mkdir $::study_out
 # out explicitly -- SetupLegacyBase builds exactly this when -sequence is
 # absent -- so every leaf goes down the same code path and the arms differ
 # only in the moves named.
+#
+# "stock_again" is the SAME sequence as "stock", deliberately. Two leaves
+# with an identical configuration give the noise floor, and without one a
+# per-design delta cannot be told from run-to-run variation. That is not
+# a hypothetical: a maintainer ran this pull request's sibling study on
+# the project's own CI and got "some designs showed better WNS while some
+# other designs showed worse", which is what a study without a floor
+# always produces.
+#
+# The move is appended, not inserted: the pull request's own claim is
+# about appending it to the default sequence.
 set ::sequences [dict create \
-  stock  "unbuffer,vt_swap,sizeup,swap,buffer,clone,split" \
-  before "unbuffer,vt_swap,size_down,sizeup,swap,buffer,clone,split" \
-  after  "unbuffer,vt_swap,sizeup,size_down,swap,buffer,clone,split" \
-  only   "unbuffer,vt_swap,size_down,swap,buffer,clone,split"]
+  stock       "unbuffer,vt_swap,sizeup,swap,buffer,clone,split" \
+  stock_again "unbuffer,vt_swap,sizeup,swap,buffer,clone,split" \
+  with_move   "unbuffer,vt_swap,sizeup,swap,buffer,clone,split,buffer_to_inverters"]
 
 proc study_dim { var default } {
   if { [info exists ::env($var)] && $::env($var) ne "" } {
@@ -57,7 +80,7 @@ proc study_dim { var default } {
   return $default
 }
 
-set ::dim_sequence [study_dim STUDY_SEQUENCES {stock before after only}]
+set ::dim_sequence [study_dim STUDY_SEQUENCES {stock stock_again with_move}]
 set ::dim_margin [study_dim STUDY_MARGINS {0}]
 
 proc escape_json { str } {
@@ -107,12 +130,41 @@ proc rescale_clocks { scale } {
   }
 }
 
-proc leaf_metrics { sequence margin elapsed } {
+# The move's own accepted-move count, straight from repair_timing's
+# summary (RSZ-109, "Replaced N buffers with inverters."). This is the
+# study's inertness detector and the single most important number it
+# produces: an arm that committed zero moves measured NOTHING, and any
+# WNS difference it shows against another arm is noise or an unrelated
+# code change. Reporting such a delta as an effect is how a null result
+# gets published as a positive one.
+proc committed_moves { logfile } {
+  if { ![file exists $logfile] } {
+    return -1
+  }
+  set fd [open $logfile r]
+  set text [read $fd]
+  close $fd
+  # Match the message, not its RSZ id: the id is stable today but the
+  # study should not fail silently if it is renumbered.
+  if { [regexp {Replaced ([0-9]+) buffers with inverters} $text -> n] } {
+    return $n
+  }
+  # No line at all means the move committed nothing -- repair_timing only
+  # prints the summary when the count is non-zero.
+  return 0
+}
+
+proc leaf_metrics { sequence margin elapsed committed } {
   set insts [[ord::get_db_block] getInsts]
   set buffers 0
+  set inverters 0
   foreach inst $insts {
-    if { [string match -nocase "*BUF*" [[$inst getMaster] getName]] } {
+    set master [[$inst getMaster] getName]
+    if { [string match -nocase "*BUF*" $master] } {
       incr buffers
+    }
+    if { [string match -nocase "*INV*" $master] } {
+      incr inverters
     }
   }
   return [list \
@@ -123,11 +175,14 @@ proc leaf_metrics { sequence margin elapsed } {
     time_unit "[sta::unit_scale_abbreviation time]s" \
     sequence $sequence \
     setup_margin $margin \
+    committed_moves $committed \
+    inert [expr { $committed == 0 }] \
     wns [sta::worst_slack -max] \
     tns [sta::total_negative_slack] \
     hold_wns [sta::worst_slack -min] \
     inst_count [llength $insts] \
     buffer_count $buffers \
+    inverter_count $inverters \
     design_area [rsz::design_area] \
     elapsed_s $elapsed]
 }
@@ -175,7 +230,7 @@ proc study_grt_fork { res_aware } {
     # counts alone cannot distinguish "never considered" from "considered
     # and chose the same cell".
     if { [info exists ::env(STUDY_DEBUG_MOVE)] && $::env(STUDY_DEBUG_MOVE) ne "" } {
-      set_debug_level RSZ size_down_fanout_move $::env(STUDY_DEBUG_MOVE)
+      set_debug_level RSZ buffer_to_inverters_move $::env(STUDY_DEBUG_MOVE)
     }
 
     set leaf_start [clock seconds]
@@ -208,8 +263,22 @@ proc study_grt_fork { res_aware } {
     }
     set elapsed [expr { [clock seconds] - $leaf_start }]
 
+    set committed [committed_moves $::study_out/$tag/logs/repair.log]
+    # A leaf whose sequence names the move but which committed nothing is
+    # a real and reportable outcome -- on a platform whose footprint
+    # filter rejects every inverter it is the EXPECTED outcome -- so this
+    # is recorded, not raised. What must never happen silently is the
+    # reverse: a leaf that did not name the move reporting commits.
+    if { $committed > 0 && ![string match "*buffer_to_inverters*" \
+      [dict get $::sequences $sequence]] } {
+      error "leaf $tag committed $committed buffer_to_inverters moves with\
+             a sequence that does not name the move: the per-leaf\
+             SETUP_MOVE_SEQUENCE did not take"
+    }
+    puts "STUDY: $tag committed $committed buffer_to_inverters moves"
+
     set fd [open $::study_out/$tag.json w]
-    puts $fd [json_dict [leaf_metrics $sequence $margin $elapsed]]
+    puts $fd [json_dict [leaf_metrics $sequence $margin $elapsed $committed]]
     close $fd
   }]
   puts "STUDY: walk finished in [expr { [clock seconds] - $walk_start }]s"

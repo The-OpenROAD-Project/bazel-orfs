@@ -23,7 +23,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-SEQUENCES = ["stock", "before", "after", "only"]
+SEQUENCES = ["stock", "stock_again", "with_move"]
 
 # Colour-blind-safe, and consistent across both figures.
 ARM_COLOR = {"base": "#4C72B0", "pr": "#DD8452"}
@@ -79,9 +79,9 @@ def fig_sequences(by, design, scale, out):
         ax.set_title(label, fontsize=10)
         ax.tick_params(labelsize=8)
     fig.suptitle(
-        f"{design} @ clock scale {scale} — PR 11320 minus origin/master\n"
+        f"{design} @ clock scale {scale} — PR 10662 arm minus base\n"
         "positive Δ WNS/TNS is better; negative Δ area is better; "
-        "'stock' is the default sequence",
+        "'stock' is the default sequence; 'stock_again' is the noise floor",
         fontsize=9,
     )
     fig.tight_layout()

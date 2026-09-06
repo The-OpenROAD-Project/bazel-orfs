@@ -1,9 +1,9 @@
-"""A/B study of OpenROAD PR 11320 as a fork/join walk over a placed design.
+"""A/B study of OpenROAD PR 10662 as a fork/join walk over a placed design.
 
 One orfs_run_executable per design. The arm -- which openroad binary runs
 the walk -- is chosen at invocation time, not baked into the target:
 
-    bazel run //study:riscv32i_walk -- \
+    bazel run //study:asap7_aes_walk -- \
         OPENROAD_EXE=/abs/path/to/openroad \
         STUDY_ARM=base \
         RESULTS_OUT=/abs/path/to/out
@@ -48,22 +48,26 @@ DESIGNS = {
         name = design + "_walk",
         src = src,
         arguments = {"KEEP_VARS": "1"},
-        script = ":size_down_fanout.tcl",
+        script = ":buffer_to_inverters.tcl",
         stages = STUDY_STAGES,
         tags = ["manual"],
     )
     for design, src in DESIGNS.items()
 ]
 
-# Design-suitability probe: measures the two properties PR 11320 needs to
-# have anything to act on (high-fanout nets, and downsize headroom among
-# their loads), so designs are chosen by measurement rather than intuition.
+# Design-suitability probe: measures the conditions PR 10662's generator
+# requires before it will emit a candidate at all -- a usable inverter
+# after dont_use and cell_footprint filtering, buffers on violating paths,
+# and something left to repair -- so designs are chosen by measurement
+# rather than intuition. The footprint half is a platform property and
+# costs no flow run, so it can rule a platform out before any compute is
+# spent on it.
 [
     orfs_run_executable(
         name = design + "_probe",
         src = src,
         arguments = {"KEEP_VARS": "1"},
-        script = ":probe_headroom.tcl",
+        script = ":probe_buffer_to_inverters.tcl",
         stages = STUDY_STAGES,
         tags = ["manual"],
     )
@@ -71,6 +75,6 @@ DESIGNS = {
 ]
 
 exports_files([
-    "probe_headroom.tcl",
-    "size_down_fanout.tcl",
+    "buffer_to_inverters.tcl",
+    "probe_buffer_to_inverters.tcl",
 ])
