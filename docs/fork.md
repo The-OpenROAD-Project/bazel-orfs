@@ -129,6 +129,32 @@ leaves' files intact:
 - **Linux only**: fork-without-exec is unsafe on macOS hosts;
   `//fork:liborfsfork.so` is restricted to Linux.
 
+## A walk can "succeed" with every leaf dead
+
+`fork` records a failed child's status and keeps going -- that is the design,
+so a crashed subtree loses only itself. The consequence is that **nothing above
+the walk notices**: the root process exits 0, the build tool reports success,
+and the only evidence is the status dict and the leaf outputs that were never
+written.
+
+So a walk's caller has to check two things the exit code does not cover:
+
+```tcl
+set statuses [fork -jobs default cfg $configs { ... }]
+dict for {cfg code} $statuses {
+    if { $code != 0 } {
+        error "leaf $cfg failed with status $code"
+    }
+}
+```
+
+and, on the collecting side, that the number of leaf outputs matches the number
+of configurations -- a leaf that dies before writing, or writes a truncated
+file, is otherwise indistinguishable from one that had nothing to say. Fail
+loudly on a missing or incomplete leaf rather than quietly aggregating what
+survived; a study that silently averages the leaves that happened to work is
+worse than one that stops.
+
 ## Tests
 
 - `//fork:fork_test` — the idiom's semantics in hermetic tclsh
