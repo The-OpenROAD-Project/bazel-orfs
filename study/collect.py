@@ -29,6 +29,9 @@ FIELDS = [
     "hold_wns",
     "inst_count",
     "buffer_count",
+    "inverter_count",
+    "committed_moves",
+    "inert",
     "design_area",
     "elapsed_s",
 ]
