@@ -144,10 +144,9 @@ yosys, abc, GNU Make and Qt come from their own modules, so they are additional
 from-source surface beyond what this check covers.
 
 ### Bring your own OpenROAD when the from-source build won't go
-If the standalone build fails on your host but you have a working OpenROAD
-installed some other way (e.g. built with the classic CMake flow via
-OpenROAD's `etc/DependencyInstaller.sh`), point bazel-orfs at it and skip the
-from-source build entirely:
+If the standalone build fails on your host but you already have a working
+OpenROAD — your distribution's package, a vendor build, a binary a colleague
+handed you — point bazel-orfs at it and skip the from-source build entirely:
 
 ```starlark
 orfs.default(
@@ -164,6 +163,19 @@ the remaining from-source deps (yosys, abc, GNU Make), but it is often enough
 to get a flow running on a host the full source build can't handle. See
 [openroad.md](openroad.md), "Using a Locally Installed OpenROAD".
 
+**This is an escape hatch for getting a flow to run, never a base for a
+measurement.** A PATH binary was built with whatever compiler, flags and
+system libraries its builder happened to have, so a number measured against
+it is measuring that toolchain as much as your design or your change —
+silently, because the flow still runs and still prints plausible output.
+Anything you intend to compare, publish or file upstream has to come from the
+pinned hermetic build.
+
+Nor should you reach for CMake to produce that binary yourself: building with
+CMake is blocked here (see the guardrails in `CLAUDE.md`), for the reason
+above. If the from-source build won't go on your host, the answer is this
+escape hatch or a different host, not a hand-rolled build.
+
 ### No CI below ubuntu-22.04 — old distributions are unsupported in practice
 bazel-orfs CI runs on `ubuntu-22.04` and nothing else
 (`.github/workflows/ci.yml`). OpenROAD's Bazel CI runs on `ubuntu-latest` and
@@ -175,8 +187,10 @@ one-off fix is not a support promise, and the next bump can undo it.
 
 Note that OpenROAD's *CMake* build supports considerably more platforms than
 its Bazel build — `etc/DependencyInstaller.sh` covers RHEL/Rocky/Alma,
-openSUSE and Debian. A distribution appearing there says nothing about the
-Bazel path bazel-orfs uses; that combination is the bring-your-own case above.
+openSUSE and Debian. That is a fact about upstream, not a route through this
+repository: bazel-orfs builds with Bazel only, and a distribution appearing on
+that list says nothing about the Bazel path. If your host is on it but not on
+the Bazel path, the bring-your-own case above is what you have.
 
 ## Dependency bumps
 

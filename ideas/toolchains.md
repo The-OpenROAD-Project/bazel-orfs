@@ -1,5 +1,13 @@
 # Caching and Pinning: Toolchains and Packages
 
+> **Status: partly overtaken by events.** Written when bazel-orfs built yosys
+> and ABC from source in-tree. Both now come from the Bazel Central Registry
+> (`bazel_dep(name = "yosys", ...)`, `bazel_dep(name = "abc", ...)`), which is
+> the outcome the "proper long-term fix" paragraph below asks for, so the
+> Yosys half of this proposal has effectively shipped by another route. The
+> OpenROAD half stands: it is still built from source on every host that
+> cannot hit a cache. Read the pinning argument, not the file layouts.
+
 ## Context
 
 bazel-orfs relies on two large foundational tools -- yosys and
@@ -58,9 +66,9 @@ should not capture this intention -- that is what pinning is for.
 
 Additionally:
 
-- **Build time**: yosys takes 10-20 minutes from source, OpenROAD
-  takes 30-60+ minutes. Both require a C++20 compiler, cmake, and
-  platform-specific development headers.
+- **Build time**: OpenROAD takes 30-60+ minutes from source and needs a
+  C++20 toolchain and a long tail of platform development headers. yosys
+  used to cost another 10-20 minutes here; it now comes from BCR.
 
 - **Clone size**: ORFS is a 1.1 GB git checkout. bazel-orfs only
   needs ~830 KB of scripts/makefiles plus PDK platform files, but
@@ -135,12 +143,13 @@ The plan:
 
 ### Current state
 
-`bazel-orfs/yosys/` downloads yosys, ABC, cxxopts, yosys-slang, slang,
-fmt, TCL, and flex sources, then builds everything via a genrule that
-shells out to `make install` and `cmake`. The resulting binaries
-(`yosys`, `yosys-abc`) and share directory (techmap, plugins including
-`slang.so`) are consumed through `CONFIG_YOSYS` / `CONFIG_YOSYS_ABC` /
-`CONFIG_YOSYS_SHARE` in `global_config.bzl`.
+**Superseded.** This section described a `bazel-orfs/yosys/` tree that
+downloaded yosys, ABC and their dependencies and built them from source. That
+tree is gone: yosys and ABC are `bazel_dep`s on the Bazel Central Registry,
+pinned in lockstep by `//:bump`, and the slang frontend is an out-of-tree
+plugin module. `CONFIG_YOSYS` / `CONFIG_YOSYS_ABC` / `CONFIG_YOSYS_SHARE`
+still name the binaries, but nothing here builds them any more. The proposed
+structure below is kept for the shape of the argument, not as a plan.
 
 ### Proposed structure
 
@@ -255,11 +264,12 @@ This eliminates `CONFIG_YOSYS`, `CONFIG_YOSYS_ABC`, and
 
 ### Current state
 
-OpenROAD is pulled via `git_override` in `MODULE.bazel`, pointing at a
-specific commit of `The-OpenROAD-Project/OpenROAD.git`. It builds from
+OpenROAD is pulled via `archive_override` in `MODULE.bazel`, pinned to a
+specific commit tarball, with `src/sta` and `third-party/abc` vendored by
+`patch_cmds` because a GitHub tarball carries no submodules. It builds from
 source as a full C++20 project with LLVM toolchain, boost, or-tools,
 tcmalloc, Eigen, SWIG, and many other dependencies. Build time is
-30-60+ minutes cold.
+30-60+ minutes cold. Bazel is the only supported way to build it.
 
 The binaries (`openroad`, `opensta`) are wired through `CONFIG_OPENROAD`
 and `CONFIG_OPENSTA` in `global_config.bzl`, with per-rule attribute
