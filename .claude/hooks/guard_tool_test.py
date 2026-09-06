@@ -25,6 +25,20 @@ CLAUDE_MD = os.path.join(HERE, os.pardir, os.pardir, "CLAUDE.md")
 #   "path"    — a file/directory argument of a read/write/search tool
 #   "cwd"     — the working directory of a shell command
 CASES = [
+    # --- cmake -----------------------------------------------------------
+    ("command", "cmake -S . -B build", "verboten"),
+    ("command", "cmake --build build -j16", "verboten"),
+    ("command", "/usr/bin/cmake ..", "verboten"),
+    ("command", "ccmake .", "verboten"),
+    ("command", "CC=clang cmake -DCMAKE_BUILD_TYPE=Release .", "verboten"),
+    ("command", "sudo cmake --install build", "verboten"),
+    ("command", "./etc/Build.sh", "verboten"),
+    ("command", "cd src && ./etc/Build.sh -cmake='-DX=1'", "verboten"),
+    # Reading or editing cmake files is not building with cmake.
+    ("command", "grep -n add_library CMakeLists.txt", None),
+    ("command", "sed -i 's/foo/bar/' src/CMakeLists.txt", None),
+    ("command", "git log --oneline -- CMakeLists.txt", None),
+    ("command", "bazelisk build @openroad//:openroad", None),
     # --- bazel clean -----------------------------------------------------
     ("command", "bazel clean", "protects bazel cache"),
     ("command", "bazelisk clean --expunge", "protects bazel cache"),
