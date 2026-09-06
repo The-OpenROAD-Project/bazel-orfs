@@ -64,6 +64,15 @@ QUOTED_SPAN = re.compile(r"'[^']*'|\"[^\"]*\"", re.S)
 BAZEL = r"(?<![\w.-])(?:bazelisk|bazel-[0-9][\w.]*|bazel)(?![\w-])"
 BAZEL_CLEAN = re.compile(BAZEL + r"(?:\s+--?\S+)*\s+clean(?![\w-])")
 
+# CMake in command position: a bare `cmake`, a path to one, or OpenROAD's
+# etc/Build.sh wrapper, optionally behind env assignments or sudo/time.
+# Anchored at the start of a segment on purpose -- `grep cmake CMakeLists.txt`
+# reads a cmake file, it does not run one.
+CMAKE_BUILD = re.compile(
+    r"^(?:\w+=\S*\s+)*(?:(?:sudo|time|nohup)\s+)*"
+    r"(?:\S*/)?(?:cmake|ccmake|cmake-gui|cmake3|Build\.sh)(?![\w-])"
+)
+
 BAZEL_OUTPUT_DIR = re.compile(r"(^|/)bazel-(out|bin|testlogs)(/|$)")
 CACHE_DIR = re.compile(r"(^|/)\.cache(/|$)")
 # Matches /tmp and /tmp/..., but not ./tmp or /somewhere/tmp.
@@ -211,6 +220,22 @@ def check_spelunking(request):
     return None
 
 
+CMAKE_MESSAGE = (
+    "Building with CMake is verboten. Use bazel: `bazelisk build //:openroad` "
+    "in an OpenROAD checkout, or `bazelisk build @openroad//:openroad` here. A "
+    "cmake build sidesteps the pinned hermetic toolchain, so the binary it "
+    "produces is not the binary the flow builds -- which silently invalidates "
+    "any measurement made with it."
+)
+
+
+def check_cmake(request):
+    for segment in segments(request.code):
+        if CMAKE_BUILD.match(segment):
+            return CMAKE_MESSAGE
+    return None
+
+
 def check_tmp(request):
     if request.code and TMP_IN_COMMAND.search(request.code):
         return TMP_MESSAGE
@@ -227,6 +252,12 @@ RULES = (
         "bazel-clean",
         "`bazelisk clean` and `bazel clean` are blocked.",
         check_bazel_clean,
+    ),
+    (
+        "cmake-build",
+        "Building with CMake (`cmake`, `ccmake`, OpenROAD's `etc/Build.sh`) is "
+        "blocked; bazel is the only build path.",
+        check_cmake,
     ),
     (
         "git-local-branch",

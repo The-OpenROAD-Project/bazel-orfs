@@ -77,12 +77,26 @@ design directory.
 ```bash
 # 1. Build openroad from your checkout (the working tree is the source).
 cd /path/to/OpenROAD          # your OpenROAD checkout / ORFS tools/OpenROAD
-bazelisk build //:openroad    # (or the checkout's cmake build)
+bazelisk build //:openroad    # bazel only -- see below
 
 # 2. Point the flow / extracted stage harness at it.
 export OPENROAD_EXE="$(readlink -f bazel-bin/openroad)"
 # ... then run the ORFS stage (make do-<stage>, or an extracted _deps run).
 ```
+
+**Building with CMake is VERBOTEN, and the guard blocks it.** Not a style
+preference: a cmake build uses whatever compiler, flags and system libraries
+the machine happens to have, while the flow's binary comes from the pinned
+hermetic bazel toolchain. Swap one for the other and the binary under test is
+no longer the binary the flow builds, so every number measured with it is
+measuring the toolchain as much as the change -- silently, because it still
+runs and still produces plausible output. `bazelisk build //:openroad` in the
+checkout, or `bazelisk build @openroad//:openroad` here.
+
+A raw `git clone` of OpenROAD will NOT build: the GitHub tarball and a
+blobless clone both arrive without `src/sta` and `third-party/abc`. bazel-orfs
+vendors those in the `@openroad` `archive_override`'s `patch_cmds`, which is
+the other reason to build through this repository rather than beside it.
 
 The ODB is compatible across the two binaries as long as your checkout and the
 flow's pinned OpenROAD share a base revision.
