@@ -49,7 +49,7 @@ bazel_dep(name = "sv-elab", version = "2026-07-07")
 bazel_dep(name = "openroad")
 archive_override(
     module_name = "openroad",
-    integrity = "sha256-OMm/0RskoU/QGyWOnkkPjbZziplDJDAHLwF575P0AgY=",
+    integrity = "sha256-yFYlQ1zckLkO3aarUqj18Fia3au5AJgbWJvELQ4prbI=",
     # GitHub /archive/<sha>.tar.gz tarballs don't carry submodules,
     # so vendor src/sta (OpenSTA) and third-party/abc from their own
     # GitHub auto-archives at the SHAs OpenROAD's .gitmodules pins
@@ -63,8 +63,8 @@ archive_override(
         "find . -name BUILD -exec sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|g' {} +",
         "sed -i 's|defines = \\[|copts = [\"-include\", \"fmt/format.h\"],\\n    defines = [|' src/syn/src/elab/BUILD third-party/slang-elab/src/BUILD",
     ],
-    strip_prefix = "OpenROAD-39a75ec608d107a62b6d44fb8fb7c52a67071a9a",
-    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/39a75ec608d107a62b6d44fb8fb7c52a67071a9a.tar.gz"],
+    strip_prefix = "OpenROAD-63fe72c577ef12d2ac2a0a944bbd842f9af8a0a7",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/63fe72c577ef12d2ac2a0a944bbd842f9af8a0a7.tar.gz"],
 )
 
 # OpenROAD pins sv-lang 10.0.bcr.2, which is not yet published in BCR.
@@ -290,8 +290,8 @@ orfs = use_extension("//:extension.bzl", "orfs_repositories")
 # `patches` on an override is honoured only from the root module and
 # would therefore land on whoever is root. Rewritten by //:bump.
 orfs.source(
-    commit = "8c0616910615e843780ba527526f2b83a564ba70",
-    integrity = "sha256-AbmwPa1L9X9hC0WF/eJuyi17uuViGNIxyDbb88/QJlI=",
+    commit = "68cc9bc974502b4786a68e9f51a092e0fcb56e82",
+    integrity = "sha256-WDyGyXbImaYvODGP4kePVDPpxz2UVi2ZpAMQAjFv8Rc=",
 )
 orfs.default(
     # Expose the slang yosys plugin (from BCR sv-elab) via
