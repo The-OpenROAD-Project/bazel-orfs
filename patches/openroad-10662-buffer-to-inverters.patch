@@ -1,35 +1,48 @@
-OpenROAD PR 10662 -- rsz: BufferToInverters move -- as submitted.
+OpenROAD PR 10662 -- rsz: BufferToInverters move -- rebased onto master.
 
 Carried here so the study's "as submitted" arm is reproducible from this
-repository rather than from a fork that may be rebased or deleted. This
-is not a bazel-orfs fix and nothing here is ours: the change is erendn's,
-taken verbatim from the pull request.
+repository rather than from a fork that may be rebased or deleted. The
+change is erendn's; the rebase is ours.
 
   https://github.com/The-OpenROAD-Project/OpenROAD/pull/10662
   merge base 14b1ef13293b2a4c165d67cd81b4c48a4be9c5f4  (2026-06-12)
   head       0c49c2bd5ace59b8048373343c66f70669941bea  (2026-06-17)
+  rebased onto 63fe72c577, the @openroad pin, which is also master
 
-The move replaces one buffer with a pair of cascaded inverters placed at
-the thirds of the fanout. It is not in the default sequence: it runs only
-when "buffer_to_inverters" is named in repair_timing -sequence, which is
-what SETUP_MOVE_SEQUENCE feeds through repair_timing_helper.
+REBASED, NOT VERBATIM, AND WHY THAT IS THE POINT
 
-APPLIES TO THE MERGE BASE, NOT TO THE MODULE PIN. The @openroad pin in
-MODULE.bazel is 2364 commits ahead of this patch's merge base, so the
-patch does not apply to the pinned tree as-is. Forward-porting it is part
-of the study, not an accident of packaging: a pull request that waits
-three months for a decision acquires a rebase cost that did not exist
-when it was opened, and that cost is one of the things being measured.
+The pull request's five commits were squashed and replayed onto the pin.
+A QoR number is only worth reading against the tree a maintainer would
+merge into: measured against a June merge base it answers a question
+nobody is asking, because 2364 commits of resizer work have landed since.
+So the thing under test is the rebase, and the rebase is part of what the
+study delivers -- a pull request that waits three months for a decision
+acquires a rebase cost that did not exist when it was opened, and someone
+has to pay it before any number can be produced.
 
-Retire when 10662 merges or is closed upstream. Do not edit the diff
-below -- an edited copy stops being the thing under test. Corrections
-that came out of the pull request's own review live in a separate patch.
+The replay was clean: 27 files, +732/-7, the same shape as the original,
+and every rsz API the move depends on -- GeneratorContext,
+hasBlockingBufferRemovalMove, canRemoveBuffer, cellDriveResistance,
+rejectedMove, run_config_.match_cell_footprint -- still exists on the pin.
+A clean replay is not a working build, so the build is what proves it.
+
+The move is not in the default sequence: it runs only when
+"buffer_to_inverters" is named in repair_timing -sequence, which is what
+SETUP_MOVE_SEQUENCE feeds through ORFS's repair_timing_helper. No ORFS
+patch is needed to reach it; patches/0050 is carried for the fork seam,
+which is a different concern.
+
+Do not edit the diff below to make a result come out -- an edited copy
+stops being the thing under test. Corrections that came out of the pull
+request's own review live in a separate patch, on top of this one.
+
+Retire when 10662 merges or is closed upstream.
 
 diff --git a/src/rsz/BUILD b/src/rsz/BUILD
-index 17dda8b71b9..708313fa8c6 100644
+index afdb43d72..0e52ca7d4 100644
 --- a/src/rsz/BUILD
 +++ b/src/rsz/BUILD
-@@ -52,6 +52,10 @@ cc_library(
+@@ -70,6 +70,10 @@ cc_library(
          "src/move/BufferCandidate.hh",
          "src/move/BufferGenerator.cc",
          "src/move/BufferGenerator.hh",
@@ -41,10 +54,10 @@ index 17dda8b71b9..708313fa8c6 100644
          "src/move/CloneCandidate.hh",
          "src/move/CloneGenerator.cc",
 diff --git a/src/rsz/README.md b/src/rsz/README.md
-index ffdb0834494..2e419af5e94 100644
+index c281ad777..b052ef94e 100644
 --- a/src/rsz/README.md
 +++ b/src/rsz/README.md
-@@ -226,6 +226,7 @@ repair_timing
+@@ -228,6 +228,7 @@ repair_timing
      [-skip_size_down_fanout]
      [-skip_buffering]
      [-skip_buffer_removal]
@@ -52,7 +65,7 @@ index ffdb0834494..2e419af5e94 100644
      [-skip_last_gasp]
      [-skip_vt_swap]
      [-skip_crit_vt_swap]
-@@ -256,6 +257,7 @@ repair_timing
+@@ -258,6 +259,7 @@ repair_timing
  | `-skip_size_down_fanout` | Flag to skip fanout gate down sizing. The default is to perform non-critical fanout gate down sizing transform during setup fixing. |
  | `-skip_buffering` | Flag to skip rebuffering and load splitting. The default is to perform rebuffering and load splitting transforms during setup fixing. |
  | `-skip_buffer_removal` | Flag to skip buffer removal.  The default is to perform buffer removal transform during setup fixing. |
@@ -61,10 +74,10 @@ index ffdb0834494..2e419af5e94 100644
  | `-skip_vt_swap` | Flag to skip threshold voltage (VT) swap optimizations.  The default is to perform VT swap optimization to improve timing QoR. |
  | `-skip_crit_vt_swap` | Flag to skip critical threshold voltage (VT) swap optimizations at the end of optimization.  The default is to perform critical VT swap optimization to improve timing QoR beyond repairing just the worst path per each violating endpoint. |
 diff --git a/src/rsz/include/rsz/Resizer.hh b/src/rsz/include/rsz/Resizer.hh
-index d6830214029..0623c15f19e 100644
+index 86a6e4ff7..4d63b1247 100644
 --- a/src/rsz/include/rsz/Resizer.hh
 +++ b/src/rsz/include/rsz/Resizer.hh
-@@ -109,6 +109,7 @@ enum class MoveType : uint8_t
+@@ -112,6 +112,7 @@ enum class MoveType : uint8_t
    kUnbuffer,
    kSplitLoad,
    kReroute,
@@ -72,7 +85,7 @@ index d6830214029..0623c15f19e 100644
    kCount
  };
  
-@@ -349,6 +350,7 @@ class Resizer : public sta::dbStaState, public sta::dbNetworkObserver
+@@ -356,6 +357,7 @@ class Resizer : public sta::dbStaState, public sta::dbNetworkObserver
                     bool skip_size_down_fanout,
                     bool skip_buffering,
                     bool skip_buffer_removal,
@@ -81,10 +94,10 @@ index d6830214029..0623c15f19e 100644
                     bool skip_vt_swap,
                     bool skip_crit_vt_swap);
 diff --git a/src/rsz/src/CMakeLists.txt b/src/rsz/src/CMakeLists.txt
-index f40ce05362d..eb3c5d53870 100644
+index 11430c381..9f3920860 100644
 --- a/src/rsz/src/CMakeLists.txt
 +++ b/src/rsz/src/CMakeLists.txt
-@@ -45,6 +45,8 @@ add_library(rsz_lib
+@@ -47,6 +47,8 @@ add_library(rsz_lib
      move/BufferGenerator.cc
      move/CloneCandidate.cc
      move/CloneGenerator.cc
@@ -94,10 +107,10 @@ index f40ce05362d..eb3c5d53870 100644
      move/MeasuredVtSwapGenerator.cc
      move/MoveCandidate.cc
 diff --git a/src/rsz/src/OptimizerTypes.hh b/src/rsz/src/OptimizerTypes.hh
-index 0ca33772d84..425864687be 100644
+index 1a2b528e2..7d9320f13 100644
 --- a/src/rsz/src/OptimizerTypes.hh
 +++ b/src/rsz/src/OptimizerTypes.hh
-@@ -398,6 +398,7 @@ struct OptimizerRunConfig
+@@ -423,6 +423,7 @@ struct OptimizerRunConfig
    bool skip_size_down_fanout{false};
    bool skip_buffering{false};
    bool skip_buffer_removal{false};
@@ -105,7 +118,7 @@ index 0ca33772d84..425864687be 100644
    bool skip_last_gasp{false};
    bool skip_vt_swap{false};
    bool skip_crit_vt_swap{false};
-@@ -451,6 +452,8 @@ inline const char* moveName(const MoveType move_type)
+@@ -476,6 +477,8 @@ inline const char* moveName(const MoveType move_type)
        return "SplitLoadMove";
      case MoveType::kReroute:
        return "RerouteMove";
@@ -115,7 +128,7 @@ index 0ca33772d84..425864687be 100644
        break;
    }
 diff --git a/src/rsz/src/Resizer-py.i b/src/rsz/src/Resizer-py.i
-index 7b2c6801d9c..73c0524b76b 100644
+index 7b2c6801d..73c0524b7 100644
 --- a/src/rsz/src/Resizer-py.i
 +++ b/src/rsz/src/Resizer-py.i
 @@ -36,7 +36,7 @@ using namespace rsz;
@@ -145,10 +158,10 @@ index 7b2c6801d9c..73c0524b76b 100644
    }
  }
 diff --git a/src/rsz/src/Resizer.cc b/src/rsz/src/Resizer.cc
-index 3a168ba48dc..4b7b3f6db9a 100644
+index 079537ed4..7920e6e3f 100644
 --- a/src/rsz/src/Resizer.cc
 +++ b/src/rsz/src/Resizer.cc
-@@ -3059,6 +3059,7 @@ void Resizer::findResizeSlacks(bool run_journal_restore,
+@@ -3211,6 +3211,7 @@ void Resizer::findResizeSlacks(bool run_journal_restore,
          /*skip_size_down=*/false,
          /*skip_buffering=*/false,
          /*skip_buffer_removal=*/false,
@@ -156,7 +169,7 @@ index 3a168ba48dc..4b7b3f6db9a 100644
          /*skip_last_gasp=*/true,  // skip aggressive last-resort passes
          /*skip_vt_swap=*/true,    // post-placement optimization
          /*skip_crit_vt_swap=*/true);
-@@ -4912,6 +4913,7 @@ bool Resizer::repairSetup(double setup_margin,
+@@ -5277,6 +5278,7 @@ bool Resizer::repairSetup(double setup_margin,
                            bool skip_size_down_fanout,
                            bool skip_buffering,
                            bool skip_buffer_removal,
@@ -164,7 +177,7 @@ index 3a168ba48dc..4b7b3f6db9a 100644
                            bool skip_last_gasp,
                            bool skip_vt_swap,
                            bool skip_crit_vt_swap)
-@@ -4932,6 +4934,7 @@ bool Resizer::repairSetup(double setup_margin,
+@@ -5298,6 +5300,7 @@ bool Resizer::repairSetup(double setup_margin,
    config.skip_size_down_fanout = skip_size_down_fanout;
    config.skip_buffering = skip_buffering;
    config.skip_buffer_removal = skip_buffer_removal;
@@ -172,7 +185,7 @@ index 3a168ba48dc..4b7b3f6db9a 100644
    config.skip_last_gasp = skip_last_gasp;
    config.skip_vt_swap = skip_vt_swap;
    config.skip_crit_vt_swap = skip_crit_vt_swap;
-@@ -6111,6 +6114,9 @@ MoveType Resizer::moveTypeFromString(const std::string& s)
+@@ -6486,6 +6489,9 @@ MoveType Resizer::moveTypeFromString(const std::string& s)
    if (lower == "reroute") {
      return MoveType::kReroute;
    }
@@ -183,10 +196,10 @@ index 3a168ba48dc..4b7b3f6db9a 100644
  }
  
 diff --git a/src/rsz/src/Resizer.i b/src/rsz/src/Resizer.i
-index b1c993189c3..9a54e972f36 100644
+index 4400d87be..64124d034 100644
 --- a/src/rsz/src/Resizer.i
 +++ b/src/rsz/src/Resizer.i
-@@ -370,6 +370,7 @@ repair_setup(double setup_margin,
+@@ -372,6 +372,7 @@ repair_setup(double setup_margin,
               bool skip_size_down_fanout,
               bool skip_buffering,
               bool skip_buffer_removal,
@@ -194,7 +207,7 @@ index b1c993189c3..9a54e972f36 100644
               bool skip_last_gasp,
               bool skip_vt_swap,
               bool skip_crit_vt_swap)
-@@ -382,7 +383,7 @@ repair_setup(double setup_margin,
+@@ -384,7 +385,7 @@ repair_setup(double setup_margin,
                         verbose, sequence, phases,
                         skip_pin_swap, skip_gate_cloning,
                         skip_size_down_fanout,
@@ -204,10 +217,10 @@ index b1c993189c3..9a54e972f36 100644
  }
  
 diff --git a/src/rsz/src/Resizer.tcl b/src/rsz/src/Resizer.tcl
-index 5ecf9fe282f..b53ba743eb8 100644
+index cc68631e3..befcb093b 100644
 --- a/src/rsz/src/Resizer.tcl
 +++ b/src/rsz/src/Resizer.tcl
-@@ -247,6 +247,7 @@ sta::define_cmd_args "repair_timing" {[-setup] [-hold]\
+@@ -249,6 +249,7 @@ sta::define_cmd_args "repair_timing" {[-setup] [-hold]\
                                          [-skip_size_down]\
                                          [-skip_buffering]\
                                          [-skip_buffer_removal]\
@@ -215,7 +228,7 @@ index 5ecf9fe282f..b53ba743eb8 100644
                                          [-skip_last_gasp]\
                                          [-skip_vt_swap]\
                                          [-skip_crit_vt_swap]\
-@@ -269,8 +270,9 @@ proc repair_timing { args } {
+@@ -271,8 +272,9 @@ proc repair_timing { args } {
              -phases -policy -policies \
              -recover_power -repair_tns -max_passes -max_iterations -max_repairs_per_pass} \
      flags {-setup -hold -allow_setup_violations -skip_pin_swap -skip_gate_cloning \
@@ -227,7 +240,7 @@ index 5ecf9fe282f..b53ba743eb8 100644
  
    set setup [info exists flags(-setup)]
    set hold [info exists flags(-hold)]
-@@ -322,6 +324,7 @@ proc repair_timing { args } {
+@@ -324,6 +326,7 @@ proc repair_timing { args } {
    set skip_size_down_fanout [info exists flags(-skip_size_down)]
    set skip_buffering [info exists flags(-skip_buffering)]
    set skip_buffer_removal [info exists flags(-skip_buffer_removal)]
@@ -235,7 +248,7 @@ index 5ecf9fe282f..b53ba743eb8 100644
    set skip_last_gasp [info exists flags(-skip_last_gasp)]
    set skip_vt_swap [info exists flags(-skip_vt_swap)]
    set skip_crit_vt_swap [info exists flags(-skip_crit_vt_swap)]
-@@ -386,7 +389,8 @@ proc repair_timing { args } {
+@@ -388,7 +391,8 @@ proc repair_timing { args } {
          $max_iterations $max_repairs_per_pass $match_cell_footprint $verbose \
          $sequence $phases \
          $skip_pin_swap $skip_gate_cloning $skip_size_down_fanout $skip_buffering \
@@ -247,7 +260,7 @@ index 5ecf9fe282f..b53ba743eb8 100644
        set repaired_hold [rsz::repair_hold $setup_margin $hold_margin \
 diff --git a/src/rsz/src/move/BufferToInvertersCandidate.cc b/src/rsz/src/move/BufferToInvertersCandidate.cc
 new file mode 100644
-index 00000000000..e00d48f9c89
+index 000000000..e00d48f9c
 --- /dev/null
 +++ b/src/rsz/src/move/BufferToInvertersCandidate.cc
 @@ -0,0 +1,237 @@
@@ -490,7 +503,7 @@ index 00000000000..e00d48f9c89
 +}  // namespace rsz
 diff --git a/src/rsz/src/move/BufferToInvertersCandidate.hh b/src/rsz/src/move/BufferToInvertersCandidate.hh
 new file mode 100644
-index 00000000000..64dfecf108a
+index 000000000..64dfecf10
 --- /dev/null
 +++ b/src/rsz/src/move/BufferToInvertersCandidate.hh
 @@ -0,0 +1,36 @@
@@ -532,7 +545,7 @@ index 00000000000..64dfecf108a
 +}  // namespace rsz
 diff --git a/src/rsz/src/move/BufferToInvertersGenerator.cc b/src/rsz/src/move/BufferToInvertersGenerator.cc
 new file mode 100644
-index 00000000000..8aa2d2aea4e
+index 000000000..8aa2d2aea
 --- /dev/null
 +++ b/src/rsz/src/move/BufferToInvertersGenerator.cc
 @@ -0,0 +1,141 @@
@@ -679,7 +692,7 @@ index 00000000000..8aa2d2aea4e
 +}  // namespace rsz
 diff --git a/src/rsz/src/move/BufferToInvertersGenerator.hh b/src/rsz/src/move/BufferToInvertersGenerator.hh
 new file mode 100644
-index 00000000000..3231a4ece3a
+index 000000000..3231a4ece
 --- /dev/null
 +++ b/src/rsz/src/move/BufferToInvertersGenerator.hh
 @@ -0,0 +1,30 @@
@@ -714,7 +727,7 @@ index 00000000000..3231a4ece3a
 +
 +}  // namespace rsz
 diff --git a/src/rsz/src/policy/OptimizationPolicy.cc b/src/rsz/src/policy/OptimizationPolicy.cc
-index 58a7d84d4bc..f3776940f30 100644
+index 58a7d84d4..f3776940f 100644
 --- a/src/rsz/src/policy/OptimizationPolicy.cc
 +++ b/src/rsz/src/policy/OptimizationPolicy.cc
 @@ -12,6 +12,7 @@
@@ -759,10 +772,10 @@ index 58a7d84d4bc..f3776940f30 100644
          generator = std::make_unique<RerouteGenerator>(context);
          break;
 diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
-index d6d63b90acf..50d3fe9ded7 100644
+index 447346201..69b73f979 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.cc
 +++ b/src/rsz/src/policy/SetupLegacyBase.cc
-@@ -188,6 +188,10 @@ void SetupLegacyBase::buildMainMoveSequence(const bool log_sequence)
+@@ -190,6 +190,10 @@ void SetupLegacyBase::buildMainMoveSequence(const bool log_sequence)
          case MoveType::kReroute:
            move_sequence_.push_back(MoveType::kReroute);
            break;
@@ -773,7 +786,7 @@ index d6d63b90acf..50d3fe9ded7 100644
          case MoveType::kCount:
            break;
        }
-@@ -592,7 +596,13 @@ void SetupLegacyBase::logRepairTarget(const Target& target) const
+@@ -615,7 +619,13 @@ void SetupLegacyBase::logRepairTarget(const Target& target) const
  int SetupLegacyBase::repairProgressIncrement(const MoveType type,
                                               const int repairs_per_pass)
  {
@@ -789,7 +802,7 @@ index d6d63b90acf..50d3fe9ded7 100644
  
  bool SetupLegacyBase::allowsBatchRepair(const MoveType type)
 diff --git a/src/rsz/src/policy/SetupLegacyMtPolicy.cc b/src/rsz/src/policy/SetupLegacyMtPolicy.cc
-index b62559c48ff..cc2ae31f1de 100644
+index b62559c48..cc2ae31f1 100644
 --- a/src/rsz/src/policy/SetupLegacyMtPolicy.cc
 +++ b/src/rsz/src/policy/SetupLegacyMtPolicy.cc
 @@ -12,6 +12,7 @@
@@ -811,7 +824,7 @@ index b62559c48ff..cc2ae31f1de 100644
          break;
      }
 diff --git a/src/rsz/src/policy/SetupMt1Policy.cc b/src/rsz/src/policy/SetupMt1Policy.cc
-index df325e62239..132cf65cd69 100644
+index df325e622..132cf65cd 100644
 --- a/src/rsz/src/policy/SetupMt1Policy.cc
 +++ b/src/rsz/src/policy/SetupMt1Policy.cc
 @@ -81,6 +81,7 @@ void SetupMt1Policy::buildMoveGenerators(
@@ -823,10 +836,10 @@ index df325e62239..132cf65cd69 100644
          break;
      }
 diff --git a/src/rsz/test/BUILD b/src/rsz/test/BUILD
-index bcc465efd76..2382c85a45d 100644
+index 4aa0d5be1..028b51d34 100644
 --- a/src/rsz/test/BUILD
 +++ b/src/rsz/test/BUILD
-@@ -159,6 +159,8 @@ TESTS = [
+@@ -161,6 +161,8 @@ TESTS = [
      "repair_setup_sizeup_match_prev_fanout",
      "repair_setup_splitload_legacy_basic",
      "repair_setup_swappins_legacy_flat",
@@ -836,10 +849,10 @@ index bcc465efd76..2382c85a45d 100644
      "repair_setup_unbuffer_legacy_bufx8",
      "repair_setup_undo1",
 diff --git a/src/rsz/test/CMakeLists.txt b/src/rsz/test/CMakeLists.txt
-index 3c9670fe024..1db09af289f 100644
+index 386c36693..76eb0c2d0 100644
 --- a/src/rsz/test/CMakeLists.txt
 +++ b/src/rsz/test/CMakeLists.txt
-@@ -116,6 +116,8 @@ or_integration_tests(
+@@ -118,6 +118,8 @@ or_integration_tests(
      repair_setup_sizeup_match_prev_fanout
      repair_setup_splitload_legacy_basic
      repair_setup_swappins_legacy_flat
@@ -850,7 +863,7 @@ index 3c9670fe024..1db09af289f 100644
      repair_setup1
 diff --git a/src/rsz/test/repair_setup_buffer_to_inverters.def b/src/rsz/test/repair_setup_buffer_to_inverters.def
 new file mode 100644
-index 00000000000..73a62cd7146
+index 000000000..73a62cd71
 --- /dev/null
 +++ b/src/rsz/test/repair_setup_buffer_to_inverters.def
 @@ -0,0 +1,35 @@
@@ -891,7 +904,7 @@ index 00000000000..73a62cd7146
 +END DESIGN
 diff --git a/src/rsz/test/repair_setup_buffer_to_inverters.ok b/src/rsz/test/repair_setup_buffer_to_inverters.ok
 new file mode 100644
-index 00000000000..9e5966715c4
+index 000000000..9e5966715
 --- /dev/null
 +++ b/src/rsz/test/repair_setup_buffer_to_inverters.ok
 @@ -0,0 +1,48 @@
@@ -945,7 +958,7 @@ index 00000000000..9e5966715c4
 +
 diff --git a/src/rsz/test/repair_setup_buffer_to_inverters.tcl b/src/rsz/test/repair_setup_buffer_to_inverters.tcl
 new file mode 100644
-index 00000000000..9acd0312d61
+index 000000000..9acd0312d
 --- /dev/null
 +++ b/src/rsz/test/repair_setup_buffer_to_inverters.tcl
 @@ -0,0 +1,16 @@
@@ -967,7 +980,7 @@ index 00000000000..9acd0312d61
 +report_checks -fields input -digits 3
 diff --git a/src/rsz/test/repair_setup_buffer_to_inverters_hier.def b/src/rsz/test/repair_setup_buffer_to_inverters_hier.def
 new file mode 100644
-index 00000000000..941ce6dd0b0
+index 000000000..941ce6dd0
 --- /dev/null
 +++ b/src/rsz/test/repair_setup_buffer_to_inverters_hier.def
 @@ -0,0 +1,29 @@
@@ -1002,7 +1015,7 @@ index 00000000000..941ce6dd0b0
 +END DESIGN
 diff --git a/src/rsz/test/repair_setup_buffer_to_inverters_hier.ok b/src/rsz/test/repair_setup_buffer_to_inverters_hier.ok
 new file mode 100644
-index 00000000000..42217fd3511
+index 000000000..42217fd35
 --- /dev/null
 +++ b/src/rsz/test/repair_setup_buffer_to_inverters_hier.ok
 @@ -0,0 +1,49 @@
@@ -1057,7 +1070,7 @@ index 00000000000..42217fd3511
 +
 diff --git a/src/rsz/test/repair_setup_buffer_to_inverters_hier.tcl b/src/rsz/test/repair_setup_buffer_to_inverters_hier.tcl
 new file mode 100644
-index 00000000000..ac0d0bec5d0
+index 000000000..ac0d0bec5
 --- /dev/null
 +++ b/src/rsz/test/repair_setup_buffer_to_inverters_hier.tcl
 @@ -0,0 +1,19 @@
@@ -1082,7 +1095,7 @@ index 00000000000..ac0d0bec5d0
 +report_checks -fields input -digits 3
 diff --git a/src/rsz/test/repair_setup_buffer_to_inverters_hier.v b/src/rsz/test/repair_setup_buffer_to_inverters_hier.v
 new file mode 100644
-index 00000000000..2385aa75e80
+index 000000000..2385aa75e
 --- /dev/null
 +++ b/src/rsz/test/repair_setup_buffer_to_inverters_hier.v
 @@ -0,0 +1,26 @@
@@ -1113,10 +1126,10 @@ index 00000000000..2385aa75e80
 +            .CK(clk));
 +endmodule
 diff --git a/src/rsz/test/rsz_aux.py b/src/rsz/test/rsz_aux.py
-index 131629a89a2..7f92e424426 100644
+index 28eab270a..41fdd2c14 100644
 --- a/src/rsz/test/rsz_aux.py
 +++ b/src/rsz/test/rsz_aux.py
-@@ -88,6 +88,7 @@ def repair_timing(
+@@ -90,6 +90,7 @@ def repair_timing(
      skip_size_down_fanout=False,
      skip_buffering=False,
      skip_buffer_removal=False,
@@ -1124,7 +1137,7 @@ index 131629a89a2..7f92e424426 100644
      skip_last_gasp=False,
      skip_vt_swap=False,
      skip_crit_vt_swap=False,
-@@ -144,6 +145,7 @@ def repair_timing(
+@@ -146,6 +147,7 @@ def repair_timing(
              skip_size_down_fanout,
              skip_buffering,
              skip_buffer_removal,
