@@ -1,0 +1,26 @@
+
+tmp/dump/ariane.iterm  table=iterm  records=938,965 columns=10
+   col0  distinct=       70 constant-delta= 65.1%
+   col1  distinct=        1 constant-delta=100.0%
+   col2  distinct=  187,239 constant-delta=  0.0%
+   col3  distinct=  167,990 constant-delta= 81.8%
+   col4  distinct=  751,727 constant-delta=  1.9%
+   col5  distinct=  751,727 constant-delta=  0.0%
+   col6  distinct=        1 constant-delta=100.0%
+   col7  distinct=        1 constant-delta=100.0%
+   col8  distinct=        1 constant-delta=100.0%
+   col9  distinct=        1 constant-delta=100.0%
+   -> 5 of 10 columns hold a single value
+
+tmp/dump/microwatt.iterm  table=iterm  records=576,596 columns=10
+   col0  distinct=      405 constant-delta= 69.5%
+   col1  distinct=        1 constant-delta=100.0%
+   col2  distinct=   62,588 constant-delta=  0.0%
+   col3  distinct=  116,470 constant-delta= 79.7%
+   col4  distinct=  513,258 constant-delta=  1.8%
+   col5  distinct=  513,258 constant-delta=  0.0%
+   col6  distinct=   18,148 constant-delta= 83.7%
+   col7  distinct=   34,908 constant-delta= 88.7%
+   col8  distinct=   34,978 constant-delta= 88.7%
+   col9  distinct=        1 constant-delta=100.0%
+   -> 2 of 10 columns hold a single value

@@ -1,0 +1,25 @@
+# Append to src/odb/src/db/BUILD in an OpenROAD checkout to build the two
+# probe tools. They are study scaffolding and are deliberately not part of
+# the proposed change, which is why they live here rather than in the patch.
+#
+#   bazelisk run //src/odb/src/db:SoaLayoutFacts
+#   bazelisk run //src/odb/src/db:SoaDumpTable -- design.odb out/stem sbox box iterm
+
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+cc_binary(
+    name = "SoaLayoutFacts",
+    srcs = ["SoaLayoutFacts.cc"],
+    features = ["-layering_check"],
+    deps = [":db"],
+)
+
+cc_binary(
+    name = "SoaDumpTable",
+    srcs = ["SoaDumpTable.cc"],
+    features = ["-layering_check"],
+    deps = [
+        ":db",
+        "//src/utl",
+    ],
+)

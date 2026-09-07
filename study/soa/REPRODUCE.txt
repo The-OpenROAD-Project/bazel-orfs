@@ -1,0 +1,48 @@
+How every number in the write-up was produced.
+
+The designs are stock ORFS, built through bazel-orfs:
+
+  bazelisk build @orfs//flow/designs/nangate45/ariane133:ariane_floorplan
+  bazelisk build @orfs//flow/designs/sky130hd/microwatt:microwatt_floorplan
+  bazelisk build @orfs//flow/designs/nangate45/black_parrot:black_parrot_floorplan
+  bazelisk build @orfs//flow/designs/nangate45/swerv_wrapper:swerv_wrapper_floorplan
+  bazelisk build @orfs//flow/designs/sky130hd/chameleon:soc_core_floorplan
+  bazelisk build @orfs//flow/designs/asap7/aes:aes_cipher_top_route
+
+Copy the stage .odb out of bazel-out with `bazelisk cquery --output=files`.
+
+The OpenROAD side is study/soa/patches/odb-soa-switch.patch, applied to an
+OpenROAD checkout; tools/BUILD.fragment adds the two probe binaries.
+
+  Slot layouts (sizeof, offsets, padding), which is where the per-slot
+  arithmetic comes from:
+      bazelisk run //src/odb/src/db:SoaLayoutFacts
+
+  Table records, for the offline sweeps:
+      bazelisk run //src/odb/src/db:SoaDumpTable -- <design.odb> <stem> sbox box iterm
+
+  Compression against block size, both policies:
+      python3 transpose_measure.py <stem>.iterm --csv sweep.csv --policy classes
+      -> sweep-ariane133.csv, sweep-microwatt.csv, sweep-aes-routed.csv
+
+  Why it compresses, per column:
+      python3 column_structure.py <stem>.iterm
+      -> column-census.txt
+
+  The gates, and the artifact size they produce:
+      bash roundtrip_gate.sh <openroad> <design.odb> <workdir> artifact-gain.csv
+      -> artifact-gain.csv (def_equal and stable must both be "yes")
+
+  Read time, write time, peak RSS:
+      bash io_cost.sh <openroad> <design.odb> <label> io.csv
+      -> memory-aos-baseline.csv (before), memory-soa-storage.csv (after)
+
+Two things to know before comparing peak RSS numbers:
+
+  * Subtract the process baseline. The same binary loading nothing is
+    ~75.7 MB here; a percentage taken against the raw peak understates the
+    change by counting Tcl, STA and the libraries.
+  * The two baseline rows measured with read_db_cost.sh and the one
+    measured with io_cost.sh are the same quantity -- peak RSS of a
+    read_db -- but the harnesses differ, which is why the CSV records
+    which one produced each row.
