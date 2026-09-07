@@ -361,12 +361,11 @@ In downstream projects, it also injects commented-out boilerplate for
 latest OpenROAD before ORFS catches up. This is useful when an OpenROAD bug
 fix or feature hasn't made it into ORFS yet.
 
-`//:bump` supports `MODULE.bazel` files whose `bazel-orfs` pin is **at most
-30 days behind the commit being bumped to** — measured between commit
-dates, not against the clock. An older pin is a hard stop that tells you
-how to re-seed the file. See
-[Supported window](docs/openroad.md#supported-window) for why, and for the
-matching cleanup policy on the bumper's own compatibility code.
+`//:bump` rewrites the override shapes it recognizes and stops, naming the
+block, when it meets one it does not — it never writes a partial
+`MODULE.bazel`. If your file is old enough that a block is unrecognized,
+re-seed it from the template above and re-apply your edits. See
+[Shapes the bumper recognizes](docs/openroad.md#shapes-the-bumper-recognizes).
 
 ## Repository layout
 

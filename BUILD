@@ -138,18 +138,6 @@ py_test(
     deps = [":bump_impl_lib"],
 )
 
-# Enforces the 30-day cleanup policy on the bumper's compatibility code:
-# a COMPAT(YYYY-MM-DD) marker older than the supported window fails here.
-py_test(
-    name = "bump_compat_test",
-    srcs = ["bump_compat_test.py"],
-    data = [
-        "bump_impl.py",
-        "bump_reference_date.txt",
-    ],
-    deps = [":bump_impl_lib"],
-)
-
 # The Bazel floor that an obsolete Bazel cannot walk past. Checked during
 # module resolution, and inherited by downstream consumers of bazel-orfs.
 py_test(
