@@ -1,0 +1,584 @@
+Field-major .odb table blocks, carried against the pinned OpenROAD.
+
+NOT UPSTREAMED. Retires when a //:bump lands on an upstream that carries
+the change.
+
+What it does. An opted-in dbTable writes its pages in blocks whose bytes
+are permuted field-major: byte j of every record, then byte j + 1. The same
+bytes, in a different order, so no object id moves, no free-list order
+changes, and no dbSet iteration order shifts -- which is what the DEF
+equality gate in study/soa/roundtrip_gate.sh checks. Records are produced
+by the type's existing operator<<, so no per-type serializer exists; that
+was the condition the whole idea was conditional on.
+
+How a table opts in. One line in its header:
+
+    static constexpr bool kFieldMajorTable = true;
+
+_dbITerm and _dbBox do here; _dbSBox inherits it from _dbBox, which is
+intended for these two and a trap for any future derived slot type. A
+per-type member rather than a trait specialization on purpose: dbTable<T>
+is instantiated wherever the serialization happens, and a specialization
+declared in T's own header need not be visible there, so writer and reader
+could disagree -- a silently corrupt file.
+
+Compatibility. kSchemaFieldMajorBlocks gates the read. Files older than it
+take the per-slot path unchanged: simple, and deliberately not made fast,
+since it runs only on files written before the bump.
+
+Measured, seven public ORFS designs, both gates passing on all of them:
+compressed artifact 1.10x-2.72x smaller (1.53x aggregate), uncompressed
+0.4%-1.5% smaller, read time +8%, peak RSS +0.2%, write time unchanged.
+
+Known limit. Block size is bounded by slots and by an estimate of bytes
+that uses sizeof(T), so it does not bind for types whose records carry a
+heap payload -- a net and its wire. Opting every table in reaches 2.45x on
+the artifact but costs 7.1x read time and 2.3x peak RSS on
+nangate45/ariane133. Slot-granular blocks that straddle pages would fix
+that; until then the opt-in list is the three small-record tables.
+
+Also included as study scaffolding, not part of any proposal: the
+SoaLayoutFacts and SoaDumpTable probe targets in src/odb/src/db/BUILD.
+
+diff --git a/src/odb/include/odb/dbStream.h b/src/odb/include/odb/dbStream.h
+index e2d75816dd..a06b66849e 100644
+--- a/src/odb/include/odb/dbStream.h
++++ b/src/odb/include/odb/dbStream.h
+@@ -288,6 +288,16 @@ class dbIStream
+     return *this;
+   }
+ 
++  // Bulk counterpart to dbOStream::writeBytes. A field-major table block
++  // moves whole columns, and a column is contiguous by construction, so it
++  // wants one call rather than one per byte.
++  void readBytes(std::span<char> bytes)
++  {
++    if (!bytes.empty()) {
++      f_.read(bytes.data(), (std::streamsize) bytes.size());
++    }
++  }
++
+   dbIStream& operator>>(char*& c)
+   {
+     int l;
+diff --git a/src/odb/src/db/BUILD b/src/odb/src/db/BUILD
+index c793c6e322..82fd81ca96 100644
+--- a/src/odb/src/db/BUILD
++++ b/src/odb/src/db/BUILD
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: BSD-3-Clause
+ # Copyright (c) 2026-2026, Precision Innovations Inc.
+ 
++load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+ load("@rules_cc//cc:cc_library.bzl", "cc_library")
+ load("//test:regression.bzl", "message_srcs")
+ 
+@@ -69,3 +70,21 @@ cc_library(
+ message_srcs(
+     visibility = ["//src/odb:__pkg__"],
+ )
++
++# SoA study scaffolding -- carried as a patch, not upstream.
++cc_binary(
++    name = "SoaLayoutFacts",
++    srcs = ["SoaLayoutFacts.cc"],
++    features = ["-layering_check"],
++    deps = [":db"],
++)
++
++cc_binary(
++    name = "SoaDumpTable",
++    srcs = ["SoaDumpTable.cc"],
++    features = ["-layering_check"],
++    deps = [
++        ":db",
++        "//src/utl",
++    ],
++)
+diff --git a/src/odb/src/db/dbBox.h b/src/odb/src/db/dbBox.h
+index 91e226ff1f..6be1f7e5fa 100644
+--- a/src/odb/src/db/dbBox.h
++++ b/src/odb/src/db/dbBox.h
+@@ -65,6 +65,11 @@ static_assert(sizeof(_dbBoxFlags) == 4, "_dbBoxFlags too large");
+ class _dbBox : public _dbObject
+ {
+  public:
++  // box_tbl and sbox_tbl are the geometry tables, and a power grid is a
++  // lattice -- the most compressible thing in the file once its columns are
++  // adjacent. _dbSBox inherits this deliberately: both tables want it.
++  static constexpr bool kFieldMajorTable = true;
++
+   enum Type
+   {
+     kBlockVia,
+diff --git a/src/odb/src/db/dbDatabase.h b/src/odb/src/db/dbDatabase.h
+index 24bc0423d7..6372402254 100644
+--- a/src/odb/src/db/dbDatabase.h
++++ b/src/odb/src/db/dbDatabase.h
+@@ -50,7 +50,11 @@ namespace odb {
+ inline constexpr uint32_t kSchemaMajor = 0;  // Not used...
+ inline constexpr uint32_t kSchemaInitial = 57;
+ 
+-inline constexpr uint32_t kSchemaMinor = 139;  // Current revision number
++inline constexpr uint32_t kSchemaMinor = 140;  // Current revision number
++
++// Revision where opted-in dbTables write their pages field-major, in blocks,
++// instead of one whole record per slot
++inline constexpr uint32_t kSchemaFieldMajorBlocks = 140;
+ 
+ // Revision where dbTech::extraction_rules_file_ was removed
+ inline constexpr uint32_t kSchemaRemoveTechExtractionRulesFile = 139;
+diff --git a/src/odb/src/db/dbITerm.h b/src/odb/src/db/dbITerm.h
+index ea09caced0..1c05fdad76 100644
+--- a/src/odb/src/db/dbITerm.h
++++ b/src/odb/src/db/dbITerm.h
+@@ -40,6 +40,11 @@ struct dbITermFlags
+ class _dbITerm : public _dbObject
+ {
+  public:
++  // iterm_tbl is the largest table in a placed design, and most of a slot's
++  // columns are constant or monotone, so it is the first table to write its
++  // pages field-major. See dbFieldMajorTable().
++  static constexpr bool kFieldMajorTable = true;
++
+   enum Field  // dbJournal field name
+   {
+     kFlags
+@@ -71,6 +76,8 @@ class _dbITerm : public _dbObject
+   boost::container::flat_map<dbId<_dbMPin>, dbId<_dbAccessPoint>> aps_;
+ };
+ 
++
++
+ inline _dbITerm::_dbITerm(_dbDatabase*)
+ {
+   // For pointer tagging the bottom 3 bits.
+diff --git a/src/odb/src/db/dbTable.h b/src/odb/src/db/dbTable.h
+index ecbf50b8b5..820ff8eb53 100644
+--- a/src/odb/src/db/dbTable.h
++++ b/src/odb/src/db/dbTable.h
+@@ -4,6 +4,7 @@
+ #pragma once
+ 
+ #include <cstdint>
++#include <type_traits>
+ 
+ #include "boost/integer/static_log2.hpp"
+ #include "dbCore.h"
+@@ -22,6 +23,30 @@ class dbTablePage final : public dbObjectPage
+   char objects_[1];
+ };
+ 
++// Opt-in, per slot type, to writing this table's pages field-major (see
++// dbTable::writeBlock). Nothing about the in-memory layout changes: the same
++// bytes are written in a different order, so ids, free lists and iteration
++// order are untouched, and only the byte stream moves. Tables opt in one at
++// a time because the win is proportional to how much of the artifact they
++// are, and because a smaller change is a reviewable one.
++//
++// A slot type opts in by declaring `static constexpr bool kFieldMajorTable
++// = true;`. It has to be a member of the type rather than a specialization
++// of a trait: dbTable<T> is instantiated in whichever translation unit
++// happens to serialize the block, and a specialization declared in T's own
++// header is not necessarily visible there, so the writer and the reader
++// could be instantiated with different answers -- which is a silently
++// corrupt file, and was exactly the first bug this code had.
++template <class T>
++constexpr bool dbFieldMajorTable()
++{
++  if constexpr (requires { T::kFieldMajorTable; }) {
++    return T::kFieldMajorTable;
++  } else {
++    return false;
++  }
++}
++
+ template <class T, uint32_t page_size /* = 128 */>
+ class dbTable final : public dbObjectTable, public dbIterator
+ {
+@@ -89,6 +114,33 @@ class dbTable final : public dbObjectTable, public dbIterator
+   void readPage(dbIStream& stream, dbTablePage* page);
+   void writePage(dbOStream& stream, const dbTablePage* page) const;
+ 
++  // Field-major form of the same bytes, a group of pages at a time. The
++  // group -- not the page -- is the unit, because a page is as small as 128
++  // slots and the compression a field-major layout buys grows with the run
++  // length. Enlarging the page instead would renumber every object, since
++  // an id is `page_addr | slot`.
++  // A block whose records are nearly all distinct lengths gets columns one
++  // byte wide, which buys nothing and costs a header entry each; past this
++  // many classes the block is written verbatim instead. The bound is on
++  // pointlessness, not on cost -- the writer buckets records by length, so
++  // many classes are not themselves expensive.
++  static constexpr size_t kMaxLengthClasses = 64;
++
++  static constexpr uint32_t kSlotsPerBlock = 8192;
++  static constexpr uint32_t kPagesPerBlock
++      = (kSlotsPerBlock / page_size) ? (kSlotsPerBlock / page_size) : 1;
++
++  // Records are sized by sizeof(T) for the purpose of choosing a boundary;
++  // a type whose records carry a heap payload will overrun this, which is
++  // why the bound is generous rather than tight.
++  static constexpr uint64_t kMaxBlockBytes = 4u << 20;
++
++  uint32_t blockPages(uint32_t first_page) const;
++  void writeBlocks(dbOStream& stream) const;
++  void readBlocks(dbIStream& stream);
++  void writeBlock(dbOStream& stream, uint32_t first_page, uint32_t pages) const;
++  void readBlock(dbIStream& stream, uint32_t first_page, uint32_t pages);
++
+   _dbFreeObject* getFreeObj(dbId<T> id);
+ 
+   template <class U, uint32_t page_size2>
+diff --git a/src/odb/src/db/dbTable.inc b/src/odb/src/db/dbTable.inc
+index ab68b7c3fc..60a2decf1f 100644
+--- a/src/odb/src/db/dbTable.inc
++++ b/src/odb/src/db/dbTable.inc
+@@ -8,6 +8,10 @@
+ #include <cstdint>
+ #include <cstdlib>
+ #include <cstring>
++#include <new>
++#include <sstream>
++#include <string>
++#include <vector>
+ 
+ #include "dbCommon.h"
+ #include "dbCore.h"
+@@ -529,6 +533,288 @@ void dbTable<T, page_size>::readPage(dbIStream& stream, dbTablePage* page)
+   }
+ }
+ 
++template <class T, uint32_t page_size>
++void dbTable<T, page_size>::writeBlock(dbOStream& stream,
++                                       const uint32_t first_page,
++                                       const uint32_t pages) const
++{
++  const uint32_t slots = pages * page_size;
++
++  // Serialize every allocated slot through the type's own operator<<, which
++  // is the point: a field-major writer that needed a hand-written
++  // serializer per type would not be worth having. The records land
++  // end-to-end in a scratch buffer and we remember where each one starts.
++  std::ostringstream scratch(std::ios::binary);
++  dbOStream records(stream.getDatabase(), scratch);
++  std::vector<uint32_t> lengths;      // per allocated slot, in slot order
++  std::vector<uint32_t> starts;       // ditto, into the scratch buffer
++  std::vector<uint32_t> free_links;   // next, prev per free slot, in order
++  std::vector<char> allocated(slots, 0);
++
++  dbOStream::Position mark = records.pos();
++  for (uint32_t i = 0; i < slots; ++i) {
++    const dbTablePage* page = pages_[first_page + (i >> kPageShift)];
++    const T* t = &((const T*) page->objects_)[i & kPageMask];
++
++    if ((t->offset_in_bytes_ & kAllocBit) == 0) {
++      const _dbFreeObject* o = (const _dbFreeObject*) t;
++      free_links.push_back(o->next_);
++      free_links.push_back(o->prev_);
++      continue;
++    }
++
++    allocated[i] = 1;
++    records << *t;
++    const dbOStream::Position now = records.pos();
++    starts.push_back((uint32_t) mark);
++    lengths.push_back((uint32_t) (now - mark));
++    mark = now;
++  }
++
++  const std::string buffer = scratch.str();
++
++  // Records of one length transpose; records of different lengths do not.
++  // After pin access an iterm either carries an access point or does not, so
++  // a block holds two lengths and splitting by length is what keeps the
++  // layout working -- measured at +14% on the routed case over passing a
++  // mixed block through unchanged.
++  std::vector<uint32_t> classes(lengths);
++  std::sort(classes.begin(), classes.end());
++  classes.erase(std::unique(classes.begin(), classes.end()), classes.end());
++
++  // A table whose records are all different lengths -- a net and its wire,
++  // say -- has as many classes as records, and then splitting by length
++  // buys nothing and costs a pass per class. Past a handful of classes the
++  // block goes out exactly as the per-slot writer would have written it,
++  // which is also what makes it safe to opt every table in: the ones the
++  // layout cannot help simply fall back.
++  const bool transposable = classes.size() <= kMaxLengthClasses;
++  if (!transposable) {
++    classes.clear();
++  }
++
++  stream << (uint32_t) classes.size();
++  for (const uint32_t length : classes) {
++    stream << length;
++  }
++
++  // The allocation bitmap, and then one byte of class index per allocated
++  // slot. A byte rather than packed bits on purpose: the index column is
++  // one of the most compressible things in the block, so the bytes cost
++  // almost nothing once the block is compressed, and the reader stays
++  // obvious.
++  for (uint32_t i = 0; i < slots; i += 8) {
++    unsigned char bits = 0;
++    for (uint32_t bit = 0; bit < 8 && i + bit < slots; ++bit) {
++      if (allocated[i + bit]) {
++        bits |= (unsigned char) (1u << bit);
++      }
++    }
++    stream << bits;
++  }
++  // One class needs no index at all, and the fallback needs none either.
++  if (classes.size() > 1) {
++    for (const uint32_t length : lengths) {
++      const uint32_t index
++          = (uint32_t) (std::lower_bound(classes.begin(), classes.end(), length)
++                        - classes.begin());
++      stream << (unsigned char) index;
++    }
++  }
++  for (const uint32_t link : free_links) {
++    stream << link;
++  }
++
++
++  // Field-major at last: byte j of every record of a class, then byte j + 1.
++  // Gathered into one column and written with a single call -- a byte at a
++  // time through the stream is a function call per byte, which costs more
++  // than the whole rest of the write put together.
++  if (!transposable) {
++    stream.writeBytes(buffer);
++    return;
++  }
++
++  // Bucket the records by length in one pass. Scanning every record once
++  // per class instead is quadratic when a table's records are all different
++  // lengths, which is the common case for anything carrying a wire.
++  std::vector<std::vector<uint32_t>> members(classes.size());
++  for (size_t record = 0; record < lengths.size(); ++record) {
++    const size_t klass
++        = (size_t) (std::lower_bound(classes.begin(), classes.end(), lengths[record])
++                    - classes.begin());
++    members[klass].push_back(starts[record]);
++  }
++
++  std::vector<char> column;
++  for (size_t klass = 0; klass < classes.size(); ++klass) {
++    const std::vector<uint32_t>& group = members[klass];
++    column.resize(group.size());
++    for (uint32_t j = 0; j < classes[klass]; ++j) {
++      for (size_t i = 0; i < group.size(); ++i) {
++        column[i] = buffer[group[i] + j];
++      }
++      stream.writeBytes(column);
++    }
++  }
++}
++
++template <class T, uint32_t page_size>
++void dbTable<T, page_size>::readBlock(dbIStream& stream,
++                                      const uint32_t first_page,
++                                      const uint32_t pages)
++{
++  const uint32_t slots = pages * page_size;
++
++  uint32_t class_cnt;
++  stream >> class_cnt;
++  std::vector<uint32_t> classes(class_cnt);
++  for (uint32_t i = 0; i < class_cnt; ++i) {
++    stream >> classes[i];
++  }
++
++  std::vector<char> allocated(slots, 0);
++  uint32_t alloc_cnt = 0;
++  for (uint32_t i = 0; i < slots; i += 8) {
++    unsigned char bits;
++    stream >> bits;
++    for (uint32_t bit = 0; bit < 8 && i + bit < slots; ++bit) {
++      allocated[i + bit] = (bits >> bit) & 1u;
++      alloc_cnt += allocated[i + bit];
++    }
++  }
++
++  std::vector<uint32_t> lengths(alloc_cnt, 0);
++  if (class_cnt == 1) {
++    std::fill(lengths.begin(), lengths.end(), classes[0]);
++  } else if (class_cnt > 1) {
++    for (uint32_t i = 0; i < alloc_cnt; ++i) {
++      unsigned char index;
++      stream >> index;
++      lengths[i] = classes[index];
++    }
++  }
++
++  std::vector<uint32_t> free_links(2 * (slots - alloc_cnt));
++  for (uint32_t& link : free_links) {
++    stream >> link;
++  }
++
++  // No classes means the writer could not use the layout for this block and
++  // wrote the records verbatim, in slot order -- which is the order the
++  // per-slot reader wants anyway, so it reads them straight from the file.
++  const bool transposed = class_cnt > 0;
++
++  std::string buffer;
++  if (transposed) {
++    // Un-transpose into the records the per-slot reader expects, so the
++    // rest of this is the same code path a legacy read takes.
++    std::vector<uint32_t> starts(alloc_cnt);
++    uint32_t total = 0;
++    for (uint32_t i = 0; i < alloc_cnt; ++i) {
++      starts[i] = total;
++      total += lengths[i];
++    }
++    buffer.assign(total, '\0');
++
++    std::vector<std::vector<uint32_t>> members(classes.size());
++    for (uint32_t record = 0; record < alloc_cnt; ++record) {
++      const size_t klass
++          = (size_t) (std::lower_bound(
++                          classes.begin(), classes.end(), lengths[record])
++                      - classes.begin());
++      members[klass].push_back(starts[record]);
++    }
++
++    std::vector<char> column;
++    for (size_t klass = 0; klass < classes.size(); ++klass) {
++      const std::vector<uint32_t>& group = members[klass];
++      column.resize(group.size());
++      for (uint32_t j = 0; j < classes[klass]; ++j) {
++        stream.readBytes(column);
++        for (size_t i = 0; i < group.size(); ++i) {
++          buffer[group[i] + j] = column[i];
++        }
++      }
++    }
++  }
++
++  std::istringstream scratch(buffer, std::ios::binary);
++  dbIStream unpacked(stream.getDatabase(), scratch);
++  dbIStream& records = transposed ? unpacked : stream;
++
++  uint32_t next_record = 0;
++  uint32_t next_link = 0;
++  for (uint32_t i = 0; i < slots; ++i) {
++    dbTablePage* page = pages_[first_page + (i >> kPageShift)];
++    T* t = &((T*) page->objects_)[i & kPageMask];
++    const uint32_t slot = i & kPageMask;
++    const uint32_t obj_oid = page->page_addr_ | slot;
++
++    if (!allocated[i]) {
++      _dbFreeObject* o = (_dbFreeObject*) t;
++      o->offset_in_bytes_ = slot * sizeof(T);
++      o->oid_ = obj_oid;
++      o->next_ = free_links[next_link++];
++      o->prev_ = free_links[next_link++];
++      continue;
++    }
++
++    new (t) T(db_);
++    const uint32_t offset = (uint32_t) (slot * sizeof(T)) | kAllocBit;
++    t->offset_in_bytes_ = offset;
++    t->oid_ = obj_oid;
++    page->alloc_cnt_++;
++    records >> *t;
++    // The record must have been consumed exactly, or the field-major layout
++    // and the per-slot reader disagree about this type.
++    assert(t->offset_in_bytes_ == offset);
++    ++next_record;
++  }
++  assert(next_record == alloc_cnt);
++}
++
++template <class T, uint32_t page_size>
++uint32_t dbTable<T, page_size>::blockPages(const uint32_t first_page) const
++{
++  // Slots bound the block, and so does its size in bytes. Without the byte
++  // bound a table of large records -- a net and its wire -- would buffer
++  // thousands of them at once, which costs more memory than the layout
++  // saves. Records are sized here by walking the page's allocation counts
++  // rather than by serializing anything: the estimate only has to be good
++  // enough to pick a boundary, and the boundary is written to the stream.
++  uint32_t pages = 0;
++  uint64_t bytes = 0;
++  while (first_page + pages < page_cnt_ && pages < kPagesPerBlock
++         && bytes < kMaxBlockBytes) {
++    bytes += (uint64_t) pages_[first_page + pages]->alloc_cnt_ * sizeof(T);
++    ++pages;
++  }
++  return pages ? pages : 1;
++}
++
++template <class T, uint32_t page_size>
++void dbTable<T, page_size>::writeBlocks(dbOStream& stream) const
++{
++  for (uint32_t page = 0; page < page_cnt_;) {
++    const uint32_t pages = blockPages(page);
++    stream << pages;
++    writeBlock(stream, page, pages);
++    page += pages;
++  }
++}
++
++template <class T, uint32_t page_size>
++void dbTable<T, page_size>::readBlocks(dbIStream& stream)
++{
++  for (uint32_t page = 0; page < page_cnt_;) {
++    uint32_t pages;
++    stream >> pages;
++    readBlock(stream, page, pages);
++    page += pages;
++  }
++}
++
+ template <class T, uint32_t page_size>
+ dbOStream& operator<<(dbOStream& stream,
+                       const NamedTable<T, page_size>& named_table)
+@@ -550,9 +836,14 @@ dbOStream& operator<<(dbOStream& stream, const dbTable<T, page_size>& table)
+   stream << table.alloc_cnt_;
+   stream << table.free_list_;
+ 
+-  for (uint32_t i = 0; i < table.page_cnt_; ++i) {
+-    const dbTablePage* page = table.pages_[i];
+-    table.writePage(stream, page);
++
++  if constexpr (dbFieldMajorTable<T>()) {
++    table.writeBlocks(stream);
++  } else {
++    for (uint32_t i = 0; i < table.page_cnt_; ++i) {
++      const dbTablePage* page = table.pages_[i];
++      table.writePage(stream, page);
++    }
+   }
+ 
+   stream << table.prop_list_;
+@@ -595,6 +886,14 @@ dbIStream& operator>>(dbIStream& stream, dbTable<T, page_size>& table)
+     table.pages_ = new dbTablePage*[table.page_tbl_size_];
+   }
+ 
++  // A file written before kSchemaFieldMajorBlocks holds whole records, one
++  // per slot, whatever this table opted into since. Reading it is the same
++  // per-slot loop it always was -- simple, and deliberately not made fast:
++  // the cost falls only on files older than the bump, and correctness there
++  // matters far more than speed.
++  const bool field_major
++      = dbFieldMajorTable<T>() && db->isSchema(kSchemaFieldMajorBlocks);
++
+   uint32_t i;
+   for (i = 0; i < table.page_cnt_; ++i) {
+     uint32_t size = (table.pageSize() * sizeof(T)) + sizeof(dbObjectPage);
+@@ -603,7 +902,13 @@ dbIStream& operator>>(dbIStream& stream, dbTable<T, page_size>& table)
+     page->page_addr_ = i << table.kPageShift;
+     page->table_ = &table;
+     table.pages_[i] = page;
+-    table.readPage(stream, page);
++    if (!field_major) {
++      table.readPage(stream, page);
++    }
++  }
++
++  if (field_major) {
++    table.readBlocks(stream);
+   }
+ 
+   for (; i < table.page_tbl_size_; ++i) {
