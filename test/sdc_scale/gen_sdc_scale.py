@@ -14,6 +14,7 @@ register count a parameter so the cost can be measured as a curve.
 The design is a W-bit input bus, a chain of N/W W-bit pipeline stages and a
 W-bit output bus: N flops that no optimizer can remove, three-plus-2W ports.
 """
+
 import sys
 
 
@@ -35,10 +36,15 @@ def main() -> None:
         f.write("  integer i;\n")
         f.write("  always @(posedge clock) begin\n")
         f.write("    if (reset) begin\n")
-        f.write("      for (i = 0; i < %d; i = i + 1) stage[i] <= %d'd0;\n" % (stages, width))
+        f.write(
+            "      for (i = 0; i < %d; i = i + 1) stage[i] <= %d'd0;\n"
+            % (stages, width)
+        )
         f.write("    end else begin\n")
         f.write("      stage[0] <= din;\n")
-        f.write("      for (i = 1; i < %d; i = i + 1) stage[i] <= stage[i-1];\n" % stages)
+        f.write(
+            "      for (i = 1; i < %d; i = i + 1) stage[i] <= stage[i-1];\n" % stages
+        )
         f.write("    end\n")
         f.write("  end\n")
         f.write("  assign dout = stage[%d];\n" % (stages - 1))
