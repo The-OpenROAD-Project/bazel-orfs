@@ -133,6 +133,14 @@ CASES = [
     ("path", "./tmp/scratch/x", None),
     ("path", "/var/tmp/x", None),
     ("cwd", "/tmp", "./tmp"),
+    # A path that merely ends in /tmp is not the global one. Every one of
+    # these is local scratch, and denying it sends the agent hunting for a
+    # rule it has not broken.
+    ("command", f"cp note.md $(pwd)/tmp/x", None),
+    ("command", "cp note.md ${PWD}/tmp/x", None),
+    ("command", "ls ~/tmp", None),
+    ("command", "ls $HOME/tmp", None),
+    ("path", "/var/tmp/x", None),
     # The narrow exemption cannot be expressed here: whether a /tmp path is
     # allowed depends on what is on disk. See TmpExemptionTest.
 ]
