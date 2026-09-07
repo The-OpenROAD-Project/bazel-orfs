@@ -1,41 +1,77 @@
-Field-major .odb table blocks, carried against the pinned OpenROAD.
+Structure-of-arrays tables in odb, carried against the pinned OpenROAD.
 
 NOT UPSTREAMED. Retires when a //:bump lands on an upstream that carries
 the change.
 
-What it does. An opted-in dbTable writes its pages in blocks whose bytes
-are permuted field-major: byte j of every record, then byte j + 1. The same
-bytes, in a different order, so no object id moves, no free-list order
-changes, and no dbSet iteration order shifts -- which is what the DEF
-equality gate in study/soa/roundtrip_gate.sh checks. Records are produced
-by the type's existing operator<<, so no per-type serializer exists; that
-was the condition the whole idea was conditional on.
+Two halves of one idea, opted into per table, one line each:
 
-How a table opts in. One line in its header:
+    static constexpr bool kSoaTable = true;         // columns in memory
+    static constexpr bool kFieldMajorTable = true;  // columns on the wire
 
-    static constexpr bool kFieldMajorTable = true;
+_dbITerm takes both; _dbBox takes the second, and _dbSBox inherits it.
 
-_dbITerm and _dbBox do here; _dbSBox inherits it from _dbBox, which is
-intended for these two and a trap for any future derived slot type. A
-per-type member rather than a trait specialization on purpose: dbTable<T>
-is instantiated wherever the serialization happens, and a specialization
-declared in T's own header need not be visible there, so writer and reader
-could disagree -- a silently corrupt file.
+## In memory
 
-Compatibility. kSchemaFieldMajorBlocks gates the read. Files older than it
-take the per-slot path unchanged: simple, and deliberately not made fast,
-since it runs only on files written before the bump.
+A slot keeps only what dbObject needs -- an address the public API can hand
+out, and the offset word that finds its page. Every field moves to a column
+owned by the page, reached through an accessor that returns a reference, so
+the migration is a rename: `iterm->net_` becomes `iterm->net()`, and an
+assignment still reads the way it did. 125 sites, all inside
+src/odb/src/db. Nothing outside odb changes at all: dbITerm* is still the
+slot address, so every tool compiles untouched.
 
-Measured, seven public ORFS designs, both gates passing on all of them:
-compressed artifact 1.10x-2.72x smaller (1.53x aggregate), uncompressed
-0.4%-1.5% smaller, read time +8%, peak RSS +0.2%, write time unchanged.
+Access points are sparse rather than a column: before pin access no iterm
+has one, and a dense column would spend 24 bytes per slot on an empty map.
+The mutable accessor creates the entry, so the deserializer reads into a
+local and only stores a non-empty one -- asking for a mutable reference in
+a read path would re-densify the column, which it did, measurably, before
+this was fixed.
 
-Known limit. Block size is bounded by slots and by an estimate of bytes
-that uses sizeof(T), so it does not bind for types whose records carry a
-heap payload -- a net and its wire. Opting every table in reaches 2.45x on
-the artifact but costs 7.1x read time and 2.3x peak RSS on
-nangate45/ariane133. Slot-granular blocks that straddle pages would fix
-that; until then the opt-in list is the three small-record tables.
+Measured, peak RSS of read_db, from one table converted:
+
+    nangate45/ariane133      274.2 MB -> 243.9 MB   -11.0%
+    nangate45/black_parrot   360.9 MB -> 319.2 MB   -11.6%
+    sky130hd/microwatt       248.2 MB -> 227.0 MB    -8.5%
+
+Read and write time are unchanged (0.38 s -> 0.37 s, 0.14 s -> 0.14 s on
+ariane133).
+
+## On the wire
+
+An opted-in table writes its pages in blocks whose bytes are permuted
+field-major, produced by the type's existing operator<< -- no per-type
+serializer, which was the condition the whole idea was conditional on. A
+block is a group of pages, so no object id moves; enlarging the page
+instead would renumber everything, since an id is `page_addr | slot`.
+Records of different lengths within a block are split by length, and past
+64 distinct lengths the block is written verbatim, which is what makes it
+safe to opt any table in.
+
+Measured across seven public ORFS designs, iterm_tbl + box_tbl + sbox_tbl:
+compressed artifact 1.10x-2.72x smaller, 1.53x aggregate, uncompressed
+0.4%-1.5% smaller. Every design passes both gates: the DEF written after a
+round trip is byte-identical to the DEF before it, and write-read-write
+reproduces the same bytes.
+
+## Compatibility
+
+kSchemaFieldMajorBlocks gates the read. Files older than it take the
+per-slot path unchanged -- simple, and deliberately not made fast, since it
+runs only on files written before the bump.
+
+## Known limits
+
+- Block size is bounded by slots and by an estimate of bytes that uses
+  sizeof(T), so it does not bind for types whose records carry a heap
+  payload. Opting every table into the wire format reaches 2.45x but costs
+  7.1x read time and 2.3x peak RSS on ariane133; slot-granular blocks that
+  straddle pages would fix it. Until then the opt-in list is the three
+  small-record tables.
+- oid_ is still stored per slot though it is derivable from the slot index,
+  worth another 4 bytes a slot. Dropping it touches every table, so it is
+  not in here.
+- _dbSBox inherits kFieldMajorTable from _dbBox. Intended for these two,
+  and a trap for any future derived slot type.
 
 Also included as study scaffolding, not part of any proposal: the
 SoaLayoutFacts and SoaDumpTable probe targets in src/odb/src/db/BUILD.
@@ -95,6 +131,60 @@ index c793c6e322..82fd81ca96 100644
 +        "//src/utl",
 +    ],
 +)
+diff --git a/src/odb/src/db/dbAccessPoint.cpp b/src/odb/src/db/dbAccessPoint.cpp
+index 24dc70780a..8286b88314 100644
+--- a/src/odb/src/db/dbAccessPoint.cpp
++++ b/src/odb/src/db/dbAccessPoint.cpp
+@@ -436,10 +436,10 @@ void dbAccessPoint::destroy(dbAccessPoint* ap)
+     }
+     for (const auto& iterm_id : _ap->iterms_) {
+       _dbITerm* iterm = block->iterm_tbl_->getPtr(iterm_id);
+-      auto ap_itr = iterm->aps_.begin();
+-      while (ap_itr != iterm->aps_.end()) {
++      auto ap_itr = iterm->aps().begin();
++      while (ap_itr != iterm->aps().end()) {
+         if ((*ap_itr).second == ap->getImpl()->getOID()) {
+-          iterm->aps_.erase(ap_itr);
++          iterm->aps().erase(ap_itr);
+           break;
+         }
+         ++ap_itr;
+diff --git a/src/odb/src/db/dbBTerm.cpp b/src/odb/src/db/dbBTerm.cpp
+index a15d2dd283..1e60ab131f 100644
+--- a/src/odb/src/db/dbBTerm.cpp
++++ b/src/odb/src/db/dbBTerm.cpp
+@@ -702,9 +702,9 @@ dbBTerm* dbBTerm::create(dbNet* net_, const char* name)
+ 
+     _dbITerm* iterm = parent_block->iterm_tbl_->create();
+     inst_impl->iterms_.push_back(iterm->getOID());
+-    iterm->flags_.mterm_idx = mterm->order_id_;
+-    iterm->inst_ = inst_impl->getOID();
+-    iterm->mterm_ = mterm;
++    iterm->flags().mterm_idx = mterm->order_id_;
++    iterm->inst() = inst_impl->getOID();
++    iterm->mterm() = mterm;
+ 
+     bterm->parent_block_ = parent_block->getOID();
+     bterm->parent_iterm_ = inst_impl->iterms_[mterm->order_id_];
+@@ -989,14 +989,14 @@ dbBTerm* dbBTerm::getBTerm(dbBlock* block_, uint32_t oid)
+ 
+ uint32_t dbBTerm::staVertexId()
+ {
+-  _dbBTerm* iterm = (_dbBTerm*) this;
+-  return iterm->sta_vertex_id_;
++  _dbBTerm* bterm = (_dbBTerm*) this;
++  return bterm->sta_vertex_id_;
+ }
+ 
+ void dbBTerm::staSetVertexId(uint32_t id)
+ {
+-  _dbBTerm* iterm = (_dbBTerm*) this;
+-  iterm->sta_vertex_id_ = id;
++  _dbBTerm* bterm = (_dbBTerm*) this;
++  bterm->sta_vertex_id_ = id;
+ }
+ 
+ void dbBTerm::setConstraintRegion(const Rect& constraint_region)
 diff --git a/src/odb/src/db/dbBox.h b/src/odb/src/db/dbBox.h
 index 91e226ff1f..6be1f7e5fa 100644
 --- a/src/odb/src/db/dbBox.h
@@ -111,6 +201,21 @@ index 91e226ff1f..6be1f7e5fa 100644
    enum Type
    {
      kBlockVia,
+diff --git a/src/odb/src/db/dbCore.h b/src/odb/src/db/dbCore.h
+index 55cadef1c9..f0facae006 100644
+--- a/src/odb/src/db/dbCore.h
++++ b/src/odb/src/db/dbCore.h
+@@ -246,6 +246,10 @@ class dbObjectPage
+   dbObjectTable* table_;
+   uint32_t page_addr_;
+   uint32_t alloc_cnt_;
++  // The page's columns, for a table that stores its fields as arrays; null
++  // for a table that stores them in the slots. Owned by dbTable, which is
++  // what creates and destroys pages.
++  void* fields_ = nullptr;
+ };
+ 
+ ///////////////////////////////////////////////////////////////
 diff --git a/src/odb/src/db/dbDatabase.h b/src/odb/src/db/dbDatabase.h
 index 24bc0423d7..6372402254 100644
 --- a/src/odb/src/db/dbDatabase.h
@@ -128,33 +233,1009 @@ index 24bc0423d7..6372402254 100644
  
  // Revision where dbTech::extraction_rules_file_ was removed
  inline constexpr uint32_t kSchemaRemoveTechExtractionRulesFile = 139;
+diff --git a/src/odb/src/db/dbITerm.cpp b/src/odb/src/db/dbITerm.cpp
+index dd21373a40..b2b7fd4cd4 100644
+--- a/src/odb/src/db/dbITerm.cpp
++++ b/src/odb/src/db/dbITerm.cpp
+@@ -40,45 +40,47 @@ namespace odb {
+ 
+ template class dbTable<_dbITerm>;
+ 
++const ApMap _dbITermFields::kNoAps;
++
+ bool _dbITerm::operator==(const _dbITerm& rhs) const
+ {
+-  if (flags_.mterm_idx != rhs.flags_.mterm_idx) {
++  if (flags().mterm_idx != rhs.flags().mterm_idx) {
+     return false;
+   }
+ 
+-  if (flags_.spef != rhs.flags_.spef) {
++  if (flags().spef != rhs.flags().spef) {
+     return false;
+   }
+ 
+-  if (flags_.special != rhs.flags_.special) {
++  if (flags().special != rhs.flags().special) {
+     return false;
+   }
+ 
+-  if (flags_.connected != rhs.flags_.connected) {
++  if (flags().connected != rhs.flags().connected) {
+     return false;
+   }
+ 
+-  if (ext_id_ != rhs.ext_id_) {
++  if (ext_id() != rhs.ext_id()) {
+     return false;
+   }
+ 
+-  if (net_ != rhs.net_) {
++  if (net() != rhs.net()) {
+     return false;
+   }
+ 
+-  if (inst_ != rhs.inst_) {
++  if (inst() != rhs.inst()) {
+     return false;
+   }
+ 
+-  if (next_net_iterm_ != rhs.next_net_iterm_) {
++  if (next_net_iterm() != rhs.next_net_iterm()) {
+     return false;
+   }
+ 
+-  if (prev_net_iterm_ != rhs.prev_net_iterm_) {
++  if (prev_net_iterm() != rhs.prev_net_iterm()) {
+     return false;
+   }
+ 
+-  if (aps_ != rhs.aps_) {
++  if (aps() != rhs.aps()) {
+     return false;
+   }
+ 
+@@ -90,8 +92,8 @@ bool _dbITerm::operator<(const _dbITerm& rhs) const
+   _dbBlock* lhs_blk = (_dbBlock*) getOwner();
+   _dbBlock* rhs_blk = (_dbBlock*) rhs.getOwner();
+ 
+-  _dbInst* lhs_inst = lhs_blk->inst_tbl_->getPtr(inst_);
+-  _dbInst* rhs_inst = rhs_blk->inst_tbl_->getPtr(rhs.inst_);
++  _dbInst* lhs_inst = lhs_blk->inst_tbl_->getPtr(inst());
++  _dbInst* rhs_inst = rhs_blk->inst_tbl_->getPtr(rhs.inst());
+   int r = strcmp(lhs_inst->name_, rhs_inst->name_);
+ 
+   if (r < 0) {
+@@ -110,25 +112,24 @@ bool _dbITerm::operator<(const _dbITerm& rhs) const
+ void _dbITerm::resolveMTerm()
+ {
+   _dbBlock* block = (_dbBlock*) getOwner();
+-  _dbInst* inst = block->inst_tbl_->getPtr(inst_);
+-  _dbInstHdr* inst_hdr = block->inst_hdr_tbl_->getPtr(inst->inst_hdr_);
++  _dbInst* owner = block->inst_tbl_->getPtr(inst());
++  _dbInstHdr* inst_hdr = block->inst_hdr_tbl_->getPtr(owner->inst_hdr_);
+   _dbDatabase* db = getDatabase();
+   _dbLib* lib = db->lib_tbl_->getPtr(inst_hdr->lib_);
+   _dbMaster* master = lib->master_tbl_->getPtr(inst_hdr->master_);
+-  dbId<_dbMTerm> mterm = inst_hdr->mterms_[flags_.mterm_idx];
+-  mterm_ = master->mterm_tbl_->getPtr(mterm);
++  dbId<_dbMTerm> mterm_id = inst_hdr->mterms_[flags().mterm_idx];
++  mterm() = master->mterm_tbl_->getPtr(mterm_id);
+ }
+ 
+ _dbMTerm* _dbITerm::getMTerm() const
+ {
+-  return mterm_;
++  return mterm();
+ }
+ 
+ _dbInst* _dbITerm::getInst() const
+ {
+   _dbBlock* block = (_dbBlock*) getOwner();
+-  _dbInst* inst = block->inst_tbl_->getPtr(inst_);
+-  return inst;
++  return block->inst_tbl_->getPtr(inst());
+ }
+ 
+ ////////////////////////////////////////////////////////////////////
+@@ -141,7 +142,7 @@ dbInst* dbITerm::getInst() const
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+   _dbBlock* block = (_dbBlock*) iterm->getOwner();
+-  _dbInst* inst = block->inst_tbl_->getPtr(iterm->inst_);
++  _dbInst* inst = block->inst_tbl_->getPtr(iterm->inst());
+   if (inst == nullptr) {
+     iterm->getLogger()->critical(
+         utl::ODB, 446, "dbITerm does not have dbInst.");
+@@ -154,25 +155,25 @@ dbNet* dbITerm::getNet() const
+   _dbITerm* iterm = (_dbITerm*) this;
+   _dbBlock* block = (_dbBlock*) iterm->getOwner();
+ 
+-  if (iterm->net_ == 0) {
++  if (iterm->net() == 0) {
+     return nullptr;
+   }
+ 
+-  _dbNet* net = block->net_tbl_->getPtr(iterm->net_);
++  _dbNet* net = block->net_tbl_->getPtr(iterm->net());
+   return (dbNet*) net;
+ }
+ 
+ dbMTerm* dbITerm::getMTerm() const
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+-  return (dbMTerm*) iterm->mterm_;
++  return (dbMTerm*) iterm->mterm();
+ }
+ 
+ dbBTerm* dbITerm::getBTerm()
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+   _dbBlock* block = (_dbBlock*) iterm->getOwner();
+-  _dbInst* inst = block->inst_tbl_->getPtr(iterm->inst_);
++  _dbInst* inst = block->inst_tbl_->getPtr(iterm->inst());
+ 
+   if (inst->hierarchy_ == 0) {
+     return nullptr;
+@@ -182,7 +183,7 @@ dbBTerm* dbITerm::getBTerm()
+ 
+   _dbChip* chip = (_dbChip*) block->getOwner();
+   _dbBlock* child = chip->block_tbl_->getPtr(hier->child_block_);
+-  dbId<_dbBTerm> bterm = hier->child_bterms_[iterm->flags_.mterm_idx];
++  dbId<_dbBTerm> bterm = hier->child_bterms_[iterm->flags().mterm_idx];
+   return (dbBTerm*) child->bterm_tbl_->getPtr(bterm);
+ }
+ 
+@@ -199,86 +200,86 @@ dbBlock* dbITerm::getBlock() const
+ void dbITerm::setClocked(bool v)
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+-  iterm->flags_.clocked = v;
++  iterm->flags().clocked = v;
+ }
+ 
+ bool dbITerm::isClocked()
+ {
+   bool masterFlag = getMTerm()->getSigType() == dbSigType::CLOCK;
+   _dbITerm* iterm = (_dbITerm*) this;
+-  return iterm->flags_.clocked > 0 || masterFlag;
++  return iterm->flags().clocked > 0 || masterFlag;
+ }
+ 
+ void dbITerm::setMark(uint32_t v)
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+-  iterm->flags_.mark = v;
++  iterm->flags().mark = v;
+ }
+ 
+ bool dbITerm::isSetMark()
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+-  return iterm->flags_.mark > 0;
++  return iterm->flags().mark > 0;
+ }
+ 
+ bool dbITerm::isSpecial()
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+-  return iterm->flags_.special == 1;
++  return iterm->flags().special == 1;
+ }
+ 
+ void dbITerm::setSpecial()
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+-  iterm->flags_.special = 1;
++  iterm->flags().special = 1;
+ }
+ 
+ void dbITerm::clearSpecial()
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+-  iterm->flags_.special = 0;
++  iterm->flags().special = 0;
+ }
+ 
+ void dbITerm::setSpef(uint32_t v)
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+-  iterm->flags_.spef = v;
++  iterm->flags().spef = v;
+ }
+ 
+ bool dbITerm::isSpef()
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+-  return iterm->flags_.spef > 0;
++  return iterm->flags().spef > 0;
+ }
+ 
+ void dbITerm::setExtId(uint32_t v)
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+-  iterm->ext_id_ = v;
++  iterm->ext_id() = v;
+ }
+ 
+ uint32_t dbITerm::getExtId()
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+-  return iterm->ext_id_;
++  return iterm->ext_id();
+ }
+ 
+ bool dbITerm::isConnected()
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+-  return iterm->flags_.connected == 1;
++  return iterm->flags().connected == 1;
+ }
+ 
+ void dbITerm::setConnected()
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+-  iterm->flags_.connected = 1;
++  iterm->flags().connected = 1;
+ }
+ 
+ void dbITerm::clearConnected()
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+-  iterm->flags_.connected = 0;
++  iterm->flags().connected = 0;
+ }
+ 
+ /*
+@@ -306,7 +307,7 @@ void dbITerm::connect(dbNet* net_)
+   }
+ 
+   // Do Nothing if already connected
+-  if (iterm->net_ == net->getOID()) {
++  if (iterm->net() == net->getOID()) {
+     return;
+   }
+ 
+@@ -338,7 +339,7 @@ void dbITerm::connect(dbNet* net_)
+   // both the hierarchical net and the flat net
+   // use disconnect() ).
+   //
+-  if (iterm->net_ != 0) {
++  if (iterm->net() != 0) {
+     disconnectDbNet();
+   }
+ 
+@@ -364,16 +365,16 @@ void dbITerm::connect(dbNet* net_)
+     block->journal_->endAction();
+   }
+ 
+-  iterm->net_ = net->getOID();
++  iterm->net() = net->getOID();
+ 
+   if (net->iterms_ != 0) {
+     _dbITerm* tail = block->iterm_tbl_->getPtr(net->iterms_);
+-    iterm->next_net_iterm_ = net->iterms_;
+-    iterm->prev_net_iterm_ = 0;
+-    tail->prev_net_iterm_ = iterm->getOID();
++    iterm->next_net_iterm() = net->iterms_;
++    iterm->prev_net_iterm() = 0;
++    tail->prev_net_iterm() = iterm->getOID();
+   } else {
+-    iterm->next_net_iterm_ = 0;
+-    iterm->prev_net_iterm_ = 0;
++    iterm->next_net_iterm() = 0;
++    iterm->prev_net_iterm() = 0;
+   }
+ 
+   net->iterms_ = iterm->getOID();
+@@ -387,10 +388,10 @@ dbModNet* dbITerm::getModNet() const
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+   _dbBlock* block = (_dbBlock*) iterm->getOwner();
+-  if (iterm->mnet_ == 0) {
++  if (iterm->mnet() == 0) {
+     return nullptr;
+   }
+-  _dbModNet* net = block->modnet_tbl_->getPtr(iterm->mnet_);
++  _dbModNet* net = block->modnet_tbl_->getPtr(iterm->mnet());
+   return ((dbModNet*) (net));
+ }
+ 
+@@ -401,18 +402,18 @@ void dbITerm::connect(dbModNet* mod_net)
+   _dbBlock* block = (_dbBlock*) iterm->getOwner();
+   _dbInst* inst = iterm->getInst();
+ 
+-  if (iterm->mnet_ == _mod_net->getId()) {
++  if (iterm->mnet() == _mod_net->getId()) {
+     return;
+   }
+ 
+   // If already connected, disconnect just the modnet (so we don't
+   // accidentally blow away prior flat net connections)
+ 
+-  if (iterm->mnet_ != 0) {
++  if (iterm->mnet() != 0) {
+     disconnectDbModNet();
+   }
+ 
+-  iterm->mnet_ = _mod_net->getId();
++  iterm->mnet() = _mod_net->getId();
+ 
+   if (inst->flags_.dont_touch) {
+     inst->getLogger()->error(
+@@ -441,13 +442,13 @@ void dbITerm::connect(dbModNet* mod_net)
+ 
+   if (_mod_net->iterms_ != 0) {
+     _dbITerm* head = block->iterm_tbl_->getPtr(_mod_net->iterms_);
+-    iterm->next_modnet_iterm_ = _mod_net->iterms_;
++    iterm->next_modnet_iterm() = _mod_net->iterms_;
+     // prev is this one
+-    head->prev_modnet_iterm_ = iterm->getOID();
++    head->prev_modnet_iterm() = iterm->getOID();
+   } else {
+-    iterm->next_modnet_iterm_ = 0;
++    iterm->next_modnet_iterm() = 0;
+   }
+-  iterm->prev_modnet_iterm_ = 0;
++  iterm->prev_modnet_iterm() = 0;
+   _mod_net->iterms_ = iterm->getOID();
+ }
+ 
+@@ -456,7 +457,7 @@ void dbITerm::disconnect()
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+ 
+-  if (iterm->net_ == 0 && iterm->mnet_ == 0) {
++  if (iterm->net() == 0 && iterm->mnet() == 0) {
+     return;
+   }
+ 
+@@ -472,9 +473,9 @@ void dbITerm::disconnect()
+ 
+   _dbBlock* block = (_dbBlock*) iterm->getOwner();
+   _dbNet* net
+-      = iterm->net_ == 0 ? nullptr : block->net_tbl_->getPtr(iterm->net_);
++      = iterm->net() == 0 ? nullptr : block->net_tbl_->getPtr(iterm->net());
+   _dbModNet* mod_net_impl
+-      = iterm->mnet_ == 0 ? nullptr : block->modnet_tbl_->getPtr(iterm->mnet_);
++      = iterm->mnet() == 0 ? nullptr : block->modnet_tbl_->getPtr(iterm->mnet());
+   dbModNet* mod_net = (dbModNet*) mod_net_impl;
+ 
+   if (net && net->flags_.dont_touch) {
+@@ -512,22 +513,22 @@ void dbITerm::disconnect()
+ 
+   if (net) {
+     if (net->iterms_ == id) {
+-      net->iterms_ = iterm->next_net_iterm_;
++      net->iterms_ = iterm->next_net_iterm();
+       if (net->iterms_ != 0) {
+         _dbITerm* t = block->iterm_tbl_->getPtr(net->iterms_);
+-        t->prev_net_iterm_ = 0;
++        t->prev_net_iterm() = 0;
+       }
+     } else {
+-      if (iterm->next_net_iterm_ != 0) {
+-        _dbITerm* next = block->iterm_tbl_->getPtr(iterm->next_net_iterm_);
+-        next->prev_net_iterm_ = iterm->prev_net_iterm_;
++      if (iterm->next_net_iterm() != 0) {
++        _dbITerm* next = block->iterm_tbl_->getPtr(iterm->next_net_iterm());
++        next->prev_net_iterm() = iterm->prev_net_iterm();
+       }
+-      if (iterm->prev_net_iterm_ != 0) {
+-        _dbITerm* prev = block->iterm_tbl_->getPtr(iterm->prev_net_iterm_);
+-        prev->next_net_iterm_ = iterm->next_net_iterm_;
++      if (iterm->prev_net_iterm() != 0) {
++        _dbITerm* prev = block->iterm_tbl_->getPtr(iterm->prev_net_iterm());
++        prev->next_net_iterm() = iterm->next_net_iterm();
+       }
+     }
+-    iterm->net_ = 0;
++    iterm->net() = 0;
+     for (auto callback : block->callbacks_) {
+       callback->inDbITermPostDisconnect(this, (dbNet*) net);
+     }
+@@ -535,22 +536,22 @@ void dbITerm::disconnect()
+ 
+   if (mod_net_impl) {
+     if (mod_net_impl->iterms_ == id) {
+-      mod_net_impl->iterms_ = iterm->next_modnet_iterm_;
++      mod_net_impl->iterms_ = iterm->next_modnet_iterm();
+       if (mod_net_impl->iterms_ != 0) {
+         _dbITerm* t = block->iterm_tbl_->getPtr(mod_net_impl->iterms_);
+-        t->prev_modnet_iterm_ = 0;
++        t->prev_modnet_iterm() = 0;
+       }
+     } else {
+-      if (iterm->next_modnet_iterm_ != 0) {
+-        _dbITerm* next = block->iterm_tbl_->getPtr(iterm->next_modnet_iterm_);
+-        next->prev_modnet_iterm_ = iterm->prev_modnet_iterm_;
++      if (iterm->next_modnet_iterm() != 0) {
++        _dbITerm* next = block->iterm_tbl_->getPtr(iterm->next_modnet_iterm());
++        next->prev_modnet_iterm() = iterm->prev_modnet_iterm();
+       }
+-      if (iterm->prev_modnet_iterm_ != 0) {
+-        _dbITerm* prev = block->iterm_tbl_->getPtr(iterm->prev_modnet_iterm_);
+-        prev->next_modnet_iterm_ = iterm->next_modnet_iterm_;
++      if (iterm->prev_modnet_iterm() != 0) {
++        _dbITerm* prev = block->iterm_tbl_->getPtr(iterm->prev_modnet_iterm());
++        prev->next_modnet_iterm() = iterm->next_modnet_iterm();
+       }
+     }
+-    iterm->mnet_ = 0;
++    iterm->mnet() = 0;
+   }
+ }
+ 
+@@ -560,7 +561,7 @@ void dbITerm::disconnectDbNet()
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+ 
+-  if (iterm->net_ == 0) {
++  if (iterm->net() == 0) {
+     return;
+   }
+ 
+@@ -574,7 +575,7 @@ void dbITerm::disconnectDbNet()
+         inst->name_);
+   }
+   _dbBlock* block = (_dbBlock*) iterm->getOwner();
+-  _dbNet* net = block->net_tbl_->getPtr(iterm->net_);
++  _dbNet* net = block->net_tbl_->getPtr(iterm->net());
+ 
+   if (net->flags_.dont_touch) {
+     inst->getLogger()->error(
+@@ -611,22 +612,22 @@ void dbITerm::disconnectDbNet()
+   uint32_t id = iterm->getOID();
+ 
+   if (net->iterms_ == id) {
+-    net->iterms_ = iterm->next_net_iterm_;
++    net->iterms_ = iterm->next_net_iterm();
+     if (net->iterms_ != 0) {
+       _dbITerm* t = block->iterm_tbl_->getPtr(net->iterms_);
+-      t->prev_net_iterm_ = 0;
++      t->prev_net_iterm() = 0;
+     }
+   } else {
+-    if (iterm->next_net_iterm_ != 0) {
+-      _dbITerm* next = block->iterm_tbl_->getPtr(iterm->next_net_iterm_);
+-      next->prev_net_iterm_ = iterm->prev_net_iterm_;
++    if (iterm->next_net_iterm() != 0) {
++      _dbITerm* next = block->iterm_tbl_->getPtr(iterm->next_net_iterm());
++      next->prev_net_iterm() = iterm->prev_net_iterm();
+     }
+-    if (iterm->prev_net_iterm_ != 0) {
+-      _dbITerm* prev = block->iterm_tbl_->getPtr(iterm->prev_net_iterm_);
+-      prev->next_net_iterm_ = iterm->next_net_iterm_;
++    if (iterm->prev_net_iterm() != 0) {
++      _dbITerm* prev = block->iterm_tbl_->getPtr(iterm->prev_net_iterm());
++      prev->next_net_iterm() = iterm->next_net_iterm();
+     }
+   }
+-  iterm->net_ = 0;
++  iterm->net() = 0;
+   for (auto callback : block->callbacks_) {
+     callback->inDbITermPostDisconnect(this, (dbNet*) net);
+   }
+@@ -640,8 +641,8 @@ void dbITerm::disconnectDbModNet()
+   _dbITerm* iterm = (_dbITerm*) this;
+   _dbBlock* block = (_dbBlock*) iterm->getOwner();
+ 
+-  if (iterm->mnet_ != 0) {
+-    _dbModNet* mod_net = block->modnet_tbl_->getPtr(iterm->mnet_);
++  if (iterm->mnet() != 0) {
++    _dbModNet* mod_net = block->modnet_tbl_->getPtr(iterm->mnet());
+ 
+     debugPrint(iterm->getImpl()->getLogger(),
+                utl::ODB,
+@@ -662,25 +663,25 @@ void dbITerm::disconnectDbModNet()
+     }
+ 
+     if (mod_net->iterms_ == getId()) {
+-      mod_net->iterms_ = iterm->next_modnet_iterm_;
++      mod_net->iterms_ = iterm->next_modnet_iterm();
+       if (mod_net->iterms_ != 0) {
+         _dbITerm* t = block->iterm_tbl_->getPtr(mod_net->iterms_);
+-        t->prev_modnet_iterm_ = 0;
++        t->prev_modnet_iterm() = 0;
+       }
+     } else {
+-      if (iterm->next_modnet_iterm_ != 0) {
+-        _dbITerm* next = block->iterm_tbl_->getPtr(iterm->next_modnet_iterm_);
+-        next->prev_modnet_iterm_ = iterm->prev_modnet_iterm_;
++      if (iterm->next_modnet_iterm() != 0) {
++        _dbITerm* next = block->iterm_tbl_->getPtr(iterm->next_modnet_iterm());
++        next->prev_modnet_iterm() = iterm->prev_modnet_iterm();
+       }
+-      if (iterm->prev_modnet_iterm_ != 0) {
+-        _dbITerm* prev = block->iterm_tbl_->getPtr(iterm->prev_modnet_iterm_);
+-        prev->next_modnet_iterm_ = iterm->next_modnet_iterm_;
++      if (iterm->prev_modnet_iterm() != 0) {
++        _dbITerm* prev = block->iterm_tbl_->getPtr(iterm->prev_modnet_iterm());
++        prev->next_modnet_iterm() = iterm->next_modnet_iterm();
+       }
+     }
+ 
+-    iterm->next_modnet_iterm_ = 0;
+-    iterm->prev_modnet_iterm_ = 0;
+-    iterm->mnet_ = 0;
++    iterm->next_modnet_iterm() = 0;
++    iterm->prev_modnet_iterm() = 0;
++    iterm->mnet() = 0;
+   }
+ }
+ 
+@@ -790,26 +791,26 @@ bool dbITerm::getAvgXY(int* x, int* y) const
+ uint32_t dbITerm::staVertexId()
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+-  return iterm->sta_vertex_id_;
++  return iterm->sta_vertex_id();
+ }
+ 
+ void dbITerm::staSetVertexId(uint32_t id)
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+-  iterm->sta_vertex_id_ = id;
++  iterm->sta_vertex_id() = id;
+ }
+ 
+ void dbITerm::setAccessPoint(dbMPin* pin, dbAccessPoint* ap)
+ {
+   _dbITerm* iterm = (_dbITerm*) this;
+   if (ap != nullptr) {
+-    iterm->aps_[pin->getImpl()->getOID()] = ap->getImpl()->getOID();
++    iterm->aps()[pin->getImpl()->getOID()] = ap->getImpl()->getOID();
+     _dbAccessPoint* _ap = (_dbAccessPoint*) ap;
+     auto& iterms = _ap->iterms_;
+     auto pos = std::lower_bound(iterms.begin(), iterms.end(), iterm->getOID());
+     iterms.insert(pos, iterm->getOID());
+   } else {
+-    iterm->aps_[pin->getImpl()->getOID()] = dbId<_dbAccessPoint>();
++    iterm->aps()[pin->getImpl()->getOID()] = dbId<_dbAccessPoint>();
+   }
+ 
+   _dbBlock* block = (_dbBlock*) iterm->getOwner();
+@@ -842,7 +843,7 @@ std::vector<dbAccessPoint*> dbITerm::getPrefAccessPoints() const
+   _dbITerm* iterm = (_dbITerm*) this;
+   std::vector<std::pair<dbId<_dbMPin>, dbId<_dbAccessPoint>>> sorted_aps;
+ 
+-  for (auto& [pin_id, ap_id] : iterm->aps_) {
++  for (auto& [pin_id, ap_id] : iterm->aps()) {
+     if (ap_id.isValid()) {
+       sorted_aps.emplace_back(pin_id, ap_id);
+     }
+@@ -870,7 +871,7 @@ void dbITerm::clearPrefAccessPoints()
+   _dbITerm* iterm = (_dbITerm*) this;
+   _dbBlock* block = (_dbBlock*) iterm->getOwner();
+   // Remove this iterm from each AP's back-reference list before clearing.
+-  for (auto& [pin_id, ap_id] : iterm->aps_) {
++  for (auto& [pin_id, ap_id] : iterm->aps()) {
+     if (ap_id.isValid()) {
+       auto* ap = block->ap_tbl_->getPtr(ap_id);
+       auto& iterms = ap->iterms_;
+@@ -878,7 +879,7 @@ void dbITerm::clearPrefAccessPoints()
+                    iterms.end());
+     }
+   }
+-  iterm->aps_.clear();
++  iterm->aps().clear();
+ }
+ 
+ std::vector<std::pair<dbTechLayer*, Rect>> dbITerm::getGeometries() const
+@@ -902,7 +903,7 @@ void _dbITerm::collectMemInfo(MemInfo& info)
+   info.cnt++;
+   info.size += sizeof(*this);
+ 
+-  info.children["aps"].add(aps_);
++  info.children["aps"].add(aps());
+ }
+ 
+ }  // namespace odb
 diff --git a/src/odb/src/db/dbITerm.h b/src/odb/src/db/dbITerm.h
-index ea09caced0..1c05fdad76 100644
+index ea09caced0..0b128dbace 100644
 --- a/src/odb/src/db/dbITerm.h
 +++ b/src/odb/src/db/dbITerm.h
-@@ -40,6 +40,11 @@ struct dbITermFlags
+@@ -4,7 +4,10 @@
+ #pragma once
+ 
+ #include <cstdint>
++#include <cstring>
++#include <utility>
+ #include <map>
++#include <vector>
+ 
+ #include "boost/container/flat_map.hpp"
+ #include "dbCore.h"
+@@ -25,6 +28,8 @@ class dbOStream;
+ class _dbAccessPoint;
+ class _dbMPin;
+ 
++using ApMap = boost::container::flat_map<dbId<_dbMPin>, dbId<_dbAccessPoint>>;
++
+ struct dbITermFlags
+ {
+   // note: number of bits must add up to 32 !!!
+@@ -37,16 +42,76 @@ struct dbITermFlags
+   uint32_t connected : 1;  // terminal is physically connected
+ };
+ 
++// The columns of iterm_tbl. One array per field, page_size entries each,
++// owned by the page -- the structure-of-arrays half of the same table a
++// dbTable has always been.
++//
++// Two of the columns do double duty. While a slot is free its next and prev
++// free-list links live in `net` and `mnet`, which mean nothing for a free
++// slot: exactly the overlay _dbFreeObject performs on an allocated record's
++// bytes today, moved into the columns.
++struct _dbITermFields
++{
++  explicit _dbITermFields(uint32_t slots)
++      : flags(slots),
++        ext_id(slots),
++        net(slots),
++        mnet(slots),
++        inst(slots),
++        next_net_iterm(slots),
++        prev_net_iterm(slots),
++        next_modnet_iterm(slots),
++        prev_modnet_iterm(slots),
++        mterm(slots, nullptr),
++        sta_vertex_id(slots)
++  {
++  }
++
++  std::vector<dbITermFlags> flags;
++  std::vector<uint32_t> ext_id;
++  std::vector<dbId<_dbNet>> net;
++  std::vector<dbId<_dbModNet>> mnet;
++  std::vector<dbId<_dbInst>> inst;
++  std::vector<dbId<_dbITerm>> next_net_iterm;
++  std::vector<dbId<_dbITerm>> prev_net_iterm;
++  std::vector<dbId<_dbITerm>> next_modnet_iterm;
++  std::vector<dbId<_dbITerm>> prev_modnet_iterm;
++  std::vector<_dbMTerm*> mterm;  // not saved - cached pointer
++  std::vector<uint32_t> sta_vertex_id;  // not saved
++
++  // Access points are the one field most slots do not have: before pin
++  // access runs, none of them do, and a dense column would spend 24 bytes
++  // per slot on an empty map. This one is keyed by slot instead.
++  boost::container::flat_map<uint32_t, ApMap> aps;
++
++  // What a slot without an entry reads as. Const so a read cannot create
++  // one by accident.
++  static const ApMap kNoAps;
++};
++
++// A slot in iterm_tbl. It carries no fields of its own: what a slot still
++// needs an address for is that every dbITerm* handed out by the public API
++// is that address, and that dbObject::getObjectPage() finds its page from
++// the offset word it inherits. The fields live in the page's columns, and
++// the accessors below return references into them -- so a call site reads
++// `iterm->net() = n` where it used to read `iterm->net_ = n`.
  class _dbITerm : public _dbObject
  {
   public:
 +  // iterm_tbl is the largest table in a placed design, and most of a slot's
-+  // columns are constant or monotone, so it is the first table to write its
-+  // pages field-major. See dbFieldMajorTable().
++  // columns are constant or monotone. See dbFieldMajorTable().
 +  static constexpr bool kFieldMajorTable = true;
++
++  // ... and it stores those columns as arrays. See dbSoaTable().
++  static constexpr bool kSoaTable = true;
++  using Fields = _dbITermFields;
 +
    enum Field  // dbJournal field name
    {
      kFlags
-@@ -71,6 +76,8 @@ class _dbITerm : public _dbObject
-   boost::container::flat_map<dbId<_dbMPin>, dbId<_dbAccessPoint>> aps_;
+   };
+ 
+-  _dbITerm(_dbDatabase*);
+-  _dbITerm(_dbDatabase*, const _dbITerm& i);
++  _dbITerm(_dbDatabase*) {}
+ 
+   bool operator==(const _dbITerm& rhs) const;
+   bool operator!=(const _dbITerm& rhs) const { return !operator==(rhs); }
+@@ -57,61 +122,98 @@ class _dbITerm : public _dbObject
+   _dbInst* getInst() const;
+   void resolveMTerm();
+ 
+-  dbITermFlags flags_;
+-  uint32_t ext_id_;
+-  dbId<_dbNet> net_;
+-  dbId<_dbModNet> mnet_;
+-  dbId<_dbInst> inst_;
+-  dbId<_dbITerm> next_net_iterm_;
+-  dbId<_dbITerm> prev_net_iterm_;
+-  dbId<_dbITerm> next_modnet_iterm_;
+-  dbId<_dbITerm> prev_modnet_iterm_;
+-  _dbMTerm* mterm_ = nullptr;  // not saved - cached pointer
+-  uint32_t sta_vertex_id_;     // not saved
+-  boost::container::flat_map<dbId<_dbMPin>, dbId<_dbAccessPoint>> aps_;
++  // The slot's own columns.
++  _dbITermFields* columns() const
++  {
++    return (_dbITermFields*) getObjectPage()->fields_;
++  }
++  uint32_t slot() const { return getOID() - getObjectPage()->page_addr_; }
++
++#define ODB_ITERM_COLUMN(name, type)                     \
++  type& name() { return columns()->name[slot()]; }       \
++  const type& name() const { return columns()->name[slot()]; }
++
++  ODB_ITERM_COLUMN(flags, dbITermFlags)
++  ODB_ITERM_COLUMN(ext_id, uint32_t)
++  ODB_ITERM_COLUMN(net, dbId<_dbNet>)
++  ODB_ITERM_COLUMN(mnet, dbId<_dbModNet>)
++  ODB_ITERM_COLUMN(inst, dbId<_dbInst>)
++  ODB_ITERM_COLUMN(next_net_iterm, dbId<_dbITerm>)
++  ODB_ITERM_COLUMN(prev_net_iterm, dbId<_dbITerm>)
++  ODB_ITERM_COLUMN(next_modnet_iterm, dbId<_dbITerm>)
++  ODB_ITERM_COLUMN(prev_modnet_iterm, dbId<_dbITerm>)
++  ODB_ITERM_COLUMN(sta_vertex_id, uint32_t)
++#undef ODB_ITERM_COLUMN
++
++  // Reading is sparse-aware; writing creates the slot's entry, so a caller
++  // that only wants to look should use the const overload.
++  const ApMap& aps() const
++  {
++    const auto& sparse = columns()->aps;
++    const auto entry = sparse.find(slot());
++    return entry == sparse.end() ? _dbITermFields::kNoAps : entry->second;
++  }
++  ApMap& aps() { return columns()->aps[slot()]; }
++
++  _dbMTerm*& mterm() { return columns()->mterm[slot()]; }
++  _dbMTerm* mterm() const { return columns()->mterm[slot()]; }
++
++  // While the slot is free these two columns hold the free-list links.
++  uint32_t freeNext() const { return columns()->net[slot()]; }
++  uint32_t freePrev() const { return columns()->mnet[slot()]; }
++  void setFreeNext(uint32_t id) { columns()->net[slot()] = id; }
++  void setFreePrev(uint32_t id) { columns()->mnet[slot()] = id; }
++
++  // dbTable calls these where it would otherwise run a constructor or a
++  // destructor over the slot's own storage.
++  void initFields();
++  void clearFields();
  };
  
+-inline _dbITerm::_dbITerm(_dbDatabase*)
 +
 +
- inline _dbITerm::_dbITerm(_dbDatabase*)
++// A slot's columns are default-constructed with its page and reset when it
++// is freed, so allocating one has nothing left to initialize. This is what
++// dbTable calls in place of running a constructor over slot storage.
++inline void _dbITerm::initFields()
  {
-   // For pointer tagging the bottom 3 bits.
+-  // For pointer tagging the bottom 3 bits.
+-  static_assert(alignof(_dbITerm) % 8 == 0);
+-  flags_.mterm_idx = 0;
+-  flags_.spare_bits = 0;
+-  flags_.clocked = 0;
+-  flags_.mark = 0;
+-  flags_.spef = 0;
+-  flags_.special = 0;
+-  flags_.connected = 0;
+-  ext_id_ = 0;
+-  sta_vertex_id_ = 0;
++  flags() = dbITermFlags{};
++  ext_id() = 0;
++  net() = dbId<_dbNet>();
++  mnet() = dbId<_dbModNet>();
++  inst() = dbId<_dbInst>();
++  next_net_iterm() = dbId<_dbITerm>();
++  prev_net_iterm() = dbId<_dbITerm>();
++  next_modnet_iterm() = dbId<_dbITerm>();
++  prev_modnet_iterm() = dbId<_dbITerm>();
++  mterm() = nullptr;
++  sta_vertex_id() = 0;
++  columns()->aps.erase(slot());
+ }
+ 
+-inline _dbITerm::_dbITerm(_dbDatabase*, const _dbITerm& i)
+-    : flags_(i.flags_),
+-      ext_id_(i.ext_id_),
+-      net_(i.net_),
+-      inst_(i.inst_),
+-      next_net_iterm_(i.next_net_iterm_),
+-      prev_net_iterm_(i.prev_net_iterm_),
+-      next_modnet_iterm_(i.next_modnet_iterm_),
+-      prev_modnet_iterm_(i.prev_modnet_iterm_),
+-      sta_vertex_id_(0)
++inline void _dbITerm::clearFields()
+ {
++  // The sparse column is the only one that owns anything.
++  columns()->aps.erase(slot());
++  mterm() = nullptr;
+ }
+ 
+ inline dbOStream& operator<<(dbOStream& stream, const _dbITerm& iterm)
+ {
+-  uint32_t* bit_field = (uint32_t*) &iterm.flags_;
+-  stream << *bit_field;
+-  stream << iterm.ext_id_;
+-  stream << iterm.net_;
+-  stream << iterm.inst_;
+-  stream << iterm.next_net_iterm_;
+-  stream << iterm.prev_net_iterm_;
+-  stream << iterm.mnet_;
+-  stream << iterm.next_modnet_iterm_;
+-  stream << iterm.prev_modnet_iterm_;
+-  stream << iterm.aps_;
++  const dbITermFlags flags = iterm.flags();
++  uint32_t bit_field;
++  static_assert(sizeof(bit_field) == sizeof(flags));
++  std::memcpy(&bit_field, &flags, sizeof(bit_field));
++  stream << bit_field;
++  stream << iterm.ext_id();
++  stream << iterm.net();
++  stream << iterm.inst();
++  stream << iterm.next_net_iterm();
++  stream << iterm.prev_net_iterm();
++  stream << iterm.mnet();
++  stream << iterm.next_modnet_iterm();
++  stream << iterm.prev_modnet_iterm();
++  stream << iterm.aps();
+   return stream;
+ }
+ 
+@@ -119,19 +221,30 @@ inline dbIStream& operator>>(dbIStream& stream, _dbITerm& iterm)
+ {
+   dbBlock* block = (dbBlock*) (iterm.getOwner());
+   _dbDatabase* db = (_dbDatabase*) (block->getDataBase());
+-  uint32_t* bit_field = (uint32_t*) &iterm.flags_;
+-  stream >> *bit_field;
+-  stream >> iterm.ext_id_;
+-  stream >> iterm.net_;
+-  stream >> iterm.inst_;
+-  stream >> iterm.next_net_iterm_;
+-  stream >> iterm.prev_net_iterm_;
++  uint32_t bit_field;
++  stream >> bit_field;
++  dbITermFlags flags;
++  std::memcpy(&flags, &bit_field, sizeof(bit_field));
++  iterm.flags() = flags;
++  stream >> iterm.ext_id();
++  stream >> iterm.net();
++  stream >> iterm.inst();
++  stream >> iterm.next_net_iterm();
++  stream >> iterm.prev_net_iterm();
+   if (db->isSchema(kSchemaUpdateHierarchy)) {
+-    stream >> iterm.mnet_;
+-    stream >> iterm.next_modnet_iterm_;
+-    stream >> iterm.prev_modnet_iterm_;
++    stream >> iterm.mnet();
++    stream >> iterm.next_modnet_iterm();
++    stream >> iterm.prev_modnet_iterm();
++  }
++  // Read into a local and only create the slot's entry if there is
++  // something to put in it: asking for a mutable reference would give every
++  // iterm in the design an entry, which is what the sparse column exists to
++  // avoid.
++  ApMap aps;
++  stream >> aps;
++  if (!aps.empty()) {
++    iterm.aps() = std::move(aps);
+   }
+-  stream >> iterm.aps_;
+   return stream;
+ }
+ 
+diff --git a/src/odb/src/db/dbITermItr.cpp b/src/odb/src/db/dbITermItr.cpp
+index fc3cccf9b7..c80099d14f 100644
+--- a/src/odb/src/db/dbITermItr.cpp
++++ b/src/odb/src/db/dbITermItr.cpp
+@@ -40,8 +40,8 @@ void dbNetITermItr::reverse(dbObject* parent)
+ 
+   while (id != 0) {
+     _dbITerm* iterm = iterm_tbl_->getPtr(id);
+-    uint32_t n = iterm->next_net_iterm_;
+-    iterm->next_net_iterm_ = list;
++    uint32_t n = iterm->next_net_iterm();
++    iterm->next_net_iterm() = list;
+     list = id;
+     id = n;
+   }
+@@ -51,9 +51,9 @@ void dbNetITermItr::reverse(dbObject* parent)
+ 
+   while (id != 0) {
+     _dbITerm* iterm = iterm_tbl_->getPtr(id);
+-    iterm->prev_net_iterm_ = prev;
++    iterm->prev_net_iterm() = prev;
+     prev = id;
+-    id = iterm->next_net_iterm_;
++    id = iterm->next_net_iterm();
+   }
+ 
+   net->iterms_ = list;
+@@ -91,7 +91,7 @@ uint32_t dbNetITermItr::end(dbObject* /* unused: parent */) const
+ uint32_t dbNetITermItr::next(uint32_t id, ...) const
+ {
+   _dbITerm* iterm = iterm_tbl_->getPtr(id);
+-  return iterm->next_net_iterm_;
++  return iterm->next_net_iterm();
+ }
+ 
+ dbObject* dbNetITermItr::getObject(uint32_t id, ...)
+@@ -157,9 +157,9 @@ uint32_t dbInstITermItr::next(uint32_t id, ...) const
+ {
+   _dbITerm* iterm = _iterm_tbl->getPtr(id);
+   _dbBlock* block = (_dbBlock*) iterm->getOwner();
+-  _dbInst* inst = block->inst_tbl_->getPtr(iterm->inst_);
++  _dbInst* inst = block->inst_tbl_->getPtr(iterm->inst());
+   uint32_t cnt = inst->iterms_.size();
+-  uint32_t idx = iterm->flags_.mterm_idx + 1;
++  uint32_t idx = iterm->flags().mterm_idx + 1;
+ 
+   if (idx == cnt) {
+     return 0;
+diff --git a/src/odb/src/db/dbInst.cpp b/src/odb/src/db/dbInst.cpp
+index 0aecdd4be9..d32fde485c 100644
+--- a/src/odb/src/db/dbInst.cpp
++++ b/src/odb/src/db/dbInst.cpp
+@@ -70,7 +70,7 @@ class sortITerm
+   {
+     _dbITerm* iterm1 = block_->iterm_tbl_->getPtr(it1);
+     _dbITerm* iterm2 = block_->iterm_tbl_->getPtr(it2);
+-    return iterm1->flags_.mterm_idx < iterm2->flags_.mterm_idx;
++    return iterm1->flags().mterm_idx < iterm2->flags().mterm_idx;
+   }
+ };
+ 
+@@ -1280,10 +1280,10 @@ bool dbInst::swapMaster(dbMaster* new_master_)
+   uint32_t i;
+   for (i = 0; i < cnt; ++i) {
+     _dbITerm* it = block->iterm_tbl_->getPtr(inst->iterms_[i]);
+-    uint32_t old_idx = it->flags_.mterm_idx;
++    uint32_t old_idx = it->flags().mterm_idx;
+     uint32_t new_idx = idx_map[old_idx];
+-    it->flags_.mterm_idx = new_idx;
+-    it->mterm_ = new_master->mterm_tbl_->getPtr(new_inst_hdr->mterms_[new_idx]);
++    it->flags().mterm_idx = new_idx;
++    it->mterm() = new_master->mterm_tbl_->getPtr(new_inst_hdr->mterms_[new_idx]);
+   }
+ 
+   // 2) reorder the iterms vector
+@@ -1386,9 +1386,9 @@ dbInst* dbInst::create(dbBlock* block_,
+   for (int i = 0; i < mterm_cnt; ++i) {
+     _dbITerm* iterm = block->iterm_tbl_->create();
+     inst_impl->iterms_[i] = iterm->getOID();
+-    iterm->flags_.mterm_idx = i;
+-    iterm->inst_ = inst_impl->getOID();
+-    iterm->mterm_ = master->mterm_tbl_->getPtr(inst_hdr->mterms_[i]);
++    iterm->flags().mterm_idx = i;
++    iterm->inst() = inst_impl->getOID();
++    iterm->mterm() = master->mterm_tbl_->getPtr(inst_hdr->mterms_[i]);
+   }
+ 
+   _dbBox* box = block->box_tbl_->create();
+diff --git a/src/odb/src/db/dbJournal.cpp b/src/odb/src/db/dbJournal.cpp
+index aa8f88453b..e943b44fa5 100644
+--- a/src/odb/src/db/dbJournal.cpp
++++ b/src/odb/src/db/dbJournal.cpp
+@@ -1275,7 +1275,7 @@ void dbJournal::redo_updateITermField()
+     case _dbITerm::kFlags: {
+       uint32_t prev_flags;
+       log_.pop(prev_flags);
+-      uint32_t* flags = (uint32_t*) &iterm->flags_;
++      uint32_t* flags = (uint32_t*) &iterm->flags();
+       log_.pop(*flags);
+       debugPrint(logger_,
+                  utl::ODB,
+diff --git a/src/odb/src/db/dbModuleModNetITermItr.cpp b/src/odb/src/db/dbModuleModNetITermItr.cpp
+index 900c437b9b..beca5d6ab3 100644
+--- a/src/odb/src/db/dbModuleModNetITermItr.cpp
++++ b/src/odb/src/db/dbModuleModNetITermItr.cpp
+@@ -72,7 +72,7 @@ uint32_t dbModuleModNetITermItr::next(uint32_t id, ...) const
+ {
+   // User Code Begin next
+   _dbITerm* _iterm = iterm_tbl_->getPtr(id);
+-  return _iterm->next_modnet_iterm_;
++  return _iterm->next_modnet_iterm();
+   // User Code End next
+ }
+ 
 diff --git a/src/odb/src/db/dbTable.h b/src/odb/src/db/dbTable.h
-index ecbf50b8b5..820ff8eb53 100644
+index ecbf50b8b5..c9d10b02e3 100644
 --- a/src/odb/src/db/dbTable.h
 +++ b/src/odb/src/db/dbTable.h
 @@ -4,6 +4,7 @@
@@ -165,7 +1246,7 @@ index ecbf50b8b5..820ff8eb53 100644
  
  #include "boost/integer/static_log2.hpp"
  #include "dbCore.h"
-@@ -22,6 +23,30 @@ class dbTablePage final : public dbObjectPage
+@@ -22,6 +23,51 @@ class dbTablePage final : public dbObjectPage
    char objects_[1];
  };
  
@@ -193,10 +1274,48 @@ index ecbf50b8b5..820ff8eb53 100644
 +  }
 +}
 +
++// Opt-in, per slot type, to storing the table's fields as arrays -- one per
++// field, page_size entries each, owned by the page -- instead of inside the
++// slots. A slot keeps only what dbObject needs to be an address the public
++// API can hand out and to find its page; everything else moves to a column,
++// reached through an accessor that returns a reference, so a call site says
++// `iterm->net()` where it said `iterm->net_`.
++//
++// A type opts in the same way it opts into the field-major file format:
++// `static constexpr bool kSoaTable = true;`, plus the columns themselves and
++// the initFields/clearFields pair dbTable calls in place of running a
++// constructor or destructor over slot storage.
++template <class T>
++constexpr bool dbSoaTable()
++{
++  if constexpr (requires { T::kSoaTable; }) {
++    return T::kSoaTable;
++  } else {
++    return false;
++  }
++}
++
  template <class T, uint32_t page_size /* = 128 */>
  class dbTable final : public dbObjectTable, public dbIterator
  {
-@@ -89,6 +114,33 @@ class dbTable final : public dbObjectTable, public dbIterator
+@@ -81,14 +127,48 @@ class dbTable final : public dbObjectTable, public dbIterator
+  private:
+   void resizePageTbl();
+   void newPage();
+-  void pushQ(uint32_t& Q, _dbFreeObject* e);
+-  _dbFreeObject* popQ(uint32_t& Q);
++  // The free list, in whichever storage this table uses: the slot bytes a
++  // _dbFreeObject overlays, or two columns that mean nothing while a slot
++  // is free. Everything above these three works the same either way.
++  uint32_t freeNext(T* t) const;
++  uint32_t freePrev(T* t) const;
++  void setFreeLinks(T* t, uint32_t next, uint32_t prev);
++
++  void pushQ(uint32_t& Q, T* t);
++  T* popQ(uint32_t& Q);
+   void findTop();
+   void findBottom();
+ 
    void readPage(dbIStream& stream, dbTablePage* page);
    void writePage(dbOStream& stream, const dbTablePage* page) const;
  
@@ -231,7 +1350,7 @@ index ecbf50b8b5..820ff8eb53 100644
  
    template <class U, uint32_t page_size2>
 diff --git a/src/odb/src/db/dbTable.inc b/src/odb/src/db/dbTable.inc
-index ab68b7c3fc..60a2decf1f 100644
+index ab68b7c3fc..a5fb6ddb02 100644
 --- a/src/odb/src/db/dbTable.inc
 +++ b/src/odb/src/db/dbTable.inc
 @@ -8,6 +8,10 @@
@@ -245,7 +1364,220 @@ index ab68b7c3fc..60a2decf1f 100644
  
  #include "dbCommon.h"
  #include "dbCore.h"
-@@ -529,6 +533,288 @@ void dbTable<T, page_size>::readPage(dbIStream& stream, dbTablePage* page)
+@@ -63,26 +67,61 @@ inline bool dbTable<T, page_size>::validId(dbId<T> id) const
+ }
+ 
+ template <class T, uint32_t page_size>
+-inline void dbTable<T, page_size>::pushQ(uint32_t& Q, _dbFreeObject* e)
++inline uint32_t dbTable<T, page_size>::freeNext(T* t) const
+ {
+-  e->prev_ = 0;
+-  e->next_ = Q;
+-  const uint32_t head_id = e->getImpl()->getOID();
++  if constexpr (dbSoaTable<T>()) {
++    return t->freeNext();
++  } else {
++    return ((_dbFreeObject*) t)->next_;
++  }
++}
++
++template <class T, uint32_t page_size>
++inline uint32_t dbTable<T, page_size>::freePrev(T* t) const
++{
++  if constexpr (dbSoaTable<T>()) {
++    return t->freePrev();
++  } else {
++    return ((_dbFreeObject*) t)->prev_;
++  }
++}
++
++template <class T, uint32_t page_size>
++inline void dbTable<T, page_size>::setFreeLinks(T* t,
++                                                const uint32_t next,
++                                                const uint32_t prev)
++{
++  if constexpr (dbSoaTable<T>()) {
++    t->setFreeNext(next);
++    t->setFreePrev(prev);
++  } else {
++    _dbFreeObject* o = (_dbFreeObject*) t;
++    o->next_ = next;
++    o->prev_ = prev;
++  }
++}
++
++template <class T, uint32_t page_size>
++inline void dbTable<T, page_size>::pushQ(uint32_t& Q, T* t)
++{
++  const uint32_t head_id = t->getImpl()->getOID();
++  setFreeLinks(t, Q, 0);
+   if (Q != 0) {
+-    getFreeObj(Q)->prev_ = head_id;
++    T* head = (T*) getFreeObj(Q);
++    setFreeLinks(head, freeNext(head), head_id);
+   }
+   Q = head_id;
+ }
+ 
+ template <class T, uint32_t page_size>
+-inline _dbFreeObject* dbTable<T, page_size>::popQ(uint32_t& Q)
++inline T* dbTable<T, page_size>::popQ(uint32_t& Q)
+ {
+-  _dbFreeObject* e = getFreeObj(Q);
+-  Q = e->next_;
++  T* e = (T*) getFreeObj(Q);
++  Q = freeNext(e);
+ 
+   if (Q) {
+-    _dbFreeObject* head = getFreeObj(Q);
+-    head->prev_ = 0;
++    T* head = (T*) getFreeObj(Q);
++    setFreeLinks(head, freeNext(head), 0);
+   }
+ 
+   return e;
+@@ -102,6 +141,12 @@ void dbTable<T, page_size>::clear()
+       }
+     }
+ 
++    // The columns outlive the slots and are freed with the page.
++    if constexpr (dbSoaTable<T>()) {
++      delete (typename T::Fields*) page->fields_;
++      page->fields_ = nullptr;
++    }
++
+     free(page);
+   }
+ 
+@@ -179,33 +224,26 @@ void dbTable<T, page_size>::newPage()
+   page->table_ = this;
+   page->page_addr_ = page_id << kPageShift;
+   page->alloc_cnt_ = 0;
++  // The columns have to exist before anything reaches for a field, and the
++  // free list below is threaded through two of them.
++  if constexpr (dbSoaTable<T>()) {
++    page->fields_ = new typename T::Fields(pageSize());
++  }
+   pages_[page_id] = page;
+ 
+   // The objects are put on the list in reverse order, so they can be removed
+   // in low-to-high order.
+-  if (page_id == 0) {
+-    T* b = (T*) page->objects_;
+-    T* t = &b[kPageMask];
+-
+-    for (; t >= b; --t) {
+-      _dbFreeObject* o = (_dbFreeObject*) t;
+-      o->offset_in_bytes_ = (uint32_t) ((char*) t - (char*) b);
+-      o->oid_ = page->page_addr_ | (uint32_t) (t - b);
++  T* b = (T*) page->objects_;
++  T* t = &b[kPageMask];
+ 
+-      if (t != b) {  // don't link zero-object
+-        pushQ(free_list_, o);
+-      }
+-    }
+-  } else {
+-    T* b = (T*) page->objects_;
+-    T* t = &b[kPageMask];
++  for (; t >= b; --t) {
++    t->offset_in_bytes_ = (uint32_t) ((char*) t - (char*) b);
++    t->oid_ = page->page_addr_ | (uint32_t) (t - b);
+ 
+-    for (; t >= b; --t) {
+-      _dbFreeObject* o = (_dbFreeObject*) t;
+-      o->offset_in_bytes_ = (uint32_t) ((char*) t - (char*) b);
+-      o->oid_ = page->page_addr_ | (uint32_t) (t - b);
+-      pushQ(free_list_, o);
++    if (page_id == 0 && t == b) {
++      continue;  // don't link zero-object
+     }
++    pushQ(free_list_, t);
+   }
+ }
+ 
+@@ -218,13 +256,17 @@ T* dbTable<T, page_size>::create()
+     newPage();
+   }
+ 
+-  _dbFreeObject* o = popQ(free_list_);
+-  const uint32_t offset = o->offset_in_bytes_;
+-  const uint32_t saved_oid = o->oid_;
+-  new (o) T(db_);
+-  T* t = (T*) o;
++  T* t = popQ(free_list_);
++  const uint32_t offset = t->offset_in_bytes_;
++  const uint32_t saved_oid = t->oid_;
++  new (t) T(db_);
+   t->offset_in_bytes_ = offset | kAllocBit;
+   t->oid_ = saved_oid;
++  // A columnar slot holds nothing for the constructor to initialize, so the
++  // fields it left behind in the columns are reset here instead.
++  if constexpr (dbSoaTable<T>()) {
++    t->initFields();
++  }
+ 
+   dbTablePage* page = (dbTablePage*) t->getObjectPage();
+   page->alloc_cnt_++;
+@@ -362,20 +404,26 @@ void dbTable<T, page_size>::destroy(T* t)
+   assert(t->offset_in_bytes_ & kAllocBit);
+ 
+   dbTablePage* page = (dbTablePage*) t->getObjectPage();
+-  _dbFreeObject* o = (_dbFreeObject*) t;
+ 
+   page->alloc_cnt_--;
+   const uint32_t offset = t->offset_in_bytes_;
+   const uint32_t oid = t->oid_;
++  // Release whatever the slot owns. For a columnar table that is in the
++  // columns rather than in the slot, so the destructor has nothing to do
++  // and clearFields does the work -- and it has to run while the slot can
++  // still find its page.
++  if constexpr (dbSoaTable<T>()) {
++    t->clearFields();
++  }
+   t->~T();  // call destructor
+-  o->offset_in_bytes_ = offset & ~kAllocBit;
+-  o->oid_ = oid;
++  t->offset_in_bytes_ = offset & ~kAllocBit;
++  t->oid_ = oid;
+ 
+   const uint32_t id_in_page = t - (T*) page->objects_;
+   const uint32_t id = page->page_addr_ + id_in_page;
+ 
+   // Add to freelist
+-  pushQ(free_list_, o);
++  pushQ(free_list_, t);
+ 
+   if (id == bottom_idx_) {
+     findBottom();
+@@ -488,9 +536,8 @@ void dbTable<T, page_size>::writePage(dbOStream& stream,
+     } else {
+       const char allocated = 0;
+       stream << allocated;
+-      _dbFreeObject* o = (_dbFreeObject*) t;
+-      stream << o->next_;
+-      stream << o->prev_;
++      stream << freeNext((T*) t);
++      stream << freePrev((T*) t);
+     }
+   }
+ }
+@@ -512,9 +559,11 @@ void dbTable<T, page_size>::readPage(dbIStream& stream, dbTablePage* page)
+     if (!allocated) {
+       t->offset_in_bytes_ = (uint32_t) ((char*) t - page->objects_);
+       t->oid_ = obj_oid;
+-      _dbFreeObject* o = (_dbFreeObject*) t;
+-      stream >> o->next_;
+-      stream >> o->prev_;
++      uint32_t next;
++      uint32_t prev;
++      stream >> next;
++      stream >> prev;
++      setFreeLinks(t, next, prev);
+     } else {
+       new (t) T(db_);
+       uint32_t offset = uint32_t((char*) t - page->objects_) | kAllocBit;
+@@ -529,6 +578,287 @@ void dbTable<T, page_size>::readPage(dbIStream& stream, dbTablePage* page)
    }
  }
  
@@ -273,9 +1605,8 @@ index ab68b7c3fc..60a2decf1f 100644
 +    const T* t = &((const T*) page->objects_)[i & kPageMask];
 +
 +    if ((t->offset_in_bytes_ & kAllocBit) == 0) {
-+      const _dbFreeObject* o = (const _dbFreeObject*) t;
-+      free_links.push_back(o->next_);
-+      free_links.push_back(o->prev_);
++      free_links.push_back(freeNext((T*) t));
++      free_links.push_back(freePrev((T*) t));
 +      continue;
 +    }
 +
@@ -468,11 +1799,11 @@ index ab68b7c3fc..60a2decf1f 100644
 +    const uint32_t obj_oid = page->page_addr_ | slot;
 +
 +    if (!allocated[i]) {
-+      _dbFreeObject* o = (_dbFreeObject*) t;
-+      o->offset_in_bytes_ = slot * sizeof(T);
-+      o->oid_ = obj_oid;
-+      o->next_ = free_links[next_link++];
-+      o->prev_ = free_links[next_link++];
++      t->offset_in_bytes_ = slot * sizeof(T);
++      t->oid_ = obj_oid;
++      const uint32_t next = free_links[next_link++];
++      const uint32_t prev = free_links[next_link++];
++      setFreeLinks(t, next, prev);
 +      continue;
 +    }
 +
@@ -534,7 +1865,7 @@ index ab68b7c3fc..60a2decf1f 100644
  template <class T, uint32_t page_size>
  dbOStream& operator<<(dbOStream& stream,
                        const NamedTable<T, page_size>& named_table)
-@@ -550,9 +836,14 @@ dbOStream& operator<<(dbOStream& stream, const dbTable<T, page_size>& table)
+@@ -550,9 +880,14 @@ dbOStream& operator<<(dbOStream& stream, const dbTable<T, page_size>& table)
    stream << table.alloc_cnt_;
    stream << table.free_list_;
  
@@ -552,7 +1883,7 @@ index ab68b7c3fc..60a2decf1f 100644
    }
  
    stream << table.prop_list_;
-@@ -595,6 +886,14 @@ dbIStream& operator>>(dbIStream& stream, dbTable<T, page_size>& table)
+@@ -595,6 +930,14 @@ dbIStream& operator>>(dbIStream& stream, dbTable<T, page_size>& table)
      table.pages_ = new dbTablePage*[table.page_tbl_size_];
    }
  
@@ -567,9 +1898,15 @@ index ab68b7c3fc..60a2decf1f 100644
    uint32_t i;
    for (i = 0; i < table.page_cnt_; ++i) {
      uint32_t size = (table.pageSize() * sizeof(T)) + sizeof(dbObjectPage);
-@@ -603,7 +902,13 @@ dbIStream& operator>>(dbIStream& stream, dbTable<T, page_size>& table)
+@@ -602,8 +945,19 @@ dbIStream& operator>>(dbIStream& stream, dbTable<T, page_size>& table)
+     memset(page, 0, size);
      page->page_addr_ = i << table.kPageShift;
      page->table_ = &table;
++    // Pages read from a file are built here rather than by newPage(), so
++    // their columns have to be created here too.
++    if constexpr (dbSoaTable<T>()) {
++      page->fields_ = new typename T::Fields(table.pageSize());
++    }
      table.pages_[i] = page;
 -    table.readPage(stream, page);
 +    if (!field_major) {
