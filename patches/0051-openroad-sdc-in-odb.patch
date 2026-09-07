@@ -4,14 +4,16 @@ Date: Mon, 7 Sep 2026 18:00:00 +0200
 Subject: [PATCH] dbSta: store the timing constraints in the .odb
 
 write_db stores the current timing constraints in the block; read_db -sdc
-restores them and returns 1, or 0 if the .odb carries none. The
+restores them, and does nothing if the .odb carries none. The
 constraints are stored in a native, id-based, canonically ordered record
 (pins as dbBTerm / dbITerm ids, no names, no Tcl) that restores in time
 linear in the number of objects; an Sdc with constructs the native
 encoder does not cover (generated clocks, derating, environment, ...)
 falls back to the write_sdc text, replayed through Tcl.
 ord::sdc_in_db_kind reports which form the current block carries:
-native, text or none. Whether the native form can carry an Sdc is decided
+native, text or none, so a flow can decide afterwards whether to read an
+.sdc instead; no existing command changes its signature or its result.
+Whether the native form can carry an Sdc is decided
 by inspecting the Sdc through its public accessors, not by writing and
 scanning text, so write_db stays cheap.
 
@@ -19,7 +21,7 @@ Guarantees, each with a regression test in src/dbSta/test (sdc_in_db1..9):
 write_sdc after a restore is byte-identical to write_sdc before it; two
 write_db of the same design, and a write_db after read_db -sdc in a fresh
 process, produce byte-identical .odb files; an .odb without constraints
-restores nothing and returns 0; restore runs only after a complete
+restores nothing; restore runs only after a complete
 read_db.
 
 This is OpenROAD PR #11260 (branch sdc-in-odb on the oharboe fork),
@@ -34,8 +36,8 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
  docs/md/man1/openroad.md             |   12 +-
  include/ord/OpenRoad.hh              |    9 +-
- src/OpenRoad.cc                      |   17 +-
- src/OpenRoad.i                       |   15 +-
+ src/OpenRoad.cc                      |   15 +-
+ src/OpenRoad.i                       |   13 +-
  src/OpenRoad.tcl                     |   11 +-
  src/dbSta/BUILD                      |    2 +
  src/dbSta/include/db_sta/dbSta.hh    |    8 +
@@ -43,35 +45,38 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  src/dbSta/src/dbSdcInDb.cc           | 1639 ++++++++++++++++++++++++++++++++++
  src/dbSta/src/dbSdcInDb.hh           |   69 ++
  src/dbSta/src/dbSta.cc               |   35 +
- src/dbSta/test/BUILD                 |   40 +
+ src/dbSta/test/BUILD                 |   50 ++
  src/dbSta/test/CMakeLists.txt        |    9 +
- src/dbSta/test/sdc_in_db1.ok         |   26 +
- src/dbSta/test/sdc_in_db1.tcl        |   17 +
- src/dbSta/test/sdc_in_db2.ok         |   33 +
- src/dbSta/test/sdc_in_db2.tcl        |   13 +
- src/dbSta/test/sdc_in_db3.ok         |   15 +
- src/dbSta/test/sdc_in_db3.tcl        |    8 +
- src/dbSta/test/sdc_in_db4.ok         |  102 +++
+ src/dbSta/test/sdc_in_db.v           |   13 +
+ src/dbSta/test/sdc_in_db1.ok         |    2 +
+ src/dbSta/test/sdc_in_db1.sdc        |    4 +
+ src/dbSta/test/sdc_in_db1.tcl        |   16 +
+ src/dbSta/test/sdc_in_db2.ok         |    2 +
+ src/dbSta/test/sdc_in_db2.tcl        |   19 +
+ src/dbSta/test/sdc_in_db3.ok         |    2 +
+ src/dbSta/test/sdc_in_db3.tcl        |    9 +
+ src/dbSta/test/sdc_in_db4.ok         |    2 +
  src/dbSta/test/sdc_in_db4.sdc        |   24 +
- src/dbSta/test/sdc_in_db4.tcl        |   23 +
- src/dbSta/test/sdc_in_db5.ok         |   47 +
+ src/dbSta/test/sdc_in_db4.tcl        |   20 +
+ src/dbSta/test/sdc_in_db5.ok         |    2 +
  src/dbSta/test/sdc_in_db5.sdc        |    6 +
- src/dbSta/test/sdc_in_db5.tcl        |   23 +
- src/dbSta/test/sdc_in_db6.ok         |   28 +
- src/dbSta/test/sdc_in_db6.tcl        |   17 +
- src/dbSta/test/sdc_in_db7.ok         |    4 +
- src/dbSta/test/sdc_in_db7.tcl        |   10 +
- src/dbSta/test/sdc_in_db8.ok         |   18 +
- src/dbSta/test/sdc_in_db8.tcl        |   44 +
- src/dbSta/test/sdc_in_db9.ok         |   47 +
+ src/dbSta/test/sdc_in_db5.tcl        |   20 +
+ src/dbSta/test/sdc_in_db6.ok         |    2 +
+ src/dbSta/test/sdc_in_db6.tcl        |   19 +
+ src/dbSta/test/sdc_in_db7.ok         |    2 +
+ src/dbSta/test/sdc_in_db7.tcl        |   14 +
+ src/dbSta/test/sdc_in_db8.ok         |    2 +
+ src/dbSta/test/sdc_in_db8.tcl        |   28 +
+ src/dbSta/test/sdc_in_db9.ok         |    2 +
  src/dbSta/test/sdc_in_db9.sdc        |    7 +
- src/dbSta/test/sdc_in_db9.tcl        |   23 +
+ src/dbSta/test/sdc_in_db9.tcl        |   20 +
+ src/dbSta/test/sdc_in_db_common.tcl  |   58 ++
  src/dbSta/test/sdc_in_db_restore.tcl |    8 +
  src/dbSta/test/sdc_in_db_rewrite.tcl |   11 +
- 36 files changed, 2410 insertions(+), 11 deletions(-)
+ 39 files changed, 2177 insertions(+), 10 deletions(-)
 
 diff --git a/docs/md/man1/openroad.md b/docs/md/man1/openroad.md
-index d2af136592..b67bfafc1e 100644
+index d2af136592..03be9be621 100644
 --- a/docs/md/man1/openroad.md
 +++ b/docs/md/man1/openroad.md
 @@ -90,13 +90,19 @@ OpenROAD binary.
@@ -83,11 +88,11 @@ index d2af136592..b67bfafc1e 100644
  
 -  - Read OpenDB (.odb) database files.
 +  - Read OpenDB (.odb) database files. With -sdc, also restore the timing
-+    constraints stored in the database by write_db, so the design arrives
-+    constrained without reading a separate .sdc file. Returns 1 if the
-+    database carried constraints and 0 if it carried none, so a script can
-+    fall back to read_sdc. ord::sdc_in_db_kind reports which form the
-+    current block carries: native, text or none.
++    constraints the database carries, stored by write_db, so the design
++    arrives constrained without reading a separate .sdc file; a database
++    that carries none is read as without the flag. ord::sdc_in_db_kind
++    reports which form the current block carries (native, text or none),
++    so a script can decide afterwards whether to read an .sdc instead.
  
  - write_db filename
  
@@ -98,7 +103,7 @@ index d2af136592..b67bfafc1e 100644
  - write_abstract_lef filename
  
 diff --git a/include/ord/OpenRoad.hh b/include/ord/OpenRoad.hh
-index e16a2290ca..f14482fc1f 100644
+index e16a2290ca..b9ab0074d0 100644
 --- a/include/ord/OpenRoad.hh
 +++ b/include/ord/OpenRoad.hh
 @@ -239,7 +239,14 @@ class OpenRoad
@@ -109,46 +114,37 @@ index e16a2290ca..f14482fc1f 100644
 +  // Restore the timing constraints stored in the .odb, if any.
 +  // Returns true if constraints were found and applied.
 +  bool restoreSdcFromDb();
-+  // With restore_sdc, returns whether the .odb carried constraints;
-+  // without it, always false.
-+  bool readDb(const char* filename,
++  // With restore_sdc, the constraints the .odb carries are restored; an
++  // .odb that carries none is read exactly as without the flag.
++  void readDb(const char* filename,
 +              bool hierarchy = false,
 +              bool restore_sdc = false);
    void writeDb(std::ostream& stream);
    void writeDb(const char* filename,
                 std::optional<int> compression_level = std::nullopt);
 diff --git a/src/OpenRoad.cc b/src/OpenRoad.cc
-index ad3b4ae5d8..32c3af892c 100644
+index ad3b4ae5d8..4ab2c70821 100644
 --- a/src/OpenRoad.cc
 +++ b/src/OpenRoad.cc
-@@ -555,11 +555,17 @@ void OpenRoad::write3Dbx(const std::string& filename)
+@@ -555,11 +555,16 @@ void OpenRoad::write3Dbx(const std::string& filename)
  
  // TODO: bool hierarchy should be removed in the future.
  // It is retained for a while for backward compatibility.
 -void OpenRoad::readDb(const char* filename, bool hierarchy)
-+bool OpenRoad::readDb(const char* filename, bool hierarchy, bool restore_sdc)
++void OpenRoad::readDb(const char* filename, bool hierarchy, bool restore_sdc)
  {
-+  bool restored = false;
    try {
      utl::InStreamHandler handler(filename, true);
      readDb(handler.getStream());
 +    // Only a database that read completely has constraints worth
 +    // restoring; a failed read errors out above and never gets here.
 +    if (restore_sdc) {
-+      restored = restoreSdcFromDb();
++      restoreSdcFromDb();
 +    }
    } catch (const std::ios_base::failure& f) {
      logger_->error(ORD, 54, "odb file {} is invalid: {}", filename, f.what());
    }
-@@ -576,6 +582,7 @@ void OpenRoad::readDb(const char* filename, bool hierarchy)
-     // we cannot rely on orders to do this during stream in
-     sta->getDbNetwork()->setHierarchy();
-   }
-+  return restored;
- }
- 
- void OpenRoad::readDb(std::istream& stream)
-@@ -593,10 +600,18 @@ void OpenRoad::readDb(std::istream& stream)
+@@ -593,10 +598,18 @@ void OpenRoad::readDb(std::istream& stream)
  
  void OpenRoad::writeDb(std::ostream& stream)
  {
@@ -168,35 +164,33 @@ index ad3b4ae5d8..32c3af892c 100644
                         std::optional<int> compression_level)
  {
 diff --git a/src/OpenRoad.i b/src/OpenRoad.i
-index 7e27e65c98..c80672487a 100644
+index 7e27e65c98..abe6d58899 100644
 --- a/src/OpenRoad.i
 +++ b/src/OpenRoad.i
-@@ -408,11 +408,20 @@ write_3dbx_cmd(const char *filename)
-   ord->write3Dbx(filename);
+@@ -409,10 +409,19 @@ write_3dbx_cmd(const char *filename)
  }
  
--void
+ void
 -read_db_cmd(const char *filename, bool hierarchy)
-+bool
 +read_db_cmd(const char *filename, bool hierarchy, bool restore_sdc)
-+{
-+  OpenRoad *ord = getOpenRoad();
-+  return ord->readDb(filename, hierarchy, restore_sdc);
+ {
+   OpenRoad *ord = getOpenRoad();
+-  ord->readDb(filename, hierarchy);
++  ord->readDb(filename, hierarchy, restore_sdc);
 +}
 +
 +// "native", "text" or "none": which form of timing constraints the
 +// current block carries (see dbSta::sdcInDbKind).
 +const char *
 +sdc_in_db_kind()
- {
-   OpenRoad *ord = getOpenRoad();
--  ord->readDb(filename, hierarchy);
++{
++  OpenRoad *ord = getOpenRoad();
 +  return ord->getSta()->sdcInDbKind();
  }
  
  void
 diff --git a/src/OpenRoad.tcl b/src/OpenRoad.tcl
-index dbc81c12c8..caf7bb6a0e 100644
+index dbc81c12c8..9a5529fe76 100644
 --- a/src/OpenRoad.tcl
 +++ b/src/OpenRoad.tcl
 @@ -238,13 +238,13 @@ proc check_3dblox { args } {
@@ -222,10 +216,10 @@ index dbc81c12c8..caf7bb6a0e 100644
 -  ord::read_db_cmd $filename $hierarchy
 +  # -sdc restores the timing constraints stored in the .odb by write_db,
 +  # rather than requiring a separate .sdc file to be read alongside it.
-+  # Returns 1 if the .odb carried constraints and they were restored, 0
-+  # if it carried none, so a flow can fall back to read_sdc.
++  # An .odb that carries none is read as without the flag; a flow asks
++  # ord::sdc_in_db_kind afterwards to decide whether to read an .sdc.
 +  set restore_sdc [info exists flags(-sdc)]
-+  return [ord::read_db_cmd $filename $hierarchy $restore_sdc]
++  ord::read_db_cmd $filename $hierarchy $restore_sdc
  }
  
  sta::define_cmd_args "write_db" {[-compression level] filename}
@@ -2061,7 +2055,7 @@ index 7c43ab8737..d650b0e558 100644
  {
    db_network_->readDbAfter(db);
 diff --git a/src/dbSta/test/BUILD b/src/dbSta/test/BUILD
-index 3214e936fb..081eb6e13d 100644
+index 3214e936fb..26d7c62331 100644
 --- a/src/dbSta/test/BUILD
 +++ b/src/dbSta/test/BUILD
 @@ -91,6 +91,15 @@ ALL_TESTS = [
@@ -2080,40 +2074,50 @@ index 3214e936fb..081eb6e13d 100644
      "sta_to_db1",
      "sta_to_db1_hier",
      "write_sdc1",
-@@ -266,6 +275,37 @@ filegroup(
+@@ -266,6 +275,47 @@ filegroup(
                  "example1.def",
                  "example1.lef",
              ],
 +            "sdc_in_db1": [
-+                "hier1.sdc",
-+                "hier1.v",
++                "sdc_in_db.v",
++                "sdc_in_db_common.tcl",
 +            ],
 +            "sdc_in_db2": [
++                "sdc_in_db_common.tcl",
 +                "sdc_in_db.odb",
 +            ],
 +            "sdc_in_db3": [
++                "sdc_in_db_common.tcl",
 +                "sdc_in_db.odb",
 +            ],
 +            "sdc_in_db4": [
-+                "reg1.v",
++                "sdc_in_db_common.tcl",
++                "sdc_in_db.v",
 +                "sdc_in_db_restore.tcl",
 +            ],
 +            "sdc_in_db5": [
-+                "reg1.v",
++                "sdc_in_db_common.tcl",
++                "sdc_in_db.v",
 +                "sdc_in_db_restore.tcl",
 +            ],
 +            "sdc_in_db6": [
-+                "reg1.v",
++                "sdc_in_db_common.tcl",
++                "sdc_in_db.v",
 +                "sdc_in_db_restore.tcl",
 +            ],
-+            "sdc_in_db9": [
-+                "reg1.v",
-+                "sdc_in_db_restore.tcl",
++            "sdc_in_db7": [
++                "sdc_in_db_common.tcl",
 +            ],
 +            "sdc_in_db8": [
-+                "reg1.v",
++                "sdc_in_db.v",
++                "sdc_in_db_common.tcl",
 +                "sdc_in_db4.sdc",
 +                "sdc_in_db_rewrite.tcl",
++            ],
++            "sdc_in_db9": [
++                "sdc_in_db_common.tcl",
++                "sdc_in_db.v",
++                "sdc_in_db_restore.tcl",
 +            ],
              "sdc_names1": [
                  "hier1.def",
@@ -2138,265 +2142,132 @@ index 213ae7fb74..a7826281f1 100644
      sta_to_db1
      sta_to_db1_hier
      write_sdc1
+diff --git a/src/dbSta/test/sdc_in_db.v b/src/dbSta/test/sdc_in_db.v
+new file mode 100644
+index 0000000000..d493400d12
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db.v
+@@ -0,0 +1,13 @@
++// Fixture for the sdc_in_db tests: three registers on three clock ports,
++// in Nangate45 so every liberty cell has a LEF master and linking is quiet.
++module top (in1, in2, clk1, clk2, clk3, out);
++  input in1, in2, clk1, clk2, clk3;
++  output out;
++  wire r1q, r2q, u1z, u2z;
++
++  DFF_X1 r1 (.D(in1), .CK(clk1), .Q(r1q));
++  DFF_X1 r2 (.D(in2), .CK(clk2), .Q(r2q));
++  BUF_X1 u1 (.A(r2q), .Z(u1z));
++  AND2_X1 u2 (.A1(r1q), .A2(u1z), .ZN(u2z));
++  DFF_X1 r3 (.D(u2z), .CK(clk3), .Q(out));
++endmodule
 diff --git a/src/dbSta/test/sdc_in_db1.ok b/src/dbSta/test/sdc_in_db1.ok
 new file mode 100644
-index 0000000000..4d17bde9f2
+index 0000000000..30ba670475
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db1.ok
-@@ -0,0 +1,26 @@
-+[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
-+[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
-+  snl_ff2x1
-+  snl_invx2
-+  snl_lenqnx1
-+  snl_lqx1
-+  snl_mux21x1
-+  snl_nand02x1
-+  snl_nand02x2
-+  snl_oa012x1
-+  snl_or02x1
-+  snl_tbufx1
-+  snl_xor2x1
-+stored form: native
-+sdc-in-odb 1
-+C clk1 0x1.5798eep-27 0 2 0x0p+0 0x1.5798eep-28 1 b1
-+C clk2 0x1.5798eep-26 0 2 0x0p+0 0x1.5798eep-27 1 b2
-+I b3 clk2 r - 0 0 r n 0x1.5798eep-27
-+I b3 clk2 r - 0 0 r x 0x1.5798eep-27
-+I b3 clk2 r - 0 0 f n 0x1.5798eep-27
-+I b3 clk2 r - 0 0 f x 0x1.5798eep-27
-+O b4 clk2 r - 0 0 r n 0x1.5798eep-27
-+O b4 clk2 r - 0 0 r x 0x1.5798eep-27
-+O b4 clk2 r - 0 0 f n 0x1.5798eep-27
-+O b4 clk2 r - 0 0 f x 0x1.5798eep-27
-+
+@@ -0,0 +1,2 @@
++Summary 5 / 5 (100% pass)
++pass
+diff --git a/src/dbSta/test/sdc_in_db1.sdc b/src/dbSta/test/sdc_in_db1.sdc
+new file mode 100644
+index 0000000000..8b92664d1d
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db1.sdc
+@@ -0,0 +1,4 @@
++create_clock -period 10 -name clk1 [get_ports clk1]
++create_clock -period 20 -name clk2 [get_ports clk2]
++set_input_delay 10 -clock [get_clocks clk2] [get_ports in1]
++set_output_delay 10 -clock [get_clocks clk2] [get_ports out]
 diff --git a/src/dbSta/test/sdc_in_db1.tcl b/src/dbSta/test/sdc_in_db1.tcl
 new file mode 100644
-index 0000000000..b7beec1e94
+index 0000000000..4a08253cf5
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db1.tcl
-@@ -0,0 +1,17 @@
+@@ -0,0 +1,16 @@
 +# write_db stores the timing constraints in the .odb, so an .odb is
 +# self-describing and does not have to be paired with a .sdc by name.
-+# With nothing beyond what the native form carries, that form is used:
-+# every pin is an odb object id, so restoring it needs no name lookup.
-+source "helpers.tcl"
-+read_lef liberty1.lef
-+read_liberty liberty1.lib
-+read_verilog hier1.v
-+link_design top
-+read_sdc hier1.sdc
++# With nothing beyond what the native form carries, that form is used
++# (every pin an odb object id), and only that form.
++source "sdc_in_db_common.tcl"
++load_design sdc_in_db.v
++read_sdc sdc_in_db1.sdc
 +
-+set db_file [make_result_file sdc_in_db1.odb]
-+write_db $db_file
-+puts "stored form: [ord::sdc_in_db_kind]"
-+
-+set block [ord::get_db_block]
-+puts [[odb::dbStringProperty_find $block "sta.sdc.native"] getValue]
++write_db [make_result_file sdc_in_db1.odb]
++check "stored form" { ord::sdc_in_db_kind } native
++check "native property present" { has_property "sta.sdc.native" } 1
++check "text property absent" { has_property "sta.sdc" } 0
++check "record header" { lindex [split [native_record] \n] 0 } "sdc-in-odb 1"
++check "one clock record per clock" \
++  { regexp -all -line {^C } [native_record] } [llength [all_clocks]]
++exit_summary
 diff --git a/src/dbSta/test/sdc_in_db2.ok b/src/dbSta/test/sdc_in_db2.ok
 new file mode 100644
-index 0000000000..da31f30d2c
+index 0000000000..ac26280ba6
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db2.ok
-@@ -0,0 +1,33 @@
-+[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
-+[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
-+  snl_ff2x1
-+  snl_invx2
-+  snl_lenqnx1
-+  snl_lqx1
-+  snl_mux21x1
-+  snl_nand02x1
-+  snl_nand02x2
-+  snl_oa012x1
-+  snl_or02x1
-+  snl_tbufx1
-+  snl_xor2x1
-+[INFO STA-3011] Restored the timing constraints stored in the database (native form).
-+clock clk1 period 10.000000
-+clock clk2 period 20.000000
-+###############################################################################
-+# Created by write_sdc
-+###############################################################################
-+current_design top
-+###############################################################################
-+# Timing Constraints
-+###############################################################################
-+create_clock -name clk1 -period 10.0000 [get_ports {clk1}]
-+create_clock -name clk2 -period 20.0000 [get_ports {clk2}]
-+set_input_delay 10.0000 -clock [get_clocks {clk2}] -add_delay [get_ports {in}]
-+set_output_delay 10.0000 -clock [get_clocks {clk2}] -add_delay [get_ports {out}]
-+###############################################################################
-+# Environment
-+###############################################################################
-+###############################################################################
-+# Design Rules
-+###############################################################################
+@@ -0,0 +1,2 @@
++Summary 6 / 6 (100% pass)
++pass
 diff --git a/src/dbSta/test/sdc_in_db2.tcl b/src/dbSta/test/sdc_in_db2.tcl
 new file mode 100644
-index 0000000000..4846c31acc
+index 0000000000..ea5943fe5a
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db2.tcl
-@@ -0,0 +1,13 @@
-+# read_db -sdc replays the constraints stored in the .odb. No .sdc file is
+@@ -0,0 +1,19 @@
++# read_db -sdc restores the constraints stored in the .odb. No .sdc file is
 +# read here: the design arrives constrained.
-+source "helpers.tcl"
-+read_lef liberty1.lef
-+read_liberty liberty1.lib
++source "sdc_in_db_common.tcl"
++load_libs
 +read_db -sdc sdc_in_db.odb
 +
-+foreach clk [get_clocks *] {
-+  puts "clock [get_name $clk] period [get_property $clk period]"
-+}
-+set sdc_file [make_result_file sdc_in_db2.sdc]
-+write_sdc -no_timestamp $sdc_file
-+report_file $sdc_file
++check "stored form" { ord::sdc_in_db_kind } native
++check "clocks restored" { lsort [lmap clk [all_clocks] { get_name $clk }] } {clk1 clk2}
++check "clk1 period" { get_property [lindex [get_clocks clk1] 0] period } 10
++check "clk2 period" { get_property [lindex [get_clocks clk2] 0] period } 20
++set sdc [make_result_file sdc_in_db2.sdc]
++write_sdc -no_timestamp $sdc
++set in_delay {set_input_delay 10.0000 -clock \[get_clocks \{clk2\}\]}
++append in_delay { -add_delay \[get_ports \{in1\}\]}
++check "input delay restored" { file_matches $sdc $in_delay } 1
++set out_delay {set_output_delay 10.0000 -clock \[get_clocks \{clk2\}\]}
++append out_delay { -add_delay \[get_ports \{out\}\]}
++check "output delay restored" { file_matches $sdc $out_delay } 1
++exit_summary
 diff --git a/src/dbSta/test/sdc_in_db3.ok b/src/dbSta/test/sdc_in_db3.ok
 new file mode 100644
-index 0000000000..9ad133d011
+index 0000000000..6ba2c9c9bc
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db3.ok
-@@ -0,0 +1,15 @@
-+[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
-+[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
-+  snl_ff2x1
-+  snl_invx2
-+  snl_lenqnx1
-+  snl_lqx1
-+  snl_mux21x1
-+  snl_nand02x1
-+  snl_nand02x2
-+  snl_oa012x1
-+  snl_or02x1
-+  snl_tbufx1
-+  snl_xor2x1
-+[WARNING STA-0351] clock '*' not found.
-+clocks: 
+@@ -0,0 +1,2 @@
++Summary 2 / 2 (100% pass)
++pass
 diff --git a/src/dbSta/test/sdc_in_db3.tcl b/src/dbSta/test/sdc_in_db3.tcl
 new file mode 100644
-index 0000000000..11496ad267
+index 0000000000..a6605552f5
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db3.tcl
-@@ -0,0 +1,8 @@
+@@ -0,0 +1,9 @@
 +# Without -sdc, read_db ignores the constraints stored in the .odb, so
 +# scripts that read their own .sdc see exactly the behavior they saw before.
-+source "helpers.tcl"
-+read_lef liberty1.lef
-+read_liberty liberty1.lib
++source "sdc_in_db_common.tcl"
++load_libs
 +read_db sdc_in_db.odb
 +
-+puts "clocks: [get_clocks *]"
++check "constraints are stored" { ord::sdc_in_db_kind } native
++check "but not restored" { llength [all_clocks] } 0
++exit_summary
 diff --git a/src/dbSta/test/sdc_in_db4.ok b/src/dbSta/test/sdc_in_db4.ok
 new file mode 100644
-index 0000000000..0fdedced1e
+index 0000000000..7e2966ab88
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db4.ok
-@@ -0,0 +1,102 @@
-+[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
-+[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
-+  snl_ff2x1
-+  snl_invx2
-+  snl_lenqnx1
-+  snl_lqx1
-+  snl_mux21x1
-+  snl_nand02x1
-+  snl_nand02x2
-+  snl_oa012x1
-+  snl_or02x1
-+  snl_tbufx1
-+  snl_xor2x1
-+stored form: native
-+[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
-+[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
-+  snl_ff2x1
-+  snl_invx2
-+  snl_lenqnx1
-+  snl_lqx1
-+  snl_mux21x1
-+  snl_nand02x1
-+  snl_nand02x2
-+  snl_oa012x1
-+  snl_or02x1
-+  snl_tbufx1
-+  snl_xor2x1
-+[INFO STA-3011] Restored the timing constraints stored in the database (native form).
-+read_db -sdc returned 1, stored form: native
-+###############################################################################
-+# Created by write_sdc
-+###############################################################################
-+current_design top
-+###############################################################################
-+# Timing Constraints
-+###############################################################################
-+create_clock -name clk -period 10.0000 [get_ports {clk1}]
-+set_clock_uncertainty 0.1000 clk
-+create_clock -name clk2 -period 20.0000 [get_ports {clk2}]
-+set_propagated_clock [get_clocks {clk2}]
-+set_clock_latency 0.5000 [get_clocks {clk}]
-+set_clock_groups -name grp -asynchronous \
-+ -group [get_clocks {clk}]\
-+ -group [get_clocks {clk2}]
-+set_input_delay 1.0000 -clock [get_clocks {clk}] -add_delay [get_ports {in2}]
-+set_output_delay 2.0000 -clock [get_clocks {clk2}] -add_delay [get_ports {out}]
-+group_path -name reg2reg\
-+    -from [list [get_cells {r1}]\
-+           [get_cells {r2}]\
-+           [get_cells {r3}]]\
-+    -to [list [get_cells {r1}]\
-+           [get_cells {r2}]\
-+           [get_cells {r3}]]
-+group_path -name reg2out\
-+    -from [list [get_cells {r1}]\
-+           [get_cells {r2}]\
-+           [get_cells {r3}]]\
-+    -to [get_ports {out}]
-+group_path -name in2reg\
-+    -from [list [get_ports {clk3}]\
-+           [get_ports {in1}]\
-+           [get_ports {in2}]]\
-+    -to [list [get_cells {r1}]\
-+           [get_cells {r2}]\
-+           [get_cells {r3}]]
-+group_path -name in2out\
-+    -from [list [get_ports {clk3}]\
-+           [get_ports {in1}]\
-+           [get_ports {in2}]]\
-+    -to [get_ports {out}]
-+set_multicycle_path -setup\
-+    -from [get_pins {r1/CP}]\
-+    -to [get_pins {r3/D}] 2
-+set_max_delay -ignore_clock_latency\
-+    -from [list [get_cells {r1}]\
-+           [get_cells {r2}]\
-+           [get_cells {r3}]]\
-+    -to [get_ports {out}] 8.0000
-+set_max_delay -ignore_clock_latency\
-+    -from [list [get_ports {clk3}]\
-+           [get_ports {in1}]\
-+           [get_ports {in2}]]\
-+    -to [list [get_cells {r1}]\
-+           [get_cells {r2}]\
-+           [get_cells {r3}]] 8.0000
-+set_max_delay\
-+    -from [list [get_ports {clk3}]\
-+           [get_ports {in1}]\
-+           [get_ports {in2}]]\
-+    -to [get_ports {out}] 8.0000
-+set_false_path\
-+    -from [get_ports {in1}]
-+###############################################################################
-+# Environment
-+###############################################################################
-+set_case_analysis 0 [get_ports {in1}]
-+###############################################################################
-+# Design Rules
-+###############################################################################
-+set_max_transition 0.5000 [current_design]
-+set_max_fanout 32.0000 [current_design]
-+No differences found.
+@@ -0,0 +1,2 @@
++Summary 3 / 3 (100% pass)
++pass
 diff --git a/src/dbSta/test/sdc_in_db4.sdc b/src/dbSta/test/sdc_in_db4.sdc
 new file mode 100644
-index 0000000000..9a7222d09d
+index 0000000000..6783844625
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db4.sdc
 @@ -0,0 +1,24 @@
@@ -2418,7 +2289,7 @@ index 0000000000..9a7222d09d
 +group_path -name reg2out -from [all_registers] -to [all_outputs]
 +group_path -name reg2reg -from [all_registers] -to [all_registers]
 +group_path -name in2out -from $non_clk_inputs -to [all_outputs]
-+set_multicycle_path -setup 2 -from [get_pins r1/CP] -to [get_pins r3/D]
++set_multicycle_path -setup 2 -from [get_pins r1/CK] -to [get_pins r3/D]
 +set_input_delay 1 -clock clk [get_ports in2]
 +set_output_delay 2 -clock clk2 [get_ports out]
 +set_max_fanout 32 [current_design]
@@ -2426,86 +2297,38 @@ index 0000000000..9a7222d09d
 +set_case_analysis 0 [get_ports in1]
 diff --git a/src/dbSta/test/sdc_in_db4.tcl b/src/dbSta/test/sdc_in_db4.tcl
 new file mode 100644
-index 0000000000..828b9fbd3c
+index 0000000000..74545391d1
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db4.tcl
-@@ -0,0 +1,23 @@
+@@ -0,0 +1,20 @@
 +# Round trip through the native form, across processes: write_sdc from
 +# the design that read the .sdc must equal write_sdc from a fresh process
 +# that got its constraints from the .odb alone.
-+source "helpers.tcl"
-+read_lef liberty1.lef
-+read_liberty liberty1.lib
-+read_verilog reg1.v
-+link_design top
++source "sdc_in_db_common.tcl"
++load_design sdc_in_db.v
 +read_sdc sdc_in_db4.sdc
 +
 +set odb [make_result_file sdc_in_db4.odb]
 +write_db $odb
-+puts "stored form: [ord::sdc_in_db_kind]"
++check "stored form" { ord::sdc_in_db_kind } native
 +set before [make_result_file sdc_in_db4_before.sdc]
 +write_sdc -no_timestamp $before
 +
 +set after [make_result_file sdc_in_db4_after.sdc]
 +set ::env(SDC_IN_DB_ODB) $odb
 +set ::env(SDC_IN_DB_SDC) $after
-+puts [exec $argv0 -no_init -no_splash -exit sdc_in_db_restore.tcl]
-+
-+report_file $after
-+diff_files $before $after
++set child [run_child sdc_in_db_restore.tcl]
++check "form seen by the restoring process" { child_kind $child } native
++check "write_sdc before and after restore" { same_file $before $after } 1
++exit_summary
 diff --git a/src/dbSta/test/sdc_in_db5.ok b/src/dbSta/test/sdc_in_db5.ok
 new file mode 100644
-index 0000000000..fb3049fc35
+index 0000000000..7e2966ab88
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db5.ok
-@@ -0,0 +1,47 @@
-+[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
-+[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
-+  snl_ff2x1
-+  snl_invx2
-+  snl_lenqnx1
-+  snl_lqx1
-+  snl_mux21x1
-+  snl_nand02x1
-+  snl_nand02x2
-+  snl_oa012x1
-+  snl_or02x1
-+  snl_tbufx1
-+  snl_xor2x1
-+stored form: text
-+[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
-+[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
-+  snl_ff2x1
-+  snl_invx2
-+  snl_lenqnx1
-+  snl_lqx1
-+  snl_mux21x1
-+  snl_nand02x1
-+  snl_nand02x2
-+  snl_oa012x1
-+  snl_or02x1
-+  snl_tbufx1
-+  snl_xor2x1
-+[INFO STA-3011] Restored the timing constraints stored in the database (text form).
-+read_db -sdc returned 1, stored form: text
-+###############################################################################
-+# Created by write_sdc
-+###############################################################################
-+current_design top
-+###############################################################################
-+# Timing Constraints
-+###############################################################################
-+create_clock -name clk -period 10.0000 [get_ports {clk1}]
-+set_input_delay 1.0000 -clock [get_clocks {clk}] -add_delay [get_ports {in1}]
-+###############################################################################
-+# Environment
-+###############################################################################
-+set_timing_derate -early 0.9500
-+set_timing_derate -late 1.0500
-+###############################################################################
-+# Design Rules
-+###############################################################################
-+No differences found.
+@@ -0,0 +1,2 @@
++Summary 3 / 3 (100% pass)
++pass
 diff --git a/src/dbSta/test/sdc_in_db5.sdc b/src/dbSta/test/sdc_in_db5.sdc
 new file mode 100644
 index 0000000000..96b556972b
@@ -2520,170 +2343,112 @@ index 0000000000..96b556972b
 +set_timing_derate -late 1.05
 diff --git a/src/dbSta/test/sdc_in_db5.tcl b/src/dbSta/test/sdc_in_db5.tcl
 new file mode 100644
-index 0000000000..1388e04e6e
+index 0000000000..29a86a5121
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db5.tcl
-@@ -0,0 +1,23 @@
+@@ -0,0 +1,20 @@
 +# Round trip through the text fallback, across processes: a derate is
 +# outside the native form, so the constraints ride as write_sdc text and
 +# are replayed. The result must still equal what was written.
-+source "helpers.tcl"
-+read_lef liberty1.lef
-+read_liberty liberty1.lib
-+read_verilog reg1.v
-+link_design top
++source "sdc_in_db_common.tcl"
++load_design sdc_in_db.v
 +read_sdc sdc_in_db5.sdc
 +
 +set odb [make_result_file sdc_in_db5.odb]
 +write_db $odb
-+puts "stored form: [ord::sdc_in_db_kind]"
++check "stored form" { ord::sdc_in_db_kind } text
 +set before [make_result_file sdc_in_db5_before.sdc]
 +write_sdc -no_timestamp $before
 +
 +set after [make_result_file sdc_in_db5_after.sdc]
 +set ::env(SDC_IN_DB_ODB) $odb
 +set ::env(SDC_IN_DB_SDC) $after
-+puts [exec $argv0 -no_init -no_splash -exit sdc_in_db_restore.tcl]
-+
-+report_file $after
-+diff_files $before $after
++set child [run_child sdc_in_db_restore.tcl]
++check "form seen by the restoring process" { child_kind $child } text
++check "write_sdc before and after restore" { same_file $before $after } 1
++exit_summary
 diff --git a/src/dbSta/test/sdc_in_db6.ok b/src/dbSta/test/sdc_in_db6.ok
 new file mode 100644
-index 0000000000..3e31f9e040
+index 0000000000..30ba670475
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db6.ok
-@@ -0,0 +1,28 @@
-+[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
-+[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
-+  snl_ff2x1
-+  snl_invx2
-+  snl_lenqnx1
-+  snl_lqx1
-+  snl_mux21x1
-+  snl_nand02x1
-+  snl_nand02x2
-+  snl_oa012x1
-+  snl_or02x1
-+  snl_tbufx1
-+  snl_xor2x1
-+stored form: none
-+[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
-+[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
-+  snl_ff2x1
-+  snl_invx2
-+  snl_lenqnx1
-+  snl_lqx1
-+  snl_mux21x1
-+  snl_nand02x1
-+  snl_nand02x2
-+  snl_oa012x1
-+  snl_or02x1
-+  snl_tbufx1
-+  snl_xor2x1
-+read_db -sdc returned 0, stored form: none
+@@ -0,0 +1,2 @@
++Summary 5 / 5 (100% pass)
++pass
 diff --git a/src/dbSta/test/sdc_in_db6.tcl b/src/dbSta/test/sdc_in_db6.tcl
 new file mode 100644
-index 0000000000..affd8d2561
+index 0000000000..de92b264ed
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db6.tcl
-@@ -0,0 +1,17 @@
-+# A design written without constraints carries none: read_db -sdc says
-+# so (returns 0) instead of pretending, so a flow can fall back to its
-+# .sdc file.
-+source "helpers.tcl"
-+read_lef liberty1.lef
-+read_liberty liberty1.lib
-+read_verilog reg1.v
-+link_design top
+@@ -0,0 +1,19 @@
++# A design written without constraints carries none: read_db -sdc has
++# nothing to restore and says so through sdc_in_db_kind, so a flow can
++# fall back to its .sdc file.
++source "sdc_in_db_common.tcl"
++load_design sdc_in_db.v
 +
 +set odb [make_result_file sdc_in_db6.odb]
 +write_db $odb
-+puts "stored form: [ord::sdc_in_db_kind]"
++check "stored form" { ord::sdc_in_db_kind } none
++check "no native property" { has_property "sta.sdc.native" } 0
++check "no text property" { has_property "sta.sdc" } 0
 +
 +set after [make_result_file sdc_in_db6_after.sdc]
 +set ::env(SDC_IN_DB_ODB) $odb
 +set ::env(SDC_IN_DB_SDC) $after
-+puts [exec $argv0 -no_init -no_splash -exit sdc_in_db_restore.tcl]
++set child [run_child sdc_in_db_restore.tcl]
++check "form seen by the restoring process" { child_kind $child } none
++check "restoring process has no clocks" { file_matches $after {create_clock} } 0
++exit_summary
 diff --git a/src/dbSta/test/sdc_in_db7.ok b/src/dbSta/test/sdc_in_db7.ok
 new file mode 100644
-index 0000000000..69714533c6
+index 0000000000..7e2966ab88
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db7.ok
-@@ -0,0 +1,4 @@
-+[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
-+[ERROR ORD-0054] odb file sdc_in_db7-empty.odb is invalid: ios_base::clear: unspecified iostream_category error
-+read_db failed: ORD-0054
-+stored form: none
+@@ -0,0 +1,2 @@
++Summary 3 / 3 (100% pass)
++pass
 diff --git a/src/dbSta/test/sdc_in_db7.tcl b/src/dbSta/test/sdc_in_db7.tcl
 new file mode 100644
-index 0000000000..9f3fe1dea4
+index 0000000000..10eaa02dae
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db7.tcl
-@@ -0,0 +1,10 @@
+@@ -0,0 +1,14 @@
 +# read_db -sdc on a file that is not a database: the read fails, and no
 +# restore of constraints is attempted on the half-read design.
-+source "helpers.tcl"
-+read_lef liberty1.lef
-+read_liberty liberty1.lib
++source "sdc_in_db_common.tcl"
++load_libs
++# odb file ... is invalid: the message carries the platform's iostream text.
++suppress_message ORD 54
++
 +close [open sdc_in_db7-empty.odb w]
-+catch { read_db -sdc sdc_in_db7-empty.odb } msg
++set failed [catch { read_db -sdc sdc_in_db7-empty.odb } msg]
 +file delete sdc_in_db7-empty.odb
-+puts "read_db failed: $msg"
-+puts "stored form: [ord::sdc_in_db_kind]"
++check "read_db failed" { set failed } 1
++check "with the invalid-database error" { set msg } ORD-0054
++check "nothing restored" { ord::sdc_in_db_kind } none
++exit_summary
 diff --git a/src/dbSta/test/sdc_in_db8.ok b/src/dbSta/test/sdc_in_db8.ok
 new file mode 100644
-index 0000000000..5e1f9eee42
+index 0000000000..5138637444
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db8.ok
-@@ -0,0 +1,18 @@
-+[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
-+[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
-+  snl_ff2x1
-+  snl_invx2
-+  snl_lenqnx1
-+  snl_lqx1
-+  snl_mux21x1
-+  snl_nand02x1
-+  snl_nand02x2
-+  snl_oa012x1
-+  snl_or02x1
-+  snl_tbufx1
-+  snl_xor2x1
-+record, second write_db same process: identical
-+record, write_db after restore in a fresh process: identical
-+.odb, second write_db same process: identical
-+.odb, write_db after restore in a fresh process: identical
-+record lines: 31
+@@ -0,0 +1,2 @@
++Summary 4 / 4 (100% pass)
++pass
 diff --git a/src/dbSta/test/sdc_in_db8.tcl b/src/dbSta/test/sdc_in_db8.tcl
 new file mode 100644
-index 0000000000..efc5ba7a4c
+index 0000000000..add566351e
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db8.tcl
-@@ -0,0 +1,44 @@
+@@ -0,0 +1,28 @@
 +# The native record is canonical and restoring it is a fixpoint: the same
 +# constraints give the same bytes from a second write_db in the same
 +# process and from a write_db in a fresh process that restored them from
 +# the .odb, and so do the .odb files themselves.
-+source "helpers.tcl"
-+read_lef liberty1.lef
-+read_liberty liberty1.lib
-+read_verilog reg1.v
-+link_design top
++source "sdc_in_db_common.tcl"
++load_design sdc_in_db.v
 +read_sdc sdc_in_db4.sdc
-+
-+proc native_record { } {
-+  return [[odb::dbStringProperty_find [ord::get_db_block] "sta.sdc.native"] getValue]
-+}
-+proc file_bytes { path } {
-+  set fh [open $path r]
-+  fconfigure $fh -translation binary
-+  set bytes [read $fh]
-+  close $fh
-+  return $bytes
-+}
-+proc verdict { same } {
-+  return [expr { $same ? "identical" : "DIFFERENT" }]
-+}
 +
 +set a [make_result_file sdc_in_db8_a.odb]
 +set b [make_result_file sdc_in_db8_b.odb]
@@ -2696,67 +2461,23 @@ index 0000000000..efc5ba7a4c
 +set ::env(SDC_IN_DB_ODB) $a
 +set ::env(SDC_IN_DB_OUT) $c
 +set ::env(SDC_IN_DB_RECORD) [make_result_file sdc_in_db8_c.native]
-+exec $argv0 -no_init -no_splash -exit sdc_in_db_rewrite.tcl
++run_child sdc_in_db_rewrite.tcl
 +set record_c [file_bytes $::env(SDC_IN_DB_RECORD)]
 +
-+puts "record, second write_db same process: [verdict [expr {$record_a eq $record_b}]]"
-+puts "record, write_db after restore in a fresh process: [verdict [expr {$record_a eq $record_c}]]"
-+puts ".odb, second write_db same process: [verdict [expr {[file_bytes $a] eq [file_bytes $b]}]]"
-+puts ".odb, write_db after restore in a fresh process: [verdict [expr {[file_bytes $a] eq [file_bytes $c]}]]"
-+puts "record lines: [llength [split [string trim $record_a] \n]]"
++check "record, second write_db same process" { expr { $record_a eq $record_b } } 1
++check "record, write_db after restore in a fresh process" \
++  { expr { $record_a eq $record_c } } 1
++check ".odb, second write_db same process" { same_file $a $b } 1
++check ".odb, write_db after restore in a fresh process" { same_file $a $c } 1
++exit_summary
 diff --git a/src/dbSta/test/sdc_in_db9.ok b/src/dbSta/test/sdc_in_db9.ok
 new file mode 100644
-index 0000000000..960cfd349f
+index 0000000000..7e2966ab88
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db9.ok
-@@ -0,0 +1,47 @@
-+[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
-+[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
-+  snl_ff2x1
-+  snl_invx2
-+  snl_lenqnx1
-+  snl_lqx1
-+  snl_mux21x1
-+  snl_nand02x1
-+  snl_nand02x2
-+  snl_oa012x1
-+  snl_or02x1
-+  snl_tbufx1
-+  snl_xor2x1
-+stored form: text
-+[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
-+[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
-+  snl_ff2x1
-+  snl_invx2
-+  snl_lenqnx1
-+  snl_lqx1
-+  snl_mux21x1
-+  snl_nand02x1
-+  snl_nand02x2
-+  snl_oa012x1
-+  snl_or02x1
-+  snl_tbufx1
-+  snl_xor2x1
-+[INFO STA-3011] Restored the timing constraints stored in the database (text form).
-+read_db -sdc returned 1, stored form: text
-+###############################################################################
-+# Created by write_sdc
-+###############################################################################
-+current_design top
-+###############################################################################
-+# Timing Constraints
-+###############################################################################
-+create_clock -name clk -period 10.0000 [get_ports {clk1}]
-+create_generated_clock -name gclk -source [get_ports {clk1}] -divide_by 2 [get_pins {r1/Q}]
-+set_input_delay 1.0000 -clock [get_clocks {clk}] -add_delay [get_ports {in1}]
-+###############################################################################
-+# Environment
-+###############################################################################
-+set_load -pin_load 0.5000 [get_ports {out}]
-+###############################################################################
-+# Design Rules
-+###############################################################################
-+No differences found.
+@@ -0,0 +1,2 @@
++Summary 3 / 3 (100% pass)
++pass
 diff --git a/src/dbSta/test/sdc_in_db9.sdc b/src/dbSta/test/sdc_in_db9.sdc
 new file mode 100644
 index 0000000000..44404130a2
@@ -2772,57 +2493,118 @@ index 0000000000..44404130a2
 +set_load 0.5 [get_ports out]
 diff --git a/src/dbSta/test/sdc_in_db9.tcl b/src/dbSta/test/sdc_in_db9.tcl
 new file mode 100644
-index 0000000000..81579408db
+index 0000000000..b6ae44250b
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db9.tcl
-@@ -0,0 +1,23 @@
+@@ -0,0 +1,20 @@
 +# Round trip through the text fallback for constructs the Sdc inspection
 +# flags (a generated clock, a port load): the constraints ride as
 +# write_sdc text, are replayed, and still equal what was written.
-+source "helpers.tcl"
-+read_lef liberty1.lef
-+read_liberty liberty1.lib
-+read_verilog reg1.v
-+link_design top
++source "sdc_in_db_common.tcl"
++load_design sdc_in_db.v
 +read_sdc sdc_in_db9.sdc
 +
 +set odb [make_result_file sdc_in_db9.odb]
 +write_db $odb
-+puts "stored form: [ord::sdc_in_db_kind]"
++check "stored form" { ord::sdc_in_db_kind } text
 +set before [make_result_file sdc_in_db9_before.sdc]
 +write_sdc -no_timestamp $before
 +
 +set after [make_result_file sdc_in_db9_after.sdc]
 +set ::env(SDC_IN_DB_ODB) $odb
 +set ::env(SDC_IN_DB_SDC) $after
-+puts [exec $argv0 -no_init -no_splash -exit sdc_in_db_restore.tcl]
++set child [run_child sdc_in_db_restore.tcl]
++check "form seen by the restoring process" { child_kind $child } text
++check "write_sdc before and after restore" { same_file $before $after } 1
++exit_summary
+diff --git a/src/dbSta/test/sdc_in_db_common.tcl b/src/dbSta/test/sdc_in_db_common.tcl
+new file mode 100644
+index 0000000000..84f26604bf
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db_common.tcl
+@@ -0,0 +1,58 @@
++# Shared by the sdc_in_db tests. A test asserts the properties it exists to
++# verify with `check` and ends with exit_summary; nothing incidental (info
++# lines, record dumps, ids, paths) reaches the log.
++source "helpers.tcl"
 +
-+report_file $after
-+diff_files $before $after
++# "LEF file: ..." and "Restored the timing constraints ...".
++suppress_message ODB 227
++suppress_message STA 3011
++
++proc load_libs { } {
++  read_lef Nangate45/Nangate45.lef
++  read_liberty Nangate45/Nangate45_typ.lib
++}
++
++proc load_design { netlist } {
++  load_libs
++  read_verilog $netlist
++  link_design top
++}
++
++proc native_record { } {
++  set prop [odb::dbStringProperty_find [ord::get_db_block] "sta.sdc.native"]
++  return [expr { $prop == "NULL" ? "" : [$prop getValue] }]
++}
++
++proc has_property { name } {
++  return [expr { [odb::dbStringProperty_find [ord::get_db_block] $name] != "NULL" }]
++}
++
++proc file_bytes { path } {
++  set fh [open $path r]
++  fconfigure $fh -translation binary
++  set bytes [read $fh]
++  close $fh
++  return $bytes
++}
++
++proc same_file { a b } {
++  return [expr { [file_bytes $a] eq [file_bytes $b] }]
++}
++
++proc file_matches { path pattern } {
++  return [regexp -- $pattern [file_bytes $path]]
++}
++
++# Run a second openroad on a script from this directory and return what it
++# printed; the child's output is data for `check`, never log.
++proc run_child { script } {
++  return [exec $::argv0 -no_init -no_splash -exit $script 2>@1]
++}
++
++# The kind the child saw after read_db -sdc (see sdc_in_db_restore.tcl).
++proc child_kind { output } {
++  if { [regexp {stored form: (\w+)} $output -> kind] } {
++    return $kind
++  }
++  return "unreported"
++}
 diff --git a/src/dbSta/test/sdc_in_db_restore.tcl b/src/dbSta/test/sdc_in_db_restore.tcl
 new file mode 100644
-index 0000000000..3abc1ce099
+index 0000000000..203db7b425
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db_restore.tcl
 @@ -0,0 +1,8 @@
 +# Second process of the sdc_in_db round-trip tests: the design and its
 +# constraints must come from the .odb alone. Writes the restored
 +# constraints back out for the parent to diff against what it wrote.
-+read_lef liberty1.lef
-+read_liberty liberty1.lib
-+set found [read_db -sdc $::env(SDC_IN_DB_ODB)]
-+puts "read_db -sdc returned $found, stored form: [ord::sdc_in_db_kind]"
++read_lef Nangate45/Nangate45.lef
++read_liberty Nangate45/Nangate45_typ.lib
++read_db -sdc $::env(SDC_IN_DB_ODB)
++puts "after read_db -sdc, stored form: [ord::sdc_in_db_kind]"
 +write_sdc -no_timestamp $::env(SDC_IN_DB_SDC)
 diff --git a/src/dbSta/test/sdc_in_db_rewrite.tcl b/src/dbSta/test/sdc_in_db_rewrite.tcl
 new file mode 100644
-index 0000000000..50c21e69f4
+index 0000000000..58a2299328
 --- /dev/null
 +++ b/src/dbSta/test/sdc_in_db_rewrite.tcl
 @@ -0,0 +1,11 @@
 +# Second process of sdc_in_db8: restore the constraints from the .odb,
 +# write the design again, and dump the record that write stored.
-+read_lef liberty1.lef
-+read_liberty liberty1.lib
++read_lef Nangate45/Nangate45.lef
++read_liberty Nangate45/Nangate45_typ.lib
 +read_db -sdc $::env(SDC_IN_DB_ODB)
 +write_db $::env(SDC_IN_DB_OUT)
 +set fh [open $::env(SDC_IN_DB_RECORD) w]
