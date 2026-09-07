@@ -30,7 +30,6 @@ timing tables.
 | `//test/smoketest:lb_32x128_ihp-sg13g2_build_test` | Full flow, all stages | — | — | ihp-sg13g2 | yes |
 | `//test/bump:bump_test` | `bump.sh` MODULE.bazel version update logic | — | — | — | — |
 | `//examples:mac_build_test` | The documented example flow, all stages through `final`. An example first and a test second: see `examples/README.md` | — | — | asap7 | yes |
-| `//:bump_compat_test` | COMPAT markers in `bump_impl.py` stay inside the 30-day window | — | — | — | — |
 
 ## User-facing binaries
 
@@ -41,7 +40,7 @@ Tests mock the external environment so they run in the Bazel sandbox.
 |--------|----------|------|-----------------|
 | `//:deps` | Deploy stage inputs for interactive debugging | `deps.yml` CI workflow | Real end-to-end: deploy + make (4 cases) |
 | `//:bump` | Upgrade ORFS/bazel-orfs/OpenROAD versions | `//test/bump:bump_test` | Mock fetch functions, fixture MODULE.bazel |
-| `//:bump` (window policy) | Refuse a bazel-orfs pin older than 30 days | `//test/bump:bump_test`, `//:bump_compat_test` | Mock commit dates; scan for aged COMPAT markers |
+| `//:bump` (unrecognized shapes) | Refuse a shape the bumper no longer rewrites, writing nothing | `//test/bump:bump_test` | Legacy-shape fixtures; assert BumpError and a byte-identical file |
 | `//:fix_lint` | Format changed Bazel/Python files | `//test:fix_lint_test` | Unit test core logic, mock git/buildifier |
 | `//:public_surface` | Check MODULE.bazel's dev/non-dev split against shipped files | `//test:public_surface_test` | Synthetic trees per rule; CI runs it on the real tree |
 | `//:klayout` | Launch KLayout viewer | `//test:klayout_wrapper_test` | Mock klayout on PATH |

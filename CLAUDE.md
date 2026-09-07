@@ -64,36 +64,22 @@ nothing shipped uses, on a shipped file naming a dev-only repo, and on a
 public target under `test/`; the docstring in `public_surface.py` is the
 policy. CI runs it after lint.
 
-## Bumping: the 30-day rolling window
+## Bumping
 
-`bazelisk run //:bump` supports `MODULE.bazel` files whose `bazel-orfs`
-pin is **at most 30 days behind the commit being bumped to**, measured
-between commit dates rather than against the clock. An older pin — or one
-GitHub cannot date — is a hard stop, by design. Waiting does not clear it
-and re-running does not change the verdict; only fixing the file does.
+`bazelisk run //:bump` rewrites the override shapes it recognizes and
+stops, naming the block, when it meets one it does not. It never writes a
+partial file: `MODULE.bazel` is read once and written once at the end, so
+a refusal leaves it byte-identical.
+
+If a bump is refused because a block is unrecognized, fix the file — the
+bumper does not carry migrations for old shapes. Re-seed `MODULE.bazel`
+from the template in `README.md` and re-apply the local edits. `--ignore`
+downgrades the refusal to a warning and updates only the parts the bumper
+recognizes; the unrecognized block is left untouched.
 
 `bump.py` always downloads the newest `bump_impl.py`, so the bumper is
 never stale; the only thing that can be out of date is the consumer's
-file. When the check fires, fix the file, do not route around the check:
-
-1. Re-seed `MODULE.bazel` from the template in `README.md` and re-apply
-   the local edits, or
-2. step the `bazel-orfs` commit forward ≤30 days at a time, re-running
-   `//:bump` each step.
-
-`--allow-stale-pin` exists for the human to decide to use. Do not reach
-for it, edit `check_pin_window`, or change `BUMP_SUPPORT_WINDOW_DAYS` to
-get a bump through — the migration paths for out-of-window shapes are
-*deleted*, so a forced bump can leave `MODULE.bazel` half-rewritten.
-
-The same window governs the bumper's own compatibility code: introduce a
-migration branch with a `# COMPAT(YYYY-MM-DD)` marker naming the date the
-old shape stopped being written, and delete the branch when it ages out.
-`//:bump_compat_test` fails on a marker older than the window; the fix is
-to delete the code, never to re-date the marker — and never to touch
-`bump_reference_date.txt`, the commit-date anchor //:bump writes and the
-test measures against. Full policy:
-`docs/openroad.md`, "Supported window" and "Cleanup policy".
+file. Details: `docs/openroad.md`, "Shapes the bumper recognizes".
 
 ## Debugging OpenROAD/ORFS failures
 

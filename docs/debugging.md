@@ -194,12 +194,14 @@ the Bazel path, the bring-your-own case above is what you have.
 
 ## Dependency bumps
 
-### `//:bump` only supports a pin 30 commit-days behind
-A `bazel-orfs` pin more than 30 days behind the commit being bumped to is
-refused outright — the migration paths for that shape are deleted, not
-maintained. The span is between commit dates, so re-running later changes
-nothing. The error names the
-remedies; [Supported window](openroad.md#supported-window) has the details.
+### `//:bump` refuses an override shape it does not recognize
+`Expected archive_override(module_name = "orfs") in MODULE.bazel but found no
+match` means your `MODULE.bazel` carries a shape the bumper no longer rewrites
+— the migration paths for old shapes are deleted, not maintained. Nothing was
+written: the file is byte-identical. Re-seed it from the README template, or
+re-run with `--ignore` to take the parts the bumper does recognize.
+[Shapes the bumper recognizes](openroad.md#shapes-the-bumper-recognizes) has
+the details.
 
 ### `--head=openroad` bumps to origin/master
 `bazelisk run //:bump -- --head=openroad` bumps ORFS to master and pins OpenROAD
