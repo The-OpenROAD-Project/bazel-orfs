@@ -6,10 +6,11 @@ MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
 
-Every .odb now stores the constraints it was written with (OpenROAD
-write_db) and load_design restores them with read_db -sdc, so the flow
-no longer carries a matching .sdc next to every .odb and no longer has
-to work out which .sdc goes with which .odb.
+Builds on "restore timing constraints from the .odb when it carries them"
+and retires the fallback: every .odb now stores the constraints it was
+written with (OpenROAD write_db) and load_design restores them with
+read_db -sdc, so the flow no longer carries a matching .sdc next to every
+.odb and no longer has to work out which .sdc goes with which .odb.
 
 read_sdc and write_sdc stay what they are good at: the human interface.
 The design's SDC_FILE is parsed exactly once, at synthesis, where
@@ -38,10 +39,12 @@ read_db -sdc restores the same constraints in a fraction of that.
 
 Requires an OpenROAD with read_db -sdc (write_db storing constraints).
 
-Carried in bazel-orfs, not upstreamed: it depends on the OpenROAD patch
-that stores constraints in the .odb (OpenROAD PR #11260), carried on
-the openroad archive_override in MODULE.bazel. Retires on the //:bump
-onto an ORFS that carries this change.
+
+Carried in bazel-orfs, not upstreamed: the second of two steps, on top
+of 0050-orfs-sdc-in-odb-compat.patch. It depends on the OpenROAD patch
+that stores constraints in the .odb (OpenROAD PR #11260), carried on the
+openroad archive_override in MODULE.bazel. Retires on the //:bump onto an
+ORFS that carries this change.
 
 Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 ---
@@ -63,18 +66,18 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  flow/scripts/global_place_skip_io.tcl |  2 +-
  flow/scripts/global_route.tcl         |  4 +-
  flow/scripts/io_placement.tcl         |  2 +-
- flow/scripts/load.tcl                 | 22 +++++++---
+ flow/scripts/load.tcl                 | 26 ++++++-----
  flow/scripts/macro_place.tcl          |  2 +-
- flow/scripts/open.tcl                 | 19 +++++---
+ flow/scripts/open.tcl                 | 22 ++++------
  flow/scripts/pdn.tcl                  |  2 +-
  flow/scripts/resize.tcl               |  2 +-
  flow/scripts/synth_metrics.tcl        |  2 +-
  flow/scripts/tapcell.tcl              |  2 +-
- flow/scripts/util.tcl                 | 27 ------------
+ flow/scripts/util.tcl                 | 34 ---------------
  flow/scripts/variables.yaml           |  6 ++-
  flow/util/genMetrics.py               | 10 ++---
  flow/util/write_rc.tcl                |  2 +-
- 29 files changed, 114 insertions(+), 164 deletions(-)
+ 29 files changed, 108 insertions(+), 184 deletions(-)
 
 diff --git a/docs/tutorials/FlowTutorial.md b/docs/tutorials/FlowTutorial.md
 index d7f1f9e01..7a23bd521 100644
@@ -696,7 +699,7 @@ index 5ad95bad5..988c8f86e 100644
    log_cmd place_pins \
      -hor_layers $::env(IO_PLACER_H) \
 diff --git a/flow/scripts/load.tcl b/flow/scripts/load.tcl
-index 1b3a6c463..ca56ceb90 100644
+index 355ad8fd4..ca56ceb90 100644
 --- a/flow/scripts/load.tcl
 +++ b/flow/scripts/load.tcl
 @@ -2,7 +2,12 @@ source $::env(SCRIPTS_DIR)/util.tcl
@@ -713,33 +716,35 @@ index 1b3a6c463..ca56ceb90 100644
    # Do not reload if design is already loaded
    set db [ord::get_db]
    if { [$db getChip] != "NULL" && [[$db getChip] getBlock] != "NULL" } {
-@@ -32,15 +37,22 @@ proc load_design { design_file sdc_file } {
+@@ -32,20 +37,17 @@ proc load_design { design_file sdc_file } {
      }
      read_verilog $::env(RESULTS_DIR)/$design_file
      log_cmd link_design {*}[hier_options] $::env(DESIGN_NAME)
 +    if { $sdc_file == "" } {
 +      error "load_design: a Verilog netlist needs an .sdc file"
 +    }
-+    log_cmd read_sdc $::env(RESULTS_DIR)/$sdc_file
+     log_cmd read_sdc $::env(RESULTS_DIR)/$sdc_file
    } elseif { $ext == ".odb" } {
--    log_cmd read_db {*}[hier_options] $::env(RESULTS_DIR)/$design_file
+-    # An .odb written by an OpenROAD that stores constraints carries them:
+-    # restore from it and the .sdc alongside is not read. An .odb without
+-    # them (older OpenROAD, or a database written before it was
+-    # constrained) falls back to the .sdc as before.
+-    set restored 0
+-    if { [odb_carries_sdc] } {
+-      set restored [log_cmd read_db {*}[hier_options] -sdc $::env(RESULTS_DIR)/$design_file]
+-    } else {
+-      log_cmd read_db {*}[hier_options] $::env(RESULTS_DIR)/$design_file
 +    if { $sdc_file != "" } {
 +      error "load_design: an .odb carries its own constraints, drop $sdc_file"
-+    }
+     }
+-    if { !$restored } {
+-      log_cmd read_sdc $::env(RESULTS_DIR)/$sdc_file
 +    if { ![log_cmd read_db {*}[hier_options] -sdc $::env(RESULTS_DIR)/$design_file] } {
 +      error "load_design: $design_file carries no timing constraints; it was\
 +             written by an OpenROAD that does not store them in the .odb"
-+    }
+     }
    } else {
      error "Unrecognized input file $design_file"
-   }
- 
--  # Read SDC file
--  log_cmd read_sdc $::env(RESULTS_DIR)/$sdc_file
--
-   if { [file exists $::env(PLATFORM_DIR)/derate.tcl] } {
-     log_cmd source $::env(PLATFORM_DIR)/derate.tcl
-   }
 diff --git a/flow/scripts/macro_place.tcl b/flow/scripts/macro_place.tcl
 index 0789129e4..0628d74f3 100644
 --- a/flow/scripts/macro_place.tcl
@@ -753,21 +758,25 @@ index 0789129e4..0628d74f3 100644
  
  source $::env(SCRIPTS_DIR)/macro_place_util.tcl
 diff --git a/flow/scripts/open.tcl b/flow/scripts/open.tcl
-index c9241ca50..21a456c2e 100644
+index cbc472466..21a456c2e 100644
 --- a/flow/scripts/open.tcl
 +++ b/flow/scripts/open.tcl
-@@ -29,18 +29,23 @@ if { [env_var_exists_and_non_empty DEF_FILE] } {
+@@ -29,26 +29,22 @@ if { [env_var_exists_and_non_empty DEF_FILE] } {
    log_cmd link_design {*}[hier_options] $::env(DESIGN_NAME)
  } else {
    set input_file $::env(ODB_FILE)
--  log_cmd read_db {*}[hier_options] $input_file
+-  # An .odb may carry its constraints (see load.tcl); restoring them needs
+-  # the liberty read above, which only GUI_TIMING=1 pays for.
+-  set ::sdc_restored 0
+-  if { [env_var_equals GUI_TIMING 1] && [odb_carries_sdc] } {
+-    set ::sdc_restored [log_cmd read_db {*}[hier_options] -sdc $input_file]
 +  # The .odb carries its constraints; restoring them needs the liberty
 +  # read above, which only GUI_TIMING=1 pays for.
 +  if { [env_var_equals GUI_TIMING 1] } {
 +    log_cmd read_db {*}[hier_options] -sdc $input_file
-+  } else {
-+    log_cmd read_db {*}[hier_options] $input_file
-+  }
+   } else {
+     log_cmd read_db {*}[hier_options] $input_file
+   }
  }
  
  proc read_timing { input_file } {
@@ -776,17 +785,18 @@ index c9241ca50..21a456c2e 100644
 -  set sdc_file [lindex $result 1]
 +  set design_stage [lindex [extract_stage $input_file] 0]
  
--  if { $sdc_file == "" } {
--    set sdc_file $::env(SDC_FILE)
+-  if { ![info exists ::sdc_restored] || !$::sdc_restored } {
+-    if { $sdc_file == "" } {
+-      set sdc_file $::env(SDC_FILE)
+-    }
+-    log_cmd read_sdc $sdc_file
 +  # An .odb arrived with its constraints (read_db -sdc above); a DEF or
 +  # Verilog netlist has none, so read the design's SDC_FILE for it.
 +  if { [file extension $input_file] != ".odb" } {
 +    log_cmd read_sdc $::env(SDC_FILE)
    }
--  log_cmd read_sdc $sdc_file
    if { [file exists $::env(PLATFORM_DIR)/derate.tcl] } {
      source $::env(PLATFORM_DIR)/derate.tcl
-   }
 diff --git a/flow/scripts/pdn.tcl b/flow/scripts/pdn.tcl
 index 2230e05f8..0ad6aa9d8 100644
 --- a/flow/scripts/pdn.tcl
@@ -837,10 +847,10 @@ index 94620cbef..95de249fd 100644
  
  if { [env_var_exists_and_non_empty TAPCELL_TCL] } {
 diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
-index 5b7d98c8d..22c637056 100644
+index b9b38bf20..22c637056 100644
 --- a/flow/scripts/util.tcl
 +++ b/flow/scripts/util.tcl
-@@ -89,33 +89,6 @@ proc extract_stage { input_file } {
+@@ -89,40 +89,6 @@ proc extract_stage { input_file } {
    }
  }
  
@@ -869,6 +879,13 @@ index 5b7d98c8d..22c637056 100644
 -    }
 -  }
 -  return [list $design_stage $sdc_file]
+-}
+-
+-# Does this OpenROAD store timing constraints in the .odb (write_db) and
+-# restore them (read_db -sdc)? Older binaries do neither; the flow then
+-# reads the .sdc alongside the .odb as it always has.
+-proc odb_carries_sdc { } {
+-  return [expr { [llength [info commands ord::sdc_in_db_kind]] > 0 }]
 -}
 -
  proc env_var_equals { env_var value } {

@@ -67,7 +67,7 @@ archive_override(
     patches = [
         # The .odb carries its timing constraints: write_db stores them,
         # read_db -sdc restores them (OpenROAD PR #11260). Consumed by
-        # patches/0050-orfs-sdc-in-odb.patch; both retire at the bump onto
+        # patches/0052-orfs-sdc-in-odb-retire.patch; both retire at the bump onto
         # an OpenROAD and ORFS that carry them.
         "//patches:0051-openroad-sdc-in-odb.patch",
     ],

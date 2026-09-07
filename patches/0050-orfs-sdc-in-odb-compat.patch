@@ -1,0 +1,125 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 7 Sep 2026 18:23:35 +0200
+Subject: [PATCH] flow: restore timing constraints from the .odb when it
+ carries them
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+An OpenROAD that stores the timing constraints in the .odb (write_db) and
+restores them (read_db -sdc; OpenROAD PR #11260) makes the .sdc that the
+flow keeps next to every .odb redundant: load_design and open.tcl now
+restore the constraints from the .odb when the binary can and the .odb
+has them, and read the .sdc alongside as before otherwise.
+
+Forwards compatible in both directions: an older OpenROAD (no
+read_db -sdc) and an .odb written before the design was constrained both
+take the read_sdc path. Nothing else changes; every .sdc the flow writes
+today is still written. Once the OpenROAD side is the floor, the .sdc
+files between stages, their Makefile plumbing and find_sdc_file's
+glob-and-sort pairing can retire.
+
+
+Carried in bazel-orfs, not upstreamed: the first of two steps. It is
+forwards compatible with any OpenROAD, so it is the step that can go
+upstream first; retires on the //:bump onto an ORFS that carries it.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ flow/scripts/load.tcl | 18 ++++++++++++++----
+ flow/scripts/open.tcl | 17 +++++++++++++----
+ flow/scripts/util.tcl |  7 +++++++
+ 3 files changed, 34 insertions(+), 8 deletions(-)
+
+diff --git a/flow/scripts/load.tcl b/flow/scripts/load.tcl
+index 1b3a6c463..355ad8fd4 100644
+--- a/flow/scripts/load.tcl
++++ b/flow/scripts/load.tcl
+@@ -32,15 +32,25 @@ proc load_design { design_file sdc_file } {
+     }
+     read_verilog $::env(RESULTS_DIR)/$design_file
+     log_cmd link_design {*}[hier_options] $::env(DESIGN_NAME)
++    log_cmd read_sdc $::env(RESULTS_DIR)/$sdc_file
+   } elseif { $ext == ".odb" } {
+-    log_cmd read_db {*}[hier_options] $::env(RESULTS_DIR)/$design_file
++    # An .odb written by an OpenROAD that stores constraints carries them:
++    # restore from it and the .sdc alongside is not read. An .odb without
++    # them (older OpenROAD, or a database written before it was
++    # constrained) falls back to the .sdc as before.
++    set restored 0
++    if { [odb_carries_sdc] } {
++      set restored [log_cmd read_db {*}[hier_options] -sdc $::env(RESULTS_DIR)/$design_file]
++    } else {
++      log_cmd read_db {*}[hier_options] $::env(RESULTS_DIR)/$design_file
++    }
++    if { !$restored } {
++      log_cmd read_sdc $::env(RESULTS_DIR)/$sdc_file
++    }
+   } else {
+     error "Unrecognized input file $design_file"
+   }
+ 
+-  # Read SDC file
+-  log_cmd read_sdc $::env(RESULTS_DIR)/$sdc_file
+-
+   if { [file exists $::env(PLATFORM_DIR)/derate.tcl] } {
+     log_cmd source $::env(PLATFORM_DIR)/derate.tcl
+   }
+diff --git a/flow/scripts/open.tcl b/flow/scripts/open.tcl
+index c9241ca50..cbc472466 100644
+--- a/flow/scripts/open.tcl
++++ b/flow/scripts/open.tcl
+@@ -29,7 +29,14 @@ if { [env_var_exists_and_non_empty DEF_FILE] } {
+   log_cmd link_design {*}[hier_options] $::env(DESIGN_NAME)
+ } else {
+   set input_file $::env(ODB_FILE)
+-  log_cmd read_db {*}[hier_options] $input_file
++  # An .odb may carry its constraints (see load.tcl); restoring them needs
++  # the liberty read above, which only GUI_TIMING=1 pays for.
++  set ::sdc_restored 0
++  if { [env_var_equals GUI_TIMING 1] && [odb_carries_sdc] } {
++    set ::sdc_restored [log_cmd read_db {*}[hier_options] -sdc $input_file]
++  } else {
++    log_cmd read_db {*}[hier_options] $input_file
++  }
+ }
+ 
+ proc read_timing { input_file } {
+@@ -37,10 +44,12 @@ proc read_timing { input_file } {
+   set design_stage [lindex $result 0]
+   set sdc_file [lindex $result 1]
+ 
+-  if { $sdc_file == "" } {
+-    set sdc_file $::env(SDC_FILE)
++  if { ![info exists ::sdc_restored] || !$::sdc_restored } {
++    if { $sdc_file == "" } {
++      set sdc_file $::env(SDC_FILE)
++    }
++    log_cmd read_sdc $sdc_file
+   }
+-  log_cmd read_sdc $sdc_file
+   if { [file exists $::env(PLATFORM_DIR)/derate.tcl] } {
+     source $::env(PLATFORM_DIR)/derate.tcl
+   }
+diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
+index 5b7d98c8d..b9b38bf20 100644
+--- a/flow/scripts/util.tcl
++++ b/flow/scripts/util.tcl
+@@ -116,6 +116,13 @@ proc find_sdc_file { input_file } {
+   return [list $design_stage $sdc_file]
+ }
+ 
++# Does this OpenROAD store timing constraints in the .odb (write_db) and
++# restore them (read_db -sdc)? Older binaries do neither; the flow then
++# reads the .sdc alongside the .odb as it always has.
++proc odb_carries_sdc { } {
++  return [expr { [llength [info commands ord::sdc_in_db_kind]] > 0 }]
++}
++
+ proc env_var_equals { env_var value } {
+   return [expr { [info exists ::env($env_var)] && $::env($env_var) == $value }]
+ }
+-- 
+2.53.0
+

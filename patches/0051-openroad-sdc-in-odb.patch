@@ -24,7 +24,7 @@ read_db.
 
 This is OpenROAD PR #11260 (branch sdc-in-odb on the oharboe fork),
 squashed. Carried in bazel-orfs, together with the ORFS patch that
-consumes it (patches/0050-orfs-sdc-in-odb.patch), until the upstream PR
+consumes it (patches/0052-orfs-sdc-in-odb-retire.patch), until the upstream PR
 merges; retires on the //:bump onto an OpenROAD that carries it. The
 binary test fixture src/dbSta/test/sdc_in_db.odb is left out of the
 carried copy: bazel's patch tool cannot apply binary diffs, and the
