@@ -582,3 +582,25 @@ index ab68b7c3fc..60a2decf1f 100644
    }
  
    for (; i < table.page_tbl_size_; ++i) {
+diff --git a/src/odb/test/cpp/BUILD b/src/odb/test/cpp/BUILD
+index ab64a9d8a7..88eed92c95 100644
+--- a/src/odb/test/cpp/BUILD
++++ b/src/odb/test/cpp/BUILD
+@@ -402,3 +402,17 @@ cc_test(
+         "@googletest//:gtest_main",
+     ],
+ )
++
++cc_test(
++    name = "TestFieldMajorTable",
++    srcs = [
++        "TestFieldMajorTable.cpp",
++    ],
++    deps = [
++        "//src/odb/src/db",
++        "//src/utl",
++        "//src/odb/test/cpp/helper",
++        "@googletest//:gtest",
++        "@googletest//:gtest_main",
++    ],
++)
