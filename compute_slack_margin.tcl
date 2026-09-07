@@ -13,16 +13,14 @@ source $::env(SCRIPTS_DIR)/load.tcl
 # target name.
 
 set candidates {
-    {4_cts.odb       4_cts.sdc}
-    {3_place.odb     3_place.sdc}
-    {2_floorplan.odb 2_floorplan.sdc}
-    {1_synth.odb     1_synth.sdc}
+    4_cts.odb
+    3_place.odb
+    2_floorplan.odb
+    1_synth.odb
 }
-foreach pair $candidates {
-    set odb_file [lindex $pair 0]
-    set sdc_file [lindex $pair 1]
+foreach odb_file $candidates {
     if { [file exists $::env(RESULTS_DIR)/$odb_file] } {
-        load_design $odb_file $sdc_file
+        load_design $odb_file
         break
     }
 }

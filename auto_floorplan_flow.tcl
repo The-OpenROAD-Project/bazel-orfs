@@ -46,7 +46,6 @@ proc flow_write_sdc { name } {
 # Floorplan
 flow_source floorplan.tcl
 flow_write_db 2_1_floorplan.odb
-flow_write_sdc 2_1_floorplan.sdc
 flow_source macro_place.tcl
 flow_write_db 2_2_floorplan_macro.odb
 flow_source tapcell.tcl
@@ -54,7 +53,6 @@ flow_write_db 2_3_floorplan_tapcell.odb
 flow_source pdn.tcl
 flow_write_db 2_4_floorplan_pdn.odb
 flow_write_db 2_floorplan.odb
-flow_write_sdc 2_floorplan.sdc
 
 # Place
 flow_source global_place_skip_io.tcl
@@ -78,30 +76,25 @@ flow_write_db 3_4_place_resized.odb
 flow_source detail_place.tcl
 flow_write_db 3_5_place_dp.odb
 flow_write_db 3_place.odb
-flow_write_sdc 3_place.sdc
 
 # CTS
 flow_source cts.tcl
 flow_write_db 4_1_cts.odb
 flow_write_db 4_cts.odb
-flow_write_sdc 4_cts.sdc
 
 # Route
 flow_source global_route.tcl
 flow_write_db 5_1_grt.odb
-flow_write_sdc 5_1_grt.sdc
 flow_source detail_route.tcl
 flow_write_db 5_2_route.odb
 flow_source fillcell.tcl
 flow_write_db 5_3_fillcell.odb
 flow_write_db 5_route.odb
-flow_write_sdc 5_route.sdc
 
 # Finish. final_report.tcl is split around its 6_final.odb write so
 # this top level can write at the same point.
 flow_source density_fill.tcl
 flow_write_db 6_1_fill.odb
-flow_write_sdc 6_1_fill.sdc
 flow_source final_connect.tcl
 flow_write_db 6_final.odb
 flow_write_sdc 6_final.sdc

@@ -1,0 +1,928 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 7 Sep 2026 15:36:53 +0200
+Subject: [PATCH] flow: the .odb carries its timing constraints
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Every .odb now stores the constraints it was written with (OpenROAD
+write_db) and load_design restores them with read_db -sdc, so the flow
+no longer carries a matching .sdc next to every .odb and no longer has
+to work out which .sdc goes with which .odb.
+
+read_sdc and write_sdc stay what they are good at: the human interface.
+The design's SDC_FILE is parsed exactly once, at synthesis, where
+OpenSTA's forgiving reader is a feature. From there the constraints
+ride in the .odb, compact and never out of sync with the design.
+
+What goes:
+- find_sdc_file (util.tcl): the glob of results/, the dictionary sort
+  and "greatest .sdc at or below this .odb's stem" guess, and its two
+  callers in open.tcl and generate_abstract.tcl.
+- load_design's sdc argument for .odb inputs; the Verilog path keeps it
+  (synthesis reads the design's SDC).
+- The intermediate .sdc files (2_1_floorplan, 2_floorplan, 3_place,
+  4_cts, 5_1_grt, 5_route, 6_1_fill): their write_sdc calls in the stage
+  scripts and flow.tcl, and their Makefile targets, copies and
+  dependencies.
+
+What stays: 1_synth.sdc (the canonicalized constraints, for inspection
+and for genMetrics' clock metrics) and 6_final.sdc (the final export, for
+humans and standalone OpenSTA reproductions).
+
+The flow read the .sdc 16 times and wrote it 6 times per run; for a
+large design each read_sdc is tens of seconds (the platform constraints
+name every register clock pin in every set_max_delay and group_path).
+read_db -sdc restores the same constraints in a fraction of that.
+
+Requires an OpenROAD with read_db -sdc (write_db storing constraints).
+
+Carried in bazel-orfs, not upstreamed: it depends on the OpenROAD patch
+that stores constraints in the .odb (OpenROAD PR #11260), carried on
+the openroad archive_override in MODULE.bazel. Retires on the //:bump
+onto an ORFS that carries this change.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ docs/tutorials/FlowTutorial.md        | 23 +++++-----
+ docs/user/FlowVariables.md            |  2 +-
+ flow/Makefile                         | 63 ++++++++++-----------------
+ flow/designs/asap7/gcd/BUILD          | 47 +++++++++-----------
+ flow/scripts/cdl.tcl                  |  2 +-
+ flow/scripts/cts.tcl                  |  4 +-
+ flow/scripts/density_fill.tcl         |  2 +-
+ flow/scripts/detail_place.tcl         |  3 +-
+ flow/scripts/detail_route.tcl         |  2 +-
+ flow/scripts/fillcell.tcl             |  2 +-
+ flow/scripts/final_connect.tcl        |  2 +-
+ flow/scripts/floorplan.tcl            |  3 +-
+ flow/scripts/flow.tcl                 | 11 ++---
+ flow/scripts/generate_abstract.tcl    |  6 +--
+ flow/scripts/global_place.tcl         |  2 +-
+ flow/scripts/global_place_skip_io.tcl |  2 +-
+ flow/scripts/global_route.tcl         |  4 +-
+ flow/scripts/io_placement.tcl         |  2 +-
+ flow/scripts/load.tcl                 | 22 +++++++---
+ flow/scripts/macro_place.tcl          |  2 +-
+ flow/scripts/open.tcl                 | 19 +++++---
+ flow/scripts/pdn.tcl                  |  2 +-
+ flow/scripts/resize.tcl               |  2 +-
+ flow/scripts/synth_metrics.tcl        |  2 +-
+ flow/scripts/tapcell.tcl              |  2 +-
+ flow/scripts/util.tcl                 | 27 ------------
+ flow/scripts/variables.yaml           |  6 ++-
+ flow/util/genMetrics.py               | 10 ++---
+ flow/util/write_rc.tcl                |  2 +-
+ 29 files changed, 114 insertions(+), 164 deletions(-)
+
+diff --git a/docs/tutorials/FlowTutorial.md b/docs/tutorials/FlowTutorial.md
+index d7f1f9e01..7a23bd521 100644
+--- a/docs/tutorials/FlowTutorial.md
++++ b/docs/tutorials/FlowTutorial.md
+@@ -288,18 +288,17 @@ abc.constr klayout.lyt klayout_tech.lef lib
+ 
+ | `results`                   |                         |                    |
+ |-----------------------------|-------------------------|--------------------|
+-| `1_1_yosys.v`               | `3_1_place_gp.odb`      | `5_route.sdc`      |
+-| `1_synth.sdc`               | `3_2_place_iop.odb`     | `6_1_fill.odb`     |
+-| `1_synth.v`                 | `3_3_place_resized.odb` | `6_1_fill.sdc`     |
+-| `2_1_floorplan.odb`         | `3_4_place_dp.odb`      | `6_1_merged.gds`   |
+-| `2_2_floorplan_io.odb`      | `3_place.odb`           | `6_final.odb`      |
+-| `2_3_floorplan_tdms.odb`    | `3_place.sdc`           | `6_final.gds`      |
+-| `2_4_floorplan_macro.odb`   | `4_1_cts.odb`           | `6_final.sdc`      |
+-| `2_5_floorplan_tapcell.odb` | `4_2_cts_fillcell.odb`  | `6_final.spef`     |
+-| `2_6_floorplan_pdn.odb`     | `4_cts.odb`             | `6_final.v`        |
+-| `2_floorplan.odb`           | `4_cts.sdc`             | `output_guide.mod` |
+-| `2_floorplan.sdc`           | `4_cts.v`               | `route.guide`      |
+-| `2_floorplan.v`             | `5_route.odb`           | `updated_clks.sdc` |
++| `1_1_yosys.v`               | `3_1_place_gp.odb`      | `6_1_fill.odb`     |
++| `1_synth.sdc`               | `3_2_place_iop.odb`     | `6_1_merged.gds`   |
++| `1_synth.v`                 | `3_3_place_resized.odb` | `6_final.odb`      |
++| `2_1_floorplan.odb`         | `3_4_place_dp.odb`      | `6_final.gds`      |
++| `2_2_floorplan_io.odb`      | `3_place.odb`           | `6_final.sdc`      |
++| `2_3_floorplan_tdms.odb`    | `4_1_cts.odb`           | `6_final.spef`     |
++| `2_4_floorplan_macro.odb`   | `4_2_cts_fillcell.odb`  | `6_final.v`        |
++| `2_5_floorplan_tapcell.odb` | `4_cts.odb`             | `output_guide.mod` |
++| `2_6_floorplan_pdn.odb`     | `4_cts.v`               | `route.guide`      |
++| `2_floorplan.odb`           | `5_route.odb`           | `updated_clks.sdc` |
++| `2_floorplan.v`             |                         |                    |
+ 
+ 
+ -   `reports/sky130hd/ibex/base`
+diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
+index 5ac9ab8ce..dcf0962a3 100644
+--- a/docs/user/FlowVariables.md
++++ b/docs/user/FlowVariables.md
+@@ -337,7 +337,7 @@ configuration file.
+ | <a name="VERILOG_TOP_PARAMS"></a>VERILOG_TOP_PARAMS| Apply toplevel params (if exist). Passed in as a list of key value pairs in tcl syntax; separated by spaces: PARAM1 VALUE1 PARAM2 VALUE2| |
+ | <a name="VIA_IN_PIN_MAX_LAYER"></a>VIA_IN_PIN_MAX_LAYER| Passed as -via_in_pin_top_layer to pin_access and detailed_route.| |
+ | <a name="VIA_IN_PIN_MIN_LAYER"></a>VIA_IN_PIN_MIN_LAYER| Passed as -via_in_pin_bottom_layer to pin_access and detailed_route.| |
+-| <a name="WRITE_ODB_AND_SDC_EACH_STAGE"></a>WRITE_ODB_AND_SDC_EACH_STAGE| Save out .sdc and .odb file after each stage, useful to disable when using a single OpenROAD instance to run all stages of the flow.| 1|
++| <a name="WRITE_ODB_AND_SDC_EACH_STAGE"></a>WRITE_ODB_AND_SDC_EACH_STAGE| Save out the .odb file after each stage (plus the 1_synth.sdc and 6_final.sdc exports), useful to disable when using a single OpenROAD instance to run all stages of the flow. Every .odb carries its own timing constraints.| 1|
+ | <a name="YOSYS_FLAGS"></a>YOSYS_FLAGS| Flags to pass to yosys.| -v 3|
+ ## synth variables
+ 
+diff --git a/flow/Makefile b/flow/Makefile
+index 4d1923146..f0beabbe1 100644
+--- a/flow/Makefile
++++ b/flow/Makefile
+@@ -326,8 +326,7 @@ clean_synth:
+ # |_|   |_____\___/ \___/|_| \_\_|   |_____/_/   \_\_| \_|
+ #
+ .PHONY: floorplan
+-floorplan: $(RESULTS_DIR)/2_floorplan.odb \
+-           $(RESULTS_DIR)/2_floorplan.sdc
++floorplan: $(RESULTS_DIR)/2_floorplan.odb
+ 
+ # ==============================================================================
+ 
+@@ -429,12 +428,12 @@ endef
+ # ==============================================================================
+ 
+ # Custom target to go from synthesis to placement in a single OpenROAD run
+-$(eval $(call do-step,1_3_floorplan_to_place, $(RESULTS_DIR)/1_synth.odb $(RESULTS_DIR)/1_synth.sdc,floorplan_to_place))
++$(eval $(call do-step,1_3_floorplan_to_place, $(RESULTS_DIR)/1_synth.odb,floorplan_to_place))
+ 
+ $(eval $(call OPEN_GUI_SHORTCUT,yosys,1_2_yosys.v))
+ 
+ .PHONY: floorplan_to_place
+-floorplan_to_place: $(RESULTS_DIR)/1_synth.odb $(RESULTS_DIR)/1_synth.sdc
++floorplan_to_place: $(RESULTS_DIR)/1_synth.odb
+ 	$(UNSET_AND_MAKE) do-1_3_floorplan_to_place
+ 
+ # ==============================================================================
+@@ -447,13 +446,11 @@ endif
+ 
+ $(RESULTS_DIR)/1_synth.sdc: $(RESULTS_DIR)/1_synth.odb
+ 
+-$(eval $(call do-step,2_1_floorplan,$(RESULTS_DIR)/1_synth.odb $(RESULTS_DIR)/1_synth.sdc $(TECH_LEF) $(SC_LEF) $(ADDITIONAL_LEFS) $(FOOTPRINT) $(SIG_MAP_FILE) $(FOOTPRINT_TCL) $(LIB_FILES) $(IO_CONSTRAINTS),floorplan))
+-
+-$(eval $(call do-copy,2_floorplan,2_1_floorplan.sdc,,.sdc))
++$(eval $(call do-step,2_1_floorplan,$(RESULTS_DIR)/1_synth.odb $(TECH_LEF) $(SC_LEF) $(ADDITIONAL_LEFS) $(FOOTPRINT) $(SIG_MAP_FILE) $(FOOTPRINT_TCL) $(LIB_FILES) $(IO_CONSTRAINTS),floorplan))
+ 
+ # STEP 2: Macro Placement
+ #-------------------------------------------------------------------------------
+-$(eval $(call do-step,2_2_floorplan_macro,$(RESULTS_DIR)/2_1_floorplan.odb $(RESULTS_DIR)/1_synth.sdc $(MACRO_PLACEMENT) $(MACRO_PLACEMENT_TCL),macro_place))
++$(eval $(call do-step,2_2_floorplan_macro,$(RESULTS_DIR)/2_1_floorplan.odb $(MACRO_PLACEMENT) $(MACRO_PLACEMENT_TCL),macro_place))
+ 
+ # STEP 3: Tapcell and Welltie insertion
+ #-------------------------------------------------------------------------------
+@@ -465,15 +462,13 @@ $(eval $(call do-step,2_4_floorplan_pdn,$(RESULTS_DIR)/2_3_floorplan_tapcell.odb
+ 
+ $(eval $(call do-copy,2_floorplan,2_4_floorplan_pdn.odb,))
+ 
+-$(RESULTS_DIR)/2_floorplan.sdc: $(RESULTS_DIR)/2_1_floorplan.odb
+-
+ .PHONY: do-floorplan
+ do-floorplan:
+-	$(UNSET_AND_MAKE) do-2_1_floorplan do-2_2_floorplan_macro do-2_3_floorplan_tapcell do-2_4_floorplan_pdn do-2_floorplan do-2_floorplan.sdc
++	$(UNSET_AND_MAKE) do-2_1_floorplan do-2_2_floorplan_macro do-2_3_floorplan_tapcell do-2_4_floorplan_pdn do-2_floorplan
+ 
+ .PHONY: clean_floorplan
+ clean_floorplan:
+-	rm -f $(RESULTS_DIR)/2_*floorplan*.odb $(RESULTS_DIR)/2_floorplan.sdc $(RESULTS_DIR)/2_*.v $(RESULTS_DIR)/2_*.def
++	rm -f $(RESULTS_DIR)/2_*floorplan*.odb $(RESULTS_DIR)/2_*.v $(RESULTS_DIR)/2_*.def
+ 	rm -f $(REPORTS_DIR)/2_*
+ 	rm -f $(LOG_DIR)/2_*
+ 
+@@ -485,22 +480,21 @@ clean_floorplan:
+ # |_|   |_____/_/   \_\____|_____|
+ #
+ .PHONY: place
+-place: $(RESULTS_DIR)/3_place.odb \
+-       $(RESULTS_DIR)/3_place.sdc
++place: $(RESULTS_DIR)/3_place.odb
+ # ==============================================================================
+ # STEP 1: Global placement without placed IOs, timing-driven, and routability-driven.
+ #-------------------------------------------------------------------------------
+-$(eval $(call do-step,3_1_place_gp_skip_io,$(RESULTS_DIR)/2_floorplan.odb $(RESULTS_DIR)/2_floorplan.sdc $(LIB_FILES),global_place_skip_io))
++$(eval $(call do-step,3_1_place_gp_skip_io,$(RESULTS_DIR)/2_floorplan.odb $(LIB_FILES),global_place_skip_io))
+ 
+ $(eval $(call do-step,3_2_place_iop,$(RESULTS_DIR)/3_1_place_gp_skip_io.odb,io_placement))
+ 
+ # STEP 3: Global placement with placed IOs, timing-driven, and routability-driven.
+ #-------------------------------------------------------------------------------
+-$(eval $(call do-step,3_3_place_gp,$(RESULTS_DIR)/3_2_place_iop.odb $(RESULTS_DIR)/2_floorplan.sdc $(LIB_FILES),global_place))
++$(eval $(call do-step,3_3_place_gp,$(RESULTS_DIR)/3_2_place_iop.odb $(LIB_FILES),global_place))
+ 
+ # STEP 4: Resizing & Buffering
+ #-------------------------------------------------------------------------------
+-$(eval $(call do-step,3_4_place_resized,$(RESULTS_DIR)/3_3_place_gp.odb $(RESULTS_DIR)/2_floorplan.sdc,resize))
++$(eval $(call do-step,3_4_place_resized,$(RESULTS_DIR)/3_3_place_gp.odb,resize))
+ 
+ .PHONY: clean_resize
+ clean_resize:
+@@ -512,10 +506,6 @@ $(eval $(call do-step,3_5_place_dp,$(RESULTS_DIR)/3_4_place_resized.odb,detail_p
+ 
+ $(eval $(call do-copy,3_place,3_5_place_dp.odb,))
+ 
+-# detail_place writes 3_place.sdc alongside 3_5_place_dp.odb (constraints
+-# are unchanged during placement), mirroring how synth writes 1_synth.sdc.
+-$(RESULTS_DIR)/3_place.sdc: $(RESULTS_DIR)/3_5_place_dp.odb
+-
+ .PHONY: do-place
+ do-place:
+ 	$(UNSET_AND_MAKE) do-3_1_place_gp_skip_io do-3_2_place_iop do-3_3_place_gp do-3_4_place_resized do-3_5_place_dp do-3_place
+@@ -525,7 +515,6 @@ do-place:
+ .PHONY: clean_place
+ clean_place:
+ 	rm -f $(RESULTS_DIR)/3_*place*.odb
+-	rm -f $(RESULTS_DIR)/3_place.sdc
+ 	rm -f $(RESULTS_DIR)/3_*.def $(RESULTS_DIR)/3_*.v
+ 	rm -f $(REPORTS_DIR)/3_*
+ 	rm -f $(LOG_DIR)/3_*
+@@ -539,15 +528,12 @@ clean_place:
+ #  \____| |_| |____/
+ #
+ .PHONY: cts
+-cts: $(RESULTS_DIR)/4_cts.odb \
+-     $(RESULTS_DIR)/4_cts.sdc
++cts: $(RESULTS_DIR)/4_cts.odb
+ # ==============================================================================
+ 
+ # Run TritonCTS
+ # ------------------------------------------------------------------------------
+-$(eval $(call do-step,4_1_cts,$(RESULTS_DIR)/3_place.odb $(RESULTS_DIR)/3_place.sdc,cts))
+-
+-$(RESULTS_DIR)/4_cts.sdc: $(RESULTS_DIR)/4_cts.odb
++$(eval $(call do-step,4_1_cts,$(RESULTS_DIR)/3_place.odb,cts))
+ 
+ $(eval $(call do-copy,4_cts,4_1_cts.odb))
+ 
+@@ -557,7 +543,7 @@ do-cts:
+ 
+ .PHONY: clean_cts
+ clean_cts:
+-	rm -rf $(RESULTS_DIR)/4_*cts*.odb $(RESULTS_DIR)/4_cts.sdc $(RESULTS_DIR)/4_*.v $(RESULTS_DIR)/4_*.def
++	rm -rf $(RESULTS_DIR)/4_*cts*.odb $(RESULTS_DIR)/4_*.v $(RESULTS_DIR)/4_*.def
+ 	rm -f  $(REPORTS_DIR)/4_*
+ 	rm -rf $(LOG_DIR)/4_*
+ 
+@@ -570,8 +556,7 @@ clean_cts:
+ # |_| \_\\___/ \___/  |_| |___|_| \_|\____|
+ #
+ .PHONY: route
+-route: $(RESULTS_DIR)/5_route.odb \
+-       $(RESULTS_DIR)/5_route.sdc
++route: $(RESULTS_DIR)/5_route.odb
+ 
+ .PHONY: grt globalroute
+ globalroute: grt
+@@ -592,11 +577,9 @@ $(eval $(call do-step,5_3_fillcell,$(RESULTS_DIR)/5_2_route.odb,fillcell))
+ 
+ $(eval $(call do-copy,5_route,5_3_fillcell.odb))
+ 
+-$(eval $(call do-copy,5_route,5_1_grt.sdc,,.sdc))
+-
+ .PHONY: do-route
+ do-route:
+-	$(UNSET_AND_MAKE) do-5_1_grt do-5_2_route do-5_3_fillcell do-5_route do-5_route.sdc
++	$(UNSET_AND_MAKE) do-5_1_grt do-5_2_route do-5_3_fillcell do-5_route
+ 
+ .PHONY: do-grt
+ do-grt:
+@@ -605,7 +588,7 @@ do-grt:
+ .PHONY: clean_route
+ clean_route:
+ 	rm -rf $(RESULTS_DIR)/route.guide $(RESULTS_DIR)/output_guide.mod $(RESULTS_DIR)/updated_clks.sdc
+-	rm -rf $(RESULTS_DIR)/5_*.odb $(RESULTS_DIR)/5_route.sdc $(RESULTS_DIR)/5_*.def $(RESULTS_DIR)/5_*.v
++	rm -rf $(RESULTS_DIR)/5_*.odb $(RESULTS_DIR)/5_*.def $(RESULTS_DIR)/5_*.v
+ 	rm -f  $(REPORTS_DIR)/5_*
+ 	rm -f  $(LOG_DIR)/5_*
+ 
+@@ -647,14 +630,12 @@ elapsed:
+ elapsed-all:
+ 	@$(PYTHON_EXE) $(UTILS_DIR)/genElapsedTime.py -d $(shell find $(WORK_HOME)/logs/$(PLATFORM)/*/*/ -type d)
+ 
+-$(eval $(call do-step,6_1_fill,$(RESULTS_DIR)/5_route.odb $(RESULTS_DIR)/5_route.sdc $(FILL_CONFIG),density_fill))
+-
+-$(eval $(call do-copy,6_1_fill,5_route.sdc,,.sdc))
++$(eval $(call do-step,6_1_fill,$(RESULTS_DIR)/5_route.odb $(FILL_CONFIG),density_fill))
+ 
+-$(eval $(call do-step,6_report,$(RESULTS_DIR)/6_1_fill.odb $(RESULTS_DIR)/6_1_fill.sdc,final_report,.log,$(LOG_DIR)))
++$(eval $(call do-step,6_report,$(RESULTS_DIR)/6_1_fill.odb,final_report,.log,$(LOG_DIR)))
+ 
+-# final_report writes 6_final.sdc alongside 6_final.odb (constraints are
+-# unchanged during finishing), mirroring how synth writes 1_synth.sdc.
++# final_report writes 6_final.sdc alongside 6_final.odb: the .odb carries
++# the constraints, the .sdc is the human-readable export of them.
+ $(RESULTS_DIR)/6_final.sdc: $(LOG_DIR)/6_report.log
+ 
+ $(RESULTS_DIR)/6_final.def: $(LOG_DIR)/6_report.log
+@@ -669,7 +650,7 @@ final: finish
+ 
+ .PHONY: do-finish
+ do-finish:
+-	$(UNSET_AND_MAKE) do-6_1_fill do-6_1_fill.sdc do-6_report elapsed
++	$(UNSET_AND_MAKE) do-6_1_fill do-6_report elapsed
+ 
+ .PHONY: generate_abstract
+ generate_abstract: $(RESULTS_DIR)/6_final.gds $(RESULTS_DIR)/6_final.def  $(RESULTS_DIR)/6_final.v $(RESULTS_DIR)/6_final.sdc
+diff --git a/flow/designs/asap7/gcd/BUILD b/flow/designs/asap7/gcd/BUILD
+index 9b63695b8..7eef6f58e 100644
+--- a/flow/designs/asap7/gcd/BUILD
++++ b/flow/designs/asap7/gcd/BUILD
+@@ -12,9 +12,11 @@ design(
+     config = "config.mk",
+ )
+ 
+-# Stage-boundary .odb/.sdc stems shared by the normal per-stage flow
+-# targets and the single-process flow below; the gcd_single_flow_test
+-# suite compares each of these files pairwise between the two flows.
++# Stage-boundary .odb stems shared by the normal per-stage flow targets
++# and the single-process flow below; the gcd_single_flow_test suite
++# compares each of these files pairwise between the two flows. Every
++# .odb carries its constraints; the flow writes an .sdc export only at
++# the synth and final boundaries.
+ SINGLE_FLOW_STAGES = {
+     "synth": "1_synth",
+     "floorplan": "2_floorplan",
+@@ -25,11 +27,20 @@ SINGLE_FLOW_STAGES = {
+     "final": "6_final",
+ }
+ 
++SDC_STAGES = [
++    "synth",
++    "final",
++]
++
++STAGE_EXTS = {
++    stage: ["odb"] + (["sdc"] if stage in SDC_STAGES else [])
++    for stage in SINGLE_FLOW_STAGES
++}
++
+ # Substep files the single-process flow also writes, declared so the
+ # action keeps them and a human can inspect them on failure.
+ SINGLE_FLOW_EXTRA_OUTS = [
+     "2_1_floorplan.odb",
+-    "2_1_floorplan.sdc",
+     "2_2_floorplan_macro.odb",
+     "2_3_floorplan_tapcell.odb",
+     "2_4_floorplan_pdn.odb",
+@@ -42,7 +53,6 @@ SINGLE_FLOW_EXTRA_OUTS = [
+     "5_2_route.odb",
+     "5_3_fillcell.odb",
+     "6_1_fill.odb",
+-    "6_1_fill.sdc",
+ ]
+ 
+ # The whole flow, yosys netlist through finish, as one Tcl script in a
+@@ -59,11 +69,8 @@ orfs_run(
+     src = ":gcd_yosys_synth",
+     outs = [
+         "results/asap7/gcd/single/{}.{}".format(stem, ext)
+-        for stem in SINGLE_FLOW_STAGES.values()
+-        for ext in [
+-            "odb",
+-            "sdc",
+-        ]
++        for stage, stem in SINGLE_FLOW_STAGES.items()
++        for ext in STAGE_EXTS[stage]
+     ] + [
+         "results/asap7/gcd/single/" + name
+         for name in SINGLE_FLOW_EXTRA_OUTS
+@@ -89,10 +96,7 @@ orfs_run(
+         output_group = "{}.{}".format(stem, ext),
+     )
+     for stage, stem in SINGLE_FLOW_STAGES.items()
+-    for ext in [
+-        "odb",
+-        "sdc",
+-    ]
++    for ext in STAGE_EXTS[stage]
+ ]
+ 
+ # Byte-compare each stage boundary's .odb/.sdc between the per-stage
+@@ -134,10 +138,7 @@ orfs_run(
+         srcs = ["@openroad//test/orfs:check_same.sh"],
+         args = [
+             arg
+-            for ext in [
+-                "sdc",
+-                "odb",
+-            ]
++            for ext in reversed(STAGE_EXTS[stage])
+             for arg in [
+                 "$(location :gcd_base_{}_{})".format(stage, ext),
+                 "$(location :results/asap7/gcd/single/{}.{})".format(stem, ext),
+@@ -145,16 +146,10 @@ orfs_run(
+         ],
+         data = [
+             ":gcd_base_{}_{}".format(stage, ext)
+-            for ext in [
+-                "sdc",
+-                "odb",
+-            ]
++            for ext in STAGE_EXTS[stage]
+         ] + [
+             ":results/asap7/gcd/single/{}.{}".format(stem, ext)
+-            for ext in [
+-                "sdc",
+-                "odb",
+-            ]
++            for ext in STAGE_EXTS[stage]
+         ],
+         tags = ["orfs"],
+     )
+diff --git a/flow/scripts/cdl.tcl b/flow/scripts/cdl.tcl
+index f45d941ef..e5f5ca3f5 100644
+--- a/flow/scripts/cdl.tcl
++++ b/flow/scripts/cdl.tcl
+@@ -1,5 +1,5 @@
+ source $::env(SCRIPTS_DIR)/load.tcl
+ erase_non_stage_variables final
+-load_design 6_final.odb 6_final.sdc
++load_design 6_final.odb
+ 
+ write_cdl -masters $::env(CDL_FILE) $::env(RESULTS_DIR)/6_final.cdl
+diff --git a/flow/scripts/cts.tcl b/flow/scripts/cts.tcl
+index 5becb44f2..ce0ddb637 100644
+--- a/flow/scripts/cts.tcl
++++ b/flow/scripts/cts.tcl
+@@ -2,7 +2,7 @@ utl::set_metrics_stage "cts__{}"
+ source $::env(SCRIPTS_DIR)/load.tcl
+ source $::env(SCRIPTS_DIR)/lec_check.tcl
+ erase_non_stage_variables cts
+-load_design 3_place.odb 3_place.sdc
++load_design 3_place.odb
+ source_step_tcl PRE CTS
+ 
+ # Clone clock tree inverters next to register loads
+@@ -12,7 +12,6 @@ repair_clock_inverters
+ proc save_progress { stage } {
+   puts "Run 'make gui_$stage.odb' to load progress snapshot"
+   orfs_write_db $::env(RESULTS_DIR)/$stage.odb
+-  orfs_write_sdc $::env(RESULTS_DIR)/$stage.sdc
+ }
+ 
+ # Run CTS
+@@ -87,4 +86,3 @@ report_metrics 4 "cts final"
+ source_step_tcl POST CTS
+ 
+ orfs_write_db $::env(RESULTS_DIR)/4_1_cts.odb
+-orfs_write_sdc $::env(RESULTS_DIR)/4_cts.sdc
+diff --git a/flow/scripts/density_fill.tcl b/flow/scripts/density_fill.tcl
+index 1f93ed4c5..030c2c382 100644
+--- a/flow/scripts/density_fill.tcl
++++ b/flow/scripts/density_fill.tcl
+@@ -1,6 +1,6 @@
+ source $::env(SCRIPTS_DIR)/load.tcl
+ erase_non_stage_variables final
+-load_design 5_route.odb 5_route.sdc
++load_design 5_route.odb
+ source_step_tcl PRE DENSITY_FILL
+ 
+ if { $::env(USE_FILL) } {
+diff --git a/flow/scripts/detail_place.tcl b/flow/scripts/detail_place.tcl
+index c29d9ab90..1ee67b25f 100644
+--- a/flow/scripts/detail_place.tcl
++++ b/flow/scripts/detail_place.tcl
+@@ -1,7 +1,7 @@
+ utl::set_metrics_stage "detailedplace__{}"
+ source $::env(SCRIPTS_DIR)/load.tcl
+ erase_non_stage_variables place
+-load_design 3_4_place_resized.odb 2_floorplan.sdc
++load_design 3_4_place_resized.odb
+ source_step_tcl PRE DETAIL_PLACE
+ 
+ source $::env(PLATFORM_DIR)/setRC.tcl
+@@ -43,4 +43,3 @@ report_metrics 3 "detailed place" true false
+ source_step_tcl POST DETAIL_PLACE
+ 
+ orfs_write_db $::env(RESULTS_DIR)/3_5_place_dp.odb
+-orfs_write_sdc $::env(RESULTS_DIR)/3_place.sdc
+diff --git a/flow/scripts/detail_route.tcl b/flow/scripts/detail_route.tcl
+index 907f4b708..1b994ab4d 100644
+--- a/flow/scripts/detail_route.tcl
++++ b/flow/scripts/detail_route.tcl
+@@ -1,6 +1,6 @@
+ utl::set_metrics_stage "detailedroute__{}"
+ source $::env(SCRIPTS_DIR)/load.tcl
+-load_design 5_1_grt.odb 5_1_grt.sdc
++load_design 5_1_grt.odb
+ source_step_tcl PRE DETAIL_ROUTE
+ if { ![grt::have_routes] } {
+   error "Global routing failed, run `make gui_grt` and load $::global_route_congestion_report \
+diff --git a/flow/scripts/fillcell.tcl b/flow/scripts/fillcell.tcl
+index 032c1ab58..f88417db9 100644
+--- a/flow/scripts/fillcell.tcl
++++ b/flow/scripts/fillcell.tcl
+@@ -1,7 +1,7 @@
+ source $::env(SCRIPTS_DIR)/load.tcl
+ erase_non_stage_variables route
+ if { [env_var_exists_and_non_empty FILL_CELLS] } {
+-  load_design 5_2_route.odb 5_1_grt.sdc
++  load_design 5_2_route.odb
+   source_step_tcl PRE FILLCELL
+ 
+   set_propagated_clock [all_clocks]
+diff --git a/flow/scripts/final_connect.tcl b/flow/scripts/final_connect.tcl
+index 22324613c..df059d73b 100644
+--- a/flow/scripts/final_connect.tcl
++++ b/flow/scripts/final_connect.tcl
+@@ -1,7 +1,7 @@
+ utl::set_metrics_stage "finish__{}"
+ source $::env(SCRIPTS_DIR)/load.tcl
+ erase_non_stage_variables final
+-load_design 6_1_fill.odb 6_1_fill.sdc
++load_design 6_1_fill.odb
+ source_step_tcl PRE FINAL_REPORT
+ 
+ set_propagated_clock [all_clocks]
+diff --git a/flow/scripts/floorplan.tcl b/flow/scripts/floorplan.tcl
+index 31d2720ab..aa1de3f88 100644
+--- a/flow/scripts/floorplan.tcl
++++ b/flow/scripts/floorplan.tcl
+@@ -1,7 +1,7 @@
+ utl::set_metrics_stage "floorplan__{}"
+ source $::env(SCRIPTS_DIR)/load.tcl
+ erase_non_stage_variables floorplan
+-load_design 1_synth.odb 1_synth.sdc
++load_design 1_synth.odb
+ source_step_tcl PRE FLOORPLAN
+ 
+ proc report_unused_masters { } {
+@@ -169,4 +169,3 @@ source_step_tcl POST FLOORPLAN
+ source_env_var_if_exists IO_CONSTRAINTS
+ 
+ orfs_write_db $::env(RESULTS_DIR)/2_1_floorplan.odb
+-orfs_write_sdc $::env(RESULTS_DIR)/2_1_floorplan.sdc
+diff --git a/flow/scripts/flow.tcl b/flow/scripts/flow.tcl
+index cd7f0a26b..0b98fd43d 100644
+--- a/flow/scripts/flow.tcl
++++ b/flow/scripts/flow.tcl
+@@ -7,7 +7,9 @@
+ # produce the same file set as the stage-per-process make flow (the
+ # extra writes after a stage's own mirror the Makefile do-copy
+ # recipes), and flow_source enforces that stage scripts write no
+-# .odb/.sdc files themselves.
++# .odb/.sdc files themselves. Every .odb carries its constraints; the
++# two .sdc files are the human-readable exports the flow keeps: the
++# canonicalized synthesis constraints and the final ones.
+ 
+ # Enable keeping variables between stages
+ set ::env(KEEP_VARS) 1
+@@ -48,7 +50,6 @@ flow_write_sdc 1_synth.sdc
+ # Floorplan
+ flow_source floorplan.tcl
+ flow_write_db 2_1_floorplan.odb
+-flow_write_sdc 2_1_floorplan.sdc
+ flow_source macro_place.tcl
+ flow_write_db 2_2_floorplan_macro.odb
+ flow_source tapcell.tcl
+@@ -56,7 +57,6 @@ flow_write_db 2_3_floorplan_tapcell.odb
+ flow_source pdn.tcl
+ flow_write_db 2_4_floorplan_pdn.odb
+ flow_write_db 2_floorplan.odb
+-flow_write_sdc 2_floorplan.sdc
+ 
+ # Place
+ flow_source global_place_skip_io.tcl
+@@ -70,30 +70,25 @@ flow_write_db 3_4_place_resized.odb
+ flow_source detail_place.tcl
+ flow_write_db 3_5_place_dp.odb
+ flow_write_db 3_place.odb
+-flow_write_sdc 3_place.sdc
+ 
+ # CTS
+ flow_source cts.tcl
+ flow_write_db 4_1_cts.odb
+ flow_write_db 4_cts.odb
+-flow_write_sdc 4_cts.sdc
+ 
+ # Route
+ flow_source global_route.tcl
+ flow_write_db 5_1_grt.odb
+-flow_write_sdc 5_1_grt.sdc
+ flow_source detail_route.tcl
+ flow_write_db 5_2_route.odb
+ flow_source fillcell.tcl
+ flow_write_db 5_3_fillcell.odb
+ flow_write_db 5_route.odb
+-flow_write_sdc 5_route.sdc
+ 
+ # Finish. final_report.tcl is split around its 6_final.odb write so
+ # this top level can write at the same point.
+ flow_source density_fill.tcl
+ flow_write_db 6_1_fill.odb
+-flow_write_sdc 6_1_fill.sdc
+ flow_source final_connect.tcl
+ flow_write_db 6_final.odb
+ flow_write_sdc 6_final.sdc
+diff --git a/flow/scripts/generate_abstract.tcl b/flow/scripts/generate_abstract.tcl
+index 3f860034f..be9164fa6 100644
+--- a/flow/scripts/generate_abstract.tcl
++++ b/flow/scripts/generate_abstract.tcl
+@@ -7,11 +7,9 @@ set stem [expr {
+   "6_final"
+ }]
+ 
+-set result [find_sdc_file $stem.odb]
+-set design_stage [lindex $result 0]
+-set sdc_file [lindex $result 1]
++set design_stage [lindex [extract_stage $stem.odb] 0]
+ 
+-log_cmd load_design $stem.odb [file tail $sdc_file]
++log_cmd load_design $stem.odb
+ 
+ if { $design_stage >= 6 && [file exists $::env(RESULTS_DIR)/$stem.spef] } {
+   log_cmd read_spef $::env(RESULTS_DIR)/$stem.spef
+diff --git a/flow/scripts/global_place.tcl b/flow/scripts/global_place.tcl
+index 5822ef47c..69750dd8b 100644
+--- a/flow/scripts/global_place.tcl
++++ b/flow/scripts/global_place.tcl
+@@ -1,7 +1,7 @@
+ utl::set_metrics_stage "globalplace__{}"
+ source $::env(SCRIPTS_DIR)/load.tcl
+ erase_non_stage_variables place
+-load_design 3_2_place_iop.odb 2_floorplan.sdc
++load_design 3_2_place_iop.odb
+ source_step_tcl PRE GLOBAL_PLACE
+ 
+ set_dont_use $::env(DONT_USE_CELLS)
+diff --git a/flow/scripts/global_place_skip_io.tcl b/flow/scripts/global_place_skip_io.tcl
+index 38c58917d..8ff044f49 100644
+--- a/flow/scripts/global_place_skip_io.tcl
++++ b/flow/scripts/global_place_skip_io.tcl
+@@ -1,6 +1,6 @@
+ source $::env(SCRIPTS_DIR)/load.tcl
+ erase_non_stage_variables place
+-load_design 2_floorplan.odb 2_floorplan.sdc
++load_design 2_floorplan.odb
+ source_step_tcl PRE GLOBAL_PLACE_SKIP_IO
+ 
+ if { [env_var_exists_and_non_empty FLOORPLAN_DEF] } {
+diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
+index 4db71be44..3fccf587a 100644
+--- a/flow/scripts/global_route.tcl
++++ b/flow/scripts/global_route.tcl
+@@ -1,7 +1,7 @@
+ utl::set_metrics_stage "globalroute__{}"
+ source $::env(SCRIPTS_DIR)/load.tcl
+ erase_non_stage_variables grt
+-load_design 4_cts.odb 4_cts.sdc
++load_design 4_cts.odb
+ 
+ # This proc is here to allow us to use 'return' to return early from this
+ # file which is sourced
+@@ -29,7 +29,6 @@ proc global_route_helper { } {
+         log_cmd write_db $::env(RESULTS_DIR)/5_1_grt-failed.odb
+         error $errMsg
+       }
+-      orfs_write_sdc $::env(RESULTS_DIR)/5_1_grt.sdc
+       orfs_write_db $::env(RESULTS_DIR)/5_1_grt.odb
+       return 0
+     }
+@@ -169,7 +168,6 @@ proc global_route_helper { } {
+   write_guides $::env(RESULTS_DIR)/route.guide
+   source_step_tcl POST GLOBAL_ROUTE
+   orfs_write_db $::env(RESULTS_DIR)/5_1_grt.odb
+-  orfs_write_sdc $::env(RESULTS_DIR)/5_1_grt.sdc
+ }
+ 
+ global_route_helper
+diff --git a/flow/scripts/io_placement.tcl b/flow/scripts/io_placement.tcl
+index 5ad95bad5..988c8f86e 100644
+--- a/flow/scripts/io_placement.tcl
++++ b/flow/scripts/io_placement.tcl
+@@ -6,7 +6,7 @@ if {
+   ![env_var_exists_and_non_empty FOOTPRINT] &&
+   ![env_var_exists_and_non_empty FOOTPRINT_TCL]
+ } {
+-  load_design 3_1_place_gp_skip_io.odb 2_floorplan.sdc
++  load_design 3_1_place_gp_skip_io.odb
+   source_step_tcl PRE IO_PLACEMENT
+   log_cmd place_pins \
+     -hor_layers $::env(IO_PLACER_H) \
+diff --git a/flow/scripts/load.tcl b/flow/scripts/load.tcl
+index 1b3a6c463..ca56ceb90 100644
+--- a/flow/scripts/load.tcl
++++ b/flow/scripts/load.tcl
+@@ -2,7 +2,12 @@ source $::env(SCRIPTS_DIR)/util.tcl
+ 
+ source $::env(SCRIPTS_DIR)/report_metrics.tcl
+ 
+-proc load_design { design_file sdc_file } {
++# Load a design. An .odb carries its own timing constraints (write_db
++# stores them, read_db -sdc restores them), so it is loaded alone. A
++# Verilog netlist has no constraints of its own and takes the .sdc to
++# read alongside it: that is synthesis, the one point in the flow where
++# the human-written SDC_FILE is parsed.
++proc load_design { design_file { sdc_file "" } } {
+   # Do not reload if design is already loaded
+   set db [ord::get_db]
+   if { [$db getChip] != "NULL" && [[$db getChip] getBlock] != "NULL" } {
+@@ -32,15 +37,22 @@ proc load_design { design_file sdc_file } {
+     }
+     read_verilog $::env(RESULTS_DIR)/$design_file
+     log_cmd link_design {*}[hier_options] $::env(DESIGN_NAME)
++    if { $sdc_file == "" } {
++      error "load_design: a Verilog netlist needs an .sdc file"
++    }
++    log_cmd read_sdc $::env(RESULTS_DIR)/$sdc_file
+   } elseif { $ext == ".odb" } {
+-    log_cmd read_db {*}[hier_options] $::env(RESULTS_DIR)/$design_file
++    if { $sdc_file != "" } {
++      error "load_design: an .odb carries its own constraints, drop $sdc_file"
++    }
++    if { ![log_cmd read_db {*}[hier_options] -sdc $::env(RESULTS_DIR)/$design_file] } {
++      error "load_design: $design_file carries no timing constraints; it was\
++             written by an OpenROAD that does not store them in the .odb"
++    }
+   } else {
+     error "Unrecognized input file $design_file"
+   }
+ 
+-  # Read SDC file
+-  log_cmd read_sdc $::env(RESULTS_DIR)/$sdc_file
+-
+   if { [file exists $::env(PLATFORM_DIR)/derate.tcl] } {
+     log_cmd source $::env(PLATFORM_DIR)/derate.tcl
+   }
+diff --git a/flow/scripts/macro_place.tcl b/flow/scripts/macro_place.tcl
+index 0789129e4..0628d74f3 100644
+--- a/flow/scripts/macro_place.tcl
++++ b/flow/scripts/macro_place.tcl
+@@ -1,6 +1,6 @@
+ source $::env(SCRIPTS_DIR)/load.tcl
+ erase_non_stage_variables floorplan
+-load_design 2_1_floorplan.odb 2_1_floorplan.sdc
++load_design 2_1_floorplan.odb
+ source_step_tcl PRE MACRO_PLACE
+ 
+ source $::env(SCRIPTS_DIR)/macro_place_util.tcl
+diff --git a/flow/scripts/open.tcl b/flow/scripts/open.tcl
+index c9241ca50..21a456c2e 100644
+--- a/flow/scripts/open.tcl
++++ b/flow/scripts/open.tcl
+@@ -29,18 +29,23 @@ if { [env_var_exists_and_non_empty DEF_FILE] } {
+   log_cmd link_design {*}[hier_options] $::env(DESIGN_NAME)
+ } else {
+   set input_file $::env(ODB_FILE)
+-  log_cmd read_db {*}[hier_options] $input_file
++  # The .odb carries its constraints; restoring them needs the liberty
++  # read above, which only GUI_TIMING=1 pays for.
++  if { [env_var_equals GUI_TIMING 1] } {
++    log_cmd read_db {*}[hier_options] -sdc $input_file
++  } else {
++    log_cmd read_db {*}[hier_options] $input_file
++  }
+ }
+ 
+ proc read_timing { input_file } {
+-  set result [find_sdc_file $input_file]
+-  set design_stage [lindex $result 0]
+-  set sdc_file [lindex $result 1]
++  set design_stage [lindex [extract_stage $input_file] 0]
+ 
+-  if { $sdc_file == "" } {
+-    set sdc_file $::env(SDC_FILE)
++  # An .odb arrived with its constraints (read_db -sdc above); a DEF or
++  # Verilog netlist has none, so read the design's SDC_FILE for it.
++  if { [file extension $input_file] != ".odb" } {
++    log_cmd read_sdc $::env(SDC_FILE)
+   }
+-  log_cmd read_sdc $sdc_file
+   if { [file exists $::env(PLATFORM_DIR)/derate.tcl] } {
+     source $::env(PLATFORM_DIR)/derate.tcl
+   }
+diff --git a/flow/scripts/pdn.tcl b/flow/scripts/pdn.tcl
+index 2230e05f8..0ad6aa9d8 100644
+--- a/flow/scripts/pdn.tcl
++++ b/flow/scripts/pdn.tcl
+@@ -1,6 +1,6 @@
+ source $::env(SCRIPTS_DIR)/load.tcl
+ erase_non_stage_variables floorplan
+-load_design 2_3_floorplan_tapcell.odb 2_1_floorplan.sdc
++load_design 2_3_floorplan_tapcell.odb
+ source_step_tcl PRE PDN
+ 
+ source $::env(PDN_TCL)
+diff --git a/flow/scripts/resize.tcl b/flow/scripts/resize.tcl
+index 73321e7f8..9428e6d7c 100644
+--- a/flow/scripts/resize.tcl
++++ b/flow/scripts/resize.tcl
+@@ -1,7 +1,7 @@
+ utl::set_metrics_stage "placeopt__{}"
+ source $::env(SCRIPTS_DIR)/load.tcl
+ erase_non_stage_variables place
+-load_design 3_3_place_gp.odb 2_floorplan.sdc
++load_design 3_3_place_gp.odb
+ source_step_tcl PRE RESIZE
+ 
+ log_cmd estimate_parasitics -placement
+diff --git a/flow/scripts/synth_metrics.tcl b/flow/scripts/synth_metrics.tcl
+index d2fe0ab50..5f60eca46 100644
+--- a/flow/scripts/synth_metrics.tcl
++++ b/flow/scripts/synth_metrics.tcl
+@@ -1,5 +1,5 @@
+ utl::set_metrics_stage "synth__{}"
+ source $::env(SCRIPTS_DIR)/load.tcl
+-load_design 1_2_yosys.v 1_synth.sdc
++load_design 1_synth.odb
+ 
+ report_metrics 1 "Post synthesis" false false
+diff --git a/flow/scripts/tapcell.tcl b/flow/scripts/tapcell.tcl
+index 94620cbef..95de249fd 100644
+--- a/flow/scripts/tapcell.tcl
++++ b/flow/scripts/tapcell.tcl
+@@ -1,7 +1,7 @@
+ source $::env(SCRIPTS_DIR)/load.tcl
+ erase_non_stage_variables floorplan
+ 
+-load_design 2_2_floorplan_macro.odb 2_1_floorplan.sdc
++load_design 2_2_floorplan_macro.odb
+ source_step_tcl PRE TAPCELL
+ 
+ if { [env_var_exists_and_non_empty TAPCELL_TCL] } {
+diff --git a/flow/scripts/util.tcl b/flow/scripts/util.tcl
+index 5b7d98c8d..22c637056 100644
+--- a/flow/scripts/util.tcl
++++ b/flow/scripts/util.tcl
+@@ -89,33 +89,6 @@ proc extract_stage { input_file } {
+   }
+ }
+ 
+-proc find_sdc_file { input_file } {
+-  # canonicalize input file, sometimes it is called with an input
+-  # file relative to $::env(RESULTS_DIR), other times with
+-  # an absolute path
+-  if { ![file exists $input_file] } {
+-    set input_file [file join $::env(RESULTS_DIR) $input_file]
+-  }
+-  set input_file [file normalize $input_file]
+-
+-  set stage [extract_stage $input_file]
+-  set design_stage [lindex $stage 0]
+-  set sdc_file ""
+-
+-  set exact_sdc [string map {.odb .sdc} $input_file]
+-  set sdc_files \
+-    [glob -nocomplain -directory $::env(RESULTS_DIR) -types f "\[1-9+\]_\[1-9_A-Za-z\]*\.sdc"]
+-  set sdc_files [lsort -decreasing -dictionary $sdc_files]
+-  set sdc_files [lmap file $sdc_files { file normalize $file }]
+-  foreach name $sdc_files {
+-    if { [lindex [lsort -decreasing -dictionary [list $name $exact_sdc]] 0] == $exact_sdc } {
+-      set sdc_file $name
+-      break
+-    }
+-  }
+-  return [list $design_stage $sdc_file]
+-}
+-
+ proc env_var_equals { env_var value } {
+   return [expr { [info exists ::env($env_var)] && $::env($env_var) == $value }]
+ }
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+index 21d603837..0c8e4e52b 100644
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -1609,8 +1609,10 @@ KEEP_VARS:
+     - All stages
+ WRITE_ODB_AND_SDC_EACH_STAGE:
+   description: >
+-    Save out .sdc and .odb file after each stage, useful to disable
+-    when using a single OpenROAD instance to run all stages of the flow.
++    Save out the .odb file after each stage (plus the 1_synth.sdc and
++    6_final.sdc exports), useful to disable when using a single OpenROAD
++    instance to run all stages of the flow. Every .odb carries its own
++    timing constraints.
+   stages:
+     - All stages
+   default: 1
+diff --git a/flow/util/genMetrics.py b/flow/util/genMetrics.py
+index 9f20e89b1..9f1d0c11b 100755
+--- a/flow/util/genMetrics.py
++++ b/flow/util/genMetrics.py
+@@ -261,13 +261,9 @@ def extract_metrics(
+ 
+     # Clocks
+     # =========================================================================
+-    # Prefer the floorplan SDC; on a synthesis-only tree (e.g. the "syn"
+-    # flow variant stops after 1_synth) fall back to the canonicalized
+-    # synthesis SDC, which carries the same create_clock lines.
+-    sdc_file = resultPath + "/2_floorplan.sdc"
+-    if not os.path.isfile(sdc_file):
+-        sdc_file = resultPath + "/1_synth.sdc"
+-    clk_list = read_sdc(sdc_file)
++    # The canonicalized synthesis SDC: the clocks do not change after
++    # synthesis, and it is the one .sdc every flow variant writes.
++    clk_list = read_sdc(resultPath + "/1_synth.sdc")
+     metrics_dict["constraints__clocks__count"] = len(clk_list)
+     metrics_dict["constraints__clocks__details"] = clk_list
+ 
+diff --git a/flow/util/write_rc.tcl b/flow/util/write_rc.tcl
+index 62922b2b3..190aee2a3 100644
+--- a/flow/util/write_rc.tcl
++++ b/flow/util/write_rc.tcl
+@@ -1,5 +1,5 @@
+ source $::env(SCRIPTS_DIR)/load.tcl
+-load_design 6_final.odb 6_final.sdc
++load_design 6_final.odb
+ 
+ source $::env(UTILS_DIR)/write_rc_helper.tcl
+ 
+-- 
+2.53.0
+

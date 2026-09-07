@@ -1,0 +1,2832 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=98yvind=20Harboe?= <oyvind.harboe@zylin.com>
+Date: Mon, 7 Sep 2026 18:00:00 +0200
+Subject: [PATCH] dbSta: store the timing constraints in the .odb
+
+write_db stores the current timing constraints in the block; read_db -sdc
+restores them and returns 1, or 0 if the .odb carries none. The
+constraints are stored in a native, id-based, canonically ordered record
+(pins as dbBTerm / dbITerm ids, no names, no Tcl) that restores in time
+linear in the number of objects; an Sdc with constructs the native
+encoder does not cover (generated clocks, derating, environment, ...)
+falls back to the write_sdc text, replayed through Tcl.
+ord::sdc_in_db_kind reports which form the current block carries:
+native, text or none. Whether the native form can carry an Sdc is decided
+by inspecting the Sdc through its public accessors, not by writing and
+scanning text, so write_db stays cheap.
+
+Guarantees, each with a regression test in src/dbSta/test (sdc_in_db1..9):
+write_sdc after a restore is byte-identical to write_sdc before it; two
+write_db of the same design, and a write_db after read_db -sdc in a fresh
+process, produce byte-identical .odb files; an .odb without constraints
+restores nothing and returns 0; restore runs only after a complete
+read_db.
+
+This is OpenROAD PR #11260 (branch sdc-in-odb on the oharboe fork),
+squashed. Carried in bazel-orfs, together with the ORFS patch that
+consumes it (patches/0050-orfs-sdc-in-odb.patch), until the upstream PR
+merges; retires on the //:bump onto an OpenROAD that carries it. The
+binary test fixture src/dbSta/test/sdc_in_db.odb is left out of the
+carried copy: bazel's patch tool cannot apply binary diffs, and the
+regression tests are not built here.
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+---
+ docs/md/man1/openroad.md             |   12 +-
+ include/ord/OpenRoad.hh              |    9 +-
+ src/OpenRoad.cc                      |   17 +-
+ src/OpenRoad.i                       |   15 +-
+ src/OpenRoad.tcl                     |   11 +-
+ src/dbSta/BUILD                      |    2 +
+ src/dbSta/include/db_sta/dbSta.hh    |    8 +
+ src/dbSta/src/CMakeLists.txt         |    1 +
+ src/dbSta/src/dbSdcInDb.cc           | 1639 ++++++++++++++++++++++++++++++++++
+ src/dbSta/src/dbSdcInDb.hh           |   69 ++
+ src/dbSta/src/dbSta.cc               |   35 +
+ src/dbSta/test/BUILD                 |   40 +
+ src/dbSta/test/CMakeLists.txt        |    9 +
+ src/dbSta/test/sdc_in_db1.ok         |   26 +
+ src/dbSta/test/sdc_in_db1.tcl        |   17 +
+ src/dbSta/test/sdc_in_db2.ok         |   33 +
+ src/dbSta/test/sdc_in_db2.tcl        |   13 +
+ src/dbSta/test/sdc_in_db3.ok         |   15 +
+ src/dbSta/test/sdc_in_db3.tcl        |    8 +
+ src/dbSta/test/sdc_in_db4.ok         |  102 +++
+ src/dbSta/test/sdc_in_db4.sdc        |   24 +
+ src/dbSta/test/sdc_in_db4.tcl        |   23 +
+ src/dbSta/test/sdc_in_db5.ok         |   47 +
+ src/dbSta/test/sdc_in_db5.sdc        |    6 +
+ src/dbSta/test/sdc_in_db5.tcl        |   23 +
+ src/dbSta/test/sdc_in_db6.ok         |   28 +
+ src/dbSta/test/sdc_in_db6.tcl        |   17 +
+ src/dbSta/test/sdc_in_db7.ok         |    4 +
+ src/dbSta/test/sdc_in_db7.tcl        |   10 +
+ src/dbSta/test/sdc_in_db8.ok         |   18 +
+ src/dbSta/test/sdc_in_db8.tcl        |   44 +
+ src/dbSta/test/sdc_in_db9.ok         |   47 +
+ src/dbSta/test/sdc_in_db9.sdc        |    7 +
+ src/dbSta/test/sdc_in_db9.tcl        |   23 +
+ src/dbSta/test/sdc_in_db_restore.tcl |    8 +
+ src/dbSta/test/sdc_in_db_rewrite.tcl |   11 +
+ 36 files changed, 2410 insertions(+), 11 deletions(-)
+
+diff --git a/docs/md/man1/openroad.md b/docs/md/man1/openroad.md
+index d2af136592..b67bfafc1e 100644
+--- a/docs/md/man1/openroad.md
++++ b/docs/md/man1/openroad.md
+@@ -90,13 +90,19 @@ OpenROAD binary.
+ 
+   - Write Verilog (.v) file based on current database.
+ 
+-- read_db filename
++- read_db [-sdc] filename
+ 
+-  - Read OpenDB (.odb) database files.
++  - Read OpenDB (.odb) database files. With -sdc, also restore the timing
++    constraints stored in the database by write_db, so the design arrives
++    constrained without reading a separate .sdc file. Returns 1 if the
++    database carried constraints and 0 if it carried none, so a script can
++    fall back to read_sdc. ord::sdc_in_db_kind reports which form the
++    current block carries: native, text or none.
+ 
+ - write_db filename
+ 
+-  - Write OpenDB (.odb) database files.
++  - Write OpenDB (.odb) database files. The timing constraints, if any, are
++    stored in the database alongside the design.
+ 
+ - write_abstract_lef filename
+ 
+diff --git a/include/ord/OpenRoad.hh b/include/ord/OpenRoad.hh
+index e16a2290ca..f14482fc1f 100644
+--- a/include/ord/OpenRoad.hh
++++ b/include/ord/OpenRoad.hh
+@@ -239,7 +239,14 @@ class OpenRoad
+   void check3DBlox();
+ 
+   void readDb(std::istream& stream);
+-  void readDb(const char* filename, bool hierarchy = false);
++  // Restore the timing constraints stored in the .odb, if any.
++  // Returns true if constraints were found and applied.
++  bool restoreSdcFromDb();
++  // With restore_sdc, returns whether the .odb carried constraints;
++  // without it, always false.
++  bool readDb(const char* filename,
++              bool hierarchy = false,
++              bool restore_sdc = false);
+   void writeDb(std::ostream& stream);
+   void writeDb(const char* filename,
+                std::optional<int> compression_level = std::nullopt);
+diff --git a/src/OpenRoad.cc b/src/OpenRoad.cc
+index ad3b4ae5d8..32c3af892c 100644
+--- a/src/OpenRoad.cc
++++ b/src/OpenRoad.cc
+@@ -555,11 +555,17 @@ void OpenRoad::write3Dbx(const std::string& filename)
+ 
+ // TODO: bool hierarchy should be removed in the future.
+ // It is retained for a while for backward compatibility.
+-void OpenRoad::readDb(const char* filename, bool hierarchy)
++bool OpenRoad::readDb(const char* filename, bool hierarchy, bool restore_sdc)
+ {
++  bool restored = false;
+   try {
+     utl::InStreamHandler handler(filename, true);
+     readDb(handler.getStream());
++    // Only a database that read completely has constraints worth
++    // restoring; a failed read errors out above and never gets here.
++    if (restore_sdc) {
++      restored = restoreSdcFromDb();
++    }
+   } catch (const std::ios_base::failure& f) {
+     logger_->error(ORD, 54, "odb file {} is invalid: {}", filename, f.what());
+   }
+@@ -576,6 +582,7 @@ void OpenRoad::readDb(const char* filename, bool hierarchy)
+     // we cannot rely on orders to do this during stream in
+     sta->getDbNetwork()->setHierarchy();
+   }
++  return restored;
+ }
+ 
+ void OpenRoad::readDb(std::istream& stream)
+@@ -593,10 +600,18 @@ void OpenRoad::readDb(std::istream& stream)
+ 
+ void OpenRoad::writeDb(std::ostream& stream)
+ {
++  // Store the timing constraints in the block so the .odb is
++  // self-describing and does not have to be paired with a .sdc by name.
++  getSta()->saveSdcToDb();
+   stream.exceptions(std::ofstream::failbit | std::ofstream::badbit);
+   db_->write(stream);
+ }
+ 
++bool OpenRoad::restoreSdcFromDb()
++{
++  return getSta()->restoreSdcFromDb();
++}
++
+ void OpenRoad::writeDb(const char* filename,
+                        std::optional<int> compression_level)
+ {
+diff --git a/src/OpenRoad.i b/src/OpenRoad.i
+index 7e27e65c98..c80672487a 100644
+--- a/src/OpenRoad.i
++++ b/src/OpenRoad.i
+@@ -408,11 +408,20 @@ write_3dbx_cmd(const char *filename)
+   ord->write3Dbx(filename);
+ }
+ 
+-void
+-read_db_cmd(const char *filename, bool hierarchy)
++bool
++read_db_cmd(const char *filename, bool hierarchy, bool restore_sdc)
++{
++  OpenRoad *ord = getOpenRoad();
++  return ord->readDb(filename, hierarchy, restore_sdc);
++}
++
++// "native", "text" or "none": which form of timing constraints the
++// current block carries (see dbSta::sdcInDbKind).
++const char *
++sdc_in_db_kind()
+ {
+   OpenRoad *ord = getOpenRoad();
+-  ord->readDb(filename, hierarchy);
++  return ord->getSta()->sdcInDbKind();
+ }
+ 
+ void
+diff --git a/src/OpenRoad.tcl b/src/OpenRoad.tcl
+index dbc81c12c8..caf7bb6a0e 100644
+--- a/src/OpenRoad.tcl
++++ b/src/OpenRoad.tcl
+@@ -238,13 +238,13 @@ proc check_3dblox { args } {
+ 
+ sta::define_cmd_args "write_db" {filename}
+ 
+-sta::define_cmd_args "read_db" {[-hier] filename}
++sta::define_cmd_args "read_db" {[-hier] [-sdc] filename}
+ 
+ proc read_db { args } {
+   # TODO: -hier is not needed anymore.
+   # - It will be removed in a future release.
+   # - It is currently retained for backward compatibility.
+-  sta::parse_key_args "read_db" args keys {} flags {-hier}
++  sta::parse_key_args "read_db" args keys {} flags {-hier -sdc}
+   sta::check_argc_eq1or2 "read_db" $args
+   set filename [file nativename [lindex $args 0]]
+   if { ![file exists $filename] } {
+@@ -254,7 +254,12 @@ proc read_db { args } {
+   if { ![file readable $filename] } {
+     utl::error "ORD" 8 "$filename is not readable."
+   }
+-  ord::read_db_cmd $filename $hierarchy
++  # -sdc restores the timing constraints stored in the .odb by write_db,
++  # rather than requiring a separate .sdc file to be read alongside it.
++  # Returns 1 if the .odb carried constraints and they were restored, 0
++  # if it carried none, so a flow can fall back to read_sdc.
++  set restore_sdc [info exists flags(-sdc)]
++  return [ord::read_db_cmd $filename $hierarchy $restore_sdc]
+ }
+ 
+ sta::define_cmd_args "write_db" {[-compression level] filename}
+diff --git a/src/dbSta/BUILD b/src/dbSta/BUILD
+index a9131952f8..74efb0f8c5 100644
+--- a/src/dbSta/BUILD
++++ b/src/dbSta/BUILD
+@@ -27,6 +27,8 @@ cc_library(
+ cc_library(
+     name = "dbSta",
+     srcs = [
++        "src/dbSdcInDb.cc",
++        "src/dbSdcInDb.hh",
+         "src/dbSta.cc",
+     ],
+     hdrs = [
+diff --git a/src/dbSta/include/db_sta/dbSta.hh b/src/dbSta/include/db_sta/dbSta.hh
+index 6bfde439fd..b1162ae893 100644
+--- a/src/dbSta/include/db_sta/dbSta.hh
++++ b/src/dbSta/include/db_sta/dbSta.hh
+@@ -162,6 +162,14 @@ class dbSta : public Sta, public odb::dbDatabaseObserver
+ 
+   float slack(const odb::dbNet* net, const MinMax* min_max);
+ 
++  // Timing constraints in odb (see dbSdcInDb.hh). saveSdcToDb() stores the
++  // current constraints in the block so an .odb is self-describing;
++  // restoreSdcFromDb() brings them back and returns whether any were
++  // found; sdcInDbKind() reports "native", "text" or "none".
++  void saveSdcToDb();
++  bool restoreSdcFromDb();
++  const char* sdcInDbKind();
++
+   // From ord::OpenRoad::Observer
+   void postReadLef(odb::dbTech* tech, odb::dbLib* library) override;
+   void postReadDef(odb::dbBlock* block) override;
+diff --git a/src/dbSta/src/CMakeLists.txt b/src/dbSta/src/CMakeLists.txt
+index 65fbbe04e6..e7f835661d 100644
+--- a/src/dbSta/src/CMakeLists.txt
++++ b/src/dbSta/src/CMakeLists.txt
+@@ -5,6 +5,7 @@ include("openroad")
+ 
+ add_library(dbSta_lib
+   dbSta.cc
++  dbSdcInDb.cc
+   dbNetwork.cc
+   dbSdcNetwork.cc
+   dbEditHierarchy.cc
+diff --git a/src/dbSta/src/dbSdcInDb.cc b/src/dbSta/src/dbSdcInDb.cc
+new file mode 100644
+index 0000000000..1a9ab57203
+--- /dev/null
++++ b/src/dbSta/src/dbSdcInDb.cc
+@@ -0,0 +1,1639 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026-2026, The OpenROAD Authors
++
++#include "dbSdcInDb.hh"
++
++#include <tcl.h>
++#include <unistd.h>
++
++#include <algorithm>
++#include <cctype>
++#include <cstdint>
++#include <cstdio>
++#include <cstdlib>
++#include <exception>
++#include <filesystem>
++#include <fstream>
++#include <map>
++#include <set>
++#include <sstream>
++#include <stdexcept>
++#include <string>
++#include <string_view>
++#include <tuple>
++#include <utility>
++#include <vector>
++
++#include "db_sta/dbNetwork.hh"
++#include "db_sta/dbSta.hh"
++#include "odb/db.h"
++#include "odb/dbObject.h"
++#include "sta/Clock.hh"
++#include "sta/ClockGroups.hh"
++#include "sta/ClockInsertion.hh"
++#include "sta/ClockLatency.hh"
++#include "sta/ExceptionPath.hh"
++#include "sta/LibertyClass.hh"
++#include "sta/MinMax.hh"
++#include "sta/Network.hh"
++#include "sta/PortDelay.hh"
++#include "sta/RiseFallMinMax.hh"
++#include "sta/Sdc.hh"
++#include "sta/Transition.hh"
++#include "sta/Variables.hh"
++#include "utl/Logger.h"
++
++namespace sta {
++
++namespace {
++
++constexpr std::string_view kNativeHeader = "sdc-in-odb 1";
++
++////////////////////////////////////////////////////////////////
++// Shared encoding helpers.
++
++// Names (clocks, path groups) are the only free text in the native form.
++// Percent-encode the characters that would upset a whitespace tokenizer,
++// and spell the empty string as a lone '%' so every field stays one token.
++std::string encodeString(std::string_view s)
++{
++  if (s.empty()) {
++    return "%";
++  }
++  std::string out;
++  out.reserve(s.size());
++  for (const unsigned char c : s) {
++    if (c == '%' || c <= ' ' || c == 0x7f) {
++      char buf[4];
++      std::snprintf(buf, sizeof(buf), "%%%02X", c);
++      out += buf;
++    } else {
++      out += static_cast<char>(c);
++    }
++  }
++  return out;
++}
++
++std::string decodeString(std::string_view s)
++{
++  if (s == "%") {
++    return {};
++  }
++  std::string out;
++  out.reserve(s.size());
++  for (size_t i = 0; i < s.size(); i++) {
++    if (s[i] == '%' && i + 2 < s.size()) {
++      out += static_cast<char>(
++          std::strtol(std::string(s.substr(i + 1, 2)).c_str(), nullptr, 16));
++      i += 2;
++    } else {
++      out += s[i];
++    }
++  }
++  return out;
++}
++
++// Floats travel as hex-float so the restored value is bit-identical to
++// what the Sdc held; the .sdc text rounds to a few digits, this does not.
++std::string encodeFloat(float value)
++{
++  char buf[64];
++  std::snprintf(buf, sizeof(buf), "%a", static_cast<double>(value));
++  return buf;
++}
++
++char encodeRiseFallBoth(const RiseFallBoth* rf)
++{
++  if (rf == RiseFallBoth::rise()) {
++    return 'r';
++  }
++  if (rf == RiseFallBoth::fall()) {
++    return 'f';
++  }
++  return 'b';
++}
++
++const RiseFallBoth* decodeRiseFallBoth(char c)
++{
++  switch (c) {
++    case 'r':
++      return RiseFallBoth::rise();
++    case 'f':
++      return RiseFallBoth::fall();
++    default:
++      return RiseFallBoth::riseFall();
++  }
++}
++
++char encodeMinMaxAll(const MinMaxAll* mm)
++{
++  if (mm == MinMaxAll::min()) {
++    return 'n';
++  }
++  if (mm == MinMaxAll::max()) {
++    return 'x';
++  }
++  return 'a';
++}
++
++const MinMaxAll* decodeMinMaxAll(char c)
++{
++  switch (c) {
++    case 'n':
++      return MinMaxAll::min();
++    case 'x':
++      return MinMaxAll::max();
++    default:
++      return MinMaxAll::all();
++  }
++}
++
++////////////////////////////////////////////////////////////////
++// Completeness: does the native form cover everything this Sdc holds?
++//
++// Mirrors WriteSdc category by category (writeTiming, writeEnvironment,
++// writeDesignRules, writeVariables): whatever write_sdc would emit that
++// the native encoder does not represent sends the whole Sdc to the text
++// fallback, so nothing is ever dropped. Everything is asked of the Sdc
++// through its public accessors. Most categories answer in O(1) or
++// O(ports); the ones the Sdc keeps only in per-object maps with no
++// enumerator (pin clock uncertainty, propagated clock pins, data checks,
++// pin capacitance limits, latch borrow limits, min pulse widths, net
++// loads and voltages, instance and net derating, clock senses) are
++// asked object by object in one pass over the leaf pins, each a hash
++// lookup in a map that is almost always empty.
++//
++// One thing the public Sdc API cannot see at all: a clock sense set with
++// set_clock_sense -positive or -negative (only -stop_propagation is
++// queryable, via clkStopPropagation). That construct is not detected.
++
++class Coverage
++{
++ public:
++  Coverage(dbSta* sta, Sdc* sdc)
++      : sta_(sta), network_(sta->getDbNetwork()), sdc_(sdc)
++  {
++  }
++
++  // Returns true if the native form covers the Sdc; otherwise names the
++  // first construct it does not.
++  bool check(std::string& offender)
++  {
++    const bool ok = checkVariables() && checkClocks() && checkExceptions()
++                    && checkClockGroups() && checkDisables()
++                    && checkEnvironment() && checkDesignRules()
++                    && checkGlobalDerating() && checkPorts() && checkPins();
++    if (!ok) {
++      offender = offender_;
++    }
++    return ok;
++  }
++
++ private:
++  bool fail(const char* what)
++  {
++    offender_ = what;
++    return false;
++  }
++
++  bool checkVariables()
++  {
++    const Variables* variables = sta_->variables();
++    if (variables->propagateAllClocks()) {
++      return fail("set sta_propagate_all_clocks");
++    }
++    if (variables->presetClrArcsEnabled()) {
++      return fail("set sta_preset_clear_arcs_enabled");
++    }
++    return true;
++  }
++
++  bool checkClocks()
++  {
++    for (Clock* clk : sdc_->clocks()) {
++      if (clk->isGenerated()) {
++        return fail("create_generated_clock");
++      }
++      if (!clk->comment().empty()) {
++        return fail("create_clock -comment");
++      }
++    }
++    if (sdc_->haveClkSlewLimits()) {
++      return fail("set_max_transition -clock_path");
++    }
++    for (const Clock* src : sdc_->clocks()) {
++      for (const Clock* tgt : sdc_->clocks()) {
++        for (const RiseFall* src_rf : RiseFall::range()) {
++          for (const RiseFall* tgt_rf : RiseFall::range()) {
++            for (const MinMax* setup_hold : MinMax::range()) {
++              float value;
++              bool exists;
++              sdc_->clockUncertainty(
++                  src, src_rf, tgt, tgt_rf, setup_hold, value, exists);
++              if (exists) {
++                return fail("set_clock_uncertainty -from -to");
++              }
++            }
++          }
++        }
++      }
++    }
++    return true;
++  }
++
++  bool checkExceptions()
++  {
++    for (ExceptionPath* exception : sdc_->exceptions()) {
++      if (!exception->comment().empty()) {
++        return fail("exception -comment");
++      }
++    }
++    return true;
++  }
++
++  bool checkClockGroups()
++  {
++    for (const auto& [name, clk_groups] : sdc_->clockGroupsNameMap()) {
++      if (!clk_groups->comment().empty()) {
++        return fail("set_clock_groups -comment");
++      }
++    }
++    return true;
++  }
++
++  bool checkDisables()
++  {
++    if (!sdc_->disabledPins()->empty() || !sdc_->disabledPorts()->empty()
++        || !sdc_->disabledLibPorts()->empty() || !sdc_->disabledEdges()->empty()
++        || !sdc_->disabledCellPorts()->empty()
++        || !sdc_->disabledInstancePorts()->empty()) {
++      return fail("set_disable_timing");
++    }
++    return true;
++  }
++
++  bool checkEnvironment()
++  {
++    for (const MinMax* mm : MinMax::range()) {
++      if (sdc_->operatingConditions(mm) != nullptr) {
++        return fail("set_operating_conditions");
++      }
++      if (sdc_->wireload(mm) != nullptr) {
++        return fail("set_wire_load_model");
++      }
++      float value;
++      bool exists;
++      sdc_->voltage(mm, value, exists);
++      if (exists) {
++        return fail("set_voltage");
++      }
++    }
++    if (sdc_->wireloadMode() != WireloadMode::unknown) {
++      return fail("set_wire_load_mode");
++    }
++    if (!sdc_->netResistances().empty()) {
++      return fail("set_resistance");
++    }
++    return true;
++  }
++
++  bool checkDesignRules()
++  {
++    if (sdc_->maxArea() != 0.0) {
++      return fail("set_max_area");
++    }
++    if (sdc_->maxDynamicPower() != 0.0) {
++      return fail("set_max_dynamic_power");
++    }
++    if (sdc_->maxLeakagePower() != 0.0) {
++      return fail("set_max_leakage_power");
++    }
++    return true;
++  }
++
++  // The derating factors are reachable only through a pin; the top
++  // instance has no instance or cell factors, so one of its pins reports
++  // the global ones. Anything set to exactly 1.0 is invisible here, and
++  // is equally invisible to write_sdc, which does not write it either.
++  bool checkGlobalDerating()
++  {
++    Pin* pin = anyTopPin();
++    if (pin == nullptr) {
++      return true;
++    }
++    return checkInstanceDerating(pin, "set_timing_derate")
++           && checkNetDerating(pin, "set_timing_derate");
++  }
++
++  bool checkInstanceDerating(const Pin* pin, const char* what)
++  {
++    for (const TimingDerateCellType type :
++         {TimingDerateCellType::cell_delay, TimingDerateCellType::cell_check}) {
++      for (const PathClkOrData clk_data :
++           {PathClkOrData::clk, PathClkOrData::data}) {
++        for (const RiseFall* rf : RiseFall::range()) {
++          for (const EarlyLate* early_late : EarlyLate::range()) {
++            if (sdc_->timingDerateInstance(pin, type, clk_data, rf, early_late)
++                != 1.0) {
++              return fail(what);
++            }
++          }
++        }
++      }
++    }
++    return true;
++  }
++
++  bool checkNetDerating(const Pin* pin, const char* what)
++  {
++    for (const PathClkOrData clk_data :
++         {PathClkOrData::clk, PathClkOrData::data}) {
++      for (const RiseFall* rf : RiseFall::range()) {
++        for (const EarlyLate* early_late : EarlyLate::range()) {
++          if (sdc_->timingDerateNet(pin, clk_data, rf, early_late) != 1.0) {
++            return fail(what);
++          }
++        }
++      }
++    }
++    return true;
++  }
++
++  Pin* anyTopPin()
++  {
++    Pin* pin = nullptr;
++    InstancePinIterator* pin_iter
++        = network_->pinIterator(network_->topInstance());
++    if (pin_iter->hasNext()) {
++      pin = pin_iter->next();
++    }
++    delete pin_iter;
++    return pin;
++  }
++
++  bool checkPorts()
++  {
++    Cell* top = network_->cell(network_->topInstance());
++    CellPortIterator* port_iter = network_->portIterator(top);
++    bool ok = true;
++    while (ok && port_iter->hasNext()) {
++      Port* port = port_iter->next();
++      ok = checkPort(port);
++      if (ok && network_->isBus(port)) {
++        PortMemberIterator* member_iter = network_->memberIterator(port);
++        while (ok && member_iter->hasNext()) {
++          ok = checkPort(member_iter->next());
++        }
++        delete member_iter;
++      }
++    }
++    delete port_iter;
++    return ok;
++  }
++
++  bool checkPort(Port* port)
++  {
++    if (sdc_->hasPortExtCap(port)) {
++      return fail("set_load [get_ports]");
++    }
++    if (sdc_->findInputDrive(port) != nullptr) {
++      return fail("set_driving_cell/set_drive/set_input_transition");
++    }
++    for (const MinMax* mm : MinMax::range()) {
++      float value;
++      bool exists;
++      sdc_->slewLimit(port, mm, value, exists);
++      if (exists) {
++        return fail("set_max_transition [get_ports]");
++      }
++      sdc_->capacitanceLimit(port, mm, value, exists);
++      if (exists) {
++        return fail("set_max_capacitance [get_ports]");
++      }
++      sdc_->fanoutLimit(port, mm, value, exists);
++      if (exists) {
++        return fail("set_max_fanout [get_ports]");
++      }
++    }
++    return true;
++  }
++
++  // One pass over every leaf pin for the per-object maps.
++  bool checkPins()
++  {
++    bool ok = true;
++    InstancePinIterator* top_pins
++        = network_->pinIterator(network_->topInstance());
++    while (ok && top_pins->hasNext()) {
++      ok = checkPin(top_pins->next());
++    }
++    delete top_pins;
++
++    LeafInstanceIterator* inst_iter = network_->leafInstanceIterator();
++    while (ok && inst_iter->hasNext()) {
++      Instance* inst = inst_iter->next();
++      InstancePinIterator* pin_iter = network_->pinIterator(inst);
++      bool first = true;
++      while (ok && pin_iter->hasNext()) {
++        Pin* pin = pin_iter->next();
++        ok = checkPin(pin);
++        if (ok && first) {
++          ok = checkInstanceDerating(pin, "set_timing_derate [get_cells]");
++          first = false;
++        }
++      }
++      delete pin_iter;
++    }
++    delete inst_iter;
++    return ok;
++  }
++
++  bool checkPin(Pin* pin)
++  {
++    if (sdc_->clockUncertainties(pin) != nullptr) {
++      return fail("set_clock_uncertainty [get_pins]");
++    }
++    if (sdc_->isPropagatedClock(pin)) {
++      return fail("set_propagated_clock [get_pins]");
++    }
++    if (sdc_->dataChecksFrom(pin) != nullptr
++        || sdc_->dataChecksTo(pin) != nullptr) {
++      return fail("set_data_check");
++    }
++    float value;
++    bool exists;
++    for (const MinMax* mm : MinMax::range()) {
++      sdc_->capacitanceLimit(pin, mm, value, exists);
++      if (exists) {
++        return fail("set_max_capacitance [get_pins]");
++      }
++    }
++    sdc_->latchBorrowLimit(pin, nullptr, nullptr, value, exists);
++    if (exists) {
++      return fail("set_max_time_borrow");
++    }
++    for (const RiseFall* hi_low : RiseFall::range()) {
++      sdc_->minPulseWidth(pin, nullptr, hi_low, value, exists);
++      if (exists) {
++        return fail("set_min_pulse_width");
++      }
++    }
++    if (sdc_->clkStopPropagation(pin, nullptr)) {
++      return fail("set_clock_sense -stop_propagation");
++    }
++    for (const Clock* clk : sdc_->clocks()) {
++      if (sdc_->clkStopPropagation(pin, clk)) {
++        return fail("set_clock_sense -stop_propagation");
++      }
++    }
++    const Net* net = network_->net(pin);
++    if (net != nullptr) {
++      if (sdc_->hasNetWireCap(net)) {
++        return fail("set_load [get_nets]");
++      }
++      for (const MinMax* mm : MinMax::range()) {
++        sdc_->voltage(net, mm, value, exists);
++        if (exists) {
++          return fail("set_voltage [get_nets]");
++        }
++      }
++      if (!checkNetDerating(pin, "set_timing_derate [get_nets]")) {
++        return false;
++      }
++    }
++    return true;
++  }
++
++  dbSta* sta_;
++  dbNetwork* network_;
++  Sdc* sdc_;
++  std::string offender_;
++};
++
++////////////////////////////////////////////////////////////////
++// sta::writeSdc only writes to a named file, so the text goes through a
++// temporary one until an ostream overload exists upstream in OpenSTA.
++//
++// utl::ScopedTemporaryFile is not usable here: it hands out only a FILE*
++// (its path is private and hard-wired under /tmp), and it logs an INFO
++// line on every construction, which write_db must not do. This is the
++// same mkstemp discipline without either.
++
++class TempSdcFile
++{
++ public:
++  TempSdcFile()
++  {
++    std::string pattern
++        = (std::filesystem::temp_directory_path() / "openroad-sdc-XXXXXX")
++              .string();
++    const int fd = ::mkstemp(pattern.data());
++    if (fd < 0) {
++      throw std::runtime_error("could not create a temporary .sdc file");
++    }
++    ::close(fd);
++    path_ = pattern;
++  }
++  ~TempSdcFile()
++  {
++    std::error_code ec;
++    std::filesystem::remove(path_, ec);
++  }
++  TempSdcFile(const TempSdcFile&) = delete;
++  TempSdcFile& operator=(const TempSdcFile&) = delete;
++
++  const std::filesystem::path& path() const { return path_; }
++
++  std::string read() const
++  {
++    std::ifstream in(path_, std::ios::binary);
++    if (!in) {
++      return {};
++    }
++    std::ostringstream buf;
++    buf << in.rdbuf();
++    return buf.str();
++  }
++
++ private:
++  std::filesystem::path path_;
++};
++
++////////////////////////////////////////////////////////////////
++// Native encoder.
++//
++// One record per line, whitespace separated. Pins, instances and nets are
++// odb object ids: b<id> dbBTerm, i<id> dbITerm, m<id> dbModITerm;
++// instances are dbInst ids, nets dbNet ids. Ids are stable across
++// write_db/read_db, so restoring is a table lookup per object.
++//
++//   C name period add wave... pins...        create_clock
++//   P clk                                    set_propagated_clock (clock)
++//   U clk s|h value                          set_clock_uncertainty (clock)
++//   W clk rf mm value                        set_clock_transition
++//   L clk|- pin|- rf mm value                set_clock_latency
++//   N clk|- pin|- e|l rf mm value            set_clock_latency -source
++//   I pin clk|- r|f|- ref|- sli nli rf mm v  set_input_delay
++//   O ...                                    set_output_delay
++//   E F mma | X mm ignore break delay | M mma end mult | G default name
++//     then f rf pins clks insts / h rf pins nets insts / t rf endrf ...
++//   A pin value                              set_case_analysis
++//   V pin value                              set_logic_*
++//   K name le pe async allow groups...       set_clock_groups
++//   R f|s|c mm value                         set_max_fanout etc. on the design
++
++class NativeEncoder
++{
++ public:
++  NativeEncoder(dbSta* sta, odb::dbBlock* block, const Sdc* sdc)
++      : sta_(sta), network_(sta->getDbNetwork()), block_(block), sdc_(sdc)
++  {
++  }
++
++  // Returns the encoding, or an empty string with `offender` set if the
++  // Sdc holds something the native form does not represent.
++  std::string encode(std::string& offender)
++  {
++    out_ << kNativeHeader << '\n';
++    encodeClocks();
++    encodeClockLatencies();
++    encodeClockInsertions();
++    encodePortDelays(sdc_->inputDelays(), 'I');
++    encodePortDelays(sdc_->outputDelays(), 'O');
++    encodeExceptions();
++    encodeLogicValues(sdc_->caseLogicValues(), 'A');
++    encodeLogicValues(sdc_->logicValues(), 'V');
++    encodeClockGroups();
++    encodeLimits();
++    if (!ok_) {
++      offender = offender_;
++      return {};
++    }
++    return out_.str();
++  }
++
++ private:
++  void unsupported(std::string_view what)
++  {
++    if (ok_) {
++      ok_ = false;
++      offender_ = what;
++    }
++  }
++
++  std::string pinRef(const Pin* pin)
++  {
++    odb::dbObject* obj = network_->staToDb(pin);
++    if (obj == nullptr) {
++      unsupported("pin without an odb object");
++      return "-";
++    }
++    switch (obj->getObjectType()) {
++      case odb::dbBTermObj:
++        return "b" + std::to_string(obj->getId());
++      case odb::dbITermObj:
++        return "i" + std::to_string(obj->getId());
++      case odb::dbModITermObj:
++        return "m" + std::to_string(obj->getId());
++      default:
++        unsupported("pin of unsupported odb type");
++        return "-";
++    }
++  }
++
++  std::string instRef(const Instance* inst)
++  {
++    odb::dbInst* db_inst = nullptr;
++    odb::dbModInst* mod_inst = nullptr;
++    network_->staToDb(inst, db_inst, mod_inst);
++    if (db_inst == nullptr) {
++      unsupported("hierarchical instance in an exception");
++      return "-";
++    }
++    return std::to_string(db_inst->getId());
++  }
++
++  std::string netRef(const Net* net)
++  {
++    odb::dbNet* db_net = nullptr;
++    odb::dbModNet* mod_net = nullptr;
++    network_->staToDb(net, db_net, mod_net);
++    if (db_net == nullptr) {
++      unsupported("hierarchical net in an exception");
++      return "-";
++    }
++    return std::to_string(db_net->getId());
++  }
++
++  void writePins(const PinSet* pins)
++  {
++    out_ << ' ' << (pins ? pins->size() : 0);
++    if (pins) {
++      for (const Pin* pin : *pins) {
++        out_ << ' ' << pinRef(pin);
++      }
++    }
++  }
++
++  void writeClocks(const ClockSet* clks)
++  {
++    out_ << ' ' << (clks ? clks->size() : 0);
++    if (clks) {
++      for (const Clock* clk : *clks) {
++        out_ << ' ' << encodeString(clk->name());
++      }
++    }
++  }
++
++  void writeInstances(const InstanceSet* insts)
++  {
++    out_ << ' ' << (insts ? insts->size() : 0);
++    if (insts) {
++      for (const Instance* inst : *insts) {
++        out_ << ' ' << instRef(inst);
++      }
++    }
++  }
++
++  void writeNets(const NetSet* nets)
++  {
++    out_ << ' ' << (nets ? nets->size() : 0);
++    if (nets) {
++      for (const Net* net : *nets) {
++        out_ << ' ' << netRef(net);
++      }
++    }
++  }
++
++  // One record per existing rise/fall x min/max value, so the restore
++  // side sets exactly the values that were set.
++  template <typename WritePrefix>
++  void writeRiseFallMinMax(const RiseFallMinMax* values, WritePrefix prefix)
++  {
++    for (const RiseFall* rf : RiseFall::range()) {
++      for (const MinMax* mm : MinMax::range()) {
++        float value;
++        bool exists;
++        values->value(rf, mm, value, exists);
++        if (exists) {
++          prefix();
++          out_ << ' ' << (rf == RiseFall::rise() ? 'r' : 'f') << ' '
++               << (mm == MinMax::min() ? 'n' : 'x') << ' ' << encodeFloat(value)
++               << '\n';
++        }
++      }
++    }
++  }
++
++  void encodeClocks()
++  {
++    for (Clock* clk : sdc_->clocks()) {
++      if (clk->isGenerated()) {
++        unsupported("create_generated_clock");
++        return;
++      }
++      if (!clk->comment().empty()) {
++        unsupported("create_clock -comment");
++        return;
++      }
++      out_ << "C " << encodeString(clk->name()) << ' '
++           << encodeFloat(clk->period()) << ' ' << (clk->addToPins() ? 1 : 0)
++           << ' ' << clk->waveform().size();
++      for (const float edge : clk->waveform()) {
++        out_ << ' ' << encodeFloat(edge);
++      }
++      writePins(&clk->pins());
++      out_ << '\n';
++
++      for (const RiseFall* rf : RiseFall::range()) {
++        for (const MinMax* mm : MinMax::range()) {
++          float slew;
++          bool exists;
++          clk->slew(rf, mm, slew, exists);
++          if (exists) {
++            out_ << "W " << encodeString(clk->name()) << ' '
++                 << (rf == RiseFall::rise() ? 'r' : 'f') << ' '
++                 << (mm == MinMax::min() ? 'n' : 'x') << ' '
++                 << encodeFloat(slew) << '\n';
++          }
++        }
++      }
++      for (const MinMax* setup_hold : MinMax::range()) {
++        float value;
++        bool exists;
++        clk->uncertainty(setup_hold, value, exists);
++        if (exists) {
++          out_ << "U " << encodeString(clk->name()) << ' '
++               << (setup_hold == MinMax::max() ? 's' : 'h') << ' '
++               << encodeFloat(value) << '\n';
++        }
++      }
++      if (clk->isPropagated()) {
++        out_ << "P " << encodeString(clk->name()) << '\n';
++      }
++    }
++  }
++
++  void writeClockPinKey(const Clock* clk, const Pin* pin)
++  {
++    out_ << ' ' << (clk ? encodeString(clk->name()) : "-") << ' '
++         << (pin ? pinRef(pin) : "-");
++  }
++
++  void encodeClockLatencies()
++  {
++    for (ClockLatency* latency : *sdc_->clockLatencies()) {
++      writeRiseFallMinMax(latency->delays(), [&] {
++        out_ << 'L';
++        writeClockPinKey(latency->clock(), latency->pin());
++      });
++    }
++  }
++
++  void encodeClockInsertions()
++  {
++    for (ClockInsertion* insertion : sdc_->clockInsertions()) {
++      for (const EarlyLate* early_late : EarlyLate::range()) {
++        writeRiseFallMinMax(insertion->delays(early_late), [&] {
++          out_ << 'N';
++          writeClockPinKey(insertion->clock(), insertion->pin());
++          out_ << ' ' << (early_late == EarlyLate::early() ? 'e' : 'l');
++        });
++      }
++    }
++  }
++
++  // The Sdc keeps these in pointer-ordered sets; the record must not
++  // depend on where the heap put things, so walk them by object id.
++  template <typename PortDelaySet>
++  void encodePortDelays(const PortDelaySet& delays, char record)
++  {
++    std::vector<PortDelay*> sorted(delays.begin(), delays.end());
++    std::sort(sorted.begin(), sorted.end(), [&](PortDelay* a, PortDelay* b) {
++      return portDelayKey(a) < portDelayKey(b);
++    });
++    for (PortDelay* delay : sorted) {
++      const ClockEdge* clk_edge = delay->clkEdge();
++      writeRiseFallMinMax(delay->delays(), [&] {
++        out_ << record << ' ' << pinRef(delay->pin()) << ' ';
++        if (clk_edge) {
++          out_ << encodeString(clk_edge->clock()->name()) << ' '
++               << (clk_edge->transition() == RiseFall::rise() ? 'r' : 'f');
++        } else {
++          out_ << "- -";
++        }
++        out_ << ' ' << (delay->refPin() ? pinRef(delay->refPin()) : "-") << ' '
++             << (delay->sourceLatencyIncluded() ? 1 : 0) << ' '
++             << (delay->networkLatencyIncluded() ? 1 : 0);
++      });
++    }
++  }
++
++  std::tuple<ObjectId, int, int, ObjectId> portDelayKey(PortDelay* delay)
++  {
++    const ClockEdge* clk_edge = delay->clkEdge();
++    return {network_->id(delay->pin()),
++            clk_edge ? clk_edge->clock()->index() : -1,
++            clk_edge ? clk_edge->transition()->index() : -1,
++            delay->refPin() ? network_->id(delay->refPin()) : 0};
++  }
++
++  void encodeExceptions()
++  {
++    // Same order write_sdc uses: by kind, then by the objects named.
++    std::vector<ExceptionPath*> sorted;
++    for (ExceptionPath* exception : sdc_->exceptions()) {
++      if (exception->isFilter() || exception->isLoop()) {
++        continue;  // write_sdc skips these too: they are search state.
++      }
++      sorted.push_back(exception);
++    }
++    std::sort(sorted.begin(), sorted.end(), ExceptionPathLess(network_));
++    for (ExceptionPath* exception : sorted) {
++      if (!exception->comment().empty()) {
++        unsupported("exception -comment");
++        return;
++      }
++      out_ << "E ";
++      if (exception->isFalse()) {
++        out_ << "F " << encodeMinMaxAll(exception->minMax());
++      } else if (exception->isPathDelay()) {
++        out_ << "X " << encodeMinMaxAll(exception->minMax()) << ' '
++             << (exception->ignoreClkLatency() ? 1 : 0) << ' '
++             << (exception->breakPath() ? 1 : 0) << ' '
++             << encodeFloat(exception->delay());
++      } else if (exception->isMultiCycle()) {
++        out_ << "M " << encodeMinMaxAll(exception->minMax()) << ' '
++             << (exception->useEndClk() ? 1 : 0) << ' '
++             << exception->pathMultiplier();
++      } else if (exception->isGroupPath()) {
++        out_ << "G " << (exception->isDefault() ? 1 : 0) << ' '
++             << encodeString(exception->name());
++      } else {
++        unsupported(exception->typeString());
++        return;
++      }
++      if (ExceptionFrom* from = exception->from()) {
++        out_ << " f " << encodeRiseFallBoth(from->transition());
++        writePins(from->pins());
++        writeClocks(from->clks());
++        writeInstances(from->instances());
++      }
++      if (exception->thrus()) {
++        for (ExceptionThru* thru : *exception->thrus()) {
++          out_ << " h " << encodeRiseFallBoth(thru->transition());
++          writePins(thru->pins());
++          writeNets(thru->nets());
++          writeInstances(thru->instances());
++        }
++      }
++      if (ExceptionTo* to = exception->to()) {
++        out_ << " t " << encodeRiseFallBoth(to->transition()) << ' '
++             << encodeRiseFallBoth(to->endTransition());
++        writePins(to->pins());
++        writeClocks(to->clks());
++        writeInstances(to->instances());
++      }
++      out_ << '\n';
++    }
++  }
++
++  void encodeLogicValues(const LogicValueMap& values, char record)
++  {
++    std::vector<std::pair<const Pin*, LogicValue>> sorted(values.begin(),
++                                                          values.end());
++    std::sort(sorted.begin(), sorted.end(), [&](const auto& a, const auto& b) {
++      return network_->id(a.first) < network_->id(b.first);
++    });
++    for (const auto& [pin, value] : sorted) {
++      out_ << record << ' ' << pinRef(pin) << ' '
++           << static_cast<unsigned>(value) << '\n';
++    }
++  }
++
++  void encodeClockGroups()
++  {
++    for (const auto& [name, clk_groups] : sdc_->clockGroupsNameMap()) {
++      if (!clk_groups->comment().empty()) {
++        unsupported("set_clock_groups -comment");
++        return;
++      }
++      out_ << "K " << encodeString(clk_groups->name()) << ' '
++           << (clk_groups->logicallyExclusive() ? 1 : 0) << ' '
++           << (clk_groups->physicallyExclusive() ? 1 : 0) << ' '
++           << (clk_groups->asynchronous() ? 1 : 0) << ' '
++           << (clk_groups->allowPaths() ? 1 : 0) << ' '
++           << clk_groups->groups()->size();
++      for (ClockGroup* group : *clk_groups->groups()) {
++        writeClocks(group);
++      }
++      out_ << '\n';
++    }
++  }
++
++  void encodeLimits()
++  {
++    Cell* top = network_->cell(network_->topInstance());
++    for (const MinMax* mm : MinMax::range()) {
++      float value;
++      bool exists;
++      sdc_->fanoutLimit(top, mm, value, exists);
++      if (exists) {
++        writeLimit('f', mm, value);
++      }
++      sdc_->slewLimit(top, mm, value, exists);
++      if (exists) {
++        writeLimit('s', mm, value);
++      }
++      sdc_->capacitanceLimit(top, mm, value, exists);
++      if (exists) {
++        writeLimit('c', mm, value);
++      }
++    }
++  }
++
++  void writeLimit(char which, const MinMax* mm, float value)
++  {
++    out_ << "R " << which << ' ' << (mm == MinMax::min() ? 'n' : 'x') << ' '
++         << encodeFloat(value) << '\n';
++  }
++
++  dbSta* sta_;
++  dbNetwork* network_;
++  odb::dbBlock* block_;
++  const Sdc* sdc_;
++  std::ostringstream out_;
++  bool ok_ = true;
++  std::string offender_;
++};
++
++////////////////////////////////////////////////////////////////
++// Native decoder.
++
++std::vector<std::string_view> tokenize(std::string_view line)
++{
++  std::vector<std::string_view> tokens;
++  size_t i = 0;
++  while (i < line.size()) {
++    while (i < line.size()
++           && std::isspace(static_cast<unsigned char>(line[i]))) {
++      i++;
++    }
++    const size_t start = i;
++    while (i < line.size()
++           && !std::isspace(static_cast<unsigned char>(line[i]))) {
++      i++;
++    }
++    if (i > start) {
++      tokens.push_back(line.substr(start, i - start));
++    }
++  }
++  return tokens;
++}
++
++class ParseError : public std::exception
++{
++ public:
++  explicit ParseError(std::string what) : what_(std::move(what)) {}
++  const char* what() const noexcept override { return what_.c_str(); }
++
++ private:
++  std::string what_;
++};
++
++class Tokens
++{
++ public:
++  explicit Tokens(std::string_view line) : tokens_(tokenize(line)) {}
++
++  bool done() const { return next_ >= tokens_.size(); }
++  std::string_view peek() const
++  {
++    if (done()) {
++      throw ParseError("truncated record");
++    }
++    return tokens_[next_];
++  }
++  std::string_view next()
++  {
++    std::string_view token = peek();
++    next_++;
++    return token;
++  }
++  char nextChar() { return next()[0]; }
++  int nextInt() { return std::stoi(std::string(next())); }
++  size_t nextCount() { return static_cast<size_t>(nextInt()); }
++  float nextFloat()
++  {
++    return static_cast<float>(
++        std::strtod(std::string(next()).c_str(), nullptr));
++  }
++  std::string nextString() { return decodeString(next()); }
++
++ private:
++  std::vector<std::string_view> tokens_;
++  size_t next_ = 0;
++};
++
++class NativeDecoder
++{
++ public:
++  NativeDecoder(dbSta* sta, odb::dbBlock* block)
++      : sta_(sta),
++        network_(sta->getDbNetwork()),
++        block_(block),
++        sdc_(sta->cmdSdc()),
++        mode_(sta->cmdMode())
++  {
++  }
++
++  void decode(const std::string& text)
++  {
++    std::istringstream in(text);
++    std::string line;
++    if (!std::getline(in, line) || line != kNativeHeader) {
++      throw ParseError("unrecognized header");
++    }
++    while (std::getline(in, line)) {
++      if (line.empty()) {
++        continue;
++      }
++      Tokens tokens(line);
++      const char record = tokens.nextChar();
++      switch (record) {
++        case 'C':
++          decodeClock(tokens);
++          break;
++        case 'P':
++          sta_->setPropagatedClock(clock(tokens.nextString()), mode_);
++          break;
++        case 'U': {
++          Clock* clk = clock(tokens.nextString());
++          const MinMaxAll* setup_hold
++              = tokens.nextChar() == 's' ? MinMaxAll::max() : MinMaxAll::min();
++          sta_->setClockUncertainty(clk, setup_hold, tokens.nextFloat());
++          break;
++        }
++        case 'W': {
++          Clock* clk = clock(tokens.nextString());
++          const RiseFallBoth* rf = riseFallBoth(tokens.nextChar());
++          const MinMaxAll* mm = minMaxAll(tokens.nextChar());
++          sta_->setClockSlew(clk, rf, mm, tokens.nextFloat(), sdc_);
++          break;
++        }
++        case 'L': {
++          Clock* clk = optionalClock(tokens.next());
++          Pin* pin = optionalPin(tokens.next());
++          const RiseFallBoth* rf = riseFallBoth(tokens.nextChar());
++          const MinMaxAll* mm = minMaxAll(tokens.nextChar());
++          sta_->setClockLatency(clk, pin, rf, mm, tokens.nextFloat(), sdc_);
++          break;
++        }
++        case 'N': {
++          Clock* clk = optionalClock(tokens.next());
++          Pin* pin = optionalPin(tokens.next());
++          const EarlyLateAll* early_late = tokens.nextChar() == 'e'
++                                               ? MinMaxAll::early()
++                                               : MinMaxAll::late();
++          const RiseFallBoth* rf = riseFallBoth(tokens.nextChar());
++          const MinMaxAll* mm = minMaxAll(tokens.nextChar());
++          sta_->setClockInsertion(
++              clk, pin, rf, mm, early_late, tokens.nextFloat(), sdc_);
++          break;
++        }
++        case 'I':
++        case 'O':
++          decodePortDelay(tokens, record == 'I');
++          break;
++        case 'E':
++          decodeException(tokens);
++          break;
++        case 'A': {
++          Pin* pin = pin_(tokens.next());
++          sta_->setCaseAnalysis(
++              pin, static_cast<LogicValue>(tokens.nextInt()), mode_);
++          break;
++        }
++        case 'V': {
++          Pin* pin = pin_(tokens.next());
++          sta_->setLogicValue(
++              pin, static_cast<LogicValue>(tokens.nextInt()), mode_);
++          break;
++        }
++        case 'K':
++          decodeClockGroups(tokens);
++          break;
++        case 'R':
++          decodeLimit(tokens);
++          break;
++        default:
++          throw ParseError("unknown record type");
++      }
++      if (!tokens.done()) {
++        throw ParseError("trailing tokens in record");
++      }
++    }
++  }
++
++ private:
++  Clock* clock(const std::string& name)
++  {
++    Clock* clk = sdc_->findClock(name);
++    if (clk == nullptr) {
++      throw ParseError("unknown clock " + name);
++    }
++    return clk;
++  }
++
++  Clock* optionalClock(std::string_view token)
++  {
++    return token == "-" ? nullptr : clock(decodeString(token));
++  }
++
++  Pin* pin_(std::string_view ref)
++  {
++    if (ref.size() < 2) {
++      throw ParseError("malformed pin reference");
++    }
++    const uint32_t id = static_cast<uint32_t>(
++        std::strtoul(std::string(ref.substr(1)).c_str(), nullptr, 10));
++    Pin* pin = nullptr;
++    switch (ref[0]) {
++      case 'b':
++        if (odb::dbBTerm* bterm = odb::dbBTerm::getBTerm(block_, id)) {
++          pin = network_->dbToSta(bterm);
++        }
++        break;
++      case 'i':
++        if (odb::dbITerm* iterm = odb::dbITerm::getITerm(block_, id)) {
++          pin = network_->dbToSta(iterm);
++        }
++        break;
++      case 'm':
++        if (odb::dbModITerm* moditerm
++            = odb::dbModITerm::getModITerm(block_, id)) {
++          pin = network_->dbToSta(moditerm);
++        }
++        break;
++      default:
++        break;
++    }
++    if (pin == nullptr) {
++      throw ParseError("no pin for reference " + std::string(ref));
++    }
++    return pin;
++  }
++
++  Pin* optionalPin(std::string_view token)
++  {
++    return token == "-" ? nullptr : pin_(token);
++  }
++
++  Instance* instance(std::string_view ref)
++  {
++    const uint32_t id = static_cast<uint32_t>(
++        std::strtoul(std::string(ref).c_str(), nullptr, 10));
++    odb::dbInst* inst = odb::dbInst::getInst(block_, id);
++    if (inst == nullptr) {
++      throw ParseError("no instance for reference " + std::string(ref));
++    }
++    return network_->dbToSta(inst);
++  }
++
++  Net* net(std::string_view ref)
++  {
++    const uint32_t id = static_cast<uint32_t>(
++        std::strtoul(std::string(ref).c_str(), nullptr, 10));
++    odb::dbNet* db_net = odb::dbNet::getNet(block_, id);
++    if (db_net == nullptr) {
++      throw ParseError("no net for reference " + std::string(ref));
++    }
++    return network_->dbToSta(db_net);
++  }
++
++  static const RiseFallBoth* riseFallBoth(char c)
++  {
++    return decodeRiseFallBoth(c);
++  }
++  static const MinMaxAll* minMaxAll(char c) { return decodeMinMaxAll(c); }
++
++  // Sets are handed to the Sta makers, which take ownership; an empty
++  // set is passed as nullptr, as the Tcl layer does.
++  PinSet* readPins(Tokens& tokens)
++  {
++    const size_t count = tokens.nextCount();
++    if (count == 0) {
++      return nullptr;
++    }
++    PinSet* pins = new PinSet(network_);
++    for (size_t i = 0; i < count; i++) {
++      pins->insert(pin_(tokens.next()));
++    }
++    return pins;
++  }
++
++  ClockSet* readClocks(Tokens& tokens)
++  {
++    const size_t count = tokens.nextCount();
++    if (count == 0) {
++      return nullptr;
++    }
++    ClockSet* clks = new ClockSet;
++    for (size_t i = 0; i < count; i++) {
++      clks->insert(clock(tokens.nextString()));
++    }
++    return clks;
++  }
++
++  InstanceSet* readInstances(Tokens& tokens)
++  {
++    const size_t count = tokens.nextCount();
++    if (count == 0) {
++      return nullptr;
++    }
++    InstanceSet* insts = new InstanceSet(network_);
++    for (size_t i = 0; i < count; i++) {
++      insts->insert(instance(tokens.next()));
++    }
++    return insts;
++  }
++
++  NetSet* readNets(Tokens& tokens)
++  {
++    const size_t count = tokens.nextCount();
++    if (count == 0) {
++      return nullptr;
++    }
++    NetSet* nets = new NetSet(network_);
++    for (size_t i = 0; i < count; i++) {
++      nets->insert(net(tokens.next()));
++    }
++    return nets;
++  }
++
++  void decodeClock(Tokens& tokens)
++  {
++    const std::string name = tokens.nextString();
++    const float period = tokens.nextFloat();
++    const bool add_to_pins = tokens.nextInt() != 0;
++    FloatSeq waveform;
++    const size_t edges = tokens.nextCount();
++    for (size_t i = 0; i < edges; i++) {
++      waveform.push_back(tokens.nextFloat());
++    }
++    PinSet pins(network_);
++    const size_t count = tokens.nextCount();
++    for (size_t i = 0; i < count; i++) {
++      pins.insert(pin_(tokens.next()));
++    }
++    sta_->makeClock(name, pins, add_to_pins, period, waveform, "", mode_);
++  }
++
++  void decodePortDelay(Tokens& tokens, bool is_input)
++  {
++    Pin* pin = pin_(tokens.next());
++    Clock* clk = optionalClock(tokens.next());
++    const char clk_rf_char = tokens.nextChar();
++    const RiseFall* clk_rf = clk_rf_char == 'r'   ? RiseFall::rise()
++                             : clk_rf_char == 'f' ? RiseFall::fall()
++                                                  : nullptr;
++    Pin* ref_pin = optionalPin(tokens.next());
++    const bool source_latency_included = tokens.nextInt() != 0;
++    const bool network_latency_included = tokens.nextInt() != 0;
++    const RiseFallBoth* rf = riseFallBoth(tokens.nextChar());
++    const MinMaxAll* mm = minMaxAll(tokens.nextChar());
++    const float delay = tokens.nextFloat();
++    // write_sdc emits every delay with -add_delay, and read_sdc keeps them
++    // all; restoring into a fresh Sdc with add=true does the same.
++    if (is_input) {
++      sta_->setInputDelay(pin,
++                          rf,
++                          clk,
++                          clk_rf,
++                          ref_pin,
++                          source_latency_included,
++                          network_latency_included,
++                          mm,
++                          true,
++                          delay,
++                          sdc_);
++    } else {
++      sta_->setOutputDelay(pin,
++                           rf,
++                           clk,
++                           clk_rf,
++                           ref_pin,
++                           source_latency_included,
++                           network_latency_included,
++                           mm,
++                           true,
++                           delay,
++                           sdc_);
++    }
++  }
++
++  void decodeException(Tokens& tokens)
++  {
++    const char kind = tokens.nextChar();
++    const MinMaxAll* min_max = MinMaxAll::all();
++    bool ignore_clk_latency = false;
++    bool break_path = false;
++    float delay = 0.0;
++    bool use_end_clk = false;
++    int path_multiplier = 0;
++    bool is_default = false;
++    std::string name;
++    switch (kind) {
++      case 'F':
++        min_max = minMaxAll(tokens.nextChar());
++        break;
++      case 'X':
++        min_max = minMaxAll(tokens.nextChar());
++        ignore_clk_latency = tokens.nextInt() != 0;
++        break_path = tokens.nextInt() != 0;
++        delay = tokens.nextFloat();
++        break;
++      case 'M':
++        min_max = minMaxAll(tokens.nextChar());
++        use_end_clk = tokens.nextInt() != 0;
++        path_multiplier = tokens.nextInt();
++        break;
++      case 'G':
++        is_default = tokens.nextInt() != 0;
++        name = tokens.nextString();
++        break;
++      default:
++        throw ParseError("unknown exception kind");
++    }
++
++    ExceptionFrom* from = nullptr;
++    ExceptionThruSeq* thrus = nullptr;
++    ExceptionTo* to = nullptr;
++    while (!tokens.done()) {
++      const char pt = tokens.nextChar();
++      const RiseFallBoth* rf = riseFallBoth(tokens.nextChar());
++      if (pt == 'f') {
++        PinSet* pins = readPins(tokens);
++        ClockSet* clks = readClocks(tokens);
++        InstanceSet* insts = readInstances(tokens);
++        from = sta_->makeExceptionFrom(pins, clks, insts, rf, sdc_);
++      } else if (pt == 'h') {
++        PinSet* pins = readPins(tokens);
++        NetSet* nets = readNets(tokens);
++        InstanceSet* insts = readInstances(tokens);
++        if (thrus == nullptr) {
++          thrus = new ExceptionThruSeq;
++        }
++        thrus->push_back(sta_->makeExceptionThru(pins, nets, insts, rf, sdc_));
++      } else if (pt == 't') {
++        const RiseFallBoth* end_rf = riseFallBoth(tokens.nextChar());
++        PinSet* pins = readPins(tokens);
++        ClockSet* clks = readClocks(tokens);
++        InstanceSet* insts = readInstances(tokens);
++        to = sta_->makeExceptionTo(pins, clks, insts, rf, end_rf, sdc_);
++      } else {
++        throw ParseError("unknown exception point");
++      }
++    }
++
++    switch (kind) {
++      case 'F':
++        sta_->makeFalsePath(from, thrus, to, min_max, "", sdc_);
++        break;
++      case 'X':
++        sta_->makePathDelay(
++            from,
++            thrus,
++            to,
++            min_max == MinMaxAll::min() ? MinMax::min() : MinMax::max(),
++            ignore_clk_latency,
++            break_path,
++            delay,
++            "",
++            sdc_);
++        break;
++      case 'M':
++        sta_->makeMulticyclePath(
++            from, thrus, to, min_max, use_end_clk, path_multiplier, "", sdc_);
++        break;
++      case 'G':
++        sta_->makeGroupPath(name, is_default, from, thrus, to, "", sdc_);
++        break;
++    }
++  }
++
++  void decodeClockGroups(Tokens& tokens)
++  {
++    const std::string name = tokens.nextString();
++    const bool logically_exclusive = tokens.nextInt() != 0;
++    const bool physically_exclusive = tokens.nextInt() != 0;
++    const bool asynchronous = tokens.nextInt() != 0;
++    const bool allow_paths = tokens.nextInt() != 0;
++    ClockGroups* clk_groups = sta_->makeClockGroups(name,
++                                                    logically_exclusive,
++                                                    physically_exclusive,
++                                                    asynchronous,
++                                                    allow_paths,
++                                                    "",
++                                                    sdc_);
++    const size_t groups = tokens.nextCount();
++    for (size_t i = 0; i < groups; i++) {
++      ClockSet* clks = readClocks(tokens);
++      if (clks == nullptr) {
++        clks = new ClockSet;
++      }
++      sta_->makeClockGroup(clk_groups, clks, sdc_);
++    }
++  }
++
++  void decodeLimit(Tokens& tokens)
++  {
++    const char which = tokens.nextChar();
++    const MinMax* mm = tokens.nextChar() == 'n' ? MinMax::min() : MinMax::max();
++    const float value = tokens.nextFloat();
++    Cell* top = network_->cell(network_->topInstance());
++    switch (which) {
++      case 'f':
++        sta_->setFanoutLimit(top, mm, value, sdc_);
++        break;
++      case 's':
++        sta_->setSlewLimit(top, mm, value, sdc_);
++        break;
++      case 'c':
++        sta_->setCapacitanceLimit(top, mm, value, sdc_);
++        break;
++      default:
++        throw ParseError("unknown design limit");
++    }
++  }
++
++  dbSta* sta_;
++  dbNetwork* network_;
++  odb::dbBlock* block_;
++  Sdc* sdc_;
++  Mode* mode_;
++};
++
++void setProperty(odb::dbBlock* block,
++                 const char* name,
++                 const std::string& value)
++{
++  if (odb::dbProperty* existing = odb::dbProperty::find(block, name)) {
++    odb::dbProperty::destroy(existing);
++  }
++  if (!value.empty()) {
++    odb::dbStringProperty::create(block, name, value.c_str());
++  }
++}
++
++}  // namespace
++
++////////////////////////////////////////////////////////////////
++
++void SdcInDb::save(dbSta* sta, odb::dbBlock* block)
++{
++  utl::Logger* logger = sta->getLogger();
++  Network* network = sta->getDbNetwork();
++  // A pure-odb flow (no liberty, no linked network) has no constraints to
++  // save. Skip quietly: write_db must behave exactly as it did before for
++  // the flows that never had constraints in the first place.
++  if (!network->isLinked() || network->defaultLibertyLibrary() == nullptr) {
++    return;
++  }
++  Sdc* sdc = sta->cmdSdc();
++  if (sdc == nullptr) {
++    return;
++  }
++
++  // Decide from the Sdc itself whether the native form covers it. Only
++  // when it does not is write_sdc run, for the text payload.
++  std::string native;
++  std::string offender;
++  Coverage coverage(sta, sdc);
++  if (coverage.check(offender)) {
++    NativeEncoder encoder(sta, block, sdc);
++    native = encoder.encode(offender);
++    if (native == std::string(kNativeHeader) + "\n") {
++      // A linked design with no constraints at all. Store nothing, so
++      // read_db -sdc reports that the .odb carries none and a flow falls
++      // back to its .sdc file.
++      setProperty(block, kNativeProperty, {});
++      setProperty(block, kTextProperty, {});
++      return;
++    }
++  }
++
++  std::string text;
++  if (native.empty()) {
++    debugPrint(logger,
++               utl::STA,
++               "sdc_in_db",
++               1,
++               "storing constraints as text: native form does not cover: {}",
++               offender);
++    try {
++      TempSdcFile temp;
++      sta->writeSdc(sdc,
++                    temp.path().string(),
++                    /* leaf */ false,
++                    /* native */ true,
++                    /* digits */ 4,
++                    /* gzip */ false,
++                    /* no_timestamp */ true);
++      text = temp.read();
++    } catch (const std::exception& e) {
++      // Capturing constraints must never break write_db. A flow that
++      // cannot write its constraints still gets the same .odb it got
++      // before.
++      logger->warn(utl::STA,
++                   3008,
++                   "could not store timing constraints in the database: {}",
++                   e.what());
++      return;
++    }
++    if (text.empty()) {
++      return;
++    }
++  }
++
++  setProperty(block, kNativeProperty, native);
++  setProperty(block, kTextProperty, text);
++}
++
++SdcInDb::Kind SdcInDb::kind(odb::dbBlock* block)
++{
++  if (block == nullptr) {
++    return Kind::kNone;
++  }
++  if (odb::dbStringProperty::find(block, kNativeProperty) != nullptr) {
++    return Kind::kNative;
++  }
++  if (odb::dbStringProperty::find(block, kTextProperty) != nullptr) {
++    return Kind::kText;
++  }
++  return Kind::kNone;
++}
++
++const char* SdcInDb::kindName(Kind kind)
++{
++  switch (kind) {
++    case Kind::kNative:
++      return "native";
++    case Kind::kText:
++      return "text";
++    case Kind::kNone:
++      break;
++  }
++  return "none";
++}
++
++SdcInDb::Kind SdcInDb::restore(dbSta* sta, odb::dbBlock* block)
++{
++  utl::Logger* logger = sta->getLogger();
++  const Kind found = kind(block);
++  switch (found) {
++    case Kind::kNone:
++      break;
++    case Kind::kNative: {
++      const std::string text
++          = odb::dbStringProperty::find(block, kNativeProperty)->getValue();
++      try {
++        NativeDecoder decoder(sta, block);
++        decoder.decode(text);
++      } catch (const ParseError& e) {
++        logger->error(utl::STA,
++                      3010,
++                      "the timing constraints stored in the database could "
++                      "not be restored: {}",
++                      e.what());
++      }
++      break;
++    }
++    case Kind::kText: {
++      // read_sdc is `source`; the stored text is replayed the same way so
++      // that every sdc command goes through exactly the code path it would
++      // have taken had the constraints been read from a file.
++      const std::string text
++          = odb::dbStringProperty::find(block, kTextProperty)->getValue();
++      Tcl_Interp* interp = sta->tclInterp();
++      if (Tcl_Eval(interp, text.c_str()) != TCL_OK) {
++        logger->error(utl::STA,
++                      3009,
++                      "error replaying the timing constraints stored in the "
++                      "database: {}",
++                      Tcl_GetStringResult(interp));
++      }
++      break;
++    }
++  }
++  if (found != Kind::kNone) {
++    logger->info(utl::STA,
++                 3011,
++                 "Restored the timing constraints stored in the database "
++                 "({} form).",
++                 kindName(found));
++  }
++  return found;
++}
++
++}  // namespace sta
+diff --git a/src/dbSta/src/dbSdcInDb.hh b/src/dbSta/src/dbSdcInDb.hh
+new file mode 100644
+index 0000000000..23cf44e736
+--- /dev/null
++++ b/src/dbSta/src/dbSdcInDb.hh
+@@ -0,0 +1,69 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026-2026, The OpenROAD Authors
++
++#pragma once
++
++#include <string>
++
++namespace odb {
++class dbBlock;
++}
++
++namespace sta {
++
++class dbSta;
++
++// Timing constraints stored in the .odb.
++//
++// .odb already subsumes the netlist, tech, placement, routing and even
++// dont_touch. Timing constraints are the conspicuous omission, so a flow
++// must carry a matching .sdc next to every .odb and then work out which
++// .sdc goes with which .odb -- a guess that can be wrong. Storing the
++// constraints in the block makes an .odb self-describing.
++//
++// Two encodings live under block properties, and a block carries at most
++// one of them:
++//
++//   sta.sdc.native  A line-oriented record of the Sdc where every pin,
++//                   instance and net is an odb object id. Restoring it is
++//                   a linear walk that calls the Sta constraint makers
++//                   directly: no Tcl, no name lookup, no pattern match.
++//                   This is what a flow pays at every stage boundary, so
++//                   it is the form that has to be fast.
++//
++//   sta.sdc         The write_sdc text, replayed through the Tcl
++//                   interpreter. Used only when the Sdc holds a construct
++//                   the native encoder does not cover, so nothing is ever
++//                   silently dropped: whatever write_sdc can say, the
++//                   .odb can carry.
++//
++// Both payloads are opaque to odb (plain string properties), so no
++// odb -> sta dependency is created, and an OpenROAD that predates this
++// reads the .odb unchanged -- odb serializes properties it does not
++// interpret and ignores them.
++class SdcInDb
++{
++ public:
++  enum class Kind
++  {
++    kNone,
++    kNative,
++    kText
++  };
++
++  // Store the current constraints in the block. A block without a linked,
++  // constrained design is left untouched.
++  static void save(dbSta* sta, odb::dbBlock* block);
++  // Restore the constraints stored in the block. Returns the kind that was
++  // found; kNone means the block carries no constraints and nothing was
++  // done.
++  static Kind restore(dbSta* sta, odb::dbBlock* block);
++  // Which encoding the block carries, without restoring it.
++  static Kind kind(odb::dbBlock* block);
++  static const char* kindName(Kind kind);
++
++  static constexpr const char* kNativeProperty = "sta.sdc.native";
++  static constexpr const char* kTextProperty = "sta.sdc";
++};
++
++}  // namespace sta
+diff --git a/src/dbSta/src/dbSta.cc b/src/dbSta/src/dbSta.cc
+index 7c43ab8737..d650b0e558 100644
+--- a/src/dbSta/src/dbSta.cc
++++ b/src/dbSta/src/dbSta.cc
+@@ -17,6 +17,7 @@
+ #include <cstdint>
+ #include <cstdio>
+ #include <cstring>
++#include <filesystem>
+ #include <fstream>
+ #include <functional>
+ #include <map>
+@@ -24,6 +25,7 @@
+ #include <mutex>
+ #include <regex>
+ #include <set>
++#include <sstream>
+ #include <string>
+ #include <string_view>
+ #include <utility>
+@@ -32,6 +34,7 @@
+ #include "DmpCeffLambertWDelayCalc.hh"
+ #include "boost/json.hpp"
+ #include "boost/json/src.hpp"
++#include "dbSdcInDb.hh"
+ #include "dbSdcNetwork.hh"
+ #include "db_sta/dbNetwork.hh"
+ #include "odb/PtrSetMap.h"
+@@ -446,6 +449,38 @@ void dbSta::postRead3Dbx(odb::dbChip* chip)
+   // counts are available on demand via report_3dic_summary.
+ }
+ 
++////////////////////////////////////////////////////////////////
++// Timing constraints in odb: see dbSdcInDb.hh.
++
++void dbSta::saveSdcToDb()
++{
++  odb::dbChip* chip = db_->getChip();
++  odb::dbBlock* block = chip ? chip->getBlock() : nullptr;
++  if (block == nullptr) {
++    return;
++  }
++  SdcInDb::save(this, block);
++}
++
++bool dbSta::restoreSdcFromDb()
++{
++  odb::dbChip* chip = db_->getChip();
++  odb::dbBlock* block = chip ? chip->getBlock() : nullptr;
++  if (block == nullptr) {
++    return false;
++  }
++  return SdcInDb::restore(this, block) != SdcInDb::Kind::kNone;
++}
++
++const char* dbSta::sdcInDbKind()
++{
++  odb::dbChip* chip = db_->getChip();
++  odb::dbBlock* block = chip ? chip->getBlock() : nullptr;
++  return SdcInDb::kindName(SdcInDb::kind(block));
++}
++
++////////////////////////////////////////////////////////////////
++
+ void dbSta::postReadDb(odb::dbDatabase* db)
+ {
+   db_network_->readDbAfter(db);
+diff --git a/src/dbSta/test/BUILD b/src/dbSta/test/BUILD
+index 3214e936fb..081eb6e13d 100644
+--- a/src/dbSta/test/BUILD
++++ b/src/dbSta/test/BUILD
+@@ -91,6 +91,15 @@ ALL_TESTS = [
+     "sta3",
+     "sta4",
+     "sta5",
++    "sdc_in_db1",
++    "sdc_in_db2",
++    "sdc_in_db3",
++    "sdc_in_db4",
++    "sdc_in_db5",
++    "sdc_in_db6",
++    "sdc_in_db7",
++    "sdc_in_db8",
++    "sdc_in_db9",
+     "sta_to_db1",
+     "sta_to_db1_hier",
+     "write_sdc1",
+@@ -266,6 +275,37 @@ filegroup(
+                 "example1.def",
+                 "example1.lef",
+             ],
++            "sdc_in_db1": [
++                "hier1.sdc",
++                "hier1.v",
++            ],
++            "sdc_in_db2": [
++                "sdc_in_db.odb",
++            ],
++            "sdc_in_db3": [
++                "sdc_in_db.odb",
++            ],
++            "sdc_in_db4": [
++                "reg1.v",
++                "sdc_in_db_restore.tcl",
++            ],
++            "sdc_in_db5": [
++                "reg1.v",
++                "sdc_in_db_restore.tcl",
++            ],
++            "sdc_in_db6": [
++                "reg1.v",
++                "sdc_in_db_restore.tcl",
++            ],
++            "sdc_in_db9": [
++                "reg1.v",
++                "sdc_in_db_restore.tcl",
++            ],
++            "sdc_in_db8": [
++                "reg1.v",
++                "sdc_in_db4.sdc",
++                "sdc_in_db_rewrite.tcl",
++            ],
+             "sdc_names1": [
+                 "hier1.def",
+             ],
+diff --git a/src/dbSta/test/CMakeLists.txt b/src/dbSta/test/CMakeLists.txt
+index 213ae7fb74..a7826281f1 100644
+--- a/src/dbSta/test/CMakeLists.txt
++++ b/src/dbSta/test/CMakeLists.txt
+@@ -63,6 +63,15 @@ or_integration_tests(
+     sta3
+     sta4
+     sta5
++    sdc_in_db1
++    sdc_in_db2
++    sdc_in_db3
++    sdc_in_db4
++    sdc_in_db5
++    sdc_in_db6
++    sdc_in_db7
++    sdc_in_db8
++    sdc_in_db9
+     sta_to_db1
+     sta_to_db1_hier
+     write_sdc1
+diff --git a/src/dbSta/test/sdc_in_db1.ok b/src/dbSta/test/sdc_in_db1.ok
+new file mode 100644
+index 0000000000..4d17bde9f2
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db1.ok
+@@ -0,0 +1,26 @@
++[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
++[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
++  snl_ff2x1
++  snl_invx2
++  snl_lenqnx1
++  snl_lqx1
++  snl_mux21x1
++  snl_nand02x1
++  snl_nand02x2
++  snl_oa012x1
++  snl_or02x1
++  snl_tbufx1
++  snl_xor2x1
++stored form: native
++sdc-in-odb 1
++C clk1 0x1.5798eep-27 0 2 0x0p+0 0x1.5798eep-28 1 b1
++C clk2 0x1.5798eep-26 0 2 0x0p+0 0x1.5798eep-27 1 b2
++I b3 clk2 r - 0 0 r n 0x1.5798eep-27
++I b3 clk2 r - 0 0 r x 0x1.5798eep-27
++I b3 clk2 r - 0 0 f n 0x1.5798eep-27
++I b3 clk2 r - 0 0 f x 0x1.5798eep-27
++O b4 clk2 r - 0 0 r n 0x1.5798eep-27
++O b4 clk2 r - 0 0 r x 0x1.5798eep-27
++O b4 clk2 r - 0 0 f n 0x1.5798eep-27
++O b4 clk2 r - 0 0 f x 0x1.5798eep-27
++
+diff --git a/src/dbSta/test/sdc_in_db1.tcl b/src/dbSta/test/sdc_in_db1.tcl
+new file mode 100644
+index 0000000000..b7beec1e94
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db1.tcl
+@@ -0,0 +1,17 @@
++# write_db stores the timing constraints in the .odb, so an .odb is
++# self-describing and does not have to be paired with a .sdc by name.
++# With nothing beyond what the native form carries, that form is used:
++# every pin is an odb object id, so restoring it needs no name lookup.
++source "helpers.tcl"
++read_lef liberty1.lef
++read_liberty liberty1.lib
++read_verilog hier1.v
++link_design top
++read_sdc hier1.sdc
++
++set db_file [make_result_file sdc_in_db1.odb]
++write_db $db_file
++puts "stored form: [ord::sdc_in_db_kind]"
++
++set block [ord::get_db_block]
++puts [[odb::dbStringProperty_find $block "sta.sdc.native"] getValue]
+diff --git a/src/dbSta/test/sdc_in_db2.ok b/src/dbSta/test/sdc_in_db2.ok
+new file mode 100644
+index 0000000000..da31f30d2c
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db2.ok
+@@ -0,0 +1,33 @@
++[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
++[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
++  snl_ff2x1
++  snl_invx2
++  snl_lenqnx1
++  snl_lqx1
++  snl_mux21x1
++  snl_nand02x1
++  snl_nand02x2
++  snl_oa012x1
++  snl_or02x1
++  snl_tbufx1
++  snl_xor2x1
++[INFO STA-3011] Restored the timing constraints stored in the database (native form).
++clock clk1 period 10.000000
++clock clk2 period 20.000000
++###############################################################################
++# Created by write_sdc
++###############################################################################
++current_design top
++###############################################################################
++# Timing Constraints
++###############################################################################
++create_clock -name clk1 -period 10.0000 [get_ports {clk1}]
++create_clock -name clk2 -period 20.0000 [get_ports {clk2}]
++set_input_delay 10.0000 -clock [get_clocks {clk2}] -add_delay [get_ports {in}]
++set_output_delay 10.0000 -clock [get_clocks {clk2}] -add_delay [get_ports {out}]
++###############################################################################
++# Environment
++###############################################################################
++###############################################################################
++# Design Rules
++###############################################################################
+diff --git a/src/dbSta/test/sdc_in_db2.tcl b/src/dbSta/test/sdc_in_db2.tcl
+new file mode 100644
+index 0000000000..4846c31acc
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db2.tcl
+@@ -0,0 +1,13 @@
++# read_db -sdc replays the constraints stored in the .odb. No .sdc file is
++# read here: the design arrives constrained.
++source "helpers.tcl"
++read_lef liberty1.lef
++read_liberty liberty1.lib
++read_db -sdc sdc_in_db.odb
++
++foreach clk [get_clocks *] {
++  puts "clock [get_name $clk] period [get_property $clk period]"
++}
++set sdc_file [make_result_file sdc_in_db2.sdc]
++write_sdc -no_timestamp $sdc_file
++report_file $sdc_file
+diff --git a/src/dbSta/test/sdc_in_db3.ok b/src/dbSta/test/sdc_in_db3.ok
+new file mode 100644
+index 0000000000..9ad133d011
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db3.ok
+@@ -0,0 +1,15 @@
++[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
++[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
++  snl_ff2x1
++  snl_invx2
++  snl_lenqnx1
++  snl_lqx1
++  snl_mux21x1
++  snl_nand02x1
++  snl_nand02x2
++  snl_oa012x1
++  snl_or02x1
++  snl_tbufx1
++  snl_xor2x1
++[WARNING STA-0351] clock '*' not found.
++clocks: 
+diff --git a/src/dbSta/test/sdc_in_db3.tcl b/src/dbSta/test/sdc_in_db3.tcl
+new file mode 100644
+index 0000000000..11496ad267
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db3.tcl
+@@ -0,0 +1,8 @@
++# Without -sdc, read_db ignores the constraints stored in the .odb, so
++# scripts that read their own .sdc see exactly the behavior they saw before.
++source "helpers.tcl"
++read_lef liberty1.lef
++read_liberty liberty1.lib
++read_db sdc_in_db.odb
++
++puts "clocks: [get_clocks *]"
+diff --git a/src/dbSta/test/sdc_in_db4.ok b/src/dbSta/test/sdc_in_db4.ok
+new file mode 100644
+index 0000000000..0fdedced1e
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db4.ok
+@@ -0,0 +1,102 @@
++[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
++[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
++  snl_ff2x1
++  snl_invx2
++  snl_lenqnx1
++  snl_lqx1
++  snl_mux21x1
++  snl_nand02x1
++  snl_nand02x2
++  snl_oa012x1
++  snl_or02x1
++  snl_tbufx1
++  snl_xor2x1
++stored form: native
++[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
++[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
++  snl_ff2x1
++  snl_invx2
++  snl_lenqnx1
++  snl_lqx1
++  snl_mux21x1
++  snl_nand02x1
++  snl_nand02x2
++  snl_oa012x1
++  snl_or02x1
++  snl_tbufx1
++  snl_xor2x1
++[INFO STA-3011] Restored the timing constraints stored in the database (native form).
++read_db -sdc returned 1, stored form: native
++###############################################################################
++# Created by write_sdc
++###############################################################################
++current_design top
++###############################################################################
++# Timing Constraints
++###############################################################################
++create_clock -name clk -period 10.0000 [get_ports {clk1}]
++set_clock_uncertainty 0.1000 clk
++create_clock -name clk2 -period 20.0000 [get_ports {clk2}]
++set_propagated_clock [get_clocks {clk2}]
++set_clock_latency 0.5000 [get_clocks {clk}]
++set_clock_groups -name grp -asynchronous \
++ -group [get_clocks {clk}]\
++ -group [get_clocks {clk2}]
++set_input_delay 1.0000 -clock [get_clocks {clk}] -add_delay [get_ports {in2}]
++set_output_delay 2.0000 -clock [get_clocks {clk2}] -add_delay [get_ports {out}]
++group_path -name reg2reg\
++    -from [list [get_cells {r1}]\
++           [get_cells {r2}]\
++           [get_cells {r3}]]\
++    -to [list [get_cells {r1}]\
++           [get_cells {r2}]\
++           [get_cells {r3}]]
++group_path -name reg2out\
++    -from [list [get_cells {r1}]\
++           [get_cells {r2}]\
++           [get_cells {r3}]]\
++    -to [get_ports {out}]
++group_path -name in2reg\
++    -from [list [get_ports {clk3}]\
++           [get_ports {in1}]\
++           [get_ports {in2}]]\
++    -to [list [get_cells {r1}]\
++           [get_cells {r2}]\
++           [get_cells {r3}]]
++group_path -name in2out\
++    -from [list [get_ports {clk3}]\
++           [get_ports {in1}]\
++           [get_ports {in2}]]\
++    -to [get_ports {out}]
++set_multicycle_path -setup\
++    -from [get_pins {r1/CP}]\
++    -to [get_pins {r3/D}] 2
++set_max_delay -ignore_clock_latency\
++    -from [list [get_cells {r1}]\
++           [get_cells {r2}]\
++           [get_cells {r3}]]\
++    -to [get_ports {out}] 8.0000
++set_max_delay -ignore_clock_latency\
++    -from [list [get_ports {clk3}]\
++           [get_ports {in1}]\
++           [get_ports {in2}]]\
++    -to [list [get_cells {r1}]\
++           [get_cells {r2}]\
++           [get_cells {r3}]] 8.0000
++set_max_delay\
++    -from [list [get_ports {clk3}]\
++           [get_ports {in1}]\
++           [get_ports {in2}]]\
++    -to [get_ports {out}] 8.0000
++set_false_path\
++    -from [get_ports {in1}]
++###############################################################################
++# Environment
++###############################################################################
++set_case_analysis 0 [get_ports {in1}]
++###############################################################################
++# Design Rules
++###############################################################################
++set_max_transition 0.5000 [current_design]
++set_max_fanout 32.0000 [current_design]
++No differences found.
+diff --git a/src/dbSta/test/sdc_in_db4.sdc b/src/dbSta/test/sdc_in_db4.sdc
+new file mode 100644
+index 0000000000..9a7222d09d
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db4.sdc
+@@ -0,0 +1,24 @@
++# The shape of an ORFS asap7 design's constraints after write_sdc has had
++# its way with them: [all_inputs] and [all_registers] spelled out object
++# by object, in three set_max_delay and four group_path commands.
++create_clock -name clk -period 10 [get_ports clk1]
++create_clock -name clk2 -period 20 [get_ports clk2]
++set_clock_uncertainty 0.1 clk
++set_clock_latency 0.5 [get_clocks clk]
++set_propagated_clock [get_clocks clk2]
++set_clock_groups -name grp -asynchronous -group clk -group clk2
++set_false_path -from [get_ports in1]
++set non_clk_inputs [all_inputs -no_clocks]
++set_max_delay -ignore_clock_latency 8 -from $non_clk_inputs -to [all_registers]
++set_max_delay -ignore_clock_latency 8 -from [all_registers] -to [all_outputs]
++set_max_delay 8 -from $non_clk_inputs -to [all_outputs]
++group_path -name in2reg -from $non_clk_inputs -to [all_registers]
++group_path -name reg2out -from [all_registers] -to [all_outputs]
++group_path -name reg2reg -from [all_registers] -to [all_registers]
++group_path -name in2out -from $non_clk_inputs -to [all_outputs]
++set_multicycle_path -setup 2 -from [get_pins r1/CP] -to [get_pins r3/D]
++set_input_delay 1 -clock clk [get_ports in2]
++set_output_delay 2 -clock clk2 [get_ports out]
++set_max_fanout 32 [current_design]
++set_max_transition 0.5 [current_design]
++set_case_analysis 0 [get_ports in1]
+diff --git a/src/dbSta/test/sdc_in_db4.tcl b/src/dbSta/test/sdc_in_db4.tcl
+new file mode 100644
+index 0000000000..828b9fbd3c
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db4.tcl
+@@ -0,0 +1,23 @@
++# Round trip through the native form, across processes: write_sdc from
++# the design that read the .sdc must equal write_sdc from a fresh process
++# that got its constraints from the .odb alone.
++source "helpers.tcl"
++read_lef liberty1.lef
++read_liberty liberty1.lib
++read_verilog reg1.v
++link_design top
++read_sdc sdc_in_db4.sdc
++
++set odb [make_result_file sdc_in_db4.odb]
++write_db $odb
++puts "stored form: [ord::sdc_in_db_kind]"
++set before [make_result_file sdc_in_db4_before.sdc]
++write_sdc -no_timestamp $before
++
++set after [make_result_file sdc_in_db4_after.sdc]
++set ::env(SDC_IN_DB_ODB) $odb
++set ::env(SDC_IN_DB_SDC) $after
++puts [exec $argv0 -no_init -no_splash -exit sdc_in_db_restore.tcl]
++
++report_file $after
++diff_files $before $after
+diff --git a/src/dbSta/test/sdc_in_db5.ok b/src/dbSta/test/sdc_in_db5.ok
+new file mode 100644
+index 0000000000..fb3049fc35
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db5.ok
+@@ -0,0 +1,47 @@
++[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
++[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
++  snl_ff2x1
++  snl_invx2
++  snl_lenqnx1
++  snl_lqx1
++  snl_mux21x1
++  snl_nand02x1
++  snl_nand02x2
++  snl_oa012x1
++  snl_or02x1
++  snl_tbufx1
++  snl_xor2x1
++stored form: text
++[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
++[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
++  snl_ff2x1
++  snl_invx2
++  snl_lenqnx1
++  snl_lqx1
++  snl_mux21x1
++  snl_nand02x1
++  snl_nand02x2
++  snl_oa012x1
++  snl_or02x1
++  snl_tbufx1
++  snl_xor2x1
++[INFO STA-3011] Restored the timing constraints stored in the database (text form).
++read_db -sdc returned 1, stored form: text
++###############################################################################
++# Created by write_sdc
++###############################################################################
++current_design top
++###############################################################################
++# Timing Constraints
++###############################################################################
++create_clock -name clk -period 10.0000 [get_ports {clk1}]
++set_input_delay 1.0000 -clock [get_clocks {clk}] -add_delay [get_ports {in1}]
++###############################################################################
++# Environment
++###############################################################################
++set_timing_derate -early 0.9500
++set_timing_derate -late 1.0500
++###############################################################################
++# Design Rules
++###############################################################################
++No differences found.
+diff --git a/src/dbSta/test/sdc_in_db5.sdc b/src/dbSta/test/sdc_in_db5.sdc
+new file mode 100644
+index 0000000000..96b556972b
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db5.sdc
+@@ -0,0 +1,6 @@
++# One construct the native form does not carry (a derate), so the whole
++# Sdc rides as write_sdc text and is replayed. Nothing is dropped.
++create_clock -name clk -period 10 [get_ports clk1]
++set_input_delay 1 -clock clk [get_ports in1]
++set_timing_derate -early 0.95
++set_timing_derate -late 1.05
+diff --git a/src/dbSta/test/sdc_in_db5.tcl b/src/dbSta/test/sdc_in_db5.tcl
+new file mode 100644
+index 0000000000..1388e04e6e
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db5.tcl
+@@ -0,0 +1,23 @@
++# Round trip through the text fallback, across processes: a derate is
++# outside the native form, so the constraints ride as write_sdc text and
++# are replayed. The result must still equal what was written.
++source "helpers.tcl"
++read_lef liberty1.lef
++read_liberty liberty1.lib
++read_verilog reg1.v
++link_design top
++read_sdc sdc_in_db5.sdc
++
++set odb [make_result_file sdc_in_db5.odb]
++write_db $odb
++puts "stored form: [ord::sdc_in_db_kind]"
++set before [make_result_file sdc_in_db5_before.sdc]
++write_sdc -no_timestamp $before
++
++set after [make_result_file sdc_in_db5_after.sdc]
++set ::env(SDC_IN_DB_ODB) $odb
++set ::env(SDC_IN_DB_SDC) $after
++puts [exec $argv0 -no_init -no_splash -exit sdc_in_db_restore.tcl]
++
++report_file $after
++diff_files $before $after
+diff --git a/src/dbSta/test/sdc_in_db6.ok b/src/dbSta/test/sdc_in_db6.ok
+new file mode 100644
+index 0000000000..3e31f9e040
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db6.ok
+@@ -0,0 +1,28 @@
++[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
++[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
++  snl_ff2x1
++  snl_invx2
++  snl_lenqnx1
++  snl_lqx1
++  snl_mux21x1
++  snl_nand02x1
++  snl_nand02x2
++  snl_oa012x1
++  snl_or02x1
++  snl_tbufx1
++  snl_xor2x1
++stored form: none
++[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
++[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
++  snl_ff2x1
++  snl_invx2
++  snl_lenqnx1
++  snl_lqx1
++  snl_mux21x1
++  snl_nand02x1
++  snl_nand02x2
++  snl_oa012x1
++  snl_or02x1
++  snl_tbufx1
++  snl_xor2x1
++read_db -sdc returned 0, stored form: none
+diff --git a/src/dbSta/test/sdc_in_db6.tcl b/src/dbSta/test/sdc_in_db6.tcl
+new file mode 100644
+index 0000000000..affd8d2561
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db6.tcl
+@@ -0,0 +1,17 @@
++# A design written without constraints carries none: read_db -sdc says
++# so (returns 0) instead of pretending, so a flow can fall back to its
++# .sdc file.
++source "helpers.tcl"
++read_lef liberty1.lef
++read_liberty liberty1.lib
++read_verilog reg1.v
++link_design top
++
++set odb [make_result_file sdc_in_db6.odb]
++write_db $odb
++puts "stored form: [ord::sdc_in_db_kind]"
++
++set after [make_result_file sdc_in_db6_after.sdc]
++set ::env(SDC_IN_DB_ODB) $odb
++set ::env(SDC_IN_DB_SDC) $after
++puts [exec $argv0 -no_init -no_splash -exit sdc_in_db_restore.tcl]
+diff --git a/src/dbSta/test/sdc_in_db7.ok b/src/dbSta/test/sdc_in_db7.ok
+new file mode 100644
+index 0000000000..69714533c6
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db7.ok
+@@ -0,0 +1,4 @@
++[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
++[ERROR ORD-0054] odb file sdc_in_db7-empty.odb is invalid: ios_base::clear: unspecified iostream_category error
++read_db failed: ORD-0054
++stored form: none
+diff --git a/src/dbSta/test/sdc_in_db7.tcl b/src/dbSta/test/sdc_in_db7.tcl
+new file mode 100644
+index 0000000000..9f3fe1dea4
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db7.tcl
+@@ -0,0 +1,10 @@
++# read_db -sdc on a file that is not a database: the read fails, and no
++# restore of constraints is attempted on the half-read design.
++source "helpers.tcl"
++read_lef liberty1.lef
++read_liberty liberty1.lib
++close [open sdc_in_db7-empty.odb w]
++catch { read_db -sdc sdc_in_db7-empty.odb } msg
++file delete sdc_in_db7-empty.odb
++puts "read_db failed: $msg"
++puts "stored form: [ord::sdc_in_db_kind]"
+diff --git a/src/dbSta/test/sdc_in_db8.ok b/src/dbSta/test/sdc_in_db8.ok
+new file mode 100644
+index 0000000000..5e1f9eee42
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db8.ok
+@@ -0,0 +1,18 @@
++[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
++[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
++  snl_ff2x1
++  snl_invx2
++  snl_lenqnx1
++  snl_lqx1
++  snl_mux21x1
++  snl_nand02x1
++  snl_nand02x2
++  snl_oa012x1
++  snl_or02x1
++  snl_tbufx1
++  snl_xor2x1
++record, second write_db same process: identical
++record, write_db after restore in a fresh process: identical
++.odb, second write_db same process: identical
++.odb, write_db after restore in a fresh process: identical
++record lines: 31
+diff --git a/src/dbSta/test/sdc_in_db8.tcl b/src/dbSta/test/sdc_in_db8.tcl
+new file mode 100644
+index 0000000000..efc5ba7a4c
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db8.tcl
+@@ -0,0 +1,44 @@
++# The native record is canonical and restoring it is a fixpoint: the same
++# constraints give the same bytes from a second write_db in the same
++# process and from a write_db in a fresh process that restored them from
++# the .odb, and so do the .odb files themselves.
++source "helpers.tcl"
++read_lef liberty1.lef
++read_liberty liberty1.lib
++read_verilog reg1.v
++link_design top
++read_sdc sdc_in_db4.sdc
++
++proc native_record { } {
++  return [[odb::dbStringProperty_find [ord::get_db_block] "sta.sdc.native"] getValue]
++}
++proc file_bytes { path } {
++  set fh [open $path r]
++  fconfigure $fh -translation binary
++  set bytes [read $fh]
++  close $fh
++  return $bytes
++}
++proc verdict { same } {
++  return [expr { $same ? "identical" : "DIFFERENT" }]
++}
++
++set a [make_result_file sdc_in_db8_a.odb]
++set b [make_result_file sdc_in_db8_b.odb]
++set c [make_result_file sdc_in_db8_c.odb]
++write_db $a
++set record_a [native_record]
++write_db $b
++set record_b [native_record]
++
++set ::env(SDC_IN_DB_ODB) $a
++set ::env(SDC_IN_DB_OUT) $c
++set ::env(SDC_IN_DB_RECORD) [make_result_file sdc_in_db8_c.native]
++exec $argv0 -no_init -no_splash -exit sdc_in_db_rewrite.tcl
++set record_c [file_bytes $::env(SDC_IN_DB_RECORD)]
++
++puts "record, second write_db same process: [verdict [expr {$record_a eq $record_b}]]"
++puts "record, write_db after restore in a fresh process: [verdict [expr {$record_a eq $record_c}]]"
++puts ".odb, second write_db same process: [verdict [expr {[file_bytes $a] eq [file_bytes $b]}]]"
++puts ".odb, write_db after restore in a fresh process: [verdict [expr {[file_bytes $a] eq [file_bytes $c]}]]"
++puts "record lines: [llength [split [string trim $record_a] \n]]"
+diff --git a/src/dbSta/test/sdc_in_db9.ok b/src/dbSta/test/sdc_in_db9.ok
+new file mode 100644
+index 0000000000..960cfd349f
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db9.ok
+@@ -0,0 +1,47 @@
++[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
++[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
++  snl_ff2x1
++  snl_invx2
++  snl_lenqnx1
++  snl_lqx1
++  snl_mux21x1
++  snl_nand02x1
++  snl_nand02x2
++  snl_oa012x1
++  snl_or02x1
++  snl_tbufx1
++  snl_xor2x1
++stored form: text
++[INFO ODB-0227] LEF file: liberty1.lef, created 2 layers, 6 library cells
++[WARNING ORD-2056] The following 11 liberty cell(s) do not have LEF masters and will be marked as dont-use:
++  snl_ff2x1
++  snl_invx2
++  snl_lenqnx1
++  snl_lqx1
++  snl_mux21x1
++  snl_nand02x1
++  snl_nand02x2
++  snl_oa012x1
++  snl_or02x1
++  snl_tbufx1
++  snl_xor2x1
++[INFO STA-3011] Restored the timing constraints stored in the database (text form).
++read_db -sdc returned 1, stored form: text
++###############################################################################
++# Created by write_sdc
++###############################################################################
++current_design top
++###############################################################################
++# Timing Constraints
++###############################################################################
++create_clock -name clk -period 10.0000 [get_ports {clk1}]
++create_generated_clock -name gclk -source [get_ports {clk1}] -divide_by 2 [get_pins {r1/Q}]
++set_input_delay 1.0000 -clock [get_clocks {clk}] -add_delay [get_ports {in1}]
++###############################################################################
++# Environment
++###############################################################################
++set_load -pin_load 0.5000 [get_ports {out}]
++###############################################################################
++# Design Rules
++###############################################################################
++No differences found.
+diff --git a/src/dbSta/test/sdc_in_db9.sdc b/src/dbSta/test/sdc_in_db9.sdc
+new file mode 100644
+index 0000000000..44404130a2
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db9.sdc
+@@ -0,0 +1,7 @@
++# Two constructs the native form does not carry, both detected from the
++# Sdc itself rather than from write_sdc text: a generated clock and a
++# port load. The whole Sdc rides as text, and nothing is dropped.
++create_clock -name clk -period 10 [get_ports clk1]
++create_generated_clock -name gclk -source [get_ports clk1] -divide_by 2 [get_pins r1/Q]
++set_input_delay 1 -clock clk [get_ports in1]
++set_load 0.5 [get_ports out]
+diff --git a/src/dbSta/test/sdc_in_db9.tcl b/src/dbSta/test/sdc_in_db9.tcl
+new file mode 100644
+index 0000000000..81579408db
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db9.tcl
+@@ -0,0 +1,23 @@
++# Round trip through the text fallback for constructs the Sdc inspection
++# flags (a generated clock, a port load): the constraints ride as
++# write_sdc text, are replayed, and still equal what was written.
++source "helpers.tcl"
++read_lef liberty1.lef
++read_liberty liberty1.lib
++read_verilog reg1.v
++link_design top
++read_sdc sdc_in_db9.sdc
++
++set odb [make_result_file sdc_in_db9.odb]
++write_db $odb
++puts "stored form: [ord::sdc_in_db_kind]"
++set before [make_result_file sdc_in_db9_before.sdc]
++write_sdc -no_timestamp $before
++
++set after [make_result_file sdc_in_db9_after.sdc]
++set ::env(SDC_IN_DB_ODB) $odb
++set ::env(SDC_IN_DB_SDC) $after
++puts [exec $argv0 -no_init -no_splash -exit sdc_in_db_restore.tcl]
++
++report_file $after
++diff_files $before $after
+diff --git a/src/dbSta/test/sdc_in_db_restore.tcl b/src/dbSta/test/sdc_in_db_restore.tcl
+new file mode 100644
+index 0000000000..3abc1ce099
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db_restore.tcl
+@@ -0,0 +1,8 @@
++# Second process of the sdc_in_db round-trip tests: the design and its
++# constraints must come from the .odb alone. Writes the restored
++# constraints back out for the parent to diff against what it wrote.
++read_lef liberty1.lef
++read_liberty liberty1.lib
++set found [read_db -sdc $::env(SDC_IN_DB_ODB)]
++puts "read_db -sdc returned $found, stored form: [ord::sdc_in_db_kind]"
++write_sdc -no_timestamp $::env(SDC_IN_DB_SDC)
+diff --git a/src/dbSta/test/sdc_in_db_rewrite.tcl b/src/dbSta/test/sdc_in_db_rewrite.tcl
+new file mode 100644
+index 0000000000..50c21e69f4
+--- /dev/null
++++ b/src/dbSta/test/sdc_in_db_rewrite.tcl
+@@ -0,0 +1,11 @@
++# Second process of sdc_in_db8: restore the constraints from the .odb,
++# write the design again, and dump the record that write stored.
++read_lef liberty1.lef
++read_liberty liberty1.lib
++read_db -sdc $::env(SDC_IN_DB_ODB)
++write_db $::env(SDC_IN_DB_OUT)
++set fh [open $::env(SDC_IN_DB_RECORD) w]
++fconfigure $fh -translation binary
++puts -nonewline $fh \
++  [[odb::dbStringProperty_find [ord::get_db_block] "sta.sdc.native"] getValue]
++close $fh

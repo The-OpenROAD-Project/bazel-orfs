@@ -3061,7 +3061,6 @@ orfs_floorplan_rule = rule(
         ],
         result_names = [
             "2_floorplan.odb",
-            "2_floorplan.sdc",
         ],
         substep_names = STAGE_SUBSTEPS["floorplan"] if ctx.attr.substeps else [],
     ),
@@ -3087,7 +3086,6 @@ orfs_place_rule = rule(
         report_names = [],
         result_names = [
             "3_place.odb",
-            "3_place.sdc",
         ],
         substep_names = STAGE_SUBSTEPS["place"] if ctx.attr.substeps else [],
     ),
@@ -3115,7 +3113,6 @@ orfs_cts_rule = rule(
         ],
         result_names = [
             "4_cts.odb",
-            "4_cts.sdc",
         ],
         substep_names = STAGE_SUBSTEPS["cts"] if ctx.attr.substeps else [],
     ),
@@ -3137,9 +3134,6 @@ orfs_grt_rule = rule(
         steps = [
             "do-5_1_grt",
         ],
-        forwarded_names = [
-            "5_1_grt.sdc",
-        ],
         log_names = [
             "5_1_grt.log",
         ],
@@ -3154,7 +3148,6 @@ orfs_grt_rule = rule(
         ],
         result_names = [
             "5_1_grt.odb",
-            "5_1_grt.sdc",
         ],
         substep_names = STAGE_SUBSTEPS["grt"] if ctx.attr.substeps else [],
     ),
@@ -3177,7 +3170,6 @@ orfs_route_rule = rule(
             "do-5_2_route",
             "do-5_3_fillcell",
             "do-5_route",
-            "do-5_route.sdc",
         ],
         log_names = [s + ".log" for s in STAGE_SUBSTEPS["route"]],
         json_names = [s + ".json" for s in STAGE_SUBSTEPS["route"]],
@@ -3186,7 +3178,6 @@ orfs_route_rule = rule(
         ],
         result_names = [
             "5_route.odb",
-            "5_route.sdc",
         ],
         substep_names = STAGE_SUBSTEPS["route"] if ctx.attr.substeps else [],
     ),

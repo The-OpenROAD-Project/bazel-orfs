@@ -61,6 +61,12 @@ ORFS_PATCHES = [
     # are not visible. Not upstreamed yet -- carried here until it has
     # proven itself; retire at the bump onto an ORFS that carries it.
     Label("//patches:0049-orfs-mempool-rtl-files-include.patch"),
+    # Every .odb carries its timing constraints (OpenROAD PR #11260, carried
+    # on the openroad archive_override): load_design restores them with
+    # read_db -sdc, and the intermediate .sdc files, their Makefile plumbing
+    # and find_sdc_file's glob-and-sort guess are gone. 1_synth.sdc and
+    # 6_final.sdc remain as the human-readable exports.
+    Label("//patches:0050-orfs-sdc-in-odb.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

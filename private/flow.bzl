@@ -620,15 +620,15 @@ def _orfs_pass(
     if abstract_stage or not last_stage:
         steps.append(ABSTRACT_IMPL)
 
-    # Post-synth stages consume the previous stage's written .odb/.sdc
-    # (for floorplan, the canonicalized 1_synth.odb/.sdc) — never the raw
-    # SDC_FILE. save_odb = False generates neither, so a flow that
-    # continues past synth would fail obscurely at floorplan; fail loudly
-    # here instead.
+    # Post-synth stages consume the previous stage's written .odb, which
+    # carries the constraints (for floorplan, the canonicalized
+    # 1_synth.odb) — never the raw SDC_FILE. save_odb = False generates
+    # none, so a flow that continues past synth would fail obscurely at
+    # floorplan; fail loudly here instead.
     if not save_odb and len(steps) > 1:
         fail(
-            "save_odb = False generates no 1_synth.odb/.sdc, but this " +
-            "flow has post-synth stages ({stages}) that consume them. " +
+            "save_odb = False generates no 1_synth.odb, but this " +
+            "flow has post-synth stages ({stages}) that consume it. " +
             "Set last_stage = 'synth' or drop save_odb = False.".format(
                 stages = ", ".join([s.stage for s in steps[1:]]),
             ),
@@ -920,15 +920,14 @@ def _orfs_pass(
             GENERATE_METADATA_STAGE_IMPL,
             FINAL_STAGE_IMPL,
             data = [
-                # Need 2_floorplan.sdc
-                _step_name(name, variant, "floorplan"),
-                # Need 1_2_yosys.v for `synth__netlist__hash` and any
-                # other genMetrics.py field that reads synth results
-                # past the canonicalize RTLIL.  Only canonicalize is
-                # threaded through `forwarded_names = [CANON_OUTPUT]`
-                # along the floorplan→cts chain; the post-ABC netlist
-                # is not.  Pulling synth's outputs in via `data =`
-                # gives metadata access without touching every stage.
+                # Need 1_2_yosys.v for `synth__netlist__hash`, 1_synth.sdc
+                # for the clock metrics, and any other genMetrics.py
+                # field that reads synth results past the canonicalize
+                # RTLIL.  Only canonicalize is threaded through
+                # `forwarded_names = [CANON_OUTPUT]` along the
+                # floorplan→cts chain; the post-ABC netlist is not.
+                # Pulling synth's outputs in via `data =` gives metadata
+                # access without touching every stage.
                 _step_name(name, variant, "synth"),
             ],
             kwargs = kwargs,

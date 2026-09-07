@@ -19,7 +19,7 @@ proc json_dict {dict_args} {
 
 # Load the full environment (liberty files, tech LEF, SDC, etc.)
 source $::env(SCRIPTS_DIR)/load.tcl
-load_design 2_floorplan.odb 2_floorplan.sdc
+load_design 2_floorplan.odb
 
 # Run the reports. Because there are no catch blocks, this will fail early 
 # if the environment is incorrectly configured.

@@ -63,6 +63,14 @@ archive_override(
         "find . -name BUILD -exec sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|g' {} +",
         "sed -i 's|defines = \\[|copts = [\"-include\", \"fmt/format.h\"],\\n    defines = [|' src/syn/src/elab/BUILD third-party/slang-elab/src/BUILD",
     ],
+    patch_strip = 1,
+    patches = [
+        # The .odb carries its timing constraints: write_db stores them,
+        # read_db -sdc restores them (OpenROAD PR #11260). Consumed by
+        # patches/0050-orfs-sdc-in-odb.patch; both retire at the bump onto
+        # an OpenROAD and ORFS that carry them.
+        "//patches:0051-openroad-sdc-in-odb.patch",
+    ],
     strip_prefix = "OpenROAD-5d6f1673228eb21d6e4b55ccaf1234790e31d6e8",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/5d6f1673228eb21d6e4b55ccaf1234790e31d6e8.tar.gz"],
 )
