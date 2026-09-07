@@ -79,9 +79,15 @@ BAZEL_OUTPUT_DIR = re.compile(r"(^|/)bazel-(out|bin|testlogs)(/|$)")
 CACHE_DIR = re.compile(r"(^|/)\.cache(/|$)")
 # Matches /tmp and /tmp/..., but not ./tmp or /somewhere/tmp.
 TMP_DIR = re.compile(r"^/tmp(/|$)")
-TMP_IN_COMMAND = re.compile(r"(?<![\w./])/tmp(?:/|(?![\w/]))")
+# What may not precede a real `/tmp`: a word character, `.` or `/` (so
+# `./tmp` and `/var/tmp` are someone else's directory), and also the three
+# ways a shell spells a path that only looks like it starts at the root --
+# `$(pwd)/tmp`, `${HOME}/tmp` and `~/tmp` are all local scratch, and denying
+# them sends the agent looking for a rule it has not broken.
+NOT_TMP = r"(?<![\w./)}~])"
+TMP_IN_COMMAND = re.compile(NOT_TMP + r"/tmp(?:/|(?![\w/]))")
 # The whole /tmp path, so each one can be judged on its own merits.
-TMP_PATH_IN_COMMAND = re.compile(r"(?<![\w./])(/tmp(?:/[^\s;&|<>()\'\"]*)?)")
+TMP_PATH_IN_COMMAND = re.compile(NOT_TMP + r"(/tmp(?:/[^\s;&|<>()\'\"]*)?)")
 
 # The agent's own tree under /tmp, which it does not get to choose: bundled
 # skill assets live at hardcoded `/tmp/claude-<uid>/bundled-skills/...` paths
