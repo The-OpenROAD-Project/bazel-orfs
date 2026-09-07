@@ -132,9 +132,9 @@ def main() -> int:
         meta = json.loads(Path(stem + ".json").read_text())
         records = np.fromfile(stem + ".bin", dtype=np.uint8)
         lengths = np.array(meta["lengths"], dtype=np.int64)
-        assert lengths.sum() == records.size, (
-            f"{stem}: lengths sum to {lengths.sum()} but .bin is {records.size}"
-        )
+        assert (
+            lengths.sum() == records.size
+        ), f"{stem}: lengths sum to {lengths.sum()} but .bin is {records.size}"
 
         table = meta["table"]
         raw = records.tobytes()
@@ -145,9 +145,7 @@ def main() -> int:
             # few hundred MB is minutes), so they are measured at the
             # ends of the sweep only.
             blocks_to_measure = (
-                BLOCK_SIZES
-                if index == 0
-                else [BLOCK_SIZES[0], BLOCK_SIZES[-1]]
+                BLOCK_SIZES if index == 0 else [BLOCK_SIZES[0], BLOCK_SIZES[-1]]
             )
             aos = compressed_size(raw, codec, level)
             for block in blocks_to_measure:

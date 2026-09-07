@@ -1,0 +1,4 @@
+label,design,read_s,write_s,peak_rss_kb,bytes
+minimal-pr,ariane133_2_floorplan.odb,0.37,0.12,248968,96116433
+minimal-pr,black_parrot_2_floorplan.odb,0.47,0.14,325872,131663623
+minimal-pr,microwatt_2_floorplan.odb,0.33,0.08,231880,79051868

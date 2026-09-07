@@ -59,7 +59,9 @@ def main():
             occupancy[table] = carrying / len(lengths)
 
     total_now = total_after = 0
-    print(f"{'table':8s} {'slots':>10s} {'now MB':>9s} {'after MB':>9s} {'saved MB':>9s}")
+    print(
+        f"{'table':8s} {'slots':>10s} {'now MB':>9s} {'after MB':>9s} {'saved MB':>9s}"
+    )
     for table in args.tables.split(","):
         meta = json.loads(Path(f"{args.dump_stem}.{table}.json").read_text())
         slots = meta["slots"]
@@ -70,8 +72,10 @@ def main():
 
     for table, share in occupancy.items():
         if share:
-            print(f"note: {100 * share:.1f}% of {table} records are longer than the "
-                  f"shortest, so they carry payload a side table absorbs")
+            print(
+                f"note: {100 * share:.1f}% of {table} records are longer than the "
+                f"shortest, so they carry payload a side table absorbs"
+            )
 
     saved = total_now - total_after
     print(f"{'total':8s} {'':>10s} {total_now:>9.1f} {total_after:>9.1f} {saved:>9.1f}")
@@ -79,9 +83,13 @@ def main():
     print(f"peak RSS loading the design : {peak_kb / 1024:8.1f} MB")
     print(f"same binary loading nothing : {args.baseline_rss_kb / 1024:8.1f} MB")
     print(f"the design's own footprint  : {design_kb / 1024:8.1f} MB")
-    print(f"these tables are            : {100 * total_now / (design_kb / 1024):8.1f}% of it")
-    print(f"projected saving            : {saved:8.1f} MB, "
-          f"{100 * saved / (design_kb / 1024):.1f}% of the design's footprint")
+    print(
+        f"these tables are            : {100 * total_now / (design_kb / 1024):8.1f}% of it"
+    )
+    print(
+        f"projected saving            : {saved:8.1f} MB, "
+        f"{100 * saved / (design_kb / 1024):.1f}% of the design's footprint"
+    )
 
 
 if __name__ == "__main__":

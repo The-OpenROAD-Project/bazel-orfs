@@ -42,8 +42,10 @@ def main():
 
         rows = np.fromfile(stem + ".bin", dtype=np.uint8).reshape(-1, width)
         words = rows.view(np.uint32)
-        print(f"\n{stem}  table={meta['table']}  records={words.shape[0]:,} "
-              f"columns={words.shape[1]}")
+        print(
+            f"\n{stem}  table={meta['table']}  records={words.shape[0]:,} "
+            f"columns={words.shape[1]}"
+        )
         constant = 0
         for column in range(words.shape[1]):
             values = words[:, column].astype(np.int64)
@@ -51,7 +53,9 @@ def main():
             same = 100 * float(np.mean(deltas == deltas[0])) if deltas.size else 100.0
             distinct = len(np.unique(values))
             constant += distinct == 1
-            print(f"   col{column:<2d} distinct={distinct:>9,d} constant-delta={same:5.1f}%")
+            print(
+                f"   col{column:<2d} distinct={distinct:>9,d} constant-delta={same:5.1f}%"
+            )
         print(f"   -> {constant} of {words.shape[1]} columns hold a single value")
 
 

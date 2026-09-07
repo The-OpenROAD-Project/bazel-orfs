@@ -1,80 +1,83 @@
-Structure-of-arrays tables in odb, carried against the pinned OpenROAD.
+Structure of arrays as a switch in odb, demonstrated on iterm_tbl.
 
-NOT UPSTREAMED. Retires when a //:bump lands on an upstream that carries
-the change.
+NOT UPSTREAMED. Carried against the pinned OpenROAD; retires when a //:bump
+lands on an upstream that carries the change.
 
-Two halves of one idea, opted into per table, one line each:
+A table stores its fields as columns rather than as members of its slots.
+Two independent switches, one line each in the slot type:
 
     static constexpr bool kSoaTable = true;         // columns in memory
     static constexpr bool kFieldMajorTable = true;  // columns on the wire
 
-_dbITerm takes both; _dbBox takes the second, and _dbSBox inherits it.
+iterm_tbl takes both, and is the only table that does. Nothing else in odb
+changes behaviour, which is the point of the shape: whether a table is
+columnar is a property of that table, decided in one line, and the two
+halves are independent of each other.
 
 ## In memory
 
 A slot keeps only what dbObject needs -- an address the public API can hand
-out, and the offset word that finds its page. Every field moves to a column
-owned by the page, reached through an accessor that returns a reference, so
-the migration is a rename: `iterm->net_` becomes `iterm->net()`, and an
-assignment still reads the way it did. 125 sites, all inside
-src/odb/src/db. Nothing outside odb changes at all: dbITerm* is still the
-slot address, so every tool compiles untouched.
+out, and the offset word that finds its page. Fields move to columns owned
+by the page, reached through accessors that return references, so the
+migration is a rename: `iterm->net_` becomes `iterm->net()`, and an
+assignment reads as it did. 125 sites, seven files, all inside
+src/odb/src/db. Nothing outside odb changes: a dbITerm* is still the slot's
+address, so every tool compiles untouched.
 
-Access points are sparse rather than a column: before pin access no iterm
-has one, and a dense column would spend 24 bytes per slot on an empty map.
-The mutable accessor creates the entry, so the deserializer reads into a
-local and only stores a non-empty one -- asking for a mutable reference in
-a read path would re-densify the column, which it did, measurably, before
-this was fixed.
+Access points are keyed by slot rather than given a column: before pin
+access no iterm has one, and a dense column spends 24 bytes a slot on an
+empty map.
 
-Measured, peak RSS of read_db, from one table converted:
+Peak RSS of read_db, one table converted:
 
-    nangate45/ariane133      274.2 MB -> 243.9 MB   -11.0%
-    nangate45/black_parrot   360.9 MB -> 319.2 MB   -11.6%
-    sky130hd/microwatt       248.2 MB -> 227.0 MB    -8.5%
+    nangate45/ariane133      274.2 MB -> 243.1 MB   -11.3%
+    nangate45/black_parrot   360.9 MB -> 318.2 MB   -11.8%
+    sky130hd/microwatt       248.2 MB -> 226.4 MB    -8.8%
 
-Read and write time are unchanged (0.38 s -> 0.37 s, 0.14 s -> 0.14 s on
-ariane133).
+Read and write time are unchanged.
 
 ## On the wire
 
 An opted-in table writes its pages in blocks whose bytes are permuted
 field-major, produced by the type's existing operator<< -- no per-type
-serializer, which was the condition the whole idea was conditional on. A
-block is a group of pages, so no object id moves; enlarging the page
-instead would renumber everything, since an id is `page_addr | slot`.
-Records of different lengths within a block are split by length, and past
-64 distinct lengths the block is written verbatim, which is what makes it
-safe to opt any table in.
+serializer, which was the condition the idea was conditional on. A block
+spans several pages, so no object id moves; raising a table's page_size
+would have the same effect on adjacency and must not be used, because an
+id is `page_addr | slot`. Records of different lengths inside a block are
+split by length; past 64 distinct lengths the block is written verbatim.
 
-Measured across seven public ORFS designs, iterm_tbl + box_tbl + sbox_tbl:
-compressed artifact 1.10x-2.72x smaller, 1.53x aggregate, uncompressed
-0.4%-1.5% smaller. Every design passes both gates: the DEF written after a
-round trip is byte-identical to the DEF before it, and write-read-write
-reproduces the same bytes.
+Compressed .odb, one table converted, five public ORFS designs:
 
-## Compatibility
+    asap7/aes (floorplan)    1.35x        sky130hd/microwatt      1.40x
+    asap7/aes (routed)       1.07x        nangate45/black_parrot  1.44x
+    nangate45/ariane133      1.41x        aggregate               1.38x
 
-kSchemaFieldMajorBlocks gates the read. Files older than it take the
-per-slot path unchanged -- simple, and deliberately not made fast, since it
-runs only on files written before the bump.
+Every design passes two gates: the DEF written after a round trip is
+byte-identical to the DEF before it, and write-read-write reproduces the
+same bytes. kSchemaFieldMajorBlocks gates the read; older files take the
+per-slot path unchanged.
 
-## Known limits
+## What this deliberately does not do
 
-- Block size is bounded by slots and by an estimate of bytes that uses
-  sizeof(T), so it does not bind for types whose records carry a heap
-  payload. Opting every table into the wire format reaches 2.45x but costs
-  7.1x read time and 2.3x peak RSS on ariane133; slot-granular blocks that
-  straddle pages would fix it. Until then the opt-in list is the three
-  small-record tables.
-- oid_ is still stored per slot though it is derivable from the slot index,
-  worth another 4 bytes a slot. Dropping it touches every table, so it is
-  not in here.
-- _dbSBox inherits kFieldMajorTable from _dbBox. Intended for these two,
-  and a trap for any future derived slot type.
+Everything below is a further gain the switch makes available, measured
+where a number is quoted, and left out so that this change is one concern:
 
-Also included as study scaffolding, not part of any proposal: the
-SoaLayoutFacts and SoaDumpTable probe targets in src/odb/src/db/BUILD.
+  * Other tables. box_tbl and sbox_tbl on the wire take the aggregate from
+    1.38x to 1.53x; every table takes it to 2.51x, but the block buffer is
+    sized by sizeof(T) and so does not bind for records carrying a heap
+    payload -- all tables costs 7.1x read time and 2.3x peak RSS until
+    blocks are bounded at slot granularity rather than page granularity.
+  * Columns for other tables in memory. iterm_tbl is the largest table in
+    a placed design; box_tbl and sbox_tbl are the next two.
+  * oid_ is stored per slot though it is derivable from the slot index --
+    another 4 bytes a slot, across every table. It is also the field
+    behind #9960, where a stale cached oid on a reused slot reads as
+    uninitialized memory.
+  * prev_net_iterm_ is derivable from the next_ chain.
+  * A sparse column costs nothing for absent entries but its mutable
+    accessor creates them, so a read path that asks for a mutable
+    reference re-densifies it. Worth a checked accessor if more columns
+    become sparse.
 
 diff --git a/src/odb/include/odb/dbStream.h b/src/odb/include/odb/dbStream.h
 index e2d75816dd..a06b66849e 100644
@@ -97,40 +100,6 @@ index e2d75816dd..a06b66849e 100644
    dbIStream& operator>>(char*& c)
    {
      int l;
-diff --git a/src/odb/src/db/BUILD b/src/odb/src/db/BUILD
-index c793c6e322..82fd81ca96 100644
---- a/src/odb/src/db/BUILD
-+++ b/src/odb/src/db/BUILD
-@@ -1,6 +1,7 @@
- # SPDX-License-Identifier: BSD-3-Clause
- # Copyright (c) 2026-2026, Precision Innovations Inc.
- 
-+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
- load("@rules_cc//cc:cc_library.bzl", "cc_library")
- load("//test:regression.bzl", "message_srcs")
- 
-@@ -69,3 +70,21 @@ cc_library(
- message_srcs(
-     visibility = ["//src/odb:__pkg__"],
- )
-+
-+# SoA study scaffolding -- carried as a patch, not upstream.
-+cc_binary(
-+    name = "SoaLayoutFacts",
-+    srcs = ["SoaLayoutFacts.cc"],
-+    features = ["-layering_check"],
-+    deps = [":db"],
-+)
-+
-+cc_binary(
-+    name = "SoaDumpTable",
-+    srcs = ["SoaDumpTable.cc"],
-+    features = ["-layering_check"],
-+    deps = [
-+        ":db",
-+        "//src/utl",
-+    ],
-+)
 diff --git a/src/odb/src/db/dbAccessPoint.cpp b/src/odb/src/db/dbAccessPoint.cpp
 index 24dc70780a..8286b88314 100644
 --- a/src/odb/src/db/dbAccessPoint.cpp
@@ -185,22 +154,6 @@ index a15d2dd283..1e60ab131f 100644
  }
  
  void dbBTerm::setConstraintRegion(const Rect& constraint_region)
-diff --git a/src/odb/src/db/dbBox.h b/src/odb/src/db/dbBox.h
-index 91e226ff1f..6be1f7e5fa 100644
---- a/src/odb/src/db/dbBox.h
-+++ b/src/odb/src/db/dbBox.h
-@@ -65,6 +65,11 @@ static_assert(sizeof(_dbBoxFlags) == 4, "_dbBoxFlags too large");
- class _dbBox : public _dbObject
- {
-  public:
-+  // box_tbl and sbox_tbl are the geometry tables, and a power grid is a
-+  // lattice -- the most compressible thing in the file once its columns are
-+  // adjacent. _dbSBox inherits this deliberately: both tables want it.
-+  static constexpr bool kFieldMajorTable = true;
-+
-   enum Type
-   {
-     kBlockVia,
 diff --git a/src/odb/src/db/dbCore.h b/src/odb/src/db/dbCore.h
 index 55cadef1c9..f0facae006 100644
 --- a/src/odb/src/db/dbCore.h

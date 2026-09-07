@@ -45,8 +45,20 @@ SURFACE = "#FFFFFF"
 #   cached      - cached pointer, not saved; becomes its own array
 #   sparse      - access-point map, empty on most slots; becomes a side table
 LAYOUT = {
-    "_dbBox": {"persistent": 36, "bookkeeping": 8, "slack": 4, "cached": 0, "sparse": 0},
-    "_dbSBox": {"persistent": 40, "bookkeeping": 8, "slack": 4, "cached": 0, "sparse": 0},
+    "_dbBox": {
+        "persistent": 36,
+        "bookkeeping": 8,
+        "slack": 4,
+        "cached": 0,
+        "sparse": 0,
+    },
+    "_dbSBox": {
+        "persistent": 40,
+        "bookkeeping": 8,
+        "slack": 4,
+        "cached": 0,
+        "sparse": 0,
+    },
     "_dbITerm": {
         "persistent": 40,
         "bookkeeping": 8,
@@ -62,6 +74,7 @@ SEGMENTS = [
     ("slack", VERMILLION, "padding + union slack"),
     ("sparse", GREY, "access points (sparse side table)"),
 ]
+
 
 # What a slot still costs once the derivable and sparse parts are gone.
 def kept(name):
@@ -168,7 +181,10 @@ def fig_bytes_per_slot(out):
 
     for key, color, label in SEGMENTS:
         left = [
-            sum(LAYOUT[n][k] for k, _, _ in SEGMENTS[: [s[0] for s in SEGMENTS].index(key)])
+            sum(
+                LAYOUT[n][k]
+                for k, _, _ in SEGMENTS[: [s[0] for s in SEGMENTS].index(key)]
+            )
             for n in names
         ]
         widths = [LAYOUT[n][key] for n in names]
