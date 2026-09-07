@@ -1,0 +1,64 @@
+odb: let a table store its fields as columns
+
+dbTable stores a table's fields inside its slots. This adds the option to
+store them as columns instead -- one array per field -- in memory, on the
+wire, or both. Each is a one-line opt-in on the slot type:
+
+    static constexpr bool kSoaTable = true;         // columns in memory
+    static constexpr bool kFieldMajorTable = true;  // columns on the wire
+
+iterm_tbl takes both and is the only table that does. Measured with just
+that one table converted, on five public ORFS designs across three PDKs:
+compressed .odb 1.07x-1.44x smaller (1.38x aggregate), peak RSS of read_db
+8.8%-11.8% lower, read and write time unchanged, uncompressed size 0.4%-1.5%
+smaller.
+
+Why it works: a slot's record is a row of fixed-width fields, and read as
+columns most of them are constant or monotone -- five of _dbITerm's ten
+4-byte columns hold a single value on nangate45/ariane133. Array-of-structs
+interleaves those with the two columns carrying real entropy, so no
+compressor sees a run longer than one field. Every record is distinct; only
+adjacency changes.
+
+In memory. A slot keeps what dbObject needs: an address the public API can
+hand out, and the offset word that finds its page. Fields move to columns
+owned by the page, reached through accessors returning references, so the
+migration is a rename -- iterm->net_ becomes iterm->net(), and an
+assignment reads as it did. Nothing outside odb changes: a dbITerm* is
+still the slot's address. Access points are keyed by slot rather than given
+a column, since no iterm has one until pin access runs and a dense column
+would spend 24 bytes a slot on an empty map.
+
+On the wire. An opted-in table writes its pages in blocks whose bytes are
+permuted field-major, produced by the type's existing operator<< -- there
+is no per-type serializer, which was the condition this was worth doing
+under at all. A block spans several pages: raising a table's page_size
+would give the same adjacency and must not be used, because an id is
+page_addr | slot. Records of different lengths inside a block are split by
+length, and past 64 distinct lengths the block is written verbatim, so a
+table the layout cannot help is simply not helped.
+
+Compatibility. kSchemaFieldMajorBlocks gates the read; files older than it
+take the per-slot path unchanged, which is deliberately simple rather than
+fast since it only runs on files written before the bump.
+
+Tests are intent-based, no goldens (see #11281): a round trip preserves
+every iterm's id, instance, terminal and net; writing what was read
+reproduces the same bytes; and allocation order survives a reload --
+rebuilding a free list from the allocation bitmap would still be valid and
+would still renumber every later object, which reaches placement and
+routing through dbSet iteration order.
+
+Further gains this makes available, measured, deliberately not included so
+this change stays one concern: opting in box_tbl and sbox_tbl takes the
+artifact to 1.53x; every table takes it to 2.51x but costs 7.1x read time
+until blocks are bounded by bytes rather than pages; oid_ is stored per
+slot though derivable from the slot index, worth 4 bytes a slot across
+every table and also the field behind #9960; prev_net_iterm_ is derivable
+from the next_ chain.
+
+Evidence, scripts and per-design numbers:
+https://github.com/The-OpenROAD-Project/bazel-orfs/pull/948
+
+Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
+
