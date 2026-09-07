@@ -139,7 +139,7 @@ and missing for the other.
 - Deleting, moving or force-updating a local `master`/`main` (`git branch -f/-D`, `git update-ref`, `git worktree add`) is blocked.
 - Merging pull requests (`gh pr merge`, or a merge or branch-protection write through `gh api`) is blocked; merging is the human's call.
 - Spelunking in `bazel-*` output directories and `.cache` using native tools (`grep`, `find`, `cat`) or agent file-reading tools is blocked to prevent context explosion.
-- The use of the global `/tmp` directory is blocked. Always use a local `./tmp` directory for scratch work.
+- The use of the global `/tmp` directory is blocked. Always use a local `./tmp` directory for scratch work. Narrowly exempted: an existing regular file of at most 64 KiB inside the agent's own `/tmp/claude-<uid>/` tree, so the hardcoded paths of bundled skill assets and session files stay reachable; the rest of `/tmp` stays blocked.
 
 The list above is asserted equal to `guard_tool.py --explain` by
 `//:guard_tool_test`, so it cannot drift from what is actually enforced.

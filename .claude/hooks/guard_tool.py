@@ -32,7 +32,9 @@ prose can never drift from what is actually enforced.
 """
 
 import json
+import os
 import re
+import stat
 import sys
 
 # Keys the two dialects use for the shell command, the working directory, and
@@ -78,6 +80,20 @@ CACHE_DIR = re.compile(r"(^|/)\.cache(/|$)")
 # Matches /tmp and /tmp/..., but not ./tmp or /somewhere/tmp.
 TMP_DIR = re.compile(r"^/tmp(/|$)")
 TMP_IN_COMMAND = re.compile(r"(?<![\w./])/tmp(?:/|(?![\w/]))")
+# The whole /tmp path, so each one can be judged on its own merits.
+TMP_PATH_IN_COMMAND = re.compile(r"(?<![\w./])(/tmp(?:/[^\s;&|<>()\'\"]*)?)")
+
+# The agent's own tree under /tmp, which it does not get to choose: bundled
+# skill assets live at hardcoded `/tmp/claude-<uid>/bundled-skills/...` paths
+# and session files at `/tmp/claude-<uid>/<project>/<session>/...`. This is
+# the only part of /tmp the exemption reaches -- the rest stays blocked, so
+# the rule still means what it says.
+AGENT_TMP_TREE = re.compile(r"^/tmp/claude-\d+/")
+
+# ... and only for a file small enough that reading it cannot be the scratch
+# use the rule exists to prevent. A big session log is read with the task
+# tool, not with `cat`.
+TMP_TINY_BYTES = 64 * 1024
 
 READ_TOOLS = r"find|grep|tree|ls|fd|rg|cat|head|tail|less|sed|awk|wc|diff"
 SPELUNK_IN_COMMAND = re.compile(
@@ -106,7 +122,11 @@ GH_MERGE = re.compile(
     r"|branches/[^/\s]+/protection)"
 )
 
-TMP_MESSAGE = "Using /tmp is forbidden (it is small and shared). Always use ./tmp."
+TMP_MESSAGE = (
+    "Using /tmp is forbidden (it is small and shared). Always use ./tmp. The only "
+    "exception is an existing file of at most 64 KiB inside the agent's own "
+    "/tmp/claude-<uid>/ tree (bundled skill assets, session files)."
+)
 
 
 def strip_data_spans(command):
@@ -236,11 +256,33 @@ def check_cmake(request):
     return None
 
 
+def tmp_exempt(path):
+    """True when `path` is a small existing file in the agent's own /tmp tree.
+
+    Both halves matter. The tree keeps the exemption from opening /tmp up as
+    scratch space -- nothing the agent chooses the name of is in there. The
+    rest is deliberately a question about what is already on disk: a path
+    that is not there yet is a new scratch file, and a directory is a scratch
+    location, which is what the rule is for.
+    """
+    if not AGENT_TMP_TREE.match(path):
+        return False
+    try:
+        info = os.stat(path)
+    except OSError:
+        return False
+    return stat.S_ISREG(info.st_mode) and info.st_size <= TMP_TINY_BYTES
+
+
 def check_tmp(request):
     if request.code and TMP_IN_COMMAND.search(request.code):
-        return TMP_MESSAGE
+        # Judge every /tmp path in the command, not just the first: one
+        # oversized or not-yet-existing path is enough to deny the call.
+        found = TMP_PATH_IN_COMMAND.findall(request.code)
+        if not found or not all(tmp_exempt(path) for path in found):
+            return TMP_MESSAGE
     for path in request.paths:
-        if TMP_DIR.match(path):
+        if TMP_DIR.match(path) and not tmp_exempt(path):
             return TMP_MESSAGE
     return None
 
@@ -294,7 +336,11 @@ RULES = (
     (
         "tmp",
         "The use of the global `/tmp` directory is blocked. Always use a local "
-        "`./tmp` directory for scratch work.",
+        "`./tmp` directory for scratch work. Narrowly exempted: an existing "
+        "regular file of at most 64 KiB inside the agent's own "
+        "`/tmp/claude-<uid>/` tree, so the hardcoded paths of bundled skill "
+        "assets and session files stay reachable; the rest of `/tmp` stays "
+        "blocked.",
         check_tmp,
     ),
 )
