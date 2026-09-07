@@ -9,13 +9,22 @@ which is exactly how the two drifted apart before they shared this script.
 
 import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 GUARD = os.path.join(HERE, "guard_tool.py")
 CLAUDE_MD = os.path.join(HERE, os.pardir, os.pardir, "CLAUDE.md")
+
+# The /tmp rule now exempts small existing files inside the agent's own tree,
+# so a table case has to name a path that is *not* there -- "/tmp/x" is a
+# plausible thing for someone to have left lying around, and the table would
+# then be testing the machine rather than the policy. TmpExemptionTest
+# asserts this prefix is absent.
+ABSENT = "/tmp/guard_tool_test.absent"
 
 # (field, value, expected) — expected is None for "allowed", otherwise a
 # substring the deny reason must contain.
@@ -111,17 +120,21 @@ CASES = [
     # ... but a quoted single argument is still an argument.
     ("command", 'grep -rn foo "bazel-out/k8-fastbuild"', "context explosion"),
     ("command", 'git checkout "main"', "verboten"),
-    ("command", 'cat "/tmp/x"', "./tmp"),
+    ("command", f'cat "{ABSENT}/x"', "./tmp"),
     ("command", "cat <<'EOF' > note.md\nnever run bazel clean\nEOF", None),
     # --- /tmp ------------------------------------------------------------
+    ("command", f"mkdir -p {ABSENT}/scratch", "./tmp"),
+    ("command", f"python3 run.py --out {ABSENT}/x.json", "./tmp"),
     ("command", "mkdir -p /tmp/scratch", "./tmp"),
-    ("command", "python3 run.py --out /tmp/x.json", "./tmp"),
     ("command", "mkdir -p ./tmp/scratch", None),
     ("command", "cat ./tmp/notes.txt", None),
-    ("path", "/tmp/scratch/x", "./tmp"),
+    ("path", f"{ABSENT}/x", "./tmp"),
+    ("path", "/tmp", "./tmp"),
     ("path", "./tmp/scratch/x", None),
     ("path", "/var/tmp/x", None),
     ("cwd", "/tmp", "./tmp"),
+    # The narrow exemption cannot be expressed here: whether a /tmp path is
+    # allowed depends on what is on disk. See TmpExemptionTest.
 ]
 
 # How each neutral field is spelled in each dialect. A field absent from a
@@ -207,6 +220,88 @@ class PolicyTest(unittest.TestCase):
                     value,
                     expected,
                 )
+
+
+class TmpExemptionTest(unittest.TestCase):
+    """The narrow /tmp exemption, against real files.
+
+    Every other rule is a question about a string, which is why the table
+    above can hold them. This one asks the filesystem whether a path is an
+    existing, small, regular file, so these cases have to create something
+    for it to answer about.
+    """
+
+    def setUp(self):
+        # Mirror the shape the agent's environment really uses, since the
+        # exemption is scoped to it: /tmp/claude-<uid>/...
+        tree = f"/tmp/claude-{os.getuid()}"
+        try:
+            os.makedirs(tree, exist_ok=True)
+            self.directory = tempfile.mkdtemp(dir=tree, prefix="guard_tool_test.")
+            self.outside = tempfile.mkdtemp(dir="/tmp", prefix="guard_tool_test.")
+        except OSError as error:  # pragma: no cover - sandbox without /tmp
+            self.skipTest(f"/tmp is not writable here: {error}")
+        self.addCleanup(shutil.rmtree, self.directory, ignore_errors=True)
+        self.addCleanup(shutil.rmtree, self.outside, ignore_errors=True)
+
+    def make(self, name, size, directory=None):
+        path = os.path.join(directory or self.directory, name)
+        with open(path, "wb") as handle:
+            handle.write(b"x" * size)
+        return path
+
+    def reason(self, field, value):
+        """The Claude-dialect deny reason for one field, or None."""
+        return claude_reason(run_guard(CLAUDE_PAYLOAD[field](value)))
+
+    def test_the_tables_absent_prefix_is_really_absent(self):
+        # If this fails, the /tmp cases in CASES are testing the machine's
+        # leftovers rather than the policy.
+        self.assertFalse(os.path.exists(ABSENT), f"{ABSENT} exists; CASES is unsound")
+
+    def test_tiny_file_is_allowed(self):
+        path = self.make("small.md", 4096)
+        self.assertIsNone(self.reason("path", path))
+        self.assertIsNone(self.reason("command", f"cat {path}"))
+
+    def test_file_at_the_limit_is_allowed(self):
+        path = self.make("exactly.md", 64 * 1024)
+        self.assertIsNone(self.reason("path", path))
+
+    def test_file_over_the_limit_is_denied(self):
+        path = self.make("big.log", 64 * 1024 + 1)
+        self.assertIn("./tmp", self.reason("path", path) or "")
+        self.assertIn("./tmp", self.reason("command", f"cat {path}") or "")
+
+    def test_directory_is_denied(self):
+        # A directory is a scratch location, which is the whole point of the
+        # rule -- being small does not make /tmp a place to work in.
+        self.assertIn("./tmp", self.reason("path", self.directory) or "")
+
+    def test_missing_file_is_denied(self):
+        path = os.path.join(self.directory, "not-there-yet.json")
+        self.assertIn("./tmp", self.reason("path", path) or "")
+        self.assertIn("./tmp", self.reason("command", f"echo hi > {path}") or "")
+
+    def test_one_bad_path_denies_the_whole_command(self):
+        allowed = self.make("small.md", 128)
+        missing = os.path.join(self.directory, "out.json")
+        command = f"cp {allowed} {missing}"
+        self.assertIn("./tmp", self.reason("command", command) or "")
+
+    def test_tiny_file_outside_the_agent_tree_is_denied(self):
+        # The exemption is not "small files in /tmp are fine". A file the
+        # agent could have chosen the name of stays blocked however small.
+        path = self.make("small.md", 64, directory=self.outside)
+        self.assertIn("./tmp", self.reason("path", path) or "")
+        self.assertIn("./tmp", self.reason("command", f"cat {path}") or "")
+
+    def test_exemption_does_not_reach_other_rules(self):
+        # A tiny file under /tmp is exempt from the /tmp rule only. Anything
+        # else the command does is judged as it always was.
+        path = self.make("note.md", 64)
+        command = f"bazel clean && cat {path}"
+        self.assertIn("protects bazel cache", self.reason("command", command) or "")
 
 
 class ProtocolTest(unittest.TestCase):
