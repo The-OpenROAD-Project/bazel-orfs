@@ -238,73 +238,119 @@ def fig_bytes_per_slot(out):
     print(f"wrote {out}")
 
 
-def fig_totals(designs, out, codec="zstd", level="3", block=8192):
-    """Compressed bytes for the measured tables, today against field-major."""
-    labels, today, after = [], [], []
-    for name, rows in designs.items():
-        sel = [
-            r
-            for r in rows
-            if r["codec"] == codec and r["level"] == level and int(r["block"]) == block
-        ]
-        if not sel:
-            continue
-        labels.append(name)
-        today.append(sum(int(r["aos_bytes"]) for r in sel) / 1e6)
-        after.append(sum(int(r["soa_bytes"]) for r in sel) / 1e6)
+def fig_measured(artifact_csv, memory_csv, out):
+    """What the change actually produced, per design.
 
-    x = range(len(labels))
-    fig, ax = plt.subplots(figsize=(6.2, 3.2))
-    ax.bar(
-        [i - 0.21 for i in x],
-        today,
-        width=0.4,
+    Two panels rather than one chart with two scales: compressed artifact
+    size is a ratio and peak RSS is megabytes, and putting them on one axis
+    would be the dual-axis mistake.
+    """
+    artifact = list(csv.DictReader(open(artifact_csv)))
+    memory = list(csv.DictReader(open(memory_csv)))
+
+    # Peak RSS before the change, measured the same way, per design.
+    before_rss = {
+        "ariane133_2_floorplan.odb": 280736,
+        "black_parrot_2_floorplan.odb": 369562,
+        "microwatt_2_floorplan.odb": 254148,
+    }
+
+    def short(name):
+        name = name.replace(".odb", "")
+        if name.endswith("_5_route"):
+            return name[: -len("_5_route")] + " (routed)"
+        return name.replace("_2_floorplan", "")
+
+    fig, (left, right) = plt.subplots(1, 2, figsize=(10.5, 3.6))
+
+    names = [short(r["design"]) for r in artifact]
+    gains = [int(r["zstd_before"]) / int(r["zstd_after"]) for r in artifact]
+    bars = left.barh(
+        list(range(len(names))),
+        gains,
+        height=0.55,
+        color=BLUE,
+        edgecolor=SURFACE,
+        linewidth=2,
+    )
+    left.axvline(1.0, color=GREY, linewidth=1)
+    for index, (bar, gain) in enumerate(zip(bars, gains)):
+        left.annotate(
+            f"{gain:.2f}x",
+            (gain, index),
+            textcoords="offset points",
+            xytext=(6, 0),
+            va="center",
+            color=INK,
+            fontsize=9,
+        )
+    left.set_yticks(list(range(len(names))))
+    left.set_yticklabels(names, color=INK, fontsize=9)
+    left.invert_yaxis()
+    left.set_xlim(0, max(gains) * 1.25)
+    left.set_xlabel(
+        "compressed .odb, times smaller (zstd -3)", color=INK_MUTED, fontsize=9
+    )
+    left.set_title("On the wire", color=INK, fontsize=11, loc="left")
+    style(left)
+    left.grid(axis="y", visible=False)
+
+    rows = [r for r in memory if r["design"] in before_rss]
+    labels = [short(r["design"]) for r in rows]
+    before = [before_rss[r["design"]] / 1024 for r in rows]
+    after = [float(r["peak_rss_kb"]) / 1024 for r in rows]
+    positions = range(len(labels))
+    right.barh(
+        [p - 0.19 for p in positions],
+        before,
+        height=0.34,
         color=GREY,
         label="today",
         edgecolor=SURFACE,
         linewidth=2,
     )
-    ax.bar(
-        [i + 0.21 for i in x],
+    right.barh(
+        [p + 0.19 for p in positions],
         after,
-        width=0.4,
+        height=0.34,
         color=BLUE,
-        label="field-major",
+        label="columns",
         edgecolor=SURFACE,
         linewidth=2,
     )
-    for i, (a, b) in enumerate(zip(today, after)):
-        ax.annotate(
-            f"{a:.2f} MB",
-            (i - 0.21, a),
+    for index, (was, is_now) in enumerate(zip(before, after)):
+        right.annotate(
+            f"-{100 * (was - is_now) / was:.1f}%",
+            (is_now, index + 0.19),
             textcoords="offset points",
-            xytext=(0, 4),
-            ha="center",
+            xytext=(6, 0),
+            va="center",
             color=INK,
             fontsize=9,
         )
-        ax.annotate(
-            f"{b:.2f} MB\n{a / b:.2f}x smaller",
-            (i + 0.21, b),
-            textcoords="offset points",
-            xytext=(0, 4),
-            ha="center",
-            color=INK,
-            fontsize=9,
-        )
+    right.set_yticks(list(positions))
+    right.set_yticklabels(labels, color=INK, fontsize=9)
+    right.invert_yaxis()
+    right.set_xlim(0, max(before) * 1.3)
+    right.set_xlabel("peak RSS of read_db, MB", color=INK_MUTED, fontsize=9)
+    right.set_title("In memory", color=INK, fontsize=11, loc="left")
+    style(right)
+    right.grid(axis="y", visible=False)
+    right.legend(
+        frameon=False,
+        fontsize=9,
+        labelcolor=INK,
+        ncol=2,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.24),
+    )
 
-    ax.set_xticks(list(x))
-    ax.set_xticklabels(labels, color=INK, fontsize=10)
-    ax.set_ylabel(f"compressed MB ({codec} -{level})", color=INK_MUTED, fontsize=9)
-    ax.set_ylim(top=max(today) * 1.35)
-    style(ax)
-    ax.grid(axis="x", visible=False)
-    ax.legend(frameon=False, fontsize=9, labelcolor=INK)
-    ax.set_title(
-        f"sbox_tbl + box_tbl + iterm_tbl, {block}-record blocks",
+    fig.suptitle(
+        "One table stored as columns: iterm_tbl",
         color=INK,
         fontsize=12,
-        loc="left",
+        x=0.01,
+        ha="left",
     )
     fig.tight_layout()
     fig.savefig(out, dpi=200, facecolor=SURFACE)
@@ -330,7 +376,11 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     fig_gain_vs_block(designs, out / "soa-gain-vs-block.png")
     fig_bytes_per_slot(out / "soa-bytes-per-slot.png")
-    fig_totals(designs, out / "soa-compressed-totals.png")
+    fig_measured(
+        "study/soa/artifact-gain.csv",
+        "study/soa/memory-soa-storage.csv",
+        out / "soa-measured.png",
+    )
 
 
 if __name__ == "__main__":
