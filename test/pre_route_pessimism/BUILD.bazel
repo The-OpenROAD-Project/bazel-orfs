@@ -1,0 +1,160 @@
+load("@rules_python//python:defs.bzl", "py_binary")
+load("//:openroad.bzl", "orfs_run")
+load("@bazel_orfs_test_designs//:designs.bzl", STUDY_DESIGNS = "DESIGNS")
+
+# Flow probes: small measurements that answer a question about a stage
+# without re-running it. Every target here is manual -- each one loads a
+# stage's ODB, so none belongs in a wildcard build.
+package(default_visibility = ["//visibility:private"])
+
+# Exported so a probe can be declared wherever it is useful. Staging
+# (stage_src.tcl) is what makes that work: RESULTS_DIR belongs to the
+# package declaring the run, not to the one that built the src.
+exports_files([
+    "layer_parasitics.tcl",
+    "layer_usage.tcl",
+    "size_probe.tcl",
+    "stage_ladder.tcl",
+    "stage_src.tcl",
+])
+
+# The design the probes are demonstrated on, taken from the same parsed
+# config.mk its flow targets are built from.
+WIREBOUND = STUDY_DESIGNS["asap7/wirebound"]
+
+# Its one variable of its own; ORFS has never heard of it, so it takes the
+# hatch rather than the spell-checked dict.
+WIREBOUND_USER_VARS = ["WIREBOUND_CLK_PERIOD_PS"]
+
+WIREBOUND_ARGS = {
+    key: value
+    for key, value in WIREBOUND["arguments"].items()
+    if key not in WIREBOUND_USER_VARS
+}
+
+WIREBOUND_USER_ARGS = {
+    key: value
+    for key, value in WIREBOUND["arguments"].items()
+    if key in WIREBOUND_USER_VARS
+}
+
+# The probes' shared inputs: the staging preamble, plus the one copy of
+# the path-sampling logic, reused rather than duplicated so two probes
+# cannot disagree about what min_period means.
+PROBE_SOURCES = {
+    "EXTRACT_LIB_TCL": ["//test/estimation_ladder:extract_lib.tcl"],
+    "STAGE_SRC_TCL": ["stage_src.tcl"],
+}
+
+# ORFS's stage stems. grt is 5_1_grt rather than 5_grt; STAGE_SUBSTEPS in
+# private/stages.bzl is the source of truth for them.
+LADDER_STAGES = [
+    "floorplan",
+    "place",
+    "cts",
+    "grt",
+]
+
+# min_period = clk_period - WNS, read stage-correctly: stage_ladder.tcl
+# sources ORFS's own open.tcl so the parasitics and clock treatment are
+# the flow's, and each rung records which branch it got. Reimplementing
+# that choice is how a ladder ends up comparing a stage against itself
+# under different rules.
+[
+    orfs_run(
+        name = "ladder_{}".format(stage),
+        src = "//flow/designs/asap7/wirebound:wirebound_{}".format(stage),
+        outs = ["ladder_{}.json".format(stage)],
+        arguments = WIREBOUND_ARGS,
+        script = "stage_ladder.tcl",
+        sources = WIREBOUND["sources"],
+        tags = ["manual"],
+        user_arguments = WIREBOUND_USER_ARGS | {
+            "OUTPUT_JSON": "$(location ladder_{}.json)".format(stage),
+        },
+        user_sources = PROBE_SOURCES,
+        variant = "ladder_{}".format(stage),
+    )
+    for stage in LADDER_STAGES
+]
+
+# Per-layer routing demand against per-layer supply, derated by
+# ROUTING_LAYER_ADJUSTMENT because raw track count is not what the router
+# may spend. Errors out if no net carries guides, since every per-layer
+# number would otherwise be a well-formed zero.
+orfs_run(
+    name = "layer_usage",
+    src = "//flow/designs/asap7/wirebound:wirebound_grt",
+    outs = ["layer_usage.json"],
+    arguments = WIREBOUND_ARGS,
+    script = "layer_usage.tcl",
+    sources = WIREBOUND["sources"],
+    tags = ["manual"],
+    user_arguments = WIREBOUND_USER_ARGS | {
+        "OUTPUT_JSON": "$(location layer_usage.json)",
+    },
+    user_sources = PROBE_SOURCES,
+    variant = "layer_usage",
+)
+
+# What a point cost and what it bought: instance count, area, utilization
+# and per-stage wall time. Runtime comes from the stage logs rather than
+# from timing the build, because a cached stage rebuilds for free and
+# would otherwise report as an improvement.
+orfs_run(
+    name = "size_probe",
+    src = "//flow/designs/asap7/wirebound:wirebound_grt",
+    outs = ["size_probe.json"],
+    arguments = WIREBOUND_ARGS,
+    script = "size_probe.tcl",
+    sources = WIREBOUND["sources"],
+    src_logs = True,
+    tags = ["manual"],
+    user_arguments = WIREBOUND_USER_ARGS | {
+        "OUTPUT_JSON": "$(location size_probe.json)",
+    },
+    user_sources = PROBE_SOURCES,
+    variant = "size_probe",
+)
+
+# ORFS's RC fit, as data. correlate_rc prints a setRC.tcl body and an
+# R-squared table to stdout for a human to paste; rc_fit.py calls the same
+# helper functions and writes JSON, so the fit can be compared with the
+# platform's values rather than eyeballed against them.
+#
+# The helper is copied in under its own name because correlateRC.py and
+# correlateRCHelper.py import each other by bare module name -- the same
+# reason //:rc.bzl does it.
+genrule(
+    name = "correlate_helper",
+    srcs = ["@orfs//flow/util:correlateRCHelper.py"],
+    outs = ["rc_fit_srcs/correlateRCHelper.py"],
+    cmd = "cp $< $@",
+    tags = ["manual"],
+)
+
+py_binary(
+    name = "rc_fit",
+    srcs = [
+        "rc_fit.py",
+        "rc_fit_srcs/correlateRCHelper.py",
+    ],
+    args = [
+        "--segments-rc=$(rootpath //flow/designs/asap7/wirebound:results/asap7/wirebound/base/6_segments_rc.csv)",
+        "--platform-setrc=$(rootpath @orfs//flow:platforms/asap7/setRC.tcl)",
+        "--out-json=test/pre_route_pessimism/rc_fit.json",
+    ],
+    data = [
+        "//flow/designs/asap7/wirebound:results/asap7/wirebound/base/6_segments_rc.csv",
+        "@orfs//flow:platforms/asap7/setRC.tcl",
+    ],
+    imports = ["rc_fit_srcs"],
+    main = "rc_fit.py",
+    tags = ["manual"],
+    deps = [
+        # correlateRCHelper imports matplotlib at module scope for its
+        # plot helpers, so it is needed even though nothing here plots.
+        "@bazel-orfs-dev-pip//matplotlib",
+        "@bazel-orfs-dev-pip//scikit_learn",
+    ],
+)
