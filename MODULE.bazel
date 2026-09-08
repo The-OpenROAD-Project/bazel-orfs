@@ -244,9 +244,14 @@ register_toolchains(
     dev_dependency = True,
 )
 
+# 2.3.2, not 2.0.0: every module in the graph that depends on rules_python
+# (protobuf, sv-lang, yosys, rules_pkg, ...) asks for 2.3.2, so MVS resolves
+# there and a lower root pin only buys a --check_direct_dependencies warning
+# on every invocation. Raise this to whatever `bazelisk mod explain
+# rules_python` reports once a bump moves the graph again.
 bazel_dep(
     name = "rules_python",
-    version = "2.0.0",
+    version = "2.3.2",
 )
 
 python = use_extension(
