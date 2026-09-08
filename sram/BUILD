@@ -95,11 +95,11 @@ orfs_run(
     outs = [
         ":macro_placement.tcl",
     ],
-    arguments = {
-        "MESSAGE": "Hello world!",
-    },
     cmd = "run",
     script = ":write_macros.tcl",
+    user_arguments = {
+        "MESSAGE": "Hello world!",
+    },
 )
 
 orfs_run(

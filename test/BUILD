@@ -161,11 +161,11 @@ orfs_run(
     outs = [
         "tag_array_64x184_io-placement.tcl",
     ],
-    arguments = {
-        "OUTPUT": "tag_array_64x184_io-placement.tcl",
-    },
     script = ":write_pin_placement.tcl",
     tags = ["manual"],
+    user_arguments = {
+        "OUTPUT": "tag_array_64x184_io-placement.tcl",
+    },
 )
 
 sh_binary(
@@ -303,11 +303,11 @@ orfs_run(
     outs = [
         "lb_32x128_top_io-placement.tcl",
     ],
-    arguments = {
-        "OUTPUT": "lb_32x128_top_io-placement.tcl",
-    },
     script = ":write_pin_placement.tcl",
     tags = ["manual"],
+    user_arguments = {
+        "OUTPUT": "lb_32x128_top_io-placement.tcl",
+    },
 )
 
 sh_binary(
@@ -376,11 +376,11 @@ orfs_run(
     outs = [
         "lb_32x128_io-placement.tcl",
     ],
-    arguments = {
-        "OUTPUT": "lb_32x128_io-placement.tcl",
-    },
     script = ":write_pin_placement.tcl",
     tags = ["manual"],
+    user_arguments = {
+        "OUTPUT": "lb_32x128_io-placement.tcl",
+    },
 )
 
 sh_binary(
@@ -528,11 +528,11 @@ orfs_run(
     outs = [
         "L1MetadataArray_io-placement.tcl",
     ],
-    arguments = {
-        "OUTPUT": "L1MetadataArray_io-placement.tcl",
-    },
     script = ":write_pin_placement.tcl",
     tags = ["manual"],
+    user_arguments = {
+        "OUTPUT": "L1MetadataArray_io-placement.tcl",
+    },
 )
 
 sh_binary(
@@ -1093,11 +1093,11 @@ orfs_run(
     outs = [
         "regfile_128x65_io-placement.tcl",
     ],
-    arguments = {
-        "OUTPUT": "regfile_128x65_io-placement.tcl",
-    },
     script = ":write_pin_placement.tcl",
     tags = ["manual"],
+    user_arguments = {
+        "OUTPUT": "regfile_128x65_io-placement.tcl",
+    },
 )
 
 sh_binary(
@@ -1164,11 +1164,11 @@ orfs_run(
     outs = [
         "lb_32x128_sweep_io-placement.tcl",
     ],
-    arguments = {
-        "OUTPUT": "lb_32x128_sweep_io-placement.tcl",
-    },
     script = ":write_pin_placement.tcl",
     tags = ["manual"],
+    user_arguments = {
+        "OUTPUT": "lb_32x128_sweep_io-placement.tcl",
+    },
 )
 
 sh_binary(
@@ -1241,12 +1241,12 @@ orfs_run(
     outs = [
         "units.txt",
     ],
-    arguments = {
-        "OUTPUT": "$(location units.txt)",
-    },
     openroad = "@openroad//src/sta:opensta",
     script = ":units.tcl",
     tags = ["manual"],
+    user_arguments = {
+        "OUTPUT": "$(location units.txt)",
+    },
 )
 
 build_test(
@@ -1331,12 +1331,12 @@ orfs_run(
     name = "log_dir_probe_mock",
     src = ":lb_32x128_squashed_cts",
     outs = ["log_dir_probe.txt"],
-    arguments = {
-        "OUTPUT": "$(location log_dir_probe.txt)",
-    },
     openroad = "//mock/openroad/src/bin:openroad",
     script = ":log_dir_probe.tcl",
     src_logs = True,
+    user_arguments = {
+        "OUTPUT": "$(location log_dir_probe.txt)",
+    },
     variant = "log_dir_probe",
 )
 
@@ -1952,11 +1952,11 @@ orfs_run(
     name = "lb_32x128_mock_run_with_deps",
     src = ":lb_32x128_mock_floorplan",
     outs = ["lb_32x128_mock_run_with_deps.yaml"],
-    arguments = {
-        "OUTPUT": "lb_32x128_mock_run_with_deps.yaml",
-    },
     script = ":report_named.tcl",
     tags = ["manual"],
+    user_arguments = {
+        "OUTPUT": "lb_32x128_mock_run_with_deps.yaml",
+    },
     deps = True,
 )
 
@@ -2182,11 +2182,11 @@ orfs_run(
     name = "my_run_test",
     src = ":lb_32x128_synth",
     outs = ["my_run_test.txt"],
-    arguments = {
-        "OUTPUT": "$(location :my_run_test.txt)",
-    },
     extra_arguments = [":my_variables"],
     script = "write_my_var.tcl",
+    user_arguments = {
+        "OUTPUT": "$(location :my_run_test.txt)",
+    },
 )
 
 sh_test(
@@ -2217,10 +2217,11 @@ orfs_run(
     name = "verify_synth_propagated_vars",
     src = ":lb_32x128_shared_synth_floorplan",
     outs = ["propagated_vars.txt"],
-    arguments = {
+    script = ":dump_floorplan_vars_tcl",
+    # Read by dump_floorplan_vars_tcl, not by ORFS.
+    user_arguments = {
         "OUT_vars_txt": "$(location :propagated_vars.txt)",
     },
-    script = ":dump_floorplan_vars_tcl",
 )
 
 sh_test(
@@ -2322,11 +2323,12 @@ orfs_run(
     name = "test_orfs_run_sources",
     src = ":lb_32x128_synth",
     outs = ["test_orfs_run_sources.txt"],
-    arguments = {
+    script = ":dump_sources_tcl",
+    # Read by dump_sources_tcl, not by ORFS.
+    user_arguments = {
         "OUT_vars_txt": "$(location :test_orfs_run_sources.txt)",
     },
-    script = ":dump_sources_tcl",
-    sources = {
+    user_sources = {
         "TEST_SOURCE_1": ":test_source_1",
         "TEST_SOURCES": [
             ":test_source_1",
@@ -2345,13 +2347,13 @@ sh_test(
 orfs_test(
     name = "test_orfs_test_sources",
     src = ":lb_32x128_mock_openroad_floorplan",
-    arguments = {
-        "SCRIPT": "$(location :verify_orfs_test_sources.tcl)",
-    },
     cmd = "run",
     data = [":verify_orfs_test_sources.tcl"],
     openroad = "//mock/openroad/src/bin:openroad",
-    sources = {
+    user_arguments = {
+        "SCRIPT": "$(location :verify_orfs_test_sources.tcl)",
+    },
+    user_sources = {
         "TEST_SOURCE_1": ":test_source_1",
         "TEST_SOURCES": [
             ":test_source_1",

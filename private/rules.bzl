@@ -72,6 +72,7 @@ load(
     "ALL_STAGES",
     "ALL_STAGE_TO_VARIABLES",
     "STAGE_SUBSTEPS",
+    "check_stage_variables",
     "get_sources",
     "get_stage_args",
     "keep_modules",
@@ -631,6 +632,21 @@ def _expand_sources(kwargs):
         EXECUTION time by merge_and_filter_arguments (more code under test).
         Do NOT route them through get_stage_args.
     """
+
+    # The same two escape hatches orfs_flow takes, so a caller writing an
+    # orfs_run does not have to discover that the attribute it just used
+    # on orfs_flow does not exist here.
+    #
+    # Merging only. The spell-check is deliberately NOT here: this
+    # function is downstream of both entry points, and one of them has
+    # already merged. See _check_run_variables.
+    user_arguments = kwargs.pop("user_arguments", {})
+    user_sources = kwargs.pop("user_sources", {})
+    if user_arguments:
+        kwargs["arguments"] = kwargs.get("arguments", {}) | user_arguments
+    if user_sources:
+        kwargs["sources"] = kwargs.get("sources", {}) | user_sources
+
     sources = kwargs.pop("sources", {})
     if sources:
         # Normalize scalar source values to lists; the helpers expect lists.
@@ -661,6 +677,41 @@ def _expand_sources(kwargs):
         kwargs["arguments"] = arguments
     return kwargs
 
+def _check_run_variables(kwargs):
+    """Spell-check a directly-authored run target's variable dicts.
+
+    MORATORIUM(validate-where-the-dicts-are-apart): the guard belongs at
+    the boundary where the caller's `arguments` and `user_arguments` are
+    still two dicts, and nowhere downstream of it. There are two such
+    boundaries and they are not the same place:
+
+      * a hand-written orfs_run / orfs_run_executable / orfs_test -- here;
+      * orfs_flow's stage path -- _filter_stage_args, which already does
+        it, and then merges the hatches before get_stage_args flattens
+        everything into one stage-filtered dict.
+
+    Do not move this into _expand_sources, which both paths share. By the
+    time the stage path arrives there the dicts are one, and "the author
+    wrote this in user_arguments" is unrecoverable -- so the guard fires a
+    second time on merged data and rejects legitimate designs, e.g.
+    mock-alu's MOCK_ALU_WIDTH reaching the test stage.
+
+    Nor re-derive the split there with split_user_variables(). Its
+    predicate is "not a known ORFS variable", which is exactly what this
+    guard tests, so a typo would be silently reclassified as a hatch
+    entry -- the failure this guard exists to catch, wearing its fix's
+    clothes.
+
+    Args:
+        kwargs: the macro's keyword arguments, read but not modified.
+    """
+    check_stage_variables(
+        kwargs.get("arguments", {}),
+        kwargs.get("sources", {}),
+        kwargs.get("user_arguments", {}),
+        kwargs.get("user_sources", {}),
+    )
+
 def orfs_run(deps = False, **kwargs):
     """Rule wrapper for orfs_run to populate data dependencies and CLI arguments from explicitly specified sources.
 
@@ -671,8 +722,12 @@ def orfs_run(deps = False, **kwargs):
             the companions would be dead targets in every package. Turn it
             on for a run whose failures get debugged interactively or filed
             upstream.
-        **kwargs: The keyword arguments to pass to the underlying _orfs_run_rule.
+        **kwargs: The keyword arguments to pass to the underlying
+            _orfs_run_rule. `user_arguments` and `user_sources` name
+            variables read only by this run's own script rather than by
+            ORFS, matching orfs_flow's attributes of the same name.
     """
+    _check_run_variables(kwargs)
     _orfs_run_rule(**_expand_sources(kwargs))
     if deps:
         create_deps_tar(kwargs.get("name"), kwargs.get("visibility", None))
@@ -906,7 +961,28 @@ def orfs_test(**kwargs):
     """Rule wrapper for orfs_test to populate data dependencies and CLI arguments from explicitly specified sources.
 
     Args:
-        **kwargs: The keyword arguments to pass to the underlying _orfs_rule_test.
+        **kwargs: The keyword arguments to pass to the underlying
+            _orfs_rule_test. `user_arguments` and `user_sources` name
+            variables read only by this target's own script, matching
+            orfs_flow's attributes of the same name; `arguments` and
+            `sources` are spell-checked against ORFS's variables.yaml.
+    """
+    _check_run_variables(kwargs)
+    _orfs_rule_test(**_expand_sources(kwargs))
+
+def _orfs_test_stage(**kwargs):
+    """orfs_test for orfs_flow's stage path, without the spell-check.
+
+    Every other stage in STAGE_IMPLS instantiates its rule directly; the
+    test stage alone went through the public macro, which is why it was
+    the only thing the guard broke. _filter_stage_args has already
+    validated these dicts and then merged them, so re-checking here would
+    reject a design for a variable its author declared correctly. See
+    MORATORIUM(validate-where-the-dicts-are-apart) on
+    _check_run_variables.
+
+    Args:
+        **kwargs: stage-filtered keyword arguments from _filter_stage_args.
     """
     _orfs_rule_test(**_expand_sources(kwargs))
 
@@ -1177,6 +1253,7 @@ def orfs_run_executable(deps = False, **kwargs):
             companions. Opt-in for the same reason as orfs_run's.
         **kwargs: The keyword arguments to pass to the underlying _orfs_rule_run_executable.
     """
+    _check_run_variables(kwargs)
     _orfs_rule_run_executable(**_expand_sources(kwargs))
     if deps:
         create_deps_tar(kwargs.get("name"), kwargs.get("visibility", None))
@@ -3364,7 +3441,7 @@ GENERATE_METADATA_STAGE_IMPL = struct(
 )
 UPDATE_RULES_IMPL = struct(stage = "update_rules", impl = orfs_update_rules)
 
-TEST_STAGE_IMPL = struct(stage = "test", impl = orfs_test)
+TEST_STAGE_IMPL = struct(stage = "test", impl = _orfs_test_stage)
 
 STAGE_IMPLS = [
     struct(stage = "synth", impl = orfs_synth_rule),
