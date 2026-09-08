@@ -82,6 +82,88 @@ def mock_fetch_submodule_sha(_parent_repo, _parent_commit, path):
     return OPENROAD_SUBMODULE_SHAS[path]
 
 
+# --- Fake ORFS tree for the ORFS_PATCHES pairing check -------------------
+#
+# The pairing check reads every ORFS file that ORFS_PATCHES touches at the
+# target commit and looks for each hunk's pre-image. The tree it reads is
+# synthesized from the patches themselves rather than vendored from ORFS:
+# a patched path gets a file holding that patch's pre-image lines, so every
+# hunk finds its context by construction. The fixture therefore follows
+# whatever ORFS_PATCHES lists instead of going stale at the next ORFS bump,
+# and the check still runs against the real carried patches -- a patch that
+# stops parsing, or is named but missing, fails these tests.
+#
+# Files a patch creates are deliberately left out: the check requires those
+# to be absent.
+
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+
+def carried_orfs_patches():
+    """{patch path: text} for every patch ORFS_PATCHES names in this repo."""
+    source = bump.read_local_text(REPO_ROOT, bump.ORFS_SOURCE_BZL)
+    assert source is not None, "no orfs_source.bzl at the repo root"
+    paths = bump.parse_orfs_patch_labels(source)
+    assert paths, "ORFS_PATCHES parsed as empty"
+    patches = {}
+    for path in paths:
+        text = bump.read_local_text(REPO_ROOT, path)
+        assert text is not None, f"{path} is named in ORFS_PATCHES but absent"
+        patches[path] = text
+    return patches
+
+
+def fake_orfs_tree(patch_texts):
+    """{ORFS path: text} that every patch in ``patch_texts`` applies to."""
+    tree = {}
+    for text in patch_texts.values():
+        for path, creates, hunks in bump.parse_unified_diff(text):
+            if creates:
+                continue
+            lines = tree.setdefault(path, [])
+            for _header, pre in hunks:
+                lines.extend(pre)
+    return {path: "\n".join(lines) + "\n" for path, lines in tree.items()}
+
+
+CARRIED_ORFS_PATCHES = carried_orfs_patches()
+FAKE_ORFS_TREE = fake_orfs_tree(CARRIED_ORFS_PATCHES)
+
+
+def mock_fetch_raw_text(repo, _ref, path):
+    """Raw file reads, served locally.
+
+    bazel-orfs files come from this checkout -- the real orfs_source.bzl and
+    the real patches -- and ORFS files from the synthesized tree. Any other
+    repo is a network access these mocks do not cover, and raising here is
+    how a new one gets noticed before CI reaches for GitHub.
+    """
+    if repo == bump.BAZEL_ORFS_REPO:
+        return bump.read_local_text(REPO_ROOT, path)
+    if repo == bump.ORFS_REPO:
+        return FAKE_ORFS_TREE.get(path)
+    raise AssertionError(f"unmocked raw fetch: {repo}/{path}")
+
+
+def setUpModule():
+    """Make the temp dir the fixtures land in look like a bazel-orfs checkout.
+
+    For a bazel-orfs project the pairing check reads orfs_source.bzl and the
+    patches it names from the directory holding MODULE.bazel, not over the
+    network. Every fixture here is copied to tempfile.gettempdir(), so the
+    real files are copied in beside them.
+    """
+    tmp = tempfile.gettempdir()
+    shutil.copy2(
+        os.path.join(REPO_ROOT, bump.ORFS_SOURCE_BZL),
+        os.path.join(tmp, bump.ORFS_SOURCE_BZL),
+    )
+    for path in CARRIED_ORFS_PATCHES:
+        dest = os.path.join(tmp, path)
+        os.makedirs(os.path.dirname(dest), exist_ok=True)
+        shutil.copy2(os.path.join(REPO_ROOT, path), dest)
+
+
 def apply_bump(
     fixture_name,
     workspace_dir=None,
@@ -104,12 +186,83 @@ def apply_bump(
         fetch_submodule_sha_fn=mock_fetch_submodule_sha,
         workspace_dir=workspace_dir,
         head_tools=head_tools,
+        fetch_raw_text_fn=mock_fetch_raw_text,
     )
 
     with open(tmp.name) as f:
         content = f.read()
     os.unlink(tmp.name)
     return content
+
+
+class TestOrfsPatchPairingThroughBump(unittest.TestCase):
+    """The pairing check reached through a real bump.
+
+    bump_impl_test covers the checker itself on synthetic diffs. What is
+    covered here is the wiring plus the real carried set: the patches
+    ORFS_PATCHES names today, parsed for real, against an ORFS tree that
+    either fits them or does not.
+    """
+
+    def test_the_synthesized_tree_holds_every_patched_path(self):
+        """Guards against a vacuous fixture.
+
+        If parse_unified_diff stopped finding files, the tree would come out
+        empty, every patch would report a missing file, and the pairing check
+        would be doing nothing while the rest of this suite still passed.
+        """
+        self.assertTrue(CARRIED_ORFS_PATCHES, "no carried ORFS patches found")
+        for text in CARRIED_ORFS_PATCHES.values():
+            for path, creates, _hunks in bump.parse_unified_diff(text):
+                if not creates:
+                    self.assertIn(path, FAKE_ORFS_TREE)
+
+    def test_carried_patches_fit_the_synthesized_tree(self):
+        problems = bump.check_orfs_patches(
+            lambda path: bump.read_local_text(REPO_ROOT, path),
+            FAKE_ORFS_TREE.get,
+        )
+        self.assertEqual(problems, [])
+
+    def test_a_drifted_orfs_tree_makes_the_bump_refuse(self):
+        """The failure this check exists for: ORFS moved out from under a patch."""
+        victim = sorted(FAKE_ORFS_TREE)[0]
+        drifted = dict(FAKE_ORFS_TREE, **{victim: "not what the patch expects\n"})
+
+        def drifted_raw_text(repo, ref, path):
+            if repo == bump.ORFS_REPO:
+                return drifted.get(path)
+            return mock_fetch_raw_text(repo, ref, path)
+
+        src = os.path.join(FIXTURES_DIR, "downstream.MODULE.bazel")
+        tmp = tempfile.NamedTemporaryFile(suffix=".MODULE.bazel", delete=False)
+        tmp.close()
+        shutil.copy2(src, tmp.name)
+        try:
+            with open(tmp.name) as f:
+                before = f.read()
+            with self.assertRaises(bump.BumpError) as cm:
+                bump.bump(
+                    tmp.name,
+                    fetch_commit_fn=mock_fetch_commit,
+                    fetch_integrity_fn=mock_fetch_integrity,
+                    fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
+                    fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
+                    fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+                    fetch_sha256_hex_fn=mock_fetch_sha256_hex,
+                    fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+                    fetch_raw_text_fn=drifted_raw_text,
+                )
+            message = str(cm.exception)
+            self.assertIn(victim, message)
+            self.assertIn(ORFS_COMMIT[:12], message)
+            self.assertRegex(message, r"patches/\d+-orfs-")
+            # A refusal writes nothing: MODULE.bazel is read once and
+            # written once at the end.
+            with open(tmp.name) as f:
+                self.assertEqual(f.read(), before)
+        finally:
+            os.unlink(tmp.name)
 
 
 class TestBazelOrfsProject(unittest.TestCase):
@@ -392,6 +545,7 @@ class TestOpenroadDoubleBumpIdempotent(unittest.TestCase):
             fetch_bcr_versions_fn=mock_fetch_bcr_versions,
             fetch_sha256_hex_fn=mock_fetch_sha256_hex,
             fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+            fetch_raw_text_fn=mock_fetch_raw_text,
         )
         bump.bump(tmp.name, **kwargs)
         with open(tmp.name) as f:
@@ -439,6 +593,7 @@ class TestUnchangedPinSkipsRehash(unittest.TestCase):
             fetch_bcr_versions_fn=mock_fetch_bcr_versions,
             fetch_sha256_hex_fn=counting_sha256,
             fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+            fetch_raw_text_fn=mock_fetch_raw_text,
         )
         try:
             bump.bump(tmp.name, **kwargs)
@@ -494,6 +649,7 @@ class TestNetworkErrorHandling(unittest.TestCase):
                     fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
                     fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
                     fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+                    fetch_raw_text_fn=mock_fetch_raw_text,
                 )
             finally:
                 os.unlink(tmp.name)
@@ -565,6 +721,7 @@ class TestArchiveOverrideDoubleBumpIdempotent(unittest.TestCase):
             fetch_bcr_versions_fn=mock_fetch_bcr_versions,
             fetch_sha256_hex_fn=mock_fetch_sha256_hex,
             fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+            fetch_raw_text_fn=mock_fetch_raw_text,
         )
         bump.bump(tmp.name, **kwargs)
         with open(tmp.name) as f:
@@ -1079,6 +1236,7 @@ class TestStrictModeFailures(unittest.TestCase):
                 fetch_orfs_tool_sha_fn=mock_fetch_orfs_tool_sha,
                 fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
                 fetch_bcr_versions_fn=mock_fetch_bcr_versions,
+                fetch_raw_text_fn=mock_fetch_raw_text,
             )
             with open(tmp.name) as f:
                 return f.read()
@@ -1182,6 +1340,7 @@ class TestLegacyShapesRejected(unittest.TestCase):
                 fetch_bcr_versions_fn=mock_fetch_bcr_versions,
                 fetch_sha256_hex_fn=mock_fetch_sha256_hex,
                 fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+                fetch_raw_text_fn=mock_fetch_raw_text,
             )
             with open(tmp.name) as f:
                 return f.read()
@@ -1242,6 +1401,7 @@ class TestLegacyShapesRejected(unittest.TestCase):
                 fetch_sha256_hex_fn=mock_fetch_sha256_hex,
                 fetch_submodule_sha_fn=mock_fetch_submodule_sha,
                 ignore_errors=True,
+                fetch_raw_text_fn=mock_fetch_raw_text,
             )
             with open(tmp.name) as f:
                 result = f.read()
@@ -1282,6 +1442,7 @@ class TestLegacyShapesRejected(unittest.TestCase):
                     fetch_bcr_versions_fn=mock_fetch_bcr_versions,
                     fetch_sha256_hex_fn=mock_fetch_sha256_hex,
                     fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+                    fetch_raw_text_fn=mock_fetch_raw_text,
                 )
             with open(tmp.name) as f:
                 self.assertEqual(f.read(), content)
@@ -1331,6 +1492,7 @@ class TestYosysAlreadyPinnedWithExtraAttrs(unittest.TestCase):
                 fetch_bcr_versions_fn=mock_fetch_bcr_versions,
                 fetch_sha256_hex_fn=mock_fetch_sha256_hex,
                 fetch_submodule_sha_fn=mock_fetch_submodule_sha,
+                fetch_raw_text_fn=mock_fetch_raw_text,
             )
             with open(tmp.name) as f:
                 result = f.read()
@@ -1372,6 +1534,7 @@ class TestIgnoreModeWarnsAndContinues(unittest.TestCase):
                 fetch_yosys_makefile_version_fn=mock_fetch_yosys_makefile_version,
                 fetch_bcr_versions_fn=mock_fetch_bcr_versions,
                 ignore_errors=True,
+                fetch_raw_text_fn=mock_fetch_raw_text,
             )
             with open(tmp.name) as f:
                 result = f.read()
