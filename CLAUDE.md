@@ -64,6 +64,16 @@ nothing shipped uses, on a shipped file naming a dev-only repo, and on a
 public target under `test/`; the docstring in `public_surface.py` is the
 policy. CI runs it after lint.
 
+When touching a shell script, a `patch_cmds` entry, or a python file the
+host interpreter runs, also run `bazelisk run //:host_tools`. Bazelisk is
+the only thing a consumer must install; beyond it, nothing may be needed
+that has not been on every supported Linux for a decade. It fails on a
+denied tool (`jq`, `yq`, `perl`, `docker`, `cmake`, ...) in a shipped
+script or `patch_cmds`, on an undeclared host-`python3` call site, and on
+a host-run python file whose syntax floor is above 3.6 (RHEL 8, SLES 15);
+the docstring in `host_tools.py` is the policy. CI runs it after
+`//:public_surface`.
+
 ## Bumping
 
 `bazelisk run //:bump` rewrites the override shapes it recognizes and
