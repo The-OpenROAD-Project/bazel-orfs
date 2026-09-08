@@ -847,6 +847,70 @@ def section_policy(period, cost, clock_ps):
     ])
 
 
+def section_rc_transfer(fit):
+    """Which half of a fitted RC table is a property of the technology."""
+    if not fit:
+        return ""
+    fitted, platform = fit["fitted_layers"], fit["platform_layers"]
+    layers = sorted(
+        (n for n in fitted if n in platform), key=lambda n: int(n[1:])
+    )
+    if not layers:
+        return ""
+    rows = [
+        [
+            "`%s`" % n,
+            "%.4f" % (fitted[n]["resistance"] / platform[n]["resistance"]),
+            "%.4f" % (fitted[n]["capacitance"] / platform[n]["capacitance"]),
+            "%.4f" % fitted[n]["res_r2"],
+            "%.4f" % fitted[n]["cap_r2"],
+        ]
+        for n in layers
+    ]
+    blend = []
+    for net_type in ("signal", "clock"):
+        f = fit["fitted_wire_rc"].get(net_type)
+        p = fit["platform_wire_rc"].get(net_type)
+        if f and p:
+            blend.append([
+                "`%s`" % net_type,
+                "%+.1f%%" % ((f["resistance"] / p["resistance"] - 1) * 100),
+                "%+.1f%%" % ((f["capacitance"] / p["capacitance"] - 1) * 100),
+            ])
+
+    return "\n".join([
+        "## What actually transfers between designs",
+        "",
+        "The same procedure ORFS uses for the platform -- `write_rc` then "
+        "`correlate_rc` -- run on this design, and the result divided by the "
+        "values the platform ships. A ratio of 1 means the fit reproduced "
+        "the platform exactly.",
+        "",
+        table(
+            ["layer", "resistance ratio", "capacitance ratio", "res R2", "cap R2"],
+            rows,
+        ),
+        "",
+        "**Resistance reproduces the platform on every layer**, on a design "
+        "sharing nothing with the four the platform was fitted from, with an "
+        "R-squared of 1.0000 throughout. Resistance per unit length is "
+        "geometry and material: it is a property of the technology and it "
+        "transfers.",
+        "",
+        "**Capacitance does not**, and it fits worse. Capacitance per unit "
+        "length depends on what sits beside the wire -- local routing "
+        "density -- which is a property of the design, not the stack.",
+        "",
+        table(["wire_rc blend", "resistance", "capacitance"], blend) if blend else "",
+        "",
+        "So a single platform RC table is half right by construction. The "
+        "per-layer resistances are shared and worth shipping; the "
+        "capacitances and the blend that averages them are design-specific, "
+        "and a design far from the fitting population inherits somebody "
+        "else's.",
+    ])
+
+
 def section_figures(base_url):
     """Embed the generated figures, or say they are absent."""
     if not base_url:
@@ -857,6 +921,8 @@ def section_figures(base_url):
          "the place-to-grt gap against how contended the worst layer is"),
         ("fig_layers.png", "routing demand per layer against what the router may spend"),
         ("fig_knobs_vs_noise.png", "the knob against the noise, both columns"),
+        ("fig_rc_transfer.png",
+         "what transfers between designs: resistance yes, capacitance no"),
     ]
     lines = ["## Figures", ""]
     for name, caption in figures:
@@ -926,6 +992,7 @@ def main():
     ap.add_argument("--seed-ladder", action="append", default=[])
     ap.add_argument("--rc-ladder", action="append", default=[])
     ap.add_argument("--policy", action="append", default=[])
+    ap.add_argument("--rc-fit")
     ap.add_argument("--policy-clock-ps", type=int, default=0)
     ap.add_argument(
         "--figure-base-url",
@@ -1029,6 +1096,7 @@ def main():
             section_seeds(seeds),
             section_policy(policy_period, policy_cost, args.policy_clock_ps),
             section_rc(rc_arms, gap_two_sigma),
+            section_rc_transfer(load(args.rc_fit)),
             section_layers(load(args.layer_usage)),
             section_ladder(ladder),
             section_figures(args.figure_base_url),

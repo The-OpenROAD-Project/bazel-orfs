@@ -1,0 +1,118 @@
+{
+  "fitted_layers": {
+    "M2": {
+      "cap_r2": 0.9728,
+      "capacitance": 0.19173057238692495,
+      "res_r2": 1.0,
+      "resistance": 0.02971227386444283,
+      "segments": 39962
+    },
+    "M3": {
+      "cap_r2": 0.978,
+      "capacitance": 0.15641447881452097,
+      "res_r2": 1.0,
+      "resistance": 0.03128667855176741,
+      "segments": 44841
+    },
+    "M4": {
+      "cap_r2": 0.9768,
+      "capacitance": 0.17686973157076954,
+      "res_r2": 1.0,
+      "resistance": 0.018036584034475514,
+      "segments": 9350
+    },
+    "M5": {
+      "cap_r2": 0.9422,
+      "capacitance": 0.13056610169206245,
+      "res_r2": 1.0,
+      "resistance": 0.018993385330416265,
+      "segments": 3574
+    },
+    "M6": {
+      "cap_r2": 0.9708,
+      "capacitance": 0.16019508792067205,
+      "res_r2": 1.0,
+      "resistance": 0.011878971857202375,
+      "segments": 2572
+    },
+    "M7": {
+      "cap_r2": 0.9745,
+      "capacitance": 0.12138806238355827,
+      "res_r2": 1.0,
+      "resistance": 0.012509741198515965,
+      "segments": 2091
+    },
+    "M8": {
+      "cap_r2": 0.9357,
+      "capacitance": 0.11565493170450737,
+      "res_r2": 1.0,
+      "resistance": 0.008446459403768801,
+      "segments": 1512
+    },
+    "M9": {
+      "cap_r2": 0.8991,
+      "capacitance": 0.10409492873000352,
+      "res_r2": 1.0,
+      "resistance": 0.008894859197887163,
+      "segments": 499
+    }
+  },
+  "fitted_wire_rc": {
+    "clock": {
+      "capacitance": 0.1497184519827059,
+      "resistance": 0.020125636247853185
+    },
+    "signal": {
+      "capacitance": 0.16284704084588073,
+      "resistance": 0.02519826520705339
+    }
+  },
+  "platform_layers": {
+    "M1": {
+      "capacitance": 1e-10,
+      "resistance": 0.0704175
+    },
+    "M2": {
+      "capacitance": 0.174942,
+      "resistance": 0.0297127
+    },
+    "M3": {
+      "capacitance": 0.155554,
+      "resistance": 0.031287
+    },
+    "M4": {
+      "capacitance": 0.178475,
+      "resistance": 0.0180365
+    },
+    "M5": {
+      "capacitance": 0.164264,
+      "resistance": 0.0189935
+    },
+    "M6": {
+      "capacitance": 0.187426,
+      "resistance": 0.0118796
+    },
+    "M7": {
+      "capacitance": 0.162979,
+      "resistance": 0.0125096
+    },
+    "M8": {
+      "capacitance": 0.103962,
+      "resistance": 0.00844765
+    },
+    "M9": {
+      "capacitance": 0.0928446,
+      "resistance": 0.00889556
+    }
+  },
+  "platform_wire_rc": {
+    "clock": {
+      "capacitance": 0.145426,
+      "resistance": 0.0214161
+    },
+    "signal": {
+      "capacitance": 0.16579,
+      "resistance": 0.0265684
+    }
+  }
+}

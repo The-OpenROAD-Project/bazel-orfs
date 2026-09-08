@@ -348,6 +348,71 @@ def fig_knobs_vs_noise(results, out):
     return out
 
 
+def fig_rc_transfer(results, out):
+    """What transfers between designs and what does not.
+
+    Resistance and capacitance are both plotted as fitted/platform
+    ratios, so they are the same dimensionless scale and belong on one
+    axis -- this is the case where two series is right and a second
+    y-axis would be wrong.
+    """
+    path = Path(results) / "rc_fit.json"
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text())
+    fitted, platform = data["fitted_layers"], data["platform_layers"]
+    layers = sorted(
+        (name for name in fitted if name in platform),
+        key=lambda name: platform[name].get("level", int(name[1:])),
+    )
+    if not layers:
+        return None
+
+    res = [fitted[n]["resistance"] / platform[n]["resistance"] for n in layers]
+    cap = [fitted[n]["capacitance"] / platform[n]["capacitance"] for n in layers]
+
+    fig, ax = plt.subplots(figsize=(7.4, 4.2), facecolor=SURFACE)
+    ax.axhline(1.0, color=MUTED, linewidth=1.0, linestyle=(0, (4, 3)), zorder=2)
+    for values, colour, label in (
+        (res, SERIES[0], "resistance"),
+        (cap, SERIES[1], "capacitance"),
+    ):
+        ax.plot(
+            layers,
+            values,
+            color=colour,
+            linewidth=2,
+            marker="o",
+            markersize=8,
+            markeredgecolor=SURFACE,
+            markeredgewidth=1.5,
+            label=label,
+            zorder=3,
+        )
+    ax.annotate(
+        "the platform's value",
+        (len(layers) - 1, 1.0),
+        textcoords="offset points",
+        xytext=(-4, 7),
+        ha="right",
+        color=MUTED,
+        fontsize=8,
+    )
+    style(ax)
+    ax.margins(y=0.14)
+    ax.set_ylabel("this design's fit / the platform's value")
+    title(
+        ax,
+        "Resistance transfers between designs; capacitance does not",
+        "one fit on one design, against values fitted from four others",
+    )
+    ax.legend(frameon=False, fontsize=9, labelcolor=INK_2, loc="lower left")
+    fig.tight_layout()
+    fig.savefig(out, dpi=120, facecolor=SURFACE)
+    plt.close(fig)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--results", required=True)
@@ -370,6 +435,7 @@ def main():
         fig_gap_vs_contention(results, results / "fig_gap_vs_contention.png"),
         fig_layers(results, args.shape, results / "fig_layers.png"),
         fig_knobs_vs_noise(results, results / "fig_knobs_vs_noise.png"),
+        fig_rc_transfer(results, results / "fig_rc_transfer.png"),
     ]
     for path in written:
         print("wrote %s" % path if path else "skipped a figure: inputs absent")

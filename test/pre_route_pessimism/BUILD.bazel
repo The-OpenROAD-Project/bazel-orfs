@@ -1017,6 +1017,7 @@ py_binary(
         for seed in WIREBOUND_POLICY_SEEDS
     ] + [
         "--policy-clock-ps={}".format(WIREBOUND_POLICY_CLOCK_PS),
+        "--rc-fit=$(rootpath results/rc_fit.json)",
         "--figure-base-url=https://github.com/The-OpenROAD-Project/bazel-orfs/blob/study/pre-route-pessimism/test/pre_route_pessimism/results",
     ],
     data = [
@@ -1053,9 +1054,50 @@ py_binary(
         "results/policy_cost_t{}_s{}.json".format(tns, seed)
         for tns in WIREBOUND_TNS_ARMS
         for seed in WIREBOUND_POLICY_SEEDS
-    ],
+    ] + ["results/rc_fit.json"],
     main = "report.py",
     tags = ["manual"],
+)
+
+# ORFS's RC fit, captured as data. correlate_rc prints Tcl to stdout for
+# a human to paste; a figure needs numbers. rc_fit.py calls the same
+# helper functions rather than reimplementing the regression.
+#
+# The helper is copied in under its own name because correlateRC.py and
+# correlateRCHelper.py import each other by bare module name -- the same
+# reason //:rc.bzl does it.
+genrule(
+    name = "correlate_helper",
+    srcs = ["@orfs//flow/util:correlateRCHelper.py"],
+    outs = ["rc_fit_srcs/correlateRCHelper.py"],
+    cmd = "cp $< $@",
+    tags = ["manual"],
+)
+
+py_binary(
+    name = "rc_fit",
+    srcs = [
+        "rc_fit.py",
+        "rc_fit_srcs/correlateRCHelper.py",
+    ],
+    args = [
+        "--segments-rc=$(rootpath //flow/designs/asap7/wirebound:results/asap7/wirebound/base/6_segments_rc.csv)",
+        "--platform-setrc=$(rootpath @orfs//flow:platforms/asap7/setRC.tcl)",
+        "--out-json=test/pre_route_pessimism/results/rc_fit.json",
+    ],
+    data = [
+        "//flow/designs/asap7/wirebound:results/asap7/wirebound/base/6_segments_rc.csv",
+        "@orfs//flow:platforms/asap7/setRC.tcl",
+    ],
+    imports = ["rc_fit_srcs"],
+    main = "rc_fit.py",
+    tags = ["manual"],
+    deps = [
+        # correlateRCHelper imports matplotlib at module scope for its
+        # plot helpers, so it is needed even though nothing here plots.
+        "@bazel-orfs-dev-pip//matplotlib",
+        "@bazel-orfs-dev-pip//scikit_learn",
+    ],
 )
 
 # Figures, regenerated from the checked-in results:
