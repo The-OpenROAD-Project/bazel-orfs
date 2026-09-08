@@ -1,13 +1,13 @@
 ---
 name: repair-timing-grt
-description: Investigate OpenROAD global-route repair_timing correctly — the grt "grind"/timeout, hold- and setup-buffer insertion. Covers why a skip-repair (fast) grt measures nothing about repair, why repair_timing must run inside global_route.tcl on the pre-GR ODB, and how to split the grind into setup vs hold before blaming either. Use when a grt stage times out or runs for hours, when a change is meant to affect repair_timing, or when reasoning about hold vs setup buffer insertion at global route.
+description: Investigate OpenROAD global-route repair_timing correctly — the grt "grind"/timeout, hold- and setup-buffer insertion. Covers why a skip-repair (fast) grt measures nothing about repair, why repair_timing must run inside global_route.tcl on the pre-GR ODB, how to split the grind into setup vs hold before blaming either, why the win is measured as clk_period-WNS in picoseconds rather than as a percentage of WNS, and why a design that closes measures nothing about a repair knob. Use when a grt stage times out or runs for hours, when a change is meant to affect repair_timing, or when reasoning about hold vs setup buffer insertion at global route.
 ---
 
 ## Goal
 
 Get a *trustworthy* answer about `repair_timing` at global route: whether it
-grinds, why, and whether a proposed change moves it. Three traps below have each
-wasted hours-long runs; avoid all three before drawing any conclusion.
+grinds, why, and whether a proposed change moves it. The traps below have each
+wasted hours-long runs; clear them all before drawing any conclusion.
 
 ## Trap 1 — a skip-repair / fast grt measures nothing about repair
 
@@ -46,7 +46,78 @@ output) into the grt extract and run the grt stage with
 `SKIP_INCREMENTAL_REPAIR=0`, so `global_route` rebuilds the structures and
 repair runs live. Do NOT reuse a saved post-GR ODB.
 
-## Trap 3 — split the grind into setup vs hold before blaming either
+## Trap 3 — measuring the win in WNS, or in percentages of it
+
+Report **`min_period = clk_period - WNS`**, and report differences between
+arms in picoseconds of that. Never a percentage of WNS.
+
+Near closure WNS is a small number, so a percentage of it is dominated by
+the clock you happened to pick rather than by anything the flow did: the
+same absolute improvement reads as 5% or 500% depending on the constraint.
+`min_period` is the quantity a designer actually trades against, it stays
+roughly invariant to the constraint (which is why it is comparable across
+arms at all), and a delta in it is a delta in what the design can run at.
+
+`check_pareto.py` already takes this position for its period axis —
+`clock - WNS`, never WNS itself, with the reasoning written out there — and
+`test/pre_route_pessimism/stage_ladder.tcl` reads it the same way.
+
+Two corollaries when the arms are repair settings:
+
+* **A percentage of a percentage is worse.** "The gap moved 17%" where the
+  gap is itself a ratio of periods is unreadable. Quote the periods.
+* **Watch the constraint-invariance assumption.** It is only roughly true.
+  Measured on one design, `min_period` at global route moved 322.3 -> 322.0 ps
+  between a 1000 ps and a 330 ps clock (invariant to 0.1%), while at
+  placement it moved 287.3 -> 285.7 ps between 330 and 290 (0.6%). Fine for
+  comparing arms, not fine for treating a sub-percent difference as signal.
+
+## Trap 4 — repair stops at WNS zero, so a closing design measures nothing
+
+`repair_timing` works until the violation is gone. Once WNS reaches zero it
+stops, so **every setting of a repair knob reaches the same floor** and the
+achieved period cannot separate them. What differs is runtime.
+
+This is not the same as "nothing to repair", and the difference matters when
+calibrating a study:
+
+* A design that closes *without* repair exercises no repair at all. Any knob
+  measured on it reports zero because nothing ran.
+* A design that closes *because* repair worked exercised it fully. A knob
+  swept there still cannot move the period.
+
+Both look identical in a post-repair slack report, which is the trap: reading
+positive WNS and concluding "the knob does nothing" conflates them.
+
+**And repair's recovery is not a fixed budget you can calibrate past.** It
+tracks the constraint. Measured on one design at global route, over two
+clocks 25 ps apart:
+
+| clock | min_period before repair | after repair | recovered |
+| --- | --- | --- | --- |
+| 290 ps | 322 ps | 289.7 ps (WNS +0.29) | 32 ps |
+| 265 ps | 322 ps | 265.8 ps (WNS -0.85) | 56 ps |
+
+Repair stopped just shy of the target in both cases, so post-repair
+`min_period` mostly echoes the clock rather than reporting a property of the
+design. Tightening the clock does not "get past" repair; it just makes repair
+work harder for the same near-zero result.
+
+So **calibrate to slightly negative WNS so repair is still working when it
+stops** — that is achievable and is what you want. But do not expect the
+achieved period to separate repair settings at such a clock: it cannot, by
+construction. Expect the separation in **runtime**, which is what a coverage
+knob like `TNS_END_PERCENT` claims to trade anyway, and report both.
+Achieved period only becomes informative at a clock repair demonstrably
+falls short of, which may be far tighter than the point WNS first goes
+negative.
+
+And turn off what you are not studying. Last gasp is the long tail of
+`repair_timing` and there is no reason to expect a `min_period` cliff in it,
+so `SKIP_LAST_GASP=1` buys back the runtime that makes an ensemble
+affordable.
+
+## Trap 5 — split the grind into setup vs hold before blaming either
 
 The grind can be **setup-dominated** (a large count of setup-violated endpoints
 at negative clock slack — a design far from setup closure) or **hold-dominated**
