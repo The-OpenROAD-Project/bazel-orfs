@@ -378,6 +378,13 @@ What it updates:
 - **bazel-orfs** git commit (latest from GitHub)
 - **OpenROAD** git commit (latest from GitHub, if configured)
 
+Before writing anything it checks that the ORFS patches bazel-orfs itself
+carries (`ORFS_PATCHES` in `orfs_source.bzl`) still fit the ORFS commit it
+is moving you to, and stops naming the patch and the commit if not -- the
+alternative is a `ctx.patch` failure inside bazel-orfs's patch dir during
+`mod tidy`, after `MODULE.bazel` was already rewritten. `--ignore` turns
+that into a warning.
+
 In downstream projects, it also injects commented-out boilerplate for
 [building OpenROAD from source](docs/openroad.md) — uncomment to test the
 latest OpenROAD before ORFS catches up. This is useful when an OpenROAD bug

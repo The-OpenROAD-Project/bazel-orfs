@@ -360,3 +360,146 @@ orfs.default(
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestOrfsPatchPairing(unittest.TestCase):
+    ORFS_SOURCE = """ORFS_BAZEL_PLATFORMS = ["asap7"]
+
+ORFS_PATCHES = [
+    Label("//patches:0037-single-writer.patch"),
+    # a comment between entries
+    Label("//patches:0047-export-flow-tcl.patch"),
+    Label("//:root-level.patch"),
+]
+
+OTHER = [Label("//patches:not-an-orfs-patch.patch")]
+"""
+
+    FLOW_BUILD = 'exports_files(\n    ["scripts/synth.tcl", "scripts/flow.tcl"],\n)\n'
+
+    EXPORT_PATCH = """diff --git a/flow/BUILD b/flow/BUILD
+--- a/flow/BUILD
++++ b/flow/BUILD
+@@ -1,3 +1,3 @@
+ exports_files(
+-    ["scripts/synth.tcl", "scripts/flow.tcl"],
++    ["scripts/synth.tcl", "scripts/flow.tcl", "scripts/variables.yaml"],
+ )
+"""
+
+    def test_parse_orfs_patch_labels_reads_only_the_list(self):
+        self.assertEqual(
+            bump_impl.parse_orfs_patch_labels(self.ORFS_SOURCE),
+            [
+                "patches/0037-single-writer.patch",
+                "patches/0047-export-flow-tcl.patch",
+                "root-level.patch",
+            ],
+        )
+        self.assertEqual(bump_impl.parse_orfs_patch_labels("X = 1\n"), [])
+
+    def test_parse_unified_diff_uses_old_counts_and_marks_creation(self):
+        patch = (
+            "--- a/x.txt\n+++ b/x.txt\n@@ -1,3 +1,2 @@\n one\n--- dashes\n-three\n"
+            "+new\n--- /dev/null\n+++ b/made.txt\n@@ -0,0 +1 @@\n+hello\n"
+        )
+        files = bump_impl.parse_unified_diff(patch)
+        self.assertEqual(
+            files,
+            [
+                ("x.txt", False, [("@@ -1,3 +1,2 @@", ["one", "-- dashes", "three"])]),
+                ("made.txt", True, [("@@ -0,0 +1 @@", [])]),
+            ],
+        )
+
+    def test_clean_patch_reports_nothing(self):
+        tree = {"flow/BUILD": self.FLOW_BUILD}
+        self.assertEqual(
+            bump_impl.check_patch_against_tree("p.patch", self.EXPORT_PATCH, tree.get),
+            [],
+        )
+
+    def test_deleted_file_is_named(self):
+        problems = bump_impl.check_patch_against_tree(
+            "patches/0047-export-flow-tcl.patch", self.EXPORT_PATCH, {}.get
+        )
+        self.assertEqual(
+            problems,
+            ["patches/0047-export-flow-tcl.patch: flow/BUILD does not exist"],
+        )
+
+    def test_moved_context_is_named_by_hunk(self):
+        tree = {"flow/BUILD": 'exports_files(["scripts/other.tcl"])\n'}
+        problems = bump_impl.check_patch_against_tree(
+            "p.patch", self.EXPORT_PATCH, tree.get
+        )
+        self.assertEqual(
+            problems, ["p.patch: flow/BUILD: hunk @@ -1,3 +1,3 @@ does not match"]
+        )
+
+    def test_creation_patch_needs_the_file_absent(self):
+        patch = "--- /dev/null\n+++ b/new.tcl\n@@ -0,0 +1 @@\n+puts hi\n"
+        self.assertEqual(bump_impl.check_patch_against_tree("p", patch, {}.get), [])
+        self.assertEqual(
+            bump_impl.check_patch_against_tree("p", patch, {"new.tcl": "x\n"}.get),
+            ["p: creates new.tcl, which already exists"],
+        )
+
+    def test_check_orfs_patches_walks_the_list(self):
+        bazel_orfs = {
+            bump_impl.ORFS_SOURCE_BZL: self.ORFS_SOURCE,
+            "patches/0037-single-writer.patch": self.EXPORT_PATCH,
+            "patches/0047-export-flow-tcl.patch": self.EXPORT_PATCH,
+        }
+        orfs = {"flow/BUILD": self.FLOW_BUILD}
+        self.assertEqual(
+            bump_impl.check_orfs_patches(bazel_orfs.get, orfs.get),
+            ["root-level.patch: named in ORFS_PATCHES but not in bazel-orfs"],
+        )
+        self.assertEqual(
+            bump_impl.check_orfs_patches(bazel_orfs.get, {}.get),
+            [
+                "patches/0037-single-writer.patch: flow/BUILD does not exist",
+                "patches/0047-export-flow-tcl.patch: flow/BUILD does not exist",
+                "root-level.patch: named in ORFS_PATCHES but not in bazel-orfs",
+            ],
+        )
+        self.assertEqual(
+            bump_impl.check_orfs_patches({}.get, orfs.get),
+            ["orfs_source.bzl not found in bazel-orfs; cannot check ORFS_PATCHES"],
+        )
+
+    def test_verify_raises_with_patch_and_commit_or_warns_under_ignore(self):
+        bazel_orfs = {
+            bump_impl.ORFS_SOURCE_BZL: 'ORFS_PATCHES = [\n    Label("//patches:0047.patch"),\n]\n',
+            "patches/0047.patch": self.EXPORT_PATCH,
+        }
+        with self.assertRaises(bump_impl.BumpError) as ctx:
+            bump_impl.verify_orfs_patch_pairing(
+                "a71b115b9b7b95fc843e715bdebd557147ef98fc",
+                bazel_orfs.get,
+                {}.get,
+                "bazel-orfs a668099ef676",
+            )
+        msg = str(ctx.exception)
+        self.assertIn("bazel-orfs a668099ef676", msg)
+        self.assertIn("ORFS a71b115b9b7b", msg)
+        self.assertIn("patches/0047.patch: flow/BUILD does not exist", msg)
+        self.assertIn("--ignore", msg)
+        problems = bump_impl.verify_orfs_patch_pairing(
+            "a71b115b9b7b95fc843e715bdebd557147ef98fc",
+            bazel_orfs.get,
+            {}.get,
+            "bazel-orfs a668099ef676",
+            ignore_errors=True,
+        )
+        self.assertEqual(problems, ["patches/0047.patch: flow/BUILD does not exist"])
+        self.assertEqual(
+            bump_impl.verify_orfs_patch_pairing(
+                "a71b115b9b7b95fc843e715bdebd557147ef98fc",
+                bazel_orfs.get,
+                {"flow/BUILD": self.FLOW_BUILD}.get,
+                "bazel-orfs a668099ef676",
+            ),
+            [],
+        )
