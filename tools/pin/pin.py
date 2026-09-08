@@ -11,6 +11,7 @@ import typing
 import urllib.parse
 from pathlib import Path
 
+
 class Label(typing.NamedTuple):
     repo: str
     package: str
@@ -18,8 +19,8 @@ class Label(typing.NamedTuple):
 
 
 def label(s):
-    (repo, path) = s.split("//")
-    (package, name) = path.split(":")
+    repo, path = s.split("//")
+    package, name = path.split(":")
     return Label(repo=repo, package=package, name=name)
 
 
@@ -29,16 +30,16 @@ class File(typing.NamedTuple):
     workspace_root: str
 
     def runfile_path(self):
-        attempt = os.path.join(os.environ["RUNFILES"],
-                               os.path.relpath(self.path, self.root))
+        attempt = os.path.join(
+            os.environ["RUNFILES"], os.path.relpath(self.path, self.root)
+        )
         if not os.path.exists(attempt):
             base = Path(os.environ["RUNFILES"])
             while base.name != "bazel-out":
                 base = base.parent
             attempt = os.path.join(base.parent, self.path)
             if not os.path.exists(attempt):
-                raise RuntimeError("Unable to find path of {}".format(
-                    self.path))
+                raise RuntimeError("Unable to find path of {}".format(self.path))
 
         return attempt
 
@@ -49,7 +50,7 @@ class File(typing.NamedTuple):
 
 
 def file(s):
-    (path, root, workspace_root) = s.split("@")
+    path, root, workspace_root = s.split("@")
     return File(path=path, root=root, workspace_root=workspace_root)
 
 
@@ -66,7 +67,7 @@ class ArtifactAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         artifacts = []
         for artifact in values:
-            (l, root, files) = artifact.split(",")
+            l, root, files = artifact.split(",")
             artifacts.append(
                 Artifact(
                     label=label(l), files=frozenset([file(s) for s in files.split(":")])
