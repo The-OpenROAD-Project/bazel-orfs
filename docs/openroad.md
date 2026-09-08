@@ -185,6 +185,42 @@ Detection works by checking `module(name = ...)` in `MODULE.bazel`:
 `bazel-orfs` and `openroad` are recognized; everything else is treated
 as a downstream project.
 
+### Why the bump looks slow
+
+A bump often appears to take minutes before it prints anything. Almost
+none of that is the bumper. `MODULE.bazel` declares OpenROAD as
+`bazel_dep` + `archive_override`, and bzlmod cannot resolve the module
+graph without reading every dependency's `MODULE.bazel`. A registry dep
+serves that file on its own — a few KB out of BCR. An `archive_override`
+has no way to hand Bazel just the module file, so to read those ~100
+lines Bazel downloads and unpacks the entire OpenROAD tarball and runs
+its `patch_cmds`, which themselves fetch three submodule archives. It
+happens in "Computing main repo mapping", before a single target is
+analyzed, and it is measured in minutes:
+
+```
+$ time bazelisk build --nobuild //:bump
+Computing main repo mapping:
+INFO: Repo openroad+ defined by rule http_archive ...
+real  6m56s
+```
+
+Every Bazel command in the workspace pays that once per pin —
+`//:fix_lint` and `bazelisk query` included. The bumper looks like the
+culprit only because it is the command that *creates* an unfetched pin: it
+rewrites the OpenROAD and ORFS commits and exits, so whatever runs next,
+very often the next `//:bump`, is the first to meet a SHA nothing has
+downloaded. The download is real work a build needs; the bumper needs
+none of it.
+
+Nothing about this is fixable inside the bumper. The fix would be serving
+openroad's module file from a registry instead of an override, and
+`source.json` has no `patch_cmds`, so the submodule vendoring and the
+`sv-lang` BUILD rewrites would have to become patches regenerated on every
+bump. That is a bigger, churn-prone change than the cost it saves, and it
+would only help this root — a downstream root writes its own
+`archive_override` from the template in the README.
+
 ### Shapes the bumper recognizes
 
 `bump.py` is a thin loader: it downloads the newest `bump_impl.py` from
