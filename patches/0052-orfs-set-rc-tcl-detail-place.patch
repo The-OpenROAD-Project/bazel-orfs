@@ -1,0 +1,40 @@
+Read SET_RC_TCL as the per-design RC file in detail_place.tcl
+
+ORFS registers SET_RC_TCL and every platform config.mk exports it, yet no
+script reads it: load.tcl and open.tcl read LAYER_PARASITICS_FILE for the
+same purpose, and detail_place.tcl reads neither -- it re-sources the
+platform setRC.tcl after load_design, so an RC override set through
+LAYER_PARASITICS_FILE is silently dropped during 3_5_place_dp. A design
+that calibrates set_wire_rc against its own routed parasitics has no
+variable that reaches every stage.
+
+Read SET_RC_TCL as the per-design RC file, with LAYER_PARASITICS_FILE
+keeping its precedence when set and the platform setRC.tcl as the
+fallback, in all three places that load parasitics. With 0055 letting a
+design's SET_RC_TCL survive the asap7 platform include, and 0053/0054
+scoping the variable to the stages that use it (so a calibration tweak
+re-runs from floorplan, not from synth), the variable means what its name
+says everywhere.
+
+Not upstreamed. Retires at the //:bump onto an ORFS whose scripts read
+SET_RC_TCL themselves (or that drops one of the two variables); the
+companion patches 0050-0055 carry the rest of the change and go together.
+
+diff --git a/flow/scripts/detail_place.tcl b/flow/scripts/detail_place.tcl
+--- a/flow/scripts/detail_place.tcl
++++ b/flow/scripts/detail_place.tcl
+@@ -4,7 +4,13 @@
+ load_design 3_4_place_resized.odb 2_floorplan.sdc
+ source_step_tcl PRE DETAIL_PLACE
+ 
+-source $::env(PLATFORM_DIR)/setRC.tcl
++if { [env_var_exists_and_non_empty LAYER_PARASITICS_FILE] } {
++  source $::env(LAYER_PARASITICS_FILE)
++} elseif { [env_var_exists_and_non_empty SET_RC_TCL] } {
++  source $::env(SET_RC_TCL)
++} else {
++  source $::env(PLATFORM_DIR)/setRC.tcl
++}
+ 
+ proc do_dpl { } {
+   # Only for use with hybrid rows

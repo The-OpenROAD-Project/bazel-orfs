@@ -57,6 +57,18 @@ ORFS_PATCHES = [
     # RUN_CMD, so an override reaches every logged target except the
     # stage logs. --@bazel-orfs//:log_timestamps overrides RUN_CMD.
     Label("//patches:0048-orfs-flow-sh-honor-run-cmd.patch"),
+    # SET_RC_TCL as the per-design RC file: read it (after
+    # LAYER_PARASITICS_FILE, before the platform setRC.tcl) in load.tcl,
+    # open.tcl and detail_place.tcl -- the last of which read neither and
+    # dropped any override during 3_5 -- scope it to the stages that load
+    # parasitics, and let a design's value survive the asap7 include.
+    # Six patches, one file each; they go together.
+    Label("//patches:0050-orfs-set-rc-tcl-load.patch"),
+    Label("//patches:0051-orfs-set-rc-tcl-open.patch"),
+    Label("//patches:0052-orfs-set-rc-tcl-detail-place.patch"),
+    Label("//patches:0053-orfs-set-rc-tcl-stages-yaml.patch"),
+    Label("//patches:0054-orfs-set-rc-tcl-stages-json.patch"),
+    Label("//patches:0055-orfs-asap7-set-rc-tcl-conditional.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
