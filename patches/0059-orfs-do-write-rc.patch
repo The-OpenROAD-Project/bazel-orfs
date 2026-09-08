@@ -1,0 +1,47 @@
+Give write_rc a do- sibling.
+
+ORFS fits the per-layer RC that every pre-route timing stage runs on by
+regressing routed segment parasitics against extracted ones -- the
+procedure in docs/tutorials/SetRC.md, driven by the write_rc and
+correlate_rc make targets in flow/util/utils.mk.
+
+write_rc has no do- sibling. flow/Makefile's own comment states the
+convention -- "a do- sibling rule that copies the file unconditionally"
+-- and do-synth-report, do-klayout, do-step and do-copy all follow it:
+the file target decides *whether* to run and delegates with
+$(UNSET_AND_MAKE), and the do- target is the single place the invocation
+lives. Only write_rc conflates the two, so a caller that does its own
+dependency checking -- bazel, through //:rc.bzl -- cannot ask for the
+operation.
+
+The file target delegates rather than keeping a second copy of the
+$(RUN_CMD) line, which is the same DRY shape as every other do- pair.
+That is not a change to make's dependency checking, which is left
+exactly as it is for whoever wants to own it.
+
+The bazel side of the same calibration -- staging flow/util's *.tcl and
+exporting the four scripts as labels -- is not a patch: ORFS a71b115b9b
+deleted flow/util/BUILD, and bazel-orfs now generates it in
+orfs_source.bzl's _GENERATE_FLOW_BUILD, which carries both.
+
+Not upstreamed. Retire at the //:bump onto an ORFS that carries a
+do-write_rc target.
+
+diff --git a/flow/util/utils.mk b/flow/util/utils.mk
+--- a/flow/util/utils.mk
++++ b/flow/util/utils.mk
+@@ -113,6 +113,14 @@
+ # A pattern rule to write both files with a single run, as the grouped target
+ # syntax requires GNU Make 4.3.
+ %_nets_rc.csv %_segments_rc.csv:
++	$(UNSET_AND_MAKE) do-write_rc
++
++# The do- sibling, following do-synth-report and the do-step/do-copy
++# families: the file target above decides *whether* to run and delegates
++# here, and this rule is the only place the invocation lives. A caller
++# doing its own dependency checking asks for this one directly.
++.PHONY: do-write_rc
++do-write_rc:
+ 	$(RUN_CMD) --log $(LOG_DIR)/6_write_rc.log --tee -- $(OPENROAD_CMD) $(UTILS_DIR)/write_rc.tcl
+ 
+ .PHONY: correlate_rc

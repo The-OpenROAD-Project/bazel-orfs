@@ -43,6 +43,7 @@ exports_files([
     "power_per_module.tcl",
     "quick_pins.tcl",
     "quick_pins_footprint_stub.tcl",
+    "rc.bzl",
     "rtlil_kept_macros.py",
     "rtlil_kept_modules.py",
     "synth.tcl",
