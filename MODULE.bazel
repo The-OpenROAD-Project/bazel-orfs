@@ -254,6 +254,14 @@ bazel_dep(
     version = "2.3.2",
 )
 
+# No implicit __init__.py in any py target of this repo: the behaviour is
+# deprecated upstream (bazel-contrib/rules_python#2945) and warns on every
+# fresh analysis. Root-honored only, so it covers this repo's own targets;
+# the shipped public tools set legacy_create_init on the target instead, so
+# downstream consumers running them stay quiet too.
+rules_python_config = use_extension("@rules_python//python/extensions:config.bzl", "config")
+rules_python_config.explicit_init_py(default = True)
+
 python = use_extension(
     "@rules_python//python/extensions:python.bzl",
     "python",
