@@ -354,6 +354,183 @@ def compute_sha256_hex(url):
     return h.hexdigest()
 
 
+# --- ORFS_PATCHES pairing check ------------------------------------------
+#
+# bazel-orfs carries patches against ORFS (ORFS_PATCHES in orfs_source.bzl)
+# and applies them inside its orfs_repositories extension, below any patches
+# the consumer adds.  The bump follows ORFS master while bazel-orfs main may
+# still pin an older ORFS, so a consumer can be moved to an ORFS commit that
+# bazel-orfs's own patches no longer fit -- and the first sign is
+# ``ctx.patch`` failing inside bazel-orfs's patch dir during ``mod tidy``,
+# with MODULE.bazel already rewritten.  These helpers check each patch's
+# pre-image against the ORFS tree at the target commit first, reading only
+# the touched files, so the bump can name the patch and the commit instead.
+
+BAZEL_ORFS_REPO = "The-OpenROAD-Project/bazel-orfs"
+ORFS_SOURCE_BZL = "orfs_source.bzl"
+
+_HUNK_HEADER_RE = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+
+
+def fetch_raw_text(github_repo, ref, path):
+    """Text of ``path`` in ``github_repo`` at ``ref``; None if absent there."""
+    url = f"https://raw.githubusercontent.com/{github_repo}/{ref}/{path}"
+    try:
+        with urllib.request.urlopen(url) as resp:
+            return resp.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None
+        raise
+
+
+def read_local_text(root, path):
+    """Text of ``path`` under ``root``; None if absent."""
+    full = os.path.join(root, path)
+    if not os.path.isfile(full):
+        return None
+    with open(full, encoding="utf-8", errors="replace") as fh:
+        return fh.read()
+
+
+def parse_orfs_patch_labels(orfs_source_text):
+    """Repo-relative patch paths named in ``ORFS_PATCHES``, in list order.
+
+    ``Label("//patches:x.patch")`` becomes ``patches/x.patch`` and
+    ``Label("//:x.patch")`` becomes ``x.patch``.
+    """
+    m = re.search(r"^ORFS_PATCHES\s*=\s*\[(.*?)^\]", orfs_source_text, re.S | re.M)
+    if not m:
+        return []
+    return [
+        f"{pkg}/{name}" if pkg else name
+        for pkg, name in re.findall(r'Label\("//([^:"]*):([^"]+)"\)', m.group(1))
+    ]
+
+
+def parse_unified_diff(patch_text):
+    """``[(path, creates, [(hunk_header, pre_image_lines)])]`` per file.
+
+    ``path`` is the ``+++`` side without its ``b/`` prefix (the ``---`` side
+    for a deletion); ``creates`` is True when the ``---`` side is
+    ``/dev/null``.  Old-side line counts from the hunk header decide where a
+    hunk ends, so removed lines that happen to start with ``--`` are not
+    mistaken for a file header.
+    """
+    files = []
+    lines = patch_text.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if (
+            line.startswith("--- ")
+            and i + 1 < len(lines)
+            and lines[i + 1].startswith("+++ ")
+        ):
+            old = line[4:].split("\t")[0]
+            new = lines[i + 1][4:].split("\t")[0]
+            path = old if new == "/dev/null" else new
+            path = re.sub(r"^[ab]/", "", path)
+            files.append((path, old == "/dev/null", []))
+            i += 2
+            continue
+        m = _HUNK_HEADER_RE.match(line)
+        if m and files:
+            old_count = int(m.group(2)) if m.group(2) is not None else 1
+            pre = []
+            i += 1
+            while len(pre) < old_count and i < len(lines):
+                hunk_line = lines[i]
+                i += 1
+                if hunk_line.startswith("\\") or hunk_line.startswith("+"):
+                    continue
+                pre.append(hunk_line[1:] if hunk_line[:1] in (" ", "-") else "")
+            files[-1][2].append((line, pre))
+            continue
+        i += 1
+    return files
+
+
+def _contains_slice(haystack, needle):
+    if not needle:
+        return True
+    n = len(needle)
+    return any(haystack[i : i + n] == needle for i in range(len(haystack) - n + 1))
+
+
+def check_patch_against_tree(patch_path, patch_text, read_file_fn):
+    """Problems a unified diff would hit against a tree; ``[]`` when clean.
+
+    ``read_file_fn(path)`` returns the file's text or None if it does not
+    exist.  A hunk is clean when its pre-image (context plus removed lines)
+    occurs in the file; a created file must be absent, any other file present.
+    """
+    problems = []
+    for path, creates, hunks in parse_unified_diff(patch_text):
+        text = read_file_fn(path)
+        if creates:
+            if text is not None:
+                problems.append(f"{patch_path}: creates {path}, which already exists")
+            continue
+        if text is None:
+            problems.append(f"{patch_path}: {path} does not exist")
+            continue
+        file_lines = text.splitlines()
+        for header, pre in hunks:
+            if not _contains_slice(file_lines, pre):
+                problems.append(f"{patch_path}: {path}: hunk {header} does not match")
+    return problems
+
+
+def check_orfs_patches(read_bazel_orfs_fn, read_orfs_fn):
+    """Problems bazel-orfs's ``ORFS_PATCHES`` would hit against an ORFS tree.
+
+    ``read_bazel_orfs_fn(path)`` reads bazel-orfs files (``orfs_source.bzl``
+    and the patches it names); ``read_orfs_fn(path)`` reads ORFS files at the
+    target commit.  Both return None for a missing file.
+    """
+    source = read_bazel_orfs_fn(ORFS_SOURCE_BZL)
+    if source is None:
+        return [f"{ORFS_SOURCE_BZL} not found in bazel-orfs; cannot check ORFS_PATCHES"]
+    problems = []
+    for patch_path in parse_orfs_patch_labels(source):
+        text = read_bazel_orfs_fn(patch_path)
+        if text is None:
+            problems.append(
+                f"{patch_path}: named in ORFS_PATCHES but not in bazel-orfs"
+            )
+            continue
+        problems.extend(check_patch_against_tree(patch_path, text, read_orfs_fn))
+    return problems
+
+
+def verify_orfs_patch_pairing(
+    orfs_commit, read_bazel_orfs_fn, read_orfs_fn, where, ignore_errors=False
+):
+    """Refuse an ORFS commit that bazel-orfs's own patches do not fit.
+
+    Returns the list of problems (empty when the pairing is clean).  Raises
+    ``BumpError`` on problems unless ``ignore_errors``, in which case they are
+    printed as a warning and the bump goes on.
+    """
+    problems = check_orfs_patches(read_bazel_orfs_fn, read_orfs_fn)
+    if not problems:
+        return problems
+    msg = (
+        f"ORFS patches carried by {where} do not apply to ORFS "
+        f"{orfs_commit[:12]}:\n  " + "\n  ".join(problems) + "\n"
+        "bazel-orfs applies these below any consumer patches, so the fetch "
+        "would fail inside bazel-orfs's patch dir. Bump bazel-orfs onto this "
+        "ORFS first (retire or rebase the patch there), or pin orfs to the "
+        "commit bazel-orfs itself pins. Re-run with --ignore to write "
+        "MODULE.bazel anyway."
+    )
+    if ignore_errors:
+        print(f"WARNING: {msg}", file=sys.stderr)
+        return problems
+    raise BumpError(msg)
+
+
 def fetch_submodule_sha(parent_repo, parent_commit, path):
     """Submodule SHA at ``path`` inside ``parent_repo`` at ``parent_commit``.
 
@@ -1589,6 +1766,7 @@ def bump(
     fetch_bcr_versions_fn=fetch_bcr_versions,
     fetch_sha256_hex_fn=compute_sha256_hex,
     fetch_submodule_sha_fn=fetch_submodule_sha,
+    fetch_raw_text_fn=fetch_raw_text,
     workspace_dir=None,
     head_tools=None,
     ignore_errors=False,
@@ -1626,6 +1804,7 @@ def bump(
     bazel_orfs_dir = os.path.dirname(os.path.abspath(__file__))
 
     # --- Update bazel-orfs commit (skip for bazel-orfs itself) ---
+    bazel_orfs_commit = None
     if project != "bazel-orfs":
         bazel_orfs_commit = fetch_commit_fn("The-OpenROAD-Project/bazel-orfs", "main")
         _expect(
@@ -1677,6 +1856,29 @@ def bump(
             ignore_errors=ignore_errors,
         )
         updated_modules.append(f"orfs -> {orfs_commit[:12]}")
+
+    # --- Refuse an ORFS commit bazel-orfs's own ORFS_PATCHES do not fit ---
+    # The consumer follows ORFS master; bazel-orfs main may still pin an
+    # older ORFS, and its patches apply below the consumer's, so a mismatch
+    # otherwise surfaces as a ctx.patch failure in bazel-orfs's patch dir
+    # during mod tidy, after MODULE.bazel is rewritten.
+    if orfs_commit is not None:
+        if project == "bazel-orfs":
+            checkout = os.path.dirname(os.path.abspath(module_file))
+            read_bazel_orfs = lambda path: read_local_text(checkout, path)
+            where = "this checkout"
+        else:
+            read_bazel_orfs = lambda path: fetch_raw_text_fn(
+                BAZEL_ORFS_REPO, bazel_orfs_commit, path
+            )
+            where = f"bazel-orfs {bazel_orfs_commit[:12]}"
+        verify_orfs_patch_pairing(
+            orfs_commit,
+            read_bazel_orfs,
+            lambda path: fetch_raw_text_fn(ORFS_REPO, orfs_commit, path),
+            where,
+            ignore_errors=ignore_errors,
+        )
 
     # --- Update qt-bazel commit ---
     if has_bazel_dep(content, "qt-bazel"):
