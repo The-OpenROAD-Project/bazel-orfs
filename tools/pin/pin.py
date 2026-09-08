@@ -76,47 +76,45 @@ class ArtifactAction(argparse.Action):
         setattr(namespace, self.dest, artifacts)
 
 
+def _is_single_file_named_after_label(artifact):
+    """Does the artifact hold exactly one file, named like the label itself?
+
+    Such an artifact is re-exported with exports_files() rather than wrapped
+    in a filegroup, so `//pkg:name` keeps naming the file and not a group
+    containing it.
+    """
+    files = sorted(artifact.files)
+    if len(files) != 1:
+        return False
+    return (
+        os.path.relpath(files[0].archive_path(), artifact.label.package)
+        == artifact.label.name
+    )
+
+
+def _print_srcs(artifact, output):
+    print("  srcs = [", file=output)
+    for f in sorted(artifact.files):
+        print(
+            "    {},".format(
+                repr(os.path.relpath(f.archive_path(), artifact.label.package))
+            ),
+            file=output,
+        )
+    print("  ],", file=output)
+
+
 def build_write(artifacts, output):
     for artifact in artifacts:
-        match sorted(artifact.files):
-            case [x] if (
-                os.path.relpath(x.archive_path(), artifact.label.package)
-                == artifact.label.name
-            ):
-                print("exports_files(", file=output)
-                print("  srcs = [", file=output)
-                for file in artifact.files:
-                    print(
-                        "    {},".format(
-                            repr(
-                                os.path.relpath(
-                                    file.archive_path(), artifact.label.package
-                                )
-                            )
-                        ),
-                        file=output,
-                    )
-                print("  ],".format(artifact.label), file=output)
-                print('  visibility = ["//visibility:public"],', file=output)
-                print(")", file=output)
-            case _:
-                print("filegroup(", file=output)
-                print("  name = {},".format(repr(artifact.label.name)), file=output)
-                print("  srcs = [", file=output)
-                for file in sorted(artifact.files):
-                    print(
-                        "    {},".format(
-                            repr(
-                                os.path.relpath(
-                                    file.archive_path(), artifact.label.package
-                                )
-                            )
-                        ),
-                        file=output,
-                    )
-                print("  ],".format(artifact.label), file=output)
-                print('  visibility = ["//visibility:public"],', file=output)
-                print(")", file=output)
+        if _is_single_file_named_after_label(artifact):
+            print("exports_files(", file=output)
+            _print_srcs(artifact, output)
+        else:
+            print("filegroup(", file=output)
+            print("  name = {},".format(repr(artifact.label.name)), file=output)
+            _print_srcs(artifact, output)
+        print('  visibility = ["//visibility:public"],', file=output)
+        print(")", file=output)
 
 
 def gs(bucket, path):
