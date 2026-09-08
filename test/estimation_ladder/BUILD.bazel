@@ -243,6 +243,19 @@ py_library(
     ],
 )
 
+# The batch walk's plumbing, with a fake estimator and a synthetic ground
+# truth: no OpenROAD, no flow, seconds. optuna_study_test is the full dress
+# rehearsal and stays manual -- its ground_truth.json is an ORFS flow output,
+# so building it runs the multiplier design to grt. This one is what CI can
+# afford to run on every change, and it is deliberately silent about
+# accuracy: a fake estimator's numbers would only prove things about the
+# fake. See the module docstring.
+py_test(
+    name = "study_machinery_test",
+    srcs = ["study_machinery_test.py"],
+    deps = [":optuna_study_lib"],
+)
+
 py_binary(
     name = "measure_runtime",
     srcs = ["measure_runtime.py"],
