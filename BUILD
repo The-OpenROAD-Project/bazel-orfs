@@ -112,6 +112,14 @@ py_binary(
         "bump.py",
         "bump_impl.py",
     ],
+    # rules_python's implicit __init__.py creation is deprecated and warns on
+    # every run (bazel-contrib/rules_python#2945). The module-wide opt-out
+    # (rules_python_config.explicit_init_py) is root-honored only, so it would
+    # silence the warning here and leave it in place for everyone running
+    # `bazelisk run @bazel-orfs//:bump`; setting it on the target travels with
+    # the target. bump.py imports nothing from the workspace, so there is no
+    # package to make importable.
+    legacy_create_init = 0,
     main = "bump.py",
     visibility = ["//visibility:public"],
 )
