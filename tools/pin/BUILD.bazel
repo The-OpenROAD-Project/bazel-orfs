@@ -1,6 +1,23 @@
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+
 exports_files(
     [
         "pin.py",
         "pin.sh.tpl",
     ],
+)
+
+# pin.py is run by pin.sh.tpl with the host `python3`, so it has to stay
+# within reach of the oldest supported distro's interpreter. //:host_python
+# guards the syntax floor; this library exists so the behaviour has tests.
+py_library(
+    name = "pin_lib",
+    srcs = ["pin.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "pin_test",
+    srcs = ["pin_test.py"],
+    deps = [":pin_lib"],
 )
