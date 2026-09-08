@@ -320,7 +320,8 @@ py_test(
 
 # Fails if auto_floorplan_flow.tcl stops being flow.tcl's tail. flow.tcl
 # is read from the pinned @orfs archive so the comparison is against the
-# sequence that actually runs; see patches/0047.
+# sequence that actually runs; the label exists because
+# _GENERATE_FLOW_BUILD exports it (see orfs_source.bzl).
 py_test(
     name = "auto_floorplan_flow_test",
     srcs = ["auto_floorplan_flow_test.py"],

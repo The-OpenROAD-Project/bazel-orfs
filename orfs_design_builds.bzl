@@ -8,6 +8,13 @@ because a files() group name is decided by what other designs'
 config.mk files reference rather than by the directory's contents.
 Written back absent-only, so this is a no-op against an ORFS that
 still ships them.
+
+One entry is deliberately not verbatim:
+flow/designs/src/mempool_group/rtl/BUILD carries the files() form that
+patches/0049 used to apply on top of the recorded file. ORFS #4501
+deleted every BUILD it shipped, and patches run before the patch_cmds
+that write these back, so a patch can no longer reach it. Re-recording
+cannot restore it either -- there is nothing upstream left to record.
 """
 
 RECORDED_FROM_ORFS = "8c0616910615e843780ba527526f2b83a564ba70"
@@ -100,7 +107,7 @@ RECORDED_BUILDS = {
     "flow/designs/src/jpeg/BUILD": 'load("//flow/designs:design.bzl", "files")\n\nfiles("verilog")\n',
     "flow/designs/src/jpeg/include/BUILD": 'filegroup(\n    name = "include",\n    srcs = glob(["*.v", "*.sv"], allow_empty = True),\n    visibility = ["//visibility:public"],\n)\n',
     "flow/designs/src/mempool_group/BUILD": 'load("//flow/designs:design.bzl", "files")\n\nfiles("verilog")\n',
-    "flow/designs/src/mempool_group/rtl/BUILD": 'filegroup(\n    name = "include",\n    srcs = glob(["*.v", "*.sv", "*.svh"], allow_empty = True) + [\n        "//flow/designs/src/mempool_group/rtl/axi:assign.svh",\n        "//flow/designs/src/mempool_group/rtl/axi:typedef.svh",\n        "//flow/designs/src/mempool_group/rtl/common_cells:assertions.svh",\n        "//flow/designs/src/mempool_group/rtl/common_cells:registers.svh",\n        "//flow/designs/src/mempool_group/rtl/mempool:mempool.svh",\n    ],\n    visibility = ["//visibility:public"],\n)\n',
+    "flow/designs/src/mempool_group/rtl/BUILD": '# NOT verbatim: this is the one recorded entry that carries a fix.\n# VERILOG_FILES in nangate45/mempool_group names the files in this\n# directory one by one, config_mk_parser turns each into a per-file\n# label, and the bare ORFS filegroup over a glob made them private to\n# the package -- a visibility error on every one. files() is the same\n# filegroup, same glob, same five sibling-package headers, plus the\n# per-file exports. It arrived as patches/0049 while ORFS still\n# shipped this file; ORFS #4501 deleted it, so the fix lives here.\nload("//flow/designs:design.bzl", "files")\n\nfiles(\n    "include",\n    extra_srcs = [\n        "//flow/designs/src/mempool_group/rtl/axi:assign.svh",\n        "//flow/designs/src/mempool_group/rtl/axi:typedef.svh",\n        "//flow/designs/src/mempool_group/rtl/common_cells:assertions.svh",\n        "//flow/designs/src/mempool_group/rtl/common_cells:registers.svh",\n        "//flow/designs/src/mempool_group/rtl/mempool:mempool.svh",\n    ],\n)\n',
     "flow/designs/src/mempool_group/rtl/axi/BUILD": 'load("//flow/designs:design.bzl", "files")\n\nfiles("verilog")\n',
     "flow/designs/src/mempool_group/rtl/axi/src/BUILD": 'load("//flow/designs:design.bzl", "files")\n\nfiles("verilog")\n',
     "flow/designs/src/mempool_group/rtl/cluster_interconnect/BUILD": "",
