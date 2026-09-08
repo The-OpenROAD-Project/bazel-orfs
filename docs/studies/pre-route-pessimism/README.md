@@ -90,10 +90,24 @@ seen them.
 
 So the finding is not that ORFS's numbers are wrong. ORFS has the method,
 the tooling, a per-platform target and a tutorial. What is missing is
-plumbing: nothing in the flow refits for your design, nothing records
-which designs the shipped default was fitted from, and `correlate_rc`
-prints Tcl to stdout that a human must paste -- there is no path from it
-to `LAYER_PARASITICS_FILE`.
+plumbing, and half of that gap closed while this study was being run.
+
+bazel-orfs now carries `SET_RC_TCL` as a per-design RC file (patches
+0050-0055), read in `load.tcl`, `open.tcl` and `detail_place.tcl` -- the
+last of which read neither and dropped any override during `3_5`. So the
+*destination* for a per-design fit exists today, which it did not when
+this study started.
+
+What is still missing is the path into it: nothing in the flow refits for
+your design, nothing records which designs the shipped default was fitted
+from, and `correlate_rc` prints Tcl to stdout for a human to paste. The
+fit and the file it belongs in are both there; they are not connected.
+
+Regenerating the inventory across that change leaves it byte-identical --
+the patches alter how `SET_RC_TCL` is *read*, not asap7's
+`MAX_ROUTING_LAYER`, its `setRC.tcl` values, or any `repair_timing` call
+site -- so every measured claim above survives the bump. Only this
+paragraph needed correcting, which is the point of deriving the rest.
 
 ## Why a new design was needed
 
