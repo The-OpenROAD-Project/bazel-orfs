@@ -1,0 +1,10 @@
+{
+  "stage": "2_floorplan",
+  "design_stage": 2,
+  "parasitics": "set_wire_rc",
+  "propagated_clock": 0,
+  "time_unit": "ps",
+  "clock_period": 1000.000000,
+  "wns": 785.547119,
+  "min_period": 214.45288100000005
+}

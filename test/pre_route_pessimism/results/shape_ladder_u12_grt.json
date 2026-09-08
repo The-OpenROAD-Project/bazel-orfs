@@ -1,0 +1,10 @@
+{
+  "stage": "5_1_grt",
+  "design_stage": 5,
+  "parasitics": "global_routing",
+  "propagated_clock": 1,
+  "time_unit": "ps",
+  "clock_period": 1000.000000,
+  "wns": 593.033569,
+  "min_period": 406.96643099999994
+}

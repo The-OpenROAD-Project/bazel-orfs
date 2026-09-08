@@ -1,8 +1,11 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load("//:openroad.bzl", "orfs_flow", "orfs_run", "orfs_run_executable")
 
-# Test infrastructure: only //test's action-input tests look in here.
-package(default_visibility = ["//test:__pkg__"])
+# Test infrastructure: //test's action-input tests look in here, and
+# //test/pre_route_pessimism reuses extract_lib.tcl -- deliberately, since
+# it is the one copy of the sampling logic and a second study measuring
+# min_period its own way would not be comparable with this one.
+package(default_visibility = ["//test:__subpackages__"])
 
 # Shared accuracy metrics, used by both rungs of the study.
 py_library(

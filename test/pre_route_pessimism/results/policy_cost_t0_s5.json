@@ -1,0 +1,13 @@
+{
+  "num_stdcells": 14479,
+  "num_macros": 0,
+  "stdcell_um2": 2338.792380000167,
+  "die_width_um": 66.797,
+  "die_height_um": 66.797,
+  "core_width_um": 62.694,
+  "core_area_um2": 3910.22478,
+  "core_height_um": 62.37,
+  "utilization_percent": 59.81222337811913,
+  "total_runtime_s": 303.83,
+  "stages": {"2_1_floorplan": 4.94, "2_2_floorplan_macro": 2.72, "2_3_floorplan_tapcell": 2.13, "2_4_floorplan_pdn": 2.42, "3_1_place_gp_skip_io": 39.57, "3_2_place_iop": 1.94, "3_3_place_gp": 77.03, "3_4_place_resized": 7.86, "3_5_place_dp": 9.48, "4_1_cts": 24.1, "5_1_grt": 131.64}
+}

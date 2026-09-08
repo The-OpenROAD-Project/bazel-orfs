@@ -1,0 +1,1103 @@
+load("@bazel_orfs_test_designs//:designs.bzl", STUDY_DESIGNS = "DESIGNS")
+load("@bazel_skylib//rules:write_file.bzl", "write_file")
+load("@orfs_designs//:designs.bzl", "DESIGNS")
+load("@orfs_variable_metadata//:json.bzl", "orfs_variable_metadata")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+load("//:openroad.bzl", "orfs_flow", "orfs_run")
+
+# Study scaffolding: the campaigns behind docs/studies/pre-route-pessimism.
+# Nothing here is part of bazel-orfs's shipped surface.
+package(default_visibility = ["//visibility:private"])
+
+# ORFS as data: the same DESIGNS dict the config.mk DSL builds every flow
+# target from, and the same parsed variables.yaml the stage argument
+# tables and the spell-checker are built from. Taking both from Starlark
+# rather than re-reading ORFS's files means the inventory describes the
+# designs and defaults that actually apply, and re-derives itself on a
+# //:bump.
+write_file(
+    name = "orfs_corpus_json",
+    out = "orfs_corpus.json",
+    content = [json.encode({
+        "designs": DESIGNS,
+        "variable_metadata": orfs_variable_metadata,
+    })],
+)
+
+# Every input is an ORFS file, so "no asap7 design reaches the top of the
+# stack" is a measurement of ORFS at the pinned commit, not a claim about
+# it. scripts/flow.tcl is passed only to locate flow/scripts/ in the
+# runfiles tree: the stage scripts it names arrive through //flow:makefile,
+# which exports them as a filegroup rather than as individual labels.
+INVENTORY_DATA = [
+    ":orfs_corpus.json",
+    "@orfs//flow:makefile",
+    "@orfs//flow:platforms/asap7/config.mk",
+    "@orfs//flow:platforms/asap7/setRC.tcl",
+    "@orfs//flow:platforms/sky130hd/config.mk",
+    "@orfs//flow:platforms/sky130hd/setRC.tcl",
+    "@orfs//flow:scripts/flow.tcl",
+]
+
+INVENTORY_ARGS = [
+    "--corpus=$(rootpath :orfs_corpus.json)",
+    "--platform-config=asap7=$(rootpath @orfs//flow:platforms/asap7/config.mk)",
+    "--platform-config=sky130hd=$(rootpath @orfs//flow:platforms/sky130hd/config.mk)",
+    "--setrc=asap7=$(rootpath @orfs//flow:platforms/asap7/setRC.tcl)",
+    "--setrc=sky130hd=$(rootpath @orfs//flow:platforms/sky130hd/setRC.tcl)",
+    "--scripts-dir=$(rootpath @orfs//flow:scripts/flow.tcl)",
+]
+
+# The checked-in inventory:
+#   bazelisk run //test/pre_route_pessimism:inventory_update
+#
+# A run target rather than a genrule, and not for convenience: the stage
+# scripts arrive through the //flow:makefile filegroup's `data`, which
+# propagates into a binary's runfiles but not into a genrule's srcs. As a
+# genrule this produced a complete inventory whose call-site tables were
+# empty -- caught only because call_sites() reports the scripts it could
+# not find instead of returning an empty list.
+py_binary(
+    name = "inventory_update",
+    srcs = ["inventory.py"],
+    args = INVENTORY_ARGS + [
+        "--out-json=test/pre_route_pessimism/results/inventory.json",
+    ],
+    data = INVENTORY_DATA,
+    main = "inventory.py",
+    # Writes into the source tree, so it is never a CI target. The two
+    # py_tests below stay non-manual on purpose: they are the analysis
+    # math, they need no ORFS data, and CI running them is the point.
+    tags = ["manual"],
+)
+
+# ---------------------------------------------------------------------
+# The design under study, and the ladder over its stages.
+# ---------------------------------------------------------------------
+
+# wirebound's own argument set, taken from the same parsed config.mk the
+# flow targets are built from, so a measurement run can never disagree
+# with the design it measured.
+WIREBOUND = STUDY_DESIGNS["asap7/wirebound"]
+
+# The design carries one variable of its own -- the clock target its
+# constraint.sdc reads -- and ORFS's variables.yaml has never heard of
+# it. Splitting it out here is what the spell-checker is for: an unknown
+# name in `arguments` is far more often a typo in an ORFS variable than a
+# deliberate project hook, so the escape hatch is explicit and narrow.
+WIREBOUND_USER_VARS = ["WIREBOUND_CLK_PERIOD_PS"]
+
+WIREBOUND_ARGS = {
+    key: value
+    for key, value in WIREBOUND["arguments"].items()
+    if key not in WIREBOUND_USER_VARS
+}
+
+WIREBOUND_USER_ARGS = {
+    key: value
+    for key, value in WIREBOUND["arguments"].items()
+    if key in WIREBOUND_USER_VARS
+}
+
+# Stage name -> (flow target, ODB output group). The stems are ORFS's,
+# and the grt stage is 5_1_grt rather than 5_grt -- see STAGE_SUBSTEPS in
+# private/stages.bzl, which is the single source of truth for them.
+LADDER_STAGES = {
+    "floorplan": "2_floorplan",
+    "place": "3_place",
+    "cts": "4_cts",
+    "grt": "5_1_grt",
+}
+
+# One rung per stage. Each reads that stage's ODB through ORFS's own
+# open.tcl, so the parasitics and clock treatment are the flow's rather
+# than this study's; the rung records which branch it got.
+[
+    orfs_run(
+        name = "ladder_{}".format(stage),
+        src = "//flow/designs/asap7/wirebound:wirebound_{}".format(stage),
+        outs = ["ladder_{}.json".format(stage)],
+        arguments = WIREBOUND_ARGS | {
+        },
+        script = "stage_ladder.tcl",
+        sources = WIREBOUND["sources"],
+        tags = ["manual"],
+        user_arguments = {
+            "OUTPUT_JSON": "$(location ladder_{}.json)".format(stage),
+        },
+        user_sources = {
+            "EXTRACT_LIB_TCL": ["//test/estimation_ladder:extract_lib.tcl"],
+        },
+        variant = "ladder_{}".format(stage),
+    )
+    for stage in LADDER_STAGES
+]
+
+# The regime assertion: does routing actually reach the top of the stack,
+# and is the top scarce? Runs on the grt ODB, where the guides are.
+orfs_run(
+    name = "layer_usage",
+    src = "//flow/designs/asap7/wirebound:wirebound_grt",
+    outs = ["layer_usage.json"],
+    arguments = WIREBOUND_ARGS | {
+    },
+    script = "layer_usage.tcl",
+    sources = WIREBOUND["sources"],
+    tags = ["manual"],
+    user_arguments = {
+        "OUTPUT_JSON": "$(location layer_usage.json)",
+    },
+    variant = "layer_usage",
+)
+
+# ---------------------------------------------------------------------
+# Sizing: the smallest design that still shows the effect.
+# ---------------------------------------------------------------------
+#
+# The design has to be fast enough to sit inside an OpenROAD edit/measure
+# loop, and big enough that wire delay -- not gate delay -- sets the
+# period. Those pull opposite ways, and asap7 makes the tension sharp:
+# its cells are so small that a die large enough for a long wire needs a
+# lot of instances.
+#
+# So the size is measured, not chosen. WIREBOUND_GROUPS scales instance
+# count as GROUPS * WIDTH * FANIN and, through CORE_UTILIZATION, the die
+# with it. These variants exist so the study can show the curve it picked
+# a point on, and so the choice can be re-made when it stops holding.
+# Points actually collected. 128 and 256 exist as targets -- and 256 is
+# the size this design started at -- but they are not routinely run: the
+# measured curve is superlinear in instance count (32 -> 64 groups is
+# 1.9x the cells and 3.1x the wall time) while die extent grows only as
+# the square root, so buying a longer wire by adding instances costs
+# roughly the square of what it buys. That measurement is why the shape
+# axis below exists.
+WIREBOUND_SIZES = [
+    32,
+    64,
+]
+
+WIREBOUND_SIZES_UNCOLLECTED = [
+    128,
+    256,
+]
+
+[
+    orfs_flow(
+        name = "wirebound_size",
+        arguments = WIREBOUND_ARGS | {
+            "VERILOG_DEFINES": "-D WIREBOUND_GROUPS={}".format(groups),
+        },
+        last_stage = "grt",
+        sources = WIREBOUND["sources"],
+        tags = ["manual"],
+        top = "wirebound",
+        user_arguments = WIREBOUND_USER_ARGS,
+        variant = "g{}".format(groups),
+        verilog_files = ["//flow/designs/asap7/wirebound:wirebound.sv"],
+    )
+    for groups in WIREBOUND_SIZES + WIREBOUND_SIZES_UNCOLLECTED
+]
+
+# One cost/size record per point on the curve, read off that variant's
+# own grt ODB and stage logs.
+[
+    orfs_run(
+        name = "size_g{}".format(groups),
+        src = ":wirebound_size_g{}_grt".format(groups),
+        outs = ["size_g{}.json".format(groups)],
+        arguments = WIREBOUND_ARGS | {
+        },
+        script = "size_probe.tcl",
+        sources = WIREBOUND["sources"],
+        # The probe reads the stage logs for wall time, so it must see
+        # them; without this the runtime half of the record is missing.
+        src_logs = True,
+        tags = ["manual"],
+        user_arguments = {
+            "OUTPUT_JSON": "$(location size_g{}.json)".format(groups),
+        },
+        user_sources = {
+            "EXTRACT_LIB_TCL": ["//test/estimation_ladder:extract_lib.tcl"],
+        },
+        variant = "size_g{}_probe".format(groups),
+    )
+    for groups in WIREBOUND_SIZES + WIREBOUND_SIZES_UNCOLLECTED
+]
+
+# ---------------------------------------------------------------------
+# Shape: buying wire length without buying runtime.
+# ---------------------------------------------------------------------
+#
+# Wire delay needs physical distance, and on asap7 distance is expensive
+# to buy with instances -- see the curve above. Utilization buys it for
+# free: at a fixed instance count, halving utilization grows the die
+# extent by root two at the same runtime.
+#
+# That is not a trick to make a microbenchmark look bad. A design whose
+# die is set by something other than this logic -- memory arrays, macro
+# placement, floorplan constraints -- runs at low core utilization as a
+# matter of course, and large real designs do.
+#
+# PLACE_DENSITY has to follow CORE_UTILIZATION down. It is the target bin
+# density for global placement, so leaving it at 0.60 while utilization
+# drops to 0.12 lets the placer pack every cell into a fifth of the die
+# and hand back short wires on a large floorplan -- the die would grow
+# and the measurement would not move. Each point therefore sets both.
+#
+# ROUTING_LAYER_ADJUSTMENT is the second knob, and it is here because
+# congestion and wire length pull against each other: routing demand
+# grows as the square root of die area while track supply grows linearly,
+# so a design spread out for long wires is less congested, not more.
+# Derating the tracks restores contention without shrinking the die. The
+# platform default is 0.25.
+WIREBOUND_SHAPES = {
+    # The size-curve baseline, repeated here so the shape axis has its
+    # own control rather than being compared across two target sets.
+    "u55": {
+        "CORE_UTILIZATION": "55",
+        "PLACE_DENSITY": "0.60",
+    },
+    "u25": {
+        "CORE_UTILIZATION": "25",
+        "PLACE_DENSITY": "0.30",
+    },
+    "u12": {
+        "CORE_UTILIZATION": "12",
+        "PLACE_DENSITY": "0.16",
+    },
+    # Long wires and scarce tracks at once.
+    "u12_tight": {
+        "CORE_UTILIZATION": "12",
+        "PLACE_DENSITY": "0.16",
+        "ROUTING_LAYER_ADJUSTMENT": "0.50",
+    },
+    # Contention, from the other direction. The four shapes above all
+    # left global routing with room -- the most contended layer sat near
+    # 64% of what the router may spend -- and with room, global route
+    # does not detour, so its timing agrees with the placement estimate
+    # to within a few percent. A place-versus-grt gap needs the router to
+    # be unable to take the direct path.
+    #
+    # Two ways to get there, kept separate because they are different
+    # claims. Dense packs the same logic into a smaller die, which raises
+    # demand per track and shortens wires. Derated leaves the die alone
+    # and takes tracks away, which raises contention at constant wire
+    # length -- the platform default derate is 0.25, and this is the knob
+    # a design uses when power and pins have already claimed the tracks.
+    "u80_dense": {
+        "CORE_UTILIZATION": "80",
+        "PLACE_DENSITY": "0.85",
+    },
+    "u55_derated": {
+        "CORE_UTILIZATION": "55",
+        "PLACE_DENSITY": "0.60",
+        "ROUTING_LAYER_ADJUSTMENT": "0.65",
+    },
+}
+
+# Held at the cheapest size that reaches grt inside a few minutes, so the
+# shape axis is explored at a cost that allows iterating.
+WIREBOUND_SHAPE_GROUPS = 32
+
+# The shape knobs are all floorplan-stage or later, so every point on the
+# axis can start from one netlist. Without previous_stage each variant
+# re-synthesizes an identical netlist -- four yosys runs for one result,
+# and the waste grows with the axis.
+WIREBOUND_SHAPE_BASE = "u55"
+
+[
+    orfs_flow(
+        name = "wirebound_shape",
+        arguments = WIREBOUND_ARGS | shape | {
+            "VERILOG_DEFINES": "-D WIREBOUND_GROUPS={}".format(
+                WIREBOUND_SHAPE_GROUPS,
+            ),
+        },
+        last_stage = "grt",
+        previous_stage = {} if name == WIREBOUND_SHAPE_BASE else {
+            "floorplan": ":wirebound_shape_{}_synth".format(WIREBOUND_SHAPE_BASE),
+        },
+        sources = WIREBOUND["sources"],
+        tags = ["manual"],
+        top = "wirebound",
+        user_arguments = WIREBOUND_USER_ARGS,
+        variant = name,
+        verilog_files = ["//flow/designs/asap7/wirebound:wirebound.sv"],
+    )
+    for name, shape in WIREBOUND_SHAPES.items()
+]
+
+# The min_period ladder, per shape and per stage.
+#
+# Run across the shape axis rather than on one design, because the whole
+# question is whether the pre-route reading diverges from the routed one
+# *in this regime* -- so the regime has to be a variable, not a setting.
+# Each rung is a load and a timing query over an ODB the shape build
+# already produced, so the whole grid costs a fraction of one flow run.
+[
+    orfs_run(
+        name = "shape_ladder_{}_{}".format(shape_name, stage),
+        src = ":wirebound_shape_{}_{}".format(shape_name, stage),
+        outs = ["shape_ladder_{}_{}.json".format(shape_name, stage)],
+        arguments = WIREBOUND_ARGS | shape | {
+        },
+        script = "stage_ladder.tcl",
+        sources = WIREBOUND["sources"],
+        tags = ["manual"],
+        user_arguments = {
+            "OUTPUT_JSON": "$(location shape_ladder_{}_{}.json)".format(
+                shape_name,
+                stage,
+            ),
+        },
+        user_sources = {
+            "EXTRACT_LIB_TCL": ["//test/estimation_ladder:extract_lib.tcl"],
+        },
+        variant = "shape_ladder_{}_{}".format(shape_name, stage),
+    )
+    for shape_name, shape in WIREBOUND_SHAPES.items()
+    for stage in LADDER_STAGES
+]
+
+# Per-shape: the size/cost record, and the regime assertion. Both are
+# needed per point -- a shape that grows the die but leaves routing on
+# the lower layers has not reached the regime, and only the layer probe
+# can say so.
+[
+    orfs_run(
+        name = "shape_{}".format(name),
+        src = ":wirebound_shape_{}_grt".format(name),
+        outs = ["shape_{}.json".format(name)],
+        arguments = WIREBOUND_ARGS | shape | {
+        },
+        script = "size_probe.tcl",
+        sources = WIREBOUND["sources"],
+        src_logs = True,
+        tags = ["manual"],
+        user_arguments = {
+            "OUTPUT_JSON": "$(location shape_{}.json)".format(name),
+        },
+        user_sources = {
+            "EXTRACT_LIB_TCL": ["//test/estimation_ladder:extract_lib.tcl"],
+        },
+        variant = "shape_{}_probe".format(name),
+    )
+    for name, shape in WIREBOUND_SHAPES.items()
+]
+
+[
+    orfs_run(
+        name = "shape_layers_{}".format(name),
+        src = ":wirebound_shape_{}_grt".format(name),
+        outs = ["shape_layers_{}.json".format(name)],
+        arguments = WIREBOUND_ARGS | shape | {
+        },
+        script = "layer_usage.tcl",
+        sources = WIREBOUND["sources"],
+        tags = ["manual"],
+        user_arguments = {
+            "OUTPUT_JSON": "$(location shape_layers_{}.json)".format(name),
+        },
+        variant = "shape_layers_{}_probe".format(name),
+    )
+    for name, shape in WIREBOUND_SHAPES.items()
+]
+
+# ---------------------------------------------------------------------
+# The wire-RC arm: the gap is a free parameter, not a fact.
+# ---------------------------------------------------------------------
+#
+# Run on the one shape above that actually contends for tracks, because
+# that is the only shape where placement and global routing disagree at
+# all -- with room to route, they agree to within 3% and the arm would
+# measure nothing.
+#
+# Deliberately run at the design's loose clock. Nothing repairs at a
+# clock this slack, which is the point: this arm measures how wrong the
+# pre-route estimate is, with no repair activity mixed into the answer.
+# The policy arms, which need repair to run, are a separate experiment at
+# a tightened clock -- mixing the two would leave every number
+# attributable to either.
+WIREBOUND_RC_SHAPE = "u55_derated"
+
+# Bottom, the platform's own equivalent, middle, and top of the routable
+# range. asap7's constant sits between M3 and M4, so M2 is more resistive
+# than the flow assumes and M8 is far less.
+WIREBOUND_RC_LAYERS = [
+    "M2",
+    "M4",
+    "M6",
+    "M8",
+]
+
+[
+    orfs_flow(
+        name = "wirebound_rc",
+        arguments = WIREBOUND_ARGS | WIREBOUND_SHAPES[WIREBOUND_RC_SHAPE] | {
+            "VERILOG_DEFINES": "-D WIREBOUND_GROUPS={}".format(
+                WIREBOUND_SHAPE_GROUPS,
+            ),
+        },
+        last_stage = "grt",
+        previous_stage = {
+            "floorplan": ":wirebound_shape_{}_synth".format(WIREBOUND_SHAPE_BASE),
+        },
+        sources = WIREBOUND["sources"] | {
+            "LAYER_PARASITICS_FILE": ["layer_parasitics.tcl"],
+        },
+        tags = ["manual"],
+        top = "wirebound",
+        user_arguments = WIREBOUND_USER_ARGS | {
+            "WIREBOUND_WIRE_RC_LAYER": layer,
+        },
+        variant = "rc_{}".format(layer),
+        verilog_files = ["//flow/designs/asap7/wirebound:wirebound.sv"],
+    )
+    for layer in WIREBOUND_RC_LAYERS
+]
+
+[
+    orfs_run(
+        name = "rc_ladder_{}_{}".format(layer, stage),
+        src = ":wirebound_rc_rc_{}_{}".format(layer, stage),
+        outs = ["rc_ladder_{}_{}.json".format(layer, stage)],
+        arguments = WIREBOUND_ARGS | WIREBOUND_SHAPES[WIREBOUND_RC_SHAPE] | {
+        },
+        script = "stage_ladder.tcl",
+        # The arm's parasitics file has to be in force for the
+        # measurement too: load.tcl sources it on every stage load, so a
+        # rung reading the platform default would report the control's
+        # timing under the arm's name.
+        # LAYER_PARASITICS_FILE is a real ORFS variable; EXTRACT_LIB_TCL
+        # is the estimation ladder's own hook.
+        sources = WIREBOUND["sources"] | {
+            "LAYER_PARASITICS_FILE": ["layer_parasitics.tcl"],
+        },
+        tags = ["manual"],
+        user_arguments = {
+            "OUTPUT_JSON": "$(location rc_ladder_{}_{}.json)".format(
+                layer,
+                stage,
+            ),
+        },
+        user_sources = {
+            "EXTRACT_LIB_TCL": ["//test/estimation_ladder:extract_lib.tcl"],
+        },
+        variant = "rc_ladder_{}_{}".format(layer, stage),
+    )
+    for layer in WIREBOUND_RC_LAYERS
+    for stage in LADDER_STAGES
+]
+
+# ---------------------------------------------------------------------
+# Calibrating a clock that leaves something to repair.
+# ---------------------------------------------------------------------
+#
+# Every shape above closes, so repair_timing never runs on any of them
+# and every repair-policy arm would report the zero a knob that does
+# nothing reports. The policy question needs a clock a few percent past
+# closure -- and its own synthesis, since the SDC feeds synth.
+#
+# Calibrated, not guessed. At 330ps this shape reads WNS +42.7 at place
+# and +8.0 at grt -- so 330 still closes everywhere and repairs nothing.
+# The stage min_periods span ~35ps (place 287, cts 295, grt 322), so no
+# single clock is *slightly* negative at all of them; a clock a few
+# percent under grt is comfortably positive at place.
+#
+# At 290 the answer changed shape. grt came back at WNS +0.29 with
+# min_period 289.7 -- against 322 with no repair -- so repair_timing at
+# global route recovered ~32ps and the design then *closes*. Repair
+# works here, which is the opposite of a vacuous arm, and it is why a
+# clock chosen to leave WNS slightly negative before repair leaves it
+# slightly positive after.
+#
+# That matters for what the arms can show. If repair closes the design at
+# every TNS_END_PERCENT setting, the settings differ only in runtime and
+# the achieved period converges. The knob's documented purpose is exactly
+# that trade -- variables.yaml says "reduce to 5% for runtime" -- so
+# runtime is a fair thing to measure, but a period that cannot move
+# measures nothing about coverage.
+#
+# 265 puts the design past what repair recovered, so the arms can differ
+# in achieved period as well as in cost. Both are recorded.
+#
+# Place stays positive either way and ENABLE_PLACE_REPAIR_TIMING is left
+# at its default of 0: turning it on would add a knob with nothing to act
+# on, which is the failure this calibration exists to avoid.
+WIREBOUND_POLICY_SHAPE = "u55_derated"
+
+WIREBOUND_POLICY_CLOCK_PS = 265
+
+orfs_flow(
+    name = "wirebound_policy_cal",
+    arguments = WIREBOUND_ARGS | WIREBOUND_SHAPES[WIREBOUND_POLICY_SHAPE] | {
+        "VERILOG_DEFINES": "-D WIREBOUND_GROUPS={}".format(
+            WIREBOUND_SHAPE_GROUPS,
+        ),
+    },
+    last_stage = "grt",
+    sources = WIREBOUND["sources"],
+    tags = ["manual"],
+    top = "wirebound",
+    user_arguments = {
+        "WIREBOUND_CLK_PERIOD_PS": str(WIREBOUND_POLICY_CLOCK_PS),
+    },
+    variant = "policy_cal",
+    verilog_files = ["//flow/designs/asap7/wirebound:wirebound.sv"],
+)
+
+[
+    orfs_run(
+        name = "policy_cal_{}".format(stage),
+        src = ":wirebound_policy_cal_policy_cal_{}".format(stage),
+        outs = ["policy_cal_{}.json".format(stage)],
+        arguments = WIREBOUND_ARGS | WIREBOUND_SHAPES[WIREBOUND_POLICY_SHAPE],
+        script = "stage_ladder.tcl",
+        sources = WIREBOUND["sources"],
+        tags = ["manual"],
+        user_arguments = {
+            "OUTPUT_JSON": "$(location policy_cal_{}.json)".format(stage),
+            "WIREBOUND_CLK_PERIOD_PS": str(WIREBOUND_POLICY_CLOCK_PS),
+        },
+        user_sources = {
+            "EXTRACT_LIB_TCL": ["//test/estimation_ladder:extract_lib.tcl"],
+        },
+        variant = "policy_cal_{}".format(stage),
+    )
+    for stage in [
+        "place",
+        "grt",
+    ]
+]
+
+# ---------------------------------------------------------------------
+# The policy arm: TNS_END_PERCENT against the noise floor.
+# ---------------------------------------------------------------------
+#
+# The question the study exists for. TNS_END_PERCENT defaults to 100 --
+# "try fixing all violating endpoints" -- reaches four stages through one
+# call site, and no asap7 design lowers it. Whether that default earns
+# its runtime is answerable only against the flow's own dispersion, which
+# the seed ensemble puts at 2 sigma = 10.3 points of place-to-grt gap.
+#
+# So every arm is an ensemble, not a run. The resolvable difference at k
+# runs per arm is 2 sigma sqrt(2/k): one run resolves nothing below ~14.6
+# points, twelve brings that to ~4.2. Running one leaf per arm here would
+# reproduce exactly the error this study documents.
+#
+# The clock is the calibrated one above, so cts and grt both have
+# something to repair. Synthesis is shared across all 36 leaves: the SDC
+# feeds synth, so the tight clock needs its own netlist, but only one.
+WIREBOUND_TNS_ARMS = [
+    0,
+    10,
+    100,
+]
+
+WIREBOUND_POLICY_SEEDS = [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+]
+
+orfs_flow(
+    name = "wirebound_policy",
+    arguments = WIREBOUND_ARGS | WIREBOUND_SHAPES[WIREBOUND_POLICY_SHAPE] | {
+        "VERILOG_DEFINES": "-D WIREBOUND_GROUPS={}".format(
+            WIREBOUND_SHAPE_GROUPS,
+        ),
+    },
+    last_stage = "synth",
+    sources = WIREBOUND["sources"],
+    tags = ["manual"],
+    top = "wirebound",
+    user_arguments = {
+        "WIREBOUND_CLK_PERIOD_PS": str(WIREBOUND_POLICY_CLOCK_PS),
+    },
+    variant = "policy",
+    verilog_files = ["//flow/designs/asap7/wirebound:wirebound.sv"],
+)
+
+[
+    orfs_flow(
+        name = "wirebound_policy",
+        arguments = WIREBOUND_ARGS | WIREBOUND_SHAPES[WIREBOUND_POLICY_SHAPE] | {
+            "GPL_RANDOM_SEED": str(seed),
+            "TNS_END_PERCENT": str(tns),
+            "VERILOG_DEFINES": "-D WIREBOUND_GROUPS={}".format(
+                WIREBOUND_SHAPE_GROUPS,
+            ),
+        },
+        last_stage = "grt",
+        previous_stage = {
+            "floorplan": ":wirebound_policy_policy_synth",
+        },
+        sources = WIREBOUND["sources"],
+        tags = ["manual"],
+        top = "wirebound",
+        user_arguments = {
+            "WIREBOUND_CLK_PERIOD_PS": str(WIREBOUND_POLICY_CLOCK_PS),
+        },
+        variant = "t{}_s{}".format(tns, seed),
+        verilog_files = ["//flow/designs/asap7/wirebound:wirebound.sv"],
+    )
+    for tns in WIREBOUND_TNS_ARMS
+    for seed in WIREBOUND_POLICY_SEEDS
+]
+
+# grt only. The arm is about what the flow delivers after repair, and the
+# pre-route rungs are already covered by the shape axis at their own
+# clock.
+[
+    orfs_run(
+        name = "policy_t{}_s{}".format(tns, seed),
+        src = ":wirebound_policy_t{}_s{}_grt".format(tns, seed),
+        outs = ["policy_t{}_s{}.json".format(tns, seed)],
+        arguments = WIREBOUND_ARGS | WIREBOUND_SHAPES[WIREBOUND_POLICY_SHAPE] | {
+            "GPL_RANDOM_SEED": str(seed),
+            "TNS_END_PERCENT": str(tns),
+        },
+        script = "stage_ladder.tcl",
+        sources = WIREBOUND["sources"],
+        tags = ["manual"],
+        user_arguments = {
+            "OUTPUT_JSON": "$(location policy_t{}_s{}.json)".format(tns, seed),
+            "WIREBOUND_CLK_PERIOD_PS": str(WIREBOUND_POLICY_CLOCK_PS),
+        },
+        user_sources = {
+            "EXTRACT_LIB_TCL": ["//test/estimation_ladder:extract_lib.tcl"],
+        },
+        variant = "policy_t{}_s{}".format(tns, seed),
+    )
+    for tns in WIREBOUND_TNS_ARMS
+    for seed in WIREBOUND_POLICY_SEEDS
+]
+
+# Runtime per leaf, which is where a coverage knob's effect is expected:
+# variables.yaml's own description of TNS_END_PERCENT is "reduce to 5% for
+# runtime". size_probe.tcl already parses per-stage elapsed time out of
+# the logs, so it is reused unchanged; src_logs is what lets it see them.
+[
+    orfs_run(
+        name = "policy_cost_t{}_s{}".format(tns, seed),
+        src = ":wirebound_policy_t{}_s{}_grt".format(tns, seed),
+        outs = ["policy_cost_t{}_s{}.json".format(tns, seed)],
+        arguments = WIREBOUND_ARGS | WIREBOUND_SHAPES[WIREBOUND_POLICY_SHAPE] | {
+            "GPL_RANDOM_SEED": str(seed),
+            "TNS_END_PERCENT": str(tns),
+        },
+        script = "size_probe.tcl",
+        sources = WIREBOUND["sources"],
+        src_logs = True,
+        tags = ["manual"],
+        user_arguments = {
+            "OUTPUT_JSON": "$(location policy_cost_t{}_s{}.json)".format(
+                tns,
+                seed,
+            ),
+            "WIREBOUND_CLK_PERIOD_PS": str(WIREBOUND_POLICY_CLOCK_PS),
+        },
+        user_sources = {
+            "EXTRACT_LIB_TCL": ["//test/estimation_ladder:extract_lib.tcl"],
+        },
+        variant = "policy_cost_t{}_s{}".format(tns, seed),
+    )
+    for tns in WIREBOUND_TNS_ARMS
+    for seed in WIREBOUND_POLICY_SEEDS
+]
+
+py_binary(
+    name = "policy_update",
+    srcs = ["update_results.py"],
+    args = [
+        "--dest-dir=test/pre_route_pessimism/results",
+    ] + [
+        "$(rootpath :policy_t{}_s{}.json)".format(tns, seed)
+        for tns in WIREBOUND_TNS_ARMS
+        for seed in WIREBOUND_POLICY_SEEDS
+    ] + [
+        "$(rootpath :policy_cost_t{}_s{}.json)".format(tns, seed)
+        for tns in WIREBOUND_TNS_ARMS
+        for seed in WIREBOUND_POLICY_SEEDS
+    ],
+    data = [
+        ":policy_t{}_s{}.json".format(tns, seed)
+        for tns in WIREBOUND_TNS_ARMS
+        for seed in WIREBOUND_POLICY_SEEDS
+    ] + [
+        ":policy_cost_t{}_s{}.json".format(tns, seed)
+        for tns in WIREBOUND_TNS_ARMS
+        for seed in WIREBOUND_POLICY_SEEDS
+    ],
+    main = "update_results.py",
+    tags = ["manual"],
+)
+
+# ---------------------------------------------------------------------
+# The noise floor: what a single run is worth.
+# ---------------------------------------------------------------------
+#
+# This axis is not optional and it is not last. The wire-RC arm above
+# varies a constant that global route cannot read -- grt prices its nets
+# from the layers routing actually assigned -- and grt's min_period moved
+# by 15% across those arms anyway. The path is
+# constant -> timing-driven global placement -> a different placement ->
+# different routing, so what those arms partly measure is the placer's
+# response to being nudged, not the constant's effect on timing.
+#
+# Which means every single-run number in this study is one draw, and the
+# spread of the draws is the same size as the effects being reported.
+# Kahng & Mantik (ISQED 2002) named this; Chan, Kahng & Woo (SLIP 2020)
+# framed it as a noise floor -- a lower bound on how well any predictor
+# of the flow can do. test/estimation_ladder measured it here already,
+# and found every bit of it manufactured by timing-driven global
+# placement, with a clock nudge at CTS, repair_design and global route
+# moving the answer by exactly zero.
+#
+# GPL_RANDOM_SEED is a real seed on the real stage, so this is an
+# ensemble rather than an epsilon perturbation: nobody can argue the
+# input changed meaning. Held at the contended shape, since that is
+# where place and grt disagree at all.
+WIREBOUND_SEEDS = [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+]
+
+[
+    orfs_flow(
+        name = "wirebound_seed",
+        arguments = WIREBOUND_ARGS | WIREBOUND_SHAPES[WIREBOUND_RC_SHAPE] | {
+            "GPL_RANDOM_SEED": str(seed),
+            "VERILOG_DEFINES": "-D WIREBOUND_GROUPS={}".format(
+                WIREBOUND_SHAPE_GROUPS,
+            ),
+        },
+        last_stage = "grt",
+        # Every leaf shares synthesis and differs only from global
+        # placement onward, which is the whole reason the ensemble is
+        # affordable.
+        previous_stage = {
+            "floorplan": ":wirebound_shape_{}_synth".format(WIREBOUND_SHAPE_BASE),
+        },
+        sources = WIREBOUND["sources"],
+        tags = ["manual"],
+        top = "wirebound",
+        user_arguments = WIREBOUND_USER_ARGS,
+        variant = "seed{}".format(seed),
+        verilog_files = ["//flow/designs/asap7/wirebound:wirebound.sv"],
+    )
+    for seed in WIREBOUND_SEEDS
+]
+
+[
+    orfs_run(
+        name = "seed_ladder_{}_{}".format(seed, stage),
+        src = ":wirebound_seed_seed{}_{}".format(seed, stage),
+        outs = ["seed_ladder_{}_{}.json".format(seed, stage)],
+        arguments = WIREBOUND_ARGS | WIREBOUND_SHAPES[WIREBOUND_RC_SHAPE] | {
+            "GPL_RANDOM_SEED": str(seed),
+        },
+        script = "stage_ladder.tcl",
+        sources = WIREBOUND["sources"],
+        tags = ["manual"],
+        user_arguments = {
+            "OUTPUT_JSON": "$(location seed_ladder_{}_{}.json)".format(
+                seed,
+                stage,
+            ),
+        },
+        user_sources = {
+            "EXTRACT_LIB_TCL": ["//test/estimation_ladder:extract_lib.tcl"],
+        },
+        variant = "seed_ladder_{}_{}".format(seed, stage),
+    )
+    for seed in WIREBOUND_SEEDS
+    for stage in [
+        "place",
+        "grt",
+    ]
+]
+
+py_binary(
+    name = "seeds_update",
+    srcs = ["update_results.py"],
+    args = [
+        "--dest-dir=test/pre_route_pessimism/results",
+    ] + [
+        "$(rootpath :seed_ladder_{}_{}.json)".format(seed, stage)
+        for seed in WIREBOUND_SEEDS
+        for stage in [
+            "place",
+            "grt",
+        ]
+    ],
+    data = [
+        ":seed_ladder_{}_{}.json".format(seed, stage)
+        for seed in WIREBOUND_SEEDS
+        for stage in [
+            "place",
+            "grt",
+        ]
+    ],
+    main = "update_results.py",
+    tags = ["manual"],
+)
+
+# ---------------------------------------------------------------------
+# Checked-in results.
+# ---------------------------------------------------------------------
+#
+# The write-up's tables and figures are generated from the files these
+# targets write into the source tree, so a claim can be re-derived
+# without re-running the campaign and a re-run lands as a reviewable
+# diff. Campaign outputs are separate from the inventory because the
+# inventory is cheap and the campaigns are not.
+# The flow campaigns, one update target each. Split deliberately: a
+# single target covering everything would make refreshing the ladder
+# force every point on the size curve, including the ones the curve
+# exists to show are too expensive to run routinely.
+py_binary(
+    name = "sizes_update",
+    srcs = ["update_results.py"],
+    args = [
+        "--dest-dir=test/pre_route_pessimism/results",
+    ] + [
+        "$(rootpath :size_g{}.json)".format(groups)
+        for groups in WIREBOUND_SIZES
+    ],
+    data = [
+        ":size_g{}.json".format(groups)
+        for groups in WIREBOUND_SIZES
+    ],
+    main = "update_results.py",
+    tags = ["manual"],
+)
+
+py_binary(
+    name = "rc_update",
+    srcs = ["update_results.py"],
+    args = [
+        "--dest-dir=test/pre_route_pessimism/results",
+    ] + [
+        "$(rootpath :rc_ladder_{}_{}.json)".format(layer, stage)
+        for layer in WIREBOUND_RC_LAYERS
+        for stage in LADDER_STAGES
+    ],
+    data = [
+        ":rc_ladder_{}_{}.json".format(layer, stage)
+        for layer in WIREBOUND_RC_LAYERS
+        for stage in LADDER_STAGES
+    ],
+    main = "update_results.py",
+    tags = ["manual"],
+)
+
+py_binary(
+    name = "shapes_update",
+    srcs = ["update_results.py"],
+    args = [
+        "--dest-dir=test/pre_route_pessimism/results",
+    ] + [
+        "$(rootpath :shape_{}.json)".format(name)
+        for name in WIREBOUND_SHAPES
+    ] + [
+        "$(rootpath :shape_layers_{}.json)".format(name)
+        for name in WIREBOUND_SHAPES
+    ] + [
+        "$(rootpath :shape_ladder_{}_{}.json)".format(name, stage)
+        for name in WIREBOUND_SHAPES
+        for stage in LADDER_STAGES
+    ],
+    data = [
+        ":shape_{}.json".format(name)
+        for name in WIREBOUND_SHAPES
+    ] + [
+        ":shape_layers_{}.json".format(name)
+        for name in WIREBOUND_SHAPES
+    ] + [
+        ":shape_ladder_{}_{}.json".format(name, stage)
+        for name in WIREBOUND_SHAPES
+        for stage in LADDER_STAGES
+    ],
+    main = "update_results.py",
+    tags = ["manual"],
+)
+
+py_binary(
+    name = "ladder_update",
+    srcs = ["update_results.py"],
+    args = [
+        "--dest-dir=test/pre_route_pessimism/results",
+        "$(rootpath :layer_usage.json)",
+    ] + [
+        "$(rootpath :ladder_{}.json)".format(stage)
+        for stage in LADDER_STAGES
+    ],
+    data = [
+        ":layer_usage.json",
+    ] + [
+        ":ladder_{}.json".format(stage)
+        for stage in LADDER_STAGES
+    ],
+    main = "update_results.py",
+    tags = ["manual"],
+)
+
+# ---------------------------------------------------------------------
+# The write-up.
+# ---------------------------------------------------------------------
+#
+# The pull request body, generated from the checked-in results. Sections
+# whose inputs are absent say so rather than vanishing, so a partial
+# study cannot read as a complete one.
+py_binary(
+    name = "report",
+    srcs = ["report.py"],
+    args = [
+        "--inventory=$(rootpath results/inventory.json)",
+    ] + [
+        "--shape=$(rootpath results/shape_{}.json)".format(name)
+        for name in WIREBOUND_SHAPES
+    ] + [
+        "--shape-layers=$(rootpath results/shape_layers_{}.json)".format(name)
+        for name in WIREBOUND_SHAPES
+    ] + [
+        "--shape-ladder=$(rootpath results/shape_ladder_{}_{}.json)".format(
+            name,
+            stage,
+        )
+        for name in WIREBOUND_SHAPES
+        for stage in LADDER_STAGES
+    ] + [
+        "--seed-ladder=$(rootpath results/seed_ladder_{}_{}.json)".format(
+            seed,
+            stage,
+        )
+        for seed in WIREBOUND_SEEDS
+        for stage in [
+            "place",
+            "grt",
+        ]
+    ] + [
+        "--rc-ladder=$(rootpath results/rc_ladder_{}_{}.json)".format(
+            layer,
+            stage,
+        )
+        for layer in WIREBOUND_RC_LAYERS
+        for stage in LADDER_STAGES
+    ] + [
+        "--size=$(rootpath results/size_g{}.json)".format(groups)
+        for groups in WIREBOUND_SIZES
+    ] + [
+        "--policy=$(rootpath results/policy_t{}_s{}.json)".format(tns, seed)
+        for tns in WIREBOUND_TNS_ARMS
+        for seed in WIREBOUND_POLICY_SEEDS
+    ] + [
+        "--policy=$(rootpath results/policy_cost_t{}_s{}.json)".format(tns, seed)
+        for tns in WIREBOUND_TNS_ARMS
+        for seed in WIREBOUND_POLICY_SEEDS
+    ] + [
+        "--policy-clock-ps={}".format(WIREBOUND_POLICY_CLOCK_PS),
+        "--figure-base-url=https://github.com/The-OpenROAD-Project/bazel-orfs/blob/study/pre-route-pessimism/test/pre_route_pessimism/results",
+    ],
+    data = [
+        "results/inventory.json",
+    ] + [
+        "results/shape_{}.json".format(name)
+        for name in WIREBOUND_SHAPES
+    ] + [
+        "results/shape_layers_{}.json".format(name)
+        for name in WIREBOUND_SHAPES
+    ] + [
+        "results/shape_ladder_{}_{}.json".format(name, stage)
+        for name in WIREBOUND_SHAPES
+        for stage in LADDER_STAGES
+    ] + [
+        "results/seed_ladder_{}_{}.json".format(seed, stage)
+        for seed in WIREBOUND_SEEDS
+        for stage in [
+            "place",
+            "grt",
+        ]
+    ] + [
+        "results/rc_ladder_{}_{}.json".format(layer, stage)
+        for layer in WIREBOUND_RC_LAYERS
+        for stage in LADDER_STAGES
+    ] + [
+        "results/size_g{}.json".format(groups)
+        for groups in WIREBOUND_SIZES
+    ] + [
+        "results/policy_t{}_s{}.json".format(tns, seed)
+        for tns in WIREBOUND_TNS_ARMS
+        for seed in WIREBOUND_POLICY_SEEDS
+    ] + [
+        "results/policy_cost_t{}_s{}.json".format(tns, seed)
+        for tns in WIREBOUND_TNS_ARMS
+        for seed in WIREBOUND_POLICY_SEEDS
+    ],
+    main = "report.py",
+    tags = ["manual"],
+)
+
+# Figures, regenerated from the checked-in results:
+#   bazelisk run //test/pre_route_pessimism:plots
+#
+# Same convention as the estimation ladder: Agg, dpi 120, PNGs written
+# beside the JSONs they came from, never hand-edited.
+py_binary(
+    name = "plots",
+    srcs = ["plots.py"],
+    args = ["--results=test/pre_route_pessimism/results"],
+    main = "plots.py",
+    tags = ["manual"],
+    deps = ["@bazel-orfs-dev-pip//matplotlib"],
+)
+
+# ---------------------------------------------------------------------
+# Tests over the analysis math.
+# ---------------------------------------------------------------------
+#
+# The parsing and arithmetic only, never ORFS's file contents: those move
+# on a //:bump, and a test asserting them would fail for the right reason
+# at the wrong time. What is pinned is the behaviour that, when wrong,
+# yields a plausible number instead of an error -- which is this
+# harness's usual failure mode and the reason these tests exist at all.
+py_library(
+    name = "analysis",
+    srcs = [
+        "inventory.py",
+        "report.py",
+    ],
+    imports = ["."],
+)
+
+py_test(
+    name = "inventory_test",
+    srcs = ["inventory_test.py"],
+    deps = [":analysis"],
+)
+
+py_test(
+    name = "report_test",
+    srcs = ["report_test.py"],
+    deps = [":analysis"],
+)

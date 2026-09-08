@@ -1,0 +1,10 @@
+{
+  "stage": "3_place",
+  "design_stage": 3,
+  "parasitics": "placement",
+  "propagated_clock": 0,
+  "time_unit": "ps",
+  "clock_period": 1000.000000,
+  "wns": 704.479919,
+  "min_period": 295.520081
+}

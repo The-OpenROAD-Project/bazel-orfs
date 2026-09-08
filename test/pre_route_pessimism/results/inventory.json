@@ -1,0 +1,4954 @@
+{
+  "call_sites": {
+    "TNS_END_PERCENT": {
+      "hits": [
+        {
+          "commented": false,
+          "file": "util.tcl",
+          "line": 35,
+          "text": "append_env_var additional_args TNS_END_PERCENT -repair_tns 1"
+        }
+      ],
+      "missing_scripts": []
+    },
+    "repair_timing": {
+      "hits": [
+        {
+          "commented": true,
+          "file": "floorplan.tcl",
+          "line": 117,
+          "text": "# remove_buffers, repair_timing_helper) look like synthesis-stage"
+        },
+        {
+          "commented": false,
+          "file": "floorplan.tcl",
+          "line": 159,
+          "text": "repair_timing_helper -setup -skip_last_gasp -sequence \"unbuffer,sizeup,swap,vt_swap\""
+        },
+        {
+          "commented": false,
+          "file": "resize.tcl",
+          "line": 32,
+          "text": "repair_timing_helper"
+        },
+        {
+          "commented": false,
+          "file": "cts.tcl",
+          "line": 38,
+          "text": "utl::push_metrics_stage \"cts__{}__pre_repair_timing\""
+        },
+        {
+          "commented": false,
+          "file": "cts.tcl",
+          "line": 67,
+          "text": "repair_timing_helper"
+        },
+        {
+          "commented": false,
+          "file": "global_route.tcl",
+          "line": 101,
+          "text": "repair_timing_helper"
+        },
+        {
+          "commented": false,
+          "file": "global_route.tcl",
+          "line": 113,
+          "text": "-congestion_report_file $::env(REPORTS_DIR)/congestion_post_repair_timing.rpt]"
+        },
+        {
+          "commented": false,
+          "file": "global_route.tcl",
+          "line": 121,
+          "text": "set repair_timing_args \\"
+        },
+        {
+          "commented": false,
+          "file": "global_route.tcl",
+          "line": 124,
+          "text": "lappend repair_timing_args -match_cell_footprint"
+        },
+        {
+          "commented": false,
+          "file": "global_route.tcl",
+          "line": 127,
+          "text": "lappend repair_timing_args -setup_margin $::env(SETUP_SLACK_MARGIN)"
+        },
+        {
+          "commented": false,
+          "file": "global_route.tcl",
+          "line": 129,
+          "text": "log_cmd repair_timing {*}$repair_timing_args"
+        },
+        {
+          "commented": false,
+          "file": "util.tcl",
+          "line": 30,
+          "text": "proc repair_timing_helper { args } {"
+        },
+        {
+          "commented": false,
+          "file": "util.tcl",
+          "line": 45,
+          "text": "log_cmd repair_timing {*}$additional_args"
+        },
+        {
+          "commented": false,
+          "file": "util.tcl",
+          "line": 70,
+          "text": "log_cmd repair_timing {*}$additional_args"
+        }
+      ],
+      "missing_scripts": []
+    },
+    "repair_tns": {
+      "hits": [
+        {
+          "commented": false,
+          "file": "global_route.tcl",
+          "line": 122,
+          "text": "[list -setup -sequence \"vt_swap reroute\" -skip_last_gasp -repair_tns 0 -verbose]"
+        },
+        {
+          "commented": false,
+          "file": "util.tcl",
+          "line": 35,
+          "text": "append_env_var additional_args TNS_END_PERCENT -repair_tns 1"
+        }
+      ],
+      "missing_scripts": []
+    }
+  },
+  "designs": [
+    {
+      "design": "aes",
+      "design_name": "aes_cipher_top",
+      "has_macros": false,
+      "key": "asap7/aes",
+      "platform": "asap7",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "70",
+        "PLACE_DENSITY": "0.65"
+      }
+    },
+    {
+      "design": "aes-block",
+      "design_name": "aes_cipher_top",
+      "has_macros": true,
+      "key": "asap7/aes-block",
+      "platform": "asap7",
+      "policy": {
+        "HOLD_SLACK_MARGIN": {
+          "source": "design",
+          "value": "-30"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.00844765,
+          "ratio": 3.7036335548939654,
+          "top": "M9",
+          "top_resistance": 0.00889556
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7",
+          "M8",
+          "M9"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M8",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 3.1450640118849624,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M8",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 2.5351547471782094,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "design",
+          "value": "M9"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "design",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "design",
+          "value": "0.3"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "47"
+      }
+    },
+    {
+      "design": "aes-block_aes_rcon",
+      "design_name": "aes_rcon",
+      "has_macros": false,
+      "key": "asap7/aes-block_aes_rcon",
+      "platform": "asap7",
+      "policy": {},
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0180365,
+          "ratio": 1.7346491835999225,
+          "top": "M5",
+          "top_resistance": 0.0189935
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M4",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 1.473035234108613,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M4",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.1873755994788346,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "design",
+          "value": "M5"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.70"
+      }
+    },
+    {
+      "design": "aes-block_aes_sbox",
+      "design_name": "aes_sbox",
+      "has_macros": false,
+      "key": "asap7/aes-block_aes_sbox",
+      "platform": "asap7",
+      "policy": {},
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0180365,
+          "ratio": 1.7346491835999225,
+          "top": "M5",
+          "top_resistance": 0.0189935
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M4",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 1.473035234108613,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M4",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.1873755994788346,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "design",
+          "value": "M5"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.70"
+      }
+    },
+    {
+      "design": "aes-mbff",
+      "design_name": "aes_cipher_top",
+      "has_macros": false,
+      "key": "asap7/aes-mbff",
+      "platform": "asap7",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.65"
+      }
+    },
+    {
+      "design": "aes_lvt",
+      "design_name": "aes_cipher_top",
+      "has_macros": false,
+      "key": "asap7/aes_lvt",
+      "platform": "asap7",
+      "policy": {
+        "RECOVER_POWER": {
+          "source": "design",
+          "value": "100"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.65"
+      }
+    },
+    {
+      "design": "coralnpu",
+      "design_name": "CoreMiniAxi",
+      "has_macros": false,
+      "key": "asap7/coralnpu",
+      "platform": "asap7",
+      "policy": {},
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "65"
+      }
+    },
+    {
+      "design": "cva6",
+      "design_name": "cva6",
+      "has_macros": false,
+      "key": "asap7/cva6",
+      "platform": "asap7",
+      "policy": {},
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "70",
+        "PLACE_DENSITY": "0.69"
+      }
+    },
+    {
+      "design": "ethmac",
+      "design_name": "ethmac",
+      "has_macros": false,
+      "key": "asap7/ethmac",
+      "platform": "asap7",
+      "policy": {
+        "HOLD_SLACK_MARGIN": {
+          "source": "design",
+          "value": "-10"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "70",
+        "PLACE_DENSITY": "0.75"
+      }
+    },
+    {
+      "design": "ethmac_lvt",
+      "design_name": "ethmac",
+      "has_macros": false,
+      "key": "asap7/ethmac_lvt",
+      "platform": "asap7",
+      "policy": {
+        "RECOVER_POWER": {
+          "source": "design",
+          "value": "1"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.60"
+      }
+    },
+    {
+      "design": "gcd",
+      "design_name": "gcd",
+      "has_macros": false,
+      "key": "asap7/gcd",
+      "platform": "asap7",
+      "policy": {
+        "SKIP_LAST_GASP": {
+          "source": "design",
+          "value": "1"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "0.5",
+        "CORE_UTILIZATION": "65",
+        "PLACE_DENSITY": "0.35"
+      }
+    },
+    {
+      "design": "gcd-ccs",
+      "design_name": "gcd",
+      "has_macros": false,
+      "key": "asap7/gcd-ccs",
+      "platform": "asap7",
+      "policy": {
+        "SKIP_LAST_GASP": {
+          "source": "design",
+          "value": "1"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "0.5",
+        "CORE_UTILIZATION": "60",
+        "PLACE_DENSITY": "0.35"
+      }
+    },
+    {
+      "design": "ibex",
+      "design_name": "ibex_core",
+      "has_macros": false,
+      "key": "asap7/ibex",
+      "platform": "asap7",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY_LB_ADDON": "0.20"
+      }
+    },
+    {
+      "design": "jpeg",
+      "design_name": "jpeg_encoder",
+      "has_macros": false,
+      "key": "asap7/jpeg",
+      "platform": "asap7",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "70",
+        "PLACE_DENSITY": "0.75"
+      }
+    },
+    {
+      "design": "jpeg_lvt",
+      "design_name": "jpeg_encoder",
+      "has_macros": false,
+      "key": "asap7/jpeg_lvt",
+      "platform": "asap7",
+      "policy": {
+        "RECOVER_POWER": {
+          "source": "design",
+          "value": "100"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "30",
+        "PLACE_DENSITY": "0.60"
+      }
+    },
+    {
+      "design": "minimal",
+      "design_name": "minimal",
+      "has_macros": false,
+      "key": "asap7/minimal",
+      "platform": "asap7",
+      "policy": {
+        "REMOVE_ABC_BUFFERS": {
+          "source": "design",
+          "value": "1"
+        },
+        "SKIP_CTS_REPAIR_TIMING": {
+          "source": "design",
+          "value": "1"
+        },
+        "SKIP_INCREMENTAL_REPAIR": {
+          "source": "design",
+          "value": "1"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "10",
+        "PLACE_DENSITY": "0.20"
+      }
+    },
+    {
+      "design": "mock-alu",
+      "design_name": "MockAlu",
+      "has_macros": false,
+      "key": "asap7/mock-alu",
+      "platform": "asap7",
+      "policy": {},
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "design",
+          "value": "0.45"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "50",
+        "PLACE_DENSITY": "0.75"
+      }
+    },
+    {
+      "design": "mock-cpu",
+      "design_name": "mock_cpu",
+      "has_macros": false,
+      "key": "asap7/mock-cpu",
+      "platform": "asap7",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY": "0.71"
+      }
+    },
+    {
+      "design": "riscv32i",
+      "design_name": "riscv_top",
+      "has_macros": false,
+      "key": "asap7/riscv32i",
+      "platform": "asap7",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "5",
+        "CORE_UTILIZATION": "62",
+        "PLACE_DENSITY_LB_ADDON": "0.10"
+      }
+    },
+    {
+      "design": "riscv32i-mock-sram",
+      "design_name": "riscv_top",
+      "has_macros": true,
+      "key": "asap7/riscv32i-mock-sram",
+      "platform": "asap7",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "5",
+        "CORE_UTILIZATION": "62",
+        "PLACE_DENSITY_LB_ADDON": "0.10"
+      }
+    },
+    {
+      "design": "riscv32i-mock-sram_fakeram7_256x32",
+      "design_name": "fakeram7_256x32",
+      "has_macros": false,
+      "key": "asap7/riscv32i-mock-sram_fakeram7_256x32",
+      "platform": "asap7",
+      "policy": {},
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0180365,
+          "ratio": 1.7346491835999225,
+          "top": "M4",
+          "top_resistance": 0.0180365
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M4",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 1.473035234108613,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M4",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.1873755994788346,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "design",
+          "value": "M4"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "design",
+          "value": "M2"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "50",
+        "PLACE_DENSITY": "0.80"
+      }
+    },
+    {
+      "design": "swerv_wrapper",
+      "design_name": "swerv_wrapper",
+      "has_macros": false,
+      "key": "asap7/swerv_wrapper",
+      "platform": "asap7",
+      "policy": {},
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "design",
+          "value": "0.2"
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "30",
+        "PLACE_DENSITY_LB_ADDON": "0.20"
+      }
+    },
+    {
+      "design": "tinyRocket",
+      "design_name": "RocketTile",
+      "has_macros": true,
+      "key": "asap7/tinyRocket",
+      "platform": "asap7",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY_LB_ADDON": "0.10"
+      }
+    },
+    {
+      "design": "uart",
+      "design_name": "uart",
+      "has_macros": false,
+      "key": "asap7/uart",
+      "platform": "asap7",
+      "policy": {
+        "SKIP_GATE_CLONING": {
+          "source": "design",
+          "value": "1"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "platform",
+          "value": "1"
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M7"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M4"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "M2"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "platform",
+          "value": "0.25"
+        }
+      },
+      "shape": {
+        "CORE_AREA": "1.08 1.08 16 16",
+        "DIE_AREA": "0 0 17 17",
+        "PLACE_DENSITY": "0.70"
+      }
+    },
+    {
+      "design": "aes",
+      "design_name": "aes_cipher_top",
+      "has_macros": false,
+      "key": "gf180/aes",
+      "platform": "gf180",
+      "policy": {},
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "50",
+        "PLACE_DENSITY": "0.60"
+      }
+    },
+    {
+      "design": "aes-hybrid",
+      "design_name": "aes_cipher_top",
+      "has_macros": false,
+      "key": "gf180/aes-hybrid",
+      "platform": "gf180",
+      "policy": {},
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "30",
+        "PLACE_DENSITY": "0.40"
+      }
+    },
+    {
+      "design": "ibex",
+      "design_name": "ibex_core",
+      "has_macros": false,
+      "key": "gf180/ibex",
+      "platform": "gf180",
+      "policy": {},
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "45",
+        "PLACE_DENSITY_LB_ADDON": "0.1"
+      }
+    },
+    {
+      "design": "jpeg",
+      "design_name": "jpeg_encoder",
+      "has_macros": false,
+      "key": "gf180/jpeg",
+      "platform": "gf180",
+      "policy": {},
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "80",
+        "PLACE_DENSITY_LB_ADDON": "0.20"
+      }
+    },
+    {
+      "design": "riscv32i",
+      "design_name": "riscv",
+      "has_macros": false,
+      "key": "gf180/riscv32i",
+      "platform": "gf180",
+      "policy": {
+        "SKIP_GATE_CLONING": {
+          "source": "design",
+          "value": "1"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "55",
+        "PLACE_DENSITY_LB_ADDON": "0.2"
+      }
+    },
+    {
+      "design": "uart-blocks",
+      "design_name": "uart",
+      "has_macros": true,
+      "key": "gf180/uart-blocks",
+      "platform": "gf180",
+      "policy": {},
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_AREA": "10 10 420 420",
+        "DIE_AREA": "0 0 430 430",
+        "PLACE_DENSITY": "0.60"
+      }
+    },
+    {
+      "design": "uart-blocks_uart_rx",
+      "design_name": "uart_rx",
+      "has_macros": false,
+      "key": "gf180/uart-blocks_uart_rx",
+      "platform": "gf180",
+      "policy": {},
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "design",
+          "value": "Metal4"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "30",
+        "PLACE_DENSITY": "0.60"
+      }
+    },
+    {
+      "design": "aes",
+      "design_name": "aes_cipher_top",
+      "has_macros": false,
+      "key": "ihp-sg13g2/aes",
+      "platform": "ihp-sg13g2",
+      "policy": {
+        "REMOVE_ABC_BUFFERS": {
+          "source": "design",
+          "value": "1"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "20",
+        "PLACE_DENSITY": "0.65"
+      }
+    },
+    {
+      "design": "gcd",
+      "design_name": "gcd",
+      "has_macros": false,
+      "key": "ihp-sg13g2/gcd",
+      "platform": "ihp-sg13g2",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "20",
+        "PLACE_DENSITY": "0.88"
+      }
+    },
+    {
+      "design": "i2c-gpio-expander",
+      "design_name": "I2cGpioExpanderTop",
+      "has_macros": true,
+      "key": "ihp-sg13g2/i2c-gpio-expander",
+      "platform": "ihp-sg13g2",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "design",
+          "value": "TopMetal2"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_AREA": "351.36 351.54 699.84 699.3",
+        "DIE_AREA": "0.0 0.0 1050.24 1050.84",
+        "PLACE_DENSITY": "0.75"
+      }
+    },
+    {
+      "design": "i2c-gpio-expander_I2cDeviceCtrl",
+      "design_name": "I2cDeviceCtrl",
+      "has_macros": false,
+      "key": "ihp-sg13g2/i2c-gpio-expander_I2cDeviceCtrl",
+      "platform": "ihp-sg13g2",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "design",
+          "value": "Metal4"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_AREA": "18.72 18.9 128.64 128.52",
+        "DIE_AREA": "0.0 0.0 147.84 147.42",
+        "PLACE_DENSITY": "0.75"
+      }
+    },
+    {
+      "design": "ibex",
+      "design_name": "ibex_core",
+      "has_macros": false,
+      "key": "ihp-sg13g2/ibex",
+      "platform": "ihp-sg13g2",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "70",
+        "PLACE_DENSITY_LB_ADDON": "0.2"
+      }
+    },
+    {
+      "design": "jpeg",
+      "design_name": "jpeg_encoder",
+      "has_macros": false,
+      "key": "ihp-sg13g2/jpeg",
+      "platform": "ihp-sg13g2",
+      "policy": {
+        "REMOVE_ABC_BUFFERS": {
+          "source": "design",
+          "value": "1"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "50",
+        "PLACE_DENSITY_LB_ADDON": "0.15"
+      }
+    },
+    {
+      "design": "riscv32i",
+      "design_name": "riscv",
+      "has_macros": false,
+      "key": "ihp-sg13g2/riscv32i",
+      "platform": "ihp-sg13g2",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "35",
+        "PLACE_DENSITY_LB_ADDON": "0.2"
+      }
+    },
+    {
+      "design": "spi",
+      "design_name": "spi",
+      "has_macros": false,
+      "key": "ihp-sg13g2/spi",
+      "platform": "ihp-sg13g2",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "20",
+        "PLACE_DENSITY": "0.88"
+      }
+    },
+    {
+      "design": "aes",
+      "design_name": "aes_cipher_top",
+      "has_macros": false,
+      "key": "nangate45/aes",
+      "platform": "nangate45",
+      "policy": {
+        "SKIP_INCREMENTAL_REPAIR": {
+          "source": "design",
+          "value": "1"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "PLACE_DENSITY_LB_ADDON": "0.20"
+      }
+    },
+    {
+      "design": "ariane133",
+      "design_name": "ariane",
+      "has_macros": false,
+      "key": "nangate45/ariane133",
+      "platform": "nangate45",
+      "policy": {
+        "SKIP_GATE_CLONING": {
+          "source": "design",
+          "value": "1"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "5",
+        "CORE_UTILIZATION": "50"
+      }
+    },
+    {
+      "design": "ariane136",
+      "design_name": "ariane",
+      "has_macros": false,
+      "key": "nangate45/ariane136",
+      "platform": "nangate45",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_AREA": "10 12 1448 1448",
+        "DIE_AREA": "0 0 1500 1500",
+        "PLACE_DENSITY": "0.35"
+      }
+    },
+    {
+      "design": "black_parrot",
+      "design_name": "black_parrot",
+      "has_macros": false,
+      "key": "nangate45/black_parrot",
+      "platform": "nangate45",
+      "policy": {
+        "HOLD_SLACK_MARGIN": {
+          "source": "design",
+          "value": "0.03"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_AREA": "10.07 11.2 1340 1290",
+        "DIE_AREA": "0 0 1350 1300",
+        "PLACE_DENSITY_LB_ADDON": "0.05"
+      }
+    },
+    {
+      "design": "bp",
+      "design_name": "black_parrot",
+      "has_macros": false,
+      "key": "nangate45/bp",
+      "platform": "nangate45",
+      "policy": {
+        "HOLD_SLACK_MARGIN": {
+          "source": "design",
+          "value": "0.03"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_AREA": "10.07 11.2 1340 1290",
+        "DIE_AREA": "0 0 1350 1300",
+        "PLACE_DENSITY_LB_ADDON": "0.05"
+      }
+    },
+    {
+      "design": "bp_be",
+      "design_name": "bp_be_top",
+      "has_macros": false,
+      "key": "nangate45/bp_be",
+      "platform": "nangate45",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_AREA": "10.07 11.2 790 690",
+        "DIE_AREA": "0 0 800 700",
+        "PLACE_DENSITY_LB_ADDON": "0.10"
+      }
+    },
+    {
+      "design": "bp_be_top",
+      "design_name": "bp_be_top",
+      "has_macros": false,
+      "key": "nangate45/bp_be_top",
+      "platform": "nangate45",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_AREA": "10.07 11.2 790 690",
+        "DIE_AREA": "0 0 800 700",
+        "PLACE_DENSITY_LB_ADDON": "0.10"
+      }
+    },
+    {
+      "design": "bp_fe",
+      "design_name": "bp_fe_top",
+      "has_macros": false,
+      "key": "nangate45/bp_fe",
+      "platform": "nangate45",
+      "policy": {
+        "HOLD_SLACK_MARGIN": {
+          "source": "design",
+          "value": "0.03"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_AREA": "10 10 790 590",
+        "DIE_AREA": "0 0 800 600",
+        "PLACE_DENSITY_LB_ADDON": "0.11"
+      }
+    },
+    {
+      "design": "bp_fe_top",
+      "design_name": "bp_fe_top",
+      "has_macros": false,
+      "key": "nangate45/bp_fe_top",
+      "platform": "nangate45",
+      "policy": {
+        "HOLD_SLACK_MARGIN": {
+          "source": "design",
+          "value": "0.03"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_AREA": "10 10 790 590",
+        "DIE_AREA": "0 0 800 600",
+        "PLACE_DENSITY_LB_ADDON": "0.11"
+      }
+    },
+    {
+      "design": "bp_multi",
+      "design_name": "bp_multi_top",
+      "has_macros": false,
+      "key": "nangate45/bp_multi",
+      "platform": "nangate45",
+      "policy": {
+        "SKIP_GATE_CLONING": {
+          "source": "design",
+          "value": "1"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_AREA": "10.07 9.8 1090 1090",
+        "DIE_AREA": "0 0 1100 1100",
+        "PLACE_DENSITY_LB_ADDON": "0.05"
+      }
+    },
+    {
+      "design": "bp_multi_top",
+      "design_name": "bp_multi_top",
+      "has_macros": false,
+      "key": "nangate45/bp_multi_top",
+      "platform": "nangate45",
+      "policy": {
+        "SKIP_GATE_CLONING": {
+          "source": "design",
+          "value": "1"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_AREA": "10.07 9.8 1090 1090",
+        "DIE_AREA": "0 0 1100 1100",
+        "PLACE_DENSITY_LB_ADDON": "0.05"
+      }
+    },
+    {
+      "design": "bp_quad",
+      "design_name": "bsg_chip",
+      "has_macros": false,
+      "key": "nangate45/bp_quad",
+      "platform": "nangate45",
+      "policy": {},
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_AREA": "10 12 3590 3590",
+        "DIE_AREA": "0 0 3600 3600"
+      }
+    },
+    {
+      "design": "cva6",
+      "design_name": "cva6",
+      "has_macros": false,
+      "key": "nangate45/cva6",
+      "platform": "nangate45",
+      "policy": {},
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "60",
+        "PLACE_DENSITY": "0.75"
+      }
+    },
+    {
+      "design": "dynamic_node",
+      "design_name": "dynamic_node_top_wrap",
+      "has_macros": false,
+      "key": "nangate45/dynamic_node",
+      "platform": "nangate45",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "5",
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY_LB_ADDON": "0.20"
+      }
+    },
+    {
+      "design": "gcd",
+      "design_name": "gcd",
+      "has_macros": false,
+      "key": "nangate45/gcd",
+      "platform": "nangate45",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "55",
+        "PLACE_DENSITY_LB_ADDON": "0.20"
+      }
+    },
+    {
+      "design": "ibex",
+      "design_name": "ibex_core",
+      "has_macros": false,
+      "key": "nangate45/ibex",
+      "platform": "nangate45",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "50",
+        "PLACE_DENSITY_LB_ADDON": "0.20"
+      }
+    },
+    {
+      "design": "jpeg",
+      "design_name": "jpeg_encoder",
+      "has_macros": false,
+      "key": "nangate45/jpeg",
+      "platform": "nangate45",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "80",
+        "PLACE_DENSITY_LB_ADDON": "0.20"
+      }
+    },
+    {
+      "design": "mempool_group",
+      "design_name": "mempool_group",
+      "has_macros": false,
+      "key": "nangate45/mempool_group",
+      "platform": "nangate45",
+      "policy": {},
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_AREA": "10 12 1090 1090",
+        "DIE_AREA": "0 0 1100 1100"
+      }
+    },
+    {
+      "design": "swerv",
+      "design_name": "swerv",
+      "has_macros": false,
+      "key": "nangate45/swerv",
+      "platform": "nangate45",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "5",
+        "CORE_UTILIZATION": "65",
+        "PLACE_DENSITY_LB_ADDON": "0.20"
+      }
+    },
+    {
+      "design": "swerv_wrapper",
+      "design_name": "swerv_wrapper",
+      "has_macros": false,
+      "key": "nangate45/swerv_wrapper",
+      "platform": "nangate45",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_AREA": "10.07 11.2 1090 990",
+        "DIE_AREA": "0 0 1100 1000",
+        "PLACE_DENSITY_LB_ADDON": "0.08"
+      }
+    },
+    {
+      "design": "tinyRocket",
+      "design_name": "RocketTile",
+      "has_macros": false,
+      "key": "nangate45/tinyRocket",
+      "platform": "nangate45",
+      "policy": {},
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "60",
+        "PLACE_DENSITY": "0.75"
+      }
+    },
+    {
+      "design": "aes",
+      "design_name": "aes_cipher_top",
+      "has_macros": false,
+      "key": "sky130hd/aes",
+      "platform": "sky130hd",
+      "policy": {
+        "MATCH_CELL_FOOTPRINT": {
+          "source": "platform",
+          "value": "1"
+        },
+        "OPT_POST_GRT_WNS": {
+          "source": "platform",
+          "value": "0"
+        },
+        "REMOVE_ABC_BUFFERS": {
+          "source": "design",
+          "value": "1"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "met1",
+          "bottom_resistance": 0.00120565,
+          "max_resistance": 0.00122132,
+          "min_resistance": 1.83558e-05,
+          "ratio": 66.53591780254742,
+          "top": "met5",
+          "top_resistance": 1.83558e-05
+        },
+        "routable_window": [
+          "met1",
+          "met2",
+          "met3",
+          "met4",
+          "met5"
+        ],
+        "wire_rc": [
+          {
+            "clock": false,
+            "equivalent": null,
+            "kind": "layer",
+            "layer": "met1",
+            "mispricing": null,
+            "signal": true
+          },
+          {
+            "clock": true,
+            "equivalent": null,
+            "kind": "layer",
+            "layer": "met3",
+            "mispricing": null,
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met5"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met3"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met1"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "35",
+        "PLACE_DENSITY_LB_ADDON": "0.2"
+      }
+    },
+    {
+      "design": "chameleon",
+      "design_name": "soc_core",
+      "has_macros": false,
+      "key": "sky130hd/chameleon",
+      "platform": "sky130hd",
+      "policy": {
+        "MATCH_CELL_FOOTPRINT": {
+          "source": "platform",
+          "value": "1"
+        },
+        "OPT_POST_GRT_WNS": {
+          "source": "platform",
+          "value": "0"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "met1",
+          "bottom_resistance": 0.00120565,
+          "max_resistance": 0.00122132,
+          "min_resistance": 1.83558e-05,
+          "ratio": 66.53591780254742,
+          "top": "met5",
+          "top_resistance": 1.83558e-05
+        },
+        "routable_window": [
+          "met1",
+          "met2",
+          "met3",
+          "met4",
+          "met5"
+        ],
+        "wire_rc": [
+          {
+            "clock": false,
+            "equivalent": null,
+            "kind": "layer",
+            "layer": "met1",
+            "mispricing": null,
+            "signal": true
+          },
+          {
+            "clock": true,
+            "equivalent": null,
+            "kind": "layer",
+            "layer": "met3",
+            "mispricing": null,
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met5"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met3"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met1"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "60"
+      }
+    },
+    {
+      "design": "gcd",
+      "design_name": "gcd",
+      "has_macros": false,
+      "key": "sky130hd/gcd",
+      "platform": "sky130hd",
+      "policy": {
+        "MATCH_CELL_FOOTPRINT": {
+          "source": "platform",
+          "value": "1"
+        },
+        "OPT_POST_GRT_WNS": {
+          "source": "platform",
+          "value": "0"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "met1",
+          "bottom_resistance": 0.00120565,
+          "max_resistance": 0.00122132,
+          "min_resistance": 1.83558e-05,
+          "ratio": 66.53591780254742,
+          "top": "met5",
+          "top_resistance": 1.83558e-05
+        },
+        "routable_window": [
+          "met1",
+          "met2",
+          "met3",
+          "met4",
+          "met5"
+        ],
+        "wire_rc": [
+          {
+            "clock": false,
+            "equivalent": null,
+            "kind": "layer",
+            "layer": "met1",
+            "mispricing": null,
+            "signal": true
+          },
+          {
+            "clock": true,
+            "equivalent": null,
+            "kind": "layer",
+            "layer": "met3",
+            "mispricing": null,
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met5"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met3"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met1"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "38"
+      }
+    },
+    {
+      "design": "ibex",
+      "design_name": "ibex_core",
+      "has_macros": false,
+      "key": "sky130hd/ibex",
+      "platform": "sky130hd",
+      "policy": {
+        "MATCH_CELL_FOOTPRINT": {
+          "source": "platform",
+          "value": "1"
+        },
+        "OPT_POST_GRT_WNS": {
+          "source": "platform",
+          "value": "0"
+        },
+        "REMOVE_ABC_BUFFERS": {
+          "source": "design",
+          "value": "1"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "met1",
+          "bottom_resistance": 0.00120565,
+          "max_resistance": 0.00122132,
+          "min_resistance": 1.83558e-05,
+          "ratio": 66.53591780254742,
+          "top": "met5",
+          "top_resistance": 1.83558e-05
+        },
+        "routable_window": [
+          "met1",
+          "met2",
+          "met3",
+          "met4",
+          "met5"
+        ],
+        "wire_rc": [
+          {
+            "clock": false,
+            "equivalent": null,
+            "kind": "layer",
+            "layer": "met1",
+            "mispricing": null,
+            "signal": true
+          },
+          {
+            "clock": true,
+            "equivalent": null,
+            "kind": "layer",
+            "layer": "met3",
+            "mispricing": null,
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met5"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met3"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met1"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "50",
+        "PLACE_DENSITY_LB_ADDON": "0.25"
+      }
+    },
+    {
+      "design": "jpeg",
+      "design_name": "jpeg_encoder",
+      "has_macros": false,
+      "key": "sky130hd/jpeg",
+      "platform": "sky130hd",
+      "policy": {
+        "MATCH_CELL_FOOTPRINT": {
+          "source": "platform",
+          "value": "1"
+        },
+        "OPT_POST_GRT_WNS": {
+          "source": "platform",
+          "value": "0"
+        },
+        "REMOVE_ABC_BUFFERS": {
+          "source": "design",
+          "value": "1"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "met1",
+          "bottom_resistance": 0.00120565,
+          "max_resistance": 0.00122132,
+          "min_resistance": 1.83558e-05,
+          "ratio": 66.53591780254742,
+          "top": "met5",
+          "top_resistance": 1.83558e-05
+        },
+        "routable_window": [
+          "met1",
+          "met2",
+          "met3",
+          "met4",
+          "met5"
+        ],
+        "wire_rc": [
+          {
+            "clock": false,
+            "equivalent": null,
+            "kind": "layer",
+            "layer": "met1",
+            "mispricing": null,
+            "signal": true
+          },
+          {
+            "clock": true,
+            "equivalent": null,
+            "kind": "layer",
+            "layer": "met3",
+            "mispricing": null,
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met5"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met3"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met1"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "50",
+        "PLACE_DENSITY_LB_ADDON": "0.15"
+      }
+    },
+    {
+      "design": "microwatt",
+      "design_name": "microwatt",
+      "has_macros": false,
+      "key": "sky130hd/microwatt",
+      "platform": "sky130hd",
+      "policy": {
+        "MATCH_CELL_FOOTPRINT": {
+          "source": "platform",
+          "value": "1"
+        },
+        "OPT_POST_GRT_WNS": {
+          "source": "platform",
+          "value": "0"
+        },
+        "SETUP_SLACK_MARGIN": {
+          "source": "design",
+          "value": "0.2"
+        },
+        "SKIP_GATE_CLONING": {
+          "source": "design",
+          "value": "1"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "met1",
+          "bottom_resistance": 0.00120565,
+          "max_resistance": 0.00122132,
+          "min_resistance": 1.83558e-05,
+          "ratio": 66.53591780254742,
+          "top": "met5",
+          "top_resistance": 1.83558e-05
+        },
+        "routable_window": [
+          "met1",
+          "met2",
+          "met3",
+          "met4",
+          "met5"
+        ],
+        "wire_rc": [
+          {
+            "clock": false,
+            "equivalent": null,
+            "kind": "layer",
+            "layer": "met1",
+            "mispricing": null,
+            "signal": true
+          },
+          {
+            "clock": true,
+            "equivalent": null,
+            "kind": "layer",
+            "layer": "met3",
+            "mispricing": null,
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met5"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met3"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met1"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "55",
+        "PLACE_DENSITY": "0.3"
+      }
+    },
+    {
+      "design": "riscv32i",
+      "design_name": "riscv",
+      "has_macros": false,
+      "key": "sky130hd/riscv32i",
+      "platform": "sky130hd",
+      "policy": {
+        "MATCH_CELL_FOOTPRINT": {
+          "source": "platform",
+          "value": "1"
+        },
+        "OPT_POST_GRT_WNS": {
+          "source": "platform",
+          "value": "0"
+        },
+        "REMOVE_ABC_BUFFERS": {
+          "source": "design",
+          "value": "1"
+        }
+      },
+      "rc": {
+        "routable_spread": {
+          "bottom": "met1",
+          "bottom_resistance": 0.00120565,
+          "max_resistance": 0.00122132,
+          "min_resistance": 1.83558e-05,
+          "ratio": 66.53591780254742,
+          "top": "met5",
+          "top_resistance": 1.83558e-05
+        },
+        "routable_window": [
+          "met1",
+          "met2",
+          "met3",
+          "met4",
+          "met5"
+        ],
+        "wire_rc": [
+          {
+            "clock": false,
+            "equivalent": null,
+            "kind": "layer",
+            "layer": "met1",
+            "mispricing": null,
+            "signal": true
+          },
+          {
+            "clock": true,
+            "equivalent": null,
+            "kind": "layer",
+            "layer": "met3",
+            "mispricing": null,
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met5"
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met3"
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "platform",
+          "value": "met1"
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "45",
+        "PLACE_DENSITY_LB_ADDON": "0.2"
+      }
+    },
+    {
+      "design": "aes",
+      "design_name": "aes_cipher_top",
+      "has_macros": false,
+      "key": "sky130hs/aes",
+      "platform": "sky130hs",
+      "policy": {
+        "REMOVE_ABC_BUFFERS": {
+          "source": "design",
+          "value": "1"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "40",
+        "PLACE_DENSITY_LB_ADDON": "0.25"
+      }
+    },
+    {
+      "design": "gcd",
+      "design_name": "gcd",
+      "has_macros": false,
+      "key": "sky130hs/gcd",
+      "platform": "sky130hs",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "50",
+        "PLACE_DENSITY_LB_ADDON": "0.1"
+      }
+    },
+    {
+      "design": "ibex",
+      "design_name": "ibex_core",
+      "has_macros": false,
+      "key": "sky130hs/ibex",
+      "platform": "sky130hs",
+      "policy": {
+        "REMOVE_ABC_BUFFERS": {
+          "source": "design",
+          "value": "1"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "60",
+        "PLACE_DENSITY_LB_ADDON": "0.20"
+      }
+    },
+    {
+      "design": "jpeg",
+      "design_name": "jpeg_encoder",
+      "has_macros": false,
+      "key": "sky130hs/jpeg",
+      "platform": "sky130hs",
+      "policy": {
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_MARGIN": "2",
+        "CORE_UTILIZATION": "50",
+        "PLACE_DENSITY_LB_ADDON": "0.25"
+      }
+    },
+    {
+      "design": "riscv32i",
+      "design_name": "riscv",
+      "has_macros": false,
+      "key": "sky130hs/riscv32i",
+      "platform": "sky130hs",
+      "policy": {
+        "REMOVE_ABC_BUFFERS": {
+          "source": "design",
+          "value": "1"
+        },
+        "TNS_END_PERCENT": {
+          "source": "design",
+          "value": "100"
+        }
+      },
+      "rc": null,
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MAX_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_CLK_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "MIN_ROUTING_LAYER": {
+          "source": "flow-default",
+          "value": null
+        },
+        "ROUTING_LAYER_ADJUSTMENT": {
+          "source": "flow-default",
+          "value": null
+        }
+      },
+      "shape": {
+        "CORE_UTILIZATION": "60",
+        "PLACE_DENSITY_LB_ADDON": "0.1"
+      }
+    }
+  ],
+  "flow_defaults": {
+    "ENABLE_PLACE_REPAIR_TIMING": {
+      "default": 0,
+      "stages": [
+        "place"
+      ]
+    },
+    "HOLD_SLACK_MARGIN": {
+      "default": 0,
+      "stages": [
+        "cts",
+        "floorplan",
+        "grt"
+      ]
+    },
+    "MATCH_CELL_FOOTPRINT": {
+      "default": 0,
+      "stages": [
+        "floorplan",
+        "place",
+        "cts",
+        "route"
+      ]
+    },
+    "OPT_POST_GRT_WNS": {
+      "default": 1,
+      "stages": [
+        "grt"
+      ]
+    },
+    "RECOVER_POWER": {
+      "default": 0
+    },
+    "REMOVE_ABC_BUFFERS": {
+      "default": 0,
+      "stages": [
+        "floorplan"
+      ]
+    },
+    "SETUP_MOVE_SEQUENCE": {
+      "stages": [
+        "cts",
+        "floorplan",
+        "grt"
+      ]
+    },
+    "SETUP_SLACK_MARGIN": {
+      "default": 0,
+      "stages": [
+        "cts",
+        "floorplan",
+        "grt"
+      ]
+    },
+    "SKIP_BUFFER_REMOVAL": {
+      "stages": [
+        "cts",
+        "floorplan",
+        "grt"
+      ]
+    },
+    "SKIP_CTS_REPAIR_TIMING": {
+      "default": 0,
+      "stages": [
+        "cts"
+      ]
+    },
+    "SKIP_GATE_CLONING": {
+      "stages": [
+        "cts",
+        "floorplan",
+        "grt"
+      ]
+    },
+    "SKIP_INCREMENTAL_REPAIR": {
+      "default": 0,
+      "stages": [
+        "grt"
+      ]
+    },
+    "SKIP_LAST_GASP": {
+      "stages": [
+        "cts",
+        "floorplan",
+        "grt"
+      ]
+    },
+    "SKIP_PIN_SWAP": {
+      "stages": [
+        "cts",
+        "floorplan",
+        "grt"
+      ]
+    },
+    "SKIP_VT_SWAP": {
+      "stages": [
+        "cts",
+        "floorplan",
+        "grt"
+      ]
+    },
+    "TNS_END_PERCENT": {
+      "default": 100,
+      "stages": [
+        "place",
+        "cts",
+        "floorplan",
+        "grt"
+      ]
+    }
+  },
+  "flow_defaults_missing": [],
+  "platforms": {
+    "asap7": {
+      "place_density": "0.60",
+      "policy": {},
+      "rc": {
+        "layers": [
+          {
+            "capacitance": 1e-10,
+            "layer": "M1",
+            "resistance": 0.0704175
+          },
+          {
+            "capacitance": 0.174942,
+            "layer": "M2",
+            "resistance": 0.0297127
+          },
+          {
+            "capacitance": 0.155554,
+            "layer": "M3",
+            "resistance": 0.031287
+          },
+          {
+            "capacitance": 0.178475,
+            "layer": "M4",
+            "resistance": 0.0180365
+          },
+          {
+            "capacitance": 0.164264,
+            "layer": "M5",
+            "resistance": 0.0189935
+          },
+          {
+            "capacitance": 0.187426,
+            "layer": "M6",
+            "resistance": 0.0118796
+          },
+          {
+            "capacitance": 0.162979,
+            "layer": "M7",
+            "resistance": 0.0125096
+          },
+          {
+            "capacitance": 0.103962,
+            "layer": "M8",
+            "resistance": 0.00844765
+          },
+          {
+            "capacitance": 0.0928446,
+            "layer": "M9",
+            "resistance": 0.00889556
+          }
+        ],
+        "routable_spread": {
+          "bottom": "M2",
+          "bottom_resistance": 0.0297127,
+          "max_resistance": 0.031287,
+          "min_resistance": 0.0118796,
+          "ratio": 2.633674534496111,
+          "top": "M7",
+          "top_resistance": 0.0125096
+        },
+        "routable_window": [
+          "M2",
+          "M3",
+          "M4",
+          "M5",
+          "M6",
+          "M7"
+        ],
+        "spread": {
+          "bottom": "M1",
+          "bottom_resistance": 0.0704175,
+          "max_resistance": 0.0704175,
+          "min_resistance": 0.00844765,
+          "ratio": 8.335750179043876,
+          "top": "M9",
+          "top_resistance": 0.00889556
+        },
+        "wire_rc": [
+          {
+            "capacitance": "1.65790E-01",
+            "clock": false,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.1776019632345194,
+              "times_more_resistive_than_least": 2.236472608505337,
+              "wire_rc_resistance": 0.0265684
+            },
+            "resistance": "2.65684E-02",
+            "signal": true
+          },
+          {
+            "capacitance": "1.45426E-01",
+            "clock": true,
+            "equivalent": {
+              "at_or_above": "M4",
+              "at_or_below": "M3"
+            },
+            "kind": "absolute",
+            "mispricing": {
+              "least_resistive_routable_layer": "M6",
+              "times_less_resistive_than_most": 1.4609102497653634,
+              "times_more_resistive_than_least": 1.8027627192834774,
+              "wire_rc_resistance": 0.0214161
+            },
+            "resistance": "2.14161E-02",
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "ENABLE_RESISTANCE_AWARE": "1",
+        "MAX_ROUTING_LAYER": "M7",
+        "MIN_CLK_ROUTING_LAYER": "M4",
+        "MIN_ROUTING_LAYER": "M2",
+        "ROUTING_LAYER_ADJUSTMENT": "0.25"
+      }
+    },
+    "sky130hd": {
+      "place_density": "0.60",
+      "policy": {
+        "MATCH_CELL_FOOTPRINT": "1",
+        "OPT_POST_GRT_WNS": "0"
+      },
+      "rc": {
+        "layers": [
+          {
+            "capacitance": 0.0001499,
+            "layer": "li1",
+            "resistance": 0.07176
+          },
+          {
+            "capacitance": 0.000172375,
+            "layer": "met1",
+            "resistance": 0.00120565
+          },
+          {
+            "capacitance": 0.000136233,
+            "layer": "met2",
+            "resistance": 0.00122132
+          },
+          {
+            "capacitance": 0.000214962,
+            "layer": "met3",
+            "resistance": 0.000166281
+          },
+          {
+            "capacitance": 0.000148128,
+            "layer": "met4",
+            "resistance": 0.000168093
+          },
+          {
+            "capacitance": 0.000154087,
+            "layer": "met5",
+            "resistance": 1.83558e-05
+          }
+        ],
+        "routable_spread": {
+          "bottom": "met1",
+          "bottom_resistance": 0.00120565,
+          "max_resistance": 0.00122132,
+          "min_resistance": 1.83558e-05,
+          "ratio": 66.53591780254742,
+          "top": "met5",
+          "top_resistance": 1.83558e-05
+        },
+        "routable_window": [
+          "met1",
+          "met2",
+          "met3",
+          "met4",
+          "met5"
+        ],
+        "spread": {
+          "bottom": "li1",
+          "bottom_resistance": 0.07176,
+          "max_resistance": 0.07176,
+          "min_resistance": 1.83558e-05,
+          "ratio": 3909.3910371653647,
+          "top": "met5",
+          "top_resistance": 1.83558e-05
+        },
+        "wire_rc": [
+          {
+            "clock": false,
+            "equivalent": null,
+            "kind": "layer",
+            "layer": "met1",
+            "mispricing": null,
+            "signal": true
+          },
+          {
+            "clock": true,
+            "equivalent": null,
+            "kind": "layer",
+            "layer": "met3",
+            "mispricing": null,
+            "signal": false
+          }
+        ]
+      },
+      "routing": {
+        "MAX_ROUTING_LAYER": "met5",
+        "MIN_CLK_ROUTING_LAYER": "met3",
+        "MIN_ROUTING_LAYER": "met1"
+      }
+    }
+  }
+}

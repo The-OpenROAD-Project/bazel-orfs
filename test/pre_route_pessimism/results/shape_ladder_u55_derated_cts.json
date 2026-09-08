@@ -1,0 +1,10 @@
+{
+  "stage": "4_cts",
+  "design_stage": 4,
+  "parasitics": "placement",
+  "propagated_clock": 1,
+  "time_unit": "ps",
+  "clock_period": 1000.000000,
+  "wns": 705.423035,
+  "min_period": 294.576965
+}

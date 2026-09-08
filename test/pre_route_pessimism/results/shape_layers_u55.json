@@ -1,0 +1,21 @@
+{
+  "core_width_um": 62.694,
+  "core_height_um": 62.37,
+  "nets_with_guides": 13279,
+  "min_routing_layer": "M2",
+  "max_routing_layer": "M9",
+  "routing_layer_adjustment": 0.25,
+  "total_demand_um": 165313.24299996492,
+  "layers": [
+    {"layer": "M1", "level": 1, "direction": "VERTICAL", "routable": false, "pitch_um": 0.036, "guides": 36097, "demand_um": 20575.290, "share_percent": 12.4462, "mean_guide_um": 0.5700, "supply_um": 108617.355, "effective_supply_um": 108617.355, "utilization_percent": 18.9429, "effective_utilization_percent": 18.9429},
+    {"layer": "M2", "level": 2, "direction": "HORIZONTAL", "routable": true, "pitch_um": 0.036, "guides": 43713, "demand_um": 52056.536, "share_percent": 31.4896, "mean_guide_um": 1.1909, "supply_um": 108617.355, "effective_supply_um": 81463.016, "utilization_percent": 47.9265, "effective_utilization_percent": 63.9020},
+    {"layer": "M3", "level": 3, "direction": "VERTICAL", "routable": true, "pitch_um": 0.036, "guides": 20326, "demand_um": 45171.364, "share_percent": 27.3247, "mean_guide_um": 2.2223, "supply_um": 108617.355, "effective_supply_um": 81463.016, "utilization_percent": 41.5876, "effective_utilization_percent": 55.4501},
+    {"layer": "M4", "level": 4, "direction": "HORIZONTAL", "routable": true, "pitch_um": 0.048, "guides": 7259, "demand_um": 17810.617, "share_percent": 10.7739, "mean_guide_um": 2.4536, "supply_um": 81463.016, "effective_supply_um": 61097.262, "utilization_percent": 21.8634, "effective_utilization_percent": 29.1513},
+    {"layer": "M5", "level": 5, "direction": "VERTICAL", "routable": true, "pitch_um": 0.048, "guides": 5241, "demand_um": 10897.194, "share_percent": 6.5918, "mean_guide_um": 2.0792, "supply_um": 81463.016, "effective_supply_um": 61097.262, "utilization_percent": 13.3769, "effective_utilization_percent": 17.8358},
+    {"layer": "M6", "level": 6, "direction": "HORIZONTAL", "routable": true, "pitch_um": 0.064, "guides": 4093, "demand_um": 3657.124, "share_percent": 2.2122, "mean_guide_um": 0.8935, "supply_um": 61097.262, "effective_supply_um": 45822.947, "utilization_percent": 5.9857, "effective_utilization_percent": 7.9810},
+    {"layer": "M7", "level": 7, "direction": "VERTICAL", "routable": true, "pitch_um": 0.064, "guides": 3499, "demand_um": 3840.806, "share_percent": 2.3234, "mean_guide_um": 1.0977, "supply_um": 61097.262, "effective_supply_um": 45822.947, "utilization_percent": 6.2864, "effective_utilization_percent": 8.3818},
+    {"layer": "M8", "level": 8, "direction": "HORIZONTAL", "routable": true, "pitch_um": 0.08, "guides": 2119, "demand_um": 6641.712, "share_percent": 4.0177, "mean_guide_um": 3.1344, "supply_um": 48877.810, "effective_supply_um": 36658.357, "utilization_percent": 13.5884, "effective_utilization_percent": 18.1179},
+    {"layer": "M9", "level": 9, "direction": "VERTICAL", "routable": true, "pitch_um": 0.08, "guides": 511, "demand_um": 4662.600, "share_percent": 2.8205, "mean_guide_um": 9.1245, "supply_um": 48877.810, "effective_supply_um": 36658.357, "utilization_percent": 9.5393, "effective_utilization_percent": 12.7191},
+    {"layer": "Pad", "level": 10, "direction": "HORIZONTAL", "routable": false, "pitch_um": 0.08, "guides": 0, "demand_um": 0.000, "share_percent": 0.0000, "mean_guide_um": 0.0000, "supply_um": 48877.810, "effective_supply_um": 48877.810, "utilization_percent": 0.0000, "effective_utilization_percent": 0.0000}
+  ]
+}
