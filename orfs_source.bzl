@@ -69,6 +69,14 @@ ORFS_PATCHES = [
     Label("//patches:0053-orfs-set-rc-tcl-stages-yaml.patch"),
     Label("//patches:0054-orfs-set-rc-tcl-stages-json.patch"),
     Label("//patches:0055-orfs-asap7-set-rc-tcl-conditional.patch"),
+    # Pre-placement wire-load hook: open.tcl sources WIRE_LOAD_TCL after
+    # the design is read, so synth-stage timing charges a statistical wire
+    # delay instead of none; inert once real parasitics exist. open.tcl
+    # also scopes its inherited environment to the opened file's stage so
+    # the synth-scoped hook fires only there. Three patches, one file each.
+    Label("//patches:0056-orfs-wire-load-open.patch"),
+    Label("//patches:0057-orfs-wire-load-variables-yaml.patch"),
+    Label("//patches:0058-orfs-wire-load-variables-json.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
