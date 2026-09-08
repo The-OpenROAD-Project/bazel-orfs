@@ -178,6 +178,87 @@ The test's invariant for `src/` is stated exactly: every canonical
 the rule. Run it against a real tree with `ORFS_DESIGNS_DIR` as described
 in the test file.
 
+## Hierarchical designs: what `BLOCKS=` means under bazel
+
+Four ORFS designs set `BLOCKS=` — `asap7/aes-block`,
+`asap7/riscv32i-mock-sram`, `gf180/uart-blocks`,
+`ihp-sg13g2/i2c-gpio-expander` — and all four are live in ORFS CI (each
+ships `rules-base.json`, and ORFS's metric-rebase commits move their
+numbers). `BLOCKS` itself is a make-only concept: `flow/Makefile` turns
+it into per-block `generate_abstract` rules and appends the resulting
+`.lef`/`.lib` to `ADDITIONAL_LEFS`/`ADDITIONAL_LIBS`. It is not a flow
+variable — it has no `stages:` entry in `variables.yaml` — so
+bazel-orfs never exports it, and `orfs_design()` builds the sub-macro
+flows itself.
+
+Two consequences of that had to be handled explicitly.
+
+**A platform `config.mk` may branch on it.** asap7 does:
+
+```make
+ifeq ($(BLOCKS),)
+   export PDN_TCL ?= $(PLATFORM_DIR)/openRoad/pdn/grid_strategy-M1-M2-M5-M6.tcl
+else
+   export PDN_TCL ?= $(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl
+endif
+```
+
+make includes the platform file after the design's, with `BLOCKS` set,
+so a hierarchical parent gets the BLOCKS grid — a M5/M6 core ring, an
+ElementGrid over the macros, M5-M6 macro connects — where the flat grid
+has no ring and connects macros at M4/M5. Inside a bazel action
+`BLOCKS` is empty, so the same include silently picked the flat grid.
+The parser now resolves this: for a design with blocks it parses the
+platform `config.mk` twice, once with `BLOCKS` empty and once with it
+set, and adopts the variables whose value actually differs — and only
+where the design has not set them itself, matching the platform's `?=`.
+Resolving it here rather than exporting `BLOCKS` is deliberate:
+exporting it would also wake `flow/Makefile`'s own BLOCKS machinery
+inside the sandbox, whose `BLOCK_LEFS` are make-relative `results/`
+paths that do not exist there.
+
+**A design `config.mk` may branch on it too.** `riscv32i-mock-sram`
+sets `BLOCKS=fakeram7_256x32` and then includes `riscv32i/config.mk`,
+which guards the platform's canned fakeram abstract with `ifeq
+($(BLOCKS),)` — the branch for the *non*-hierarchical build. The parser
+evaluates a conditional whenever every variable it references has
+already been assigned in that parse, so this branch is now skipped as
+make skips it. Where a referenced variable is genuinely unknown — set
+by the platform file, `variables.mk`, the environment or the command
+line — the old heuristic stands: the if-branch of `ifeq ($(VAR),)` is
+the default, because an unset Make variable is empty.
+
+Sub-block abstracts are taken from `6_final`, as ORFS's
+`generate_abstract` does. `ADDITIONAL_GDS` and the per-corner
+fast/slow libs are still unwired; see the "BLOCKS= caveat" in
+[TESTING.md](../TESTING.md) for exactly what matches make and what
+does not.
+
+### `asap7/aes-block` is knife-edge upstream
+
+Worth knowing before you read a red `aes_cipher_top_test` as a
+bazel-orfs bug. The design has 20 `aes_sbox` macros of 15.87 um side
+plus one `aes_rcon`, `MACRO_PLACE_HALO = 3 3`, and
+`CORE_UTILIZATION = 47`. A halo'd sbox is 21.87 um, so RTL-MP needs
+five columns — a core side of at least 109.33 um — and four columns
+give only 16 slots for 20 macros. The core side is
+`sqrt((macro area + std cell area) / 0.47)`, so it moves with the
+synthesised area, and at 486.7 um² of std cells it comes out 109.14 um:
+0.19 um short, and `macro_place` dies with
+
+```
+[ERROR MPL-0003] There are no valid tilings for mixed cluster: root
+```
+
+Verified by bisecting the utilization on the floorplan `_deps`
+reproducer: 46 gives a 110.32 um core and places, 47 gives 109.14 um
+and does not, with the same 21 macros and the same halo. ORFS CI clears
+the cliff by about half a micron — its `synth__design__instance__area__stdcell`
+golden of 631 is 15% padding over roughly 549 um², which puts the core
+at about 109.8 um. So a *smaller* netlist is what breaks it. Any change
+that shifts synthesis by a fraction of a percent can flip this design,
+in either direction, and none of the `BLOCKS=` handling above moves it.
+
 ## The ORFS cleanup PR
 
 > Superseded in scope by

@@ -301,11 +301,12 @@ Interpretation:
 - **Any DIFFER in the `bazel+make-netlist` column** → real
   bazel-vs-make OpenROAD divergence on this design. Worth filing
   the per-stage SHA matrix as an issue.
-- **Wrapper refuses with "design uses BLOCKS=…"** → bazel-orfs's
-  `BLOCKS=` handling for hierarchical designs diverges from make's
-  (sub-block `.lef`/`.lib` abstracts aren't staged into the parent
-  synth action). Known gap; not a yosys-false-positive question.
-  See `asap7/aes-block` for the canonical example.
+- **Wrapper refuses with "design uses BLOCKS=…"** → the wrappers do
+  not compare hierarchical designs, because each sub-block is a flow
+  of its own and the per-stage `.odb` comparison would not be
+  apples-to-apples. Not a yosys-false-positive question. See
+  `asap7/aes-block` for the canonical example, and the "BLOCKS=
+  caveat" below for what does and does not match make.
 
 ### Reverse-direction sanity check
 
@@ -343,9 +344,37 @@ do-yosys-canonicalize) fail with "Permission denied".
 ### BLOCKS= caveat
 
 For designs that set `BLOCKS=` (hierarchical synthesis with sub-block
-abstracts — e.g. `asap7/aes-block`), bazel-orfs and make currently
-disagree on how the parent's synth_odb action sees the sub-block
-`.lef`/`.lib` abstracts. Both wrappers refuse to run on these
-designs because the per-stage `.odb` comparison wouldn't be
-apples-to-apples. This is a bazel-orfs gap independent of OpenROAD
-determinism.
+abstracts — e.g. `asap7/aes-block`), each sub-block is a flow of its
+own, so both wrappers refuse to run: the per-stage `.odb` comparison
+wouldn't be apples-to-apples. That is a property of the comparison,
+not a bazel-orfs gap.
+
+What does match make: the sub-block `.lef` and `.lib` do reach the
+parent (`ADDITIONAL_LEFS` / `ADDITIONAL_LIBS` in the parent's
+generated `1_synth.mk` and every later stage's, the pre-layout `.lib`
+variant for synth/floorplan/place); the abstract is taken from
+`6_final`, as ORFS's `generate_abstract` does; and a platform
+`config.mk` that branches on `BLOCKS` — asap7 selects `PDN_TCL` that
+way — is resolved by the config.mk parser, since `BLOCKS` itself is a
+make-only concept that never reaches a bazel action.
+
+What still does not match make: `ADDITIONAL_GDS`. make hands the
+parent every block's `6_final.gds`, so the top-level GDS contains the
+macro layout. In bazel a GDS is produced by a separate `orfs_gds`
+target that `orfs_flow()` never instantiates, so a block macro has no
+`.gds` to forward and the parent's `ADDITIONAL_GDS` is empty. Wiring
+it needs `orfs_gds` + `orfs_macro` per block (and a klayout binary),
+not a change to the abstract stage. Nothing gated on GDS today
+notices — `rules-base.json` has no GDS-derived rule, and
+`orfs_flow()` emits no top-level GDS either — but a consumer that
+does put an `orfs_gds` over a hierarchical parent gets a stream with
+hollow macro cells.
+
+Also not derived from a macro dependency:
+`ADDITIONAL_FAST_LIBS` / `ADDITIONAL_SLOW_LIBS`. ORFS's
+`generate_abstract.tcl` writes one `.lib` per corner and make appends
+the block's fast/slow libs to those variables;
+`orfs_abstract_rule` declares only `_typ.lib`, and
+`orfs_additional_arguments` emits only GDS/LEFS/LIBS. A design that
+sets the variables itself in `config.mk` is unaffected. No effect on
+single-corner asap7; it matters for a multi-corner consumer.

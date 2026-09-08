@@ -342,8 +342,8 @@ def _filter_verilog_files(raw_verilog_files, design = None):
         # entry are broken under bazel today, and failing here would stop
         # their package loading outright rather than letting the rest of
         # the repo build.
+        # buildifier: disable=print
         print("%s: dropped %d VERILOG_FILES entr%s that could not be made into labels; the design will elaborate without %s:\n%s\nSpell the path out in config.mk if the file is needed under bazel." % (
-            # buildifier: disable=print
             design or "orfs_design",
             len(dropped),
             "y" if len(dropped) == 1 else "ies",
@@ -362,6 +362,27 @@ def _collect_include_dirs(arguments):
         if inc_dir:
             extra_data.append("//" + inc_dir + ":include")
     return extra_data
+
+# ORFS's flow/Makefile builds a BLOCKS sub-macro all the way to
+# `finish` -- `generate_abstract` depends on 6_final.gds/.def/.v/.sdc --
+# and no ORFS design sets ABSTRACT_SOURCE, so make always abstracts a
+# block from 6_final.  orfs_flow()'s own default is the same ("final"),
+# so blocks simply take it.
+#
+# It used to be pinned to "cts" here, which is a real divergence and not
+# just a speed trade: a post-CTS abstract's .lef carries no
+# detail-route geometry and its .lib no post-route parasitics, so the
+# parent saw macro timing and blockages ORFS CI never measured.
+#
+# It does not fix ADDITIONAL_GDS, which make also derives from a block's
+# 6_final: a .gds comes from a separate orfs_gds target that orfs_flow()
+# does not instantiate, so a block macro has no .gds to forward
+# whatever stage it stops at.  See TESTING.md, "BLOCKS= caveat".
+#
+# A design that wants the cheaper abstract can still say so: BUILD-level
+# orfs_flow(abstract_stage = ...) is unaffected by this default, and
+# ORFS's own ABSTRACT_SOURCE reaches generate_abstract as ever.
+_BLOCK_ABSTRACT_STAGE = "final"
 
 def _create_block_targets(config, designs, platform, design, pkg, tags, mock_openroad, mock_yosys = None):
     """Create sub-macro orfs_flow() targets for BLOCKS.
@@ -389,7 +410,7 @@ def _create_block_targets(config, designs, platform, design, pkg, tags, mock_ope
         # Real flow
         orfs_flow(
             name = block_config["name"],
-            abstract_stage = "cts",
+            abstract_stage = _BLOCK_ABSTRACT_STAGE,
             verilog_files = block_verilog,
             pdk = "//flow:" + platform,
             arguments = block_config["arguments"],
@@ -402,7 +423,7 @@ def _create_block_targets(config, designs, platform, design, pkg, tags, mock_ope
         if mock_openroad:
             lint_kwargs = dict(
                 name = block_config["name"],
-                abstract_stage = "cts",
+                abstract_stage = _BLOCK_ABSTRACT_STAGE,
                 verilog_files = block_verilog,
                 pdk = "//flow:" + platform,
                 arguments = block_config["arguments"],
