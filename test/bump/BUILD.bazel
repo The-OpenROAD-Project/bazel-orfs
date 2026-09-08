@@ -11,6 +11,11 @@ py_test(
         "fixtures/downstream.MODULE.bazel",
         "fixtures/openroad.MODULE.bazel",
         "fixtures/self.MODULE.bazel",
+        # The pairing check runs against the real carried patches: the test
+        # parses ORFS_PATCHES out of orfs_source.bzl and synthesizes an ORFS
+        # tree from the patches themselves.
+        "//:orfs_source.bzl",
+        "//patches:orfs_patches",
     ],
     main = "bump_test.py",
 )
