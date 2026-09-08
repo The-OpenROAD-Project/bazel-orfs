@@ -1,0 +1,53 @@
+Register WIRE_LOAD_TCL and WIRE_LOAD_LIB, synth-scoped (variables.yaml)
+
+Synth-stage timing charges no wire delay: the synth stage estimates no
+parasitics, and open.tcl's estimate_parasitics ladder has no rung below
+placement, so every report and GUI session on a synth ODB reads
+optimistic paths that disagree with what placement will show. A Liberty
+wire_load group is the standard answer, and OpenSTA only applies it to
+nets that have no parasitics, so it is inert once real ones exist.
+
+WIRE_LOAD_TCL is a hook sourced by open.tcl right after the design is
+read, meant for a script that picks the wire_load group
+(set_wire_load_model) from WIRE_LOAD_LIB; both are synth-scoped in
+variables.yaml (bazel-orfs stage scoping) and variables.json (ORFS
+erase_non_stage_variables). A set-but-missing file is a staging bug, so
+source errors out rather than silently reading wire-load-free timing.
+
+For the scoping to hold, open.tcl also scopes the environment it
+inherits to the stage of the file it opens, mirroring the
+erase_non_stage_variables call at the top of every stage script; SDC_FILE
+is preserved across it because read_timing falls back to it when no
+per-stage SDC sits next to the ODB. Inputs whose name does not follow the
+<N>[_<step>]_<stage> numbering leave the environment untouched, and
+KEEP_VARS=1 skips the erase, as in the stage scripts.
+
+Not upstreamed. Retires at the //:bump onto an ORFS that carries a
+pre-placement wire-load hook of its own; the companion patches 0056-0058
+go together.
+
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -945,6 +945,21 @@
+ RCX_RULES:
+   description: |
+     RC Extraction rules file path.
++WIRE_LOAD_TCL:
++  description: |
++    Path to a Tcl script sourced after the design is opened to apply a
++    statistical wire-load model (a Liberty wire_load group selected with
++    set_wire_load_model) on nets that have no parasitics yet, i.e. before
++    placement. Inert once real parasitics exist (wire-load models are not
++    applied to nets that already carry parasitics).
++  stages:
++    - synth
++WIRE_LOAD_LIB:
++  description: |
++    Path to the Liberty file defining the wire_load group applied by
++    WIRE_LOAD_TCL.
++  stages:
++    - synth
+ SET_RC_TCL:
+   description: |
+     Metal & Via RC definition file path.
