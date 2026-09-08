@@ -796,6 +796,308 @@ class TestConditionalParsing(unittest.TestCase):
         self.assertTrue(len(rel_warnings) > 0)
 
 
+class TestConditionalEvaluation(unittest.TestCase):
+    """Conditionals whose tested variable is known are evaluated.
+
+    The heuristic ("the if-branch of `ifeq ($(VAR),)` is the default,
+    since an unset Make variable is empty") only applies where the
+    parser genuinely cannot know.  Where the value has been assigned in
+    this parse, make's outcome is knowable and is followed exactly.
+    """
+
+    def setUp(self):
+        self.parser = ConfigMkParser()
+
+    def test_ifeq_empty_taken_when_var_unset(self):
+        """Unknown variable keeps the historical default-branch guess."""
+        config, _ = _write_config(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = test
+            ifeq ($(BLOCKS),)
+                export ABC_AREA = 1
+            else
+                export ABC_AREA = 0
+            endif
+        """
+        )
+        result = self.parser.parse(config)
+        self.assertEqual(result.arguments["ABC_AREA"], "1")
+
+    def test_ifeq_empty_skipped_when_var_set(self):
+        """A set BLOCKS makes the if-branch dead and the else live."""
+        config, _ = _write_config(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = test
+            export BLOCKS = b1
+            ifeq ($(BLOCKS),)
+                export ABC_AREA = 1
+            else
+                export ABC_AREA = 0
+            endif
+        """
+        )
+        result = self.parser.parse(config)
+        self.assertEqual(result.arguments["ABC_AREA"], "0")
+
+    def test_ifeq_dead_branch_emits_no_missing_warning(self):
+        """A branch make also skips is not "missing in Bazel"."""
+        config, _ = _write_config(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = test
+            export BLOCKS = b1
+            ifeq ($(BLOCKS),)
+                export CORE_UTILIZATION = 30
+            endif
+        """
+        )
+        result = self.parser.parse(config)
+        self.assertNotIn("CORE_UTILIZATION", result.arguments)
+        missing = [w for w in result.warnings if "only set inside conditional" in w.message]
+        self.assertEqual(missing, [])
+
+    def test_ifneq_evaluated(self):
+        config, _ = _write_config(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = test
+            export BLOCKS = b1
+            ifneq ($(BLOCKS),)
+                export ABC_AREA = 1
+            endif
+        """
+        )
+        result = self.parser.parse(config)
+        self.assertEqual(result.arguments["ABC_AREA"], "1")
+
+    def test_ifeq_literal_compare_evaluated(self):
+        config, _ = _write_config(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = test
+            export DESIGN_TYPE = CELL
+            ifeq ($(DESIGN_TYPE),CELL)
+                export ABC_AREA = 1
+            else
+                export ABC_AREA = 0
+            endif
+        """
+        )
+        result = self.parser.parse(config)
+        self.assertEqual(result.arguments["ABC_AREA"], "1")
+
+    def test_ifdef_evaluated(self):
+        config, _ = _write_config(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = test
+            export BLOCKS = b1
+            ifdef BLOCKS
+                export ABC_AREA = 1
+            endif
+            ifndef BLOCKS
+                export CORE_UTILIZATION = 30
+            endif
+        """
+        )
+        result = self.parser.parse(config)
+        self.assertEqual(result.arguments["ABC_AREA"], "1")
+        self.assertNotIn("CORE_UTILIZATION", result.arguments)
+
+    def test_else_ifeq_chain_evaluated(self):
+        config, _ = _write_config(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = test
+            export DESIGN_TYPE = RAM
+            ifeq ($(DESIGN_TYPE),CELL)
+                export ABC_AREA = 1
+            else ifeq ($(DESIGN_TYPE),RAM)
+                export ABC_AREA = 2
+            else
+                export ABC_AREA = 3
+            endif
+        """
+        )
+        result = self.parser.parse(config)
+        self.assertEqual(result.arguments["ABC_AREA"], "2")
+
+    def test_nested_conditional_both_decided(self):
+        """Nested branches are adopted when every enclosing test is known."""
+        config, _ = _write_config(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = test
+            export BLOCKS = b1
+            export DESIGN_TYPE = RAM
+            ifneq ($(BLOCKS),)
+                ifeq ($(DESIGN_TYPE),RAM)
+                    export ABC_AREA = 1
+                endif
+            endif
+        """
+        )
+        result = self.parser.parse(config)
+        self.assertEqual(result.arguments["ABC_AREA"], "1")
+
+    def test_unknown_function_call_stays_undecided(self):
+        """A Make function in the test is not guessed at."""
+        config, _ = _write_config(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = test
+            export CORNER = BC
+            ifeq ($(filter BC,$(CORNER)),)
+                export ABC_AREA = 1
+            endif
+        """
+        )
+        result = self.parser.parse(config)
+        # Undecided: the historical test-for-empty default still applies.
+        self.assertEqual(result.arguments["ABC_AREA"], "1")
+
+    def test_include_sets_variable_for_includee_conditional(self):
+        """The includer's BLOCKS decides a conditional in the included file.
+
+        This is asap7/riscv32i-mock-sram: it sets BLOCKS= and then
+        includes asap7/riscv32i/config.mk, whose `ifeq ($(BLOCKS),)`
+        branch carries the NON-hierarchical fakeram abstract.
+        """
+        tmpdir = tempfile.mkdtemp()
+        base = os.path.join(tmpdir, "flow/designs/asap7")
+        os.makedirs(os.path.join(base, "parent"), exist_ok=True)
+        os.makedirs(os.path.join(base, "child"), exist_ok=True)
+
+        with open(os.path.join(base, "child", "config.mk"), "w") as f:
+            f.write("export PLATFORM = asap7\n")
+            f.write("export DESIGN_NAME = child\n")
+            f.write("ifeq ($(BLOCKS),)\n")
+            f.write("\texport ADDITIONAL_LEFS = $(PLATFORM_DIR)/lef/canned.lef\n")
+            f.write("endif\n")
+
+        config = os.path.join(base, "parent", "config.mk")
+        with open(config, "w") as f:
+            f.write("export DESIGN_NICKNAME = parent\n")
+            f.write("export BLOCKS = b1\n")
+            f.write("include designs/asap7/child/config.mk\n")
+
+        result = self.parser.parse(config)
+        self.assertEqual(result.blocks, ["b1"])
+        self.assertNotIn("ADDITIONAL_LEFS", result.sources)
+        self.assertNotIn("ADDITIONAL_LEFS", result.arguments)
+
+
+class TestPlatformBlocksVars(unittest.TestCase):
+    """A platform config.mk that branches on BLOCKS is resolved here.
+
+    BLOCKS never reaches a bazel action, so the make-time include of
+    flow/platforms/<p>/config.mk would take the non-hierarchical branch
+    for a hierarchical parent.  asap7 selects PDN_TCL that way.
+    """
+
+    def setUp(self):
+        self.parser = ConfigMkParser()
+
+    def _tree(self, design_body, platform_body="", platform="asap7"):
+        tmpdir = tempfile.mkdtemp()
+        design_dir = os.path.join(tmpdir, "flow/designs", platform, "parent")
+        platform_dir = os.path.join(tmpdir, "flow/platforms", platform)
+        os.makedirs(design_dir, exist_ok=True)
+        os.makedirs(platform_dir, exist_ok=True)
+        config = os.path.join(design_dir, "config.mk")
+        with open(config, "w") as f:
+            f.write(textwrap.dedent(design_body))
+        if platform_body:
+            with open(os.path.join(platform_dir, "config.mk"), "w") as f:
+                f.write(textwrap.dedent(platform_body))
+        return config
+
+    _PLATFORM_PDN = """\
+        ifeq ($(BLOCKS),)
+           export PDN_TCL ?= $(PLATFORM_DIR)/openRoad/pdn/flat.tcl
+        else
+           export PDN_TCL ?= $(PLATFORM_DIR)/openRoad/pdn/BLOCKS.tcl
+        endif
+        export PLACE_DENSITY ?= 0.60
+    """
+
+    def test_blocks_branch_adopted(self):
+        config = self._tree(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = parent
+            export BLOCKS = b1
+            """,
+            self._PLATFORM_PDN,
+        )
+        result = self.parser.parse(config)
+        self.assertEqual(
+            result.sources["PDN_TCL"],
+            ["//flow:platforms/asap7/openRoad/pdn/BLOCKS.tcl"],
+        )
+        # Only what BLOCKS actually changes is adopted.
+        self.assertNotIn("PLACE_DENSITY", result.arguments)
+
+    def test_no_blocks_leaves_platform_alone(self):
+        """Without BLOCKS the make-time default already matches."""
+        config = self._tree(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = parent
+            """,
+            self._PLATFORM_PDN,
+        )
+        result = self.parser.parse(config)
+        self.assertNotIn("PDN_TCL", result.sources)
+
+    def test_design_pdn_wins(self):
+        """The platform uses ?=, so a design's own value stands."""
+        config = self._tree(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = parent
+            export BLOCKS = b1
+            export PDN_TCL = $(PLATFORM_DIR)/openRoad/pdn/mine.tcl
+            """,
+            self._PLATFORM_PDN,
+        )
+        result = self.parser.parse(config)
+        self.assertEqual(
+            result.sources["PDN_TCL"],
+            ["//flow:platforms/asap7/openRoad/pdn/mine.tcl"],
+        )
+
+    def test_platform_without_blocks_conditional_is_noop(self):
+        config = self._tree(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = parent
+            export BLOCKS = b1
+            """,
+            """\
+            export PLACE_DENSITY ?= 0.60
+            export PDN_TCL ?= $(PLATFORM_DIR)/openRoad/pdn/flat.tcl
+            """,
+        )
+        result = self.parser.parse(config)
+        self.assertNotIn("PDN_TCL", result.sources)
+        self.assertNotIn("PLACE_DENSITY", result.arguments)
+
+    def test_missing_platform_config_is_tolerated(self):
+        config = self._tree(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = parent
+            export BLOCKS = b1
+            """
+        )
+        result = self.parser.parse(config)
+        self.assertEqual(result.blocks, ["b1"])
+        self.assertNotIn("PDN_TCL", result.sources)
+
+
 class TestBlocksSubMacros(unittest.TestCase):
     """Test BLOCKS variable and sub-macro config discovery."""
 
@@ -1154,6 +1456,15 @@ class TestIntegrationComplex(unittest.TestCase):
         self.assertEqual(result.platform, "asap7")
         self.assertEqual(result.blocks, ["fakeram7_256x32"])
         self.assertTrue(len(result.block_configs) == 1)
+        # BLOCKS= is set here and riscv32i/config.mk, which this file
+        # includes, guards the platform's canned fakeram abstract with
+        # `ifeq ($(BLOCKS),)`.  make skips that branch; so must the
+        # parser, or the parent gets both the canned abstract and the
+        # one its own block build produces.
+        self.assertNotIn("ADDITIONAL_LEFS", result.sources)
+        self.assertNotIn("ADDITIONAL_LIBS", result.sources)
+        self.assertNotIn("ADDITIONAL_LEFS", result.arguments)
+        self.assertNotIn("ADDITIONAL_LIBS", result.arguments)
 
     def test_asap7_aes_block(self):
         """Has BLOCKS for hierarchical synthesis via a shared block.mk."""

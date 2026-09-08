@@ -72,6 +72,20 @@ def _orfs_designs_impl(repository_ctx):
     # deletions as well as edits.
     repository_ctx.watch_tree(designs_path.dirname)
 
+    # The parser also reads flow/platforms/<p>/config.mk for a design
+    # with BLOCKS=, to resolve the variables that file selects on BLOCKS
+    # (asap7 picks PDN_TCL that way -- see
+    # config_mk_parser._apply_platform_blocks_vars). It sits outside the
+    # designs tree watched above, so watch it here or an edit to it
+    # leaves DESIGNS stale.
+    platforms_dir = str(designs_path.dirname.dirname) + "/platforms"
+    for platform in repository_ctx.attr.platforms:
+        platform_config = repository_ctx.path(
+            platforms_dir + "/" + platform + "/config.mk",
+        )
+        if platform_config.exists:
+            repository_ctx.watch(platform_config)
+
     platforms_arg = ",".join(repository_ctx.attr.platforms)
     result = repository_ctx.execute(
         [python, str(parser_path), "--all", designs_dir, "--platforms", platforms_arg, "--json"],

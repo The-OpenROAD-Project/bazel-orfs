@@ -291,6 +291,12 @@ class ConfigMkParser:
             elif var_name not in NON_ARGUMENT_VARS:
                 result.arguments[var_name] = resolved
 
+        # A hierarchical parent's platform config.mk may branch on
+        # BLOCKS.  Adopt what that branch changes; see
+        # _apply_platform_blocks_vars.
+        if result.blocks:
+            self._apply_platform_blocks_vars(result, config_path, raw_vars, ctx)
+
         # Process BLOCKS — discover and parse sub-macro configs.
         if result.blocks:
             config_dir = os.path.dirname(config_path)
@@ -321,6 +327,88 @@ class ConfigMkParser:
 
         return result
 
+    def _apply_platform_blocks_vars(self, result, config_path, raw_vars, ctx):
+        """Adopt platform config.mk variables that branch on BLOCKS.
+
+        BLOCKS is a make-only concept: flow/Makefile turns it into the
+        per-block abstract rules, so it is not a flow variable and
+        bazel-orfs never exports it.  A platform config.mk can still
+        branch on it, and asap7 does:
+
+            ifeq ($(BLOCKS),)
+               export PDN_TCL ?= $(PLATFORM_DIR)/openRoad/pdn/grid_strategy-M1-M2-M5-M6.tcl
+            else
+               export PDN_TCL ?= $(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl
+            endif
+
+        make includes the platform config.mk after the design's, with
+        BLOCKS set, so a hierarchical parent gets the BLOCKS grid -- a
+        core ring, an ElementGrid over the macros and M5-M6 macro
+        connects.  Inside a bazel action BLOCKS is empty, so the same
+        include silently picks the flat grid instead.
+
+        Resolved here rather than by exporting BLOCKS: exporting it
+        would also wake flow/Makefile's own BLOCKS machinery
+        (BLOCK_LEFS/BLOCK_TYP_LIBS appended to ADDITIONAL_LEFS/LIBS as
+        make-relative results/ paths that do not exist in the sandbox),
+        and BLOCKS has no `stages:` entry in variables.yaml.
+
+        The platform file is parsed twice, once with BLOCKS empty and
+        once with it set, and only the variables whose value actually
+        differs are adopted -- and only where the design has not set
+        them itself, matching the platform's `?=`.
+
+        Args:
+            result: ParsedDesign being built; mutated in place.
+            config_path: path of the design's config.mk.
+            raw_vars: the design's own assignments, var -> (value, op, line).
+            ctx: variable-resolution context for this design.
+        """
+        platform_config = self._platform_config_path(config_path, result.platform)
+        if not platform_config or not os.path.exists(platform_config):
+            return
+
+        base_dir = os.path.dirname(platform_config)
+        without = {}
+        with_blocks = {"BLOCKS": (" ".join(result.blocks), "=", 0)}
+        for seed in (without, with_blocks):
+            # A throwaway ParsedDesign: the platform file's warnings
+            # belong to the platform, not to this design.
+            self._parse_file(
+                platform_config, base_dir, seed, ParsedDesign(config_path=""), set()
+            )
+
+        for var_name in sorted(with_blocks):
+            if var_name == "BLOCKS" or var_name in NON_ARGUMENT_VARS:
+                continue
+            if var_name in raw_vars:
+                # The design set it: the platform's `?=` never fires.
+                continue
+            new_value = with_blocks[var_name][0]
+            if var_name in without and without[var_name][0] == new_value:
+                continue
+
+            resolved = self._resolve_refs(new_value.strip(), ctx, result, 0)
+            if var_name in SOURCE_VARS:
+                labels = self._map_source_file(var_name, resolved, ctx, result, 0)
+                if labels:
+                    result.sources[var_name] = labels
+            else:
+                result.arguments[var_name] = resolved
+
+    @staticmethod
+    def _platform_config_path(config_path, platform):
+        """flow/platforms/<platform>/config.mk next to flow/designs/..."""
+        if not platform:
+            return None
+        parts = Path(config_path).parts
+        try:
+            designs_idx = len(parts) - 1 - parts[::-1].index("designs")
+        except ValueError:
+            return None
+        flow_dir = Path(*parts[:designs_idx]) if designs_idx else Path(".")
+        return str(flow_dir / "platforms" / platform / "config.mk")
+
     def _parse_file(self, filepath, base_dir, raw_vars, result, visited):
         """Parse a single file, handling includes recursively."""
         filepath = os.path.abspath(filepath)
@@ -342,13 +430,14 @@ class ConfigMkParser:
             lines = f.readlines()
 
         joined = _join_continuation_lines(lines)
-        in_conditional = 0  # nesting depth
-        # Track whether current branch at depth 1 is the "default" branch.
-        # The else branch is the default for ifeq/ifneq.
-        # For ifeq ($VAR,) (test-for-empty), the if-branch is default
-        # since Make variables are empty by default.
-        in_default_branch = False
-        cond_test_empty = False  # True when ifeq tests for empty value
+
+        # One frame per open conditional, innermost last.  A frame is
+        # either DECIDED -- make's outcome is knowable from the values
+        # parsed so far, so the taken branch is known exactly -- or
+        # UNDECIDED, where the historical heuristic applies: the
+        # if-branch of `ifeq ($(VAR),)` is the default (Make variables
+        # are empty unless set) and nothing else is.
+        frames = []
 
         for line_num, line in joined:
             stripped = line.strip()
@@ -359,43 +448,40 @@ class ConfigMkParser:
 
             # Handle conditionals
             if re.match(r"^(ifeq|ifneq|ifdef|ifndef)\b", stripped):
-                if in_conditional == 0:
+                if not frames:
                     result.has_conditionals = True
                     self._warn_conditional(stripped, line_num + 1, result)
-                    # ifeq ($(VAR),) tests for empty — if-branch is default
-                    cond_test_empty = bool(
-                        re.match(r"^ifeq\s+\(\$[\({].*[\)}]\s*,\s*\)", stripped)
-                    )
-                    in_default_branch = cond_test_empty
-                in_conditional += 1
+                frames.append(self._open_frame(stripped, raw_vars, len(frames)))
                 continue
 
             if stripped.startswith("else"):
-                # else/else ifeq — stay in conditional
-                if re.match(r"^else\s+(ifeq|ifneq|ifdef|ifndef)\b", stripped):
-                    self._warn_conditional(stripped, line_num + 1, result)
-                    in_default_branch = False
-                elif in_conditional == 1:
-                    # Plain else at depth 1: this is the default branch
-                    # (unless the if-branch was already the default)
-                    in_default_branch = not cond_test_empty
+                if frames:
+                    self._else_frame(stripped, raw_vars, frames)
+                    if re.match(r"^else\s+(ifeq|ifneq|ifdef|ifndef)\b", stripped):
+                        self._warn_conditional(stripped, line_num + 1, result)
                 continue
 
             if stripped == "endif":
-                if in_conditional == 1:
-                    in_default_branch = False
-                    cond_test_empty = False
-                in_conditional = max(0, in_conditional - 1)
+                if frames:
+                    frames.pop()
                 continue
 
-            # Inside conditionals: only accept assignments from the default branch
-            if in_conditional > 0:
+            # Inside conditionals: accept an assignment only from the
+            # branch make would take (decided frames), or from the
+            # heuristic default branch (undecided frames).
+            if frames:
+                accept = all(f["accepts"] for f in frames)
+                known_dead = any(f["decided"] and not f["taken"] for f in frames)
                 self._parse_assignment(
                     stripped,
                     line_num,
                     raw_vars,
                     result,
-                    conditional=not in_default_branch,
+                    conditional=not accept,
+                    # A branch make provably skips is not a variable that
+                    # "will be missing in Bazel" -- it is missing in make
+                    # too, so there is nothing to warn about.
+                    record_conditional_only=not known_dead,
                 )
                 continue
 
@@ -442,7 +528,187 @@ class ConfigMkParser:
                 stripped, line_num, raw_vars, result, conditional=False
             )
 
-    def _parse_assignment(self, line, line_num, raw_vars, result, conditional=False):
+    # ------------------------------------------------------------------
+    # Make conditionals
+    #
+    # The parser evaluates a conditional whenever the outcome is
+    # knowable: every variable the test references has already been
+    # assigned in this parse (the file itself or a file that included
+    # it).  That is not a cosmetic improvement.  asap7/riscv32i-mock-sram
+    # sets BLOCKS= and then includes asap7/riscv32i/config.mk, whose
+    #
+    #     ifeq ($(BLOCKS),)
+    #         export ADDITIONAL_LEFS = $(PLATFORM_DIR)/lef/fakeram7_256x32.lef
+    #         export ADDITIONAL_LIBS = $(PLATFORM_DIR)/lib/NLDM/fakeram7_256x32.lib
+    #     endif
+    #
+    # branch is exactly the branch make skips -- the platform's canned
+    # fakeram abstract is for the NON-hierarchical build; the
+    # hierarchical one builds its own.  Assuming the if-branch handed
+    # the parent both.
+    #
+    # When a referenced variable is unknown -- set by the platform
+    # config.mk, variables.mk, the environment or the command line, none
+    # of which this parser reads -- the historical heuristic stands: the
+    # if-branch of `ifeq ($(VAR),)` is the default, because an unset Make
+    # variable is empty, and no other branch is.
+    # ------------------------------------------------------------------
+
+    def _open_frame(self, directive, raw_vars, depth):
+        """Build the frame for a newly opened conditional."""
+        # `ifeq ($(VAR),)` tests for empty: its if-branch is the
+        # heuristic default, since an unset Make variable is empty.
+        test_empty = bool(
+            re.match(r"^ifeq\s+\(\$[\({].*[\)}]\s*,\s*\)", directive)
+        )
+        outcome = self._eval_conditional(directive, raw_vars)
+        frame = {
+            "test_empty": test_empty,
+            "decided": outcome is not None,
+            "taken": bool(outcome),
+            "seen_taken": bool(outcome),
+            # Only the outermost conditional ever had a "default branch";
+            # assignments nested deeper were never adopted on a guess.
+            "heur_default": test_empty and depth == 0,
+            "depth": depth,
+        }
+        self._set_accepts(frame)
+        return frame
+
+    def _else_frame(self, directive, raw_vars, frames):
+        """Advance the innermost frame onto its `else` / `else ifeq` arm."""
+        frame = frames[-1]
+        chained = re.match(r"^else\s+(ifeq|ifneq|ifdef|ifndef)\b", directive)
+        if chained:
+            outcome = None
+            if not frame["seen_taken"]:
+                outcome = self._eval_conditional(
+                    directive[len("else") :].strip(), raw_vars
+                )
+            if frame["seen_taken"]:
+                # An earlier arm already matched: make skips this one.
+                frame["decided"] = True
+                frame["taken"] = False
+            elif outcome is None:
+                frame["decided"] = False
+                frame["taken"] = False
+            else:
+                frame["decided"] = True
+                frame["taken"] = bool(outcome)
+                frame["seen_taken"] = frame["seen_taken"] or bool(outcome)
+            # A chained arm is never the heuristic default.
+            frame["heur_default"] = False
+        elif frame["decided"]:
+            # Plain else on a decided frame: taken iff nothing matched.
+            frame["taken"] = not frame["seen_taken"]
+            frame["seen_taken"] = True
+        else:
+            # Plain else on an undecided frame: the historical default,
+            # unless the if-branch already claimed it.
+            frame["heur_default"] = not frame["test_empty"] and frame["depth"] == 0
+        self._set_accepts(frame)
+
+    @staticmethod
+    def _set_accepts(frame):
+        frame["accepts"] = (
+            frame["taken"] if frame["decided"] else frame["heur_default"]
+        )
+
+    def _eval_conditional(self, directive, raw_vars):
+        """Evaluate a Make conditional; None when the outcome is unknown.
+
+        Args:
+            directive: the conditional text, e.g. `ifeq ($(BLOCKS),)`.
+            raw_vars: var -> (value, op, line) parsed so far.
+
+        Returns:
+            True if make would take this branch, False if it would skip
+            it, None if any variable the test references is unknown here.
+        """
+        match = re.match(r"^(ifeq|ifneq|ifdef|ifndef)\s+(.*)$", directive.strip())
+        if not match:
+            return None
+        kind, rest = match.group(1), match.group(2).strip()
+
+        if kind in ("ifdef", "ifndef"):
+            name = rest.split()[0] if rest.split() else ""
+            if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", name):
+                return None
+            if name not in raw_vars:
+                # Could be set anywhere this parser does not read.
+                return None
+            defined = bool(raw_vars[name][0].strip())
+            return defined if kind == "ifdef" else not defined
+
+        args = self._split_condition_args(rest)
+        if args is None:
+            return None
+        left, right = (self._expand_known(a, raw_vars) for a in args)
+        if left is None or right is None:
+            return None
+        equal = left.strip() == right.strip()
+        return equal if kind == "ifeq" else not equal
+
+    @staticmethod
+    def _split_condition_args(rest):
+        """Split an ifeq/ifneq argument list into its two sides.
+
+        Handles both `(a,b)` and `"a" "b"` spellings; returns None for
+        anything else, including a comma nested inside a $(...) call.
+        """
+        if rest.startswith("(") and rest.endswith(")"):
+            inner = rest[1:-1]
+            depth = 0
+            for i, ch in enumerate(inner):
+                if ch in "({":
+                    depth += 1
+                elif ch in ")}":
+                    depth -= 1
+                elif ch == "," and depth == 0:
+                    return inner[:i], inner[i + 1 :]
+            return None
+        quoted = re.findall(r'"([^"]*)"|\'([^\']*)\'', rest)
+        if len(quoted) == 2:
+            return tuple(a or b for a, b in quoted)
+        return None
+
+    def _expand_known(self, text, raw_vars):
+        """Expand $(VAR)/${VAR} from raw_vars; None if anything is left.
+
+        Deliberately strict: a reference this parser cannot resolve, or
+        any Make function call, makes the whole conditional unknown
+        rather than silently comparing against a literal `$(...)`.
+        """
+        seen = set()
+        value = text
+        for _ in range(8):
+            refs = re.findall(
+                r"\$\(([A-Za-z_][A-Za-z0-9_]*)\)|\$\{([A-Za-z_][A-Za-z0-9_]*)\}",
+                value,
+            )
+            names = [a or b for a, b in refs]
+            if not names:
+                break
+            if any(n not in raw_vars for n in names):
+                return None
+            if any(n in seen for n in names):
+                return None
+            seen.update(names)
+            ctx = {n: raw_vars[n][0].strip() for n in names}
+            value = self._resolve_simple_refs(value, ctx)
+        if "$" in value:
+            return None
+        return value
+
+    def _parse_assignment(
+        self,
+        line,
+        line_num,
+        raw_vars,
+        result,
+        conditional=False,
+        record_conditional_only=True,
+    ):
         """Parse an export VAR = value line."""
         # Match: export VAR = value, export VAR ?= value, export VAR := value
         # Also: VAR = value (without export), and export VAR=value (no spaces)
@@ -467,7 +733,11 @@ class ConfigMkParser:
         # branches produces wrong configs. Warnings are deferred to
         # _check_conditional_warnings() after all branches are processed.
         if conditional:
-            if var_name not in raw_vars and var_name not in NON_ARGUMENT_VARS:
+            if (
+                record_conditional_only
+                and var_name not in raw_vars
+                and var_name not in NON_ARGUMENT_VARS
+            ):
                 result._conditional_only_vars = getattr(
                     result, "_conditional_only_vars", {}
                 )
