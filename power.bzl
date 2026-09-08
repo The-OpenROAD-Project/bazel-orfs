@@ -110,7 +110,7 @@ def power_data(
       visibility: forwarded.
     """
     outs = [out_template.format(power = power) for power in POWER_TYPES]
-    arguments = {
+    user_arguments = {
         "SAIF_STIMULI": "$(location {})".format(saif),
         "POWER_STAGE": _POWER_STAGE_STEM[stage],
         "POWER_BASE_TCL": "$(location {})".format(_POWER_BASE_TCL),
@@ -132,13 +132,13 @@ def power_data(
         _POWER_BASE_TCL,
     ]
     if spef_paths_tcl != None:
-        arguments["SPEF_PATHS_TCL"] = "$(location {})".format(spef_paths_tcl)
+        user_arguments["SPEF_PATHS_TCL"] = "$(location {})".format(spef_paths_tcl)
         data.append(spef_paths_tcl)
     orfs_run(
         name = name,
         src = flow_target,
         outs = outs,
-        arguments = arguments,
+        user_arguments = user_arguments,
         data = data,
         script = _POWER_TCL,
         tags = ["manual"],
@@ -173,7 +173,7 @@ def power_per_module(
       spef_paths_tcl: optional per-instance SPEF-scoping Tcl (see power_data).
       visibility: forwarded.
     """
-    arguments = {
+    user_arguments = {
         "SAIF_STIMULI": "$(location {})".format(saif),
         "POWER_STAGE": _POWER_STAGE_STEM[stage],
         "SAIF_SCOPE": saif_scope,
@@ -193,13 +193,13 @@ def power_per_module(
         _POWER_BASE_TCL,
     ]
     if spef_paths_tcl != None:
-        arguments["SPEF_PATHS_TCL"] = "$(location {})".format(spef_paths_tcl)
+        user_arguments["SPEF_PATHS_TCL"] = "$(location {})".format(spef_paths_tcl)
         data.append(spef_paths_tcl)
     orfs_run(
         name = name,
         src = flow_target,
         outs = [out],
-        arguments = arguments,
+        user_arguments = user_arguments,
         data = data,
         script = _POWER_PER_MODULE_TCL,
         tags = ["manual"],

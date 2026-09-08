@@ -41,11 +41,19 @@ orfs_flow(
 )
 
 # Common configuration shared across the estimator
+# Split because the two halves take different attributes: IO_CONSTRAINTS
+# is a real ORFS variable and belongs in sources=, while the three
+# ESTIMATOR_* hooks are this study's own and belong in user_sources=.
+# Putting a known ORFS variable in the hatch is a hard failure -- two
+# dicts with different precedence naming one variable is a split brain.
 ESTIMATOR_SOURCES = {
+    "IO_CONSTRAINTS": ["io_constraints.tcl"],
+}
+
+ESTIMATOR_USER_SOURCES = {
     "ESTIMATOR_BATCH_TCL": ["estimator_batch.tcl"],
     "ESTIMATOR_LIB_TCL": ["estimator_lib.tcl"],
     "ESTIMATOR_TCL": ["estimator.tcl"],
-    "IO_CONSTRAINTS": ["io_constraints.tcl"],
 }
 
 # Ground Truth measurement using actual grt output from orfs_flow
@@ -56,15 +64,17 @@ orfs_run(
         "ground_truth.json",
     ],
     arguments = MULTIPLIER_ARGS | {
-        "OUTPUT_JSON": "$(location ground_truth.json)",
     },
     cmd = "run",
     script = "extract.tcl",
-    sources = {
+    src_logs = True,
+    user_arguments = {
+        "OUTPUT_JSON": "$(location ground_truth.json)",
+    },
+    user_sources = {
         "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
         "EXTRACT_TCL": ["extract.tcl"],
     },
-    src_logs = True,
 )
 
 # Standalone fast estimator executable target for Optuna hyperparameter exploration
@@ -75,6 +85,7 @@ orfs_run_executable(
     cmd = "run",
     script = "estimator.tcl",
     sources = ESTIMATOR_SOURCES,
+    user_sources = ESTIMATOR_USER_SOURCES,
 )
 
 py_binary(
@@ -183,15 +194,17 @@ orfs_run(
         "ground_truth_top.json",
     ],
     arguments = MULTIPLIER_TOP_ARGS | {
-        "OUTPUT_JSON": "$(location ground_truth_top.json)",
     },
     cmd = "run",
     script = "extract.tcl",
-    sources = {
+    src_logs = True,
+    user_arguments = {
+        "OUTPUT_JSON": "$(location ground_truth_top.json)",
+    },
+    user_sources = {
         "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
         "EXTRACT_TCL": ["extract.tcl"],
     },
-    src_logs = True,
 )
 
 orfs_run_executable(
@@ -201,6 +214,7 @@ orfs_run_executable(
     cmd = "run",
     script = "estimator.tcl",
     sources = ESTIMATOR_SOURCES,
+    user_sources = ESTIMATOR_USER_SOURCES,
 )
 
 py_binary(
@@ -344,8 +358,10 @@ orfs_run_executable(
     cmd = "run",
     script = "macro_probe.tcl",
     sources = {
-        "MACRO_PROBE_TCL": ["macro_probe.tcl"],
         "IO_CONSTRAINTS": ["io_constraints.tcl"],
+    },
+    user_sources = {
+        "MACRO_PROBE_TCL": ["macro_probe.tcl"],
     },
 )
 
@@ -355,7 +371,7 @@ orfs_run_executable(
     arguments = MULTIPLIER_TOP_ARGS,
     cmd = "run",
     script = "nameprobe.tcl",
-    sources = {"NAMEPROBE_TCL": ["nameprobe.tcl"]},
+    user_sources = {"NAMEPROBE_TCL": ["nameprobe.tcl"]},
 )
 
 # C2: can a per-path feature fix the ordering, which no correction
@@ -434,7 +450,7 @@ orfs_run_executable(
     arguments = MULTIPLIER_TOP_ARGS,
     cmd = "run",
     script = "layer_probe.tcl",
-    sources = {"LAYER_PROBE_TCL": ["layer_probe.tcl"]},
+    user_sources = {"LAYER_PROBE_TCL": ["layer_probe.tcl"]},
 )
 
 # B4: which routing layer should stand in for "an average wire"? One
@@ -520,15 +536,17 @@ AB_PERIODS = [
         src = ":ab_asap7_p%s_grt" % period,
         outs = ["ab_%s_truth.json" % period],
         arguments = MULTIPLIER_ARGS | {
-            "OUTPUT_JSON": "$(location ab_%s_truth.json)" % period,
         },
         cmd = "run",
         script = "extract.tcl",
-        sources = {
+        src_logs = True,
+        user_arguments = {
+            "OUTPUT_JSON": "$(location ab_%s_truth.json)" % period,
+        },
+        user_sources = {
             "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
             "EXTRACT_TCL": ["extract.tcl"],
         },
-        src_logs = True,
     )
     for period in AB_PERIODS
 ]
@@ -541,6 +559,7 @@ AB_PERIODS = [
         cmd = "run",
         script = "estimator.tcl",
         sources = ESTIMATOR_SOURCES,
+        user_sources = ESTIMATOR_USER_SOURCES,
     )
     for period in AB_PERIODS
 ]
@@ -567,7 +586,7 @@ orfs_run_executable(
     arguments = MULTIPLIER_ARGS,
     cmd = "run",
     script = "unit_probe.tcl",
-    sources = {"UNIT_PROBE_TCL": ["unit_probe.tcl"]},
+    user_sources = {"UNIT_PROBE_TCL": ["unit_probe.tcl"]},
 )
 
 # The site grid, for expressing the seed-sensitivity study's geometric
@@ -581,7 +600,7 @@ orfs_run_executable(
     arguments = MULTIPLIER_ARGS,
     cmd = "run",
     script = "site_probe.tcl",
-    sources = {"SITE_PROBE_TCL": ["site_probe.tcl"]},
+    user_sources = {"SITE_PROBE_TCL": ["site_probe.tcl"]},
 )
 
 # One knob at a time, everything else fixed. The Optuna archive cannot
@@ -822,18 +841,20 @@ FUZZ_CORE_AREA = {
         )],
         arguments = FUZZ_ARGS | {
             "CORE_AREA": FUZZ_CORE_AREA[eps],
+        },
+        cmd = "run",
+        script = "extract.tcl",
+        src_logs = True,
+        user_arguments = {
             "OUTPUT_JSON": "$(location fuzz_truth_%s_%s.json)" % (
                 name,
                 FUZZ_EPS_TAG[eps],
             ),
         },
-        cmd = "run",
-        script = "extract.tcl",
-        sources = {
+        user_sources = {
             "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
             "EXTRACT_TCL": ["extract.tcl"],
         },
-        src_logs = True,
     )
     for name in FUZZ_VARIANTS
     for eps in FUZZ_EPS
@@ -853,6 +874,7 @@ FUZZ_CORE_AREA = {
         cmd = "run",
         script = "estimator.tcl",
         sources = ESTIMATOR_SOURCES,
+        user_sources = ESTIMATOR_USER_SOURCES,
     )
     for name in FUZZ_VARIANTS
 ]
@@ -1012,18 +1034,20 @@ FUZZ_TOP_ARGS = MULTIPLIER_TOP_ARGS | {"DESIGN_NAME": "multiplier_top_fuzz"}
         )],
         arguments = FUZZ_TOP_ARGS | {
             "CORE_AREA": FUZZ_TOP_CORE_AREA[eps],
+        },
+        cmd = "run",
+        script = "extract.tcl",
+        src_logs = True,
+        user_arguments = {
             "OUTPUT_JSON": "$(location fuzz_top_truth_%s_%s.json)" % (
                 name,
                 FUZZ_EPS_TAG[eps],
             ),
         },
-        cmd = "run",
-        script = "extract.tcl",
-        sources = {
+        user_sources = {
             "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
             "EXTRACT_TCL": ["extract.tcl"],
         },
-        src_logs = True,
     )
     for name in FUZZ_TOP_VARIANTS
     for eps in FUZZ_EPS
@@ -1040,6 +1064,7 @@ FUZZ_TOP_ARGS = MULTIPLIER_TOP_ARGS | {"DESIGN_NAME": "multiplier_top_fuzz"}
         cmd = "run",
         script = "estimator.tcl",
         sources = ESTIMATOR_SOURCES,
+        user_sources = ESTIMATOR_USER_SOURCES,
     )
     for name in FUZZ_TOP_VARIANTS
 ]
@@ -1181,18 +1206,20 @@ WIDE_VARIANTS = [
         )],
         arguments = FUZZ_ARGS | {
             "CORE_AREA": WIDE_CORE_AREA[eps],
+        },
+        cmd = "run",
+        script = "extract.tcl",
+        src_logs = True,
+        user_arguments = {
             "OUTPUT_JSON": "$(location wide_truth_%s_%s.json)" % (
                 name,
                 WIDE_EPS_TAG[eps],
             ),
         },
-        cmd = "run",
-        script = "extract.tcl",
-        sources = {
+        user_sources = {
             "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
             "EXTRACT_TCL": ["extract.tcl"],
         },
-        src_logs = True,
     )
     for name in WIDE_VARIANTS
     for eps in WIDE_EPS
@@ -1423,18 +1450,20 @@ TOP_REF_VARIANTS = [
         )],
         arguments = FUZZ_TOP_ARGS | {
             "CORE_AREA": TOP_CORE_AREA[eps],
+        },
+        cmd = "run",
+        script = "extract.tcl",
+        src_logs = True,
+        user_arguments = {
             "OUTPUT_JSON": "$(location topref_truth_%s_%s.json)" % (
                 name,
                 TOP_EPS_TAG[eps],
             ),
         },
-        cmd = "run",
-        script = "extract.tcl",
-        sources = {
+        user_sources = {
             "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
             "EXTRACT_TCL": ["extract.tcl"],
         },
-        src_logs = True,
     )
     for name in TOP_REF_VARIANTS
     for eps in TOP_EPS
@@ -1521,7 +1550,6 @@ orfs_run_executable(
     cmd = "run",
     script = "stage_variance.tcl",
     sources = {
-        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
         "IO_CONSTRAINTS": ["io_constraints.tcl"],
     },
     stages = [
@@ -1530,6 +1558,9 @@ orfs_run_executable(
         "cts",
         "grt",
     ],
+    user_sources = {
+        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+    },
 )
 
 py_binary(
@@ -1574,7 +1605,6 @@ orfs_run_executable(
     cmd = "run",
     script = "stage_variance.tcl",
     sources = {
-        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
         "IO_CONSTRAINTS": ["io_constraints.tcl"],
     },
     stages = [
@@ -1583,6 +1613,9 @@ orfs_run_executable(
         "cts",
         "grt",
     ],
+    user_sources = {
+        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+    },
 )
 
 py_binary(
@@ -1621,7 +1654,6 @@ orfs_run_executable(
     cmd = "run",
     script = "macro_score.tcl",
     sources = {
-        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
         "IO_CONSTRAINTS": ["io_constraints.tcl"],
     },
     stages = [
@@ -1630,6 +1662,9 @@ orfs_run_executable(
         "cts",
         "grt",
     ],
+    user_sources = {
+        "EXTRACT_LIB_TCL": ["extract_lib.tcl"],
+    },
 )
 
 py_binary(

@@ -195,9 +195,12 @@ def check_variables(variables, label):
                 label = label,
                 unknown = ", ".join(unknown),
             ) +
-            "Check spelling against ORFS flow/scripts/variables.yaml. " +
-            "If the variable is correct but missing from variables.yaml, " +
-            "add it to your project's ORFS patch or file a PR against ORFS.",
+            ("Check spelling against ORFS flow/scripts/variables.yaml. " +
+             "If it is read only by your own .tcl/.mk rather than by " +
+             "ORFS, move it to user_{label} -- the escape hatch exempt " +
+             "from this check. If it is a real ORFS variable missing " +
+             "from variables.yaml, add it to your project's ORFS patch " +
+             "or file a PR against ORFS.").format(label = label),
         )
 
 def _check_user_hatch(user_dict, label, use_instead):
@@ -215,6 +218,24 @@ def _check_user_hatch(user_dict, label, use_instead):
             ) +
             "project-specific values.",
         )
+
+def split_user_variables(variables):
+    """Split a variable dict into ORFS-known and project-specific halves.
+
+    For callers that receive one merged dict -- a parsed config.mk, say --
+    and have to hand the two halves to a macro that validates them apart.
+    The predicate is the same membership test check_variables() uses, so
+    the split cannot disagree with the guard it feeds.
+
+    Args:
+        variables: a variable dict, possibly mixing both kinds.
+
+    Returns:
+        (known, user): two dicts whose union is `variables`.
+    """
+    known = {k: v for k, v in variables.items() if k in ALL_VARIABLE_TO_STAGES}
+    user = {k: v for k, v in variables.items() if k not in ALL_VARIABLE_TO_STAGES}
+    return known, user
 
 def check_stage_variables(arguments, sources, user_arguments, user_sources):
     """Validates a stage target's variable dicts and their escape hatches.

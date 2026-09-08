@@ -144,11 +144,13 @@ def _orfs_estimate_report(name, src, arguments = {}, sources = {}, variant = Non
         name = name,
         src = src,
         outs = [name + ".json"],
-        arguments = arguments | {
-            "OUTPUT": name + ".json",
-        },
+        arguments = arguments,
         script = "@bazel-orfs//:estimate.tcl",
         sources = sources,
+        # Read by estimate.tcl, not by ORFS.
+        user_arguments = {
+            "OUTPUT": name + ".json",
+        },
         stages = [
             "synth",
             "floorplan",
@@ -160,11 +162,13 @@ def _orfs_estimate_report(name, src, arguments = {}, sources = {}, variant = Non
     orfs_run_executable(
         name = name + "_run",
         src = src,
-        arguments = arguments | {
-            "OUTPUT": name + ".json",
-        },
+        arguments = arguments,
         script = "@bazel-orfs//:estimate.tcl",
         sources = sources,
+        # Read by estimate.tcl, not by ORFS.
+        user_arguments = {
+            "OUTPUT": name + ".json",
+        },
         stages = [
             "synth",
             "floorplan",
@@ -197,9 +201,12 @@ def _orfs_html_report(name, src, variant = None, openroad = None, visibility = N
         outs = [gen_name + ".html"],
         arguments = {
             "GUI_TIMING": "1",
-            "OUTPUT": gen_name + ".html",
         },
         script = "@bazel-orfs//:html_timing_report.tcl",
+        # Read by html_timing_report.tcl, not by ORFS.
+        user_arguments = {
+            "OUTPUT": gen_name + ".html",
+        },
         variant = variant or "base",
         tags = ["manual"],
         **run_kwargs
@@ -447,6 +454,10 @@ def orfs_flow(
 
     orfs_variables(
         name = _step_name(name, variant, "variables"),
+        # Same tags as the flow it describes. Without this a manual flow
+        # still emits a non-manual sidecar, so a wildcard build picks up
+        # the one target of a design that was deliberately opted out.
+        tags = kwargs.get("tags", []),
         arguments = arguments | user_arguments,
         data = depset(
             [v for vs in (sources | user_sources).values() for v in vs] +

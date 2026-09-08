@@ -8,12 +8,12 @@ orfs_run(
     name = "log_dir_probe_mock",
     src = "//test:log_dir_probe_src",
     outs = ["log_dir_probe.txt"],
-    arguments = {
-        "OUTPUT": "$(location log_dir_probe.txt)",
-    },
     openroad = "//mock/openroad/src/bin:openroad",
     script = "//test:log_dir_probe.tcl",
     src_logs = True,
+    user_arguments = {
+        "OUTPUT": "$(location log_dir_probe.txt)",
+    },
 )
 
 sh_test(

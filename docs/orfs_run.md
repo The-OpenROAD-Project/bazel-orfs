@@ -36,7 +36,11 @@ orfs_run(
     name = "extract_ground_truth",
     src = ":design_grt",
     outs = ["ground_truth.json"],
-    arguments = {"OUTPUT_JSON": "$(location ground_truth.json)"},
+    # Read by extract.tcl, not by ORFS, so it goes in user_arguments:
+    # `arguments` is spell-checked against variables.yaml, the same as
+    # orfs_flow's, and an unknown name there is a typo far more often
+    # than a deliberate hook.
+    user_arguments = {"OUTPUT_JSON": "$(location ground_truth.json)"},
     script = "extract.tcl",
     src_logs = True,
 )

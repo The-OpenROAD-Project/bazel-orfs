@@ -21,6 +21,7 @@ already does for orfs_design().
 
 load("@rules_python//python:defs.bzl", "py_binary")
 load("//private:rules.bzl", "orfs_run")
+load("//private:stages.bzl", "split_user_variables")
 
 # Per filegroup target: extensions included in the filegroup.
 # config_mk_parser produces these target names from VERILOG_FILES
@@ -141,11 +142,20 @@ def _auto_floorplan(designs, config):
         return
     name = entry["name"]
 
+    # DESIGNS carries one merged argument dict, so a design with its own
+    # config.mk variables -- the user_arguments list design() takes -- has
+    # them mixed in here. orfs_run validates the two apart, so split on
+    # the same predicate the guard uses.
+    _af_known, _af_user = split_user_variables(entry["arguments"])
+
     orfs_run(
         name = name + "_auto_floorplan_data",
         src = ":" + name + "_synth",
         outs = ["auto_floorplan.json"],
-        arguments = entry["arguments"] | {
+        arguments = _af_known,
+        # AF_* are read by auto_floorplan.tcl and its siblings, never by
+        # ORFS, so they take the hatch rather than the spell-checked dict.
+        user_arguments = _af_user | {
             "AF_EVIDENCE": "$(location auto_floorplan.json)",
             # The three scripts ship from here while SCRIPTS_DIR points at
             # ORFS's flow/scripts, so the driver cannot find its siblings

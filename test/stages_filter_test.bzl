@@ -13,6 +13,9 @@ and the invariants documented by the MORATORIUM blocks in private/stages.bzl:
   * check_stage_variables() accepts the one legitimate combination — known
     arguments/sources plus unmapped user_arguments/user_sources — and the
     unmapped hatch variables then survive the filter on every stage;
+  * split_user_variables() partitions a merged dict on exactly the
+    predicate check_variables() applies, so a caller that splits and then
+    validates can never be rejected for a variable it classified itself;
   * output is sorted/deterministic;
   * list union — a variable in ANY requested stage is kept.
 
@@ -29,6 +32,7 @@ load(
     "dropped_variables",
     "get_sources",
     "get_stage_args",
+    "split_user_variables",
 )
 
 # A name guaranteed not to be a known ORFS variable (the unmapped escape hatch).
@@ -221,7 +225,55 @@ denylist_is_the_complement_of_keep_test = unittest.make(_denylist_is_the_complem
 denylist_union_over_stages_test = unittest.make(_denylist_union_over_stages_test)
 user_hatch_survives_the_filter_test = unittest.make(_user_hatch_survives_the_filter_test)
 user_stages_sidecar_scopes_test = unittest.make(_user_stages_sidecar_scopes_test)
+
+def _split_user_variables_partitions_test(ctx):
+    """The split is a partition, not a filter: nothing is lost or doubled."""
+    env = unittest.begin(ctx)
+    known_name = sorted(ALL_VARIABLE_TO_STAGES.keys())[0]
+    merged = {known_name: "1", _UNMAPPED: "2"}
+
+    known, user = split_user_variables(merged)
+
+    asserts.equals(env, {known_name: "1"}, known)
+    asserts.equals(env, {_UNMAPPED: "2"}, user)
+
+    # Union restores the input, and the halves are disjoint.
+    asserts.equals(env, merged, known | user)
+    asserts.equals(env, [], [k for k in known if k in user])
+    return unittest.end(env)
+
+def _split_matches_the_guards_predicate_test(ctx):
+    """The helper and the guard have to agree, or the split is a bug factory.
+
+    split_user_variables() exists so a caller holding one merged dict --
+    a parsed config.mk -- can hand the halves to a macro that validates
+    them apart. If its predicate were merely similar to
+    check_variables()'s rather than identical, the split would hand the
+    guard something the guard rejects. Asserting the two agree is what
+    makes MORATORIUM(validate-where-the-dicts-are-apart) safe to rely on:
+    splitting is legitimate upstream of the merge, and never a substitute
+    for validating.
+    """
+    env = unittest.begin(ctx)
+    known_names = sorted(ALL_VARIABLE_TO_STAGES.keys())[:3]
+    merged = {name: "1" for name in known_names} | {_UNMAPPED: "2"}
+
+    known, user = split_user_variables(merged)
+
+    # Every key the split calls known is one the guard knows, and every
+    # key it calls user is one the guard would reject in a validated dict.
+    for name in known:
+        asserts.true(env, name in ALL_VARIABLE_TO_STAGES, name + " not known")
+    for name in user:
+        asserts.false(env, name in ALL_VARIABLE_TO_STAGES, name + " is known")
+
+    # And the round trip passes the guard, which would fail() otherwise.
+    check_stage_variables(known, {}, user, {})
+    return unittest.end(env)
+
 sorted_output_test = unittest.make(_sorted_output_test)
+split_user_variables_partitions_test = unittest.make(_split_user_variables_partitions_test)
+split_matches_the_guards_predicate_test = unittest.make(_split_matches_the_guards_predicate_test)
 
 def stages_filter_test_suite(name):
     unittest.suite(
@@ -235,4 +287,6 @@ def stages_filter_test_suite(name):
         user_hatch_survives_the_filter_test,
         user_stages_sidecar_scopes_test,
         sorted_output_test,
+        split_user_variables_partitions_test,
+        split_matches_the_guards_predicate_test,
     )
