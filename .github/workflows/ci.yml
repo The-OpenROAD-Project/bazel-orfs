@@ -99,6 +99,11 @@ jobs:
       - name: Public surface
         run: bazelisk run //:public_surface
 
+      # What a consumer must already have installed: see host_tools.py for
+      # the denied tools and the host-python version floor.
+      - name: Host tools
+        run: bazelisk run //:host_tools
+
       # --- @orfs design packages ---
       #
       # Loading every design package catches API skew between this repo and

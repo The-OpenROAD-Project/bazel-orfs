@@ -1840,6 +1840,12 @@ py_test(
     deps = ["//:public_surface_lib"],
 )
 
+py_test(
+    name = "host_tools_test",
+    srcs = ["host_tools_test.py"],
+    deps = ["//:host_tools_lib"],
+)
+
 sh_test(
     name = "klayout_wrapper_test",
     srcs = ["tool_wrapper_test.sh"],

@@ -283,6 +283,24 @@ py_binary(
     main = "public_surface.py",
 )
 
+# `bazelisk run //:host_tools` checks what a consumer must already have
+# installed: no shipped script or patch_cmds entry reaching for a tool a
+# stock Linux install may not have, and no host-run python file using
+# syntax newer than the oldest supported distro's python3 (3.6). CI runs
+# it after the public surface check. Reads the tree through git, so it is
+# a run, not a hermetic test; //test:host_tools_test covers the rules.
+py_library(
+    name = "host_tools_lib",
+    srcs = ["host_tools.py"],
+    visibility = ["//test:__pkg__"],
+)
+
+py_binary(
+    name = "host_tools",
+    srcs = ["host_tools.py"],
+    main = "host_tools.py",
+)
+
 # Not public: buildifier_prebuilt is a dev dependency, so this can only
 # ever run from a clone of this repo.
 py_binary(
