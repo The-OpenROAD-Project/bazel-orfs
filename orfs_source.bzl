@@ -40,27 +40,23 @@ ORFS_BAZEL_PLATFORMS = [
     "sky130hs",
 ]
 
+# Two patches retired at the bump onto ORFS a71b115b9b7b (ORFS #4501),
+# which deleted every bazel file ORFS carried -- flow/BUILD and
+# flow/designs/src/mempool_group/rtl/BUILD among them. A patch whose
+# target file is gone is a hard fetch failure, not a no-op, and both were
+# only ever bridges to the generators below:
+#
+#   0047-orfs-export-flow-tcl        -> _GENERATE_FLOW_BUILD exports
+#                                       scripts/flow.tcl itself
+#   0049-orfs-mempool-rtl-files-include -> _GENERATE_DESIGN_BUILDS emits
+#                                       files("verilog") for the rtl dir
 ORFS_PATCHES = [
     Label("//patches:0037-orfs-single-writer-1_synth-sdc.patch"),
     Label("//patches:0039-orfs-slang-plugin-fallback.patch"),
-    # flow.tcl as a label, so the floorplan derivation's drift test can
-    # compare its duplicated stage sequence against the one that runs.
-    #
-    # This patch edits ORFS's own flow/BUILD, so it stops applying once
-    # ORFS deletes that file. _GENERATE_FLOW_BUILD therefore exports
-    # scripts/flow.tcl too, and //test:orfs_flow_build_test requires it.
-    # Both mechanisms are needed: the patch covers an ORFS that still
-    # ships flow/BUILD, the generated file covers one that does not.
-    Label("//patches:0047-orfs-export-flow-tcl.patch"),
     # flow.sh spells out run_command.py by hand instead of going through
     # RUN_CMD, so an override reaches every logged target except the
     # stage logs. --@bazel-orfs//:log_timestamps overrides RUN_CMD.
     Label("//patches:0048-orfs-flow-sh-honor-run-cmd.patch"),
-    # src/mempool_group/rtl's shipped BUILD is a bare filegroup, so the
-    # per-file labels config_mk_parser emits for nangate45/mempool_group
-    # are not visible. Not upstreamed yet -- carried here until it has
-    # proven itself; retire at the bump onto an ORFS that carries it.
-    Label("//patches:0049-orfs-mempool-rtl-files-include.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
