@@ -1,0 +1,57 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+# The global-placement runtime study: docs/studies/gpl-runtime/README.md.
+#
+# Nothing here runs a flow from bazel. The measurements are one OpenROAD
+# run alone on the machine, under perf, against a deployed ORFS place
+# tree and whichever binary OPENROAD_EXE names -- profile.sh drives that
+# from the shell, because a bazel action is neither alone on the machine
+# nor free to pick its binary. What bazel owns is the reduction and the
+# figures, so a re-run regenerates them the same way.
+package(default_visibility = ["//visibility:private"])
+
+exports_files([
+    "gpl_place_ios.tcl",
+    "pdn_regen.tcl",
+    "profile.sh",
+])
+
+# The two reducers as a library, so the test imports the same modules the
+# binaries run.
+py_library(
+    name = "summaries",
+    srcs = [
+        "callgraph_summary.py",
+        "perf_summary.py",
+    ],
+    imports = ["."],
+)
+
+py_binary(
+    name = "perf_summary",
+    srcs = ["perf_summary.py"],
+    tags = ["manual"],
+    deps = [":summaries"],
+)
+
+py_binary(
+    name = "callgraph_summary",
+    srcs = ["callgraph_summary.py"],
+    tags = ["manual"],
+    deps = [":summaries"],
+)
+
+py_binary(
+    name = "plots",
+    srcs = ["plots.py"],
+    tags = ["manual"],
+    deps = ["@bazel-orfs-dev-pip//matplotlib"],
+)
+
+# The parsers, against the perf script formats they were written for. Not
+# manual: they need no flow data and run in a tenth of a second.
+py_test(
+    name = "summary_test",
+    srcs = ["summary_test.py"],
+    deps = [":summaries"],
+)
