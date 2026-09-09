@@ -1,0 +1,84 @@
+pdn: drop a grid's previous vias from their shapes before regenerating them
+
+Carried by bazel-orfs as a patch on the OpenROAD archive_override; not
+upstreamed. Found and measured in docs/studies/gpl-runtime. Retires on the
+//:bump onto an OpenROAD that carries the change.
+
+---
+ src/pdn/src/grid.cpp  | 21 +++++++++++++++++++++
+ src/pdn/src/shape.cpp | 16 ++++++++++++++++
+ src/pdn/src/shape.h   |  2 ++
+ 3 files changed, 39 insertions(+)
+
+diff --git a/src/pdn/src/grid.cpp b/src/pdn/src/grid.cpp
+index a1ed7c45a9..d0673ba3c0 100644
+--- a/src/pdn/src/grid.cpp
++++ b/src/pdn/src/grid.cpp
+@@ -945,6 +945,27 @@ void Grid::makeVias(const Shape::ShapeTreeMap& global_shapes,
+              remove_vias.size());
+   remove_set_of_vias(remove_vias);
+ 
++  // Drop the vias this grid made last time from the shapes they attach to.
++  // They are about to be replaced, and a shape that kept them would hold
++  // every earlier generation's vias: findRepairChannels would count stale
++  // connections, and the lists (and the vias they keep alive) grew with
++  // every repair pass -- on a large die, to tens of gigabytes.
++  {
++    std::set<Via*> old_vias;
++    std::set<Shape*> touched;
++    for (const auto& via : vias_) {
++      old_vias.insert(via.get());
++      for (const auto& shape : {via->getLowerShape(), via->getUpperShape()}) {
++        if (shape != nullptr) {
++          touched.insert(shape.get());
++        }
++      }
++    }
++    for (Shape* shape : touched) {
++      shape->removeVias(old_vias);
++    }
++  }
++
+   // build via tree
+   vias_ = Via::ViaTree(vias.begin(), vias.end());
+   for (auto& via : vias) {
+diff --git a/src/pdn/src/shape.cpp b/src/pdn/src/shape.cpp
+index 19c89511c5..c2fec98706 100644
+--- a/src/pdn/src/shape.cpp
++++ b/src/pdn/src/shape.cpp
+@@ -133,6 +133,22 @@ void Shape::addVia(const ViaPtr& via)
+   }
+ }
+ 
++void Shape::removeVias(const std::set<Via*>& vias)
++{
++  std::erase_if(vias_, [&vias](const ViaPtr& via) {
++    return vias.contains(via.get());
++  });
++  connections_above_ = 0;
++  connections_below_ = 0;
++  for (const auto& via : vias_) {
++    if (via->getLowerLayer() == layer_) {
++      connections_above_++;
++    } else if (via->getUpperLayer() == layer_) {
++      connections_below_++;
++    }
++  }
++}
++
+ int Shape::getNumberOfConnectionsBelow() const
+ {
+   return connections_below_;
+diff --git a/src/pdn/src/shape.h b/src/pdn/src/shape.h
+index 54956b79fb..efb81a6468 100644
+--- a/src/pdn/src/shape.h
++++ b/src/pdn/src/shape.h
+@@ -134,6 +134,8 @@ class Shape
+ 
+   void clearVias();
+   void addVia(const ViaPtr& via);
++  // Drop the given vias from this shape, keeping the connection counts right.
++  void removeVias(const std::set<Via*>& vias);
+   const std::vector<ViaPtr>& getVias() const { return vias_; }
+   void removeVia(const ViaPtr& via);
+ 

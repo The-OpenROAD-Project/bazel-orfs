@@ -63,6 +63,22 @@ archive_override(
         "find . -name BUILD -exec sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|g' {} +",
         "sed -i 's|defines = \\[|copts = [\"-include\", \"fmt/format.h\"],\\n    defines = [|' src/syn/src/elab/BUILD third-party/slang-elab/src/BUILD",
     ],
+    patch_strip = 1,
+    patches = [
+        # docs/studies/gpl-runtime: the serial density-center loop was 16%
+        # of a 24-thread global placement's wall; threading it is
+        # byte-identical.
+        "//patches:0060-openroad-gpl-parallel-density-center.patch",
+        # docs/studies/gpl-runtime: pdngen on a large die never finished.
+        # Five concerns: a via-list rescan, one-at-a-time R-tree inserts,
+        # via lists that grew every repair pass, and two termination bugs
+        # in the channel repair recursion.
+        "//patches:0061-openroad-pdn-shape-connection-counts.patch",
+        "//patches:0062-openroad-pdn-bulk-load-via-trees.patch",
+        "//patches:0063-openroad-pdn-drop-previous-vias.patch",
+        "//patches:0064-openroad-pdn-exhausted-repair-continuation.patch",
+        "//patches:0065-openroad-pdn-no-strap-for-exhausted-channel.patch",
+    ],
     strip_prefix = "OpenROAD-c7e5e75131a65e402a2d46a1cb82659d725655da",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/c7e5e75131a65e402a2d46a1cb82659d725655da.tar.gz"],
 )

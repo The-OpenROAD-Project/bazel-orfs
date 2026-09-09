@@ -1,0 +1,25 @@
+gpl: parallelize the density-center location update
+
+Carried by bazel-orfs as a patch on the OpenROAD archive_override; not
+upstreamed. Found and measured in docs/studies/gpl-runtime. Retires on the
+//:bump onto an OpenROAD that carries the change.
+
+---
+ src/gpl/src/nesterovBase.cpp | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/src/gpl/src/nesterovBase.cpp b/src/gpl/src/nesterovBase.cpp
+index db76b9a684..aa9731da16 100644
+--- a/src/gpl/src/nesterovBase.cpp
++++ b/src/gpl/src/nesterovBase.cpp
+@@ -3144,7 +3144,9 @@ void NesterovBase::updateGCellCenterLocation(
+ void NesterovBase::updateGCellDensityCenterLocation(
+     const std::vector<FloatPoint>& coordis)
+ {
+-  for (int idx = 0; idx < coordis.size(); ++idx) {
++  const size_t numGCells = coordis.size();
++#pragma omp parallel for num_threads(nbc_->getNumThreads())
++  for (size_t idx = 0; idx < numGCells; ++idx) {
+     nb_gcells_[idx]->setDensityCenterLocation(coordis[idx].x, coordis[idx].y);
+   }
+ #ifdef ENABLE_GPU

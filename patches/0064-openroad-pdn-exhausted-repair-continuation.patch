@@ -1,0 +1,58 @@
+pdn: stop continuing a channel repair that can change nothing
+
+Carried by bazel-orfs as a patch on the OpenROAD archive_override; not
+upstreamed. Found and measured in docs/studies/gpl-runtime. Retires on the
+//:bump onto an OpenROAD that carries the change.
+
+---
+ src/pdn/src/straps.cpp | 12 ++++++++++++
+ src/pdn/src/straps.h   |  4 ++++
+ 2 files changed, 16 insertions(+)
+
+diff --git a/src/pdn/src/straps.cpp b/src/pdn/src/straps.cpp
+index e1c9dbb9cc..02f3054306 100644
+--- a/src/pdn/src/straps.cpp
++++ b/src/pdn/src/straps.cpp
+@@ -2089,6 +2089,9 @@ int RepairChannelStraps::getMaxLength() const
+ 
+ bool RepairChannelStraps::isAtEndOfRepairOptions() const
+ {
++  if (repair_options_exhausted_) {
++    return true;
++  }
+   const TechLayer layer(getLayer());
+   if (getWidth() != layer.getMinWidth()) {
+     return false;
+@@ -2119,8 +2122,17 @@ void RepairChannelStraps::continueRepairs(
+       getNetString(),
+       getWidth() / static_cast<double>(getBlock()->getDbUnitsPerMicron()),
+       next_width / static_cast<double>(getBlock()->getDbUnitsPerMicron()));
++  const int prev_width = getWidth();
++  const int prev_spacing = getSpacing();
+   setWidth(next_width);
+   determineParameters(other_shapes);
++  // A "continued" repair that changes nothing rebuilds the same strap, and
++  // repairGridChannels counts a successful rebuild as a repair and goes
++  // around again: with the width already at minimum and the spacing above
++  // it, that loop never ends. Record the dead end so the next pass stops.
++  if (getWidth() == prev_width && getSpacing() == prev_spacing) {
++    repair_options_exhausted_ = true;
++  }
+ }
+ 
+ void RepairChannelStraps::determineParameters(
+diff --git a/src/pdn/src/straps.h b/src/pdn/src/straps.h
+index 860dd0e880..579be20844 100644
+--- a/src/pdn/src/straps.h
++++ b/src/pdn/src/straps.h
+@@ -325,6 +325,10 @@ class RepairChannelStraps : public Straps
+   odb::Rect obs_check_area_;
+ 
+   bool invalid_ = false;
++  // Set when continueRepairs() could change neither width nor spacing:
++  // the strap has run out of options, whatever isAtEndOfRepairOptions()
++  // computes from the current values.
++  bool repair_options_exhausted_ = false;
+ 
+   // search for the right width, spacing, and offset to connect to the channel
+   void determineParameters(const Shape::ObstructionTreeMap& obstructions);

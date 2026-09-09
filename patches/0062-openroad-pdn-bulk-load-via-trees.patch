@@ -1,0 +1,41 @@
+pdn: bulk-load the via trees instead of inserting one via at a time
+
+Carried by bazel-orfs as a patch on the OpenROAD archive_override; not
+upstreamed. Found and measured in docs/studies/gpl-runtime. Retires on the
+//:bump onto an OpenROAD that carries the change.
+
+---
+ src/pdn/src/grid.cpp | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
+
+diff --git a/src/pdn/src/grid.cpp b/src/pdn/src/grid.cpp
+index 81732f50b0..a1ed7c45a9 100644
+--- a/src/pdn/src/grid.cpp
++++ b/src/pdn/src/grid.cpp
+@@ -901,11 +901,10 @@ void Grid::makeVias(const Shape::ShapeTreeMap& global_shapes,
+              remove_vias.size());
+   remove_set_of_vias(remove_vias);
+ 
+-  // Remove overlapping vias and keep largest
+-  Via::ViaTree overlapping_via_tree;
+-  for (const auto& via : vias) {
+-    overlapping_via_tree.insert(via);
+-  }
++  // Remove overlapping vias and keep largest. Build the tree in one go:
++  // the packing constructor is far cheaper than inserting millions of
++  // vias one at a time, and nothing queries the tree while it is built.
++  Via::ViaTree overlapping_via_tree(vias.begin(), vias.end());
+   for (const auto& via : vias) {
+     if (via->isFailed()) {
+       continue;
+@@ -947,9 +946,8 @@ void Grid::makeVias(const Shape::ShapeTreeMap& global_shapes,
+   remove_set_of_vias(remove_vias);
+ 
+   // build via tree
+-  vias_.clear();
++  vias_ = Via::ViaTree(vias.begin(), vias.end());
+   for (auto& via : vias) {
+-    vias_.insert(via);
+     via->getLowerShape()->addVia(via);
+     via->getUpperShape()->addVia(via);
+   }
