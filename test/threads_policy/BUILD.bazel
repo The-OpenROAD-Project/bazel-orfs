@@ -1,0 +1,70 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+# Is ORFS's -threads policy wrong? ORFS gives OpenROAD
+# `-threads $(NUM_CORES)` and derives NUM_CORES from `nproc`, which
+# counts hardware threads rather than cores (flow/scripts/variables.mk).
+# On an SMT machine that is twice the core count.
+#
+# This package measures whether the second half of those threads pays
+# for itself, per substep, across a spread of asap7 designs. There is no
+# write-up in the tree: the pull request is the artifact, and report.py
+# generates it from whatever the campaign has recorded.
+#
+# The campaign target is manual -- it runs ORFS stages for hours and
+# needs an otherwise idle machine, so it must never be pulled into a
+# wildcard build. The three unit tests are the only non-manual targets.
+package(default_visibility = ["//visibility:private"])
+
+# The one reader of what ORFS already writes into a substep log: wall
+# time, CPU time, achieved parallelism, peak RSS, the ORD-0030 thread
+# witness and ORFS's own hash of the substep result.
+py_library(
+    name = "elapsed",
+    srcs = ["elapsed.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "elapsed_test",
+    size = "small",
+    srcs = ["elapsed_test.py"],
+    deps = [":elapsed"],
+)
+
+# Runs one arm: deploy a stage's inputs with bazel, then run that
+# stage's substeps outside the sandbox at a given thread count.
+py_binary(
+    name = "campaign",
+    srcs = ["campaign.py"],
+    imports = ["."],
+    tags = ["manual"],
+    deps = [":elapsed"],
+)
+
+# STAGE_SUBSTEPS is duplicated into campaign.py so the runner can drive
+# `make do-<substep>` without a Starlark round trip; this asserts the
+# copy against private/stages.bzl so it cannot drift from the flow.
+py_test(
+    name = "campaign_test",
+    size = "small",
+    srcs = ["campaign_test.py"],
+    data = ["//private:stages.bzl"],
+    deps = [":campaign"],
+)
+
+# Generates the PR body and the raw-sample comments from the results
+# directory. Manual only because there is nothing to generate until a
+# campaign has run.
+py_binary(
+    name = "report",
+    srcs = ["report.py"],
+    imports = ["."],
+    tags = ["manual"],
+)
+
+py_test(
+    name = "report_test",
+    size = "small",
+    srcs = ["report_test.py"],
+    deps = [":report"],
+)
