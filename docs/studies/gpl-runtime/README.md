@@ -99,6 +99,10 @@ OPENROAD_EXE=$BASE $T/make do-2_1_floorplan do-2_2_floorplan_macro do-2_3_floorp
 OPENROAD_EXE=$PATCHED $T/make do-2_4_floorplan_pdn NUM_CORES=24
 ```
 
+The pdngen failure is packaged as an untar-and-run reproducer, hosted as
+a bazel-orfs release because the ODB makes it 95 MB:
+<https://github.com/The-OpenROAD-Project/bazel-orfs/releases/tag/repro-pdn-bp_quad-nangate45>.
+
 `test/gpl_runtime/pdn_regen.tcl` re-runs `pdngen` alone on a finished
 floorplan (`pdngen -ripup`, re-source the platform PDN, `pdngen`), for a
 binary-to-binary comparison of that step without the 30 minutes in front
