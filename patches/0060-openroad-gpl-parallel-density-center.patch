@@ -1,7 +1,7 @@
 gpl: parallelize the density-center location update
 
 Carried by bazel-orfs as a patch on the OpenROAD archive_override; not
-upstreamed. Found and measured in docs/studies/gpl-runtime. Retires on the
+upstreamed. Found and measured in bazel-orfs PR #965. Retires on the
 //:bump onto an OpenROAD that carries the change.
 
 ---

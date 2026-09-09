@@ -1,6 +1,7 @@
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
-# The global-placement runtime study: docs/studies/gpl-runtime/README.md.
+# The global-placement runtime study, reported in bazel-orfs PR #965; its
+# figures and result JSONs live in docs/studies/gpl-runtime/.
 #
 # Nothing here runs a flow from bazel. The measurements are one OpenROAD
 # run alone on the machine, under perf, against a deployed ORFS place

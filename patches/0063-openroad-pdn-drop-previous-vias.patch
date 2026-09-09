@@ -2,7 +2,7 @@ pdn: drop a grid's previous vias from their shapes before regenerating them
 
 Carried by bazel-orfs as a patch on the OpenROAD archive_override while
 upstream decides: proposed as OpenROAD PR #11363. Found and measured in
-docs/studies/gpl-runtime. Retires on the //:bump onto an OpenROAD that
+bazel-orfs PR #965. Retires on the //:bump onto an OpenROAD that
 carries the change.
 
 ---
