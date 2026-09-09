@@ -1,0 +1,109 @@
+Give tinyRocket's tag_array override the geometry it is required to carry.
+
+asap7/tinyRocket sets ADDITIONAL_MEMORIES to a .memories file that
+force-converts tag_array, because the RTL gives that wrapper no
+behavioral body to fall back on -- it instantiates a tag_array_ext the
+sources never define.
+
+The override carries only name/idiomatic/reason, which would be enough
+for a memory detection already found. tag_array is not one:
+detect.py finds memories by scanning the yosys netlist for inferred
+$mem_v2 cells, and tag_array contains none -- its body only wires
+through to the undefined tag_array_ext, so there is nothing to infer.
+
+schema.merge_overrides states the consequence in its own docstring:
+
+    An override naming an unknown memory is taken whole -- it must then
+    carry pins and geometry itself to be emittable.
+
+Taken whole, this override has no pins and no geometry, so
+validate_emittable rejects it:
+
+    schema.SchemaError: memory tag_array: no pins
+
+which is the file failing its own format's contract rather than anything
+about the design. ADDITIONAL_MEMORIES is documented for exactly this
+case -- "or to describe one the scanner cannot find" (variables.yaml).
+
+The values are read off the module boundary in
+designs/src/tinyRocket/freechips.rocketchip.system.TinyConfig.v:
+
+    module tag_array(
+      input  [1:0]  RW0_addr,     -> addr_w 2, rows 4
+      input         RW0_en,
+      input         RW0_clk,
+      input         RW0_wmode,
+      input  [24:0] RW0_wdata_0,  -> bits 25
+      output [24:0] RW0_rdata_0
+    );
+
+One read-write port, and no mask pin on the boundary (the wrapper's
+internal RW0_wmask does not reach it), so mask_lanes stays 0.
+
+Not upstreamed. Retire at the //:bump onto an ORFS whose tag_array
+override is emittable -- either by carrying this geometry or by
+detecting memories at the module boundary, which the AUTO_MEMORIES
+description in variables.yaml already claims and detect.py does not
+implement.
+
+diff --git a/flow/designs/asap7/tinyRocket/tag_array.memories b/flow/designs/asap7/tinyRocket/tag_array.memories
+--- a/flow/designs/asap7/tinyRocket/tag_array.memories
++++ b/flow/designs/asap7/tinyRocket/tag_array.memories
+@@ -3,6 +3,57 @@
+   "memories": [
+     {
+       "name": "tag_array",
++      "rows": 4,
++      "bits": 25,
++      "addr_w": 2,
++      "read_ports": 0,
++      "write_ports": 0,
++      "rw_ports": 1,
++      "mask_lanes": 0,
++      "pins": [
++        {
++          "name": "RW0_addr",
++          "direction": "input",
++          "width": 2,
++          "port_id": "RW0",
++          "function": "addr"
++        },
++        {
++          "name": "RW0_en",
++          "direction": "input",
++          "width": 1,
++          "port_id": "RW0",
++          "function": "en"
++        },
++        {
++          "name": "RW0_clk",
++          "direction": "input",
++          "width": 1,
++          "port_id": "RW0",
++          "function": "clk"
++        },
++        {
++          "name": "RW0_wmode",
++          "direction": "input",
++          "width": 1,
++          "port_id": "RW0",
++          "function": "wmode"
++        },
++        {
++          "name": "RW0_wdata_0",
++          "direction": "input",
++          "width": 25,
++          "port_id": "RW0",
++          "function": "data_in"
++        },
++        {
++          "name": "RW0_rdata_0",
++          "direction": "output",
++          "width": 25,
++          "port_id": "RW0",
++          "function": "data_out"
++        }
++      ],
+       "idiomatic": true,
+       "reason": "forced: the RTL provides no behavioral fallback for this wrapper"
+     }
