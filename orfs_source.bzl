@@ -247,10 +247,20 @@ exports_files(
     visibility = ["//visibility:public"],
 )
 
+# scripts/memories/*.tcl is listed separately from scripts/*.tcl below
+# because a glob wildcard does not cross a directory separator: neither
+# `scripts/*.tcl` (the makefile group) nor `scripts/synth*.tcl` (the
+# yosys group) matches scripts/memories/extract_memories.tcl, which the
+# AUTO_MEMORIES rules in flow/Makefile name as a prerequisite of
+# results/memories_inferred.json. Without it a design with
+# AUTO_MEMORIES=1 fails canonicalization on
+#   make: *** No rule to make target '.../scripts/memories/extract_memories.tcl'
+# Same shape as the flow/util/*.tcl omission noted further down.
 MAKEFILE_SHARED = [
     "scripts/variables.json",
     "scripts/*.py",
     "scripts/memories/*.py",
+    "scripts/memories/*.tcl",
     "scripts/*.sh",
     "scripts/*.yaml",
     "scripts/*.mk",
