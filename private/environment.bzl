@@ -356,6 +356,13 @@ def source_inputs(ctx, use_pre_layout = None, gds = True, logging = True):
             # stage's same-named log writes (Permission denied).
             ctx.attr.src[OrfsDepInfo].files,
             ctx.attr.src[OrfsInfo].additional_lefs,
+            # AUTO_MEMORIES artifacts (memories.json + the generated
+            # .lib/.lef directory). The flow's Tcl globs these out of
+            # the results dir at run time rather than through a
+            # variable, so nothing else in this depset would carry
+            # them and floorplan would fail to link the blackboxed
+            # memory modules. Empty unless AUTO_MEMORIES=1.
+            ctx.attr.src[OrfsInfo].memories,
             ctx.attr.src[PdkInfo].files,
             ctx.attr.src[PdkInfo].libs,
             # LoggingInfo.jsons/.reports are gated by `logging` above;
@@ -786,6 +793,16 @@ def _artifact_name(ctx, category, name = None):
 
 def declare_artifact(ctx, category, name):
     return ctx.actions.declare_file(_artifact_name(ctx, category, name))
+
+def declare_directory_artifact(ctx, category, name):
+    """A directory artifact, for outputs whose file names are not known.
+
+    AUTO_MEMORIES is the case: gen_memories.py emits one .lib and one
+    .lef per converted memory plus blackboxes.txt, and which memories
+    exist is decided by scanning the RTL at run time. There is no name
+    list to declare, so the directory is the artifact.
+    """
+    return ctx.actions.declare_directory(_artifact_name(ctx, category, name))
 
 def artifact_dir(ctx, category):
     """The directory declare_artifact(ctx, category, ...) files land in.

@@ -2,6 +2,7 @@
 
 load(
     "@config//:global_config.bzl",
+    "CONFIG_FAKERAM",
     "CONFIG_KLAYOUT",
     "CONFIG_MAKE",
     "CONFIG_MAKEFILE",
@@ -166,6 +167,11 @@ def yosys_only_attrs():
             doc = "Top level makefile yosys.",
             allow_single_file = ["Makefile"],
             default = CONFIG_MAKEFILE_YOSYS,
+        ),
+        "_fakeram": attr.label(
+            doc = "FakeRAM tree, staged only when AUTO_MEMORIES=1.",
+            allow_files = True,
+            default = CONFIG_FAKERAM,
         ),
         "yosys": attr.label(
             doc = "Yosys binary. Override to use a custom or locally-built yosys.",
