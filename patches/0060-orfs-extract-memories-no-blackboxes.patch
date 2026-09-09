@@ -1,0 +1,62 @@
+Let AUTO_MEMORIES detection run before the list it produces exists.
+
+AUTO_MEMORIES is a two-step flow, and flow/Makefile orders it that way:
+
+    $(RESULTS_DIR)/memories_inferred.json: ... extract_memories.tcl
+            synth.sh extract_memories.tcl ...
+
+    do-auto-memories: $(RESULTS_DIR)/memories_inferred.json
+            gen_memories.py --yosys-json .../memories_inferred.json \
+                            --out-dir $(RESULTS_DIR)/memories ...
+
+Detection runs first and produces the inventory; gen_memories.py then
+turns it into results/memories/ -- the .lib/.lef views and
+blackboxes.txt, the list of modules synthesis is to blackbox.
+
+But extract_memories.tcl reads its sources through synth_preamble.tcl's
+read_design_sources, and every frontend branch of that proc consults
+auto_memories_blackboxes, which hard-errors when
+results/memories/blackboxes.txt is absent:
+
+    ERROR: AUTO_MEMORIES=1 but .../results/memories/blackboxes.txt is
+    missing; the do-auto-memories step must run before synthesis
+
+So the step whose entire purpose is to run before that file exists fails
+because it does not exist. The guard is right for synthesis and
+canonicalization -- reaching those without a blackbox list means the
+flow skipped a step -- and wrong for the detection pass, which is the
+one caller that must tolerate its absence.
+
+Clearing AUTO_MEMORIES for the extraction process only is what says
+that: there is nothing to blackbox yet, and this pass is what the list
+will be derived from. The guard keeps its full strength everywhere else,
+since nothing else clears it. Blackboxing during detection would also
+be wrong on its own terms -- a blackboxed module has no memory to infer,
+so the pass would inventory nothing.
+
+extract_memories.tcl's later `hierarchy -top` is deliberately unchecked,
+which is what lets detection tolerate a memory wrapper that instantiates
+a module the sources never define (asap7/tinyRocket's tag_array_ext).
+
+Not upstreamed. Retire at the //:bump onto an ORFS whose detection pass
+does not consult the blackbox list.
+
+diff --git a/flow/scripts/memories/extract_memories.tcl b/flow/scripts/memories/extract_memories.tcl
+--- a/flow/scripts/memories/extract_memories.tcl
++++ b/flow/scripts/memories/extract_memories.tcl
+@@ -4,6 +4,15 @@
+ 
+ source $::env(SCRIPTS_DIR)/synth_preamble.tcl
+ 
++# This pass runs before gen_memories.py, so results/memories/blackboxes.txt
++# does not exist yet and there is nothing to blackbox: this is the pass
++# whose output that list is derived from. read_design_sources consults
++# auto_memories_blackboxes in every frontend branch, and that proc errors
++# out when the file is absent, so reading the sources with AUTO_MEMORIES
++# still set fails the step that has to run first. Clear it for this
++# process only; the guard keeps its strength for synthesis.
++set ::env(AUTO_MEMORIES) 0
++
+ # Read all RTL sources using active frontend (all frontends)
+ read_design_sources
+ 
