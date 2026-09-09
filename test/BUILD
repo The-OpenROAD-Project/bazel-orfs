@@ -6,6 +6,7 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 load("//:openroad.bzl", "orfs_arguments", "orfs_floorplan", "orfs_flow", "orfs_gds", "orfs_macro", "orfs_place", "orfs_run", "orfs_run_executable", "orfs_synth", "orfs_test", "orfs_variables")
 load("//:orfs_genrule.bzl", "orfs_genrule")
 load("//:sweep.bzl", "orfs_sweep")
+load(":auto_memories_outputs_test.bzl", "auto_memories_outputs_test")
 load(":deps_output_group_rule.bzl", "deps_output_group_test", "output_group_test")
 load(":keep_modules_test.bzl", "keep_modules_test_suite")
 load(":provider_test_rule.bzl", "lib_pre_layout_test")
@@ -621,6 +622,50 @@ source_input_propagation_test(
     name = "src_data_propagation_test",
     expected_basename = "dummy_extra.lef",
     target_under_test = ":src_propagation_place",
+)
+
+# AUTO_MEMORIES: the generated .lib/.lef views only survive the sandbox
+# if canonicalization declares them. asap7/tinyRocket is the design that
+# sets AUTO_MEMORIES=1; gcd is the control, and the absence half is what
+# keeps every other design from paying for outputs nothing produces.
+auto_memories_outputs_test(
+    name = "auto_memories_outputs_test",
+    expected = [
+        "memories.json",
+        "memories",
+        # The detection output. No later stage reads it, but it has to be
+        # declared so make does not re-run detection in the synth sandbox.
+        "memories_inferred.json",
+    ],
+    target_under_test = "@orfs//flow/designs/asap7/tinyRocket:RocketTile_synth",
+)
+
+auto_memories_outputs_test(
+    name = "no_auto_memories_outputs_test",
+    forbidden = [
+        "memories.json",
+        "memories",
+        "memories_inferred.json",
+    ],
+    target_under_test = "@orfs//flow/designs/asap7/gcd:gcd_synth",
+)
+
+# The end-to-end gate for AUTO_MEMORIES: the full flow on the one ORFS
+# design that uses it. Manual -- this is PnR, minutes not seconds, and
+# has no business in a wildcard build.
+#
+# _floorplan is listed alongside _final deliberately. Synth alone would
+# pass even if the generated views never propagated past the stage that
+# made them, so floorplan is the cheapest target that actually proves
+# OrfsInfo.memories works; _final proves the rest of the flow does.
+build_test(
+    name = "auto_memories_flow_test",
+    tags = ["manual"],
+    targets = [
+        "@orfs//flow/designs/asap7/tinyRocket:RocketTile_synth",
+        "@orfs//flow/designs/asap7/tinyRocket:RocketTile_floorplan",
+        "@orfs//flow/designs/asap7/tinyRocket:RocketTile_final",
+    ],
 )
 
 # Unit tests for the stage variable filtering helpers (stages.bzl).
@@ -2445,5 +2490,6 @@ sh_test(
     data = [
         "@orfs//flow:makefile",
         "@orfs//flow:makefile_yosys",
+        "@orfs//tools/FakeRAM2.0:all_files",
     ],
 )
