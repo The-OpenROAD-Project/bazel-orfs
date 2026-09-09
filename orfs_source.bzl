@@ -99,6 +99,12 @@ ORFS_PATCHES = [
     # contract it must carry its own pins and geometry. It carried
     # neither. Read off the module boundary.
     Label("//patches:0062-orfs-tinyrocket-tag-array-memories.patch"),
+    # AUTO_MEMORIES calls FakeRAM as `run.py --orfs_asap7_backend`. ORFS
+    # vendors FakeRAM at tools/FakeRAM2.0 and ships the patch that adds
+    # that backend, but the MODULE.bazel that used to apply it (to the
+    # since-archived external repo) is gone, so nothing applies it.
+    # ORFS's patch, re-pathed onto the vendored copy.
+    Label("//patches:0063-orfs-fakeram-asap7-backend.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
@@ -468,6 +474,38 @@ def _write_recorded_builds():
         )
     return "".join(parts)
 
+# ORFS's .bazelignore ignores tools/ wholesale, and for an external
+# repository bazel turns that into --deleted_packages: no BUILD file
+# under tools/ can define a package at all, however it got there.
+#
+# That collides with AUTO_MEMORIES. ORFS vendors FakeRAM at
+# tools/FakeRAM2.0 (the standalone repository is archived), and
+# gen_memories.py shells out to its run.py, so the tool has to be staged
+# into the canonicalize sandbox -- which needs a label, which needs a
+# package. patches/0063 adds the filegroup that ORFS's own patch
+# provides; this makes it loadable.
+#
+# The tools/ entry is replaced with its subdirectories rather than
+# dropped, so everything else there -- OpenROAD, yosys, AutoTuner, each
+# carrying bazel files of its own -- stays ignored exactly as before.
+# Enumerated from the tree rather than hardcoded: a bump that adds a
+# tools/ entry keeps it ignored by default, which is the safe direction.
+_UNIGNORE_FAKERAM = """
+if [ -e .bazelignore ] && grep -qx 'tools/' .bazelignore; then
+  {
+    grep -vx 'tools/' .bazelignore
+    for d in tools/*/; do
+      [ -d "$d" ] || continue
+      case "$d" in
+        tools/FakeRAM2.0/) continue ;;
+      esac
+      echo "$d"
+    done
+  } > .bazelignore.orfs_new
+  mv .bazelignore.orfs_new .bazelignore
+fi
+"""
+
 ORFS_PATCH_CMDS = [
     _WRITE_DESIGN_BZL,
     _write_recorded_builds(),
@@ -475,6 +513,7 @@ ORFS_PATCH_CMDS = [
         platforms = " ".join(ORFS_BAZEL_PLATFORMS),
     ),
     _GENERATE_FLOW_BUILD,
+    _UNIGNORE_FAKERAM,
 ]
 
 def orfs_archive_args(commit, integrity, urls = [], patches = [], patch_cmds = []):
