@@ -2431,3 +2431,19 @@ sh_test(
     args = ["$(rootpath :lb_32x128_estimate.json)"],
     data = [":lb_32x128_estimate.json"],
 )
+
+# ORFS's AUTO_MEMORIES rules name flow/scripts/memories/*.tcl and
+# *.py as prerequisites, and no `scripts/*` glob reaches that
+# subdirectory. Pins the staged set so a design with AUTO_MEMORIES=1
+# cannot regress to "No rule to make target
+# .../memories/extract_memories.tcl" -- a packaging omission that reads
+# like a Makefile bug. See MAKEFILE_SHARED in orfs_source.bzl.
+sh_test(
+    name = "auto_memories_staged_test",
+    size = "small",
+    srcs = ["auto_memories_staged_test.sh"],
+    data = [
+        "@orfs//flow:makefile",
+        "@orfs//flow:makefile_yosys",
+    ],
+)
