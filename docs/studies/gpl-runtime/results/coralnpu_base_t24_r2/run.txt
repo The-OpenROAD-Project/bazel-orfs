@@ -1,0 +1,8 @@
+tree=tmp/flow/designs/asap7/coralnpu/CoreMiniAxi_place_deps
+threads=24
+script=test/gpl_runtime/gpl_place_ios.tcl
+openroad=tmp/gpl_runtime/bin/openroad-base
+start=2026-09-08T18:16:35Z
+odb_sha1=ab0f8451029f45bb20ee92f746bfe0d231c21bb4
+hpwl_line=[ 31.050] 465 | 0.0991 | 1.177968e+06 | | 3.27e-05 | 
+end=2026-09-08T18:17:09Z

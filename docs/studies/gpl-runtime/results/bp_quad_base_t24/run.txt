@@ -1,0 +1,8 @@
+tree=tmp/flow/designs/nangate45/bp_quad/bsg_chip_floorplan_deps
+threads=24
+script=test/gpl_runtime/gpl_place_ios.tcl
+openroad=tmp/gpl_runtime/bin/openroad-base
+start=2026-09-08T21:45:00Z
+odb_sha1=d13691f374c13ebaf389c2202d4757327330b026
+hpwl_line=[ 290.145] 566 | 0.0999 | 4.289169e+07 | | 1.33e-06 | 
+end=2026-09-08T21:50:01Z

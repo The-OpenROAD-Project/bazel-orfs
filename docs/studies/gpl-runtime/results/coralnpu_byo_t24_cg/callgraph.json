@@ -1,0 +1,266 @@
+{
+ "main_tid": 557968,
+ "main_samples": 6494,
+ "worker_samples": 108910,
+ "main_phase_share": {
+  "Nesterov": 0.5009239297813366,
+  "initial place": 0.2642439174622729,
+  "buffer_ports / resizer": 0.16091777024946105,
+  "load_design": 0.051124114567292885,
+  "other": 0.010471204188481676,
+  "place_pins": 0.009547274407145057,
+  "write_db": 0.002771789344009855
+ },
+ "main_master_wait_share": {
+  "Nesterov": 0.041884816753926704,
+  "initial place": 0.009085309516476748
+ },
+ "main_state_share": {
+  "serial": 0.6884816753926701,
+  "parallel region": 0.2605481983369264,
+  "waiting at barrier": 0.05097012627040345
+ },
+ "main_targets": [
+  {
+   "phase": "Nesterov",
+   "target": "gpl::NesterovPlace::doBackTracking()",
+   "share": 0.42870341854019095,
+   "serial": 0.22128118263012012,
+   "parallel": 0.17046504465660609,
+   "waiting": 0.036957191253464736
+  },
+  {
+   "phase": "buffer_ports / resizer",
+   "target": "rsz::Resizer::bufferInputs()  [self]",
+   "share": 0.15753002771789343,
+   "serial": 0.15753002771789343,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "initial place",
+   "target": "gpl::cpuSparseSolve()",
+   "share": 0.12534647366800122,
+   "serial": 0.08407761010163227,
+   "parallel": 0.03218355404989221,
+   "waiting": 0.009085309516476748
+  },
+  {
+   "phase": "initial place",
+   "target": "gpl::Replace::doInitialPlace()  [self]",
+   "share": 0.06821681552202033,
+   "serial": 0.06821681552202033,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "Nesterov",
+   "target": "gpl::NesterovPlace::updateNextIter()",
+   "share": 0.060979365568216815,
+   "serial": 0.0,
+   "parallel": 0.05651370495842316,
+   "waiting": 0.0044656606097936554
+  },
+  {
+   "phase": "load_design",
+   "target": "_wrap_read_liberty_cmd()  [self]",
+   "share": 0.04080689867570065,
+   "serial": 0.04080689867570065,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "initial place",
+   "target": "gpl::PlacerBaseCommon::getHpwl()",
+   "share": 0.027717893440098552,
+   "serial": 0.027717893440098552,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "initial place",
+   "target": "gpl::Pin::isPlaceInstConnected()",
+   "share": 0.014474899907607022,
+   "serial": 0.014474899907607022,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "load_design",
+   "target": "_wrap_read_db_cmd()  [self]",
+   "share": 0.010317215891592239,
+   "serial": 0.010317215891592239,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "other",
+   "target": "ord::tclAppInit()",
+   "share": 0.010163227594702803,
+   "serial": 0.010163227594702803,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "place_pins",
+   "target": "ppl::IOPlacer::runHungarianMatching()  [self]",
+   "share": 0.009547274407145057,
+   "serial": 0.009547274407145057,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "initial place",
+   "target": "gpl::PlacerBaseCommon::PlacerBaseCommon()",
+   "share": 0.009239297813366184,
+   "serial": 0.009239297813366184,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "Nesterov",
+   "target": "gpl::Replace::initNesterovPlace()",
+   "share": 0.008469356328919002,
+   "serial": 0.006621496766245765,
+   "parallel": 0.0013858946720049275,
+   "waiting": 0.0004619648906683092
+  },
+  {
+   "phase": "initial place",
+   "target": "Eigen::SparseMatrix<float, 1, int>& Eigen::SparseMatrix<float, 1, int>::operator=<Eigen::SparseMatrix<float, 0, int> >()",
+   "share": 0.008315368032029567,
+   "serial": 0.008315368032029567,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "initial place",
+   "target": "gpl::Instance::dbSetCenterLocation()",
+   "share": 0.0036957191253464737,
+   "serial": 0.0036957191253464737,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "buffer_ports / resizer",
+   "target": "rsz::Resizer::bufferOutputs()  [self]",
+   "share": 0.002771789344009855,
+   "serial": 0.002771789344009855,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "write_db",
+   "target": "_wrap_write_db_cmd()  [self]",
+   "share": 0.002771789344009855,
+   "serial": 0.002771789344009855,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "Nesterov",
+   "target": "gpl::Replace::reportHpwlMetric()",
+   "share": 0.0021558361564521095,
+   "serial": 0.0021558361564521095,
+   "parallel": 0.0,
+   "waiting": 0.0
+  }
+ ],
+ "main_leaves": [
+  {
+   "phase": "Nesterov",
+   "symbol": "gpl::NesterovBase::updateGCellDensityCenterLocation()",
+   "share": 0.16307360640591315
+  },
+  {
+   "phase": "initial place",
+   "symbol": "bool Eigen::internal::bicgstab<Eigen::Ref<Eigen::SparseMatrix<float, 1, int> const, 0, Eigen::OuterStride<-1> >, Eigen::Matrix<float, -1, 1, 0, -1, 1>, Eigen::Matrix<float, -1, 1, 0, -1, 1>, Eigen::IdentityPreconditioner>()",
+   "share": 0.061595318755774564
+  },
+  {
+   "phase": "initial place",
+   "symbol": "[unknown]",
+   "share": 0.0384970742223591
+  },
+  {
+   "phase": "initial place",
+   "symbol": "gpl::InitialPlace::createSparseMatrix()",
+   "share": 0.01370495842315984
+  },
+  {
+   "phase": "initial place",
+   "symbol": "void Eigen::internal::set_from_triplets<std::__wrap_iter<Eigen::Triplet<float, int>*>, Eigen::SparseMatrix<float, 1, int>, Eigen::internal::scalar_sum_op<float, float> >()",
+   "share": 0.013396981829380967
+  },
+  {
+   "phase": "initial place",
+   "symbol": "odb::dbScanInst::getInst()",
+   "share": 0.012935016938712659
+  },
+  {
+   "phase": "Nesterov",
+   "symbol": "gpl::BinGrid::updateBinsGCellDensityArea()",
+   "share": 0.010625192485371112
+  },
+  {
+   "phase": "buffer_ports / resizer",
+   "symbol": "__memcmp_avx2_movbe",
+   "share": 0.010163227594702803
+  },
+  {
+   "phase": "load_design",
+   "symbol": "sta::LibertyScanner::lex()",
+   "share": 0.008777332922697875
+  },
+  {
+   "phase": "initial place",
+   "symbol": "odb::dbInst::getBBox()",
+   "share": 0.008777332922697875
+  },
+  {
+   "phase": "Nesterov",
+   "symbol": "gpl::ddct()",
+   "share": 0.008315368032029567
+  },
+  {
+   "phase": "initial place",
+   "symbol": "odb::dbInst::getPlacementStatus()",
+   "share": 0.008007391438250694
+  },
+  {
+   "phase": "buffer_ports / resizer",
+   "symbol": "sta::dbNetwork::id()",
+   "share": 0.0070834616569140745
+  },
+  {
+   "phase": "initial place",
+   "symbol": "Eigen::SparseMatrix<float, 1, int>& Eigen::SparseMatrix<float, 1, int>::operator=<Eigen::SparseMatrix<float, 0, int> >()",
+   "share": 0.006929473360024638
+  },
+  {
+   "phase": "Nesterov",
+   "symbol": "gpl::()",
+   "share": 0.006929473360024638
+  },
+  {
+   "phase": "buffer_ports / resizer",
+   "symbol": "sta::LibertyPortLess::operator()",
+   "share": 0.006467508469356329
+  },
+  {
+   "phase": "Nesterov",
+   "symbol": "gpl::NesterovBase::getStepLength()",
+   "share": 0.006313520172466893
+  },
+  {
+   "phase": "load_design",
+   "symbol": "[unknown]",
+   "share": 0.006159531875577456
+  }
+ ],
+ "worker_state_share": {
+  "idle: waiting for next region (master runs serial code)": 0.6056652281700486,
+  "working": 0.39430722615003216,
+  "other OpenMP wait": 2.754567991919934e-05
+ }
+}

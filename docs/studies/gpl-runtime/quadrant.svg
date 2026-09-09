@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 450" font-family="system-ui, sans-serif" font-size="13">
+<rect width="600" height="450" fill="white"/>
+<rect x="80" y="60" width="240.0" height="165.0" fill="#e8f5e9" opacity="0.5"/>
+<rect x="320.0" y="60" width="240.0" height="165.0" fill="#fff3e0" opacity="0.5"/>
+<rect x="80" y="225.0" width="240.0" height="165.0" fill="#fce4ec" opacity="0.5"/>
+<rect x="320.0" y="225.0" width="240.0" height="165.0" fill="#ffebee" opacity="0.5"/>
+<line x1="80" y1="390" x2="560" y2="390" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+<line x1="80" y1="390" x2="80" y2="60" stroke="#333" stroke-width="1.5" marker-end="url(#arrow)"/>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#333"/></marker></defs>
+<text x="320.0" y="435" text-anchor="middle" font-size="14" font-weight="bold">QoR effect</text>
+<text x="65" y="225.0" text-anchor="middle" font-size="14" font-weight="bold" transform="rotate(-90,65,225.0)">Runtime effect</text>
+<text x="80" y="415" text-anchor="middle" font-size="11" fill="#666">byte-identical</text>
+<text x="560" y="415" text-anchor="middle" font-size="11" fill="#666">significant</text>
+<text x="72" y="394" text-anchor="end" font-size="11" fill="#666">none</text>
+<text x="72" y="64" text-anchor="end" font-size="11" fill="#666">large</text>
+<text x="300.0" y="28" text-anchor="middle" font-size="16" font-weight="bold">Global placement runtime: what was tried, by QoR effect and runtime effect</text>
+<circle cx="99.2" cy="241.5" r="6" fill="#546e7a" stroke="white" stroke-width="2"/>
+<text x="113.2" y="239.5" text-anchor="start" font-weight="bold" font-size="13" fill="#546e7a">A</text>
+<text x="113.2" y="255.5" text-anchor="start" font-size="11" fill="#555">gpl density-center loop threaded</text>
+<circle cx="108.8" cy="69.90000000000003" r="6" fill="#546e7a" stroke="white" stroke-width="2"/>
+<text x="122.8" y="67.90000000000003" text-anchor="start" font-weight="bold" font-size="13" fill="#546e7a">B</text>
+<text x="122.8" y="83.90000000000003" text-anchor="start" font-size="11" fill="#555">pdn: pdngen terminates</text>
+<circle cx="128.0" cy="383.4" r="6" fill="#546e7a" stroke="white" stroke-width="2"/>
+<text x="142.0" y="381.4" text-anchor="start" font-weight="bold" font-size="13" fill="#546e7a">C</text>
+<text x="142.0" y="397.4" text-anchor="start" font-size="11" fill="#555">rsz buffer_ports two-pass: no effect</text>
+<circle cx="80.0" cy="258.0" r="6" fill="#546e7a" stroke="white" stroke-width="2"/>
+<text x="94.0" y="256.0" text-anchor="start" font-weight="bold" font-size="13" fill="#546e7a">D</text>
+<text x="94.0" y="272.0" text-anchor="start" font-size="11" fill="#555">NUM_CORES = cores, not nproc</text>
+<circle cx="80.0" cy="357.0" r="6" fill="#546e7a" stroke="white" stroke-width="2"/>
+<text x="94.0" y="355.0" text-anchor="start" font-weight="bold" font-size="13" fill="#546e7a">E</text>
+<text x="94.0" y="371.0" text-anchor="start" font-size="11" fill="#555">passive OpenMP wait</text>
+<circle cx="108.8" cy="330.6" r="6" fill="#546e7a" stroke="white" stroke-width="2"/>
+<text x="122.8" y="328.6" text-anchor="start" font-weight="bold" font-size="13" fill="#546e7a">F</text>
+<text x="122.8" y="344.6" text-anchor="start" font-size="11" fill="#555">FFT threading (not done)</text>
+<circle cx="99.2" cy="300.9" r="6" fill="#546e7a" stroke="white" stroke-width="2"/>
+<text x="113.2" y="298.9" text-anchor="start" font-weight="bold" font-size="13" fill="#546e7a">G</text>
+<text x="113.2" y="314.9" text-anchor="start" font-size="11" fill="#555">matrix built once (not done)</text>
+<circle cx="464.0" cy="291.0" r="6" fill="#546e7a" stroke="white" stroke-width="2"/>
+<text x="450.0" y="289.0" text-anchor="end" font-weight="bold" font-size="13" fill="#546e7a">H</text>
+<text x="450.0" y="305.0" text-anchor="end" font-size="11" fill="#555">fewer initial-place iters (not done)</text>
+</svg>

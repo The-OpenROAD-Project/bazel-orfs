@@ -1,0 +1,6 @@
+tree=tmp/flow/designs/asap7/coralnpu/CoreMiniAxi_place_deps
+threads=1
+script=test/gpl_runtime/gpl_place_ios.tcl
+openroad=deployed
+start=2026-09-08T17:51:39Z
+end=2026-09-08T17:52:41Z

@@ -1,0 +1,397 @@
+{
+ "run": {
+  "tree": "tmp/flow/designs/asap7/coralnpu/CoreMiniAxi_place_deps",
+  "threads": "24",
+  "script": "test/gpl_runtime/gpl_place_ios.tcl",
+  "openroad": "deployed",
+  "start": "2026-09-08T17:46:38Z",
+  "end": "2026-09-08T17:47:11Z"
+ },
+ "wall_s": 31.1,
+ "user_s": 523.04,
+ "sys_s": 31.61,
+ "cpu_pct": 1783,
+ "peak_mb": 876.71875,
+ "counters": {
+  "127,97": 555.0,
+  "973": 2.0,
+  "cpu-migrations": 253.0,
+  "286": 483.0,
+  "276": 2.0,
+  "517": 1.0,
+  "606": 3.0,
+  "seconds": 31983486000.0
+ },
+ "phases": {
+  "load": 0.153,
+  "gpl_setup": 7.078,
+  "initial_place": 7.426,
+  "nesterov": 15.247,
+  "place_pins": 30.432,
+  "write_db": 30.92
+ },
+ "samples": 110518,
+ "busy_threads": [
+  23,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  35
+ ],
+ "working_threads": [
+  23,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  24,
+  35
+ ],
+ "effective_threads": [
+  1.42,
+  1.0,
+  1.01,
+  1.0,
+  1.01,
+  1.0,
+  1.01,
+  4.65,
+  5.5,
+  5.9,
+  5.97,
+  5.83,
+  6.48,
+  6.08,
+  5.82,
+  12.77,
+  12.27,
+  12.05,
+  11.75,
+  11.72,
+  10.98,
+  10.86,
+  10.74,
+  10.78,
+  10.96,
+  10.63,
+  11.32,
+  11.06,
+  10.82,
+  11.09,
+  3.15
+ ],
+ "categories": [
+  {
+   "category": "OpenMP wait",
+   "share": 0.5919578711160173
+  },
+  {
+   "category": "wirelength gradient",
+   "share": 0.1855987259993847
+  },
+  {
+   "category": "kernel / unknown",
+   "share": 0.06869469226732297
+  },
+  {
+   "category": "density (bins, FFT)",
+   "share": 0.06389004506053313
+  },
+  {
+   "category": "initial place (Eigen)",
+   "share": 0.047820264572286865
+  },
+  {
+   "category": "db / sta load",
+   "share": 0.010776525090935414
+  },
+  {
+   "category": "other gpl / openroad",
+   "share": 0.010025516205504986
+  },
+  {
+   "category": "hpwl",
+   "share": 0.00973597061112217
+  },
+  {
+   "category": "Nesterov update",
+   "share": 0.007211494960096998
+  },
+  {
+   "category": "libc / alloc",
+   "share": 0.004279845816970991
+  },
+  {
+   "category": "place_pins (ppl)",
+   "share": 9.048299824462984e-06
+  }
+ ],
+ "phase_share": {
+  "load": {
+   "working": 0.013255759242838271,
+   "spinning": 0.0
+  },
+  "gpl_setup": {
+   "working": 0.000597187788414557,
+   "spinning": 0.0
+  },
+  "initial_place": {
+   "working": 0.08428491286487269,
+   "spinning": 0.2405761957328218
+  },
+  "nesterov": {
+   "working": 0.3080222226243689,
+   "spinning": 0.3484138330407716
+  },
+  "place_pins": {
+   "working": 0.0012215204763025027,
+   "spinning": 0.0029678423424238584
+  },
+  "write_db": {
+   "working": 0.0006605258871857978,
+   "spinning": 0.0
+  }
+ },
+ "phase_seconds": {
+  "load": 6.925,
+  "gpl_setup": 0.348,
+  "initial_place": 7.821,
+  "nesterov": 15.185,
+  "place_pins": 0.488,
+  "write_db": 0.18
+ },
+ "symbols": [
+  {
+   "symbol": "kmp_flag_64<false, true>::wait(kmp_info*, int)",
+   "share": 0.49999095170017555
+  },
+  {
+   "symbol": "__kmp_hardware_timestamp",
+   "share": 0.0777339437919615
+  },
+  {
+   "symbol": "[unknown]",
+   "share": 0.06869469226732297
+  },
+  {
+   "symbol": "Eigen::internal::sparse_time_dense_product_impl<Eigen::Ref<Eigen::SparseMatrix<float, 1, int> const, 0, Eigen::OuterStride<-1> >, Eigen::Matrix<float, -1, 1, 0, -1, 1>, Eigen::Matrix<float, -1, 1, 0, -1, 1>, float, 1, true>::run(Eigen::Ref<Eigen::SparseMatrix<float, 1, int> const, 0, Eigen::OuterStride<-1> > const&, Eigen::Matrix<float, -1, 1, 0, -1, 1> const&, Eigen::Matrix<float, -1, 1, 0, -1, 1>&, float const&) [clone .omp_outlined]",
+   "share": 0.041540744494109556
+  },
+  {
+   "symbol": "gpl::BinGrid::scatterDensityAreaInPlace(std::__1::vector<gpl::GCellHandle, std::__1::allocator<gpl::GCellHandle> > const&, int) [clone .omp_outlined]",
+   "share": 0.041079281203061944
+  },
+  {
+   "symbol": "gpl::NesterovBaseCommon::updateWireLengthForceWA_native(float, float) [clone .omp_outlined]",
+   "share": 0.04101594310429071
+  },
+  {
+   "symbol": "gpl::NesterovBaseCommon::getWireLengthGradientPinWA(gpl::GPin const*, float, float) const",
+   "share": 0.03768616876888833
+  },
+  {
+   "symbol": "gpl::NesterovBaseCommon::getGCell(unsigned long)",
+   "share": 0.03172333918456722
+  },
+  {
+   "symbol": "gpl::GNet::updateBox()",
+   "share": 0.0292350567328399
+  },
+  {
+   "symbol": "gpl::NesterovBaseCommon::getWireLengthGradientWA(gpl::GCell const*, float, float) const",
+   "share": 0.020539640601530972
+  },
+  {
+   "symbol": "gpl::NesterovBaseCommon::updateWireLengthForceWA_native(float, float) [clone .omp_outlined.208]",
+   "share": 0.017155576467181816
+  },
+  {
+   "symbol": "kmp_flag_native<unsigned long long, (flag_type)1, true>::notdone_check()",
+   "share": 0.011735644872328489
+  },
+  {
+   "symbol": "gpl::(anonymous namespace)::CpuHpwlBackend::computeHpwl(std::__1::vector<gpl::GNet, std::__1::allocator<gpl::GNet> >&) [clone .omp_outlined]",
+   "share": 0.009699777411824317
+  },
+  {
+   "symbol": "gpl::GNet::getHpwl() const",
+   "share": 0.007636765051846758
+  },
+  {
+   "symbol": "gpl::NesterovBase::getDensityGradient(gpl::GCell const*) const",
+   "share": 0.0071843500606236085
+  },
+  {
+   "symbol": "gpl::NesterovBase::updateDensityFieldBin() [clone .omp_outlined]",
+   "share": 0.0057456703885339945
+  },
+  {
+   "symbol": "gpl::NesterovBase::nesterovUpdateCoordinates(float) [clone .omp_outlined]",
+   "share": 0.0050941928011726595
+  },
+  {
+   "symbol": "gpl::NesterovBase::updateGCellDensityCenterLocation(std::__1::vector<gpl::FloatPoint, std::__1::allocator<gpl::FloatPoint> > const&)",
+   "share": 0.004759405707667529
+  },
+  {
+   "symbol": "bool Eigen::internal::bicgstab<Eigen::Ref<Eigen::SparseMatrix<float, 1, int> const, 0, Eigen::OuterStride<-1> >, Eigen::Matrix<float, -1, 1, 0, -1, 1>, Eigen::Matrix<float, -1, 1, 0, -1, 1>, Eigen::IdentityPreconditioner>(Eigen::Ref<Eigen::SparseMatrix<float, 1, int> const, 0, Eigen::OuterStride<-1> > const&, Eigen::Matrix<float, -1, 1, 0, -1, 1> const&, Eigen::Matrix<float, -1, 1, 0, -1, 1>&, Eigen::IdentityPreconditioner const&, long&, Eigen::Matrix<float, -1, 1, 0, -1, 1>::RealScalar&)",
+   "share": 0.0036283682296096562
+  },
+  {
+   "symbol": "gpl::FFT::updateDensity(int, int, float)",
+   "share": 0.001610597368754411
+  },
+  {
+   "symbol": "gpl::NesterovBase::updateGradients(std::__1::vector<gpl::FloatPoint, std::__1::allocator<gpl::FloatPoint> >&, std::__1::vector<gpl::FloatPoint, std::__1::allocator<gpl::FloatPoint> >&, std::__1::vector<gpl::FloatPoint, std::__1::allocator<gpl::FloatPoint> >&, float, float) [clone .omp_outlined]",
+   "share": 0.0014839211712119292
+  },
+  {
+   "symbol": "__sched_yield",
+   "share": 0.001167230677355725
+  },
+  {
+   "symbol": "int __kmp_dispatch_next_algorithm<long long>(int, dispatch_private_info_template<long long>*, dispatch_shared_info_template<long long> volatile*, int*, long long*, long long*, traits_t<long long>::signed_t*, long long, long long)",
+   "share": 0.0009772163810420021
+  },
+  {
+   "symbol": "gpl::InitialPlace::createSparseMatrix()",
+   "share": 0.0009500714815686133
+  },
+  {
+   "symbol": "void Eigen::internal::set_from_triplets<std::__1::__wrap_iter<Eigen::Triplet<float, int>*>, Eigen::SparseMatrix<float, 1, int>, Eigen::internal::scalar_sum_op<float, float> >(std::__1::__wrap_iter<Eigen::Triplet<float, int>*> const&, std::__1::__wrap_iter<Eigen::Triplet<float, int>*> const&, Eigen::SparseMatrix<float, 1, int>&, Eigen::internal::scalar_sum_op<float, float>)",
+   "share": 0.0007510088854304276
+  },
+  {
+   "symbol": "gpl::BinGrid::updateBinsGCellDensityArea(std::__1::vector<gpl::GCellHandle, std::__1::allocator<gpl::GCellHandle> > const&, int) [clone .omp_outlined]",
+   "share": 0.0007419605856059646
+  },
+  {
+   "symbol": "gpl::NesterovBase::getFillerGCell(unsigned long)",
+   "share": 0.0006967190864836497
+  },
+  {
+   "symbol": "gpl::FFT::getElectroPhi(int, int) const",
+   "share": 0.0006876707866591867
+  },
+  {
+   "symbol": "gpl::BinGrid::updateBinsGCellDensityArea(std::__1::vector<gpl::GCellHandle, std::__1::allocator<gpl::GCellHandle> > const&, int)",
+   "share": 0.0006514775873613348
+  },
+  {
+   "symbol": "__memcmp_avx2_movbe",
+   "share": 0.0006333809877124088
+  },
+  {
+   "symbol": "gpl::Net::updateBox(bool)",
+   "share": 0.0006062360882390198
+  },
+  {
+   "symbol": "__printf_buffer",
+   "share": 0.000560994589116705
+  },
+  {
+   "symbol": "tcmalloc::tcmalloc_internal::FreeWithHooksOrPerThread(void*, std::__1::optional<unsigned long>, unsigned long)",
+   "share": 0.0005248013898188531
+  },
+  {
+   "symbol": "odb::dbScanInst::getInst() const",
+   "share": 0.0005248013898188531
+  },
+  {
+   "symbol": "gpl::(anonymous namespace)::CpuDensityGradientBackend::getCellGradients(std::__1::vector<gpl::GCellHandle, std::__1::allocator<gpl::GCellHandle> > const&, std::__1::vector<gpl::FloatPoint, std::__1::allocator<gpl::FloatPoint> >&) [clone .omp_outlined]",
+   "share": 0.0005067047901699271
+  },
+  {
+   "symbol": "__memmove_avx_unaligned_erms",
+   "share": 0.0004795598906965381
+  },
+  {
+   "symbol": "gpl::ddct(int, int, float*, int*, float*)",
+   "share": 0.00046146329104761213
+  },
+  {
+   "symbol": "sta::DbInstancePinIterator::hasNext()",
+   "share": 0.00042527009174976024
+  },
+  {
+   "symbol": "sta::Levelize::findTopologicalOrder()",
+   "share": 0.00042527009174976024
+  },
+  {
+   "symbol": "gpl::NesterovBase::getStepLength(std::__1::vector<gpl::FloatPoint, std::__1::allocator<gpl::FloatPoint> > const&, std::__1::vector<gpl::FloatPoint, std::__1::allocator<gpl::FloatPoint> > const&, std::__1::vector<gpl::FloatPoint, std::__1::allocator<gpl::FloatPoint> > const&, std::__1::vector<gpl::FloatPoint, std::__1::allocator<gpl::FloatPoint> > const&)",
+   "share": 0.00040717349210083424
+  }
+ ],
+ "dsos": [
+  {
+   "dso": "openroad",
+   "share": 0.9261477768327331
+  },
+  {
+   "dso": "[unknown]",
+   "share": 0.0686856439674985
+  },
+  {
+   "dso": "libc.so.6",
+   "share": 0.0049856132032791035
+  },
+  {
+   "dso": "libm.so.6",
+   "share": 0.00017191769666479668
+  },
+  {
+   "dso": "[vdso]",
+   "share": 9.048299824462984e-06
+  }
+ ]
+}

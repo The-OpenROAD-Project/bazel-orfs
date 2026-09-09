@@ -1,0 +1,424 @@
+{
+ "run": {
+  "tree": "tmp/flow/designs/asap7/coralnpu/CoreMiniAxi_place_deps",
+  "threads": "48",
+  "script": "test/gpl_runtime/gpl_place_ios.tcl",
+  "openroad": "deployed",
+  "start": "2026-09-08T17:44:50Z",
+  "end": "2026-09-08T17:45:31Z"
+ },
+ "wall_s": 39.42,
+ "user_s": 1360.07,
+ "sys_s": 96.24,
+ "cpu_pct": 3694,
+ "peak_mb": 877.48046875,
+ "counters": {
+  "456": 1.0,
+  "527": 180.0,
+  "cpu-migrations": 252.0,
+  "909": 539.0,
+  "919": 5.0,
+  "247": 3.0,
+  "724": 4.0,
+  "seconds": 96594459000.0
+ },
+ "phases": {
+  "load": 0.155,
+  "gpl_setup": 7.0,
+  "initial_place": 7.339,
+  "nesterov": 17.732,
+  "place_pins": 38.798,
+  "write_db": 39.289
+ },
+ "samples": 289985,
+ "busy_threads": [
+  42,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  24
+ ],
+ "working_threads": [
+  42,
+  1,
+  1,
+  1,
+  1,
+  1,
+  1,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  48,
+  24
+ ],
+ "effective_threads": [
+  1.78,
+  1.01,
+  1.01,
+  0.97,
+  1.0,
+  1.0,
+  1.01,
+  6.63,
+  11.15,
+  11.29,
+  11.2,
+  11.5,
+  11.2,
+  11.17,
+  11.02,
+  10.98,
+  11.11,
+  15.88,
+  21.21,
+  20.91,
+  19.72,
+  19.99,
+  19.19,
+  20.18,
+  19.47,
+  19.94,
+  19.45,
+  19.36,
+  19.53,
+  19.77,
+  19.2,
+  19.43,
+  19.16,
+  19.08,
+  19.89,
+  19.44,
+  19.77,
+  19.84,
+  11.49,
+  0.79
+ ],
+ "categories": [
+  {
+   "category": "OpenMP wait",
+   "share": 0.6310085004396779
+  },
+  {
+   "category": "wirelength gradient",
+   "share": 0.18255771850268118
+  },
+  {
+   "category": "kernel / unknown",
+   "share": 0.07764194699725847
+  },
+  {
+   "category": "initial place (Eigen)",
+   "share": 0.04442988430436057
+  },
+  {
+   "category": "density (bins, FFT)",
+   "share": 0.03766056865010259
+  },
+  {
+   "category": "other gpl / openroad",
+   "share": 0.008721140748659413
+  },
+  {
+   "category": "Nesterov update",
+   "share": 0.00789696018759591
+  },
+  {
+   "category": "db / sta load",
+   "share": 0.004282980154145904
+  },
+  {
+   "category": "hpwl",
+   "share": 0.0034898356811559218
+  },
+  {
+   "category": "libc / alloc",
+   "share": 0.002307015880131731
+  },
+  {
+   "category": "place_pins (ppl)",
+   "share": 3.448454230391227e-06
+  }
+ ],
+ "phase_share": {
+  "load": {
+   "working": 0.005220959704812318,
+   "spinning": 0.0
+  },
+  "gpl_setup": {
+   "working": 0.0002310464334362122,
+   "spinning": 0.0
+  },
+  "initial_place": {
+   "working": 0.07804196768798387,
+   "spinning": 0.2206769315654258
+  },
+  "nesterov": {
+   "working": 0.28440781419728606,
+   "spinning": 0.40789006327913513
+  },
+  "place_pins": {
+   "working": 0.0006414124868527682,
+   "spinning": 0.0024415055951169887
+  },
+  "write_db": {
+   "working": 0.0004482990499508595,
+   "spinning": 0.0
+  }
+ },
+ "phase_seconds": {
+  "load": 6.845,
+  "gpl_setup": 0.339,
+  "initial_place": 10.393,
+  "nesterov": 21.066,
+  "place_pins": 0.491,
+  "write_db": 0.131
+ },
+ "symbols": [
+  {
+   "symbol": "kmp_flag_64<false, true>::wait(kmp_info*, int)",
+   "share": 0.5145990309843612
+  },
+  {
+   "symbol": "__kmp_hardware_timestamp",
+   "share": 0.09921892511681639
+  },
+  {
+   "symbol": "[unknown]",
+   "share": 0.07764194699725847
+  },
+  {
+   "symbol": "gpl::NesterovBaseCommon::getWireLengthGradientPinWA(gpl::GPin const*, float, float) const",
+   "share": 0.056658103005327864
+  },
+  {
+   "symbol": "Eigen::internal::sparse_time_dense_product_impl<Eigen::Ref<Eigen::SparseMatrix<float, 1, int> const, 0, Eigen::OuterStride<-1> >, Eigen::Matrix<float, -1, 1, 0, -1, 1>, Eigen::Matrix<float, -1, 1, 0, -1, 1>, float, 1, true>::run(Eigen::Ref<Eigen::SparseMatrix<float, 1, int> const, 0, Eigen::OuterStride<-1> > const&, Eigen::Matrix<float, -1, 1, 0, -1, 1> const&, Eigen::Matrix<float, -1, 1, 0, -1, 1>&, float const&) [clone .omp_outlined]",
+   "share": 0.0412331672327879
+  },
+  {
+   "symbol": "gpl::GNet::updateBox()",
+   "share": 0.03883304308843561
+  },
+  {
+   "symbol": "gpl::NesterovBaseCommon::updateWireLengthForceWA_native(float, float) [clone .omp_outlined]",
+   "share": 0.032122351156094284
+  },
+  {
+   "symbol": "gpl::NesterovBaseCommon::getGCell(unsigned long)",
+   "share": 0.027929030811938548
+  },
+  {
+   "symbol": "gpl::NesterovBaseCommon::updateWireLengthForceWA_native(float, float) [clone .omp_outlined.208]",
+   "share": 0.020980395537700227
+  },
+  {
+   "symbol": "gpl::BinGrid::scatterDensityAreaInPlace(std::__1::vector<gpl::GCellHandle, std::__1::allocator<gpl::GCellHandle> > const&, int) [clone .omp_outlined]",
+   "share": 0.01951135403555356
+  },
+  {
+   "symbol": "kmp_flag_native<unsigned long long, (flag_type)1, true>::notdone_check()",
+   "share": 0.014097280893839336
+  },
+  {
+   "symbol": "gpl::NesterovBase::getDensityGradient(gpl::GCell const*) const",
+   "share": 0.005493387589013225
+  },
+  {
+   "symbol": "gpl::NesterovBase::nesterovUpdateCoordinates(float) [clone .omp_outlined]",
+   "share": 0.004769212200631067
+  },
+  {
+   "symbol": "gpl::NesterovBase::updateGCellDensityCenterLocation(std::__1::vector<gpl::FloatPoint, std::__1::allocator<gpl::FloatPoint> > const&)",
+   "share": 0.004282980154145904
+  },
+  {
+   "symbol": "gpl::GNet::getHpwl() const",
+   "share": 0.0036105315792196147
+  },
+  {
+   "symbol": "gpl::(anonymous namespace)::CpuHpwlBackend::computeHpwl(std::__1::vector<gpl::GNet, std::__1::allocator<gpl::GNet> >&) [clone .omp_outlined]",
+   "share": 0.0034829387726951393
+  },
+  {
+   "symbol": "gpl::FFT::updateDensity(int, int, float)",
+   "share": 0.0029277376416021518
+  },
+  {
+   "symbol": "gpl::NesterovBase::updateDensityFieldBin() [clone .omp_outlined]",
+   "share": 0.0028898046450678483
+  },
+  {
+   "symbol": "int __kmp_dispatch_next_algorithm<long long>(int, dispatch_private_info_template<long long>*, dispatch_shared_info_template<long long> volatile*, int*, long long*, long long*, traits_t<long long>::signed_t*, long long, long long)",
+   "share": 0.002462196320499336
+  },
+  {
+   "symbol": "gpl::NesterovBaseCommon::getWireLengthGradientWA(gpl::GCell const*, float, float) const",
+   "share": 0.001962170457092608
+  },
+  {
+   "symbol": "bool Eigen::internal::bicgstab<Eigen::Ref<Eigen::SparseMatrix<float, 1, int> const, 0, Eigen::OuterStride<-1> >, Eigen::Matrix<float, -1, 1, 0, -1, 1>, Eigen::Matrix<float, -1, 1, 0, -1, 1>, Eigen::IdentityPreconditioner>(Eigen::Ref<Eigen::SparseMatrix<float, 1, int> const, 0, Eigen::OuterStride<-1> > const&, Eigen::Matrix<float, -1, 1, 0, -1, 1> const&, Eigen::Matrix<float, -1, 1, 0, -1, 1>&, Eigen::IdentityPreconditioner const&, long&, Eigen::Matrix<float, -1, 1, 0, -1, 1>::RealScalar&)",
+   "share": 0.0019311343690190871
+  },
+  {
+   "symbol": "gpl::NesterovBase::updateNextIter(int) [clone .omp_outlined]",
+   "share": 0.0019069951894063485
+  },
+  {
+   "symbol": "__sched_yield",
+   "share": 0.0013793816921564908
+  },
+  {
+   "symbol": "gpl::NesterovBase::updateGradients(std::__1::vector<gpl::FloatPoint, std::__1::allocator<gpl::FloatPoint> >&, std::__1::vector<gpl::FloatPoint, std::__1::allocator<gpl::FloatPoint> >&, std::__1::vector<gpl::FloatPoint, std::__1::allocator<gpl::FloatPoint> >&, float, float) [clone .omp_outlined]",
+   "share": 0.000941428004896805
+  },
+  {
+   "symbol": "__printf_buffer",
+   "share": 0.0008034898356811559
+  },
+  {
+   "symbol": "gpl::NesterovBase::getFillerGCell(unsigned long)",
+   "share": 0.0007552114764556787
+  },
+  {
+   "symbol": "gpl::NesterovBase::updateDensityFieldBin() [clone .omp_outlined.304]",
+   "share": 0.0007207269341517664
+  },
+  {
+   "symbol": "gpl::Instance::isLocked() const",
+   "share": 0.0006724485749262893
+  },
+  {
+   "symbol": "gpl::InitialPlace::createSparseMatrix()",
+   "share": 0.0006000310360880735
+  },
+  {
+   "symbol": "gpl::Net::updateBox(bool)",
+   "share": 0.0004586444126420332
+  },
+  {
+   "symbol": "gpl::FFT::getElectroPhi(int, int) const",
+   "share": 0.0004586444126420332
+  },
+  {
+   "symbol": "gpl::BinGrid::updateBinsGCellDensityArea(std::__1::vector<gpl::GCellHandle, std::__1::allocator<gpl::GCellHandle> > const&, int) [clone .omp_outlined]",
+   "share": 0.0003689846026518613
+  },
+  {
+   "symbol": "__strchrnul_avx2",
+   "share": 0.0003413969688087315
+  },
+  {
+   "symbol": "__memmove_avx_unaligned_erms",
+   "share": 0.000334500060347949
+  },
+  {
+   "symbol": "__memset_avx2_unaligned_erms",
+   "share": 0.00032760315188716657
+  },
+  {
+   "symbol": "void Eigen::internal::set_from_triplets<std::__1::__wrap_iter<Eigen::Triplet<float, int>*>, Eigen::SparseMatrix<float, 1, int>, Eigen::internal::scalar_sum_op<float, float> >(std::__1::__wrap_iter<Eigen::Triplet<float, int>*> const&, std::__1::__wrap_iter<Eigen::Triplet<float, int>*> const&, Eigen::SparseMatrix<float, 1, int>&, Eigen::internal::scalar_sum_op<float, float>)",
+   "share": 0.000303463972274428
+  },
+  {
+   "symbol": "__printf_buffer_write",
+   "share": 0.0002965670638136455
+  },
+  {
+   "symbol": "gpl::BinGrid::updateBinsGCellDensityArea(std::__1::vector<gpl::GCellHandle, std::__1::allocator<gpl::GCellHandle> > const&, int)",
+   "share": 0.0002827732468920806
+  },
+  {
+   "symbol": "gpl::(anonymous namespace)::CpuDensityGradientBackend::getCellGradients(std::__1::vector<gpl::GCellHandle, std::__1::allocator<gpl::GCellHandle> > const&, std::__1::vector<gpl::FloatPoint, std::__1::allocator<gpl::FloatPoint> >&) [clone .omp_outlined]",
+   "share": 0.0002793247926616894
+  },
+  {
+   "symbol": "gpl::ddct(int, int, float*, int*, float*)",
+   "share": 0.0002448402503577771
+  }
+ ],
+ "dsos": [
+  {
+   "dso": "openroad",
+   "share": 0.9178716140490025
+  },
+  {
+   "dso": "[unknown]",
+   "share": 0.07763849854302808
+  },
+  {
+   "dso": "libc.so.6",
+   "share": 0.004251944066072383
+  },
+  {
+   "dso": "libm.so.6",
+   "share": 0.00023449488766660344
+  },
+  {
+   "dso": "[vdso]",
+   "share": 3.448454230391227e-06
+  }
+ ]
+}

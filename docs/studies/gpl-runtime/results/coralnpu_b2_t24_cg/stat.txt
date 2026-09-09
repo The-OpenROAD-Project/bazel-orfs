@@ -1,0 +1,19 @@
+# started on Tue Sep  8 20:18:09 2026
+
+
+ Performance counter stats for the profiled run:
+
+        484 463,07 msec task-clock                                                            
+             2 135      context-switches                                                      
+               233      cpu-migrations                                                        
+           495 445      page-faults                                                           
+ 1 971 101 396 570      cycles                                                                
+ 1 182 701 019 841      instructions                                                          
+     3 844 713 706      cache-misses                                                          
+
+      29,070783562 seconds time elapsed
+
+     462,071463000 seconds user
+      22,546993000 seconds sys
+
+

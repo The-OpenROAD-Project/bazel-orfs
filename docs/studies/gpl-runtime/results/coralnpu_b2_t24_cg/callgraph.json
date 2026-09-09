@@ -1,0 +1,239 @@
+{
+ "main_tid": 568318,
+ "main_samples": 5752,
+ "worker_samples": 90879,
+ "main_phase_share": {
+  "Nesterov": 0.4235048678720445,
+  "initial place": 0.3070236439499305,
+  "buffer_ports / resizer": 0.18376216968011128,
+  "load_design": 0.05719749652294854,
+  "other": 0.014082058414464534,
+  "place_pins": 0.011474269819193325,
+  "write_db": 0.0029554937413073714
+ },
+ "main_master_wait_share": {
+  "Nesterov": 0.06345618915159944,
+  "initial place": 0.01043115438108484
+ },
+ "main_state_share": {
+  "serial": 0.6013560500695411,
+  "parallel region": 0.3247566063977747,
+  "waiting at barrier": 0.07388734353268428
+ },
+ "main_targets": [
+  {
+   "phase": "Nesterov",
+   "target": "gpl::NesterovPlace::doBackTracking()",
+   "share": 0.3435326842837274,
+   "serial": 0.06345618915159944,
+   "parallel": 0.22357440890125174,
+   "waiting": 0.056502086230876214
+  },
+  {
+   "phase": "buffer_ports / resizer",
+   "target": "rsz::Resizer::bufferInputs()  [self]",
+   "share": 0.18011126564673158,
+   "serial": 0.18011126564673158,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "initial place",
+   "target": "gpl::cpuSparseSolve()",
+   "share": 0.14899165507649514,
+   "serial": 0.10066063977746871,
+   "parallel": 0.037899860917941584,
+   "waiting": 0.01043115438108484
+  },
+  {
+   "phase": "initial place",
+   "target": "gpl::Replace::doInitialPlace()  [self]",
+   "share": 0.07579972183588317,
+   "serial": 0.07579972183588317,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "Nesterov",
+   "target": "gpl::NesterovPlace::updateNextIter()",
+   "share": 0.06780250347705145,
+   "serial": 0.0,
+   "parallel": 0.06102225312934632,
+   "waiting": 0.006780250347705146
+  },
+  {
+   "phase": "load_design",
+   "target": "_wrap_read_liberty_cmd()  [self]",
+   "share": 0.04554937413073713,
+   "serial": 0.04554937413073713,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "initial place",
+   "target": "gpl::PlacerBaseCommon::getHpwl()",
+   "share": 0.031815020862308765,
+   "serial": 0.031815020862308765,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "initial place",
+   "target": "gpl::Pin::isPlaceInstConnected()",
+   "share": 0.015994436717663423,
+   "serial": 0.015994436717663423,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "other",
+   "target": "ord::tclAppInit()",
+   "share": 0.01303894297635605,
+   "serial": 0.01303894297635605,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "load_design",
+   "target": "_wrap_read_db_cmd()  [self]",
+   "share": 0.011648122392211404,
+   "serial": 0.011648122392211404,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "initial place",
+   "target": "gpl::PlacerBaseCommon::PlacerBaseCommon()",
+   "share": 0.011474269819193325,
+   "serial": 0.011474269819193325,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "place_pins",
+   "target": "ppl::IOPlacer::runHungarianMatching()  [self]",
+   "share": 0.011474269819193325,
+   "serial": 0.011474269819193325,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "initial place",
+   "target": "Eigen::SparseMatrix<float, 1, int>& Eigen::SparseMatrix<float, 1, int>::operator=<Eigen::SparseMatrix<float, 0, int> >()",
+   "share": 0.009388038942976356,
+   "serial": 0.009388038942976356,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "Nesterov",
+   "target": "gpl::Replace::initNesterovPlace()",
+   "share": 0.008518776077885953,
+   "serial": 0.006432545201668985,
+   "parallel": 0.0019123783031988874,
+   "waiting": 0.00017385257301808066
+  },
+  {
+   "phase": "initial place",
+   "target": "gpl::Instance::dbSetCenterLocation()",
+   "share": 0.003998609179415856,
+   "serial": 0.003998609179415856,
+   "parallel": 0.0,
+   "waiting": 0.0
+  },
+  {
+   "phase": "buffer_ports / resizer",
+   "target": "rsz::Resizer::bufferOutputs()  [self]",
+   "share": 0.0029554937413073714,
+   "serial": 0.0029554937413073714,
+   "parallel": 0.0,
+   "waiting": 0.0
+  }
+ ],
+ "main_leaves": [
+  {
+   "phase": "initial place",
+   "symbol": "bool Eigen::internal::bicgstab<Eigen::Ref<Eigen::SparseMatrix<float, 1, int> const, 0, Eigen::OuterStride<-1> >, Eigen::Matrix<float, -1, 1, 0, -1, 1>, Eigen::Matrix<float, -1, 1, 0, -1, 1>, Eigen::IdentityPreconditioner>()",
+   "share": 0.0691933240611961
+  },
+  {
+   "phase": "initial place",
+   "symbol": "[unknown]",
+   "share": 0.04728789986091794
+  },
+  {
+   "phase": "initial place",
+   "symbol": "odb::dbScanInst::getInst()",
+   "share": 0.017211404728789986
+  },
+  {
+   "phase": "initial place",
+   "symbol": "void Eigen::internal::set_from_triplets<std::__wrap_iter<Eigen::Triplet<float, int>*>, Eigen::SparseMatrix<float, 1, int>, Eigen::internal::scalar_sum_op<float, float> >()",
+   "share": 0.01564673157162726
+  },
+  {
+   "phase": "Nesterov",
+   "symbol": "gpl::BinGrid::updateBinsGCellDensityArea()",
+   "share": 0.014951321279554937
+  },
+  {
+   "phase": "initial place",
+   "symbol": "gpl::InitialPlace::createSparseMatrix()",
+   "share": 0.013386648122392212
+  },
+  {
+   "phase": "buffer_ports / resizer",
+   "symbol": "__memcmp_avx2_movbe",
+   "share": 0.012517385257301807
+  },
+  {
+   "phase": "Nesterov",
+   "symbol": "gpl::ddct()",
+   "share": 0.01025730180806676
+  },
+  {
+   "phase": "initial place",
+   "symbol": "odb::dbInst::getPlacementStatus()",
+   "share": 0.010083449235048678
+  },
+  {
+   "phase": "buffer_ports / resizer",
+   "symbol": "std::__hash_table<std::__hash_value_type<sta::Edge const*, sta::TimingSense>, std::__unordered_map_hasher<sta::Edge const*, std::pair<sta::Edge const* const, sta::TimingSense>, std::hash<sta::Edge const*>, std::equal_to<sta::Edge const*> >, std::__unordered_map_equal<sta::Edge const*, std::pair<sta::Edge const* const, sta::TimingSense>, std::equal_to<sta::Edge const*>, std::hash<sta::Edge const*> >, std::allocator<std::pair<sta::Edge const* const, sta::TimingSense> > >::__emplace_unique[abi:nqe220108]<std::piecewise_construct_t const&, std::tuple<sta::Edge const* const&>, std::tuple<> >()",
+   "share": 0.009735744089012517
+  },
+  {
+   "phase": "initial place",
+   "symbol": "odb::dbInst::getBBox()",
+   "share": 0.009040333796940195
+  },
+  {
+   "phase": "initial place",
+   "symbol": "Eigen::SparseMatrix<float, 1, int>& Eigen::SparseMatrix<float, 1, int>::operator=<Eigen::SparseMatrix<float, 0, int> >()",
+   "share": 0.008692628650904033
+  },
+  {
+   "phase": "load_design",
+   "symbol": "sta::LibertyScanner::lex()",
+   "share": 0.008344923504867872
+  },
+  {
+   "phase": "buffer_ports / resizer",
+   "symbol": "sta::Levelize::findTopologicalOrder()",
+   "share": 0.007301808066759388
+  },
+  {
+   "phase": "buffer_ports / resizer",
+   "symbol": "odb::dbInstITermItr::next()",
+   "share": 0.006954102920723227
+  },
+  {
+   "phase": "buffer_ports / resizer",
+   "symbol": "sta::dbNetwork::id()",
+   "share": 0.006954102920723227
+  }
+ ],
+ "worker_state_share": {
+  "working": 0.5009958296196041,
+  "idle: waiting for next region (master runs serial code)": 0.4990041703803959
+ }
+}
