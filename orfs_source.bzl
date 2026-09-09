@@ -94,6 +94,11 @@ ORFS_PATCHES = [
     # keyword instead of yosys's pass, because yosys -import cannot
     # shadow a Tcl built-in. Qualifies it as `yosys proc`.
     Label("//patches:0061-orfs-extract-memories-yosys-proc.patch"),
+    # tinyRocket's tag_array override describes a memory detection never
+    # finds (no inferred $mem_v2 in the wrapper), so per the .memories
+    # contract it must carry its own pins and geometry. It carried
+    # neither. Read off the module boundary.
+    Label("//patches:0062-orfs-tinyrocket-tag-array-memories.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
