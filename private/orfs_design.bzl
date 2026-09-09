@@ -126,7 +126,9 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
     # orfs_flow() rules without using exports_files().
     existing_rules = native.existing_rules()
     for fg_name, fg_glob in [
-        ("design_config", ["*.mk", "*.sdc", "*.json", "*.cfg", "*.tcl", "*.def"]),
+        # *.memories: ADDITIONAL_MEMORIES entries (AUTO_MEMORIES), which
+        # live beside config.mk in the design directory.
+        ("design_config", ["*.mk", "*.sdc", "*.json", "*.cfg", "*.tcl", "*.def", "*.memories"]),
         ("lef", ["*.lef"]),
         ("lib", ["*.lib"]),
         ("gds", ["*.gds.gz"]),

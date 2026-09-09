@@ -57,6 +57,11 @@ SOURCE_VARS = {
     "FOOTPRINT_TCL",
     "SDC_FILE_EXTRA",
     "SC_LEF",
+    # AUTO_MEMORIES: user-supplied .memories files merged onto what the
+    # scanner detects. gen_memories.py reads them by path during
+    # canonicalization, so they have to be staged like any other source
+    # rather than passed as a string.
+    "ADDITIONAL_MEMORIES",
 }
 
 # Variables that are purely for path resolution, not passed to orfs_flow()

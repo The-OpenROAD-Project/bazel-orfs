@@ -551,6 +551,28 @@ class TestVariableClassification(unittest.TestCase):
             self.assertIn(var, result.sources, f"{var} should be in sources")
             self.assertNotIn(var, result.arguments, f"{var} should not be in arguments")
 
+    def test_additional_memories_is_source(self):
+        """AUTO_MEMORIES: the .memories file is read by path, so it must
+        be staged rather than passed through as an argument string.
+
+        asap7/tinyRocket is the design that exercises this; before the
+        variable was classified, canonicalization failed on
+        "No rule to make target '.../tag_array.memories'".
+        """
+        config, _ = _write_config(
+            """\
+            export PLATFORM = asap7
+            export DESIGN_NAME = RocketTile
+            export AUTO_MEMORIES = 1
+            export ADDITIONAL_MEMORIES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/tag_array.memories
+        """
+        )
+        result = self.parser.parse(config)
+        self.assertIn("ADDITIONAL_MEMORIES", result.sources)
+        self.assertNotIn("ADDITIONAL_MEMORIES", result.arguments)
+        # AUTO_MEMORIES itself is a plain flag and stays an argument.
+        self.assertEqual(result.arguments.get("AUTO_MEMORIES"), "1")
+
     def test_core_utilization_is_argument(self):
         config, _ = _write_config(
             """\
