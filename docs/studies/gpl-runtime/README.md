@@ -256,6 +256,16 @@ reworked two weeks before the pinned commit, which is one place to look.
 All five patches produce byte-identical output on all 151 pdn regression
 tests (114 golden-DEF matches, 24 expected-error tests, no divergence).
 
+Proposed upstream, rebased onto OpenROAD master, one concern per pull
+request, each carrying the reproducer link:
+
+| PR | patches | on the reproducer, alone, five-minute cap |
+| --- | --- | --- |
+| [#11362](https://github.com/The-OpenROAD-Project/OpenROAD/pull/11362) termination | 4, 5 | ends: 28 passes, 58 s, 3.2 GB, `PDN-0179` |
+| [#11363](https://github.com/The-OpenROAD-Project/OpenROAD/pull/11363) previous vias dropped | 3 | loops, 637 passes, memory flat at 2.7 GB |
+| [#11364](https://github.com/The-OpenROAD-Project/OpenROAD/pull/11364) via bookkeeping | 1, 2 | loops, 1161 passes, 28 GB |
+| master | | loops, 314 passes, 9.6 GB and climbing |
+
 Chesterton's Fence, per patch: 1 and 2 are the natural first
 implementation and cost nothing on the test designs; 3 is a missing call
 nobody needed while grids were small; 4 and 5 are the recursion's

@@ -1,8 +1,9 @@
 pdn: do not start another repair strap for a channel whose options are exhausted
 
-Carried by bazel-orfs as a patch on the OpenROAD archive_override; not
-upstreamed. Found and measured in docs/studies/gpl-runtime. Retires on the
-//:bump onto an OpenROAD that carries the change.
+Carried by bazel-orfs as a patch on the OpenROAD archive_override while
+upstream decides: proposed as OpenROAD PR #11362. Found and measured in
+docs/studies/gpl-runtime. Retires on the //:bump onto an OpenROAD that
+carries the change.
 
 ---
  src/pdn/src/straps.cpp | 30 ++++++++++++++++++++++++++++++

@@ -1,8 +1,9 @@
 pdn: bulk-load the via trees instead of inserting one via at a time
 
-Carried by bazel-orfs as a patch on the OpenROAD archive_override; not
-upstreamed. Found and measured in docs/studies/gpl-runtime. Retires on the
-//:bump onto an OpenROAD that carries the change.
+Carried by bazel-orfs as a patch on the OpenROAD archive_override while
+upstream decides: proposed as OpenROAD PR #11364. Found and measured in
+docs/studies/gpl-runtime. Retires on the //:bump onto an OpenROAD that
+carries the change.
 
 ---
  src/pdn/src/grid.cpp | 12 +++++-------
