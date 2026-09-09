@@ -1,0 +1,417 @@
+Describe tinyRocket's other three memory wrappers, not just one.
+
+asap7/tinyRocket has four memory wrappers, each instantiating an _ext
+module the sources never define:
+
+    wrapper           undefined submodule       geometry
+    tag_array         tag_array_ext             4 x 25,   1 RW
+    data_arrays_0     data_arrays_0_ext         64 x 32,  1 RW, 4 mask lanes
+    data_arrays_0_0   data_arrays_0_0_ext       64 x 32,  1 RW
+    mem               mem_ext                   1024 x 32, 1 R + 1 W, 4 mask lanes
+
+None carries an inferrable memory -- each only wires through to its
+missing _ext -- so detection finds none of them and every one needs a
+.memories override to be converted. ORFS ships an override for
+tag_array alone, so canonicalization clears that wrapper and dies on
+the next:
+
+    ERROR: Module `\data_arrays_0_ext' referenced in module
+    `\data_arrays_0' in cell `\data_arrays_0_ext' is not part of the
+    design.
+
+then the same for data_arrays_0_0_ext, and mem_ext behind it. That is
+synth_preamble.tcl's `hierarchy -check` finding an undefined module,
+exactly as it would have for tag_array without its override. So the
+demo documented in docs/user/AutoMemories.md --
+
+    make DESIGN_CONFIG=designs/asap7/tinyRocket/config.mk synth floorplan
+
+-- cannot have completed either; nothing here is specific to bazel.
+
+The four wrappers were enumerated by finding every instantiated *_ext
+module with no matching definition, rather than one build failure at a
+time, and each geometry is derived from its module header rather than
+typed by hand: address width gives rows, the data lanes summed give
+bits, and each 1-bit subword mask pin contributes one lane -- the form
+schema.py documents as "Subword-split mask pins (W0_mask_0..3)
+contribute one lane each". `mem` is the one with split R0/W0 ports
+rather than a single RW0, so it is 1 read + 1 write rather than 1
+read-write.
+
+ADDITIONAL_MEMORIES is already a space-separated list, so the three new
+files join the existing one.
+
+Not upstreamed. Retire at the //:bump onto an ORFS that describes all
+four wrappers -- or, better, one whose detection finds memory-shaped
+modules at the module boundary, which is what the AUTO_MEMORIES
+description in variables.yaml claims and detect.py does not do. Either
+fix retires this patch and 0062 together.
+
+diff --git a/flow/designs/asap7/tinyRocket/data_arrays_0.memories b/flow/designs/asap7/tinyRocket/data_arrays_0.memories
+new file mode 100644
+--- /dev/null
++++ b/flow/designs/asap7/tinyRocket/data_arrays_0.memories
+@@ -0,0 +1,131 @@
++{
++  "version": 1,
++  "memories": [
++    {
++      "name": "data_arrays_0",
++      "rows": 64,
++      "bits": 32,
++      "addr_w": 6,
++      "read_ports": 0,
++      "write_ports": 0,
++      "rw_ports": 1,
++      "mask_lanes": 4,
++      "pins": [
++        {
++          "name": "RW0_addr",
++          "direction": "input",
++          "width": 6,
++          "port_id": "RW0",
++          "function": "addr"
++        },
++        {
++          "name": "RW0_en",
++          "direction": "input",
++          "width": 1,
++          "port_id": "RW0",
++          "function": "en"
++        },
++        {
++          "name": "RW0_clk",
++          "direction": "input",
++          "width": 1,
++          "port_id": "RW0",
++          "function": "clk"
++        },
++        {
++          "name": "RW0_wmode",
++          "direction": "input",
++          "width": 1,
++          "port_id": "RW0",
++          "function": "wmode"
++        },
++        {
++          "name": "RW0_wdata_0",
++          "direction": "input",
++          "width": 8,
++          "port_id": "RW0",
++          "function": "data_in"
++        },
++        {
++          "name": "RW0_wdata_1",
++          "direction": "input",
++          "width": 8,
++          "port_id": "RW0",
++          "function": "data_in"
++        },
++        {
++          "name": "RW0_wdata_2",
++          "direction": "input",
++          "width": 8,
++          "port_id": "RW0",
++          "function": "data_in"
++        },
++        {
++          "name": "RW0_wdata_3",
++          "direction": "input",
++          "width": 8,
++          "port_id": "RW0",
++          "function": "data_in"
++        },
++        {
++          "name": "RW0_rdata_0",
++          "direction": "output",
++          "width": 8,
++          "port_id": "RW0",
++          "function": "data_out"
++        },
++        {
++          "name": "RW0_rdata_1",
++          "direction": "output",
++          "width": 8,
++          "port_id": "RW0",
++          "function": "data_out"
++        },
++        {
++          "name": "RW0_rdata_2",
++          "direction": "output",
++          "width": 8,
++          "port_id": "RW0",
++          "function": "data_out"
++        },
++        {
++          "name": "RW0_rdata_3",
++          "direction": "output",
++          "width": 8,
++          "port_id": "RW0",
++          "function": "data_out"
++        },
++        {
++          "name": "RW0_wmask_0",
++          "direction": "input",
++          "width": 1,
++          "port_id": "RW0",
++          "function": "mask"
++        },
++        {
++          "name": "RW0_wmask_1",
++          "direction": "input",
++          "width": 1,
++          "port_id": "RW0",
++          "function": "mask"
++        },
++        {
++          "name": "RW0_wmask_2",
++          "direction": "input",
++          "width": 1,
++          "port_id": "RW0",
++          "function": "mask"
++        },
++        {
++          "name": "RW0_wmask_3",
++          "direction": "input",
++          "width": 1,
++          "port_id": "RW0",
++          "function": "mask"
++        }
++      ],
++      "idiomatic": true,
++      "reason": "forced: the RTL provides no behavioral fallback for this wrapper"
++    }
++  ]
++}
+diff --git a/flow/designs/asap7/tinyRocket/data_arrays_0_0.memories b/flow/designs/asap7/tinyRocket/data_arrays_0_0.memories
+new file mode 100644
+--- /dev/null
++++ b/flow/designs/asap7/tinyRocket/data_arrays_0_0.memories
+@@ -0,0 +1,61 @@
++{
++  "version": 1,
++  "memories": [
++    {
++      "name": "data_arrays_0_0",
++      "rows": 64,
++      "bits": 32,
++      "addr_w": 6,
++      "read_ports": 0,
++      "write_ports": 0,
++      "rw_ports": 1,
++      "mask_lanes": 0,
++      "pins": [
++        {
++          "name": "RW0_addr",
++          "direction": "input",
++          "width": 6,
++          "port_id": "RW0",
++          "function": "addr"
++        },
++        {
++          "name": "RW0_en",
++          "direction": "input",
++          "width": 1,
++          "port_id": "RW0",
++          "function": "en"
++        },
++        {
++          "name": "RW0_clk",
++          "direction": "input",
++          "width": 1,
++          "port_id": "RW0",
++          "function": "clk"
++        },
++        {
++          "name": "RW0_wmode",
++          "direction": "input",
++          "width": 1,
++          "port_id": "RW0",
++          "function": "wmode"
++        },
++        {
++          "name": "RW0_wdata_0",
++          "direction": "input",
++          "width": 32,
++          "port_id": "RW0",
++          "function": "data_in"
++        },
++        {
++          "name": "RW0_rdata_0",
++          "direction": "output",
++          "width": 32,
++          "port_id": "RW0",
++          "function": "data_out"
++        }
++      ],
++      "idiomatic": true,
++      "reason": "forced: the RTL provides no behavioral fallback for this wrapper"
++    }
++  ]
++}
+diff --git a/flow/designs/asap7/tinyRocket/mem.memories b/flow/designs/asap7/tinyRocket/mem.memories
+new file mode 100644
+--- /dev/null
++++ b/flow/designs/asap7/tinyRocket/mem.memories
+@@ -0,0 +1,145 @@
++{
++  "version": 1,
++  "memories": [
++    {
++      "name": "mem",
++      "rows": 1024,
++      "bits": 32,
++      "addr_w": 10,
++      "read_ports": 1,
++      "write_ports": 1,
++      "rw_ports": 0,
++      "mask_lanes": 4,
++      "pins": [
++        {
++          "name": "R0_addr",
++          "direction": "input",
++          "width": 10,
++          "port_id": "R0",
++          "function": "addr"
++        },
++        {
++          "name": "R0_en",
++          "direction": "input",
++          "width": 1,
++          "port_id": "R0",
++          "function": "en"
++        },
++        {
++          "name": "R0_clk",
++          "direction": "input",
++          "width": 1,
++          "port_id": "R0",
++          "function": "clk"
++        },
++        {
++          "name": "R0_data_0",
++          "direction": "output",
++          "width": 8,
++          "port_id": "R0",
++          "function": "data_out"
++        },
++        {
++          "name": "R0_data_1",
++          "direction": "output",
++          "width": 8,
++          "port_id": "R0",
++          "function": "data_out"
++        },
++        {
++          "name": "R0_data_2",
++          "direction": "output",
++          "width": 8,
++          "port_id": "R0",
++          "function": "data_out"
++        },
++        {
++          "name": "R0_data_3",
++          "direction": "output",
++          "width": 8,
++          "port_id": "R0",
++          "function": "data_out"
++        },
++        {
++          "name": "W0_addr",
++          "direction": "input",
++          "width": 10,
++          "port_id": "W0",
++          "function": "addr"
++        },
++        {
++          "name": "W0_en",
++          "direction": "input",
++          "width": 1,
++          "port_id": "W0",
++          "function": "en"
++        },
++        {
++          "name": "W0_clk",
++          "direction": "input",
++          "width": 1,
++          "port_id": "W0",
++          "function": "clk"
++        },
++        {
++          "name": "W0_data_0",
++          "direction": "input",
++          "width": 8,
++          "port_id": "W0",
++          "function": "data_in"
++        },
++        {
++          "name": "W0_data_1",
++          "direction": "input",
++          "width": 8,
++          "port_id": "W0",
++          "function": "data_in"
++        },
++        {
++          "name": "W0_data_2",
++          "direction": "input",
++          "width": 8,
++          "port_id": "W0",
++          "function": "data_in"
++        },
++        {
++          "name": "W0_data_3",
++          "direction": "input",
++          "width": 8,
++          "port_id": "W0",
++          "function": "data_in"
++        },
++        {
++          "name": "W0_mask_0",
++          "direction": "input",
++          "width": 1,
++          "port_id": "W0",
++          "function": "mask"
++        },
++        {
++          "name": "W0_mask_1",
++          "direction": "input",
++          "width": 1,
++          "port_id": "W0",
++          "function": "mask"
++        },
++        {
++          "name": "W0_mask_2",
++          "direction": "input",
++          "width": 1,
++          "port_id": "W0",
++          "function": "mask"
++        },
++        {
++          "name": "W0_mask_3",
++          "direction": "input",
++          "width": 1,
++          "port_id": "W0",
++          "function": "mask"
++        }
++      ],
++      "idiomatic": true,
++      "reason": "forced: the RTL provides no behavioral fallback for this wrapper"
++    }
++  ]
++}
+diff --git a/flow/designs/asap7/tinyRocket/config.mk b/flow/designs/asap7/tinyRocket/config.mk
+--- a/flow/designs/asap7/tinyRocket/config.mk
++++ b/flow/designs/asap7/tinyRocket/config.mk
+@@ -19,7 +19,11 @@
+ # provides no behavioral fallback (the wrapper instantiates a
+ # tag_array_ext module the sources never define), so its conversion is
+ # forced via a .memories override.
+-export ADDITIONAL_MEMORIES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/tag_array.memories
++export ADDITIONAL_MEMORIES = \
++    $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/tag_array.memories \
++    $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/data_arrays_0.memories \
++    $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/data_arrays_0_0.memories \
++    $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/mem.memories
+ 
+ export CORE_UTILIZATION = 40
+ export CORE_MARGIN      = 2

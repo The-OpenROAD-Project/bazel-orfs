@@ -105,6 +105,10 @@ ORFS_PATCHES = [
     # since-archived external repo) is gone, so nothing applies it.
     # ORFS's patch, re-pathed onto the vendored copy.
     Label("//patches:0063-orfs-fakeram-asap7-backend.patch"),
+    # tinyRocket has two memory wrappers around undefined _ext modules,
+    # and ORFS describes only one, so hierarchy -check dies on the other.
+    # Goes with 0062; either is useless without it.
+    Label("//patches:0064-orfs-tinyrocket-data-arrays-memories.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
