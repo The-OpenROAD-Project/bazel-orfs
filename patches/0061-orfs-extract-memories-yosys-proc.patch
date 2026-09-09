@@ -1,0 +1,46 @@
+Call yosys's `proc` command, not Tcl's `proc` keyword.
+
+extract_memories.tcl runs under yosys's Tcl shell and asks for the
+process-conversion pass by writing
+
+    proc
+    memory -nomap
+
+`yosys -import` (synth_preamble.tcl:1) imports yosys commands into the
+Tcl namespace, but it cannot shadow a Tcl built-in, and `proc` is the
+one that defines a procedure. So the bare word reaches Tcl instead of
+yosys and the pass dies on
+
+    ERROR: TCL interpreter returned an error:
+    wrong # args: should be "proc name args body"
+
+`memory -nomap` on the next line is unaffected -- `memory` is not a Tcl
+built-in -- which is why only one of the two needs qualifying.
+
+The `yosys` prefix is how the rest of the flow already disambiguates:
+synth_preamble.tcl calls `yosys read_slang` for the same reason.
+
+Because this is the only `proc` in the file, and it is reached on every
+AUTO_MEMORIES run, the detection pass cannot ever have completed as
+shipped. Together with the blackbox-guard ordering fixed in patch 0060,
+this is what stands between AUTO_MEMORIES and running at all.
+
+Not upstreamed. Retire at the //:bump onto an ORFS that qualifies the
+call.
+
+diff --git a/flow/scripts/memories/extract_memories.tcl b/flow/scripts/memories/extract_memories.tcl
+--- a/flow/scripts/memories/extract_memories.tcl
++++ b/flow/scripts/memories/extract_memories.tcl
+@@ -11,8 +11,10 @@ read_design_sources
+ # Elaborate hierarchy
+ hierarchy -top $::env(DESIGN_NAME)
+ 
+-# Run process execution and memory collection
+-proc
++# Run process execution and memory collection. `yosys proc` rather than
++# bare `proc`: yosys -import cannot shadow Tcl's proc keyword, so the
++# bare word would define a procedure instead of running the pass.
++yosys proc
+ memory -nomap
+ 
+ # Write netlist JSON containing inferred $mem_v2 primitives

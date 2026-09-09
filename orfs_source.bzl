@@ -84,6 +84,16 @@ ORFS_PATCHES = [
     # _GENERATE_FLOW_BUILD below, since ORFS no longer ships that file.
     # Not upstreamed -- retire at the bump onto an ORFS that carries it.
     Label("//patches:0059-orfs-do-write-rc.patch"),
+    # AUTO_MEMORIES detection runs before gen_memories.py writes
+    # results/memories/blackboxes.txt, but reads its sources through a
+    # preamble that hard-errors when that file is absent -- so the step
+    # that must run first cannot run at all. Clears AUTO_MEMORIES for the
+    # detection process only.
+    Label("//patches:0060-orfs-extract-memories-no-blackboxes.patch"),
+    # `proc` in extract_memories.tcl reaches Tcl's procedure-definition
+    # keyword instead of yosys's pass, because yosys -import cannot
+    # shadow a Tcl built-in. Qualifies it as `yosys proc`.
+    Label("//patches:0061-orfs-extract-memories-yosys-proc.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
