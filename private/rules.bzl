@@ -25,6 +25,7 @@ load(
     "data_inputs_excluding",
     "declare_artifact",
     "declare_artifacts",
+    "declare_directory_artifact",
     "deps_inputs",
     "environment_string",
     "extensionless_basename",
@@ -288,6 +289,7 @@ def _macro_impl(ctx):
             additional_lefs = depset([]),
             additional_libs = depset([]),
             additional_libs_pre_layout = depset([]),
+            memories = depset([]),
             arguments = depset([]),
         ),
         TopInfo(
@@ -804,6 +806,7 @@ def _arguments_impl(ctx):
             additional_lefs = src_info.additional_lefs,
             additional_libs = src_info.additional_libs,
             additional_libs_pre_layout = src_info.additional_libs_pre_layout,
+            memories = src_info.memories,
             arguments = depset(
                 [computed_json],
                 transitive = [src_info.arguments],
@@ -2033,6 +2036,71 @@ def _yosys_impl(ctx):
     # come through arguments/stage_arguments, not extra_arguments .json files.
     use_syn = all_arguments.get("SYNTH_USE_SYN") == "1"
 
+    # AUTO_MEMORIES: canonicalization detects memory-shaped modules in the
+    # RTL and generates .lib/.lef macro views for them; synthesis then
+    # blackboxes those modules and every later stage reads the generated
+    # views. The flow's Tcl globs them out of the results dir at run time
+    # rather than through a variable, so in a sandbox -- where only
+    # declared outputs survive -- they have to be declared here and
+    # carried forward on OrfsInfo.memories (see source_inputs). Without
+    # that, floorplan fails to link the blackboxed memory modules.
+    #
+    # Analysis-time only, like SYNTH_USE_SYN above: the value must come
+    # through arguments/stage_arguments, not an extra_arguments .json.
+    auto_memories = all_arguments.get("AUTO_MEMORIES") == "1"
+    if auto_memories and use_syn:
+        fail("AUTO_MEMORIES=1 needs the yosys canonicalize step that " +
+             "generates the memory views, and SYNTH_USE_SYN=1 does not " +
+             "run one. Both are set in " + str(ctx.label))
+
+    memories_outputs = []
+    memories_inferred = []
+    fakeram_inputs = []
+    fakeram_env = {}
+    if auto_memories:
+        memories_outputs = [
+            declare_artifact(ctx, "results", "memories.json"),
+            # A directory: gen_memories.py emits one .lib and one .lef
+            # per converted memory plus blackboxes.txt, and which
+            # memories exist is only known once the RTL is scanned.
+            declare_directory_artifact(ctx, "results", "memories"),
+        ]
+
+        # The detection pass's output. Not in OrfsInfo.memories -- no
+        # later stage reads it -- but it has to be declared and staged
+        # into the synth action all the same, because make checks the
+        # whole chain there:
+        #
+        #   yosys-dependencies: memories.json
+        #   memories.json: memories_inferred.json ...
+        #   memories_inferred.json: $(VERILOG_FILES) extract_memories.tcl
+        #
+        # With memories.json present but memories_inferred.json missing,
+        # make rebuilds the latter -- re-running detection in the synth
+        # sandbox, where it fails on a design already reduced to the
+        # canonicalized RTLIL ("Module `RocketTile' not found!") -- and
+        # would then try to rewrite memories.json, which is a read-only
+        # input there.
+        memories_inferred = [
+            declare_artifact(ctx, "results", "memories_inferred.json"),
+        ]
+
+        # gen_memories.py shells out to FakeRAM, which ORFS vendors at
+        # tools/FakeRAM2.0. Point it there explicitly rather than relying
+        # on its own discovery: that fallback rglobs RUNFILES_DIR for a
+        # run.py whose parent directory contains "fakeram", and the test
+        # is case-sensitive, so it never matches "FakeRAM2.0".
+        fakeram_inputs = ctx.files._fakeram
+        run_py = [
+            f
+            for f in fakeram_inputs
+            if f.basename == "run.py" and "FakeRAM2.0/run.py" in f.path
+        ]
+        if not run_py:
+            fail("AUTO_MEMORIES=1 but no FakeRAM run.py among the files of " +
+                 str(ctx.attr._fakeram.label) + " in " + str(ctx.label))
+        fakeram_env = {"FAKERAM_RUN_PY": run_py[0].path}
+
     # Clock-period extraction. The yosys side never reads the raw SDC:
     # synth_preamble.tcl consumes only SDC_FILE_CLOCK_PERIOD (the abc -D
     # value), which ORFS's do-sdc-clock-period target derives from the SDC
@@ -2117,17 +2185,20 @@ def _yosys_impl(ctx):
             command = EXPAND_VERILOG_DIRS + " && ".join(commands),
             env = verilog_arguments(ctx.files.verilog_files) |
                   yosys_environment(ctx) |
-                  config_environment(canon_config),
+                  config_environment(canon_config) |
+                  fakeram_env,
             inputs = depset(
                 [canon_config] + ([clock_period] if clock_period else []) +
-                ctx.files.verilog_files + ctx.files.extra_configs,
+                ctx.files.verilog_files + ctx.files.extra_configs +
+                fakeram_inputs,
                 transitive = [
                     synth_data_inputs,
                     pdk_inputs(ctx),
                     canon_deps,
                 ],
             ),
-            outputs = [canon_output] + canon_logs,
+            outputs = [canon_output] + canon_logs + memories_outputs +
+                      memories_inferred,
             tools = yosys_inputs(ctx),
             progress_message = "Canonicalizing RTL for %s" % module_top(ctx),
         )
@@ -2271,7 +2342,13 @@ def _yosys_impl(ctx):
             inputs = depset(
                 [canon_output, config] +
                 ([clock_period] if clock_period else []) +
-                ctx.files.extra_configs,
+                ctx.files.extra_configs +
+                # Synthesis blackboxes the converted memories, which it
+                # reads from results/memories/blackboxes.txt -- written
+                # by the canonicalize action above. memories_inferred
+                # rides along so make sees the chain as up to date rather
+                # than re-running detection here; see its declaration.
+                memories_outputs + memories_inferred,
                 transitive = [
                     synth_data_inputs,
                     pdk_inputs(ctx),
@@ -2298,7 +2375,14 @@ def _yosys_impl(ctx):
                         synth_outputs["1_2_yosys.v"],
                         synth_outputs["1_2_yosys.sdc"],
                         config,
-                    ] + ctx.files.extra_configs,
+                    ] + ctx.files.extra_configs +
+                    # synth_odb.tcl reads the blackboxed memories through
+                    # load.tcl and read_liberty.tcl, which glob
+                    # results/memories for *.lef and *.lib. Without them
+                    # OpenROAD fails with
+                    #   [ERROR ORD-2013] instance ... LEF master
+                    #   data_arrays_0 not found
+                    memories_outputs,
                     transitive = [
                         data_inputs(ctx),
                         pdk_inputs(ctx),
@@ -2359,7 +2443,7 @@ def _yosys_impl(ctx):
         f
         for name, f in synth_outputs.items()
         if name != "1_2_yosys.sdc"
-    ]
+    ] + memories_outputs
 
     # Write synth's data_arguments to a JSON so downstream stages
     # inherit synth-time variables (SDC_FILE, VERILOG_FILES, SYNTH_*)
@@ -2567,6 +2651,10 @@ def _yosys_impl(ctx):
                     if (dep[OrfsInfo].lib_pre_layout or dep[OrfsInfo].lib)
                 ],
             ),
+            # The generated AUTO_MEMORIES views enter the graph here, at
+            # the one stage that produces them; every later stage carries
+            # them forward unchanged.
+            memories = depset(memories_outputs),
             arguments = depset([synth_args_json]),
         ),
         ctx.attr.pdk[PdkInfo],
@@ -3008,6 +3096,10 @@ def _make_impl(
             additional_lefs = ctx.attr.src[OrfsInfo].additional_lefs,
             additional_libs = ctx.attr.src[OrfsInfo].additional_libs,
             additional_libs_pre_layout = ctx.attr.src[OrfsInfo].additional_libs_pre_layout,
+            # Carried, not regenerated: the AUTO_MEMORIES views are made
+            # once during canonicalization and every later stage reads
+            # the same files.
+            memories = ctx.attr.src[OrfsInfo].memories,
             arguments = depset(
                 [analysis_json],
                 transitive = [ctx.attr.src[OrfsInfo].arguments] +

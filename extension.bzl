@@ -78,6 +78,13 @@ _default_tag = tag_class(
             mandatory = False,
             default = Label("@orfs//flow:makefile_yosys"),
         ),
+        # FakeRAM, which AUTO_MEMORIES shells out to for the generated
+        # .lib/.lef views. ORFS vendors it at tools/FakeRAM2.0; the
+        # standalone repository is archived.
+        "fakeram": attr.label(
+            mandatory = False,
+            default = Label("@orfs//tools/FakeRAM2.0:all_files"),
+        ),
         "openroad": attr.label(
             mandatory = False,
             cfg = "exec",
@@ -180,6 +187,7 @@ def _orfs_repositories_impl(module_ctx):
             make = default.make,
             makefile = default.makefile,
             makefile_yosys = default.makefile_yosys,
+            fakeram = default.fakeram,
             openroad = default.openroad,
             openroad_qt = default.openroad_qt,
             opensta = default.opensta,

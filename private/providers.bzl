@@ -16,6 +16,13 @@ OrfsInfo = provider(
         "additional_lefs",
         "additional_libs",
         "additional_libs_pre_layout",
+        # AUTO_MEMORIES: results/memories.json plus the directory of
+        # generated .lib/.lef macro views. Produced during
+        # canonicalization and read out of the results dir by every
+        # later stage's Tcl, so unlike the other fields here these are
+        # flow *outputs* being carried forward rather than inputs
+        # collected from deps. Empty for the vast majority of designs.
+        "memories",
         "arguments",
     ],
 )

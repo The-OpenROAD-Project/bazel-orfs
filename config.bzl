@@ -16,6 +16,7 @@ CONFIG_KLAYOUT = "{klayout}"
 CONFIG_MAKE = "{make}"
 CONFIG_MAKEFILE = "{makefile}"
 CONFIG_MAKEFILE_YOSYS = "{makefile_yosys}"
+CONFIG_FAKERAM = "{fakeram}"
 CONFIG_OPENROAD = "{openroad}"
 CONFIG_OPENROAD_QT = "{openroad_qt}"
 CONFIG_OPENSTA = "{opensta}"
@@ -30,6 +31,7 @@ NUM_CPUS = {num_cpus}
             make = repository_ctx.attr.make,
             makefile = repository_ctx.attr.makefile,
             makefile_yosys = repository_ctx.attr.makefile_yosys,
+            fakeram = repository_ctx.attr.fakeram,
             openroad = repository_ctx.attr.openroad,
             openroad_qt = repository_ctx.attr.openroad_qt,
             opensta = repository_ctx.attr.opensta,
@@ -57,6 +59,7 @@ global_config = repository_rule(
         ),
         "makefile": attr.label(mandatory = True),
         "makefile_yosys": attr.label(mandatory = True),
+        "fakeram": attr.label(mandatory = True),
         "openroad": attr.label(
             mandatory = True,
             cfg = "exec",
