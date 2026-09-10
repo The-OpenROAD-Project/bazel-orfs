@@ -416,6 +416,319 @@ def section_work_changed(cells):
     return "\n".join(out) + "\n"
 
 
+
+
+def _common_arms(per_key, arms):
+    """The largest fully-covered block of (keys x arms) to compare.
+
+    Pooling a sum over arms that cover different keys is the easiest way
+    to manufacture a large fake effect: `route` was swept at t=24 on
+    three designs and measured at t=32 on six, so summing each arm as it
+    stood made the three-design arm look 47% faster than the six-design
+    one, and that fiction propagated into the flow total.
+
+    Every returned key has a value at every returned arm. Which block to
+    pick is a real choice -- keeping all arms costs designs, keeping all
+    designs collapses the ladder -- so it maximises keys x arms, which
+    prefers whichever loses less information, with ties going to the
+    longer ladder. At least two arms, since one arm compares nothing.
+    """
+    best = ([], [])
+    best_score = 0
+    for size in range(len(arms), 1, -1):
+        for start in range(0, len(arms) - size + 1):
+            subset = list(arms[start:start + size])
+            keys = [k for k in per_key if all(a in per_key[k] for a in subset)]
+            if not keys:
+                continue
+            score = len(keys) * len(subset)
+            if score > best_score or (score == best_score
+                                      and len(subset) > len(best[1])):
+                best, best_score = (keys, subset), score
+    return best
+
+
+def phase_index(records):
+    """(design, stage, phase, threads, pinned) -> mean seconds.
+
+    Phase seconds are summed within an arm first (a command can run
+    twice in one substep, e.g. two repair_timing calls), then averaged
+    across repeats.
+    """
+    buckets = collections.defaultdict(list)
+    for rec in records:
+        per_arm = collections.defaultdict(float)
+        for step, got in rec["substeps"].items():
+            for ph in got.get("phases", []):
+                per_arm[ph["name"]] += ph["seconds"]
+        for name, secs in per_arm.items():
+            key = (rec["design"], rec["stage"], name, rec["threads"],
+                   bool(rec.get("pinned")))
+            buckets[key].append(secs)
+    return {k: mean(v) for k, v in buckets.items()}
+
+
+def section_ladder(cells, records):
+    """Wall time versus thread count, per stage. The shape of the answer.
+
+    `-threads` is a ceiling, so what matters is where each stage's curve
+    stops improving -- not whether one arbitrary value beats another.
+    """
+    arms = arms_present(cells)
+    if len(arms) < 3:
+        return (
+            "### The scaling ladder\n\n"
+            "**Not measured.** Needs three or more unpinned thread arms; "
+            "present: {}.\n".format(arms or "none")
+        )
+    prov = records[0]["provenance"]
+    ceiling = prov.get("hardware_threads")
+    cores = prov.get("physical_cores")
+
+    totals = collections.defaultdict(lambda: collections.defaultdict(float))
+    for (design, stage, step, t, pin), cell in cells.items():
+        if pin:
+            continue
+        totals[stage][t] += cell.wall
+
+    out = [
+        "### The scaling ladder",
+        "",
+        "Wall time summed over every measured design, per stage, against",
+        "`-threads`. The ceiling on this host is {} (hardware threads);".format(ceiling),
+        "{} is the physical core count.".format(cores),
+        "",
+        "```",
+        "{:<7} {}   {}".format(
+            "stage", " ".join("{:>9}".format("t=" + str(a)) for a in arms), "best"),
+    ]
+    for stage in STAGE_ORDER:
+        if stage not in totals:
+            continue
+        row = totals[stage]
+        if not all(a in row for a in arms):
+            continue
+        best = min(arms, key=lambda a: row[a])
+        out.append("{:<7} {}   t={}{}".format(
+            stage,
+            " ".join("{:>8.1f}s".format(row[a]) for a in arms),
+            best,
+            " (ceiling)" if best == ceiling else "",
+        ))
+    out += ["```", ""]
+
+    # Mermaid renders on GitHub; the table above is the fallback that
+    # cannot fail to render, so the chart is a bonus rather than the
+    # evidence.
+    plotted = [s for s in STAGE_ORDER
+               if s in totals and all(a in totals[s] for a in arms)]
+    if plotted:
+        biggest = max(plotted, key=lambda s: max(totals[s].values()))
+        out += [
+            "```mermaid",
+            "xychart-beta",
+            '    title "{} wall time vs -threads (all designs)"'.format(biggest),
+            '    x-axis "-threads" [{}]'.format(", ".join(str(a) for a in arms)),
+            '    y-axis "wall seconds"',
+            "    line [{}]".format(
+                ", ".join("{:.1f}".format(totals[biggest][a]) for a in arms)),
+            "```",
+            "",
+        ]
+    return "\n".join(out) + "\n"
+
+
+def section_regions(records, cells):
+    """The same ladder, per code region rather than per stage.
+
+    A stage is not the tool it is named after: `5_1_grt` is mostly
+    repair_timing and pin_access, and FastRoute is a few percent. Those
+    regions want opposite thread counts, so the per-stage number is an
+    average of disagreeing things.
+    """
+    idx = phase_index(records)
+    if not idx:
+        return (
+            "### Per-region ladder\n\n"
+            "**Not measured.** No phase stacks recorded -- the arms ran "
+            "without the `RUN_CMD` override, or the logs carry no `Took` "
+            "lines.\n"
+        )
+    arms = sorted({k[3] for k in idx if not k[4]})
+    # {region: {(design, stage): {threads: seconds}}}. Keyed by site so a
+    # region measured on different design sets per arm is never pooled
+    # across them: pin_access appears in both grt and route, and route
+    # was swept on three designs rather than six.
+    sites = collections.defaultdict(lambda: collections.defaultdict(dict))
+    for (design, stage, name, t, pin), secs in idx.items():
+        if pin:
+            continue
+        sites[name][(design, stage)][t] = secs
+
+    regions = {}
+    coverage = {}
+    for name, per_site in sites.items():
+        keys, usable = _common_arms(per_site, arms)
+        if not keys or len(usable) < 2:
+            continue
+        regions[name] = {t: sum(per_site[k][t] for k in keys) for t in usable}
+        coverage[name] = (len(keys), usable)
+
+    if not regions:
+        return (
+            "### Per-region ladder\n\n**Not measured.** No region has "
+            "comparable coverage across two or more thread arms.\n"
+        )
+
+    ranked = sorted(regions.items(),
+                    key=lambda kv: -max(kv[1].values()))
+    out = [
+        "### Per-region ladder",
+        "",
+        "Seconds per phase, summed over designs. Phases come from the",
+        "`Took` lines ORFS already writes, so this is attribution, not",
+        "new instrumentation.",
+        "",
+        "```",
+        "{:<26} {}   {}".format(
+            "region (flow command)",
+            " ".join("{:>9}".format("t=" + str(a)) for a in arms),
+            "best"),
+    ]
+    for name, row in ranked:
+        n_sites, usable = coverage[name]
+        best = min(usable, key=lambda a: row[a])
+        out.append("{:<26} {}   t={:<3} {:>2} sites".format(
+            name,
+            " ".join(("{:>8.1f}s".format(row[a]) if a in row else "        -")
+                     for a in arms),
+            best, n_sites))
+    out += ["```", ""]
+    out.append(
+        "`sites` is the number of (design, stage) pairs a row pools, and only "
+        "pairs measured at every arm shown are counted -- otherwise an arm "
+        "covering fewer designs reads as a speedup."
+    )
+    return "\n".join(out) + "\n"
+
+
+def section_potential(cells, records):
+    """What a per-stage choice is worth against the ceiling.
+
+    Reported as a bound rather than a promise: a stage whose best point
+    is inside the spread of its own repeats is reported as no better
+    than the ceiling.
+    """
+    arms = arms_present(cells)
+    prov = records[0]["provenance"]
+    ceiling = prov.get("hardware_threads")
+    if ceiling not in arms or len(arms) < 2:
+        return "### The potential\n\n**Not measured.**\n"
+
+    # {stage: {design: {threads: [wall, spread, runs]}}} -- keyed by
+    # design so arms covering different design sets are never summed
+    # against one another; see _common_arms.
+    per = collections.defaultdict(lambda: collections.defaultdict(dict))
+    for (design, stage, step, t, pin), cell in cells.items():
+        if pin:
+            continue
+        slot = per[stage][design].setdefault(t, [0.0, 0.0, cell.n])
+        slot[0] += cell.wall
+        slot[1] = max(slot[1], cell.wall2s)
+        slot[2] = min(slot[2], cell.n)
+
+    out = [
+        "### The potential",
+        "",
+        "Per stage: the ceiling against the best arm on the ladder, and",
+        "whether that difference survives the spread of the repeats.",
+        "",
+        "| stage | at ceiling ({}) | best arm | gain | resolves? |".format(ceiling),
+        "| --- | --: | --- | --: | --- |",
+    ]
+    total_ceiling = total_best = 0.0
+    for stage in STAGE_ORDER:
+        if stage not in per:
+            continue
+        designs, usable = _common_arms(per[stage], arms)
+        if not designs or ceiling not in usable:
+            continue
+        walls = {t: sum(per[stage][d][t][0] for d in designs) for t in usable}
+        base = walls[ceiling]
+        best_t = min(walls, key=lambda t: walls[t])
+        gain = 100.0 * (walls[best_t] - base) / base if base else 0.0
+        spread = max(max(per[stage][d][t][1] for d in designs)
+                     for t in (ceiling, best_t))
+        runs = min(min(per[stage][d][t][2] for d in designs)
+                   for t in (ceiling, best_t))
+        res = resolution(spread, runs)
+        resolves = best_t != ceiling and abs(walls[best_t] - base) > res
+        # The comparison basis is always stated. Dropping designs is as
+        # capable of moving the number as dropping arms, and a reader
+        # cannot tell either happened from the totals alone.
+        scope = " [{} designs".format(len(designs))
+        if len(usable) != len(arms):
+            scope += ", t={}".format(",".join(str(a) for a in usable))
+        scope += "]"
+        out.append("| {}{} | {:.1f}s | t={} | {} | {} |".format(
+            stage, scope, base, best_t,
+            "-" if best_t == ceiling else "{:+.1f}%".format(gain),
+            "at ceiling" if best_t == ceiling
+            else ("yes" if resolves else "**no**"),
+        ))
+        total_ceiling += base
+        total_best += walls[best_t] if resolves else base
+
+    if total_ceiling:
+        out += [
+            "",
+            "Flow total over the measured stages: **{:.0f}s at the ceiling, "
+            "{:.0f}s under a per-stage choice ({:+.1f}%)** -- counting only "
+            "the stages whose gain resolves.".format(
+                total_ceiling, total_best,
+                100.0 * (total_best - total_ceiling) / total_ceiling),
+        ]
+    return "\n".join(out) + "\n"
+
+
+def section_reconciliation(records):
+    """Does the phase stack account for the wall time it splits?
+
+    The check that catches a mis-parsed log. An arm whose phases sum to
+    more than its substep wall has overlapping phases counted twice,
+    which is a parser bug, not a measurement.
+    """
+    checked = bad = 0
+    attributed = total = 0.0
+    for rec in records:
+        for step, got in rec["substeps"].items():
+            rc = got.get("reconcile")
+            if not rc:
+                continue
+            checked += 1
+            if not rc["ok"]:
+                bad += 1
+            attributed += rc["attributed_s"]
+            total += rc["wall_s"]
+    if not checked:
+        return ""
+    frac = 100.0 * attributed / total if total else 0.0
+    verdict = (
+        "**{} of {} substep samples over-attribute** -- phases were counted "
+        "that overlap. Treat the per-region table as suspect until that is "
+        "fixed.".format(bad, checked)
+        if bad else
+        "All {} substep samples reconcile: no phase stack exceeds the wall "
+        "time it splits.".format(checked)
+    )
+    return (
+        "### Does the breakdown add up?\n\n"
+        "{}\n\n"
+        "{:.0f}% of measured wall time is attributed to a named phase; the "
+        "rest is reported as unattributed rather than distributed.\n".format(
+            verdict, frac)
+    )
+
 def csv_rows(records):
     header = (
         "design,stage,substep,threads,pinned,repeat,wall_s,user_s,sys_s,"
@@ -532,6 +845,14 @@ def body(records, cells):
         section_decision(cells, records),
         "",
         section_rollup(cells, records),
+        "",
+        section_ladder(cells, records),
+        "",
+        section_regions(records, cells),
+        "",
+        section_potential(cells, records),
+        "",
+        section_reconciliation(records),
         "",
         section_sweep(cells, records),
         "",

@@ -36,7 +36,10 @@ import subprocess
 import sys
 import time
 
+import hashlib
+
 import elapsed
+import phases as phases_mod
 
 # Mirrors STAGE_SUBSTEPS in private/stages.bzl, which is the single
 # source of truth. campaign_test.py asserts the two are equal, so this
@@ -222,7 +225,52 @@ def log_dir(deploy_dir):
     return sorted(hits, key=len)[-1]
 
 
-def run_arm(deploy_dir, stage, threads, pin, verbose):
+def results_dir(deploy_dir):
+    """The results/<platform>/<design>/<variant> dir of a deployment."""
+    hits = []
+    for root, dirs, files in os.walk(deploy_dir):
+        if os.path.basename(root) == "results":
+            for variant_root, _, names in os.walk(root):
+                if any(n.endswith(".odb") for n in names):
+                    hits.append(variant_root)
+            dirs[:] = []
+    if not hits:
+        return None
+    return sorted(hits, key=len)[-1]
+
+
+def result_hash(deploy_dir, step):
+    """sha1 of a substep's own .odb, computed here rather than read.
+
+    ORFS's genElapsedTime.py normally appends a summary row carrying
+    this, and reading it was cheaper than recomputing. But that parser
+    does `line.replace("Elapsed time: ", "")` and so cannot read a
+    stamped log: with RUN_CMD pointed at log_timestamps.py it emits no
+    row at all, and the witness silently becomes None. Two documented
+    ORFS mechanisms that do not compose -- reported, not worked around
+    in ORFS.
+
+    So the identical-work witness is computed directly. It no longer
+    depends on which logging mode the arm ran in, which is what a
+    witness has to be: the same question asked the same way in every
+    arm.
+    """
+    rdir = results_dir(deploy_dir)
+    if not rdir:
+        return None
+    path = os.path.join(rdir, step + ".odb")
+    if not os.path.exists(path):
+        return None
+    hasher = hashlib.sha1()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            hasher.update(chunk)
+    # Same 20-hex-character prefix ORFS's own summary uses, so the two
+    # remain comparable.
+    return hasher.hexdigest()[:20]
+
+
+def run_arm(deploy_dir, stage, threads, pin, verbose, stamp_logs=True):
     """Run every substep of one stage at one thread count.
 
     `pin` restricts the process to one CPU per physical core, which
@@ -240,6 +288,14 @@ def run_arm(deploy_dir, stage, threads, pin, verbose):
     argv.append(os.path.join(deploy_dir, "make"))
     argv += ["do-" + step for step in STAGE_SUBSTEPS[stage]]
     argv.append("NUM_CORES={}".format(threads))
+    if stamp_logs:
+        # Elapsed-stamp every log line, which locates each phase in the
+        # run and bounds the ones ORFS gives no `Took` line for. This
+        # reaches the *stage* logs only because carried patch 0048 made
+        # flow.sh honour RUN_CMD; before it, RUN_CMD governed the
+        # peripheral logs and not the one anybody reads.
+        argv.append("RUN_CMD={} {}".format(
+            sys.executable, os.path.join(workspace(), "log_timestamps.py")))
 
     started = time.time()
     out = subprocess.run(
@@ -285,6 +341,45 @@ def collect(deploy_dir, stage, threads):
                     step, threads, got["threads"]
                 )
             )
+        # The phase stack: which regions inside this substep spent the
+        # time. A substep number averages regions that want opposite
+        # thread counts, and an average is not a policy.
+        with open(path, errors="replace") as handle:
+            text = handle.read()
+        parsed = phases_mod.parse_phases(text)
+        got["phases"] = parsed["phases"]
+        got["nested"] = parsed["nested"]
+        got["stamped"] = parsed["stamped"]
+
+        # Assertion: the stack accounts for the wall time. A stack that
+        # does not add up is a mis-parse, and is recorded as such rather
+        # than balanced by adjusting a number.
+        got["reconcile"] = phases_mod.reconcile(parsed, got["wall_s"])
+
+        # grt already emits ~18 phase timers of its own; they cost
+        # nothing to carry and are the FastRoute-internal view the
+        # `Took` lines cannot give.
+        metrics_path = os.path.join(logs, step + ".json")
+        if os.path.exists(metrics_path):
+            try:
+                with open(metrics_path) as handle:
+                    metrics = json.load(handle)
+            except ValueError:
+                metrics = {}
+            got["tool_metrics"] = {
+                k: v for k, v in metrics.items()
+                if "fastroute" in k or k.endswith("__iter") or "runtime" in k.lower()
+            }
+
+        # Identical-work witness, computed rather than read; see
+        # result_hash(). The log-derived value is kept when present so
+        # the two can be compared, but the computed one is what the
+        # study compares across arms.
+        got["result_sha1_log"] = got.get("result_sha1")
+        computed = result_hash(deploy_dir, step)
+        if computed:
+            got["result_sha1"] = computed
+
         samples[step] = got
     return samples
 
@@ -319,6 +414,11 @@ def main():
     )
     parser.add_argument("--results", default=None)
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument(
+        "--no-stamp-logs", action="store_true",
+        help="do not override RUN_CMD; drops per-phase elapsed stamps. Use "
+             "to check whether stamping perturbs the timing it measures.",
+    )
     args = parser.parse_args()
 
     threads_arms = args.threads
@@ -368,7 +468,8 @@ def main():
                 print("  threads={}{} repeat={} (load {:.2f})".format(
                     threads, " pinned" if args.pin else "", repeat, load))
                 make_wall = run_arm(
-                    deploy_dir, stage, threads, args.pin, args.verbose
+                    deploy_dir, stage, threads, args.pin, args.verbose,
+                    stamp_logs=not args.no_stamp_logs,
                 )
                 samples = collect(deploy_dir, stage, threads)
 

@@ -31,6 +31,22 @@ py_test(
     deps = [":elapsed"],
 )
 
+# Which regions inside a substep spent its time. ORFS and OpenROAD
+# already write the breakdown (`Took` lines, tool `Runtime:` lines,
+# elapsed stamps); this only reads it.
+py_library(
+    name = "phases",
+    srcs = ["phases.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "phases_test",
+    size = "small",
+    srcs = ["phases_test.py"],
+    deps = [":phases"],
+)
+
 # Runs one arm: deploy a stage's inputs with bazel, then run that
 # stage's substeps outside the sandbox at a given thread count.
 py_binary(
@@ -38,7 +54,10 @@ py_binary(
     srcs = ["campaign.py"],
     imports = ["."],
     tags = ["manual"],
-    deps = [":elapsed"],
+    deps = [
+        ":elapsed",
+        ":phases",
+    ],
 )
 
 # STAGE_SUBSTEPS is duplicated into campaign.py so the runner can drive

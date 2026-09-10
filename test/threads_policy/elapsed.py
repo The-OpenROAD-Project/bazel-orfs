@@ -52,7 +52,17 @@ _THREADS = re.compile(r"\[INFO ORD-0030\] Using (\d+) thread\(s\)\.")
 # MB, then a 20-hex-character prefix of the result file's sha1. Anchored
 # on the two integers and the hash so it cannot match a log line that
 # merely happens to end in hex.
-_RESULT_SHA1 = re.compile(r"^\S+\s+\.\S+\s+\d+\s+\d+\s+([0-9a-f]{20})\s*$", re.M)
+#
+# The optional leading group is an elapsed stamp from log_timestamps.py.
+# Without it this pattern silently returned None on every stamped log,
+# and since None is not a hash, an arm run with RUN_CMD looked like it
+# had produced a *different* result from one run without -- turning a
+# missing witness into a fake QoR divergence across the whole sweep.
+_RESULT_SHA1 = re.compile(
+    r"^(?:\[\s*\d+(?:\.\d+)?\]\s?)?\S+\s+\.\S+\s+\d+\s+\d+\s+"
+    r"([0-9a-f]{20})\s*$",
+    re.M,
+)
 
 
 class LogIncomplete(Exception):
