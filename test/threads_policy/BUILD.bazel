@@ -106,6 +106,23 @@ py_test(
     deps = [":deployment"],
 )
 
+# What proves two arms produced the same thing: the .sdc bytes, the .odb
+# bytes, and the subset of ORFS's own metrics a divergence would move.
+# The subset is curated because comparing all of it reports identical
+# work as divergent -- runtime and peak memory differ between two runs.
+py_library(
+    name = "witness",
+    srcs = ["witness.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "witness_test",
+    size = "small",
+    srcs = ["witness_test.py"],
+    deps = [":witness"],
+)
+
 # The static audit of class 1 (pointer-keyed containers whose iteration
 # order follows the allocator). It needs no flow runs, so it is the part
 # of the campaign that produces evidence before any arm has been run.
