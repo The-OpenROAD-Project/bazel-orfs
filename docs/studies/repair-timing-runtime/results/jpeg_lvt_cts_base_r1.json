@@ -1,0 +1,105 @@
+{
+  "arm": "base",
+  "design": "jpeg_lvt",
+  "loadavg_at_start": 0.8857421875,
+  "make_wall_s": 32.345940351486206,
+  "overrides": {},
+  "pinned": true,
+  "provenance": {
+    "boost": "1",
+    "cpu_model": "AMD Ryzen Threadripper 3960X 24-Core Processor",
+    "governor": "schedutil",
+    "hardware_threads": 48,
+    "kernel": "7.0.0-31-generic",
+    "omp_num_threads": null,
+    "openroad_exe": null,
+    "physical_cores": 24
+  },
+  "recorded_at": "2026-09-10T22:02:42",
+  "repeat": 1,
+  "stage": "cts",
+  "substeps": {
+    "4_1_cts": {
+      "cpu_pct": 313,
+      "peak_kb": 686104,
+      "phases": [
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "CTS-0500",
+          "order": 0,
+          "seconds": 3.89,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 1,
+          "seconds": 0.48,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 2,
+          "seconds": 1.62,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0506",
+          "order": 3,
+          "seconds": 0.31,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 4,
+          "seconds": 0.29,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 5.0,
+        "attributed_s": 6.59,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 25.27,
+        "wall_s": 31.86
+      },
+      "repair": [
+        {
+          "command": "repair_timing",
+          "endpoints": null,
+          "hold_buffers": 0,
+          "hold_s": 0.31,
+          "iterations": 0,
+          "kind": "setup_hold",
+          "repair_design_s": null,
+          "setup_s": 1.62,
+          "start_s": 9.644,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "hold_margin": "0",
+            "repair_tns": "100",
+            "setup_margin": "0",
+            "verbose": true
+          }
+        }
+      ],
+      "repair_rows": [
+        []
+      ],
+      "result_sha1": "e7adc973d7ce821e00c2",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 31.37,
+      "threads": 24,
+      "user_s": 68.33,
+      "wall_s": 31.86
+    }
+  },
+  "target": "@orfs//flow/designs/asap7/jpeg_lvt:jpeg_encoder",
+  "threads": 24
+}

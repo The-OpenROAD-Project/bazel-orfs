@@ -1,0 +1,164 @@
+{
+  "arm": "base",
+  "design": "jpeg_lvt",
+  "loadavg_at_start": 0.79833984375,
+  "make_wall_s": 87.41288471221924,
+  "overrides": {},
+  "pinned": true,
+  "provenance": {
+    "boost": "1",
+    "cpu_model": "AMD Ryzen Threadripper 3960X 24-Core Processor",
+    "governor": "schedutil",
+    "hardware_threads": 48,
+    "kernel": "7.0.0-31-generic",
+    "omp_num_threads": null,
+    "openroad_exe": null,
+    "physical_cores": 24
+  },
+  "recorded_at": "2026-09-10T22:05:25",
+  "repeat": 1,
+  "stage": "grt",
+  "substeps": {
+    "5_1_grt": {
+      "cpu_pct": 1130,
+      "peak_kb": 1202124,
+      "phases": [
+        {
+          "detail": "",
+          "name": "pin_access",
+          "order": 0,
+          "seconds": 30.0,
+          "source": "took"
+        },
+        {
+          "detail": "-congestion_report_file ./external/+orfs_repositories+orfs/flow/designs/asap7/jpeg_lvt/reports/asap7/jpeg_encoder/base/congestion.rpt -congestion_iterations 30 -congestion_report_iter_step 5 -verbose -resistance_aware",
+          "name": "global_route",
+          "order": 1,
+          "seconds": 16.0,
+          "source": "took"
+        },
+        {
+          "detail": "-verbose",
+          "name": "repair_design",
+          "order": 2,
+          "seconds": 6.0,
+          "source": "took"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 3,
+          "seconds": 0.33,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 4,
+          "seconds": 1.35,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0506",
+          "order": 5,
+          "seconds": 0.46,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 6,
+          "seconds": 0.29,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 7,
+          "seconds": 1.3,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 8.0,
+        "attributed_s": 55.73,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 31.160000000000004,
+        "wall_s": 86.89
+      },
+      "repair": [
+        {
+          "command": "repair_design",
+          "endpoints": null,
+          "hold_buffers": null,
+          "hold_s": null,
+          "iterations": 0,
+          "kind": "repair_design",
+          "repair_design_s": 5.89,
+          "setup_s": null,
+          "start_s": 49.696,
+          "took_s": 6,
+          "unrepaired": false,
+          "witness": {
+            "verbose": true
+          }
+        },
+        {
+          "command": "repair_timing",
+          "endpoints": null,
+          "hold_buffers": 0,
+          "hold_s": 0.46,
+          "iterations": 0,
+          "kind": "setup_hold",
+          "repair_design_s": null,
+          "setup_s": 1.35,
+          "start_s": 57.905,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "hold_margin": "0",
+            "repair_tns": "100",
+            "setup_margin": "0",
+            "verbose": true
+          }
+        },
+        {
+          "command": "repair_timing",
+          "endpoints": null,
+          "hold_buffers": null,
+          "hold_s": null,
+          "iterations": 0,
+          "kind": "post_grt_wns",
+          "repair_design_s": null,
+          "setup_s": 1.3,
+          "start_s": 61.868,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "repair_tns": "0",
+            "sequence": "vt_swap reroute",
+            "setup": true,
+            "skip_last_gasp": true,
+            "verbose": true
+          }
+        }
+      ],
+      "repair_rows": [
+        [],
+        [],
+        []
+      ],
+      "result_sha1": "0714b114d977ef39de5c",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 69.05,
+      "threads": 24,
+      "user_s": 912.96,
+      "wall_s": 86.89
+    }
+  },
+  "target": "@orfs//flow/designs/asap7/jpeg_lvt:jpeg_encoder",
+  "threads": 24
+}

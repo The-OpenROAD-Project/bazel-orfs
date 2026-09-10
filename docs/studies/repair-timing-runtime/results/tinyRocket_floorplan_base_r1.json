@@ -1,0 +1,162 @@
+{
+  "arm": "base",
+  "design": "tinyRocket",
+  "loadavg_at_start": 0.85107421875,
+  "make_wall_s": 38.03463935852051,
+  "overrides": {},
+  "pinned": true,
+  "provenance": {
+    "boost": "1",
+    "cpu_model": "AMD Ryzen Threadripper 3960X 24-Core Processor",
+    "governor": "schedutil",
+    "hardware_threads": 48,
+    "kernel": "7.0.0-31-generic",
+    "omp_num_threads": null,
+    "openroad_exe": null,
+    "physical_cores": 24
+  },
+  "recorded_at": "2026-09-10T22:42:49",
+  "repeat": 1,
+  "stage": "floorplan",
+  "substeps": {
+    "2_1_floorplan": {
+      "cpu_pct": 144,
+      "peak_kb": 323340,
+      "phases": [
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 0,
+          "seconds": 0.19,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0.19,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 11.3,
+        "wall_s": 11.49
+      },
+      "repair": [
+        {
+          "command": "repair_timing",
+          "endpoints": null,
+          "hold_buffers": null,
+          "hold_s": null,
+          "iterations": 0,
+          "kind": "floorplan_setup",
+          "repair_design_s": null,
+          "setup_s": 0.19,
+          "start_s": 2.21,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "hold_margin": "0",
+            "repair_tns": "100",
+            "sequence": "unbuffer,sizeup,swap,vt_swap",
+            "setup": true,
+            "setup_margin": "0",
+            "skip_last_gasp": true,
+            "verbose": true
+          }
+        }
+      ],
+      "repair_rows": [
+        []
+      ],
+      "result_sha1": "90cd94701936a955350e",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 3.31,
+      "threads": 24,
+      "user_s": 13.34,
+      "wall_s": 11.49
+    },
+    "2_2_floorplan_macro": {
+      "cpu_pct": 445,
+      "peak_kb": 295968,
+      "phases": [
+        {
+          "detail": "-max_num_level 2 -halo_width 2 -halo_height 2 -min_ar 0.33 -area_weight 0.1 -wirelength_weight 100.0 -outline_weight 100.0 -boundary_weight 50.0 -notch_weight 50.0 -report_directory ./external/+orfs_repositories+orfs/flow/designs/asap7/tinyRocket/objects/asap7/RocketTile/base/rtlmp -fence_lx 0.0 -fence_ly 0.0 -fence_ux 0.0 -fence_uy 0.0 -target_util 0.5240000075101853",
+          "name": "rtl_macro_placer",
+          "order": 0,
+          "seconds": 20.0,
+          "source": "took"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 1.0705,
+        "attributed_s": 20.0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 1.4100000000000001,
+        "wall_s": 21.41
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "8121f89a815b6fd8ece4",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 35.18,
+      "threads": 24,
+      "user_s": 60.16,
+      "wall_s": 21.41
+    },
+    "2_3_floorplan_tapcell": {
+      "cpu_pct": 99,
+      "peak_kb": 199404,
+      "phases": [],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 1.53,
+        "wall_s": 1.53
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "5e5bab0360842002d288",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 0.13,
+      "threads": 24,
+      "user_s": 1.4,
+      "wall_s": 1.53
+    },
+    "2_4_floorplan_pdn": {
+      "cpu_pct": 99,
+      "peak_kb": 246960,
+      "phases": [
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "PDN-0500",
+          "order": 0,
+          "seconds": 0.16,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0.16,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 2.15,
+        "wall_s": 2.31
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "b2ba5a1310123ae75010",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 0.16,
+      "threads": 24,
+      "user_s": 2.15,
+      "wall_s": 2.31
+    }
+  },
+  "target": "@orfs//flow/designs/asap7/tinyRocket:RocketTile",
+  "threads": 24
+}

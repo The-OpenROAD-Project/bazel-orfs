@@ -1,0 +1,105 @@
+{
+  "arm": "base",
+  "design": "tinyRocket",
+  "loadavg_at_start": 0.9912109375,
+  "make_wall_s": 24.6208655834198,
+  "overrides": {},
+  "pinned": true,
+  "provenance": {
+    "boost": "1",
+    "cpu_model": "AMD Ryzen Threadripper 3960X 24-Core Processor",
+    "governor": "schedutil",
+    "hardware_threads": 48,
+    "kernel": "7.0.0-31-generic",
+    "omp_num_threads": null,
+    "openroad_exe": null,
+    "physical_cores": 24
+  },
+  "recorded_at": "2026-09-10T22:47:17",
+  "repeat": 1,
+  "stage": "cts",
+  "substeps": {
+    "4_1_cts": {
+      "cpu_pct": 277,
+      "peak_kb": 518064,
+      "phases": [
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "CTS-0500",
+          "order": 0,
+          "seconds": 3.11,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 1,
+          "seconds": 0.27,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 2,
+          "seconds": 1.07,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0506",
+          "order": 3,
+          "seconds": 0.21,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 4,
+          "seconds": 0.18,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 5.0,
+        "attributed_s": 4.84,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 19.3,
+        "wall_s": 24.14
+      },
+      "repair": [
+        {
+          "command": "repair_timing",
+          "endpoints": null,
+          "hold_buffers": 0,
+          "hold_s": 0.21,
+          "iterations": 0,
+          "kind": "setup_hold",
+          "repair_design_s": null,
+          "setup_s": 1.07,
+          "start_s": 6.789,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "hold_margin": "0",
+            "repair_tns": "100",
+            "setup_margin": "0",
+            "verbose": true
+          }
+        }
+      ],
+      "repair_rows": [
+        []
+      ],
+      "result_sha1": "ef01797d52a6eccb5137",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 18.47,
+      "threads": 24,
+      "user_s": 48.4,
+      "wall_s": 24.14
+    }
+  },
+  "target": "@orfs//flow/designs/asap7/tinyRocket:RocketTile",
+  "threads": 24
+}

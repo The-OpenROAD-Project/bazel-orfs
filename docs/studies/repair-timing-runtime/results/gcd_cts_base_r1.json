@@ -1,0 +1,250 @@
+{
+  "arm": "base",
+  "design": "gcd",
+  "loadavg_at_start": 0.97705078125,
+  "make_wall_s": 5.372870683670044,
+  "overrides": {},
+  "pinned": true,
+  "provenance": {
+    "boost": "1",
+    "cpu_model": "AMD Ryzen Threadripper 3960X 24-Core Processor",
+    "governor": "schedutil",
+    "hardware_threads": 48,
+    "kernel": "7.0.0-31-generic",
+    "omp_num_threads": null,
+    "openroad_exe": null,
+    "physical_cores": 24
+  },
+  "recorded_at": "2026-09-10T21:15:34",
+  "repeat": 1,
+  "stage": "cts",
+  "substeps": {
+    "4_1_cts": {
+      "cpu_pct": 107,
+      "peak_kb": 212240,
+      "phases": [
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "CTS-0500",
+          "order": 0,
+          "seconds": 3.09,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 1,
+          "seconds": 0.0,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 2,
+          "seconds": 0.17,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0506",
+          "order": 3,
+          "seconds": 0.0,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 4,
+          "seconds": 0.0,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 5.0,
+        "attributed_s": 3.26,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 1.6400000000000006,
+        "wall_s": 4.9
+      },
+      "repair": [
+        {
+          "command": "repair_timing",
+          "endpoints": 4,
+          "final_iter": 24,
+          "hold_buffers": 0,
+          "hold_s": 0.0,
+          "iterations": 24,
+          "kind": "setup_hold",
+          "last_improving_iter": 14,
+          "repair_design_s": null,
+          "setup_s": 0.17,
+          "start_s": 4.559,
+          "t_final_s": 4.734,
+          "t_last_improvement_s": 4.701,
+          "tns_end": -113.5,
+          "tns_start": -103.8,
+          "took_s": null,
+          "unrepaired": true,
+          "witness": {
+            "hold_margin": "0",
+            "repair_tns": "100",
+            "setup_margin": "0",
+            "skip_last_gasp": true,
+            "verbose": true
+          },
+          "wns_end": -41.697,
+          "wns_start": -42.428
+        }
+      ],
+      "repair_rows": [
+        [
+          {
+            "area_pct": 0.0,
+            "cloned": 0,
+            "en_tns": -103.8,
+            "inserted": 0,
+            "iter": 0,
+            "marker": "*",
+            "removed": 0,
+            "resized": 0,
+            "st_tns": -316.5,
+            "swaps": 0,
+            "t_s": 4.606,
+            "viol_endpoints": 4,
+            "wns": -42.428
+          },
+          {
+            "area_pct": 0.5,
+            "cloned": 0,
+            "en_tns": -126.7,
+            "inserted": 2,
+            "iter": 10,
+            "marker": "*",
+            "removed": 0,
+            "resized": 1,
+            "st_tns": -358.3,
+            "swaps": 6,
+            "t_s": 4.662,
+            "viol_endpoints": 4,
+            "wns": -43.341
+          },
+          {
+            "area_pct": 0.5,
+            "cloned": 0,
+            "en_tns": -120.2,
+            "inserted": 2,
+            "iter": 14,
+            "marker": "*",
+            "removed": 0,
+            "resized": 1,
+            "st_tns": -335.5,
+            "swaps": 5,
+            "t_s": 4.701,
+            "viol_endpoints": 4,
+            "wns": -41.711
+          },
+          {
+            "area_pct": 0.6,
+            "cloned": 0,
+            "en_tns": -120.2,
+            "inserted": 2,
+            "iter": 17,
+            "marker": "*",
+            "removed": 0,
+            "resized": 2,
+            "st_tns": -335.3,
+            "swaps": 6,
+            "t_s": 4.709,
+            "viol_endpoints": 4,
+            "wns": -41.697
+          },
+          {
+            "area_pct": 0.4,
+            "cloned": 0,
+            "en_tns": -110.0,
+            "inserted": 2,
+            "iter": 20,
+            "marker": "*",
+            "removed": 1,
+            "resized": 2,
+            "st_tns": -335.3,
+            "swaps": 7,
+            "t_s": 4.718,
+            "viol_endpoints": 4,
+            "wns": -41.697
+          },
+          {
+            "area_pct": 0.4,
+            "cloned": 0,
+            "en_tns": -109.4,
+            "inserted": 2,
+            "iter": 20,
+            "marker": "*",
+            "removed": 1,
+            "resized": 2,
+            "st_tns": -335.3,
+            "swaps": 6,
+            "t_s": 4.726,
+            "viol_endpoints": 4,
+            "wns": -41.697
+          },
+          {
+            "area_pct": 0.6,
+            "cloned": 0,
+            "en_tns": -113.5,
+            "inserted": 3,
+            "iter": 24,
+            "marker": "*",
+            "removed": 1,
+            "resized": 2,
+            "st_tns": -335.3,
+            "swaps": 6,
+            "t_s": 4.733,
+            "viol_endpoints": 4,
+            "wns": -41.697
+          },
+          {
+            "area_pct": 0.6,
+            "cloned": 0,
+            "en_tns": -113.5,
+            "inserted": 3,
+            "iter": 24,
+            "marker": "*",
+            "removed": 1,
+            "resized": 2,
+            "st_tns": -335.3,
+            "swaps": 6,
+            "t_s": 4.733,
+            "viol_endpoints": 4,
+            "wns": -41.697
+          },
+          {
+            "area_pct": 0.6,
+            "cloned": 0,
+            "en_tns": -113.5,
+            "inserted": 3,
+            "iter": "final",
+            "marker": "",
+            "removed": 1,
+            "resized": 2,
+            "st_tns": -335.3,
+            "swaps": 6,
+            "t_s": 4.734,
+            "viol_endpoints": 5,
+            "wns": -41.697
+          }
+        ]
+      ],
+      "result_sha1": "5d6bb9d0640e3eaf2236",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 0.18,
+      "threads": 24,
+      "user_s": 5.07,
+      "wall_s": 4.9
+    }
+  },
+  "target": "@orfs//flow/designs/asap7/gcd:gcd",
+  "threads": 24
+}

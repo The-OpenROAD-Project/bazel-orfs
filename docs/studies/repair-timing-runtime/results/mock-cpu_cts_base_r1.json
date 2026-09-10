@@ -1,0 +1,219 @@
+{
+  "arm": "base",
+  "design": "mock-cpu",
+  "loadavg_at_start": 0.98095703125,
+  "make_wall_s": 29.72589683532715,
+  "overrides": {},
+  "pinned": true,
+  "provenance": {
+    "boost": "1",
+    "cpu_model": "AMD Ryzen Threadripper 3960X 24-Core Processor",
+    "governor": "schedutil",
+    "hardware_threads": 48,
+    "kernel": "7.0.0-31-generic",
+    "omp_num_threads": null,
+    "openroad_exe": null,
+    "physical_cores": 24
+  },
+  "recorded_at": "2026-09-10T22:24:24",
+  "repeat": 1,
+  "stage": "cts",
+  "substeps": {
+    "4_1_cts": {
+      "cpu_pct": 239,
+      "peak_kb": 562820,
+      "phases": [
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "CTS-0500",
+          "order": 0,
+          "seconds": 3.02,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 1,
+          "seconds": 2.05,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 2,
+          "seconds": 3.59,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0506",
+          "order": 3,
+          "seconds": 0.29,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 4,
+          "seconds": 0.3,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 5.0,
+        "attributed_s": 9.25,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 19.98,
+        "wall_s": 29.23
+      },
+      "repair": [
+        {
+          "command": "repair_timing",
+          "endpoints": 4,
+          "final_iter": 8,
+          "hold_buffers": 0,
+          "hold_s": 0.29,
+          "iterations": 8,
+          "kind": "setup_hold",
+          "last_improving_iter": 5,
+          "repair_design_s": null,
+          "setup_s": 3.59,
+          "start_s": 9.872,
+          "t_final_s": 13.459,
+          "t_last_improvement_s": 12.553,
+          "tns_end": 0.0,
+          "tns_start": -9.5,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "hold_margin": "0",
+            "repair_tns": "100",
+            "setup_margin": "0",
+            "verbose": true
+          },
+          "wns_end": 0.745,
+          "wns_start": -5.999
+        }
+      ],
+      "repair_rows": [
+        [
+          {
+            "area_pct": 0.0,
+            "cloned": 0,
+            "en_tns": -9.5,
+            "inserted": 0,
+            "iter": 0,
+            "marker": "*",
+            "removed": 0,
+            "resized": 0,
+            "st_tns": -6.0,
+            "swaps": 0,
+            "t_s": 12.418,
+            "viol_endpoints": 4,
+            "wns": -5.999
+          },
+          {
+            "area_pct": 0.0,
+            "cloned": 0,
+            "en_tns": 0.0,
+            "inserted": 3,
+            "iter": 5,
+            "marker": "*",
+            "removed": 0,
+            "resized": 0,
+            "st_tns": 0.0,
+            "swaps": 2,
+            "t_s": 12.553,
+            "viol_endpoints": 4,
+            "wns": 0.745
+          },
+          {
+            "area_pct": 0.0,
+            "cloned": 0,
+            "en_tns": 0.0,
+            "inserted": 3,
+            "iter": 6,
+            "marker": "*",
+            "removed": 0,
+            "resized": 0,
+            "st_tns": 0.0,
+            "swaps": 2,
+            "t_s": 12.62,
+            "viol_endpoints": 4,
+            "wns": 0.745
+          },
+          {
+            "area_pct": 0.0,
+            "cloned": 0,
+            "en_tns": 0.0,
+            "inserted": 3,
+            "iter": 7,
+            "marker": "*",
+            "removed": 0,
+            "resized": 0,
+            "st_tns": 0.0,
+            "swaps": 2,
+            "t_s": 12.688,
+            "viol_endpoints": 4,
+            "wns": 0.745
+          },
+          {
+            "area_pct": 0.0,
+            "cloned": 0,
+            "en_tns": 0.0,
+            "inserted": 3,
+            "iter": 8,
+            "marker": "*",
+            "removed": 0,
+            "resized": 0,
+            "st_tns": 0.0,
+            "swaps": 2,
+            "t_s": 12.756,
+            "viol_endpoints": 4,
+            "wns": 0.745
+          },
+          {
+            "area_pct": 0.0,
+            "cloned": 0,
+            "en_tns": 0.0,
+            "inserted": 3,
+            "iter": 8,
+            "marker": "*",
+            "removed": 0,
+            "resized": 0,
+            "st_tns": 0.0,
+            "swaps": 2,
+            "t_s": 12.823,
+            "viol_endpoints": 4,
+            "wns": 0.745
+          },
+          {
+            "area_pct": 0.0,
+            "cloned": 0,
+            "en_tns": 0.0,
+            "inserted": 3,
+            "iter": "final",
+            "marker": "",
+            "removed": 0,
+            "resized": 0,
+            "st_tns": 0.0,
+            "swaps": 2,
+            "t_s": 13.459,
+            "viol_endpoints": 0,
+            "wns": 0.745
+          }
+        ]
+      ],
+      "result_sha1": "f76a95f6294ca764ea2a",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 21.58,
+      "threads": 24,
+      "user_s": 48.51,
+      "wall_s": 29.23
+    }
+  },
+  "target": "@orfs//flow/designs/asap7/mock-cpu:mock_cpu",
+  "threads": 24
+}

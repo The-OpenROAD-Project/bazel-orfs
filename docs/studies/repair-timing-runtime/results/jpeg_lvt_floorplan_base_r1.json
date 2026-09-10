@@ -1,0 +1,154 @@
+{
+  "arm": "base",
+  "design": "jpeg_lvt",
+  "loadavg_at_start": 0.82470703125,
+  "make_wall_s": 20.441205501556396,
+  "overrides": {},
+  "pinned": true,
+  "provenance": {
+    "boost": "1",
+    "cpu_model": "AMD Ryzen Threadripper 3960X 24-Core Processor",
+    "governor": "schedutil",
+    "hardware_threads": 48,
+    "kernel": "7.0.0-31-generic",
+    "omp_num_threads": null,
+    "openroad_exe": null,
+    "physical_cores": 24
+  },
+  "recorded_at": "2026-09-10T22:02:09",
+  "repeat": 1,
+  "stage": "floorplan",
+  "substeps": {
+    "2_1_floorplan": {
+      "cpu_pct": 179,
+      "peak_kb": 412880,
+      "phases": [
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 0,
+          "seconds": 0.36,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0.36,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 12.05,
+        "wall_s": 12.41
+      },
+      "repair": [
+        {
+          "command": "repair_timing",
+          "endpoints": null,
+          "hold_buffers": null,
+          "hold_s": null,
+          "iterations": 0,
+          "kind": "floorplan_setup",
+          "repair_design_s": null,
+          "setup_s": 0.36,
+          "start_s": 3.114,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "hold_margin": "0",
+            "repair_tns": "100",
+            "sequence": "unbuffer,sizeup,swap,vt_swap",
+            "setup": true,
+            "setup_margin": "0",
+            "skip_last_gasp": true,
+            "verbose": true
+          }
+        }
+      ],
+      "repair_rows": [
+        []
+      ],
+      "result_sha1": "e90ce24809fd3089783b",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 6.08,
+      "threads": 24,
+      "user_s": 16.16,
+      "wall_s": 12.41
+    },
+    "2_2_floorplan_macro": {
+      "cpu_pct": 99,
+      "peak_kb": 260708,
+      "phases": [],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 2.03,
+        "wall_s": 2.03
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "e90ce24809fd3089783b",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 0.15,
+      "threads": 24,
+      "user_s": 1.87,
+      "wall_s": 2.03
+    },
+    "2_3_floorplan_tapcell": {
+      "cpu_pct": 99,
+      "peak_kb": 230776,
+      "phases": [],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 1.95,
+        "wall_s": 1.95
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "8714d60b17ef0dfcf2ae",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 0.16,
+      "threads": 24,
+      "user_s": 1.79,
+      "wall_s": 1.95
+    },
+    "2_4_floorplan_pdn": {
+      "cpu_pct": 99,
+      "peak_kb": 272964,
+      "phases": [
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "PDN-0500",
+          "order": 0,
+          "seconds": 0.39,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0.39,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 2.32,
+        "wall_s": 2.71
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "0fc561ba3ad0e2da3d94",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 0.2,
+      "threads": 24,
+      "user_s": 2.51,
+      "wall_s": 2.71
+    }
+  },
+  "target": "@orfs//flow/designs/asap7/jpeg_lvt:jpeg_encoder",
+  "threads": 24
+}

@@ -1,0 +1,233 @@
+{
+  "arm": "base",
+  "design": "mock-cpu",
+  "loadavg_at_start": 0.953125,
+  "make_wall_s": 131.67842602729797,
+  "overrides": {},
+  "pinned": true,
+  "provenance": {
+    "boost": "1",
+    "cpu_model": "AMD Ryzen Threadripper 3960X 24-Core Processor",
+    "governor": "schedutil",
+    "hardware_threads": 48,
+    "kernel": "7.0.0-31-generic",
+    "omp_num_threads": null,
+    "openroad_exe": null,
+    "physical_cores": 24
+  },
+  "recorded_at": "2026-09-10T22:26:51",
+  "repeat": 1,
+  "stage": "grt",
+  "substeps": {
+    "5_1_grt": {
+      "cpu_pct": 1746,
+      "peak_kb": 1055684,
+      "phases": [
+        {
+          "detail": "",
+          "name": "pin_access",
+          "order": 0,
+          "seconds": 88.0,
+          "source": "took"
+        },
+        {
+          "detail": "-congestion_report_file ./external/+orfs_repositories+orfs/flow/designs/asap7/mock-cpu/reports/asap7/mock_cpu/base/congestion.rpt -congestion_iterations 30 -congestion_report_iter_step 5 -verbose -resistance_aware",
+          "name": "global_route",
+          "order": 1,
+          "seconds": 11.0,
+          "source": "took"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0504",
+          "order": 2,
+          "seconds": 2.36,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 3,
+          "seconds": 0.24,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 4,
+          "seconds": 3.44,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0506",
+          "order": 5,
+          "seconds": 0.41,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 6,
+          "seconds": 0.33,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 7,
+          "seconds": 1.7,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 8.0,
+        "attributed_s": 107.48,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 23.689999999999984,
+        "wall_s": 131.17
+      },
+      "repair": [
+        {
+          "command": "repair_design",
+          "endpoints": null,
+          "hold_buffers": null,
+          "hold_s": null,
+          "iterations": 0,
+          "kind": "repair_design",
+          "repair_design_s": 2.36,
+          "setup_s": null,
+          "start_s": 103.224,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "verbose": true
+          }
+        },
+        {
+          "command": "repair_timing",
+          "endpoints": 1,
+          "final_iter": 4,
+          "hold_buffers": 0,
+          "hold_s": 0.41,
+          "iterations": 4,
+          "kind": "setup_hold",
+          "last_improving_iter": 4,
+          "repair_design_s": null,
+          "setup_s": 3.44,
+          "start_s": 106.978,
+          "t_final_s": 110.416,
+          "t_last_improvement_s": 109.717,
+          "tns_end": 0.0,
+          "tns_start": -9.1,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "hold_margin": "0",
+            "repair_tns": "100",
+            "setup_margin": "0",
+            "verbose": true
+          },
+          "wns_end": 8.106,
+          "wns_start": -9.081
+        },
+        {
+          "command": "repair_timing",
+          "endpoints": null,
+          "hold_buffers": null,
+          "hold_s": null,
+          "iterations": 0,
+          "kind": "post_grt_wns",
+          "repair_design_s": null,
+          "setup_s": 1.7,
+          "start_s": 112.713,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "repair_tns": "0",
+            "sequence": "vt_swap reroute",
+            "setup": true,
+            "skip_last_gasp": true,
+            "verbose": true
+          }
+        }
+      ],
+      "repair_rows": [
+        [],
+        [
+          {
+            "area_pct": 0.0,
+            "cloned": 0,
+            "en_tns": -9.1,
+            "inserted": 0,
+            "iter": 0,
+            "marker": "*",
+            "removed": 0,
+            "resized": 0,
+            "st_tns": -9.1,
+            "swaps": 0,
+            "t_s": 109.47,
+            "viol_endpoints": 1,
+            "wns": -9.081
+          },
+          {
+            "area_pct": 0.0,
+            "cloned": 0,
+            "en_tns": 0.0,
+            "inserted": 6,
+            "iter": 4,
+            "marker": "*",
+            "removed": 0,
+            "resized": 0,
+            "st_tns": 0.0,
+            "swaps": 1,
+            "t_s": 109.717,
+            "viol_endpoints": 1,
+            "wns": 8.106
+          },
+          {
+            "area_pct": 0.0,
+            "cloned": 0,
+            "en_tns": 0.0,
+            "inserted": 6,
+            "iter": 4,
+            "marker": "*",
+            "removed": 0,
+            "resized": 0,
+            "st_tns": 0.0,
+            "swaps": 1,
+            "t_s": 109.783,
+            "viol_endpoints": 1,
+            "wns": 8.106
+          },
+          {
+            "area_pct": 0.0,
+            "cloned": 0,
+            "en_tns": 0.0,
+            "inserted": 6,
+            "iter": "final",
+            "marker": "",
+            "removed": 0,
+            "resized": 0,
+            "st_tns": 0.0,
+            "swaps": 1,
+            "t_s": 110.416,
+            "viol_endpoints": 0,
+            "wns": 8.106
+          }
+        ],
+        []
+      ],
+      "result_sha1": "de7bc0911c241f8788cb",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 46.17,
+      "threads": 24,
+      "user_s": 2244.7,
+      "wall_s": 131.17
+    }
+  },
+  "target": "@orfs//flow/designs/asap7/mock-cpu:mock_cpu",
+  "threads": 24
+}

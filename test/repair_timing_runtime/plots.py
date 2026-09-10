@@ -208,7 +208,7 @@ def draw_all(records, out):
         seen.add((record["design"], record["stage"]))
         for step, got in record["substeps"].items():
             for i, call in enumerate(got.get("repair", [])):
-                if call["kind"] != "setup_hold":
+                if call["kind"] not in ("setup_hold", "floorplan_setup"):
                     continue
                 name = "trajectory_{}_{}.png".format(record["design"], step)
                 if trajectory(record, step, i, os.path.join(out, name)):
