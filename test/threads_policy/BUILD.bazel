@@ -123,6 +123,21 @@ py_test(
     deps = [":witness"],
 )
 
+# A hang has to yield a backtrace. The open `find_timing -threads 32`
+# hang was never root-caused because no run of it produced a stack.
+py_library(
+    name = "watchdog",
+    srcs = ["watchdog.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "watchdog_test",
+    size = "small",
+    srcs = ["watchdog_test.py"],
+    deps = [":watchdog"],
+)
+
 # The static audit of class 1 (pointer-keyed containers whose iteration
 # order follows the allocator). It needs no flow runs, so it is the part
 # of the campaign that produces evidence before any arm has been run.
