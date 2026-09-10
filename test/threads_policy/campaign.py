@@ -709,6 +709,7 @@ def main():
     written = 0
     skipped = 0
     failed = 0
+    undeployable = []
     for design in args.designs:
         for stage in args.stages:
             wanted = [
@@ -724,9 +725,18 @@ def main():
                 continue
 
             print("\n=== {} {}".format(design, stage))
-            deploy = deployment.Deployment(
-                deploy_stage(DESIGNS[design], stage, args.verbose)
-            )
+            # A design this repo has never built, or a stage that fails
+            # to build, must not end a campaign that has hours of other
+            # arms still to run. Reported loudly and skipped; a resumed
+            # run retries it, since nothing was recorded.
+            try:
+                deploy = deployment.Deployment(
+                    deploy_stage(DESIGNS[design], stage, args.verbose)
+                )
+            except SystemExit as error:
+                print("  SKIPPED: {}".format(error))
+                undeployable.append("{} {}: {}".format(design, stage, error))
+                continue
 
             def record_arm(arm):
                 threads, repeat = arm
@@ -783,6 +793,12 @@ def main():
         "\nwrote {} arm(s), {} of them failed or hung, skipped {} already "
         "present".format(written, failed, skipped)
     )
+    if undeployable:
+        # Named individually, because "8 stages did not build" hides
+        # which design is missing from every table that follows.
+        print("\n{} (design, stage) pair(s) never deployed:".format(len(undeployable)))
+        for line in undeployable:
+            print("  {}".format(line))
     print("results in {}".format(results_dir))
 
 
