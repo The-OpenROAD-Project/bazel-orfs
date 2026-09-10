@@ -15,6 +15,15 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 # wildcard build. The three unit tests are the only non-manual targets.
 package(default_visibility = ["//visibility:private"])
 
+# The invariance probe is run by //test, because RESULTS_DIR derives
+# from the package declaring the run and a probe declared elsewhere
+# fails with ORD-0007. The script stays here, with the rest of the
+# study, and is exported to the one package that runs it.
+exports_files(
+    ["mt_invariance.tcl"],
+    visibility = ["//test:__pkg__"],
+)
+
 # The one reader of what ORFS already writes into a substep log: wall
 # time, CPU time, achieved parallelism, peak RSS, the ORD-0030 thread
 # witness and ORFS's own hash of the substep result.

@@ -2506,3 +2506,80 @@ sh_test(
         "@orfs//tools/FakeRAM2.0:all_files",
     ],
 )
+
+# STA and rsz thread-count invariance, as a test rather than as a study.
+#
+# bazel-orfs#970's central point: thread-count non-idempotency in
+# OpenSTA has been found and fixed at least four times (ORFS#3046,
+# ORFS#3180, OpenROAD#9781, the Feb-2026 fork fence), every time by a
+# flow user diffing outputs and never by a test. OpenROAD's regressions
+# run single-threaded; gpl has `mt_invariance01`, STA has nothing. This
+# is the missing one, in this repo, non-manual, on a design CI already
+# builds.
+#
+# Declared here rather than in //test/threads_policy because RESULTS_DIR
+# derives from the package declaring the run: a probe declared elsewhere
+# fails with ORD-0007. The script lives with the rest of the study.
+#
+# Two arms of one script, diffed against each other rather than against
+# a checked-in golden, so the pair cannot drift apart when the design or
+# the tool moves -- both arms move together and only the difference
+# between them is asserted.
+#
+# What this vehicle does and does not cover: repair_timing on
+# lb_32x128's cts ODB resizes 8 instances against real setup violations,
+# so it is a live repair and not a no-op, but it is a small design and
+# the parallel regions inside STA barely engage at this size. It is
+# therefore a guard against a *regression* reaching this repo, not
+# evidence that STA is thread-invariant in general -- that is what the
+# //test/threads_policy campaign measures, across designs large enough
+# for the thread count to matter. A bigger vehicle here would cost CI
+# minutes on every push.
+[
+    orfs_run(
+        name = "lb_32x128_mt_invariance_t{}".format(threads),
+        src = ":lb_32x128_cts",
+        outs = [
+            "results/asap7/lb_32x128/base/mt_invariance_t{}.rpt".format(threads),
+            "results/asap7/lb_32x128/base/mt_invariance_t{}.odb".format(threads),
+        ],
+        # No FLOW_VARIANT override: the src stage's outputs are staged
+        # into its own variant, so an arm that renames the variant
+        # cannot find the 4_cts.odb it is supposed to load (ORD-0007).
+        # The arms are kept apart by naming their outputs instead --
+        # separate actions, separate declared outputs, same directory.
+        extra_args = " ".join([
+            "MT_REPORT=$WORK_HOME/results/asap7/lb_32x128/base/mt_invariance_t{}.rpt".format(threads),
+            "MT_ODB=$WORK_HOME/results/asap7/lb_32x128/base/mt_invariance_t{}.odb".format(threads),
+        ]),
+        script = "//test/threads_policy:mt_invariance.tcl",
+        user_arguments = {
+            "MT_THREADS": str(threads),
+        },
+    )
+    for threads in [
+        1,
+        8,
+    ]
+]
+
+# The assertion. check_same.sh takes file pairs and stops at the first
+# binary difference, so the readable report goes first: it names which
+# number moved, where a bare .odb diff would only say the bytes differ.
+sh_test(
+    name = "lb_32x128_mt_invariance_test",
+    srcs = ["@openroad//test/orfs:check_same.sh"],
+    args = [
+        "$(location :results/asap7/lb_32x128/base/mt_invariance_t1.rpt)",
+        "$(location :results/asap7/lb_32x128/base/mt_invariance_t8.rpt)",
+        "$(location :results/asap7/lb_32x128/base/mt_invariance_t1.odb)",
+        "$(location :results/asap7/lb_32x128/base/mt_invariance_t8.odb)",
+    ],
+    data = [
+        ":results/asap7/lb_32x128/base/mt_invariance_t1.odb",
+        ":results/asap7/lb_32x128/base/mt_invariance_t1.rpt",
+        ":results/asap7/lb_32x128/base/mt_invariance_t8.odb",
+        ":results/asap7/lb_32x128/base/mt_invariance_t8.rpt",
+    ],
+    tags = ["orfs"],
+)
