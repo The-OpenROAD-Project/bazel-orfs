@@ -281,7 +281,9 @@ def attribution_rows(records, arm_prefix="base"):
             if key in seen:
                 continue
             seen.add(key)
-            prof = list(call["profile"].values())[-1]
+            # The accumulators are cumulative across phases, so the line
+            # with the most passes is the run's total (JSON re-sorts keys).
+            prof = max(call["profile"].values(), key=lambda p: p.get("passes", 0))
             total = call.get("setup_s") or 0
             accounted = sum(prof.get(k, 0) for k, _ in PROFILE_COLUMNS)
             phase = prof.get("phase_s")
