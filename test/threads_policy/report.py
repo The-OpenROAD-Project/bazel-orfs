@@ -180,7 +180,9 @@ def section_decision(cells, records):
         "Negative delta means the proposal is faster. `cpu%` is achieved",
         "parallelism as ORFS's own log reports it; `cpu-s` is user+sys, the",
         "work actually spent. A substep marked *thread-blind* used one core's",
-        "worth of CPU at `-threads {}`, so it measures nothing about thread".format(threads),
+        "worth of CPU at `-threads {}`, so it measures nothing about thread".format(
+            threads
+        ),
         "policy and is excluded from the roll-up.",
         "",
         "| design | stage | substep | wall @{} | wall @{} | delta | 2 sigma | verdict | cpu% @{} | cpu% @{} | cpu-s @{} | cpu-s @{} | same result |".format(
@@ -198,15 +200,25 @@ def section_decision(cells, records):
             same = "**NO**"
         runs = min(base.n, arm.n)
         spread = (
-            "n/a ({} run)".format(runs) if runs < 2
+            "n/a ({} run)".format(runs)
+            if runs < 2
             else "{:.1f}s".format(max(base.wall2s, arm.wall2s))
         )
         out.append(
             "| {} | {} | `{}` | {:.1f}s | {:.1f}s | {} | {} | {} | {:.0f}% | {:.0f}% | {:.0f} | {:.0f} | {} |".format(
-                design, stage, step, base.wall, arm.wall,
+                design,
+                stage,
+                step,
+                base.wall,
+                arm.wall,
                 "-" if delta is None else "{:+.1f}%".format(delta),
-                spread, how,
-                base.cpu, arm.cpu, base.user_sys, arm.user_sys, same,
+                spread,
+                how,
+                base.cpu,
+                arm.cpu,
+                base.user_sys,
+                arm.user_sys,
+                same,
             )
         )
     return "\n".join(out) + "\n"
@@ -242,17 +254,28 @@ def section_rollup(cells, records):
         "",
         "```",
         "{:<12} {:<6} {:>9} {:>9} {:>8}   {}".format(
-            "design", "stage", "@{}".format(threads), "@{}".format(cores),
-            "delta", "wall @{} vs @{}".format(threads, cores)),
+            "design",
+            "stage",
+            "@{}".format(threads),
+            "@{}".format(cores),
+            "delta",
+            "wall @{} vs @{}".format(threads, cores),
+        ),
     ]
     for (design, stage), (w_hi, w_lo, c_hi, c_lo) in sorted(
         totals.items(), key=lambda kv: (kv[0][0], STAGE_ORDER.index(kv[0][1]))
     ):
         delta = 100.0 * (w_lo - w_hi) / w_hi if w_hi else 0.0
-        out.append("{:<12} {:<6} {:>8.1f}s {:>8.1f}s {:>7.1f}%   {} @{}".format(
-            design, stage, w_hi, w_lo, delta, bar(w_hi, biggest), threads))
-        out.append("{:<12} {:<6} {:>8}  {:>8}  {:>8}   {} @{}".format(
-            "", "", "", "", "", bar(w_lo, biggest), cores))
+        out.append(
+            "{:<12} {:<6} {:>8.1f}s {:>8.1f}s {:>7.1f}%   {} @{}".format(
+                design, stage, w_hi, w_lo, delta, bar(w_hi, biggest), threads
+            )
+        )
+        out.append(
+            "{:<12} {:<6} {:>8}  {:>8}  {:>8}   {} @{}".format(
+                "", "", "", "", "", bar(w_lo, biggest), cores
+            )
+        )
     out.append("```")
     out.append("")
     out.append(
@@ -283,8 +306,10 @@ def section_sweep(cells, records):
             continue
         series[(design, stage, step)][t] = cell
     plotted = {
-        key: arms for key, arms in series.items()
-        if set(arms) >= set(have) and max(a.cpu for a in arms.values()) > THREAD_BLIND_CPU_PCT
+        key: arms
+        for key, arms in series.items()
+        if set(arms) >= set(have)
+        and max(a.cpu for a in arms.values()) > THREAD_BLIND_CPU_PCT
     }
     if not plotted:
         return "### Where the curve saturates\n\n**Not measured.**\n"
@@ -316,17 +341,30 @@ def section_sweep(cells, records):
         "",
     ]
 
-    out += ["```", "{:<12} {:<6} {:<22} {}".format(
-        "design", "stage", "substep",
-        " ".join("{:>9}".format("t=" + str(a)) for a in arms))]
+    out += [
+        "```",
+        "{:<12} {:<6} {:<22} {}".format(
+            "design",
+            "stage",
+            "substep",
+            " ".join("{:>9}".format("t=" + str(a)) for a in arms),
+        ),
+    ]
     for key in sorted(plotted):
         row = plotted[key]
-        out.append("{:<12} {:<6} {:<22} {}".format(
-            key[0], key[1], key[2],
-            " ".join("{:>8.1f}s".format(row[a].wall) for a in arms)))
-        out.append("{:<12} {:<6} {:<22} {}".format(
-            "", "", "  cpu%",
-            " ".join("{:>8.0f}%".format(row[a].cpu) for a in arms)))
+        out.append(
+            "{:<12} {:<6} {:<22} {}".format(
+                key[0],
+                key[1],
+                key[2],
+                " ".join("{:>8.1f}s".format(row[a].wall) for a in arms),
+            )
+        )
+        out.append(
+            "{:<12} {:<6} {:<22} {}".format(
+                "", "", "  cpu%", " ".join("{:>8.0f}%".format(row[a].cpu) for a in arms)
+            )
+        )
     out += ["```", ""]
     if cores in arms:
         out.append(
@@ -365,8 +403,11 @@ def section_pinning(cells, records):
         if not free:
             continue
         delta = 100.0 * (cell.wall - free.wall) / free.wall if free.wall else 0.0
-        out.append("| {} | {} | `{}` | {} | {:.1f}s | {:.1f}s | {:+.1f}% |".format(
-            design, stage, step, t, free.wall, cell.wall, delta))
+        out.append(
+            "| {} | {} | `{}` | {} | {:.1f}s | {:.1f}s | {:+.1f}% |".format(
+                design, stage, step, t, free.wall, cell.wall, delta
+            )
+        )
     return "\n".join(out) + "\n"
 
 
@@ -411,11 +452,12 @@ def section_work_changed(cells):
         "| --- | --- | --- | --: |",
     ]
     for (design, stage, step), hashes, unproven in offenders:
-        out.append("| {} | {} | `{}` | {}{} |".format(
-            design, stage, step, len(hashes), " (some unproven)" if unproven else ""))
+        out.append(
+            "| {} | {} | `{}` | {}{} |".format(
+                design, stage, step, len(hashes), " (some unproven)" if unproven else ""
+            )
+        )
     return "\n".join(out) + "\n"
-
-
 
 
 def _common_arms(per_key, arms):
@@ -437,13 +479,14 @@ def _common_arms(per_key, arms):
     best_score = 0
     for size in range(len(arms), 1, -1):
         for start in range(0, len(arms) - size + 1):
-            subset = list(arms[start:start + size])
+            subset = list(arms[start : start + size])
             keys = [k for k in per_key if all(a in per_key[k] for a in subset)]
             if not keys:
                 continue
             score = len(keys) * len(subset)
-            if score > best_score or (score == best_score
-                                      and len(subset) > len(best[1])):
+            if score > best_score or (
+                score == best_score and len(subset) > len(best[1])
+            ):
                 best, best_score = (keys, subset), score
     return best
 
@@ -462,8 +505,13 @@ def phase_index(records):
             for ph in got.get("phases", []):
                 per_arm[ph["name"]] += ph["seconds"]
         for name, secs in per_arm.items():
-            key = (rec["design"], rec["stage"], name, rec["threads"],
-                   bool(rec.get("pinned")))
+            key = (
+                rec["design"],
+                rec["stage"],
+                name,
+                rec["threads"],
+                bool(rec.get("pinned")),
+            )
             buckets[key].append(secs)
     return {k: mean(v) for k, v in buckets.items()}
 
@@ -495,12 +543,15 @@ def section_ladder(cells, records):
         "### The scaling ladder",
         "",
         "Wall time summed over every measured design, per stage, against",
-        "`-threads`. The ceiling on this host is {} (hardware threads);".format(ceiling),
+        "`-threads`. The ceiling on this host is {} (hardware threads);".format(
+            ceiling
+        ),
         "{} is the physical core count.".format(cores),
         "",
         "```",
         "{:<7} {}   {}".format(
-            "stage", " ".join("{:>9}".format("t=" + str(a)) for a in arms), "best"),
+            "stage", " ".join("{:>9}".format("t=" + str(a)) for a in arms), "best"
+        ),
     ]
     for stage in STAGE_ORDER:
         if stage not in totals:
@@ -509,19 +560,22 @@ def section_ladder(cells, records):
         if not all(a in row for a in arms):
             continue
         best = min(arms, key=lambda a: row[a])
-        out.append("{:<7} {}   t={}{}".format(
-            stage,
-            " ".join("{:>8.1f}s".format(row[a]) for a in arms),
-            best,
-            " (ceiling)" if best == ceiling else "",
-        ))
+        out.append(
+            "{:<7} {}   t={}{}".format(
+                stage,
+                " ".join("{:>8.1f}s".format(row[a]) for a in arms),
+                best,
+                " (ceiling)" if best == ceiling else "",
+            )
+        )
     out += ["```", ""]
 
     # Mermaid renders on GitHub; the table above is the fallback that
     # cannot fail to render, so the chart is a bonus rather than the
     # evidence.
-    plotted = [s for s in STAGE_ORDER
-               if s in totals and all(a in totals[s] for a in arms)]
+    plotted = [
+        s for s in STAGE_ORDER if s in totals and all(a in totals[s] for a in arms)
+    ]
     if plotted:
         biggest = max(plotted, key=lambda s: max(totals[s].values()))
         out += [
@@ -531,7 +585,8 @@ def section_ladder(cells, records):
             '    x-axis "-threads" [{}]'.format(", ".join(str(a) for a in arms)),
             '    y-axis "wall seconds"',
             "    line [{}]".format(
-                ", ".join("{:.1f}".format(totals[biggest][a]) for a in arms)),
+                ", ".join("{:.1f}".format(totals[biggest][a]) for a in arms)
+            ),
             "```",
             "",
         ]
@@ -580,8 +635,7 @@ def section_regions(records, cells):
             "comparable coverage across two or more thread arms.\n"
         )
 
-    ranked = sorted(regions.items(),
-                    key=lambda kv: -max(kv[1].values()))
+    ranked = sorted(regions.items(), key=lambda kv: -max(kv[1].values()))
     out = [
         "### Per-region ladder",
         "",
@@ -593,16 +647,23 @@ def section_regions(records, cells):
         "{:<26} {}   {}".format(
             "region (flow command)",
             " ".join("{:>9}".format("t=" + str(a)) for a in arms),
-            "best"),
+            "best",
+        ),
     ]
     for name, row in ranked:
         n_sites, usable = coverage[name]
         best = min(usable, key=lambda a: row[a])
-        out.append("{:<26} {}   t={:<3} {:>2} sites".format(
-            name,
-            " ".join(("{:>8.1f}s".format(row[a]) if a in row else "        -")
-                     for a in arms),
-            best, n_sites))
+        out.append(
+            "{:<26} {}   t={:<3} {:>2} sites".format(
+                name,
+                " ".join(
+                    ("{:>8.1f}s".format(row[a]) if a in row else "        -")
+                    for a in arms
+                ),
+                best,
+                n_sites,
+            )
+        )
     out += ["```", ""]
     out.append(
         "`sites` is the number of (design, stage) pairs a row pools, and only "
@@ -657,10 +718,10 @@ def section_potential(cells, records):
         base = walls[ceiling]
         best_t = min(walls, key=lambda t: walls[t])
         gain = 100.0 * (walls[best_t] - base) / base if base else 0.0
-        spread = max(max(per[stage][d][t][1] for d in designs)
-                     for t in (ceiling, best_t))
-        runs = min(min(per[stage][d][t][2] for d in designs)
-                   for t in (ceiling, best_t))
+        spread = max(
+            max(per[stage][d][t][1] for d in designs) for t in (ceiling, best_t)
+        )
+        runs = min(min(per[stage][d][t][2] for d in designs) for t in (ceiling, best_t))
         res = resolution(spread, runs)
         resolves = best_t != ceiling and abs(walls[best_t] - base) > res
         # The comparison basis is always stated. Dropping designs is as
@@ -670,12 +731,20 @@ def section_potential(cells, records):
         if len(usable) != len(arms):
             scope += ", t={}".format(",".join(str(a) for a in usable))
         scope += "]"
-        out.append("| {}{} | {:.1f}s | t={} | {} | {} |".format(
-            stage, scope, base, best_t,
-            "-" if best_t == ceiling else "{:+.1f}%".format(gain),
-            "at ceiling" if best_t == ceiling
-            else ("yes" if resolves else "**no**"),
-        ))
+        out.append(
+            "| {}{} | {:.1f}s | t={} | {} | {} |".format(
+                stage,
+                scope,
+                base,
+                best_t,
+                "-" if best_t == ceiling else "{:+.1f}%".format(gain),
+                (
+                    "at ceiling"
+                    if best_t == ceiling
+                    else ("yes" if resolves else "**no**")
+                ),
+            )
+        )
         total_ceiling += base
         total_best += walls[best_t] if resolves else base
 
@@ -685,8 +754,10 @@ def section_potential(cells, records):
             "Flow total over the measured stages: **{:.0f}s at the ceiling, "
             "{:.0f}s under a per-stage choice ({:+.1f}%)** -- counting only "
             "the stages whose gain resolves.".format(
-                total_ceiling, total_best,
-                100.0 * (total_best - total_ceiling) / total_ceiling),
+                total_ceiling,
+                total_best,
+                100.0 * (total_best - total_ceiling) / total_ceiling,
+            ),
         ]
     return "\n".join(out) + "\n"
 
@@ -717,8 +788,8 @@ def section_reconciliation(records):
         "**{} of {} substep samples over-attribute** -- phases were counted "
         "that overlap. Treat the per-region table as suspect until that is "
         "fixed.".format(bad, checked)
-        if bad else
-        "All {} substep samples reconcile: no phase stack exceeds the wall "
+        if bad
+        else "All {} substep samples reconcile: no phase stack exceeds the wall "
         "time it splits.".format(checked)
     )
     return (
@@ -726,9 +797,9 @@ def section_reconciliation(records):
         "{}\n\n"
         "{:.0f}% of measured wall time is attributed to a named phase; the "
         "rest is reported as unattributed rather than distributed.\n".format(
-            verdict, frac)
+            verdict, frac
+        )
     )
-
 
 
 # Which code owns each phase name the logs produce. Used only to group
@@ -757,8 +828,8 @@ PHASE_OWNER = {
 SUBSTEP_OWNER = {
     "3_1_place_gp_skip_io": "gpl",
     "3_3_place_gp": "gpl",
-    "3_2_place_iop": None,          # single-threaded
-    "5_3_fillcell": None,           # single-threaded
+    "3_2_place_iop": None,  # single-threaded
+    "5_3_fillcell": None,  # single-threaded
     "5_2_route": "drt",
     "4_1_cts": "cts + OpenSTA",
     "3_4_place_resized": "rsz + OpenSTA",
@@ -801,9 +872,11 @@ def _opportunity(cells, records):
         region = None
         if stamped:
             hi = stamped[-1]
-            rise = {n: pts[hi] - min(pts.values())
-                    for n, pts in curve.items()
-                    if hi in pts and len(pts) > 1}
+            rise = {
+                n: pts[hi] - min(pts.values())
+                for n, pts in curve.items()
+                if hi in pts and len(pts) > 1
+            }
             if rise:
                 worst = max(rise, key=lambda n: rise[n])
                 if rise[worst] > 0:
@@ -813,8 +886,17 @@ def _opportunity(cells, records):
             # No phase attribution for this substep; fall back to what
             # the substep itself is, rather than dropping its seconds.
             owner = SUBSTEP_OWNER.get(step)
-        rows.append((walls[ceiling] - walls[best], step, region,
-                     owner, best, walls[ceiling], walls[best]))
+        rows.append(
+            (
+                walls[ceiling] - walls[best],
+                step,
+                region,
+                owner,
+                best,
+                walls[ceiling],
+                walls[best],
+            )
+        )
     total = sum(max(0.0, r[0]) for r in rows)
     return rows, total, measured, ceiling
 
@@ -846,7 +928,8 @@ def section_tldr(cells, records):
         "",
         "On the evidence below -- {:.0f}s of {:.0f}s available across "
         "{} asap7 designs -- what is left after it:".format(
-            total, measured, len({k[0] for k in cells})),
+            total, measured, len({k[0] for k in cells})
+        ),
         "",
         "| do this next | worth | vs gpl |",
         "| --- | --: | --: |",
@@ -854,14 +937,17 @@ def section_tldr(cells, records):
     # Only owners worth listing get a row; the rest is one number, so
     # the reader is not asked to weigh six things that do not matter.
     THRESHOLD = 0.05
-    listed = [(o, v) for o, v in ranked
-              if o != "gpl" and v / total >= THRESHOLD]
+    listed = [(o, v) for o, v in ranked if o != "gpl" and v / total >= THRESHOLD]
     for owner, secs in listed:
         out.append(
             "| **{}** -- cap at ~the core count | {:.0f}s ({:.0f}% of "
             "what is left) | {} |".format(
-                owner, secs, 100.0 * secs / total,
-                "{:.1f}x".format(secs / gpl) if gpl else "n/a"))
+                owner,
+                secs,
+                100.0 * secs / total,
+                "{:.1f}x".format(secs / gpl) if gpl else "n/a",
+            )
+        )
     rest = total - gpl - sum(v for _o, v in listed)
     out += [
         "",
@@ -870,9 +956,13 @@ def section_tldr(cells, records):
         "large design -- there is no third thing worth doing on this "
         "evidence.".format(
             rest,
-            sum(1 for r in rows
-                if r[0] > 0 and PHASE_OWNER.get(r[2]) not in
-                [o for o, _v in listed] + ["gpl"])),
+            sum(
+                1
+                for r in rows
+                if r[0] > 0
+                and PHASE_OWNER.get(r[2]) not in [o for o, _v in listed] + ["gpl"]
+            ),
+        ),
         "",
         "### Do not do these",
         "",
@@ -881,7 +971,7 @@ def section_tldr(cells, records):
         "- **Do not lower ORFS's `NUM_CORES` default.** It is the ceiling,",
         "  not a target. Deriving it from physical cores is wall-neutral",
         "  overall *and* would cap `drt`.",
-        "- **Do not \"tune grt\".** FastRoute is a few percent of `5_1_grt`;",
+        '- **Do not "tune grt".** FastRoute is a few percent of `5_1_grt`;',
         "  that stage's win is `repair_timing`, which is rsz and OpenSTA.",
         "",
         "### Two things to know before scheduling the next one",
@@ -905,6 +995,7 @@ def section_tldr(cells, records):
         "",
     ]
     return "\n".join(out) + "\n"
+
 
 def substep_phase_index(records):
     """(design, substep, phase, threads) -> seconds, summed within an arm."""
@@ -959,8 +1050,7 @@ def section_priority(cells, records):
         # cannot be what a cap recovers. The region responsible is the
         # one whose seconds *rise* between the cheapest and dearest
         # stamped arms.
-        stamped = sorted({t for (d, st, n, t) in idx
-                          if st == step and d in designs})
+        stamped = sorted({t for (d, st, n, t) in idx if st == step and d in designs})
         dominant = None
         if len(stamped) >= 2:
             # Per region: seconds at each stamped arm, then the rise from
@@ -981,8 +1071,9 @@ def section_priority(cells, records):
             worst = max(rise, key=lambda n: rise[n]) if rise else None
             if worst is not None and rise[worst] > 0:
                 dominant = worst
-        rows.append((saving, step, walls[ceiling], walls[best], best,
-                     dominant, len(designs)))
+        rows.append(
+            (saving, step, walls[ceiling], walls[best], best, dominant, len(designs))
+        )
 
     if not rows:
         return "### Where to look next\n\n**Not measured.**\n"
@@ -1019,28 +1110,35 @@ def section_priority(cells, records):
         rows, reverse=True
     ):
         share = 100.0 * saving / total if saving > 0 else 0.0
-        wants = ("**the ceiling** -- capping costs time"
-                 if best_t == ceiling else "t={}".format(best_t))
-        out.append("| `{}` | {} | {:.1f}s | {:.1f}s | {} | {} | {} |".format(
-            step,
-            dominant or "_unattributed_",
-            ceil_v, best_v,
-            "-" if saving <= 0 else "{:.1f}s".format(saving),
-            "-" if saving <= 0 else "{:.0f}%".format(share),
-            wants,
-        ))
+        wants = (
+            "**the ceiling** -- capping costs time"
+            if best_t == ceiling
+            else "t={}".format(best_t)
+        )
+        out.append(
+            "| `{}` | {} | {:.1f}s | {:.1f}s | {} | {} | {} |".format(
+                step,
+                dominant or "_unattributed_",
+                ceil_v,
+                best_v,
+                "-" if saving <= 0 else "{:.1f}s".format(saving),
+                "-" if saving <= 0 else "{:.0f}%".format(share),
+                wants,
+            )
+        )
     out += [
         "",
         "Total available: **{:.0f}s** of {:.0f}s measured "
         "(**{:.0f}%**).".format(
-            total, sum(r[2] for r in rows),
-            100.0 * total / sum(r[2] for r in rows)),
+            total, sum(r[2] for r in rows), 100.0 * total / sum(r[2] for r in rows)
+        ),
         "",
         "The tail is genuinely a tail: everything below the top two rows "
         "adds up to less than the run-to-run spread on a single large "
         "design, so there is no third thing worth doing on this evidence.",
     ]
     return "\n".join(out) + "\n"
+
 
 def csv_rows(records):
     header = (
@@ -1054,10 +1152,19 @@ def csv_rows(records):
         for step, got in sorted(rec["substeps"].items()):
             rows.append(
                 "{},{},{},{},{},{},{:.2f},{:.2f},{:.2f},{},{},{},{},{:.2f}".format(
-                    rec["design"], rec["stage"], step, rec["threads"],
-                    int(bool(rec.get("pinned"))), rec["repeat"],
-                    got["wall_s"], got["user_s"], got["sys_s"], got["cpu_pct"],
-                    got["peak_kb"], got["threads"], got.get("result_sha1") or "",
+                    rec["design"],
+                    rec["stage"],
+                    step,
+                    rec["threads"],
+                    int(bool(rec.get("pinned"))),
+                    rec["repeat"],
+                    got["wall_s"],
+                    got["user_s"],
+                    got["sys_s"],
+                    got["cpu_pct"],
+                    got["peak_kb"],
+                    got["threads"],
+                    got.get("result_sha1") or "",
                     rec.get("loadavg_at_start", 0.0),
                 )
             )
@@ -1070,25 +1177,27 @@ def raw_comment(records):
         return "No samples recorded.\n"
     rows = csv_rows(records)
     prov = records[0]["provenance"]
-    return "\n".join([
-        "## Raw samples",
-        "",
-        "Every measurement behind the tables in the PR body. One row per",
-        "(design, stage, substep, thread arm, repeat). `threads_witnessed` is",
-        "what OpenROAD's `ORD-0030` line reported it actually installed --",
-        "proof the arm measured the thread count it claims. `result_sha1` is",
-        "ORFS's own hash of that substep's output, so identical work can be",
-        "verified rather than assumed.",
-        "",
-        "Host: {}".format(host_line(records)),
-        "",
-        "```csv",
-        "\n".join(rows),
-        "```",
-        "",
-        "{} rows.".format(len(rows) - 1),
-        "",
-    ])
+    return "\n".join(
+        [
+            "## Raw samples",
+            "",
+            "Every measurement behind the tables in the PR body. One row per",
+            "(design, stage, substep, thread arm, repeat). `threads_witnessed` is",
+            "what OpenROAD's `ORD-0030` line reported it actually installed --",
+            "proof the arm measured the thread count it claims. `result_sha1` is",
+            "ORFS's own hash of that substep's output, so identical work can be",
+            "verified rather than assumed.",
+            "",
+            "Host: {}".format(host_line(records)),
+            "",
+            "```csv",
+            "\n".join(rows),
+            "```",
+            "",
+            "{} rows.".format(len(rows) - 1),
+            "",
+        ]
+    )
 
 
 def body(records, cells):
@@ -1109,16 +1218,15 @@ def body(records, cells):
         "",
         section_tldr(cells, records),
         "`NUM_CORES` -> `openroad -threads N` is a **ceiling**: what a job is",
-        "permitted to use, not a target. So the question is not \"cores or",
-        "hardware threads\" but, per parallel region, how far *below* the",
+        'permitted to use, not a target. So the question is not "cores or',
+        'hardware threads" but, per parallel region, how far *below* the',
         "ceiling that region wants to sit -- and why.",
         "",
         "Measured over {} asap7 design{}, {} thread counts, and every".format(
-            len(designs), "" if len(designs) == 1 else "s",
-            len(arms_present(cells))),
+            len(designs), "" if len(designs) == 1 else "s", len(arms_present(cells))
+        ),
         "substep from place through route.",
         "",
-
         "**Host:** {}".format(host_line(records)),
         "",
         "**Designs:** {}".format(", ".join("`{}`".format(d) for d in designs)),
@@ -1191,14 +1299,14 @@ def body(records, cells):
         "between detailed route and everything else, and it is a mechanism",
         "rather than a correlation.",
         "",
-        "**gpl\'s optimum moves with design size**, so a constant is the",
+        "**gpl's optimum moves with design size**, so a constant is the",
         "wrong shape for it. The gain from halving shrinks monotonically as",
         "designs grow across this set, and #11368 measures a 1.28M-instance",
         "design preferring the core count -- the same curve, sampled",
         "further along. That argues for a work-per-thread heuristic rather",
         "than a fixed cap.",
         "",
-        "**What should not change:** ORFS\'s `NUM_CORES` default. Deriving",
+        "**What should not change:** ORFS's `NUM_CORES` default. Deriving",
         "it from physical cores is wall-neutral overall and would cap",
         "detailed route, which genuinely uses the hardware threads. A",
         "ceiling is not the place to encode a per-region preference. For",
@@ -1226,8 +1334,9 @@ def body(records, cells):
         "",
         "Stated here so they are not discovered later.",
         "",
-        "- **One machine, one microarchitecture, one SMT ratio** ({}/{} = 2x)."
-        .format(threads, cores),
+        "- **One machine, one microarchitecture, one SMT ratio** ({}/{} = 2x).".format(
+            threads, cores
+        ),
         "  This cannot show that cores-not-threads is right in general, only",
         "  that the hardware threads are not paying for themselves here.",
         "  Counter-data from other hosts is the point of publishing the",
@@ -1270,12 +1379,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results", default=None)
     parser.add_argument("--body", action="store_true", help="emit the PR body")
-    parser.add_argument("--raw", action="store_true", help="emit the raw-sample comment")
+    parser.add_argument(
+        "--raw", action="store_true", help="emit the raw-sample comment"
+    )
     args = parser.parse_args()
 
     results_dir = args.results or os.path.join(
         os.environ.get("BUILD_WORKSPACE_DIRECTORY") or os.getcwd(),
-        "tmp", "threads_policy", "results",
+        "tmp",
+        "threads_policy",
+        "results",
     )
     records = load(results_dir)
     if not records:

@@ -76,6 +76,7 @@ DESIGNS = {
     "tinyRocket": "@orfs//flow/designs/asap7/tinyRocket:RocketTile",
 }
 
+
 # Physical cores and hardware threads on the measurement host. The whole
 # study is the difference between these two numbers, so they are read
 # from the machine rather than assumed.
@@ -145,6 +146,7 @@ def provenance():
     Recorded with every sample, because a wall-clock measurement without
     it is not reproducible and not challengeable.
     """
+
     def read(path):
         try:
             with open(path) as handle:
@@ -294,8 +296,11 @@ def run_arm(deploy_dir, stage, threads, pin, verbose, stamp_logs=True):
         # reaches the *stage* logs only because carried patch 0048 made
         # flow.sh honour RUN_CMD; before it, RUN_CMD governed the
         # peripheral logs and not the one anybody reads.
-        argv.append("RUN_CMD={} {}".format(
-            sys.executable, os.path.join(workspace(), "log_timestamps.py")))
+        argv.append(
+            "RUN_CMD={} {}".format(
+                sys.executable, os.path.join(workspace(), "log_timestamps.py")
+            )
+        )
 
     started = time.time()
     out = subprocess.run(
@@ -308,9 +313,7 @@ def run_arm(deploy_dir, stage, threads, pin, verbose, stamp_logs=True):
     wall = time.time() - started
     if out.returncode != 0:
         sys.stderr.write(out.stdout[-6000:])
-        raise SystemExit(
-            "arm failed: {} threads={} pin={}".format(stage, threads, pin)
-        )
+        raise SystemExit("arm failed: {} threads={} pin={}".format(stage, threads, pin))
     if verbose:
         print("      make wall {:.1f}s".format(wall))
     return wall
@@ -323,9 +326,7 @@ def collect(deploy_dir, stage, threads):
     for step in STAGE_SUBSTEPS[stage]:
         path = os.path.join(logs, step + ".log")
         if not os.path.exists(path):
-            raise SystemExit(
-                "{} left no log: the substep did not run".format(step)
-            )
+            raise SystemExit("{} left no log: the substep did not run".format(step))
         got = elapsed.parse_log(path)
 
         # Assertion: the knob arrived. A timing number for the wrong
@@ -367,7 +368,8 @@ def collect(deploy_dir, stage, threads):
             except ValueError:
                 metrics = {}
             got["tool_metrics"] = {
-                k: v for k, v in metrics.items()
+                k: v
+                for k, v in metrics.items()
                 if "fastroute" in k or k.endswith("__iter") or "runtime" in k.lower()
             }
 
@@ -399,25 +401,35 @@ def main():
         "--designs", nargs="+", default=sorted(DESIGNS), choices=sorted(DESIGNS)
     )
     parser.add_argument(
-        "--stages", nargs="+", default=["place", "cts", "grt", "route"],
+        "--stages",
+        nargs="+",
+        default=["place", "cts", "grt", "route"],
         choices=sorted(STAGE_SUBSTEPS),
     )
     parser.add_argument(
-        "--threads", nargs="+", type=int, default=None,
+        "--threads",
+        nargs="+",
+        type=int,
+        default=None,
         help="thread counts to measure; default is cores and hw threads",
     )
-    parser.add_argument("--pin", action="store_true", help="taskset to one CPU per core")
+    parser.add_argument(
+        "--pin", action="store_true", help="taskset to one CPU per core"
+    )
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument(
-        "--max-load", type=float, default=1.0,
+        "--max-load",
+        type=float,
+        default=1.0,
         help="refuse to record if 1-minute loadavg exceeds this at arm start",
     )
     parser.add_argument("--results", default=None)
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
-        "--no-stamp-logs", action="store_true",
+        "--no-stamp-logs",
+        action="store_true",
         help="do not override RUN_CMD; drops per-phase elapsed stamps. Use "
-             "to check whether stamping perturbs the timing it measures.",
+        "to check whether stamping perturbs the timing it measures.",
     )
     args = parser.parse_args()
 
@@ -432,11 +444,19 @@ def main():
     os.makedirs(results_dir, exist_ok=True)
 
     prov = provenance()
-    print("host: {} cores / {} hw threads, governor {}, boost {}".format(
-        prov["physical_cores"], prov["hardware_threads"],
-        prov["governor"], prov["boost"]))
-    print("arms: threads={} pin={} repeats={}".format(
-        threads_arms, args.pin, args.repeats))
+    print(
+        "host: {} cores / {} hw threads, governor {}, boost {}".format(
+            prov["physical_cores"],
+            prov["hardware_threads"],
+            prov["governor"],
+            prov["boost"],
+        )
+    )
+    print(
+        "arms: threads={} pin={} repeats={}".format(
+            threads_arms, args.pin, args.repeats
+        )
+    )
     print("results: {}".format(results_dir))
 
     written = 0
@@ -465,10 +485,17 @@ def main():
                 # drain, so wait rather than refuse.
                 load = wait_for_idle(args.max_load)
 
-                print("  threads={}{} repeat={} (load {:.2f})".format(
-                    threads, " pinned" if args.pin else "", repeat, load))
+                print(
+                    "  threads={}{} repeat={} (load {:.2f})".format(
+                        threads, " pinned" if args.pin else "", repeat, load
+                    )
+                )
                 make_wall = run_arm(
-                    deploy_dir, stage, threads, args.pin, args.verbose,
+                    deploy_dir,
+                    stage,
+                    threads,
+                    args.pin,
+                    args.verbose,
                     stamp_logs=not args.no_stamp_logs,
                 )
                 samples = collect(deploy_dir, stage, threads)
@@ -493,8 +520,11 @@ def main():
                     json.dump(record, handle, indent=2, sort_keys=True)
                 written += 1
                 for step, got in samples.items():
-                    print("      {:<22} {:>8.2f}s  {:>5}% cpu".format(
-                        step, got["wall_s"], got["cpu_pct"]))
+                    print(
+                        "      {:<22} {:>8.2f}s  {:>5}% cpu".format(
+                            step, got["wall_s"], got["cpu_pct"]
+                        )
+                    )
 
     print("\nwrote {} arm(s), skipped {} already present".format(written, skipped))
     print("results in {}".format(results_dir))

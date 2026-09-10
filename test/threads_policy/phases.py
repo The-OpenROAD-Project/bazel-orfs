@@ -47,9 +47,7 @@ import re
 _STAMP = re.compile(r"^\[\s*(\d+(?:\.\d+)?)\]\s?", re.M)
 
 # ORFS util.tcl, optionally behind an elapsed stamp. One flow command.
-_TOOK = re.compile(
-    r"^(?:\[\s*\d+(?:\.\d+)?\]\s?)?Took (\d+) seconds: (\S+)(.*)$"
-)
+_TOOK = re.compile(r"^(?:\[\s*\d+(?:\.\d+)?\]\s?)?Took (\d+) seconds: (\S+)(.*)$")
 
 # A tool reporting its own runtime, e.g. "[INFO RSZ-0505] Runtime: 119.68s".
 # Nested inside whichever Took phase encloses it.
@@ -205,8 +203,7 @@ def reconcile(parsed, wall_s, tolerance_s=1.0, tolerance_frac=0.05):
     """
     attributed = parsed["attributed_s"]
     unattributed = wall_s - attributed
-    allowed = max(tolerance_s * max(1, len(parsed["phases"])),
-                  tolerance_frac * wall_s)
+    allowed = max(tolerance_s * max(1, len(parsed["phases"])), tolerance_frac * wall_s)
     return {
         "wall_s": wall_s,
         "attributed_s": attributed,
