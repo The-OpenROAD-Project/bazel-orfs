@@ -64,6 +64,10 @@ _UNREPAIRED = re.compile(_STAMP + r"\[WARNING RSZ-0062\] Unable to repair all se
 _NO_HOLD = re.compile(_STAMP + r"\[INFO RSZ-0033\] No hold violations found")
 _HOLD_BUFFERS = re.compile(_STAMP + r"\[INFO RSZ-0032\] Inserted (\d+) hold buffers")
 
+# The study's instrumentation (patches/0066): one key=value line per
+# phase, seconds and counts, printed by the profiled binary only.
+_PROFILE = re.compile(_STAMP + r"\[RSZ-PROFILE\] (.*)$")
+
 # Which RSZ runtime line belongs to which command.
 RUNTIME_OWNER = {
     "0504": "repair_design",
@@ -130,6 +134,7 @@ def parse_log(text):
                 "rows": [],
                 "unrepaired": False,
                 "hold_buffers": None,
+                "profile": {},
             }
             calls.append(current)
             continue
@@ -182,6 +187,14 @@ def parse_log(text):
         m = _HOLD_BUFFERS.match(line)
         if m:
             current["hold_buffers"] = int(m.group(2))
+            continue
+        m = _PROFILE.match(line)
+        if m:
+            fields = dict(kv.split("=", 1) for kv in m.group(2).split())
+            phase = fields.pop("phase", "?")
+            current["profile"][phase] = {
+                k: (float(v) if "." in v else int(v)) for k, v in fields.items()
+            }
     return calls
 
 
@@ -245,6 +258,7 @@ def summarize(calls):
             "endpoints": call["repairing"][1] if call["repairing"] else None,
             "unrepaired": call["unrepaired"],
             "hold_buffers": call["hold_buffers"],
+            "profile": call["profile"],
             "witness": call["args"],
         }
         prefix = useful_prefix(call["rows"])

@@ -31,6 +31,12 @@ UNSTAMPED = (
     + row(1200, "*", -2017.137, -10173425.0)
     + row(1206, "+", -2015.784, -10172325.0)
     + row("final", "", -2015.784, -10172325.0)
+    + "[RSZ-PROFILE] phase=LEGACY* passes=1200 collect_s=0.50 repair_path_s=300.25 "
+    "generate_s=20.00 commit_s=200.00 parasitics_s=10.00 sta_s=250.00 journal_s=5.00 "
+    "progress_s=60.00 tns_s=1.00 candidates=5000 attempts=3000 accepted=300\n"
+    "[RSZ-PROFILE] phase=LAST_GASP+ passes=1206 collect_s=0.50 repair_path_s=302.00 "
+    "generate_s=20.10 commit_s=201.00 parasitics_s=10.10 sta_s=252.00 journal_s=5.10 "
+    "progress_s=60.50 tns_s=1.00 candidates=5100 attempts=3050 accepted=305\n"
     + "[INFO RSZ-0059] Removed 3 buffers.\n"
     "[WARNING RSZ-0062] Unable to repair all setup violations.\n"
     "[INFO RSZ-0505] Runtime: 634.78s\n"
@@ -103,6 +109,17 @@ class Unstamped(unittest.TestCase):
         self.assertEqual(got["last_improving_iter"], 200)
         self.assertEqual(got["final_iter"], 1200)
         self.assertEqual(got["wns_end"], -2015.784)
+
+    def test_profile_lines_are_kept_per_phase(self):
+        """The instrumented binary's breakdown rides along with the call."""
+        prof = self.calls[0]["profile"]
+        self.assertEqual(sorted(prof), ["LAST_GASP+", "LEGACY*"])
+        self.assertEqual(prof["LEGACY*"]["sta_s"], 250.0)
+        self.assertEqual(prof["LEGACY*"]["candidates"], 5000)
+        self.assertEqual(repair.summarize(self.calls)[0]["profile"]["LAST_GASP+"]["passes"], 1206)
+
+    def test_an_unprofiled_log_has_an_empty_profile(self):
+        self.assertEqual(repair.parse_log(STAMPED_GRT)[1]["profile"], {})
 
     def test_summary_counts_iterations_not_rows(self):
         got = repair.summarize(self.calls)[0]
