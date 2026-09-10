@@ -382,8 +382,28 @@ def render(records):
     return "".join(parts)
 
 
+def samples_csv(records):
+    """Every sample as one CSV row, for the raw-data comment on the PR."""
+    lines = ["design,stage,substep,arm,repeat,call,setup_s,hold_s,passes,"
+             "last_improving_iter,wns_start_ps,wns_end_ps,endpoints,substep_wall_s,"
+             "result_sha1,loadavg_at_start,recorded_at"]
+    for r in sorted(records, key=lambda r: (r["design"], r["stage"], r["arm"], r["repeat"])):
+        for step, call, wall in repair_calls(r):
+            if call["kind"] == "repair_design":
+                continue
+            lines.append(",".join(str(x) if x is not None else "" for x in [
+                r["design"], r["stage"], step, r["arm"], r["repeat"], call["kind"],
+                call.get("setup_s"), call.get("hold_s"), call.get("iterations"),
+                call.get("last_improving_iter"), call.get("wns_start"), call.get("wns_end"),
+                call.get("endpoints"), wall, r["substeps"][step].get("result_sha1"),
+                "{:.2f}".format(r.get("loadavg_at_start", 0)), r.get("recorded_at"),
+            ]))
+    return "\n".join(lines) + "\n"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--csv", action="store_true", help="raw samples as CSV instead of the report")
     parser.add_argument(
         "--results",
         default=os.path.join(
@@ -392,7 +412,8 @@ def main():
         ),
     )
     args = parser.parse_args()
-    sys.stdout.write(render(load_results(args.results)))
+    records = load_results(args.results)
+    sys.stdout.write(samples_csv(records) if args.csv else render(records))
 
 
 if __name__ == "__main__":

@@ -153,6 +153,15 @@ class Arms(unittest.TestCase):
         self.assertTrue(text.startswith("Not yet measured"))
 
 
+class Csv(unittest.TestCase):
+    def test_one_row_per_repair_call_with_header(self):
+        text = report.samples_csv([record("aes", "cts", "base", 1, [call()])])
+        lines = text.strip().split("\n")
+        self.assertEqual(len(lines), 2)
+        self.assertTrue(lines[0].startswith("design,stage,substep,arm,repeat,call,setup_s"))
+        self.assertTrue(lines[1].startswith("aes,cts,4_1_cts,base,1,setup_hold,100.0,1.0,1000"))
+
+
 class Chart(unittest.TestCase):
     def test_trajectory_is_a_mermaid_block_in_seconds(self):
         text = report.trajectory_chart(record("aes", "cts", "base", 1, [call()]), "4_1_cts")
