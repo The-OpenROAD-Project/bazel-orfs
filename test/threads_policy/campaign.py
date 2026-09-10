@@ -15,15 +15,37 @@ how ORFS runs them: they chain, and running them together is the only
 way the later ones get the inputs they expect. Every substep still
 writes its own log, so one arm yields one sample per substep.
 
-Runs happen outside the Bazel sandbox, one at a time. Bazel builds the
-stage's inputs and nothing else, so its own scheduling and caching never
-land inside a measurement.
+Runs happen outside the Bazel sandbox. Bazel builds the stage's inputs
+and nothing else, so its own scheduling and caching never land inside a
+measurement.
 
-Resumable: one JSON per (design, stage, arm, repeat), and an arm whose
-file is already there is skipped. A campaign that costs hours must
-survive being interrupted.
+Two modes, because the two questions want opposite machines:
 
-    bazelisk run //test/threads_policy:campaign -- --phase 2
+    --mode timing        one arm at a time, an idle machine asserted at
+                         every arm start. #968, unchanged. A wall-clock
+                         number is only a measurement under those
+                         conditions.
+    --mode idempotency   arms concurrently, each in its own
+                         FLOW_VARIANT, no idle gate. Whether two arms
+                         computed the same thing does not depend on how
+                         busy the machine was, so the campaign finishes
+                         in hours instead of days -- and the scheduling
+                         perturbation is a feature, since contention is
+                         what exposes an order-dependent bug. Timing
+                         fields are recorded and marked contended, and
+                         the report will not ladder them.
+
+Every arm gets its own FLOW_VARIANT cloned from `base`, which is also
+what makes it certain the arm ran: with the outputs absent, make cannot
+decide the target is already up to date.
+
+Resumable: one JSON per (design, stage, mode, arm, repeat), and an arm
+whose file is already there is skipped. A campaign that costs hours must
+survive being interrupted. A hang or a crash is recorded as a finding
+with its stacks, not dropped -- an absence averages away.
+
+    bazelisk run //test/threads_policy:campaign -- --mode idempotency \\
+        --designs nangate45_gcd --stages cts --threads 1 2 4 8 16 --repeats 2
 """
 
 import argparse
@@ -31,15 +53,17 @@ import json
 import os
 import platform
 import re
-import shutil
 import subprocess
 import sys
 import time
 
-import hashlib
+from concurrent import futures
 
+import deployment
 import elapsed
 import phases as phases_mod
+import watchdog as watchdog_mod
+import witness
 
 # Mirrors STAGE_SUBSTEPS in private/stages.bzl, which is the single
 # source of truth. campaign_test.py asserts the two are equal, so this
@@ -242,7 +266,7 @@ def workspace():
 _INSTALLED = re.compile(r"Reproducer installed to: (.+)$", re.M)
 
 
-def deploy(target, stage, verbose):
+def deploy_stage(target, stage, verbose):
     """Build the stage's inputs and install the reproducer; return its dir.
 
     `<target>_<stage>_deps` is a runnable that deploys under ./tmp (see
@@ -274,84 +298,58 @@ def deploy(target, stage, verbose):
     return found[-1].strip()
 
 
-def log_dir(deploy_dir):
-    """The one logs/<platform>/<design>/<variant> dir under a deployment."""
-    hits = []
-    for root, dirs, _ in os.walk(deploy_dir):
-        if os.path.basename(root) == "logs":
-            for variant_root, _, files in os.walk(root):
-                if any(f.endswith(".log") or f.endswith(".tmp.log") for f in files):
-                    hits.append(variant_root)
-            # A deployment holds exactly one logs tree.
-            dirs[:] = []
-    if not hits:
-        raise SystemExit("no log directory under {}".format(deploy_dir))
-    return sorted(hits, key=len)[-1]
+# The `.sdc` each stage writes, from STAGE_METADATA's `result_names` in
+# private/stages.bzl. Mirrored here for the same reason STAGE_SUBSTEPS
+# is -- the runner drives make without a Starlark round trip -- and
+# campaign_test.py asserts the copy against the source.
+STAGE_SDC = {
+    "place": "3_place.sdc",
+    "cts": "4_cts.sdc",
+    "grt": "5_1_grt.sdc",
+    "route": "5_route.sdc",
+}
 
 
-def results_dir(deploy_dir):
-    """The results/<platform>/<design>/<variant> dir of a deployment."""
-    hits = []
-    for root, dirs, files in os.walk(deploy_dir):
-        if os.path.basename(root) == "results":
-            for variant_root, _, names in os.walk(root):
-                if any(n.endswith(".odb") for n in names):
-                    hits.append(variant_root)
-            dirs[:] = []
-    if not hits:
-        return None
-    return sorted(hits, key=len)[-1]
-
-
-def result_hash(deploy_dir, step):
-    """sha1 of a substep's own .odb, computed here rather than read.
-
-    ORFS's genElapsedTime.py normally appends a summary row carrying
-    this, and reading it was cheaper than recomputing. But that parser
-    does `line.replace("Elapsed time: ", "")` and so cannot read a
-    stamped log: with RUN_CMD pointed at log_timestamps.py it emits no
-    row at all, and the witness silently becomes None. Two documented
-    ORFS mechanisms that do not compose -- reported, not worked around
-    in ORFS.
-
-    So the identical-work witness is computed directly. It no longer
-    depends on which logging mode the arm ran in, which is what a
-    witness has to be: the same question asked the same way in every
-    arm.
-    """
-    rdir = results_dir(deploy_dir)
-    if not rdir:
-        return None
-    path = os.path.join(rdir, step + ".odb")
-    if not os.path.exists(path):
-        return None
-    hasher = hashlib.sha1()
-    with open(path, "rb") as handle:
-        for chunk in iter(lambda: handle.read(1 << 20), b""):
-            hasher.update(chunk)
-    # Same 20-hex-character prefix ORFS's own summary uses, so the two
-    # remain comparable.
-    return hasher.hexdigest()[:20]
-
-
-def run_arm(deploy_dir, stage, threads, pin, verbose, stamp_logs=True):
+def run_arm(
+    deploy,
+    stage,
+    threads,
+    pin,
+    verbose,
+    variant,
+    stamp_logs=True,
+    watchdog_s=0,
+    stacks_dir=None,
+):
     """Run every substep of one stage at one thread count.
+
+    The arm gets its own `FLOW_VARIANT`, cloned from `base`, so its
+    results and logs cannot be confused with another arm's and several
+    arms can run at once. It also means the arm always really runs:
+    with the outputs absent, make cannot decide the target is already
+    up to date.
 
     `pin` restricts the process to one CPU per physical core, which
     separates two claims that would otherwise be confounded: whether the
     win comes from asking for fewer threads, or from not landing two
     threads on one core's SMT siblings. `-threads` alone cannot deliver
     the second, so an upstream recommendation has to know which it is.
+
+    Returns what happened rather than raising on a bad arm: a hang and
+    a crash are both findings, and a campaign that drops them reports
+    them as absences.
     """
+    deploy.clone_base(variant)
     argv = []
     if pin:
         cores = physical_cores()
         if not cores:
             raise SystemExit("cannot pin: /proc/cpuinfo exposes no core topology")
         argv += ["taskset", "-c", "0-{}".format(cores - 1)]
-    argv.append(os.path.join(deploy_dir, "make"))
+    argv.append(os.path.join(deploy.root, "make"))
     argv += ["do-" + step for step in STAGE_SUBSTEPS[stage]]
     argv.append("NUM_CORES={}".format(threads))
+    argv.append("FLOW_VARIANT={}".format(variant))
     if stamp_logs:
         # Elapsed-stamp every log line, which locates each phase in the
         # run and bounds the ones ORFS gives no `Took` line for. This
@@ -365,45 +363,83 @@ def run_arm(deploy_dir, stage, threads, pin, verbose, stamp_logs=True):
         )
 
     started = time.time()
-    out = subprocess.run(
+    # Its own session, so the watchdog can kill `make`, the shell
+    # wrappers and the tool with one killpg. Killing only make would
+    # leave a hung OpenROAD holding its cores, and every arm measured
+    # after it would be measuring that.
+    process = subprocess.Popen(
         argv,
-        cwd=deploy_dir,
+        cwd=deploy.root,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        start_new_session=True,
     )
+    hang = False
+    stacks = None
+    try:
+        output, _ = process.communicate(timeout=watchdog_s or None)
+    except subprocess.TimeoutExpired:
+        hang = True
+        if stacks_dir:
+            os.makedirs(stacks_dir, exist_ok=True)
+            stacks = watchdog_mod.capture(
+                process.pid,
+                os.path.join(stacks_dir, "{}_{}.stacks".format(stage, variant)),
+            )
+        watchdog_mod.kill_tree(process)
+        output, _ = process.communicate()
     wall = time.time() - started
-    if out.returncode != 0:
-        sys.stderr.write(out.stdout[-6000:])
-        raise SystemExit("arm failed: {} threads={} pin={}".format(stage, threads, pin))
-    if verbose:
-        print("      make wall {:.1f}s".format(wall))
-    return wall
+
+    if verbose or hang or process.returncode != 0:
+        print(
+            "      make wall {:.1f}s rc={} {}".format(
+                wall, process.returncode, "HUNG" if hang else ""
+            )
+        )
+    return {
+        "wall_s": wall,
+        "returncode": process.returncode,
+        "hang": hang,
+        "stacks": stacks,
+        "output_tail": (output or "")[-4000:] if (hang or process.returncode) else None,
+    }
 
 
-def collect(deploy_dir, stage, threads):
-    """One sample per substep, with the knob and work witnesses checked."""
-    logs = log_dir(deploy_dir)
+def collect(deploy, stage, threads, variant, strict=True):
+    """One sample per substep, with the knob and work witnesses checked.
+
+    `strict` is off for an arm that hung or failed: there the point is
+    to record whatever it did write, so the failure appears in the
+    tables instead of as a gap.
+    """
+    logs = deploy.logs(variant)
+    results = deploy.results(variant)
     samples = {}
     for step in STAGE_SUBSTEPS[stage]:
         path = os.path.join(logs, step + ".log")
         if not os.path.exists(path):
-            raise SystemExit("{} left no log: the substep did not run".format(step))
+            if strict:
+                raise SystemExit("{} left no log: the substep did not run".format(step))
+            samples[step] = {"ran": False}
+            continue
         got = elapsed.parse_log(path)
+        got["ran"] = True
 
         # Assertion: the knob arrived. A timing number for the wrong
         # thread count is worse than a missing one, because it averages
         # in silently.
-        if got["threads"] is None:
-            raise SystemExit(
-                "{}: no ORD-0030 line, so the thread count is unproven".format(step)
-            )
-        if got["threads"] != threads:
-            raise SystemExit(
-                "{}: asked for {} threads, OpenROAD installed {}".format(
-                    step, threads, got["threads"]
+        if strict:
+            if got["threads"] is None:
+                raise SystemExit(
+                    "{}: no ORD-0030 line, so the thread count is unproven".format(step)
                 )
-            )
+            if got["threads"] != threads:
+                raise SystemExit(
+                    "{}: asked for {} threads, OpenROAD installed {}".format(
+                        step, threads, got["threads"]
+                    )
+                )
         # The phase stack: which regions inside this substep spent the
         # time. A substep number averages regions that want opposite
         # thread counts, and an average is not a policy.
@@ -435,26 +471,124 @@ def collect(deploy_dir, stage, threads):
                 if "fastroute" in k or k.endswith("__iter") or "runtime" in k.lower()
             }
 
-        # Identical-work witness, computed rather than read; see
-        # result_hash(). The log-derived value is kept when present so
-        # the two can be compared, but the computed one is what the
-        # study compares across arms.
+        # The three witnesses (see witness.py). All computed here rather
+        # than read from the log: ORFS's genElapsedTime.py writes no
+        # summary row under a stamped log, so the log-derived hash
+        # silently becomes None -- two documented ORFS mechanisms that
+        # do not compose. The log value is kept where present so the
+        # two can be compared, but the computed one is what the study
+        # compares across arms.
         got["result_sha1_log"] = got.get("result_sha1")
-        computed = result_hash(deploy_dir, step)
-        if computed:
-            got["result_sha1"] = computed
+        got["odb_sha1"] = witness.odb_sha1(results, step)
+        got["sdc_sha1"] = witness.sdc_sha1(results, STAGE_SDC.get(stage))
+        got["qor"] = witness.qor(logs, step)
+        if got["odb_sha1"]:
+            got["result_sha1"] = got["odb_sha1"]
 
         samples[step] = got
     return samples
 
 
-def result_path(results_dir, design, stage, threads, pin, repeat):
+# The two questions this campaign answers want opposite machines, so
+# they are separate modes rather than one compromise.
+#
+# TIMING is #968 unchanged: one arm at a time, an idle machine asserted
+# at every arm start, `taskset` available. A wall-clock number is only
+# a measurement under those conditions -- a concurrent compile turned
+# 1.8s of placement into 16.8s.
+#
+# IDEMPOTENCY asks whether two arms computed the same thing, which no
+# amount of contention can change. So arms run concurrently, in their
+# own variants, with no idle gate: the campaign finishes in hours
+# instead of days, and the scheduling perturbation is a *feature* --
+# contention is what exposes an order-dependent bug. Its timing fields
+# are recorded and marked unusable, and the report refuses to put a
+# contended sample in a ladder.
+TIMING = "timing"
+IDEMPOTENCY = "idempotency"
+MODES = (TIMING, IDEMPOTENCY)
+
+
+def default_jobs(mode, cores):
+    """How many arms to run at once.
+
+    Timing is one, always, and not a choice: see MODES. Idempotency
+    defaults to a quarter of the cores, so an arm asking for the whole
+    machine still gets a meaningful share while several are in flight.
+    """
+    if mode == TIMING:
+        return 1
+    return max(2, (cores or 2) // 4)
+
+
+def result_path(results_dir, design, stage, mode, threads, pin, repeat):
+    """One file per sample, so a campaign is resumable.
+
+    `mode` is in the name because the same arm means different things
+    in the two modes: an idempotency sample was measured under
+    contention and must never be read as a timing sample.
+    """
     return os.path.join(
         results_dir,
-        "{}_{}_t{}{}_r{}.json".format(
-            design, stage, threads, "_pinned" if pin else "", repeat
+        "{}_{}_{}_t{}{}_r{}.json".format(
+            design, stage, mode, threads, "_pinned" if pin else "", repeat
         ),
     )
+
+
+def one_arm(deploy, design, stage, threads, repeat, args, prov, mode, jobs):
+    """Run one arm and return its record. Never raises on a bad arm."""
+    variant = deployment.arm_variant(threads, repeat)
+    load = loadavg1()
+    if mode == TIMING:
+        # Assertion: the machine is idle. A neighbour's build inside a
+        # measurement is indistinguishable from a thread effect. The
+        # deploy is usually what has to drain, so wait rather than
+        # refuse.
+        load = wait_for_idle(args.max_load)
+
+    print(
+        "  {} threads={}{} repeat={} (load {:.2f})".format(
+            mode, threads, " pinned" if args.pin else "", repeat, load
+        )
+    )
+    outcome = run_arm(
+        deploy,
+        stage,
+        threads,
+        args.pin,
+        args.verbose,
+        variant,
+        stamp_logs=not args.no_stamp_logs,
+        watchdog_s=args.watchdog_s,
+        stacks_dir=args.stacks_dir,
+    )
+    ok = outcome["returncode"] == 0 and not outcome["hang"]
+    samples = collect(deploy, stage, threads, variant, strict=ok)
+    return {
+        "design": design,
+        "platform": deploy.platform,
+        "target": DESIGNS[design],
+        "stage": stage,
+        "mode": mode,
+        "variant": variant,
+        "threads": threads,
+        "pinned": args.pin,
+        "repeat": repeat,
+        "jobs": jobs,
+        # A timing number taken while other arms were running measures
+        # the other arms. Recorded, flagged, and never laddered.
+        "contended": jobs > 1,
+        "loadavg_at_start": load,
+        "make_wall_s": outcome["wall_s"],
+        "returncode": outcome["returncode"],
+        "hang": outcome["hang"],
+        "stacks": outcome["stacks"],
+        "output_tail": outcome["output_tail"],
+        "substeps": samples,
+        "provenance": prov,
+        "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    }
 
 
 def main():
@@ -467,6 +601,19 @@ def main():
         nargs="+",
         default=["place", "cts", "grt", "route"],
         choices=sorted(STAGE_SUBSTEPS),
+    )
+    parser.add_argument(
+        "--mode",
+        default=TIMING,
+        choices=MODES,
+        help="timing: one arm at a time on an idle machine (#968). "
+        "idempotency: arms concurrently, contention on purpose.",
+    )
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=None,
+        help="arms to run at once; forced to 1 in timing mode",
     )
     parser.add_argument(
         "--threads",
@@ -485,6 +632,14 @@ def main():
         default=1.0,
         help="refuse to record if 1-minute loadavg exceeds this at arm start",
     )
+    parser.add_argument(
+        "--watchdog-s",
+        type=int,
+        default=0,
+        help="dump stacks and kill an arm still running after this many "
+        "seconds; 0 disables. A hang is recorded as a finding.",
+    )
+    parser.add_argument("--stacks-dir", default=None)
     parser.add_argument("--results", default=None)
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
@@ -501,10 +656,20 @@ def main():
         threads_arms = sorted({cores, hardware_threads()} - {None})
     check_arms(threads_arms, args.pin)
 
+    jobs = args.jobs or default_jobs(args.mode, physical_cores())
+    if args.mode == TIMING and jobs != 1:
+        raise SystemExit(
+            "--jobs {} in timing mode: a wall-clock number taken while "
+            "another arm is running measures the other arm. Use --mode "
+            "idempotency, where contention is the point.".format(jobs)
+        )
+
     results_dir = args.results or os.path.join(
         workspace(), "tmp", "threads_policy", "results"
     )
     os.makedirs(results_dir, exist_ok=True)
+    if args.stacks_dir is None:
+        args.stacks_dir = os.path.join(os.path.dirname(results_dir), "stacks")
 
     prov = provenance()
     print(
@@ -516,14 +681,15 @@ def main():
         )
     )
     print(
-        "arms: threads={} pin={} repeats={}".format(
-            threads_arms, args.pin, args.repeats
+        "arms: mode={} threads={} pin={} repeats={} jobs={}".format(
+            args.mode, threads_arms, args.pin, args.repeats, jobs
         )
     )
     print("results: {}".format(results_dir))
 
     written = 0
     skipped = 0
+    failed = 0
     for design in args.designs:
         for stage in args.stages:
             wanted = [
@@ -531,7 +697,7 @@ def main():
                 for t in threads_arms
                 for r in range(1, args.repeats + 1)
                 if not os.path.exists(
-                    result_path(results_dir, design, stage, t, args.pin, r)
+                    result_path(results_dir, design, stage, args.mode, t, args.pin, r)
                 )
             ]
             if not wanted:
@@ -539,57 +705,65 @@ def main():
                 continue
 
             print("\n=== {} {}".format(design, stage))
-            deploy_dir = deploy(DESIGNS[design], stage, args.verbose)
+            deploy = deployment.Deployment(
+                deploy_stage(DESIGNS[design], stage, args.verbose)
+            )
 
-            for threads, repeat in wanted:
-                # Assertion: the machine is idle. A neighbour's build
-                # inside a measurement is indistinguishable from a
-                # thread effect. The deploy above is usually what has to
-                # drain, so wait rather than refuse.
-                load = wait_for_idle(args.max_load)
-
-                print(
-                    "  threads={}{} repeat={} (load {:.2f})".format(
-                        threads, " pinned" if args.pin else "", repeat, load
-                    )
+            def record_arm(arm):
+                threads, repeat = arm
+                record = one_arm(
+                    deploy, design, stage, threads, repeat, args, prov, args.mode, jobs
                 )
-                make_wall = run_arm(
-                    deploy_dir,
-                    stage,
-                    threads,
-                    args.pin,
-                    args.verbose,
-                    stamp_logs=not args.no_stamp_logs,
-                )
-                samples = collect(deploy_dir, stage, threads)
-
-                record = {
-                    "design": design,
-                    "target": DESIGNS[design],
-                    "stage": stage,
-                    "threads": threads,
-                    "pinned": args.pin,
-                    "repeat": repeat,
-                    "loadavg_at_start": load,
-                    "make_wall_s": make_wall,
-                    "substeps": samples,
-                    "provenance": prov,
-                    "recorded_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                }
                 path = result_path(
-                    results_dir, design, stage, threads, args.pin, repeat
+                    results_dir, design, stage, args.mode, threads, args.pin, repeat
                 )
                 with open(path, "w") as handle:
                     json.dump(record, handle, indent=2, sort_keys=True)
+                return record
+
+            if jobs == 1:
+                records = [record_arm(arm) for arm in wanted]
+            else:
+                with futures.ThreadPoolExecutor(max_workers=jobs) as pool:
+                    records = list(pool.map(record_arm, wanted))
+
+            for record in records:
                 written += 1
-                for step, got in samples.items():
+                if record["hang"] or record["returncode"]:
+                    failed += 1
                     print(
-                        "      {:<22} {:>8.2f}s  {:>5}% cpu".format(
-                            step, got["wall_s"], got["cpu_pct"]
+                        "      t{} r{}: {}{}".format(
+                            record["threads"],
+                            record["repeat"],
+                            (
+                                "HUNG"
+                                if record["hang"]
+                                else "rc=%s" % record["returncode"]
+                            ),
+                            (
+                                " stacks: %s" % record["stacks"]
+                                if record["stacks"]
+                                else ""
+                            ),
+                        )
+                    )
+                    continue
+                for step, got in record["substeps"].items():
+                    print(
+                        "      t{} r{} {:<22} {:>8.2f}s  {:>5}% cpu  {}".format(
+                            record["threads"],
+                            record["repeat"],
+                            step,
+                            got["wall_s"],
+                            got["cpu_pct"],
+                            got.get("odb_sha1") or "no odb",
                         )
                     )
 
-    print("\nwrote {} arm(s), skipped {} already present".format(written, skipped))
+    print(
+        "\nwrote {} arm(s), {} of them failed or hung, skipped {} already "
+        "present".format(written, failed, skipped)
+    )
     print("results in {}".format(results_dir))
 
 

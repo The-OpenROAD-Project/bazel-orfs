@@ -82,19 +82,98 @@ class ResultPaths(unittest.TestCase):
     def test_arms_do_not_collide(self):
         """Every arm needs its own file, or resume would skip real work."""
         names = {
-            campaign.result_path("d", "aes", stage, threads, pin, repeat)
+            campaign.result_path("d", "aes", stage, mode, threads, pin, repeat)
             for stage in ("place", "route")
-            for threads in (16, 32)
+            for mode in campaign.MODES
+            for threads in (8, 16)
             for pin in (False, True)
             for repeat in (1, 2, 3)
         }
-        self.assertEqual(len(names), 2 * 2 * 2 * 3)
+        self.assertEqual(len(names), 2 * 2 * 2 * 2 * 3)
 
     def test_pinning_is_visible_in_the_name(self):
         self.assertNotEqual(
-            campaign.result_path("d", "aes", "route", 16, False, 1),
-            campaign.result_path("d", "aes", "route", 16, True, 1),
+            campaign.result_path("d", "aes", "route", campaign.TIMING, 16, False, 1),
+            campaign.result_path("d", "aes", "route", campaign.TIMING, 16, True, 1),
         )
+
+    def test_the_mode_is_visible_in_the_name(self):
+        """The same arm means different things in the two modes.
+
+        An idempotency sample was measured under contention. Sharing a
+        file name with a timing sample would let one overwrite the
+        other, and a contended wall time would then be laddered as if
+        the machine had been idle.
+        """
+        self.assertNotEqual(
+            campaign.result_path("d", "aes", "route", campaign.TIMING, 16, False, 1),
+            campaign.result_path(
+                "d", "aes", "route", campaign.IDEMPOTENCY, 16, False, 1
+            ),
+        )
+
+
+class Modes(unittest.TestCase):
+    def test_timing_runs_one_arm_at_a_time_and_that_is_not_a_choice(self):
+        self.assertEqual(campaign.default_jobs(campaign.TIMING, 64), 1)
+
+    def test_idempotency_runs_several(self):
+        self.assertGreater(campaign.default_jobs(campaign.IDEMPOTENCY, 16), 1)
+
+    def test_idempotency_runs_at_least_two_on_a_tiny_host(self):
+        self.assertEqual(campaign.default_jobs(campaign.IDEMPOTENCY, 1), 2)
+        self.assertEqual(campaign.default_jobs(campaign.IDEMPOTENCY, None), 2)
+
+
+def stage_sdc_from_bzl(path):
+    """{stage: <stage>.sdc} out of STAGE_METADATA's result_names.
+
+    STAGE_METADATA is `struct(...)` calls, not a literal, so the
+    `result_names` list of each stage block is read directly rather
+    than through ast.literal_eval.
+    """
+    with open(path) as handle:
+        text = handle.read()
+    block = re.search(r"^STAGE_METADATA = \{(.*?)^\}", text, re.M | re.S)
+    if not block:
+        raise AssertionError("STAGE_METADATA not found in {}".format(path))
+    out = {}
+    for stage, body in re.findall(
+        r'"(\w+)": struct\((.*?)\n    \),', block.group(1), re.S
+    ):
+        names = re.search(r"result_names = \[(.*?)\]", body, re.S)
+        if not names:
+            continue
+        sdcs = [
+            n for n in re.findall(r'"([^"]+)"', names.group(1)) if n.endswith(".sdc")
+        ]
+        if sdcs:
+            out[stage] = sdcs[0]
+    return out
+
+
+class StageSdc(unittest.TestCase):
+    def test_matches_the_single_source_of_truth(self):
+        """The .sdc witness has to be the file the stage actually wrote.
+
+        A wrong name here does not fail: `sdc_sha1` returns None for a
+        missing file, so the witness silently becomes unproven for every
+        arm and the report says "unproven" instead of comparing them.
+        That is the quiet-wrong-data failure, so the copy is asserted
+        against private/stages.bzl.
+        """
+        from_bzl = stage_sdc_from_bzl(STAGES_BZL)
+        for stage, name in campaign.STAGE_SDC.items():
+            self.assertEqual(
+                name,
+                from_bzl.get(stage),
+                "{}: campaign says {}, private/stages.bzl says {}".format(
+                    stage, name, from_bzl.get(stage)
+                ),
+            )
+
+    def test_every_measured_stage_has_one(self):
+        self.assertEqual(sorted(campaign.STAGE_SDC), sorted(campaign.STAGE_SUBSTEPS))
 
 
 if __name__ == "__main__":

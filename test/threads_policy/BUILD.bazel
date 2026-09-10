@@ -58,6 +58,8 @@ py_binary(
         ":deployment",
         ":elapsed",
         ":phases",
+        ":watchdog",
+        ":witness",
     ],
 )
 

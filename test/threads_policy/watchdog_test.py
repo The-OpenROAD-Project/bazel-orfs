@@ -117,7 +117,9 @@ class Capture(unittest.TestCase):
             text = handle.read()
         self.assertIn("pid 300 (openroad)", text)
         self.assertIn("futex", text)
-        self.assertIn(["gdb", "-p", "300", "--batch", "-ex", "thread apply all bt"], calls)
+        self.assertIn(
+            ["gdb", "-p", "300", "--batch", "-ex", "thread apply all bt"], calls
+        )
 
     def test_no_gdb_falls_back_to_abort_and_says_so(self):
         signalled = []
