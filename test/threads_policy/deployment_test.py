@@ -45,7 +45,9 @@ class Locate(unittest.TestCase):
     def test_logs_are_a_sibling_of_results(self):
         results = make_tree(self.root)
         deploy = deployment.Deployment(self.root)
-        self.assertEqual(deploy.logs_root, os.path.join(os.path.dirname(results), "logs"))
+        self.assertEqual(
+            deploy.logs_root, os.path.join(os.path.dirname(results), "logs")
+        )
         self.assertTrue(deploy.logs("t8_r1").endswith("logs/nangate45/gcd/t8_r1"))
 
     def test_a_tree_with_no_base_variant_is_not_a_deployment(self):

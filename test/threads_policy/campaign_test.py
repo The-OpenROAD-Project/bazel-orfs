@@ -99,3 +99,62 @@ class ResultPaths(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Designs(unittest.TestCase):
+    """The design set spans platforms, so the key has to say which."""
+
+    def test_every_key_is_prefixed_with_its_platform(self):
+        # The key is the label every table, file name and CSV row uses.
+        # Two designs called `gcd` on different PDKs would collide in
+        # the results directory and be averaged together in the report.
+        for name, target in campaign.DESIGNS.items():
+            platform = re.search(r"/flow/designs/([^/]+)/", target).group(1)
+            self.assertTrue(
+                name.startswith(platform.replace("-", "_") + "_"),
+                "{} is a {} design but its key does not say so".format(name, platform),
+            )
+
+    def test_keys_are_unique_per_target(self):
+        self.assertEqual(len(set(campaign.DESIGNS.values())), len(campaign.DESIGNS))
+
+    def test_the_three_platforms_bazel_orfs_970_asks_for_are_present(self):
+        platforms = {
+            re.search(r"/flow/designs/([^/]+)/", t).group(1)
+            for t in campaign.DESIGNS.values()
+        }
+        self.assertEqual(platforms, {"asap7", "sky130hd", "nangate45"})
+
+
+class ArmCeiling(unittest.TestCase):
+    """An arm above the ceiling is a duplicate, not a measurement."""
+
+    def test_an_arm_above_the_hosts_thread_count_is_refused(self):
+        ceiling = campaign.hardware_threads()
+        with self.assertRaises(SystemExit) as caught:
+            campaign.check_arms([1, ceiling, ceiling + 1], pin=False)
+        # The message has to name the clamp, because the symptom
+        # otherwise looks like a ladder that saturated.
+        self.assertIn(str(ceiling + 1), str(caught.exception))
+        self.assertIn("clamp", str(caught.exception))
+
+    def test_arms_at_or_below_the_ceiling_are_accepted(self):
+        self.assertIsNone(
+            campaign.check_arms([1, campaign.hardware_threads()], pin=False)
+        )
+
+    def test_zero_threads_is_not_an_arm(self):
+        with self.assertRaises(SystemExit):
+            campaign.check_arms([0], pin=False)
+
+    def test_pinning_lowers_the_ceiling_to_the_core_count(self):
+        # hardware_concurrency reports the affinity mask, so a pinned
+        # process cannot install more threads than the cores it is
+        # pinned to -- and #968's pinned arms asked for the hardware
+        # thread count.
+        cores = campaign.physical_cores()
+        if not cores or cores >= campaign.hardware_threads():
+            self.skipTest("host exposes no SMT topology to lower the ceiling")
+        self.assertEqual(campaign.arm_ceiling(pin=True), cores)
+        with self.assertRaises(SystemExit):
+            campaign.check_arms([campaign.hardware_threads()], pin=True)

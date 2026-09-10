@@ -63,17 +63,33 @@ STAGE_SUBSTEPS = {
 DESIGNS = {
     # tiny: the control. Startup cost dominates, so threads cannot
     # matter here, and a "speedup" on gcd would indict the method.
-    "gcd": "@orfs//flow/designs/asap7/gcd:gcd",
+    "asap7_gcd": "@orfs//flow/designs/asap7/gcd:gcd",
     # dense combinational, no macros
-    "aes": "@orfs//flow/designs/asap7/aes:aes_cipher_top",
+    "asap7_aes": "@orfs//flow/designs/asap7/aes:aes_cipher_top",
     # sequential CPU, deep clock tree
-    "ibex": "@orfs//flow/designs/asap7/ibex:ibex_core",
+    "asap7_ibex": "@orfs//flow/designs/asap7/ibex:ibex_core",
     # larger datapath, long route
-    "jpeg": "@orfs//flow/designs/asap7/jpeg:jpeg_encoder",
+    "asap7_jpeg": "@orfs//flow/designs/asap7/jpeg:jpeg_encoder",
     # mid-size mixed
-    "ethmac": "@orfs//flow/designs/asap7/ethmac:ethmac",
+    "asap7_ethmac": "@orfs//flow/designs/asap7/ethmac:ethmac",
     # SRAM macros: a different placement and routing regime
-    "tinyRocket": "@orfs//flow/designs/asap7/tinyRocket:RocketTile",
+    "asap7_tinyRocket": "@orfs//flow/designs/asap7/tinyRocket:RocketTile",
+    # A second PDK. bazel-orfs#970 asks for sky130hd explicitly, and the
+    # reason is not coverage for its own sake: a divergence that appears
+    # on one PDK and not another is evidence about *which* code path
+    # carries the bug, and one PDK cannot produce that evidence at all.
+    # The corner, the cell library and the RC model all differ, so the
+    # repair and CTS work is differently shaped even for the same RTL.
+    "sky130hd_gcd": "@orfs//flow/designs/sky130hd/gcd:gcd",
+    "sky130hd_ibex": "@orfs//flow/designs/sky130hd/ibex:ibex_core",
+    "sky130hd_aes": "@orfs//flow/designs/sky130hd/aes:aes_cipher_top",
+    # sky130hd's macro design, the counterpart to asap7/tinyRocket.
+    "sky130hd_microwatt": "@orfs//flow/designs/sky130hd/microwatt:microwatt",
+    # The OpenROAD#9781 reproducer: repair_timing's hash differed run to
+    # run at 16 threads on nangate45/gcd and was identical at 1. Cheap
+    # enough to run at every arm and every repeat, and the one design in
+    # the set where a divergence has already been seen.
+    "nangate45_gcd": "@orfs//flow/designs/nangate45/gcd:gcd",
 }
 
 
@@ -106,6 +122,52 @@ def physical_cores():
     except OSError:
         return None
     return len(pairs) or None
+
+
+def arm_ceiling(pin):
+    """The highest thread count this host can actually install.
+
+    `OpenRoad::setThreadCount` clamps its argument to
+    `std::thread::hardware_concurrency()` and logs the clamped value,
+    so a higher arm does not fail -- it runs, silently, as a duplicate
+    of the ceiling arm. `collect()` catches that afterwards through the
+    ORD-0030 witness, but only after the run has been paid for, and on
+    a `route` arm that is hours.
+
+    Measured: `NUM_CORES=32` on a 16-hardware-thread host logged
+    "[INFO ORD-0030] Using 16 thread(s)". #968's ladder went to 32
+    because it ran on a 32-thread host; the same command line on a
+    smaller one produces two arms with the same thread count and a
+    ladder with a flat top that looks like saturation.
+
+    Under `--pin` the process is confined to one CPU per physical core,
+    and `hardware_concurrency` reports the affinity mask, so the
+    ceiling is the core count rather than the thread count.
+    """
+    if pin:
+        cores = physical_cores()
+        if cores:
+            return cores
+    return hardware_threads()
+
+
+def check_arms(threads_arms, pin):
+    """Refuse an arm the host cannot install, before anything runs."""
+    ceiling = arm_ceiling(pin)
+    too_high = sorted(t for t in threads_arms if t > ceiling)
+    if too_high:
+        raise SystemExit(
+            "arms {} exceed this host's ceiling of {} thread(s){}: OpenROAD "
+            "would clamp them and they would silently duplicate the t={} "
+            "arm. Drop them, or run on a bigger host.".format(
+                ", ".join(str(t) for t in too_high),
+                ceiling,
+                " under --pin" if pin else "",
+                ceiling,
+            )
+        )
+    if any(t < 1 for t in threads_arms):
+        raise SystemExit("a thread count below 1 is not an arm")
 
 
 def loadavg1():
@@ -437,6 +499,7 @@ def main():
     if threads_arms is None:
         cores = physical_cores()
         threads_arms = sorted({cores, hardware_threads()} - {None})
+    check_arms(threads_arms, args.pin)
 
     results_dir = args.results or os.path.join(
         workspace(), "tmp", "threads_policy", "results"
