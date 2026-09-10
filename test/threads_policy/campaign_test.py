@@ -164,6 +164,8 @@ class StageSdc(unittest.TestCase):
         """
         from_bzl = stage_sdc_from_bzl(STAGES_BZL)
         for stage, name in campaign.STAGE_SDC.items():
+            if name is None:
+                continue
             self.assertEqual(
                 name,
                 from_bzl.get(stage),
@@ -171,6 +173,23 @@ class StageSdc(unittest.TestCase):
                     stage, name, from_bzl.get(stage)
                 ),
             )
+
+    def test_route_declines_the_sdc_that_stages_bzl_lists(self):
+        """route's `.sdc` is real but no arm writes it.
+
+        STAGE_METADATA lists `5_route.sdc` under route's result_names,
+        and it is written by the separate `do-5_route.sdc` make target
+        -- not by `do-5_2_route` or `do-5_3_fillcell`, which is what an
+        arm runs. Measured: a route arm's variant directory holds
+        5_2_route.odb and 5_3_fillcell.odb and no route `.sdc`.
+
+        So the entry is None on purpose, and this test pins both halves
+        of that: that ORFS does still list one (if it stopped, the
+        reason for the None is gone) and that the campaign declines it.
+        """
+        self.assertEqual(stage_sdc_from_bzl(STAGES_BZL)["route"], "5_route.sdc")
+        self.assertIsNone(campaign.STAGE_SDC["route"])
+        self.assertNotIn("do-5_route.sdc", campaign.STAGE_SUBSTEPS["route"])
 
     def test_every_measured_stage_has_one(self):
         self.assertEqual(sorted(campaign.STAGE_SDC), sorted(campaign.STAGE_SUBSTEPS))

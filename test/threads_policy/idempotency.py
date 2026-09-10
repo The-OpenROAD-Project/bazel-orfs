@@ -60,11 +60,23 @@ Verdict = collections.namedtuple(
 )
 
 
+# A witness this stage cannot have, as opposed to one it should have
+# and does not. The first gets no verdict; the second is `unproven`.
+ABSENT = object()
+
+
 def sample_value(sample, kind):
-    """One witness out of one substep sample, or None if unproven."""
-    if kind == "qor":
-        return sample.get("qor")
-    return sample.get(kind + "_sha1")
+    """One witness out of one substep sample.
+
+    Returns ABSENT when the sample carries no such field, None when it
+    carries the field with no value. `route` writes no `.sdc` from the
+    substeps an arm runs, so an sdc verdict for route would be a
+    permanent `unproven` row reading as a defect in the harness.
+    """
+    field = "qor" if kind == "qor" else kind + "_sha1"
+    if field not in sample:
+        return ABSENT
+    return sample[field]
 
 
 def comparable(value):
@@ -94,10 +106,11 @@ def index(records):
             if not sample.get("ran", True):
                 continue
             for kind in witness.KINDS:
+                value = sample_value(sample, kind)
+                if value is ABSENT:
+                    continue
                 key = Key(record["design"], record["stage"], step, kind)
-                out[key][record["threads"]][record["repeat"]] = sample_value(
-                    sample, kind
-                )
+                out[key][record["threads"]][record["repeat"]] = value
     return out
 
 

@@ -57,9 +57,7 @@ class TheDistinction(unittest.TestCase):
         self.assertEqual(got.verdict, idempotency.RUN_TO_RUN)
 
     def test_both_at_once_is_confounded_and_does_not_claim_a_thread_bug(self):
-        got = idempotency.classify(
-            arms(t1=("a", "a"), t8=("b", "b"), t16=("c", "d"))
-        )
+        got = idempotency.classify(arms(t1=("a", "a"), t8=("b", "b"), t16=("c", "d")))
         self.assertEqual(got.verdict, idempotency.CONFOUNDED)
 
     def test_confounded_is_read_before_thread_dependent(self):
@@ -167,6 +165,35 @@ class Pinning(unittest.TestCase):
         odb = [v for v in got if v.key.kind == "odb"][0]
         self.assertEqual(odb.verdict, idempotency.UNPROVEN)
         self.assertEqual(sorted(odb.arms), [1])
+
+
+class AbsentWitness(unittest.TestCase):
+    """A witness a stage cannot have is not a witness that went missing."""
+
+    def test_a_field_the_sample_does_not_carry_gets_no_verdict(self):
+        # `route` writes no .sdc from the substeps an arm runs, so an
+        # sdc verdict for route would be a permanent `unproven` row
+        # that reads as a defect in the harness.
+        records = [
+            {
+                "design": "nangate45_gcd",
+                "stage": "route",
+                "threads": t,
+                "repeat": r,
+                "substeps": {"5_2_route": {"ran": True, "odb_sha1": "a", "qor": {}}},
+            }
+            for t in (1, 16)
+            for r in (1, 2)
+        ]
+        kinds = {v.key.kind for v in idempotency.verdicts(records)}
+        self.assertEqual(kinds, {"odb", "qor"})
+
+    def test_a_field_present_but_empty_is_still_unproven(self):
+        records = [
+            record(threads=t, repeat=r, odb_sha1=None) for t in (1, 16) for r in (1, 2)
+        ]
+        odb = [v for v in idempotency.verdicts(records) if v.key.kind == "odb"][0]
+        self.assertEqual(odb.verdict, idempotency.UNPROVEN)
 
 
 class ThreadBlind(unittest.TestCase):

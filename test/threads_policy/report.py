@@ -1469,6 +1469,12 @@ def main():
     parser.add_argument(
         "--raw", action="store_true", help="emit the raw-sample comment"
     )
+    parser.add_argument(
+        "--verdicts",
+        action="store_true",
+        help="emit only the idempotency verdicts. The question "
+        "bazel-orfs#970 asks, without the ladder around it.",
+    )
     args = parser.parse_args()
 
     results_dir = args.results or os.path.join(
@@ -1485,7 +1491,12 @@ def main():
         )
     cells = index(records)
 
-    text = raw_comment(records) if args.raw else body(records, cells)
+    if args.raw:
+        text = raw_comment(records)
+    elif args.verdicts:
+        text = section_work_changed(cells, records)
+    else:
+        text = body(records, cells)
     if len(text) > GITHUB_CHAR_CAP:
         raise SystemExit(
             "generated text is {} characters, over GitHub's {} cap. Split it "

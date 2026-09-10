@@ -306,7 +306,19 @@ STAGE_SDC = {
     "place": "3_place.sdc",
     "cts": "4_cts.sdc",
     "grt": "5_1_grt.sdc",
-    "route": "5_route.sdc",
+    # None, not "5_route.sdc". STAGE_METADATA lists that file under
+    # route's `result_names`, but it is written by the separate
+    # `do-5_route.sdc` make target -- not by `do-5_2_route` or
+    # `do-5_3_fillcell`, which is what an arm runs. Measured: a route
+    # arm's variant directory holds 5_2_route.odb and 5_3_fillcell.odb
+    # and no route .sdc.
+    #
+    # Recorded as "this stage has no .sdc witness" rather than as a
+    # witness that went missing, and `collect` omits the field
+    # entirely so the two cannot be confused. Adding the target to the
+    # arm would create the witness, at the cost of measuring something
+    # #968 did not.
+    "route": None,
 }
 
 
@@ -480,7 +492,14 @@ def collect(deploy, stage, threads, variant, strict=True):
         # compares across arms.
         got["result_sha1_log"] = got.get("result_sha1")
         got["odb_sha1"] = witness.odb_sha1(results, step)
-        got["sdc_sha1"] = witness.sdc_sha1(results, STAGE_SDC.get(stage))
+        # Absent key, not None: a stage that writes no `.sdc` from the
+        # substeps an arm runs has no such witness, which is a
+        # different statement from a witness that should exist and did
+        # not. The verdict layer skips the first and calls the second
+        # unproven.
+        sdc_name = STAGE_SDC.get(stage)
+        if sdc_name:
+            got["sdc_sha1"] = witness.sdc_sha1(results, sdc_name)
         got["qor"] = witness.qor(logs, step)
         if got["odb_sha1"]:
             got["result_sha1"] = got["odb_sha1"]
