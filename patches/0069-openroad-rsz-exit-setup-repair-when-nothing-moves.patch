@@ -1,0 +1,85 @@
+rsz: end a setup-repair phase after two hundred passes in which nothing moved
+
+Candidate fix from the repair_timing runtime study; not upstreamed.
+Retires at the bump onto an OpenROAD that carries it or a better
+version of it.
+
+The phase's own exit test -- the TNS fixed per hundred passes, as a
+fraction of the starting TNS, against a threshold that doubles every
+thousand passes -- may not fire before pass 1000. On the asap7 designs
+where repair grinds, the last WNS or TNS gain came well before that:
+riscv32i grt spends 85% of 320 s after its last gain, coralnpu floorplan
+87% of 221 s, jpeg cts 30% of 121 s (census, patches/0066).
+
+Chesterton's Fence: the floor protects a slow start. Early passes on a
+badly violating design fix little TNS relative to the whole, and a fix
+rate threshold alone would give up before the optimizer had reached the
+endpoints it can fix. This does not touch that: it adds a stricter test
+that fires only when two consecutive hundred-pass windows moved neither
+TNS nor WNS at all. A flat line is not a slow start. The existing
+two-consecutive-terminations rule still applies on top, so a single
+stalled stretch followed by progress continues as before.
+
+diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
+index 2940cf6c00..9c7b837e2c 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.cc
++++ b/src/rsz/src/policy/SetupLegacyBase.cc
+@@ -65,6 +65,8 @@ SetupLegacyBase::SetupLegacyBase(Resizer& resizer,
+ 
+ bool SetupLegacyBase::start()
+ {
++  stall_windows_ = 0;
++  stall_prev_wns_ = 0.0f;
+   OptimizationPolicy::start();
+   setup_context_.max_repairs_per_pass = config_.max_repairs_per_pass;
+   if (!setup_context_.phase_pipeline_active) {
+@@ -945,6 +947,33 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
+     }
+     float inc_fix_rate = (prev_tns - curr_tns) / initial_tns;
+     prev_tns = curr_tns;
++
++    // A window that moved neither TNS nor WNS bought nothing. Two in a
++    // row and the phase is done, whatever the iteration count: the
++    // floor below protects a slow start, not a flat line.
++    sta::Slack curr_wns;
++    sta::Vertex* worst_vertex = nullptr;
++    sta_->worstSlack(max_, curr_wns, worst_vertex);
++    const bool tns_flat = sta::fuzzyLessEqual(inc_fix_rate, 0.0f);
++    const bool wns_flat = iteration > opto_small_interval_
++                          && sta::fuzzyLessEqual(curr_wns, stall_prev_wns_);
++    stall_prev_wns_ = curr_wns;
++    stall_windows_ = (tns_flat && wns_flat) ? stall_windows_ + 1 : 0;
++    if (stall_windows_ >= stall_windows_to_exit_) {
++      debugPrint(logger_,
++                 RSZ,
++                 "repair_setup",
++                 1,
++                 "{}{} Phase: Exiting at iteration {} because neither WNS "
++                 "nor TNS moved for {} iterations [endpt {}/{}]",
++                 phase_name,
++                 phase_marker,
++                 iteration,
++                 stall_windows_to_exit_ * opto_small_interval_,
++                 endpt_index,
++                 num_endpts);
++      return true;
++    }
+     if (iteration > 1000 && inc_fix_rate < fix_rate_threshold) {
+       debugPrint(logger_,
+                  RSZ,
+diff --git a/src/rsz/src/policy/SetupLegacyBase.hh b/src/rsz/src/policy/SetupLegacyBase.hh
+index 78aa495806..845351836a 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.hh
++++ b/src/rsz/src/policy/SetupLegacyBase.hh
+@@ -213,6 +213,11 @@ class SetupLegacyBase : public OptimizationPolicy
+   static constexpr int opto_small_interval_ = 100;
+   static constexpr int opto_large_interval_ = 1000;
+   static constexpr float inc_fix_rate_threshold_ = 0.0001;
++  // Consecutive opto_small_interval_ windows in which neither WNS nor TNS
++  // moved. Two of them end the phase regardless of the iteration floor.
++  static constexpr int stall_windows_to_exit_ = 2;
++  int stall_windows_ = 0;
++  float stall_prev_wns_ = 0.0f;
+ };
+ 
+ }  // namespace rsz
