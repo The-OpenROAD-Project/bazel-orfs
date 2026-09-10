@@ -730,6 +730,182 @@ def section_reconciliation(records):
     )
 
 
+
+# Which code owns each phase name the logs produce. Used only to group
+# the ranked table into "who would have to change something", so the
+# TL;DR can say how much a given owner is worth.
+PHASE_OWNER = {
+    "repair_timing": "rsz + OpenSTA",
+    "repair_design": "rsz + OpenSTA",
+    "RSZ-0504": "rsz + OpenSTA",
+    "RSZ-0505": "rsz + OpenSTA",
+    "RSZ-0506": "rsz + OpenSTA",
+    "CTS-0500": "cts + OpenSTA",
+    "global_placement": "gpl",
+    "improve_placement": "dpl",
+    "DPL-0500": "dpl",
+    "global_route": "grt (FastRoute)",
+    "detailed_route": "drt",
+    "pin_access": "drt",
+}
+
+# Fallback owner for substeps whose region the logs cannot attribute.
+# 3_1_place_gp_skip_io is a gpl call like 3_3_place_gp, but ORFS emits no
+# `Took` line for it, so phase attribution sees nothing and gpl's total
+# would silently lose it -- which moved the headline ratio from 4.4x to
+# 5.5x before this existed. Only used where the phase data is absent.
+SUBSTEP_OWNER = {
+    "3_1_place_gp_skip_io": "gpl",
+    "3_3_place_gp": "gpl",
+    "3_2_place_iop": None,          # single-threaded
+    "5_3_fillcell": None,           # single-threaded
+    "5_2_route": "drt",
+    "4_1_cts": "cts + OpenSTA",
+    "3_4_place_resized": "rsz + OpenSTA",
+    "3_5_place_dp": "dpl",
+    "5_1_grt": "grt (FastRoute)",
+}
+
+GPL_PR = "https://github.com/The-OpenROAD-Project/OpenROAD/pull/11368"
+
+
+def _opportunity(cells, records):
+    """[(saving, substep, region, owner)], plus the totals. Data only."""
+    prov = records[0]["provenance"]
+    ceiling = prov.get("hardware_threads")
+    arms = arms_present(cells)
+    if ceiling not in arms or len(arms) < 3:
+        return [], 0.0, 0.0, ceiling
+
+    per = collections.defaultdict(lambda: collections.defaultdict(dict))
+    for (design, stage, step, t, pin), cell in cells.items():
+        if pin:
+            continue
+        per[step][design][t] = cell.wall
+
+    idx = substep_phase_index(records)
+    rows = []
+    measured = 0.0
+    for step, by_design in per.items():
+        designs, usable = _common_arms(by_design, arms)
+        if not designs or ceiling not in usable:
+            continue
+        walls = {t: sum(by_design[d][t] for d in designs) for t in usable}
+        best = min(walls, key=lambda t: walls[t])
+        measured += walls[ceiling]
+        curve = collections.defaultdict(lambda: collections.defaultdict(float))
+        for (d, st, name, t), secs in idx.items():
+            if st == step and d in designs:
+                curve[name][t] += secs
+        stamped = sorted({t for name in curve for t in curve[name]})
+        region = None
+        if stamped:
+            hi = stamped[-1]
+            rise = {n: pts[hi] - min(pts.values())
+                    for n, pts in curve.items()
+                    if hi in pts and len(pts) > 1}
+            if rise:
+                worst = max(rise, key=lambda n: rise[n])
+                if rise[worst] > 0:
+                    region = worst
+        owner = PHASE_OWNER.get(region)
+        if owner is None:
+            # No phase attribution for this substep; fall back to what
+            # the substep itself is, rather than dropping its seconds.
+            owner = SUBSTEP_OWNER.get(step)
+        rows.append((walls[ceiling] - walls[best], step, region,
+                     owner, best, walls[ceiling], walls[best]))
+    total = sum(max(0.0, r[0]) for r in rows)
+    return rows, total, measured, ceiling
+
+
+def section_tldr(cells, records):
+    """What to do next, first, in as few lines as possible."""
+    rows, total, measured, ceiling = _opportunity(cells, records)
+    if total <= 0:
+        return ""
+
+    by_owner = collections.defaultdict(float)
+    unowned = 0.0
+    for saving, step, region, owner, best, _c, _b in rows:
+        if saving <= 0:
+            continue
+        if owner:
+            by_owner[owner] += saving
+        else:
+            unowned += saving
+    ranked = sorted(by_owner.items(), key=lambda kv: -kv[1])
+    gpl = by_owner.get("gpl", 0.0)
+
+    out = [
+        "## TL;DR -- what to do after the global-placement PR",
+        "",
+        "[OpenROAD#11368]({}) caps **global placement** at the physical".format(GPL_PR),
+        "core count, in the tool, per region, with `-threads` left as the",
+        "ceiling. That is the right shape and the precedent to copy.",
+        "",
+        "On the evidence below -- {:.0f}s of {:.0f}s available across "
+        "{} asap7 designs -- what is left after it:".format(
+            total, measured, len({k[0] for k in cells})),
+        "",
+        "| do this next | worth | vs gpl |",
+        "| --- | --: | --: |",
+    ]
+    # Only owners worth listing get a row; the rest is one number, so
+    # the reader is not asked to weigh six things that do not matter.
+    THRESHOLD = 0.05
+    listed = [(o, v) for o, v in ranked
+              if o != "gpl" and v / total >= THRESHOLD]
+    for owner, secs in listed:
+        out.append(
+            "| **{}** -- cap at ~the core count | {:.0f}s ({:.0f}% of "
+            "what is left) | {} |".format(
+                owner, secs, 100.0 * secs / total,
+                "{:.1f}x".format(secs / gpl) if gpl else "n/a"))
+    rest = total - gpl - sum(v for _o, v in listed)
+    out += [
+        "",
+        "and then **stop**. Everything else together is {:.0f}s across "
+        "{} substeps, which is smaller than the run-to-run spread of one "
+        "large design -- there is no third thing worth doing on this "
+        "evidence.".format(
+            rest,
+            sum(1 for r in rows
+                if r[0] > 0 and PHASE_OWNER.get(r[2]) not in
+                [o for o, _v in listed] + ["gpl"])),
+        "",
+        "### Do not do these",
+        "",
+        "- **Do not cap `drt`** (detailed route, pin access). It wants the",
+        "  ceiling; capping it at the core count costs about 15%.",
+        "- **Do not lower ORFS's `NUM_CORES` default.** It is the ceiling,",
+        "  not a target. Deriving it from physical cores is wall-neutral",
+        "  overall *and* would cap `drt`.",
+        "- **Do not \"tune grt\".** FastRoute is a few percent of `5_1_grt`;",
+        "  that stage's win is `repair_timing`, which is rsz and OpenSTA.",
+        "",
+        "### Two things to know before scheduling the next one",
+        "",
+        "- It is **not** a five-line mirror of #11368. `placementThreads()`",
+        "  caps one tool's own OpenMP sites; OpenSTA's thread count is set",
+        "  once globally (`OpenRoad::setThreadCount` -> `sta_->setThreadCount`)",
+        "  and shared by every consumer, so scoping it to the repair calls",
+        "  needs a set/restore around them or an STA-side cap.",
+        "- **gpl's optimum moves with design size** on this set, and STA's",
+        "  may too. #11368 measures a 1.28M-instance design preferring the",
+        "  core count while these (much smaller) designs prefer half of it --",
+        "  the same curve sampled further along. That argues for a",
+        "  work-per-thread heuristic rather than a constant.",
+        "",
+        "---",
+        "",
+        "*Everything below is reference detail: the per-stage and per-region",
+        "ladders, the phase attribution, and the raw samples in a comment.",
+        "It is here to be read by a machine later, not reviewed now.*",
+        "",
+    ]
+    return "\n".join(out) + "\n"
+
 def substep_phase_index(records):
     """(design, substep, phase, threads) -> seconds, summed within an arm."""
     buckets = collections.defaultdict(list)
@@ -931,6 +1107,7 @@ def body(records, cells):
         "**FYI only -- this PR is for the data and will be closed.** No flow",
         "behaviour changes here, and it recommends *no* change to ORFS.",
         "",
+        section_tldr(cells, records),
         "`NUM_CORES` -> `openroad -threads N` is a **ceiling**: what a job is",
         "permitted to use, not a target. So the question is not \"cores or",
         "hardware threads\" but, per parallel region, how far *below* the",
@@ -941,18 +1118,7 @@ def body(records, cells):
             len(arms_present(cells))),
         "substep from place through route.",
         "",
-        "## The short version",
-        "",
-        "- A stage is not the tool it is named after. `5_1_grt` is mostly",
-        "  `repair_timing`; FastRoute is a few percent of it.",
-        "- The regions disagree, and they disagree *mechanistically*:",
-        "  `schedule(dynamic)` over irregular work wants the ceiling,",
-        "  memory-bound and STA-bound work wants roughly half of it.",
-        "- So one global `-threads` cannot be right, and lowering the",
-        "  *ceiling* is the wrong lever -- it would slow detailed route.",
-        "- The right shape is what OpenROAD#11368 does for gpl: cap inside",
-        "  the tool, per region, with `-threads` still the upper bound.",
-        "",
+
         "**Host:** {}".format(host_line(records)),
         "",
         "**Designs:** {}".format(", ".join("`{}`".format(d) for d in designs)),

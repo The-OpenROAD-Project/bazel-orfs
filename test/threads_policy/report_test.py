@@ -375,6 +375,60 @@ class Priority(unittest.TestCase):
         self.assertIn("5_1_grt", lines[0])
 
 
+class Tldr(unittest.TestCase):
+    def _flow(self):
+        recs = []
+        # grt: repair_timing pays, big saving at t=16
+        for t, w, rt in [(4, 650.0, 280.0), (8, 480.0, 255.0),
+                         (24, 478.0, 316.0)]:
+            recs.append(rec("aes", "grt", t, 1, {"5_1_grt": step(
+                w, phases=[("repair_timing", rt)])}))
+        for t, w in [(16, 426.0), (32, 504.0)]:
+            recs.append(rec("aes", "grt", t, 1, {"5_1_grt": step(w)}))
+        # gpl across two substeps, one of which has no phase data at all
+        for t, w, gp in [(4, 120.0, 84.0), (8, 114.0, 78.0), (24, 125.0, 89.0)]:
+            recs.append(rec("aes", "place", t, 1, {
+                "3_3_place_gp": step(w, phases=[("global_placement", gp)]),
+                "3_1_place_gp_skip_io": step(13.0)}))
+        for t, w, sk in [(16, 120.0, 14.9), (32, 130.0, 16.2)]:
+            recs.append(rec("aes", "place", t, 1, {
+                "3_3_place_gp": step(w),
+                "3_1_place_gp_skip_io": step(sk)}))
+        return build(recs)
+
+    def test_links_the_gpl_pr(self):
+        records, cells = self._flow()
+        text = report.section_tldr(cells, records)
+        self.assertIn("11368", text)
+        self.assertIn("https://github.com/The-OpenROAD-Project/OpenROAD/pull/11368",
+                      text)
+
+    def test_a_substep_with_no_phase_data_still_counts_toward_its_owner(self):
+        """3_1_place_gp_skip_io is a gpl call but ORFS emits no `Took`
+        line for it. Dropping its seconds inflated the headline ratio
+        from 4.4x to 5.5x, which is the kind of error nobody would catch
+        by reading the table."""
+        records, cells = self._flow()
+        rows, total, _measured, _ceiling = report._opportunity(cells, records)
+        gpl = sum(sv for sv, _st, _rg, ow, _b, _c, _bv in rows
+                  if ow == "gpl" and sv > 0)
+        skip = [sv for sv, st, _rg, _ow, _b, _c, _bv in rows
+                if st == "3_1_place_gp_skip_io"][0]
+        self.assertGreater(skip, 0)
+        self.assertGreaterEqual(gpl, skip)
+
+    def test_says_what_not_to_do(self):
+        records, cells = self._flow()
+        text = report.section_tldr(cells, records)
+        self.assertIn("Do not cap `drt`", text)
+        self.assertIn("NUM_CORES", text)
+
+    def test_marks_the_rest_as_reference(self):
+        records, cells = self._flow()
+        text = report.section_tldr(cells, records)
+        self.assertIn("reference detail", text)
+
+
 class Reconciliation(unittest.TestCase):
     def test_silent_when_nothing_was_reconciled(self):
         records, _ = build([rec("aes", "grt", 32, 1, {"5_1_grt": step(100.0)})])
