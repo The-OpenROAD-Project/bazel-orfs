@@ -103,9 +103,7 @@ def pinned_sta_commit(module_text):
     is worse than no audit.
     """
     hits = set(
-        re.findall(
-            r"\.openroad-submodule-src-sta-([0-9a-f]{40})\.tar\.gz", module_text
-        )
+        re.findall(r"\.openroad-submodule-src-sta-([0-9a-f]{40})\.tar\.gz", module_text)
     )
     if not hits:
         raise SystemExit(
@@ -235,7 +233,7 @@ def split_args(args):
 
 
 def key_kind(key_type):
-    """"pointer" when the key is an address, else "value"."""
+    """ "pointer" when the key is an address, else "value"."""
     stripped = re.sub(r"\bconst\b", "", key_type).strip()
     return "pointer" if stripped.endswith("*") else "value"
 

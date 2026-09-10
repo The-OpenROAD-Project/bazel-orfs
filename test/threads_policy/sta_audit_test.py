@@ -12,7 +12,6 @@ import unittest
 
 import sta_audit
 
-
 MODULE_SNIPPET = """
 archive_override(
     module_name = "openroad",
@@ -45,10 +44,7 @@ class Pinning(unittest.TestCase):
     def test_two_commits_is_an_error(self):
         with self.assertRaises(SystemExit):
             sta_audit.pinned_sta_commit(
-                MODULE_SNIPPET
-                + ".openroad-submodule-src-sta-"
-                + "a" * 40
-                + ".tar.gz"
+                MODULE_SNIPPET + ".openroad-submodule-src-sta-" + "a" * 40 + ".tar.gz"
             )
 
 
@@ -70,7 +66,9 @@ class Arguments(unittest.TestCase):
 
     def test_map_hash_is_the_third_argument_set_hash_the_second(self):
         self.assertEqual(
-            sta_audit.hash_kind("unordered_map", ["const Pin*", "ClockSet*", "PinIdHash"]),
+            sta_audit.hash_kind(
+                "unordered_map", ["const Pin*", "ClockSet*", "PinIdHash"]
+            ),
             "PinIdHash",
         )
         self.assertEqual(
@@ -116,7 +114,9 @@ class Declarations(unittest.TestCase):
 
     def test_a_comment_is_not_a_declaration(self):
         text = "// 2. Maps (map<K, T*>, unordered_map<K, T*>)\n"
-        self.assertEqual(sta_audit.find_sites("include/sta/ContainerHelpers.hh", text), [])
+        self.assertEqual(
+            sta_audit.find_sites("include/sta/ContainerHelpers.hh", text), []
+        )
 
     def test_unbalanced_brackets_are_skipped_rather_than_guessed(self):
         text = "if (a < unordered_map_count && b > c) {\n"
@@ -191,8 +191,12 @@ class Iteration(unittest.TestCase):
         # parameter named `set`, and `liberty/Liberty.cc` iterates a
         # LibertyPortSet parameter of the same name.
         header = "using PinUnorderedSet = std::unordered_set<const Pin*>;\n"
-        cmp_cc = "sortByPathName(const PinUnorderedSet *set,\n  const Network *n)\n{\n}\n"
-        liberty = "sortByName(const LibertyPortSet *set)\n{\n  for (LibertyPort *p : *set)\n"
+        cmp_cc = (
+            "sortByPathName(const PinUnorderedSet *set,\n  const Network *n)\n{\n}\n"
+        )
+        liberty = (
+            "sortByName(const LibertyPortSet *set)\n{\n  for (LibertyPort *p : *set)\n"
+        )
         texts = {
             "include/sta/NetworkClass.hh": header,
             "network/NetworkCmp.cc": cmp_cc,
@@ -237,7 +241,9 @@ class Risk(unittest.TestCase):
         )
 
     def test_the_table_says_iterated_is_not_a_defect_count(self):
-        out = sta_audit.markdown([self._site(iterated=True, evidence="a.cc:1")], "a" * 40)
+        out = sta_audit.markdown(
+            [self._site(iterated=True, evidence="a.cc:1")], "a" * 40
+        )
         self.assertIn("not a defect count", out)
 
     def test_address_hashed_without_observed_iteration_is_latent_not_low(self):
