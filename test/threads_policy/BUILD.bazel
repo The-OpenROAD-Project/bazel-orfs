@@ -87,3 +87,21 @@ py_test(
     srcs = ["report_test.py"],
     deps = [":report"],
 )
+
+# The static audit of class 1 (pointer-keyed containers whose iteration
+# order follows the allocator). It needs no flow runs, so it is the part
+# of the campaign that produces evidence before any arm has been run.
+# Manual because it downloads the pinned OpenSTA on a cache miss.
+py_binary(
+    name = "sta_audit",
+    srcs = ["sta_audit.py"],
+    imports = ["."],
+    tags = ["manual"],
+)
+
+py_test(
+    name = "sta_audit_test",
+    size = "small",
+    srcs = ["sta_audit_test.py"],
+    deps = [":sta_audit"],
+)
