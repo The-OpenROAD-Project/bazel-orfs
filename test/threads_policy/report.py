@@ -729,6 +729,143 @@ def section_reconciliation(records):
             verdict, frac)
     )
 
+
+def substep_phase_index(records):
+    """(design, substep, phase, threads) -> seconds, summed within an arm."""
+    buckets = collections.defaultdict(list)
+    for rec in records:
+        if rec.get("pinned"):
+            continue
+        for step, got in rec["substeps"].items():
+            per_arm = collections.defaultdict(float)
+            for ph in got.get("phases", []):
+                per_arm[ph["name"]] += ph["seconds"]
+            for name, secs in per_arm.items():
+                buckets[(rec["design"], step, name, rec["threads"])].append(secs)
+    return {k: mean(v) for k, v in buckets.items()}
+
+
+def section_priority(cells, records):
+    """Where the remaining time actually is, ranked.
+
+    The point of ranking by absolute seconds rather than percentage: a
+    substep can show a large percentage on a small base and be worth
+    nothing. And the biggest entry is misnamed -- `5_1_grt`'s saving is
+    almost entirely `repair_timing`, so the row names the region the
+    phase data says dominates rather than the substep it hides behind.
+    """
+    prov = records[0]["provenance"]
+    ceiling = prov.get("hardware_threads")
+    arms = arms_present(cells)
+    if ceiling not in arms or len(arms) < 3:
+        return "### Where to look next\n\n**Not measured.**\n"
+
+    # Pool each substep over the designs that have every arm.
+    per = collections.defaultdict(lambda: collections.defaultdict(dict))
+    for (design, stage, step, t, pin), cell in cells.items():
+        if pin:
+            continue
+        per[step][design][t] = cell.wall
+
+    idx = substep_phase_index(records)
+    rows = []
+    for step, by_design in per.items():
+        designs, usable = _common_arms(by_design, arms)
+        if not designs or ceiling not in usable:
+            continue
+        walls = {t: sum(by_design[d][t] for d in designs) for t in usable}
+        best = min(walls, key=lambda t: walls[t])
+        saving = walls[ceiling] - walls[best]
+
+        # Which region *pays* for the extra threads -- not which is
+        # largest. pin_access is the biggest phase of 5_1_grt at low
+        # thread counts, but it gets faster as threads rise, so it
+        # cannot be what a cap recovers. The region responsible is the
+        # one whose seconds *rise* between the cheapest and dearest
+        # stamped arms.
+        stamped = sorted({t for (d, st, n, t) in idx
+                          if st == step and d in designs})
+        dominant = None
+        if len(stamped) >= 2:
+            # Per region: seconds at each stamped arm, then the rise from
+            # that region's own minimum to the highest arm. Measured from
+            # the minimum rather than the lowest arm because these curves
+            # are U-shaped -- global_placement is slower at 2 threads than
+            # at 8, so comparing the extremes hides the penalty entirely.
+            curve = collections.defaultdict(lambda: collections.defaultdict(float))
+            for (d, st, name, t), secs in idx.items():
+                if st == step and d in designs:
+                    curve[name][t] += secs
+            hi = stamped[-1]
+            rise = {}
+            for name, pts in curve.items():
+                if hi not in pts or len(pts) < 2:
+                    continue
+                rise[name] = pts[hi] - min(pts.values())
+            worst = max(rise, key=lambda n: rise[n]) if rise else None
+            if worst is not None and rise[worst] > 0:
+                dominant = worst
+        rows.append((saving, step, walls[ceiling], walls[best], best,
+                     dominant, len(designs)))
+
+    if not rows:
+        return "### Where to look next\n\n**Not measured.**\n"
+    total = sum(max(0.0, r[0]) for r in rows)
+    if total <= 0:
+        # Measured, and the answer is zero. Not the same claim as
+        # "not measured", and worth distinguishing: it means every
+        # substep already wants the ceiling.
+        return (
+            "### Where to look next, by descending return\n\n"
+            "**Nothing available.** Every measured substep is already "
+            "fastest at the ceiling, so there is no thread cap to "
+            "recover time with on this host.\n"
+        )
+
+    out = [
+        "### Where to look next, by descending return",
+        "",
+        "Absolute seconds available on this host, pooled over the designs",
+        "with full arm coverage. Ranked by seconds rather than percentage:",
+        "a big percentage on a small base is worth nothing.",
+        "",
+        "`region that pays` is the phase whose seconds *rise* as threads",
+        "increase -- the one a cap recovers. Deliberately not the largest",
+        "phase: `pin_access` is the biggest part of `5_1_grt` at low thread",
+        "counts but gets faster with more threads, so it cannot be what a",
+        "cap buys back. This is why the top row is not named after the tool",
+        "people would expect.",
+        "",
+        "| substep | region that pays | @ceiling | best | saves | share | wants |",
+        "| --- | --- | --: | --: | --: | --: | --- |",
+    ]
+    for saving, step, ceil_v, best_v, best_t, dominant, ndesigns in sorted(
+        rows, reverse=True
+    ):
+        share = 100.0 * saving / total if saving > 0 else 0.0
+        wants = ("**the ceiling** -- capping costs time"
+                 if best_t == ceiling else "t={}".format(best_t))
+        out.append("| `{}` | {} | {:.1f}s | {:.1f}s | {} | {} | {} |".format(
+            step,
+            dominant or "_unattributed_",
+            ceil_v, best_v,
+            "-" if saving <= 0 else "{:.1f}s".format(saving),
+            "-" if saving <= 0 else "{:.0f}%".format(share),
+            wants,
+        ))
+    out += [
+        "",
+        "Total available: **{:.0f}s** of {:.0f}s measured "
+        "(**{:.0f}%**).".format(
+            total, sum(r[2] for r in rows),
+            100.0 * total / sum(r[2] for r in rows)),
+        "",
+        "The tail is genuinely a tail: everything below the top two rows "
+        "adds up to less than the run-to-run spread on a single large "
+        "design, so there is no third thing worth doing on this evidence.",
+    ]
+    return "\n".join(out) + "\n"
+
 def csv_rows(records):
     header = (
         "design,stage,substep,threads,pinned,repeat,wall_s,user_s,sys_s,"
@@ -858,6 +995,8 @@ def body(records, cells):
         section_regions(records, cells),
         "",
         section_potential(cells, records),
+        "",
+        section_priority(cells, records),
         "",
         section_reconciliation(records),
         "",

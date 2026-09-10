@@ -305,6 +305,76 @@ class UnequalCoverage(unittest.TestCase):
         self.assertEqual(len(keys), 3)
 
 
+class Priority(unittest.TestCase):
+    """The ranking table, and the attribution rule it turns on."""
+
+    def _grt_like(self):
+        """A substep shaped like 5_1_grt: one phase that gets *faster*
+        with threads and is the largest, and one that gets slower."""
+        recs = []
+        for t, pa, rt, wall in [(8, 160.0, 255.0, 430.0),
+                                (24, 94.0, 316.0, 480.0),
+                                (32, 90.0, 330.0, 504.0),
+                                (16, 120.0, 260.0, 426.0)]:
+            recs.append(rec("aes", "grt", t, 1, {"5_1_grt": step(
+                wall, phases=[("pin_access", pa), ("repair_timing", rt)])}))
+        return build(recs)
+
+    def test_credits_the_region_that_pays_not_the_largest(self):
+        """pin_access is the biggest phase at low thread counts but gets
+        faster as threads rise, so a cap cannot be recovering it."""
+        records, cells = self._grt_like()
+        text = report.section_priority(cells, records)
+        row = [l for l in text.splitlines() if l.startswith("| `5_1_grt`")][0]
+        self.assertIn("repair_timing", row)
+        self.assertNotIn("pin_access", row)
+
+    def test_a_u_shaped_curve_is_measured_from_its_minimum(self):
+        """global_placement is slower at 2 threads than at 8, so
+        comparing the arm extremes hides the penalty entirely."""
+        recs = []
+        for t, gp, wall in [(2, 98.0, 140.0), (8, 78.0, 118.0),
+                            (24, 89.0, 128.0), (32, 92.0, 130.0),
+                            (16, 80.0, 120.0)]:
+            recs.append(rec("aes", "place", t, 1, {"3_3_place_gp": step(
+                wall, phases=[("global_placement", gp)])}))
+        records, cells = build(recs)
+        text = report.section_priority(cells, records)
+        row = [l for l in text.splitlines()
+               if l.startswith("| `3_3_place_gp`")][0]
+        self.assertIn("global_placement", row)
+
+    def test_a_substep_at_the_ceiling_is_marked_as_costing_time(self):
+        recs = [rec("aes", "route", t, 1, {"5_2_route": step(w)})
+                for t, w in [(4, 400.0), (8, 300.0), (16, 200.0),
+                             (24, 180.0), (32, 170.0)]]
+        # A second substep that does have a saving, so the table renders
+        # rather than reporting nothing available.
+        recs += [rec("aes", "grt", t, 1, {"5_1_grt": step(w)})
+                 for t, w in [(4, 90.0), (8, 80.0), (16, 70.0),
+                              (24, 90.0), (32, 100.0)]]
+        records, cells = build(recs)
+        text = report.section_priority(cells, records)
+        self.assertIn("the ceiling", text)
+        row = [l for l in text.splitlines()
+               if l.startswith("| `5_2_route`")][0]
+        self.assertIn("capping costs time", row)
+
+    def test_ranked_by_absolute_seconds_not_percentage(self):
+        """A big percentage on a small base is worth nothing."""
+        recs = []
+        # small substep, huge relative gain
+        for t, w in [(8, 1.0), (16, 1.0), (24, 5.0), (32, 10.0)]:
+            recs.append(rec("aes", "cts", t, 1, {"4_1_cts": step(w)}))
+        # large substep, modest relative gain
+        for t, w in [(8, 480.0), (16, 420.0), (24, 480.0), (32, 500.0)]:
+            recs.append(rec("aes", "grt", t, 1, {"5_1_grt": step(w)}))
+        records, cells = build(recs)
+        text = report.section_priority(cells, records)
+        lines = [l for l in text.splitlines() if l.startswith("| `")]
+        self.assertIn("5_1_grt", lines[0])
+
+
 class Reconciliation(unittest.TestCase):
     def test_silent_when_nothing_was_reconciled(self):
         records, _ = build([rec("aes", "grt", 32, 1, {"5_1_grt": step(100.0)})])
