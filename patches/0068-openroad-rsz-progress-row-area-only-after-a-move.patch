@@ -51,10 +51,10 @@ index db92efe916..2424f32780 100644
    bool hasMoves(MoveType type, sta::Instance* inst) const;
    bool hasBlockingBufferRemovalMove(sta::Instance* inst,
 diff --git a/src/rsz/src/RepairSetupContext.hh b/src/rsz/src/RepairSetupContext.hh
-index ce4538b7a0..3cb43aa7cc 100644
+index 08c43388fc..876f2b6033 100644
 --- a/src/rsz/src/RepairSetupContext.hh
 +++ b/src/rsz/src/RepairSetupContext.hh
-@@ -53,6 +53,10 @@ struct RepairSetupContext
+@@ -55,6 +55,10 @@ struct RepairSetupContext
    float initial_tns{0.0f};
    float previous_tns{0.0f};
    bool progress_header_printed{false};
@@ -66,10 +66,10 @@ index ce4538b7a0..3cb43aa7cc 100644
  
    // Legacy-derived setup phases share one preamble per repair_setup run.
 diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
-index 2ba83250c5..5a446de5df 100644
+index 9a2a5f060b..49745ead65 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.cc
 +++ b/src/rsz/src/policy/SetupLegacyBase.cc
-@@ -904,7 +904,17 @@ void SetupLegacyBase::printProgress(const int iteration,
+@@ -905,7 +905,17 @@ void SetupLegacyBase::printProgress(const int iteration,
  
    std::string itr_field = fmt::format("{}{}", iteration, phase_marker);
  

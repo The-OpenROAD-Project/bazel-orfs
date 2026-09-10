@@ -20,10 +20,10 @@ otherwise, and leaves the final row -- printed once -- carrying it for
 every phase. No move decision reads it; the result is unchanged.
 
 diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
-index 80d7e167ed..2ba83250c5 100644
+index de530b3b6c..9a2a5f060b 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.cc
 +++ b/src/rsz/src/policy/SetupLegacyBase.cc
-@@ -883,14 +883,22 @@ void SetupLegacyBase::printProgress(const int iteration,
+@@ -884,14 +884,22 @@ void SetupLegacyBase::printProgress(const int iteration,
      return;
    }
  
@@ -51,7 +51,7 @@ index 80d7e167ed..2ba83250c5 100644
    const sta::Pin* worst_pin
        = target_collector_->getWorstPin(show_startpoint_metrics);
  
-@@ -916,7 +924,7 @@ void SetupLegacyBase::printProgress(const int iteration,
+@@ -917,7 +925,7 @@ void SetupLegacyBase::printProgress(const int iteration,
        totalMoves(MoveType::kSwapPins),
        area_growth_percent,
        delayAsString(wns, 3, sta_),

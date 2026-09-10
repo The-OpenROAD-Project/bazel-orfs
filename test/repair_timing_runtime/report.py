@@ -252,6 +252,7 @@ PROFILE_COLUMNS = [
     ("sta_s", "STA"),
     ("progress_s", "progress row"),
     ("journal_s", "journal"),
+    ("path_s", "path lookup"),
     ("repair_path_s", "repair work"),
     ("parasitics_s", "parasitics"),
     ("collect_s", "collect"),
