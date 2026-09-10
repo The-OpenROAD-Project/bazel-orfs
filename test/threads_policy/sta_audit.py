@@ -30,12 +30,32 @@ regular expressions, so it is built to be *checked* by a reader rather
 than believed. `iterated` says "not observed", never "no".
 
 And `iterated` is a **shortlist of loops to read, not a defect count**.
-Bucket order is only a bug when it survives the loop body:
-`sortByPathName` iterates a pointer-keyed set directly into a `sort`,
-and `Power::reportActivityAnnotation` accumulates into counters. Both
-are on the list and both are correct. The one on the list that is not
-is `Sim::clearSimValues`, which calls an observer per element in
-whatever order the allocator produced.
+Bucket order is only a bug when it survives the loop body, and on the
+pinned OpenSTA all three iterated sites were read and none of them
+survive it:
+
+  network/NetworkCmp.cc:101  `sortByPathName` iterates a pointer-keyed
+                             set straight into a `sort`. The order is
+                             discarded by the next statement.
+  power/Power.cc:1702        the activity loop accumulates into
+                             counters. Addition commutes.
+  search/Sim.cc:778          `Sim::clearSimValues` calls an observer
+                             per element -- and the observer only
+                             *invalidates*: delayInvalid,
+                             arrivalInvalid, requiredInvalid,
+                             endpointInvalid. Invalidation is
+                             idempotent, and it lands in
+                             `VertexSet = std::set<Vertex*,
+                             VertexIdLess>` (GraphClass.hh:61), which
+                             is ordered by vertex id rather than by
+                             address. So the order this loop runs in
+                             cannot reach a result.
+
+That third one is worth spelling out because an earlier version of
+this file asserted the opposite -- "the shape worth chasing" -- on the
+strength of the loop alone, without reading the observer or the
+container it writes into. A shortlist is not a finding until someone
+has followed it.
 
 Two false positives shaped this scan and are worth knowing before
 trusting the next one: a local named `visited` in `search/ClkSkew.cc`
@@ -409,14 +429,13 @@ def risk(site):
     """The class-1 *exposure* of one site. Not a verdict, a shortlist.
 
     `iterated` address-hashed and iterated somewhere: the loop has to
-               be read, because iteration alone is not a defect. The
-               order has to survive the loop body. `sortByPathName`
-               (`network/NetworkCmp.cc:97`) iterates a pointer-keyed
-               set straight into a `sort`, and is correct; the counting
-               loop at `power/Power.cc:1702` accumulates into totals,
-               and is correct. The shape that is *not* correct is an
-               order-dependent side effect, like the observer callback
-               at `search/Sim.cc:778`.
+               be read, because iteration alone is not a defect -- the
+               order has to survive the loop body. On the pinned
+               OpenSTA all three do not; see the module docstring for
+               which and why. The shape that *would* be a defect is an
+               order-dependent side effect: appending to a sequence
+               that is later consumed in order, or a first-wins
+               assignment.
     `latent`   address-hashed, no iteration observed: correct today and
                one range-for away from not being.
     `low`      keyed by value, or hashed by a named hash whose
