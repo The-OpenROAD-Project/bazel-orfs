@@ -20,7 +20,7 @@ otherwise, and leaves the final row -- printed once -- carrying it for
 every phase. No move decision reads it; the result is unchanged.
 
 diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
-index de530b3b6c..9a2a5f060b 100644
+index 2940cf6c00..fc712a751f 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.cc
 +++ b/src/rsz/src/policy/SetupLegacyBase.cc
 @@ -884,14 +884,22 @@ void SetupLegacyBase::printProgress(const int iteration,

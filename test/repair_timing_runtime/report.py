@@ -253,6 +253,7 @@ PROFILE_COLUMNS = [
     ("progress_s", "progress row"),
     ("journal_s", "journal"),
     ("path_s", "path lookup"),
+    ("begin_s", "endpoint begin"),
     ("repair_path_s", "repair work"),
     ("parasitics_s", "parasitics"),
     ("collect_s", "collect"),
@@ -283,6 +284,7 @@ def attribution_rows(records, arm_prefix="base"):
             prof = list(call["profile"].values())[-1]
             total = call.get("setup_s") or 0
             accounted = sum(prof.get(k, 0) for k, _ in PROFILE_COLUMNS)
+            phase = prof.get("phase_s")
             rows.append(
                 {
                     "design": record["design"],
@@ -291,7 +293,8 @@ def attribution_rows(records, arm_prefix="base"):
                     "setup_s": total,
                     "passes": prof.get("passes"),
                     "profile": prof,
-                    "other_s": max(total - accounted, 0.0),
+                    "other_s": max((phase if phase else total) - accounted, 0.0),
+                    "outside_s": max(total - phase, 0.0) if phase else None,
                     "arm": record["arm"],
                 }
             )
@@ -304,8 +307,8 @@ def attribution_table(rows):
     lines = [
         "| design | stage | call | setup (s) | passes | "
         + " | ".join(label for _, label in PROFILE_COLUMNS)
-        + " | other | accepted / attempts |",
-        "| --- | --- | --- | ---: | ---: | " + " | ".join("---:" for _ in PROFILE_COLUMNS) + " | ---: | ---: |",
+        + " | other in phase | outside phases | accepted / attempts |",
+        "| --- | --- | --- | ---: | ---: | " + " | ".join("---:" for _ in PROFILE_COLUMNS) + " | ---: | ---: | ---: |",
     ]
     for r in rows:
         p = r["profile"]
@@ -315,10 +318,11 @@ def attribution_table(rows):
             share = (100.0 * v / r["setup_s"]) if (v is not None and r["setup_s"]) else None
             cells.append("{} ({})".format(fmt(v), fmt(share, 0, "%")) if v is not None else "–")
         lines.append(
-            "| {} | {} | {} | {} | {} | {} | {} | {} / {} |".format(
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} / {} |".format(
                 r["design"], r["stage"], dict(KINDS).get(r["kind"], r["kind"]),
                 fmt(r["setup_s"]), fmt(r["passes"]), " | ".join(cells),
-                fmt(r["other_s"]), fmt(p.get("accepted")), fmt(p.get("attempts")),
+                fmt(r["other_s"]), fmt(r["outside_s"]),
+                fmt(p.get("accepted")), fmt(p.get("attempts")),
             )
         )
     return "\n".join(lines) + "\n"
