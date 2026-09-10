@@ -53,41 +53,47 @@ def style(ax):
     ax.set_axisbelow(True)
 
 
-def census_seconds(rows, path):
-    """Stacked bar per design+stage: seconds in each repair call."""
-    keys = sorted({(r["design"], r["stage"]) for r in rows},
-                  key=lambda k: -sum(r["seconds"] or 0 for r in rows
-                                     if (r["design"], r["stage"]) == k))
+def census_seconds(rows, path, floor_s=5.0):
+    """Horizontal stacked bars: seconds in each repair call, per design+stage.
+
+    Stages with less than `floor_s` in repair are left off: they close
+    before repair has anything to do and would only crowd the axis.
+    """
+    totals = {}
+    for r in rows:
+        totals[(r["design"], r["stage"])] = totals.get((r["design"], r["stage"]), 0) + (r["seconds"] or 0)
+    keys = sorted([k for k, v in totals.items() if v >= floor_s], key=lambda k: totals[k])
     if not keys:
         return False
-    fig, ax = plt.subplots(figsize=(max(6, 0.45 * len(keys)), 4), dpi=150)
+    fig, ax = plt.subplots(figsize=(7, max(3, 0.28 * len(keys) + 1)), dpi=150)
     fig.patch.set_facecolor(SURFACE)
-    bottoms = [0.0] * len(keys)
+    lefts = [0.0] * len(keys)
     for i, kind in enumerate(KIND_ORDER):
-        vals = []
-        for key in keys:
-            vals.append(sum(r["seconds"] or 0 for r in rows
-                            if (r["design"], r["stage"]) == key and r["kind"] == kind))
+        vals = [sum(r["seconds"] or 0 for r in rows
+                    if (r["design"], r["stage"]) == key and r["kind"] == kind) for key in keys]
         if not any(vals):
             continue
-        ax.bar(range(len(keys)), vals, bottom=bottoms, width=0.7,
-               color=SERIES[i], label=KIND_LABEL[kind], linewidth=0.8,
-               edgecolor=SURFACE)
-        bottoms = [b + v for b, v in zip(bottoms, vals)]
-    ax.set_xticks(range(len(keys)))
-    ax.set_xticklabels(["{}\n{}".format(d, s) for d, s in keys], fontsize=7)
-    ax.set_ylabel("seconds in repair", color=INK, fontsize=9)
-    ax.set_title("Where repair's seconds are, per design and stage",
+        ax.barh(range(len(keys)), vals, left=lefts, height=0.7, color=SERIES[i],
+                label=KIND_LABEL[kind], linewidth=0.8, edgecolor=SURFACE)
+        lefts = [l + v for l, v in zip(lefts, vals)]
+    for i, total in enumerate(lefts):
+        ax.text(total + 3, i, "{:.0f}".format(total), va="center", fontsize=7, color=INK)
+    ax.set_yticks(range(len(keys)))
+    ax.set_yticklabels(["{} {}".format(d, s) for d, s in keys], fontsize=7)
+    ax.set_xlabel("seconds in repair (one run, 24 pinned threads)", color=INK, fontsize=9)
+    ax.set_title("Where repair's seconds are, per design and stage (>= {:.0f} s)".format(floor_s),
                  color=INK, fontsize=10, loc="left")
-    ax.legend(frameon=False, fontsize=8)
+    ax.legend(frameon=False, fontsize=8, loc="lower right")
     style(ax)
+    ax.yaxis.grid(False)
+    ax.xaxis.grid(True, color=GRID, linewidth=0.6)
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)
     return True
 
 
-def census_share(records, path):
+def census_share(records, path, floor_s=5.0):
     """Share of the substep wall inside repair_timing, per design+stage."""
     rows = report.census_rows(records)
     per = {}
@@ -96,22 +102,25 @@ def census_share(records, path):
         entry = per.setdefault(key, {"wall": r["wall_s"] or 0, "repair": 0.0})
         if r["kind"] != "repair_design" and r["seconds"]:
             entry["repair"] += r["seconds"]
-    keys = [k for k in per if per[k]["wall"]]
+    keys = [k for k in per if per[k]["wall"] and per[k]["repair"] >= floor_s]
     if not keys:
         return False
-    keys.sort(key=lambda k: -per[k]["repair"] / per[k]["wall"])
+    keys.sort(key=lambda k: per[k]["repair"] / per[k]["wall"])
     shares = [100.0 * per[k]["repair"] / per[k]["wall"] for k in keys]
-    fig, ax = plt.subplots(figsize=(max(6, 0.45 * len(keys)), 3.5), dpi=150)
+    fig, ax = plt.subplots(figsize=(7, max(3, 0.28 * len(keys) + 1)), dpi=150)
     fig.patch.set_facecolor(SURFACE)
-    ax.bar(range(len(keys)), shares, width=0.7, color=SERIES[0])
-    for i, s in enumerate(shares):
-        ax.text(i, s + 1, "{:.0f}%".format(s), ha="center", fontsize=7, color=INK)
-    ax.set_xticks(range(len(keys)))
-    ax.set_xticklabels(["{}\n{}".format(d, s) for d, s in keys], fontsize=7)
-    ax.set_ylabel("% of substep wall", color=INK, fontsize=9)
-    ax.set_ylim(0, 100)
+    ax.barh(range(len(keys)), shares, height=0.7, color=SERIES[0])
+    for i, (s, k) in enumerate(zip(shares, keys)):
+        ax.text(s + 1, i, "{:.0f}% of {:.0f} s".format(s, per[k]["wall"]), va="center",
+                fontsize=7, color=INK)
+    ax.set_yticks(range(len(keys)))
+    ax.set_yticklabels(["{} {}".format(d, s) for d, s in keys], fontsize=7)
+    ax.set_xlabel("% of the substep's wall inside repair_timing", color=INK, fontsize=9)
+    ax.set_xlim(0, 115)
     ax.set_title("How much of the stage is repair_timing", color=INK, fontsize=10, loc="left")
     style(ax)
+    ax.yaxis.grid(False)
+    ax.xaxis.grid(True, color=GRID, linewidth=0.6)
     fig.tight_layout()
     fig.savefig(path)
     plt.close(fig)
