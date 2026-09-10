@@ -245,6 +245,84 @@ def arms_table(records, design, stage, base="base"):
     return "\n".join(lines) + "\n"
 
 
+# Profile fields, in the order the attribution table shows them. sta_s
+# encloses worst_s and repair_path_s encloses generate_s and commit_s,
+# so the table shows the enclosing ones and lists the inner as detail.
+PROFILE_COLUMNS = [
+    ("sta_s", "STA"),
+    ("progress_s", "progress row"),
+    ("journal_s", "journal"),
+    ("repair_path_s", "repair work"),
+    ("parasitics_s", "parasitics"),
+    ("collect_s", "collect"),
+    ("tns_s", "tns check"),
+]
+
+
+def attribution_rows(records, arm_prefix="base"):
+    """Per (design, stage, call): where the profiled binary says the seconds went.
+
+    Uses the last phase's cumulative profile line of the setup+hold and
+    floorplan calls from arms whose name starts with `arm_prefix` (the
+    profiled base carries a suffix). One row per (design, stage, call),
+    first repeat.
+    """
+    rows = []
+    seen = set()
+    for record in sorted(records, key=lambda r: (r["design"], r["stage"], r["repeat"])):
+        if not record["arm"].startswith(arm_prefix):
+            continue
+        for step, call, wall in repair_calls(record):
+            if not call.get("profile") or call["kind"] == "repair_design":
+                continue
+            key = (record["design"], record["stage"], call["kind"])
+            if key in seen:
+                continue
+            seen.add(key)
+            prof = list(call["profile"].values())[-1]
+            total = call.get("setup_s") or 0
+            accounted = sum(prof.get(k, 0) for k, _ in PROFILE_COLUMNS)
+            rows.append(
+                {
+                    "design": record["design"],
+                    "stage": record["stage"],
+                    "kind": call["kind"],
+                    "setup_s": total,
+                    "passes": prof.get("passes"),
+                    "profile": prof,
+                    "other_s": max(total - accounted, 0.0),
+                    "arm": record["arm"],
+                }
+            )
+    return rows
+
+
+def attribution_table(rows):
+    if not rows:
+        return "Not yet measured.\n"
+    lines = [
+        "| design | stage | call | setup (s) | passes | "
+        + " | ".join(label for _, label in PROFILE_COLUMNS)
+        + " | other | accepted / attempts |",
+        "| --- | --- | --- | ---: | ---: | " + " | ".join("---:" for _ in PROFILE_COLUMNS) + " | ---: | ---: |",
+    ]
+    for r in rows:
+        p = r["profile"]
+        cells = []
+        for key, _ in PROFILE_COLUMNS:
+            v = p.get(key)
+            share = (100.0 * v / r["setup_s"]) if (v is not None and r["setup_s"]) else None
+            cells.append("{} ({})".format(fmt(v), fmt(share, 0, "%")) if v is not None else "–")
+        lines.append(
+            "| {} | {} | {} | {} | {} | {} | {} | {} / {} |".format(
+                r["design"], r["stage"], dict(KINDS).get(r["kind"], r["kind"]),
+                fmt(r["setup_s"]), fmt(r["passes"]), " | ".join(cells),
+                fmt(r["other_s"]), fmt(p.get("accepted")), fmt(p.get("attempts")),
+            )
+        )
+    return "\n".join(lines) + "\n"
+
+
 def trajectory_chart(record, step, call_index=0, title=None):
     """A mermaid xychart of WNS against elapsed seconds for one call.
 
@@ -280,6 +358,8 @@ def trajectory_chart(record, step, call_index=0, title=None):
 def render(records):
     parts = ["## Census: where repair_timing's seconds are\n", census_table(census_rows(records))]
     parts += ["\n## Share of the stage\n", stage_share_table(records)]
+    parts += ["\n## Attribution: where a pass spends its seconds\n",
+              attribution_table(attribution_rows(records))]
     pairs = sorted({(r["design"], r["stage"]) for r in records})
     parts.append("\n## Arms\n")
     any_arm = False

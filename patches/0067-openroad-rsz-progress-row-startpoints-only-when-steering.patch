@@ -1,0 +1,62 @@
+rsz: collect startpoint metrics for a progress row only when the phase steers by them
+
+Candidate fix from the repair_timing runtime study; not upstreamed.
+Retires at the bump onto an OpenROAD that carries it or a better
+version of it.
+
+With -verbose, repair_timing prints a progress row every ten passes and
+once per endpoint. Each row calls collectViolatingStartpoints(), which
+walks every vertex in the timing graph and reads a slack per startpoint,
+to fill the StTNS column. On the asap7 designs where repair grinds, the
+rows are 28-29% of the whole repair_timing wall (riscv32i floorplan
+9.5 of 33 s, cts 10.7 of 38 s), measured with patches/0066.
+
+Chesterton's Fence: StTNS arrived with the startpoint-driven phases
+(STARTPOINT_FANOUT), whose objective it is, and printing it on every row
+lets the two objectives be compared as a run proceeds. For the default
+pipeline (LEGACY then LAST_GASP) it is a spectator column. This keeps the
+column, fills it only when the phase steers by startpoints, prints "-"
+otherwise, and leaves the final row -- printed once -- carrying it for
+every phase. No move decision reads it; the result is unchanged.
+
+diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
+index 80d7e167ed..2ba83250c5 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.cc
++++ b/src/rsz/src/policy/SetupLegacyBase.cc
+@@ -883,14 +883,22 @@ void SetupLegacyBase::printProgress(const int iteration,
+     return;
+   }
+ 
+-  // StTNS is printed in every progress row, so collect startpoints only when a
+-  // row is actually emitted.
+-  target_collector_->collectViolatingStartpoints();
++  // The startpoint column is the objective of the startpoint-driven
++  // phases (STARTPOINT_FANOUT) and a spectator everywhere else. Collecting
++  // it walks every vertex in the graph and reads a slack per startpoint,
++  // on every row, and the endpoint-driven phases print a row per
++  // endpoint. So it is collected only when the phase steers by it; the
++  // other phases print the column blank and the final row, printed once,
++  // still carries it.
++  const bool show_startpoint_metrics = use_startpoint_metrics;
++  std::string st_tns_field = "-";
++  if (show_startpoint_metrics) {
++    target_collector_->collectViolatingStartpoints();
++    st_tns_field = delayAsString(target_collector_->getTns(true), 1, sta_);
++  }
+ 
+   const sta::Slack wns = target_collector_->getWns();
+-  const sta::Slack st_tns = target_collector_->getTns(true);
+   const sta::Slack en_tns = target_collector_->getTns(false);
+-  const bool show_startpoint_metrics = use_startpoint_metrics;
+   const sta::Pin* worst_pin
+       = target_collector_->getWorstPin(show_startpoint_metrics);
+ 
+@@ -916,7 +924,7 @@ void SetupLegacyBase::printProgress(const int iteration,
+       totalMoves(MoveType::kSwapPins),
+       area_growth_percent,
+       delayAsString(wns, 3, sta_),
+-      delayAsString(st_tns, 1, sta_),
++      st_tns_field,
+       delayAsString(en_tns, 1, sta_),
+       std::max(0, target_collector_->getNumViolatingEndpoints()),
+       worst_pin != nullptr ? network_->pathName(worst_pin) : "");

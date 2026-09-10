@@ -101,6 +101,30 @@ class Census(unittest.TestCase):
         self.assertEqual(rows[0]["setup_s"], 100.0)
 
 
+class Attribution(unittest.TestCase):
+    def test_profiled_call_becomes_a_row_with_shares(self):
+        c = call(setup_s=100.0)
+        c["profile"] = {
+            "LEGACY*": {"passes": 10, "sta_s": 50.0, "progress_s": 30.0, "journal_s": 5.0,
+                        "repair_path_s": 5.0, "parasitics_s": 0.0, "collect_s": 0.0,
+                        "tns_s": 0.0, "accepted": 3, "attempts": 9},
+            "LAST_GASP+": {"passes": 12, "sta_s": 55.0, "progress_s": 30.0, "journal_s": 5.0,
+                           "repair_path_s": 5.0, "parasitics_s": 0.0, "collect_s": 0.0,
+                           "tns_s": 0.0, "accepted": 3, "attempts": 9},
+        }
+        rows = report.attribution_rows([record("aes", "cts", "base-prof", 1, [c])])
+        self.assertEqual(rows[0]["passes"], 12)
+        self.assertAlmostEqual(rows[0]["other_s"], 5.0)
+        text = report.attribution_table(rows)
+        self.assertIn("| 55.0 (55%) | 30.0 (30%) |", text)
+        self.assertIn("| 3 / 9 |", text)
+
+    def test_unprofiled_results_say_not_yet_measured(self):
+        text = report.attribution_table(report.attribution_rows(
+            [record("aes", "cts", "base", 1, [call()])]))
+        self.assertTrue(text.startswith("Not yet measured"))
+
+
 class Arms(unittest.TestCase):
     def records(self):
         return [

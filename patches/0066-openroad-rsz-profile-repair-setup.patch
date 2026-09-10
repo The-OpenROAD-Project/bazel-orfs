@@ -20,16 +20,18 @@ Rebuffer.cc already does, and prints one key=value line per phase:
         generate_s=... commit_s=... parasitics_s=... sta_s=... journal_s=...
         progress_s=... tns_s=... candidates=... attempts=... accepted=...
 
-repair_path_s encloses generate_s and commit_s; the rest are disjoint.
+repair_path_s encloses generate_s and commit_s, and sta_s encloses
+worst_s (the worst-slack refresh after findRequireds); the rest are
+disjoint.
 The line is emitted with logger->report so it needs no message id.
 Nothing about the result changes: a binary with this patch produces the
 same ODB as one without.
 
 diff --git a/src/rsz/src/RepairSetupContext.hh b/src/rsz/src/RepairSetupContext.hh
-index b85658abdc..583d63bd59 100644
+index b85658abdc..ce4538b7a0 100644
 --- a/src/rsz/src/RepairSetupContext.hh
 +++ b/src/rsz/src/RepairSetupContext.hh
-@@ -9,6 +9,26 @@ namespace rsz {
+@@ -9,6 +9,27 @@ namespace rsz {
  
  class Resizer;
  
@@ -44,6 +46,7 @@ index b85658abdc..583d63bd59 100644
 +  double commit_s{0.0};       // committer.commit (apply), inside it
 +  double parasitics_s{0.0};   // updateParasitics after a pass
 +  double sta_s{0.0};          // findRequireds + refreshEndpointSlacks
++  double worst_s{0.0};        // refreshEndpointSlacks alone, inside sta_s
 +  double journal_s{0.0};      // begin/commit/restore journal
 +  double progress_s{0.0};     // printProgress (-verbose rows)
 +  double tns_s{0.0};          // totalNegativeSlack in terminateProgress
@@ -56,7 +59,7 @@ index b85658abdc..583d63bd59 100644
  struct RepairSetupContext
  {
    explicit RepairSetupContext(Resizer& resizer);
-@@ -32,6 +52,7 @@ struct RepairSetupContext
+@@ -32,6 +53,7 @@ struct RepairSetupContext
    float initial_tns{0.0f};
    float previous_tns{0.0f};
    bool progress_header_printed{false};
@@ -65,7 +68,7 @@ index b85658abdc..583d63bd59 100644
    // Legacy-derived setup phases share one preamble per repair_setup run.
    bool legacy_preamble_done{false};
 diff --git a/src/rsz/src/policy/SetupLastGaspPolicy.cc b/src/rsz/src/policy/SetupLastGaspPolicy.cc
-index d601788921..e967488f02 100644
+index d601788921..c191f49619 100644
 --- a/src/rsz/src/policy/SetupLastGaspPolicy.cc
 +++ b/src/rsz/src/policy/SetupLastGaspPolicy.cc
 @@ -74,6 +74,7 @@ void SetupLastGaspPolicy::iterate()
@@ -76,7 +79,7 @@ index d601788921..e967488f02 100644
    markRunComplete(true);
  }
  
-@@ -262,19 +263,31 @@ void SetupLastGaspPolicy::repairLastGaspEndpoint(
+@@ -262,19 +263,32 @@ void SetupLastGaspPolicy::repairLastGaspEndpoint(
        break;
      }
  
@@ -109,6 +112,7 @@ index d601788921..e967488f02 100644
 +    {
 +      utl::DebugScopedTimer timer(setup_context_.profile.sta_s);
 +      sta_->findRequireds();
++      utl::DebugScopedTimer worst_timer(setup_context_.profile.worst_s);
 +      refreshEndpointSlacks(endpoint_state);
 +      curr_tns = sta_->totalNegativeSlack(max_);
 +    }
@@ -116,7 +120,7 @@ index d601788921..e967488f02 100644
        break;
      }
 diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
-index 4473462019..df7ee2ab6a 100644
+index 4473462019..80d7e167ed 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.cc
 +++ b/src/rsz/src/policy/SetupLegacyBase.cc
 @@ -38,6 +38,7 @@
@@ -234,7 +238,7 @@ index 4473462019..df7ee2ab6a 100644
      float inc_fix_rate = (prev_tns - curr_tns) / initial_tns;
      prev_tns = curr_tns;
      if (iteration > 1000 && inc_fix_rate < fix_rate_threshold) {
-@@ -930,6 +964,32 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
+@@ -930,6 +964,33 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
    return false;
  }
  
@@ -245,8 +249,8 @@ index 4473462019..df7ee2ab6a 100644
 +  logger_->report(
 +      "[RSZ-PROFILE] phase={}{} passes={} collect_s={:.2f} repair_path_s={:.2f} "
 +      "generate_s={:.2f} commit_s={:.2f} parasitics_s={:.2f} sta_s={:.2f} "
-+      "journal_s={:.2f} progress_s={:.2f} tns_s={:.2f} candidates={} "
-+      "attempts={} accepted={}",
++      "worst_s={:.2f} journal_s={:.2f} progress_s={:.2f} tns_s={:.2f} "
++      "candidates={} attempts={} accepted={}",
 +      phase_name,
 +      phase_marker,
 +      p.passes,
@@ -256,6 +260,7 @@ index 4473462019..df7ee2ab6a 100644
 +      p.commit_s,
 +      p.parasitics_s,
 +      p.sta_s,
++      p.worst_s,
 +      p.journal_s,
 +      p.progress_s,
 +      p.tns_s,
@@ -280,7 +285,7 @@ index b8874c17ed..78aa495806 100644
    int committedMoves(MoveType type) const;
    int totalMoves(MoveType type) const;
 diff --git a/src/rsz/src/policy/SetupLegacyPolicy.cc b/src/rsz/src/policy/SetupLegacyPolicy.cc
-index c3709530cd..bd9a1cc408 100644
+index c3709530cd..c5ec245a84 100644
 --- a/src/rsz/src/policy/SetupLegacyPolicy.cc
 +++ b/src/rsz/src/policy/SetupLegacyPolicy.cc
 @@ -50,6 +50,7 @@ void SetupLegacyPolicy::iterate()
@@ -321,7 +326,7 @@ index c3709530cd..bd9a1cc408 100644
      if (!changed) {
        if (endpoint_state.pass != 1) {
          debugPrint(logger_,
-@@ -233,9 +243,15 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
+@@ -233,9 +243,16 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
        break;
      }
  
@@ -335,6 +340,7 @@ index c3709530cd..bd9a1cc408 100644
 +    {
 +      utl::DebugScopedTimer timer(setup_context_.profile.sta_s);
 +      sta_->findRequireds();
++      utl::DebugScopedTimer worst_timer(setup_context_.profile.worst_s);
 +      refreshEndpointSlacks(endpoint_state);
 +    }
  
