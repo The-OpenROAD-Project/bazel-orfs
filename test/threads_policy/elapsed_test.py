@@ -27,6 +27,18 @@ class ParseText(unittest.TestCase):
         self.assertEqual(got["threads"], 7)
         self.assertEqual(got["result_sha1"], "734947984bd3fee97b5f")
 
+    def test_the_hash_is_found_behind_an_elapsed_stamp(self):
+        """log_timestamps.py prefixes every line. Missing this made every
+        stamped arm report result_sha1=None, which read as a different
+        result rather than an unread one."""
+        got = elapsed.parse_text(
+            "[   12.345] 3_3_place_gp              .odb            1"
+            "            312 734947984bd3fee97b5f\n"
+            "[   12.400] Elapsed time: 0:01.13[h:]min:sec. CPU time: user "
+            "2.60 sys 0.22 (250%). Peak memory: 319892KB.\n"
+        )
+        self.assertEqual(got["result_sha1"], "734947984bd3fee97b5f")
+
     def test_a_log_line_ending_in_hex_is_not_mistaken_for_the_hash(self):
         """The summary row is anchored, so prose cannot impersonate it."""
         got = elapsed.parse_text(
