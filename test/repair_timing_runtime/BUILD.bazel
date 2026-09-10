@@ -1,0 +1,130 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+# Where does repair_timing spend its time across the asap7 designs, and
+# which levers cut it without paying in QoR? On the designs where it
+# grinds, repair_timing is three quarters of a cts or grt stage, and
+# with ORFS's `-verbose` it already writes its whole trajectory into the
+# log. This package builds a stage's inputs once, runs the stage outside
+# the sandbox with one knob (or one carried patch) changed, and reads
+# what the tool wrote. Thread count is held at the physical core count:
+# thread policy is another study's question.
+#
+# There is no write-up in the tree: the pull request is the artifact,
+# and report.py generates it from whatever the campaign has recorded.
+# Nothing is checked in under results/ as build data; a new arm appears
+# in the tables by being run.
+#
+# The campaign target is manual -- it runs ORFS stages for hours and
+# needs an otherwise idle machine, so it must never be pulled into a
+# wildcard build. The unit tests are the only non-manual targets.
+package(default_visibility = ["//visibility:private"])
+
+# What ORFS already writes at the end of a substep log: wall, CPU, peak
+# RSS, the ORD-0030 thread witness, the result hash.
+py_library(
+    name = "elapsed",
+    srcs = ["elapsed.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "elapsed_test",
+    size = "small",
+    srcs = ["elapsed_test.py"],
+    deps = [":elapsed"],
+)
+
+# The `Took` stack around the repair calls, so their share of the stage
+# is a measured number rather than an inference.
+py_library(
+    name = "phases",
+    srcs = ["phases.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "phases_test",
+    size = "small",
+    srcs = ["phases_test.py"],
+    deps = [":phases"],
+)
+
+# The repair_timing trajectory: the echoed command (the knob witness),
+# every -verbose progress row, the RSZ runtime lines, and how much of
+# the grind bought anything.
+py_library(
+    name = "repair",
+    srcs = ["repair.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "repair_test",
+    size = "small",
+    srcs = ["repair_test.py"],
+    deps = [":repair"],
+)
+
+# Runs one arm: deploy a stage's inputs with bazel, then run that
+# stage's substeps outside the sandbox with the arm's make variables,
+# pinned to the physical cores.
+py_binary(
+    name = "campaign",
+    srcs = ["campaign.py"],
+    imports = ["."],
+    tags = ["manual"],
+    deps = [
+        ":elapsed",
+        ":phases",
+        ":repair",
+    ],
+)
+
+# STAGE_SUBSTEPS is duplicated into campaign.py so the runner can drive
+# `make do-<substep>` without a Starlark round trip; this asserts the
+# copy against private/stages.bzl so it cannot drift from the flow, and
+# checks the knob witness refuses a sample for the wrong arm.
+py_test(
+    name = "campaign_test",
+    size = "small",
+    srcs = ["campaign_test.py"],
+    data = ["//private:stages.bzl"],
+    deps = [":campaign"],
+)
+
+# Generates the PR body tables and figures from the results directory.
+# Manual only because there is nothing to generate until a campaign has
+# run.
+py_library(
+    name = "report_lib",
+    srcs = ["report.py"],
+    imports = ["."],
+)
+
+py_binary(
+    name = "report",
+    srcs = ["report.py"],
+    imports = ["."],
+    tags = ["manual"],
+    deps = [":report_lib"],
+)
+
+# The figures: PNGs for the PR body, committed to the study branch under
+# docs/studies/repair-timing-runtime/ and referenced by pinned-SHA URL.
+py_binary(
+    name = "plots",
+    srcs = ["plots.py"],
+    imports = ["."],
+    tags = ["manual"],
+    deps = [
+        ":report_lib",
+        "@bazel-orfs-dev-pip//matplotlib",
+    ],
+)
+
+py_test(
+    name = "report_test",
+    size = "small",
+    srcs = ["report_test.py"],
+    deps = [":report_lib"],
+)

@@ -1,0 +1,342 @@
+rsz: profile where a setup repair spends its wall time
+
+Study instrumentation for the repair_timing runtime study; not for
+upstream, and retired with the study branch.
+
+With -verbose rsz prints one progress row per optimisation pass, so a
+log already says how many passes a repair took and what each bought.
+It does not say where the seconds inside a pass go: ranking the path's
+targets, generating and estimating candidates, applying a move through
+the ECO journal, re-estimating parasitics, the incremental required-time
+update and the worst-slack scan after every pass, restoring a journal
+when an endpoint did not improve, or the progress row itself, which
+walks every vertex in the graph to collect violating startpoints.
+
+This accumulates wall seconds into a RepairProfile on the run's shared
+RepairSetupContext, using utl::DebugScopedTimer's aggregate form the way
+Rebuffer.cc already does, and prints one key=value line per phase:
+
+    [RSZ-PROFILE] phase=LEGACY* passes=1206 collect_s=... repair_path_s=...
+        generate_s=... commit_s=... parasitics_s=... sta_s=... journal_s=...
+        progress_s=... tns_s=... candidates=... attempts=... accepted=...
+
+repair_path_s encloses generate_s and commit_s; the rest are disjoint.
+The line is emitted with logger->report so it needs no message id.
+Nothing about the result changes: a binary with this patch produces the
+same ODB as one without.
+
+diff --git a/src/rsz/src/RepairSetupContext.hh b/src/rsz/src/RepairSetupContext.hh
+index b85658abdc..583d63bd59 100644
+--- a/src/rsz/src/RepairSetupContext.hh
++++ b/src/rsz/src/RepairSetupContext.hh
+@@ -9,6 +9,26 @@ namespace rsz {
+ 
+ class Resizer;
+ 
++// Where a setup repair run spends its wall time, accumulated across
++// phases and printed once per phase. Study instrumentation: not for
++// upstream. Seconds unless named otherwise.
++struct RepairProfile
++{
++  double collect_s{0.0};      // collectViolatingEndpoints
++  double repair_path_s{0.0};  // repairPath, all of it
++  double generate_s{0.0};     // generator.generate + estimate, inside it
++  double commit_s{0.0};       // committer.commit (apply), inside it
++  double parasitics_s{0.0};   // updateParasitics after a pass
++  double sta_s{0.0};          // findRequireds + refreshEndpointSlacks
++  double journal_s{0.0};      // begin/commit/restore journal
++  double progress_s{0.0};     // printProgress (-verbose rows)
++  double tns_s{0.0};          // totalNegativeSlack in terminateProgress
++  long candidates{0};         // candidates generated
++  long attempts{0};           // commits attempted
++  long accepted{0};           // commits accepted
++  long passes{0};             // repairEndpoint passes (opto iterations)
++};
++
+ struct RepairSetupContext
+ {
+   explicit RepairSetupContext(Resizer& resizer);
+@@ -32,6 +52,7 @@ struct RepairSetupContext
+   float initial_tns{0.0f};
+   float previous_tns{0.0f};
+   bool progress_header_printed{false};
++  RepairProfile profile;
+ 
+   // Legacy-derived setup phases share one preamble per repair_setup run.
+   bool legacy_preamble_done{false};
+diff --git a/src/rsz/src/policy/SetupLastGaspPolicy.cc b/src/rsz/src/policy/SetupLastGaspPolicy.cc
+index d601788921..e967488f02 100644
+--- a/src/rsz/src/policy/SetupLastGaspPolicy.cc
++++ b/src/rsz/src/policy/SetupLastGaspPolicy.cc
+@@ -74,6 +74,7 @@ void SetupLastGaspPolicy::iterate()
+   }
+   committer_.printTrackerPhaseSummary(
+       "LAST_GASP Phase Summary", "LAST_GASP Phase Endpoint Profiler", true);
++  reportProfile("LAST_GASP", '+');
+   markRunComplete(true);
+ }
+ 
+@@ -262,19 +263,31 @@ void SetupLastGaspPolicy::repairLastGaspEndpoint(
+       break;
+     }
+ 
++    ++setup_context_.profile.passes;
+     sta::Path* end_path = sta_->vertexWorstSlackPath(endpoint_state.end, max_);
+-    const bool changed = repairPath(end_path,
+-                                    endpoint_state.end_slack,
+-                                    /*force_single_repair=*/false);
++    bool changed;
++    {
++      utl::DebugScopedTimer timer(setup_context_.profile.repair_path_s);
++      changed = repairPath(end_path,
++                           endpoint_state.end_slack,
++                           /*force_single_repair=*/false);
++    }
+     if (!changed) {
+       finishEndpointSearch(endpoint_state);
+       break;
+     }
+ 
+-    estimate_parasitics_->updateParasitics();
+-    sta_->findRequireds();
+-    refreshEndpointSlacks(endpoint_state);
+-    const float curr_tns = sta_->totalNegativeSlack(max_);
++    {
++      utl::DebugScopedTimer timer(setup_context_.profile.parasitics_s);
++      estimate_parasitics_->updateParasitics();
++    }
++    float curr_tns;
++    {
++      utl::DebugScopedTimer timer(setup_context_.profile.sta_s);
++      sta_->findRequireds();
++      refreshEndpointSlacks(endpoint_state);
++      curr_tns = sta_->totalNegativeSlack(max_);
++    }
+     if (!advanceLastGaspProgress(endpoint_state, last_gasp_state, curr_tns)) {
+       break;
+     }
+diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
+index 4473462019..df7ee2ab6a 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.cc
++++ b/src/rsz/src/policy/SetupLegacyBase.cc
+@@ -38,6 +38,7 @@
+ #include "sta/Path.hh"
+ #include "sta/PathExpanded.hh"
+ #include "sta/Sdc.hh"
++#include "utl/timer.h"
+ #include "sta/Search.hh"
+ #include "sta/SearchClass.hh"
+ #include "sta/Sta.hh"
+@@ -245,7 +246,10 @@ bool SetupLegacyBase::beginJournaledEndpointSearch(
+   endpoint_state.pass = 1;
+   endpoint_state.decreasing_slack_passes = 0;
+   endpoint_state.force_single_repair = false;
+-  committer_.beginJournal();
++  {
++    utl::DebugScopedTimer timer(setup_context_.profile.journal_s);
++    committer_.beginJournal();
++  }
+   endpoint_state.journal_open = true;
+   return true;
+ }
+@@ -266,7 +270,10 @@ void SetupLegacyBase::acceptEndpointState(
+   if (!endpoint_state.journal_open) {
+     return;
+   }
+-  committer_.commitJournal();
++  {
++    utl::DebugScopedTimer timer(setup_context_.profile.journal_s);
++    committer_.commitJournal();
++  }
+   endpoint_state.journal_open = false;
+ }
+ 
+@@ -276,7 +283,10 @@ void SetupLegacyBase::restoreEndpointState(
+   if (!endpoint_state.journal_open) {
+     return;
+   }
+-  committer_.restoreJournal();
++  {
++    utl::DebugScopedTimer timer(setup_context_.profile.journal_s);
++    committer_.restoreJournal();
++  }
+   endpoint_state.journal_open = false;
+ }
+ 
+@@ -294,7 +304,10 @@ void SetupLegacyBase::saveImprovedCheckpoint(
+     SetupLegacyBase::EndpointRepairState& endpoint_state)
+ {
+   acceptEndpointState(endpoint_state);
+-  committer_.beginJournal();
++  {
++    utl::DebugScopedTimer timer(setup_context_.profile.journal_s);
++    committer_.beginJournal();
++  }
+   endpoint_state.journal_open = true;
+ }
+ 
+@@ -630,18 +643,34 @@ bool SetupLegacyBase::tryCandidateSequence(
+     int& changed,
+     std::optional<MoveType>& accepted_type)
+ {
+-  auto candidates = generator.generate(target);
++  RepairProfile& profile = setup_context_.profile;
++  std::vector<std::unique_ptr<MoveCandidate>> candidates;
++  {
++    utl::DebugScopedTimer timer(profile.generate_s);
++    candidates = generator.generate(target);
++  }
++  profile.candidates += candidates.size();
+   for (auto& candidate : candidates) {
+-    const Estimate estimate = candidate->estimate();
++    Estimate estimate;
++    {
++      utl::DebugScopedTimer timer(profile.generate_s);
++      estimate = candidate->estimate();
++    }
+     if (!estimate.legal) {
+       continue;
+     }
+ 
+     committer_.trackMoveAttempt(target.driver_pin, generator.type());
+-    const MoveResult result = committer_.commit(*candidate);
++    ++profile.attempts;
++    MoveResult result;
++    {
++      utl::DebugScopedTimer timer(profile.commit_s);
++      result = committer_.commit(*candidate);
++    }
+     if (!result.accepted) {
+       continue;
+     }
++    ++profile.accepted;
+ 
+     changed += repairProgressIncrement(result.type, repairs_per_pass);
+     accepted_type = result.type;
+@@ -834,6 +863,7 @@ void SetupLegacyBase::printProgress(const int iteration,
+                                     const char phase_marker,
+                                     const bool use_startpoint_metrics) const
+ {
++  utl::DebugScopedTimer profile_timer(setup_context_.profile.progress_s);
+   const bool start = iteration == 0;
+ 
+   if (start) {
+@@ -907,7 +937,11 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
+     fix_rate_threshold *= 2.0;
+   }
+   if (iteration % opto_small_interval_ == 0) {
+-    float curr_tns = sta_->totalNegativeSlack(max_);
++    float curr_tns;
++    {
++      utl::DebugScopedTimer timer(setup_context_.profile.tns_s);
++      curr_tns = sta_->totalNegativeSlack(max_);
++    }
+     float inc_fix_rate = (prev_tns - curr_tns) / initial_tns;
+     prev_tns = curr_tns;
+     if (iteration > 1000 && inc_fix_rate < fix_rate_threshold) {
+@@ -930,6 +964,32 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
+   return false;
+ }
+ 
++void SetupLegacyBase::reportProfile(const std::string_view phase_name,
++                                    const char phase_marker) const
++{
++  const RepairProfile& p = setup_context_.profile;
++  logger_->report(
++      "[RSZ-PROFILE] phase={}{} passes={} collect_s={:.2f} repair_path_s={:.2f} "
++      "generate_s={:.2f} commit_s={:.2f} parasitics_s={:.2f} sta_s={:.2f} "
++      "journal_s={:.2f} progress_s={:.2f} tns_s={:.2f} candidates={} "
++      "attempts={} accepted={}",
++      phase_name,
++      phase_marker,
++      p.passes,
++      p.collect_s,
++      p.repair_path_s,
++      p.generate_s,
++      p.commit_s,
++      p.parasitics_s,
++      p.sta_s,
++      p.journal_s,
++      p.progress_s,
++      p.tns_s,
++      p.candidates,
++      p.attempts,
++      p.accepted);
++}
++
+ void SetupLegacyBase::reportCustomPhaseSetup() const
+ {
+   logger_->info(
+diff --git a/src/rsz/src/policy/SetupLegacyBase.hh b/src/rsz/src/policy/SetupLegacyBase.hh
+index b8874c17ed..78aa495806 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.hh
++++ b/src/rsz/src/policy/SetupLegacyBase.hh
+@@ -197,6 +197,7 @@ class SetupLegacyBase : public OptimizationPolicy
+                          std::string_view phase_name,
+                          char phase_marker);
+   void reportCustomPhaseSetup() const;
++  void reportProfile(std::string_view phase_name, char phase_marker) const;
+ 
+   int committedMoves(MoveType type) const;
+   int totalMoves(MoveType type) const;
+diff --git a/src/rsz/src/policy/SetupLegacyPolicy.cc b/src/rsz/src/policy/SetupLegacyPolicy.cc
+index c3709530cd..bd9a1cc408 100644
+--- a/src/rsz/src/policy/SetupLegacyPolicy.cc
++++ b/src/rsz/src/policy/SetupLegacyPolicy.cc
+@@ -50,6 +50,7 @@ void SetupLegacyPolicy::iterate()
+   }
+   committer_.printTrackerPhaseSummary(
+       phaseSummaryTitle(), phaseEndpointProfilerTitle(), true);
++  reportProfile(phaseName(), main_state.phase_marker);
+ 
+   // Propagate accumulator deltas back to the sequencer.
+   setup_context_.iteration = main_state.opto_iteration;
+@@ -63,7 +64,10 @@ bool SetupLegacyPolicy::initializeMainRepair(MainRepairState& main_state,
+                                              ViolatingEnds& violating_ends)
+ {
+   const float setup_slack_margin = config_.setup_slack_margin;
+-  violating_ends = collectViolatingEndpoints(setup_slack_margin);
++  {
++    utl::DebugScopedTimer timer(setup_context_.profile.collect_s);
++    violating_ends = collectViolatingEndpoints(setup_slack_margin);
++  }
+ 
+   // prepareForPhasePipeline already rejected the zero-violation case, but the
+   // collector can re-filter here if slack margin semantics differ.
+@@ -195,9 +199,15 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
+       prev_tns_local = sta_->totalNegativeSlack(max_);
+     }
+ 
++    ++setup_context_.profile.passes;
+     sta::Path* end_path = sta_->vertexWorstSlackPath(endpoint_state.end, max_);
+-    const bool changed = repairPath(
+-        end_path, endpoint_state.end_slack, endpoint_state.force_single_repair);
++    bool changed;
++    {
++      utl::DebugScopedTimer timer(setup_context_.profile.repair_path_s);
++      changed = repairPath(end_path,
++                           endpoint_state.end_slack,
++                           endpoint_state.force_single_repair);
++    }
+     if (!changed) {
+       if (endpoint_state.pass != 1) {
+         debugPrint(logger_,
+@@ -233,9 +243,15 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
+       break;
+     }
+ 
+-    estimate_parasitics_->updateParasitics();
+-    sta_->findRequireds();
+-    refreshEndpointSlacks(endpoint_state);
++    {
++      utl::DebugScopedTimer timer(setup_context_.profile.parasitics_s);
++      estimate_parasitics_->updateParasitics();
++    }
++    {
++      utl::DebugScopedTimer timer(setup_context_.profile.sta_s);
++      sta_->findRequireds();
++      refreshEndpointSlacks(endpoint_state);
++    }
+ 
+     // Promote only the passes that improve the tracked objective.
+     const bool better = pathImproved(endpoint_state.end_slack,
