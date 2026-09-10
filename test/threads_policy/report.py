@@ -961,6 +961,56 @@ SUBSTEP_OWNER = {
 }
 
 GPL_PR = "https://github.com/The-OpenROAD-Project/OpenROAD/pull/11368"
+SCALING_STUDY = "https://github.com/The-OpenROAD-Project/bazel-orfs/pull/968"
+
+
+def section_optimum(records):
+    """Where the answer to "what is the optimal thread count" lives.
+
+    Not here, when this campaign recorded no timing arms. #968 measured
+    that ladder on a 16-core / 32-thread host and published it; the
+    honest thing is to point at it rather than to re-derive a weaker
+    version of it on whatever machine happens to be running this.
+
+    A thread-scaling optimum is a property of the host as much as of
+    the tool -- #968 says so itself, and gives the reason: its own gpl
+    optimum moved with design size, and OpenROAD#11368 measured a
+    1.28M-instance design preferring the core count while #968's
+    smaller designs preferred half of it.
+    """
+    if not records:
+        return ""
+    timing = timed(records)
+    prov = records[0]["provenance"]
+    cores, threads = prov.get("physical_cores"), prov.get("hardware_threads")
+    out = [
+        "## What the optimal thread count is",
+        "",
+        "**Not re-litigated here.** [#968]({}) measured that ladder across "
+        "6 asap7 designs and 6 thread counts and published it: `place` "
+        "wants t=8, `cts` and `grt` want t=16 (the physical core count on "
+        "that host), and `route` wants the ceiling -- capping it costs "
+        "about 15%. The recommendation that follows, and the one "
+        "OpenROAD#11368 implements for global placement, is to cap the "
+        "tools that saturate early at the core count and leave `drt` at "
+        "the ceiling.".format(SCALING_STUDY),
+        "",
+        "That ladder was taken on a **16-core / 32-thread** host. This "
+        "campaign ran on **{} cores / {} hardware threads**, so re-taking "
+        "it here would produce a different machine's answer, not a "
+        "correction to #968: a scaling optimum is a property of the host "
+        "as much as of the tool, which is why #968 recommends a "
+        "work-per-thread heuristic over a constant.".format(cores, threads),
+    ]
+    if not timing:
+        out += [
+            "",
+            "No `--mode timing` arms were recorded, so every runtime table "
+            "below reads *Not measured*. That is deliberate and not a gap "
+            "in this campaign: the question here is idempotency, and its "
+            "arms run contended on purpose.",
+        ]
+    return "\n".join(out) + "\n"
 
 
 def _opportunity(cells, records):
@@ -1412,6 +1462,7 @@ def body(records, cells):
         "behaviour changes here, and it recommends *no* change to ORFS.",
         "",
         section_invariance_tldr(records),
+        section_optimum(records),
         section_tldr(cells, records),
         "`NUM_CORES` -> `openroad -threads N` is a **ceiling**: what a job is",
         'permitted to use, not a target. So the question is not "cores or',

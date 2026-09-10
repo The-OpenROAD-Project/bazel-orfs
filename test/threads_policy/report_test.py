@@ -834,3 +834,43 @@ class InvarianceTldr(unittest.TestCase):
 
     def test_no_records_renders_nothing_rather_than_an_empty_table(self):
         self.assertEqual(report.section_invariance_tldr([]), "")
+
+
+class Optimum(unittest.TestCase):
+    """The optimum is #968's answer, on #968's host."""
+
+    def test_it_points_at_968_rather_than_re_deriving_a_weaker_ladder(self):
+        records, cells = build(
+            [
+                dict(
+                    rec("aes", "cts", 1, 1, {"4_1_cts": step(10.0)}),
+                    mode="idempotency",
+                    contended=True,
+                )
+            ]
+        )
+        text = report.section_optimum(records)
+        self.assertIn("Not re-litigated here", text)
+        self.assertIn("968", text)
+
+    def test_it_names_both_hosts_so_the_numbers_are_not_transplanted(self):
+        records, _ = build([rec("aes", "cts", 1, 1, {"4_1_cts": step(10.0)})])
+        text = report.section_optimum(records)
+        self.assertIn("16-core / 32-thread", text)
+        self.assertIn("8 cores / 16 hardware threads", text)
+
+    def test_it_explains_the_empty_runtime_tables_when_no_arm_was_timed(self):
+        records, _ = build(
+            [
+                dict(
+                    rec("aes", "cts", 1, 1, {"4_1_cts": step(10.0)}),
+                    mode="idempotency",
+                    contended=True,
+                )
+            ]
+        )
+        self.assertIn("Not measured", report.section_optimum(records))
+
+    def test_a_timed_campaign_does_not_claim_the_tables_are_empty(self):
+        records, _ = build([rec("aes", "cts", 1, 1, {"4_1_cts": step(10.0)})])
+        self.assertNotIn("Not measured", report.section_optimum(records))
