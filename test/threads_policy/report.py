@@ -29,6 +29,9 @@ import math
 import os
 import sys
 
+import idempotency
+import witness
+
 # GitHub's limit on a PR body and on a single comment. Exceeding it
 # truncates the evidence, so it is checked rather than hoped for.
 GITHUB_CHAR_CAP = 65536
@@ -411,52 +414,136 @@ def section_pinning(cells, records):
     return "\n".join(out) + "\n"
 
 
-def section_work_changed(cells):
-    """Did -threads change the layout? If so, the timings compare different work."""
-    offenders = []
-    seen = collections.defaultdict(dict)
-    for (design, stage, step, t, pin), cell in cells.items():
-        if pin:
-            continue
-        seen[(design, stage, step)][t] = cell.sha1s
-    for key, arms in sorted(seen.items()):
-        hashes = set()
-        unproven = False
-        for shas in arms.values():
-            if None in shas:
-                unproven = True
-            hashes |= {s for s in shas if s}
-        if len(hashes) > 1:
-            offenders.append((key, sorted(hashes), unproven))
+def section_work_changed(cells, records=None):
+    """Did the thread count change the result?
 
-    if not seen:
-        return "### Did `-threads` change the result?\n\n**Not measured.**\n"
-    if not offenders:
-        return (
-            "### Did `-threads` change the result?\n\n"
-            "**No.** Every substep produced a byte-identical result across "
-            "every thread arm, as witnessed by the `sha1sum result` column "
-            "ORFS's own `genElapsedTime.py` writes into each log. The runtime "
-            "comparisons above are therefore between identical work.\n"
+    A renderer over idempotency.py, which is where the distinction
+    lives: #968 asked this question by pooling every arm and every
+    repeat of a substep into one set of hashes and reporting "more than
+    one". That conflates two findings with different causes and
+    different fixes -- an arm that disagrees with *itself* is
+    nondeterminism and implicates no thread count at all -- so the
+    verdicts are computed per (design, stage, substep, witness) and
+    printed with the arm each divergence first appears at.
+    """
+    heading = "### Did `-threads` change the result?"
+    if not records:
+        return heading + "\n\n**Not measured.**\n"
+
+    all_verdicts = idempotency.verdicts(records)
+    if not all_verdicts:
+        return heading + "\n\n**Not measured.**\n"
+    tally = idempotency.counts(all_verdicts)
+    blind = idempotency.thread_blind(records)
+
+    interesting = [
+        v
+        for v in all_verdicts
+        if v.verdict
+        in (
+            idempotency.CONFOUNDED,
+            idempotency.THREAD_DEPENDENT,
+            idempotency.RUN_TO_RUN,
         )
-    out = [
-        "### Did `-threads` change the result?",
-        "",
-        "**Yes, and that matters more than the timings.** These substeps "
-        "produced different results at different thread counts, so their "
-        "runtime comparison is between *different work* and cannot be read "
-        "as a speedup. It also means the flow's output depends on the "
-        "machine it ran on:",
-        "",
-        "| design | stage | substep | distinct results |",
-        "| --- | --- | --- | --: |",
     ]
-    for (design, stage, step), hashes, unproven in offenders:
+    unproven = [v for v in all_verdicts if v.verdict == idempotency.UNPROVEN]
+
+    out = [heading, ""]
+    if not interesting:
+        out += [
+            "**No.** {} of {} (design, stage, substep, witness) verdicts are "
+            "`stable`: every arm agreed with itself across its repeats *and* "
+            "with the single-threaded reference, on all three witnesses "
+            "(`.sdc` bytes, `.odb` bytes, and the comparable subset of "
+            "ORFS's metrics).".format(tally[idempotency.STABLE], len(all_verdicts)),
+        ]
+        if unproven:
+            out += [
+                "",
+                "{} verdicts are `unproven` rather than stable -- a witness "
+                "the substep never wrote, or a ladder that did not reach "
+                "the t=1 reference. Silence is not agreement, so they are "
+                "counted separately:".format(len(unproven)),
+                "",
+                "| design | stage | substep | witness | why |",
+                "| --- | --- | --- | --- | --- |",
+            ]
+            for got in unproven:
+                out.append(
+                    "| {} | {} | `{}` | {} | {} |".format(
+                        got.key.design,
+                        got.key.stage,
+                        got.key.step,
+                        got.key.kind,
+                        got.detail or "no comparable arm",
+                    )
+                )
+        return "\n".join(out) + "\n"
+
+    out += [
+        "**Yes.** {} verdicts are not `stable`. The classes are kept apart "
+        "because they are different bugs: `run-to-run` means an arm "
+        "disagreed with *itself* between repeats and implicates no thread "
+        "count; `thread-dependent` means every arm agreed with itself and a "
+        "different arm disagreed; `confounded` means both, and there "
+        "thread-dependence is **not** claimed on top of a nondeterministic "
+        "base.".format(len(interesting)),
+        "",
+        "| verdict | design | stage | substep | witness | first diverges at | arms |",
+        "| --- | --- | --- | --- | --- | --: | --- |",
+    ]
+    for got in interesting:
+        blind_note = (
+            " (thread-blind)"
+            if (got.key.design, got.key.stage, got.key.step) in blind
+            else ""
+        )
         out.append(
-            "| {} | {} | `{}` | {}{} |".format(
-                design, stage, step, len(hashes), " (some unproven)" if unproven else ""
+            "| {}{} | {} | {} | `{}` | {} | {} | {} |".format(
+                got.verdict,
+                blind_note,
+                got.key.design,
+                got.key.stage,
+                got.key.step,
+                got.key.kind,
+                (
+                    "t={}".format(got.first_divergent_arm)
+                    if got.first_divergent_arm
+                    else "-"
+                ),
+                ", ".join(
+                    "t{}{}".format(t, "*" if t in got.unstable_arms else "")
+                    for t in sorted(set(got.arms) | set(got.unstable_arms))
+                ),
             )
         )
+    out += [
+        "",
+        "`*` marks an arm that disagreed with itself. *thread-blind* marks a "
+        "substep that never used more than one core's worth of CPU at any "
+        "arm: it measures nothing about thread policy, so a divergence there "
+        "is a nondeterminism finding rather than a thread one.",
+    ]
+
+    ceilings = idempotency.safe_ceiling(all_verdicts)
+    if ceilings:
+        out += [
+            "",
+            "#### The highest thread count nothing diverged at",
+            "",
+            "Only `thread-dependent` verdicts set this. A `run-to-run` "
+            "finding sets no ceiling, because no thread count is safe while "
+            "a stage disagrees with itself.",
+            "",
+            "| design | stage | safe up to |",
+            "| --- | --- | --: |",
+        ]
+        for (design, stage), ceiling in sorted(ceilings.items()):
+            out.append(
+                "| {} | {} | {} |".format(
+                    design, stage, "t={}".format(ceiling) if ceiling else "nothing"
+                )
+            )
     return "\n".join(out) + "\n"
 
 
@@ -1276,7 +1363,7 @@ def body(records, cells):
         "",
         section_sweep(cells, records),
         "",
-        section_work_changed(cells),
+        section_work_changed(cells, records),
         "",
         section_pinning(cells, records),
         "",

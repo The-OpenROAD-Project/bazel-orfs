@@ -82,6 +82,7 @@ py_binary(
     srcs = ["report.py"],
     imports = ["."],
     tags = ["manual"],
+    deps = [":idempotency"],
 )
 
 py_test(
@@ -138,6 +139,23 @@ py_test(
     size = "small",
     srcs = ["watchdog_test.py"],
     deps = [":watchdog"],
+)
+
+# Run-to-run nondeterminism and thread-dependence are different bugs
+# with different fixes. #968's check pooled every arm and repeat into
+# one set of hashes, which reports the first as the second.
+py_library(
+    name = "idempotency",
+    srcs = ["idempotency.py"],
+    imports = ["."],
+    deps = [":witness"],
+)
+
+py_test(
+    name = "idempotency_test",
+    size = "small",
+    srcs = ["idempotency_test.py"],
+    deps = [":idempotency"],
 )
 
 # The static audit of class 1 (pointer-keyed containers whose iteration

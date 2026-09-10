@@ -34,8 +34,22 @@ def rec(design, stage, threads, repeat, substeps, pinned=False):
     }
 
 
-def step(wall, cpu=1500, sha1="a" * 20, user=None, phases=None, reconcile=None):
+def step(
+    wall,
+    cpu=1500,
+    sha1="a" * 20,
+    user=None,
+    phases=None,
+    reconcile=None,
+    sdc=None,
+    qor=None,
+):
+    # `sha1` fills both the timing table's "same result" column
+    # (result_sha1) and the idempotency layer's `.odb` witness, which
+    # is what collect() does: the computed ODB hash is copied into
+    # result_sha1 so the two stay comparable.
     got = {
+        "ran": True,
         "wall_s": wall,
         "user_s": user if user is not None else wall * cpu / 100.0,
         "sys_s": 0.0,
@@ -43,6 +57,9 @@ def step(wall, cpu=1500, sha1="a" * 20, user=None, phases=None, reconcile=None):
         "peak_kb": 1024,
         "threads": None,
         "result_sha1": sha1,
+        "odb_sha1": sha1,
+        "sdc_sha1": sha1 if sdc is None else sdc,
+        "qor": qor,
     }
     if phases is not None:
         got["phases"] = [
@@ -135,35 +152,69 @@ class Verdicts(unittest.TestCase):
 
 
 class DifferentWork(unittest.TestCase):
-    def test_identical_hashes_report_identical_work(self):
-        records, cells = build(
-            [
-                rec("aes", "route", 32, 1, {"5_2_route": step(100.0, sha1="b" * 20)}),
-                rec("aes", "route", 16, 1, {"5_2_route": step(70.0, sha1="b" * 20)}),
-            ]
-        )
-        self.assertIn("**No.**", report.section_work_changed(cells))
+    """The section is a renderer; the verdicts are idempotency_test's."""
 
-    def test_differing_hashes_disqualify_the_speedup_reading(self):
-        records, cells = build(
+    def _ladder(self, by_arm, **kw):
+        return build(
             [
-                rec("aes", "route", 32, 1, {"5_2_route": step(100.0, sha1="b" * 20)}),
-                rec("aes", "route", 16, 1, {"5_2_route": step(70.0, sha1="c" * 20)}),
+                rec(
+                    "aes",
+                    "cts",
+                    threads,
+                    repeat,
+                    {"4_1_cts": step(10.0, **kw, sha1=sha1)},
+                )
+                for threads, sha1s in by_arm.items()
+                for repeat, sha1 in enumerate(sha1s, start=1)
             ]
         )
-        text = report.section_work_changed(cells)
-        self.assertIn("different work", text)
-        body = report.body(records, cells)
-        self.assertIn("**NO**", body)
 
-    def test_a_missing_hash_is_unproven_not_equal(self):
-        records, cells = build(
-            [
-                rec("aes", "route", 32, 1, {"5_2_route": step(100.0, sha1=None)}),
-                rec("aes", "route", 16, 1, {"5_2_route": step(70.0, sha1=None)}),
-            ]
+    def test_every_arm_agreeing_with_the_reference_reports_no(self):
+        records, cells = self._ladder({1: ("b" * 20,) * 2, 16: ("b" * 20,) * 2})
+        text = report.section_work_changed(cells, records)
+        self.assertIn("**No.**", text)
+        self.assertIn("stable", text)
+
+    def test_thread_dependence_is_named_and_the_first_arm_reported(self):
+        records, cells = self._ladder(
+            {1: ("b" * 20,) * 2, 8: ("b" * 20,) * 2, 16: ("c" * 20,) * 2}
         )
-        self.assertIn("unproven", report.body(records, cells))
+        text = report.section_work_changed(cells, records)
+        self.assertIn("**Yes.**", text)
+        self.assertIn("thread-dependent", text)
+        self.assertIn("t=16", text)
+
+    def test_nondeterminism_is_not_reported_as_thread_dependence(self):
+        # The distinction #968's pooled check could not make: an arm
+        # that disagrees with itself implicates no thread count.
+        records, cells = self._ladder({1: ("b" * 20,) * 2, 16: ("c" * 20, "d" * 20)})
+        text = report.section_work_changed(cells, records)
+        self.assertIn("run-to-run", text)
+        self.assertNotIn("| thread-dependent", text)
+
+    def test_a_safe_ceiling_is_reported_only_for_thread_dependence(self):
+        records, cells = self._ladder(
+            {1: ("b" * 20,) * 2, 8: ("b" * 20,) * 2, 16: ("c" * 20,) * 2}
+        )
+        text = report.section_work_changed(cells, records)
+        self.assertIn("highest thread count nothing diverged at", text)
+        self.assertIn("t=8", text)
+
+    def test_a_missing_witness_is_unproven_not_equal(self):
+        records, cells = self._ladder({1: (None, None), 16: (None, None)})
+        text = report.section_work_changed(cells, records)
+        self.assertIn("unproven", text)
+        self.assertIn("Silence is not agreement", text)
+
+    def test_no_records_is_not_measured_rather_than_no(self):
+        records, cells = build([])
+        self.assertIn("Not measured", report.section_work_changed(cells, records))
+
+    def test_a_thread_blind_substep_is_marked_as_such(self):
+        # It never used more than one core, so a divergence there is
+        # not a thread finding.
+        records, cells = self._ladder({1: ("b" * 20,) * 2, 16: ("c" * 20,) * 2}, cpu=99)
+        self.assertIn("thread-blind", report.section_work_changed(cells, records))
 
 
 class Pinning(unittest.TestCase):
