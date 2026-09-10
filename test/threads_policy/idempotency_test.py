@@ -188,6 +188,23 @@ class AbsentWitness(unittest.TestCase):
         kinds = {v.key.kind for v in idempotency.verdicts(records)}
         self.assertEqual(kinds, {"odb", "qor"})
 
+    def test_an_empty_qor_dict_is_unproven_not_agreement(self):
+        # `{}` == `{}` for every arm, so left alone it reports
+        # `stable`: a verdict of "identical" backed by zero
+        # comparisons.
+        records = [record(threads=t, repeat=r, qor={}) for t in (1, 16) for r in (1, 2)]
+        qor = [v for v in idempotency.verdicts(records) if v.key.kind == "qor"][0]
+        self.assertEqual(qor.verdict, idempotency.UNPROVEN)
+
+    def test_a_non_empty_qor_dict_is_compared(self):
+        records = [
+            record(threads=t, repeat=r, qor={"design__violations": 0})
+            for t in (1, 16)
+            for r in (1, 2)
+        ]
+        qor = [v for v in idempotency.verdicts(records) if v.key.kind == "qor"][0]
+        self.assertEqual(qor.verdict, idempotency.STABLE)
+
     def test_a_field_present_but_empty_is_still_unproven(self):
         records = [
             record(threads=t, repeat=r, odb_sha1=None) for t in (1, 16) for r in (1, 2)

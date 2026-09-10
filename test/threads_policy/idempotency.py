@@ -76,7 +76,16 @@ def sample_value(sample, kind):
     field = "qor" if kind == "qor" else kind + "_sha1"
     if field not in sample:
         return ABSENT
-    return sample[field]
+    value = sample[field]
+    # An empty QoR dict is not agreement. It means the substep wrote
+    # metrics and none of them were comparable, and left as `{}` it
+    # compares equal across every arm and reports `stable` -- a
+    # verdict of "identical" backed by zero comparisons. That was
+    # briefly true of `5_3_fillcell`, whose keys carry no stage prefix
+    # and so matched nothing.
+    if kind == "qor" and value == {}:
+        return None
+    return value
 
 
 def comparable(value):

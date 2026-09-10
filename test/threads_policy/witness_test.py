@@ -85,6 +85,68 @@ class QoR(unittest.TestCase):
         self.assertIsNone(witness.qor(self.logs, "5_1_grt"))
 
 
+class UnprefixedKeys(unittest.TestCase):
+    """Not every substep prefixes its metric keys with the stage.
+
+    `5_3_fillcell.json` writes bare `design__violations`. Matching on
+    the `__`-leading suffix alone dropped it, so that substep compared
+    no metrics and still reported `stable`.
+    """
+
+    def setUp(self):
+        self.logs = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.logs)
+
+    def _write(self, step, metrics):
+        with open(os.path.join(self.logs, step + ".json"), "w") as handle:
+            json.dump(metrics, handle)
+
+    def test_a_bare_key_is_read(self):
+        self._write("5_3_fillcell", {"design__violations": 3})
+        self.assertEqual(
+            witness.qor(self.logs, "5_3_fillcell"), {"design__violations": 3}
+        )
+
+    def test_a_prefixed_key_lands_in_the_same_column(self):
+        self._write("4_1_cts", {"cts__design__violations": 3})
+        self.assertEqual(witness.qor(self.logs, "4_1_cts"), {"design__violations": 3})
+
+    def test_the_route_substep_compares_more_than_its_wirelength(self):
+        # route runs no STA, so its metrics are drt's own counts and
+        # none of the timing suffixes exist there.
+        self._write(
+            "5_2_route",
+            {
+                "detailedroute__route__wirelength": 764,
+                "detailedroute__route__drc_errors": 0,
+                "detailedroute__route__vias": 300,
+                "detailedroute__route__vias__multicut": 0,
+                "detailedroute__route__net": 40,
+                "detailedroute__antenna__violating__nets": 0,
+                "detailedroute__flow__errors__count": 0,
+                "detailedroute__route__drc_errors__iter:0": 5,
+            },
+        )
+        got = witness.qor(self.logs, "5_2_route")
+        self.assertIn("route__drc_errors", got)
+        self.assertIn("route__vias", got)
+        self.assertIn("route__net", got)
+        self.assertIn("antenna__violating__nets", got)
+        self.assertGreaterEqual(len(got), 6)
+
+    def test_vias_and_multicut_vias_do_not_share_a_column(self):
+        self._write(
+            "5_2_route",
+            {
+                "detailedroute__route__vias": 300,
+                "detailedroute__route__vias__multicut": 7,
+            },
+        )
+        got = witness.qor(self.logs, "5_2_route")
+        self.assertEqual(got["route__vias"], 300)
+        self.assertEqual(got["route__vias__multicut"], 7)
+
+
 class Differences(unittest.TestCase):
     def test_identical_samples_have_none(self):
         self.assertEqual(witness.differences({"a": 1}, {"a": 1}), {})

@@ -67,6 +67,28 @@ QOR_SUFFIXES = (
     "__design__violations",
     "__route__wirelength",
     "__route__wirelength__estimated",
+    # The route substep runs no STA, so none of the timing keys above
+    # exist there: its metrics are drt's own counts. Without these,
+    # `5_2_route` compared one key (wirelength) and `5_3_fillcell`
+    # compared none, and both reported `stable` while comparing
+    # nothing -- the exact quiet-wrong-data failure this file's
+    # docstring warns about, found by looking at a real route sample
+    # rather than by a test.
+    "__route__drc_errors",
+    "__route__net",
+    "__route__net__special",
+    "__route__vias",
+    "__route__vias__multicut",
+    "__route__vias__singlecut",
+    "__antenna__violating__nets",
+    "__antenna__violating__pins",
+    "__antenna_diodes_count",
+    # A change in how many errors or warnings a substep emitted is a
+    # divergence, whatever else agreed. The per-message
+    # `flow__warnings__count:STA-0450` keys ride along on the same
+    # suffix and are as deterministic as the totals.
+    "__flow__errors__count",
+    "__flow__warnings__count",
 )
 
 # The three witnesses, in the order they are worth reading. `sdc`
@@ -123,8 +145,15 @@ def qor(logs, step):
     out = {}
     for key, value in metrics.items():
         for suffix in QOR_SUFFIXES:
-            if key.endswith(suffix):
-                out[suffix.lstrip("_")] = value
+            # With *or* without the stage prefix. ORFS prefixes most
+            # substeps' keys with the stage (`cts__timing__setup__ws`)
+            # but not all of them: `5_3_fillcell.json` writes bare
+            # `design__violations`, which an `endswith("__design__
+            # violations")` test silently drops -- so that substep
+            # compared no metrics at all and still reported `stable`.
+            bare = suffix.lstrip("_")
+            if key.endswith(suffix) or key == bare:
+                out[bare] = value
                 break
     return out
 
