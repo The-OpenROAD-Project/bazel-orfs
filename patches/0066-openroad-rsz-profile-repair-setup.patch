@@ -75,26 +75,38 @@ index b85658abdc..c33004b5f2 100644
    // Legacy-derived setup phases share one preamble per repair_setup run.
    bool legacy_preamble_done{false};
 diff --git a/src/rsz/src/policy/SetupLastGaspPolicy.cc b/src/rsz/src/policy/SetupLastGaspPolicy.cc
-index d601788921..ddba752a85 100644
+index d601788921..454cc2758c 100644
 --- a/src/rsz/src/policy/SetupLastGaspPolicy.cc
 +++ b/src/rsz/src/policy/SetupLastGaspPolicy.cc
-@@ -33,6 +33,7 @@ static constexpr int kDelayDigits = 3;
+@@ -19,6 +19,8 @@
+ #include "sta/GraphClass.hh"
+ #include "sta/Path.hh"
+ #include "utl/Logger.h"
++#include <optional>
++
+ #include "utl/timer.h"
+ 
+ namespace rsz {
+@@ -33,6 +35,9 @@ static constexpr int kDelayDigits = 3;
  
  void SetupLastGaspPolicy::iterate()
  {
-+  utl::DebugScopedTimer phase_timer(setup_context_.profile.phase_s);
++  // Closed before the profile line prints, so phase_s includes this phase.
++  std::optional<utl::DebugScopedTimer> phase_timer;
++  phase_timer.emplace(setup_context_.profile.phase_s);
    if (config_.skip_last_gasp) {
      markRunComplete(false);
      return;
-@@ -74,6 +75,7 @@ void SetupLastGaspPolicy::iterate()
+@@ -74,6 +79,8 @@ void SetupLastGaspPolicy::iterate()
    }
    committer_.printTrackerPhaseSummary(
        "LAST_GASP Phase Summary", "LAST_GASP Phase Endpoint Profiler", true);
++  phase_timer.reset();
 +  reportProfile("LAST_GASP", '+');
    markRunComplete(true);
  }
  
-@@ -262,19 +264,36 @@ void SetupLastGaspPolicy::repairLastGaspEndpoint(
+@@ -262,19 +269,36 @@ void SetupLastGaspPolicy::repairLastGaspEndpoint(
        break;
      }
  
@@ -311,26 +323,56 @@ index b8874c17ed..78aa495806 100644
    int committedMoves(MoveType type) const;
    int totalMoves(MoveType type) const;
 diff --git a/src/rsz/src/policy/SetupLegacyPolicy.cc b/src/rsz/src/policy/SetupLegacyPolicy.cc
-index c3709530cd..408b16ce0c 100644
+index c3709530cd..bd722c0087 100644
 --- a/src/rsz/src/policy/SetupLegacyPolicy.cc
 +++ b/src/rsz/src/policy/SetupLegacyPolicy.cc
-@@ -35,6 +35,7 @@ static constexpr int kDelayDigits = 3;
+@@ -34,11 +34,29 @@ static constexpr int kDelayDigits = 3;
+ }  // namespace
  
  void SetupLegacyPolicy::iterate()
++{
++  MainRepairState main_state;
++  {
++    utl::DebugScopedTimer phase_timer(setup_context_.profile.phase_s);
++    iterateTimed(main_state);
++  }
++  committer_.printTrackerPhaseSummary(
++      phaseSummaryTitle(), phaseEndpointProfilerTitle(), true);
++  reportProfile(phaseName(), main_state.phase_marker);
++
++  // Propagate accumulator deltas back to the sequencer.
++  setup_context_.iteration = main_state.opto_iteration;
++  setup_context_.violation_count = main_state.num_viols;
++  setup_context_.initial_tns = main_state.initial_tns;
++  setup_context_.previous_tns = main_state.prev_tns;
++  markRunComplete(true);
++}
++
++void SetupLegacyPolicy::iterateTimed(MainRepairState& main_state)
  {
-+  utl::DebugScopedTimer phase_timer(setup_context_.profile.phase_s);
    committer_.capturePrePhaseSlack();
    buildMainMoveSequence(/*log_sequence=*/false);
  
-@@ -50,6 +51,7 @@ void SetupLegacyPolicy::iterate()
+-  MainRepairState main_state;
+   main_state.opto_iteration = setup_context_.iteration;
+   main_state.initial_tns = setup_context_.initial_tns;
+   main_state.prev_tns = setup_context_.initial_tns;
+@@ -48,22 +66,16 @@ void SetupLegacyPolicy::iterate()
+   if (initializeMainRepair(main_state, violating_ends)) {
+     runMainRepairLoop(violating_ends, main_state);
    }
-   committer_.printTrackerPhaseSummary(
-       phaseSummaryTitle(), phaseEndpointProfilerTitle(), true);
-+  reportProfile(phaseName(), main_state.phase_marker);
+-  committer_.printTrackerPhaseSummary(
+-      phaseSummaryTitle(), phaseEndpointProfilerTitle(), true);
+-
+-  // Propagate accumulator deltas back to the sequencer.
+-  setup_context_.iteration = main_state.opto_iteration;
+-  setup_context_.violation_count = main_state.num_viols;
+-  setup_context_.initial_tns = main_state.initial_tns;
+-  setup_context_.previous_tns = main_state.prev_tns;
+-  markRunComplete(true);
+ }
  
-   // Propagate accumulator deltas back to the sequencer.
-   setup_context_.iteration = main_state.opto_iteration;
-@@ -63,7 +65,10 @@ bool SetupLegacyPolicy::initializeMainRepair(MainRepairState& main_state,
+ bool SetupLegacyPolicy::initializeMainRepair(MainRepairState& main_state,
                                               ViolatingEnds& violating_ends)
  {
    const float setup_slack_margin = config_.setup_slack_margin;
@@ -342,7 +384,7 @@ index c3709530cd..408b16ce0c 100644
  
    // prepareForPhasePipeline already rejected the zero-violation case, but the
    // collector can re-filter here if slack margin semantics differ.
-@@ -195,9 +200,19 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
+@@ -195,9 +207,19 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
        prev_tns_local = sta_->totalNegativeSlack(max_);
      }
  
@@ -365,7 +407,7 @@ index c3709530cd..408b16ce0c 100644
      if (!changed) {
        if (endpoint_state.pass != 1) {
          debugPrint(logger_,
-@@ -233,9 +248,16 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
+@@ -233,9 +255,16 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
        break;
      }
  
@@ -385,7 +427,7 @@ index c3709530cd..408b16ce0c 100644
  
      // Promote only the passes that improve the tracked objective.
      const bool better = pathImproved(endpoint_state.end_slack,
-@@ -359,7 +381,12 @@ void SetupLegacyPolicy::runMainRepairLoop(const ViolatingEnds& violating_ends,
+@@ -359,7 +388,12 @@ void SetupLegacyPolicy::runMainRepairLoop(const ViolatingEnds& violating_ends,
      }
  
      EndpointRepairState endpoint_state;
@@ -399,3 +441,15 @@ index c3709530cd..408b16ce0c 100644
        break;
      }
  
+diff --git a/src/rsz/src/policy/SetupLegacyPolicy.hh b/src/rsz/src/policy/SetupLegacyPolicy.hh
+index 1d47ea6d8d..08e7cd9350 100644
+--- a/src/rsz/src/policy/SetupLegacyPolicy.hh
++++ b/src/rsz/src/policy/SetupLegacyPolicy.hh
+@@ -37,6 +37,7 @@ class SetupLegacyPolicy : public SetupLegacyBase
+     char phase_marker{'*'};
+   };
+ 
++  void iterateTimed(MainRepairState& main_state);
+   bool initializeMainRepair(MainRepairState& main_state,
+                             ViolatingEnds& violating_ends);
+   void runMainRepairLoop(const ViolatingEnds& violating_ends,
