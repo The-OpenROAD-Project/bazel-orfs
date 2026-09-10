@@ -874,3 +874,125 @@ class Optimum(unittest.TestCase):
     def test_a_timed_campaign_does_not_claim_the_tables_are_empty(self):
         records, _ = build([rec("aes", "cts", 1, 1, {"4_1_cts": step(10.0)})])
         self.assertNotIn("Not measured", report.section_optimum(records))
+
+
+AUDIT = {
+    "sta_commit": "65bd9df5f7846015313734d08a5a6367df79453c",
+    "sites": [
+        {
+            "path": "search/Sim.cc",
+            "line": 778,
+            "key_type": "const Pin*",
+            "decl": "using SimValueMap = std::unordered_map<const Pin*, LogicValue>",
+            "evidence": "`sim_value_map_` at search/Sim.cc:778",
+            "risk": "iterated",
+        },
+        {
+            "path": "include/sta/Sdc.hh",
+            "line": 140,
+            "key_type": "const Pin*",
+            "decl": "using PinExceptionsMap = std::unordered_map<const Pin*, ExceptionPathSet>",
+            "evidence": None,
+            "risk": "latent",
+        },
+        {
+            "path": "include/sta/Sdc.hh",
+            "line": 135,
+            "key_type": "const Pin*",
+            "decl": "using ClockPinMap = ... PinIdHash>",
+            "evidence": None,
+            "risk": "low",
+        },
+    ],
+}
+
+
+class Audit(unittest.TestCase):
+    def test_not_run_says_so_and_gives_the_command(self):
+        # Same rule as the results: a section with no inputs names
+        # itself rather than disappearing.
+        text = report.section_audit(None)
+        self.assertIn("Not yet run", text)
+        self.assertIn("sta_audit", text)
+
+    def test_the_counts_come_from_the_sites(self):
+        text = report.section_audit(AUDIT)
+        self.assertIn("**3 declarations**", text.replace("\n", " "))
+
+    def test_the_latent_sites_are_listed_as_a_watch_list_not_a_patch(self):
+        text = report.section_audit(AUDIT)
+        self.assertIn("watch-list", text)
+        self.assertIn("No patch is carried", text)
+        self.assertIn("PinExceptionsMap", text)
+
+    def test_the_iterated_site_is_shown_as_followed_not_as_a_defect(self):
+        text = report.section_audit(AUDIT)
+        self.assertIn("none do", text)
+        self.assertIn("VertexIdLess", text)
+
+    def test_a_pipe_in_a_declaration_cannot_break_the_table(self):
+        audit = {
+            "sta_commit": "a" * 40,
+            "sites": [
+                dict(AUDIT["sites"][1], decl="using M = map<A|B, int>"),
+            ],
+        }
+        rows = [
+            line
+            for line in report.section_audit(audit).splitlines()
+            if line.startswith("| `include/sta/Sdc.hh")
+        ]
+        self.assertEqual(rows[0].count("|"), 4 + 1)
+
+
+class UpstreamCandidates(unittest.TestCase):
+    def _clean(self):
+        return build(
+            [
+                dict(
+                    rec("aes", "cts", threads, repeat, {"4_1_cts": step(10.0)}),
+                    mode="idempotency",
+                    contended=True,
+                )
+                for threads in (1, 8)
+                for repeat in (1, 2)
+            ]
+        )
+
+    def test_a_clean_campaign_carries_no_patch_and_says_why(self):
+        records, _ = self._clean()
+        text = report.section_upstream(records, AUDIT)
+        self.assertIn("**None, and that is the result.**", text)
+        self.assertIn("no failing case behind it", text)
+
+    def test_it_proposes_the_test_instead(self):
+        records, _ = self._clean()
+        text = report.section_upstream(records, AUDIT)
+        self.assertIn("mt_invariance01", text)
+        self.assertIn("lb_32x128_mt_invariance_test", text)
+
+    def test_a_divergence_asks_for_a_fix_per_class(self):
+        records, _ = build(
+            [
+                dict(
+                    rec(
+                        "aes",
+                        "cts",
+                        threads,
+                        repeat,
+                        {
+                            "4_1_cts": step(
+                                10.0, sha1="b" * 20 if threads == 1 else "c" * 20
+                            )
+                        },
+                    ),
+                    mode="idempotency",
+                    contended=True,
+                )
+                for threads in (1, 8)
+                for repeat in (1, 2)
+            ]
+        )
+        text = report.section_upstream(records, AUDIT)
+        self.assertIn("diverged", text)
+        self.assertNotIn("None, and that is the result", text)

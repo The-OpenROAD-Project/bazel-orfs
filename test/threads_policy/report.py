@@ -964,6 +964,167 @@ GPL_PR = "https://github.com/The-OpenROAD-Project/OpenROAD/pull/11368"
 SCALING_STUDY = "https://github.com/The-OpenROAD-Project/bazel-orfs/pull/968"
 
 
+def load_audit(results_dir):
+    """The static audit's JSON, if it has been run. Discovered, not declared.
+
+    Same rule as the results themselves: a section with no inputs says
+    so by name rather than quietly disappearing, so a partial campaign
+    cannot read as a complete one.
+    """
+    path = os.path.join(os.path.dirname(results_dir), "sta_audit.json")
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path) as handle:
+            return json.load(handle)
+    except ValueError:
+        return None
+
+
+def section_audit(audit):
+    """Class 1, and why no patch is carried for it.
+
+    The campaign measures whether a divergence happens. The audit asks
+    the separate question of whether the *mechanism* is present, and it
+    needs no flow runs -- so it can contradict a clean campaign, or
+    explain one.
+    """
+    heading = "## Class 1: the mechanism, audited rather than measured"
+    if not audit:
+        return (
+            heading + "\n\n**Not yet run.** "
+            "`bazelisk run //test/threads_policy:sta_audit -- "
+            "--json tmp/threads_policy/sta_audit.json`\n"
+        )
+    sites = audit.get("sites") or []
+    by_risk = collections.Counter(s.get("risk") for s in sites)
+    latent = [s for s in sites if s.get("risk") == "latent"]
+    iterated = [s for s in sites if s.get("risk") == "iterated"]
+
+    out = [
+        heading,
+        "",
+        "`std::hash<T*>` hashes an address, so iteration order over a "
+        "pointer-keyed container follows allocation order, which follows "
+        "thread scheduling. Deterministic at one thread, arbitrary above, "
+        "and invisible to TSAN because it is not a race. Upstream deleted "
+        '`hashPtr` in May 2026 with the comment *"pointer hashing causes '
+        "results to change from run to run; use Network::id functions "
+        'instead"*.',
+        "",
+        "Audited against the OpenSTA commit the flow builds, `{}`: **{} "
+        "declarations** outside test code -- {} iterated, {} latent, {} "
+        "keyed by value or by a named hash.".format(
+            (audit.get("sta_commit") or "?")[:10],
+            len(sites),
+            by_risk["iterated"],
+            by_risk["latent"],
+            by_risk["low"],
+        ),
+        "",
+    ]
+
+    if iterated:
+        out += [
+            "### The iterated ones, followed",
+            "",
+            "Iteration in bucket order is only a defect when the order "
+            "survives the loop body. All {} were read, and none do:".format(
+                len(iterated)
+            ),
+            "",
+            "| site | where it is iterated | why the order does not survive |",
+            "| --- | --- | --- |",
+        ]
+        for site in iterated:
+            out.append(
+                "| `{}:{}` | {} | *read the loop* |".format(
+                    site["path"], site["line"], site.get("evidence") or "-"
+                )
+            )
+        out += [
+            "",
+            "`network/NetworkCmp.cc` iterates straight into a `sort`, so "
+            "the next statement discards the order. `power/Power.cc` "
+            "accumulates into counters, and addition commutes. "
+            "`search/Sim.cc`'s observer only invalidates -- and "
+            "invalidation lands in `VertexSet = std::set<Vertex*, "
+            "VertexIdLess>`, ordered by vertex id rather than by address.",
+            "",
+            'An earlier version of this audit called the third one "the '
+            'shape worth chasing" on the strength of the loop alone, '
+            "without reading the observer or the container it writes into. "
+            "A shortlist is not a finding until someone has followed it.",
+        ]
+
+    if latent:
+        out += [
+            "",
+            "### The watch-list: {} latent sites".format(len(latent)),
+            "",
+            "Address-hashed, with no iteration found. Correct today and one "
+            "range-for away from not being. **No patch is carried for "
+            "these**: they fix no divergence this campaign measured, and a "
+            "refactor with no failing case behind it is churn wherever it "
+            "lands. They are listed so the next reader of this code knows "
+            "which containers cannot be iterated safely.",
+            "",
+            "| site | key | declaration |",
+            "| --- | --- | --- |",
+        ]
+        for site in latent:
+            out.append(
+                "| `{}:{}` | `{}` | `{}` |".format(
+                    site["path"],
+                    site["line"],
+                    site.get("key_type", "?"),
+                    (site.get("decl") or "").replace("|", "\\|"),
+                )
+            )
+    return "\n".join(out) + "\n"
+
+
+def section_upstream(records, audit):
+    """What is proposed upstream. Listed, never opened."""
+    all_verdicts = idempotency.verdicts(records) if records else []
+    broke = [
+        v
+        for v in all_verdicts
+        if v.verdict
+        in (
+            idempotency.CONFOUNDED,
+            idempotency.THREAD_DEPENDENT,
+            idempotency.RUN_TO_RUN,
+        )
+    ]
+    out = ["## Upstream candidates", ""]
+    if broke:
+        out += [
+            "{} verdict(s) diverged; the divergence list above names the "
+            "first arm and the class for each. A candidate fix per class "
+            "belongs here, measured alone.".format(len(broke)),
+        ]
+    else:
+        out += [
+            "**None, and that is the result.** Nothing diverged, and the "
+            "class-1 audit found no site whose iteration order reaches a "
+            "result, so there is no defect to carry a patch for. Carrying "
+            "a preventive refactor instead would be a change with no "
+            "failing case behind it.",
+            "",
+            "What *is* proposed is the missing test, in the shape "
+            "`src/gpl/test/mt_invariance01.tcl` already has for global "
+            "placement: run `repair_timing` at a thread count, write the "
+            "result, diff it against the single-threaded golden. "
+            "`//test:lb_32x128_mt_invariance_test` is that test, running "
+            "in this repo's CI now. It is the artefact that was missing "
+            "every one of the four times this broke -- each of which was "
+            "found by a flow user diffing outputs, never by a "
+            "regression.",
+        ]
+    return "\n".join(out) + "\n"
+
+
 def section_optimum(records):
     """Where the answer to "what is the optimal thread count" lives.
 
@@ -1443,7 +1604,7 @@ def raw_comment(records):
     )
 
 
-def body(records, cells):
+def body(records, cells, audit=None):
     if not records:
         return (
             "# ORFS `-threads` policy: cores or hardware threads?\n\n"
@@ -1462,6 +1623,8 @@ def body(records, cells):
         "behaviour changes here, and it recommends *no* change to ORFS.",
         "",
         section_invariance_tldr(records),
+        section_audit(audit),
+        section_upstream(records, audit),
         section_optimum(records),
         section_tldr(cells, records),
         "`NUM_CORES` -> `openroad -threads N` is a **ceiling**: what a job is",
@@ -1668,7 +1831,7 @@ def main():
     elif args.verdicts:
         text = section_work_changed(cells, records)
     else:
-        text = body(records, cells)
+        text = body(records, cells, load_audit(results_dir))
     if len(text) > GITHUB_CHAR_CAP:
         raise SystemExit(
             "generated text is {} characters, over GitHub's {} cap. Split it "
