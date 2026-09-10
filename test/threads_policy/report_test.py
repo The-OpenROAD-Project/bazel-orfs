@@ -773,3 +773,64 @@ class ContendedSamples(unittest.TestCase):
         # thing, which is the whole reason the mode exists.
         records, cells = self._mixed()
         self.assertIn("4_1_cts", report.section_work_changed(cells, records))
+
+
+class InvarianceTldr(unittest.TestCase):
+    """#970's headline is available without any timing arm."""
+
+    def _clean(self):
+        return build(
+            [
+                dict(
+                    rec("aes", "cts", threads, repeat, {"4_1_cts": step(10.0)}),
+                    mode="idempotency",
+                    contended=True,
+                )
+                for threads in (1, 8)
+                for repeat in (1, 2)
+            ]
+        )
+
+    def test_a_campaign_with_no_timing_arms_still_leads_with_a_finding(self):
+        # #968's TL;DR is built from the ladder and renders empty
+        # without timing arms, which would hand the reader a report
+        # with nothing at the top.
+        records, cells = self._clean()
+        self.assertEqual(report.section_tldr(cells, records), "")
+        text = report.body(records, cells)
+        self.assertIn("did the thread count change the result", text)
+
+    def test_a_clean_result_says_it_is_a_negative_result_and_why_it_counts(self):
+        records, _ = self._clean()
+        text = report.section_invariance_tldr(records)
+        self.assertIn("Nothing diverged", text)
+        self.assertIn("mt_invariance_test", text)
+
+    def test_a_divergence_is_counted_in_the_headline(self):
+        records, _ = build(
+            [
+                dict(
+                    rec(
+                        "aes",
+                        "cts",
+                        threads,
+                        repeat,
+                        {
+                            "4_1_cts": step(
+                                10.0, sha1="b" * 20 if threads == 1 else "c" * 20
+                            )
+                        },
+                    ),
+                    mode="idempotency",
+                    contended=True,
+                )
+                for threads in (1, 8)
+                for repeat in (1, 2)
+            ]
+        )
+        text = report.section_invariance_tldr(records)
+        self.assertIn("are not stable", text)
+        self.assertNotIn("Nothing diverged", text)
+
+    def test_no_records_renders_nothing_rather_than_an_empty_table(self):
+        self.assertEqual(report.section_invariance_tldr([]), "")

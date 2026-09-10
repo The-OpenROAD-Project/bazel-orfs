@@ -1024,6 +1024,76 @@ def _opportunity(cells, records):
     return rows, total, measured, ceiling
 
 
+def section_invariance_tldr(records):
+    """The finding this campaign exists for, first.
+
+    bazel-orfs#970 asks whether the thread count changes the result.
+    That is the headline, and it is available from an idempotency
+    campaign alone -- the ladder needs timing arms and may not exist
+    yet, in which case #968's TL;DR renders empty and the reader is
+    handed a report with no finding at the top.
+    """
+    all_verdicts = idempotency.verdicts(records)
+    if not all_verdicts:
+        return ""
+    tally = idempotency.counts(all_verdicts)
+    designs = sorted({r["design"] for r in records})
+    platforms = sorted({d.split("_", 1)[0] for d in designs})
+    arms = sorted({r["threads"] for r in records if not r.get("pinned")})
+    repeats = max([r["repeat"] for r in records] or [1])
+
+    broke = (
+        tally[idempotency.CONFOUNDED]
+        + tally[idempotency.THREAD_DEPENDENT]
+        + tally[idempotency.RUN_TO_RUN]
+    )
+    out = [
+        "## TL;DR -- did the thread count change the result?",
+        "",
+        "Arms at t={} on {} design{} across {}, {} repeat{} each, three "
+        "witnesses per substep (`.sdc` bytes, `.odb` bytes, and the "
+        "comparable subset of ORFS's own metrics).".format(
+            ", ".join(str(a) for a in arms),
+            len(designs),
+            "" if len(designs) == 1 else "s",
+            ", ".join(platforms),
+            repeats,
+            "" if repeats == 1 else "s",
+        ),
+        "",
+        "| verdict | count | what it means |",
+        "| --- | --: | --- |",
+        "| `stable` | {} | agreed with itself across repeats *and* with "
+        "the single-threaded reference |".format(tally[idempotency.STABLE]),
+        "| `thread-dependent` | {} | every arm self-consistent, a "
+        "different arm disagreed |".format(tally[idempotency.THREAD_DEPENDENT]),
+        "| `run-to-run` | {} | an arm disagreed with itself; no thread "
+        "count is implicated |".format(tally[idempotency.RUN_TO_RUN]),
+        "| `confounded` | {} | both, so thread-dependence is not claimed "
+        "|".format(tally[idempotency.CONFOUNDED]),
+        "| `unproven` | {} | nothing was established; silence is not "
+        "agreement |".format(tally[idempotency.UNPROVEN]),
+        "",
+    ]
+    if broke:
+        out += [
+            "**{} verdicts are not stable.** The divergence list, the arm "
+            "each one first appears at, and the class it falls in are "
+            "below.".format(broke),
+        ]
+    else:
+        out += [
+            "**Nothing diverged.** That is a negative result and it is the "
+            "point: bazel-orfs#970 was opened because thread-count "
+            "invariance of STA is *measured* and not *tested*, and every "
+            "one of the four times it broke it was a flow user who found "
+            "it. What this campaign adds beyond the numbers is "
+            "`//test:lb_32x128_mt_invariance_test`, which fails in CI if "
+            "it breaks again.",
+        ]
+    return "\n".join(out) + "\n"
+
+
 def section_tldr(cells, records):
     """What to do next, first, in as few lines as possible."""
     rows, total, measured, ceiling = _opportunity(cells, records)
@@ -1341,6 +1411,7 @@ def body(records, cells):
         "**FYI only -- this PR is for the data and will be closed.** No flow",
         "behaviour changes here, and it recommends *no* change to ORFS.",
         "",
+        section_invariance_tldr(records),
         section_tldr(cells, records),
         "`NUM_CORES` -> `openroad -threads N` is a **ceiling**: what a job is",
         'permitted to use, not a target. So the question is not "cores or',
