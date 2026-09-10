@@ -171,6 +171,36 @@ def wait_for_idle(threshold, timeout_s=900, poll_s=15):
     return load
 
 
+def other_openroad_pids(pattern="(^|/)openroad( |$)"):
+    """PIDs of openroad processes on the host, none of them ours.
+
+    The load-average gate cannot see a single-threaded neighbour:
+    repair_timing is mostly serial, so a whole other campaign's arm
+    shows as a load of about one, and the 1-minute average dips under
+    the threshold between its phases. This study lost a repeat to
+    exactly that overlap, so the gate also asks the process table.
+    """
+    out = subprocess.run(
+        ["pgrep", "-f", pattern], stdout=subprocess.PIPE, text=True
+    )
+    return [int(pid) for pid in out.stdout.split() if pid.strip()]
+
+
+def wait_for_no_openroad(timeout_s=7200, poll_s=30):
+    """Block until no other openroad process is running; SystemExit on timeout."""
+    deadline = time.time() + timeout_s
+    pids = other_openroad_pids()
+    while pids:
+        if time.time() > deadline:
+            raise SystemExit(
+                "openroad still running elsewhere (pids {}) after {}s: another "
+                "campaign or flow is on this machine and these timings would "
+                "be noise".format(pids, timeout_s)
+            )
+        time.sleep(poll_s)
+        pids = other_openroad_pids()
+
+
 def provenance():
     """What about this machine and toolchain could move a timing number.
 
@@ -522,6 +552,7 @@ def main():
 
             for arm, repeat in wanted:
                 overrides = ARMS[arm]
+                wait_for_no_openroad()
                 load = wait_for_idle(args.max_load)
                 print("  arm={}{} repeat={} (load {:.2f})".format(
                     arm, args.arm_suffix, repeat, load))

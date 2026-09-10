@@ -78,6 +78,13 @@ class WaitForIdle(unittest.TestCase):
             campaign.wait_for_idle(threshold=-1.0, timeout_s=0, poll_s=0)
 
 
+class NoNeighbour(unittest.TestCase):
+    def test_returns_when_nothing_matches(self):
+        """The common case must not sleep."""
+        self.assertEqual(campaign.other_openroad_pids("no-such-process-zz9"), [])
+        campaign.wait_for_no_openroad(timeout_s=0, poll_s=0) if not campaign.other_openroad_pids() else None
+
+
 class ResultPaths(unittest.TestCase):
     def test_arms_do_not_collide(self):
         """Every arm needs its own file, or resume would skip real work."""
