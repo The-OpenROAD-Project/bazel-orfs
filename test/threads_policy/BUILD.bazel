@@ -55,6 +55,7 @@ py_binary(
     imports = ["."],
     tags = ["manual"],
     deps = [
+        ":deployment",
         ":elapsed",
         ":phases",
     ],
@@ -86,6 +87,23 @@ py_test(
     size = "small",
     srcs = ["report_test.py"],
     deps = [":report"],
+)
+
+# Where one arm's files are, as opposed to another's. The #968 harness
+# found the results and logs directories by walking for the deepest one
+# holding a .odb -- correct for the single variant a deployment ships
+# with, and silently wrong once two arms run at once.
+py_library(
+    name = "deployment",
+    srcs = ["deployment.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "deployment_test",
+    size = "small",
+    srcs = ["deployment_test.py"],
+    deps = [":deployment"],
 )
 
 # The static audit of class 1 (pointer-keyed containers whose iteration
