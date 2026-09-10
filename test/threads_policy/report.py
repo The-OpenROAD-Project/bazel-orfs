@@ -85,10 +85,46 @@ def resolution(sigma2, k):
 Cell = collections.namedtuple("Cell", "wall wall2s cpu user_sys peak sha1s n")
 
 
+def timed(records):
+    """The records whose wall times are measurements.
+
+    An arm run in `--mode idempotency` shared the machine with other
+    arms on purpose: contention is what exposes an order-dependent bug,
+    and it costs nothing there because whether two arms computed the
+    same thing does not depend on how busy the machine was. Its wall
+    time, however, is the time the *other arms* took. Laddering it
+    would produce a confident thread-scaling curve measured against
+    nothing, so every timing section is built from this subset and
+    every one of them says how many samples it dropped.
+
+    The idempotency verdicts use all the records, contended included.
+    """
+    return [r for r in records if not r.get("contended")]
+
+
+def contended_note(records):
+    """One line naming what the timing sections could not use."""
+    dropped = len(records) - len(timed(records))
+    if not dropped:
+        return ""
+    return (
+        "{} of {} arm samples ran under `--mode idempotency`, where arms "
+        "share the machine deliberately, so their wall times are excluded "
+        "from every table below. They are used for the idempotency "
+        "verdicts, which contention cannot affect. Re-run those arms with "
+        "`--mode timing` to put them in a ladder.".format(dropped, len(records))
+    )
+
+
 def index(records):
-    """(design, stage, substep, threads, pinned) -> Cell."""
+    """(design, stage, substep, threads, pinned) -> Cell.
+
+    Timing only: see timed(). A contended sample carries a real result
+    hash and a meaningless wall time, and this index is what every
+    runtime table reads.
+    """
     buckets = collections.defaultdict(list)
-    for rec in records:
+    for rec in timed(records):
         for step, got in rec["substeps"].items():
             key = (
                 rec["design"],
@@ -1296,6 +1332,8 @@ def body(records, cells):
     prov = records[0]["provenance"]
     cores, threads = prov.get("physical_cores"), prov.get("hardware_threads")
     designs = sorted({r["design"] for r in records})
+    platforms = sorted({d.split("_", 1)[0] for d in designs})
+    modes = sorted({r.get("mode", "timing") for r in records})
 
     parts = [
         "# How the flow's parallel regions scale, and what `-threads` should be",
@@ -1309,8 +1347,12 @@ def body(records, cells):
         'hardware threads" but, per parallel region, how far *below* the',
         "ceiling that region wants to sit -- and why.",
         "",
-        "Measured over {} asap7 design{}, {} thread counts, and every".format(
-            len(designs), "" if len(designs) == 1 else "s", len(arms_present(cells))
+        "Measured over {} design{} on {}, {} thread count{}, and every".format(
+            len(designs),
+            "" if len(designs) == 1 else "s",
+            ", ".join(platforms),
+            len(arms_present(cells)) or "no",
+            "" if len(arms_present(cells)) == 1 else "s",
         ),
         "substep from place through route.",
         "",
@@ -1322,8 +1364,16 @@ def body(records, cells):
         "",
         "Stage inputs are built once by Bazel and are byte-identical for",
         "every arm. Each arm then runs that stage's substeps outside the",
-        "Bazel sandbox, one at a time on an otherwise idle machine, via the",
-        "`_deps` reproducer the repo already ships:",
+        "Bazel sandbox, in its own `FLOW_VARIANT`, via the `_deps`",
+        "reproducer the repo already ships. A `timing` arm runs alone on an",
+        "otherwise idle machine, asserted at arm start; an `idempotency`",
+        "arm runs concurrently with others, because whether two arms",
+        "computed the same thing does not depend on how busy the machine",
+        "was -- and the scheduling perturbation is a feature there.",
+        "",
+        "Modes recorded here: {}.".format(", ".join("`" + m + "`" for m in modes)),
+        "",
+        contended_note(records),
         "",
         "```sh",
         "bazelisk run <target>_<stage>_deps          # deploy; build prior stages",

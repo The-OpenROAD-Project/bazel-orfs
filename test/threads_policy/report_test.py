@@ -723,3 +723,53 @@ class Potential(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ContendedSamples(unittest.TestCase):
+    """A contended wall time is the time the other arms took."""
+
+    def _mixed(self):
+        return build(
+            [
+                dict(
+                    rec("aes", "cts", 1, 1, {"4_1_cts": step(10.0)}),
+                    mode="idempotency",
+                    contended=True,
+                ),
+                dict(
+                    rec("aes", "cts", 8, 1, {"4_1_cts": step(90.0)}),
+                    mode="idempotency",
+                    contended=True,
+                ),
+                dict(
+                    rec("aes", "cts", 1, 1, {"4_1_cts": step(10.0)}),
+                    mode="timing",
+                ),
+            ]
+        )
+
+    def test_timing_tables_exclude_them(self):
+        records, _ = self._mixed()
+        self.assertEqual(len(report.timed(records)), 1)
+
+    def test_the_index_every_runtime_table_reads_excludes_them(self):
+        records, _ = self._mixed()
+        cells = report.index(records)
+        # Only the single uncontended arm survives, so no t=8 column.
+        self.assertEqual(sorted({key[3] for key in cells}), [1])
+
+    def test_the_body_says_how_many_it_dropped_rather_than_dropping_quietly(self):
+        records, cells = self._mixed()
+        note = report.contended_note(records)
+        self.assertIn("2 of 3", note)
+        self.assertIn(note.split(".")[0], report.body(records, cells))
+
+    def test_an_all_timing_campaign_gets_no_note(self):
+        records, _ = build([rec("aes", "cts", 1, 1, {"4_1_cts": step(10.0)})])
+        self.assertEqual(report.contended_note(records), "")
+
+    def test_the_verdicts_still_use_the_contended_samples(self):
+        # Contention cannot change whether two arms computed the same
+        # thing, which is the whole reason the mode exists.
+        records, cells = self._mixed()
+        self.assertIn("4_1_cts", report.section_work_changed(cells, records))
