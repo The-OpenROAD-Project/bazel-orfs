@@ -70,6 +70,16 @@ py_binary(
 )
 
 py_binary(
+    name = "plots",
+    srcs = ["plots.py"],
+    tags = ["manual"],
+    deps = [
+        ":analysis",
+        "@bazel-orfs-dev-pip//matplotlib",
+    ],
+)
+
+py_binary(
     name = "report",
     srcs = ["report.py"],
     tags = ["manual"],

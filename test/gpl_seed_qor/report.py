@@ -228,6 +228,76 @@ def section_ensembles(samples):
     return "\n".join(lines), spreads
 
 
+def section_controls(samples):
+    """The three controls, and the perturbation dose-response.
+
+    A campaign that reports a spread has to show first that the spread
+    is the knob's: that the seed reaches the placer, that a fixed seed
+    is reproducible, and that switching the perturbation off collapses
+    the ensemble to a single answer. The last is the strongest of the
+    three -- `-perturb_dist 0` makes gpl's perturbation offset exactly
+    (0, 0), so every seed must produce the identical number, and any
+    other seeded randomness anywhere in place, cts or global route would
+    show up here as a spread.
+    """
+    arms = {}
+    for sample in samples:
+        if sample.get("min_period_wns") is None:
+            continue
+        arms.setdefault((sample["design"], sample["arm"]), []).append(sample)
+    controls = {
+        key: value
+        for key, value in arms.items()
+        if key[1] == "nullperturb" or key[1].startswith("dist")
+    }
+    if not controls:
+        return "## Controls\n\n**Not yet measured**\n"
+    lines = [
+        "## Controls",
+        "",
+        "| design | arm | seeds | distinct min_period | 2 sigma | mean |",
+        "| --- | --- | ---: | ---: | ---: | ---: |",
+    ]
+    for design, arm in sorted(controls):
+        values = [
+            sample["min_period_wns"] for sample in controls[(design, arm)]
+        ]
+        base = [
+            sample["min_period_wns"] for sample in arms.get((design, "base"), [])
+        ]
+        lines.append(
+            "| %s | %s | %d | %d | %.2f | %.2f |"
+            % (
+                design,
+                arm,
+                len(values),
+                len(set(round(value, 6) for value in values)),
+                2 * statistics.pstdev(values) if len(values) > 1 else 0.0,
+                statistics.mean(values),
+            )
+        )
+        if base and arm == "nullperturb" and len(set(round(v, 6) for v in values)) == 1:
+            lines.append(
+                "| %s | base, for comparison | %d | %d | %.2f | %.2f |"
+                % (
+                    design,
+                    len(base),
+                    len(set(round(value, 6) for value in base)),
+                    2 * statistics.pstdev(base) if len(base) > 1 else 0.0,
+                    statistics.mean(base),
+                )
+            )
+    lines += [
+        "",
+        "`nullperturb` is `-perturb_dist 0`; `distN` is `-perturb_dist N`"
+        " nanometres, against a default of `min(0.5 um, row height)`. Both"
+        " go through `GLOBAL_PLACEMENT_ARGS`, which ORFS already appends"
+        " verbatim -- no patch.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def section_repair(samples):
     """S1, screened both ways: the table's net, and the counterfactual."""
     tables = [sample for sample in samples if sample.get("repair")]
@@ -441,6 +511,7 @@ def main(argv=None):
     parts = [
         corpus_md,
         ensembles_md,
+        section_controls(samples),
         section_repair(samples),
         section_trajectory(samples),
         section_decomposition(spreads, fit),

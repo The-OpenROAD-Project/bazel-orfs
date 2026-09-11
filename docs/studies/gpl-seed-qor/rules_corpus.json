@@ -1,0 +1,6292 @@
+{
+  "designs": [
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 57763,
+        "finish__design__instance__area": 1663,
+        "placeopt__design__instance__area": 1597,
+        "placeopt__design__instance__count__stdcell": 14321,
+        "synth__design__instance__area__stdcell": 1610.0
+      },
+      "design": "aes",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -76.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -19.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -79.3,
+          "value": -3.299999999999997
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -20.8,
+          "value": -1.8000000000000007
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -76.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -19.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -87.7,
+          "value": -11.700000000000003
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -24.2,
+          "value": -5.199999999999999
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -76.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -19.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -339.0,
+          "value": -263.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -27.8,
+          "value": -8.8
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 380.0,
+      "period_from_sdc": 380.0,
+      "period_witnesses": 6,
+      "platform": "asap7",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 1,
+      "covariates": {
+        "detailedroute__route__wirelength": 48329,
+        "finish__design__instance__area": 6746,
+        "placeopt__design__instance__area": 6704,
+        "placeopt__design__instance__count__stdcell": 10164,
+        "synth__design__instance__area__stdcell": 631.0
+      },
+      "design": "aes-block",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -90.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -22.5,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -1890.0,
+          "value": -1800.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -83.2,
+          "value": -60.7
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -90.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -22.5,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -418.0,
+          "value": -328.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -54.3,
+          "value": -31.799999999999997
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -90.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -22.5,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -206.0,
+          "value": -116.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -25.0,
+          "value": -2.5
+        }
+      },
+      "notes": [],
+      "period": 450.0,
+      "period_from_sdc": 450.0,
+      "period_witnesses": 6,
+      "platform": "asap7",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 68143,
+        "finish__design__instance__area": 1897,
+        "placeopt__design__instance__area": 1861,
+        "placeopt__design__instance__count__stdcell": 17759,
+        "synth__design__instance__area__stdcell": 1780.0
+      },
+      "design": "aes-mbff",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -76.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -19.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -76.0,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -19.0,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -76.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -19.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -277.0,
+          "value": -201.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -26.7,
+          "value": -7.699999999999999
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -76.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -19.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -76.0,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -19.0,
+          "value": null
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 380.0,
+      "period_from_sdc": 380.0,
+      "period_witnesses": 10,
+      "platform": "asap7",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 1,
+      "covariates": {
+        "detailedroute__route__wirelength": 60074,
+        "finish__design__instance__area": 1499,
+        "placeopt__design__instance__area": 1478,
+        "placeopt__design__instance__count__stdcell": 13303,
+        "synth__design__instance__area__stdcell": 1610.0
+      },
+      "design": "aes_lvt",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -72.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -18.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -72.0,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -18.0,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -72.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -18.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -72.0,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -18.0,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -72.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -18.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -72.0,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -18.0,
+          "value": null
+        }
+      },
+      "notes": [],
+      "period": 360.0,
+      "period_from_sdc": 360.0,
+      "period_witnesses": 12,
+      "platform": "asap7",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 1,
+      "covariates": {
+        "detailedroute__route__wirelength": 1540518,
+        "finish__design__instance__area": 37931,
+        "placeopt__design__instance__area": 37543,
+        "placeopt__design__instance__count__stdcell": 198708,
+        "synth__design__instance__area__stdcell": 17800.0
+      },
+      "design": "coralnpu",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -2.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.5,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -10200000.0,
+          "value": -10199998.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -1980.0,
+          "value": -1979.5
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -2.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.5,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -10800000.0,
+          "value": -10799998.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -2070.0,
+          "value": -2069.5
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -2.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.5,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -10500000.0,
+          "value": -10499998.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -2030.0,
+          "value": -2029.5
+        }
+      },
+      "notes": [],
+      "period": 10.0,
+      "period_from_sdc": 10.0,
+      "period_witnesses": 6,
+      "platform": "asap7",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 1,
+      "covariates": {
+        "detailedroute__route__wirelength": 688855,
+        "finish__design__instance__area": 20198,
+        "placeopt__design__instance__area": 19875,
+        "placeopt__design__instance__count__stdcell": 134139,
+        "synth__design__instance__area__stdcell": 14000.0
+      },
+      "design": "cva6",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -182.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -45.5,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -200.0,
+          "value": -18.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -50.0,
+          "value": -4.5
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -182.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -45.5,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -1330.0,
+          "value": -1148.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -50.0,
+          "value": -4.5
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -182.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -45.5,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -1480.0,
+          "value": -1298.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -50.0,
+          "value": -4.5
+        }
+      },
+      "notes": [],
+      "period": 910.0,
+      "period_from_sdc": 910.0,
+      "period_witnesses": 6,
+      "platform": "asap7",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 6,
+      "covariates": {
+        "detailedroute__route__wirelength": 240731,
+        "finish__design__instance__area": 9358,
+        "placeopt__design__instance__area": 8699,
+        "placeopt__design__instance__count__stdcell": 68653,
+        "synth__design__instance__area__stdcell": 8420.0
+      },
+      "design": "ethmac",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -60.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -15.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -1700.0,
+          "value": -1640.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -94.1,
+          "value": -79.1
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -60.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -15.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -1500.0,
+          "value": -1440.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -93.3,
+          "value": -78.3
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -60.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -15.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -1950.0,
+          "value": -1890.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -103.0,
+          "value": -88.0
+        }
+      },
+      "notes": [
+        "sdc says 1000, rules imply 300",
+        "6 clocks; genRuleFile pads with the first"
+      ],
+      "period": 300.0,
+      "period_from_sdc": 1000.0,
+      "period_witnesses": 6,
+      "platform": "asap7",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 6,
+      "covariates": {
+        "detailedroute__route__wirelength": 252888,
+        "finish__design__instance__area": 8670,
+        "placeopt__design__instance__area": 8308,
+        "placeopt__design__instance__count__stdcell": 64816,
+        "synth__design__instance__area__stdcell": 8460.0
+      },
+      "design": "ethmac_lvt",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -60.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -15.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -348.0,
+          "value": -288.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -35.0,
+          "value": -20.0
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -60.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -15.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -422.0,
+          "value": -362.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -31.8,
+          "value": -16.8
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -60.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -15.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -531.0,
+          "value": -471.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -45.5,
+          "value": -30.5
+        }
+      },
+      "notes": [
+        "sdc says 1000, rules imply 300",
+        "6 clocks; genRuleFile pads with the first"
+      ],
+      "period": 300.0,
+      "period_from_sdc": 1000.0,
+      "period_witnesses": 6,
+      "platform": "asap7",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 908,
+        "finish__design__instance__area": 53,
+        "placeopt__design__instance__area": 51,
+        "placeopt__design__instance__count__stdcell": 473,
+        "synth__design__instance__area__stdcell": 43.1
+      },
+      "design": "gcd",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -62.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -15.5,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -173.0,
+          "value": -111.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -57.3,
+          "value": -41.8
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -62.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -15.5,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -157.0,
+          "value": -95.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -53.7,
+          "value": -38.2
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -62.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -15.5,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -282.0,
+          "value": -220.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -62.8,
+          "value": -47.3
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 310.0,
+      "period_from_sdc": 310.0,
+      "period_witnesses": 6,
+      "platform": "asap7",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 920,
+        "finish__design__instance__area": 52,
+        "placeopt__design__instance__area": 51,
+        "placeopt__design__instance__count__stdcell": 481,
+        "synth__design__instance__area__stdcell": 43.1
+      },
+      "design": "gcd-ccs",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -62.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -15.5,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -194.0,
+          "value": -132.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -62.8,
+          "value": -47.3
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -62.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -15.5,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -186.0,
+          "value": -124.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -59.6,
+          "value": -44.1
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -62.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -15.5,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -253.0,
+          "value": -191.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -70.5,
+          "value": -55.0
+        }
+      },
+      "notes": [
+        "sdc: no sdc",
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 310.0,
+      "period_from_sdc": null,
+      "period_witnesses": 6,
+      "platform": "asap7",
+      "sdc_source": null
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 98982,
+        "finish__design__instance__area": 2761,
+        "placeopt__design__instance__area": 2673,
+        "placeopt__design__instance__count__stdcell": 22941,
+        "synth__design__instance__area__stdcell": 2430.0
+      },
+      "design": "ibex",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -50.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -50.0,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -50.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -436.0,
+          "value": -236.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -50.0,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -50.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -208.0,
+          "value": -8.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -51.1,
+          "value": -1.1000000000000014
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 1000.0,
+      "period_from_sdc": 1000.0,
+      "period_witnesses": 9,
+      "platform": "asap7",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 1,
+      "covariates": {
+        "detailedroute__route__wirelength": 209390,
+        "finish__design__instance__area": 8497,
+        "placeopt__design__instance__area": 8104,
+        "placeopt__design__instance__count__stdcell": 67209,
+        "synth__design__instance__area__stdcell": 7690.0
+      },
+      "design": "jpeg",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -109.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -27.2,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -24400.0,
+          "value": -24291.2
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -123.0,
+          "value": -95.8
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -109.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -27.2,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -22800.0,
+          "value": -22691.2
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -117.0,
+          "value": -89.8
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -109.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -27.2,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -30200.0,
+          "value": -30091.2
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -129.0,
+          "value": -101.8
+        }
+      },
+      "notes": [],
+      "period": 544.0,
+      "period_from_sdc": 545.0,
+      "period_witnesses": 6,
+      "platform": "asap7",
+      "sdc_source": "jpeg_encoder15_7nm.sdc"
+    },
+    {
+      "clocks": 1,
+      "covariates": {
+        "detailedroute__route__wirelength": 176948,
+        "finish__design__instance__area": 7124,
+        "placeopt__design__instance__area": 7019,
+        "placeopt__design__instance__count__stdcell": 56601,
+        "synth__design__instance__area__stdcell": 7047.572508
+      },
+      "design": "jpeg_lvt",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -120.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -30.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -120.0,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -30.0,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -120.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -30.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -219.0,
+          "value": -99.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -58.5,
+          "value": -28.5
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -120.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -30.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -120.0,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -30.0,
+          "value": null
+        }
+      },
+      "notes": [],
+      "period": 600.0,
+      "period_from_sdc": 600.0,
+      "period_witnesses": 10,
+      "platform": "asap7",
+      "sdc_source": "jpeg_encoder15_7nm.sdc"
+    },
+    {
+      "clocks": 1,
+      "covariates": {
+        "detailedroute__route__wirelength": 50078,
+        "finish__design__instance__area": 1858,
+        "placeopt__design__instance__area": 1789,
+        "placeopt__design__instance__count__stdcell": 14790,
+        "synth__design__instance__area__stdcell": 1640.0
+      },
+      "design": "mock-alu",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -60.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -15.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -21800.0,
+          "value": -21740.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -289.0,
+          "value": -274.0
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -60.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -15.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -18500.0,
+          "value": -18440.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -291.0,
+          "value": -276.0
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -60.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -15.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -24200.0,
+          "value": -24140.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -300.0,
+          "value": -285.0
+        }
+      },
+      "notes": [],
+      "period": 300.0,
+      "period_from_sdc": 300.0,
+      "period_witnesses": 6,
+      "platform": "asap7",
+      "sdc_source": "constraints.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 55190,
+        "finish__design__instance__area": 8045,
+        "placeopt__design__instance__area": 7471,
+        "placeopt__design__instance__count__stdcell": 47168,
+        "synth__design__instance__area__stdcell": 7400.0
+      },
+      "design": "mock-cpu",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": false,
+          "rule": -66.6,
+          "value": -0.19999999999997442
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -16.6,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -66.6,
+          "value": -0.19999999999997442
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -16.6,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": false,
+          "rule": -67.3,
+          "value": -0.8999999999999773
+        },
+        "finish__timing__hold__ws": {
+          "censored": false,
+          "rule": -17.4,
+          "value": -0.7999999999999936
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -66.6,
+          "value": -0.19999999999997442
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -16.6,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": false,
+          "rule": -66.6,
+          "value": -0.19999999999997442
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -16.6,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -66.6,
+          "value": -0.19999999999997442
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -16.6,
+          "value": null
+        }
+      },
+      "notes": [
+        "sdc says 333, rules imply 332",
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 332.00000000000006,
+      "period_from_sdc": 333.0,
+      "period_witnesses": 5,
+      "platform": "asap7",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 61001,
+        "finish__design__instance__area": 3050,
+        "placeopt__design__instance__area": 2972,
+        "placeopt__design__instance__count__stdcell": 11671,
+        "synth__design__instance__area__stdcell": 1230.0
+      },
+      "design": "riscv32i",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -190.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -47.5,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -234.0,
+          "value": -44.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -47.5,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -190.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -47.5,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -27600.0,
+          "value": -27410.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -79.5,
+          "value": -32.0
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -190.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -47.5,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -3800.0,
+          "value": -3610.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -49.4,
+          "value": -1.8999999999999986
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 950.0,
+      "period_from_sdc": 950.0,
+      "period_witnesses": 7,
+      "platform": "asap7",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 61587,
+        "finish__design__instance__area": 2358,
+        "placeopt__design__instance__area": 2284,
+        "placeopt__design__instance__count__stdcell": 11589,
+        "synth__design__instance__area__stdcell": 1320.0
+      },
+      "design": "riscv32i-mock-sram",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -190.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -47.5,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -190.0,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -47.5,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -190.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -47.5,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -13300.0,
+          "value": -13110.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -81.3,
+          "value": -33.8
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -190.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -47.5,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -214.0,
+          "value": -24.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -51.4,
+          "value": -3.8999999999999986
+        }
+      },
+      "notes": [
+        "sdc: no sdc",
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 950.0,
+      "period_from_sdc": null,
+      "period_witnesses": 8,
+      "platform": "asap7",
+      "sdc_source": null
+    },
+    {
+      "clocks": 1,
+      "covariates": {
+        "detailedroute__route__wirelength": 1811,
+        "finish__design__instance__area": 84,
+        "placeopt__design__instance__area": 79,
+        "placeopt__design__instance__count__stdcell": 802,
+        "synth__design__instance__area__stdcell": 66.2
+      },
+      "design": "riscv32i-mock-sram/fakeram7_256x32",
+      "metrics": {
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -86.86,
+          "value": null
+        }
+      },
+      "notes": [
+        "period from a single bound, uncorroborated",
+        "sdc says 1660, rules imply 1737.2"
+      ],
+      "period": 1737.2,
+      "period_from_sdc": 1660.0,
+      "period_witnesses": 1,
+      "platform": "asap7",
+      "sdc_source": "constraints.sdc"
+    },
+    {
+      "clocks": 1,
+      "covariates": {
+        "detailedroute__route__wirelength": 1287970,
+        "finish__design__instance__area": 55372,
+        "placeopt__design__instance__area": 54927,
+        "placeopt__design__instance__count__stdcell": 141318,
+        "synth__design__instance__area__stdcell": 16800.0
+      },
+      "design": "swerv_wrapper",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -320.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -80.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -320.0,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -80.0,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -320.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -80.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -320.0,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -80.0,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -320.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -80.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -320.0,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -80.0,
+          "value": null
+        }
+      },
+      "notes": [],
+      "period": 1600.0,
+      "period_from_sdc": 1600.0,
+      "period_witnesses": 12,
+      "platform": "asap7",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 1873,
+        "finish__design__instance__area": 118,
+        "placeopt__design__instance__area": 108,
+        "placeopt__design__instance__count__stdcell": 987,
+        "synth__design__instance__area__stdcell": 86.3
+      },
+      "design": "uart",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -54.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -13.5,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -943.0,
+          "value": -889.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -41.4,
+          "value": -27.9
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -54.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -13.5,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -1250.0,
+          "value": -1196.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -40.7,
+          "value": -27.200000000000003
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -54.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -13.5,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -2030.0,
+          "value": -1976.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -48.4,
+          "value": -34.9
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 270.0,
+      "period_from_sdc": 270.0,
+      "period_witnesses": 6,
+      "platform": "asap7",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 125219,
+        "finish__design__instance__area": 4886,
+        "placeopt__design__instance__area": 4810,
+        "placeopt__design__instance__count__stdcell": 15634,
+        "synth__design__instance__area__stdcell": 3710.0
+      },
+      "design": "aes",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -72.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -18.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -84.0,
+          "value": -12.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -21.0,
+          "value": -3.0
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -72.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -18.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -171.0,
+          "value": -99.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -21.0,
+          "value": -3.0
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -72.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -18.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -368.0,
+          "value": -296.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -21.0,
+          "value": -3.0
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 360.0,
+      "period_from_sdc": 360.0,
+      "period_witnesses": 6,
+      "platform": "gf12",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 3473208,
+        "finish__design__instance__area": 211208,
+        "placeopt__design__instance__area": 208888,
+        "placeopt__design__instance__count__stdcell": 216134,
+        "synth__design__instance__area__stdcell": 63700.0
+      },
+      "design": "ariane",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -600.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -150.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -50800.0,
+          "value": -50200.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -213.0,
+          "value": -63.0
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -600.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -150.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -711.0,
+          "value": -111.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -206.0,
+          "value": -56.0
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -600.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -150.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -719.0,
+          "value": -119.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -210.0,
+          "value": -60.0
+        }
+      },
+      "notes": [
+        "sdc says 3400, rules imply 3000",
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 3000.0,
+      "period_from_sdc": 3400.0,
+      "period_witnesses": 6,
+      "platform": "gf12",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 1,
+      "covariates": {
+        "detailedroute__route__wirelength": 4262653,
+        "finish__design__instance__area": 282150,
+        "placeopt__design__instance__area": 279506,
+        "placeopt__design__instance__count__stdcell": 156228,
+        "synth__design__instance__area__stdcell": 46500.0
+      },
+      "design": "ariane133",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -4840.0,
+          "value": -4192.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -162.0,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        }
+      },
+      "notes": [
+        "period from a single bound, uncorroborated",
+        "sdc says 1300, rules imply 3240"
+      ],
+      "period": 3240.0,
+      "period_from_sdc": 1300.0,
+      "period_witnesses": 1,
+      "platform": "gf12",
+      "sdc_source": "ariane.sdc"
+    },
+    {
+      "clocks": 8,
+      "covariates": {
+        "detailedroute__route__wirelength": 12193528,
+        "finish__design__instance__area": 836961,
+        "placeopt__design__instance__area": 810758,
+        "placeopt__design__instance__count__stdcell": 847537,
+        "synth__design__instance__area__stdcell": 282000.0
+      },
+      "design": "bp_dual",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -400.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -483.0,
+          "value": -83.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -134.0,
+          "value": -34.0
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -400.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": false,
+          "rule": -119.0,
+          "value": -19.0
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -1080.0,
+          "value": -680.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -165.0,
+          "value": -65.0
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -400.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -400.0,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        }
+      },
+      "notes": [
+        "sdc: no sdc",
+        "8 clocks; genRuleFile pads with the first"
+      ],
+      "period": 2000.0,
+      "period_from_sdc": null,
+      "period_witnesses": 7,
+      "platform": "gf12",
+      "sdc_source": null
+    },
+    {
+      "clocks": 8,
+      "covariates": {
+        "detailedroute__route__wirelength": 25154318,
+        "finish__design__instance__area": 1505960,
+        "placeopt__design__instance__area": 1474875,
+        "placeopt__design__instance__count__stdcell": 1399513,
+        "synth__design__instance__area__stdcell": 466000.0
+      },
+      "design": "bp_quad",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -400.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -201000.0,
+          "value": -200600.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -437.0,
+          "value": -337.0
+        },
+        "finish__timing__hold__tns": {
+          "censored": false,
+          "rule": -416.0,
+          "value": -16.0
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -643.0,
+          "value": -243.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -157.0,
+          "value": -57.0
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -400.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -709.0,
+          "value": -309.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -133.0,
+          "value": -33.0
+        }
+      },
+      "notes": [
+        "sdc: no sdc",
+        "8 clocks; genRuleFile pads with the first"
+      ],
+      "period": 2000.0,
+      "period_from_sdc": null,
+      "period_witnesses": 5,
+      "platform": "gf12",
+      "sdc_source": null
+    },
+    {
+      "clocks": 8,
+      "covariates": {
+        "detailedroute__route__wirelength": 5475411,
+        "finish__design__instance__area": 475297,
+        "placeopt__design__instance__area": 465672,
+        "placeopt__design__instance__count__stdcell": 523297,
+        "synth__design__instance__area__stdcell": 156000.0
+      },
+      "design": "bp_single",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": false,
+          "rule": -2390.0,
+          "value": -1990.0
+        },
+        "cts__timing__hold__ws": {
+          "censored": false,
+          "rule": -468.0,
+          "value": -368.0
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -400.0,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -400.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": false,
+          "rule": -242.0,
+          "value": -142.0
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -877.0,
+          "value": -477.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -187.0,
+          "value": -87.0
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": false,
+          "rule": -2010.0,
+          "value": -1610.0
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": false,
+          "rule": -459.0,
+          "value": -359.0
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -400.0,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        }
+      },
+      "notes": [
+        "sdc: no sdc",
+        "8 clocks; genRuleFile pads with the first"
+      ],
+      "period": 2000.0,
+      "period_from_sdc": null,
+      "period_witnesses": 5,
+      "platform": "gf12",
+      "sdc_source": null
+    },
+    {
+      "clocks": 1,
+      "covariates": {
+        "detailedroute__route__wirelength": 16935687,
+        "finish__design__instance__area": 403433,
+        "placeopt__design__instance__area": 368225,
+        "placeopt__design__instance__count__stdcell": 610540,
+        "synth__design__instance__area__stdcell": 174000.0
+      },
+      "design": "ca53",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -400.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -3310.0,
+          "value": -2910.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -820.0,
+          "value": -720.0
+        },
+        "finish__timing__hold__tns": {
+          "censored": false,
+          "rule": -3070.0,
+          "value": -2670.0
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -400.0,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": false,
+          "rule": -415.0,
+          "value": -15.0
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -768.0,
+          "value": -368.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -227.0,
+          "value": -127.0
+        }
+      },
+      "notes": [
+        "sdc: no sdc"
+      ],
+      "period": 2000.0,
+      "period_from_sdc": null,
+      "period_witnesses": 6,
+      "platform": "gf12",
+      "sdc_source": null
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 4125688,
+        "finish__design__instance__area": 200742,
+        "placeopt__design__instance__area": 196510,
+        "placeopt__design__instance__count__stdcell": 316293,
+        "synth__design__instance__area__stdcell": 168000.0
+      },
+      "design": "coyote",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -800.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -800.0,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -800.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -800.0,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -800.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -800.0,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 4000.0,
+      "period_from_sdc": 4000.0,
+      "period_witnesses": 12,
+      "platform": "gf12",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 2026,
+        "finish__design__instance__area": 240,
+        "placeopt__design__instance__area": 228,
+        "placeopt__design__instance__count__stdcell": 607,
+        "synth__design__instance__area__stdcell": 107.0
+      },
+      "design": "gcd",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -14.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": false,
+          "rule": -12.0,
+          "value": -8.5
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -185.0,
+          "value": -171.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -21.3,
+          "value": -17.8
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -14.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": false,
+          "rule": -12.0,
+          "value": -8.5
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -113.0,
+          "value": -99.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -14.0,
+          "value": -10.5
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -14.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": false,
+          "rule": -12.0,
+          "value": -8.5
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -435.0,
+          "value": -421.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -26.0,
+          "value": -22.5
+        }
+      },
+      "notes": [
+        "sdc says 240, rules imply 70",
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 70.0,
+      "period_from_sdc": 240.0,
+      "period_witnesses": 3,
+      "platform": "gf12",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 160478,
+        "finish__design__instance__area": 7871,
+        "placeopt__design__instance__area": 6874,
+        "placeopt__design__instance__count__stdcell": 17680,
+        "synth__design__instance__area__stdcell": 6241.99
+      },
+      "design": "ibex",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -204.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -51.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -204.0,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -51.0,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -204.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -51.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -204.0,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -51.0,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -204.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -51.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -204.0,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -51.0,
+          "value": null
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 1020.0,
+      "period_from_sdc": 1020.0,
+      "period_witnesses": 12,
+      "platform": "gf12",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 409584,
+        "finish__design__instance__area": 21992,
+        "placeopt__design__instance__area": 21478,
+        "placeopt__design__instance__count__stdcell": 95595,
+        "synth__design__instance__area__stdcell": 19900.0
+      },
+      "design": "jpeg",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -25.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -33000.0,
+          "value": -32900.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -96.0,
+          "value": -71.0
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -25.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -650.0,
+          "value": -550.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -25.0,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -25.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -18000.0,
+          "value": -17900.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -53.2,
+          "value": -28.200000000000003
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 500.0,
+      "period_from_sdc": 500.0,
+      "period_witnesses": 7,
+      "platform": "gf12",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 4,
+      "covariates": {
+        "detailedroute__route__wirelength": 2275794,
+        "finish__design__instance__area": 177466,
+        "placeopt__design__instance__area": 172730,
+        "placeopt__design__instance__count__stdcell": 121831,
+        "synth__design__instance__area__stdcell": 38200.0
+      },
+      "design": "swerv_wrapper",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": false,
+          "rule": -376.0,
+          "value": -76.0
+        },
+        "cts__timing__hold__ws": {
+          "censored": false,
+          "rule": -236.0,
+          "value": -161.0
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -300.0,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -75.0,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": false,
+          "rule": -508.0,
+          "value": -208.0
+        },
+        "finish__timing__hold__ws": {
+          "censored": false,
+          "rule": -83.4,
+          "value": -8.400000000000006
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -300.0,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -75.0,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -300.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -75.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -300.0,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -75.0,
+          "value": null
+        }
+      },
+      "notes": [
+        "4 clocks; genRuleFile pads with the first"
+      ],
+      "period": 1500.0,
+      "period_from_sdc": 1500.0,
+      "period_witnesses": 8,
+      "platform": "gf12",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 477442,
+        "finish__design__instance__area": 17174,
+        "placeopt__design__instance__area": 16624,
+        "placeopt__design__instance__count__stdcell": 34042,
+        "synth__design__instance__area__stdcell": 10800.0
+      },
+      "design": "tinyRocket",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -160.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -40.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -1430.0,
+          "value": -1270.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -40.0,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -160.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -40.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -160.0,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -40.0,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -160.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -40.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -160.0,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -40.0,
+          "value": null
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 800.0,
+      "period_from_sdc": 800.0,
+      "period_witnesses": 11,
+      "platform": "gf12",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 1295453,
+        "finish__design__instance__area": 804777,
+        "placeopt__design__instance__area": 745269,
+        "placeopt__design__instance__count__stdcell": 22187,
+        "synth__design__instance__area__stdcell": 575000.0
+      },
+      "design": "aes",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.6,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.15,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -110.0,
+          "value": -109.4
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.789,
+          "value": -0.639
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.6,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.15,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -129.0,
+          "value": -128.4
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.902,
+          "value": -0.752
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.6,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.15,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -135.0,
+          "value": -134.4
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.876,
+          "value": -0.726
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 3.0,
+      "period_from_sdc": 3.0,
+      "period_witnesses": 6,
+      "platform": "gf180",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 1477431,
+        "finish__design__instance__area": 720794,
+        "placeopt__design__instance__area": 606205,
+        "placeopt__design__instance__count__stdcell": 20707,
+        "synth__design__instance__area__stdcell": 459000.0
+      },
+      "design": "aes-hybrid",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.6,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.15,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -132.0,
+          "value": -131.4
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -1.12,
+          "value": -0.9700000000000001
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.6,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.15,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -144.0,
+          "value": -143.4
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -1.1,
+          "value": -0.9500000000000001
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.6,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.15,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -144.0,
+          "value": -143.4
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -1.1,
+          "value": -0.9500000000000001
+        }
+      },
+      "notes": [
+        "sdc: no sdc",
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 3.0,
+      "period_from_sdc": null,
+      "period_witnesses": 6,
+      "platform": "gf180",
+      "sdc_source": null
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 1334618,
+        "finish__design__instance__area": 748372,
+        "placeopt__design__instance__area": 725567,
+        "placeopt__design__instance__count__stdcell": 15783,
+        "synth__design__instance__area__stdcell": 666000.0
+      },
+      "design": "ibex",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": false,
+          "rule": -2.89,
+          "value": -0.8900000000000001
+        },
+        "cts__timing__hold__ws": {
+          "censored": false,
+          "rule": -1.39,
+          "value": -0.8899999999999999
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -2.0,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.5,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": false,
+          "rule": -2.89,
+          "value": -0.8900000000000001
+        },
+        "finish__timing__hold__ws": {
+          "censored": false,
+          "rule": -1.39,
+          "value": -0.8899999999999999
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -2.07,
+          "value": -0.06999999999999984
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.539,
+          "value": -0.039000000000000035
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": false,
+          "rule": -2.85,
+          "value": -0.8500000000000001
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": false,
+          "rule": -1.35,
+          "value": -0.8500000000000001
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -2.0,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.5,
+          "value": null
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 10.0,
+      "period_from_sdc": 10.0,
+      "period_witnesses": 4,
+      "platform": "gf180",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 3169468,
+        "finish__design__instance__area": 2394070,
+        "placeopt__design__instance__area": 2338306,
+        "placeopt__design__instance__count__stdcell": 48768,
+        "synth__design__instance__area__stdcell": 2280000.0
+      },
+      "design": "jpeg",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -2.2,
+          "value": -1.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.523,
+          "value": -0.22299999999999998
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -1.28,
+          "value": -0.07999999999999985
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.368,
+          "value": -0.06799999999999995
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 6.0,
+      "period_from_sdc": 6.0,
+      "period_witnesses": 8,
+      "platform": "gf180",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 646977,
+        "finish__design__instance__area": 422004,
+        "placeopt__design__instance__area": 401501,
+        "placeopt__design__instance__count__stdcell": 8628,
+        "synth__design__instance__area__stdcell": 337000.0
+      },
+      "design": "riscv32i",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.8,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.45,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -3.85,
+          "value": -2.05
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.586,
+          "value": -0.13599999999999995
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.8,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.45,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -9.95,
+          "value": -8.149999999999999
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.63,
+          "value": -0.18
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.8,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.45,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -10.1,
+          "value": -8.299999999999999
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.659,
+          "value": -0.20900000000000002
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 9.0,
+      "period_from_sdc": 9.0,
+      "period_witnesses": 6,
+      "platform": "gf180",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 20402,
+        "finish__design__instance__area": 71942,
+        "placeopt__design__instance__area": 71098,
+        "placeopt__design__instance__count__stdcell": 752,
+        "synth__design__instance__area__stdcell": 13000.0
+      },
+      "design": "uart-blocks",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 6.0,
+      "period_from_sdc": 6.0,
+      "period_witnesses": 12,
+      "platform": "gf180",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 1,
+      "covariates": {
+        "detailedroute__route__wirelength": 685047,
+        "finish__design__instance__area": 178042,
+        "placeopt__design__instance__area": 153798,
+        "placeopt__design__instance__count__stdcell": 22734,
+        "synth__design__instance__area__stdcell": 95860.46
+      },
+      "design": "aes",
+      "metrics": {
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": 0.0,
+          "value": null
+        }
+      },
+      "notes": [
+        "no period bound: no negative timing rule in the file"
+      ],
+      "period": null,
+      "period_from_sdc": 4600.0,
+      "period_witnesses": 0,
+      "platform": "gf55",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 1,
+      "covariates": {
+        "detailedroute__route__wirelength": 42394,
+        "finish__design__instance__area": 1636,
+        "placeopt__design__instance__area": 564,
+        "placeopt__design__instance__count__stdcell": 20700,
+        "synth__design__instance__area__stdcell": 492.0
+      },
+      "design": "aes",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -25.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -25.0,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": false,
+          "rule": -1220.0,
+          "value": -1120.0
+        },
+        "finish__timing__hold__ws": {
+          "censored": false,
+          "rule": -41.2,
+          "value": -16.200000000000003
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -585.0,
+          "value": -485.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -75.2,
+          "value": -50.2
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": false,
+          "rule": -1220.0,
+          "value": -1120.0
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": false,
+          "rule": -41.2,
+          "value": -16.200000000000003
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -585.0,
+          "value": -485.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -75.2,
+          "value": -50.2
+        }
+      },
+      "notes": [],
+      "period": 500.0,
+      "period_from_sdc": 500.0,
+      "period_witnesses": 4,
+      "platform": "gt2n",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 1,
+      "covariates": {
+        "detailedroute__route__wirelength": 848,
+        "finish__design__instance__area": 73,
+        "placeopt__design__instance__area": 22,
+        "placeopt__design__instance__count__stdcell": 877,
+        "synth__design__instance__area__stdcell": 18.8
+      },
+      "design": "gcd",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -25.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -25.0,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -25.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -25.0,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -25.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -100.0,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -25.0,
+          "value": null
+        }
+      },
+      "notes": [],
+      "period": 500.0,
+      "period_from_sdc": 500.0,
+      "period_witnesses": 12,
+      "platform": "gt2n",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 1,
+      "covariates": {
+        "detailedroute__route__wirelength": 156062,
+        "finish__design__instance__area": 7407,
+        "placeopt__design__instance__area": 3145,
+        "placeopt__design__instance__count__stdcell": 119485,
+        "synth__design__instance__area__stdcell": 2970.0
+      },
+      "design": "jpeg",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -50.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -50.0,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -50.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -50.0,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -50.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -50.0,
+          "value": null
+        }
+      },
+      "notes": [],
+      "period": 1000.0,
+      "period_from_sdc": 1000.0,
+      "period_witnesses": 12,
+      "platform": "gt2n",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 660678,
+        "finish__design__instance__area": 167958,
+        "placeopt__design__instance__area": 162505,
+        "placeopt__design__instance__count__stdcell": 14531,
+        "synth__design__instance__area__stdcell": 169000.0
+      },
+      "design": "aes",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.9,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.225,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -0.9,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.225,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.9,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.225,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -0.9,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.225,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.9,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.225,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -0.9,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.225,
+          "value": null
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 4.5,
+      "period_from_sdc": 4.5,
+      "period_witnesses": 12,
+      "platform": "ihp-sg13g2",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 11061,
+        "finish__design__instance__area": 6429,
+        "placeopt__design__instance__area": 6153,
+        "placeopt__design__instance__count__stdcell": 443,
+        "synth__design__instance__area__stdcell": 5260.0
+      },
+      "design": "gcd",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.52,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.13,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -0.52,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.13,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.52,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.13,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -0.52,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.13,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.52,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.13,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -0.52,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.13,
+          "value": null
+        }
+      },
+      "notes": [
+        "sdc says 2.8, rules imply 2.6",
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 2.6,
+      "period_from_sdc": 2.8,
+      "period_witnesses": 12,
+      "platform": "ihp-sg13g2",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 41793,
+        "finish__design__instance__area": 42094,
+        "placeopt__design__instance__area": 39332,
+        "placeopt__design__instance__count__stdcell": 979,
+        "synth__design__instance__area__stdcell": 13000.0
+      },
+      "design": "i2c-gpio-expander",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -2.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.5,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -7.76,
+          "value": -5.76
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -2.56,
+          "value": -2.06
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -2.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.5,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -7.53,
+          "value": -5.53
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -2.55,
+          "value": -2.05
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -2.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.5,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -7.72,
+          "value": -5.72
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -2.56,
+          "value": -2.06
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 10.0,
+      "period_from_sdc": 10.0,
+      "period_witnesses": 6,
+      "platform": "ihp-sg13g2",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 1000508,
+        "finish__design__instance__area": 320206,
+        "placeopt__design__instance__area": 298992,
+        "placeopt__design__instance__count__stdcell": 20217,
+        "synth__design__instance__area__stdcell": 273000.0
+      },
+      "design": "ibex",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.6,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -1.6,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.6,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -6.45,
+          "value": -4.85
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.6,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -2.75,
+          "value": -1.15
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 8.0,
+      "period_from_sdc": 8.0,
+      "period_witnesses": 10,
+      "platform": "ihp-sg13g2",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 3409783,
+        "finish__design__instance__area": 1066902,
+        "placeopt__design__instance__area": 1024073,
+        "placeopt__design__instance__count__stdcell": 87386,
+        "synth__design__instance__area__stdcell": 1660000.0
+      },
+      "design": "jpeg",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.6,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -1.6,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.6,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -1.6,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.6,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -1.6,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 8.0,
+      "period_from_sdc": 8.0,
+      "period_witnesses": 12,
+      "platform": "ihp-sg13g2",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 456338,
+        "finish__design__instance__area": 168206,
+        "placeopt__design__instance__area": 157813,
+        "placeopt__design__instance__count__stdcell": 10692,
+        "synth__design__instance__area__stdcell": 140000.0
+      },
+      "design": "riscv32i",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 6.0,
+      "period_from_sdc": 6.0,
+      "period_witnesses": 12,
+      "platform": "ihp-sg13g2",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 4630,
+        "finish__design__instance__area": 2756,
+        "placeopt__design__instance__area": 2635,
+        "placeopt__design__instance__count__stdcell": 178,
+        "synth__design__instance__area__stdcell": 2180.0
+      },
+      "design": "spi",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": false,
+          "rule": -0.18,
+          "value": -0.009599999999999997
+        },
+        "cts__timing__hold__ws": {
+          "censored": false,
+          "rule": -0.045,
+          "value": -0.0023999999999999994
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -0.18,
+          "value": -0.009599999999999997
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": false,
+          "rule": -0.18,
+          "value": -0.009599999999999997
+        },
+        "finish__timing__hold__ws": {
+          "censored": false,
+          "rule": -0.045,
+          "value": -0.0023999999999999994
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -0.18,
+          "value": -0.009599999999999997
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.045,
+          "value": -0.0023999999999999994
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": false,
+          "rule": -0.18,
+          "value": -0.009599999999999997
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": false,
+          "rule": -0.045,
+          "value": -0.0023999999999999994
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -0.2,
+          "value": -0.029600000000000015
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.0426,
+          "value": null
+        }
+      },
+      "notes": [
+        "period from a single bound, uncorroborated",
+        "sdc says 1, rules imply 0.852",
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 0.852,
+      "period_from_sdc": 1.0,
+      "period_witnesses": 1,
+      "platform": "ihp-sg13g2",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 256046,
+        "finish__design__instance__area": 21614,
+        "placeopt__design__instance__area": 21358,
+        "placeopt__design__instance__count__stdcell": 16773,
+        "synth__design__instance__area__stdcell": 17700.0
+      },
+      "design": "aes",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.164,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.041,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -0.164,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.041,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.164,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.041,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -0.364,
+          "value": -0.19999999999999996
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.0667,
+          "value": -0.025699999999999987
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.164,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.041,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -0.785,
+          "value": -0.621
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.0692,
+          "value": -0.02819999999999999
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 0.8200000000000001,
+      "period_from_sdc": 0.82,
+      "period_witnesses": 8,
+      "platform": "nangate45",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 7951750,
+        "finish__design__instance__area": 830957,
+        "placeopt__design__instance__area": 821946,
+        "placeopt__design__instance__count__stdcell": 187936,
+        "synth__design__instance__area__stdcell": 337000.0
+      },
+      "design": "ariane133",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.6,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.15,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -798.0,
+          "value": -797.4
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.574,
+          "value": -0.42399999999999993
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.6,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.15,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -781.0,
+          "value": -780.4
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.589,
+          "value": -0.43899999999999995
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.6,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.15,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -807.0,
+          "value": -806.4
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.557,
+          "value": -0.40700000000000003
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 3.0,
+      "period_from_sdc": 3.0,
+      "period_witnesses": 6,
+      "platform": "nangate45",
+      "sdc_source": "ariane.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 8580824,
+        "finish__design__instance__area": 857385,
+        "placeopt__design__instance__area": 848859,
+        "placeopt__design__instance__count__stdcell": 204479,
+        "synth__design__instance__area__stdcell": 346000.0
+      },
+      "design": "ariane136",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 6.0,
+      "period_from_sdc": 6.0,
+      "period_witnesses": 12,
+      "platform": "nangate45",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 6759084,
+        "finish__design__instance__area": 737075,
+        "placeopt__design__instance__area": 724309,
+        "placeopt__design__instance__count__stdcell": 242399,
+        "synth__design__instance__area__stdcell": 776000.0
+      },
+      "design": "black_parrot",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -3.12,
+          "value": -0.06999999999999984
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -3.31,
+          "value": -2.5475
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -3.05,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -3.26,
+          "value": -2.4974999999999996
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -4.35,
+          "value": -1.2999999999999994
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -3.45,
+          "value": -2.6875
+        }
+      },
+      "notes": [
+        "period from a single bound, uncorroborated",
+        "sdc says 6, rules imply 15.25",
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 15.25,
+      "period_from_sdc": 6.0,
+      "period_witnesses": 1,
+      "platform": "nangate45",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 2504235,
+        "finish__design__instance__area": 275387,
+        "placeopt__design__instance__area": 273548,
+        "placeopt__design__instance__count__stdcell": 62588,
+        "synth__design__instance__area__stdcell": 268204.56
+      },
+      "design": "bp_be_top",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -23.0,
+          "value": -21.74
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.331,
+          "value": -0.016000000000000014
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -23.0,
+          "value": -21.74
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.318,
+          "value": -0.0030000000000000027
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -22.0,
+          "value": -20.74
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.315,
+          "value": null
+        }
+      },
+      "notes": [
+        "period from a single bound, uncorroborated",
+        "sdc says 2.6, rules imply 6.3",
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 6.3,
+      "period_from_sdc": 2.6,
+      "period_witnesses": 1,
+      "platform": "nangate45",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 1673870,
+        "finish__design__instance__area": 247483,
+        "placeopt__design__instance__area": 244991,
+        "placeopt__design__instance__count__stdcell": 38771,
+        "synth__design__instance__area__stdcell": 60900.0
+      },
+      "design": "bp_fe_top",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -0.369,
+          "value": -0.366
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.09,
+          "value": -0.08925
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.003,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": false,
+          "rule": -0.002,
+          "value": -0.00125
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -5.17,
+          "value": -5.167
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.131,
+          "value": -0.13025
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": 0.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -0.36,
+          "value": -0.357
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.09,
+          "value": -0.08925
+        }
+      },
+      "notes": [
+        "period from a single bound, uncorroborated",
+        "sdc says 1.8, rules imply 0.015",
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 0.015,
+      "period_from_sdc": 1.8,
+      "period_witnesses": 1,
+      "platform": "nangate45",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 3889222,
+        "finish__design__instance__area": 579401,
+        "placeopt__design__instance__area": 572379,
+        "placeopt__design__instance__count__stdcell": 99445,
+        "synth__design__instance__area__stdcell": 182000.0
+      },
+      "design": "bp_multi_top",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.68,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.17,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -0.86,
+          "value": -0.17999999999999994
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.35,
+          "value": -0.17999999999999997
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.68,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.17,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -0.872,
+          "value": -0.19199999999999995
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.362,
+          "value": -0.19199999999999998
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.68,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.17,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -0.944,
+          "value": -0.2639999999999999
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.434,
+          "value": -0.264
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 3.4,
+      "period_from_sdc": 3.4,
+      "period_witnesses": 6,
+      "platform": "nangate45",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 11,
+      "covariates": {
+        "detailedroute__route__wirelength": 55217711,
+        "finish__design__instance__area": 6176926,
+        "placeopt__design__instance__area": 6079647,
+        "placeopt__design__instance__count__stdcell": 1704487,
+        "synth__design__instance__area__stdcell": 5620000.0
+      },
+      "design": "bp_quad",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": false,
+          "rule": -39300000.0,
+          "value": -39299400.0
+        },
+        "cts__timing__hold__ws": {
+          "censored": false,
+          "rule": -151.0,
+          "value": -1.0
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -38900000.0,
+          "value": -38899400.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -150.0,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": false,
+          "rule": -39300000.0,
+          "value": -39299400.0
+        },
+        "finish__timing__hold__ws": {
+          "censored": false,
+          "rule": -151.0,
+          "value": -1.0
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -38900000.0,
+          "value": -38899400.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -150.0,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": false,
+          "rule": -39300000.0,
+          "value": -39299400.0
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": false,
+          "rule": -151.0,
+          "value": -1.0
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -38900000.0,
+          "value": -38899400.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -150.0,
+          "value": null
+        }
+      },
+      "notes": [
+        "sdc says 3, rules imply 3000",
+        "11 clocks; genRuleFile pads with the first"
+      ],
+      "period": 3000.0,
+      "period_from_sdc": 3.0,
+      "period_witnesses": 3,
+      "platform": "nangate45",
+      "sdc_source": "bsg_chip.sdc"
+    },
+    {
+      "clocks": 1,
+      "covariates": {
+        "detailedroute__route__wirelength": 2496218,
+        "finish__design__instance__area": 289845,
+        "placeopt__design__instance__area": 286611,
+        "placeopt__design__instance__count__stdcell": 117185,
+        "synth__design__instance__area__stdcell": 178000.0
+      },
+      "design": "cva6",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -50.0,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -50.0,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -50.0,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -50.0,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -50.0,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -200.0,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -50.0,
+          "value": null
+        }
+      },
+      "notes": [],
+      "period": 1000.0,
+      "period_from_sdc": 1000.0,
+      "period_witnesses": 12,
+      "platform": "nangate45",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 246867,
+        "finish__design__instance__area": 30558,
+        "placeopt__design__instance__area": 27915,
+        "placeopt__design__instance__count__stdcell": 14957,
+        "synth__design__instance__area__stdcell": 24900.0
+      },
+      "design": "dynamic_node",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.1,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -795.0,
+          "value": -794.6
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -1.11,
+          "value": -1.01
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.1,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -824.0,
+          "value": -823.6
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -1.1,
+          "value": -1.0
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.1,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -797.0,
+          "value": -796.6
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -1.13,
+          "value": -1.0299999999999998
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 2.0,
+      "period_from_sdc": 2.0,
+      "period_witnesses": 6,
+      "platform": "nangate45",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 7219,
+        "finish__design__instance__area": 1115,
+        "placeopt__design__instance__area": 952,
+        "placeopt__design__instance__count__stdcell": 818,
+        "synth__design__instance__area__stdcell": 721.0
+      },
+      "design": "gcd",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.05,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.0125,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -7.07,
+          "value": -7.0200000000000005
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.169,
+          "value": -0.1565
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.05,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.0125,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -7.99,
+          "value": -7.94
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.193,
+          "value": -0.1805
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.05,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.0125,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -8.29,
+          "value": -8.239999999999998
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.199,
+          "value": -0.1865
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 0.25,
+      "period_from_sdc": 0.25,
+      "period_witnesses": 6,
+      "platform": "nangate45",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 299943,
+        "finish__design__instance__area": 33657,
+        "placeopt__design__instance__area": 32972,
+        "placeopt__design__instance__count__stdcell": 16921,
+        "synth__design__instance__area__stdcell": 32400.0
+      },
+      "design": "ibex",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.44,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.11,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -0.44,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.11,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.44,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.11,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -1.81,
+          "value": -1.37
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.11,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.44,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.11,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": true,
+          "rule": -0.44,
+          "value": null
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.11,
+          "value": null
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 2.2,
+      "period_from_sdc": 2.2,
+      "period_witnesses": 11,
+      "platform": "nangate45",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 757284,
+        "finish__design__instance__area": 105092,
+        "placeopt__design__instance__area": 102921,
+        "placeopt__design__instance__count__stdcell": 68062,
+        "synth__design__instance__area__stdcell": 99800.0
+      },
+      "design": "jpeg",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.2,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.05,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -65.6,
+          "value": -65.39999999999999
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.215,
+          "value": -0.16499999999999998
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.2,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.05,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -71.8,
+          "value": -71.6
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.223,
+          "value": -0.173
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.2,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.05,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -80.5,
+          "value": -80.3
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.228,
+          "value": -0.178
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 1.0,
+      "period_from_sdc": 1.0,
+      "period_witnesses": 6,
+      "platform": "nangate45",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 5256342,
+        "finish__design__instance__area": 453619,
+        "placeopt__design__instance__area": 444176,
+        "placeopt__design__instance__count__stdcell": 188286,
+        "synth__design__instance__area__stdcell": 304000.0
+      },
+      "design": "mempool_group",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.6,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.15,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -12400.0,
+          "value": -12399.4
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -2.31,
+          "value": -2.16
+        },
+        "finish__timing__hold__tns": {
+          "censored": false,
+          "rule": -1.7,
+          "value": -1.0999999999999999
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.15,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -14400.0,
+          "value": -14399.4
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -2.31,
+          "value": -2.16
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.6,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.15,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -14700.0,
+          "value": -14699.4
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -2.31,
+          "value": -2.16
+        }
+      },
+      "notes": [
+        "sdc: no literal period in mempool_group.sdc",
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 3.0,
+      "period_from_sdc": null,
+      "period_witnesses": 5,
+      "platform": "nangate45",
+      "sdc_source": null
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 2354992,
+        "finish__design__instance__area": 182894,
+        "placeopt__design__instance__area": 177308,
+        "placeopt__design__instance__count__stdcell": 97710,
+        "synth__design__instance__area__stdcell": 166000.0
+      },
+      "design": "swerv",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.35,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.0875,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -519.0,
+          "value": -518.65
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.772,
+          "value": -0.6845
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.35,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.0875,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -600.0,
+          "value": -599.65
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.713,
+          "value": -0.6255
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.35,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.0875,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -566.0,
+          "value": -565.65
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.825,
+          "value": -0.7374999999999999
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 1.75,
+      "period_from_sdc": 1.75,
+      "period_witnesses": 6,
+      "platform": "nangate45",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 4834629,
+        "finish__design__instance__area": 733977,
+        "placeopt__design__instance__area": 727527,
+        "placeopt__design__instance__count__stdcell": 106084,
+        "synth__design__instance__area__stdcell": 170000.0
+      },
+      "design": "swerv_wrapper",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.1,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -467.0,
+          "value": -466.6
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.429,
+          "value": -0.32899999999999996
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.1,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -515.0,
+          "value": -514.6
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.408,
+          "value": -0.30799999999999994
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.4,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.1,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -545.0,
+          "value": -544.6
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.431,
+          "value": -0.33099999999999996
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 2.0,
+      "period_from_sdc": 2.0,
+      "period_witnesses": 6,
+      "platform": "nangate45",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 1,
+      "covariates": {
+        "detailedroute__route__wirelength": 538070,
+        "finish__design__instance__area": 62067,
+        "placeopt__design__instance__area": 60308,
+        "placeopt__design__instance__count__stdcell": 31653,
+        "synth__design__instance__area__stdcell": 58300.0
+      },
+      "design": "tinyRocket",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.24,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.06,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -36.0,
+          "value": -35.76
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.195,
+          "value": -0.135
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.24,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.06,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -48.0,
+          "value": -47.76
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.154,
+          "value": -0.094
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.24,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.06,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -53.7,
+          "value": -53.46
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.168,
+          "value": -0.10800000000000001
+        }
+      },
+      "notes": [],
+      "period": 1.2,
+      "period_from_sdc": 1.2,
+      "period_witnesses": 6,
+      "platform": "nangate45",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 663060,
+        "finish__design__instance__area": 142679,
+        "placeopt__design__instance__area": 133287,
+        "placeopt__design__instance__count__stdcell": 20353,
+        "synth__design__instance__area__stdcell": 89400.0
+      },
+      "design": "aes",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.72,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.18,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -0.72,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.18,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.72,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.18,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -6.09,
+          "value": -5.37
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.425,
+          "value": -0.24499999999999997
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.72,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.18,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -9.45,
+          "value": -8.729999999999999
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.554,
+          "value": -0.374
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 3.6,
+      "period_from_sdc": 3.6,
+      "period_witnesses": 8,
+      "platform": "sky130hd",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 851647,
+        "finish__design__instance__area": 6519902,
+        "placeopt__design__instance__area": 6516233,
+        "placeopt__design__instance__count__stdcell": 59466,
+        "synth__design__instance__area__stdcell": 27800.0
+      },
+      "design": "chameleon",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.6,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.15,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -172.0,
+          "value": -171.4
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -2.96,
+          "value": -2.81
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.6,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.15,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -146.0,
+          "value": -145.4
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -2.41,
+          "value": -2.2600000000000002
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.6,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.15,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -151.0,
+          "value": -150.4
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -2.82,
+          "value": -2.67
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 3.0,
+      "period_from_sdc": 3.0,
+      "period_witnesses": 6,
+      "platform": "sky130hd",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 13554,
+        "finish__design__instance__area": 5812,
+        "placeopt__design__instance__area": 4663,
+        "placeopt__design__instance__count__stdcell": 550,
+        "synth__design__instance__area__stdcell": 2660.0
+      },
+      "design": "gcd",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.22,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.055,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -63.9,
+          "value": -63.68
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -1.49,
+          "value": -1.435
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.22,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.055,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -65.3,
+          "value": -65.08
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -1.52,
+          "value": -1.465
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.22,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.055,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -69.7,
+          "value": -69.48
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -1.61,
+          "value": -1.5550000000000002
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 1.1,
+      "period_from_sdc": 1.1,
+      "period_witnesses": 6,
+      "platform": "sky130hd",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 703854,
+        "finish__design__instance__area": 177762,
+        "placeopt__design__instance__area": 166353,
+        "placeopt__design__instance__count__stdcell": 20977,
+        "synth__design__instance__area__stdcell": 147000.0
+      },
+      "design": "ibex",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -2.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.5,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -2.0,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.505,
+          "value": -0.0050000000000000044
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -2.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.5,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -2.0,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.5,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -2.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.5,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -2.82,
+          "value": -0.8199999999999998
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.576,
+          "value": -0.07599999999999996
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 10.0,
+      "period_from_sdc": 10.0,
+      "period_witnesses": 9,
+      "platform": "sky130hd",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 1317179,
+        "finish__design__instance__area": 518717,
+        "placeopt__design__instance__area": 487201,
+        "placeopt__design__instance__count__stdcell": 51614,
+        "synth__design__instance__area__stdcell": 440000.0
+      },
+      "design": "jpeg",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.25,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -159.0,
+          "value": -158.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.961,
+          "value": -0.711
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.25,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -111.0,
+          "value": -110.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.654,
+          "value": -0.404
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.25,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -225.0,
+          "value": -224.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.853,
+          "value": -0.603
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 5.0,
+      "period_from_sdc": 5.0,
+      "period_witnesses": 6,
+      "platform": "sky130hd",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 4,
+      "covariates": {
+        "detailedroute__route__wirelength": 7753254,
+        "finish__design__instance__area": 5511421,
+        "placeopt__design__instance__area": 5359506,
+        "placeopt__design__instance__count__stdcell": 142482,
+        "synth__design__instance__area__stdcell": 676000.0
+      },
+      "design": "microwatt",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -3.0,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.75,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -226.0,
+          "value": -223.0
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -2.08,
+          "value": -1.33
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -3.0,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.75,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -171.0,
+          "value": -168.0
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -1.91,
+          "value": -1.16
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -3.0,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.75,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -208.0,
+          "value": -205.0
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -2.03,
+          "value": -1.2799999999999998
+        }
+      },
+      "notes": [
+        "4 clocks; genRuleFile pads with the first"
+      ],
+      "period": 15.0,
+      "period_from_sdc": 15.0,
+      "period_witnesses": 6,
+      "platform": "sky130hd",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 312952,
+        "finish__design__instance__area": 86893,
+        "placeopt__design__instance__area": 81619,
+        "placeopt__design__instance__count__stdcell": 8365,
+        "synth__design__instance__area__stdcell": 72800.0
+      },
+      "design": "riscv32i",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -143.0,
+          "value": -141.8
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -1.41,
+          "value": -1.1099999999999999
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -186.0,
+          "value": -184.8
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -1.21,
+          "value": -0.9099999999999999
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.2,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.3,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -338.0,
+          "value": -336.8
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -1.45,
+          "value": -1.15
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 6.0,
+      "period_from_sdc": 6.0,
+      "period_witnesses": 6,
+      "platform": "sky130hd",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 686268,
+        "finish__design__instance__area": 176005,
+        "placeopt__design__instance__area": 161804,
+        "placeopt__design__instance__count__stdcell": 19420,
+        "synth__design__instance__area__stdcell": 121000.0
+      },
+      "design": "aes",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.56,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.14,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -0.56,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.14,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.56,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.14,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -1.19,
+          "value": -0.6299999999999999
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.313,
+          "value": -0.173
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.56,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.14,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -4.37,
+          "value": -3.81
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.351,
+          "value": -0.21099999999999997
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 2.8000000000000003,
+      "period_from_sdc": 2.8,
+      "period_witnesses": 8,
+      "platform": "sky130hs",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 18000,
+        "finish__design__instance__area": 7136,
+        "placeopt__design__instance__area": 6112,
+        "placeopt__design__instance__count__stdcell": 715,
+        "synth__design__instance__area__stdcell": 4470.0
+      },
+      "design": "gcd",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.28,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.07,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -12.0,
+          "value": -11.72
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.358,
+          "value": -0.288
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.28,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.07,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -23.0,
+          "value": -22.72
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -1.0,
+          "value": -0.9299999999999999
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.28,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.07,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -25.0,
+          "value": -24.72
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -1.0,
+          "value": -0.9299999999999999
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 1.4000000000000001,
+      "period_from_sdc": 1.4,
+      "period_witnesses": 6,
+      "platform": "sky130hs",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 783228,
+        "finish__design__instance__area": 243893,
+        "placeopt__design__instance__area": 230821,
+        "placeopt__design__instance__count__stdcell": 19436,
+        "synth__design__instance__area__stdcell": 213000.0
+      },
+      "design": "ibex",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.3,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.325,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -57.7,
+          "value": -56.400000000000006
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.35,
+          "value": -0.024999999999999967
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.3,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.325,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -291.0,
+          "value": -289.7
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.861,
+          "value": -0.536
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -1.3,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.325,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -604.0,
+          "value": -602.7
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.89,
+          "value": -0.565
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 6.5,
+      "period_from_sdc": 6.5,
+      "period_witnesses": 6,
+      "platform": "sky130hs",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 1554923,
+        "finish__design__instance__area": 785962,
+        "placeopt__design__instance__area": 744037,
+        "placeopt__design__instance__count__stdcell": 55946,
+        "synth__design__instance__area__stdcell": 701000.0
+      },
+      "design": "jpeg",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.8,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.2,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": true,
+          "rule": -0.8,
+          "value": null
+        },
+        "cts__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.2,
+          "value": null
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.8,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.2,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": true,
+          "rule": -0.8,
+          "value": null
+        },
+        "finish__timing__setup__ws": {
+          "censored": true,
+          "rule": -0.2,
+          "value": null
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.8,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.2,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -1.52,
+          "value": -0.72
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.267,
+          "value": -0.067
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 4.0,
+      "period_from_sdc": 4.0,
+      "period_witnesses": 10,
+      "platform": "sky130hs",
+      "sdc_source": "constraint.sdc"
+    },
+    {
+      "clocks": 2,
+      "covariates": {
+        "detailedroute__route__wirelength": 343544,
+        "finish__design__instance__area": 120021,
+        "placeopt__design__instance__area": 112440,
+        "placeopt__design__instance__count__stdcell": 8187,
+        "synth__design__instance__area__stdcell": 98900.0
+      },
+      "design": "riscv32i",
+      "metrics": {
+        "cts__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.8,
+          "value": null
+        },
+        "cts__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.2,
+          "value": null
+        },
+        "cts__timing__setup__tns": {
+          "censored": false,
+          "rule": -163.0,
+          "value": -162.2
+        },
+        "cts__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.516,
+          "value": -0.316
+        },
+        "finish__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.8,
+          "value": null
+        },
+        "finish__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.2,
+          "value": null
+        },
+        "finish__timing__setup__tns": {
+          "censored": false,
+          "rule": -359.0,
+          "value": -358.2
+        },
+        "finish__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.567,
+          "value": -0.36699999999999994
+        },
+        "globalroute__timing__hold__tns": {
+          "censored": true,
+          "rule": -0.8,
+          "value": null
+        },
+        "globalroute__timing__hold__ws": {
+          "censored": true,
+          "rule": -0.2,
+          "value": null
+        },
+        "globalroute__timing__setup__tns": {
+          "censored": false,
+          "rule": -525.0,
+          "value": -524.2
+        },
+        "globalroute__timing__setup__ws": {
+          "censored": false,
+          "rule": -0.676,
+          "value": -0.47600000000000003
+        }
+      },
+      "notes": [
+        "2 clocks; genRuleFile pads with the first"
+      ],
+      "period": 4.0,
+      "period_from_sdc": 4.0,
+      "period_witnesses": 6,
+      "platform": "sky130hs",
+      "sdc_source": "constraint.sdc"
+    }
+  ],
+  "orfs_commit": "a71b115b9b7b95fc843e715bdebd557147ef98fc"
+}
