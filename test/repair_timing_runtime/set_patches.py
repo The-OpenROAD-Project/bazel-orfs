@@ -17,6 +17,7 @@ NAMES = {
     "0071": "0071-openroad-rsz-policy-last-gasp-after-gaining-phase.patch",
     "0072": "0072-openroad-rsz-policy-move-type-budget.patch",
     "0073": "0073-openroad-rsz-policy-all.patch",
+    "0074": "0074-openroad-rsz-return-controller.patch",
 }
 
 wanted = ["0066"] + [n for n in sys.argv[1:] if n != "0066"]

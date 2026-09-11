@@ -1,0 +1,276 @@
+rsz: a return controller for setup repair, no knobs
+
+Policy candidate from the repair-knobs campaign (ideas/repair-knobs-nihl.md),
+carried while it is measured. Not upstreamed. If it dominates today's
+defaults on every asap7 and sky130hd design, it goes upstream as the
+replacement for TNS_END_PERCENT, SKIP_LAST_GASP and SKIP_GATE_CLONING,
+which stay accepted and inert.
+
+Every knob above is a binary guess about a continuous, observable
+quantity: how much the next unit of work will buy. The census shows the
+same knob setting winning on one design and losing on the next, because
+the return differs per design and the knob cannot see it. This reads it.
+
+Per phase, at each window of passes (the existing hundred-pass
+interval), the controller measures what the window bought in TNS and WNS
+against what it cost in seconds, remembers the best rate the phase has
+shown, and stops the phase after two consecutive windows below 1% of
+that best with WNS flat. Last gasp runs only after a phase that ran out
+of endpoints while still paying; a phase that stopped for lack of return
+hands over nothing. A move type tried a hundred times in a phase with no
+acceptance is retired for the rest of that phase.
+
+Every constant is a ratio of the run's own measurements or the scale the
+optimizer already uses, so nothing here is a value a user could tune per
+design. The legacy fix-rate test and its thousand-pass floor are left in
+place beneath it.
+
+Chesterton's Fence: the thousand-pass floor protects a slow start, where
+early windows fix little of the total TNS. The controller's reference is
+the phase's own peak rate, not the initial TNS, so a slow start is simply
+a low peak that later windows raise; it cannot fire until a rate has been
+measured and then fallen.
+
+diff --git a/src/rsz/src/RepairSetupContext.hh b/src/rsz/src/RepairSetupContext.hh
+index b38ade6a98..09c7cdfe68 100644
+--- a/src/rsz/src/RepairSetupContext.hh
++++ b/src/rsz/src/RepairSetupContext.hh
+@@ -3,6 +3,10 @@
+ 
+ #pragma once
+ 
++#include <array>
++#include <chrono>
++
++#include "OptimizerTypes.hh"
+ #include "RepairTargetCollector.hh"
+ 
+ namespace rsz {
+@@ -66,6 +70,33 @@ struct RepairSetupContext
+   // Legacy-derived setup phases share one preamble per repair_setup run.
+   bool legacy_preamble_done{false};
+   bool legacy_preamble_has_violations{true};
++
++  // The return controller. A phase measures what each window of passes
++  // bought, in TNS and WNS, against what it cost in seconds, remembers the
++  // best rate it has seen, and stops when the rate has fallen to a small
++  // fraction of that best for two windows running. Every constant is a
++  // ratio of the run's own measurements, so nothing here is a knob.
++  struct ReturnController
++  {
++    std::chrono::steady_clock::time_point window_start{};
++    float window_start_tns{0.0f};
++    float window_start_wns{0.0f};
++    double peak_rate{0.0};  // TNS ps gained per second, best window so far
++    int low_windows{0};
++    bool armed{false};
++    // Set when a phase stopped for lack of return (this controller or the
++    // legacy fix-rate test). Last gasp reads it: a sweep that stopped
++    // because nothing was moving hands over nothing.
++    bool stopped_for_return{false};
++  };
++  ReturnController controller;
++
++  // Per move type, this phase: attempts and acceptances. A type that has
++  // been tried a window's worth of times with no acceptance is retired
++  // for the rest of the phase.
++  std::array<int, static_cast<size_t>(MoveType::kCount)> type_attempts{};
++  std::array<int, static_cast<size_t>(MoveType::kCount)> type_accepts{};
++  std::array<bool, static_cast<size_t>(MoveType::kCount)> type_retired{};
+ };
+ 
+ }  // namespace rsz
+diff --git a/src/rsz/src/policy/SetupLastGaspPolicy.cc b/src/rsz/src/policy/SetupLastGaspPolicy.cc
+index 454cc2758c..08697a4ec6 100644
+--- a/src/rsz/src/policy/SetupLastGaspPolicy.cc
++++ b/src/rsz/src/policy/SetupLastGaspPolicy.cc
+@@ -42,6 +42,16 @@ void SetupLastGaspPolicy::iterate()
+     markRunComplete(false);
+     return;
+   }
++  // A main phase that stopped because its return had run out hands over
++  // nothing: the second pass moves nothing either (riscv32i grt: 26% of
++  // the call for 0 ps). Last gasp runs only after a phase that ran out of
++  // endpoints while still paying.
++  if (setup_context_.controller.stopped_for_return) {
++    logger_->report(
++        "LAST_GASP skipped: the main phase stopped for lack of return");
++    markRunComplete(false);
++    return;
++  }
+ 
+   committer_.capturePrePhaseSlack();
+   int& num_viols = setup_context_.violation_count;
+diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
+index 859f085353..b1139753e7 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.cc
++++ b/src/rsz/src/policy/SetupLegacyBase.cc
+@@ -66,6 +66,10 @@ SetupLegacyBase::SetupLegacyBase(Resizer& resizer,
+ bool SetupLegacyBase::start()
+ {
+   OptimizationPolicy::start();
++  setup_context_.controller = RepairSetupContext::ReturnController{};
++  setup_context_.type_attempts.fill(0);
++  setup_context_.type_accepts.fill(0);
++  setup_context_.type_retired.fill(false);
+   setup_context_.max_repairs_per_pass = config_.max_repairs_per_pass;
+   if (!setup_context_.phase_pipeline_active) {
+     return true;
+@@ -668,6 +672,7 @@ bool SetupLegacyBase::tryCandidateSequence(
+       utl::DebugScopedTimer timer(profile.commit_s);
+       result = committer_.commit(*candidate);
+     }
++    noteMoveAttempt(generator.type(), result.accepted);
+     if (!result.accepted) {
+       continue;
+     }
+@@ -725,6 +730,9 @@ bool SetupLegacyBase::tryRepairTarget(
+     if (rejected_types != nullptr && rejected_types->contains(type)) {
+       continue;
+     }
++    if (setup_context_.type_retired[static_cast<size_t>(type)]) {
++      continue;
++    }
+     if (!generator.isApplicable(live_target)) {
+       continue;
+     }
+@@ -956,7 +964,12 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
+     }
+     float inc_fix_rate = (prev_tns - curr_tns) / initial_tns;
+     prev_tns = curr_tns;
++    if (controllerSaysStop(iteration, phase_name, phase_marker)) {
++      setup_context_.controller.stopped_for_return = true;
++      return true;
++    }
+     if (iteration > 1000 && inc_fix_rate < fix_rate_threshold) {
++      setup_context_.controller.stopped_for_return = true;
+       debugPrint(logger_,
+                  RSZ,
+                  "repair_setup",
+@@ -1008,6 +1021,103 @@ void SetupLegacyBase::reportProfile(const std::string_view phase_name,
+       p.accepted);
+ }
+ 
++// One window of passes has ended. What did it buy, per second?
++bool SetupLegacyBase::controllerSaysStop(const int iteration,
++                                         const std::string_view phase_name,
++                                         const char phase_marker)
++{
++  RepairSetupContext::ReturnController& c = setup_context_.controller;
++  const auto now = std::chrono::steady_clock::now();
++  const float tns = sta_->totalNegativeSlack(max_);
++  sta::Slack wns;
++  sta::Vertex* worst = nullptr;
++  sta_->worstSlack(max_, wns, worst);
++
++  if (!c.armed) {
++    c.armed = true;
++    c.window_start = now;
++    c.window_start_tns = tns;
++    c.window_start_wns = wns;
++    return false;
++  }
++
++  const double seconds
++      = std::chrono::duration<double>(now - c.window_start).count();
++  // TNS is negative and rises toward zero as it improves; WNS likewise.
++  const double tns_gain = static_cast<double>(tns - c.window_start_tns);
++  const double wns_gain = static_cast<double>(wns - c.window_start_wns);
++  const double rate = seconds > 0.0 ? tns_gain / seconds : 0.0;
++  c.window_start = now;
++  c.window_start_tns = tns;
++  c.window_start_wns = wns;
++
++  if (rate > c.peak_rate) {
++    c.peak_rate = rate;
++  }
++  // A window that moved WNS is paying whatever TNS says; a window below
++  // the floor of the run's own best rate, with WNS flat, is not.
++  const bool paying = sta::fuzzyGreater(wns_gain, 0.0f)
++                      || (c.peak_rate > 0.0 && rate > kReturnFloor * c.peak_rate);
++  c.low_windows = paying ? 0 : c.low_windows + 1;
++  debugPrint(logger_,
++             RSZ,
++             "repair_setup",
++             2,
++             "{}{} controller: window to iteration {} gained TNS {:.1f} "
++             "WNS {:.3f} in {:.2f}s, rate {:.1f} ps/s, peak {:.1f}, low "
++             "windows {}",
++             phase_name,
++             phase_marker,
++             iteration,
++             tns_gain,
++             wns_gain,
++             seconds,
++             rate,
++             c.peak_rate,
++             c.low_windows);
++  if (c.peak_rate > 0.0 && c.low_windows >= kLowWindowsToStop) {
++    debugPrint(logger_,
++               RSZ,
++               "repair_setup",
++               1,
++               "{}{} Phase: Exiting at iteration {}: return fell below {:.0f}% "
++               "of the phase's best rate for {} windows",
++               phase_name,
++               phase_marker,
++               iteration,
++               kReturnFloor * 100.0,
++               kLowWindowsToStop);
++    return true;
++  }
++  return false;
++}
++
++// A move type tried a whole window of times in this phase without one
++// acceptance is not going to start paying; it is retired for the rest of
++// the phase and comes back at the next.
++void SetupLegacyBase::noteMoveAttempt(const MoveType type, const bool accepted)
++{
++  const size_t index = static_cast<size_t>(type);
++  ++setup_context_.type_attempts[index];
++  if (accepted) {
++    ++setup_context_.type_accepts[index];
++    return;
++  }
++  if (!setup_context_.type_retired[index]
++      && setup_context_.type_accepts[index] == 0
++      && setup_context_.type_attempts[index] >= kTypeWindow) {
++    setup_context_.type_retired[index] = true;
++    debugPrint(logger_,
++               RSZ,
++               "repair_setup",
++               1,
++               "Retiring move type {} for this phase: {} attempts, none "
++               "accepted",
++               static_cast<int>(type),
++               setup_context_.type_attempts[index]);
++  }
++}
++
+ void SetupLegacyBase::reportCustomPhaseSetup() const
+ {
+   logger_->info(
+diff --git a/src/rsz/src/policy/SetupLegacyBase.hh b/src/rsz/src/policy/SetupLegacyBase.hh
+index 78aa495806..ad694add50 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.hh
++++ b/src/rsz/src/policy/SetupLegacyBase.hh
+@@ -197,6 +197,18 @@ class SetupLegacyBase : public OptimizationPolicy
+                          std::string_view phase_name,
+                          char phase_marker);
+   void reportCustomPhaseSetup() const;
++  // The return controller's window step; true when the phase should stop.
++  bool controllerSaysStop(int iteration,
++                          std::string_view phase_name,
++                          char phase_marker);
++  void noteMoveAttempt(MoveType type, bool accepted);
++  // Fraction of the phase's own best gain rate below which a window is
++  // counted as not paying; two such windows end the phase.
++  static constexpr double kReturnFloor = 0.01;
++  static constexpr int kLowWindowsToStop = 2;
++  // Attempts of one move type with no acceptance before it is retired for
++  // the phase: one window of passes, the same scale the controller uses.
++  static constexpr int kTypeWindow = 100;
+   void reportProfile(std::string_view phase_name, char phase_marker) const;
+ 
+   int committedMoves(MoveType type) const;

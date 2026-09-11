@@ -75,6 +75,18 @@ The knobs stay accepted and inert. K and N are fitted once on riscv32i and
 jpeg, then frozen before any other design runs, so the policy is not tuned
 on the set that judges it.
 
+Those three are fixed-threshold approximations. The candidate meant for
+upstream is the **return controller** (patch 0074): per phase, at each
+hundred-pass window, measure what the window bought in TNS and WNS against
+what it cost in seconds, remember the phase's best rate, and stop after two
+consecutive windows below 1% of that best with WNS flat. Last gasp runs
+only after a phase that was still paying when it ran out of endpoints. A
+move type tried a hundred times in a phase with no acceptance is retired
+for the phase. Every constant is a ratio of the run's own measurements or
+a scale the optimizer already uses; there is no value a user could set per
+design. Phase A runs it beside the threshold set; Phase B judges whichever
+of the two dominates.
+
 ## The bar: dominance over today's default on all asap7 and sky130hd designs
 
 Per design (20 asap7, 7 sky130hd), default versus policy, full flow to
