@@ -42,10 +42,12 @@ The local flow lets you build with a locally compiled [ORFS](https://openroad-fl
 
 > **NOTE:** Files are always placed in `tmp/<package>/<name>_deps/` under the workspace root (e.g. `tmp/sram/sdq_17x64_floorplan_deps/` for `//sram:sdq_17x64_floorplan`, `tmp/MyDesign_floorplan_deps/` for the root package), which is added to `.gitignore` automatically.
 >
-> You can override the installation directory with `--install`:
+> `//:deps` takes no `--install`; it forwards any trailing arguments to
+> `make`. To choose the directory, run the stage's own `_deps` target,
+> which does accept it:
 >
 > ```bash
-> bazel run //:deps -- <target>_<stage> --install /path/to/dir [<make args...>]
+> bazel run <target>_<stage>_deps -- --install /path/to/dir [<make args...>]
 > ```
 >
 > This is useful on systems where `/tmp` is small or when you want to place the build artifacts in a specific location.
@@ -111,8 +113,9 @@ bazel run //:deps -- //coralnpu:CoreMiniAxi_place do-3_4_place_resized
 ```
 
 The `//:deps` wrapper builds all preceding stages (synth, floorplan, place)
-automatically via `--output_groups=deps` before deploying artifacts, so you
-never need to manually build the dependency chain.
+automatically by building the `<target>_<stage>_deps_tar` companion target
+before deploying artifacts, so you never need to manually build the
+dependency chain.
 
 ### Available substeps per stage
 

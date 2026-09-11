@@ -23,7 +23,7 @@ See [Substep targets](local-flow.md#substep-targets).
 
 ### Dependency deployment
 
-Dependencies are deployed using the `//:deps` wrapper, which uses `--output_groups=deps` to build and deploy stage artifacts:
+Dependencies are deployed using the `//:deps` wrapper, which builds the `<target>_<stage>_deps_tar` companion target and extracts it:
 
 ```bash
 bazel run //:deps -- <target>_<stage>
