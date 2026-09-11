@@ -169,17 +169,17 @@ def arms(records, design, stage, path):
     control = report.control_arm(samples)
     if control is None or len(samples) < 2:
         return False
-    base = [s for s, _, _ in samples[control]]
+    base = [s[0] for s in samples[control]]
     base_med = statistics.median(base)
     res = report.resolution(report.two_sigma(base), len(base))
     names = sorted(samples, key=lambda a: (a != control, statistics.median(
-        [s for s, _, _ in samples[a]])))
+        [s[0] for s in samples[a]])))
     fig, ax = plt.subplots(figsize=(max(5, 0.6 * len(names)), 3.5), dpi=150)
     fig.patch.set_facecolor(SURFACE)
     ax.axhspan(base_med - res, base_med + res, color=GRID, zorder=0)
     ax.axhline(base_med, color=MUTED, linewidth=0.8)
     for i, name in enumerate(names):
-        secs = [s for s, _, _ in samples[name]]
+        secs = [s[0] for s in samples[name]]
         ax.scatter([i] * len(secs), secs, s=28, color=SERIES[0 if name == control else 1],
                    edgecolor=SURFACE, linewidth=1, zorder=3)
     ax.set_xticks(range(len(names)))

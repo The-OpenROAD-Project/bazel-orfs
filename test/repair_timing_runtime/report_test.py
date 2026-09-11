@@ -46,7 +46,8 @@ def record(design, stage, arm, repeat, calls, wall=200.0, sha="abc"):
                 "repair_rows": [[
                     {"iter": 0, "marker": "*", "wns": -100.0, "t_s": 50.0},
                     {"iter": 10, "marker": "*", "wns": -60.0, "t_s": 300.0},
-                    {"iter": "final", "marker": "", "wns": -50.0, "t_s": 1050.0},
+                    {"iter": "final", "marker": "", "wns": -50.0, "t_s": 1050.0,
+                     "en_tns": -900.0, "area_pct": 0.2},
                 ]],
             }
         },
@@ -139,14 +140,14 @@ class Arms(unittest.TestCase):
     def test_a_real_win_resolves_and_costs_are_shown(self):
         text = report.arms_table(self.records(), "aes", "cts")
         self.assertIn("| tns20 | 61.0, 63.0 | 62.0 | -41.0 |", text)
-        self.assertIn("| faster | -5.0 | no |", text)
+        self.assertIn("| faster | -5.0 | 0 | 0.0% | no |", text)
 
     def test_inside_the_resolution_does_not_resolve(self):
         """2σ of base is 4.0 and k=2, so ±4.0 does not resolve."""
         text = report.arms_table(self.records(), "aes", "cts")
         self.assertIn("| nogasp | 102.0, 103.0 | 102.5 | -0.5 |", text)
         self.assertIn("did not resolve", text)
-        self.assertIn("| 0.0 | yes |", text)
+        self.assertIn("| 0.0 | 0 | 0.0% | yes |", text)
 
     def test_profiled_base_is_the_control_when_present(self):
         recs = self.records() + [

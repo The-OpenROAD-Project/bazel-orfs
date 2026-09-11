@@ -185,18 +185,34 @@ def stage_share_table(records, arm="base"):
     return "\n".join(lines) + "\n"
 
 
+def final_row(record, step, call_index):
+    """The `final` progress row of a call, or None."""
+    rows = record["substeps"][step].get("repair_rows", [])
+    if call_index >= len(rows):
+        return None
+    for row in rows[call_index]:
+        if row["iter"] == "final":
+            return row
+    return None
+
+
 def arm_samples(records, design, stage, kind="setup_hold"):
-    """arm -> list of (seconds, wns_end, sha1) over repeats, for one call kind."""
+    """arm -> list of (seconds, wns_end, sha1, tns_end, area_pct) over repeats."""
     out = {}
     for record in records:
         if record["design"] != design or record["stage"] != stage:
             continue
-        for step, call, _ in repair_calls(record):
-            if call["kind"] != kind:
-                continue
-            seconds = (call.get("setup_s") or 0) + (call.get("hold_s") or 0)
-            sha = record["substeps"][step].get("result_sha1")
-            out.setdefault(record["arm"], []).append((seconds, call.get("wns_end"), sha))
+        for step, got in sorted(record["substeps"].items()):
+            for index, call in enumerate(got.get("repair", [])):
+                if call["kind"] != kind:
+                    continue
+                seconds = (call.get("setup_s") or 0) + (call.get("hold_s") or 0)
+                final = final_row(record, step, index)
+                out.setdefault(record["arm"], []).append((
+                    seconds, call.get("wns_end"), got.get("result_sha1"),
+                    final.get("en_tns") if final else None,
+                    final.get("area_pct") if final else None,
+                ))
     return out
 
 
@@ -221,19 +237,26 @@ def arms_table(records, design, stage, base=None):
     base = base or control_arm(samples)
     if base is None or len(samples) < 2:
         return "Not yet measured.\n"
-    base_secs = [s for s, _, _ in samples[base]]
+    def med(values):
+        values = [v for v in values if v is not None]
+        return statistics.median(values) if values else None
+
+    base_secs = [s[0] for s in samples[base]]
     base_med = statistics.median(base_secs)
     sigma2 = two_sigma(base_secs)
-    base_wns = statistics.median([w for _, w, _ in samples[base] if w is not None] or [0])
-    base_sha = {sha for _, _, sha in samples[base]}
+    base_wns = med(s[1] for s in samples[base])
+    base_tns = med(s[3] for s in samples[base])
+    base_area = med(s[4] for s in samples[base])
+    base_sha = {s[2] for s in samples[base]}
     lines = [
-        "| arm | setup+hold (s), each repeat | median | delta | 2σ (base) | resolution | verdict | WNS end delta (ps) | same ODB as base |",
-        "| --- | --- | ---: | ---: | ---: | ---: | --- | ---: | --- |",
+        "| arm | setup+hold (s), each repeat | median | delta | 2σ (base) | resolution | verdict "
+        "| WNS end delta (ps, + better) | TNS end delta (ps, + better) | area delta | same ODB as base |",
+        "| --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | --- |",
     ]
     for arm in sorted(samples, key=lambda a: (a != base, a)):
-        secs = [s for s, _, _ in samples[arm]]
-        med = statistics.median(secs)
-        delta = med - base_med
+        secs = [s[0] for s in samples[arm]]
+        median = statistics.median(secs)
+        delta = median - base_med
         res = resolution(sigma2, min(len(secs), len(base_secs)))
         if arm == base:
             verdict = "control"
@@ -241,20 +264,26 @@ def arms_table(records, design, stage, base=None):
             verdict = "did not resolve"
         else:
             verdict = "faster" if delta < 0 else "slower"
-        wns = [w for _, w, _ in samples[arm] if w is not None]
-        wns_delta = statistics.median(wns) - base_wns if wns else None
-        shas = {sha for _, _, sha in samples[arm]}
+        wns = med(s[1] for s in samples[arm])
+        tns = med(s[3] for s in samples[arm])
+        area = med(s[4] for s in samples[arm])
+        wns_delta = wns - base_wns if (wns is not None and base_wns is not None) else None
+        tns_delta = tns - base_tns if (tns is not None and base_tns is not None) else None
+        area_delta = area - base_area if (area is not None and base_area is not None) else None
+        shas = {s[2] for s in samples[arm]}
         same = "yes" if shas and shas == base_sha else ("no" if shas else "–")
         lines.append(
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
                 arm,
                 ", ".join(fmt(s) for s in secs),
-                fmt(med),
+                fmt(median),
                 fmt(delta, 1, "") if arm != base else "–",
                 fmt(sigma2),
                 fmt(res),
                 verdict,
                 fmt(wns_delta, 1) if wns_delta is not None else "–",
+                fmt(tns_delta, 0) if tns_delta is not None else "–",
+                fmt(area_delta, 1, "%") if area_delta is not None else "–",
                 same,
             )
         )
