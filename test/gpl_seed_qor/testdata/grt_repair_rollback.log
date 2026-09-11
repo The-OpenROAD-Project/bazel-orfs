@@ -1,0 +1,38 @@
+# Excerpt of an ORFS 5_1_grt.log, asap7/gcd seed 21, trimmed to the
+# repair_timing table. Kept verbatim: the point of the fixture is that
+# a format change fails a test instead of silently emptying a screen.
+repair_timing -setup_margin 0 -hold_margin 0 -repair_tns 100 -verbose
+[INFO RSZ-0100] Repair move sequence: UnbufferMove SizeUpMove SwapPinsMove BufferMove CloneMove SplitLoadMove 
+[INFO RSZ-0094] Found 8 endpoints with setup violations.
+[INFO RSZ-0099] Repairing 8 out of 8 (100.00%) violating endpoints...
+   Iter   | Removed | Resized | Inserted | Cloned |  Pin  |   Area   |    WNS   |   StTNS    |   EnTNS    |  Viol  |  Worst  
+          | Buffers |  Gates  | Buffers  |  Gates | Swaps |          |          |            |            | Endpts | St/EnPt 
+------------------------------------------------------------------------------------------------------------------------------
+       0* |       0 |       0 |        0 |      0 |     0 |    +0.0% |  -50.250 |     -428.4 |     -150.8 |      8 | resp_msg[15]
+      10* |       0 |       0 |        1 |      0 |     8 |    +0.2% |  -53.621 |     -438.8 |     -203.5 |      8 | resp_msg[15]
+      10* |       0 |       0 |        1 |      0 |     3 |    +0.2% |  -48.060 |     -387.5 |     -158.6 |      8 | resp_msg[15]
+      12* |       0 |       0 |        1 |      0 |     3 |    +0.2% |  -48.060 |     -387.5 |     -158.6 |      8 | resp_msg[15]
+      15* |       1 |       0 |        1 |      0 |     3 |    +0.0% |  -48.060 |     -387.5 |     -147.9 |      8 | resp_msg[15]
+      18* |       1 |       0 |        2 |      0 |     3 |    +0.2% |  -48.060 |     -387.5 |     -158.7 |      8 | resp_msg[15]
+      20* |       1 |       0 |        2 |      0 |     4 |    +0.2% |  -48.060 |     -387.5 |     -159.2 |      8 | resp_msg[15]
+      20* |       1 |       0 |        2 |      0 |     3 |    +0.2% |  -48.060 |     -387.5 |     -158.7 |      8 | resp_msg[15]
+      22* |       1 |       0 |        4 |      0 |     3 |    +0.6% |  -48.060 |     -387.5 |     -157.9 |      8 | resp_msg[15]
+      25* |       1 |       0 |        4 |      0 |     3 |    +0.6% |  -48.060 |     -387.5 |     -157.9 |      8 | resp_msg[15]
+      26* |       1 |       0 |        4 |      0 |     3 |    +0.6% |  -48.060 |     -387.5 |     -157.9 |      8 | resp_msg[15]
+      26* |       1 |       0 |        4 |      0 |     3 |    +0.6% |  -48.060 |     -387.5 |     -157.9 |      8 | resp_msg[15]
+      27+ |       1 |       0 |        4 |      0 |     3 |    +0.6% |  -48.060 |     -387.5 |     -157.9 |      6 | resp_msg[15]
+      28+ |       1 |       0 |        4 |      0 |     3 |    +0.6% |  -48.060 |     -387.5 |     -157.9 |      6 | resp_msg[15]
+      29+ |       1 |       0 |        4 |      0 |     3 |    +0.6% |  -48.060 |     -387.5 |     -157.9 |      6 | resp_msg[15]
+      30+ |       1 |       0 |        4 |      0 |     3 |    +0.6% |  -48.060 |     -387.5 |     -157.9 |      6 | resp_msg[15]
+      30+ |       1 |       0 |        4 |      0 |     3 |    +0.6% |  -48.060 |     -387.5 |     -157.9 |      6 | resp_msg[15]
+      32+ |       1 |       1 |        4 |      0 |     3 |    +0.6% |  -48.060 |     -387.5 |     -157.5 |      6 | resp_msg[15]
+      33+ |       1 |       1 |        4 |      0 |     3 |    +0.6% |  -48.060 |     -387.5 |     -157.5 |      6 | resp_msg[15]
+    final |       1 |       1 |        4 |      0 |     3 |    +0.6% |  -48.060 |     -387.5 |     -157.5 |      6 | resp_msg[15]
+------------------------------------------------------------------------------------------------------------------------------
+[INFO RSZ-0059] Removed 1 buffers.
+[INFO RSZ-0040] Inserted 4 buffers.
+[INFO RSZ-0051] Resized 1 instances: 1 up, 0 up match, 0 down, 0 VT
+[INFO RSZ-0043] Swapped pins on 3 instances.
+[WARNING RSZ-0062] Unable to repair all setup violations.
+[INFO RSZ-0505] Runtime: 0.21s
+[INFO RSZ-0033] No hold violations found.

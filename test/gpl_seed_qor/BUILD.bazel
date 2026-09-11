@@ -1,0 +1,77 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+# The seed-ensemble study: parsers, the censored fit, the campaign
+# runner and the report generator.
+#
+# No flow targets. The ensemble does not run through bazel at all: a
+# sample is a place -> cts -> grt tail inside a tree `//:deps` deployed
+# once per design, which is what makes a hundred of them affordable (no
+# analysis per leaf, no rebuild when the binary changes, and the tree is
+# the reproducer). `campaign` is the only target that runs anything, and
+# it is manual for the obvious reason.
+package(default_visibility = ["//visibility:private"])
+
+py_library(
+    name = "analysis",
+    srcs = [
+        "gpl_trajectory.py",
+        "harvest.py",
+        "repair_delta.py",
+        "report.py",
+        "rules_corpus.py",
+        "trendline.py",
+    ],
+    imports = ["."],
+    deps = ["@bazel-orfs-dev-pip//numpy"],
+)
+
+py_test(
+    name = "rules_corpus_test",
+    srcs = ["rules_corpus_test.py"],
+    deps = [":analysis"],
+)
+
+py_test(
+    name = "trendline_test",
+    srcs = ["trendline_test.py"],
+    deps = [":analysis"],
+)
+
+py_test(
+    name = "repair_delta_test",
+    srcs = ["repair_delta_test.py"],
+    data = ["testdata/grt_repair_rollback.log"],
+    deps = [":analysis"],
+)
+
+py_test(
+    name = "gpl_trajectory_test",
+    srcs = ["gpl_trajectory_test.py"],
+    data = ["testdata/place_gp_timing_driven.log"],
+    deps = [":analysis"],
+)
+
+# Reads an ORFS source tree and writes the corpus snapshot. Manual: it
+# takes a path to a tree this repo does not own, and the snapshot it
+# produces is checked in, so re-running it is a deliberate act.
+py_binary(
+    name = "rules_corpus",
+    srcs = ["rules_corpus.py"],
+    tags = ["manual"],
+    deps = [":analysis"],
+)
+
+# Runs the flow. Manual, and the only target here that costs hours.
+py_binary(
+    name = "campaign",
+    srcs = ["campaign.py"],
+    tags = ["manual"],
+    deps = [":analysis"],
+)
+
+py_binary(
+    name = "report",
+    srcs = ["report.py"],
+    tags = ["manual"],
+    deps = [":analysis"],
+)
