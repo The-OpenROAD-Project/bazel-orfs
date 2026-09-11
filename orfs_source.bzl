@@ -109,6 +109,13 @@ ORFS_PATCHES = [
     # and ORFS describes only one, so hierarchy -check dies on the other.
     # Goes with 0062; either is useless without it.
     Label("//patches:0064-orfs-tinyrocket-data-arrays-memories.patch"),
+    # genElapsedTime.py read the timing line positionally, so any prefix
+    # on the log line -- the per-line stamp //:log_timestamps.py adds,
+    # which 0048 routes into every stage log -- dropped the whole
+    # per-stage summary block, sha1sum column included, exit status 0.
+    # Matches the format with a regex instead. Prerequisite of 0048:
+    # upstream them together or not at all.
+    Label("//patches:0065-orfs-genelapsedtime-stamped-log.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

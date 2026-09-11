@@ -1,0 +1,173 @@
+Parse the elapsed-time line wherever it sits on the line.
+
+genElapsedTime.py writes the per-stage summary block -- the only place
+ORFS reports a hash of a stage's result:
+
+  Log                Ext   Elapsed/s  Peak Memory/MB  sha1sum result [0:20)
+
+flow/scripts/flow.sh calls it after every stage, synth.sh does the same,
+and flow/Makefile exposes it as `make elapsed` / `elapsed-all`.
+
+It read the elapsed time positionally: strip the line, delete the
+literal "Elapsed time: " substring, then split on "[h:]", on the first
+".", and on ":". That works only when the timing line starts the log
+line. Give the line any prefix -- "[  123.45] " -- and the prefix
+survives the substring delete, the split on "." cuts at the prefix's own
+decimal point, and the resulting one-element list falls to the
+"Elapsed time not understood" branch. elapsedTime stays None, so the
+bottom of the loop skips the whole row: header, elapsed, peak memory and
+the sha1sum column all vanish. `found` is already True, so the
+"No elapsed time found" warning does not fire either; the complaint goes
+to stderr, not to the log, and the exit status is 0. The one line you
+would read to check whether two builds produced the same result
+disappears without saying so.
+
+Matching a regex anchored on the format instead -- hours optional, as
+run_command.py's _format_elapsed only emits them past an hour -- ignores
+whatever precedes it. An unstamped line parses to exactly the same
+number it did before, including the truncation of the fraction of a
+second, and a genuinely unparseable line still reaches the
+"not understood" branch.
+
+Reaching the broken case needs a prefix on the stage log, and that is
+this repo's doing: patches/0048-orfs-flow-sh-honor-run-cmd.patch makes
+flow.sh run the tool through RUN_CMD, and bazel-orfs points RUN_CMD at
+//:log_timestamps.py under --@bazel-orfs//:log_timestamps. flow.sh both
+writes the log through RUN_CMD and, four lines later, parses it back
+with genElapsedTime.py, so the stamping the flag asks for is fed
+straight into this parser. 0048 without this patch is a regression for
+anyone who overrides RUN_CMD; the two are one change and must be
+upstreamed together or not at all. This one is the prerequisite.
+
+flow/test/test_run_command.py's test_genElapsedTime_parses_output is
+extended in the same patch. It drove genElapsedTime.py from a log
+run_command.py had just written, so it only ever saw an unstamped line
+-- and it asserted only that the stage name appeared, which it does even
+when the row is dropped. It now asserts the elapsed and memory columns
+are there, and two cases are added: a prefixed line, and the hours form.
+
+Not upstreamed. Retire at the //:bump onto an ORFS whose
+genElapsedTime.py parses the timing line independently of what precedes
+it on the log line.
+
+diff --git a/flow/util/genElapsedTime.py b/flow/util/genElapsedTime.py
+--- a/flow/util/genElapsedTime.py
++++ b/flow/util/genElapsedTime.py
+@@ -8,6 +8,7 @@
+ import hashlib
+ import pathlib
+ import os
++import re
+ import sys
+ 
+ # Parse and validate arguments
+@@ -21,6 +22,15 @@
+ RESULT_EXTS = [".v", ".rtlil", ".odb", ".def", ".spef", ".gds", ".sdc"]
+ 
+ 
++# The timing line run_command.py emits, matched wherever it appears in
++# the line rather than from its start.  A RUN_CMD wrapper is free to
++# prefix every log line -- a per-line elapsed stamp, "[  123.45] " --
++# and such a prefix must not change what this reports.  Hours are
++# optional, as _format_elapsed only emits them past an hour, and the
++# fraction of a second is matched so it can be discarded.
++ELAPSED_RE = re.compile(r"Elapsed time: (?:(\d+):)?(\d+):(\d+)(?:\.\d+)?\[h:\]min:sec")
++
++
+ def get_hashes(f):
+     """Return [(ext, sha1), ...] for every result file alongside log
+     `f` whose extension is in RESULT_EXTS.  A yosys stage typically
+@@ -77,24 +87,15 @@
+                 # Elapsed time: 0:04.26[h:]min:sec. CPU time: user 4.08 sys 0.17 (99%). Peak memory: 671508KB.
+                 if "Elapsed time" in line:
+                     found = True
+-                    # Extract the portion that has the time
+-                    timePor = line.strip().replace("Elapsed time: ", "")
+-                    # Remove the units from the time portion
+-                    timePor = timePor.split("[h:]", 1)[0]
+-                    # Remove any fraction of a second
+-                    timePor = timePor.split(".", 1)[0]
+-                    # Calculate elapsed time that has this format 'h:m:s'
+-                    timeList = timePor.split(":")
+-                    if len(timeList) == 2:
+-                        # Only minutes and seconds are present
+-                        elapsedTime = int(timeList[0]) * 60 + int(timeList[1])
+-                    elif len(timeList) == 3:
+-                        # Hours, minutes, and seconds are present
+-                        elapsedTime = (
+-                            int(timeList[0]) * 3600
+-                            + int(timeList[1]) * 60
+-                            + int(timeList[2])
+-                        )
++                    # Match the 'h:m:s' time against the known format,
++                    # so anything the line is prefixed with is ignored.
++                    timeMatch = ELAPSED_RE.search(line)
++                    if timeMatch:
++                        hours, minutes, seconds = timeMatch.groups()
++                        # Any fraction of a second is dropped.
++                        elapsedTime = int(minutes) * 60 + int(seconds)
++                        if hours is not None:
++                            elapsedTime += int(hours) * 3600
+                     else:
+                         print(
+                             "Elapsed time not understood in", str(line), file=sys.stderr
+diff --git a/flow/test/test_run_command.py b/flow/test/test_run_command.py
+--- a/flow/test/test_run_command.py
++++ b/flow/test/test_run_command.py
+@@ -283,6 +283,56 @@
+             genElapsedTime.scan_logs(["--logDir", log_dir, "--noHeader"])
+         output = mock_out.getvalue()
+         self.assertIn("1_test", output)
++        # The elapsed column is the point of the table; a line that
++        # parses to nothing drops the whole row, exit status 0.
++        self.assertRegex(output, r"1_test\s+\S*\s+\d+\s+\d+")
++
++    def test_genElapsedTime_parses_prefixed_output(self):
++        """Verify genElapsedTime.py can parse a timing line behind a log prefix."""
++        sys.path.insert(
++            0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "util")
++        )
++        import genElapsedTime
++        from io import StringIO
++        from unittest.mock import patch
++
++        # A RUN_CMD wrapper may stamp every log line -- an elapsed-seconds
++        # prefix, say -- so the timing line is not at the start of its line.
++        log_dir = self.tmp_dir.name
++        log_file = os.path.join(log_dir, "1_test.log")
++        with open(log_file, "w") as f:
++            f.write("[    0.001] some output\n")
++            f.write(
++                "[  123.456] Elapsed time: 0:04.26[h:]min:sec. "
++                "CPU time: user 4.08 sys 0.17 (99%). Peak memory: 671508KB.\n"
++            )
++        with patch("sys.stdout", new_callable=StringIO) as mock_out:
++            genElapsedTime.scan_logs(["--logDir", log_dir, "--noHeader"])
++        output = mock_out.getvalue()
++        # 0:04.26 is 4 seconds, and 671508KB is 655MB; the prefix is not
++        # part of either.
++        self.assertRegex(output, r"1_test\s+\S*\s+4\s+655")
++
++    def test_genElapsedTime_parses_hours(self):
++        """Verify genElapsedTime.py understands the optional hours field."""
++        sys.path.insert(
++            0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "util")
++        )
++        import genElapsedTime
++        from io import StringIO
++        from unittest.mock import patch
++
++        log_dir = self.tmp_dir.name
++        log_file = os.path.join(log_dir, "1_test.log")
++        with open(log_file, "w") as f:
++            f.write(
++                "Elapsed time: 1:01:01.00[h:]min:sec. "
++                "CPU time: user 4.08 sys 0.17 (99%). Peak memory: 671508KB.\n"
++            )
++        with patch("sys.stdout", new_callable=StringIO) as mock_out:
++            genElapsedTime.scan_logs(["--logDir", log_dir, "--noHeader"])
++        output = mock_out.getvalue()
++        self.assertRegex(output, r"1_test\s+\S*\s+3661\s+655")
+ 
+ 
+ if __name__ == "__main__":
