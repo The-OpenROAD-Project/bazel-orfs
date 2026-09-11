@@ -200,10 +200,26 @@ def arm_samples(records, design, stage, kind="setup_hold"):
     return out
 
 
-def arms_table(records, design, stage, base="base"):
-    """Every arm against the base for one (design, stage)."""
+def control_arm(samples):
+    """The control is the base run on the same binary as the arms.
+
+    Arms carry a suffix naming their binary (`-prof`, `-p0067`); the
+    knob arms compare against `base-prof`, a patch arm against the
+    profiled base too. The unsuffixed census `base` is the control only
+    when nothing else is there, and then its 2σ is zero, which the
+    table shows rather than hides.
+    """
+    for name in ("base-prof", "base"):
+        if name in samples:
+            return name
+    return None
+
+
+def arms_table(records, design, stage, base=None):
+    """Every arm against the control for one (design, stage)."""
     samples = arm_samples(records, design, stage)
-    if base not in samples or len(samples) < 2:
+    base = base or control_arm(samples)
+    if base is None or len(samples) < 2:
         return "Not yet measured.\n"
     base_secs = [s for s, _, _ in samples[base]]
     base_med = statistics.median(base_secs)

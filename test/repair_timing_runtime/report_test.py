@@ -148,6 +148,15 @@ class Arms(unittest.TestCase):
         self.assertIn("did not resolve", text)
         self.assertIn("| 0.0 | yes |", text)
 
+    def test_profiled_base_is_the_control_when_present(self):
+        recs = self.records() + [
+            record("aes", "cts", "base-prof", 1, [call(setup_s=110.0)]),
+            record("aes", "cts", "base-prof", 2, [call(setup_s=112.0)]),
+        ]
+        text = report.arms_table(recs, "aes", "cts")
+        self.assertIn("| base-prof | 111.0, 113.0 | 112.0 | – |", text)
+        self.assertIn("| base | 101.0, 105.0 | 103.0 | -9.0 |", text)
+
     def test_base_alone_is_not_an_arms_table(self):
         text = report.arms_table(self.records()[:2], "aes", "cts")
         self.assertTrue(text.startswith("Not yet measured"))
