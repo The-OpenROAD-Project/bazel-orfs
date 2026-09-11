@@ -30,18 +30,25 @@ TARGET="$1"; shift
 # bazel run executes from bazel-bin/; nested bazelisk calls need the workspace.
 cd "$BUILD_WORKSPACE_DIRECTORY"
 
-# Derive the _deps companion target name.
+# Derive the _deps companion target names. The tarball is an output of
+# the pkg_tar companion, {name}_deps_tar, not of {name}_deps itself.
 DEPS_TARGET="${TARGET}_deps"
+TAR_TARGET="${DEPS_TARGET}_tar"
 
 # Build the pkg_tar companion target.
-bazelisk build "$DEPS_TARGET"
+if ! bazelisk build "$TAR_TARGET"; then
+    echo "Error: failed to build $TAR_TARGET"
+    echo "Does the target have a _deps companion (is it an ORFS stage target)?"
+    exit 1
+fi
 
-# Locate the tarball.
-TARBALL="$(bazelisk cquery --output=files "$DEPS_TARGET" 2>/dev/null \
-    | grep '\.tar\.gz$')"
+# Locate the tarball. grep exits non-zero when nothing matches, which with
+# 'set -e -o pipefail' would abort here, before the diagnostic below.
+TARBALL="$(bazelisk cquery --output=files "$TAR_TARGET" 2>/dev/null \
+    | grep '\.tar\.gz$' || true)"
 
 if [ -z "$TARBALL" ]; then
-    echo "Error: deps tarball not found for $DEPS_TARGET"
+    echo "Error: deps tarball not found for $TAR_TARGET"
     echo "Does the target have a _deps companion (is it an ORFS stage target)?"
     exit 1
 fi
