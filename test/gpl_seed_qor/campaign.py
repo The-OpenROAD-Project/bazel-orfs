@@ -32,6 +32,7 @@ import concurrent.futures
 import glob
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -138,6 +139,49 @@ def prepare_variant(design_root, platform, design, variant):
     return target, os.path.join(logs, variant)
 
 
+def retighten_sdc(results_dir, period):
+    """Rewrite the variant's frozen SDC to a different clock period.
+
+    An arm that tightens the clock is not a different design: synthesis
+    and the floorplan are the same frozen bytes every other arm starts
+    from, and only the constraint the tail is asked to hit changes. That
+    is deliberate and it is the caveat -- the floorplan was built for
+    the looser clock, so a tightened arm measures what place, cts and
+    global route can do with a floorplan chosen for something else,
+    which is also what a designer tightening a clock actually faces.
+
+    Every `create_clock -period` in the file is rewritten, so a design
+    with a virtual IO clock keeps the two in step.
+
+    Args:
+        results_dir: the variant's results directory.
+        period: the new period, in the SDC's units.
+
+    Returns:
+        The number of clocks rewritten.
+
+    Raises:
+        SystemExit: when there is no frozen SDC to rewrite, rather than
+            running the arm at the stock clock and labelling it
+            otherwise.
+    """
+    path = os.path.join(results_dir, "2_floorplan.sdc")
+    if not os.path.exists(path):
+        sys.exit("no 2_floorplan.sdc in %s to retighten" % results_dir)
+    with open(path) as handle:
+        text = handle.read()
+    text, count = re.subn(
+        r"(create_clock[^\n]*?-period\s+)[0-9.]+",
+        lambda match: "%s%.4f" % (match.group(1), period),
+        text,
+    )
+    if not count:
+        sys.exit("no literal create_clock -period in %s" % path)
+    with open(path, "w") as handle:
+        handle.write(text)
+    return count
+
+
 def clock_from_frozen_sdc(results_dir, design_root):
     """The clock period this sample actually ran under.
 
@@ -210,7 +254,7 @@ def reharvest(design_root, platform, design, seed, arm, out_dir):
 
 
 def run_sample(tree, design_root, platform, design, seed, arm, knobs, cores,
-               out_dir, timeout_s):
+               out_dir, timeout_s, sdc_period=None):
     """Run one sample and harvest it, or report why it did not run.
 
     Args:
@@ -235,6 +279,8 @@ def run_sample(tree, design_root, platform, design, seed, arm, knobs, cores,
     results_dir, logs_dir = prepare_variant(
         design_root, platform, results_name(design_root, platform), variant
     )
+    if sdc_period is not None:
+        retighten_sdc(results_dir, sdc_period)
     clk_period, sdc_source = clock_from_frozen_sdc(results_dir, design_root)
 
     command = [
@@ -304,6 +350,13 @@ def main(argv=None):
     parser.add_argument("--cores", type=int, default=4)
     parser.add_argument("--jobs", type=int, default=4, help="samples in parallel")
     parser.add_argument("--timeout-s", type=int, default=7200)
+    parser.add_argument(
+        "--sdc-period",
+        type=float,
+        default=None,
+        help="rewrite the frozen SDC's clock period for this arm, in the "
+        "SDC's own units; the floorplan is unchanged",
+    )
     parser.add_argument("--out-dir", required=True)
     parser.add_argument(
         "--reharvest",
@@ -349,6 +402,7 @@ def main(argv=None):
                 args.cores,
                 args.out_dir,
                 args.timeout_s,
+                args.sdc_period,
             ): seed
             for seed in seeds
         }
