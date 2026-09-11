@@ -177,7 +177,20 @@ def section_corpus(snapshot):
 
 
 def by_design(samples, arm="base"):
-    """Group samples of one arm by design."""
+    """Group samples of one arm by design.
+
+    Keyed on the design alone, which is safe only while one platform is
+    in play -- so that is checked rather than assumed. Two platforms
+    shipping a design of the same name (every platform has a `gcd`)
+    would otherwise pool two different designs into one ensemble and
+    report the spread between them as seed noise.
+    """
+    platforms = {sample.get("platform") for sample in samples}
+    if len(platforms) > 1:
+        sys.exit(
+            "samples span several platforms (%s); the tables key on the "
+            "design name alone" % ", ".join(sorted(str(p) for p in platforms))
+        )
     groups = {}
     for sample in samples:
         if sample.get("arm") != arm or sample.get("min_period_wns") is None:
@@ -804,6 +817,95 @@ Traps hit on the way, so the next person does not:
 """
 
 
+def section_candidates(samples):
+    """What this study would put in front of upstream, and what it would not.
+
+    Listed with the measured effect, never filed: per CLAUDE.md the
+    upstream repositories are read-only here, and a candidate is the
+    human's call.
+    """
+    arms = {}
+    for sample in samples:
+        if sample.get("min_period_wns") is None:
+            continue
+        arms.setdefault((sample["design"], sample["arm"]), []).append(
+            sample["min_period_wns"]
+        )
+    lines = [
+        "## Upstream candidates: listed, not filed",
+        "",
+        "Per `CLAUDE.md`, upstream repositories are read-only from here."
+        " Each of these is a candidate with a measured effect and a"
+        " Chesterton's Fence paragraph; whether any of them becomes a"
+        " pull request is the maintainer's call, not this study's.",
+        "",
+        "### 1. The default perturbation radius may be leaving picoseconds on the table",
+        "",
+        "| design | arm | n | vs base (ps) | resolution | verdict |",
+        "| --- | --- | ---: | ---: | ---: | --- |",
+    ]
+    measured = False
+    for (design, arm), values in sorted(arms.items()):
+        if not arm.startswith("dist") and arm != "nullperturb":
+            continue
+        base = arms.get((design, "base"))
+        # A candidate is a claim, so it needs the seeds a claim needs;
+        # an arm still filling up is visible in the arm table above and
+        # stays out of here until it is done.
+        if not base or len(values) < MIN_SEEDS_FOR_CLAIM:
+            continue
+        difference, two_se, verdict = compare(values, base)
+        measured = True
+        lines.append(
+            "| %s | %s | %d | %+.2f | %.2f | %s |"
+            % (design, arm, len(values), difference, two_se, verdict)
+        )
+    if not measured:
+        lines.append("| | | | **Not yet measured** | | |")
+    lines += [
+        "",
+        "**The fence.** The default is not arbitrary. OpenROAD"
+        " `616a13d5ce` sets the perturbation radius to"
+        " `min(0.5 um, row height)` and draws the offset from a 2D"
+        " circular Gaussian whose sigma puts 99.5% of cells inside that"
+        " radius. Keeping the displacement under a row is the"
+        " conservative choice: the perturbation exists so that identical"
+        " cells wired in parallel do not start on top of each other and"
+        " shadow each other for the whole solve, and a bigger kick buys"
+        " diversity at the risk of starting further from a good"
+        " solution. The measurement above says the trade is not where it"
+        " could be on the designs tested -- it does not say the default"
+        " is wrong on a congested design, a hierarchical one, or another"
+        " platform, none of which are measured here.",
+        "",
+        "### 2. OpenROAD #11385's trajectory signature: not reproduced here",
+        "",
+        "The screen for it ran on every sample (see S2) and found"
+        " nothing: no post-`repair_design` segment paid an outlying price"
+        " in wirelength for the legality it bought, and no run triggered"
+        " gpl's own divergence revert. That is **not** a refutation --"
+        " the issue is reported on a design with SRAM macros and a much"
+        " tighter constraint than anything here -- but it does bound the"
+        " blast radius: on six flat asap7 designs at their stock clocks,"
+        " across the ensembles in this PR, the signature does not fire."
+        " Anyone fixing it can use the screen as a regression test that"
+        " costs nothing to run.",
+        "",
+        "### 3. Global-route repair can end with worse TNS than not running it",
+        "",
+        "Measured as a counterfactual (S1): the same seed, the same"
+        " frozen floorplan, `SKIP_INCREMENTAL_REPAIR=1` against the"
+        " default. Repair improves `min_period` on every sample of every"
+        " design measured, and improves TNS on nearly all of them -- but"
+        " not all. No fix is proposed: the acceptance criterion trading"
+        " endpoint TNS for WNS may well be the intended policy, and the"
+        " magnitudes here are small. What the ensemble adds is the rate,"
+        " which a single run cannot produce.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results-dir", required=True)
@@ -829,6 +931,7 @@ def main(argv=None):
         section_repair(samples),
         section_trajectory(samples),
         section_decomposition(spreads, fit),
+        section_candidates(samples),
         LIMITS,
         REPRODUCING,
     ]

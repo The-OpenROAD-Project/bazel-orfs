@@ -129,7 +129,14 @@ def prepare_variant(design_root, platform, design, variant):
     logs = os.path.join(design_root, "logs", platform, design)
     base = os.path.join(results, "base")
     target = os.path.join(results, variant)
-    os.makedirs(target, exist_ok=True)
+    # A fresh directory, not an updated one. Leaving a previous run's
+    # outputs in place would let make decide the stage is already built
+    # and skip it, and the sample would be harvested from the old run
+    # with a new name -- the one failure here that produces a plausible
+    # number instead of an error.
+    if os.path.isdir(target):
+        shutil.rmtree(target)
+    os.makedirs(target)
     for name in sorted(os.listdir(base)):
         if name.startswith(TAIL_OUTPUT_PREFIXES) or name in TAIL_OUTPUT_EXACT:
             continue

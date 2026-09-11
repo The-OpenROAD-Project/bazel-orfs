@@ -14,6 +14,7 @@ package(default_visibility = ["//visibility:private"])
 py_library(
     name = "analysis",
     srcs = [
+        "campaign.py",
         "gpl_trajectory.py",
         "harvest.py",
         "repair_delta.py",
@@ -23,6 +24,12 @@ py_library(
     ],
     imports = ["."],
     deps = ["@bazel-orfs-dev-pip//numpy"],
+)
+
+py_test(
+    name = "campaign_test",
+    srcs = ["campaign_test.py"],
+    deps = [":analysis"],
 )
 
 py_test(
