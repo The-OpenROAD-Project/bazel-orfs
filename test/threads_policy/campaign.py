@@ -690,6 +690,12 @@ def main():
     if args.stacks_dir is None:
         args.stacks_dir = os.path.join(os.path.dirname(results_dir), "stacks")
 
+    # Before any arm runs: if a hang could not be dumped, say so now
+    # rather than after an hour of route has been thrown away.
+    warning = watchdog_mod.attach_warning()
+    if warning and args.watchdog_s:
+        print("warning: {}".format(warning))
+
     prov = provenance()
     print(
         "host: {} cores / {} hw threads, governor {}, boost {}".format(

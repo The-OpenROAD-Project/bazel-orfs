@@ -106,6 +106,46 @@ def tools_under(root_pid, proc="/proc"):
     return out
 
 
+def ptrace_scope(proc="/proc"):
+    """The Yama ptrace restriction, or None where Yama is absent.
+
+    0 lets any process of the same uid be attached to. **1 -- the
+    Ubuntu default -- allows only a direct descendant**, and the arm is
+    a descendant of `make`, not of this watchdog, so `gdb -p` is
+    refused. That refusal is what turned the first real hang this
+    harness caught into a 288-byte file containing an error message.
+    """
+    try:
+        with open(os.path.join(proc, "sys/kernel/yama/ptrace_scope")) as handle:
+            return int(handle.read().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def attach_warning(proc="/proc"):
+    """What to say at campaign start, before an arm has hung."""
+    scope = ptrace_scope(proc)
+    if scope in (None, 0):
+        return ""
+    return (
+        "yama ptrace_scope is {}, so gdb cannot attach to an arm and a "
+        "hang will be recorded with SIGABRT stacks instead of a "
+        "backtrace. `sudo sysctl kernel.yama.ptrace_scope=0` for the "
+        "better record.".format(scope)
+    )
+
+
+def has_frames(text):
+    """Whether gdb actually produced a backtrace.
+
+    gdb exits 0 and prints its complaint on stdout when it cannot
+    attach, so a non-zero status is not the test -- the presence of a
+    numbered frame is. Without this check the watchdog files the
+    refusal as if it were the stack.
+    """
+    return "#0" in (text or "")
+
+
 def have_gdb(runner=subprocess.run):
     try:
         return (
@@ -145,6 +185,7 @@ def capture(root_pid, dest, proc="/proc", runner=subprocess.run, timeout_s=120):
             except OSError as error:
                 lines.append("could not signal: {}".format(error))
             continue
+        got = None
         try:
             out = runner(
                 [
@@ -160,9 +201,25 @@ def capture(root_pid, dest, proc="/proc", runner=subprocess.run, timeout_s=120):
                 text=True,
                 timeout=timeout_s,
             )
-            lines.append(out.stdout or "")
+            got = out.stdout or ""
         except (OSError, subprocess.SubprocessError) as error:
-            lines.append("gdb failed: {}".format(error))
+            got = "gdb failed: {}".format(error)
+        lines.append(got)
+        if not has_frames(got):
+            # gdb ran and produced no stack -- almost always Yama
+            # refusing the attach. Fall back to the same abort the
+            # no-gdb path uses, rather than filing the refusal as the
+            # record of the hang.
+            scope = ptrace_scope(proc)
+            lines.append(
+                "no frames from gdb (yama ptrace_scope={}); sending "
+                "SIGABRT so the tool's own handler prints a stack into "
+                "the arm's log".format(scope)
+            )
+            try:
+                os.kill(pid, signal.SIGABRT)
+            except OSError as error:
+                lines.append("could not signal: {}".format(error))
     try:
         with open(dest, "w") as handle:
             handle.write("\n".join(lines) + "\n")

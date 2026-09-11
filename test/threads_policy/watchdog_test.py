@@ -91,6 +91,39 @@ class Proc(unittest.TestCase):
         self.assertEqual(watchdog.tools_under(100, self.root), [])
 
 
+class Attachability(unittest.TestCase):
+    """Say it before an arm hangs, not after."""
+
+    def setUp(self):
+        self.root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.root)
+
+    def _scope(self, value):
+        path = os.path.join(self.root, "sys/kernel/yama")
+        os.makedirs(path, exist_ok=True)
+        with open(os.path.join(path, "ptrace_scope"), "w") as handle:
+            handle.write(value)
+        return self.root
+
+    def test_a_restricted_scope_warns_and_says_how_to_lift_it(self):
+        warning = watchdog.attach_warning(self._scope("1\n"))
+        self.assertIn("ptrace_scope is 1", warning)
+        self.assertIn("kernel.yama.ptrace_scope=0", warning)
+
+    def test_an_unrestricted_scope_is_silent(self):
+        self.assertEqual(watchdog.attach_warning(self._scope("0\n")), "")
+
+    def test_no_yama_at_all_is_silent(self):
+        self.assertIsNone(watchdog.ptrace_scope(self.root))
+        self.assertEqual(watchdog.attach_warning(self.root), "")
+
+    def test_frames_are_what_distinguishes_a_stack_from_a_refusal(self):
+        self.assertTrue(watchdog.has_frames("#0  futex_wait ()"))
+        self.assertFalse(watchdog.has_frames("Could not attach to process."))
+        self.assertFalse(watchdog.has_frames(""))
+        self.assertFalse(watchdog.has_frames(None))
+
+
 class Capture(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp()
@@ -148,6 +181,55 @@ class Capture(unittest.TestCase):
         self.assertEqual(got, self.dest)
         with open(self.dest) as handle:
             self.assertIn("gdb failed", handle.read())
+
+    def test_gdb_that_cannot_attach_falls_back_to_abort(self):
+        # The first real hang this harness caught produced a 288-byte
+        # file containing gdb's refusal and no stack, because
+        # yama ptrace_scope=1 (the Ubuntu default) allows attaching
+        # only to a direct descendant, and the arm is a child of make.
+        # gdb exits 0 in that case, so the status is not the test.
+        refusal = (
+            "Could not attach to process.  If your uid matches the uid of "
+            "the target process, check the setting of "
+            "/proc/sys/kernel/yama/ptrace_scope\nptrace: Inappropriate "
+            "ioctl for device.\n"
+        )
+        signalled = []
+
+        def runner(argv, **kwargs):
+            if argv[:2] == ["gdb", "--version"]:
+                return subprocess.CompletedProcess(argv, 0, "GNU gdb", "")
+            return subprocess.CompletedProcess(argv, 0, refusal, "")
+
+        original = watchdog.os.kill
+        watchdog.os.kill = lambda pid, sig: signalled.append((pid, sig))
+        self.addCleanup(setattr, watchdog.os, "kill", original)
+
+        watchdog.capture(100, self.dest, self._proc(), runner)
+        with open(self.dest) as handle:
+            text = handle.read()
+        self.assertIn("no frames from gdb", text)
+        self.assertEqual([pid for pid, _ in signalled], [300])
+
+    def test_a_real_backtrace_is_not_second_guessed(self):
+        def runner(argv, **kwargs):
+            if argv[:2] == ["gdb", "--version"]:
+                return subprocess.CompletedProcess(argv, 0, "GNU gdb", "")
+            return subprocess.CompletedProcess(
+                argv, 0, "Thread 1:\n#0  futex_wait ()\n#1  main ()\n", ""
+            )
+
+        signalled = []
+        original = watchdog.os.kill
+        watchdog.os.kill = lambda pid, sig: signalled.append((pid, sig))
+        self.addCleanup(setattr, watchdog.os, "kill", original)
+
+        watchdog.capture(100, self.dest, self._proc(), runner)
+        with open(self.dest) as handle:
+            text = handle.read()
+        self.assertIn("futex_wait", text)
+        self.assertNotIn("no frames from gdb", text)
+        self.assertEqual(signalled, [])
 
     def test_no_tool_process_writes_nothing_and_returns_none(self):
         proc = os.path.join(self.root, "proc")
