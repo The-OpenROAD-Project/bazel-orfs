@@ -1009,7 +1009,10 @@ def section_candidates(samples):
         " Chesterton's Fence paragraph; whether any of them becomes a"
         " pull request is the maintainer's call, not this study's.",
         "",
-        "### 1. The default perturbation radius may be leaving picoseconds on the table",
+        "### 1. The perturbation radius: measured, and refuted as a default change",
+        "",
+        "This is the candidate this study would have published if it had"
+        " stopped at one design, and the reason it did not.",
         "",
         "| design | arm | n | vs base (ps) | resolution | verdict |",
         "| --- | --- | ---: | ---: | ---: | --- |",
@@ -1034,19 +1037,30 @@ def section_candidates(samples):
         lines.append("| | | | **Not yet measured** | | |")
     lines += [
         "",
+        "**The sign flips between designs.** A 4x larger radius is worth"
+        " picoseconds on the smaller design and costs picoseconds on the"
+        " larger one, both resolved against their own ensembles. There"
+        " is therefore no default to propose: what looked like a free"
+        " win on one design is a loss on the next, which is what a"
+        " per-design knob looks like and not what a better default looks"
+        " like. Switching the perturbation off entirely is the one"
+        " direction that is consistently worse, on every design"
+        " measured.",
+        "",
         "**The fence.** The default is not arbitrary. OpenROAD"
-        " `616a13d5ce` sets the perturbation radius to"
-        " `min(0.5 um, row height)` and draws the offset from a 2D"
-        " circular Gaussian whose sigma puts 99.5% of cells inside that"
-        " radius. Keeping the displacement under a row is the"
-        " conservative choice: the perturbation exists so that identical"
-        " cells wired in parallel do not start on top of each other and"
-        " shadow each other for the whole solve, and a bigger kick buys"
-        " diversity at the risk of starting further from a good"
-        " solution. The measurement above says the trade is not where it"
-        " could be on the designs tested -- it does not say the default"
-        " is wrong on a congested design, a hierarchical one, or another"
-        " platform, none of which are measured here.",
+        " `616a13d5ce` sets the radius to `min(0.5 um, row height)` and"
+        " draws the offset from a 2D circular Gaussian whose sigma puts"
+        " 99.5% of cells inside it. Keeping the displacement under a row"
+        " is the conservative choice: the perturbation exists so"
+        " identical cells wired in parallel do not start on top of each"
+        " other and shadow each other for the whole solve, and a bigger"
+        " kick buys diversity at the risk of starting further from a"
+        " good solution. The measurement is consistent with that being"
+        " a reasonable place to sit.",
+        "",
+        "The general lesson is worth more than the knob: a single design"
+        " and a single run would have promoted this, with a resolved"
+        " number behind it. Two designs and two ensembles refuted it.",
         "",
         "### 2. OpenROAD #11385's trajectory signature: not reproduced here",
         "",
