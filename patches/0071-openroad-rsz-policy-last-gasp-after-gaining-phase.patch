@@ -1,0 +1,66 @@
+rsz: run last gasp only after a main phase that was still gaining
+
+Policy candidate from the repair-knobs campaign (ideas/repair-knobs-nihl.md),
+carried while it is measured; retires SKIP_LAST_GASP if it dominates.
+Not upstreamed.
+
+Last gasp re-runs the sweep with a looser acceptance rule. When the main
+phase ran out of endpoints while still gaining, that second pass pays;
+when the main phase stopped because nothing was moving, the second pass
+moves nothing either (riscv32i grt: 26% of the call for 0 ps). The main
+phase now records whether it ended by its own termination test, and last
+gasp runs only when it did not.
+
+Chesterton's Fence: last gasp exists because some designs gain there
+(ibex cts loses 2.8 ps without it), and SKIP_LAST_GASP exists because
+others do not. The handover state distinguishes the two cases without a
+knob. The knob is left in place and still honoured.
+
+diff --git a/src/rsz/src/RepairSetupContext.hh b/src/rsz/src/RepairSetupContext.hh
+index b38ade6a98..b2af33e112 100644
+--- a/src/rsz/src/RepairSetupContext.hh
++++ b/src/rsz/src/RepairSetupContext.hh
+@@ -66,6 +66,9 @@ struct RepairSetupContext
+   // Legacy-derived setup phases share one preamble per repair_setup run.
+   bool legacy_preamble_done{false};
+   bool legacy_preamble_has_violations{true};
++  // The main phase ended because it stopped making progress (its own
++  // termination test), not because it ran out of endpoints.
++  bool main_phase_stalled{false};
+ };
+ 
+ }  // namespace rsz
+diff --git a/src/rsz/src/policy/SetupLastGaspPolicy.cc b/src/rsz/src/policy/SetupLastGaspPolicy.cc
+index 454cc2758c..f1dc7fd98c 100644
+--- a/src/rsz/src/policy/SetupLastGaspPolicy.cc
++++ b/src/rsz/src/policy/SetupLastGaspPolicy.cc
+@@ -42,6 +42,17 @@ void SetupLastGaspPolicy::iterate()
+     markRunComplete(false);
+     return;
+   }
++  // Last gasp re-runs the sweep with a looser acceptance rule. When the
++  // main phase ran out of endpoints while still gaining, that second pass
++  // pays; when the main phase stopped because nothing was moving, the
++  // census shows the second pass moving nothing either, for a quarter of
++  // the call. So it runs only after a phase that was still gaining.
++  if (setup_context_.main_phase_stalled) {
++    logger_->report(
++        "LAST_GASP skipped: the main phase ended without progress");
++    markRunComplete(false);
++    return;
++  }
+ 
+   committer_.capturePrePhaseSlack();
+   int& num_viols = setup_context_.violation_count;
+diff --git a/src/rsz/src/policy/SetupLegacyPolicy.cc b/src/rsz/src/policy/SetupLegacyPolicy.cc
+index bd722c0087..23424bcbbe 100644
+--- a/src/rsz/src/policy/SetupLegacyPolicy.cc
++++ b/src/rsz/src/policy/SetupLegacyPolicy.cc
+@@ -414,6 +414,7 @@ void SetupLegacyPolicy::runMainRepairLoop(const ViolatingEnds& violating_ends,
+       break;
+     }
+   }
++  setup_context_.main_phase_stalled = main_state.two_cons_terminations;
+ 
+   printProgress(main_state.opto_iteration, true, main_state.phase_marker);
+   if (logger_->debugCheck(RSZ, "repair_setup", 1)) {

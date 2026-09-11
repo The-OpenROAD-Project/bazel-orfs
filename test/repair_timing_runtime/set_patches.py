@@ -13,6 +13,10 @@ NAMES = {
     "0067": "0067-openroad-rsz-progress-row-startpoints-once.patch",
     "0068": "0068-openroad-rsz-progress-row-area-only-after-a-move.patch",
     "0069": "0069-openroad-rsz-exit-setup-repair-when-nothing-moves.patch",
+    "0070": "0070-openroad-rsz-policy-endpoint-yield-gate.patch",
+    "0071": "0071-openroad-rsz-policy-last-gasp-after-gaining-phase.patch",
+    "0072": "0072-openroad-rsz-policy-move-type-budget.patch",
+    "0073": "0073-openroad-rsz-policy-all.patch",
 }
 
 wanted = ["0066"] + [n for n in sys.argv[1:] if n != "0066"]

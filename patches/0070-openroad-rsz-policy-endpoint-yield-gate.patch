@@ -1,0 +1,126 @@
+rsz: end the setup-repair sweep after a run of endpoints that commit nothing
+
+Policy candidate from the repair-knobs campaign (ideas/repair-knobs-nihl.md),
+carried while it is measured; retires TNS_END_PERCENT if it dominates.
+Not upstreamed.
+
+Endpoints are visited worst first. Once a run of violating endpoints has
+committed no move, the ones behind them will not either, and the census
+shows the sweep going on for hundreds of passes past that point for no
+gain (riscv32i grt: 85% of 320 s after the last gain). This ends the
+sweep after K consecutive violating endpoints that committed nothing;
+endpoints found clean on arrival do not count. K defaults to 20 and
+RSZ_YIELD_WINDOW overrides it while the value is being fitted on riscv32i
+and jpeg, after which it is frozen.
+
+Chesterton's Fence: TNS_END_PERCENT exists because visiting every endpoint
+is expensive and a user could see, per design, where it stopped paying.
+The rule reads the same signal at runtime. The knob is left in place and
+still honoured.
+
+diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
+index 859f085353..76fa53c245 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.cc
++++ b/src/rsz/src/policy/SetupLegacyBase.cc
+@@ -1008,6 +1008,24 @@ void SetupLegacyBase::reportProfile(const std::string_view phase_name,
+       p.accepted);
+ }
+ 
++int SetupLegacyBase::committedMovesTotal() const
++{
++  int total = 0;
++  for (int i = 0; i < static_cast<int>(MoveType::kCount); ++i) {
++    total += committer_.committedMoves(static_cast<MoveType>(i));
++  }
++  return total;
++}
++
++int SetupLegacyBase::yieldWindow()
++{
++  static const int window = [] {
++    const char* env = std::getenv("RSZ_YIELD_WINDOW");
++    return env != nullptr ? std::atoi(env) : 20;
++  }();
++  return window;
++}
++
+ void SetupLegacyBase::reportCustomPhaseSetup() const
+ {
+   logger_->info(
+diff --git a/src/rsz/src/policy/SetupLegacyBase.hh b/src/rsz/src/policy/SetupLegacyBase.hh
+index 78aa495806..1ceaf9ab1a 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.hh
++++ b/src/rsz/src/policy/SetupLegacyBase.hh
+@@ -197,6 +197,11 @@ class SetupLegacyBase : public OptimizationPolicy
+                          std::string_view phase_name,
+                          char phase_marker);
+   void reportCustomPhaseSetup() const;
++  // Sum of committed moves over every move type.
++  int committedMovesTotal() const;
++  // Consecutive zero-yield violating endpoints that end the sweep.
++  // RSZ_YIELD_WINDOW overrides the default while the value is being fitted.
++  static int yieldWindow();
+   void reportProfile(std::string_view phase_name, char phase_marker) const;
+ 
+   int committedMoves(MoveType type) const;
+diff --git a/src/rsz/src/policy/SetupLegacyPolicy.cc b/src/rsz/src/policy/SetupLegacyPolicy.cc
+index bd722c0087..3ae169dce8 100644
+--- a/src/rsz/src/policy/SetupLegacyPolicy.cc
++++ b/src/rsz/src/policy/SetupLegacyPolicy.cc
+@@ -397,11 +397,43 @@ void SetupLegacyPolicy::runMainRepairLoop(const ViolatingEnds& violating_ends,
+       break;
+     }
+ 
++    const bool was_violating
++        = sta::fuzzyLess(endpoint_state.end_slack, config_.setup_slack_margin);
++    const int committed_before = committedMovesTotal();
+     repairEndpoint(endpoint_state, main_state);
+ 
+     if (config_.verbose || main_state.opto_iteration == 1) {
+       printProgress(main_state.opto_iteration, true, main_state.phase_marker);
+     }
++
++    // Endpoints are visited worst first. Once a run of violating endpoints
++    // has committed nothing, the ones behind them -- less violating, and
++    // usually already improved by the moves made for the worst -- will not
++    // either; the census shows the sweep going on for hundreds of passes
++    // past that point for no gain. Endpoints found clean on arrival cost
++    // nothing and do not count either way.
++    if (was_violating) {
++      if (committedMovesTotal() == committed_before) {
++        ++main_state.zero_yield_endpoints;
++      } else {
++        main_state.zero_yield_endpoints = 0;
++      }
++      if (main_state.zero_yield_endpoints >= yieldWindow()) {
++        debugPrint(logger_,
++                   RSZ,
++                   "repair_setup",
++                   1,
++                   "{}{} Phase: Exiting at endpoint {}/{} after {} violating "
++                   "endpoints in a row committed no move",
++                   phaseName(),
++                   main_state.phase_marker,
++                   main_state.end_index,
++                   main_state.max_end_count,
++                   main_state.zero_yield_endpoints);
++        main_state.two_cons_terminations = true;
++        break;
++      }
++    }
+     if (main_state.two_cons_terminations) {
+       debugPrint(logger_,
+                  RSZ,
+diff --git a/src/rsz/src/policy/SetupLegacyPolicy.hh b/src/rsz/src/policy/SetupLegacyPolicy.hh
+index 08e7cd9350..655051f44a 100644
+--- a/src/rsz/src/policy/SetupLegacyPolicy.hh
++++ b/src/rsz/src/policy/SetupLegacyPolicy.hh
+@@ -35,6 +35,8 @@ class SetupLegacyPolicy : public SetupLegacyBase
+     bool prev_termination{false};
+     bool two_cons_terminations{false};
+     char phase_marker{'*'};
++    // Consecutive violating endpoints that committed no move.
++    int zero_yield_endpoints{0};
+   };
+ 
+   void iterateTimed(MainRepairState& main_state);

@@ -1,0 +1,293 @@
+rsz: the four repair policies together (0069 + 0070 + 0071 + 0072)
+
+The combined arm of the repair-knobs campaign, as one patch because the
+four touch adjacent lines and their alone-diffs do not stack. Content is
+exactly the four commits applied in order. Not upstreamed; the upstream
+shape is one pull request per knob.
+
+diff --git a/src/rsz/src/RepairSetupContext.hh b/src/rsz/src/RepairSetupContext.hh
+index b38ade6a98..d14e577da5 100644
+--- a/src/rsz/src/RepairSetupContext.hh
++++ b/src/rsz/src/RepairSetupContext.hh
+@@ -3,6 +3,9 @@
+ 
+ #pragma once
+ 
++#include <array>
++
++#include "OptimizerTypes.hh"
+ #include "RepairTargetCollector.hh"
+ 
+ namespace rsz {
+@@ -66,6 +69,15 @@ struct RepairSetupContext
+   // Legacy-derived setup phases share one preamble per repair_setup run.
+   bool legacy_preamble_done{false};
+   bool legacy_preamble_has_violations{true};
++  // Per move type, this phase: candidates tried, candidates accepted, and
++  // whether the type has been retired for the rest of the phase because a
++  // whole window of attempts produced no acceptance.
++  std::array<int, static_cast<size_t>(MoveType::kCount)> budget_attempts{};
++  std::array<int, static_cast<size_t>(MoveType::kCount)> budget_accepts{};
++  std::array<bool, static_cast<size_t>(MoveType::kCount)> budget_exhausted{};
++  // The main phase ended because it stopped making progress (its own
++  // termination test), not because it ran out of endpoints.
++  bool main_phase_stalled{false};
+ };
+ 
+ }  // namespace rsz
+diff --git a/src/rsz/src/policy/SetupLastGaspPolicy.cc b/src/rsz/src/policy/SetupLastGaspPolicy.cc
+index 454cc2758c..f1dc7fd98c 100644
+--- a/src/rsz/src/policy/SetupLastGaspPolicy.cc
++++ b/src/rsz/src/policy/SetupLastGaspPolicy.cc
+@@ -42,6 +42,17 @@ void SetupLastGaspPolicy::iterate()
+     markRunComplete(false);
+     return;
+   }
++  // Last gasp re-runs the sweep with a looser acceptance rule. When the
++  // main phase ran out of endpoints while still gaining, that second pass
++  // pays; when the main phase stopped because nothing was moving, the
++  // census shows the second pass moving nothing either, for a quarter of
++  // the call. So it runs only after a phase that was still gaining.
++  if (setup_context_.main_phase_stalled) {
++    logger_->report(
++        "LAST_GASP skipped: the main phase ended without progress");
++    markRunComplete(false);
++    return;
++  }
+ 
+   committer_.capturePrePhaseSlack();
+   int& num_viols = setup_context_.violation_count;
+diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
+index 859f085353..a49a6abc6e 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.cc
++++ b/src/rsz/src/policy/SetupLegacyBase.cc
+@@ -65,7 +65,12 @@ SetupLegacyBase::SetupLegacyBase(Resizer& resizer,
+ 
+ bool SetupLegacyBase::start()
+ {
++  stall_windows_ = 0;
++  stall_prev_wns_ = 0.0f;
+   OptimizationPolicy::start();
++  setup_context_.budget_attempts.fill(0);
++  setup_context_.budget_accepts.fill(0);
++  setup_context_.budget_exhausted.fill(false);
+   setup_context_.max_repairs_per_pass = config_.max_repairs_per_pass;
+   if (!setup_context_.phase_pipeline_active) {
+     return true;
+@@ -668,6 +673,7 @@ bool SetupLegacyBase::tryCandidateSequence(
+       utl::DebugScopedTimer timer(profile.commit_s);
+       result = committer_.commit(*candidate);
+     }
++    noteMoveAttempt(generator.type(), result.accepted);
+     if (!result.accepted) {
+       continue;
+     }
+@@ -725,6 +731,9 @@ bool SetupLegacyBase::tryRepairTarget(
+     if (rejected_types != nullptr && rejected_types->contains(type)) {
+       continue;
+     }
++    if (setup_context_.budget_exhausted[static_cast<size_t>(type)]) {
++      continue;
++    }
+     if (!generator.isApplicable(live_target)) {
+       continue;
+     }
+@@ -956,6 +965,33 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
+     }
+     float inc_fix_rate = (prev_tns - curr_tns) / initial_tns;
+     prev_tns = curr_tns;
++
++    // A window that moved neither TNS nor WNS bought nothing. Two in a
++    // row and the phase is done, whatever the iteration count: the
++    // floor below protects a slow start, not a flat line.
++    sta::Slack curr_wns;
++    sta::Vertex* worst_vertex = nullptr;
++    sta_->worstSlack(max_, curr_wns, worst_vertex);
++    const bool tns_flat = sta::fuzzyLessEqual(inc_fix_rate, 0.0f);
++    const bool wns_flat = iteration > opto_small_interval_
++                          && sta::fuzzyLessEqual(curr_wns, stall_prev_wns_);
++    stall_prev_wns_ = curr_wns;
++    stall_windows_ = (tns_flat && wns_flat) ? stall_windows_ + 1 : 0;
++    if (stall_windows_ >= stall_windows_to_exit_) {
++      debugPrint(logger_,
++                 RSZ,
++                 "repair_setup",
++                 1,
++                 "{}{} Phase: Exiting at iteration {} because neither WNS "
++                 "nor TNS moved for {} iterations [endpt {}/{}]",
++                 phase_name,
++                 phase_marker,
++                 iteration,
++                 stall_windows_to_exit_ * opto_small_interval_,
++                 endpt_index,
++                 num_endpts);
++      return true;
++    }
+     if (iteration > 1000 && inc_fix_rate < fix_rate_threshold) {
+       debugPrint(logger_,
+                  RSZ,
+@@ -1008,6 +1044,63 @@ void SetupLegacyBase::reportProfile(const std::string_view phase_name,
+       p.accepted);
+ }
+ 
++int SetupLegacyBase::committedMovesTotal() const
++{
++  int total = 0;
++  for (int i = 0; i < static_cast<int>(MoveType::kCount); ++i) {
++    total += committer_.committedMoves(static_cast<MoveType>(i));
++  }
++  return total;
++}
++
++int SetupLegacyBase::yieldWindow()
++{
++  static const int window = [] {
++    const char* env = std::getenv("RSZ_YIELD_WINDOW");
++    return env != nullptr ? std::atoi(env) : 20;
++  }();
++  return window;
++}
++
++int SetupLegacyBase::moveBudget()
++{
++  static const int budget = [] {
++    const char* env = std::getenv("RSZ_MOVE_BUDGET");
++    return env != nullptr ? std::atoi(env) : 200;
++  }();
++  return budget;
++}
++
++// A move type that has been tried a whole window of times in this phase
++// without one acceptance is not going to start paying: on the designs
++// where repair grinds, 90-96% of all candidates are rejected, and the
++// rejected ones are dominated by the types that never fit the design.
++// Retiring such a type for the rest of the phase saves the generation
++// and the trial commit for every later target; it comes back at the
++// next phase.
++void SetupLegacyBase::noteMoveAttempt(const MoveType type, const bool accepted)
++{
++  const size_t index = static_cast<size_t>(type);
++  ++setup_context_.budget_attempts[index];
++  if (accepted) {
++    ++setup_context_.budget_accepts[index];
++    return;
++  }
++  if (!setup_context_.budget_exhausted[index]
++      && setup_context_.budget_accepts[index] == 0
++      && setup_context_.budget_attempts[index] >= moveBudget()) {
++    setup_context_.budget_exhausted[index] = true;
++    debugPrint(logger_,
++               RSZ,
++               "repair_setup",
++               1,
++               "Retiring move type {} for this phase: {} attempts, none "
++               "accepted",
++               static_cast<int>(type),
++               setup_context_.budget_attempts[index]);
++  }
++}
++
+ void SetupLegacyBase::reportCustomPhaseSetup() const
+ {
+   logger_->info(
+diff --git a/src/rsz/src/policy/SetupLegacyBase.hh b/src/rsz/src/policy/SetupLegacyBase.hh
+index 78aa495806..ea8d721e36 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.hh
++++ b/src/rsz/src/policy/SetupLegacyBase.hh
+@@ -197,6 +197,15 @@ class SetupLegacyBase : public OptimizationPolicy
+                          std::string_view phase_name,
+                          char phase_marker);
+   void reportCustomPhaseSetup() const;
++  // Attempts of one move type with no acceptance before it is retired
++  // for the phase. RSZ_MOVE_BUDGET overrides the default while fitting.
++  static int moveBudget();
++  void noteMoveAttempt(MoveType type, bool accepted);
++  // Sum of committed moves over every move type.
++  int committedMovesTotal() const;
++  // Consecutive zero-yield violating endpoints that end the sweep.
++  // RSZ_YIELD_WINDOW overrides the default while the value is being fitted.
++  static int yieldWindow();
+   void reportProfile(std::string_view phase_name, char phase_marker) const;
+ 
+   int committedMoves(MoveType type) const;
+@@ -213,6 +222,11 @@ class SetupLegacyBase : public OptimizationPolicy
+   static constexpr int opto_small_interval_ = 100;
+   static constexpr int opto_large_interval_ = 1000;
+   static constexpr float inc_fix_rate_threshold_ = 0.0001;
++  // Consecutive opto_small_interval_ windows in which neither WNS nor TNS
++  // moved. Two of them end the phase regardless of the iteration floor.
++  static constexpr int stall_windows_to_exit_ = 2;
++  int stall_windows_ = 0;
++  float stall_prev_wns_ = 0.0f;
+ };
+ 
+ }  // namespace rsz
+diff --git a/src/rsz/src/policy/SetupLegacyPolicy.cc b/src/rsz/src/policy/SetupLegacyPolicy.cc
+index bd722c0087..4b859e61eb 100644
+--- a/src/rsz/src/policy/SetupLegacyPolicy.cc
++++ b/src/rsz/src/policy/SetupLegacyPolicy.cc
+@@ -397,11 +397,43 @@ void SetupLegacyPolicy::runMainRepairLoop(const ViolatingEnds& violating_ends,
+       break;
+     }
+ 
++    const bool was_violating
++        = sta::fuzzyLess(endpoint_state.end_slack, config_.setup_slack_margin);
++    const int committed_before = committedMovesTotal();
+     repairEndpoint(endpoint_state, main_state);
+ 
+     if (config_.verbose || main_state.opto_iteration == 1) {
+       printProgress(main_state.opto_iteration, true, main_state.phase_marker);
+     }
++
++    // Endpoints are visited worst first. Once a run of violating endpoints
++    // has committed nothing, the ones behind them -- less violating, and
++    // usually already improved by the moves made for the worst -- will not
++    // either; the census shows the sweep going on for hundreds of passes
++    // past that point for no gain. Endpoints found clean on arrival cost
++    // nothing and do not count either way.
++    if (was_violating) {
++      if (committedMovesTotal() == committed_before) {
++        ++main_state.zero_yield_endpoints;
++      } else {
++        main_state.zero_yield_endpoints = 0;
++      }
++      if (main_state.zero_yield_endpoints >= yieldWindow()) {
++        debugPrint(logger_,
++                   RSZ,
++                   "repair_setup",
++                   1,
++                   "{}{} Phase: Exiting at endpoint {}/{} after {} violating "
++                   "endpoints in a row committed no move",
++                   phaseName(),
++                   main_state.phase_marker,
++                   main_state.end_index,
++                   main_state.max_end_count,
++                   main_state.zero_yield_endpoints);
++        main_state.two_cons_terminations = true;
++        break;
++      }
++    }
+     if (main_state.two_cons_terminations) {
+       debugPrint(logger_,
+                  RSZ,
+@@ -414,6 +446,7 @@ void SetupLegacyPolicy::runMainRepairLoop(const ViolatingEnds& violating_ends,
+       break;
+     }
+   }
++  setup_context_.main_phase_stalled = main_state.two_cons_terminations;
+ 
+   printProgress(main_state.opto_iteration, true, main_state.phase_marker);
+   if (logger_->debugCheck(RSZ, "repair_setup", 1)) {
+diff --git a/src/rsz/src/policy/SetupLegacyPolicy.hh b/src/rsz/src/policy/SetupLegacyPolicy.hh
+index 08e7cd9350..655051f44a 100644
+--- a/src/rsz/src/policy/SetupLegacyPolicy.hh
++++ b/src/rsz/src/policy/SetupLegacyPolicy.hh
+@@ -35,6 +35,8 @@ class SetupLegacyPolicy : public SetupLegacyBase
+     bool prev_termination{false};
+     bool two_cons_terminations{false};
+     char phase_marker{'*'};
++    // Consecutive violating endpoints that committed no move.
++    int zero_yield_endpoints{0};
+   };
+ 
+   void iterateTimed(MainRepairState& main_state);
