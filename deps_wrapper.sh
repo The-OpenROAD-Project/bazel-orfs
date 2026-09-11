@@ -85,12 +85,36 @@ if [ -d "$RUNFILES_DIR" ]; then
     rmdir "$RUNFILES_DIR"
 fi
 
-# Find the make binary (the stage-specific shell wrapper).
-MAKE_BIN="$(echo "$DST"/make_*)"
-if [ ! -f "$MAKE_BIN" ]; then
+# Find the make script (the stage-specific shell wrapper). It is NOT at
+# the deploy root: it keeps its runfiles path, <repo-dir>/<package>/
+# make_<target>_<variant>_<stage>, and the repo dir depends on which
+# repository the design's package lives in:
+#   _main/test/make_lb_32x128_cts_base_4_cts
+#   +orfs_repositories+orfs/flow/designs/nangate45/gcd/make_gcd_cts_base_4_cts
+# So search the deployed tree, keyed on the target name -- a bare
+# 'make_*' also matches unrelated ORFS payload such as
+# flow/platforms/asap7/openRoad/make_tracks.tcl.
+# mapfile keeps the search out of a pipeline whose failure would, under
+# 'set -euo pipefail', abort before any diagnostic could print.
+MAKE_CANDIDATES=()
+mapfile -t MAKE_CANDIDATES < <(
+    find "$DST" -type f -name "make_${LABEL_NAME}_*" | sort
+)
+
+if [ "${#MAKE_CANDIDATES[@]}" -eq 0 ]; then
     echo "Error: make binary not found in $DST"
+    echo "Searched the deployed tree for a regular file named" \
+        "'make_${LABEL_NAME}_*'."
+    echo "Does the target have a _deps companion (is it an ORFS stage target)?"
     exit 1
 fi
+if [ "${#MAKE_CANDIDATES[@]}" -gt 1 ]; then
+    echo "Error: multiple make binaries found in $DST"
+    printf '  %s\n' "${MAKE_CANDIDATES[@]}"
+    echo "Refusing to guess which one drives the stage."
+    exit 1
+fi
+MAKE_BIN="${MAKE_CANDIDATES[0]}"
 
 # Find the config file (*.short.mk).
 CONFIG="$(echo "$DST"/*.short.mk)"
@@ -100,15 +124,22 @@ if [ -f "$CONFIG" ]; then
     cp "$CONFIG" "$DST/_main/config.mk"
 fi
 
-# Create the make wrapper script.
-MAKE_REL="$(basename "$MAKE_BIN")"
+# Create the make wrapper script. The wrapper cd's into _main, so the
+# exec target is the make script's path relative to _main -- the same
+# shape deploy.tpl gets from the script's Bazel short_path: <package>/...
+# for a design in this repo, ../<repo>/<package>/... for an external one.
+MAKE_REL="${MAKE_BIN#"$DST"/}"
+case "$MAKE_REL" in
+_main/*) MAKE_EXEC="./${MAKE_REL#_main/}" ;;
+*) MAKE_EXEC="./../$MAKE_REL" ;;
+esac
 cat > "$DST/make" <<WRAPPER
 #!/usr/bin/env bash
 set -exuo pipefail
 cd "\$(dirname "\$0")/_main"
 find . -not -perm -u+w -exec chmod u+w {} + 2>/dev/null || true
 export RUNFILES_DIR="\$(pwd)/.."
-exec ../$MAKE_REL "\$@"
+exec $MAKE_EXEC "\$@"
 WRAPPER
 chmod +x "$DST/make"
 
