@@ -127,6 +127,14 @@ design is a result, not a caveat.
 
 ## Decisions log
 
+- 2026-09-11: noise bands are taken over the history since 2025-06-01
+  (the whole history is an era: sky130hd/aes area moved 9x since 2021).
+  A metric whose recent history has fewer than three recoverable points
+  (setup WNS on designs that met timing throughout, coralnpu and cva6
+  entirely) gets no band, and any worsening on it counts as worse, which
+  is the strict direction. Bands live in
+  docs/studies/repair-policy/noise_bands_since_2025-06.json.
+
 - 2026-09-11: knobs become no-ops rather than being removed; one PR per
   knob; suite is asap7 plus sky130hd; timing axis is minimum clock period;
   noise bands from rules-base.json history; second study branch.

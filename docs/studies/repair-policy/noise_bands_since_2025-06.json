@@ -1,0 +1,2056 @@
+{
+  "asap7/aes": {
+    "_sources": {
+      "metadata_commits": 51,
+      "metadata_points": 270,
+      "period": 380.0,
+      "rules_commits": 99,
+      "rules_points": 394
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-08-06",
+      "max_step": 0.0,
+      "n": 49,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 5627.283233542535,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 50228.69565217392,
+      "last_date": "2026-08-06",
+      "max_step": 4866.086956521736,
+      "n": 49,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 240.7626709550747,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 1446.0869565217392,
+      "last_date": "2026-08-06",
+      "max_step": 194.78260869565224,
+      "n": 49,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-06-17",
+      "insufficient": true,
+      "last": 0.0578768,
+      "last_date": "2026-06-17",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 532.6058469308558,
+      "first_date": "2025-10-04",
+      "insufficient": false,
+      "last": -11.700000000000003,
+      "last_date": "2026-08-06",
+      "max_step": 468.0,
+      "n": 39,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 20.64107494284233,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": -5.199999999999999,
+      "last_date": "2026-08-06",
+      "max_step": 38.980000000000004,
+      "n": 48,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 25.042100911434023,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 385.2,
+      "last_date": "2026-08-06",
+      "max_step": 38.98000000000002,
+      "n": 48,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/aes-block": {
+    "_sources": {
+      "metadata_commits": 41,
+      "metadata_points": 246,
+      "period": 450.0,
+      "rules_commits": 133,
+      "rules_points": 598
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-09",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-09-01",
+      "max_step": 0.0,
+      "n": 86,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 7402.261183666913,
+      "first_date": "2025-06-09",
+      "insufficient": false,
+      "last": 42025.21739130435,
+      "last_date": "2026-09-01",
+      "max_step": 11460.000000000007,
+      "n": 86,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 255.5185312815096,
+      "first_date": "2025-06-09",
+      "insufficient": false,
+      "last": 5866.08695652174,
+      "last_date": "2026-09-01",
+      "max_step": 395.65217391304304,
+      "n": 86,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-06-17",
+      "insufficient": true,
+      "last": 0.0077946,
+      "last_date": "2026-06-17",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 3611.468485434165,
+      "first_date": "2025-10-04",
+      "insufficient": false,
+      "last": -328.0,
+      "last_date": "2026-09-01",
+      "max_step": 3790.0,
+      "n": 67,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 57.4903591208852,
+      "first_date": "2025-06-09",
+      "insufficient": false,
+      "last": -31.799999999999997,
+      "last_date": "2026-09-01",
+      "max_step": 179.89,
+      "n": 86,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 60.91463980593097,
+      "first_date": "2025-06-09",
+      "insufficient": false,
+      "last": 481.8,
+      "last_date": "2026-09-01",
+      "max_step": 179.8900000000001,
+      "n": 86,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/aes-mbff": {
+    "_sources": {
+      "metadata_commits": 12,
+      "metadata_points": 72,
+      "period": 380.0,
+      "rules_commits": 61,
+      "rules_points": 287
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-08-06",
+      "max_step": 0.0,
+      "n": 48,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 2569.5314500967847,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 59254.782608695656,
+      "last_date": "2026-08-06",
+      "max_step": 3961.739130434784,
+      "n": 48,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 150.49531018821975,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 1649.5652173913045,
+      "last_date": "2026-08-06",
+      "max_step": 208.695652173913,
+      "n": 48,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-06-17",
+      "insufficient": true,
+      "last": 0.155716,
+      "last_date": "2026-06-17",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 564.7384897434279,
+      "first_date": "2025-10-04",
+      "insufficient": false,
+      "last": -201.0,
+      "last_date": "2026-08-06",
+      "max_step": 622.0,
+      "n": 40,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 19.84831011646099,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": -7.699999999999999,
+      "last_date": "2026-08-06",
+      "max_step": 40.62,
+      "n": 44,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 24.20137958724008,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 387.7,
+      "last_date": "2026-08-06",
+      "max_step": 40.620000000000005,
+      "n": 44,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/aes_lvt": {
+    "_sources": {
+      "metadata_commits": 19,
+      "metadata_points": 113,
+      "period": 400.0,
+      "rules_commits": 52,
+      "rules_points": 235
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-07-16",
+      "max_step": 0.0,
+      "n": 31,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 2739.013996594444,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 52238.26086956522,
+      "last_date": "2026-07-16",
+      "max_step": 4328.695652173912,
+      "n": 31,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 145.0837358803538,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 1303.4782608695652,
+      "last_date": "2026-07-16",
+      "max_step": 301.73913043478274,
+      "n": 31,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": null,
+      "insufficient": true,
+      "last": null,
+      "last_date": null,
+      "max_step": 0.0,
+      "n": 0,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 64.2601142678278,
+      "first_date": "2025-12-22",
+      "insufficient": false,
+      "last": -12.799999999999997,
+      "last_date": "2026-06-12",
+      "max_step": 124.8,
+      "n": 6,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 14.244157824977128,
+      "first_date": "2025-07-07",
+      "insufficient": false,
+      "last": -6.100000000000001,
+      "last_date": "2026-06-12",
+      "max_step": 19.799999999999997,
+      "n": 8,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 14.244157824977142,
+      "first_date": "2025-07-07",
+      "insufficient": false,
+      "last": 406.1,
+      "last_date": "2026-06-12",
+      "max_step": 19.80000000000001,
+      "n": 8,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/coralnpu": {
+    "_sources": {
+      "metadata_commits": 0,
+      "metadata_points": 0,
+      "period": 10.0,
+      "rules_commits": 1,
+      "rules_points": 5
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-08-25",
+      "insufficient": true,
+      "last": 0.0,
+      "last_date": "2026-08-25",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-08-25",
+      "insufficient": true,
+      "last": 1339580.8695652175,
+      "last_date": "2026-08-25",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-08-25",
+      "insufficient": true,
+      "last": 32983.47826086957,
+      "last_date": "2026-08-25",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": null,
+      "insufficient": true,
+      "last": null,
+      "last_date": null,
+      "max_step": 0.0,
+      "n": 0,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-08-25",
+      "insufficient": true,
+      "last": -10799998.0,
+      "last_date": "2026-08-25",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-08-25",
+      "insufficient": true,
+      "last": -2069.5,
+      "last_date": "2026-08-25",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-08-25",
+      "insufficient": true,
+      "last": 2079.5,
+      "last_date": "2026-08-25",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/cva6": {
+    "_sources": {
+      "metadata_commits": 0,
+      "metadata_points": 0,
+      "period": 910.0,
+      "rules_commits": 41,
+      "rules_points": 193
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-11",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-08-28",
+      "max_step": 0.0,
+      "n": 36,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 349653.13559296745,
+      "first_date": "2025-06-11",
+      "insufficient": false,
+      "last": 599004.347826087,
+      "last_date": "2026-08-28",
+      "max_step": 480417.3913043479,
+      "n": 36,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 6851.601012053055,
+      "first_date": "2025-06-11",
+      "insufficient": false,
+      "last": 17563.478260869568,
+      "last_date": "2026-08-28",
+      "max_step": 18600.0,
+      "n": 36,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": null,
+      "insufficient": true,
+      "last": null,
+      "last_date": null,
+      "max_step": 0.0,
+      "n": 0,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 472.9744682807195,
+      "first_date": "2025-10-14",
+      "insufficient": false,
+      "last": -1148.0,
+      "last_date": "2026-08-28",
+      "max_step": 1130.0,
+      "n": 19,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 52.95621752984192,
+      "first_date": "2025-06-11",
+      "insufficient": false,
+      "last": -4.5,
+      "last_date": "2026-08-28",
+      "max_step": 78.86999999999999,
+      "n": 34,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 52.95621752984195,
+      "first_date": "2025-06-11",
+      "insufficient": false,
+      "last": 914.5,
+      "last_date": "2026-08-28",
+      "max_step": 78.87,
+      "n": 34,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/ethmac": {
+    "_sources": {
+      "metadata_commits": 50,
+      "metadata_points": 294,
+      "period": 300.0,
+      "rules_commits": 119,
+      "rules_points": 469
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-08-06",
+      "max_step": 0.0,
+      "n": 55,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 16874.294724159543,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 209331.3043478261,
+      "last_date": "2026-08-06",
+      "max_step": 28075.652173913055,
+      "n": 55,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 298.09773076139794,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 8137.391304347827,
+      "last_date": "2026-08-06",
+      "max_step": 524.347826086957,
+      "n": 55,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-06-17",
+      "insufficient": true,
+      "last": 0.143302,
+      "last_date": "2026-06-17",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 969.2368261735605,
+      "first_date": "2025-10-04",
+      "insufficient": false,
+      "last": -1440.0,
+      "last_date": "2026-08-06",
+      "max_step": 1430.0,
+      "n": 50,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 42.12865263491673,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": -78.3,
+      "last_date": "2026-08-06",
+      "max_step": 58.0,
+      "n": 55,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 42.12865263491673,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 378.3,
+      "last_date": "2026-08-06",
+      "max_step": 58.0,
+      "n": 55,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/ethmac_lvt": {
+    "_sources": {
+      "metadata_commits": 14,
+      "metadata_points": 84,
+      "period": 300.0,
+      "rules_commits": 64,
+      "rules_points": 295
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-08-25",
+      "max_step": 0.0,
+      "n": 44,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 15052.241392501948,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 219902.6086956522,
+      "last_date": "2026-08-25",
+      "max_step": 26407.652173913026,
+      "n": 44,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 108.3624148433368,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 7539.130434782609,
+      "last_date": "2026-08-25",
+      "max_step": 233.913043478261,
+      "n": 44,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-06-17",
+      "insufficient": true,
+      "last": 0.140602,
+      "last_date": "2026-06-17",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 486.6245554700096,
+      "first_date": "2025-10-04",
+      "insufficient": false,
+      "last": -362.0,
+      "last_date": "2026-08-25",
+      "max_step": 809.8,
+      "n": 40,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 29.121294126805132,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": -16.8,
+      "last_date": "2026-08-25",
+      "max_step": 38.099999999999994,
+      "n": 43,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 29.121294126805147,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 316.8,
+      "last_date": "2026-08-25",
+      "max_step": 38.10000000000002,
+      "n": 43,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/gcd": {
+    "_sources": {
+      "metadata_commits": 44,
+      "metadata_points": 234,
+      "period": 310.0,
+      "rules_commits": 87,
+      "rules_points": 348
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-08-27",
+      "max_step": 0.0,
+      "n": 41,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 270.4688908312705,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 789.5652173913044,
+      "last_date": "2026-08-27",
+      "max_step": 541.7391304347827,
+      "n": 41,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 6.536630194020748,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 46.08695652173913,
+      "last_date": "2026-08-27",
+      "max_step": 11.30434782608696,
+      "n": 41,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": null,
+      "insufficient": true,
+      "last": null,
+      "last_date": null,
+      "max_step": 0.0,
+      "n": 0,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 853.715611719939,
+      "first_date": "2025-10-04",
+      "insufficient": false,
+      "last": -95.0,
+      "last_date": "2026-08-27",
+      "max_step": 1429.0,
+      "n": 36,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 33.25616575625252,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": -38.2,
+      "last_date": "2026-08-27",
+      "max_step": 71.8,
+      "n": 41,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 33.25616575625252,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 348.2,
+      "last_date": "2026-08-27",
+      "max_step": 71.80000000000001,
+      "n": 41,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/gcd-ccs": {
+    "_sources": {
+      "metadata_commits": 4,
+      "metadata_points": 24,
+      "period": 310.0,
+      "rules_commits": 51,
+      "rules_points": 242
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-07-16",
+      "max_step": 0.0,
+      "n": 42,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 136.25516441468784,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 800.0000000000001,
+      "last_date": "2026-07-16",
+      "max_step": 376.52173913043487,
+      "n": 42,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 5.295979499040277,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 45.21739130434783,
+      "last_date": "2026-07-16",
+      "max_step": 9.565217391304351,
+      "n": 42,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": null,
+      "insufficient": true,
+      "last": null,
+      "last_date": null,
+      "max_step": 0.0,
+      "n": 0,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 596.4551618997808,
+      "first_date": "2025-10-04",
+      "insufficient": false,
+      "last": -124.0,
+      "last_date": "2026-07-16",
+      "max_step": 1090.0,
+      "n": 38,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 24.174068417576166,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": -44.1,
+      "last_date": "2026-07-16",
+      "max_step": 48.800000000000004,
+      "n": 42,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 24.17406841757616,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 354.1,
+      "last_date": "2026-07-16",
+      "max_step": 48.80000000000001,
+      "n": 42,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/ibex": {
+    "_sources": {
+      "metadata_commits": 48,
+      "metadata_points": 252,
+      "period": 1260.0,
+      "rules_commits": 94,
+      "rules_points": 367
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-08-13",
+      "max_step": 0.0,
+      "n": 52,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 1607.4755278572209,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 86071.3043478261,
+      "last_date": "2026-08-13",
+      "max_step": 4040.0,
+      "n": 52,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 36.52746714259506,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 2400.8695652173915,
+      "last_date": "2026-08-13",
+      "max_step": 37.39130434782601,
+      "n": 52,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": null,
+      "insufficient": true,
+      "last": null,
+      "last_date": null,
+      "max_step": 0.0,
+      "n": 0,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 28478.445241106278,
+      "first_date": "2025-10-04",
+      "insufficient": false,
+      "last": -184.0,
+      "last_date": "2026-08-13",
+      "max_step": 54500.0,
+      "n": 37,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 66.6081616222084,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": -6.099999999999994,
+      "last_date": "2026-04-25",
+      "max_step": 137.46,
+      "n": 41,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 66.60816162220844,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 1266.1,
+      "last_date": "2026-04-25",
+      "max_step": 137.46000000000004,
+      "n": 41,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/jpeg": {
+    "_sources": {
+      "metadata_commits": 47,
+      "metadata_points": 257,
+      "period": 1100.0,
+      "rules_commits": 86,
+      "rules_points": 326
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-08-21",
+      "max_step": 0.0,
+      "n": 35,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 10722.943236731458,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 182078.26086956525,
+      "last_date": "2026-08-21",
+      "max_step": 31965.21739130435,
+      "n": 35,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 354.21045253997653,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 7388.695652173914,
+      "last_date": "2026-08-21",
+      "max_step": 1081.739130434783,
+      "n": 35,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": null,
+      "insufficient": true,
+      "last": null,
+      "last_date": null,
+      "max_step": 0.0,
+      "n": 0,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-08-21",
+      "insufficient": true,
+      "last": -22580.0,
+      "last_date": "2026-08-21",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-08-21",
+      "insufficient": true,
+      "last": -62.0,
+      "last_date": "2026-08-21",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-08-21",
+      "insufficient": true,
+      "last": 1162.0,
+      "last_date": "2026-08-21",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/jpeg_lvt": {
+    "_sources": {
+      "metadata_commits": 20,
+      "metadata_points": 117,
+      "period": 1100.0,
+      "rules_commits": 57,
+      "rules_points": 257
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-07-16",
+      "max_step": 0.0,
+      "n": 32,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 3488.83617250868,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 153867.82608695654,
+      "last_date": "2026-07-16",
+      "max_step": 9276.521739130432,
+      "n": 32,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 171.0688029448539,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 6194.782608695653,
+      "last_date": "2026-07-16",
+      "max_step": 364.34782608695605,
+      "n": 32,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": null,
+      "insufficient": true,
+      "last": null,
+      "last_date": null,
+      "max_step": 0.0,
+      "n": 0,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-05-29",
+      "insufficient": true,
+      "last": -294.0,
+      "last_date": "2026-06-12",
+      "max_step": 211.0,
+      "n": 2,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-06-12",
+      "insufficient": true,
+      "last": -3.5,
+      "last_date": "2026-07-16",
+      "max_step": 5.399999999999999,
+      "n": 2,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-06-12",
+      "insufficient": true,
+      "last": 1103.5,
+      "last_date": "2026-07-16",
+      "max_step": 5.400000000000091,
+      "n": 2,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/mock-alu": {
+    "_sources": {
+      "metadata_commits": 21,
+      "metadata_points": 126,
+      "period": 100.0,
+      "rules_commits": 83,
+      "rules_points": 383
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-08-06",
+      "max_step": 0.0,
+      "n": 54,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 2316.936573077367,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 43546.08695652174,
+      "last_date": "2026-08-06",
+      "max_step": 7800.869565217392,
+      "n": 54,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 14.772556723832912,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 1615.6521739130435,
+      "last_date": "2026-08-06",
+      "max_step": 53.91304347826099,
+      "n": 54,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": null,
+      "insufficient": true,
+      "last": null,
+      "last_date": null,
+      "max_step": 0.0,
+      "n": 0,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 3033.6589627381504,
+      "first_date": "2025-10-04",
+      "insufficient": false,
+      "last": -18480.0,
+      "last_date": "2026-08-06",
+      "max_step": 5600.0,
+      "n": 51,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 58.26123254247036,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": -286.0,
+      "last_date": "2026-08-06",
+      "max_step": 220.21999999999997,
+      "n": 54,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 58.26123254247036,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 386.0,
+      "last_date": "2026-08-06",
+      "max_step": 220.21999999999997,
+      "n": 54,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/mock-cpu": {
+    "_sources": {
+      "metadata_commits": 5,
+      "metadata_points": 30,
+      "period": 333.0,
+      "rules_commits": 40,
+      "rules_points": 190
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-08-06",
+      "max_step": 0.0,
+      "n": 32,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 2116.027723168252,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 47991.30434782609,
+      "last_date": "2026-08-06",
+      "max_step": 3925.2173913043516,
+      "n": 32,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 203.13299151954325,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 6995.652173913044,
+      "last_date": "2026-08-06",
+      "max_step": 375.65217391304304,
+      "n": 32,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": null,
+      "insufficient": true,
+      "last": null,
+      "last_date": null,
+      "max_step": 0.0,
+      "n": 0,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 1080.6541309138881,
+      "first_date": "2025-10-04",
+      "insufficient": false,
+      "last": -1983.4,
+      "last_date": "2026-04-14",
+      "max_step": 1244.7379999999998,
+      "n": 26,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 10.554672565469106,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": -67.94999999999999,
+      "last_date": "2026-04-14",
+      "max_step": 13.100000000000023,
+      "n": 28,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 10.554672565469122,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 400.95,
+      "last_date": "2026-04-14",
+      "max_step": 13.100000000000023,
+      "n": 28,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/riscv32i": {
+    "_sources": {
+      "metadata_commits": 41,
+      "metadata_points": 242,
+      "period": 950.0,
+      "rules_commits": 102,
+      "rules_points": 460
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-09-01",
+      "max_step": 0.0,
+      "n": 55,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 4740.260004261145,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 53044.34782608696,
+      "last_date": "2026-09-01",
+      "max_step": 7634.782608695648,
+      "n": 55,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 25.20339087725173,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 2652.1739130434785,
+      "last_date": "2026-09-01",
+      "max_step": 95.6521739130435,
+      "n": 55,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-06-17",
+      "insufficient": true,
+      "last": 0.0316806,
+      "last_date": "2026-06-17",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 18277.906268663017,
+      "first_date": "2025-10-27",
+      "insufficient": false,
+      "last": -27410.0,
+      "last_date": "2026-09-01",
+      "max_step": 24590.0,
+      "n": 25,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 31.536065280607307,
+      "first_date": "2025-10-14",
+      "insufficient": false,
+      "last": -33.099999999999994,
+      "last_date": "2026-09-01",
+      "max_step": 52.7,
+      "n": 23,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 170.21510806220044,
+      "first_date": "2025-10-14",
+      "insufficient": false,
+      "last": 983.1,
+      "last_date": "2026-09-01",
+      "max_step": 333.29319999999996,
+      "n": 23,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/riscv32i-mock-sram": {
+    "_sources": {
+      "metadata_commits": 4,
+      "metadata_points": 24,
+      "period": 950.0,
+      "rules_commits": 72,
+      "rules_points": 346
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-05",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-08-06",
+      "max_step": 0.0,
+      "n": 65,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 17192.0557034724,
+      "first_date": "2025-06-05",
+      "insufficient": false,
+      "last": 53553.913043478264,
+      "last_date": "2026-08-06",
+      "max_step": 46124.34782608696,
+      "n": 65,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 103.91857183242551,
+      "first_date": "2025-06-05",
+      "insufficient": false,
+      "last": 2050.434782608696,
+      "last_date": "2026-08-06",
+      "max_step": 176.52173913043498,
+      "n": 65,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-06-17",
+      "insufficient": true,
+      "last": 0.0193363,
+      "last_date": "2026-06-17",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 10674.36429328219,
+      "first_date": "2025-10-04",
+      "insufficient": false,
+      "last": -13110.0,
+      "last_date": "2026-08-06",
+      "max_step": 25937.0,
+      "n": 53,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 55.987167302498555,
+      "first_date": "2025-06-05",
+      "insufficient": false,
+      "last": -33.8,
+      "last_date": "2026-08-06",
+      "max_step": 126.59000000000002,
+      "n": 51,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 176.7273038680819,
+      "first_date": "2025-06-05",
+      "insufficient": false,
+      "last": 983.8,
+      "last_date": "2026-08-06",
+      "max_step": 280.0281,
+      "n": 51,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/swerv_wrapper": {
+    "_sources": {
+      "metadata_commits": 15,
+      "metadata_points": 88,
+      "period": 2500.0,
+      "rules_commits": 97,
+      "rules_points": 455
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-07-16",
+      "max_step": 0.0,
+      "n": 76,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 204999.34612416665,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 1119973.9130434783,
+      "last_date": "2026-07-16",
+      "max_step": 209266.08695652173,
+      "n": 76,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 398.3764144577274,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 48149.56521739131,
+      "last_date": "2026-07-16",
+      "max_step": 625.2173913043443,
+      "n": 76,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": null,
+      "insufficient": true,
+      "last": null,
+      "last_date": null,
+      "max_step": 0.0,
+      "n": 0,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 124180.6945520001,
+      "first_date": "2025-10-04",
+      "insufficient": false,
+      "last": -46300.0,
+      "last_date": "2026-05-30",
+      "max_step": 138900.0,
+      "n": 63,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 219.85573090504948,
+      "first_date": "2025-08-19",
+      "insufficient": false,
+      "last": -193.0,
+      "last_date": "2026-05-30",
+      "max_step": 349.0,
+      "n": 71,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 219.85573090504954,
+      "first_date": "2025-08-19",
+      "insufficient": false,
+      "last": 2693.0,
+      "last_date": "2026-05-30",
+      "max_step": 349.0,
+      "n": 71,
+      "unit_note": "ps"
+    }
+  },
+  "asap7/uart": {
+    "_sources": {
+      "metadata_commits": 22,
+      "metadata_points": 127,
+      "period": 270.0,
+      "rules_commits": 87,
+      "rules_points": 356
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-08-12",
+      "max_step": 0.0,
+      "n": 55,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 129.72913795330717,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 1628.6956521739132,
+      "last_date": "2026-08-12",
+      "max_step": 310.43478260869574,
+      "n": 55,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 6.9396918235298335,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 102.60869565217392,
+      "last_date": "2026-08-12",
+      "max_step": 13.91304347826086,
+      "n": 55,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-06-17",
+      "insufficient": true,
+      "last": 0.00246889,
+      "last_date": "2026-06-17",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 431.3100792825907,
+      "first_date": "2025-10-04",
+      "insufficient": false,
+      "last": -1196.0,
+      "last_date": "2026-08-12",
+      "max_step": 630.0,
+      "n": 49,
+      "unit_note": "ps"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 10.406332595061023,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": -27.200000000000003,
+      "last_date": "2026-08-12",
+      "max_step": 22.34,
+      "n": 55,
+      "unit_note": "ps"
+    },
+    "min_period_ps": {
+      "band_2sigma": 19.315261128423696,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 297.2,
+      "last_date": "2026-08-12",
+      "max_step": 26.236400000000003,
+      "n": 55,
+      "unit_note": "ps"
+    }
+  },
+  "sky130hd/aes": {
+    "_sources": {
+      "metadata_commits": 71,
+      "metadata_points": 380,
+      "period": 3.6,
+      "rules_commits": 114,
+      "rules_points": 409
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-08-06",
+      "max_step": 0.0,
+      "n": 45,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 171183.34118877706,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 576573.9130434783,
+      "last_date": "2026-08-06",
+      "max_step": 155097.39130434778,
+      "n": 45,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 8015.411539321146,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 124068.69565217392,
+      "last_date": "2026-08-06",
+      "max_step": 18965.21739130435,
+      "n": 45,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-06-17",
+      "insufficient": true,
+      "last": 0.547988,
+      "last_date": "2026-06-17",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 4.6350201205450885,
+      "first_date": "2026-02-11",
+      "insufficient": false,
+      "last": -5.37,
+      "last_date": "2026-08-06",
+      "max_step": 6.35,
+      "n": 19,
+      "unit_note": "file units (ns for sky130hd)"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 0.64133912022362,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": -0.245,
+      "last_date": "2026-08-06",
+      "max_step": 0.821,
+      "n": 20,
+      "unit_note": "file units (ns for sky130hd)"
+    },
+    "min_period_ps": {
+      "band_2sigma": 0.9598623080616707,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 3.845,
+      "last_date": "2026-08-06",
+      "max_step": 0.8210000000000006,
+      "n": 20,
+      "unit_note": "file units (ns for sky130hd)"
+    }
+  },
+  "sky130hd/chameleon": {
+    "_sources": {
+      "metadata_commits": 49,
+      "metadata_points": 269,
+      "period": 3.0,
+      "rules_commits": 132,
+      "rules_points": 504
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-09-01",
+      "max_step": 0.0,
+      "n": 73,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 67468.25664024727,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 740562.6086956522,
+      "last_date": "2026-09-01",
+      "max_step": 111671.30434782605,
+      "n": 73,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 24609.538780108454,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 5669480.0,
+      "last_date": "2026-09-01",
+      "max_step": 33410.43478260841,
+      "n": 73,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-06-17",
+      "insufficient": true,
+      "last": 0.0201996,
+      "last_date": "2026-06-17",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 154.04236993326222,
+      "first_date": "2026-02-18",
+      "insufficient": false,
+      "last": -145.4,
+      "last_date": "2026-09-01",
+      "max_step": 348.84999999999997,
+      "n": 38,
+      "unit_note": "file units (ns for sky130hd)"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 2.181927378609671,
+      "first_date": "2026-02-18",
+      "insufficient": false,
+      "last": -2.2600000000000002,
+      "last_date": "2026-09-01",
+      "max_step": 1.5230000000000001,
+      "n": 38,
+      "unit_note": "file units (ns for sky130hd)"
+    },
+    "min_period_ps": {
+      "band_2sigma": 2.520791938882617,
+      "first_date": "2026-02-18",
+      "insufficient": false,
+      "last": 5.26,
+      "last_date": "2026-09-01",
+      "max_step": 4.658006,
+      "n": 38,
+      "unit_note": "file units (ns for sky130hd)"
+    }
+  },
+  "sky130hd/gcd": {
+    "_sources": {
+      "metadata_commits": 50,
+      "metadata_points": 262,
+      "period": 1.1,
+      "rules_commits": 99,
+      "rules_points": 395
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-08-25",
+      "max_step": 0.0,
+      "n": 53,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 4320.764020015903,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 11786.08695652174,
+      "last_date": "2026-08-25",
+      "max_step": 5647.826086956522,
+      "n": 53,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 607.8755125799817,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 5053.913043478261,
+      "last_date": "2026-08-25",
+      "max_step": 1345.2173913043475,
+      "n": 53,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-06-17",
+      "insufficient": true,
+      "last": 0.0088093,
+      "last_date": "2026-06-17",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 15.931737067672168,
+      "first_date": "2025-10-04",
+      "insufficient": false,
+      "last": -65.08,
+      "last_date": "2026-08-25",
+      "max_step": 27.299999999999997,
+      "n": 44,
+      "unit_note": "file units (ns for sky130hd)"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 0.6586537223967783,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": -1.465,
+      "last_date": "2026-08-25",
+      "max_step": 0.6199999999999997,
+      "n": 53,
+      "unit_note": "file units (ns for sky130hd)"
+    },
+    "min_period_ps": {
+      "band_2sigma": 0.6586537223967783,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 2.5650000000000004,
+      "last_date": "2026-08-25",
+      "max_step": 0.6199999999999997,
+      "n": 53,
+      "unit_note": "file units (ns for sky130hd)"
+    }
+  },
+  "sky130hd/ibex": {
+    "_sources": {
+      "metadata_commits": 63,
+      "metadata_points": 336,
+      "period": 10.0,
+      "rules_commits": 112,
+      "rules_points": 420
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-08-06",
+      "max_step": 0.0,
+      "n": 45,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 23999.8577902766,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 612046.9565217391,
+      "last_date": "2026-08-06",
+      "max_step": 37730.434782608645,
+      "n": 45,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 6431.666848281459,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 154575.65217391305,
+      "last_date": "2026-08-06",
+      "max_step": 14693.043478260865,
+      "n": 45,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": null,
+      "insufficient": true,
+      "last": null,
+      "last_date": null,
+      "max_step": 0.0,
+      "n": 0,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 1.566941123508322,
+      "first_date": "2025-10-04",
+      "insufficient": false,
+      "last": -0.1299999999999999,
+      "last_date": "2026-01-22",
+      "max_step": 1.7000000000000002,
+      "n": 27,
+      "unit_note": "file units (ns for sky130hd)"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 0.16509146605095745,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": -0.131,
+      "last_date": "2026-01-22",
+      "max_step": 0.26,
+      "n": 34,
+      "unit_note": "file units (ns for sky130hd)"
+    },
+    "min_period_ps": {
+      "band_2sigma": 0.16509146605095787,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 10.131,
+      "last_date": "2026-01-22",
+      "max_step": 0.2599999999999998,
+      "n": 34,
+      "unit_note": "file units (ns for sky130hd)"
+    }
+  },
+  "sky130hd/jpeg": {
+    "_sources": {
+      "metadata_commits": 67,
+      "metadata_points": 364,
+      "period": 5.0,
+      "rules_commits": 129,
+      "rules_points": 496
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-08-12",
+      "max_step": 0.0,
+      "n": 59,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 10801.054379506799,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 1145373.043478261,
+      "last_date": "2026-08-12",
+      "max_step": 20974.782608695794,
+      "n": 59,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 628.9362976096448,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 451058.26086956525,
+      "last_date": "2026-08-12",
+      "max_step": 1174.1739130435162,
+      "n": 59,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-06-17",
+      "insufficient": true,
+      "last": 0.52565,
+      "last_date": "2026-06-17",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 58.61848340379744,
+      "first_date": "2026-02-18",
+      "insufficient": false,
+      "last": -110.0,
+      "last_date": "2026-08-12",
+      "max_step": 103.1,
+      "n": 21,
+      "unit_note": "file units (ns for sky130hd)"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 0.1648592740173127,
+      "first_date": "2026-02-18",
+      "insufficient": false,
+      "last": -0.404,
+      "last_date": "2026-08-12",
+      "max_step": 0.351,
+      "n": 21,
+      "unit_note": "file units (ns for sky130hd)"
+    },
+    "min_period_ps": {
+      "band_2sigma": 1.287165336434111,
+      "first_date": "2026-02-18",
+      "insufficient": false,
+      "last": 5.404,
+      "last_date": "2026-08-12",
+      "max_step": 2.312506999999999,
+      "n": 21,
+      "unit_note": "file units (ns for sky130hd)"
+    }
+  },
+  "sky130hd/microwatt": {
+    "_sources": {
+      "metadata_commits": 66,
+      "metadata_points": 392,
+      "period": 15.0,
+      "rules_commits": 226,
+      "rules_points": 1005
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-09",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-09-01",
+      "max_step": 0.0,
+      "n": 129,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 970608.5054617099,
+      "first_date": "2025-06-09",
+      "insufficient": false,
+      "last": 6741960.000000001,
+      "last_date": "2026-09-01",
+      "max_step": 2503477.3913043486,
+      "n": 129,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 55344.432318180116,
+      "first_date": "2025-06-09",
+      "insufficient": false,
+      "last": 4792540.0,
+      "last_date": "2026-09-01",
+      "max_step": 102150.43478260841,
+      "n": 129,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-06-17",
+      "insufficient": true,
+      "last": 0.0885896,
+      "last_date": "2026-06-17",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 260.50797109553775,
+      "first_date": "2025-10-04",
+      "insufficient": false,
+      "last": -168.0,
+      "last_date": "2026-09-01",
+      "max_step": 403.0,
+      "n": 114,
+      "unit_note": "file units (ns for sky130hd)"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 1.0459233561045345,
+      "first_date": "2025-06-09",
+      "insufficient": false,
+      "last": -1.16,
+      "last_date": "2026-09-01",
+      "max_step": 1.9100000000000001,
+      "n": 129,
+      "unit_note": "file units (ns for sky130hd)"
+    },
+    "min_period_ps": {
+      "band_2sigma": 1.0459233561045345,
+      "first_date": "2025-06-09",
+      "insufficient": false,
+      "last": 16.16,
+      "last_date": "2026-09-01",
+      "max_step": 1.9100000000000001,
+      "n": 129,
+      "unit_note": "file units (ns for sky130hd)"
+    }
+  },
+  "sky130hd/riscv32i": {
+    "_sources": {
+      "metadata_commits": 51,
+      "metadata_points": 302,
+      "period": 6.0,
+      "rules_commits": 129,
+      "rules_points": 488
+    },
+    "detailedroute__route__drc_errors": {
+      "band_2sigma": 0.0,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 0.0,
+      "last_date": "2026-08-06",
+      "max_step": 0.0,
+      "n": 59,
+      "unit_note": ""
+    },
+    "detailedroute__route__wirelength": {
+      "band_2sigma": 8992.833006387455,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 272132.1739130435,
+      "last_date": "2026-08-06",
+      "max_step": 16205.043478260835,
+      "n": 59,
+      "unit_note": ""
+    },
+    "finish__design__instance__area": {
+      "band_2sigma": 5024.092677350223,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 75559.13043478261,
+      "last_date": "2026-08-06",
+      "max_step": 6172.173913043487,
+      "n": 59,
+      "unit_note": ""
+    },
+    "finish__power__total": {
+      "band_2sigma": 0.0,
+      "first_date": "2026-06-17",
+      "insufficient": true,
+      "last": 0.0231281,
+      "last_date": "2026-06-17",
+      "max_step": 0.0,
+      "n": 1,
+      "unit_note": ""
+    },
+    "finish__timing__setup__tns": {
+      "band_2sigma": 82.04519612114574,
+      "first_date": "2025-10-04",
+      "insufficient": false,
+      "last": -184.8,
+      "last_date": "2026-08-06",
+      "max_step": 78.80000000000001,
+      "n": 49,
+      "unit_note": "file units (ns for sky130hd)"
+    },
+    "finish__timing__setup__ws": {
+      "band_2sigma": 0.7073553138508514,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": -0.9099999999999999,
+      "last_date": "2026-08-06",
+      "max_step": 0.9509999999999998,
+      "n": 59,
+      "unit_note": "file units (ns for sky130hd)"
+    },
+    "min_period_ps": {
+      "band_2sigma": 0.7073553138508516,
+      "first_date": "2025-06-10",
+      "insufficient": false,
+      "last": 6.91,
+      "last_date": "2026-08-06",
+      "max_step": 0.9510000000000005,
+      "n": 59,
+      "unit_note": "file units (ns for sky130hd)"
+    }
+  }
+}
