@@ -1,0 +1,93 @@
+rsz: collect the startpoint set once per repair, not once per progress row
+
+Candidate fix from the repair_timing runtime study, carried here while
+it is proposed upstream; retires at the bump onto an OpenROAD that
+carries it. Identical to the first commit of the upstream pull request.
+
+With -verbose, repair_timing prints a progress row every ten passes and
+once after every endpoint it visits, and each row found the startpoints
+for its StTNS column by iterating every vertex in the timing graph. On
+the asap7 designs where repair grinds the rows were 10-48% of the setup
+repair, and 88% of coralnpu's 221 s floorplan call (patches/0066).
+
+Chesterton's Fence: the walk is correct and general, and cheap when the
+row is printed a handful of times. It became the cost when the row
+started printing once per endpoint visited. The startpoint set does not
+change during setup repair, so it is walked once per collector and the
+rows re-read only the slacks; graph order is kept so the printed values
+are unchanged.
+
+diff --git a/src/rsz/src/RepairTargetCollector.cc b/src/rsz/src/RepairTargetCollector.cc
+index 3aa38a922f..94a9f7be59 100644
+--- a/src/rsz/src/RepairTargetCollector.cc
++++ b/src/rsz/src/RepairTargetCollector.cc
+@@ -845,24 +845,35 @@ void RepairTargetCollector::collectViolatingStartpoints()
+ {
+   violating_startpoints_.clear();
+ 
+-  int all_startpoints = 0;
+-  sta::VertexIterator vertex_iter(graph_);
+-  while (vertex_iter.hasNext()) {
+-    sta::Vertex* vertex = vertex_iter.next();
+-    const sta::Pin* pin = vertex->pin();
+-    if (sta_->isClock(pin, sta_->cmdMode())) {
+-      continue;
+-    }
++  // The set of startpoints is fixed for the life of this collector; only
++  // their slacks change. Walking every vertex of the graph to find them
++  // again on every -verbose progress row is what made the row cost
++  // proportional to the design, once per endpoint visited.
++  if (!startpoints_collected_) {
++    startpoint_vertices_.clear();
++    sta::VertexIterator vertex_iter(graph_);
++    while (vertex_iter.hasNext()) {
++      sta::Vertex* vertex = vertex_iter.next();
++      const sta::Pin* pin = vertex->pin();
++      if (sta_->isClock(pin, sta_->cmdMode())) {
++        continue;
++      }
+ 
+-    sta::PortDirection* direction = network_->direction(pin);
+-    if ((network_->isTopLevelPort(pin) && direction->isAnyInput())
+-        || (resizer_->isRegister(vertex) && direction->isAnyOutput())) {
+-      ++all_startpoints;
+-      const sta::Slack slack = sta_->slack(vertex, max_);
+-      if (sta::fuzzyLess(slack, slack_margin_)) {
+-        violating_startpoints_.emplace_back(pin, slack);
++      sta::PortDirection* direction = network_->direction(pin);
++      if ((network_->isTopLevelPort(pin) && direction->isAnyInput())
++          || (resizer_->isRegister(vertex) && direction->isAnyOutput())) {
++        startpoint_vertices_.push_back(vertex);
+       }
+     }
++    startpoints_collected_ = true;
++  }
++
++  const int all_startpoints = startpoint_vertices_.size();
++  for (sta::Vertex* vertex : startpoint_vertices_) {
++    const sta::Slack slack = sta_->slack(vertex, max_);
++    if (sta::fuzzyLess(slack, slack_margin_)) {
++      violating_startpoints_.emplace_back(vertex->pin(), slack);
++    }
+   }
+ 
+   // Preserve equal-slack STA startpoint order for legacy QoR parity.
+diff --git a/src/rsz/src/RepairTargetCollector.hh b/src/rsz/src/RepairTargetCollector.hh
+index 5d35fbd99a..64b8029aac 100644
+--- a/src/rsz/src/RepairTargetCollector.hh
++++ b/src/rsz/src/RepairTargetCollector.hh
+@@ -316,6 +316,14 @@ class RepairTargetCollector
+   utl::Logger* logger_;
+   sta::Sta* sta_;
+   sta::Graph* graph_;
++
++  // Startpoint vertices: top-level inputs and register outputs, clock
++  // pins excluded, in graph iteration order. Walked once per collector:
++  // setup repair inserts, resizes, clones and removes combinational
++  // cells and swaps pins, none of which creates or removes a startpoint,
++  // so only their slacks move between two rows of the progress table.
++  std::vector<sta::Vertex*> startpoint_vertices_;
++  bool startpoints_collected_ = false;
+   sta::Network* network_;
+   const sta::MinMax* max_;
+   sta::Search* search_;

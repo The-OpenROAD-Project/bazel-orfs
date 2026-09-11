@@ -1,21 +1,20 @@
 rsz: recompute design area for a progress row only after an accepted move
 
-Candidate fix from the repair_timing runtime study; not upstreamed.
-Retires at the bump onto an OpenROAD that carries it or a better
-version of it.
+Candidate fix from the repair_timing runtime study, carried here while
+it is proposed upstream; retires at the bump onto an OpenROAD that
+carries it. Identical to the second commit of the upstream pull request.
 
-Every -verbose progress row calls computeDesignArea(), a walk over every
-instance in the block. Most rows follow passes that changed nothing --
-on riscv32i cts 217 of 1181 passes accepted a move -- so the area is
-recomputed only when the committer's accepted-move count has changed
-since the row that last computed it.
+Every -verbose progress row called computeDesignArea(), a walk over
+every instance, and most rows follow passes that accepted no move (on
+riscv32i cts 217 of 1181 passes did). The area is recomputed only when
+the committer's accepted-move count has changed since the row that
+last computed it. The printed value is the same.
 
-Chesterton's Fence: Resizer::design_area_ exists and is meant to be
-incremental, but designArea() re-derives it on every call because
-buffer insertion does not go through designAreaIncr(), so the tracked
-value cannot be trusted. Making it trustworthy is a larger change across
-every instance-creating path; caching by move count is the local step
-that removes the per-row cost without touching that.
+Chesterton's Fence: Resizer::design_area_ is meant to be incremental,
+but buffer insertion does not go through designAreaIncr(), so
+designArea() re-derives it on every call and cannot be trusted here.
+Making it trustworthy is a larger change across every instance-creating
+path; caching by move count is the local step.
 
 diff --git a/src/rsz/src/MoveCommitter.cc b/src/rsz/src/MoveCommitter.cc
 index 3f0513712f..199f3841b9 100644
@@ -51,40 +50,39 @@ index db92efe916..2424f32780 100644
    bool hasMoves(MoveType type, sta::Instance* inst) const;
    bool hasBlockingBufferRemovalMove(sta::Instance* inst,
 diff --git a/src/rsz/src/RepairSetupContext.hh b/src/rsz/src/RepairSetupContext.hh
-index c33004b5f2..a347b7fdbd 100644
+index c33004b5f2..03952ab3c6 100644
 --- a/src/rsz/src/RepairSetupContext.hh
 +++ b/src/rsz/src/RepairSetupContext.hh
-@@ -57,6 +57,10 @@ struct RepairSetupContext
-   float initial_tns{0.0f};
+@@ -58,6 +58,10 @@ struct RepairSetupContext
    float previous_tns{0.0f};
    bool progress_header_printed{false};
-+  // Design area as of the last accepted-move count it was computed at;
-+  // -1 means never computed.
-+  double cached_design_area{0.0};
-+  int area_at_moves{-1};
    RepairProfile profile;
++  // Design area as of the accepted-move count it was last computed at,
++  // for the progress table; -1 means not yet computed.
++  double progress_design_area{0.0};
++  int progress_area_at_moves{-1};
  
    // Legacy-derived setup phases share one preamble per repair_setup run.
+   bool legacy_preamble_done{false};
 diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
-index fc712a751f..9cb6072395 100644
+index 2940cf6c00..60658a58b1 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.cc
 +++ b/src/rsz/src/policy/SetupLegacyBase.cc
-@@ -905,7 +905,17 @@ void SetupLegacyBase::printProgress(const int iteration,
+@@ -897,7 +897,16 @@ void SetupLegacyBase::printProgress(const int iteration,
  
    std::string itr_field = fmt::format("{}{}", iteration, phase_marker);
  
 -  const double design_area = resizer_.computeDesignArea();
-+  // computeDesignArea walks every instance. A row is printed every ten
-+  // passes and once per endpoint, and most of those rows follow passes
-+  // that changed nothing; the area can only have moved if a move was
-+  // accepted, so it is recomputed only then.
++  // computeDesignArea() walks every instance. A row is printed every ten
++  // passes and once per endpoint visited, and most of those rows follow
++  // passes that changed nothing; the area can only have moved if a move
++  // was accepted, so it is recomputed only then.
 +  const int accepted_moves = committer_.totalAcceptedMoves();
-+  if (setup_context_.area_at_moves != accepted_moves
-+      || setup_context_.area_at_moves < 0) {
-+    setup_context_.cached_design_area = resizer_.computeDesignArea();
-+    setup_context_.area_at_moves = accepted_moves;
++  if (setup_context_.progress_area_at_moves != accepted_moves) {
++    setup_context_.progress_design_area = resizer_.computeDesignArea();
++    setup_context_.progress_area_at_moves = accepted_moves;
 +  }
-+  const double design_area = setup_context_.cached_design_area;
++  const double design_area = setup_context_.progress_design_area;
    const double area_growth = design_area - setup_context_.initial_design_area;
    double area_growth_percent = std::numeric_limits<double>::infinity();
    if (std::abs(setup_context_.initial_design_area) > 0.0) {

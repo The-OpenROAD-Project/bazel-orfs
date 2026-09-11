@@ -10,7 +10,7 @@ import sys
 
 NAMES = {
     "0066": "0066-openroad-rsz-profile-repair-setup.patch",
-    "0067": "0067-openroad-rsz-progress-row-startpoints-only-when-steering.patch",
+    "0067": "0067-openroad-rsz-progress-row-startpoints-once.patch",
     "0068": "0068-openroad-rsz-progress-row-area-only-after-a-move.patch",
     "0069": "0069-openroad-rsz-exit-setup-repair-when-nothing-moves.patch",
 }
