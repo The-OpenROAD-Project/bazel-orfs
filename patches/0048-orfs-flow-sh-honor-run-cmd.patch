@@ -15,6 +15,23 @@ Defaulting to the current command keeps the behavior identical when
 RUN_CMD is unset, so this is a no-op for a normal `make` and makes the
 variable mean what its name says everywhere.
 
+Not upstreamable on its own, contrary to the commit that carried it
+here -- 2837a5c, in #900, which closed with "Upstreamable as-is, and
+worth upstreaming". flow.sh writes the stage log through RUN_CMD and
+then, four lines later, parses that same log back with
+genElapsedTime.py -- and that
+parser read the timing line positionally, so a wrapper that prefixes
+each line (bazel-orfs's own //:log_timestamps.py, under
+--@bazel-orfs//:log_timestamps) silently deleted the per-stage summary
+block, sha1sum column included, exit status 0. Landing this alone would
+hand that regression to every ORFS user who overrides RUN_CMD.
+patches/0065-orfs-genelapsedtime-stamped-log.patch fixes the parser and
+is the prerequisite; the two are one change and go upstream together or
+not at all.
+
+Not upstreamed. Retire at the //:bump onto an ORFS whose flow.sh runs
+the stage through RUN_CMD.
+
 diff --git a/flow/scripts/flow.sh b/flow/scripts/flow.sh
 --- a/flow/scripts/flow.sh
 +++ b/flow/scripts/flow.sh
