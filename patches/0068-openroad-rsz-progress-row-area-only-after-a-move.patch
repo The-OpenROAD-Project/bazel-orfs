@@ -7,8 +7,8 @@ carries it. Identical to the second commit of the upstream pull request.
 Every -verbose progress row called computeDesignArea(), a walk over
 every instance, and most rows follow passes that accepted no move (on
 riscv32i cts 217 of 1181 passes did). The area is recomputed only when
-the committer's accepted-move count has changed since the row that
-last computed it. The printed value is the same.
+the committer's netlist-edit count (accepted and reverted moves, a
+monotonic counter) has changed since the row that last computed it. The printed value is the same.
 
 Chesterton's Fence: Resizer::design_area_ is meant to be incremental,
 but buffer insertion does not go through designAreaIncr(), so
@@ -17,70 +17,91 @@ Making it trustworthy is a larger change across every instance-creating
 path; caching by move count is the local step.
 
 diff --git a/src/rsz/src/MoveCommitter.cc b/src/rsz/src/MoveCommitter.cc
-index 3f0513712f..199f3841b9 100644
+index 3f0513712f..fa93ecd3cf 100644
 --- a/src/rsz/src/MoveCommitter.cc
 +++ b/src/rsz/src/MoveCommitter.cc
-@@ -649,6 +649,15 @@ int MoveCommitter::summaryCommittedMoves(const MoveType type) const
-   return summary_carried_by_type_[index] + committed_by_type_[index];
- }
+@@ -376,6 +376,7 @@ void MoveCommitter::recordAcceptedResult(const MoveResult& result)
+   // Track committed instances by move type so later passes can avoid conflicts
+   const size_t index = typeIndex(result.type);
+   pending_by_type_[index] += result.move_count;
++  ++netlist_edits_;
+   for (sta::Instance* inst : result.touched_instances) {
+     pending_instances_by_type_[index].insert(inst);
+     // Preserve legacy BaseMove semantics: once a move type touched an
+@@ -392,6 +393,7 @@ void MoveCommitter::unrecordAcceptedResult(const MoveResult& result)
+   // Remove the reverted move results
+   const size_t index = typeIndex(result.type);
+   pending_by_type_[index] -= result.move_count;
++  ++netlist_edits_;
+   for (sta::Instance* inst : result.touched_instances) {
+     pending_instances_by_type_[index].erase(
+         pending_instances_by_type_[index].find(inst));
+@@ -624,6 +626,7 @@ void MoveCommitter::rejectPendingMoves()
+   resizer_.addRejectedLegacyMoveCount(move_count);
  
-+int MoveCommitter::totalAcceptedMoves() const
-+{
-+  int total = 0;
-+  for (int i = 0; i < static_cast<int>(MoveType::kCount); ++i) {
-+    total += totalMoves(static_cast<MoveType>(i));
-+  }
-+  return total;
-+}
-+
- int MoveCommitter::totalMoves(const MoveType type) const
- {
-   const size_t index = typeIndex(type);
+   std::ranges::fill(pending_by_type_, 0);
++  ++netlist_edits_;
+   for (std::unordered_multiset<sta::Instance*>& pending_instances :
+        pending_instances_by_type_) {
+     pending_instances.clear();
 diff --git a/src/rsz/src/MoveCommitter.hh b/src/rsz/src/MoveCommitter.hh
-index db92efe916..2424f32780 100644
+index db92efe916..e2cd65c173 100644
 --- a/src/rsz/src/MoveCommitter.hh
 +++ b/src/rsz/src/MoveCommitter.hh
-@@ -129,6 +129,8 @@ class MoveCommitter
+@@ -129,6 +129,11 @@ class MoveCommitter
    int committedMoves(MoveType type) const;
    int summaryCommittedMoves(MoveType type) const;
    int totalMoves(MoveType type) const;
-+  // Sum of totalMoves over every move type.
-+  int totalAcceptedMoves() const;
++  // Count of netlist edits through this committer: every accepted move
++  // and every reverted one. Monotonic, so a caller can tell whether the
++  // design changed between two points even when a revert and a new
++  // accept leave the per-type totals where they were.
++  int netlistEdits() const { return netlist_edits_; }
    bool hasPendingMoves(MoveType type, sta::Instance* inst) const;
    bool hasMoves(MoveType type, sta::Instance* inst) const;
    bool hasBlockingBufferRemovalMove(sta::Instance* inst,
+@@ -164,6 +169,7 @@ class MoveCommitter
+   // the parent's vector (mirroring odb's commitEco append-to-parent semantics).
+   std::stack<std::vector<MoveResult>> pending_move_results_;
+   std::array<int, kTypeCount> pending_by_type_{};
++  int netlist_edits_ = 0;
+   std::array<int, kTypeCount> committed_by_type_{};
+   std::array<int, kTypeCount> summary_carried_by_type_{};
+   std::array<std::unordered_multiset<sta::Instance*>, kTypeCount>
 diff --git a/src/rsz/src/RepairSetupContext.hh b/src/rsz/src/RepairSetupContext.hh
-index c33004b5f2..03952ab3c6 100644
+index c33004b5f2..b38ade6a98 100644
 --- a/src/rsz/src/RepairSetupContext.hh
 +++ b/src/rsz/src/RepairSetupContext.hh
 @@ -58,6 +58,10 @@ struct RepairSetupContext
    float previous_tns{0.0f};
    bool progress_header_printed{false};
    RepairProfile profile;
-+  // Design area as of the accepted-move count it was last computed at,
-+  // for the progress table; -1 means not yet computed.
++  // Design area for the progress table, and the committer's netlist edit
++  // count it was computed at; -1 means not yet computed.
 +  double progress_design_area{0.0};
-+  int progress_area_at_moves{-1};
++  int progress_area_at_edit{-1};
  
    // Legacy-derived setup phases share one preamble per repair_setup run.
    bool legacy_preamble_done{false};
 diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
-index 2940cf6c00..60658a58b1 100644
+index 2940cf6c00..859f085353 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.cc
 +++ b/src/rsz/src/policy/SetupLegacyBase.cc
-@@ -897,7 +897,16 @@ void SetupLegacyBase::printProgress(const int iteration,
+@@ -897,7 +897,18 @@ void SetupLegacyBase::printProgress(const int iteration,
  
    std::string itr_field = fmt::format("{}{}", iteration, phase_marker);
  
 -  const double design_area = resizer_.computeDesignArea();
 +  // computeDesignArea() walks every instance. A row is printed every ten
 +  // passes and once per endpoint visited, and most of those rows follow
-+  // passes that changed nothing; the area can only have moved if a move
-+  // was accepted, so it is recomputed only then.
-+  const int accepted_moves = committer_.totalAcceptedMoves();
-+  if (setup_context_.progress_area_at_moves != accepted_moves) {
++  // passes that changed nothing; the area can only have moved if the
++  // netlist was edited, so it is recomputed only then. The committer's
++  // edit count is monotonic: a revert followed by a different accept
++  // changes it even when the per-type move totals come back equal.
++  const int edits = committer_.netlistEdits();
++  if (setup_context_.progress_area_at_edit != edits) {
 +    setup_context_.progress_design_area = resizer_.computeDesignArea();
-+    setup_context_.progress_area_at_moves = accepted_moves;
++    setup_context_.progress_area_at_edit = edits;
 +  }
 +  const double design_area = setup_context_.progress_design_area;
    const double area_growth = design_area - setup_context_.initial_design_area;
