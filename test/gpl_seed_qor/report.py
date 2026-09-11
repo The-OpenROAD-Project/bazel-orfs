@@ -106,7 +106,26 @@ def corpus_rows(snapshot):
     return rows, excluded
 
 
-def section_corpus(snapshot):
+def figure(base, name, alt):
+    """A figure reference, or nothing when no base URL was given.
+
+    Args:
+        base: the pinned raw URL of the directory holding the PNGs.
+            None renders no image, so the report is still complete
+            as text before the figures are pushed.
+        name: the file name.
+        alt: alt text stating the claim the figure makes, not what
+            it is a picture of.
+
+    Returns:
+        The markdown, or "".
+    """
+    if not base:
+        return ""
+    return "\n![%s](%s/%s)\n" % (alt, base.rstrip("/"), name)
+
+
+def section_corpus(snapshot, figure_base=None):
     """The prior: the trendline and the spread around it."""
     if snapshot is None:
         return (
@@ -173,7 +192,14 @@ def section_corpus(snapshot):
     lines += ["", "Excluded, with the reason:", "", "| design | reason |", "| --- | --- |"]
     for name, reason in excluded:
         lines.append("| %s | %s |" % (name, reason))
-    lines.append("")
+    lines.append(
+        figure(
+            figure_base,
+            "residuals.png",
+            "Designs sit up to 0.9 of a clock period from the trendline, "
+            "while the band a placement seed moves them is a hairline at zero",
+        )
+    )
     return "\n".join(lines), fit
 
 
@@ -223,7 +249,7 @@ def worst_z(values):
     return max(abs(value - mean) / sigma for value in values)
 
 
-def section_ensembles(samples):
+def section_ensembles(samples, figure_base=None):
     """What changing only the placement seed does, per design."""
     groups = by_design(samples)
     if not groups:
@@ -277,12 +303,19 @@ def section_ensembles(samples):
         " largest |z| over every ensemble here is what the table says it"
         " is -- no seed is an outlier in the sense that would make it a"
         " bug report.",
+        figure(
+            figure_base,
+            "ensembles.png",
+            "Six ensembles, each about a percent of the clock wide, with "
+            "the no-perturbation run landing on either side of the cloud "
+            "depending on the design",
+        ),
         "",
     ]
     return "\n".join(lines), spreads
 
 
-def section_controls(samples):
+def section_controls(samples, figure_base=None):
     """The three controls, and the perturbation dose-response.
 
     A campaign that reports a spread has to show first that the spread
@@ -347,6 +380,12 @@ def section_controls(samples):
         " nanometres, against a default of `min(0.5 um, row height)`. Both"
         " go through `GLOBAL_PLACEMENT_ARGS`, which ORFS already appends"
         " verbatim -- no patch.",
+        figure(
+            figure_base,
+            "dose.png",
+            "Spread does not grow with the perturbation radius over a 20x "
+            "range: sensitivity to the starting point, not to its size",
+        ),
         "",
     ]
     return "\n".join(lines)
@@ -1053,15 +1092,22 @@ def section_candidates(samples):
         lines.append("| | | | **Not yet measured** | | |")
     lines += [
         "",
-        "**The sign flips between designs.** A 4x larger radius is worth"
-        " picoseconds on the smaller design and costs picoseconds on the"
-        " larger one, both resolved against their own ensembles. There"
-        " is therefore no default to propose: what looked like a free"
-        " win on one design is a loss on the next, which is what a"
-        " per-design knob looks like and not what a better default looks"
-        " like. Switching the perturbation off entirely is the one"
-        " direction that is consistently worse, on every design"
-        " measured.",
+        "**The sign flips between designs, in both directions.** A 4x"
+        " larger radius is worth picoseconds on gcd and costs"
+        " picoseconds on aes, both resolved against their own"
+        " ensembles. Switching the perturbation off does not have a"
+        " consistent sign either: it costs min_period on four of the six"
+        " designs and *gains* it on two, all resolved. So there is no"
+        " default to propose in either direction -- not a different"
+        " radius, and not turning it off. This is a per-design knob"
+        " wearing a global default, and the only honest summary is the"
+        " table.",
+        "",
+        "The contrast with timing-driven placement, measured on the same"
+        " six ensembles, is the point: that one improves min_period on"
+        " every design, by 4.7 to 152 ps, every one resolved. That is"
+        " what a setting with a right answer looks like, and the"
+        " perturbation radius does not look like it.",
         "",
         "**The fence.** The default is not arbitrary. OpenROAD"
         " `616a13d5ce` sets the radius to `min(0.5 um, row height)` and"
@@ -1229,6 +1275,12 @@ def main(argv=None):
     parser.add_argument("--corpus-json", default=None)
     parser.add_argument("--out-md", default="-")
     parser.add_argument(
+        "--figure-base",
+        default=None,
+        help="pinned raw URL of the directory holding the figures; "
+        "omitted, the report renders without images",
+    )
+    parser.add_argument(
         "--out-csv",
         default=None,
         help="also write one row per sample, for the PR's raw-data comment",
@@ -1241,14 +1293,18 @@ def main(argv=None):
         with open(args.corpus_json) as handle:
             snapshot = json.load(handle)
 
-    corpus_md, fit = section_corpus(snapshot) if snapshot else (section_corpus(None), None)
-    ensembles_md, spreads = section_ensembles(samples)
+    corpus_md, fit = (
+        section_corpus(snapshot, args.figure_base)
+        if snapshot
+        else (section_corpus(None), None)
+    )
+    ensembles_md, spreads = section_ensembles(samples, args.figure_base)
     parts = [
         headline(samples, fit),
         section_method(samples),
         corpus_md,
         ensembles_md,
-        section_controls(samples),
+        section_controls(samples, args.figure_base),
         section_arms(samples),
         section_repair(samples),
         section_trajectory(samples),
