@@ -1891,6 +1891,19 @@ py_test(
     deps = ["//:host_tools_lib"],
 )
 
+# //:deps locates the reproducer tarball through the {name}_deps_tar
+# companion, never through {name}_deps, which owns no tarball. Driven
+# with a stub 'bazelisk' on PATH so no ORFS stage has to be built; also
+# pins that a missing tarball prints a diagnostic instead of the bare
+# 'set -e' abort it used to die of.
+sh_test(
+    name = "deps_wrapper_test",
+    size = "small",
+    srcs = ["deps_wrapper_test.sh"],
+    args = ["$(rootpath //:deps)"],
+    data = ["//:deps"],
+)
+
 sh_test(
     name = "klayout_wrapper_test",
     srcs = ["tool_wrapper_test.sh"],
