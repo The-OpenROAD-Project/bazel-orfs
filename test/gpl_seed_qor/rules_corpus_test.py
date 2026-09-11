@@ -77,6 +77,36 @@ class PadRoundTrip(unittest.TestCase):
         self.assertLess(abs(recovered - measured), 0.001 * abs(measured))
 
 
+class PaddingIsAlwaysThePeriodTerm(unittest.TestCase):
+    """The claim the write-up makes about genRuleFile.py, pinned.
+
+    `period_padding` mode reads
+
+        negative_slack - max(negative_slack * p/100, period * p/100)
+
+    and `negative_slack` is `min(m, 0)`, so the first argument of the
+    max is never positive and the second never is: the max is the period
+    term for every input. The inversion this module performs depends on
+    that, and so does the study's claim that the relative half of the
+    TNS margin is unreachable -- so both are asserted here rather than
+    argued.
+    """
+
+    def test_the_relative_argument_never_wins(self):
+        import random
+
+        rng = random.Random(11)
+        for _ in range(20000):
+            metric = rng.uniform(-50000.0, 5000.0)
+            period = rng.uniform(0.0, 5000.0)
+            padding = rng.choice([5, 20])
+            self.assertAlmostEqual(
+                pad(metric, period, padding),
+                min(metric, 0) - period * padding / 100.0,
+                places=9,
+            )
+
+
 class PeriodRecovery(unittest.TestCase):
     def _rules(self, period, values):
         return {

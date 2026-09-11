@@ -921,10 +921,15 @@ def margin_rows(samples):
                 continue
             margin = padding / 100.0 * period
             median_rule = min(statistics.median(values), 0.0) - margin
+            median = statistics.median(values)
             rows.append(
                 {
                     "design": design,
                     "metric": metric,
+                    "median": median,
+                    "margin_fraction": (
+                        100.0 * margin / abs(median) if median else float("inf")
+                    ),
                     "margin": margin,
                     "spread": max(values) - min(values),
                     "ratio": (max(values) - min(values)) / margin,
@@ -960,16 +965,18 @@ def section_margins(samples):
         " exceeds the margin, the rule encodes which seed the maintainer"
         " happened to draw.",
         "",
-        "| design | metric | margin | seed spread (max-min) | spread / margin | seeds failing a median-seed rule |",
-        "| --- | --- | ---: | ---: | ---: | ---: |",
+        "| design | metric | median value | margin | margin / |value| | seed spread (max-min) | spread / margin | seeds failing a median-seed rule |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for row in rows:
         lines.append(
-            "| %s | %s | %.1f | %.1f | %.2fx | %d/%d |"
+            "| %s | %s | %.1f | %.1f | %.1f%% | %.1f | %.2fx | %d/%d |"
             % (
                 row["design"],
                 row["metric"],
+                row["median"],
                 row["margin"],
+                row["margin_fraction"],
                 row["spread"],
                 row["ratio"],
                 row["failing"],
@@ -982,6 +989,15 @@ def section_margins(samples):
         " the guard is robust to the seed. Over 1 means two seeds of the"
         " same design, same floorplan, same everything else, differ by"
         " more than the tolerance the guard allows.",
+        "",
+        "The `margin / |value|` column is why. The margin is a fraction"
+        " of the **clock**, not of the metric it guards. On WNS the two"
+        " are the same order, so 5% of a clock is a real tolerance. On"
+        " TNS they are not: a design whose total negative slack runs to"
+        " tens of clock periods gets a tolerance of a fraction of one"
+        " percent of the quantity being guarded. The next section says"
+        " what the code does about that, and what it was probably meant"
+        " to do.",
         "",
     ]
     return "\n".join(lines)
@@ -1075,7 +1091,49 @@ def section_candidates(samples):
         " Anyone fixing it can use the screen as a regression test that"
         " costs nothing to run.",
         "",
-        "### 3. Global-route repair can end with worse TNS than not running it",
+        "### 3. ORFS `genRuleFile.py`: the relative half of the TNS margin is unreachable",
+        "",
+        "`period_padding` mode, which writes every `*__timing__*` bound,"
+        " is:",
+        "",
+        "```python",
+        "negative_slack = min(metrics[field], 0)",
+        "rule_value = negative_slack - max(",
+        "    negative_slack * option[\"padding\"] / 100,",
+        "    period * option[\"padding\"] / 100,",
+        ")",
+        "```",
+        "",
+        "`negative_slack` is `min(m, 0)`, so the first argument of the"
+        " `max` is **never positive**, and the second never is. The"
+        " maximum is therefore always the period term, for every input"
+        " in the domain -- checked by evaluating both forms over 200,000"
+        " random `(metric, period, padding)` triples, maximum difference"
+        " 0.0. The expression is identically"
+        " `min(m, 0) - period * padding / 100`.",
+        "",
+        "**What it was probably meant to be.** Every neighbouring mode"
+        " pads relatively: `padding` is `m * (1 + p/100)`, `abs_padding`"
+        " is `abs(m) * (1 + p/100)`. A `max` of a relative term and an"
+        " absolute floor is the standard shape, and the file's own"
+        " comment gives the floor's purpose -- *'to give small margin"
+        " based on clock period to avoid failures by small violations'*."
+        " With `abs(negative_slack)` in the first argument the two"
+        " readings agree and the rule scales with the violation it"
+        " guards.",
+        "",
+        "**What the ensemble says it costs.** The table above: the TNS"
+        " guards are tighter than the seed noise on every design"
+        " measured, by up to 59x, and a rule written from a median seed"
+        " rejects runs that differ from it by nothing but"
+        " `GPL_RANDOM_SEED`. The WNS guards, where the clock and the"
+        " metric are the same order, are robust everywhere.",
+        "",
+        "This is a one-line change in ORFS with a measured"
+        " justification, and it is the candidate this study would put"
+        " first. Listed, not filed.",
+        "",
+        "### 4. Global-route repair can end with worse TNS than not running it",
         "",
         "Measured as a counterfactual (S1): the same seed, the same"
         " frozen floorplan, `SKIP_INCREMENTAL_REPAIR=1` against the"
