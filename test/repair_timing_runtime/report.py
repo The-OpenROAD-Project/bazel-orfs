@@ -208,10 +208,18 @@ def arm_samples(records, design, stage, kind="setup_hold"):
                     continue
                 seconds = (call.get("setup_s") or 0) + (call.get("hold_s") or 0)
                 final = final_row(record, step, index)
+                # The repair's own outcome, for when the ODB hash differs
+                # for reasons downstream of repair: the final row's move
+                # counters with WNS and TNS.
+                outcome = (
+                    tuple(final.get(k) for k in ("removed", "resized", "inserted", "cloned", "swaps", "wns", "en_tns"))
+                    if final else None
+                )
                 out.setdefault(record["arm"], []).append((
                     seconds, call.get("wns_end"), got.get("result_sha1"),
                     final.get("en_tns") if final else None,
                     final.get("area_pct") if final else None,
+                    outcome,
                 ))
     return out
 
@@ -248,10 +256,11 @@ def arms_table(records, design, stage, base=None):
     base_tns = med(s[3] for s in samples[base])
     base_area = med(s[4] for s in samples[base])
     base_sha = {s[2] for s in samples[base]}
+    base_outcome = {s[5] for s in samples[base]}
     lines = [
         "| arm | setup+hold (s), each repeat | median | delta | 2σ (base) | resolution | verdict "
-        "| WNS end delta (ps, + better) | TNS end delta (ps, + better) | area delta | same ODB as base |",
-        "| --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | --- |",
+        "| WNS end delta (ps, + better) | TNS end delta (ps, + better) | area delta | same ODB as base | same repair result |",
+        "| --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: | --- | --- |",
     ]
     for arm in sorted(samples, key=lambda a: (a != base, a)):
         secs = [s[0] for s in samples[arm]]
@@ -272,8 +281,12 @@ def arms_table(records, design, stage, base=None):
         area_delta = area - base_area if (area is not None and base_area is not None) else None
         shas = {s[2] for s in samples[arm]}
         same = "yes" if shas and shas == base_sha else ("no" if shas else "–")
+        if shas and shas != base_sha and shas & base_sha:
+            same = "partly"  # some repeats match: nondeterminism downstream of repair
+        outcomes = {s[5] for s in samples[arm]}
+        same_repair = "yes" if outcomes and outcomes == base_outcome else ("no" if outcomes else "–")
         lines.append(
-            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
+            "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
                 arm,
                 ", ".join(fmt(s) for s in secs),
                 fmt(median),
@@ -285,6 +298,7 @@ def arms_table(records, design, stage, base=None):
                 fmt(tns_delta, 0) if tns_delta is not None else "–",
                 fmt(area_delta, 1, "%") if area_delta is not None else "–",
                 same,
+                same_repair,
             )
         )
     return "\n".join(lines) + "\n"
