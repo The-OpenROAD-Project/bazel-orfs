@@ -228,7 +228,24 @@ def file_history(orfs, path):
     return out
 
 
-def load_design(orfs, design):
+def window(points, since=None, last=None):
+    """Restrict a sorted (date, value) series to a recent window.
+
+    The whole history is an era, not a noise floor: sky130hd/aes's area
+    moved 9x between 2021 and today. A band that should say "would a
+    maintainer notice this move" is taken over the recent history only,
+    by date (`since`, ISO) or by count (`last` points), whichever is
+    given; both apply if both are.
+    """
+    out = points
+    if since:
+        out = [(d, v) for d, v in out if d >= since]
+    if last:
+        out = out[-last:]
+    return out
+
+
+def load_design(orfs, design, since=None, last=None):
     """Return the results dict for one "<platform>/<design>"."""
     base = "flow/designs/%s" % design
     meta_hist = file_history(orfs, base + "/metadata-base-ok.json")
@@ -278,7 +295,7 @@ def load_design(orfs, design):
     unit = "ps" if design.startswith("asap7") else "file units (ns for sky130hd)"
     results = {}
     for m, pts in series.items():
-        merged = merge_series(pts)
+        merged = window(merge_series(pts), since, last)
         note = unit if ("timing" in m or m == "min_period_ps") else ""
         if m == "min_period_ps" and period_at("9999-12-31") is None:
             note = "period unknown; timing metrics skipped"
@@ -329,6 +346,8 @@ def main(argv=None):
     ap.add_argument("--designs", nargs="*", default=[], help="platform/design")
     ap.add_argument("--platforms", nargs="*", default=[], help="enumerate")
     ap.add_argument("--out", help="write JSON here instead of stdout")
+    ap.add_argument("--since", help="ISO date; keep only points from then on")
+    ap.add_argument("--last", type=int, help="keep only the last N points")
     args = ap.parse_args(argv)
 
     designs = list(args.designs) + enumerate_designs(args.orfs, args.platforms)
@@ -336,7 +355,7 @@ def main(argv=None):
         ap.error("give --designs and/or --platforms")
     results = {}
     for design in designs:
-        results[design] = load_design(args.orfs, design)
+        results[design] = load_design(args.orfs, design, args.since, args.last)
         print(summary_line(design, results[design]), file=sys.stderr)
     text = json.dumps(results, indent=2, sort_keys=True)
     if args.out:
