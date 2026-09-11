@@ -21,10 +21,18 @@ two-consecutive-terminations rule still applies on top, so a single
 stalled stretch followed by progress continues as before.
 
 diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
-index 2940cf6c00..9c7b837e2c 100644
+index 859f085353..fa13b6dd51 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.cc
 +++ b/src/rsz/src/policy/SetupLegacyBase.cc
-@@ -65,6 +65,8 @@ SetupLegacyBase::SetupLegacyBase(Resizer& resizer,
+@@ -30,6 +30,7 @@
+ #include "est/EstimateParasitics.h"
+ #include "rsz/Resizer.hh"
+ #include "sta/Delay.hh"
++#include "sta/Fuzzy.hh"
+ #include "sta/Graph.hh"
+ #include "sta/GraphClass.hh"
+ #include "sta/Liberty.hh"
+@@ -65,6 +66,8 @@ SetupLegacyBase::SetupLegacyBase(Resizer& resizer,
  
  bool SetupLegacyBase::start()
  {
@@ -33,7 +41,7 @@ index 2940cf6c00..9c7b837e2c 100644
    OptimizationPolicy::start();
    setup_context_.max_repairs_per_pass = config_.max_repairs_per_pass;
    if (!setup_context_.phase_pipeline_active) {
-@@ -945,6 +947,33 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
+@@ -956,6 +959,33 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
      }
      float inc_fix_rate = (prev_tns - curr_tns) / initial_tns;
      prev_tns = curr_tns;

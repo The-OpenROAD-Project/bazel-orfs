@@ -102,10 +102,18 @@ index 454cc2758c..08697a4ec6 100644
    committer_.capturePrePhaseSlack();
    int& num_viols = setup_context_.violation_count;
 diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
-index 859f085353..b1139753e7 100644
+index 859f085353..735b4fc664 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.cc
 +++ b/src/rsz/src/policy/SetupLegacyBase.cc
-@@ -66,6 +66,10 @@ SetupLegacyBase::SetupLegacyBase(Resizer& resizer,
+@@ -30,6 +30,7 @@
+ #include "est/EstimateParasitics.h"
+ #include "rsz/Resizer.hh"
+ #include "sta/Delay.hh"
++#include "sta/Fuzzy.hh"
+ #include "sta/Graph.hh"
+ #include "sta/GraphClass.hh"
+ #include "sta/Liberty.hh"
+@@ -66,6 +67,10 @@ SetupLegacyBase::SetupLegacyBase(Resizer& resizer,
  bool SetupLegacyBase::start()
  {
    OptimizationPolicy::start();
@@ -116,7 +124,7 @@ index 859f085353..b1139753e7 100644
    setup_context_.max_repairs_per_pass = config_.max_repairs_per_pass;
    if (!setup_context_.phase_pipeline_active) {
      return true;
-@@ -668,6 +672,7 @@ bool SetupLegacyBase::tryCandidateSequence(
+@@ -668,6 +673,7 @@ bool SetupLegacyBase::tryCandidateSequence(
        utl::DebugScopedTimer timer(profile.commit_s);
        result = committer_.commit(*candidate);
      }
@@ -124,7 +132,7 @@ index 859f085353..b1139753e7 100644
      if (!result.accepted) {
        continue;
      }
-@@ -725,6 +730,9 @@ bool SetupLegacyBase::tryRepairTarget(
+@@ -725,6 +731,9 @@ bool SetupLegacyBase::tryRepairTarget(
      if (rejected_types != nullptr && rejected_types->contains(type)) {
        continue;
      }
@@ -134,7 +142,7 @@ index 859f085353..b1139753e7 100644
      if (!generator.isApplicable(live_target)) {
        continue;
      }
-@@ -956,7 +964,12 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
+@@ -956,7 +965,12 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
      }
      float inc_fix_rate = (prev_tns - curr_tns) / initial_tns;
      prev_tns = curr_tns;
@@ -147,7 +155,7 @@ index 859f085353..b1139753e7 100644
        debugPrint(logger_,
                   RSZ,
                   "repair_setup",
-@@ -1008,6 +1021,103 @@ void SetupLegacyBase::reportProfile(const std::string_view phase_name,
+@@ -1008,6 +1022,103 @@ void SetupLegacyBase::reportProfile(const std::string_view phase_name,
        p.accepted);
  }
  

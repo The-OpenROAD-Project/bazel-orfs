@@ -58,10 +58,18 @@ index 454cc2758c..f1dc7fd98c 100644
    committer_.capturePrePhaseSlack();
    int& num_viols = setup_context_.violation_count;
 diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
-index 859f085353..a49a6abc6e 100644
+index 859f085353..1aa8a21e2f 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.cc
 +++ b/src/rsz/src/policy/SetupLegacyBase.cc
-@@ -65,7 +65,12 @@ SetupLegacyBase::SetupLegacyBase(Resizer& resizer,
+@@ -30,6 +30,7 @@
+ #include "est/EstimateParasitics.h"
+ #include "rsz/Resizer.hh"
+ #include "sta/Delay.hh"
++#include "sta/Fuzzy.hh"
+ #include "sta/Graph.hh"
+ #include "sta/GraphClass.hh"
+ #include "sta/Liberty.hh"
+@@ -65,7 +66,12 @@ SetupLegacyBase::SetupLegacyBase(Resizer& resizer,
  
  bool SetupLegacyBase::start()
  {
@@ -74,7 +82,7 @@ index 859f085353..a49a6abc6e 100644
    setup_context_.max_repairs_per_pass = config_.max_repairs_per_pass;
    if (!setup_context_.phase_pipeline_active) {
      return true;
-@@ -668,6 +673,7 @@ bool SetupLegacyBase::tryCandidateSequence(
+@@ -668,6 +674,7 @@ bool SetupLegacyBase::tryCandidateSequence(
        utl::DebugScopedTimer timer(profile.commit_s);
        result = committer_.commit(*candidate);
      }
@@ -82,7 +90,7 @@ index 859f085353..a49a6abc6e 100644
      if (!result.accepted) {
        continue;
      }
-@@ -725,6 +731,9 @@ bool SetupLegacyBase::tryRepairTarget(
+@@ -725,6 +732,9 @@ bool SetupLegacyBase::tryRepairTarget(
      if (rejected_types != nullptr && rejected_types->contains(type)) {
        continue;
      }
@@ -92,7 +100,7 @@ index 859f085353..a49a6abc6e 100644
      if (!generator.isApplicable(live_target)) {
        continue;
      }
-@@ -956,6 +965,33 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
+@@ -956,6 +966,33 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
      }
      float inc_fix_rate = (prev_tns - curr_tns) / initial_tns;
      prev_tns = curr_tns;
@@ -126,7 +134,7 @@ index 859f085353..a49a6abc6e 100644
      if (iteration > 1000 && inc_fix_rate < fix_rate_threshold) {
        debugPrint(logger_,
                   RSZ,
-@@ -1008,6 +1044,63 @@ void SetupLegacyBase::reportProfile(const std::string_view phase_name,
+@@ -1008,6 +1045,63 @@ void SetupLegacyBase::reportProfile(const std::string_view phase_name,
        p.accepted);
  }
  
