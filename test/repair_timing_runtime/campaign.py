@@ -92,7 +92,37 @@ DESIGNS = {
     "swerv_wrapper": "@orfs//flow/designs/asap7/swerv_wrapper:swerv_wrapper",
     "tinyRocket": "@orfs//flow/designs/asap7/tinyRocket:RocketTile",
     "uart": "@orfs//flow/designs/asap7/uart:uart",
+    # sky130hd, for the dominance proof across both suites.
+    "sky130hd/aes": "@orfs//flow/designs/sky130hd/aes:aes_cipher_top",
+    "sky130hd/chameleon": "@orfs//flow/designs/sky130hd/chameleon:soc_core",
+    "sky130hd/gcd": "@orfs//flow/designs/sky130hd/gcd:gcd",
+    "sky130hd/ibex": "@orfs//flow/designs/sky130hd/ibex:ibex_core",
+    "sky130hd/jpeg": "@orfs//flow/designs/sky130hd/jpeg:jpeg_encoder",
+    "sky130hd/microwatt": "@orfs//flow/designs/sky130hd/microwatt:microwatt",
+    "sky130hd/riscv32i": "@orfs//flow/designs/sky130hd/riscv32i:riscv",
 }
+
+# The whole flow from the synthesized netlist to the final report, as one
+# make invocation on a floorplan deployment: ORFS chains the stages. This
+# is the arm the dominance proof runs -- the KPIs a maintainer reads come
+# from 6_report.json, and every stage's wall from its log.
+FULL_FLOW = "full"
+
+# Metric keys the verdict reads from the per-step metrics JSONs OpenROAD
+# writes with -metrics (flow.sh). Kept small on purpose: these are the
+# axes of the Pareto check.
+KPI_KEYS = (
+    "finish__timing__setup__ws",
+    "finish__timing__setup__tns",
+    "finish__timing__hold__ws",
+    "finish__design__instance__area",
+    "finish__power__total",
+    "detailedroute__route__wirelength",
+    "detailedroute__route__drc_errors",
+    "detailedroute__antenna__violating__nets",
+    "constraints__clocks__details",
+    "constraints__clocks__count",
+)
 
 # The arms: a name, and the make variables that make it different from
 # the design's own config.mk. `base` is the census and the control.
@@ -332,6 +362,31 @@ def result_hash(deploy_dir, step):
     return hasher.hexdigest()[:20]
 
 
+def make_targets(stage):
+    """The make targets one arm runs: the stage's do- steps, or the flow."""
+    if stage == FULL_FLOW:
+        return ["finish"]
+    return ["do-" + step for step in STAGE_SUBSTEPS[stage]]
+
+
+def collect_metrics(logs_dir):
+    """KPI values out of every <step>.json in the deployment's log dir."""
+    out = {}
+    for name in sorted(os.listdir(logs_dir)):
+        if not name.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(logs_dir, name)) as handle:
+                metrics = json.load(handle)
+        except ValueError:
+            continue
+        step = name[: -len(".json")]
+        picked = {k: v for k, v in metrics.items() if k in KPI_KEYS}
+        if picked:
+            out[step] = picked
+    return out
+
+
 def run_arm(deploy_dir, stage, threads, overrides, openroad_exe, verbose):
     """Run every substep of one stage with the arm's variables.
 
@@ -343,7 +398,7 @@ def run_arm(deploy_dir, stage, threads, overrides, openroad_exe, verbose):
         raise SystemExit("cannot pin: /proc/cpuinfo exposes no core topology")
     argv = ["taskset", "-c", "0-{}".format(cores - 1)]
     argv.append(os.path.join(deploy_dir, "make"))
-    argv += ["do-" + step for step in STAGE_SUBSTEPS[stage]]
+    argv += make_targets(stage)
     argv.append("NUM_CORES={}".format(threads))
     for key, value in sorted(overrides.items()):
         argv.append("{}={}".format(key, value))
@@ -379,19 +434,34 @@ def run_arm(deploy_dir, stage, threads, overrides, openroad_exe, verbose):
     return wall
 
 
+def flow_steps(logs):
+    """Every substep that left a log in the deployment, in flow order."""
+    return sorted(
+        name[: -len(".log")]
+        for name in os.listdir(logs)
+        if name.endswith(".log") and name[0].isdigit()
+    )
+
+
 def collect(deploy_dir, stage, threads, overrides):
     """One sample per substep, with the knob and work witnesses checked."""
     logs = log_dir(deploy_dir)
     samples = {}
-    for step in STAGE_SUBSTEPS[stage]:
+    steps = flow_steps(logs) if stage == FULL_FLOW else STAGE_SUBSTEPS[stage]
+    for step in steps:
         path = os.path.join(logs, step + ".log")
         if not os.path.exists(path):
             raise SystemExit("{} left no log: the substep did not run".format(step))
         got = elapsed.parse_log(path)
-        if got["threads"] is None:
+        if got["threads"] is None and stage != FULL_FLOW:
             raise SystemExit(
                 "{}: no ORD-0030 line, so the thread count is unproven".format(step)
             )
+        if got["threads"] is None:
+            # A yosys or report step in the full flow: no thread witness
+            # to check, and nothing about repair to read.
+            samples[step] = got
+            continue
         if got["threads"] != threads:
             raise SystemExit(
                 "{}: asked for {} threads, OpenROAD installed {}".format(
@@ -416,6 +486,9 @@ def collect(deploy_dir, stage, threads, overrides):
         if computed:
             got["result_sha1"] = computed
         samples[step] = got
+    if stage == FULL_FLOW:
+        samples["_metrics"] = collect_metrics(logs)
+        samples["_final_sha1"] = result_hash(deploy_dir, "6_final")
     return samples
 
 
@@ -470,7 +543,10 @@ def check_witness(step, summaries, overrides):
 
 
 def result_path(results_dir, design, stage, arm, repeat):
-    return os.path.join(results_dir, "{}_{}_{}_r{}.json".format(design, stage, arm, repeat))
+    return os.path.join(
+        results_dir,
+        "{}_{}_{}_r{}.json".format(design.replace("/", "+"), stage, arm, repeat),
+    )
 
 
 def main():
@@ -480,7 +556,9 @@ def main():
     )
     parser.add_argument(
         "--stages", nargs="+", default=["floorplan", "cts", "grt"],
-        choices=sorted(STAGE_SUBSTEPS),
+        choices=sorted(STAGE_SUBSTEPS) + [FULL_FLOW],
+        help="stages to run; '{}' runs the whole flow to finish on a "
+             "floorplan deployment".format(FULL_FLOW),
     )
     parser.add_argument("--arms", nargs="+", default=["base"], choices=sorted(ARMS))
     parser.add_argument(
@@ -542,7 +620,11 @@ def main():
 
             print("\n=== {} {}".format(design, stage))
             try:
-                deploy_dir = deploy(DESIGNS[design], stage, args.verbose)
+                deploy_dir = deploy(
+                    DESIGNS[design],
+                    "floorplan" if stage == FULL_FLOW else stage,
+                    args.verbose,
+                )
             except SystemExit as exc:
                 if not args.keep_going:
                     raise
@@ -591,7 +673,7 @@ def main():
                     json.dump(record, handle, indent=2, sort_keys=True)
                 written += 1
                 for step, got in samples.items():
-                    for call in got["repair"]:
+                    for call in got.get("repair", []) if isinstance(got, dict) else []:
                         print("      {:<14} {:<15} setup {}s hold {}s iters {}".format(
                             step, call["kind"], call["setup_s"], call["hold_s"],
                             call["iterations"]))
