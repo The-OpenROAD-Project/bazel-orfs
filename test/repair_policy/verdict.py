@@ -167,7 +167,9 @@ def suite_table(verdicts):
             if delta is None:
                 return "–"
             mark = "" if verdict in ("better", "same") else (" ~" if verdict == "within noise" else " **worse**")
-            return "{}{}".format(fmt(-delta if label in ("min clock period", "area", "power", "wire length", "DRC") else delta), mark)
+            # judge() signs delta so that + is worse; the table shows + as
+            # better on every axis, as the footnote says.
+            return "{}{}".format(fmt(-delta), mark)
 
         lines.append(
             "| {} | {} | {} | {} ({}%) | {} | {} | {} | {} | {} | {} | {} | {} |".format(

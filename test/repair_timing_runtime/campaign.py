@@ -387,7 +387,7 @@ def collect_metrics(logs_dir):
     return out
 
 
-def run_arm(deploy_dir, stage, threads, overrides, openroad_exe, verbose):
+def run_arm(deploy_dir, stage, threads, overrides, openroad_exe, verbose, env_extra=None):
     """Run every substep of one stage with the arm's variables.
 
     Pinned to one CPU per physical core, always: thread policy is held
@@ -410,6 +410,7 @@ def run_arm(deploy_dir, stage, threads, overrides, openroad_exe, verbose):
         )
     )
     env = dict(os.environ)
+    env.update(env_extra or {})
     if openroad_exe:
         # The deployed make wrapper lets a caller-supplied OPENROAD_EXE
         # win; this is how a patch arm runs a binary the module graph
@@ -570,6 +571,11 @@ def main():
         "--openroad", default=None,
         help="OPENROAD_EXE to run the arm with instead of the deployed one",
     )
+    parser.add_argument(
+        "--env", nargs="*", default=[], metavar="KEY=VALUE",
+        help="extra environment for the arm's make (a policy's fitting "
+             "override such as RSZ_YIELD_WINDOW=50); recorded with the sample",
+    )
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument(
         "--max-load", type=float, default=1.0,
@@ -583,6 +589,7 @@ def main():
     )
     args = parser.parse_args()
 
+    env_extra = dict(kv.split("=", 1) for kv in args.env)
     threads = physical_cores()
     if not threads:
         raise SystemExit("cannot read the core count from /proc/cpuinfo")
@@ -641,7 +648,7 @@ def main():
                 try:
                     make_wall = run_arm(
                         deploy_dir, stage, threads, overrides, args.openroad,
-                        args.verbose,
+                        args.verbose, env_extra,
                     )
                     samples = collect(deploy_dir, stage, threads, overrides)
                 except SystemExit as exc:
@@ -657,6 +664,7 @@ def main():
                     "stage": stage,
                     "arm": arm + args.arm_suffix,
                     "overrides": overrides,
+                    "env": env_extra,
                     "threads": threads,
                     "pinned": True,
                     "repeat": repeat,
