@@ -18,6 +18,7 @@ Sections, in the order the PR body uses them:
 """
 
 import argparse
+import csv
 import glob
 import json
 import math
@@ -697,14 +698,88 @@ def headline(samples, fit):
             " different from another's." % fit["residual_sigma_robust"]
         )
         lines.append("")
+    exceeded = [row for row in margin_rows(samples) if row["ratio"] > 1.0]
+    if exceeded:
+        lines += [
+            "One consequence is immediate and is not about placement at"
+            " all. ORFS pads a global-route timing rule by a fixed"
+            " fraction of the clock and generates it from a single run."
+            " The WNS margin (5%%) covers the seed spread everywhere it"
+            " was measured. The TNS margin (20%%) does not: on %s the"
+            " seed-to-seed spread is %s the margin, and a rule"
+            " written from the median seed rejects %d of the runs that"
+            " differ from it by nothing but `GPL_RANDOM_SEED`. Those"
+            " guards encode which seed the maintainer drew."
+            % (
+                ", ".join(sorted({row["design"] for row in exceeded})),
+                " and ".join(
+                    "%.1fx" % row["ratio"] for row in exceeded
+                ),
+                sum(row["failing"] for row in exceeded),
+            ),
+            "",
+        ]
     lines += [
         "What the ensemble *is* good for is pricing a change, which no"
-        " single run can do. Three things it priced, each below:"
-        " global-route repair, the perturbation radius, and the"
-        " trajectory signature from OpenROAD #11385.",
+        " single run can do: below the noise floor a single run cannot"
+        " tell a real gain from which seed it drew. What it priced here,"
+        " each against the same design's base arm and each quoted with"
+        " the resolution at the seeds run:",
         "",
     ]
+    priced = price_arms(samples)
+    if priced:
+        lines.append("| what | design | min_period delta | resolution | verdict |")
+        lines.append("| --- | --- | ---: | ---: | --- |")
+        for label, design, difference, two_se, verdict in priced:
+            lines.append(
+                "| %s | %s | %+.2f ps | %.2f | %s |"
+                % (label, design, difference, two_se, verdict)
+            )
+        lines.append("")
+    else:
+        lines += ["**Not yet measured**: no arms beyond the base ensemble.", ""]
     return "\n".join(lines)
+
+
+# How each arm reads as a sentence, and which direction is the claim.
+# Named rather than derived so a new arm has to be described before it
+# can appear in the headline.
+ARM_LABELS = {
+    "norepair": "turning global-route repair off",
+    "tdoff": "turning timing-driven placement off",
+    "nullperturb": "turning the placement perturbation off",
+    "dist100": "a 5x smaller perturbation radius (100 nm)",
+    "dist2000": "a 4x larger perturbation radius (2000 nm)",
+}
+
+
+def price_arms(samples):
+    """Every named arm against its design's base ensemble.
+
+    Args:
+        samples: the harvested records.
+
+    Returns:
+        A list of (label, design, difference, two_se, verdict), only for
+        arms with enough seeds to make a claim.
+    """
+    arms = {}
+    for sample in samples:
+        if sample.get("min_period_wns") is None:
+            continue
+        arms.setdefault((sample["design"], sample["arm"]), []).append(
+            sample["min_period_wns"]
+        )
+    priced = []
+    for (design, arm), values in sorted(arms.items()):
+        label = ARM_LABELS.get(arm)
+        base = arms.get((design, "base"))
+        if not label or not base or len(values) < MIN_SEEDS_FOR_CLAIM:
+            continue
+        difference, two_se, verdict = compare(values, base)
+        priced.append((label, design, difference, two_se, verdict))
+    return priced
 
 
 def section_method(samples):
@@ -817,6 +892,101 @@ Traps hit on the way, so the next person does not:
 """
 
 
+def margin_rows(samples):
+    """Seed spread against the margin genRuleFile would have padded with.
+
+    Args:
+        samples: the harvested records.
+
+    Returns:
+        One dict per (design, metric) with the margin, the seed spread,
+        their ratio, and how many seeds a rule written from the median
+        seed would reject.
+    """
+    groups = by_design(samples)
+    rows = []
+    for design in sorted(groups):
+        members = groups[design]
+        if len(members) < MIN_SEEDS_FOR_CLAIM:
+            continue
+        period = members[0]["clk_period"]
+        for metric, key, padding in (
+            ("setup WNS", "setup_ws", 5),
+            ("setup TNS", "setup_tns", 20),
+        ):
+            values = [
+                sample[key] for sample in members if sample.get(key) is not None
+            ]
+            if len(values) < 2:
+                continue
+            margin = padding / 100.0 * period
+            median_rule = min(statistics.median(values), 0.0) - margin
+            rows.append(
+                {
+                    "design": design,
+                    "metric": metric,
+                    "margin": margin,
+                    "spread": max(values) - min(values),
+                    "ratio": (max(values) - min(values)) / margin,
+                    "failing": sum(1 for value in values if value < median_rule),
+                    "n": len(values),
+                }
+            )
+    return rows
+
+
+def section_margins(samples):
+    """Do ORFS's own rule margins survive a change of placement seed?
+
+    `genRuleFile.py` writes a global-route timing bound as
+    `min(m, 0) - (p/100) * P`, with p = 5 for WNS and 20 for TNS. The
+    margin is therefore a fixed fraction of the clock, and the rule is
+    generated from **one run**. So the question the ensemble can answer,
+    and a single run cannot, is whether that margin covers the spread a
+    placement seed produces: if two seeds differ by more than the
+    margin, then whether a design passes its own regression guard
+    depends on which seed generated the guard.
+    """
+    rows = margin_rows(samples)
+    if not rows:
+        return "## Do the shipped rule margins survive a seed?\n\n**Not yet measured**\n"
+    lines = [
+        "## Do the shipped rule margins survive a seed?",
+        "",
+        "`genRuleFile.py` pads a global-route timing bound by a fixed"
+        " fraction of the clock -- 5% for WNS, 20% for TNS -- and"
+        " generates it from a single run. The ensemble says how wide that"
+        " single run's own distribution is. Where the seed-to-seed spread"
+        " exceeds the margin, the rule encodes which seed the maintainer"
+        " happened to draw.",
+        "",
+        "| design | metric | margin | seed spread (max-min) | spread / margin | seeds failing a median-seed rule |",
+        "| --- | --- | ---: | ---: | ---: | ---: |",
+    ]
+    for row in rows:
+        lines.append(
+            "| %s | %s | %.1f | %.1f | %.2fx | %d/%d |"
+            % (
+                row["design"],
+                row["metric"],
+                row["margin"],
+                row["spread"],
+                row["ratio"],
+                row["failing"],
+                row["n"],
+            )
+        )
+    lines += [
+        "",
+        "A ratio under 1 means the margin covers the whole ensemble and"
+        " the guard is robust to the seed. Over 1 means two seeds of the"
+        " same design, same floorplan, same everything else, differ by"
+        " more than the tolerance the guard allows.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
 def section_candidates(samples):
     """What this study would put in front of upstream, and what it would not.
 
@@ -906,11 +1076,91 @@ def section_candidates(samples):
     return "\n".join(lines)
 
 
+# One row per sample, in the order a reader would want to recompute a
+# table from: identity first, the metric second, the moves and the
+# trajectory after. Written as a CSV comment on the PR so every number
+# above can be re-derived without re-running the campaign.
+CSV_COLUMNS = [
+    "platform",
+    "design",
+    "arm",
+    "seed",
+    "clk_period",
+    "min_period_wns",
+    "setup_ws",
+    "setup_tns",
+    "hold_ws",
+    "wirelength",
+    "buffers_inserted",
+    "repair_wns_net",
+    "repair_entns_net",
+    "gp_hpwl_final",
+    "gp_iterations",
+    "diverge_revert",
+    "place_gp_sha1",
+    "grt_sha1",
+    "cores",
+    "loadavg_at_start",
+]
+
+
+def csv_rows(samples):
+    """Flatten every sample to one CSV row."""
+    rows = []
+    for sample in sorted(
+        samples,
+        key=lambda item: (item["design"], item["arm"], item.get("seed", 0)),
+    ):
+        repair = (sample.get("repair") or [{}])[0]
+        trajectory = sample.get("trajectory") or {}
+        run = sample.get("run") or {}
+        rows.append(
+            {
+                "platform": sample.get("platform"),
+                "design": sample.get("design"),
+                "arm": sample.get("arm"),
+                "seed": sample.get("seed"),
+                "clk_period": sample.get("clk_period"),
+                "min_period_wns": sample.get("min_period_wns"),
+                "setup_ws": sample.get("setup_ws"),
+                "setup_tns": sample.get("setup_tns"),
+                "hold_ws": sample.get("hold_ws"),
+                "wirelength": sample.get("wirelength"),
+                "buffers_inserted": (repair.get("moves") or {}).get("inserted"),
+                "repair_wns_net": (repair.get("wns") or {}).get("net"),
+                "repair_entns_net": (repair.get("entns") or {}).get("net"),
+                "gp_hpwl_final": trajectory.get("final_hpwl"),
+                "gp_iterations": trajectory.get("iterations"),
+                "diverge_revert": trajectory.get("diverge_revert"),
+                "place_gp_sha1": (sample.get("witness") or {}).get("3_3_place_gp.odb"),
+                "grt_sha1": (sample.get("witness") or {}).get("5_1_grt.odb"),
+                "cores": run.get("cores"),
+                "loadavg_at_start": run.get("loadavg_at_start"),
+            }
+        )
+    return rows
+
+
+def write_csv(samples, path):
+    """The raw data, one row per sample."""
+    with open(path, "w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=CSV_COLUMNS)
+        writer.writeheader()
+        for row in csv_rows(samples):
+            writer.writerow(row)
+    print("wrote %s (%d rows)" % (path, len(samples)))
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results-dir", required=True)
     parser.add_argument("--corpus-json", default=None)
     parser.add_argument("--out-md", default="-")
+    parser.add_argument(
+        "--out-csv",
+        default=None,
+        help="also write one row per sample, for the PR's raw-data comment",
+    )
     args = parser.parse_args(argv)
 
     samples = load_samples(args.results_dir)
@@ -931,11 +1181,14 @@ def main(argv=None):
         section_repair(samples),
         section_trajectory(samples),
         section_decomposition(spreads, fit),
+        section_margins(samples),
         section_candidates(samples),
         LIMITS,
         REPRODUCING,
     ]
     text = "\n".join(parts)
+    if args.out_csv:
+        write_csv(samples, args.out_csv)
     if args.out_md == "-":
         print(text)
     else:
