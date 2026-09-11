@@ -190,7 +190,9 @@ py_test(
 )
 
 # Run `bazelisk run //:deps -- //pkg:target` to deploy stage inputs
-# for interactive debugging. Only builds the deps output group (cheap).
+# for interactive debugging. Builds {target}_deps_tar, so it pays for
+# every prior stage of the flow: a cts reproducer builds synth,
+# floorplan and place.
 sh_binary(
     name = "deps",
     srcs = ["deps_wrapper.sh"],
