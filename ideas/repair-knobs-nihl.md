@@ -146,7 +146,11 @@ design is a result, not a caveat.
   1000, and last gasp's looser acceptance still finds TNS after it. So
   the return controller (0074) runs last gasp under the controller
   instead of skipping it. 0070 (endpoint-yield gate, K=20) is refuted
-  alone on riscv32i cts, where it ends the sweep before closure.
+  alone on riscv32i cts, where it ends the sweep before closure. 0072
+  (move-type budget, N=200) is inert: its alone arm reproduces the
+  rows-only numbers on every vehicle and stage to within 1%, with
+  identical QoR, so no move type ever reaches a window of attempts with
+  zero acceptances. Cloning's cost is not an acceptance-rate problem.
 
 - 2026-09-12: K and N frozen at 20 and 200 after the fit on riscv32i and
   jpeg (cts and grt, one run each, all four threshold policies on). N in
