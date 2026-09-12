@@ -45,6 +45,15 @@ class Judge(unittest.TestCase):
         self.assertEqual(verdict.judge(None, 1.0, -1, None)[1], "no data")
 
 
+class ClockPeriodFallback(unittest.TestCase):
+    def test_period_from_bands_when_metrics_lack_it(self):
+        r = record("ibex", -20.0, -300.0, 2700, 90000, 0, (80, 60, 130), "a")
+        del r["substeps"]["_metrics"]["6_report"]["constraints__clocks__details"]
+        self.assertIsNone(verdict.kpis(r)["min_period"])
+        bands = dict(BANDS); bands["asap7/ibex"] = dict(BANDS["asap7/ibex"], _sources={"period": 1260.0})
+        self.assertAlmostEqual(verdict.kpis(r, bands)["min_period"], 1280.0)
+
+
 class Design(unittest.TestCase):
     def test_identical_flow_faster_passes(self):
         base = record("ibex", -20.0, -300.0, 2700, 90000, 0, (80, 60, 130), "abc")

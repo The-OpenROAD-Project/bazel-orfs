@@ -79,11 +79,23 @@ def clock_period(metrics):
         return None
 
 
-def kpis(record):
-    """The axes' values for one record, with min_period derived."""
+def design_bands(bands, design):
+    """The noise-band record for a design, under either naming."""
+    return bands.get(design) or bands.get("asap7/" + design) or {}
+
+
+def kpis(record, bands=None):
+    """The axes' values for one record, with min_period derived.
+
+    The clock period comes from the metrics when a step recorded
+    constraints__clocks__details, else from the design's noise-band record,
+    whose period is read from ORFS's own history of the design.
+    """
     metrics = flat_metrics(record)
     out = {k: metrics.get(k) for k, _, _ in KPI_AXES + HARD_AXES if k != "min_period"}
     period = clock_period(metrics)
+    if period is None and bands:
+        period = (design_bands(bands, record["design"]).get("_sources") or {}).get("period")
     ws = metrics.get("finish__timing__setup__ws")
     out["min_period"] = (period - ws) if (period is not None and ws is not None) else None
     return out
@@ -110,18 +122,16 @@ def judge(base_value, new_value, direction, band):
 
 
 def design_verdict(base, policy, bands):
-    kb, kp = kpis(base), kpis(policy)
+    kb, kp = kpis(base, bands), kpis(policy, bands)
     rows = []
     worse = False
     for key, direction, label in HARD_AXES:
         delta, verdict = judge(kb.get(key), kp.get(key), direction, 0.0)
         rows.append((label, kb.get(key), kp.get(key), delta, None, verdict))
         worse |= verdict == "WORSE"
-    # Campaign names asap7 designs bare and other platforms as
-    # platform/design; noise_bands keys every design as platform/design.
-    design_bands = bands.get(base["design"]) or bands.get("asap7/" + base["design"]) or {}
+    this_bands = design_bands(bands, base["design"])
     for key, direction, label in KPI_AXES:
-        rec = design_bands.get(BAND_KEY[key]) or {}
+        rec = this_bands.get(BAND_KEY[key]) or {}
         band = None if rec.get("insufficient", True) else rec.get("band_2sigma")
         delta, verdict = judge(kb.get(key), kp.get(key), direction, band)
         rows.append((label, kb.get(key), kp.get(key), delta, band, verdict))
