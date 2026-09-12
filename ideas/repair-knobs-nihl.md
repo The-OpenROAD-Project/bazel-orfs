@@ -139,6 +139,15 @@ design is a result, not a caveat.
 
 ## Decisions log
 
+- 2026-09-12: K and N frozen at 20 and 200 after the fit on riscv32i and
+  jpeg (cts and grt, one run each, all four threshold policies on). N in
+  {100, 200, 500} changes nothing on any stage: the move budget is not
+  where either the wall or the QoR moves. K in {10, 20, 50} changes only
+  the wall on riscv32i grt (18, 22, 129 s) with identical QoR. The QoR
+  deltas the set carries on these two designs (riscv32i cts -3.7 ps WNS,
+  jpeg cts -655 ps TNS, jpeg grt -1420 ps TNS) do not move with either
+  constant and are attributed by the alone arms.
+
 - 2026-09-11: noise bands are taken over the history since 2025-06-01
   (the whole history is an era: sky130hd/aes area moved 9x since 2021).
   A metric whose recent history has fewer than three recoverable points
