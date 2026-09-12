@@ -1,0 +1,150 @@
+"""Does gpl's estimate_target_density (OpenROAD #11395) match the density
+global placement actually needs?
+
+Two things are measured per design, both on the design's own floorplan:
+
+  * the estimate, printed by estimate_probe.tcl immediately before ORFS
+    runs global placement (see the ESTDENSITY_JSON lines in
+    3_3_place_gp.log);
+  * the threshold, found by running real place stages up a density ladder
+    (rungs.bzl) until global placement stops missing its overflow target.
+
+Every flow target here is manual -- an arm is a place stage. The parsers
+are the only thing that runs on `bazelisk test`.
+"""
+
+load("@orfs_designs//:designs.bzl", "DESIGNS")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+load(":rungs.bzl", "density_rungs")
+
+package(default_visibility = ["//visibility:private"])
+
+# Design directory -> Verilog top, for the asap7 designs whose place stage
+# is short enough to run a ladder on. The large ones (cva6, ibex,
+# swerv_wrapper, riscv32i-mock-sram) and the library variants (*_lvt,
+# aes-mbff, gcd-ccs) are deliberately absent: they are reported as not
+# measured rather than measured badly.
+STUDY_DESIGNS = {
+    "gcd": "gcd",
+    "uart": "uart",
+    "mock-alu": "MockAlu",
+    "riscv32i": "riscv_top",
+    "mock-cpu": "mock_cpu",
+    "aes": "aes_cipher_top",
+    "jpeg": "jpeg_encoder",
+    "ethmac": "ethmac",
+}
+
+# Variables the designs read from their own .tcl/.mk and ORFS does not
+# know: they take orfs_flow's user_* hatch past the variables.yaml
+# spell-check. Same lists the designs' own recorded BUILD files carry.
+DESIGN_USER_VARS = {
+    "mock-alu": [
+        "MOCK_ALU_OPERATIONS",
+        "MOCK_ALU_WIDTH",
+    ],
+}
+
+DESIGN_USER_SOURCE_VARS = {
+    "mock-cpu": ["SDC_FILE_EXTRA"],
+}
+
+[
+    density_rungs(
+        name = directory,
+        design = DESIGNS["asap7/" + directory],
+        top = top,
+        user_source_vars = DESIGN_USER_SOURCE_VARS.get(directory, []),
+        user_vars = DESIGN_USER_VARS.get(directory, []),
+    )
+    for directory, top in STUDY_DESIGNS.items()
+]
+
+# The control for the probe itself: `estimate_target_density` resets gpl's
+# Replace object when it is done (gpl::replace_reset_cmd), and every rung
+# above calls it before global placement runs. This arm is the same rung
+# without the probe, so the question "did asking the question change the
+# answer?" is settled by comparing two ODBs rather than by reasoning about
+# the reset.
+density_rungs(
+    name = "gcd-noprobe",
+    base_flow = "gcd_base",
+    design = DESIGNS["asap7/gcd"],
+    indices = [8],
+    probe = False,
+    top = "gcd",
+    variant_prefix = "n",
+)
+
+exports_files(["estimate_probe.tcl"])
+
+py_library(
+    name = "harvest",
+    imports = ["."],
+    srcs = ["harvest.py"],
+)
+
+py_test(
+    name = "harvest_test",
+    imports = ["."],
+    srcs = ["harvest_test.py"],
+    deps = [":harvest"],
+)
+
+py_binary(
+    name = "report",
+    imports = ["."],
+    srcs = ["report.py"],
+    deps = [
+        ":campaign",
+        ":harvest",
+    ],
+)
+
+py_library(
+    name = "campaign",
+    imports = ["."],
+    srcs = ["campaign.py"],
+    deps = [":harvest"],
+)
+
+py_test(
+    name = "campaign_test",
+    imports = ["."],
+    srcs = ["campaign_test.py"],
+    data = ["BUILD.bazel"],
+    deps = [":campaign"],
+)
+
+# Two builds of the same rung, with and without the probe, byte-compared:
+# run by hand like the campaign, for the same reason.
+py_binary(
+    name = "probe_control",
+    imports = ["."],
+    srcs = ["probe_control.py"],
+    tags = ["manual"],
+)
+
+# The A/B of the doIncrementalPlace hunk the PR deletes. Not a py_test:
+# it rewrites MODULE.bazel to switch arms and builds stock design
+# targets, so it is run by hand like the campaign.
+py_binary(
+    name = "ab_incremental",
+    imports = ["."],
+    srcs = ["ab_incremental.py"],
+    tags = ["manual"],
+)
+
+py_test(
+    name = "report_test",
+    imports = ["."],
+    srcs = ["report_test.py"],
+    deps = [
+        ":harvest",
+        ":report",
+    ],
+)
+
+
+
+
