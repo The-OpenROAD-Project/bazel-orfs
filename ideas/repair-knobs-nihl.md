@@ -139,6 +139,15 @@ design is a result, not a caveat.
 
 ## Decisions log
 
+- 2026-09-12: 0071 (skip last gasp after a main phase that stopped for
+  lack of return) is refuted alone: it reproduces the knob's own losses
+  (jpeg cts -655 ps TNS, jpeg grt -1420, mock-alu cts -1.1 ps WNS, grt
+  -2.5 ps). The legacy fix-rate exit fires on most designs after pass
+  1000, and last gasp's looser acceptance still finds TNS after it. So
+  the return controller (0074) runs last gasp under the controller
+  instead of skipping it. 0070 (endpoint-yield gate, K=20) is refuted
+  alone on riscv32i cts, where it ends the sweep before closure.
+
 - 2026-09-12: K and N frozen at 20 and 200 after the fit on riscv32i and
   jpeg (cts and grt, one run each, all four threshold policies on). N in
   {100, 200, 500} changes nothing on any stage: the move budget is not

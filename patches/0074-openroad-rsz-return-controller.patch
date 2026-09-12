@@ -15,9 +15,11 @@ Per phase, at each window of passes (the existing hundred-pass
 interval), the controller measures what the window bought in TNS and WNS
 against what it cost in seconds, remembers the best rate the phase has
 shown, and stops the phase after two consecutive windows below 1% of
-that best with WNS flat. Last gasp runs only after a phase that ran out
-of endpoints while still paying; a phase that stopped for lack of return
-hands over nothing. A move type tried a hundred times in a phase with no
+that best with WNS flat. Last gasp is not skipped on the main phase's
+account -- measured, a main phase that stopped for lack of return still
+hands over TNS that last gasp's looser acceptance finds (jpeg cts:
+655 ps) -- it runs under the same controller and ends when its own
+return is gone. A move type tried a hundred times in a phase with no
 acceptance is retired for the rest of that phase.
 
 Every constant is a ratio of the run's own measurements or the scale the
@@ -32,7 +34,7 @@ a low peak that later windows raise; it cannot fire until a rate has been
 measured and then fallen.
 
 diff --git a/src/rsz/src/RepairSetupContext.hh b/src/rsz/src/RepairSetupContext.hh
-index b38ade6a98..09c7cdfe68 100644
+index b38ade6a98..88735446fa 100644
 --- a/src/rsz/src/RepairSetupContext.hh
 +++ b/src/rsz/src/RepairSetupContext.hh
 @@ -3,6 +3,10 @@
@@ -46,7 +48,7 @@ index b38ade6a98..09c7cdfe68 100644
  #include "RepairTargetCollector.hh"
  
  namespace rsz {
-@@ -66,6 +70,33 @@ struct RepairSetupContext
+@@ -66,6 +70,32 @@ struct RepairSetupContext
    // Legacy-derived setup phases share one preamble per repair_setup run.
    bool legacy_preamble_done{false};
    bool legacy_preamble_has_violations{true};
@@ -65,8 +67,7 @@ index b38ade6a98..09c7cdfe68 100644
 +    int low_windows{0};
 +    bool armed{false};
 +    // Set when a phase stopped for lack of return (this controller or the
-+    // legacy fix-rate test). Last gasp reads it: a sweep that stopped
-+    // because nothing was moving hands over nothing.
++    // legacy fix-rate test). Reported at the handover to last gasp.
 +    bool stopped_for_return{false};
 +  };
 +  ReturnController controller;
@@ -81,22 +82,21 @@ index b38ade6a98..09c7cdfe68 100644
  
  }  // namespace rsz
 diff --git a/src/rsz/src/policy/SetupLastGaspPolicy.cc b/src/rsz/src/policy/SetupLastGaspPolicy.cc
-index 454cc2758c..08697a4ec6 100644
+index 454cc2758c..45786073a6 100644
 --- a/src/rsz/src/policy/SetupLastGaspPolicy.cc
 +++ b/src/rsz/src/policy/SetupLastGaspPolicy.cc
-@@ -42,6 +42,16 @@ void SetupLastGaspPolicy::iterate()
+@@ -42,6 +42,15 @@ void SetupLastGaspPolicy::iterate()
      markRunComplete(false);
      return;
    }
-+  // A main phase that stopped because its return had run out hands over
-+  // nothing: the second pass moves nothing either (riscv32i grt: 26% of
-+  // the call for 0 ps). Last gasp runs only after a phase that ran out of
-+  // endpoints while still paying.
++  // Last gasp is not skipped on the main phase's account: measured, a
++  // main phase that stopped for lack of return still hands over TNS that
++  // last gasp's looser acceptance finds (jpeg cts: 655 ps). Last gasp
++  // runs under the same return controller instead, and ends when its own
++  // return is gone.
 +  if (setup_context_.controller.stopped_for_return) {
 +    logger_->report(
-+        "LAST_GASP skipped: the main phase stopped for lack of return");
-+    markRunComplete(false);
-+    return;
++        "LAST_GASP after a main phase that stopped for lack of return");
 +  }
  
    committer_.capturePrePhaseSlack();
