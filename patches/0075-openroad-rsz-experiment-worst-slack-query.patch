@@ -1,0 +1,27 @@
+rsz: experiment, a worst-slack query every hundred passes and nothing else
+
+Study experiment, not a fix. On riscv32i grt the stall-exit arm and the
+control diverge from the first endpoint, before any termination rule
+could fire; the only code that runs differently before pass 200 is an
+extra sta::worstSlack query at pass 100. This binary adds only that
+query. If it reproduces the closure, the legacy loop is acting on stale
+timing and the win is a bug, not a policy.
+
+diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
+index 859f085353..b1ff6d73e6 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.cc
++++ b/src/rsz/src/policy/SetupLegacyBase.cc
+@@ -956,6 +956,13 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
+     }
+     float inc_fix_rate = (prev_tns - curr_tns) / initial_tns;
+     prev_tns = curr_tns;
++    {
++      // Experiment: does asking STA for the worst slack here, and doing
++      // nothing with the answer, change what the optimizer does next?
++      sta::Slack probe_wns;
++      sta::Vertex* probe_vertex = nullptr;
++      sta_->worstSlack(max_, probe_wns, probe_vertex);
++    }
+     if (iteration > 1000 && inc_fix_rate < fix_rate_threshold) {
+       debugPrint(logger_,
+                  RSZ,
