@@ -1305,11 +1305,45 @@ def section_invariance_tldr(records):
     return "\n".join(out) + "\n"
 
 
+# A "what to do next" ranking compares substeps against each other, so
+# it needs more than one substep to rank. Below this it is not a weak
+# answer, it is a category error.
+MIN_RANKED_SUBSTEPS = 2
+
+
 def section_tldr(cells, records):
-    """What to do next, first, in as few lines as possible."""
+    """What to do next, first, in as few lines as possible.
+
+    Only renders when the timing arms actually span the flow. A
+    campaign that timed one stage -- because it was aimed at that
+    stage -- would otherwise print this section's table empty, its
+    totals as `0s`, and #968's conclusions underneath as though they
+    had been measured here. That is the shape of a partial campaign
+    reading as a complete one, which every other section in this file
+    is written to avoid.
+    """
     rows, total, measured, ceiling = _opportunity(cells, records)
-    if total <= 0:
-        return ""
+    # The table only prints rows with something to save, so "nothing to
+    # save anywhere" renders as an empty table under a `0s` total --
+    # which is what a route-only campaign produced. The count of ranked
+    # substeps is not the discriminator; the count of *positive* ones
+    # is.
+    ranked = {step for saving, step, _r, _o, _b, _c, _bb in rows if saving > 0}
+    if total <= 0 or len(ranked) < MIN_RANKED_SUBSTEPS:
+        timed_stages = sorted({r["stage"] for r in timed(records)})
+        if not timed_stages:
+            return (
+                "## What to do next\n\n**Not measured.** No `--mode timing` "
+                "arms were recorded, so there is nothing to rank.\n"
+            )
+        return (
+            "## What to do next\n\n**Not measured across the flow.** The "
+            "timing arms cover {} only, so the substeps cannot be ranked "
+            "against each other -- ranking is what this section is. See "
+            "[#968]({}) for the flow-wide ladder.\n".format(
+                ", ".join("`" + s + "`" for s in timed_stages), SCALING_STUDY
+            )
+        )
 
     by_owner = collections.defaultdict(float)
     unowned = 0.0
@@ -1331,8 +1365,11 @@ def section_tldr(cells, records):
         "ceiling. That is the right shape and the precedent to copy.",
         "",
         "On the evidence below -- {:.0f}s of {:.0f}s available across "
-        "{} asap7 designs -- what is left after it:".format(
-            total, measured, len({k[0] for k in cells})
+        "{} design{} -- what is left after it:".format(
+            total,
+            measured,
+            len({k[0] for k in cells}),
+            "" if len({k[0] for k in cells}) == 1 else "s",
         ),
         "",
         "| do this next | worth | vs gpl |",

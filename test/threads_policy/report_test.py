@@ -996,3 +996,78 @@ class UpstreamCandidates(unittest.TestCase):
         text = report.section_upstream(records, AUDIT)
         self.assertIn("diverged", text)
         self.assertNotIn("None, and that is the result", text)
+
+
+class RankingNeedsSomethingToRank(unittest.TestCase):
+    """A campaign aimed at one stage must not render a flow-wide ranking.
+
+    The route timing ladder produced exactly that: an empty table, a
+    total of `0s`, and #968's conclusions beneath it as though they had
+    been measured by this campaign.
+    """
+
+    def _timed(self, substeps):
+        return build(
+            [
+                rec("aes", "route", threads, 1, {s: step(w)})
+                for s, w in substeps.items()
+                for threads, w in ((1, w), (16, w / 4.0))
+            ]
+        )
+
+    def test_one_substep_is_not_a_ranking(self):
+        records, cells = self._timed({"5_2_route": 400.0})
+        text = report.section_tldr(cells, records)
+        self.assertIn("Not measured across the flow", text)
+        self.assertIn("`route`", text)
+        self.assertIn("968", text)
+
+    def test_it_does_not_restate_968s_conclusions_from_no_data(self):
+        records, cells = self._timed({"5_2_route": 400.0})
+        text = report.section_tldr(cells, records)
+        self.assertNotIn("Do not cap", text)
+        self.assertNotIn("0s of", text)
+
+    def test_no_timing_arms_at_all_says_so(self):
+        records, cells = build(
+            [
+                dict(
+                    rec("aes", "cts", 1, 1, {"4_1_cts": step(10.0)}),
+                    contended=True,
+                )
+            ]
+        )
+        self.assertIn("Not measured", report.section_tldr(cells, records))
+
+
+class RankingDiscriminator(unittest.TestCase):
+    def test_two_substeps_with_nothing_to_save_is_still_not_a_ranking(self):
+        # The route ladder had two substeps (5_2_route, 5_3_fillcell)
+        # and no positive saving, so a substep-count guard let the
+        # broken section through. Positive rows are the discriminator.
+        records, cells = build(
+            [
+                rec("aes", "route", threads, 1, {s: step(w)})
+                for s in ("5_2_route", "5_3_fillcell")
+                for threads, w in ((1, 400.0), (16, 100.0))
+            ]
+        )
+        text = report.section_tldr(cells, records)
+        self.assertNotIn("0s of", text)
+        self.assertIn("Not measured", text)
+
+    def test_the_design_count_does_not_claim_a_platform(self):
+        # The inherited wording said "N asap7 designs"; the timing arms
+        # here spanned asap7 and sky130hd.
+        self.assertNotIn(
+            "asap7 designs",
+            report.section_tldr(
+                *build(
+                    [
+                        rec("aes", "cts", t, 1, {"4_1_cts": step(w)})
+                        for t, w in ((1, 100.0), (16, 10.0))
+                    ]
+                )[::-1][::-1]
+            )
+            or "",
+        )
