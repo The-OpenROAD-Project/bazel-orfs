@@ -362,19 +362,21 @@ def result_hash(deploy_dir, step):
     return hasher.hexdigest()[:20]
 
 
-# The whole flow as leaf do- targets, floorplan to the final report. Leaf
-# targets run their step regardless of make's dependency view; `finish`
-# would instead see the deployment's missing yosys intermediates and try
-# to re-synthesize with a yosys that is not there. The copy targets
-# (2_floorplan, 3_place, 4_cts, 5_route) are what the next stage reads.
+# The whole flow as leaf do- targets, floorplan to the final report: the
+# expansions of ORFS's do-floorplan, do-place, do-cts, do-route and
+# do-finish, in order. Leaf targets run their step regardless of make's
+# dependency view; `finish` would instead see the deployment's missing
+# yosys intermediates and try to re-synthesize with a yosys that is not
+# there. The copy targets and the .sdc copies are what the next stage
+# reads.
 FULL_FLOW_TARGETS = [
     "do-2_1_floorplan", "do-2_2_floorplan_macro", "do-2_3_floorplan_tapcell",
-    "do-2_4_floorplan_pdn", "do-2_floorplan",
+    "do-2_4_floorplan_pdn", "do-2_floorplan", "do-2_floorplan.sdc",
     "do-3_1_place_gp_skip_io", "do-3_2_place_iop", "do-3_3_place_gp",
     "do-3_4_place_resized", "do-3_5_place_dp", "do-3_place",
     "do-4_1_cts", "do-4_cts",
-    "do-5_1_grt", "do-5_2_route", "do-5_3_fillcell", "do-5_route",
-    "do-6_1_fill", "do-6_report",
+    "do-5_1_grt", "do-5_2_route", "do-5_3_fillcell", "do-5_route", "do-5_route.sdc",
+    "do-6_1_fill", "do-6_1_fill.sdc", "do-6_report",
 ]
 
 
@@ -452,11 +454,16 @@ def run_arm(deploy_dir, stage, threads, overrides, openroad_exe, verbose, env_ex
 
 
 def flow_steps(logs):
-    """Every substep that left a log in the deployment, in flow order."""
+    """Every flow substep from floorplan on that left a log, in flow order.
+
+    Synthesis logs are skipped: the deployment carries the synthesized
+    netlist, and a stray yosys log from an earlier attempt in the same
+    tree has no Elapsed line to read.
+    """
     return sorted(
         name[: -len(".log")]
         for name in os.listdir(logs)
-        if name.endswith(".log") and name[0].isdigit()
+        if name.endswith(".log") and name[0] in "23456" and name[1] == "_"
     )
 
 
@@ -469,7 +476,15 @@ def collect(deploy_dir, stage, threads, overrides):
         path = os.path.join(logs, step + ".log")
         if not os.path.exists(path):
             raise SystemExit("{} left no log: the substep did not run".format(step))
-        got = elapsed.parse_log(path)
+        try:
+            got = elapsed.parse_log(path)
+        except elapsed.LogIncomplete as exc:
+            if stage != FULL_FLOW:
+                raise
+            # A report or copy step in the full flow may leave a log with
+            # no Elapsed line; it holds nothing this study reads.
+            samples[step] = {"wall_s": None, "threads": None, "incomplete": str(exc)}
+            continue
         if got["threads"] is None and stage != FULL_FLOW:
             raise SystemExit(
                 "{}: no ORD-0030 line, so the thread count is unproven".format(step)
