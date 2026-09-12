@@ -362,10 +362,26 @@ def result_hash(deploy_dir, step):
     return hasher.hexdigest()[:20]
 
 
+# The whole flow as leaf do- targets, floorplan to the final report. Leaf
+# targets run their step regardless of make's dependency view; `finish`
+# would instead see the deployment's missing yosys intermediates and try
+# to re-synthesize with a yosys that is not there. The copy targets
+# (2_floorplan, 3_place, 4_cts, 5_route) are what the next stage reads.
+FULL_FLOW_TARGETS = [
+    "do-2_1_floorplan", "do-2_2_floorplan_macro", "do-2_3_floorplan_tapcell",
+    "do-2_4_floorplan_pdn", "do-2_floorplan",
+    "do-3_1_place_gp_skip_io", "do-3_2_place_iop", "do-3_3_place_gp",
+    "do-3_4_place_resized", "do-3_5_place_dp", "do-3_place",
+    "do-4_1_cts", "do-4_cts",
+    "do-5_1_grt", "do-5_2_route", "do-5_3_fillcell", "do-5_route",
+    "do-6_1_fill", "do-6_report",
+]
+
+
 def make_targets(stage):
     """The make targets one arm runs: the stage's do- steps, or the flow."""
     if stage == FULL_FLOW:
-        return ["finish"]
+        return list(FULL_FLOW_TARGETS)
     return ["do-" + step for step in STAGE_SUBSTEPS[stage]]
 
 
