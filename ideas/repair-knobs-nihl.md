@@ -139,6 +139,15 @@ design is a result, not a caveat.
 
 ## Decisions log
 
+- 2026-09-12: patch arms are flow-level, not stage-level. A patched
+  binary rebuilds the earlier stages too (place runs repair_timing), so
+  a policy arm's cts and grt inputs differ from the control's; on
+  riscv32i grt the control starts at 860 violating endpoints and the
+  stall-exit arm at 767. Stage tables for policies are read as "each
+  arm on its own inputs"; the judgment is Phase B's full flow, as the
+  bar already said. The worst-slack query alone (0075) reproduces the
+  control exactly, so no stale-timing effect is in play.
+
 - 2026-09-12: 0071 (skip last gasp after a main phase that stopped for
   lack of return) is refuted alone: it reproduces the knob's own losses
   (jpeg cts -655 ps TNS, jpeg grt -1420, mock-alu cts -1.1 ps WNS, grt
