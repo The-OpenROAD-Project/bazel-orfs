@@ -1,0 +1,13 @@
+{
+  "bazel_returncode": 1,
+  "design": "aes",
+  "error": "ERROR: <workspace>/test/estimate_density/BUILD.bazel:53:18: Action test/estimate_density/results/asap7/aes_cipher_top/t31/3_place.odb failed: (Exit 2): bash failed: error executing Action command (from orfs_place_rule rule target //test/estimate_d",
+  "loadavg_at_end": 6.01,
+  "loadavg_at_start": 6.45,
+  "out_of_range": true,
+  "repeat": 0,
+  "started_utc": "2026-09-12T10:27:50Z",
+  "target": "//test/estimate_density:aes_t31_place",
+  "variant": "t31",
+  "wall_s": 2.6514875888824463
+}

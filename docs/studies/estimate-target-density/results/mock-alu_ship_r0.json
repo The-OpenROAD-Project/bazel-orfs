@@ -1,0 +1,409 @@
+{
+  "bazel_returncode": 0,
+  "buffer_churn": {
+    "inserted_input": 134,
+    "inserted_output": 64,
+    "removed": 0
+  },
+  "context": {
+    "command_available": 1,
+    "design": "MockAlu",
+    "kind": "context",
+    "pad": 0,
+    "place_density": 0.75,
+    "place_density_lb_addon": "",
+    "uniform_density": 0.5400000214576721
+  },
+  "design": "mock-alu",
+  "driven_density": null,
+  "estimates": {
+    "0.05": {
+      "elapsed_s": 0.032,
+      "estimated_density": 0.8334170579910278,
+      "kind": "estimate",
+      "overflow": 0.05,
+      "search_converged": true,
+      "uniform_density": 0.5400000214576721
+    },
+    "0.1": {
+      "elapsed_s": 0.029,
+      "estimated_density": 0.7414465546607971,
+      "kind": "estimate",
+      "overflow": 0.1,
+      "search_converged": true,
+      "uniform_density": 0.5400000214576721
+    },
+    "0.2": {
+      "elapsed_s": 0.029,
+      "estimated_density": 0.6228649616241455,
+      "kind": "estimate",
+      "overflow": 0.2,
+      "search_converged": true,
+      "uniform_density": 0.5400000214576721
+    }
+  },
+  "gp": {
+    "converged": true,
+    "diverged": false,
+    "final_hpwl": 35362.26,
+    "final_iter": 641,
+    "final_overflow": 0.0984,
+    "hit_max_iter": false,
+    "iterations": 67,
+    "target_overflow": 0.1,
+    "trajectory": [
+      {
+        "hpwl": 7517.801,
+        "iter": 0,
+        "overflow": 0.9598
+      },
+      {
+        "hpwl": 8664.452,
+        "iter": 10,
+        "overflow": 0.9465
+      },
+      {
+        "hpwl": 9053.746,
+        "iter": 20,
+        "overflow": 0.9424
+      },
+      {
+        "hpwl": 9206.812,
+        "iter": 30,
+        "overflow": 0.9415
+      },
+      {
+        "hpwl": 9209.23,
+        "iter": 40,
+        "overflow": 0.9415
+      },
+      {
+        "hpwl": 9204.394,
+        "iter": 50,
+        "overflow": 0.9411
+      },
+      {
+        "hpwl": 9220.927,
+        "iter": 60,
+        "overflow": 0.941
+      },
+      {
+        "hpwl": 9234.447,
+        "iter": 70,
+        "overflow": 0.9409
+      },
+      {
+        "hpwl": 9239.531,
+        "iter": 80,
+        "overflow": 0.9405
+      },
+      {
+        "hpwl": 9244.606,
+        "iter": 90,
+        "overflow": 0.9407
+      },
+      {
+        "hpwl": 9211.976,
+        "iter": 100,
+        "overflow": 0.9402
+      },
+      {
+        "hpwl": 9218.392,
+        "iter": 110,
+        "overflow": 0.9401
+      },
+      {
+        "hpwl": 9270.175,
+        "iter": 120,
+        "overflow": 0.9398
+      },
+      {
+        "hpwl": 9372.507,
+        "iter": 130,
+        "overflow": 0.9394
+      },
+      {
+        "hpwl": 9581.111,
+        "iter": 140,
+        "overflow": 0.9378
+      },
+      {
+        "hpwl": 9967.926,
+        "iter": 150,
+        "overflow": 0.9358
+      },
+      {
+        "hpwl": 10579.27,
+        "iter": 160,
+        "overflow": 0.9328
+      },
+      {
+        "hpwl": 11424.12,
+        "iter": 170,
+        "overflow": 0.9264
+      },
+      {
+        "hpwl": 12503.93,
+        "iter": 180,
+        "overflow": 0.9177
+      },
+      {
+        "hpwl": 13784.0,
+        "iter": 190,
+        "overflow": 0.9039
+      },
+      {
+        "hpwl": 15188.14,
+        "iter": 200,
+        "overflow": 0.8829
+      },
+      {
+        "hpwl": 16542.33,
+        "iter": 210,
+        "overflow": 0.8558
+      },
+      {
+        "hpwl": 17795.82,
+        "iter": 220,
+        "overflow": 0.8243
+      },
+      {
+        "hpwl": 19121.56,
+        "iter": 230,
+        "overflow": 0.7888
+      },
+      {
+        "hpwl": 20603.39,
+        "iter": 240,
+        "overflow": 0.7498
+      },
+      {
+        "hpwl": 22064.85,
+        "iter": 250,
+        "overflow": 0.7093
+      },
+      {
+        "hpwl": 23733.82,
+        "iter": 260,
+        "overflow": 0.6673
+      },
+      {
+        "hpwl": 27011.8,
+        "iter": 270,
+        "overflow": 0.6267
+      },
+      {
+        "hpwl": 28322.4,
+        "iter": 277,
+        "overflow": 0.5954
+      },
+      {
+        "hpwl": 28669.23,
+        "iter": 280,
+        "overflow": 0.581
+      },
+      {
+        "hpwl": 29589.08,
+        "iter": 290,
+        "overflow": 0.5345
+      },
+      {
+        "hpwl": 30773.99,
+        "iter": 300,
+        "overflow": 0.4728
+      },
+      {
+        "hpwl": 31585.76,
+        "iter": 310,
+        "overflow": 0.4089
+      },
+      {
+        "hpwl": 32183.28,
+        "iter": 320,
+        "overflow": 0.3631
+      },
+      {
+        "hpwl": 32554.09,
+        "iter": 330,
+        "overflow": 0.3217
+      },
+      {
+        "hpwl": 32810.18,
+        "iter": 340,
+        "overflow": 0.3008
+      },
+      {
+        "hpwl": 29369.23,
+        "iter": 350,
+        "overflow": 0.5606
+      },
+      {
+        "hpwl": 30490.99,
+        "iter": 360,
+        "overflow": 0.513
+      },
+      {
+        "hpwl": 31343.42,
+        "iter": 370,
+        "overflow": 0.4598
+      },
+      {
+        "hpwl": 31686.72,
+        "iter": 380,
+        "overflow": 0.4245
+      },
+      {
+        "hpwl": 31943.14,
+        "iter": 390,
+        "overflow": 0.3908
+      },
+      {
+        "hpwl": 32243.04,
+        "iter": 400,
+        "overflow": 0.358
+      },
+      {
+        "hpwl": 32687.92,
+        "iter": 410,
+        "overflow": 0.3201
+      },
+      {
+        "hpwl": 28965.47,
+        "iter": 420,
+        "overflow": 0.5825
+      },
+      {
+        "hpwl": 30349.64,
+        "iter": 430,
+        "overflow": 0.5333
+      },
+      {
+        "hpwl": 31432.21,
+        "iter": 440,
+        "overflow": 0.4799
+      },
+      {
+        "hpwl": 31916.83,
+        "iter": 450,
+        "overflow": 0.4395
+      },
+      {
+        "hpwl": 32163.75,
+        "iter": 460,
+        "overflow": 0.4072
+      },
+      {
+        "hpwl": 32445.29,
+        "iter": 470,
+        "overflow": 0.3719
+      },
+      {
+        "hpwl": 32903.03,
+        "iter": 480,
+        "overflow": 0.3367
+      },
+      {
+        "hpwl": 28370.71,
+        "iter": 490,
+        "overflow": 0.6074
+      },
+      {
+        "hpwl": 29992.64,
+        "iter": 500,
+        "overflow": 0.5544
+      },
+      {
+        "hpwl": 31271.32,
+        "iter": 510,
+        "overflow": 0.5015
+      },
+      {
+        "hpwl": 32039.35,
+        "iter": 520,
+        "overflow": 0.453
+      },
+      {
+        "hpwl": 32305.0,
+        "iter": 530,
+        "overflow": 0.4219
+      },
+      {
+        "hpwl": 32561.22,
+        "iter": 540,
+        "overflow": 0.3885
+      },
+      {
+        "hpwl": 32962.69,
+        "iter": 550,
+        "overflow": 0.3543
+      },
+      {
+        "hpwl": 33321.64,
+        "iter": 560,
+        "overflow": 0.309
+      },
+      {
+        "hpwl": 33724.28,
+        "iter": 570,
+        "overflow": 0.2762
+      },
+      {
+        "hpwl": 34361.15,
+        "iter": 580,
+        "overflow": 0.2437
+      },
+      {
+        "hpwl": 34287.87,
+        "iter": 590,
+        "overflow": 0.2188
+      },
+      {
+        "hpwl": 36173.17,
+        "iter": 600,
+        "overflow": 0.1862
+      },
+      {
+        "hpwl": 36003.95,
+        "iter": 610,
+        "overflow": 0.1601
+      },
+      {
+        "hpwl": 35632.17,
+        "iter": 620,
+        "overflow": 0.14
+      },
+      {
+        "hpwl": 35523.68,
+        "iter": 630,
+        "overflow": 0.1252
+      },
+      {
+        "hpwl": 35386.17,
+        "iter": 640,
+        "overflow": 0.1
+      },
+      {
+        "hpwl": 35362.26,
+        "iter": 641,
+        "overflow": 0.0984
+      }
+    ]
+  },
+  "loadavg_at_end": 3.71,
+  "loadavg_at_start": 3.71,
+  "metrics": {
+    "globalplace__gpl__area__final": 1691.79,
+    "globalplace__gpl__convergence__iteration": 641,
+    "globalplace__gpl__routability__congestion": 0.891251,
+    "globalplace__route__wirelength__estimated": 35391.5,
+    "globalplace__timing__setup__tns": -30708.5,
+    "globalplace__timing__setup__ws": -303.18
+  },
+  "orfs_density": null,
+  "repeat": 0,
+  "started_utc": "2026-09-12T10:27:17Z",
+  "target": "//test/estimate_density:mock-alu_ship_place",
+  "threads": 16,
+  "variant": "ship",
+  "wall_s": 0.7381927967071533
+}

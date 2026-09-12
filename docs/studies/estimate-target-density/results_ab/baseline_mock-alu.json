@@ -1,0 +1,12 @@
+{
+  "arm": "baseline",
+  "design": "mock-alu",
+  "has_command": false,
+  "odb_sha256": "4532934e429d9c0439e1b744f872977ab21b4585a33a74aee03060c5fe61c423",
+  "openroad_sha256": "48f723d52f5ecfd67b707595fc40e4c818205db1a8a82c4f1f564b6a58ed1434",
+  "reaches_incremental_place": true,
+  "returncode": 0,
+  "started_utc": "2026-09-12T15:17:18Z",
+  "target": "@orfs//flow/designs/asap7/mock-alu:MockAlu_place",
+  "wall_s": 5.40248703956604
+}

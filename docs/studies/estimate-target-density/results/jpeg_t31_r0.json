@@ -1,0 +1,13 @@
+{
+  "bazel_returncode": 1,
+  "design": "jpeg",
+  "error": "ERROR: <workspace>/test/estimate_density/BUILD.bazel:53:18: Action test/estimate_density/results/asap7/jpeg_encoder/t31/3_place.odb failed: (Exit 2): bash failed: error executing Action command (from orfs_place_rule rule target //test/estimate_den",
+  "loadavg_at_end": 1.37,
+  "loadavg_at_start": 1.4,
+  "out_of_range": true,
+  "repeat": 0,
+  "started_utc": "2026-09-12T10:41:01Z",
+  "target": "//test/estimate_density:jpeg_t31_place",
+  "variant": "t31",
+  "wall_s": 3.049137830734253
+}

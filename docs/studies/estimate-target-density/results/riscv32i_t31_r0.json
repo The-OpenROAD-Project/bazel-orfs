@@ -1,0 +1,13 @@
+{
+  "bazel_returncode": 1,
+  "design": "riscv32i",
+  "error": "ERROR: <workspace>/test/estimate_density/BUILD.bazel:53:18: Action test/estimate_density/results/asap7/riscv_top/t31/3_place.odb failed: (Exit 2): bash failed: error executing Action command (from orfs_place_rule rule target //test/estimate_densit",
+  "loadavg_at_end": 4.51,
+  "loadavg_at_start": 4.51,
+  "out_of_range": true,
+  "repeat": 0,
+  "started_utc": "2026-09-12T10:27:32Z",
+  "target": "//test/estimate_density:riscv32i_t31_place",
+  "variant": "t31",
+  "wall_s": 2.682328939437866
+}

@@ -1,0 +1,263 @@
+{
+  "bazel_returncode": 0,
+  "buffer_churn": {
+    "inserted_input": 28,
+    "inserted_output": 15,
+    "removed": 38
+  },
+  "context": {
+    "command_available": 1,
+    "design": "uart",
+    "kind": "context",
+    "pad": 0,
+    "place_density": 0.7,
+    "place_density_lb_addon": 0.25,
+    "uniform_density": 0.41999998688697815
+  },
+  "design": "uart",
+  "driven_density": null,
+  "estimates": {
+    "0.05": {
+      "elapsed_s": 0.003,
+      "estimated_density": 0.999999463558197,
+      "kind": "estimate",
+      "overflow": 0.05,
+      "search_converged": false,
+      "uniform_density": 0.41999998688697815
+    },
+    "0.1": {
+      "elapsed_s": 0.003,
+      "estimated_density": 0.9540148973464966,
+      "kind": "estimate",
+      "overflow": 0.1,
+      "search_converged": true,
+      "uniform_density": 0.41999998688697815
+    },
+    "0.2": {
+      "elapsed_s": 0.003,
+      "estimated_density": 0.72214674949646,
+      "kind": "estimate",
+      "overflow": 0.2,
+      "search_converged": true,
+      "uniform_density": 0.41999998688697815
+    }
+  },
+  "gp": {
+    "converged": true,
+    "diverged": false,
+    "final_hpwl": 1327.117,
+    "final_iter": 348,
+    "final_overflow": 0.0988,
+    "hit_max_iter": false,
+    "iterations": 37,
+    "target_overflow": 0.1,
+    "trajectory": [
+      {
+        "hpwl": 633.461,
+        "iter": 0,
+        "overflow": 0.7602
+      },
+      {
+        "hpwl": 673.659,
+        "iter": 10,
+        "overflow": 0.7221
+      },
+      {
+        "hpwl": 677.883,
+        "iter": 20,
+        "overflow": 0.7182
+      },
+      {
+        "hpwl": 677.385,
+        "iter": 30,
+        "overflow": 0.721
+      },
+      {
+        "hpwl": 676.977,
+        "iter": 40,
+        "overflow": 0.7201
+      },
+      {
+        "hpwl": 676.569,
+        "iter": 50,
+        "overflow": 0.7173
+      },
+      {
+        "hpwl": 676.46,
+        "iter": 60,
+        "overflow": 0.7148
+      },
+      {
+        "hpwl": 676.767,
+        "iter": 70,
+        "overflow": 0.7137
+      },
+      {
+        "hpwl": 677.094,
+        "iter": 80,
+        "overflow": 0.7139
+      },
+      {
+        "hpwl": 677.62,
+        "iter": 90,
+        "overflow": 0.7147
+      },
+      {
+        "hpwl": 678.449,
+        "iter": 100,
+        "overflow": 0.7153
+      },
+      {
+        "hpwl": 679.612,
+        "iter": 110,
+        "overflow": 0.7151
+      },
+      {
+        "hpwl": 681.823,
+        "iter": 120,
+        "overflow": 0.7135
+      },
+      {
+        "hpwl": 685.49,
+        "iter": 130,
+        "overflow": 0.7102
+      },
+      {
+        "hpwl": 690.93,
+        "iter": 140,
+        "overflow": 0.7045
+      },
+      {
+        "hpwl": 698.209,
+        "iter": 150,
+        "overflow": 0.6973
+      },
+      {
+        "hpwl": 708.001,
+        "iter": 160,
+        "overflow": 0.687
+      },
+      {
+        "hpwl": 722.06,
+        "iter": 170,
+        "overflow": 0.6792
+      },
+      {
+        "hpwl": 743.453,
+        "iter": 180,
+        "overflow": 0.6665
+      },
+      {
+        "hpwl": 769.129,
+        "iter": 190,
+        "overflow": 0.6535
+      },
+      {
+        "hpwl": 874.541,
+        "iter": 200,
+        "overflow": 0.6293
+      },
+      {
+        "hpwl": 949.844,
+        "iter": 210,
+        "overflow": 0.6117
+      },
+      {
+        "hpwl": 966.643,
+        "iter": 215,
+        "overflow": 0.599
+      },
+      {
+        "hpwl": 987.97,
+        "iter": 220,
+        "overflow": 0.5746
+      },
+      {
+        "hpwl": 1032.657,
+        "iter": 230,
+        "overflow": 0.5325
+      },
+      {
+        "hpwl": 1080.136,
+        "iter": 240,
+        "overflow": 0.4956
+      },
+      {
+        "hpwl": 1128.684,
+        "iter": 250,
+        "overflow": 0.453
+      },
+      {
+        "hpwl": 1174.568,
+        "iter": 260,
+        "overflow": 0.4017
+      },
+      {
+        "hpwl": 1209.883,
+        "iter": 270,
+        "overflow": 0.3586
+      },
+      {
+        "hpwl": 1237.361,
+        "iter": 280,
+        "overflow": 0.3103
+      },
+      {
+        "hpwl": 1256.312,
+        "iter": 290,
+        "overflow": 0.2788
+      },
+      {
+        "hpwl": 1277.198,
+        "iter": 300,
+        "overflow": 0.2423
+      },
+      {
+        "hpwl": 1290.674,
+        "iter": 310,
+        "overflow": 0.2102
+      },
+      {
+        "hpwl": 1332.559,
+        "iter": 320,
+        "overflow": 0.1769
+      },
+      {
+        "hpwl": 1324.47,
+        "iter": 330,
+        "overflow": 0.1358
+      },
+      {
+        "hpwl": 1326.246,
+        "iter": 340,
+        "overflow": 0.116
+      },
+      {
+        "hpwl": 1327.117,
+        "iter": 348,
+        "overflow": 0.0988
+      }
+    ]
+  },
+  "loadavg_at_end": 3.95,
+  "loadavg_at_start": 3.95,
+  "metrics": {
+    "globalplace__gpl__area__final": 99.6648,
+    "globalplace__gpl__convergence__iteration": 348,
+    "globalplace__gpl__routability__congestion": 0.563739,
+    "globalplace__route__wirelength__estimated": 1333.48,
+    "globalplace__timing__setup__tns": -979.952,
+    "globalplace__timing__setup__ws": -37.8792
+  },
+  "orfs_density": {
+    "addon": 0.25,
+    "density": 0.567499997317791,
+    "uniform_density": 0.4099999964237213
+  },
+  "repeat": 0,
+  "started_utc": "2026-09-12T10:27:13Z",
+  "target": "//test/estimate_density:uart_t08_place",
+  "threads": 16,
+  "variant": "t08",
+  "wall_s": 0.5598585605621338
+}

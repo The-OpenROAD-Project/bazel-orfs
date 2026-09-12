@@ -1,0 +1,12 @@
+{
+  "arm": "baseline",
+  "design": "gcd",
+  "has_command": false,
+  "odb_sha256": "1e25c7064bf1fbdd1faead047610ba26c38d6e0f529774d753313c39dd8d66ca",
+  "openroad_sha256": "48f723d52f5ecfd67b707595fc40e4c818205db1a8a82c4f1f564b6a58ed1434",
+  "reaches_incremental_place": false,
+  "returncode": 0,
+  "started_utc": "2026-09-12T15:16:15Z",
+  "target": "@orfs//flow/designs/asap7/gcd:gcd_place",
+  "wall_s": 60.663591623306274
+}

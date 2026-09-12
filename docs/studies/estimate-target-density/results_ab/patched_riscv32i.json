@@ -1,0 +1,12 @@
+{
+  "arm": "patched",
+  "design": "riscv32i",
+  "has_command": true,
+  "odb_sha256": "331a7c589f69607fef128b4648f8e536ef8bbfc82f3e8738ad2567ab804989c4",
+  "openroad_sha256": "9e0e38d47376f0a2f722071e5db185513e4fde626e140db0c819ea825ce8e7c3",
+  "reaches_incremental_place": true,
+  "returncode": 0,
+  "started_utc": "2026-09-12T15:14:59Z",
+  "target": "@orfs//flow/designs/asap7/riscv32i:riscv_top_place",
+  "wall_s": 6.8671042919158936
+}

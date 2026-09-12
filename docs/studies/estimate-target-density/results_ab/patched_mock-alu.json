@@ -1,0 +1,12 @@
+{
+  "arm": "patched",
+  "design": "mock-alu",
+  "has_command": true,
+  "odb_sha256": "4532934e429d9c0439e1b744f872977ab21b4585a33a74aee03060c5fe61c423",
+  "openroad_sha256": "9e0e38d47376f0a2f722071e5db185513e4fde626e140db0c819ea825ce8e7c3",
+  "reaches_incremental_place": true,
+  "returncode": 0,
+  "started_utc": "2026-09-12T15:14:49Z",
+  "target": "@orfs//flow/designs/asap7/mock-alu:MockAlu_place",
+  "wall_s": 6.410906076431274
+}

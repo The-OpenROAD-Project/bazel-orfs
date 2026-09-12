@@ -1,0 +1,308 @@
+{
+  "bazel_returncode": 0,
+  "buffer_churn": {
+    "inserted_input": 33,
+    "inserted_output": 98,
+    "removed": 1
+  },
+  "context": {
+    "command_available": 1,
+    "design": "riscv_top",
+    "kind": "context",
+    "pad": 0,
+    "place_density": 0.6,
+    "place_density_lb_addon": 0.0,
+    "uniform_density": 0.699999988079071
+  },
+  "design": "riscv32i",
+  "driven_density": null,
+  "estimates": {
+    "0.05": {
+      "elapsed_s": 0.037,
+      "estimated_density": 0.8104628920555115,
+      "kind": "estimate",
+      "overflow": 0.05,
+      "search_converged": true,
+      "uniform_density": 0.699999988079071
+    },
+    "0.1": {
+      "elapsed_s": 0.029,
+      "estimated_density": 0.7152847647666931,
+      "kind": "estimate",
+      "overflow": 0.1,
+      "search_converged": true,
+      "uniform_density": 0.699999988079071
+    },
+    "0.2": {
+      "elapsed_s": 0.031,
+      "estimated_density": 0.7000002861022949,
+      "kind": "estimate",
+      "overflow": 0.2,
+      "search_converged": false,
+      "uniform_density": 0.699999988079071
+    }
+  },
+  "gp": {
+    "converged": true,
+    "diverged": false,
+    "final_hpwl": 41609.61,
+    "final_iter": 438,
+    "final_overflow": 0.0989,
+    "hit_max_iter": false,
+    "iterations": 46,
+    "target_overflow": 0.1,
+    "trajectory": [
+      {
+        "hpwl": 14010.64,
+        "iter": 0,
+        "overflow": 0.9877
+      },
+      {
+        "hpwl": 16620.35,
+        "iter": 10,
+        "overflow": 0.9764
+      },
+      {
+        "hpwl": 16930.66,
+        "iter": 20,
+        "overflow": 0.9731
+      },
+      {
+        "hpwl": 17036.01,
+        "iter": 30,
+        "overflow": 0.9703
+      },
+      {
+        "hpwl": 17091.38,
+        "iter": 40,
+        "overflow": 0.9668
+      },
+      {
+        "hpwl": 17058.6,
+        "iter": 50,
+        "overflow": 0.9647
+      },
+      {
+        "hpwl": 16992.71,
+        "iter": 60,
+        "overflow": 0.9639
+      },
+      {
+        "hpwl": 16939.63,
+        "iter": 70,
+        "overflow": 0.9637
+      },
+      {
+        "hpwl": 16901.48,
+        "iter": 80,
+        "overflow": 0.9633
+      },
+      {
+        "hpwl": 16885.44,
+        "iter": 90,
+        "overflow": 0.9622
+      },
+      {
+        "hpwl": 16892.66,
+        "iter": 100,
+        "overflow": 0.9611
+      },
+      {
+        "hpwl": 16905.79,
+        "iter": 110,
+        "overflow": 0.9599
+      },
+      {
+        "hpwl": 16932.15,
+        "iter": 120,
+        "overflow": 0.9589
+      },
+      {
+        "hpwl": 16992.6,
+        "iter": 130,
+        "overflow": 0.9574
+      },
+      {
+        "hpwl": 17099.65,
+        "iter": 140,
+        "overflow": 0.9554
+      },
+      {
+        "hpwl": 17246.86,
+        "iter": 150,
+        "overflow": 0.9526
+      },
+      {
+        "hpwl": 17429.51,
+        "iter": 160,
+        "overflow": 0.9488
+      },
+      {
+        "hpwl": 17654.5,
+        "iter": 170,
+        "overflow": 0.9437
+      },
+      {
+        "hpwl": 17966.1,
+        "iter": 180,
+        "overflow": 0.9372
+      },
+      {
+        "hpwl": 18387.47,
+        "iter": 190,
+        "overflow": 0.9263
+      },
+      {
+        "hpwl": 18929.86,
+        "iter": 200,
+        "overflow": 0.9109
+      },
+      {
+        "hpwl": 19561.61,
+        "iter": 210,
+        "overflow": 0.8908
+      },
+      {
+        "hpwl": 20299.75,
+        "iter": 220,
+        "overflow": 0.8662
+      },
+      {
+        "hpwl": 21135.07,
+        "iter": 230,
+        "overflow": 0.8365
+      },
+      {
+        "hpwl": 22061.12,
+        "iter": 240,
+        "overflow": 0.807
+      },
+      {
+        "hpwl": 23143.73,
+        "iter": 250,
+        "overflow": 0.7726
+      },
+      {
+        "hpwl": 24384.97,
+        "iter": 260,
+        "overflow": 0.7349
+      },
+      {
+        "hpwl": 25725.31,
+        "iter": 270,
+        "overflow": 0.6986
+      },
+      {
+        "hpwl": 27642.6,
+        "iter": 280,
+        "overflow": 0.6519
+      },
+      {
+        "hpwl": 41183.36,
+        "iter": 288,
+        "overflow": 0.5794
+      },
+      {
+        "hpwl": 42368.34,
+        "iter": 290,
+        "overflow": 0.5668
+      },
+      {
+        "hpwl": 42660.33,
+        "iter": 300,
+        "overflow": 0.5542
+      },
+      {
+        "hpwl": 44013.51,
+        "iter": 310,
+        "overflow": 0.483
+      },
+      {
+        "hpwl": 44004.13,
+        "iter": 320,
+        "overflow": 0.4424
+      },
+      {
+        "hpwl": 43586.11,
+        "iter": 330,
+        "overflow": 0.4078
+      },
+      {
+        "hpwl": 44014.99,
+        "iter": 340,
+        "overflow": 0.3614
+      },
+      {
+        "hpwl": 43807.78,
+        "iter": 350,
+        "overflow": 0.3191
+      },
+      {
+        "hpwl": 43857.03,
+        "iter": 360,
+        "overflow": 0.2867
+      },
+      {
+        "hpwl": 43916.39,
+        "iter": 370,
+        "overflow": 0.259
+      },
+      {
+        "hpwl": 43950.13,
+        "iter": 380,
+        "overflow": 0.227
+      },
+      {
+        "hpwl": 44218.86,
+        "iter": 390,
+        "overflow": 0.1938
+      },
+      {
+        "hpwl": 42552.13,
+        "iter": 400,
+        "overflow": 0.1794
+      },
+      {
+        "hpwl": 42561.51,
+        "iter": 410,
+        "overflow": 0.1527
+      },
+      {
+        "hpwl": 42210.36,
+        "iter": 420,
+        "overflow": 0.1294
+      },
+      {
+        "hpwl": 41887.01,
+        "iter": 430,
+        "overflow": 0.1107
+      },
+      {
+        "hpwl": 41609.61,
+        "iter": 438,
+        "overflow": 0.0989
+      }
+    ]
+  },
+  "loadavg_at_end": 4.82,
+  "loadavg_at_start": 4.82,
+  "metrics": {
+    "globalplace__gpl__area__final": 1335.73,
+    "globalplace__gpl__convergence__iteration": 438,
+    "globalplace__gpl__routability__congestion": 0.927029,
+    "globalplace__route__wirelength__estimated": 41675.8,
+    "globalplace__timing__setup__tns": -5445.12,
+    "globalplace__timing__setup__ws": -24.3964
+  },
+  "orfs_density": {
+    "addon": 0.0,
+    "density": 0.7199999785423279,
+    "uniform_density": 0.7099999785423279
+  },
+  "repeat": 0,
+  "started_utc": "2026-09-12T10:27:28Z",
+  "target": "//test/estimate_density:riscv32i_t00_place",
+  "threads": 16,
+  "variant": "t00",
+  "wall_s": 0.5683770179748535
+}

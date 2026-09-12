@@ -1,0 +1,309 @@
+{
+  "bazel_returncode": 0,
+  "buffer_churn": {
+    "inserted_input": 36,
+    "inserted_output": 34,
+    "removed": 133
+  },
+  "context": {
+    "command_available": 1,
+    "design": "mock_cpu",
+    "kind": "context",
+    "pad": 0,
+    "place_density": 0.71,
+    "place_density_lb_addon": "",
+    "uniform_density": 0.3799999952316284
+  },
+  "design": "mock-cpu",
+  "driven_density": null,
+  "estimates": {
+    "0.05": {
+      "elapsed_s": 0.131,
+      "estimated_density": 0.8217179179191589,
+      "kind": "estimate",
+      "overflow": 0.05,
+      "search_converged": true,
+      "uniform_density": 0.3799999952316284
+    },
+    "0.1": {
+      "elapsed_s": 0.123,
+      "estimated_density": 0.707970142364502,
+      "kind": "estimate",
+      "overflow": 0.1,
+      "search_converged": true,
+      "uniform_density": 0.3799999952316284
+    },
+    "0.2": {
+      "elapsed_s": 0.123,
+      "estimated_density": 0.5690925121307373,
+      "kind": "estimate",
+      "overflow": 0.2,
+      "search_converged": false,
+      "uniform_density": 0.3799999952316284
+    }
+  },
+  "gp": {
+    "converged": true,
+    "diverged": false,
+    "final_hpwl": 23691.77,
+    "final_iter": 440,
+    "final_overflow": 0.0984,
+    "hit_max_iter": false,
+    "iterations": 47,
+    "target_overflow": 0.1,
+    "trajectory": [
+      {
+        "hpwl": 19163.28,
+        "iter": 0,
+        "overflow": 0.9705
+      },
+      {
+        "hpwl": 18749.06,
+        "iter": 10,
+        "overflow": 0.9708
+      },
+      {
+        "hpwl": 18754.68,
+        "iter": 20,
+        "overflow": 0.9708
+      },
+      {
+        "hpwl": 18770.4,
+        "iter": 30,
+        "overflow": 0.9709
+      },
+      {
+        "hpwl": 18789.28,
+        "iter": 40,
+        "overflow": 0.9709
+      },
+      {
+        "hpwl": 18805.71,
+        "iter": 50,
+        "overflow": 0.971
+      },
+      {
+        "hpwl": 18819.35,
+        "iter": 60,
+        "overflow": 0.971
+      },
+      {
+        "hpwl": 18827.89,
+        "iter": 70,
+        "overflow": 0.9711
+      },
+      {
+        "hpwl": 18834.95,
+        "iter": 80,
+        "overflow": 0.9711
+      },
+      {
+        "hpwl": 18844.81,
+        "iter": 90,
+        "overflow": 0.9711
+      },
+      {
+        "hpwl": 18863.21,
+        "iter": 100,
+        "overflow": 0.9711
+      },
+      {
+        "hpwl": 18896.09,
+        "iter": 110,
+        "overflow": 0.9708
+      },
+      {
+        "hpwl": 18956.05,
+        "iter": 120,
+        "overflow": 0.9699
+      },
+      {
+        "hpwl": 19075.23,
+        "iter": 130,
+        "overflow": 0.968
+      },
+      {
+        "hpwl": 19315.24,
+        "iter": 140,
+        "overflow": 0.964
+      },
+      {
+        "hpwl": 19823.73,
+        "iter": 150,
+        "overflow": 0.9564
+      },
+      {
+        "hpwl": 20730.95,
+        "iter": 160,
+        "overflow": 0.9429
+      },
+      {
+        "hpwl": 22216.19,
+        "iter": 170,
+        "overflow": 0.9207
+      },
+      {
+        "hpwl": 24409.38,
+        "iter": 180,
+        "overflow": 0.8875
+      },
+      {
+        "hpwl": 27107.74,
+        "iter": 190,
+        "overflow": 0.8388
+      },
+      {
+        "hpwl": 29763.05,
+        "iter": 200,
+        "overflow": 0.7753
+      },
+      {
+        "hpwl": 31792.97,
+        "iter": 210,
+        "overflow": 0.7029
+      },
+      {
+        "hpwl": 32972.12,
+        "iter": 220,
+        "overflow": 0.6323
+      },
+      {
+        "hpwl": 24032.84,
+        "iter": 227,
+        "overflow": 0.5973
+      },
+      {
+        "hpwl": 23915.5,
+        "iter": 230,
+        "overflow": 0.5804
+      },
+      {
+        "hpwl": 23882.13,
+        "iter": 240,
+        "overflow": 0.5304
+      },
+      {
+        "hpwl": 23675.4,
+        "iter": 250,
+        "overflow": 0.4898
+      },
+      {
+        "hpwl": 23346.57,
+        "iter": 260,
+        "overflow": 0.4576
+      },
+      {
+        "hpwl": 23229.55,
+        "iter": 270,
+        "overflow": 0.4286
+      },
+      {
+        "hpwl": 23811.34,
+        "iter": 280,
+        "overflow": 0.4049
+      },
+      {
+        "hpwl": 26749.15,
+        "iter": 290,
+        "overflow": 0.3871
+      },
+      {
+        "hpwl": 29513.07,
+        "iter": 300,
+        "overflow": 0.3696
+      },
+      {
+        "hpwl": 36872.22,
+        "iter": 310,
+        "overflow": 0.3449
+      },
+      {
+        "hpwl": 27546.78,
+        "iter": 320,
+        "overflow": 0.3384
+      },
+      {
+        "hpwl": 38996.35,
+        "iter": 330,
+        "overflow": 0.3002
+      },
+      {
+        "hpwl": 25864.98,
+        "iter": 340,
+        "overflow": 0.3187
+      },
+      {
+        "hpwl": 33585.28,
+        "iter": 350,
+        "overflow": 0.2831
+      },
+      {
+        "hpwl": 27316.88,
+        "iter": 360,
+        "overflow": 0.2642
+      },
+      {
+        "hpwl": 25335.07,
+        "iter": 370,
+        "overflow": 0.2495
+      },
+      {
+        "hpwl": 26092.26,
+        "iter": 380,
+        "overflow": 0.224
+      },
+      {
+        "hpwl": 25360.05,
+        "iter": 390,
+        "overflow": 0.2003
+      },
+      {
+        "hpwl": 24457.76,
+        "iter": 400,
+        "overflow": 0.1822
+      },
+      {
+        "hpwl": 24121.77,
+        "iter": 410,
+        "overflow": 0.1616
+      },
+      {
+        "hpwl": 23934.26,
+        "iter": 420,
+        "overflow": 0.1427
+      },
+      {
+        "hpwl": 23777.39,
+        "iter": 430,
+        "overflow": 0.1199
+      },
+      {
+        "hpwl": 23691.77,
+        "iter": 440,
+        "overflow": 0.0984
+      },
+      {
+        "hpwl": 23691.77,
+        "iter": 440,
+        "overflow": 0.0984
+      }
+    ]
+  },
+  "loadavg_at_end": 4.51,
+  "loadavg_at_start": 4.51,
+  "metrics": {
+    "globalplace__gpl__area__final": 5940.6,
+    "globalplace__gpl__convergence__iteration": 440,
+    "globalplace__gpl__routability__congestion": 0.509834,
+    "globalplace__route__wirelength__estimated": 24283.5,
+    "globalplace__timing__setup__tns": -2.34135,
+    "globalplace__timing__setup__ws": -2.02161
+  },
+  "orfs_density": null,
+  "repeat": 0,
+  "started_utc": "2026-09-12T10:27:35Z",
+  "target": "//test/estimate_density:mock-cpu_ship_place",
+  "threads": 16,
+  "variant": "ship",
+  "wall_s": 0.7534878253936768
+}

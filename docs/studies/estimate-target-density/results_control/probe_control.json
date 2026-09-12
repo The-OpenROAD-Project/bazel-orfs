@@ -1,0 +1,11 @@
+{
+  "arms": {
+    "with_probe": "//test/estimate_density:gcd_t08_place",
+    "without_probe": "//test/estimate_density:gcd-noprobe_nt08_place"
+  },
+  "digests": {
+    "with_probe": "0de07ae6bb98f792f336bb994b5a883524fcad98ce5599473ed9d86aa94a85ac",
+    "without_probe": "0de07ae6bb98f792f336bb994b5a883524fcad98ce5599473ed9d86aa94a85ac"
+  },
+  "same": true
+}

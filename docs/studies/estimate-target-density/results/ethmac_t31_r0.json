@@ -1,0 +1,13 @@
+{
+  "bazel_returncode": 1,
+  "design": "ethmac",
+  "error": "ERROR: <workspace>/test/estimate_density/BUILD.bazel:53:18: Action test/estimate_density/results/asap7/ethmac/t31/3_place.odb failed: (Exit 2): bash failed: error executing Action command (from orfs_place_rule rule target //test/estimate_density:e",
+  "loadavg_at_end": 4.3,
+  "loadavg_at_start": 4.3,
+  "out_of_range": true,
+  "repeat": 0,
+  "started_utc": "2026-09-12T10:28:17Z",
+  "target": "//test/estimate_density:ethmac_t31_place",
+  "variant": "t31",
+  "wall_s": 3.154010057449341
+}

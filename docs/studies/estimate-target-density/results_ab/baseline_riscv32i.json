@@ -1,0 +1,12 @@
+{
+  "arm": "baseline",
+  "design": "riscv32i",
+  "has_command": false,
+  "odb_sha256": "331a7c589f69607fef128b4648f8e536ef8bbfc82f3e8738ad2567ab804989c4",
+  "openroad_sha256": "48f723d52f5ecfd67b707595fc40e4c818205db1a8a82c4f1f564b6a58ed1434",
+  "reaches_incremental_place": true,
+  "returncode": 0,
+  "started_utc": "2026-09-12T15:17:26Z",
+  "target": "@orfs//flow/designs/asap7/riscv32i:riscv_top_place",
+  "wall_s": 5.393816232681274
+}
