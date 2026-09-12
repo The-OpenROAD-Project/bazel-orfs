@@ -12,10 +12,17 @@ same knob setting winning on one design and losing on the next, because
 the return differs per design and the knob cannot see it. This reads it.
 
 Per phase, at each window of passes (the existing hundred-pass
-interval), the controller measures what the window bought in TNS and WNS
-against what it cost in seconds, remembers the best rate the phase has
-shown, and stops the phase after two consecutive windows below 1% of
-that best with WNS flat. Last gasp is not skipped on the main phase's
+interval), the controller measures what the window bought in TNS and
+WNS, remembers the best window the run has had, and stops the phase
+after two consecutive windows below 1% of that best with WNS flat. Gains
+are per window of passes, never per second: the first cut measured per
+second and that made the decision, and so the result, depend on the
+machine and its load. The best window is kept across the phases of one
+run, so a last gasp chasing crumbs after a productive main phase stops
+within two windows. The phase ends on the controller's own decision;
+the first cut signalled through the legacy exit's two-consecutive
+bookkeeping and on jpeg grt that made the main phase 300 passes longer
+instead of shorter. Last gasp is not skipped on the main phase's
 account -- measured, a main phase that stopped for lack of return still
 hands over TNS that last gasp's looser acceptance finds (jpeg cts:
 655 ps) -- it runs under the same controller and ends when its own
@@ -34,38 +41,43 @@ a low peak that later windows raise; it cannot fire until a rate has been
 measured and then fallen.
 
 diff --git a/src/rsz/src/RepairSetupContext.hh b/src/rsz/src/RepairSetupContext.hh
-index b38ade6a98..88735446fa 100644
+index b38ade6a98..1fd2113430 100644
 --- a/src/rsz/src/RepairSetupContext.hh
 +++ b/src/rsz/src/RepairSetupContext.hh
-@@ -3,6 +3,10 @@
+@@ -3,6 +3,9 @@
  
  #pragma once
  
 +#include <array>
-+#include <chrono>
 +
 +#include "OptimizerTypes.hh"
  #include "RepairTargetCollector.hh"
  
  namespace rsz {
-@@ -66,6 +70,32 @@ struct RepairSetupContext
+@@ -66,6 +69,38 @@ struct RepairSetupContext
    // Legacy-derived setup phases share one preamble per repair_setup run.
    bool legacy_preamble_done{false};
    bool legacy_preamble_has_violations{true};
 +
 +  // The return controller. A phase measures what each window of passes
-+  // bought, in TNS and WNS, against what it cost in seconds, remembers the
-+  // best rate it has seen, and stops when the rate has fallen to a small
-+  // fraction of that best for two windows running. Every constant is a
-+  // ratio of the run's own measurements, so nothing here is a knob.
++  // bought, in TNS and WNS, remembers the best window the run has had,
++  // and stops when a window has fallen to a small fraction of that best
++  // for two windows running. Gains are per window of passes, never per
++  // second: the decision must not depend on the machine or its load, or
++  // the result would. Every constant is a ratio of the run's own
++  // measurements or a scale the optimizer already uses; nothing is a
++  // knob. The best window is kept across the phases of one run, so a
++  // second phase chasing crumbs after a productive first one stops
++  // quickly.
 +  struct ReturnController
 +  {
-+    std::chrono::steady_clock::time_point window_start{};
 +    float window_start_tns{0.0f};
 +    float window_start_wns{0.0f};
-+    double peak_rate{0.0};  // TNS ps gained per second, best window so far
++    double peak_gain{0.0};  // TNS ps gained in the best window so far
 +    int low_windows{0};
 +    bool armed{false};
++    // The controller has decided this phase is over: the loops break.
++    bool stop_phase{false};
 +    // Set when a phase stopped for lack of return (this controller or the
 +    // legacy fix-rate test). Reported at the handover to last gasp.
 +    bool stopped_for_return{false};
@@ -82,7 +94,7 @@ index b38ade6a98..88735446fa 100644
  
  }  // namespace rsz
 diff --git a/src/rsz/src/policy/SetupLastGaspPolicy.cc b/src/rsz/src/policy/SetupLastGaspPolicy.cc
-index 454cc2758c..45786073a6 100644
+index 454cc2758c..e4a834fe51 100644
 --- a/src/rsz/src/policy/SetupLastGaspPolicy.cc
 +++ b/src/rsz/src/policy/SetupLastGaspPolicy.cc
 @@ -42,6 +42,15 @@ void SetupLastGaspPolicy::iterate()
@@ -101,8 +113,18 @@ index 454cc2758c..45786073a6 100644
  
    committer_.capturePrePhaseSlack();
    int& num_viols = setup_context_.violation_count;
+@@ -349,6 +358,9 @@ void SetupLastGaspPolicy::runLastGaspLoop(
+     }
+ 
+     repairLastGaspEndpoint(endpoint_state, last_gasp_state);
++    if (setup_context_.controller.stop_phase) {
++      break;
++    }
+ 
+     if (config_.verbose || last_gasp_state.opto_iteration == 1) {
+       printProgress(
 diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
-index 859f085353..735b4fc664 100644
+index 859f085353..042e17e363 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.cc
 +++ b/src/rsz/src/policy/SetupLegacyBase.cc
 @@ -30,6 +30,7 @@
@@ -113,18 +135,21 @@ index 859f085353..735b4fc664 100644
  #include "sta/Graph.hh"
  #include "sta/GraphClass.hh"
  #include "sta/Liberty.hh"
-@@ -66,6 +67,10 @@ SetupLegacyBase::SetupLegacyBase(Resizer& resizer,
+@@ -66,6 +67,13 @@ SetupLegacyBase::SetupLegacyBase(Resizer& resizer,
  bool SetupLegacyBase::start()
  {
    OptimizationPolicy::start();
-+  setup_context_.controller = RepairSetupContext::ReturnController{};
++  // A new phase: new windows, the run's best window kept.
++  setup_context_.controller.armed = false;
++  setup_context_.controller.low_windows = 0;
++  setup_context_.controller.stop_phase = false;
 +  setup_context_.type_attempts.fill(0);
 +  setup_context_.type_accepts.fill(0);
 +  setup_context_.type_retired.fill(false);
    setup_context_.max_repairs_per_pass = config_.max_repairs_per_pass;
    if (!setup_context_.phase_pipeline_active) {
      return true;
-@@ -668,6 +673,7 @@ bool SetupLegacyBase::tryCandidateSequence(
+@@ -668,6 +676,7 @@ bool SetupLegacyBase::tryCandidateSequence(
        utl::DebugScopedTimer timer(profile.commit_s);
        result = committer_.commit(*candidate);
      }
@@ -132,7 +157,7 @@ index 859f085353..735b4fc664 100644
      if (!result.accepted) {
        continue;
      }
-@@ -725,6 +731,9 @@ bool SetupLegacyBase::tryRepairTarget(
+@@ -725,6 +734,9 @@ bool SetupLegacyBase::tryRepairTarget(
      if (rejected_types != nullptr && rejected_types->contains(type)) {
        continue;
      }
@@ -142,7 +167,7 @@ index 859f085353..735b4fc664 100644
      if (!generator.isApplicable(live_target)) {
        continue;
      }
-@@ -956,7 +965,12 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
+@@ -956,7 +968,12 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
      }
      float inc_fix_rate = (prev_tns - curr_tns) / initial_tns;
      prev_tns = curr_tns;
@@ -155,7 +180,7 @@ index 859f085353..735b4fc664 100644
        debugPrint(logger_,
                   RSZ,
                   "repair_setup",
-@@ -1008,6 +1022,103 @@ void SetupLegacyBase::reportProfile(const std::string_view phase_name,
+@@ -1008,6 +1025,93 @@ void SetupLegacyBase::reportProfile(const std::string_view phase_name,
        p.accepted);
  }
  
@@ -165,7 +190,6 @@ index 859f085353..735b4fc664 100644
 +                                         const char phase_marker)
 +{
 +  RepairSetupContext::ReturnController& c = setup_context_.controller;
-+  const auto now = std::chrono::steady_clock::now();
 +  const float tns = sta_->totalNegativeSlack(max_);
 +  sta::Slack wns;
 +  sta::Vertex* worst = nullptr;
@@ -173,53 +197,44 @@ index 859f085353..735b4fc664 100644
 +
 +  if (!c.armed) {
 +    c.armed = true;
-+    c.window_start = now;
 +    c.window_start_tns = tns;
 +    c.window_start_wns = wns;
 +    return false;
 +  }
 +
-+  const double seconds
-+      = std::chrono::duration<double>(now - c.window_start).count();
 +  // TNS is negative and rises toward zero as it improves; WNS likewise.
 +  const double tns_gain = static_cast<double>(tns - c.window_start_tns);
 +  const double wns_gain = static_cast<double>(wns - c.window_start_wns);
-+  const double rate = seconds > 0.0 ? tns_gain / seconds : 0.0;
-+  c.window_start = now;
 +  c.window_start_tns = tns;
 +  c.window_start_wns = wns;
 +
-+  if (rate > c.peak_rate) {
-+    c.peak_rate = rate;
++  if (tns_gain > c.peak_gain) {
++    c.peak_gain = tns_gain;
 +  }
 +  // A window that moved WNS is paying whatever TNS says; a window below
-+  // the floor of the run's own best rate, with WNS flat, is not.
++  // the floor of the run's best window, with WNS flat, is not.
 +  const bool paying = sta::fuzzyGreater(wns_gain, 0.0f)
-+                      || (c.peak_rate > 0.0 && rate > kReturnFloor * c.peak_rate);
++                      || (c.peak_gain > 0.0 && tns_gain > kReturnFloor * c.peak_gain);
 +  c.low_windows = paying ? 0 : c.low_windows + 1;
-+  debugPrint(logger_,
-+             RSZ,
-+             "repair_setup",
-+             2,
-+             "{}{} controller: window to iteration {} gained TNS {:.1f} "
-+             "WNS {:.3f} in {:.2f}s, rate {:.1f} ps/s, peak {:.1f}, low "
-+             "windows {}",
-+             phase_name,
-+             phase_marker,
-+             iteration,
-+             tns_gain,
-+             wns_gain,
-+             seconds,
-+             rate,
-+             c.peak_rate,
-+             c.low_windows);
-+  if (c.peak_rate > 0.0 && c.low_windows >= kLowWindowsToStop) {
++  logger_->report(
++      "[RSZ-CONTROLLER] phase={}{} iteration={} tns_gain={:.1f} wns_gain={:.3f} "
++      "peak={:.1f} low_windows={} paying={}",
++      phase_name,
++      phase_marker,
++      iteration,
++      tns_gain,
++      wns_gain,
++      c.peak_gain,
++      c.low_windows,
++      paying ? 1 : 0);
++  if (c.peak_gain > 0.0 && c.low_windows >= kLowWindowsToStop) {
++    c.stop_phase = true;
 +    debugPrint(logger_,
 +               RSZ,
 +               "repair_setup",
 +               1,
 +               "{}{} Phase: Exiting at iteration {}: return fell below {:.0f}% "
-+               "of the phase's best rate for {} windows",
++               "of the run's best window for {} windows",
 +               phase_name,
 +               phase_marker,
 +               iteration,
@@ -260,7 +275,7 @@ index 859f085353..735b4fc664 100644
  {
    logger_->info(
 diff --git a/src/rsz/src/policy/SetupLegacyBase.hh b/src/rsz/src/policy/SetupLegacyBase.hh
-index 78aa495806..ad694add50 100644
+index 78aa495806..554de9681d 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.hh
 +++ b/src/rsz/src/policy/SetupLegacyBase.hh
 @@ -197,6 +197,18 @@ class SetupLegacyBase : public OptimizationPolicy
@@ -272,7 +287,7 @@ index 78aa495806..ad694add50 100644
 +                          std::string_view phase_name,
 +                          char phase_marker);
 +  void noteMoveAttempt(MoveType type, bool accepted);
-+  // Fraction of the phase's own best gain rate below which a window is
++  // Fraction of the run's best window gain below which a window is
 +  // counted as not paying; two such windows end the phase.
 +  static constexpr double kReturnFloor = 0.01;
 +  static constexpr int kLowWindowsToStop = 2;
@@ -282,3 +297,17 @@ index 78aa495806..ad694add50 100644
    void reportProfile(std::string_view phase_name, char phase_marker) const;
  
    int committedMoves(MoveType type) const;
+diff --git a/src/rsz/src/policy/SetupLegacyPolicy.cc b/src/rsz/src/policy/SetupLegacyPolicy.cc
+index bd722c0087..6c3713e395 100644
+--- a/src/rsz/src/policy/SetupLegacyPolicy.cc
++++ b/src/rsz/src/policy/SetupLegacyPolicy.cc
+@@ -402,6 +402,9 @@ void SetupLegacyPolicy::runMainRepairLoop(const ViolatingEnds& violating_ends,
+     if (config_.verbose || main_state.opto_iteration == 1) {
+       printProgress(main_state.opto_iteration, true, main_state.phase_marker);
+     }
++    if (setup_context_.controller.stop_phase) {
++      break;
++    }
+     if (main_state.two_cons_terminations) {
+       debugPrint(logger_,
+                  RSZ,
