@@ -1,0 +1,600 @@
+gpl: estimate_target_density, carried from OpenROAD #11395 to measure it.
+
+Not our change and not ours to upstream: this is upstream pull request
+https://github.com/The-OpenROAD-Project/OpenROAD/pull/11395 as it stood
+at the SHA named below, carried here only so the command it adds can be
+run against real designs. The study on this branch is what the patch is
+for; nothing on this branch is proposed for merge.
+
+What it adds: a read-only Tcl command
+
+  estimate_target_density [-bin_grid_count n] [-overflow f]
+                          [-pad_left n] [-pad_right n]
+
+that binary-searches, over the bins of a freshly initialized Nesterov
+state, for the target density that would produce the requested overflow
+(default 0.1) without running global placement, clamped to
+[get_global_placement_uniform_density, 1.0].
+
+What it also does, which its description does not mention: it deletes
+the two hunks in Replace::doIncrementalPlace that forced
+uniformTargetDensityMode on, so `global_placement -incremental` no
+longer silently uses uniform density. The PR's own diff to
+src/odb/test/replace_hier_mod1.tcl adds `-density uniform` to three
+existing calls, which is that behavior change showing up in a golden
+test -- the reason this branch A/Bs the place stage against the
+unpatched binary rather than taking the PR's "no existing behavior
+changes" at its word.
+
+Carried verbatim, every hunk, including the test files and the CMake
+test registration this repo never builds: a rewritten patch would no
+longer be the thing under measurement.
+
+How it retires: the `//:bump` that lands on an openroad master carrying
+#11395 (merged or abandoned). Applied on top of
+OpenROAD 41a28926b92c5c20f41f89e90222a95a820384d2; PR head at the time
+of fetch was the-openroad-project-staging:gpl-estimate_target_density.
+
+diff --git a/src/gpl/README.md b/src/gpl/README.md
+index 1aa7c6f263..2f089271a1 100644
+--- a/src/gpl/README.md
++++ b/src/gpl/README.md
+@@ -245,6 +245,29 @@ This command configures the debugger to pause every 100 iterations, with layout
+ 
+ Debug mode requires the GUI. With ORFS, one way to arrange for showing the GUI when running the global placement step is by using `make global_place_issue` and then editing the created run-me.sh file to include the `-gui` flag when calling openroad.
+ 
++### Estimate Target Density
++
++This command estimates the target density needed to reach a given overflow for the current placement, without running global placement or otherwise modifying the design.
++
++The returned density is always between the design's uniform target density (the same value reported by `get_global_placement_uniform_density`) and `1.0`. A tighter (lower) `-overflow` value can only ask for a density closer to `1.0`, never lower than the uniform density.
++
++```tcl
++estimate_target_density
++    [-bin_grid_count grid_count]\
++    [-overflow overflow]\
++    [-pad_left pad_left]\
++    [-pad_right pad_right]
++```
++
++#### Options
++
++| Switch Name | Description |
++| ----- | ----- |
++| `-bin_grid_count` | Set bin grid's counts. The internal heuristic defines the default value. Allowed values are integers `[64,128,256,512,...]`. |
++| `-overflow` | Set target overflow used to estimate the density. The default value is `0.1`. Allowed values are floats `[0, 1]`. |
++| `-pad_left` | Set left padding in terms of number of sites. The default value is `0`, and the allowed values are integers `[0, MAX_INT]` |
++| `-pad_right` | Set right padding in terms of number of sites. The default value is `0`, and the allowed values are integers `[0, MAX_INT]` |
++
+ ## Useful Developer Commands
+ 
+ If you are a developer, you might find these useful. More details can be found in the [source file](./src/replace.cpp) or the [swig file](./src/replace.i).
+diff --git a/src/gpl/include/gpl/Replace.h b/src/gpl/include/gpl/Replace.h
+index 4a5930ce9a..22d719a94a 100644
+--- a/src/gpl/include/gpl/Replace.h
++++ b/src/gpl/include/gpl/Replace.h
+@@ -150,6 +150,7 @@ class Replace
+ 
+   // Query for uniform density value
+   float getUniformTargetDensity(const PlaceOptions& options, int threads);
++  float estimateTargetDensity(const PlaceOptions& options, int threads);
+ 
+   void setDebug(int pause_iterations,
+                 int update_iterations,
+diff --git a/src/gpl/src/nesterovBase.cpp b/src/gpl/src/nesterovBase.cpp
+index db76b9a684..1e4d377e42 100644
+--- a/src/gpl/src/nesterovBase.cpp
++++ b/src/gpl/src/nesterovBase.cpp
+@@ -3350,6 +3350,91 @@ float NesterovBase::getUniformTargetDensity() const
+   return uniformTargetDensity_;
+ }
+ 
++float NesterovBase::estimateTargetDensity(float overflow)
++{
++  if (getNesterovInstsArea() == 0) {
++    return uniformTargetDensity_;
++  }
++
++  // The constructor never populates each bin's placed-instance area --
++  // that normally only happens once the Nesterov solve starts moving
++  // cells -- so without this, the search below would run against bins
++  // that report zero placed area for every movable instance.
++  bg_.updateBinsGCellDensityArea(nb_gcells_,
++                                 static_cast<int>(nbc_->getNumThreads()));
++
++  // Do a binary search to find the density value that results in the
++  // target overflow.
++  auto bins = bg_.getBinsConst();
++
++  float min_density = uniformTargetDensity_;
++  float max_density = 1.0;
++  float current_density;
++  float current_overflow;
++
++  // 20 iterations should reach an error less than 1/2^20
++  int max_iter = 20;
++  for (int iter = 0; iter < max_iter; iter++) {
++    debugPrint(log_,
++               GPL,
++               "estimateTargetDensity",
++               1,
++               "iter ({:}|{:})",
++               iter,
++               max_iter);
++    current_density = (min_density + max_density) / 2;
++    debugPrint(log_,
++               GPL,
++               "estimateTargetDensity",
++               1,
++               "current_density {:g} ({:g}, {:g})",
++               current_density,
++               min_density,
++               max_density);
++    float sum_overflow_area_unscaled = 0;
++    for (auto& bin : bins) {
++      float non_place_area_unscaled = bin.getNonPlaceAreaUnscaled()
++                                      / bin.getTargetDensity()
++                                      * current_density;
++      float scaled_bin_area = bin.getBinArea() * current_density;
++
++      sum_overflow_area_unscaled
++          += std::max(0.0f,
++                      static_cast<float>(bin.getInstPlacedAreaUnscaled())
++                          + non_place_area_unscaled - scaled_bin_area);
++    }
++
++    current_overflow = sum_overflow_area_unscaled / getNesterovInstsArea();
++    debugPrint(log_,
++               GPL,
++               "estimateTargetDensity",
++               1,
++               "current_overflow {:10.9f}, sum_overflow_areaUnscaled "
++               "{:13.9e}, getNesterovInstsArea(): {:13.9e}",
++               current_overflow,
++               sum_overflow_area_unscaled,
++               static_cast<float>(getNesterovInstsArea()));
++    if (std::abs(current_overflow - overflow) < 1e-6) {
++      return current_density;
++    }
++
++    if (current_overflow < overflow) {
++      max_density = current_density;
++    } else {
++      min_density = current_density;
++    }
++  }
++  log_->warn(
++      GPL,
++      186,
++      "Binary search didn't converge after {} iterations. The best density "
++      "found was {:g}, with an overflow of {:6.5f}.",
++      max_iter,
++      current_density,
++      current_overflow);
++  return current_density;
++}
++
+ float NesterovBase::initTargetDensity() const
+ {
+   return nbVars_.targetDensity;
+diff --git a/src/gpl/src/nesterovBase.h b/src/gpl/src/nesterovBase.h
+index 81915b005a..f4056e5a7c 100644
+--- a/src/gpl/src/nesterovBase.h
++++ b/src/gpl/src/nesterovBase.h
+@@ -1140,6 +1140,9 @@ class NesterovBase
+   //
+   float getUniformTargetDensity() const;
+ 
++  // estimate target density based on the current placement
++  float estimateTargetDensity(float overflow);
++
+   // initTargetDensity is set by users
+   // targetDensity is equal to initTargetDensity and
+   // would be changed dynamically in RD loop
+diff --git a/src/gpl/src/replace.cpp b/src/gpl/src/replace.cpp
+index 83dce642e6..91934e0913 100644
+--- a/src/gpl/src/replace.cpp
++++ b/src/gpl/src/replace.cpp
+@@ -196,11 +196,6 @@ void Replace::doIncrementalPlace(const int threads, const PlaceOptions& options)
+   locked_options.overflow = std::max(options.overflow, 0.2f);
+   locked_options.nesterovPlaceMaxIter = 300;
+ 
+-  // Use uniform density for incremental runs to fill gaps effectively
+-  if (!options.uniformTargetDensityMode) {
+-    locked_options.uniformTargetDensityMode = true;
+-  }
+-
+   doInitialPlace(threads, locked_options);
+   const int iter = doNesterovPlace(threads, locked_options);
+ 
+@@ -212,7 +207,6 @@ void Replace::doIncrementalPlace(const int threads, const PlaceOptions& options)
+ 
+   if (options.overflow < locked_options.overflow) {
+     PlaceOptions final_options = options;
+-    final_options.uniformTargetDensityMode = true;
+     final_options.initDensityPenaltyFactor = 1;
+ 
+     doNesterovPlace(threads, final_options, iter + 1);
+@@ -484,6 +478,26 @@ void Replace::setDebug(const int pause_iterations,
+   gui_debug_images_path_ = images_path;
+ }
+ 
++float Replace::estimateTargetDensity(const PlaceOptions& options,
++                                     const int threads)
++{
++  log_->info(GPL, 88, "Initialize gpl and estimate target density.");
++  log_->redirectStringBegin();
++
++  PlaceOptions options_no_io = options;
++  options_no_io.skipIo();  // in case bterms are not placed
++
++  float density = 1.0f;
++  bool initialized = initNesterovPlace(options_no_io, threads, false);
++  log_->redirectStringEnd();  // discard output
++
++  if (initialized) {
++    density = nbVec_[0]->estimateTargetDensity(options_no_io.overflow);
++  }
++
++  return density;
++}
++
+ void PlaceOptions::validate(utl::Logger* logger)
+ {
+   utl::Validator val(logger, GPL);
+diff --git a/src/gpl/src/replace.i b/src/gpl/src/replace.i
+index f8897d0932..a50ab33a80 100644
+--- a/src/gpl/src/replace.i
++++ b/src/gpl/src/replace.i
+@@ -244,4 +244,16 @@ set_debug_cmd(int pause_iterations,
+                     generate_images, resolved_path);
+ }
+ 
++float
++estimate_target_density_cmd(
++  const std::map<std::string, std::string>& keys,
++  const std::map<std::string, std::string>& flags)
++{
++  gpl::PlaceOptions options = getOptions(keys, flags);
++  Replace* replace = getReplace();
++  int threads = ord::OpenRoad::openRoad()->getThreadCount();
++
++  return replace->estimateTargetDensity(options, threads);
++}
++
+ %} // inline
+diff --git a/src/gpl/src/replace.tcl b/src/gpl/src/replace.tcl
+index e7b960079f..03d9841e6e 100644
+--- a/src/gpl/src/replace.tcl
++++ b/src/gpl/src/replace.tcl
+@@ -261,6 +261,31 @@ proc placement_cluster { args } {
+   gpl::placement_cluster_cmd $insts
+ }
+ 
++sta::define_cmd_args "estimate_target_density" {\
++    [-bin_grid_count grid_count]\
++    [-overflow overflow]\
++    [-pad_left pad_left]\
++    [-pad_right pad_right]\
++}
++
++proc estimate_target_density { args } {
++  sta::parse_key_args "estimate_target_density" args \
++    keys {-bin_grid_count -overflow \
++      -pad_left -pad_right} \
++    flags {}
++  sta::check_argc_eq0 "estimate_target_density" $args
++
++  if { [ord::get_db_block] == "NULL" } {
++    utl::error GPL 187 "No design block found."
++  }
++
++  set density_estimation [gpl::estimate_target_density_cmd \
++    [array get keys] [array get flags]]
++  gpl::replace_reset_cmd
++
++  return $density_estimation
++}
++
+ namespace eval gpl {
+ proc get_global_placement_uniform_density { args } {
+   if { [ord::get_db_block] == "NULL" } {
+diff --git a/src/gpl/test/BUILD b/src/gpl/test/BUILD
+index 55eb45c5f5..efd5541e73 100644
+--- a/src/gpl/test/BUILD
++++ b/src/gpl/test/BUILD
+@@ -301,6 +301,19 @@ cc_test(
+     ],
+ )
+ 
++cc_test(
++    name = "estimate_target_density_test",
++    srcs = ["estimate_target_density_test.cpp"],
++    deps = [
++        "//src/gpl",
++        "//src/gpl:gpl_private_hdrs",
++        "//src/odb/src/db",
++        "//src/utl",
++        "@googletest//:gtest",
++        "@googletest//:gtest_main",
++    ],
++)
++
+ py_test(
+     name = "gpl_man_tcl_check",
+     srcs = ["gpl_man_tcl_check.py"],
+diff --git a/src/gpl/test/CMakeLists.txt b/src/gpl/test/CMakeLists.txt
+index 7edd65b6dc..70dc3b42d3 100644
+--- a/src/gpl/test/CMakeLists.txt
++++ b/src/gpl/test/CMakeLists.txt
+@@ -193,7 +193,32 @@ if(ENABLE_GPU)
+            COMMAND $<TARGET_FILE:placer_base_test> --gtest_list_tests)
+ endif()
+ 
+-add_dependencies(build_and_test fft_test mbff_test placer_base_test)
++add_executable(estimate_target_density_test
++  estimate_target_density_test.cpp
++)
++
++target_include_directories(estimate_target_density_test
++  PRIVATE
++  ${PROJECT_SOURCE_DIR}
++)
++
++target_link_libraries(estimate_target_density_test PUBLIC
++  GTest::gtest
++  GTest::gtest_main
++  gpl_lib
++)
++
++gtest_discover_tests(estimate_target_density_test
++    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
++    ${gpl_gpu_test_discovery}
++)
++if(ENABLE_GPU)
++  add_test(NAME estimate_target_density_test_load_sentinel
++           COMMAND $<TARGET_FILE:estimate_target_density_test> --gtest_list_tests)
++endif()
++
++add_dependencies(build_and_test fft_test mbff_test placer_base_test
++  estimate_target_density_test)
+ 
+ # GPU FFT correctness test. Built only on ENABLE_GPU=ON: it links the GPU FFT
+ # backend (src/gpl/src/gpu/gpuFftBackend.cpp) via gpl_lib and, with the default
+diff --git a/src/gpl/test/estimate_target_density_test.cpp b/src/gpl/test/estimate_target_density_test.cpp
+new file mode 100644
+index 0000000000..56501ae115
+--- /dev/null
++++ b/src/gpl/test/estimate_target_density_test.cpp
+@@ -0,0 +1,189 @@
++// SPDX-License-Identifier: BSD-3-Clause
++// Copyright (c) 2026, The OpenROAD Authors
++
++#include <memory>
++#include <string>
++
++#include "gpl/Replace.h"
++#include "gtest/gtest.h"
++#include "odb/db.h"
++#include "odb/dbTypes.h"
++#include "odb/geom.h"
++#include "src/gpl/src/nesterovBase.h"
++#include "src/gpl/src/placerBase.h"
++#include "utl/Logger.h"
++#include "utl/deleter.h"
++
++namespace gpl {
++namespace {
++
++// Builds a bare core (kRows rows of kRowSites sites) populated with `count`
++// movable 2-site-wide cells, then returns what
++// NesterovBase::estimateTargetDensity(overflow) reports for it. Each call
++// gets its own independent, freshly built database, so a test can call this
++// several times (e.g. to compare overflow values, or a clustered layout
++// against a spread-out one) without one call's placer state leaking into
++// the next.
++class EstimateTargetDensityTest : public ::testing::Test
++{
++ protected:
++  static constexpr int kDbuPerMicron = 1000;
++  static constexpr int kSiteWidth = 200;
++  static constexpr int kRowHeight = 2000;
++  static constexpr int kRowSites = 100;
++  static constexpr int kRows = 10;
++  static constexpr int kCellWidth = 2 * kSiteWidth;
++
++  enum class Layout
++  {
++    // One cell per row, spread evenly across the full row width.
++    kSpread,
++    // All cells stacked on top of one another at a single site, creating
++    // congestion that cannot be relieved no matter the target density.
++    kClustered,
++  };
++
++  float estimateDensity(Layout layout, int count, float overflow)
++  {
++    auto db = utl::UniquePtrWithDeleter<odb::dbDatabase>(
++        odb::dbDatabase::create(), odb::dbDatabase::destroy);
++    db->setLogger(&logger_);
++    db->setDbuPerMicron(kDbuPerMicron);
++
++    odb::dbTech* tech = odb::dbTech::create(db.get(), "tech");
++    odb::dbTechLayer::create(tech, "metal1", odb::dbTechLayerType::ROUTING);
++    odb::dbLib* lib = odb::dbLib::create(db.get(), "lib", tech);
++    odb::dbSite* site = odb::dbSite::create(lib, "site");
++    site->setWidth(kSiteWidth);
++    site->setHeight(kRowHeight);
++    site->setClass(odb::dbSiteClass::CORE);
++
++    odb::dbChip* chip = odb::dbChip::create(db.get(), tech);
++    odb::dbBlock* block = odb::dbBlock::create(chip, "top");
++    block->setDieArea(odb::Rect(
++        0, 0, (kRowSites + 2) * kSiteWidth, (kRows + 2) * kRowHeight));
++    for (int row = 0; row < kRows; ++row) {
++      odb::dbRow::create(block,
++                         ("row" + std::to_string(row)).c_str(),
++                         site,
++                         kSiteWidth,
++                         (row + 1) * kRowHeight,
++                         odb::dbOrientType::R0,
++                         odb::dbRowDir::HORIZONTAL,
++                         kRowSites,
++                         kSiteWidth);
++    }
++    block->setCoreArea(block->computeCoreArea());
++
++    odb::dbMaster* master = odb::dbMaster::create(lib, "core_cell");
++    master->setType(odb::dbMasterType(odb::dbMasterType::CORE));
++    master->setWidth(kCellWidth);
++    master->setHeight(kRowHeight);
++    master->setSite(site);
++    master->setFrozen();
++
++    for (int i = 0; i < count; ++i) {
++      int x = 0;
++      int y = 0;
++      if (layout == Layout::kSpread) {
++        // A grid over every row and evenly spaced columns, so the bin grid
++        // (which is much finer than kRows) sees roughly the same density
++        // everywhere rather than a handful of occupied rows.
++        const int cols = count / kRows;
++        const int row = i % kRows;
++        const int col = i / kRows;
++        x = kSiteWidth * (1 + col * (kRowSites / cols));
++        y = kRowHeight * (row + 1);
++      } else {
++        // Every cell stacked on top of the same site: the bin(s) covering
++        // that site hold `count` cells' worth of area, far more than they
++        // can ever hold even at full (1.0) density, so relieving the
++        // congestion elsewhere in the core cannot make the overflow at that
++        // site disappear.
++        x = kSiteWidth;
++        y = kRowHeight;
++      }
++      odb::dbInst* inst = odb::dbInst::create(
++          block, master, ("u_" + std::to_string(i)).c_str());
++      inst->setLocation(x, y);
++      inst->setPlacementStatus(odb::dbPlacementStatus::PLACED);
++    }
++
++    PlaceOptions options;
++    // NesterovBase otherwise randomly perturbs each cell's initial location
++    // by up to half a site height, which would scatter the deliberately
++    // co-located cells in the kClustered layout across several bins.
++    options.initialPlacePerturbationDist = 0.0f;
++    const PlacerBaseVars pb_vars(options);
++    auto pbc = std::make_shared<PlacerBaseCommon>(db.get(), pb_vars, &logger_);
++    auto pb = std::make_shared<PlacerBase>(
++        db.get(), pbc, &logger_, /* check_density = */ false);
++
++    const NesterovBaseVars nb_vars(options);
++    auto nbc = std::make_shared<NesterovBaseCommon>(
++        nb_vars, pbc, &logger_, /* num_threads = */ 1, Clusters{});
++    NesterovBase nb(nb_vars, pb, nbc, &logger_);
++
++    return nb.estimateTargetDensity(overflow);
++  }
++
++  utl::Logger logger_;
++};
++
++// The estimate is a density found by binary search between the design's
++// uniform target density and full (1.0) density, so it must always land in
++// that range regardless of how tight the requested overflow is. A very loose
++// overflow request (1.0) converges to the lower bound of that search, so it
++// stands in here for the uniform target density itself.
++TEST_F(EstimateTargetDensityTest, ResultIsWithinUniformToFullRange)
++{
++  const float uniform_density = estimateDensity(Layout::kSpread, 100, 1.0f);
++  const float loose = estimateDensity(Layout::kSpread, 100, 0.5f);
++  const float tight = estimateDensity(Layout::kSpread, 100, 0.01f);
++
++  for (float density : {loose, tight}) {
++    EXPECT_GE(density, uniform_density - 1e-3f);
++    EXPECT_LE(density, 1.0f);
++  }
++}
++
++// A design spread out evenly has essentially the same density everywhere, so
++// asking for a tight overflow should not need a target density much higher
++// than the design's own uniform density: there is no local congestion to
++// relieve.
++TEST_F(EstimateTargetDensityTest, UniformDesignNeedsLittleAboveUniformDensity)
++{
++  const float uniform_density = estimateDensity(Layout::kSpread, 100, 1.0f);
++  const float tight_density = estimateDensity(Layout::kSpread, 100, 0.02f);
++
++  EXPECT_NEAR(tight_density, uniform_density, 0.1f);
++}
++
++// Stacking cells on top of one another creates local congestion far above
++// the design-wide average, and no achievable density can fully relieve it,
++// so it needs a distinctly higher density than the same cell count spread
++// out evenly.
++TEST_F(EstimateTargetDensityTest, ClusteredDesignNeedsHigherDensityThanUniform)
++{
++  const float clustered_density
++      = estimateDensity(Layout::kClustered, 40, 0.02f);
++  const float spread_density = estimateDensity(Layout::kSpread, 100, 0.02f);
++
++  EXPECT_GT(clustered_density, spread_density);
++}
++
++// Tightening the requested overflow can only ask the placer to reserve more
++// headroom, never less, so the returned density must be monotonically
++// non-decreasing as the overflow argument shrinks.
++TEST_F(EstimateTargetDensityTest, DensityIsMonotonicInOverflow)
++{
++  const float loose = estimateDensity(Layout::kClustered, 40, 0.5f);
++  const float medium = estimateDensity(Layout::kClustered, 40, 0.1f);
++  const float tight = estimateDensity(Layout::kClustered, 40, 0.01f);
++
++  EXPECT_LE(loose, medium);
++  EXPECT_LE(medium, tight);
++}
++
++}  // namespace
++}  // namespace gpl
+diff --git a/src/gpl/test/gpl_readme_msgs_check.ok b/src/gpl/test/gpl_readme_msgs_check.ok
+index e4ee21f5d6..9d209c723c 100644
+--- a/src/gpl/test/gpl_readme_msgs_check.ok
++++ b/src/gpl/test/gpl_readme_msgs_check.ok
+@@ -1,5 +1,5 @@
+ README.md
+-Names: 4,        Desc: 4,        Syn: 4,        Options: 4,        Args: 4
++Names: 5,        Desc: 5,        Syn: 5,        Options: 5,        Args: 5
+ Global Examples: None
+ Global See Also: None
+ Man2 successfully compiled.
+diff --git a/src/odb/test/replace_hier_mod1.tcl b/src/odb/test/replace_hier_mod1.tcl
+index 18db22505b..27a71c4c81 100644
+--- a/src/odb/test/replace_hier_mod1.tcl
++++ b/src/odb/test/replace_hier_mod1.tcl
+@@ -44,7 +44,7 @@ puts "### swap bc1 to inv_chain ###"
+ #set_debug_level ODB replace_design 1
+ set_debug_level ODB replace_design_check_sanity 1
+ replace_hier_module bc1 inv_chain
+-global_placement -skip_nesterov_place -incremental
++global_placement -skip_nesterov_place -incremental -density uniform
+ detailed_placement
+ report_cell_usage bc1
+ report_net u1z -digits 3
+@@ -59,7 +59,7 @@ run_equivalence_test replace_hier_mod1 \
+ 
+ puts "### swap bc1 back to buffer_chain ###"
+ replace_hier_module bc1 buffer_chain
+-global_placement -skip_nesterov_place -incremental
++global_placement -skip_nesterov_place -incremental -density uniform
+ detailed_placement
+ report_cell_usage bc1
+ report_net u1z -digits 3
+@@ -74,7 +74,7 @@ run_equivalence_test replace_hier_mod1 \
+ 
+ puts "### swap bc1 back to inv_chain ###"
+ replace_hier_module bc1 inv_chain
+-global_placement -skip_nesterov_place -incremental
++global_placement -skip_nesterov_place -incremental -density uniform
+ detailed_placement
+ report_cell_usage bc1
+ report_net u1z -digits 3

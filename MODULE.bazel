@@ -63,6 +63,12 @@ archive_override(
         "find . -name BUILD -exec sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|g' {} +",
         "sed -i 's|defines = \\[|copts = [\"-include\", \"fmt/format.h\"],\\n    defines = [|' src/syn/src/elab/BUILD third-party/slang-elab/src/BUILD",
     ],
+    # Study branch only: upstream PR #11395 carried so its new gpl command
+    # can be measured. See the patch header; it retires on the bump that
+    # lands the PR (or drops it). Applied before patch_cmds, and it touches
+    # only src/gpl, so the submodule vendoring above is unaffected.
+    patch_strip = 1,
+    patches = ["//patches:0001-openroad-gpl-estimate-target-density-11395.patch"],
     strip_prefix = "OpenROAD-41a28926b92c5c20f41f89e90222a95a820384d2",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/41a28926b92c5c20f41f89e90222a95a820384d2.tar.gz"],
 )
