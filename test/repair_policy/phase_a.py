@@ -8,6 +8,14 @@ two row fixes with no policy (arm `base-p00670068`, falling back to the
 inert move budget's arm `base-p0072`, which measured identical to it),
 so a policy's wall effect is separated from OpenROAD #11387's.
 
+Read the rows as flow-level, not stage-level: a patched binary rebuilds
+the earlier stages too, and the place stage runs repair_timing, so a
+policy arm's cts and grt inputs are its own, not the control's. The
+first progress row of each run records the starting WNS, TNS and
+violating-endpoint count that show it. The judgment is the full flow,
+which is what Phase B runs; this table says where along the flow the
+policy's effect shows up.
+
     phase_a.py --results DIR [--arms base-p0069 base-p0070 ...]
 """
 
