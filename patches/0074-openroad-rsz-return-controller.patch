@@ -22,7 +22,11 @@ run, so a last gasp chasing crumbs after a productive main phase stops
 within two windows. The phase ends on the controller's own decision;
 the first cut signalled through the legacy exit's two-consecutive
 bookkeeping and on jpeg grt that made the main phase 300 passes longer
-instead of shorter. Last gasp is not skipped on the main phase's
+instead of shorter. The first window opens at the phase's start, so the
+passes before the first boundary count, and two empty windows end the
+phase whether or not an earlier one paid: on riscv32i grt the first cut
+closed the design inside its first window and then walked 300 more
+passes because its peak was never recorded. Last gasp is not skipped on the main phase's
 account -- measured, a main phase that stopped for lack of return still
 hands over TNS that last gasp's looser acceptance finds (jpeg cts:
 655 ps) -- it runs under the same controller and ends when its own
@@ -124,7 +128,7 @@ index 454cc2758c..e4a834fe51 100644
      if (config_.verbose || last_gasp_state.opto_iteration == 1) {
        printProgress(
 diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
-index 859f085353..042e17e363 100644
+index 859f085353..fdad6b2201 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.cc
 +++ b/src/rsz/src/policy/SetupLegacyBase.cc
 @@ -30,6 +30,7 @@
@@ -135,7 +139,7 @@ index 859f085353..042e17e363 100644
  #include "sta/Graph.hh"
  #include "sta/GraphClass.hh"
  #include "sta/Liberty.hh"
-@@ -66,6 +67,13 @@ SetupLegacyBase::SetupLegacyBase(Resizer& resizer,
+@@ -66,17 +67,39 @@ SetupLegacyBase::SetupLegacyBase(Resizer& resizer,
  bool SetupLegacyBase::start()
  {
    OptimizationPolicy::start();
@@ -148,8 +152,34 @@ index 859f085353..042e17e363 100644
 +  setup_context_.type_retired.fill(false);
    setup_context_.max_repairs_per_pass = config_.max_repairs_per_pass;
    if (!setup_context_.phase_pipeline_active) {
++    armController();
      return true;
-@@ -668,6 +676,7 @@ bool SetupLegacyBase::tryCandidateSequence(
+   }
+   if (!setup_context_.legacy_preamble_done) {
+     setup_context_.legacy_preamble_done = true;
+     setup_context_.legacy_preamble_has_violations = prepareForPhasePipeline();
+   }
++  if (setup_context_.legacy_preamble_has_violations) {
++    armController();
++  }
+   return setup_context_.legacy_preamble_has_violations;
+ }
+ 
++void SetupLegacyBase::armController()
++{
++  RepairSetupContext::ReturnController& c = setup_context_.controller;
++  sta::Slack wns;
++  sta::Vertex* worst = nullptr;
++  sta_->worstSlack(max_, wns, worst);
++  c.window_start_tns = sta_->totalNegativeSlack(max_);
++  c.window_start_wns = wns;
++  c.armed = true;
++}
++
+ void SetupLegacyBase::iterate()
+ {
+   // Used as the shared prepare/report policy; phases run via derived classes.
+@@ -668,6 +691,7 @@ bool SetupLegacyBase::tryCandidateSequence(
        utl::DebugScopedTimer timer(profile.commit_s);
        result = committer_.commit(*candidate);
      }
@@ -157,7 +187,7 @@ index 859f085353..042e17e363 100644
      if (!result.accepted) {
        continue;
      }
-@@ -725,6 +734,9 @@ bool SetupLegacyBase::tryRepairTarget(
+@@ -725,6 +749,9 @@ bool SetupLegacyBase::tryRepairTarget(
      if (rejected_types != nullptr && rejected_types->contains(type)) {
        continue;
      }
@@ -167,7 +197,7 @@ index 859f085353..042e17e363 100644
      if (!generator.isApplicable(live_target)) {
        continue;
      }
-@@ -956,7 +968,12 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
+@@ -956,7 +983,12 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
      }
      float inc_fix_rate = (prev_tns - curr_tns) / initial_tns;
      prev_tns = curr_tns;
@@ -180,7 +210,7 @@ index 859f085353..042e17e363 100644
        debugPrint(logger_,
                   RSZ,
                   "repair_setup",
-@@ -1008,6 +1025,93 @@ void SetupLegacyBase::reportProfile(const std::string_view phase_name,
+@@ -1008,6 +1040,94 @@ void SetupLegacyBase::reportProfile(const std::string_view phase_name,
        p.accepted);
  }
  
@@ -196,9 +226,7 @@ index 859f085353..042e17e363 100644
 +  sta_->worstSlack(max_, wns, worst);
 +
 +  if (!c.armed) {
-+    c.armed = true;
-+    c.window_start_tns = tns;
-+    c.window_start_wns = wns;
++    armController();
 +    return false;
 +  }
 +
@@ -227,7 +255,10 @@ index 859f085353..042e17e363 100644
 +      c.peak_gain,
 +      c.low_windows,
 +      paying ? 1 : 0);
-+  if (c.peak_gain > 0.0 && c.low_windows >= kLowWindowsToStop) {
++  // Two windows that bought nothing end the phase, whether or not an
++  // earlier window bought something: a phase that has gained nothing in
++  // its first two hundred passes is not slow to start, it is stuck.
++  if (c.low_windows >= kLowWindowsToStop) {
 +    c.stop_phase = true;
 +    debugPrint(logger_,
 +               RSZ,
@@ -275,10 +306,10 @@ index 859f085353..042e17e363 100644
  {
    logger_->info(
 diff --git a/src/rsz/src/policy/SetupLegacyBase.hh b/src/rsz/src/policy/SetupLegacyBase.hh
-index 78aa495806..554de9681d 100644
+index 78aa495806..d57e661ca5 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.hh
 +++ b/src/rsz/src/policy/SetupLegacyBase.hh
-@@ -197,6 +197,18 @@ class SetupLegacyBase : public OptimizationPolicy
+@@ -197,6 +197,21 @@ class SetupLegacyBase : public OptimizationPolicy
                           std::string_view phase_name,
                           char phase_marker);
    void reportCustomPhaseSetup() const;
@@ -286,6 +317,9 @@ index 78aa495806..554de9681d 100644
 +  bool controllerSaysStop(int iteration,
 +                          std::string_view phase_name,
 +                          char phase_marker);
++  // Open the first window at the phase's start, so the passes before the
++  // first hundred-pass boundary count as a window too.
++  void armController();
 +  void noteMoveAttempt(MoveType type, bool accepted);
 +  // Fraction of the run's best window gain below which a window is
 +  // counted as not paying; two such windows end the phase.
