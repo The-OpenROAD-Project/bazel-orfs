@@ -139,6 +139,16 @@ design is a result, not a caveat.
 
 ## Decisions log
 
+- 2026-09-12: Phase B runs the return controller v3 (patch 0074: per
+  window, deterministic, first window at phase start, two empty windows
+  end a phase, last gasp under the same rule, the run's best window kept
+  across phases). One-repeat check against the rows-only control: grt
+  riscv32i -91% and closed (+15.5 ps), jpeg -51% with TNS +224 ps, ibex
+  -74% with WNS +0.1 ps, mock-alu identical; cts riscv32i -54% and still
+  closed. Nothing worse on any axis. The threshold set (0073) is fast but
+  loses closure on riscv32i cts and TNS on jpeg, so it is not carried
+  into Phase B.
+
 - 2026-09-12: patch arms are flow-level, not stage-level. A patched
   binary rebuilds the earlier stages too (place runs repair_timing), so
   a policy arm's cts and grt inputs differ from the control's; on
