@@ -1115,12 +1115,29 @@ def section_upstream(records, audit):
             "What *is* proposed is the missing test, in the shape "
             "`src/gpl/test/mt_invariance01.tcl` already has for global "
             "placement: run `repair_timing` at a thread count, write the "
-            "result, diff it against the single-threaded golden. "
-            "`//test:lb_32x128_mt_invariance_test` is that test, running "
-            "in this repo's CI now. It is the artefact that was missing "
-            "every one of the four times this broke -- each of which was "
-            "found by a flow user diffing outputs, never by a "
-            "regression.",
+            "result, diff it against the single-threaded golden. It is "
+            "the artefact that was missing every one of the four times "
+            "this broke -- each of which was found by a flow user "
+            "diffing outputs, never by a regression.",
+            "",
+            "**Its home is OpenROAD's regression suite, not this repo.** "
+            "A guard here does not protect the people who would break "
+            "it: an OpenROAD change lands against green upstream CI and "
+            "the failure surfaces downstream at bump time, which is the "
+            "very pattern this issue was opened about. Carrying it here "
+            "would reproduce that one layer down. The working probe is "
+            "on the study branch as a reference implementation for "
+            "whoever upstreams it.",
+            "",
+            "A unit-level test is also the only shape that *can* work "
+            "upstream, and for the same reason the campaign needed "
+            "pinned inputs: starting from a fixed `.odb` sidesteps "
+            "yosys entirely. `mt_invariance01` already does this for "
+            "global placement. A flow-level invariance test upstream "
+            "would be measuring the front end's nondeterminism as much "
+            "as the thread count -- which is presumably why the "
+            "question has been left to the QoR regressions until "
+            "synthesis moves in-tool.",
         ]
     return "\n".join(out) + "\n"
 
@@ -1294,13 +1311,26 @@ def section_invariance_tldr(records):
         ]
     else:
         out += [
-            "**Nothing diverged.** That is a negative result and it is the "
-            "point: bazel-orfs#970 was opened because thread-count "
-            "invariance of STA is *measured* and not *tested*, and every "
-            "one of the four times it broke it was a flow user who found "
-            "it. What this campaign adds beyond the numbers is "
-            "`//test:lb_32x128_mt_invariance_test`, which fails in CI if "
-            "it breaks again.",
+            "**Nothing diverged.** That is a negative result and it is "
+            "the point. Upstream does watch invariance, but as a side "
+            "effect: a thread-dependent result shifts a design's QoR and "
+            "the `rules-base.json` regressions notice. What has never "
+            "existed is a test that *isolates* the thread count, which "
+            "is why all four times this broke it was a flow user "
+            "diffing outputs who found it -- a shifted metric says "
+            "something moved, not what moved it.",
+            "",
+            "**Why this was measurable here and is not upstream.** The "
+            "comparison needs a fixed netlist, and yosys does not give "
+            "one: its `abc` pass runs on a thread pool and the netlist "
+            "depends on completion order (YosysHQ/yosys#6170). ORFS does "
+            "not pin netlists, so any downstream difference there could "
+            "be the front end. bazel-orfs pins "
+            "`YOSYS_MAX_THREADS=1` (private/environment.bzl) and caches "
+            "stage inputs, so every arm of this campaign started from "
+            "byte-identical inputs and a difference could only come from "
+            "the thread count. That property, not the harness, is what "
+            "made the question answerable.",
         ]
     return "\n".join(out) + "\n"
 
