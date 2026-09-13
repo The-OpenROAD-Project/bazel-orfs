@@ -1,0 +1,105 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+# A study of what ORFS's own `rules-base.json` history says about how many
+# designs a QoR gate has to run, and which.
+#
+# Nothing here runs the flow. The whole campaign is a walk over an ORFS
+# git checkout, which is why it costs seconds rather than machine-days --
+# and why the targets that need a checkout are `manual`: they reach
+# outside the sandbox at a path the caller supplies.
+package(default_visibility = ["//visibility:private"])
+
+# The pipeline, in order: history -> transitions -> analysis -> figures
+# and write-up. Each stage writes a file the next one reads, so a rerun
+# after an ORFS bump only repeats what actually changed.
+py_binary(
+    name = "extract",
+    srcs = ["extract.py"],
+    main = "extract.py",
+    tags = ["manual"],
+)
+
+py_binary(
+    name = "events",
+    srcs = ["events.py"],
+    main = "events.py",
+    tags = ["manual"],
+)
+
+py_binary(
+    name = "labels",
+    srcs = ["labels.py"],
+    main = "labels.py",
+    tags = ["manual"],
+)
+
+py_binary(
+    name = "series",
+    srcs = ["series.py"],
+    main = "series.py",
+    tags = ["manual"],
+    deps = [":analysis"],
+)
+
+py_binary(
+    name = "analyze",
+    srcs = ["analyze.py"],
+    main = "analyze.py",
+    tags = ["manual"],
+    deps = [":analysis"],
+)
+
+py_binary(
+    name = "plots",
+    srcs = ["plots.py"],
+    main = "plots.py",
+    tags = ["manual"],
+    deps = ["@bazel-orfs-dev-pip//matplotlib"],
+)
+
+# The write-up, generated from whatever results/ holds. A section whose
+# inputs are absent announces itself rather than vanishing, and with no
+# results at all this fails with "run the campaign first".
+py_binary(
+    name = "report",
+    srcs = ["report.py"],
+    main = "report.py",
+    tags = ["manual"],
+)
+
+# The arithmetic, tested. These are the only non-manual targets here on
+# purpose: they need no ORFS checkout, run in a fraction of a second, and
+# they guard the three parsers every number in the study is downstream of.
+# They have already caught an abbreviated blob sha that silently dropped
+# every revision, a greedy search that could not start when two witnesses
+# were required, and a de-padding round trip that would have reported a
+# design's area 15% too large.
+py_library(
+    name = "analysis",
+    srcs = [
+        "depad.py",
+        "extract.py",
+        "labels.py",
+        "select_designs.py",
+        "series.py",
+    ],
+    imports = ["."],
+)
+
+py_test(
+    name = "depad_test",
+    srcs = ["depad_test.py"],
+    deps = [":analysis"],
+)
+
+py_test(
+    name = "select_designs_test",
+    srcs = ["select_designs_test.py"],
+    deps = [":analysis"],
+)
+
+py_test(
+    name = "parsers_test",
+    srcs = ["parsers_test.py"],
+    deps = [":analysis"],
+)
