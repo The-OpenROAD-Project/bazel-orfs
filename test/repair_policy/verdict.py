@@ -18,7 +18,7 @@ A design passes when no axis is worse. The suite passes when every
 design does. "Within noise" is a verdict, not a rounding: the raw deltas
 stay in the table beside it.
 
-    verdict.py --results DIR --base base-prof --policy base-p0073 \\
+    verdict.py --results DIR --policy base-p0074 \\
                --bands tmp/noise_bands_recent.json
 """
 
@@ -231,7 +231,7 @@ def suite_table(verdicts):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results", required=True)
-    parser.add_argument("--base", default="base-prof")
+    parser.add_argument("--base", default="base-p00670068")
     parser.add_argument("--policy", required=True)
     parser.add_argument("--bands", help="noise_bands.py JSON")
     args = parser.parse_args()
