@@ -139,6 +139,13 @@ design is a result, not a caveat.
 
 ## Decisions log
 
+- 2026-09-13, 17:45: coralnpu's default full flow was killed after 11
+  hours in detailed route (iteration at 70% with 4572 violations after
+  52 minutes, on 24 threads). The full-flow arm cannot carry coralnpu
+  within this study's budget; it stays in the record for the stage-level
+  arms (#978 and Phase A) and leaves Phase B. The slow group is therefore
+  dropped entirely: Phase B is the 20 fast designs.
+
 - 2026-09-13, 10:15: the slow group is cut after coralnpu (both
   candidates already fail the bar on the fast group; the slow group
   cannot change the verdict). A sixth candidate, 0077 defer-and-revisit,
