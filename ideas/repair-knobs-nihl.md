@@ -139,6 +139,12 @@ design is a result, not a caveat.
 
 ## Decisions log
 
+- 2026-09-13: the two hierarchical BLOCKS designs, asap7/aes-block and
+  asap7/riscv32i-mock-sram, cannot run the full flow on a floorplan
+  deployment: macro placement fails with MPL-0003 (no valid tiling)
+  under the default arm before any repair runs. A harness limit, the
+  same on both arms; they leave the suite, which is 25 designs.
+
 - 2026-09-13, 05:40: the stall exit (0069) fails the bar too. Fast
   group: 18 of 20 pass; jpeg is 4% slower and sky130hd/riscv32i 17%
   slower, both with QoR equal or better. The stage split says why:
