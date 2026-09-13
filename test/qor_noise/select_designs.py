@@ -168,7 +168,9 @@ def main(argv=None):
         ("uniform", None),
         ("by_cost", lambda d: cost_of(size.get(d, 20000.0))),
     ):
-        chosen, trail = greedy(events, candidates, args.witnesses, costfn, limit=args.limit)
+        chosen, trail = greedy(
+            events, candidates, args.witnesses, costfn, limit=args.limit
+        )
         report["runs"][label] = {
             "chosen": sorted(chosen),
             "trail": trail,

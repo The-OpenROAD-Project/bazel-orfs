@@ -127,7 +127,9 @@ def main(argv=None):
         w.writeheader()
         for r in out:
             w.writerow(r)
-    print(f"ranked designs={len(out)} fleet-wide events={len(fleetwide)}", file=sys.stderr)
+    print(
+        f"ranked designs={len(out)} fleet-wide events={len(fleetwide)}", file=sys.stderr
+    )
     return 0
 
 

@@ -154,7 +154,16 @@ def main(argv=None):
     with open(args.out, "w", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(
-            ["platform", "design", "commit", "unix_time", "metric", "value", "compare", "level"]
+            [
+                "platform",
+                "design",
+                "commit",
+                "unix_time",
+                "metric",
+                "value",
+                "compare",
+                "level",
+            ]
         )
         for commit, when, path, blob in revisions:
             platform, design = PATH_RE.match(path).groups()
@@ -168,7 +177,9 @@ def main(argv=None):
                 print(f"[WARN] {commit[:12]} {path}: {exc}", file=sys.stderr)
                 continue
             for metric, (value, compare, level) in rules.items():
-                w.writerow([platform, design, commit, when, metric, value, compare, level])
+                w.writerow(
+                    [platform, design, commit, when, metric, value, compare, level]
+                )
                 rows += 1
 
     print(

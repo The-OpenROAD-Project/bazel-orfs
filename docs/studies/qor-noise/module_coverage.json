@@ -1,0 +1,509 @@
+{
+ "gpl": {
+  "bumps": 42,
+  "responded": 10,
+  "rate": 0.23809523809523808,
+  "top_designs": [
+   [
+    "gf180/jpeg",
+    4
+   ],
+   [
+    "asap7/gcd",
+    2
+   ],
+   [
+    "asap7/swerv_wrapper",
+    2
+   ],
+   [
+    "asap7/ethmac_lvt",
+    2
+   ],
+   [
+    "sky130hd/aes",
+    2
+   ],
+   [
+    "asap7/ethmac",
+    2
+   ],
+   [
+    "asap7/aes-block",
+    2
+   ],
+   [
+    "sky130hs/riscv32i",
+    1
+   ]
+  ]
+ },
+ "grt": {
+  "bumps": 31,
+  "responded": 10,
+  "rate": 0.3225806451612903,
+  "top_designs": [
+   [
+    "nangate45/gcd",
+    3
+   ],
+   [
+    "asap7/aes-block",
+    3
+   ],
+   [
+    "sky130hd/gcd",
+    3
+   ],
+   [
+    "sky130hd/microwatt",
+    3
+   ],
+   [
+    "gf12/ariane",
+    2
+   ],
+   [
+    "gf180/riscv32i",
+    2
+   ],
+   [
+    "intel16/aes",
+    2
+   ],
+   [
+    "sky130hs/gcd",
+    2
+   ]
+  ]
+ },
+ "rsz": {
+  "bumps": 22,
+  "responded": 5,
+  "rate": 0.22727272727272727,
+  "top_designs": [
+   [
+    "nangate45/ariane133",
+    3
+   ],
+   [
+    "sky130hd/riscv32i",
+    2
+   ],
+   [
+    "tsmc65lp/bp_be_top",
+    1
+   ],
+   [
+    "sky130hs/aes",
+    1
+   ],
+   [
+    "sky130hs/riscv32i",
+    1
+   ],
+   [
+    "ihp-sg13g2/spi",
+    1
+   ],
+   [
+    "ihp-sg13g2/i2c-gpio-expander",
+    1
+   ],
+   [
+    "sky130hd/gcd",
+    1
+   ]
+  ]
+ },
+ "odb": {
+  "bumps": 22,
+  "responded": 9,
+  "rate": 0.4090909090909091,
+  "top_designs": [
+   [
+    "nangate45/ariane133",
+    4
+   ],
+   [
+    "asap7/riscv32i-mock-sram",
+    4
+   ],
+   [
+    "sky130hd/gcd",
+    3
+   ],
+   [
+    "asap7/aes-block",
+    3
+   ],
+   [
+    "ihp-sg13g2/i2c-gpio-expander",
+    2
+   ],
+   [
+    "asap7/swerv_wrapper",
+    2
+   ],
+   [
+    "gf12/aes",
+    2
+   ],
+   [
+    "nangate45/black_parrot",
+    2
+   ]
+  ]
+ },
+ "dpl": {
+  "bumps": 13,
+  "responded": 3,
+  "rate": 0.23076923076923078,
+  "top_designs": [
+   [
+    "asap7/aes-block",
+    2
+   ],
+   [
+    "rapidus2hp/cva6",
+    1
+   ],
+   [
+    "rapidus2hp/hercules_idecode",
+    1
+   ],
+   [
+    "gf12/swerv_wrapper",
+    1
+   ],
+   [
+    "rapidus2hp/ethmac",
+    1
+   ],
+   [
+    "gf12/jpeg",
+    1
+   ],
+   [
+    "rapidus2hp/jpeg",
+    1
+   ],
+   [
+    "gf12/ariane",
+    1
+   ]
+  ]
+ },
+ "drt": {
+  "bumps": 9,
+  "responded": 6,
+  "rate": 0.6666666666666666,
+  "top_designs": [
+   [
+    "gf12/ariane",
+    2
+   ],
+   [
+    "nangate45/gcd",
+    2
+   ],
+   [
+    "gf180/riscv32i",
+    1
+   ],
+   [
+    "asap7/aes-block",
+    1
+   ],
+   [
+    "intel16/aes",
+    1
+   ],
+   [
+    "ihp-sg13g2/gcd",
+    1
+   ],
+   [
+    "asap7/mock-alu",
+    1
+   ],
+   [
+    "gf180/ibex",
+    1
+   ]
+  ]
+ },
+ "mpl": {
+  "bumps": 9,
+  "responded": 5,
+  "rate": 0.5555555555555556,
+  "top_designs": [
+   [
+    "gf12/ariane",
+    2
+   ],
+   [
+    "gf180/ibex",
+    2
+   ],
+   [
+    "nangate45/swerv_wrapper",
+    1
+   ],
+   [
+    "gf180/aes-hybrid",
+    1
+   ],
+   [
+    "nangate45/gcd",
+    1
+   ],
+   [
+    "gf180/riscv32i",
+    1
+   ],
+   [
+    "asap7/gcd",
+    1
+   ],
+   [
+    "rapidus2hp/hercules_is_int",
+    1
+   ]
+  ]
+ },
+ "cts": {
+  "bumps": 8,
+  "responded": 3,
+  "rate": 0.375,
+  "top_designs": [
+   [
+    "nangate45/dynamic_node",
+    1
+   ],
+   [
+    "nangate45/bp_be_top",
+    1
+   ],
+   [
+    "asap7/riscv32i-mock-sram",
+    1
+   ],
+   [
+    "asap7/gcd-ccs",
+    1
+   ],
+   [
+    "sky130hd/microwatt",
+    1
+   ],
+   [
+    "sky130hd/aes",
+    1
+   ],
+   [
+    "sky130hs/jpeg",
+    1
+   ],
+   [
+    "sky130hd/ibex",
+    1
+   ]
+  ]
+ },
+ "mpl2": {
+  "bumps": 7,
+  "responded": 2,
+  "rate": 0.2857142857142857,
+  "top_designs": [
+   [
+    "asap7/aes-block",
+    1
+   ],
+   [
+    "tsmc65lp/bp_be_top",
+    1
+   ]
+  ]
+ },
+ "dbSta": {
+  "bumps": 5,
+  "responded": 0,
+  "rate": 0.0,
+  "top_designs": []
+ },
+ "gui": {
+  "bumps": 4,
+  "responded": 3,
+  "rate": 0.75,
+  "top_designs": [
+   [
+    "gf180/jpeg",
+    2
+   ],
+   [
+    "nangate45/tinyRocket",
+    1
+   ],
+   [
+    "asap7/jpeg",
+    1
+   ],
+   [
+    "sky130hs/aes",
+    1
+   ],
+   [
+    "tsmc65lp/swerv",
+    1
+   ],
+   [
+    "intel16/gcd",
+    1
+   ],
+   [
+    "tsmc65lp/swerv_wrapper",
+    1
+   ],
+   [
+    "gf12/tinyRocket",
+    1
+   ]
+  ]
+ },
+ "ppl": {
+  "bumps": 3,
+  "responded": 2,
+  "rate": 0.6666666666666666,
+  "top_designs": [
+   [
+    "intel16/gcd",
+    2
+   ],
+   [
+    "nangate45/tinyRocket",
+    1
+   ],
+   [
+    "asap7/jpeg",
+    1
+   ],
+   [
+    "sky130hs/aes",
+    1
+   ],
+   [
+    "tsmc65lp/swerv",
+    1
+   ],
+   [
+    "tsmc65lp/swerv_wrapper",
+    1
+   ],
+   [
+    "gf12/tinyRocket",
+    1
+   ],
+   [
+    "gf12/jpeg",
+    1
+   ]
+  ]
+ },
+ "rcx": {
+  "bumps": 3,
+  "responded": 2,
+  "rate": 0.6666666666666666,
+  "top_designs": [
+   [
+    "intel16/ibex",
+    1
+   ],
+   [
+    "asap7/swerv_wrapper",
+    1
+   ],
+   [
+    "gf12/aes",
+    1
+   ],
+   [
+    "nangate45/black_parrot",
+    1
+   ],
+   [
+    "asap7/aes-mbff",
+    1
+   ],
+   [
+    "asap7/riscv32i-mock-sram",
+    1
+   ],
+   [
+    "gf12/swerv_wrapper",
+    1
+   ],
+   [
+    "ihp-sg13g2/jpeg",
+    1
+   ]
+  ]
+ },
+ "rmp": {
+  "bumps": 3,
+  "responded": 2,
+  "rate": 0.6666666666666666,
+  "top_designs": [
+   [
+    "sky130hs/ibex",
+    2
+   ],
+   [
+    "asap7/jpeg",
+    2
+   ],
+   [
+    "sky130hs/jpeg",
+    2
+   ],
+   [
+    "gf180/jpeg",
+    2
+   ],
+   [
+    "sky130hd/jpeg",
+    2
+   ],
+   [
+    "sky130hd/ibex",
+    1
+   ],
+   [
+    "gf12/ca53",
+    1
+   ],
+   [
+    "sky130hs/aes",
+    1
+   ]
+  ]
+ },
+ "tap": {
+  "bumps": 3,
+  "responded": 0,
+  "rate": 0.0,
+  "top_designs": []
+ },
+ "ant": {
+  "bumps": 3,
+  "responded": 0,
+  "rate": 0.0,
+  "top_designs": []
+ },
+ "utl": {
+  "bumps": 3,
+  "responded": 0,
+  "rate": 0.0,
+  "top_designs": []
+ }
+}

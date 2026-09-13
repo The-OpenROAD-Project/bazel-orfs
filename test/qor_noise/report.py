@@ -224,9 +224,13 @@ def designs_section(a, base_url):
             f"| {d['design']} | {d['instances']:,.0f} | {pct(d['responsiveness'])} | "
             f"{d['solo_per_year']:.1f} |"
         )
-    lines += ["", "The five that noticed the most:", "",
-              "| design | instances | noticed | moved alone / year |",
-              "| --- | ---: | ---: | ---: |"]
+    lines += [
+        "",
+        "The five that noticed the most:",
+        "",
+        "| design | instances | noticed | moved alone / year |",
+        "| --- | ---: | ---: | ---: |",
+    ]
     for d in sorted(ds, key=lambda d: -d["responsiveness"])[:5]:
         lines.append(
             f"| {d['design']} | {d['instances']:,.0f} | {pct(d['responsiveness'])} | "
@@ -249,10 +253,14 @@ def censoring_section(a):
 def build(a, base_url):
     parts = [
         section("What the history contains", corpus_section(a)),
-        section("Real tool changes are coherent; draws are not", events_section(a, base_url)),
+        section(
+            "Real tool changes are coherent; draws are not", events_section(a, base_url)
+        ),
         section("How many designs, and which", how_many_section(a, base_url)),
         section("The clever subset does not exist", selection_section(a, base_url)),
-        section("Big designs cost more and tell you less", designs_section(a, base_url)),
+        section(
+            "Big designs cost more and tell you less", designs_section(a, base_url)
+        ),
         section("What the rules files cannot tell you", censoring_section(a)),
     ]
     return "\n".join(parts)

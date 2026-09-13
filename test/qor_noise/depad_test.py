@@ -87,7 +87,9 @@ class Refusals(unittest.TestCase):
             self.assertEqual(depad.resolution(metric), 0.0)
 
     def test_three_significant_digit_metrics_declare_their_resolution(self):
-        self.assertEqual(depad.resolution("synth__design__instance__area__stdcell"), 0.01)
+        self.assertEqual(
+            depad.resolution("synth__design__instance__area__stdcell"), 0.01
+        )
 
 
 class Direction(unittest.TestCase):

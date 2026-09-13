@@ -100,7 +100,9 @@ def corpus_summary(history, labels, transitions):
         "last": str(datetime.date.fromtimestamp(max(times))),
         "label_types": dict(collections.Counter(l["type"] for l in labels)),
         "labelled_rows": len(labels),
-        "transition_kinds": {f"{k}_retargeted={int(r)}": n for (k, r), n in kinds.items()},
+        "transition_kinds": {
+            f"{k}_retargeted={int(r)}": n for (k, r), n in kinds.items()
+        },
         "transition_sizes": sizes_by_kind,
     }
 
@@ -159,13 +161,13 @@ def event_summary(transitions, first, last, subjects):
         "single_name_events": sum(1 for e in events if e["names"] == 1),
         "openroad_bump_events": {
             "n": len(bump),
-            "fraction_moved_median": statistics.median(e["fraction"] for e in bump)
-            if bump
-            else None,
+            "fraction_moved_median": (
+                statistics.median(e["fraction"] for e in bump) if bump else None
+            ),
             "concordance_min": min(e["concordance"] for e in bump) if bump else None,
-            "all_fully_concordant": all(e["concordance"] == 1.0 for e in bump)
-            if bump
-            else None,
+            "all_fully_concordant": (
+                all(e["concordance"] == 1.0 for e in bump) if bump else None
+            ),
         },
     }
 
@@ -228,7 +230,9 @@ def selection_study(events, sizes, seed=17):
                     "exhausted": len(pool) == D,
                     "D": D,
                     "coverage_mean": statistics.mean(vals),
-                    "coverage_2sigma": 2 * statistics.stdev(vals) if len(set(vals)) > 1 else 0.0,
+                    "coverage_2sigma": (
+                        2 * statistics.stdev(vals) if len(set(vals)) > 1 else 0.0
+                    ),
                     "cost_mean": statistics.mean(costs),
                 }
             )
@@ -288,7 +292,9 @@ def design_table(transitions, first, last, sizes):
     out = []
     for key in sorted(first):
         lo, hi = first[key], last[key]
-        eligible = fleetwide[bisect.bisect_left(times, lo) : bisect.bisect_right(times, hi)]
+        eligible = fleetwide[
+            bisect.bisect_left(times, lo) : bisect.bisect_right(times, hi)
+        ]
         if len(eligible) < 5:
             continue
         moved = sum(1 for _t, ds in eligible if key in ds)

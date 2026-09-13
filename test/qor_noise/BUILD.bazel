@@ -50,6 +50,14 @@ py_binary(
 )
 
 py_binary(
+    name = "schedule",
+    srcs = ["schedule.py"],
+    main = "schedule.py",
+    tags = ["manual"],
+    deps = [":analysis"],
+)
+
+py_binary(
     name = "plots",
     srcs = ["plots.py"],
     main = "plots.py",
@@ -80,6 +88,7 @@ py_library(
         "depad.py",
         "extract.py",
         "labels.py",
+        "schedule.py",
         "select_designs.py",
         "series.py",
     ],
@@ -95,6 +104,12 @@ py_test(
 py_test(
     name = "select_designs_test",
     srcs = ["select_designs_test.py"],
+    deps = [":analysis"],
+)
+
+py_test(
+    name = "schedule_test",
+    srcs = ["schedule_test.py"],
     deps = [":analysis"],
 )
 

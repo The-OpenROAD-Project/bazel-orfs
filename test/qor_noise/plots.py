@@ -179,7 +179,9 @@ def fig_concordance(a, outdir):
     ax.set_ylabel("% of fleet-wide events")
     ax.set_ylim(0, 100)
     for i, (k, v) in enumerate(bars.items()):
-        ax.text(i, v + 2, f"{v:.0f}%", ha="center", color=INK, fontsize=11, weight="bold")
+        ax.text(
+            i, v + 2, f"{v:.0f}%", ha="center", color=INK, fontsize=11, weight="bold"
+        )
     bump = ev["openroad_bump_events"]
     ax.set_title(
         "When many designs move at once, they move the same way\n"
@@ -296,6 +298,7 @@ def fig_cost_vs_information(a, outdir):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--analysis", required=True)
+    ap.add_argument("--schedule", default="", help="schedule.py output, if taken")
     ap.add_argument("--outdir", required=True)
     args = ap.parse_args(argv)
     with open(args.analysis) as fh:
@@ -306,7 +309,66 @@ def main(argv=None):
     fig_concordance(a, args.outdir)
     fig_recommendation(a, args.outdir)
     fig_cost_vs_information(a, args.outdir)
+    if args.schedule and os.path.exists(args.schedule):
+        with open(args.schedule) as fh:
+            fig_machine_pareto(json.load(fh), args.outdir)
     return 0
+
+
+def fig_machine_pareto(s, outdir):
+    """Coverage against wall time, per machine shape."""
+    pts = {p["cap"]: p for p in s["points"]}
+    order = [
+        "n2-standard-16",
+        "n2-standard-32",
+        "n2-standard-64",
+        "n2-standard-128",
+    ]
+    fig, ax = figure(figsize=(9.5, 5.4))
+    for i, name in enumerate(order):
+        caps = s["pareto_caps"][name]
+        xs = [pts[c]["machines"][name]["wall_minutes"] for c in caps]
+        ys = [pts[c]["coverage"] * 100 for c in caps]
+        spec = s["machines"][name]
+        ax.plot(
+            xs,
+            ys,
+            color=SERIES[i % len(SERIES)],
+            lw=2,
+            marker="o",
+            ms=4,
+            label=f"{name} ({spec['vcpus']} vCPU, {spec['memory_gb']} GB)",
+        )
+    knee = max(
+        (p for p in s["points"] if p["coverage"] <= 0.84),
+        key=lambda p: p["coverage"],
+    )
+    kx = knee["machines"]["n2-standard-64"]["wall_minutes"]
+    ax.annotate(
+        f"knee: {knee['n_designs']} designs, {knee['coverage']:.0%}\n"
+        f"largest {knee['cap']:,} instances",
+        (kx, knee["coverage"] * 100),
+        textcoords="offset points",
+        xytext=(-30, -48),
+        fontsize=9,
+        color=INK,
+        arrowprops=dict(arrowstyle="->", color=MUTED, lw=0.9),
+    )
+    style(ax)
+    ax.set_xscale("log")
+    ax.set_xlabel("PR CI wall time, minutes (log) — designs run concurrently")
+    ax.set_ylabel("% of real tool changes detected")
+    ax.set_title(
+        "What a QoR gate costs in wall time\n"
+        "every point is core-limited, never memory-limited: peak RAM stays under 70 GB",
+        color=INK,
+        fontsize=12,
+        loc="left",
+        pad=12,
+        weight="bold",
+    )
+    ax.legend(frameon=False, fontsize=8.5, labelcolor=MUTED, loc="lower right")
+    save(fig, outdir, "machine_pareto.png")
 
 
 if __name__ == "__main__":

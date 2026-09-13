@@ -69,19 +69,13 @@ class CommitTables(unittest.TestCase):
         self.assertEqual(m.group("type"), "Tighten")
 
     def test_separator_row_is_not_a_metric(self):
-        self.assertIsNone(
-            labels.ROW_RE.match("| ------  | ---  | ---  | ----     |")
-        )
+        self.assertIsNone(labels.ROW_RE.match("| ------  | ---  | ---  | ----     |"))
 
     def test_header_row_is_not_a_metric(self):
-        self.assertIsNone(
-            labels.ROW_RE.match("| Metric  | Old  | New  | Type     |")
-        )
+        self.assertIsNone(labels.ROW_RE.match("| Metric  | Old  | New  | Type     |"))
 
     def test_design_header_line(self):
-        m = labels.HEADER_RE.search(
-            "designs/ihp-sg13g2/aes/rules-base.json updates:"
-        )
+        m = labels.HEADER_RE.search("designs/ihp-sg13g2/aes/rules-base.json updates:")
         self.assertEqual(m.group("platform"), "ihp-sg13g2")
         self.assertEqual(m.group("design"), "aes")
 

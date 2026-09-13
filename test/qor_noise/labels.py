@@ -39,7 +39,9 @@ ROW_RE = re.compile(
     r"\s*(?P<type>Tighten|Failing|Updating)\s*\|"
 )
 
-HEADER_RE = re.compile(r"^(?P<path>\S*designs/(?P<platform>[^/]+)/(?P<design>[^/]+)/rules-base\.json)")
+HEADER_RE = re.compile(
+    r"^(?P<path>\S*designs/(?P<platform>[^/]+)/(?P<design>[^/]+)/rules-base\.json)"
+)
 
 SEP = "@@COMMIT@@"
 
@@ -74,7 +76,16 @@ def main(argv=None):
     with open(args.out, "w", newline="") as fh:
         w = csv.writer(fh)
         w.writerow(
-            ["platform", "design", "commit", "unix_time", "metric", "old", "new", "type"]
+            [
+                "platform",
+                "design",
+                "commit",
+                "unix_time",
+                "metric",
+                "old",
+                "new",
+                "type",
+            ]
         )
         for chunk in log.split(SEP):
             if not chunk.strip():
