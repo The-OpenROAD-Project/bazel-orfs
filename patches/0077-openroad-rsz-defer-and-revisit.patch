@@ -1,0 +1,205 @@
+rsz: defer an endpoint that is not paying and revisit it after the sweep
+
+Policy candidate from the repair-knobs campaign (ideas/repair-knobs-nihl.md),
+carried while it is measured. Not upstreamed. The first candidate whose
+failure mode is not "stopped before the win": it never stops, it
+reorders.
+
+The worst-first sweep spends its early passes on the endpoints hardest
+to fix, and the endpoints that pay may sit behind them. On mock-alu cts
+the default spends passes 300-900 on seventy endpoints at 5-25 passes
+each for almost nothing, then gains 12 ns of TNS at passes 1000-1200;
+every rule that stops on recent return cut before that and lost the
+design. This one defers instead: an endpoint that has not improved
+within the phase's own patience is put aside with its passes counted,
+the sweep goes on, and the deferred endpoints get the rest of their
+budget after the sweep, worst first. Every endpoint is still visited and
+no endpoint gets more passes than before; the order changes, the total
+does not.
+
+Patience is the run's own: twice the median passes the improving
+endpoints have needed so far, at least three, and the legacy limit until
+five endpoints have improved. No value a user could set.
+
+Chesterton's Fence: the legacy loop gives each endpoint up to fifty
+non-improving passes because some endpoints need many passes before
+their first improvement; deferring keeps that budget, it only spends it
+later, after the endpoints that improve quickly have had their turn.
+
+diff --git a/src/rsz/src/RepairSetupContext.hh b/src/rsz/src/RepairSetupContext.hh
+index b38ade6a98..2d4afb9362 100644
+--- a/src/rsz/src/RepairSetupContext.hh
++++ b/src/rsz/src/RepairSetupContext.hh
+@@ -3,6 +3,9 @@
+ 
+ #pragma once
+ 
++#include <tuple>
++#include <vector>
++
+ #include "RepairTargetCollector.hh"
+ 
+ namespace rsz {
+@@ -66,6 +69,18 @@ struct RepairSetupContext
+   // Legacy-derived setup phases share one preamble per repair_setup run.
+   bool legacy_preamble_done{false};
+   bool legacy_preamble_has_violations{true};
++
++  // Defer and revisit. The worst-first sweep spends its early passes on
++  // the endpoints hardest to fix, and the ones that pay may sit behind
++  // them. An endpoint that has not improved within the phase's own
++  // patience is put aside with its passes counted, the sweep goes on,
++  // and the deferred endpoints get the rest of their budget afterwards.
++  // Every endpoint is still visited and no endpoint gets more passes than
++  // before; the order changes, the total does not.
++  std::vector<int> first_improvement_passes;  // per endpoint that improved
++  std::vector<std::tuple<sta::Vertex*, sta::Slack, int>> deferred;  // end, original slack, passes spent
++  int deferred_count{0};
++  int revisited_count{0};
+ };
+ 
+ }  // namespace rsz
+diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
+index 859f085353..1b808ced25 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.cc
++++ b/src/rsz/src/policy/SetupLegacyBase.cc
+@@ -66,6 +66,10 @@ SetupLegacyBase::SetupLegacyBase(Resizer& resizer,
+ bool SetupLegacyBase::start()
+ {
+   OptimizationPolicy::start();
++  setup_context_.first_improvement_passes.clear();
++  setup_context_.deferred.clear();
++  setup_context_.deferred_count = 0;
++  setup_context_.revisited_count = 0;
+   setup_context_.max_repairs_per_pass = config_.max_repairs_per_pass;
+   if (!setup_context_.phase_pipeline_active) {
+     return true;
+@@ -1008,6 +1012,19 @@ void SetupLegacyBase::reportProfile(const std::string_view phase_name,
+       p.accepted);
+ }
+ 
++int SetupLegacyBase::patience() const
++{
++  std::vector<int> samples = setup_context_.first_improvement_passes;
++  if (static_cast<int>(samples.size()) < kPatienceSamples) {
++    return decreasing_slack_max_passes_;
++  }
++  std::nth_element(
++      samples.begin(), samples.begin() + samples.size() / 2, samples.end());
++  const int median = samples[samples.size() / 2];
++  return std::min(decreasing_slack_max_passes_,
++                  std::max(kMinPatience, 2 * median));
++}
++
+ void SetupLegacyBase::reportCustomPhaseSetup() const
+ {
+   logger_->info(
+diff --git a/src/rsz/src/policy/SetupLegacyBase.hh b/src/rsz/src/policy/SetupLegacyBase.hh
+index 78aa495806..432fd9cfd1 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.hh
++++ b/src/rsz/src/policy/SetupLegacyBase.hh
+@@ -89,6 +89,8 @@ class SetupLegacyBase : public OptimizationPolicy
+     int decreasing_slack_passes{0};
+     bool journal_open{false};
+     bool force_single_repair{false};
++    bool improved{false};  // this endpoint has improved at least once
++    bool revisit{false};   // second visit: no deferring, remaining budget only
+   };
+ 
+   // === Run setup ============================================================
+@@ -197,6 +199,12 @@ class SetupLegacyBase : public OptimizationPolicy
+                          std::string_view phase_name,
+                          char phase_marker);
+   void reportCustomPhaseSetup() const;
++  // Non-improving passes before an endpoint is deferred on its first
++  // visit: twice the median passes the improving endpoints needed so far,
++  // at least kMinPatience, and the legacy limit until five have improved.
++  int patience() const;
++  static constexpr int kMinPatience = 3;
++  static constexpr int kPatienceSamples = 5;
+   void reportProfile(std::string_view phase_name, char phase_marker) const;
+ 
+   int committedMoves(MoveType type) const;
+diff --git a/src/rsz/src/policy/SetupLegacyPolicy.cc b/src/rsz/src/policy/SetupLegacyPolicy.cc
+index bd722c0087..93c19d2e81 100644
+--- a/src/rsz/src/policy/SetupLegacyPolicy.cc
++++ b/src/rsz/src/policy/SetupLegacyPolicy.cc
+@@ -290,6 +290,12 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
+           delayAsString(endpoint_state.prev_end_slack, kDelayDigits, sta_),
+           delayAsString(endpoint_state.end_slack, kDelayDigits, sta_));
+     }
++    if (better && !endpoint_state.improved) {
++      endpoint_state.improved = true;
++      if (!endpoint_state.revisit) {
++        setup_context_.first_improvement_passes.push_back(endpoint_state.pass);
++      }
++    }
+     if (better) {
+       if (sta::fuzzyGreaterEqual(endpoint_state.end_slack,
+                                  setup_slack_margin)) {
+@@ -302,6 +308,28 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
+     } else {
+       endpoint_state.force_single_repair = true;
+       ++endpoint_state.decreasing_slack_passes;
++      if (!endpoint_state.revisit && !endpoint_state.improved
++          && endpoint_state.decreasing_slack_passes > patience()) {
++        // Not paying yet: put it aside with its passes counted and let
++        // the sweep reach the endpoints behind it. It gets the rest of
++        // its budget after the sweep.
++        debugPrint(logger_,
++                   RSZ,
++                   "repair_setup",
++                   1,
++                   "{}{} Phase: Deferring endpoint {} after {} passes "
++                   "(patience {})",
++                   phaseName(),
++                   main_state.phase_marker,
++                   endpoint_state.end->name(network_),
++                   endpoint_state.pass,
++                   patience());
++        setup_context_.deferred.emplace_back(
++            endpoint_state.end, endpoint_state.end_slack, endpoint_state.pass);
++        ++setup_context_.deferred_count;
++        restoreEndpointState(endpoint_state);
++        break;
++      }
+       if (endpoint_state.decreasing_slack_passes
+           > decreasing_slack_max_passes_) {
+         debugPrint(logger_,
+@@ -415,6 +443,36 @@ void SetupLegacyPolicy::runMainRepairLoop(const ViolatingEnds& violating_ends,
+     }
+   }
+ 
++  // Revisit the deferred endpoints with the rest of their budget. They
++  // are visited in the order they were put aside, which is worst first.
++  std::vector<std::tuple<sta::Vertex*, sta::Slack, int>> deferred;
++  deferred.swap(setup_context_.deferred);
++  main_state.max_end_count += deferred.size();
++  for (const auto& [end, original_slack, spent] : deferred) {
++    if (reachedIterationLimit(main_state.opto_iteration,
++                              config_.max_iterations)
++        || main_state.two_cons_terminations) {
++      break;
++    }
++    EndpointRepairState endpoint_state;
++    if (!beginEndpointRepair({end, original_slack}, main_state, endpoint_state)) {
++      break;
++    }
++    endpoint_state.revisit = true;
++    endpoint_state.pass = spent + 1;
++    ++setup_context_.revisited_count;
++    repairEndpoint(endpoint_state, main_state);
++    if (config_.verbose || main_state.opto_iteration == 1) {
++      printProgress(main_state.opto_iteration, true, main_state.phase_marker);
++    }
++  }
++  logger_->report("[RSZ-DEFER] phase={}{} patience={} deferred={} revisited={}",
++                  phaseName(),
++                  main_state.phase_marker,
++                  patience(),
++                  setup_context_.deferred_count,
++                  setup_context_.revisited_count);
++
+   printProgress(main_state.opto_iteration, true, main_state.phase_marker);
+   if (logger_->debugCheck(RSZ, "repair_setup", 1)) {
+     sta::Slack final_wns;

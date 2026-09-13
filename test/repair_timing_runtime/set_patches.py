@@ -20,6 +20,7 @@ NAMES = {
     "0074": "0074-openroad-rsz-return-controller.patch",
     "0075": "0075-openroad-rsz-experiment-worst-slack-query.patch",
     "0076": "0076-openroad-rsz-experiment-controller-window-report.patch",
+    "0077": "0077-openroad-rsz-defer-and-revisit.patch",
 }
 
 wanted = ["0066"] + [n for n in sys.argv[1:] if n != "0066"]
