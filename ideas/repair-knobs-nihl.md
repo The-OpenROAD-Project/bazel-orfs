@@ -139,6 +139,19 @@ design is a result, not a caveat.
 
 ## Decisions log
 
+- 2026-09-13, 21:50: defer-and-revisit (0077) fails the bar on wall: 12
+  of 20 pass; eight designs are 2-13% slower (sky130hd/aes +121 s,
+  sky130hd/riscv32i +65 s, sky130hd/jpeg +61 s, ibex +50 s, jpeg +46 s)
+  with QoR equal or better on all but none. Deferring reorders the
+  sweep; the reordered sweep produces a different netlist and the later
+  stages pay for it, and the promised revisit rarely happens because the
+  legacy fix-rate exit ends the phase first. Three trajectory rules,
+  three failures in three different directions. The verdict of the
+  study: no rule that reads the repair trajectory dominates today's
+  default across the suite; the knobs encode Pareto trades, and the
+  universal lever is the cost of a pass. Phase C repeats run for the 2σ
+  on the movers; the study closes tomorrow morning.
+
 - 2026-09-13, 17:45: coralnpu's default full flow was killed after 11
   hours in detailed route (iteration at 70% with 4572 violations after
   52 minutes, on 24 threads). The full-flow arm cannot carry coralnpu
