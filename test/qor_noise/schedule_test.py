@@ -70,22 +70,35 @@ class Scheduling(unittest.TestCase):
     def test_memory_can_bind_before_cores(self):
         model = schedule.Model(base_gb=8.0, gb_per_instance=0.0)
         got = schedule.schedule(
-            list(self.SIZES), self.SIZES, model, vcpus=128, memory_gb=16, threads_per_design=1
+            list(self.SIZES),
+            self.SIZES,
+            model,
+            vcpus=128,
+            memory_gb=16,
+            threads_per_design=1,
         )
         self.assertEqual(got["limited_by"], "memory")
         self.assertEqual(got["slots"], 2)
 
     def test_cores_bind_when_memory_is_plentiful(self):
         got = schedule.schedule(
-            list(self.SIZES), self.SIZES, schedule.Model(), vcpus=8, memory_gb=1024,
+            list(self.SIZES),
+            self.SIZES,
+            schedule.Model(),
+            vcpus=8,
+            memory_gb=1024,
             threads_per_design=2,
         )
         self.assertEqual(got["limited_by"], "cores")
 
     def test_there_is_always_at_least_one_slot(self):
         got = schedule.schedule(
-            list(self.SIZES), self.SIZES, schedule.Model(base_gb=99.0),
-            vcpus=2, memory_gb=1, threads_per_design=1,
+            list(self.SIZES),
+            self.SIZES,
+            schedule.Model(base_gb=99.0),
+            vcpus=2,
+            memory_gb=1,
+            threads_per_design=1,
         )
         self.assertEqual(got["slots"], 1)
 

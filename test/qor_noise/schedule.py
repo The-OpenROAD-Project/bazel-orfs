@@ -68,7 +68,10 @@ class Model:
 
     def single_thread_minutes(self, instances):
         """Runtime at one thread, before any parallel speedup."""
-        scaled = self.anchor_minutes * (instances / self.anchor_instances) ** self.size_exponent
+        scaled = (
+            self.anchor_minutes
+            * (instances / self.anchor_instances) ** self.size_exponent
+        )
         # Undo the anchor's own parallel speedup to recover a 1-thread cost.
         # The anchor ran WITH that speedup, so a single thread is slower by
         # exactly that factor -- multiply. Dividing here makes every
@@ -131,7 +134,9 @@ def schedule(designs, sizes, model, vcpus, memory_gb, threads_per_design, smt=2.
     }
 
 
-def best_threading(designs, sizes, model, vcpus, memory_gb, smt=2.0, choices=(1, 2, 4, 8, 16, 32)):
+def best_threading(
+    designs, sizes, model, vcpus, memory_gb, smt=2.0, choices=(1, 2, 4, 8, 16, 32)
+):
     """Sweep threads-per-design and keep the schedule with the least wall time.
 
     This is the parameter people get wrong in both directions: one thread per
@@ -228,7 +233,9 @@ def main(argv=None):
 
     out = {
         "model": dataclasses.asdict(model),
-        "machines": {k: {"vcpus": v[0], "memory_gb": v[1]} for k, v in MACHINES.items()},
+        "machines": {
+            k: {"vcpus": v[0], "memory_gb": v[1]} for k, v in MACHINES.items()
+        },
         "points": points,
         "pareto_caps": fronts,
         "test_events": len(test),
