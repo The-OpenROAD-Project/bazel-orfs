@@ -150,15 +150,26 @@ def selection_section(a, base_url):
             f"{pct(r['test_coverage'])} | {pct(r['random_test_mean'])} "
             f"± {pct(r['random_test_2sigma'])} |"
         )
-    worse = sum(
-        1 for r in s["greedy_vs_random"] if r["test_coverage"] < r["random_test_mean"]
+    rows = s["greedy_vs_random"]
+    worse = sum(1 for r in rows if r["test_coverage"] < r["random_test_mean"])
+    clearly = sum(
+        1
+        for r in rows
+        if r["test_coverage"] < r["random_test_mean"] - r["random_test_2sigma"] / 2
     )
+    drop = sum(r["train_coverage"] - r["test_coverage"] for r in rows) / len(rows)
     lines += [
         "",
-        f"In {worse} of {len(s['greedy_vs_random'])} cases the tuned set does "
-        "**worse on later years than a set picked at random**. Which designs "
-        "responded to tool changes in the past does not predict which will "
-        "respond next. There is no clever subset to find.",
+        f"The tuned set scores below a random set of the same size in {worse} of "
+        f"{len(rows)} cases, and in {clearly} of {len(rows)} it is below the "
+        "random spread rather than inside it. Tuning costs on average "
+        f"{drop * 100:.0f} percentage points between the years it was fitted on "
+        "and the years that followed.",
+        "",
+        "Which designs responded to tool changes in the past does not predict "
+        "which will respond next. There is no clever subset to find, and a "
+        "carefully curated design list is a way to feel prepared for the last "
+        "regression rather than the next one.",
     ]
     return "\n".join(lines)
 
