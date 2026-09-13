@@ -1,0 +1,1640 @@
+{
+  "corpus": {
+    "rows": 123571,
+    "designs": 115,
+    "platforms": [
+      "asap7",
+      "gf12",
+      "gf180",
+      "gf55",
+      "gt2n",
+      "ihp-sg13g2",
+      "intel16",
+      "intel22",
+      "nangate45",
+      "rapidus2hp",
+      "sky130hd",
+      "sky130hs",
+      "tsmc65lp"
+    ],
+    "metrics": 222,
+    "first": "2022-05-12",
+    "last": "2026-09-10",
+    "label_types": {
+      "Failing": 1078,
+      "Tighten": 1729
+    },
+    "labelled_rows": 2807,
+    "transition_kinds": {
+      "tighten_retargeted=1": 1262,
+      "failing_retargeted=0": 573,
+      "tighten_retargeted=0": 2051,
+      "failing_retargeted=1": 358
+    },
+    "transition_sizes": {
+      "tighten_retargeted=0": {
+        "n": 2051,
+        "p50": 0.00534049,
+        "p90": 0.0931802,
+        "p99": 0.370587,
+        "max": 0.98723
+      },
+      "tighten_retargeted=1": {
+        "n": 1262,
+        "p50": 0.0194518,
+        "p90": 0.184092,
+        "p99": 0.595238,
+        "max": 0.821261
+      },
+      "failing_retargeted=0": {
+        "n": 573,
+        "p50": 0.0859183,
+        "p90": 0.245491,
+        "p99": 0.75846,
+        "max": 1.39579
+      },
+      "failing_retargeted=1": {
+        "n": 358,
+        "p50": 0.119546,
+        "p90": 0.366612,
+        "p99": 16.6003,
+        "max": 35.4037
+      }
+    }
+  },
+  "events": {
+    "commits_moving_thresholds": 462,
+    "designs_moved_per_commit": {
+      "1": 229,
+      "2": 71,
+      "3": 38,
+      "4": 19,
+      "5": 17,
+      "6": 16,
+      "7": 12,
+      "8": 6,
+      "9": 6,
+      "10": 7,
+      "11": 4,
+      "12": 4,
+      "13": 3,
+      "14": 2,
+      "16": 3,
+      "17": 2,
+      "18": 1,
+      "19": 1,
+      "23": 1,
+      "24": 4,
+      "25": 1,
+      "30": 1,
+      "32": 1,
+      "33": 1,
+      "34": 2,
+      "37": 3,
+      "38": 1,
+      "39": 1,
+      "41": 1,
+      "44": 1,
+      "51": 1,
+      "52": 1,
+      "75": 1
+    },
+    "solo_commits": 229,
+    "fleetwide_threshold": 5,
+    "fleetwide_events": 105,
+    "fraction_moved": {
+      "p10": 0.07142857142857142,
+      "p25": 0.08823529411764706,
+      "p50": 0.12658227848101267,
+      "p75": 0.21518987341772153,
+      "p90": 0.4722222222222222,
+      "mean": 0.19686969225772677
+    },
+    "concordance": {
+      "median": 0.984375,
+      "min": 0.5,
+      "fraction_at_100pct": 0.49523809523809526
+    },
+    "distinct_names_median": 7,
+    "distinct_platforms_median": 5,
+    "single_name_events": 0,
+    "openroad_bump_events": {
+      "n": 12,
+      "fraction_moved_median": 0.1972573839662447,
+      "concordance_min": 1.0,
+      "all_fully_concordant": true
+    }
+  },
+  "designs": [
+    {
+      "design": "nangate45/swerv_wrapper",
+      "events_eligible": 105,
+      "responsiveness": 0.37142857142857144,
+      "solo_per_year": 1.6254197545239675,
+      "instances": 92246.95652173914
+    },
+    {
+      "design": "tsmc65lp/bp_fe_top",
+      "events_eligible": 26,
+      "responsiveness": 0.34615384615384615,
+      "solo_per_year": 1.5346883824080697,
+      "instances": 27837.391304347828
+    },
+    {
+      "design": "tsmc65lp/bp_multi_top",
+      "events_eligible": 28,
+      "responsiveness": 0.32142857142857145,
+      "solo_per_year": 0.6157901179282879,
+      "instances": 86337.39130434784
+    },
+    {
+      "design": "intel22/gcd",
+      "events_eligible": 29,
+      "responsiveness": 0.3103448275862069,
+      "solo_per_year": 0.0,
+      "instances": 329.5652173913044
+    },
+    {
+      "design": "intel22/aes",
+      "events_eligible": 26,
+      "responsiveness": 0.3076923076923077,
+      "solo_per_year": 0.0,
+      "instances": 16540.869565217392
+    },
+    {
+      "design": "rapidus2hp/hercules_idecode",
+      "events_eligible": 39,
+      "responsiveness": 0.3076923076923077,
+      "solo_per_year": 1.4056215061123796,
+      "instances": 184812.1739130435
+    },
+    {
+      "design": "tsmc65lp/coyote",
+      "events_eligible": 26,
+      "responsiveness": 0.3076923076923077,
+      "solo_per_year": 0.0,
+      "instances": 329529.56521739135
+    },
+    {
+      "design": "asap7/aes-block",
+      "events_eligible": 79,
+      "responsiveness": 0.3037974683544304,
+      "solo_per_year": 2.3360511362963408,
+      "instances": 8838.260869565218
+    },
+    {
+      "design": "gf180/aes-hybrid",
+      "events_eligible": 78,
+      "responsiveness": 0.2948717948717949,
+      "solo_per_year": 0.7449105884700646,
+      "instances": 18006.08695652174
+    },
+    {
+      "design": "asap7/riscv32i-mock-sram",
+      "events_eligible": 72,
+      "responsiveness": 0.2916666666666667,
+      "solo_per_year": 0.0,
+      "instances": 10077.391304347826
+    },
+    {
+      "design": "nangate45/bp_multi_top",
+      "events_eligible": 104,
+      "responsiveness": 0.28846153846153844,
+      "solo_per_year": 0.933580074395069,
+      "instances": 86473.91304347827
+    },
+    {
+      "design": "intel22/ibex",
+      "events_eligible": 28,
+      "responsiveness": 0.2857142857142857,
+      "solo_per_year": 1.248417848273652,
+      "instances": 15652.17391304348
+    },
+    {
+      "design": "sky130hd/gcd",
+      "events_eligible": 105,
+      "responsiveness": 0.2857142857142857,
+      "solo_per_year": 0.9294767443196139,
+      "instances": 478.26086956521743
+    },
+    {
+      "design": "sky130hs/aes",
+      "events_eligible": 103,
+      "responsiveness": 0.2815533980582524,
+      "solo_per_year": 0.7083027800911051,
+      "instances": 16886.956521739132
+    },
+    {
+      "design": "sky130hs/jpeg",
+      "events_eligible": 105,
+      "responsiveness": 0.2761904761904762,
+      "solo_per_year": 0.2311545593628298,
+      "instances": 48648.69565217392
+    },
+    {
+      "design": "asap7/sha3",
+      "events_eligible": 26,
+      "responsiveness": 0.2692307692307692,
+      "solo_per_year": 0.7673441912040349,
+      "instances": 16988.695652173916
+    },
+    {
+      "design": "tsmc65lp/swerv_wrapper",
+      "events_eligible": 26,
+      "responsiveness": 0.2692307692307692,
+      "solo_per_year": 0.0,
+      "instances": 88573.91304347827
+    },
+    {
+      "design": "gf180/ibex",
+      "events_eligible": 83,
+      "responsiveness": 0.26506024096385544,
+      "solo_per_year": 0.599724596011722,
+      "instances": 13305.217391304348
+    },
+    {
+      "design": "gf180/aes",
+      "events_eligible": 91,
+      "responsiveness": 0.26373626373626374,
+      "solo_per_year": 0.5379972215683327,
+      "instances": 19293.04347826087
+    },
+    {
+      "design": "asap7/riscv32i",
+      "events_eligible": 85,
+      "responsiveness": 0.25882352941176473,
+      "solo_per_year": 1.9941357190734794,
+      "instances": 10148.695652173914
+    },
+    {
+      "design": "tsmc65lp/aes",
+      "events_eligible": 31,
+      "responsiveness": 0.25806451612903225,
+      "solo_per_year": 0.4788343230147007,
+      "instances": 14535.652173913044
+    },
+    {
+      "design": "gf180/riscv32i",
+      "events_eligible": 82,
+      "responsiveness": 0.25609756097560976,
+      "solo_per_year": 0.0,
+      "instances": 7502.608695652175
+    },
+    {
+      "design": "nangate45/aes",
+      "events_eligible": 103,
+      "responsiveness": 0.2524271844660194,
+      "solo_per_year": 0.0,
+      "instances": 14585.21739130435
+    },
+    {
+      "design": "sky130hd/ibex",
+      "events_eligible": 103,
+      "responsiveness": 0.2524271844660194,
+      "solo_per_year": 0.23610092669703506,
+      "instances": 18240.869565217392
+    },
+    {
+      "design": "ihp-sg13g2/gcd",
+      "events_eligible": 72,
+      "responsiveness": 0.25,
+      "solo_per_year": 0.3800180009287306,
+      "instances": 385.21739130434787
+    },
+    {
+      "design": "intel16/aes",
+      "events_eligible": 48,
+      "responsiveness": 0.25,
+      "solo_per_year": 0.7177608987777702,
+      "instances": 11291.304347826088
+    },
+    {
+      "design": "asap7/ethmac",
+      "events_eligible": 103,
+      "responsiveness": 0.24271844660194175,
+      "solo_per_year": 0.4722018533940701,
+      "instances": 59698.26086956522
+    },
+    {
+      "design": "sky130hd/riscv32i",
+      "events_eligible": 103,
+      "responsiveness": 0.24271844660194175,
+      "solo_per_year": 0.23610092669703506,
+      "instances": 7273.913043478261
+    },
+    {
+      "design": "gf180/jpeg",
+      "events_eligible": 83,
+      "responsiveness": 0.24096385542168675,
+      "solo_per_year": 1.204321771737851,
+      "instances": 42406.956521739135
+    },
+    {
+      "design": "nangate45/gcd",
+      "events_eligible": 104,
+      "responsiveness": 0.2403846153846154,
+      "solo_per_year": 0.4667900371975345,
+      "instances": 711.304347826087
+    },
+    {
+      "design": "sky130hd/chameleon",
+      "events_eligible": 105,
+      "responsiveness": 0.23809523809523808,
+      "solo_per_year": 0.6966084662245575,
+      "instances": 51709.56521739131
+    },
+    {
+      "design": "intel16/gcd",
+      "events_eligible": 47,
+      "responsiveness": 0.23404255319148937,
+      "solo_per_year": 0.3716896172622582,
+      "instances": 434.7826086956522
+    },
+    {
+      "design": "sky130hd/aes",
+      "events_eligible": 103,
+      "responsiveness": 0.23300970873786409,
+      "solo_per_year": 0.23610092669703506,
+      "instances": 17698.26086956522
+    },
+    {
+      "design": "gf55/aes",
+      "events_eligible": 26,
+      "responsiveness": 0.23076923076923078,
+      "solo_per_year": 0.0,
+      "instances": 19768.695652173916
+    },
+    {
+      "design": "intel22/jpeg",
+      "events_eligible": 26,
+      "responsiveness": 0.23076923076923078,
+      "solo_per_year": 0.7673441912040349,
+      "instances": 68157.39130434782
+    },
+    {
+      "design": "rapidus2hp/gcd",
+      "events_eligible": 39,
+      "responsiveness": 0.23076923076923078,
+      "solo_per_year": 0.0,
+      "instances": 437.3913043478261
+    },
+    {
+      "design": "rapidus2hp/hercules_is_int",
+      "events_eligible": 39,
+      "responsiveness": 0.23076923076923078,
+      "solo_per_year": 9.573696284280834,
+      "instances": 463900.00000000006
+    },
+    {
+      "design": "rapidus2hp/jpeg",
+      "events_eligible": 39,
+      "responsiveness": 0.23076923076923078,
+      "solo_per_year": 1.3631902771741613,
+      "instances": 93317.39130434784
+    },
+    {
+      "design": "sky130hd/jpeg",
+      "events_eligible": 104,
+      "responsiveness": 0.23076923076923078,
+      "solo_per_year": 0.0,
+      "instances": 44881.739130434784
+    },
+    {
+      "design": "tsmc65lp/jpeg",
+      "events_eligible": 26,
+      "responsiveness": 0.23076923076923078,
+      "solo_per_year": 0.0,
+      "instances": 64414.782608695656
+    },
+    {
+      "design": "tsmc65lp/swerv",
+      "events_eligible": 26,
+      "responsiveness": 0.23076923076923078,
+      "solo_per_year": 0.0,
+      "instances": 80286.95652173914
+    },
+    {
+      "design": "tsmc65lp/bp_be_top",
+      "events_eligible": 31,
+      "responsiveness": 0.22580645161290322,
+      "solo_per_year": 0.9676806273696716,
+      "instances": 43251.30434782609
+    },
+    {
+      "design": "tsmc65lp/gcd",
+      "events_eligible": 31,
+      "responsiveness": 0.22580645161290322,
+      "solo_per_year": 0.0,
+      "instances": 549.5652173913044
+    },
+    {
+      "design": "asap7/ethmac_lvt",
+      "events_eligible": 80,
+      "responsiveness": 0.225,
+      "solo_per_year": 0.3273911606668988,
+      "instances": 56361.739130434784
+    },
+    {
+      "design": "sky130hs/gcd",
+      "events_eligible": 103,
+      "responsiveness": 0.22330097087378642,
+      "solo_per_year": 0.4722018533940701,
+      "instances": 621.7391304347826
+    },
+    {
+      "design": "sky130hd/microwatt",
+      "events_eligible": 105,
+      "responsiveness": 0.21904761904761905,
+      "solo_per_year": 1.6254197545239675,
+      "instances": 123897.39130434784
+    },
+    {
+      "design": "nangate45/jpeg",
+      "events_eligible": 104,
+      "responsiveness": 0.21153846153846154,
+      "solo_per_year": 0.23488647202232427,
+      "instances": 59184.34782608696
+    },
+    {
+      "design": "sky130hs/riscv32i",
+      "events_eligible": 104,
+      "responsiveness": 0.21153846153846154,
+      "solo_per_year": 0.23488647202232427,
+      "instances": 7119.130434782609
+    },
+    {
+      "design": "asap7/gcd",
+      "events_eligible": 105,
+      "responsiveness": 0.20952380952380953,
+      "solo_per_year": 0.0,
+      "instances": 411.304347826087
+    },
+    {
+      "design": "nangate45/dynamic_node",
+      "events_eligible": 105,
+      "responsiveness": 0.20952380952380953,
+      "solo_per_year": 0.23236918607990348,
+      "instances": 13006.08695652174
+    },
+    {
+      "design": "nangate45/tinyRocket",
+      "events_eligible": 105,
+      "responsiveness": 0.20952380952380953,
+      "solo_per_year": 0.0,
+      "instances": 27524.34782608696
+    },
+    {
+      "design": "asap7/jpeg_lvt",
+      "events_eligible": 82,
+      "responsiveness": 0.2073170731707317,
+      "solo_per_year": 0.310946982030036,
+      "instances": 49218.26086956522
+    },
+    {
+      "design": "tsmc65lp/black_parrot",
+      "events_eligible": 29,
+      "responsiveness": 0.20689655172413793,
+      "solo_per_year": 1.650232203132887,
+      "instances": 157735.65217391305
+    },
+    {
+      "design": "tsmc65lp/ibex",
+      "events_eligible": 29,
+      "responsiveness": 0.20689655172413793,
+      "solo_per_year": 0.0,
+      "instances": 13538.260869565218
+    },
+    {
+      "design": "ihp-sg13g2/jpeg",
+      "events_eligible": 77,
+      "responsiveness": 0.19480519480519481,
+      "solo_per_year": 0.3612493598525945,
+      "instances": 75987.82608695653
+    },
+    {
+      "design": "ihp-sg13g2/spi",
+      "events_eligible": 77,
+      "responsiveness": 0.19480519480519481,
+      "solo_per_year": 1.0837480795577834,
+      "instances": 154.7826086956522
+    },
+    {
+      "design": "nangate45/swerv",
+      "events_eligible": 103,
+      "responsiveness": 0.1941747572815534,
+      "solo_per_year": 0.4722018533940701,
+      "instances": 84965.21739130435
+    },
+    {
+      "design": "tsmc65lp/ariane",
+      "events_eligible": 31,
+      "responsiveness": 0.1935483870967742,
+      "solo_per_year": 0.4838403136848358,
+      "instances": 153959.13043478262
+    },
+    {
+      "design": "nangate45/ariane133",
+      "events_eligible": 83,
+      "responsiveness": 0.1927710843373494,
+      "solo_per_year": 0.8976357020395372,
+      "instances": 163422.6086956522
+    },
+    {
+      "design": "asap7/jpeg",
+      "events_eligible": 104,
+      "responsiveness": 0.19230769230769232,
+      "solo_per_year": 0.4667900371975345,
+      "instances": 58442.608695652176
+    },
+    {
+      "design": "tsmc65lp/dynamic_node",
+      "events_eligible": 26,
+      "responsiveness": 0.19230769230769232,
+      "solo_per_year": 0.0,
+      "instances": 9846.08695652174
+    },
+    {
+      "design": "tsmc65lp/tinyRocket",
+      "events_eligible": 26,
+      "responsiveness": 0.19230769230769232,
+      "solo_per_year": 0.7673441912040349,
+      "instances": 26987.826086956524
+    },
+    {
+      "design": "nangate45/black_parrot",
+      "events_eligible": 103,
+      "responsiveness": 0.18446601941747573,
+      "solo_per_year": 0.7083027800911051,
+      "instances": 210781.7391304348
+    },
+    {
+      "design": "nangate45/bp_be_top",
+      "events_eligible": 103,
+      "responsiveness": 0.18446601941747573,
+      "solo_per_year": 0.7083027800911051,
+      "instances": 54424.34782608696
+    },
+    {
+      "design": "gf12/ariane",
+      "events_eligible": 105,
+      "responsiveness": 0.18095238095238095,
+      "solo_per_year": 2.087988777993236,
+      "instances": 187942.6086956522
+    },
+    {
+      "design": "nangate45/bp_fe_top",
+      "events_eligible": 105,
+      "responsiveness": 0.18095238095238095,
+      "solo_per_year": 1.3853684599431246,
+      "instances": 33713.913043478264
+    },
+    {
+      "design": "sky130hs/ibex",
+      "events_eligible": 105,
+      "responsiveness": 0.18095238095238095,
+      "solo_per_year": 0.6952601492238102,
+      "instances": 16900.869565217392
+    },
+    {
+      "design": "asap7/mock-alu",
+      "events_eligible": 78,
+      "responsiveness": 0.1794871794871795,
+      "solo_per_year": 0.669560572231396,
+      "instances": 12860.869565217392
+    },
+    {
+      "design": "ihp-sg13g2/ibex",
+      "events_eligible": 78,
+      "responsiveness": 0.1794871794871795,
+      "solo_per_year": 1.069761566611626,
+      "instances": 17580.0
+    },
+    {
+      "design": "rapidus2hp/cva6",
+      "events_eligible": 39,
+      "responsiveness": 0.1794871794871795,
+      "solo_per_year": 1.3676708977544048,
+      "instances": 99366.95652173914
+    },
+    {
+      "design": "rapidus2hp/ethmac",
+      "events_eligible": 39,
+      "responsiveness": 0.1794871794871795,
+      "solo_per_year": 1.3676708977544048,
+      "instances": 40007.82608695653
+    },
+    {
+      "design": "gf180/uart-blocks",
+      "events_eligible": 79,
+      "responsiveness": 0.17721518987341772,
+      "solo_per_year": 0.0,
+      "instances": 653.9130434782609
+    },
+    {
+      "design": "ihp-sg13g2/riscv32i",
+      "events_eligible": 79,
+      "responsiveness": 0.17721518987341772,
+      "solo_per_year": 0.3492020094054025,
+      "instances": 11240.869565217392
+    },
+    {
+      "design": "asap7/aes",
+      "events_eligible": 103,
+      "responsiveness": 0.17475728155339806,
+      "solo_per_year": 0.0,
+      "instances": 12453.04347826087
+    },
+    {
+      "design": "ihp-sg13g2/i2c-gpio-expander",
+      "events_eligible": 63,
+      "responsiveness": 0.1746031746031746,
+      "solo_per_year": 1.2352856349467431,
+      "instances": 851.304347826087
+    },
+    {
+      "design": "nangate45/mempool_group",
+      "events_eligible": 53,
+      "responsiveness": 0.16981132075471697,
+      "solo_per_year": 1.6023250712875632,
+      "instances": 163726.95652173914
+    },
+    {
+      "design": "asap7/aes-mbff",
+      "events_eligible": 77,
+      "responsiveness": 0.16883116883116883,
+      "solo_per_year": 0.7351036975115465,
+      "instances": 15442.608695652176
+    },
+    {
+      "design": "nangate45/ariane136",
+      "events_eligible": 84,
+      "responsiveness": 0.15476190476190477,
+      "solo_per_year": 1.1449842844760723,
+      "instances": 177807.82608695654
+    },
+    {
+      "design": "asap7/ibex",
+      "events_eligible": 104,
+      "responsiveness": 0.15384615384615385,
+      "solo_per_year": 0.9404602836305387,
+      "instances": 19948.695652173916
+    },
+    {
+      "design": "asap7/uart",
+      "events_eligible": 104,
+      "responsiveness": 0.14423076923076922,
+      "solo_per_year": 0.7046594160669728,
+      "instances": 858.2608695652175
+    },
+    {
+      "design": "gf12/aes",
+      "events_eligible": 105,
+      "responsiveness": 0.14285714285714285,
+      "solo_per_year": 0.46350676614920683,
+      "instances": 13594.782608695654
+    },
+    {
+      "design": "gf12/ibex",
+      "events_eligible": 105,
+      "responsiveness": 0.14285714285714285,
+      "solo_per_year": 0.0,
+      "instances": 15373.913043478262
+    },
+    {
+      "design": "gf12/jpeg",
+      "events_eligible": 98,
+      "responsiveness": 0.14285714285714285,
+      "solo_per_year": 0.9759048819921897,
+      "instances": 83126.08695652174
+    },
+    {
+      "design": "nangate45/ibex",
+      "events_eligible": 105,
+      "responsiveness": 0.14285714285714285,
+      "solo_per_year": 0.0,
+      "instances": 14713.913043478262
+    },
+    {
+      "design": "gf12/swerv_wrapper",
+      "events_eligible": 99,
+      "responsiveness": 0.1414141414141414,
+      "solo_per_year": 1.2113365402260647,
+      "instances": 105940.00000000001
+    },
+    {
+      "design": "asap7/gcd-ccs",
+      "events_eligible": 71,
+      "responsiveness": 0.14084507042253522,
+      "solo_per_year": 0.0,
+      "instances": 418.26086956521743
+    },
+    {
+      "design": "ihp-sg13g2/aes",
+      "events_eligible": 79,
+      "responsiveness": 0.13924050632911392,
+      "solo_per_year": 0.0,
+      "instances": 17072.17391304348
+    },
+    {
+      "design": "asap7/aes_lvt",
+      "events_eligible": 77,
+      "responsiveness": 0.12987012987012986,
+      "solo_per_year": 0.0,
+      "instances": 11567.826086956522
+    },
+    {
+      "design": "asap7/swerv_wrapper",
+      "events_eligible": 85,
+      "responsiveness": 0.12941176470588237,
+      "solo_per_year": 1.7023532922164928,
+      "instances": 113866.95652173914
+    },
+    {
+      "design": "gf12/tinyRocket",
+      "events_eligible": 105,
+      "responsiveness": 0.11428571428571428,
+      "solo_per_year": 0.6926842299715623,
+      "instances": 29601.739130434784
+    },
+    {
+      "design": "gf12/coyote",
+      "events_eligible": 105,
+      "responsiveness": 0.10476190476190476,
+      "solo_per_year": 0.4619939230003101,
+      "instances": 275037.39130434784
+    },
+    {
+      "design": "rapidus2hp/ibex",
+      "events_eligible": 39,
+      "responsiveness": 0.10256410256410256,
+      "solo_per_year": 1.3676708977544048,
+      "instances": 14493.04347826087
+    },
+    {
+      "design": "asap7/mock-array",
+      "events_eligible": 43,
+      "responsiveness": 0.09302325581395349,
+      "solo_per_year": 3.874245236112447,
+      "instances": 10726.08695652174
+    },
+    {
+      "design": "asap7/uart-blocks",
+      "events_eligible": 11,
+      "responsiveness": 0.09090909090909091,
+      "solo_per_year": 0.0,
+      "instances": 1022.608695652174
+    },
+    {
+      "design": "asap7/mock-cpu",
+      "events_eligible": 74,
+      "responsiveness": 0.08108108108108109,
+      "solo_per_year": 0.7960045202168111,
+      "instances": 41015.65217391305
+    },
+    {
+      "design": "gf12/bp_single",
+      "events_eligible": 105,
+      "responsiveness": 0.06666666666666667,
+      "solo_per_year": 1.8559900248828762,
+      "instances": 455040.8695652174
+    },
+    {
+      "design": "gf12/ca53",
+      "events_eligible": 105,
+      "responsiveness": 0.06666666666666667,
+      "solo_per_year": 0.6968217807018549,
+      "instances": 530904.347826087
+    },
+    {
+      "design": "gf12/gcd",
+      "events_eligible": 105,
+      "responsiveness": 0.06666666666666667,
+      "solo_per_year": 0.23175338307460341,
+      "instances": 527.8260869565217
+    },
+    {
+      "design": "gf12/ariane133",
+      "events_eligible": 84,
+      "responsiveness": 0.03571428571428571,
+      "solo_per_year": 0.5920747803040389,
+      "instances": 135850.4347826087
+    },
+    {
+      "design": "asap7/cva6",
+      "events_eligible": 57,
+      "responsiveness": 0.03508771929824561,
+      "solo_per_year": 5.452862276008344,
+      "instances": 116642.60869565218
+    },
+    {
+      "design": "gf12/bp_dual",
+      "events_eligible": 56,
+      "responsiveness": 0.017857142857142856,
+      "solo_per_year": 3.5259189387687444,
+      "instances": 736988.695652174
+    },
+    {
+      "design": "asap7/mock-array-big",
+      "events_eligible": 6,
+      "responsiveness": 0.0,
+      "solo_per_year": 16.93097329152744,
+      "instances": 14993.913043478262
+    },
+    {
+      "design": "gf12/bp_quad",
+      "events_eligible": 57,
+      "responsiveness": 0.0,
+      "solo_per_year": 3.394241221083593,
+      "instances": 1216967.8260869565
+    },
+    {
+      "design": "nangate45/bp_quad",
+      "events_eligible": 20,
+      "responsiveness": 0.0,
+      "solo_per_year": 0.0,
+      "instances": 1482162.6086956523
+    }
+  ],
+  "selection": {
+    "train_events": 52,
+    "test_events": 53,
+    "train_span": [
+      "2022-05-17",
+      "2025-05-14"
+    ],
+    "test_span": [
+      "2025-06-05",
+      "2026-08-31"
+    ],
+    "witnesses": 2,
+    "greedy_vs_random": [
+      {
+        "size_class": "tiny",
+        "D": 8,
+        "train_coverage": 0.4807692307692308,
+        "test_coverage": 0.22641509433962265,
+        "random_test_mean": 0.35,
+        "random_test_2sigma": 0.05288550802822721,
+        "designs": [
+          "nangate45/gcd",
+          "sky130hd/gcd",
+          "intel16/gcd",
+          "asap7/gcd",
+          "intel22/gcd",
+          "ihp-sg13g2/gcd",
+          "gf12/gcd",
+          "asap7/gcd-ccs"
+        ]
+      },
+      {
+        "size_class": "tiny",
+        "D": 12,
+        "train_coverage": 0.5576923076923077,
+        "test_coverage": 0.39622641509433965,
+        "random_test_mean": 0.4528301886792453,
+        "random_test_2sigma": 0.0,
+        "designs": [
+          "nangate45/gcd",
+          "sky130hd/gcd",
+          "intel16/gcd",
+          "asap7/gcd",
+          "intel22/gcd",
+          "ihp-sg13g2/gcd",
+          "gf12/gcd",
+          "asap7/gcd-ccs",
+          "asap7/uart",
+          "gf180/uart-blocks",
+          "ihp-sg13g2/spi",
+          "sky130hs/gcd"
+        ]
+      },
+      {
+        "size_class": "small",
+        "D": 8,
+        "train_coverage": 0.5769230769230769,
+        "test_coverage": 0.2830188679245283,
+        "random_test_mean": 0.35974842767295595,
+        "random_test_2sigma": 0.07335250922066376,
+        "designs": [
+          "nangate45/gcd",
+          "sky130hd/gcd",
+          "sky130hd/riscv32i",
+          "intel16/gcd",
+          "intel22/gcd",
+          "asap7/aes-block",
+          "asap7/gcd",
+          "gf12/gcd"
+        ]
+      },
+      {
+        "size_class": "small",
+        "D": 12,
+        "train_coverage": 0.6346153846153846,
+        "test_coverage": 0.4339622641509434,
+        "random_test_mean": 0.5039622641509434,
+        "random_test_2sigma": 0.07587287460025306,
+        "designs": [
+          "nangate45/gcd",
+          "sky130hd/gcd",
+          "sky130hd/riscv32i",
+          "intel16/gcd",
+          "intel22/gcd",
+          "asap7/aes-block",
+          "asap7/gcd",
+          "gf12/gcd",
+          "gf180/riscv32i",
+          "asap7/uart",
+          "ihp-sg13g2/gcd",
+          "sky130hs/riscv32i"
+        ]
+      },
+      {
+        "size_class": "mid",
+        "D": 8,
+        "train_coverage": 0.6730769230769231,
+        "test_coverage": 0.3018867924528302,
+        "random_test_mean": 0.34182389937106916,
+        "random_test_2sigma": 0.12866632571762474,
+        "designs": [
+          "sky130hs/jpeg",
+          "sky130hd/jpeg",
+          "nangate45/swerv_wrapper",
+          "asap7/ethmac",
+          "intel16/aes",
+          "asap7/aes-block",
+          "asap7/jpeg",
+          "gf12/jpeg"
+        ]
+      },
+      {
+        "size_class": "mid",
+        "D": 12,
+        "train_coverage": 0.8461538461538461,
+        "test_coverage": 0.37735849056603776,
+        "random_test_mean": 0.48883647798742136,
+        "random_test_2sigma": 0.14680727390497358,
+        "designs": [
+          "sky130hs/jpeg",
+          "sky130hd/jpeg",
+          "nangate45/swerv_wrapper",
+          "asap7/ethmac",
+          "intel16/aes",
+          "asap7/aes-block",
+          "asap7/jpeg",
+          "gf12/jpeg",
+          "nangate45/gcd",
+          "asap7/riscv32i",
+          "nangate45/bp_fe_top",
+          "intel16/gcd"
+        ]
+      },
+      {
+        "size_class": "mid",
+        "D": 16,
+        "train_coverage": 0.9423076923076923,
+        "test_coverage": 0.5094339622641509,
+        "random_test_mean": 0.6011006289308176,
+        "random_test_2sigma": 0.14365625836636103,
+        "designs": [
+          "sky130hs/jpeg",
+          "sky130hd/jpeg",
+          "nangate45/swerv_wrapper",
+          "asap7/ethmac",
+          "intel16/aes",
+          "asap7/aes-block",
+          "asap7/jpeg",
+          "gf12/jpeg",
+          "nangate45/gcd",
+          "asap7/riscv32i",
+          "nangate45/bp_fe_top",
+          "intel16/gcd",
+          "sky130hd/gcd",
+          "tsmc65lp/bp_fe_top",
+          "tsmc65lp/bp_multi_top",
+          "gf180/aes"
+        ]
+      },
+      {
+        "size_class": "any",
+        "D": 8,
+        "train_coverage": 0.6730769230769231,
+        "test_coverage": 0.3018867924528302,
+        "random_test_mean": 0.33996855345911947,
+        "random_test_2sigma": 0.14338991265287232,
+        "designs": [
+          "sky130hs/jpeg",
+          "sky130hd/jpeg",
+          "nangate45/swerv_wrapper",
+          "asap7/ethmac",
+          "intel16/aes",
+          "asap7/aes-block",
+          "asap7/jpeg",
+          "gf12/jpeg"
+        ]
+      },
+      {
+        "size_class": "any",
+        "D": 12,
+        "train_coverage": 0.8269230769230769,
+        "test_coverage": 0.41509433962264153,
+        "random_test_mean": 0.48056603773584905,
+        "random_test_2sigma": 0.15956017406351236,
+        "designs": [
+          "sky130hs/jpeg",
+          "sky130hd/jpeg",
+          "nangate45/swerv_wrapper",
+          "asap7/ethmac",
+          "intel16/aes",
+          "asap7/aes-block",
+          "asap7/jpeg",
+          "gf12/jpeg",
+          "nangate45/gcd",
+          "asap7/riscv32i",
+          "nangate45/black_parrot",
+          "gf12/ariane"
+        ]
+      },
+      {
+        "size_class": "any",
+        "D": 16,
+        "train_coverage": 0.9038461538461539,
+        "test_coverage": 0.6037735849056604,
+        "random_test_mean": 0.604874213836478,
+        "random_test_2sigma": 0.16455869950471683,
+        "designs": [
+          "sky130hs/jpeg",
+          "sky130hd/jpeg",
+          "nangate45/swerv_wrapper",
+          "asap7/ethmac",
+          "intel16/aes",
+          "asap7/aes-block",
+          "asap7/jpeg",
+          "gf12/jpeg",
+          "nangate45/gcd",
+          "asap7/riscv32i",
+          "nangate45/black_parrot",
+          "gf12/ariane",
+          "intel16/gcd",
+          "sky130hd/gcd",
+          "gf180/aes",
+          "gf180/ibex"
+        ]
+      }
+    ],
+    "random_by_class": [
+      {
+        "size_class": "tiny",
+        "pool": 12,
+        "exhausted": false,
+        "D": 4,
+        "coverage_mean": 0.16742138364779874,
+        "coverage_2sigma": 0.09427185436724274,
+        "cost_mean": 7727.958552440603
+      },
+      {
+        "size_class": "tiny",
+        "pool": 12,
+        "exhausted": false,
+        "D": 6,
+        "coverage_mean": 0.2728930817610063,
+        "coverage_2sigma": 0.07636715344809679,
+        "cost_mean": 11736.46724858446
+      },
+      {
+        "size_class": "tiny",
+        "pool": 12,
+        "exhausted": false,
+        "D": 8,
+        "coverage_mean": 0.34915094339622643,
+        "coverage_2sigma": 0.059155129179065714,
+        "cost_mean": 15385.08234665894
+      },
+      {
+        "size_class": "tiny",
+        "pool": 12,
+        "exhausted": false,
+        "D": 10,
+        "coverage_mean": 0.4106289308176101,
+        "coverage_2sigma": 0.04367514653051137,
+        "cost_mean": 19404.360723185157
+      },
+      {
+        "size_class": "tiny",
+        "pool": 12,
+        "exhausted": true,
+        "D": 12,
+        "coverage_mean": 0.4528301886792453,
+        "coverage_2sigma": 0.0,
+        "cost_mean": 23311.943440336527
+      },
+      {
+        "size_class": "small",
+        "pool": 16,
+        "exhausted": false,
+        "D": 4,
+        "coverage_mean": 0.1811006289308176,
+        "coverage_2sigma": 0.08150219955630174,
+        "cost_mean": 52210.316061889964
+      },
+      {
+        "size_class": "small",
+        "pool": 16,
+        "exhausted": false,
+        "D": 6,
+        "coverage_mean": 0.279874213836478,
+        "coverage_2sigma": 0.07655587748568331,
+        "cost_mean": 76591.8565544699
+      },
+      {
+        "size_class": "small",
+        "pool": 16,
+        "exhausted": false,
+        "D": 8,
+        "coverage_mean": 0.36367924528301887,
+        "coverage_2sigma": 0.07214821426257628,
+        "cost_mean": 108228.84850885537
+      },
+      {
+        "size_class": "small",
+        "pool": 16,
+        "exhausted": false,
+        "D": 10,
+        "coverage_mean": 0.43641509433962267,
+        "coverage_2sigma": 0.07659509766854665,
+        "cost_mean": 126163.33316965714
+      },
+      {
+        "size_class": "small",
+        "pool": 16,
+        "exhausted": false,
+        "D": 12,
+        "coverage_mean": 0.5020440251572327,
+        "coverage_2sigma": 0.0744722038451787,
+        "cost_mean": 155122.16490967484
+      },
+      {
+        "size_class": "small",
+        "pool": 16,
+        "exhausted": true,
+        "D": 16,
+        "coverage_mean": 0.6226415094339622,
+        "coverage_2sigma": 0.0,
+        "cost_mean": 207443.83993273295
+      },
+      {
+        "size_class": "mid",
+        "pool": 61,
+        "exhausted": false,
+        "D": 4,
+        "coverage_mean": 0.1729245283018868,
+        "coverage_2sigma": 0.10174617470281977,
+        "cost_mean": 1014033.9132673689
+      },
+      {
+        "size_class": "mid",
+        "pool": 61,
+        "exhausted": false,
+        "D": 6,
+        "coverage_mean": 0.2638364779874214,
+        "coverage_2sigma": 0.11926979127170978,
+        "cost_mean": 1442194.9605559183
+      },
+      {
+        "size_class": "mid",
+        "pool": 61,
+        "exhausted": false,
+        "D": 8,
+        "coverage_mean": 0.3459748427672956,
+        "coverage_2sigma": 0.1231546536885984,
+        "cost_mean": 1880391.753963627
+      },
+      {
+        "size_class": "mid",
+        "pool": 61,
+        "exhausted": false,
+        "D": 10,
+        "coverage_mean": 0.41817610062893085,
+        "coverage_2sigma": 0.1425017930453766,
+        "cost_mean": 2400517.5619795593
+      },
+      {
+        "size_class": "mid",
+        "pool": 61,
+        "exhausted": false,
+        "D": 12,
+        "coverage_mean": 0.48515723270440253,
+        "coverage_2sigma": 0.14888741639342906,
+        "cost_mean": 2785237.03400605
+      },
+      {
+        "size_class": "mid",
+        "pool": 61,
+        "exhausted": false,
+        "D": 16,
+        "coverage_mean": 0.605314465408805,
+        "coverage_2sigma": 0.1531712486319614,
+        "cost_mean": 3809926.3777672974
+      },
+      {
+        "size_class": "mid",
+        "pool": 61,
+        "exhausted": false,
+        "D": 20,
+        "coverage_mean": 0.7066981132075472,
+        "coverage_2sigma": 0.13273113917266216,
+        "cost_mean": 4786944.795353476
+      },
+      {
+        "size_class": "mid",
+        "pool": 61,
+        "exhausted": false,
+        "D": 24,
+        "coverage_mean": 0.7854402515723271,
+        "coverage_2sigma": 0.12115133087728652,
+        "cost_mean": 5753564.7422916815
+      },
+      {
+        "size_class": "mid",
+        "pool": 61,
+        "exhausted": false,
+        "D": 32,
+        "coverage_mean": 0.8916666666666667,
+        "coverage_2sigma": 0.0902072661563486,
+        "cost_mean": 7665886.673415159
+      },
+      {
+        "size_class": "mid",
+        "pool": 61,
+        "exhausted": false,
+        "D": 40,
+        "coverage_mean": 0.9520125786163522,
+        "coverage_2sigma": 0.056878687576625224,
+        "cost_mean": 9565080.735486308
+      },
+      {
+        "size_class": "any",
+        "pool": 77,
+        "exhausted": false,
+        "D": 4,
+        "coverage_mean": 0.15977987421383646,
+        "coverage_2sigma": 0.1132956926644691,
+        "cost_mean": 3679436.1178576425
+      },
+      {
+        "size_class": "any",
+        "pool": 77,
+        "exhausted": false,
+        "D": 6,
+        "coverage_mean": 0.2532075471698113,
+        "coverage_2sigma": 0.12296308071865426,
+        "cost_mean": 5235233.665701526
+      },
+      {
+        "size_class": "any",
+        "pool": 77,
+        "exhausted": false,
+        "D": 8,
+        "coverage_mean": 0.33578616352201257,
+        "coverage_2sigma": 0.13738170558843654,
+        "cost_mean": 6739371.229802316
+      },
+      {
+        "size_class": "any",
+        "pool": 77,
+        "exhausted": false,
+        "D": 10,
+        "coverage_mean": 0.409811320754717,
+        "coverage_2sigma": 0.14008711825525444,
+        "cost_mean": 8665150.824458117
+      },
+      {
+        "size_class": "any",
+        "pool": 77,
+        "exhausted": false,
+        "D": 12,
+        "coverage_mean": 0.47820754716981134,
+        "coverage_2sigma": 0.15547108189291692,
+        "cost_mean": 9828072.440012949
+      },
+      {
+        "size_class": "any",
+        "pool": 77,
+        "exhausted": false,
+        "D": 16,
+        "coverage_mean": 0.600062893081761,
+        "coverage_2sigma": 0.15974878317352864,
+        "cost_mean": 14520298.594214242
+      },
+      {
+        "size_class": "any",
+        "pool": 77,
+        "exhausted": false,
+        "D": 20,
+        "coverage_mean": 0.7093081761006289,
+        "coverage_2sigma": 0.1584786659539227,
+        "cost_mean": 16665453.898107262
+      },
+      {
+        "size_class": "any",
+        "pool": 77,
+        "exhausted": false,
+        "D": 24,
+        "coverage_mean": 0.7861320754716982,
+        "coverage_2sigma": 0.13790392117682498,
+        "cost_mean": 21630873.61480732
+      },
+      {
+        "size_class": "any",
+        "pool": 77,
+        "exhausted": false,
+        "D": 32,
+        "coverage_mean": 0.8996226415094339,
+        "coverage_2sigma": 0.10423784449052403,
+        "cost_mean": 28451822.555959787
+      },
+      {
+        "size_class": "any",
+        "pool": 77,
+        "exhausted": false,
+        "D": 40,
+        "coverage_mean": 0.9581446540880503,
+        "coverage_2sigma": 0.06574840583594857,
+        "cost_mean": 35136812.58410059
+      }
+    ],
+    "cheapest_d": [
+      {
+        "D": 4,
+        "coverage": 0.20754716981132076,
+        "total_instances": 1369.5652173913045,
+        "platforms": 2,
+        "largest": "asap7/gcd-ccs",
+        "designs": [
+          "ihp-sg13g2/spi",
+          "ihp-sg13g2/gcd",
+          "asap7/gcd",
+          "asap7/gcd-ccs"
+        ]
+      },
+      {
+        "D": 6,
+        "coverage": 0.3018867924528302,
+        "total_instances": 2285.217391304348,
+        "platforms": 4,
+        "largest": "sky130hd/gcd",
+        "designs": [
+          "ihp-sg13g2/spi",
+          "ihp-sg13g2/gcd",
+          "asap7/gcd",
+          "asap7/gcd-ccs",
+          "rapidus2hp/gcd",
+          "sky130hd/gcd"
+        ]
+      },
+      {
+        "D": 8,
+        "coverage": 0.37735849056603776,
+        "total_instances": 3434.7826086956525,
+        "platforms": 6,
+        "largest": "sky130hs/gcd",
+        "designs": [
+          "ihp-sg13g2/spi",
+          "ihp-sg13g2/gcd",
+          "asap7/gcd",
+          "asap7/gcd-ccs",
+          "rapidus2hp/gcd",
+          "sky130hd/gcd",
+          "gf12/gcd",
+          "sky130hs/gcd"
+        ]
+      },
+      {
+        "D": 10,
+        "coverage": 0.4339622641509434,
+        "total_instances": 4800.0,
+        "platforms": 8,
+        "largest": "nangate45/gcd",
+        "designs": [
+          "ihp-sg13g2/spi",
+          "ihp-sg13g2/gcd",
+          "asap7/gcd",
+          "asap7/gcd-ccs",
+          "rapidus2hp/gcd",
+          "sky130hd/gcd",
+          "gf12/gcd",
+          "sky130hs/gcd",
+          "gf180/uart-blocks",
+          "nangate45/gcd"
+        ]
+      },
+      {
+        "D": 12,
+        "coverage": 0.4528301886792453,
+        "total_instances": 6509.565217391305,
+        "platforms": 8,
+        "largest": "asap7/uart",
+        "designs": [
+          "ihp-sg13g2/spi",
+          "ihp-sg13g2/gcd",
+          "asap7/gcd",
+          "asap7/gcd-ccs",
+          "rapidus2hp/gcd",
+          "sky130hd/gcd",
+          "gf12/gcd",
+          "sky130hs/gcd",
+          "gf180/uart-blocks",
+          "nangate45/gcd",
+          "ihp-sg13g2/i2c-gpio-expander",
+          "asap7/uart"
+        ]
+      },
+      {
+        "D": 16,
+        "coverage": 0.6226415094339622,
+        "total_instances": 37243.47826086957,
+        "platforms": 8,
+        "largest": "asap7/aes-block",
+        "designs": [
+          "ihp-sg13g2/spi",
+          "ihp-sg13g2/gcd",
+          "asap7/gcd",
+          "asap7/gcd-ccs",
+          "rapidus2hp/gcd",
+          "sky130hd/gcd",
+          "gf12/gcd",
+          "sky130hs/gcd",
+          "gf180/uart-blocks",
+          "nangate45/gcd",
+          "ihp-sg13g2/i2c-gpio-expander",
+          "asap7/uart",
+          "sky130hs/riscv32i",
+          "sky130hd/riscv32i",
+          "gf180/riscv32i",
+          "asap7/aes-block"
+        ]
+      },
+      {
+        "D": 20,
+        "coverage": 0.6981132075471698,
+        "total_instances": 80278.26086956522,
+        "platforms": 8,
+        "largest": "asap7/aes_lvt",
+        "designs": [
+          "ihp-sg13g2/spi",
+          "ihp-sg13g2/gcd",
+          "asap7/gcd",
+          "asap7/gcd-ccs",
+          "rapidus2hp/gcd",
+          "sky130hd/gcd",
+          "gf12/gcd",
+          "sky130hs/gcd",
+          "gf180/uart-blocks",
+          "nangate45/gcd",
+          "ihp-sg13g2/i2c-gpio-expander",
+          "asap7/uart",
+          "sky130hs/riscv32i",
+          "sky130hd/riscv32i",
+          "gf180/riscv32i",
+          "asap7/aes-block",
+          "asap7/riscv32i-mock-sram",
+          "asap7/riscv32i",
+          "ihp-sg13g2/riscv32i",
+          "asap7/aes_lvt"
+        ]
+      },
+      {
+        "D": 24,
+        "coverage": 0.7358490566037735,
+        "total_instances": 131903.47826086957,
+        "platforms": 8,
+        "largest": "gf180/ibex",
+        "designs": [
+          "ihp-sg13g2/spi",
+          "ihp-sg13g2/gcd",
+          "asap7/gcd",
+          "asap7/gcd-ccs",
+          "rapidus2hp/gcd",
+          "sky130hd/gcd",
+          "gf12/gcd",
+          "sky130hs/gcd",
+          "gf180/uart-blocks",
+          "nangate45/gcd",
+          "ihp-sg13g2/i2c-gpio-expander",
+          "asap7/uart",
+          "sky130hs/riscv32i",
+          "sky130hd/riscv32i",
+          "gf180/riscv32i",
+          "asap7/aes-block",
+          "asap7/riscv32i-mock-sram",
+          "asap7/riscv32i",
+          "ihp-sg13g2/riscv32i",
+          "asap7/aes_lvt",
+          "asap7/aes",
+          "asap7/mock-alu",
+          "nangate45/dynamic_node",
+          "gf180/ibex"
+        ]
+      },
+      {
+        "D": 32,
+        "coverage": 0.8490566037735849,
+        "total_instances": 253894.78260869568,
+        "platforms": 8,
+        "largest": "sky130hs/ibex",
+        "designs": [
+          "ihp-sg13g2/spi",
+          "ihp-sg13g2/gcd",
+          "asap7/gcd",
+          "asap7/gcd-ccs",
+          "rapidus2hp/gcd",
+          "sky130hd/gcd",
+          "gf12/gcd",
+          "sky130hs/gcd",
+          "gf180/uart-blocks",
+          "nangate45/gcd",
+          "ihp-sg13g2/i2c-gpio-expander",
+          "asap7/uart",
+          "sky130hs/riscv32i",
+          "sky130hd/riscv32i",
+          "gf180/riscv32i",
+          "asap7/aes-block",
+          "asap7/riscv32i-mock-sram",
+          "asap7/riscv32i",
+          "ihp-sg13g2/riscv32i",
+          "asap7/aes_lvt",
+          "asap7/aes",
+          "asap7/mock-alu",
+          "nangate45/dynamic_node",
+          "gf180/ibex",
+          "gf12/aes",
+          "rapidus2hp/ibex",
+          "nangate45/aes",
+          "nangate45/ibex",
+          "gf12/ibex",
+          "asap7/aes-mbff",
+          "sky130hs/aes",
+          "sky130hs/ibex"
+        ]
+      },
+      {
+        "D": 40,
+        "coverage": 0.9245283018867925,
+        "total_instances": 409258.26086956525,
+        "platforms": 8,
+        "largest": "nangate45/tinyRocket",
+        "designs": [
+          "ihp-sg13g2/spi",
+          "ihp-sg13g2/gcd",
+          "asap7/gcd",
+          "asap7/gcd-ccs",
+          "rapidus2hp/gcd",
+          "sky130hd/gcd",
+          "gf12/gcd",
+          "sky130hs/gcd",
+          "gf180/uart-blocks",
+          "nangate45/gcd",
+          "ihp-sg13g2/i2c-gpio-expander",
+          "asap7/uart",
+          "sky130hs/riscv32i",
+          "sky130hd/riscv32i",
+          "gf180/riscv32i",
+          "asap7/aes-block",
+          "asap7/riscv32i-mock-sram",
+          "asap7/riscv32i",
+          "ihp-sg13g2/riscv32i",
+          "asap7/aes_lvt",
+          "asap7/aes",
+          "asap7/mock-alu",
+          "nangate45/dynamic_node",
+          "gf180/ibex",
+          "gf12/aes",
+          "rapidus2hp/ibex",
+          "nangate45/aes",
+          "nangate45/ibex",
+          "gf12/ibex",
+          "asap7/aes-mbff",
+          "sky130hs/aes",
+          "sky130hs/ibex",
+          "ihp-sg13g2/aes",
+          "ihp-sg13g2/ibex",
+          "sky130hd/aes",
+          "gf180/aes-hybrid",
+          "sky130hd/ibex",
+          "gf180/aes",
+          "asap7/ibex",
+          "nangate45/tinyRocket"
+        ]
+      }
+    ],
+    "fleet_total_instances": 5840620.869565218
+  },
+  "notes": {
+    "timing_censoring": "For a `period_padding` metric the stored rule is\n\n    rule = min(measured, 0) - period * padding / 100\n\nso whenever the design MEETS its constraint the rule collapses to the\nconstant -period*padding/100, identical for every passing run. The\nthreshold then carries exactly one bit -- \"it passed\" -- and no amount of\nhistory will tell you whether slack was 1 ps or 1 ns. A design that\ncloses is invisible on the timing axis, and a timing rule cannot detect\na regression until closure has already been lost.",
+    "high_resolution_metrics": [
+      "placeopt__design__instance__area",
+      "placeopt__design__instance__count__stdcell",
+      "detailedroute__route__wirelength",
+      "finish__design__instance__area"
+    ]
+  }
+}
