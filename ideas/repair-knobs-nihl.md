@@ -139,6 +139,21 @@ design is a result, not a caveat.
 
 ## Decisions log
 
+- 2026-09-13: the return controller v3 fails the bar. Phase B, fast
+  group, 20 designs: 15 pass, riscv32i and ibex -8% and -24% with every
+  KPI better; but mock-alu is 26% slower with TNS 9.2 ns worse. Its cts
+  trajectory shows why any rate-based stop is unsafe: windows of 495,
+  350, 65, 1, 113, -80, -62 ps, then at passes 1000-1200 three windows
+  of ~4000 ps each. Return over the worst-first sweep is heavy-tailed and
+  not monotone, so a rule that stops on recent return will sometimes cut
+  before the jackpot. Round two runs the exact stall exit (0069, two
+  windows of no movement at all), the most conservative rule, on both
+  groups; the controller finishes the slow group for the record. The
+  verdict's criteria were also corrected from the first table: hold WNS
+  is judged like closure, power gets a 1% tolerance since ORFS gates no
+  power metric, and a wall difference under max(5 s, 2%) is a tie on a
+  single run.
+
 - 2026-09-12: Phase B runs the return controller v3 (patch 0074: per
   window, deterministic, first window at phase start, two empty windows
   end a phase, last gasp under the same rule, the run's best window kept

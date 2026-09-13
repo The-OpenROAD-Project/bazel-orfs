@@ -39,8 +39,19 @@ KPI_AXES = [
 HARD_AXES = [
     ("detailedroute__route__drc_errors", -1, "DRC"),
     ("detailedroute__antenna__violating__nets", -1, "antenna"),
-    ("finish__timing__hold__ws", +1, "hold WNS"),
 ]
+# Hold WNS is judged like closure, not like a KPI: a design that meets
+# hold may not start missing it, and one that misses it may not miss it
+# by more; a positive hold slack shrinking from 34.6 to 34.4 ps is not a
+# regression anyone would act on.
+HOLD_KEY = "finish__timing__hold__ws"
+# Metrics ORFS never gated get no history band (power, since 2025-02);
+# for those a fixed relative tolerance stands in, and the table says so.
+UNGATED_TOLERANCE = {"finish__power__total": 0.01}
+# A wall difference under this is a tie on a single run: the flow's own
+# run-to-run spread at this scale.
+WALL_TIE_S = 5.0
+WALL_TIE_FRACTION = 0.02
 # noise_bands.py's metric names for the KPI axes.
 BAND_KEY = {
     "min_period": "min_period_ps",
@@ -93,6 +104,7 @@ def kpis(record, bands=None):
     """
     metrics = flat_metrics(record)
     out = {k: metrics.get(k) for k, _, _ in KPI_AXES + HARD_AXES if k != "min_period"}
+    out[HOLD_KEY] = metrics.get(HOLD_KEY)
     period = clock_period(metrics)
     if period is None and bands:
         period = (design_bands(bands, record["design"]).get("_sources") or {}).get("period")
@@ -129,10 +141,24 @@ def design_verdict(base, policy, bands):
         delta, verdict = judge(kb.get(key), kp.get(key), direction, 0.0)
         rows.append((label, kb.get(key), kp.get(key), delta, None, verdict))
         worse |= verdict == "WORSE"
+    # Hold: closure-like.
+    hb, hp = kb.get(HOLD_KEY), kp.get(HOLD_KEY)
+    if hb is None or hp is None:
+        hold_verdict, hold_delta = "no data", None
+    else:
+        hold_delta = hb - hp
+        if hp >= 0 or hp >= hb:
+            hold_verdict = "same" if hold_delta == 0 else ("better" if hold_delta < 0 else "met")
+        else:
+            hold_verdict = "WORSE"
+    rows.append(("hold WNS", hb, hp, hold_delta, None, hold_verdict))
+    worse |= hold_verdict == "WORSE"
     this_bands = design_bands(bands, base["design"])
     for key, direction, label in KPI_AXES:
         rec = this_bands.get(BAND_KEY[key]) or {}
         band = None if rec.get("insufficient", True) else rec.get("band_2sigma")
+        if band is None and key in UNGATED_TOLERANCE and kb.get(key):
+            band = abs(kb[key]) * UNGATED_TOLERANCE[key]
         delta, verdict = judge(kb.get(key), kp.get(key), direction, band)
         rows.append((label, kb.get(key), kp.get(key), delta, band, verdict))
         worse |= verdict == "WORSE"
@@ -142,8 +168,9 @@ def design_verdict(base, policy, bands):
         base["substeps"].get("_final_sha1") is not None
         and base["substeps"].get("_final_sha1") == policy["substeps"].get("_final_sha1")
     )
-    wall_verdict = "same" if abs(wall_delta) < 1.0 else ("better" if wall_delta < 0 else "WORSE")
-    worse |= wall_verdict == "WORSE" and not same_odb and wall_delta > 0.02 * wb
+    tie = max(WALL_TIE_S, WALL_TIE_FRACTION * wb)
+    wall_verdict = "same" if abs(wall_delta) <= tie else ("better" if wall_delta < 0 else "WORSE")
+    worse |= wall_verdict == "WORSE" and not same_odb
     return {
         "design": base["design"],
         "axes": rows,
@@ -166,8 +193,8 @@ def fmt(v, digits=1):
 
 def suite_table(verdicts):
     lines = [
-        "| design | flow wall base (s) | policy (s) | delta | min period Δ | TNS Δ | area Δ | power Δ | wire Δ | DRC Δ | same ODB | verdict |",
-        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+        "| design | flow wall base (s) | policy (s) | delta | min period Δ | TNS Δ | area Δ | power Δ | wire Δ | DRC Δ | hold | same ODB | verdict |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- | --- |",
     ]
     for v in sorted(verdicts, key=lambda v: v["wall_pct"] or 0):
         by = {label: (delta, verdict) for label, _, _, delta, _, verdict in v["axes"]}
@@ -182,19 +209,22 @@ def suite_table(verdicts):
             return "{}{}".format(fmt(-delta), mark)
 
         lines.append(
-            "| {} | {} | {} | {} ({}%) | {} | {} | {} | {} | {} | {} | {} | {} |".format(
+            "| {} | {} | {} | {} ({}%) | {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
                 v["design"], fmt(v["wall_base"], 0), fmt(v["wall_policy"], 0),
                 fmt(v["wall_delta"], 0), fmt(v["wall_pct"], 0),
                 cell("min clock period"), cell("setup TNS"), cell("area"),
                 cell("power"), cell("wire length"), cell("DRC"),
+                by.get("hold WNS", (None, "no data"))[1],
                 "yes" if v["same_odb"] else "no",
                 "pass" if v["dominated_or_tied"] else "**FAIL**",
             )
         )
     passed = sum(1 for v in verdicts if v["dominated_or_tied"])
     lines.append("")
-    lines.append("{} of {} designs pass; ~ marks a move inside the design's noise band, "
-                 "signed so that + is better on every axis.".format(passed, len(verdicts)))
+    lines.append("{} of {} designs pass; ~ marks a move inside the design's noise band "
+                 "(power: a 1% tolerance, ORFS gates no power metric), signed so that + is "
+                 "better on every axis. Wall ties are under max(5 s, 2%) on a single run.".format(
+                     passed, len(verdicts)))
     return "\n".join(lines) + "\n"
 
 

@@ -80,6 +80,26 @@ class Design(unittest.TestCase):
         pol = record("ibex", -20.0, -300.0, 2700, 90000, 0, (80, 60, 160), "b")
         self.assertFalse(verdict.design_verdict(base, pol, BANDS)["dominated_or_tied"])
 
+    def test_two_seconds_on_a_short_flow_is_a_tie(self):
+        base = record("ibex", -20.0, -300.0, 2700, 90000, 0, (10, 10, 21), "a")
+        pol = record("ibex", -20.0, -300.0, 2700, 90000, 0, (10, 10, 23), "b")
+        self.assertTrue(verdict.design_verdict(base, pol, BANDS)["dominated_or_tied"])
+
+    def test_positive_hold_slack_shrinking_is_not_a_regression(self):
+        base = record("ibex", -20.0, -300.0, 2700, 90000, 0, (80, 60, 130), "a")
+        pol = record("ibex", -20.0, -300.0, 2700, 90000, 0, (40, 30, 70), "b")
+        pol["substeps"]["_metrics"]["6_report"]["finish__timing__hold__ws"] = 9.8
+        self.assertTrue(verdict.design_verdict(base, pol, BANDS)["dominated_or_tied"])
+        pol["substeps"]["_metrics"]["6_report"]["finish__timing__hold__ws"] = -0.5
+        self.assertFalse(verdict.design_verdict(base, pol, BANDS)["dominated_or_tied"])
+
+    def test_power_without_a_band_gets_one_percent(self):
+        base = record("ibex", -20.0, -300.0, 2700, 90000, 0, (80, 60, 130), "a", power=0.0100)
+        pol = record("ibex", -20.0, -300.0, 2700, 90000, 0, (40, 30, 70), "b", power=0.01005)
+        self.assertTrue(verdict.design_verdict(base, pol, BANDS)["dominated_or_tied"])
+        pol2 = record("ibex", -20.0, -300.0, 2700, 90000, 0, (40, 30, 70), "b", power=0.0105)
+        self.assertFalse(verdict.design_verdict(base, pol2, BANDS)["dominated_or_tied"])
+
     def test_table_counts_passes(self):
         base = record("ibex", -20.0, -300.0, 2700, 90000, 0, (80, 60, 130), "a")
         pol = record("ibex", -20.0, -300.0, 2700, 90000, 0, (40, 30, 70), "a")
