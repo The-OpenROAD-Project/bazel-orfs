@@ -128,7 +128,7 @@ def main():
     parser.add_argument("--bands", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--base", default="base-p00670068")
-    parser.add_argument("--policies", nargs="+", default=["base-p0074", "base-p0069"])
+    parser.add_argument("--policies", nargs="+", default=["base-p0074", "base-p0069", "base-p0077"])
     args = parser.parse_args()
     os.makedirs(args.out, exist_ok=True)
     with open(args.bands) as handle:
