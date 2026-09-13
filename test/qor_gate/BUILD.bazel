@@ -1,0 +1,55 @@
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
+load(":pareto.bzl", "pareto_front_test")
+
+# A per-pull-request QoR Pareto score: does this change move the front,
+# and which way. The measurements behind the design are in bazel-orfs #981.
+package(default_visibility = ["//visibility:private"])
+
+exports_files(["fleet.py"])
+
+# The aggregation rule, tested. Non-manual on purpose: it needs no ORFS
+# checkout and no flow run, and it is the part that decides what a
+# maintainer is told. Its tests pin the three ways a plausible
+# implementation misleads -- one design carrying a verdict alone, a trade
+# reported as a regression, and did-not-resolve passing for inert.
+py_library(
+    name = "gate",
+    srcs = ["fleet.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "fleet_test",
+    srcs = ["fleet_test.py"],
+    deps = [":gate"],
+)
+
+# Wiring proof for pareto_front_test. The vehicles here are committed
+# metadata.json fixtures rather than ORFS flows, so the whole chain --
+# check_pareto per design, JSON verdicts, the two-witness reduction, the
+# exit status -- runs in a fraction of a second and stays non-manual.
+#
+# Both fixtures show the SAME trade: core area down 5%, achieved period
+# up. Two designs agreeing is exactly what the fleet rule requires, and a
+# trade must pass, because a move along the front is a legitimate pull
+# request. If this test ever fails, the gate is telling maintainers
+# something different from what the study concluded.
+[filegroup(
+    name = v + "_metadata",
+    srcs = ["testdata/{}/metadata.json".format(v)],
+) for v in [
+    "vehicle_a",
+    "vehicle_b",
+]]
+
+pareto_front_test(
+    name = "pareto_wiring_test",
+    baselines = [
+        "testdata/vehicle_a_baseline.json",
+        "testdata/vehicle_b_baseline.json",
+    ],
+    vehicles = [
+        ":vehicle_a_metadata",
+        ":vehicle_b_metadata",
+    ],
+)

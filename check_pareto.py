@@ -156,6 +156,13 @@ def main():
         "being measured.",
     )
     ap.add_argument(
+        "--json",
+        help="also write the verdict as JSON here, so a fleet-level gate can "
+        "aggregate several designs without parsing this report. One design "
+        "is never a verdict: see fleet.py for why two witnesses are the "
+        "minimum.",
+    )
+    ap.add_argument(
         "--require-improvement",
         action="store_true",
         help="also fail unless at least one axis improves beyond its tie band",
@@ -289,6 +296,30 @@ def main():
 
     if args.require_improvement and not improved and not errors:
         errors.append("--require-improvement: no axis improved beyond its tie band")
+
+    if args.json:
+        if errors:
+            verdict = "dominated" if dominated else "worse"
+        elif improved and regressed:
+            verdict = "trade"
+        elif improved:
+            verdict = "better"
+        else:
+            verdict = "did-not-resolve"
+        with open(args.json, "w") as f:
+            json.dump(
+                {
+                    "verdict": verdict,
+                    "improved": improved,
+                    "regressed": regressed,
+                    "tied": tied,
+                    "missing": missing,
+                    "errors": errors,
+                    "baseline_source": source,
+                },
+                f,
+                indent=2,
+            )
 
     for e in errors:
         print(f"[ERROR] {e}")

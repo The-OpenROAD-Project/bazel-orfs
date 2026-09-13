@@ -1,0 +1,13 @@
+{
+ "constraints__clocks__details": [
+  "core_clock 1000.0 ..."
+ ],
+ "finish__timing__setup__ws": 2.0,
+ "finish__timing__setup__tns": -100.0,
+ "finish__design__core__area": 950.0,
+ "finish__design__instance__area": 800.0,
+ "finish__power__total": 0.001,
+ "detailedroute__route__drc_errors": 0,
+ "detailedplace__design__violations": 0,
+ "detailedroute__antenna__violating__nets": 0
+}
