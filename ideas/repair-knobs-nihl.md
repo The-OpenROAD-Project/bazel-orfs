@@ -139,6 +139,22 @@ design is a result, not a caveat.
 
 ## Decisions log
 
+- 2026-09-13, 05:40: the stall exit (0069) fails the bar too. Fast
+  group: 18 of 20 pass; jpeg is 4% slower and sky130hd/riscv32i 17%
+  slower, both with QoR equal or better. The stage split says why:
+  stopping cts earlier leaves work for grt, whose passes cost several
+  times more (incremental global-route parasitics), and on
+  sky130hd/riscv32i detailed route takes 77 s longer on the different
+  netlist. So the two candidates fail in opposite directions: the
+  controller (v3) wins jpeg grt (-51%) and loses mock-alu; the stall exit
+  holds mock-alu and loses jpeg and sky130hd/riscv32i. The finding of the
+  policy study is that no trajectory-based stopping rule dominates the
+  default across the suite: each is a Pareto trade, like the knobs it was
+  meant to retire. The universal lever is the cost of a pass, not its
+  count. The slow group runs under the default and the controller for the
+  record at scale, then Phase C repeats on the designs that moved, so the
+  wins and the losses carry a 2σ; the 0069 slow group is dropped.
+
 - 2026-09-13: the return controller v3 fails the bar. Phase B, fast
   group, 20 designs: 15 pass, riscv32i and ibex -8% and -24% with every
   KPI better; but mock-alu is 26% slower with TNS 9.2 ns worse. Its cts
