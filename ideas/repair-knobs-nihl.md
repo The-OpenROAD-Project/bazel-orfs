@@ -139,6 +139,18 @@ design is a result, not a caveat.
 
 ## Decisions log
 
+- 2026-09-13, 10:15: the slow group is cut after coralnpu (both
+  candidates already fail the bar on the fast group; the slow group
+  cannot change the verdict). A sixth candidate, 0077 defer-and-revisit,
+  is the first whose failure mode is not "stopped before the win": an
+  endpoint that has not improved within the phase's own patience (twice
+  the median passes the improving endpoints needed, at least three,
+  legacy until five have improved) is put aside with its passes counted
+  and revisited after the sweep with the rest of its budget. Every
+  endpoint is still visited, no endpoint gets more passes. Acceptance
+  test: mock-alu cts must keep its passes-1000 gain. Then the fast group
+  full flow, then Phase C repeats (default, v3, 0077) on the movers.
+
 - 2026-09-13: the two hierarchical BLOCKS designs, asap7/aes-block and
   asap7/riscv32i-mock-sram, cannot run the full flow on a floorplan
   deployment: macro placement fails with MPL-0003 (no valid tiling)
