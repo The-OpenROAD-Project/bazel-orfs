@@ -29,8 +29,18 @@ _FLAGS = re.compile(r"^CoreMark 1\.0 : .*? / (.*)$")
 
 
 def read_count(path):
+    """The cycle count: the first line of a run's cycles file.
+
+    The file carries more than one line -- the harness also records the
+    cycle CoreMark's first output appeared, which is what places the SAIF
+    window -- so this reads the count rather than the whole file.
+    """
     with open(path) as f:
-        return int(f.read().strip())
+        for line in f:
+            line = line.strip()
+            if line:
+                return int(line)
+    raise ValueError("{}: no cycle count".format(path))
 
 
 def build_flags(report_text):

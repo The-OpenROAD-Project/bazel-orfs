@@ -137,13 +137,28 @@ def smoke_test(name, run, tags = []):
         tags = tags,
     )
 
-def coremark_saif(name, sim, image, run_2, run_3, tags = ["manual"]):
+def coremark_saif(name, sim, image, run_2, run_3, clk_period_ps, tags = ["manual"]):
     """Capture a SAIF over CoreMark's last, hot iteration.
 
     The window comes from the two RTL runs rather than from a choice:
     the last iteration ends where the benchmark's first output appears
     and is one `cycles_3 - cycles_2` long. Measured on the fast
     simulation, applied to the slow one.
+
+    Args:
+      name: target name; the SAIF is `<name>.saif`.
+      sim: the gate-level simulator to run.
+      image: the three-iteration memory image.
+      run_2: the two-iteration RTL run, for its cycle count.
+      run_3: the three-iteration RTL run, for its cycle count and the
+        cycle its first output appeared.
+      clk_period_ps: **must equal the period in the design's SDC.** A
+        SAIF records real time and OpenSTA reads it as transitions
+        divided by duration, so a period that disagrees with the SDC
+        scales every toggle rate -- and the dynamic power -- by the ratio
+        between them. Nothing downstream can detect the mistake: the
+        power simply comes out wrong by that factor.
+      tags: forwarded; manual.
     """
     native.genrule(
         name = name,
@@ -159,8 +174,10 @@ def coremark_saif(name, sim, image, run_2, run_3, tags = ["manual"]):
             "--image $(location {image}) " +
             "--cycles-2 $(location {run_2}.cycles) " +
             "--cycles-3 $(location {run_3}.cycles) " +
-            "--saif $@"
+            "--saif $@ " +
+            "--clk-period-ps {clk_period_ps}"
         ).format(
+            clk_period_ps = clk_period_ps,
             image = image,
             run_2 = run_2,
             run_3 = run_3,
@@ -172,4 +189,33 @@ def coremark_saif(name, sim, image, run_2, run_3, tags = ["manual"]):
             sim,
             "//test/coremark_joule/scripts:saif_window",
         ],
+    )
+
+def coremark_per_joule(name, per_mhz, power, core, isa, frequency_mhz, tags = ["manual"]):
+    """Combine performance, frequency and power into one pinned point."""
+    native.genrule(
+        name = name,
+        srcs = [
+            per_mhz,
+            power + "_vector_driven.json",
+            power + "_vectorless.json",
+        ],
+        outs = [name + ".json"],
+        cmd = (
+            "$(execpath {bin}) " +
+            "--per-mhz $(location {per_mhz}) " +
+            "--power $(location {power}_vector_driven.json) " +
+            "--vectorless-power $(location {power}_vectorless.json) " +
+            "--frequency-mhz {frequency_mhz} " +
+            "--core {core} --isa {isa} --out $@"
+        ).format(
+            bin = "//test/coremark_joule/scripts:cm_per_joule",
+            core = core,
+            frequency_mhz = frequency_mhz,
+            isa = isa,
+            per_mhz = per_mhz,
+            power = power,
+        ),
+        tags = tags,
+        tools = ["//test/coremark_joule/scripts:cm_per_joule"],
     )

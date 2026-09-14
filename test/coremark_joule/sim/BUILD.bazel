@@ -11,6 +11,7 @@ load(
     "//test/coremark_joule/sim:run.bzl",
     "coremark_crc_test",
     "coremark_hex",
+    "coremark_per_joule",
     "coremark_per_mhz",
     "coremark_run",
     "coremark_saif",
@@ -25,6 +26,32 @@ package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 _SIM_COPTS = [
     "-O2",
     "-Wno-all",
+]
+
+# Extra Verilator options every gate-level configuration needs: the
+# netlist and the generated cell models, rather than the wrapper.
+_GATE_VOPTS = [
+    # yosys names internal nets `_NNNNN_`, and Verilator skips
+    # leading-underscore signals in traces by default -- without this
+    # the SAIF covers only named nets and OpenSTA estimates the rest.
+    "--trace-underscore",
+    # Keep the generated trace_init functions small enough that the
+    # C++ compiler stays in its near-linear regime on a netlist this
+    # size.
+    "--output-split-ctrace",
+    "3000",
+    # The netlist references undeclared _NC* nets for unconnected
+    # pins, and the cell models carry timing constructs a
+    # zero-delay simulation ignores.
+    "-Wno-IMPLICIT",
+    "-Wno-MODDUP",
+    "-Wno-PINMISSING",
+    "-Wno-STMTDLY",
+    # The cell models carry `specify` timing blocks. A zero-delay
+    # functional simulation ignores them by design -- the timing that
+    # matters comes from the liberty views in OpenSTA, not from here
+    # -- so the notice is just volume.
+    "-Wno-SPECIFYIGN",
 ]
 
 _SIM_VOPTS = [
@@ -93,29 +120,23 @@ verilator_cc_library(
     module = "//test/coremark_joule/rtl:cm_soc_picorv32_gate",
     module_top = "cm_soc",
     trace_mode = "saif",
-    vopts = _SIM_VOPTS + [
-        # yosys names internal nets `_NNNNN_`, and Verilator skips
-        # leading-underscore signals in traces by default -- without this
-        # the SAIF covers only named nets and OpenSTA estimates the rest.
-        "--trace-underscore",
-        # Keep the generated trace_init functions small enough that the
-        # C++ compiler stays in its near-linear regime on a netlist this
-        # size.
-        "--output-split-ctrace",
-        "3000",
-        # The netlist references undeclared _NC* nets for unconnected
-        # pins, and the cell models carry timing constructs a
-        # zero-delay simulation ignores.
-        "-Wno-IMPLICIT",
-        "-Wno-MODDUP",
-        "-Wno-PINMISSING",
-        "-Wno-STMTDLY",
-        # The cell models carry `specify` timing blocks. A zero-delay
-        # functional simulation ignores them by design -- the timing that
-        # matters comes from the liberty views in OpenSTA, not from here
-        # -- so the notice is just volume.
-        "-Wno-SPECIFYIGN",
-    ],
+    vopts = _SIM_VOPTS + _GATE_VOPTS,
+)
+
+verilator_cc_library(
+    name = "cm_soc_serv_gate_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/rtl:cm_soc_serv_gate",
+    module_top = "cm_soc",
+    trace_mode = "saif",
+    vopts = _SIM_VOPTS + _GATE_VOPTS,
+)
+
+cc_binary(
+    name = "cm_sim_serv_gate",
+    srcs = ["main.cc"],
+    tags = ["manual"],
+    deps = [":cm_soc_serv_gate_lib"],
 )
 
 cc_binary(
@@ -307,8 +328,43 @@ sh_binary(
 # The SAIF for picorv32, over its last CoreMark iteration.
 coremark_saif(
     name = "picorv32_rv32im_saif",
+    # Matches designs/asap7/picorv32/constraints.sdc.
+    clk_period_ps = 1000,
     image = ":coremark_rv32im_3_hex",
     run_2 = "picorv32_rv32im_2",
     run_3 = "picorv32_rv32im_3",
     sim = ":cm_sim_picorv32_gate",
+)
+
+# SERV's SAIF, over its last CoreMark iteration. rv32i: SERV has no M
+# extension.
+coremark_saif(
+    name = "serv_rv32i_saif",
+    # Matches designs/asap7/serv/constraints.sdc.
+    clk_period_ps = 700,
+    image = ":coremark_rv32i_3_hex",
+    run_2 = "serv_rv32i_2",
+    run_3 = "serv_rv32i_3",
+    sim = ":cm_sim_serv_gate",
+)
+
+# The study's points: one per measured core, each carrying the frequency
+# and provenance the number is only comparable under.
+coremark_per_joule(
+    name = "point_picorv32_rv32im",
+    core = "picorv32",
+    # The SDC period the SAIF was timed against, not an achieved maximum.
+    frequency_mhz = "1000",
+    isa = "rv32im",
+    per_mhz = ":picorv32_rv32im_per_mhz",
+    power = "//test/coremark_joule/designs/asap7/picorv32:cmj_picorv32_grt_power",
+)
+
+coremark_per_joule(
+    name = "point_serv_rv32i",
+    core = "serv",
+    frequency_mhz = "1428.571",
+    isa = "rv32i",
+    per_mhz = ":serv_rv32i_per_mhz",
+    power = "//test/coremark_joule/designs/asap7/serv:cmj_serv_grt_power",
 )

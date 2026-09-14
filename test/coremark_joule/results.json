@@ -1,0 +1,41 @@
+{
+  "points": [
+    {
+      "activity": "saif",
+      "build_flags": null,
+      "core": "picorv32",
+      "coremark_per_joule": 84062.50820187385,
+      "coremark_per_mhz": 0.5531313039683299,
+      "coremark_score": 553.1313039683299,
+      "cycles_per_iteration": 1807889,
+      "frequency_mhz": 1000.0,
+      "isa": "rv32im",
+      "joule_per_iteration": 1.189590962e-05,
+      "power_w": 0.00658,
+      "stage": "grt",
+      "vectorless_power_w": 0.0156
+    },
+    {
+      "activity": "saif",
+      "build_flags": null,
+      "core": "serv",
+      "coremark_per_joule": 5221.628451874966,
+      "coremark_per_mhz": 0.02427013632535574,
+      "coremark_score": 34.671612920449775,
+      "cycles_per_iteration": 41202900,
+      "frequency_mhz": 1428.571,
+      "isa": "rv32i",
+      "joule_per_iteration": 0.000191511136653341,
+      "power_w": 0.00664,
+      "stage": "grt",
+      "vectorless_power_w": 0.00719
+    }
+  ],
+  "provenance": {
+    "activity": "saif, one hot CoreMark iteration",
+    "frequency": "the SDC period the SAIF was timed against, not an achieved maximum",
+    "note": "Not reportable CoreMark scores: a three-iteration run does not satisfy CoreMark's run rules.",
+    "platform": "asap7",
+    "stage": "grt"
+  }
+}

@@ -15,6 +15,9 @@ exports_files([
     "check_memories_applied.py",
     "check_smoke.py",
     "run_check.sh",
+    "cm_per_joule.py",
+    "pin_results.py",
+    "plot_results.py",
     "saif_window.py",
     "run_memories_check.sh",
     "run_report.sh",
@@ -98,4 +101,27 @@ py_test(
         "saif_window_test.py",
     ],
     main = "saif_window_test.py",
+)
+
+py_binary(
+    name = "cm_per_joule",
+    srcs = ["cm_per_joule.py"],
+    main = "cm_per_joule.py",
+)
+
+py_test(
+    name = "cm_per_joule_test",
+    size = "small",
+    srcs = [
+        "cm_per_joule.py",
+        "cm_per_joule_test.py",
+    ],
+    main = "cm_per_joule_test.py",
+)
+
+py_binary(
+    name = "plot_results",
+    srcs = ["plot_results.py"],
+    main = "plot_results.py",
+    deps = ["@bazel-orfs-dev-pip//matplotlib"],
 )

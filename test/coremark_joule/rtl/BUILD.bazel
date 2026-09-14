@@ -132,3 +132,12 @@ verilog_library(
     ],
     deps = [":asap7_stdcells"],
 )
+
+verilog_library(
+    name = "cm_soc_serv_gate",
+    srcs = [
+        "cm_soc_serv.v",
+        "//test/coremark_joule/designs/asap7/serv:cmj_serv_grt_netlist.v",
+    ],
+    deps = [":asap7_stdcells"],
+)

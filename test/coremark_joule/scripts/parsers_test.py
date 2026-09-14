@@ -103,6 +103,18 @@ class CheckCoremarkTest(unittest.TestCase):
 
 
 class CmPerMhzTest(unittest.TestCase):
+    def test_cycles_file_carries_more_than_the_count(self):
+        """The harness also records where CoreMark first printed.
+
+        That line places the SAIF window. Reading the file as a single
+        integer worked until it was added, so the format is pinned here.
+        """
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "c")
+            with open(p, "w") as f:
+                f.write("3723728\nfirst_output 3693242\n")
+            self.assertEqual(3723728, cm_per_mhz.read_count(p))
+
     def test_build_flags_come_from_the_report(self):
         """A number must be traceable to the binary that produced it.
 
