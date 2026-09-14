@@ -107,6 +107,48 @@ class SectionTest(unittest.TestCase):
         self.assertIn("Not yet measured", text)
 
 
+class SummaryTest(unittest.TestCase):
+    def test_no_data_says_not_yet_measured(self):
+        self.assertIn("Not yet measured", report.summary_table([]))
+
+    def test_one_row_per_arm_with_the_winning_design_count(self):
+        samples = [
+            sample(arm="shipped", seed=s, gp_hpwl_final=100.0 + s) for s in range(1, 5)
+        ] + [
+            sample(arm="spread", seed=s, gp_hpwl_final=900.0 + s) for s in range(1, 5)
+        ]
+        text = report.summary_table(samples)
+        self.assertIn("| spread |", text)
+        self.assertIn("1/1", text)
+
+    def test_a_single_design_is_reported_as_underpowered(self):
+        # The cell must not read "worse" when one design cannot support
+        # any verdict; this is the same rule stats.verdict enforces, and
+        # the summary is the table a reader skims first.
+        samples = [
+            sample(arm="shipped", seed=s, gp_hpwl_final=100.0 + s) for s in range(1, 5)
+        ] + [
+            sample(arm="spread", seed=s, gp_hpwl_final=900.0 + s) for s in range(1, 5)
+        ]
+        self.assertIn("underpowered", report.summary_table(samples))
+
+
+class NoiseFloorTest(unittest.TestCase):
+    def test_no_baseline_says_not_yet_measured(self):
+        self.assertIn("Not yet measured", report.noise_floor_table([]))
+
+    def test_reports_two_sigma_of_the_baseline_arm(self):
+        samples = [
+            sample(arm="shipped", seed=s, gp_hpwl_final=v)
+            for s, v in enumerate([100.0, 102.0, 98.0, 100.0], start=1)
+        ]
+        text = report.noise_floor_table(samples)
+        self.assertIn("asap7/gcd", text)
+        # 2 sigma of that ensemble is 2*1.6330 = 3.266, i.e. 3.27% of 100.
+        self.assertIn("3.266", text)
+        self.assertIn("3.27", text)
+
+
 class BuildTest(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp()

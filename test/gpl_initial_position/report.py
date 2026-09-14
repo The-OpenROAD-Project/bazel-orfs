@@ -382,6 +382,121 @@ def witness_section(samples, dropped):
     return "\n".join(out) + "\n"
 
 
+def noise_floor_table(samples):
+    """This campaign's own measured spread, per design and endpoint.
+
+    Quoted rather than inherited: PR #977 measured the seed noise on six
+    asap7 designs on this host, and those numbers sized this campaign,
+    but an arm's resolution has to come from the ensembles actually run.
+    The two are compared in the PR body; only this one is a measurement
+    of this campaign.
+
+    Args:
+        samples: from load().
+
+    Returns:
+        The markdown section.
+    """
+    rows = []
+    for key, label, _ in ENDPOINTS:
+        grouped = by_design_arm(samples, key)
+        for design in sorted(grouped):
+            baseline = grouped[design].get(campaign.BASELINE_ARM, [])
+            if len(baseline) < 2:
+                continue
+            mean = stats.mean(baseline)
+            two_sigma = 2 * stats.stdev(baseline)
+            rows.append(
+                (
+                    design,
+                    label,
+                    len(baseline),
+                    mean,
+                    two_sigma,
+                    (100.0 * two_sigma / mean) if mean else None,
+                )
+            )
+    if not rows:
+        return section_not_measured(
+            "The noise floor this campaign measured",
+            "No baseline ensemble of two or more samples yet.",
+        )
+    out = [
+        "## The noise floor this campaign measured",
+        "",
+        "The `%s` arm's own spread. Resolution at `k` seeds is "
+        "`2sigma * sqrt(2/k)`; every delta above is judged against it."
+        % campaign.BASELINE_ARM,
+        "",
+        "| design | endpoint | n | mean | 2 sigma | 2 sigma as %% of mean |",
+        "| --- | --- | ---: | ---: | ---: | ---: |",
+    ]
+    for design, label, n, mean, two_sigma, pct in rows:
+        out.append(
+            "| %s | %s | %d | %s | %s | %s |"
+            % (design, label, n, _fmt(mean), _fmt(two_sigma), _fmt(pct, 2))
+        )
+    return "\n".join(out) + "\n"
+
+
+def summary_table(samples):
+    """One row per arm, one column per endpoint: the answer, in brief.
+
+    This is the table the question is actually asking for. Everything
+    below it in the report is the working.
+
+    Args:
+        samples: from load().
+
+    Returns:
+        The markdown section.
+    """
+    verdicts = {}
+    endpoints_present = []
+    for key, label, lower in ENDPOINTS:
+        grouped = by_design_arm(samples, key)
+        per_arm = collections.defaultdict(list)
+        for design in sorted(grouped):
+            baseline = grouped[design].get(campaign.BASELINE_ARM)
+            if not baseline or len(baseline) < 2:
+                continue
+            for arm, values in grouped[design].items():
+                if arm == campaign.BASELINE_ARM:
+                    continue
+                per_arm[arm].append(stats.compare(baseline, values))
+        if not per_arm:
+            continue
+        endpoints_present.append(label)
+        arms_tested = len(per_arm)
+        for arm, rows in per_arm.items():
+            out = stats.verdict(rows, arms=arms_tested)
+            word = out["label"]
+            if not lower and word in ("better", "worse"):
+                word = "worse" if word == "better" else "better"
+            verdicts[(arm, label)] = "%s %d/%d" % (word, out["agree"], out["designs"])
+    if not verdicts:
+        return section_not_measured(
+            "Summary: does the starting distribution matter?",
+            "No arm has an ensemble to compare against the baseline yet.",
+        )
+    arms = sorted({arm for arm, _ in verdicts})
+    out = [
+        "## Summary: does the starting distribution matter?",
+        "",
+        "Each cell is the pooled verdict and the number of designs that "
+        "resolved in the winning direction. **did not resolve** is not "
+        "the same as no effect; **underpowered** means the design count "
+        "cannot support any verdict at all.",
+        "",
+        "| arm | " + " | ".join(endpoints_present) + " |",
+        "| --- | " + " | ".join("---" for _ in endpoints_present) + " |",
+    ]
+    for arm in arms:
+        cells = [verdicts.get((arm, label), "-") for label in endpoints_present]
+        out.append("| %s | %s |" % (arm, " | ".join(cells)))
+    return "\n".join(out) + "\n"
+
+
 def build(results_dir):
     """The whole report.
 
@@ -399,9 +514,11 @@ def build(results_dir):
         "recomputed from the sample JSONs; nothing is typed by hand."
         % (len(samples), os.path.basename(os.path.abspath(results_dir))),
         "",
+        summary_table(samples),
         witness_section(samples, dropped),
         initial_place_table(samples),
         position_source_table(samples),
+        noise_floor_table(samples),
     ]
     for key, label, lower in ENDPOINTS:
         parts.append(endpoint_section(samples, key, label, lower))
