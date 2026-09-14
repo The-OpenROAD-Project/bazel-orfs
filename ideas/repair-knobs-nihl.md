@@ -197,6 +197,20 @@ learned policy that needs training runs per design.
 
 ## Decisions log
 
+- 2026-09-14, 15:15: context for the pitch. rsz already has a phase
+  pipeline (`repair_timing -phases`, default LEGACY then LAST_GASP with
+  an implicit CRIT_VT_SWAP): WNS, WNS_PATH, WNS_CONE, TNS,
+  ENDPOINT_FANIN, STARTPOINT_FANOUT, REROUTE, GLOBAL_SIZING are
+  accepted. The TNS phase sweeps worst first with an adaptive patience
+  (6 dry passes, growing to 25 on success); none of the phases orders
+  endpoints by what they pay. 0079 changes the LEGACY phase because
+  that is the default every ORFS user runs; the same sweep as a phase
+  token is the fallback if maintainers prefer it. Also from Phase 0: of
+  781 paying non-first visits across four designs, 37 show their first
+  gain after pass 2 and none of those carried WNS; the largest (ibex grt,
+  584 ps, first gain at pass 47) is what decides whether a two-pass
+  probe needs a second-chance round.
+
 - 2026-09-14, 14:45: Phase 0 on four designs shows three regimes, and
   one policy shape covers them. mock-alu: the gain sits in endpoints
   the worst-first order reaches late, each paying in one or two passes.
