@@ -20,10 +20,10 @@ so the visit records whether repairPath ran. The ten-pass rows, the first
 and the final row are untouched.
 
 diff --git a/src/rsz/src/policy/SetupLastGaspPolicy.cc b/src/rsz/src/policy/SetupLastGaspPolicy.cc
-index 7e9fbfc00b..c96b4b8021 100644
+index 454cc2758c..a44ddbc595 100644
 --- a/src/rsz/src/policy/SetupLastGaspPolicy.cc
 +++ b/src/rsz/src/policy/SetupLastGaspPolicy.cc
-@@ -285,6 +285,7 @@ void SetupLastGaspPolicy::repairLastGaspEndpoint(
+@@ -270,6 +270,7 @@ void SetupLastGaspPolicy::repairLastGaspEndpoint(
      }
  
      ++setup_context_.profile.passes;
@@ -31,7 +31,7 @@ index 7e9fbfc00b..c96b4b8021 100644
      sta::Path* end_path;
      {
        utl::DebugScopedTimer timer(setup_context_.profile.path_s);
-@@ -369,7 +370,9 @@ void SetupLastGaspPolicy::runLastGaspLoop(
+@@ -350,7 +351,9 @@ void SetupLastGaspPolicy::runLastGaspLoop(
  
      repairLastGaspEndpoint(endpoint_state, last_gasp_state);
  
@@ -43,24 +43,24 @@ index 7e9fbfc00b..c96b4b8021 100644
            last_gasp_state.opto_iteration, true, last_gasp_state.phase_marker);
      }
 diff --git a/src/rsz/src/policy/SetupLegacyBase.hh b/src/rsz/src/policy/SetupLegacyBase.hh
-index cde35a732b..e57afe3601 100644
+index 78aa495806..a251f39268 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.hh
 +++ b/src/rsz/src/policy/SetupLegacyBase.hh
-@@ -93,6 +93,9 @@ class SetupLegacyBase : public OptimizationPolicy
+@@ -89,6 +89,9 @@ class SetupLegacyBase : public OptimizationPolicy
      int decreasing_slack_passes{0};
      bool journal_open{false};
      bool force_single_repair{false};
 +    // Whether the visit ran a repair pass at all. An endpoint found already
 +    // repaired on arrival counts an iteration but runs no pass.
 +    bool made_a_pass{false};
-     // Study trace (repair-yield): what this endpoint visit cost and bought.
-     // Filled by traceBegin/traceGain, printed by traceEnd as one
-     // [RSZ-ENDPOINT] line. Read-only queries; no result changes.
+   };
+ 
+   // === Run setup ============================================================
 diff --git a/src/rsz/src/policy/SetupLegacyPolicy.cc b/src/rsz/src/policy/SetupLegacyPolicy.cc
-index 4964886814..b399eff85b 100644
+index bd722c0087..3418c6bda0 100644
 --- a/src/rsz/src/policy/SetupLegacyPolicy.cc
 +++ b/src/rsz/src/policy/SetupLegacyPolicy.cc
-@@ -220,6 +220,7 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
+@@ -208,6 +208,7 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
      }
  
      ++setup_context_.profile.passes;
@@ -68,7 +68,7 @@ index 4964886814..b399eff85b 100644
      sta::Path* end_path;
      {
        utl::DebugScopedTimer timer(setup_context_.profile.path_s);
-@@ -417,7 +418,13 @@ void SetupLegacyPolicy::runMainRepairLoop(const ViolatingEnds& violating_ends,
+@@ -399,7 +400,13 @@ void SetupLegacyPolicy::runMainRepairLoop(const ViolatingEnds& violating_ends,
  
      repairEndpoint(endpoint_state, main_state);
  
