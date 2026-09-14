@@ -19,6 +19,7 @@ py_library(
     name = "analysis",
     srcs = [
         "campaign.py",
+        "csv_export.py",
         "gpl_progress.py",
         "harvest.py",
         "initial_place.py",
@@ -60,6 +61,12 @@ py_test(
 )
 
 py_test(
+    name = "csv_export_test",
+    srcs = ["csv_export_test.py"],
+    deps = [":analysis"],
+)
+
+py_test(
     name = "report_test",
     srcs = ["report_test.py"],
     deps = [":analysis"],
@@ -83,6 +90,13 @@ py_binary(
 py_binary(
     name = "report",
     srcs = ["report.py"],
+    tags = ["manual"],
+    deps = [":analysis"],
+)
+
+py_binary(
+    name = "csv_export",
+    srcs = ["csv_export.py"],
     tags = ["manual"],
     deps = [":analysis"],
 )
