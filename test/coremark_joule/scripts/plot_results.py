@@ -55,9 +55,7 @@ def plot(document, out_path):
     for axis, values in ((ax.xaxis, xs), (ax.yaxis, ys)):
         axis.set_major_formatter(
             matplotlib.ticker.FuncFormatter(
-                lambda v, _: (
-                    "{:,.0f}".format(v) if v >= 1 else "{:g}".format(v)
-                )
+                lambda v, _: ("{:,.0f}".format(v) if v >= 1 else "{:g}".format(v))
             )
         )
         axis.set_minor_formatter(matplotlib.ticker.NullFormatter())

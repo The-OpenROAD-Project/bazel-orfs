@@ -166,6 +166,21 @@ module to its architectural unit.
 design, so the enumeration cannot rot silently: an upstream rename fails
 the build instead of quietly moving a unit into "other".
 
+**Parameterized modules do not survive into the ODB.** SERV's kept
+modules are all parameterized, so yosys names them
+`$paramod\serv_alu\W=s32'...`, and while all thirteen are present in
+`1_2_yosys.v`, the grt ODB has zero module instances and the written
+netlist is one flat module. picorv32's plainly named `picorv32_pcpi_mul`
+and `picorv32_pcpi_div` survive intact. The per-unit breakdown therefore
+works today only for designs whose kept modules are unparameterized --
+which is the smaller half of the interesting ones, and is what makes
+this the next thing to fix rather than a footnote.
+
+The failure is silent, which is the part worth noting: the flow
+completes, the netlist is valid, and the breakdown simply comes back
+empty. `power_units_grt.tcl` prints the module-instance count for that
+reason.
+
 How well this works is a property of the RTL, and it differs sharply:
 
 | core | attribution |

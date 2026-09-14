@@ -80,9 +80,7 @@ def main(argv):
     if previous == document:
         print("pin_results: {} unchanged".format(RESULTS))
     else:
-        print(
-            "pin_results: wrote {} point(s) to {}".format(len(points), RESULTS)
-        )
+        print("pin_results: wrote {} point(s) to {}".format(len(points), RESULTS))
         for p in points:
             print(
                 "  {:9s} {:8s} {:9.4f} CoreMark/MHz  {:7.2f} mW  "

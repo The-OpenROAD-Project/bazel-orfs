@@ -1,5 +1,5 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
-load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "stage_power")
+load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "stage_power", "stage_power_units")
 
 design(
     config = "config.mk",
@@ -14,6 +14,16 @@ grt_netlist(
 
 stage_power(
     name = "cmj_serv_grt_power",
+    src = ":cmj_serv_grt",
+    saif = "//test/coremark_joule/sim:serv_rv32i_saif",
+    saif_scope = "TOP/cm_soc/cpu",
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+# SERV is the core the per-unit breakdown is for: its RTL is one module
+# per architectural function, so almost nothing lands in "other".
+stage_power_units(
+    name = "cmj_serv_grt_power_units",
     src = ":cmj_serv_grt",
     saif = "//test/coremark_joule/sim:serv_rv32i_saif",
     saif_scope = "TOP/cm_soc/cpu",

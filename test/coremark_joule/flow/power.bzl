@@ -97,3 +97,33 @@ def stage_power(
         tags = tags,
         visibility = visibility,
     )
+
+def stage_power_units(
+        name,
+        src,
+        saif,
+        saif_scope,
+        stage = "grt",
+        tags = ["manual"],
+        visibility = None):
+    """Report power per module instance at a stage.
+
+    The whole-design number says how much; this says where. The instance
+    paths are discovered from the ODB rather than declared, so they
+    cannot drift from the netlist.
+    """
+    orfs_run(
+        name = name,
+        src = src,
+        outs = [name + ".json"],
+        script = "//test/coremark_joule/flow:power_units_grt.tcl",
+        data = [saif],
+        user_arguments = {
+            "STAGE_STEM": STAGE_STEM[stage],
+            "SAIF_STIMULI": "$(location {})".format(saif),
+            "SAIF_SCOPE": saif_scope,
+            "OUT_JSON": "$(location {}.json)".format(name),
+        },
+        tags = tags,
+        visibility = visibility,
+    )
