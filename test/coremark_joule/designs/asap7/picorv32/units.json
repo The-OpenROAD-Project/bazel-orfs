@@ -1,9 +1,12 @@
 {
   "design": "cmj_picorv32",
-  "min_coverage": 0.90,
-  "waiver": "picorv32.v defines eight modules and the CPU is one of them: decode, execute, the ALU, control and the register file are all inline in the picorv32 module, leaving only the PCPI multiplier and divider separable. Upstream offers a PICORV32_REGS macro that breaks the register file out into its own module, but it is commented out by default and using it would measure a different design from the one its author ships. No SYNTH_KEEP_MODULES list can attribute the rest, so this design cannot meet the coverage floor, and the shortfall is a property of the RTL rather than of the method. Reported as whole-core power with the two units below broken out.",
+  "min_coverage": 0.9,
+  "waiver": "picorv32.v defines eight modules and the CPU is one of them: decode, execute, the ALU and control are all inline in the picorv32 module, so no SYNTH_KEEP_MODULES list can attribute them. This design therefore cannot meet the coverage floor, and the shortfall is a property of the RTL rather than of the method. The register file is the exception: it is an inline array in the RTL, but AUTO_MEMORIES infers it as a 32x32 two-read one-write memory named cpuregs and generates a macro for it, so it is attributable as an instance rather than as a kept module. Upstream also offers a PICORV32_REGS macro that would break it out as a module, but it is commented out by default and using it would measure a different design from the one its author ships.",
   "units": {
     "picorv32_pcpi_mul": "multiplier",
     "picorv32_pcpi_div": "divider"
+  },
+  "memory_units": {
+    "cpuregs": "register file"
   }
 }
