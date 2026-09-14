@@ -1275,7 +1275,7 @@ SYNTH_OUTPUTS = ["1_2_yosys.v", "1_2_yosys.sdc", "mem.json"]
 SYN_OUTPUTS = ["1_synth.odb", "1_synth.sdc", "1_synth.v"]
 SYNTH_REPORTS = ["synth_stat.txt", "synth_mocked_memories.txt"]
 
-def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments = {}, clock_period = None, sdc_overrides = [], synth_data_inputs = None, sdc_only_inputs = None):
+def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments = {}, clock_period = None, sdc_overrides = [], synth_data_inputs = None, sdc_only_inputs = None, memories_inputs = []):
     """Parallel synthesis: keep → kept-json → N partitions → merge.
 
     Yosys is not deterministic when using host threads, so SYNTH_NUM_PARTITIONS
@@ -1523,6 +1523,14 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
     # added per partition below). checkpoint_output is NOT included here:
     # non-top partitions consume per-module RTLIL slices instead. The top
     # partition adds it back explicitly below.
+    # Tell make not to remake the AUTO_MEMORIES artifacts. They are
+    # staged as inputs (below), but a sandbox gives them mtimes that make
+    # reads as out of date, so `yosys-dependencies` would re-run
+    # gen_memories.py -- which then fails writing memories.json, a
+    # read-only input here. --old-file is exactly the "treat this as up
+    # to date whatever its timestamp says" switch.
+    memories_old_file_args = ["--old-file=" + f.path for f in memories_inputs]
+
     base_partition_inputs = depset(
         [
             kept_json,
@@ -1531,7 +1539,21 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             ctx.file._synth_partition_script,
             ctx.file._synth_tcl,
         ] + clock_period_inputs + extra_partition_inputs +
-        ctx.files.extra_configs,
+        ctx.files.extra_configs +
+        # AUTO_MEMORIES artifacts, for the same reason the serial synth
+        # action stages them: make's chain is
+        #
+        #   yosys-dependencies: memories.json
+        #   memories.json: memories_inferred.json ...
+        #   memories_inferred.json: $(VERILOG_FILES) extract_memories.tcl
+        #
+        # so a partition sandbox without memories_inferred.json re-runs
+        # memory detection there -- against a design already reduced to
+        # canonicalized RTLIL, with no Verilog to read, which fails as
+        # "Module `<top>\' not found!". The serial path has staged these
+        # all along; the partition path never did, so AUTO_MEMORIES and
+        # parallel synthesis could not be used together.
+        memories_inputs,
         transitive = [
             synth_data_inputs,
             pdk_inputs(ctx),
@@ -1769,7 +1791,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                 "yosys-dependencies",
                 "do-yosys-partition",
                 "SYNTH_PARTITION_SCRIPT=" + ctx.file._synth_partition_script.path,
-            ] + sdc_overrides,
+            ] + memories_old_file_args + sdc_overrides,
             command = " && ".join(part_commands),
             env = base_env | partition_env_extra | partition_env_override | {
                 "SYNTH_PARTITION_ID": str(i),
@@ -1801,7 +1823,7 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
             "yosys-dependencies",
             "do-yosys-partition",
             "SYNTH_PARTITION_SCRIPT=" + ctx.file._synth_partition_script.path,
-        ] + sdc_overrides,
+        ] + memories_old_file_args + sdc_overrides,
         command = " && ".join(top_commands),
         env = base_env | partition_env_extra | {
             "SYNTH_PARTITION_ID": "top",
@@ -2289,7 +2311,7 @@ def _yosys_impl(ctx):
             progress_message = "OpenROAD-SYN synthesis for %s" % module_top(ctx),
         )
     elif num_partitions > 0:
-        validated_kept_macros_json = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments, clock_period, sdc_overrides, synth_data_inputs, sdc_only_inputs)
+        validated_kept_macros_json = _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, synth_jsons, synth_reports, num_partitions, save_odb, all_arguments, clock_period, sdc_overrides, synth_data_inputs, sdc_only_inputs, memories_outputs + memories_inferred)
     else:
         # Serial path, split into three actions mirroring the parallel
         # path so the raw SDC feeds only the cheap sdc-copy step:
