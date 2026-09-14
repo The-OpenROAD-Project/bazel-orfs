@@ -197,6 +197,18 @@ learned policy that needs training runs per design.
 
 ## Decisions log
 
+- 2026-09-15, 03:00: 0082 v2 on all five vehicles: byte-identical, the
+  setup phase 0-13% faster where visits find endpoints already repaired
+  (ibex cts 28.0 to 24.3 s and grt 71.7 to 67.8 s, mock-alu floorplan
+  18.8 to 16.9 s and cts 47.4 to 44.2 s, riscv32i cts 51.8 to 49.6 s),
+  unchanged on the grinds where every visit runs a pass (jpeg,
+  sky130hd/riscv32i). Rows: ibex cts 756 to 114, riscv32i cts 1073 to
+  184. Flow wall a tie against the untraced default while carrying the
+  trace's own 1-2%. Phase B, 0082 alone and untraced on the 21 fast
+  designs, is running; it is the first candidate of the third study to
+  reach Phase B and the OpenROAD pull request it would become is of the
+  #11387 kind: same result, fewer seconds, no knob.
+
 - 2026-09-15, 02:10: 0082 v2 on mock-alu: byte-identical, rows 1142 to
   319 in floorplan and 958 to 466 in cts, progress seconds 3.1 to 1.2
   and 3.1 to 1.6, the setup phase 18.8 to 16.9 s and 47.4 to 44.2 s.
