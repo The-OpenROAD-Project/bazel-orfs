@@ -663,3 +663,206 @@ orfs_designs(
     dev_dependency = True,
     platforms = ["asap7"],
 )
+
+# --- //test/coremark_joule/xiangshan: rung 10 of the study ----------------
+#
+# XiangshanV3 (Kunminghu) is the first core in the study that arrives as a
+# Chisel generator rather than as Verilog, so it needs a Scala build. All
+# of it is dev-only for the same reason as the block above: it belongs to
+# a study under test/, and a consumer of bazel-orfs must never resolve a
+# Scala toolchain to build a flow.
+#
+# Nothing is vendored. Eleven http_archives -- XiangShan and the ten
+# repositories its build pulls in as submodules -- each pinned by commit
+# and sha256, each with a small BUILD overlay in this repository. That is
+# the pattern the retired gallery/ workspace used for BOOM and gemmini.
+bazel_dep(name = "rules_chisel", version = "0.4.2", dev_dependency = True)
+
+# Match XiangShan's own build.mill exactly: Chisel 7.13.0 on Scala
+# 2.13.17. rules_chisel defaults to Chisel 7.2.0, and building a
+# generator against a different Chisel than upstream targets is how the
+# retired gallery ended up carrying a compatibility patch per library --
+# one of them 7,700 lines. Pinning to upstream's version costs nothing
+# and inherits none of that.
+chisel = use_extension("@rules_chisel//chisel:extensions.bzl", "chisel", dev_dependency = True)
+chisel.toolchain(
+    chisel_version = "7.13.0",
+    scala_version = "2.13.17",
+)
+use_repo(chisel, "chisel_maven")
+
+# The Maven artifacts XiangShan's build.mill names beyond Chisel itself.
+# chisel_maven pins only the Chisel artifacts, so these get their own
+# install; the versions are upstream's, not our choice.
+bazel_dep(name = "rules_jvm_external", version = "6.7", dev_dependency = True)
+
+# Visible so the BUILD overlays in //test/coremark_joule/xiangshan can
+# load scala_library. rules_chisel already depends on it and already
+# sets scala_config to 2.13.17 -- XiangShan's own Scala version -- so
+# this only makes the repository name resolvable from here.
+bazel_dep(name = "rules_scala", version = "7.1.5", dev_dependency = True)
+
+scala_config = use_extension(
+    "@rules_scala//scala/extensions:config.bzl",
+    "scala_config",
+    dev_dependency = True,
+)
+scala_config.settings(scala_version = "2.13.17")
+use_repo(scala_config, "rules_scala_config")
+
+scala_deps = use_extension(
+    "@rules_scala//scala/extensions:deps.bzl",
+    "scala_deps",
+    dev_dependency = True,
+)
+scala_deps.scala()
+use_repo(scala_deps, "rules_scala_toolchains")
+
+maven = use_extension("@rules_jvm_external//:extensions.bzl", "maven", dev_dependency = True)
+maven.install(
+    name = "xs_maven",
+    artifacts = [
+        "com.lihaoyi:sourcecode_2.13:0.4.4",
+        "io.github.alexarchambault:data-class_2.13:0.2.11",
+        "com.github.scopt:scopt_2.13:4.1.0",
+        "com.lihaoyi:os-lib_2.13:0.11.3",
+        "io.circe:circe-core_2.13:0.14.10",
+        "org.typelevel:cats-core_2.13:2.12.0",
+        "com.chuusai:shapeless_2.13:2.3.12",
+        "org.scalatest:scalatest-core_2.13:3.2.19",
+        "org.scalatest:scalatest-compatible:3.2.19",
+        "org.scalatest:scalatest-flatspec_2.13:3.2.19",
+        "org.scalatest:scalatest-shouldmatchers_2.13:3.2.19",
+        "org.scalatest:scalatest-matchers-core_2.13:3.2.19",
+        "org.scalatest:scalatest-mustmatchers_2.13:3.2.19",
+        "org.scalactic:scalactic_2.13:3.2.19",
+        "io.circe:circe-generic_2.13:0.14.10",
+        "io.circe:circe-parser_2.13:0.14.10",
+        "io.circe:circe-yaml-common_2.13:0.16.1",
+        "com.lihaoyi:mainargs_2.13:0.7.7",
+        "org.json4s:json4s-jackson_2.13:4.0.7",
+        "org.json4s:json4s-jackson-core_2.13:4.0.7",
+        "org.json4s:json4s-native_2.13:4.0.7",
+        "org.json4s:json4s-native-core_2.13:4.0.7",
+        "org.json4s:json4s-core_2.13:4.0.7",
+        "org.json4s:json4s-ast_2.13:4.0.7",
+        "org.scala-lang:scala-reflect:2.13.17",
+        "io.circe:circe-yaml_2.13:0.16.1",
+        "io.circe:circe-generic-extras_2.13:0.14.4",
+    ],
+)
+use_repo(maven, "xs_maven")
+
+# XiangShan itself: the Kunminghu V3 head of the default branch on
+# 2026-09-14. The core the study wants is XSCore -- core plus L1I and
+# L1D, with the L2 a sibling inside XSTile -- which is exactly the
+# measurement boundary, with no surgery needed to isolate it.
+http_archive(
+    name = "xiangshan",
+    build_file = "//test/coremark_joule/xiangshan:xiangshan.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "ed1561ee5b532ea0956aa3c9dbcf97454eace356bbdd7498a5fb2b5feaf57ded",
+    strip_prefix = "XiangShan-37ce1b50b5b8fa1865205e76175e48fc636454d6",
+    urls = ["https://github.com/OpenXiangShan/XiangShan/archive/37ce1b50b5b8fa1865205e76175e48fc636454d6.tar.gz"],
+)
+
+# Every commit below is the one XiangShan's own tree records for that
+# submodule, so the set builds together the way upstream builds it.
+http_archive(
+    name = "xs_rocket_chip",
+    build_file = "//test/coremark_joule/xiangshan:rocket_chip.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "5fb0c53c5773e0c653b69906a2e1a8a36bd8149df139ad4d097dd6d7c47451a0",
+    strip_prefix = "rocket-chip-a2df1a42399cfe2b343eeb5293796268dc2bc211",
+    urls = ["https://github.com/OpenXiangShan/rocket-chip/archive/a2df1a42399cfe2b343eeb5293796268dc2bc211.tar.gz"],
+)
+
+# rocket-chip carries hardfloat and cde as submodules of its own, which a
+# GitHub source tarball does not include; they arrive as their own
+# archives and the overlay reaches across to them.
+http_archive(
+    name = "xs_hardfloat",
+    build_file = "//test/coremark_joule/xiangshan:hardfloat.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "7d2fa9d9b938dbf44ac9c4d92171dae4491e2d7ee0bbfb1bafb402825bfd2552",
+    strip_prefix = "berkeley-hardfloat-d93aa570806013dea479a92ba9bb33d1f2d4f69f",
+    urls = ["https://github.com/ucb-bar/berkeley-hardfloat/archive/d93aa570806013dea479a92ba9bb33d1f2d4f69f.tar.gz"],
+)
+
+http_archive(
+    name = "xs_cde",
+    build_file = "//test/coremark_joule/xiangshan:cde.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "d941c3260549fdad178a90b0138ea3d23acf13f16440dab3c0b31014e4c62101",
+    strip_prefix = "cde-52768c97a27b254c0cc0ac9401feb55b29e18c28",
+    urls = ["https://github.com/chipsalliance/cde/archive/52768c97a27b254c0cc0ac9401feb55b29e18c28.tar.gz"],
+)
+
+http_archive(
+    name = "xs_utility",
+    build_file = "//test/coremark_joule/xiangshan:utility.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "434616beee811e260088d1dc6427e3df1ad711dc161b110211f0a95e63ec03ba",
+    strip_prefix = "Utility-44f500cd2ddd95138d9402ae4b580fb84c3289ec",
+    urls = ["https://github.com/OpenXiangShan/Utility/archive/44f500cd2ddd95138d9402ae4b580fb84c3289ec.tar.gz"],
+)
+
+http_archive(
+    name = "xs_yunsuan",
+    build_file = "//test/coremark_joule/xiangshan:yunsuan.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "4ebbe5569bc925a9c573b32453f7bf858b54e8002098e1b8642736095b33163e",
+    strip_prefix = "YunSuan-fd26afc0d93dfe32444dff2f420fe540b07a9744",
+    urls = ["https://github.com/OpenXiangShan/YunSuan/archive/fd26afc0d93dfe32444dff2f420fe540b07a9744.tar.gz"],
+)
+
+# XSCache carries coupledL2, openLLC and xscache in one tree. Only the L1
+# side is inside the measurement boundary; the L2 is elaborated because
+# XSCore cannot run without one, and hardened by nobody.
+http_archive(
+    name = "xs_cache",
+    build_file = "//test/coremark_joule/xiangshan:xscache.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "393cb547efef86a1c5a41d53b595699361d53ec2f0c10a086cc23ee096a1c939",
+    strip_prefix = "XSCache-dfd3edcf42b772e2a21178579b93bafc956f99b8",
+    urls = ["https://github.com/OpenXiangShan/XSCache/archive/dfd3edcf42b772e2a21178579b93bafc956f99b8.tar.gz"],
+)
+
+http_archive(
+    name = "xs_openncb",
+    build_file = "//test/coremark_joule/xiangshan:openncb.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "3658825a9c8e535abff14a402bb5114954d71420a7804c5293f3a2a198bfffe9",
+    strip_prefix = "OpenNCB-9a83eb7e6c0e36e0d6b72642ff93641ec65819cf",
+    urls = ["https://github.com/OpenXiangShan/OpenNCB/archive/9a83eb7e6c0e36e0d6b72642ff93641ec65819cf.tar.gz"],
+)
+
+# difftest is XiangShan's co-simulation harness. The study does not use
+# it -- correctness is CoreMark's own CRCs, checked from stdout -- but
+# xiangshan's Scala imports it, so it has to compile.
+http_archive(
+    name = "xs_difftest",
+    build_file = "//test/coremark_joule/xiangshan:difftest.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "8385f89704dd90d7e57af54b464a94ec0a60afb2af652c7d3ae8fb4abd42a283",
+    strip_prefix = "difftest-45638f5145aa9c7eee85cd9b08eb8962ee46b586",
+    urls = ["https://github.com/OpenXiangShan/difftest/archive/45638f5145aa9c7eee85cd9b08eb8962ee46b586.tar.gz"],
+)
+
+http_archive(
+    name = "xs_chiselaia",
+    build_file = "//test/coremark_joule/xiangshan:chiselaia.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "c3fe343859a288846e5eae4d0dc6a1da3d8ec039ec8f49b435901f1c3424261c",
+    strip_prefix = "ChiselAIA-c8be865e4fa60d40831ff29e0a30d4269f5ff5b9",
+    urls = ["https://github.com/OpenXiangShan/ChiselAIA/archive/c8be865e4fa60d40831ff29e0a30d4269f5ff5b9.tar.gz"],
+)
+
+http_archive(
+    name = "xs_chiseliopmp",
+    build_file = "//test/coremark_joule/xiangshan:chiseliopmp.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "5c02406820b77a37032b78f55f2548726cb5dfd86e36c97c961f4e829afeb190",
+    strip_prefix = "ChiselIOPMP-cc1113c30a2469e27a233795a4e5705c43c84726",
+    urls = ["https://github.com/OpenXiangShan/ChiselIOPMP/archive/cc1113c30a2469e27a233795a4e5705c43c84726.tar.gz"],
+)
