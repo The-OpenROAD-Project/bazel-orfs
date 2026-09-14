@@ -139,6 +139,13 @@ design is a result, not a caveat.
 
 ## Decisions log
 
+- 2026-09-14, 06:15: closed as bazel-orfs #982, reference only. Verdict:
+  no trajectory-based stopping rule dominates the default across the 20
+  designs; the three candidates fail in three directions; the knobs are
+  Pareto trades; the lever is the cost of a pass. Next study: the STA
+  update after each accepted move (40-67% of a pass) and grt's
+  incremental parasitics (22-34%).
+
 - 2026-09-13, 21:50: defer-and-revisit (0077) fails the bar on wall: 12
   of 20 pass; eight designs are 2-13% slower (sky130hd/aes +121 s,
   sky130hd/riscv32i +65 s, sky130hd/jpeg +61 s, ibex +50 s, jpeg +46 s)
