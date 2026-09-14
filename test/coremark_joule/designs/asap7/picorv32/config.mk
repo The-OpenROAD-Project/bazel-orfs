@@ -27,20 +27,17 @@ export SYNTH_HIERARCHICAL      = 1
 # falls into "other" along with the datapath.
 export SYNTH_KEEP_MODULES      = picorv32_pcpi_mul picorv32_pcpi_div
 
-# No AUTO_MEMORIES for picorv32.
+# On, and it correctly converts nothing here. picorv32's register file is
+# an inline `reg [31:0] cpuregs [0:31]` array rather than a module, and
+# patches/0066 makes the flow leave such a memory alone with a reason:
+# an inline array is the design asking for flip-flops. memories.json
+# records cpuregs as idiomatic:false and blackboxes.txt is empty, so the
+# inventory and the netlist agree.
 #
-# It detects the register file and generates a macro, but the macro is
-# never used: AUTO_MEMORIES replaces memories that are *modules*, and
-# picorv32's register file is an inline `reg [31:0] cpuregs [0:31]`
-# array. The yosys pass infers it, marks it convertible and writes
-# "cpuregs" into blackboxes.txt, but `blackbox cpuregs` matches no module
-# and the design synthesises to 1024 flip-flops regardless. Verified on
-# both the partition and the serial synthesis paths.
-#
-# Enabling it would generate an unused macro and a misleading inventory,
-# so it stays off and picorv32's register file is reported as flops --
-# which is what its RTL actually describes.
-# export AUTO_MEMORIES         = 1
+# To harden this register file as a macro the design has to instantiate
+# it as a module -- picorv32 offers the PICORV32_REGS mechanism for
+# exactly that.
+export AUTO_MEMORIES           = 1
 
 # Starting points. The auto_floorplan derivation measures and pins these.
 export CORE_UTILIZATION        = 40
