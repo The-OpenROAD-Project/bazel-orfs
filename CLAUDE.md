@@ -107,6 +107,12 @@ mechanics:
 - `/untar-and-run-report` — ship it as an untar-and-run `.tar.gz` archive.
 - `/odb-to-cpp` — turn a whittled `.odb` into a self-contained C++ unit test.
 
+A simulation that hangs, produces no output or computes the wrong answer
+is a different problem from an OpenROAD failure, and has its own skill:
+
+- `debug-rtl-sim` — the cheapest-first ladder for an RTL or gate-level
+  simulation, and the harness properties each rung needs. Never read a
+  raw log or waveform into context.
 
 ### Upstream repositories: moratorium on pull requests
 
