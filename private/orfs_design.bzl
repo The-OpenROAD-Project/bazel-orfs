@@ -364,12 +364,25 @@ def _filter_verilog_files(raw_verilog_files, design = None):
     return verilog_files
 
 def _collect_include_dirs(arguments):
-    """Collect extra data dependencies for VERILOG_INCLUDE_DIRS."""
+    """Collect extra data dependencies for VERILOG_INCLUDE_DIRS.
+
+    An include directory is normally a package of this repository
+    carrying a files("include") group, so the data dependency is
+    `//<dir>:include`.
+
+    A directory under external/ is not: it lives inside a fetched
+    archive, where the path is bazel's own and there is no package to
+    name. Synthesising a label for it produced "no such package
+    'external/...'" at analysis time, which reads as a missing BUILD
+    file rather than as what it is. Such a directory is skipped here and
+    its files have to reach the sandbox through whatever declares them --
+    an archive's own filegroup in VERILOG_FILES, typically.
+    """
     extra_data = []
     include_dirs = arguments.get("VERILOG_INCLUDE_DIRS", "")
     for inc_dir in include_dirs.replace("\t", " ").split(" "):
         inc_dir = inc_dir.strip().rstrip("/")
-        if inc_dir:
+        if inc_dir and not inc_dir.startswith("external/"):
             extra_data.append("//" + inc_dir + ":include")
     return extra_data
 

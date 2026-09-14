@@ -64,12 +64,36 @@ def plot(document, out_path):
         lo, hi = min(values), max(values)
         return lo / factor, hi * factor
 
-    ax.set_xlim(*_padded(xs))
-    ax.set_ylim(*_padded(ys))
+    all_x = xs + [p["coremark_per_mhz"] for p in document.get("pending", [])]
+    ax.set_xlim(*_padded(all_x))
+    ax.set_ylim(min(ys) / 8.0, max(ys) * 3.0)
     ax.set_xlabel("CoreMark/MHz  (performance per clock)")
     ax.set_ylabel("CoreMark/Joule  (work per unit energy)")
     ax.set_title("Energy efficiency against performance per clock")
     ax.grid(True, which="both", alpha=0.3)
+
+    # Configurations measured on one axis only. Drawn on the x-axis
+    # rather than left out: a reader counting points should see every
+    # core the study covers, and see which ones are unfinished.
+    pending = document.get("pending", [])
+    if pending:
+        ax.scatter(
+            [p["coremark_per_mhz"] for p in pending],
+            [min(ys) / 2.5] * len(pending),
+            marker="v",
+            s=55,
+            color="0.55",
+            zorder=3,
+        )
+        for p in pending:
+            ax.annotate(
+                "{} ({})\nenergy pending".format(p["core"], p["isa"]),
+                (p["coremark_per_mhz"], min(ys) / 2.5),
+                textcoords="offset points",
+                xytext=(9, -3),
+                fontsize=8,
+                color="0.4",
+            )
 
     prov = document.get("provenance", {})
     ax.text(

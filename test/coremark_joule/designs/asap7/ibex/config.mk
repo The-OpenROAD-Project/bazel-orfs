@@ -5,28 +5,21 @@ export DESIGN_NICKNAME         = ibex
 
 # SystemVerilog, so this design needs the slang frontend rather than
 # yosys's own Verilog reader.
-export VERILOG_FILES           = @ibex//:rtl //test/coremark_joule/rtl:cmj_ibex.sv
+export VERILOG_FILES           = @ibex//:rtl @ibex//:hdrs //test/coremark_joule/rtl:cmj_ibex.sv
 export SDC_FILE                = $(DESIGN_HOME)/asap7/ibex/constraints.sdc
 export SYNTH_HDL_FRONTEND      = slang
 
-# NOT YET SYNTHESIZING, and the blocker is specific.
+# ibex sources `include "prim_assert.sv" and "dv_fcov_macros.svh" from
+# the vendored OpenTitan tree inside the fetched archive.
 #
-# ibex sources `include "prim_assert.sv" and "dv_fcov_macros.svh", which
-# live in the vendored OpenTitan tree inside the fetched archive. The
-# Verilator build reaches them through verilog_library's `includes`; the
-# flow wants VERILOG_INCLUDE_DIRS. config_mk_parser passes that through
-# as a plain string, but the rules treat it as path-typed and turn it
-# into a label -- and a directory inside a fetched archive has no label
-# to become, so analysis fails with "no such package
-# 'external/.../prim/rtl'".
-#
-# Neither obvious way out works as-is: the overlay's patch_cmds delete
-# the vendored BUILD files so the root glob can cross into that tree,
-# which is also what stops those directories being packages; and a
-# package label would not be a directory path in any case.
-#
-# ibex's CoreMark/MHz is measured and unaffected -- that comes from
-# simulation -- so only its energy point waits on this.
+# The directories are named by their sandbox path rather than by a label:
+# an include dir is normally a package of this repository with a
+# files("include") group, and a directory inside an archive has no
+# package to name. The headers themselves are staged by @ibex//:hdrs in
+# VERILOG_FILES below -- they are macro definitions, so slang reading
+# them as sources costs nothing and guarantees they are present.
+export VERILOG_INCLUDE_DIRS    = external/+http_archive+ibex/vendor/lowrisc_ip/ip/prim/rtl \
+                                 external/+http_archive+ibex/vendor/lowrisc_ip/dv/sv/dv_utils
 
 export SYNTH_HIERARCHICAL      = 1
 export SYNTH_KEEP_MODULES      = ibex_if_stage ibex_prefetch_buffer ibex_fetch_fifo \

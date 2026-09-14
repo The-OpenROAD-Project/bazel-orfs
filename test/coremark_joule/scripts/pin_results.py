@@ -36,9 +36,43 @@ def load_points(paths):
     return sorted(points, key=lambda p: (p["core"], p["isa"]))
 
 
+def load_pending(paths):
+    """Configurations with an x-coordinate but no y, and why.
+
+    A core whose CoreMark/MHz is measured but whose energy is not is not
+    absent from the study -- it is half-done. Dropping it from the pinned
+    file would leave the plot quietly showing fewer cores than the study
+    has, which is the failure the report format exists to avoid.
+    """
+    pending = []
+    for entry in paths:
+        path, core, isa, reason = entry.split(":", 3)
+        with open(path) as f:
+            perf = json.load(f)
+        pending.append(
+            {
+                "core": core,
+                "isa": isa,
+                "coremark_per_mhz": perf["coremark_per_mhz"],
+                "cycles_per_iteration": perf["cycles_per_iteration"],
+                "coremark_per_joule": None,
+                "blocked_on": reason,
+            }
+        )
+    return sorted(pending, key=lambda p: (p["core"], p["isa"]))
+
+
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("points", nargs="+", help="per-point JSON files")
+    parser.add_argument(
+        "--pending",
+        action="append",
+        default=[],
+        metavar="JSON:CORE:ISA:REASON",
+        help="a measured CoreMark/MHz whose energy is not measured yet, "
+        "with what it is waiting on",
+    )
     args = parser.parse_args(argv[1:])
 
     root = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
@@ -51,6 +85,7 @@ def main(argv):
         return 1
 
     points = load_points(args.points)
+    pending = load_pending(args.pending)
     out = os.path.join(root, RESULTS)
 
     previous = None
@@ -71,6 +106,9 @@ def main(argv):
             "does not satisfy CoreMark's run rules.",
         },
         "points": points,
+        # Half-done configurations, carried so the plot cannot show
+        # fewer cores than the study has without saying so.
+        "pending": pending,
     }
 
     with open(out, "w") as f:
@@ -90,6 +128,13 @@ def main(argv):
                     p["coremark_per_mhz"],
                     p["power_w"] * 1e3,
                     p["coremark_per_joule"],
+                )
+            )
+        for p in pending:
+            print(
+                "  {:9s} {:8s} {:9.4f} CoreMark/MHz   energy not yet "
+                "measured: {}".format(
+                    p["core"], p["isa"], p["coremark_per_mhz"], p["blocked_on"]
                 )
             )
     return 0

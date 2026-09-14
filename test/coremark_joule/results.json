@@ -1,4 +1,14 @@
 {
+  "pending": [
+    {
+      "blocked_on": "slang-elaboration",
+      "core": "ibex",
+      "coremark_per_joule": null,
+      "coremark_per_mhz": 2.4543009169268224,
+      "cycles_per_iteration": 407448,
+      "isa": "rv32imc"
+    }
+  ],
   "points": [
     {
       "activity": "saif",

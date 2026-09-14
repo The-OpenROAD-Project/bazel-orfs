@@ -15,8 +15,13 @@ py_binary(
     args = [
         "$(location //test/coremark_joule/sim:point_picorv32_rv32im)",
         "$(location //test/coremark_joule/sim:point_serv_rv32i)",
+        # ibex is measured on the x-axis and blocked on the y. Carried so
+        # the plot shows every core the study covers.
+        "--pending=$(location //test/coremark_joule/sim:ibex_rv32imc_per_mhz):" +
+        "ibex:rv32imc:slang-elaboration",
     ],
     data = [
+        "//test/coremark_joule/sim:ibex_rv32imc_per_mhz",
         "//test/coremark_joule/sim:point_picorv32_rv32im",
         "//test/coremark_joule/sim:point_serv_rv32i",
     ],
