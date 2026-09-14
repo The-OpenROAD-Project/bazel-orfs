@@ -65,48 +65,21 @@ module cm_soc #(
 		$readmemh(meminit_path, mem);
 	end
 
-	serv_rf_top #(
-		.RESET_PC(32'h0000_0000),
-		/* MINI resets only what is needed to restart from RESET_PC,
-		 * which is what the harness provides; NONE would rely on a
-		 * power-on state the netlist does not have. */
-		.RESET_STRATEGY("MINI"),
-		/* No compressed decoder: the study's ELFs are built without the
-		 * C extension, so the decoder would be area and power that
-		 * nothing in the measurement exercises. */
-		.COMPRESSED(1'b0),
-		/* No MDU. SERV is RV32I here, and CoreMark's multiplies go
-		 * through libgcc -- which is the honest way to measure a core
-		 * without the M extension. */
-		.MDU(1'b0),
-		.WITH_CSR(1),
-		.W(1)
-	) cpu (
-		.clk         (clk),
-		.i_rst       (~resetn),
-		/* No timer interrupt: nothing in the study enables interrupts,
-		 * and CoreMark's timer is stubbed to a constant. */
-		.i_timer_irq (1'b0),
-
-		.o_ibus_adr  (ibus_adr),
-		.o_ibus_cyc  (ibus_cyc),
-		.i_ibus_rdt  (ibus_rdt),
-		.i_ibus_ack  (ibus_ack),
-
-		.o_dbus_adr  (dbus_adr),
-		.o_dbus_dat  (dbus_dat),
-		.o_dbus_sel  (dbus_sel),
-		.o_dbus_we   (dbus_we),
-		.o_dbus_cyc  (dbus_cyc),
-		.i_dbus_rdt  (dbus_rdt),
-		.i_dbus_ack  (dbus_ack),
-
-		.o_ext_rs1    (),
-		.o_ext_rs2    (),
-		.o_ext_funct3 (),
-		.i_ext_rd     (32'b0),
-		.i_ext_ready  (1'b0),
-		.o_mdu_valid  ()
+	/* The frozen configuration, shared with the flow -- see cmj_serv.v. */
+	cmj_serv cpu (
+		.clk        (clk),
+		.i_rst      (~resetn),
+		.o_ibus_adr (ibus_adr),
+		.o_ibus_cyc (ibus_cyc),
+		.i_ibus_rdt (ibus_rdt),
+		.i_ibus_ack (ibus_ack),
+		.o_dbus_adr (dbus_adr),
+		.o_dbus_dat (dbus_dat),
+		.o_dbus_sel (dbus_sel),
+		.o_dbus_we  (dbus_we),
+		.o_dbus_cyc (dbus_cyc),
+		.i_dbus_rdt (dbus_rdt),
+		.i_dbus_ack (dbus_ack)
 	);
 
 	/* SERV has separate instruction and data buses onto one RAM, so the

@@ -17,11 +17,14 @@ package(default_visibility = ["//visibility:public"])
 # a reference before declaration.
 filegroup(
     name = "pkgs",
-    srcs = glob([
-        "rtl/*_pkg.sv",
-        "vendor/lowrisc_ip/ip/prim/rtl/*_pkg.sv",
-        "vendor/lowrisc_ip/ip/prim_generic/rtl/*_pkg.sv",
-    ], exclude = ["rtl/ibex_tracer_pkg.sv"]),
+    srcs = glob(
+        [
+            "rtl/*_pkg.sv",
+            "vendor/lowrisc_ip/ip/prim/rtl/*_pkg.sv",
+            "vendor/lowrisc_ip/ip/prim_generic/rtl/*_pkg.sv",
+        ],
+        exclude = ["rtl/ibex_tracer_pkg.sv"],
+    ),
 )
 
 filegroup(

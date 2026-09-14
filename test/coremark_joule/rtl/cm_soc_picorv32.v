@@ -77,24 +77,10 @@ module cm_soc #(
 		$readmemh(meminit_path, mem);
 	end
 
-	picorv32 #(
-		/* rv32im. The multiplier and divider arrive through PCPI, which
-		 * is also what makes them separate modules -- and therefore the
-		 * only functional units picorv32 can be attributed to in the
-		 * per-module power breakdown. The rest of the core is one
-		 * module; see designs/asap7/picorv32/units.json. */
-		.ENABLE_MUL(1),
-		.ENABLE_DIV(1),
-		/* Counters cost flops and the study never reads them: cycles
-		 * are counted by the harness, so no core in the study needs a
-		 * cycle CSR. Leaving them in would tax picorv32's area and
-		 * power for something only picorv32 could offer. */
-		.ENABLE_COUNTERS(0),
-		.ENABLE_COUNTERS64(0),
-		/* No interrupts anywhere in the study; crt0.S sets up none. */
-		.ENABLE_IRQ(0),
-		.PROGADDR_RESET(32'h0000_0000)
-	) cpu (
+	/* The frozen configuration, shared with the flow -- see
+	 * cmj_picorv32.v. Instantiating picorv32 directly here would let the
+	 * simulated core and the hardened one drift apart. */
+	cmj_picorv32 cpu (
 		.clk       (clk),
 		.resetn    (resetn),
 		.trap      (trap),
@@ -104,25 +90,7 @@ module cm_soc #(
 		.mem_addr  (mem_addr),
 		.mem_wdata (mem_wdata),
 		.mem_wstrb (mem_wstrb),
-		.mem_rdata (mem_rdata),
-		.mem_la_read  (),
-		.mem_la_write (),
-		.mem_la_addr  (),
-		.mem_la_wdata (),
-		.mem_la_wstrb (),
-		.pcpi_valid (),
-		.pcpi_insn  (),
-		.pcpi_rs1   (),
-		.pcpi_rs2   (),
-		.pcpi_wr    (1'b0),
-		.pcpi_rd    (32'b0),
-		.pcpi_wait  (1'b0),
-		.pcpi_ready (1'b0),
-		.irq        (32'b0),
-		.eoi        (),
-		/* ENABLE_TRACE is 0, so these are tied off rather than used. */
-		.trace_valid (),
-		.trace_data  ()
+		.mem_rdata (mem_rdata)
 	);
 
 	/* One wait state on every access. Uniform latency keeps the cycle

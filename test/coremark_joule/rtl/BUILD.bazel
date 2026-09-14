@@ -19,10 +19,18 @@ verilog_library(
     srcs = ["@picorv32//:rtl"],
 )
 
+# The frozen core configuration, shared by the simulator and the flow so
+# the measured design and the hardened design cannot diverge.
+verilog_library(
+    name = "cmj_picorv32",
+    srcs = ["cmj_picorv32.v"],
+    deps = [":picorv32"],
+)
+
 verilog_library(
     name = "cm_soc_picorv32",
     srcs = ["cm_soc_picorv32.v"],
-    deps = [":picorv32"],
+    deps = [":cmj_picorv32"],
 )
 
 verilog_library(
@@ -31,9 +39,15 @@ verilog_library(
 )
 
 verilog_library(
+    name = "cmj_serv",
+    srcs = ["cmj_serv.v"],
+    deps = [":serv"],
+)
+
+verilog_library(
     name = "cm_soc_serv",
     srcs = ["cm_soc_serv.v"],
-    deps = [":serv"],
+    deps = [":cmj_serv"],
 )
 
 verilog_library(
@@ -61,7 +75,13 @@ verilog_library(
 )
 
 verilog_library(
+    name = "cmj_ibex",
+    srcs = ["cmj_ibex.sv"],
+    deps = [":ibex"],
+)
+
+verilog_library(
     name = "cm_soc_ibex",
     srcs = ["cm_soc_ibex.sv"],
-    deps = [":ibex"],
+    deps = [":cmj_ibex"],
 )
