@@ -1,0 +1,80 @@
+rsz: after a journal restore, update parasitics and let STA re-time lazily
+
+Per-pass cost experiment from the repair-knobs campaign
+(ideas/repair-knobs-nihl.md, third study). Not upstreamed; carried while
+it is measured. Whether it changes any result is what the measurement
+says: the final ODB hash decides.
+
+Every time the setup sweep gives up on an endpoint it restores the ECO
+journal, and MoveCommitter::restoreJournal ends with
+Resizer::updateParasiticsAndTiming(): the undone nets get their
+parasitics back and sta_->findRequireds() re-times the design. The
+per-visit trace of the default (patches/0078, 0066) puts journal restore
+at 14-36% of the setup phase (ibex floorplan: 25 s of 71 over 480
+restores), and 0081 showed the design-area recount in the same path is
+not where those seconds go; the STA update is what is left.
+
+The next pass calls findRequireds after its own moves, and the next
+endpoint reads its slack through STA's lazy incremental search, so the
+explicit update here re-times the undone cone once on its own and then
+again merged with the next change. This patch keeps the parasitics
+update and drops the timing update from the restore.
+
+Chesterton's Fence: the update was there so that no stale slack is read
+after an undo; OpenSTA's incremental search is what guarantees that on
+every query, and the measurement checks the ODB hash to be sure.
+diff --git a/src/rsz/include/rsz/Resizer.hh b/src/rsz/include/rsz/Resizer.hh
+index 86a6e4ff73..9decbf5873 100644
+--- a/src/rsz/include/rsz/Resizer.hh
++++ b/src/rsz/include/rsz/Resizer.hh
+@@ -928,6 +928,9 @@ class Resizer : public sta::dbStaState, public sta::dbNetworkObserver
+   void journalMakeBuffer(sta::Instance* buffer);
+   void initForJournalRestore();
+   void updateParasiticsAndTiming();
++  // The parasitics half of the above, for a caller that lets STA re-time
++  // lazily at its next query.
++  void updateParasiticsOnly();
+   void invalidateParasitics(sta::Net* net);
+   void addAcceptedLegacyMoveCount(int count);
+   void addRejectedLegacyMoveCount(int count);
+diff --git a/src/rsz/src/MoveCommitter.cc b/src/rsz/src/MoveCommitter.cc
+index fa93ecd3cf..b297145e1f 100644
+--- a/src/rsz/src/MoveCommitter.cc
++++ b/src/rsz/src/MoveCommitter.cc
+@@ -583,7 +583,14 @@ void MoveCommitter::restoreJournal()
+   }
+ 
+   if (had_eco_changes) {
+-    resizer_.updateParasiticsAndTiming();
++    // Study candidate (repair-yield): the undone nets get their parasitics
++    // back now, but the timing update is left to the next query. The
++    // caller's next pass calls findRequireds after its own moves anyway,
++    // and the sweep's next endpoint reads its slack through STA's lazy
++    // incremental search; the explicit findRequireds here re-timed the
++    // undone cone once on its own and once more merged with the next
++    // pass's cone. Journal restore is 14-36% of the setup phase.
++    resizer_.updateParasiticsOnly();
+     resizer_.invalidateVertexOrdering();
+   }
+ 
+diff --git a/src/rsz/src/Resizer.cc b/src/rsz/src/Resizer.cc
+index 3e11793881..83a1b6bc96 100644
+--- a/src/rsz/src/Resizer.cc
++++ b/src/rsz/src/Resizer.cc
+@@ -5477,6 +5477,16 @@ void Resizer::initForJournalRestore()
+   init();
+ }
+ 
++void Resizer::updateParasiticsOnly()
++{
++  if (estimate_parasitics_->isIncrementalParasiticsEnabled()) {
++    estimate_parasitics_->updateParasitics();
++  } else {
++    estimate_parasitics_->estimateParasitics(
++        estimate_parasitics_->getParasiticsSrc());
++  }
++}
++
+ void Resizer::updateParasiticsAndTiming()
+ {
+   if (estimate_parasitics_->isIncrementalParasiticsEnabled()) {
