@@ -1,0 +1,659 @@
+{
+  "arm": "base-p0077",
+  "design": "tinyRocket",
+  "env": {},
+  "loadavg_at_start": 0.974609375,
+  "make_wall_s": 418.0362412929535,
+  "overrides": {},
+  "pinned": true,
+  "provenance": {
+    "boost": "1",
+    "cpu_model": "AMD Ryzen Threadripper 3960X 24-Core Processor",
+    "governor": "schedutil",
+    "hardware_threads": 48,
+    "kernel": "7.0.0-31-generic",
+    "omp_num_threads": null,
+    "openroad_exe": null,
+    "physical_cores": 24
+  },
+  "recorded_at": "2026-09-13T21:01:43",
+  "repeat": 1,
+  "stage": "full",
+  "substeps": {
+    "2_1_floorplan": {
+      "cpu_pct": 149,
+      "peak_kb": 320220,
+      "phases": [
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 0,
+          "seconds": 0.19,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0.19,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 11.13,
+        "wall_s": 11.32
+      },
+      "repair": [
+        {
+          "command": "repair_timing",
+          "endpoints": null,
+          "hold_buffers": null,
+          "hold_s": null,
+          "iterations": 0,
+          "kind": "floorplan_setup",
+          "profile": {},
+          "repair_design_s": null,
+          "setup_s": 0.19,
+          "start_s": 2.219,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "hold_margin": "0",
+            "repair_tns": "100",
+            "sequence": "unbuffer,sizeup,swap,vt_swap",
+            "setup": true,
+            "setup_margin": "0",
+            "skip_last_gasp": true,
+            "verbose": true
+          }
+        }
+      ],
+      "repair_rows": [
+        []
+      ],
+      "result_sha1": "90cd94701936a955350e",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 3.56,
+      "threads": 24,
+      "user_s": 13.32,
+      "wall_s": 11.32
+    },
+    "2_2_floorplan_macro": {
+      "cpu_pct": 442,
+      "peak_kb": 297144,
+      "phases": [
+        {
+          "detail": "-max_num_level 2 -halo_width 2 -halo_height 2 -min_ar 0.33 -area_weight 0.1 -wirelength_weight 100.0 -outline_weight 100.0 -boundary_weight 50.0 -notch_weight 50.0 -report_directory ./external/+orfs_repositories+orfs/flow/designs/asap7/tinyRocket/objects/asap7/RocketTile/base/rtlmp -fence_lx 0.0 -fence_ly 0.0 -fence_ux 0.0 -fence_uy 0.0 -target_util 0.5240000075101853",
+          "name": "rtl_macro_placer",
+          "order": 0,
+          "seconds": 20.0,
+          "source": "took"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 1.0865,
+        "attributed_s": 20.0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 1.7300000000000004,
+        "wall_s": 21.73
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "8121f89a815b6fd8ece4",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 35.93,
+      "threads": 24,
+      "user_s": 60.24,
+      "wall_s": 21.73
+    },
+    "2_3_floorplan_tapcell": {
+      "cpu_pct": 99,
+      "peak_kb": 198520,
+      "phases": [],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 1.54,
+        "wall_s": 1.54
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "5e5bab0360842002d288",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 0.13,
+      "threads": 24,
+      "user_s": 1.4,
+      "wall_s": 1.54
+    },
+    "2_4_floorplan_pdn": {
+      "cpu_pct": 99,
+      "peak_kb": 246612,
+      "phases": [
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "PDN-0500",
+          "order": 0,
+          "seconds": 0.16,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0.16,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 2.15,
+        "wall_s": 2.31
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "b2ba5a1310123ae75010",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 0.16,
+      "threads": 24,
+      "user_s": 2.14,
+      "wall_s": 2.31
+    },
+    "3_1_place_gp_skip_io": {
+      "cpu_pct": 1624,
+      "peak_kb": 258556,
+      "phases": [],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 4.74,
+        "wall_s": 4.74
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "f52e063ddda5c1399bcd",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 4.07,
+      "threads": 24,
+      "user_s": 72.99,
+      "wall_s": 4.74
+    },
+    "3_2_place_iop": {
+      "cpu_pct": 99,
+      "peak_kb": 226744,
+      "phases": [],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 1.61,
+        "wall_s": 1.61
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "42977a9c21c0e7ea9f6a",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 0.14,
+      "threads": 24,
+      "user_s": 1.46,
+      "wall_s": 1.61
+    },
+    "3_3_place_gp": {
+      "cpu_pct": 537,
+      "peak_kb": 634756,
+      "phases": [
+        {
+          "detail": "-density 0.5059999978542328 -pad_left 0 -pad_right 0 -routability_driven -timing_driven -force_center_initial_place -min_phi_coef 0.95 -max_phi_coef 1.05",
+          "name": "global_placement",
+          "order": 0,
+          "seconds": 27.0,
+          "source": "took"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 2.0275,
+        "attributed_s": 27.0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 13.549999999999997,
+        "wall_s": 40.55
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "08ce6fd6b40470644736",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 40.23,
+      "threads": 24,
+      "user_s": 177.53,
+      "wall_s": 40.55
+    },
+    "3_4_place_resized": {
+      "cpu_pct": 197,
+      "peak_kb": 395740,
+      "phases": [
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0504",
+          "order": 0,
+          "seconds": 2.72,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 2.72,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 16.89,
+        "wall_s": 19.61
+      },
+      "repair": [
+        {
+          "command": "repair_design",
+          "endpoints": null,
+          "hold_buffers": null,
+          "hold_s": null,
+          "iterations": 0,
+          "kind": "repair_design",
+          "profile": {},
+          "repair_design_s": 2.72,
+          "setup_s": null,
+          "start_s": 3.326,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "verbose": true
+          }
+        }
+      ],
+      "repair_rows": [
+        []
+      ],
+      "result_sha1": "0eb3ff4bf4407b69aab3",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 10.98,
+      "threads": 24,
+      "user_s": 27.69,
+      "wall_s": 19.61
+    },
+    "3_5_place_dp": {
+      "cpu_pct": 180,
+      "peak_kb": 460748,
+      "phases": [
+        {
+          "detail": "-max_displacement \"5 1\"",
+          "name": "improve_placement",
+          "order": 0,
+          "seconds": 5.0,
+          "source": "took"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 1,
+          "seconds": 0.38,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 2.0,
+        "attributed_s": 5.38,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 17.720000000000002,
+        "wall_s": 23.1
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "4bb693cbd9fbc5118ba6",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 10.85,
+      "threads": 24,
+      "user_s": 30.86,
+      "wall_s": 23.1
+    },
+    "4_1_cts": {
+      "cpu_pct": 274,
+      "peak_kb": 519420,
+      "phases": [
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "CTS-0500",
+          "order": 0,
+          "seconds": 3.1,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 1,
+          "seconds": 0.26,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 2,
+          "seconds": 1.02,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0506",
+          "order": 3,
+          "seconds": 0.19,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 4,
+          "seconds": 0.17,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 5.0,
+        "attributed_s": 4.74,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 19.259999999999998,
+        "wall_s": 24.0
+      },
+      "repair": [
+        {
+          "command": "repair_timing",
+          "endpoints": null,
+          "hold_buffers": 0,
+          "hold_s": 0.19,
+          "iterations": 0,
+          "kind": "setup_hold",
+          "profile": {},
+          "repair_design_s": null,
+          "setup_s": 1.02,
+          "start_s": 6.783,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "hold_margin": "0",
+            "repair_tns": "100",
+            "setup_margin": "0",
+            "verbose": true
+          }
+        }
+      ],
+      "repair_rows": [
+        []
+      ],
+      "result_sha1": "ef01797d52a6eccb5137",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 18.1,
+      "threads": 24,
+      "user_s": 47.87,
+      "wall_s": 24.0
+    },
+    "5_1_grt": {
+      "cpu_pct": 1117,
+      "peak_kb": 823116,
+      "phases": [
+        {
+          "detail": "",
+          "name": "pin_access",
+          "order": 0,
+          "seconds": 17.0,
+          "source": "took"
+        },
+        {
+          "detail": "-congestion_report_file ./external/+orfs_repositories+orfs/flow/designs/asap7/tinyRocket/reports/asap7/RocketTile/base/congestion.rpt -congestion_iterations 30 -congestion_report_iter_step 5 -verbose -resistance_aware",
+          "name": "global_route",
+          "order": 1,
+          "seconds": 10.0,
+          "source": "took"
+        },
+        {
+          "detail": "-verbose",
+          "name": "repair_design",
+          "order": 2,
+          "seconds": 5.0,
+          "source": "took"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 3,
+          "seconds": 0.2,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 4,
+          "seconds": 0.79,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0506",
+          "order": 5,
+          "seconds": 0.29,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 6,
+          "seconds": 0.17,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 7,
+          "seconds": 0.81,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 8.0,
+        "attributed_s": 34.26,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 22.910000000000004,
+        "wall_s": 57.17
+      },
+      "repair": [
+        {
+          "command": "repair_design",
+          "endpoints": null,
+          "hold_buffers": null,
+          "hold_s": null,
+          "iterations": 0,
+          "kind": "repair_design",
+          "profile": {},
+          "repair_design_s": 4.13,
+          "setup_s": null,
+          "start_s": 29.563,
+          "took_s": 5,
+          "unrepaired": false,
+          "witness": {
+            "verbose": true
+          }
+        },
+        {
+          "command": "repair_timing",
+          "endpoints": null,
+          "hold_buffers": 0,
+          "hold_s": 0.29,
+          "iterations": 0,
+          "kind": "setup_hold",
+          "profile": {},
+          "repair_design_s": null,
+          "setup_s": 0.79,
+          "start_s": 35.245,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "hold_margin": "0",
+            "repair_tns": "100",
+            "setup_margin": "0",
+            "verbose": true
+          }
+        },
+        {
+          "command": "repair_timing",
+          "endpoints": null,
+          "hold_buffers": null,
+          "hold_s": null,
+          "iterations": 0,
+          "kind": "post_grt_wns",
+          "profile": {},
+          "repair_design_s": null,
+          "setup_s": 0.81,
+          "start_s": 37.745,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "repair_tns": "0",
+            "sequence": "vt_swap reroute",
+            "setup": true,
+            "skip_last_gasp": true,
+            "verbose": true
+          }
+        }
+      ],
+      "repair_rows": [
+        [],
+        [],
+        []
+      ],
+      "result_sha1": "efcebf9b105d7d408d18",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 45.18,
+      "threads": 24,
+      "user_s": 593.46,
+      "wall_s": 57.17
+    },
+    "5_2_route": {
+      "cpu_pct": 1748,
+      "peak_kb": 6045892,
+      "phases": [
+        {
+          "detail": "-output_drc ./external/+orfs_repositories+orfs/flow/designs/asap7/tinyRocket/reports/asap7/RocketTile/base/5_route_drc.rpt -output_maze ./external/+orfs_repositories+orfs/flow/designs/asap7/tinyRocket/results/asap7/RocketTile/base/maze.log -droute_end_iter 64 -verbose 1 -drc_report_iter_step 5",
+          "name": "detailed_route",
+          "order": 0,
+          "seconds": 157.0,
+          "source": "took"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 8.198,
+        "attributed_s": 157.0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 6.960000000000008,
+        "wall_s": 163.96
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "233c5a582e9fee586cda",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 20.36,
+      "threads": 24,
+      "user_s": 2846.44,
+      "wall_s": 163.96
+    },
+    "5_3_fillcell": {
+      "cpu_pct": 99,
+      "peak_kb": 324472,
+      "phases": [],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 2.11,
+        "wall_s": 2.11
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "dafa052683e684ae8c51",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 0.22,
+      "threads": 24,
+      "user_s": 1.87,
+      "wall_s": 2.11
+    },
+    "6_1_fill": {
+      "cpu_pct": 98,
+      "peak_kb": 254488,
+      "phases": [],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 1.74,
+        "wall_s": 1.74
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "dafa052683e684ae8c51",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 0.19,
+      "threads": 24,
+      "user_s": 1.53,
+      "wall_s": 1.74
+    },
+    "6_report": {
+      "cpu_pct": 181,
+      "peak_kb": 958408,
+      "phases": [],
+      "reconcile": {
+        "allowed_s": 1.897,
+        "attributed_s": 0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 37.94,
+        "wall_s": 37.94
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": null,
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 14.34,
+      "threads": 24,
+      "user_s": 54.48,
+      "wall_s": 37.94
+    },
+    "_final_sha1": "6e5a25b8e70f0d63e73e",
+    "_metrics": {
+      "5_2_route": {
+        "detailedroute__antenna__violating__nets": 0,
+        "detailedroute__route__drc_errors": 0,
+        "detailedroute__route__wirelength": 137331
+      },
+      "6_report": {
+        "finish__design__instance__area": 3815.26,
+        "finish__power__total": 0.0417783,
+        "finish__timing__hold__ws": 25.5338,
+        "finish__timing__setup__tns": 0,
+        "finish__timing__setup__ws": 355.91
+      }
+    }
+  },
+  "target": "@orfs//flow/designs/asap7/tinyRocket:RocketTile",
+  "threads": 24
+}

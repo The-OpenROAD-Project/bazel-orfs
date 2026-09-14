@@ -66,6 +66,10 @@ def repair_calls(record):
     """(substep, call summary, substep wall) for every repair call recorded."""
     out = []
     for step, got in sorted(record["substeps"].items()):
+        # Full-flow records carry `_metrics` and `_final_sha1` beside the
+        # substeps; only the substeps have calls.
+        if step.startswith("_") or not isinstance(got, dict):
+            continue
         for call in got.get("repair", []):
             out.append((step, call, got.get("wall_s")))
     return out

@@ -1,0 +1,637 @@
+{
+  "arm": "base-p0077",
+  "design": "aes_lvt",
+  "env": {},
+  "loadavg_at_start": 0.8095703125,
+  "make_wall_s": 233.6213562488556,
+  "overrides": {},
+  "pinned": true,
+  "provenance": {
+    "boost": "1",
+    "cpu_model": "AMD Ryzen Threadripper 3960X 24-Core Processor",
+    "governor": "schedutil",
+    "hardware_threads": 48,
+    "kernel": "7.0.0-31-generic",
+    "omp_num_threads": null,
+    "openroad_exe": null,
+    "physical_cores": 24
+  },
+  "recorded_at": "2026-09-13T18:54:19",
+  "repeat": 1,
+  "stage": "full",
+  "substeps": {
+    "2_1_floorplan": {
+      "cpu_pct": 165,
+      "peak_kb": 244188,
+      "phases": [
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 0,
+          "seconds": 0.09,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0.09,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 3.3400000000000003,
+        "wall_s": 3.43
+      },
+      "repair": [
+        {
+          "command": "repair_timing",
+          "endpoints": null,
+          "hold_buffers": null,
+          "hold_s": null,
+          "iterations": 0,
+          "kind": "floorplan_setup",
+          "profile": {},
+          "repair_design_s": null,
+          "setup_s": 0.09,
+          "start_s": 1.836,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "hold_margin": "0",
+            "repair_tns": "100",
+            "sequence": "unbuffer,sizeup,swap,vt_swap",
+            "setup": true,
+            "setup_margin": "0",
+            "skip_last_gasp": true,
+            "verbose": true
+          }
+        }
+      ],
+      "repair_rows": [
+        []
+      ],
+      "result_sha1": "05fbccf4fa7def676509",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 1.38,
+      "threads": 24,
+      "user_s": 4.31,
+      "wall_s": 3.43
+    },
+    "2_2_floorplan_macro": {
+      "cpu_pct": 99,
+      "peak_kb": 185920,
+      "phases": [],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 1.53,
+        "wall_s": 1.53
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "05fbccf4fa7def676509",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 0.1,
+      "threads": 24,
+      "user_s": 1.43,
+      "wall_s": 1.53
+    },
+    "2_3_floorplan_tapcell": {
+      "cpu_pct": 99,
+      "peak_kb": 179352,
+      "phases": [],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 1.54,
+        "wall_s": 1.54
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "0b31449b3dd9d077a5ec",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 0.11,
+      "threads": 24,
+      "user_s": 1.42,
+      "wall_s": 1.54
+    },
+    "2_4_floorplan_pdn": {
+      "cpu_pct": 99,
+      "peak_kb": 190072,
+      "phases": [
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "PDN-0500",
+          "order": 0,
+          "seconds": 0.06,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0.06,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 1.5999999999999999,
+        "wall_s": 1.66
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "ff903dc974c69ee46e83",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 0.1,
+      "threads": 24,
+      "user_s": 1.55,
+      "wall_s": 1.66
+    },
+    "3_1_place_gp_skip_io": {
+      "cpu_pct": 944,
+      "peak_kb": 202792,
+      "phases": [],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 2.55,
+        "wall_s": 2.55
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "497da4dda1d13e62fad4",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 1.3,
+      "threads": 24,
+      "user_s": 22.81,
+      "wall_s": 2.55
+    },
+    "3_2_place_iop": {
+      "cpu_pct": 99,
+      "peak_kb": 191940,
+      "phases": [],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 1.58,
+        "wall_s": 1.58
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "83901f593a85b23a4016",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 0.11,
+      "threads": 24,
+      "user_s": 1.46,
+      "wall_s": 1.58
+    },
+    "3_3_place_gp": {
+      "cpu_pct": 650,
+      "peak_kb": 437024,
+      "phases": [
+        {
+          "detail": "-density 0.65 -pad_left 0 -pad_right 0 -routability_driven -timing_driven -force_center_initial_place -min_phi_coef 0.95 -max_phi_coef 1.05",
+          "name": "global_placement",
+          "order": 0,
+          "seconds": 11.0,
+          "source": "took"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 11.0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 4.49,
+        "wall_s": 15.49
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "871fc1b8944035d24fba",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 18.36,
+      "threads": 24,
+      "user_s": 82.4,
+      "wall_s": 15.49
+    },
+    "3_4_place_resized": {
+      "cpu_pct": 221,
+      "peak_kb": 246360,
+      "phases": [
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0504",
+          "order": 0,
+          "seconds": 1.18,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 1.18,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 5.19,
+        "wall_s": 6.37
+      },
+      "repair": [
+        {
+          "command": "repair_design",
+          "endpoints": null,
+          "hold_buffers": null,
+          "hold_s": null,
+          "iterations": 0,
+          "kind": "repair_design",
+          "profile": {},
+          "repair_design_s": 1.18,
+          "setup_s": null,
+          "start_s": 2.17,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "verbose": true
+          }
+        }
+      ],
+      "repair_rows": [
+        []
+      ],
+      "result_sha1": "871fc1b8944035d24fba",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 3.57,
+      "threads": 24,
+      "user_s": 10.56,
+      "wall_s": 6.37
+    },
+    "3_5_place_dp": {
+      "cpu_pct": 179,
+      "peak_kb": 253824,
+      "phases": [
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 0,
+          "seconds": 0.11,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0.11,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 9.5,
+        "wall_s": 9.61
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "db46b65d443ab9fa21c3",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 3.73,
+      "threads": 24,
+      "user_s": 13.53,
+      "wall_s": 9.61
+    },
+    "4_1_cts": {
+      "cpu_pct": 262,
+      "peak_kb": 290480,
+      "phases": [
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "CTS-0500",
+          "order": 0,
+          "seconds": 3.78,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 1,
+          "seconds": 0.08,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 2,
+          "seconds": 0.41,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0506",
+          "order": 3,
+          "seconds": 0.08,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 4,
+          "seconds": 0.06,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 5.0,
+        "attributed_s": 4.41,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 6.27,
+        "wall_s": 10.68
+      },
+      "repair": [
+        {
+          "command": "repair_timing",
+          "endpoints": null,
+          "hold_buffers": 0,
+          "hold_s": 0.08,
+          "iterations": 0,
+          "kind": "setup_hold",
+          "profile": {},
+          "repair_design_s": null,
+          "setup_s": 0.41,
+          "start_s": 6.145,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "hold_margin": "0",
+            "repair_tns": "100",
+            "setup_margin": "0",
+            "verbose": true
+          }
+        }
+      ],
+      "repair_rows": [
+        []
+      ],
+      "result_sha1": "94255454a0e4207922be",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 7.34,
+      "threads": 24,
+      "user_s": 20.68,
+      "wall_s": 10.68
+    },
+    "5_1_grt": {
+      "cpu_pct": 1181,
+      "peak_kb": 517456,
+      "phases": [
+        {
+          "detail": "",
+          "name": "pin_access",
+          "order": 0,
+          "seconds": 6.0,
+          "source": "took"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0504",
+          "order": 1,
+          "seconds": 1.25,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 2,
+          "seconds": 0.05,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 3,
+          "seconds": 0.34,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0506",
+          "order": 4,
+          "seconds": 0.1,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "DPL-0500",
+          "order": 5,
+          "seconds": 0.05,
+          "source": "runtime"
+        },
+        {
+          "detail": "tool runtime, no enclosing Took line",
+          "name": "RSZ-0505",
+          "order": 6,
+          "seconds": 0.32,
+          "source": "runtime"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 7.0,
+        "attributed_s": 8.11,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 12.379999999999999,
+        "wall_s": 20.49
+      },
+      "repair": [
+        {
+          "command": "repair_design",
+          "endpoints": null,
+          "hold_buffers": null,
+          "hold_s": null,
+          "iterations": 0,
+          "kind": "repair_design",
+          "profile": {},
+          "repair_design_s": 1.25,
+          "setup_s": null,
+          "start_s": 12.425,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "verbose": true
+          }
+        },
+        {
+          "command": "repair_timing",
+          "endpoints": null,
+          "hold_buffers": 0,
+          "hold_s": 0.1,
+          "iterations": 0,
+          "kind": "setup_hold",
+          "profile": {},
+          "repair_design_s": null,
+          "setup_s": 0.34,
+          "start_s": 14.205,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "hold_margin": "0",
+            "repair_tns": "100",
+            "setup_margin": "0",
+            "verbose": true
+          }
+        },
+        {
+          "command": "repair_timing",
+          "endpoints": null,
+          "hold_buffers": null,
+          "hold_s": null,
+          "iterations": 0,
+          "kind": "post_grt_wns",
+          "profile": {},
+          "repair_design_s": null,
+          "setup_s": 0.32,
+          "start_s": 15.186,
+          "took_s": null,
+          "unrepaired": false,
+          "witness": {
+            "repair_tns": "0",
+            "sequence": "vt_swap reroute",
+            "setup": true,
+            "skip_last_gasp": true,
+            "verbose": true
+          }
+        }
+      ],
+      "repair_rows": [
+        [],
+        [],
+        []
+      ],
+      "result_sha1": "6f020f356230f2a89325",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 18.67,
+      "threads": 24,
+      "user_s": 223.3,
+      "wall_s": 20.49
+    },
+    "5_2_route": {
+      "cpu_pct": 1294,
+      "peak_kb": 3663592,
+      "phases": [
+        {
+          "detail": "-output_drc ./external/+orfs_repositories+orfs/flow/designs/asap7/aes_lvt/reports/asap7/aes_cipher_top/base/5_route_drc.rpt -output_maze ./external/+orfs_repositories+orfs/flow/designs/asap7/aes_lvt/results/asap7/aes_cipher_top/base/maze.log -droute_end_iter 64 -verbose 1 -drc_report_iter_step 5",
+          "name": "detailed_route",
+          "order": 0,
+          "seconds": 134.0,
+          "source": "took"
+        }
+      ],
+      "reconcile": {
+        "allowed_s": 6.893000000000001,
+        "attributed_s": 134.0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 3.8600000000000136,
+        "wall_s": 137.86
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "45b2b6c5581860523dd8",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 20.77,
+      "threads": 24,
+      "user_s": 1763.75,
+      "wall_s": 137.86
+    },
+    "5_3_fillcell": {
+      "cpu_pct": 99,
+      "peak_kb": 231404,
+      "phases": [],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 1.79,
+        "wall_s": 1.79
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "5a4b3465b76e5c429905",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 0.15,
+      "threads": 24,
+      "user_s": 1.64,
+      "wall_s": 1.79
+    },
+    "6_1_fill": {
+      "cpu_pct": 99,
+      "peak_kb": 204212,
+      "phases": [],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 1.63,
+        "wall_s": 1.63
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": "5a4b3465b76e5c429905",
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 0.12,
+      "threads": 24,
+      "user_s": 1.51,
+      "wall_s": 1.63
+    },
+    "6_report": {
+      "cpu_pct": 186,
+      "peak_kb": 498752,
+      "phases": [],
+      "reconcile": {
+        "allowed_s": 1.0,
+        "attributed_s": 0,
+        "ok": true,
+        "over_attributed": false,
+        "unattributed_s": 13.06,
+        "wall_s": 13.06
+      },
+      "repair": [],
+      "repair_rows": [],
+      "result_sha1": null,
+      "result_sha1_log": null,
+      "stamped": true,
+      "sys_s": 5.25,
+      "threads": 24,
+      "user_s": 19.04,
+      "wall_s": 13.06
+    },
+    "_final_sha1": "5a32b7eb70cd020d63d0",
+    "_metrics": {
+      "5_2_route": {
+        "detailedroute__antenna__violating__nets": 0,
+        "detailedroute__route__drc_errors": 0,
+        "detailedroute__route__wirelength": 51878
+      },
+      "6_report": {
+        "finish__design__instance__area": 1308.8,
+        "finish__power__total": 0.087515,
+        "finish__timing__hold__ws": 29.8881,
+        "finish__timing__setup__tns": 0,
+        "finish__timing__setup__ws": 7.58446
+      }
+    }
+  },
+  "target": "@orfs//flow/designs/asap7/aes_lvt:aes_cipher_top",
+  "threads": 24
+}
