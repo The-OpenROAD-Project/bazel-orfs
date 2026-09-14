@@ -197,6 +197,24 @@ learned policy that needs training runs per design.
 
 ## Decisions log
 
+- 2026-09-14, 13:30: first Phase 0 reading (mock-alu). The cts jackpot
+  at passes 1000-1200 is not endpoints that gained late: it is endpoints
+  reached late by the worst-first order (sweep index 98-183 of 643,
+  entry slack -13 to -53 ps), each closing in 1 to 18 passes with its
+  first gain in pass 1 or 2. The 126 worst endpoints took 80% of the
+  passes for 7% of the gain and ended "no_change". A one-pass probe
+  finds 72% of the gain for 21% of the passes, a two-pass probe 100%
+  for 32%. Ordering, not stopping, is the lever, as the literature says.
+  Second reading, from #982's own data: where defer-and-revisit lost
+  wall, it lost it in detailed route (sky130hd/aes +130 s in 5_2_route
+  with cts and grt faster and better) or in grt inheriting a different
+  cts netlist. Any policy that changes the netlist meets this; the wall
+  axis has no noise band because the flow is deterministic on identical
+  inputs. Decision: measure the wall band under an equivalent netlist,
+  the default with GPL_RANDOM_SEED 2 and 3 on the 20 fast designs, and
+  judge wall against that band, as QoR is judged against the history
+  band. Queued behind Phase 0 (tmp/run_seed_band.sh).
+
 - 2026-09-14, 12:30: third study approved (this section). Phase 0 runs
   first and reports before any policy code is written; no compute on
   items 2 to 5 until its tables are read.

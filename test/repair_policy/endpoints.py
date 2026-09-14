@@ -168,6 +168,64 @@ def probe_table(vs):
     return "\n".join(lines)
 
 
+def decile_table(vs):
+    """Where the gain sits in the phase-start slack order.
+
+    The sweep index is the endpoint's rank by slack when the phase began,
+    worst first, so a decile of idx/of is a slice of the slack histogram:
+    the table is what a period-invariant TNS_END_PERCENT would see.
+    """
+    total_gain = sum(v["gain"] for v in vs) or 1.0
+    total_passes = sum(v["passes"] for v in vs) or 1
+    lines = [
+        "| phase | worst-first decile | visits | paying | passes | of passes | TNS gained | of gain |",
+        "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for phase in sorted({v["phase"] for v in vs}):
+        for d in range(10):
+            group = [
+                v
+                for v in vs
+                if v["phase"] == phase
+                and d <= 10.0 * (v["idx"] - 1) / max(v["of"], 1) < d + 1
+            ]
+            if not group:
+                continue
+            passes = sum(v["passes"] for v in group)
+            gain = sum(v["gain"] for v in group)
+            lines.append(
+                "| {} | {}-{}% | {} | {} | {} | {:.0f}% | {:.0f} | {:.0f}% |".format(
+                    phase,
+                    d * 10,
+                    d * 10 + 10,
+                    len(group),
+                    sum(1 for v in group if v["gain"] > 0),
+                    passes,
+                    100.0 * passes / total_passes,
+                    gain,
+                    100.0 * gain / total_gain,
+                )
+            )
+    return "\n".join(lines)
+
+
+def probe_quality(vs, k=1):
+    """How well 'improved within k passes' separates the visits that paid."""
+    paying = [v for v in vs if v["gain"] > 0]
+    flagged = [v for v in vs if 0 < v["gain1"] <= k]
+    hit = [v for v in flagged if v["gain"] > 0]
+    missed_gain = sum(v["gain"] for v in paying if v not in flagged)
+    total = sum(v["gain"] for v in paying) or 1.0
+    return {
+        "k": k,
+        "flagged": len(flagged),
+        "precision": 100.0 * len(hit) / len(flagged) if flagged else None,
+        "recall_visits": 100.0 * len(hit) / len(paying) if paying else None,
+        "missed_gain_share": 100.0 * missed_gain / total,
+        "passes_on_unflagged": sum(v["passes"] for v in vs if v not in flagged),
+    }
+
+
 def jackpot_table(vs, n=8):
     top = sorted(vs, key=lambda v: -v["gain"])[:n]
     lines = [
@@ -252,7 +310,19 @@ def report(design, step, vs):
                 sweep, yo, 100.0 * sweep / total, 100.0 * yo / total
             )
         )
-    lines += ["", yield_table(vs), "", probe_table(vs), "", jackpot_table(vs), ""]
+    lines += ["", yield_table(vs), "", decile_table(vs), "", probe_table(vs), ""]
+    q = probe_quality(vs, 1)
+    lines.append(
+        "A one-pass probe flags {} visits; {} of them paid (precision), covering {} of the paying visits and missing {:.0f}% of the gain; the unflagged visits cost {} passes ({:.0f}% of the phase).".format(
+            q["flagged"],
+            fmt(q["precision"], 0) + "%",
+            fmt(q["recall_visits"], 0) + "%",
+            q["missed_gain_share"],
+            q["passes_on_unflagged"],
+            100.0 * q["passes_on_unflagged"] / (sum(v["passes"] for v in vs) or 1),
+        )
+    )
+    lines += ["", jackpot_table(vs), ""]
     lines.append(
         "Rank correlation of a visit's TNS gain with what is known before it: "
         + "; ".join("{} {}".format(k, fmt(v, 2)) for k, v in predictors(vs).items())
