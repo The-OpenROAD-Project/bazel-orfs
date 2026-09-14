@@ -145,11 +145,10 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
 
     pkg = native.package_name()  # e.g., "flow/designs/asap7/gcd"
 
-    # Derive the DESIGNS lookup key from the package path by stripping
-    # the "flow/designs/" prefix.  For block sub-packages like
-    # "flow/designs/asap7/parent/block", the resulting key won't match
-    # any DESIGNS entry, so orfs_design() becomes a no-op (block targets
-    # are created by the parent's _create_block_targets()).
+    # Derive the DESIGNS lookup key from the package path. For block
+    # sub-packages like "flow/designs/asap7/parent/block", the resulting
+    # key won't match any DESIGNS entry, so orfs_design() becomes a no-op
+    # (block targets are created by the parent's _create_block_targets()).
     prefix = "flow/designs/"
     if platform or design:
         # Explicit overrides — fall back to positional extraction
@@ -162,7 +161,16 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
     elif pkg.startswith(prefix):
         key = pkg[len(prefix):]
     else:
-        return
+        # A designs tree somewhere other than flow/designs/ -- which is
+        # what a consumer driving its own designs from this repository
+        # has, and what orfs_designs()'s designs_dir attribute exists to
+        # allow. The key is the last two path components, the same rule
+        # the floorplan derivation in design_dsl.bzl already uses, so the
+        # two agree at any depth.
+        parts = pkg.split("/")
+        if len(parts) < 2:
+            return
+        key = parts[-2] + "/" + parts[-1]
 
     if key not in designs:
         # Platform/design not in the parsed config set — skip silently.

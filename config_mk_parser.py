@@ -19,7 +19,6 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Optional
 
-
 # Variables that map to orfs_flow() structural params (not arguments dict)
 STRUCTURAL_VARS = {
     "PLATFORM",
@@ -563,9 +562,7 @@ class ConfigMkParser:
         """Build the frame for a newly opened conditional."""
         # `ifeq ($(VAR),)` tests for empty: its if-branch is the
         # heuristic default, since an unset Make variable is empty.
-        test_empty = bool(
-            re.match(r"^ifeq\s+\(\$[\({].*[\)}]\s*,\s*\)", directive)
-        )
+        test_empty = bool(re.match(r"^ifeq\s+\(\$[\({].*[\)}]\s*,\s*\)", directive))
         outcome = self._eval_conditional(directive, raw_vars)
         frame = {
             "test_empty": test_empty,
@@ -615,9 +612,7 @@ class ConfigMkParser:
 
     @staticmethod
     def _set_accepts(frame):
-        frame["accepts"] = (
-            frame["taken"] if frame["decided"] else frame["heur_default"]
-        )
+        frame["accepts"] = frame["taken"] if frame["decided"] else frame["heur_default"]
 
     def _eval_conditional(self, directive, raw_vars):
         """Evaluate a Make conditional; None when the outcome is unknown.
@@ -1137,7 +1132,12 @@ class ConfigMkParser:
         # Normalize: ensure path starts with flow/
         if not path.startswith("flow/"):
             if path.startswith(f"{self.designs_home}/"):
-                path = f"flow/{path}"
+                # designs_home is repository-relative, so a path under it
+                # already is too and needs no prefix. For ORFS's default
+                # this branch is unreachable -- "flow/designs/..." starts
+                # with "flow/" and never gets here -- so it only fires for
+                # a consumer whose designs tree lives somewhere else.
+                pass
             elif path.startswith(f"{self.flow_home}/"):
                 pass  # already has flow/ prefix conceptually
             else:
@@ -1421,6 +1421,16 @@ def main():
         action="store_true",
         help="Print lint warnings instead of parsed output",
     )
+    parser.add_argument(
+        "--designs-home",
+        default="flow/designs",
+        help="Repository-relative path of the designs tree, the value "
+        "$(DESIGN_HOME) expands to. This is a logical prefix used to build "
+        "labels, not the directory that is scanned -- --all takes that. "
+        "Defaults to ORFS's flow/designs; a consumer whose designs live "
+        "elsewhere must pass its own, or every $(DESIGN_HOME) reference "
+        "resolves to a package that does not exist.",
+    )
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     parser.add_argument(
         "--generate", action="store_true", help="Generate orfs_flow() Bazel targets"
@@ -1440,7 +1450,7 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    mk_parser = ConfigMkParser()
+    mk_parser = ConfigMkParser(designs_home=args.designs_home)
     results = []
     exit_code = 0
 
