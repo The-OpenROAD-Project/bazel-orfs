@@ -1,0 +1,4 @@
+# Flow-side scripts for the power path.
+package(default_visibility = ["//test/coremark_joule:__subpackages__"])
+
+exports_files(["write_netlist.tcl"])
