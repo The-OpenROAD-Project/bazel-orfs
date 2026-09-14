@@ -40,9 +40,7 @@ class CheckMemoriesAppliedTest(unittest.TestCase):
         return f.name
 
     def test_instantiated_memory_passes(self):
-        self.assertEqual(
-            [], check(["cpuregs"], self._netlist(APPLIED), ["cpuregs"])
-        )
+        self.assertEqual([], check(["cpuregs"], self._netlist(APPLIED), ["cpuregs"]))
 
     def test_memory_synthesised_as_flops_fails(self):
         """The real failure: blackboxed, generated, then not instantiated."""
@@ -57,12 +55,8 @@ class CheckMemoriesAppliedTest(unittest.TestCase):
         substring search would find "cpuregs" in exactly the netlist the
         guard exists to reject.
         """
-        self.assertIn(
-            "cpuregs", open(self._netlist(FLOPS)).read()
-        )
-        self.assertNotEqual(
-            [], check(["cpuregs"], self._netlist(FLOPS), ["cpuregs"])
-        )
+        self.assertIn("cpuregs", open(self._netlist(FLOPS)).read())
+        self.assertNotEqual([], check(["cpuregs"], self._netlist(FLOPS), ["cpuregs"]))
 
     def test_undetected_memory_fails_rather_than_passing_vacuously(self):
         """An empty blackboxes.txt must not be a silent pass."""

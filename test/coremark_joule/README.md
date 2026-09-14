@@ -110,31 +110,29 @@ picorv32 therefore carries a written, reasoned waiver in its
 `units.json` rather than a silent shortfall. "This core cannot be
 attributed" is itself a result worth reporting about open-source RTL.
 
-`AUTO_MEMORIES=1` is meant to map inferred memories onto generated SRAM
-views. It matters most for SERV, whose register file lives in an SRAM --
-the core's whole architectural trick. Hardened as flops it would
-dominate a ~2k-cell core and the measurement would be of the wrong
-thing.
+`AUTO_MEMORIES=1` maps inferred memories onto generated SRAM views. It
+matters because a register file hardened as flops can dominate a small
+core, and then the energy measured is mostly the wrong thing.
 
-**It does not work yet, and it fails silently.** On picorv32 the flow
-detects the register file (`cpuregs`, 32x32, two read ports and one
-write), generates `cpuregs.lib` and `cpuregs.lef` with real area and
-leakage, writes `cpuregs` into `blackboxes.txt` -- and then synthesises
-the register file as 1024 flip-flops anyway. The macro is produced and
-never instantiated, and `instance__area__macros` is 0.
+**It applies to fewer designs than it first appears.** ORFS converts
+memories that are *modules* -- the detector looks for a module whose
+ports follow the firtool convention. picorv32's register file is an
+inline `reg [31:0] cpuregs [0:31]` array, and the yosys pass infers it,
+marks it convertible and writes `cpuregs` into `blackboxes.txt` -- but
+`blackbox cpuregs` matches no module, and the design synthesises to 1024
+flip-flops regardless. The macro is generated and never used. Verified
+identical on the partition and serial synthesis paths, so it is not a
+consequence of `SYNTH_KEEP_MODULES` forcing partitioned synthesis.
 
-The cause is a tension the study walked into rather than a bug in any one
-place: `SYNTH_KEEP_MODULES` implies parallel partition synthesis
-(`private/rules.bzl`), and the memory blackboxing that consumes
-`blackboxes.txt` happens on the serial path. So attributing power to
-functional units and mapping memories to macros cannot currently be had
-at once, and asking for both yields a completed flow that quietly
-measures flops.
+So AUTO_MEMORIES is off for picorv32, and its register file is reported
+as flops -- which is what its RTL describes. Where a core's register
+file *is* a module, `memories_applied_test` asserts the macro reaches
+the netlist, because a generated-then-ignored macro is a silent wrong
+answer rather than a failure.
 
-Until that is fixed, any energy number from a design with an inferred
-memory is measuring the wrong register file. The SRAM views are also a
-synthetic memory compiler's model rather than silicon, which remains true
-once the blackboxing works.
+The generated views come from a synthetic memory compiler, so a memory's
+contribution to CoreMark/Joule is a model rather than silicon, wherever
+it does apply.
 
 ## Cores after the first three
 

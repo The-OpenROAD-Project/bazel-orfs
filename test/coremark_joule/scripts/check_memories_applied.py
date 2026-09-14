@@ -90,9 +90,7 @@ def main(argv):
             print("  " + p, file=sys.stderr)
         return 1
 
-    print(
-        "AUTO_MEMORIES applied: {}".format(", ".join(sorted(blackboxes)))
-    )
+    print("AUTO_MEMORIES applied: {}".format(", ".join(sorted(blackboxes))))
     return 0
 
 
