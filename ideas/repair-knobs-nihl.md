@@ -197,6 +197,18 @@ learned policy that needs training runs per design.
 
 ## Decisions log
 
+- 2026-09-15, 00:30: 0082 as first cut is inert: identical row counts
+  (mock-alu cts 958 and 958). The iteration count the sweep prints and
+  the fence reads is a count of visits, not of passes: a visit that finds
+  its endpoint repaired increments it before the closed check, so ibex
+  cts shows 779 "iterations" for 104 passes and the fence's thousand
+  is a thousand visits. 0082 v2 keys the row on repairPath having run.
+  Upstream note for the pitch: the fix-rate fence measures TNS per
+  hundred visits. The harness killed the queue for low memory once;
+  the queue now runs detached (setsid nohup). Phase B is taken out of
+  the queue until a result-identical fix has actually measured faster
+  on the vehicles; the seeds run after 0083 and 0082 v2.
+
 - 2026-09-14, 23:05: 0080 (patience twenty) and 0081 (no area recount on
   restore) measured on the vehicles. 0080: identical on riscv32i and
   mock-alu (the patience never fired), ibex +36 s, sky130hd/riscv32i
