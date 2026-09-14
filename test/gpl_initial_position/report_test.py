@@ -149,6 +149,75 @@ class NoiseFloorTest(unittest.TestCase):
         self.assertIn("3.27", text)
 
 
+class CensoringTest(unittest.TestCase):
+    @staticmethod
+    def _ens(design, arm, ws, mp):
+        return [
+            sample(design=design, arm=arm, seed=i, setup_ws=ws,
+                   min_period_wns=mp + i * 0.01)
+            for i in range(1, 5)
+        ]
+
+    def test_a_closing_design_is_detected(self):
+        samples = self._ens("gcd", "shipped", 0.2, 2.5)
+        self.assertEqual(report.censored_designs(samples), {"asap7/gcd"})
+
+    def test_one_closing_sample_censors_the_design(self):
+        # Conservative on purpose: the arm that produced it was not
+        # measured against a working optimizer.
+        samples = self._ens("gcd", "shipped", -5.0, 100.0)
+        samples[0]["setup_ws"] = 0.0
+        self.assertEqual(report.censored_designs(samples), {"asap7/gcd"})
+
+    def test_a_missing_design_is_not_censored(self):
+        self.assertEqual(report.censored_designs(self._ens("gcd", "shipped", -5.0, 100.0)), set())
+
+    def test_timing_endpoint_drops_censored_designs_and_says_so(self):
+        samples = (self._ens("gcd", "shipped", 0.2, 2.5)
+                   + self._ens("gcd", "spread", 0.2, 9.9)
+                   + self._ens("aes", "shipped", -5.0, 100.0)
+                   + self._ens("aes", "spread", -5.0, 100.5))
+        text = report.endpoint_section(samples, "min_period_wns", "min_period", True)
+        self.assertIn("censored", text)
+        self.assertIn("asap7/gcd", text)
+        # The censored design's huge delta must not reach a verdict.
+        self.assertNotIn("| asap7/gcd | spread |", text)
+
+    def test_a_non_timing_endpoint_keeps_censored_designs(self):
+        # HPWL is measured at global placement, before any repair, so
+        # closure cannot censor it.
+        samples = (self._ens("gcd", "shipped", 0.2, 2.5)
+                   + self._ens("gcd", "spread", 0.2, 9.9))
+        for r in samples:
+            r["gp_hpwl_final"] = 100.0 + r["seed"]
+        text = report.endpoint_section(samples, "gp_hpwl_final", "HPWL", True)
+        self.assertNotIn("censored", text)
+        self.assertIn("asap7/gcd", text)
+
+    def test_all_designs_censored_reads_as_not_measured(self):
+        samples = (self._ens("gcd", "shipped", 0.2, 2.5)
+                   + self._ens("gcd", "spread", 0.2, 9.9))
+        text = report.endpoint_section(samples, "min_period_wns", "min_period", True)
+        self.assertIn("Not yet measured", text)
+
+
+class SummaryCensoringTest(unittest.TestCase):
+    def test_the_summary_applies_the_same_filter_as_the_detail(self):
+        # The summary is what a reader skims. In this study's first pass
+        # a fully-censored design supplied the largest single timing
+        # effect and reached the summary as "better 4/13".
+        def ens(design, arm, ws, mp):
+            return [sample(design=design, arm=arm, seed=i, setup_ws=ws,
+                           min_period_wns=mp + i * 0.01) for i in range(1, 5)]
+        samples = (ens("gcd", "shipped", 0.2, 2.5) + ens("gcd", "spread", 0.2, 0.5)
+                   + ens("aes", "shipped", -5.0, 100.0)
+                   + ens("aes", "spread", -5.0, 100.02))
+        text = report.summary_table(samples)
+        # Only asap7/aes may contribute, so no cell may claim two designs.
+        self.assertNotIn("2/2", text)
+        self.assertNotIn("/2 ", text.replace("| ", " "))
+
+
 class BuildTest(unittest.TestCase):
     def setUp(self):
         self.root = tempfile.mkdtemp()

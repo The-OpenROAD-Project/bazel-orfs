@@ -35,6 +35,16 @@ import stats
 # The endpoints, in order of how much of the flow stands between the
 # change and the measurement. `lower_is_better` drives nothing but the
 # wording of a verdict.
+# Endpoints that stop meaning anything once a design closes. Once WNS
+# reaches zero `repair_timing` stops working, so `min_period` records
+# where the optimizer quit rather than what the placement was worth --
+# every arm converges on the same stopping point and the endpoint reads
+# as "no difference" for a reason that has nothing to do with the arm.
+# bazel-orfs PR #981 found the same censoring in ORFS's own
+# `period_padding` rules: a design that closes is invisible on the
+# timing axis.
+CENSORED_ENDPOINTS = {"min_period_wns", "setup_tns"}
+
 ENDPOINTS = [
     ("gp_hpwl_final", "global-place HPWL (um)", True),
     ("gp_iterations", "global-place iterations", True),
@@ -90,6 +100,27 @@ def load(results_dir):
             continue
         samples.append(record)
     return samples, dropped
+
+
+def censored_designs(samples):
+    """Designs whose timing measurement is a stopping point, not a result.
+
+    Args:
+        samples: from load().
+
+    Returns:
+        The set of "platform/design" keys with any sample at WNS >= 0.
+        Conservative on purpose: one closing sample means the arm that
+        produced it was not measured against a working optimizer, and
+        averaging it in with nine that were is how a censored design
+        supplies a finding.
+    """
+    closed = set()
+    for record in samples:
+        ws = record.get("setup_ws")
+        if ws is not None and float(ws) >= 0:
+            closed.add("%s/%s" % (record.get("platform"), record.get("design")))
+    return closed
 
 
 def by_design_arm(samples, key):
@@ -261,12 +292,27 @@ def endpoint_section(samples, key, label, lower_is_better):
         The markdown section.
     """
     grouped = by_design_arm(samples, key)
+    dropped = set()
+    if key in CENSORED_ENDPOINTS:
+        dropped = censored_designs(samples) & set(grouped)
+        for design in dropped:
+            del grouped[design]
     if not grouped:
         return section_not_measured(
-            label, "No sample carries `%s`; run the tier that produces it." % key
+            label,
+            "No design carries an uncensored `%s`; every one either lacks the "
+            "endpoint or closes timing, which makes it a stopping point rather "
+            "than a measurement." % key,
         )
 
     out = ["## %s" % label, ""]
+    if dropped:
+        out += [
+            "Excluded as **censored** (some sample reaches WNS >= 0, so "
+            "`repair_timing` stopped and this endpoint records where the "
+            "optimizer quit): %s." % ", ".join("`%s`" % d for d in sorted(dropped)),
+            "",
+        ]
     out.append(
         "Each arm against `%s`, per design. The resolution is twice the "
         "standard error of the difference; inside it the verdict is "
@@ -454,8 +500,16 @@ def summary_table(samples):
     """
     verdicts = {}
     endpoints_present = []
+    censored = censored_designs(samples)
     for key, label, lower in ENDPOINTS:
         grouped = by_design_arm(samples, key)
+        if key in CENSORED_ENDPOINTS:
+            # The summary is the table a reader skims, so it must apply
+            # the same filter the detail section does. A censored design
+            # supplied the largest single effect in this study's first
+            # pass, and it reached this table as a finding.
+            for design in censored & set(grouped):
+                del grouped[design]
         per_arm = collections.defaultdict(list)
         for design in sorted(grouped):
             baseline = grouped[design].get(campaign.BASELINE_ARM)
