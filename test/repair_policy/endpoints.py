@@ -339,7 +339,14 @@ def spearman(xs, ys):
 
 
 def predictors(vs):
-    """Rank correlation of a visit's gain with what is known before it starts."""
+    """Rank correlation of a visit's gain with what is known before it starts.
+
+    Over the visits a predictor would have to rank: violating at entry and
+    not the phase's first endpoint (which keeps its budget regardless).
+    Endpoints found repaired on arrival have nothing to predict and would
+    only flatter every predictor that is zero for them.
+    """
+    vs = [v for v in vs if v["slack_in"] < 0 and v["idx"] != 1]
     gains = [v["gain"] for v in vs]
     out = {
         "entry slack (more negative first)": spearman(
@@ -399,12 +406,20 @@ def report(design, step, vs):
             100.0 * q["passes_on_unflagged"] / (sum(v["passes"] for v in vs) or 1),
         )
     )
-    patience = patience_table(vs)
+    patience = patience_table(
+        [v for v in vs if v["idx"] != 1 and abs(v["slack_in"] - v["wns_in"]) > 1e-6]
+    )
     if patience:
-        lines += ["", patience, ""]
+        lines += [
+            "",
+            "Patience over the visits that do not carry WNS (the WNS endpoint keeps the legacy fifty):",
+            "",
+            patience,
+            "",
+        ]
     lines += ["", jackpot_table(vs), ""]
     lines.append(
-        "Rank correlation of a visit's TNS gain with what is known before it: "
+        "Rank correlation of a visit's TNS gain with what is known before it, over violating non-first visits: "
         + "; ".join("{} {}".format(k, fmt(v, 2)) for k, v in predictors(vs).items())
         + "."
     )
