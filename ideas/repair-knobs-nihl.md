@@ -197,6 +197,16 @@ learned policy that needs training runs per design.
 
 ## Decisions log
 
+- 2026-09-15, 09:10: Phase B for 0082, untraced, 21 fast designs: 21 of
+  21 pass, every final ODB byte-identical, flow wall -6 to +3 s (all
+  ties or better). The saving is real and small: repair_timing's setup
+  seconds 1483 to 1449 over the suite (2.3%), 13-20% on designs whose
+  sweep finds most endpoints already repaired (ethmac 41 to 35 s,
+  ethmac_lvt 37 to 32, sky130hd/ibex 14 to 11), 1-3% on the grinds.
+  It dominates; it is a tidy-up of the #11387 kind, worth one small
+  upstream PR that leads with the row counts, not a headline. The seed
+  band runs overnight; the study PR follows.
+
 - 2026-09-15, 03:00: 0082 v2 on all five vehicles: byte-identical, the
   setup phase 0-13% faster where visits find endpoints already repaired
   (ibex cts 28.0 to 24.3 s and grt 71.7 to 67.8 s, mock-alu floorplan
