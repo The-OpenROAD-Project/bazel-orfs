@@ -197,6 +197,26 @@ learned policy that needs training runs per design.
 
 ## Decisions log
 
+- 2026-09-14, 16:20: two traps, both mine. A compile check of a study
+  patch is a bazel build of OpenROAD, and the running campaign's next
+  deploy builds whatever MODULE.bazel and the patch files say at that
+  moment: sky130hd/riscv32i's "Phase 0" run went out with 0079 in the
+  binary (set aside under tmp/repair_timing_runtime/mislabeled, read as
+  a first look) and the trace-v2 arm never ran because the build's load
+  kept the idle gate shut for its 900 s limit. Rule from here: swap a
+  patch file only right after a design has started, and build only
+  then; never while an arm waits at its gate. Worth a line in the
+  study-pr skill. That first look at 0079 on sky130hd/riscv32i: cts
+  35.6 to 25.9 s and TNS -82.5 to -71.1 ns, grt 117 to 192 s with TNS
+  -158.6 to -136.9 ns, flow +57 s. The profile says why: incremental
+  parasitics per pass 0.039 to 0.144 s and journal restores doubled.
+  Every probe opens a fresh region and every dry probe restores it, and
+  on a grt stage that is a global-route update each time; the legacy
+  grind stays in one region. Passes are not the currency in grt. Next:
+  the v3 trace records an analytical size-up estimate per path driver
+  (the liberty arithmetic SizeUpGenerator already does) so the study can
+  ask whether an estimate that costs no pass predicts what a visit pays.
+
 - 2026-09-14, 15:15: context for the pitch. rsz already has a phase
   pipeline (`repair_timing -phases`, default LEGACY then LAST_GASP with
   an implicit CRIT_VT_SWAP): WNS, WNS_PATH, WNS_CONE, TNS,

@@ -12,7 +12,8 @@ pass it started at, the passes and seconds it took, the endpoint slack,
 the WNS and the TNS before and after, the pass of its first and last
 improvement, the depth of its worst path, candidates, attempts and
 accepted moves, the net moves committed by type, every improving pass with
-the TNS it bought, and why the visit
+the TNS it bought, the analytical size-up estimate and load delay of the
+path at entry, and why the visit
 ended (closed, no_change, stuck, terminate, rejected, over_area,
 max_iter, max_passes).
 
@@ -21,6 +22,87 @@ reaches them, and what they cost -- whether a yield-ordered sweep is
 possible and which endpoints defeat a stopping rule. The wall of an arm
 carrying this patch is not to be read; each visit adds a TNS query.
 
+diff --git a/src/rsz/src/move/SizeUpGenerator.cc b/src/rsz/src/move/SizeUpGenerator.cc
+index 1236047ca3..cc9e53abc8 100644
+--- a/src/rsz/src/move/SizeUpGenerator.cc
++++ b/src/rsz/src/move/SizeUpGenerator.cc
+@@ -136,12 +136,38 @@ sta::LibertyCell* SizeUpGenerator::selectReplacement(
+   return upsizeCell(in_port, drvr_port, load_cap, prev_drive, scene, min_max);
+ }
+ 
++float SizeUpGenerator::estimateGain(const Target& target) const
++{
++  sta::Pin* drvr_pin = nullptr;
++  sta::Instance* inst = nullptr;
++  sta::LibertyPort* drvr_port = nullptr;
++  if (!resolveDriverContext(target, drvr_pin, inst, drvr_port)) {
++    return 0.0f;
++  }
++  const sta::Scene* scene = nullptr;
++  const sta::MinMax* min_max = nullptr;
++  float load_cap = 0.0f;
++  float prev_drive = 0.0f;
++  sta::LibertyPort* in_port = nullptr;
++  if (!loadStageContext(
++          target, drvr_pin, scene, min_max, load_cap, in_port, prev_drive)) {
++    return 0.0f;
++  }
++  float gain = 0.0f;
++  if (upsizeCell(in_port, drvr_port, load_cap, prev_drive, scene, min_max, &gain)
++      == nullptr) {
++    return 0.0f;
++  }
++  return gain;
++}
++
+ sta::LibertyCell* SizeUpGenerator::upsizeCell(sta::LibertyPort* in_port,
+                                               sta::LibertyPort* drvr_port,
+                                               const float load_cap,
+                                               const float prev_drive,
+                                               const sta::Scene* scene,
+-                                              const sta::MinMax* min_max) const
++                                              const sta::MinMax* min_max,
++                                              float* gain) const
+ {
+   if (scene == nullptr || min_max == nullptr || in_port == nullptr
+       || drvr_port == nullptr) {
+@@ -198,6 +224,9 @@ sta::LibertyCell* SizeUpGenerator::upsizeCell(sta::LibertyPort* in_port,
+         = resizer_.gateDelay(swappable_drvr, load_cap, scene, min_max)
+           + prev_drive * swappable_input->capacitance();
+     if (swappable_drive_r <= drive_r && swappable_delay < delay) {
++      if (gain != nullptr) {
++        *gain = delay - swappable_delay;
++      }
+       return swappable;
+     }
+   }
+diff --git a/src/rsz/src/move/SizeUpGenerator.hh b/src/rsz/src/move/SizeUpGenerator.hh
+index 3473bf7c45..af73c21c35 100644
+--- a/src/rsz/src/move/SizeUpGenerator.hh
++++ b/src/rsz/src/move/SizeUpGenerator.hh
+@@ -40,6 +40,12 @@ class SizeUpGenerator : public MoveGenerator
+   std::vector<std::unique_ptr<MoveCandidate>> generate(
+       const Target& target) override;
+ 
++  // Study (repair-yield): the stage delay the smallest legal size-up of
++  // this driver is estimated to save, from the liberty tables and the
++  // present load, without touching the netlist. 0 when no size-up
++  // qualifies. The same arithmetic generate() uses to pick the cell.
++  float estimateGain(const Target& target) const;
++
+  private:
+   // === Driver and stage context helpers ====================================
+   bool resolveDriverContext(const Target& target,
+@@ -65,7 +71,8 @@ class SizeUpGenerator : public MoveGenerator
+                                float load_cap,
+                                float prev_drive,
+                                const sta::Scene* scene,
+-                               const sta::MinMax* min_max) const;
++                               const sta::MinMax* min_max,
++                               float* gain = nullptr) const;
+ };
+ 
+ }  // namespace rsz
 diff --git a/src/rsz/src/policy/SetupLastGaspPolicy.cc b/src/rsz/src/policy/SetupLastGaspPolicy.cc
 index 454cc2758c..7e9fbfc00b 100644
 --- a/src/rsz/src/policy/SetupLastGaspPolicy.cc
@@ -117,10 +199,19 @@ index 454cc2758c..7e9fbfc00b 100644
  
  bool SetupLastGaspPolicy::shouldStopLastGasp(
 diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
-index 859f085353..cfdd855d55 100644
+index 859f085353..a9bf4455e3 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.cc
 +++ b/src/rsz/src/policy/SetupLegacyBase.cc
-@@ -976,6 +976,144 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
+@@ -3,6 +3,8 @@
+ 
+ #include "SetupLegacyBase.hh"
+ 
++#include "move/SizeUpGenerator.hh"
++
+ #include <algorithm>
+ #include <cmath>
+ #include <cstdlib>
+@@ -976,6 +978,181 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
    return false;
  }
  
@@ -177,12 +268,43 @@ index 859f085353..cfdd855d55 100644
 +  endpoint_state.trace_improvements.clear();
 +  endpoint_state.trace_tns_at_gain = endpoint_state.trace_tns_in;
 +  endpoint_state.trace_depth = 0;
++  endpoint_state.trace_drivers = 0;
++  endpoint_state.trace_est_sum = endpoint_state.trace_est_max = 0.0f;
++  endpoint_state.trace_ld_sum = endpoint_state.trace_ld_max = 0.0f;
 +  if (sta::Path* path = sta_->vertexWorstSlackPath(endpoint_state.end, max_)) {
 +    sta::PathExpanded expanded(path, sta_);
 +    endpoint_state.trace_depth = static_cast<int>(expanded.size());
++    traceEstimate(endpoint_state, path);
 +  }
 +  endpoint_state.trace_exit = "max_passes";
 +  endpoint_state.trace_t0 = std::chrono::steady_clock::now();
++}
++
++void SetupLegacyBase::traceEstimate(EndpointRepairState& endpoint_state,
++                                    sta::Path* path)
++{
++  if (path->minMax(sta_) != resizer_.max_) {
++    return;
++  }
++  if (!trace_sizer_) {
++    trace_sizer_ = std::make_unique<SizeUpGenerator>(makeGeneratorContext());
++  }
++  sta::PathExpanded expanded(path, sta_);
++  const sta::Scene* corner = path->scene(sta_);
++  const std::vector<std::pair<int, sta::Delay>> load_delays
++      = rankPathDrivers(expanded, corner, corner->libertyIndex(resizer_.max_));
++  for (const auto& [index, load_delay] : load_delays) {
++    Target target;
++    makePathDriverTarget(
++        path, expanded, index, endpoint_state.end_slack, target);
++    const float gain = trace_sizer_->estimateGain(target);
++    ++endpoint_state.trace_drivers;
++    endpoint_state.trace_est_sum += gain;
++    endpoint_state.trace_est_max = std::max(endpoint_state.trace_est_max, gain);
++    endpoint_state.trace_ld_sum += load_delay;
++    endpoint_state.trace_ld_max
++        = std::max(endpoint_state.trace_ld_max, static_cast<float>(load_delay));
++  }
 +}
 +
 +void SetupLegacyBase::traceGain(EndpointRepairState& endpoint_state)
@@ -232,7 +354,8 @@ index 859f085353..cfdd855d55 100644
 +  logger_->report(
 +      "[RSZ-ENDPOINT] phase={}{} idx={}/{} pass0={} pass1={} passes={} "
 +      "s={:.3f} slack_in={} slack_out={} wns_in={} wns_out={} tns_in={} "
-+      "tns_out={} gain1={} gainN={} depth={} cand={} att={} acc={}{} "
++      "tns_out={} gain1={} gainN={} depth={} drivers={} est_sum={} "
++      "est_max={} ld_sum={} ld_max={} cand={} att={} acc={}{} "
 +      "exit={} imp={} end={}",
 +      endpoint_state.trace_phase,
 +      endpoint_state.trace_marker,
@@ -251,6 +374,11 @@ index 859f085353..cfdd855d55 100644
 +      endpoint_state.trace_first_gain,
 +      endpoint_state.trace_last_gain,
 +      endpoint_state.trace_depth,
++      endpoint_state.trace_drivers,
++      delayAsString(endpoint_state.trace_est_sum, 3, sta_),
++      delayAsString(endpoint_state.trace_est_max, 3, sta_),
++      delayAsString(endpoint_state.trace_ld_sum, 3, sta_),
++      delayAsString(endpoint_state.trace_ld_max, 3, sta_),
 +      p.candidates - endpoint_state.trace_candidates0,
 +      p.attempts - endpoint_state.trace_attempts0,
 +      p.accepted - endpoint_state.trace_accepted0,
@@ -266,19 +394,29 @@ index 859f085353..cfdd855d55 100644
                                      const char phase_marker) const
  {
 diff --git a/src/rsz/src/policy/SetupLegacyBase.hh b/src/rsz/src/policy/SetupLegacyBase.hh
-index 78aa495806..e7c0617c45 100644
+index 78aa495806..cde35a732b 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.hh
 +++ b/src/rsz/src/policy/SetupLegacyBase.hh
-@@ -3,6 +3,8 @@
+@@ -3,7 +3,10 @@
  
  #pragma once
  
 +#include <array>
 +#include <chrono>
  #include <map>
++#include <memory>
  #include <optional>
  #include <set>
-@@ -89,6 +91,30 @@ class SetupLegacyBase : public OptimizationPolicy
+ #include <string>
+@@ -19,6 +22,7 @@
+ #include "OptimizationPolicy.hh"
+ #include "OptimizerTypes.hh"
+ #include "RepairSetupContext.hh"
++#include "move/SizeUpGenerator.hh"
+ #include "db_sta/dbNetwork.hh"
+ #include "db_sta/dbSta.hh"
+ #include "rsz/Resizer.hh"
+@@ -89,6 +93,39 @@ class SetupLegacyBase : public OptimizationPolicy
      int decreasing_slack_passes{0};
      bool journal_open{false};
      bool force_single_repair{false};
@@ -304,12 +442,21 @@ index 78aa495806..e7c0617c45 100644
 +    std::string trace_improvements;
 +    float trace_tns_at_gain{0.0f};
 +    int trace_depth{0};
++    // Analytical estimate at entry: the stage delay one size-up step per
++    // path driver would save (sum and best driver), and the load-dependent
++    // delay of the path's drivers (sum and worst), from the liberty tables
++    // and the present arc delays, no netlist change.
++    int trace_drivers{0};
++    float trace_est_sum{0.0f};
++    float trace_est_max{0.0f};
++    float trace_ld_sum{0.0f};
++    float trace_ld_max{0.0f};
 +    std::chrono::steady_clock::time_point trace_t0;
 +    const char* trace_exit{"max_passes"};
    };
  
    // === Run setup ============================================================
-@@ -118,6 +144,20 @@ class SetupLegacyBase : public OptimizationPolicy
+@@ -118,6 +155,22 @@ class SetupLegacyBase : public OptimizationPolicy
    void saveImprovedCheckpoint(EndpointRepairState& endpoint_state);
    void refreshEndpointSlacks(EndpointRepairState& endpoint_state);
  
@@ -326,6 +473,8 @@ index 78aa495806..e7c0617c45 100644
 +                  int opto_iteration);
 +  void traceGain(EndpointRepairState& endpoint_state);
 +  void traceEnd(EndpointRepairState& endpoint_state, int opto_iteration);
++  void traceEstimate(EndpointRepairState& endpoint_state, sta::Path* path);
++  std::unique_ptr<SizeUpGenerator> trace_sizer_;
 +
    bool reachedIterationLimit(int iteration, int max_iterations) const;
  

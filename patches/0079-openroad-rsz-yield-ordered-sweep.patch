@@ -31,10 +31,10 @@ endpoint that stops paying is dropped instead of being ground.
 The repair_tns end percent is honoured as a cap on the probes and is not
 expected to bind; whether it can retire is what the study measures.
 diff --git a/src/rsz/src/policy/SetupLegacyBase.hh b/src/rsz/src/policy/SetupLegacyBase.hh
-index e7c0617c45..71e2fb1e56 100644
+index cde35a732b..b5fc5388a9 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.hh
 +++ b/src/rsz/src/policy/SetupLegacyBase.hh
-@@ -91,6 +91,10 @@ class SetupLegacyBase : public OptimizationPolicy
+@@ -93,6 +93,10 @@ class SetupLegacyBase : public OptimizationPolicy
      int decreasing_slack_passes{0};
      bool journal_open{false};
      bool force_single_repair{false};
