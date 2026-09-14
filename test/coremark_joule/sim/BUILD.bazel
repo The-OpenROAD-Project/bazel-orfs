@@ -83,6 +83,47 @@ cc_binary(
     deps = [":cm_soc_ibex_lib"],
 )
 
+# The gate-level simulator: the grt netlist, the asap7 cell models, and
+# the same wrapper. trace_mode = "saif" is what makes the switching
+# activity recordable at all.
+verilator_cc_library(
+    name = "cm_soc_picorv32_gate_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/rtl:cm_soc_picorv32_gate",
+    module_top = "cm_soc",
+    trace_mode = "saif",
+    vopts = _SIM_VOPTS + [
+        # yosys names internal nets `_NNNNN_`, and Verilator skips
+        # leading-underscore signals in traces by default -- without this
+        # the SAIF covers only named nets and OpenSTA estimates the rest.
+        "--trace-underscore",
+        # Keep the generated trace_init functions small enough that the
+        # C++ compiler stays in its near-linear regime on a netlist this
+        # size.
+        "--output-split-ctrace",
+        "3000",
+        # The netlist references undeclared _NC* nets for unconnected
+        # pins, and the cell models carry timing constructs a
+        # zero-delay simulation ignores.
+        "-Wno-IMPLICIT",
+        "-Wno-MODDUP",
+        "-Wno-PINMISSING",
+        "-Wno-STMTDLY",
+        # The cell models carry `specify` timing blocks. A zero-delay
+        # functional simulation ignores them by design -- the timing that
+        # matters comes from the liberty views in OpenSTA, not from here
+        # -- so the notice is just volume.
+        "-Wno-SPECIFYIGN",
+    ],
+)
+
+cc_binary(
+    name = "cm_sim_picorv32_gate",
+    srcs = ["main.cc"],
+    tags = ["manual"],
+    deps = [":cm_soc_picorv32_gate_lib"],
+)
+
 # The picorv32 measurement, end to end: image, run, CRC gate, CoreMark/MHz.
 #
 # rv32im is picorv32's native ISA here (ENABLE_MUL/ENABLE_DIV are set in

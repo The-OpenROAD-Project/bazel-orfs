@@ -25,6 +25,13 @@
 #include "Vcm_soc.h"
 #include "verilated.h"
 
+// Built only for the gate-level configuration, where rules_verilator's
+// trace_mode = "saif" defines this. The RTL simulators are compiled
+// without tracing at all, so they pay none of its cost.
+#if VM_TRACE_SAIF
+#include "verilated_saif_c.h"
+#endif
+
 namespace {
 
 // A bounded trace window, kept in a ring buffer rather than written to a
@@ -79,6 +86,24 @@ constexpr int kExitOk = 0;
 constexpr int kExitTrap = 2;
 constexpr int kExitTimeout = 3;
 
+#if VM_TRACE_SAIF
+// A SAIF over a whole CoreMark run would be enormous and is not needed:
+// switching activity is stationary once the benchmark is in its steady
+// state, so a window inside it represents the run. The window is given
+// in cycles rather than inferred, so the same window can be stated in
+// the write-up and re-used across cores.
+struct SaifWindow
+{
+    uint64_t start = 0;
+    uint64_t end = 0;
+
+    bool active(uint64_t cycle) const
+    {
+        return cycle >= start && (end == 0 || cycle < end);
+    }
+};
+#endif
+
 const char *plusarg(int argc, char **argv, const char *key, const char *fallback)
 {
     const size_t n = strlen(key);
@@ -106,6 +131,13 @@ int main(int argc, char **argv)
     const uint64_t max_cycles =
         strtoull(plusarg(argc, argv, "max_cycles", "2000000000"), nullptr, 0);
 
+#if VM_TRACE_SAIF
+    const char *saif_path = plusarg(argc, argv, "saif", nullptr);
+    SaifWindow window;
+    window.start = strtoull(plusarg(argc, argv, "saif_start", "0"), nullptr, 0);
+    window.end = strtoull(plusarg(argc, argv, "saif_end", "0"), nullptr, 0);
+#endif
+
     FILE *out = stdout;
     if (stdout_path != nullptr) {
         out = fopen(stdout_path, "w");
@@ -116,6 +148,16 @@ int main(int argc, char **argv)
     }
 
     Vcm_soc *dut = new Vcm_soc;
+
+#if VM_TRACE_SAIF
+    VerilatedSaifC *saif = nullptr;
+    bool saif_open = false;
+    if (saif_path != nullptr) {
+        Verilated::traceEverOn(true);
+        saif = new VerilatedSaifC;
+        dut->trace(saif, 99);
+    }
+#endif
 
     dut->resetn = 0;
     for (int i = 0; i < kResetCycles; i++) {
@@ -136,6 +178,26 @@ int main(int argc, char **argv)
         dut->clk = 1;
         dut->eval();
         cycles++;
+
+#if VM_TRACE_SAIF
+        // Opening at the window's first cycle rather than at time zero
+        // keeps the reset and the whole pre-steady-state prologue out of
+        // the activity that report_power sees.
+        if (saif != nullptr && window.active(cycles)) {
+            if (!saif_open) {
+                saif->open(saif_path);
+                saif_open = true;
+            }
+            saif->dump(static_cast<uint64_t>(cycles));
+        } else if (saif_open && !window.active(cycles)) {
+            saif->close();
+            saif_open = false;
+            // The window is the measurement; running on past it only
+            // costs wall time on a gate-level simulator.
+            status = kExitOk;
+            break;
+        }
+#endif
 
         trace.sample(static_cast<uint32_t>(dut->dbg_instr_addr), cycles);
 
@@ -187,6 +249,13 @@ int main(int argc, char **argv)
         fprintf(cf, "%llu\n", static_cast<unsigned long long>(cycles));
         fclose(cf);
     }
+
+#if VM_TRACE_SAIF
+    if (saif_open) {
+        saif->close();
+    }
+    delete saif;
+#endif
 
     dut->final();
     delete dut;

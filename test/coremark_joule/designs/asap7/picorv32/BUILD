@@ -14,4 +14,5 @@ design(
 grt_netlist(
     name = "cmj_picorv32_grt_netlist",
     src = ":cmj_picorv32_grt",
+    visibility = ["//test/coremark_joule:__subpackages__"],
 )
