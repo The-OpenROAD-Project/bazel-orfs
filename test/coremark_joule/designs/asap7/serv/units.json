@@ -1,6 +1,6 @@
 {
   "design": "cmj_serv",
-  "min_coverage": 0.90,
+  "min_coverage": 0.9,
   "waiver": null,
   "units": {
     "serv_decode": "decode",
@@ -15,5 +15,7 @@
     "serv_rf_if": "register file",
     "serv_rf_ram_if": "register file",
     "serv_rf_ram": "register file"
-  }
+  },
+  "memory_units": {},
+  "memory_note": "SERV's register file is not converted to a macro, and the reason is a property of its RTL. serv_rf_ram is not a pure memory module: alongside the `memory` array it carries the read-data register and the logic that gates reads of x0 to zero. ORFS's detector therefore names the memory after the array rather than the module (detect.py names it after the module only when the module holds nothing else), and patches/0066 declines to convert a memory that is not its own module. Converting the whole module would discard the x0 gating. Hardening it as an SRAM would mean splitting the array into its own module -- a change to SERV's RTL, carried as a patch on @serv, and a change to the design being measured. Until then SERV's register file is flip-flops, which understates the core whose whole architectural trick is keeping it in SRAM."
 }

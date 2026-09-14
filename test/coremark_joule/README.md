@@ -153,6 +153,28 @@ refinement. The existing CRC gate is what catches getting it wrong,
 which is the reason that gate runs against the gate-level netlist and
 not only against RTL.
 
+### Where each core's register file ends up
+
+| core | register file in RTL | hardened as |
+|---|---|---|
+| picorv32 | inline `reg [31:0] cpuregs [0:31]` array | flip-flops |
+| SERV | `serv_rf_ram`: array + read register + x0 gating | flip-flops |
+| ibex | `ibex_register_file_ff`, flops by construction | flip-flops |
+
+None of the three converts, and in each case for a reason in the RTL
+rather than a flow defect. A memory is converted by blackboxing a module
+so the liberty view replaces its body, which needs a module that is
+nothing but the memory. picorv32's is an inline array; SERV's module
+carries the read register and the x0 gating besides; ibex's is flops by
+design.
+
+SERV is the one that matters. Keeping the register file in SRAM is its
+whole architectural trick, and measuring it as flip-flops understates
+it. Getting the macro would mean splitting the array out into its own
+module -- a patch on SERV's RTL, and so a change to the design being
+measured. That is a decision to take deliberately rather than by
+default, and it is recorded here rather than made quietly.
+
 ## Cores after the first three
 
 The first three establish the low end. The interesting region is 5-15
