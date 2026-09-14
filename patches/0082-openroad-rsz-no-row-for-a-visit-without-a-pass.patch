@@ -1,0 +1,55 @@
+rsz: skip the per-endpoint progress row when the visit spent no pass
+
+Per-pass cost fix from the repair-knobs campaign (ideas/repair-knobs-nihl.md,
+third study). Not upstreamed; carried while it is measured. Changes no
+result and no row that carries information.
+
+With -verbose the setup sweep prints a progress row after every endpoint
+it visits. On a design that closes, most visits find the endpoint already
+repaired by earlier work and spend no pass: ibex cts visits 676 endpoints
+for 104 passes and prints 676 rows, each repeating the previous one down
+to the iteration number. After OpenROAD #11387 a row still collects the
+TNS, the WNS and the worst pin and formats the line; the per-visit trace
+of the default (patches/0078) puts the rows at 5-17% of the setup phase.
+
+A per-endpoint row is printed only when the visit advanced the iteration
+count. The ten-pass rows, the first and the final row are untouched.
+diff --git a/src/rsz/src/policy/SetupLastGaspPolicy.cc b/src/rsz/src/policy/SetupLastGaspPolicy.cc
+index 7e9fbfc00b..32f2a59d7e 100644
+--- a/src/rsz/src/policy/SetupLastGaspPolicy.cc
++++ b/src/rsz/src/policy/SetupLastGaspPolicy.cc
+@@ -367,9 +367,12 @@ void SetupLastGaspPolicy::runLastGaspLoop(
+       break;
+     }
+ 
++    const int iteration_before = last_gasp_state.opto_iteration;
+     repairLastGaspEndpoint(endpoint_state, last_gasp_state);
+ 
+-    if (config_.verbose || last_gasp_state.opto_iteration == 1) {
++    // As in the main phase: no row for a visit that spent no pass.
++    if ((config_.verbose && last_gasp_state.opto_iteration != iteration_before)
++        || last_gasp_state.opto_iteration == 1) {
+       printProgress(
+           last_gasp_state.opto_iteration, true, last_gasp_state.phase_marker);
+     }
+diff --git a/src/rsz/src/policy/SetupLegacyPolicy.cc b/src/rsz/src/policy/SetupLegacyPolicy.cc
+index 4964886814..f871ae36f2 100644
+--- a/src/rsz/src/policy/SetupLegacyPolicy.cc
++++ b/src/rsz/src/policy/SetupLegacyPolicy.cc
+@@ -415,9 +415,15 @@ void SetupLegacyPolicy::runMainRepairLoop(const ViolatingEnds& violating_ends,
+       break;
+     }
+ 
++    const int iteration_before = main_state.opto_iteration;
+     repairEndpoint(endpoint_state, main_state);
+ 
+-    if (config_.verbose || main_state.opto_iteration == 1) {
++    // The per-endpoint row is printed only when the visit spent a pass.
++    // An endpoint found already repaired when the sweep reaches it (most
++    // of the visits on a design that closes) spends none, and its row
++    // would repeat the previous one, iteration number included.
++    if ((config_.verbose && main_state.opto_iteration != iteration_before)
++        || main_state.opto_iteration == 1) {
+       printProgress(main_state.opto_iteration, true, main_state.phase_marker);
+     }
+     if (main_state.two_cons_terminations) {
