@@ -476,14 +476,86 @@ def figure(out, design, step, vs):
     return name
 
 
+def arm_row(record, step):
+    """Setup-repair wall, passes, visits and the final WNS/TNS of one step."""
+    got = record["substeps"].get(step) or {}
+    setup_s = sum((c.get("setup_s") or 0) for c in got.get("repair") or [])
+    vs = visits(record, step)
+    rows = [r for rows in got.get("repair_rows") or [] for r in rows]
+    final = next((r for r in rows if r["iter"] == "final"), None) or (
+        rows[-1] if rows else {}
+    )
+    # An untraced arm still carries the 0066 profile's pass count per phase.
+    profile_passes = sum(
+        int(phase.get("passes") or 0)
+        for c in got.get("repair") or []
+        for phase in (c.get("profile") or {}).values()
+    )
+    return {
+        "setup_s": setup_s,
+        "passes": sum(v["passes"] for v in vs) if vs else profile_passes,
+        "visits": len(vs),
+        "probes": sum(1 for v in vs if v["exit"] == "budget"),
+        "wns": final.get("wns"),
+        "tns": final.get("en_tns"),
+        "viol": final.get("viol_endpoints"),
+        "wall_s": got.get("wall_s"),
+    }
+
+
+def compare(results_dir, arms, designs, steps):
+    """One table per step: each arm's setup wall, passes, visits, final WNS and TNS."""
+    loaded = {arm: load_arm(results_dir, arm) for arm in arms}
+    designs = designs or sorted(set().union(*(set(l) for l in loaded.values())))
+    out = []
+    for step in steps:
+        lines = [
+            "### {}".format(step),
+            "",
+            "| design | arm | stage wall (s) | setup repair (s) | passes | visits | budget exits | final WNS | final TNS | violating |",
+            "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        ]
+        for design in designs:
+            for arm in arms:
+                record = loaded[arm].get(design)
+                if not record:
+                    continue
+                r = arm_row(record, step)
+                lines.append(
+                    "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
+                        design,
+                        arm.replace("base-", ""),
+                        fmt(r["wall_s"], 0),
+                        fmt(r["setup_s"], 1),
+                        r["passes"],
+                        r["visits"],
+                        r["probes"],
+                        fmt(r["wns"], 1),
+                        fmt(r["tns"], 1),
+                        fmt(r["viol"]),
+                    )
+                )
+        out.append("\n".join(lines) + "\n")
+    return "\n".join(out)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results", required=True)
     parser.add_argument("--arm", default="base-p00670068t")
+    parser.add_argument(
+        "--compare",
+        nargs="+",
+        metavar="ARM",
+        help="print one table per step comparing these arms instead",
+    )
     parser.add_argument("--designs", nargs="*")
     parser.add_argument("--steps", nargs="*", default=list(STEPS_WITH_SETUP))
     parser.add_argument("--out", help="directory for visits.csv and the figures")
     args = parser.parse_args()
+    if args.compare:
+        sys.stdout.write(compare(args.results, args.compare, args.designs, args.steps))
+        return
     arm = load_arm(args.results, args.arm)
     designs = args.designs or sorted(arm)
     if args.out:
