@@ -160,6 +160,8 @@ def main(argv):
             "platform": "asap7",
             "stage": "grt",
             "activity": "saif, one hot CoreMark iteration",
+            "boundary": "core + L1 (or program SRAM) is the rule; "
+            "these points predate it and harden no memory at all",
             "frequency": "the SDC period the SAIF was timed against, "
             "not an achieved maximum",
             "note": "Not reportable CoreMark scores: a three-iteration run "

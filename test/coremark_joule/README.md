@@ -88,52 +88,51 @@ which fetches from `boot_addr_i + 0x80`.
 
 ## What the number is meant to cover
 
-The intent is **the CPU core including its L1** -- everything CoreMark's
-hot loop actually touches -- and not the SoC around it. A core is not
-free to push its misses onto someone else's memory and call itself
-efficient; the caches that keep the hot loop fed are part of what is
-being measured.
+**The boundary is the core and its L1, and that is decided.** Above about
+5 CoreMark/MHz the two cannot be told apart: the caches sit inside the
+tile, share its clock and its floorplan, and nobody -- not the
+repositories and not the literature -- delivers or reports a number for
+the core without them. Drawing the boundary anywhere else means drawing
+it around an abstraction that does not exist.
 
-**The measurements below do not meet that yet, and the gap flatters the
-cacheless designs.** The harness RAM is simulation-only: it is never
-hardened, so every fetch and load in the benchmark is served by memory
-that costs zero area and zero energy. For picorv32 and SERV, which have
-no caches at all, that means their entire memory system is outside the
-measurement. ibex is configured with `ICache=0`, so the same applies.
+Small cores have no cache, and so little SRAM that the same question has
+a different shape. The rule still applies: **a small SRAM holding the
+program is hardened as part of the core.** That is not an exception, it
+is the same rule -- the memory the hot loop runs out of is inside the
+boundary in both cases. One rule, applied to every point: core, its L1
+or its program SRAM, nothing beyond.
 
-Two consequences worth stating before anyone reads the plot as a
-verdict:
+**The measurements above predate that rule and do not meet it yet.** The
+harness RAM is simulation-only: it is never hardened, so every fetch and
+load in the benchmark is served by memory that costs zero area and zero
+energy. picorv32 and SERV have no caches at all, so their entire memory
+system is outside the measurement; ibex is configured with `ICache=0`,
+so the same applies.
+
+The gap runs one way, and it is worth being explicit about which:
 
 - A design that spends area and energy on an L1 to go faster is charged
   for the L1 and credited with the speed. A design with no L1 is charged
-  for neither and still gets a free, perfect memory. The comparison is
-  therefore kind to the minimal cores, not harsh on them.
+  for neither and still gets a free, perfect memory. The comparison as it
+  stands is kind to the minimal cores, not harsh on them.
 - SERV's 41 million cycles per iteration are 41 million accesses to that
   free memory. A real system would pay for them.
 
-Closing the gap means hardening the L1 with the core -- `ICache=1` on
-ibex, and for cores with no cache, deciding explicitly whether the
-comparison is core-to-core or system-to-system and saying which.
+Closing it is mechanical now that the rule is fixed: harden a program
+SRAM with picorv32, SERV and ibex, and turn `ICache=1` on ibex so its
+cache is measured rather than configured away. The three points move
+down; how far is itself a result, because it is the size of the error
+every cacheless CoreMark/Joule figure carries.
 
 **Above about 5 CoreMark/MHz the boundary stops being a caveat and
-becomes the measurement.** The cores in that range are not delivered as
-cores: they arrive as tiles or SoCs with L1s, an L2, an interconnect,
-and peripherals attached. Harden what the repository hands you and the
-uncore swamps the core's energy; harden the core alone and its misses
-are served by a free memory that no longer resembles how it runs. The
-answer changes by more than the differences the study is trying to show.
-
-It also breaks the comparison in an asymmetric way. A large core's L1 is
-inside whatever boundary is drawn, so it is paid for; a tiny core has no
-L1 to pay for and keeps its free perfect memory. Without one boundary
-rule applied to every core, the plot's high end is charged for a memory
-system and its low end is not, and the trend line between them is partly
-an artefact of that.
-
-So the boundary has to be decided before the first core above that
-range, not after: one rule -- core plus its L1, nothing beyond -- named
-in the provenance, applied to every point, with the cores that have no
-L1 recorded as having none rather than quietly benefiting.
+becomes the measurement**, which is why it had to be settled before the
+first core in that range rather than after. Those cores arrive as tiles
+or SoCs with L1s, an L2, an interconnect and peripherals attached.
+Harden what the repository hands you and the uncore swamps the core's
+energy; harden less than the L1 and the misses are served by a free
+memory that no longer resembles how it runs. Core plus L1, and the L2
+and everything past it excluded, is the line that can be drawn on every
+one of them.
 
 ## The 22 nm series, and why it is a separate colour
 

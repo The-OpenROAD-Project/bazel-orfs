@@ -166,11 +166,12 @@ def plot(document, out_path):
     ax.text(
         0.0,
         -0.17,
-        "{}, {}; activity: {}\nfrequency: {}\n{}".format(
+        "{}, {}; activity: {}\nfrequency: {}\nboundary: {}\n{}".format(
             prov.get("platform", "?"),
             prov.get("stage", "?"),
             prov.get("activity", "?"),
             prov.get("frequency", "?"),
+            prov.get("boundary", "?"),
             prov.get("note", "")
             + (
                 "\nGrey ticks: published CoreMark/MHz for cores not measured "
