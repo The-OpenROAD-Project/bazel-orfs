@@ -1,0 +1,106 @@
+rsz: restore the design area from the journal instead of recounting every instance
+
+Per-pass cost fix from the repair-knobs campaign (ideas/repair-knobs-nihl.md,
+third study). Not upstreamed; carried while it is measured. Changes no
+result: the area after an undo is the area at the checkpoint.
+
+Every time the setup sweep gives up on an endpoint it restores the ECO
+journal, and MoveCommitter::restoreJournal begins with
+Resizer::initForJournalRestore(), which is Resizer::init(): a recount of
+the design area over every instance of the block, a levelization check,
+and a flush of the swappable-cell cache. The per-visit trace of the
+default (patches/0078, 0066) puts journal restore at 14-36% of the setup
+phase (ibex floorplan: 25 s of 71, 480 restores), and the recount is the
+part that scales with the design rather than with the undo.
+
+The design area is tracked incrementally by designAreaIncr on every move;
+an ECO undo does not reverse those increments, which is why init()
+recounted. This patch snapshots the tracked area when a journal level
+opens and puts it back when the level is undone, exactly, in O(1); the
+restore keeps the levelization check and stops flushing the
+swappable-cell cache, whose contents depend on the libraries only.
+
+Chesterton's Fence: the recount made the area right after an undo; the
+snapshot makes it right for the same reason the undo itself is right.
+diff --git a/src/rsz/include/rsz/Resizer.hh b/src/rsz/include/rsz/Resizer.hh
+index 86a6e4ff73..a73f30d664 100644
+--- a/src/rsz/include/rsz/Resizer.hh
++++ b/src/rsz/include/rsz/Resizer.hh
+@@ -402,6 +402,12 @@ class Resizer : public sta::dbStaState, public sta::dbNetworkObserver
+   double designArea();
+   // Increment design_area
+   void designAreaIncr(float delta);
++  // The tracked design area as it stands, without a recount, and a way to
++  // put it back: the journal snapshots it when a search branch opens and
++  // restores it when the branch is undone, so an undo costs no walk of
++  // every instance.
++  double trackedDesignArea() const { return design_area_; }
++  void setTrackedDesignArea(double area) { design_area_ = area; }
+   // Caller owns return value.
+   sta::NetSeq* findFloatingNets();
+   sta::PinSet* findFloatingPins();
+diff --git a/src/rsz/src/MoveCommitter.cc b/src/rsz/src/MoveCommitter.cc
+index fa93ecd3cf..a7075c35e3 100644
+--- a/src/rsz/src/MoveCommitter.cc
++++ b/src/rsz/src/MoveCommitter.cc
+@@ -489,6 +489,7 @@ void MoveCommitter::beginJournal()
+   // that with a fresh per-level result vector here.
+   beginEcoJournal();
+   pending_move_results_.emplace();
++  journal_design_area_.push(resizer_.trackedDesignArea());
+   // Mirror the journal level in the tracker so a nested restore rejects only
+   // its own moves.
+   if (move_tracker_) {
+@@ -516,6 +517,8 @@ void MoveCommitter::commitJournal()
+ 
+   std::vector<MoveResult> top = std::move(pending_move_results_.top());
+   pending_move_results_.pop();
++  // The committed moves' area stays; only the snapshot for this level goes.
++  journal_design_area_.pop();
+ 
+   if (pending_move_results_.empty()) {
+     // Outermost commit: fold the accumulated pending counters into the
+@@ -551,6 +554,9 @@ void MoveCommitter::restoreJournal()
+ 
+   const bool had_eco_changes = ecoHasPendingChanges();
+   restoreEcoJournal();
++  // The netlist is back at this level's checkpoint, and so is its area.
++  resizer_.setTrackedDesignArea(journal_design_area_.top());
++  journal_design_area_.pop();
+   // Mirror the journal restore in the tracker so its moves are rejected,
+   // whether this is an outermost or a nested restore.
+   if (move_tracker_) {
+diff --git a/src/rsz/src/MoveCommitter.hh b/src/rsz/src/MoveCommitter.hh
+index e2cd65c173..468ea72418 100644
+--- a/src/rsz/src/MoveCommitter.hh
++++ b/src/rsz/src/MoveCommitter.hh
+@@ -168,6 +168,8 @@ class MoveCommitter
+   // unrecord just its own moves and a nested commit can merge its results into
+   // the parent's vector (mirroring odb's commitEco append-to-parent semantics).
+   std::stack<std::vector<MoveResult>> pending_move_results_;
++  // The tracked design area when each journal level opened.
++  std::stack<double> journal_design_area_;
+   std::array<int, kTypeCount> pending_by_type_{};
+   int netlist_edits_ = 0;
+   std::array<int, kTypeCount> committed_by_type_{};
+diff --git a/src/rsz/src/Resizer.cc b/src/rsz/src/Resizer.cc
+index 3e11793881..557b7a7634 100644
+--- a/src/rsz/src/Resizer.cc
++++ b/src/rsz/src/Resizer.cc
+@@ -5474,7 +5474,15 @@ void Resizer::swapArithModules(int path_count,
+ // Journal to roll back changes
+ void Resizer::initForJournalRestore()
+ {
+-  init();
++  // init() also recounts the design area over every instance and drops
++  // the swappable-cell cache. After an ECO undo the netlist is back at the
++  // journal's checkpoint, so the area is the checkpoint's (the committer
++  // restores its snapshot) and the equivalent-cell lists, which depend on
++  // the libraries only, are still right. Levelization is what an undo can
++  // leave behind.
++  initBlock();
++  sta_->ensureLevelized();
++  graph_ = sta_->graph();
+ }
+ 
+ void Resizer::updateParasiticsAndTiming()

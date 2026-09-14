@@ -25,6 +25,7 @@ NAMES = {
     "0078": "0078-openroad-rsz-trace-endpoint-visits.patch",
     "0079": "0079-openroad-rsz-yield-ordered-sweep.patch",
     "0080": "0080-openroad-rsz-short-patience-off-wns.patch",
+    "0081": "0081-openroad-rsz-restore-design-area-from-journal.patch",
 }
 
 wanted = ["0066"] + [n for n in sys.argv[1:] if n != "0066"]
