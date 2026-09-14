@@ -139,7 +139,11 @@ def judge(base_value, new_value, direction, band):
     return delta, "WORSE"
 
 
-def design_verdict(base, policy, bands):
+def design_verdict(base, policy, bands, wall_bands=None):
+    """One design's verdict. `wall_bands` is seed_band.py's JSON: the
+    default's own spread under another placement seed, which widens the
+    wall tie and stands in for a KPI band the history could not give."""
+    seed = (wall_bands or {}).get(base["design"]) or {}
     kb, kp = kpis(base, bands), kpis(policy, bands)
     rows = []
     worse = False
@@ -165,6 +169,8 @@ def design_verdict(base, policy, bands):
     for key, direction, label in KPI_AXES:
         rec = this_bands.get(BAND_KEY[key]) or {}
         band = None if rec.get("insufficient", True) else rec.get("band_2sigma")
+        if band is None and seed.get(key) is not None:
+            band = seed[key]
         if band is None and key in UNGATED_TOLERANCE and kb.get(key):
             band = abs(kb[key]) * UNGATED_TOLERANCE[key]
         delta, verdict = judge(kb.get(key), kp.get(key), direction, band)
@@ -175,7 +181,7 @@ def design_verdict(base, policy, bands):
     same_odb = base["substeps"].get("_final_sha1") is not None and base["substeps"].get(
         "_final_sha1"
     ) == policy["substeps"].get("_final_sha1")
-    tie = max(WALL_TIE_S, WALL_TIE_FRACTION * wb)
+    tie = max(WALL_TIE_S, WALL_TIE_FRACTION * wb, seed.get("flow_wall_band_s") or 0.0)
     wall_verdict = (
         "same" if abs(wall_delta) <= tie else ("better" if wall_delta < 0 else "WORSE")
     )
@@ -244,7 +250,7 @@ def suite_table(verdicts):
     lines.append(
         "{} of {} designs pass; ~ marks a move inside the design's noise band "
         "(power: a 1% tolerance, ORFS gates no power metric), signed so that + is "
-        "better on every axis. Wall ties are under max(5 s, 2%) on a single run.".format(
+        "better on every axis. Wall ties are under max(5 s, 2%, the design's seed band) on a single run.".format(
             passed, len(verdicts)
         )
     )
@@ -257,15 +263,25 @@ def main():
     parser.add_argument("--base", default="base-p00670068")
     parser.add_argument("--policy", required=True)
     parser.add_argument("--bands", help="noise_bands.py JSON")
+    parser.add_argument(
+        "--wall-bands",
+        help="seed_band.py JSON: the default's spread under other placement seeds",
+    )
     args = parser.parse_args()
     bands = {}
     if args.bands:
         with open(args.bands) as handle:
             bands = json.load(handle)
+    wall_bands = {}
+    if args.wall_bands:
+        with open(args.wall_bands) as handle:
+            wall_bands = json.load(handle)
     base = load_arm(args.results, args.base)
     policy = load_arm(args.results, args.policy)
     verdicts = [
-        design_verdict(base[d], policy[d], bands) for d in sorted(base) if d in policy
+        design_verdict(base[d], policy[d], bands, wall_bands)
+        for d in sorted(base)
+        if d in policy
     ]
     if not verdicts:
         raise SystemExit("no design has both arms in {}".format(args.results))

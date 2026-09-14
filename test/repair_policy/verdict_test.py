@@ -110,6 +110,18 @@ class Design(unittest.TestCase):
         pol = record("ibex", -20.0, -300.0, 2700, 90000, 0, (10, 10, 23), "b")
         self.assertTrue(verdict.design_verdict(base, pol, BANDS)["dominated_or_tied"])
 
+    def test_slower_inside_the_seed_band_is_a_tie(self):
+        base = record("ibex", -20.0, -300.0, 2700, 90000, 0, (80, 60, 130), "a")
+        pol = record("ibex", -20.0, -300.0, 2700, 90000, 0, (80, 60, 160), "b")
+        seed = {"ibex": {"flow_wall_band_s": 40.0}}
+        self.assertTrue(
+            verdict.design_verdict(base, pol, BANDS, seed)["dominated_or_tied"]
+        )
+        seed = {"ibex": {"flow_wall_band_s": 20.0}}
+        self.assertFalse(
+            verdict.design_verdict(base, pol, BANDS, seed)["dominated_or_tied"]
+        )
+
     def test_positive_hold_slack_shrinking_is_not_a_regression(self):
         base = record("ibex", -20.0, -300.0, 2700, 90000, 0, (80, 60, 130), "a")
         pol = record("ibex", -20.0, -300.0, 2700, 90000, 0, (40, 30, 70), "b")
