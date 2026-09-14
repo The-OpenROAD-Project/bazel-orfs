@@ -1,8 +1,34 @@
-# Parsers and checks for the study. Plain files: the tests that use them
-# live next to the artefacts they read.
+# Parsers and checks for the study.
+#
+# Each one is a py_binary so a genrule can execute it, and each has a
+# unit test: a study's arithmetic is worth no more than the parser
+# underneath it, and these parse output formats that upstream projects
+# are free to change.
+load("@rules_python//python:defs.bzl", "py_binary")
+
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 
 exports_files([
+    "check_coremark.py",
     "elf_sections.py",
     "iteration_delta_test.py",
+    "run_check.sh",
 ])
+
+py_binary(
+    name = "elf2hex",
+    srcs = ["elf2hex.py"],
+    main = "elf2hex.py",
+)
+
+py_binary(
+    name = "check_coremark",
+    srcs = ["check_coremark.py"],
+    main = "check_coremark.py",
+)
+
+py_binary(
+    name = "cm_per_mhz",
+    srcs = ["cm_per_mhz.py"],
+    main = "cm_per_mhz.py",
+)

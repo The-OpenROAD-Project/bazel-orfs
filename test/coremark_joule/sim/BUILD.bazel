@@ -1,0 +1,97 @@
+# The Verilator harness: one simulator binary per core.
+#
+# The program is a run-time plusarg rather than a build input, so the
+# same binary runs both the two- and three-iteration images. That is
+# what keeps the gate-level simulators -- the expensive ones -- built
+# once per stage rather than once per program.
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
+load(
+    "//test/coremark_joule/sim:run.bzl",
+    "coremark_crc_test",
+    "coremark_hex",
+    "coremark_per_mhz",
+    "coremark_run",
+)
+
+package(default_visibility = ["//test/coremark_joule:__subpackages__"])
+
+# -O2, not -Os: the generated simulator is large and the difference is
+# simulation throughput, which decides whether a SERV CoreMark iteration
+# is minutes or an hour.
+_SIM_COPTS = [
+    "-O2",
+    "-Wno-all",
+]
+
+_SIM_VOPTS = [
+    "-Wno-WIDTH",
+    "-Wno-UNOPTFLAT",
+    "-Wno-CASEINCOMPLETE",
+    "-Wno-TIMESCALEMOD",
+]
+
+verilator_cc_library(
+    name = "cm_soc_picorv32_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/rtl:cm_soc_picorv32",
+    module_top = "cm_soc",
+    # No waveform: this build measures cycles and checks CRCs. The SAIF
+    # capture is a separate, gate-level configuration.
+    trace_mode = "none",
+    vopts = _SIM_VOPTS,
+)
+
+cc_binary(
+    name = "cm_sim_picorv32",
+    srcs = ["main.cc"],
+    tags = ["manual"],
+    deps = [":cm_soc_picorv32_lib"],
+)
+
+# The picorv32 measurement, end to end: image, run, CRC gate, CoreMark/MHz.
+#
+# rv32im is picorv32's native ISA here (ENABLE_MUL/ENABLE_DIV are set in
+# the wrapper). The rv32i pair exists as the common point across all
+# three cores, where SERV -- which has no M extension -- can be compared
+# against the same instruction stream.
+[
+    [
+        coremark_hex(
+            name = "picorv32_{}_{}_hex".format(march, iterations),
+            elf = "//test/coremark_joule/sw:coremark_{}_{}".format(march, iterations),
+        ),
+        coremark_run(
+            name = "picorv32_{}_{}".format(march, iterations),
+            image = ":picorv32_{}_{}_hex".format(march, iterations),
+            sim = ":cm_sim_picorv32",
+        ),
+    ]
+    for march in [
+        "rv32i",
+        "rv32im",
+    ]
+    for iterations in [
+        2,
+        3,
+    ]
+]
+
+[
+    [
+        coremark_crc_test(
+            name = "picorv32_{}_crc_test".format(march),
+            run = "picorv32_{}_3".format(march),
+            tags = ["manual"],
+        ),
+        coremark_per_mhz(
+            name = "picorv32_{}_per_mhz".format(march),
+            run_2 = "picorv32_{}_2".format(march),
+            run_3 = "picorv32_{}_3".format(march),
+        ),
+    ]
+    for march in [
+        "rv32i",
+        "rv32im",
+    ]
+]

@@ -51,9 +51,7 @@ def read_sections(path):
     if blob[:4] != _ELF_MAGIC:
         raise ElfError("{}: not an ELF file".format(path))
     if blob[4] != _ELFCLASS32 or blob[5] != _ELFDATA2LSB:
-        raise ElfError(
-            "{}: only 32-bit little-endian ELF is supported".format(path)
-        )
+        raise ElfError("{}: only 32-bit little-endian ELF is supported".format(path))
 
     headers = list(_sections(blob))
     _, str_off, str_size = headers[-1]

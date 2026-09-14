@@ -1,0 +1,22 @@
+# The simulation wrappers: RAM, the sim-control device, and one bus
+# adapter per core. Only the core instance inside is ever hardened.
+#
+# Every wrapper declares its top module as `cm_soc`, so one harness
+# source (//test/coremark_joule/sim:main.cc) serves all three cores and
+# the file name is what selects which one is built.
+load("@rules_verilog//verilog:defs.bzl", "verilog_library")
+
+package(default_visibility = ["//test/coremark_joule:__subpackages__"])
+
+exports_files(["picorv32.BUILD.bazel"])
+
+verilog_library(
+    name = "picorv32",
+    srcs = ["@picorv32//:rtl"],
+)
+
+verilog_library(
+    name = "cm_soc_picorv32",
+    srcs = ["cm_soc_picorv32.v"],
+    deps = [":picorv32"],
+)
