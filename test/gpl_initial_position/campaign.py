@@ -333,6 +333,49 @@ def run_sample(
     return out_json
 
 
+def reharvest(design_root, platform, design, arm, seed, out_dir):
+    """Re-read an already-run sample's logs without re-running it.
+
+    The parsers outlive the runs. A gap found after a campaign -- an
+    endpoint that turned out to live in a log rather than in the metrics
+    JSON, say -- must not cost hours of flow time to close on samples
+    already on disk. The `run` block is carried over unchanged, so a
+    re-harvested sample still says what it was run with.
+
+    Args:
+        design_root: from find_design_root().
+        platform, design, arm, seed: identity.
+        out_dir: where the sample JSON lives.
+
+    Returns:
+        The path, or None when there is nothing on disk to re-read.
+    """
+    variant = "%s_s%d" % (arm, seed)
+    out_json = os.path.join(out_dir, "%s_%s_%s.json" % (platform, design, variant))
+    if not os.path.exists(out_json):
+        return None
+    with open(out_json) as handle:
+        previous = json.load(handle)
+    name = results_name(design_root, platform)
+    results_dir = os.path.join(design_root, "results", platform, name, variant)
+    logs_dir = os.path.join(design_root, "logs", platform, name, variant)
+    record = harvest.harvest(
+        logs_dir,
+        results_dir,
+        clock_from_frozen_sdc(results_dir),
+        platform=platform,
+        design=design,
+        arm=arm,
+        seed=seed,
+        variant=variant,
+    )
+    record["run"] = previous.get("run", {})
+    with open(out_json, "w") as handle:
+        json.dump(record, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+    return out_json
+
+
 def parse_seeds(text):
     """Expand a seed specification.
 
@@ -385,6 +428,12 @@ def main(argv=None):
     parser.add_argument("--max-loadavg", type=float, default=2.0)
     parser.add_argument("--cpu-list", default=None, help="taskset -c list")
     parser.add_argument("--out-dir", required=True)
+    parser.add_argument(
+        "--reharvest",
+        action="store_true",
+        help="re-read the logs of samples already on disk and rewrite "
+        "their JSON; runs nothing",
+    )
     args = parser.parse_args(argv)
 
     arms = [name.strip() for name in args.arms.split(",") if name.strip()]
@@ -405,6 +454,16 @@ def main(argv=None):
         for arm in arms
         for seed in (stochastic if arm in STOCHASTIC_ARMS else seeds)
     ]
+
+    if args.reharvest:
+        done = 0
+        for arm, seed in work:
+            if reharvest(
+                design_root, args.platform, args.design, arm, seed, args.out_dir
+            ):
+                done += 1
+        print("re-harvested %d samples in %s" % (done, args.out_dir))
+        return 0
 
     jobs = 1 if args.serial else args.jobs
     done = 0

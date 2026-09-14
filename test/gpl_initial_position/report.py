@@ -41,7 +41,8 @@ ENDPOINTS = [
     ("min_period_wns", "min_period = clk - WNS", True),
     ("setup_tns", "setup TNS at grt", False),
     ("wirelength", "global-route wirelength", True),
-    ("grt_overflow", "global-route overflow", True),
+    ("grt_usage_pct", "global-route usage %", True),
+    ("grt_max_layer_usage_pct", "global-route worst layer %", True),
 ]
 
 

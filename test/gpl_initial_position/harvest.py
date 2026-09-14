@@ -42,6 +42,7 @@ import re
 import sys
 
 import gpl_progress
+import grt_congestion
 import initial_place
 
 # ORFS's own per-step runtime line. Recorded always; quoted only for
@@ -165,7 +166,6 @@ def harvest(logs_dir, results_dir, clk_period, **identity):
             "setup_tns": grt.get("globalroute__timing__setup__tns"),
             "hold_ws": grt.get("globalroute__timing__hold__ws"),
             "wirelength": grt.get("globalroute__global_route__wirelength"),
-            "grt_overflow": grt.get("globalroute__route__overflow__total"),
             "drc": grt.get("globalroute__design__violations"),
             "place_area": place.get("detailedplace__design__instance__area"),
             "place_instances": place.get(
@@ -202,6 +202,19 @@ def harvest(logs_dir, results_dir, clk_period, **identity):
     record["arm_witnessed"] = (
         initial_place.witnessed_arm(place_log) if place_log else None
     )
+
+    # Congestion lives only in the log: ORFS writes 82 globalroute__*
+    # metrics and not one of them is a congestion number. See
+    # grt_congestion.py for why this study refuses to drop the endpoint.
+    grt_log = _read(os.path.join(logs_dir, "5_1_grt.log"))
+    congestion = grt_congestion.summarize(grt_log) if grt_log else None
+    record["congestion"] = congestion
+    record["grt_usage_pct"] = congestion["total_usage_pct"] if congestion else None
+    record["grt_overflow"] = congestion["total_overflow"] if congestion else None
+    record["grt_max_layer_usage_pct"] = (
+        congestion["max_layer_usage_pct"] if congestion else None
+    )
+    record["grt_congested"] = congestion["congested"] if congestion else None
 
     runtimes = {}
     for step in TAIL_STEPS:
