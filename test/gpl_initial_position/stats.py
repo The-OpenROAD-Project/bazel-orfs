@@ -266,6 +266,12 @@ def verdict(comparisons, arms, target=0.01):
         # of a number that cannot support it -- so the label says what
         # is actually wrong instead.
         label = "underpowered"
+    elif min(pooled["up"], pooled["down"]) >= required:
+        # Both directions clear the bar. That is not a weak finding, it
+        # is a different finding -- a real effect whose sign depends on
+        # the design -- and collapsing it into the majority direction
+        # would report a universal law where the data shows a split.
+        label = "inconsistent"
     elif pooled["agree"] >= required and pooled["direction"] != 0:
         label = "better" if pooled["direction"] < 0 else "worse"
     elif pooled["resolved"] >= required:

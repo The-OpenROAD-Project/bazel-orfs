@@ -154,6 +154,21 @@ class VerdictTest(unittest.TestCase):
         self.assertFalse(out["underpowered"])
         self.assertEqual(out["label"], "better")
 
+    def test_both_directions_clearing_the_bar_is_inconsistent(self):
+        # Six designs better and four worse is not a "better" arm. It is
+        # a real effect whose sign depends on the design, and reporting
+        # the majority direction would claim a universal law.
+        out = stats.verdict(self._rows([-1] * 6 + [1] * 4 + [0] * 2), arms=8)
+        self.assertEqual(out["label"], "inconsistent")
+
+    def test_a_minority_below_the_bar_does_not_block_a_finding(self):
+        # Three opposing designs is below the evidence threshold, so the
+        # arm still reads as better -- but the count is surfaced.
+        out = stats.verdict(self._rows([-1] * 6 + [1] * 3 + [0] * 3), arms=8)
+        self.assertEqual(out["label"], "better")
+        self.assertEqual(out["up"], 3)
+        self.assertEqual(out["down"], 6)
+
     def test_sign_convention_is_lower_is_better(self):
         out = stats.verdict(self._rows([1] * 6 + [0] * 6), arms=8)
         self.assertEqual(out["label"], "worse")

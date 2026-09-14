@@ -473,7 +473,14 @@ def summary_table(samples):
             word = out["label"]
             if not lower and word in ("better", "worse"):
                 word = "worse" if word == "better" else "better"
-            verdicts[(arm, label)] = "%s %d/%d" % (word, out["agree"], out["designs"])
+            opposed = min(out["up"], out["down"])
+            cell = "%s %d/%d" % (word, out["agree"], out["designs"])
+            if opposed:
+                # An arm that wins on six designs while losing on three
+                # is not the same claim as one that wins on six and
+                # loses on none, and the cell must not read as if it is.
+                cell += ", %d opposed" % opposed
+            verdicts[(arm, label)] = cell
     if not verdicts:
         return section_not_measured(
             "Summary: does the starting distribution matter?",
