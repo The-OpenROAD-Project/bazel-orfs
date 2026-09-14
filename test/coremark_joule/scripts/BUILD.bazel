@@ -1,0 +1,8 @@
+# Parsers and checks for the study. Plain files: the tests that use them
+# live next to the artefacts they read.
+package(default_visibility = ["//test/coremark_joule:__subpackages__"])
+
+exports_files([
+    "elf_sections.py",
+    "iteration_delta_test.py",
+])

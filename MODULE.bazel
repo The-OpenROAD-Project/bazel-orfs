@@ -359,3 +359,55 @@ orfs_designs(
     dev_dependency = True,
     platforms = ["asap7"],
 )
+
+# --- //test/coremark_joule: the CoreMark-per-Joule study -------------------
+#
+# Everything below belongs to one study under test/, which is never
+# shipped (see public_surface.py), so all of it is dev-only: a consumer
+# of bazel-orfs must never resolve a RISC-V toolchain or a CPU core to
+# build a flow.
+#
+# The RTL is fetched, never vendored: an http_archive pinned by sha256
+# plus a small BUILD overlay in this repository. That is the pattern the
+# retired gallery/ workspace used for every core it hardened.
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+# xPack's bare-metal RISC-V GCC. Chosen over a hermetic LLVM because the
+# rv32i multilib ships libgcc, and on a core without the M extension
+# __mulsi3 is on CoreMark's hot path -- a hand-written replacement would
+# make SERV's score a measurement of our shift-add loop rather than of
+# SERV. The BCR "llvm" module cannot stand in: its RISC-V support is
+# riscv64 Linux, hard-wired to rv64gc.
+http_archive(
+    name = "riscv_none_elf_gcc",
+    build_file = "//test/coremark_joule/sw:toolchain.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "52545afb900200fbf65fe05f7ce7090b8a42c64091f4f5d43cae6bb68ea2434a",
+    strip_prefix = "xpack-riscv-none-elf-gcc-13.2.0-2",
+    urls = ["https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/download/v13.2.0-2/xpack-riscv-none-elf-gcc-13.2.0-2-linux-x64.tar.gz"],
+)
+
+# CoreMark, unmodified. The platform lives entirely in
+# //test/coremark_joule/sw/port, which is the porting surface CoreMark
+# documents; its Acceptable Use Agreement forbids naming the trademark
+# in connection with a modified copy of the Software.
+http_archive(
+    name = "coremark",
+    build_file = "//test/coremark_joule/sw:coremark.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "4067e7f260218df13f2875d8f821a8ff32a84153c6e0759d7c89f96c0a8bf987",
+    strip_prefix = "coremark-1f483d5b8316753a742cbf5590caf5bd0a4e4777",
+    urls = ["https://github.com/eembc/coremark/archive/1f483d5b8316753a742cbf5590caf5bd0a4e4777.tar.gz"],
+)
+
+# picorv32, from upstream rather than from ORFS: ORFS carries no
+# picorv32 at all, and its ibex_sv is a pruned snapshot of a 2019
+# lowRISC commit whose top module is not even upstream's ibex_top.
+http_archive(
+    name = "picorv32",
+    build_file = "//test/coremark_joule/rtl:picorv32.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "e19413edc589a9022eb96a8c436170ea5019236bb897ac9eb7813899920ea70c",
+    strip_prefix = "picorv32-87c89acc18994c8cf9a2311e871818e87d304568",
+    urls = ["https://github.com/YosysHQ/picorv32/archive/87c89acc18994c8cf9a2311e871818e87d304568.tar.gz"],
+)
