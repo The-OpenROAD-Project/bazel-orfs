@@ -57,6 +57,16 @@ def visits(record, step):
         kind = got["repair"][call_index]["kind"]
         for e in ends:
             v = dict(e)
+            if isinstance(v.get("imp"), str):
+                # A record written by a reader older than the field: parse here.
+                v["imp"] = (
+                    []
+                    if v["imp"] == "-"
+                    else [
+                        (int(a), float(b))
+                        for a, b in (item.split(":") for item in v["imp"].split(","))
+                    ]
+                )
             v["call"] = call_index
             v["kind"] = kind
             v["gain"] = e["tns_out"] - e["tns_in"]
@@ -331,14 +341,28 @@ def spearman(xs, ys):
 def predictors(vs):
     """Rank correlation of a visit's gain with what is known before it starts."""
     gains = [v["gain"] for v in vs]
-    return {
+    out = {
         "entry slack (more negative first)": spearman(
             [-v["slack_in"] for v in vs], gains
         ),
         "sweep position (earlier first)": spearman([-v["idx"] for v in vs], gains),
         "path depth (deeper first)": spearman([v["depth"] for v in vs], gains),
-        "candidates generated in the visit": spearman([v["cand"] for v in vs], gains),
     }
+    # The v3 trace's analytical estimates, known before the visit.
+    if vs and all("est_sum" in v for v in vs):
+        out["size-up estimate, path sum"] = spearman([v["est_sum"] for v in vs], gains)
+        out["size-up estimate, best driver"] = spearman(
+            [v["est_max"] for v in vs], gains
+        )
+        out["load delay, path sum"] = spearman([v["ld_sum"] for v in vs], gains)
+        out["load delay, worst driver"] = spearman([v["ld_max"] for v in vs], gains)
+        out["estimate x entry violation"] = spearman(
+            [v["est_sum"] * max(0.0, -v["slack_in"]) for v in vs], gains
+        )
+    out["candidates generated in the visit (known only after)"] = spearman(
+        [v["cand"] for v in vs], gains
+    )
+    return out
 
 
 def report(design, step, vs):
