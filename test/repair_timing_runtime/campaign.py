@@ -511,6 +511,10 @@ def collect(deploy_dir, stage, threads, overrides):
         calls = repair.parse_log(text)
         got["repair"] = repair.summarize(calls)
         got["repair_rows"] = [c["rows"] for c in calls]
+        # The yield study's per-endpoint trace (patches/0078), when the
+        # binary carries it; empty lists otherwise.
+        got["repair_endpoints"] = [c["endpoints"] for c in calls]
+        got["repair_endpoint_dist"] = [c["endpoint_dist"] for c in calls]
         check_witness(step, got["repair"], overrides)
 
         got["result_sha1_log"] = got.get("result_sha1")

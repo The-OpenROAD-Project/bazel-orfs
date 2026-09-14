@@ -1,0 +1,404 @@
+rsz: trace every endpoint visit of the setup sweep, for the repair-yield study
+
+Study instrumentation from the repair-knobs campaign
+(ideas/repair-knobs-nihl.md, Phase 0 of the yield study). Not upstreamed;
+carried while the campaign runs. It changes no result: every query it
+adds is one the next pass would have made anyway or is read-only.
+
+One [RSZ-ENDPOINTS] line per phase start with twenty-one quantiles of the
+violating endpoint slacks, and one [RSZ-ENDPOINT] line per endpoint
+visited by the LEGACY or LAST_GASP sweep: its index in the sweep, the
+pass it started at, the passes and seconds it took, the endpoint slack,
+the WNS and the TNS before and after, the pass of its first and last
+improvement, the depth of its worst path, candidates, attempts and
+accepted moves, the net moves committed by type, and why the visit
+ended (closed, no_change, stuck, terminate, rejected, over_area,
+max_iter, max_passes).
+
+The question it answers: which endpoints pay, in what order the sweep
+reaches them, and what they cost -- whether a yield-ordered sweep is
+possible and which endpoints defeat a stopping rule. The wall of an arm
+carrying this patch is not to be read; each visit adds a TNS query.
+
+diff --git a/src/rsz/src/policy/SetupLastGaspPolicy.cc b/src/rsz/src/policy/SetupLastGaspPolicy.cc
+index 454cc2758c..7e9fbfc00b 100644
+--- a/src/rsz/src/policy/SetupLastGaspPolicy.cc
++++ b/src/rsz/src/policy/SetupLastGaspPolicy.cc
+@@ -126,6 +126,10 @@ bool SetupLastGaspPolicy::initializeLastGaspRepair(
+   last_gasp_state.prev_tns = curr_tns;
+   last_gasp_state.prev_worst_slack = violating_ends.front().second;
+   last_gasp_state.fix_rate_threshold = inc_fix_rate_threshold_;
++  traceDistribution(violating_ends,
++                    "LAST_GASP",
++                    last_gasp_state.phase_marker,
++                    last_gasp_state.max_end_count);
+ 
+   debugPrint(logger_,
+              RSZ,
+@@ -170,6 +174,12 @@ bool SetupLastGaspPolicy::beginLastGaspEndpoint(
+              last_gasp_state.max_end_count,
+              delayAsString(endpoint_state.end_slack, kDelayDigits, sta_),
+              delayAsString(endpoint_state.worst_slack, kDelayDigits, sta_));
++  traceBegin(endpoint_state,
++             "LAST_GASP",
++             last_gasp_state.phase_marker,
++             last_gasp_state.end_index,
++             last_gasp_state.max_end_count,
++             last_gasp_state.opto_iteration);
+   return true;
+ }
+ 
+@@ -205,6 +215,7 @@ bool SetupLastGaspPolicy::advanceLastGaspProgress(
+         delayAsString(endpoint_state.worst_slack, kDelayDigits, sta_),
+         delayAsString(last_gasp_state.prev_tns, 1, sta_),
+         delayAsString(curr_tns, 1, sta_));
++    endpoint_state.trace_exit = "rejected";
+     restoreEndpointState(endpoint_state);
+     return false;
+   }
+@@ -225,9 +236,11 @@ bool SetupLastGaspPolicy::advanceLastGaspProgress(
+       delayAsString(curr_tns, 1, sta_));
+   last_gasp_state.prev_worst_slack = endpoint_state.worst_slack;
+   last_gasp_state.prev_tns = curr_tns;
++  traceGain(endpoint_state);
+   if (sta::fuzzyGreaterEqual(endpoint_state.end_slack,
+                              config_.setup_slack_margin)) {
+     --last_gasp_state.num_viols;
++    endpoint_state.trace_exit = "closed";
+     acceptEndpointState(endpoint_state);
+     return false;
+   }
+@@ -252,6 +265,7 @@ void SetupLastGaspPolicy::repairLastGaspEndpoint(
+                           last_gasp_state.phase_marker)) {
+       recordTermination(last_gasp_state.prev_termination,
+                         last_gasp_state.two_cons_terminations);
++      endpoint_state.trace_exit = "terminate";
+       acceptEndpointState(endpoint_state);
+       break;
+     }
+@@ -265,6 +279,7 @@ void SetupLastGaspPolicy::repairLastGaspEndpoint(
+     if (sta::fuzzyGreaterEqual(endpoint_state.end_slack,
+                                config_.setup_slack_margin)) {
+       --last_gasp_state.num_viols;
++      endpoint_state.trace_exit = "closed";
+       acceptEndpointState(endpoint_state);
+       break;
+     }
+@@ -283,6 +298,7 @@ void SetupLastGaspPolicy::repairLastGaspEndpoint(
+                            /*force_single_repair=*/false);
+     }
+     if (!changed) {
++      endpoint_state.trace_exit = "no_change";
+       finishEndpointSearch(endpoint_state);
+       break;
+     }
+@@ -304,6 +320,7 @@ void SetupLastGaspPolicy::repairLastGaspEndpoint(
+     }
+ 
+     if (resizer_.overMaxArea()) {
++      endpoint_state.trace_exit = "over_area";
+       acceptEndpointState(endpoint_state);
+       break;
+     }
+@@ -317,12 +334,14 @@ void SetupLastGaspPolicy::repairLastGaspEndpoint(
+     ++endpoint_state.pass;
+     if (reachedIterationLimit(last_gasp_state.opto_iteration,
+                               config_.max_iterations)) {
++      endpoint_state.trace_exit = "max_iter";
+       acceptEndpointState(endpoint_state);
+       break;
+     }
+   }
+ 
+   acceptEndpointState(endpoint_state);
++  traceEnd(endpoint_state, last_gasp_state.opto_iteration);
+ }
+ 
+ bool SetupLastGaspPolicy::shouldStopLastGasp(
+diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
+index 859f085353..89c5d033fb 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.cc
++++ b/src/rsz/src/policy/SetupLegacyBase.cc
+@@ -976,6 +976,129 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
+   return false;
+ }
+ 
++void SetupLegacyBase::traceDistribution(const ViolatingEnds& violating_ends,
++                                        const std::string_view phase_name,
++                                        const char phase_marker,
++                                        const int max_end_count) const
++{
++  // Twenty-one quantiles of the violating endpoint slacks at phase start,
++  // worst first, so the shape of the histogram is on record for every
++  // phase without printing every endpoint.
++  std::string quantiles;
++  const size_t n = violating_ends.size();
++  if (n > 0) {
++    for (int q = 0; q <= 20; ++q) {
++      const size_t i = std::min(n - 1, (n - 1) * q / 20);
++      quantiles += fmt::format(
++          " q{:02d}={}", q * 5, delayAsString(violating_ends[i].second, 3, sta_));
++    }
++  }
++  logger_->report("[RSZ-ENDPOINTS] phase={}{} n={} max_end={}{}",
++                  phase_name,
++                  phase_marker,
++                  n,
++                  max_end_count,
++                  quantiles);
++}
++
++void SetupLegacyBase::traceBegin(EndpointRepairState& endpoint_state,
++                                 const std::string_view phase_name,
++                                 const char phase_marker,
++                                 const int end_index,
++                                 const int max_end_count,
++                                 const int opto_iteration)
++{
++  const RepairProfile& p = setup_context_.profile;
++  endpoint_state.trace_phase = std::string(phase_name);
++  endpoint_state.trace_marker = phase_marker;
++  endpoint_state.trace_index = end_index;
++  endpoint_state.trace_count = max_end_count;
++  endpoint_state.trace_pass0 = opto_iteration;
++  endpoint_state.trace_slack_in = endpoint_state.end_slack;
++  endpoint_state.trace_wns_in = endpoint_state.worst_slack;
++  endpoint_state.trace_tns_in = sta_->totalNegativeSlack(max_);
++  endpoint_state.trace_passes0 = p.passes;
++  endpoint_state.trace_candidates0 = p.candidates;
++  endpoint_state.trace_attempts0 = p.attempts;
++  endpoint_state.trace_accepted0 = p.accepted;
++  for (size_t t = 0; t < endpoint_state.trace_moves0.size(); ++t) {
++    endpoint_state.trace_moves0[t] = totalMoves(static_cast<MoveType>(t));
++  }
++  endpoint_state.trace_first_gain = 0;
++  endpoint_state.trace_last_gain = 0;
++  endpoint_state.trace_depth = 0;
++  if (sta::Path* path = sta_->vertexWorstSlackPath(endpoint_state.end, max_)) {
++    sta::PathExpanded expanded(path, sta_);
++    endpoint_state.trace_depth = static_cast<int>(expanded.size());
++  }
++  endpoint_state.trace_exit = "max_passes";
++  endpoint_state.trace_t0 = std::chrono::steady_clock::now();
++}
++
++void SetupLegacyBase::traceGain(EndpointRepairState& endpoint_state) const
++{
++  if (endpoint_state.trace_first_gain == 0) {
++    endpoint_state.trace_first_gain = endpoint_state.pass;
++  }
++  endpoint_state.trace_last_gain = endpoint_state.pass;
++}
++
++void SetupLegacyBase::traceEnd(EndpointRepairState& endpoint_state,
++                               const int opto_iteration)
++{
++  const RepairProfile& p = setup_context_.profile;
++  const double seconds
++      = std::chrono::duration<double>(std::chrono::steady_clock::now()
++                                      - endpoint_state.trace_t0)
++            .count();
++  // After a journal restore the timing is whatever the restore left; the
++  // next endpoint's first query would update it anyway. TNS updates the
++  // required times, then the endpoint's own slack and the WNS are read.
++  const float tns_out = sta_->totalNegativeSlack(max_);
++  const sta::Slack slack_out = sta_->slack(endpoint_state.end, max_);
++  sta::Slack wns_out;
++  sta::Vertex* worst_vertex = nullptr;
++  sta_->worstSlack(max_, wns_out, worst_vertex);
++  std::string moves;
++  static constexpr const char* kShort[]
++      = {"buf", "clone", "sizeup", "sizeupm", "sizedn", "swap", "vt",
++         "unbuf", "split", "reroute"};
++  for (size_t t = 0; t < endpoint_state.trace_moves0.size(); ++t) {
++    moves += fmt::format(" {}={}",
++                         kShort[t],
++                         totalMoves(static_cast<MoveType>(t))
++                             - endpoint_state.trace_moves0[t]);
++  }
++  logger_->report(
++      "[RSZ-ENDPOINT] phase={}{} idx={}/{} pass0={} pass1={} passes={} "
++      "s={:.3f} slack_in={} slack_out={} wns_in={} wns_out={} tns_in={} "
++      "tns_out={} gain1={} gainN={} depth={} cand={} att={} acc={}{} "
++      "exit={} end={}",
++      endpoint_state.trace_phase,
++      endpoint_state.trace_marker,
++      endpoint_state.trace_index,
++      endpoint_state.trace_count,
++      endpoint_state.trace_pass0,
++      opto_iteration,
++      p.passes - endpoint_state.trace_passes0,
++      seconds,
++      delayAsString(endpoint_state.trace_slack_in, 3, sta_),
++      delayAsString(slack_out, 3, sta_),
++      delayAsString(endpoint_state.trace_wns_in, 3, sta_),
++      delayAsString(wns_out, 3, sta_),
++      delayAsString(endpoint_state.trace_tns_in, 1, sta_),
++      delayAsString(tns_out, 1, sta_),
++      endpoint_state.trace_first_gain,
++      endpoint_state.trace_last_gain,
++      endpoint_state.trace_depth,
++      p.candidates - endpoint_state.trace_candidates0,
++      p.attempts - endpoint_state.trace_attempts0,
++      p.accepted - endpoint_state.trace_accepted0,
++      moves,
++      endpoint_state.trace_exit,
++      network_->pathName(endpoint_state.end->pin()));
++}
++
+ void SetupLegacyBase::reportProfile(const std::string_view phase_name,
+                                     const char phase_marker) const
+ {
+diff --git a/src/rsz/src/policy/SetupLegacyBase.hh b/src/rsz/src/policy/SetupLegacyBase.hh
+index 78aa495806..eaf3d8f9b7 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.hh
++++ b/src/rsz/src/policy/SetupLegacyBase.hh
+@@ -3,6 +3,8 @@
+ 
+ #pragma once
+ 
++#include <array>
++#include <chrono>
+ #include <map>
+ #include <optional>
+ #include <set>
+@@ -89,6 +91,27 @@ class SetupLegacyBase : public OptimizationPolicy
+     int decreasing_slack_passes{0};
+     bool journal_open{false};
+     bool force_single_repair{false};
++    // Study trace (repair-yield): what this endpoint visit cost and bought.
++    // Filled by traceBegin/traceGain, printed by traceEnd as one
++    // [RSZ-ENDPOINT] line. Read-only queries; no result changes.
++    std::string trace_phase;
++    char trace_marker{'*'};
++    int trace_index{0};
++    int trace_count{0};
++    int trace_pass0{0};
++    sta::Slack trace_slack_in{0.0};
++    sta::Slack trace_wns_in{0.0};
++    float trace_tns_in{0.0f};
++    long trace_passes0{0};
++    long trace_candidates0{0};
++    long trace_attempts0{0};
++    long trace_accepted0{0};
++    std::array<int, static_cast<size_t>(MoveType::kCount)> trace_moves0{};
++    int trace_first_gain{0};
++    int trace_last_gain{0};
++    int trace_depth{0};
++    std::chrono::steady_clock::time_point trace_t0;
++    const char* trace_exit{"max_passes"};
+   };
+ 
+   // === Run setup ============================================================
+@@ -118,6 +141,20 @@ class SetupLegacyBase : public OptimizationPolicy
+   void saveImprovedCheckpoint(EndpointRepairState& endpoint_state);
+   void refreshEndpointSlacks(EndpointRepairState& endpoint_state);
+ 
++  // === Study trace (repair-yield) ==========================================
++  void traceDistribution(const ViolatingEnds& violating_ends,
++                         std::string_view phase_name,
++                         char phase_marker,
++                         int max_end_count) const;
++  void traceBegin(EndpointRepairState& endpoint_state,
++                  std::string_view phase_name,
++                  char phase_marker,
++                  int end_index,
++                  int max_end_count,
++                  int opto_iteration);
++  void traceGain(EndpointRepairState& endpoint_state) const;
++  void traceEnd(EndpointRepairState& endpoint_state, int opto_iteration);
++
+   bool reachedIterationLimit(int iteration, int max_iterations) const;
+ 
+   // === Target construction and path repair =================================
+diff --git a/src/rsz/src/policy/SetupLegacyPolicy.cc b/src/rsz/src/policy/SetupLegacyPolicy.cc
+index bd722c0087..4964886814 100644
+--- a/src/rsz/src/policy/SetupLegacyPolicy.cc
++++ b/src/rsz/src/policy/SetupLegacyPolicy.cc
+@@ -106,6 +106,10 @@ bool SetupLegacyPolicy::initializeMainRepair(MainRepairState& main_state,
+   main_state.prev_tns = main_state.initial_tns;
+   main_state.num_viols = violating_ends.size();
+   main_state.fix_rate_threshold = inc_fix_rate_threshold_;
++  traceDistribution(violating_ends,
++                    phaseName(),
++                    main_state.phase_marker,
++                    main_state.max_end_count);
+ 
+   printProgress(main_state.opto_iteration, false, main_state.phase_marker);
+ 
+@@ -143,6 +147,12 @@ bool SetupLegacyPolicy::beginEndpointRepair(
+ 
+   endpoint_state.prev_end_slack = endpoint_state.end_slack;
+   endpoint_state.prev_worst_slack = endpoint_state.worst_slack;
++  traceBegin(endpoint_state,
++             phaseName(),
++             main_state.phase_marker,
++             main_state.end_index,
++             main_state.max_end_count,
++             main_state.opto_iteration);
+   return true;
+ }
+ 
+@@ -177,6 +187,7 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
+           main_state.phase_marker,
+           delayAsString(endpoint_state.prev_end_slack, kDelayDigits, sta_),
+           delayAsString(endpoint_state.prev_worst_slack, kDelayDigits, sta_));
++      endpoint_state.trace_exit = "terminate";
+       restoreEndpointState(endpoint_state);
+       break;
+     }
+@@ -197,6 +208,7 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
+                  main_state.phase_marker,
+                  delayAsString(endpoint_state.worst_slack, kDelayDigits, sta_),
+                  delayAsString(setup_slack_margin, kDelayDigits, sta_));
++      endpoint_state.trace_exit = "closed";
+       finishEndpointSearch(endpoint_state);
+       break;
+     }
+@@ -251,6 +263,7 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
+                  phaseName(),
+                  main_state.phase_marker,
+                  endpoint_state.end->name(network_));
++      endpoint_state.trace_exit = "no_change";
+       finishEndpointSearch(endpoint_state);
+       break;
+     }
+@@ -298,6 +311,7 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
+       endpoint_state.prev_end_slack = endpoint_state.end_slack;
+       endpoint_state.prev_worst_slack = endpoint_state.worst_slack;
+       endpoint_state.decreasing_slack_passes = 0;
++      traceGain(endpoint_state);
+       saveImprovedCheckpoint(endpoint_state);
+     } else {
+       endpoint_state.force_single_repair = true;
+@@ -326,6 +340,7 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
+             main_state.phase_marker,
+             delayAsString(endpoint_state.prev_end_slack, kDelayDigits, sta_),
+             delayAsString(endpoint_state.prev_worst_slack, kDelayDigits, sta_));
++        endpoint_state.trace_exit = "stuck";
+         restoreEndpointState(endpoint_state);
+         break;
+       }
+@@ -349,6 +364,7 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
+                  "{}{} Phase: Over max area, exiting",
+                  phaseName(),
+                  main_state.phase_marker);
++      endpoint_state.trace_exit = "over_area";
+       acceptEndpointState(endpoint_state);
+       break;
+     }
+@@ -361,12 +377,14 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
+     ++endpoint_state.pass;
+     if (config_.max_iterations > 0
+         && main_state.opto_iteration >= config_.max_iterations) {
++      endpoint_state.trace_exit = "max_iter";
+       acceptEndpointState(endpoint_state);
+       break;
+     }
+   }
+ 
+   acceptEndpointState(endpoint_state);
++  traceEnd(endpoint_state, main_state.opto_iteration);
+ }
+ 
+ void SetupLegacyPolicy::runMainRepairLoop(const ViolatingEnds& violating_ends,

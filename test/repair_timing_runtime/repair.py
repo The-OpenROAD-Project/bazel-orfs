@@ -67,6 +67,10 @@ _HOLD_BUFFERS = re.compile(_STAMP + r"\[INFO RSZ-0032\] Inserted (\d+) hold buff
 # The study's instrumentation (patches/0066): one key=value line per
 # phase, seconds and counts, printed by the profiled binary only.
 _PROFILE = re.compile(_STAMP + r"\[RSZ-PROFILE\] (.*)$")
+# The yield study's trace (patches/0078): one line per endpoint visit of
+# the setup sweep, and one per phase start with the slack quantiles.
+_ENDPOINT = re.compile(_STAMP + r"\[RSZ-ENDPOINT\] (.*)$")
+_ENDPOINTS = re.compile(_STAMP + r"\[RSZ-ENDPOINTS\] (.*)$")
 
 # Which RSZ runtime line belongs to which command.
 RUNTIME_OWNER = {
@@ -116,6 +120,10 @@ def parse_log(text):
                      area_pct, wns, st_tns, en_tns, viol_endpoints, t_s
         unrepaired   RSZ-0062 seen
         hold_buffers int or 0; None if hold did not run
+        profile      {phase: {key: number}} from the 0066 [RSZ-PROFILE] lines
+        endpoints    one dict per [RSZ-ENDPOINT] line (0078), in sweep order,
+                     numbers parsed; `end` and `exit` and `phase` are strings
+        endpoint_dist {phase: {"n": int, "max_end": int, "q": [21 slacks]}}
     """
     calls = []
     current = None
@@ -135,6 +143,8 @@ def parse_log(text):
                 "unrepaired": False,
                 "hold_buffers": None,
                 "profile": {},
+                "endpoints": [],
+                "endpoint_dist": {},
             }
             calls.append(current)
             continue
@@ -195,7 +205,47 @@ def parse_log(text):
             current["profile"][phase] = {
                 k: (float(v) if "." in v else int(v)) for k, v in fields.items()
             }
+            continue
+        m = _ENDPOINT.match(line)
+        if m:
+            current["endpoints"].append(_endpoint_fields(m.group(2)))
+            continue
+        m = _ENDPOINTS.match(line)
+        if m:
+            fields = dict(kv.split("=", 1) for kv in m.group(2).split())
+            phase = fields.pop("phase", "?")
+            current["endpoint_dist"][phase] = {
+                "n": int(fields["n"]),
+                "max_end": int(fields["max_end"]),
+                "q": [float(fields["q{:02d}".format(q * 5)]) for q in range(21)],
+            }
     return calls
+
+
+def _number(value):
+    try:
+        return int(value)
+    except ValueError:
+        try:
+            return float(value)
+        except ValueError:
+            return value
+
+
+def _endpoint_fields(text):
+    """One [RSZ-ENDPOINT] line as a dict; idx=a/b becomes idx and of."""
+    out = {}
+    for kv in text.split():
+        key, value = kv.split("=", 1)
+        if key == "idx":
+            a, b = value.split("/")
+            out["idx"] = int(a)
+            out["of"] = int(b)
+        elif key in ("phase", "exit", "end"):
+            out[key] = value
+        else:
+            out[key] = _number(value)
+    return out
 
 
 def useful_prefix(rows, eps_wns_ps=0.5, eps_tns_rel=1e-4):

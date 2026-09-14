@@ -121,6 +121,42 @@ class Unstamped(unittest.TestCase):
     def test_an_unprofiled_log_has_an_empty_profile(self):
         self.assertEqual(repair.parse_log(STAMPED_GRT)[1]["profile"], {})
 
+    def test_endpoint_trace_lines_ride_with_the_call(self):
+        """The 0078 trace: one dict per visit, quantiles per phase."""
+        text = (
+            "repair_timing -setup_margin 0 -hold_margin 0 -repair_tns 100 -verbose\n"
+            "[RSZ-ENDPOINTS] phase=LEGACY* n=3 max_end=3"
+            + "".join(" q{:02d}=-{}.0".format(q * 5, 30 - q) for q in range(21))
+            + "\n"
+            "[RSZ-ENDPOINT] phase=LEGACY* idx=1/3 pass0=0 pass1=7 passes=7 s=0.412"
+            " slack_in=-30.000 slack_out=-12.500 wns_in=-30.000 wns_out=-29.000"
+            " tns_in=-61.0 tns_out=-40.5 gain1=2 gainN=5 depth=14 cand=40 att=12 acc=3"
+            " buf=1 clone=0 sizeup=2 sizeupm=0 sizedn=0 swap=0 vt=0 unbuf=0 split=0"
+            " reroute=0 exit=stuck end=core/u_x/q\n"
+            "[RSZ-ENDPOINT] phase=LEGACY* idx=2/3 pass0=7 pass1=8 passes=1 s=0.020"
+            " slack_in=-20.000 slack_out=-20.000 wns_in=-29.000 wns_out=-29.000"
+            " tns_in=-40.5 tns_out=-40.5 gain1=0 gainN=0 depth=9 cand=3 att=0 acc=0"
+            " buf=0 clone=0 sizeup=0 sizeupm=0 sizedn=0 swap=0 vt=0 unbuf=0 split=0"
+            " reroute=0 exit=no_change end=core/u_y/q\n"
+            "[INFO RSZ-0505] Runtime: 1.00s\n"
+            "Took 1 seconds: repair_timing -setup_margin 0 -hold_margin 0 -repair_tns 100 -verbose\n"
+        )
+        call = repair.parse_log(text)[0]
+        self.assertEqual(len(call["endpoints"]), 2)
+        first = call["endpoints"][0]
+        self.assertEqual((first["idx"], first["of"], first["passes"]), (1, 3, 7))
+        self.assertEqual(first["exit"], "stuck")
+        self.assertEqual(first["end"], "core/u_x/q")
+        self.assertAlmostEqual(first["slack_out"] - first["slack_in"], 17.5)
+        self.assertEqual(first["sizeup"], 2)
+        self.assertEqual(call["endpoints"][1]["gain1"], 0)
+        dist = call["endpoint_dist"]["LEGACY*"]
+        self.assertEqual((dist["n"], dist["max_end"], len(dist["q"])), (3, 3, 21))
+        self.assertEqual(dist["q"][0], -30.0)
+
+    def test_an_untraced_log_has_no_endpoints(self):
+        self.assertEqual(repair.parse_log(STAMPED_GRT)[1]["endpoints"], [])
+
     def test_summary_counts_iterations_not_rows(self):
         got = repair.summarize(self.calls)[0]
         self.assertEqual(got["iterations"], 1206)

@@ -137,7 +137,69 @@ design is a result, not a caveat.
 - ORFS mop-up later, one PR deleting the pinned `TNS_END_PERCENT` and
   `SKIP_*` lines, once the OpenROAD side has landed.
 
+## Third study: yield order first, then the knobs (approved 2026-09-14)
+
+#982 settled that no rule reading the trajectory of the worst-first sweep
+dominates the default: return per pass is heavy-tailed because the sweep
+is ordered by slack (importance), not by what an endpoint will pay
+(yield). The literature never orders work that way: TILOS picks moves by
+sensitivity, Lagrangian sizers by multipliers that carry every endpoint's
+criticality, Held by a cheap global pass before local search, and all of
+them stop on convergence of a monotone objective. So the third study
+changes what is swept before it asks when to stop. Branch
+`study/repair-yield`, forked from `study/repair-policy`.
+
+The deliverable is one closed bazel-orfs study PR carrying all data, from
+which one OpenROAD PR per knob is split, each with a TL;DR of the
+situation today, the problem, and the fix, referring to the study.
+
+1. **Phase 0, diagnosis** (patch 0078, instrumentation only): one line
+   per endpoint visit with entry and exit slack, WNS and TNS, passes,
+   seconds, first and last improving pass, path depth, candidates,
+   attempts, accepted and net moves by type, and the exit reason; one
+   line per phase with the slack quantiles. Full flow on the four
+   designs that defeated every policy (mock-alu, jpeg, ibex,
+   sky130hd/riscv32i) plus riscv32i. Questions it answers: are
+   mock-alu's jackpot passes endpoints that gained late or endpoints
+   reached late; which cts endpoints does an early stop hand to grt on
+   jpeg and sky130hd/riscv32i and what do they cost there; why does
+   ibex's closing endpoint sit 1000 passes in.
+2. **Yield-ordered sweep** (C++ in rsz, one patch): a triage pass
+   estimates each violating endpoint's achievable gain per cost from a
+   cheap local model without committing; the WNS endpoint stays pinned
+   first; the sweep runs in descending estimated yield, re-estimating
+   only endpoints whose fan-in changed. The return curve becomes
+   monotone by construction.
+3. **`TNS_END_PERCENT`: keep the intent and the interface, change the
+   semantics, aim to remove.** The flag stays accepted. Its meaning
+   becomes a quantile of the endpoint slack histogram below the worst
+   endpoint, in units of that histogram's spread, never the clock
+   period, which varies along the flow. With a monotone sweep the
+   natural stop is marginal return, which needs no value; Phase B
+   measures the option honoured under the new semantics and the option
+   ignored, and if ignoring it dominates everywhere the value retires.
+4. **`SKIP_LAST_GASP`**: last gasp prints the same progress rows as the
+   main phase with the estimated remaining yield, and stops itself when
+   that yield is below what a pass costs. Flag accepted, inert.
+5. **`SKIP_GATE_CLONING`**: the clone move gets a real estimate that
+   rejects a clone whose fanout split cannot reach the required slack
+   before any trial commit, so a design with nothing to clone pays one
+   sweep of arithmetic. Flag accepted, inert.
+6. **Suite**: all asap7 and sky130hd designs as the bar demands, plus
+   nangate45, sky130hs, gf180 and ihp-sg13g2 as evidence the policy is
+   not tuned to two platforms; full flow; default against each patch
+   alone and combined; three repeats on movers; verdict.py and the
+   existing noise bands.
+
+Not in scope: any mechanism that carries knowledge between runs (the
+knobs are being removed because they ask the user to do that), and any
+learned policy that needs training runs per design.
+
 ## Decisions log
+
+- 2026-09-14, 12:30: third study approved (this section). Phase 0 runs
+  first and reports before any policy code is written; no compute on
+  items 2 to 5 until its tables are read.
 
 - 2026-09-14, 06:15: closed as bazel-orfs #982, reference only. Verdict:
   no trajectory-based stopping rule dominates the default across the 20
