@@ -197,6 +197,15 @@ learned policy that needs training runs per design.
 
 ## Decisions log
 
+- 2026-09-15, 01:50: 0083 on all five vehicles: byte-identical, and
+  slower everywhere (phase +1 to +21 s; jpeg floorplan 80 to 102 s, the
+  restore's 4.6 s gone and STA up 13 s). Re-timing lazily at each query
+  after an undo costs more than the one batched findRequireds the
+  restore does today: the explicit update is the right design, not a
+  redundancy. Refuted; kept as the measurement that clears the restore
+  path of both suspects. What a journal restore costs is the undo and
+  one incremental re-time, and neither is waste.
+
 - 2026-09-15, 01:00: 0083 on mock-alu: byte-identical ODB, restore
   seconds 4.2 to 0.1 in cts, and the phase not a second faster (47.4 to
   48.4 s). Dropping the explicit findRequireds from the restore moves
