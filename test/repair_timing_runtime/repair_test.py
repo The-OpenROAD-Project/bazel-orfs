@@ -116,7 +116,9 @@ class Unstamped(unittest.TestCase):
         self.assertEqual(sorted(prof), ["LAST_GASP+", "LEGACY*"])
         self.assertEqual(prof["LEGACY*"]["sta_s"], 250.0)
         self.assertEqual(prof["LEGACY*"]["candidates"], 5000)
-        self.assertEqual(repair.summarize(self.calls)[0]["profile"]["LAST_GASP+"]["passes"], 1206)
+        self.assertEqual(
+            repair.summarize(self.calls)[0]["profile"]["LAST_GASP+"]["passes"], 1206
+        )
 
     def test_an_unprofiled_log_has_an_empty_profile(self):
         self.assertEqual(repair.parse_log(STAMPED_GRT)[1]["profile"], {})

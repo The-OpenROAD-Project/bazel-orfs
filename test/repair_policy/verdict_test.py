@@ -6,7 +6,9 @@ import unittest
 import verdict
 
 
-def record(design, ws, tns, area, wl, drc, walls, sha, power=0.01, period="clk: 1000.0"):
+def record(
+    design, ws, tns, area, wl, drc, walls, sha, power=0.01, period="clk: 1000.0"
+):
     steps = {
         "6_report": {
             "finish__timing__setup__ws": ws,
@@ -22,16 +24,34 @@ def record(design, ws, tns, area, wl, drc, walls, sha, power=0.01, period="clk: 
             "detailedroute__antenna__violating__nets": 0,
         },
     }
-    substeps = {"2_1_floorplan": {"wall_s": walls[0]}, "4_1_cts": {"wall_s": walls[1]},
-                "5_1_grt": {"wall_s": walls[2]}, "_metrics": steps, "_final_sha1": sha}
-    return {"design": design, "stage": "full", "arm": "x", "repeat": 1, "substeps": substeps}
+    substeps = {
+        "2_1_floorplan": {"wall_s": walls[0]},
+        "4_1_cts": {"wall_s": walls[1]},
+        "5_1_grt": {"wall_s": walls[2]},
+        "_metrics": steps,
+        "_final_sha1": sha,
+    }
+    return {
+        "design": design,
+        "stage": "full",
+        "arm": "x",
+        "repeat": 1,
+        "substeps": substeps,
+    }
 
 
-BANDS = {"asap7/ibex": {"min_period_ps": {"band_2sigma": 60.0, "insufficient": False},
-                        "finish__timing__setup__tns": {"band_2sigma": 500.0, "insufficient": False},
-                        "finish__design__instance__area": {"band_2sigma": 30.0, "insufficient": False},
-                        "finish__power__total": {"insufficient": True},
-                        "detailedroute__route__wirelength": {"band_2sigma": 2000.0, "insufficient": False}}}
+BANDS = {
+    "asap7/ibex": {
+        "min_period_ps": {"band_2sigma": 60.0, "insufficient": False},
+        "finish__timing__setup__tns": {"band_2sigma": 500.0, "insufficient": False},
+        "finish__design__instance__area": {"band_2sigma": 30.0, "insufficient": False},
+        "finish__power__total": {"insufficient": True},
+        "detailedroute__route__wirelength": {
+            "band_2sigma": 2000.0,
+            "insufficient": False,
+        },
+    }
+}
 
 
 class Judge(unittest.TestCase):
@@ -50,7 +70,8 @@ class ClockPeriodFallback(unittest.TestCase):
         r = record("ibex", -20.0, -300.0, 2700, 90000, 0, (80, 60, 130), "a")
         del r["substeps"]["_metrics"]["6_report"]["constraints__clocks__details"]
         self.assertIsNone(verdict.kpis(r)["min_period"])
-        bands = dict(BANDS); bands["asap7/ibex"] = dict(BANDS["asap7/ibex"], _sources={"period": 1260.0})
+        bands = dict(BANDS)
+        bands["asap7/ibex"] = dict(BANDS["asap7/ibex"], _sources={"period": 1260.0})
         self.assertAlmostEqual(verdict.kpis(r, bands)["min_period"], 1280.0)
 
 
@@ -67,8 +88,12 @@ class Design(unittest.TestCase):
         base = record("ibex", -20.0, -300.0, 2700, 90000, 0, (80, 60, 130), "a")
         inside = record("ibex", -60.0, -300.0, 2700, 90000, 0, (70, 60, 130), "b")
         outside = record("ibex", -100.0, -300.0, 2700, 90000, 0, (70, 60, 130), "c")
-        self.assertTrue(verdict.design_verdict(base, inside, BANDS)["dominated_or_tied"])
-        self.assertFalse(verdict.design_verdict(base, outside, BANDS)["dominated_or_tied"])
+        self.assertTrue(
+            verdict.design_verdict(base, inside, BANDS)["dominated_or_tied"]
+        )
+        self.assertFalse(
+            verdict.design_verdict(base, outside, BANDS)["dominated_or_tied"]
+        )
 
     def test_one_drc_error_fails_regardless_of_band(self):
         base = record("ibex", -20.0, -300.0, 2700, 90000, 0, (80, 60, 130), "a")
@@ -94,10 +119,16 @@ class Design(unittest.TestCase):
         self.assertFalse(verdict.design_verdict(base, pol, BANDS)["dominated_or_tied"])
 
     def test_power_without_a_band_gets_one_percent(self):
-        base = record("ibex", -20.0, -300.0, 2700, 90000, 0, (80, 60, 130), "a", power=0.0100)
-        pol = record("ibex", -20.0, -300.0, 2700, 90000, 0, (40, 30, 70), "b", power=0.01005)
+        base = record(
+            "ibex", -20.0, -300.0, 2700, 90000, 0, (80, 60, 130), "a", power=0.0100
+        )
+        pol = record(
+            "ibex", -20.0, -300.0, 2700, 90000, 0, (40, 30, 70), "b", power=0.01005
+        )
         self.assertTrue(verdict.design_verdict(base, pol, BANDS)["dominated_or_tied"])
-        pol2 = record("ibex", -20.0, -300.0, 2700, 90000, 0, (40, 30, 70), "b", power=0.0105)
+        pol2 = record(
+            "ibex", -20.0, -300.0, 2700, 90000, 0, (40, 30, 70), "b", power=0.0105
+        )
         self.assertFalse(verdict.design_verdict(base, pol2, BANDS)["dominated_or_tied"])
 
     def test_table_counts_passes(self):

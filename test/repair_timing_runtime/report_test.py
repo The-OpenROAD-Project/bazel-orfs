@@ -9,8 +9,17 @@ import unittest
 import report
 
 
-def call(kind="setup_hold", setup_s=100.0, hold_s=1.0, iters=1000, last=200,
-         t_last=250.0, t_final=1050.0, wns_end=-50.0, start_s=50.0):
+def call(
+    kind="setup_hold",
+    setup_s=100.0,
+    hold_s=1.0,
+    iters=1000,
+    last=200,
+    t_last=250.0,
+    t_final=1050.0,
+    wns_end=-50.0,
+    start_s=50.0,
+):
     return {
         "kind": kind,
         "command": "repair_timing",
@@ -43,12 +52,20 @@ def record(design, stage, arm, repeat, calls, wall=200.0, sha="abc"):
                 "wall_s": wall,
                 "result_sha1": sha,
                 "repair": calls,
-                "repair_rows": [[
-                    {"iter": 0, "marker": "*", "wns": -100.0, "t_s": 50.0},
-                    {"iter": 10, "marker": "*", "wns": -60.0, "t_s": 300.0},
-                    {"iter": "final", "marker": "", "wns": -50.0, "t_s": 1050.0,
-                     "en_tns": -900.0, "area_pct": 0.2},
-                ]],
+                "repair_rows": [
+                    [
+                        {"iter": 0, "marker": "*", "wns": -100.0, "t_s": 50.0},
+                        {"iter": 10, "marker": "*", "wns": -60.0, "t_s": 300.0},
+                        {
+                            "iter": "final",
+                            "marker": "",
+                            "wns": -50.0,
+                            "t_s": 1050.0,
+                            "en_tns": -900.0,
+                            "area_pct": 0.2,
+                        },
+                    ]
+                ],
             }
         },
     }
@@ -93,11 +110,13 @@ class Census(unittest.TestCase):
         self.assertAlmostEqual(row["dead_share"], 0.8)
 
     def test_only_the_first_repeat_of_the_census_arm(self):
-        rows = report.census_rows([
-            record("aes", "cts", "base", 2, [call(setup_s=999.0)]),
-            record("aes", "cts", "base", 1, [call(setup_s=100.0)]),
-            record("aes", "cts", "tns20", 1, [call(setup_s=5.0)]),
-        ])
+        rows = report.census_rows(
+            [
+                record("aes", "cts", "base", 2, [call(setup_s=999.0)]),
+                record("aes", "cts", "base", 1, [call(setup_s=100.0)]),
+                record("aes", "cts", "tns20", 1, [call(setup_s=5.0)]),
+            ]
+        )
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["setup_s"], 100.0)
 
@@ -106,12 +125,30 @@ class Attribution(unittest.TestCase):
     def test_profiled_call_becomes_a_row_with_shares(self):
         c = call(setup_s=100.0)
         c["profile"] = {
-            "LEGACY*": {"passes": 10, "sta_s": 50.0, "progress_s": 30.0, "journal_s": 5.0,
-                        "repair_path_s": 5.0, "parasitics_s": 0.0, "collect_s": 0.0,
-                        "tns_s": 0.0, "accepted": 3, "attempts": 9},
-            "LAST_GASP+": {"passes": 12, "sta_s": 55.0, "progress_s": 30.0, "journal_s": 5.0,
-                           "repair_path_s": 5.0, "parasitics_s": 0.0, "collect_s": 0.0,
-                           "tns_s": 0.0, "accepted": 3, "attempts": 9},
+            "LEGACY*": {
+                "passes": 10,
+                "sta_s": 50.0,
+                "progress_s": 30.0,
+                "journal_s": 5.0,
+                "repair_path_s": 5.0,
+                "parasitics_s": 0.0,
+                "collect_s": 0.0,
+                "tns_s": 0.0,
+                "accepted": 3,
+                "attempts": 9,
+            },
+            "LAST_GASP+": {
+                "passes": 12,
+                "sta_s": 55.0,
+                "progress_s": 30.0,
+                "journal_s": 5.0,
+                "repair_path_s": 5.0,
+                "parasitics_s": 0.0,
+                "collect_s": 0.0,
+                "tns_s": 0.0,
+                "accepted": 3,
+                "attempts": 9,
+            },
         }
         rows = report.attribution_rows([record("aes", "cts", "base-prof", 1, [c])])
         self.assertEqual(rows[0]["passes"], 12)
@@ -121,8 +158,9 @@ class Attribution(unittest.TestCase):
         self.assertIn("| 3 / 9 |", text)
 
     def test_unprofiled_results_say_not_yet_measured(self):
-        text = report.attribution_table(report.attribution_rows(
-            [record("aes", "cts", "base", 1, [call()])]))
+        text = report.attribution_table(
+            report.attribution_rows([record("aes", "cts", "base", 1, [call()])])
+        )
         self.assertTrue(text.startswith("Not yet measured"))
 
 
@@ -131,8 +169,12 @@ class Arms(unittest.TestCase):
         return [
             record("aes", "cts", "base", 1, [call(setup_s=100.0)]),
             record("aes", "cts", "base", 2, [call(setup_s=104.0)]),
-            record("aes", "cts", "tns20", 1, [call(setup_s=60.0, wns_end=-55.0)], sha="def"),
-            record("aes", "cts", "tns20", 2, [call(setup_s=62.0, wns_end=-55.0)], sha="def"),
+            record(
+                "aes", "cts", "tns20", 1, [call(setup_s=60.0, wns_end=-55.0)], sha="def"
+            ),
+            record(
+                "aes", "cts", "tns20", 2, [call(setup_s=62.0, wns_end=-55.0)], sha="def"
+            ),
             record("aes", "cts", "nogasp", 1, [call(setup_s=101.0)]),
             record("aes", "cts", "nogasp", 2, [call(setup_s=102.0)]),
         ]
@@ -168,13 +210,19 @@ class Csv(unittest.TestCase):
         text = report.samples_csv([record("aes", "cts", "base", 1, [call()])])
         lines = text.strip().split("\n")
         self.assertEqual(len(lines), 2)
-        self.assertTrue(lines[0].startswith("design,stage,substep,arm,repeat,call,setup_s"))
-        self.assertTrue(lines[1].startswith("aes,cts,4_1_cts,base,1,setup_hold,100.0,1.0,1000"))
+        self.assertTrue(
+            lines[0].startswith("design,stage,substep,arm,repeat,call,setup_s")
+        )
+        self.assertTrue(
+            lines[1].startswith("aes,cts,4_1_cts,base,1,setup_hold,100.0,1.0,1000")
+        )
 
 
 class Chart(unittest.TestCase):
     def test_trajectory_is_a_mermaid_block_in_seconds(self):
-        text = report.trajectory_chart(record("aes", "cts", "base", 1, [call()]), "4_1_cts")
+        text = report.trajectory_chart(
+            record("aes", "cts", "base", 1, [call()]), "4_1_cts"
+        )
         self.assertTrue(text.startswith("```mermaid\nxychart-beta"))
         self.assertIn('x-axis "elapsed s" [0, 250]', text)
         self.assertIn("line [-100.0, -60.0]", text)

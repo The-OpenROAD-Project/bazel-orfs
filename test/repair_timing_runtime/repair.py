@@ -183,8 +183,11 @@ def parse_log(text):
         m = _RUNTIME.match(line)
         if m:
             owner = RUNTIME_OWNER[m.group(2)]
-            key = {"setup": "setup_s", "hold": "hold_s",
-                   "repair_design": "repair_design_s"}.get(owner)
+            key = {
+                "setup": "setup_s",
+                "hold": "hold_s",
+                "repair_design": "repair_design_s",
+            }.get(owner)
             if key:
                 current[key] = float(m.group(3))
             continue

@@ -15,13 +15,20 @@ import os
 import statistics
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "repair_timing_runtime"))
+sys.path.insert(
+    0,
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "repair_timing_runtime"
+    ),
+)
 import report  # noqa: E402
 
 
 def oracle_rows(records, wns_tol=0.5, base="base-prof", suffix="-prof"):
     rows = []
-    pairs = sorted({(r["design"], r["stage"]) for r in records if r["stage"] in ("cts", "grt")})
+    pairs = sorted(
+        {(r["design"], r["stage"]) for r in records if r["stage"] in ("cts", "grt")}
+    )
     for design, stage in pairs:
         samples = report.arm_samples(records, design, stage)
         if base not in samples:
@@ -37,16 +44,28 @@ def oracle_rows(records, wns_tol=0.5, base="base-prof", suffix="-prof"):
             if arm == base or not arm.endswith(suffix):
                 continue
             secs, wns, tns = med(arm, 0), med(arm, 1), med(arm, 3)
-            if secs is None or wns is None or tns is None or base_wns is None or base_tns is None:
+            if (
+                secs is None
+                or wns is None
+                or tns is None
+                or base_wns is None
+                or base_tns is None
+            ):
                 continue
             if wns >= base_wns - wns_tol and tns >= base_tns and secs < best[1]:
                 best = (arm, secs, wns - base_wns, tns - base_tns)
-        rows.append({
-            "design": design, "stage": stage, "base_s": base_s,
-            "oracle": best[0], "oracle_s": best[1],
-            "saving_pct": 100.0 * (base_s - best[1]) / base_s if base_s else 0.0,
-            "wns_delta": best[2], "tns_delta": best[3],
-        })
+        rows.append(
+            {
+                "design": design,
+                "stage": stage,
+                "base_s": base_s,
+                "oracle": best[0],
+                "oracle_s": best[1],
+                "saving_pct": 100.0 * (base_s - best[1]) / base_s if base_s else 0.0,
+                "wns_delta": best[2],
+                "tns_delta": best[3],
+            }
+        )
     return rows
 
 
@@ -56,9 +75,18 @@ def oracle_table(rows):
         "| --- | --- | ---: | --- | ---: | ---: | ---: | ---: |",
     ]
     for r in rows:
-        lines.append("| {} | {} | {:.1f} | {} | {:.1f} | {:.0f}% | {:.1f} | {:.0f} |".format(
-            r["design"], r["stage"], r["base_s"], r["oracle"], r["oracle_s"],
-            r["saving_pct"], r["wns_delta"], r["tns_delta"]))
+        lines.append(
+            "| {} | {} | {:.1f} | {} | {:.1f} | {:.0f}% | {:.1f} | {:.0f} |".format(
+                r["design"],
+                r["stage"],
+                r["base_s"],
+                r["oracle"],
+                r["oracle_s"],
+                r["saving_pct"],
+                r["wns_delta"],
+                r["tns_delta"],
+            )
+        )
     return "\n".join(lines) + "\n"
 
 
@@ -67,7 +95,9 @@ def main():
     parser.add_argument("--results", required=True)
     parser.add_argument("--wns-tol", type=float, default=0.5)
     args = parser.parse_args()
-    sys.stdout.write(oracle_table(oracle_rows(report.load_results(args.results), args.wns_tol)))
+    sys.stdout.write(
+        oracle_table(oracle_rows(report.load_results(args.results), args.wns_tol))
+    )
 
 
 if __name__ == "__main__":

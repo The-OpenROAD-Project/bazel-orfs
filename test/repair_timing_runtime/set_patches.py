@@ -5,6 +5,7 @@
 
 0066 is always first: every arm runs the profiled binary.
 """
+
 import re
 import sys
 
@@ -26,15 +27,20 @@ NAMES = {
 
 wanted = ["0066"] + [n for n in sys.argv[1:] if n != "0066"]
 text = open("MODULE.bazel").read()
-block = re.search(r"    patches = \[\n(.*?)    \],\n    strip_prefix = \"OpenROAD-", text, re.S)
-assert block, "study patch block not found"
-lines = "".join(
-    '        "//patches:{}",\n'.format(NAMES[n]) for n in wanted
+block = re.search(
+    r"    patches = \[\n(.*?)    \],\n    strip_prefix = \"OpenROAD-", text, re.S
 )
-new = text[: block.start(1)] + (
-    "        # Study instrumentation (study/repair-timing-runtime): where a\n"
-    "        # setup repair pass spends its seconds. Prints one [RSZ-PROFILE]\n"
-    "        # line per phase; changes no result. Not for upstream.\n"
-) + lines + text[block.end(1):]
+assert block, "study patch block not found"
+lines = "".join('        "//patches:{}",\n'.format(NAMES[n]) for n in wanted)
+new = (
+    text[: block.start(1)]
+    + (
+        "        # Study instrumentation (study/repair-timing-runtime): where a\n"
+        "        # setup repair pass spends its seconds. Prints one [RSZ-PROFILE]\n"
+        "        # line per phase; changes no result. Not for upstream.\n"
+    )
+    + lines
+    + text[block.end(1) :]
+)
 open("MODULE.bazel", "w").write(new)
 print("MODULE.bazel patches:", wanted)

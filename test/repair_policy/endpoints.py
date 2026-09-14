@@ -36,7 +36,9 @@ STEPS_WITH_SETUP = ("2_1_floorplan", "4_1_cts", "5_1_grt")
 
 def load_arm(results_dir, arm):
     out = {}
-    for path in sorted(glob.glob(os.path.join(results_dir, "*_full_{}_r*.json".format(arm)))):
+    for path in sorted(
+        glob.glob(os.path.join(results_dir, "*_full_{}_r*.json".format(arm)))
+    ):
         with open(path) as handle:
             record = json.load(handle)
         out.setdefault(record["design"], record)
@@ -83,13 +85,24 @@ def yield_table(vs):
         "| phase | exit | visits | passes | of passes | seconds | TNS gained (ps) | of gain | gain/pass |",
         "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
-    for (phase, exit_), group in sorted(by.items(), key=lambda kv: -sum(v["gain"] for v in kv[1])):
+    for (phase, exit_), group in sorted(
+        by.items(), key=lambda kv: -sum(v["gain"] for v in kv[1])
+    ):
         passes = sum(v["passes"] for v in group)
         gain = sum(v["gain"] for v in group)
-        lines.append("| {} | {} | {} | {} | {:.0f}% | {:.1f} | {:.0f} | {:.0f}% | {:.1f} |".format(
-            phase, exit_, len(group), passes, 100.0 * passes / total_passes,
-            sum(v["s"] for v in group), gain, 100.0 * gain / total_gain,
-            gain / passes if passes else 0.0))
+        lines.append(
+            "| {} | {} | {} | {} | {:.0f}% | {:.1f} | {:.0f} | {:.0f}% | {:.1f} |".format(
+                phase,
+                exit_,
+                len(group),
+                passes,
+                100.0 * passes / total_passes,
+                sum(v["s"] for v in group),
+                gain,
+                100.0 * gain / total_gain,
+                gain / passes if passes else 0.0,
+            )
+        )
     return "\n".join(lines)
 
 
@@ -137,25 +150,46 @@ def probe_table(vs):
     """Share of gain found by a k-pass probe, and the probe's cost."""
     total_gain = sum(v["gain"] for v in vs if v["gain"] > 0) or 1.0
     total_passes = sum(v["passes"] for v in vs) or 1
-    lines = ["| probe passes k | visits improving within k | of gain held | probe cost, of all passes |",
-             "| ---: | ---: | ---: | ---: |"]
+    lines = [
+        "| probe passes k | visits improving within k | of gain held | probe cost, of all passes |",
+        "| ---: | ---: | ---: | ---: |",
+    ]
     for k in PROBES:
         found = [v for v in vs if v["gain"] > 0 and 0 < v["gain1"] <= k]
         cost = sum(min(v["passes"], k) for v in vs)
-        lines.append("| {} | {} | {:.0f}% | {:.0f}% |".format(
-            k, len(found), 100.0 * sum(v["gain"] for v in found) / total_gain,
-            100.0 * cost / total_passes))
+        lines.append(
+            "| {} | {} | {:.0f}% | {:.0f}% |".format(
+                k,
+                len(found),
+                100.0 * sum(v["gain"] for v in found) / total_gain,
+                100.0 * cost / total_passes,
+            )
+        )
     return "\n".join(lines)
 
 
 def jackpot_table(vs, n=8):
     top = sorted(vs, key=lambda v: -v["gain"])[:n]
-    lines = ["| rank | phase | sweep index | started at pass | passes | first gain at | entry slack | exit slack | TNS gained | exit |",
-             "| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |"]
+    lines = [
+        "| rank | phase | sweep index | started at pass | passes | first gain at | entry slack | exit slack | TNS gained | exit |",
+        "| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
+    ]
     for i, v in enumerate(top, 1):
-        lines.append("| {} | {} | {}/{} | {} | {} | {} | {:.1f} | {:.1f} | {:.0f} | {} |".format(
-            i, v["phase"], v["idx"], v["of"], v["pass0"], v["passes"], v["gain1"] or "–",
-            v["slack_in"], v["slack_out"], v["gain"], v["exit"]))
+        lines.append(
+            "| {} | {} | {}/{} | {} | {} | {} | {:.1f} | {:.1f} | {:.0f} | {} |".format(
+                i,
+                v["phase"],
+                v["idx"],
+                v["of"],
+                v["pass0"],
+                v["passes"],
+                v["gain1"] or "–",
+                v["slack_in"],
+                v["slack_out"],
+                v["gain"],
+                v["exit"],
+            )
+        )
     return "\n".join(lines)
 
 
@@ -172,6 +206,7 @@ def spearman(xs, ys):
                 r[order[k]] = (i + j) / 2.0 + 1
             i = j + 1
         return r
+
     n = len(xs)
     if n < 3:
         return None
@@ -186,7 +221,9 @@ def predictors(vs):
     """Rank correlation of a visit's gain with what is known before it starts."""
     gains = [v["gain"] for v in vs]
     return {
-        "entry slack (more negative first)": spearman([-v["slack_in"] for v in vs], gains),
+        "entry slack (more negative first)": spearman(
+            [-v["slack_in"] for v in vs], gains
+        ),
         "sweep position (earlier first)": spearman([-v["idx"] for v in vs], gains),
         "path depth (deeper first)": spearman([v["depth"] for v in vs], gains),
         "candidates generated in the visit": spearman([v["cand"] for v in vs], gains),
@@ -197,25 +234,74 @@ def report(design, step, vs):
     c = concentration(vs)
     sweep, yo, total = order_table(vs)
     lines = ["### {} {}".format(design, step), ""]
-    lines.append("{} visits, {} paying, {:.0f} ps of TNS gained over {} passes. "
-                 "The top {} visits hold {:.0f}% of the gain; {:.0f}% of passes bought nothing.".format(
-                     c["visits"], c["paying"], c["total_gain"], c["total_passes"], c["top10_n"],
-                     c["top10_share"], c["zero_pass_share"]))
+    lines.append(
+        "{} visits, {} paying, {:.0f} ps of TNS gained over {} passes. "
+        "The top {} visits hold {:.0f}% of the gain; {:.0f}% of passes bought nothing.".format(
+            c["visits"],
+            c["paying"],
+            c["total_gain"],
+            c["total_passes"],
+            c["top10_n"],
+            c["top10_share"],
+            c["zero_pass_share"],
+        )
+    )
     if sweep is not None:
-        lines.append("Passes to 90% of the gain: {} in sweep order, {} if the same visits ran best gain-per-pass first ({:.0f}% and {:.0f}% of the phase).".format(
-            sweep, yo, 100.0 * sweep / total, 100.0 * yo / total))
+        lines.append(
+            "Passes to 90% of the gain: {} in sweep order, {} if the same visits ran best gain-per-pass first ({:.0f}% and {:.0f}% of the phase).".format(
+                sweep, yo, 100.0 * sweep / total, 100.0 * yo / total
+            )
+        )
     lines += ["", yield_table(vs), "", probe_table(vs), "", jackpot_table(vs), ""]
-    lines.append("Rank correlation of a visit's TNS gain with what is known before it: "
-                 + "; ".join("{} {}".format(k, fmt(v, 2)) for k, v in predictors(vs).items()) + ".")
+    lines.append(
+        "Rank correlation of a visit's TNS gain with what is known before it: "
+        + "; ".join("{} {}".format(k, fmt(v, 2)) for k, v in predictors(vs).items())
+        + "."
+    )
     lines.append("")
     return "\n".join(lines)
 
 
 def write_csv(path, design, step, vs):
-    keys = ["design", "step", "call", "kind", "phase", "idx", "of", "pass0", "pass1", "passes", "s",
-            "slack_in", "slack_out", "wns_in", "wns_out", "tns_in", "tns_out", "gain", "egain",
-            "gain1", "gainN", "depth", "cand", "att", "acc", "buf", "clone", "sizeup", "sizeupm",
-            "sizedn", "swap", "vt", "unbuf", "split", "reroute", "exit", "end"]
+    keys = [
+        "design",
+        "step",
+        "call",
+        "kind",
+        "phase",
+        "idx",
+        "of",
+        "pass0",
+        "pass1",
+        "passes",
+        "s",
+        "slack_in",
+        "slack_out",
+        "wns_in",
+        "wns_out",
+        "tns_in",
+        "tns_out",
+        "gain",
+        "egain",
+        "gain1",
+        "gainN",
+        "depth",
+        "cand",
+        "att",
+        "acc",
+        "buf",
+        "clone",
+        "sizeup",
+        "sizeupm",
+        "sizedn",
+        "swap",
+        "vt",
+        "unbuf",
+        "split",
+        "reroute",
+        "exit",
+        "end",
+    ]
     new = not os.path.exists(path)
     with open(path, "a", newline="") as handle:
         w = csv.writer(handle)
@@ -228,15 +314,23 @@ def write_csv(path, design, step, vs):
 
 def figure(out, design, step, vs):
     import matplotlib
+
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+
     total = sum(v["gain"] for v in vs)
     if total <= 0:
         return None
     fig, ax = plt.subplots(figsize=(7, 3.8), dpi=150)
     fig.patch.set_facecolor("#fcfcfb")
-    for label, key, color in (("sweep order (worst slack first)", lambda v: (v["call"], v["pass0"]), "#2a78d6"),
-                              ("same visits, best gain per pass first", lambda v: -v["per"], "#eb6834")):
+    for label, key, color in (
+        (
+            "sweep order (worst slack first)",
+            lambda v: (v["call"], v["pass0"]),
+            "#2a78d6",
+        ),
+        ("same visits, best gain per pass first", lambda v: -v["per"], "#eb6834"),
+    ):
         xs, ys, sp, g = [0], [0.0], 0, 0.0
         for v in sorted(vs, key=key):
             sp += v["passes"]
@@ -246,7 +340,11 @@ def figure(out, design, step, vs):
         ax.step(xs, ys, where="post", color=color, linewidth=2, label=label)
     ax.set_xlabel("passes spent", color="#0b0b0b", fontsize=9)
     ax.set_ylabel("share of the phase's TNS gain (%)", color="#0b0b0b", fontsize=9)
-    ax.set_title("{} {}: what the order of the sweep costs".format(design, step), fontsize=10, loc="left")
+    ax.set_title(
+        "{} {}: what the order of the sweep costs".format(design, step),
+        fontsize=10,
+        loc="left",
+    )
     ax.set_facecolor("#fcfcfb")
     for side in ("top", "right"):
         ax.spines[side].set_visible(False)
@@ -289,7 +387,9 @@ def main():
                 write_csv(csv_path, design, step, vs)
                 name = figure(args.out, design, step, vs)
                 if name:
-                    sys.stdout.write("wrote {}\n\n".format(os.path.join(args.out, name)))
+                    sys.stdout.write(
+                        "wrote {}\n\n".format(os.path.join(args.out, name))
+                    )
 
 
 if __name__ == "__main__":

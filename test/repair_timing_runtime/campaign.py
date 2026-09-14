@@ -210,9 +210,7 @@ def other_openroad_pids(pattern="(^|/)openroad( |$)"):
     the threshold between its phases. This study lost a repeat to
     exactly that overlap, so the gate also asks the process table.
     """
-    out = subprocess.run(
-        ["pgrep", "-f", pattern], stdout=subprocess.PIPE, text=True
-    )
+    out = subprocess.run(["pgrep", "-f", pattern], stdout=subprocess.PIPE, text=True)
     return [int(pid) for pid in out.stdout.split() if pid.strip()]
 
 
@@ -237,6 +235,7 @@ def provenance():
     Recorded with every sample, because a wall-clock measurement without
     it is not reproducible and not challengeable.
     """
+
     def read(path):
         try:
             with open(path) as handle:
@@ -370,13 +369,28 @@ def result_hash(deploy_dir, step):
 # there. The copy targets and the .sdc copies are what the next stage
 # reads.
 FULL_FLOW_TARGETS = [
-    "do-2_1_floorplan", "do-2_2_floorplan_macro", "do-2_3_floorplan_tapcell",
-    "do-2_4_floorplan_pdn", "do-2_floorplan", "do-2_floorplan.sdc",
-    "do-3_1_place_gp_skip_io", "do-3_2_place_iop", "do-3_3_place_gp",
-    "do-3_4_place_resized", "do-3_5_place_dp", "do-3_place",
-    "do-4_1_cts", "do-4_cts",
-    "do-5_1_grt", "do-5_2_route", "do-5_3_fillcell", "do-5_route", "do-5_route.sdc",
-    "do-6_1_fill", "do-6_1_fill.sdc", "do-6_report",
+    "do-2_1_floorplan",
+    "do-2_2_floorplan_macro",
+    "do-2_3_floorplan_tapcell",
+    "do-2_4_floorplan_pdn",
+    "do-2_floorplan",
+    "do-2_floorplan.sdc",
+    "do-3_1_place_gp_skip_io",
+    "do-3_2_place_iop",
+    "do-3_3_place_gp",
+    "do-3_4_place_resized",
+    "do-3_5_place_dp",
+    "do-3_place",
+    "do-4_1_cts",
+    "do-4_cts",
+    "do-5_1_grt",
+    "do-5_2_route",
+    "do-5_3_fillcell",
+    "do-5_route",
+    "do-5_route.sdc",
+    "do-6_1_fill",
+    "do-6_1_fill.sdc",
+    "do-6_report",
 ]
 
 
@@ -405,7 +419,9 @@ def collect_metrics(logs_dir):
     return out
 
 
-def run_arm(deploy_dir, stage, threads, overrides, openroad_exe, verbose, env_extra=None):
+def run_arm(
+    deploy_dir, stage, threads, overrides, openroad_exe, verbose, env_extra=None
+):
     """Run every substep of one stage with the arm's variables.
 
     Pinned to one CPU per physical core, always: thread policy is held
@@ -591,35 +607,45 @@ def main():
         "--designs", nargs="+", default=sorted(DESIGNS), choices=sorted(DESIGNS)
     )
     parser.add_argument(
-        "--stages", nargs="+", default=["floorplan", "cts", "grt"],
+        "--stages",
+        nargs="+",
+        default=["floorplan", "cts", "grt"],
         choices=sorted(STAGE_SUBSTEPS) + [FULL_FLOW],
         help="stages to run; '{}' runs the whole flow to finish on a "
-             "floorplan deployment".format(FULL_FLOW),
+        "floorplan deployment".format(FULL_FLOW),
     )
     parser.add_argument("--arms", nargs="+", default=["base"], choices=sorted(ARMS))
     parser.add_argument(
-        "--arm-suffix", default="",
+        "--arm-suffix",
+        default="",
         help="appended to the arm name in result files; names a binary "
-             "(e.g. -p0066) when --openroad points at a patched build",
+        "(e.g. -p0066) when --openroad points at a patched build",
     )
     parser.add_argument(
-        "--openroad", default=None,
+        "--openroad",
+        default=None,
         help="OPENROAD_EXE to run the arm with instead of the deployed one",
     )
     parser.add_argument(
-        "--env", nargs="*", default=[], metavar="KEY=VALUE",
+        "--env",
+        nargs="*",
+        default=[],
+        metavar="KEY=VALUE",
         help="extra environment for the arm's make (a policy's fitting "
-             "override such as RSZ_YIELD_WINDOW=50); recorded with the sample",
+        "override such as RSZ_YIELD_WINDOW=50); recorded with the sample",
     )
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument(
-        "--max-load", type=float, default=1.0,
+        "--max-load",
+        type=float,
+        default=1.0,
         help="refuse to record if 1-minute loadavg exceeds this at arm start",
     )
     parser.add_argument("--results", default=None)
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument(
-        "--keep-going", action="store_true",
+        "--keep-going",
+        action="store_true",
         help="record a failed arm as such and continue with the next design",
     )
     args = parser.parse_args()
@@ -636,11 +662,17 @@ def main():
 
     prov = provenance()
     prov["openroad_exe"] = args.openroad
-    print("host: {} cores / {} hw threads, governor {}, boost {}".format(
-        prov["physical_cores"], prov["hardware_threads"],
-        prov["governor"], prov["boost"]))
-    print("arms: {} repeats={} threads={} pinned".format(
-        args.arms, args.repeats, threads))
+    print(
+        "host: {} cores / {} hw threads, governor {}, boost {}".format(
+            prov["physical_cores"],
+            prov["hardware_threads"],
+            prov["governor"],
+            prov["boost"],
+        )
+    )
+    print(
+        "arms: {} repeats={} threads={} pinned".format(args.arms, args.repeats, threads)
+    )
     print("results: {}".format(results_dir))
 
     written = 0
@@ -678,12 +710,20 @@ def main():
                 overrides = ARMS[arm]
                 wait_for_no_openroad()
                 load = wait_for_idle(args.max_load)
-                print("  arm={}{} repeat={} (load {:.2f})".format(
-                    arm, args.arm_suffix, repeat, load))
+                print(
+                    "  arm={}{} repeat={} (load {:.2f})".format(
+                        arm, args.arm_suffix, repeat, load
+                    )
+                )
                 try:
                     make_wall = run_arm(
-                        deploy_dir, stage, threads, overrides, args.openroad,
-                        args.verbose, env_extra,
+                        deploy_dir,
+                        stage,
+                        threads,
+                        overrides,
+                        args.openroad,
+                        args.verbose,
+                        env_extra,
                     )
                     samples = collect(deploy_dir, stage, threads, overrides)
                 except SystemExit as exc:
@@ -717,9 +757,15 @@ def main():
                 written += 1
                 for step, got in samples.items():
                     for call in got.get("repair", []) if isinstance(got, dict) else []:
-                        print("      {:<14} {:<15} setup {}s hold {}s iters {}".format(
-                            step, call["kind"], call["setup_s"], call["hold_s"],
-                            call["iterations"]))
+                        print(
+                            "      {:<14} {:<15} setup {}s hold {}s iters {}".format(
+                                step,
+                                call["kind"],
+                                call["setup_s"],
+                                call["hold_s"],
+                                call["iterations"],
+                            )
+                        )
 
     print("\nwrote {} arm(s), skipped {} already present".format(written, skipped))
     if failed:

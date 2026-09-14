@@ -59,8 +59,7 @@ _THREADS = re.compile(r"\[INFO ORD-0030\] Using (\d+) thread\(s\)\.")
 # had produced a *different* result from one run without -- turning a
 # missing witness into a fake QoR divergence across the whole sweep.
 _RESULT_SHA1 = re.compile(
-    r"^(?:\[\s*\d+(?:\.\d+)?\]\s?)?\S+\s+\.\S+\s+\d+\s+\d+\s+"
-    r"([0-9a-f]{20})\s*$",
+    r"^(?:\[\s*\d+(?:\.\d+)?\]\s?)?\S+\s+\.\S+\s+\d+\s+\d+\s+" r"([0-9a-f]{20})\s*$",
     re.M,
 )
 

@@ -65,7 +65,9 @@ BAND_KEY = {
 def load_arm(results_dir, arm):
     """design -> record for one arm's full-flow results (first repeat)."""
     out = {}
-    for path in sorted(glob.glob(os.path.join(results_dir, "*_full_{}_r*.json".format(arm)))):
+    for path in sorted(
+        glob.glob(os.path.join(results_dir, "*_full_{}_r*.json".format(arm)))
+    ):
         with open(path) as handle:
             record = json.load(handle)
         out.setdefault(record["design"], record)
@@ -107,9 +109,13 @@ def kpis(record, bands=None):
     out[HOLD_KEY] = metrics.get(HOLD_KEY)
     period = clock_period(metrics)
     if period is None and bands:
-        period = (design_bands(bands, record["design"]).get("_sources") or {}).get("period")
+        period = (design_bands(bands, record["design"]).get("_sources") or {}).get(
+            "period"
+        )
     ws = metrics.get("finish__timing__setup__ws")
-    out["min_period"] = (period - ws) if (period is not None and ws is not None) else None
+    out["min_period"] = (
+        (period - ws) if (period is not None and ws is not None) else None
+    )
     return out
 
 
@@ -148,7 +154,9 @@ def design_verdict(base, policy, bands):
     else:
         hold_delta = hb - hp
         if hp >= 0 or hp >= hb:
-            hold_verdict = "same" if hold_delta == 0 else ("better" if hold_delta < 0 else "met")
+            hold_verdict = (
+                "same" if hold_delta == 0 else ("better" if hold_delta < 0 else "met")
+            )
         else:
             hold_verdict = "WORSE"
     rows.append(("hold WNS", hb, hp, hold_delta, None, hold_verdict))
@@ -164,12 +172,13 @@ def design_verdict(base, policy, bands):
         worse |= verdict == "WORSE"
     wb, wp = flow_wall(base), flow_wall(policy)
     wall_delta = wp - wb
-    same_odb = (
-        base["substeps"].get("_final_sha1") is not None
-        and base["substeps"].get("_final_sha1") == policy["substeps"].get("_final_sha1")
-    )
+    same_odb = base["substeps"].get("_final_sha1") is not None and base["substeps"].get(
+        "_final_sha1"
+    ) == policy["substeps"].get("_final_sha1")
     tie = max(WALL_TIE_S, WALL_TIE_FRACTION * wb)
-    wall_verdict = "same" if abs(wall_delta) <= tie else ("better" if wall_delta < 0 else "WORSE")
+    wall_verdict = (
+        "same" if abs(wall_delta) <= tie else ("better" if wall_delta < 0 else "WORSE")
+    )
     worse |= wall_verdict == "WORSE" and not same_odb
     return {
         "design": base["design"],
@@ -203,17 +212,28 @@ def suite_table(verdicts):
             delta, verdict = by.get(label, (None, "no data"))
             if delta is None:
                 return "–"
-            mark = "" if verdict in ("better", "same") else (" ~" if verdict == "within noise" else " **worse**")
+            mark = (
+                ""
+                if verdict in ("better", "same")
+                else (" ~" if verdict == "within noise" else " **worse**")
+            )
             # judge() signs delta so that + is worse; the table shows + as
             # better on every axis, as the footnote says.
             return "{}{}".format(fmt(-delta), mark)
 
         lines.append(
             "| {} | {} | {} | {} ({}%) | {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
-                v["design"], fmt(v["wall_base"], 0), fmt(v["wall_policy"], 0),
-                fmt(v["wall_delta"], 0), fmt(v["wall_pct"], 0),
-                cell("min clock period"), cell("setup TNS"), cell("area"),
-                cell("power"), cell("wire length"), cell("DRC"),
+                v["design"],
+                fmt(v["wall_base"], 0),
+                fmt(v["wall_policy"], 0),
+                fmt(v["wall_delta"], 0),
+                fmt(v["wall_pct"], 0),
+                cell("min clock period"),
+                cell("setup TNS"),
+                cell("area"),
+                cell("power"),
+                cell("wire length"),
+                cell("DRC"),
                 by.get("hold WNS", (None, "no data"))[1],
                 "yes" if v["same_odb"] else "no",
                 "pass" if v["dominated_or_tied"] else "**FAIL**",
@@ -221,10 +241,13 @@ def suite_table(verdicts):
         )
     passed = sum(1 for v in verdicts if v["dominated_or_tied"])
     lines.append("")
-    lines.append("{} of {} designs pass; ~ marks a move inside the design's noise band "
-                 "(power: a 1% tolerance, ORFS gates no power metric), signed so that + is "
-                 "better on every axis. Wall ties are under max(5 s, 2%) on a single run.".format(
-                     passed, len(verdicts)))
+    lines.append(
+        "{} of {} designs pass; ~ marks a move inside the design's noise band "
+        "(power: a 1% tolerance, ORFS gates no power metric), signed so that + is "
+        "better on every axis. Wall ties are under max(5 s, 2%) on a single run.".format(
+            passed, len(verdicts)
+        )
+    )
     return "\n".join(lines) + "\n"
 
 
@@ -241,13 +264,17 @@ def main():
             bands = json.load(handle)
     base = load_arm(args.results, args.base)
     policy = load_arm(args.results, args.policy)
-    verdicts = [design_verdict(base[d], policy[d], bands) for d in sorted(base) if d in policy]
+    verdicts = [
+        design_verdict(base[d], policy[d], bands) for d in sorted(base) if d in policy
+    ]
     if not verdicts:
         raise SystemExit("no design has both arms in {}".format(args.results))
     missing = sorted(set(base) ^ set(policy))
     sys.stdout.write(suite_table(verdicts))
     if missing:
-        sys.stdout.write("\nNot yet measured on both arms: {}\n".format(", ".join(missing)))
+        sys.stdout.write(
+            "\nNot yet measured on both arms: {}\n".format(", ".join(missing))
+        )
 
 
 if __name__ == "__main__":

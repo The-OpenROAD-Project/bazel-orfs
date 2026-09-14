@@ -98,9 +98,7 @@ def depad_rules(rules, period):
     if period is not None:
         for metric, pct in PERIOD_PADDED_PCT.items():
             if metric in rules:
-                out[metric] = invert_period_padding(
-                    rules[metric]["value"], period, pct
-                )
+                out[metric] = invert_period_padding(rules[metric]["value"], period, pct)
     return out
 
 

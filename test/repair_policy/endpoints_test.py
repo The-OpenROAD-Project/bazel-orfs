@@ -8,13 +8,37 @@ import endpoints
 
 def visit(idx, pass0, passes, tns_in, tns_out, gain1, exit_, slack_in=-50.0, depth=10):
     return {
-        "phase": "LEGACY", "idx": idx, "of": 4, "pass0": pass0, "pass1": pass0 + passes,
-        "passes": passes, "s": 0.1 * passes, "slack_in": slack_in, "slack_out": slack_in + 1,
-        "wns_in": -60.0, "wns_out": -60.0, "tns_in": tns_in, "tns_out": tns_out,
-        "gain1": gain1, "gainN": gain1, "depth": depth, "cand": 3 * passes, "att": passes,
-        "acc": 1 if tns_out > tns_in else 0, "buf": 0, "clone": 0, "sizeup": 0, "sizeupm": 0,
-        "sizedn": 0, "swap": 0, "vt": 0, "unbuf": 0, "split": 0, "reroute": 0,
-        "exit": exit_, "end": "e{}".format(idx),
+        "phase": "LEGACY",
+        "idx": idx,
+        "of": 4,
+        "pass0": pass0,
+        "pass1": pass0 + passes,
+        "passes": passes,
+        "s": 0.1 * passes,
+        "slack_in": slack_in,
+        "slack_out": slack_in + 1,
+        "wns_in": -60.0,
+        "wns_out": -60.0,
+        "tns_in": tns_in,
+        "tns_out": tns_out,
+        "gain1": gain1,
+        "gainN": gain1,
+        "depth": depth,
+        "cand": 3 * passes,
+        "att": passes,
+        "acc": 1 if tns_out > tns_in else 0,
+        "buf": 0,
+        "clone": 0,
+        "sizeup": 0,
+        "sizeupm": 0,
+        "sizedn": 0,
+        "swap": 0,
+        "vt": 0,
+        "unbuf": 0,
+        "split": 0,
+        "reroute": 0,
+        "exit": exit_,
+        "end": "e{}".format(idx),
     }
 
 
@@ -23,12 +47,18 @@ RECORD = {
     "substeps": {
         "4_1_cts": {
             "repair": [{"kind": "setup_hold"}],
-            "repair_endpoints": [[
-                visit(1, 0, 50, -1000.0, -990.0, 40, "stuck"),      # 10 ps for 50 passes
-                visit(2, 50, 50, -990.0, -990.0, 0, "no_change"),    # nothing
-                visit(3, 100, 10, -990.0, -900.0, 2, "closed"),      # 90 ps for 10 passes
-                visit(4, 110, 5, -900.0, -900.0, 0, "no_change"),
-            ]],
+            "repair_endpoints": [
+                [
+                    visit(
+                        1, 0, 50, -1000.0, -990.0, 40, "stuck"
+                    ),  # 10 ps for 50 passes
+                    visit(2, 50, 50, -990.0, -990.0, 0, "no_change"),  # nothing
+                    visit(
+                        3, 100, 10, -990.0, -900.0, 2, "closed"
+                    ),  # 90 ps for 10 passes
+                    visit(4, 110, 5, -900.0, -900.0, 0, "no_change"),
+                ]
+            ],
         }
     },
 }

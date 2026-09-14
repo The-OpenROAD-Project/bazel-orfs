@@ -155,7 +155,11 @@ def census_table(rows):
                 fmt(r["seconds"]),
                 fmt(r["share"] * 100, 0, "%") if r["share"] is not None else "–",
                 fmt(r["iterations"]) if r["iterations"] else "–",
-                fmt(r["dead_share"] * 100, 0, "%") if r["dead_share"] is not None else "–",
+                (
+                    fmt(r["dead_share"] * 100, 0, "%")
+                    if r["dead_share"] is not None
+                    else "–"
+                ),
                 wns,
                 fmt(r["endpoints"]),
             )
@@ -182,7 +186,10 @@ def stage_share_table(records, arm="base"):
         share = entry["repair"] / entry["wall"] if entry["wall"] else None
         lines.append(
             "| {} | {} | {} | {} | {} |".format(
-                design, stage, fmt(entry["wall"], 0), fmt(entry["repair"], 0),
+                design,
+                stage,
+                fmt(entry["wall"], 0),
+                fmt(entry["repair"], 0),
                 fmt(share * 100, 0, "%") if share is not None else "–",
             )
         )
@@ -216,15 +223,31 @@ def arm_samples(records, design, stage, kind="setup_hold"):
                 # for reasons downstream of repair: the final row's move
                 # counters with WNS and TNS.
                 outcome = (
-                    tuple(final.get(k) for k in ("removed", "resized", "inserted", "cloned", "swaps", "wns", "en_tns"))
-                    if final else None
+                    tuple(
+                        final.get(k)
+                        for k in (
+                            "removed",
+                            "resized",
+                            "inserted",
+                            "cloned",
+                            "swaps",
+                            "wns",
+                            "en_tns",
+                        )
+                    )
+                    if final
+                    else None
                 )
-                out.setdefault(record["arm"], []).append((
-                    seconds, call.get("wns_end"), got.get("result_sha1"),
-                    final.get("en_tns") if final else None,
-                    final.get("area_pct") if final else None,
-                    outcome,
-                ))
+                out.setdefault(record["arm"], []).append(
+                    (
+                        seconds,
+                        call.get("wns_end"),
+                        got.get("result_sha1"),
+                        final.get("en_tns") if final else None,
+                        final.get("area_pct") if final else None,
+                        outcome,
+                    )
+                )
     return out
 
 
@@ -249,6 +272,7 @@ def arms_table(records, design, stage, base=None):
     base = base or control_arm(samples)
     if base is None or len(samples) < 2:
         return "Not yet measured.\n"
+
     def med(values):
         values = [v for v in values if v is not None]
         return statistics.median(values) if values else None
@@ -280,15 +304,25 @@ def arms_table(records, design, stage, base=None):
         wns = med(s[1] for s in samples[arm])
         tns = med(s[3] for s in samples[arm])
         area = med(s[4] for s in samples[arm])
-        wns_delta = wns - base_wns if (wns is not None and base_wns is not None) else None
-        tns_delta = tns - base_tns if (tns is not None and base_tns is not None) else None
-        area_delta = area - base_area if (area is not None and base_area is not None) else None
+        wns_delta = (
+            wns - base_wns if (wns is not None and base_wns is not None) else None
+        )
+        tns_delta = (
+            tns - base_tns if (tns is not None and base_tns is not None) else None
+        )
+        area_delta = (
+            area - base_area if (area is not None and base_area is not None) else None
+        )
         shas = {s[2] for s in samples[arm]}
         same = "yes" if shas and shas == base_sha else ("no" if shas else "–")
         if shas and shas != base_sha and shas & base_sha:
             same = "partly"  # some repeats match: nondeterminism downstream of repair
         outcomes = {s[5] for s in samples[arm]}
-        same_repair = "yes" if outcomes and outcomes == base_outcome else ("no" if outcomes else "–")
+        same_repair = (
+            "yes"
+            if outcomes and outcomes == base_outcome
+            else ("no" if outcomes else "–")
+        )
         lines.append(
             "| {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |".format(
                 arm,
@@ -373,21 +407,33 @@ def attribution_table(rows):
         "| design | stage | call | setup (s) | passes | "
         + " | ".join(label for _, label in PROFILE_COLUMNS)
         + " | other in phase | outside phases | accepted / attempts |",
-        "| --- | --- | --- | ---: | ---: | " + " | ".join("---:" for _ in PROFILE_COLUMNS) + " | ---: | ---: | ---: |",
+        "| --- | --- | --- | ---: | ---: | "
+        + " | ".join("---:" for _ in PROFILE_COLUMNS)
+        + " | ---: | ---: | ---: |",
     ]
     for r in rows:
         p = r["profile"]
         cells = []
         for key, _ in PROFILE_COLUMNS:
             v = p.get(key)
-            share = (100.0 * v / r["setup_s"]) if (v is not None and r["setup_s"]) else None
-            cells.append("{} ({})".format(fmt(v), fmt(share, 0, "%")) if v is not None else "–")
+            share = (
+                (100.0 * v / r["setup_s"]) if (v is not None and r["setup_s"]) else None
+            )
+            cells.append(
+                "{} ({})".format(fmt(v), fmt(share, 0, "%")) if v is not None else "–"
+            )
         lines.append(
             "| {} | {} | {} | {} | {} | {} | {} | {} | {} / {} |".format(
-                r["design"], r["stage"], dict(KINDS).get(r["kind"], r["kind"]),
-                fmt(r["setup_s"]), fmt(r["passes"]), " | ".join(cells),
-                fmt(r["other_s"]), fmt(r["outside_s"]),
-                fmt(p.get("accepted")), fmt(p.get("attempts")),
+                r["design"],
+                r["stage"],
+                dict(KINDS).get(r["kind"], r["kind"]),
+                fmt(r["setup_s"]),
+                fmt(r["passes"]),
+                " | ".join(cells),
+                fmt(r["other_s"]),
+                fmt(r["outside_s"]),
+                fmt(p.get("accepted")),
+                fmt(p.get("attempts")),
             )
         )
     return "\n".join(lines) + "\n"
@@ -404,7 +450,11 @@ def trajectory_chart(record, step, call_index=0, title=None):
     if not main:
         return ""
     stamped = all(r["t_s"] is not None for r in main)
-    xs = [r["t_s"] - main[0]["t_s"] for r in main] if stamped else [r["iter"] for r in main]
+    xs = (
+        [r["t_s"] - main[0]["t_s"] for r in main]
+        if stamped
+        else [r["iter"] for r in main]
+    )
     ys = [r["wns"] for r in main]
     # xychart wants categorical x labels; thin to at most 40 points.
     stride = max(1, len(xs) // 40)
@@ -426,10 +476,15 @@ def trajectory_chart(record, step, call_index=0, title=None):
 
 
 def render(records):
-    parts = ["## Census: where repair_timing's seconds are\n", census_table(census_rows(records))]
+    parts = [
+        "## Census: where repair_timing's seconds are\n",
+        census_table(census_rows(records)),
+    ]
     parts += ["\n## Share of the stage\n", stage_share_table(records)]
-    parts += ["\n## Attribution: where a pass spends its seconds\n",
-              attribution_table(attribution_rows(records))]
+    parts += [
+        "\n## Attribution: where a pass spends its seconds\n",
+        attribution_table(attribution_rows(records)),
+    ]
     pairs = sorted({(r["design"], r["stage"]) for r in records})
     parts.append("\n## Arms\n")
     any_arm = False
@@ -447,31 +502,56 @@ def render(records):
 
 def samples_csv(records):
     """Every sample as one CSV row, for the raw-data comment on the PR."""
-    lines = ["design,stage,substep,arm,repeat,call,setup_s,hold_s,passes,"
-             "last_improving_iter,wns_start_ps,wns_end_ps,endpoints,substep_wall_s,"
-             "result_sha1,loadavg_at_start,recorded_at"]
-    for r in sorted(records, key=lambda r: (r["design"], r["stage"], r["arm"], r["repeat"])):
+    lines = [
+        "design,stage,substep,arm,repeat,call,setup_s,hold_s,passes,"
+        "last_improving_iter,wns_start_ps,wns_end_ps,endpoints,substep_wall_s,"
+        "result_sha1,loadavg_at_start,recorded_at"
+    ]
+    for r in sorted(
+        records, key=lambda r: (r["design"], r["stage"], r["arm"], r["repeat"])
+    ):
         for step, call, wall in repair_calls(r):
             if call["kind"] == "repair_design":
                 continue
-            lines.append(",".join(str(x) if x is not None else "" for x in [
-                r["design"], r["stage"], step, r["arm"], r["repeat"], call["kind"],
-                call.get("setup_s"), call.get("hold_s"), call.get("iterations"),
-                call.get("last_improving_iter"), call.get("wns_start"), call.get("wns_end"),
-                call.get("endpoints"), wall, r["substeps"][step].get("result_sha1"),
-                "{:.2f}".format(r.get("loadavg_at_start", 0)), r.get("recorded_at"),
-            ]))
+            lines.append(
+                ",".join(
+                    str(x) if x is not None else ""
+                    for x in [
+                        r["design"],
+                        r["stage"],
+                        step,
+                        r["arm"],
+                        r["repeat"],
+                        call["kind"],
+                        call.get("setup_s"),
+                        call.get("hold_s"),
+                        call.get("iterations"),
+                        call.get("last_improving_iter"),
+                        call.get("wns_start"),
+                        call.get("wns_end"),
+                        call.get("endpoints"),
+                        wall,
+                        r["substeps"][step].get("result_sha1"),
+                        "{:.2f}".format(r.get("loadavg_at_start", 0)),
+                        r.get("recorded_at"),
+                    ]
+                )
+            )
     return "\n".join(lines) + "\n"
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--csv", action="store_true", help="raw samples as CSV instead of the report")
+    parser.add_argument(
+        "--csv", action="store_true", help="raw samples as CSV instead of the report"
+    )
     parser.add_argument(
         "--results",
         default=os.path.join(
             os.environ.get("BUILD_WORKSPACE_DIRECTORY", os.getcwd()),
-            "tmp", "repair_timing_runtime", "results",
+            "tmp",
+            "repair_timing_runtime",
+            "results",
         ),
     )
     args = parser.parse_args()

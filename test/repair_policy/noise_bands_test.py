@@ -111,7 +111,12 @@ class SeriesTest(unittest.TestCase):
 
 class Window(unittest.TestCase):
     def test_since_and_last_compose(self):
-        pts = [("2024-01-01", 1.0), ("2025-01-01", 2.0), ("2025-06-01", 3.0), ("2026-01-01", 4.0)]
+        pts = [
+            ("2024-01-01", 1.0),
+            ("2025-01-01", 2.0),
+            ("2025-06-01", 3.0),
+            ("2026-01-01", 4.0),
+        ]
         self.assertEqual(nb.window(pts, since="2025-01-01"), pts[1:])
         self.assertEqual(nb.window(pts, last=2), pts[2:])
         self.assertEqual(nb.window(pts, since="2025-01-01", last=2), pts[2:])

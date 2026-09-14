@@ -61,28 +61,56 @@ def census_seconds(rows, path, floor_s=5.0):
     """
     totals = {}
     for r in rows:
-        totals[(r["design"], r["stage"])] = totals.get((r["design"], r["stage"]), 0) + (r["seconds"] or 0)
-    keys = sorted([k for k, v in totals.items() if v >= floor_s], key=lambda k: totals[k])
+        totals[(r["design"], r["stage"])] = totals.get((r["design"], r["stage"]), 0) + (
+            r["seconds"] or 0
+        )
+    keys = sorted(
+        [k for k, v in totals.items() if v >= floor_s], key=lambda k: totals[k]
+    )
     if not keys:
         return False
     fig, ax = plt.subplots(figsize=(7, max(3, 0.28 * len(keys) + 1)), dpi=150)
     fig.patch.set_facecolor(SURFACE)
     lefts = [0.0] * len(keys)
     for i, kind in enumerate(KIND_ORDER):
-        vals = [sum(r["seconds"] or 0 for r in rows
-                    if (r["design"], r["stage"]) == key and r["kind"] == kind) for key in keys]
+        vals = [
+            sum(
+                r["seconds"] or 0
+                for r in rows
+                if (r["design"], r["stage"]) == key and r["kind"] == kind
+            )
+            for key in keys
+        ]
         if not any(vals):
             continue
-        ax.barh(range(len(keys)), vals, left=lefts, height=0.7, color=SERIES[i],
-                label=KIND_LABEL[kind], linewidth=0.8, edgecolor=SURFACE)
+        ax.barh(
+            range(len(keys)),
+            vals,
+            left=lefts,
+            height=0.7,
+            color=SERIES[i],
+            label=KIND_LABEL[kind],
+            linewidth=0.8,
+            edgecolor=SURFACE,
+        )
         lefts = [l + v for l, v in zip(lefts, vals)]
     for i, total in enumerate(lefts):
-        ax.text(total + 3, i, "{:.0f}".format(total), va="center", fontsize=7, color=INK)
+        ax.text(
+            total + 3, i, "{:.0f}".format(total), va="center", fontsize=7, color=INK
+        )
     ax.set_yticks(range(len(keys)))
     ax.set_yticklabels(["{} {}".format(d, s) for d, s in keys], fontsize=7)
-    ax.set_xlabel("seconds in repair (one run, 24 pinned threads)", color=INK, fontsize=9)
-    ax.set_title("Where repair's seconds are, per design and stage (>= {:.0f} s)".format(floor_s),
-                 color=INK, fontsize=10, loc="left")
+    ax.set_xlabel(
+        "seconds in repair (one run, 24 pinned threads)", color=INK, fontsize=9
+    )
+    ax.set_title(
+        "Where repair's seconds are, per design and stage (>= {:.0f} s)".format(
+            floor_s
+        ),
+        color=INK,
+        fontsize=10,
+        loc="left",
+    )
     ax.legend(frameon=False, fontsize=8, loc="lower right")
     style(ax)
     ax.yaxis.grid(False)
@@ -111,13 +139,21 @@ def census_share(records, path, floor_s=5.0):
     fig.patch.set_facecolor(SURFACE)
     ax.barh(range(len(keys)), shares, height=0.7, color=SERIES[0])
     for i, (s, k) in enumerate(zip(shares, keys)):
-        ax.text(s + 1, i, "{:.0f}% of {:.0f} s".format(s, per[k]["wall"]), va="center",
-                fontsize=7, color=INK)
+        ax.text(
+            s + 1,
+            i,
+            "{:.0f}% of {:.0f} s".format(s, per[k]["wall"]),
+            va="center",
+            fontsize=7,
+            color=INK,
+        )
     ax.set_yticks(range(len(keys)))
     ax.set_yticklabels(["{} {}".format(d, s) for d, s in keys], fontsize=7)
     ax.set_xlabel("% of the substep's wall inside repair_timing", color=INK, fontsize=9)
     ax.set_xlim(0, 115)
-    ax.set_title("How much of the stage is repair_timing", color=INK, fontsize=10, loc="left")
+    ax.set_title(
+        "How much of the stage is repair_timing", color=INK, fontsize=10, loc="left"
+    )
     style(ax)
     ax.yaxis.grid(False)
     ax.xaxis.grid(True, color=GRID, linewidth=0.6)
@@ -147,15 +183,24 @@ def trajectory(record, step, call_index, path):
         x_mark = (t_last - start) if (stamped and t_last is not None) else last_iter
         ax.axvline(x_mark, color=SERIES[1], linewidth=1.2, linestyle="--")
         ax.text(x_mark, max(ys), " last gain", color=SERIES[1], fontsize=8, va="top")
-    ax.set_xlabel("elapsed seconds in repair_timing" if stamped else "iteration",
-                  color=INK, fontsize=9)
+    ax.set_xlabel(
+        "elapsed seconds in repair_timing" if stamped else "iteration",
+        color=INK,
+        fontsize=9,
+    )
     ax.set_ylabel("WNS (ps)", color=INK, fontsize=9)
     dead = report.dead_share(summary)
     ax.set_title(
         "{} {}: {} passes, {} of the grind after the last gain".format(
-            record["design"], step, summary.get("iterations"),
-            "{:.0f}%".format(100 * dead) if dead is not None else "?"),
-        color=INK, fontsize=10, loc="left")
+            record["design"],
+            step,
+            summary.get("iterations"),
+            "{:.0f}%".format(100 * dead) if dead is not None else "?",
+        ),
+        color=INK,
+        fontsize=10,
+        loc="left",
+    )
     style(ax)
     fig.tight_layout()
     fig.savefig(path)
@@ -172,21 +217,34 @@ def arms(records, design, stage, path):
     base = [s[0] for s in samples[control]]
     base_med = statistics.median(base)
     res = report.resolution(report.two_sigma(base), len(base))
-    names = sorted(samples, key=lambda a: (a != control, statistics.median(
-        [s[0] for s in samples[a]])))
+    names = sorted(
+        samples,
+        key=lambda a: (a != control, statistics.median([s[0] for s in samples[a]])),
+    )
     fig, ax = plt.subplots(figsize=(max(5, 0.6 * len(names)), 3.5), dpi=150)
     fig.patch.set_facecolor(SURFACE)
     ax.axhspan(base_med - res, base_med + res, color=GRID, zorder=0)
     ax.axhline(base_med, color=MUTED, linewidth=0.8)
     for i, name in enumerate(names):
         secs = [s[0] for s in samples[name]]
-        ax.scatter([i] * len(secs), secs, s=28, color=SERIES[0 if name == control else 1],
-                   edgecolor=SURFACE, linewidth=1, zorder=3)
+        ax.scatter(
+            [i] * len(secs),
+            secs,
+            s=28,
+            color=SERIES[0 if name == control else 1],
+            edgecolor=SURFACE,
+            linewidth=1,
+            zorder=3,
+        )
     ax.set_xticks(range(len(names)))
     ax.set_xticklabels(names, fontsize=8, rotation=20, ha="right")
     ax.set_ylabel("setup+hold seconds", color=INK, fontsize=9)
-    ax.set_title("{} {}: arms against base (band = resolution)".format(design, stage),
-                 color=INK, fontsize=10, loc="left")
+    ax.set_title(
+        "{} {}: arms against base (band = resolution)".format(design, stage),
+        color=INK,
+        fontsize=10,
+        loc="left",
+    )
     style(ax)
     fig.tight_layout()
     fig.savefig(path)
@@ -224,8 +282,13 @@ def draw_all(records, out):
 def main():
     root = os.environ.get("BUILD_WORKSPACE_DIRECTORY", os.getcwd())
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--results", default=os.path.join(root, "tmp", "repair_timing_runtime", "results"))
-    parser.add_argument("--out", default=os.path.join(root, "docs", "studies", "repair-timing-runtime"))
+    parser.add_argument(
+        "--results",
+        default=os.path.join(root, "tmp", "repair_timing_runtime", "results"),
+    )
+    parser.add_argument(
+        "--out", default=os.path.join(root, "docs", "studies", "repair-timing-runtime")
+    )
     args = parser.parse_args()
     for name in draw_all(report.load_results(args.results), args.out):
         sys.stdout.write("wrote {}\n".format(os.path.join(args.out, name)))

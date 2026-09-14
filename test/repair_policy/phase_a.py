@@ -24,12 +24,24 @@ import os
 import statistics
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "repair_timing_runtime"))
+sys.path.insert(
+    0,
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "..", "repair_timing_runtime"
+    ),
+)
 import report  # noqa: E402
 
 STAGES = ("floorplan", "cts", "grt")
 STEP = {"floorplan": "2_1_floorplan", "cts": "4_1_cts", "grt": "5_1_grt"}
-DEFAULT_ARMS = ["base-p0069", "base-p0070", "base-p0071", "base-p0072", "base-p0073", "base-p0074"]
+DEFAULT_ARMS = [
+    "base-p0069",
+    "base-p0070",
+    "base-p0071",
+    "base-p0072",
+    "base-p0073",
+    "base-p0074",
+]
 
 
 def samples(records, design, stage, arm):
@@ -70,7 +82,11 @@ def rows(records, arms, designs=None):
             if not control:
                 continue
             c = samples(records, design, stage, control)
-            c_s, c_wns, c_tns = med(s[0] for s in c), med(s[1] for s in c), med(s[2] for s in c)
+            c_s, c_wns, c_tns = (
+                med(s[0] for s in c),
+                med(s[1] for s in c),
+                med(s[2] for s in c),
+            )
             cells = {}
             for arm in arms:
                 p = samples(records, design, stage, arm)
@@ -82,19 +98,35 @@ def rows(records, arms, designs=None):
                     "wall": p_s,
                     "pct": 100.0 * (p_s - c_s) / c_s if c_s else None,
                     "sigma2": report.two_sigma([s[0] for s in p]),
-                    "wns": (med(s[1] for s in p) - c_wns) if c_wns is not None else None,
-                    "tns": (med(s[2] for s in p) - c_tns) if c_tns is not None else None,
+                    "wns": (
+                        (med(s[1] for s in p) - c_wns) if c_wns is not None else None
+                    ),
+                    "tns": (
+                        (med(s[2] for s in p) - c_tns) if c_tns is not None else None
+                    ),
                     "n": len(p),
                 }
-            out.append({"design": design, "stage": stage, "control": control,
-                        "control_wall": c_s, "control_sigma2": report.two_sigma([s[0] for s in c]),
-                        "control_wns": c_wns, "cells": cells})
+            out.append(
+                {
+                    "design": design,
+                    "stage": stage,
+                    "control": control,
+                    "control_wall": c_s,
+                    "control_sigma2": report.two_sigma([s[0] for s in c]),
+                    "control_wns": c_wns,
+                    "cells": cells,
+                }
+            )
     return out
 
 
 def table(rows_, arms):
-    lines = ["| design | stage | control (s, 2σ, WNS ps) | " + " | ".join(a.replace("base-p", "") for a in arms) + " |",
-             "| --- | --- | --- | " + " | ".join("---" for _ in arms) + " |"]
+    lines = [
+        "| design | stage | control (s, 2σ, WNS ps) | "
+        + " | ".join(a.replace("base-p", "") for a in arms)
+        + " |",
+        "| --- | --- | --- | " + " | ".join("---" for _ in arms) + " |",
+    ]
     for r in rows_:
         cells = []
         for arm in arms:
@@ -102,10 +134,22 @@ def table(rows_, arms):
             if not c:
                 cells.append("–")
                 continue
-            cells.append("{:.0f} s ({:+.0f}%, 2σ {:.1f}), WNS {:+.1f}, TNS {:+.0f}".format(
-                c["wall"], c["pct"], c["sigma2"], c["wns"] or 0.0, c["tns"] or 0.0))
-        lines.append("| {} | {} | {:.0f}, {:.1f}, {:.1f} | ".format(
-            r["design"], r["stage"], r["control_wall"], r["control_sigma2"], r["control_wns"] or 0.0) + " | ".join(cells) + " |")
+            cells.append(
+                "{:.0f} s ({:+.0f}%, 2σ {:.1f}), WNS {:+.1f}, TNS {:+.0f}".format(
+                    c["wall"], c["pct"], c["sigma2"], c["wns"] or 0.0, c["tns"] or 0.0
+                )
+            )
+        lines.append(
+            "| {} | {} | {:.0f}, {:.1f}, {:.1f} | ".format(
+                r["design"],
+                r["stage"],
+                r["control_wall"],
+                r["control_sigma2"],
+                r["control_wns"] or 0.0,
+            )
+            + " | ".join(cells)
+            + " |"
+        )
     return "\n".join(lines) + "\n"
 
 

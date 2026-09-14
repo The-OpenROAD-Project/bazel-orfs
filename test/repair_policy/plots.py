@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Figures for the repair-policy study, from the results directory.
 
-    plots.py --results DIR --bands JSON --out DIR
+plots.py --results DIR --bands JSON --out DIR
 
-    windows_<design>_<step>.png   TNS gained per hundred-pass window of the
-                                  setup sweep, default beside a policy: the
-                                  shape that decides whether a stopping rule
-                                  can be safe (mock-alu cts: a plateau, then
-                                  a jackpot)
-    verdict_<policy>.png          per design, flow wall delta against
-                                  minimum-clock-period delta, pass/fail
-                                  from the verdict
+windows_<design>_<step>.png   TNS gained per hundred-pass window of the
+                              setup sweep, default beside a policy: the
+                              shape that decides whether a stopping rule
+                              can be safe (mock-alu cts: a plateau, then
+                              a jackpot)
+verdict_<policy>.png          per design, flow wall delta against
+                              minimum-clock-period delta, pass/fail
+                              from the verdict
 """
 
 import argparse
@@ -78,8 +78,15 @@ def windows(records_by_arm, design, step, out, labels):
             continue
         xs = [x for x, _ in g]
         ys = [y for _, y in g]
-        ax.bar([x + (i - 0.5) * 30 for x in xs], ys, width=28, color=SERIES[i], label=label,
-               edgecolor=SURFACE, linewidth=0.6)
+        ax.bar(
+            [x + (i - 0.5) * 30 for x in xs],
+            ys,
+            width=28,
+            color=SERIES[i],
+            label=label,
+            edgecolor=SURFACE,
+            linewidth=0.6,
+        )
         drew = True
     if not drew:
         plt.close(fig)
@@ -87,7 +94,12 @@ def windows(records_by_arm, design, step, out, labels):
     ax.axhline(0, color=MUTED, linewidth=0.8)
     ax.set_xlabel("pass (window ends)", color=INK, fontsize=9)
     ax.set_ylabel("TNS gained in the window (ps)", color=INK, fontsize=9)
-    ax.set_title("{} {}: what each hundred passes bought".format(design, step), color=INK, fontsize=10, loc="left")
+    ax.set_title(
+        "{} {}: what each hundred passes bought".format(design, step),
+        color=INK,
+        fontsize=10,
+        loc="left",
+    )
     ax.legend(frameon=False, fontsize=8)
     style(ax)
     fig.tight_layout()
@@ -97,23 +109,57 @@ def windows(records_by_arm, design, step, out, labels):
 
 
 def verdict_scatter(verdicts, policy, out):
-    pts = [(v["wall_pct"], next((-d for l, _, _, d, _, _ in v["axes"] if l == "min clock period" and d is not None), None),
-            v["design"], v["dominated_or_tied"]) for v in verdicts]
+    pts = [
+        (
+            v["wall_pct"],
+            next(
+                (
+                    -d
+                    for l, _, _, d, _, _ in v["axes"]
+                    if l == "min clock period" and d is not None
+                ),
+                None,
+            ),
+            v["design"],
+            v["dominated_or_tied"],
+        )
+        for v in verdicts
+    ]
     pts = [p for p in pts if p[0] is not None and p[1] is not None]
     if not pts:
         return False
     fig, ax = plt.subplots(figsize=(7, 4.5), dpi=150)
     fig.patch.set_facecolor(SURFACE)
     for wall, mp, name, ok in pts:
-        ax.scatter(wall, mp, s=36, color=SERIES[0] if ok else SERIES[1], edgecolor=SURFACE, linewidth=1, zorder=3)
+        ax.scatter(
+            wall,
+            mp,
+            s=36,
+            color=SERIES[0] if ok else SERIES[1],
+            edgecolor=SURFACE,
+            linewidth=1,
+            zorder=3,
+        )
         if abs(wall) > 3 or abs(mp) > 3 or not ok:
-            ax.annotate(name, (wall, mp), textcoords="offset points", xytext=(5, 4), fontsize=7, color=INK)
+            ax.annotate(
+                name,
+                (wall, mp),
+                textcoords="offset points",
+                xytext=(5, 4),
+                fontsize=7,
+                color=INK,
+            )
     ax.axvline(0, color=MUTED, linewidth=0.8)
     ax.axhline(0, color=MUTED, linewidth=0.8)
     ax.set_xlabel("flow wall delta vs default (%), - is faster", color=INK, fontsize=9)
     ax.set_ylabel("minimum clock period delta (ps), + is better", color=INK, fontsize=9)
     passed = sum(1 for p in pts if p[3])
-    ax.set_title("{}: {} of {} designs pass the dominance bar".format(policy, passed, len(pts)), color=INK, fontsize=10, loc="left")
+    ax.set_title(
+        "{}: {} of {} designs pass the dominance bar".format(policy, passed, len(pts)),
+        color=INK,
+        fontsize=10,
+        loc="left",
+    )
     style(ax)
     ax.xaxis.grid(True, color=GRID, linewidth=0.6)
     fig.tight_layout()
@@ -128,7 +174,9 @@ def main():
     parser.add_argument("--bands", required=True)
     parser.add_argument("--out", required=True)
     parser.add_argument("--base", default="base-p00670068")
-    parser.add_argument("--policies", nargs="+", default=["base-p0074", "base-p0069", "base-p0077"])
+    parser.add_argument(
+        "--policies", nargs="+", default=["base-p0074", "base-p0069", "base-p0077"]
+    )
     args = parser.parse_args()
     os.makedirs(args.out, exist_ok=True)
     with open(args.bands) as handle:
@@ -137,15 +185,23 @@ def main():
     base = verdict.load_arm(args.results, args.base)
     for policy in args.policies:
         pol = verdict.load_arm(args.results, policy)
-        vs = [verdict.design_verdict(base[d], pol[d], bands) for d in sorted(base) if d in pol]
+        vs = [
+            verdict.design_verdict(base[d], pol[d], bands)
+            for d in sorted(base)
+            if d in pol
+        ]
         name = "verdict_{}.png".format(policy.replace("base-", ""))
-        if vs and verdict_scatter(vs, policy.replace("base-", ""), os.path.join(args.out, name)):
+        if vs and verdict_scatter(
+            vs, policy.replace("base-", ""), os.path.join(args.out, name)
+        ):
             written.append(name)
     labels = {args.base: "default"}
     labels.update({p: p.replace("base-", "") for p in args.policies})
     for design in ("mock-alu", "riscv32i", "jpeg", "ibex", "sky130hd/riscv32i"):
         for step in ("4_1_cts", "5_1_grt"):
-            by_arm = {a: (verdict.load_arm(args.results, a).get(design)) for a in labels}
+            by_arm = {
+                a: (verdict.load_arm(args.results, a).get(design)) for a in labels
+            }
             name = "windows_{}_{}.png".format(design.replace("/", "+"), step)
             if windows(by_arm, design, step, os.path.join(args.out, name), labels):
                 written.append(name)
