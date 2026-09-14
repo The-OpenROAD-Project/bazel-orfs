@@ -126,6 +126,34 @@ rather than an error:
 A correct capture is checkable: `clk` should show `TC` equal to twice
 the window's cycle count, and the duration should equal one iteration.
 
+## Frequency, and why it is its own job
+
+The frequency a core is scored at is `1 / (period - WNS)` with the
+period pushed until WNS is slightly negative. Positive WNS means the
+optimiser met its target and coasted, so the achieved period understates
+the core; deeply negative means repair gave up and the netlist is in a
+different regime.
+
+Finding that period is a tuning job, not a build sweep: what is wanted
+is a decision, pinned into the design, re-derived when the design
+changes -- the same shape as the floorplan derivation, run rather than
+built.
+
+**It cannot ride on auto_floorplan, though**, and the reason is
+structural rather than incidental. `auto_floorplan_candidate.tcl` seeds
+each candidate from `1_synth.odb` and re-runs floorplan through finish:
+every candidate shares one synthesis, which is what makes racing twenty
+of them affordable. The clock period is a *synthesis* input -- change it
+and synthesis and everything after it rebuild -- so a period candidate
+cannot start where a floorplan candidate starts.
+
+Floorplan tuning and period tuning therefore have different starting
+points and different costs, and want to be separate jobs. They also
+interact: the floorplan is derived at a period, and the period is
+achieved on a floorplan. Two passes settle it -- period on the incumbent
+floorplan, floorplan at that period, period again -- and how far the
+second pass moves is worth reporting rather than assuming it converged.
+
 ## Functional units
 
 Each design sets `SYNTH_HIERARCHICAL=1` with an explicit

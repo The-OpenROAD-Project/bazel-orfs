@@ -64,9 +64,7 @@ def window(cycles_2, cycles_3, first_output_3):
     if start < 0:
         raise ValueError(
             "the benchmark loop ({} cycles) is shorter than one iteration "
-            "({}): the runs are not what they claim to be".format(
-                first_output_3, delta
-            )
+            "({}): the runs are not what they claim to be".format(first_output_3, delta)
         )
     return start, first_output_3
 
