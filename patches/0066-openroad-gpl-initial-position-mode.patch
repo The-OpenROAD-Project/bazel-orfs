@@ -1,0 +1,375 @@
+gpl: name the initial-position distribution so it can be measured
+
+STUDY INSTRUMENTATION -- NOT AN UPSTREAM CANDIDATE.
+
+`InitialPlace::placeInstsInitialPositions()` decides where every
+placeable instance sits before the conjugate-gradient solve: a region
+center, else the ODB location, else the core center. The core-center
+rung arrived with the RePlAce import (OpenROAD 456cde4187, 2020-08-11,
+"replace rm submodule") carrying the comment "normally, initial place
+will place all cells in the centers", and has been reversed four times
+since -- #5253, #7644, #9353 upstream, and ORFS bab0134ebd downstream --
+without a QoR measurement attached to any of them.
+
+This patch adds `global_placement -initial_position_mode <mode>`, which
+replaces the fallback with a named distribution: center, odb, corner_ll,
+corner_ur, uniform, gauss_tight, gauss_wide, spread, anchored. It exists
+so the arms of a study can be selected at run time from one binary
+rather than one build per arm.
+
+An empty mode -- the default, and what every existing caller gets --
+takes the shipped code path unchanged, so a build carrying this patch
+produces byte-identical results to one without it unless the new key is
+passed. That is the property the study's control arm checks.
+
+It carries a `log_->report` line naming the mode, the instance count and
+the seed. The harness treats that line as the witness for an arm and
+discards a sample whose log does not name the mode it was run under.
+
+Not upstreamed, and not proposed for upstreaming: the mode selector is a
+measuring instrument, not a feature. It retires when the study branch
+does. If a distribution wins, what goes upstream is that distribution as
+the default -- one concern, its own patch, with the numbers attached.
+
+Applies to OpenROAD c7e5e75131a65e402a2d46a1cb82659d725655da.
+
+diff -ruN a/src/gpl/README.md b/src/gpl/README.md
+--- a/src/gpl/README.md	2026-09-14 08:22:37.727843662 +0200
++++ b/src/gpl/README.md	2026-09-14 08:24:17.466272126 +0200
+@@ -120,6 +120,7 @@
+ | `-routability_driven` | Enable routability-driven mode. See [link](#routability-driven-arguments) for routability-specific arguments. |
+ | `-skip_initial_place` | Skip the initial placement (Biconjugate gradient stabilized, or BiCGSTAB solving) before Nesterov placement. Initial placement improves HPWL by ~5% on large designs. Equivalent to `-initial_place_max_iter 0`. | 
+ | `-skip_nesterov_place` | Skip the nesterov placement. | 
++| `-initial_position_mode` | Study instrumentation (not upstreamed). Names the distribution placeable instances start from before initial placement: `center`, `odb`, `corner_ll`, `corner_ur`, `uniform`, `gauss_tight`, `gauss_wide`, `spread`, `anchored`. Unset keeps the shipped policy. |
+ | `-force_center_initial_place` | Initiate instances at the center of the core (or region) before initial placement, even if they already have a valid ODB location. By default, the placer will use the existing ODB locations if available. |
+ | `-incremental` | Enable the incremental global placement. Users would need to tune other parameters (e.g., `init_density_penalty`) with pre-placed solutions. | 
+ | `-bin_grid_count` | Set bin grid's counts. The internal heuristic defines the default value. Allowed values are integers `[64,128,256,512,...]`. |
+diff -ruN a/src/gpl/include/gpl/Replace.h b/src/gpl/include/gpl/Replace.h
+--- a/src/gpl/include/gpl/Replace.h	2026-09-14 08:22:37.688746418 +0200
++++ b/src/gpl/include/gpl/Replace.h	2026-09-14 08:22:51.575029810 +0200
+@@ -55,6 +55,11 @@
+ 
+   bool skipIoMode = false;
+   bool forceCenterInitialPlace = false;
++  // Study instrumentation: names the distribution placeable instances
++  // start from before the conjugate gradient solve.  Empty keeps the
++  // shipped policy (region center, else the ODB location, else the core
++  // center) byte for byte.  See initialPlace.cpp.
++  std::string initialPositionMode;
+   bool timingDrivenMode = false;
+   bool timingDrivenRepairTiming = false;
+   float timingDrivenRepairTnsEndPercent = 1.0;
+diff -ruN a/src/gpl/src/initialPlace.cpp b/src/gpl/src/initialPlace.cpp
+--- a/src/gpl/src/initialPlace.cpp	2026-09-14 08:22:37.704369023 +0200
++++ b/src/gpl/src/initialPlace.cpp	2026-09-14 08:24:17.457704279 +0200
+@@ -7,8 +7,11 @@
+ #include <climits>
+ #include <cmath>
+ #include <cstddef>
++#include <cstdint>
+ #include <limits>
+ #include <memory>
++#include <random>
++#include <string>
+ #include <utility>
+ #include <vector>
+ 
+@@ -31,7 +34,9 @@
+       netWeightScale(options.initialPlaceNetWeightScale),
+       debug(debug),
+       forceCenter(options.forceCenterInitialPlace),
+-      placeIosMode(options.placeIosMode)
++      placeIosMode(options.placeIosMode),
++      initialPositionMode(options.initialPositionMode),
++      perturbationSeed(options.initialPlacePerturbationSeed)
+ {
+ }
+ 
+@@ -127,6 +132,11 @@
+ // starting point of initial place is center.
+ void InitialPlace::placeInstsInitialPositions()
+ {
++  if (!ipVars_.initialPositionMode.empty()) {
++    placeInstsByMode();
++    return;
++  }
++
+   const int core_center_x = pbc_->getDie().coreCx();
+   const int core_center_y = pbc_->getDie().coreCy();
+ 
+@@ -180,6 +190,212 @@
+              count_region_center);
+ }
+ 
++namespace {
++
++// A deterministic low-discrepancy sweep of the unit square (the R2
++// sequence). Unbiased like the core center, but not degenerate -- which
++// is what separates "the center is special" from "every cell starting
++// on one point is bad for a bound-to-bound net model".
++void r2Point(const int64_t index, double& fx, double& fy)
++{
++  constexpr double kAlpha1 = 0.7548776662466927;
++  constexpr double kAlpha2 = 0.5698402909980532;
++  const double step = static_cast<double>(index + 1);
++  fx = std::fmod(0.5 + kAlpha1 * step, 1.0);
++  fy = std::fmod(0.5 + kAlpha2 * step, 1.0);
++}
++
++int clampToRange(const double value, const int low, const int high)
++{
++  if (value <= static_cast<double>(low)) {
++    return low;
++  }
++  if (value >= static_cast<double>(high)) {
++    return high;
++  }
++  return static_cast<int>(value);
++}
++
++}  // namespace
++
++// Study instrumentation: `global_placement -initial_position_mode <mode>`.
++//
++// The shipped policy above -- every placeable cell on the core center,
++// or wherever the ODB happens to have left it -- arrived with the
++// RePlAce import and has never been measured against any alternative.
++// This gives each candidate distribution a name so an A/B can run
++// without a rebuild between arms. An empty mode is the shipped path and
++// does not reach here.
++//
++// Region membership still wins: a cell in a region draws inside the
++// region's box rather than the core's, because a region is a hard
++// constraint and not part of the question.
++//
++//   center       the box center, as -force_center_initial_place
++//   odb          the ODB location when placed, else the box center
++//   corner_ll    the box's lower-left corner
++//   corner_ur    the box's upper-right corner
++//   uniform      uniform over the box, drawn from -random_seed
++//   gauss_tight  normal at the box center, sigma = 0.10 of the box
++//   gauss_wide   normal at the box center, sigma = 0.25 of the box
++//   spread       the R2 sequence over the box; deterministic
++//   anchored     the centroid of the fixed pins this cell sees through
++//                its own nets, else the box center
++//
++// The report line is the witness the harness reads: an arm whose log
++// does not name its own mode is discarded rather than averaged in.
++void InitialPlace::placeInstsByMode()
++{
++  const std::string& mode = ipVars_.initialPositionMode;
++
++  std::mt19937 rng(static_cast<uint32_t>(ipVars_.perturbationSeed));
++  std::uniform_real_distribution<double> uniform(0.0, 1.0);
++  std::normal_distribution<double> gaussian(0.0, 1.0);
++
++  double sigma_fraction = 0.0;
++  if (mode == "gauss_tight") {
++    sigma_fraction = 0.10;
++  } else if (mode == "gauss_wide") {
++    sigma_fraction = 0.25;
++  } else if (mode != "center" && mode != "odb" && mode != "corner_ll"
++             && mode != "corner_ur" && mode != "uniform" && mode != "spread"
++             && mode != "anchored") {
++    log_->error(utl::GPL,
++                951,
++                "-initial_position_mode {} is not one of center, odb, "
++                "corner_ll, corner_ur, uniform, gauss_tight, gauss_wide, "
++                "spread, anchored.",
++                mode);
++  }
++
++  int count_region = 0;
++  int count_db_location = 0;
++  int count_anchored = 0;
++  int count_placed = 0;
++  int64_t index = 0;
++
++  for (auto& inst : pbc_->placeInsts()) {
++    if (inst->isLocked()) {
++      continue;
++    }
++
++    int box_lx = pbc_->getDie().coreLx();
++    int box_ly = pbc_->getDie().coreLy();
++    int box_ux = pbc_->getDie().coreUx();
++    int box_uy = pbc_->getDie().coreUy();
++
++    const auto db_inst = inst->dbInst();
++    const auto group = db_inst->getGroup();
++    if (group && group->getRegion()) {
++      auto region = group->getRegion();
++      int region_x_min = std::numeric_limits<int>::max();
++      int region_y_min = std::numeric_limits<int>::max();
++      int region_x_max = std::numeric_limits<int>::min();
++      int region_y_max = std::numeric_limits<int>::min();
++
++      for (auto boundary : region->getBoundaries()) {
++        region_x_min = std::min(region_x_min, boundary->xMin());
++        region_y_min = std::min(region_y_min, boundary->yMin());
++        region_x_max = std::max(region_x_max, boundary->xMax());
++        region_y_max = std::max(region_y_max, boundary->yMax());
++      }
++
++      box_lx = region_x_min;
++      box_ly = region_y_min;
++      box_ux = region_x_max;
++      box_uy = region_y_max;
++      ++count_region;
++    }
++
++    const int box_cx = box_ux - (box_ux - box_lx) / 2;
++    const int box_cy = box_uy - (box_uy - box_ly) / 2;
++    const double box_dx = static_cast<double>(box_ux - box_lx);
++    const double box_dy = static_cast<double>(box_uy - box_ly);
++
++    int x = box_cx;
++    int y = box_cy;
++
++    if (mode == "odb") {
++      if (db_inst->isPlaced()) {
++        const auto bbox = db_inst->getBBox()->getBox();
++        x = bbox.xCenter();
++        y = bbox.yCenter();
++        ++count_db_location;
++      }
++    } else if (mode == "corner_ll") {
++      x = box_lx;
++      y = box_ly;
++    } else if (mode == "corner_ur") {
++      x = box_ux;
++      y = box_uy;
++    } else if (mode == "uniform") {
++      x = clampToRange(box_lx + uniform(rng) * box_dx, box_lx, box_ux);
++      y = clampToRange(box_ly + uniform(rng) * box_dy, box_ly, box_uy);
++    } else if (sigma_fraction > 0.0) {
++      x = clampToRange(
++          box_cx + gaussian(rng) * sigma_fraction * box_dx, box_lx, box_ux);
++      y = clampToRange(
++          box_cy + gaussian(rng) * sigma_fraction * box_dy, box_ly, box_uy);
++    } else if (mode == "spread") {
++      double fx = 0.0;
++      double fy = 0.0;
++      r2Point(index, fx, fy);
++      x = clampToRange(box_lx + fx * box_dx, box_lx, box_ux);
++      y = clampToRange(box_ly + fy * box_dy, box_ly, box_uy);
++    } else if (mode == "anchored") {
++      int64_t sum_x = 0;
++      int64_t sum_y = 0;
++      int64_t anchors = 0;
++      for (const Pin* pin : inst->getPins()) {
++        const Net* net = pin->getNet();
++        if (net == nullptr) {
++          continue;
++        }
++        if (static_cast<int>(net->getPins().size()) > ipVars_.maxFanout) {
++          continue;
++        }
++        for (const Pin* other : net->getPins()) {
++          if (other == pin) {
++            continue;
++          }
++          const Instance* other_inst = other->getInstance();
++          if (other_inst != nullptr && !other_inst->isFixed()) {
++            continue;
++          }
++          sum_x += other->cx();
++          sum_y += other->cy();
++          ++anchors;
++        }
++      }
++      if (anchors > 0) {
++        x = clampToRange(
++            static_cast<double>(sum_x) / static_cast<double>(anchors),
++            box_lx,
++            box_ux);
++        y = clampToRange(
++            static_cast<double>(sum_y) / static_cast<double>(anchors),
++            box_ly,
++            box_uy);
++        ++count_anchored;
++      }
++    }
++
++    inst->setCenterLocation(x, y);
++    ++count_placed;
++    ++index;
++  }
++
++  log_->report(
++      "[InitialPlace] initial_position_mode {}: placed {} instances "
++      "(region box {}, odb location {}, anchored {}), seed {}",
++      mode,
++      count_placed,
++      count_region,
++      count_db_location,
++      count_anchored,
++      ipVars_.perturbationSeed);
++}
++
+ void InitialPlace::setPlaceInstExtId()
+ {
+   // reset ExtId for all instances
+diff -ruN a/src/gpl/src/initialPlace.h b/src/gpl/src/initialPlace.h
+--- a/src/gpl/src/initialPlace.h	2026-09-14 08:22:37.696652874 +0200
++++ b/src/gpl/src/initialPlace.h	2026-09-14 08:22:51.583807261 +0200
+@@ -4,6 +4,7 @@
+ #pragma once
+ 
+ #include <memory>
++#include <string>
+ #include <vector>
+ 
+ #include "Eigen/SparseCore"
+@@ -33,6 +34,9 @@
+   const bool debug;
+   const bool forceCenter;
+   const bool placeIosMode;
++  // Study instrumentation; see PlaceOptions::initialPositionMode.
++  const std::string initialPositionMode;
++  const int perturbationSeed;
+ };
+ 
+ using SMatrix = Eigen::SparseMatrix<float, Eigen::RowMajor>;
+@@ -86,6 +90,7 @@
+   SMatrix placeInstForceMatrixX_, placeInstForceMatrixY_;
+ 
+   void placeInstsInitialPositions();
++  void placeInstsByMode();
+   void setPlaceInstExtId();
+   void updatePinInfo();
+   void createSparseMatrix();
+diff -ruN a/src/gpl/src/replace.i b/src/gpl/src/replace.i
+--- a/src/gpl/src/replace.i	2026-09-14 08:22:37.712309763 +0200
++++ b/src/gpl/src/replace.i	2026-09-14 08:24:17.457805950 +0200
+@@ -86,6 +86,11 @@
+            "-timing_driven_repair_tns_end_percent",
+            options.timingDrivenRepairTnsEndPercent);
+   checkKey(keys, "-random_seed", options.initialPlacePerturbationSeed);
++  // Study instrumentation. utl::convert has no std::string specialization,
++  // so read the key directly rather than widening a shared helper.
++  if (auto it = keys.find("-initial_position_mode"); it != keys.end()) {
++    options.initialPositionMode = it->second;
++  }
+   checkKey(keys, "-perturb_dist", options.initialPlacePerturbationDist);
+ 
+   if (auto it = keys.find("-density"); it != keys.end()) {
+diff -ruN a/src/gpl/src/replace.tcl b/src/gpl/src/replace.tcl
+--- a/src/gpl/src/replace.tcl	2026-09-14 08:22:37.720272525 +0200
++++ b/src/gpl/src/replace.tcl	2026-09-14 08:24:17.466176447 +0200
+@@ -43,6 +43,7 @@
+     [-disable_pin_density_adjust]\
+     [-random_seed random_seed]\
+     [-perturb_dist perturb_dist]\
++    [-initial_position_mode initial_position_mode]\
+     [-enable_routing_congestion]
+ }
+ 
+@@ -68,6 +69,7 @@
+       -virtual_cts_max_skew_fraction \
+       -random_seed \
+       -perturb_dist \
++      -initial_position_mode \
+       -pad_left -pad_right} \
+     flags {-skip_initial_place \
+       -force_center_initial_place \

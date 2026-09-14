@@ -63,6 +63,14 @@ archive_override(
         "find . -name BUILD -exec sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|g' {} +",
         "sed -i 's|defines = \\[|copts = [\"-include\", \"fmt/format.h\"],\\n    defines = [|' src/syn/src/elab/BUILD third-party/slang-elab/src/BUILD",
     ],
+    # STUDY BRANCH ONLY -- study/gpl-initial-position.
+    # Instrumentation, not a candidate fix: it adds
+    # `global_placement -initial_position_mode <mode>` so the arms of the
+    # initial-position study select a distribution at run time from one
+    # binary. Passing no mode takes the shipped code path unchanged.
+    # Never merge to main; it retires with the study branch.
+    patch_strip = 1,
+    patches = ["//patches:0066-openroad-gpl-initial-position-mode.patch"],
     strip_prefix = "OpenROAD-c7e5e75131a65e402a2d46a1cb82659d725655da",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/c7e5e75131a65e402a2d46a1cb82659d725655da.tar.gz"],
 )
