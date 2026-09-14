@@ -1,0 +1,98 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+# Where global placement starts from, and whether it matters.
+#
+# No flow targets: a sample does not run through bazel at all. It is a
+# place stage (optionally continued to global route) inside a tree
+# `//:deps` deployed once per design, which is what makes a couple of
+# thousand samples affordable -- no analysis per leaf, no rebuild when
+# the binary changes, and the tree is the reproducer. `campaign` is the
+# only target here that runs anything, and it is manual for the obvious
+# reason.
+#
+# The parsers and the statistics are not manual: they are what the
+# report's honesty rests on, so they run in `bazelisk test //test/...`
+# with no ORFS checkout and no deployed tree.
+package(default_visibility = ["//visibility:private"])
+
+py_library(
+    name = "analysis",
+    srcs = [
+        "campaign.py",
+        "gpl_progress.py",
+        "harvest.py",
+        "initial_place.py",
+        "report.py",
+        "stats.py",
+    ],
+    imports = ["."],
+)
+
+py_test(
+    name = "stats_test",
+    srcs = ["stats_test.py"],
+    deps = [":analysis"],
+)
+
+py_test(
+    name = "initial_place_test",
+    srcs = ["initial_place_test.py"],
+    data = [
+        "testdata/place_gp_anchored.log",
+        "testdata/place_gp_shipped.log",
+    ],
+    deps = [":analysis"],
+)
+
+py_test(
+    name = "gpl_progress_test",
+    srcs = ["gpl_progress_test.py"],
+    data = [
+        "testdata/place_gp_anchored.log",
+    ],
+    deps = [":analysis"],
+)
+
+py_test(
+    name = "campaign_test",
+    srcs = ["campaign_test.py"],
+    deps = [":analysis"],
+)
+
+py_test(
+    name = "report_test",
+    srcs = ["report_test.py"],
+    deps = [":analysis"],
+)
+
+# Runs the flow. Manual, and the only target here that costs hours.
+py_binary(
+    name = "campaign",
+    srcs = ["campaign.py"],
+    tags = ["manual"],
+    deps = [":analysis"],
+)
+
+py_binary(
+    name = "harvest",
+    srcs = ["harvest.py"],
+    tags = ["manual"],
+    deps = [":analysis"],
+)
+
+py_binary(
+    name = "report",
+    srcs = ["report.py"],
+    tags = ["manual"],
+    deps = [":analysis"],
+)
+
+py_binary(
+    name = "plots",
+    srcs = ["plots.py"],
+    tags = ["manual"],
+    deps = [
+        ":analysis",
+        "@bazel-orfs-dev-pip//matplotlib",
+    ],
+)
