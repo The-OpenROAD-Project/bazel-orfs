@@ -87,8 +87,10 @@ class EndpointsTest(unittest.TestCase):
 
     def test_probe_finds_the_jackpot_cheaply(self):
         table = endpoints.probe_table(self.vs)
-        # k=2 finds visit 3 (first gain at pass 2): 90% of the gain.
-        self.assertIn("| 2 | 1 | 90% |", table)
+        # Visit 1 is the phase's first endpoint and keeps its legacy budget,
+        # so the probe sees visits 2-4: k=2 finds visit 3 (first gain at
+        # pass 2), which is all of their gain.
+        self.assertIn("| 2 | 1 | 100% |", table)
         # k=1 finds nothing.
         self.assertIn("| 1 | 0 | 0% |", table)
 
