@@ -197,6 +197,17 @@ learned policy that needs training runs per design.
 
 ## Decisions log
 
+- 2026-09-15, 01:00: 0083 on mock-alu: byte-identical ODB, restore
+  seconds 4.2 to 0.1 in cts, and the phase not a second faster (47.4 to
+  48.4 s). Dropping the explicit findRequireds from the restore moves
+  the re-timing of the undone cone to the next query; it does not remove
+  it. The 14-36% of the setup phase that journal restores cost is the
+  incremental STA update after an undo, and it is not redundant. Two
+  per-pass suspects in the restore path measured and cleared (0081 the
+  area recount, 0083 the timing update); what remains of a restore is
+  the undo itself and the re-timing it forces. 0082 v2 (rows for
+  zero-pass visits) compiled and queued after 0083.
+
 - 2026-09-15, 00:30: 0082 as first cut is inert: identical row counts
   (mock-alu cts 958 and 958). The iteration count the sweep prints and
   the fence reads is a count of visits, not of passes: a visit that finds
