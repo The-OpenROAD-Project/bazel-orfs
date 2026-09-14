@@ -86,6 +86,35 @@ The image carries entry points for both reset conventions in play --
 `0x000` for a core that starts at its reset address, `0x180` for ibex,
 which fetches from `boot_addr_i + 0x80`.
 
+## What the number is meant to cover
+
+The intent is **the CPU core including its L1** -- everything CoreMark's
+hot loop actually touches -- and not the SoC around it. A core is not
+free to push its misses onto someone else's memory and call itself
+efficient; the caches that keep the hot loop fed are part of what is
+being measured.
+
+**The measurements below do not meet that yet, and the gap flatters the
+cacheless designs.** The harness RAM is simulation-only: it is never
+hardened, so every fetch and load in the benchmark is served by memory
+that costs zero area and zero energy. For picorv32 and SERV, which have
+no caches at all, that means their entire memory system is outside the
+measurement. ibex is configured with `ICache=0`, so the same applies.
+
+Two consequences worth stating before anyone reads the plot as a
+verdict:
+
+- A design that spends area and energy on an L1 to go faster is charged
+  for the L1 and credited with the speed. A design with no L1 is charged
+  for neither and still gets a free, perfect memory. The comparison is
+  therefore kind to the minimal cores, not harsh on them.
+- SERV's 41 million cycles per iteration are 41 million accesses to that
+  free memory. A real system would pay for them.
+
+Closing the gap means hardening the L1 with the core -- `ICache=1` on
+ibex, and for cores with no cache, deciding explicitly whether the
+comparison is core-to-core or system-to-system and saying which.
+
 ## The SAIF window: one hot iteration
 
 Switching activity has to come from the part of the run that represents
