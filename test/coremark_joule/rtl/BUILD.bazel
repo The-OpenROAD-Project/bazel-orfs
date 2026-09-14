@@ -9,6 +9,9 @@ load("@rules_verilog//verilog:defs.bzl", "verilog_library")
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 
 exports_files([
+    "cmj_ibex.sv",
+    "cmj_picorv32.v",
+    "cmj_serv.v",
     "ibex.BUILD.bazel",
     "picorv32.BUILD.bazel",
     "serv.BUILD.bazel",

@@ -481,3 +481,16 @@ http_archive(
     strip_prefix = "picorv32-87c89acc18994c8cf9a2311e871818e87d304568",
     urls = ["https://github.com/YosysHQ/picorv32/archive/87c89acc18994c8cf9a2311e871818e87d304568.tar.gz"],
 )
+
+# The study's own designs (//test/coremark_joule/designs): a third
+# orfs_designs() instance, so the three cores get the same generated flow
+# targets and the same auto_floorplan derivation that every ORFS design
+# gets, without patching an ORFS checkout. Must stay below the two
+# instances above: //test:orfs_platforms_test reads the first one it
+# finds.
+orfs_designs(
+    name = "coremark_joule_designs",
+    designs_dir = "//test/coremark_joule/designs:BUILD",
+    dev_dependency = True,
+    platforms = ["asap7"],
+)

@@ -1,0 +1,19 @@
+{
+  "design": "cmj_serv",
+  "min_coverage": 0.90,
+  "waiver": null,
+  "units": {
+    "serv_decode": "decode",
+    "serv_immdec": "decode",
+    "serv_alu": "execute",
+    "serv_bufreg": "execute",
+    "serv_bufreg2": "execute",
+    "serv_ctrl": "control",
+    "serv_state": "control",
+    "serv_mem_if": "load/store",
+    "serv_csr": "csr",
+    "serv_rf_if": "register file",
+    "serv_rf_ram_if": "register file",
+    "serv_rf_ram": "register file"
+  }
+}
