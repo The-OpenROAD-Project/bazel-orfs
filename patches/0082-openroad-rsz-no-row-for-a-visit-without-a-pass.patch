@@ -12,43 +12,73 @@ to the iteration number. After OpenROAD #11387 a row still collects the
 TNS, the WNS and the worst pin and formats the line; the per-visit trace
 of the default (patches/0078) puts the rows at 5-17% of the setup phase.
 
-A per-endpoint row is printed only when the visit advanced the iteration
-count. The ten-pass rows, the first and the final row are untouched.
+A per-endpoint row is printed only when the visit ran a repair pass. A
+visit that finds its endpoint repaired still counts an iteration (the
+iteration count is a count of visits, not of passes, which is why the
+first cut of this patch, keyed on the iteration count, changed nothing),
+so the visit records whether repairPath ran. The ten-pass rows, the first
+and the final row are untouched.
+
 diff --git a/src/rsz/src/policy/SetupLastGaspPolicy.cc b/src/rsz/src/policy/SetupLastGaspPolicy.cc
-index 7e9fbfc00b..32f2a59d7e 100644
+index 7e9fbfc00b..c96b4b8021 100644
 --- a/src/rsz/src/policy/SetupLastGaspPolicy.cc
 +++ b/src/rsz/src/policy/SetupLastGaspPolicy.cc
-@@ -367,9 +367,12 @@ void SetupLastGaspPolicy::runLastGaspLoop(
-       break;
+@@ -285,6 +285,7 @@ void SetupLastGaspPolicy::repairLastGaspEndpoint(
      }
  
-+    const int iteration_before = last_gasp_state.opto_iteration;
+     ++setup_context_.profile.passes;
++    endpoint_state.made_a_pass = true;
+     sta::Path* end_path;
+     {
+       utl::DebugScopedTimer timer(setup_context_.profile.path_s);
+@@ -369,7 +370,9 @@ void SetupLastGaspPolicy::runLastGaspLoop(
+ 
      repairLastGaspEndpoint(endpoint_state, last_gasp_state);
  
 -    if (config_.verbose || last_gasp_state.opto_iteration == 1) {
-+    // As in the main phase: no row for a visit that spent no pass.
-+    if ((config_.verbose && last_gasp_state.opto_iteration != iteration_before)
++    // As in the main phase: no row for a visit that ran no pass.
++    if ((config_.verbose && endpoint_state.made_a_pass)
 +        || last_gasp_state.opto_iteration == 1) {
        printProgress(
            last_gasp_state.opto_iteration, true, last_gasp_state.phase_marker);
      }
+diff --git a/src/rsz/src/policy/SetupLegacyBase.hh b/src/rsz/src/policy/SetupLegacyBase.hh
+index cde35a732b..e57afe3601 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.hh
++++ b/src/rsz/src/policy/SetupLegacyBase.hh
+@@ -93,6 +93,9 @@ class SetupLegacyBase : public OptimizationPolicy
+     int decreasing_slack_passes{0};
+     bool journal_open{false};
+     bool force_single_repair{false};
++    // Whether the visit ran a repair pass at all. An endpoint found already
++    // repaired on arrival counts an iteration but runs no pass.
++    bool made_a_pass{false};
+     // Study trace (repair-yield): what this endpoint visit cost and bought.
+     // Filled by traceBegin/traceGain, printed by traceEnd as one
+     // [RSZ-ENDPOINT] line. Read-only queries; no result changes.
 diff --git a/src/rsz/src/policy/SetupLegacyPolicy.cc b/src/rsz/src/policy/SetupLegacyPolicy.cc
-index 4964886814..f871ae36f2 100644
+index 4964886814..b399eff85b 100644
 --- a/src/rsz/src/policy/SetupLegacyPolicy.cc
 +++ b/src/rsz/src/policy/SetupLegacyPolicy.cc
-@@ -415,9 +415,15 @@ void SetupLegacyPolicy::runMainRepairLoop(const ViolatingEnds& violating_ends,
-       break;
+@@ -220,6 +220,7 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
      }
  
-+    const int iteration_before = main_state.opto_iteration;
+     ++setup_context_.profile.passes;
++    endpoint_state.made_a_pass = true;
+     sta::Path* end_path;
+     {
+       utl::DebugScopedTimer timer(setup_context_.profile.path_s);
+@@ -417,7 +418,13 @@ void SetupLegacyPolicy::runMainRepairLoop(const ViolatingEnds& violating_ends,
+ 
      repairEndpoint(endpoint_state, main_state);
  
 -    if (config_.verbose || main_state.opto_iteration == 1) {
-+    // The per-endpoint row is printed only when the visit spent a pass.
-+    // An endpoint found already repaired when the sweep reaches it (most
-+    // of the visits on a design that closes) spends none, and its row
-+    // would repeat the previous one, iteration number included.
-+    if ((config_.verbose && main_state.opto_iteration != iteration_before)
++    // The per-endpoint row is printed only when the visit ran a pass. An
++    // endpoint found already repaired when the sweep reaches it (most of
++    // the visits on a design that closes) runs none; it still counts an
++    // iteration, so its row would differ from the previous one by the
++    // iteration number alone.
++    if ((config_.verbose && endpoint_state.made_a_pass)
 +        || main_state.opto_iteration == 1) {
        printProgress(main_state.opto_iteration, true, main_state.phase_marker);
      }
