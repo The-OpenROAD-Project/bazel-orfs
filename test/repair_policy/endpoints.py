@@ -146,8 +146,15 @@ def order_table(vs):
     return sweep, yield_order, total_passes
 
 
+def probeable(vs):
+    """The visits a probe would apply to: every endpoint but the first of
+    each phase, which keeps its full legacy budget under the policy."""
+    return [v for v in vs if v["idx"] != 1]
+
+
 def probe_table(vs):
     """Share of gain found by a k-pass probe, and the probe's cost."""
+    vs = probeable(vs)
     total_gain = sum(v["gain"] for v in vs if v["gain"] > 0) or 1.0
     total_passes = sum(v["passes"] for v in vs) or 1
     lines = [
@@ -211,6 +218,7 @@ def decile_table(vs):
 
 def probe_quality(vs, k=1):
     """How well 'improved within k passes' separates the visits that paid."""
+    vs = probeable(vs)
     paying = [v for v in vs if v["gain"] > 0]
     flagged = [v for v in vs if 0 < v["gain1"] <= k]
     hit = [v for v in flagged if v["gain"] > 0]
@@ -546,6 +554,45 @@ def compare(results_dir, arms, designs, steps):
     return "\n".join(out)
 
 
+def summary_table(arm, designs, steps):
+    """One row per design and step: the Phase 0 headline numbers."""
+    lines = [
+        "| design | step | visits | paying | passes | passes that bought nothing | passes to 90% of gain, sweep order | same, best yield first | two-pass probe: gain found (first endpoint aside) | probe cost |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ]
+    for design in designs:
+        record = arm.get(design)
+        if not record:
+            continue
+        for step in steps:
+            vs = visits(record, step)
+            if not vs:
+                continue
+            c = concentration(vs)
+            sweep, yo, total = order_table(vs)
+            pv = probeable(vs)
+            total_gain = sum(v["gain"] for v in pv if v["gain"] > 0) or 1.0
+            found = sum(v["gain"] for v in pv if v["gain"] > 0 and 0 < v["gain1"] <= 2)
+            cost = sum(min(v["passes"], 2) for v in pv)
+            lines.append(
+                "| {} | {} | {} | {} | {} | {:.0f}% | {} ({:.0f}%) | {} ({:.0f}%) | {:.0f}% | {:.0f}% |".format(
+                    design,
+                    step.split("_", 2)[2],
+                    c["visits"],
+                    c["paying"],
+                    c["total_passes"],
+                    c["zero_pass_share"],
+                    fmt(sweep),
+                    100.0 * (sweep or 0) / total,
+                    fmt(yo),
+                    100.0 * (yo or 0) / total,
+                    100.0 * found / total_gain,
+                    100.0 * cost / total,
+                )
+            )
+    return "\n".join(lines) + "\n"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results", required=True)
@@ -556,6 +603,11 @@ def main():
         metavar="ARM",
         help="print one table per step comparing these arms instead",
     )
+    parser.add_argument(
+        "--summary",
+        action="store_true",
+        help="print the one-row-per-step headline table instead",
+    )
     parser.add_argument("--designs", nargs="*")
     parser.add_argument("--steps", nargs="*", default=list(STEPS_WITH_SETUP))
     parser.add_argument("--out", help="directory for visits.csv and the figures")
@@ -565,6 +617,9 @@ def main():
         return
     arm = load_arm(args.results, args.arm)
     designs = args.designs or sorted(arm)
+    if args.summary:
+        sys.stdout.write(summary_table(arm, designs, args.steps))
+        return
     if args.out:
         os.makedirs(args.out, exist_ok=True)
         csv_path = os.path.join(args.out, "visits.csv")
