@@ -197,6 +197,22 @@ learned policy that needs training runs per design.
 
 ## Decisions log
 
+- 2026-09-14, 19:50: the v2 trace's improvement lists settle the patience
+  question, against a short constant. Over the visits that do not carry
+  WNS, a patience of five keeps 98-99% of mock-alu's gain for 84-86% of
+  the passes, but jpeg's grt visits gain again after dry gaps of ten to
+  twenty passes: five keeps 73%, ten 83%, twenty 98%, and only the
+  legacy fifty keeps all of it. A patience that grows with the visit's
+  own successes (3+n, 5+2n) does no better on jpeg grt (67-80%). The
+  dry-gap tolerance a design needs spans five to fifty, so any single
+  constant is the knob trade again. 0080 runs with twenty, the smallest
+  value that keeps 98% or more on every traced step, as a measured data
+  point rather than a candidate: it saves 28% of jpeg cts's passes and
+  nothing on mock-alu. The result-identical fixes 0081 and 0082 are now
+  the study's upstream candidates; the campaign machine was in use for
+  an hour (a call and a build), so the queue now waits for an idle
+  machine before every arm instead of aborting at the runner's gate.
+
 - 2026-09-14, 17:50: jpeg under 0079 shows the other face of the same
   coin: cts TNS -23.8 to -18.7 ns and WNS -95.2 to -83.0 ps, grt TNS
   -29.9 to -24.0 ns and WNS -102.7 to -95.1, at +24 s and +106 s. The
