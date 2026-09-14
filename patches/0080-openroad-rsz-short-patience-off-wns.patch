@@ -1,0 +1,60 @@
+rsz: give up on a non-WNS endpoint after three dry passes, not fifty
+
+Policy candidate from the repair-knobs campaign (ideas/repair-knobs-nihl.md,
+third study). Not upstreamed; carried while it is measured.
+
+The legacy sweep lets every endpoint run fifty non-improving passes
+before it restores the last checkpoint and moves on. The per-visit trace
+of the default (patches/0078) on the study's designs says what those
+passes buy: a paying endpoint's next improvement arrives within a few
+passes of the previous one, and the fifty-pass tail is where the dry
+passes go -- jpeg cts spends a quarter of its passes on eight visits
+that improve, then grind fifty dry passes, then restore. The endpoint
+that carries WNS is the exception: its first gain can come late
+(riscv32i grt, pass 31), and it keeps the legacy patience.
+
+One constant changes, for endpoints that do not carry WNS: three dry
+passes. The order of the sweep, the fix-rate fence, the last-gasp phase
+and every knob are untouched. Chesterton's Fence: the fifty was there for
+late gains; the trace shows where late gains actually occur, and the
+patch keeps the patience exactly there.
+diff --git a/src/rsz/src/policy/SetupLegacyBase.hh b/src/rsz/src/policy/SetupLegacyBase.hh
+index cde35a732b..babb3074f0 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.hh
++++ b/src/rsz/src/policy/SetupLegacyBase.hh
+@@ -260,6 +260,13 @@ class SetupLegacyBase : public OptimizationPolicy
+       rejected_pin_moves_current_endpoint_;
+   // === Legacy repair constants =============================================
+   static constexpr int decreasing_slack_max_passes_ = 50;
++  // Study candidate (repair-yield): the passes a visit may go on without
++  // improving before it gives up, for every endpoint but the one that
++  // carries WNS. The trace of the default (patches/0078) shows a paying
++  // endpoint's next gain arrives within a few passes of the last; the
++  // fifty above bought nothing on any traced design except on the WNS
++  // endpoint, which keeps it.
++  static constexpr int patience_passes_ = 3;
+   static constexpr int initial_decreasing_slack_max_passes_ = 6;
+   static constexpr int pass_limit_increment_ = 5;
+   static constexpr int print_interval_ = 10;
+diff --git a/src/rsz/src/policy/SetupLegacyPolicy.cc b/src/rsz/src/policy/SetupLegacyPolicy.cc
+index 4964886814..17814e0a03 100644
+--- a/src/rsz/src/policy/SetupLegacyPolicy.cc
++++ b/src/rsz/src/policy/SetupLegacyPolicy.cc
+@@ -316,8 +316,15 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
+     } else {
+       endpoint_state.force_single_repair = true;
+       ++endpoint_state.decreasing_slack_passes;
+-      if (endpoint_state.decreasing_slack_passes
+-          > decreasing_slack_max_passes_) {
++      // The endpoint that carries WNS keeps the legacy patience: it is the
++      // one whose late gains are worth waiting for (riscv32i grt's first
++      // gain comes at pass 31). Every other endpoint gets a short one.
++      const bool carries_wns
++          = main_state.end_index == 1
++            || endpoint_state.end == endpoint_state.worst_vertex;
++      const int patience
++          = carries_wns ? decreasing_slack_max_passes_ : patience_passes_;
++      if (endpoint_state.decreasing_slack_passes > patience) {
+         debugPrint(logger_,
+                    RSZ,
+                    "repair_setup",

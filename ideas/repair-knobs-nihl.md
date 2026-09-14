@@ -197,6 +197,27 @@ learned policy that needs training runs per design.
 
 ## Decisions log
 
+- 2026-09-14, 17:00: 0079 fails on the design it was built for. mock-alu
+  cts: 1346 to 914 passes but 45.6 to 52.1 s and WNS -272.7 to -282.1;
+  grt: 970 to 757 passes, 39.5 to 56.0 s; flow +29 s, min period -11 ps.
+  Two causes, both in the data. First, a pass on a fresh endpoint costs
+  more than a pass in a grind: STA per pass 0.028 to 0.040 s in cts,
+  parasitics per pass 0.015 to 0.025 s in grt, and every dry probe
+  restores its journal (restore 4 to 11 s), so 30% fewer passes cost
+  more seconds. Second, TNS per pass is blind to WNS: the worst decile's
+  visits that bought "6% of the gain" bought the whole 31 ps of WNS,
+  one small step per visit, and a two-pass probe does not see a step
+  that only shows once the endpoint is the worst. Ordering by measured
+  yield is refuted as built; the measurement stands as the study's
+  negative result with its profile. What the traces do support without
+  changing the order: the dry tail of a visit. Patch 0080 gives every
+  endpoint that does not carry WNS a patience of three dry passes
+  instead of fifty (the WNS endpoint keeps fifty: riscv32i grt's first
+  gain comes at pass 31). The v3 trace's patience table on the five
+  vehicles sets the constant before Phase B; the analytical estimate in
+  the same trace decides whether visits that cannot pay can be skipped
+  outright, which is the only way to cut the fresh-pass cost.
+
 - 2026-09-14, 16:20: two traps, both mine. A compile check of a study
   patch is a bazel build of OpenROAD, and the running campaign's next
   deploy builds whatever MODULE.bazel and the patch files say at that
