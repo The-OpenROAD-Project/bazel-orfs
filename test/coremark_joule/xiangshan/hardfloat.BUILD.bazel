@@ -1,0 +1,12 @@
+"""Berkeley hardfloat, a rocket-chip submodule."""
+
+load("@rules_chisel//chisel:defs.bzl", "chisel_library")
+
+package(default_visibility = ["//visibility:public"])
+
+chisel_library(
+    name = "hardfloat",
+    srcs = glob(["hardfloat/src/main/scala/**/*.scala"]),
+    scalacopts = ["-Ymacro-annotations"],
+    deps = ["@xs_maven//:com_lihaoyi_sourcecode_2_13"],
+)
