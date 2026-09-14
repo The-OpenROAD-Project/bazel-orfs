@@ -1,5 +1,5 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
-load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "stage_power", "stage_power_units")
+load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "hier_probe", "stage_power", "stage_power_units")
 
 design(
     config = "config.mk",
@@ -29,3 +29,15 @@ stage_power_units(
     saif_scope = "TOP/cm_soc/cpu",
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
+
+[
+    hier_probe(
+        name = "cmj_serv_hier_" + stage,
+        src = ":cmj_serv_" + stage,
+        stage = stage,
+    )
+    for stage in [
+        "synth",
+        "grt",
+    ]
+]

@@ -23,6 +23,7 @@ load("@bazel-orfs//:openroad.bzl", "orfs_run")
 # ORFS stage stems, as private/stages.bzl spells them. The netlist and
 # the power report have to name the same one.
 STAGE_STEM = {
+    "synth": "1_synth",
     "cts": "4_1_cts",
     "grt": "5_1_grt",
     "route": "5_route",
@@ -123,6 +124,21 @@ def stage_power_units(
             "SAIF_STIMULI": "$(location {})".format(saif),
             "SAIF_SCOPE": saif_scope,
             "OUT_JSON": "$(location {}.json)".format(name),
+        },
+        tags = tags,
+        visibility = visibility,
+    )
+
+def hier_probe(name, src, stage, tags = ["manual"], visibility = None):
+    """Report how much module hierarchy a stage's ODB still carries."""
+    orfs_run(
+        name = name,
+        src = src,
+        outs = [name + ".txt"],
+        script = "//test/coremark_joule/flow:hier_probe.tcl",
+        user_arguments = {
+            "STAGE_STEM": STAGE_STEM[stage],
+            "OUT": "$(location {}.txt)".format(name),
         },
         tags = tags,
         visibility = visibility,

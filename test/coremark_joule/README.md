@@ -166,7 +166,28 @@ module to its architectural unit.
 design, so the enumeration cannot rot silently: an upstream rename fails
 the build instead of quietly moving a unit into "other".
 
-**Parameterized modules do not survive into the ODB.** SERV's kept
+**Parameterized modules do not survive into the ODB**, and the probe
+says where they are lost: `hier_probe` reports zero module instances
+already at `1_synth`, so the hierarchy goes at the point OpenROAD reads
+the synthesis netlist, not during placement or routing. picorv32 keeps
+its two module instances from `1_synth` through `5_1_grt` intact,
+complete with hierarchical paths (`cpu.genblk1.genblk1.pcpi_mul`).
+
+The obvious fix -- rename the kept modules to their design names during
+synthesis -- is explicitly warned against in
+`synth_canonicalize_module.tcl`, which keeps canonical names because
+OpenROAD's macro placement and the parent netlist's instance references
+use them. Renaming in the module partition alone would desync the two.
+
+The established pattern for mangled names is to **de-uniquify at the
+reporting layer**: keep canonical names through the flow and map them
+back to the design's names when aggregating. That is the right shape
+here too, but it does not rescue SERV, whose instances are absent rather
+than mangled. A consistent rename across the whole merged netlist --
+definition and instantiation together, which is not what the warning is
+about -- is the candidate fix, and it is untried.
+
+ SERV's kept
 modules are all parameterized, so yosys names them
 `$paramod\serv_alu\W=s32'...`, and while all thirteen are present in
 `1_2_yosys.v`, the grt ODB has zero module instances and the written

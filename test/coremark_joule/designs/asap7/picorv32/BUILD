@@ -1,5 +1,5 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
-load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "stage_power")
+load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "hier_probe", "stage_power")
 
 # No memories_applied_test here: picorv32 has no convertible memory, so
 # AUTO_MEMORIES is off and there is nothing for the guard to assert. The
@@ -27,3 +27,15 @@ stage_power(
     saif_scope = "TOP/cm_soc/cpu",
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
+
+[
+    hier_probe(
+        name = "cmj_picorv32_hier_" + stage,
+        src = ":cmj_picorv32_" + stage,
+        stage = stage,
+    )
+    for stage in [
+        "synth",
+        "grt",
+    ]
+]

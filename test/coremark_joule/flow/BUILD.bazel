@@ -6,3 +6,5 @@ exports_files(["write_netlist.tcl"])
 exports_files(["power_grt.tcl"])
 
 exports_files(["power_units_grt.tcl"])
+
+exports_files(["hier_probe.tcl"])
