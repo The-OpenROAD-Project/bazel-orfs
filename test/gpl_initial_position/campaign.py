@@ -369,6 +369,18 @@ def reharvest(design_root, platform, design, arm, seed, out_dir):
         seed=seed,
         variant=variant,
     )
+    # Refuse to overwrite a good record with an empty one. A deployed
+    # tree can be redeployed -- `//:deps` untars it fresh and wipes every
+    # variant directory -- while the sample JSONs live outside it and
+    # survive. Re-reading then finds no logs and would replace a valid
+    # sample with nulls, which is worse than either keeping it or losing
+    # it loudly: the tables would silently shrink.
+    if record.get("arm_witnessed") is None and previous.get("arm_witnessed"):
+        print(
+            "  keeping %s: logs are gone from the tree, nothing to re-read"
+            % os.path.basename(out_json)
+        )
+        return None
     record["run"] = previous.get("run", {})
     with open(out_json, "w") as handle:
         json.dump(record, handle, indent=2, sort_keys=True)

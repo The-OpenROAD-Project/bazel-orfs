@@ -43,6 +43,12 @@ py_test(
 )
 
 py_test(
+    name = "harvest_test",
+    srcs = ["harvest_test.py"],
+    deps = [":analysis"],
+)
+
+py_test(
     name = "initial_place_test",
     srcs = ["initial_place_test.py"],
     data = [

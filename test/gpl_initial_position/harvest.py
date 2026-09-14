@@ -48,7 +48,16 @@ import initial_place
 # ORFS's own per-step runtime line. Recorded always; quoted only for
 # samples the campaign ran serially, because a several-wide sample's
 # wall time is a property of the machine, not of the arm.
-_ELAPSED = re.compile(r"Elapsed time: (?P<h>\d+):(?P<m>[0-9.]+)\[h:\]min:sec")
+# GNU time's format, which ORFS annotates in the log as `[h:]min:sec` --
+# the hours field is optional, so the last two fields are always minutes
+# and seconds. Reading the first field as hours (which is what this
+# regex did before, inherited from PR #977's harness) inflates every
+# non-zero value 60-fold: `2:07.21` is 2 min 7.21 s, not 2 h 7.21 s. It
+# also failed to match the three-field form at all, so a step that ran
+# over an hour silently recorded no runtime rather than a wrong one.
+_ELAPSED = re.compile(
+    r"Elapsed time: (?:(?P<h>\d+):)?(?P<m>\d+):(?P<s>[0-9.]+)\[h:\]min:sec"
+)
 
 PLACE_STEPS = [
     "3_1_place_gp_skip_io",
@@ -98,7 +107,11 @@ def elapsed_seconds(text):
     match = _ELAPSED.search(text)
     if not match:
         return None
-    return int(match.group("h")) * 3600 + float(match.group("m"))
+    return (
+        int(match.group("h") or 0) * 3600
+        + int(match.group("m")) * 60
+        + float(match.group("s"))
+    )
 
 
 def read_metrics(logs_dir):

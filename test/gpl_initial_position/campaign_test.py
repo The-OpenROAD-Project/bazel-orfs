@@ -1,5 +1,6 @@
 """Unit tests for the campaign runner's bookkeeping."""
 
+import json
 import os
 import shutil
 import tempfile
@@ -95,6 +96,31 @@ class VariantPreparationTest(unittest.TestCase):
     def test_logs_dir_is_returned_alongside(self):
         _, logs_dir = campaign.prepare_variant(self.root, "asap7", "gcd", "v1")
         self.assertTrue(logs_dir.endswith(os.path.join("logs", "asap7", "gcd", "v1")))
+
+
+class ReharvestGuardTest(unittest.TestCase):
+    def test_a_record_is_not_overwritten_when_its_logs_are_gone(self):
+        # //:deps untars a tree fresh and wipes every variant directory,
+        # while the sample JSONs live outside it and survive. Re-reading
+        # then finds nothing, and replacing a valid sample with nulls
+        # would shrink the tables silently.
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root)
+        results = os.path.join(root, "results", "asap7", "gcd", "base")
+        os.makedirs(results)
+        out_dir = os.path.join(root, "out")
+        os.makedirs(out_dir)
+        good = {"arm": "center", "arm_witnessed": "center", "gp_hpwl_final": 523.0,
+                "run": {"status": 0}}
+        path = os.path.join(out_dir, "asap7_gcd_center_s1.json")
+        with open(path, "w") as handle:
+            json.dump(good, handle)
+        # No logs anywhere under the tree.
+        self.assertIsNone(
+            campaign.reharvest(root, "asap7", "gcd", "center", 1, out_dir)
+        )
+        with open(path) as handle:
+            self.assertEqual(json.load(handle)["gp_hpwl_final"], 523.0)
 
 
 class ClockTest(unittest.TestCase):
