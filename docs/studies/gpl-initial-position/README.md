@@ -122,6 +122,19 @@ it buys. Where the design count cannot buy the rate, the verdict reads
   `--serial` samples, which run one at a time and refuse to start on a
   busy machine. `gp_iterations` is machine-independent and is the
   runtime endpoint everywhere else.
+* **Determinism, checked rather than assumed.** The same arm at the same
+  seed, run twice, must produce a byte-identical `3_3_place_gp.odb`.
+  Without that every delta in the study could be run-to-run variation
+  wearing an arm's name. Measured on `asap7/gcd`, seed 7:
+
+  | arm | run twice | first 20 hex of SHA-1 |
+  | --- | --- | --- |
+  | `shipped` | identical | `4190ad315c53591dde91` |
+  | `spread` | identical | `b37d69c5f4eb0cedf839` |
+  | `odb` | identical | `61e3d7fef31b37b10290` |
+
+  Identical on repeat, and different between arms, which is both halves
+  of the control: the flow is deterministic, and the knob is live.
 
 ## Reproducing
 
@@ -143,6 +156,12 @@ bazelisk run //test/gpl_initial_position:campaign -- \
 
 # Wall time, quotable: one at a time, on an idle machine, pinned.
 #   --serial --max-loadavg 2.0 --cpu-list 0-7 --arms shipped,center
+
+# The determinism control: same arm, same seed, twice.
+for rep in r1 r2; do
+  make do-place FLOW_VARIANT=det_$rep GPL_RANDOM_SEED=7 NUM_CORES=4 \
+      GLOBAL_PLACEMENT_ARGS="-initial_position_mode spread"
+done   # the two 3_3_place_gp.odb must be byte-identical
 
 bazelisk run //test/gpl_initial_position:report -- \
     --results "$PWD/tmp/gpl_ip/results"
