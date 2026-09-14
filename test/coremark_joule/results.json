@@ -1,4 +1,36 @@
 {
+  "literature": [
+    {
+      "boundary": "core + L1",
+      "coremark_per_joule": 28205.495134516314,
+      "coremark_per_mhz": 2.19,
+      "frequency_mhz": 900.0,
+      "name": "CVA6",
+      "power_w": 0.06988,
+      "process": "GF 22 FDX",
+      "source": "Ramping Up Open-Source RISC-V Cores, ACM CF'25 (arXiv:2505.24363)"
+    },
+    {
+      "boundary": "core + L1",
+      "coremark_per_joule": 27107.858733693924,
+      "coremark_per_mhz": 2.84,
+      "frequency_mhz": 900.0,
+      "name": "CVA6S+",
+      "power_w": 0.09429,
+      "process": "GF 22 FDX",
+      "source": "Ramping Up Open-Source RISC-V Cores, ACM CF'25 (arXiv:2505.24363)"
+    },
+    {
+      "boundary": "core + L1",
+      "coremark_per_joule": 29412.038545691543,
+      "coremark_per_mhz": 4.86,
+      "frequency_mhz": 1300.0,
+      "name": "XuanTie C910",
+      "power_w": 0.21481,
+      "process": "GF 22 FDX",
+      "source": "Ramping Up Open-Source RISC-V Cores, ACM CF'25 (arXiv:2505.24363)"
+    }
+  ],
   "pending": [],
   "points": [
     {
@@ -53,5 +85,12 @@
     "note": "Not reportable CoreMark scores: a three-iteration run does not satisfy CoreMark's run rules.",
     "platform": "asap7",
     "stage": "grt"
-  }
+  },
+  "references": [
+    {
+      "coremark_per_mhz": 6.2,
+      "name": "SonicBOOM",
+      "source": "SonicBOOM: The 3rd Generation Berkeley Out-of-Order Machine, CARRV 2020"
+    }
+  ]
 }

@@ -35,7 +35,7 @@ def plot(document, out_path):
     xs = [p["coremark_per_mhz"] for p in points]
     ys = [p["coremark_per_joule"] for p in points]
 
-    ax.scatter(xs, ys, s=70, zorder=3)
+    ax.scatter(xs, ys, s=70, zorder=3, label="asap7, grt, core only (this study)")
     for p in points:
         ax.annotate(
             "{} ({})".format(p["core"], p["isa"]),
@@ -64,13 +64,18 @@ def plot(document, out_path):
         lo, hi = min(values), max(values)
         return lo / factor, hi * factor
 
-    all_x = xs + [p["coremark_per_mhz"] for p in document.get("pending", [])]
+    all_x = (
+        xs
+        + [p["coremark_per_mhz"] for p in document.get("pending", [])]
+        + [r["coremark_per_mhz"] for r in document.get("references", [])]
+    )
     ax.set_xlim(*_padded(all_x))
-    ax.set_ylim(min(ys) / 8.0, max(ys) * 3.0)
+    ax.set_ylim(min(ys) / 6.0, max(ys) * 6.0)
     ax.set_xlabel("CoreMark/MHz  (performance per clock)")
     ax.set_ylabel("CoreMark/Joule  (work per unit energy)")
     ax.set_title("Energy efficiency against performance per clock")
     ax.grid(True, which="both", alpha=0.3)
+    ax.legend(loc="lower left", fontsize=8, framealpha=0.9)
 
     # Configurations measured on one axis only. Drawn on the x-axis
     # rather than left out: a reader counting points should see every
@@ -95,6 +100,68 @@ def plot(document, out_path):
                 color="0.4",
             )
 
+    # The literature series: measured elsewhere, at another node, at the
+    # boundary this study is aiming for. Its own colour and marker
+    # because it is not like-for-like -- a different process and a
+    # different toolchain -- and reading the two as one trend would be
+    # wrong.
+    lit = document.get("literature", [])
+    if lit:
+        ax.scatter(
+            [r["coremark_per_mhz"] for r in lit],
+            [r["coremark_per_joule"] for r in lit],
+            s=70,
+            marker="s",
+            facecolors="none",
+            edgecolors="tab:red",
+            linewidths=1.6,
+            zorder=3,
+            label="GF 22 FDX, core + L1 (CF'25)",
+        )
+        # The three points sit within a factor of two of each other on
+        # both axes, so a single offset direction overlaps the labels.
+        # Fan them out left-above, below, right-above in x order.
+        placements = [(-9, 8, "right"), (0, -18, "center"), (9, 8, "left")]
+        for i, r in enumerate(sorted(lit, key=lambda r: r["coremark_per_mhz"])):
+            dx, dy, ha = placements[i % len(placements)]
+            ax.annotate(
+                r["name"],
+                (r["coremark_per_mhz"], r["coremark_per_joule"]),
+                textcoords="offset points",
+                xytext=(dx, dy),
+                fontsize=8,
+                ha=ha,
+                color="tab:red",
+            )
+
+    # Published CoreMark/MHz for cores this study has not measured, drawn
+    # as ticks along the top. No y-coordinate, because the literature
+    # does not publish energy at a stated boundary -- see pin_results.py.
+    # They answer "where does this sit" on performance per clock, which
+    # is the axis that reads across processes.
+    references = document.get("references", [])
+    if references:
+        top = max(ys) * 1.45
+        for r in references:
+            ax.plot(
+                [r["coremark_per_mhz"]] * 2,
+                [top * 0.82, top],
+                color="0.6",
+                linewidth=1.1,
+                zorder=2,
+            )
+            ax.annotate(
+                r["name"],
+                (r["coremark_per_mhz"], top),
+                textcoords="offset points",
+                xytext=(0, 3),
+                fontsize=6.5,
+                rotation=90,
+                ha="center",
+                va="bottom",
+                color="0.4",
+            )
+
     prov = document.get("provenance", {})
     ax.text(
         0.0,
@@ -104,7 +171,14 @@ def plot(document, out_path):
             prov.get("stage", "?"),
             prov.get("activity", "?"),
             prov.get("frequency", "?"),
-            prov.get("note", ""),
+            prov.get("note", "")
+            + (
+                "\nGrey ticks: published CoreMark/MHz for cores not measured "
+                "here. No energy figure is shown for them -- the literature "
+                "does not publish it at a stated boundary."
+                if references
+                else ""
+            ),
         ),
         transform=ax.transAxes,
         fontsize=7.5,

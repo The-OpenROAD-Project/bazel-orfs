@@ -135,6 +135,37 @@ range, not after: one rule -- core plus its L1, nothing beyond -- named
 in the provenance, applied to every point, with the cores that have no
 L1 recorded as having none rather than quietly benefiting.
 
+## The 22 nm series, and why it is a separate colour
+
+The red open squares are not measurements from this study. They are
+CVA6, CVA6S+ and the XuanTie C910 as published in *Ramping Up
+Open-Source RISC-V Cores* (ACM CF'25, arXiv:2505.24363): GlobalFoundries
+22 FDX, PrimeTime power, 64 KB L1 caches. That paper's own power
+breakdown is by core component -- fetch, decode and issue, integer
+execute, LSU, retire, MMU, icache, dcache -- so the boundary it reports
+is exactly the one this study is aiming for: **core plus L1, nothing
+beyond**. CoreMark/Joule is derived here as
+`CoreMark/MHz x frequency / power`, from the paper's own numbers.
+
+They are drawn in their own colour and marker because reading the two
+series as one trend would be wrong, in three separate ways:
+
+- **Different process.** asap7 is a predictive 7 nm kit, not a
+  foundry PDK. Its absolute energy is not a silicon number.
+- **Different tools.** PrimeTime on a signed-off netlist against
+  `report_power` at global route.
+- **Different boundary, in the direction that matters.** Their points
+  include 64 KB of L1; ours include no memory at all (see above). That
+  charges the 22 nm series for a memory system the asap7 points get for
+  free, which pushes the two apart *the same way* the node difference
+  does. The vertical gap between the series is therefore an upper bound
+  on the node effect, not a measurement of it.
+
+What the series is good for is the shape: across a 2.2x range in
+CoreMark/MHz, the published CoreMark/Joule is nearly flat
+(28.2k / 27.1k / 29.4k). That is the question the study asks, answered
+independently at a stated boundary.
+
 ## The SAIF window: one hot iteration
 
 Switching activity has to come from the part of the run that represents

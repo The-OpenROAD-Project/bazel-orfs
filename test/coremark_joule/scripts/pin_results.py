@@ -27,6 +27,66 @@ import sys
 # discarded.
 RESULTS = "test/coremark_joule/results.json"
 
+# A second series from the literature: cores implemented in
+# GlobalFoundries 22 FDX and measured at the same boundary this study
+# aims at -- the power breakdown is per core component (Fetch, Decode &
+# Issue, Int Exe, LSU, Retire, MMU, Icache, Dcache), so it is the core
+# plus its L1 caches and nothing beyond.
+#
+# CoreMark/Joule is derived from the paper's own figures:
+#   score = CoreMark/MHz * f,  CoreMark/Joule = score / power
+# with power taken near each core's maximum frequency (Figure 7) and
+# CoreMark/MHz from its Table. Nothing is scaled between nodes.
+#
+# It is a different process on different tools, so it is not a like-for
+# -like comparison with the asap7 points and is drawn as its own series.
+# What makes it worth showing is that it is the same benchmark at the
+# boundary this study wants, by people who stated both.
+_CF25 = "Ramping Up Open-Source RISC-V Cores, ACM CF'25 (arXiv:2505.24363)"
+
+LITERATURE = [
+    {
+        "name": "CVA6",
+        "coremark_per_mhz": 2.19,
+        "frequency_mhz": 900.0,
+        "power_w": 0.06988,
+        "coremark_per_joule": 2.19 * 900.0 / 0.06988,
+        "process": "GF 22 FDX",
+        "boundary": "core + L1",
+        "source": _CF25,
+    },
+    {
+        "name": "CVA6S+",
+        "coremark_per_mhz": 2.84,
+        "frequency_mhz": 900.0,
+        "power_w": 0.09429,
+        "coremark_per_joule": 2.84 * 900.0 / 0.09429,
+        "process": "GF 22 FDX",
+        "boundary": "core + L1",
+        "source": _CF25,
+    },
+    {
+        "name": "XuanTie C910",
+        "coremark_per_mhz": 4.86,
+        "frequency_mhz": 1300.0,
+        "power_w": 0.21481,
+        "coremark_per_joule": 4.86 * 1300.0 / 0.21481,
+        "process": "GF 22 FDX",
+        "boundary": "core + L1",
+        "source": _CF25,
+    },
+]
+
+# Published performance per clock with no energy figure at a stated
+# boundary, so x-axis orientation only.
+REFERENCES = [
+    {
+        "name": "SonicBOOM",
+        "coremark_per_mhz": 6.2,
+        "source": "SonicBOOM: The 3rd Generation Berkeley Out-of-Order Machine, CARRV 2020",
+    },
+]
+
 
 def load_points(paths):
     points = []
@@ -106,6 +166,10 @@ def main(argv):
             "does not satisfy CoreMark's run rules.",
         },
         "points": points,
+        # Published performance-per-clock for cores not measured here.
+        # x-axis orientation only; see REFERENCES for why there is no y.
+        "references": REFERENCES,
+        "literature": LITERATURE,
         # Half-done configurations, carried so the plot cannot show
         # fewer cores than the study has without saying so.
         "pending": pending,
