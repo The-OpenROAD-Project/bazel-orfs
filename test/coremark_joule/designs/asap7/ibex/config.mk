@@ -9,6 +9,18 @@ export VERILOG_FILES           = @ibex//:rtl //test/coremark_joule/rtl:cmj_ibex.
 export SDC_FILE                = $(DESIGN_HOME)/asap7/ibex/constraints.sdc
 export SYNTH_HDL_FRONTEND      = slang
 
+# NOT YET WORKING. slang fails with a bare "Compilation failed" and no
+# per-file diagnostic. The likely cause is include paths: ibex sources
+# `include "prim_assert.sv" and "dv_fcov_macros.svh", which the Verilator
+# build is given through verilog_library's `includes` but which nothing
+# here supplies to the flow. VERILOG_INCLUDE_DIRS is the variable, and
+# the awkward part is that the directories live inside an external
+# repository, so the path is a bazel-mangled one rather than anything
+# $(DESIGN_HOME) can reach.
+#
+# ibex's CoreMark/MHz is measured and unaffected -- that comes from
+# simulation. Only its energy number waits on this.
+
 # ibex's pipeline stages are modules, so the kept list reads as a
 # pipeline: fetch, decode, execute, load/store, register file, CSR.
 export SYNTH_HIERARCHICAL      = 1
