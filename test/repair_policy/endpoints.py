@@ -485,11 +485,18 @@ def arm_row(record, step):
     final = next((r for r in rows if r["iter"] == "final"), None) or (
         rows[-1] if rows else {}
     )
-    # An untraced arm still carries the 0066 profile's pass count per phase.
+    # An untraced arm still carries the 0066 profile's pass count; the
+    # counters are cumulative over a call's phases, so the last phase's
+    # value is the call's total.
     profile_passes = sum(
-        int(phase.get("passes") or 0)
+        max(
+            [
+                int(phase.get("passes") or 0)
+                for phase in (c.get("profile") or {}).values()
+            ]
+            or [0]
+        )
         for c in got.get("repair") or []
-        for phase in (c.get("profile") or {}).values()
     )
     return {
         "setup_s": setup_s,
