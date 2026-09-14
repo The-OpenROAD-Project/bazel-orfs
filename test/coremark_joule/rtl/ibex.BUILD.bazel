@@ -59,6 +59,14 @@ filegroup(
             "vendor/lowrisc_ip/ip/prim/rtl/prim_lc_or_hardened.sv",
             "vendor/lowrisc_ip/ip/prim/rtl/prim_racl_error_arb.sv",
             "vendor/lowrisc_ip/ip/prim/rtl/prim_sdc_example.sv",
+            # Two more of the same kind, found by slang rather than
+            # guessed: they use macros (`PRIM_FLOP_SPARSE_FSM,
+            # `ASSERT_PRIM_REG_WE_ONEHOT_ERROR_TRIGGER_ALERT) defined in
+            # OpenTitan headers this vendor drop does not place on any
+            # include path. ibex instantiates neither the Ascon duplex
+            # nor a flash primitive.
+            "vendor/lowrisc_ip/ip/prim/rtl/prim_ascon_duplex.sv",
+            "vendor/lowrisc_ip/ip/prim_generic/rtl/prim_flash.sv",
             # In :pkgs, which this target depends on.
             "rtl/*_pkg.sv",
             "vendor/lowrisc_ip/ip/prim/rtl/*_pkg.sv",

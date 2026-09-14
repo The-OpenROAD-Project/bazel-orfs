@@ -132,6 +132,22 @@ verilator_cc_library(
     vopts = _SIM_VOPTS + _GATE_VOPTS,
 )
 
+verilator_cc_library(
+    name = "cm_soc_ibex_gate_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/rtl:cm_soc_ibex_gate",
+    module_top = "cm_soc",
+    trace_mode = "saif",
+    vopts = _SIM_VOPTS + _GATE_VOPTS,
+)
+
+cc_binary(
+    name = "cm_sim_ibex_gate",
+    srcs = ["main.cc"],
+    tags = ["manual"],
+    deps = [":cm_soc_ibex_gate_lib"],
+)
+
 cc_binary(
     name = "cm_sim_serv_gate",
     srcs = ["main.cc"],
@@ -367,4 +383,23 @@ coremark_per_joule(
     isa = "rv32i",
     per_mhz = ":serv_rv32i_per_mhz",
     power = "//test/coremark_joule/designs/asap7/serv:cmj_serv_grt_power",
+)
+
+coremark_saif(
+    name = "ibex_rv32imc_saif",
+    # Matches designs/asap7/ibex/constraints.sdc.
+    clk_period_ps = 1200,
+    image = ":coremark_rv32imc_3_hex",
+    run_2 = "ibex_rv32imc_2",
+    run_3 = "ibex_rv32imc_3",
+    sim = ":cm_sim_ibex_gate",
+)
+
+coremark_per_joule(
+    name = "point_ibex_rv32imc",
+    core = "ibex",
+    frequency_mhz = "833.333",
+    isa = "rv32imc",
+    per_mhz = ":ibex_rv32imc_per_mhz",
+    power = "//test/coremark_joule/designs/asap7/ibex:cmj_ibex_grt_power",
 )

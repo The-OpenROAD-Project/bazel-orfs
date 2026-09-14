@@ -78,8 +78,12 @@ proc resolve_canonical {bare modules} {
     foreach m $modules {
         if {[rtlil_base_name $m] eq $bare} { return $m }
     }
+    # Uniquified instances: slang names a module
+    # `Foo$Top.path.to.inst`. Matching on the demangled name rather than
+    # the raw one, because the raw form carries the leading backslash
+    # every RTLIL identifier has.
     foreach m $modules {
-        if {[string match "${bare}\$*" $m]} { return $m }
+        if {[string match "${bare}\$*" [rtlil_base_name $m]]} { return $m }
     }
     error "synth_canonicalize_module: '$bare' not present in checkpoint"
 }

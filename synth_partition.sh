@@ -61,11 +61,21 @@ rtlil_base_names() {
 # takes the first -- which is wrong for such a design and is why the
 # caller's error message is worth reading rather than guessing.
 rtlil_module_for() {
+  # Exact first: an unparameterized, un-uniquified module.
   while IFS= read -r line; do
     if [ "$(rtlil_base_name "$line")" = "$1" ]; then
       printf '%s' "$line"
       return 0
     fi
+  done < "$2"
+  # Then a uniquified instance, which slang names `Foo$Top.path.to.inst`.
+  while IFS= read -r line; do
+    case "$(rtlil_base_name "$line")" in
+      "$1"\$*)
+        printf '%s' "$line"
+        return 0
+        ;;
+    esac
   done < "$2"
   return 0
 }

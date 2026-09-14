@@ -245,6 +245,20 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
     for var in user_sources:
         if var in sources:
             user_srcs[var] = sources.pop(var)
+        elif var in arguments:
+            # config_mk_parser decides source-ness by variable name, so a
+            # project-private path hook it has never heard of arrives as
+            # an argument -- where it then fails validation as an unknown
+            # ORFS variable, whatever its value looks like. user_sources
+            # is the caller saying it is a source, which is exactly the
+            # case the attribute exists for, so honour it here too. The
+            # value is a whitespace-separated label list, like any other
+            # source var.
+            user_srcs[var] = [
+                label
+                for label in arguments.pop(var).replace("\t", " ").split(" ")
+                if label
+            ]
 
     # Default SYNTH_NUM_PARTITIONS to a static value so that the action graph
     # is identical across machines and remote cache hits are possible.  Users

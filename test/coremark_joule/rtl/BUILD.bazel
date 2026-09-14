@@ -141,3 +141,12 @@ verilog_library(
     ],
     deps = [":asap7_stdcells"],
 )
+
+verilog_library(
+    name = "cm_soc_ibex_gate",
+    srcs = [
+        "cm_soc_ibex.sv",
+        "//test/coremark_joule/designs/asap7/ibex:cmj_ibex_grt_netlist.v",
+    ],
+    deps = [":asap7_stdcells"],
+)
