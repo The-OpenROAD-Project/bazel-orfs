@@ -197,6 +197,19 @@ learned policy that needs training runs per design.
 
 ## Decisions log
 
+- 2026-09-14, 23:05: 0080 (patience twenty) and 0081 (no area recount on
+  restore) measured on the vehicles. 0080: identical on riscv32i and
+  mock-alu (the patience never fired), ibex +36 s, sky130hd/riscv32i
+  +59 s, jpeg +116 s with TNS 24 ps worse: refuted, as the trace
+  predicted. 0081: byte-identical on all five and inert, restore
+  seconds unchanged (ibex floorplan 25.0 to 24.8 s). The recount over
+  every instance was not where a restore's seconds go; what is left in
+  that path is the explicit STA update after the undo. 0083 keeps the
+  parasitics update and drops the findRequireds, leaving the re-timing
+  to STA's lazy incremental search at the next query; whether the
+  result stays byte-identical is what its arm measures. Queue:
+  tmp/run_after_yield7.sh (0082, 0083, Phase B of 0081+0082, seeds).
+
 - 2026-09-14, 20:30: trace v3 on all five vehicles. Patience: over the
   non-WNS visits, five keeps 98% on mock-alu, jpeg grt keeps 73/83/98% at
   five/ten/twenty, one ibex grt endpoint gains only after 47 dry passes
