@@ -11,6 +11,40 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  */
+/* Vector area, placed first in RAM by link.ld.
+ *
+ * The three cores do not agree on where execution begins. picorv32 and
+ * SERV fetch their first instruction from their reset address, which the
+ * wrappers set to 0. ibex fetches from boot_addr_i + 0x80 and places its
+ * exception vector table at boot_addr_i itself -- lowRISC's own linker
+ * script encodes this as `_entry_point = _vectors_start + 0x80`. Setting
+ * ibex's boot_addr_i to 0 therefore does not start the program: it
+ * starts 0x80 bytes into it, on whatever instruction happens to live
+ * there.
+ *
+ * So the image carries entry points for both conventions, and the ibex
+ * wrapper passes boot_addr_i = 0x100:
+ *
+ *   0x000          reset entry for a core that starts at its reset address
+ *   0x100 .. 0x17c ibex exception vectors
+ *   0x180          ibex reset entry (0x100 + 0x80)
+ *
+ * The exception vectors report and stop rather than returning. Neither
+ * SERV nor ibex has a trap output the harness can watch, so without this
+ * a fault would silently vector somewhere and the run would look like a
+ * hang with no evidence. With it, a fault prints a marker and halts: the
+ * CRC gate then fails with something to read.
+ */
+	.section .text.vectors, "ax"
+	.globl _vectors
+_vectors:
+	j	_start
+	.org 0x100
+	.rept 32
+	j	_trap
+	.endr
+	j	_start
+
 	.section .text.start, "ax"
 	.globl _start
 	.type _start, @function
@@ -45,3 +79,18 @@ _start:
 	sw	t1, 0(t0)
 3:	j	3b
 	.size _start, . - _start
+
+/* Reached only from an exception vector. Writes '!' to the sim-control
+ * character register so the marker lands in the captured stdout, then
+ * stops the simulation. */
+	.globl _trap
+	.type _trap, @function
+_trap:
+	li	t0, 0x10000000
+	li	t1, 33			/* '!' */
+	sw	t1, 0(t0)
+	li	t0, 0x10000008
+	li	t1, 1
+	sw	t1, 0(t0)
+1:	j	1b
+	.size _trap, . - _trap

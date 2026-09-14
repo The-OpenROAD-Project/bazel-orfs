@@ -27,6 +27,47 @@
 
 namespace {
 
+// A bounded trace window, kept in a ring buffer rather than written to a
+// waveform. A hang in a program that only prints at the end gives no
+// other evidence, and a full VCD of a CoreMark run is hundreds of
+// megabytes to produce a dozen useful lines. This records the distinct
+// fetch addresses in order, which is enough to see whether a run is
+// looping and over what.
+constexpr int kTraceSlots = 16;
+
+struct FetchTrace
+{
+    uint32_t addr[kTraceSlots] = {};
+    uint64_t cycle[kTraceSlots] = {};
+    int      count = 0;
+
+    // Only transitions are recorded: a fetch address held for many
+    // cycles is one entry, so the window covers a loop body rather than
+    // a dozen cycles of one stall.
+    void sample(uint32_t a, uint64_t c)
+    {
+        if (count > 0 && addr[(count - 1) % kTraceSlots] == a) {
+            return;
+        }
+        addr[count % kTraceSlots]  = a;
+        cycle[count % kTraceSlots] = c;
+        count++;
+    }
+
+    void dump(FILE *f) const
+    {
+        const int n = count < kTraceSlots ? count : kTraceSlots;
+        const int first = count < kTraceSlots ? 0 : count % kTraceSlots;
+        fprintf(f, "cm_sim: last %d distinct fetch addresses:\n", n);
+        for (int i = 0; i < n; i++) {
+            const int s = (first + i) % kTraceSlots;
+            fprintf(f, "cm_sim:   cycle %-12llu 0x%08x\n",
+                    static_cast<unsigned long long>(cycle[s]), addr[s]);
+        }
+    }
+};
+
+
 // Long enough for any reset strategy in the study; SERV's "MINI" needs
 // only a few, picorv32 one.
 constexpr int kResetCycles = 16;
@@ -85,8 +126,9 @@ int main(int argc, char **argv)
     }
     dut->resetn = 1;
 
-    uint64_t cycles = 0;
-    int status = kExitTimeout;
+    uint64_t   cycles = 0;
+    int        status = kExitTimeout;
+    FetchTrace trace;
 
     while (cycles < max_cycles) {
         dut->clk = 0;
@@ -94,6 +136,8 @@ int main(int argc, char **argv)
         dut->clk = 1;
         dut->eval();
         cycles++;
+
+        trace.sample(static_cast<uint32_t>(dut->dbg_instr_addr), cycles);
 
         if (dut->out_valid) {
             fputc(static_cast<int>(dut->out_byte), out);
@@ -114,10 +158,16 @@ int main(int argc, char **argv)
     }
 
     if (status == kExitTimeout) {
+        // The fetch address at the moment the budget ran out separates a
+        // run that was merely slow from one stuck in a loop. A core that
+        // traps with no vector installed lands back at the reset
+        // address, so a value of 0 here says "trap loop", not "hung".
         fprintf(stderr,
                 "cm_sim: no halt within %llu cycles; the program never "
-                "reached portable_fini\n",
-                static_cast<unsigned long long>(max_cycles));
+                "reached portable_fini (last fetch address 0x%08x)\n",
+                static_cast<unsigned long long>(max_cycles),
+                static_cast<unsigned>(dut->dbg_instr_addr));
+        trace.dump(stderr);
     }
 
     fflush(out);

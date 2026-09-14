@@ -450,6 +450,29 @@ http_archive(
     urls = ["https://github.com/olofk/serv/archive/f200eb2ed7b69ac1c6b8eddd47654522aeee5ce8.tar.gz"],
 )
 
+# ibex, from upstream. ORFS ships an ibex_sv whose own README says it is
+# a pruned clone of lowRISC at commit 77d8010 -- a years-old snapshot
+# whose top is ibex_core.sv rather than upstream's ibex_top.sv, so it is
+# a different DUT and not the one lowRISC's own bare-metal CoreMark port
+# targets.
+http_archive(
+    name = "ibex",
+    build_file = "//test/coremark_joule/rtl:ibex.BUILD.bazel",
+    dev_dependency = True,
+    # The vendored OpenTitan tree ships its own BUILD files, which make
+    # vendor/lowrisc_ip/ip/prim and its siblings separate Bazel packages
+    # -- and a glob cannot cross a package boundary, so the overlay's
+    # filegroups would silently match nothing. Removing them lets the
+    # overlay own the whole tree. Nothing here builds OpenTitan's own
+    # targets; only the .sv files are wanted.
+    patch_cmds = [
+        "find vendor -name BUILD -o -name BUILD.bazel | xargs -r rm -f",
+    ],
+    sha256 = "34fba9a683428bbe7ec05258eb1b9a340bf30f5e7804ffedf03afcdb97a37d82",
+    strip_prefix = "ibex-405c6d1d8220a18b2f9196141167a5875422dee4",
+    urls = ["https://github.com/lowRISC/ibex/archive/405c6d1d8220a18b2f9196141167a5875422dee4.tar.gz"],
+)
+
 http_archive(
     name = "picorv32",
     build_file = "//test/coremark_joule/rtl:picorv32.BUILD.bazel",

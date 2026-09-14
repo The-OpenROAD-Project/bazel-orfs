@@ -15,6 +15,7 @@ load("@rules_shell//shell:sh_test.bzl", "sh_test")
 
 _ELF2HEX = "//test/coremark_joule/scripts:elf2hex"
 _CHECK = "//test/coremark_joule/scripts:check_coremark"
+_CHECK_SMOKE = "//test/coremark_joule/scripts:check_smoke"
 _CM_PER_MHZ = "//test/coremark_joule/scripts:cm_per_mhz"
 
 def coremark_hex(name, elf, words = 32768, tags = ["manual"]):
@@ -112,4 +113,26 @@ def coremark_per_mhz(name, run_2, run_3, tags = ["manual"]):
         ),
         tags = tags,
         tools = [_CM_PER_MHZ],
+    )
+
+def smoke_test(name, run, tags = []):
+    """Gate a core on the boot/load-store smoke run.
+
+    Below the CRC gate on purpose: a core that fails this has a wrapper
+    or boot problem, and one that passes it and then fails the CRCs has a
+    different problem. Keeping them apart is what turned "ibex produces
+    no output" into "ibex starts at boot_addr + 0x80".
+    """
+    sh_test(
+        name = name,
+        srcs = ["//test/coremark_joule/scripts:run_check.sh"],
+        args = [
+            "$(location {})".format(_CHECK_SMOKE),
+            "$(location {}.stdout)".format(run),
+        ],
+        data = [
+            _CHECK_SMOKE,
+            "{}.stdout".format(run),
+        ],
+        tags = tags,
     )

@@ -34,7 +34,13 @@ module cm_soc #(
 	output reg  [7:0]  out_byte,
 
 	/* The program has asked for the simulation to stop. */
-	output reg         halt_valid
+	output reg         halt_valid,
+
+	/* Fetch address, for the harness to report where a run
+	 * stopped when it stops without halting. A probe, not a
+	 * design signal: it distinguishes a slow run from a trap
+	 * loop, which otherwise look identical from outside. */
+	output wire [31:0] dbg_instr_addr
 );
 	localparam [31:0] SIM_CTRL_OUT  = 32'h1000_0000;
 	localparam [31:0] SIM_CTRL_HALT = 32'h1000_0008;
@@ -51,6 +57,8 @@ module cm_soc #(
 	 * and the device at 0x1000_0000, so one bit decides it. A full
 	 * comparator would cost real cycles on the bit-serial core this
 	 * address map also has to serve. */
+	assign dbg_instr_addr = mem_addr;
+
 	wire is_device = mem_addr[28];
 	wire [$clog2(MEM_WORDS)-1:0] word_addr = mem_addr[$clog2(MEM_WORDS)+1:2];
 

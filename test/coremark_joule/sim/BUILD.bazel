@@ -13,6 +13,7 @@ load(
     "coremark_hex",
     "coremark_per_mhz",
     "coremark_run",
+    "smoke_test",
 )
 
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
@@ -66,6 +67,22 @@ cc_binary(
     deps = [":cm_soc_serv_lib"],
 )
 
+verilator_cc_library(
+    name = "cm_soc_ibex_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/rtl:cm_soc_ibex",
+    module_top = "cm_soc",
+    trace_mode = "none",
+    vopts = _SIM_VOPTS,
+)
+
+cc_binary(
+    name = "cm_sim_ibex",
+    srcs = ["main.cc"],
+    tags = ["manual"],
+    deps = [":cm_soc_ibex_lib"],
+)
+
 # The picorv32 measurement, end to end: image, run, CRC gate, CoreMark/MHz.
 #
 # rv32im is picorv32's native ISA here (ENABLE_MUL/ENABLE_DIV are set in
@@ -87,6 +104,7 @@ cc_binary(
     for march in [
         "rv32i",
         "rv32im",
+        "rv32imc",
     ]
     for iterations in [
         2,
@@ -158,6 +176,8 @@ sh_binary(
             "picorv32_rv32i",
             "picorv32_rv32im",
             "serv_rv32i",
+            "ibex_rv32i",
+            "ibex_rv32imc",
         ]
     ],
     data = [
@@ -168,7 +188,76 @@ sh_binary(
             "picorv32_rv32i",
             "picorv32_rv32im",
             "serv_rv32i",
+            "ibex_rv32i",
+            "ibex_rv32imc",
         ]
     ],
     tags = ["manual"],
 )
+
+# ibex at ibex_top's own defaults, which are already the small
+# configuration: no PMP, no writeback stage, no branch-target ALU, no
+# icache, RegFileFF, SecureIbex off. rv32imc is its native ISA; the
+# rv32i pair is the point shared with picorv32 and SERV.
+[
+    coremark_run(
+        name = "ibex_{}_{}".format(march, iterations),
+        image = ":coremark_{}_{}_hex".format(march, iterations),
+        sim = ":cm_sim_ibex",
+    )
+    for march in [
+        "rv32i",
+        "rv32imc",
+    ]
+    for iterations in [
+        2,
+        3,
+    ]
+]
+
+[
+    [
+        coremark_crc_test(
+            name = "ibex_{}_crc_test".format(march),
+            run = "ibex_{}_3".format(march),
+            tags = ["manual"],
+        ),
+        coremark_per_mhz(
+            name = "ibex_{}_per_mhz".format(march),
+            run_2 = "ibex_{}_2".format(march),
+            run_3 = "ibex_{}_3".format(march),
+        ),
+    ]
+    for march in [
+        "rv32i",
+        "rv32imc",
+    ]
+]
+
+# The boot gate: every core, on the ISA it natively runs. Cheap -- a few
+# thousand cycles -- and it is the target to look at first when a core
+# produces nothing.
+[
+    [
+        coremark_hex(
+            name = "smoke_{}_{}_hex".format(core, march),
+            elf = "//test/coremark_joule/sw:smoke_{}".format(march),
+        ),
+        coremark_run(
+            name = "smoke_{}_{}".format(core, march),
+            image = ":smoke_{}_{}_hex".format(core, march),
+            max_cycles = 10000000,
+            sim = ":cm_sim_{}".format(core),
+        ),
+        smoke_test(
+            name = "smoke_{}_{}_test".format(core, march),
+            run = "smoke_{}_{}".format(core, march),
+            tags = ["manual"],
+        ),
+    ]
+    for core, march in [
+        ("picorv32", "rv32im"),
+        ("serv", "rv32i"),
+        ("ibex", "rv32imc"),
+    ]
+]

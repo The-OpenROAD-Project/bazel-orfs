@@ -30,7 +30,10 @@ module cm_soc #(
 
 	output reg         out_valid,
 	output reg  [7:0]  out_byte,
-	output reg         halt_valid
+	output reg         halt_valid,
+
+	/* Fetch address; see cm_soc_picorv32.v. */
+	output wire [31:0] dbg_instr_addr
 );
 	localparam [31:0] SIM_CTRL_OUT  = 32'h1000_0000;
 	localparam [31:0] SIM_CTRL_HALT = 32'h1000_0008;
@@ -111,6 +114,8 @@ module cm_soc #(
 	 * while a fetch can always be retried a cycle later. On a bit-serial
 	 * core the two are tens of cycles apart anyway, so the priority
 	 * almost never binds and a fairer arbiter would buy nothing. */
+	assign dbg_instr_addr = ibus_adr;
+
 	wire serve_dbus = dbus_cyc && !dbus_ack;
 	wire serve_ibus = ibus_cyc && !ibus_ack && !serve_dbus;
 

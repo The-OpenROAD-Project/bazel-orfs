@@ -26,7 +26,10 @@ MEMORY
 
 SECTIONS
 {
+    /* The vector area must be first: it carries the entry points both
+       reset conventions in the study land on. See crt0.S. */
     .text : {
+        KEEP(*(.text.vectors))
         KEEP(*(.text.start))
         *(.text .text.*)
     } > ram

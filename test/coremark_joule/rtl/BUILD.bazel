@@ -9,6 +9,7 @@ load("@rules_verilog//verilog:defs.bzl", "verilog_library")
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 
 exports_files([
+    "ibex.BUILD.bazel",
     "picorv32.BUILD.bazel",
     "serv.BUILD.bazel",
 ])
@@ -33,4 +34,34 @@ verilog_library(
     name = "cm_soc_serv",
     srcs = ["cm_soc_serv.v"],
     deps = [":serv"],
+)
+
+verilog_library(
+    name = "ibex_pkgs",
+    srcs = ["@ibex//:pkgs"],
+    hdrs = ["@ibex//:hdrs"],
+    includes = [
+        "vendor/lowrisc_ip/dv/sv/dv_utils",
+        "vendor/lowrisc_ip/ip/prim/rtl",
+    ],
+)
+
+verilog_library(
+    name = "ibex",
+    srcs = ["@ibex//:rtl"],
+    hdrs = ["@ibex//:hdrs"],
+    # prim_assert.sv and dv_fcov_macros.svh are `include`d by name from
+    # ibex sources, so the directories holding them go on the include
+    # path.
+    includes = [
+        "vendor/lowrisc_ip/dv/sv/dv_utils",
+        "vendor/lowrisc_ip/ip/prim/rtl",
+    ],
+    deps = [":ibex_pkgs"],
+)
+
+verilog_library(
+    name = "cm_soc_ibex",
+    srcs = ["cm_soc_ibex.sv"],
+    deps = [":ibex"],
 )

@@ -12,6 +12,7 @@ exports_files([
     "check_coremark.py",
     "elf_sections.py",
     "iteration_delta_test.py",
+    "check_smoke.py",
     "run_check.sh",
     "run_report.sh",
 ])
@@ -54,4 +55,10 @@ py_binary(
     name = "report",
     srcs = ["report.py"],
     main = "report.py",
+)
+
+py_binary(
+    name = "check_smoke",
+    srcs = ["check_smoke.py"],
+    main = "check_smoke.py",
 )

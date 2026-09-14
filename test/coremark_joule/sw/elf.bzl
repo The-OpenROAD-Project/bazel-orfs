@@ -126,3 +126,39 @@ def coremark_elf(
         ],
         visibility = visibility,
     )
+
+def smoke_elf(name, march, mabi = "ilp32", tags = ["manual"], visibility = None):
+    """Compile the boot/load-store smoke program for one ISA.
+
+    Deliberately not a coremark_elf() with different sources: it shares
+    the runtime and the linker script, which is exactly what it is there
+    to exercise, but none of CoreMark's build configuration.
+    """
+    native.genrule(
+        name = name,
+        srcs = [
+            "//test/coremark_joule/sw:smoke.c",
+            _LINK_LD,
+        ] + _PORT_SRCS + _PORT_HDRS,
+        outs = [name + ".elf"],
+        cmd = (
+            "$(execpath {gcc}) -march={march} -mabi={mabi} -O2 {fixed} " +
+            "-I $$(dirname $(execpath {portme_h})) " +
+            "$(execpath //test/coremark_joule/sw:smoke.c) " +
+            "$(execpath //test/coremark_joule/sw/port:crt0.S) " +
+            "-T $(execpath {link_ld}) -lgcc -Wl,--no-warn-rwx-segments -o $@"
+        ).format(
+            fixed = " ".join([f for f in _FIXED_CFLAGS if not f.startswith("-DTOTAL")]),
+            gcc = _GCC,
+            link_ld = _LINK_LD,
+            mabi = mabi,
+            march = march,
+            portme_h = _PORT_HDRS[1],
+        ),
+        tags = tags,
+        tools = [
+            _GCC,
+            _TOOLCHAIN,
+        ],
+        visibility = visibility,
+    )

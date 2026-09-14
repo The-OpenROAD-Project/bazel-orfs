@@ -5,12 +5,13 @@ load("@rules_python//python:defs.bzl", "py_test")
 # Nothing here is a test and nothing builds under a wildcard: every
 # target is `manual` study apparatus. test/ is never shipped (see
 # public_surface.py), so the default visibility stays inside the study.
-load("//test/coremark_joule/sw:elf.bzl", "coremark_elf")
+load("//test/coremark_joule/sw:elf.bzl", "coremark_elf", "smoke_elf")
 
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 
 exports_files([
     "coremark.BUILD.bazel",
+    "smoke.c",
     "toolchain.BUILD.bazel",
 ])
 
@@ -40,6 +41,7 @@ BASELINE_CFLAGS = [
     for march in [
         "rv32i",
         "rv32im",
+        "rv32imc",
     ]
     for iterations in [
         2,
@@ -63,3 +65,16 @@ py_test(
     ],
     main = "//test/coremark_joule/scripts:iteration_delta_test.py",
 )
+
+# The boot gate, one per ISA in the study.
+[
+    smoke_elf(
+        name = "smoke_" + march,
+        march = march,
+    )
+    for march in [
+        "rv32i",
+        "rv32im",
+        "rv32imc",
+    ]
+]
