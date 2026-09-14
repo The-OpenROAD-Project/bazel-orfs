@@ -4,6 +4,27 @@ The shape of energy efficiency against performance for small RISC-V
 cores: CoreMark/Joule plotted against CoreMark/MHz, screened at global
 route so a point costs minutes rather than hours.
 
+![CoreMark/Joule against CoreMark/MHz](coremark_joule.png)
+
+Blue: measured here on asap7, at global route, with activity from one
+hot CoreMark iteration. Red: published figures on GF 22 FDX, at a
+boundary that includes L1 -- a separate series because it is not
+like-for-like, for three reasons given below. Both axes are logarithmic.
+
+| core | ISA | CoreMark/MHz | cycles/iter | f (MHz) | P (SAIF) | CoreMark/Joule |
+|---|---|---|---|---|---|---|
+| serv | rv32i | 0.0243 | 41,202,900 | 1428.6 | 6.64 mW | 5,222 |
+| picorv32 | rv32im | 0.5531 | 1,807,889 | 1000.0 | 6.58 mW | 84,063 |
+| ibex | rv32imc | 2.4543 | 407,448 | 833.3 | 7.77 mW | 263,224 |
+
+The plot is generated from `results.json`, which is committed, so
+iterating on the presentation never re-runs a flow:
+
+```sh
+bazelisk run //test/coremark_joule:pin    # re-measure, rewrite results.json
+bazelisk build //test/coremark_joule:plot # results.json -> coremark_joule.png
+```
+
 **Everything here is `manual`.** `test/` is never shipped (see
 `public_surface.py`), and nothing in this directory is pulled in by a
 wildcard build.
