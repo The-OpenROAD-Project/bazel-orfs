@@ -30,6 +30,16 @@ export SYNTH_KEEP_MODULES      = ibex_if_stage ibex_prefetch_buffer ibex_fetch_f
                                  ibex_multdiv_fast ibex_load_store_unit \
                                  ibex_register_file_ff ibex_cs_registers ibex_counter
 
+# Run OpenROAD hierarchically, so the module boundaries SYNTH_KEEP_MODULES
+# preserved survive into the ODB and the written netlist.
+#
+# Without it the flow is flat: the ODB carries no module structure and
+# write_verilog emits one flattened module, so there is nothing for
+# `report_power -saif -instances` to attribute power to. Keeping the
+# hierarchy through synthesis and then discarding it in OpenROAD would
+# leave the whole functional-unit breakdown with a single unit in it.
+export OPENROAD_HIERARCHICAL    = 1
+
 export AUTO_MEMORIES           = 1
 
 export CORE_UTILIZATION        = 40

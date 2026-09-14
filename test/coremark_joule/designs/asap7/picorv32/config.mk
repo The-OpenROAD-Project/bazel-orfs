@@ -37,6 +37,16 @@ export SYNTH_KEEP_MODULES      = picorv32_pcpi_mul picorv32_pcpi_div
 # To harden this register file as a macro the design has to instantiate
 # it as a module -- picorv32 offers the PICORV32_REGS mechanism for
 # exactly that.
+# Run OpenROAD hierarchically, so the module boundaries SYNTH_KEEP_MODULES
+# preserved survive into the ODB and the written netlist.
+#
+# Without it the flow is flat: the ODB carries no module structure and
+# write_verilog emits one flattened module, so there is nothing for
+# `report_power -saif -instances` to attribute power to. Keeping the
+# hierarchy through synthesis and then discarding it in OpenROAD would
+# leave the whole functional-unit breakdown with a single unit in it.
+export OPENROAD_HIERARCHICAL    = 1
+
 export AUTO_MEMORIES           = 1
 
 # Starting points. The auto_floorplan derivation measures and pins these.
