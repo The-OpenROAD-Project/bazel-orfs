@@ -1,0 +1,10 @@
+# XiangShan V3 (Kunminghu), rung 10 of the CoreMark-per-Joule study.
+#
+# The Chisel build lives here; the BUILD overlays for XiangShan and the
+# ten repositories its build pulls in as submodules are the
+# *.BUILD.bazel files in this package, referenced from MODULE.bazel.
+# Nothing is vendored.
+
+package(default_visibility = ["//test/coremark_joule:__subpackages__"])
+
+exports_files(glob(["*.BUILD.bazel"]))
