@@ -197,6 +197,13 @@ learned policy that needs training runs per design.
 
 ## Decisions log
 
+- 2026-09-15, 02:10: 0082 v2 on mock-alu: byte-identical, rows 1142 to
+  319 in floorplan and 958 to 466 in cts, progress seconds 3.1 to 1.2
+  and 3.1 to 1.6, the setup phase 18.8 to 16.9 s and 47.4 to 44.2 s.
+  The first per-pass fix of this study that measures faster. Phase B
+  for 0082 alone, untraced, on the 21 fast designs is queued ahead of
+  the seed band (tmp/run_after_yield10.sh).
+
 - 2026-09-15, 01:50: 0083 on all five vehicles: byte-identical, and
   slower everywhere (phase +1 to +21 s; jpeg floorplan 80 to 102 s, the
   restore's 4.6 s gone and STA up 13 s). Re-timing lazily at each query
