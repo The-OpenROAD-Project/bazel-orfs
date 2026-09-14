@@ -436,6 +436,20 @@ http_archive(
 # picorv32, from upstream rather than from ORFS: ORFS carries no
 # picorv32 at all, and its ibex_sv is a pruned snapshot of a 2019
 # lowRISC commit whose top module is not even upstream's ibex_top.
+# SERV, the bit-serial RV32I core. Its register file lives in an SRAM
+# (serv_rf_ram) rather than in flops, which is the core's whole
+# architectural trick -- and the reason AUTO_MEMORIES matters most here:
+# hardened as flops that register file would dominate the area and power
+# of a ~2k-cell core, and the measurement would be of the wrong thing.
+http_archive(
+    name = "serv",
+    build_file = "//test/coremark_joule/rtl:serv.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "43d99e7032dc936e5a9cd106be0a46a7d411c2c80e5c0310536f51c905cac3f2",
+    strip_prefix = "serv-f200eb2ed7b69ac1c6b8eddd47654522aeee5ce8",
+    urls = ["https://github.com/olofk/serv/archive/f200eb2ed7b69ac1c6b8eddd47654522aeee5ce8.tar.gz"],
+)
+
 http_archive(
     name = "picorv32",
     build_file = "//test/coremark_joule/rtl:picorv32.BUILD.bazel",

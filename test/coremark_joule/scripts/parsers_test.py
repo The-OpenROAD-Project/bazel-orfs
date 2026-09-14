@@ -111,9 +111,7 @@ class CmPerMhzTest(unittest.TestCase):
         happened to be checked out when someone reads the JSON.
         """
         report = "CoreMark 1.0 : 0 / GCC13.2.0 -march=rv32im -O3\n"
-        self.assertEqual(
-            "GCC13.2.0 -march=rv32im -O3", cm_per_mhz.build_flags(report)
-        )
+        self.assertEqual("GCC13.2.0 -march=rv32im -O3", cm_per_mhz.build_flags(report))
 
     def test_build_flags_absent_is_not_an_error(self):
         self.assertIsNone(cm_per_mhz.build_flags(GOOD_REPORT))

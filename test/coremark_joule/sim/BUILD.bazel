@@ -5,6 +5,7 @@
 # what keeps the gate-level simulators -- the expensive ones -- built
 # once per stage rather than once per program.
 load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
 load(
     "//test/coremark_joule/sim:run.bzl",
@@ -49,6 +50,22 @@ cc_binary(
     deps = [":cm_soc_picorv32_lib"],
 )
 
+verilator_cc_library(
+    name = "cm_soc_serv_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/rtl:cm_soc_serv",
+    module_top = "cm_soc",
+    trace_mode = "none",
+    vopts = _SIM_VOPTS,
+)
+
+cc_binary(
+    name = "cm_sim_serv",
+    srcs = ["main.cc"],
+    tags = ["manual"],
+    deps = [":cm_soc_serv_lib"],
+)
+
 # The picorv32 measurement, end to end: image, run, CRC gate, CoreMark/MHz.
 #
 # rv32im is picorv32's native ISA here (ENABLE_MUL/ENABLE_DIV are set in
@@ -58,12 +75,12 @@ cc_binary(
 [
     [
         coremark_hex(
-            name = "picorv32_{}_{}_hex".format(march, iterations),
+            name = "coremark_{}_{}_hex".format(march, iterations),
             elf = "//test/coremark_joule/sw:coremark_{}_{}".format(march, iterations),
         ),
         coremark_run(
             name = "picorv32_{}_{}".format(march, iterations),
-            image = ":picorv32_{}_{}_hex".format(march, iterations),
+            image = ":coremark_{}_{}_hex".format(march, iterations),
             sim = ":cm_sim_picorv32",
         ),
     ]
@@ -95,3 +112,63 @@ cc_binary(
         "rv32im",
     ]
 ]
+
+# SERV, rv32i only: the core has no M extension, so CoreMark's multiplies
+# go through libgcc. That is the honest measurement for this core, and it
+# is also why the picorv32 rv32i pair above exists -- the same
+# instruction stream on both makes the two comparable.
+[
+    coremark_run(
+        name = "serv_rv32i_{}".format(iterations),
+        image = ":coremark_rv32i_{}_hex".format(iterations),
+        sim = ":cm_sim_serv",
+    )
+    for iterations in [
+        2,
+        3,
+    ]
+]
+
+coremark_crc_test(
+    name = "serv_rv32i_crc_test",
+    run = "serv_rv32i_3",
+    tags = ["manual"],
+)
+
+coremark_per_mhz(
+    name = "serv_rv32i_per_mhz",
+    run_2 = "serv_rv32i_2",
+    run_3 = "serv_rv32i_3",
+)
+
+# What the study has measured so far.
+#
+#   bazelisk run //test/coremark_joule/sim:report
+#
+# Manual because it builds every measurement it reports, and SERV's runs
+# are ~10^8 cycles each.
+sh_binary(
+    name = "report",
+    srcs = ["//test/coremark_joule/scripts:run_report.sh"],
+    args = [
+        "$(location //test/coremark_joule/scripts:report)",
+    ] + [
+        "$(location :{}_per_mhz)".format(t)
+        for t in [
+            "picorv32_rv32i",
+            "picorv32_rv32im",
+            "serv_rv32i",
+        ]
+    ],
+    data = [
+        "//test/coremark_joule/scripts:report",
+    ] + [
+        ":{}_per_mhz".format(t)
+        for t in [
+            "picorv32_rv32i",
+            "picorv32_rv32im",
+            "serv_rv32i",
+        ]
+    ],
+    tags = ["manual"],
+)

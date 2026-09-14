@@ -8,7 +8,10 @@ load("@rules_verilog//verilog:defs.bzl", "verilog_library")
 
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 
-exports_files(["picorv32.BUILD.bazel"])
+exports_files([
+    "picorv32.BUILD.bazel",
+    "serv.BUILD.bazel",
+])
 
 verilog_library(
     name = "picorv32",
@@ -19,4 +22,15 @@ verilog_library(
     name = "cm_soc_picorv32",
     srcs = ["cm_soc_picorv32.v"],
     deps = [":picorv32"],
+)
+
+verilog_library(
+    name = "serv",
+    srcs = ["@serv//:rtl"],
+)
+
+verilog_library(
+    name = "cm_soc_serv",
+    srcs = ["cm_soc_serv.v"],
+    deps = [":serv"],
 )

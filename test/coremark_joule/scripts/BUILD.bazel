@@ -13,6 +13,7 @@ exports_files([
     "elf_sections.py",
     "iteration_delta_test.py",
     "run_check.sh",
+    "run_report.sh",
 ])
 
 py_binary(
@@ -47,4 +48,10 @@ py_test(
         "parsers_test.py",
     ],
     main = "parsers_test.py",
+)
+
+py_binary(
+    name = "report",
+    srcs = ["report.py"],
+    main = "report.py",
 )
