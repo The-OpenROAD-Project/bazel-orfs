@@ -197,6 +197,26 @@ learned policy that needs training runs per design.
 
 ## Decisions log
 
+- 2026-09-14, 17:50: jpeg under 0079 shows the other face of the same
+  coin: cts TNS -23.8 to -18.7 ns and WNS -95.2 to -83.0 ps, grt TNS
+  -29.9 to -24.0 ns and WNS -102.7 to -95.1, at +24 s and +106 s. The
+  yield order reaches the 500 endpoints the default's fence never
+  visits, and on a grind design they pay; the default leaves a fifth of
+  the TNS on the table. Better timing for more time is a Pareto move,
+  not dominance, so 0079 stays a negative result under the bar, and the
+  bar is what a maintainer will hold it to. The analytical size-up
+  estimate (trace v3) does not predict what a visit pays (rank
+  correlation 0.1 in cts, 0 in grt; visits with no size-up to offer
+  still bought a quarter of the gain through buffers and pin swaps), so
+  skipping visits by estimate is out. Where the seconds go, per the
+  profile: journal restores (14-36% of the setup phase on the default,
+  doubled under 0079) and per-visit progress rows. Restore begins with
+  Resizer::init(), which recounts the design area over every instance.
+  Patch 0081 snapshots the tracked area per journal level and puts it
+  back on undo, O(1), same result; it is the #11387 kind of fix and is
+  queued on the vehicles after 0080. The campaign chain is
+  tmp/run_after_yield3.sh.
+
 - 2026-09-14, 17:00: 0079 fails on the design it was built for. mock-alu
   cts: 1346 to 914 passes but 45.6 to 52.1 s and WNS -272.7 to -282.1;
   grt: 970 to 757 passes, 39.5 to 56.0 s; flow +29 s, min period -11 ps.
