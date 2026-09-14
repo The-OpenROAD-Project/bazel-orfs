@@ -134,6 +134,20 @@ The generated views come from a synthetic memory compiler, so a memory's
 contribution to CoreMark/Joule is a model rather than silicon, wherever
 it does apply.
 
+**A converted memory still needs its behavioural model at simulation
+time.** Synthesis blackboxes the module so the liberty view wins, but the
+gate-level simulation that produces the SAIF has to make the macro's pins
+toggle -- and a blackbox has no behaviour. Without the behavioural model
+in the simulation, the macro's pins never move, the SAIF carries no
+activity for them, and `report_power -saif` reports the memory at
+leakage only. That is a silent undercount of exactly the component
+AUTO_MEMORIES exists to represent.
+
+`memories.json` records `behavioral_model: {file, module}` for this: the
+gate-level simulator reads the grt netlist plus the original memory
+module's RTL in place of the blackboxed macro. Getting that wiring right
+is a prerequisite for any memory appearing in a CoreMark/Joule number.
+
 ## Cores after the first three
 
 The first three establish the low end. The interesting region is 5-15
