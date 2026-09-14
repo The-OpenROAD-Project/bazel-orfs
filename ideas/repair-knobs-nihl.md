@@ -197,6 +197,20 @@ learned policy that needs training runs per design.
 
 ## Decisions log
 
+- 2026-09-14, 20:30: trace v3 on all five vehicles. Patience: over the
+  non-WNS visits, five keeps 98% on mock-alu, jpeg grt keeps 73/83/98% at
+  five/ten/twenty, one ibex grt endpoint gains only after 47 dry passes
+  (a third of that stage's gain sits behind it), sky130hd/riscv32i cts
+  keeps 97% at twenty. No constant and no success-scaled rule dominates:
+  patience is the knob trade. The analytical size-up estimate correlates
+  0.5-0.64 with a violating visit's gain on mock-alu cts/grt, ibex grt
+  and riscv32i cts, 0.1-0.3 on the jpeg and sky130hd grinds, 0 on
+  floorplans: a free ordering key in some regimes, never a reason to
+  skip a visit. Kept as a lead. The study's upstream candidates are the
+  result-identical fixes 0081 (journal restore keeps the design area)
+  and 0082 (no progress row for a zero-pass visit), judged on wall with
+  the ODB hash as the QoR proof.
+
 - 2026-09-14, 19:50: the v2 trace's improvement lists settle the patience
   question, against a short constant. Over the visits that do not carry
   WNS, a patience of five keeps 98-99% of mock-alu's gain for 84-86% of
