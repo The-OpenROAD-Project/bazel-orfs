@@ -152,6 +152,10 @@ int main(int argc, char **argv)
 #if VM_TRACE_SAIF
     VerilatedSaifC *saif = nullptr;
     bool saif_open = false;
+    // Its own counter, advanced once per dump, rather than arithmetic on
+    // the cycle number: the window's first dump is time zero, and
+    // deriving it from `cycles` underflows there.
+    uint64_t saif_time = 0;
     if (saif_path != nullptr) {
         Verilated::traceEverOn(true);
         saif = new VerilatedSaifC;
@@ -172,9 +176,25 @@ int main(int argc, char **argv)
     int        status = kExitTimeout;
     FetchTrace trace;
 
+    // CoreMark prints nothing until its report, so the cycle of the first
+    // character out is exactly where the benchmark loop ended. That is
+    // the only observable iteration boundary in the run, and it is what
+    // lets a SAIF window be placed on the last -- hottest -- iteration
+    // without modifying the benchmark to mark it.
+    uint64_t first_output_cycle = 0;
+
     while (cycles < max_cycles) {
         dut->clk = 0;
         dut->eval();
+#if VM_TRACE_SAIF
+        // Both clock phases are dumped. Sampling once per cycle always
+        // finds the clock at the same level, and the SAIF then records a
+        // clock that never toggles -- which is not a small error in a
+        // design where the clock net is among the busiest.
+        if (saif_open) {
+            saif->dump(saif_time++);
+        }
+#endif
         dut->clk = 1;
         dut->eval();
         cycles++;
@@ -188,7 +208,13 @@ int main(int argc, char **argv)
                 saif->open(saif_path);
                 saif_open = true;
             }
-            saif->dump(static_cast<uint64_t>(cycles));
+            // Relative to the window, not to the start of the run.
+            // Dumping absolute time makes the SAIF's DURATION span the
+            // whole prologue, so every toggle rate is divided by the
+            // time the design spent outside the window -- a silent
+            // dilution of activity, and of power, by whatever factor the
+            // window start happens to be.
+            saif->dump(saif_time++);
         } else if (saif_open && !window.active(cycles)) {
             saif->close();
             saif_open = false;
@@ -202,6 +228,9 @@ int main(int argc, char **argv)
         trace.sample(static_cast<uint32_t>(dut->dbg_instr_addr), cycles);
 
         if (dut->out_valid) {
+            if (first_output_cycle == 0) {
+                first_output_cycle = cycles;
+            }
             fputc(static_cast<int>(dut->out_byte), out);
         }
         if (dut->trap) {
@@ -247,6 +276,8 @@ int main(int argc, char **argv)
             return 1;
         }
         fprintf(cf, "%llu\n", static_cast<unsigned long long>(cycles));
+        fprintf(cf, "first_output %llu\n",
+                static_cast<unsigned long long>(first_output_cycle));
         fclose(cf);
     }
 

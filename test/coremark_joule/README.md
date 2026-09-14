@@ -86,6 +86,46 @@ The image carries entry points for both reset conventions in play --
 `0x000` for a core that starts at its reset address, `0x180` for ibex,
 which fetches from `boot_addr_i + 0x80`.
 
+## The SAIF window: one hot iteration
+
+Switching activity has to come from the part of the run that represents
+the benchmark, and that is not the whole run. Startup, data init and the
+first iteration all execute cold; the report at the end is `ee_printf`
+and nothing else. Averaging activity over those would understate the
+benchmark and overstate whatever the prologue happens to do.
+
+So the window is exactly **one iteration, the last one** -- the same
+quantity the cycle count uses, and the one running hot.
+
+There is an exact, observable anchor for it. CoreMark prints nothing
+until its report, so the cycle of the first character out is precisely
+where the benchmark loop ended. With `D` the cycles per iteration
+(`cycles_3 - cycles_2`), the last iteration spans
+
+    [first_output - D, first_output]
+
+and the harness records `first_output` alongside the cycle count.
+Nothing in the benchmark is modified to mark it.
+
+Cycle behaviour is identical between the RTL and gate-level simulations,
+so the window is derived from the cheap RTL run and applied to the
+expensive netlist one. On picorv32 that checks out two ways: the window
+start computed from `first_output - D` equals `cycles_2 - report_cost`
+exactly.
+
+Two mistakes worth not repeating, both of which produce a plausible SAIF
+rather than an error:
+
+- **Dump on a time base relative to the window.** Absolute time makes
+  the SAIF's `DURATION` span the whole prologue, dividing every toggle
+  rate by however far into the run the window starts.
+- **Dump at both clock phases.** Sampling once per cycle always catches
+  the clock at the same level, and the SAIF then records a clock that
+  never toggles -- not a small error on the busiest net in the design.
+
+A correct capture is checkable: `clk` should show `TC` equal to twice
+the window's cycle count, and the duration should equal one iteration.
+
 ## Functional units
 
 Each design sets `SYNTH_HIERARCHICAL=1` with an explicit
