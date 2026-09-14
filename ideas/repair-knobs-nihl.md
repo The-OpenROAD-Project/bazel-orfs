@@ -197,6 +197,25 @@ learned policy that needs training runs per design.
 
 ## Decisions log
 
+- 2026-09-14, 14:45: Phase 0 on four designs shows three regimes, and
+  one policy shape covers them. mock-alu: the gain sits in endpoints
+  the worst-first order reaches late, each paying in one or two passes.
+  jpeg: the gain is in the worst decile and comes as a slow grind (one
+  to two ps per pass over 30-100 passes), with the fifty-pass patience
+  wasting a quarter of cts on eight "stuck" visits. ibex: one endpoint
+  holds 93-99% of the gain and seven hundred visits are overhead. In
+  every regime a paying endpoint shows its first gain within two passes
+  (95-100% of the gain), and a visit's gain correlates with nothing
+  known before it (rank correlation with entry slack 0.06-0.32, jpeg
+  floorplan aside). Decision: patch 0079, probe-then-drain. The worst
+  endpoint keeps its legacy budget; every other endpoint gets a two-pass
+  probe worst first; endpoints still paying go into a heap by TNS gained
+  per pass and drain best first in two-pass rounds; the phase ends when
+  the heap is empty. The fix-rate fence stays; if it fires during the
+  probes it ends the probing and the heap drains. No last-gasp change in
+  this patch (one concern). The trace v2 (every improving pass) decides
+  whether a two-pass round loses late gains.
+
 - 2026-09-14, 13:30: first Phase 0 reading (mock-alu). The cts jackpot
   at passes 1000-1200 is not endpoints that gained late: it is endpoints
   reached late by the worst-first order (sweep index 98-183 of 643,

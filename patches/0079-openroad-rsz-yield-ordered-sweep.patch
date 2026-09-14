@@ -1,0 +1,330 @@
+rsz: order the setup sweep by measured yield, not by slack
+
+Policy candidate from the repair-knobs campaign (ideas/repair-knobs-nihl.md,
+third study). Not upstreamed; carried while it is measured.
+
+The worst-first sweep spends its passes in slack order, and what an
+endpoint pays has little to do with its slack. On mock-alu the 126 worst
+endpoints took 80% of the cts passes for 7% of the TNS gain, and the gain
+sat in endpoints reached a thousand passes later, each closing in one or
+two passes; every stopping rule of the second study cut before them. The
+literature never orders work by slack: TILOS picks by sensitivity, the
+Lagrangian sizers by multipliers, Held by a cheap global pass first, and
+all of them stop on the convergence of a return that is monotone.
+
+So the sweep is ordered by what an endpoint has just paid. The worst
+endpoint is repaired first with its full legacy budget, as before. Every
+other violating endpoint gets a two-pass probe, worst first; the TNS the
+probe bought per pass is its yield; an endpoint still improving when its
+probe ran out goes into a heap by yield, and the heap drains best first
+in two-pass rounds, an endpoint going back with its new yield while it
+keeps paying. The phase ends when the heap is empty. The legacy fix-rate
+exit stays; when it fires during the probes it ends the probing and the
+heap still drains.
+
+Chesterton's Fence: the worst-first order was there so that WNS gets the
+first and largest budget; it keeps it. The per-endpoint patience of fifty
+non-improving passes was there for endpoints that pay late; the probe
+finds those in one or two passes on every design traced (0078), and an
+endpoint that stops paying is dropped instead of being ground.
+
+The repair_tns end percent is honoured as a cap on the probes and is not
+expected to bind; whether it can retire is what the study measures.
+diff --git a/src/rsz/src/policy/SetupLegacyBase.hh b/src/rsz/src/policy/SetupLegacyBase.hh
+index e7c0617c45..71e2fb1e56 100644
+--- a/src/rsz/src/policy/SetupLegacyBase.hh
++++ b/src/rsz/src/policy/SetupLegacyBase.hh
+@@ -91,6 +91,10 @@ class SetupLegacyBase : public OptimizationPolicy
+     int decreasing_slack_passes{0};
+     bool journal_open{false};
+     bool force_single_repair{false};
++    // Passes this visit may spend before it yields the endpoint back to
++    // the sweep; 0 means the legacy limit only.
++    int pass_budget{0};
++    bool budget_exhausted{false};
+     // Study trace (repair-yield): what this endpoint visit cost and bought.
+     // Filled by traceBegin/traceGain, printed by traceEnd as one
+     // [RSZ-ENDPOINT] line. Read-only queries; no result changes.
+diff --git a/src/rsz/src/policy/SetupLegacyPolicy.cc b/src/rsz/src/policy/SetupLegacyPolicy.cc
+index 4964886814..d430ab43ad 100644
+--- a/src/rsz/src/policy/SetupLegacyPolicy.cc
++++ b/src/rsz/src/policy/SetupLegacyPolicy.cc
+@@ -5,6 +5,8 @@
+ 
+ #include <algorithm>
+ #include <cmath>
++#include <limits>
++#include <queue>
+ #include <utility>
+ 
+ #include "MoveCommitter.hh"
+@@ -161,6 +163,23 @@ void SetupLegacyPolicy::repairEndpoint(EndpointRepairState& endpoint_state,
+ {
+   const float setup_slack_margin = config_.setup_slack_margin;
+   while (endpoint_state.pass <= config_.max_passes) {
++    if (endpoint_state.pass_budget > 0
++        && endpoint_state.pass > endpoint_state.pass_budget) {
++      // The round is spent; keep what it bought and hand the endpoint
++      // back to the sweep, which decides on its yield whether it
++      // continues.
++      endpoint_state.budget_exhausted = true;
++      endpoint_state.trace_exit = "budget";
++      // The journal holds only the passes since the last improvement, so
++      // a round that ended on non-improving passes rolls those back and
++      // keeps the checkpoint, as a legacy visit does when it gives up.
++      if (endpoint_state.decreasing_slack_passes > 0) {
++        restoreEndpointState(endpoint_state);
++      } else {
++        acceptEndpointState(endpoint_state);
++      }
++      break;
++    }
+     ++main_state.opto_iteration;
+     if (config_.verbose || main_state.opto_iteration == 1) {
+       printProgress(main_state.opto_iteration, false, main_state.phase_marker);
+@@ -397,41 +416,118 @@ void SetupLegacyPolicy::runMainRepairLoop(const ViolatingEnds& violating_ends,
+       10,
+       fmt::format(
+           "{}{} Phase Time: {{}}", phaseName(), main_state.phase_marker));
+-  for (const pair<sta::Vertex*, sta::Slack>& end_original_slack :
+-       violating_ends) {
+-    // Stop before starting a new endpoint after reaching the global limit.
+-    if (reachedIterationLimit(main_state.opto_iteration,
+-                              config_.max_iterations)) {
++  // Yield-ordered sweep (study candidate, ideas/repair-knobs-nihl.md).
++  //
++  // The worst-first sweep spends its passes in slack order, and what an
++  // endpoint pays has little to do with its slack: on mock-alu the 126
++  // worst endpoints took 80% of the cts passes for 7% of the TNS gain,
++  // and the gain sat in endpoints reached a thousand passes later, each
++  // closing in one or two passes. So the sweep is ordered by what an
++  // endpoint has just paid rather than by how bad it is:
++  //
++  //  1. The worst endpoint is repaired first with its full legacy budget,
++  //     exactly as before: it carries WNS and it follows the worst vertex.
++  //  2. Every other violating endpoint gets a probe of kProbePasses
++  //     passes, worst first. What the probe bought in TNS per pass is its
++  //     yield. An endpoint still improving when its probe ran out goes
++  //     into a heap by yield; one that closed, ran out of moves or did
++  //     not improve is done.
++  //  3. The heap drains best yield first, one round of kProbePasses at a
++  //     time; an endpoint still paying after its round goes back with its
++  //     new yield, so a decaying endpoint sinks under one that is not.
++  //
++  // The return per pass is non-increasing by construction, so the phase
++  // ends when the heap is empty: there is nothing left that has paid.
++  // The legacy fix-rate exit stays as the fence it always was. The
++  // repair_tns end percent is honoured as an upper bound on the probes;
++  // with every probe costing at most two passes it is not expected to
++  // bind, and the study measures whether it can go.
++  struct Ranked
++  {
++    float yield;
++    int order;  // position in the worst-first list, the deterministic tie
++    size_t index;
++    int passes_used;
++    bool operator<(const Ranked& other) const
++    {
++      // std::priority_queue pops the largest: higher yield first, then
++      // the worse endpoint.
++      return yield < other.yield || (yield == other.yield && order > other.order);
++    }
++  };
++  std::priority_queue<Ranked> heap;
++  const auto over = [&]() {
++    return main_state.two_cons_terminations
++           || reachedIterationLimit(main_state.opto_iteration,
++                                    config_.max_iterations);
++  };
++
++  // 1. The worst endpoint, as before.
++  Visit first;
++  if (!violating_ends.empty()) {
++    first = visitEndpoint(violating_ends.front(), main_state, 0);
++  }
++  int probes = 0;
++  int drained = 0;
++  // 2. Probe the rest, worst first.
++  for (size_t i = 1; i < violating_ends.size() && !first.phase_over && !over(); ++i) {
++    if (main_state.end_index >= main_state.max_end_count) {
+       break;
+     }
+-
+-    EndpointRepairState endpoint_state;
+-    bool begun;
+-    {
+-      utl::DebugScopedTimer timer(setup_context_.profile.begin_s);
+-      begun = beginEndpointRepair(end_original_slack, main_state, endpoint_state);
++    const Visit visit = visitEndpoint(violating_ends[i], main_state, kProbePasses);
++    ++probes;
++    if (visit.wants_more && visit.yield > 0.0f) {
++      heap.push({visit.yield, static_cast<int>(i), i, visit.passes});
+     }
+-    if (!begun) {
++    if (visit.phase_over) {
+       break;
+     }
+-
+-    repairEndpoint(endpoint_state, main_state);
+-
+-    if (config_.verbose || main_state.opto_iteration == 1) {
+-      printProgress(main_state.opto_iteration, true, main_state.phase_marker);
++  }
++  if (main_state.two_cons_terminations && !heap.empty()) {
++    // The fix-rate fence fired while probing. Probes are the low-return
++    // part of this sweep by design; what they found is in the heap and
++    // is the high-return part. Drain it, under the same fence.
++    debugPrint(logger_,
++               RSZ,
++               "repair_setup",
++               1,
++               "{}{} Phase: fix-rate exit during probing; draining {} "
++               "endpoints that paid",
++               phaseName(),
++               main_state.phase_marker,
++               heap.size());
++    main_state.two_cons_terminations = false;
++    main_state.prev_termination = false;
++  }
++  // 3. Drain by yield.
++  while (!heap.empty() && !over()) {
++    const Ranked top = heap.top();
++    heap.pop();
++    const int budget = std::min(kProbePasses, config_.max_passes - top.passes_used);
++    if (budget <= 0) {
++      continue;
+     }
+-    if (main_state.two_cons_terminations) {
+-      debugPrint(logger_,
+-                 RSZ,
+-                 "repair_setup",
+-                 1,
+-                 "{}{} Phase: Exiting due to no TNS progress for two "
+-                 "opto cycles",
+-                 phaseName(),
+-                 main_state.phase_marker);
++    // A revisit is not a new endpoint for the end percent.
++    --main_state.end_index;
++    const Visit visit = visitEndpoint(violating_ends[top.index], main_state, budget);
++    ++drained;
++    if (visit.phase_over) {
+       break;
+     }
++    if (visit.wants_more && visit.yield > 0.0f) {
++      heap.push({visit.yield, top.order, top.index, top.passes_used + visit.passes});
++    }
+   }
++  debugPrint(logger_,
++             RSZ,
++             "repair_setup",
++             1,
++             "{}{} Phase: yield-ordered sweep probed {} endpoints and drained "
++             "{} rounds",
++             phaseName(),
++             main_state.phase_marker,
++             probes,
++             drained);
+ 
+   printProgress(main_state.opto_iteration, true, main_state.phase_marker);
+   if (logger_->debugCheck(RSZ, "repair_setup", 1)) {
+@@ -451,6 +547,65 @@ void SetupLegacyPolicy::runMainRepairLoop(const ViolatingEnds& violating_ends,
+   }
+ }
+ 
++SetupLegacyPolicy::Visit SetupLegacyPolicy::visitEndpoint(
++    const pair<sta::Vertex*, sta::Slack>& end,
++    MainRepairState& main_state,
++    const int pass_budget)
++{
++  Visit visit;
++  if (reachedIterationLimit(main_state.opto_iteration, config_.max_iterations)) {
++    visit.phase_over = true;
++    return visit;
++  }
++  EndpointRepairState endpoint_state;
++  endpoint_state.pass_budget = pass_budget;
++  bool begun;
++  {
++    utl::DebugScopedTimer timer(setup_context_.profile.begin_s);
++    begun = beginEndpointRepair(end, main_state, endpoint_state);
++  }
++  if (!begun) {
++    visit.phase_over = true;
++    return visit;
++  }
++  const long passes_before = setup_context_.profile.passes;
++  const float tns_before = sta_->totalNegativeSlack(max_);
++  sta::Slack wns_before;
++  sta::Vertex* worst_before = nullptr;
++  sta_->worstSlack(max_, wns_before, worst_before);
++
++  repairEndpoint(endpoint_state, main_state);
++
++  visit.passes = static_cast<int>(setup_context_.profile.passes - passes_before);
++  const float tns_after = sta_->totalNegativeSlack(max_);
++  sta::Slack wns_after;
++  sta::Vertex* worst_after = nullptr;
++  sta_->worstSlack(max_, wns_after, worst_after);
++  visit.yield = visit.passes > 0 ? (tns_after - tns_before) / visit.passes : 0.0f;
++  if (sta::fuzzyGreater(wns_after, wns_before)) {
++    // A round that moved WNS stays in the sweep even when TNS did not
++    // follow: the minimum clock period is the axis that matters most.
++    visit.yield = std::max(visit.yield, std::numeric_limits<float>::min());
++  }
++  visit.wants_more = endpoint_state.budget_exhausted;
++
++  if (config_.verbose || main_state.opto_iteration == 1) {
++    printProgress(main_state.opto_iteration, true, main_state.phase_marker);
++  }
++  if (main_state.two_cons_terminations) {
++    debugPrint(logger_,
++               RSZ,
++               "repair_setup",
++               1,
++               "{}{} Phase: Exiting due to no TNS progress for two "
++               "opto cycles",
++               phaseName(),
++               main_state.phase_marker);
++    visit.phase_over = true;
++  }
++  return visit;
++}
++
+ bool SetupLegacyPolicy::pathImproved(const sta::Slack end_slack,
+                                      const sta::Slack worst_slack,
+                                      const sta::Slack prev_end_slack,
+diff --git a/src/rsz/src/policy/SetupLegacyPolicy.hh b/src/rsz/src/policy/SetupLegacyPolicy.hh
+index 08e7cd9350..e3c3c22f4a 100644
+--- a/src/rsz/src/policy/SetupLegacyPolicy.hh
++++ b/src/rsz/src/policy/SetupLegacyPolicy.hh
+@@ -4,6 +4,7 @@
+ #pragma once
+ 
+ #include <utility>
++#include <vector>
+ 
+ #include "SetupLegacyBase.hh"
+ #include "sta/Delay.hh"
+@@ -42,6 +43,22 @@ class SetupLegacyPolicy : public SetupLegacyBase
+                             ViolatingEnds& violating_ends);
+   void runMainRepairLoop(const ViolatingEnds& violating_ends,
+                          MainRepairState& main_state);
++
++  // The yield-ordered sweep: one visit of an endpoint with a pass
++  // budget, returning the TNS it bought per pass spent (0 when it ended
++  // for any reason other than the budget, so it is not revisited).
++  struct Visit
++  {
++    float yield{0.0f};
++    int passes{0};
++    bool wants_more{false};
++    bool phase_over{false};
++  };
++  Visit visitEndpoint(const std::pair<sta::Vertex*, sta::Slack>& end,
++                      MainRepairState& main_state,
++                      int pass_budget);
++  // Passes a probe or a drain round may spend on one endpoint.
++  static constexpr int kProbePasses = 2;
+   virtual bool beginEndpointRepair(
+       const std::pair<sta::Vertex*, sta::Slack>& end_original_slack,
+       MainRepairState& main_state,
