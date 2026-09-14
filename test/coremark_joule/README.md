@@ -115,6 +115,26 @@ Closing the gap means hardening the L1 with the core -- `ICache=1` on
 ibex, and for cores with no cache, deciding explicitly whether the
 comparison is core-to-core or system-to-system and saying which.
 
+**Above about 5 CoreMark/MHz the boundary stops being a caveat and
+becomes the measurement.** The cores in that range are not delivered as
+cores: they arrive as tiles or SoCs with L1s, an L2, an interconnect,
+and peripherals attached. Harden what the repository hands you and the
+uncore swamps the core's energy; harden the core alone and its misses
+are served by a free memory that no longer resembles how it runs. The
+answer changes by more than the differences the study is trying to show.
+
+It also breaks the comparison in an asymmetric way. A large core's L1 is
+inside whatever boundary is drawn, so it is paid for; a tiny core has no
+L1 to pay for and keeps its free perfect memory. Without one boundary
+rule applied to every core, the plot's high end is charged for a memory
+system and its low end is not, and the trend line between them is partly
+an artefact of that.
+
+So the boundary has to be decided before the first core above that
+range, not after: one rule -- core plus its L1, nothing beyond -- named
+in the provenance, applied to every point, with the cores that have no
+L1 recorded as having none rather than quietly benefiting.
+
 ## The SAIF window: one hot iteration
 
 Switching activity has to come from the part of the run that represents
@@ -327,6 +347,12 @@ own budgeted run.
 | 8 | OpenC910 | ~4.9-7 | Verilog/SV | medium — 3-issue OoO, silicon-proven |
 | 9 | SonicBOOM | 6.2 | Chisel | high — pulls in the Scala generator |
 | 10 | XiangShan | ~10-15 | Chisel | high — very large |
+
+**Before any of rungs 7-10, fix the measurement boundary.** Those cores
+arrive as tiles or SoCs, and what gets hardened stops being obvious --
+see "What the number is meant to cover". Adding a point above 5
+CoreMark/MHz without settling that first produces a number whose
+boundary nobody can state afterwards.
 
 **VeeR EH1 is the next one to do.** It is the first rung genuinely inside
 the 5 CoreMark/MHz band, it is SystemVerilog rather than Chisel, and ORFS
