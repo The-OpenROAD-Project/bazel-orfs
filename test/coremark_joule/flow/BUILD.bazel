@@ -2,3 +2,5 @@
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 
 exports_files(["write_netlist.tcl"])
+
+exports_files(["power_grt.tcl"])

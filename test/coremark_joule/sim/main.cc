@@ -155,7 +155,15 @@ int main(int argc, char **argv)
     // Its own counter, advanced once per dump, rather than arithmetic on
     // the cycle number: the window's first dump is time zero, and
     // deriving it from `cycles` underflows there.
+    //
+    // It advances in picoseconds of real time, half a clock period per
+    // dump, because OpenSTA reads a SAIF as toggle *rates*: transitions
+    // divided by duration. Counting 1 per half-cycle against the 1ps
+    // timescale would tell it the clock runs at a terahertz and inflate
+    // every rate by the ratio to the real period.
     uint64_t saif_time = 0;
+    const uint64_t saif_step =
+        strtoull(plusarg(argc, argv, "clk_period_ps", "1000"), nullptr, 0) / 2;
     if (saif_path != nullptr) {
         Verilated::traceEverOn(true);
         saif = new VerilatedSaifC;
@@ -192,7 +200,8 @@ int main(int argc, char **argv)
         // clock that never toggles -- which is not a small error in a
         // design where the clock net is among the busiest.
         if (saif_open) {
-            saif->dump(saif_time++);
+            saif->dump(saif_time);
+            saif_time += saif_step;
         }
 #endif
         dut->clk = 1;
@@ -214,7 +223,8 @@ int main(int argc, char **argv)
             // time the design spent outside the window -- a silent
             // dilution of activity, and of power, by whatever factor the
             // window start happens to be.
-            saif->dump(saif_time++);
+            saif->dump(saif_time);
+            saif_time += saif_step;
         } else if (saif_open && !window.active(cycles)) {
             saif->close();
             saif_open = false;

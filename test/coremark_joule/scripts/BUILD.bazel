@@ -15,6 +15,7 @@ exports_files([
     "check_memories_applied.py",
     "check_smoke.py",
     "run_check.sh",
+    "saif_window.py",
     "run_memories_check.sh",
     "run_report.sh",
 ])
@@ -81,4 +82,20 @@ py_test(
         "check_memories_applied_test.py",
     ],
     main = "check_memories_applied_test.py",
+)
+
+py_binary(
+    name = "saif_window",
+    srcs = ["saif_window.py"],
+    main = "saif_window.py",
+)
+
+py_test(
+    name = "saif_window_test",
+    size = "small",
+    srcs = [
+        "saif_window.py",
+        "saif_window_test.py",
+    ],
+    main = "saif_window_test.py",
 )

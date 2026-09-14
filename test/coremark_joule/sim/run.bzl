@@ -136,3 +136,40 @@ def smoke_test(name, run, tags = []):
         ],
         tags = tags,
     )
+
+def coremark_saif(name, sim, image, run_2, run_3, tags = ["manual"]):
+    """Capture a SAIF over CoreMark's last, hot iteration.
+
+    The window comes from the two RTL runs rather than from a choice:
+    the last iteration ends where the benchmark's first output appears
+    and is one `cycles_3 - cycles_2` long. Measured on the fast
+    simulation, applied to the slow one.
+    """
+    native.genrule(
+        name = name,
+        srcs = [
+            image,
+            "{}.cycles".format(run_2),
+            "{}.cycles".format(run_3),
+        ],
+        outs = [name + ".saif"],
+        cmd = (
+            "$(execpath {win}) " +
+            "--sim $(execpath {sim}) " +
+            "--image $(location {image}) " +
+            "--cycles-2 $(location {run_2}.cycles) " +
+            "--cycles-3 $(location {run_3}.cycles) " +
+            "--saif $@"
+        ).format(
+            image = image,
+            run_2 = run_2,
+            run_3 = run_3,
+            sim = sim,
+            win = "//test/coremark_joule/scripts:saif_window",
+        ),
+        tags = tags,
+        tools = [
+            sim,
+            "//test/coremark_joule/scripts:saif_window",
+        ],
+    )

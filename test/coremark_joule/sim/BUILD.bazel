@@ -13,6 +13,7 @@ load(
     "coremark_hex",
     "coremark_per_mhz",
     "coremark_run",
+    "coremark_saif",
     "smoke_test",
 )
 
@@ -302,3 +303,12 @@ sh_binary(
         ("ibex", "rv32imc"),
     ]
 ]
+
+# The SAIF for picorv32, over its last CoreMark iteration.
+coremark_saif(
+    name = "picorv32_rv32im_saif",
+    image = ":coremark_rv32im_3_hex",
+    run_2 = "picorv32_rv32im_2",
+    run_3 = "picorv32_rv32im_3",
+    sim = ":cm_sim_picorv32_gate",
+)
