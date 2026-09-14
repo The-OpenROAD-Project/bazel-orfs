@@ -4,7 +4,7 @@
 # unit test: a study's arithmetic is worth no more than the parser
 # underneath it, and these parse output formats that upstream projects
 # are free to change.
-load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 
@@ -31,4 +31,20 @@ py_binary(
     name = "cm_per_mhz",
     srcs = ["cm_per_mhz.py"],
     main = "cm_per_mhz.py",
+)
+
+# Unit tests for the parsers. Not manual: seconds of work, and each one
+# reads a format an upstream project is free to change -- a silent parse
+# failure would not look like a failure, it would look like a
+# measurement.
+py_test(
+    name = "parsers_test",
+    size = "small",
+    srcs = [
+        "check_coremark.py",
+        "cm_per_mhz.py",
+        "elf2hex.py",
+        "parsers_test.py",
+    ],
+    main = "parsers_test.py",
 )
