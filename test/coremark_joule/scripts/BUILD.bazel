@@ -12,8 +12,10 @@ exports_files([
     "check_coremark.py",
     "elf_sections.py",
     "iteration_delta_test.py",
+    "check_memories_applied.py",
     "check_smoke.py",
     "run_check.sh",
+    "run_memories_check.sh",
     "run_report.sh",
 ])
 
@@ -61,4 +63,22 @@ py_binary(
     name = "check_smoke",
     srcs = ["check_smoke.py"],
     main = "check_smoke.py",
+)
+
+py_binary(
+    name = "check_memories_applied",
+    srcs = ["check_memories_applied.py"],
+    main = "check_memories_applied.py",
+)
+
+# The guard's own tests. It exists to catch a silent failure, so whether
+# it actually catches it is worth asserting rather than trusting.
+py_test(
+    name = "check_memories_applied_test",
+    size = "small",
+    srcs = [
+        "check_memories_applied.py",
+        "check_memories_applied_test.py",
+    ],
+    main = "check_memories_applied_test.py",
 )
