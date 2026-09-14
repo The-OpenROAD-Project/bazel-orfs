@@ -97,6 +97,20 @@ class EndpointsTest(unittest.TestCase):
         self.assertIn("4 visits, 2 paying, 100 ps", text)
         self.assertIn("| 1 | LEGACY | 3/4 | 100 | 10 | 2 |", text)
 
+    def test_patience_walks_the_improving_passes(self):
+        vs = [dict(v) for v in self.vs]
+        # Visit 1: gains at passes 1 and 40 (a 39-pass dry gap), 50 passes.
+        vs[0]["imp"] = [(1, 4.0), (40, 6.0)]
+        vs[1]["imp"] = []
+        vs[2]["imp"] = [(2, 90.0)]
+        vs[3]["imp"] = []
+        table = endpoints.patience_table(vs)
+        # Patience 3 keeps 94% (loses the 6 ps after the long gap); the
+        # visits end 3 passes after their last gain or after 3 dry passes.
+        self.assertIn("| 3 | 94.0% |", table)
+        # Patience 50 keeps everything.
+        self.assertIn("| 50 | 100.0% |", table)
+
     def test_spearman_of_a_monotone_pair_is_one(self):
         self.assertAlmostEqual(endpoints.spearman([1, 2, 3, 4], [10, 20, 30, 40]), 1.0)
 

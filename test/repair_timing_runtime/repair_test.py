@@ -134,7 +134,7 @@ class Unstamped(unittest.TestCase):
             " slack_in=-30.000 slack_out=-12.500 wns_in=-30.000 wns_out=-29.000"
             " tns_in=-61.0 tns_out=-40.5 gain1=2 gainN=5 depth=14 cand=40 att=12 acc=3"
             " buf=1 clone=0 sizeup=2 sizeupm=0 sizedn=0 swap=0 vt=0 unbuf=0 split=0"
-            " reroute=0 exit=stuck end=core/u_x/q\n"
+            " reroute=0 exit=stuck imp=2:12.5,5:8.0 end=core/u_x/q\n"
             "[RSZ-ENDPOINT] phase=LEGACY* idx=2/3 pass0=7 pass1=8 passes=1 s=0.020"
             " slack_in=-20.000 slack_out=-20.000 wns_in=-29.000 wns_out=-29.000"
             " tns_in=-40.5 tns_out=-40.5 gain1=0 gainN=0 depth=9 cand=3 att=0 acc=0"
@@ -151,6 +151,8 @@ class Unstamped(unittest.TestCase):
         self.assertEqual(first["end"], "core/u_x/q")
         self.assertAlmostEqual(first["slack_out"] - first["slack_in"], 17.5)
         self.assertEqual(first["sizeup"], 2)
+        self.assertEqual(first["imp"], [(2, 12.5), (5, 8.0)])
+        self.assertNotIn("imp", call["endpoints"][1])
         self.assertEqual(call["endpoints"][1]["gain1"], 0)
         dist = call["endpoint_dist"]["LEGACY*"]
         self.assertEqual((dist["n"], dist["max_end"], len(dist["q"])), (3, 3, 21))

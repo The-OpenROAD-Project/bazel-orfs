@@ -226,6 +226,51 @@ def probe_quality(vs, k=1):
     }
 
 
+PATIENCE = (1, 2, 3, 5, 10, 20, 50)
+
+
+def patience_table(vs):
+    """What a per-endpoint patience of g dry passes would keep and cost.
+
+    Walks each visit's improving passes: the visit ends g passes after
+    its last improvement (or where it ended anyway). Needs the v2 trace
+    (imp=); returns None without it.
+    """
+    traced = [v for v in vs if "imp" in v]
+    if not traced:
+        return None
+    total_gain = sum(g for v in traced for _, g in v["imp"]) or 1.0
+    total_passes = sum(v["passes"] for v in traced) or 1
+    lines = [
+        "| patience g (dry passes before giving up) | gain kept | passes spent | visits cut short |",
+        "| ---: | ---: | ---: | ---: |",
+    ]
+    for g in PATIENCE:
+        kept = 0.0
+        spent = 0
+        cut = 0
+        for v in traced:
+            last = 0
+            used = None
+            for pass_index, gain in v["imp"]:
+                if pass_index - last > g:
+                    used = last + g
+                    break
+                kept += gain
+                last = pass_index
+            if used is None:
+                used = min(v["passes"], last + g) if v["imp"] else min(v["passes"], g)
+            if used < v["passes"]:
+                cut += 1
+            spent += min(used, v["passes"])
+        lines.append(
+            "| {} | {:.1f}% | {:.0f}% | {} |".format(
+                g, 100.0 * kept / total_gain, 100.0 * spent / total_passes, cut
+            )
+        )
+    return "\n".join(lines)
+
+
 def jackpot_table(vs, n=8):
     top = sorted(vs, key=lambda v: -v["gain"])[:n]
     lines = [
@@ -322,6 +367,9 @@ def report(design, step, vs):
             100.0 * q["passes_on_unflagged"] / (sum(v["passes"] for v in vs) or 1),
         )
     )
+    patience = patience_table(vs)
+    if patience:
+        lines += ["", patience, ""]
     lines += ["", jackpot_table(vs), ""]
     lines.append(
         "Rank correlation of a visit's TNS gain with what is known before it: "

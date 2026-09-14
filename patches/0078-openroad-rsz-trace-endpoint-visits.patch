@@ -11,7 +11,8 @@ visited by the LEGACY or LAST_GASP sweep: its index in the sweep, the
 pass it started at, the passes and seconds it took, the endpoint slack,
 the WNS and the TNS before and after, the pass of its first and last
 improvement, the depth of its worst path, candidates, attempts and
-accepted moves, the net moves committed by type, and why the visit
+accepted moves, the net moves committed by type, every improving pass with
+the TNS it bought, and why the visit
 ended (closed, no_change, stuck, terminate, rejected, over_area,
 max_iter, max_passes).
 
@@ -116,10 +117,10 @@ index 454cc2758c..7e9fbfc00b 100644
  
  bool SetupLastGaspPolicy::shouldStopLastGasp(
 diff --git a/src/rsz/src/policy/SetupLegacyBase.cc b/src/rsz/src/policy/SetupLegacyBase.cc
-index 859f085353..89c5d033fb 100644
+index 859f085353..cfdd855d55 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.cc
 +++ b/src/rsz/src/policy/SetupLegacyBase.cc
-@@ -976,6 +976,129 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
+@@ -976,6 +976,144 @@ bool SetupLegacyBase::terminateProgress(const int iteration,
    return false;
  }
  
@@ -173,6 +174,8 @@ index 859f085353..89c5d033fb 100644
 +  }
 +  endpoint_state.trace_first_gain = 0;
 +  endpoint_state.trace_last_gain = 0;
++  endpoint_state.trace_improvements.clear();
++  endpoint_state.trace_tns_at_gain = endpoint_state.trace_tns_in;
 +  endpoint_state.trace_depth = 0;
 +  if (sta::Path* path = sta_->vertexWorstSlackPath(endpoint_state.end, max_)) {
 +    sta::PathExpanded expanded(path, sta_);
@@ -182,12 +185,22 @@ index 859f085353..89c5d033fb 100644
 +  endpoint_state.trace_t0 = std::chrono::steady_clock::now();
 +}
 +
-+void SetupLegacyBase::traceGain(EndpointRepairState& endpoint_state) const
++void SetupLegacyBase::traceGain(EndpointRepairState& endpoint_state)
 +{
 +  if (endpoint_state.trace_first_gain == 0) {
 +    endpoint_state.trace_first_gain = endpoint_state.pass;
 +  }
 +  endpoint_state.trace_last_gain = endpoint_state.pass;
++  // The TNS after this improving pass; findRequireds has just run.
++  const float tns = sta_->totalNegativeSlack(max_);
++  if (!endpoint_state.trace_improvements.empty()) {
++    endpoint_state.trace_improvements += ",";
++  }
++  endpoint_state.trace_improvements
++      += fmt::format("{}:{}",
++                     endpoint_state.pass,
++                     delayAsString(tns - endpoint_state.trace_tns_at_gain, 1, sta_));
++  endpoint_state.trace_tns_at_gain = tns;
 +}
 +
 +void SetupLegacyBase::traceEnd(EndpointRepairState& endpoint_state,
@@ -220,7 +233,7 @@ index 859f085353..89c5d033fb 100644
 +      "[RSZ-ENDPOINT] phase={}{} idx={}/{} pass0={} pass1={} passes={} "
 +      "s={:.3f} slack_in={} slack_out={} wns_in={} wns_out={} tns_in={} "
 +      "tns_out={} gain1={} gainN={} depth={} cand={} att={} acc={}{} "
-+      "exit={} end={}",
++      "exit={} imp={} end={}",
 +      endpoint_state.trace_phase,
 +      endpoint_state.trace_marker,
 +      endpoint_state.trace_index,
@@ -243,6 +256,9 @@ index 859f085353..89c5d033fb 100644
 +      p.accepted - endpoint_state.trace_accepted0,
 +      moves,
 +      endpoint_state.trace_exit,
++      endpoint_state.trace_improvements.empty()
++          ? "-"
++          : endpoint_state.trace_improvements,
 +      network_->pathName(endpoint_state.end->pin()));
 +}
 +
@@ -250,7 +266,7 @@ index 859f085353..89c5d033fb 100644
                                      const char phase_marker) const
  {
 diff --git a/src/rsz/src/policy/SetupLegacyBase.hh b/src/rsz/src/policy/SetupLegacyBase.hh
-index 78aa495806..eaf3d8f9b7 100644
+index 78aa495806..e7c0617c45 100644
 --- a/src/rsz/src/policy/SetupLegacyBase.hh
 +++ b/src/rsz/src/policy/SetupLegacyBase.hh
 @@ -3,6 +3,8 @@
@@ -262,7 +278,7 @@ index 78aa495806..eaf3d8f9b7 100644
  #include <map>
  #include <optional>
  #include <set>
-@@ -89,6 +91,27 @@ class SetupLegacyBase : public OptimizationPolicy
+@@ -89,6 +91,30 @@ class SetupLegacyBase : public OptimizationPolicy
      int decreasing_slack_passes{0};
      bool journal_open{false};
      bool force_single_repair{false};
@@ -284,13 +300,16 @@ index 78aa495806..eaf3d8f9b7 100644
 +    std::array<int, static_cast<size_t>(MoveType::kCount)> trace_moves0{};
 +    int trace_first_gain{0};
 +    int trace_last_gain{0};
++    // Every improving pass with the TNS it bought since the previous one.
++    std::string trace_improvements;
++    float trace_tns_at_gain{0.0f};
 +    int trace_depth{0};
 +    std::chrono::steady_clock::time_point trace_t0;
 +    const char* trace_exit{"max_passes"};
    };
  
    // === Run setup ============================================================
-@@ -118,6 +141,20 @@ class SetupLegacyBase : public OptimizationPolicy
+@@ -118,6 +144,20 @@ class SetupLegacyBase : public OptimizationPolicy
    void saveImprovedCheckpoint(EndpointRepairState& endpoint_state);
    void refreshEndpointSlacks(EndpointRepairState& endpoint_state);
  
@@ -305,7 +324,7 @@ index 78aa495806..eaf3d8f9b7 100644
 +                  int end_index,
 +                  int max_end_count,
 +                  int opto_iteration);
-+  void traceGain(EndpointRepairState& endpoint_state) const;
++  void traceGain(EndpointRepairState& endpoint_state);
 +  void traceEnd(EndpointRepairState& endpoint_state, int opto_iteration);
 +
    bool reachedIterationLimit(int iteration, int max_iterations) const;

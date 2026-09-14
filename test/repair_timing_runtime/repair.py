@@ -246,6 +246,16 @@ def _endpoint_fields(text):
             out["of"] = int(b)
         elif key in ("phase", "exit", "end"):
             out[key] = value
+        elif key == "imp":
+            # Every improving pass with the TNS it bought: "2:49.1,5:3.0".
+            out["imp"] = (
+                []
+                if value == "-"
+                else [
+                    (int(p), float(g))
+                    for p, g in (item.split(":") for item in value.split(","))
+                ]
+            )
         else:
             out[key] = _number(value)
     return out
