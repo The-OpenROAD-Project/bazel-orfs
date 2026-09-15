@@ -114,3 +114,20 @@ exports_files(glob(["*.BUILD.bazel"]))
         "_minimal",
     ]
 ]
+
+# The port list of a generated module, as a readable artifact. The SoC
+# wrapper has to match XSTop's AXI ports exactly, and those are decided by
+# elaboration rather than by anything checked in.
+[
+    genrule(
+        name = module + "_ports",
+        srcs = [":xiangshan_sv"],
+        outs = [module + "_ports.txt"],
+        cmd = "sed -n '/^module " + module + "/,/^  );/p' " +
+              "$(location :xiangshan_sv)/" + module + ".sv > $@",
+    )
+    for module in [
+        "XSTop",
+        "XSCore",
+    ]
+]

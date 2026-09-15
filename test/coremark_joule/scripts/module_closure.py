@@ -19,12 +19,13 @@ import re
 import sys
 
 # `Foo foo_inst (` or `Foo #(...) foo_inst (`, at the start of a line.
-_INSTANCE = re.compile(r"^\s{2,}([A-Za-z_][A-Za-z_0-9$]*)\s+(?:#\([^;]*?\)\s*)?[A-Za-z_]")
+_INSTANCE = re.compile(
+    r"^\s{2,}([A-Za-z_][A-Za-z_0-9$]*)\s+(?:#\([^;]*?\)\s*)?[A-Za-z_]"
+)
 _MODULE = re.compile(r"^\s*module\s+([A-Za-z_][A-Za-z_0-9$]*)")
 
 # Keywords that appear in instantiation position but are not modules.
-_NOT_A_MODULE = frozenset(
-    """
+_NOT_A_MODULE = frozenset("""
     always always_comb always_ff always_latch and assign assert assume automatic
     begin buf bufif0 bufif1 case casex casez cmos default defparam disable else
     end endcase endfunction endgenerate endmodule endtask for force forever fork
@@ -33,8 +34,7 @@ _NOT_A_MODULE = frozenset(
     pmos posedge pulldown pullup reg release repeat return rtran rtranif0 rtranif1
     signed supply0 supply1 task time tran tranif0 tranif1 tri typedef unsigned var
     wait wand while wire wor xnor xor
-    """.split()
-)
+    """.split())
 
 
 def module_files(directory):
@@ -77,7 +77,9 @@ def closure(directory, top):
         if name in seen:
             continue
         seen.add(name)
-        pending.extend(n for n in instantiated(index[name]) if n in index and n not in seen)
+        pending.extend(
+            n for n in instantiated(index[name]) if n in index and n not in seen
+        )
 
     files = sorted({index[n] for n in seen})
     lines = 0
