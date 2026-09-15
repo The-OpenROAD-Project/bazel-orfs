@@ -433,9 +433,6 @@ http_archive(
     urls = ["https://github.com/eembc/coremark/archive/1f483d5b8316753a742cbf5590caf5bd0a4e4777.tar.gz"],
 )
 
-# picorv32, from upstream rather than from ORFS: ORFS carries no
-# picorv32 at all, and its ibex_sv is a pruned snapshot of a 2019
-# lowRISC commit whose top module is not even upstream's ibex_top.
 # SERV, the bit-serial RV32I core. Its register file lives in an SRAM
 # (serv_rf_ram) rather than in flops, which is the core's whole
 # architectural trick -- and the reason AUTO_MEMORIES matters most here:
@@ -473,6 +470,27 @@ http_archive(
     urls = ["https://github.com/lowRISC/ibex/archive/405c6d1d8220a18b2f9196141167a5875422dee4.tar.gz"],
 )
 
+# VeeR EH1, from upstream chipsalliance -- not from ORFS, whose
+# asap7/swerv_wrapper vendors the core as one 6.3 MB mechanically
+# sv2v-converted file, snapshotted from the pre-CHIPS-Alliance
+# westerndigitalcorporation/swerv_eh1 at 3ef7e65f with a configuration
+# that was baked in before the conversion and is recorded nowhere. The
+# ICCM, DCCM and icache sizes are what the study's core-plus-L1 boundary
+# makes load-bearing, so "the default configuration" is not a claim this
+# study can pass on. The configuration measured here is generated once
+# by upstream's own generator and committed under
+# //test/coremark_joule/rtl/veer/config.
+http_archive(
+    name = "veer",
+    build_file = "//test/coremark_joule/rtl:veer.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "2a5cb82c7f671d3985d052a3e47c9ff344982a81bb6370798f1846edf47c2517",
+    strip_prefix = "Cores-VeeR-EH1-695883a674c4a59cf96fae874ff4bfac5fecf4e8",
+    urls = ["https://github.com/chipsalliance/Cores-VeeR-EH1/archive/695883a674c4a59cf96fae874ff4bfac5fecf4e8.tar.gz"],
+)
+
+# picorv32, from upstream. ORFS carries no picorv32 at all, so there is
+# nothing to choose between.
 http_archive(
     name = "picorv32",
     build_file = "//test/coremark_joule/rtl:picorv32.BUILD.bazel",

@@ -1,0 +1,85 @@
+# Overlay for @veer: upstream chipsalliance/Cores-VeeR-EH1.
+#
+# Upstream, not ORFS's asap7/swerv_wrapper. ORFS vendors this core as a
+# single 6.3 MB `swerv_wrapper.sv2v.v`, and its own README records what
+# that is: SweRV EH1 1.1 from westerndigitalcorporation/swerv_eh1 at
+# commit 3ef7e65f, with "the default configuration from Repository"
+# applied. Three things follow. It is a mechanical sv2v translation
+# flattened into one file, and nothing establishes that it still
+# simulates as the original does. The configuration -- ICCM, DCCM,
+# icache and branch-predictor sizes -- was baked in before that
+# translation and is recorded nowhere, which is exactly what the study's
+# core-plus-L1 boundary makes load-bearing. And it predates the move to
+# CHIPS Alliance, where upstream is five minor releases further on.
+#
+# What ORFS's design is still worth having is everything that is not
+# RTL: it is an existence proof that this core hardens on asap7, and its
+# fakeram7 LEF and Liberty views, its SDC, its io.tcl and its
+# SYNTH_KEEP_MODULES list are a working starting point.
+#
+# The configuration this study measures is generated once by upstream's
+# own generator and committed under //test/coremark_joule/rtl/veer/config
+# -- same reason rtl/cmj_<core>.v exists for the other three cores: the
+# core that is simulated and the core that is hardened must not be able
+# to differ, and a reader has to be able to see which configuration was
+# measured. It is committed rather than generated in the build because
+# the generator is Perl.
+package(default_visibility = ["//visibility:public"])
+
+# The type package, split out so a dependency edge puts it first.
+# Verilator and slang both resolve in file order, and a glob is
+# alphabetical -- which would put dbg.sv, which imports swerv_types,
+# ahead of the package that declares it.
+filegroup(
+    name = "pkgs",
+    srcs = ["design/include/swerv_types.sv"],
+)
+
+filegroup(
+    name = "rtl",
+    srcs = glob(
+        [
+            "design/*.sv",
+            "design/dbg/*.sv",
+            "design/dec/*.sv",
+            "design/dmi/*.sv",
+            "design/dmi/*.v",
+            "design/exu/*.sv",
+            "design/ifu/*.sv",
+            "design/lib/*.sv",
+            "design/lsu/*.sv",
+        ],
+        exclude = [
+            # The AXI4 side of the bus shims. This study configures the
+            # core with -ahb_lite, so swerv_wrapper instantiates
+            # ahb_to_axi4 and axi4_to_ahb; svci_to_axi4 is reached by
+            # neither and is upstream's alternative front end.
+            "design/lib/svci_to_axi4.sv",
+        ],
+    ),
+)
+
+# The behavioural memory models: ram_2048x39 (DCCM), ram_256x34 (icache
+# data) and ram_64x21 (icache tag), among others. Upstream ships them,
+# which is why this study needs no behavioural model of its own for the
+# simulation half -- and it is separate from :rtl because synthesis
+# replaces exactly these modules with the hardened macros. Handing both
+# to one tool would leave it to pick.
+filegroup(
+    name = "mem_models",
+    srcs = ["design/lib/mem_lib.sv"],
+)
+
+# `include`d by name from the RTL: build.h and global.h out of
+# design/include. The other two names the sources use -- common_defines.vh
+# and pic_map_auto.h -- are generated, and live with the committed
+# configuration rather than here.
+filegroup(
+    name = "hdrs",
+    srcs = [
+        "design/include/build.h",
+        "design/include/global.h",
+    ],
+)
+
+exports_files(["LICENSE"])
