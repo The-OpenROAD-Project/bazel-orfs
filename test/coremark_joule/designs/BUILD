@@ -26,6 +26,7 @@ SDC_FILES = [
     # §4.8's synthesis-only cross-check arms: the ibex SDC at two other periods.
     "//test/coremark_joule/designs/asap7/ibex_synth100:constraints.sdc",
     "//test/coremark_joule/designs/asap7/ibex_synth500:constraints.sdc",
+    "//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc",
 ]
 
 sh_test(
