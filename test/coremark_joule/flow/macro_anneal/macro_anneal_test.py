@@ -43,12 +43,13 @@ def inventory(n_a=8, n_b=6, n_single=1):
 
 def run(text, **kw):
     inv = macro_anneal.Inventory.parse(text)
-    chan = int(kw.get("channel_um", 4.4) * DBU)
+    chan = int(kw.get("channel_um", 4.0) * DBU)
+    gap = int(kw.get("block_gap_um", 10.8) * DBU)
     blocks, residual = macro_anneal.build_blocks(
         inv, kw.get("depth", 3), kw.get("min_cluster", 4), chan, kw.get("fill", 0.6)
     )
     weights = macro_anneal.build_weights(inv, blocks, kw.get("depth", 3), 1000.0)
-    anneal = macro_anneal.Anneal(inv, blocks, weights, chan, kw.get("seed", 1), 400)
+    anneal = macro_anneal.Anneal(inv, blocks, weights, gap, kw.get("seed", 1), 400)
     order, cost = anneal.run()
     placed = macro_anneal.placements(inv, blocks, chan)
     return inv, blocks, residual, placed, cost
@@ -61,7 +62,11 @@ class TileTest(unittest.TestCase):
         self.assertLess(max(w, h) / float(min(w, h)), 2.0)
 
     def test_single_bank(self):
-        self.assertEqual(macro_anneal.tile_shape(1, 100, 200, 10)[:2], (1, 1))
+        self.assertEqual(macro_anneal.tile_shape(1, 100, 200, 10), (1, 1, 100, 200))
+
+    def test_channel_is_between_banks_only(self):
+        cols, rows, w, h = macro_anneal.tile_shape(4, 100, 100, 10)
+        self.assertEqual((cols, rows, w, h), (2, 2, 210, 210))
 
 
 class PlacementTest(unittest.TestCase):
@@ -90,6 +95,31 @@ class PlacementTest(unittest.TestCase):
             m = inv.masters[master]
             self.assertEqual((x + m["pox"] - 24) % 48, 0, inst)
             self.assertEqual((y + m["poy"] - 20) % 40, 0, inst)
+
+    def test_banks_abut_halo_to_halo_and_blocks_keep_the_gap(self):
+        # Inside a block, neighbouring banks are one channel apart, give or
+        # take the track snap of under a site; between blocks, at least the
+        # gap. A leftover sliver of rows between banks is what pdngen
+        # cannot power.
+        inv, blocks, _, placed, _ = run(inventory(), channel_um=4.0, block_gap_um=10.8)
+        by_block = {}
+        for inst, master, x, y in placed:
+            for b in blocks:
+                if inst in b.macros:
+                    by_block.setdefault(id(b), []).append((x, y, inv.masters[master]))
+        for banks in by_block.values():
+            xs = sorted({x for x, _, _ in banks})
+            for a, b in zip(xs, xs[1:]):
+                gap = b - a - banks[0][2]["w"]
+                self.assertGreaterEqual(gap, 4000)
+                self.assertLess(gap, 4000 + 48)
+        rects = [(b.x, b.y, b.x + b.w, b.y + b.h) for b in blocks]
+        for i in range(len(rects)):
+            for j in range(i + 1, len(rects)):
+                a, c = rects[i], rects[j]
+                dx = max(c[0] - a[2], a[0] - c[2])
+                dy = max(c[1] - a[3], a[1] - c[3])
+                self.assertGreaterEqual(max(dx, dy), 10800)
 
     def test_deterministic(self):
         a = run(inventory(), seed=3)[3]

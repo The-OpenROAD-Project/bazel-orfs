@@ -30,6 +30,7 @@ set anneal_cmd [list $::env(PYTHON_EXE) $::env(ANNEAL_PY) \
     --depth $::env(ANNEAL_DEPTH) \
     --min-cluster $::env(ANNEAL_MIN_CLUSTER) \
     --channel-um $::env(ANNEAL_CHANNEL_UM) \
+    --block-gap-um $::env(ANNEAL_BLOCK_GAP_UM) \
     --fill $::env(ANNEAL_FILL)]
 puts "anneal_in_flow: [join $anneal_cmd { }]"
 if { [catch { exec {*}$anneal_cmd 2>@1 } anneal_log] } {
