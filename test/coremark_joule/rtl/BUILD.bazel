@@ -195,3 +195,9 @@ verilog_library(
     srcs = ["@veer//:mem_models"],
     deps = [":veer"],
 )
+
+verilog_library(
+    name = "cm_soc_veer",
+    srcs = ["cm_soc_veer.sv"],
+    deps = [":veer_sim"],
+)

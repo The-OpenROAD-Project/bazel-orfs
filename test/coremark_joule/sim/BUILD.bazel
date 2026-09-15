@@ -430,3 +430,21 @@ cc_binary(
     tags = ["manual"],
     deps = [":veer_elab_lib"],
 )
+
+verilator_cc_library(
+    name = "cm_soc_veer_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/rtl:cm_soc_veer",
+    module_top = "cm_soc",
+    tags = ["manual"],
+    trace_mode = "none",
+    vopts = _SIM_VOPTS,
+)
+
+cc_binary(
+    name = "cm_sim_veer",
+    srcs = ["main.cc"],
+    copts = _SIM_COPTS,
+    tags = ["manual"],
+    deps = [":cm_soc_veer_lib"],
+)
