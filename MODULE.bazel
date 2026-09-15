@@ -237,7 +237,14 @@ git_override(
 # tools/xml-hack libxml2 stub are gone. dev_dependency: only bazel-orfs's own
 # from-source tests build OpenROAD; downstream roots register their own (and
 # OpenROAD's own registration is likewise dev-only, so it doesn't propagate).
-bazel_dep(name = "llvm", version = "0.8.11", dev_dependency = True)
+#
+# 0.8.18, not the newest: 0.8.19 moves the prebuilt compiler from LLVM
+# 22.1.8 to 23.1.0, and a compiler major bump is a different change from
+# picking up seven revisions of module fixes. 0.8.18 is the last release
+# still on 22.1.8, so this is the toolchain we already build with plus
+# whatever upstream fixed around it. The 23.1.0 move belongs in its own
+# commit, with an OpenROAD build behind it.
+bazel_dep(name = "llvm", version = "0.8.18", dev_dependency = True)
 
 register_toolchains(
     "@llvm//toolchain:all",

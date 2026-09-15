@@ -18,18 +18,6 @@
 #   RESULTS_DIR, SCRIPTS_DIR, etc. - standard ORFS env
 set -euo pipefail
 
-PARTITION_ID=${SYNTH_PARTITION_ID:?}
-NUM_PARTITIONS=${SYNTH_NUM_PARTITIONS:?}
-KEPT_JSON="$RESULTS_DIR/kept_modules.json"
-OUTPUT="$RESULTS_DIR/partition_${PARTITION_ID}.v"
-
-# Parse module list from JSON. Module names can contain '[' and ']'
-# (slang elaborates parameterized instances to names like
-# 'foo$bar.gen_tiles[0].i_tile.gen_banks[3]'), so a greedy sed regex is
-# unsafe. Module names cannot contain '"', so extracting all quoted
-# strings and skipping the first ("modules" key) is correct.
-ALL_MODULES=$(grep -oE '"[^"]+"' "$KEPT_JSON" | tail -n +2 | sed 's/"//g')
-
 # Sanitise a module name into a filename component. Must stay in lockstep
 # with rules.bzl's per-module artifact naming and parallel_synth.mk's
 # do-yosys-canonicalize-module log path.
@@ -79,6 +67,28 @@ rtlil_module_for() {
   done < "$2"
   return 0
 }
+
+# Sourcing this file with SYNTH_PARTITION_LIB=1 defines the helpers above
+# and stops here. The name-mangling rules below are pure string logic
+# with no synthesis in them, and //test/rtlil_names is what pins them --
+# they were wrong for a year in a way that only showed up on designs
+# that parameterize their submodules.
+if [ "${SYNTH_PARTITION_LIB:-0}" = "1" ]; then
+  return 0
+fi
+
+
+PARTITION_ID=${SYNTH_PARTITION_ID:?}
+NUM_PARTITIONS=${SYNTH_NUM_PARTITIONS:?}
+KEPT_JSON="$RESULTS_DIR/kept_modules.json"
+OUTPUT="$RESULTS_DIR/partition_${PARTITION_ID}.v"
+
+# Parse module list from JSON. Module names can contain '[' and ']'
+# (slang elaborates parameterized instances to names like
+# 'foo$bar.gen_tiles[0].i_tile.gen_banks[3]'), so a greedy sed regex is
+# unsafe. Module names cannot contain '"', so extracting all quoted
+# strings and skipping the first ("modules" key) is correct.
+ALL_MODULES=$(grep -oE '"[^"]+"' "$KEPT_JSON" | tail -n +2 | sed 's/"//g')
 
 if [ "$PARTITION_ID" = "top" ]; then
   # Top integration: synthesize the top module from the global checkpoint
