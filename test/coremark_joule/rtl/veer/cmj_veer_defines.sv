@@ -9,43 +9,62 @@
  *
  * config/common_defines.vh is that generator's output, committed
  * byte-for-byte apart from a header that named whoever ran it. The
- * command is in its header, and it is not a target preset: it is
- * Western Digital's own published CoreMark configuration, copied from
- * upstream's docs/SweRV_CoreMark_Benchmarking.pdf, which is where this
- * core's 4.94 CoreMark/MHz comes from.
+ * command is in its header:
  *
- *   swerv -set reset_vec=0xf0090000 -set=iccm_enable=1
- *         -unset=icache_enable
- *         -iccm_region=0xf -iccm_offset=0x90000 -iccm_size=64
+ *   swerv -set=icache_enable=1 -icache_size=16 -unset=iccm_enable
  *         -dccm_region=0xf -dccm_offset=0x80000 -dccm_size=64
  *         -btb_size=512 -bht_size=2048
  *         -ahb_lite -set=fpga_optimize=0
  *
- * 64 kB ICCM holding the code, 64 kB DCCM holding the data, the
- * instruction cache switched off, and the 512-entry BTB and 2048-entry
- * BHT that go with the score. Measuring any other configuration would
- * produce a number that cannot be compared with the published one --
- * a default-target build has a 32-entry BTB and a 128-entry BHT, which
- * is a sixteenth of each.
+ * A 16 kB instruction cache, a 64 kB DCCM at 0xf0080000, no ICCM, and
+ * the 512-entry BTB and 2048-entry BHT that Western Digital's published
+ * CoreMark score was taken with. Everything CoreMark touches in its hot
+ * loop is inside the hardened block: instructions out of the icache,
+ * data and stack out of the DCCM.
  *
- * It is also the configuration the study's own boundary rule asks for.
- * A core with no cache is measured with the small SRAM that comes with
- * it and holds the program hardened as part of it, and ICCM plus DCCM
- * is exactly that: the memory the hot loop runs out of, inside the
- * boundary. One memory shape falls out of it, ram_2048x39, which is a
- * fakeram7 view asap7 already carries.
+ * Why the icache and not the ICCM, given that Western Digital's own
+ * CoreMark configuration uses a 64 kB ICCM with the cache switched off
+ * (docs/SweRV_CoreMark_Benchmarking.pdf, 4.94 CoreMark/MHz):
  *
- * Two departures from Western Digital's setup, both stated rather than
- * quiet. `-ahb_lite`, because the external bus here serves only the
- * two-word sim-control device and AHB-Lite is a far smaller adapter
- * than AXI4 for that. And `-set=fpga_optimize=0`: their number was
- * taken on a Nexys-4 FPGA prototype at 40 MHz, where the generator's
- * FPGA setting minimises clock gating -- which is a first-order term in
- * exactly the energy this study reports, so it goes back on.
+ *   - **The ICCM cannot be filled by the core.** `lsu_addrcheck.sv`
+ *     uses the ICCM region only to suppress side-effects; there is no
+ *     store path from the LSU into it. Upstream's testbench fills it by
+ *     forcing values straight into `ram_core` through a hierarchical
+ *     path, and their FPGA flow does it over JTAG with extended OpenOCD
+ *     abstract commands. Neither survives to a gate-level netlist,
+ *     where the ICCM is a hardened macro with no `ram_core` to force --
+ *     and the gate-level run is the one that produces the SAIF. Filling
+ *     it properly would mean a DMA master pushing the image in over the
+ *     AHB slave port before the benchmark starts: real machinery,
+ *     outside the boundary, that exists only to work around the load
+ *     path.
+ *   - **The icache needs no loader at all.** The program sits in
+ *     external memory and is fetched through the cache, so the same
+ *     image boots in RTL and at gate level with nothing forced.
+ *   - **It is the cache this study says it measures.** §3.1's boundary
+ *     is the core and its L1, and with this configuration the L1 is
+ *     exercised rather than configured away.
  *
- * Two deliberate departures from the generator's output, both here
- * rather than in the generated file, so the generated file stays
- * byte-comparable against a re-run.
+ * What that leaves outside the boundary is the residual miss traffic,
+ * and it is measured rather than assumed: the SoC wrapper counts IFU
+ * bus transactions, so "CoreMark fits in the instruction cache" is a
+ * number in the results and not a claim in a comment.
+ *
+ * The memory shapes that fall out -- ram_256x34 (icache data),
+ * ram_64x21 (icache tag) and ram_2048x39 (DCCM) -- are exactly the
+ * three fakeram7 views ASAP7 already carries. A 32 kB icache would need
+ * ram_512x34 and ram_128x21, which it does not.
+ *
+ * Two deliberate departures from upstream's setup besides the cache.
+ * `-ahb_lite`, because the external bus here serves only the boot image
+ * and the two-word sim-control device, and AHB-Lite is a far smaller
+ * adapter than AXI4 for that. And `fpga_optimize=0`: Western Digital's
+ * number was taken on a Nexys-4 FPGA prototype at 40 MHz, where the
+ * generator's FPGA setting minimises clock gating -- a first-order term
+ * in exactly the energy this study reports.
+ *
+ * Two more departures below, here rather than in the generated file, so
+ * the generated file stays byte-comparable against a re-run.
  *
  * ASSERT_ON is undefined. It guards VeeR's SystemVerilog assertions,
  * and one of them -- lsu.sv's `exception_no_lsu_flush`, which uses a
