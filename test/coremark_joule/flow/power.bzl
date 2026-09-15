@@ -129,6 +129,172 @@ def stage_power_units(
         visibility = visibility,
     )
 
+# The sweep points, in toggles per clock period. 0.0 is "an unannotated
+# root never toggles"; 2.0 is "it toggles as often as the clock"; 0.1 is
+# OpenSTA's own default, and is in the list so the default case is a
+# measured point rather than the unstated middle of a range.
+ACTIVITY_SWEEP = [
+    "0.0",
+    "0.1",
+    "1.0",
+    "2.0",
+]
+
+def _activity_slug(activity):
+    return activity.replace(".", "p")
+
+def stage_activity_audit(
+        name,
+        src,
+        saif,
+        saif_scope,
+        policy = "pin_policy.json",
+        stage = "grt",
+        tags = ["manual"],
+        visibility = None):
+    """Enumerate every pin and where its switching activity came from.
+
+    Emits facts, not verdicts: `<name>_pins.tsv` is the ODB's view of
+    every pin, `<name>_annotation.txt` is OpenSTA's annotated and
+    unannotated listings, and `<name>_design.json` carries the clock and
+    the liberty corner. The classification and its policy live in
+    scripts/classify_pins.py, where they are unit-tested.
+
+    Args:
+      name: target name.
+      src: the flow stage target whose ODB is read; must match `stage`.
+      saif: the .saif label -- the same one the power report uses.
+      saif_scope: hierarchy in the SAIF corresponding to the design root.
+      policy: the design's pin_policy.json -- its budget for unannotated
+        internal pins, and its waivers, each with a written reason.
+      stage: which stage; must match `src`.
+      tags: forwarded; manual.
+      visibility: forwarded.
+    """
+    pins = name + "_pins.tsv"
+    annotation = name + "_annotation.txt"
+    design = name + "_design.json"
+    orfs_run(
+        name = name,
+        src = src,
+        outs = [
+            pins,
+            annotation,
+            design,
+        ],
+        script = "//test/coremark_joule/flow:activity_audit.tcl",
+        data = [saif],
+        user_arguments = {
+            "STAGE_STEM": STAGE_STEM[stage],
+            "SAIF_STIMULI": "$(location {})".format(saif),
+            "SAIF_SCOPE": saif_scope,
+            "PINS_TSV": "$(location {})".format(pins),
+            "ANNOTATION_TXT": "$(location {})".format(annotation),
+            "DESIGN_JSON": "$(location {})".format(design),
+        },
+        tags = tags,
+        visibility = visibility,
+    )
+
+    # The verdict, from the facts. Separate target because the
+    # classification and its policy are unit-tested Python, and because
+    # re-deciding what counts as benign must not cost an OpenROAD run.
+    native.genrule(
+        name = name + "_audit",
+        srcs = [
+            pins,
+            annotation,
+            design,
+            policy,
+        ],
+        outs = [name + "_audit.json"],
+        cmd = " ".join([
+            "$(execpath //test/coremark_joule/scripts:classify_pins)",
+            "--pins $(location {})".format(pins),
+            "--annotation $(location {})".format(annotation),
+            "--design $(location {})".format(design),
+            "--policy $(location {})".format(policy),
+            "--out $@",
+        ]),
+        tags = tags,
+        tools = ["//test/coremark_joule/scripts:classify_pins"],
+        visibility = visibility,
+    )
+
+def stage_activity_sweep(
+        name,
+        src,
+        saif,
+        saif_scope,
+        stage = "grt",
+        activities = ACTIVITY_SWEEP,
+        epsilon = "0.005",
+        min_control_spread = "0.05",
+        tags = ["manual"],
+        visibility = None):
+    """Sweep the default activity OpenSTA seeds unannotated roots with.
+
+    The audit says how many pins were annotated; this says whether that
+    mattered. Each arm reports power once per activity, and the caller
+    spells out both the point and the file it lands in, so the two
+    cannot drift apart.
+
+    Args:
+      name: target name; outputs `<name>_<arm>_a<activity>.json`.
+      src: the flow stage target whose ODB is read; must match `stage`.
+      saif: the .saif label -- the same one the power report uses.
+      saif_scope: hierarchy in the SAIF corresponding to the design root.
+      stage: which stage; must match `src`.
+      activities: sweep points, in toggles per clock period.
+      epsilon: how far the SAIF-driven total may move across the whole
+        sweep, as a fraction of its mean.
+      min_control_spread: how far the vectorless total must move for the
+        sweep to count as a working positive control.
+      tags: forwarded; manual.
+      visibility: forwarded.
+    """
+    outs = []
+    points = []
+    for arm in ["vectorless", "saif"]:
+        for activity in activities:
+            out = "{}_{}_a{}.json".format(name, arm, _activity_slug(activity))
+            outs.append(out)
+            points.append("{}|{}|$(location {})".format(arm, activity, out))
+    orfs_run(
+        name = name,
+        src = src,
+        outs = outs,
+        script = "//test/coremark_joule/flow:activity_sweep.tcl",
+        data = [saif],
+        user_arguments = {
+            "STAGE_STEM": STAGE_STEM[stage],
+            "SAIF_STIMULI": "$(location {})".format(saif),
+            "SAIF_SCOPE": saif_scope,
+            "SWEEP_POINTS": " ".join(points),
+        },
+        tags = tags,
+        visibility = visibility,
+    )
+
+    native.genrule(
+        name = name + "_check",
+        srcs = outs,
+        outs = [name + "_check.json"],
+        cmd = " ".join([
+            "$(execpath //test/coremark_joule/scripts:check_activity_sweep)",
+        ] + [
+            "--point {}".format(point.replace("|", ":"))
+            for point in points
+        ] + [
+            "--epsilon {}".format(epsilon),
+            "--min-control-spread {}".format(min_control_spread),
+            "--out $@",
+        ]),
+        tags = tags,
+        tools = ["//test/coremark_joule/scripts:check_activity_sweep"],
+        visibility = visibility,
+    )
+
 def hier_probe(name, src, stage, tags = ["manual"], visibility = None):
     """Report how much module hierarchy a stage's ODB still carries."""
     orfs_run(

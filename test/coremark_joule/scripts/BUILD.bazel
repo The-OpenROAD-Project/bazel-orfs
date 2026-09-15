@@ -21,6 +21,8 @@ exports_files([
     "saif_window.py",
     "run_memories_check.sh",
     "run_report.sh",
+    "classify_pins.py",
+    "check_activity_sweep.py",
 ])
 
 py_binary(
@@ -124,4 +126,39 @@ py_binary(
     srcs = ["plot_results.py"],
     main = "plot_results.py",
     deps = ["@bazel-orfs-dev-pip//matplotlib"],
+)
+
+# The pin activity audit: which pins OpenSTA measured, and which it
+# estimated. The classification is the accounting; check_activity_sweep
+# is the bound that turns the accounting into a claim.
+py_binary(
+    name = "classify_pins",
+    srcs = ["classify_pins.py"],
+    main = "classify_pins.py",
+)
+
+py_test(
+    name = "classify_pins_test",
+    size = "small",
+    srcs = [
+        "classify_pins.py",
+        "classify_pins_test.py",
+    ],
+    main = "classify_pins_test.py",
+)
+
+py_binary(
+    name = "check_activity_sweep",
+    srcs = ["check_activity_sweep.py"],
+    main = "check_activity_sweep.py",
+)
+
+py_test(
+    name = "check_activity_sweep_test",
+    size = "small",
+    srcs = [
+        "check_activity_sweep.py",
+        "check_activity_sweep_test.py",
+    ],
+    main = "check_activity_sweep_test.py",
 )

@@ -1,5 +1,5 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
-load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "hier_probe", "stage_power")
+load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "hier_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power")
 
 # No memories_applied_test here: picorv32 has no convertible memory, so
 # AUTO_MEMORIES is off and there is nothing for the guard to assert. The
@@ -39,3 +39,30 @@ stage_power(
         "grt",
     ]
 ]
+
+# Which pins OpenSTA measured, and which it estimated.
+#
+# `report_power -saif` never fails for want of activity: an unannotated
+# pin is estimated, and the estimate is indistinguishable from a
+# measurement in the report. The audit enumerates and classifies every
+# pin the SAIF did not reach; the sweep bounds what they could be worth.
+stage_activity_audit(
+    name = "cmj_picorv32_grt_activity",
+    src = ":cmj_picorv32_grt",
+    saif = "//test/coremark_joule/sim:picorv32_rv32im_saif",
+    saif_scope = "TOP/cm_soc/cpu",
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+# The bound. `set_power_activity -input` is the only way a density
+# OpenSTA invented enters the design; sweeping it from "never toggles"
+# to "toggles every cycle" must leave the SAIF-driven total where it is,
+# while moving the vectorless one -- which is the positive control that
+# makes the null result mean something.
+stage_activity_sweep(
+    name = "cmj_picorv32_grt_activity_sweep",
+    src = ":cmj_picorv32_grt",
+    saif = "//test/coremark_joule/sim:picorv32_rv32im_saif",
+    saif_scope = "TOP/cm_soc/cpu",
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)

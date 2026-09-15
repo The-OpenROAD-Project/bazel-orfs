@@ -8,3 +8,7 @@ exports_files(["power_grt.tcl"])
 exports_files(["power_units_grt.tcl"])
 
 exports_files(["hier_probe.tcl"])
+
+exports_files(["activity_audit.tcl"])
+
+exports_files(["activity_sweep.tcl"])
