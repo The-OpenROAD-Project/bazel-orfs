@@ -41,7 +41,11 @@ exports_files(glob(["*.BUILD.bazel"]))
         # study compiles XiangShan, so the semantics match upstream's.
         scalacopts = ["-Xcheckinit:false"],
         deps = [
+            # XSTileKey's parameters name types from XSCache, so the
+            # generator compiles against it directly rather than relying
+            # on reaching them through xiangshan.
             "@xiangshan",
+            "@xs_cache//:xscache",
             "@xs_rocket_chip//:macros",
             "@xs_rocket_chip//:rocket_chip",
             "@xs_utility//:utility",
@@ -71,7 +75,11 @@ exports_files(glob(["*.BUILD.bazel"]))
         resources = ["resources/gitStatus"],
         scalacopts = ["-Xcheckinit:false"],
         deps = [
+            # XSTileKey's parameters name types from XSCache, so the
+            # generator compiles against it directly rather than relying
+            # on reaching them through xiangshan.
             "@xiangshan",
+            "@xs_cache//:xscache",
             "@xs_rocket_chip//:macros",
             "@xs_rocket_chip//:rocket_chip",
             "@xs_utility//:utility",
