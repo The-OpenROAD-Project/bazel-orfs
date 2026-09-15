@@ -86,6 +86,16 @@ export SYNTH_KEEP_MODULES      = Frontend Backend MemBlock CtrlBlock Bpu \
 # attribute power to.
 export OPENROAD_HIERARCHICAL   = 1
 
+# No pre-placement repair_timing. With REMOVE_ABC_BUFFERS unset, the
+# floorplan stage runs repair_timing on wire-load models before anything
+# is placed; on 10.8 M instances that found 131,661 violating endpoints
+# and moved through 40 of them in eight minutes -- days, for a repair
+# that the place stage redoes with real parasitics. Set, the floorplan
+# strips abc's buffers instead and repair_design rebuffers after
+# placement. The other four cores run the default; for them it is
+# seconds, and its effect is a pre-sizing the later repairs revisit.
+export REMOVE_ABC_BUFFERS      = 1
+
 # TURNAROUND SETTING -- flip to 0 (or delete) for the measured run.
 #
 # ORFS's default abc script is the speed one: five rounds of resynthesis
