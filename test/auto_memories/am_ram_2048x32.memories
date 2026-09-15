@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "platform": "asap7",
+  "memories": [
+    {
+      "name": "am_ram_2048x32",
+      "rows": 2048,
+      "bits": 32,
+      "addr_w": 11,
+      "read_ports": 0,
+      "write_ports": 0,
+      "rw_ports": 1,
+      "mask_lanes": 0,
+      "pins": [
+        {
+          "name": "clk",
+          "direction": "input",
+          "width": 1,
+          "port_id": "RW0",
+          "function": "clk"
+        },
+        {
+          "name": "ce_in",
+          "direction": "input",
+          "width": 1,
+          "port_id": "RW0",
+          "function": "en"
+        },
+        {
+          "name": "we_in",
+          "direction": "input",
+          "width": 1,
+          "port_id": "RW0",
+          "function": "wmode"
+        },
+        {
+          "name": "addr_in",
+          "direction": "input",
+          "width": 11,
+          "port_id": "RW0",
+          "function": "addr"
+        },
+        {
+          "name": "wd_in",
+          "direction": "input",
+          "width": 32,
+          "port_id": "RW0",
+          "function": "data_in"
+        },
+        {
+          "name": "rd_out",
+          "direction": "output",
+          "width": 32,
+          "port_id": "RW0",
+          "function": "data_out"
+        }
+      ],
+      "idiomatic": true,
+      "reason": "forced: am_top.v never defines this module, so there is no inferred $mem for the scanner to find and the geometry is carried here"
+    }
+  ]
+}

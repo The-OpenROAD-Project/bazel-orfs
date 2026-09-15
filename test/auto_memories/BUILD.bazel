@@ -1,0 +1,120 @@
+# A design that exercises AUTO_MEMORIES on the parallel synthesis path.
+#
+# The flow's one AUTO_MEMORIES design, asap7/tinyRocket, does not set
+# SYNTH_HIERARCHICAL, so it takes the serial path. That left the
+# parallel path -- the one every hierarchical design takes -- with no
+# coverage, and three bugs lived there:
+#
+#   * the generated .lib/.lef views were never staged into the partition
+#     or ODB actions, so AUTO_MEMORIES and SYNTH_HIERARCHICAL could not
+#     be used together at all;
+#   * FakeRAM's ASAP7 backend folded nothing, so a 2048-deep memory came
+#     out a 159:1 sliver;
+#   * an inline array was converted into a macro nothing could
+#     instantiate, while memories.json reported it as done.
+#
+# Each completed successfully and produced a plausible wrong answer.
+# am_top.v says which construct covers which.
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("//:openroad.bzl", "orfs_flow")
+load("//test:auto_memories_outputs_test.bzl", "auto_memories_outputs_test")
+
+package(default_visibility = ["//visibility:private"])
+
+exports_files([
+    "am_ram_2048x32.memories",
+    "constraints.sdc",
+])
+
+orfs_flow(
+    name = "am_top",
+    abstract_stage = "place",
+    arguments = {
+        "AUTO_MEMORIES": "1",
+        # The point of the fixture. SYNTH_HIERARCHICAL is what selects
+        # the parallel path; SYNTH_NUM_PARTITIONS is pinned rather than
+        # derived so the action graph does not depend on how many
+        # modules happen to be kept.
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_KEEP_MODULES": "am_regs",
+        "SYNTH_NUM_PARTITIONS": "1",
+        # The geometry the fixture is sized for; see am_top.v.
+        "CORE_UTILIZATION": "30",
+        "PLACE_DENSITY": "0.60",
+        "PLACE_DENSITY_LB_ADDON": "0.20",
+        # Analysis-only, so the netlist is what it would be anyway.
+        "SKIP_REPORT_METRICS": "1",
+    },
+    sources = {
+        "ADDITIONAL_MEMORIES": [":am_ram_2048x32.memories"],
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    verilog_files = ["am_top.v"],
+)
+
+# The cheap half, and the half that catches the staging bug: an
+# analysistest over the action graph, no synthesis. `consumed` is the
+# assertion that matters here -- the views were always declared, and
+# the regression was that nothing took them as an input, so they were
+# discarded at the sandbox boundary.
+auto_memories_outputs_test(
+    name = "am_top_outputs_test",
+    consumed_by = {
+        # synth_odb.tcl globs these out of the results dir through
+        # load.tcl and read_liberty.tcl, so the action that produces the
+        # ODB is the one that has to be handed them.
+        "1_synth.odb": [
+            "memories.json",
+            "memories",
+        ],
+    },
+    expected = [
+        "memories.json",
+        "memories",
+        "memories_inferred.json",
+    ],
+    target_under_test = ":am_top_synth",
+)
+
+py_binary(
+    name = "check_auto_memories",
+    srcs = ["check_auto_memories.py"],
+    main = "check_auto_memories.py",
+)
+
+# The checker's own logic, over synthetic inputs. Runs in CI in
+# milliseconds even though the flow that feeds it does not.
+py_test(
+    name = "check_auto_memories_test",
+    size = "small",
+    srcs = [
+        "check_auto_memories.py",
+        "check_auto_memories_test.py",
+    ],
+    main = "check_auto_memories_test.py",
+)
+
+# The expensive half: what AUTO_MEMORIES actually did to this design.
+# Manual -- it needs synthesis.
+genrule(
+    name = "am_top_memories_check",
+    srcs = [":am_top_synth"],
+    outs = ["am_top_memories_check.txt"],
+    cmd = "$(execpath :check_auto_memories) --out $@ $(locations :am_top_synth)",
+    tags = ["manual"],
+    tools = [":check_auto_memories"],
+)
+
+# Synth alone would pass even if the views never propagated past the
+# stage that made them, so floorplan is the cheapest target that proves
+# they reach the stage that reads them -- which on the parallel path
+# they did not.
+build_test(
+    name = "am_top_flow_test",
+    tags = ["manual"],
+    targets = [
+        ":am_top_memories_check",
+        ":am_top_floorplan",
+    ],
+)
