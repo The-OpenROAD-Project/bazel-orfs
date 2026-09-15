@@ -721,7 +721,7 @@ core its own budgeted run.
 | 4 | CV32E40P | ~3.1 | SystemVerilog | low |
 | 5 | VeeR EL2 | ~2.6 | SystemVerilog | low |
 | 6 | CVA6 | ~2.5 | SystemVerilog | medium — RV64 contrast at similar CoreMark/MHz |
-| 7 | **VeeR EH1** | **~4.9** | SystemVerilog | **low — already an ORFS design (`swerv`)** |
+| 7 | **VeeR EH1** | **~4.9** | SystemVerilog | **low — an ORFS design (`swerv_wrapper`) that already hardens its L1s** |
 | 8 | OpenC910 | ~4.9–7 | Verilog/SV | medium — 3-issue OoO, silicon-proven |
 | 9 | SonicBOOM | 6.2 | Chisel | high — pulls in the Scala generator |
 | 10 | XiangShan | ~10–15 | Chisel | high — very large |
@@ -731,12 +731,50 @@ or SoCs, and what gets hardened stops being obvious. Adding a point
 above 5 CoreMark/MHz without settling that first produces a number
 whose boundary nobody can state afterwards.
 
-**VeeR EH1 is the next one to do.** It is the first rung genuinely
-inside the 5 CoreMark/MHz band, it is SystemVerilog rather than Chisel,
-and ORFS already carries it as `swerv` — so it costs a `config.mk` and
-a bus adapter rather than a new toolchain. Rungs 4–8 need no generator
-toolchain; rungs 9–10 pull in Chisel, which is the natural place to
-stop if the study stops early.
+**VeeR EH1 is the next one to do, and it is further along than the rest
+of this table suggests.** ORFS already carries it on ASAP7 as
+`swerv_wrapper` — and unlike every other design in that directory, and
+unlike all three points in Table 1, **it already meets the boundary of
+§3.1 as shipped.** Its `ADDITIONAL_LEFS`/`ADDITIONAL_LIBS` harden the
+ICCM/DCCM and instruction-cache arrays as macros —
+`fakeram7_2048x39`, `fakeram7_256x34`, `fakeram7_64x21` — with the LEF
+and Liberty views checked in and `macros.v` binding ORFS's `ram_*`
+modules onto them. The memory the hot loop runs out of is inside the
+hardened block, which is the rule, applied without our having to choose
+an SRAM size for it.
+
+Its `SYNTH_KEEP_MODULES` is also, already, the enumeration §3.7 asks
+for: `ifu_ifc_ctl`, `ifu_aln_ctl`, `ifu_bp_ctl`, `ifu_mem_ctl` (fetch),
+`dec_decode_ctl`, `dec_ib_ctl`, `dec_tlu_ctl` (decode and control),
+`dec_gpr_ctl_*` (register file), `exu`, `exu_alu_ctl`, `exu_div_ctl`
+(execute), `lsu_dccm_ctl`, `lsu_dccm_mem`, `lsu_bus_buffer`,
+`lsu_stbuf`, `lsu_lsc_ctl` (load/store), `pic_ctrl`, and the two
+instruction-cache tag and data modules. A `units.json` for it is a
+mapping exercise rather than a research one.
+
+What it costs, stated rather than discovered later:
+
+- **A bus adapter** to the two-word platform of §3.2. This is the same
+  cost every core has paid.
+- **A behavioural model for the fakeram macros**, which §3.2 explains is
+  a prerequisite and not a refinement: the macro is blackboxed at
+  synthesis so the Liberty view wins, and a blackbox stores nothing, so
+  a gate-level CoreMark run fails its CRCs rather than reporting low
+  memory power. ORFS ships the LEF and the Liberty but no Verilog body
+  for `fakeram7_*`; bazel-orfs's behavioural-memory flow
+  (`tools/memory_macro_scaler/`) is the mechanism, and the six-pin
+  fakeram interface is small enough to model directly.
+- **`LIB_MODEL = CCS`**, where the three points in Table 1 are NLDM.
+  Either align it or state it; a power number is not comparable across
+  delay models without saying so.
+- It is the largest design ORFS carries, so a point costs more than the
+  minutes the three in Table 1 do.
+
+ORFS also carries `asap7/cva6`, which is the direct counterpart to the
+22 nm series of §4.4 — the same core, a different node and toolchain —
+and `asap7/tinyRocket`. Rungs 4–8 need no generator toolchain; rungs
+9–10 pull in Chisel, which is the natural place to stop if the study
+stops early.
 
 ---
 
