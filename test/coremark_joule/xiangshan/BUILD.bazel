@@ -65,6 +65,13 @@ exports_files(glob(["*.BUILD.bazel"]))
             "PATH=$$ESPRESSO_DIR:$$FIRTOOL_DIR:$$PATH",
             "CHISEL_FIRTOOL_PATH=$$FIRTOOL_DIR",
             "$(execpath :generator" + suffix + ")",
+            # Extract every inferred memory into its own module. Without
+            # this firtool inlines them as reg arrays inside whatever
+            # module used them, ORFS's AUTO_MEMORIES detector finds no
+            # module to convert, and a core whose caches are most of its
+            # area synthesises as flip-flops.
+            "--repl-seq-mem",
+            "--repl-seq-mem-file=$(RULEDIR)/xiangshan" + suffix + ".mems.conf",
             "-o $@",
         ]),
         tools = [
