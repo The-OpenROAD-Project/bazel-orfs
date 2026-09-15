@@ -68,11 +68,17 @@ class PlacementTest(unittest.TestCase):
     def test_clusters_and_residual(self):
         inv, blocks, residual, placed, _ = run(inventory())
         macro_blocks = [b for b in blocks if b.is_macro()]
-        self.assertEqual(sorted(b.key for b in macro_blocks), ["frontend/bpu/tage", "memblock/dcache"])
+        self.assertEqual(
+            sorted(b.key for b in macro_blocks),
+            ["frontend/bpu/tage", "memblock/dcache"],
+        )
         self.assertEqual(residual, ["memblock/pht/one0"])
         self.assertEqual(len(placed), 14)
         ballast = [b for b in blocks if not b.is_macro()]
-        self.assertEqual(sorted(b.key for b in ballast), ["frontend/bpu/tage", "frontend/ifu", "memblock/dcache"])
+        self.assertEqual(
+            sorted(b.key for b in ballast),
+            ["frontend/bpu/tage", "frontend/ifu", "memblock/dcache"],
+        )
 
     def test_legal_inside_core_no_overlap(self):
         inv, blocks, _, placed, _ = run(inventory())
@@ -106,7 +112,9 @@ class PlacementTest(unittest.TestCase):
         self.assertLess(d(tage, near), d(tage, far))
 
     def test_overrun_is_reported_not_emitted(self):
-        text = inventory().replace("core 10000 10000 390000 390000", "core 10000 10000 60000 60000")
+        text = inventory().replace(
+            "core 10000 10000 390000 390000", "core 10000 10000 60000 60000"
+        )
         inv, blocks, _, placed, cost = run(text)
         self.assertTrue(macro_anneal.check_legal(inv, blocks, placed))
         self.assertGreater(cost, 1e6)
@@ -132,7 +140,17 @@ class EmitTest(unittest.TestCase):
             out = os.path.join(d, "p.tcl")
             metrics = os.path.join(d, "m.json")
             rc = macro_anneal.main(
-                ["x", "--inventory", inv_path, "--out", out, "--metrics", metrics, "--iterations", "300"]
+                [
+                    "x",
+                    "--inventory",
+                    inv_path,
+                    "--out",
+                    out,
+                    "--metrics",
+                    metrics,
+                    "--iterations",
+                    "300",
+                ]
             )
             self.assertEqual(rc, 0)
             self.assertTrue(os.path.exists(out))
