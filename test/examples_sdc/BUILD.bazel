@@ -1,0 +1,38 @@
+# What the shipped example teaches about constraining I/O.
+#
+# examples/constraints.sdc is the file a reader copies before writing
+# constraints of their own, so its choices propagate. It used to reach
+# for set_input_delay / set_output_delay, which asap7's own
+# platforms/asap7/constraints.sdc argues against at length: the number
+# either takes is measured from the clock insertion point, so writing
+# one means assuming a clock tree that does not exist yet, and it
+# demands hold fixing on every I/O path -- hold buffers, area and
+# leakage, for a constraint the environment may not impose at all.
+#
+# These run in CI in milliseconds and need no flow.
+load("@rules_python//python:defs.bzl", "py_test")
+
+package(default_visibility = ["//visibility:private"])
+
+py_test(
+    name = "examples_sdc_test",
+    size = "small",
+    srcs = ["check_examples_sdc.py"],
+    args = ["$(location //examples:constraints.sdc)"],
+    data = ["//examples:constraints.sdc"],
+    main = "check_examples_sdc.py",
+)
+
+# The checker's own logic, including that a mention in a comment is not
+# a use -- the file explains why it avoids set_input_delay, and a check
+# that failed on its own explanation would get deleted rather than
+# fixed.
+py_test(
+    name = "check_examples_sdc_test",
+    size = "small",
+    srcs = [
+        "check_examples_sdc.py",
+        "check_examples_sdc_test.py",
+    ],
+    main = "check_examples_sdc_test.py",
+)

@@ -60,6 +60,14 @@ filegroup(
 # Settings to speed up CI builds by disabling expensive operations that are
 # only needed for timing closure and manufacturing sign-off.
 #
+# MOST OF THESE CHANGE THE NETLIST. That is fine for a smoke test, whose
+# question is "did the flow run", and wrong for anything measuring area,
+# timing or power, whose question is about the netlist itself. Only
+# SKIP_REPORT_METRICS, PWR_NETS_VOLTAGES and GND_NETS_VOLTAGES are
+# analysis-only; every other entry below changes what is built. A
+# measurement cannot buy speed with the thing it measures, so a study
+# that wants the speed takes SKIP_REPORT_METRICS and refuses the rest.
+#
 # Setting                    Stage      What it disables
 # -------                    -----      ----------------
 # GPL_TIMING_DRIVEN=0        place      Timing-driven global placement. Skips timing path
