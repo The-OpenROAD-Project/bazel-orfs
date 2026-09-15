@@ -30,6 +30,7 @@ import sys
 
 _ELF_MAGIC = b"\x7fELF"
 _ELFCLASS32 = 1
+_ELFCLASS64 = 2
 _ELFDATA2LSB = 1
 _PT_LOAD = 1
 
@@ -42,18 +43,32 @@ def load_segments(blob):
     """Return [(paddr, bytes)] for every PT_LOAD, .bss zero-filled."""
     if blob[:4] != _ELF_MAGIC:
         raise ElfError("not an ELF file")
-    if blob[4] != _ELFCLASS32 or blob[5] != _ELFDATA2LSB:
-        raise ElfError("only 32-bit little-endian ELF is supported")
+    if blob[5] != _ELFDATA2LSB:
+        raise ElfError("only little-endian ELF is supported")
+    if blob[4] not in (_ELFCLASS32, _ELFCLASS64):
+        raise ElfError("not a 32- or 64-bit ELF")
+    elf64 = blob[4] == _ELFCLASS64
 
-    (phoff,) = struct.unpack_from("<I", blob, 0x1C)
-    phentsize, phnum = struct.unpack_from("<HH", blob, 0x2A)
+    # The two classes differ in header offsets and in field widths, and in
+    # ELF64 p_flags moves ahead of p_offset. Nothing else here cares.
+    if elf64:
+        (phoff,) = struct.unpack_from("<Q", blob, 0x20)
+        phentsize, phnum = struct.unpack_from("<HH", blob, 0x36)
+    else:
+        (phoff,) = struct.unpack_from("<I", blob, 0x1C)
+        phentsize, phnum = struct.unpack_from("<HH", blob, 0x2A)
 
     out = []
     for i in range(phnum):
         base = phoff + i * phentsize
-        p_type, p_offset, p_vaddr = struct.unpack_from("<III", blob, base)
-        (p_paddr,) = struct.unpack_from("<I", blob, base + 0x0C)
-        p_filesz, p_memsz = struct.unpack_from("<II", blob, base + 0x10)
+        if elf64:
+            (p_type,) = struct.unpack_from("<I", blob, base)
+            p_offset, p_vaddr, p_paddr = struct.unpack_from("<QQQ", blob, base + 0x08)
+            p_filesz, p_memsz = struct.unpack_from("<QQ", blob, base + 0x20)
+        else:
+            p_type, p_offset, p_vaddr = struct.unpack_from("<III", blob, base)
+            (p_paddr,) = struct.unpack_from("<I", blob, base + 0x0C)
+            p_filesz, p_memsz = struct.unpack_from("<II", blob, base + 0x10)
         if p_type != _PT_LOAD or p_memsz == 0:
             continue
         data = blob[p_offset : p_offset + p_filesz]
@@ -69,8 +84,8 @@ def to_words(segments, words, base=0):
 
     Zero is the default because that is where the flat linker script
     puts RAM and where picorv32 and SERV both fetch their first
-    instruction. VeeR's external memory starts at 0x80000000 instead, so
-    the image is written relative to that.
+    instruction. VeeR's and XiangShan's external memory starts at
+    0x80000000 instead, so their images are written relative to that.
 
     A segment outside the array is an error rather than a wrap: silently
     truncating the program would show up as a CRC mismatch much later,
@@ -115,7 +130,7 @@ def main(argv):
         type=lambda v: int(v, 0),
         default=0,
         help="address of the image's first word (default 0). VeeR's "
-        "external memory is at 0x80000000.",
+        "and XiangShan's external memory is at 0x80000000.",
     )
     args = parser.parse_args(argv[1:])
 

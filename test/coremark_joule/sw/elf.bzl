@@ -40,6 +40,12 @@ _CRT0 = "//test/coremark_joule/sw/port:crt0.S"
 VEER_LINK_LD = "//test/coremark_joule/sw/port:link_veer.ld"
 VEER_CRT0 = "//test/coremark_joule/sw/port:crt0_veer.S"
 
+# XiangShan fetches from one external memory at 0x8000_0000 that the
+# harness loads whole, so it keeps the flat map and the copy-free
+# runtime the small cores had before their memory map grew a boot ROM.
+XIANGSHAN_LINK_LD = "//test/coremark_joule/sw/port:link_xiangshan.ld"
+FLAT_CRT0 = "//test/coremark_joule/sw/port:crt0_flat.S"
+
 # Fixed for every configuration in the study. These are not sweep axes:
 # there is no libc and no startup code but ours, and -mstrict-align is
 # required because picorv32 and SERV both trap misaligned access.
@@ -88,7 +94,14 @@ def coremark_elf(
     arch_flags = [
         "-march=" + march,
         "-mabi=" + mabi,
-    ]
+    ] + (
+        # RV64's default code model assumes every address fits the low
+        # 2 GiB, and XiangShan's RAM starts exactly at 0x8000_0000, so
+        # every symbol reference relocates out of range. medany is the
+        # code model for a program linked above that line. Part of the
+        # architecture rather than of the sweep, so it lives here.
+        ["-mcmodel=medany"] if march.startswith("rv64") else []
+    )
 
     # What CoreMark prints as COMPILER_FLAGS. Single-quoted in the shell
     # below, so a flag containing a single quote would break the build;
