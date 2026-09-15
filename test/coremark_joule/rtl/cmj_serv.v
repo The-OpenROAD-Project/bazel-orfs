@@ -127,31 +127,49 @@ module cmj_serv (
 	wire [31:0] im_rdata;
 	wire [31:0] dm_rdata;
 
-	cmj_imem u_imem (
-		.R0_addr (ibus_adr[14:2]),
-		.R0_en   (i_acc && !i_ext),
-		.R0_clk  (clk),
-		.R0_data (im_rdata),
+	/* FakeRAM's interface; see cmj_progmem.sv. The instruction memory
+	 * is the only one both buses reach -- the data bus writes it during
+	 * the boot copy -- and while that copy runs SERV fetches from
+	 * external memory, so the two never coincide. The write wins if
+	 * they ever do, and the assertion below stops the run rather than
+	 * letting a stale instruction through. */
+	wire im_rd = i_acc && !i_ext;
+	wire im_wr = d_acc && d_imem && dbus_we;
 
-		.W0_addr (dbus_adr[14:2]),
-		.W0_en   (d_acc && d_imem && dbus_we),
-		.W0_clk  (clk),
-		.W0_data (dbus_dat),
-		.W0_mask (dbus_sel)
+	cmj_imem u_imem (
+		.clk     (clk),
+		.ce_in   (im_rd || im_wr),
+		.we_in   (im_wr),
+		.addr_in (im_wr ? dbus_adr[14:2] : ibus_adr[14:2]),
+		.wd_in   (dbus_dat),
+		.rd_out  (im_rdata)
 	);
 
 	cmj_dmem u_dmem (
-		.R0_addr (dbus_adr[12:2]),
-		.R0_en   (d_acc && d_dmem),
-		.R0_clk  (clk),
-		.R0_data (dm_rdata),
-
-		.W0_addr (dbus_adr[12:2]),
-		.W0_en   (d_acc && d_dmem && dbus_we),
-		.W0_clk  (clk),
-		.W0_data (dbus_dat),
-		.W0_mask (dbus_sel)
+		.clk      (clk),
+		.ce_in    (d_acc && d_dmem),
+		.we_in    (dbus_we),
+		.addr_in  (dbus_adr[12:2]),
+		.wd_in    (dbus_dat),
+		.wstrb_in (dbus_sel),
+		.rd_out   (dm_rdata)
 	);
+
+`ifndef SYNTHESIS
+	always @(posedge clk) begin
+		if (resetn && im_rd && im_wr) begin
+			$display("cmj_serv: instruction memory read and write in one cycle");
+			$finish;
+		end
+		/* And the data side never *reads* the instruction memory:
+		 * link.ld puts .rodata in the data memory precisely so that it
+		 * does not. A read here would be served by neither macro. */
+		if (resetn && d_acc && d_imem && !dbus_we) begin
+			$display("cmj_serv: data read from the instruction memory");
+			$finish;
+		end
+	end
+`endif
 
 	assign ext_i_req   = i_acc && i_ext;
 	assign ext_i_addr  = ibus_adr;

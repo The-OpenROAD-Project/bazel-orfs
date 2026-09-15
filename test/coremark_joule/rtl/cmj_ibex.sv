@@ -191,31 +191,45 @@ module cmj_ibex (
   wire [31:0] im_rdata;
   wire [31:0] dm_rdata;
 
-  cmj_imem u_imem (
-      .R0_addr(instr_addr[14:2]),
-      .R0_en  (instr_req && !i_ext),
-      .R0_clk (clk),
-      .R0_data(im_rdata),
+  /* FakeRAM's interface; see cmj_progmem.sv. Same argument as the SERV
+   * tile: the data side writes the instruction memory only during the
+   * boot copy, and ibex is fetching from external memory then. */
+  wire im_rd = instr_req && !i_ext;
+  wire im_wr = data_req && d_imem && data_we;
 
-      .W0_addr(data_addr[14:2]),
-      .W0_en  (data_req && d_imem && data_we),
-      .W0_clk (clk),
-      .W0_data(data_wdata),
-      .W0_mask(data_be)
+  cmj_imem u_imem (
+      .clk    (clk),
+      .ce_in  (im_rd || im_wr),
+      .we_in  (im_wr),
+      .addr_in(im_wr ? data_addr[14:2] : instr_addr[14:2]),
+      .wd_in  (data_wdata),
+      .rd_out (im_rdata)
   );
 
   cmj_dmem u_dmem (
-      .R0_addr(data_addr[12:2]),
-      .R0_en  (data_req && d_dmem),
-      .R0_clk (clk),
-      .R0_data(dm_rdata),
-
-      .W0_addr(data_addr[12:2]),
-      .W0_en  (data_req && d_dmem && data_we),
-      .W0_clk (clk),
-      .W0_data(data_wdata),
-      .W0_mask(data_be)
+      .clk     (clk),
+      .ce_in   (data_req && d_dmem),
+      .we_in   (data_we),
+      .addr_in (data_addr[12:2]),
+      .wd_in   (data_wdata),
+      .wstrb_in(data_be),
+      .rd_out  (dm_rdata)
   );
+
+`ifndef SYNTHESIS
+  always_ff @(posedge clk) begin
+    if (resetn && im_rd && im_wr) begin
+      $display("cmj_ibex: instruction memory read and write in one cycle");
+      $finish;
+    end
+    /* And the data side never *reads* the instruction memory: link.ld
+     * puts .rodata in the data memory precisely so that it does not. */
+    if (resetn && data_req && d_imem && !data_we) begin
+      $display("cmj_ibex: data read from the instruction memory");
+      $finish;
+    end
+  end
+`endif
 
   assign ext_i_req   = instr_req && i_ext;
   assign ext_i_addr  = instr_addr;

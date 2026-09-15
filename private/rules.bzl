@@ -1899,7 +1899,18 @@ def _yosys_parallel_synth(ctx, config, canon_output, synth_outputs, synth_logs, 
                     synth_outputs["1_2_yosys.sdc"],
                     config,
                     parallel_makefile,
-                ] + ctx.files.extra_configs,
+                ] + ctx.files.extra_configs +
+                # synth_odb.tcl reads the blackboxed memories through
+                # load.tcl and read_liberty.tcl, which glob
+                # results/memories for *.lef and *.lib. The serial path
+                # carries them here for the same reason; without them
+                # OpenROAD fails with
+                #   [ERROR ORD-2013] instance u_dmem LEF master
+                #   cmj_dmem not found
+                # which is what AUTO_MEMORIES did on every design that
+                # took the parallel path -- that is, every design with
+                # SYNTH_NUM_PARTITIONS set, which is the default.
+                memories_inputs,
                 transitive = [
                     data_inputs(ctx),
                     pdk_inputs(ctx),

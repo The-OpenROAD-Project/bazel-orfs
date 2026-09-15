@@ -129,35 +129,28 @@ module cmj_picorv32 (
 	wire [31:0] im_rdata;
 	wire [31:0] dm_rdata;
 
+	/* FakeRAM's interface; see cmj_progmem.sv. picorv32 has a single
+	 * bus and issues one access at a time, so a read and a write can
+	 * never be requested together here. */
 	cmj_imem u_imem (
-		.R0_addr (mem_addr[14:2]),
-		.R0_en   (acc && !is_ext && !is_dmem),
-		.R0_clk  (clk),
-		.R0_data (im_rdata),
-
-		.W0_addr (mem_addr[14:2]),
-		.W0_en   (acc && !is_ext && !is_dmem && is_wr),
-		.W0_clk  (clk),
-		.W0_data (mem_wdata),
-		.W0_mask (mem_wstrb)
+		.clk     (clk),
+		.ce_in   (acc && !is_ext && !is_dmem),
+		.we_in   (is_wr),
+		.addr_in (mem_addr[14:2]),
+		.wd_in   (mem_wdata),
+		.rd_out  (im_rdata)
 	);
 
 	cmj_dmem u_dmem (
-		.R0_addr (mem_addr[12:2]),
-		.R0_en   (acc && !is_ext && is_dmem),
-		.R0_clk  (clk),
-		.R0_data (dm_rdata),
-
-		.W0_addr (mem_addr[12:2]),
-		.W0_en   (acc && !is_ext && is_dmem && is_wr),
-		.W0_clk  (clk),
-		.W0_data (mem_wdata),
-		.W0_mask (mem_wstrb)
+		.clk      (clk),
+		.ce_in    (acc && !is_ext && is_dmem),
+		.we_in    (is_wr),
+		.addr_in  (mem_addr[12:2]),
+		.wd_in    (mem_wdata),
+		.wstrb_in (mem_wstrb),
+		.rd_out   (dm_rdata)
 	);
 
-	/* picorv32 tells the wrapper whether an access is a fetch, so the
-	 * external traffic counter can separate the two without the tile
-	 * guessing from the address. */
 	assign ext_i_req   = acc && is_ext && mem_instr;
 	assign ext_i_addr  = mem_addr;
 

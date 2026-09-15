@@ -638,6 +638,12 @@ source_input_propagation_test(
 # keeps every other design from paying for outputs nothing produces.
 auto_memories_outputs_test(
     name = "auto_memories_outputs_test",
+    # Declared is not enough: the ODB action globs these back out of the
+    # results dir, so they have to be inputs somewhere too.
+    consumed = [
+        "memories.json",
+        "memories",
+    ],
     expected = [
         "memories.json",
         "memories",

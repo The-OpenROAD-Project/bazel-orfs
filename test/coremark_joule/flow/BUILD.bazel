@@ -17,4 +17,6 @@ exports_files(["dup_inst_probe.tcl"])
 
 exports_files(["period_probe.tcl"])
 
-exports_files(["macro_place.tcl"])
+exports_files(["cmj_progmem.memories"])
+
+exports_files(["cmj_progmem_macros.v"])
