@@ -88,7 +88,22 @@ def _orfs_designs_impl(repository_ctx):
 
     platforms_arg = ",".join(repository_ctx.attr.platforms)
     result = repository_ctx.execute(
-        [python, str(parser_path), "--all", designs_dir, "--platforms", platforms_arg, "--json"],
+        [
+            python,
+            str(parser_path),
+            "--all",
+            designs_dir,
+            # The logical prefix $(DESIGN_HOME) expands to, which is the
+            # designs_dir label's own package -- "flow/designs" for ORFS,
+            # something else for a consumer driving its own designs. The
+            # parser builds labels from it, so a wrong value produces
+            # labels pointing at packages that do not exist.
+            "--designs-home",
+            repository_ctx.attr.designs_dir.package,
+            "--platforms",
+            platforms_arg,
+            "--json",
+        ],
         timeout = 120,
     )
 
@@ -107,6 +122,14 @@ def _orfs_designs_impl(repository_ctx):
         repository_ctx.attr.platforms,
     )
 
+    # The root of the repository holding the designs tree: designs_dir
+    # with the designs_dir label's own package stripped off, so a "//"
+    # label in a config.mk resolves at any depth.
+    root_path = designs_path.dirname
+    for _ in range(len(repository_ctx.attr.designs_dir.package.split("/"))):
+        root_path = root_path.dirname
+    root_dir = str(root_path)
+
     # Build a dict keyed by "platform/design_nickname"
     designs = {}
     for config in configs:
@@ -117,12 +140,20 @@ def _orfs_designs_impl(repository_ctx):
             continue
 
         # Skip designs with source files that don't exist (e.g. confidential designs).
-        # designs_dir points to .../flow/designs, so go up two levels for workspace root.
+        #
+        # A "//" label is relative to the root of the repository the
+        # designs tree lives in, so the root is designs_dir with the
+        # designs_dir label's own package stripped off it -- two levels
+        # for ORFS's flow/designs, more for a consumer whose designs sit
+        # deeper. Hardcoding two made every design in such a tree look
+        # like it had missing sources, and the whole tree was dropped
+        # without a word: DESIGNS came back empty and orfs_design()
+        # silently declared no targets.
         skip = False
         for vf in config.get("verilog_files", []):
             if vf.startswith("//"):
                 pkg_path = vf[2:].split(":")[0]
-                full_path = designs_dir + "/../../" + pkg_path
+                full_path = root_dir + "/" + pkg_path
                 if not repository_ctx.path(full_path).exists:
                     skip = True
                     break

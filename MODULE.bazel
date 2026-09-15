@@ -355,6 +355,19 @@ orfs_designs(
     ],
 )
 
+# A second designs tree, dev-only, at a depth that is not ORFS's. The
+# code that turns a "//" label in a config.mk into a file path has to
+# strip as many package components as the tree actually has;
+# "test/designs_fixture/designs" is three where "flow/designs" is two,
+# so this is the fixture that notices when it strips the wrong number.
+# //test/designs_fixture is what asserts the tree was discovered at all.
+orfs_designs(
+    name = "designs_fixture",
+    designs_dir = "//test/designs_fixture/designs:BUILD.bazel",
+    dev_dependency = True,
+    platforms = ["asap7"],
+)
+
 # The config.mk DSL fixtures under flow/designs/ (see flow/BUILD): the same
 # repository rule, parsing this repository's own fixture configs, so the
 # DSL path every ORFS design takes can be tested here in seconds. Must
