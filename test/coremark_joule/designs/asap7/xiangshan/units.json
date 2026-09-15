@@ -1,0 +1,57 @@
+{
+  "_comment": [
+    "Kept modules mapped to the functional units of CPU architecture.",
+    "",
+    "The categories are ACM CF'25's, verbatim -- Fetch, Decode & Issue,",
+    "Int Exe, LSU, Retire, MMU, Icache, Dcache -- because that paper",
+    "reports a per-component power breakdown for CVA6, CVA6S+ and the",
+    "XuanTie C910 at the same boundary this study measures, on GF 22 FDX.",
+    "Using its names rather than our own is what makes the two",
+    "breakdowns comparable rather than merely similar.",
+    "",
+    "Every name here is a module firtool emits, read out of the",
+    "elaborated hierarchy rather than chosen: XSCore is Frontend +",
+    "Backend + MemBlock, and the units are one or two levels below that.",
+    "",
+    "'other' is the acceptance test. If it is large, this map is wrong."
+  ],
+  "units": {
+    "fetch": [
+      "Bpu",
+      "Ifu",
+      "IBuffer",
+      "Ftq"
+    ],
+    "icache": [
+      "ICache"
+    ],
+    "decode_issue": [
+      "DecodeStage",
+      "FusionDecoder",
+      "Rename",
+      "Dispatch"
+    ],
+    "int_exe": [
+      "Region",
+      "Region_1",
+      "VecRegionModule"
+    ],
+    "lsu": [
+      "NewLoadUnit",
+      "Uncache"
+    ],
+    "retire": [
+      "Rob"
+    ],
+    "mmu": [
+      "TLB",
+      "PMP",
+      "PMPChecker",
+      "L2TLBWrapper",
+      "PTWFilter"
+    ],
+    "dcache": [
+      "DCacheWrapper"
+    ]
+  }
+}
