@@ -84,6 +84,18 @@ power — it computes the wrong answer, and only a functional check
 notices. And a power report whose pins are largely unannotated is not
 labelled as an estimate; it is labelled "Total".
 
+By taking full advantage of RISC-V's unrestricted licensing, this
+framework provides a completely open, peer-verifiable PPA baseline right
+out of the box. Every core, the benchmark, the toolchain, the PDK and
+the EDA flow are fetched from their own upstreams at pinned commits and
+built by one command; there is no vendored RTL, no licensed tool and no
+number a reader cannot re-take. For teams developing internal hardware,
+the modular bazel-orfs setup makes it straightforward to drop your own
+RTL into the flow: a core joins the study as a `config.mk`, a bus
+adapter to the two-word platform of §3.2, and a `units.json` — and it
+then inherits the annotation audit of §3.5 and every gate in §4.3
+unchanged.
+
 The contributions are:
 
 1. A reproducible, fully automated CoreMark → CoreMark/Joule chain in
@@ -851,7 +863,91 @@ which is the natural place to stop if the study stops early.
 
 ---
 
-## 8. Licensing
+## 8. Further work
+
+The sections above measure one number at one operating point on one
+node. What would turn this from a table into a comparison an architect
+or an EDA researcher could cite is set out below, in the order the
+existing harness makes cheapest. None of it is started.
+
+### 8.1 Deep physical metrics
+
+Area and f_max are the headline numbers, but a physical designer wants
+the underlying architecture's physical health, which those two hide.
+
+- **Congestion and wirelength.** A large out-of-order core often
+  suffers badly around the reorder buffer and the register-renaming
+  logic, and a core that routes cleanly there is telling you something
+  about how its RTL is structured. OpenROAD already produces the
+  congestion map; the work is to capture it per core at a comparable
+  utilisation and put the images side by side.
+- **Standard-cell utilisation limits.** Not the area, but the highest
+  utilisation density the router could still close at. A core that
+  routes at 75 % against one that fails above 55 % is a crucial
+  physical difference that no area number expresses. The harness's
+  existing floorplan derivation is the natural place to find it, since
+  it already races candidates.
+- **SRAM against logic.** High-IPC cores demand large caches, so an
+  area or power figure that does not separate them cannot distinguish a
+  bloated datapath from a properly provisioned memory. The breakdown
+  wanted is logic/datapath, control, and SRAM/macros. §3.7's kept-module
+  machinery already attributes power this way; the macros need adding
+  to it, which §5.1's boundary work supplies.
+- **Dynamic against leakage.** Reported at the target f_max, split
+  explicitly. §5.5 explains why this is not cosmetic: dynamic energy
+  per iteration is roughly frequency-independent while leakage energy
+  per iteration is not, so a single total hides a term that moves with
+  the operating point. `report_power` already emits the split; Table 1
+  does not yet carry it.
+
+### 8.2 More than one node
+
+A microarchitecture can look excellent on an older node, where wires are
+thick and delay is logic-dominated, and come apart on a FinFET node
+where wire resistance dominates timing. One node proves nothing about
+the other.
+
+- **ASAP7**, the predictive 7 nm kit this study already uses, is what
+  makes a result relevant to a modern commercial architecture — with
+  §5.6's caveat that it is predictive rather than a foundry PDK.
+- **A 130 nm open node** — sky130 — alongside it, so the design stays
+  accessible to academic researchers and to startups using open
+  multi-project-wafer shuttles, and so the node sensitivity above is
+  visible rather than assumed.
+
+**The 130 nm series stops at 5 CoreMark/MHz, and that is a decision
+rather than a gap.** Above that the cores are large enough that a
+130 nm implementation costs far more area, wirelength and run time than
+the comparison returns. So the plan is both nodes up to and including
+5 CoreMark/MHz, and ASAP7 alone above it. Where the two series overlap
+is exactly where a node-sensitivity claim can be made, and it is stated
+where it ends.
+
+### 8.3 The Pareto curve
+
+The single most useful graphic this study does not yet have, and the one
+that follows most directly from what it already builds.
+
+Rather than synthesising each core at one target frequency, sweep the
+target clock period from something comfortable up to the point of
+timing failure, and plot frequency against area — and against power —
+with every core on the same axes. `orfs_sweep` already races period
+candidates, and §5.5's period-tuning discussion is the same machinery
+seen from the other side: what tuning treats as a search, this treats as
+the result.
+
+What the curve shows that a point cannot is **the cost of speed**: where
+each core enters diminishing returns, the wall at which the tools have
+to upsize cells wholesale and burn disproportionate power to buy another
+ten megahertz. Two cores with the same headline f_max can sit on very
+different curves, and which one is on the better curve is the
+architectural question. Plotting this study's cores, VeeR EH1 and a
+large out-of-order core such as XiangShan together is what would make
+the comparison definitive rather than indicative.
+
+---
+
+## 9. Licensing
 
 CoreMark's sources are byte-unmodified. Everything platform-specific
 lives in `sw/port/`, which is the porting surface CoreMark documents —
