@@ -484,6 +484,24 @@ http_archive(
     name = "veer",
     build_file = "//test/coremark_joule/rtl:veer.BUILD.bazel",
     dev_dependency = True,
+    # VeeR names its three Verilog headers `.h`, and rules_verilog's
+    # verilog_library accepts only `.vh`/`.svh` in `hdrs` -- which is the
+    # attribute whose file paths become the include search path. Passing
+    # them as `data` instead does deliver the files, but contributes no
+    # `-I`, and the `includes` attribute is resolved relative to the
+    # declaring package, which does not reach an external repository.
+    #
+    # So: rename the headers and rewrite the four `include directives
+    # that name them. This is a filename change and nothing else --
+    # mechanically checkable, and deliberately not the kind of
+    # wholesale mechanical translation that makes ORFS's vendored copy
+    # unusable for this study. Order matters: rewrite the directives
+    # before the files move, or the sed finds nothing.
+    patch_cmds = [
+        "find design -name '*.sv' -o -name '*.v' | xargs sed -i -e 's|include \"build.h\"|include \"build.vh\"|' -e 's|include \"global.h\"|include \"global.vh\"|' -e 's|include \"pic_map_auto.h\"|include \"pic_map_auto.vh\"|'",
+        "mv design/include/build.h design/include/build.vh",
+        "mv design/include/global.h design/include/global.vh",
+    ],
     sha256 = "2a5cb82c7f671d3985d052a3e47c9ff344982a81bb6370798f1846edf47c2517",
     strip_prefix = "Cores-VeeR-EH1-695883a674c4a59cf96fae874ff4bfac5fecf4e8",
     urls = ["https://github.com/chipsalliance/Cores-VeeR-EH1/archive/695883a674c4a59cf96fae874ff4bfac5fecf4e8.tar.gz"],

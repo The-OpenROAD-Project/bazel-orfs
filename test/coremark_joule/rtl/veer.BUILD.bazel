@@ -55,6 +55,11 @@ filegroup(
             # ahb_to_axi4 and axi4_to_ahb; svci_to_axi4 is reached by
             # neither and is upstream's alternative front end.
             "design/lib/svci_to_axi4.sv",
+            # In :mem_models, which synthesis replaces and simulation
+            # adds back. Leaving it here too would hand both copies to
+            # one tool, which Verilator reports as 41 duplicate modules
+            # and treats as an error.
+            "design/lib/mem_lib.sv",
         ],
     ),
 )
@@ -70,15 +75,18 @@ filegroup(
     srcs = ["design/lib/mem_lib.sv"],
 )
 
-# `include`d by name from the RTL: build.h and global.h out of
-# design/include. The other two names the sources use -- common_defines.vh
-# and pic_map_auto.h -- are generated, and live with the committed
-# configuration rather than here.
+# `include`d by name from the RTL. Upstream spells them `.h`; the
+# http_archive's patch_cmds rename them to `.vh` and rewrite the
+# directives, because rules_verilog derives the include search path from
+# the file names in `hdrs` and accepts only `.vh`/`.svh` there. The other
+# two names the sources use -- common_defines.vh and pic_map_auto.vh --
+# are generated, and live with the committed configuration rather than
+# here.
 filegroup(
     name = "hdrs",
     srcs = [
-        "design/include/build.h",
-        "design/include/global.h",
+        "design/include/build.vh",
+        "design/include/global.vh",
     ],
 )
 

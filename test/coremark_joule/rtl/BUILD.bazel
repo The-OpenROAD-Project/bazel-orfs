@@ -16,6 +16,7 @@ exports_files([
     "ibex.BUILD.bazel",
     "picorv32.BUILD.bazel",
     "serv.BUILD.bazel",
+    "veer.BUILD.bazel",
 ])
 
 verilog_library(
@@ -149,4 +150,48 @@ verilog_library(
         "//test/coremark_joule/designs/asap7/ibex:cmj_ibex_grt_netlist.v",
     ],
     deps = [":asap7_stdcells"],
+)
+
+# VeeR EH1.
+#
+# Three libraries rather than one, because the order matters and a
+# dependency edge is the only thing that fixes it. The committed
+# configuration has to be read before anything that tests a `RV_*`
+# define, and swerv_types before anything that imports it -- and a glob
+# is alphabetical, which would put dbg.sv first.
+verilog_library(
+    name = "veer_config",
+    srcs = ["veer/cmj_veer_defines.sv"],
+    hdrs = [
+        "veer/config/common_defines.vh",
+        "veer/config/pic_map_auto.vh",
+    ],
+)
+
+verilog_library(
+    name = "veer_pkgs",
+    srcs = ["@veer//:pkgs"],
+    deps = [":veer_config"],
+)
+
+# The core without its memory models: synthesis replaces exactly those
+# modules with hardened macros, so handing both to one tool would leave
+# it to choose. :veer_sim adds them back for simulation.
+verilog_library(
+    name = "veer",
+    srcs = ["@veer//:rtl"],
+    hdrs = ["@veer//:hdrs"],
+    deps = [":veer_pkgs"],
+)
+
+# Upstream's own behavioural arrays for ram_2048x39 (DCCM), ram_256x34
+# (icache data) and ram_64x21 (icache tag). §3.2 of the study's paper
+# makes this a prerequisite rather than a refinement: synthesis
+# blackboxes these modules so the liberty view wins, and a blackbox
+# stores nothing, so a gate-level CoreMark run without a behavioural
+# model fails its CRCs instead of reporting low memory power.
+verilog_library(
+    name = "veer_sim",
+    srcs = ["@veer//:mem_models"],
+    deps = [":veer"],
 )

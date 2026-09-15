@@ -403,3 +403,30 @@ coremark_per_joule(
     per_mhz = ":ibex_rv32imc_per_mhz",
     power = "//test/coremark_joule/designs/asap7/ibex:cmj_ibex_grt_power",
 )
+
+# Does upstream VeeR EH1, with the configuration committed under
+# rtl/veer/config, still elaborate?
+#
+# The cheapest possible gate on the thing that made ORFS's vendored copy
+# unusable for this study: a core that no longer elaborates, or elaborates
+# into something other than what its authors wrote, is the failure that
+# produces a plausible number rather than an error. Manual, because
+# verilating a core this size is not something a wildcard build should
+# pay for -- but it is the first thing to run after a bump.
+verilator_cc_library(
+    name = "veer_elab_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/rtl:veer_sim",
+    module_top = "swerv_wrapper",
+    tags = ["manual"],
+    trace_mode = "none",
+    vopts = _SIM_VOPTS,
+)
+
+cc_binary(
+    name = "veer_elab",
+    srcs = ["veer_elab_main.cc"],
+    copts = _SIM_COPTS,
+    tags = ["manual"],
+    deps = [":veer_elab_lib"],
+)
