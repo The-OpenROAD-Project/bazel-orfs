@@ -33,6 +33,13 @@ the vectorless total by 64–128 %. The energy numbers are therefore
 vector-driven in the strong sense: OpenSTA's probabilistic activity
 model contributes nothing to them.
 
+The cores compared span three decades of performance and are
+qualitatively different machines, so the comparison is made
+apples-to-apples not by the designs but by the definition of what is
+measured: the core and its L1 caches, and explicitly not what surrounds
+them. Where a core is too small to have caches, the small SRAM that
+comes with it and holds the program is what is measured in their place.
+
 We also state, rather than imply, what the numbers do not yet cover:
 the intended boundary of core + L1 is not met by these three points,
 the simulation is zero-delay and so carries no glitch power, the
@@ -148,22 +155,50 @@ question was asked of it [10].
 
 ### 3.1 The measurement boundary
 
-**The boundary is the core and its L1, and that is decided.** Above
-about 5 CoreMark/MHz the two cannot be told apart: the caches sit inside
-the tile, share its clock and its floorplan, and neither the
-repositories nor the literature delivers a number for the core without
-them. Drawing the boundary anywhere else means drawing it around an
-abstraction that does not exist.
+The designs in this study span about three decades of CoreMark/MHz and
+are not variants of one another. A bit-serial state machine that takes
+41 million cycles per CoreMark iteration and a superscalar
+out-of-order tile that takes a few hundred thousand are qualitatively
+different objects: different pipeline depths, different memory systems,
+different amounts of machinery that has no counterpart at the other
+end of the range. There is no configuration knob that turns one into
+the other, so there is no sense in which they are the same experiment
+run at different settings.
 
-Small cores have no cache, and so little SRAM that the same question
-has a different shape. The rule still applies: **a small SRAM holding
-the program is hardened as part of the core.** That is not an
-exception; it is the same rule — the memory the hot loop runs out of is
-inside the boundary in both cases. One rule, applied to every point:
-core, its L1 or its program SRAM, nothing beyond.
+An apples-to-apples comparison across that range is therefore not
+something the designs give us. It has to be *constructed*, and the only
+thing available to construct it out of is the definition of what is
+being measured. **This study defines the measured object as the core
+and its L1 caches — and explicitly not whatever surrounds them.** The
+L2, the interconnect, the peripherals, the debug infrastructure and the
+rest of the SoC are outside the boundary on every point, however much
+or little of that a given repository happens to ship. What is compared
+is the same *kind* of thing each time, even though the things
+themselves are not alike.
 
-The three points in Table 1 predate that rule and do not meet it. §5.1
-quantifies the gap and gives its direction.
+Above about 5 CoreMark/MHz the core and its L1 cannot be told apart in
+any case: the caches sit inside the tile, share its clock and its
+floorplan, and neither the repositories nor the literature delivers a
+number for the core without them. Drawing the boundary anywhere else
+there means drawing it around an abstraction that does not exist.
+
+The smallest cores have no caches at all. They have a small SRAM that
+comes with the core and holds the program the hot loop runs out of, and
+**that SRAM is what gets measured**, hardened as part of the core. This
+is not an exception granted to the small end; it is the same rule
+reaching the same object. In both cases the boundary encloses the core
+and the memory it fetches and loads from at the first level, and
+excludes everything past it. A cacheless core is not credited with a
+free, perfect memory merely because its memory is small enough to be
+overlooked.
+
+One rule, applied to every point: **the core, its L1 or the small SRAM
+that stands in for one, and nothing beyond.**
+
+The three points in Table 1 predate that rule and do not meet it: they
+harden no memory at all. §5.1 quantifies the gap and gives its
+direction — which is that the comparison as it stands flatters the
+cacheless cores rather than penalising them.
 
 ### 3.2 The chain
 
