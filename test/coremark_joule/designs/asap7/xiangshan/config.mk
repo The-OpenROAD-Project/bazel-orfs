@@ -29,12 +29,76 @@ export SYNTH_KEEP_MODULES      = Frontend Backend MemBlock CtrlBlock Bpu \
                                  FusionDecoder IBuffer ICache Ifu L2TLBWrapper \
                                  NewLoadUnit PMP PMPChecker PTWFilter Region \
                                  Region_1 Rename Rob TLB Uncache \
-                                 VecRegionModule
+                                 VecRegionModule \
+                                 IssuePipeVialuVfmaVfdivVidiv \
+                                 IssuePipeVialuVimacVmoveVfcvtVfma \
+                                 IssuePipeVialuVfma IssuePipeVialuVfma_1 \
+                                 IssueQueueVialuVimacVmoveVfcvtVfma \
+                                 IssueQueueVialuVfmaVfdivVidiv \
+                                 IssueQueueVialuVfma IssueQueueVialuVfma_1 \
+                                 IssueQueueVstd VfRegFile \
+                                 IssueQueueLdu IssueQueueAluMul ExuBlock DataPath \
+                                 IssueQueueAluI2fBrhNjmp IssueQueueAluBkuVset \
+                                 IssueQueueAluCsrFenceLinkBrhNjmp \
+                                 IssueQueueAluDivBrhNjmp \
+                                 IssueQueueStdMoud IssueQueueStdMoud_1 \
+                                 IssueQueueStaMou IssueQueueStaMou_1 \
+                                 IssueQueueFaluFmacFdiv ExuBlock_1 DataPath_1 \
+                                 IssueQueueFaluFmacFcvtFcmp IssueQueueFaluFmac \
+                                 LsqWrapper Sbuffer TLBNonBlock \
+                                 PrefetcherWrapper MemCtrl \
+                                 LoadQueueReplay LoadQueueRAW LoadQueueRAR \
+                                 VirtualLoadQueue LoadQueueUncache StoreQueue \
+                                 VectorDecodeChannel SimpleDecodeChannel \
+                                 UopBufferCtrlDecoder \
+                                 MainBtbAlignBank Tage Sc AheadBtb Phr \
+                                 MicroTage Ittage \
+                                 RenameBuffer VTypeBuffer \
+                                 TLBNonBlock_1 TLBNonBlock_2 PMPChecker_8 \
+                                 PTWNewFilter \
+                                 MissQueue BankedDataArray L1ErrorMetaArray \
+                                 L1PrefetchSourceArray L1CohMetaArray \
+                                 L1FlagMetaArray BusyTable BusyTable_1 \
+                                 IntRegFile PhysicalStoreQueue VirtualStoreQueue
+
+# The second block of that list, from IssuePipeVialuVfmaVfdivVidiv on, is
+# kept for synthesis turnaround, not for the breakdown. yosys and abc are
+# single-threaded and superlinear in module size; on a 48-core machine the
+# first full run spent 89 minutes on VecRegionModule alone -- 58 of them
+# in yosys before abc -- while every other core idled; with the execution
+# regions split, the tail was LsqWrapper (57+ min), Rob, DecodeStage and
+# Bpu (42+ min each). These are the children that carry the bulk of each
+# of those, read out of the elaborated hierarchy by generated-Verilog
+# size. Each becomes its own partition, and a module instantiated more
+# than once is synthesised once: DecodeStage's 33 MB was eight copies of
+# VectorDecodeChannel. Rob's own body, 12 MB, has no children to keep and
+# is the floor of the run.
+#
+# units.json does not list them: report_power on a kept parent's
+# instance sums everything beneath it, children included, so the
+# breakdown is unchanged. What changes is the optimisation boundary --
+# constants and dead logic no longer propagate across these lines, which
+# for an idle vector unit is a small pessimism. Inline any of them again
+# by deleting the name; the partition cache re-runs only what changed.
 
 # Keep those boundaries in the ODB and the written netlist. Without it the
 # flow is flat and there is nothing for report_power -saif -instances to
 # attribute power to.
 export OPENROAD_HIERARCHICAL   = 1
+
+# TURNAROUND SETTING -- flip to 0 (or delete) for the measured run.
+#
+# ORFS's default abc script is the speed one: five rounds of resynthesis
+# and timing-driven sizing against the SDC period. On this design it is
+# two thirds to seven eighths of every partition's time, and Rob -- a
+# 12 MB module with nothing to partition -- spends 43 minutes in it. The
+# area script is one mapping round; it brings the tail to about 20
+# minutes while the flow is being put together.
+#
+# It is not what the other four cores were synthesised with, so a number
+# taken with it is not comparable to theirs. The published XiangShan run
+# is made with this set to 0, once.
+export ABC_AREA                = 1
 
 # XiangShan's caches are most of its area, and firtool emits every
 # inferred memory as its own ram_<depth>x<width> module carrying one
