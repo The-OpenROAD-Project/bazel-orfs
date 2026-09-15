@@ -110,3 +110,34 @@ export AUTO_MEMORIES           = 1
 
 export CORE_UTILIZATION        = 40
 export PLACE_DENSITY           = 0.65
+
+# Macro placement: the bank groups by our annealer, the rest by RTL-MP.
+#
+# 303 macros in 16 shapes, nearly all of them banks of something: 64 TAGE
+# tables, 32 ways of L1D data, 32 of L1I data, 16 L2 TLB pages. RTL-MP
+# is asked to rediscover that from a flat list; anneal_in_flow.tcl reads
+# it off the hierarchy instead, tiles each group into one block, anneals
+# the blocks against the standard-cell modules they talk to, and places
+# every bank FIRM before rtl_macro_placer runs on what is left. See
+# //test/coremark_joule/flow/macro_anneal.
+export MACRO_PLACEMENT_TCL     = $(DESIGN_HOME)/asap7/xiangshan/anneal_in_flow.tcl
+export ANNEAL_DUMP_TCL         = //test/coremark_joule/flow/macro_anneal:dump_macros.tcl
+export ANNEAL_PY               = //test/coremark_joule/flow/macro_anneal:macro_anneal.py
+
+# Seeded: the same die gives the same bytes. Depth 3 clusters at the
+# level of frontend/inner_bpu/<predictor> and memblock/dcache/<array>;
+# a group of fewer than 4 is left to RTL-MP. The channel between banks
+# is one M6 strap pitch plus margin, so pdngen can always reach a bank;
+# fill is the fraction of the core the macro blocks and the logic
+# ballast are packed into, the rest being what RTL-MP and the placer
+# get to work with.
+export ANNEAL_SEED             = 1
+export ANNEAL_DEPTH            = 3
+export ANNEAL_MIN_CLUSTER      = 4
+export ANNEAL_CHANNEL_UM       = 4.4
+export ANNEAL_FILL             = 0.6
+
+# 2 um, not the platform's 10: at 10 the halos alone turn 0.13 mm2 of
+# macro into 0.51 mm2 of footprint, and the channels the annealer leaves
+# are already sized for the power straps.
+export MACRO_PLACE_HALO        = 2 2

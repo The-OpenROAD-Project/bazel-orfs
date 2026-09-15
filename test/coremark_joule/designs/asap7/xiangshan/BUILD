@@ -5,6 +5,19 @@ exports_files(["constraints.sdc"])
 
 design(
     config = "config.mk",
+    # The annealer's knobs, read by anneal_in_flow.tcl rather than by ORFS.
+    user_arguments = [
+        "ANNEAL_SEED",
+        "ANNEAL_DEPTH",
+        "ANNEAL_MIN_CLUSTER",
+        "ANNEAL_CHANNEL_UM",
+        "ANNEAL_FILL",
+    ],
+    # The placer and its inventory dump, staged into the floorplan sandbox.
+    user_sources = [
+        "ANNEAL_DUMP_TCL",
+        "ANNEAL_PY",
+    ],
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 
