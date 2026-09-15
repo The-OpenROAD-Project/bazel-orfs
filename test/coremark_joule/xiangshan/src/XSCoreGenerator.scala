@@ -143,13 +143,17 @@ object XSCoreGeneratorBase {
           FPGAPlatform = true,
           EnablePerfDebug = false,
           EnableDifftest = false,
-          // AlwaysBasicDiff stays at upstream's default of true. It is
-          // tempting to turn off, but Backend.scala reads
-          // vecRegion.out.diff.get unconditionally, so a build without the
-          // difftest bundles does not elaborate. They are output-only taps
-          // with no consumer once the difftest gateway is not
-          // instantiated, so synthesis should prune them -- which is
-          // checked at 1_synth rather than assumed.
+          // Off, and it took a patch. Upstream reads the CSR's vl through
+          // the difftest RAT buffer (Backend.scala, `csrio.vpu.vl :=
+          // vecRegion.out.diff.get.diffVl`), so a build without the
+          // difftest bundles does not elaborate -- and a build with them
+          // carries DiffRatStateBuffer into the core: eight 704x776
+          // register banks, 4.4 Mbit, read combinationally, which no
+          // synthesis prunes because the vl read keeps them live.
+          // patches/0001-xiangshan-vl-csr-without-difftest.patch gives vl
+          // a source that does not need the buffer, and the rest of the
+          // difftest apparatus goes with this flag.
+          AlwaysBasicDiff = false,
           EnableChiselDB = false,
           EnableConstantin = false
         )
