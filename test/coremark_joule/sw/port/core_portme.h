@@ -58,8 +58,22 @@ typedef signed int     ee_s32;
 typedef double         ee_f32;
 typedef unsigned char  ee_u8;
 typedef unsigned int   ee_u32;
-typedef ee_u32         ee_ptr_int;
-typedef unsigned int   ee_size_t;
+
+/* An integer wide enough to hold a pointer, and a size type to match.
+ *
+ * CoreMark checks this at run time -- core_main.c prints "Please define
+ * ee_ptr_int to a type that holds a pointer" and stops -- so getting it
+ * wrong on RV64 is caught, but only after a simulated boot. RV32's
+ * pointers are 32 bits and RV64's are 64, and __riscv_xlen is the
+ * compiler's own answer to which this is. ee_u32 stays 32 bits either
+ * way: it is a benchmark data type, not an address. */
+#if __riscv_xlen == 64
+typedef unsigned long ee_ptr_int;
+typedef unsigned long ee_size_t;
+#else
+typedef ee_u32        ee_ptr_int;
+typedef unsigned int  ee_size_t;
+#endif
 
 #define NULL ((void *)0)
 
