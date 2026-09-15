@@ -88,8 +88,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--results", required=True)
     parser.add_argument("--base", default="base-p00670068")
-    parser.add_argument("--seeds", nargs="+", default=["base-p00670068s2", "base-p00670068s3"])
-    parser.add_argument("--bands", help="history noise bands, for the clock period fallback")
+    parser.add_argument(
+        "--seeds", nargs="+", default=["base-p00670068s2", "base-p00670068s3"]
+    )
+    parser.add_argument(
+        "--bands", help="history noise bands, for the clock period fallback"
+    )
     parser.add_argument("--out", help="write the bands as JSON here")
     args = parser.parse_args()
     hist = {}
@@ -98,7 +102,9 @@ def main():
             hist = json.load(handle)
     b = bands(args.results, args.base, args.seeds, hist)
     if not b:
-        raise SystemExit("no design has the default and a seed arm in {}".format(args.results))
+        raise SystemExit(
+            "no design has the default and a seed arm in {}".format(args.results)
+        )
     sys.stdout.write(table(b))
     if args.out:
         with open(args.out, "w") as handle:
