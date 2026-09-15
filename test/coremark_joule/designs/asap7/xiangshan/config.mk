@@ -11,8 +11,12 @@ export DESIGN_NICKNAME         = xiangshan
 export VERILOG_FILES           = //test/coremark_joule/xiangshan:xiangshan_flat.sv
 export SDC_FILE                = $(DESIGN_HOME)/asap7/xiangshan/constraints.sdc
 
-# firtool emits SystemVerilog.
-export SYNTH_HDL_FRONTEND      = slang
+# yosys's own reader, not slang. firtool emits SystemVerilog, but the
+# lowering options the generator passes -- disallowPackedArrays,
+# disallowLocalVariables, noAlwaysComb -- exist precisely so the output
+# stays inside what a plain Verilog reader handles, and that is what the
+# retired gallery relied on for BOOM and gemmini. slang rejects it with
+# "Compilation failed" and no diagnostic.
 
 # Partitioned synthesis, and the functional-unit breakdown, from one
 # mechanism. 2.8 M lines is not a design to synthesise as a single job,
