@@ -1,0 +1,401 @@
+{
+ "aes": {
+  "detailedroute__route__wirelength": 499,
+  "finish__design__instance__area": 22.470000000000027,
+  "finish__power__total": 0.0009243000000000029,
+  "finish__timing__setup__tns": 68.827,
+  "flow_wall_band_s": 8.699999999999989,
+  "flow_wall_s": [
+   257.81,
+   266.51,
+   263.58
+  ],
+  "min_period": 7.070079999999962,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 7.0699999999999985,
+   "5_1_grt": 8.420000000000002,
+   "5_2_route": 7.36999999999999
+  }
+ },
+ "aes-mbff": {
+  "detailedroute__route__wirelength": 345,
+  "finish__design__instance__area": 2.2899999999999636,
+  "finish__power__total": 0.00038499999999999646,
+  "finish__timing__setup__tns": 57.61112,
+  "flow_wall_band_s": 12.400000000000006,
+  "flow_wall_s": [
+   184.19,
+   181.2,
+   193.6
+  ],
+  "min_period": 15.026900000000012,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 0.3999999999999986,
+   "5_1_grt": 4.949999999999999,
+   "5_2_route": 10.510000000000005
+  }
+ },
+ "aes_lvt": {
+  "detailedroute__route__wirelength": 872,
+  "finish__design__instance__area": 0.8399999999999181,
+  "finish__power__total": 9.220000000000061e-05,
+  "finish__timing__setup__tns": 8.82641,
+  "flow_wall_band_s": 6.560000000000002,
+  "flow_wall_s": [
+   228.2,
+   234.76,
+   228.75
+  ],
+  "min_period": 16.41086999999999,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 0.16000000000000014,
+   "5_1_grt": 0.490000000000002,
+   "5_2_route": 8.150000000000006
+  }
+ },
+ "ethmac": {
+  "detailedroute__route__wirelength": 265,
+  "finish__design__instance__area": 4.3400000000001455,
+  "finish__power__total": 0.00010799999999999699,
+  "finish__timing__setup__tns": 85.69999999999982,
+  "flow_wall_band_s": 16.469999999999914,
+  "flow_wall_s": [
+   711.45,
+   719.21,
+   727.92
+  ],
+  "min_period": 7.124900000000025,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 3.039999999999999,
+   "5_1_grt": 10.159999999999997,
+   "5_2_route": 1.8199999999999932
+  }
+ },
+ "ethmac_lvt": {
+  "detailedroute__route__wirelength": 703,
+  "finish__design__instance__area": 3.269999999999527,
+  "finish__power__total": 0.0009599999999999886,
+  "finish__timing__setup__tns": 34.00199999999998,
+  "flow_wall_band_s": 20.909999999999968,
+  "flow_wall_s": [
+   685.85,
+   672.89,
+   664.94
+  ],
+  "min_period": 2.8652999999999906,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 1.5799999999999983,
+   "5_1_grt": 7.420000000000016,
+   "5_2_route": 13.340000000000032
+  }
+ },
+ "gcd": {
+  "detailedroute__route__wirelength": 13,
+  "finish__design__instance__area": 0.46649999999999636,
+  "finish__power__total": 1.7230000000000023e-05,
+  "finish__timing__setup__tns": 13.225899999999996,
+  "flow_wall_band_s": 7.259999999999998,
+  "flow_wall_s": [
+   41.37,
+   48.629999999999995,
+   45.12
+  ],
+  "min_period": 1.6388000000000034,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 0.040000000000000036,
+   "5_1_grt": 0.10999999999999988,
+   "5_2_route": 6.889999999999999
+  }
+ },
+ "gcd-ccs": {
+  "detailedroute__route__wirelength": 29,
+  "finish__design__instance__area": 1.5747,
+  "finish__power__total": 8.774999999999994e-05,
+  "finish__timing__setup__tns": 42.28219999999999,
+  "flow_wall_band_s": 4.069999999999993,
+  "flow_wall_s": [
+   164.85,
+   166.04,
+   168.92
+  ],
+  "min_period": 5.664699999999982,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 0.45000000000000107,
+   "5_1_grt": 1.8999999999999986,
+   "5_2_route": 0.26000000000000156
+  }
+ },
+ "ibex": {
+  "detailedroute__route__wirelength": 371,
+  "finish__design__instance__area": 15.849999999999909,
+  "finish__power__total": 0.00027469999999999925,
+  "finish__timing__setup__tns": 18.6463,
+  "flow_wall_band_s": 34.420000000000016,
+  "flow_wall_s": [
+   472.48,
+   467.21,
+   501.63
+  ],
+  "min_period": 11.26222000000007,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 19.090000000000003,
+   "5_1_grt": 44.999999999999986,
+   "5_2_route": 2.4199999999999875
+  }
+ },
+ "jpeg": {
+  "detailedroute__route__wirelength": 2510,
+  "finish__design__instance__area": 32.289999999999964,
+  "finish__power__total": 0.0008479999999999877,
+  "finish__timing__setup__tns": 1918.0999999999985,
+  "flow_wall_band_s": 63.610000000000014,
+  "flow_wall_s": [
+   968.33,
+   953.64,
+   1017.25
+  ],
+  "min_period": 6.102899999999863,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 20.76000000000002,
+   "5_1_grt": 88.17000000000002,
+   "5_2_route": 12.170000000000016
+  }
+ },
+ "jpeg_lvt": {
+  "detailedroute__route__wirelength": 1113,
+  "finish__design__instance__area": 4.859999999999673,
+  "finish__power__total": 7.599999999999274e-05,
+  "finish__timing__setup__tns": 8.56087,
+  "flow_wall_band_s": 13.490000000000009,
+  "flow_wall_s": [
+   546.59,
+   548.97,
+   535.48
+  ],
+  "min_period": 7.6725900000001275,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 0.4599999999999973,
+   "5_1_grt": 1.3700000000000045,
+   "5_2_route": 12.659999999999997
+  }
+ },
+ "mock-alu": {
+  "detailedroute__route__wirelength": 212,
+  "finish__design__instance__area": 4.679999999999836,
+  "finish__power__total": 0.0007279999999999995,
+  "finish__timing__setup__tns": 908.5,
+  "flow_wall_band_s": 57.44999999999999,
+  "flow_wall_s": [
+   284.92,
+   342.37,
+   317.45
+  ],
+  "min_period": 13.617999999999995,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 13.68,
+   "5_1_grt": 39.39,
+   "5_2_route": 8.030000000000001
+  }
+ },
+ "mock-cpu": {
+  "detailedroute__route__wirelength": 146,
+  "finish__design__instance__area": 2.7700000000004366,
+  "finish__power__total": 0.0006180000000000074,
+  "finish__timing__setup__tns": 0,
+  "flow_wall_band_s": 9.269999999999982,
+  "flow_wall_s": [
+   514.1800000000001,
+   516.04,
+   506.77
+  ],
+  "min_period": 6.842199999999991,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 1.6400000000000006,
+   "5_1_grt": 6.840000000000003,
+   "5_2_route": 3.7700000000000102
+  }
+ },
+ "riscv32i": {
+  "detailedroute__route__wirelength": 809,
+  "finish__design__instance__area": 7.609999999999673,
+  "finish__power__total": 0.0006604999999999979,
+  "finish__timing__setup__tns": 20435.1,
+  "flow_wall_band_s": 197.64999999999998,
+  "flow_wall_s": [
+   374.12,
+   571.77,
+   534.39
+  ],
+  "min_period": 31.398300000000063,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 137.45,
+   "5_1_grt": 56.620000000000005,
+   "5_2_route": 9.47999999999999
+  }
+ },
+ "riscv32i-mock-sram": {
+  "detailedroute__route__wirelength": 666,
+  "finish__design__instance__area": 1.009999999999991,
+  "finish__power__total": 4.2099999999999776e-05,
+  "finish__timing__setup__tns": 10472.199999999999,
+  "flow_wall_band_s": 129.70000000000005,
+  "flow_wall_s": [
+   296.63,
+   410.23,
+   280.53
+  ],
+  "min_period": 14.537400000000048,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 3.8599999999999994,
+   "5_1_grt": 138.23,
+   "5_2_route": 10.019999999999996
+  }
+ },
+ "sky130hd/aes": {
+  "detailedroute__route__wirelength": 11287,
+  "finish__design__instance__area": 1313,
+  "finish__power__total": 0.012136000000000036,
+  "finish__timing__setup__tns": 3.077339,
+  "flow_wall_band_s": 51.979999999999905,
+  "flow_wall_s": [
+   955.02,
+   962.56,
+   910.58
+  ],
+  "min_period": 0.2960910000000001,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 1.6099999999999994,
+   "5_1_grt": 13.129999999999995,
+   "5_2_route": 40.69999999999993
+  }
+ },
+ "sky130hd/gcd": {
+  "detailedroute__route__wirelength": 3132,
+  "finish__design__instance__area": 365.34999999999945,
+  "finish__power__total": 0.0013130800000000012,
+  "finish__timing__setup__tns": 1.4291999999999945,
+  "flow_wall_band_s": 39.220000000000006,
+  "flow_wall_s": [
+   95.21000000000001,
+   63.1,
+   55.99
+  ],
+  "min_period": 0.06183000000000005,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 1.5999999999999996,
+   "5_1_grt": 8.690000000000001,
+   "5_2_route": 37.870000000000005
+  }
+ },
+ "sky130hd/ibex": {
+  "detailedroute__route__wirelength": 13234,
+  "finish__design__instance__area": 1450,
+  "finish__power__total": 0.0006232000000000043,
+  "finish__timing__setup__tns": 0,
+  "flow_wall_band_s": 208.29999999999995,
+  "flow_wall_s": [
+   854.31,
+   971.37,
+   1062.61
+  ],
+  "min_period": 0.048851599999998996,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 0.6600000000000001,
+   "5_1_grt": 5.319999999999993,
+   "5_2_route": 208.14
+  }
+ },
+ "sky130hd/jpeg": {
+  "detailedroute__route__wirelength": 4418,
+  "finish__design__instance__area": 4895,
+  "finish__power__total": 0.0013050000000000006,
+  "finish__timing__setup__tns": 2.561700000000002,
+  "flow_wall_band_s": 170.6099999999999,
+  "flow_wall_s": [
+   917.2,
+   1087.81,
+   1064.53
+  ],
+  "min_period": 0.06468899999999955,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 71.19,
+   "5_1_grt": 39.579999999999984,
+   "5_2_route": 187.92999999999995
+  }
+ },
+ "sky130hd/riscv32i": {
+  "detailedroute__route__wirelength": 11942,
+  "finish__design__instance__area": 724.5,
+  "finish__power__total": 0.00039969999999999936,
+  "finish__timing__setup__tns": 62.3935,
+  "flow_wall_band_s": 246.21000000000004,
+  "flow_wall_s": [
+   513.8199999999999,
+   426.75,
+   672.96
+  ],
+  "min_period": 0.18939799999999973,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 9.529999999999998,
+   "5_1_grt": 208.69000000000003,
+   "5_2_route": 45.56
+  }
+ },
+ "tinyRocket": {
+  "detailedroute__route__wirelength": 2722,
+  "finish__design__instance__area": 3.2599999999997635,
+  "finish__power__total": 8.930000000000049e-05,
+  "finish__timing__setup__tns": 0,
+  "flow_wall_band_s": 8.380000000000052,
+  "flow_wall_s": [
+   415.65999999999997,
+   424.04,
+   422.95000000000005
+  ],
+  "min_period": null,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 0.25,
+   "5_1_grt": 2.219999999999999,
+   "5_2_route": 6.150000000000006
+  }
+ },
+ "uart": {
+  "detailedroute__route__wirelength": 23,
+  "finish__design__instance__area": 2.8573999999999984,
+  "finish__power__total": 4.957000000000008e-05,
+  "finish__timing__setup__tns": 102.75400000000002,
+  "flow_wall_band_s": 3.8900000000000077,
+  "flow_wall_s": [
+   63.98,
+   64.0,
+   67.87
+  ],
+  "min_period": 1.8617999999999597,
+  "runs": 3,
+  "stage_wall_band_s": {
+   "4_1_cts": 0.47999999999999954,
+   "5_1_grt": 1.92,
+   "5_2_route": 5.48
+  }
+ }
+}
