@@ -115,6 +115,16 @@ ORFS_PATCHES = [
     # per-stage summary block, sha1sum column included, exit status 0.
     # Matches the format with a regex instead. Prerequisite of 0048:
     # upstream them together or not at all.
+    # AUTO_MEMORIES converted a memory inferred inside a larger module,
+    # generating a macro that nothing could instantiate -- blackboxing
+    # needs a module of that name and there is none -- while
+    # memories.json reported the conversion as done. The design
+    # synthesized to flip-flops and the inventory disagreed with the
+    # netlist, which is a silent wrong answer rather than a failure.
+    # Conversion is now gated on the memory being its own module, and
+    # the reason says how to get one.
+    # Not upstreamed -- retire at a bump onto an ORFS that carries it.
+    Label("//patches:0066-orfs-auto-memories-module-only.patch"),
     Label("//patches:0065-orfs-genelapsedtime-stamped-log.patch"),
 ]
 
