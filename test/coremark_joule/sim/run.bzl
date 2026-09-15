@@ -26,9 +26,11 @@ def coremark_hex(name, elf, words = 32768, base = 0, tags = ["manual"]):
       elf: the ELF to flatten.
       words: size of the memory array, in 32-bit words.
       base: address of the array's first word. Zero for the flat map
-        every core but VeeR shares; VeeR's external memory is at
-        0x80000000, and its data sections load there while running in a
-        DCCM the harness cannot reach.
+        the three small cores share. VeeR's and XiangShan's external
+        memory is at 0x80000000; VeeR's data sections load there while
+        running in a DCCM the harness cannot reach, and XiangShan's
+        memory is a C++ array behind DPI whose index zero is that
+        address.
       tags: forwarded; manual.
     """
     native.genrule(
