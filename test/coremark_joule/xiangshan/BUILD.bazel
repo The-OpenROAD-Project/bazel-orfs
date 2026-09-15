@@ -95,3 +95,22 @@ exports_files(glob(["*.BUILD.bazel"]))
         "_minimal",
     ]
 ]
+
+# How big is the thing we are actually hardening? firtool emits one file
+# per module, so the answer is available before synthesis: walk the
+# instantiations from XSCore and add up what is reachable. Most of what
+# gets elaborated is uncore that no flow will ever see.
+[
+    genrule(
+        name = "xscore_closure" + suffix,
+        srcs = [":xiangshan_sv" + suffix],
+        outs = ["xscore_closure" + suffix + ".json"],
+        cmd = "$(execpath //test/coremark_joule/scripts:module_closure) $(location :xiangshan_sv" +
+              suffix + ") --top XSCore --out $@",
+        tools = ["//test/coremark_joule/scripts:module_closure"],
+    )
+    for suffix in [
+        "",
+        "_minimal",
+    ]
+]
