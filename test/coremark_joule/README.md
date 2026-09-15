@@ -877,7 +877,7 @@ core its own budgeted run.
 | 4 | CV32E40P | ~3.1 | SystemVerilog | low |
 | 5 | VeeR EL2 | ~2.6 | SystemVerilog | low |
 | 6 | CVA6 | ~2.5 | SystemVerilog | medium — RV64 contrast at similar CoreMark/MHz |
-| 7 | **VeeR EH1** | **4.94** [11] | SystemVerilog | **low — wired from upstream; ORFS's `swerv_wrapper` supplies the macro views, not the RTL** |
+| 7 | **VeeR EH1** | **4.798 measured** (4.94 published [11]) | SystemVerilog | **done for performance; energy pending the flow** |
 | 8 | OpenC910 | ~4.9–7 | Verilog/SV | medium — 3-issue OoO, silicon-proven |
 | 9 | SonicBOOM | 6.2 | Chisel | high — pulls in the Scala generator |
 | 10 | XiangShan | ~10–15 | Chisel | high — very large |
@@ -1008,10 +1008,28 @@ was taken on a Nexys-4 FPGA prototype at 40 MHz, where the generator's
 FPGA setting minimises clock gating — a first-order term in exactly the
 energy this study reports.
 
-Because the memory system differs from theirs, this study's VeeR
-CoreMark/MHz is **not** expected to reproduce 4.94, and the difference
-between the two is a property of the memory configuration rather than
-evidence about the core. Both numbers are reported.
+**Measured here: 4.798 CoreMark/MHz** (208,431 cycles per iteration,
+CoreMark's three CRCs correct on the gate of §3.2). Against Western
+Digital's own numbers on the same core:
+
+| source | CoreMark/MHz | compiler | instruction memory |
+|---|---|---|---|
+| Western Digital [11] | 4.94 | GCC 7.2.0 | 64 kB ICCM |
+| Western Digital [11] | 4.84 | GCC 8.2.0 | 64 kB ICCM |
+| **this study** | **4.798** | GCC 13.2.0 | **16 kB L1 instruction cache** |
+
+Three per cent below their best figure, and below both — in the
+direction each difference predicts. Their own GCC 7.2 → 8.2 step cost
+2 % on identical hardware, and this build is five major releases further
+on again; the remaining gap is the cache paying for the misses an ICCM
+does not have. That the three land within 3 % of each other across two
+memory systems and three compiler generations is the strongest
+end-to-end evidence the harness has produced: the chain measures this
+core the way its authors measured it.
+
+The difference between 4.798 and 4.94 is therefore a property of the
+memory configuration and the compiler, not evidence about the core.
+Both are reported.
 
 **That document also puts a number on §5.9's compiler threat.** Western
 Digital measured 4.94 with GCC 7.2.0 and **4.84 with GCC 8.2.0** — a

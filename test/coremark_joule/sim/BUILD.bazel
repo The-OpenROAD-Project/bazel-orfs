@@ -448,3 +448,66 @@ cc_binary(
     tags = ["manual"],
     deps = [":cm_soc_veer_lib"],
 )
+
+# VeeR EH1, end to end.
+#
+# Its images are built and flattened separately from the other three
+# because its memory map is: 256 KiB of external memory at 0x80000000,
+# matching cm_soc_veer.sv's MEM_WORDS, and sections that load there
+# while running in a DCCM inside the hardened block. --base is what
+# keeps the image dense instead of demanding a 2 GiB array.
+VEER_WORDS = 65536
+
+VEER_BASE = "0x80000000"
+
+coremark_hex(
+    name = "smoke_veer_rv32imc_hex",
+    base = VEER_BASE,
+    elf = "//test/coremark_joule/sw:smoke_veer_rv32imc",
+    words = VEER_WORDS,
+)
+
+coremark_run(
+    name = "smoke_veer_rv32imc",
+    image = ":smoke_veer_rv32imc_hex",
+    max_cycles = 10000000,
+    sim = ":cm_sim_veer",
+)
+
+smoke_test(
+    name = "smoke_veer_rv32imc_test",
+    run = "smoke_veer_rv32imc",
+    tags = ["manual"],
+)
+
+[
+    [
+        coremark_hex(
+            name = "coremark_veer_rv32imc_{}_hex".format(iterations),
+            base = VEER_BASE,
+            elf = "//test/coremark_joule/sw:coremark_veer_rv32imc_{}".format(iterations),
+            words = VEER_WORDS,
+        ),
+        coremark_run(
+            name = "veer_rv32imc_{}".format(iterations),
+            image = ":coremark_veer_rv32imc_{}_hex".format(iterations),
+            sim = ":cm_sim_veer",
+        ),
+    ]
+    for iterations in [
+        2,
+        3,
+    ]
+]
+
+coremark_crc_test(
+    name = "veer_rv32imc_crc_test",
+    run = "veer_rv32imc_3",
+    tags = ["manual"],
+)
+
+coremark_per_mhz(
+    name = "veer_rv32imc_per_mhz",
+    run_2 = "veer_rv32imc_2",
+    run_3 = "veer_rv32imc_3",
+)

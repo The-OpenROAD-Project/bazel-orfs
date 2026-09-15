@@ -18,13 +18,25 @@ _CHECK = "//test/coremark_joule/scripts:check_coremark"
 _CHECK_SMOKE = "//test/coremark_joule/scripts:check_smoke"
 _CM_PER_MHZ = "//test/coremark_joule/scripts:cm_per_mhz"
 
-def coremark_hex(name, elf, words = 32768, tags = ["manual"]):
-    """Flatten an ELF into a $readmemh image."""
+def coremark_hex(name, elf, words = 32768, base = 0, tags = ["manual"]):
+    """Flatten an ELF into a $readmemh image.
+
+    Args:
+      name: target name; the image is `<name>.hex`.
+      elf: the ELF to flatten.
+      words: size of the memory array, in 32-bit words.
+      base: address of the array's first word. Zero for the flat map
+        every core but VeeR shares; VeeR's external memory is at
+        0x80000000, and its data sections load there while running in a
+        DCCM the harness cannot reach.
+      tags: forwarded; manual.
+    """
     native.genrule(
         name = name,
         srcs = [elf],
         outs = [name + ".hex"],
-        cmd = "$(execpath {elf2hex}) $(execpath {elf}) $@ --words {words}".format(
+        cmd = "$(execpath {elf2hex}) $(execpath {elf}) $@ --words {words} --base {base}".format(
+            base = base,
             elf = elf,
             elf2hex = _ELF2HEX,
             words = words,
