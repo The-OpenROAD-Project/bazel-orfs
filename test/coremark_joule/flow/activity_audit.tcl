@@ -72,14 +72,52 @@ proc net_facts { net } {
     return [list [$net getName] [$net getSigType] [$net isSpecial]]
 }
 
+# OpenSTA prints a pin as the instance path from the top plus the port,
+# and for an instance inside a module that path carries the module
+# prefix. odb is not consistent about whether `getName` already has it,
+# so this reconstructs the prefix from the block's module instances --
+# the same way power_units_grt.tcl discovers instance paths -- and
+# applies it only where the name does not already start with it.
+#
+# Getting this wrong is not a small error. A pin whose path does not join
+# reads as `unmatched` in the audit, which is a fatal verdict about a
+# name mismatch rather than the correct verdict about whether the pin was
+# annotated. Both mistakes are available: prefixing twice, and not
+# prefixing at all.
+proc hierarchical_prefixes { block } {
+    set prefix [dict create]
+    foreach mi [$block getModInsts] {
+        set hname [$mi getHierarchicalName]
+        foreach inst [[$mi getMaster] getInsts] {
+            dict set prefix [$inst getName] $hname
+        }
+    }
+    return $prefix
+}
+
+proc inst_path { inst prefix } {
+    set name [$inst getName]
+    if { ![dict exists $prefix $name] } {
+        return $name
+    }
+    set hname [dict get $prefix $name]
+    if { [string first "$hname/" $name] == 0 } {
+        return $name
+    }
+    return "$hname/$name"
+}
+
 set block [ord::get_db_block]
+set prefix [hierarchical_prefixes $block]
 set fh [open $::env(PINS_TSV) w]
 puts $fh "path\tkind\tcell\tmaster_type\tport\tdirection\tsig_type\tnet\tnet_sig_type\tnet_special"
 
 set pin_count 0
+set emitted [dict create]
 
 foreach inst [$block getInsts] {
-    set inst_name [$inst getName]
+    set inst_name [inst_path $inst $prefix]
+    dict set emitted $inst_name 1
     set master [$inst getMaster]
     set master_name [$master getName]
     set master_type [$master getType]
@@ -88,6 +126,29 @@ foreach inst [$block getInsts] {
         lassign [net_facts [$iterm getNet]] net_name net_sig net_special
         puts $fh "$inst_name/[$mterm getName]\titerm\t$master_name\t$master_type\t[$mterm getName]\t[$mterm getIoType]\t[$mterm getSigType]\t$net_name\t$net_sig\t$net_special"
         incr pin_count
+    }
+}
+
+# Instances reachable only through a module instance. odb's block-level
+# list has been observed to omit clock cells CTS created inside a
+# module, and a pin missing from this table reads as `unmatched` -- a
+# verdict about names -- rather than as unannotated, which is a verdict
+# about the measurement.
+foreach mi [$block getModInsts] {
+    set hname [$mi getHierarchicalName]
+    foreach inst [[$mi getMaster] getInsts] {
+        set inst_name [inst_path $inst $prefix]
+        if { [dict exists $emitted $inst_name] } {
+            continue
+        }
+        dict set emitted $inst_name 1
+        set master [$inst getMaster]
+        foreach iterm [$inst getITerms] {
+            set mterm [$iterm getMTerm]
+            lassign [net_facts [$iterm getNet]] net_name net_sig net_special
+            puts $fh "$inst_name/[$mterm getName]\titerm\t[$master getName]\t[$master getType]\t[$mterm getName]\t[$mterm getIoType]\t[$mterm getSigType]\t$net_name\t$net_sig\t$net_special"
+            incr pin_count
+        }
     }
 }
 

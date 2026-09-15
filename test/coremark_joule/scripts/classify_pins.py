@@ -62,6 +62,24 @@ FATAL_CLASSES = (
     "internal_cell_pin",
 )
 
+# Pins OpenSTA lists that the ODB enumeration did not produce. A name
+# that does not join hides whatever the pin really was, so this is fatal
+# by default -- but budgetable as a *fraction* rather than a count.
+#
+# A fraction because that is the quantity worth stating and worth
+# driving down. On a hierarchical design odb's own instance enumeration
+# has been observed not to reach clock cells whose names contain the
+# hierarchy separator, and no spelling of the reconstruction fixes it;
+# what a design can honestly say is "this much of my pin set is not
+# accounted for, and it is small". A count would churn with every flow
+# change and would say nothing about whether it is small.
+#
+# Where a design declares a budget, the activity sweep is what bounds
+# the effect: it varies the default the estimator would use for exactly
+# these pins and measures whether the answer moves. The budget buys
+# time to whittle the fraction down; the sweep is what makes the number
+# trustworthy in the meantime.
+
 BENIGN_CLASSES = (
     "clock_network",
     "tied_constant",
@@ -231,9 +249,12 @@ def audit(pins, annotated, unannotated, design, policy):
     total = len(annotated) + len(unannotated)
     budget = policy.get("max_unannotated_internal", 0)
     internal = len(by_class["internal_cell_pin"])
-    over_budget = internal > budget
+    unmatched = len(by_class["unmatched"])
+    unmatched_fraction = (float(unmatched) / total) if total else 0.0
+    unmatched_budget = policy.get("max_unmatched_fraction", 0.0)
 
-    other_fatal = len(fatal) - internal
+    over_budget = internal > budget or unmatched_fraction > unmatched_budget
+    other_fatal = len(fatal) - internal - unmatched
     verdict = "fail" if (over_budget or other_fatal > 0) else "pass"
 
     return {
@@ -253,6 +274,8 @@ def audit(pins, annotated, unannotated, design, policy):
             (name, len(paths)) for name, paths in by_class.items()
         ),
         "internal_budget": budget,
+        "unmatched_fraction": unmatched_fraction,
+        "unmatched_budget_fraction": unmatched_budget,
         "fatal_count": len(fatal),
         "fatal_examples": sorted(fatal)[:50],
         "verdict": verdict,
@@ -277,6 +300,12 @@ def report(result, out=sys.stdout):
             continue
         flag = "FATAL" if name in FATAL_CLASSES or name == "unmatched" else "ok"
         out.write("    {:<20}{:>8}  {}\n".format(name, count, flag))
+    if result["unannotated_by_class"].get("unmatched"):
+        out.write(
+            "  unaccounted {:>8.4%}  of listed pins (budget {:.4%})\n".format(
+                result["unmatched_fraction"], result["unmatched_budget_fraction"]
+            )
+        )
     out.write("  verdict     {:>8}\n".format(result["verdict"]))
     if result["fatal_examples"]:
         out.write("  first offenders:\n")

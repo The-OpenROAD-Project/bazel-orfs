@@ -252,6 +252,39 @@ class AuditTest(unittest.TestCase):
         )
         self.assertEqual("fail", result["verdict"])
 
+    def test_an_unmatched_pin_fails_by_default(self):
+        """A name that does not join hides whatever the pin really was."""
+        result = self.run_audit({}, {}, ["_5_/A"])
+        self.assertEqual("fail", result["verdict"])
+        self.assertEqual(1, result["unannotated_by_class"]["unmatched"])
+
+    def test_a_declared_unmatched_fraction_lets_a_small_share_through(self):
+        pins = dict(("_{}_/A".format(i), pin("_{}_/A".format(i))) for i in range(99))
+        annotated = dict((p, "saif") for p in pins)
+        result = self.run_audit(
+            pins, annotated, ["gone/A"], {"max_unmatched_fraction": 0.02}
+        )
+        self.assertEqual("pass", result["verdict"])
+        self.assertAlmostEqual(0.01, result["unmatched_fraction"])
+
+    def test_the_fraction_is_of_the_whole_listed_pin_set(self):
+        """A count would say nothing about whether it is small."""
+        result = self.run_audit({}, {}, ["gone/A"], {"max_unmatched_fraction": 1.0})
+        self.assertEqual(1.0, result["unmatched_fraction"])
+
+    def test_a_fraction_over_budget_fails(self):
+        pins = dict(("_{}_/A".format(i), pin("_{}_/A".format(i))) for i in range(9))
+        annotated = dict((p, "saif") for p in pins)
+        result = self.run_audit(
+            pins, annotated, ["gone/A"], {"max_unmatched_fraction": 0.05}
+        )
+        self.assertEqual("fail", result["verdict"])
+
+    def test_the_unmatched_budget_does_not_excuse_an_internal_pin(self):
+        pins = {"_1_/A": pin("_1_/A")}
+        result = self.run_audit(pins, {}, ["_1_/A"], {"max_unmatched_fraction": 1.0})
+        self.assertEqual("fail", result["verdict"])
+
     def test_benign_classes_do_not_fail_the_audit(self):
         pins = {
             "_1_/A": pin("_1_/A", net_sig_type="CLOCK"),
