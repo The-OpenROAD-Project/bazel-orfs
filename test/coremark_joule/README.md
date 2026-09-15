@@ -887,7 +887,47 @@ valuable outstanding measurement in the study -- no longer because the
 numbers are incomplete, but because one point has shown how much the
 answer moves.
 
-### 4.7 A rack-level reading of Figure 1
+### 4.7 Where the power goes, and why §4.6 broke the line
+
+`report_power` groups by cell kind, and the grouping turns §4.6's
+statistical finding into a mechanical one.
+
+| core | total | Clock | Sequential | Combinational | **Macro** |
+|---|---|---|---|---|---|
+| SERV | 6.68 mW | 2.85 (42.7 %) | 2.83 (42.4 %) | 1.00 (15.0 %) | **0.00 (0 %)** |
+| picorv32 | 6.43 mW | 2.84 (44.2 %) | 2.89 (44.9 %) | 0.70 (10.9 %) | **0.00 (0 %)** |
+| ibex | 7.37 mW | 2.46 (33.4 %) | 2.64 (35.8 %) | 2.27 (30.8 %) | **0.00 (0 %)** |
+| **VeeR EH1** | **87.30 mW** | 26.80 (30.7 %) | 7.58 (8.7 %) | 2.28 (2.6 %) | **50.70 (58.1 %)** |
+
+**58 % of the only boundary-compliant measurement in the study is the
+component the other three do not measure at all.** That is §4.6's answer
+stated as a mechanism rather than as a regression: the cacheless points
+were not merely missing a term, they were missing the *largest* one.
+
+Three further things fall out of the same table.
+
+**The degeneracy has a cause you can point at.** The three cacheless
+cores are not similar by coincidence — their compositions are nearly
+identical. Clock power spans 2.46–2.85 mW across all three; sequential
+power spans 2.64–2.89 mW. Two components that together are 65–89 % of
+each core's total barely move across a 101× span in performance, because
+a clock tree and a flop count are set by how much state a design has,
+not by how fast it retires work. §4.6's 1.15× power spread is those two
+numbers.
+
+**Combinational power is the term that does track the architecture**:
+0.70, 1.00, 2.27, 2.28 mW. It is also the smallest term in three of the
+four, which is why it could not rescue the y-axis on its own.
+
+**VeeR's logic alone is 36.66 mW** — clock, sequential and combinational
+without the macros — against ibex's 7.37 mW, so 5.0× the logic power for
+1.95× the performance per clock. The memory is the larger effect, but it
+is not the whole of it.
+
+This is the SRAM-against-logic split §8.1 asks for, arriving early
+because VeeR is the first design with anything in the macro column.
+
+### 4.8 A rack-level reading of Figure 1
 
 Figure 1's axes turn out to be the two axes a GPU rack cares about in a
 host CPU, and the relation between them is tight enough to write down.
@@ -1301,7 +1341,54 @@ override matters rather than consequences of it:
   IO paths**. On a design with VeeR's port count that is a large amount
   of area and leakage that would otherwise be charged to the core.
 
-### 5.11 Two carried workarounds, and what each costs the measurement
+### 5.11 VeeR's clock gates are latches, not ICG cells
+
+VeeR builds its clock gating in RTL. `beh_lib.sv` defines
+`` `TEC_RV_ICG `` as a transparent-low latch and an AND —
+
+```systemverilog
+always @(CP, enable) if (!CP) en_ff = enable;
+assign Q = CP & en_ff;
+```
+
+— and `rvclkhdr`/`rvoclkhdr` instantiate it. Upstream's hook for
+replacing it is the `TEC_RV_ICG` define, which their `pd_defines.vh`
+points at a technology cell; this study leaves it alone, because
+`PHYSICAL` is what would also change the Verilog between simulation and
+synthesis (§3.8's frozen-configuration rule).
+
+The consequence is measurable. VeeR's global-route netlist contains
+**952 latch cells** (`DLLx1` ×951, `DLLx2` ×1) and **zero ICG cells**,
+though ASAP7 ships ten of them (`ICGx1` through `ICGx8DC`). Each gate is
+a latch plus an AND where a library cell would do, so the gating costs
+roughly twice the cells, on the clock network.
+
+**It shows up first as timing, not as energy.** `flow/period_probe.tcl`
+returns eight reg2reg paths all with slack exactly 0.000000, every one
+ending at a latch D pin inside a clock gate
+(`...lsu_freeze_c2dc1_cgc.clkhdr.en_ff$_DLATCH_N_/D`). Eight identical
+zeros is not repair stopping at non-negative; it is what a latch-
+terminated path looks like when time borrowing is unconstrained. **So
+VeeR has no trustworthy achieved period, and §8.3's `auto_period` cannot
+run on it until this is settled.** ibex, for contrast, returns eight
+distinct slacks from −9.13 to −4.79 ps.
+
+**As energy it is a smaller effect than it first appeared.** §4.7 puts
+58.1 % of VeeR's power in the macros and 30.7 % in the clock group, and
+the clock group is dominated by the tree driving thirty thousand flops
+and twenty-eight SRAM macros rather than by 952 gating cells. Mapping
+them onto `ICGx1` would reduce clock power somewhat; it would not move
+the §4.6 conclusion, which rests on the macro column. Recording that
+distinction is the point of this section: the finding is real, and it is
+a timing blocker rather than a reason to doubt the headline number.
+
+Fixing it needs a wrapper rather than a define, because VeeR's port
+names (`TE`, `E`, `CP`, `Q`) do not match ASAP7's
+(`SE`, `ENA`, `CLK`, `GCLK`) — the same shape as `macros.v` does for the
+memories, and the same shape ORFS's own `swerv_wrapper` uses via
+`CLKGATE_MAP_FILE`. It is not done here.
+
+### 5.12 Two carried workarounds, and what each costs the measurement
 
 VeeR is the first design in the study with hardened macros and a
 hierarchical ODB, and getting a number out of it needed two workarounds.
