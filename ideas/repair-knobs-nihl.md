@@ -197,6 +197,15 @@ learned policy that needs training runs per design.
 
 ## Decisions log
 
+- 2026-09-15, 19:00: closed as bazel-orfs #987, reference only. Verdict:
+  no knob-free termination or ordering policy dominates the default on
+  the vehicles; 0082 (no row for a zero-pass visit) is the one
+  result-identical fix, 21 of 21 byte-identical, 2.3% of repair_timing's
+  setup seconds over the suite, and the one OpenROAD pull request to
+  split, on order. The seed band is the wall axis's noise from here on.
+  Next study, if wanted: estimates for buffer, pin-swap and clone moves,
+  validated with the endpoint trace before any termination rule.
+
 - 2026-09-15, 09:10: Phase B for 0082, untraced, 21 fast designs: 21 of
   21 pass, every final ODB byte-identical, flow wall -6 to +3 s (all
   ties or better). The saving is real and small: repair_timing's setup
