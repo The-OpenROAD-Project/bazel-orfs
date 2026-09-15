@@ -18,6 +18,66 @@
 #   RESULTS_DIR, SCRIPTS_DIR, etc. - standard ORFS env
 set -euo pipefail
 
+# Sanitise a module name into a filename component. Must stay in lockstep
+# with rules.bzl's per-module artifact naming and parallel_synth.mk's
+# do-yosys-canonicalize-module log path.
+sanitize() {
+  printf '%s' "$1" | tr '$.[]' '____'
+}
+
+# The design's name for an RTLIL module, stripped of yosys's mangling.
+# "\\serv_alu" and "$paramod\\serv_alu\\W=1" and
+# "$paramod$<hash>\\serv_alu" all name serv_alu: the design's name is the
+# component after the first backslash in every form.
+rtlil_base_name() {
+  printf '%s' "$1" | awk '{
+    if (substr($0, 1, 1) == "\\") { print substr($0, 2) }
+    else { n = split($0, parts, "\\\\"); if (n >= 2) print parts[2] }
+  }'
+}
+
+rtlil_base_names() {
+  while IFS= read -r line; do
+    base=$(rtlil_base_name "$line")
+    [ -n "$base" ] && printf '%s\n' "$base"
+  done < "$1"
+}
+
+# The canonical RTLIL name for a module the design calls $1, or empty.
+# A parameterized module instantiated once has exactly one mangled name;
+# one instantiated with several parameter sets has several, and this
+# takes the first -- which is wrong for such a design and is why the
+# caller's error message is worth reading rather than guessing.
+rtlil_module_for() {
+  # Exact first: an unparameterized, un-uniquified module.
+  while IFS= read -r line; do
+    if [ "$(rtlil_base_name "$line")" = "$1" ]; then
+      printf '%s' "$line"
+      return 0
+    fi
+  done < "$2"
+  # Then a uniquified instance, which slang names `Foo$Top.path.to.inst`.
+  while IFS= read -r line; do
+    case "$(rtlil_base_name "$line")" in
+      "$1"\$*)
+        printf '%s' "$line"
+        return 0
+        ;;
+    esac
+  done < "$2"
+  return 0
+}
+
+# Sourcing this file with SYNTH_PARTITION_LIB=1 defines the helpers above
+# and stops here. The name-mangling rules below are pure string logic
+# with no synthesis in them, and //test/rtlil_names is what pins them --
+# they were wrong for a year in a way that only showed up on designs
+# that parameterize their submodules.
+if [ "${SYNTH_PARTITION_LIB:-0}" = "1" ]; then
+  return 0
+fi
+
+
 PARTITION_ID=${SYNTH_PARTITION_ID:?}
 NUM_PARTITIONS=${SYNTH_NUM_PARTITIONS:?}
 KEPT_JSON="$RESULTS_DIR/kept_modules.json"
@@ -30,13 +90,6 @@ OUTPUT="$RESULTS_DIR/partition_${PARTITION_ID}.v"
 # strings and skipping the first ("modules" key) is correct.
 ALL_MODULES=$(grep -oE '"[^"]+"' "$KEPT_JSON" | tail -n +2 | sed 's/"//g')
 
-# Sanitise a module name into a filename component. Must stay in lockstep
-# with rules.bzl's per-module artifact naming and parallel_synth.mk's
-# do-yosys-canonicalize-module log path.
-sanitize() {
-  printf '%s' "$1" | tr '$.[]' '____'
-}
-
 if [ "$PARTITION_ID" = "top" ]; then
   # Top integration: synthesize the top module from the global checkpoint
   # with every kept module blackboxed. This path retains the original
@@ -47,21 +100,24 @@ if [ "$PARTITION_ID" = "top" ]; then
     # SYNTH_KEEP_MODULES carries bare names; resolve each to canonical for
     # blackboxing. Same algorithm as synth_canonicalize_module.tcl.
     RTLIL_MODULES_FILE=$(mktemp)
-    grep '^module \\' "$CHECKPOINT" | sed 's/^module \\//;s/ .*//' | grep -v '^$' > "$RTLIL_MODULES_FILE"
+    # Every module in the checkpoint, as yosys names it. An
+    # unparameterized module is "\name"; a parameterized one is
+    # "$paramod\name\param=value" or "$paramod$<hash>\name". Matching
+    # only the first form finds nothing in a design that parameterizes
+    # its submodules -- SERV parameterizes all of them -- and
+    # SYNTH_KEEP_MODULES then fails on names that are present under a
+    # mangled spelling.
+    grep '^module ' "$CHECKPOINT" | sed 's/^module //;s/ .*//' | grep -v '^$' > "$RTLIL_MODULES_FILE"
     RESOLVED_MODULES=()
     for module in $ALL_MODULES; do
-      if grep -qxF "$module" "$RTLIL_MODULES_FILE"; then
-        RESOLVED_MODULES+=("$module")
-      else
-        canonical=$(grep -m1 "^$(printf '%s' "$module" | sed 's/[.[\*^$()+?{|\\]/\\&/g')\\$" "$RTLIL_MODULES_FILE" || true)
-        if [ -z "$canonical" ]; then
-          echo "ERROR: SYNTH_KEEP_MODULES lists '$module' but it does not exist in the design." >&2
-          echo "Available modules: $(tr '\n' ' ' < "$RTLIL_MODULES_FILE")" >&2
-          rm -f "$RTLIL_MODULES_FILE"
-          exit 1
-        fi
-        RESOLVED_MODULES+=("$canonical")
+      canonical=$(rtlil_module_for "$module" "$RTLIL_MODULES_FILE")
+      if [ -z "$canonical" ]; then
+        echo "ERROR: SYNTH_KEEP_MODULES lists '$module' but it does not exist in the design." >&2
+        echo "Available modules: $(rtlil_base_names "$RTLIL_MODULES_FILE" | tr '\n' ' ')" >&2
+        rm -f "$RTLIL_MODULES_FILE"
+        exit 1
       fi
+      RESOLVED_MODULES+=("$canonical")
     done
     rm -f "$RTLIL_MODULES_FILE"
     ALL_MODULES=$(printf '%s\n' "${RESOLVED_MODULES[@]}")
