@@ -99,24 +99,13 @@ exports_files(glob(["*.BUILD.bazel"]))
             "PATH=$$ESPRESSO_DIR:$$FIRTOOL_DIR:$$PATH",
             "CHISEL_FIRTOOL_PATH=$$FIRTOOL_DIR",
             "$(execpath :" + generator + suffix + ")",
-            # Memory extraction, for the elaboration the flow hardens
-            # only. Without it firtool inlines every inferred memory as a
-            # reg array inside whatever module used it, ORFS's
-            # AUTO_MEMORIES detector finds no module to convert, and a
-            # core whose caches are most of its area synthesises as
-            # flip-flops.
-            #
-            # The simulation elaboration must not have it. Extraction
-            # leaves behind instantiations of <name>_ext modules whose
-            # bodies firtool does not emit -- that is the point, a memory
-            # compiler supplies them -- and Verilator cannot elaborate a
-            # design with modules missing. The two elaborations are
-            # identical in behaviour; they differ in whether the arrays
-            # are still there to simulate.
-        ] + ([
-            "--repl-seq-mem",
-            "--repl-seq-mem-file=$(RULEDIR)/" + prefix + suffix + ".mems.conf",
-        ] if prefix == "xiangshan" else []) + [
+            # No --repl-seq-mem. firtool already emits every inferred
+            # memory as its own ram_<depth>x<width> module with the
+            # R0_addr/en/clk/data ports ORFS's AUTO_MEMORIES converts, and
+            # the flag replaces some of those with bodiless _ext
+            # blackboxes instead -- which both hides them from the
+            # detector and makes the design unsimulatable. Measured on
+            # XSCore: 38 convertible memories without it, 20 with.
             "-o $@",
         ]),
         tools = [
@@ -162,13 +151,17 @@ exports_files(glob(["*.BUILD.bazel"]))
 # gets elaborated is uncore that no flow will ever see.
 [
     genrule(
-        name = "xscore_closure" + suffix,
-        srcs = [":xiangshan_sv" + suffix],
-        outs = ["xscore_closure" + suffix + ".json"],
-        cmd = "$(execpath //test/coremark_joule/scripts:module_closure) $(location :xiangshan_sv" +
-              suffix + ") --top XSCore --out $@",
+        name = "xscore_closure_" + prefix + suffix,
+        srcs = [":" + prefix + "_sv" + suffix],
+        outs = ["xscore_closure_" + prefix + suffix + ".json"],
+        cmd = "$(execpath //test/coremark_joule/scripts:module_closure) $(location :" +
+              prefix + "_sv" + suffix + ") --top XSCore --out $@",
         tools = ["//test/coremark_joule/scripts:module_closure"],
     )
+    for prefix in [
+        "xiangshan",
+        "cmj_soc",
+    ]
     for suffix in [
         "",
         "_minimal",
