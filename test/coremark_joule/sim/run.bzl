@@ -45,30 +45,55 @@ def coremark_hex(name, elf, words = 32768, base = 0, tags = ["manual"]):
         tools = [_ELF2HEX],
     )
 
-def coremark_run(name, sim, image, max_cycles = 2000000000, tags = ["manual"]):
+def coremark_run(
+        name,
+        sim,
+        image,
+        max_cycles = 2000000000,
+        bus_probe = False,
+        tags = ["manual"]):
     """Run one image on one simulator; emit its stdout and cycle count.
 
     A trap or an exhausted cycle budget fails the action, so a broken run
     can never reach the arithmetic downstream as a plausible-looking
     number.
+
+    Args:
+      name: target name.
+      sim: the simulator binary.
+      image: the $readmemh image.
+      max_cycles: the budget; exhausting it fails the run.
+      bus_probe: also emit `<name>.busprobe`, the wrapper's count of
+        transfers on each external bus. Only wrappers that handle
+        `+busprobe=` can satisfy it -- today that is VeeR, where the
+        instruction bus carries only cache misses and the count is what
+        makes "CoreMark fits in the instruction cache" a number.
+      tags: forwarded; manual.
     """
+    outs = [
+        name + ".stdout",
+        name + ".cycles",
+    ]
+    probe_arg = ""
+    if bus_probe:
+        outs.append(name + ".busprobe")
+        probe_arg = " +busprobe=$(location {}.busprobe)".format(name)
+
     native.genrule(
         name = name,
         srcs = [image],
-        outs = [
-            name + ".stdout",
-            name + ".cycles",
-        ],
+        outs = outs,
         cmd = (
             "$(execpath {sim}) " +
             "+meminit=$(execpath {image}) " +
             "+stdout=$(location {name}.stdout) " +
             "+cycles=$(location {name}.cycles) " +
-            "+max_cycles={max_cycles}"
+            "+max_cycles={max_cycles}{probe}"
         ).format(
             image = image,
             max_cycles = max_cycles,
             name = name,
+            probe = probe_arg,
             sim = sim,
         ),
         tags = tags,

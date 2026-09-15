@@ -490,6 +490,7 @@ smoke_test(
         ),
         coremark_run(
             name = "veer_rv32imc_{}".format(iterations),
+            bus_probe = True,
             image = ":coremark_veer_rv32imc_{}_hex".format(iterations),
             sim = ":cm_sim_veer",
         ),
@@ -510,4 +511,27 @@ coremark_per_mhz(
     name = "veer_rv32imc_per_mhz",
     run_2 = "veer_rv32imc_2",
     run_3 = "veer_rv32imc_3",
+)
+
+# Does CoreMark actually stay inside the hardened block?
+#
+# The same differential the cycle count uses: the traffic a third
+# iteration adds over a second. It cancels the boot, the .data copy and
+# the cold pass that fills the cache, and what is left is what one hot
+# iteration -- the SAIF window -- sends outside the boundary.
+genrule(
+    name = "veer_rv32imc_bus_traffic",
+    srcs = [
+        "veer_rv32imc_2.busprobe",
+        "veer_rv32imc_3.busprobe",
+        "veer_rv32imc_per_mhz.json",
+    ],
+    outs = ["veer_rv32imc_bus_traffic.json"],
+    cmd = "$(execpath //test/coremark_joule/scripts:bus_probe) " +
+          "--probe-2 $(location veer_rv32imc_2.busprobe) " +
+          "--probe-3 $(location veer_rv32imc_3.busprobe) " +
+          "--per-mhz $(location veer_rv32imc_per_mhz.json) " +
+          "--out $@",
+    tags = ["manual"],
+    tools = ["//test/coremark_joule/scripts:bus_probe"],
 )

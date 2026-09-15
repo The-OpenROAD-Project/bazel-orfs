@@ -673,6 +673,12 @@ cache is measured rather than configured away. The three points move
 down; how far is itself a result, because it is the size of the error
 every cacheless CoreMark/Joule figure carries.
 
+VeeR EH1 is the first point that meets the rule, and §7 shows the
+boundary verified rather than asserted: over one hot iteration it sends
+**zero** transfers on either external bus. That is the standard the
+other three have to reach, and it is a measurement they can be held to
+rather than a design intention.
+
 **Above about 5 CoreMark/MHz the boundary stops being a caveat and
 becomes the measurement**, which is why it had to be settled before the
 first core in that range rather than after. Those cores arrive as tiles
@@ -1030,6 +1036,31 @@ core the way its authors measured it.
 The difference between 4.798 and 4.94 is therefore a property of the
 memory configuration and the compiler, not evidence about the core.
 Both are reported.
+
+**And CoreMark does fit in the L1 — measured, not asserted.** The SoC
+wrapper counts transfers on both external buses, and the count is taken
+the same way the cycle count is: as the difference between a
+two-iteration and a three-iteration run, which cancels the boot, the
+`.data` copy and the cold pass that fills the cache.
+
+| counter | during boot | added by one hot iteration |
+|---|---|---|
+| instruction bus | 2,788 transfers (22.3 kB) | **0** |
+| load/store bus | 934 transfers (7.5 kB) | **0** |
+
+Zero, on both buses, over 208,431 cycles. One CoreMark iteration leaves
+the hardened block entirely untouched: every fetch is served by the
+16 kB instruction cache and every load and store by the 64 kB DCCM. The
+2,788 boot transfers are the 24 kB of `.text` streamed in once as cold
+misses, and the 934 are the `.rodata`/`.data` copy plus the report's
+characters — all of it before the measured window.
+
+This is the first point in the study where §3.1's boundary is not just
+intended but **verified**: whatever the SAIF captures over that window,
+nothing outside the hardened block was doing anything while it was
+captured. The boot traffic is carried in the result rather than
+discarded, because zero steady-state traffic and a bus that never
+worked at all look identical in a difference.
 
 **That document also puts a number on §5.9's compiler threat.** Western
 Digital measured 4.94 with GCC 7.2.0 and **4.84 with GCC 8.2.0** — a

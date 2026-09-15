@@ -23,6 +23,7 @@ exports_files([
     "run_report.sh",
     "classify_pins.py",
     "check_activity_sweep.py",
+    "bus_probe.py",
 ])
 
 py_binary(
@@ -161,4 +162,23 @@ py_test(
         "check_activity_sweep_test.py",
     ],
     main = "check_activity_sweep_test.py",
+)
+
+# What one CoreMark iteration costs on the external bus. The boundary is
+# a module for VeeR, so "is the benchmark inside it?" has an exact
+# answer, and this is the parser that takes it.
+py_binary(
+    name = "bus_probe",
+    srcs = ["bus_probe.py"],
+    main = "bus_probe.py",
+)
+
+py_test(
+    name = "bus_probe_test",
+    size = "small",
+    srcs = [
+        "bus_probe.py",
+        "bus_probe_test.py",
+    ],
+    main = "bus_probe_test.py",
 )

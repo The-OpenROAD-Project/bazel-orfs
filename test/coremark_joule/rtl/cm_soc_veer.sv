@@ -107,10 +107,57 @@ module cm_soc #(
 	reg  [63:0] ifu_hrdata;
 
 	/* Instruction-cache miss traffic, counted rather than assumed. A
-	 * non-sequential or sequential transfer on this bus is a fetch the
-	 * icache could not serve, so this is what turns "CoreMark fits in
-	 * the instruction cache" from a claim into a number. */
+	 * live transfer on this bus is a fetch the icache could not serve,
+	 * so this is what turns "CoreMark fits in the instruction cache"
+	 * from a claim into a number.
+	 *
+	 * The counters are free-running and the difference between a
+	 * two-iteration and a three-iteration run is the traffic of one
+	 * CoreMark iteration -- the same differential the cycle count uses,
+	 * and for the same reason: it cancels the boot, the .data copy and
+	 * the cold first pass through the cache.
+	 *
+	 * They live out here with the memory rather than inside the design,
+	 * because cm_soc is simulation scaffolding and is never hardened.
+	 * A counter inside swerv_wrapper would be measured.
+	 */
 	wire ifu_bus_xact = ifu_htrans[1];
+	wire lsu_bus_xact = lsu_htrans[1];
+
+	reg [63:0] ifu_xacts;
+	reg [63:0] lsu_xacts;
+
+	always @(posedge clk) begin
+		if (!resetn) begin
+			ifu_xacts <= 64'b0;
+			lsu_xacts <= 64'b0;
+		end else begin
+			if (ifu_bus_xact) ifu_xacts <= ifu_xacts + 64'd1;
+			if (lsu_bus_xact) lsu_xacts <= lsu_xacts + 64'd1;
+		end
+	end
+
+	/* Written from a `final` block rather than on the halt write, so a
+	 * run that ends by exhausting its cycle budget still leaves the
+	 * counts behind -- which is exactly the run whose bus traffic is
+	 * worth looking at. The harness calls final() however the run ends.
+	 */
+	reg [8*256-1:0] busprobe_path;
+	reg             busprobe_on;
+	integer         busprobe_fd;
+
+	initial begin
+		busprobe_on = $value$plusargs("busprobe=%s", busprobe_path);
+	end
+
+	final begin
+		if (busprobe_on) begin
+			busprobe_fd = $fopen(busprobe_path, "w");
+			$fwrite(busprobe_fd, "ifu_xacts %0d\n", ifu_xacts);
+			$fwrite(busprobe_fd, "lsu_xacts %0d\n", lsu_xacts);
+			$fclose(busprobe_fd);
+		end
+	end
 
 	reg [31:0] ifu_addr_q;
 	always @(posedge clk) begin
