@@ -469,6 +469,75 @@ OTHER = [Label("//patches:not-an-orfs-patch.patch")]
             ["orfs_source.bzl not found in bazel-orfs; cannot check ORFS_PATCHES"],
         )
 
+    def test_a_patch_may_modify_what_an_earlier_patch_created(self):
+        """bazel applies the list in order, so the check must too.
+
+        repository_ctx.patch walks ORFS_PATCHES, so a patch is entitled to
+        edit a file an earlier patch in the same list created -- which is
+        exactly what carrying a vendored tool does: one patch adds the
+        backend, a later one changes its behaviour. Checked against the
+        pristine tree instead, the second patch is rejected for editing a
+        file that "does not exist" when it will be there by the time the
+        patch runs.
+        """
+        source = (
+            'ORFS_PATCHES = [\n'
+            '    Label("//patches:0001-create.patch"),\n'
+            '    Label("//patches:0002-modify.patch"),\n'
+            "]\n"
+        )
+        create = "--- /dev/null\n+++ b/tools/gen.py\n@@ -0,0 +2 @@\n+import sys\n+MODE = 1\n"
+        modify = (
+            "--- a/tools/gen.py\n+++ b/tools/gen.py\n"
+            "@@ -1,2 +1,2 @@\n import sys\n-MODE = 1\n+MODE = 2\n"
+        )
+        bazel_orfs = {
+            bump_impl.ORFS_SOURCE_BZL: source,
+            "patches/0001-create.patch": create,
+            "patches/0002-modify.patch": modify,
+        }
+        # The file is absent from ORFS: the first patch is what creates it.
+        self.assertEqual(bump_impl.check_orfs_patches(bazel_orfs.get, {}.get), [])
+
+    def test_a_created_file_that_the_tree_already_has_is_still_caught(self):
+        """Carrying creation forward must not mask the real conflict."""
+        source = 'ORFS_PATCHES = [\n    Label("//patches:0001-create.patch"),\n]\n'
+        create = "--- /dev/null\n+++ b/tools/gen.py\n@@ -0,0 +1 @@\n+import sys\n"
+        bazel_orfs = {
+            bump_impl.ORFS_SOURCE_BZL: source,
+            "patches/0001-create.patch": create,
+        }
+        self.assertEqual(
+            bump_impl.check_orfs_patches(bazel_orfs.get, {"tools/gen.py": "x\n"}.get),
+            ["patches/0001-create.patch: creates tools/gen.py, which already exists"],
+        )
+
+    def test_a_later_patch_is_checked_against_the_created_content(self):
+        """Not merely "it exists": the hunk has to match what was created."""
+        source = (
+            'ORFS_PATCHES = [\n'
+            '    Label("//patches:0001-create.patch"),\n'
+            '    Label("//patches:0002-modify.patch"),\n'
+            "]\n"
+        )
+        create = "--- /dev/null\n+++ b/tools/gen.py\n@@ -0,0 +1 @@\n+MODE = 1\n"
+        modify = (
+            "--- a/tools/gen.py\n+++ b/tools/gen.py\n"
+            "@@ -1,1 +1,1 @@\n-SOMETHING_ELSE = 1\n+MODE = 2\n"
+        )
+        bazel_orfs = {
+            bump_impl.ORFS_SOURCE_BZL: source,
+            "patches/0001-create.patch": create,
+            "patches/0002-modify.patch": modify,
+        }
+        self.assertEqual(
+            bump_impl.check_orfs_patches(bazel_orfs.get, {}.get),
+            [
+                "patches/0002-modify.patch: tools/gen.py: hunk @@ -1,1 +1,1 @@ "
+                "does not match"
+            ],
+        )
+
     def test_verify_raises_with_patch_and_commit_or_warns_under_ignore(self):
         bazel_orfs = {
             bump_impl.ORFS_SOURCE_BZL: 'ORFS_PATCHES = [\n    Label("//patches:0047.patch"),\n]\n',

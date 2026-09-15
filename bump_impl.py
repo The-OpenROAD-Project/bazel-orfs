@@ -482,16 +482,69 @@ def check_patch_against_tree(patch_path, patch_text, read_file_fn):
     return problems
 
 
+def created_file_texts(patch_text):
+    """``{path: text}`` for every file the patch creates.
+
+    A created file's content is exactly the hunk's added lines, so it can be
+    reconstructed without applying anything.  ``check_orfs_patches`` uses it
+    to carry a created file forward to the patches that come after.
+    """
+    created = {}
+    path = None
+    lines = patch_text.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if line.startswith("--- ") and i + 1 < len(lines):
+            nxt = lines[i + 1]
+            if nxt.startswith("+++ "):
+                if line[4:].strip() == "/dev/null":
+                    path = re.sub(r"^[ab]/", "", nxt[4:].strip())
+                    created[path] = []
+                else:
+                    path = None
+                i += 2
+                continue
+        if path is not None and line.startswith("+"):
+            created[path].append(line[1:])
+        i += 1
+    return {p: "\n".join(body) for p, body in created.items()}
+
+
 def check_orfs_patches(read_bazel_orfs_fn, read_orfs_fn):
     """Problems bazel-orfs's ``ORFS_PATCHES`` would hit against an ORFS tree.
 
     ``read_bazel_orfs_fn(path)`` reads bazel-orfs files (``orfs_source.bzl``
     and the patches it names); ``read_orfs_fn(path)`` reads ORFS files at the
     target commit.  Both return None for a missing file.
+
+    The patches are checked **in order, against each other's results**, which
+    is how bazel applies them: ``repository_ctx.patch`` walks the list.  A
+    patch may therefore modify a file an earlier patch in the same list
+    created -- 0063 creates the FakeRAM ASAP7 backend and 0067 changes how it
+    folds an array -- and checking each patch against the pristine tree
+    rejects that series with "does not exist" on a file that will be there by
+    the time the patch runs.
+
+    Only creation is carried forward. A file an earlier patch *modified* is
+    still read from the tree, so two patches editing the same file are each
+    checked against the original -- correct whenever their hunks do not
+    overlap, which is the case ORFS_PATCHES has today (0060 and 0061 both
+    touch extract_memories.tcl). Applying hunks properly would need a patch
+    engine, and the failure that wanted fixing was the create-then-modify
+    one.
     """
     source = read_bazel_orfs_fn(ORFS_SOURCE_BZL)
     if source is None:
         return [f"{ORFS_SOURCE_BZL} not found in bazel-orfs; cannot check ORFS_PATCHES"]
+
+    created_so_far = {}
+
+    def read_with_created(path):
+        if path in created_so_far:
+            return created_so_far[path]
+        return read_orfs_fn(path)
+
     problems = []
     for patch_path in parse_orfs_patch_labels(source):
         text = read_bazel_orfs_fn(patch_path)
@@ -500,7 +553,10 @@ def check_orfs_patches(read_bazel_orfs_fn, read_orfs_fn):
                 f"{patch_path}: named in ORFS_PATCHES but not in bazel-orfs"
             )
             continue
-        problems.extend(check_patch_against_tree(patch_path, text, read_orfs_fn))
+        problems.extend(
+            check_patch_against_tree(patch_path, text, read_with_created)
+        )
+        created_so_far.update(created_file_texts(text))
     return problems
 
 
