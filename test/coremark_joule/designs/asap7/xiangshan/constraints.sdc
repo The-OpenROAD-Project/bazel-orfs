@@ -38,4 +38,24 @@ set in2reg_max  [expr { $clk_period * 0.8 }]
 set reg2out_max [expr { $clk_period * 0.8 }]
 set in2out_max  [expr { $clk_period * 0.6 }]
 
+# Reset is a false path here. XSCore's reset is asynchronous -- 1005 of
+# its always blocks are `posedge clock or posedge reset` -- and the one
+# `reset` port reaches the async-reset pin of every one of those flops.
+# Timed, that is a recovery and removal check at every flop against the
+# arrival through a buffer tree the flow builds for the net, and
+# repair_timing at every stage would fight it. A chip de-asserts such a
+# reset through a synchroniser and lets the tree settle; the check is
+# not what sets the core's frequency. repair_design still buffers the
+# net for slew and load, as a real reset tree is.
+foreach p [get_ports -quiet reset] {
+  set_false_path -from $p
+}
+
+# A fanout cap for the resizer. Without one, broadcast nets -- valids,
+# enables, decoded control -- come out of repair_design as long serial
+# repeater chains that global route then has to carry. 32 is a starting
+# point, textbook order of magnitude; the right value is a sweep against
+# the PDK's max_transition, and this one has not been swept.
+set_max_fanout 32 [current_design]
+
 source $::env(PLATFORM_DIR)/constraints.sdc
