@@ -7,7 +7,10 @@ package(default_visibility = ["//visibility:public"])
 chisel_library(
     name = "utility",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    scalacopts = ["-Ymacro-annotations"],
+    scalacopts = [
+        "-Ymacro-annotations",
+        "-Xcheckinit:false",
+    ],
     exports = ["@xs_rocket_chip//:rocket_chip"],
     deps = [
         "@xs_maven//:com_lihaoyi_sourcecode_2_13",
