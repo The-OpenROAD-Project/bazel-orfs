@@ -25,8 +25,12 @@ import xiangshan.DebugOptionsKey
   * Derived from upstream's DefaultConfig with two changes, both outside the
   * measurement boundary:
   *
-  *   - No OpenLLC. The study hardens no cache past L1, and a 32 MB
-  *     last-level cache is simulation cost with nothing to show for it.
+  *   - A small last-level cache. XiangShan V3 hardcodes enableCHI, so the
+  *     non-CHI path with its plain AXI SoC is dead code and OpenLLC is not
+  *     optional: XSTop instantiates it whenever CHI is on, and a config
+  *     without OpenLLCParamsOpt fails to elaborate. It shrinks from 32 MB
+  *     to 1 MB instead, which is simulation cost avoided and nothing else,
+  *     since the study hardens no cache past L1.
   *   - A small L2. CoreMark's working set fits in L1 after the first
   *     iteration, so L2 capacity has no measurable effect on the cycle
   *     count, and a 2 MB L2 is expensive to simulate.
@@ -37,7 +41,8 @@ import xiangshan.DebugOptionsKey
   */
 class CoreMarkJouleConfig(n: Int = 1)
     extends Config(
-      L2CacheConfig("512KB", inclusive = true, banks = 1, tp = false)
+      OpenLLCConfig("1MB", ways = 8, banks = 1)
+        ++ L2CacheConfig("512KB", inclusive = true, banks = 1, tp = false)
         ++ WithNKBL1D(64, ways = 4, numMemChannels = 1)
         ++ new BaseConfig(n)
     )
