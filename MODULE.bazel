@@ -761,6 +761,10 @@ http_archive(
     name = "xiangshan",
     build_file = "//test/coremark_joule/xiangshan:xiangshan.BUILD.bazel",
     dev_dependency = True,
+    # Carried, not upstreamed: see the patch header. Retire it at a bump
+    # onto a XiangShan whose CSR reads vl without the difftest RAT buffer.
+    patch_strip = 1,
+    patches = ["//test/coremark_joule/xiangshan:patches/0001-xiangshan-vl-csr-without-difftest.patch"],
     sha256 = "ed1561ee5b532ea0956aa3c9dbcf97454eace356bbdd7498a5fb2b5feaf57ded",
     strip_prefix = "XiangShan-37ce1b50b5b8fa1865205e76175e48fc636454d6",
     urls = ["https://github.com/OpenXiangShan/XiangShan/archive/37ce1b50b5b8fa1865205e76175e48fc636454d6.tar.gz"],

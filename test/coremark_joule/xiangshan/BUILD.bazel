@@ -11,7 +11,11 @@ load("@rules_verilog//verilog:defs.bzl", "verilog_library")
 
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 
-exports_files(glob(["*.BUILD.bazel"]))
+# The overlays, and the patch MODULE.bazel applies to the XiangShan archive.
+exports_files(glob([
+    "*.BUILD.bazel",
+    "patches/*.patch",
+]))
 
 # The generator. Two entry points against one elaboration path: the
 # minimal configuration proves the pipeline in minutes, the study
