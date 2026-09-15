@@ -17,13 +17,16 @@ Textbook throughout, and deliberately so:
              hierarchical instance name at a chosen depth, one block per
              (prefix, master); clusters below --min-cluster are residual
   tile       a block is a near-square grid of its banks with a fixed
-             channel between them
+             channel between them -- by default exactly two halos, so
+             the halos abut and no standard-cell row exists between
+             banks for pdngen to have to power
   ballast    the standard-cell area under each module path at the same
              depth becomes a square block too, scaled so macros and logic
              together fill --fill of the core, so banks land next to the
              logic that reads them rather than in a corner
   pack       blocks are shelf-packed left to right into rows across the
-             core: legal by construction, so the search is over order only
+             core with a gap wide enough for a power-strap pair: legal by
+             construction, so the search is over order only
   anneal     simulated annealing over the block order; cost is the
              connectivity-weighted Manhattan distance between block
              centres plus a hard penalty for overrunning the core height
@@ -111,12 +114,16 @@ def module_path_of(inst_name):
 
 
 def tile_shape(n, w, h, chan):
-    """Near-square grid of n banks of w x h with a channel: (cols, rows, W, H)."""
+    """Near-square grid of n banks of w x h with a channel: (cols, rows, W, H).
+
+    The channel sits between banks only; a block's outer edge is the
+    banks' own, and the packer keeps blocks apart.
+    """
     cols = max(1, int(math.ceil(math.sqrt(n * h / float(w)))))
     cols = min(cols, n)
     rows = int(math.ceil(n / float(cols)))
-    width = cols * w + (cols + 1) * chan
-    height = rows * h + (rows + 1) * chan
+    width = cols * w + (cols - 1) * chan
+    height = rows * h + (rows - 1) * chan
     return cols, rows, width, height
 
 
@@ -155,9 +162,23 @@ def build_blocks(inv, depth, min_cluster, chan, fill):
             residual.extend(insts)
             continue
         m = inv.masters[master]
-        cols, rows, w, h = tile_shape(len(insts), m["w"], m["h"], chan)
-        b = Block(pfx, w, h, insts, master)
+        cols, rows, _w, _h = tile_shape(len(insts), m["w"], m["h"], chan)
+        # Banks step by a whole number of track pitches, so snapping the
+        # first bank onto its tracks puts every bank on them and the
+        # channel between neighbours is the same everywhere, never less
+        # than asked for.
+        step_x = _track_multiple(m["w"] + chan, inv.tracks.get((m["vlayer"], "V")))
+        step_y = _track_multiple(m["h"] + chan, inv.tracks.get((m["hlayer"], "H")))
+        b = Block(
+            pfx,
+            (cols - 1) * step_x + m["w"],
+            (rows - 1) * step_y + m["h"],
+            insts,
+            master,
+        )
         b.cols = cols
+        b.step_x = step_x
+        b.step_y = step_y
         blocks.append(b)
     macro_area = sum(b.w * b.h for b in blocks)
     core_w = inv.core[2] - inv.core[0]
@@ -209,11 +230,16 @@ def build_weights(inv, blocks, depth, same_prefix_bonus):
 
 
 class Packer:
-    """Shelf-pack blocks into rows across the core; returns the height used."""
+    """Shelf-pack blocks into rows across the core; returns the height used.
 
-    def __init__(self, inv, chan):
+    ``gap`` separates blocks from each other and from the core edge. It
+    has to hold a power-strap pair, or the standard cells the placer puts
+    there end up in a channel pdngen cannot connect.
+    """
+
+    def __init__(self, inv, gap):
         self.x0, self.y0, self.x1, self.y1 = inv.core
-        self.chan = chan
+        self.chan = gap
 
     def pack(self, blocks, order):
         x = self.x0 + self.chan
@@ -232,11 +258,11 @@ class Packer:
 
 
 class Anneal:
-    def __init__(self, inv, blocks, weights, chan, seed, iterations):
+    def __init__(self, inv, blocks, weights, gap, seed, iterations):
         self.inv = inv
         self.blocks = blocks
         self.weights = weights
-        self.packer = Packer(inv, chan)
+        self.packer = Packer(inv, gap)
         self.rng = random.Random(seed)
         self.iterations = iterations
         self.height_penalty = 1e9
@@ -287,6 +313,14 @@ class Anneal:
         return best, best_cost
 
 
+def _track_multiple(length, track):
+    """``length`` rounded up to a whole number of the track's pitch."""
+    if not track or track[1] <= 0:
+        return length
+    pitch = track[1]
+    return int(math.ceil(length / float(pitch))) * pitch
+
+
 def snap_up(value, offset, pitch):
     """Smallest v >= value with v == offset (mod pitch)."""
     if pitch <= 0:
@@ -314,13 +348,10 @@ def placements(inv, blocks, chan):
     for b in blocks:
         if not b.is_macro():
             continue
-        m = inv.masters[b.master]
+        ox0, oy0 = macro_origin(inv, b.master, b.x, b.y)
         for k, inst in enumerate(b.macros):
             col, row = k % b.cols, k // b.cols
-            x = b.x + chan + col * (m["w"] + chan)
-            y = b.y + chan + row * (m["h"] + chan)
-            ox, oy = macro_origin(inv, b.master, x, y)
-            out.append((inst, b.master, ox, oy))
+            out.append((inst, b.master, ox0 + col * b.step_x, oy0 + row * b.step_y))
     return out
 
 
@@ -376,7 +407,20 @@ def main(argv):
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--depth", type=int, default=3, help="cluster prefix depth")
     p.add_argument("--min-cluster", type=int, default=4)
-    p.add_argument("--channel-um", type=float, default=4.4)
+    p.add_argument(
+        "--channel-um",
+        type=float,
+        default=4.0,
+        help="between banks of one block; two halos, so the halos abut and no "
+        "row is left between banks (default 4.0 for a 2 um halo)",
+    )
+    p.add_argument(
+        "--block-gap-um",
+        type=float,
+        default=10.8,
+        help="between blocks, and from the core edge; wide enough for a "
+        "power-strap pair (default 10.8, two 5.4 um strap pitches)",
+    )
     p.add_argument("--fill", type=float, default=0.6)
     p.add_argument("--iterations", type=int, default=20000)
     p.add_argument("--same-prefix-bonus", type=float, default=1000.0)
@@ -385,9 +429,10 @@ def main(argv):
     with open(args.inventory) as f:
         inv = Inventory.parse(f.read())
     chan = int(round(args.channel_um * inv.dbu))
+    gap = int(round(args.block_gap_um * inv.dbu))
     blocks, residual = build_blocks(inv, args.depth, args.min_cluster, chan, args.fill)
     weights = build_weights(inv, blocks, args.depth, args.same_prefix_bonus)
-    anneal = Anneal(inv, blocks, weights, chan, args.seed, args.iterations)
+    anneal = Anneal(inv, blocks, weights, gap, args.seed, args.iterations)
     order, cost = anneal.run()
     placed = placements(inv, blocks, chan)
     problems = check_legal(inv, blocks, placed)

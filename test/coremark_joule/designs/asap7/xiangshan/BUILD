@@ -11,6 +11,7 @@ design(
         "ANNEAL_DEPTH",
         "ANNEAL_MIN_CLUSTER",
         "ANNEAL_CHANNEL_UM",
+        "ANNEAL_BLOCK_GAP_UM",
         "ANNEAL_FILL",
     ],
     # The placer and its inventory dump, staged into the floorplan sandbox.
@@ -27,6 +28,7 @@ design(
             "ANNEAL_DEPTH",
             "ANNEAL_MIN_CLUSTER",
             "ANNEAL_CHANNEL_UM",
+            "ANNEAL_BLOCK_GAP_UM",
             "ANNEAL_FILL",
             "ANNEAL_DUMP_TCL",
             "ANNEAL_PY",
