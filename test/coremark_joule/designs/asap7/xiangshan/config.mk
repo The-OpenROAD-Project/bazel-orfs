@@ -97,6 +97,14 @@ export OPENROAD_HIERARCHICAL   = 1
 export REMOVE_ABC_BUFFERS      = 1
 
 # TURNAROUND SETTING -- flip to 0 (or delete) for the measured run.
+# report_metrics at the end of each stage is a full STA; at floorplan on
+# 10.8 M instances it was 75 of the stage's 80 minutes. The study takes
+# its numbers from its own scripts at global route, not from these
+# reports, but the reports are what a reader of the flow expects to
+# find, so the measured run keeps them.
+export SKIP_REPORT_METRICS     = 1
+
+# TURNAROUND SETTING -- flip to 0 (or delete) for the measured run.
 #
 # ORFS's default abc script is the speed one: five rounds of resynthesis
 # and timing-driven sizing against the SDC period. On this design it is
@@ -136,15 +144,22 @@ export ANNEAL_PY               = //test/coremark_joule/flow/macro_anneal:macro_a
 
 # Seeded: the same die gives the same bytes. Depth 3 clusters at the
 # level of frontend/inner_bpu/<predictor> and memblock/dcache/<array>;
-# a group of fewer than 4 is left to RTL-MP. The channel between banks
-# is one M6 strap pitch plus margin, so pdngen can always reach a bank;
-# fill is the fraction of the core the macro blocks and the logic
-# ballast are packed into, the rest being what RTL-MP and the placer
-# get to work with.
+# a group of fewer than 4 is left to RTL-MP. fill is the fraction of
+# the core the macro blocks and the logic ballast are packed into, the
+# rest being what RTL-MP and the placer get to work with.
+#
+# Two spacings, and the first run taught the difference. Between the
+# banks of one block the channel is exactly two halos, so the halos
+# abut and no standard-cell row exists between banks: at 4.4 um there
+# was a 0.38 um sliver of rows between every pair, seven sites wide,
+# and pdngen failed (PDN-0179) trying to power 60-odd of them. Between
+# blocks the gap is two strap pitches (M5/M6 pitch 5.4 um), so the
+# logic the placer puts there gets a grid.
 export ANNEAL_SEED             = 1
 export ANNEAL_DEPTH            = 3
 export ANNEAL_MIN_CLUSTER      = 4
-export ANNEAL_CHANNEL_UM       = 4.4
+export ANNEAL_CHANNEL_UM       = 4.0
+export ANNEAL_BLOCK_GAP_UM     = 10.8
 export ANNEAL_FILL             = 0.6
 
 # 2 um, not the platform's 10: at 10 the halos alone turn 0.13 mm2 of
