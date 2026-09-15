@@ -146,6 +146,11 @@ ORFS_PATCHES = [
     # as one, and refuses a combinational read, which no macro can be.
     # Not upstreamed -- retire at a bump onto an ORFS that carries it.
     Label("//patches:0069-orfs-auto-memories-firtool-modules.patch"),
+    # The FakeRAM asap7 backend emitted FakeRAM's own pin names whatever
+    # the module's were, and had no write mask. Builds the macro from the
+    # declared pins and adds mask lanes; unmasked output is unchanged.
+    # Goes with 0069; neither is useful without the other.
+    Label("//patches:0070-orfs-fakeram-declared-pins-write-mask.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
