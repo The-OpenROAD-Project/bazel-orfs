@@ -1,0 +1,6 @@
+\serv_alu	serv_alu
+$paramod\serv_alu\W=1	serv_alu
+$paramod$5f2a9c\serv_alu	serv_alu
+\ifu_bp_ctl$swerv_wrapper.swerv.ifu.bp	ifu_bp_ctl$swerv_wrapper.swerv.ifu.bp
+$paramod$6d68\serv_rf_ram	serv_rf_ram
+\cmj_imem	cmj_imem

@@ -1,0 +1,58 @@
+# The RTLIL module-name spellings synth_partition.sh has to resolve.
+#
+# yosys names a module three ways -- \Foo, $paramod\Foo\W=1 and
+# $paramod$<hash>\Foo -- plus \Foo$Top.path.to.inst for a uniquified
+# instance, and a design can contain several at once. SYNTH_KEEP_MODULES
+# carries the design's names, so every one of them has to resolve.
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+load("//:openroad.bzl", "orfs_flow")
+
+package(default_visibility = ["//visibility:private"])
+
+exports_files(["constraints.sdc"])
+
+# The cheap half: pure string logic, no synthesis. Sources the helpers
+# out of synth_partition.sh directly, so the test and the flow cannot
+# drift apart the way a reimplementation would.
+sh_test(
+    name = "rtlil_names_test",
+    size = "small",
+    srcs = ["rtlil_names_test.sh"],
+    args = [
+        "$(location cases.tsv)",
+        "$(location //:synth_partition.sh)",
+    ],
+    data = [
+        "cases.tsv",
+        "//:synth_partition.sh",
+    ],
+)
+
+# The end-to-end half, which is also the only coverage of the Tcl copy
+# of the algorithm in synth_canonicalize_module.tcl: a hierarchical
+# design whose kept module reaches the checkpoint under a mangled name.
+# Manual -- it needs synthesis.
+orfs_flow(
+    name = "pk_top",
+    abstract_stage = "place",
+    arguments = {
+        "SYNTH_HIERARCHICAL": "1",
+        "SYNTH_KEEP_MODULES": "pk_unit",
+        # Pinned rather than derived, so the action graph does not depend
+        # on how many modules happen to be kept.
+        "SYNTH_NUM_PARTITIONS": "1",
+        "CORE_UTILIZATION": "30",
+        "SKIP_REPORT_METRICS": "1",
+    },
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+    },
+    verilog_files = ["pk_top.v"],
+)
+
+build_test(
+    name = "pk_top_synth_test",
+    tags = ["manual"],
+    targets = [":pk_top_synth"],
+)

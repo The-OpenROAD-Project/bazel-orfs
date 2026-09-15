@@ -36,25 +36,54 @@ proc env_var_set_nonempty {name} {
     return [expr {[info exists ::env($name)] && $::env($name) ne ""}]
 }
 
-# Resolve a bare module name (e.g. "Foo") to its canonical form
-# (e.g. "Foo$Top.path.to.inst") by scanning
-# the checkpoint RTLIL for `module \X` lines. Same algorithm as
+# Resolve a bare module name (e.g. "Foo") to its canonical form by
+# scanning the checkpoint RTLIL for `module` lines. Same algorithm as
 # synth_partition.sh, kept here so this script is self-contained.
+#
+# yosys spells a module three ways, and a design can contain all three:
+#
+#   \Foo                          unparameterized
+#   $paramod\Foo\W=1              parameterized, named form
+#   $paramod$<hash>\Foo           parameterized, hashed form
+#
+# plus the `Foo$Top.path.to.inst` form uniquified instances take. The
+# design's own name is the component after the first backslash in every
+# mangled form, so that is what is compared. Matching only `module \X`
+# found nothing at all in a design that parameterizes its submodules.
 set rtlil_modules [list]
 set fp [open $::env(SYNTH_CHECKPOINT) r]
 while {[gets $fp line] >= 0} {
-    if {[regexp {^module \\(\S+)} $line _ name]} {
+    if {[regexp {^module (\S+)} $line _ name]} {
         lappend rtlil_modules $name
     }
 }
 close $fp
+
+# The design's name for an RTLIL module, stripped of yosys's mangling.
+proc rtlil_base_name {name} {
+    if {[string index $name 0] eq "\\"} {
+        return [string range $name 1 end]
+    }
+    set parts [split $name "\\"]
+    if {[llength $parts] >= 2} {
+        return [lindex $parts 1]
+    }
+    return $name
+}
 
 proc resolve_canonical {bare modules} {
     foreach m $modules {
         if {$m eq $bare} { return $m }
     }
     foreach m $modules {
-        if {[string match "${bare}\$*" $m]} { return $m }
+        if {[rtlil_base_name $m] eq $bare} { return $m }
+    }
+    # Uniquified instances: slang names a module
+    # `Foo$Top.path.to.inst`. Matching on the demangled name rather than
+    # the raw one, because the raw form carries the leading backslash
+    # every RTLIL identifier has.
+    foreach m $modules {
+        if {[string match "${bare}\$*" [rtlil_base_name $m]]} { return $m }
     }
     error "synth_canonicalize_module: '$bare' not present in checkpoint"
 }
