@@ -19,7 +19,17 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-module cmj_ibex (
+module cmj_ibex #(
+    /* ibex's instruction cache. Off for the point this study reports,
+     * and the reason is a measurement rather than convenience -- see
+     * section 5.1. Behind a single-cycle tightly-coupled memory the
+     * cache has nothing to speed up, and ibex's is 4 kB against
+     * CoreMark's 24-30 kB of .text, so it cannot hold the benchmark
+     * either. //test/coremark_joule/designs/asap7/ibex_icache builds
+     * it on, which is what keeps the ASAP7 prim_ram_1p and its macros
+     * from rotting. */
+    parameter bit ICache = 1'b0
+) (
     input  logic        clk,
     input  logic        resetn,
 
@@ -57,7 +67,13 @@ module cmj_ibex (
   logic [31:0] data_wdata;
   logic [31:0] data_rdata;
 
-  ibex_top u_core (
+  /* ECC and scrambling stay at ibex_top's defaults (off) whichever way
+   * ICache goes. Both add RAM width and logic the other three cores
+   * have no counterpart for, and neither is part of what "has an
+   * instruction cache" means. */
+  ibex_top #(
+      .ICache(ICache)
+  ) u_core (
       .clk_i (clk),
       .rst_ni(resetn),
 

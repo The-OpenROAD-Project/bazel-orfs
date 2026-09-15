@@ -27,8 +27,24 @@ filegroup(
     ),
 )
 
+# The generic behavioural RAM, kept out of the shared list so the two
+# consumers can differ.
+#
+# prim_ram_1p is lowRISC's technology-swappable memory primitive: the
+# vendor drop carries a prim_generic implementation (a behavioural
+# array) and a prim_xilinx one beside it, which is the library saying
+# out loud that a real target supplies its own. ibex instantiates it
+# only with ICache=1, four times -- tag and data banks, two ways.
+#
+# The simulator wants the behavioural one. The flow must not have it:
+# an inline array is the design asking for flip-flops, and AUTO_MEMORIES
+# says so and refuses to convert it, which on a 4 kB cache is 44,032
+# flops against a core of about two thousand. See
+# //test/coremark_joule/rtl:cmj_prim_ram_1p.sv for the ASAP7 one.
+GENERIC_RAM_1P = "vendor/lowrisc_ip/ip/prim_generic/rtl/prim_ram_1p.sv"
+
 filegroup(
-    name = "rtl",
+    name = "rtl_common",
     srcs = glob(
         [
             "rtl/*.sv",
@@ -71,8 +87,25 @@ filegroup(
             "rtl/*_pkg.sv",
             "vendor/lowrisc_ip/ip/prim/rtl/*_pkg.sv",
             "vendor/lowrisc_ip/ip/prim_generic/rtl/*_pkg.sv",
+            GENERIC_RAM_1P,
         ],
     ),
+)
+
+# For the simulator: the core plus lowRISC's behavioural RAM.
+filegroup(
+    name = "rtl",
+    srcs = [
+        GENERIC_RAM_1P,
+        ":rtl_common",
+    ],
+)
+
+# For the flow: the core without it, so the design's own ASAP7
+# implementation is the only prim_ram_1p in the elaboration.
+filegroup(
+    name = "rtl_tech_ram",
+    srcs = [":rtl_common"],
 )
 
 # Two header directories, both `include`d by name from ibex sources:

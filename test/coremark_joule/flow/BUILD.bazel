@@ -20,3 +20,7 @@ exports_files(["period_probe.tcl"])
 exports_files(["cmj_progmem.memories"])
 
 exports_files(["cmj_progmem_macros.v"])
+
+exports_files(["cmj_icache_ram.memories"])
+
+exports_files(["cmj_icache_ram_macros.v"])

@@ -74,7 +74,8 @@ move no number in it. That is deliberate: one model applied uniformly is
 something a comparison survives, and two models is not — but it is the
 single largest thing between this work and an energy measurement, and it
 is being fixed in the generator rather than worked around here. ibex is
-still measured with `ICache=0`. The simulation is zero-delay and so
+measured with `ICache=0`, which §5.1 shows is the right configuration
+rather than an omission. The simulation is zero-delay and so
 carries no glitch power, the parasitics are estimated rather than
 extracted, the corner is ASAP7's best case, and the frequency is an SDC
 target rather than an achieved maximum. Each is quantified or bounded in
@@ -1297,10 +1298,57 @@ half the size and no number in this paper moves. That is the single
 largest thing standing between this study and an energy measurement,
 and it is being fixed in ORFS rather than worked around here.
 
-*ibex is still `ICache=0`.* Its boundary is met by substitution -- the
-tightly-coupled memory stands in for the L1 -- rather than by its own
-cache. It is the one core in the study measured with a cache it has
-configured away, and turning it on is the other half of this section.
+*ibex is measured with `ICache=0`, and that is a finding rather than a
+gap.* An earlier draft called it the other half of this section and
+assumed turning the cache on would close it. It was built and measured,
+and it does not.
+
+Two things stop it. **The cache cannot buy a cycle.** It sits in front
+of a tightly-coupled memory that already answers in one, so
+CoreMark/MHz is 2.4543 with the cache on and 2.4543 with it off --
+identical to the digit, on both marches. **And it cannot hold the
+benchmark.** ibex's cache is 4 kB (`IC_SIZE_BYTES` is a package
+parameter, not one an instantiation can override) against 24--30 kB of
+`.text`, so the configuration that would exercise it -- `.text` in
+external memory, fetched through the cache, which is what VeeR does --
+would miss continuously and break this section's own residency check.
+VeeR gets away with that arrangement because its cache is 16 kB and
+CoreMark fits.
+
+What the cache does change is energy, and mostly for a reason that
+belongs to the memory model:
+
+| | CoreMark/MHz | CoreMark/Joule | power | macro |
+|---|---|---|---|---|
+| `ICache=0` (reported) | 2.4543 | 99,284 | 20.60 mW | 11.90 mW |
+| `ICache=1` | 2.4543 | 64,316 | 31.80 mW | 21.40 mW |
+
+A 1.54x energy penalty for no performance at all, and 9.5 mW of the
+11.2 mW rise is macro power. The mechanism is arithmetic: a cache hit
+reads both ways' tags and both ways' data, four macro accesses, in
+place of one access to the program memory -- and FakeRAM charges the
+same energy per access whatever the memory's size. Four small accesses
+therefore cost four times one large one. In silicon they cost a
+fraction of it, and that difference is the entire reason caches exist.
+**Under this memory model a cache can only ever lose**, so the 1.54x
+is not a measurement of ibex's cache; it is a measurement of the model,
+and the sharpest one in this paper.
+
+Both configurations are kept.
+`//test/coremark_joule/designs/asap7/ibex_icache` builds the cache
+version to global route, which keeps the ASAP7 `prim_ram_1p` and the
+two cache-RAM macros from rotting -- a configuration that silently
+reverted to flip-flops would be 44,032 of them, twenty times ibex's own
+flop count, and would fail there rather than in a number nobody
+re-derives. Supplying that `prim_ram_1p` is not a change to ibex:
+lowRISC ships the primitive twice, `prim_generic` and `prim_xilinx`
+side by side, which is the library saying a real target provides its
+own. No ibex source is modified and `ibex_top`'s parameters are
+untouched.
+
+When the memory power model knows how big a memory is, this becomes a
+real experiment and the table above should be re-measured rather than
+cited.
 
 *The memory is the study's, not the cores'.* None of the three
 repositories ships a memory; their testbenches use simulation arrays.

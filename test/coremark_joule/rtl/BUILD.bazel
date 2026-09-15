@@ -11,6 +11,9 @@ package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 
 exports_files([
     "cmj_ibex.sv",
+    "cmj_ibex_ic.sv",
+    "cmj_icache_ram.sv",
+    "cmj_prim_ram_1p.sv",
     "cmj_dmem.v",
     "cmj_progmem.sv",
     "cmj_picorv32.v",
@@ -108,6 +111,15 @@ verilog_library(
     deps = [":ibex_pkgs"],
 )
 
+# The instruction-cache RAMs' behavioural view, for the gate-level
+# simulation: the netlist blackboxes them, and a blackbox stores
+# nothing, so without these the cache never hits and CoreMark fails its
+# CRCs rather than reporting a suspiciously fast core.
+verilog_library(
+    name = "cmj_icache_ram",
+    srcs = ["cmj_icache_ram.sv"],
+)
+
 verilog_library(
     name = "cmj_ibex",
     srcs = ["cmj_ibex.sv"],
@@ -189,6 +201,7 @@ verilog_library(
     ],
     deps = [
         ":asap7_stdcells",
+        ":cmj_icache_ram",
         ":cmj_progmem",
     ],
 )
