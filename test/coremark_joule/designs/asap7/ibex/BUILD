@@ -1,5 +1,5 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
-load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "stage_activity_audit", "stage_activity_sweep", "stage_power")
+load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power")
 
 exports_files(["constraints.sdc"])
 
@@ -54,4 +54,10 @@ stage_activity_sweep(
     saif = "//test/coremark_joule/sim:ibex_rv32imc_saif",
     saif_scope = "TOP/cm_soc/u_core",
     visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+# The minimum clock period, reg2reg only. See §3.8.
+period_probe(
+    name = "cmj_ibex_period",
+    src = ":cmj_ibex_grt",
 )

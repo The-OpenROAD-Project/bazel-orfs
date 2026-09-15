@@ -1,5 +1,5 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
-load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "hier_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power")
+load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "hier_probe", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power")
 
 # No memories_applied_test here: picorv32 has no convertible memory, so
 # AUTO_MEMORIES is off and there is nothing for the guard to assert. The
@@ -67,4 +67,10 @@ stage_activity_sweep(
     saif = "//test/coremark_joule/sim:picorv32_rv32im_saif",
     saif_scope = "TOP/cm_soc/cpu",
     visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+# The minimum clock period, reg2reg only. See §3.8.
+period_probe(
+    name = "cmj_picorv32_period",
+    src = ":cmj_picorv32_grt",
 )

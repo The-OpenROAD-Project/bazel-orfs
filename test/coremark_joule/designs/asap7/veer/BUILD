@@ -1,5 +1,5 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
-load("//test/coremark_joule/flow:power.bzl", "dup_inst_probe", "grt_netlist", "stage_activity_audit", "stage_activity_sweep", "stage_power", "stage_power_units")
+load("//test/coremark_joule/flow:power.bzl", "dup_inst_probe", "grt_netlist", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power", "stage_power_units")
 
 exports_files(["constraints.sdc"])
 
@@ -75,4 +75,10 @@ dup_inst_probe(
         "clknet_leaf_24_clk_i",
         "clknet_leaf_152_clk_i",
     ],
+)
+
+# The minimum clock period, reg2reg only. See §3.8.
+period_probe(
+    name = "swerv_wrapper_period",
+    src = ":swerv_wrapper_grt",
 )

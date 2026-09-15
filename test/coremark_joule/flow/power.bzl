@@ -368,3 +368,26 @@ def dup_inst_probe(name, src, nets, stage = "grt", tags = ["manual"], visibility
         tags = tags,
         visibility = visibility,
     )
+
+def period_probe(name, src, stage = "grt", tags = ["manual"], visibility = None):
+    """The minimum clock period, from register-to-register paths only.
+
+    §3.8: only reg2reg can fail timing closure, and every path touching a
+    port is an optimisation target whose budget is this study's own
+    assumption about a register outside the pin. A frequency derived
+    from the overall WNS would be limited by that assumption rather than
+    by the design, so the probe reports both and the study quotes the
+    reg2reg one.
+    """
+    orfs_run(
+        name = name,
+        src = src,
+        outs = [name + ".txt"],
+        script = "//test/coremark_joule/flow:period_probe.tcl",
+        user_arguments = {
+            "STAGE_STEM": STAGE_STEM[stage],
+            "OUT": "$(location {}.txt)".format(name),
+        },
+        tags = tags,
+        visibility = visibility,
+    )

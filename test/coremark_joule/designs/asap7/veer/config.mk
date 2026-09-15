@@ -160,3 +160,12 @@ export GPL_RANDOM_SEED         = 2
 #     as "not yet run to completion under OpenROAD-SYN in this
 #     environment", and the yosys + slang path here works.
 
+# Metrics reporting off. This is the only line of the FAST_SETTINGS dict
+# in //test:BUILD that a measurement study can take -- every other entry
+# in it changes the netlist, and a study cannot buy speed with the thing
+# it measures. §3.6 of the paper has the list and the reasoning.
+#
+# Nothing here reads ORFS's metrics: power comes from
+# flow/power_grt.tcl, the achieved period from flow/period_probe.tcl,
+# and auto_floorplan takes WNS from sta::worst_slack_cmd directly.
+export SKIP_REPORT_METRICS     = 1

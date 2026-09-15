@@ -492,6 +492,31 @@ The liberty files actually read are recorded per design in
 `<name>_design.json` by the audit, so the corner in this section is
 machine-checked against the run rather than asserted here.
 
+**One flow setting is turned off for speed, and exactly one.** bazel-orfs
+carries a `FAST_SETTINGS` dict (in `//test:BUILD`, and copied in
+`examples/` and `test/smoketest/`) that disables the expensive parts of
+the flow for CI. It is the right dict for a smoke test and the wrong one
+for a measurement, because most of its entries **change the netlist**:
+
+| setting | what it changes | usable here |
+|---|---|---|
+| `GPL_TIMING_DRIVEN=0`, `GPL_ROUTABILITY_DRIVEN=0` | placement stops optimising timing and congestion | no |
+| `SKIP_CTS_REPAIR_TIMING=1` | no buffer insertion, sizing or VT swap after CTS | no |
+| `SKIP_INCREMENTAL_REPAIR=1` | no repair at global route | no |
+| `REMOVE_ABC_BUFFERS=1` | strips synthesis buffers instead of repairing | no |
+| `FILL_CELLS=""`, `TAPCELL_TCL=""` | no fillers or taps — area, density and leakage | no |
+| `PWR_NETS_VOLTAGES=""`, `GND_NETS_VOLTAGES=""` | skips IR-drop at `final` | moot, this study stops at grt |
+| **`SKIP_REPORT_METRICS=1`** | **reporting only** | **yes** |
+
+A study cannot buy speed with the thing it measures, so every design
+here takes the last line and refuses the rest. Nothing in the study
+reads ORFS's metrics: power comes from `flow/power_grt.tcl`, the
+achieved period from `flow/period_probe.tcl`, and the floorplan
+derivation takes WNS from `sta::worst_slack_cmd` directly. The
+distinction between netlist-affecting and analysis-only is not marked in
+`FAST_SETTINGS`' own documentation, which is why it is spelled out
+here.
+
 ### 3.7 Functional-unit attribution
 
 Each design sets `SYNTH_HIERARCHICAL=1` with an explicit
@@ -562,6 +587,34 @@ The consequences follow mechanically.
   ports that is a large amount of area and leakage that would otherwise
   be charged to the core for a hold requirement its real environment
   does not impose.
+
+**So the minimum clock period is the reg2reg one, and this study takes
+it from the platform's own path group.** `$PLATFORM_DIR/constraints.sdc`
+ends by partitioning the design with four `group_path` commands —
+`in2reg`, `reg2out`, `reg2reg`, `in2out` — and `flow/period_probe.tcl`
+asks for the worst slack in `reg2reg` by name. Two consequences, both
+deliberate:
+
+- **The overall WNS is not used, and reporting it would understate every
+  core here.** It is the worst slack across all four groups, so it can
+  be set by an in2reg or reg2out path whose budget is the 0.8/0.8/0.6
+  fraction *this study chose* to stand in for a register outside the
+  pin. That budget is an assumption about how the core is connected to
+  the world — a clock-crossing bridge, a bus register, a GPIO pad — and
+  which of those it is changes the number without changing the design.
+  A frequency derived from it would be limited by our own assumption.
+- **The group is asked for by name rather than re-derived.** Writing
+  `-from [all_registers] -to [all_registers]` in the probe would be a
+  second definition of the same partition, free to drift from the file
+  that actually constrains the design. The probe also reports the
+  group's path count, because a group that matches nothing and a group
+  whose worst slack is zero both produce a zero and are very different
+  facts.
+
+The same reasoning is what `auto_period` (§8.3) will drive: push the
+period until the **reg2reg** slack goes slightly negative, and ignore
+what the other three groups are doing, because they are measuring an
+environment this study does not model.
 
 **The same model covers the small cores, for the same reason.** Once
 §3.1's boundary is met, the memory a small core runs out of is inside
@@ -1067,8 +1120,18 @@ the cross-series comparison are.
 
 §3.8 says what a CPU core's frequency *is* — the reciprocal of its
 longest register-to-register path, with everything touching a port an
-optimisation target rather than a closure condition. This section is
-about the other half: which period was actually used.
+optimisation target rather than a closure condition, and it says that
+the number is taken from the platform's `reg2reg` path group rather than
+from the overall WNS. This section is about the other half: which period
+was actually used.
+
+`<design>_period` reports both slacks per design, so the gap between
+them — the size of the IO assumption — is visible rather than folded in.
+VeeR at 1600 ps closes with a reg2reg worst slack of **0.0 ps** over a
+group of matched paths, so its 625 MHz is achieved rather than
+understated. That is one design at one period; it says nothing about how
+much faster it would go if the period were pushed, which is the job
+below.
 
 The frequency each core is scored at is the SDC period the SAIF was
 timed against, not `1 / (period - WNS)` at a period pushed until WNS is

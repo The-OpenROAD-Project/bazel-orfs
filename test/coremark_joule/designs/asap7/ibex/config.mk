@@ -58,3 +58,13 @@ export OPENROAD_HIERARCHICAL    = 1
 
 export CORE_UTILIZATION        = 40
 export PLACE_DENSITY           = 0.65
+
+# Metrics reporting off. This is the only line of the FAST_SETTINGS dict
+# in //test:BUILD that a measurement study can take -- every other entry
+# in it changes the netlist, and a study cannot buy speed with the thing
+# it measures. §3.6 of the paper has the list and the reasoning.
+#
+# Nothing here reads ORFS's metrics: power comes from
+# flow/power_grt.tcl, the achieved period from flow/period_probe.tcl,
+# and auto_floorplan takes WNS from sta::worst_slack_cmd directly.
+export SKIP_REPORT_METRICS     = 1
