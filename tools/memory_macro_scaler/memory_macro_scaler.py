@@ -1640,8 +1640,18 @@ def scan_verilog_files(paths):
     return out
 
 
+# A port declaration, with the data type between the direction and the
+# width optional. firtool omits it (`input [9:0] R0_addr`), but most
+# hand-written SystemVerilog does not (`input logic [10:0] ADR`), and
+# without this the scanner sees no ports at all on such a module -- then
+# skips it silently, because a module with no ports is not a memory.
+# That failure looks like "this design has no memories" rather than like
+# an error.
 _VERILOG_PORT_RE = re.compile(
-    r"\b(input|output|inout)\b\s*(\[[^\]]+\])?\s*(\w+)\s*[,;)]"
+    r"\b(input|output|inout)\b\s*"
+    r"(?:(?:wire|reg|logic|bit)\b\s*)?"
+    r"(?:(?:signed|unsigned)\b\s*)?"
+    r"(\[[^\]]+\])?\s*(\w+)\s*[,;)]"
 )
 _VERILOG_BUS_WIDTH_RE = re.compile(r"\[\s*(\d+)\s*:\s*(\d+)\s*\]")
 
