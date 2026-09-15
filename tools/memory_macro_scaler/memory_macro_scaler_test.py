@@ -624,6 +624,32 @@ class TestGenerateFromScratch(unittest.TestCase):
             "expected nonzero rise_power for at least one arc",
         )
 
+    def test_power_tables_use_a_power_lut_template(self):
+        """Every template an internal_power table names must be declared
+        as a power_lut_template.
+
+        Liberty keeps power templates in their own namespace. Declared
+        as an lu_table_template instead, OpenSTA reports "table template
+        <name> not found" and silently drops the table -- the macro then
+        contributes leakage only, which reads as a plausible power
+        number rather than a missing one. That is exactly the failure a
+        power study cannot notice by looking at its own output.
+        """
+        role = mms.MemoryRole(
+            kind="sram", rows=128, bits=64, nRW=1, library_name="mem", cell_name="mem"
+        )
+        lib = mms.generate_lib(role, tech_nm=7)
+
+        named = set(re.findall(r"(?:rise|fall)_power\((\w+)\)", lib))
+        self.assertTrue(named, "expected at least one power table")
+
+        power_templates = set(re.findall(r"power_lut_template\s*\(\s*(\w+)\s*\)", lib))
+        self.assertEqual(
+            named - power_templates,
+            set(),
+            "power tables name templates that are not power_lut_templates",
+        )
+
     def test_generate_lib_has_setup_hold(self):
         role = mms.MemoryRole(
             kind="sram",
