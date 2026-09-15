@@ -75,7 +75,6 @@ def plot(document, out_path):
     ax.set_ylabel("CoreMark/Joule  (work per unit energy)")
     ax.set_title("Energy efficiency against performance per clock")
     ax.grid(True, which="both", alpha=0.3)
-    ax.legend(loc="lower left", fontsize=8, framealpha=0.9)
 
     # Configurations measured on one axis only. Drawn on the x-axis
     # rather than left out: a reader counting points should see every
@@ -100,11 +99,13 @@ def plot(document, out_path):
                 color="0.4",
             )
 
-    # The literature series: measured elsewhere, at another node, at the
-    # boundary this study is aiming for. Its own colour and marker
-    # because it is not like-for-like -- a different process and a
-    # different toolchain -- and reading the two as one trend would be
-    # wrong.
+    # The literature series: measured elsewhere, at another node, with
+    # another toolchain, and -- unlike this study's points -- at a
+    # boundary its source does not state. Its own colour and marker,
+    # because reading the two as one trend would be wrong. The label
+    # says "core" rather than "core + L1" for that reason: the paper
+    # configures 64 KB L1s but never says whether the power it reports
+    # includes them. See pin_results.py.
     lit = document.get("literature", [])
     if lit:
         ax.scatter(
@@ -116,7 +117,7 @@ def plot(document, out_path):
             edgecolors="tab:red",
             linewidths=1.6,
             zorder=3,
-            label="GF 22 FDX, core + L1 (CF'25)",
+            label="GF 22 FDX, core, boundary unstated (CF'25)",
         )
         # The three points sit within a factor of two of each other on
         # both axes, so a single offset direction overlaps the labels.
@@ -162,14 +163,21 @@ def plot(document, out_path):
                 color="0.4",
             )
 
+    # After every series is drawn, not before: a legend built early
+    # silently omits whatever is plotted after it, and the series most
+    # likely to be added later is the one a reader most needs named.
+    ax.legend(loc="lower left", fontsize=8, framealpha=0.9)
+
     prov = document.get("provenance", {})
     ax.text(
         0.0,
         -0.17,
-        "{}, {}; activity: {}\nfrequency: {}\nboundary: {}\n{}".format(
+        "{}, {}; activity: {}\ncorner: {}\nfrequency: {}\nboundary: {}\n"
+        "{}".format(
             prov.get("platform", "?"),
             prov.get("stage", "?"),
             prov.get("activity", "?"),
+            prov.get("corner", "?"),
             prov.get("frequency", "?"),
             prov.get("boundary", "?"),
             prov.get("note", "")

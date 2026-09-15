@@ -28,53 +28,67 @@ import sys
 RESULTS = "test/coremark_joule/results.json"
 
 # A second series from the literature: cores implemented in
-# GlobalFoundries 22 FDX and measured at the same boundary this study
-# aims at -- the power breakdown is per core component (Fetch, Decode &
-# Issue, Int Exe, LSU, Retire, MMU, Icache, Dcache), so it is the core
-# plus its L1 caches and nothing beyond.
+# GlobalFoundries 22 FDX, drawn as its own series because it is not
+# like-for-like with the asap7 points -- different process, different
+# tools, different stage, different corner, and a boundary the source
+# does not state.
 #
-# CoreMark/Joule is derived from the paper's own figures:
+# CoreMark/Joule is *derived* from the paper's own figures:
 #   score = CoreMark/MHz * f,  CoreMark/Joule = score / power
 # with power taken near each core's maximum frequency (Figure 7) and
 # CoreMark/MHz from its Table. Nothing is scaled between nodes.
 #
-# It is a different process on different tools, so it is not a like-for
-# -like comparison with the asap7 points and is drawn as its own series.
-# What makes it worth showing is that it is the same benchmark at the
-# boundary this study wants, by people who stated both.
+# Two things the derivation carries that are worth stating where the
+# numbers live rather than only in the paper:
+#
+# - The boundary is not stated by the source. The cores are configured
+#   with 64 KB two-way L1 I and D caches, but Figure 7's breakdown names
+#   Fetch, Decode, Issue, Integer Execution, Load/Store Unit, Floating
+#   Point and Control Flow, and no cache term appears in it. Whether the
+#   reported core power includes the L1s cannot be determined from the
+#   paper, so it is recorded here as unstated rather than assumed.
+# - The power is measured on matmult-int, not on CoreMark. The paper
+#   states its power numbers for that benchmark. So a derived
+#   CoreMark/Joule combines a CoreMark performance number with a
+#   matmult-int power number, and is an estimate of the paper's energy
+#   efficiency rather than a figure the paper reports.
 _CF25 = "Ramping Up Open-Source RISC-V Cores, ACM CF'25 (arXiv:2505.24363)"
 
+# What every entry in LITERATURE shares, so a reader of results.json
+# does not have to find the paper to know what the number is.
+_CF25_PROVENANCE = {
+    "process": "GF 22 FDX",
+    "boundary": "not stated by the source; 64 KB two-way L1 I/D configured, "
+    "but Figure 7's breakdown names only pipeline units",
+    "power_benchmark": "matmult-int (not CoreMark)",
+    "corner": "0.8 V, TT, 25 C, RC typical",
+    "tool": "Synopsys PrimeTime 2022.03, post-layout netlist simulation",
+    "derivation": "CoreMark/Joule = CoreMark/MHz * f / power, computed here",
+    "source": _CF25,
+}
+
 LITERATURE = [
-    {
+    dict(_CF25_PROVENANCE, **{
         "name": "CVA6",
         "coremark_per_mhz": 2.19,
         "frequency_mhz": 900.0,
         "power_w": 0.06988,
         "coremark_per_joule": 2.19 * 900.0 / 0.06988,
-        "process": "GF 22 FDX",
-        "boundary": "core + L1",
-        "source": _CF25,
-    },
-    {
+    }),
+    dict(_CF25_PROVENANCE, **{
         "name": "CVA6S+",
         "coremark_per_mhz": 2.84,
         "frequency_mhz": 900.0,
         "power_w": 0.09429,
         "coremark_per_joule": 2.84 * 900.0 / 0.09429,
-        "process": "GF 22 FDX",
-        "boundary": "core + L1",
-        "source": _CF25,
-    },
-    {
+    }),
+    dict(_CF25_PROVENANCE, **{
         "name": "XuanTie C910",
         "coremark_per_mhz": 4.86,
         "frequency_mhz": 1300.0,
         "power_w": 0.21481,
         "coremark_per_joule": 4.86 * 1300.0 / 0.21481,
-        "process": "GF 22 FDX",
-        "boundary": "core + L1",
-        "source": _CF25,
-    },
+    }),
 ]
 
 # Published performance per clock with no energy figure at a stated
@@ -159,7 +173,16 @@ def main(argv):
         "provenance": {
             "platform": "asap7",
             "stage": "grt",
+            "corner": "BC: RVT, FF, 0.77 V, 25 C, NLDM -- asap7's ORFS "
+            "default, which is the best case rather than the typical one",
+            "parasitics": "estimate_parasitics -global_routing; no "
+            "extracted SPEF",
             "activity": "saif, one hot CoreMark iteration",
+            "activity_annotation": "100% of pins annotated from the SAIF "
+            "on every point; see the *_activity_audit.json and "
+            "*_activity_sweep_check.json targets",
+            "simulation": "Verilator, two-state and zero-delay: carries no "
+            "glitch power",
             "boundary": "core + L1 (or program SRAM) is the rule; "
             "these points predate it and harden no memory at all",
             "frequency": "the SDC period the SAIF was timed against, "
