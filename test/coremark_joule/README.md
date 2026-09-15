@@ -768,7 +768,7 @@ core its own budgeted run.
 | 4 | CV32E40P | ~3.1 | SystemVerilog | low |
 | 5 | VeeR EL2 | ~2.6 | SystemVerilog | low |
 | 6 | CVA6 | ~2.5 | SystemVerilog | medium — RV64 contrast at similar CoreMark/MHz |
-| 7 | **VeeR EH1** | **~4.9** | SystemVerilog | **low — wired from upstream; ORFS's `swerv_wrapper` supplies the macro views, not the RTL** |
+| 7 | **VeeR EH1** | **4.94** [11] | SystemVerilog | **low — wired from upstream; ORFS's `swerv_wrapper` supplies the macro views, not the RTL** |
 | 8 | OpenC910 | ~4.9–7 | Verilog/SV | medium — 3-issue OoO, silicon-proven |
 | 9 | SonicBOOM | 6.2 | Chisel | high — pulls in the Scala generator |
 | 10 | XiangShan | ~10–15 | Chisel | high — very large |
@@ -834,6 +834,50 @@ exists: the core that is simulated and the core that is hardened must
 not be able to differ, and a reader must be able to see which
 configuration was measured. (Upstream's generator is Perl, which is why
 its output is committed rather than run in the build.)
+
+**Its CoreMark/MHz is 4.94, and upstream says on what.** The figure
+comes from Western Digital's own `docs/SweRV_CoreMark_Benchmarking.pdf`
+[11], and the configuration it was measured on is not one of the
+generator's target presets:
+
+    swerv -set reset_vec=0xf0090000 -set=iccm_enable=1
+          -unset=icache_enable
+          -iccm_region=0xf -iccm_offset=0x90000 -iccm_size=64
+          -dccm_region=0xf -dccm_offset=0x80000 -dccm_size=64
+          -btb_size=512 -bht_size=2048
+
+64 kB ICCM holding the code, 64 kB DCCM holding the data, the
+instruction cache **off**, and a 512-entry BTB with a 2048-entry BHT.
+A default-target build has a 32-entry BTB and a 128-entry BHT — a
+sixteenth of each — so a number taken on the default would not be
+comparable with the published one. This study therefore measures
+Western Digital's configuration, which is committed under
+`rtl/veer/config` with that command in its header.
+
+It is also the configuration §3.1's rule asks for. A core with no cache
+is measured with the small SRAM that comes with it and holds the
+program hardened as part of it, and ICCM plus DCCM is exactly that: the
+memory the hot loop runs out of, inside the boundary. One memory shape
+falls out of it — `ram_2048x39` — which is a fakeram7 view ASAP7
+already carries.
+
+Two departures from Western Digital's setup, both deliberate.
+`-ahb_lite`, because the external bus here serves only the two-word
+sim-control device of §3.2 and AHB-Lite is a far smaller adapter than
+AXI4 for that. And `fpga_optimize=0`: their number was taken on a
+Nexys-4 FPGA prototype at 40 MHz, where the generator's FPGA setting
+minimises clock gating — a first-order term in exactly the energy this
+study reports.
+
+**That document also puts a number on §5.9's compiler threat.** Western
+Digital measured 4.94 with GCC 7.2.0 and **4.84 with GCC 8.2.0** — a
+2 % swing from the compiler alone, on identical hardware, in the
+direction of the *newer* compiler being worse. This study builds with
+GCC 13.2.0, so its VeeR CoreMark/MHz is not expected to reproduce 4.94
+exactly, and the difference is not evidence about the core. It is also
+a reminder that every CoreMark/MHz in §7's table is a vendor number
+taken with a vendor's compiler, which is why they are labelled as
+orientation rather than plotted.
 
 What remains to cost, stated rather than discovered later:
 
@@ -970,3 +1014,4 @@ copy of the Software.
 8. *Measuring Active Power Using PrimeTime PX: A User Perspective.* SNUG Boston 2010. https://veripool.org/papers/Active_Power_Primetime_PX_SNUGBos10_paper.pdf
 9. Parallax Software. *OpenSTA* — `power/Power.cc`, `power/SaifReader.cc`. https://github.com/parallaxsw/OpenSTA
 10. "Feature request — extend reporting on pin activities." parallaxsw/OpenSTA issue #162. https://github.com/parallaxsw/OpenSTA/issues/162
+11. Western Digital. *CoreMark Benchmarking for SweRV*, 20 November 2019. `docs/SweRV_CoreMark_Benchmarking.pdf` in chipsalliance/Cores-VeeR-EH1.

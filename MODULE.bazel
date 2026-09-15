@@ -477,8 +477,12 @@ http_archive(
 # that was baked in before the conversion and is recorded nowhere. The
 # ICCM, DCCM and icache sizes are what the study's core-plus-L1 boundary
 # makes load-bearing, so "the default configuration" is not a claim this
-# study can pass on. The configuration measured here is generated once
-# by upstream's own generator and committed under
+# study can pass on -- especially since upstream's own CoreMark
+# configuration is not a target preset at all: it enables a 64 kB ICCM,
+# switches the icache off, and raises the BTB and BHT sixteenfold, and
+# that is the configuration its published 4.94 CoreMark/MHz was measured
+# on. The configuration measured here is generated once by upstream's
+# own generator, with those flags, and committed under
 # //test/coremark_joule/rtl/veer/config.
 http_archive(
     name = "veer",
