@@ -192,9 +192,13 @@ exports_files(glob(["*.BUILD.bazel"]))
 # Verilator look for files that are not there.
 [
     verilog_single_file_library(
-        name = "cmj_soc_concat" + suffix,
-        srcs = [":cmj_soc_sv" + suffix],
+        name = prefix + "_concat" + suffix,
+        srcs = [":" + prefix + "_sv" + suffix],
     )
+    for prefix in [
+        "xiangshan",
+        "cmj_soc",
+    ]
     for suffix in [
         "",
         "_minimal",
@@ -203,11 +207,15 @@ exports_files(glob(["*.BUILD.bazel"]))
 
 [
     genrule(
-        name = "cmj_soc_flat" + suffix,
-        srcs = [":cmj_soc_concat" + suffix],
-        outs = ["cmj_soc_flat" + suffix + ".sv"],
-        cmd = "grep -hvF '`include' $(location :cmj_soc_concat" + suffix + ") > $@ || true",
+        name = prefix + "_flat" + suffix,
+        srcs = [":" + prefix + "_concat" + suffix],
+        outs = [prefix + "_flat" + suffix + ".sv"],
+        cmd = "grep -hvF '`include' $(location :" + prefix + "_concat" + suffix + ") > $@ || true",
     )
+    for prefix in [
+        "xiangshan",
+        "cmj_soc",
+    ]
     for suffix in [
         "",
         "_minimal",
@@ -216,9 +224,13 @@ exports_files(glob(["*.BUILD.bazel"]))
 
 [
     verilog_library(
-        name = "cmj_soc" + suffix,
-        srcs = ["cmj_soc_flat" + suffix + ".sv"],
+        name = prefix + suffix,
+        srcs = [prefix + "_flat" + suffix + ".sv"],
     )
+    for prefix in [
+        "xiangshan",
+        "cmj_soc",
+    ]
     for suffix in [
         "",
         "_minimal",
