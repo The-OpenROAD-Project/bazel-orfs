@@ -22,7 +22,6 @@ _TOOLCHAIN = "@riscv_none_elf_gcc//:all"
 _PORT_SRCS = [
     "//test/coremark_joule/sw/port:core_portme.c",
     "//test/coremark_joule/sw/port:ee_printf.c",
-    "//test/coremark_joule/sw/port:crt0.S",
 ]
 
 _PORT_HDRS = [
@@ -31,6 +30,15 @@ _PORT_HDRS = [
 ]
 
 _LINK_LD = "//test/coremark_joule/sw/port:link.ld"
+_CRT0 = "//test/coremark_joule/sw/port:crt0.S"
+
+# VeeR EH1 runs its data out of a DCCM inside the hardened block, which
+# the harness cannot preload, and needs its region-attribute CSR written
+# before the instruction cache will cache anything. Both are properties
+# of the core rather than choices, so it gets its own pair. See
+# link_veer.ld and crt0_veer.S, which say why.
+VEER_LINK_LD = "//test/coremark_joule/sw/port:link_veer.ld"
+VEER_CRT0 = "//test/coremark_joule/sw/port:crt0_veer.S"
 
 # Fixed for every configuration in the study. These are not sweep axes:
 # there is no libc and no startup code but ours, and -mstrict-align is
@@ -49,6 +57,8 @@ def coremark_elf(
         march,
         cflags,
         mabi = "ilp32",
+        link_ld = _LINK_LD,
+        crt0 = _CRT0,
         tags = ["manual"],
         visibility = None):
     """Compile and link one CoreMark ELF.
@@ -67,6 +77,11 @@ def coremark_elf(
         alignment, tuning). Reported verbatim in CoreMark's own output
         via FLAGS_STR, so a captured stdout says how it was built.
       mabi: RISC-V ABI string.
+      link_ld: the memory map. Defaults to the flat one every core but
+        VeeR shares; VeeR's DCCM is at a fixed architectural address
+        inside the hardened block, which no flat map can express.
+      crt0: the startup code. Paired with link_ld -- a map with a
+        separate load address needs a runtime that copies.
       tags: forwarded; manual by default -- this is study apparatus.
       visibility: forwarded.
     """
@@ -89,7 +104,8 @@ def coremark_elf(
         srcs = [
             _COREMARK_SRCS,
             _COREMARK_HDRS,
-            _LINK_LD,
+            link_ld,
+            crt0,
         ] + _PORT_SRCS + _PORT_HDRS,
         outs = [name + ".elf"],
         cmd = (
@@ -100,7 +116,7 @@ def coremark_elf(
             "-I $$(dirname $(execpath {hdrs})) " +
             "-I $$(dirname $(execpath {portme_h})) " +
             "-DFLAGS_STR='\"{flags_str}\"' " +
-            "$(execpaths {srcs}) {port_srcs} " +
+            "$(execpaths {srcs}) {port_srcs} $(execpath {crt0}) " +
             "-T $(execpath {link_ld}) " +
             # libgcc supplies __mulsi3 and friends, which rv32i needs and
             # which are on CoreMark's hot path. Linking our own would make
@@ -110,11 +126,12 @@ def coremark_elf(
             "-Wl,--no-warn-rwx-segments " +
             "-o $@"
         ).format(
+            crt0 = crt0,
             flags = " ".join(compile_flags),
             flags_str = flags_str,
             gcc = _GCC,
             hdrs = _COREMARK_HDRS,
-            link_ld = _LINK_LD,
+            link_ld = link_ld,
             port_srcs = " ".join(["$(execpath {})".format(s) for s in _PORT_SRCS]),
             portme_h = _PORT_HDRS[0],
             srcs = _COREMARK_SRCS,
@@ -127,7 +144,14 @@ def coremark_elf(
         visibility = visibility,
     )
 
-def smoke_elf(name, march, mabi = "ilp32", tags = ["manual"], visibility = None):
+def smoke_elf(
+        name,
+        march,
+        mabi = "ilp32",
+        link_ld = _LINK_LD,
+        crt0 = _CRT0,
+        tags = ["manual"],
+        visibility = None):
     """Compile the boot/load-store smoke program for one ISA.
 
     Deliberately not a coremark_elf() with different sources: it shares
@@ -138,19 +162,21 @@ def smoke_elf(name, march, mabi = "ilp32", tags = ["manual"], visibility = None)
         name = name,
         srcs = [
             "//test/coremark_joule/sw:smoke.c",
-            _LINK_LD,
+            link_ld,
+            crt0,
         ] + _PORT_SRCS + _PORT_HDRS,
         outs = [name + ".elf"],
         cmd = (
             "$(execpath {gcc}) -march={march} -mabi={mabi} -O2 {fixed} " +
             "-I $$(dirname $(execpath {portme_h})) " +
             "$(execpath //test/coremark_joule/sw:smoke.c) " +
-            "$(execpath //test/coremark_joule/sw/port:crt0.S) " +
+            "$(execpath {crt0}) " +
             "-T $(execpath {link_ld}) -lgcc -Wl,--no-warn-rwx-segments -o $@"
         ).format(
+            crt0 = crt0,
             fixed = " ".join([f for f in _FIXED_CFLAGS if not f.startswith("-DTOTAL")]),
             gcc = _GCC,
-            link_ld = _LINK_LD,
+            link_ld = link_ld,
             mabi = mabi,
             march = march,
             portme_h = _PORT_HDRS[1],

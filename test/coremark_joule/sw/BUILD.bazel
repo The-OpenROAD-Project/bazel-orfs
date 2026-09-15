@@ -5,7 +5,13 @@ load("@rules_python//python:defs.bzl", "py_test")
 # Nothing here is a test and nothing builds under a wildcard: every
 # target is `manual` study apparatus. test/ is never shipped (see
 # public_surface.py), so the default visibility stays inside the study.
-load("//test/coremark_joule/sw:elf.bzl", "coremark_elf", "smoke_elf")
+load(
+    "//test/coremark_joule/sw:elf.bzl",
+    "VEER_CRT0",
+    "VEER_LINK_LD",
+    "coremark_elf",
+    "smoke_elf",
+)
 
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 
@@ -48,6 +54,32 @@ BASELINE_CFLAGS = [
         3,
     ]
 ]
+
+# VeeR EH1: same benchmark, same flags, a different memory map. Its data
+# runs in the DCCM inside the hardened block and its text is fetched
+# through the L1 instruction cache, neither of which the flat map can
+# express -- see link_veer.ld.
+[
+    coremark_elf(
+        name = "coremark_veer_rv32imc_{}".format(iterations),
+        cflags = BASELINE_CFLAGS,
+        crt0 = VEER_CRT0,
+        iterations = iterations,
+        link_ld = VEER_LINK_LD,
+        march = "rv32imc",
+    )
+    for iterations in [
+        2,
+        3,
+    ]
+]
+
+smoke_elf(
+    name = "smoke_veer_rv32imc",
+    crt0 = VEER_CRT0,
+    link_ld = VEER_LINK_LD,
+    march = "rv32imc",
+)
 
 # The subtraction's premise, checked. Not manual: it is seconds of work
 # and it guards a property of this repository's own source that would
