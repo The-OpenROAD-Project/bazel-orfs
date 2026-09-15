@@ -128,16 +128,18 @@ object XSCoreGeneratorBase {
   /** XSTop with memory and the control device attached: what simulates. */
   def emitSoC(config: Config, args: Array[String]): Unit = {
     prepare()
-    val soc = DisableMonitors(p =>
-      LazyModule(
-        new CoreMarkJouleSoC(
+    val params = withArgParserKeys(config)
+    ChiselStage.emitHWDialect(
+      DisableMonitors(p =>
+        new CmSoc(
           bootAddr = 0x80000000L,
           memBase = 0x80000000L,
           memBytes = 256L * 1024 * 1024
         )(p)
-      )
-    )(withArgParserKeys(config))
-    ChiselStage.emitHWDialect(soc.module, Array(), args)
+      )(params),
+      Array(),
+      args
+    )
   }
 }
 

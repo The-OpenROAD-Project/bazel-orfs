@@ -6,7 +6,8 @@
 # Nothing is vendored.
 
 load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
-load("@rules_chisel//verilog:defs.bzl", "verilog_directory")
+load("@rules_chisel//verilog:defs.bzl", "verilog_directory", "verilog_single_file_library")
+load("@rules_verilog//verilog:defs.bzl", "verilog_library")
 
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 
@@ -98,13 +99,24 @@ exports_files(glob(["*.BUILD.bazel"]))
             "PATH=$$ESPRESSO_DIR:$$FIRTOOL_DIR:$$PATH",
             "CHISEL_FIRTOOL_PATH=$$FIRTOOL_DIR",
             "$(execpath :" + generator + suffix + ")",
-            # Extract every inferred memory into its own module. Without
-            # this firtool inlines them as reg arrays inside whatever
-            # module used them, ORFS's AUTO_MEMORIES detector finds no
-            # module to convert, and a core whose caches are most of its
-            # area synthesises as flip-flops.
+            # Memory extraction, for the elaboration the flow hardens
+            # only. Without it firtool inlines every inferred memory as a
+            # reg array inside whatever module used it, ORFS's
+            # AUTO_MEMORIES detector finds no module to convert, and a
+            # core whose caches are most of its area synthesises as
+            # flip-flops.
+            #
+            # The simulation elaboration must not have it. Extraction
+            # leaves behind instantiations of <name>_ext modules whose
+            # bodies firtool does not emit -- that is the point, a memory
+            # compiler supplies them -- and Verilator cannot elaborate a
+            # design with modules missing. The two elaborations are
+            # identical in behaviour; they differ in whether the arrays
+            # are still there to simulate.
+        ] + ([
             "--repl-seq-mem",
             "--repl-seq-mem-file=$(RULEDIR)/" + prefix + suffix + ".mems.conf",
+        ] if prefix == "xiangshan" else []) + [
             "-o $@",
         ]),
         tools = [
@@ -177,5 +189,45 @@ exports_files(glob(["*.BUILD.bazel"]))
     for module in [
         "XSTop",
         "XSCore",
+    ]
+]
+
+# One file, for the simulator. rules_verilator wants a verilog_library and
+# a verilog_library wants files rather than a directory artifact, so the
+# split output is concatenated back. The `include lines go with it: every
+# included file is already in the concatenation, so leaving them in makes
+# Verilator look for files that are not there.
+[
+    verilog_single_file_library(
+        name = "cmj_soc_concat" + suffix,
+        srcs = [":cmj_soc_sv" + suffix],
+    )
+    for suffix in [
+        "",
+        "_minimal",
+    ]
+]
+
+[
+    genrule(
+        name = "cmj_soc_flat" + suffix,
+        srcs = [":cmj_soc_concat" + suffix],
+        outs = ["cmj_soc_flat" + suffix + ".sv"],
+        cmd = "grep -hvF '`include' $(location :cmj_soc_concat" + suffix + ") > $@ || true",
+    )
+    for suffix in [
+        "",
+        "_minimal",
+    ]
+]
+
+[
+    verilog_library(
+        name = "cmj_soc" + suffix,
+        srcs = ["cmj_soc_flat" + suffix + ".sv"],
+    )
+    for suffix in [
+        "",
+        "_minimal",
     ]
 ]
