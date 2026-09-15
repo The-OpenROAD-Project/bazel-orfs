@@ -1,6 +1,8 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
 load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "hier_probe", "stage_power", "stage_power_units")
 
+exports_files(["constraints.sdc"])
+
 design(
     config = "config.mk",
     visibility = ["//test/coremark_joule:__subpackages__"],
