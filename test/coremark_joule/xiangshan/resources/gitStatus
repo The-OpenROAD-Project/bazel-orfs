@@ -1,0 +1,7 @@
+# XiangShan's CommitIDModule bakes this into a CSR, and upstream's mill
+# build generates it by running git in the source tree. There is no git
+# tree here -- the sources arrive as a pinned tarball -- so it is written
+# out instead, which is both reproducible and more honest: the SHA is the
+# commit MODULE.bazel pins, and the tree is by definition not dirty.
+SHA=37ce1b50b5b8fa1865205e76175e48fc636454d6
+dirty=0

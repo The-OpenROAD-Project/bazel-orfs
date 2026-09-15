@@ -12,7 +12,10 @@ package(default_visibility = ["//visibility:public"])
 chisel_library(
     name = "xscache",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    scalacopts = ["-Ymacro-annotations"],
+    scalacopts = [
+        "-Ymacro-annotations",
+        "-Xcheckinit:false",
+    ],
     exports = ["@xs_rocket_chip//:rocket_chip"],
     deps = [
         "@xs_maven//:com_github_scopt_scopt_2_13",

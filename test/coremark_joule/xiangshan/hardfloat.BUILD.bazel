@@ -7,6 +7,9 @@ package(default_visibility = ["//visibility:public"])
 chisel_library(
     name = "hardfloat",
     srcs = glob(["hardfloat/src/main/scala/**/*.scala"]),
-    scalacopts = ["-Ymacro-annotations"],
+    scalacopts = [
+        "-Ymacro-annotations",
+        "-Xcheckinit:false",
+    ],
     deps = ["@xs_maven//:com_lihaoyi_sourcecode_2_13"],
 )

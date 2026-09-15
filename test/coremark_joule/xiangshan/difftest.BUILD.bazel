@@ -11,7 +11,10 @@ package(default_visibility = ["//visibility:public"])
 chisel_library(
     name = "difftest",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    scalacopts = ["-Ymacro-annotations"],
+    scalacopts = [
+        "-Ymacro-annotations",
+        "-Xcheckinit:false",
+    ],
     deps = [
         "@xs_maven//:com_lihaoyi_sourcecode_2_13",
         "@xs_maven//:org_json4s_json4s_ast_2_13",

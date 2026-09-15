@@ -5,6 +5,93 @@
 # *.BUILD.bazel files in this package, referenced from MODULE.bazel.
 # Nothing is vendored.
 
+load("@rules_chisel//chisel:defs.bzl", "chisel_binary")
+load("@rules_chisel//verilog:defs.bzl", "verilog_directory")
+
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 
 exports_files(glob(["*.BUILD.bazel"]))
+
+# The generator. Two entry points against one elaboration path: the
+# minimal configuration proves the pipeline in minutes, the study
+# configuration is the one that gets measured.
+[
+    chisel_binary(
+        name = "generator" + suffix,
+        srcs = ["src/XSCoreGenerator.scala"],
+        # Upstream's mill build asks for -Xmx40G and -Xss256m. The stack
+        # size is not negotiable: diplomacy elaboration recurses deeply.
+        # The heap is capped below what this machine has, so an overrun
+        # fails rather than swaps.
+        jvm_flags = [
+            "-Xmx24g",
+            "-Xss256m",
+        ],
+        main_class = "coremark_joule.xiangshan.XSCoreGenerator" + main_suffix,
+        resource_strip_prefix = "test/coremark_joule/xiangshan/resources",
+        resources = ["resources/gitStatus"],
+        # rules_chisel compiles with -Xcheckinit, which XiangShan's own
+        # build does not use: it inserts a runtime check on every field
+        # read and XiangShan reads fields that are legitimately still
+        # being initialized during elaboration. Turned off everywhere the
+        # study compiles XiangShan, so the semantics match upstream's.
+        scalacopts = ["-Xcheckinit:false"],
+        deps = [
+            "@xiangshan",
+            "@xs_rocket_chip//:macros",
+            "@xs_rocket_chip//:rocket_chip",
+            "@xs_utility//:utility",
+        ],
+    )
+    for suffix, main_suffix in [
+        ("", ""),
+        ("_minimal", "Minimal"),
+    ]
+]
+
+# Elaboration. This is a genrule rather than rules_chisel's fir_library
+# for one reason: Chisel's EspressoMinimizer shells out to an executable
+# named `espresso` found on PATH, and XiangShan names that minimizer
+# explicitly, so elaboration needs a PATH that fir_library does not offer
+# a way to set. Everything else matches what fir_library does -- run the
+# generator with -o, with CHISEL_FIRTOOL_PATH pointing at firtool.
+[
+    genrule(
+        name = "xiangshan_fir" + suffix,
+        outs = ["xiangshan_fir" + suffix + ".fir"],
+        cmd = " ".join([
+            "FIRTOOL_DIR=$$(dirname $$(realpath $(execpath @chisel_firtool//:bin/firtool)));",
+            "ESPRESSO_DIR=$$(dirname $$(realpath $(execpath @espresso//:bin/espresso)));",
+            "PATH=$$ESPRESSO_DIR:$$FIRTOOL_DIR:$$PATH",
+            "CHISEL_FIRTOOL_PATH=$$FIRTOOL_DIR",
+            "$(execpath :generator" + suffix + ")",
+            "-o $@",
+        ]),
+        tools = [
+            ":generator" + suffix,
+            "@chisel_firtool//:bin/firtool",
+            "@espresso//:bin/espresso",
+        ],
+    )
+    for suffix in [
+        "",
+        "_minimal",
+    ]
+]
+
+# Split Verilog: one file per module, which is what makes XSCore
+# addressable as a synthesis top without carving it out of a single file.
+[
+    verilog_directory(
+        name = "xiangshan_sv" + suffix,
+        srcs = [":xiangshan_fir" + suffix],
+        opts = [
+            "--disable-all-randomization",
+            "--lowering-options=disallowPackedArrays,disallowLocalVariables,noAlwaysComb",
+        ],
+    )
+    for suffix in [
+        "",
+        "_minimal",
+    ]
+]
