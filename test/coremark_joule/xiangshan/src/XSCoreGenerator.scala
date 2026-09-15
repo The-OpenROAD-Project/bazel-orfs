@@ -111,13 +111,32 @@ object XSCoreGeneratorBase {
         )
     })
 
-  def emit(config: Config, args: Array[String]): Unit = {
+  private def prepare(): Unit = {
     // Both write files into the working directory as a side effect of
     // elaboration; neither is wanted here.
     Constantin.init(false)
     ChiselDB.init(false)
+  }
 
+  /** XSTop alone: what the flow hardens XSCore out of. */
+  def emit(config: Config, args: Array[String]): Unit = {
+    prepare()
     val soc = DisableMonitors(p => LazyModule(new XSTop()(p)))(withArgParserKeys(config))
+    ChiselStage.emitHWDialect(soc.module, Array(), args)
+  }
+
+  /** XSTop with memory and the control device attached: what simulates. */
+  def emitSoC(config: Config, args: Array[String]): Unit = {
+    prepare()
+    val soc = DisableMonitors(p =>
+      LazyModule(
+        new CoreMarkJouleSoC(
+          bootAddr = 0x80000000L,
+          memBase = 0x80000000L,
+          memBytes = 256L * 1024 * 1024
+        )(p)
+      )
+    )(withArgParserKeys(config))
     ChiselStage.emitHWDialect(soc.module, Array(), args)
   }
 }

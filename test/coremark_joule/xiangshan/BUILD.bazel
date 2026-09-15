@@ -18,7 +18,10 @@ exports_files(glob(["*.BUILD.bazel"]))
 [
     chisel_binary(
         name = "generator" + suffix,
-        srcs = ["src/XSCoreGenerator.scala"],
+        srcs = [
+            "src/CoreMarkJouleSoC.scala",
+            "src/XSCoreGenerator.scala",
+        ],
         # Upstream's mill build asks for -Xmx40G and -Xss256m. The stack
         # size is not negotiable: diplomacy elaboration recurses deeply.
         # The heap is capped below what this machine has, so an overrun
@@ -49,6 +52,36 @@ exports_files(glob(["*.BUILD.bazel"]))
     ]
 ]
 
+# The same elaboration with memory and the control device attached. This is
+# what simulates; the target above is what the flow hardens XSCore out of.
+[
+    chisel_binary(
+        name = "soc_generator" + suffix,
+        srcs = [
+            "src/CoreMarkJouleSoC.scala",
+            "src/XSCoreGenerator.scala",
+        ],
+        jvm_flags = [
+            "-Xmx24g",
+            "-Xss256m",
+        ],
+        main_class = "coremark_joule.xiangshan.CoreMarkJouleSoCGenerator" + main_suffix,
+        resource_strip_prefix = "test/coremark_joule/xiangshan/resources",
+        resources = ["resources/gitStatus"],
+        scalacopts = ["-Xcheckinit:false"],
+        deps = [
+            "@xiangshan",
+            "@xs_rocket_chip//:macros",
+            "@xs_rocket_chip//:rocket_chip",
+            "@xs_utility//:utility",
+        ],
+    )
+    for suffix, main_suffix in [
+        ("", ""),
+        ("_minimal", "Minimal"),
+    ]
+]
+
 # Elaboration. This is a genrule rather than rules_chisel's fir_library
 # for one reason: Chisel's EspressoMinimizer shells out to an executable
 # named `espresso` found on PATH, and XiangShan names that minimizer
@@ -57,29 +90,33 @@ exports_files(glob(["*.BUILD.bazel"]))
 # generator with -o, with CHISEL_FIRTOOL_PATH pointing at firtool.
 [
     genrule(
-        name = "xiangshan_fir" + suffix,
-        outs = ["xiangshan_fir" + suffix + ".fir"],
+        name = prefix + "_fir" + suffix,
+        outs = [prefix + "_fir" + suffix + ".fir"],
         cmd = " ".join([
             "FIRTOOL_DIR=$$(dirname $$(realpath $(execpath @chisel_firtool//:bin/firtool)));",
             "ESPRESSO_DIR=$$(dirname $$(realpath $(execpath @espresso//:bin/espresso)));",
             "PATH=$$ESPRESSO_DIR:$$FIRTOOL_DIR:$$PATH",
             "CHISEL_FIRTOOL_PATH=$$FIRTOOL_DIR",
-            "$(execpath :generator" + suffix + ")",
+            "$(execpath :" + generator + suffix + ")",
             # Extract every inferred memory into its own module. Without
             # this firtool inlines them as reg arrays inside whatever
             # module used them, ORFS's AUTO_MEMORIES detector finds no
             # module to convert, and a core whose caches are most of its
             # area synthesises as flip-flops.
             "--repl-seq-mem",
-            "--repl-seq-mem-file=$(RULEDIR)/xiangshan" + suffix + ".mems.conf",
+            "--repl-seq-mem-file=$(RULEDIR)/" + prefix + suffix + ".mems.conf",
             "-o $@",
         ]),
         tools = [
-            ":generator" + suffix,
+            ":" + generator + suffix,
             "@chisel_firtool//:bin/firtool",
             "@espresso//:bin/espresso",
         ],
     )
+    for prefix, generator in [
+        ("xiangshan", "generator"),
+        ("cmj_soc", "soc_generator"),
+    ]
     for suffix in [
         "",
         "_minimal",
@@ -90,13 +127,17 @@ exports_files(glob(["*.BUILD.bazel"]))
 # addressable as a synthesis top without carving it out of a single file.
 [
     verilog_directory(
-        name = "xiangshan_sv" + suffix,
-        srcs = [":xiangshan_fir" + suffix],
+        name = prefix + "_sv" + suffix,
+        srcs = [":" + prefix + "_fir" + suffix],
         opts = [
             "--disable-all-randomization",
             "--lowering-options=disallowPackedArrays,disallowLocalVariables,noAlwaysComb",
         ],
     )
+    for prefix in [
+        "xiangshan",
+        "cmj_soc",
+    ]
     for suffix in [
         "",
         "_minimal",
