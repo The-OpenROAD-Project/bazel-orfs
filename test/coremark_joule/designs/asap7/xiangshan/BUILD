@@ -18,6 +18,20 @@ design(
         "ANNEAL_DUMP_TCL",
         "ANNEAL_PY",
     ],
+    # All read at macro placement only; scoped so a knob edit re-runs the
+    # floorplan and not the 48-minute synthesis before it.
+    user_stages = {
+        v: ["floorplan"]
+        for v in [
+            "ANNEAL_SEED",
+            "ANNEAL_DEPTH",
+            "ANNEAL_MIN_CLUSTER",
+            "ANNEAL_CHANNEL_UM",
+            "ANNEAL_FILL",
+            "ANNEAL_DUMP_TCL",
+            "ANNEAL_PY",
+        ]
+    },
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 
