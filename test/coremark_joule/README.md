@@ -422,6 +422,69 @@ picorv32 therefore carries a written, reasoned waiver in its
 attributed" is itself a result worth reporting about open-source RTL.
 §5.7 covers the second, mechanical gap.
 
+### 3.8 What sets a CPU core's frequency, and what the SDC must therefore say
+
+A CPU core is not a macro in the middle of a datapath, and constraining
+it as though it were produces a netlist optimised for a situation that
+never arises. This section states the model, because every frequency and
+every watt in §4 depends on it.
+
+**Only register-to-register paths can fail timing closure.** Everything
+else — input to register, register to output, input straight through to
+output — is an *optimisation target*: a number that tells the tools how
+hard to work, not a condition the design must satisfy to be correct.
+This is the argument ASAP7's own
+`$PLATFORM_DIR/constraints.sdc` makes, and it is the model this study
+adopts wholesale.
+
+**For a CPU the argument is stronger than for a macro in general,
+because of what is on the other side of the pins.** A core is not wired
+into somebody else's combinational cone. It is attached to a
+clock-crossing bridge, or to a bus register, or to a GPIO pad — in every
+case to something that *terminates* the path rather than continuing it.
+There is no correct value for `set_input_delay` on a CPU's bus port,
+because the number it wants is the time already consumed upstream of the
+pin *within the same cycle*, and upstream of a CPU's pin there is a flop.
+
+So the model is: **assume a register immediately outside every port.**
+The consequences follow mechanically.
+
+- An input-to-register path inside the core shares its cycle with the
+  outside register's clock-to-q and with the setup at the far end. The
+  core's share is most of the period but not all of it, and 0.8 is the
+  figure ORFS uses for this core on this PDK. Same for
+  register-to-output.
+- A combinational path straight through the core has a register at both
+  ends, outside, so it gets a smaller share still — 0.6.
+- Nothing else about the outside world needs to be known, and in
+  particular the clock tree does not. This matters: the time given to
+  `set_input_delay` is measured from the clock insertion point, so it
+  cannot be written down at all without assuming a clock tree that does
+  not exist yet. `set_max_delay -ignore_clock_latency` has no such
+  problem, which is why the platform file uses it and this study follows.
+- **No hold cells are inserted on IO paths**, because `set_input_delay`
+  is what would have demanded them. On a design with VeeR's six hundred
+  ports that is a large amount of area and leakage that would otherwise
+  be charged to the core for a hold requirement its real environment
+  does not impose.
+
+**The same model covers the small cores, for the same reason.** Once
+§3.1's boundary is met, the memory a small core runs out of is inside
+it, so its remaining ports are GPIO-like: either fast enough to fit the
+budget, or registered on the other side. Either way the path stops at
+the pin. One model, applied to every point — which is what §3.1 says the
+comparison is made of.
+
+**What this costs if it is left unsaid** is not small. The platform's
+`set_max_delay` default, when a design supplies no budget, is **80 ps**
+— a figure its own comment describes as right for "a small macro on
+ASAP7". At a 1000 ps period that is a twelvefold over-constraint on
+every path touching a port, and an optimiser given an impossible target
+does not decline it: it upsizes cells and inserts buffers, and their
+power is then reported as the core's. Every design in this study now
+sets the budget explicitly (see each `constraints.sdc`); §5.10 records
+that the numbers in Table 1 predate it.
+
 ---
 
 ## 4. Results
@@ -738,6 +801,11 @@ the cross-series comparison are.
 
 ### 5.5 Frequency is an SDC target, not an achieved maximum
 
+§3.8 says what a CPU core's frequency *is* — the reciprocal of its
+longest register-to-register path, with everything touching a port an
+optimisation target rather than a closure condition. This section is
+about the other half: which period was actually used.
+
 The frequency each core is scored at is the SDC period the SAIF was
 timed against, not `1 / (period - WNS)` at a period pushed until WNS is
 slightly negative. Positive WNS means the optimiser met its target and
@@ -837,6 +905,51 @@ memory's contribution to CoreMark/Joule is a model rather than silicon.
 Every point is baseline flags. CoreMark scores are sensitive to
 compiler flags, and comparing cores at different flag settings would
 not be a comparison of cores.
+
+### 5.10 Table 1 predates the IO budget
+
+Found while wiring VeeR, and it applies backwards to Table 1. The SDCs
+are fixed; the numbers are not yet re-measured.
+
+`$PLATFORM_DIR/constraints.sdc` on ASAP7 constrains every
+input-to-register, register-to-output and input-to-output path with
+`set_max_delay`, and **defaults each to 80 ps** when the design does not
+override it — a figure its own comment describes as right for "a small
+macro on ASAP7". The study's `constraints.sdc` for picorv32, SERV and
+ibex sets only the clock period, so all three inherit that default. At a
+1000 ps period it is a twelve-fold over-constraint on every path that
+touches a port.
+
+This is not a convergence detail; it lands in the number. An optimiser
+given an impossible target does not give up quietly — it upsizes cells
+and inserts buffers trying to reach it, and those cells draw power that
+is then attributed to the core. The three cores have modest port counts
+(a simple memory bus), so the effect is smaller than it would be on a
+design with hundreds of ports, but it is not known to be zero and it has
+not been measured.
+
+**All four designs now set the budget** — `in2reg_max` and
+`reg2out_max` at 0.8 of the period, `in2out_max` at 0.6, ORFS's own
+ratios — so the asymmetry is closed in the source. What has not happened
+yet is the re-measurement: **Table 1's numbers were taken before it**,
+and until the three cores are re-run they are the only figures in this
+document that do not match the SDCs in the tree.
+
+How far they move is itself a result. It is the size of an error that
+every ORFS design inheriting the 80 ps default carries, measured on
+three designs at once.
+
+Two sub-findings worth separating out, because they are reasons the
+override matters rather than consequences of it:
+
+- `set_max_delay` rather than `set_input_delay`/`set_output_delay` is the
+  platform's deliberate choice, and its argument is good: the time given
+  to `set_input_delay` is relative to the clock insertion point, so it
+  cannot be written down without assuming a clock tree that does not
+  exist yet.
+- Because `set_input_delay` is not used, **no hold cells are inserted on
+  IO paths**. On a design with VeeR's port count that is a large amount
+  of area and leakage that would otherwise be charged to the core.
 
 ---
 
@@ -1071,6 +1184,36 @@ exactly, and the difference is not evidence about the core. It is also
 a reminder that every CoreMark/MHz in §7's table is a vendor number
 taken with a vendor's compiler, which is why they are labelled as
 orientation rather than plotted.
+
+**Two slang flags it does not compile without**, both found by running
+the frontend on it directly rather than guessed, and both properties of
+the RTL rather than of this study:
+
+- `--single-unit`. SystemVerilog makes each file its own compilation
+  unit, so a macro defined in one is invisible in the next. VeeR's
+  entire configuration is macros — every `RV_*` in
+  `common_defines.vh` — and its own `flist.questa` assumes a
+  single-unit flow by listing that file first. Without the flag every
+  reference to a configuration macro is an "unknown macro or compiler
+  directive", and no amount of file ordering helps. **Verilator hides
+  this difference by making macros global**, which is exactly why the
+  simulator built long before the flow did — a reminder that
+  "it simulates" and "it synthesises" are separate claims.
+- `--allow-use-before-declare`. VeeR declares signals after the always
+  blocks that use them, in `dec.sv` among others. The LRM requires
+  declaration first for variables and slang enforces it; yosys's own
+  reader and Verilator do not.
+
+Both live in `SYNTH_SLANG_ARGS` in the design's `config.mk`, with the
+reason next to them.
+
+Getting to them took the `_deps` reproducer rather than the build log,
+and that is worth recording too: ORFS's `synth.sh` routes the frontend's
+output through `run_command.py`, and slang's diagnostics — which go to
+stderr — do not reach the stage log. The log ends at
+`Executing SLANG frontend.` / `ERROR: Compilation failed`, which names
+neither the file nor the reason. Running the frontend by hand is what
+turned that into twenty lines of exact errors.
 
 What remains to cost, stated rather than discovered later:
 

@@ -24,6 +24,8 @@ exports_files([
     "classify_pins.py",
     "check_activity_sweep.py",
     "bus_probe.py",
+    "check_sdc.py",
+    "run_check_sdc.sh",
 ])
 
 py_binary(
@@ -181,4 +183,24 @@ py_test(
         "bus_probe_test.py",
     ],
     main = "bus_probe_test.py",
+)
+
+# The constraint model of §3.8, checked rather than commented. Not
+# manual: it is milliseconds, and what it guards -- an SDC that says
+# nothing and so inherits an 80 ps IO budget -- is silent in every
+# report downstream of it.
+py_test(
+    name = "check_sdc_test",
+    size = "small",
+    srcs = [
+        "check_sdc.py",
+        "check_sdc_test.py",
+    ],
+    main = "check_sdc_test.py",
+)
+
+py_binary(
+    name = "check_sdc",
+    srcs = ["check_sdc.py"],
+    main = "check_sdc.py",
 )

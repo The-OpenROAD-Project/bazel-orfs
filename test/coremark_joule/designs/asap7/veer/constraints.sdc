@@ -1,12 +1,13 @@
-# A starting period, not a result.
+# A starting period, not a result, and an IO budget that is.
 #
-# The study's frequency comes from an orfs_sweep over clock periods at
-# global route, taking f = 1 / (period - WNS) at a slightly negative WNS.
-# This value only has to be close enough that the first sweep point is
-# useful.
+# The period comes from ORFS's own asap7/swerv_wrapper, which runs this
+# core at 1600 ps. The study's frequency is derived later from a sweep
+# taking f = 1 / (period - WNS) at a slightly negative WNS; this value
+# only has to be close enough that the first sweep point is useful, and
+# a number someone has already closed this core at beats a guess.
 set clk_name clk
 set clk_port_name clk
-set clk_period 1000
+set clk_period 1600
 
 # The IO budget, as optimization targets. set_input_delay and
 # set_output_delay are deliberately not used anywhere in this study:

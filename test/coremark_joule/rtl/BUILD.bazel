@@ -17,6 +17,7 @@ exports_files([
     "picorv32.BUILD.bazel",
     "serv.BUILD.bazel",
     "veer.BUILD.bazel",
+    "veer/cmj_veer_defines.sv",
 ])
 
 verilog_library(
@@ -162,10 +163,7 @@ verilog_library(
 verilog_library(
     name = "veer_config",
     srcs = ["veer/cmj_veer_defines.sv"],
-    hdrs = [
-        "veer/config/common_defines.vh",
-        "veer/config/pic_map_auto.vh",
-    ],
+    hdrs = ["//test/coremark_joule/rtl/veer/config:hdrs"],
 )
 
 verilog_library(

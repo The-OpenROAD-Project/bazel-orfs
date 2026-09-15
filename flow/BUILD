@@ -18,3 +18,33 @@ alias(
         "//test/coremark_joule/designs:__subpackages__",
     ],
 )
+
+# Individual platform files an out-of-tree design names through
+# $(PLATFORM_DIR). config_mk_parser turns such a reference into
+# //flow:platforms/<platform>/<path>, and for a designs tree in this
+# repository that label resolves here rather than in ORFS -- so each file
+# a design needs gets an alias, the same way the PDK itself does above.
+#
+# Listed rather than globbed: ORFS's platform tree is an external
+# repository, and a glob cannot see into one.
+[
+    alias(
+        name = "platforms/asap7/" + path,
+        actual = "@orfs//flow:platforms/asap7/" + path,
+        visibility = [
+            "//flow/designs:__subpackages__",
+            "//test/coremark_joule/designs:__subpackages__",
+        ],
+    )
+    for path in [
+        # The SRAM shapes VeeR EH1's 16 kB instruction cache and 64 kB
+        # DCCM resolve to. ORFS's own asap7/swerv_wrapper keeps these as
+        # symlinks into exactly these paths.
+        "lef/fakeram7_2048x39.lef",
+        "lef/fakeram7_256x34.lef",
+        "lef/fakeram7_64x21.lef",
+        "lib/NLDM/fakeram7_2048x39.lib",
+        "lib/NLDM/fakeram7_256x34.lib",
+        "lib/NLDM/fakeram7_64x21.lib",
+    ]
+]

@@ -1,0 +1,32 @@
+# The VeeR configuration this study measures, generated once by
+# upstream's own generator and committed.
+#
+# A package rather than plain files in the parent because config.mk names
+# this directory in VERILOG_INCLUDE_DIRS -- pic_ctrl.sv `include`s
+# pic_map_auto.vh by name, and cmj_veer_defines.sv `include`s
+# common_defines.vh -- and config_mk_parser turns an include directory
+# into a `//<dir>:verilog` label. The directory has to be a package for
+# that label to exist.
+package(default_visibility = ["//test/coremark_joule:__subpackages__"])
+
+exports_files(glob(["*"]))
+
+# The name config_mk_parser emits for a VERILOG_INCLUDE_DIRS entry.
+# Written out rather than taken from the DSL's files("include"), whose
+# glob covers v/sv/svh -- and every header here is .vh.
+filegroup(
+    name = "include",
+    srcs = glob(["*"]),
+)
+
+# The two the RTL actually `include`s. defines.h and link.ld are
+# committed alongside them because they are part of the same generator
+# output and record the same configuration for the software side, but
+# nothing in the flow reads them.
+filegroup(
+    name = "hdrs",
+    srcs = [
+        "common_defines.vh",
+        "pic_map_auto.vh",
+    ],
+)

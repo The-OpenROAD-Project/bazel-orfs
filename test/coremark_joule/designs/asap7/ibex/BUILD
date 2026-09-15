@@ -1,6 +1,8 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
 load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "stage_activity_audit", "stage_activity_sweep", "stage_power")
 
+exports_files(["constraints.sdc"])
+
 design(
     config = "config.mk",
     # Stages the vendored OpenTitan headers into the sandbox for

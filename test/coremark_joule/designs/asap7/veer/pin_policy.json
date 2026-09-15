@@ -1,0 +1,10 @@
+{
+  "design": "swerv_wrapper",
+  "max_unannotated_internal": 0,
+  "scan_patterns": [],
+  "macro_patterns": [
+    "^fakeram7"
+  ],
+  "waivers": [],
+  "notes": "Same budget as the other three cores, and for the same reason: the claim the study makes is that OpenSTA's activity estimator does not enter the energy number, and an internal cell pin the SAIF did not annotate is the estimator entering it. This design is the first with hardened memories, so macro_patterns is load-bearing rather than defensive -- an unannotated fakeram7 pin is memory energy being invented rather than measured, and it is fatal regardless of the internal budget."
+}

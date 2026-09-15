@@ -15,7 +15,7 @@ timing path, the multiplier feeding the adder, for the GUI to show.
 |---|---|
 | [BUILD](BUILD) | One `orfs_flow()`; the file to copy into your own project |
 | [mac.v](mac.v) | The RTL |
-| [constraints.sdc](constraints.sdc) | Clock and I/O timing constraints |
+| [constraints.sdc](constraints.sdc) | The clock, and I/O budgets as optimization targets |
 
 ## Things to try
 
