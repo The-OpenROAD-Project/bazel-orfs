@@ -113,15 +113,32 @@ def carried_orfs_patches():
     return patches
 
 
+def created_paths(patch_texts):
+    """Files some carried patch creates; the tree must not hold them."""
+    return {
+        path
+        for text in patch_texts.values()
+        for path, creates, _hunks in bump.parse_unified_diff(text)
+        if creates
+    }
+
+
 def fake_orfs_tree(patch_texts):
-    """{ORFS path: text} that every patch in ``patch_texts`` applies to."""
+    """{ORFS path: text} that every patch in ``patch_texts`` applies to.
+
+    A file one patch creates is left out even when a later patch edits it:
+    its content comes from applying the creating patch, which is what the
+    pairing check does, and synthesizing it here would make the creation
+    look like a collision.
+    """
+    created = created_paths(patch_texts)
     tree = {}
     for text in patch_texts.values():
         for path, creates, hunks in bump.parse_unified_diff(text):
-            if creates:
+            if creates or path in created:
                 continue
             lines = tree.setdefault(path, [])
-            for _header, pre in hunks:
+            for _header, pre, _post in hunks:
                 lines.extend(pre)
     return {path: "\n".join(lines) + "\n" for path, lines in tree.items()}
 
@@ -212,9 +229,10 @@ class TestOrfsPatchPairingThroughBump(unittest.TestCase):
         would be doing nothing while the rest of this suite still passed.
         """
         self.assertTrue(CARRIED_ORFS_PATCHES, "no carried ORFS patches found")
+        created = created_paths(CARRIED_ORFS_PATCHES)
         for text in CARRIED_ORFS_PATCHES.values():
             for path, creates, _hunks in bump.parse_unified_diff(text):
-                if not creates:
+                if not creates and path not in created:
                     self.assertIn(path, FAKE_ORFS_TREE)
 
     def test_carried_patches_fit_the_synthesized_tree(self):

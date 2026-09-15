@@ -407,8 +407,18 @@ OTHER = [Label("//patches:not-an-orfs-patch.patch")]
         self.assertEqual(
             files,
             [
-                ("x.txt", False, [("@@ -1,3 +1,2 @@", ["one", "-- dashes", "three"])]),
-                ("made.txt", True, [("@@ -0,0 +1 @@", [])]),
+                (
+                    "x.txt",
+                    False,
+                    [
+                        (
+                            "@@ -1,3 +1,2 @@",
+                            ["one", "-- dashes", "three"],
+                            ["one", "new"],
+                        )
+                    ],
+                ),
+                ("made.txt", True, [("@@ -0,0 +1 @@", [], ["hello"])]),
             ],
         )
 
@@ -445,11 +455,77 @@ OTHER = [Label("//patches:not-an-orfs-patch.patch")]
             ["p: creates new.tcl, which already exists"],
         )
 
+    CREATE_PATCH = "--- /dev/null\n+++ b/flow/new.tcl\n@@ -0,0 +1 @@\n+puts hi\n"
+    EDIT_CREATED_PATCH = (
+        "--- a/flow/new.tcl\n+++ b/flow/new.tcl\n@@ -1 +1,2 @@\n puts hi\n+puts bye\n"
+    )
+
+    def test_apply_hunks_creates_edits_and_refuses(self):
+        made = bump_impl.apply_hunks(
+            None, True, bump_impl.parse_unified_diff(self.CREATE_PATCH)[0][2]
+        )
+        self.assertEqual(made, "puts hi\n")
+        edited = bump_impl.apply_hunks(
+            made, False, bump_impl.parse_unified_diff(self.EDIT_CREATED_PATCH)[0][2]
+        )
+        self.assertEqual(edited, "puts hi\nputs bye\n")
+        self.assertIsNone(
+            bump_impl.apply_hunks(
+                "something else\n",
+                False,
+                bump_impl.parse_unified_diff(self.EDIT_CREATED_PATCH)[0][2],
+            )
+        )
+
+    def test_a_patch_may_edit_what_an_earlier_patch_created(self):
+        # The pair that broke: one carried patch adds a file, a later one
+        # changes it. Checked independently against the pristine tree, the
+        # second reports a missing file; in list order it is clean.
+        source = (
+            "ORFS_PATCHES = [\n"
+            '    Label("//patches:0063-creates.patch"),\n'
+            '    Label("//patches:0067-edits.patch"),\n'
+            "]\n"
+        )
+        bazel_orfs = {
+            bump_impl.ORFS_SOURCE_BZL: source,
+            "patches/0063-creates.patch": self.CREATE_PATCH,
+            "patches/0067-edits.patch": self.EDIT_CREATED_PATCH,
+        }
+        self.assertEqual(bump_impl.check_orfs_patches(bazel_orfs.get, {}.get), [])
+        # And the edit is checked against what the creation left, not waved
+        # through: a pre-image that does not match the created file is named.
+        bazel_orfs["patches/0067-edits.patch"] = self.EDIT_CREATED_PATCH.replace(
+            " puts hi", " puts hello"
+        )
+        self.assertEqual(
+            bump_impl.check_orfs_patches(bazel_orfs.get, {}.get),
+            [
+                "patches/0067-edits.patch: flow/new.tcl: hunk @@ -1 +1,2 @@ does not match"
+            ],
+        )
+        # Order is the fetch's order: the edit before the creation is an
+        # edit of a file that does not exist yet.
+        bazel_orfs["patches/0067-edits.patch"] = self.EDIT_CREATED_PATCH
+        bazel_orfs[bump_impl.ORFS_SOURCE_BZL] = (
+            "ORFS_PATCHES = [\n"
+            '    Label("//patches:0067-edits.patch"),\n'
+            '    Label("//patches:0063-creates.patch"),\n'
+            "]\n"
+        )
+        self.assertEqual(
+            bump_impl.check_orfs_patches(bazel_orfs.get, {}.get),
+            ["patches/0067-edits.patch: flow/new.tcl does not exist"],
+        )
+
     def test_check_orfs_patches_walks_the_list(self):
+        # Two edits of one file are checked in sequence, so the second is
+        # given a file the first has already changed; a creation keeps the
+        # walk itself the thing under test.
         bazel_orfs = {
             bump_impl.ORFS_SOURCE_BZL: self.ORFS_SOURCE,
             "patches/0037-single-writer.patch": self.EXPORT_PATCH,
-            "patches/0047-export-flow-tcl.patch": self.EXPORT_PATCH,
+            "patches/0047-export-flow-tcl.patch": self.CREATE_PATCH,
         }
         orfs = {"flow/BUILD": self.FLOW_BUILD}
         self.assertEqual(
@@ -460,7 +536,6 @@ OTHER = [Label("//patches:not-an-orfs-patch.patch")]
             bump_impl.check_orfs_patches(bazel_orfs.get, {}.get),
             [
                 "patches/0037-single-writer.patch: flow/BUILD does not exist",
-                "patches/0047-export-flow-tcl.patch: flow/BUILD does not exist",
                 "root-level.patch: named in ORFS_PATCHES but not in bazel-orfs",
             ],
         )
