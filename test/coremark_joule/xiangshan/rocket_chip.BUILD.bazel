@@ -25,7 +25,10 @@ chisel_library(
         ["src/main/scala/**/*.scala"],
         exclude = ["src/main/scala/diplomacy/Main.scala"],
     ),
-    scalacopts = ["-Ymacro-annotations"],
+    scalacopts = [
+        "-Ymacro-annotations",
+        "-Xcheckinit:false",
+    ],
     exports = [
         ":macros",
         "@xs_cde//:cde",

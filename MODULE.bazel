@@ -596,7 +596,7 @@ chisel.toolchain(
     chisel_version = "7.13.0",
     scala_version = "2.13.17",
 )
-use_repo(chisel, "chisel_maven")
+use_repo(chisel, "chisel_firtool", "chisel_maven")
 
 # The Maven artifacts XiangShan's build.mill names beyond Chisel itself.
 # chisel_maven pins only the Chisel artifacts, so these get their own
@@ -772,4 +772,15 @@ http_archive(
     sha256 = "5c02406820b77a37032b78f55f2548726cb5dfd86e36c97c961f4e829afeb190",
     strip_prefix = "ChiselIOPMP-cc1113c30a2469e27a233795a4e5705c43c84726",
     urls = ["https://github.com/OpenXiangShan/ChiselIOPMP/archive/cc1113c30a2469e27a233795a4e5705c43c84726.tar.gz"],
+)
+
+# espresso: Chisel's EspressoMinimizer shells out to it by name on PATH,
+# and XiangShan names that minimizer explicitly in two places.
+http_archive(
+    name = "espresso",
+    build_file = "//test/coremark_joule/xiangshan:espresso.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "560e34f57b0a57e6d8e77e9638a97677759b15a2d58b2d89272a77393753a968",
+    strip_prefix = "espresso-2.5.1",
+    urls = ["https://github.com/chipsalliance/espresso/archive/refs/tags/v2.5.1.tar.gz"],
 )
