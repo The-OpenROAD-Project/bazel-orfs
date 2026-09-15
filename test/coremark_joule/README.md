@@ -40,6 +40,16 @@ measured: the core and its L1 caches, and explicitly not what surrounds
 them. Where a core is too small to have caches, the small SRAM that
 comes with it and holds the program is what is measured in their place.
 
+The shape those three points make is reported with its own diagnosis.
+On log–log axes they fall close to a straight line of slope 0.855 — and
+that is a defect rather than a law. Across a 101× span in CoreMark/MHz
+the measured power spans only 1.18×, so the multiplier `f/P` predicts a
+slope of 0.849 on its own: the energy axis contributes about 0.15
+decades of independent signal over two decades of performance. The
+cause is the boundary. With no memory hardened, what is left is three
+small blocks of logic clocked within 1.7× of each other, and the part
+whose cost actually differs between them is outside the measurement.
+
 We also state, rather than imply, what the numbers do not yet cover:
 the intended boundary of core + L1 is not met by these three points,
 the simulation is zero-delay and so carries no glitch power, the
@@ -537,6 +547,105 @@ What the series is good for is the shape: across a 2.2× range in
 CoreMark/MHz, the derived CoreMark/Joule is nearly flat
 (28.2k / 27.1k / 29.4k). That is the question this study asks,
 answered independently at a different node with different tools.
+
+### 4.5 What else could be plotted, and why almost nothing can
+
+Figure 1 has two series because two is all there is, and the reason is
+worth setting out as a criterion rather than as an apology. To place a
+published core on these axes at the boundary of §3.1, a source must
+supply four things:
+
+1. **CoreMark/MHz**, on a stated compiler and ISA.
+2. **A power figure**, in watts, with the frequency it was taken at.
+3. **A stated measurement boundary** — specifically, whether the L1
+   caches are inside the reported power.
+4. **The same workload for both halves.** A CoreMark/Joule derived from
+   a CoreMark performance number and a power number taken on a different
+   benchmark is an estimate, not a reported figure.
+
+The first is common; the rest are not. Of the sources checked while
+building this study:
+
+| source | CoreMark/MHz | power | boundary stated | same workload |
+|---|---|---|---|---|
+| *Ramping Up Open-Source RISC-V Cores* (CF'25) [5] | yes, 3 cores | yes, Fig. 7 | **no** — Fig. 7 names Fetch, Decode, Issue, Integer Execution, LSU, FP, Control Flow; no cache term, and no sentence says whether the 64 kB L1s are inside | **no** — power is for `matmult-int` |
+| *The Cost of Application-Class Processing* [6] | not reported | yes, silicon | not established from the abstract; the full text was not surveyed here | n/a |
+| *CoreMark Benchmarking for SweRV* [11] | **4.94**, and the exact generator configuration | no — FPGA prototype at 40 MHz, no ASIC power | n/a | n/a |
+| SonicBOOM (CARRV 2020) | 6.2 | no | n/a | n/a |
+
+So exactly one source clears enough of the bar to be drawn at all, and
+it clears items 3 and 4 only by our choosing to derive from it anyway —
+which is why §4.4 draws it in its own colour with the derivation stated,
+rather than merging it into the measured series. The rest contribute an
+x-coordinate and nothing else; `results.json` carries them under
+`references`, and the plot shows them as grey ticks on the x-axis rather
+than inventing a y.
+
+**This is the argument for the study rather than a complaint about the
+literature.** A CoreMark/MHz is cheap to publish and a CoreMark/Joule at
+a stated boundary is not, so the second is largely missing — and a
+number that is missing cannot be argued with. Producing it from an open
+flow, with the boundary stated and the annotation audited, is the gap
+this work is in.
+
+### 4.6 Is the shape real?
+
+Two patterns in Figure 1 invite suspicion, and both deserve an answer
+with arithmetic rather than a shrug.
+
+**The 22 nm series is almost exactly horizontal.** Fitted on log–log
+axes its slope is **0.067** — flat to within the width of the markers.
+That is not a coincidence of the plot: across those three designs the
+power spread is 3.07× and the throughput spread (CoreMark/MHz × f) is
+3.21×, so power tracks delivered work to within 5 %. Energy per unit of
+work is constant across a 2.2× range in performance per clock. Taken at
+face value that is a real and interesting claim — a wider machine buys
+its speed at proportionally more energy per cycle, and nets out even.
+It is also exactly the claim we cannot check: those power figures were
+read off a bar chart, the boundary they cover is unstated (§4.5), and
+they were taken on a different benchmark from the performance numbers.
+**A flat line derived three ways from one figure is the weakest kind of
+evidence, and it is drawn separately for that reason.**
+
+**Our own series is nearly a straight line on log–log axes, and that is
+a defect.** Its fitted slope is **0.855**. The cause is visible in the
+inputs:
+
+| core | CoreMark/MHz | f (MHz) | P (mW) | f/P (Hz/W) |
+|---|---|---|---|---|
+| SERV | 0.0243 | 1428.6 | 6.64 | 2.15 × 10¹¹ |
+| picorv32 | 0.5531 | 1000.0 | 6.58 | 1.52 × 10¹¹ |
+| ibex | 2.4543 | 833.3 | 7.77 | 1.07 × 10¹¹ |
+
+`CoreMark/Joule = CoreMark/MHz × f / P`. Across a **101×** span in
+CoreMark/MHz, the measured power spans **1.18×** and the whole
+multiplier `f/P` spans **2.01×**. A slope of exactly 1 would mean the
+energy axis carried no information the performance axis did not already
+have; the multiplier's 2.01× spread over 101× of x predicts a slope of
+**0.849**, and the measured slope is 0.855. **The fit is not evidence
+of a law. It is evidence that the y-axis is very nearly the x-axis.**
+
+Put the other way: over two decades of performance, the energy
+measurement contributes about 0.15 decades of independent signal. The
+same fact seen as time — energy per iteration is 1.92 × 10⁻⁴ J for SERV
+against 3.80 × 10⁻⁶ J for ibex, a 50× spread, while time per iteration
+spans 59× — says it again. Nearly all of the energy difference between
+these cores is how long they take, not what they burn while taking it.
+
+Why is the power nearly constant across designs that differ by 100× in
+performance? **Because none of them harden any memory** (§5.1). What is
+left is three small blocks of logic clocked within 1.7× of each other,
+and their logic power lands in a narrow band. The memory system — the
+part whose cost actually differs between a bit-serial core fetching
+41 million times per iteration and a pipelined one fetching 400 thousand
+— is outside the boundary on every point.
+
+So the honest reading of Figure 1 today is: **the blue series is a
+performance plot with an energy axis that has not yet been allowed to
+disagree with it.** Closing §5.1 is what would let it. That is a
+prediction the next measurement can falsify — if hardening the memories
+leaves the slope at 0.85, the degeneracy was not the boundary's fault
+and something else is wrong.
 
 ---
 
