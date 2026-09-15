@@ -145,11 +145,10 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
 
     pkg = native.package_name()  # e.g., "flow/designs/asap7/gcd"
 
-    # Derive the DESIGNS lookup key from the package path by stripping
-    # the "flow/designs/" prefix.  For block sub-packages like
-    # "flow/designs/asap7/parent/block", the resulting key won't match
-    # any DESIGNS entry, so orfs_design() becomes a no-op (block targets
-    # are created by the parent's _create_block_targets()).
+    # Derive the DESIGNS lookup key from the package path. For block
+    # sub-packages like "flow/designs/asap7/parent/block", the resulting
+    # key won't match any DESIGNS entry, so orfs_design() becomes a no-op
+    # (block targets are created by the parent's _create_block_targets()).
     prefix = "flow/designs/"
     if platform or design:
         # Explicit overrides — fall back to positional extraction
@@ -162,7 +161,16 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
     elif pkg.startswith(prefix):
         key = pkg[len(prefix):]
     else:
-        return
+        # A designs tree somewhere other than flow/designs/ -- which is
+        # what a consumer driving its own designs from this repository
+        # has, and what orfs_designs()'s designs_dir attribute exists to
+        # allow. The key is the last two path components, the same rule
+        # the floorplan derivation in design_dsl.bzl already uses, so the
+        # two agree at any depth.
+        parts = pkg.split("/")
+        if len(parts) < 2:
+            return
+        key = parts[-2] + "/" + parts[-1]
 
     if key not in designs:
         # Platform/design not in the parsed config set — skip silently.
@@ -237,6 +245,20 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
     for var in user_sources:
         if var in sources:
             user_srcs[var] = sources.pop(var)
+        elif var in arguments:
+            # config_mk_parser decides source-ness by variable name, so a
+            # project-private path hook it has never heard of arrives as
+            # an argument -- where it then fails validation as an unknown
+            # ORFS variable, whatever its value looks like. user_sources
+            # is the caller saying it is a source, which is exactly the
+            # case the attribute exists for, so honour it here too. The
+            # value is a whitespace-separated label list, like any other
+            # source var.
+            user_srcs[var] = [
+                label
+                for label in arguments.pop(var).replace("\t", " ").split(" ")
+                if label
+            ]
 
     # Default SYNTH_NUM_PARTITIONS to a static value so that the action graph
     # is identical across machines and remote cache hits are possible.  Users
@@ -356,12 +378,25 @@ def _filter_verilog_files(raw_verilog_files, design = None):
     return verilog_files
 
 def _collect_include_dirs(arguments):
-    """Collect extra data dependencies for VERILOG_INCLUDE_DIRS."""
+    """Collect extra data dependencies for VERILOG_INCLUDE_DIRS.
+
+    An include directory is normally a package of this repository
+    carrying a files("include") group, so the data dependency is
+    `//<dir>:include`.
+
+    A directory under external/ is not: it lives inside a fetched
+    archive, where the path is bazel's own and there is no package to
+    name. Synthesising a label for it produced "no such package
+    'external/...'" at analysis time, which reads as a missing BUILD
+    file rather than as what it is. Such a directory is skipped here and
+    its files have to reach the sandbox through whatever declares them --
+    an archive's own filegroup in VERILOG_FILES, typically.
+    """
     extra_data = []
     include_dirs = arguments.get("VERILOG_INCLUDE_DIRS", "")
     for inc_dir in include_dirs.replace("\t", " ").split(" "):
         inc_dir = inc_dir.strip().rstrip("/")
-        if inc_dir:
+        if inc_dir and not inc_dir.startswith("external/"):
             extra_data.append("//" + inc_dir + ":include")
     return extra_data
 

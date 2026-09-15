@@ -1,0 +1,27 @@
+# Is a designs tree outside flow/designs discovered at all?
+#
+# The failure this guards is silent. config_mk_parser resolves a "//"
+# label in a config.mk against the root of the repository the designs
+# tree lives in, and that root was computed by stripping two path
+# components -- right for ORFS's "flow/designs", wrong for a tree at any
+# other depth. Every design in such a tree then looked like it had
+# sources that do not exist, was skipped, and DESIGNS came back empty.
+# orfs_design() declared no targets and said nothing about it.
+#
+# So the assertion is simply that the targets exist: if discovery fails
+# they are not declared, and a build_test naming them fails at analysis
+# -- before anything is synthesized. That is the whole test, and it runs
+# in CI in the time it takes to load two packages.
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+
+package(default_visibility = ["//visibility:private"])
+
+build_test(
+    name = "designs_tree_discovered_test",
+    targets = [
+        # Cheap by design: the variables file and the config, neither of
+        # which runs a flow stage. Their existence is the evidence.
+        "//test/designs_fixture/designs/asap7/tiny:tiny_variables",
+        "//test/designs_fixture/designs/asap7/tiny:design_config",
+    ],
+)
