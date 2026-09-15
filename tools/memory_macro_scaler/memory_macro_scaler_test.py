@@ -850,6 +850,66 @@ class TestVerilogScanner(unittest.TestCase):
         self.assertEqual(r.nW, 1)
         self.assertNotIn("unrelated", roles)
 
+    def test_scan_sees_ports_declared_with_a_data_type(self):
+        """firtool omits the type; hand-written SystemVerilog does not.
+
+        Without the type in the port pattern the scanner finds no ports
+        at all on such a module, and a module with no ports is not a
+        memory -- so the design comes back with none and nothing
+        reports an error. Taken from VeeR EH1's design/lib/mem_lib.sv,
+        which is the shape that found this.
+        """
+        sv = textwrap.dedent(
+            """\
+            module ram_2048x39
+              ( input logic CLK,
+                input logic [10:0] ADR,
+                input logic [38:0] D,
+
+                output logic [38:0] Q,
+                input logic WE );
+               reg [38:0] ram_core [2047:0];
+            endmodule
+        """
+        )
+        roles = mms.scan_verilog_for_memories(sv)
+        self.assertIn("ram_2048x39", roles)
+        self.assertEqual((2048, 39), (roles["ram_2048x39"].rows, roles["ram_2048x39"].bits))
+
+    def test_scan_still_sees_firtool_ports_without_a_data_type(self):
+        """The type is optional, not required: firtool's form still parses."""
+        sv = textwrap.dedent(
+            """\
+            module typeless_64x8(
+              input  [5:0] R0_addr,
+              input        R0_en,
+              input        R0_clk,
+              output [7:0] R0_data
+            );
+            endmodule
+        """
+        )
+        roles = mms.scan_verilog_for_memories(sv)
+        self.assertIn("typeless_64x8", roles)
+        self.assertEqual("sram", roles["typeless_64x8"].kind)
+
+    def test_scan_sees_signed_and_wire_declared_ports(self):
+        sv = textwrap.dedent(
+            """\
+            module signed_32x16(
+              input wire clk,
+              input wire [4:0] addr,
+              output reg signed [15:0] q,
+              input wire we,
+              input wire signed [15:0] d
+            );
+            endmodule
+        """
+        )
+        roles = mms.scan_verilog_for_memories(sv)
+        self.assertIn("signed_32x16", roles)
+        self.assertEqual((32, 16), (roles["signed_32x16"].rows, roles["signed_32x16"].bits))
+
     def test_scan_detects_flop_memory_by_name(self):
         sv = textwrap.dedent(
             """\
