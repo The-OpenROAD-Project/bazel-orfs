@@ -34,6 +34,47 @@ stage_power(
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 
+# Did the sixteen SRAMs reach the netlist as macros? The flow can detect a
+# memory, write its views, list it in blackboxes.txt and synthesise it as
+# flip-flops anyway, and nothing fails -- which is exactly what happened
+# to every one of these before patches 0069 and 0070: memories.json held
+# two entries, both declined, and the L1s were 1.2 Mbit of flops. The
+# expected list is declared, so an empty blackboxes.txt fails here rather
+# than passing vacuously. Every name is a firtool array_<depth>x<width>
+# module; the four-row array_4x786 and the two-row queues stay flops by
+# the macro floors, on purpose.
+CONVERTED_MEMORIES = [
+    "array_128x138",
+    "array_128x18",
+    "array_128x192",
+    "array_128x38",
+    "array_128x48",
+    "array_128x76",
+    "array_256x46",
+    "array_256x66",
+    "array_256x8",
+    "array_256x86",
+    "array_256x88",
+    "array_32x148",
+    "array_512x17",
+    "array_64x112",
+    "array_64x114",
+    "array_64x16",
+]
+
+genrule(
+    name = "cmj_xiangshan_memories_applied",
+    srcs = [":XSCore_synth"],
+    outs = ["cmj_xiangshan_memories_applied.txt"],
+    cmd = "files=$$(echo $(locations :XSCore_synth) | tr ' ' '\\n'); " +
+          "$(execpath //test/coremark_joule/scripts:check_memories_applied) " +
+          "$$(echo \"$$files\" | grep '/memories$$')/blackboxes.txt " +
+          "$$(echo \"$$files\" | grep '/1_2_yosys.v$$') " +
+          "--expect " + " ".join(CONVERTED_MEMORIES) + " > $@",
+    tags = ["manual"],
+    tools = ["//test/coremark_joule/scripts:check_memories_applied"],
+)
+
 # Whether the kept module boundaries survived into the ODB. Cheap, and
 # the failure it catches is silent: the flow completes, the netlist is
 # valid, and the breakdown simply comes back empty.
