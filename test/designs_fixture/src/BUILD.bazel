@@ -1,5 +1,8 @@
 # Sources for //test/designs_fixture/designs, named from its config.mk by
 # a "//" label.
-package(default_visibility = ["//visibility:public"])
+# Scoped to test/, not public: public_surface.py refuses a public
+# target under test/, and only the designs tree beside this one
+# names these files.
+package(default_visibility = ["//test:__subpackages__"])
 
 exports_files(["tiny.v"])
