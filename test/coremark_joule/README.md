@@ -41,10 +41,10 @@ them. Where a core is too small to have caches, the small SRAM that
 comes with it and holds the program is what is measured in their place.
 
 The shape those three points make is reported with its own diagnosis.
-On log–log axes they fall close to a straight line of slope 0.855 — and
+On log–log axes they fall close to a straight line of slope 0.868 — and
 that is a defect rather than a law. Across a 101× span in CoreMark/MHz
-the measured power spans only 1.18×, so the multiplier `f/P` predicts a
-slope of 0.849 on its own: the energy axis contributes about 0.15
+the measured power spans only 1.15×, so the multiplier `f/P` predicts a
+slope of 0.862 on its own: the energy axis contributes about 0.13
 decades of independent signal over two decades of performance. The
 cause is the boundary. With no memory hardened, what is left is three
 small blocks of logic clocked within 1.7× of each other, and the part
@@ -71,9 +71,9 @@ colour because it is not like-for-like (§4.4).
 
 | core | ISA | CoreMark/MHz | cycles/iter | f (MHz) | P (SAIF) | CoreMark/Joule |
 |---|---|---|---|---|---|---|
-| SERV | rv32i | 0.0243 | 41,202,900 | 1428.6 | 6.64 mW | 5,222 |
-| picorv32 | rv32im | 0.5531 | 1,807,889 | 1000.0 | 6.58 mW | 84,063 |
-| ibex | rv32imc | 2.4543 | 407,448 | 833.3 | 7.77 mW | 263,224 |
+| SERV | rv32i | 0.0243 | 41,202,900 | 1428.6 | 6.68 mW | 5,190 |
+| picorv32 | rv32im | 0.5531 | 1,807,889 | 1000.0 | 6.43 mW | 86,024 |
+| ibex | rv32imc | 2.4543 | 407,448 | 833.3 | 7.37 mW | 277,510 |
 
 **Table 1.** The three measured points. Frequency is the SDC period the
 SAIF was timed against (§5.5); power is `report_power` at global route
@@ -170,6 +170,76 @@ it:
 OpenSTA exposes `report_activity_annotation`, which enumerates
 annotated and unannotated pins; the command exists because this
 question was asked of it [10].
+
+### 2.3 Why CoreMark/Joule falls as CoreMark/second rises
+
+The two axes of Figure 1 are not independent, and the way they are
+coupled is worth writing down before any number is read off the plot.
+
+Start from the identity:
+
+    CoreMark/Joule = (CoreMark/MHz x f) / P,    P = P_dyn + P_leak
+    P_dyn = a C V^2 f
+    P_leak = V I_leak(V, T)
+
+**At fixed voltage and fixed microarchitecture, energy per unit of work
+does not depend on frequency at all.** Substituting `P_dyn` into the
+identity, the `f` cancels: `CoreMark/Joule = (CoreMark/MHz) / (a C V^2)`.
+Doing the same work twice as fast costs twice the power for half the
+time. This is the part that surprises people, and it is why "run slower
+to save energy" is wrong as stated.
+
+**The leakage term pushes the same way.** Leakage energy per operation
+is `P_leak / (CoreMark/MHz x f)`, which falls as `1/f`: a faster part
+spends less time leaking per unit of work. This is the whole argument
+for race-to-idle, and in a leakage-dominated regime — a small core at a
+low frequency, which is exactly where SERV sits — it is the dominant
+term.
+
+So if frequency were free, higher would be better. It is not free, and
+what it costs is where the efficiency goes.
+
+**Route one: buy frequency with voltage.** `f_max` rises roughly
+linearly with `V` over the usable range, while `E_dyn` per operation
+rises as `V^2`. Energy per operation therefore scales as `f^2`, and
+CoreMark/Joule as `1/f^2`. Taking ibex's measured point and holding the
+microarchitecture fixed:
+
+| f | energy per CoreMark iteration | CoreMark/Joule |
+|---|---|---|
+| 833 MHz (measured) | 3.60 µJ | 277,510 |
+| 3.0 GHz (projected) | 46.7 µJ | 21,400 |
+| 5.0 GHz (projected) | 130 µJ | 7,700 |
+
+**Those two rows are a projection under a stated assumption, not a
+measurement**, and the assumption is the point: reaching 3 GHz this way
+would need 3.6× the supply, which at 7 nm is not a voltage, it is a
+breakdown. ASAP7's whole headroom from typical to best case is 0.70 V to
+0.77 V — about 10 %, worth maybe 10–20 % of frequency for 21 % more
+dynamic energy per operation. Voltage is exhausted almost immediately,
+and it was a losing trade before it ran out.
+
+**Route two: buy frequency with microarchitecture.** Shorten the logic
+between registers and the same silicon closes at a higher clock: more
+pipeline stages, more flops, more clock tree, and an optimiser that
+upsizes cells to make each stage fit. Every one of those raises `C` per
+operation while `V` stays put. This is the route real 3–5 GHz parts
+take, and it is why a datacenter core is not a small core clocked up —
+it is a different design whose energy per instruction is structurally
+higher.
+
+The consequence for this study is that **the interesting cores are not
+reachable by pushing a knob on the cores it has.** A 3 GHz point is a
+different microarchitecture, and §7's roadmap is the honest way to get
+one. What the existing cores *can* say is where their own knee is: §8.4's
+Pareto sweep, which measures route two directly by pushing the period
+until the tools start upsizing wholesale, and shows the cost of speed as
+a curve rather than as a projection.
+
+It also bears on §4.6. The near-degeneracy there — power almost constant
+across a 101× span in performance — is partly this: the three cores sit
+within 1.7× of each other in frequency and share a voltage, so the term
+that would separate them has not been exercised.
 
 ---
 
@@ -671,29 +741,37 @@ they were taken on a different benchmark from the performance numbers.
 evidence, and it is drawn separately for that reason.**
 
 **Our own series is nearly a straight line on log–log axes, and that is
-a defect.** Its fitted slope is **0.855**. The cause is visible in the
+a defect.** Its fitted slope is **0.868**. The cause is visible in the
 inputs:
 
 | core | CoreMark/MHz | f (MHz) | P (mW) | f/P (Hz/W) |
 |---|---|---|---|---|
-| SERV | 0.0243 | 1428.6 | 6.64 | 2.15 × 10¹¹ |
-| picorv32 | 0.5531 | 1000.0 | 6.58 | 1.52 × 10¹¹ |
-| ibex | 2.4543 | 833.3 | 7.77 | 1.07 × 10¹¹ |
+| SERV | 0.0243 | 1428.6 | 6.68 | 2.14 × 10¹¹ |
+| picorv32 | 0.5531 | 1000.0 | 6.43 | 1.56 × 10¹¹ |
+| ibex | 2.4543 | 833.3 | 7.37 | 1.13 × 10¹¹ |
 
 `CoreMark/Joule = CoreMark/MHz × f / P`. Across a **101×** span in
-CoreMark/MHz, the measured power spans **1.18×** and the whole
-multiplier `f/P` spans **2.01×**. A slope of exactly 1 would mean the
+CoreMark/MHz, the measured power spans **1.15×** and the whole
+multiplier `f/P` spans **1.89×**. A slope of exactly 1 would mean the
 energy axis carried no information the performance axis did not already
-have; the multiplier's 2.01× spread over 101× of x predicts a slope of
-**0.849**, and the measured slope is 0.855. **The fit is not evidence
+have; the multiplier's 1.89× spread over 101× of x predicts a slope of
+**0.862**, and the measured slope is 0.868. **The fit is not evidence
 of a law. It is evidence that the y-axis is very nearly the x-axis.**
 
 Put the other way: over two decades of performance, the energy
-measurement contributes about 0.15 decades of independent signal. The
-same fact seen as time — energy per iteration is 1.92 × 10⁻⁴ J for SERV
-against 3.80 × 10⁻⁶ J for ibex, a 50× spread, while time per iteration
+measurement contributes about 0.13 decades of independent signal. The
+same fact seen as time — energy per iteration is 1.93 × 10⁻⁴ J for SERV
+against 3.60 × 10⁻⁶ J for ibex, a 54× spread, while time per iteration
 spans 59× — says it again. Nearly all of the energy difference between
 these cores is how long they take, not what they burn while taking it.
+
+**Correcting the IO budget (§5.10) made this slightly worse, not
+better**, which is worth reporting because it was not the hoped-for
+outcome. The correction removed more power from the larger cores than
+from the smaller ones, narrowing the power spread from 1.18× to 1.15×
+and moving the slope from 0.855 to 0.868. It was a real error and fixing
+it was right; it was simply not the source of the degeneracy. §5.1 still
+is.
 
 Why is the power nearly constant across designs that differ by 100× in
 performance? **Because none of them harden any memory** (§5.1). What is
@@ -906,10 +984,10 @@ Every point is baseline flags. CoreMark scores are sensitive to
 compiler flags, and comparing cores at different flag settings would
 not be a comparison of cores.
 
-### 5.10 Table 1 predates the IO budget
+### 5.10 The IO budget, and what the platform default cost
 
-Found while wiring VeeR, and it applies backwards to Table 1. The SDCs
-are fixed; the numbers are not yet re-measured.
+Found while wiring VeeR, and it applied backwards to Table 1. Both the
+SDCs and the numbers are now fixed; this records what it was worth.
 
 `$PLATFORM_DIR/constraints.sdc` on ASAP7 constrains every
 input-to-register, register-to-output and input-to-output path with
@@ -930,14 +1008,37 @@ not been measured.
 
 **All four designs now set the budget** — `in2reg_max` and
 `reg2out_max` at 0.8 of the period, `in2out_max` at 0.6, ORFS's own
-ratios — so the asymmetry is closed in the source. What has not happened
-yet is the re-measurement: **Table 1's numbers were taken before it**,
-and until the three cores are re-run they are the only figures in this
-document that do not match the SDCs in the tree.
+ratios — and the three measured cores have been re-run. What the default
+was worth:
 
-How far they move is itself a result. It is the size of an error that
-every ORFS design inheriting the 80 ps default carries, measured on
-three designs at once.
+| core | P at 80 ps | P budgeted | delta | CoreMark/Joule |
+|---|---|---|---|---|
+| SERV | 6.640 mW | 6.680 mW | **+0.6 %** | 5,222 → 5,190 |
+| picorv32 | 6.580 mW | 6.430 mW | **−2.3 %** | 84,063 → 86,024 |
+| ibex | 7.770 mW | 7.370 mW | **−5.1 %** | 263,224 → 277,510 |
+
+CoreMark/MHz is unchanged in every case, as it must be: it is a cycle
+count and knows nothing about timing constraints.
+
+**The error scales with the port count**, which is what the mechanism
+predicts. SERV's interface is one bit wide and it barely moved — and
+moved the wrong way, which is a reminder that removing an over-constraint
+frees the optimiser to spend its effort elsewhere rather than simply
+spending less. picorv32 has a 32-bit bus; ibex has the widest interface
+of the three and lost the most. That it is differential is the part that
+mattered: it was distorting the comparison between cores, not only the
+absolute figures.
+
+`check_sdc.py` now makes this a checked property rather than a comment:
+every design SDC must state all three budgets and must use neither
+`set_input_delay` nor `set_output_delay`. It is a non-manual test,
+because what it guards is silent in every report downstream of it.
+
+This is a measurement of an error that **every ORFS design inheriting
+the 80 ps default carries**, taken on three designs at once. Its size on
+a design with many more ports — VeeR has some six hundred — is not
+measured here, but the trend across these three does not suggest it is
+smaller.
 
 Two sub-findings worth separating out, because they are reasons the
 override matters rather than consequences of it:
@@ -1303,7 +1404,26 @@ the comparison returns. So the plan is both nodes up to and including
 is exactly where a node-sensitivity claim can be made, and it is stated
 where it ends.
 
-### 8.3 The Pareto curve
+### 8.3 Push every core to its own maximum frequency
+
+Every frequency in Table 1 is an SDC period someone picked, not one the
+core was pushed to (§5.5), and §2.3 explains why that matters more than
+it sounds: the frequency term is the one that has not been exercised, so
+the energy axis has not yet been allowed to say anything the performance
+axis did not.
+
+The job is a period tuner in the shape of the floorplan derivation —
+`auto_period`: run, read `clk_period - WNS`, pin the result into the
+design, re-derive when the design changes. §5.5 says why it cannot ride
+on `auto_floorplan` (the period is a synthesis input, so a period
+candidate cannot start from a shared `1_synth.odb` the way a floorplan
+candidate can) and why the two interact enough to need two passes.
+
+Until it exists, every CoreMark/Joule here is taken at a frequency
+chosen for convenience, and comparing cores at such frequencies compares
+the choices as much as the designs.
+
+### 8.4 The Pareto curve
 
 The single most useful graphic this study does not yet have, and the one
 that follows most directly from what it already builds.
