@@ -126,6 +126,16 @@ ORFS_PATCHES = [
     # Not upstreamed -- retire at a bump onto an ORFS that carries it.
     Label("//patches:0066-orfs-auto-memories-module-only.patch"),
     Label("//patches:0065-orfs-genelapsedtime-stamped-log.patch"),
+    # The ASAP7 FakeRAM backend hardcodes column_mux_factor 1, so a
+    # generated array is `rows` cells tall with nothing folding it: an
+    # 8192x32 memory comes out 4.18 x 2654 um, an aspect ratio of 635:1
+    # that no floorplan can place. The platform's own fakeram7_* views
+    # were generated with a per-shape factor -- 4 for 2048x39, 2 for
+    # 256x32, 1 for 256x256 -- so the constant is the bug. Picks one by
+    # squaring the array. Separate from 0063, which is ORFS's own patch
+    # re-pathed and kept comparable to what ORFS ships.
+    # Not upstreamed -- retire at a bump onto an ORFS that picks one.
+    Label("//patches:0067-orfs-fakeram-asap7-column-mux.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
