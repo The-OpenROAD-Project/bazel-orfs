@@ -1,0 +1,53 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Oyvind Harboe <oyvind.harboe@zylin.com>
+Date: Sun, 14 Sep 2026 00:00:00 +0000
+Subject: [PATCH] BUILD: do not link -latomic on Linux
+
+The BCR overlay links -latomic unconditionally on Linux. That is a
+libgcc-era assumption: libatomic is GCC's out-of-line fallback for
+atomic operations the hardware cannot do inline, and glibc-based
+distributions ship it next to libgcc.
+
+The BCR "llvm" toolchain (hermetic-llvm) is zero-sysroot: its runtime is
+compiler-rt and it ships no libatomic at all, so the link fails outright
+with
+
+    ld.lld: error: unable to find library -latomic
+
+Nothing in verilator needs it there. Every atomic in the sources is on a
+type clang lowers inline on x86-64 and aarch64, and the out-of-line
+__atomic_* calls that would require the library are never emitted. On a
+toolchain that does ship libatomic, dropping the flag is equally safe:
+the library is a fallback, not a dependency, and an unused -l is exactly
+what it costs.
+
+Fixing it here rather than upstream because the flag is correct for the
+toolchain the overlay was written against; the general fix is a select
+on the runtime, which is a conversation for the BCR module rather than a
+condition this study should invent. Retire this patch at a verilator BCR
+revision that makes -latomic conditional.
+
+Not upstreamed.
+---
+ BUILD.bazel | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/BUILD.bazel b/BUILD.bazel
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -473,7 +473,6 @@
+     linkopts = select({
+         "@platforms//os:linux": [
+             "-lpthread",
+-            "-latomic",
+         ],
+         "@platforms//os:macos": [
+             "-lpthread",
+@@ -537,7 +536,6 @@
+     linkopts = select({
+         "@platforms//os:linux": [
+             "-lpthread",
+-            "-latomic",
+         ],
+         "@platforms//os:macos": [
+             "-lpthread",

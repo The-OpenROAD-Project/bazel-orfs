@@ -1,0 +1,44 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Oyvind Harboe <oyvind.harboe@zylin.com>
+Date: Sun, 14 Sep 2026 00:00:00 +0000
+Subject: [PATCH] verilated_runtime: do not link -latomic on Linux
+
+The same zero-sysroot problem as the verilator module's own patch, one
+level up: verilated_runtime adds -latomic on Linux, and every simulator
+built by verilator_cc_library depends on it, so the flag lands on the
+final link of each generated simulator rather than only on verilator
+itself.
+
+The BCR "llvm" toolchain (hermetic-llvm) ships no libatomic -- its
+runtime is compiler-rt -- so the link fails with
+
+    ld.lld: error: unable to find library -latomic
+
+libatomic is GCC's out-of-line fallback for atomics the hardware cannot
+do inline. The verilated runtime uses atomics on types clang lowers
+inline on x86-64 and aarch64, so nothing here needs the library; on a
+toolchain that does ship it, dropping the flag costs an unused -l.
+
+Not upstreamed: the correct upstream fix selects on the C++ runtime
+rather than on the OS, which is a change to make in rules_verilator on
+its own terms. Retire this patch at a release that makes -latomic
+conditional.
+---
+ verilator/BUILD.bazel | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/verilator/BUILD.bazel b/verilator/BUILD.bazel
+--- a/verilator/BUILD.bazel
++++ b/verilator/BUILD.bazel
+@@ -32,10 +32,7 @@
+ 
+ cc_library(
+     name = "verilated_runtime",
+-    linkopts = select({
+-        ":linux": ["-latomic"],
+-        "//conditions:default": [],
+-    }),
++    linkopts = [],
+     visibility = ["//visibility:public"],
+     deps = ["@verilator//:verilated"],
+ )

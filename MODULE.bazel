@@ -251,6 +251,50 @@ register_toolchains(
     dev_dependency = True,
 )
 
+# --- Verilator, dev-only -----------------------------------------------
+#
+# Nothing shipped uses these: they exist so this repository can simulate
+# the RTL it hardens, which is what //test/verilator_smoke exercises. A
+# consumer of bazel-orfs must never resolve a simulator to build a flow,
+# so both are dev_dependency and public_surface.py enforces it.
+bazel_dep(name = "rules_verilog", version = "1.4.3", dev_dependency = True)
+bazel_dep(name = "rules_verilator", version = "1.1.2", dev_dependency = True)
+
+# verilator: rules_verilator pins 5.046.bcr.3, whose cc_binary links
+# -latomic unconditionally on Linux. That is a libgcc-era assumption --
+# libatomic is GCC's out-of-line fallback, shipped next to libgcc on
+# glibc distributions. The llvm toolchain above is zero-sysroot, its
+# runtime is compiler-rt, and it ships no libatomic at all, so the tool
+# does not link here:
+#
+#     ld.lld: error: unable to find library -latomic
+#
+# Nothing in verilator needs it: every atomic in its sources is on a type
+# clang lowers inline on x86-64 and aarch64, so the out-of-line __atomic_*
+# calls that would require the library are never emitted. On a toolchain
+# that does ship libatomic, dropping the flag costs an unused -l.
+#
+# Later BCR revisions are the first place to look when this can retire.
+single_version_override(
+    module_name = "verilator",
+    patch_strip = 1,
+    patches = [
+        "//patches:0001-verilator-drop-latomic-under-zero-sysroot-llvm.patch",
+    ],
+    version = "5.046.bcr.3",
+)
+
+# The same problem one level up: verilated_runtime puts -latomic on every
+# generated simulator's link line, not only on verilator's own binary.
+single_version_override(
+    module_name = "rules_verilator",
+    patch_strip = 1,
+    patches = [
+        "//patches:0001-rules_verilator-drop-latomic-under-zero-sysroot-llvm.patch",
+    ],
+    version = "1.1.2",
+)
+
 # 2.3.2, not 2.0.0: every module in the graph that depends on rules_python
 # (protobuf, sv-lang, yosys, rules_pkg, ...) asks for 2.3.2, so MVS resolves
 # there and a lower root pin only buys a --check_direct_dependencies warning
