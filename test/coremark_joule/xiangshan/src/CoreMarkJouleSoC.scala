@@ -32,9 +32,9 @@ import utility.MaskExpand
   * One C runtime and one output checker therefore serve all four cores.
   */
 class CmjCtrlIO extends Bundle {
-  val putchar_valid = Output(Bool())
-  val putchar_data = Output(UInt(8.W))
-  val halt = Output(Bool())
+  val out_valid = Output(Bool())
+  val out_byte = Output(UInt(8.W))
+  val halt_valid = Output(Bool())
 }
 
 class CmjCtrl(address: Seq[AddressSet])(implicit p: Parameters)
@@ -47,9 +47,9 @@ class CmjCtrl(address: Seq[AddressSet])(implicit p: Parameters)
     // other three cores.
     val write = in.w.fire
     val offset = waddr(15, 0)
-    ctrl.putchar_valid := write && offset === 0x0.U
-    ctrl.putchar_data := in.w.bits.data(7, 0)
-    ctrl.halt := write && offset === 0x8.U && in.w.bits.data(0)
+    ctrl.out_valid := write && offset === 0x0.U
+    ctrl.out_byte := in.w.bits.data(7, 0)
+    ctrl.halt_valid := write && offset === 0x8.U && in.w.bits.data(0)
 
     // Reads return zero. Nothing in the port reads this device.
     in.r.bits.data := 0.U
@@ -139,8 +139,15 @@ class CoreMarkJouleSoC(bootAddr: Long, memBase: Long, memBytes: Long)(implicit p
     new CmjCtrlWrapper(Seq(AddressSet(0x10000000L, 0xfff)), beatBytes = 8, idBits = 2)
   )
 
-  lazy val module = new LazyModuleImp(this) {
-    val cmj = IO(new CmjCtrlIO)
+  // A named implementation class rather than an anonymous one, so the
+  // wrapper can see these five ports: `.module` on an anonymous impl types
+  // as LazyModuleImp and hides them.
+  class Impl extends LazyModuleImp(this) {
+    val out_valid = IO(Output(Bool()))
+    val out_byte = IO(Output(UInt(8.W)))
+    val halt_valid = IO(Output(Bool()))
+    val trap = IO(Output(Bool()))
+    val dbg_instr_addr = IO(Output(UInt(32.W)))
 
     val socMod = soc.module
     socMod.io.clock := clock
@@ -148,7 +155,22 @@ class CoreMarkJouleSoC(bootAddr: Long, memBase: Long, memBytes: Long)(implicit p
 
     mem.io_axi4.head <> socMod.memory.viewAs[AXI4Bundle]
     ctrl.io_axi4.head <> socMod.peripheral.viewAs[AXI4Bundle]
-    cmj <> ctrl.io_ctrl
+    out_valid := ctrl.io_ctrl.out_valid
+    out_byte := ctrl.io_ctrl.out_byte
+    halt_valid := ctrl.io_ctrl.halt_valid
+
+    // XiangShan reports a critical error rather than a trap line, and the
+    // program's own exception vectors print a marker and halt, so this is
+    // a second channel rather than the only one.
+    trap := socMod.io.riscv_critical_error.reduce(_ || _)
+
+    // The harness prints a last fetch address when a run times out. There
+    // is no single fetch address to report on an out-of-order core with a
+    // decoupled front end, and inventing one would be worse than saying
+    // nothing, so it reads zero and the timeout message says "trap loop"
+    // for every XiangShan hang. The bounded fetch trace is a debugging
+    // aid for in-order cores.
+    dbg_instr_addr := 0.U
 
     // Boot address. XiangShan takes it as an input rather than from a
     // bootrom, so the study's image needs no first-stage loader.
@@ -197,6 +219,42 @@ class CoreMarkJouleSoC(bootAddr: Long, memBase: Long, memBytes: Long)(implicit p
       t.fromEncoder.stall := false.B
     }
   }
+
+  override lazy val module: Impl = new Impl
+}
+
+/** The module the harness instantiates.
+  *
+  * A thin RawModule rather than the LazyModuleImp itself, because the
+  * harness drives `clk` and an active-low `resetn` -- the same two signals
+  * it drives on picorv32, SERV and ibex -- and a Chisel Module's implicit
+  * clock and reset are named `clock` and `reset` and are active high.
+  * Matching the name and the five ports is what lets one main.cc drive all
+  * four cores.
+  */
+class CmSoc(bootAddr: Long, memBase: Long, memBytes: Long)(implicit p: Parameters)
+    extends RawModule {
+  override def desiredName: String = "cm_soc"
+
+  val clk = IO(Input(Clock()))
+  val resetn = IO(Input(Bool()))
+  val out_valid = IO(Output(Bool()))
+  val out_byte = IO(Output(UInt(8.W)))
+  val halt_valid = IO(Output(Bool()))
+  val trap = IO(Output(Bool()))
+  val dbg_instr_addr = IO(Output(UInt(32.W)))
+
+  private val outer: CoreMarkJouleSoC =
+    LazyModule(new CoreMarkJouleSoC(bootAddr, memBase, memBytes))
+  val inner: CoreMarkJouleSoC#Impl = withClockAndReset(clk, (!resetn).asAsyncReset) {
+    Module(outer.module)
+  }
+
+  out_valid := inner.out_valid
+  out_byte := inner.out_byte
+  halt_valid := inner.halt_valid
+  trap := inner.trap
+  dbg_instr_addr := inner.dbg_instr_addr
 }
 
 object CoreMarkJouleSoCGenerator extends App {

@@ -735,3 +735,91 @@ SEED_CORES = [
     for core, isa, pkg, top, boundary, dropped in SEED_CORES
     for seed in SEEDS
 ]
+# XiangShan. One simulator, built from the concatenated Chisel output, with
+# the memory behind DPI rather than in a $readmemh array.
+#
+# The minimal configuration exists to prove the harness cheaply: it is a
+# far smaller core and not a measurement, but it boots the same image
+# through the same contract.
+[
+    verilator_cc_library(
+        name = "cm_soc_xiangshan" + suffix + "_lib",
+        copts = _SIM_COPTS,
+        module = "//test/coremark_joule/xiangshan:cmj_soc" + suffix,
+        module_top = "cm_soc",
+        trace_mode = "none",
+        vopts = _SIM_VOPTS + [
+            # firtool emits one enormous file and Verilator's default
+            # output split makes the C++ compiler quadratic on it.
+            "--output-split",
+            "20000",
+            # XiangShan's generated Verilog carries unused signals and
+            # declarations that are not defects.
+            "-Wno-UNUSEDSIGNAL",
+            "-Wno-DECLFILENAME",
+            "-Wno-VARHIDDEN",
+        ],
+    )
+    for suffix in [
+        "",
+        "_minimal",
+    ]
+]
+
+[
+    cc_binary(
+        name = "cm_sim_xiangshan" + suffix,
+        srcs = [
+            "main.cc",
+            "xs_dpi.cc",
+        ],
+        tags = ["manual"],
+        deps = [":cm_soc_xiangshan" + suffix + "_lib"],
+    )
+    for suffix in [
+        "",
+        "_minimal",
+    ]
+]
+
+# XiangShan's image is linked at 0x8000_0000 and its memory is a C++ array
+# behind DPI, so the hex is the same format at a different base: offset
+# zero in the file is 0x8000_0000 to the program, which is what
+# AXI4MemoryImp's ramIndex already assumes when it subtracts the base.
+#
+# A megabyte of image rather than 128 KiB: the RV64 build is larger, and
+# nothing here is hardened.
+[
+    [
+        coremark_hex(
+            name = "coremark_rv64gc_{}_hex".format(iterations),
+            base = "0x80000000",
+            elf = "//test/coremark_joule/sw:coremark_rv64gc_{}".format(iterations),
+            words = 262144,
+        ),
+        coremark_run(
+            name = "xiangshan_rv64gc_{}".format(iterations),
+            image = ":coremark_rv64gc_{}_hex".format(iterations),
+            # An out-of-order core at roughly ten CoreMark per MHz needs
+            # order 10^5 cycles an iteration, so three iterations plus a
+            # cold start is comfortably inside a few million.
+            max_cycles = 50000000,
+            sim = ":cm_sim_xiangshan",
+        ),
+    ]
+    for iterations in [
+        2,
+        3,
+    ]
+]
+
+coremark_crc_test(
+    name = "xiangshan_rv64gc_crc_test",
+    run = ":xiangshan_rv64gc_3",
+)
+
+coremark_per_mhz(
+    name = "xiangshan_rv64gc_per_mhz",
+    run_2 = ":xiangshan_rv64gc_2",
+    run_3 = ":xiangshan_rv64gc_3",
+)
