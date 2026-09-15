@@ -212,6 +212,7 @@ def design(
         user_arguments = [],
         user_sources = [],
         local_arguments = [],
+        user_stages = {},
         visibility = ["//visibility:public"],
         extra = None):
     """Standard BUILD body for a design package.
@@ -237,6 +238,10 @@ def design(
             helpers (used only via $(VAR) expansion within the same
             config.mk, never read by ORFS or by user .tcl/.mk). Dropped
             entirely before orfs_flow() is invoked.
+        user_stages: which stages read each user variable, e.g.
+            {"MY_HOOK": ["floorplan"]}; forwarded to orfs_design(). An
+            unlisted user variable reaches every stage, so editing it
+            re-runs synthesis too.
         visibility: visibility of the generated flow targets. Public by
             default: a design package exists to be built, and a consumer
             in another module cannot collect <design>_test into a
@@ -254,6 +259,7 @@ def design(
         user_arguments = user_arguments,
         user_sources = user_sources,
         local_arguments = local_arguments,
+        user_stages = user_stages,
         visibility = visibility,
         extra = extra,
     )
