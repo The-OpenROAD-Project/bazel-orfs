@@ -1288,7 +1288,15 @@ def generate_lib(role, tech_nm=DEFAULT_TECH_NM):
     a('    index_1 ("0.001, 0.1");')
     a('    index_2 ("0.001, 0.1");')
     a("  }")
-    a("  lu_table_template(power_template) {")
+    # power_lut_template, not lu_table_template. Liberty keeps power
+    # templates in their own namespace, and OpenSTA looks internal_power
+    # tables up only there: declared as an lu_table_template this reads
+    # back as "[WARNING STA-1253] table template power_template not
+    # found" and every internal_power table in the file is dropped. The
+    # macro then contributes leakage and nothing else, which on a design
+    # whose area is mostly memory is a silently wrong power number
+    # rather than a missing one.
+    a("  power_lut_template(power_template) {")
     a("    variable_1 : input_transition_time;")
     a('    index_1 ("0.001, 0.1");')
     a("  }")

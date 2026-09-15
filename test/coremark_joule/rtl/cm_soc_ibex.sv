@@ -1,25 +1,22 @@
 /* ibex on the study's sim-control platform.
  *
- * Same wrapper contract as the picorv32 and SERV ones -- RAM, the
- * two-register sim-control device, one bus adapter -- so the C runtime,
- * the address map and the CoreMark port are shared. Only ibex_top is
- * hardened.
+ * Same contract as the picorv32 and SERV wrappers: external memory with
+ * an instruction side and a data side, the two-register sim-control
+ * device, and counters of everything that crossed the boundary.
+ * Everything the benchmark touches once it is running lives in the two
+ * memories inside cmj_ibex, which is what gets hardened and what the
+ * energy number is reported over. cm_soc_picorv32.v carries the
+ * reasoning.
  *
  * SystemVerilog rather than Verilog, unlike the other two wrappers,
- * because ibex_top's ports carry package types (ibex_mubi_t,
- * prim_ram_1p_pkg::ram_1p_cfg_req_t) that cannot be named from Verilog.
- *
- * The parameters are left at ibex_top's own defaults, which are already
- * the small configuration this study wants: no PMP, no writeback stage,
- * no branch-target ALU, no icache, RegFileFF, SecureIbex off. Current
- * upstream ibex_top also carries CHERIoT; cheriot_enable_i is tied off,
- * which leaves the classic core.
+ * because cmj_ibex imports ibex_pkg and is written to match.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 
 module cm_soc #(
-    parameter int unsigned MemWords = 32768
+    /* 16384 words = 64 KiB at 0x40000000, matching sw/port/link.ld. */
+    parameter int unsigned RomWords = 16384
 ) (
     input  logic       clk,
     input  logic       resetn,
@@ -38,26 +35,42 @@ module cm_soc #(
 );
   localparam logic [31:0] SimCtrlOut  = 32'h1000_0000;
   localparam logic [31:0] SimCtrlHalt = 32'h1000_0008;
-  localparam int unsigned AW = $clog2(MemWords);
+  localparam int unsigned RomAw = $clog2(RomWords);
 
   assign trap = 1'b0;
 
-  logic        instr_req;
-  logic        instr_gnt;
-  logic        instr_rvalid;
-  logic [31:0] instr_addr;
-  logic [31:0] instr_rdata;
+  logic        ext_i_req;
+  logic [31:0] ext_i_addr;
+  logic [31:0] ext_i_rdata;
 
-  logic        data_req;
-  logic        data_gnt;
-  logic        data_rvalid;
-  logic        data_we;
-  logic [ 3:0] data_be;
-  logic [31:0] data_addr;
-  logic [31:0] data_wdata;
-  logic [31:0] data_rdata;
+  logic        ext_d_req;
+  logic        ext_d_we;
+  logic [31:0] ext_d_addr;
+  logic [31:0] ext_d_wdata;
+  logic [ 3:0] ext_d_wstrb;
+  logic [31:0] ext_d_rdata;
 
-  logic [31:0] mem[MemWords];
+  /* The boundary. Everything hardened, everything the SAIF covers and
+   * everything report_power totals is inside this instance. */
+  cmj_ibex cpu (
+      .clk        (clk),
+      .resetn     (resetn),
+
+      .ext_i_req  (ext_i_req),
+      .ext_i_addr (ext_i_addr),
+      .ext_i_rdata(ext_i_rdata),
+
+      .ext_d_req  (ext_d_req),
+      .ext_d_we   (ext_d_we),
+      .ext_d_addr (ext_d_addr),
+      .ext_d_wdata(ext_d_wdata),
+      .ext_d_wstrb(ext_d_wstrb),
+      .ext_d_rdata(ext_d_rdata),
+
+      .dbg_instr_addr(dbg_instr_addr)
+  );
+
+  logic [31:0] rom[RomWords];
 
   string meminit_path;
   initial begin
@@ -65,88 +78,72 @@ module cm_soc #(
       $display("cm_soc: +meminit=<path> is required");
       $finish;
     end
-    $readmemh(meminit_path, mem);
+    $readmemh(meminit_path, rom);
   end
 
-  cmj_ibex u_core (
-      .clk         (clk),
-      .rst_n       (resetn),
-      .instr_req   (instr_req),
-      .instr_gnt   (instr_gnt),
-      .instr_rvalid(instr_rvalid),
-      .instr_addr  (instr_addr),
-      .instr_rdata (instr_rdata),
-      .data_req    (data_req),
-      .data_gnt    (data_gnt),
-      .data_rvalid (data_rvalid),
-      .data_we     (data_we),
-      .data_be     (data_be),
-      .data_addr   (data_addr),
-      .data_wdata  (data_wdata),
-      .data_rdata  (data_rdata)
-  );
+  wire is_device = ext_d_addr[28];
+  wire [RomAw-1:0] iword = ext_i_addr[RomAw+1:2];
+  wire [RomAw-1:0] dword = ext_d_addr[RomAw+1:2];
 
-  /* ibex uses a two-phase bus: grant accepts the request, rvalid returns
-   * the data a cycle later. Granting combinationally and returning data
-   * on the next cycle gives a one-wait-state memory, matching what the
-   * other two wrappers present, so the memory is not what distinguishes
-   * the cores. */
-  assign dbg_instr_addr = instr_addr;
-
-  wire is_device = data_addr[28];
-  wire [AW-1:0] dword = data_addr[AW+1:2];
-  wire [AW-1:0] iword = instr_addr[AW+1:2];
-
-  /* Both ports are served every cycle. The RAM is a simulation array,
-   * so it can answer a fetch and a data access at once, and an arbiter
-   * that made them compete would be measuring the arbiter.
-   *
-   * This is not a detail. An earlier version granted instruction fetch
-   * only when no data access was pending, and ibex ran a non-compressed
-   * CoreMark more than ten times slower than a compressed one -- a
-   * compressed fetch carries two instructions, so it halves the fetch
-   * rate and hid the starvation. A wrapper that penalises fetch-hungry
-   * code penalises exactly the cores this study is trying to compare. */
-  assign data_gnt  = data_req;
-  assign instr_gnt = instr_req;
+  /* Everything that crossed the boundary. */
+  logic [63:0] ifu_xacts;
+  logic [63:0] lsu_xacts;
 
   always_ff @(posedge clk) begin
-    instr_rvalid <= 1'b0;
-    data_rvalid  <= 1'b0;
-    out_valid    <= 1'b0;
+    out_valid <= 1'b0;
 
     if (!resetn) begin
       halt_valid <= 1'b0;
+      ifu_xacts  <= 64'd0;
+      lsu_xacts  <= 64'd0;
     end else begin
-      if (data_req) begin
-        data_rvalid <= 1'b1;
+      if (ext_i_req) begin
+        ifu_xacts   <= ifu_xacts + 64'd1;
+        ext_i_rdata <= rom[iword];
+      end
+
+      if (ext_d_req) begin
+        lsu_xacts <= lsu_xacts + 64'd1;
 
         if (is_device) begin
-          data_rdata <= 32'b0;
-          if (data_we) begin
-            if (data_addr == SimCtrlOut) begin
-              out_byte  <= data_wdata[7:0];
+          ext_d_rdata <= 32'b0;
+          if (ext_d_we) begin
+            if (ext_d_addr == SimCtrlOut) begin
+              out_byte  <= ext_d_wdata[7:0];
               out_valid <= 1'b1;
             end
-            if (data_addr == SimCtrlHalt && data_wdata != 32'b0) begin
+            if (ext_d_addr == SimCtrlHalt && ext_d_wdata != 32'b0) begin
               halt_valid <= 1'b1;
             end
           end
         end else begin
-          data_rdata <= mem[dword];
-          if (data_we) begin
-            if (data_be[0]) mem[dword][7:0] <= data_wdata[7:0];
-            if (data_be[1]) mem[dword][15:8] <= data_wdata[15:8];
-            if (data_be[2]) mem[dword][23:16] <= data_wdata[23:16];
-            if (data_be[3]) mem[dword][31:24] <= data_wdata[31:24];
+          ext_d_rdata <= rom[dword];
+          /* Read-only by construction; see cm_soc_picorv32.v. */
+          if (ext_d_we) begin
+            $display("cm_soc: write to external memory at %h", ext_d_addr);
+            $finish;
           end
         end
       end
+    end
+  end
 
-      if (instr_req) begin
-        instr_rvalid <= 1'b1;
-        instr_rdata  <= mem[iword];
-      end
+  /* Written from a `final` block rather than on the halt write; see
+   * cm_soc_picorv32.v. */
+  string  busprobe_path;
+  bit     busprobe_on;
+  integer busprobe_fd;
+
+  initial begin
+    busprobe_on = $value$plusargs("busprobe=%s", busprobe_path);
+  end
+
+  final begin
+    if (busprobe_on) begin
+      busprobe_fd = $fopen(busprobe_path, "w");
+      $fwrite(busprobe_fd, "ifu_xacts %0d\n", ifu_xacts);
+      $fwrite(busprobe_fd, "lsu_xacts %0d\n", lsu_xacts);
+      $fclose(busprobe_fd);
     end
   end
 endmodule

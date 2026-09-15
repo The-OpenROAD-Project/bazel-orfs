@@ -25,7 +25,7 @@ stage_power(
     # differently from the other two. A wrong scope is not an error --
     # OpenSTA falls back to default activity -- so cm_per_joule compares
     # the SAIF-driven and vectorless reports and fails when they match.
-    saif_scope = "TOP/cm_soc/u_core",
+    saif_scope = "TOP/cm_soc/cpu",
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 
@@ -39,7 +39,7 @@ stage_activity_audit(
     name = "cmj_ibex_grt_activity",
     src = ":cmj_ibex_grt",
     saif = "//test/coremark_joule/sim:ibex_rv32imc_saif",
-    saif_scope = "TOP/cm_soc/u_core",
+    saif_scope = "TOP/cm_soc/cpu",
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 
@@ -52,7 +52,7 @@ stage_activity_sweep(
     name = "cmj_ibex_grt_activity_sweep",
     src = ":cmj_ibex_grt",
     saif = "//test/coremark_joule/sim:ibex_rv32imc_saif",
-    saif_scope = "TOP/cm_soc/u_core",
+    saif_scope = "TOP/cm_soc/cpu",
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 

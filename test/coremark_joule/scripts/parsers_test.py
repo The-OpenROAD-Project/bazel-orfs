@@ -17,13 +17,17 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import cm_per_mhz  # noqa: E402
 import elf2hex  # noqa: E402
-from check_coremark import check, parse  # noqa: E402
+from check_coremark import check, check_stack, parse  # noqa: E402
 
 # A faithful CoreMark report for the study's configuration: the 2K
 # performance profile, the constant timer, and the "at least 10 secs"
 # error that the constant timer makes unavoidable. Kept verbatim rather
 # than generated, so a change in CoreMark's output shows up here as a
 # test failure instead of as a missing measurement.
+#
+# The stack-used line is the port layer's, not CoreMark's: portable_fini
+# reports how much of crt0.S's paint the stack consumed, which is what
+# shows the hardened data memory was big enough for the run (§5.1).
 GOOD_REPORT = """2K performance run parameters for coremark.
 CoreMark Size    : 666
 Total ticks      : 1
@@ -39,6 +43,7 @@ seedcrc          : 0xe9f5
 [0]crcmatrix     : 0x1fd7
 [0]crcstate      : 0x8e3a
 [0]crcfinal      : 0xa14c
+stack-used 388 of 4604
 Errors detected
 """
 
@@ -72,6 +77,39 @@ class CheckCoremarkTest(unittest.TestCase):
         for original in ("0xe714", "0x1fd7", "0x8e3a"):
             with self.subTest(crc=original):
                 self.assertEqual(1, len(check(GOOD_REPORT.replace(original, "0x0000"))))
+
+    def test_missing_stack_report_fails(self):
+        """A run with no stack-used line has not shown its memory sufficed.
+
+        The line is evidence, not decoration: the data memory is
+        hardened with the core and sized just above the largest image,
+        so a run that does not report its high-water mark has left the
+        one question that sizing raises unanswered.
+        """
+        problems = check(GOOD_REPORT.replace("stack-used 388 of 4604\n", ""))
+        self.assertEqual(1, len(problems))
+        self.assertIn("no stack-used line", problems[0])
+
+    def test_stack_within_budget_passes(self):
+        self.assertEqual([], check_stack("stack-used 388 of 4604\n"))
+
+    def test_stack_over_budget_fails(self):
+        """Half the headroom is the limit, not all of it.
+
+        By the time the paint is gone all the way to _end the stack has
+        already written past it, so the observable failure would be a
+        corrupted .bss rather than a reported overflow.
+        """
+        problems = check_stack("stack-used 3000 of 4604\n")
+        self.assertEqual(1, len(problems))
+        self.assertIn("high-water mark", problems[0])
+
+    def test_last_stack_line_wins(self):
+        """Only the final report counts, so a re-run in one log is read
+        as the run that finished."""
+        self.assertEqual(
+            [], check_stack("stack-used 4000 of 4604\nstack-used 388 of 4604\n")
+        )
 
     def test_truncated_run_fails(self):
         """A run cut off by the cycle budget never reaches the report."""

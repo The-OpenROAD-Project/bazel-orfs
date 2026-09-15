@@ -91,9 +91,47 @@ void portable_init(core_portable *p, int *argc, char *argv[])
     p->portable_id = 1;
 }
 
+/* Painted by crt0.S over [_end, _stack_top) before anything uses the
+ * stack, and never written again except by the stack itself. */
+#define CMJ_STACK_PAINT 0xDEADBEEFu
+
+extern char _end[];
+extern char _stack_top[];
+
+/* How deep the stack actually went, and how deep it could have gone.
+ *
+ * The TCM is hardened inside the core and sized just above the largest
+ * image (section 5.1), so the headroom above .bss is small enough to be
+ * worth checking rather than assuming. Scanning up from _end for the
+ * first word the paint no longer covers gives the high-water mark over
+ * the whole run -- including the report printing above, which is the
+ * deepest CoreMark ever gets. check_coremark.py fails a run whose mark
+ * reaches the headroom.
+ *
+ * A word the stack wrote and that happened to equal the paint value
+ * would make this under-report. That can only shorten the reported
+ * mark, never lengthen it, so the check stays conservative in the
+ * direction that matters: it cannot turn a real overflow into a pass,
+ * because an overflow writes past _end and the scan starts there.
+ */
+static void report_stack_usage(void)
+{
+    const volatile ee_u32 *p   = (const volatile ee_u32 *)_end;
+    const volatile ee_u32 *top = (const volatile ee_u32 *)_stack_top;
+
+    while (p < top && *p == CMJ_STACK_PAINT)
+    {
+        p++;
+    }
+    ee_printf("stack-used %u of %u\n",
+              (unsigned)((const char *)top - (const char *)p),
+              (unsigned)((const char *)top - (const char *)_end));
+}
+
 void portable_fini(core_portable *p)
 {
     p->portable_id = 0;
+    report_stack_usage();
     /* Stopping the clock here rather than returning through crt0 means
      * the cycle count ends at the same instruction in every run, on
      * every core, whatever the compiler did with main's epilogue. */

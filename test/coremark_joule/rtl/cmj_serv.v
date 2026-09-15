@@ -1,12 +1,15 @@
-/* The SERV configuration this study measures, frozen.
+/* The SERV tile this study measures: the core and its program SRAM.
  *
- * Same purpose as cmj_picorv32.v: config.mk names this module as
+ * Same purpose as cmj_picorv32.v. config.mk names this module as
  * DESIGN_NAME and cm_soc_serv.v instantiates it, so the simulated core
- * and the hardened core cannot be configured differently.
+ * and the hardened core cannot be configured differently, and the
+ * boundary the energy number is reported over is a module rather than a
+ * convention: SERV plus the 32 KiB instruction memory and 8 KiB data
+ * memory it runs out of.
  *
- * SERV's defaults would already give most of this, but W and WITH_CSR in
- * particular change the datapath and the register file, which is exactly
- * what the per-unit power breakdown is measuring.
+ * SERV's defaults would already give most of the parameters below, but
+ * W and WITH_CSR in particular change the datapath and the register
+ * file, which is exactly what the per-unit power breakdown is measuring.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -14,23 +17,46 @@
 
 module cmj_serv (
 	input  wire        clk,
-	input  wire        i_rst,
+	input  wire        resetn,
 
-	output wire [31:0] o_ibus_adr,
-	output wire        o_ibus_cyc,
-	input  wire [31:0] i_ibus_rdt,
-	input  wire        i_ibus_ack,
+	/* Everything the tile could not serve itself; see cmj_picorv32.v
+	 * for the contract and cm_soc_serv.v for the other end. SERV has
+	 * separate instruction and data buses, so both sides can be
+	 * outstanding at once -- which they are throughout the boot copy,
+	 * where the loop is fetched from external memory while it reads
+	 * from it. */
+	output wire        ext_i_req,
+	output wire [31:0] ext_i_addr,
+	input  wire [31:0] ext_i_rdata,
 
-	output wire [31:0] o_dbus_adr,
-	output wire [31:0] o_dbus_dat,
-	output wire [ 3:0] o_dbus_sel,
-	output wire        o_dbus_we,
-	output wire        o_dbus_cyc,
-	input  wire [31:0] i_dbus_rdt,
-	input  wire        i_dbus_ack
+	output wire        ext_d_req,
+	output wire        ext_d_we,
+	output wire [31:0] ext_d_addr,
+	output wire [31:0] ext_d_wdata,
+	output wire [ 3:0] ext_d_wstrb,
+	input  wire [31:0] ext_d_rdata,
+
+	output wire [31:0] dbg_instr_addr
 );
+	wire [31:0] ibus_adr;
+	wire        ibus_cyc;
+	reg         ibus_ack;
+
+	wire [31:0] dbus_adr;
+	wire [31:0] dbus_dat;
+	wire [ 3:0] dbus_sel;
+	wire        dbus_we;
+	wire        dbus_cyc;
+	reg         dbus_ack;
+
+	wire [31:0] ibus_rdt;
+	wire [31:0] dbus_rdt;
+
 	serv_rf_top #(
-		.RESET_PC(32'h0000_0000),
+		/* External memory, not the TCM: the TCM is empty out of reset
+		 * and the boot stub that fills it has to live somewhere the
+		 * harness can preload. See sw/port/crt0.S. */
+		.RESET_PC(32'h4000_0000),
 		/* MINI resets what is needed to restart from RESET_PC, which is
 		 * what the harness provides. NONE would rely on a power-on
 		 * state a netlist does not have. */
@@ -49,21 +75,21 @@ module cmj_serv (
 		.W(1)
 	) cpu (
 		.clk         (clk),
-		.i_rst       (i_rst),
+		.i_rst       (~resetn),
 		.i_timer_irq (1'b0),
 
-		.o_ibus_adr  (o_ibus_adr),
-		.o_ibus_cyc  (o_ibus_cyc),
-		.i_ibus_rdt  (i_ibus_rdt),
-		.i_ibus_ack  (i_ibus_ack),
+		.o_ibus_adr  (ibus_adr),
+		.o_ibus_cyc  (ibus_cyc),
+		.i_ibus_rdt  (ibus_rdt),
+		.i_ibus_ack  (ibus_ack),
 
-		.o_dbus_adr  (o_dbus_adr),
-		.o_dbus_dat  (o_dbus_dat),
-		.o_dbus_sel  (o_dbus_sel),
-		.o_dbus_we   (o_dbus_we),
-		.o_dbus_cyc  (o_dbus_cyc),
-		.i_dbus_rdt  (i_dbus_rdt),
-		.i_dbus_ack  (i_dbus_ack),
+		.o_dbus_adr  (dbus_adr),
+		.o_dbus_dat  (dbus_dat),
+		.o_dbus_sel  (dbus_sel),
+		.o_dbus_we   (dbus_we),
+		.o_dbus_cyc  (dbus_cyc),
+		.i_dbus_rdt  (dbus_rdt),
+		.i_dbus_ack  (dbus_ack),
 
 		.o_ext_rs1    (),
 		.o_ext_rs2    (),
@@ -72,6 +98,94 @@ module cmj_serv (
 		.i_ext_ready  (1'b0),
 		.o_mdu_valid  ()
 	);
+
+	assign dbg_instr_addr = ibus_adr;
+
+	/* No arbiter. SERV's two buses address disjoint memories -- the
+	 * instruction bus only ever reads cmj_imem, the data bus only ever
+	 * reads cmj_dmem -- so both are served every cycle and neither ever
+	 * waits for the other. See cmj_progmem.sv for why the study is
+	 * built this way rather than around a shared port.
+	 *
+	 * The one crossing is the boot copy, which writes cmj_imem through
+	 * the data bus. That uses the instruction memory's write port while
+	 * the fetch uses its read port, which is what 1R1W is for, and in
+	 * any case the code being fetched at that moment is in external
+	 * memory.
+	 *
+	 * Bit 30 is external memory, bit 28 the sim-control device, bit 16
+	 * the data memory. See link.ld. */
+	wire i_ext = ibus_adr[30] | ibus_adr[28];
+	wire d_ext = dbus_adr[30] | dbus_adr[28];
+
+	wire i_acc = ibus_cyc && !ibus_ack;
+	wire d_acc = dbus_cyc && !dbus_ack;
+
+	wire d_imem = !d_ext && !dbus_adr[16];
+	wire d_dmem = !d_ext &&  dbus_adr[16];
+
+	wire [31:0] im_rdata;
+	wire [31:0] dm_rdata;
+
+	cmj_imem u_imem (
+		.R0_addr (ibus_adr[14:2]),
+		.R0_en   (i_acc && !i_ext),
+		.R0_clk  (clk),
+		.R0_data (im_rdata),
+
+		.W0_addr (dbus_adr[14:2]),
+		.W0_en   (d_acc && d_imem && dbus_we),
+		.W0_clk  (clk),
+		.W0_data (dbus_dat),
+		.W0_mask (dbus_sel)
+	);
+
+	cmj_dmem u_dmem (
+		.R0_addr (dbus_adr[12:2]),
+		.R0_en   (d_acc && d_dmem),
+		.R0_clk  (clk),
+		.R0_data (dm_rdata),
+
+		.W0_addr (dbus_adr[12:2]),
+		.W0_en   (d_acc && d_dmem && dbus_we),
+		.W0_clk  (clk),
+		.W0_data (dbus_dat),
+		.W0_mask (dbus_sel)
+	);
+
+	assign ext_i_req   = i_acc && i_ext;
+	assign ext_i_addr  = ibus_adr;
+
+	assign ext_d_req   = d_acc && d_ext;
+	assign ext_d_we    = dbus_we;
+	assign ext_d_addr  = dbus_adr;
+	assign ext_d_wdata = dbus_dat;
+	assign ext_d_wstrb = dbus_sel;
+
+	/* Which source answers each bus on the cycle its ack is high. */
+	reg i_sel_ext;
+	reg d_sel_ext;
+	assign ibus_rdt = i_sel_ext ? ext_i_rdata : im_rdata;
+	assign dbus_rdt = d_sel_ext ? ext_d_rdata : dm_rdata;
+
+	always @(posedge clk) begin
+		ibus_ack <= 1'b0;
+		dbus_ack <= 1'b0;
+
+		if (!resetn) begin
+			ibus_ack <= 1'b0;
+			dbus_ack <= 1'b0;
+		end else begin
+			if (i_acc) begin
+				ibus_ack  <= 1'b1;
+				i_sel_ext <= i_ext;
+			end
+			if (d_acc) begin
+				dbus_ack  <= 1'b1;
+				d_sel_ext <= d_ext;
+			end
+		end
+	end
 endmodule
 
 `default_nettype wire

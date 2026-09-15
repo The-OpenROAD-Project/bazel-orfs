@@ -19,14 +19,18 @@ the condition the energy number needs in order to mean what it claims:
 that nothing outside the boundary was exercised while the measurement
 was being taken.
 
-The bus is 64 bits wide, so a transfer moves 8 bytes.
+The bus width differs between the cores, so it is an argument rather
+than a constant: VeeR's AHB-Lite ports are 64 bits, and the external
+port the three small cores present is 32.
 """
 
 import argparse
 import json
 import sys
 
-BUS_BYTES = 8
+# VeeR's, and the default because it is the design that had a bus probe
+# first. The three cacheless tiles pass --bus-bytes 4.
+DEFAULT_BUS_BYTES = 8
 
 
 def read_probe(path):
@@ -72,12 +76,13 @@ def per_iteration(probe_2, probe_3):
     return out
 
 
-def summarise(probe_2, probe_3, cycles_per_iteration=None):
+def summarise(probe_2, probe_3, cycles_per_iteration=None, bus_bytes=DEFAULT_BUS_BYTES):
     deltas = per_iteration(probe_2, probe_3)
     result = {
+        "bus_bytes": bus_bytes,
         "transfers_per_iteration": deltas,
         "bytes_per_iteration": dict(
-            (name, count * BUS_BYTES) for name, count in deltas.items()
+            (name, count * bus_bytes) for name, count in deltas.items()
         ),
         "boot_transfers": dict(probe_2),
         "resident": all(count == 0 for count in deltas.values()),
@@ -117,6 +122,12 @@ def main(argv):
         "--per-mhz",
         help="the *_per_mhz.json, to express the traffic per kilocycle",
     )
+    parser.add_argument(
+        "--bus-bytes",
+        type=int,
+        default=DEFAULT_BUS_BYTES,
+        help="width of one transfer in bytes (default {})".format(DEFAULT_BUS_BYTES),
+    )
     parser.add_argument("--out", required=True)
     args = parser.parse_args(argv[1:])
 
@@ -125,7 +136,9 @@ def main(argv):
         with open(args.per_mhz) as f:
             cycles = json.load(f)["cycles_per_iteration"]
 
-    result = summarise(read_probe(args.probe_2), read_probe(args.probe_3), cycles)
+    result = summarise(
+        read_probe(args.probe_2), read_probe(args.probe_3), cycles, args.bus_bytes
+    )
 
     with open(args.out, "w") as f:
         json.dump(result, f, indent=2, sort_keys=True)

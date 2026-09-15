@@ -9,6 +9,7 @@ load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
 load(
     "//test/coremark_joule/sim:run.bzl",
+    "bus_traffic",
     "coremark_crc_test",
     "coremark_hex",
     "coremark_per_joule",
@@ -162,6 +163,20 @@ cc_binary(
     deps = [":cm_soc_picorv32_gate_lib"],
 )
 
+# The memory map the three cacheless cores share (sw/port/link.ld).
+#
+# The $readmemh image is the *external* memory, not the program SRAM:
+# the SRAM is inside the hardened tile, so nothing outside can preload
+# it, and crt0.S copies the image across before main. --base is what
+# keeps the image dense instead of demanding a 1 GiB array, exactly as
+# it does for VeeR below.
+TILE_WORDS = 16384
+
+TILE_BASE = "0x40000000"
+
+# The external port the three cacheless tiles present is 32 bits.
+TILE_BUS_BYTES = 4
+
 # The picorv32 measurement, end to end: image, run, CRC gate, CoreMark/MHz.
 #
 # rv32im is picorv32's native ISA here (ENABLE_MUL/ENABLE_DIV are set in
@@ -172,10 +187,16 @@ cc_binary(
     [
         coremark_hex(
             name = "coremark_{}_{}_hex".format(march, iterations),
+            base = TILE_BASE,
             elf = "//test/coremark_joule/sw:coremark_{}_{}".format(march, iterations),
+            words = TILE_WORDS,
         ),
         coremark_run(
             name = "picorv32_{}_{}".format(march, iterations),
+            # The boundary is a module now (section 5.1), so the same
+            # question VeeR's probe answers applies here: how much of
+            # one hot iteration leaves it. The answer should be nothing.
+            bus_probe = True,
             image = ":coremark_{}_{}_hex".format(march, iterations),
             sim = ":cm_sim_picorv32",
         ),
@@ -203,6 +224,13 @@ cc_binary(
             run_2 = "picorv32_{}_2".format(march),
             run_3 = "picorv32_{}_3".format(march),
         ),
+        bus_traffic(
+            name = "picorv32_{}_bus_traffic".format(march),
+            bus_bytes = TILE_BUS_BYTES,
+            per_mhz = "picorv32_{}_per_mhz".format(march),
+            run_2 = "picorv32_{}_2".format(march),
+            run_3 = "picorv32_{}_3".format(march),
+        ),
     ]
     for march in [
         "rv32i",
@@ -217,6 +245,7 @@ cc_binary(
 [
     coremark_run(
         name = "serv_rv32i_{}".format(iterations),
+        bus_probe = True,
         image = ":coremark_rv32i_{}_hex".format(iterations),
         sim = ":cm_sim_serv",
     )
@@ -234,6 +263,14 @@ coremark_crc_test(
 
 coremark_per_mhz(
     name = "serv_rv32i_per_mhz",
+    run_2 = "serv_rv32i_2",
+    run_3 = "serv_rv32i_3",
+)
+
+bus_traffic(
+    name = "serv_rv32i_bus_traffic",
+    bus_bytes = TILE_BUS_BYTES,
+    per_mhz = "serv_rv32i_per_mhz",
     run_2 = "serv_rv32i_2",
     run_3 = "serv_rv32i_3",
 )
@@ -283,6 +320,7 @@ sh_binary(
 [
     coremark_run(
         name = "ibex_{}_{}".format(march, iterations),
+        bus_probe = True,
         image = ":coremark_{}_{}_hex".format(march, iterations),
         sim = ":cm_sim_ibex",
     )
@@ -308,6 +346,13 @@ sh_binary(
             run_2 = "ibex_{}_2".format(march),
             run_3 = "ibex_{}_3".format(march),
         ),
+        bus_traffic(
+            name = "ibex_{}_bus_traffic".format(march),
+            bus_bytes = TILE_BUS_BYTES,
+            per_mhz = "ibex_{}_per_mhz".format(march),
+            run_2 = "ibex_{}_2".format(march),
+            run_3 = "ibex_{}_3".format(march),
+        ),
     ]
     for march in [
         "rv32i",
@@ -322,7 +367,9 @@ sh_binary(
     [
         coremark_hex(
             name = "smoke_{}_{}_hex".format(core, march),
+            base = TILE_BASE,
             elf = "//test/coremark_joule/sw:smoke_{}".format(march),
+            words = TILE_WORDS,
         ),
         coremark_run(
             name = "smoke_{}_{}".format(core, march),
@@ -370,7 +417,7 @@ coremark_saif(
 # and provenance the number is only comparable under.
 coremark_per_joule(
     name = "point_picorv32_rv32im",
-    boundary = "core only; no memory hardened, so the rule in section 3.1 is not met",
+    boundary = "core + L1: 32 kB instruction memory and 8 kB data memory, both hardened",
     core = "picorv32",
     # The SDC period the SAIF was timed against, not an achieved maximum.
     frequency_mhz = "1000",
@@ -381,7 +428,7 @@ coremark_per_joule(
 
 coremark_per_joule(
     name = "point_serv_rv32i",
-    boundary = "core only; no memory hardened, so the rule in section 3.1 is not met",
+    boundary = "core + L1: 32 kB instruction memory and 8 kB data memory, both hardened",
     core = "serv",
     frequency_mhz = "1428.571",
     isa = "rv32i",
@@ -401,7 +448,7 @@ coremark_saif(
 
 coremark_per_joule(
     name = "point_ibex_rv32imc",
-    boundary = "core only; no memory hardened, so the rule in section 3.1 is not met",
+    boundary = "core + L1: 32 kB instruction memory and 8 kB data memory, both hardened",
     core = "ibex",
     frequency_mhz = "833.333",
     isa = "rv32imc",
@@ -524,21 +571,13 @@ coremark_per_mhz(
 # iteration adds over a second. It cancels the boot, the .data copy and
 # the cold pass that fills the cache, and what is left is what one hot
 # iteration -- the SAIF window -- sends outside the boundary.
-genrule(
+bus_traffic(
     name = "veer_rv32imc_bus_traffic",
-    srcs = [
-        "veer_rv32imc_2.busprobe",
-        "veer_rv32imc_3.busprobe",
-        "veer_rv32imc_per_mhz.json",
-    ],
-    outs = ["veer_rv32imc_bus_traffic.json"],
-    cmd = "$(execpath //test/coremark_joule/scripts:bus_probe) " +
-          "--probe-2 $(location veer_rv32imc_2.busprobe) " +
-          "--probe-3 $(location veer_rv32imc_3.busprobe) " +
-          "--per-mhz $(location veer_rv32imc_per_mhz.json) " +
-          "--out $@",
-    tags = ["manual"],
-    tools = ["//test/coremark_joule/scripts:bus_probe"],
+    # AHB-Lite, 64 bits wide.
+    bus_bytes = 8,
+    per_mhz = "veer_rv32imc_per_mhz",
+    run_2 = "veer_rv32imc_2",
+    run_3 = "veer_rv32imc_3",
 )
 
 # The gate-level VeeR: the grt netlist, the asap7 cell models, and the

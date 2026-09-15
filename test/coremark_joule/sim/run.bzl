@@ -100,6 +100,49 @@ def coremark_run(
         tools = [sim],
     )
 
+def bus_traffic(name, run_2, run_3, per_mhz, bus_bytes, tags = ["manual"]):
+    """What one CoreMark iteration costs on the external bus.
+
+    The same differential the cycle count uses: the traffic a third
+    iteration adds over a second. It cancels the boot, the copy into the
+    hardened memories and the cold pass that fills a cache, and what is
+    left is what one hot iteration -- the SAIF window -- sends outside
+    the boundary. Zero is the answer the energy number needs.
+
+    Args:
+      name: target name; the summary is `<name>.json`.
+      run_2: the two-iteration coremark_run(), which must have been
+        declared with bus_probe = True.
+      run_3: the three-iteration one.
+      per_mhz: the coremark_per_mhz() json, to express the traffic per
+        kilocycle as well as per iteration.
+      bus_bytes: width of one transfer. 8 for VeeR's AHB-Lite ports, 4
+        for the external port the three cacheless tiles present.
+      tags: forwarded; manual.
+    """
+    native.genrule(
+        name = name,
+        srcs = [
+            "{}.busprobe".format(run_2),
+            "{}.busprobe".format(run_3),
+            "{}.json".format(per_mhz),
+        ],
+        outs = [name + ".json"],
+        cmd = ("$(execpath //test/coremark_joule/scripts:bus_probe) " +
+               "--probe-2 $(location {run_2}.busprobe) " +
+               "--probe-3 $(location {run_3}.busprobe) " +
+               "--per-mhz $(location {per_mhz}.json) " +
+               "--bus-bytes {bus_bytes} " +
+               "--out $@").format(
+            bus_bytes = bus_bytes,
+            per_mhz = per_mhz,
+            run_2 = run_2,
+            run_3 = run_3,
+        ),
+        tags = tags,
+        tools = ["//test/coremark_joule/scripts:bus_probe"],
+    )
+
 def coremark_crc_test(name, run, tags = []):
     """Gate a run on CoreMark's CRCs.
 

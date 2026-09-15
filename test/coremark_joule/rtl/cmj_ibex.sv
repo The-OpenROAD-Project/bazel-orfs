@@ -1,12 +1,15 @@
-/* The ibex configuration this study measures, frozen.
+/* The ibex tile this study measures: the core and its program SRAM.
  *
  * Same purpose as cmj_picorv32.v: config.mk names this module as
  * DESIGN_NAME and cm_soc_ibex.sv instantiates it, so the simulated core
- * and the hardened core cannot be configured differently. It matters
- * more here than for the other two, because ibex_top carries around
- * thirty parameters and its defaults are what this study calls the
- * "small" configuration -- no PMP, no writeback stage, no branch-target
- * ALU, no icache, RegFileFF, SecureIbex off.
+ * and the hardened core cannot be configured differently, and the
+ * boundary the energy number is reported over is a module -- ibex plus
+ * the 32 KiB instruction memory and 8 KiB data memory it runs out of.
+ * It matters more here
+ * than for the other two, because ibex_top carries around thirty
+ * parameters and its defaults are what this study calls the "small"
+ * configuration -- no PMP, no writeback stage, no branch-target ALU, no
+ * icache, RegFileFF, SecureIbex off.
  *
  * It also confines the tie-offs. Upstream ibex_top now carries CHERIoT
  * and lockstep plumbing, and the shadow, revocation and scrambling ports
@@ -18,28 +21,45 @@
 
 module cmj_ibex (
     input  logic        clk,
-    input  logic        rst_n,
+    input  logic        resetn,
 
-    output logic        instr_req,
-    input  logic        instr_gnt,
-    input  logic        instr_rvalid,
-    output logic [31:0] instr_addr,
-    input  logic [31:0] instr_rdata,
+    /* Everything the tile could not serve itself; see cmj_picorv32.v
+     * for the contract and cm_soc_ibex.sv for the other end. Both sides
+     * can be outstanding at once, which they are throughout the boot
+     * copy. */
+    output logic        ext_i_req,
+    output logic [31:0] ext_i_addr,
+    input  logic [31:0] ext_i_rdata,
 
-    output logic        data_req,
-    input  logic        data_gnt,
-    input  logic        data_rvalid,
-    output logic        data_we,
-    output logic [ 3:0] data_be,
-    output logic [31:0] data_addr,
-    output logic [31:0] data_wdata,
-    input  logic [31:0] data_rdata
+    output logic        ext_d_req,
+    output logic        ext_d_we,
+    output logic [31:0] ext_d_addr,
+    output logic [31:0] ext_d_wdata,
+    output logic [ 3:0] ext_d_wstrb,
+    input  logic [31:0] ext_d_rdata,
+
+    output logic [31:0] dbg_instr_addr
 );
   import ibex_pkg::*;
 
+  logic        instr_req;
+  logic        instr_gnt;
+  logic        instr_rvalid;
+  logic [31:0] instr_addr;
+  logic [31:0] instr_rdata;
+
+  logic        data_req;
+  logic        data_gnt;
+  logic        data_rvalid;
+  logic        data_we;
+  logic [ 3:0] data_be;
+  logic [31:0] data_addr;
+  logic [31:0] data_wdata;
+  logic [31:0] data_rdata;
+
   ibex_top u_core (
       .clk_i (clk),
-      .rst_ni(rst_n),
+      .rst_ni(resetn),
 
       .test_en_i  (1'b0),
       .scan_rst_ni(1'b1),
@@ -55,8 +75,11 @@ module cmj_ibex (
       .hart_id_i  (32'd0),
       /* ibex fetches its first instruction from boot_addr_i + 0x80 and
        * places its exception vectors at boot_addr_i. crt0.S lays the
-       * image out to match: vectors at 0x100, reset entry at 0x180. */
-      .boot_addr_i(32'h0000_0100),
+       * boot area out to match: vectors at +0x100, reset entry at
+       * +0x180. External memory, not the TCM -- the TCM is empty out of
+       * reset and the stub that fills it has to live somewhere the
+       * harness can preload. */
+      .boot_addr_i(32'h4000_0100),
 
       .trvk_heap_base_addr_i('0),
 
@@ -131,5 +154,98 @@ module cmj_ibex (
       .instr_req_shadow_o      (),
       .instr_addr_shadow_o     ()
   );
+
+  assign dbg_instr_addr = instr_addr;
+
+  /* No arbiter, and on ibex that is not only a performance choice.
+   *
+   * The instruction and data sides address disjoint memories -- the
+   * fetch path only ever reads cmj_imem, the data path only ever reads
+   * cmj_dmem -- so both grants are unconditional, exactly as they were
+   * when the memory was a simulation array outside the core. The one
+   * crossing is the boot copy, which writes cmj_imem through the data
+   * side; that uses the instruction memory's write port while the fetch
+   * uses its read port, and at that moment the code being fetched is in
+   * external memory anyway.
+   *
+   * An earlier version of this tile shared one memory and made
+   * instr_gnt depend on data_req. ibex's grants already sit inside its
+   * own combinational loops -- Verilator reports UNOPTFLAT on
+   * instr_executing_spec, id_in_ready and en_wb -- and joining them
+   * through an arbiter left the grant without a single settled value:
+   * the memory read port and the instruction grant disagreed about who
+   * owned the cycle, and the smoke test printed every other character
+   * of its string. The disjoint map is what makes the question moot.
+   *
+   * Bit 30 is external memory, bit 28 the sim-control device, bit 16
+   * the data memory. See link.ld. */
+  wire i_ext = instr_addr[30] | instr_addr[28];
+  wire d_ext = data_addr[30] | data_addr[28];
+
+  wire d_imem = !d_ext && !data_addr[16];
+  wire d_dmem = !d_ext && data_addr[16];
+
+  assign instr_gnt = instr_req;
+  assign data_gnt  = data_req;
+
+  wire [31:0] im_rdata;
+  wire [31:0] dm_rdata;
+
+  cmj_imem u_imem (
+      .R0_addr(instr_addr[14:2]),
+      .R0_en  (instr_req && !i_ext),
+      .R0_clk (clk),
+      .R0_data(im_rdata),
+
+      .W0_addr(data_addr[14:2]),
+      .W0_en  (data_req && d_imem && data_we),
+      .W0_clk (clk),
+      .W0_data(data_wdata),
+      .W0_mask(data_be)
+  );
+
+  cmj_dmem u_dmem (
+      .R0_addr(data_addr[12:2]),
+      .R0_en  (data_req && d_dmem),
+      .R0_clk (clk),
+      .R0_data(dm_rdata),
+
+      .W0_addr(data_addr[12:2]),
+      .W0_en  (data_req && d_dmem && data_we),
+      .W0_clk (clk),
+      .W0_data(data_wdata),
+      .W0_mask(data_be)
+  );
+
+  assign ext_i_req   = instr_req && i_ext;
+  assign ext_i_addr  = instr_addr;
+
+  assign ext_d_req   = data_req && d_ext;
+  assign ext_d_we    = data_we;
+  assign ext_d_addr  = data_addr;
+  assign ext_d_wdata = data_wdata;
+  assign ext_d_wstrb = data_be;
+
+  /* Which source answers each port on the cycle its rvalid is high. */
+  logic i_sel_ext;
+  logic d_sel_ext;
+  assign instr_rdata = i_sel_ext ? ext_i_rdata : im_rdata;
+  assign data_rdata  = d_sel_ext ? ext_d_rdata : dm_rdata;
+
+  always_ff @(posedge clk) begin
+    instr_rvalid <= 1'b0;
+    data_rvalid  <= 1'b0;
+
+    if (resetn) begin
+      if (data_req) begin
+        data_rvalid <= 1'b1;
+        d_sel_ext   <= d_ext;
+      end
+      if (instr_req) begin
+        instr_rvalid <= 1'b1;
+        i_sel_ext    <= i_ext;
+      end
+    end
+  end
 
 endmodule

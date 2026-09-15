@@ -5,12 +5,14 @@
 # source (//test/coremark_joule/sim:main.cc) serves all three cores and
 # the file name is what selects which one is built.
 load("@bazel-orfs//tools/lib_to_verilog:lib_to_verilog.bzl", "stdcell_verilog")
+load("@bazel-orfs//tools/memory_macro_scaler:behavioral_macros.bzl", "behavioral_macros")
 load("@rules_verilog//verilog:defs.bzl", "verilog_library")
 
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 
 exports_files([
     "cmj_ibex.sv",
+    "cmj_progmem.sv",
     "cmj_picorv32.v",
     "cmj_serv.v",
     "ibex.BUILD.bazel",
@@ -19,6 +21,49 @@ exports_files([
     "veer.BUILD.bazel",
     "veer/cmj_veer_defines.sv",
 ])
+
+# The program SRAM hardened inside every cacheless tile: the behavioural
+# view, for simulation only.
+#
+# The flow never sees this file. config.mk leaves it out of
+# VERILOG_FILES and the generated Liberty blackboxes the module name, so
+# synthesis hardens a macro rather than 9216 words of flops -- the same
+# split VeeR makes between mem_lib.sv and macros.v. It is therefore also
+# needed by the *gate-level* libraries below, for the same reason
+# asap7_fakeram is: a blackbox stores nothing, and a netlist run without
+# a behavioural model fails CoreMark's CRCs rather than quietly
+# reporting low memory power.
+verilog_library(
+    name = "cmj_progmem",
+    srcs = ["cmj_progmem.sv"],
+)
+
+# The hardening view of the same two modules: a LEF and a Liberty at
+# exactly the shapes cmj_progmem.sv declares.
+#
+# No place-and-route. behavioral_macros() elaborates the Verilog far
+# enough to pin down the real pin list and then fits area, delay and
+# energy from bazel-orfs's characterised ASAP7 sweep, which is seconds
+# rather than the hours an abstract per memory would cost. The residual
+# band is +/-25% on area and on energy, and section 5.1 says so --
+# these two macros are a large share of each tile's power, so that band
+# is one of the study's larger stated uncertainties and not a rounding
+# note.
+#
+# The config.mk files name the generated files in ADDITIONAL_LEFS and
+# ADDITIONAL_LIBS. Reading the Liberty is also what blackboxes the two
+# module names at synthesis, which is why cmj_progmem.sv itself is not
+# in VERILOG_FILES.
+behavioral_macros(
+    name = "cmj_mem_macros",
+    srcs = ["cmj_progmem.sv"],
+    modules = [
+        "cmj_imem",
+        "cmj_dmem",
+    ],
+    tech_nm = 7,
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
 
 verilog_library(
     name = "picorv32",
@@ -30,7 +75,10 @@ verilog_library(
 verilog_library(
     name = "cmj_picorv32",
     srcs = ["cmj_picorv32.v"],
-    deps = [":picorv32"],
+    deps = [
+        ":cmj_progmem",
+        ":picorv32",
+    ],
 )
 
 verilog_library(
@@ -47,7 +95,10 @@ verilog_library(
 verilog_library(
     name = "cmj_serv",
     srcs = ["cmj_serv.v"],
-    deps = [":serv"],
+    deps = [
+        ":cmj_progmem",
+        ":serv",
+    ],
 )
 
 verilog_library(
@@ -83,7 +134,10 @@ verilog_library(
 verilog_library(
     name = "cmj_ibex",
     srcs = ["cmj_ibex.sv"],
-    deps = [":ibex"],
+    deps = [
+        ":cmj_progmem",
+        ":ibex",
+    ],
 )
 
 verilog_library(
@@ -132,7 +186,10 @@ verilog_library(
         "cm_soc_picorv32.v",
         "//test/coremark_joule/designs/asap7/picorv32:cmj_picorv32_grt_netlist.v",
     ],
-    deps = [":asap7_stdcells"],
+    deps = [
+        ":asap7_stdcells",
+        ":cmj_progmem",
+    ],
 )
 
 verilog_library(
@@ -141,7 +198,10 @@ verilog_library(
         "cm_soc_serv.v",
         "//test/coremark_joule/designs/asap7/serv:cmj_serv_grt_netlist.v",
     ],
-    deps = [":asap7_stdcells"],
+    deps = [
+        ":asap7_stdcells",
+        ":cmj_progmem",
+    ],
 )
 
 verilog_library(
@@ -150,7 +210,10 @@ verilog_library(
         "cm_soc_ibex.sv",
         "//test/coremark_joule/designs/asap7/ibex:cmj_ibex_grt_netlist.v",
     ],
-    deps = [":asap7_stdcells"],
+    deps = [
+        ":asap7_stdcells",
+        ":cmj_progmem",
+    ],
 )
 
 # VeeR EH1.

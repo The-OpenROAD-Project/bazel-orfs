@@ -1,47 +1,98 @@
-/* One memory map for every core in the study.
+/* One memory map for picorv32, SERV and ibex.
  *
- * RAM starts at 0 because that is where picorv32 and SERV both fetch
- * their first instruction by default (PROGADDR_RESET / RESET_PC), and
- * ibex's reset vector is a parameter the wrapper sets to match. A core
- * whose reset address cannot be moved would need its own script; none
- * of the three do.
+ * Three regions, and the split is the study's boundary rather than a
+ * convenience.
  *
- * 128 KiB is well clear of what CoreMark's 2K performance profile needs
- * (a few tens of KiB of text plus ~2 KiB of data), and the harness RAM
- * is a simulation array rather than anything that gets hardened, so the
- * size costs nothing.
+ *   imem  32 KiB at 0x00000000. Instruction memory, hardened *inside*
+ *         the core (cmj_progmem.sv). .text runs here.
  *
- * Load addresses equal virtual addresses throughout, which is what lets
- * crt0.S omit a .data copy loop.
+ *   dmem   8 KiB at 0x00010000. Data memory, also inside the core.
+ *         .rodata, .data, .bss and the stack live here. .rodata is
+ *         here rather than next to the code it belongs to so that the
+ *         data side never reads the instruction memory, which is what
+ *         lets a fetch and a load proceed in the same cycle with no
+ *         arbiter -- see cmj_progmem.sv for why that matters.
+ *
+ *   rom   64 KiB at 0x40000000. External memory, outside the boundary.
+ *         It holds the boot stub and the load images of the sections
+ *         above, and nothing reads it again after crt0.S has copied
+ *         them across. That copy happens once, before the first
+ *         iteration; the SAIF window is the last one, so it costs the
+ *         measurement nothing -- and the two- minus three-iteration
+ *         difference cancels it from the cycle count as well.
+ *
+ * Section 3.1's rule says a core with no cache is measured with the
+ * memory its hot loop runs out of, and imem+dmem is that memory. The
+ * earlier version of this file was one flat 128 KiB RAM at 0 that lived
+ * in the simulation wrapper and was never hardened. It made the three
+ * cacheless cores look better than they are, because the memory their
+ * instruction stream comes out of contributed no power at all. Section
+ * 4.6 predicted how much that was worth and section 5.1 is the
+ * measurement.
+ *
+ * The addresses are chosen so the decode inside each tile is three bit
+ * tests: bit 30 selects rom, bit 28 the sim-control device, bit 16
+ * dmem, and imem is what is left. A wide comparator would cost real
+ * cycles on the bit-serial core this map also has to serve.
+ *
+ * The sizes are from the images, not from feel. Across the three
+ * marches the largest .text is 30,204 B (rv32i) and the largest
+ * .rodata+.data+.bss is 3,588 B, against a measured stack high-water
+ * mark of 388 B -- portable_fini reports it on every run and
+ * check_coremark.py gates it. One pair of sizes for all three marches
+ * and all three cores, because a memory that changed between the points
+ * being compared would be a variable in a comparison that exists to
+ * have only one. The ASSERTs at the end are what keep that true when
+ * the compiler or the port layer moves.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
 OUTPUT_ARCH(riscv)
-ENTRY(_start)
+ENTRY(_boot)
 
 MEMORY
 {
-    ram (rwxai) : ORIGIN = 0x00000000, LENGTH = 128K
+    imem (rxai) : ORIGIN = 0x00000000, LENGTH = 32K
+    dmem (rwa)  : ORIGIN = 0x00010000, LENGTH = 8K
+    rom  (rxai) : ORIGIN = 0x40000000, LENGTH = 64K
 }
 
 SECTIONS
 {
-    /* The vector area must be first: it carries the entry points both
-       reset conventions in the study land on. See crt0.S. */
+    /* Runs from external memory, before either TCM has anything in it.
+       Carries the reset entry points for both conventions in the study
+       and the exception vectors; see crt0.S. */
+    .boot : {
+        KEEP(*(.text.boot))
+        /* Load-address alignment for everything that follows, not
+           cosmetics. .text's *run* address is 0 and so is aligned by
+           construction, but its *load* address is wherever .boot
+           happened to end -- and under the C extension .boot ends on a
+           two-byte boundary, because the assembler compresses most of
+           the boot stub. crt0.S copies words, so an odd .boot size
+           shifts the whole image by two bytes. ibex splits the
+           resulting misaligned loads into two bus transactions and
+           copies a corrupted image without complaining; the ASSERT
+           below is what turns that back into a build failure. */
+        . = ALIGN(4);
+    } > rom
+
     .text : {
-        KEEP(*(.text.vectors))
+        _text_start = .;
         KEEP(*(.text.start))
         *(.text .text.*)
-    } > ram
+        . = ALIGN(4);
+        _text_end = .;
+    } > imem AT> rom
 
     .rodata : {
-        . = ALIGN(4);
+        _data_start = .;
         *(.rodata .rodata.*)
         *(.srodata .srodata.*)
-    } > ram
+        . = ALIGN(4);
+    } > dmem AT> rom
 
     .data : {
-        . = ALIGN(4);
         *(.data .data.*)
         . = ALIGN(8);
         /* __global_pointer$ addresses the 4 KiB window the linker's
@@ -49,8 +100,12 @@ SECTIONS
            .sdata rather than at either end. */
         PROVIDE(__global_pointer$ = . + 0x800);
         *(.sdata .sdata.*)
-    } > ram
+        . = ALIGN(4);
+        _data_end = .;
+    } > dmem AT> rom
 
+    /* NOLOAD, so it gets no load address and no bytes in the image.
+       crt0.S zeroes it after the copy. */
     .bss (NOLOAD) : {
         . = ALIGN(4);
         _bss_start = .;
@@ -59,14 +114,30 @@ SECTIONS
         *(COMMON)
         . = ALIGN(4);
         _bss_end = .;
-    } > ram
+    } > dmem
 
+    . = ALIGN(4);
     _end = .;
 
-    /* The stack grows down from the top of RAM. CoreMark's own data
-       block is static (MEM_METHOD=MEM_STATIC), so the stack carries only
-       call frames and the 1 KiB ee_printf buffer. */
-    _stack_top = ORIGIN(ram) + LENGTH(ram);
+    /* Where each copy reads from. LOADADDR rather than ORIGIN(rom):
+       the linker decides where the previous section ended. */
+    _text_lma = LOADADDR(.text);
+    _data_lma = LOADADDR(.rodata);
+
+    /* The stack grows down from the top of the data memory. CoreMark's
+       own data block is static (MEM_METHOD=MEM_STATIC), so the stack
+       carries only call frames and ee_printf's buffer -- 388 B at its
+       deepest, over every core and march in the study. */
+    _stack_top = ORIGIN(dmem) + LENGTH(dmem);
+
+    ASSERT((_text_lma & 3) == 0,
+           "crt0.S copies words: the load address of .text must be 4-byte aligned")
+    ASSERT((_data_lma & 3) == 0,
+           "crt0.S copies words: the load address of .rodata must be 4-byte aligned")
+    ASSERT(_text_end <= ORIGIN(imem) + LENGTH(imem),
+           ".text does not fit in the instruction memory; see LENGTH(imem)")
+    ASSERT(_end <= _stack_top,
+           "data and bss do not fit in the data memory; see LENGTH(dmem)")
 
     /DISCARD/ : { *(.comment) *(.note .note.*) *(.eh_frame .eh_frame.*) }
 }

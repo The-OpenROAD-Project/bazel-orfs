@@ -1,4 +1,4 @@
-/* The picorv32 configuration this study measures, frozen.
+/* The picorv32 tile this study measures: the core and its program SRAM.
  *
  * This module exists so the core that is simulated and the core that is
  * hardened cannot drift apart. picorv32's features are parameters with
@@ -7,9 +7,15 @@
  * CoreMark/MHz number was measured on, and the energy per iteration
  * would be attributed to the wrong design.
  *
- * DESIGN_NAME in config.mk names this module, and cm_soc_picorv32.v
- * instantiates it rather than picorv32 itself. Neither side can pick its
- * own parameters.
+ * It is also the study's boundary. DESIGN_NAME in config.mk names this
+ * module, so what is hardened, what the SAIF is captured over and what
+ * report_power totals are all the same thing: the core plus the 32 KiB
+ * instruction memory and 8 KiB data memory it runs out of. Section 3.1
+ * says a cacheless core is measured with the memory its hot loop runs
+ * out of, and everything inside this module is that; everything outside
+ * it -- the external ROM the boot copy reads, the two-register
+ * sim-control device -- is scaffolding the harness provides and the
+ * measurement excludes.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -20,14 +26,39 @@ module cmj_picorv32 (
 	input  wire        resetn,
 	output wire        trap,
 
-	output wire        mem_valid,
-	output wire        mem_instr,
-	input  wire        mem_ready,
-	output wire [31:0] mem_addr,
-	output wire [31:0] mem_wdata,
-	output wire [ 3:0] mem_wstrb,
-	input  wire [31:0] mem_rdata
+	/* Everything the tile could not serve itself, split the way the
+	 * memories are: an instruction side and a data side. The address
+	 * phase is combinational and the response arrives on the next
+	 * cycle, which is exactly the timing cmj_imem and cmj_dmem present,
+	 * so one registered select routes all four sources.
+	 *
+	 * picorv32 has a single bus, so at most one of the two is ever
+	 * active; they are kept separate anyway so that the traffic counter
+	 * on the other end reports fetches and data accesses apart, as
+	 * VeeR's does. See cm_soc_picorv32.v. */
+	output wire        ext_i_req,
+	output wire [31:0] ext_i_addr,
+	input  wire [31:0] ext_i_rdata,
+
+	output wire        ext_d_req,
+	output wire        ext_d_we,
+	output wire [31:0] ext_d_addr,
+	output wire [31:0] ext_d_wdata,
+	output wire [ 3:0] ext_d_wstrb,
+	input  wire [31:0] ext_d_rdata,
+
+	/* Fetch address, for the harness to report where a run stopped when
+	 * it stops without halting. A probe, not a design signal. */
+	output wire [31:0] dbg_instr_addr
 );
+	wire        mem_valid;
+	wire        mem_instr;
+	reg         mem_ready;
+	wire [31:0] mem_addr;
+	wire [31:0] mem_wdata;
+	wire [ 3:0] mem_wstrb;
+	wire [31:0] mem_rdata;
+
 	picorv32 #(
 		/* The M extension, through PCPI. These are also the only
 		 * functional units picorv32 can be attributed to in a
@@ -43,7 +74,10 @@ module cmj_picorv32 (
 		.ENABLE_COUNTERS64(0),
 		/* No interrupts anywhere in the study. */
 		.ENABLE_IRQ(0),
-		.PROGADDR_RESET(32'h0000_0000)
+		/* External memory, not the TCM: the TCM is empty out of reset
+		 * and the boot stub that fills it has to live somewhere the
+		 * harness can preload. See sw/port/crt0.S. */
+		.PROGADDR_RESET(32'h4000_0000)
 	) cpu (
 		.clk       (clk),
 		.resetn    (resetn),
@@ -73,6 +107,85 @@ module cmj_picorv32 (
 		.trace_valid (),
 		.trace_data  ()
 	);
+
+	assign dbg_instr_addr = mem_addr;
+
+	/* Three bit tests decide the whole map, which is why link.ld puts
+	 * the regions where it does: bit 30 is external memory
+	 * (0x40000000), bit 28 the sim-control device (0x10000000), bit 16
+	 * the data memory (0x00010000), and the instruction memory is what
+	 * is left. A full comparator would cost real cycles on the
+	 * bit-serial core this address map also has to serve. */
+	wire is_ext  = mem_addr[30] | mem_addr[28];
+	wire is_dmem = mem_addr[16];
+
+	/* One wait state on every access, whichever side answers. Uniform
+	 * latency keeps the cycle difference between the two runs a
+	 * property of the core rather than of a memory model that might
+	 * behave differently on the extra iteration's access pattern. */
+	wire acc   = mem_valid && !mem_ready;
+	wire is_wr = mem_wstrb != 4'b0;
+
+	wire [31:0] im_rdata;
+	wire [31:0] dm_rdata;
+
+	cmj_imem u_imem (
+		.R0_addr (mem_addr[14:2]),
+		.R0_en   (acc && !is_ext && !is_dmem),
+		.R0_clk  (clk),
+		.R0_data (im_rdata),
+
+		.W0_addr (mem_addr[14:2]),
+		.W0_en   (acc && !is_ext && !is_dmem && is_wr),
+		.W0_clk  (clk),
+		.W0_data (mem_wdata),
+		.W0_mask (mem_wstrb)
+	);
+
+	cmj_dmem u_dmem (
+		.R0_addr (mem_addr[12:2]),
+		.R0_en   (acc && !is_ext && is_dmem),
+		.R0_clk  (clk),
+		.R0_data (dm_rdata),
+
+		.W0_addr (mem_addr[12:2]),
+		.W0_en   (acc && !is_ext && is_dmem && is_wr),
+		.W0_clk  (clk),
+		.W0_data (mem_wdata),
+		.W0_mask (mem_wstrb)
+	);
+
+	/* picorv32 tells the wrapper whether an access is a fetch, so the
+	 * external traffic counter can separate the two without the tile
+	 * guessing from the address. */
+	assign ext_i_req   = acc && is_ext && mem_instr;
+	assign ext_i_addr  = mem_addr;
+
+	assign ext_d_req   = acc && is_ext && !mem_instr;
+	assign ext_d_we    = is_wr;
+	assign ext_d_addr  = mem_addr;
+	assign ext_d_wdata = mem_wdata;
+	assign ext_d_wstrb = mem_wstrb;
+
+	/* Which source answers the cycle mem_ready is high. All four
+	 * register on the same edge, so the select is two flops and there
+	 * is no latency to equalise. */
+	reg sel_ext;
+	reg sel_dmem;
+	assign mem_rdata = sel_ext  ? (sel_dmem ? ext_d_rdata : ext_i_rdata)
+	                            : (sel_dmem ? dm_rdata    : im_rdata);
+
+	always @(posedge clk) begin
+		mem_ready <= 1'b0;
+
+		if (!resetn) begin
+			mem_ready <= 1'b0;
+		end else if (acc) begin
+			mem_ready <= 1'b1;
+			sel_ext   <= is_ext;
+			sel_dmem  <= is_ext ? !mem_instr : is_dmem;
+		end
+	end
 endmodule
 
 `default_nettype wire
