@@ -199,3 +199,36 @@ verilog_library(
     srcs = ["cm_soc_veer.sv"],
     deps = [":veer_sim"],
 )
+
+# The hardened memories' behavioural models, for the gate-level
+# simulation only.
+#
+# §3.2 of the paper makes this a prerequisite rather than a refinement:
+# synthesis blackboxes the macro so the Liberty view wins, and a
+# blackbox stores nothing. Run the netlist without these and VeeR's
+# instruction cache and DCCM hold no values -- CoreMark fails its CRCs
+# or never terminates, rather than quietly reporting low memory power.
+#
+# ASAP7 ships them, so nothing here is written or vendored. The netlist
+# instantiates fakeram7_* directly: the ram_* wrappers in the design's
+# macros.v are not kept modules, so synthesis flattens them away.
+verilog_library(
+    name = "asap7_fakeram",
+    srcs = [
+        "@orfs//flow:platforms/asap7/verilog/fakeram7_2048x39.v",
+        "@orfs//flow:platforms/asap7/verilog/fakeram7_256x34.v",
+        "@orfs//flow:platforms/asap7/verilog/fakeram7_64x21.v",
+    ],
+)
+
+verilog_library(
+    name = "cm_soc_veer_gate",
+    srcs = [
+        "cm_soc_veer.sv",
+        "//test/coremark_joule/designs/asap7/veer:swerv_wrapper_grt_netlist.v",
+    ],
+    deps = [
+        ":asap7_fakeram",
+        ":asap7_stdcells",
+    ],
+)

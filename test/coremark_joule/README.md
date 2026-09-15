@@ -16,8 +16,9 @@ a measurement. We build the whole chain in a reproducible flow —
 CoreMark ELF, RTL simulation, CRC gate, synthesis, global route,
 gate-level simulation, SAIF over one hot iteration, `report_power` —
 and screen at global route so a point costs minutes rather than hours.
-We report three cores on ASAP7: SERV (0.0243 CoreMark/MHz), picorv32
-(0.5531) and ibex (2.4543), spanning two decades of performance.
+We report four cores on ASAP7: SERV (0.0243 CoreMark/MHz), picorv32
+(0.5531), ibex (2.4543) and VeeR EH1 (4.7978), spanning more than two
+decades of performance.
 
 The study's central methodological contribution is negative and
 checkable. OpenSTA does not fail when a pin carries no annotated
@@ -40,15 +41,18 @@ measured: the core and its L1 caches, and explicitly not what surrounds
 them. Where a core is too small to have caches, the small SRAM that
 comes with it and holds the program is what is measured in their place.
 
-The shape those three points make is reported with its own diagnosis.
-On log–log axes they fall close to a straight line of slope 0.868 — and
-that is a defect rather than a law. Across a 101× span in CoreMark/MHz
-the measured power spans only 1.15×, so the multiplier `f/P` predicts a
-slope of 0.862 on its own: the energy axis contributes about 0.13
-decades of independent signal over two decades of performance. The
-cause is the boundary. With no memory hardened, what is left is three
-small blocks of logic clocked within 1.7× of each other, and the part
-whose cost actually differs between them is outside the measurement.
+The shape those points make is reported with its own diagnosis. The
+three cores that harden no memory fall on a straight line in log--log
+axes -- slope 0.868, R² = 0.999 -- and that was a defect rather than a
+law: across a 101x span in CoreMark/MHz their power spans only 1.15x, so
+the multiplier `f/P` predicts a slope of 0.862 on its own. We predicted
+the cause was the boundary, and said so falsifiably. VeeR EH1, the one
+core here whose L1 is hardened, tests it: the power spread across the
+study goes from 1.15x to 13.58x, R² falls from 0.999 to 0.561, and the
+line is gone. Extrapolating the cacheless trend to VeeR's performance
+overpredicts its energy efficiency by **15.2x**. Hardening an L1 is
+worth an order of magnitude, and it was invisible in every point that
+lacked one.
 
 We also state, rather than imply, what the numbers do not yet cover:
 the intended boundary of core + L1 is not met by these three points,
@@ -74,8 +78,13 @@ colour because it is not like-for-like (§4.4).
 | SERV | rv32i | 0.0243 | 41,202,900 | 1428.6 | 6.68 mW | 5,190 |
 | picorv32 | rv32im | 0.5531 | 1,807,889 | 1000.0 | 6.43 mW | 86,024 |
 | ibex | rv32imc | 2.4543 | 407,448 | 833.3 | 7.37 mW | 277,510 |
+| **VeeR EH1** | rv32imc | **4.7978** | 208,431 | 625.0 | **87.30 mW** | **34,348** |
 
-**Table 1.** The three measured points. Frequency is the SDC period the
+**Table 1.** The four measured points. VeeR EH1 is the only one that
+meets §3.1's boundary: its 16 kB instruction cache and 64 kB DCCM are
+hardened, and one hot iteration sends zero transfers on either external
+bus (§7). The other three harden no memory at all, and §4.6 is about
+what that turns out to be worth. Frequency is the SDC period the
 SAIF was timed against (§5.5); power is `report_power` at global route
 with SAIF-driven activity, at ASAP7's BC corner (§3.6).
 
@@ -721,72 +730,208 @@ number that is missing cannot be argued with. Producing it from an open
 flow, with the boundary stated and the annotation audited, is the gap
 this work is in.
 
-### 4.6 Is the shape real?
+### 4.6 Is the shape real? The boundary, tested
 
-Two patterns in Figure 1 invite suspicion, and both deserve an answer
-with arithmetic rather than a shrug.
+An earlier draft of this section reported a defect and made a
+prediction. The defect: the three cacheless cores fell on a straight
+line in log--log axes, **slope 0.868 with R² = 0.999**, and that line
+was very nearly the x-axis in disguise. Across a 101x span in
+CoreMark/MHz their power spanned only **1.15x** (6.43--7.37 mW), so the
+whole multiplier `f/P` spanned 1.89x and predicted a slope of 0.862 on
+its own. The energy axis was contributing about 0.13 decades of
+independent signal over two decades of performance.
 
-**The 22 nm series is almost exactly horizontal.** Fitted on log–log
-axes its slope is **0.067** — flat to within the width of the markers.
-That is not a coincidence of the plot: across those three designs the
-power spread is 3.07× and the throughput spread (CoreMark/MHz × f) is
-3.21×, so power tracks delivered work to within 5 %. Energy per unit of
-work is constant across a 2.2× range in performance per clock. Taken at
-face value that is a real and interesting claim — a wider machine buys
-its speed at proportionally more energy per cycle, and nets out even.
-It is also exactly the claim we cannot check: those power figures were
-read off a bar chart, the boundary they cover is unstated (§4.5), and
-they were taken on a different benchmark from the performance numbers.
-**A flat line derived three ways from one figure is the weakest kind of
-evidence, and it is drawn separately for that reason.**
+The prediction was that §5.1 was the cause -- that with no memory
+hardened, what remained was three small blocks of logic clocked within
+1.7x of each other, and the part whose cost actually differs between a
+bit-serial core and a pipelined one was outside the measurement. It was
+stated as falsifiable: *if hardening the memories leaves the slope at
+0.85, the degeneracy was not the boundary's fault and something else is
+wrong.*
 
-**Our own series is nearly a straight line on log–log axes, and that is
-a defect.** Its fitted slope is **0.868**. The cause is visible in the
-inputs:
+**VeeR EH1 is the test, and the prediction holds.**
 
-| core | CoreMark/MHz | f (MHz) | P (mW) | f/P (Hz/W) |
-|---|---|---|---|---|
-| SERV | 0.0243 | 1428.6 | 6.68 | 2.14 × 10¹¹ |
-| picorv32 | 0.5531 | 1000.0 | 6.43 | 1.56 × 10¹¹ |
-| ibex | 2.4543 | 833.3 | 7.37 | 1.13 × 10¹¹ |
+| | three cacheless points | with VeeR |
+|---|---|---|
+| power spread | 1.15x | **13.58x** |
+| `f/P` spread | 1.89x | 29.87x |
+| log--log slope | 0.868 | 0.535 |
+| R² of that fit | **0.999** | **0.561** |
 
-`CoreMark/Joule = CoreMark/MHz × f / P`. Across a **101×** span in
-CoreMark/MHz, the measured power spans **1.15×** and the whole
-multiplier `f/P` spans **1.89×**. A slope of exactly 1 would mean the
-energy axis carried no information the performance axis did not already
-have; the multiplier's 1.89× spread over 101× of x predicts a slope of
-**0.862**, and the measured slope is 0.868. **The fit is not evidence
-of a law. It is evidence that the y-axis is very nearly the x-axis.**
+The straight line is gone. It is not that the slope moved -- it is that
+a single power law no longer describes the data at all, which is what a
+degenerate axis looks like once the thing it was blind to is put back
+in.
 
-Put the other way: over two decades of performance, the energy
-measurement contributes about 0.13 decades of independent signal. The
-same fact seen as time — energy per iteration is 1.93 × 10⁻⁴ J for SERV
-against 3.60 × 10⁻⁶ J for ibex, a 54× spread, while time per iteration
-spans 59× — says it again. Nearly all of the energy difference between
-these cores is how long they take, not what they burn while taking it.
+**How far off the extrapolation was.** Fit the three cacheless points
+and extend the line to VeeR's 4.7978 CoreMark/MHz, and it predicts
+**521,311 CoreMark/Joule**. VeeR measures **34,348**. The cacheless
+trend overpredicts a boundary-compliant core by **15.2x**.
 
-**Correcting the IO budget (§5.10) made this slightly worse, not
-better**, which is worth reporting because it was not the hoped-for
-outcome. The correction removed more power from the larger cores than
-from the smaller ones, narrowing the power spread from 1.18× to 1.15×
-and moving the slope from 0.855 to 0.868. It was a real error and fixing
-it was right; it was simply not the source of the degeneracy. §5.1 still
-is.
+Put as a comparison between two cores rather than against a fit: VeeR
+delivers **1.95x** ibex's performance per clock for **0.124x** its
+CoreMark/Joule, drawing **11.8x** the power. Hardening an L1 is not a
+detail at the edge of the measurement. On this design it is an order of
+magnitude, and it was entirely invisible in the three points that did
+not have one.
 
-Why is the power nearly constant across designs that differ by 100× in
-performance? **Because none of them harden any memory** (§5.1). What is
-left is three small blocks of logic clocked within 1.7× of each other,
-and their logic power lands in a narrow band. The memory system — the
-part whose cost actually differs between a bit-serial core fetching
-41 million times per iteration and a pipelined one fetching 400 thousand
-— is outside the boundary on every point.
+**A corroboration worth noting, carefully.** VeeR at 34,348
+CoreMark/Joule lands **1.17x to 1.27x** above the GF 22 FDX series of
+§4.4 (27,108--29,412). That is the first point in this study measured at
+a stated core-plus-L1 boundary landing near cores measured at what that
+paper configures as the same boundary, on a different node with
+different tools. It is a coincidence until the caveats of §4.4 are
+lifted -- their boundary is unstated and their power is from a different
+benchmark -- so it is offered as consistency, not as validation.
 
-So the honest reading of Figure 1 today is: **the blue series is a
-performance plot with an energy axis that has not yet been allowed to
-disagree with it.** Closing §5.1 is what would let it. That is a
-prediction the next measurement can falsify — if hardening the memories
-leaves the slope at 0.85, the degeneracy was not the boundary's fault
-and something else is wrong.
+**What this does not settle.** The 22 nm series is still flat (slope
+0.067, §4.4) and this study's four points are not; whether energy per
+unit of work is really constant across microarchitectures, or falls with
+performance as these four suggest, needs the other three cores brought
+up to the same boundary. That is §5.1, and it is now the single most
+valuable outstanding measurement in the study -- no longer because the
+numbers are incomplete, but because one point has shown how much the
+answer moves.
+
+### 4.7 A rack-level reading of Figure 1
+
+Figure 1's axes turn out to be the two axes a GPU rack cares about in a
+host CPU, and the relation between them is tight enough to write down.
+This section is a **model**, with its assumptions stated; it uses
+published power figures and none of this study's own measurements,
+except at the end.
+
+**The setup.** A rack has a fixed power budget. It holds GPUs and the
+host CPUs that feed them. Too slow a host and the GPU waits; too fast a
+host and its power crowds GPUs out of the budget. Both failures cost
+delivered work, so there is an optimum.
+
+Per GPU, write
+
+    tau  host CPU throughput available to it       (CoreMark/s)
+    r    host work the GPU demands per GPU-second  (CoreMark/s)
+    E    host energy efficiency                    (CoreMark/Joule)
+    P_g  GPU power                                 (W)
+    pi   host CPU power charged to that GPU        (W)
+
+While the host is on the critical path — launching kernels, preparing
+the next batch, driving collectives — the GPU is idle, so
+
+    U = tau / (tau + r)        and        pi = tau / E
+
+and the number of GPUs the rack can hold is `N = P_rack / (P_g + pi)`.
+Delivered work is `N x U`. Maximising it over `tau` gives
+
+    tau* = sqrt(P_g . r . E)
+    pi*  = sqrt(P_g . r / E)
+    U*   = P_g / (P_g + pi*)
+
+**The last line is the result, and it needs no CoreMark number at all:
+at the optimum, GPU utilization equals the GPU's share of the CPU-plus-GPU
+power.** Provision the host at a tenth of the GPU's power and the
+economics want the GPU about 91 % busy; provision it at a third and they
+want 75 %. Chasing higher utilization than that is buying it with power
+that would have held another GPU.
+
+**What the industry actually provisions.** Two generations, two CPU
+ISAs, one ratio:
+
+| system | GPU | host CPU | host W per GPU | ratio | U* |
+|---|---|---|---|---|---|
+| DGX H100 [12] | 8 × H100 SXM5, 700 W | 2 × Xeon Platinum 8480C, 350 W | 87.5 W | **0.125** | 88.9 % |
+| GB200 NVL72 [13] | 72 × B200, 1200 W | 36 × Grace, ~300 W incl. LPDDR/IO | 150 W | **0.125** | 88.9 % |
+
+Exactly one eighth in both cases, which under this model corresponds to
+an optimum at **88.9 % GPU utilization** — and, since `U = tau/(tau+r)`,
+to a host provisioned at **eight times** the throughput the GPU's host
+work demands. Whether that ratio was arrived at by this reasoning or by
+measurement, it is the point the model says to sit at.
+
+**Why the last few points of utilization are so expensive.** Rearranging,
+`tau = r . U/(1-U)`: utilization enters as *odds*, so each increment
+costs throughput multiplicatively.
+
+| from → to | odds | host throughput needed |
+|---|---|---|
+| 80 % → 90 % | 4 → 9 | ×2.25 |
+| 90 % → 95 % | 9 → 19 | ×2.11 |
+| 95 % → 99 % | 19 → 99 | **×5.2** |
+
+**And why buying it with frequency is worse than it looks.** §2.3 gives
+the scaling: in the voltage regime `tau ∝ f` while `E ∝ 1/f²`, so
+
+    pi = tau / E  ∝  f³
+
+**Host power per GPU grows as the cube of host frequency**, while
+utilization improves only through the odds ratio. Doubling the host
+clock of a DGX-H100-shaped system takes π from 87.5 W to 700 W and U
+from 88.9 % to 94.1 % — and delivers **60 % of the optimum's rack
+throughput**, because the rack now holds 1.8× fewer GPUs. That is the
+"too high and fewer GPUs fit" half of the problem, quantified.
+
+**What it constrains, on Figure 1's own axes.** For a target utilization
+`U` and a host power budget `pi` per GPU:
+
+    CoreMark/s      tau  >=  r . U/(1-U)                  (the x-axis, scaled)
+    CoreMark/Joule  E    >=  r . U / ((1-U) . pi)         (the y-axis)
+    CoreMark/MHz    CM/MHz >= r . U / ((1-U) . f . n)     (n cores at f)
+
+So **a target utilization is a corner in the upper right of Figure 1**: a
+horizontal floor set by the power slice, and a vertical floor set by how
+much of the host work is serial. The two are not interchangeable, and
+they map onto the two halves of Amdahl's argument as it appears in a
+rack. Host work that is on one dependency chain — a kernel launch, a
+Python frame, one collective's orchestration — is served by
+CoreMark/MHz × f and cannot be bought with more cores. Host work that is
+parallel is served by throughput, and how much of it fits in `pi` is set
+by CoreMark/Joule. **The y-axis is the rack-relevant axis for everything
+except the critical path.**
+
+**Where this study's cores would sit, with the caveat first.** These are
+ASAP7 numbers on a predictive kit at the best-case corner (§5.4, §5.6),
+and the comparison below is an illustration of the model's shape, not a
+claim about silicon. In the 87.5 W host slice of a DGX-H100-shaped
+system, a host built from this study's ibex point — 277,510
+CoreMark/Joule — would deliver `87.5 × 277,510 ≈ 24 M CoreMark/s`, which
+at 2,045 CoreMark per core is some twelve thousand cores. The number is
+not a design proposal; what it shows is that the slice is set by `E` and
+nothing else, and that a core whose CoreMark/Joule is an order of
+magnitude worse buys an order of magnitude less host throughput for the
+same rack cost.
+
+**CoreMark is a proxy for one term of `r`, and not a good proxy for the
+rest.** This is the sharpest limit on everything above, so it is stated
+plainly rather than left in the caveats. CoreMark is a small, entirely
+cache-resident integer benchmark with predictable control flow — that is
+what makes it measurable in a gate-level simulation at all (§3.4), and
+it is also what makes it narrow. A GPU rack's host work is mostly not
+that: framework and Python frames, driver and runtime code, marshalling
+batches through memory, syscalls, the network stack, page management,
+and the orchestration of collectives. Those are bound by memory latency,
+TLB reach, last-level cache and kernel-boundary cost, and **CoreMark
+measures none of them.**
+
+So `r` expressed in CoreMark says how much *pipeline throughput* the GPU
+demands of its host, and is silent on everything else. Two hosts with
+identical CoreMark/s and different memory systems will not deliver the
+same utilization, and the one with the better memory system will win by
+a margin this model cannot see. The equations are the right shape; the
+units are the honest part to distrust.
+
+It is the same limit as §3.1's boundary seen from the other end.
+CoreMark's working set is exactly what fits inside core-plus-L1, which
+is why this study can measure it precisely — and why it says nothing
+about the last-level cache, the memory controllers or the interconnect,
+which is where a real host spends a large share of its energy.
+
+**What the model does not include**, so it is not read as more than it
+is: host memory and its power, the NVLink and network fabric, cooling
+overhead, and any host work that scales with GPU count rather than per
+GPU. It also assumes the host and the GPU do not overlap — the pure
+serial case. Real runtimes pipeline, which raises `U` at the same `tau`
+and moves the optimum toward a cheaper host; the direction of that error
+is known and it is the kind that makes an expensive host look better
+than it is.
 
 ---
 
@@ -1051,6 +1196,67 @@ override matters rather than consequences of it:
 - Because `set_input_delay` is not used, **no hold cells are inserted on
   IO paths**. On a design with VeeR's port count that is a large amount
   of area and leakage that would otherwise be charged to the core.
+
+### 5.11 Two carried workarounds, and what each costs the measurement
+
+VeeR is the first design in the study with hardened macros and a
+hierarchical ODB, and getting a number out of it needed two workarounds.
+Both are carried here rather than reported upstream, per the moratorium
+in `CLAUDE.md`; both cost the measurement something, and what they cost
+is measured rather than waved at.
+
+**A duplicate instance name in the written netlist.** OpenROAD's
+`write_verilog` gave two different `AND2x2` clock cells — on
+`clknet_leaf_24_clk_i` and `clknet_leaf_152_clk_i` — the same name
+`_131758_` inside `ifu_bp_ctl$swerv_wrapper.swerv.ifu.bp`. That is one
+collision among that module's 88,520 instances and the netlist's
+1,027,239 lines, and the result is not valid Verilog. odb's own instance
+namespace is unique per block, so the collision is created on the way
+out: the name mapping in `write_verilog` is not injective.
+
+Verilator rejecting it is the good outcome. **A reader that accepted it
+would keep one of the two and simulate a design the power was not
+reported on** — a plausible number from a netlist that does not exist.
+`scripts/uniquify_netlist.py` renames rather than drops, and runs on
+every core with a budget of zero, so for the other three it asserts that
+their netlists have no collisions. Cost: one instance's pins carry a name
+the SAIF cannot match, so they go unannotated. VeeR's `pin_policy.json`
+waives exactly that instance, by name.
+
+**Net names a SAIF cannot carry.** OpenSTA's SAIF lexer defines
+`ID ([A-Za-z_])([A-Za-z0-9_$\[\]\\.])*` and `HCHAR "."|"/"`, so `/` is
+the hierarchy separator and cannot appear inside a name — and an ID
+cannot begin with a backslash, so no escaped spelling exists either.
+Hierarchical CTS names leaf clock nets after their sink's full path,
+which contains odb's own `/`:
+
+    clknet_1_0__leaf_swerv.ifu.bp/BTB_FLOPS[39].btb_bank1_way1...clkhdr.Q
+
+`read_saif` stops at the first such line with a parse error, having
+annotated **nothing**. The failure is not a few unannotated pins, it is
+the whole measurement — and had it not errored, `report_power` would
+have run on default activity and produced a number nothing downstream
+could distinguish from a measured one. (The vectorless run reports
+119 mW for this design, for scale.)
+
+`scripts/filter_saif.py` drops only the entries the format cannot carry
+and classifies every one. On VeeR: **5,284 of 1,002,201 net entries
+(0.53 %)**, of which 5,283 are `clknet_*` and the remaining one is
+`clonenet_1_swerv.ifu.bp/bht_dataoutf.genblock.clkhdr.clkhdr.Q` — a
+cloned clock-gate output, so a clock net named by the resizer's cloning
+pass rather than by CTS. §3.5 establishes that this is the benign case:
+OpenSTA gives clock-network pins `2/period` from the SDC exactly,
+bypassing the estimator, so being unannotated is their correct state and
+the pin audit classifies them `clock_network`. The budget on non-clock
+drops is zero by default; VeeR declares one, with that reason.
+
+**Both are properties of the hierarchical flow**, which OpenROAD itself
+warns about (`ORD-0012`, "in development"). The study keeps hierarchy
+because §3.7's functional-unit attribution needs it, and pays these two
+costs to have it. Before either is reported upstream, OpenROAD's own
+history should be read first: it has carried fixes in this area before —
+name escaping, and the `-hier` flow — so the fix may already exist, and a
+bump is cheaper than a report.
 
 ---
 
@@ -1471,3 +1677,5 @@ copy of the Software.
 9. Parallax Software. *OpenSTA* — `power/Power.cc`, `power/SaifReader.cc`. https://github.com/parallaxsw/OpenSTA
 10. "Feature request — extend reporting on pin activities." parallaxsw/OpenSTA issue #162. https://github.com/parallaxsw/OpenSTA/issues/162
 11. Western Digital. *CoreMark Benchmarking for SweRV*, 20 November 2019. `docs/SweRV_CoreMark_Benchmarking.pdf` in chipsalliance/Cores-VeeR-EH1.
+12. NVIDIA. *DGX H100/H200 System User Guide* — 8 × H100 SXM5, dual Intel Xeon Platinum 8480C, 10.2 kW maximum. https://docs.nvidia.com/dgx/dgxh100-user-guide/
+13. NVIDIA. *GB200 NVL72* — 72 × Blackwell, 36 × Grace, ~120 kW rack; GB200 Superchip 2700 W = 2 × 1200 W GPU + ~300 W Grace CPU/IO. https://www.nvidia.com/en-us/data-center/gb200-nvl72/

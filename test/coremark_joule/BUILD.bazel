@@ -16,11 +16,13 @@ py_binary(
         "$(location //test/coremark_joule/sim:point_picorv32_rv32im)",
         "$(location //test/coremark_joule/sim:point_serv_rv32i)",
         "$(location //test/coremark_joule/sim:point_ibex_rv32imc)",
+        "$(location //test/coremark_joule/sim:point_veer_rv32imc)",
     ],
     data = [
         "//test/coremark_joule/sim:point_ibex_rv32imc",
         "//test/coremark_joule/sim:point_picorv32_rv32im",
         "//test/coremark_joule/sim:point_serv_rv32i",
+        "//test/coremark_joule/sim:point_veer_rv32imc",
     ],
     main = "//test/coremark_joule/scripts:pin_results.py",
     tags = ["manual"],

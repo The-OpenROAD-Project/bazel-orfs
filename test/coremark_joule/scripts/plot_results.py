@@ -32,10 +32,43 @@ def plot(document, out_path):
 
     fig, ax = plt.subplots(figsize=(7.5, 5.5))
 
+    # Split the measured series by whether the point meets §3.1's
+    # boundary. A filled marker hardened its L1; a hollow one hardened no
+    # memory at all and got a free, perfect one instead. Drawing them the
+    # same would let the figure imply four measurements of the same kind,
+    # which is the single thing this study is most at risk of being read
+    # as saying.
+    def meets_boundary(p):
+        return p.get("boundary", "").startswith("core + L1")
+
+    # Kept for the axis limits and the per-point labels below: the split
+    # is how the series is drawn, not how it is measured.
     xs = [p["coremark_per_mhz"] for p in points]
     ys = [p["coremark_per_joule"] for p in points]
 
-    ax.scatter(xs, ys, s=70, zorder=3, label="asap7, grt, core only (this study)")
+    met = [p for p in points if meets_boundary(p)]
+    unmet = [p for p in points if not meets_boundary(p)]
+
+    if unmet:
+        ax.scatter(
+            [p["coremark_per_mhz"] for p in unmet],
+            [p["coremark_per_joule"] for p in unmet],
+            s=70,
+            facecolors="none",
+            edgecolors="tab:blue",
+            linewidths=1.6,
+            zorder=3,
+            label="asap7, grt, core only -- no memory hardened",
+        )
+    if met:
+        ax.scatter(
+            [p["coremark_per_mhz"] for p in met],
+            [p["coremark_per_joule"] for p in met],
+            s=70,
+            color="tab:blue",
+            zorder=3,
+            label="asap7, grt, core + L1 hardened",
+        )
     for p in points:
         ax.annotate(
             "{} ({})".format(p["core"], p["isa"]),

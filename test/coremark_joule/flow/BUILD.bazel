@@ -12,3 +12,5 @@ exports_files(["hier_probe.tcl"])
 exports_files(["activity_audit.tcl"])
 
 exports_files(["activity_sweep.tcl"])
+
+exports_files(["dup_inst_probe.tcl"])

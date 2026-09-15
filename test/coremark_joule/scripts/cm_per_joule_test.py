@@ -19,10 +19,12 @@ class CmPerJouleTest(unittest.TestCase):
     def test_frequency_cancels_for_fixed_energy_per_cycle(self):
         """Doubling f at doubled power leaves CoreMark/Joule unchanged.
 
-        Dynamic power is proportional to frequency, so the y-axis is close
-        to a pure architecture metric and the plot is not merely a
-        restatement of the x-axis. Leakage is what breaks the identity,
-        which is why it is worth stating that it holds exactly only here.
+        This is §2.3's identity, pinned in the arithmetic: dynamic power
+        is proportional to frequency, so the f cancels and energy per
+        unit of work does not depend on the clock. Leakage is what breaks
+        it in a real design -- leakage energy per operation falls as 1/f
+        -- which is why the cancellation holds exactly only here, where
+        the power is supplied rather than measured.
         """
         a = combine(2.0, 500.0, 0.010)
         b = combine(2.0, 1000.0, 0.020)

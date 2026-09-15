@@ -1,10 +1,15 @@
 {
   "design": "swerv_wrapper",
-  "max_unannotated_internal": 0,
-  "scan_patterns": [],
   "macro_patterns": [
     "^fakeram7"
   ],
-  "waivers": [],
-  "notes": "Same budget as the other three cores, and for the same reason: the claim the study makes is that OpenSTA's activity estimator does not enter the energy number, and an internal cell pin the SAIF did not annotate is the estimator entering it. This design is the first with hardened memories, so macro_patterns is load-bearing rather than defensive -- an unannotated fakeram7 pin is memory energy being invented rather than measured, and it is fatal regardless of the internal budget."
+  "max_unannotated_internal": 0,
+  "notes": "Same budget as the other three cores, and for the same reason: the claim the study makes is that OpenSTA's activity estimator does not enter the energy number, and an internal cell pin the SAIF did not annotate is the estimator entering it. This design is the first with hardened memories, so macro_patterns is load-bearing rather than defensive -- an unannotated fakeram7 pin is memory energy being invented rather than measured, and it is fatal regardless of the internal budget.",
+  "scan_patterns": [],
+  "waivers": [
+    {
+      "pattern": "_131758__uniq1/",
+      "reason": "The one instance scripts/uniquify_netlist.py had to rename, because OpenROAD's write_verilog emitted two different AND2x2 clock cells under the name _131758_ in ifu_bp_ctl$swerv_wrapper.swerv.ifu.bp. The renamed instance's pins carry a name the SAIF cannot match back to the ODB, so read_saif leaves them unannotated. Waived rather than budgeted, so the cost of the workaround is named rather than hidden inside a number: it is this instance and no other, and the waiver retires with the bump that brings a write_verilog which uniquifies."
+    }
+  ]
 }

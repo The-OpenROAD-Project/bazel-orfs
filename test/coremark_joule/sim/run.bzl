@@ -174,7 +174,15 @@ def smoke_test(name, run, tags = []):
         tags = tags,
     )
 
-def coremark_saif(name, sim, image, run_2, run_3, clk_period_ps, tags = ["manual"]):
+def coremark_saif(
+        name,
+        sim,
+        image,
+        run_2,
+        run_3,
+        clk_period_ps,
+        max_other_dropped = 0,
+        tags = ["manual"]):
     """Capture a SAIF over CoreMark's last, hot iteration.
 
     The window comes from the two RTL runs rather than from a choice:
@@ -195,27 +203,33 @@ def coremark_saif(name, sim, image, run_2, run_3, clk_period_ps, tags = ["manual
         scales every toggle rate -- and the dynamic power -- by the ratio
         between them. Nothing downstream can detect the mistake: the
         power simply comes out wrong by that factor.
+      max_other_dropped: how many non-clock nets this design loses to
+        scripts/filter_saif.py. Zero asserts that everything the SAIF
+        format cannot carry is a clock net, which §3.5 establishes needs
+        no annotation.
       tags: forwarded; manual.
     """
+    raw = name + "_raw.saif"
     native.genrule(
-        name = name,
+        name = name + "_raw",
         srcs = [
             image,
             "{}.cycles".format(run_2),
             "{}.cycles".format(run_3),
         ],
-        outs = [name + ".saif"],
+        outs = [raw],
         cmd = (
             "$(execpath {win}) " +
             "--sim $(execpath {sim}) " +
             "--image $(location {image}) " +
             "--cycles-2 $(location {run_2}.cycles) " +
             "--cycles-3 $(location {run_3}.cycles) " +
-            "--saif $@ " +
+            "--saif $(location {raw}) " +
             "--clk-period-ps {clk_period_ps}"
         ).format(
             clk_period_ps = clk_period_ps,
             image = image,
+            raw = raw,
             run_2 = run_2,
             run_3 = run_3,
             sim = sim,
@@ -228,8 +242,51 @@ def coremark_saif(name, sim, image, run_2, run_3, clk_period_ps, tags = ["manual
         ],
     )
 
-def coremark_per_joule(name, per_mhz, power, core, isa, frequency_mhz, tags = ["manual"]):
-    """Combine performance, frequency and power into one pinned point."""
+    # A SAIF cannot carry a net name containing `/` -- that is the
+    # hierarchy separator, and OpenSTA's lexer has no escape that lets a
+    # name hold one. Hierarchical CTS produces such names, and read_saif
+    # stops at the first with a parse error, annotating nothing at all.
+    # Dropping them is what turns a total loss into a bounded one.
+    native.genrule(
+        name = name,
+        srcs = [raw],
+        outs = [name + ".saif"],
+        cmd = " ".join([
+            "$(execpath //test/coremark_joule/scripts:filter_saif)",
+            "$(location {})".format(raw),
+            "$@",
+            "--max-other {}".format(max_other_dropped),
+        ]),
+        tags = tags,
+        tools = ["//test/coremark_joule/scripts:filter_saif"],
+    )
+
+def coremark_per_joule(
+        name,
+        per_mhz,
+        power,
+        core,
+        isa,
+        frequency_mhz,
+        boundary,
+        tags = ["manual"]):
+    """Combine performance, frequency and power into one pinned point.
+
+    Args:
+      name: target name; the point is `<name>.json`.
+      per_mhz: the *_per_mhz.json.
+      power: the stage_power() target; both its arms are read.
+      core: core name, for the plot's label.
+      isa: the -march the ELF was built with.
+      frequency_mhz: the SDC period the SAIF was timed against, as MHz.
+      boundary: what the hardened block contains. Mandatory, because
+        the boundary rule is the study's central claim and a point that
+        does not meet it has to say so next to its own number rather
+        than in a study-wide footnote that stops being true the moment
+        one point does meet it. Single-quoted into the shell below, so
+        it must not contain an apostrophe.
+      tags: forwarded; manual.
+    """
     native.genrule(
         name = name,
         srcs = [
@@ -244,9 +301,10 @@ def coremark_per_joule(name, per_mhz, power, core, isa, frequency_mhz, tags = ["
             "--power $(location {power}_vector_driven.json) " +
             "--vectorless-power $(location {power}_vectorless.json) " +
             "--frequency-mhz {frequency_mhz} " +
-            "--core {core} --isa {isa} --out $@"
+            "--core {core} --isa {isa} --boundary '{boundary}' --out $@"
         ).format(
             bin = "//test/coremark_joule/scripts:cm_per_joule",
+            boundary = boundary,
             core = core,
             frequency_mhz = frequency_mhz,
             isa = isa,

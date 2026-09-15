@@ -30,28 +30,65 @@ STAGE_STEM = {
     "final": "6_final",
 }
 
-def grt_netlist(name, src, stage = "grt", out = None, tags = ["manual"], visibility = None):
+def grt_netlist(
+        name,
+        src,
+        stage = "grt",
+        out = None,
+        max_renames = 0,
+        tags = ["manual"],
+        visibility = None):
     """Write a stage's gate-level netlist from its ODB.
 
+    Two steps, because `write_verilog` can emit two different instances
+    under one name in the same module. On VeeR EH1 it does it once, in a
+    netlist of a million lines. The result is not valid Verilog;
+    Verilator rejects it, which is the good case -- a tool that accepted
+    it would silently keep one of the two and simulate a design the power
+    was not reported on.
+
+    So the raw output goes to `<name>_raw.v` and
+    scripts/uniquify_netlist.py produces `<name>.v` from it. With
+    `max_renames = 0` that second step is an assertion that the netlist
+    has no collisions, which is what it is for every core but VeeR.
+
     Args:
-      name: target name.
+      name: target name; the usable netlist is `<name>.v`.
       src: the flow stage target whose ODB is read.
       stage: which stage's files to load; must match `src`.
       out: output filename; defaults to `<name>.v`.
+      max_renames: how many duplicate instance names this design is known
+        to have. Zero asserts there are none.
       tags: forwarded; manual, since this needs the flow to have run.
       visibility: forwarded.
     """
     out = out or (name + ".v")
+    raw = name + "_raw.v"
     orfs_run(
-        name = name,
+        name = name + "_raw",
         src = src,
-        outs = [out],
+        outs = [raw],
         script = "//test/coremark_joule/flow:write_netlist.tcl",
         user_arguments = {
-            "OUTPUT": "$(location {})".format(out),
+            "OUTPUT": "$(location {})".format(raw),
             "STAGE_STEM": STAGE_STEM[stage],
         },
         tags = tags,
+        visibility = visibility,
+    )
+
+    native.genrule(
+        name = name,
+        srcs = [raw],
+        outs = [out],
+        cmd = " ".join([
+            "$(execpath //test/coremark_joule/scripts:uniquify_netlist)",
+            "$(location {})".format(raw),
+            "$@",
+            "--max-renames {}".format(max_renames),
+        ]),
+        tags = tags,
+        tools = ["//test/coremark_joule/scripts:uniquify_netlist"],
         visibility = visibility,
     )
 
@@ -304,6 +341,28 @@ def hier_probe(name, src, stage, tags = ["manual"], visibility = None):
         script = "//test/coremark_joule/flow:hier_probe.tcl",
         user_arguments = {
             "STAGE_STEM": STAGE_STEM[stage],
+            "OUT": "$(location {}.txt)".format(name),
+        },
+        tags = tags,
+        visibility = visibility,
+    )
+
+def dup_inst_probe(name, src, nets, stage = "grt", tags = ["manual"], visibility = None):
+    """Where a duplicate instance name in a written netlist came from.
+
+    odb refuses a duplicate dbInst name, so a netlist that has one was
+    given it on the way out. This reports the ODB names and module
+    assignments of the instances on the nets involved, so the claim is
+    measured rather than inferred.
+    """
+    orfs_run(
+        name = name,
+        src = src,
+        outs = [name + ".txt"],
+        script = "//test/coremark_joule/flow:dup_inst_probe.tcl",
+        user_arguments = {
+            "STAGE_STEM": STAGE_STEM[stage],
+            "NETS": " ".join(nets),
             "OUT": "$(location {}.txt)".format(name),
         },
         tags = tags,

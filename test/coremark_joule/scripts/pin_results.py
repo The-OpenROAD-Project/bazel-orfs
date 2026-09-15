@@ -183,8 +183,12 @@ def main(argv):
             "*_activity_sweep_check.json targets",
             "simulation": "Verilator, two-state and zero-delay: carries no "
             "glitch power",
-            "boundary": "core + L1 (or program SRAM) is the rule; "
-            "these points predate it and harden no memory at all",
+            # Short on purpose: it is rendered as a caption line under
+            # the figure. What each point actually hardened is no longer
+            # the same answer for all of them, so it travels per point
+            # in that point's own `boundary` field.
+            "boundary": "core + L1, or the small SRAM standing in for "
+            "one -- stated per point",
             "frequency": "the SDC period the SAIF was timed against, "
             "not an achieved maximum",
             "note": "Not reportable CoreMark scores: a three-iteration run "

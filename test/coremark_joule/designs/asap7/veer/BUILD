@@ -1,5 +1,5 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
-load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "stage_activity_audit", "stage_activity_sweep", "stage_power", "stage_power_units")
+load("//test/coremark_joule/flow:power.bzl", "dup_inst_probe", "grt_netlist", "stage_activity_audit", "stage_activity_sweep", "stage_power", "stage_power_units")
 
 exports_files(["constraints.sdc"])
 
@@ -14,9 +14,15 @@ design(
 
 # The netlist the SAIF will be captured against, and the netlist power is
 # reported on: the same one, from the same stage.
+# One duplicate instance name, declared. OpenROAD's write_verilog gives
+# two different AND2x2 clock cells -- on clknet_leaf_24_clk_i and
+# clknet_leaf_152_clk_i -- the same name `_131758_` inside
+# ifu_bp_ctl$swerv_wrapper.swerv.ifu.bp, one collision among that
+# module's 88,520 instances. See scripts/uniquify_netlist.py.
 grt_netlist(
     name = "swerv_wrapper_grt_netlist",
     src = ":swerv_wrapper_grt",
+    max_renames = 1,
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 
@@ -59,4 +65,14 @@ stage_activity_sweep(
     saif = "//test/coremark_joule/sim:veer_rv32imc_saif",
     saif_scope = "TOP/cm_soc/rvtop",
     visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+# The two clock nets whose AND2x2 cells write_verilog gave the same name.
+dup_inst_probe(
+    name = "swerv_wrapper_dup_inst",
+    src = ":swerv_wrapper_grt",
+    nets = [
+        "clknet_leaf_24_clk_i",
+        "clknet_leaf_152_clk_i",
+    ],
 )

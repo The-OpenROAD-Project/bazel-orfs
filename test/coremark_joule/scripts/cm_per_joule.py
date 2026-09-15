@@ -11,6 +11,11 @@ frequency it was taken at, the stage it was measured at, and whether the
 activity was measured or assumed are all the same -- so those travel with
 it rather than living in whoever's memory produced the plot.
 
+The boundary travels with the number for the same reason. Once one point
+hardens its L1 and another does not, a single study-wide statement about
+what was measured is false for half the table -- so each point says what
+its own hardened block contained.
+
 The frequency is the one the power was computed at, which is the SDC
 period the SAIF was timed against. It is deliberately not the achieved
 maximum: those differ whenever WNS is positive, and reporting one while
@@ -58,6 +63,15 @@ def main(argv):
     parser.add_argument("--core", required=True)
     parser.add_argument("--isa", required=True)
     parser.add_argument("--stage", default="grt")
+    parser.add_argument(
+        "--boundary",
+        required=True,
+        help="what the hardened block contains. The study's rule is the "
+        "core and its L1, or the small SRAM that stands in for one "
+        "(§3.1); a point that hardens no memory does not meet it, and "
+        "says so here rather than in a footnote that applies to every "
+        "point equally.",
+    )
     parser.add_argument("--out", required=True)
     args = parser.parse_args(argv[1:])
 
@@ -71,6 +85,7 @@ def main(argv):
             "core": args.core,
             "isa": args.isa,
             "stage": args.stage,
+            "boundary": args.boundary,
             "cycles_per_iteration": perf["cycles_per_iteration"],
             "build_flags": perf.get("build_flags"),
             "activity": "saif",
