@@ -27,11 +27,22 @@ def _runfile(name):
     return os.path.join(os.environ["TEST_SRCDIR"], os.environ["TEST_WORKSPACE"], name)
 
 
+# One 32-bit and one 64-bit build. The property is about CoreMark's
+# sources rather than about a word size, but the 64-bit compiler makes
+# different constant-folding decisions, so it is worth checking both.
+_ISAS = ("rv32i", "rv64gc")
+
+
 class IterationDeltaTest(unittest.TestCase):
     def setUp(self):
         base = "test/coremark_joule/sw"
-        self.two = read_sections(_runfile(base + "/coremark_rv32i_2.elf"))
-        self.three = read_sections(_runfile(base + "/coremark_rv32i_3.elf"))
+        self.builds = {
+            isa: (
+                read_sections(_runfile("{}/coremark_{}_2.elf".format(base, isa))),
+                read_sections(_runfile("{}/coremark_{}_3.elf".format(base, isa))),
+            )
+            for isa in _ISAS
+        }
 
     def test_code_is_identical(self):
         """Generated code must not depend on the iteration count.
@@ -41,35 +52,44 @@ class IterationDeltaTest(unittest.TestCase):
         ITERATIONS directly -- and the cycle difference is no longer one
         iteration of work.
         """
-        for section in (".text", ".rodata"):
-            self.assertEqual(
-                self.two[section],
-                self.three[section],
-                "{} differs between the 2- and 3-iteration ELFs".format(section),
-            )
+        for isa, (two, three) in self.builds.items():
+            for section in (".text", ".rodata"):
+                with self.subTest(isa=isa, section=section):
+                    self.assertEqual(
+                        two[section],
+                        three[section],
+                        "{} differs between the 2- and 3-iteration {} ELFs".format(
+                            section, isa
+                        ),
+                    )
 
     def test_data_differs_in_exactly_one_word(self):
         """Exactly the iteration count, and nothing else, may differ."""
-        a = self.two[".data"]
-        b = self.three[".data"]
-        self.assertEqual(len(a), len(b), ".data changed size")
+        for isa, (two, three) in self.builds.items():
+            with self.subTest(isa=isa):
+                a = two[".data"]
+                b = three[".data"]
+                self.assertEqual(len(a), len(b), ".data changed size")
 
-        differing = [i for i in range(len(a)) if a[i] != b[i]]
-        self.assertEqual(
-            1,
-            len(differing),
-            ".data differs at {} byte(s); expected exactly the low byte of "
-            "seed4_volatile".format(len(differing)),
-        )
+                differing = [i for i in range(len(a)) if a[i] != b[i]]
+                self.assertEqual(
+                    1,
+                    len(differing),
+                    ".data differs at {} byte(s); expected exactly the low "
+                    "byte of seed4_volatile".format(len(differing)),
+                )
 
-        offset = differing[0]
-        word_a = int.from_bytes(a[offset & ~3 : (offset & ~3) + 4], "little")
-        word_b = int.from_bytes(b[offset & ~3 : (offset & ~3) + 4], "little")
-        self.assertEqual((2, 3), (word_a, word_b))
+                offset = differing[0]
+                lo = offset & ~3
+                word_a = int.from_bytes(a[lo : lo + 4], "little")
+                word_b = int.from_bytes(b[lo : lo + 4], "little")
+                self.assertEqual((2, 3), (word_a, word_b))
 
     def test_bss_is_not_in_the_image(self):
         """.bss is NOBITS, so crt0 zeroing it is what the program sees."""
-        self.assertEqual(b"", self.two[".bss"])
+        for isa, (two, _) in self.builds.items():
+            with self.subTest(isa=isa):
+                self.assertEqual(b"", two[".bss"])
 
 
 if __name__ == "__main__":
