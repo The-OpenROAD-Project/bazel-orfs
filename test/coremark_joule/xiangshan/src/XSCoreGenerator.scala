@@ -18,7 +18,7 @@ import freechips.rocketchip.diplomacy.{DisableMonitors, LazyModule}
 import org.chipsalliance.cde.config.{Config, Parameters}
 import top._
 import utility._
-import xiangshan.DebugOptionsKey
+import xiangshan.{DFTOptionsKey, DebugOptionsKey, XSTileKey}
 
 /** XiangShan V3 (Kunminghu) as the study measures it.
   *
@@ -41,11 +41,69 @@ import xiangshan.DebugOptionsKey
   */
 class CoreMarkJouleConfig(n: Int = 1)
     extends Config(
-      OpenLLCConfig("1MB", ways = 8, banks = 1)
+      new WithIntegerOnlyCore
+        ++ OpenLLCConfig("1MB", ways = 8, banks = 1)
         ++ L2CacheConfig("512KB", inclusive = true, banks = 1, tp = false)
         ++ WithNKBL1D(64, ways = 4, numMemChannels = 1)
         ++ new BaseConfig(n)
     )
+
+/** Everything CoreMark cannot use, removed.
+  *
+  * CoreMark is an integer benchmark running bare metal in machine mode.
+  * A floating-point unit, a vector unit, the hypervisor extension and the
+  * memory BIST logic all contribute area and leakage to the energy figure
+  * and do no work in it, and they are most of what makes this design slow
+  * to synthesise. What stays is what produces the score: eight-wide
+  * decode, rename and commit, the ROB and load/store queues, the branch
+  * predictor, and 64 KB L1 caches.
+  *
+  * Two things this deliberately does not do, both measured rather than
+  * assumed.
+  *
+  * HasFPU and HasVPU are set, but they do not remove the datapath.
+  * backendParams unconditionally carries FpScheduler and VecScheduler
+  * with their full execution-unit lists -- elaboration still builds
+  * VFEX1, vialu, vfma and vimac -- so the flags gate ISA behaviour rather
+  * than hardware. Removing the units means overriding the scheduler
+  * parameters inside XSCoreParameters, which the wake-up configs,
+  * register files, dispatch widths and ROB uop fields all reference by
+  * name. That is a fork of the parameterisation, not a configuration, and
+  * it is not attempted here. With SAIF-driven power it also matters less
+  * than it looks: an idle vector unit toggles almost nothing, so it costs
+  * leakage rather than dynamic energy.
+  *
+  * Two further knobs do not elaborate at all. HasHExtension = false fails
+  * in MMUBundle with "High index 37 is out of range [0, 35]", and
+  * EnableSv48 = false makes the ICache's address-field formatter compute
+  * a negative field index. Both are left on.
+  *
+  * What this fragment actually buys is about four percent: 1443 modules
+  * and 2.82 M lines become 1379 and 2.71 M. The turnaround problem this
+  * study hit is not design size -- it is sixteen parallel yosys processes
+  * each parsing the same 154 MB file.
+  *
+  * This is a deliberate departure from Kunminghu as delivered, and it is
+  * the more honest thing to measure -- nobody ships a vector unit to run
+  * CoreMark -- but it does mean the result is not directly comparable
+  * with XiangShan's own published figures. See
+  * coremark-mhz-replication.md.
+  */
+class WithIntegerOnlyCore
+    extends Config((site, here, up) => {
+      case XSTileKey =>
+        up(XSTileKey).map(
+          _.copy(
+            HasFPU = false,
+            HasVPU = false,
+            HasBitmapCheck = false,
+            HasCustomCSRCacheOp = false
+          )
+        )
+      // Memory BIST wraps every SRAM in the design. It is test logic, and
+      // it wraps exactly the memories AUTO_MEMORIES converts to macros.
+      case DFTOptionsKey => up(DFTOptionsKey).copy(EnableMbist = false)
+    })
 
 /** The same shape at MinimalConfig, for proving the pipeline cheaply.
   *
