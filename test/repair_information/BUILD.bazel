@@ -28,6 +28,8 @@ load(
     "WIRE_SHARE_UTILIZATIONS",
     "ri_contention",
     "ri_ladder",
+    "ri_probe",
+    "ri_qor",
     "ri_shapes",
     "ri_stretch",
 )
@@ -36,6 +38,9 @@ package(default_visibility = ["//visibility:private"])
 
 exports_files([
     "endpoint_slacks.tcl",
+    "rc_cal_u12_tight.tcl",
+    "rc_scan.tcl",
+    "rc_cal_u55.tcl",
     "zero_rc.tcl",
 ])
 
@@ -296,6 +301,18 @@ py_binary(
 # resistance-aware about critical nets has nothing to be aware of.
 WIREBOUND_TIGHT_CLK = "320"
 
+# The QoR arms need a clock the design *misses*. At 320 ps wirebound
+# closes with 20-28 ps to spare, and repair_timing then has nothing to
+# repair: ENABLE_PLACE_REPAIR_TIMING=0 reproduced the stock result to
+# six significant figures on all three seeds, which measures the
+# constraint rather than the knob. repair-timing-grt's Trap 4 says this
+# in as many words -- a design that closes measures nothing about a
+# repair knob, because every setting reaches the same floor.
+#
+# 260 ps is below the ~292 ps the shipped shape achieves, so repair is
+# still working when it stops and the arms can differ.
+WIREBOUND_QOR_CLK = "260"
+
 ri_shapes(
     name = "wbf",
     arguments = {
@@ -385,6 +402,7 @@ ri_shapes(
     groups = ["32"],
     last_stage = "final",
     qualify_sources = False,
+    rc_cal = True,
     shapes = WIREBOUND_ROUTED_SHAPES,
     sources = WIREBOUND["sources"],
     user_arguments = {"WIREBOUND_CLK_PERIOD_PS": WIREBOUND_TIGHT_CLK},
@@ -412,6 +430,135 @@ py_binary(
             "gr",
             "spef",
         ]
+    ],
+    main = "update_results.py",
+    tags = ["manual"],
+)
+
+# What resistance does the critical path behave as if it sees?
+#
+# One probe per scale on the u12_tight CTS ODB, placement parasitics
+# only, so each point is an STA run and the whole scan is seconds. The
+# scale whose min_period meets the routed 318.0 ps is the answer.
+RC_SCALES = [
+    "0.40",
+    "0.50",
+    "0.55",
+    "0.60",
+    "0.70",
+    "1.00",
+]
+
+[
+    ri_probe(
+        name = "rcscan_{}".format(scale.replace(".", "")),
+        src = ":wbr_u12_tight_g32_cts",
+        arguments = {
+            key: value
+            for key, value in WIREBOUND["arguments"].items()
+            if key not in WIREBOUND_USER_VARS
+        } | WIREBOUND_ROUTED_SHAPES["u12_tight"] | {
+            "VERILOG_DEFINES": "-D WIREBOUND_GROUPS=32",
+        },
+        design = WIREBOUND,
+        extra_sources = {
+            "LAYER_PARASITICS_FILE": ["//test/repair_information:rc_scan.tcl"],
+        },
+        parasitics = "placement",
+        probe_env = {"RI_RC_SCALE": scale},
+        qualify_sources = False,
+        sources = WIREBOUND["sources"],
+        user_arguments = {"WIREBOUND_CLK_PERIOD_PS": WIREBOUND_TIGHT_CLK},
+    )
+    for scale in RC_SCALES
+]
+
+# A3: is the early repair worth anything at all?
+#
+# The gating question of the whole study, and it has never been asked.
+# ENABLE_PLACE_REPAIR_TIMING=0 turns off the resize-stage repair that
+# runs against the placement estimate; if final QoR does not move, then
+# re-aiming that repair -- which is what a fork/join global route would
+# buy -- cannot be worth anything either, whatever the instruments say.
+#
+# Both shapes, because the sign of the pre-route error flips between
+# them: on u55 placement and global route agree within 1%, on u12_tight
+# placement is 23% pessimistic. An early repair working from a target
+# that slack is the case where turning it off might *help*.
+#
+# Three seeds, because this is the study's first QoR comparison and
+# every number before it was a single deterministic run.
+# The two repairs the stock flow actually runs.
+#
+# ENABLE_PLACE_REPAIR_TIMING is *off* by default -- variables.yaml says
+# "pre-CTS setup/hold repair is skipped unless this is set to 1" -- so
+# the resize-stage repair this study's opening premise counted as one of
+# three does not run at all. An arm that turned it off reproduced the
+# stock result to six significant figures on every seed, because it was
+# already off. Verified rather than assumed: over six flows, every
+# "Repair setup and hold violations..." line in the logs came from the
+# grt stage and none from place.
+#
+# So ORFS repairs timing twice: once at CTS against the placement
+# estimate, once at global route against the routed guides. These are
+# the arms that turn each of them off.
+WIREBOUND_QOR_ARMS = {
+    "base": {},
+    "no_cts_rt": {"SKIP_CTS_REPAIR_TIMING": "1"},
+    "no_grt_rt": {"SKIP_INCREMENTAL_REPAIR": "1"},
+    # Neither. Removing one repair alone barely moves the period, which
+    # is what two substitutes look like: whichever runs second fixes
+    # what the first would have. Only turning both off separates "repair
+    # does little" from "each covers for the other".
+    "no_rt": {
+        "SKIP_CTS_REPAIR_TIMING": "1",
+        "SKIP_INCREMENTAL_REPAIR": "1",
+    },
+}
+
+WIREBOUND_SEEDS = [
+    "0",
+    "1",
+    "2",
+]
+
+# One shape, not both. The QoR arms are a seed ensemble on the shipped
+# shape at a clock the design misses; u12_tight would double the flow
+# count to answer a question about repair that the shape does not
+# change. It is absent rather than pending: nothing in the conclusion
+# rests on it.
+WIREBOUND_QOR_SHAPES = {"u55": WIREBOUND_ROUTED_SHAPES["u55"]}
+
+ri_qor(
+    name = "wbq",
+    arguments = {
+        key: value
+        for key, value in WIREBOUND["arguments"].items()
+        if key not in WIREBOUND_USER_VARS
+    },
+    arms = WIREBOUND_QOR_ARMS,
+    design = WIREBOUND,
+    qualify_sources = False,
+    seeds = WIREBOUND_SEEDS,
+    shapes = WIREBOUND_QOR_SHAPES,
+    sources = WIREBOUND["sources"],
+    user_arguments = {"WIREBOUND_CLK_PERIOD_PS": WIREBOUND_QOR_CLK},
+)
+
+py_binary(
+    name = "update_wbq",
+    srcs = ["//test/pre_route_pessimism:update_results.py"],
+    args = ["--dest-dir=test/repair_information/results"] + [
+        "$(rootpath :wbq_{}_{}_s{}_spef.json)".format(shape, arm, seed)
+        for shape in WIREBOUND_QOR_SHAPES
+        for arm in WIREBOUND_QOR_ARMS
+        for seed in WIREBOUND_SEEDS
+    ],
+    data = [
+        ":wbq_{}_{}_s{}_spef.json".format(shape, arm, seed)
+        for shape in WIREBOUND_QOR_SHAPES
+        for arm in WIREBOUND_QOR_ARMS
+        for seed in WIREBOUND_SEEDS
     ],
     main = "update_results.py",
     tags = ["manual"],

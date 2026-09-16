@@ -15,6 +15,8 @@ appears as "not yet measured".
 
 import argparse
 import json
+import re
+import statistics as st
 from pathlib import Path
 
 import noise_floor as nf
@@ -33,6 +35,10 @@ RUNGS = [
 ]
 
 MISSING = "*Not yet measured.*"
+
+# wbq_<shape>_<arm>_s<seed>_spef. The arm is non-greedy up to the final
+# _s<digits>_spef so an arm name containing "_s" cannot swallow it.
+QOR_NAME = re.compile(r"^wbq_(?P<shape>[^_]+)_(?P<arm>.+)_s(?P<seed>\d+)_spef$")
 
 
 def table(headers, rows):
@@ -238,7 +244,99 @@ def section_min_period(found):
     )
 
 
-def render(found):
+def qor_arms(results_dir):
+    """The QoR ensemble, keyed by (arm, seed).
+
+    Separate from `discover` because these are flow arms rather than
+    instrument probes: same JSON shape, different question.
+
+    The name is parsed with an anchored pattern rather than by splitting:
+    an arm called `no_cts_rt` and a suffix of `_spef` both contain "_s",
+    so a naive rsplit finds the wrong one and the whole section silently
+    renders as "not measured".
+    """
+    out = {}
+    for path in sorted(Path(results_dir).glob("wbq_*_spef.json")):
+        match = QOR_NAME.match(path.stem)
+        if not match:
+            raise SystemExit(
+                "{}: does not parse as wbq_<shape>_<arm>_s<seed>_spef; a "
+                "result that does not parse must not be silently "
+                "skipped".format(path.name)
+            )
+        out[(match.group("arm"), int(match.group("seed")))] = json.loads(
+            path.read_text()
+        )
+    return out
+
+
+def section_qor(results_dir):
+    """What the repairs cost and what they bought.
+
+    Two axes, because the period alone cannot answer it: a repair that
+    spends area to reach the same period reads as nothing on a period
+    table, which is how this study spent most of its life not seeing
+    the only effect that resolves.
+    """
+    arms = qor_arms(results_dir)
+    if not arms:
+        return MISSING
+    names = sorted({a for a, _ in arms})
+    if "base" not in names:
+        return MISSING
+    seeds = sorted({s for _, s in arms})
+
+    def col(arm, key):
+        return [arms[(arm, s)][key] for s in seeds if (arm, s) in arms]
+
+    rows = []
+    for arm in ["base"] + [n for n in names if n != "base"]:
+        periods = col(arm, "min_period")
+        areas = col(arm, "cell_area_um2")
+        if not periods:
+            continue
+        row = [
+            arm,
+            ", ".join("{:.1f}".format(v) for v in periods),
+            ", ".join("{:.0f}".format(v) for v in areas),
+        ]
+        if arm == "base":
+            row += ["--", "--"]
+        else:
+            dp = [p - b for p, b in zip(periods, col("base", "min_period"))]
+            da = [a - b for a, b in zip(areas, col("base", "cell_area_um2"))]
+            row += [
+                "{:+.2f}".format(st.mean(dp)),
+                "{:+.1f}".format(st.mean(da)),
+            ]
+        rows.append(row)
+
+    table_text = table(
+        [
+            "arm",
+            "min_period per seed (ps)",
+            "logic area per seed (um2)",
+            "mean d period",
+            "mean d area",
+        ],
+        rows,
+    )
+
+    base_p = col("base", "min_period")
+    spread = ""
+    if len(base_p) > 1:
+        two_sigma = 2 * st.stdev(base_p)
+        spread = (
+            "\nBaseline seed spread is 2 sigma = {:.2f} ps, so a difference "
+            "of {:.2f} ps between arms at {} seeds each is the resolution "
+            "floor on the period axis.".format(
+                two_sigma, two_sigma * (2.0 / len(base_p)) ** 0.5, len(base_p)
+            )
+        )
+    return table_text + "\n" + spread
+
+
+def render(found, results_dir=None):
     parts = [
         "## The ceiling -- how much wire delay is there to be wrong about?",
         "",
@@ -277,6 +375,15 @@ def render(found):
         "### The rungs",
         "",
         table(["rung", "what it is"], [[r, d] for r, d in RUNGS]),
+        "",
+        "## What the repairs cost, and what they bought",
+        "",
+        "Turning each repair off, three placement seeds per arm. Logic",
+        "area excludes filler and well taps: filler is inserted to occupy",
+        "whatever the logic leaves, so a total including it is constant by",
+        "construction and reports nothing.",
+        "",
+        section_qor(results_dir) if results_dir else MISSING,
     ]
     return "\n".join(parts) + "\n"
 
@@ -295,7 +402,7 @@ def main():
             "to say without them."
         )
 
-    text = render(discover(results))
+    text = render(discover(results), results)
     if args.out:
         Path(args.out).write_text(text)
     else:

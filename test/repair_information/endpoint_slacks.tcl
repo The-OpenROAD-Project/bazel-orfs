@@ -288,6 +288,82 @@ if { [llength $paths] == 0 } {
     error "no register-to-register paths at $stage_stem: nothing to rank"
 }
 
+# The axes this study spent its whole life not looking at.
+#
+# Every arm so far has been compared on min_period alone, and a repair
+# that trades area for the same period, or buys the period by leaving
+# electrical violations behind, reads as *nothing* on that axis.
+# SKIP_INCREMENTAL_REPAIR in particular disables repair_design -- the
+# max-cap and max-slew fixer -- along with repair_timing, so an arm that
+# matches the baseline period may not have produced a design anyone
+# would tape out.
+#
+# Counted with OpenSTA's own counters, the ones ORFS's
+# report_metrics.tcl uses, rather than by parsing a report: a count
+# derived from text is a count that changes when the text does.
+# Guarded on the check's own limit, the way report_metrics.tcl reads
+# the slack accessors. A counter for a check the design never
+# constrained has nothing to count, and asking anyway takes OpenSTA
+# down the path that segfaults here. -1 means "no limit set", which is
+# a different statement from 0 and has to stay distinguishable.
+proc qor_violations { limit_cmd count_cmd } {
+    if { [catch { $limit_cmd } limit] } {
+        return -1
+    }
+    if { $limit >= 1e30 } {
+        return -1
+    }
+    if { [catch { $count_cmd } count] } {
+        return -1
+    }
+    return $count
+}
+
+set qor_max_slew [qor_violations sta::max_slew_check_limit \
+    sta::max_slew_violation_count]
+set qor_max_cap [qor_violations sta::max_capacitance_check_limit \
+    sta::max_capacitance_violation_count]
+set qor_max_fanout [qor_violations sta::max_fanout_check_limit \
+    sta::max_fanout_violation_count]
+
+# Cell area from the ODB rather than from report_design_area's text.
+# Blocks (macros) are counted separately: on a design with memories the
+# two move for different reasons and one number would hide it.
+# Fillers and well taps are excluded, and the reason is a measurement
+# this probe got wrong first: summing every instance gave *exactly* the
+# same area for four arms whose instance counts differed by up to 139
+# cells. Filler is inserted to occupy whatever the logic leaves, so a
+# total that includes it is a constant by construction and cannot
+# report what a repair did. Counted separately rather than dropped --
+# filler area moving the other way is the confirmation that the logic
+# area moved at all.
+set qor_cell_area 0.0
+set qor_macro_area 0.0
+set qor_filler_area 0.0
+set qor_insts 0
+set qor_fillers 0
+foreach inst [$block getInsts] {
+    set master [$inst getMaster]
+    set a [expr { [$master getWidth] * 1.0 / $dbu * [$master getHeight] * 1.0 / $dbu }]
+    set type [$master getType]
+    if { [$master isBlock] } {
+        set qor_macro_area [expr { $qor_macro_area + $a }]
+    } elseif { $type eq "CORE_SPACER" || $type eq "CORE_WELLTAP" } {
+        set qor_filler_area [expr { $qor_filler_area + $a }]
+        incr qor_fillers
+    } else {
+        set qor_cell_area [expr { $qor_cell_area + $a }]
+        incr qor_insts
+    }
+}
+
+# No power number here, deliberately. Nothing annotates switching
+# activity on this path, so anything report_power returned would be
+# OpenSTA's probabilistic estimate -- which this study's own method
+# section spends a chapter explaining is indistinguishable from a
+# measurement in the output and is not one. Area and the violation
+# counts are facts about the netlist; a vectorless watt is not.
+
 set clock_period [get_property [lindex [get_clocks] 0] period]
 set wns [get_property [lindex $paths 0] slack]
 
@@ -317,6 +393,14 @@ puts $fp "  \"min_period\": [expr { $clock_period - $wns }],"
 puts $fp "  \"seconds\": [format %.3f $grt_seconds],"
 puts $fp "  \"pin_access_seconds\": [format %.3f $pin_access_seconds],"
 puts $fp "  \"nets_with_guides\": $guides,"
+puts $fp "  \"leaf_instances\": $qor_insts,"
+puts $fp "  \"filler_instances\": $qor_fillers,"
+puts $fp "  \"filler_area_um2\": [format %.3f $qor_filler_area],"
+puts $fp "  \"cell_area_um2\": [format %.3f $qor_cell_area],"
+puts $fp "  \"macro_area_um2\": [format %.3f $qor_macro_area],"
+puts $fp "  \"max_slew_violations\": $qor_max_slew,"
+puts $fp "  \"max_cap_violations\": $qor_max_cap,"
+puts $fp "  \"max_fanout_violations\": $qor_max_fanout,"
 puts $fp "  \"max_routing_layer\": \"[expr { [info exists ::env(RI_MAX_ROUTING_LAYER)] && $::env(RI_MAX_ROUTING_LAYER) ne {} ? $::env(RI_MAX_ROUTING_LAYER) : $::env(MAX_ROUTING_LAYER) }]\","
 puts $fp "  \"layer_adjustment\": \"[expr { [info exists ::env(RI_LAYER_ADJUSTMENT)] && $::env(RI_LAYER_ADJUSTMENT) ne {} ? $::env(RI_LAYER_ADJUSTMENT) : $::env(ROUTING_LAYER_ADJUSTMENT) }]\","
 puts $fp "  \"layers\": \[[join $layer_rows ", "]\],"

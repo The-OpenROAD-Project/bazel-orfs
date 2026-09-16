@@ -560,6 +560,7 @@ def ri_shapes(
         shapes,
         groups,
         last_stage = "cts",
+        rc_cal = False,
         defines_var = "VERILOG_DEFINES",
         define_name = "WIREBOUND_GROUPS",
         arguments = {},
@@ -583,6 +584,8 @@ def ri_shapes(
         design: the parsed DESIGNS entry.
         shapes: shape name -> ORFS argument overrides.
         groups: sizes to cross with the shapes.
+        rc_cal: also declare the calibrated-estimate probe, which needs
+            a checked-in rc_cal_<shape>.tcl produced by rc_calibrate.py.
         last_stage: how far each arm's flow runs. "final" also declares
             the SPEF probe, which is the only instrument that can say
             which of the other two was right -- and the only one that
@@ -637,6 +640,17 @@ def ri_shapes(
                 **probe_common
             )
             ri_probe(
+                name = "{}_rc_cal".format(flow),
+                extra_sources = {
+                    "LAYER_PARASITICS_FILE": [
+                        "//test/repair_information:rc_cal_{}.tcl".format(shape_name),
+                    ],
+                } if rc_cal else {},
+                parasitics = "placement",
+                **probe_common
+            ) if rc_cal else None
+
+            ri_probe(
                 name = "{}_zero_rc".format(flow),
                 extra_sources = {
                     "LAYER_PARASITICS_FILE": ["//test/repair_information:zero_rc.tcl"],
@@ -656,4 +670,85 @@ def ri_shapes(
                     name = "{}_spef".format(flow),
                     parasitics = "spef",
                     **(probe_common | {"src": ":{}_final".format(flow)})
+                )
+
+def ri_qor(
+        name,
+        design,
+        shapes,
+        arms,
+        seeds,
+        groups = "32",
+        arguments = {},
+        user_arguments = {},
+        sources = {},
+        user_sources = {},
+        verilog_files = None,
+        qualify_sources = True,
+        visibility = None):
+    """Flows to 6_final for a QoR comparison, with a seed ensemble.
+
+    Every earlier arm in this study is a single deterministic run, which
+    is honest for comparing two instruments on one ODB -- the answer is
+    exact for that ODB -- and not honest for comparing QoR between arms,
+    where the flow's own spread is the thing a difference has to clear.
+    pre-route-pessimism measured 2 sigma of 47.5 ps for min_period at
+    global route on a contended design, which is larger than several
+    effects this study has been quoting, so a QoR arm without repeats
+    cannot resolve anything.
+
+    Hence GPL_RANDOM_SEED in the variant: seeds are arms, not noise to be
+    averaged away silently. The report shows the individual values.
+
+    Args:
+        name: prefix for every target.
+        design: the parsed DESIGNS entry.
+        shapes: shape name -> ORFS argument overrides.
+        arms: arm name -> ORFS argument overrides (the thing under test).
+        seeds: GPL_RANDOM_SEED values, as strings.
+        groups: the design size, as a string.
+        arguments: the design's ORFS variables.
+        user_arguments: project-specific variables.
+        sources: source-typed ORFS variables.
+        user_sources: source-typed project hooks.
+        verilog_files: forwarded.
+        qualify_sources: re-root source labels into @orfs.
+        visibility: forwarded.
+    """
+    design_sources = orfs_relative(sources or design["sources"]) if qualify_sources else (sources or design["sources"])
+
+    for shape_name, shape in shapes.items():
+        for arm_name, arm in arms.items():
+            for seed in seeds:
+                variant = "{}_{}_s{}".format(shape_name, arm_name, seed)
+                flow = "{}_{}".format(name, variant)
+                args = (arguments or design["arguments"]) | shape | arm | {
+                    "GPL_RANDOM_SEED": seed,
+                    "VERILOG_DEFINES": "-D WIREBOUND_GROUPS={}".format(groups),
+                }
+
+                orfs_flow(
+                    name = name,
+                    variant = variant,
+                    arguments = args,
+                    last_stage = "final",
+                    sources = design_sources,
+                    tags = ["manual"],
+                    top = design["name"],
+                    user_arguments = user_arguments,
+                    verilog_files = verilog_files if verilog_files != None else design["verilog_files"],
+                    visibility = visibility,
+                )
+
+                ri_probe(
+                    name = "{}_spef".format(flow),
+                    arguments = args,
+                    design = design,
+                    parasitics = "spef",
+                    qualify_sources = False,
+                    sources = design_sources,
+                    src = ":{}_final".format(flow),
+                    user_arguments = user_arguments,
+                    user_sources = user_sources,
+                    visibility = visibility,
                 )
