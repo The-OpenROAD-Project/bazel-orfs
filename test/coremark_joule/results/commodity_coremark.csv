@@ -1,0 +1,27 @@
+# Multi-threaded CoreMark 1.0 (pts/coremark, "CoreMark Size 666", gcc -O2) with the CPU package power
+# Phoronix's monitor logged during that test (RAPL/sysfs; Min/Avg/Max over the run), from public
+# OpenBenchmarking.org result exports. class: server, desktop, laptop. power_kind: measured (PTS monitor),
+# wall (AnandTech, whole system), package_est (review estimate), tdp (vendor rating; no measurement).
+result_id,class,cpu,microarchitecture,cores,threads,reported_ghz,iterations_per_s,power_w,power_kind,power_min_w,power_max_w
+2301109-PTS-SPRREVIE33,server,AMD EPYC 9654,Zen 4,96,192,3.71,3753920,312.09,measured,25.85,350.86
+2301109-PTS-SPRREVIE33,server,AMD EPYC 9554,Zen 4,64,128,3.76,2950220,286.70,measured,21.80,330.39
+2301109-PTS-SPRREVIE33,server,AMD EPYC 9374F,Zen 4,32,64,4.31,1679742,200.58,measured,23.18,252.16
+2301109-PTS-SPRREVIE33,server,AMD EPYC 7763,Zen 3,64,128,2.45,1876249,206.43,measured,35.78,232.22
+2301109-PTS-SPRREVIE33,server,AMD EPYC 7713,Zen 3,64,128,2.00,1824524,205.92,measured,37.96,230.40
+2301109-PTS-SPRREVIE33,server,Intel Xeon Platinum 8490H,Golden Cove (Sapphire Rapids),60,120,3.50,2162644,306.56,measured,81.89,349.74
+2301109-PTS-SPRREVIE33,server,Intel Xeon Platinum 8380,Sunny Cove (Ice Lake),40,80,3.40,1177693,244.00,measured,59.83,290.90
+2410235-NE-285KARROW68,desktop,AMD Ryzen 9 7950X,Zen 4,16,32,5.57,1012072,137.46,measured,17.41,220.92
+2410235-NE-285KARROW68,desktop,AMD Ryzen 9 7900X,Zen 4,12,24,5.73,737516,143.38,measured,16.73,180.72
+2410235-NE-285KARROW68,desktop,AMD Ryzen 9 7900 (65 W),Zen 4,12,24,5.48,648202,78.90,measured,20.41,90.70
+2410235-NE-285KARROW68,desktop,AMD Ryzen 7 7700X,Zen 4,8,16,5.57,514276,112.42,measured,17.60,130.16
+2410235-NE-285KARROW68,desktop,AMD Ryzen 7 7700 (65 W),Zen 4,8,16,5.39,493775,80.24,measured,14.05,90.52
+2410235-NE-285KARROW68,desktop,AMD Ryzen 7 9700X (65 W),Zen 5,8,16,5.50,545799,77.14,measured,16.97,88.17
+2410235-NE-285KARROW68,desktop,AMD Ryzen 7 9700X @ 105 W cTDP,Zen 5,8,16,5.50,582558,111.73,measured,17.99,133.67
+2410235-NE-285KARROW68,desktop,AMD Ryzen 9 9950X,Zen 5,16,32,5.75,793794,157.61,measured,20.47,197.30
+2410235-NE-285KARROW68,desktop,Intel Core i9-14900K,Raptor Cove + Gracemont,24,32,5.70,872643,169.56,measured,10.51,272.33
+2410235-NE-285KARROW68,desktop,Intel Core i9-13900K,Raptor Cove + Gracemont,24,32,5.50,831717,149.05,measured,10.12,240.90
+2410235-NE-285KARROW68,desktop,Intel Core Ultra 9 285K,Lion Cove + Skymont,24,24,5.70,1048146,150.20,measured,12.68,195.86
+2407128-PTS-GRAVITON53,server,Ampere Altra Max M128-30,Neoverse N1,128,128,3.00,2823599,250,tdp,,
+2407128-PTS-GRAVITON53,server,AWS Graviton4,Neoverse V2,96,96,2.80,2746152,,none,,
+2208073-NE-M2REVIEW767,laptop,Apple M1 (Mac mini),Firestorm + Icestorm,8,8,3.20,175072,26.5,wall,,
+2208073-NE-M2REVIEW767,laptop,Apple M2 (MacBook Air),Avalanche + Blizzard,8,8,3.49,204531,20,package_est,,

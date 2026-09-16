@@ -19,12 +19,18 @@ def _readme():
 class SectionLinksTest(unittest.TestCase):
     def test_anchor_matches_github(self):
         self.assertEqual(
-            section_links.anchor("4.8 Cross-checks against the nearest published studies"),
+            section_links.anchor(
+                "4.8 Cross-checks against the nearest published studies"
+            ),
             "48-cross-checks-against-the-nearest-published-studies",
         )
-        self.assertEqual(section_links.anchor("5. Threats to validity"), "5-threats-to-validity")
         self.assertEqual(
-            section_links.anchor("3.8 What sets a CPU core's frequency, and what the SDC must therefore say"),
+            section_links.anchor("5. Threats to validity"), "5-threats-to-validity"
+        )
+        self.assertEqual(
+            section_links.anchor(
+                "3.8 What sets a CPU core's frequency, and what the SDC must therefore say"
+            ),
             "38-what-sets-a-cpu-cores-frequency-and-what-the-sdc-must-therefore-say",
         )
 
@@ -39,7 +45,11 @@ class SectionLinksTest(unittest.TestCase):
         text = _readme()
         new, dangling = section_links.relink(text)
         self.assertEqual(dangling, [], "§ references with no heading")
-        self.assertEqual(new, text, "README has unlinked or stale § references; run section_links.py --fix")
+        self.assertEqual(
+            new,
+            text,
+            "README has unlinked or stale § references; run section_links.py --fix",
+        )
 
 
 if __name__ == "__main__":
