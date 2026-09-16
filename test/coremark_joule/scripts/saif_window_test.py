@@ -7,6 +7,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import saif_window  # noqa: E402
 from saif_window import window  # noqa: E402
 
 
@@ -32,6 +33,16 @@ class SaifWindowTest(unittest.TestCase):
     def test_loop_shorter_than_an_iteration_is_rejected(self):
         with self.assertRaises(ValueError):
             window(100, 150, 20)
+
+
+class ClkPeriodFromSdcTest(unittest.TestCase):
+    def test_reads_the_set_line(self):
+        sdc = "# comment\nset clk_name clk\nset clk_period 1282\nset x [expr { $clk_period * 0.8 }]\n"
+        self.assertEqual(saif_window.read_clk_period(sdc), 1282)
+
+    def test_ignores_expr_uses_and_requires_a_literal(self):
+        with self.assertRaises(ValueError):
+            saif_window.read_clk_period("set clk_period [expr { 1000 + 200 }]\n")
 
 
 if __name__ == "__main__":

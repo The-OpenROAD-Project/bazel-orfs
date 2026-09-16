@@ -25,6 +25,7 @@ Usage:
 """
 
 import argparse
+import re
 import subprocess
 import sys
 
@@ -69,6 +70,21 @@ def window(cycles_2, cycles_3, first_output_3):
     return start, first_output_3
 
 
+_CLK_PERIOD = re.compile(r"^\s*set\s+clk_period\s+(\d+)\s*(?:;.*|#.*)?$", re.M)
+
+
+def read_clk_period(sdc_text):
+    """The `set clk_period <ps>` of a constraints.sdc, as an int.
+
+    The same line auto_period rewrites and cm_per_joule reads the
+    frequency from; the three agree by reading one file.
+    """
+    m = _CLK_PERIOD.search(sdc_text)
+    if not m:
+        raise ValueError("no `set clk_period <ps>` line in the constraints")
+    return int(m.group(1))
+
+
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--sim", required=True)
@@ -77,15 +93,28 @@ def main(argv):
     parser.add_argument("--cycles-3", required=True)
     parser.add_argument("--saif", required=True)
     parser.add_argument("--max-cycles", default="2000000000")
-    parser.add_argument(
+    period = parser.add_mutually_exclusive_group(required=True)
+    period.add_argument(
         "--clk-period-ps",
-        default="1000",
         help="Clock period in picoseconds. The SAIF records real time, "
         "because OpenSTA reads it as transitions divided by duration; a "
         "period that disagrees with the SDC scales every toggle rate, and "
         "so the power, by the ratio between them.",
     )
+    period.add_argument(
+        "--clk-period-from-sdc",
+        metavar="CONSTRAINTS_SDC",
+        help="Read the period from the design's constraints.sdc "
+        "(`set clk_period <ps>`), so the period the design was built at "
+        "and the duration the SAIF is timed over cannot disagree. They "
+        "did: auto_period re-derived every core's period and the capture "
+        "kept the old literal, which scales the reported power by the "
+        "ratio between them.",
+    )
     args = parser.parse_args(argv[1:])
+    if args.clk_period_from_sdc:
+        with open(args.clk_period_from_sdc) as f:
+            args.clk_period_ps = str(read_clk_period(f.read()))
 
     cycles_2, _ = read_cycles(args.cycles_2)
     cycles_3, first_output_3 = read_cycles(args.cycles_3)
