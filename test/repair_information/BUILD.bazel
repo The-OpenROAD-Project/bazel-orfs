@@ -525,6 +525,29 @@ WIREBOUND_QOR_ARMS = {
     # reasoning is falsifiable and cheap to falsify.
     "unbuf_wholesale": {},
     "unbuf_selective": {},
+    # Power recovery, and the gate that hides it.
+    #
+    # The CTS repair spends 30.3 um2 of logic area for a period change
+    # that does not resolve, and neither wholesale removal nor the
+    # setup repair's unbuffer move reclaims it. RECOVER_POWER is the
+    # knob ORFS ships for exactly this: repair_timing -recover_power
+    # downsizes and Vt-swaps gates on paths with positive slack.
+    #
+    # It cannot simply be turned on. global_route.tcl calls
+    # recover_power_helper only inside `if { !$::env(OPT_POST_GRT_WNS) }`
+    # and OPT_POST_GRT_WNS defaults to 1, so RECOVER_POWER on the stock
+    # flow is unreachable -- an arm that set it alone would measure the
+    # gate, not the knob, and report a clean no-effect.
+    #
+    # Opening the gate also removes the post-GRT WNS optimisation, which
+    # is a repair step in its own right, so the arm changes two things
+    # and needs its own control. no_optwns is that control: gate open,
+    # recovery off.
+    "no_optwns": {"OPT_POST_GRT_WNS": "0"},
+    "recover_power": {
+        "OPT_POST_GRT_WNS": "0",
+        "RECOVER_POWER": "50",
+    },
     # Neither. Removing one repair alone barely moves the period, which
     # is what two substitutes look like: whichever runs second fixes
     # what the first would have. Only turning both off separates "repair
