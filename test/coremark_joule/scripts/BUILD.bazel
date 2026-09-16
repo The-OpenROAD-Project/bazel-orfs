@@ -64,6 +64,35 @@ py_test(
     main = "parsers_test.py",
 )
 
+# The silicon reference measurements (Appendix A). The extractor needs
+# openpyxl and the source workbook, neither of which the repo ships, so
+# it is manual; its arithmetic is not, because the appendix's whole
+# argument is which of the two estimators to believe.
+py_binary(
+    name = "extract_silicon",
+    srcs = ["extract_silicon.py"],
+    main = "extract_silicon.py",
+    tags = ["manual"],
+)
+
+py_test(
+    name = "extract_silicon_test",
+    size = "small",
+    srcs = [
+        "extract_silicon.py",
+        "extract_silicon_test.py",
+    ],
+    main = "extract_silicon_test.py",
+)
+
+py_binary(
+    name = "plot_silicon",
+    srcs = ["plot_silicon.py"],
+    main = "plot_silicon.py",
+    tags = ["manual"],
+    deps = ["@bazel-orfs-dev-pip//matplotlib"],
+)
+
 py_binary(
     name = "report",
     srcs = ["report.py"],
