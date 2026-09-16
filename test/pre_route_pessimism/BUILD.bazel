@@ -20,6 +20,7 @@ exports_files([
     "size_probe.tcl",
     "stage_ladder.tcl",
     "stage_src.tcl",
+    "update_results.py",
 ])
 
 # The design the probes are demonstrated on, taken from the same parsed
