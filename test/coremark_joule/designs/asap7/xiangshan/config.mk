@@ -86,6 +86,22 @@ export SYNTH_KEEP_MODULES      = Frontend Backend MemBlock CtrlBlock Bpu \
 # attribute power to.
 export OPENROAD_HIERARCHICAL   = 1
 
+# Hardened blocks. Each is its own flow under block.mk and reaches the
+# parent as a LEF/LIB macro; the parent's synthesis blackboxes them by
+# name from ADDITIONAL_LIBS. Chosen for size and for having every port
+# registered or being off CoreMark's path (the vector and floating-point
+# regions), never the integer issue loop or the load-to-use path, which
+# stay flat here. Region_1 is the floating-point region; Region (int) is
+# not a block. Ease off by removing a name: the block's modules are still
+# in SYNTH_KEEP_MODULES, so it comes back as kept hierarchy at the top.
+export BLOCKS                  = VecRegionModule Region_1 Bpu ICache \
+                                 DCacheWrapper L2TLBWrapper
+
+# Turnaround: no repair inside global placement. Flat, the first
+# timing-driven iteration inserted 527,027 buffers over 9.8 M pins and
+# was still removing them hours later. Flip back for the measured run.
+export GPL_TIMING_DRIVEN       = 0
+
 # No pre-placement repair_timing. With REMOVE_ABC_BUFFERS unset, the
 # floorplan stage runs repair_timing on wire-load models before anything
 # is placed; on 10.8 M instances that found 131,661 violating endpoints
