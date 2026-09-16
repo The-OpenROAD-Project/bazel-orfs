@@ -157,9 +157,24 @@ py_test(
 
 py_binary(
     name = "plot_results",
-    srcs = ["plot_results.py"],
+    srcs = [
+        "plot_results.py",
+        "silicon_band.py",
+    ],
+    imports = ["."],
     main = "plot_results.py",
     deps = ["@bazel-orfs-dev-pip//matplotlib"],
+)
+
+# Where §4.10's measured commodity cores land on this study's axes.
+py_test(
+    name = "silicon_band_test",
+    size = "small",
+    srcs = [
+        "silicon_band.py",
+        "silicon_band_test.py",
+    ],
+    main = "silicon_band_test.py",
 )
 
 # The pin activity audit: which pins OpenSTA measured, and which it

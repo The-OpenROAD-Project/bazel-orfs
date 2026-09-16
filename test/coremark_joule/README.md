@@ -141,6 +141,37 @@ activity from one hot CoreMark iteration. Red: a published GF 22 FDX
 series, derived from another paper's numbers and drawn in its own
 colour because it is not like-for-like ([§4.4](#44-a-22-nm-literature-series-and-what-it-is-and-is-not)).
 
+Two shaded regions place this study's cores against commodity silicon.
+Both are drawn as regions rather than as markers: three parts stand in
+for a class, and a marker beside these points would invite reading
+silicon on N7, Intel 7 and N4 against a predictive 7 nm kit as one
+trend.
+
+The purple one is where **one x86 or Arm core** sits, and it is measured
+rather than apportioned. Appendix A reads total power at the wall plug while
+CoreMark runs on n active cores and attributes energy by the *slope* of
+watts against active core count, which cancels the platform's fixed
+draw and any systematic meter offset. Its stated boundary is "core and
+its private caches" — the same boundary this study hardens and reports,
+reached by a different route, which is what makes the comparison
+possible at all. Three parts: a Zen 2 Threadripper, an Emerald Rapids
+Xeon and an Oryon Snapdragon X Elite, spanning 7.4 to 12.5 CoreMark/MHz
+and 4,697 to 11,516 CoreMark/Joule.
+
+What is *not* corrected: those are shipping parts on real nodes, and
+these four are a predictive kit at its best-case corner ([§5.6](#56-a-predictive-kit-not-a-foundry-pdk), [§5.4](#54-the-corner-is-asap7s-best-case-not-its-typical)),
+with estimated parasitics ([§5.3](#53-estimated-not-extracted-parasitics--one-point-measured)) and no glitch power ([§5.2](#52-zero-delay-simulation-carries-no-glitch-power)). The
+comparison is between a measurement and a screen, and the screen is the
+optimistic one.
+
+The green region above is an observation, not a target. At the
+performance per clock those cores reach, **nothing in this study, in
+Appendix A, or in the literature series reaches that efficiency** — the
+region is empty. Its floor is the top of the measured band and its edges
+are that class's own range, so what it marks is the size of the gap a
+design would have to cross to be a major advance rather than a better
+point on a known curve.
+
 <!-- table1 -->
 | core | ISA | CoreMark/MHz | cycles/iter | f (MHz) | P (SAIF) | CoreMark/Joule | memory inside the boundary |
 |---|---|---|---|---|---|---|---|
@@ -2418,13 +2449,13 @@ not compete with that and should not be read as a second attempt at it.
 
 It reports something else: three parts measured at the **mains plug**,
 swept by active core count, on a machine in the room rather than from a
-public result export. That buys two things §4.9 cannot give — a
+public result export. That buys two things [§4.9](#49-x86-arm-and-apple-on-the-same-axes) cannot give — a
 core-count sweep, which is the only way to see a part throttle, and an
-independent method whose agreement with §4.9 is worth checking. It
+independent method whose agreement with [§4.9](#49-x86-arm-and-apple-on-the-same-axes) is worth checking. It
 costs accuracy, and the appendix spends most of its length on how much.
 
 The short answer: **the throttling behaviour publishes, the energy
-numbers corroborate §4.9 without adding to it, and neither belongs on
+numbers corroborate [§4.9](#49-x86-arm-and-apple-on-the-same-axes) without adding to it, and neither belongs on
 Figure 1.**
 
 ### A.1 The measurement
@@ -2443,7 +2474,7 @@ No on-die counters, no instrumented board, no per-rail shunt.
 in L1 [5], so the benchmark generates no DRAM traffic and almost no
 uncore traffic. Everything outside the cores is therefore held constant
 across a sweep, and the difference brackets core-and-L1 activity — the
-same boundary §3.1 defines for the ASAP7 points, reached by subtraction
+same boundary [§3.1](#31-the-measurement-boundary) defines for the ASAP7 points, reached by subtraction
 instead of by construction. It is also the method's ceiling: **nothing
 measured this way generalises to a workload that misses L1.**
 
@@ -2562,7 +2593,7 @@ cross-part energy ratio here is a comparison of operating points at
 least as much as of silicon. That is a limitation of the experiment, not
 a finding about the parts.
 
-### A.5 Against §4.9, and why these points are not on Figure 1
+### A.5 Against [§4.9](#49-x86-arm-and-apple-on-the-same-axes), and why these points are not on Figure 1
 
 **The energy numbers agree with the package measurements, which is the
 most useful thing they do.** The slope estimator gives 9,970
@@ -2578,11 +2609,11 @@ ladder, and the direction of the residual is the interesting part. A
 slope excludes the platform's fixed cost by construction, so it
 measures the *marginal* core rather than the socket, and should read
 **higher** than a package figure for a comparable part. The
-Threadripper's Zen 2 at 9,970 against §4.9's Zen 3 and Zen 4 servers at
+Threadripper's Zen 2 at 9,970 against [§4.9](#49-x86-arm-and-apple-on-the-same-axes)'s Zen 3 and Zen 4 servers at
 9,089–12,028 is about what that predicts: a marginal number from an
 older core, landing among package numbers from newer ones.
 
-**So these points do not go on Figure 1**, for a reason §4.9's do not
+**So these points do not go on Figure 1**, for a reason [§4.9](#49-x86-arm-and-apple-on-the-same-axes)'s do not
 either: Figure 1 plots points whose boundary is verified by counting
 every transfer that leaves the hardened block, and neither a package
 measurement nor a plug delta is that. And the CoreMark/MHz axis, which
@@ -2593,7 +2624,7 @@ microarchitecture.
 The throttling half is **viable on its own terms**: three parts, three
 distinguishable and independently corroborated behaviours, from a
 measurement anyone can repeat with a plug meter, and the one thing here
-§4.9's data cannot show.
+[§4.9](#49-x86-arm-and-apple-on-the-same-axes)'s data cannot show.
 
 ### A.6 What a repeat must do
 
