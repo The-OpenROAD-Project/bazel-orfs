@@ -6,7 +6,8 @@
  * memory at 0x8000_0000 and the core fetches from there, so every
  * section already sits at its run address and nothing has to be copied.
  * .bss is zeroed here so the ELF and the memory image agree about what
- * the program expects on entry.
+ * the program expects on entry, and the headroom above it is painted so
+ * the stack high-water mark portable_fini reports is a measurement.
  *
  * Paired with link_xiangshan.ld. ISA-neutral: the 32-bit stores in the
  * .bss loop are fine on RV64 too, four bytes at a time.
@@ -68,6 +69,27 @@ _start:
 	addi	t0, t0, 4
 	j	1b
 2:
+
+	/* Paint the headroom above .bss so portable_fini can report how deep
+	   the stack went (check_coremark.py gates it). 64-bit stores on RV64:
+	   the region is a quarter megabyte and this runs in a simulator that
+	   manages a few hundred cycles a second. */
+	la	t0, _end
+	la	t1, _stack_top
+#if __riscv_xlen == 64
+	li	t2, 0xDEADBEEFDEADBEEF
+5:	bgeu	t0, t1, 6f
+	sd	t2, 0(t0)
+	addi	t0, t0, 8
+	j	5b
+#else
+	li	t2, 0xDEADBEEF
+5:	bgeu	t0, t1, 6f
+	sw	t2, 0(t0)
+	addi	t0, t0, 4
+	j	5b
+#endif
+6:
 
 	/* CoreMark is built with MAIN_HAS_NOARGC=1, so main takes no
 	   arguments and returns int; the return value is discarded because
