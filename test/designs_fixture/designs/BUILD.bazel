@@ -1,0 +1,11 @@
+# A designs tree that is not flow/designs.
+#
+# Its whole purpose is its depth: "test/designs_fixture/designs" is three
+# package components where ORFS's "flow/designs" is two, and the code
+# that resolves a "//" label in a config.mk has to strip exactly as many
+# as the tree actually has. Stripping two unconditionally made every
+# design in a deeper tree look like it had missing sources; DESIGNS came
+# back empty and orfs_design() declared no targets, without a message.
+#
+# The designs themselves are as small as they can be. What is under test
+# is discovery, not synthesis.

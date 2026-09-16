@@ -409,7 +409,7 @@ def parse_orfs_patch_labels(orfs_source_text):
 
 
 def parse_unified_diff(patch_text):
-    """``[(path, creates, [(hunk_header, pre_image_lines)])]`` per file.
+    """``[(path, creates, [(hunk_header, pre_image, post_image)])]`` per file.
 
     ``path`` is the ``+++`` side without its ``b/`` prefix (the ``---`` side
     for a deletion); ``creates`` is True when the ``---`` side is
@@ -437,25 +437,61 @@ def parse_unified_diff(patch_text):
         m = _HUNK_HEADER_RE.match(line)
         if m and files:
             old_count = int(m.group(2)) if m.group(2) is not None else 1
+            new_count = int(m.group(4)) if m.group(4) is not None else 1
             pre = []
+            post = []
             i += 1
-            while len(pre) < old_count and i < len(lines):
+            while (len(pre) < old_count or len(post) < new_count) and i < len(lines):
                 hunk_line = lines[i]
                 i += 1
-                if hunk_line.startswith("\\") or hunk_line.startswith("+"):
+                if hunk_line.startswith("\\"):
                     continue
-                pre.append(hunk_line[1:] if hunk_line[:1] in (" ", "-") else "")
-            files[-1][2].append((line, pre))
+                tag, body = hunk_line[:1], hunk_line[1:]
+                if tag == "+":
+                    post.append(body)
+                elif tag == "-":
+                    pre.append(body)
+                else:
+                    text = body if tag == " " else ""
+                    pre.append(text)
+                    post.append(text)
+            files[-1][2].append((line, pre, post))
             continue
         i += 1
     return files
 
 
-def _contains_slice(haystack, needle):
-    if not needle:
-        return True
+def _find_slice(haystack, needle):
+    """Index of the first occurrence of ``needle`` in ``haystack``, or None."""
     n = len(needle)
-    return any(haystack[i : i + n] == needle for i in range(len(haystack) - n + 1))
+    if n == 0:
+        return 0
+    for i in range(len(haystack) - n + 1):
+        if haystack[i : i + n] == needle:
+            return i
+    return None
+
+
+def _contains_slice(haystack, needle):
+    return _find_slice(haystack, needle) is not None
+
+
+def apply_hunks(text, creates, hunks):
+    """The file after ``hunks``; None where a pre-image is not found.
+
+    Enough of ``patch`` to carry a tree from one carried patch to the next:
+    a created file is its added lines, a modified file has each hunk's
+    pre-image replaced by its post-image at the first place it occurs.
+    """
+    if creates:
+        return "\n".join(l for _header, _pre, post in hunks for l in post) + "\n"
+    lines = (text or "").splitlines()
+    for _header, pre, post in hunks:
+        at = _find_slice(lines, pre)
+        if at is None:
+            return None
+        lines[at : at + len(pre)] = post
+    return "\n".join(lines) + "\n"
 
 
 def check_patch_against_tree(patch_path, patch_text, read_file_fn):
@@ -476,7 +512,7 @@ def check_patch_against_tree(patch_path, patch_text, read_file_fn):
             problems.append(f"{patch_path}: {path} does not exist")
             continue
         file_lines = text.splitlines()
-        for header, pre in hunks:
+        for header, pre, _post in hunks:
             if not _contains_slice(file_lines, pre):
                 problems.append(f"{patch_path}: {path}: hunk {header} does not match")
     return problems
@@ -488,11 +524,23 @@ def check_orfs_patches(read_bazel_orfs_fn, read_orfs_fn):
     ``read_bazel_orfs_fn(path)`` reads bazel-orfs files (``orfs_source.bzl``
     and the patches it names); ``read_orfs_fn(path)`` reads ORFS files at the
     target commit.  Both return None for a missing file.
+
+    The patches are applied in ``ORFS_PATCHES`` order, as the fetch applies
+    them, so each is checked against the tree the ones before it leave: a
+    patch that edits a file an earlier patch created is checked against
+    that file, not reported as editing one that does not exist.
     """
     source = read_bazel_orfs_fn(ORFS_SOURCE_BZL)
     if source is None:
         return [f"{ORFS_SOURCE_BZL} not found in bazel-orfs; cannot check ORFS_PATCHES"]
     problems = []
+    overlay = {}
+
+    def read(path):
+        if path in overlay:
+            return overlay[path]
+        return read_orfs_fn(path)
+
     for patch_path in parse_orfs_patch_labels(source):
         text = read_bazel_orfs_fn(patch_path)
         if text is None:
@@ -500,7 +548,14 @@ def check_orfs_patches(read_bazel_orfs_fn, read_orfs_fn):
                 f"{patch_path}: named in ORFS_PATCHES but not in bazel-orfs"
             )
             continue
-        problems.extend(check_patch_against_tree(patch_path, text, read_orfs_fn))
+        found = check_patch_against_tree(patch_path, text, read)
+        problems.extend(found)
+        if found:
+            continue
+        for path, creates, hunks in parse_unified_diff(text):
+            applied = apply_hunks(read(path), creates, hunks)
+            if applied is not None:
+                overlay[path] = applied
     return problems
 
 

@@ -65,8 +65,8 @@ filegroup(
 # timing or power, whose question is about the netlist itself. Only
 # SKIP_REPORT_METRICS, PWR_NETS_VOLTAGES and GND_NETS_VOLTAGES are
 # analysis-only; every other entry below changes what is built. A
-# measurement cannot buy speed with the thing it measures --
-# //test/coremark_joule takes SKIP_REPORT_METRICS and refuses the rest.
+# measurement cannot buy speed with the thing it measures, so a study
+# that wants the speed takes SKIP_REPORT_METRICS and refuses the rest.
 #
 # Setting                    Stage      What it disables
 # -------                    -----      ----------------
@@ -638,12 +638,15 @@ source_input_propagation_test(
 # keeps every other design from paying for outputs nothing produces.
 auto_memories_outputs_test(
     name = "auto_memories_outputs_test",
-    # Declared is not enough: the ODB action globs these back out of the
-    # results dir, so they have to be inputs somewhere too.
-    consumed = [
-        "memories.json",
-        "memories",
-    ],
+    # Declared is not enough. synth_odb.tcl globs these back out of the
+    # results dir, so the action that produces the ODB is the one that
+    # has to be handed them -- not merely somebody.
+    consumed_by = {
+        "1_synth.odb": [
+            "memories.json",
+            "memories",
+        ],
+    },
     expected = [
         "memories.json",
         "memories",

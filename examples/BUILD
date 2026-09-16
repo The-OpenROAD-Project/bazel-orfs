@@ -9,6 +9,12 @@
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//:openroad.bzl", "orfs_flow")
 
+# Readable by //test/examples_sdc, which asserts that what this example
+# teaches about constraining I/O is what the platform actually
+# recommends. The example is the file people copy, so its choices
+# propagate further than its own build.
+exports_files(["constraints.sdc"])
+
 # Skip the slow, sign-off-oriented parts of the flow. Every setting here
 # is an ORFS variable; drop this dict for a real tapeout-grade run.
 FAST_SETTINGS = {

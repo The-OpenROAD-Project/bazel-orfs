@@ -1,0 +1,39 @@
+# Does verilator build, and does a simulator it generates link and run?
+#
+# Both are patched in MODULE.bazel to drop -latomic: the BCR overlay
+# links it unconditionally on Linux, and the llvm toolchain this
+# repository builds with is zero-sysroot and ships no libatomic, so
+# neither verilator's own binary nor any simulator it generates links
+# without the patch. The failure is
+#
+#     ld.lld: error: unable to find library -latomic
+#
+# which is a link error in a dependency, a long way from anything that
+# names it. This target is what turns that into a test.
+#
+# Deliberately tiny. The question is whether the toolchain and the two
+# patches agree, and a counter answers it as well as a CPU would.
+load("@rules_cc//cc:defs.bzl", "cc_test")
+load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
+load("@rules_verilog//verilog:defs.bzl", "verilog_library")
+
+package(default_visibility = ["//visibility:private"])
+
+verilog_library(
+    name = "counter",
+    srcs = ["counter.v"],
+)
+
+verilator_cc_library(
+    name = "counter_lib",
+    module = ":counter",
+    module_top = "counter",
+    trace_mode = "none",
+)
+
+cc_test(
+    name = "verilator_smoke_test",
+    size = "small",
+    srcs = ["main.cc"],
+    deps = [":counter_lib"],
+)
