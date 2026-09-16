@@ -194,10 +194,40 @@ foreach net [$block getNets] {
     }
 }
 
+# Demand is only half of "is this layer busy". Track supply is the core
+# extent across the layer's routing direction divided by its pitch, times
+# the extent along it -- microns of corridor, the same unit as demand, so
+# the ratio is dimensionless. asap7's upper layers are coarse (M8/M9
+# pitch 0.08um against M2's 0.045um), so they hold far fewer tracks and a
+# small share of total demand can still be most of what they can carry.
+#
+# Reported for every routing layer in the tech, not only those carrying
+# guides: a layer with zero demand is a measurement, and dropping the row
+# would make an unused layer indistinguishable from a missing one.
+set core [$block getCoreArea]
+set core_w [expr { ([$core xMax] - [$core xMin]) * 1.0 / $dbu }]
+set core_h [expr { ([$core yMax] - [$core yMin]) * 1.0 / $dbu }]
+
+set tech [[ord::get_db] getTech]
 set layer_rows {}
-foreach lname [lsort [array names guide_len]] {
-    lappend layer_rows [format {{"layer": "%s", "demand_um": %.3f}} \
-        $lname $guide_len($lname)]
+foreach layer [$tech getLayers] {
+    if { [$layer getRoutingLevel] == 0 } {
+        continue
+    }
+    set lname [$layer getName]
+    set pitch [expr { [$layer getPitch] * 1.0 / $dbu }]
+    set dir [$layer getDirection]
+    set demand [expr { [info exists guide_len($lname)] ? $guide_len($lname) : 0.0 }]
+    if { $pitch > 0 } {
+        set supply [expr { $dir eq "HORIZONTAL"
+                           ? ($core_h / $pitch) * $core_w
+                           : ($core_w / $pitch) * $core_h }]
+    } else {
+        set supply 0.0
+    }
+    lappend layer_rows [format \
+        {{"layer": "%s", "level": %d, "direction": "%s", "pitch_um": %g, "demand_um": %.3f, "supply_um": %.3f}} \
+        $lname [$layer getRoutingLevel] $dir $pitch $demand $supply]
 }
 
 # One worst path per endpoint. -endpoint_path_count 1 with
