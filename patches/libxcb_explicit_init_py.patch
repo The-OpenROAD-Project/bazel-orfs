@@ -1,0 +1,13 @@
+--- BUILD.bazel
++++ BUILD.bazel
+@@ -39,6 +39,10 @@
+ py_binary(
+     name = "c_client",
+     srcs = ["src/c_client.py"],
++    # rules_python deprecates implicit __init__.py creation and prints a
++    # DEBUG warning for every target that relies on it. Nothing here does:
++    # the only package imported, xcbgen, ships its own __init__.py.
++    legacy_create_init = 0,
+     data = [
+         "@xcb-proto//:xml",
+     ],
