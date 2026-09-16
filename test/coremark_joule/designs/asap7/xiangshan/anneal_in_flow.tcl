@@ -31,6 +31,9 @@ set anneal_cmd [list $::env(PYTHON_EXE) $::env(ANNEAL_PY) \
     --min-cluster $::env(ANNEAL_MIN_CLUSTER) \
     --channel-um $::env(ANNEAL_CHANNEL_UM) \
     --block-gap-um $::env(ANNEAL_BLOCK_GAP_UM) \
+    --strap-pitch-um $::env(ANNEAL_STRAP_PITCH_UM) \
+    --strap-offset-um $::env(ANNEAL_STRAP_OFFSET_UM) \
+    --strap-pair-um $::env(ANNEAL_STRAP_PAIR_UM) \
     --fill $::env(ANNEAL_FILL)]
 puts "anneal_in_flow: [join $anneal_cmd { }]"
 if { [catch { exec {*}$anneal_cmd 2>@1 } anneal_log] } {
