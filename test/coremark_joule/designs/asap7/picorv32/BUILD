@@ -1,6 +1,7 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
 load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "hier_probe", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power")
 load("//test/coremark_joule/flow:seeds.bzl", "seed_variants")
+load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "hier_probe", "period_probe", "physical_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power")
 
 # No memories_applied_test here: picorv32 has no convertible memory, so
 # AUTO_MEMORIES is off and there is nothing for the guard to assert. The
@@ -82,4 +83,11 @@ stage_activity_sweep(
 period_probe(
     name = "cmj_picorv32_period",
     src = ":cmj_picorv32_grt",
+)
+
+# The measured side of the literature table. See §4.9.
+physical_probe(
+    name = "cmj_picorv32_physical",
+    src = ":cmj_picorv32_grt",
+    visibility = ["//test/coremark_joule:__pkg__"],
 )

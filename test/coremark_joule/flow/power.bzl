@@ -24,6 +24,8 @@ load("@bazel-orfs//:openroad.bzl", "orfs_run")
 # the power report have to name the same one.
 STAGE_STEM = {
     "synth": "1_synth",
+    "floorplan": "2_floorplan",
+    "place": "3_place",
     "cts": "4_1_cts",
     "grt": "5_1_grt",
     "route": "5_route",
@@ -446,6 +448,16 @@ def flop_power_probe(name, src, saif, saif_scope, stage = "synth", tags = ["manu
     §4.8's cross-check found the Sequential group's internal power not
     scaling with frequency on a byte-identical netlist; this names the
     term. See flow/flop_power_probe.tcl.
+def physical_probe(name, src, stage = "grt", ge_cell = "NAND2xp33_ASAP7_75t_R", tags = ["manual"], visibility = None):
+    """The measured side of the literature table (§4.9).
+
+    Standard-cell area, gate equivalents against `ge_cell`, flop and
+    macro counts, die and core area, the SDC period and the reg2reg
+    slack, all from one stage's ODB. Gate equivalents are the
+    standard-cell area over the NAND2's; the cell is a parameter because
+    the papers being compared against rarely say which NAND they meant,
+    and its area is written into the output so the division can be
+    redone against another.
     """
     orfs_run(
         name = name,
@@ -457,6 +469,32 @@ def flop_power_probe(name, src, saif, saif_scope, stage = "synth", tags = ["manu
             "STAGE_STEM": STAGE_STEM[stage],
             "SAIF_STIMULI": "$(location {})".format(saif),
             "SAIF_SCOPE": saif_scope,
+        script = "//test/coremark_joule/flow:physical_probe.tcl",
+        user_arguments = {
+            "STAGE_STEM": STAGE_STEM[stage],
+            "GE_CELL": ge_cell,
+            "OUT": "$(location {}.txt)".format(name),
+        },
+        tags = tags,
+        visibility = visibility,
+    )
+
+def census_probe(name, src, stage = "synth", tags = ["manual"], visibility = None):
+    """Leaf instances and area under every module instance in a stage's ODB.
+
+    The first question of a hierarchical flow is what is big. A kept
+    module that survives into the ODB can be hardened as a macro; one
+    that does not has to be kept first. The probe walks the module tree
+    the ODB has and reports each module's own leaf count and area and
+    the total under it, so containers read as large as their children.
+    """
+    orfs_run(
+        name = name,
+        src = src,
+        outs = [name + ".txt"],
+        script = "//test/coremark_joule/flow:census_probe.tcl",
+        user_arguments = {
+            "STAGE_STEM": STAGE_STEM[stage],
             "OUT": "$(location {}.txt)".format(name),
         },
         tags = tags,
