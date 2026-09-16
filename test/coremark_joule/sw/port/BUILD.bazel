@@ -11,4 +11,6 @@ exports_files([
     "link.ld",
     "link_veer.ld",
     "sim_ctrl.h",
+    "crt0_flat.S",
+    "link_xiangshan.ld",
 ])

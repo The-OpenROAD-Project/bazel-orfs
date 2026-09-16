@@ -91,8 +91,8 @@ smoke_elf(
     coremark_elf(
         name = "coremark_rv64gc_{}".format(iterations),
         cflags = BASELINE_CFLAGS,
-        iterations = iterations,
         crt0 = FLAT_CRT0,
+        iterations = iterations,
         link_ld = XIANGSHAN_LINK_LD,
         mabi = "lp64d",
         march = "rv64gc",
