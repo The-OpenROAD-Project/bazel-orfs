@@ -139,7 +139,10 @@ def stage_power(
             vectorless,
             vector_driven,
         ],
-        script = "//test/coremark_joule/flow:power_grt.tcl",
+        # At synthesis there is no placement to estimate wires from, so the
+        # report runs on cell capacitances alone (§4.8's cross-check wants
+        # exactly that); every later stage estimates from global routing.
+        script = "//test/coremark_joule/flow:power_synth.tcl" if stage == "synth" else "//test/coremark_joule/flow:power_grt.tcl",
         data = [saif],
         user_arguments = arguments,
         tags = tags,
