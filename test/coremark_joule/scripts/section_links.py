@@ -92,7 +92,12 @@ def main(argv):
                 f.write(new)
             print("section_links: rewrote {}".format(args.readme))
     elif new != text:
-        print("section_links: {} has unlinked or stale § references; run with --fix".format(args.readme), file=sys.stderr)
+        print(
+            "section_links: {} has unlinked or stale § references; run with --fix".format(
+                args.readme
+            ),
+            file=sys.stderr,
+        )
         return 1
     return 1 if dangling else 0
 

@@ -1280,6 +1280,106 @@ cross-check is recorded as owed rather than done; what it would test is
 ibex's absolute energy per iteration a third time, at a third node,
 against the [15] disagreement above.
 
+### 4.9 x86, Arm and Apple on the same axes
+
+Nobody publishes CoreMark/Joule for a commodity CPU. CoreMark/MHz is
+easy to find; the energy half has to be derived, and for once the
+derivation can be done from measured power rather than a rating.
+Phoronix runs CoreMark 1.0 in its CPU reviews, multi-threaded, `gcc -O2`,
+and its test suite logs the CPU package power the kernel reports while
+each test runs. The public result exports carry both numbers, so
+CoreMark/Joule at the **package** boundary -- cores, caches, memory
+controllers, IO die, everything on the socket -- is one division.
+`results/commodity_coremark.csv` holds every row below with its result
+identifier [18]; the two Apple rows and the Ampere row have no logged
+power and are marked with what stands in for it.
+
+| CPU | class | cores | reported clock | CoreMark/s | CPU power during CoreMark | CoreMark/Joule |
+|---|---|---|---|---|---|---|
+| AMD EPYC 9654, Zen 4 | server | 96 | 3.71 GHz | 3,753,920 | 312 W measured | **12,028** |
+| AMD EPYC 9554, Zen 4 | server | 64 | 3.76 GHz | 2,950,220 | 287 W measured | 10,290 |
+| AMD EPYC 7763, Zen 3 | server | 64 | 2.45 GHz | 1,876,249 | 206 W measured | 9,089 |
+| Intel Xeon Platinum 8490H, Sapphire Rapids | server | 60 | 3.50 GHz | 2,162,644 | 307 W measured | 7,055 |
+| Intel Xeon Platinum 8380, Ice Lake | server | 40 | 3.40 GHz | 1,177,693 | 244 W measured | 4,827 |
+| Ampere Altra Max M128-30, Neoverse N1 | server | 128 | 3.00 GHz | 2,823,599 | 250 W *rated* | 11,294 |
+| AMD Ryzen 9 7950X, Zen 4 | desktop | 16 | 5.57 GHz | 1,012,072 | 137 W measured | 7,363 |
+| AMD Ryzen 9 7900, Zen 4, 65 W part | desktop | 12 | 5.48 GHz | 648,202 | 79 W measured | 8,215 |
+| AMD Ryzen 9 7900X, Zen 4 | desktop | 12 | 5.73 GHz | 737,516 | 143 W measured | 5,144 |
+| AMD Ryzen 7 9700X, Zen 5, 65 W | desktop | 8 | 5.50 GHz | 545,799 | 77 W measured | 7,075 |
+| AMD Ryzen 7 9700X, Zen 5, 105 W cTDP | desktop | 8 | 5.50 GHz | 582,558 | 112 W measured | 5,214 |
+| Intel Core i9-14900K, Raptor Lake | desktop | 8P + 16E | 5.70 GHz | 872,643 | 170 W measured | 5,147 |
+| Intel Core Ultra 9 285K, Arrow Lake | desktop | 8P + 16E | 5.70 GHz | 1,048,146 | 150 W measured | 6,978 |
+| Apple M1, Mac mini | laptop-class | 4P + 4E | 3.20 GHz | 175,072 | 26.5 W *at the wall* [19] | 6,606 |
+| Apple M2, MacBook Air | laptop-class | 4P + 4E | 3.49 GHz | 204,531 | ~20 W *package, estimated* [20] | ~10,200 |
+
+**Table 9.** Multi-threaded CoreMark and CPU package power, from public
+OpenBenchmarking.org result exports [18]. Server rows are from one run
+(January 2023), desktop rows from another (October 2024), so the two
+groups share a compiler and kernel within a group and not across;
+CoreMark/MHz for a whole package is not shown because SMT and mixed
+core types make it a different quantity from Table 1's single-thread
+figure. The Apple rows use power from reviews rather than the run, and
+the Ampere row a rating; Graviton4 (2,746,152 CoreMark/s) has no
+published power at all and is left off.
+
+**The claim, tested: a server part beats a gaming desktop on
+CoreMark/Joule despite the lower clock.** It holds within a generation
+and a vendor, and the same Zen 4 core is in both columns, which is as
+clean as a commodity comparison gets. EPYC 9654 at 3.71 GHz delivers
+**1.63x** the CoreMark/Joule of Ryzen 9 7950X at 5.57 GHz, on the same
+microarchitecture, with power measured during the same benchmark. Intel
+within a generation reads the same way: Xeon 8490H against Core i9-13900K
+is **1.26x**. And it does not hold across generations: Ice Lake's Xeon
+8380 sits *below* Arrow Lake's 285K, so the node and the core count for
+more than the clock once the generation changes.
+
+**What the desktop rows add is the controlled experiment the servers
+cannot give.** The Ryzen 9 7900 and 7900X are the same twelve-core die at
+65 W and 170 W ratings: the 65 W part scores **1.60x** the CoreMark/Joule
+of the 170 W part for 12 % less CoreMark. The Ryzen 7 9700X measured at
+its 65 W default and at its 105 W option is one chip in one socket run
+twice: 6.7 % more CoreMark for 45 % more power, CoreMark/Joule down
+**26 %**. That is [§2.3](#23-why-coremarkjoule-falls-as-coremarksecond-rises)'s
+voltage route observed on silicon: the last few hundred megahertz are
+bought with $V^2$, and a server binned for 3.5 GHz at 1 W per core is on
+the cheap part of the curve that a 5.7 GHz desktop has left behind.
+
+**How big the effect should be, and how big it is.** [§2.3](#23-why-coremarkjoule-falls-as-coremarksecond-rises)
+predicts energy per operation $\propto f^2$ on the voltage route. The
+reported clocks give $(5.57/3.71)^2 = 2.25\times$ for EPYC 9654 against
+7950X; the measured ratio is 1.63x. Two things pull it down, both
+knowable: all-core clocks under a 192-thread load sit below the
+reported maxima, so the true frequency ratio is nearer 1.4, and the
+server package carries an IO die, twelve memory channels and 384 MB of
+L3 that the desktop does not, which is power that scales with neither
+frequency nor voltage. The prediction overshoots in the direction the
+boundary says it should.
+
+**Arm and Apple land where the physics says.** Ampere's 128 Neoverse N1
+cores at 3.0 GHz reach 11,294 CoreMark/Joule on their 250 W rating,
+level with EPYC 9654 despite a core two generations older, because the
+clock is low and there is no SMT to pay for. Apple's M2 at ~20 W package
+is at about 10,200, beside the best servers, from eight cores that never
+see 5 GHz. Every rung of this ladder is the same story: CoreMark/Joule
+is bought by running many cores slowly, not one core fast, and the
+vendor whose product is sold on frequency sits at the bottom of it.
+
+**Where this study's cores sit, with the boundary said first.** Table 1
+is core plus L1 on a predictive 7 nm kit at its best-case corner;
+Table 9 is a whole package, IO die and memory controllers included, on
+a real 4 nm or 5 nm process at a typical corner. Neither number is
+convertible into the other, and the comparison below is a ladder, not a
+Figure. On it, ibex sits **8.2x** above the best commodity package and
+VeeR EH1 **2.9x** above it, while SERV sits **9.4x below** it, under
+every commodity part in the table. The direction and the decades are
+what [§2.3](#23-why-coremarkjoule-falls-as-coremarksecond-rises) predicts:
+a small in-order core at 0.77 V, with nothing outside its L1 charged to
+it, is where energy per CoreMark bottoms out, and a bit-serial core that
+takes 41 million cycles per iteration pays leakage and clock on every
+one of them and ends up below a 350 W Xeon. The commodity ladder is
+congruent with the four points here, and it is congruent for the
+reasons this paper gives rather than by coincidence.
+
 ---
 
 ## 5. Threats to validity
@@ -2351,3 +2451,6 @@ copy of the Software.
 15. N. Gallmann, P. Vogel, P. D. Schiavone, L. Benini. "From Swift to Mighty: A Cost-Benefit Analysis of Ibex and CV32E40P Regarding Application Performance, Power and Area." *CARRV 2021*. https://carrv.github.io/2021/papers/CARRV2021_paper_8_Gallmann.pdf
 16. A. Djupdal, M. Själander, M. Jahre, S. Aunet, T. Ytterdal. "Optimizing Energy Efficiency in Subthreshold RISC-V Cores." arXiv:2502.06588, 2025.
 17. Elsadek, Tawfik. "RISC-V Resource-Constrained Cores: A Survey and Energy Comparison." IEEE, 2021. https://ieeexplore.ieee.org/document/9462781
+18. OpenBenchmarking.org result exports (Phoronix Test Suite, `pts/coremark` 1.0, multi-threaded, `gcc -O2`, CPU package power via the suite's power monitor): `2301109-PTS-SPRREVIE33` (Sapphire Rapids review, January 2023), `2410235-NE-285KARROW68` (Arrow Lake review, October 2024), `2407128-PTS-GRAVITON53` (Graviton4 metal comparison, July 2024), `2208073-NE-M2REVIEW767` (Apple M2 on Asahi Linux, August 2022). https://openbenchmarking.org/result/<id>
+19. AnandTech, *Mac mini 2020 (Apple M1) review*: wall power averaging 26.5 W under a multi-threaded load, chip estimated at 20 to 24 W.
+20. TechSpot, *Apple M2 review*: about 20 W package power sustained in Cinebench R23 multi-threaded on the MacBook Air.
