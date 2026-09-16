@@ -136,6 +136,18 @@ ORFS_PATCHES = [
     # re-pathed and kept comparable to what ORFS ships.
     # Not upstreamed -- retire at a bump onto an ORFS that picks one.
     Label("//patches:0067-orfs-fakeram-asap7-column-mux.patch"),
+    # synth's -extra-map runs inside the techmap step, which is after
+    # flatten, so it cannot substitute a module the design defines
+    # itself -- by then the instances have been inlined. VeeR's clock
+    # gate is that case: beh_lib.sv defines it and a macro names the
+    # definition and the instantiation together, so it cannot be
+    # redirected from outside the sources, and it synthesizes to a
+    # transparent latch and an AND where a real flow maps it onto the
+    # library's ICG. SYNTH_POST_HIERARCHY_SCRIPTS runs a design-supplied
+    # yosys script right after hierarchy, while instances are still
+    # cells of their own type.
+    # Not upstreamed -- retire at a bump onto an ORFS with such a hook.
+    Label("//patches:0068-orfs-synth-techmap-hook.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
