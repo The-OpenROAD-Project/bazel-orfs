@@ -53,3 +53,5 @@ exports_files(["period_probe.tcl"])
 exports_files(["cmj_veer_icg_map.v"])
 
 exports_files(["cmj_veer_icg.ys"])
+
+exports_files(["write_sdf.tcl"])

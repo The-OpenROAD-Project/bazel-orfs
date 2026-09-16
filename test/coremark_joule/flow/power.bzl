@@ -92,6 +92,35 @@ def grt_netlist(
         visibility = visibility,
     )
 
+def stage_sdf(name, src, stage = "grt", tags = ["manual"], visibility = None):
+    """Write a stage's SDF: the per-instance delays, from its own ODB.
+
+    The netlist, the delays and the power report all have to come from
+    one ODB or they describe different designs. grt_netlist() takes the
+    netlist from the stage's ODB for exactly that reason; this takes the
+    delays from the same place.
+
+    Args:
+      name: target name; the SDF is `<name>.sdf`.
+      src: the flow stage target whose ODB is read.
+      stage: which stage; must match `src`.
+      tags: forwarded; manual.
+      visibility: forwarded.
+    """
+    out = name + ".sdf"
+    orfs_run(
+        name = name,
+        src = src,
+        outs = [out],
+        script = "//test/coremark_joule/flow:write_sdf.tcl",
+        user_arguments = {
+            "STAGE_STEM": STAGE_STEM[stage],
+            "OUTPUT": "$(location {})".format(out),
+        },
+        tags = tags,
+        visibility = visibility,
+    )
+
 def stage_power(
         name,
         src,
