@@ -142,7 +142,10 @@ CASES = [
     ("command", "ls $HOME/tmp", None),
     ("path", "/var/tmp/x", None),
     # The narrow exemption cannot be expressed here: whether a /tmp path is
-    # allowed depends on what is on disk. See TmpExemptionTest.
+    # allowed depends on what is on disk. See TmpExemptionTest. The same goes
+    # for reading a named file out of a bazel output directory -- see
+    # SpelunkExemptionTest. Every bazel-out path in CASES above names
+    # something that does not exist, so those cases are denials either way.
 ]
 
 # How each neutral field is spelled in each dialect. A field absent from a
@@ -160,14 +163,20 @@ ANTIGRAVITY_PAYLOAD = {
 }
 
 
-def run_guard(payload):
-    """Run the hook exactly as an agent would, returning its stdout."""
+def run_guard(payload, cwd=None):
+    """Run the hook exactly as an agent would, returning its stdout.
+
+    `cwd` is where the hook process runs, which is what a relative path in
+    the request resolves against -- `bazel-bin/x` means something different
+    in a different directory.
+    """
     result = subprocess.run(
         [sys.executable, GUARD],
         input="" if payload is None else json.dumps(payload),
         capture_output=True,
         text=True,
         check=True,
+        cwd=cwd,
     )
     return result.stdout.strip()
 
@@ -308,6 +317,93 @@ class TmpExemptionTest(unittest.TestCase):
         # A tiny file under /tmp is exempt from the /tmp rule only. Anything
         # else the command does is judged as it always was.
         path = self.make("note.md", 64)
+        command = f"bazel clean && cat {path}"
+        self.assertIn("protects bazel cache", self.reason("command", command) or "")
+
+
+class SpelunkExemptionTest(unittest.TestCase):
+    """Reading a named file out of a bazel output directory, against real files.
+
+    The rule is about context explosion, not about the directory being
+    untouchable: after a build you often know the exact name of a small
+    generated artifact. Everything that *is* context explosion -- a recursive
+    walk, a glob, a stage log -- has to keep failing.
+    """
+
+    def setUp(self):
+        base = os.environ.get("TEST_TMPDIR") or os.path.join(
+            HERE, os.pardir, os.pardir, "tmp"
+        )
+        base = os.path.abspath(base)
+        if base.startswith("/tmp/") or base == "/tmp":
+            # The /tmp rule would deny these paths before the spelunking rule
+            # ever got a say, and the test would be asserting the wrong thing.
+            self.skipTest(f"scratch base {base} is under /tmp")
+        try:
+            os.makedirs(base, exist_ok=True)
+            self.root = tempfile.mkdtemp(dir=base, prefix="guard_tool_test.")
+        except OSError as error:  # pragma: no cover - read-only sandbox
+            self.skipTest(f"{base} is not writable here: {error}")
+        self.addCleanup(shutil.rmtree, self.root, ignore_errors=True)
+        self.bin = os.path.join(self.root, "bazel-bin", "design")
+        os.makedirs(self.bin)
+
+    def make(self, name, size):
+        path = os.path.join(self.bin, name)
+        with open(path, "wb") as handle:
+            handle.write(b"x" * size)
+        return path
+
+    def reason(self, field, value, cwd=None):
+        """The Claude-dialect deny reason for one field, or None."""
+        return claude_reason(run_guard(CLAUDE_PAYLOAD[field](value), cwd=cwd))
+
+    def test_named_small_file_is_allowed(self):
+        path = self.make("metrics.json", 4096)
+        self.assertIsNone(self.reason("path", path))
+        self.assertIsNone(self.reason("command", f"cat {path}"))
+        self.assertIsNone(self.reason("command", f"head -20 {path}"))
+
+    def test_file_at_the_limit_is_allowed(self):
+        path = self.make("exactly.json", 64 * 1024)
+        self.assertIsNone(self.reason("path", path))
+
+    def test_relative_path_resolves_against_the_working_directory(self):
+        self.make("metrics.json", 128)
+        relative = os.path.join("bazel-bin", "design", "metrics.json")
+        self.assertIsNone(self.reason("command", f"cat {relative}", cwd=self.root))
+        # The same string somewhere else is a path that does not exist.
+        self.assertIsNotNone(self.reason("command", f"cat {relative}", cwd=HERE))
+
+    def test_big_log_is_denied(self):
+        path = self.make("route.log", 64 * 1024 + 1)
+        self.assertIsNotNone(self.reason("path", path))
+        self.assertIsNotNone(self.reason("command", f"cat {path}"))
+
+    def test_directory_is_denied(self):
+        # A directory argument is a recursive walk, which is the rule.
+        self.assertIsNotNone(self.reason("path", self.bin))
+        self.assertIsNotNone(self.reason("command", f"grep -rn foo {self.bin}"))
+        self.assertIsNotNone(self.reason("command", f"find {self.bin} -name '*.v'"))
+
+    def test_glob_is_denied(self):
+        # The guard cannot know how many files a glob expands to, and the
+        # answer it fears is "all of them".
+        self.make("design.v", 128)
+        self.assertIsNotNone(self.reason("command", f"cat {self.bin}/*.v"))
+
+    def test_missing_file_is_denied(self):
+        path = os.path.join(self.bin, "not-built-yet.json")
+        self.assertIsNotNone(self.reason("path", path))
+        self.assertIsNotNone(self.reason("command", f"cat {path}"))
+
+    def test_one_bad_path_denies_the_whole_command(self):
+        small = self.make("metrics.json", 128)
+        big = self.make("route.log", 64 * 1024 + 1)
+        self.assertIsNotNone(self.reason("command", f"cat {small} {big}"))
+
+    def test_exemption_does_not_reach_other_rules(self):
+        path = self.make("metrics.json", 128)
         command = f"bazel clean && cat {path}"
         self.assertIn("protects bazel cache", self.reason("command", command) or "")
 

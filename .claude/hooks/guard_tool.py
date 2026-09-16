@@ -102,10 +102,18 @@ AGENT_TMP_TREE = re.compile(r"^/tmp/claude-\d+/")
 TMP_TINY_BYTES = 64 * 1024
 
 READ_TOOLS = r"find|grep|tree|ls|fd|rg|cat|head|tail|less|sed|awk|wc|diff"
-SPELUNK_IN_COMMAND = re.compile(
-    r"\b(?:" + READ_TOOLS + r")\b[^;&|]*"
-    r"(?:\bbazel-(?:out|bin|testlogs)\b|(?<![\w-])\.cache\b)"
+SPELUNK_DIR = r"(?:\bbazel-(?:out|bin|testlogs)\b|(?<![\w-])\.cache\b)"
+SPELUNK_IN_COMMAND = re.compile(r"\b(?:" + READ_TOOLS + r")\b[^;&|]*" + SPELUNK_DIR)
+# The whole path, so each one can be judged on its own merits -- the same
+# shape as TMP_PATH_IN_COMMAND, and for the same reason.
+SPELUNK_PATH_IN_COMMAND = re.compile(
+    r"[^\s;&|<>()'\"]*" + SPELUNK_DIR + r"[^\s;&|<>()'\"]*"
 )
+
+# A generated file small enough that reading it by name cannot be the context
+# explosion the rule exists to prevent. A stage log is megabytes; a metrics
+# json or a _deps script is a couple of kilobytes.
+SPELUNK_TINY_BYTES = 64 * 1024
 
 GIT_LOCAL_MUTATE = re.compile(
     r"\bgit\s+(?:-c\s+\S+\s+)*"
@@ -236,13 +244,38 @@ def check_merge(request):
     return None
 
 
+def spelunk_exempt(path, cwd):
+    """True when `path` is a small existing regular file in a bazel output dir.
+
+    The rule is about context explosion, not about the directory being
+    untouchable: once a build has run you often know the exact name of a
+    small generated artifact, and reading that by name is the cheap, correct
+    move. Everything that *is* context explosion fails this test by
+    construction -- a directory is a recursive walk, a glob or a not-yet-built
+    path does not stat at all, and a stage log is far over the size cap.
+    """
+    if not os.path.isabs(path):
+        path = os.path.join(cwd, path)
+    try:
+        info = os.stat(path)
+    except OSError:
+        return False
+    return stat.S_ISREG(info.st_mode) and info.st_size <= SPELUNK_TINY_BYTES
+
+
 def check_spelunking(request):
     for segment in segments(request.code):
-        if SPELUNK_IN_COMMAND.search(segment):
+        if not SPELUNK_IN_COMMAND.search(segment):
+            continue
+        # Judge every bazel-output path in the segment, not just the first:
+        # one directory, glob or oversized file denies the whole call.
+        found = SPELUNK_PATH_IN_COMMAND.findall(segment)
+        if not found or not all(spelunk_exempt(p, request.cwd) for p in found):
             return spelunk_message(segment)
     for path in request.paths:
         if BAZEL_OUTPUT_DIR.search(path) or CACHE_DIR.search(path):
-            return spelunk_message(path)
+            if not spelunk_exempt(path, request.cwd):
+                return spelunk_message(path)
     return None
 
 
@@ -336,7 +369,11 @@ RULES = (
         "spelunking",
         "Spelunking in `bazel-*` output directories and `.cache` using native "
         "tools (`grep`, `find`, `cat`) or agent file-reading tools is blocked to "
-        "prevent context explosion.",
+        "prevent context explosion. Narrowly exempted: reading an existing "
+        "regular file of at most 64 KiB by its exact path, so a small generated "
+        "artifact whose name is known after a build stays readable; a "
+        "directory, a glob, a path that is not built yet and a big log all stay "
+        "blocked.",
         check_spelunking,
     ),
     (
@@ -355,13 +392,16 @@ RULES = (
 class Request:
     """A hook request, normalized across dialects."""
 
-    def __init__(self, dialect, command, paths):
+    def __init__(self, dialect, command, paths, cwd=None):
         self.dialect = dialect
         self.command = command
         # The command line with prose removed. Every command rule matches
         # against this view, never against the raw line.
         self.code = strip_data_spans(command)
         self.paths = paths
+        # Where a relative path in the request resolves from. The agent runs
+        # in the project directory, which is where `bazel-bin` points.
+        self.cwd = cwd or os.getcwd()
 
 
 def parse(payload):
@@ -387,7 +427,8 @@ def parse(payload):
         if value:
             paths.append(str(value))
 
-    return Request(dialect, command, paths)
+    cwd = args.get("cwd") or args.get("Cwd") or payload.get("cwd")
+    return Request(dialect, command, paths, str(cwd) if cwd else None)
 
 
 def decide(request):
