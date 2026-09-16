@@ -388,6 +388,30 @@ py_test(
     main = "auto_period_test.py",
 )
 
+# auto_period over several designs, one bazel invocation per round, so
+# four cores walk side by side instead of one after another. Decision
+# logic is auto_period's, imported.
+py_binary(
+    name = "auto_period_all",
+    srcs = [
+        "auto_period.py",
+        "auto_period_all.py",
+    ],
+    main = "auto_period_all.py",
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+py_test(
+    name = "auto_period_all_test",
+    size = "small",
+    srcs = [
+        "auto_period.py",
+        "auto_period_all.py",
+        "auto_period_all_test.py",
+    ],
+    main = "auto_period_all_test.py",
+)
+
 # The paper's fitted figures, from the pinned results. 4.6's slope, R^2
 # and extrapolation were hand-computed and typed in; three of the seven
 # were slightly wrong by the time the points moved under them.
