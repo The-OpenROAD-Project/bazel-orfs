@@ -24,6 +24,7 @@ import rank_agreement as ra
 # read from the data so that a rung which was never run is still named in
 # the table as missing, instead of vanishing from the ladder.
 RUNGS = [
+    ("zero_rc", "signal wire RC set to ~0; the no-wires floor"),
     ("placement", "`estimate_parasitics -placement`; no route at all"),
     ("gr_cheapest", "`-infinite_cap -congestion_iterations 1`; no detours"),
     ("gr_no_overflow_loop", "`-congestion_iterations 1`; capacity seen, overflow left"),
@@ -98,6 +99,66 @@ def section_floors(found):
         )
     return table(
         ["design", "clock period", "CI tolerance bar (5% of clock)", "measured 2σ"],
+        rows,
+    )
+
+
+def section_ceiling(found):
+    """The upper bound on the whole study, per design.
+
+    Signal wire delay as a share of the achieved period. Every question
+    here is a question about the wire part of a path delay, so this is
+    the most any parasitics model can be wrong by -- and therefore the
+    most any better instrument can win. A design at 2% is a design where
+    nothing downstream can matter, however congested it is made.
+    """
+    rows = []
+    for design in designs_of(found):
+        ref = found.get((design, "spef"))
+        pl = found.get((design, "placement"))
+        zero = found.get((design, "zero_rc"))
+        if pl is None or zero is None:
+            continue
+        wire = pl["min_period"] - zero["min_period"]
+        share = 100.0 * wire / pl["min_period"]
+        gr = found.get((design, "gr_stock"))
+        row = [
+            design,
+            fmt(zero["min_period"], 1),
+            fmt(pl["min_period"], 1),
+            fmt(wire, 1),
+            fmt(share, 1) + "%",
+        ]
+        if ref is not None:
+            row.append(fmt(pl["min_period"] - ref["min_period"], 1))
+            row.append(
+                fmt(gr["min_period"] - ref["min_period"], 1) if gr else "--",
+            )
+            # What the instrument's error is worth in units of the thing
+            # it is modelling. Above 100% the model is wrong about the
+            # wires by more than the wires are worth.
+            row.append(
+                (
+                    fmt(100.0 * abs(gr["min_period"] - ref["min_period"]) / wire, 0)
+                    + "%"
+                    if gr and wire > 0
+                    else "--"
+                ),
+            )
+        else:
+            row += ["--", "--", "--"]
+        rows.append(row)
+    return table(
+        [
+            "design",
+            "no-wire period",
+            "placement period",
+            "wire delay",
+            "wire share",
+            "placement err vs SPEF",
+            "grt err vs SPEF",
+            "grt err / wire delay",
+        ],
         rows,
     )
 
@@ -179,6 +240,18 @@ def section_min_period(found):
 
 def render(found):
     parts = [
+        "## The ceiling -- how much wire delay is there to be wrong about?",
+        "",
+        "Signal wire RC set to ~0 against the same CTS ODB, clock tree",
+        "left real. The difference is the whole data-path wire",
+        "contribution to the achieved period, and therefore the most any",
+        "parasitics model can be wrong by. The last column puts each",
+        "instrument's error in units of the wire delay it is modelling:",
+        "above 100% the estimate is wrong about the wires by more than",
+        "the wires are worth.",
+        "",
+        section_ceiling(found),
+        "",
         "## A0 -- the two floors",
         "",
         "`rules-base.json` records a padded threshold, not a noise",

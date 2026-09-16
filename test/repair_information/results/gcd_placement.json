@@ -8,9 +8,12 @@
   "clock_period": 310.000000,
   "wns": -18.522545,
   "min_period": 328.522545,
-  "seconds": 0.026,
+  "seconds": 0.040,
   "pin_access_seconds": 0.000,
   "nets_with_guides": 0,
+  "max_routing_layer": "M7",
+  "layer_adjustment": "0.25",
+  "layers": [],
   "endpoints": [
     {"endpoint": "u130/D", "slack": -18.5225},
     {"endpoint": "u118/D", "slack": 1.33607},

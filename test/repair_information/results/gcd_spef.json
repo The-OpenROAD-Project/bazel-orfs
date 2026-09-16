@@ -8,9 +8,12 @@
   "clock_period": 310.000000,
   "wns": -18.218954,
   "min_period": 328.218954,
-  "seconds": 0.018,
+  "seconds": 0.034,
   "pin_access_seconds": 0.000,
   "nets_with_guides": 400,
+  "max_routing_layer": "M7",
+  "layer_adjustment": "0.25",
+  "layers": [{"layer": "M1", "demand_um": 618.639}, {"layer": "M2", "demand_um": 962.028}, {"layer": "M3", "demand_um": 620.118}, {"layer": "M4", "demand_um": 181.047}, {"layer": "M5", "demand_um": 134.892}, {"layer": "M6", "demand_um": 135.984}, {"layer": "M7", "demand_um": 63.609}],
   "endpoints": [
     {"endpoint": "u130/D", "slack": -18.219},
     {"endpoint": "u118/D", "slack": 1.82446},

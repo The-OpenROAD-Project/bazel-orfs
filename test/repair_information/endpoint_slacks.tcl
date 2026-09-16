@@ -79,6 +79,42 @@ if { $mode eq "placement" } {
     # propagate and asking for it is a no-op on an ideal clock.
     set_propagated_clock [all_clocks]
 
+    # Contention, as a knob.
+    #
+    # The routing window and the per-layer derate are not session state:
+    # ORFS installs them once at floorplan by sourcing FASTROUTE_TCL, and
+    # they persist in the ODB's tech (dbTechLayer::setLayerAdjustment,
+    # dbBlock::setMinRoutingLayer), which is why global_route.tcl never
+    # re-sources it and why a probe that does nothing here still routes
+    # under the flow's real supply.
+    #
+    # Which also makes them settable here, on the same CTS ODB, with no
+    # new flow run. That is the study's contention axis: placement prices
+    # every net from one layer-averaged RC constant, so the two
+    # instruments can only disagree when routing is pushed onto layers
+    # whose real RC is not that constant. Scarcer supply (a bigger
+    # derate) pushes nets up the stack; a lower ceiling pushes them down.
+    # Either way the question is the same -- how far from the constant
+    # does the mix have to get before the period moves.
+    if { [info exists ::env(RI_MAX_ROUTING_LAYER)]
+         && $::env(RI_MAX_ROUTING_LAYER) ne "" } {
+        set ri_min [expr { [info exists ::env(MIN_ROUTING_LAYER)]
+                           ? $::env(MIN_ROUTING_LAYER) : "M2" }]
+        log_cmd set_routing_layers \
+            -signal $ri_min-$::env(RI_MAX_ROUTING_LAYER)
+    }
+    if { [info exists ::env(RI_LAYER_ADJUSTMENT)]
+         && $::env(RI_LAYER_ADJUSTMENT) ne "" } {
+        set ri_min [expr { [info exists ::env(MIN_ROUTING_LAYER)]
+                           ? $::env(MIN_ROUTING_LAYER) : "M2" }]
+        set ri_max [expr { [info exists ::env(RI_MAX_ROUTING_LAYER)]
+                           && $::env(RI_MAX_ROUTING_LAYER) ne ""
+                           ? $::env(RI_MAX_ROUTING_LAYER)
+                           : $::env(MAX_ROUTING_LAYER) }]
+        log_cmd set_global_routing_layer_adjustment \
+            $ri_min-$ri_max $::env(RI_LAYER_ADJUSTMENT)
+    }
+
     # ORFS runs pin_access before global_route, so a trial route that
     # skipped it would not be the same operation the flow performs. It is
     # timed separately rather than folded into the route: the cost
@@ -125,11 +161,43 @@ if { $mode eq "placement" } {
 # large-fanout nets or bailed early still produces a well-formed slack
 # for every endpoint, so the only way to see that it routed less of the
 # design is to count what carries guides.
+#
+# The per-layer split is the mechanism, not a decoration. `estimate_parasitics
+# -placement` prices every net from the single resistance and capacitance
+# `set_wire_rc` installed -- on asap7 an absolute constant corresponding
+# to a lower-middle layer -- so placement and global route can only
+# disagree to the extent that routing actually lands on layers whose RC
+# is not that constant. If demand never reaches the top of the stack, the
+# constant is not wrong about anything and there is nothing for a better
+# instrument to correct. That has to be read off the guides rather than
+# assumed from the layer window, which only says where routing was
+# *permitted* to go.
 set block [ord::get_db_block]
+set dbu [$block getDbUnitsPerMicron]
+array set guide_len {}
 foreach net [$block getNets] {
-    if { [llength [$net getGuides]] > 0 } {
+    set net_guides [$net getGuides]
+    if { [llength $net_guides] > 0 } {
         incr guides
     }
+    foreach guide $net_guides {
+        set lname [[$guide getLayer] getName]
+        if { ![info exists guide_len($lname)] } {
+            set guide_len($lname) 0.0
+        }
+        set box [$guide getBox]
+        set w [expr { ([$box xMax] - [$box xMin]) * 1.0 / $dbu }]
+        set h [expr { ([$box yMax] - [$box yMin]) * 1.0 / $dbu }]
+        # A guide's corridor runs along its longer side.
+        set guide_len($lname) \
+            [expr { $guide_len($lname) + ($w > $h ? $w : $h) }]
+    }
+}
+
+set layer_rows {}
+foreach lname [lsort [array names guide_len]] {
+    lappend layer_rows [format {{"layer": "%s", "demand_um": %.3f}} \
+        $lname $guide_len($lname)]
 }
 
 # One worst path per endpoint. -endpoint_path_count 1 with
@@ -192,6 +260,9 @@ puts $fp "  \"min_period\": [expr { $clock_period - $wns }],"
 puts $fp "  \"seconds\": [format %.3f $grt_seconds],"
 puts $fp "  \"pin_access_seconds\": [format %.3f $pin_access_seconds],"
 puts $fp "  \"nets_with_guides\": $guides,"
+puts $fp "  \"max_routing_layer\": \"[expr { [info exists ::env(RI_MAX_ROUTING_LAYER)] && $::env(RI_MAX_ROUTING_LAYER) ne {} ? $::env(RI_MAX_ROUTING_LAYER) : $::env(MAX_ROUTING_LAYER) }]\","
+puts $fp "  \"layer_adjustment\": \"[expr { [info exists ::env(RI_LAYER_ADJUSTMENT)] && $::env(RI_LAYER_ADJUSTMENT) ne {} ? $::env(RI_LAYER_ADJUSTMENT) : $::env(ROUTING_LAYER_ADJUSTMENT) }]\","
+puts $fp "  \"layers\": \[[join $layer_rows ", "]\],"
 puts $fp "  \"endpoints\": \["
 puts $fp "    [join $rows ",\n    "]"
 puts $fp "  \]"

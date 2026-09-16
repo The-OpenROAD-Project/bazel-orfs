@@ -23,7 +23,7 @@ extracted SPEF.
 Every target here is manual: each one loads a stage ODB and routes it.
 """
 
-load("//:openroad.bzl", "orfs_run")
+load("//:openroad.bzl", "orfs_flow", "orfs_run")
 
 # The ladder, cheapest first. The arguments are passed to `global_route`
 # verbatim.
@@ -83,9 +83,11 @@ def ri_probe(
         src,
         parasitics,
         grt_args = None,
+        probe_env = {},
         arguments = {},
         user_arguments = {},
         sources = {},
+        extra_sources = {},
         user_sources = {},
         visibility = None):
     """One instrument's opinion of one stage ODB.
@@ -97,10 +99,19 @@ def ri_probe(
         src: the flow stage target whose ODB is read.
         parasitics: placement, global_routing or spef.
         grt_args: `global_route` arguments, for the global_routing mode.
+        probe_env: extra RI_* variables read only by the probe script --
+            the contention knobs, which ORFS has never heard of and
+            which therefore take the user_arguments hatch.
         arguments: ORFS variables, defaulting to the design's own.
         user_arguments: project-specific variables, exempt from the
             variables.yaml spell-check.
-        sources: source-typed ORFS variables, defaulting to the design's.
+        sources: source-typed ORFS variables, defaulting to the
+            design's. Re-rooted into @orfs, since that is how a DESIGNS
+            entry spells them.
+        extra_sources: source-typed ORFS variables owned by *this*
+            package, merged after that re-rooting -- a label of ours put
+            through it would come back pointing at a package inside
+            @orfs that does not exist.
         user_sources: source-typed project hooks; the staging preamble is
             added to these.
         visibility: forwarded.
@@ -113,6 +124,7 @@ def ri_probe(
     }
     if grt_args != None:
         probe_args["RI_GRT_ARGS"] = grt_args
+    probe_args.update(probe_env)
 
     orfs_run(
         name = name,
@@ -120,7 +132,7 @@ def ri_probe(
         outs = [out],
         arguments = arguments or design["arguments"],
         script = "//test/repair_information:endpoint_slacks.tcl",
-        sources = orfs_relative(sources or design["sources"]),
+        sources = orfs_relative(sources or design["sources"]) | extra_sources,
         tags = ["manual"],
         user_arguments = user_arguments | probe_args,
         user_sources = user_sources | {
@@ -129,6 +141,97 @@ def ri_probe(
         variant = name,
         visibility = visibility,
     )
+
+# The contention axis. asap7's platform default is 0.25, so the sweep
+# straddles it: 0.0 is every track the stack has, 0.95 leaves the router
+# almost nothing.
+#
+# Why this is the right knob. `estimate_parasitics -placement` prices
+# every net from the one resistance and capacitance `set_wire_rc`
+# installed -- on asap7 an absolute constant standing in for a
+# lower-middle layer -- so the placement estimate can only be wrong to
+# the extent that routing lands on layers whose real RC is not that
+# constant. Scarcity is what pushes it there: with room to route, global
+# route takes the direct path on the layer the constant describes and
+# confirms what placement already said, which is the 2.7-3.6% agreement
+# the uncontended designs measured. Nothing about the netlist has to
+# change to open the gap -- only the supply.
+LAYER_ADJUSTMENTS = [
+    "0.0",
+    "0.25",
+    "0.5",
+    "0.7",
+    "0.8",
+    "0.9",
+    "0.95",
+]
+
+def ri_contention(
+        name,
+        design,
+        design_dir,
+        adjustments = LAYER_ADJUSTMENTS,
+        max_layers = [],
+        arguments = {},
+        user_arguments = {},
+        sources = {},
+        user_sources = {},
+        visibility = None):
+    """Sweep routing supply on one CTS ODB, with the route as the only variable.
+
+    The placement rung of `ri_ladder` is the control and does not need
+    repeating: `estimate_parasitics -placement` never looks at routing
+    supply, so its period is flat across this whole sweep by
+    construction. That flatness is the plot's baseline, and it is the
+    reason the sweep costs a route each and nothing else.
+
+    `-allow_congestion` is mandatory here rather than merely advisable:
+    at a 0.9 derate the route certainly overflows, and without the flag
+    grt::have_routes rejects it and the probe dies at EST-5 having
+    measured nothing.
+
+    Args:
+        name: prefix for every target.
+        design: the parsed DESIGNS entry.
+        design_dir: the design's directory under `@orfs//flow/designs/asap7`.
+        adjustments: ROUTING_LAYER_ADJUSTMENT values to sweep.
+        max_layers: MAX_ROUTING_LAYER values to sweep, at the platform's
+            own derate -- the other way to force the mix, by taking the
+            fast top layers away rather than making every layer scarce.
+        arguments: override the design's ORFS variables.
+        user_arguments: project-specific variables.
+        sources: override the design's source-typed variables.
+        user_sources: source-typed project hooks.
+        visibility: forwarded.
+    """
+    common = {
+        "arguments": arguments,
+        "design": design,
+        "grt_args": "-allow_congestion -congestion_iterations 30",
+        "parasitics": "global_routing",
+        "sources": sources,
+        "src": "@orfs//flow/designs/asap7/{}:{}_cts".format(
+            design_dir,
+            design["name"],
+        ),
+        "user_arguments": user_arguments,
+        "user_sources": user_sources,
+        "visibility": visibility,
+    }
+
+    for adj in adjustments:
+        ri_probe(
+            name = "{}_adj{}".format(name, adj.replace(".", "")),
+            probe_env = {"RI_LAYER_ADJUSTMENT": adj},
+            **common
+        )
+
+    for layer in max_layers:
+        ri_probe(
+            name = "{}_max{}".format(name, layer),
+            probe_env = {"RI_MAX_ROUTING_LAYER": layer},
+            **common
+        )
 
 def ri_ladder(
         name,
@@ -179,6 +282,22 @@ def ri_ladder(
         **common
     )
 
+    # The ceiling. Same ODB, same placement estimate, no wire RC at all,
+    # so the difference from the rung above is the whole wire-delay
+    # contribution to the achieved period -- and therefore the most any
+    # parasitics model can be wrong by. A design whose gap here is 1% is
+    # a design where this study has nothing to find, whatever the
+    # congestion does.
+    ri_probe(
+        name = "{}_zero_rc".format(name),
+        parasitics = "placement",
+        src = cts,
+        extra_sources = {
+            "LAYER_PARASITICS_FILE": ["//test/repair_information:zero_rc.tcl"],
+        },
+        **common
+    )
+
     for rung, grt_args in rungs.items():
         ri_probe(
             name = "{}_gr_{}".format(name, rung),
@@ -194,3 +313,139 @@ def ri_ladder(
         src = final,
         **common
     )
+
+# Utilization values for the wire-share sweep. The platform's own value
+# for a design is typically 40-70; below that the core grows and the nets
+# with it.
+#
+# Why utilization and not congestion. The zero-RC rung showed signal wire
+# delay is 2-12% of the achieved period on the stock small designs, and
+# that share is a ceiling: no parasitics model can be wrong by more than
+# the delay it models, so a design at 2% cannot show this effect however
+# scarce its routing supply is made -- which is exactly what the flat gcd
+# contention sweep measured. The two knobs also fight: scarcer supply
+# forces detours, but a denser core shortens every net, and wire share
+# falls with it.
+#
+# A large core at low utilization buys the length directly. It is not a
+# realistic floorplan, and it is not meant to be -- it is the regime
+# where the question has an answer, reached on a design small enough to
+# re-run in a minute.
+WIRE_SHARE_UTILIZATIONS = [
+    "40",
+    "20",
+    "10",
+    "5",
+    "2",
+]
+
+def ri_stretch(
+        name,
+        design,
+        design_dir,
+        utilizations = WIRE_SHARE_UTILIZATIONS,
+        adjustments = ["0.25"],
+        arguments = {},
+        user_arguments = {},
+        sources = {},
+        user_sources = {},
+        verilog_files = None,
+        visibility = None):
+    """Re-floorplan one design at a ladder of utilizations, and probe each.
+
+    Each rung synthesizes for itself. Sharing one synth through
+    `previous_stage` looks obviously right and does not compose with a
+    per-rung `variant`: RESULTS_DIR is
+    results/<platform>/<top>/<variant>, the donor's 1_synth.odb lands in
+    *its* variant directory, and the rung's floorplan then fails with
+    "ORD-0007 .../u20/1_synth.odb does not exist". The variant cannot be
+    dropped either -- without it every rung writes the same
+    2_floorplan.odb and bazel rejects the package outright. So the ladder
+    pays for a synth per rung, which on a small design is seconds, and
+    the netlists are identical regardless because nothing in synthesis
+    reads CORE_UTILIZATION.
+
+    Each rung gets the three instruments that bound the question: the
+    no-wire floor, the placement estimate, and a stock-effort global
+    route. The SPEF reference is deliberately absent -- these floorplans
+    are not designs anyone would route, and the question here is only
+    where the placement estimate and global route part company.
+
+    Args:
+        name: prefix for every target.
+        design: the parsed DESIGNS entry.
+        design_dir: unused; kept so the ladder reads like its siblings.
+        utilizations: CORE_UTILIZATION values, as strings.
+        adjustments: ROUTING_LAYER_ADJUSTMENT values to cross with them.
+        arguments: override the design's ORFS variables.
+        user_arguments: project-specific variables.
+        sources: override the design's source-typed variables.
+        user_sources: source-typed project hooks.
+        verilog_files: forwarded; defaults to the design's own.
+        visibility: forwarded.
+    """
+    top = design["name"]
+    design_args = arguments or design["arguments"]
+    design_sources = orfs_relative(sources or design["sources"])
+
+    for util in utilizations:
+        variant = "u{}".format(util)
+        flow = "{}_{}".format(name, variant)
+
+        # CORE_UTILIZATION and CORE_ASPECT_RATIO/CORE_MARGIN are the
+        # floorplan's shape. A design that names a DIE_AREA or CORE_AREA
+        # instead would ignore utilization entirely, and the rung would
+        # silently be a duplicate of its neighbour -- hence the ladder is
+        # only applied to designs whose config sets utilization.
+        # The variant, not just the target name, has to differ per rung:
+        # RESULTS_DIR is results/<platform>/<top>/<variant>, so five
+        # rungs sharing the default "base" all write the same
+        # 2_floorplan.json and bazel rejects the package with
+        # "generated by these conflicting actions". The variant is also
+        # what puts the utilization into the target name.
+        orfs_flow(
+            name = name,
+            variant = variant,
+            arguments = design_args | {"CORE_UTILIZATION": util},
+            last_stage = "cts",
+            sources = design_sources,
+            tags = ["manual"],
+            top = top,
+            user_arguments = user_arguments,
+            verilog_files = verilog_files if verilog_files != None else orfs_relative(
+                {"v": design["verilog_files"]},
+            )["v"],
+            visibility = visibility,
+        )
+
+        probe_common = {
+            "arguments": design_args | {"CORE_UTILIZATION": util},
+            "design": design,
+            "sources": design_sources,
+            "src": ":{}_cts".format(flow),
+            "user_arguments": user_arguments,
+            "user_sources": user_sources,
+            "visibility": visibility,
+        }
+
+        ri_probe(
+            name = "{}_placement".format(flow),
+            parasitics = "placement",
+            **probe_common
+        )
+        ri_probe(
+            name = "{}_zero_rc".format(flow),
+            extra_sources = {
+                "LAYER_PARASITICS_FILE": ["//test/repair_information:zero_rc.tcl"],
+            },
+            parasitics = "placement",
+            **probe_common
+        )
+        for adj in adjustments:
+            ri_probe(
+                name = "{}_gr_adj{}".format(flow, adj.replace(".", "")),
+                grt_args = "-allow_congestion -congestion_iterations 30",
+                parasitics = "global_routing",
+                probe_env = {"RI_LAYER_ADJUSTMENT": adj},
+                **probe_common
+            )

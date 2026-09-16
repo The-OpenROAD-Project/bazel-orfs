@@ -19,11 +19,21 @@ and routes it. The parsers are the only thing `bazelisk test` runs.
 
 load("@orfs_designs//:designs.bzl", "DESIGNS")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
-load(":probes.bzl", "ri_ladder")
+load(
+    ":probes.bzl",
+    "LAYER_ADJUSTMENTS",
+    "WIRE_SHARE_UTILIZATIONS",
+    "ri_contention",
+    "ri_ladder",
+    "ri_stretch",
+)
 
 package(default_visibility = ["//visibility:private"])
 
-exports_files(["endpoint_slacks.tcl"])
+exports_files([
+    "endpoint_slacks.tcl",
+    "zero_rc.tcl",
+])
 
 # The asap7 designs Part A runs on. Chosen for runtime -- every one of
 # them has to reach 6_final, since the reference instrument is the
@@ -90,6 +100,7 @@ DESIGN_USER_SOURCE_VARS = {
 # Every probe one design produces, in the order the ladder reads.
 RUNGS = [
     "placement",
+    "zero_rc",
     "gr_cheapest",
     "gr_no_overflow_loop",
     "gr_few",
@@ -107,11 +118,17 @@ RUNGS = [
         name = "update_{}".format(directory.replace("-", "_")),
         srcs = ["//test/pre_route_pessimism:update_results.py"],
         args = ["--dest-dir=test/repair_information/results"] + [
-            "$(rootpath :{}_{}.json)".format(directory.replace("-", "_"), rung)
+            "$(rootpath :{}_{}.json)".format(
+                directory.replace("-", "_"),
+                rung,
+            )
             for rung in RUNGS
         ],
         data = [
-            ":{}_{}.json".format(directory.replace("-", "_"), rung)
+            ":{}_{}.json".format(
+                directory.replace("-", "_"),
+                rung,
+            )
             for rung in RUNGS
         ],
         main = "update_results.py",
@@ -119,6 +136,137 @@ RUNGS = [
     )
     for directory in STUDY_DESIGNS
 ]
+
+# The contention sweep. The uncontended designs all measured a
+# place-to-grt gap of 2.7-3.6%, which is the regime where the single
+# set_wire_rc constant is not wrong about anything -- so a study run only
+# there would be measuring the null. This forces the regime instead of
+# hoping for it: same CTS ODB, same placement estimate, routing supply
+# taken away a step at a time.
+#
+# Smallest design first. A sweep point is one route, so gcd is seconds
+# and the whole curve is cheaper than a single flow stage.
+CONTENTION_DESIGNS = [
+    "gcd",
+    "uart",
+    "mock-alu",
+]
+
+[
+    ri_contention(
+        name = "sweep_{}".format(directory.replace("-", "_")),
+        arguments = {
+            key: value
+            for key, value in DESIGNS["asap7/" + directory]["arguments"].items()
+            if key not in DESIGN_USER_VARS.get(directory, [])
+        },
+        design = DESIGNS["asap7/" + directory],
+        design_dir = directory,
+        max_layers = [
+            "M5",
+            "M4",
+            "M3",
+        ],
+        sources = {
+            key: value
+            for key, value in DESIGNS["asap7/" + directory]["sources"].items()
+            if key not in DESIGN_USER_SOURCE_VARS.get(directory, [])
+        },
+        user_arguments = {
+            key: value
+            for key, value in DESIGNS["asap7/" + directory]["arguments"].items()
+            if key in DESIGN_USER_VARS.get(directory, [])
+        },
+        user_sources = {
+            key: value
+            for key, value in DESIGNS["asap7/" + directory]["sources"].items()
+            if key in DESIGN_USER_SOURCE_VARS.get(directory, [])
+        },
+    )
+    for directory in CONTENTION_DESIGNS
+]
+
+# One sweep's JSONs, copied into the source tree.
+[
+    py_binary(
+        name = "update_sweep_{}".format(directory.replace("-", "_")),
+        srcs = ["//test/pre_route_pessimism:update_results.py"],
+        args = ["--dest-dir=test/repair_information/results"] + [
+            "$(rootpath :sweep_{}_{}.json)".format(
+                directory.replace("-", "_"),
+                point,
+            )
+            for point in ["adj" + a.replace(".", "") for a in LAYER_ADJUSTMENTS] + [
+                "maxM5",
+                "maxM4",
+                "maxM3",
+            ]
+        ],
+        data = [
+            ":sweep_{}_{}.json".format(
+                directory.replace("-", "_"),
+                point,
+            )
+            for point in ["adj" + a.replace(".", "") for a in LAYER_ADJUSTMENTS] + [
+                "maxM5",
+                "maxM4",
+                "maxM3",
+            ]
+        ],
+        main = "update_results.py",
+        tags = ["manual"],
+    )
+    for directory in CONTENTION_DESIGNS
+]
+
+# The wire-share ladder. gcd's contention sweep moved the layer mix
+# enormously and the period by 1.2 ps, because signal wire delay is only
+# 2% of gcd's period -- a ceiling no routing knob can lift. This ladder
+# lifts it directly, by giving the same netlist a bigger core: longer
+# nets, more wire delay, and only then a question about how it is
+# estimated.
+#
+# Synthesis is shared with the stock flow, so a rung is a
+# floorplan-to-CTS run and gcd's whole ladder is a few minutes.
+[
+    ri_stretch(
+        name = "stretch_gcd",
+        adjustments = [
+            "0.25",
+            "0.9",
+        ],
+        arguments = DESIGNS["asap7/gcd"]["arguments"],
+        design = DESIGNS["asap7/gcd"],
+        design_dir = "gcd",
+    ),
+]
+
+py_binary(
+    name = "update_stretch_gcd",
+    srcs = ["//test/pre_route_pessimism:update_results.py"],
+    args = ["--dest-dir=test/repair_information/results"] + [
+        "$(rootpath :stretch_gcd_u{}_{}.json)".format(util, probe)
+        for util in WIRE_SHARE_UTILIZATIONS
+        for probe in [
+            "placement",
+            "zero_rc",
+            "gr_adj025",
+            "gr_adj09",
+        ]
+    ],
+    data = [
+        ":stretch_gcd_u{}_{}.json".format(util, probe)
+        for util in WIRE_SHARE_UTILIZATIONS
+        for probe in [
+            "placement",
+            "zero_rc",
+            "gr_adj025",
+            "gr_adj09",
+        ]
+    ],
+    main = "update_results.py",
+    tags = ["manual"],
+)
 
 py_library(
     name = "rank_agreement",

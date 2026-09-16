@@ -67,12 +67,36 @@ class DiscoverTest(unittest.TestCase):
         found = report.discover(self.dir)
         self.assertEqual(report.section_ladder(found), report.MISSING)
 
+    def test_ceiling_is_the_wire_share_and_the_error_ratio(self):
+        eps = {"a": -1.0, "b": 2.0}
+        self.write(
+            "gcd_spef", probe("gcd_spef", eps, parasitics="spef", min_period=100.0)
+        )
+        self.write("gcd_placement", probe("gcd_placement", eps, min_period=100.0))
+        self.write("gcd_zero_rc", probe("gcd_zero_rc", eps, min_period=90.0))
+        self.write("gcd_gr_stock", probe("gcd_gr_stock", eps, min_period=115.0))
+        text = report.section_ceiling(report.discover(self.dir))
+        # 10 ps of wire in a 100 ps period.
+        self.assertIn("10.0", text)
+        self.assertIn("10.0%", text)
+        # grt is 15 ps off a 10 ps wire delay: wrong about the wires by
+        # more than the wires are worth, and the table has to say so.
+        self.assertIn("150%", text)
+
+    def test_ceiling_absent_without_the_zero_rc_rung(self):
+        eps = {"a": -1.0, "b": 2.0}
+        self.write("gcd_placement", probe("gcd_placement", eps))
+        self.assertEqual(
+            report.section_ceiling(report.discover(self.dir)), report.MISSING
+        )
+
     def test_render_covers_every_section(self):
         eps = {"a": -1.0, "b": 2.0, "c": 3.0, "d": 4.0}
         self.write("gcd_spef", probe("gcd_spef", eps, parasitics="spef"))
         self.write("gcd_placement", probe("gcd_placement", eps))
         self.write("gcd_gr_stock", probe("gcd_gr_stock", eps))
         text = report.render(report.discover(self.dir))
+        self.assertIn("The ceiling", text)
         self.assertIn("A0 -- the two floors", text)
         self.assertIn("Spearman", text)
         self.assertIn("what it is", text)

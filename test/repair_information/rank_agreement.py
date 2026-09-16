@@ -118,7 +118,9 @@ def compare(reference, candidate, k_fractions=(0.01, 0.05, 0.10), k_absolute=(10
     # Fractional k scales with the design; absolute k keeps the
     # statistic readable on a small one, where "the worst 1%" can be a
     # single endpoint and an overlap of 1/1 says nothing at all.
-    ks = [("{:.0%}".format(f), max(1, int(round(f * len(common))))) for f in k_fractions]
+    ks = [
+        ("{:.0%}".format(f), max(1, int(round(f * len(common))))) for f in k_fractions
+    ]
     ks += [("top{}".format(k), k) for k in k_absolute if k <= len(common)]
 
     for label, k in ks:
