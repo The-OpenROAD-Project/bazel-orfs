@@ -207,6 +207,29 @@ py_binary(
     main = "check_sdc.py",
 )
 
+# The README quotes results.json, and nothing it quotes may disagree.
+# Not manual: milliseconds, and what it guards -- three drafts' numbers
+# coexisting in the prose -- is silent everywhere else.
+py_test(
+    name = "readme_numbers_test",
+    size = "small",
+    srcs = [
+        "readme_numbers.py",
+        "readme_numbers_test.py",
+    ],
+    data = [
+        "//test/coremark_joule:README.md",
+        "//test/coremark_joule:results.json",
+    ],
+    main = "readme_numbers_test.py",
+)
+
+py_binary(
+    name = "readme_numbers",
+    srcs = ["readme_numbers.py"],
+    main = "readme_numbers.py",
+)
+
 # write_verilog can emit two instances under one name. Zero renames is
 # the assertion; a design that needs one says so and says why.
 py_binary(
