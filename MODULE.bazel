@@ -446,3 +446,150 @@ orfs_designs(
     dev_dependency = True,
     platforms = ["asap7"],
 )
+
+# --- //test/coremark_joule: the CoreMark-per-Joule study -------------------
+#
+# Everything below belongs to one study under test/, which is never
+# shipped (see public_surface.py), so all of it is dev-only: a consumer
+# of bazel-orfs must never resolve a RISC-V toolchain or a CPU core to
+# build a flow.
+#
+# The RTL is fetched, never vendored: an http_archive pinned by sha256
+# plus a small BUILD overlay in this repository. That is the pattern the
+# retired gallery/ workspace used for every core it hardened.
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+# xPack's bare-metal RISC-V GCC. Chosen over a hermetic LLVM because the
+# rv32i multilib ships libgcc, and on a core without the M extension
+# __mulsi3 is on CoreMark's hot path -- a hand-written replacement would
+# make SERV's score a measurement of our shift-add loop rather than of
+# SERV. The BCR "llvm" module cannot stand in: its RISC-V support is
+# riscv64 Linux, hard-wired to rv64gc.
+http_archive(
+    name = "riscv_none_elf_gcc",
+    build_file = "//test/coremark_joule/sw:toolchain.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "52545afb900200fbf65fe05f7ce7090b8a42c64091f4f5d43cae6bb68ea2434a",
+    strip_prefix = "xpack-riscv-none-elf-gcc-13.2.0-2",
+    urls = ["https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/download/v13.2.0-2/xpack-riscv-none-elf-gcc-13.2.0-2-linux-x64.tar.gz"],
+)
+
+# CoreMark, unmodified. The platform lives entirely in
+# //test/coremark_joule/sw/port, which is the porting surface CoreMark
+# documents; its Acceptable Use Agreement forbids naming the trademark
+# in connection with a modified copy of the Software.
+http_archive(
+    name = "coremark",
+    build_file = "//test/coremark_joule/sw:coremark.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "4067e7f260218df13f2875d8f821a8ff32a84153c6e0759d7c89f96c0a8bf987",
+    strip_prefix = "coremark-1f483d5b8316753a742cbf5590caf5bd0a4e4777",
+    urls = ["https://github.com/eembc/coremark/archive/1f483d5b8316753a742cbf5590caf5bd0a4e4777.tar.gz"],
+)
+
+# SERV, the bit-serial RV32I core. Its register file lives in an SRAM
+# (serv_rf_ram) rather than in flops, which is the core's whole
+# architectural trick -- and the reason AUTO_MEMORIES matters most here:
+# hardened as flops that register file would dominate the area and power
+# of a ~2k-cell core, and the measurement would be of the wrong thing.
+http_archive(
+    name = "serv",
+    build_file = "//test/coremark_joule/rtl:serv.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "43d99e7032dc936e5a9cd106be0a46a7d411c2c80e5c0310536f51c905cac3f2",
+    strip_prefix = "serv-f200eb2ed7b69ac1c6b8eddd47654522aeee5ce8",
+    urls = ["https://github.com/olofk/serv/archive/f200eb2ed7b69ac1c6b8eddd47654522aeee5ce8.tar.gz"],
+)
+
+# ibex, from upstream. ORFS ships an ibex_sv whose own README says it is
+# a pruned clone of lowRISC at commit 77d8010 -- a years-old snapshot
+# whose top is ibex_core.sv rather than upstream's ibex_top.sv, so it is
+# a different DUT and not the one lowRISC's own bare-metal CoreMark port
+# targets.
+http_archive(
+    name = "ibex",
+    build_file = "//test/coremark_joule/rtl:ibex.BUILD.bazel",
+    dev_dependency = True,
+    # The vendored OpenTitan tree ships its own BUILD files, which make
+    # vendor/lowrisc_ip/ip/prim and its siblings separate Bazel packages
+    # -- and a glob cannot cross a package boundary, so the overlay's
+    # filegroups would silently match nothing. Removing them lets the
+    # overlay own the whole tree. Nothing here builds OpenTitan's own
+    # targets; only the .sv files are wanted.
+    patch_cmds = [
+        "find vendor -name BUILD -o -name BUILD.bazel | xargs -r rm -f",
+    ],
+    sha256 = "34fba9a683428bbe7ec05258eb1b9a340bf30f5e7804ffedf03afcdb97a37d82",
+    strip_prefix = "ibex-405c6d1d8220a18b2f9196141167a5875422dee4",
+    urls = ["https://github.com/lowRISC/ibex/archive/405c6d1d8220a18b2f9196141167a5875422dee4.tar.gz"],
+)
+
+# VeeR EH1, from upstream chipsalliance -- not from ORFS, whose
+# asap7/swerv_wrapper vendors the core as one 6.3 MB mechanically
+# sv2v-converted file, snapshotted from the pre-CHIPS-Alliance
+# westerndigitalcorporation/swerv_eh1 at 3ef7e65f with a configuration
+# that was baked in before the conversion and is recorded nowhere. The
+# ICCM, DCCM and icache sizes are what the study's core-plus-L1 boundary
+# makes load-bearing, so "the default configuration" is not a claim this
+# study can pass on -- especially since upstream's own CoreMark
+# configuration is not a target preset at all: it raises the BTB and BHT
+# sixteenfold over the default, and that is the configuration its
+# published 4.94 CoreMark/MHz was measured on. The configuration
+# measured here keeps that branch predictor and runs the benchmark out
+# of the 16 kB instruction cache and the 64 kB DCCM rather than out of
+# an ICCM, because the ICCM has no store path from the core and the
+# hierarchical force upstream's testbench uses to fill it does not
+# survive to the gate-level netlist that produces the SAIF. It is
+# generated once by upstream's own generator and committed under
+# //test/coremark_joule/rtl/veer/config.
+http_archive(
+    name = "veer",
+    build_file = "//test/coremark_joule/rtl:veer.BUILD.bazel",
+    dev_dependency = True,
+    # VeeR names its three Verilog headers `.h`, and rules_verilog's
+    # verilog_library accepts only `.vh`/`.svh` in `hdrs` -- which is the
+    # attribute whose file paths become the include search path. Passing
+    # them as `data` instead does deliver the files, but contributes no
+    # `-I`, and the `includes` attribute is resolved relative to the
+    # declaring package, which does not reach an external repository.
+    #
+    # So: rename the headers and rewrite the four `include directives
+    # that name them. This is a filename change and nothing else --
+    # mechanically checkable, and deliberately not the kind of
+    # wholesale mechanical translation that makes ORFS's vendored copy
+    # unusable for this study. Order matters: rewrite the directives
+    # before the files move, or the sed finds nothing.
+    patch_cmds = [
+        "find design -name '*.sv' -o -name '*.v' | xargs sed -i -e 's|include \"build.h\"|include \"build.vh\"|' -e 's|include \"global.h\"|include \"global.vh\"|' -e 's|include \"pic_map_auto.h\"|include \"pic_map_auto.vh\"|'",
+        "mv design/include/build.h design/include/build.vh",
+        "mv design/include/global.h design/include/global.vh",
+    ],
+    sha256 = "2a5cb82c7f671d3985d052a3e47c9ff344982a81bb6370798f1846edf47c2517",
+    strip_prefix = "Cores-VeeR-EH1-695883a674c4a59cf96fae874ff4bfac5fecf4e8",
+    urls = ["https://github.com/chipsalliance/Cores-VeeR-EH1/archive/695883a674c4a59cf96fae874ff4bfac5fecf4e8.tar.gz"],
+)
+
+# picorv32, from upstream. ORFS carries no picorv32 at all, so there is
+# nothing to choose between.
+http_archive(
+    name = "picorv32",
+    build_file = "//test/coremark_joule/rtl:picorv32.BUILD.bazel",
+    dev_dependency = True,
+    sha256 = "e19413edc589a9022eb96a8c436170ea5019236bb897ac9eb7813899920ea70c",
+    strip_prefix = "picorv32-87c89acc18994c8cf9a2311e871818e87d304568",
+    urls = ["https://github.com/YosysHQ/picorv32/archive/87c89acc18994c8cf9a2311e871818e87d304568.tar.gz"],
+)
+
+# The study's own designs (//test/coremark_joule/designs): a third
+# orfs_designs() instance, so the three cores get the same generated flow
+# targets and the same auto_floorplan derivation that every ORFS design
+# gets, without patching an ORFS checkout. Must stay below the two
+# instances above: //test:orfs_platforms_test reads the first one it
+# finds.
+orfs_designs(
+    name = "coremark_joule_designs",
+    designs_dir = "//test/coremark_joule/designs:BUILD",
+    dev_dependency = True,
+    platforms = ["asap7"],
+)

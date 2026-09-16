@@ -1,0 +1,123 @@
+# Overlay for @ibex: upstream lowRISC/ibex.
+#
+# Upstream, not ORFS's ibex_sv, whose own README records what it is: a
+# clone of lowRISC at commit 77d8010 that was "pruned to only those
+# source files which are used". Its top is ibex_core.sv; upstream's real
+# top -- ibex_top.sv, carrying the register file and the wrappers -- is
+# not in it. It is a different, years-old DUT.
+#
+# The vendored prim library comes along whole. Picking out the handful of
+# prim modules ibex instantiates would be a list to maintain against
+# every bump, and Verilator only elaborates what is reached from the top.
+package(default_visibility = ["//visibility:public"])
+
+# Packages, split out from the rest so a dependency edge puts them
+# first. Verilator resolves in file order, and a glob is alphabetical --
+# which puts ibex_alu.sv ahead of ibex_pkg.sv and makes every type in it
+# a reference before declaration.
+filegroup(
+    name = "pkgs",
+    srcs = glob(
+        [
+            "rtl/*_pkg.sv",
+            "vendor/lowrisc_ip/ip/prim/rtl/*_pkg.sv",
+            "vendor/lowrisc_ip/ip/prim_generic/rtl/*_pkg.sv",
+        ],
+        exclude = ["rtl/ibex_tracer_pkg.sv"],
+    ),
+)
+
+# The generic behavioural RAM, kept out of the shared list so the two
+# consumers can differ.
+#
+# prim_ram_1p is lowRISC's technology-swappable memory primitive: the
+# vendor drop carries a prim_generic implementation (a behavioural
+# array) and a prim_xilinx one beside it, which is the library saying
+# out loud that a real target supplies its own. ibex instantiates it
+# only with ICache=1, four times -- tag and data banks, two ways.
+#
+# The simulator wants the behavioural one. The flow must not have it:
+# an inline array is the design asking for flip-flops, and AUTO_MEMORIES
+# says so and refuses to convert it, which on a 4 kB cache is 44,032
+# flops against a core of about two thousand. See
+# //test/coremark_joule/rtl:cmj_prim_ram_1p.sv for the ASAP7 one.
+GENERIC_RAM_1P = "vendor/lowrisc_ip/ip/prim_generic/rtl/prim_ram_1p.sv"
+
+filegroup(
+    name = "rtl_common",
+    srcs = glob(
+        [
+            "rtl/*.sv",
+            "vendor/lowrisc_ip/ip/prim/rtl/*.sv",
+            "vendor/lowrisc_ip/ip/prim_generic/rtl/*.sv",
+        ],
+        exclude = [
+            # Simulation-only, and full of $display: it would follow the
+            # core into synthesis.
+            "rtl/ibex_tracer.sv",
+            "rtl/ibex_tracer_pkg.sv",
+            "rtl/ibex_top_tracing.sv",
+            # Alternative register-file implementations. RegFileFF is the
+            # configured one; the latch and FPGA variants would otherwise
+            # be elaborated and hardened alongside it.
+            "rtl/ibex_register_file_latch.sv",
+            "rtl/ibex_register_file_fpga.sv",
+            # OpenTitan primitives for subsystems ibex is not part of:
+            # the life-cycle controller and the register access control
+            # list. ibex instantiates none of them, and they import
+            # packages (lc_ctrl_pkg, top_racl_pkg) this vendor drop does
+            # not carry, so they cannot even be parsed here.
+            # Excluding three files is a shorter and more stable list
+            # than enumerating the prims ibex does use, which would have
+            # to be re-derived on every bump.
+            "vendor/lowrisc_ip/ip/prim/rtl/prim_lc_and_hardened.sv",
+            "vendor/lowrisc_ip/ip/prim/rtl/prim_lc_dec.sv",
+            "vendor/lowrisc_ip/ip/prim/rtl/prim_lc_or_hardened.sv",
+            "vendor/lowrisc_ip/ip/prim/rtl/prim_racl_error_arb.sv",
+            "vendor/lowrisc_ip/ip/prim/rtl/prim_sdc_example.sv",
+            # Two more of the same kind, found by slang rather than
+            # guessed: they use macros (`PRIM_FLOP_SPARSE_FSM,
+            # `ASSERT_PRIM_REG_WE_ONEHOT_ERROR_TRIGGER_ALERT) defined in
+            # OpenTitan headers this vendor drop does not place on any
+            # include path. ibex instantiates neither the Ascon duplex
+            # nor a flash primitive.
+            "vendor/lowrisc_ip/ip/prim/rtl/prim_ascon_duplex.sv",
+            "vendor/lowrisc_ip/ip/prim_generic/rtl/prim_flash.sv",
+            # In :pkgs, which this target depends on.
+            "rtl/*_pkg.sv",
+            "vendor/lowrisc_ip/ip/prim/rtl/*_pkg.sv",
+            "vendor/lowrisc_ip/ip/prim_generic/rtl/*_pkg.sv",
+            GENERIC_RAM_1P,
+        ],
+    ),
+)
+
+# For the simulator: the core plus lowRISC's behavioural RAM.
+filegroup(
+    name = "rtl",
+    srcs = [
+        GENERIC_RAM_1P,
+        ":rtl_common",
+    ],
+)
+
+# For the flow: the core without it, so the design's own ASAP7
+# implementation is the only prim_ram_1p in the elaboration.
+filegroup(
+    name = "rtl_tech_ram",
+    srcs = [":rtl_common"],
+)
+
+# Two header directories, both `include`d by name from ibex sources:
+# prim/rtl holds the assertion macros, and dv/sv/dv_utils holds the
+# functional-coverage ones. The coverage macros compile to nothing
+# outside a DV build, but the files still have to be found.
+filegroup(
+    name = "hdrs",
+    srcs = glob([
+        "vendor/lowrisc_ip/ip/prim/rtl/*.svh",
+        "vendor/lowrisc_ip/dv/sv/dv_utils/*.svh",
+    ]),
+)
+
+exports_files(["LICENSE"])

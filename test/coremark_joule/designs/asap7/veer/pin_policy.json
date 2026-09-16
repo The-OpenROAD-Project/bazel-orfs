@@ -1,0 +1,20 @@
+{
+  "design": "swerv_wrapper",
+  "macro_patterns": [
+    "^fakeram7"
+  ],
+  "max_unannotated_internal": 0,
+  "max_unmatched_fraction": 0.011,
+  "notes": "Same budget as the other three cores, and for the same reason: the claim the study makes is that OpenSTA's activity estimator does not enter the energy number, and an internal cell pin the SAIF did not annotate is the estimator entering it. This design is the first with hardened memories, so macro_patterns is load-bearing rather than defensive -- an unannotated fakeram7 pin is memory energy being invented rather than measured, and it is fatal regardless of the internal budget. max_unmatched_fraction is 1.1% for this design alone, against a measured 1.0118%: on a hierarchical ODB, odb's own instance enumeration does not reach the clock cells whose names contain the hierarchy separator, so OpenSTA lists 7,636 pins that the pin table cannot produce. They are the same cells whose SAIF entries scripts/filter_saif.py had to drop, so they were never going to be annotated; what the budget concedes is the ability to classify them from the database rather than from their names. The bound on what they are worth is the activity sweep, not this number. It was 1% against a measured 0.986% until VeeR's clock gates were mapped onto ICG cells: a real clock gate makes the gated clock a clock net the tree is built on, which added about 160 clock-buffer pins of exactly the kind already conceded here and pushed the fraction over its own budget. Raising it is the honest move rather than the convenient one only because the sweep did not move at all -- VeeR's SAIF arm is still bit-identical to ten significant figures across the full activity range, so the pins this budget concedes are still worth nothing to the reported number. It is stated as a fraction rather than a count because the fraction is the quantity worth driving down, and because a count would churn with every flow change while saying nothing about whether it is small. The intent is to whittle it toward zero, not to keep it.",
+  "scan_patterns": [],
+  "waivers": [
+    {
+      "pattern": "^(rst_vec|nmi_vec|jtag_id|extintsrc_req)\\[",
+      "reason": "Top-level input ports the SoC wrapper ties to constants: rst_vec to the reset vector, nmi_vec and jtag_id to zero, extintsrc_req to zero. Verilator does not emit a constant-driven port into the SAIF, so they arrive unannotated. Unannotated top ports are normally fatal because they are levelization roots and seed the estimator, and that is exactly why these are waived by name rather than budgeted: each is a constant in cm_soc_veer.sv, its true activity is zero, and the activity sweep measures what the estimator's default for them is worth."
+    },
+    {
+      "pattern": "^swerv\\.ifu\\.bp/_131758_/",
+      "reason": "The three pins of the one instance scripts/uniquify_netlist.py had to rename, because OpenROAD's write_verilog emitted two different AND2x2 clock cells under the name _131758_ in ifu_bp_ctl$swerv_wrapper.swerv.ifu.bp. The renamed instance carries a name in the SAIF that read_saif cannot match back to the ODB, so its pins arrive unannotated. Measured rather than assumed: A and Y are on clock nets and the audit already classifies them clock_network, and the one that is not is B, the clock gate's enable, on signal net swerv.ifu.bp/net57371. So the entire cost of that workaround is a single clock-gate enable pin, and the activity sweep is what bounds what it is worth."
+    }
+  ]
+}

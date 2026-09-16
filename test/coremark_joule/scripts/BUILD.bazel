@@ -1,0 +1,246 @@
+# Parsers and checks for the study.
+#
+# Each one is a py_binary so a genrule can execute it, and each has a
+# unit test: a study's arithmetic is worth no more than the parser
+# underneath it, and these parse output formats that upstream projects
+# are free to change.
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+package(default_visibility = ["//test/coremark_joule:__subpackages__"])
+
+exports_files([
+    "check_coremark.py",
+    "elf_sections.py",
+    "iteration_delta_test.py",
+    "check_memories_applied.py",
+    "check_smoke.py",
+    "run_check.sh",
+    "cm_per_joule.py",
+    "pin_results.py",
+    "plot_results.py",
+    "saif_window.py",
+    "run_memories_check.sh",
+    "run_report.sh",
+    "classify_pins.py",
+    "check_activity_sweep.py",
+    "bus_probe.py",
+    "check_sdc.py",
+    "run_check_sdc.sh",
+    "uniquify_netlist.py",
+    "filter_saif.py",
+])
+
+py_binary(
+    name = "elf2hex",
+    srcs = ["elf2hex.py"],
+    main = "elf2hex.py",
+)
+
+py_binary(
+    name = "check_coremark",
+    srcs = ["check_coremark.py"],
+    main = "check_coremark.py",
+)
+
+py_binary(
+    name = "cm_per_mhz",
+    srcs = ["cm_per_mhz.py"],
+    main = "cm_per_mhz.py",
+)
+
+# Unit tests for the parsers. Not manual: seconds of work, and each one
+# reads a format an upstream project is free to change -- a silent parse
+# failure would not look like a failure, it would look like a
+# measurement.
+py_test(
+    name = "parsers_test",
+    size = "small",
+    srcs = [
+        "check_coremark.py",
+        "cm_per_mhz.py",
+        "elf2hex.py",
+        "parsers_test.py",
+    ],
+    main = "parsers_test.py",
+)
+
+py_binary(
+    name = "report",
+    srcs = ["report.py"],
+    main = "report.py",
+)
+
+py_binary(
+    name = "check_smoke",
+    srcs = ["check_smoke.py"],
+    main = "check_smoke.py",
+)
+
+py_binary(
+    name = "check_memories_applied",
+    srcs = ["check_memories_applied.py"],
+    main = "check_memories_applied.py",
+)
+
+# The guard's own tests. It exists to catch a silent failure, so whether
+# it actually catches it is worth asserting rather than trusting.
+py_test(
+    name = "check_memories_applied_test",
+    size = "small",
+    srcs = [
+        "check_memories_applied.py",
+        "check_memories_applied_test.py",
+    ],
+    main = "check_memories_applied_test.py",
+)
+
+py_binary(
+    name = "saif_window",
+    srcs = ["saif_window.py"],
+    main = "saif_window.py",
+)
+
+py_test(
+    name = "saif_window_test",
+    size = "small",
+    srcs = [
+        "saif_window.py",
+        "saif_window_test.py",
+    ],
+    main = "saif_window_test.py",
+)
+
+py_binary(
+    name = "cm_per_joule",
+    srcs = ["cm_per_joule.py"],
+    main = "cm_per_joule.py",
+)
+
+py_test(
+    name = "cm_per_joule_test",
+    size = "small",
+    srcs = [
+        "cm_per_joule.py",
+        "cm_per_joule_test.py",
+    ],
+    main = "cm_per_joule_test.py",
+)
+
+py_binary(
+    name = "plot_results",
+    srcs = ["plot_results.py"],
+    main = "plot_results.py",
+    deps = ["@bazel-orfs-dev-pip//matplotlib"],
+)
+
+# The pin activity audit: which pins OpenSTA measured, and which it
+# estimated. The classification is the accounting; check_activity_sweep
+# is the bound that turns the accounting into a claim.
+py_binary(
+    name = "classify_pins",
+    srcs = ["classify_pins.py"],
+    main = "classify_pins.py",
+)
+
+py_test(
+    name = "classify_pins_test",
+    size = "small",
+    srcs = [
+        "classify_pins.py",
+        "classify_pins_test.py",
+    ],
+    main = "classify_pins_test.py",
+)
+
+py_binary(
+    name = "check_activity_sweep",
+    srcs = ["check_activity_sweep.py"],
+    main = "check_activity_sweep.py",
+)
+
+py_test(
+    name = "check_activity_sweep_test",
+    size = "small",
+    srcs = [
+        "check_activity_sweep.py",
+        "check_activity_sweep_test.py",
+    ],
+    main = "check_activity_sweep_test.py",
+)
+
+# What one CoreMark iteration costs on the external bus. The boundary is
+# a module for VeeR, so "is the benchmark inside it?" has an exact
+# answer, and this is the parser that takes it.
+py_binary(
+    name = "bus_probe",
+    srcs = ["bus_probe.py"],
+    main = "bus_probe.py",
+)
+
+py_test(
+    name = "bus_probe_test",
+    size = "small",
+    srcs = [
+        "bus_probe.py",
+        "bus_probe_test.py",
+    ],
+    main = "bus_probe_test.py",
+)
+
+# The constraint model of §3.8, checked rather than commented. Not
+# manual: it is milliseconds, and what it guards -- an SDC that says
+# nothing and so inherits an 80 ps IO budget -- is silent in every
+# report downstream of it.
+py_test(
+    name = "check_sdc_test",
+    size = "small",
+    srcs = [
+        "check_sdc.py",
+        "check_sdc_test.py",
+    ],
+    main = "check_sdc_test.py",
+)
+
+py_binary(
+    name = "check_sdc",
+    srcs = ["check_sdc.py"],
+    main = "check_sdc.py",
+)
+
+# write_verilog can emit two instances under one name. Zero renames is
+# the assertion; a design that needs one says so and says why.
+py_binary(
+    name = "uniquify_netlist",
+    srcs = ["uniquify_netlist.py"],
+    main = "uniquify_netlist.py",
+)
+
+py_test(
+    name = "uniquify_netlist_test",
+    size = "small",
+    srcs = [
+        "uniquify_netlist.py",
+        "uniquify_netlist_test.py",
+    ],
+    main = "uniquify_netlist_test.py",
+)
+
+# A SAIF cannot carry a net name containing the hierarchy separator.
+# Dropping those entries turns read_saif's total failure into a bounded,
+# classified loss -- and the budget on non-clock nets is what keeps it
+# bounded.
+py_binary(
+    name = "filter_saif",
+    srcs = ["filter_saif.py"],
+    main = "filter_saif.py",
+)
+
+py_test(
+    name = "filter_saif_test",
+    size = "small",
+    srcs = [
+        "filter_saif.py",
+        "filter_saif_test.py",
+    ],
+    main = "filter_saif_test.py",
+)

@@ -1,0 +1,21 @@
+{
+  "design": "cmj_ibex",
+  "min_coverage": 0.90,
+  "waiver": null,
+  "units": {
+    "ibex_if_stage": "fetch",
+    "ibex_prefetch_buffer": "fetch",
+    "ibex_fetch_fifo": "fetch",
+    "ibex_id_stage": "decode",
+    "ibex_decoder": "decode",
+    "ibex_compressed_decoder": "decode",
+    "ibex_controller": "control",
+    "ibex_ex_block": "execute",
+    "ibex_alu": "execute",
+    "ibex_multdiv_fast": "multiplier",
+    "ibex_load_store_unit": "load/store",
+    "ibex_register_file_ff": "register file",
+    "ibex_cs_registers": "csr",
+    "ibex_counter": "csr"
+  }
+}

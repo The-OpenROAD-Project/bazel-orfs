@@ -1,0 +1,287 @@
+# The simulation wrappers: RAM, the sim-control device, and one bus
+# adapter per core. Only the core instance inside is ever hardened.
+#
+# Every wrapper declares its top module as `cm_soc`, so one harness
+# source (//test/coremark_joule/sim:main.cc) serves all three cores and
+# the file name is what selects which one is built.
+load("@bazel-orfs//tools/lib_to_verilog:lib_to_verilog.bzl", "stdcell_verilog")
+load("@rules_verilog//verilog:defs.bzl", "verilog_library")
+
+package(default_visibility = ["//test/coremark_joule:__subpackages__"])
+
+exports_files([
+    "cmj_ibex.sv",
+    "cmj_ibex_ic.sv",
+    "cmj_icache_ram.sv",
+    "cmj_prim_ram_1p.sv",
+    "cmj_dmem.v",
+    "cmj_progmem.sv",
+    "cmj_picorv32.v",
+    "cmj_serv.v",
+    "ibex.BUILD.bazel",
+    "picorv32.BUILD.bazel",
+    "serv.BUILD.bazel",
+    "veer.BUILD.bazel",
+    "veer/cmj_veer_defines.sv",
+])
+
+# The program SRAM hardened inside every cacheless tile: the behavioural
+# view, for simulation only.
+#
+# The flow never sees this file. config.mk leaves it out of
+# VERILOG_FILES and the generated Liberty blackboxes the module name, so
+# synthesis hardens macros rather than ten thousand words of flops --
+# the same
+# split VeeR makes between mem_lib.sv and macros.v. It is therefore also
+# needed by the *gate-level* libraries below, for the same reason
+# asap7_fakeram is: a blackbox stores nothing, and a netlist run without
+# a behavioural model fails CoreMark's CRCs rather than quietly
+# reporting low memory power.
+verilog_library(
+    name = "cmj_progmem",
+    srcs = [
+        "cmj_dmem.v",
+        "cmj_progmem.sv",
+    ],
+)
+
+verilog_library(
+    name = "picorv32",
+    srcs = ["@picorv32//:rtl"],
+)
+
+# The frozen core configuration, shared by the simulator and the flow so
+# the measured design and the hardened design cannot diverge.
+verilog_library(
+    name = "cmj_picorv32",
+    srcs = ["cmj_picorv32.v"],
+    deps = [
+        ":cmj_progmem",
+        ":picorv32",
+    ],
+)
+
+verilog_library(
+    name = "cm_soc_picorv32",
+    srcs = ["cm_soc_picorv32.v"],
+    deps = [":cmj_picorv32"],
+)
+
+verilog_library(
+    name = "serv",
+    srcs = ["@serv//:rtl"],
+)
+
+verilog_library(
+    name = "cmj_serv",
+    srcs = ["cmj_serv.v"],
+    deps = [
+        ":cmj_progmem",
+        ":serv",
+    ],
+)
+
+verilog_library(
+    name = "cm_soc_serv",
+    srcs = ["cm_soc_serv.v"],
+    deps = [":cmj_serv"],
+)
+
+verilog_library(
+    name = "ibex_pkgs",
+    srcs = ["@ibex//:pkgs"],
+    hdrs = ["@ibex//:hdrs"],
+    includes = [
+        "vendor/lowrisc_ip/dv/sv/dv_utils",
+        "vendor/lowrisc_ip/ip/prim/rtl",
+    ],
+)
+
+verilog_library(
+    name = "ibex",
+    srcs = ["@ibex//:rtl"],
+    hdrs = ["@ibex//:hdrs"],
+    # prim_assert.sv and dv_fcov_macros.svh are `include`d by name from
+    # ibex sources, so the directories holding them go on the include
+    # path.
+    includes = [
+        "vendor/lowrisc_ip/dv/sv/dv_utils",
+        "vendor/lowrisc_ip/ip/prim/rtl",
+    ],
+    deps = [":ibex_pkgs"],
+)
+
+# The instruction-cache RAMs' behavioural view, for the gate-level
+# simulation: the netlist blackboxes them, and a blackbox stores
+# nothing, so without these the cache never hits and CoreMark fails its
+# CRCs rather than reporting a suspiciously fast core.
+verilog_library(
+    name = "cmj_icache_ram",
+    srcs = ["cmj_icache_ram.sv"],
+)
+
+verilog_library(
+    name = "cmj_ibex",
+    srcs = ["cmj_ibex.sv"],
+    deps = [
+        ":cmj_progmem",
+        ":ibex",
+    ],
+)
+
+verilog_library(
+    name = "cm_soc_ibex",
+    srcs = ["cm_soc_ibex.sv"],
+    deps = [":cmj_ibex"],
+)
+
+# Gate-level: the same wrapper, with the core coming from the grt netlist
+# instead of RTL. That is the whole point of freezing the configuration
+# in cmj_<core> -- the wrapper instantiates that module either way, so
+# the RTL and gate-level simulations differ only in what defines it.
+# Standard-cell models generated from the PDK's own liberty and LEF.
+#
+# Not ORFS's shipped asap7sc7p5t_*.v: ASAP7 writes those as UDP primitive
+# tables, which Verilator cannot simulate. Deriving the models from
+# Liberty `ff`/`latch`/`function:` instead gives cells that actually
+# simulate, and the physical-only cells -- tap, filler, decap -- come out
+# as empty stubs from the LEF, so nothing depends on a hand-maintained
+# list of cell names that a PDK update can outgrow.
+stdcell_verilog(
+    name = "asap7_stdcell",
+    lefs = [
+        "@orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef",
+    ],
+    libs = [
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_TT_nldm_211120.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_TT_nldm_220122.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_TT_nldm_211120.lib.gz",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_TT_nldm_220123.lib",
+        "@orfs//flow:platforms/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_TT_nldm_211120.lib.gz",
+    ],
+)
+
+verilog_library(
+    name = "asap7_stdcells",
+    srcs = [
+        ":asap7_stdcell.v",
+        ":asap7_stdcell_empty.v",
+    ],
+)
+
+verilog_library(
+    name = "cm_soc_picorv32_gate",
+    srcs = [
+        "cm_soc_picorv32.v",
+        "//test/coremark_joule/designs/asap7/picorv32:cmj_picorv32_grt_netlist.v",
+    ],
+    deps = [
+        ":asap7_stdcells",
+        ":cmj_progmem",
+    ],
+)
+
+verilog_library(
+    name = "cm_soc_serv_gate",
+    srcs = [
+        "cm_soc_serv.v",
+        "//test/coremark_joule/designs/asap7/serv:cmj_serv_grt_netlist.v",
+    ],
+    deps = [
+        ":asap7_stdcells",
+        ":cmj_progmem",
+    ],
+)
+
+verilog_library(
+    name = "cm_soc_ibex_gate",
+    srcs = [
+        "cm_soc_ibex.sv",
+        "//test/coremark_joule/designs/asap7/ibex:cmj_ibex_grt_netlist.v",
+    ],
+    deps = [
+        ":asap7_stdcells",
+        ":cmj_icache_ram",
+        ":cmj_progmem",
+    ],
+)
+
+# VeeR EH1.
+#
+# Three libraries rather than one, because the order matters and a
+# dependency edge is the only thing that fixes it. The committed
+# configuration has to be read before anything that tests a `RV_*`
+# define, and swerv_types before anything that imports it -- and a glob
+# is alphabetical, which would put dbg.sv first.
+verilog_library(
+    name = "veer_config",
+    srcs = ["veer/cmj_veer_defines.sv"],
+    hdrs = ["//test/coremark_joule/rtl/veer/config:hdrs"],
+)
+
+verilog_library(
+    name = "veer_pkgs",
+    srcs = ["@veer//:pkgs"],
+    deps = [":veer_config"],
+)
+
+# The core without its memory models: synthesis replaces exactly those
+# modules with hardened macros, so handing both to one tool would leave
+# it to choose. :veer_sim adds them back for simulation.
+verilog_library(
+    name = "veer",
+    srcs = ["@veer//:rtl"],
+    hdrs = ["@veer//:hdrs"],
+    deps = [":veer_pkgs"],
+)
+
+# Upstream's own behavioural arrays for ram_2048x39 (DCCM), ram_256x34
+# (icache data) and ram_64x21 (icache tag). §3.2 of the study's paper
+# makes this a prerequisite rather than a refinement: synthesis
+# blackboxes these modules so the liberty view wins, and a blackbox
+# stores nothing, so a gate-level CoreMark run without a behavioural
+# model fails its CRCs instead of reporting low memory power.
+verilog_library(
+    name = "veer_sim",
+    srcs = ["@veer//:mem_models"],
+    deps = [":veer"],
+)
+
+verilog_library(
+    name = "cm_soc_veer",
+    srcs = ["cm_soc_veer.sv"],
+    deps = [":veer_sim"],
+)
+
+# The hardened memories' behavioural models, for the gate-level
+# simulation only.
+#
+# §3.2 of the paper makes this a prerequisite rather than a refinement:
+# synthesis blackboxes the macro so the Liberty view wins, and a
+# blackbox stores nothing. Run the netlist without these and VeeR's
+# instruction cache and DCCM hold no values -- CoreMark fails its CRCs
+# or never terminates, rather than quietly reporting low memory power.
+#
+# ASAP7 ships them, so nothing here is written or vendored. The netlist
+# instantiates fakeram7_* directly: the ram_* wrappers in the design's
+# macros.v are not kept modules, so synthesis flattens them away.
+verilog_library(
+    name = "asap7_fakeram",
+    srcs = [
+        "@orfs//flow:platforms/asap7/verilog/fakeram7_2048x39.v",
+        "@orfs//flow:platforms/asap7/verilog/fakeram7_256x34.v",
+        "@orfs//flow:platforms/asap7/verilog/fakeram7_64x21.v",
+    ],
+)
+
+verilog_library(
+    name = "cm_soc_veer_gate",
+    srcs = [
+        "cm_soc_veer.sv",
+        "//test/coremark_joule/designs/asap7/veer:swerv_wrapper_grt_netlist.v",
+    ],
+    deps = [
+        ":asap7_fakeram",
+        ":asap7_stdcells",
+    ],
+)
