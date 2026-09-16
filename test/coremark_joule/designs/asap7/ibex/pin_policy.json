@@ -1,0 +1,10 @@
+{
+  "design": "cmj_ibex",
+  "max_unannotated_internal": 0,
+  "scan_patterns": [],
+  "macro_patterns": [
+    "^fakeram"
+  ],
+  "waivers": [],
+  "notes": "The budget is zero because the claim the study makes is that OpenSTA's activity estimator does not enter the energy number, and an internal cell pin the SAIF did not annotate is the estimator entering it. Raising it above zero is allowed, but it costs a written reason here and a sentence in the paper saying how many pins were guessed and what they could be worth -- which is what check_activity_sweep.py measures. Classes other than internal_cell_pin are not covered by this budget: an unannotated top-level input port or macro pin is fatal regardless, because a root is where a default activity enters the design rather than something that got missed downstream."
+}

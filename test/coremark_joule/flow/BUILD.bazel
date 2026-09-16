@@ -1,0 +1,26 @@
+# Flow-side scripts for the power path.
+package(default_visibility = ["//test/coremark_joule:__subpackages__"])
+
+exports_files(["write_netlist.tcl"])
+
+exports_files(["power_grt.tcl"])
+
+exports_files(["power_units_grt.tcl"])
+
+exports_files(["hier_probe.tcl"])
+
+exports_files(["activity_audit.tcl"])
+
+exports_files(["activity_sweep.tcl"])
+
+exports_files(["dup_inst_probe.tcl"])
+
+exports_files(["period_probe.tcl"])
+
+exports_files(["cmj_progmem.memories"])
+
+exports_files(["cmj_progmem_macros.v"])
+
+exports_files(["cmj_icache_ram.memories"])
+
+exports_files(["cmj_icache_ram_macros.v"])

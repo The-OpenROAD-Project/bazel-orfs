@@ -1,0 +1,28 @@
+# Overlay for @coremark: the benchmark, byte-unmodified.
+#
+# Only the five algorithm/driver translation units and the two headers
+# CoreMark calls the Software. Its ports (barebones/, linux/, posix/ ...)
+# are deliberately NOT exported: this study supplies its own port layer
+# in //test/coremark_joule/sw/port, because CoreMark's Acceptable Use
+# Agreement forbids naming the trademark in connection with a modified
+# copy of the Software, and the upstream port templates are files whose
+# platform bodies are `#error` stubs that a port must replace.
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "srcs",
+    srcs = [
+        "core_list_join.c",
+        "core_main.c",
+        "core_matrix.c",
+        "core_state.c",
+        "core_util.c",
+    ],
+)
+
+filegroup(
+    name = "hdrs",
+    srcs = ["coremark.h"],
+)
+
+exports_files(["LICENSE.md"])

@@ -1,0 +1,14 @@
+# The port layer, exported as individual files so //test/coremark_joule/sw
+# can name each one in the compiler invocation.
+package(default_visibility = ["//test/coremark_joule:__subpackages__"])
+
+exports_files([
+    "core_portme.c",
+    "core_portme.h",
+    "crt0.S",
+    "crt0_veer.S",
+    "ee_printf.c",
+    "link.ld",
+    "link_veer.ld",
+    "sim_ctrl.h",
+])

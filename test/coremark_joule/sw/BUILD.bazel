@@ -1,0 +1,112 @@
+load("@rules_python//python:defs.bzl", "py_test")
+
+# CoreMark ELFs for the study.
+#
+# Nothing here is a test and nothing builds under a wildcard: every
+# target is `manual` study apparatus. test/ is never shipped (see
+# public_surface.py), so the default visibility stays inside the study.
+load(
+    "//test/coremark_joule/sw:elf.bzl",
+    "VEER_CRT0",
+    "VEER_LINK_LD",
+    "coremark_elf",
+    "smoke_elf",
+)
+
+package(default_visibility = ["//test/coremark_joule:__subpackages__"])
+
+exports_files([
+    "coremark.BUILD.bazel",
+    "smoke.c",
+    "toolchain.BUILD.bazel",
+])
+
+# The baseline flag set: lowRISC's own bare-metal CoreMark port uses
+# these for ibex, so it is a published starting point rather than a
+# guess, and the sweep in scripts/ measures against it.
+BASELINE_CFLAGS = [
+    "-O3",
+    "-funroll-all-loops",
+    "-finline-functions",
+    "-falign-functions=16",
+    "-falign-jumps=4",
+]
+
+# picorv32 is built rv32im: the core implements M when ENABLE_MUL/ENABLE_DIV
+# are set, and the wrapper sets them. The rv32i build exists alongside it
+# because rv32i is the only ISA all three cores share, so it is the
+# apples-to-apples point on the plot; the native build is what picorv32
+# is actually scored on.
+[
+    coremark_elf(
+        name = "coremark_{}_{}".format(march, iterations),
+        cflags = BASELINE_CFLAGS,
+        iterations = iterations,
+        march = march,
+    )
+    for march in [
+        "rv32i",
+        "rv32im",
+        "rv32imc",
+    ]
+    for iterations in [
+        2,
+        3,
+    ]
+]
+
+# VeeR EH1: same benchmark, same flags, a different memory map. Its data
+# runs in the DCCM inside the hardened block and its text is fetched
+# through the L1 instruction cache, neither of which the flat map can
+# express -- see link_veer.ld.
+[
+    coremark_elf(
+        name = "coremark_veer_rv32imc_{}".format(iterations),
+        cflags = BASELINE_CFLAGS,
+        crt0 = VEER_CRT0,
+        iterations = iterations,
+        link_ld = VEER_LINK_LD,
+        march = "rv32imc",
+    )
+    for iterations in [
+        2,
+        3,
+    ]
+]
+
+smoke_elf(
+    name = "smoke_veer_rv32imc",
+    crt0 = VEER_CRT0,
+    link_ld = VEER_LINK_LD,
+    march = "rv32imc",
+)
+
+# The subtraction's premise, checked. Not manual: it is seconds of work
+# and it guards a property of this repository's own source that would
+# otherwise rot silently, taking every cycle number with it.
+py_test(
+    name = "iteration_delta_test",
+    size = "small",
+    srcs = [
+        "//test/coremark_joule/scripts:elf_sections.py",
+        "//test/coremark_joule/scripts:iteration_delta_test.py",
+    ],
+    data = [
+        ":coremark_rv32i_2",
+        ":coremark_rv32i_3",
+    ],
+    main = "//test/coremark_joule/scripts:iteration_delta_test.py",
+)
+
+# The boot gate, one per ISA in the study.
+[
+    smoke_elf(
+        name = "smoke_" + march,
+        march = march,
+    )
+    for march in [
+        "rv32i",
+        "rv32im",
+        "rv32imc",
+    ]
+]

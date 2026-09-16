@@ -1,0 +1,132 @@
+{
+  "literature": [
+    {
+      "boundary": "not stated by the source; 64 KB two-way L1 I/D configured, but Figure 7's breakdown names only pipeline units",
+      "coremark_per_joule": 28205.495134516314,
+      "coremark_per_mhz": 2.19,
+      "corner": "0.8 V, TT, 25 C, RC typical",
+      "derivation": "CoreMark/Joule = CoreMark/MHz * f / power, computed here",
+      "frequency_mhz": 900.0,
+      "name": "CVA6",
+      "power_benchmark": "matmult-int (not CoreMark)",
+      "power_w": 0.06988,
+      "process": "GF 22 FDX",
+      "source": "Ramping Up Open-Source RISC-V Cores, ACM CF'25 (arXiv:2505.24363)",
+      "tool": "Synopsys PrimeTime 2022.03, post-layout netlist simulation"
+    },
+    {
+      "boundary": "not stated by the source; 64 KB two-way L1 I/D configured, but Figure 7's breakdown names only pipeline units",
+      "coremark_per_joule": 27107.858733693924,
+      "coremark_per_mhz": 2.84,
+      "corner": "0.8 V, TT, 25 C, RC typical",
+      "derivation": "CoreMark/Joule = CoreMark/MHz * f / power, computed here",
+      "frequency_mhz": 900.0,
+      "name": "CVA6S+",
+      "power_benchmark": "matmult-int (not CoreMark)",
+      "power_w": 0.09429,
+      "process": "GF 22 FDX",
+      "source": "Ramping Up Open-Source RISC-V Cores, ACM CF'25 (arXiv:2505.24363)",
+      "tool": "Synopsys PrimeTime 2022.03, post-layout netlist simulation"
+    },
+    {
+      "boundary": "not stated by the source; 64 KB two-way L1 I/D configured, but Figure 7's breakdown names only pipeline units",
+      "coremark_per_joule": 29412.038545691543,
+      "coremark_per_mhz": 4.86,
+      "corner": "0.8 V, TT, 25 C, RC typical",
+      "derivation": "CoreMark/Joule = CoreMark/MHz * f / power, computed here",
+      "frequency_mhz": 1300.0,
+      "name": "XuanTie C910",
+      "power_benchmark": "matmult-int (not CoreMark)",
+      "power_w": 0.21481,
+      "process": "GF 22 FDX",
+      "source": "Ramping Up Open-Source RISC-V Cores, ACM CF'25 (arXiv:2505.24363)",
+      "tool": "Synopsys PrimeTime 2022.03, post-layout netlist simulation"
+    }
+  ],
+  "pending": [],
+  "points": [
+    {
+      "activity": "saif",
+      "boundary": "core + L1: 32 kB instruction memory and 8 kB data memory, both hardened",
+      "build_flags": null,
+      "core": "ibex",
+      "coremark_per_joule": 99283.9779614262,
+      "coremark_per_mhz": 2.4543009169268224,
+      "coremark_score": 2045.2499460053796,
+      "cycles_per_iteration": 407448,
+      "frequency_mhz": 833.333,
+      "isa": "rv32imc",
+      "joule_per_iteration": 1.0072118588847438e-05,
+      "power_w": 0.0206,
+      "stage": "grt",
+      "vectorless_power_w": 0.0396
+    },
+    {
+      "activity": "saif",
+      "boundary": "core + L1: 32 kB instruction memory and 8 kB data memory, both hardened",
+      "build_flags": null,
+      "core": "picorv32",
+      "coremark_per_joule": 25847.257194781774,
+      "coremark_per_mhz": 0.5531313039683299,
+      "coremark_score": 553.1313039683299,
+      "cycles_per_iteration": 1807889,
+      "frequency_mhz": 1000.0,
+      "isa": "rv32im",
+      "joule_per_iteration": 3.8688824599999997e-05,
+      "power_w": 0.0214,
+      "stage": "grt",
+      "vectorless_power_w": 0.0318
+    },
+    {
+      "activity": "saif",
+      "boundary": "core + L1: 32 kB instruction memory and 8 kB data memory, both hardened",
+      "build_flags": null,
+      "core": "serv",
+      "coremark_per_joule": 1233.8652284857571,
+      "coremark_per_mhz": 0.02427013632535574,
+      "coremark_score": 34.671612920449775,
+      "cycles_per_iteration": 41202900,
+      "frequency_mhz": 1428.571,
+      "isa": "rv32i",
+      "joule_per_iteration": 0.0008104612861383858,
+      "power_w": 0.0281,
+      "stage": "grt",
+      "vectorless_power_w": 0.0297
+    },
+    {
+      "activity": "saif",
+      "boundary": "core + L1: 16 kB instruction cache and 64 kB DCCM, both hardened",
+      "build_flags": null,
+      "core": "veer",
+      "coremark_per_joule": 34349.147543465755,
+      "coremark_per_mhz": 4.797888928871297,
+      "coremark_score": 2998.6805805445606,
+      "cycles_per_iteration": 208425,
+      "frequency_mhz": 625.0,
+      "isa": "rv32imc",
+      "joule_per_iteration": 2.9112803999999998e-05,
+      "power_w": 0.0873,
+      "stage": "grt",
+      "vectorless_power_w": 0.119
+    }
+  ],
+  "provenance": {
+    "activity": "saif, one hot CoreMark iteration",
+    "activity_annotation": "100% of pins annotated from the SAIF on every point; see the *_activity_audit.json and *_activity_sweep_check.json targets",
+    "boundary": "core + L1, or the small SRAM standing in for one -- stated per point",
+    "corner": "BC: RVT, FF, 0.77 V, 25 C, NLDM -- asap7's ORFS default, which is the best case rather than the typical one",
+    "frequency": "the SDC period the SAIF was timed against, not an achieved maximum",
+    "note": "Not reportable CoreMark scores: a three-iteration run does not satisfy CoreMark's run rules.",
+    "parasitics": "estimate_parasitics -global_routing; no extracted SPEF",
+    "platform": "asap7",
+    "simulation": "Verilator, two-state and zero-delay: carries no glitch power",
+    "stage": "grt"
+  },
+  "references": [
+    {
+      "coremark_per_mhz": 6.2,
+      "name": "SonicBOOM",
+      "source": "SonicBOOM: The 3rd Generation Berkeley Out-of-Order Machine, CARRV 2020"
+    }
+  ]
+}

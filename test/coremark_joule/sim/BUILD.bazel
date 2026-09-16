@@ -1,0 +1,634 @@
+# The Verilator harness: one simulator binary per core.
+#
+# The program is a run-time plusarg rather than a build input, so the
+# same binary runs both the two- and three-iteration images. That is
+# what keeps the gate-level simulators -- the expensive ones -- built
+# once per stage rather than once per program.
+load("@rules_cc//cc:defs.bzl", "cc_binary")
+load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
+load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
+load(
+    "//test/coremark_joule/sim:run.bzl",
+    "bus_traffic",
+    "coremark_crc_test",
+    "coremark_hex",
+    "coremark_per_joule",
+    "coremark_per_mhz",
+    "coremark_run",
+    "coremark_saif",
+    "smoke_test",
+)
+
+package(default_visibility = ["//test/coremark_joule:__subpackages__"])
+
+# -O2, not -Os: the generated simulator is large and the difference is
+# simulation throughput, which decides whether a SERV CoreMark iteration
+# is minutes or an hour.
+_SIM_COPTS = [
+    "-O2",
+    "-Wno-all",
+]
+
+# Extra Verilator options every gate-level configuration needs: the
+# netlist and the generated cell models, rather than the wrapper.
+_GATE_VOPTS = [
+    # yosys names internal nets `_NNNNN_`, and Verilator skips
+    # leading-underscore signals in traces by default -- without this
+    # the SAIF covers only named nets and OpenSTA estimates the rest.
+    "--trace-underscore",
+    # Keep the generated trace_init functions small enough that the
+    # C++ compiler stays in its near-linear regime on a netlist this
+    # size.
+    "--output-split-ctrace",
+    "3000",
+    # The netlist references undeclared _NC* nets for unconnected
+    # pins, and the cell models carry timing constructs a
+    # zero-delay simulation ignores.
+    "-Wno-IMPLICIT",
+    "-Wno-MODDUP",
+    "-Wno-PINMISSING",
+    "-Wno-STMTDLY",
+    # The cell models carry `specify` timing blocks. A zero-delay
+    # functional simulation ignores them by design -- the timing that
+    # matters comes from the liberty views in OpenSTA, not from here
+    # -- so the notice is just volume.
+    "-Wno-SPECIFYIGN",
+]
+
+_SIM_VOPTS = [
+    "-Wno-WIDTH",
+    "-Wno-UNOPTFLAT",
+    "-Wno-CASEINCOMPLETE",
+    "-Wno-TIMESCALEMOD",
+]
+
+verilator_cc_library(
+    name = "cm_soc_picorv32_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/rtl:cm_soc_picorv32",
+    module_top = "cm_soc",
+    # No waveform: this build measures cycles and checks CRCs. The SAIF
+    # capture is a separate, gate-level configuration.
+    trace_mode = "none",
+    vopts = _SIM_VOPTS,
+)
+
+cc_binary(
+    name = "cm_sim_picorv32",
+    srcs = ["main.cc"],
+    tags = ["manual"],
+    deps = [":cm_soc_picorv32_lib"],
+)
+
+verilator_cc_library(
+    name = "cm_soc_serv_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/rtl:cm_soc_serv",
+    module_top = "cm_soc",
+    trace_mode = "none",
+    vopts = _SIM_VOPTS,
+)
+
+cc_binary(
+    name = "cm_sim_serv",
+    srcs = ["main.cc"],
+    tags = ["manual"],
+    deps = [":cm_soc_serv_lib"],
+)
+
+verilator_cc_library(
+    name = "cm_soc_ibex_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/rtl:cm_soc_ibex",
+    module_top = "cm_soc",
+    trace_mode = "none",
+    vopts = _SIM_VOPTS,
+)
+
+cc_binary(
+    name = "cm_sim_ibex",
+    srcs = ["main.cc"],
+    tags = ["manual"],
+    deps = [":cm_soc_ibex_lib"],
+)
+
+# The gate-level simulator: the grt netlist, the asap7 cell models, and
+# the same wrapper. trace_mode = "saif" is what makes the switching
+# activity recordable at all.
+verilator_cc_library(
+    name = "cm_soc_picorv32_gate_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/rtl:cm_soc_picorv32_gate",
+    module_top = "cm_soc",
+    trace_mode = "saif",
+    vopts = _SIM_VOPTS + _GATE_VOPTS,
+)
+
+verilator_cc_library(
+    name = "cm_soc_serv_gate_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/rtl:cm_soc_serv_gate",
+    module_top = "cm_soc",
+    trace_mode = "saif",
+    vopts = _SIM_VOPTS + _GATE_VOPTS,
+)
+
+verilator_cc_library(
+    name = "cm_soc_ibex_gate_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/rtl:cm_soc_ibex_gate",
+    module_top = "cm_soc",
+    trace_mode = "saif",
+    vopts = _SIM_VOPTS + _GATE_VOPTS,
+)
+
+cc_binary(
+    name = "cm_sim_ibex_gate",
+    srcs = ["main.cc"],
+    tags = ["manual"],
+    deps = [":cm_soc_ibex_gate_lib"],
+)
+
+cc_binary(
+    name = "cm_sim_serv_gate",
+    srcs = ["main.cc"],
+    tags = ["manual"],
+    deps = [":cm_soc_serv_gate_lib"],
+)
+
+cc_binary(
+    name = "cm_sim_picorv32_gate",
+    srcs = ["main.cc"],
+    tags = ["manual"],
+    deps = [":cm_soc_picorv32_gate_lib"],
+)
+
+# The memory map the three cacheless cores share (sw/port/link.ld).
+#
+# The $readmemh image is the *external* memory, not the program SRAM:
+# the SRAM is inside the hardened tile, so nothing outside can preload
+# it, and crt0.S copies the image across before main. --base is what
+# keeps the image dense instead of demanding a 1 GiB array, exactly as
+# it does for VeeR below.
+TILE_WORDS = 16384
+
+TILE_BASE = "0x40000000"
+
+# The external port the three cacheless tiles present is 32 bits.
+TILE_BUS_BYTES = 4
+
+# The picorv32 measurement, end to end: image, run, CRC gate, CoreMark/MHz.
+#
+# rv32im is picorv32's native ISA here (ENABLE_MUL/ENABLE_DIV are set in
+# the wrapper). The rv32i pair exists as the common point across all
+# three cores, where SERV -- which has no M extension -- can be compared
+# against the same instruction stream.
+[
+    [
+        coremark_hex(
+            name = "coremark_{}_{}_hex".format(march, iterations),
+            base = TILE_BASE,
+            elf = "//test/coremark_joule/sw:coremark_{}_{}".format(march, iterations),
+            words = TILE_WORDS,
+        ),
+        coremark_run(
+            name = "picorv32_{}_{}".format(march, iterations),
+            # The boundary is a module now (section 5.1), so the same
+            # question VeeR's probe answers applies here: how much of
+            # one hot iteration leaves it. The answer should be nothing.
+            bus_probe = True,
+            image = ":coremark_{}_{}_hex".format(march, iterations),
+            sim = ":cm_sim_picorv32",
+        ),
+    ]
+    for march in [
+        "rv32i",
+        "rv32im",
+        "rv32imc",
+    ]
+    for iterations in [
+        2,
+        3,
+    ]
+]
+
+[
+    [
+        coremark_crc_test(
+            name = "picorv32_{}_crc_test".format(march),
+            run = "picorv32_{}_3".format(march),
+            tags = ["manual"],
+        ),
+        coremark_per_mhz(
+            name = "picorv32_{}_per_mhz".format(march),
+            run_2 = "picorv32_{}_2".format(march),
+            run_3 = "picorv32_{}_3".format(march),
+        ),
+        bus_traffic(
+            name = "picorv32_{}_bus_traffic".format(march),
+            bus_bytes = TILE_BUS_BYTES,
+            per_mhz = "picorv32_{}_per_mhz".format(march),
+            run_2 = "picorv32_{}_2".format(march),
+            run_3 = "picorv32_{}_3".format(march),
+        ),
+    ]
+    for march in [
+        "rv32i",
+        "rv32im",
+    ]
+]
+
+# SERV, rv32i only: the core has no M extension, so CoreMark's multiplies
+# go through libgcc. That is the honest measurement for this core, and it
+# is also why the picorv32 rv32i pair above exists -- the same
+# instruction stream on both makes the two comparable.
+[
+    coremark_run(
+        name = "serv_rv32i_{}".format(iterations),
+        bus_probe = True,
+        image = ":coremark_rv32i_{}_hex".format(iterations),
+        sim = ":cm_sim_serv",
+    )
+    for iterations in [
+        2,
+        3,
+    ]
+]
+
+coremark_crc_test(
+    name = "serv_rv32i_crc_test",
+    run = "serv_rv32i_3",
+    tags = ["manual"],
+)
+
+coremark_per_mhz(
+    name = "serv_rv32i_per_mhz",
+    run_2 = "serv_rv32i_2",
+    run_3 = "serv_rv32i_3",
+)
+
+bus_traffic(
+    name = "serv_rv32i_bus_traffic",
+    bus_bytes = TILE_BUS_BYTES,
+    per_mhz = "serv_rv32i_per_mhz",
+    run_2 = "serv_rv32i_2",
+    run_3 = "serv_rv32i_3",
+)
+
+# What the study has measured so far.
+#
+#   bazelisk run //test/coremark_joule/sim:report
+#
+# Manual because it builds every measurement it reports, and SERV's runs
+# are ~10^8 cycles each.
+sh_binary(
+    name = "report",
+    srcs = ["//test/coremark_joule/scripts:run_report.sh"],
+    args = [
+        "$(location //test/coremark_joule/scripts:report)",
+    ] + [
+        "$(location :{}_per_mhz)".format(t)
+        for t in [
+            "picorv32_rv32i",
+            "picorv32_rv32im",
+            "serv_rv32i",
+            "ibex_rv32i",
+            "ibex_rv32imc",
+            "veer_rv32imc",
+        ]
+    ],
+    data = [
+        "//test/coremark_joule/scripts:report",
+    ] + [
+        ":{}_per_mhz".format(t)
+        for t in [
+            "picorv32_rv32i",
+            "picorv32_rv32im",
+            "serv_rv32i",
+            "ibex_rv32i",
+            "ibex_rv32imc",
+            "veer_rv32imc",
+        ]
+    ],
+    tags = ["manual"],
+)
+
+# ibex at ibex_top's own defaults, which are already the small
+# configuration: no PMP, no writeback stage, no branch-target ALU, no
+# icache, RegFileFF, SecureIbex off. rv32imc is its native ISA; the
+# rv32i pair is the point shared with picorv32 and SERV.
+[
+    coremark_run(
+        name = "ibex_{}_{}".format(march, iterations),
+        bus_probe = True,
+        image = ":coremark_{}_{}_hex".format(march, iterations),
+        sim = ":cm_sim_ibex",
+    )
+    for march in [
+        "rv32i",
+        "rv32imc",
+    ]
+    for iterations in [
+        2,
+        3,
+    ]
+]
+
+[
+    [
+        coremark_crc_test(
+            name = "ibex_{}_crc_test".format(march),
+            run = "ibex_{}_3".format(march),
+            tags = ["manual"],
+        ),
+        coremark_per_mhz(
+            name = "ibex_{}_per_mhz".format(march),
+            run_2 = "ibex_{}_2".format(march),
+            run_3 = "ibex_{}_3".format(march),
+        ),
+        bus_traffic(
+            name = "ibex_{}_bus_traffic".format(march),
+            bus_bytes = TILE_BUS_BYTES,
+            per_mhz = "ibex_{}_per_mhz".format(march),
+            run_2 = "ibex_{}_2".format(march),
+            run_3 = "ibex_{}_3".format(march),
+        ),
+    ]
+    for march in [
+        "rv32i",
+        "rv32imc",
+    ]
+]
+
+# The boot gate: every core, on the ISA it natively runs. Cheap -- a few
+# thousand cycles -- and it is the target to look at first when a core
+# produces nothing.
+[
+    [
+        coremark_hex(
+            name = "smoke_{}_{}_hex".format(core, march),
+            base = TILE_BASE,
+            elf = "//test/coremark_joule/sw:smoke_{}".format(march),
+            words = TILE_WORDS,
+        ),
+        coremark_run(
+            name = "smoke_{}_{}".format(core, march),
+            image = ":smoke_{}_{}_hex".format(core, march),
+            max_cycles = 10000000,
+            sim = ":cm_sim_{}".format(core),
+        ),
+        smoke_test(
+            name = "smoke_{}_{}_test".format(core, march),
+            run = "smoke_{}_{}".format(core, march),
+            tags = ["manual"],
+        ),
+    ]
+    for core, march in [
+        ("picorv32", "rv32im"),
+        ("serv", "rv32i"),
+        ("ibex", "rv32imc"),
+    ]
+]
+
+# The SAIF for picorv32, over its last CoreMark iteration.
+coremark_saif(
+    name = "picorv32_rv32im_saif",
+    # Matches designs/asap7/picorv32/constraints.sdc.
+    clk_period_ps = 1000,
+    image = ":coremark_rv32im_3_hex",
+    run_2 = "picorv32_rv32im_2",
+    run_3 = "picorv32_rv32im_3",
+    sim = ":cm_sim_picorv32_gate",
+)
+
+# SERV's SAIF, over its last CoreMark iteration. rv32i: SERV has no M
+# extension.
+coremark_saif(
+    name = "serv_rv32i_saif",
+    # Matches designs/asap7/serv/constraints.sdc.
+    clk_period_ps = 700,
+    image = ":coremark_rv32i_3_hex",
+    run_2 = "serv_rv32i_2",
+    run_3 = "serv_rv32i_3",
+    sim = ":cm_sim_serv_gate",
+)
+
+# The study's points: one per measured core, each carrying the frequency
+# and provenance the number is only comparable under.
+coremark_per_joule(
+    name = "point_picorv32_rv32im",
+    boundary = "core + L1: 32 kB instruction memory and 8 kB data memory, both hardened",
+    core = "picorv32",
+    # The SDC period the SAIF was timed against, not an achieved maximum.
+    frequency_mhz = "1000",
+    isa = "rv32im",
+    per_mhz = ":picorv32_rv32im_per_mhz",
+    power = "//test/coremark_joule/designs/asap7/picorv32:cmj_picorv32_grt_power",
+)
+
+coremark_per_joule(
+    name = "point_serv_rv32i",
+    boundary = "core + L1: 32 kB instruction memory and 8 kB data memory, both hardened",
+    core = "serv",
+    frequency_mhz = "1428.571",
+    isa = "rv32i",
+    per_mhz = ":serv_rv32i_per_mhz",
+    power = "//test/coremark_joule/designs/asap7/serv:cmj_serv_grt_power",
+)
+
+coremark_saif(
+    name = "ibex_rv32imc_saif",
+    # Matches designs/asap7/ibex/constraints.sdc.
+    clk_period_ps = 1200,
+    image = ":coremark_rv32imc_3_hex",
+    run_2 = "ibex_rv32imc_2",
+    run_3 = "ibex_rv32imc_3",
+    sim = ":cm_sim_ibex_gate",
+)
+
+coremark_per_joule(
+    name = "point_ibex_rv32imc",
+    boundary = "core + L1: 32 kB instruction memory and 8 kB data memory, both hardened",
+    core = "ibex",
+    frequency_mhz = "833.333",
+    isa = "rv32imc",
+    per_mhz = ":ibex_rv32imc_per_mhz",
+    power = "//test/coremark_joule/designs/asap7/ibex:cmj_ibex_grt_power",
+)
+
+# Does upstream VeeR EH1, with the configuration committed under
+# rtl/veer/config, still elaborate?
+#
+# The cheapest possible gate on the thing that made ORFS's vendored copy
+# unusable for this study: a core that no longer elaborates, or elaborates
+# into something other than what its authors wrote, is the failure that
+# produces a plausible number rather than an error. Manual, because
+# verilating a core this size is not something a wildcard build should
+# pay for -- but it is the first thing to run after a bump.
+verilator_cc_library(
+    name = "veer_elab_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/rtl:veer_sim",
+    module_top = "swerv_wrapper",
+    tags = ["manual"],
+    trace_mode = "none",
+    vopts = _SIM_VOPTS,
+)
+
+cc_binary(
+    name = "veer_elab",
+    srcs = ["veer_elab_main.cc"],
+    copts = _SIM_COPTS,
+    tags = ["manual"],
+    deps = [":veer_elab_lib"],
+)
+
+verilator_cc_library(
+    name = "cm_soc_veer_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/rtl:cm_soc_veer",
+    module_top = "cm_soc",
+    tags = ["manual"],
+    trace_mode = "none",
+    vopts = _SIM_VOPTS,
+)
+
+cc_binary(
+    name = "cm_sim_veer",
+    srcs = ["main.cc"],
+    copts = _SIM_COPTS,
+    tags = ["manual"],
+    deps = [":cm_soc_veer_lib"],
+)
+
+# VeeR EH1, end to end.
+#
+# Its images are built and flattened separately from the other three
+# because its memory map is: 256 KiB of external memory at 0x80000000,
+# matching cm_soc_veer.sv's MEM_WORDS, and sections that load there
+# while running in a DCCM inside the hardened block. --base is what
+# keeps the image dense instead of demanding a 2 GiB array.
+VEER_WORDS = 65536
+
+VEER_BASE = "0x80000000"
+
+coremark_hex(
+    name = "smoke_veer_rv32imc_hex",
+    base = VEER_BASE,
+    elf = "//test/coremark_joule/sw:smoke_veer_rv32imc",
+    words = VEER_WORDS,
+)
+
+coremark_run(
+    name = "smoke_veer_rv32imc",
+    image = ":smoke_veer_rv32imc_hex",
+    max_cycles = 10000000,
+    sim = ":cm_sim_veer",
+)
+
+smoke_test(
+    name = "smoke_veer_rv32imc_test",
+    run = "smoke_veer_rv32imc",
+    tags = ["manual"],
+)
+
+[
+    [
+        coremark_hex(
+            name = "coremark_veer_rv32imc_{}_hex".format(iterations),
+            base = VEER_BASE,
+            elf = "//test/coremark_joule/sw:coremark_veer_rv32imc_{}".format(iterations),
+            words = VEER_WORDS,
+        ),
+        coremark_run(
+            name = "veer_rv32imc_{}".format(iterations),
+            bus_probe = True,
+            image = ":coremark_veer_rv32imc_{}_hex".format(iterations),
+            sim = ":cm_sim_veer",
+        ),
+    ]
+    for iterations in [
+        2,
+        3,
+    ]
+]
+
+coremark_crc_test(
+    name = "veer_rv32imc_crc_test",
+    run = "veer_rv32imc_3",
+    tags = ["manual"],
+)
+
+coremark_per_mhz(
+    name = "veer_rv32imc_per_mhz",
+    run_2 = "veer_rv32imc_2",
+    run_3 = "veer_rv32imc_3",
+)
+
+# Does CoreMark actually stay inside the hardened block?
+#
+# The same differential the cycle count uses: the traffic a third
+# iteration adds over a second. It cancels the boot, the .data copy and
+# the cold pass that fills the cache, and what is left is what one hot
+# iteration -- the SAIF window -- sends outside the boundary.
+bus_traffic(
+    name = "veer_rv32imc_bus_traffic",
+    # AHB-Lite, 64 bits wide.
+    bus_bytes = 8,
+    per_mhz = "veer_rv32imc_per_mhz",
+    run_2 = "veer_rv32imc_2",
+    run_3 = "veer_rv32imc_3",
+)
+
+# The gate-level VeeR: the grt netlist, the asap7 cell models, and the
+# platform's own behavioural models for the three hardened memories.
+verilator_cc_library(
+    name = "cm_soc_veer_gate_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/rtl:cm_soc_veer_gate",
+    module_top = "cm_soc",
+    tags = ["manual"],
+    trace_mode = "saif",
+    vopts = _SIM_VOPTS + _GATE_VOPTS,
+)
+
+cc_binary(
+    name = "cm_sim_veer_gate",
+    srcs = ["main.cc"],
+    copts = _SIM_COPTS,
+    tags = ["manual"],
+    deps = [":cm_soc_veer_gate_lib"],
+)
+
+# The SAIF for VeeR, over its last CoreMark iteration.
+coremark_saif(
+    name = "veer_rv32imc_saif",
+    # Matches designs/asap7/veer/constraints.sdc.
+    clk_period_ps = 1600,
+    image = ":coremark_veer_rv32imc_3_hex",
+    # 5,284 of 1,002,201 net entries carry OpenROAD's hierarchy separator
+    # in their name and no SAIF can hold them. 5,283 are clknet_*; the one
+    # that is not is clonenet_1_..._clkhdr.clkhdr.Q -- a cloned clock-gate
+    # output, so a clock net named by the resizer's cloning pass rather
+    # than by CTS. Declared rather than budgeted away.
+    max_other_dropped = 1,
+    run_2 = "veer_rv32imc_2",
+    run_3 = "veer_rv32imc_3",
+    sim = ":cm_sim_veer_gate",
+)
+
+coremark_per_joule(
+    name = "point_veer_rv32imc",
+    # The first point that meets §3.1, and measured rather than asserted:
+    # one hot CoreMark iteration sends zero transfers on either external
+    # bus (see :veer_rv32imc_bus_traffic).
+    boundary = "core + L1: 16 kB instruction cache and 64 kB DCCM, both hardened",
+    core = "veer",
+    # 1600 ps. The SDC period the SAIF was timed against, not an achieved
+    # maximum -- and ORFS's own figure for this core on this PDK rather
+    # than one of ours.
+    frequency_mhz = "625",
+    isa = "rv32imc",
+    per_mhz = ":veer_rv32imc_per_mhz",
+    power = "//test/coremark_joule/designs/asap7/veer:swerv_wrapper_grt_power",
+)
