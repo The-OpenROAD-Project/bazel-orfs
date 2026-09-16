@@ -96,6 +96,26 @@ class TestCount(unittest.TestCase):
         self.assertEqual(r["busy_cycles"], 1)
         self.assertAlmostEqual(r["busy_fraction"], 0.5)
 
+    def test_busy_bursts_count_operations_not_cycles(self):
+        """Energy per operation needs operations; a burst is one."""
+        r = self._run(subtree="mult", busy="busy")
+        self.assertEqual(r["busy_bursts"], 1)
+
+    def test_subtree_transitions_split_by_busy(self):
+        """Glitch in a working unit and in an idle one are different numbers.
+
+        The split has to be exhaustive, or a projection that multiplies
+        the busy figure by a duty cycle silently drops whatever fell
+        between the two buckets.
+        """
+        r = self._run(subtree="mult", busy="busy")
+        self.assertEqual(r["transitions_subtree_busy"], 4)
+        self.assertEqual(r["transitions_subtree_idle"], 1)
+        self.assertEqual(
+            r["transitions_subtree_busy"] + r["transitions_subtree_idle"],
+            r["transitions_subtree"],
+        )
+
     def test_clock_is_not_counted_as_activity(self):
         """The clock's own toggles are not design activity; OpenSTA takes
         clock pins from the SDC rather than from the trace."""

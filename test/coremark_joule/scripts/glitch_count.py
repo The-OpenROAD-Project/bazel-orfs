@@ -17,7 +17,13 @@ Three things are counted at once, because they come from one pass:
 - the cycles that module spends busy, from a signal named by --busy,
   because a unit that is idle most of the time contributes glitch in
   proportion to how often it runs -- and that fraction is what changes
-  as a core gets faster.
+  as a core gets faster. Bursts of it are counted as well as cycles,
+  because energy per operation is the projectable quantity and an
+  operation here is a burst, not a cycle. Transitions are split by that
+  signal too:
+  glitch inside an idle unit is a different quantity from glitch inside
+  a working one, and projecting either onto another workload needs them
+  apart.
 
 Counts are aggregated as they stream. A VCD for a real design over a
 useful window is tens of gigabytes and must never be held in memory or,
@@ -85,8 +91,10 @@ def count(stream, subtree=None, busy=None, clock=None, pc=None):
 
     values = {}
     total = subtree_total = 0
-    cycles = busy_cycles = 0
+    subtree_busy = subtree_idle = 0
+    cycles = busy_cycles = busy_bursts = 0
     busy_now = False
+    busy_last_cycle = False
     pc_now = None
     per_pc = {}
 
@@ -114,6 +122,9 @@ def count(stream, subtree=None, busy=None, clock=None, pc=None):
                 cycles += 1
                 if busy_now:
                     busy_cycles += 1
+                    if not busy_last_cycle:
+                        busy_bursts += 1
+                busy_last_cycle = busy_now
                 if pc_now is not None:
                     per_pc[pc_now] = per_pc.get(pc_now, 0) + 1
             continue
@@ -128,13 +139,20 @@ def count(stream, subtree=None, busy=None, clock=None, pc=None):
         total += n
         if ident in in_subtree:
             subtree_total += n
+            if busy_now:
+                subtree_busy += n
+            else:
+                subtree_idle += n
 
     return {
         "transitions_total": total,
         "transitions_subtree": subtree_total,
+        "transitions_subtree_busy": subtree_busy,
+        "transitions_subtree_idle": subtree_idle,
         "subtree": subtree,
         "cycles": cycles,
         "busy_cycles": busy_cycles,
+        "busy_bursts": busy_bursts,
         "busy_fraction": (busy_cycles / cycles) if cycles else 0.0,
         "signals": len(ids),
         "signals_in_subtree": len(in_subtree),
