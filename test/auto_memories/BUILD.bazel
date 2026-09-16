@@ -50,7 +50,13 @@ orfs_flow(
         "ADDITIONAL_MEMORIES": [":am_ram_2048x32.memories"],
         "SDC_FILE": [":constraints.sdc"],
     },
-    verilog_files = ["am_top.v"],
+    verilog_files = [
+        "am_top.v",
+        # The module boundary for the memory am_top.v instantiates and
+        # nothing defines. Without it yosys's hierarchy check stops
+        # canonicalization before AUTO_MEMORIES has blackboxed anything.
+        "am_ram_macros.v",
+    ],
 )
 
 # The cheap half, and the half that catches the staging bug: an
