@@ -230,6 +230,27 @@ py_binary(
     main = "readme_numbers.py",
 )
 
+# §4.8's cross-check table. The arithmetic is trivial; the test pins
+# that core-only means Total minus Macro and that energy uses the SDC
+# period the SAIF was timed against.
+py_test(
+    name = "synth_crosscheck_test",
+    size = "small",
+    srcs = [
+        "synth_crosscheck.py",
+        "synth_crosscheck_test.py",
+    ],
+    main = "synth_crosscheck_test.py",
+)
+
+py_binary(
+    name = "synth_crosscheck",
+    srcs = ["synth_crosscheck.py"],
+    main = "synth_crosscheck.py",
+)
+
+exports_files(["synth_crosscheck.bzl"])
+
 # write_verilog can emit two instances under one name. Zero renames is
 # the assertion; a design that needs one says so and says why.
 py_binary(

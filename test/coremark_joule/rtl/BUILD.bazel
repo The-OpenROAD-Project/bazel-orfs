@@ -206,6 +206,29 @@ verilog_library(
     ],
 )
 
+# §4.8's cross-check: the same wrapper around ibex's *synthesis* netlist,
+# at three periods. Same simulation view of the memories; only the
+# netlist differs from cm_soc_ibex_gate.
+[
+    verilog_library(
+        name = "cm_soc_ibex_" + arm + "_gate",
+        srcs = [
+            "cm_soc_ibex.sv",
+            "//test/coremark_joule/designs/asap7/" + pkg + ":cmj_ibex_synth_netlist.v",
+        ],
+        deps = [
+            ":asap7_stdcells",
+            ":cmj_icache_ram",
+            ":cmj_progmem",
+        ],
+    )
+    for arm, pkg in [
+        ("synth", "ibex"),
+        ("synth100", "ibex_synth100"),
+        ("synth500", "ibex_synth500"),
+    ]
+]
+
 # VeeR EH1.
 #
 # Three libraries rather than one, because the order matters and a

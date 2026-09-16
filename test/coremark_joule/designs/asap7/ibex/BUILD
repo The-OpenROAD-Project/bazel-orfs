@@ -1,5 +1,6 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
 load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power")
+load("//test/coremark_joule/scripts:synth_crosscheck.bzl", "synth_crosscheck")
 
 exports_files(["constraints.sdc"])
 
@@ -95,4 +96,43 @@ stage_activity_sweep(
 period_probe(
     name = "cmj_ibex_period",
     src = ":cmj_ibex_grt",
+)
+
+# §4.8's cross-check, arm one: this design's own synthesis netlist at its
+# own 1200 ps period, power with no wires and no clock tree. Against the
+# global-route point it isolates the stage; against the ibex_synth100 and
+# ibex_synth500 packages it isolates the period.
+grt_netlist(
+    name = "cmj_ibex_synth_netlist",
+    src = ":cmj_ibex_synth",
+    stage = "synth",
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+stage_power(
+    name = "cmj_ibex_synth_power",
+    src = ":cmj_ibex_synth",
+    saif = "//test/coremark_joule/sim:ibex_rv32imc_synth_saif",
+    saif_scope = "TOP/cm_soc/cpu",
+    stage = "synth",
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+# The table §4.8 quotes: core-only energy per CoreMark iteration at each
+# arm, next to the published 65 nm rows.
+synth_crosscheck(
+    name = "ibex_synth_crosscheck",
+    arms = {
+        "grt, 1200 ps": ":cmj_ibex_grt_power",
+        "synth, 1200 ps": ":cmj_ibex_synth_power",
+        "synth, 2000 ps": "//test/coremark_joule/designs/asap7/ibex_synth500:cmj_ibex_synth_power",
+        "synth, 10000 ps": "//test/coremark_joule/designs/asap7/ibex_synth100:cmj_ibex_synth_power",
+    },
+    per_mhz = "//test/coremark_joule/sim:ibex_rv32imc_per_mhz",
+    periods_ps = {
+        "grt, 1200 ps": 1200,
+        "synth, 1200 ps": 1200,
+        "synth, 2000 ps": 2000,
+        "synth, 10000 ps": 10000,
+    },
 )
