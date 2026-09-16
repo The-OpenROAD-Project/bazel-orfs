@@ -434,38 +434,6 @@ orfs_designs(
 # The RTL is fetched, never vendored: an http_archive pinned by sha256
 # plus a small BUILD overlay in this repository. That is the pattern the
 # retired gallery/ workspace used for every core it hardened.
-# Verilator, for the RTL and gate-level simulators the study drives. The
-# same simulator binary runs both iteration counts: the program arrives
-# as a +meminit= plusarg rather than a parameter, which matters most for
-# the gate-level builds.
-bazel_dep(name = "rules_verilator", version = "1.1.2", dev_dependency = True)
-
-# Same zero-sysroot problem as the verilator override below, one level
-# up: verilated_runtime puts -latomic on every generated simulator's
-# link line, not just on verilator's own.
-single_version_override(
-    module_name = "rules_verilator",
-    patch_strip = 1,
-    patches = [
-        "//patches:0001-rules_verilator-drop-latomic-under-zero-sysroot-llvm.patch",
-    ],
-    version = "1.1.2",
-)
-
-bazel_dep(name = "rules_verilog", version = "1.4.3", dev_dependency = True)
-
-# verilator: rules_verilator pins 5.046.bcr.3, whose cc_binary links
-# -latomic. hermetic-llvm is zero-sysroot and ships no libatomic, so the
-# tool fails to link here. Later BCR revisions are the first place to
-# look for a fix.
-single_version_override(
-    module_name = "verilator",
-    patch_strip = 1,
-    patches = [
-        "//patches:0001-verilator-drop-latomic-under-zero-sysroot-llvm.patch",
-    ],
-    version = "5.046.bcr.5",
-)
 
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
