@@ -351,6 +351,72 @@ ri_shapes(
     user_arguments = {"WIREBOUND_CLK_PERIOD_PS": WIREBOUND_TIGHT_CLK},
 )
 
+# The arms that reach a routed design, and therefore the only ones that
+# can say which instrument was right: the shipped shape, where placement
+# and global route agree to within 1%, and the spread shape, where
+# placement is 22% pessimistic because resistance-aware routing puts
+# critical nets on metal faster than the single set_wire_rc constant
+# assumes.
+#
+# u80_d75 is deliberately absent, and its absence is a result. It is the
+# arm with the largest *optimistic* error -- placement 13% below global
+# route -- and it cannot be built: detailed route fails with "Global
+# routing failed" because at a 0.75 derate the design does not fit. The
+# trial routes in this study only completed because they pass
+# -allow_congestion, which the flow's own grt stage does not.
+#
+# So an arm can show a large pre-route error for the uninteresting
+# reason that it is not a routable design. Any configuration quoted as
+# evidence of estimate error has to reach 6_final first, and that is
+# what running these to "final" enforces rather than assumes.
+WIREBOUND_ROUTED_SHAPES = {
+    "u55": WIREBOUND_SHAPES["u55"],
+    "u12_tight": WIREBOUND_SHAPES["u12_tight"],
+}
+
+ri_shapes(
+    name = "wbr",
+    arguments = {
+        key: value
+        for key, value in WIREBOUND["arguments"].items()
+        if key not in WIREBOUND_USER_VARS
+    },
+    design = WIREBOUND,
+    groups = ["32"],
+    last_stage = "final",
+    qualify_sources = False,
+    shapes = WIREBOUND_ROUTED_SHAPES,
+    sources = WIREBOUND["sources"],
+    user_arguments = {"WIREBOUND_CLK_PERIOD_PS": WIREBOUND_TIGHT_CLK},
+)
+
+py_binary(
+    name = "update_wbr",
+    srcs = ["//test/pre_route_pessimism:update_results.py"],
+    args = ["--dest-dir=test/repair_information/results"] + [
+        "$(rootpath :wbr_{}_g32_{}.json)".format(shape, probe)
+        for shape in WIREBOUND_ROUTED_SHAPES
+        for probe in [
+            "placement",
+            "zero_rc",
+            "gr",
+            "spef",
+        ]
+    ],
+    data = [
+        ":wbr_{}_g32_{}.json".format(shape, probe)
+        for shape in WIREBOUND_ROUTED_SHAPES
+        for probe in [
+            "placement",
+            "zero_rc",
+            "gr",
+            "spef",
+        ]
+    ],
+    main = "update_results.py",
+    tags = ["manual"],
+)
+
 # How far the derate can be pushed, on the one ODB that showed the
 # effect. Applied at the probe rather than at the floorplan: the
 # placement estimate never looks at routing supply, so it is the

@@ -559,6 +559,7 @@ def ri_shapes(
         design,
         shapes,
         groups,
+        last_stage = "cts",
         defines_var = "VERILOG_DEFINES",
         define_name = "WIREBOUND_GROUPS",
         arguments = {},
@@ -582,6 +583,10 @@ def ri_shapes(
         design: the parsed DESIGNS entry.
         shapes: shape name -> ORFS argument overrides.
         groups: sizes to cross with the shapes.
+        last_stage: how far each arm's flow runs. "final" also declares
+            the SPEF probe, which is the only instrument that can say
+            which of the other two was right -- and the only one that
+            costs a detailed route.
         defines_var: the ORFS variable carrying Verilog defines.
         define_name: the define that sets the design's size.
         arguments: the design's ORFS variables.
@@ -606,7 +611,7 @@ def ri_shapes(
                 name = name,
                 variant = variant,
                 arguments = args,
-                last_stage = "cts",
+                last_stage = last_stage,
                 sources = design_sources,
                 tags = ["manual"],
                 top = design["name"],
@@ -645,3 +650,10 @@ def ri_shapes(
                 parasitics = "global_routing",
                 **probe_common
             )
+
+            if last_stage == "final":
+                ri_probe(
+                    name = "{}_spef".format(flow),
+                    parasitics = "spef",
+                    **(probe_common | {"src": ":{}_final".format(flow)})
+                )
