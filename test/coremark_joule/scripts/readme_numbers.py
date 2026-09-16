@@ -99,26 +99,37 @@ def memory_inside(point):
     return text
 
 
+def has_split(document):
+    """True when every point carries the dynamic/leakage split."""
+    return all(
+        "dynamic_power_w" in p and "leakage_power_w" in p for p in document["points"]
+    )
+
+
 def render_table1(document):
-    lines = [
-        "| core | ISA | CoreMark/MHz | cycles/iter | f (MHz) | P (SAIF) "
-        "| CoreMark/Joule | memory inside the boundary |",
-        "|---|---|---|---|---|---|---|---|",
-    ]
+    split = has_split(document)
+    head = "| core | ISA | CoreMark/MHz | cycles/iter | f (MHz) | P (SAIF) "
+    if split:
+        head += "| dynamic | leakage "
+    head += "| CoreMark/Joule | memory inside the boundary |"
+    lines = [head, "|---" * (10 if split else 8) + "|"]
     for p in ordered(document):
-        lines.append(
-            "| {name} | {isa} | {cmmhz:.4f} | {cycles:,} | {f:.1f} | "
-            "{p:.1f} mW | {cmj:,.0f} | {mem} |".format(
-                name=NAMES[p["core"]],
-                isa=p["isa"],
-                cmmhz=p["coremark_per_mhz"],
-                cycles=p["cycles_per_iteration"],
-                f=p["frequency_mhz"],
-                p=p["power_w"] * 1e3,
-                cmj=p["coremark_per_joule"],
-                mem=memory_inside(p),
-            )
+        row = "| {name} | {isa} | {cmmhz:.4f} | {cycles:,} | {f:.1f} | {p:.1f} mW ".format(
+            name=NAMES[p["core"]],
+            isa=p["isa"],
+            cmmhz=p["coremark_per_mhz"],
+            cycles=p["cycles_per_iteration"],
+            f=p["frequency_mhz"],
+            p=p["power_w"] * 1e3,
         )
+        if split:
+            row += "| {dyn:.1f} mW | {leak:.2f} mW ".format(
+                dyn=p["dynamic_power_w"] * 1e3, leak=p["leakage_power_w"] * 1e3
+            )
+        row += "| {cmj:,.0f} | {mem} |".format(
+            cmj=p["coremark_per_joule"], mem=memory_inside(p)
+        )
+        lines.append(row)
     return "\n".join(lines)
 
 

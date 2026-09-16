@@ -12,7 +12,7 @@ package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 exports_files([
     "cmj_ibex.sv",
     "cmj_ibex_ic.sv",
-    "cmj_icache_ram.sv",
+    "cmj_sram_models.sv",
     "cmj_prim_ram_1p.sv",
     "cmj_dmem.v",
     "cmj_progmem.sv",
@@ -25,24 +25,26 @@ exports_files([
     "veer/cmj_veer_defines.sv",
 ])
 
-# The program SRAM hardened inside every cacheless tile: the behavioural
-# view, for simulation only.
-#
-# The flow never sees this file. config.mk leaves it out of
-# VERILOG_FILES and the generated Liberty blackboxes the module name, so
-# synthesis hardens macros rather than ten thousand words of flops --
-# the same
-# split VeeR makes between mem_lib.sv and macros.v. It is therefore also
-# needed by the *gate-level* libraries below, for the same reason
-# asap7_fakeram is: a blackbox stores nothing, and a netlist run without
-# a behavioural model fails CoreMark's CRCs rather than quietly
-# reporting low memory power.
+# Every SRAM the study hardens, as behavioural modules: the simulators'
+# view of the macros, and the scaler's input. A blackbox stores nothing,
+# so a netlist run without these fails CoreMark's CRCs rather than
+# quietly reporting low memory power (§3.2). The flow never sees this
+# file; it gets flow/cmj_sram_blackbox.v and the generated views.
+verilog_library(
+    name = "cmj_sram_models",
+    srcs = ["cmj_sram_models.sv"],
+)
+
+# The program memories hardened inside every cacheless tile, as wiring
+# wrappers around the SRAMs above. Both the flow and the simulators read
+# this one; what differs is what each pairs it with.
 verilog_library(
     name = "cmj_progmem",
     srcs = [
         "cmj_dmem.v",
         "cmj_progmem.sv",
     ],
+    deps = [":cmj_sram_models"],
 )
 
 verilog_library(
@@ -109,15 +111,6 @@ verilog_library(
         "vendor/lowrisc_ip/ip/prim/rtl",
     ],
     deps = [":ibex_pkgs"],
-)
-
-# The instruction-cache RAMs' behavioural view, for the gate-level
-# simulation: the netlist blackboxes them, and a blackbox stores
-# nothing, so without these the cache never hits and CoreMark fails its
-# CRCs rather than reporting a suspiciously fast core.
-verilog_library(
-    name = "cmj_icache_ram",
-    srcs = ["cmj_icache_ram.sv"],
 )
 
 verilog_library(
@@ -201,7 +194,6 @@ verilog_library(
     ],
     deps = [
         ":asap7_stdcells",
-        ":cmj_icache_ram",
         ":cmj_progmem",
     ],
 )
@@ -218,7 +210,6 @@ verilog_library(
         ],
         deps = [
             ":asap7_stdcells",
-            ":cmj_icache_ram",
             ":cmj_progmem",
         ],
     )
@@ -276,27 +267,6 @@ verilog_library(
     deps = [":veer_sim"],
 )
 
-# The hardened memories' behavioural models, for the gate-level
-# simulation only.
-#
-# §3.2 of the paper makes this a prerequisite rather than a refinement:
-# synthesis blackboxes the macro so the Liberty view wins, and a
-# blackbox stores nothing. Run the netlist without these and VeeR's
-# instruction cache and DCCM hold no values -- CoreMark fails its CRCs
-# or never terminates, rather than quietly reporting low memory power.
-#
-# ASAP7 ships them, so nothing here is written or vendored. The netlist
-# instantiates fakeram7_* directly: the ram_* wrappers in the design's
-# macros.v are not kept modules, so synthesis flattens them away.
-verilog_library(
-    name = "asap7_fakeram",
-    srcs = [
-        "@orfs//flow:platforms/asap7/verilog/fakeram7_2048x39.v",
-        "@orfs//flow:platforms/asap7/verilog/fakeram7_256x34.v",
-        "@orfs//flow:platforms/asap7/verilog/fakeram7_64x21.v",
-    ],
-)
-
 verilog_library(
     name = "cm_soc_veer_gate",
     srcs = [
@@ -304,7 +274,7 @@ verilog_library(
         "//test/coremark_joule/designs/asap7/veer:swerv_wrapper_grt_netlist.v",
     ],
     deps = [
-        ":asap7_fakeram",
         ":asap7_stdcells",
+        ":cmj_sram_models",
     ],
 )

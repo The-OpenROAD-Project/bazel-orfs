@@ -31,11 +31,31 @@ import sys
 
 def totals(power_json):
     """Total power in watts from a report_power JSON."""
+    return power_groups(power_json)["total"]
+
+
+def power_groups(power_json):
+    """Total power and its split from a report_power JSON, in watts.
+
+    `dynamic` is internal plus switching. §5.5 is why the split travels
+    with the point: dynamic energy per iteration is frequency-independent
+    and leakage energy per iteration is not, so a total alone hides the
+    term that moves with the operating point.
+    """
     with open(power_json) as f:
         d = json.load(f)
-    if "Total" in d and isinstance(d["Total"], dict):
-        return d["Total"]["total"]
-    raise ValueError("{}: no Total group".format(power_json))
+    if "Total" not in d or not isinstance(d["Total"], dict):
+        raise ValueError("{}: no Total group".format(power_json))
+    t = d["Total"]
+    out = {"total": t["total"]}
+    if all(k in t for k in ("internal", "switching", "leakage")):
+        out["internal"] = t["internal"]
+        out["switching"] = t["switching"]
+        out["leakage"] = t["leakage"]
+        out["dynamic"] = t["internal"] + t["switching"]
+    if "Macro" in d and isinstance(d["Macro"], dict):
+        out["macro"] = d["Macro"]["total"]
+    return out
 
 
 def combine(coremark_per_mhz, f_mhz, power_w):
@@ -104,7 +124,8 @@ def main(argv):
     with open(args.per_mhz) as f:
         perf = json.load(f)
 
-    power_w = totals(args.power)
+    groups = power_groups(args.power)
+    power_w = groups["total"]
     f_mhz = args.frequency_mhz
     if f_mhz is None:
         with open(args.frequency_from_sdc) as f:
@@ -121,6 +142,11 @@ def main(argv):
             "activity": "saif",
         }
     )
+    if "dynamic" in groups:
+        result["dynamic_power_w"] = groups["dynamic"]
+        result["leakage_power_w"] = groups["leakage"]
+    if "macro" in groups:
+        result["macro_power_w"] = groups["macro"]
 
     if args.vectorless_power:
         vectorless = totals(args.vectorless_power)
