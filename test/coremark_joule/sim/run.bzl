@@ -223,7 +223,7 @@ def coremark_saif(
         image,
         run_2,
         run_3,
-        clk_period_ps,
+        constraints,
         max_other_dropped = 0,
         tags = ["manual"]):
     """Capture a SAIF over CoreMark's last, hot iteration.
@@ -240,12 +240,16 @@ def coremark_saif(
       run_2: the two-iteration RTL run, for its cycle count.
       run_3: the three-iteration RTL run, for its cycle count and the
         cycle its first output appeared.
-      clk_period_ps: **must equal the period in the design's SDC.** A
-        SAIF records real time and OpenSTA reads it as transitions
+      constraints: the design's constraints.sdc. The capture's clock
+        period is read from its `set clk_period` -- the same line
+        auto_period rewrites and cm_per_joule takes the frequency from.
+        A SAIF records real time and OpenSTA reads it as transitions
         divided by duration, so a period that disagrees with the SDC
         scales every toggle rate -- and the dynamic power -- by the ratio
-        between them. Nothing downstream can detect the mistake: the
-        power simply comes out wrong by that factor.
+        between them, and nothing downstream can detect it. This was a
+        literal per design until auto_period moved every period and the
+        literals stayed: picorv32's SAIF was timed at 1000 ps against a
+        467 ps design. One file, read by all three, is the fix.
       max_other_dropped: how many non-clock nets this design loses to
         scripts/filter_saif.py. Zero asserts that everything the SAIF
         format cannot carry is a clock net, which §3.5 establishes needs
@@ -257,6 +261,7 @@ def coremark_saif(
         name = name + "_raw",
         srcs = [
             image,
+            constraints,
             "{}.cycles".format(run_2),
             "{}.cycles".format(run_3),
         ],
@@ -268,9 +273,9 @@ def coremark_saif(
             "--cycles-2 $(location {run_2}.cycles) " +
             "--cycles-3 $(location {run_3}.cycles) " +
             "--saif $(location {raw}) " +
-            "--clk-period-ps {clk_period_ps}"
+            "--clk-period-from-sdc $(location {constraints})"
         ).format(
-            clk_period_ps = clk_period_ps,
+            constraints = constraints,
             image = image,
             raw = raw,
             run_2 = run_2,
