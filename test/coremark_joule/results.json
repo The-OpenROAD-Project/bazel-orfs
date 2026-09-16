@@ -50,64 +50,260 @@
       "boundary": "core + L1: 32 kB instruction memory and 8 kB data memory, both hardened",
       "build_flags": null,
       "core": "ibex",
-      "coremark_per_joule": 100759.54170813787,
+      "coremark_per_joule": 84166.69811134507,
+      "coremark_per_joule_2sigma": 333.1016963162205,
       "coremark_per_mhz": 2.4543009169268224,
-      "coremark_score": 1914.4312924546196,
+      "coremark_score": 1893.7507075052642,
       "cycles_per_iteration": 407448,
-      "frequency_mhz": 780.0312012480499,
+      "dynamic_power_w": 0.022500000000000003,
+      "frequency_mhz": 771.604938271605,
       "isa": "rv32imc",
-      "joule_per_iteration": 9.924618384e-06,
-      "power_w": 0.019,
+      "joule_per_iteration": 1.188118368e-05,
+      "leakage_power_w": 1.9e-06,
+      "macro_power_w": 0.0149,
+      "power_2sigma_w": 8.944271909999105e-05,
+      "power_groups_w": {
+        "Clock": 0.00273,
+        "Combinational": 0.00244,
+        "Macro": 0.0149,
+        "Sequential": 0.00245
+      },
+      "power_w": 0.0225,
+      "seed_samples": [
+        {
+          "coremark_per_joule": 84166.69811134507,
+          "dynamic_power_w": 0.022500000000000003,
+          "leakage_power_w": 1.9e-06,
+          "power_w": 0.0225,
+          "seed": "own"
+        },
+        {
+          "coremark_per_joule": 83794.2790931533,
+          "dynamic_power_w": 0.02254,
+          "leakage_power_w": 1.89e-06,
+          "power_w": 0.0226,
+          "seed": "11"
+        },
+        {
+          "coremark_per_joule": 84166.69811134507,
+          "dynamic_power_w": 0.022520000000000002,
+          "leakage_power_w": 1.9e-06,
+          "power_w": 0.0225,
+          "seed": "12"
+        },
+        {
+          "coremark_per_joule": 84166.69811134507,
+          "dynamic_power_w": 0.022520000000000002,
+          "leakage_power_w": 1.89e-06,
+          "power_w": 0.0225,
+          "seed": "13"
+        },
+        {
+          "coremark_per_joule": 84166.69811134507,
+          "dynamic_power_w": 0.022520000000000002,
+          "leakage_power_w": 1.89e-06,
+          "power_w": 0.0225,
+          "seed": "14"
+        }
+      ],
+      "seeds": 5,
       "stage": "grt",
-      "vectorless_power_w": 0.0356
+      "vectorless_power_w": 0.0388
     },
     {
       "activity": "saif",
       "boundary": "core + L1: 32 kB instruction memory and 8 kB data memory, both hardened",
       "build_flags": null,
       "core": "picorv32",
-      "coremark_per_joule": 25917.622328299258,
+      "coremark_per_joule": 20926.419441753995,
+      "coremark_per_joule_2sigma": 105.0846316040143,
       "coremark_per_mhz": 0.5531313039683299,
       "coremark_score": 1184.435340403276,
       "cycles_per_iteration": 1807889,
+      "dynamic_power_w": 0.05656,
       "frequency_mhz": 2141.3276231263385,
       "isa": "rv32im",
-      "joule_per_iteration": 3.85837862491e-05,
-      "power_w": 0.0457,
+      "joule_per_iteration": 4.77864836258e-05,
+      "leakage_power_w": 1.43e-06,
+      "macro_power_w": 0.0407,
+      "power_2sigma_w": 0.00028284271247461484,
+      "power_groups_w": {
+        "Clock": 0.00769,
+        "Combinational": 0.00198,
+        "Macro": 0.0407,
+        "Sequential": 0.0062
+      },
+      "power_w": 0.0566,
+      "seed_samples": [
+        {
+          "coremark_per_joule": 20926.419441753995,
+          "dynamic_power_w": 0.05656,
+          "leakage_power_w": 1.43e-06,
+          "power_w": 0.0566,
+          "seed": "own"
+        },
+        {
+          "coremark_per_joule": 21037.927893486252,
+          "dynamic_power_w": 0.05629,
+          "leakage_power_w": 1.42e-06,
+          "power_w": 0.0563,
+          "seed": "11"
+        },
+        {
+          "coremark_per_joule": 21000.626602894965,
+          "dynamic_power_w": 0.05644,
+          "leakage_power_w": 1.42e-06,
+          "power_w": 0.0564,
+          "seed": "12"
+        },
+        {
+          "coremark_per_joule": 20926.419441753995,
+          "dynamic_power_w": 0.05657,
+          "leakage_power_w": 1.44e-06,
+          "power_w": 0.0566,
+          "seed": "13"
+        },
+        {
+          "coremark_per_joule": 20926.419441753995,
+          "dynamic_power_w": 0.05656,
+          "leakage_power_w": 1.42e-06,
+          "power_w": 0.0566,
+          "seed": "14"
+        }
+      ],
+      "seeds": 5,
       "stage": "grt",
-      "vectorless_power_w": 0.0677
+      "vectorless_power_w": 0.0697
     },
     {
       "activity": "saif",
       "boundary": "core + L1: 32 kB instruction memory and 8 kB data memory, both hardened",
       "build_flags": null,
       "core": "serv",
-      "coremark_per_joule": 1250.81873925991,
+      "coremark_per_joule": 1013.0031105889217,
+      "coremark_per_joule_2sigma": 2.0323980018037147,
       "coremark_per_mhz": 0.02427013632535574,
       "coremark_score": 55.41127014921401,
       "cycles_per_iteration": 41202900,
+      "dynamic_power_w": 0.054689999999999996,
       "frequency_mhz": 2283.10502283105,
       "isa": "rv32i",
-      "joule_per_iteration": 0.00079947634986,
-      "power_w": 0.0443,
+      "joule_per_iteration": 0.00098716379994,
+      "leakage_power_w": 7.51e-07,
+      "macro_power_w": 0.0427,
+      "power_2sigma_w": 0.00010954451150102875,
+      "power_groups_w": {
+        "Clock": 0.00563,
+        "Combinational": 0.00188,
+        "Macro": 0.0427,
+        "Sequential": 0.00453
+      },
+      "power_w": 0.0547,
+      "seed_samples": [
+        {
+          "coremark_per_joule": 1013.0031105889217,
+          "dynamic_power_w": 0.054689999999999996,
+          "leakage_power_w": 7.51e-07,
+          "power_w": 0.0547,
+          "seed": "own"
+        },
+        {
+          "coremark_per_joule": 1014.8584276412822,
+          "dynamic_power_w": 0.054639999999999994,
+          "leakage_power_w": 7.52e-07,
+          "power_w": 0.0546,
+          "seed": "11"
+        },
+        {
+          "coremark_per_joule": 1013.0031105889217,
+          "dynamic_power_w": 0.054689999999999996,
+          "leakage_power_w": 7.53e-07,
+          "power_w": 0.0547,
+          "seed": "12"
+        },
+        {
+          "coremark_per_joule": 1014.8584276412822,
+          "dynamic_power_w": 0.05459,
+          "leakage_power_w": 7.44e-07,
+          "power_w": 0.0546,
+          "seed": "13"
+        },
+        {
+          "coremark_per_joule": 1014.8584276412822,
+          "dynamic_power_w": 0.054580000000000004,
+          "leakage_power_w": 7.53e-07,
+          "power_w": 0.0546,
+          "seed": "14"
+        }
+      ],
+      "seeds": 5,
       "stage": "grt",
-      "vectorless_power_w": 0.047
+      "vectorless_power_w": 0.0594
     },
     {
       "activity": "saif",
       "boundary": "core + L1: 16 kB instruction cache and 64 kB DCCM, both hardened",
       "build_flags": null,
       "core": "veer",
-      "coremark_per_joule": 34702.45771757922,
+      "coremark_per_joule": 20629.160663825885,
+      "coremark_per_joule_2sigma": 316.60948936855345,
       "coremark_per_mhz": 4.797888928871297,
-      "coremark_score": 3015.6435756576348,
+      "coremark_score": 3011.857456918579,
       "cycles_per_iteration": 208425,
-      "frequency_mhz": 628.5355122564425,
+      "dynamic_power_w": 0.14577,
+      "frequency_mhz": 627.7463904582548,
       "isa": "rv32imc",
-      "joule_per_iteration": 2.88164028075e-05,
-      "power_w": 0.0869,
+      "joule_per_iteration": 4.847506965e-05,
+      "leakage_power_w": 2.21e-05,
+      "macro_power_w": 0.109,
+      "power_2sigma_w": 0.002190890230020666,
+      "power_groups_w": {
+        "Clock": 0.0274,
+        "Combinational": 0.00236,
+        "Macro": 0.109,
+        "Sequential": 0.00695
+      },
+      "power_w": 0.146,
+      "seed_samples": [
+        {
+          "coremark_per_joule": 20629.160663825885,
+          "dynamic_power_w": 0.14577,
+          "leakage_power_w": 2.21e-05,
+          "power_w": 0.146,
+          "seed": "own"
+        },
+        {
+          "coremark_per_joule": 20771.430737369512,
+          "dynamic_power_w": 0.14562,
+          "leakage_power_w": 2.2e-05,
+          "power_w": 0.145,
+          "seed": "11"
+        },
+        {
+          "coremark_per_joule": 21061.940258171882,
+          "dynamic_power_w": 0.14336000000000002,
+          "leakage_power_w": 2.2e-05,
+          "power_w": 0.143,
+          "seed": "12"
+        },
+        {
+          "coremark_per_joule": 20771.430737369512,
+          "dynamic_power_w": 0.14454,
+          "leakage_power_w": 2.22e-05,
+          "power_w": 0.145,
+          "seed": "13"
+        },
+        {
+          "coremark_per_joule": 20771.430737369512,
+          "dynamic_power_w": 0.14469,
+          "leakage_power_w": 2.23e-05,
+          "power_w": 0.145,
+          "seed": "14"
+        }
+      ],
+      "seeds": 5,
       "stage": "grt",
-      "vectorless_power_w": 0.0547
+      "vectorless_power_w": 0.0635
     }
   ],
   "provenance": {

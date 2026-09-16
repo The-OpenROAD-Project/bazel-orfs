@@ -24,17 +24,18 @@ the order they move the numbers:
 1. The memory model is a fitted one, not a characterised one: every SRAM
    is `tools/memory_macro_scaler`'s view, whose energy and leakage follow
    the memory's shape after CACTI's decomposition but whose fit its own
-   documentation calls a first-order anchor, and memory is TBD_MEMPCT %
-   of every point (§5.1, §8.6).
+   documentation calls a first-order anchor, and memory is 66 to 78 %
+   of every point ([§5.1](#51-the-boundary-met-and-what-it-cost), [§8.6](#86-a-memory-model-that-knows-its-size----done)).
 2. Every point has an error bar from five placement seeds, and the
-   largest 2σ is TBD_SIGMA % of its point; anything inside that is not a
-   difference (§5.13).
-3. The corner is the kit's best case: fast process, high voltage (§5.4).
-4. The simulation is zero-delay and carries no glitch power (§5.2).
-5. The parasitics are estimated at global route, not extracted (§5.3).
-6. Every frequency is one derived closing period, from one pass on one
-   floorplan; deriving it moved the energy axis by at most 3.5 %, and
-   the second pass has not been run ([§5.5](#55-frequency-and-what-deriving-it-changed), [§8.3](#83-a-second-period-pass)).
+   largest 2σ is 1.5 % of its point; anything inside that is not a
+   difference ([§5.13](#513-five-placement-seeds-behind-every-point)).
+3. The corner is the kit's best case: fast process, high voltage ([§5.4](#54-the-corner-is-asap7s-best-case-not-its-typical)).
+4. The simulation is zero-delay and carries no glitch power ([§5.2](#52-zero-delay-simulation-carries-no-glitch-power)).
+5. The parasitics are estimated at global route, not extracted ([§5.3](#53-estimated-not-extracted-parasitics--one-point-measured)).
+6. Every frequency is a derived closing period from two passes of the
+   period tuner on one floorplan; the second pass moved ibex by 14 ps
+   and VeeR by 2 ps, and the floorplans have not been re-derived on the
+   new memory views ([§5.5](#55-frequency-and-what-deriving-it-changed), [§8.3](#83-a-second-period-pass)).
 7. The kit is predictive. No absolute Watt here is a silicon Watt ([§5.6](#56-a-predictive-kit-not-a-foundry-pdk)).
 
 And one cross-check against published numbers comes back implausible
@@ -83,10 +84,9 @@ than asserted.** Cores with no cache are hardened together with the
 tightly-coupled memory they execute from; each wrapper counts every
 transfer that leaves the hardened block, and for all four cores one hot
 CoreMark iteration sends **zero**. Closing that boundary is itself the
-study's largest result: it costs the cacheless cores between **2.8x and
-4.2x** of their CoreMark/Joule, with CoreMark/MHz unchanged to every
-digit, and it compresses the ordering: ibex reads 8.00x better than VeeR
-EH1 when its memory is outside the measurement and 2.90x better when it
+study's largest result: it costs the cacheless cores **between 3.3x and 5.1x** of their CoreMark/Joule, with CoreMark/MHz unchanged to every
+digit, and it compresses the ordering: ibex reads 13.45x better than VeeR
+EH1 when its memory is outside the measurement and 4.08x better when it
 is inside. Any CoreMark/Joule quoted for a small core without stating
 whether its memory was measured is uninterpretable at roughly an order
 of magnitude.
@@ -98,16 +98,16 @@ indistinguishable from a measurement in the report. We therefore
 enumerate every pin, classify every pin the SAIF did not reach, and
 bound what the estimator could be worth by sweeping the default
 activity across its entire range. For the three cacheless cores the
-SAIF annotates **100 % of pins** (27,597 / 52,280 / 82,396), **zero**
+SAIF annotates **100 % of pins** (28,264 / 53,694 / 81,165), **zero**
 are unannotated, and for all four cores the SAIF-driven total is
 bit-identical at ten significant figures across the whole sweep, while
-the same sweep moves the vectorless total by 24--475 %. The energy
+the same sweep moves the vectorless total by 21--144 %. The energy
 numbers are therefore vector-driven in the strong sense: OpenSTA's
 probabilistic activity model contributes nothing to them.
 
 The shape the points make is reported with its diagnosis. The three
 cacheless cores lie close to a line in log--log axes; extrapolating it to
-VeeR's performance overpredicts VeeR's efficiency by **5.53x** with every
+VeeR's performance overpredicts VeeR's efficiency by **7.88x** with every
 memory inside the boundary and by **15.2x** with the cacheless cores'
 memories outside it ([§4.6](#46-is-the-shape-real-the-boundary-and-the-memory-model), [§5.1](#51-the-boundary-met-and-what-it-cost)), so the boundary was most of the
 disagreement, and the line that remains is the memory model's,
@@ -116,19 +116,19 @@ it is what the data supports: **CoreMark/Joule is not yet a
 discriminating axis among cores of this class.**
 
 The limitations listed above the abstract are quantified or bounded in
-§5. The largest is the memory model: every memory is a fitted abstract
+[§5](#5-threats-to-validity). The largest is the memory model: every memory is a fitted abstract
 from one generator whose energy and leakage depend on the memory's
 shape, which replaced FakeRAM2.0's one-number-for-every-shape views and
-moved the cacheless points by TBD_SWITCH % (§5.1, §8.6). One model
+moved the cacheless points by 17 to 19 % and VeeR by 40 % ([§5.1](#51-the-boundary-met-and-what-it-cost), [§8.6](#86-a-memory-model-that-knows-its-size----done)). One model
 applied uniformly is something a comparison survives and two models is
 not, which is why every memory on every point is on it. ibex is
 measured with
-`ICache=0`, which §5.1 shows is the right configuration rather than an
+`ICache=0`, which [§5.1](#51-the-boundary-met-and-what-it-cost) shows is the right configuration rather than an
 omission. The simulation is zero-delay and so carries no glitch power;
 the parasitics are estimated rather than extracted, worth 2.05 % of the
-total on the one point measured against extraction (§5.3); and the
+total on the one point measured against extraction ([§5.3](#53-estimated-not-extracted-parasitics--one-point-measured)); and the
 corner is ASAP7's best case. Every core is built at a period derived
-from its own register-to-register slack (§5.5). §4.8 checks the numbers against the three nearest published
+from its own register-to-register slack ([§5.5](#55-frequency-and-what-deriving-it-changed)). [§4.8](#48-cross-checks-against-the-nearest-published-studies) checks the numbers against the three nearest published
 studies, measures the one disagreement down to the netlist, and reports
 what is left unexplained.
 
@@ -143,6 +143,7 @@ logarithmic. Blue: measured here on ASAP7 at global route, with
 activity from one hot CoreMark iteration. Red: a published GF 22 FDX
 series, derived from another paper's numbers and drawn in its own
 colour because it is not like-for-like ([§4.4](#44-a-22-nm-literature-series-and-what-it-is-and-is-not)).
+Error bars on the blue points are 2σ over five placement seeds ([§5.13](#513-five-placement-seeds-behind-every-point)).
 
 Two shaded regions place this study's cores against commodity silicon.
 Both are drawn as regions rather than as markers: three parts stand in
@@ -176,19 +177,19 @@ design would have to cross to be a major advance rather than a better
 point on a known curve.
 
 <!-- table1 -->
-| core | ISA | CoreMark/MHz | cycles/iter | f (MHz) | P (SAIF) | CoreMark/Joule | memory inside the boundary |
-|---|---|---|---|---|---|---|---|
-| SERV | rv32i | 0.0243 | 41,202,900 | 2283.1 | 44.3 mW | 1,251 | 32 kB instruction memory and 8 kB data memory |
-| picorv32 | rv32im | 0.5531 | 1,807,889 | 2141.3 | 45.7 mW | 25,918 | 32 kB instruction memory and 8 kB data memory |
-| ibex | rv32imc | 2.4543 | 407,448 | 780.0 | 19.0 mW | 100,760 | 32 kB instruction memory and 8 kB data memory |
-| VeeR EH1 | rv32imc | 4.7979 | 208,425 | 628.5 | 86.9 mW | 34,702 | 16 kB instruction cache and 64 kB DCCM |
+| core | ISA | CoreMark/MHz | cycles/iter | f (MHz) | P (SAIF) | dynamic | leakage | CoreMark/Joule | memory inside the boundary | 2σ over seeds |
+|---|---|---|---|---|---|---|---|---|---|---|
+| SERV | rv32i | 0.0243 | 41,202,900 | 2283.1 | 54.7 mW | 54.7 mW | 0.00 mW | 1,013 | 32 kB instruction memory and 8 kB data memory | ±2 (5) |
+| picorv32 | rv32im | 0.5531 | 1,807,889 | 2141.3 | 56.6 mW | 56.6 mW | 0.00 mW | 20,926 | 32 kB instruction memory and 8 kB data memory | ±105 (5) |
+| ibex | rv32imc | 2.4543 | 407,448 | 771.6 | 22.5 mW | 22.5 mW | 0.00 mW | 84,167 | 32 kB instruction memory and 8 kB data memory | ±333 (5) |
+| VeeR EH1 | rv32imc | 4.7979 | 208,425 | 627.7 | 146.0 mW | 145.8 mW | 0.02 mW | 20,629 | 16 kB instruction cache and 64 kB DCCM | ±317 (5) |
 <!-- /table1 -->
 
 **Table 1.** The four measured points, all at [§3.1](#31-the-measurement-boundary)'s boundary: the core
 and its L1, or the tightly-coupled memory that stands in for one. Every
 point is verified to send zero transfers outside the hardened block
 during the iteration measured. [§5.1](#51-the-boundary-met-and-what-it-cost) reports what closing that boundary
-cost — between 2.8x and 4.1x of CoreMark/Joule on the three cores that
+cost — between 3.3x and 5.1x of CoreMark/Joule on the three cores that
 had been measured without their memories, at unchanged CoreMark/MHz.
 The last column is what each tile hardens inside the boundary; for the
 three cacheless cores it is this study's choice, not the core's ([§5.1](#51-the-boundary-met-and-what-it-cost)).
@@ -325,7 +326,7 @@ what it costs is where the efficiency goes.
 **Route one: buy frequency with voltage.** $f_\mathrm{max}$ rises roughly
 linearly with $V$ over the usable range, while $E_\mathrm{dyn}$ per operation
 rises as $V^2$. Energy per operation therefore scales as $f^2$, and
-CoreMark/Joule as $1/f^2$. Reaching 3 GHz this way from ibex's 780 MHz
+CoreMark/Joule as $1/f^2$. Reaching 3 GHz this way from ibex's 772 MHz
 would need 3.8× the supply, which at 7 nm is not a voltage, it is a
 breakdown. ASAP7's whole headroom from typical to best case is 0.70 V to
 0.77 V — about 10 %, worth maybe 10–20 % of frequency for 21 % more
@@ -556,7 +557,7 @@ and is expected to stay there. The `unmatched` budget is a *fraction*
 rather than a count, because a fraction is the quantity worth reporting
 and worth reducing — a count would churn with every flow change while
 saying nothing about whether it is small. Three of the four designs
-declare zero. VeeR declares 1.1 % against a measured **1.0128 %**, for a
+declare zero. VeeR declares 1.1 % against a measured **1.0073 %**, for a
 reason [§4.2](#42-annotation-completeness-and-the-estimator-bound) gives, and the intent is to whittle it toward zero rather
 than to keep it.
 
@@ -760,17 +761,17 @@ that the numbers in Table 1 predate it.
 
 ### 4.1 The four cores
 
-Table 1. Across a factor of 198 in CoreMark/MHz, CoreMark/Joule spans a factor of 81: SERV's extreme serialism costs it 41 million
+Table 1. Across a factor of 198 in CoreMark/MHz, CoreMark/Joule spans a factor of 83: SERV's extreme serialism costs it 41 million
 cycles per iteration, and paying for a 40 kB memory over every one of
 them is what dominates its Joule. Every point meets the study's boundary
 ([§5.1](#51-the-boundary-met-and-what-it-cost)) and every point is verified to send zero transfers outside it
 during the iteration measured.
 
 The reader is cautioned on two things instead. Every memory here is a
-fitted abstract, and TBD_MEMPCT % of each point's power comes from a
+fitted abstract, and 66 to 78 % of each point's power comes from a
 model whose fit is a first-order anchor rather than a characterised
-library (§5.1). And CoreMark/Joule is not a discriminating axis across these
-four: §4.6 shows it within 1.26x of proportional to CoreMark/MHz over
+library ([§5.1](#51-the-boundary-met-and-what-it-cost)). And CoreMark/Joule is not a discriminating axis across these
+four: [§4.6](#46-is-the-shape-real-the-boundary-and-the-memory-model) shows it within 1.22x of proportional to CoreMark/MHz over
 the three cacheless cores, for reasons that are a property of the
 platform's memory model rather than of the designs.
 
@@ -778,26 +779,27 @@ platform's memory model rather than of the designs.
 
 | core | pins listed | annotated (SAIF) | unannotated | unaccounted | verdict |
 |---|---|---|---|---|---|
-| SERV | 28,025 | 28,025 (100.0000 %) | 0 | 0 | pass |
-| picorv32 | 53,240 | 53,240 (100.0000 %) | 0 | 0 | pass |
-| ibex | 80,876 | 80,876 (100.0000 %) | 0 | 0 | pass |
-| VeeR EH1 | 754,718 | 747,070 (98.9866 %) | 7,648 | **1.0128 %** | pass |
+| SERV | 28,264 | 28,264 (100.0000 %) | 0 | 0 | pass |
+| picorv32 | 53,694 | 53,694 (100.0000 %) | 0 | 0 | pass |
+| ibex | 81,165 | 81,165 (100.0000 %) | 0 | 0 | pass |
+| VeeR EH1 | 762,068 | 754,384 (98.9917 %) | 7,684 | **1.0073 %** | pass |
 
 **Table 2.** Pin activity annotation at global route. "Pins listed" is
 OpenSTA's own pin set for power — leaf pins plus top-level ports, less
 internal and power/ground pins. Every class in [§3.5](#35-annotation-completeness-and-the-bound-on-the-estimator) is empty for the
-three cacheless cores: there is nothing to waive. The counts moved with
-[§5.1](#51-the-boundary-met-and-what-it-cost) -- the tiles grew memories, five macros and a wider clock tree --
-and the annotation stayed complete through that change and through the
-move onto FakeRAM's interface, which replaced every macro pin in the
-design. Complete annotation survived a total change of the macro pin
-set, which is the sort of thing a gate is for.
+three cacheless cores: there is nothing to waive. The counts are on
+the tiles with their memories inside the boundary ([§5.1](#51-the-boundary-met-and-what-it-cost)) and on the
+shape-aware memory model's interface ([§8.6](#86-a-memory-model-that-knows-its-size----done)), which replaced every macro
+pin in the design; complete annotation survived that total change of
+the macro pin set, which is the sort of thing a gate is for.
 
-**VeeR is the exception, and its 7,648 are itemised rather than
-tolerated.** Four are waived by name: the four top-level input ports
+**VeeR is the exception, and its 7,684 are itemised rather than
+tolerated.** Eight are waived by name: the four top-level input ports
 that `cm_soc_veer.sv` ties to constants, which Verilator therefore never
-emits into the SAIF. The
-remaining 7,644 — the 1.0128 % — are pins OpenSTA's hierarchical network
+emits into the SAIF, and the four pins of the one clock-gate cell
+[§5.12](#512-two-carried-workarounds)'s renamer touched, two of them on clock nets and two -- its
+enable and its scan enable -- not. The
+remaining 7,676 — the 1.0073 % — are pins OpenSTA's hierarchical network
 carries that odb's own instance enumeration does not reach: the same
 clock cells whose SAIF entries had to be dropped, for the same reason,
 their names containing the hierarchy separator. They were never going
@@ -807,36 +809,36 @@ zero rather than keep it ([§3.5](#35-annotation-completeness-and-the-bound-on-t
 
 | core | SAIF arm spread | vectorless arm spread | vectorless at OpenSTA's default | measured |
 |---|---|---|---|---|
-| SERV | **0.0000 %** | 24.04 % | 47.02 mW | 43.423 mW |
-| picorv32 | **0.0000 %** | 86.27 % | 67.65 mW | 44.430 mW |
-| ibex | **0.0000 %** | 173.08 % | 35.61 mW | 19.464 mW |
-| VeeR EH1 | **0.0000 %** | 474.61 % | 54.66 mW | 86.504 mW |
+| SERV | **0.0000 %** | 21.06 % | 59.38 mW | 54.737 mW |
+| picorv32 | **0.0000 %** | 40.84 % | 69.74 mW | 56.561 mW |
+| ibex | **0.0000 %** | 79.46 % | 38.83 mW | 22.519 mW |
+| VeeR EH1 | **0.0000 %** | 144.41 % | 63.53 mW | 145.576 mW |
 
 **Table 3.** Total power as the default activity seeded into
 unannotated roots is swept over 0.0, 0.1, 1.0 and 2.0 toggles per clock
 period. The SAIF-driven total is bit-identical at ten significant
-figures at every point — for picorv32, 2.1383069e-02 W four times. The
-vectorless total over the same sweep runs 42.16 → 52.29 mW (SERV),
-43.44 → 80.92 mW (picorv32), 15.93 → 43.51 mW (ibex) and 21.72 →
-124.79 mW (VeeR).
+figures at every point — for picorv32, 5.6561295e-02 W four times. The
+vectorless total over the same sweep runs 52.78 → 65.57 mW (SERV),
+53.62 → 82.86 mW (picorv32), 18.95 → 48.46 mW (ibex) and 21.71 →
+145.41 mW (VeeR).
 
 The control arm's spread is the part of this table that is not a
-constant of the study: 24 % on SERV, 86 % on picorv32, 173 % on ibex,
-475 % on VeeR. Across the three cacheless cores it orders itself by how
+constant of the study: 21 % on SERV, 41 % on picorv32, 79 % on ibex,
+144 % on VeeR. Across the three cacheless cores it orders itself by how
 much of each design the estimator is free to invent — least room where a
 macro's internal power dominates a total that seeding an input activity
 cannot move, most where the design is logic whose activity it has to
-guess. SERV is the extreme — 71 % of its power is macro — and it is the
+guess. SERV is the extreme — 78 % of its power is macro — and it is the
 one core where a reader might reasonably ask whether the control is
-strong enough for the null result to mean much. It still moves 6.1 mW,
+strong enough for the null result to mean much. It still moves 12.8 mW,
 against a SAIF arm that moves zero at ten significant figures, but it
 is the weakest control in the study and it is weakest for a reason
 worth knowing.
 
 **VeeR breaks that ordering, and the reason is the clock gates.** At
-59 % macro it sits between picorv32 and ibex, yet its control arm moves
-four and a half times its own floor — 21.58 mW at zero activity against
-123.38 mW at two toggles per cycle. It is the one core in the study with
+75 % macro it sits inside the other three's range, yet its control arm moves
+to nearly seven times its own floor — 21.71 mW at zero activity against
+145.41 mW at two toggles per cycle. It is the one core in the study with
 a real clock-gating network ([§5.11](#511-veers-clock-gates-and-what-mapping-them-cost)), and a gated clock's activity *is*
 the enable's activity: told the enables never toggle, the estimator
 switches off a clock tree that carries 29.5 % of the design's power;
@@ -851,27 +853,27 @@ Read together, Tables 2 and 3 are the study's central methodological
 claim, and it is a measured one rather than an assurance: **OpenSTA's
 probabilistic activity model contributes nothing to the reported
 energy.** The knob that would let it contribute is demonstrably live —
-it moves the same design's power by 24 to 475 % when activity is not
+it moves the same design's power by 21 to 144 % when activity is not
 annotated — and it moves the annotated result by zero.
 
 **VeeR is the case that shows why the sweep, not the audit, is the
-claim.** It is the one design with pins unaccounted for — 1.0128 % of
+claim.** It is the one design with pins unaccounted for — 1.0073 % of
 its pin set — and its SAIF arm is still bit-identical at
 8.6504e-02 W across the whole sweep, while its vectorless arm runs
 21.7 mW to 124.8 mW. The sweep does not care why a pin is unannotated:
 it varies the default the estimator would use for every one of them at
-once. Those 7,648 pins are worth exactly nothing to the reported number,
+once. Those 7,684 pins are worth exactly nothing to the reported number,
 and that is measured rather than argued.
 
 A secondary observation falls out of the control arm. At OpenSTA's own
 default activity a vectorless report says 47.02 mW for SERV against a
-measured 43.42 (1.06x), 67.65 mW for picorv32 against 44.43 (1.48x),
-35.61 mW for ibex against 19.46 (1.87x) — and 54.66 mW for VeeR against
-86.50 measured (0.63x), the one core it *understates*, because told
+measured 43.42 (1.09x), 67.65 mW for picorv32 against 44.43 (1.23x),
+35.61 mW for ibex against 19.46 (1.72x) — and 54.66 mW for VeeR against
+86.50 measured (0.43x), the one core it *understates*, because told
 nothing about the enables it runs the clock gates at a guess. The error
 is differential and changes sign across the table. A vectorless
-CoreMark/Joule comparison of these four cores would put ibex 0.98x
-of VeeR where the measurement puts it 2.90x above: not wrong in
+CoreMark/Joule comparison of these four cores would put ibex 1.03x
+of VeeR where the measurement puts it 4.08x above: not wrong in
 magnitude only, but blind to the one difference between the two cores
 that [§4.7](#47-where-the-power-goes) shows is real.
 
@@ -1032,7 +1034,7 @@ bit-serial to out-of-order range in one flow.
 **The degeneracy.** $\mathrm{CoreMark/Joule} = \mathrm{CoreMark/MHz}\cdot f/P$,
 so if $f/P$ is constant across cores the energy axis carries no
 information the performance axis did not. Across a 101x span in
-CoreMark/MHz, the three cacheless cores' $f/P$ spans **1.32x**. The
+CoreMark/MHz, the three cacheless cores' $f/P$ spans **1.22x**. The
 energy axis is close to the performance axis in disguise.
 
 **What the boundary is worth.** Extrapolating the three cacheless cores
@@ -1043,23 +1045,23 @@ derived period. `scripts/fit_results.py` produces these figures from
 `results.json`; it also fits slopes, which this section does not quote
 (see the caveats below).
 
-| | core only | core + memory ([§5.1](#51-the-boundary-met-and-what-it-cost)) | + derived periods ([§5.5](#55-frequency-and-what-deriving-it-changed)) |
-|---|---|---|---|
-| extrapolation to VeeR overpredicts by | 15.2x | 5.53x | **5.64x** |
-| $f/P$ spread, three cacheless cores | 1.89x | 1.26x | **1.26x** |
-| power spread, those three | 1.15x | 1.36x | **2.41x** |
+| | core only | core + memory, derived periods ([§5.1](#51-the-boundary-met-and-what-it-cost), [§5.5](#55-frequency-and-what-deriving-it-changed)) |
+|---|---|---|
+| extrapolation to VeeR overpredicts by | 15.2x | **7.88x** |
+| $f/P$ spread, three cacheless cores | 1.89x | **1.22x** |
+| power spread, those three | 1.15x | **2.52x** |
 
-Closing the boundary took 64 % out of the disagreement between the
+Closing the boundary took 48 % out of the disagreement between the
 cacheless cores and the one core that already met it, which is [§5.1](#51-the-boundary-met-and-what-it-cost)'s
-correction measured. It did not loosen the line: $f/P$ spans 1.32x with
+correction measured. It did not loosen the line: $f/P$ spans 1.22x with
 the memories inside against 1.89x with them outside. Deriving the
-periods widened the power spread to 2.28x without widening $f/P$: two
+periods widened the power spread to 2.52x without widening $f/P$: two
 cores doubled their frequency and their power followed, which is [§2.3](#23-why-coremarkjoule-falls-as-coremarksecond-rises)'s
 cancellation observed.
 
 **The line is the memory model.** Every memory in this study is on
-one shape-aware model (§8.6), and the macros are TBD_MEMPCT % of each
-point's power (§4.7). The three cacheless cores run the same benchmark
+one shape-aware model ([§8.6](#86-a-memory-model-that-knows-its-size----done)), and the macros are 66 to 78 % of each
+point's power ([§4.7](#47-where-the-power-goes)). The three cacheless cores run the same benchmark
 out of the same two memories, so what separates them is access rate and
 the model's per-access energy for a memory of the right size, and the
 axis reflects that.
@@ -1085,16 +1087,16 @@ period pass on the derived floorplans ([§8.3](#83-a-second-period-pass)). The p
 separate a real law from the memory model's flatness, and says so.
 
 **Where the four points actually land.** VeeR delivers **1.95x** ibex's
-performance per clock at **0.34x** its CoreMark/Joule, drawing 4.57x
+performance per clock at **0.25x** its CoreMark/Joule, drawing 6.49x
 the power. With ibex's memory outside the measurement the same ratio
-reads 0.13x, and the conclusion it would support -- that the minimal
+reads 0.07x, and the conclusion it would support -- that the minimal
 cores dominate the energy metric -- is an artefact of the boundary. What
 the corrected numbers support is much weaker, which is the honest state
 of the evidence.
 
-**A corroboration, still carefully.** VeeR at 34,702 CoreMark/Joule
-lands **1.18x to 1.28x** above the GF 22 FDX series of [§4.4](#44-a-22-nm-literature-series-and-what-it-is-and-is-not)
-(27,108--29,412); ibex sits 3.4x above it. That is a consistency check
+**A corroboration, still carefully.** VeeR
+lands at **0.70x to 0.76x** of the GF 22 FDX series of [§4.4](#44-a-22-nm-literature-series-and-what-it-is-and-is-not)
+(27,108--29,412), below it; ibex sits 2.9x above it. That is a consistency check
 between cores measured at a stated core-plus-L1 boundary on different
 nodes with different tools, and all four of this study's points meet
 that boundary. It remains consistency, not validation: [§4.4](#44-a-22-nm-literature-series-and-what-it-is-and-is-not)'s caveats are unchanged, and
@@ -1105,61 +1107,42 @@ does not come back clean.
 
 `report_power` groups by cell kind, and the grouping turns [§4.6](#46-is-the-shape-real-the-boundary-and-the-memory-model)'s
 statistical findings into mechanical ones. Table 7 is the state after
-[§5.1](#51-the-boundary-met-and-what-it-cost); the row each core replaced is kept underneath it, because the
-difference between the two is the whole of [§5.1](#51-the-boundary-met-and-what-it-cost)'s correction and it is
-not evenly distributed.
+[§5.1](#51-the-boundary-met-and-what-it-cost) and [§8.6](#86-a-memory-model-that-knows-its-size----done): every memory inside the boundary, on the
+shape-aware model.
 
-| core | total | Clock | Sequential | Combinational | **Macro** |
-|---|---|---|---|---|---|
-| SERV | **44.30 mW** | 6.25 (14.1 %) | 4.53 (10.2 %) | 2.12 (4.8 %) | **31.40 (70.9 %)** |
-| picorv32 | **45.70 mW** | 8.04 (17.6 %) | 6.19 (13.5 %) | 1.97 (4.3 %) | **29.50 (64.6 %)** |
-| ibex | **19.00 mW** | 2.96 (15.6 %) | 2.48 (13.1 %) | 2.37 (12.5 %) | **11.20 (58.9 %)** |
-| VeeR EH1 | **86.90 mW** | 25.70 (29.6 %) | 6.95 (8.0 %) | 3.35 (3.9 %) | **51.00 (58.7 %)** |
-| *SERV, core only* | *6.68* | *2.85* | *2.83* | *1.00* | *0.00* |
-| *picorv32, core only* | *6.43* | *2.84* | *2.89* | *0.70* | *0.00* |
-| *ibex, core only* | *7.37* | *2.46* | *2.64* | *2.27* | *0.00* |
+<!-- table7 -->
+| core | total | Clock | Sequential | Combinational | **Macro** | logic (all but macro) |
+|---|---|---|---|---|---|---|
+| ibex | **22.50 mW** | 2.73 (12.1 %) | 2.45 (10.9 %) | 2.44 (10.8 %) | **14.90 (66.2 %)** | 7.60 (33.8 %) |
+| picorv32 | **56.60 mW** | 7.69 (13.6 %) | 6.20 (11.0 %) | 1.98 (3.5 %) | **40.70 (71.9 %)** | 15.90 (28.1 %) |
+| SERV | **54.70 mW** | 5.63 (10.3 %) | 4.53 (8.3 %) | 1.88 (3.4 %) | **42.70 (78.1 %)** | 12.00 (21.9 %) |
+| VeeR EH1 | **146.00 mW** | 27.40 (18.8 %) | 6.95 (4.8 %) | 2.36 (1.6 %) | **109.00 (74.7 %)** | 37.00 (25.3 %) |
+<!-- /table7 -->
 
-**The memory is the measurement.** 57--72 % of every point: 72.4 % of SERV down to
-57.4 % of ibex. The old rows show what that meant: for these three cores
-the component that was missing was between 1.5 and 4.7 times
-everything that was present. [§4.6](#46-is-the-shape-real-the-boundary-and-the-memory-model)'s extrapolation error of 15.2x was
-this column.
+**The memory is the measurement.** 66 to 78 % of every point: 78.1 % of SERV down to 66.2 % of ibex.
+For the three cacheless cores the macro column is between 2.0 and 3.6 times everything
+else in the row, and [§4.6](#46-is-the-shape-real-the-boundary-and-the-memory-model)'s extrapolation error is this column.
 
-**The logic did not stay still either**, and the direction is worth
-noting. Clock power rises on every cacheless core -- SERV 2.85 to 6.25 mW,
-picorv32 2.84 to 8.04, ibex 2.46 to 3.13 -- for two reasons that
-separate cleanly: the die grew to hold the macros and the clock tree
-grew with it, and SERV and picorv32 now run at derived periods close to
-half their old ones ([§5.5](#55-frequency-and-what-deriving-it-changed)), which doubles a clock's switching power at
-constant energy per cycle. Sequential power is the control: unchanged to
-two digits for ibex, whose period barely moved, and up by exactly the
-frequency ratio for SERV (1.59x against 1.60x) and picorv32 (2.08x
-against 2.14x), because the flop count did not change and neither did
-the benchmark.
-A measurement where the term that should move moves and the term that
-should not stay put is one more thing that would have shown a mistake
-if there were one.
-
-**Why the axis re-flattened.** Before [§5.1](#51-the-boundary-met-and-what-it-cost) the three cacheless cores
-were degenerate because clock plus sequential -- 69--89 % of each total
--- is set by how much state a design has rather than how fast it
-retires work, and the three have similar amounts of state. After [§5.1](#51-the-boundary-met-and-what-it-cost)
-they are degenerate because the macro column, 57--72 % of each total,
-is *the same memory* in all three. The term that actually tracks the
-architecture is combinational power, 0.92--3.33 mW, and it is the
-smallest term in every row. That is [§4.6](#46-is-the-shape-real-the-boundary-and-the-memory-model)'s 1.26x $f/P$ spread stated as
-a mechanism.
+**The logic tracks state, not work.** Clock plus sequential is
+5.2 to 13.9 mW on the three cacheless cores and is set by how much state a
+design has and how fast it is clocked, not by how fast it retires work:
+picorv32 and SERV at over 2 GHz spend more on clock and flops than ibex
+does at 772 MHz while retiring a fraction of its work per cycle. The
+term that actually tracks the architecture is combinational power,
+1.88--2.44 mW, and it is the smallest term in every row. That is [§4.6](#46-is-the-shape-real-the-boundary-and-the-memory-model)'s
+1.22x $f/P$ spread stated as a mechanism.
 
 **VeeR is the one row that looks different, and it is instructive.**
-Its macro fraction is 59 %, at the low end of the range, and its clock
-power is 25.60 mW -- 8.2x ibex's -- because it has an order of magnitude more state and a
-real clock-gating network to distribute. Its logic alone is 35.80 mW
-against ibex's 8.30 mW: **4.3x the logic power for 1.95x the
-performance per clock.** The three figures are the rows above added up. The memory is no longer the whole story once
-a core is big enough to have one worth having.
+Its macro share is 75 %, inside the range of the other three, but
+its clock power is 27.4 mW -- 10.0x ibex's -- because it has an
+order of magnitude more state and a real clock-gating network to
+distribute. Its logic alone is 37.0 mW against ibex's 7.6 mW:
+**4.9x the logic power for 1.95x the performance per clock.** The
+memory is no longer the whole story once a core is big enough to have
+one worth having.
 
 **A caveat on the macro column specifically.** Every row's macro figure
-comes from one fitted model (§5.1, §8.6), whose Liberty charges each
+comes from one fitted model ([§5.1](#51-the-boundary-met-and-what-it-cost), [§8.6](#86-a-memory-model-that-knows-its-size----done)), whose Liberty charges each
 memory's read-write energy on every clock edge whatever the enable
 does. So the column scales with the memory's shape and with clock
 cycles, not with accesses; a core that idles its memory for a cycle
@@ -1386,8 +1369,8 @@ is core plus L1 on a predictive 7 nm kit at its best-case corner;
 Table 9 is a whole package, IO die and memory controllers included, on
 a real 4 nm or 5 nm process at a typical corner. Neither number is
 convertible into the other, and the comparison below is a ladder, not a
-Figure. On it, ibex sits **8.4x** above the best commodity package and
-VeeR EH1 **2.9x** above it, while SERV sits **9.6x below** it, under
+Figure. On it, ibex sits **7.0x** above the best commodity package and
+VeeR EH1 **1.7x** above it, while SERV sits **11.9x below** it, under
 every commodity part in the table. The direction and the decades are
 what [§2.3](#23-why-coremarkjoule-falls-as-coremarksecond-rises) predicts:
 a small in-order core at 0.77 V, with nothing outside its L1 charged to
@@ -1416,7 +1399,7 @@ SERV's 41 million cycles per iteration are 41 million accesses to it.
 Each tile -- `cmj_serv`, `cmj_picorv32`, `cmj_ibex` -- contains the core
 plus a 32 kB instruction memory and an 8 kB data memory, both SRAMs of
 `rtl/cmj_sram_models.sv` with LEF and Liberty from
-`tools/memory_macro_scaler` (§8.6; `rtl/cmj_progmem.sv` is the wiring
+`tools/memory_macro_scaler` ([§8.6](#86-a-memory-model-that-knows-its-size----done); `rtl/cmj_progmem.sv` is the wiring
 between the core's bus and the SRAM), both placed and routed with the
 core, and both inside what `DESIGN_NAME`
 names and therefore inside what `report_power` totals.
@@ -1426,16 +1409,18 @@ outside the boundary (core only) and inside it. CoreMark/MHz is the
 same to every digit -- the memory's position changes no cycle of any
 run -- so the entire difference is on the energy axis.
 
+<!-- table8 -->
 | core | CoreMark/MHz | CoreMark/Joule, core only | CoreMark/Joule, core + L1 | factor |
 |---|---|---|---|---|
-| SERV | 0.0243 | 5,190 | **1,251** | 4.15x |
-| picorv32 | 0.5531 | 86,024 | **25,918** | 3.32x |
-| ibex | 2.4543 | 277,510 | **100,760** | 2.75x |
-| VeeR EH1 | 4.7979 | 34,702 | 34,702 | 1.00x (already met) |
+| ibex | 2.4543 | 277,510 | **84,167** | 3.30x |
+| picorv32 | 0.5531 | 86,024 | **20,926** | 4.11x |
+| SERV | 0.0243 | 5,190 | **1,013** | 5.12x |
+| VeeR EH1 | 4.7979 | 20,629 | 20,629 | 1.00x (already met) |
+<!-- /table8 -->
 
 Three things in that table are worth separating.
 
-**The correction is large.** Between 2.8x and 4.1x. The core-only
+**The correction is large.** It is between 3.3x and 5.1x. The core-only
 column is from the earlier builds at chosen periods; the core-plus-memory
 column is at the derived ones ([§5.5](#55-frequency-and-what-deriving-it-changed)), which moved it by at most 3.5 %. Any CoreMark/Joule
 figure quoted for a small core without saying whether its memory was in
@@ -1443,14 +1428,14 @@ the measurement is uninterpretable at roughly an order of magnitude,
 which is wider than the difference between most of the cores anyone
 would want to compare.
 
-**The correction shrinks as the core grows.** 4.15x, 3.32x, 2.75x, in
+**The correction shrinks as the core grows.** 5.12x, 4.11x, 3.30x, in
 order of CoreMark/MHz. The memory is the same in all three tiles, so a
 larger core amortises a fixed overhead over more work per cycle. That
 is the mechanism by which the cacheless boundary flattered small cores
 specifically, and it is why the straight line of [§4.6](#46-is-the-shape-real-the-boundary-and-the-memory-model) existed at all.
 
-**The ordering compresses.** Before, ibex looked 8.00x better than VeeR
-EH1 on CoreMark/Joule. Measured at the same boundary it is 2.90x better,
+**The ordering compresses.** Before, ibex looked 13.45x better than VeeR
+EH1 on CoreMark/Joule. Measured at the same boundary it is 4.08x better,
 at 0.51x the performance per clock. The conclusion a reader would have
 drawn from the old numbers -- that the minimal cores dominate the energy
 metric -- does not survive the correction.
@@ -1486,22 +1471,47 @@ energy and **one** leakage number for every shape it is asked for:
 | `fakeram7_2048x39` | 3,353.9 um^2 | 128.9 | 1.345 |
 
 Area scaled; energy and leakage did not, so halving every memory would
-have moved no number in the paper. §8.6 replaced it with
+have moved no number in the paper. [§8.6](#86-a-memory-model-that-knows-its-size----done) replaced it with
 `tools/memory_macro_scaler`, one model for every memory on every point,
 whose read energy, write energy and leakage follow rows and bits. What
 the switch alone did, at unchanged periods and floorplans:
 
-TBD_SWITCH_TABLE
+<!-- switch -->
+| core | power, FakeRAM | power, scaler | CoreMark/Joule, FakeRAM | CoreMark/Joule, scaler | change | macro share, scaler |
+|---|---|---|---|---|---|---|
+| SERV | 44.3 mW | 54.7 mW | 1,251 | 1,013 | -19 % | 78 % |
+| picorv32 | 45.7 mW | 56.6 mW | 25,918 | 20,926 | -19 % | 72 % |
+| ibex | 19.0 mW | 22.8 mW | 100,760 | 83,966 | -17 % | 66 % |
+| VeeR EH1 | 86.9 mW | 144.0 mW | 34,702 | 20,942 | -40 % | 76 % |
+<!-- /switch -->
 
-The three cacheless cores fell together, because they share the same
-two memories and the model charges the 32 kB instruction memory more
-than FakeRAM's flat number did; VeeR TBD_VEER_SWITCH. The scaler's own
+**Table 8b.** The memory model switched and nothing else: same
+netlists' periods and floorplans, same SAIF windows, the macro views
+replaced.
+
+The three cacheless cores fell together, by 17 to 19 %, because they
+share the same two memories and the model charges the 32 kB instruction
+memory more than FakeRAM's flat number did. VeeR fell 40 %: its 28
+macros -- eight DCCM banks of 2048 x 39, sixteen cache data arrays of
+256 x 34, four tag arrays -- each cost more per clock than FakeRAM's one
+figure, and its macro column went from 59 % to 76 % of the point. That
+is a ranking change: VeeR (20,942) now sits level with picorv32
+(20,926) where it was 1.3x above it, so the one conclusion the FakeRAM
+numbers supported about the two -- that the pipelined core with a real
+L1 beat the multi-cycle core with a tightly-coupled memory on energy --
+is a property of the memory model, not of the cores. The scaler's own
 documentation calls its fit a first-order anchor with published
 residuals of about 25 % on SRAM area, and its Liberty charges the
-read-write energy on every clock edge whatever the enable does (§4.7).
-That is the caveat this paper now carries in place of FakeRAM's, and it
-is a smaller one: a model that is wrong by a bounded factor for every
-shape, rather than one that is blind to shape.
+read-write energy on every clock edge whatever the enable does ([§4.7](#47-where-the-power-goes)).
+Its leakage anchor is 1 pW per bit at 45 nm scaled linearly with the
+node, which puts a 32 KiB macro at 41 nW where FakeRAM charged 129 µW
+for every shape; at ASAP7's fast corner the truth is likely one to two
+orders of magnitude above the scaler's figure and below FakeRAM's, so
+the leakage term in Table 1 is now small to the point of vanishing and
+should be read as a lower bound. That is the caveat this paper now
+carries in place of FakeRAM's, and it is a smaller one: a model that is
+wrong by a bounded factor for every shape, rather than one that is
+blind to shape.
 
 *ibex is measured with `ICache=0`, and that is a finding rather than a
 gap.* Turning the cache on was built and measured, and it closes
@@ -1527,7 +1537,7 @@ belongs to the memory model:
 | `ICache=0` (reported) | 2.4543 | 99,284 | 20.60 mW | 11.90 mW |
 | `ICache=1` | 2.4543 | 64,316 | 31.80 mW | 21.40 mW |
 
-Both rows are at 1200 ps rather than the derived 1282 ps ([§5.5](#55-frequency-and-what-deriving-it-changed)), so the
+Both rows are at 1200 ps rather than the derived 1296 ps ([§5.5](#55-frequency-and-what-deriving-it-changed)), so the
 comparison between them stands while neither is the reported point;
 Table 1 has that.
 
@@ -1540,7 +1550,7 @@ therefore cost four times one large one. In silicon they cost a
 fraction of it, and that difference is the entire reason caches exist.
 **Under that memory model a cache could only ever lose**, so the 1.54x
 was not a measurement of ibex's cache; it was a measurement of the
-model. Both rows predate §8.6's shape-aware model, under which the four
+model. Both rows predate [§8.6](#86-a-memory-model-that-knows-its-size----done)'s shape-aware model, under which the four
 small accesses cost less than the one large one; re-measuring this table
 under it is the experiment the old model could not run, and it is not
 yet done.
@@ -1699,7 +1709,7 @@ macro's by its own clock pin, and OpenSTA takes both from the SDC at
 picorv32's total and moved its reported power by 2.9 %, not by 114 %.
 
 The same mechanism is why nothing looked wrong: the macro column is
-57--72 % of every point and scaled correctly with the new periods, so
+66 to 78 % of every point and scaled correctly with the new periods, so
 the re-measurement read as plausible while a smaller term underneath it
 stayed frozen at the old clock.
 
@@ -1746,8 +1756,8 @@ quantifies what a chosen frequency is worth.
 |---|---|---|---|
 | SERV | 700 ps (1429 MHz) | **438 ps (2283 MHz)** | 60 % too slow |
 | picorv32 | 1000 ps (1000 MHz) | **467 ps (2141 MHz)** | 114 % too slow |
-| ibex | 1200 ps (833 MHz) | **1282 ps (780 MHz)** | 6.4 % **too fast** |
-| VeeR EH1 | 1600 ps (625 MHz) | **1591 ps (628.5 MHz)** | 0.6 % too slow |
+| ibex | 1200 ps (833 MHz) | **1296 ps (772 MHz)** | 7.4 % **too fast** |
+| VeeR EH1 | 1600 ps (625 MHz) | **1593 ps (627.7 MHz)** | 0.4 % too slow |
 
 **Table 9.** Committed against derived periods. The derivation is
 `//test/coremark_joule/scripts:auto_period`; each core's walk is in its
@@ -1758,7 +1768,7 @@ conservative guess but an unmet one: the netlist missed it by 73.99 ps
 on all eight reg2reg paths, and the study reported 833.333 MHz anyway.
 By this section's own rule — deeply negative means repair gave up — the
 best-scoring core in the study was being scored at a frequency it does
-not reach. It closes at 1282 ps with 0.50 ps to spare.
+not reach. It closed at 1282 ps with 0.50 ps to spare on the first pass, on FakeRAM's views; the second pass on the scaler's is [§8.3](#83-a-second-period-pass).
 
 **How it was possible.** The reported frequency was a literal in
 `sim/BUILD.bazel` and the period the design was built at was a
@@ -1793,7 +1803,7 @@ closed at, on one floorplan, at one corner, with this optimiser. [§8.3](#83-a-s
 notes that the floorplan is derived at a period and the period achieved
 on a floorplan, so the two interact and two passes are wanted; only one
 pass has been run. And `period - WNS` from a single reading is *not*
-the answer — measurably: VeeR closed at 1591 ps with 10.65 ps of slack,
+the answer — measurably, on the first pass: VeeR closed at 1591 ps with 10.65 ps of slack,
 which predicts 1580 ps, and 1581 ps fails. A slack is what the optimiser
 had left over when it stopped trying, not what it could have delivered
 if asked for more.
@@ -1909,7 +1919,7 @@ was worth:
 **These four columns are measured at the core-only boundary**, and are
 left as taken rather than restated against Table 1. The quantity the experiment
 isolates is the delta, and re-running it against tiles whose power is
-57--72 % memory would measure a smaller relative effect for a reason
+66 to 78 % memory would measure a smaller relative effect for a reason
 that has nothing to do with the IO budget. The absolute CoreMark/Joule
 figures in the last column are superseded by Table 1.
 
@@ -2004,7 +2014,7 @@ library's ICG cell, both measured at 1600 ps rather than the derived
 1591 ps ([§5.5](#55-frequency-and-what-deriving-it-changed)), so these two columns are a like-for-like comparison of
 the change, not the study's reported numbers. Table 1 has those.
 
-The energy effect is 2.1 %: [§4.7](#47-where-the-power-goes) puts 59 % of VeeR's power in the macros, and
+The energy effect is 2.1 %: [§4.7](#47-where-the-power-goes) puts 75 % of VeeR's power in the macros, and
 the clock group is dominated by the tree driving thirty thousand flops
 and twenty-eight SRAM macros rather than by a thousand gating cells. The
 [§4.6](#46-is-the-shape-real-the-boundary-and-the-memory-model) conclusion rests on the macro column and does not move.
@@ -2030,37 +2040,28 @@ VeeR is the first design in the study with hardened macros and a
 hierarchical ODB, and getting a number out of it needed two workarounds.
 Both are carried here rather than reported upstream, per the moratorium
 in `CLAUDE.md`; both cost the measurement something, and what they cost
-is measured rather than waved at. The first is a budget of zero renames
-that the current netlist meets; it stays in the chain as the assertion
-that the collision has not come back.
+is measured rather than waved at.
 
 **A duplicate instance name in the written netlist.** OpenROAD's
-`write_verilog` gave two different `AND2x2` clock cells — on
-`clknet_leaf_24_clk_i` and `clknet_leaf_152_clk_i` — the same name
-`_131758_` inside `ifu_bp_ctl$swerv_wrapper.swerv.ifu.bp`. That is one
-collision among that module's 88,520 instances and the netlist's
-1,027,239 lines, and the result is not valid Verilog. odb's own instance
-namespace is unique per block, so the collision is created on the way
-out: the name mapping in `write_verilog` is not injective.
-
-**On the ICG netlist it renames nothing.** Both colliding cells were on
-the clock network of a gate that [§5.11](#511-veers-clock-gates-and-what-mapping-them-cost) replaced, and with real ICG cells
-the netlist's 237,295 instance names are 237,295 distinct names. `uniquify_netlist.py`
-passes the netlist through byte-identical. That is a weaker result
-than a fix — the non-injective mapping is still there, and the next
-design with a hierarchical ODB may well meet it — which is why the
-script stays in the chain with its budget of zero, as the check that it
-has not come back.
+`write_verilog` gives two different cells the same name inside one
+hierarchical module, and the result is not valid Verilog. On the
+pinned VeeR netlist it is one collision: the clock-header latch
+`ifu_fetch_addr_f2_ff.genblock.clkhdr.clkhdr.latch` inside
+`ifu_mem_ctl$swerv_wrapper.swerv.ifu.mem_ctl` appears twice, once for
+the cell CTS placed and once for the resizer's clone of it. odb's own
+instance namespace is unique per block, so the collision is created on
+the way out: the name mapping in `write_verilog` is not injective.
 
 Verilator rejecting it is the good outcome. **A reader that accepted it
 would keep one of the two and simulate a design the power was not
 reported on** — a plausible number from a netlist that does not exist.
 `scripts/uniquify_netlist.py` renames rather than drops, and runs on
-every core with a budget of zero, so for the other three it asserts that
-their netlists have no collisions. Cost, while it fired: one instance's
-pins carry a name the SAIF cannot match, so three pins per rename go
-unannotated and `pin_policy.json` waives them by name; VeeR waives four
-pins, the four tied top-level ports.
+every core: the three cacheless cores carry a budget of zero, which
+asserts that their netlists have no collisions, and VeeR a budget of
+four, which its five placement draws ([§5.13](#513-five-placement-seeds-behind-every-point)) meet at zero or one
+rename each. Cost: a renamed instance's pins carry a name the SAIF
+cannot match, so three pins per rename go unannotated, and [§4.2](#42-annotation-completeness-and-the-estimator-bound)'s
+audit counts them.
 
 **Net names a SAIF cannot carry.** OpenSTA's SAIF lexer defines
 `ID ([A-Za-z_])([A-Za-z0-9_$\[\]\\.])*` and `HCHAR "."|"/"`, so `/` is
@@ -2076,20 +2077,20 @@ annotated **nothing**. The failure is not a few unannotated pins, it is
 the whole measurement — and had it not errored, `report_power` would
 have run on default activity and produced a number nothing downstream
 could distinguish from a measured one. (The vectorless run reports
-59 mW for this design, for scale.)
+63.5 mW for this design, for scale.)
 
 `scripts/filter_saif.py` drops only the entries the format cannot carry
-and classifies every one. On VeeR: **9,223 of 998,067 net entries
-(0.92 %)**, every one of them `clknet_*` or `clkbuf_*`. One of those is
-`clonenet_1_swerv.ifu.bp/bht_dataoutf.genblock.clkhdr.clkhdr.Q` — a
-cloned clock-gate output, so a clock net named by the resizer's cloning
-pass rather than by CTS. There are now no non-clock drops at all, though
-the budget of one is kept for that case. [§3.5](#35-annotation-completeness-and-the-bound-on-the-estimator) establishes that this is
-the benign case:
+and classifies every one. On the pinned VeeR netlist: **9,320 clock-network
+names** (`clknet_*`, `clkbuf_*`) and **one** the filter cannot classify
+by name, `clonenet_1_swerv.ifu.mem_ctl/ifu_fetch_addr_f2_ff.genblock.clkhdr.l1clk`
+— the output of the same cloned clock header the rename above is
+about, a clock net named by the resizer's cloning pass rather than by
+CTS. [§3.5](#35-annotation-completeness-and-the-bound-on-the-estimator) establishes that this is the benign case:
 OpenSTA gives clock-network pins $2/\mathrm{period}$ from the SDC exactly,
 bypassing the estimator, so being unannotated is their correct state and
 the pin audit classifies them `clock_network`. The budget on non-clock
-drops is zero by default; VeeR declares one, with that reason.
+drops is zero by default; VeeR declares four, with that reason written
+into its `BUILD`, and every draw uses one or none.
 
 **Both are properties of the hierarchical flow**, which OpenROAD itself
 warns about (`ORD-0012`, "in development"). The study keeps hierarchy
@@ -2119,11 +2120,18 @@ chain: global route, netlist, gate-level CoreMark, SAIF over the same
 hot iteration, `report_power`. The spread is reported as 2σ over the
 five, beside the point in Table 1 and as error bars on Figure 1.
 
-TBD_SEED_TABLE
+<!-- seeds -->
+| Core | own draw | seed 11 | seed 12 | seed 13 | seed 14 | 2σ CoreMark/J | 2σ / point | 2σ power (mW) |
+|---|---|---|---|---|---|---|---|---|
+| SERV | 1,013 | 1,015 | 1,013 | 1,015 | 1,015 | ±2 | 0.2 % | ±0.11 |
+| picorv32 | 20,926 | 21,038 | 21,001 | 20,926 | 20,926 | ±105 | 0.5 % | ±0.28 |
+| ibex | 84,167 | 83,794 | 84,167 | 84,167 | 84,167 | ±333 | 0.4 % | ±0.09 |
+| VeeR EH1 | 20,629 | 20,771 | 21,062 | 20,771 | 20,771 | ±317 | 1.5 % | ±2.19 |
+<!-- /seeds -->
 
-TBD_SEED_PROSE At five runs per arm the resolvable difference between
-two points is `2σ·sqrt(2/5)`, and a difference inside it is *did not
-resolve*, never *no effect*.
+**Table 9.** Every draw of every core. The spread is small: SERV 0.2 %, picorv32 0.5 %, ibex 0.4 %, VeeR EH1 1.5 % of the point, and VeeR EH1's is the largest. `report_power` prints three significant figures, so a point near 20 mW is quantised at 0.1 mW; ibex's five draws span 0.1 mW, which is that last digit, so ibex's 2σ is the report's resolution rather than a measured placement effect, and the other three resolve above it. The seeds change the placement, and with it the wires, the buffering and the clock tree; they do not change the SAIF's activity, which is a property of the RTL, so what moves is the wire and clock power and the macro column stays put.
+
+What a reader can do with it: two points whose gap is inside the larger of their 2σ are not different, and one of Table 1's gaps is. The smallest gap in the table, VeeR to picorv32, is 1.4 % of the smaller point, against a 2σ of 1.5 % on VeeR, so VeeR EH1 and picorv32 are not different at this resolution: the pipelined core with a real L1 and the multi-cycle core with a tightly-coupled memory tie on energy, on this memory model. Every other gap is at least 4x and no seed spread reaches it. At five runs per arm the resolvable difference between two points is $2\sigma\sqrt{2/5}$, and a difference inside it is *did not resolve*, never *no effect*.
 
 ---
 
@@ -2186,7 +2194,7 @@ core its own budgeted run.
 **Rungs 8–10 arrive with an L1 each**, as tiles or SoCs, and what gets
 hardened stops being obvious. [§3.1](#31-the-measurement-boundary)'s boundary is what makes them
 comparable with the four points here: without it the three cacheless
-points overpredict VeeR by 15.2x, with it by 5.53x ([§4.6](#46-is-the-shape-real-the-boundary-and-the-memory-model)), and a rung
+points overpredict VeeR by 15.2x, with it by 7.88x ([§4.6](#46-is-the-shape-real-the-boundary-and-the-memory-model)), and a rung
 added alongside points measured without their memories inherits that
 error.
 
@@ -2269,7 +2277,7 @@ which is the natural place to stop if the study stops early.
 The sections above measure one number at one operating point on one
 node. What would turn this from a table into a comparison an architect
 or an EDA researcher could cite is set out below, in the order the
-existing harness makes cheapest. [§8.3](#83-a-second-period-pass) has run once; [§8.6](#86-a-memory-model-that-knows-its-size)'s generator
+existing harness makes cheapest. [§8.3](#83-a-second-period-pass) has run once; [§8.6](#86-a-memory-model-that-knows-its-size----done)'s generator
 exists; the rest is not started.
 
 ### 8.1 Deep physical metrics
@@ -2329,18 +2337,47 @@ where it ends.
 
 Each core's period is derived on its committed floorplan ([§5.5](#55-frequency-and-what-deriving-it-changed)). The
 floorplan is derived at a period and the period achieved on a
-floorplan, so the two interact and two passes are wanted: floorplan at
-the derived period, then period again, and how far the second pass
-moves is worth reporting rather than assuming it converged. Only the
-first pass has been run.
+floorplan, so the two interact, and both halves want a second pass.
 
-The walk is not monotone, which is why the loop iterates and pins a
-period it measured rather than one it computed: SERV closed at 499 ps
-with 9.3 ps of slack and then at 490 ps with **33.7 ps**, because an
+**The period half has been run**, as part of the re-baseline that
+switched the memory model ([§8.6](#86-a-memory-model-that-knows-its-size----done)): on the scaler's views, at unchanged
+floorplans, the tuner re-probed every core from its first-pass period,
+tightened where there was slack and relaxed where there was none, and
+pinned what closed. Every probe is a full flow to global route and a
+`report_checks` over the register-to-register paths.
+
+| core | first pass | probes | second pass | moved |
+|---|---|---|---|---|
+| SERV | 438 ps | 438 closes (+11.05 ps); 427 fails (−0.29 ps) | **438 ps** | 0 |
+| picorv32 | 467 ps | 467 closes (+13.89 ps); 454 fails (−21.77 ps) | **467 ps** | 0 |
+| ibex | 1282 ps | 1282 fails (−1.54 ps); 1284 fails; 1294 fails (−1.67 ps); 1296 closes (+2.84 ps) | **1296 ps** | +14 ps (1.1 %) |
+| VeeR EH1 | 1591 ps | 1591 fails (−1.82 ps); 1593 closes (+0.21 ps) | **1593 ps** | +2 ps (0.1 %) |
+
+**Table 8c.** The second period pass. ibex and VeeR no longer closed
+at their first-pass periods on the scaler's views and paid 14 and 2 ps;
+SERV and picorv32 kept theirs to the picosecond. The likely cause is
+the views themselves -- the scaler's Liberty carries each shape's own
+timing arcs where FakeRAM's carried one figure for every shape -- but
+the critical paths were not inspected, so that is the plausible
+reading rather than a measured one. The evidence is each design's
+`auto_period.json`.
+
+The walk is not monotone, which is why the loop pins a period it
+measured rather than one it computed: ibex closes at 1296 ps with
+2.84 ps of slack after failing 1294 by 1.67 ps, and picorv32 fails 454
+by 21.77 ps after closing 467 with 13.89 ps to spare, because an
 optimiser stops trying when it meets a target and tries harder when it
-does not. A single reading's `period - WNS` is therefore an optimistic
-estimate, and VeeR shows it: 1591 ps with 10.65 ps of slack predicts
-1580, and 1581 fails.
+does not. A single reading's $\text{period} - \text{WNS}$ is an
+optimistic estimate.
+
+**The floorplan half has not.** Re-deriving each floorplan at its
+derived period on the new views was attempted and found no
+DRC-clean candidate at any utilization, because the scaler's LEF drew
+its pins at one track pitch on a layer whose width is half that, so
+every pin was a routing violation. The LEF is fixed (`tools/memory_macro_scaler`
+now draws fakeram7's geometry, and every tile routes clean through
+detailed routing), and the incumbent floorplans stand until the
+derivation is re-run on it.
 
 A derived period is one number from one flow. It is not a Pareto front,
 which is [§8.4](#84-the-pareto-curve).
@@ -2404,12 +2441,12 @@ FakeRAM2.0 emitted one number for every shape. Every memory in the study
 cache arrays, and the `ibex_icache` variant's tag and data arrays -- is
 now one behavioural module in `rtl/cmj_sram_models.sv`, which the
 simulators read for the gate-level runs and the scaler reads for the
-views, so the two cannot disagree about a shape. §5.1 reports what the
-switch moved. It was done as one re-baseline with §8.3's second pass and
-§5.13's repeats, so every number in the paper moved once.
+views, so the two cannot disagree about a shape. [§5.1](#51-the-boundary-met-and-what-it-cost) reports what the
+switch moved. It was done as one re-baseline with [§8.3](#83-a-second-period-pass)'s second pass and
+[§5.13](#513-five-placement-seeds-behind-every-point)'s repeats, so every number in the paper moved once.
 
 What it did not do: the scaler's Liberty charges the read-write energy
-on every clock edge regardless of the enable (§4.7), and its fit is a
+on every clock edge regardless of the enable ([§4.7](#47-where-the-power-goes)), and its fit is a
 first-order anchor with about 25 % residuals on SRAM area. A
 characterised memory compiler for ASAP7 would retire both; none is
 open.
