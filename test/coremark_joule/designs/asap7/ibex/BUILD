@@ -1,5 +1,5 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
-load("//test/coremark_joule/flow:power.bzl", "flop_power_probe", "grt_netlist", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power", "stage_sdf")
+load("//test/coremark_joule/flow:power.bzl", "flop_power_probe", "grt_netlist", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power", "stage_power_units", "stage_sdf")
 load("//test/coremark_joule/flow:seeds.bzl", "seed_variants")
 load("//test/coremark_joule/scripts:synth_crosscheck.bzl", "synth_crosscheck")
 
@@ -24,6 +24,17 @@ design(
 grt_netlist(
     name = "cmj_ibex_grt_netlist",
     src = ":cmj_ibex_grt",
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+# Per-module power, which 5.2 needs to turn a transition count into a
+# power statement: the multiplier's own share of the core is what the
+# glitch ratio measured inside it applies to.
+stage_power_units(
+    name = "cmj_ibex_grt_power_units",
+    src = ":cmj_ibex_grt",
+    saif = "//test/coremark_joule/sim:ibex_rv32imc_saif",
+    saif_scope = "TOP/cm_soc/cpu",
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 
