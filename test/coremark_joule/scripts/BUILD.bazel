@@ -251,6 +251,26 @@ py_binary(
 
 exports_files(["synth_crosscheck.bzl"])
 
+# Every § in the README is a link to a heading that exists. Not manual:
+# a renumbered heading leaves a dangling anchor that reads fine and
+# points nowhere.
+py_test(
+    name = "section_links_test",
+    size = "small",
+    srcs = [
+        "section_links.py",
+        "section_links_test.py",
+    ],
+    data = ["//test/coremark_joule:README.md"],
+    main = "section_links_test.py",
+)
+
+py_binary(
+    name = "section_links",
+    srcs = ["section_links.py"],
+    main = "section_links.py",
+)
+
 # write_verilog can emit two instances under one name. Zero renames is
 # the assertion; a design that needs one says so and says why.
 py_binary(
