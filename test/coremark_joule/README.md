@@ -1,25 +1,36 @@
-# The Best Study in the World of CoreMark per Joule Across RISC-V Cores, from an Open and Re-runnable Flow
+# CoreMark/MHz and CoreMark/Joule for Four RISC-V Cores on ASAP7, from an Open and Re-runnable Flow
 
-*As of September 2026, it is also the only one.* Three qualifiers make
-that true, and they are the fewest we could find ([§4.5](#45-what-else-could-be-plotted-and-why-almost-nothing-can)): it reports
-CoreMark/Joule for more than one core, each hardened to an ASIC netlist
--- FPGA implementations are excluded, since an FPGA's Joules belong to
-the fabric; the switching activity comes from CoreMark itself rather
-than from an estimator; and every input is open and pinned, so a reader
-can re-run the whole chain with one command. Drop any one and it stops
-being alone. Drop the first and EEMBC's ULPMark-CM leaderboard [2] has
-dozens of MCUs measured on silicon, one core each, and an FPGA survey
-has seven cores [17]. Drop the second and
-the closest published comparison at a modern node [5] qualifies, three
-cores whose CoreMark/MHz is paired with power measured on a different
-benchmark. Drop the third and two comparisons of two and three small
+*As of September 2026, this is the best we could do.* Four RISC-V
+cores, SERV, picorv32, ibex and VeeR EH1, are hardened on ASAP7 with
+OpenROAD and measured for CoreMark/MHz and CoreMark/Joule at global
+route, with the switching activity taken from one hot CoreMark
+iteration. Every input is open and pinned, so the whole chain re-runs
+with one command, and a later reader with better tools or more time can
+move every number here.
+
+The study was done in a few days with Claude Code on the bazel-orfs
+framework, OpenROAD and ORFS. The cost was CPU time, in the days, and
+a token spend that never became a concern. A study of this shape --
+several cores, a hardened netlist for each, an activity capture and a
+power engine, with every intermediate checked -- would have been
+uneconomic without that combination. It is offered as an example of
+the kind of question a reader can now put to bazel-orfs directly: state
+the question, spend the compute and some tokens, and get a measured
+answer with its limitations attached.
+
+We found no other published comparison that meets all three of: more
+than one core hardened to an ASIC netlist, activity from CoreMark
+itself, and open re-runnable inputs. FPGA implementations are excluded,
+since an FPGA's Joules belong to the fabric. EEMBC's ULPMark-CM
+leaderboard [2] has dozens of MCUs measured on silicon, one core each,
+and an FPGA survey has seven cores [17]; the closest published
+comparison at a modern node [5] pairs CoreMark/MHz with power measured
+on a different benchmark; and two comparisons of two and three small
 cores [14, 15] measured CoreMark energy with PrimeTime in 65 nm
-processes, which a reader can cite but not re-take.
+processes, which a reader can cite but not re-take. [§4.5](#45-what-else-could-be-plotted-and-why-almost-nothing-can) records
+that check against the literature, dated.
 
-Power is a rabbit hole, as this paper makes evident.
-
-**It is also the worst of its kind, and here are the limitations**, in
-the order they move the numbers:
+**Limitations, in the order they move the numbers:**
 
 1. The memory model is a fitted one, not a characterised one: every SRAM
    is `tools/memory_macro_scaler`'s view, whose energy and leakage follow
@@ -1002,14 +1013,14 @@ number that is missing cannot be argued with. Producing it from an open
 flow, with the boundary stated and the annotation audited, is the gap
 this work is in.
 
-**The claim on the title page, dated.** "The only one" is a claim about
-the literature on a day, so it carries the date it was last checked:
-**September 2026**, recorded in `results.json` under
-`provenance.uniqueness` and checked against the first line of this
+**The uniqueness claim, dated.** "No other published comparison" is a
+claim about the literature on a day, so it carries the date it was last
+checked: **September 2026**, recorded in `results.json` under
+`provenance.uniqueness` and checked against the dateline of this
 document by `readme_numbers_test`. The check is the table above, read
-against the three qualifiers the title rests on, plus a search for the
+against the three qualifiers the claim rests on, plus a search for the
 metric by name; it is not a systematic survey, and a reader who names a
-study that clears all three retires the title. What it establishes is
+study that clears all three retires the claim. What it establishes is
 that each qualifier excludes something real:
 
 | drop this qualifier | and this enters |
@@ -2432,7 +2443,7 @@ uncongested designs would mostly re-measure the same regime four times.
 
 ### 8.6 A memory model that knows its size -- done
 
-The largest limitation on the first version's title page had a fix in
+The largest limitation the first version listed had a fix in
 this repository, and it is applied. `tools/memory_macro_scaler` emits
 Liberty views whose read energy, write energy and leakage are fitted to
 the memory's rows and bits after CACTI's access-path decomposition, where
