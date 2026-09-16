@@ -1,5 +1,5 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
-load("//test/coremark_joule/flow:power.bzl", "flop_power_probe", "grt_netlist", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power")
+load("//test/coremark_joule/flow:power.bzl", "flop_power_probe", "grt_netlist", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power", "stage_sdf")
 load("//test/coremark_joule/flow:seeds.bzl", "seed_variants")
 load("//test/coremark_joule/scripts:synth_crosscheck.bzl", "synth_crosscheck")
 
@@ -98,6 +98,15 @@ stage_activity_sweep(
     src = ":cmj_ibex_grt",
     saif = "//test/coremark_joule/sim:ibex_rv32imc_saif",
     saif_scope = "TOP/cm_soc/cpu",
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+# The per-instance delays, for the glitch-power measurement (5.2).
+# Same ODB as the netlist and the power report, so all three describe
+# one design.
+stage_sdf(
+    name = "cmj_ibex_grt_sdf",
+    src = ":cmj_ibex_grt",
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 

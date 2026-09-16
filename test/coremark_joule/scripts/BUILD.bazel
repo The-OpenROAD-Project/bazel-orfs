@@ -438,3 +438,37 @@ py_test(
     ],
     main = "fit_results_test.py",
 )
+
+# Glitch power (5.2): the tools that make an event-driven, timing
+# annotated gate simulation possible, and count what comes out of it.
+py_binary(
+    name = "iverilog_inputs",
+    srcs = ["iverilog_inputs.py"],
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+py_test(
+    name = "iverilog_inputs_test",
+    size = "small",
+    srcs = [
+        "iverilog_inputs.py",
+        "iverilog_inputs_test.py",
+    ],
+    main = "iverilog_inputs_test.py",
+)
+
+py_binary(
+    name = "glitch_count",
+    srcs = ["glitch_count.py"],
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+py_test(
+    name = "glitch_count_test",
+    size = "small",
+    srcs = [
+        "glitch_count.py",
+        "glitch_count_test.py",
+    ],
+    main = "glitch_count_test.py",
+)

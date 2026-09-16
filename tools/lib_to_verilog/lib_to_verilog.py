@@ -424,6 +424,14 @@ _COMBINATIONAL_PATHS = {
     "combinational_fall",
     "three_state_enable",
     "three_state_disable",
+    # An asynchronous set or clear reaches the output without waiting for
+    # a clock edge, so the arc is a level path like any other. Liberty
+    # names them from the output's point of view -- `preset` on the arc
+    # that drives it high -- and SDF writes them as a plain IOPATH, which
+    # is what a simulator looks for: "Unable to match ModPath RESETN ->
+    # QN" is what their absence sounds like.
+    "preset",
+    "clear",
     "",  # Liberty's default when timing_type is omitted
 }
 
@@ -440,6 +448,14 @@ def specify_paths(cell):
 
     Only arcs on output pins are paths (5.2).
     """
+    # A path's source has to be a port of this cell that a signal can
+    # arrive on. Liberty also declares arcs between two *outputs* --
+    # a half adder's carry feeding its sum, for instance -- and Verilog
+    # rejects those: "Path source CON must be an input or inout port".
+    # They are internal to the cell and the SDF has no IOPATH for them.
+    sources = {
+        p.name for p in cell.pins if p.direction in ("input", "inout")
+    }
     lines = []
     for pin in cell.pins:
         if pin.direction != "output":
@@ -447,7 +463,7 @@ def specify_paths(cell):
         for arc in pin.arcs:
             src = arc.get("related_pin", "")
             kind = arc.get("timing_type", "")
-            if not src:
+            if not src or src not in sources:
                 continue
             if kind in _EDGE_PATHS:
                 # An edge path needs a data source term; the delay does
