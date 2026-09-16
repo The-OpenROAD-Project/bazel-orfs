@@ -99,6 +99,7 @@ def stage_power(
         saif_scope,
         stage = "grt",
         spef = None,
+        clock_transition_ps = None,
         tags = ["manual"],
         visibility = None):
     """Report power at a stage, vectorless and SAIF-driven.
@@ -118,6 +119,9 @@ def stage_power(
         point it and an estimating target at the same ODB and the same
         SAIF, and the difference between them is the parasitics model
         and nothing else (5.3).
+      clock_transition_ps: synth only. An ideal-clock transition applied
+        at power time, standing in for the clock tree a synthesis netlist
+        does not have; see power_synth.tcl for why the number matters.
       tags: forwarded; manual.
       visibility: forwarded.
     """
@@ -132,6 +136,8 @@ def stage_power(
     }
     if spef:
         arguments["POWER_SPEF"] = spef
+    if clock_transition_ps:
+        arguments["CLOCK_TRANSITION_PS"] = str(clock_transition_ps)
     orfs_run(
         name = name,
         src = src,
@@ -399,6 +405,29 @@ def period_probe(name, src, stage = "grt", tags = ["manual"], visibility = None)
         script = "//test/coremark_joule/flow:period_probe.tcl",
         user_arguments = {
             "STAGE_STEM": STAGE_STEM[stage],
+            "OUT": "$(location {}.txt)".format(name),
+        },
+        tags = tags,
+        visibility = visibility,
+    )
+
+def flop_power_probe(name, src, saif, saif_scope, stage = "synth", tags = ["manual"], visibility = None):
+    """One flop's internal-power arithmetic, from OpenSTA's own debug lines.
+
+    §4.8's cross-check found the Sequential group's internal power not
+    scaling with frequency on a byte-identical netlist; this names the
+    term. See flow/flop_power_probe.tcl.
+    """
+    orfs_run(
+        name = name,
+        src = src,
+        outs = [name + ".txt"],
+        script = "//test/coremark_joule/flow:flop_power_probe.tcl",
+        data = [saif],
+        user_arguments = {
+            "STAGE_STEM": STAGE_STEM[stage],
+            "SAIF_STIMULI": "$(location {})".format(saif),
+            "SAIF_SCOPE": saif_scope,
             "OUT": "$(location {}.txt)".format(name),
         },
         tags = tags,

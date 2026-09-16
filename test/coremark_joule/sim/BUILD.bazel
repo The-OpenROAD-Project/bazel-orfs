@@ -472,21 +472,21 @@ coremark_saif(
     sim = ":cm_sim_ibex_gate",
 )
 
-# §4.8's cross-check SAIFs. clk_period_ps must match each arm's SDC:
-# the synthesis-only packages constrain ibex for 100 MHz and 500 MHz.
+# §4.8's cross-check SAIFs, each timed by its own package's SDC: the
+# synthesis-only packages constrain ibex for 100 MHz and 500 MHz.
 [
     coremark_saif(
         name = "ibex_rv32imc_" + arm + "_saif",
-        clk_period_ps = period,
+        constraints = "//test/coremark_joule/designs/asap7/" + pkg + ":constraints.sdc",
         image = ":coremark_rv32imc_3_hex",
         run_2 = "ibex_rv32imc_2",
         run_3 = "ibex_rv32imc_3",
         sim = ":cm_sim_ibex_" + arm + "_gate",
     )
-    for arm, period in [
-        ("synth", 1200),
-        ("synth100", 10000),
-        ("synth500", 2000),
+    for arm, pkg in [
+        ("synth", "ibex"),
+        ("synth100", "ibex_synth100"),
+        ("synth500", "ibex_synth500"),
     ]
 ]
 
