@@ -75,13 +75,30 @@ module tb_glitch;
      * netlist, which looks like the design failing to initialise
      * rather than like a testbench that drove a signal at the wrong
      * moment. */
+    /* Asserted *after* annotation, not at declaration. A module path
+     * delay holds its output at X until its input first transitions,
+     * so a buffer on the reset net that is already at its final value
+     * when $sdf_annotate runs feeds X to every flop it reaches -- for
+     * the whole reset window, which is exactly when the design needs a
+     * clean level. Driving the edge here gives every such path an event
+     * to propagate. */
+    #(PeriodPs / 4) resetn = 1'b0;
     repeat (20) @(negedge clk);
-    resetn = 1'b1;
+    #(PeriodPs / 4) resetn = 1'b1;
 
     repeat (skip) @(posedge clk);
 
     $dumpfile(vcd_file);
-    $dumpvars(0, tb_glitch);
+    /* +mult dumps only the multiplier subtree. A whole-core dump is
+     * tens of megabytes per hundred cycles, and finding the cycles in
+     * which the multiplier actually works means running far longer than
+     * that allows: CoreMark dispatches its matrix work per list item
+     * (calc_func), so it arrives in short bursts rather than as a
+     * phase. */
+    if ($test$plusargs("mult"))
+      $dumpvars(0, tb_glitch.dut.cpu.\u_core__dot__u_ibex_core__dot__ex_block_i .\gen_multdiv_fast__dot__multdiv_i );
+    else
+      $dumpvars(0, tb_glitch);
     for (n = 0; n < cycles; n++) @(posedge clk);
     $display("tb_glitch: dumped %0d cycles at %0d ps%s", cycles, PeriodPs,
              sdf_file != "" ? " (SDF annotated)" : " (zero delay)");
