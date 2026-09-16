@@ -999,7 +999,7 @@ bit-serial to out-of-order range in one flow.
 **The degeneracy.** $\mathrm{CoreMark/Joule} = \mathrm{CoreMark/MHz}\cdot f/P$,
 so if $f/P$ is constant across cores the energy axis carries no
 information the performance axis did not. Across a 101x span in
-CoreMark/MHz, the three cacheless cores' $f/P$ spans **1.26x**. The
+CoreMark/MHz, the three cacheless cores' $f/P$ spans **1.32x**. The
 energy axis is close to the performance axis in disguise.
 
 **What the boundary is worth.** Extrapolating the three cacheless cores
@@ -1018,27 +1018,13 @@ derived period. `scripts/fit_results.py` produces these figures from
 
 Closing the boundary took 64 % out of the disagreement between the
 cacheless cores and the one core that already met it, which is [§5.1](#51-the-boundary-met-and-what-it-cost)'s
-correction measured. It did not loosen the line: $f/P$ spans 1.26x with
+correction measured. It did not loosen the line: $f/P$ spans 1.32x with
 the memories inside against 1.89x with them outside. Deriving the
-periods widened the power spread to 2.41x without widening $f/P$: two
+periods widened the power spread to 2.28x without widening $f/P$: two
 cores doubled their frequency and their power followed, which is [§2.3](#23-why-coremarkjoule-falls-as-coremarksecond-rises)'s
 cancellation observed.
 
-**The prediction held, and it was most of the error.** The
-extrapolation gap closed from 15.2x to 5.53x: **64 % of the way**. The
-boundary was the dominant cause of the disagreement between the
-cacheless cores and the one compliant one, exactly as claimed, and that
-part of §5.1 is now a measured correction rather than an argument.
-
-**The degeneracy did not go away. It got tighter.** `f/P` now spans
-**1.26x** across 101x of performance, against 1.89x before, and
-deriving the periods (§5.5) widened the power spread to 2.41x without
-widening `f/P`: two cores doubled their frequency and their power
-followed, which is §2.3's cancellation observed. The
-diagnosis was right about the cause and wrong about the consequence:
-removing the old reason for the degeneracy installed a new one.
-
-**The new reason is the platform's memory model.** Every memory in this
+**The line is the platform's memory model.** Every memory in this
 study is a FakeRAM abstract, and FakeRAM's ASAP7 views carry *one*
 switching energy and *one* leakage number for every shape, from 64x21 to
 256x256 ([§5.1](#51-the-boundary-met-and-what-it-cost)). Those macros are 57--72 % of each point's power ([§4.7](#47-where-the-power-goes)).
@@ -1369,8 +1355,8 @@ is core plus L1 on a predictive 7 nm kit at its best-case corner;
 Table 9 is a whole package, IO die and memory controllers included, on
 a real 4 nm or 5 nm process at a typical corner. Neither number is
 convertible into the other, and the comparison below is a ladder, not a
-Figure. On it, ibex sits **8.2x** above the best commodity package and
-VeeR EH1 **2.9x** above it, while SERV sits **9.4x below** it, under
+Figure. On it, ibex sits **8.4x** above the best commodity package and
+VeeR EH1 **2.9x** above it, while SERV sits **9.6x below** it, under
 every commodity part in the table. The direction and the decades are
 what [§2.3](#23-why-coremarkjoule-falls-as-coremarksecond-rises) predicts:
 a small in-order core at 0.77 V, with nothing outside its L1 charged to
@@ -1664,7 +1650,7 @@ power with it -- is wrong by the ratio between them.
 
 It was wrong, between two commits of this study. The simulator's period
 was a literal in `sim/BUILD.bazel` carrying a comment that it must equal
-the SDC's, and §8.3's derivation re-pinned every SDC without touching
+the SDC's, and [§8.3](#83-a-second-period-pass)'s derivation re-pinned every SDC without touching
 it. SERV's activity was measured against a 700 ps clock it no longer had
 (it ran at 438) and picorv32's against 1000 ps (it ran at 467) -- rates
 low by 1.60x and 2.14x.
@@ -1673,7 +1659,7 @@ low by 1.60x and 2.14x.
 keeping.** Only combinational switching rides on data-pin densities. A
 sequential cell's internal power is dominated by its clock pin, and a
 macro's by its own clock pin, and OpenSTA takes both from the SDC at
-`2/period` rather than from the SAIF (§3.5). So the error reached 4 % of
+`2/period` rather than from the SAIF ([§3.5](#35-annotation-completeness-and-the-bound-on-the-estimator)). So the error reached 4 % of
 picorv32's total and moved its reported power by 2.9 %, not by 114 %.
 
 The same mechanism is why nothing looked wrong: the macro column is
@@ -1681,7 +1667,7 @@ The same mechanism is why nothing looked wrong: the macro column is
 the re-measurement read as plausible while a smaller term underneath it
 stayed frozen at the old clock.
 
-The fix is the one §5.5 describes for the frequency: one reader of
+The fix is the one [§5.5](#55-frequency-and-what-deriving-it-changed) describes for the frequency: one reader of
 `set clk_period`, called by the SAIF's time base, the reported frequency
 and the period tuner alike. Two copies of this single fact had already
 drifted by the time the second was found; a third warning comment beside
