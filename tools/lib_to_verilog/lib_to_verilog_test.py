@@ -12,6 +12,7 @@ from lib_to_verilog import (
     generate_dff_v,
     generate_empty_v,
     generate_ff_verilog,
+    generate_icg_verilog,
     generate_latch_verilog,
     liberty_expr_to_verilog,
     parse_lef_macros,
@@ -646,6 +647,122 @@ class TestRealAsap7Lib(unittest.TestCase):
             assert "always @(posedge CLK)" in v
             assert "QN <= ~D;" in v
             assert "endmodule" in v
+
+ICG_TEMPLATE = """\
+library (test) {{
+  cell ({name}) {{
+    clock_gating_integrated_cell : {flavour};
+    statetable ("CLK ENA SE", "IQ") {{ table : "L L L : - : L"; }}
+    pin (IQ) {{ direction : internal; }}
+    pin (GCLK) {{ direction : output; clock_gate_out_pin : true; }}
+    pin (CLK) {{ direction : input; clock : true; clock_gate_clock_pin : true; }}
+    pin (ENA) {{ direction : input; clock_gate_enable_pin : true; }}
+{test_pin}  }}
+}}
+"""
+
+SE_PIN = '    pin (SE) { direction : input; clock_gate_test_pin : true; }\n'
+
+
+def icg_lib(flavour, name="ICGx1", test_pin=True):
+    return ICG_TEMPLATE.format(
+        name=name, flavour=flavour, test_pin=SE_PIN if test_pin else ""
+    )
+
+
+class TestIcgParsing(unittest.TestCase):
+    def test_icg_is_not_dropped(self):
+        """The regression this support exists for.
+
+        An ICG has no ff, no latch and no function on its output — Liberty
+        models it with a statetable — so before the flavour was parsed it
+        fell through every branch and was silently dropped. Nothing failed
+        until a netlist containing one reached the simulator, which is
+        forty minutes into a flow.
+        """
+        cells = parse_lib_cells(icg_lib("latch_posedge_precontrol"))
+        assert [c.name for c in cells] == ["ICGx1"]
+        assert cells[0].ff is None and cells[0].latch is None
+
+    def test_flavour_and_roles(self):
+        cell = parse_lib_cells(icg_lib("latch_posedge_precontrol"))[0]
+        assert cell.icg.flavour == "latch_posedge_precontrol"
+        roles = {p.clock_gate_role: p.name for p in cell.pins if p.clock_gate_role}
+        assert roles == {"out": "GCLK", "clock": "CLK", "enable": "ENA", "test": "SE"}
+
+    def test_roles_survive_vendor_pin_names(self):
+        """Pin names are the vendor's; the role attributes are the contract."""
+        lib = icg_lib("latch_posedge_precontrol").replace("ENA", "E1").replace(
+            "GCLK", "ECK"
+        )
+        v = generate_icg_verilog(parse_lib_cells(lib)[0])
+        assert "en_latched = E1 | SE;" in v
+        assert "assign ECK = CLK & en_latched;" in v
+
+
+class TestIcgVerilog(unittest.TestCase):
+    def test_posedge_precontrol(self):
+        """Test-enable joins the enable before the latch; output ANDs."""
+        v = generate_icg_verilog(parse_lib_cells(icg_lib("latch_posedge_precontrol"))[0])
+        assert "if (~CLK)" in v
+        assert "en_latched = ENA | SE;" in v
+        assert "assign GCLK = CLK & en_latched;" in v
+
+    def test_posedge_postcontrol(self):
+        """Test-enable joins after the latch, so it is not latched."""
+        v = generate_icg_verilog(
+            parse_lib_cells(icg_lib("latch_posedge_postcontrol"))[0]
+        )
+        assert "en_latched = ENA;" in v
+        assert "assign GCLK = CLK & (en_latched | SE);" in v
+
+    def test_posedge_without_test_pin(self):
+        v = generate_icg_verilog(
+            parse_lib_cells(icg_lib("latch_posedge", test_pin=False))[0]
+        )
+        assert "en_latched = ENA;" in v
+        assert "assign GCLK = CLK & en_latched;" in v
+        assert "SE" not in v
+
+    def test_negedge_is_the_mirror_image(self):
+        """Latched on the high phase, and disabled holds the clock high."""
+        v = generate_icg_verilog(parse_lib_cells(icg_lib("latch_negedge"))[0])
+        assert "if (CLK)" in v
+        assert "assign GCLK = CLK | ~en_latched;" in v
+
+    def test_ports_are_outputs_then_inputs(self):
+        v = generate_icg_verilog(parse_lib_cells(icg_lib("latch_posedge_precontrol"))[0])
+        assert v.startswith("module ICGx1 (GCLK, CLK, ENA, SE);")
+        assert "    output GCLK;" in v
+        assert "endmodule" in v
+
+    def test_internal_pin_is_not_a_port(self):
+        """Liberty's statetable node IQ is internal, not a port."""
+        v = generate_icg_verilog(parse_lib_cells(icg_lib("latch_posedge"))[0])
+        assert "IQ" not in v
+
+    def test_unknown_flavour_raises(self):
+        """Better not to build than to simulate a clock gate modelled wrong."""
+        cell = parse_lib_cells(icg_lib("pos_edge_clock_gating"))[0]
+        try:
+            generate_icg_verilog(cell)
+        except ValueError as e:
+            assert "pos_edge_clock_gating" in str(e)
+        else:
+            raise AssertionError("expected ValueError for an unknown flavour")
+
+    def test_missing_role_pin_raises(self):
+        lib = icg_lib("latch_posedge").replace("clock_gate_enable_pin : true;", "")
+        try:
+            generate_icg_verilog(parse_lib_cells(lib)[0])
+        except ValueError as e:
+            assert "enable" in str(e)
+        else:
+            raise AssertionError("expected ValueError for a missing role pin")
+
+    def test_dff_v_emits_icg_cells(self):
+        out = generate_dff_v(parse_lib_cells(icg_lib("latch_posedge_precontrol")))
+        assert "module ICGx1 (GCLK, CLK, ENA, SE);" in out
 
 
 if __name__ == "__main__":

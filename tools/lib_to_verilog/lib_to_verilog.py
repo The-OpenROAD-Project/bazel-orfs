@@ -3,6 +3,8 @@
 Reads .lib files to extract cell definitions and generates simple behavioral
 Verilog that Verilator can simulate:
   - Sequential cells (ff, latch) — clocked always blocks.
+  - Integrated clock gates — the latch-and-gate their Liberty
+    `clock_gating_integrated_cell` flavour names.
   - Combinational cells — `assign` of the Liberty `function:` expression.
 Also reads LEF files to identify physical-only cells (TAPCELL, FILLER,
 DECAP, etc.) that need empty module stubs.
@@ -26,8 +28,12 @@ from pathlib import Path
 @dataclass
 class Pin:
     name: str
-    direction: str  # "input" or "output"
+    direction: str  # "input", "output" or "internal"
     function: str = ""
+    # Liberty marks each pin of an integrated clock gate with its role,
+    # which is the only portable way to tell ENA from SE: the pin names
+    # are the vendor's to choose.
+    clock_gate_role: str = ""  # "clock", "enable", "test", "out"
 
 
 @dataclass
@@ -55,11 +61,24 @@ class LatchInfo:
 
 
 @dataclass
+class IcgInfo:
+    """Liberty clock_gating_integrated_cell data.
+
+    The flavour names the gate's shape: which clock phase the enable is
+    latched on, and whether the test-enable joins the enable before the
+    latch (`precontrol`) or after it (`postcontrol`).
+    """
+
+    flavour: str
+
+
+@dataclass
 class Cell:
     name: str
     pins: list = field(default_factory=list)
     ff: FfInfo | None = None
     latch: LatchInfo | None = None
+    icg: IcgInfo | None = None
 
 
 def parse_lib_cells(text: str) -> list[Cell]:
@@ -109,10 +128,15 @@ def parse_lib_cells(text: str) -> list[Cell]:
             has_combinational = any(
                 p.direction == "output" and p.function for p in cell.pins
             )
-            if cell.ff or cell.latch or has_combinational:
+            if cell.ff or cell.latch or cell.icg or has_combinational:
                 cells.append(cell)
             cell = None
             continue
+
+        # Integrated clock gate: the cell-level flavour.
+        m = re.search(r"clock_gating_integrated_cell\s*:\s*([A-Za-z_]+)", stripped)
+        if m:
+            cell.icg = IcgInfo(flavour=m.group(1))
 
         # Pin start (don't continue — attributes may be on same line)
         m = re.search(r"(?<![pg_])pin\s*\(\s*(\S+)\s*\)", stripped)
@@ -134,6 +158,9 @@ def parse_lib_cells(text: str) -> list[Cell]:
             m = re.search(r'(?<!\w)function\s*:\s*"([^"]*)"', stripped)
             if m:
                 current_pin.function = m.group(1)
+            m = re.search(r"clock_gate_(\w+?)_pin\s*:\s*true", stripped)
+            if m:
+                current_pin.clock_gate_role = m.group(1)
 
         # Close pin after processing attributes
         if current_pin and brace_depth < pin_depth:
@@ -356,6 +383,90 @@ def generate_latch_verilog(cell: Cell) -> str:
     return "\n".join(lines)
 
 
+def generate_icg_verilog(cell: Cell) -> str:
+    """Generate Verilator-compatible Verilog for an integrated clock gate.
+
+    Liberty models an ICG with a statetable rather than a function, so
+    there is nothing to translate expression by expression; what the
+    model has to come from is the `clock_gating_integrated_cell`
+    flavour, which names the shape exactly:
+
+    - `latch_posedge*` gates a rising-edge clock. The enable is latched
+      while the clock is low -- the phase in which the gated clock is
+      already low, so a late-arriving enable cannot chop the pulse --
+      and the output is the clock ANDed with it.
+    - `latch_negedge*` gates a falling-edge clock, and is the mirror
+      image: latched while the clock is high, output ORed, so a disabled
+      gate holds the clock high and produces no falling edge.
+    - `precontrol` joins the test-enable to the enable before the latch,
+      `postcontrol` after it. Without a suffix there is no test pin in
+      the expression at all.
+
+    An unrecognized flavour raises rather than falling back to a guess: a
+    clock gate modelled wrongly is a design that simulates and is wrong,
+    which is worse than one that does not build.
+    """
+    icg = cell.icg
+    assert icg is not None
+
+    roles = {p.clock_gate_role: p for p in cell.pins if p.clock_gate_role}
+    missing = {"clock", "enable", "out"} - set(roles)
+    if missing:
+        raise ValueError(
+            f"{cell.name}: clock gate is missing the "
+            f"{', '.join(sorted(missing))} pin(s). Liberty marks them with "
+            "clock_gate_clock_pin, clock_gate_enable_pin and "
+            "clock_gate_out_pin."
+        )
+    clk = roles["clock"].name
+    ena = roles["enable"].name
+    out = roles["out"].name
+    test = roles["test"].name if "test" in roles else ""
+
+    flavour = icg.flavour
+    if flavour.startswith("latch_posedge"):
+        transparent, combine = f"~{clk}", "&"
+    elif flavour.startswith("latch_negedge"):
+        transparent, combine = clk, "|"
+    else:
+        raise ValueError(
+            f"{cell.name}: unsupported clock_gating_integrated_cell "
+            f"flavour {flavour!r}. Add it here rather than letting the "
+            "cell be dropped, which fails only once the netlist is "
+            "simulated."
+        )
+
+    if test and flavour.endswith("_precontrol"):
+        latched_in, gate_expr = f"{ena} | {test}", "en_latched"
+    elif test and flavour.endswith("_postcontrol"):
+        latched_in, gate_expr = ena, f"(en_latched | {test})"
+    else:
+        latched_in, gate_expr = ena, "en_latched"
+
+    inputs = [p for p in cell.pins if p.direction == "input"]
+    outputs = [p for p in cell.pins if p.direction == "output"]
+    port_list = ", ".join([p.name for p in outputs] + [p.name for p in inputs])
+
+    lines = [f"module {cell.name} ({port_list});"]
+    for p in outputs:
+        lines.append(f"    output {p.name};")
+    for p in inputs:
+        lines.append(f"    input {p.name};")
+    lines.append("")
+    lines.append("    reg en_latched;")
+    lines.append("    always_latch begin")
+    lines.append(f"        if ({transparent})")
+    lines.append(f"            en_latched = {latched_in};")
+    lines.append("    end")
+    lines.append("")
+    # A negedge gate holds its output high when disabled, so the enable
+    # enters the OR inverted; a posedge gate holds it low and ANDs.
+    rhs = f"{clk} & {gate_expr}" if combine == "&" else f"{clk} | ~{gate_expr}"
+    lines.append(f"    assign {out} = {rhs};")
+    lines.append("endmodule")
+    return "\n".join(lines)
+
+
 def generate_combinational_verilog(cell: Cell) -> str:
     """Generate Verilator-compatible Verilog for a combinational cell.
 
@@ -401,6 +512,8 @@ def generate_dff_v(cells: list[Cell]) -> str:
     for cell in cells:
         if cell.ff:
             parts.append(generate_ff_verilog(cell))
+        elif cell.icg:
+            parts.append(generate_icg_verilog(cell))
         elif cell.latch:
             parts.append(generate_latch_verilog(cell))
         else:
