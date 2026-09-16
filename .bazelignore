@@ -9,3 +9,10 @@ lec
 naja
 test/docker
 bazel-orfs-bazel-dev
+
+# Claude Code keeps its worktrees under .claude/worktrees, each with its
+# own bazel-<name> convenience symlink into an output base. Root-level
+# bazel-* symlinks are ignored by bazel itself; nested ones are not, so
+# //... would walk into another checkout's external repos and fail on
+# the first repo the root module does not know.
+.claude
