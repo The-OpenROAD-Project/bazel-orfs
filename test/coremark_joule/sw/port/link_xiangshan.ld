@@ -5,10 +5,14 @@
  * zero at this address. Load addresses equal run addresses throughout,
  * so crt0_flat.S needs no copy loop.
  *
- * A megabyte rather than 128 KiB: the RV64 build is larger, and this
- * memory is a simulation array that is never hardened, so the size
- * costs nothing. The vector area stays first, as in the flat map the
- * small cores used to share, because crt0_flat.S is that runtime.
+ * 256 KiB: the RV64 image is about 26 KiB and the stack a few hundred
+ * bytes, and crt0_flat.S paints everything above .bss at reset so the
+ * stack high-water mark can be reported -- a megabyte would be four
+ * times the painting for nothing, in a simulator that manages a few
+ * hundred cycles a second. The memory itself is a simulation array
+ * that is never hardened. The vector area stays first, as in the flat
+ * map the small cores used to share, because crt0_flat.S is that
+ * runtime.
  *
  * SPDX-License-Identifier: Apache-2.0
  */
@@ -17,7 +21,7 @@ ENTRY(_start)
 
 MEMORY
 {
-    ram (rwxai) : ORIGIN = 0x80000000, LENGTH = 1M
+    ram (rwxai) : ORIGIN = 0x80000000, LENGTH = 256K
 }
 
 SECTIONS
