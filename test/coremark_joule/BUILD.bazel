@@ -41,6 +41,12 @@ py_binary(
         "ibex:$(location //test/coremark_joule/designs/asap7/ibex:cmj_ibex_physical)",
         "--physical",
         "veer:$(location //test/coremark_joule/designs/asap7/veer:swerv_wrapper_physical)",
+        # XiangShan has an x-coordinate and not yet a y: its energy waits
+        # on the hierarchical flow reaching global route. Carried as
+        # pending so the plot cannot show fewer cores than the study has.
+        "--pending",
+        "$(location //test/coremark_joule/sim:xiangshan_rv64gc_per_mhz):xiangshan:rv64gc:" +
+        "energy waits on the hierarchical flow (five blocks as macros) reaching global route",
     ],
     data = [
         "//test/coremark_joule/designs/asap7/ibex:cmj_ibex_physical",
@@ -60,6 +66,7 @@ py_binary(
             "veer_rv32imc",
         ]
         for seed in SEEDS
+        "//test/coremark_joule/sim:xiangshan_rv64gc_per_mhz",
     ],
     main = "//test/coremark_joule/scripts:pin_results.py",
     tags = ["manual"],

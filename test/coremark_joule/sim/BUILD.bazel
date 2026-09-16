@@ -823,3 +823,64 @@ coremark_per_mhz(
     run_2 = ":xiangshan_rv64gc_2",
     run_3 = ":xiangshan_rv64gc_3",
 )
+
+# The gate-level XiangShan: the grt netlist plus the RTL the stitcher
+# keeps (uncore, blocks, memories), the same options as the RTL
+# simulator plus the gate ones.
+verilator_cc_library(
+    name = "cm_soc_xiangshan_gate_lib",
+    copts = _SIM_COPTS,
+    module = "//test/coremark_joule/xiangshan:cm_soc_xiangshan_gate",
+    module_top = "cm_soc",
+    tags = ["manual"],
+    trace_mode = "saif",
+    vopts = _SIM_VOPTS + _GATE_VOPTS + [
+        "--output-split",
+        "20000",
+        "-Wno-UNUSEDSIGNAL",
+        "-Wno-DECLFILENAME",
+        "-Wno-VARHIDDEN",
+    ],
+)
+
+cc_binary(
+    name = "cm_sim_xiangshan_gate",
+    srcs = [
+        "main.cc",
+        "xs_dpi.cc",
+    ],
+    copts = _SIM_COPTS,
+    tags = ["manual"],
+    deps = [":cm_soc_xiangshan_gate_lib"],
+)
+
+# The SAIF for XiangShan, over its last CoreMark iteration.
+coremark_saif(
+    name = "xiangshan_rv64gc_saif",
+    # Matches designs/asap7/xiangshan/constraints.sdc.
+    clk_period_ps = 1200,
+    image = ":coremark_rv64gc_3_hex",
+    # Not yet measured for this netlist: zero asserts that every net the
+    # SAIF cannot carry is a clock net, and the first run says otherwise
+    # or not.
+    max_other_dropped = 0,
+    run_2 = "xiangshan_rv64gc_2",
+    run_3 = "xiangshan_rv64gc_3",
+    sim = ":cm_sim_xiangshan_gate",
+)
+
+coremark_per_joule(
+    name = "point_xiangshan_rv64gc",
+    # The five hardened blocks reach the power report as their .lib
+    # alone: pin loads and declared leakage, no internal activity. That
+    # is the boundary as it stands, said here rather than implied.
+    boundary = "core + L1: 64 kB instruction cache and 64 kB data cache as " +
+               "SRAM macros; vector region, predictors, both caches and the " +
+               "page walker hardened as blocks whose power is their .lib only",
+    core = "xiangshan",
+    # 1200 ps, the SDC period the SAIF was timed against.
+    frequency_mhz = "833.333",
+    isa = "rv64gc",
+    per_mhz = ":xiangshan_rv64gc_per_mhz",
+    power = "//test/coremark_joule/designs/asap7/xiangshan:cmj_xiangshan_grt_power",
+)
