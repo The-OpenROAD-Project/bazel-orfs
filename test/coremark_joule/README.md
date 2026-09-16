@@ -1643,24 +1643,70 @@ come from; `lib_to_verilog` now declares the `specify` paths those
 delays annotate onto, which ASAP7 supplies no Verilog for;
 `scripts/iverilog_inputs.py` reconciles what OpenSTA writes with what
 iverilog can read, taking annotation failures from 96.2 % of instances
-to 3 in 21,156; and `test/glitch_smoke` demonstrates the whole point on
+to 3 in 21,151; and `test/glitch_smoke` demonstrates the whole point on
 two gates, where an SDF-annotated run emits a pulse on an output whose
 logic function is permanently zero and a zero-delay run emits nothing.
 
-**On ibex's full netlist it does not work.** Annotating the
-combinational cells stops the core executing; annotating only the
-sequential cells leaves it running. Eliminated, each by measurement
-rather than by argument: delay magnitude (an SDF with every delay set
-to 1 ps fails identically), setup violations (a simulated clock period
-of 5000 ps against a design closing at 1282 ps fails identically),
-clock skew (excluding all 260 clock-tree cells fails identically),
-cell family, and partial annotation. Six standalone reproductions --
-a single buffer, a buffer chain, a chain inside a submodule, a partly
-annotated chain, a delayed clock into an annotated flop, and a flop
-with asynchronous reset -- all behave correctly under the same
-annotation. So the failure needs something the full netlist has that
-none of those do, and finding it means debugging the simulator against
-a 25,835-instance design rather than measuring anything.
+**On ibex's full netlist it does not work.** One annotation runs and
+every larger one stops the core. The oracle is the fetch address over a
+60-cycle window past reset, which is a cheap way to ask whether the
+core is still executing rather than whether any one bit is clean.
+
+| annotated | cells | fetch address over 60 cycles |
+|---|---|---|
+| nothing | 0 | 48 changes, 7 distinct, no X |
+| the multiplier | 3,116 | 48 changes, 7 distinct, no X |
+| the sequential cells | 1,979 | freezes after one change, no X |
+| one clock delay buffer | 1 | X within a cycle |
+| the combinational cells | 19,172 | X within a cycle |
+| ditto, less every clock-named cell | 18,912 | X within a cycle |
+
+**Table 11.** What each annotation does to ibex, same netlist, same
+testbench, same window.
+
+The first two rows are the measurement 5.2b reports: annotating the
+multiplier alone leaves the core executing the identical instruction
+sequence, which is what makes a transition count taken inside it a
+count of the same work. The rest are the blocker, and they fail in two
+distinguishable ways -- a frozen core with no X when the flops are
+annotated, X across the netlist when anything on a clock or
+combinational path is. Two failure modes rather than one is itself a
+finding: whatever this is, it is not a single mechanism.
+
+Eliminated, each by measurement rather than by argument: **delay
+magnitude** (an SDF with every delay rewritten to 1 ps fails
+identically, so it is not timing being too slow); **setup violations**
+(a simulated period of 5000 ps against a design that closes at 1282 ps
+fails identically); **clock skew** (the last row of Table 11 -- taking
+all 260 clock-named cells out of the full set changes nothing); and
+**cell family** (no one cell type is responsible). Six standalone
+reproductions -- a single buffer, a buffer chain, a chain inside a
+submodule, a partly annotated chain, a delayed clock into an annotated
+flop, and a flop with asynchronous reset -- all behave correctly under
+the same annotation path.
+
+**The bisection is worth recording because it converges on the wrong
+thing.** Binary search over the combinational set does terminate, at
+one cell: `delaybuf_22_clk`, a `BUFx24` with a 17 ps delay on a clock
+branch. It is not the answer. Annotating one clock delay buffer while
+every data path is still zero-delay is a guaranteed hold violation --
+data launched by an early-clocked flop reaches a late-clocked flop in
+no time at all -- so that subset breaks for a reason the full set does
+not have, and the last row of Table 11 confirms it: removing all 260
+clock-named cells, `delaybuf_22_clk` among them, from the full set does
+not fix anything. The predicate "this annotation breaks the design" is
+not monotone in the annotated set, and binary search over a
+non-monotone predicate converges on whatever the search happens to
+touch. A bisection is only as good as its oracle, and also only as good
+as its premise.
+
+So the failure needs something the full netlist has that none of the
+standalone reproductions do, and no subset of it isolates. Finding it
+means debugging `vvp`'s event scheduler against a 25,835-instance
+design, which is a simulator project and not a measurement. Three
+`(CELL` entries out of 21,151 also remain unmatched -- `A2 -> Y` and
+`C -> Y` arcs on three cells in the prefetch buffer -- too few to be
+the cause, but the only known remaining gap in the annotation itself.
 
 Two false leads are recorded because they cost time and were both
 mistakes in the measuring apparatus rather than in what was measured.
