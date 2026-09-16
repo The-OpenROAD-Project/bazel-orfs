@@ -32,8 +32,21 @@ py_binary(
             "veer_rv32imc",
         ]
         for seed in SEEDS
+        # The physical side of each point, from the same grt ODB (§4.9).
+        "--physical",
+        "picorv32:$(location //test/coremark_joule/designs/asap7/picorv32:cmj_picorv32_physical)",
+        "--physical",
+        "serv:$(location //test/coremark_joule/designs/asap7/serv:cmj_serv_physical)",
+        "--physical",
+        "ibex:$(location //test/coremark_joule/designs/asap7/ibex:cmj_ibex_physical)",
+        "--physical",
+        "veer:$(location //test/coremark_joule/designs/asap7/veer:swerv_wrapper_physical)",
     ],
     data = [
+        "//test/coremark_joule/designs/asap7/ibex:cmj_ibex_physical",
+        "//test/coremark_joule/designs/asap7/picorv32:cmj_picorv32_physical",
+        "//test/coremark_joule/designs/asap7/serv:cmj_serv_physical",
+        "//test/coremark_joule/designs/asap7/veer:swerv_wrapper_physical",
         "//test/coremark_joule/sim:point_ibex_rv32imc",
         "//test/coremark_joule/sim:point_picorv32_rv32im",
         "//test/coremark_joule/sim:point_serv_rv32i",

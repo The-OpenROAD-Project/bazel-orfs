@@ -155,6 +155,17 @@ py_test(
     main = "cm_per_joule_test.py",
 )
 
+# The literature table is data with a schema; the schema is the test.
+py_test(
+    name = "pin_results_test",
+    size = "small",
+    srcs = [
+        "pin_results.py",
+        "pin_results_test.py",
+    ],
+    main = "pin_results_test.py",
+)
+
 py_binary(
     name = "plot_results",
     srcs = [

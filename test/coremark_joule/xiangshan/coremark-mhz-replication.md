@@ -5,15 +5,20 @@
 ## What was measured
 
 ```
+                     shared runtime    own flat runtime
 cycles_3                437,712
 cycles_2                317,320
-one iteration           120,392
-CoreMark/MHz              8.3062
+one iteration           120,392             120,582
+CoreMark/MHz              8.3062              8.2931
 ```
 
 XiangShan V3 (Kunminghu), commit `37ce1b5`, `-march=rv64gc -mabi=lp64d
 -mcmodel=medany` with the study's baseline flags, CRCs correct on both
-runs.
+runs. The right-hand column is the current build: XiangShan carries its
+own linker script and a flat `crt0` that paints the stack for the
+study's high-water check, and the differential moved by 190 cycles
+(0.16 %). The cross-check below is from the left-hand run; the
+hypotheses are unaffected at this resolution.
 
 The number cross-checks against a second observable: `first_output`, the
 cycle CoreMark's first character reaches the harness, differs by 120,380
@@ -23,7 +28,7 @@ three-iteration run (0x72be against 0x2e87), so the report prints
 different characters and the tail after first output costs slightly
 different work.
 
-So 8.31 is what this configuration does. The question is why the
+So 8.3 is what this configuration does. The question is why the
 published figure for this core is nearer 10.
 
 ## Hypotheses, in the order worth testing

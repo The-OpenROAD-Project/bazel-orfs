@@ -2,6 +2,7 @@ load("@coremark_joule_designs//:designs.bzl", "design")
 load("//test/coremark_joule/flow:power.bzl", "flop_power_probe", "grt_netlist", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power", "stage_power_units", "stage_sdf")
 load("//test/coremark_joule/flow:seeds.bzl", "seed_variants")
 load("//test/coremark_joule/scripts:synth_crosscheck.bzl", "synth_crosscheck")
+load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "period_probe", "physical_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power")
 
 exports_files(["constraints.sdc"])
 
@@ -200,4 +201,9 @@ flop_power_probe(
     saif = "//test/coremark_joule/sim:ibex_rv32imc_saif",
     saif_scope = "TOP/cm_soc/cpu",
     stage = "grt",
+# The measured side of the literature table. See §4.9.
+physical_probe(
+    name = "cmj_ibex_physical",
+    src = ":cmj_ibex_grt",
+    visibility = ["//test/coremark_joule:__pkg__"],
 )

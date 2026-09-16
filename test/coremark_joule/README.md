@@ -1480,6 +1480,135 @@ one of them and ends up below a 350 W Xeon. The commodity ladder is
 congruent with the four points here, and it is congruent for the
 reasons this paper gives rather than by coincidence.
 
+### 4.9 The literature, side by side, and the discrepancies worth chasing
+
+Four numbers describe a core to the people who publish them: gate
+equivalents, minimum clock period, CoreMark/MHz and CoreMark/Joule. This
+study measures the last two and, with `<design>_physical`, the first
+two; the literature gives some subset of the four for each core, on
+some node, at some boundary, with some confidence. Putting them in one
+table is only worth doing if every cell says which of those it is, so
+the table is rendered from `pin_results.py`, where each row carries a
+`source`, a `locator` (the figure, table or slide the number is on), a
+`confidence` (`stated`, `derived` here from the source's own figures,
+or `estimated` by the source itself), and for a frequency what kind of
+frequency it is: silicon, sign-off, synthesis-only, or an announced
+target. A cell the source does not give is a dash, never a guess.
+
+```sh
+bazelisk run //test/coremark_joule:pin -- --table
+```
+
+Gate equivalents follow the convention every paper in the table uses:
+standard-cell area over the area of the library's smallest two-input
+NAND, macros excluded. On ASAP7 that NAND is `NAND2xp33_ASAP7_75t_R`
+at 0.05832 µm²; the probe writes the cell and its area next to the
+count so the division can be redone against another. The published
+kGE figures rarely say which NAND they used, and some (ibex's) come from
+yosys on a different library with a different register file, so the
+column is comparable to within tens of percent, not to the digit.
+
+| core | source | node | kGE | f (MHz) | CoreMark/MHz | CoreMark/Joule |
+|---|---|---|---|---|---|---|
+| ibex (rv32imc) | this study, grt | asap7 | probe | 833 (SDC) | 2.45 | 99284 |
+| picorv32 (rv32im) | this study, grt | asap7 | probe | 1000 (SDC) | 0.55 | 25847 |
+| serv (rv32i) | this study, grt | asap7 | probe | 1429 (SDC) | 0.02 | 1234 |
+| veer (rv32imc) | this study, grt | asap7 | probe | 625 (SDC) | 4.80 | 34349 |
+| XiangShan KMH V3 (rv64gc) | this study, floorplan | asap7 | ~19,900 | 833 (SDC, untimed) | 8.29 | pending |
+| CVA6 | [5] | GF 22 FDX | 730 | 1083 (signoff) | 2.19 | 28205 |
+| CVA6S+ | [5] | GF 22 FDX | 851 | 1081 (signoff) | 2.84 | 27108 |
+| XuanTie C910 | [5] | GF 22 FDX | 2674 | 1543 (signoff) | 4.86 (7.1 in [34]) | 29412 |
+| Ariane | [6] | GF 22 FDX | 210 | 1700 (silicon) | -- | -- |
+| XiangShan Kunminghu V2 | [33] | 7 nm | -- (1.8–2.1 mm² with 1 MB L2) | 3000 (signoff) | -- | -- |
+| XiangShan Nanhu V2 | [33] | 14 nm | -- | 2500 (silicon) | -- | -- |
+| SonicBOOM | [34] | FinFET, unnamed | -- | 1000 (synthesis) | 6.20 | -- |
+| ibex (small) | [35] | yosys kGE | 26.6 | -- | 2.47 | -- |
+| SERV | [36] | "typical CMOS" | 2.1 | -- | -- | -- |
+| picorv32 | [37] | FPGA only | -- | -- | -- | -- |
+| VeeR EH1 | [11], [38] | 28 nm | -- | 1800 (target) | 4.94 | -- |
+| VeeR EL2 | [39] | TSMC 16 nm | -- (0.023 mm²) | 600 (target) | 3.60 | -- |
+
+The `probe` cells are `//test/coremark_joule/designs/asap7/<core>:*_physical`,
+attached to each point by `//test/coremark_joule:pin` from the same grt
+ODB the power came from; they are filled in when the pinned file is
+next re-derived. XiangShan's gate count is from its floorplan report
+(1.159 mm² of standard cells) with the turnaround synthesis settings
+its `config.mk` records, and is a ceiling rather than a measurement
+until the measured run replaces them. The CF'25 kGE is that paper's
+Figure 6 total with its Icache and Dcache bars taken out, so it is a
+core-without-caches count like the others; its CoreMark/Joule is the
+§4.4 derivation.
+
+What the table is for is the discrepancies. Five are worth chasing,
+and for each the question is the same: is the gap a property of the
+core, of ASAP7, or of this flow?
+
+**1. XiangShan is 7.4× the gates of the C910 for 1.7× its CoreMark/MHz.**
+The C910 is a 3-issue out-of-order core at 2.67 MGE; Kunminghu is
+6-wide rename, 13 stages, a 160-entry reorder buffer holding six
+instructions per entry, 64 KB L1s with 8-way data and a vector unit, at ~19.9 MGE on ASAP7. Some of that ratio
+is real width, but not all of it, and the parts to look at first are
+the flow's. Hierarchical synthesis with ~90 kept modules, the turnaround list in
+its `config.mk`, blocks constant propagation and logic sharing across every boundary, and the
+netlist shows the symptom: 156,482 tie-high cells, one for every constant
+port a kept module cannot see through. ABC ran its area script, and
+the reset is asynchronous, which costs a larger flop on 147,039
+registers. The published cross-check is only indirect: KMHv2 with 1 MB
+of L2 is 1.8–2.1 mm² in a foundry 7 nm [33], and our 1.35 mm² of
+instance area without the L2 is the same order once the L2's SRAM is
+taken out of theirs. So the gap to the C910 is more likely to be real
+than the gap to XiangShan's own number; flattening the turnaround
+modules and re-measuring is the experiment that says how much.
+
+**2. VeeR EH1 closes at 625 MHz on ASAP7 against an 1.8 GHz target on
+28 nm.** This is the largest frequency discrepancy in the table and it
+points the wrong way: a 7 nm-class kit should not be 2.9× slower than a
+28 nm one. Two readings. The announcement number is a target, never
+demonstrated in a paper, and CoreMark Benchmarking for SweRV [11]
+reports only the FPGA. Or the flow leaves it on the table: VeeR's
+reg2reg slack at 1600 ps is exactly 0.0 (§5.5), which is repair_timing
+stopping at its goal and not the core's limit, and the ICCM/DCCM
+access path runs through a FakeRAM whose access time is a model, not a
+characterised macro. `swerv_wrapper_period` reports the worst reg2reg
+endpoint; if it is on a macro pin, the discrepancy is the memory model
+and §8.3's period push is the way to find the core's own number.
+
+**3. Kunminghu's 3 GHz against our untimed 1200 ps.** KMHv2 signs off at
+3.0 GHz [33], a 333 ps cycle on 13 stages. Our SDC asks for 1200 ps and
+the floorplan closed it only after the asynchronous reset was declared a
+false path in its `constraints.sdc` and ABC's buffering was left out. The question is what
+the reg2reg critical path is once placement and CTS have run. If it is
+inside the core logic, then OpenROAD without retiming or useful skew,
+on a predictive kit at 0.77 V, is 3.6× off a commercial 7 nm flow, which
+is a number worth knowing on its own. If it runs through one of the 303
+SRAM banks, the discrepancy is FakeRAM's timing model again, as in 2.
+
+**4. Two CoreMark/MHz for the C910, 1.5× apart.** CF'25 measured 4.86
+[5]; SonicBOOM's comparison chart carries the vendor's 7.1 [34]. Nothing
+in the hardware changed. The gap is the compiler, the flags and the
+run rules, and it bounds how seriously any two CoreMark/MHz figures from
+different hands can be compared: about ±20 % around their mean. Our own
+figures sit inside that band of their publications, ibex 2.454 against
+2.47 and VeeR 4.798 against 4.94, both low by the compiler this study
+fixes for all cores rather than tunes per core. XiangShan's 8.29 has no
+published CoreMark to sit against; KMHv2's SPEC CPU2006 of 14.7/GHz
+[33] is the closest, and a 6-wide core landing only 1.3× above
+SonicBOOM's 6.2 on CoreMark says more about CoreMark's loop bodies than
+about the core.
+
+**5. CoreMark/Joule at 22 nm is flat where ASAP7's is not.** CF'25's
+three cores span 2.2× in CoreMark/MHz and 3.7× in gates and land within
+9 % of each other in CoreMark/Joule (§4.4). Our four span 200× in
+CoreMark/MHz and 80× in CoreMark/Joule, with ibex at 99k against CVA6's
+28k for a similar CoreMark/MHz and 30× fewer gates. Part of this is the
+corner (§5.4: FF at 0.77 V is the best case) and part is the boundary
+CF'25 does not state. But ibex against CVA6 is the cleanest pair in the
+table, same class of core and same CoreMark/MHz within 12 %, and a 3.5×
+energy gap for a 30× gate gap says most of the energy in both is not in
+the gates that differ. §4.7 says where ours is: 58–71 % in the macros
+and the clock. Whether CF'25's is too is the question its Figure 7
+cannot answer, and the reason the two series stay separate in Figure 1.
+
 ---
 
 ## 5. Threats to validity
@@ -2582,7 +2711,7 @@ core its own budgeted run.
 | 7 | **VeeR EH1** | **4.798 measured** (4.94 published [11]) | SystemVerilog | **done** |
 | 8 | OpenC910 | ~4.9–7 | Verilog/SV | medium — 3-issue OoO, silicon-proven |
 | 9 | SonicBOOM | 6.2 | Chisel | high — pulls in the Scala generator |
-| 10 | XiangShan | ~10–15 | Chisel | high — very large |
+| 10 | **XiangShan (KMH V3)** | **8.29 measured** | Chisel | **in flow — §4.9 has it against its publications** |
 
 **Rungs 8–10 arrive with an L1 each**, as tiles or SoCs, and what gets
 hardened stops being obvious. [§3.1](#31-the-measurement-boundary)'s boundary is what makes them
@@ -3171,3 +3300,12 @@ copy of the Software.
 28. M. Keating, D. Flynn, R. Aitken, A. Gibbons, K. Shi. *Low Power Methodology Manual for System-on-Chip Design.* Springer, 2007.
 29. Keysight. *Decoding Glitch Power at the RTL Stage: a shift-left approach for glitch power estimation and optimization.* White paper. https://www.keysight.com/content/dam/keysight/en/doc/gate/white-papers/Decoding-Glitch-Power-at-the-RTL-Stage.pdf
 30. Zettabolt. *Accurate Post-PnR Glitch Power Estimation Using RTL.* Case study. https://zettabolt.com/blogs/Glitch-Power-Estimation
+31. NVIDIA. *DGX H100/H200 System User Guide* — 8 × H100 SXM5, dual Intel Xeon Platinum 8480C, 10.2 kW maximum. https://docs.nvidia.com/dgx/dgxh100-user-guide/
+32. NVIDIA. *GB200 NVL72* — 72 × Blackwell, 36 × Grace, ~120 kW rack; GB200 Superchip 2700 W = 2 × 1200 W GPU + ~300 W Grace CPU/IO. https://www.nvidia.com/en-us/data-center/gb200-nvl72/
+33. Y. Bao. *XiangShan KMH: An Open Source RISC-V Core with >15/GHz for SPECCPU2006.* Project slides, 14 May 2025. Slide 6 (roadmap, nodes), 7 (Kunminghu µarch), 9 (SPEC CPU2006 per GHz), 10 (tape-out status: 7 nm area, power, max core frequency; NHv2 2.5 GHz), 11 (KMHv3 over KMHv2).
+34. J. Zhao, B. Korpan, A. Gonzalez, K. Asanović. "SonicBOOM: The 3rd Generation Berkeley Out-of-Order Machine." *CARRV 2020.* Section 5 and Figure 7.
+35. lowRISC. *Ibex RISC-V Core* README, performance and area table (CoreMark/MHz, yosys kGE per configuration). https://github.com/lowRISC/ibex
+36. O. Kindgren. *SERV — the SErial RISC-V CPU* README, size table. https://github.com/olofk/serv
+37. C. Wolf. *PicoRV32 — A Size-Optimized RISC-V CPU* README, performance and size sections. https://github.com/YosysHQ/picorv32
+38. Western Digital. *SweRV Core EH1* announcement, RISC-V Summit, December 2018: 4.9 CoreMark/MHz, up to 1.8 GHz on 28 nm.
+39. CHIPS Alliance / Western Digital. *SweRV Core EL2* announcement: 3.6 CoreMark/MHz simulated, 0.023 mm² in 16 nm, up to 600 MHz.
