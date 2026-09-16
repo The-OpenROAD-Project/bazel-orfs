@@ -1,10 +1,18 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
-load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "hier_probe", "stage_power", "stage_power_units")
+load("//test/coremark_joule/flow:power.bzl", "census_probe", "grt_netlist", "hier_probe", "physical_probe", "stage_power", "stage_power_units")
 
 exports_files(["constraints.sdc"])
 
 design(
+    # Blocks are abstracted from their placed ODB: pins and outline,
+    # before CTS or route, so the parent can start as soon as each block
+    # has placed. Their timing and power are then those of an unrouted
+    # block; move to "final" for the measured run.
+    block_abstract_stage = "place",
     config = "config.mk",
+    # Skip the 40-minute `global_placement -skip_io` step at the top and
+    # place pins directly. RTL exploration only.
+    quick_pins = True,
     # The annealer's knobs, read by anneal_in_flow.tcl rather than by ORFS.
     user_arguments = [
         "ANNEAL_SEED",
@@ -78,6 +86,9 @@ stage_power(
 # than passing vacuously. Every name is a firtool array_<depth>x<width>
 # module; the four-row array_4x786 and the two-row queues stay flops by
 # the macro floors, on purpose.
+# Flat-design expectation. With BLOCKS in config.mk most of these banks
+# are converted inside their block's flow, not the parent's; re-derive
+# this list per flow from the first hierarchical synthesis.
 CONVERTED_MEMORIES = [
     "array_128x138",
     "array_128x18",
@@ -124,3 +135,25 @@ genrule(
         "grt",
     ]
 ]
+
+# The measured side of the literature table (§4.9), at every stage the
+# flow has reached: the standard-cell area and the gate count are the
+# same from placement on, the period is only worth quoting at grt.
+[
+    physical_probe(
+        name = "cmj_xiangshan_physical_" + stage,
+        src = ":XSCore_" + stage,
+        stage = stage,
+    )
+    for stage in [
+        "place",
+        "grt",
+    ]
+]
+
+# What is big: leaf instances and area under every kept module, the
+# input to choosing which blocks to harden as macros.
+census_probe(
+    name = "cmj_xiangshan_census",
+    src = ":XSCore_synth",
+)
