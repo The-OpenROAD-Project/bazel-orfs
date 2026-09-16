@@ -46,5 +46,14 @@ alias(
         "lib/NLDM/fakeram7_2048x39.lib",
         "lib/NLDM/fakeram7_256x34.lib",
         "lib/NLDM/fakeram7_64x21.lib",
+        # The block PDN grid XiangShan's BLOCKS= sub-macros are hardened
+        # with (test/coremark_joule/designs/asap7/xiangshan/block.mk): a
+        # core ring and straps for a hard macro, not a chip.
+        "openRoad/pdn/BLOCK_grid_strategy.tcl",
+        # And the parent's: M5/M6 stripes with a macro grid over every
+        # block connecting its M5 pins to M6. The platform's config.mk
+        # selects it when make sees BLOCKS; a bazel action never does, so
+        # the parent's config.mk names it.
+        "openRoad/pdn/BLOCKS_grid_strategy.tcl",
     ]
 ]

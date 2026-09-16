@@ -30,21 +30,32 @@ export VERILOG_FILES           = //test/coremark_joule/xiangshan:xiangshan_flat.
 # clock pin is the parent's CTS to decide, not a number to assert here.
 export SDC_FILE                = $(DESIGN_HOME)/asap7/xiangshan/constraints.sdc
 
-# Parallel synthesis inside the block, partitions discovered rather than
-# listed; the parent's list names modules that are now on this side of
-# the boundary and would not be worth re-deriving per block.
 export SYNTH_HIERARCHICAL      = 1
 export OPENROAD_HIERARCHICAL   = 1
 export AUTO_MEMORIES           = 1
 
-# The parent's turnaround settings, for the same reasons: flip ABC_AREA
-# and SKIP_REPORT_METRICS back for a measured run; REMOVE_ABC_BUFFERS
-# and GPL_TIMING_DRIVEN=0 skip the pre-placement and in-placement
-# repairs that made the flat run infeasible.
-export ABC_AREA                = 1
-export REMOVE_ABC_BUFFERS      = 1
-export SKIP_REPORT_METRICS     = 1
+# Parallel synthesis inside each block with an explicit kept list, set
+# in the block's own <Block>/config.mk after it includes this file. The
+# lists are the parent's turnaround list split by block, plus the
+# largest unkept modules under each, and every name must exist in the
+# block: the per-module re-canonicalize fails on a name that is not in
+# its checkpoint. The subtree of each block was read off the generated
+# Verilog, one module per file, instantiations by name. Explicit rather than
+# discovered because discovery is `keep_hierarchy -min_cost`, which wants
+# a gate cost on every blackbox, and the blackbox AUTO_MEMORIES leaves
+# for an SRAM has none ("Missing cost information on instanced blackbox
+# array_256x66"). ICache is small enough to synthesise flat.
+
+# Placement without its in-loop repair or routability inflation. On the
+# vector region the two together sent Nesterov from overflow 0.31 back to
+# 0.66 and past 1,900 iterations; off, placement is one descent. Both
+# are place-stage variables, so flipping them re-runs only placement.
+# Not set here, deliberately, so the block synthesis and floorplans
+# already built stay cached: ABC_AREA (synth), REMOVE_ABC_BUFFERS
+# (floorplan) and SKIP_REPORT_METRICS (every stage). The parent has all
+# three; the blocks pick them up when their synthesis is next redone.
 export GPL_TIMING_DRIVEN       = 0
+export GPL_ROUTABILITY_DRIVEN  = 0
 
 export CORE_UTILIZATION        = 40
 export CORE_ASPECT_RATIO       = 1
