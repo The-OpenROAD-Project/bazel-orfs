@@ -57,7 +57,6 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
-
 # ---------------------------------------------------------------------------
 # Idiomatic memory area/delay model — fitted from published data
 # ---------------------------------------------------------------------------
@@ -106,7 +105,6 @@ from pathlib import Path
 #       https://github.com/The-OpenROAD-Project/RegFileStudy
 
 import math
-
 
 # --- Published data points ---------------------------------------------------
 # Each tuple: (tech_nm, rows, bits, ports_key, kind, area_um2, access_ps_or_None)
@@ -948,8 +946,17 @@ def compute_timing_scale(role, bucket, reference_text):
 # MACRO outline, re-emit pins in idiomatic positions, and write one OBS
 # rectangle covering the interior.
 
+# ASAP7 routing rules the emitted LEF has to obey (asap7_tech_1x LEF):
+# M4 and M5 are both PITCH 0.048, WIDTH 0.024, and M4's width table is
+# {0.024, 0.12, 0.216, ...}. A pin drawn one pitch square (0.048) is a
+# width no rule allows, and detailed routing then reports a "Rect Only"
+# violation at every pin -- hundreds per macro -- while the platform's
+# own fakeram7_*.lef pins, 0.024 squares on M4 at multiples of the
+# pitch, route clean. Pins here are the layer's width, on the pitch.
 _M4_PITCH_UM = 0.048  # ASAP7 M4 track pitch
-_M5_PITCH_UM = 0.068  # ASAP7 M5 track pitch
+_M4_WIDTH_UM = 0.024  # ASAP7 M4 wire width
+_M5_PITCH_UM = 0.048  # ASAP7 M5 track pitch
+_M5_WIDTH_UM = 0.024  # ASAP7 M5 wire width
 
 
 # Per-bit pin entries (e.g. R0_data[5]) classify the same as the parent
@@ -1017,7 +1024,22 @@ def rewrite_lef(lef_text, role, bucket):
     clocks = sorted([p for p in pin_names if _is_clock_pin(p)])
     powers = sorted([p for p in pin_names if _is_power_pin(p)])
 
-    def _bank(edge_count, edge_length, pitch):
+    # The supply stripes' rows, fixed first: a signal pin on the same M4
+    # row as a rail stripe has no access point (DRT-0073 on one pin per
+    # macro shape, the one whose row met the stripe), so the pin banks
+    # below step over those rows.
+    pg_y_fracs = sorted(
+        set(0.66 if n.upper().startswith("VDD") else 0.33 for n in powers)
+    )
+    stripe_rows = [f * height - _M4_PITCH_UM / 2.0 for f in pg_y_fracs]
+
+    def _clear_of_stripes(y, h):
+        # ASAP7 M4 spacing is 0.04; keep a full pitch of clearance.
+        return all(
+            y + h + _M4_PITCH_UM <= r or y >= r + 2 * _M4_PITCH_UM for r in stripe_rows
+        )
+
+    def _bank(edge_count, edge_length, pitch, avoid_stripes=False):
         # Evenly space pins along the edge, but snap the spacing to a
         # multiple of `pitch` so every pin lands on a routing track.
         # OpenROAD's macro placer rejects off-grid pins on RightWayOnGridOnly
@@ -1026,7 +1048,18 @@ def rewrite_lef(lef_text, role, bucket):
             return []
         ideal_step = edge_length / (edge_count + 1)
         step = max(pitch, round(ideal_step / pitch) * pitch)
-        return [step * (i + 1) for i in range(edge_count)]
+        positions = []
+        y = step
+        while len(positions) < edge_count:
+            if not avoid_stripes or _clear_of_stripes(y, _M4_WIDTH_UM):
+                positions.append(y)
+            y += step
+            if y >= edge_length - pitch:
+                # Out of room at this step: fall back to the pitch and
+                # fill from the top of the last accepted position.
+                step = pitch
+                y = (positions[-1] if positions else 0.0) + pitch
+        return positions
 
     lines = [preamble.rstrip("\n") + "\n" if preamble else ""]
     lines.append(f"MACRO {macro_name}\n")
@@ -1034,35 +1067,41 @@ def rewrite_lef(lef_text, role, bucket):
     lines.append("  ORIGIN 0 0 ;\n")
     lines.append(f"  SIZE {width:.3f} BY {height:.3f} ;\n")
 
-    # Inputs on the left edge (x=0), on M4.
-    for name, y in zip(inputs, _bank(len(inputs), height, _M4_PITCH_UM)):
+    # Inputs and clocks on the left edge (x=0), on M4, as the platform's
+    # fakeram7_*.lef does. A clock pin on a vertical layer (M5) at the top
+    # edge has no legal access unless its absolute x lands on an M5 track,
+    # and macro placement snaps to sites, not to the M5 pitch: detailed
+    # routing failed with DRT-0255 on the clock net at every such pin. On
+    # M4 the pin's bottom edge sits on a pitch multiple relative to the
+    # macro, the same convention as fakeram7, and the router reaches it.
+    left = sorted(inputs + clocks)
+    for name, y in zip(
+        left, _bank(len(left), height, _M4_PITCH_UM, avoid_stripes=True)
+    ):
         _emit_pin(
-            lines, name, "INPUT", layer="M4", x=0.0, y=y, w=_M4_PITCH_UM, h=_M4_PITCH_UM
+            lines,
+            name,
+            "INPUT",
+            layer="M4",
+            x=0.0,
+            y=y,
+            w=_M4_WIDTH_UM,
+            h=_M4_WIDTH_UM,
+            use="CLOCK" if name in clocks else None,
         )
     # Outputs on the right edge (x=width), on M4.
-    for name, y in zip(outputs, _bank(len(outputs), height, _M4_PITCH_UM)):
+    for name, y in zip(
+        outputs, _bank(len(outputs), height, _M4_PITCH_UM, avoid_stripes=True)
+    ):
         _emit_pin(
             lines,
             name,
             "OUTPUT",
             layer="M4",
-            x=width - _M4_PITCH_UM,
+            x=width - _M4_WIDTH_UM,
             y=y,
-            w=_M4_PITCH_UM,
-            h=_M4_PITCH_UM,
-        )
-    # Clocks on the top edge (y=height), on M5.
-    for name, x in zip(clocks, _bank(len(clocks), width, _M5_PITCH_UM)):
-        _emit_pin(
-            lines,
-            name,
-            "INPUT",
-            layer="M5",
-            x=x,
-            y=height - _M5_PITCH_UM,
-            w=_M5_PITCH_UM,
-            h=_M5_PITCH_UM,
-            use="CLOCK",
+            w=_M4_WIDTH_UM,
+            h=_M4_WIDTH_UM,
         )
     # Power pins as full-width horizontal M4 stripes — PDN searches for
     # USE POWER / USE GROUND macro pins on a stripe layer and stitches them
@@ -1079,14 +1118,16 @@ def rewrite_lef(lef_text, role, bucket):
         # alternate VDD high / VSS low so the rails don't collide.
         y_frac = 0.66 if is_power else 0.33
         stripe_y = y_frac * height - _M4_PITCH_UM / 2.0
+        # One pitch in from each edge, as fakeram7's stripes are: a stripe
+        # that reaches x=0 runs through the pin column.
         _emit_pin(
             lines,
             name,
             "INOUT",
             layer="M4",
-            x=0.0,
+            x=_M4_PITCH_UM,
             y=stripe_y,
-            w=width,
+            w=width - 2 * _M4_PITCH_UM,
             h=_M4_PITCH_UM,
             use="POWER" if is_power else "GROUND",
         )
@@ -1096,10 +1137,7 @@ def rewrite_lef(lef_text, role, bucket):
     # blockage hides the stripes from the macro-pin search.
     inset = _M4_PITCH_UM
     lines.append("  OBS\n")
-    pg_y_fracs = sorted(
-        set(0.66 if n.upper().startswith("VDD") else 0.33 for n in powers)
-    )
-    cuts = sorted(f * height - _M4_PITCH_UM / 2.0 for f in pg_y_fracs)
+    cuts = sorted(stripe_rows)
     cur_y = inset
     for cy in cuts:
         if cy > cur_y:
