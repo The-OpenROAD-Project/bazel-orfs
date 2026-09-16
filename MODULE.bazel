@@ -177,6 +177,29 @@ single_version_override(
     patches = ["//patches:rules_pycross_no_warning.patch"],
 )
 
+# pybind11_abseil (transitive: openroad -> or-tools): its pip extension
+# names its hub "pypi", which rules_python now reserves:
+#
+#   WARNING: The PyPI hub name 'pypi' is reserved (module 'pybind11_abseil').
+#   Please rename your hub, otherwise a future release will rename it to
+#   'pybind11_abseil_pypi'.
+#
+# once per supported Python version, so five copies on every build.
+# Upstream marks both of its python extensions dev_dependency; BCR's
+# module-dot-bazel-dev-dependency.patch strips that marker off both. The
+# toolchain one has to stay non-dev -- the cc targets we build need a
+# Python toolchain -- but the pip one only feeds pybind11_abseil's own
+# py_tests, which no consumer builds. So restore the marker on pip alone:
+# a dev usage of a non-root module is ignored, the hub is never created,
+# and the warning goes with it. Retires when BCR narrows its patch or
+# upstream renames the hub.
+single_version_override(
+    module_name = "pybind11_abseil",
+    patch_strip = 0,
+    patches = ["//patches:pybind11_abseil_quiet.patch"],
+    version = "202402.0",
+)
+
 # protoc-gen-validate: strip unused python/pip extensions whose unhashed
 # requirements.txt causes rules_python to emit hundreds of DEBUG warnings.
 single_version_override(
