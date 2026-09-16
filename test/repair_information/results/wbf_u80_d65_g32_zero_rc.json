@@ -8,7 +8,7 @@
   "clock_period": 320.000000,
   "wns": 99.894707,
   "min_period": 220.10529300000002,
-  "seconds": 1.220,
+  "seconds": 0.528,
   "pin_access_seconds": 0.000,
   "nets_with_guides": 0,
   "max_routing_layer": "M9",

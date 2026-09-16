@@ -74,6 +74,22 @@ if { $mode eq "placement" } {
 } elseif { $mode eq "global_routing" } {
     set grt_args [expr { [info exists ::env(RI_GRT_ARGS)] ? $::env(RI_GRT_ARGS) : "" }]
 
+    # -resistance_aware is not an optional extra: ORFS's global_route.tcl
+    # passes it whenever ENABLE_RESISTANCE_AWARE is set, and asap7 sets
+    # it to 1. It is the one mechanism by which the router climbs *for
+    # timing* -- critical nets steered onto low-resistance layers -- as
+    # opposed to spilling upward when the lower layers overflow.
+    #
+    # Omitting it measures a different router. Without it a trial route
+    # of the shipped wirebound puts zero demand on M8/M9; the flow's own
+    # route of the same design puts 6.9% there. A probe that leaves it
+    # out and then reports that the design never reaches the top of the
+    # stack is reporting its own arguments.
+    if { [env_var_equals ENABLE_RESISTANCE_AWARE 1]
+         && ![string match "*-resistance_aware*" $grt_args] } {
+        append grt_args " -resistance_aware"
+    }
+
     # The clock has to be propagated for a post-CTS stage to report the
     # timing the flow would see; before CTS there is nothing to
     # propagate and asking for it is a no-op on an ideal clock.
