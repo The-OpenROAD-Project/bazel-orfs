@@ -220,6 +220,7 @@ py_test(
     data = [
         "//test/coremark_joule:README.md",
         "//test/coremark_joule:results.json",
+        "//test/coremark_joule/results:commodity_coremark.csv",
     ],
     main = "readme_numbers_test.py",
 )
@@ -227,6 +228,7 @@ py_test(
 py_binary(
     name = "readme_numbers",
     srcs = ["readme_numbers.py"],
+    data = ["//test/coremark_joule/results:commodity_coremark.csv"],
     main = "readme_numbers.py",
 )
 

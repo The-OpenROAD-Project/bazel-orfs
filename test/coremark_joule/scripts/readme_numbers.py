@@ -22,7 +22,9 @@ Usage:
 """
 
 import argparse
+import csv
 import json
+import os
 import sys
 
 # Display names, and the order Table 1 lists the cores in: by
@@ -45,6 +47,33 @@ CORE_ONLY_COREMARK_PER_JOULE = {
     "picorv32": 86024.0,
     "ibex": 277510.0,
 }
+
+COMMODITY_CSV = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "..",
+    "results",
+    "commodity_coremark.csv",
+)
+
+
+def commodity_rows(path=COMMODITY_CSV):
+    """§4.9's rows: CoreMark/s and the power that goes with it, per CPU."""
+    with open(path) as f:
+        rows = list(csv.DictReader(l for l in f if not l.startswith("#")))
+    out = {}
+    for r in rows:
+        power = float(r["power_w"]) if r["power_w"] else None
+        out[r["cpu"]] = {
+            "class": r["class"],
+            "coremark_per_s": float(r["iterations_per_s"]),
+            "power_w": power,
+            "power_kind": r["power_kind"],
+            "coremark_per_joule": (
+                float(r["iterations_per_s"]) / power if power else None
+            ),
+        }
+    return out
+
 
 TABLE1_BEGIN = "<!-- table1 -->"
 TABLE1_END = "<!-- /table1 -->"
@@ -153,6 +182,30 @@ def facts(document):
     # A vectorless comparison of ibex and VeeR: how close it would put them.
     vl_cmj = {c: cmmhz[c] * by[c]["frequency_mhz"] * 1e6 / vectorless[c] for c in by}
     out["vectorless_ibex_over_veer"] = _ratio(vl_cmj["ibex"], vl_cmj["veer"], 2)
+    # §4.9: the commodity ladder, measured package power where the run logged it.
+    c = commodity_rows()
+    epyc = c["AMD EPYC 9654"]["coremark_per_joule"]
+    out["epyc_9654_over_7950x"] = _ratio(
+        epyc, c["AMD Ryzen 9 7950X"]["coremark_per_joule"], 2
+    )
+    out["xeon_8490h_over_13900k"] = _ratio(
+        c["Intel Xeon Platinum 8490H"]["coremark_per_joule"],
+        c["Intel Core i9-13900K"]["coremark_per_joule"],
+        2,
+    )
+    out["ryzen_7900_over_7900x"] = _ratio(
+        c["AMD Ryzen 9 7900 (65 W)"]["coremark_per_joule"],
+        c["AMD Ryzen 9 7900X"]["coremark_per_joule"],
+        2,
+    )
+    best = max(
+        v["coremark_per_joule"]
+        for v in c.values()
+        if v["coremark_per_joule"] and v["power_kind"] == "measured"
+    )
+    out["ibex_over_best_package"] = _ratio(cmj["ibex"], best, 1)
+    out["veer_over_best_package"] = _ratio(cmj["veer"], best, 1)
+    out["best_package_over_serv"] = _ratio(best, cmj["serv"], 1)
     return out
 
 
