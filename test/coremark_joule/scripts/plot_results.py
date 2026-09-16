@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Plot CoreMark/Joule against CoreMark/MHz from the pinned results.
 
-Reads results.json and nothing else, so iterating on the presentation
-never re-runs a flow.
+Reads results.json, and optionally §4.9's committed commodity CSV, so
+iterating on the presentation never re-runs a flow.
 
 Both axes are logarithmic because the interesting range spans decades:
 the cores worth comparing run from a bit-serial design at hundredths of a
@@ -19,18 +19,49 @@ import argparse
 import json
 import sys
 
+import silicon_band  # noqa: E402
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
 
-def plot(document, out_path):
+def plot(document, out_path, commodity=None):
     points = document["points"]
     if not points:
         raise ValueError("no points to plot")
 
     fig, ax = plt.subplots(figsize=(7.5, 5.5))
+
+    # Two regions, drawn first so every measured point sits on top of
+    # them, and drawn as regions rather than markers because neither is
+    # a measurement of the same thing this study measures.
+    #
+    # The lower one is where Appendix A's commodity cores sit: measured at
+    # the wall plug and attributed by the slope of watts against active
+    # core count, at a boundary its provenance states as "core and its
+    # private caches" -- the same boundary this study reports. Measured
+    # rather than apportioned, on real N7, Intel 7 and N4 silicon
+    # against a predictive 7 nm kit at its best-case corner.
+    #
+    # The upper one is the observation that follows from it: above those
+    # parts, at their performance per clock, there is no CPU at all --
+    # not in this study, not in §4.9, not in the literature series. It
+    # is drawn because an empty region is a result when the axes are
+    # this wide, and because it is the region a core would have to reach
+    # to be a major advance rather than a better point on a known curve.
+    if commodity:
+        ax.add_patch(
+            plt.Rectangle(
+                (commodity["x_min"], commodity["y_min"]),
+                commodity["x_max"] - commodity["x_min"],
+                commodity["y_max"] - commodity["y_min"],
+                facecolor="tab:purple", alpha=0.16, edgecolor="tab:purple",
+                linewidth=1.0, linestyle="--", zorder=1,
+                label="x86 / Arm, one core + L1 measured (App. A, %d parts)"
+                      % commodity["parts"],
+            )
+        )
 
     # Split the measured series by whether the point meets §3.1's
     # boundary. A filled marker hardened its L1; a hollow one hardened no
@@ -104,6 +135,29 @@ def plot(document, out_path):
     )
     ax.set_xlim(*_padded(all_x))
     ax.set_ylim(min(ys) / 6.0, max(ys) * 6.0)
+
+    # The empty region, once the y limit exists to bound it.
+    if commodity:
+        top = ax.get_ylim()[1]
+        if top > commodity["y_max"]:
+            ax.add_patch(
+                plt.Rectangle(
+                    (commodity["x_min"], commodity["y_max"]),
+                    commodity["x_max"] - commodity["x_min"],
+                    top - commodity["y_max"],
+                    facecolor="tab:green", alpha=0.08, edgecolor="tab:green",
+                    linewidth=1.0, linestyle=":", zorder=1,
+                    label="no CPU here today",
+                )
+            )
+            # High in the region and to its right: the reference ticks
+            # along the top carry vertical labels near its left edge,
+            # and the literature series sits just below it.
+            ax.annotate(
+                "no CPU here today",
+                (commodity["x_max"] * 0.85, top * 0.45),
+                fontsize=8.5, ha="center", va="center", color="tab:green",
+            )
     ax.set_xlabel("CoreMark/MHz  (performance per clock)")
     ax.set_ylabel("CoreMark/Joule  (work per unit energy)")
     ax.set_title("Energy efficiency against performance per clock")
@@ -199,7 +253,7 @@ def plot(document, out_path):
     # After every series is drawn, not before: a legend built early
     # silently omits whatever is plotted after it, and the series most
     # likely to be added later is the one a reader most needs named.
-    ax.legend(loc="lower left", fontsize=8, framealpha=0.9)
+    ax.legend(loc="upper left", fontsize=7.5, framealpha=0.9)
 
     prov = document.get("provenance", {})
     ax.text(
@@ -237,12 +291,20 @@ def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("results")
     parser.add_argument("--out", required=True)
+    parser.add_argument(
+        "--silicon",
+        help="Appendix A's silicon.json. Draws the region its measured cores "
+        "occupy, and the empty region above it.",
+    )
     args = parser.parse_args(argv[1:])
 
     with open(args.results) as f:
         document = json.load(f)
 
-    n = plot(document, args.out)
+    band = None
+    if args.silicon:
+        band = silicon_band.band(silicon_band.read(args.silicon))
+    n = plot(document, args.out, band)
     print("plot_results: {} point(s) -> {}".format(n, args.out))
     return 0
 

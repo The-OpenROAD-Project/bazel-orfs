@@ -34,10 +34,14 @@ py_binary(
 # The plot, from the pinned results alone -- no flow in the loop.
 genrule(
     name = "plot",
-    srcs = ["results.json"],
+    srcs = [
+        "results.json",
+        "silicon.json",
+    ],
     outs = ["coremark_joule.png"],
     cmd = "$(execpath //test/coremark_joule/scripts:plot_results) " +
-          "$(location results.json) --out $@",
+          "$(location results.json) --out $@ " +
+          "--silicon $(location silicon.json)",
     tags = ["manual"],
     tools = ["//test/coremark_joule/scripts:plot_results"],
 )
