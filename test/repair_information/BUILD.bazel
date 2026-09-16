@@ -17,14 +17,18 @@ Every flow-running target here is manual -- each one loads a stage ODB
 and routes it. The parsers are the only thing `bazelisk test` runs.
 """
 
+load("@bazel_orfs_test_designs//:designs.bzl", LOCAL_DESIGNS = "DESIGNS")
 load("@orfs_designs//:designs.bzl", "DESIGNS")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 load(
     ":probes.bzl",
     "LAYER_ADJUSTMENTS",
+    "WIREBOUND_DERATED_SHAPES",
+    "WIREBOUND_SHAPES",
     "WIRE_SHARE_UTILIZATIONS",
     "ri_contention",
     "ri_ladder",
+    "ri_shapes",
     "ri_stretch",
 )
 
@@ -218,6 +222,204 @@ CONTENTION_DESIGNS = [
     )
     for directory in CONTENTION_DESIGNS
 ]
+
+# wirebound: the vehicle this study needed and the stock designs cannot
+# provide. Built for pre-route-pessimism (#958/#963) as "the congested,
+# top-metal, wire-delay-dominated corner that no asap7 design in ORFS
+# occupies" -- MAX_ROUTING_LAYER=M9 so it can reach the two least
+# resistive layers no stock design is allowed to use, a scattered fan-in
+# so the inter-group nets stay die-crossing however the placer folds the
+# design, and a balanced XOR tree four levels deep so cell delay stays
+# small while the wires stay long.
+#
+# That second property is the one the gcd ladder proved was needed: a
+# 20x core bought gcd 28% more wire because nothing stopped the placer
+# clustering 34 flops, so its wire share never left 3%. Here the length
+# is a property of the netlist rather than of a placement.
+#
+# WIREBOUND_CLK_PERIOD_PS is read by the design's own constraint.sdc and
+# not by ORFS, so it takes the user_arguments hatch.
+WIREBOUND = LOCAL_DESIGNS["asap7/wirebound"]
+
+WIREBOUND_USER_VARS = ["WIREBOUND_CLK_PERIOD_PS"]
+
+ri_ladder(
+    name = "wirebound",
+    arguments = {
+        key: value
+        for key, value in WIREBOUND["arguments"].items()
+        if key not in WIREBOUND_USER_VARS
+    },
+    cts = "//flow/designs/asap7/wirebound:wirebound_cts",
+    design = WIREBOUND,
+    final = "//flow/designs/asap7/wirebound:wirebound_final",
+    qualify_sources = False,
+    sources = WIREBOUND["sources"],
+    user_arguments = {
+        key: value
+        for key, value in WIREBOUND["arguments"].items()
+        if key in WIREBOUND_USER_VARS
+    },
+)
+
+py_binary(
+    name = "update_wirebound",
+    srcs = ["//test/pre_route_pessimism:update_results.py"],
+    args = ["--dest-dir=test/repair_information/results"] + [
+        "$(rootpath :wirebound_{}.json)".format(rung)
+        for rung in RUNGS
+    ],
+    data = [":wirebound_{}.json".format(rung) for rung in RUNGS],
+    main = "update_results.py",
+    tags = ["manual"],
+)
+
+# Driving wirebound onto the top of the stack.
+#
+# Corrected for reg2reg, wirebound is the most wire-dominated design
+# measured here -- 26.5% of its period is signal wire delay, against
+# coralnpu's 19.4% and gcd's 2.0%. What it is not is *long*: 11.6um
+# nets against an ~8um break-even for repaying a via stack, so the
+# router has no reason to climb and M8/M9 carry nothing at all, on the
+# one design in the tree permitted to use them.
+#
+# The three shape knobs move together or not at all, per
+# pre-route-pessimism's own arms: PLACE_DENSITY follows CORE_UTILIZATION
+# down (or placement packs the cells into a corner of the bigger die and
+# hands back short wires), and ROUTING_LAYER_ADJUSTMENT buys back the
+# contention that spreading costs, since demand grows as the square root
+# of die area while supply grows linearly.
+#
+# The clock is tightened from the shipped 1000ps to 320ps, just above the
+# 306.7ps the design actually achieves. At 1000ps the reg2reg WNS is
+# about +700ps, so nothing is critical -- and a router asked to be
+# resistance-aware about critical nets has nothing to be aware of.
+WIREBOUND_TIGHT_CLK = "320"
+
+ri_shapes(
+    name = "wbf",
+    arguments = {
+        key: value
+        for key, value in WIREBOUND["arguments"].items()
+        if key not in WIREBOUND_USER_VARS
+    },
+    design = WIREBOUND,
+    groups = ["32"],
+    qualify_sources = False,
+    shapes = WIREBOUND_DERATED_SHAPES,
+    sources = WIREBOUND["sources"],
+    user_arguments = {"WIREBOUND_CLK_PERIOD_PS": WIREBOUND_TIGHT_CLK},
+)
+
+py_binary(
+    name = "update_wbf",
+    srcs = ["//test/pre_route_pessimism:update_results.py"],
+    args = ["--dest-dir=test/repair_information/results"] + [
+        "$(rootpath :wbf_{}_g32_{}.json)".format(shape, probe)
+        for shape in WIREBOUND_DERATED_SHAPES
+        for probe in [
+            "placement",
+            "zero_rc",
+            "gr",
+        ]
+    ],
+    data = [
+        ":wbf_{}_g32_{}.json".format(shape, probe)
+        for shape in WIREBOUND_DERATED_SHAPES
+        for probe in [
+            "placement",
+            "zero_rc",
+            "gr",
+        ]
+    ],
+    main = "update_results.py",
+    tags = ["manual"],
+)
+
+ri_shapes(
+    name = "wb",
+    arguments = {
+        key: value
+        for key, value in WIREBOUND["arguments"].items()
+        if key not in WIREBOUND_USER_VARS
+    },
+    design = WIREBOUND,
+    groups = ["32"],
+    qualify_sources = False,
+    shapes = WIREBOUND_SHAPES,
+    sources = WIREBOUND["sources"],
+    user_arguments = {"WIREBOUND_CLK_PERIOD_PS": WIREBOUND_TIGHT_CLK},
+)
+
+# How far the derate can be pushed, on the one ODB that showed the
+# effect. Applied at the probe rather than at the floorplan: the
+# placement estimate never looks at routing supply, so it is the
+# untouched control across the whole sweep, and a point costs one route
+# instead of a flow.
+WB_DERATES = [
+    "0.65",
+    "0.75",
+    "0.85",
+    "0.90",
+    "0.95",
+]
+
+ri_contention(
+    name = "wbd",
+    src = ":wb_u55_g32_cts",
+    adjustments = WB_DERATES,
+    arguments = {
+        key: value
+        for key, value in WIREBOUND["arguments"].items()
+        if key not in WIREBOUND_USER_VARS
+    } | WIREBOUND_SHAPES["u55"],
+    design = WIREBOUND,
+    qualify_sources = False,
+    sources = WIREBOUND["sources"],
+    user_arguments = {"WIREBOUND_CLK_PERIOD_PS": WIREBOUND_TIGHT_CLK},
+)
+
+py_binary(
+    name = "update_wbd",
+    srcs = ["//test/pre_route_pessimism:update_results.py"],
+    args = ["--dest-dir=test/repair_information/results"] + [
+        "$(rootpath :wbd_adj{}.json)".format(a.replace(".", ""))
+        for a in WB_DERATES
+    ],
+    data = [
+        ":wbd_adj{}.json".format(a.replace(".", ""))
+        for a in WB_DERATES
+    ],
+    main = "update_results.py",
+    tags = ["manual"],
+)
+
+py_binary(
+    name = "update_wb",
+    srcs = ["//test/pre_route_pessimism:update_results.py"],
+    args = ["--dest-dir=test/repair_information/results"] + [
+        "$(rootpath :wb_{}_g{}_{}.json)".format(shape, size, probe)
+        for shape in WIREBOUND_SHAPES
+        for size in ["32"]
+        for probe in [
+            "placement",
+            "zero_rc",
+            "gr",
+        ]
+    ],
+    data = [
+        ":wb_{}_g{}_{}.json".format(shape, size, probe)
+        for shape in WIREBOUND_SHAPES
+        for size in ["32"]
+        for probe in [
+            "placement",
+            "zero_rc",
+            "gr",
+        ]
+    ],
+    main = "update_results.py",
+    tags = ["manual"],
+)
 
 # The wire-share ladder. gcd's contention sweep moved the layer mix
 # enormously and the period by 1.2 ps, because signal wire delay is only

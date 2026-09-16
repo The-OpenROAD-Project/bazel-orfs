@@ -206,29 +206,40 @@ foreach lname [lsort [array names guide_len]] {
 # group count is set far above the endpoint count so the search is not
 # the thing that truncates the list.
 #
-# `-to [all_registers]` rather than `-path_group reg2reg`: the reg2reg
-# group is created by the *platform* constraints.sdc, which a stage's
-# written-out SDC does not carry, so asking for it here gets
-# "STA-0527 unknown path group" and a silent fall back to every path in
-# the design -- a well-formed ranking of a different question. Selecting
-# the endpoints directly says what is meant and needs nothing but the
-# design.
+# Register to register, and nothing else.
 #
-# It is a slightly wider set than reg2reg: an endpoint's worst path may
-# start at an input port rather than at a register. That is the right
-# set for this study -- repair works on endpoints whatever feeds them --
-# but it means the WNS here is not necessarily ORFS's reg2reg WNS, and
-# the selection is recorded in the output so the two are never confused.
-set endpoints [all_registers]
-if { [llength $endpoints] == 0 } {
+# Two ways to get this wrong, and this probe has been through both.
+#
+# `-path_group reg2reg` is what the flow's own reports use, but the
+# group is created by the *platform* constraints.sdc and a stage's
+# written-out SDC does not carry the group_path commands. Asking for it
+# here gets "STA-0527 unknown path group" and then silently ranks every
+# path in the design -- a well-formed answer to a different question.
+#
+# `-to [all_registers]` fixes that and introduces a subtler version of
+# the same error. asap7's constraints.sdc deliberately uses no
+# set_input_delay/set_output_delay: io-to-reg, reg-to-io and io-to-io
+# are constrained with `set_max_delay -ignore_clock_latency` (80 ps by
+# default) as *optimization targets*, and the clock period is reserved
+# for register-to-register paths, which that file calls "the only thing
+# that can fail timing closure". So `-to [all_registers]` admits in2reg
+# paths whose slack is measured against an 80 ps budget with clock
+# latency ignored -- not against the clock at all. `clk_period - WNS`
+# built on one of those is not a period, and mixing them with reg2reg
+# paths compares two different clock treatments.
+#
+# `-from [all_registers] -to [all_registers]` is the set the study
+# means, and it needs nothing but the design.
+set registers [all_registers]
+if { [llength $registers] == 0 } {
     error "no registers at $stage_stem: nothing to rank"
 }
-set paths [find_timing_paths -to $endpoints -sort_by_slack \
+set paths [find_timing_paths -from $registers -to $registers -sort_by_slack \
     -group_path_count 1000000 -endpoint_path_count 1 \
     -unique_paths_to_endpoint]
 
 if { [llength $paths] == 0 } {
-    error "no timing paths to a register at $stage_stem: nothing to rank"
+    error "no register-to-register paths at $stage_stem: nothing to rank"
 }
 
 set clock_period [get_property [lindex [get_clocks] 0] period]
@@ -251,7 +262,7 @@ puts $fp "{"
 puts $fp "  \"arm\": \"$arm\","
 puts $fp "  \"stage\": \"$stage_stem\","
 puts $fp "  \"parasitics\": \"$mode\","
-puts $fp "  \"path_selection\": \"-to \[all_registers\]\","
+puts $fp "  \"path_selection\": \"-from \[all_registers\] -to \[all_registers\]\","
 puts $fp "  \"grt_args\": \"[expr { [info exists ::env(RI_GRT_ARGS)] ? $::env(RI_GRT_ARGS) : {} }]\","
 puts $fp "  \"propagated_clock\": [expr { $propagated ? "true" : "false" }],"
 puts $fp "  \"clock_period\": $clock_period,"

@@ -87,6 +87,7 @@ def ri_probe(
         arguments = {},
         user_arguments = {},
         sources = {},
+        qualify_sources = True,
         extra_sources = {},
         user_sources = {},
         visibility = None):
@@ -108,6 +109,7 @@ def ri_probe(
         sources: source-typed ORFS variables, defaulting to the
             design's. Re-rooted into @orfs, since that is how a DESIGNS
             entry spells them.
+        qualify_sources: whether `sources` needs re-rooting into @orfs.
         extra_sources: source-typed ORFS variables owned by *this*
             package, merged after that re-rooting -- a label of ours put
             through it would come back pointing at a package inside
@@ -132,7 +134,9 @@ def ri_probe(
         outs = [out],
         arguments = arguments or design["arguments"],
         script = "//test/repair_information:endpoint_slacks.tcl",
-        sources = orfs_relative(sources or design["sources"]) | extra_sources,
+        sources = (
+            orfs_relative(sources or design["sources"]) if qualify_sources else (sources or design["sources"])
+        ) | extra_sources,
         tags = ["manual"],
         user_arguments = user_arguments | probe_args,
         user_sources = user_sources | {
@@ -169,7 +173,9 @@ LAYER_ADJUSTMENTS = [
 def ri_contention(
         name,
         design,
-        design_dir,
+        design_dir = None,
+        src = None,
+        qualify_sources = True,
         adjustments = LAYER_ADJUSTMENTS,
         max_layers = [],
         arguments = {},
@@ -193,7 +199,10 @@ def ri_contention(
     Args:
         name: prefix for every target.
         design: the parsed DESIGNS entry.
-        design_dir: the design's directory under `@orfs//flow/designs/asap7`.
+        design_dir: the design's directory under
+            `@orfs//flow/designs/asap7`, used to derive the CTS label.
+        src: the CTS stage target, overriding `design_dir`.
+        qualify_sources: re-root the design's source labels into @orfs.
         adjustments: ROUTING_LAYER_ADJUSTMENT values to sweep.
         max_layers: MAX_ROUTING_LAYER values to sweep, at the platform's
             own derate -- the other way to force the mix, by taking the
@@ -209,8 +218,9 @@ def ri_contention(
         "design": design,
         "grt_args": "-allow_congestion -congestion_iterations 30",
         "parasitics": "global_routing",
+        "qualify_sources": qualify_sources,
         "sources": sources,
-        "src": "@orfs//flow/designs/asap7/{}:{}_cts".format(
+        "src": src if src != None else "@orfs//flow/designs/asap7/{}:{}_cts".format(
             design_dir,
             design["name"],
         ),
@@ -236,7 +246,10 @@ def ri_contention(
 def ri_ladder(
         name,
         design,
-        design_dir,
+        design_dir = None,
+        cts = None,
+        final = None,
+        qualify_sources = True,
         arguments = {},
         user_arguments = {},
         sources = {},
@@ -257,23 +270,34 @@ def ri_ladder(
     Args:
         name: prefix for every target.
         design: the parsed DESIGNS entry.
-        design_dir: the design's directory under `@orfs//flow/designs/asap7`.
+        design_dir: the design's directory under
+            `@orfs//flow/designs/asap7`, from which the stage labels are
+            derived. Omit it and pass `cts`/`final` instead for a design
+            that lives somewhere else.
+        cts: the CTS stage target, overriding `design_dir`.
+        final: the final stage target, overriding `design_dir`.
+        qualify_sources: whether the design's source labels need
+            re-rooting into @orfs. True for an ORFS design, False for one
+            declared in this repo, whose labels are already correct.
         arguments: override the design's ORFS variables.
         user_arguments: project-specific variables.
         sources: override the design's source-typed variables.
         user_sources: source-typed project hooks.
         rungs: rung name -> `global_route` arguments.
     """
+    top = design["name"]
     common = {
         "arguments": arguments,
         "design": design,
+        "qualify_sources": qualify_sources,
         "sources": sources,
         "user_arguments": user_arguments,
         "user_sources": user_sources,
     }
-    top = design["name"]
-    cts = "@orfs//flow/designs/asap7/{}:{}_cts".format(design_dir, top)
-    final = "@orfs//flow/designs/asap7/{}:{}_final".format(design_dir, top)
+    if cts == None:
+        cts = "@orfs//flow/designs/asap7/{}:{}_cts".format(design_dir, top)
+    if final == None:
+        final = "@orfs//flow/designs/asap7/{}:{}_final".format(design_dir, top)
 
     ri_probe(
         name = "{}_placement".format(name),
@@ -447,5 +471,177 @@ def ri_stretch(
                 grt_args = "-allow_congestion -congestion_iterations 30",
                 parasitics = "global_routing",
                 probe_env = {"RI_LAYER_ADJUSTMENT": adj},
+                **probe_common
+            )
+
+# The shape recipe, taken from pre-route-pessimism's own arms rather than
+# re-derived. Three knobs that only work together:
+#
+#   * CORE_UTILIZATION buys die area, but PLACE_DENSITY has to follow it
+#     down or global placement packs every cell into a corner of the
+#     larger die and hands back short wires. The gcd ladder in this study
+#     made exactly that mistake -- a 20x core for 28% more wire.
+#   * ROUTING_LAYER_ADJUSTMENT buys back the contention that spreading
+#     costs: routing demand grows as the square root of die area while
+#     track supply grows linearly, so a design spread out for long wires
+#     is *less* contended, not more.
+#   * WIREBOUND_GROUPS sets the netlist size, and therefore how long the
+#     scattered inter-group nets are in absolute microns. Break-even for
+#     climbing off M2 is ~8um of net, and wirebound at its default size
+#     routes 11.6um nets with zero demand on M8/M9 -- so size is the
+#     knob that decides whether the top of the stack is worth reaching
+#     at all.
+WIREBOUND_SHAPES = {
+    "u55": {
+        "CORE_UTILIZATION": "55",
+        "PLACE_DENSITY": "0.60",
+    },
+    "u25": {
+        "CORE_UTILIZATION": "25",
+        "PLACE_DENSITY": "0.30",
+    },
+    "u12": {
+        "CORE_UTILIZATION": "12",
+        "PLACE_DENSITY": "0.16",
+    },
+    "u12_tight": {
+        "CORE_UTILIZATION": "12",
+        "PLACE_DENSITY": "0.16",
+        "ROUTING_LAYER_ADJUSTMENT": "0.50",
+    },
+    "u55_derated": {
+        "CORE_UTILIZATION": "55",
+        "PLACE_DENSITY": "0.60",
+        "ROUTING_LAYER_ADJUSTMENT": "0.65",
+    },
+    "u80_dense": {
+        "CORE_UTILIZATION": "80",
+        "PLACE_DENSITY": "0.85",
+    },
+}
+
+# The derate arms, at flow level so placement and CTS see the congestion
+# too. The probe-level sweep on the u55 ODB peaked at 17.8% of min_period
+# with a 0.75 derate and *fell* to 7.5% by 0.90 while top-metal demand
+# kept rising to 11% -- the single set_wire_rc constant fails hardest on
+# a mixed stack, not a top-heavy one, because a uniformly high mix is
+# merely a miscalibrated constant rather than an unrepresentative one.
+#
+# Flow level roughly doubles the effect at the same derate (0.65 gives
+# 13.2% here against 6.7% at probe level), because a congestion-aware
+# global placement spreads the cells the router is about to struggle
+# with, and the placement estimate then prices a different design.
+WIREBOUND_DERATED_SHAPES = {
+    "u55_d75": {
+        "CORE_UTILIZATION": "55",
+        "PLACE_DENSITY": "0.60",
+        "ROUTING_LAYER_ADJUSTMENT": "0.75",
+    },
+    "u55_d85": {
+        "CORE_UTILIZATION": "55",
+        "PLACE_DENSITY": "0.60",
+        "ROUTING_LAYER_ADJUSTMENT": "0.85",
+    },
+    "u80_d65": {
+        "CORE_UTILIZATION": "80",
+        "PLACE_DENSITY": "0.85",
+        "ROUTING_LAYER_ADJUSTMENT": "0.65",
+    },
+    "u80_d75": {
+        "CORE_UTILIZATION": "80",
+        "PLACE_DENSITY": "0.85",
+        "ROUTING_LAYER_ADJUSTMENT": "0.75",
+    },
+}
+
+def ri_shapes(
+        name,
+        design,
+        shapes,
+        groups,
+        defines_var = "VERILOG_DEFINES",
+        define_name = "WIREBOUND_GROUPS",
+        arguments = {},
+        user_arguments = {},
+        sources = {},
+        user_sources = {},
+        verilog_files = None,
+        qualify_sources = True,
+        visibility = None):
+    """One flow per (shape, size), each probed by the three instruments.
+
+    Each arm gets its own `variant`, which is what keeps five floorplans
+    from writing the same 2_floorplan.odb, and therefore synthesizes for
+    itself -- a shared `previous_stage` resolves against the donor's
+    variant directory and fails with ORD-0007. Since the size knob
+    changes the netlist anyway, most arms could not share a synth even
+    in principle.
+
+    Args:
+        name: prefix for every target.
+        design: the parsed DESIGNS entry.
+        shapes: shape name -> ORFS argument overrides.
+        groups: sizes to cross with the shapes.
+        defines_var: the ORFS variable carrying Verilog defines.
+        define_name: the define that sets the design's size.
+        arguments: the design's ORFS variables.
+        user_arguments: project-specific variables.
+        sources: source-typed ORFS variables.
+        user_sources: source-typed project hooks.
+        verilog_files: forwarded.
+        qualify_sources: re-root source labels into @orfs.
+        visibility: forwarded.
+    """
+    design_sources = orfs_relative(sources or design["sources"]) if qualify_sources else (sources or design["sources"])
+
+    for shape_name, shape in shapes.items():
+        for size in groups:
+            variant = "{}_g{}".format(shape_name, size)
+            flow = "{}_{}".format(name, variant)
+            args = (arguments or design["arguments"]) | shape | {
+                defines_var: "-D {}={}".format(define_name, size),
+            }
+
+            orfs_flow(
+                name = name,
+                variant = variant,
+                arguments = args,
+                last_stage = "cts",
+                sources = design_sources,
+                tags = ["manual"],
+                top = design["name"],
+                user_arguments = user_arguments,
+                verilog_files = verilog_files if verilog_files != None else design["verilog_files"],
+                visibility = visibility,
+            )
+
+            probe_common = {
+                "arguments": args,
+                "design": design,
+                "qualify_sources": False,
+                "sources": design_sources,
+                "src": ":{}_cts".format(flow),
+                "user_arguments": user_arguments,
+                "user_sources": user_sources,
+                "visibility": visibility,
+            }
+
+            ri_probe(
+                name = "{}_placement".format(flow),
+                parasitics = "placement",
+                **probe_common
+            )
+            ri_probe(
+                name = "{}_zero_rc".format(flow),
+                extra_sources = {
+                    "LAYER_PARASITICS_FILE": ["//test/repair_information:zero_rc.tcl"],
+                },
+                parasitics = "placement",
+                **probe_common
+            )
+            ri_probe(
+                name = "{}_gr".format(flow),
+                grt_args = "-allow_congestion -congestion_iterations 30",
+                parasitics = "global_routing",
                 **probe_common
             )
