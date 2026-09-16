@@ -7,7 +7,7 @@
 # a number someone has already closed this core at beats a guess.
 set clk_name clk
 set clk_port_name clk
-set clk_period 1600
+set clk_period 1591
 
 # The IO budget, as optimization targets. set_input_delay and
 # set_output_delay are deliberately not used anywhere in this study:

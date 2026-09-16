@@ -1,0 +1,26 @@
+{
+  "history": [
+    {
+      "closed": true,
+      "period_ps": 1600,
+      "reg2reg_paths": 8,
+      "wns_reg2reg_ps": 9.683144
+    },
+    {
+      "closed": true,
+      "period_ps": 1591,
+      "reg2reg_paths": 8,
+      "wns_reg2reg_ps": 10.646373
+    },
+    {
+      "closed": false,
+      "period_ps": 1581,
+      "reg2reg_paths": 8,
+      "wns_reg2reg_ps": -6.478595
+    }
+  ],
+  "start_ps": 1600,
+  "status": "overshot",
+  "tolerance_ps": 2.0,
+  "winner_ps": 1591
+}

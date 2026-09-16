@@ -49,7 +49,7 @@ activity across its entire range. For the three cacheless cores the
 SAIF annotates **100 % of pins** (27,597 / 52,280 / 82,396), **zero**
 are unannotated, and for all four cores the SAIF-driven total is
 bit-identical at ten significant figures across the whole sweep, while
-the same sweep moves the vectorless total by 23--472 %. The energy
+the same sweep moves the vectorless total by 24--475 %. The energy
 numbers are therefore vector-driven in the strong sense: OpenSTA's
 probabilistic activity model contributes nothing to them.
 
@@ -95,10 +95,10 @@ colour because it is not like-for-like (§4.4).
 
 | core | ISA | CoreMark/MHz | cycles/iter | f (MHz) | P (SAIF) | CoreMark/Joule |
 |---|---|---|---|---|---|---|
-| SERV | rv32i | 0.0243 | 41,202,900 | 1428.6 | 28.10 mW | 1,234 |
-| picorv32 | rv32im | 0.5531 | 1,807,889 | 1000.0 | 21.40 mW | 25,847 |
-| ibex | rv32imc | 2.4543 | 407,448 | 833.3 | 20.60 mW | 99,284 |
-| VeeR EH1 | rv32imc | 4.7979 | 208,425 | 625.0 | 85.51 mW | 35,072 |
+| SERV | rv32i | 0.0243 | 41,202,900 | 2283.1 | 43.40 mW | 1,277 |
+| picorv32 | rv32im | 0.5531 | 1,807,889 | 2141.3 | 44.40 mW | 26,676 |
+| ibex | rv32imc | 2.4543 | 407,448 | 780.0 | 19.50 mW | 98,176 |
+| VeeR EH1 | rv32imc | 4.7979 | 208,425 | 628.5 | 86.50 mW | 34,863 |
 
 **Table 1.** The four measured points, all at §3.1's boundary: the core
 and its L1, or the tightly-coupled memory that stands in for one. Every
@@ -235,9 +235,9 @@ microarchitecture fixed:
 
 | f | energy per CoreMark iteration | CoreMark/Joule |
 |---|---|---|
-| 833 MHz (measured) | 10.1 µJ | 99,284 |
-| 3.0 GHz (projected) | 131 µJ | 7,660 |
-| 5.0 GHz (projected) | 363 µJ | 2,760 |
+| 780 MHz (measured) | 10.2 µJ | 98,176 |
+| 3.0 GHz (projected) | 151 µJ | 6,637 |
+| 5.0 GHz (projected) | 419 µJ | 2,389 |
 
 **Those two rows are a projection under a stated assumption, not a
 measurement**, and the assumption is the point: reaching 3 GHz this way
@@ -471,7 +471,7 @@ and is expected to stay there. The `unmatched` budget is a *fraction*
 rather than a count, because a fraction is the quantity worth reporting
 and worth reducing — a count would churn with every flow change while
 saying nothing about whether it is small. Three of the four designs
-declare zero. VeeR declares 1.1 % against a measured **1.0118 %**, for a
+declare zero. VeeR declares 1.1 % against a measured **1.0128 %**, for a
 reason §4.2 gives, and the intent is to whittle it toward zero rather
 than to keep it.
 
@@ -685,7 +685,7 @@ FakeRAM abstract, and FakeRAM's ASAP7 views charge the same switching
 energy and the same leakage for every shape -- so 58--71 % of each
 point's power comes from a model that does not know how big the memory
 is (§5.1). And CoreMark/Joule is not a discriminating axis across these
-four: §4.6 shows it within 1.26x of proportional to CoreMark/MHz over
+four: §4.6 shows it within 1.32x of proportional to CoreMark/MHz over
 the three cacheless cores, for reasons that are a property of the
 platform's memory model rather than of the designs.
 
@@ -693,10 +693,10 @@ platform's memory model rather than of the designs.
 
 | core | pins listed | annotated (SAIF) | unannotated | unaccounted | verdict |
 |---|---|---|---|---|---|
-| SERV | 27,597 | 27,597 (100.0000 %) | 0 | 0 | pass |
-| picorv32 | 52,280 | 52,280 (100.0000 %) | 0 | 0 | pass |
-| ibex | 82,396 | 82,396 (100.0000 %) | 0 | 0 | pass |
-| VeeR EH1 | 754,664 | 747,024 (98.9876 %) | 7,640 | **1.0118 %** | pass |
+| SERV | 28,025 | 28,025 (100.0000 %) | 0 | 0 | pass |
+| picorv32 | 53,240 | 53,240 (100.0000 %) | 0 | 0 | pass |
+| ibex | 80,876 | 80,876 (100.0000 %) | 0 | 0 | pass |
+| VeeR EH1 | 754,718 | 747,070 (98.9866 %) | 7,648 | **1.0128 %** | pass |
 
 **Table 2.** Pin activity annotation at global route. "Pins listed" is
 OpenSTA's own pin set for power — leaf pins plus top-level ports, less
@@ -708,12 +708,12 @@ move onto FakeRAM's interface, which replaced every macro pin in the
 design. Complete annotation survived a total change of the macro pin
 set, which is the sort of thing a gate is for.
 
-**VeeR is the exception, and its 7,640 are itemised rather than
+**VeeR is the exception, and its 7,648 are itemised rather than
 tolerated.** Four are waived by name: the four top-level input ports
 that `cm_soc_veer.sv` ties to constants, which Verilator therefore never
 emits into the SAIF. There were seven until §5.11 retired the rename
 workaround whose three pins made up the difference. The
-remaining 7,636 — the 1.0118 % — are pins OpenSTA's hierarchical network
+remaining 7,644 — the 1.0128 % — are pins OpenSTA's hierarchical network
 carries that odb's own instance enumeration does not reach: the same
 clock cells whose SAIF entries had to be dropped, for the same reason,
 their names containing the hierarchy separator. They were never going
@@ -723,22 +723,22 @@ zero rather than keep it (§3.5).
 
 | core | SAIF arm spread | vectorless arm spread | vectorless at OpenSTA's default | measured |
 |---|---|---|---|---|
-| SERV | **0.0000 %** | 22.82 % | 29.73 mW | 28.059 mW |
-| picorv32 | **0.0000 %** | 83.86 % | 31.80 mW | 21.383 mW |
-| ibex | **0.0000 %** | 179.10 % | 39.65 mW | 20.630 mW |
-| VeeR EH1 | **0.0000 %** | 471.84 % | 59.01 mW | 85.508 mW |
+| SERV | **0.0000 %** | 24.04 % | 47.02 mW | 43.423 mW |
+| picorv32 | **0.0000 %** | 86.27 % | 67.65 mW | 44.430 mW |
+| ibex | **0.0000 %** | 173.08 % | 35.61 mW | 19.464 mW |
+| VeeR EH1 | **0.0000 %** | 474.61 % | 54.66 mW | 86.504 mW |
 
 **Table 3.** Total power as the default activity seeded into
 unannotated roots is swept over 0.0, 0.1, 1.0 and 2.0 toggles per clock
 period. The SAIF-driven total is bit-identical at ten significant
 figures at every point — for picorv32, 2.1383069e-02 W four times. The
-vectorless total over the same sweep runs 26.81 → 32.93 mW (SERV),
-20.45 → 37.60 mW (picorv32), 17.12 → 47.78 mW (ibex) and 21.58 →
-123.38 mW (VeeR).
+vectorless total over the same sweep runs 42.16 → 52.29 mW (SERV),
+43.44 → 80.92 mW (picorv32), 15.93 → 43.51 mW (ibex) and 21.72 →
+124.79 mW (VeeR).
 
 The control arm's spread is the part of this table that is not a
-constant of the study: 23 % on SERV, 84 % on picorv32, 179 % on ibex,
-472 % on VeeR. Across the three cacheless cores it orders itself by how
+constant of the study: 24 % on SERV, 86 % on picorv32, 173 % on ibex,
+475 % on VeeR. Across the three cacheless cores it orders itself by how
 much of each design the estimator is free to invent — least room where a
 macro's internal power dominates a total that seeding an input activity
 cannot move, most where the design is logic whose activity it has to
@@ -767,16 +767,16 @@ Read together, Tables 2 and 3 are the study's central methodological
 claim, and it is a measured one rather than an assurance: **OpenSTA's
 probabilistic activity model contributes nothing to the reported
 energy.** The knob that would let it contribute is demonstrably live —
-it moves the same design's power by 23 to 472 % when activity is not
+it moves the same design's power by 24 to 475 % when activity is not
 annotated — and it moves the annotated result by zero.
 
 **VeeR is the case that shows why the sweep, not the audit, is the
-claim.** It is the one design with pins unaccounted for — 1.0118 % of
+claim.** It is the one design with pins unaccounted for — 1.0128 % of
 its pin set — and its SAIF arm is still bit-identical at
-8.5507966578e-02 W across the whole sweep, while its vectorless arm runs
-21.6 mW to 123.4 mW. The sweep does not care why a pin is unannotated:
+8.6504e-02 W across the whole sweep, while its vectorless arm runs
+21.7 mW to 124.8 mW. The sweep does not care why a pin is unannotated:
 it varies the default the estimator would use for every one of them at
-once. Those 7,640 pins are worth exactly nothing to the reported number,
+once. Those 7,648 pins are worth exactly nothing to the reported number,
 and that is measured rather than argued.
 
 A secondary observation falls out of the control arm. At OpenSTA's own
@@ -925,24 +925,32 @@ efficiency by **15.2x**.
 **Test two: harden the other three** (§5.1) and re-fit. This is the
 direct test, and it splits cleanly.
 
-| | before §5.1 | after §5.1 |
-|---|---|---|
-| extrapolation to VeeR overpredicts by | 15.2x | **5.65x** |
-| slope, three cacheless cores | 0.868 | **0.954** |
-| R^2 of that fit | 0.999 | **0.9997** |
-| `f/P` spread, those three | 1.89x | **1.26x** |
-| power spread, those three | 1.15x | 1.36x |
-| slope, all four | 0.535 | 0.742 |
-| R^2, all four | 0.561 | 0.858 |
+| | before §5.1 | after §5.1 | after §8.3 |
+|---|---|---|---|
+| extrapolation to VeeR overpredicts by | 15.2x | 5.53x | **5.54x** |
+| slope, three cacheless cores | 0.868 | 0.954 | **0.946** |
+| R^2 of that fit | 0.999 | 0.9997 | **0.9994** |
+| `f/P` spread, those three | 1.89x | 1.26x | **1.32x** |
+| power spread, those three | 1.15x | 1.36x | **2.28x** |
+| slope, all four | 0.535 | 0.745 | **0.736** |
+| R^2, all four | 0.561 | 0.862 | **0.859** |
+
+The third column is the same four points measured at derived periods
+rather than chosen ones (§5.5). The second column's figures are
+recomputed here: `scripts/fit_results.py` is now what produces them, and
+running it over the previously pinned results returned 5.53x rather than
+the 5.65x the paper carried, along with 0.745 and 0.862 for the
+all-four fit against a published 0.742 and 0.858. Those were typed in by
+hand and were the only numbers in the paper no artifact produced.
 
 **The prediction held, and it was most of the error.** The
-extrapolation gap closed from 15.2x to 5.65x: **63 % of the way**. The
+extrapolation gap closed from 15.2x to 5.53x: **64 % of the way**. The
 boundary was the dominant cause of the disagreement between the
 cacheless cores and the one compliant one, exactly as claimed, and that
 part of §5.1 is now a measured correction rather than an argument.
 
 **The degeneracy did not go away. It got worse.** The line among the
-three is *tighter* than before -- slope 0.954, `f/P` spanning **1.26x**
+three is *tighter* than before -- slope 0.946, `f/P` spanning **1.32x**
 across 101x of performance, against 1.89x. The diagnosis was right about
 the cause and wrong about the consequence: removing the old reason for
 the degeneracy installed a new one.
@@ -950,7 +958,7 @@ the degeneracy installed a new one.
 **The new reason is the platform's memory model.** Every memory in this
 study is a FakeRAM abstract, and FakeRAM's ASAP7 views carry *one*
 switching energy and *one* leakage number for every shape, from 64x21 to
-256x256 (§5.1). Those macros are 58--71 % of each point's power (§4.7).
+256x256 (§5.1). Those macros are 57--72 % of each point's power (§4.7).
 So the dominant term is proportional to how often a core touches memory
 and how many macros it has, and is independent of how much memory it
 has. Three cores running the same benchmark out of the same number of
@@ -968,27 +976,32 @@ by the memory being modelled differently for each of them.
 **Three caveats on the statistics.** A three-point fit has one degree of
 freedom, so R^2 = 0.9997 is close to meaningless as evidence -- it is
 reported because its *movement* is informative, not its value. The four
-frequencies are SDC targets rather than achieved maxima (§5.5), so `f/P`
-mixes a measured power with a chosen frequency; §8.3 is what fixes that.
+frequencies are now derived rather than chosen (§5.5), so `f/P` no
+longer mixes a measured power with a guessed frequency -- though each is
+one flow's closing period, not a Pareto front (§8.4).
 And the memory model charges every shape the same energy (§5.1), which
 lands entirely on the term that dominates.
 
 **What it takes to make the axis mean something.** A memory model whose
 energy depends on the size of the memory, first of all -- that work is
 planned in ORFS and this study inherits it when it lands. Then cores
-whose memory systems genuinely differ (§7's roadmap), and the same cores
-at their own achieved f_max (§8.3). The present data cannot separate a
-real law from two successive degeneracies, and says so.
+whose memory systems genuinely differ (§7's roadmap). The third item on
+this list used to be "the same cores at their own achieved f_max"; §8.3
+has since done that, and §5.5 reports what it was worth -- the frequency
+correction was large on the performance axis and worth at most 3.5 % on
+the energy axis, which is one degeneracy ruled out rather than removed.
+The present data still cannot separate a real law from the memory
+model's flatness, and says so.
 
 **Where the four points actually land.** VeeR delivers **1.95x** ibex's
-performance per clock at **0.35x** its CoreMark/Joule, drawing 4.15x
+performance per clock at **0.35x** its CoreMark/Joule, drawing 4.44x
 the power. Before §5.1 the same comparison read 0.124x and 11.8x. The
 conclusion a reader would have drawn from the old numbers -- that the
 minimal cores dominate the energy metric -- does not survive the
 correction; the conclusion available from the new ones is much weaker,
 which is the honest state of the evidence.
 
-**A corroboration, still carefully.** VeeR at 35,072 CoreMark/Joule
+**A corroboration, still carefully.** VeeR at 34,863 CoreMark/Joule
 lands **1.19x to 1.29x** above the GF 22 FDX series of §4.4
 (27,108--29,412); ibex sits 3.4x above it. That is a consistency check between cores
 measured at a stated core-plus-L1 boundary on different nodes with
@@ -1006,16 +1019,16 @@ not evenly distributed.
 
 | core | total | Clock | Sequential | Combinational | **Macro** |
 |---|---|---|---|---|---|
-| SERV | **28.10 mW** | 4.10 (14.6 %) | 2.86 (10.2 %) | 1.24 (4.4 %) | **19.90 (70.8 %)** |
-| picorv32 | **21.40 mW** | 3.54 (16.5 %) | 2.90 (13.6 %) | 0.84 (3.9 %) | **14.10 (65.9 %)** |
-| ibex | **20.60 mW** | 3.30 (16.0 %) | 2.65 (12.9 %) | 2.80 (13.6 %) | **11.90 (57.8 %)** |
-| VeeR EH1 | **85.51 mW** | 25.20 (29.5 %) | 6.96 (8.1 %) | 2.68 (3.1 %) | **50.70 (59.3 %)** |
+| SERV | **43.40 mW** | 6.25 (14.4 %) | 4.49 (10.3 %) | 1.33 (3.1 %) | **31.40 (72.4 %)** |
+| picorv32 | **44.40 mW** | 8.04 (18.1 %) | 6.01 (13.5 %) | 0.92 (2.1 %) | **29.50 (66.4 %)** |
+| ibex | **19.50 mW** | 3.13 (16.1 %) | 2.64 (13.5 %) | 2.53 (13.0 %) | **11.20 (57.4 %)** |
+| VeeR EH1 | **86.50 mW** | 25.60 (29.6 %) | 6.91 (8.0 %) | 3.33 (3.8 %) | **50.70 (58.6 %)** |
 | *SERV, core only* | *6.68* | *2.85* | *2.83* | *1.00* | *0.00* |
 | *picorv32, core only* | *6.43* | *2.84* | *2.89* | *0.70* | *0.00* |
 | *ibex, core only* | *7.37* | *2.46* | *2.64* | *2.27* | *0.00* |
 
-**The memory is the measurement.** 59--71 % of every point: 70.8 % of SERV down to
-57.8 % of VeeR. The old rows show what that meant: for these three cores
+**The memory is the measurement.** 57--72 % of every point: 72.4 % of SERV down to
+57.4 % of ibex. The old rows show what that meant: for these three cores
 the component that was missing was between four and nine times
 everything that was present. §4.6's extrapolation error of 15.2x was
 this column.
@@ -1037,15 +1050,18 @@ retires work, and the three have similar amounts of state. After §5.1
 they are degenerate because the macro column, 58--71 % of each total,
 is *the same memory* in all three. The term that actually tracks the
 architecture is combinational power, 0.82--2.88 mW, and it is the
-smallest term in every row. That is §4.6's 1.26x `f/P` spread stated as
+smallest term in every row. That is §4.6's 1.32x `f/P` spread stated as
 a mechanism.
 
 **VeeR is the one row that looks different, and it is instructive.**
-Its macro fraction is 59 %, not 85 %, and its clock power is 25.20 mW
--- 4.6x ibex's -- because it has an order of magnitude more state and a
-real clock-gating network to distribute. Its logic alone is 34.84 mW
-against ibex's 8.94 mW: **3.9x the logic power for 1.95x the
-performance per clock.** The memory is no longer the whole story once
+Its macro fraction is 59 %, not 85 %, and its clock power is 25.60 mW
+-- 8.2x ibex's -- because it has an order of magnitude more state and a
+real clock-gating network to distribute. Its logic alone is 35.84 mW
+against ibex's 8.30 mW: **4.3x the logic power for 1.95x the
+performance per clock.** (The three figures in this paragraph are the
+§4.7 rows added up. Earlier versions carried 4.9x, then 4.6x, for the
+clock ratio and 8.94 mW for ibex's logic, neither of which was what the
+table beside them said.) The memory is no longer the whole story once
 a core is big enough to have one worth having.
 
 **A caveat on the macro column specifically.** Every row's macro figure
@@ -1158,8 +1174,8 @@ except the critical path.**
 ASAP7 numbers on a predictive kit at the best-case corner (§5.4, §5.6),
 and the comparison below is an illustration of the model's shape, not a
 claim about silicon. In the 87.5 W host slice of a DGX-H100-shaped
-system, a host built from this study's ibex point — 99,284
-CoreMark/Joule — would deliver `87.5 × 99,284 ≈ 8.7 M CoreMark/s`, which
+system, a host built from this study's ibex point — 98,176
+CoreMark/Joule — would deliver `87.5 × 98,176 ≈ 8.6 M CoreMark/s`, which
 at 2,045 CoreMark per core is some four thousand cores. The number is
 not a design proposal; what it shows is that the slice is set by `E` and
 nothing else, and that a core whose CoreMark/Joule is an order of
@@ -1239,10 +1255,10 @@ energy axis and is attributable to nothing else.
 
 | core | CoreMark/MHz | CoreMark/Joule, core only | CoreMark/Joule, core + L1 | factor |
 |---|---|---|---|---|
-| SERV | 0.0243 | 5,190 | **1,234** | 4.21x |
-| picorv32 | 0.5531 | 86,024 | **25,847** | 3.33x |
-| ibex | 2.4543 | 277,510 | **99,284** | 2.80x |
-| VeeR EH1 | 4.7978 | 34,348 | 34,348 | 1.00x (already met) |
+| SERV | 0.0243 | 5,190 | **1,277** | 4.06x |
+| picorv32 | 0.5531 | 86,024 | **26,676** | 3.23x |
+| ibex | 2.4543 | 277,510 | **98,176** | 2.83x |
+| VeeR EH1 | 4.7978 | 34,863 | 34,863 | 1.00x (already met) |
 
 Three things in that table are worth separating.
 
@@ -1334,6 +1350,10 @@ belongs to the memory model:
 |---|---|---|---|---|
 | `ICache=0` (reported) | 2.4543 | 99,284 | 20.60 mW | 11.90 mW |
 | `ICache=1` | 2.4543 | 64,316 | 31.80 mW | 21.40 mW |
+
+Both rows are measured at 1200 ps, the period ibex was built at before
+§5.5 derived 1282 ps, so the comparison between them stands while
+neither is the current reported point. Table 1 has that.
 
 A 1.54x energy penalty for no performance at all, and 9.5 mW of the
 11.2 mW rise is macro power. The mechanism is arithmetic: a cache hit
@@ -1441,52 +1461,73 @@ Because all three cores are measured at the same corner, the
 *comparison between them* is unaffected. Only the absolute number and
 the cross-series comparison are.
 
-### 5.5 Frequency is an SDC target, not an achieved maximum
+### 5.5 Frequency, and what deriving it changed
 
 §3.8 says what a CPU core's frequency *is* — the reciprocal of its
 longest register-to-register path, with everything touching a port an
-optimisation target rather than a closure condition, and it says that
-the number is taken from the platform's `reg2reg` path group rather than
-from the overall WNS. This section is about the other half: which period
-was actually used.
+optimisation target rather than a closure condition, and that the number
+comes from the platform's `reg2reg` path group rather than from the
+overall WNS. This section is about the other half: which period was
+actually used. Until §8.3's `auto_period` existed, the answer was "one
+somebody picked", and this section was a threat. It is now a result.
 
-`<design>_period` reports both slacks per design, so the gap between
-them — the size of the IO assumption — is visible rather than folded in.
-VeeR at 1600 ps closes with a reg2reg worst slack of **0.0 ps** over a
-group of matched paths, so its 625 MHz is achieved rather than
-understated. That is one design at one period; it says nothing about how
-much faster it would go if the period were pushed, which is the job
-below.
+**Each core's period is derived, and three of the four were wrong.**
 
-The frequency each core is scored at is the SDC period the SAIF was
-timed against, not `1 / (period - WNS)` at a period pushed until WNS is
-slightly negative. Positive WNS means the optimiser met its target and
-coasted, so the achieved period understates the core; deeply negative
-means repair gave up and the netlist is in a different regime.
+| core | was | derived | error |
+|---|---|---|---|
+| SERV | 700 ps (1429 MHz) | **438 ps (2283 MHz)** | 60 % too slow |
+| picorv32 | 1000 ps (1000 MHz) | **467 ps (2141 MHz)** | 114 % too slow |
+| ibex | 1200 ps (833 MHz) | **1282 ps (780 MHz)** | 6.4 % **too fast** |
+| VeeR EH1 | 1600 ps (625 MHz) | **1591 ps (628.5 MHz)** | 0.6 % too slow |
 
-The sensitivity is not uniform across the two terms of the number.
-Dynamic energy per iteration is roughly frequency-independent — power
-rises with `f` and the iteration takes proportionally less time — but
-*leakage* energy per iteration falls as `1/f`. A core scored below its
-achievable frequency is therefore charged too much leakage energy, and
-the error is largest for the core with the most cycles per iteration,
-which is SERV. This is a reason to report the leakage and dynamic split
-rather than only the total, which Table 1 does not yet do.
+**Table 7.** Committed against derived periods. The derivation is
+`//test/coremark_joule/scripts:auto_period`; each core's walk is in its
+`auto_period.json`.
 
-Finding the right period is a tuning job, not a build sweep: what is
-wanted is a decision, pinned into the design, re-derived when the
-design changes — the same shape as the floorplan derivation, run rather
-than built. **It cannot ride on `auto_floorplan`**, and the reason is
-structural. `auto_floorplan_candidate.tcl` seeds each candidate from
-`1_synth.odb` and re-runs floorplan through finish: every candidate
-shares one synthesis, which is what makes racing twenty of them
-affordable. The clock period is a *synthesis* input — change it and
-synthesis and everything after it rebuild — so a period candidate
-cannot start where a floorplan candidate starts. The two also interact:
-the floorplan is derived at a period, and the period is achieved on a
-floorplan. Two passes settle it — period on the incumbent floorplan,
-floorplan at that period, period again — and how far the second pass
-moves is worth reporting rather than assuming it converged.
+**ibex was the serious one.** Its committed 1200 ps was not a
+conservative guess but an unmet one: the netlist missed it by 73.99 ps
+on all eight reg2reg paths, and the study reported 833.333 MHz anyway.
+By this section's own rule — deeply negative means repair gave up — the
+best-scoring core in the study was being scored at a frequency it does
+not reach. It closes at 1282 ps with 0.50 ps to spare.
+
+**How it was possible.** The reported frequency was a literal in
+`sim/BUILD.bazel` and the period the design was built at was a
+`set clk_period` in its `constraints.sdc`: one fact, declared twice, and
+nothing compared them. `cm_per_joule` now reads the constraints file, so
+`auto_period` pins the period and the reported frequency follows. The
+class of defect is gone rather than the instance of it.
+
+**The energy axis barely moved, and that is the result.**
+
+| core | f | power | CoreMark/Joule |
+|---|---|---|---|
+| SERV | +60 % | +54 % | **+3.5 %** |
+| picorv32 | +114 % | +107 % | **+3.2 %** |
+| ibex | −6.4 % | −5.3 % | **−1.1 %** |
+| VeeR EH1 | +0.6 % | +1.2 % | **−0.6 %** |
+
+**Table 8.** What re-deriving the period did to each point.
+
+picorv32's frequency was wrong by more than a factor of two and its
+CoreMark/Joule moved 3.2 %. That is the model this section always
+argued, now measured rather than asserted: dynamic energy per iteration
+is frequency-independent — power rises with `f` and the iteration takes
+proportionally less time — so only the *leakage* term moves, and running
+twice as fast halves leakage energy per iteration. The ranking is
+unchanged. The energy conclusions are therefore more robust to the
+frequency choice than this study was previously entitled to claim, and
+that robustness is now a measurement rather than an argument.
+
+**What a derived period is not.** It is the tightest period the flow
+closed at, on one floorplan, at one corner, with this optimiser. §8.3
+notes that the floorplan is derived at a period and the period achieved
+on a floorplan, so the two interact and two passes are wanted; only one
+pass has been run. And `period - WNS` from a single reading is *not*
+the answer — measurably: VeeR closed at 1591 ps with 10.65 ps of slack,
+which predicts 1580 ps, and 1581 ps fails. A slack is what the optimiser
+had left over when it stopped trying, not what it could have delivered
+if asked for more.
 
 ### 5.6 A predictive kit, not a foundry PDK
 
@@ -1690,7 +1731,10 @@ what a latch and an AND cost.
 | achieved f_max | not measurable | 628.8 MHz |
 
 **Table 6.** VeeR before and after its clock gates were mapped onto the
-library's ICG cell.
+library's ICG cell, both measured at 1600 ps. The design is no longer
+built at that period -- §5.5 derives 1591 ps -- so these two columns are
+a like-for-like comparison of the change, not the study's current
+numbers. Table 1 has those.
 
 The energy effect is the 2.1 % the earlier version of this section
 predicted it would be: §4.7 puts 59 % of VeeR's power in the macros, and
@@ -2154,34 +2198,46 @@ the comparison returns. So the plan is both nodes up to and including
 is exactly where a node-sensitivity claim can be made, and it is stated
 where it ends.
 
-### 8.3 Push every core to its own maximum frequency
+### 8.3 Push every core to its own maximum frequency — done, once
 
-Every frequency in Table 1 is an SDC period someone picked, not one the
-core was pushed to (§5.5), and §2.3 explains why that matters more than
-it sounds: the frequency term is the one that has not been exercised, so
-the energy axis has not yet been allowed to say anything the performance
-axis did not.
+This was the largest hole in the study and it is now closed enough to
+report. `//test/coremark_joule/scripts:auto_period` derives each core's
+period from its own reg2reg slack, and §5.5 has what that did: three of
+the four committed periods were wrong, one of them unmet, and the energy
+axis moved by at most 3.5 %.
 
-The job is a period tuner in the shape of the floorplan derivation —
-`auto_period`: run, read `clk_period - WNS`, pin the result into the
-design, re-derive when the design changes. §5.5 says why it cannot ride
-on `auto_floorplan` (the period is a synthesis input, so a period
-candidate cannot start from a shared `1_synth.odb` the way a floorplan
-candidate can) and why the two interact enough to need two passes.
+**How it works, and why it is a job rather than a build.** The clock
+period is a *synthesis* input, so every candidate re-runs synthesis and
+everything after it. There is no shared checkpoint for candidates to
+start from, the way `auto_floorplan_candidate.tcl` starts every
+floorplan candidate from one `1_synth.odb` — which is what makes racing
+twenty floorplans affordable and racing twenty periods not. So the loop
+is imperative: build, read the reg2reg WNS, ask for `period - WNS`,
+build again. It stops when the period stops moving or the design stops
+closing, and pins the tightest period that *did* close.
 
-**All four cores can now be tuned.** VeeR could not be until §5.11: its
-reg2reg group returned eight identical zeros because every path ended in
-a transparent latch, and a tuner reading `clk_period - WNS` off that
-would have chased a number that meant nothing. With the gates mapped
-onto ICG cells the probe returns eight distinct slacks ending on flops,
-and VeeR's achieved period is 1590.3 ps — 628.8 MHz against the 1600 ps
-its SDC asks for, so it has 9.7 ps of headroom rather than an unknown
-amount. Nothing about `auto_period` is built yet; what changed is that
-the input it would read is now trustworthy on every core.
+It relaxes as well as tightens. A committed period the design does not
+meet is not a starting point to walk down from, and ibex's was exactly
+that; the loop walks up until the design closes and then tightens.
 
-Until it exists, every CoreMark/Joule here is taken at a frequency
-chosen for convenience, and comparing cores at such frequencies compares
-the choices as much as the designs.
+**Three things it will not tell you.**
+
+The walk is not monotone, and that is the interesting part. SERV closed
+at 499 ps with 9.3 ps of slack and then at 490 ps with **33.7 ps** —
+more margin at the tighter target, because the optimiser stops trying
+when it meets a target and tries harder when it does not. So a single
+reading's `period - WNS` is an optimistic estimate rather than an
+achievable period, which is why the loop iterates and why it pins a
+period it measured rather than one it computed.
+
+The period and the floorplan interact — the floorplan is derived at a
+period, the period achieved on a floorplan — and only one pass has been
+run: period on the incumbent floorplan. A second pass (floorplan at the
+derived period, then period again) is what would settle it, and how far
+it moves is worth reporting rather than assuming it converges.
+
+And a derived period is one number from one flow. It is not a Pareto
+front, which is §8.4.
 
 ### 8.4 The Pareto curve
 

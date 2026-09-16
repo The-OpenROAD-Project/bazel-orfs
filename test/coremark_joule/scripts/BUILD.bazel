@@ -244,3 +244,43 @@ py_test(
     ],
     main = "filter_saif_test.py",
 )
+
+# The period a core actually closes at, derived rather than guessed.
+# The loop drives bazel and rewrites the design's constraints.sdc, so it
+# is a `bazel run` job and never part of a build; only its decision
+# logic is tested here, over fixtures, which is the part that can be
+# wrong in a way a human would not notice.
+py_binary(
+    name = "auto_period",
+    srcs = ["auto_period.py"],
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+py_test(
+    name = "auto_period_test",
+    size = "small",
+    srcs = [
+        "auto_period.py",
+        "auto_period_test.py",
+    ],
+    main = "auto_period_test.py",
+)
+
+# The paper's fitted figures, from the pinned results. 4.6's slope, R^2
+# and extrapolation were hand-computed and typed in; three of the seven
+# were slightly wrong by the time the points moved under them.
+py_binary(
+    name = "fit_results",
+    srcs = ["fit_results.py"],
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+py_test(
+    name = "fit_results_test",
+    size = "small",
+    srcs = [
+        "fit_results.py",
+        "fit_results_test.py",
+    ],
+    main = "fit_results_test.py",
+)

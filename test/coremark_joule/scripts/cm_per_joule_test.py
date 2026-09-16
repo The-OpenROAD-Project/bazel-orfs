@@ -7,7 +7,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from cm_per_joule import combine  # noqa: E402
+from cm_per_joule import combine, frequency_mhz_from_sdc  # noqa: E402
 
 
 class CmPerJouleTest(unittest.TestCase):
@@ -37,6 +37,32 @@ class CmPerJouleTest(unittest.TestCase):
         self.assertAlmostEqual(
             1.0 / r["coremark_per_joule"], r["joule_per_iteration"], places=12
         )
+
+
+class TestFrequencyFromSdc(unittest.TestCase):
+    """The reported frequency and the built period are one fact.
+
+    They were two: a literal in sim/BUILD.bazel and a period in the
+    design's constraints.sdc, maintained alongside each other. They
+    drifted, and the study reported ibex at 833 MHz on a netlist that
+    missed its 1200 ps period by 74 ps.
+    """
+
+    def test_reads_the_period(self):
+        self.assertAlmostEqual(
+            frequency_mhz_from_sdc("set clk_period 1591\n"),
+            628.5355122564425,
+        )
+
+    def test_ignores_other_settings(self):
+        sdc = "set clk_name clk\nset clk_period 438\nset foo 12\n"
+        self.assertAlmostEqual(
+            frequency_mhz_from_sdc(sdc), 2283.10502283105
+        )
+
+    def test_a_missing_period_is_fatal(self):
+        with self.assertRaises(SystemExit):
+            frequency_mhz_from_sdc("set clk_name clk\n")
 
 
 if __name__ == "__main__":
