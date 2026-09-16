@@ -472,3 +472,19 @@ py_test(
     ],
     main = "glitch_count_test.py",
 )
+
+py_binary(
+    name = "glitch_project",
+    srcs = ["glitch_project.py"],
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+py_test(
+    name = "glitch_project_test",
+    size = "small",
+    srcs = [
+        "glitch_project.py",
+        "glitch_project_test.py",
+    ],
+    main = "glitch_project_test.py",
+)
