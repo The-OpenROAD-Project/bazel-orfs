@@ -24,42 +24,28 @@ export SDC_FILE                = $(DESIGN_HOME)/asap7/xiangshan/constraints.sdc
 # categories ACM CF'25 reports for CVA6, CVA6S+ and the C910, so the two
 # breakdowns can be read against each other.
 export SYNTH_HIERARCHICAL      = 1
-export SYNTH_KEEP_MODULES      = Frontend Backend MemBlock CtrlBlock Bpu \
-                                 DCacheWrapper DecodeStage Dispatch Ftq \
-                                 FusionDecoder IBuffer ICache Ifu L2TLBWrapper \
-                                 NewLoadUnit PMP PMPChecker PTWFilter Region \
-                                 Region_1 Rename Rob TLB Uncache \
-                                 VecRegionModule \
-                                 IssuePipeVialuVfmaVfdivVidiv \
-                                 IssuePipeVialuVimacVmoveVfcvtVfma \
-                                 IssuePipeVialuVfma IssuePipeVialuVfma_1 \
-                                 IssueQueueVialuVimacVmoveVfcvtVfma \
-                                 IssueQueueVialuVfmaVfdivVidiv \
-                                 IssueQueueVialuVfma IssueQueueVialuVfma_1 \
-                                 IssueQueueVstd VfRegFile \
-                                 IssueQueueLdu IssueQueueAluMul ExuBlock DataPath \
-                                 IssueQueueAluI2fBrhNjmp IssueQueueAluBkuVset \
+export SYNTH_KEEP_MODULES      = Frontend Backend MemBlock CtrlBlock \
+                                 DecodeStage Dispatch Ftq FusionDecoder \
+                                 IBuffer Ifu NewLoadUnit PMP PMPChecker \
+                                 PTWFilter Region Region_1 Rename Rob TLB \
+                                 Uncache IssueQueueLdu IssueQueueAluMul \
+                                 ExuBlock DataPath IssueQueueAluI2fBrhNjmp \
+                                 IssueQueueAluBkuVset \
                                  IssueQueueAluCsrFenceLinkBrhNjmp \
-                                 IssueQueueAluDivBrhNjmp \
-                                 IssueQueueStdMoud IssueQueueStdMoud_1 \
-                                 IssueQueueStaMou IssueQueueStaMou_1 \
-                                 IssueQueueFaluFmacFdiv ExuBlock_1 DataPath_1 \
+                                 IssueQueueAluDivBrhNjmp IssueQueueStdMoud \
+                                 IssueQueueStdMoud_1 IssueQueueStaMou \
+                                 IssueQueueStaMou_1 IssueQueueFaluFmacFdiv \
+                                 ExuBlock_1 DataPath_1 \
                                  IssueQueueFaluFmacFcvtFcmp IssueQueueFaluFmac \
                                  LsqWrapper Sbuffer TLBNonBlock \
-                                 PrefetcherWrapper MemCtrl \
-                                 LoadQueueReplay LoadQueueRAW LoadQueueRAR \
-                                 VirtualLoadQueue LoadQueueUncache StoreQueue \
+                                 PrefetcherWrapper MemCtrl LoadQueueReplay \
+                                 LoadQueueRAW LoadQueueRAR VirtualLoadQueue \
+                                 LoadQueueUncache StoreQueue \
                                  VectorDecodeChannel SimpleDecodeChannel \
-                                 UopBufferCtrlDecoder \
-                                 MainBtbAlignBank Tage Sc AheadBtb Phr \
-                                 MicroTage Ittage \
-                                 RenameBuffer VTypeBuffer \
+                                 UopBufferCtrlDecoder RenameBuffer VTypeBuffer \
                                  TLBNonBlock_1 TLBNonBlock_2 PMPChecker_8 \
-                                 PTWNewFilter \
-                                 MissQueue BankedDataArray L1ErrorMetaArray \
-                                 L1PrefetchSourceArray L1CohMetaArray \
-                                 L1FlagMetaArray BusyTable BusyTable_1 \
-                                 IntRegFile PhysicalStoreQueue VirtualStoreQueue
+                                 PTWNewFilter BusyTable BusyTable_1 IntRegFile \
+                                 PhysicalStoreQueue VirtualStoreQueue
 
 # The second block of that list, from IssuePipeVialuVfmaVfdivVidiv on, is
 # kept for synthesis turnaround, not for the breakdown. yosys and abc are
@@ -91,16 +77,36 @@ export OPENROAD_HIERARCHICAL   = 1
 # name from ADDITIONAL_LIBS. Chosen for size and for having every port
 # registered or being off CoreMark's path (the vector and floating-point
 # regions), never the integer issue loop or the load-to-use path, which
-# stay flat here. Region_1 is the floating-point region; Region (int) is
-# not a block. Ease off by removing a name: the block's modules are still
-# in SYNTH_KEEP_MODULES, so it comes back as kept hierarchy at the top.
-export BLOCKS                  = VecRegionModule Region_1 Bpu ICache \
+# stay flat here. Region (int) is not a block. To ease off, remove the
+# name here AND put the block's kept modules back into SYNTH_KEEP_MODULES
+# below: a kept name that is inside a blackboxed block fails the
+# per-module re-canonicalize ("not present in checkpoint"), so the list
+# below holds only modules reachable from XSCore without entering a
+# block (Bpu's predictors, DCacheWrapper's arrays, VecRegionModule's
+# issue queues and the vector register file are in their blocks).
+#
+# Region_1, the floating-point region, was a block and is not: its
+# detailed placement failed legalisation twice (4 h 10 min and 1 h 17
+# min, 17 k misaligned cells, every one under fpDataPath) at 28 %
+# utilisation with two sites of global-placement padding and a 2000-site
+# search window. The four FpRegFilePart flop arrays with their 14-port
+# read muxes are local density no legaliser spreads; Region_1/config.mk
+# keeps the attempt. It stays flat in the parent, which carries the
+# integer register file of the same shape anyway. The fix a competing
+# core has is a compiled register file, and the idiomatic form of that
+# here is a generator linking OpenROAD's libraries -- a later tool, not
+# a flow setting.
+export BLOCKS                  = VecRegionModule Bpu ICache \
                                  DCacheWrapper L2TLBWrapper
 
 # Turnaround: no repair inside global placement. Flat, the first
 # timing-driven iteration inserted 527,027 buffers over 9.8 M pins and
 # was still removing them hours later. Flip back for the measured run.
 export GPL_TIMING_DRIVEN       = 0
+# And no routability inflation either: on the vector region block it
+# undid the placer's convergence (overflow 0.31 back to 0.66). Global
+# route will say what that costs; flip back for the measured run.
+export GPL_ROUTABILITY_DRIVEN  = 0
 
 # No pre-placement repair_timing. With REMOVE_ABC_BUFFERS unset, the
 # floorplan stage runs repair_timing on wire-load models before anything
@@ -182,15 +188,30 @@ export ANNEAL_CHANNEL_UM       = 4.0
 export ANNEAL_BLOCK_GAP_UM     = 10.8
 export ANNEAL_FILL             = 0.5
 
-# The platform's vertical power stripes, so a macro narrower than one
-# stripe pitch is placed with a stripe pair inside its rails. asap7's
-# grid_strategy-M1-M2-M5-M6.tcl draws M5 stripes 0.12 wide, 0.072
-# apart, pitch 5.4, first at 0.3 from the core edge, and the macro grid
-# connects M4 rails to M5. The 4.18 um TAGE useful-bit arrays sat
-# between two pairs at 28 of 64 positions and pdngen reported their
-# grids empty (PDN-0232, then PDN-0233). Must match PDN_TCL.
-export ANNEAL_STRAP_PITCH_UM   = 5.4
-export ANNEAL_STRAP_OFFSET_UM  = 0.3
+# The power grid of a parent with hardened blocks. The platform's flat
+# grid (grid_strategy-M1-M2-M5-M6.tcl) powers a macro by connecting its
+# M4 rails to the parent's M5 stripes, which is right for the SRAM
+# banks; a block abstract has its power pins on M5 and everything up to
+# M5 obstructed, so that grid found no shapes over any of the five
+# blocks (PDN-0232 x5, PDN-0233). ORFS's BLOCKS grid is for this case:
+# M5 and M6 stripes to a core ring, and a macro grid over every macro
+# connecting M5 to M6, so a block's M5 pins meet the parent's M6. The
+# platform selects it when make sees BLOCKS; here it has to be said.
+export PDN_TCL                 = $(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl
+# The BLOCKS grid's core ring (M5 0.504 + M6 0.544 wide, 0.096 apart,
+# 0.504 off the core) needs 1.65 um between core and die; the platform's
+# 1 um margin leaves the ring 0.66 um outside the die (PDN-0351). Two
+# microns, as ORFS's own asap7 BLOCKS design has.
+export CORE_MARGIN             = 2
+
+# The parent's vertical power stripes, so a macro narrower than one
+# stripe pitch is placed with a stripe pair inside its rails. The BLOCKS
+# grid draws M5 stripes 0.12 wide, 0.072 apart, pitch 2.16, first at
+# 1.50 from the core edge. With the caches and predictors hardened, one
+# SRAM bank is left at this level; the numbers still have to match
+# PDN_TCL for it.
+export ANNEAL_STRAP_PITCH_UM   = 2.16
+export ANNEAL_STRAP_OFFSET_UM  = 1.5
 export ANNEAL_STRAP_PAIR_UM    = 0.312
 
 # 2 um, not the platform's 10: at 10 the halos alone turn 0.13 mm2 of
