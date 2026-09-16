@@ -98,6 +98,7 @@ def stage_power(
         saif,
         saif_scope,
         stage = "grt",
+        spef = None,
         tags = ["manual"],
         visibility = None):
     """Report power at a stage, vectorless and SAIF-driven.
@@ -111,11 +112,26 @@ def stage_power(
         The simulator wraps the design in a testbench, so this names the
         instance inside it -- e.g. `TOP/cm_soc/cpu`.
       stage: which stage; must match `src`.
+      spef: a .spef to read instead of estimating parasitics. Only a
+        post-route stage has one. Giving it turns this target into the
+        calibration of the estimate rather than another instance of it:
+        point it and an estimating target at the same ODB and the same
+        SAIF, and the difference between them is the parasitics model
+        and nothing else (5.3).
       tags: forwarded; manual.
       visibility: forwarded.
     """
     vectorless = name + "_vectorless.json"
     vector_driven = name + "_vector_driven.json"
+    arguments = {
+        "STAGE_STEM": STAGE_STEM[stage],
+        "SAIF_STIMULI": "$(location {})".format(saif),
+        "SAIF_SCOPE": saif_scope,
+        "VECTORLESS_POWER_JSON": "$(location {})".format(vectorless),
+        "VECTOR_DRIVEN_POWER_JSON": "$(location {})".format(vector_driven),
+    }
+    if spef:
+        arguments["POWER_SPEF"] = spef
     orfs_run(
         name = name,
         src = src,
@@ -125,13 +141,7 @@ def stage_power(
         ],
         script = "//test/coremark_joule/flow:power_grt.tcl",
         data = [saif],
-        user_arguments = {
-            "STAGE_STEM": STAGE_STEM[stage],
-            "SAIF_STIMULI": "$(location {})".format(saif),
-            "SAIF_SCOPE": saif_scope,
-            "VECTORLESS_POWER_JSON": "$(location {})".format(vectorless),
-            "VECTOR_DRIVEN_POWER_JSON": "$(location {})".format(vector_driven),
-        },
+        user_arguments = arguments,
         tags = tags,
         visibility = visibility,
     )

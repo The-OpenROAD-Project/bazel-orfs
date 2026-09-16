@@ -77,9 +77,11 @@ is being fixed in the generator rather than worked around here. ibex is
 measured with `ICache=0`, which §5.1 shows is the right configuration
 rather than an omission. The simulation is zero-delay and so
 carries no glitch power, the parasitics are estimated rather than
-extracted, the corner is ASAP7's best case, and the frequency is an SDC
-target rather than an achieved maximum. Each is quantified or bounded in
-§5.
+extracted -- worth 2.05 % of the total on the one point where that has
+been measured against extraction (§5.3) -- and the corner is ASAP7's
+best case. Each is quantified or bounded in §5. The frequencies are no
+longer chosen: every core is built at a period derived from its own
+register-to-register slack (§5.5).
 
 ---
 
@@ -515,7 +517,9 @@ to see.
 Power is reported at global route, with parasitics from
 `estimate_parasitics -global_routing` rather than from an extracted
 SPEF. This is what makes a point cost minutes rather than hours and is
-the reason the study screens here; §5.3 states what it costs.
+the reason the study screens here. §5.3 measures what it costs on one
+core: 10.9 % on the switching term, 2.05 % on the total, with detailed
+route changing nothing else measurable and congestion at zero.
 
 The corner is ASAP7's ORFS default, `CORNER = BC`: **RVT, FF process,
 0.77 V, 25 °C**, NLDM. It is the *best-case* corner — the fast process
@@ -1437,14 +1441,67 @@ The direction of this bias is *opposite* to §5.1's: glitch power would
 push every point down in CoreMark/Joule, and most for the cores with
 the deepest logic.
 
-### 5.3 Estimated, not extracted, parasitics
+### 5.3 Estimated, not extracted, parasitics — one point, measured
 
 `estimate_parasitics -global_routing` is a model of the wiring, not the
 wiring. Switching power is `α·C·V²·f`, and the `C` here is the
-estimate's. That is the deliberate cost of screening at global route,
-and it is uncalibrated: no point in this study has been re-measured at
-`6_final` with an extracted SPEF. One such point, on one core, would
-bound it.
+estimate's. That is the deliberate cost of screening at global route:
+the flow tail from global route to a finished, extracted design is the
+expensive part of a run, and the received wisdom is that absent
+congestion the parasitics estimate is close. This section used to state
+that as an uncalibrated risk. It is now one measurement.
+
+**The experiment is a pair, not a comparison of stages.** Running ibex
+to `6_final` and comparing its power against the reported global-route
+number would move two things at once: the parasitics model, and whatever
+detailed route did to the netlist. So both numbers are taken on the
+*same* `6_final` ODB with the *same* SAIF, and only the parasitics
+source differs — one reads the extracted `6_final.spef`, the other calls
+`estimate_parasitics -global_routing` on the very netlist that SPEF
+describes.
+
+| ibex, one hot iteration | internal | switching | leakage | total |
+|---|---|---|---|---|
+| global route, estimated (reported) | 15.80 | 3.02 | 0.646 | **19.50 mW** |
+| `6_final`, estimated | 15.80 | 3.02 | 0.646 | **19.50 mW** |
+| `6_final`, extracted SPEF | 15.80 | **2.69** | 0.646 | **19.10 mW** |
+
+**Table 9.** The parasitics estimate against extraction, on one design.
+
+**The estimate is wrong by 10.9 % on the term it models, and by 2.05 %
+on the answer.** It overstates switching power — 3.02 mW against an
+extracted 2.69 mW — but switching is 15 % of ibex's total, so the total
+moves 2.05 %. The 82.6 % of this design's power that is internal is a
+function of the library's own tables and the toggle counts, and the
+parasitics estimate does not touch it.
+
+**Detailed route changed nothing measurable.** The estimated number at
+`6_final` is identical to the estimated number at global route, to every
+digit reported. So for this design the end-to-end cost of screening
+early *is* the parasitics delta: there is no second effect hiding in the
+netlist changes between the two stages.
+
+**The precondition is congestion, and this design has none.** Global
+route reports 50.5 % utilization, peak layer usage of 16.2 % on M3, and
+maximum horizontal, maximum vertical and total congestion all zero;
+detailed route converged to zero violations. So this point confirms the
+received wisdom in the regime where it is asserted to hold, and says
+nothing about a congested design — where the estimate has more to get
+wrong and is likelier to get it wrong in the other direction.
+
+**What one point is not.** It is one core, one floorplan, one corner. A
+design whose power is less internal-dominated would show more of the
+10.9 % in its total; SERV and picorv32 are 72 % and 66 % macro, where
+the macro's own internal energy is a lookup rather than anything
+parasitics reach, so the direction is predictable and the size is not.
+§8.5 is the sweep that would settle it.
+
+Reproduce:
+
+```sh
+bazelisk build //test/coremark_joule/designs/asap7/ibex:cmj_ibex_final_power_extracted
+bazelisk build //test/coremark_joule/designs/asap7/ibex:cmj_ibex_final_power_estimated
+```
 
 ### 5.4 The corner is ASAP7's best case, not its typical
 
@@ -2260,6 +2317,32 @@ different curves, and which one is on the better curve is the
 architectural question. Plotting this study's cores, VeeR EH1 and a
 large out-of-order core such as XiangShan together is what would make
 the comparison definitive rather than indicative.
+
+### 8.5 Extract the parasitics on every point, not one
+
+§5.3 measures the parasitics estimate against extraction on ibex: the
+estimate overstates switching power by 10.9 % and the total by 2.05 %,
+on a design with no congestion at all. That is one point, and the two
+things it cannot tell you are the two worth knowing.
+
+**How it scales with the macro fraction.** The delta lands entirely on
+switching power, which is 15 % of ibex's total and a smaller share of
+SERV's and picorv32's, whose macro fractions are 72 % and 66 %. A
+macro's internal energy is a Liberty lookup that no wiring model
+reaches, so the total delta should *shrink* as the macro fraction rises.
+Predictable in direction, unmeasured in size.
+
+**What congestion does to it.** The received wisdom §5.3 tests is
+explicitly conditional on the absence of congestion, and ibex has none:
+zero on every congestion metric global route reports. A design that
+routes hard is where an estimate has the most to get wrong, and this
+study has no such point.
+
+The work is a `stage_power(spef = ...)` target per core against its
+existing one, which is four flow tails rather than one — hours, not
+minutes, which is why it is here and not in §5.3. Worth pairing with a
+deliberately congested variant of one core, since a sweep over four
+uncongested designs would mostly re-measure the same regime four times.
 
 ---
 
