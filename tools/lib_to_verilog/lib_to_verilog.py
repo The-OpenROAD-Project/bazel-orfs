@@ -34,6 +34,12 @@ class Pin:
     # which is the only portable way to tell ENA from SE: the pin names
     # are the vendor's to choose.
     clock_gate_role: str = ""  # "clock", "enable", "test", "out"
+    # Timing arcs declared on this pin, as (related_pin, timing_type).
+    # Only arcs on an *output* pin are propagation paths; the ones on
+    # inputs are checks (setup_rising, hold_rising, min_pulse_width) and
+    # describe when a signal must be stable, not how long it takes to
+    # arrive. Emitting a check as a path would invent a delay.
+    arcs: list = field(default_factory=list)
 
 
 @dataclass
@@ -132,6 +138,19 @@ def parse_lib_cells(text: str) -> list[Cell]:
                 cells.append(cell)
             cell = None
             continue
+
+        # A timing() group inside the current pin. The group's own
+        # attributes follow it, so this records a slot and the lines
+        # below fill it in.
+        if current_pin is not None and re.match(r"timing\s*\(\s*\)", stripped):
+            current_pin.arcs.append({"related_pin": "", "timing_type": ""})
+        if current_pin is not None and current_pin.arcs:
+            m = re.search(r'related_pin\s*:\s*"([^"]*)"', stripped)
+            if m:
+                current_pin.arcs[-1]["related_pin"] = m.group(1)
+            m = re.search(r"timing_type\s*:\s*(\w+)", stripped)
+            if m:
+                current_pin.arcs[-1]["timing_type"] = m.group(1)
 
         # Integrated clock gate: the cell-level flavour.
         m = re.search(r"clock_gating_integrated_cell\s*:\s*([A-Za-z_]+)", stripped)
@@ -325,6 +344,10 @@ def generate_ff_verilog(cell: Cell) -> str:
             lines.append(f"        {name} <= {expr.replace('next_val', next_expr)};")
         lines.append("    end")
 
+    spec = specify_block(cell)
+    if spec:
+        lines.append("")
+        lines.append(spec)
     lines.append("endmodule")
     return "\n".join(lines)
 
@@ -379,8 +402,76 @@ def generate_latch_verilog(cell: Cell) -> str:
         lines.append(f"            {name} = {expr.replace('data_val', data_expr)};")
     lines.append("    end")
 
+    spec = specify_block(cell)
+    if spec:
+        lines.append("")
+        lines.append(spec)
     lines.append("endmodule")
     return "\n".join(lines)
+
+
+# Timing types that are propagation paths rather than checks. A check
+# (setup_rising, hold_rising, min_pulse_width, recovery_*, removal_*)
+# says when a signal must be stable; emitting one as a path would invent
+# a delay that the library never claimed.
+_EDGE_PATHS = {
+    "rising_edge": "posedge",
+    "falling_edge": "negedge",
+}
+_COMBINATIONAL_PATHS = {
+    "combinational",
+    "combinational_rise",
+    "combinational_fall",
+    "three_state_enable",
+    "three_state_disable",
+    "",  # Liberty's default when timing_type is omitted
+}
+
+
+def specify_paths(cell):
+    """The module paths this cell's Liberty arcs declare.
+
+    Values are zero: $sdf_annotate overwrites them, so a model only has
+    to *declare* the path for a delay to land on it. Without the
+    declaration the annotation matches nothing -- and iverilog drops
+    specify blocks entirely unless -gspecify is given, so a missing
+    declaration and a missing flag look identical downstream: a
+    zero-delay run wearing an annotated run's name.
+
+    Only arcs on output pins are paths (5.2).
+    """
+    lines = []
+    for pin in cell.pins:
+        if pin.direction != "output":
+            continue
+        for arc in pin.arcs:
+            src = arc.get("related_pin", "")
+            kind = arc.get("timing_type", "")
+            if not src:
+                continue
+            if kind in _EDGE_PATHS:
+                # An edge path needs a data source term; the delay does
+                # not depend on it, and a constant keeps this independent
+                # of how complicated the cell's next_state expression is.
+                lines.append(
+                    "        (%s %s => (%s : 1'b0)) = 0;"
+                    % (_EDGE_PATHS[kind], src, pin.name)
+                )
+            elif kind in _COMBINATIONAL_PATHS:
+                lines.append("        (%s => %s) = 0;" % (src, pin.name))
+    return lines
+
+
+def specify_block(cell):
+    """A specify block for the cell, or "" when it declares no paths."""
+    paths = specify_paths(cell)
+    if not paths:
+        return ""
+    # Deduplicate while keeping Liberty's order: a cell with rise and
+    # fall arcs on one pin pair declares the same path twice.
+    seen = set()
+    unique = [p for p in paths if not (p in seen or seen.add(p))]
+    return "\n".join(["    specify"] + unique + ["    endspecify"])
 
 
 def generate_icg_verilog(cell: Cell) -> str:
@@ -463,6 +554,10 @@ def generate_icg_verilog(cell: Cell) -> str:
     # enters the OR inverted; a posedge gate holds it low and ANDs.
     rhs = f"{clk} & {gate_expr}" if combine == "&" else f"{clk} | ~{gate_expr}"
     lines.append(f"    assign {out} = {rhs};")
+    spec = specify_block(cell)
+    if spec:
+        lines.append("")
+        lines.append(spec)
     lines.append("endmodule")
     return "\n".join(lines)
 
@@ -491,6 +586,10 @@ def generate_combinational_verilog(cell: Cell) -> str:
         if p.function:
             expr = liberty_expr_to_verilog(p.function)
             lines.append(f"    assign {p.name} = {expr};")
+    spec = specify_block(cell)
+    if spec:
+        lines.append("")
+        lines.append(spec)
     lines.append("endmodule")
     return "\n".join(lines)
 

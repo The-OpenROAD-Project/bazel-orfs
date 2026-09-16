@@ -13,6 +13,8 @@ from lib_to_verilog import (
     generate_empty_v,
     generate_ff_verilog,
     generate_icg_verilog,
+    specify_block,
+    specify_paths,
     generate_latch_verilog,
     liberty_expr_to_verilog,
     parse_lef_macros,
@@ -763,6 +765,74 @@ class TestIcgVerilog(unittest.TestCase):
     def test_dff_v_emits_icg_cells(self):
         out = generate_dff_v(parse_lib_cells(icg_lib("latch_posedge_precontrol")))
         assert "module ICGx1 (GCLK, CLK, ENA, SE);" in out
+
+
+ARC_LIB = """\
+library (test) {{
+  cell (C) {{
+    pin (Y) {{ direction : output; function : "!A";
+      timing () {{ related_pin : "A"; timing_type : {out_type}; }} }}
+    pin (A) {{ direction : input;
+      timing () {{ related_pin : "CLK"; timing_type : {in_type}; }} }}
+  }}
+}}
+"""
+
+
+def arc_cell(out_type="combinational", in_type="hold_rising"):
+    return parse_lib_cells(ARC_LIB.format(out_type=out_type, in_type=in_type))[0]
+
+
+class TestSpecifyPaths(unittest.TestCase):
+    """SDF overwrites the values, so a model only has to declare the path.
+
+    Without the declaration the annotation matches nothing, and iverilog
+    drops specify blocks entirely unless -gspecify is passed -- so a
+    missing path and a missing flag look the same downstream: a
+    zero-delay run wearing an annotated run's name.
+    """
+
+    def test_combinational_arc(self):
+        self.assertEqual(specify_paths(arc_cell()), ["        (A => Y) = 0;"])
+
+    def test_rising_edge_arc_carries_a_data_term(self):
+        """`(posedge CLK *> Q)` is rejected by iverilog; this form is not."""
+        paths = specify_paths(arc_cell(out_type="rising_edge"))
+        self.assertEqual(paths, ["        (posedge A => (Y : 1'b0)) = 0;"])
+
+    def test_falling_edge_arc(self):
+        paths = specify_paths(arc_cell(out_type="falling_edge"))
+        self.assertIn("negedge A", paths[0])
+
+    def test_checks_on_inputs_are_not_paths(self):
+        """A check says when a signal must be stable, not how long it
+        takes to arrive. Emitting one as a path invents a delay."""
+        for check in ("setup_rising", "hold_rising", "min_pulse_width",
+                      "recovery_rising", "removal_rising"):
+            cell = arc_cell(in_type=check)
+            self.assertEqual(
+                [p for p in specify_paths(cell) if "CLK" in p], [],
+                "%s on an input pin must not declare a path" % check)
+
+    def test_a_cell_with_no_arcs_gets_no_block(self):
+        cell = Cell(name="TIE", pins=[Pin("Y", "output", "1'b1")])
+        self.assertEqual(specify_block(cell), "")
+
+    def test_duplicate_arcs_collapse(self):
+        """Liberty declares rise and fall separately; the path is one."""
+        lib = ARC_LIB.format(out_type="combinational", in_type="hold_rising")
+        lib = lib.replace(
+            'timing () { related_pin : "A"; timing_type : combinational; }',
+            'timing () { related_pin : "A"; timing_type : combinational; }\n'
+            '      timing () { related_pin : "A"; timing_type : combinational; }')
+        block = specify_block(parse_lib_cells(lib)[0])
+        self.assertEqual(block.count("(A => Y)"), 1)
+
+    def test_block_is_emitted_into_the_module(self):
+        v = generate_combinational_verilog(arc_cell())
+        self.assertIn("specify", v)
+        self.assertIn("(A => Y) = 0;", v)
+        self.assertLess(v.index("specify"), v.index("endmodule"))
 
 
 if __name__ == "__main__":
