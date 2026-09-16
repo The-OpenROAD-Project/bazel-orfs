@@ -68,28 +68,59 @@ _CF25_PROVENANCE = {
 }
 
 LITERATURE = [
-    dict(_CF25_PROVENANCE, **{
-        "name": "CVA6",
-        "coremark_per_mhz": 2.19,
-        "frequency_mhz": 900.0,
-        "power_w": 0.06988,
-        "coremark_per_joule": 2.19 * 900.0 / 0.06988,
-    }),
-    dict(_CF25_PROVENANCE, **{
-        "name": "CVA6S+",
-        "coremark_per_mhz": 2.84,
-        "frequency_mhz": 900.0,
-        "power_w": 0.09429,
-        "coremark_per_joule": 2.84 * 900.0 / 0.09429,
-    }),
-    dict(_CF25_PROVENANCE, **{
-        "name": "XuanTie C910",
-        "coremark_per_mhz": 4.86,
-        "frequency_mhz": 1300.0,
-        "power_w": 0.21481,
-        "coremark_per_joule": 4.86 * 1300.0 / 0.21481,
-    }),
+    dict(
+        _CF25_PROVENANCE,
+        **{
+            "name": "CVA6",
+            "coremark_per_mhz": 2.19,
+            "frequency_mhz": 900.0,
+            "power_w": 0.06988,
+            "coremark_per_joule": 2.19 * 900.0 / 0.06988,
+        }
+    ),
+    dict(
+        _CF25_PROVENANCE,
+        **{
+            "name": "CVA6S+",
+            "coremark_per_mhz": 2.84,
+            "frequency_mhz": 900.0,
+            "power_w": 0.09429,
+            "coremark_per_joule": 2.84 * 900.0 / 0.09429,
+        }
+    ),
+    dict(
+        _CF25_PROVENANCE,
+        **{
+            "name": "XuanTie C910",
+            "coremark_per_mhz": 4.86,
+            "frequency_mhz": 1300.0,
+            "power_w": 0.21481,
+            "coremark_per_joule": 4.86 * 1300.0 / 0.21481,
+        }
+    ),
 ]
+
+# The claim on the README's title page, and what it was checked against.
+# Update `as_of` when the check is redone; §4.5 of the README is the
+# human-readable form.
+UNIQUENESS = {
+    "as_of": "2026-09",
+    "as_of_text": "September 2026",
+    "claim": "the only comparison of CoreMark/Joule across more than one hardened core, with activity from CoreMark itself, from an open and re-runnable flow",
+    "qualifiers": [
+        "more than one core, each hardened to a netlist",
+        "switching activity from CoreMark itself, not an estimator",
+        "every input open and pinned; re-runnable with one command",
+    ],
+    "near_misses": [
+        "Schiavone et al., PATMOS 2017: 3 cores, CoreMark energy, PrimeTime, UMC 65 nm -- not re-runnable",
+        "Gallmann et al., CARRV 2021: ibex and CV32E40P, CoreMark energy, PrimeTime, TSMC 65 nm -- not re-runnable",
+        "Djupdal et al., arXiv 2502.06588: 7 cores, MachSuite not CoreMark, commercial 130 nm -- wrong workload, not re-runnable",
+        "Fu et al., CF'25: 3 cores, power on matmult-int not CoreMark, GF 22 FDX -- wrong workload, not re-runnable",
+        "Elsadek and Tawfik, IEEE 2021: 7 cores on an FPGA -- not hardened",
+        "EEMBC ULPMark-CM: one silicon MCU per score -- not a comparison on one flow",
+    ],
+}
 
 # Published performance per clock with no energy figure at a stated
 # boundary, so x-axis orientation only.
@@ -175,8 +206,7 @@ def main(argv):
             "stage": "grt",
             "corner": "BC: RVT, FF, 0.77 V, 25 C, NLDM -- asap7's ORFS "
             "default, which is the best case rather than the typical one",
-            "parasitics": "estimate_parasitics -global_routing; no "
-            "extracted SPEF",
+            "parasitics": "estimate_parasitics -global_routing; no " "extracted SPEF",
             "activity": "saif, one hot CoreMark iteration",
             "activity_annotation": "100% of pins annotated from the SAIF "
             "on every point; see the *_activity_audit.json and "
@@ -193,6 +223,11 @@ def main(argv):
             "not an achieved maximum",
             "note": "Not reportable CoreMark scores: a three-iteration run "
             "does not satisfy CoreMark's run rules.",
+            # The title page's claim is about the literature on a day.
+            # The date lives here so the README's first line is rendered
+            # and checked against it (readme_numbers_test), and so a
+            # re-pin cannot silently outlive the search that justifies it.
+            "uniqueness": UNIQUENESS,
         },
         "points": points,
         # Published performance-per-clock for cores not measured here.

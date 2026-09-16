@@ -120,7 +120,25 @@
     "parasitics": "estimate_parasitics -global_routing; no extracted SPEF",
     "platform": "asap7",
     "simulation": "Verilator, two-state and zero-delay: carries no glitch power",
-    "stage": "grt"
+    "stage": "grt",
+    "uniqueness": {
+      "as_of": "2026-09",
+      "as_of_text": "September 2026",
+      "claim": "the only comparison of CoreMark/Joule across more than one hardened core, with activity from CoreMark itself, from an open and re-runnable flow",
+      "near_misses": [
+        "Schiavone et al., PATMOS 2017: 3 cores, CoreMark energy, PrimeTime, UMC 65 nm -- not re-runnable",
+        "Gallmann et al., CARRV 2021: ibex and CV32E40P, CoreMark energy, PrimeTime, TSMC 65 nm -- not re-runnable",
+        "Djupdal et al., arXiv 2502.06588: 7 cores, MachSuite not CoreMark, commercial 130 nm -- wrong workload, not re-runnable",
+        "Fu et al., CF'25: 3 cores, power on matmult-int not CoreMark, GF 22 FDX -- wrong workload, not re-runnable",
+        "Elsadek and Tawfik, IEEE 2021: 7 cores on an FPGA -- not hardened",
+        "EEMBC ULPMark-CM: one silicon MCU per score -- not a comparison on one flow"
+      ],
+      "qualifiers": [
+        "more than one core, each hardened to a netlist",
+        "switching activity from CoreMark itself, not an estimator",
+        "every input open and pinned; re-runnable with one command"
+      ]
+    }
   },
   "references": [
     {
