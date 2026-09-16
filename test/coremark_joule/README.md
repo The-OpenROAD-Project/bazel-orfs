@@ -2423,6 +2423,229 @@ trademark on a modified copy of the Software, before it is committed.
 
 ---
 
+## Appendix A. Shipping silicon at the wall plug
+
+[§4.9](#49-x86-arm-and-apple-on-the-same-axes) already places this
+study's cores against fifteen commodity parts, at a stated package
+boundary, with power logged during the benchmark. This appendix does
+not compete with that and should not be read as a second attempt at it.
+
+It reports something else: three parts measured at the **mains plug**,
+swept by active core count, on a machine in the room rather than from a
+public result export. That buys two things §4.9 cannot give — a
+core-count sweep, which is the only way to see a part throttle, and an
+independent method whose agreement with §4.9 is worth checking. It
+costs accuracy, and the appendix spends most of its length on how much.
+
+The short answer: **the throttling behaviour publishes, the energy
+numbers corroborate §4.9 without adding to it, and neither belongs on
+Figure 1.**
+
+### A.1 The measurement
+
+Total system power was read at the mains plug while CoreMark ran on `n`
+active cores, sweeping `n`. Energy was attributed two ways:
+
+* **delta** — `(P_at_n − P_idle) / (n × iterations·s⁻¹)`, the obvious one;
+* **slope** — watts per *additional* core, least-squares fitted over the
+  region where the part is not yet throttling, divided by
+  iterations·s⁻¹.
+
+No on-die counters, no instrumented board, no per-rail shunt.
+
+**Why this is admissible at all.** CoreMark's working set fits entirely
+in L1 [5], so the benchmark generates no DRAM traffic and almost no
+uncore traffic. Everything outside the cores is therefore held constant
+across a sweep, and the difference brackets core-and-L1 activity — the
+same boundary §3.1 defines for the ASAP7 points, reached by subtraction
+instead of by construction. It is also the method's ceiling: **nothing
+measured this way generalises to a workload that misses L1.**
+
+| part | µarch | node | cores/threads | clock | idle |
+| --- | --- | --- | --- | --- | --- |
+| AMD Ryzen Threadripper 3970X | Zen 2 | TSMC N7 [21] | 32 / 64 | 3.9 GHz | 167.0 W |
+| Intel Xeon Platinum 8558U | Emerald Rapids | Intel 7 [22] | 48 / 96 | 2.9 GHz | 70.0 W |
+| Qualcomm Snapdragon X Elite X1E78100 | Oryon | TSMC N4P [23] | 12 / 12 | 3.417 GHz | 9.2 W |
+
+Only the core die's process is named: it is the only part of the package
+inside the boundary. The Threadripper's IO die is GlobalFoundries
+12/14 nm and sits outside it.
+
+### A.2 What the sweeps show: three parts, three behaviours
+
+![Per-core throughput and total system power against active cores, for
+three shipping parts. The Snapdragon holds 100 % throughput to 9 cores
+and 98.6 % at 12. The Threadripper holds 97.2 % until past its 32nd
+physical core and only then falls, which is SMT sharing rather than
+frequency reduction. The Xeon falls from 25 of its 48 cores — too early
+for SMT — and then pins at 412 W while throughput keeps
+falling.](silicon_throttling.png)
+
+Read on the assumption that IPC is fixed, so iterations·s⁻¹ tracks clock:
+
+**Qualcomm — no throttling in range.** Flat at 100 % through 9 cores and
+98.6 % at all 12, with per-core power between 3.60 and 3.77 W across the
+entire sweep and 43 W over idle at full load. The part holds one
+operating point from 1 to 12 cores; this workload never provokes DVFS.
+
+**AMD — no frequency throttling; the fall is SMT.** Throughput holds
+97.2 % from 2 threads to **35**, past its 32 physical cores, and only
+then falls — 88.5 % at 40, 76.4 % at 60. Pure SMT sharing predicts
+about 85 % at 40 threads against 88.5 % measured, so no frequency
+reduction is needed to explain the shape. Package power over idle peaks
+at 153 W against a 280 W TDP: the part never approaches its limit.
+**Reading this curve as throttling would be wrong**, and the distinction
+is only visible because the x axis is normalised to physical cores.
+
+**Intel — real throttling, twice, by two mechanisms.** Throughput starts
+falling at **25 threads, about half of its 48 physical cores** — far too
+early for SMT — which is all-core turbo stepping down as active-core
+count rises. Then wall power **saturates at exactly 412 W from 85
+threads** (85, 90 and 96 all read 412 W) while throughput keeps falling
+from 21 520 to 20 280 iterations·s⁻¹: power pinned, performance given up
+to hold it.
+
+### A.3 The energy numbers, and why there are two of them
+
+| part | slope | µJ/iteration | CoreMark/mJ | CoreMark/MHz |
+| --- | --- | --- | --- | --- |
+| AMD Threadripper 3970X | 2.89 W/core | 100.3 | 9.97 | 7.38 |
+| Intel Xeon 8558U | 7.68 W/core | 212.9 | 4.70 | 12.44 |
+| Qualcomm X Elite X1E78100 | 3.72 W/core | 86.8 | 11.52 | 12.53 |
+
+The `delta` estimator disagrees, and where it disagrees it is wrong:
+
+* On the **Xeon** it reads 1 381 µJ/iteration at one thread, against 213
+  from the slope. The one-thread delta is 50 W — 120 W against a 70 W
+  idle — which is not one core's power but the platform waking its
+  uncore, mesh and fans. Idle-subtraction charges all of that to a
+  single core.
+* On the **Threadripper** the one-core signal is **3.0 W read as 170.0
+  minus 167.0** — a 1.8 % difference of two large numbers. A plug meter
+  specified at ±1–2 % of reading gives ±1.7–3.4 W, which is the entire
+  signal. The slope is fitted over many points and a systematic meter
+  offset cancels in it.
+* On the **Snapdragon** the source did not use its measured idle at all.
+  Real idle was 6 W; the value used is 9.2 W, back-computed as one-core
+  power minus the mean per-core step. That is a sound correction for a
+  platform that power-gates deeply — and it is exactly what a slope fit
+  does without needing to be told.
+
+The slope reproduces the corrected numbers on the two parts where a
+correction was attempted (9.97 against 9.6, 11.52 against 11.89) while
+needing neither an idle reading nor a modelling assumption, and it
+rescues the third from an implausible figure. **Where the two estimators
+disagree, quote the slope.**
+
+### A.4 Corroboration
+
+**Supporting.** Published reviews put X Elite sustained clocks at
+3.4 GHz (measured here: 3.417) and CPU-load package power near 47.6 W
+(measured: 52.5 W at the wall for 12 cores) [24] — independent, and it
+lands. The Threadripper's 153 W full-load delta against a 280 W TDP is
+consistent with CoreMark being a small integer benchmark that never
+becomes a power virus.
+
+**Not supporting — the performance numbers are above the certified
+ceiling.** EEMBC's own database has a single-thread maximum near 5.1
+CoreMark/MHz [25]; these parts read 7.38 to 12.53. That database is
+dominated by older and embedded entries and modern wide cores with
+aggressive compilers plausibly exceed it, but the gap is large enough
+that **these are not EEMBC-comparable numbers and are not claimed to
+be.** The two x86 parts were also built with one shared configuration
+named for one vendor's microarchitecture, which is on its own a
+sufficient explanation for AMD's 7.38 against Intel's 12.44 and
+disqualifies the pair as an IPC comparison.
+
+**Not supporting — the energy ratio is too small.** N7 → N5 → N4P is
+roughly 0.55× energy at iso-performance (N4P is 22 % more power
+efficient than N5 [23]; N5 is roughly 30 % over N7), and Oryon is five
+years newer and far wider than Zen 2. A 2–3× CoreMark/Joule advantage
+would be unsurprising. Measured: **1.16×**. The better estimator did not
+rescue it, so this is not an artefact of the idle convention.
+
+[§4.9](#49-x86-arm-and-apple-on-the-same-axes) suggests why, and it is
+not the node. Its controlled rows show the same twelve-core die at 65 W
+and 170 W differing by **1.60×** in CoreMark/Joule, and one chip run at
+two power limits losing 26 % for 6.7 % more CoreMark. Operating point
+moves this metric by more than a node generation does. These three
+parts were measured wherever their governors happened to put them —
+which is exactly what §A.2 shows, with the Snapdragon holding one
+operating point and the Xeon stepping down through several — so a
+cross-part energy ratio here is a comparison of operating points at
+least as much as of silicon. That is a limitation of the experiment, not
+a finding about the parts.
+
+### A.5 Against §4.9, and why these points are not on Figure 1
+
+**The energy numbers agree with the package measurements, which is the
+most useful thing they do.** The slope estimator gives 9,970
+CoreMark/Joule for the Threadripper, 11,520 for the X Elite and 4,700
+for the Xeon. [§4.9](#49-x86-arm-and-apple-on-the-same-axes)'s fifteen
+parts, measured at the package with power logged during the run, span
+**4,827 to 12,028**. Three wall-plug numbers from a different method, a
+different boundary and a different decade of silicon land inside that
+band.
+
+That is corroboration of the *method*, not a contribution to the
+ladder, and the direction of the residual is the interesting part. A
+slope excludes the platform's fixed cost by construction, so it
+measures the *marginal* core rather than the socket, and should read
+**higher** than a package figure for a comparable part. The
+Threadripper's Zen 2 at 9,970 against §4.9's Zen 3 and Zen 4 servers at
+9,089–12,028 is about what that predicts: a marginal number from an
+older core, landing among package numbers from newer ones.
+
+**So these points do not go on Figure 1**, for a reason §4.9's do not
+either: Figure 1 plots points whose boundary is verified by counting
+every transfer that leaves the hardened block, and neither a package
+measurement nor a plug delta is that. And the CoreMark/MHz axis, which
+*is* boundary-independent, is disqualified separately — both x86 parts
+were built with one configuration named for one vendor's
+microarchitecture.
+
+The throttling half is **viable on its own terms**: three parts, three
+distinguishable and independently corroborated behaviours, from a
+measurement anyone can repeat with a plug meter, and the one thing here
+§4.9's data cannot show.
+
+### A.6 What a repeat must do
+
+1. **One CoreMark build for every part**, flags recorded, and never a
+   configuration named for one vendor's microarchitecture used on
+   another's. This alone may account for the whole AMD–Intel gap.
+2. **Report the CoreMark validation output and run configuration**, so
+   the numbers can be placed against EEMBC's database [25] instead of
+   floating above it.
+3. **Measure the clock at every point** rather than assuming one.
+   Frequency throttling and SMT contention are confounded in both x86
+   sweeps, and only a measured clock separates them.
+4. **Read on-die energy counters alongside the plug meter**, so platform
+   overhead is subtracted rather than modelled.
+5. **Pin to physical cores and disable SMT** for the sweep, so "core"
+   means the same thing on all three parts.
+6. **Estimate from the slope**, and treat idle identically across parts
+   or not at all.
+7. **Repeat every point and report the spread.** Every number here is a
+   single reading.
+8. **Record thermal state for all parts**, not only the one that had a
+   temperature column.
+
+### A.7 Reproduction
+
+```sh
+python3 test/coremark_joule/scripts/extract_silicon.py \
+    --xlsx <measurement workbook> --out test/coremark_joule/silicon.json
+python3 test/coremark_joule/scripts/plot_silicon.py \
+    --silicon test/coremark_joule/silicon.json \
+    --out test/coremark_joule/silicon_throttling.png
+```
+
+`silicon.json` carries every swept point, both estimators, the fit range
+and its maximum residual. The source workbook is not committed.
+
+---
+
 ## 9. Licensing
 
 CoreMark's sources are byte-unmodified. Everything platform-specific
@@ -2454,3 +2677,8 @@ copy of the Software.
 18. OpenBenchmarking.org result exports (Phoronix Test Suite, `pts/coremark` 1.0, multi-threaded, `gcc -O2`, CPU package power via the suite's power monitor): `2301109-PTS-SPRREVIE33` (Sapphire Rapids review, January 2023), `2410235-NE-285KARROW68` (Arrow Lake review, October 2024), `2407128-PTS-GRAVITON53` (Graviton4 metal comparison, July 2024), `2208073-NE-M2REVIEW767` (Apple M2 on Asahi Linux, August 2022). https://openbenchmarking.org/result/<id>
 19. AnandTech, *Mac mini 2020 (Apple M1) review*: wall power averaging 26.5 W under a multi-threaded load, chip estimated at 20 to 24 W.
 20. TechSpot, *Apple M2 review*: about 20 W package power sustained in Cinebench R23 multi-threaded on the MacBook Air.
+21. AMD / WikiChip. *Ryzen Threadripper 3970X* — Zen 2 CCDs on TSMC N7, IO die on GlobalFoundries 12/14 nm. https://en.wikichip.org/wiki/amd/ryzen_threadripper/3970x
+22. Intel. *Xeon Platinum 8558U (Emerald Rapids, 5th Gen Xeon Scalable)* — Raptor Cove cores on Intel 7.
+23. TSMC. *N4P Extends the Performance and Power Efficiency of the 5nm Family* — N4P is 22 % more power efficient than N5. https://pr.tsmc.com/english/news/2874
+24. Independent laptop reviews of the Snapdragon X Elite reporting ~3.4 GHz sustained all-core clocks and ~47.6 W package power under a CPU benchmark.
+25. EEMBC. *CoreMark scores database.* https://www.eembc.org/coremark/scores.php
