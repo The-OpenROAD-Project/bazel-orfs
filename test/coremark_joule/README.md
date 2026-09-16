@@ -21,14 +21,17 @@ Power is a rabbit hole, as this paper makes evident.
 **It is also the worst of its kind, and here are the limitations**, in
 the order they move the numbers:
 
-1. The memory model charges every SRAM shape the same energy, and memory
-   is 57 to 72 % of every point. Halve every memory and no number here
-   moves ([§5.1](#51-the-boundary-met-and-what-it-cost); the fix is [§8.6](#86-a-memory-model-that-knows-its-size)).
-2. Every point is one run at one placement seed. There is no error bar
-   ([§5.13](#513-one-run-one-seed-no-error-bar)).
-3. The corner is the kit's best case: fast process, high voltage ([§5.4](#54-the-corner-is-asap7s-best-case-not-its-typical)).
-4. The simulation is zero-delay and carries no glitch power ([§5.2](#52-zero-delay-simulation-carries-no-glitch-power)).
-5. The parasitics are estimated at global route, not extracted ([§5.3](#53-estimated-not-extracted-parasitics--one-point-measured)).
+1. The memory model is a fitted one, not a characterised one: every SRAM
+   is `tools/memory_macro_scaler`'s view, whose energy and leakage follow
+   the memory's shape after CACTI's decomposition but whose fit its own
+   documentation calls a first-order anchor, and memory is TBD_MEMPCT %
+   of every point (§5.1, §8.6).
+2. Every point has an error bar from five placement seeds, and the
+   largest 2σ is TBD_SIGMA % of its point; anything inside that is not a
+   difference (§5.13).
+3. The corner is the kit's best case: fast process, high voltage (§5.4).
+4. The simulation is zero-delay and carries no glitch power (§5.2).
+5. The parasitics are estimated at global route, not extracted (§5.3).
 6. Every frequency is one derived closing period, from one pass on one
    floorplan; deriving it moved the energy axis by at most 3.5 %, and
    the second pass has not been run ([§5.5](#55-frequency-and-what-deriving-it-changed), [§8.3](#83-a-second-period-pass)).
@@ -113,21 +116,21 @@ it is what the data supports: **CoreMark/Joule is not yet a
 discriminating axis among cores of this class.**
 
 The limitations listed above the abstract are quantified or bounded in
-[§5](#5-threats-to-validity). The largest is the memory model: every memory is a FakeRAM abstract,
-and FakeRAM's ASAP7 views charge **the same switching energy and the
-same leakage for every shape**, so the 57--72 % of each point's power
-that is memory does not know how large the memory is. One model applied
-uniformly is something a comparison survives and two models is not,
-which is why it is used anyway; a shape-aware generator exists in this
-repository and switching to it is [§8.6](#86-a-memory-model-that-knows-its-size). ibex is measured with
-`ICache=0`, which [§5.1](#51-the-boundary-met-and-what-it-cost) shows is the right configuration rather than an
+§5. The largest is the memory model: every memory is a fitted abstract
+from one generator whose energy and leakage depend on the memory's
+shape, which replaced FakeRAM2.0's one-number-for-every-shape views and
+moved the cacheless points by TBD_SWITCH % (§5.1, §8.6). One model
+applied uniformly is something a comparison survives and two models is
+not, which is why every memory on every point is on it. ibex is
+measured with
+`ICache=0`, which §5.1 shows is the right configuration rather than an
 omission. The simulation is zero-delay and so carries no glitch power;
 the parasitics are estimated rather than extracted, worth 2.05 % of the
-total on the one point measured against extraction ([§5.3](#53-estimated-not-extracted-parasitics--one-point-measured)); and the
+total on the one point measured against extraction (§5.3); and the
 corner is ASAP7's best case. Every core is built at a period derived
-from its own register-to-register slack ([§5.5](#55-frequency-and-what-deriving-it-changed)). [§4.8](#48-cross-checks-against-the-nearest-published-studies) checks the numbers against the
-three nearest published studies, measures the one disagreement down to
-the netlist, and reports what is left unexplained.
+from its own register-to-register slack (§5.5). §4.8 checks the numbers against the three nearest published
+studies, measures the one disagreement down to the netlist, and reports
+what is left unexplained.
 
 ---
 
@@ -764,11 +767,10 @@ them is what dominates its Joule. Every point meets the study's boundary
 during the iteration measured.
 
 The reader is cautioned on two things instead. Every memory here is a
-FakeRAM abstract, and FakeRAM's ASAP7 views charge the same switching
-energy and the same leakage for every shape -- so 57--72 % of each
-point's power comes from a model that does not know how big the memory
-is ([§5.1](#51-the-boundary-met-and-what-it-cost)). And CoreMark/Joule is not a discriminating axis across these
-four: [§4.6](#46-is-the-shape-real-the-boundary-and-the-memory-model) shows it within 1.26x of proportional to CoreMark/MHz over
+fitted abstract, and TBD_MEMPCT % of each point's power comes from a
+model whose fit is a first-order anchor rather than a characterised
+library (§5.1). And CoreMark/Joule is not a discriminating axis across these
+four: §4.6 shows it within 1.26x of proportional to CoreMark/MHz over
 the three cacheless cores, for reasons that are a property of the
 platform's memory model rather than of the designs.
 
@@ -1055,20 +1057,18 @@ periods widened the power spread to 2.28x without widening $f/P$: two
 cores doubled their frequency and their power followed, which is [§2.3](#23-why-coremarkjoule-falls-as-coremarksecond-rises)'s
 cancellation observed.
 
-**The line is the platform's memory model.** Every memory in this
-study is a FakeRAM abstract, and FakeRAM's ASAP7 views carry *one*
-switching energy and *one* leakage number for every shape, from 64x21 to
-256x256 ([§5.1](#51-the-boundary-met-and-what-it-cost)). Those macros are 57--72 % of each point's power ([§4.7](#47-where-the-power-goes)).
-So the dominant term is proportional to how often a core touches memory
-and how many macros it has, and is independent of how much memory it
-has. Three cores running the same benchmark out of the same number of
-macros differ mostly in access rate, and the axis reflects that.
+**The line is the memory model.** Every memory in this study is on
+one shape-aware model (§8.6), and the macros are TBD_MEMPCT % of each
+point's power (§4.7). The three cacheless cores run the same benchmark
+out of the same two memories, so what separates them is access rate and
+the model's per-access energy for a memory of the right size, and the
+axis reflects that.
 
 The same model is applied to all four points, so what the comparison
 says about the cores is not confounded by the memory being modelled
 differently for each of them; but it makes CoreMark/Joule a
-non-discriminating axis among cores of this class until the model knows
-how large a memory is ([§8.6](#86-a-memory-model-that-knows-its-size)).
+non-discriminating axis among cores of this class, because the term
+that dominates every point is the same memory on every cacheless core.
 
 **Two caveats.** No slope or $R^2$ is reported for three or four
 points: with one degree of freedom they would be numbers without
@@ -1159,13 +1159,13 @@ performance per clock.** The three figures are the rows above added up. The memo
 a core is big enough to have one worth having.
 
 **A caveat on the macro column specifically.** Every row's macro figure
-comes from FakeRAM, and FakeRAM's ASAP7 views carry one switching energy
-and one leakage number for every shape ([§5.1](#51-the-boundary-met-and-what-it-cost)). So the column is
-proportional to how often each core touches memory and how many macros
-it has, and carries no information about how large those memories are.
-All four rows are equally affected, which is the point of putting them
-on one generator -- but it means this column measures access behaviour,
-not memory cost.
+comes from one fitted model (§5.1, §8.6), whose Liberty charges each
+memory's read-write energy on every clock edge whatever the enable
+does. So the column scales with the memory's shape and with clock
+cycles, not with accesses; a core that idles its memory for a cycle
+pays for the cycle. All four rows are equally affected, which is the
+point of putting them on one generator -- but it means this column
+measures memory size times cycles, not accesses.
 
 This is the SRAM-against-logic split [§8.1](#81-deep-physical-metrics) asks for, arriving early
 because [§5.1](#51-the-boundary-met-and-what-it-cost) put something in the macro column for every core.
@@ -1414,11 +1414,11 @@ SERV's 41 million cycles per iteration are 41 million accesses to it.
 
 **The three cacheless cores harden the memory they run out of.**
 Each tile -- `cmj_serv`, `cmj_picorv32`, `cmj_ibex` -- contains the core
-plus a 32 kB instruction memory and an 8 kB data memory, both generated
-as FakeRAM2.0 abstracts through ORFS's `AUTO_MEMORIES` path, from the
-geometry in `flow/cmj_progmem.memories` (`rtl/cmj_progmem.sv` is the
-simulation view),
-both placed and routed with the core, and both inside what `DESIGN_NAME`
+plus a 32 kB instruction memory and an 8 kB data memory, both SRAMs of
+`rtl/cmj_sram_models.sv` with LEF and Liberty from
+`tools/memory_macro_scaler` (§8.6; `rtl/cmj_progmem.sv` is the wiring
+between the core's bus and the SRAM), both placed and routed with the
+core, and both inside what `DESIGN_NAME`
 names and therefore inside what `report_power` totals.
 
 Table 8. What the boundary is worth: each core measured with its memory
@@ -1472,12 +1472,10 @@ design intention.
 
 **What is still open, and it is not small.**
 
-*The memory model does not know how big the memories are.* Every macro
-in this study is a FakeRAM abstract, generated by the same tool that
-produced the platform's own `fakeram7_*` views -- deliberately, because
-the memory is 57--72 % of every point's power and a cross-core energy
-comparison cannot afford to have its largest term come from two
-different models. But FakeRAM's ASAP7 backend emits **one** switching
+*The memory model is fitted, and switching it moved every cacheless
+point.* When this section was first written every macro was a FakeRAM
+abstract, generated by the tool that produced the platform's own
+`fakeram7_*` views, and FakeRAM's ASAP7 backend emits **one** switching
 energy and **one** leakage number for every shape it is asked for:
 
 | shipped shape | area | `cell_leakage_power` | `clk` `internal_power` |
@@ -1487,19 +1485,23 @@ energy and **one** leakage number for every shape it is asked for:
 | `fakeram7_256x256` | 2,751.9 um^2 | 128.9 | 1.345 |
 | `fakeram7_2048x39` | 3,353.9 um^2 | 128.9 | 1.345 |
 
-Area scales; energy and leakage do not. A 256x256 memory is charged
-exactly what a 64x21 is charged, per access and at rest. The name is
-honest -- it is a fake RAM, built to produce a floorplannable macro
-rather than to measure energy -- and the study uses it anyway because
-*uniformly wrong* is a property a comparison can survive and *wrong in
-two different ways* is not.
+Area scaled; energy and leakage did not, so halving every memory would
+have moved no number in the paper. §8.6 replaced it with
+`tools/memory_macro_scaler`, one model for every memory on every point,
+whose read energy, write energy and leakage follow rows and bits. What
+the switch alone did, at unchanged periods and floorplans:
 
-What that costs, stated plainly: the macro column of [§4.7](#47-where-the-power-goes) measures how
-often each core touches memory and how many macros it has, and carries
-no information about how much memory each core has. Make the memories
-half the size and no number in this paper moves. That is the single
-largest thing standing between this study and an energy measurement,
-and it is being fixed in ORFS rather than worked around here.
+TBD_SWITCH_TABLE
+
+The three cacheless cores fell together, because they share the same
+two memories and the model charges the 32 kB instruction memory more
+than FakeRAM's flat number did; VeeR TBD_VEER_SWITCH. The scaler's own
+documentation calls its fit a first-order anchor with published
+residuals of about 25 % on SRAM area, and its Liberty charges the
+read-write energy on every clock edge whatever the enable does (§4.7).
+That is the caveat this paper now carries in place of FakeRAM's, and it
+is a smaller one: a model that is wrong by a bounded factor for every
+shape, rather than one that is blind to shape.
 
 *ibex is measured with `ICache=0`, and that is a finding rather than a
 gap.* Turning the cache on was built and measured, and it closes
@@ -1532,13 +1534,16 @@ Table 1 has that.
 A 1.54x energy penalty for no performance at all, and 9.5 mW of the
 11.2 mW rise is macro power. The mechanism is arithmetic: a cache hit
 reads both ways' tags and both ways' data, four macro accesses, in
-place of one access to the program memory -- and FakeRAM charges the
+place of one access to the program memory -- and FakeRAM charged the
 same energy per access whatever the memory's size. Four small accesses
 therefore cost four times one large one. In silicon they cost a
 fraction of it, and that difference is the entire reason caches exist.
-**Under this memory model a cache can only ever lose**, so the 1.54x
-is not a measurement of ibex's cache; it is a measurement of the model,
-and the sharpest one in this paper.
+**Under that memory model a cache could only ever lose**, so the 1.54x
+was not a measurement of ibex's cache; it was a measurement of the
+model. Both rows predate §8.6's shape-aware model, under which the four
+small accesses cost less than the one large one; re-measuring this table
+under it is the experiment the old model could not run, and it is not
+yet done.
 
 Both configurations are kept.
 `//test/coremark_joule/designs/asap7/ibex_icache` builds the cache
@@ -2094,24 +2099,31 @@ history should be read first: it has carried fixes in this area before —
 name escaping, and the `-hier` flow — so the fix may already exist, and a
 bump is cheaper than a report.
 
-### 5.13 One run, one seed: no error bar
+### 5.13 Five placement seeds behind every point
 
-Every number in Table 1 is one flow run at the platform's default
-placement seed and one gate-level simulation. Re-running it reproduces
-the digits, because every input is pinned and the flow is deterministic
-for fixed inputs, but that is repeatability, not uncertainty. The
-stage-variance study in this repository (bazel-orfs PR #866) found that
-the run-to-run noise of this flow is born at placement and propagates
-through every later stage, so the quantity a reader needs -- how far the
-power of the same design moves when only the placement seed changes --
-is not zero, and it is not measured here.
+Every number in Table 1 was, until this section, one flow run at the
+platform's default placement seed and one gate-level simulation.
+Re-running it reproduces the digits, because every input is pinned and
+the flow is deterministic for fixed inputs, but that is repeatability,
+not uncertainty. The stage-variance study in this repository (bazel-orfs
+PR #866) found that the run-to-run noise of this flow is born at
+placement and propagates through every later stage, so the quantity a
+reader needs is how far the same design's power moves when only the
+placement seed changes.
 
-What would measure it: several seeds per core through the same chain,
-the SAIF re-captured on each netlist, and the spread reported as $2\sigma$ with
-error bars on Figure 1. The three cacheless cores cost minutes a point;
-VeeR costs more. Until it exists, a difference between two points
-smaller than that spread is not a difference, and the paper does not yet
-know how large the spread is. **Not yet measured.**
+It is now measured. Each core is placed five times -- the design's own
+draw, which every audit and sweep in this paper was run on and which
+stays the pinned point, plus `GPL_RANDOM_SEED` 11 through 14 -- from the
+same synthesis and floorplan, and each draw goes through the whole
+chain: global route, netlist, gate-level CoreMark, SAIF over the same
+hot iteration, `report_power`. The spread is reported as 2σ over the
+five, beside the point in Table 1 and as error bars on Figure 1.
+
+TBD_SEED_TABLE
+
+TBD_SEED_PROSE At five runs per arm the resolvable difference between
+two points is `2σ·sqrt(2/5)`, and a difference inside it is *did not
+resolve*, never *no effect*.
 
 ---
 
@@ -2381,24 +2393,26 @@ minutes, which is why it is here and not in [§5.3](#53-estimated-not-extracted-
 deliberately congested variant of one core, since a sweep over four
 uncongested designs would mostly re-measure the same regime four times.
 
-### 8.6 A memory model that knows its size
+### 8.6 A memory model that knows its size -- done
 
-The largest limitation on the title page has a candidate fix in this
-repository, not yet applied.
-`tools/memory_macro_scaler` emits Liberty views whose read energy, write
-energy and leakage are fitted to the memory's rows and bits after
-CACTI's access-path decomposition, where FakeRAM2.0 emits one number for
-every shape. Switching every memory in the study to it -- the two
-program memories of the cacheless tiles, VeeR's DCCM and cache arrays,
-and the `ibex_icache` variant -- would make the 57--72 % macro column of
-[§4.7](#47-where-the-power-goes) depend on how much memory each core has, and would turn [§5.1](#51-the-boundary-met-and-what-it-cost)'s
-cache table into a real experiment. It is one model applied to all four
-cores, which is the property [§5.1](#51-the-boundary-met-and-what-it-cost) insists on; what it costs is that
-every number in the paper moves at once, so it is done as one
-re-baseline together with [§8.3](#83-a-second-period-pass)'s second pass and the repeats [§5.13](#513-one-run-one-seed-no-error-bar)
-asks for, not piecemeal. The scaler's own documentation calls its fit a
-first-order anchor, and the paper that uses it will carry that caveat in
-place of FakeRAM's.
+The largest limitation on the first version's title page had a fix in
+this repository, and it is applied. `tools/memory_macro_scaler` emits
+Liberty views whose read energy, write energy and leakage are fitted to
+the memory's rows and bits after CACTI's access-path decomposition, where
+FakeRAM2.0 emitted one number for every shape. Every memory in the study
+-- the two program memories of the cacheless tiles, VeeR's DCCM bank and
+cache arrays, and the `ibex_icache` variant's tag and data arrays -- is
+now one behavioural module in `rtl/cmj_sram_models.sv`, which the
+simulators read for the gate-level runs and the scaler reads for the
+views, so the two cannot disagree about a shape. §5.1 reports what the
+switch moved. It was done as one re-baseline with §8.3's second pass and
+§5.13's repeats, so every number in the paper moved once.
+
+What it did not do: the scaler's Liberty charges the read-write energy
+on every clock edge regardless of the enable (§4.7), and its fit is a
+first-order anchor with about 25 % residuals on SRAM area. A
+characterised memory compiler for ASAP7 would retire both; none is
+open.
 
 ### 8.7 Reproducing a published CoreMark/MHz to the instruction
 

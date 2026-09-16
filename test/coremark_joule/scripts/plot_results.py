@@ -100,6 +100,21 @@ def plot(document, out_path, commodity=None):
             zorder=3,
             label="asap7, grt, core + L1 hardened",
         )
+        # §5.13: 2σ over the placement-seed ensemble, where a point has
+        # one. A point without a bar has not been measured for spread,
+        # which is different from having none.
+        with_bars = [p for p in met if p.get("coremark_per_joule_2sigma")]
+        if with_bars:
+            ax.errorbar(
+                [p["coremark_per_mhz"] for p in with_bars],
+                [p["coremark_per_joule"] for p in with_bars],
+                yerr=[p["coremark_per_joule_2sigma"] for p in with_bars],
+                fmt="none",
+                ecolor="tab:blue",
+                elinewidth=1.2,
+                capsize=4,
+                zorder=2,
+            )
     for p in points:
         ax.annotate(
             "{} ({})".format(p["core"], p["isa"]),

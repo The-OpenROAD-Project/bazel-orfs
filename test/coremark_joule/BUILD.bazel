@@ -4,6 +4,7 @@
 # numbers into a committed file means iterating on a plot never re-runs a
 # flow, and a number that changes shows up as a line in a pull request.
 load("@rules_python//python:defs.bzl", "py_binary")
+load("//test/coremark_joule/flow:seeds.bzl", "SEEDS")
 
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 
@@ -20,12 +21,32 @@ py_binary(
         "$(location //test/coremark_joule/sim:point_serv_rv32i)",
         "$(location //test/coremark_joule/sim:point_ibex_rv32imc)",
         "$(location //test/coremark_joule/sim:point_veer_rv32imc)",
+    ] + [
+        # §5.13: the other four placement draws of every core, as samples
+        # beside its point.
+        "--sample $(location //test/coremark_joule/sim:point_{}_seed{})".format(p, seed)
+        for p in [
+            "picorv32_rv32im",
+            "serv_rv32i",
+            "ibex_rv32imc",
+            "veer_rv32imc",
+        ]
+        for seed in SEEDS
     ],
     data = [
         "//test/coremark_joule/sim:point_ibex_rv32imc",
         "//test/coremark_joule/sim:point_picorv32_rv32im",
         "//test/coremark_joule/sim:point_serv_rv32i",
         "//test/coremark_joule/sim:point_veer_rv32imc",
+    ] + [
+        "//test/coremark_joule/sim:point_{}_seed{}".format(p, seed)
+        for p in [
+            "picorv32_rv32im",
+            "serv_rv32i",
+            "ibex_rv32imc",
+            "veer_rv32imc",
+        ]
+        for seed in SEEDS
     ],
     main = "//test/coremark_joule/scripts:pin_results.py",
     tags = ["manual"],

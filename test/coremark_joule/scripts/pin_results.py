@@ -18,6 +18,7 @@ Usage (via the generated target):
 
 import argparse
 import json
+import math
 import os
 import sys
 
@@ -141,6 +142,67 @@ def load_points(paths):
     return sorted(points, key=lambda p: (p["core"], p["isa"]))
 
 
+def two_sigma(values):
+    """Twice the sample standard deviation; zero for a single value.
+
+    §5.13: the spread is reported as 2σ, and the resolvable difference at
+    k runs per arm is 2σ·sqrt(2/k). A single run's 2σ is zero, which is
+    honest -- it says nothing has been measured about the spread.
+    """
+    n = len(values)
+    if n < 2:
+        return 0.0
+    mean = sum(values) / n
+    var = sum((v - mean) ** 2 for v in values) / (n - 1)
+    return 2.0 * math.sqrt(var)
+
+
+def attach_samples(points, sample_paths):
+    """Fold placement-seed samples into the point they belong to.
+
+    Each sample is a point JSON from a seed variant of the same core
+    (§5.13). The pinned point stays the design's own draw -- seed 1, the
+    one every audit and sweep in the paper was run on -- and carries the
+    ensemble beside it: every sample's power and CoreMark/Joule, the
+    seed count, and 2σ of each, so a difference between two points can be
+    read against the spread that would swallow it.
+    """
+    by_core = {(p["core"], p["isa"]): p for p in points}
+    for path in sample_paths:
+        with open(path) as f:
+            sample = json.load(f)
+        key = (sample["core"], sample["isa"])
+        if key not in by_core:
+            raise SystemExit(
+                "pin_results: sample {} names a core with no point".format(path)
+            )
+        by_core[key].setdefault("seed_samples", []).append(
+            {
+                "power_w": sample["power_w"],
+                "coremark_per_joule": sample["coremark_per_joule"],
+                "dynamic_power_w": sample.get("dynamic_power_w"),
+                "leakage_power_w": sample.get("leakage_power_w"),
+            }
+        )
+    for p in points:
+        samples = [
+            {
+                "power_w": p["power_w"],
+                "coremark_per_joule": p["coremark_per_joule"],
+                "dynamic_power_w": p.get("dynamic_power_w"),
+                "leakage_power_w": p.get("leakage_power_w"),
+            }
+        ] + p.pop("seed_samples", [])
+        if len(samples) > 1:
+            p["seeds"] = len(samples)
+            p["seed_samples"] = samples
+            p["power_2sigma_w"] = two_sigma([x["power_w"] for x in samples])
+            p["coremark_per_joule_2sigma"] = two_sigma(
+                [x["coremark_per_joule"] for x in samples]
+            )
+    return points
+
+
 def load_pending(paths):
     """Configurations with an x-coordinate but no y, and why.
 
@@ -171,6 +233,14 @@ def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("points", nargs="+", help="per-point JSON files")
     parser.add_argument(
+        "--sample",
+        action="append",
+        default=[],
+        metavar="JSON",
+        help="a seed variant's point JSON, folded into the matching core's "
+        "point as one sample of its placement-seed ensemble (§5.13)",
+    )
+    parser.add_argument(
         "--pending",
         action="append",
         default=[],
@@ -189,7 +259,7 @@ def main(argv):
         )
         return 1
 
-    points = load_points(args.points)
+    points = attach_samples(load_points(args.points), args.sample)
     pending = load_pending(args.pending)
     out = os.path.join(root, RESULTS)
 
@@ -250,12 +320,19 @@ def main(argv):
         for p in points:
             print(
                 "  {:9s} {:8s} {:9.4f} CoreMark/MHz  {:7.2f} mW  "
-                "{:>9,.0f} CoreMark/J".format(
+                "{:>9,.0f} CoreMark/J{}".format(
                     p["core"],
                     p["isa"],
                     p["coremark_per_mhz"],
                     p["power_w"] * 1e3,
                     p["coremark_per_joule"],
+                    (
+                        "  ±{:,.0f} (2σ, {} seeds)".format(
+                            p["coremark_per_joule_2sigma"], p["seeds"]
+                        )
+                        if "seeds" in p
+                        else ""
+                    ),
                 )
             )
         for p in pending:

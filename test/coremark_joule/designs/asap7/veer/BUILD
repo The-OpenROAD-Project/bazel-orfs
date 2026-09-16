@@ -1,10 +1,24 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
 load("//test/coremark_joule/flow:power.bzl", "dup_inst_probe", "grt_netlist", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power", "stage_power_units")
+load("//test/coremark_joule/flow:seeds.bzl", "seed_variants")
 
 exports_files(["constraints.sdc"])
 
 design(
     config = "config.mk",
+    # §5.13's placement-seed ensemble: four more draws of global placement
+    # from this design's own floorplan, each taken through the same SAIF
+    # and power chain as the design itself.
+    extra = seed_variants(
+        # write_verilog's non-injective name mapping (§5.12). One collision on
+        # the FakeRAM floorplan, two on the scaler's -- both clock-gate
+        # latches -- and the seed variants will each draw their own. Four is
+        # a budget the ensemble can live under; the paper reports the count
+        # measured on the pinned design.
+        max_renames = 4,
+        saif_prefix = "//test/coremark_joule/sim:veer_rv32imc",
+        saif_scope = "TOP/cm_soc/rvtop",
+    ),
     # Stages VeeR's own include fragments and the committed
     # configuration's headers into the sandbox for VERILOG_INCLUDE_DIRS,
     # without handing either to the frontend.
@@ -26,7 +40,12 @@ design(
 grt_netlist(
     name = "swerv_wrapper_grt_netlist",
     src = ":swerv_wrapper_grt",
-    max_renames = 1,
+    # write_verilog's non-injective name mapping (§5.12). One collision on
+    # the FakeRAM floorplan, two on the scaler's -- both clock-gate
+    # latches -- and the seed variants will each draw their own. Four is
+    # a budget the ensemble can live under; the paper reports the count
+    # measured on the pinned design.
+    max_renames = 4,
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 

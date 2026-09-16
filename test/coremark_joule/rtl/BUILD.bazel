@@ -6,6 +6,7 @@
 # the file name is what selects which one is built.
 load("@bazel-orfs//tools/lib_to_verilog:lib_to_verilog.bzl", "stdcell_verilog")
 load("@rules_verilog//verilog:defs.bzl", "verilog_library")
+load("//test/coremark_joule/flow:seeds.bzl", "SEEDS")
 
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 
@@ -278,3 +279,60 @@ verilog_library(
         ":cmj_sram_models",
     ],
 )
+
+# §5.13's placement-seed ensemble: the same wrappers around each seed
+# variant's global-route netlist. Only the netlist differs from the
+# core's own *_gate library.
+[
+    verilog_library(
+        name = "cm_soc_{}_seed{}_gate".format(core, seed),
+        srcs = [
+            wrapper,
+            "//test/coremark_joule/designs/asap7/{}:{}_seed{}_grt_netlist.v".format(pkg, top, seed),
+        ],
+        deps = deps,
+    )
+    for core, pkg, top, wrapper, deps in [
+        (
+            "picorv32",
+            "picorv32",
+            "cmj_picorv32",
+            "cm_soc_picorv32.v",
+            [
+                ":asap7_stdcells",
+                ":cmj_progmem",
+            ],
+        ),
+        (
+            "serv",
+            "serv",
+            "cmj_serv",
+            "cm_soc_serv.v",
+            [
+                ":asap7_stdcells",
+                ":cmj_progmem",
+            ],
+        ),
+        (
+            "ibex",
+            "ibex",
+            "cmj_ibex",
+            "cm_soc_ibex.sv",
+            [
+                ":asap7_stdcells",
+                ":cmj_progmem",
+            ],
+        ),
+        (
+            "veer",
+            "veer",
+            "swerv_wrapper",
+            "cm_soc_veer.sv",
+            [
+                ":asap7_stdcells",
+                ":cmj_sram_models",
+            ],
+        ),
+    ]
+    for seed in SEEDS
+]

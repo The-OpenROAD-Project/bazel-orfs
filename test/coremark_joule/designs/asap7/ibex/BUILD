@@ -1,11 +1,20 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
 load("//test/coremark_joule/flow:power.bzl", "flop_power_probe", "grt_netlist", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power")
+load("//test/coremark_joule/flow:seeds.bzl", "seed_variants")
 load("//test/coremark_joule/scripts:synth_crosscheck.bzl", "synth_crosscheck")
 
 exports_files(["constraints.sdc"])
 
 design(
     config = "config.mk",
+    # §5.13's placement-seed ensemble: four more draws of global placement
+    # from this design's own floorplan, each taken through the same SAIF
+    # and power chain as the design itself.
+    extra = seed_variants(
+        max_renames = 0,
+        saif_prefix = "//test/coremark_joule/sim:ibex_rv32imc",
+        saif_scope = "TOP/cm_soc/cpu",
+    ),
     # Stages the vendored OpenTitan headers into the sandbox for
     # VERILOG_INCLUDE_DIRS without handing them to the frontend.
     user_sources = ["IBEX_HEADERS"],

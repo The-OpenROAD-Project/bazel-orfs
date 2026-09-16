@@ -7,6 +7,7 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary")
 load("@rules_shell//shell:sh_binary.bzl", "sh_binary")
 load("@rules_verilator//verilator:defs.bzl", "verilator_cc_library")
+load("//test/coremark_joule/flow:seeds.bzl", "SEEDS")
 load(
     "//test/coremark_joule/sim:run.bzl",
     "bus_traffic",
@@ -650,12 +651,16 @@ coremark_saif(
     # Matches designs/asap7/veer/constraints.sdc.
     constraints = "//test/coremark_joule/designs/asap7/veer:constraints.sdc",
     image = ":coremark_veer_rv32imc_3_hex",
-    # 5,284 of 1,002,201 net entries carry OpenROAD's hierarchy separator
-    # in their name and no SAIF can hold them. 5,283 are clknet_*; the one
-    # that is not is clonenet_1_..._clkhdr.clkhdr.Q -- a cloned clock-gate
-    # output, so a clock net named by the resizer's cloning pass rather
-    # than by CTS. Declared rather than budgeted away.
-    max_other_dropped = 1,
+    # About 9,300 net entries carry OpenROAD's hierarchy separator in
+    # their name and no SAIF can hold them. All but a handful are
+    # clknet_*; the rest are clonenet_* -- clock-gate outputs and flop
+    # clock nets the resizer's cloning pass named rather than CTS -- so
+    # they are clock-network nets OpenSTA gives 2/period, and being
+    # unannotated is their correct state (§3.5). One on the FakeRAM
+    # floorplan, two on the scaler's; the seed variants each draw their
+    # own. Four is the budget; the pinned design's count is what §5.12
+    # reports.
+    max_other_dropped = 4,
     run_2 = "veer_rv32imc_2",
     run_3 = "veer_rv32imc_3",
     sim = ":cm_sim_veer_gate",
@@ -676,3 +681,57 @@ coremark_per_joule(
     per_mhz = ":veer_rv32imc_per_mhz",
     power = "//test/coremark_joule/designs/asap7/veer:swerv_wrapper_grt_power",
 )
+
+# §5.13's placement-seed ensemble, end to end: a gate-level simulator on
+# each seed variant's netlist, its SAIF over the same hot iteration, and
+# its point. The RTL runs, the image and the SDC are the core's own, so
+# the only thing that differs between a seed's point and the core's is
+# the placement draw.
+SEED_CORES = [
+    # core, isa, design package, design top, boundary, other SAIF drops
+    ("picorv32", "rv32im", "picorv32", "cmj_picorv32", "core + L1: 32 kB instruction memory and 8 kB data memory, both hardened", 0),
+    ("serv", "rv32i", "serv", "cmj_serv", "core + L1: 32 kB instruction memory and 8 kB data memory, both hardened", 0),
+    ("ibex", "rv32imc", "ibex", "cmj_ibex", "core + L1: 32 kB instruction memory and 8 kB data memory, both hardened", 0),
+    ("veer", "rv32imc", "veer", "swerv_wrapper", "core + L1: 16 kB instruction cache and 64 kB DCCM, both hardened", 4),
+]
+
+[
+    [
+        verilator_cc_library(
+            name = "cm_soc_{}_seed{}_gate_lib".format(core, seed),
+            copts = _SIM_COPTS,
+            module = "//test/coremark_joule/rtl:cm_soc_{}_seed{}_gate".format(core, seed),
+            module_top = "cm_soc",
+            tags = ["manual"],
+            trace_mode = "saif",
+            vopts = _SIM_VOPTS + _GATE_VOPTS,
+        ),
+        cc_binary(
+            name = "cm_sim_{}_seed{}_gate".format(core, seed),
+            srcs = ["main.cc"],
+            copts = _SIM_COPTS,
+            tags = ["manual"],
+            deps = [":cm_soc_{}_seed{}_gate_lib".format(core, seed)],
+        ),
+        coremark_saif(
+            name = "{}_{}_seed{}_saif".format(core, isa, seed),
+            constraints = "//test/coremark_joule/designs/asap7/{}:constraints.sdc".format(pkg),
+            image = ":coremark_{}_3_hex".format("veer_rv32imc" if core == "veer" else isa),
+            max_other_dropped = dropped,
+            run_2 = "{}_{}_2".format(core, isa),
+            run_3 = "{}_{}_3".format(core, isa),
+            sim = ":cm_sim_{}_seed{}_gate".format(core, seed),
+        ),
+        coremark_per_joule(
+            name = "point_{}_{}_seed{}".format(core, isa, seed),
+            boundary = boundary,
+            constraints = "//test/coremark_joule/designs/asap7/{}:constraints.sdc".format(pkg),
+            core = core,
+            isa = isa,
+            per_mhz = ":{}_{}_per_mhz".format(core, isa),
+            power = "//test/coremark_joule/designs/asap7/{}:{}_seed{}_grt_power".format(pkg, top, seed),
+        ),
+    ]
+    for core, isa, pkg, top, boundary, dropped in SEED_CORES
+    for seed in SEEDS
+]

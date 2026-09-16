@@ -1,10 +1,19 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
 load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "hier_probe", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power", "stage_power_units")
+load("//test/coremark_joule/flow:seeds.bzl", "seed_variants")
 
 exports_files(["constraints.sdc"])
 
 design(
     config = "config.mk",
+    # §5.13's placement-seed ensemble: four more draws of global placement
+    # from this design's own floorplan, each taken through the same SAIF
+    # and power chain as the design itself.
+    extra = seed_variants(
+        max_renames = 0,
+        saif_prefix = "//test/coremark_joule/sim:serv_rv32i",
+        saif_scope = "TOP/cm_soc/cpu",
+    ),
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 
