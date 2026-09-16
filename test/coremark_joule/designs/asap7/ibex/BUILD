@@ -17,6 +17,41 @@ grt_netlist(
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 
+# 5.3's calibration point: what the parasitics estimate costs.
+#
+# The study reports every number at global route, where parasitics are
+# predicted from the global routes rather than extracted. These two
+# targets put a size on that choice, and they are a pair on purpose:
+# same 6_final ODB, same SAIF, same everything -- one reads the
+# extracted SPEF, the other calls estimate_parasitics -global_routing on
+# the very netlist the SPEF describes. The difference between them is
+# the parasitics model alone.
+#
+# Comparing the extracted number against the reported grt number is the
+# other half, and answers a different question: what screening before
+# detailed route costs end to end, netlist changes included.
+#
+# One design. 5.3 says why a sweep over all four is further work rather
+# than a result.
+stage_power(
+    name = "cmj_ibex_final_power_extracted",
+    src = ":cmj_ibex_final",
+    saif = "//test/coremark_joule/sim:ibex_rv32imc_saif",
+    saif_scope = "TOP/cm_soc/cpu",
+    spef = "6_final.spef",
+    stage = "final",
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+stage_power(
+    name = "cmj_ibex_final_power_estimated",
+    src = ":cmj_ibex_final",
+    saif = "//test/coremark_joule/sim:ibex_rv32imc_saif",
+    saif_scope = "TOP/cm_soc/cpu",
+    stage = "final",
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
 stage_power(
     name = "cmj_ibex_grt_power",
     src = ":cmj_ibex_grt",
