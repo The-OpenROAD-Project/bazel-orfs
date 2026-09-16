@@ -28,6 +28,8 @@ import argparse
 import subprocess
 import sys
 
+import sdc_period
+
 
 def read_cycles(path):
     """Return (total_cycles, first_output_cycle) from a run's cycles file."""
@@ -77,15 +79,28 @@ def main(argv):
     parser.add_argument("--cycles-3", required=True)
     parser.add_argument("--saif", required=True)
     parser.add_argument("--max-cycles", default="2000000000")
-    parser.add_argument(
+    period = parser.add_mutually_exclusive_group(required=True)
+    period.add_argument(
         "--clk-period-ps",
-        default="1000",
         help="Clock period in picoseconds. The SAIF records real time, "
         "because OpenSTA reads it as transitions divided by duration; a "
         "period that disagrees with the SDC scales every toggle rate, and "
         "so the power, by the ratio between them.",
     )
+    period.add_argument(
+        "--clk-period-from-sdc",
+        help="the design's constraints.sdc, read for `set clk_period`. "
+        "Preferred: it is the same fact, so it cannot disagree. It did -- "
+        "after the periods were re-derived, every SAIF was still timed "
+        "against the old clock, and picorv32's toggle rates came out at "
+        "less than half their true value.",
+    )
     args = parser.parse_args(argv[1:])
+
+    clk_period_ps = args.clk_period_ps
+    if clk_period_ps is None:
+        with open(args.clk_period_from_sdc) as f:
+            clk_period_ps = str(sdc_period.period_ps(f.read()))
 
     cycles_2, _ = read_cycles(args.cycles_2)
     cycles_3, first_output_3 = read_cycles(args.cycles_3)
@@ -106,7 +121,7 @@ def main(argv):
             "+saif_start={}".format(start),
             "+saif_end={}".format(end),
             "+max_cycles=" + args.max_cycles,
-            "+clk_period_ps=" + args.clk_period_ps,
+            "+clk_period_ps=" + clk_period_ps,
         ],
         stdout=subprocess.DEVNULL,
     )

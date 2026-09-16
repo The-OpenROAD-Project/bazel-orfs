@@ -4,7 +4,7 @@
 # unit test: a study's arithmetic is worth no more than the parser
 # underneath it, and these parse output formats that upstream projects
 # are free to change.
-load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
 
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 
@@ -96,7 +96,13 @@ py_test(
 
 py_binary(
     name = "saif_window",
-    srcs = ["saif_window.py"],
+    srcs = [
+        "saif_window.py",
+        "sdc_period.py",
+    ],
+    # So `import sdc_period` resolves: bazel puts the runfiles root on
+    # sys.path, not this package's directory.
+    imports = ["."],
     main = "saif_window.py",
 )
 
@@ -106,7 +112,9 @@ py_test(
     srcs = [
         "saif_window.py",
         "saif_window_test.py",
+        "sdc_period.py",
     ],
+    imports = ["."],
     main = "saif_window_test.py",
 )
 
@@ -283,4 +291,24 @@ py_test(
         "fit_results_test.py",
     ],
     main = "fit_results_test.py",
+)
+
+# The one reader of the design's clock period. Every consumer of it --
+# the SAIF's time base, the reported frequency, the period tuner --
+# calls this rather than carrying its own copy, because two of those
+# copies drifted and neither failure was visible downstream.
+py_library(
+    name = "sdc_period",
+    srcs = ["sdc_period.py"],
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+py_test(
+    name = "sdc_period_test",
+    size = "small",
+    srcs = [
+        "sdc_period.py",
+        "sdc_period_test.py",
+    ],
+    main = "sdc_period_test.py",
 )

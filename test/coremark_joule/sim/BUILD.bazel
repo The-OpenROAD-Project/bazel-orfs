@@ -394,7 +394,7 @@ sh_binary(
 coremark_saif(
     name = "picorv32_rv32im_saif",
     # Matches designs/asap7/picorv32/constraints.sdc.
-    clk_period_ps = 1000,
+    constraints = "//test/coremark_joule/designs/asap7/picorv32:constraints.sdc",
     image = ":coremark_rv32im_3_hex",
     run_2 = "picorv32_rv32im_2",
     run_3 = "picorv32_rv32im_3",
@@ -406,7 +406,7 @@ coremark_saif(
 coremark_saif(
     name = "serv_rv32i_saif",
     # Matches designs/asap7/serv/constraints.sdc.
-    clk_period_ps = 700,
+    constraints = "//test/coremark_joule/designs/asap7/serv:constraints.sdc",
     image = ":coremark_rv32i_3_hex",
     run_2 = "serv_rv32i_2",
     run_3 = "serv_rv32i_3",
@@ -439,7 +439,7 @@ coremark_per_joule(
 coremark_saif(
     name = "ibex_rv32imc_saif",
     # Matches designs/asap7/ibex/constraints.sdc.
-    clk_period_ps = 1200,
+    constraints = "//test/coremark_joule/designs/asap7/ibex:constraints.sdc",
     image = ":coremark_rv32imc_3_hex",
     run_2 = "ibex_rv32imc_2",
     run_3 = "ibex_rv32imc_3",
@@ -604,7 +604,7 @@ cc_binary(
 coremark_saif(
     name = "veer_rv32imc_saif",
     # Matches designs/asap7/veer/constraints.sdc.
-    clk_period_ps = 1600,
+    constraints = "//test/coremark_joule/designs/asap7/veer:constraints.sdc",
     image = ":coremark_veer_rv32imc_3_hex",
     # 5,284 of 1,002,201 net entries carry OpenROAD's hierarchy separator
     # in their name and no SAIF can hold them. 5,283 are clknet_*; the one

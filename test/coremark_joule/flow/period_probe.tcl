@@ -100,6 +100,28 @@ if { $reg2reg_paths > 0 } {
     }
 }
 
+# Area alongside timing, because the two are the axes of the same
+# question. 8.4 plots frequency against area: a core asked for a tighter
+# period buys it with upsized cells, and the probe that reads the slack
+# is already holding the database that knows what they cost.
+#
+# Macros are separated rather than dropped. A hardened memory's area is
+# fixed by its shape and does not move with the period, so leaving it in
+# the total would flatten exactly the trend being plotted -- on SERV it
+# is most of the design.
+set block [ord::get_db_block]
+set dbu [[[ord::get_db] getTech] getDbUnitsPerMicron]
+set area_total 0.0
+set area_macro 0.0
+foreach inst [$block getInsts] {
+    set master [$inst getMaster]
+    set a [expr { [$master getWidth] * [$master getHeight] / (1.0 * $dbu * $dbu) }]
+    set area_total [expr { $area_total + $a }]
+    if { [$master isBlock] } {
+        set area_macro [expr { $area_macro + $a }]
+    }
+}
+
 set fh [open $::env(OUT) w]
 puts $fh "stage $::env(STAGE_STEM)"
 puts $fh "clock [get_name $clk]"
@@ -113,4 +135,8 @@ if { $reg2reg_ps ne "none" } {
     puts $fh "achieved_period_ps [expr { $period - $reg2reg_ps }]"
     puts $fh "achieved_mhz [expr { 1.0e6 / ($period - $reg2reg_ps) }]"
 }
+puts $fh "area_total_um2 $area_total"
+puts $fh "area_macro_um2 $area_macro"
+puts $fh "area_stdcell_um2 [expr { $area_total - $area_macro }]"
+puts $fh "instances [llength [$block getInsts]]"
 close $fh

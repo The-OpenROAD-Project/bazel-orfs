@@ -95,10 +95,10 @@ colour because it is not like-for-like (§4.4).
 
 | core | ISA | CoreMark/MHz | cycles/iter | f (MHz) | P (SAIF) | CoreMark/Joule |
 |---|---|---|---|---|---|---|
-| SERV | rv32i | 0.0243 | 41,202,900 | 2283.1 | 43.40 mW | 1,277 |
-| picorv32 | rv32im | 0.5531 | 1,807,889 | 2141.3 | 44.40 mW | 26,676 |
-| ibex | rv32imc | 2.4543 | 407,448 | 780.0 | 19.50 mW | 98,176 |
-| VeeR EH1 | rv32imc | 4.7979 | 208,425 | 628.5 | 86.50 mW | 34,863 |
+| SERV | rv32i | 0.0243 | 41,202,900 | 2283.1 | 44.30 mW | 1,251 |
+| picorv32 | rv32im | 0.5531 | 1,807,889 | 2141.3 | 45.70 mW | 25,918 |
+| ibex | rv32imc | 2.4543 | 407,448 | 780.0 | 19.00 mW | 100,760 |
+| VeeR EH1 | rv32imc | 4.7979 | 208,425 | 628.5 | 86.90 mW | 34,702 |
 
 **Table 1.** The four measured points, all at §3.1's boundary: the core
 and its L1, or the tightly-coupled memory that stands in for one. Every
@@ -685,7 +685,7 @@ FakeRAM abstract, and FakeRAM's ASAP7 views charge the same switching
 energy and the same leakage for every shape -- so 58--71 % of each
 point's power comes from a model that does not know how big the memory
 is (§5.1). And CoreMark/Joule is not a discriminating axis across these
-four: §4.6 shows it within 1.32x of proportional to CoreMark/MHz over
+four: §4.6 shows it within 1.26x of proportional to CoreMark/MHz over
 the three cacheless cores, for reasons that are a property of the
 platform's memory model rather than of the designs.
 
@@ -723,10 +723,10 @@ zero rather than keep it (§3.5).
 
 | core | SAIF arm spread | vectorless arm spread | vectorless at OpenSTA's default | measured |
 |---|---|---|---|---|
-| SERV | **0.0000 %** | 24.04 % | 47.02 mW | 43.423 mW |
-| picorv32 | **0.0000 %** | 86.27 % | 67.65 mW | 44.430 mW |
-| ibex | **0.0000 %** | 173.08 % | 35.61 mW | 19.464 mW |
-| VeeR EH1 | **0.0000 %** | 474.61 % | 54.66 mW | 86.504 mW |
+| SERV | **0.0000 %** | 24.04 % | 47.02 mW | 44.258 mW |
+| picorv32 | **0.0000 %** | 86.27 % | 67.65 mW | 45.674 mW |
+| ibex | **0.0000 %** | 173.08 % | 35.61 mW | 18.966 mW |
+| VeeR EH1 | **0.0000 %** | 474.61 % | 54.66 mW | 86.947 mW |
 
 **Table 3.** Total power as the default activity seeded into
 unannotated roots is swept over 0.0, 0.1, 1.0 and 2.0 toggles per clock
@@ -773,7 +773,7 @@ annotated — and it moves the annotated result by zero.
 **VeeR is the case that shows why the sweep, not the audit, is the
 claim.** It is the one design with pins unaccounted for — 1.0128 % of
 its pin set — and its SAIF arm is still bit-identical at
-8.6504e-02 W across the whole sweep, while its vectorless arm runs
+8.6947e-02 W across the whole sweep, while its vectorless arm runs
 21.7 mW to 124.8 mW. The sweep does not care why a pin is unannotated:
 it varies the default the estimator would use for every one of them at
 once. Those 7,648 pins are worth exactly nothing to the reported number,
@@ -927,12 +927,12 @@ direct test, and it splits cleanly.
 
 | | before §5.1 | after §5.1 | after §8.3 |
 |---|---|---|---|
-| extrapolation to VeeR overpredicts by | 15.2x | 5.53x | **5.54x** |
-| slope, three cacheless cores | 0.868 | 0.954 | **0.946** |
-| R^2 of that fit | 0.999 | 0.9997 | **0.9994** |
-| `f/P` spread, those three | 1.89x | 1.26x | **1.32x** |
-| power spread, those three | 1.15x | 1.36x | **2.28x** |
-| slope, all four | 0.535 | 0.745 | **0.736** |
+| extrapolation to VeeR overpredicts by | 15.2x | 5.53x | **5.64x** |
+| slope, three cacheless cores | 0.868 | 0.954 | **0.954** |
+| R^2 of that fit | 0.999 | 0.9997 | **0.9998** |
+| `f/P` spread, those three | 1.89x | 1.26x | **1.26x** |
+| power spread, those three | 1.15x | 1.36x | **2.41x** |
+| slope, all four | 0.535 | 0.745 | **0.742** |
 | R^2, all four | 0.561 | 0.862 | **0.859** |
 
 The third column is the same four points measured at derived periods
@@ -950,7 +950,7 @@ cacheless cores and the one compliant one, exactly as claimed, and that
 part of §5.1 is now a measured correction rather than an argument.
 
 **The degeneracy did not go away. It got worse.** The line among the
-three is *tighter* than before -- slope 0.946, `f/P` spanning **1.32x**
+three is *tighter* than before -- slope 0.954, `f/P` spanning **1.26x**
 across 101x of performance, against 1.89x. The diagnosis was right about
 the cause and wrong about the consequence: removing the old reason for
 the degeneracy installed a new one.
@@ -958,7 +958,7 @@ the degeneracy installed a new one.
 **The new reason is the platform's memory model.** Every memory in this
 study is a FakeRAM abstract, and FakeRAM's ASAP7 views carry *one*
 switching energy and *one* leakage number for every shape, from 64x21 to
-256x256 (§5.1). Those macros are 57--72 % of each point's power (§4.7).
+256x256 (§5.1). Those macros are 59--71 % of each point's power (§4.7).
 So the dominant term is proportional to how often a core touches memory
 and how many macros it has, and is independent of how much memory it
 has. Three cores running the same benchmark out of the same number of
@@ -994,15 +994,15 @@ The present data still cannot separate a real law from the memory
 model's flatness, and says so.
 
 **Where the four points actually land.** VeeR delivers **1.95x** ibex's
-performance per clock at **0.35x** its CoreMark/Joule, drawing 4.44x
+performance per clock at **0.34x** its CoreMark/Joule, drawing 4.57x
 the power. Before §5.1 the same comparison read 0.124x and 11.8x. The
 conclusion a reader would have drawn from the old numbers -- that the
 minimal cores dominate the energy metric -- does not survive the
 correction; the conclusion available from the new ones is much weaker,
 which is the honest state of the evidence.
 
-**A corroboration, still carefully.** VeeR at 34,863 CoreMark/Joule
-lands **1.19x to 1.29x** above the GF 22 FDX series of §4.4
+**A corroboration, still carefully.** VeeR at 34,702 CoreMark/Joule
+lands **1.18x to 1.28x** above the GF 22 FDX series of §4.4
 (27,108--29,412); ibex sits 3.4x above it. That is a consistency check between cores
 measured at a stated core-plus-L1 boundary on different nodes with
 different tools, and it is worth more now that three of this study's
@@ -1019,16 +1019,16 @@ not evenly distributed.
 
 | core | total | Clock | Sequential | Combinational | **Macro** |
 |---|---|---|---|---|---|
-| SERV | **43.40 mW** | 6.25 (14.4 %) | 4.49 (10.3 %) | 1.33 (3.1 %) | **31.40 (72.4 %)** |
-| picorv32 | **44.40 mW** | 8.04 (18.1 %) | 6.01 (13.5 %) | 0.92 (2.1 %) | **29.50 (66.4 %)** |
-| ibex | **19.50 mW** | 3.13 (16.1 %) | 2.64 (13.5 %) | 2.53 (13.0 %) | **11.20 (57.4 %)** |
-| VeeR EH1 | **86.50 mW** | 25.60 (29.6 %) | 6.91 (8.0 %) | 3.33 (3.8 %) | **50.70 (58.6 %)** |
+| SERV | **44.30 mW** | 6.25 (14.1 %) | 4.53 (10.2 %) | 2.12 (4.8 %) | **31.40 (70.9 %)** |
+| picorv32 | **45.70 mW** | 8.04 (17.6 %) | 6.19 (13.5 %) | 1.97 (4.3 %) | **29.50 (64.6 %)** |
+| ibex | **19.00 mW** | 2.96 (15.6 %) | 2.48 (13.1 %) | 2.37 (12.5 %) | **11.20 (58.9 %)** |
+| VeeR EH1 | **86.90 mW** | 25.70 (29.6 %) | 6.95 (8.0 %) | 3.35 (3.9 %) | **51.00 (58.7 %)** |
 | *SERV, core only* | *6.68* | *2.85* | *2.83* | *1.00* | *0.00* |
 | *picorv32, core only* | *6.43* | *2.84* | *2.89* | *0.70* | *0.00* |
 | *ibex, core only* | *7.37* | *2.46* | *2.64* | *2.27* | *0.00* |
 
-**The memory is the measurement.** 57--72 % of every point: 72.4 % of SERV down to
-57.4 % of ibex. The old rows show what that meant: for these three cores
+**The memory is the measurement.** 59--71 % of every point: 70.9 % of SERV down to
+58.7 % of VeeR. The old rows show what that meant: for these three cores
 the component that was missing was between four and nine times
 everything that was present. §4.6's extrapolation error of 15.2x was
 this column.
@@ -1050,14 +1050,14 @@ retires work, and the three have similar amounts of state. After §5.1
 they are degenerate because the macro column, 58--71 % of each total,
 is *the same memory* in all three. The term that actually tracks the
 architecture is combinational power, 0.82--2.88 mW, and it is the
-smallest term in every row. That is §4.6's 1.32x `f/P` spread stated as
+smallest term in every row. That is §4.6's 1.26x `f/P` spread stated as
 a mechanism.
 
 **VeeR is the one row that looks different, and it is instructive.**
-Its macro fraction is 59 %, not 85 %, and its clock power is 25.60 mW
--- 8.2x ibex's -- because it has an order of magnitude more state and a
-real clock-gating network to distribute. Its logic alone is 35.84 mW
-against ibex's 8.30 mW: **4.3x the logic power for 1.95x the
+Its macro fraction is 59 %, not 85 %, and its clock power is 25.70 mW
+-- 8.7x ibex's -- because it has an order of magnitude more state and a
+real clock-gating network to distribute. Its logic alone is 36.00 mW
+against ibex's 7.81 mW: **4.6x the logic power for 1.95x the
 performance per clock.** (The three figures in this paragraph are the
 §4.7 rows added up. Earlier versions carried 4.9x, then 4.6x, for the
 clock ratio and 8.94 mW for ibex's logic, neither of which was what the
@@ -1445,6 +1445,36 @@ estimate's. That is the deliberate cost of screening at global route,
 and it is uncalibrated: no point in this study has been re-measured at
 `6_final` with an extracted SPEF. One such point, on one core, would
 bound it.
+
+### 5.3b The SAIF's time base has to be the SDC period
+
+A SAIF records real time, and OpenSTA reads it as transitions divided by
+duration. So the period the simulator times the capture with has to be
+the period the design is built at, or every toggle rate -- and the
+dynamic power with it -- is wrong by the ratio between them.
+
+It was wrong. The simulator's period was a literal in `sim/BUILD.bazel`
+carrying a comment that it must equal the SDC's, and §8.3's derivation
+re-pinned every SDC without it. For one commit the study measured SERV's
+activity against a 700 ps clock it no longer had (it ran at 438) and
+picorv32's against 1000 ps (it ran at 467) -- rates low by 1.60x and
+2.14x.
+
+**What it cost was smaller than the ratio, for a reason worth stating.**
+Only combinational switching rides on data-pin densities. A sequential
+cell's internal power is dominated by its clock pin, and a macro's by
+its own clock pin, and OpenSTA takes both from the SDC at `2/period`
+rather than from the SAIF (§3.5). So the error reached 4 % of picorv32's
+total and moved the reported figure by 2.9 %, not by 114 %. The same
+mechanism is why it was invisible: the macro column, which is 59--71 %
+of every point, moved exactly as expected while the small term
+underneath it did not.
+
+The fix is the one §5.5 describes for the frequency: `scripts/sdc_period.py`
+is the single reader of `set clk_period`, and the SAIF's time base, the
+reported frequency and the period tuner all call it. Two copies of this
+one fact had already drifted; a third warning comment would not have
+been better than removing the copy.
 
 ### 5.4 The corner is ASAP7's best case, not its typical
 

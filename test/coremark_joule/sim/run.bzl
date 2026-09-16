@@ -223,7 +223,7 @@ def coremark_saif(
         image,
         run_2,
         run_3,
-        clk_period_ps,
+        constraints,
         max_other_dropped = 0,
         tags = ["manual"]):
     """Capture a SAIF over CoreMark's last, hot iteration.
@@ -240,12 +240,17 @@ def coremark_saif(
       run_2: the two-iteration RTL run, for its cycle count.
       run_3: the three-iteration RTL run, for its cycle count and the
         cycle its first output appeared.
-      clk_period_ps: **must equal the period in the design's SDC.** A
-        SAIF records real time and OpenSTA reads it as transitions
-        divided by duration, so a period that disagrees with the SDC
-        scales every toggle rate -- and the dynamic power -- by the ratio
-        between them. Nothing downstream can detect the mistake: the
-        power simply comes out wrong by that factor.
+      constraints: the design's constraints.sdc, read for the period
+        the SAIF is timed against. It used to be a literal here with a
+        comment saying it must equal the SDC's period, and it stopped
+        being equal the moment auto_period re-derived the periods: every
+        SAIF was then timed against the old clock. A SAIF records real
+        time and OpenSTA reads it as transitions divided by duration, so
+        the toggle rates -- and the dynamic power -- came out wrong by
+        the ratio between the two periods, by as much as 2.14x. Nothing
+        downstream could detect it, which is why it is read from the one
+        file that states the period rather than copied next to a warning
+        not to let the copy drift.
       max_other_dropped: how many non-clock nets this design loses to
         scripts/filter_saif.py. Zero asserts that everything the SAIF
         format cannot carry is a clock net, which §3.5 establishes needs
@@ -259,6 +264,7 @@ def coremark_saif(
             image,
             "{}.cycles".format(run_2),
             "{}.cycles".format(run_3),
+            constraints,
         ],
         outs = [raw],
         cmd = (
@@ -268,9 +274,9 @@ def coremark_saif(
             "--cycles-2 $(location {run_2}.cycles) " +
             "--cycles-3 $(location {run_3}.cycles) " +
             "--saif $(location {raw}) " +
-            "--clk-period-ps {clk_period_ps}"
+            "--clk-period-from-sdc $(location {constraints})"
         ).format(
-            clk_period_ps = clk_period_ps,
+            constraints = constraints,
             image = image,
             raw = raw,
             run_2 = run_2,
