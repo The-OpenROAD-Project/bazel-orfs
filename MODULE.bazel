@@ -253,6 +253,19 @@ git_override(
     remote = "https://github.com/The-OpenROAD-Project/qt_bazel_prebuilts",
 )
 
+# libxcb: its c_client py_binary relies on rules_python's implicit
+# __init__.py creation, which is deprecated and prints a DEBUG warning on
+# every build. The overlay BUILD.bazel is BCR's, so the fix is a patch on
+# it: the only package c_client imports, xcbgen, ships its own
+# __init__.py, so legacy_create_init = 0 costs nothing. Retires when BCR
+# carries the attribute.
+single_version_override(
+    module_name = "libxcb",
+    patch_strip = 0,
+    patches = ["//patches:libxcb_explicit_init_py.patch"],
+    version = "1.17.0.bcr.2",
+)
+
 # Hermetic C++ toolchain for building OpenROAD (and yosys, gnumake) from
 # source: the BCR "llvm" module (hermetic-llvm) — the same statically linked,
 # zero-sysroot LLVM that OpenROAD itself registers. No host compiler and no
