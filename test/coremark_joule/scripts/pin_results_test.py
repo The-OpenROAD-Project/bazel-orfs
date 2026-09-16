@@ -137,16 +137,24 @@ class LiteratureSchemaTest(unittest.TestCase):
     def test_fmax_needs_its_kind(self):
         problems = pin_results.check_literature([row(fmax_mhz=1000.0)])
         self.assertTrue(any("fmax_kind" in p for p in problems))
-        problems = pin_results.check_literature([row(fmax_mhz=1000.0, fmax_kind="synthesis")])
+        problems = pin_results.check_literature(
+            [row(fmax_mhz=1000.0, fmax_kind="synthesis")]
+        )
         self.assertEqual(problems, [])
 
     def test_derived_coremark_per_joule_must_match(self):
         good = row(
-            coremark_per_mhz=2.0, frequency_mhz=1000.0, power_w=0.1, coremark_per_joule=20000.0
+            coremark_per_mhz=2.0,
+            frequency_mhz=1000.0,
+            power_w=0.1,
+            coremark_per_joule=20000.0,
         )
         self.assertEqual(pin_results.check_literature([good]), [])
         bad = row(
-            coremark_per_mhz=2.0, frequency_mhz=1000.0, power_w=0.1, coremark_per_joule=21000.0
+            coremark_per_mhz=2.0,
+            frequency_mhz=1000.0,
+            power_w=0.1,
+            coremark_per_joule=21000.0,
         )
         problems = pin_results.check_literature([bad])
         self.assertTrue(any("CoreMark/Joule" in p for p in problems))
@@ -177,7 +185,9 @@ class PhysicalTest(unittest.TestCase):
         self.assertEqual(p["stdcell_count"], 12345)
         self.assertAlmostEqual(p["stdcell_um2"], 1234.5)
         self.assertEqual(p["wns_reg2reg_ps"], "none")
-        self.assertEqual(p["macros"], [{"master": "fakeram7_256x34", "count": 2, "um2": 1234.5}])
+        self.assertEqual(
+            p["macros"], [{"master": "fakeram7_256x34", "count": 2, "um2": 1234.5}]
+        )
 
     def test_table_renders_measured_then_literature(self):
         points = [
@@ -192,14 +202,21 @@ class PhysicalTest(unittest.TestCase):
         ]
         table = pin_results.literature_table(points, pin_results.LITERATURE)
         lines = table.splitlines()
-        self.assertTrue(lines[2].startswith("| ibex (rv32imc) | this study, grt | asap7 | 21.2 |"))
+        self.assertTrue(
+            lines[2].startswith("| ibex (rv32imc) | this study, grt | asap7 | 21.2 |")
+        )
         self.assertEqual(len(lines), 2 + len(points) + len(pin_results.LITERATURE))
-        self.assertIn("| CVA6 | [5] | GF 22 FDX | 730.0 | 1083 (signoff) | 2.19 | 28205 |", table)
+        self.assertIn(
+            "| CVA6 | [5] | GF 22 FDX | 730.0 | 1083 (signoff) | 2.19 | 28205 |", table
+        )
 
     def test_missing_physical_renders_as_dash(self):
         points = [{"core": "serv", "isa": "rv32i", "frequency_mhz": 1428.571}]
         table = pin_results.literature_table(points, [])
-        self.assertIn("| serv (rv32i) | this study, grt | asap7 | -- | 1429 (SDC) | -- | -- |", table)
+        self.assertIn(
+            "| serv (rv32i) | this study, grt | asap7 | -- | 1429 (SDC) | -- | -- |",
+            table,
+        )
 
 
 if __name__ == "__main__":

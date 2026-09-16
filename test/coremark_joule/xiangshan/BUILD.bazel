@@ -248,3 +248,41 @@ exports_files(glob([
         "_minimal",
     ]
 ]
+
+# The gate-level XiangShan: XSCore's global-route netlist with the RTL of
+# everything it still needs -- the SoC wrapper and bus around it, and the
+# behavioural models of what synthesis blackboxed: the five hardened
+# blocks and the SRAM macros, whose models are their own RTL modules
+# under the same names. scripts/gate_stitch.py walks both closures and
+# fails loudly on a name it cannot place, so a block or memory cannot
+# silently drop out of the simulation.
+_GATE_NETLIST = "//test/coremark_joule/designs/asap7/xiangshan:cmj_xiangshan_grt_netlist.v"
+
+genrule(
+    name = "cm_soc_xiangshan_gate_stitch",
+    srcs = [
+        ":cmj_soc_sv",
+        _GATE_NETLIST,
+    ],
+    outs = [
+        "cm_soc_xiangshan_gate.sv",
+        "cm_soc_xiangshan_gate_report.json",
+    ],
+    cmd = "$(execpath //test/coremark_joule/scripts:gate_stitch) " +
+          "--netlist $(location " + _GATE_NETLIST + ") " +
+          "--rtl-dir $(location :cmj_soc_sv) --top cm_soc --cell-suffix _ASAP7_ " +
+          "--out $(location cm_soc_xiangshan_gate.sv) " +
+          "--report $(location cm_soc_xiangshan_gate_report.json)",
+    tags = ["manual"],
+    tools = ["//test/coremark_joule/scripts:gate_stitch"],
+)
+
+verilog_library(
+    name = "cm_soc_xiangshan_gate",
+    srcs = [
+        ":cm_soc_xiangshan_gate.sv",
+        _GATE_NETLIST,
+    ],
+    tags = ["manual"],
+    deps = ["//test/coremark_joule/rtl:asap7_stdcells"],
+)
