@@ -296,6 +296,20 @@ register_toolchains(
 bazel_dep(name = "rules_verilog", version = "1.4.3", dev_dependency = True)
 bazel_dep(name = "rules_verilator", version = "1.1.2", dev_dependency = True)
 
+# iverilog: the event-driven simulator, for glitch power (paper, 5.2).
+#
+# Verilator cannot do this job and never will: it parses $sdf_annotate
+# and specify blocks and discards them with a SPECIFYIGN warning, because
+# its speed comes from evaluating a cycle as compiled straight-line code
+# and intra-cycle delay ordering is exactly what that model throws away.
+# A glitch is a transition that happens because two inputs arrive at
+# different times, so measuring one needs back-annotated path delays and
+# therefore an event-driven simulator.
+#
+# Dev-only for the same reason as the two above: a consumer of
+# bazel-orfs must never resolve a simulator to build a flow.
+bazel_dep(name = "iverilog", version = "13.0.bcr.1", dev_dependency = True)
+
 # verilator: rules_verilator pins 5.046.bcr.3, whose cc_binary links
 # -latomic unconditionally on Linux. That is a libgcc-era assumption --
 # libatomic is GCC's out-of-line fallback, shipped next to libgcc on

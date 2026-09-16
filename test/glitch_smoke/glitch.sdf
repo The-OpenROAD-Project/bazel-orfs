@@ -1,0 +1,10 @@
+(DELAYFILE
+  (SDFVERSION "3.0")
+  (DESIGN "glitch_top")
+  (TIMESCALE 1ps)
+  (CELL (CELLTYPE "INV_t") (INSTANCE u_inv)
+    (DELAY (ABSOLUTE (IOPATH A Y (120:120:120) (120:120:120)))))
+  (CELL (CELLTYPE "AND_t") (INSTANCE u_and)
+    (DELAY (ABSOLUTE (IOPATH A Y (30:30:30) (30:30:30))
+                     (IOPATH B Y (30:30:30) (30:30:30)))))
+)
