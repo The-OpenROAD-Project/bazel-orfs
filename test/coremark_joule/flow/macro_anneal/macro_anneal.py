@@ -32,6 +32,12 @@ Textbook throughout, and deliberately so:
              centres plus a hard penalty for overrunning the core height
   emit       place_macro for every bank, origins snapped so the lowest-
              layer signal pins land on routing tracks, then FIRM
+  straps     a macro narrower than one power-strap pitch can sit between
+             two stripes and get no power at all (pdngen: grid contains
+             no shapes or vias). Such banks step by a common multiple of
+             the track and strap pitches and the block origin is nudged
+             along the tracks until a stripe pair lies inside every
+             bank's power rails
 
 Stdlib only and seeded: the placement is a pure function of (inventory,
 arguments, seed) and re-runs are byte-identical.
@@ -127,6 +133,33 @@ def tile_shape(n, w, h, chan):
     return cols, rows, width, height
 
 
+class Straps:
+    """The vertical power stripes pdngen will draw, as the platform declares them.
+
+    ``pitch``, ``offset`` (from the core's left edge), ``pair`` (the span of
+    one VDD+VSS pair) and ``inset`` (how far inside a macro's edge a stripe
+    has to be to reach its rails), all in dbu. Zero pitch means unknown,
+    and no alignment is attempted.
+    """
+
+    def __init__(self, pitch=0, offset=0, pair=0, inset=0):
+        self.pitch, self.offset, self.pair, self.inset = pitch, offset, pair, inset
+
+    def can_miss(self, width):
+        """Whether a macro this wide can sit between two stripe pairs."""
+        return self.pitch > 0 and width < self.pitch + self.pair + 2 * self.inset
+
+    def pair_inside(self, x0, x, width):
+        """Whether some stripe pair lies within the rails of a macro at x."""
+        lo, hi = x + self.inset, x + width - self.inset
+        k = int(math.floor((lo - x0 - self.offset) / float(self.pitch)))
+        for j in (k, k + 1, k + 2):
+            s = x0 + self.offset + j * self.pitch
+            if s >= lo and s + self.pair <= hi:
+                return True
+        return False
+
+
 class Block:
     def __init__(self, key, w, h, macros=None, master=None):
         self.key = key
@@ -149,8 +182,9 @@ class Block:
         return bool(self.macros)
 
 
-def build_blocks(inv, depth, min_cluster, chan, fill):
+def build_blocks(inv, depth, min_cluster, chan, fill, straps=None):
     """Macro blocks, ballast blocks, and the residual macros left to RTL-MP."""
+    straps = straps or Straps()
     groups = collections.defaultdict(list)
     for inst, master in inv.macros:
         groups[(prefix(module_path_of(inst), depth), master)].append(inst)
@@ -169,6 +203,10 @@ def build_blocks(inv, depth, min_cluster, chan, fill):
         # than asked for.
         step_x = _track_multiple(m["w"] + chan, inv.tracks.get((m["vlayer"], "V")))
         step_y = _track_multiple(m["h"] + chan, inv.tracks.get((m["hlayer"], "H")))
+        if straps.can_miss(m["w"]):
+            # Every bank of the block must see a stripe pair, so the step
+            # is a multiple of the strap pitch as well as of the track.
+            step_x = _multiple_of(step_x, _lcm(straps.pitch, _pitch_of(inv, m, "V")))
         b = Block(
             pfx,
             (cols - 1) * step_x + m["w"],
@@ -313,6 +351,22 @@ class Anneal:
         return best, best_cost
 
 
+def _lcm(a, b):
+    if a <= 0 or b <= 0:
+        return max(a, b, 1)
+    return a * b // math.gcd(a, b)
+
+
+def _multiple_of(length, unit):
+    return int(math.ceil(length / float(unit))) * unit if unit > 0 else length
+
+
+def _pitch_of(inv, master, axis):
+    layer = master["vlayer"] if axis == "V" else master["hlayer"]
+    track = inv.tracks.get((layer, axis))
+    return track[1] if track and track[1] > 0 else 1
+
+
 def _track_multiple(length, track):
     """``length`` rounded up to a whole number of the track's pitch."""
     if not track or track[1] <= 0:
@@ -342,13 +396,23 @@ def macro_origin(inv, master, x, y):
     return ox, oy
 
 
-def placements(inv, blocks, chan):
+def placements(inv, blocks, chan, straps=None):
     """(inst, master, x, y) in dbu for every macro in every macro block."""
+    straps = straps or Straps()
     out = []
     for b in blocks:
         if not b.is_macro():
             continue
+        m = inv.masters[b.master]
         ox0, oy0 = macro_origin(inv, b.master, b.x, b.y)
+        if straps.can_miss(m["w"]):
+            # Nudge the block origin along the tracks until the first bank
+            # holds a stripe pair; the step keeps every other bank in phase.
+            tp = _pitch_of(inv, m, "V")
+            for _ in range(int(straps.pitch // tp) + 2):
+                if straps.pair_inside(inv.core[0], ox0, m["w"]):
+                    break
+                ox0, _ = macro_origin(inv, b.master, ox0 + tp, oy0)
         for k, inst in enumerate(b.macros):
             col, row = k % b.cols, k // b.cols
             out.append((inst, b.master, ox0 + col * b.step_x, oy0 + row * b.step_y))
@@ -422,6 +486,31 @@ def main(argv):
         "power-strap pair (default 10.8, two 5.4 um strap pitches)",
     )
     p.add_argument("--fill", type=float, default=0.6)
+    p.add_argument(
+        "--strap-pitch-um",
+        type=float,
+        default=0.0,
+        help="pitch of the platform's vertical power stripes on the layer the "
+        "macro grid connects to; 0 disables strap alignment",
+    )
+    p.add_argument(
+        "--strap-offset-um",
+        type=float,
+        default=0.0,
+        help="first stripe from the core's left edge",
+    )
+    p.add_argument(
+        "--strap-pair-um",
+        type=float,
+        default=0.0,
+        help="span of one VDD+VSS stripe pair",
+    )
+    p.add_argument(
+        "--strap-inset-um",
+        type=float,
+        default=0.2,
+        help="how far inside a macro edge a stripe must lie",
+    )
     p.add_argument("--iterations", type=int, default=20000)
     p.add_argument("--same-prefix-bonus", type=float, default=1000.0)
     args = p.parse_args(argv[1:])
@@ -430,11 +519,19 @@ def main(argv):
         inv = Inventory.parse(f.read())
     chan = int(round(args.channel_um * inv.dbu))
     gap = int(round(args.block_gap_um * inv.dbu))
-    blocks, residual = build_blocks(inv, args.depth, args.min_cluster, chan, args.fill)
+    straps = Straps(
+        int(round(args.strap_pitch_um * inv.dbu)),
+        int(round(args.strap_offset_um * inv.dbu)),
+        int(round(args.strap_pair_um * inv.dbu)),
+        int(round(args.strap_inset_um * inv.dbu)),
+    )
+    blocks, residual = build_blocks(
+        inv, args.depth, args.min_cluster, chan, args.fill, straps
+    )
     weights = build_weights(inv, blocks, args.depth, args.same_prefix_bonus)
     anneal = Anneal(inv, blocks, weights, gap, args.seed, args.iterations)
     order, cost = anneal.run()
-    placed = placements(inv, blocks, chan)
+    placed = placements(inv, blocks, chan, straps)
     problems = check_legal(inv, blocks, placed)
     top = max((b.y + b.h for b in blocks), default=inv.core[1])
     metrics = {

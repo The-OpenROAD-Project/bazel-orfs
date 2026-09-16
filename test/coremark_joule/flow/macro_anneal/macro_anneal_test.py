@@ -41,17 +41,27 @@ def inventory(n_a=8, n_b=6, n_single=1):
     return "\n".join(lines) + "\n"
 
 
-def run(text, **kw):
+# ASAP7's M5 stripes: pitch 5.4, first pair 0.3 from the core edge, a
+# VDD+VSS pair spanning 0.312.
+STRAPS = macro_anneal.Straps(5400, 300, 312, 200)
+
+
+def run(text, straps=None, **kw):
     inv = macro_anneal.Inventory.parse(text)
     chan = int(kw.get("channel_um", 4.0) * DBU)
     gap = int(kw.get("block_gap_um", 10.8) * DBU)
     blocks, residual = macro_anneal.build_blocks(
-        inv, kw.get("depth", 3), kw.get("min_cluster", 4), chan, kw.get("fill", 0.6)
+        inv,
+        kw.get("depth", 3),
+        kw.get("min_cluster", 4),
+        chan,
+        kw.get("fill", 0.6),
+        straps,
     )
     weights = macro_anneal.build_weights(inv, blocks, kw.get("depth", 3), 1000.0)
     anneal = macro_anneal.Anneal(inv, blocks, weights, gap, kw.get("seed", 1), 400)
     order, cost = anneal.run()
-    placed = macro_anneal.placements(inv, blocks, chan)
+    placed = macro_anneal.placements(inv, blocks, chan, straps)
     return inv, blocks, residual, placed, cost
 
 
@@ -148,6 +158,51 @@ class PlacementTest(unittest.TestCase):
         inv, blocks, _, placed, cost = run(text)
         self.assertTrue(macro_anneal.check_legal(inv, blocks, placed))
         self.assertGreater(cost, 1e6)
+
+
+class StrapTest(unittest.TestCase):
+    def narrow_inventory(self):
+        # array_64x16 is 4.18 wide: narrower than a 5.4 stripe pitch.
+        text = inventory().replace(
+            "master array_512x17 8930 42000 M4 100 M5 70",
+            "master array_512x17 4180 11200 M4 100 M5 70",
+        )
+        return text
+
+    def test_wide_macro_never_misses(self):
+        self.assertFalse(STRAPS.can_miss(14820))
+        self.assertTrue(STRAPS.can_miss(4180))
+
+    def test_every_narrow_bank_holds_a_stripe_pair(self):
+        inv, blocks, _, placed, _ = run(self.narrow_inventory(), straps=STRAPS)
+        narrow = [(x, m) for _, m, x, _ in placed if m == "array_512x17"]
+        self.assertEqual(len(narrow), 8)
+        for x, m in narrow:
+            self.assertTrue(
+                STRAPS.pair_inside(inv.core[0], x, inv.masters[m]["w"]),
+                "bank at {} has no stripe pair inside its rails".format(x),
+            )
+        # And they are still on their pin tracks.
+        for inst, master, x, y in placed:
+            self.assertEqual((x + inv.masters[master]["pox"] - 24) % 48, 0, inst)
+
+    def test_narrow_banks_step_by_a_strap_multiple(self):
+        inv, blocks, _, _, _ = run(self.narrow_inventory(), straps=STRAPS)
+        (b,) = [b for b in blocks if b.is_macro() and b.master == "array_512x17"]
+        self.assertEqual(b.step_x % 5400, 0)
+        self.assertEqual(b.step_x % 48, 0)
+        self.assertGreaterEqual(b.step_x, 4180 + 4000)
+
+    def test_without_strap_data_nothing_changes(self):
+        a = run(self.narrow_inventory())[3]
+        b = run(self.narrow_inventory(), straps=macro_anneal.Straps())[3]
+        self.assertEqual(a, b)
+
+    def test_pair_inside_arithmetic(self):
+        # Core at x0=1026 dbu (asap7's snapped core), stripes at 1326 + 5400 k.
+        s = STRAPS
+        self.assertFalse(s.pair_inside(1026, 88426, 4180))
+        self.assertTrue(s.pair_inside(1026, 92500, 4180))
 
 
 class EmitTest(unittest.TestCase):

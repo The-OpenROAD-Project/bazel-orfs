@@ -157,10 +157,25 @@ export ANNEAL_PY               = //test/coremark_joule/flow/macro_anneal:macro_a
 # logic the placer puts there gets a grid.
 export ANNEAL_SEED             = 1
 export ANNEAL_DEPTH            = 3
-export ANNEAL_MIN_CLUSTER      = 4
+# Every macro is placed here, singletons included: with three left for
+# rtl_macro_placer and fill 0.6 it failed to fit its standard-cell
+# clusters around 300 fixed blocks (MPL-0040). Fill 0.5 packs the
+# blocks tighter and leaves the placer contiguous room.
+export ANNEAL_MIN_CLUSTER      = 1
 export ANNEAL_CHANNEL_UM       = 4.0
 export ANNEAL_BLOCK_GAP_UM     = 10.8
-export ANNEAL_FILL             = 0.6
+export ANNEAL_FILL             = 0.5
+
+# The platform's vertical power stripes, so a macro narrower than one
+# stripe pitch is placed with a stripe pair inside its rails. asap7's
+# grid_strategy-M1-M2-M5-M6.tcl draws M5 stripes 0.12 wide, 0.072
+# apart, pitch 5.4, first at 0.3 from the core edge, and the macro grid
+# connects M4 rails to M5. The 4.18 um TAGE useful-bit arrays sat
+# between two pairs at 28 of 64 positions and pdngen reported their
+# grids empty (PDN-0232, then PDN-0233). Must match PDN_TCL.
+export ANNEAL_STRAP_PITCH_UM   = 5.4
+export ANNEAL_STRAP_OFFSET_UM  = 0.3
+export ANNEAL_STRAP_PAIR_UM    = 0.312
 
 # 2 um, not the platform's 10: at 10 the halos alone turn 0.13 mm2 of
 # macro into 0.51 mm2 of footprint, and the channels the annealer leaves
