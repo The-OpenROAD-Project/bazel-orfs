@@ -1,0 +1,731 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Oyvind Harboe <oyvind.harboe@zylin.com>
+Date: Tue, 15 Sep 2026 00:00:00 +0000
+Subject: [PATCH] FakeRAM asap7 backend: build the macro from the declared
+ pins, with write-mask lanes
+
+The backend read only rows and bits from memories.json and emitted the
+single-port RAM FakeRAM has always emitted: rd_out, addr_in, we_in,
+wd_in, clk, ce_in. The module the flow blackboxes has its own port
+names -- for a firtool memory RW0_clk, RW0_addr, RW0_en, RW0_wmode,
+RW0_wdata, RW0_rdata and RW0_wmask -- and a liberty view with different
+pin names is one the netlist cannot link to. So conversion produced a
+macro nothing could instantiate, for every memory, and the flow did not
+say so.
+
+The macro is now built from the pins the inventory declares. A memory
+declared as one read-write port maps clock, address, enable, write
+mode, data in and data out onto the single-port RAM's ports under the
+module's names; a memory declared with any other port configuration is
+refused with a message rather than emitted wrong. A memory whose pins
+the detector synthesized (no port convention) keeps FakeRAM's
+historical names, so nothing that worked before changes.
+
+Write masks. SRAM compilers offer byte or lane write enables and
+firtool's memories use them: `m57` in XiangShan's wrapper names is a
+57-bit lane, two lanes across 114 bits, and the branch predictor tables
+mask per bit. FakeRAM had no mask at all. RWPortGroup gains a write
+mask bus with a lane count; the port creator, liberty exporter (a bus
+type per mask, setup/hold against the port clock), LEF exporter and the
+single-port Verilog model (per-lane writes) carry it; MemoryConfig takes
+`pin_names` and `mask_lanes`; SinglePortRAM counts the lanes among its
+pins. A memory without a mask emits byte-identically to before -- the
+golden-file flow tests pass unchanged.
+
+Pin tracks. FakeRAM sizes a macro from its bit cells and then fails
+when the pins do not fit the left edge, which a 128x76 memory with 76
+mask lanes does. The backend computes the height the pins need and
+passes the difference as additional_height, instead of leaving each
+macro to fail on its own.
+
+Applies after 0067 (column mux), whose per-memory process object is what
+the pin-track height is computed against.
+
+Not upstreamed -- carried in bazel-orfs per the moratorium. Retires at
+a bump onto an ORFS that carries the change.
+---
+diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asap7/generate.py
+index 10b769b..ae76bf0 100644
+--- a/tools/FakeRAM2.0/orfs_asap7/generate.py
++++ b/tools/FakeRAM2.0/orfs_asap7/generate.py
+@@ -1,3 +1,18 @@
++"""ORFS asap7 backend: emit .lib/.lef views for the memories AUTO_MEMORIES converts.
++
++The input is memories.json, ORFS's inventory. Every converted memory
++carries the pin list of the module the flow blackboxes, and the macro has
++to expose exactly those pins or the blackboxed module never links to its
++liberty view. So the macro is built from the declared pins: a single
++read-write port -- clock, address, enable, write mode, data in, data out
++and an optional write mask with one lane per mask bit -- becomes a
++single-port RAM whose ports carry the module's names.
++
++A memory whose pins were synthesized by the detector rather than read off
++the module (port_convention "") has no such names and gets FakeRAM's
++historical single-port pins, which is what earlier ORFS releases emitted.
++"""
++
+ import json
+ import math
+ import sys
+@@ -34,6 +49,58 @@ ASAP7_TIMING_CONFIG = {
+     "leakage": 0.001,
+ }
+ 
++# memories.json pin function -> the role SinglePortRAM names its port by.
++_ROLE_OF_FUNCTION = {
++    "clk": "clk",
++    "addr": "addr",
++    "en": "ce",
++    "wmode": "we",
++    "data_in": "din",
++    "data_out": "dout",
++    "mask": "mask",
++}
++
++
++def single_port_pins(mem: dict):
++    """The (pin_names, mask_lanes) of a memory declared as one RW port.
++
++    Returns None when the pins are not a single read-write port carrying
++    the functions a single-port RAM has: the caller then falls back to
++    FakeRAM's historical pin names.
++    """
++    pins = mem.get("pins") or []
++    groups = {p["port_id"] for p in pins}
++    if len(groups) != 1 or not next(iter(groups)).startswith("RW"):
++        return None
++    names = {}
++    lanes = 0
++    for p in pins:
++        role = _ROLE_OF_FUNCTION.get(p["function"])
++        if role is None or role in names:
++            return None
++        names[role] = p["name"]
++        if role == "mask":
++            lanes = int(p["width"])
++    if not {"clk", "addr", "ce", "we", "din", "dout"} <= set(names):
++        return None
++    return names, lanes
++
++
++def additional_height_for_pins(process: Process, bits: int, rows: int, lanes: int):
++    """Height to add so every pin gets a track on the macro's left edge.
++
++    FakeRAM sizes the macro from its bit cells and then fails when the
++    pins do not fit; a memory folded square by the column mux with a
++    per-bit mask is exactly that case. The extra height is computed here
++    rather than left to the caller to discover one macro at a time.
++    """
++    addr_w = max(1, math.ceil(math.log2(rows))) if rows > 1 else 1
++    num_pins = 2 * bits + addr_w + 3 + lanes
++    _, height = process.get_macro_dimensions(bits, rows, 1, 0)
++    needed = (num_pins + 1) * process.pin_pitch_um + 2 * process.y_offset
++    return max(0.0, needed - height)
++
++
+ def pick_column_mux_factor(rows, bits):
+     """Fold a tall array into a square one.
+ 
+@@ -70,14 +137,28 @@ def run_orfs_asap7(platform: str, out_dir: Path, json_path: Path):
+         return 1
+ 
+     out_dir.mkdir(parents=True, exist_ok=True)
+-    converted = sorted((m for m in memories if m.get("idiomatic")), key=lambda m: m["name"])
++    converted = sorted(
++        (m for m in memories if m.get("idiomatic")), key=lambda m: m["name"]
++    )
+ 
+     timing_data = TimingData(ASAP7_TIMING_CONFIG)
+ 
+     for m in converted:
+         name = m["name"]
+-        bits = m.get("bits", 32)
+-        rows = m.get("rows", 128)
++        bits = int(m.get("bits", 32))
++        rows = int(m.get("rows", 128))
++
++        pin_names = {}
++        lanes = 0
++        declared = single_port_pins(m)
++        if declared is not None:
++            pin_names, lanes = declared
++        elif m.get("port_convention"):
++            sys.stderr.write(
++                f"FakeRAM2.0 orfs_asap7: {name} declares pins that are not a "
++                "single read-write port; nothing this backend emits would link\n"
++            )
++            return 1
+ 
+         process_config = dict(ASAP7_PROCESS_CONFIG)
+         process_config["column_mux_factor"] = pick_column_mux_factor(rows, bits)
+@@ -88,6 +169,9 @@ def run_orfs_asap7(platform: str, out_dir: Path, json_path: Path):
+             "width": bits,
+             "depth": rows,
+             "banks": 1,
++            "additional_height": additional_height_for_pins(process, bits, rows, lanes),
++            "pin_names": pin_names,
++            "mask_lanes": lanes,
+         }
+         mem_config = MemoryConfig.from_json(sram_dict)
+         ram = MemoryFactory.create(mem_config, "RAM", "SP", process, timing_data)
+@@ -106,5 +190,7 @@ def run_orfs_asap7(platform: str, out_dir: Path, json_path: Path):
+         with open(lef_path, "w") as f:
+             LefExporter(ram).export(f)
+ 
+-    (out_dir / "blackboxes.txt").write_text("".join(f"{m['name']}\n" for m in converted))
++    (out_dir / "blackboxes.txt").write_text(
++        "".join(f"{m['name']}\n" for m in converted)
++    )
+     return 0
+diff --git a/tools/FakeRAM2.0/test/spsram_mask_test.py b/tools/FakeRAM2.0/test/spsram_mask_test.py
+new file mode 100644
+index 0000000..8bced61
+--- /dev/null
++++ b/tools/FakeRAM2.0/test/spsram_mask_test.py
+@@ -0,0 +1,229 @@
++#!/usr/bin/env python3
++"""A single-port RAM with declared pin names and write-mask lanes.
++
++The ORFS asap7 backend builds the macro from the pins of the module it
++replaces, so the views must carry those names and the mask bus, and a
++memory without either must come out exactly as before.
++"""
++
++import io
++import json
++import os
++import sys
++import tempfile
++import unittest
++from pathlib import Path
++
++sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "utils")))
++sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
++from class_process import Process
++from memory_config import MemoryConfig
++from memory_factory import MemoryFactory
++from timing_data import TimingData
++from ram_liberty_exporter import RAMLibertyExporter
++from lef_exporter import LefExporter
++from test_utils import TestUtils
++from orfs_asap7.generate import (
++    ASAP7_TIMING_CONFIG,
++    additional_height_for_pins,
++    run_orfs_asap7,
++    single_port_pins,
++)
++
++RW0_NAMES = {
++    "clk": "RW0_clk",
++    "ce": "RW0_en",
++    "we": "RW0_wmode",
++    "addr": "RW0_addr",
++    "din": "RW0_wdata",
++    "dout": "RW0_rdata",
++    "mask": "RW0_wmask",
++}
++
++
++def rw0_pins(bits, addr_w, lanes):
++    """memories.json pins for a firtool array_<depth>x<width> module."""
++    pin = lambda name, direction, width, function: {
++        "name": name,
++        "direction": direction,
++        "width": width,
++        "port_id": "RW0",
++        "function": function,
++    }
++    pins = [
++        pin("RW0_addr", "input", addr_w, "addr"),
++        pin("RW0_en", "input", 1, "en"),
++        pin("RW0_clk", "input", 1, "clk"),
++        pin("RW0_wmode", "input", 1, "wmode"),
++        pin("RW0_wdata", "input", bits, "data_in"),
++        pin("RW0_rdata", "output", bits, "data_out"),
++    ]
++    if lanes:
++        pins.append(pin("RW0_wmask", "input", lanes, "mask"))
++    return pins
++
++
++class MaskedSinglePortRAMTest(unittest.TestCase):
++    def setUp(self):
++        self.process = Process(TestUtils.get_base_process_data())
++        self.timing = TimingData(ASAP7_TIMING_CONFIG)
++
++    def make(self, name, bits, rows, pin_names=None, lanes=0):
++        extra = additional_height_for_pins(self.process, bits, rows, lanes)
++        cfg = MemoryConfig(name, bits, rows, 1, extra, pin_names, lanes)
++        return MemoryFactory.create(cfg, "RAM", "SP", self.process, self.timing)
++
++    def test_declared_names_and_mask_reach_liberty_and_lef(self):
++        ram = self.make("array_64x114", 114, 64, RW0_NAMES, 2)
++        lib = io.StringIO()
++        RAMLibertyExporter(ram).export(lib)
++        lib = lib.getvalue()
++        for pin in ("RW0_clk", "RW0_en", "RW0_wmode"):
++            self.assertIn(f"pin({pin})", lib)
++        for bus in ("RW0_addr", "RW0_wdata", "RW0_rdata", "RW0_wmask"):
++            self.assertIn(f"bus({bus})", lib)
++        self.assertIn("type (array_64x114_RW0_wmask)", lib)
++        self.assertIn("bit_width : 2;", lib)
++        self.assertNotIn("we_in", lib)
++        self.assertNotIn("ce_in", lib)
++        lef = io.StringIO()
++        LefExporter(ram).export(lef)
++        lef = lef.getvalue()
++        self.assertIn("PIN RW0_wmask[0]", lef)
++        self.assertIn("PIN RW0_wmask[1]", lef)
++        self.assertNotIn("PIN RW0_wmask[2]", lef)
++        self.assertIn("PIN RW0_rdata[113]", lef)
++
++    def test_per_bit_mask_gets_a_track_per_pin(self):
++        # 76 lanes on a 76-bit word: the pins outnumber the tracks the bit
++        # cells alone would give the macro, so the height has to grow.
++        ram = self.make("array_128x76", 76, 128, RW0_NAMES, 76)
++        lef = io.StringIO()
++        LefExporter(ram).export(lef)
++        self.assertIn("PIN RW0_wmask[75]", lef.getvalue())
++
++    def test_unmasked_default_names_are_unchanged(self):
++        ram = self.make("spsram_256x32", 32, 256)
++        lib = io.StringIO()
++        RAMLibertyExporter(ram).export(lib)
++        lib = lib.getvalue()
++        for pin in ("we_in", "ce_in", "clk"):
++            self.assertIn(f"pin({pin})", lib)
++        for bus in ("addr_in", "wd_in", "rd_out"):
++            self.assertIn(f"bus({bus})", lib)
++        self.assertNotIn("w_mask_in", lib)
++
++    def test_verilog_writes_lanes_under_the_mask(self):
++        ram = self.make("array_64x114", 114, 64, RW0_NAMES, 2)
++        with tempfile.TemporaryDirectory() as d:
++            path = os.path.join(d, "m.v")
++            ram.write_verilog_file(path)
++            v = Path(path).read_text()
++            bb = os.path.join(d, "m.sv")
++            ram.write_verilog_file(bb, True)
++            sv = Path(bb).read_text()
++        self.assertIn("parameter MASK_LANES = 2;", v)
++        self.assertIn("parameter LANE_WIDTH = 57;", v)
++        self.assertIn("if (RW0_wmask[j])", v)
++        self.assertIn("input  [MASK_LANES-1:0]  RW0_wmask;", v)
++        self.assertIn("input [1:0] RW0_wmask", sv)
++
++    def test_mask_must_divide_the_word(self):
++        with self.assertRaises(Exception):
++            MemoryConfig("m", 114, 64, 1, 0, RW0_NAMES, 5)
++
++
++class SinglePortPinsTest(unittest.TestCase):
++    def test_reads_names_and_lanes(self):
++        names, lanes = single_port_pins({"pins": rw0_pins(114, 6, 2)})
++        self.assertEqual(names, RW0_NAMES)
++        self.assertEqual(lanes, 2)
++
++    def test_unmasked_port(self):
++        names, lanes = single_port_pins({"pins": rw0_pins(66, 8, 0)})
++        self.assertNotIn("mask", names)
++        self.assertEqual(lanes, 0)
++
++    def test_separate_ports_are_not_single_port(self):
++        pins = rw0_pins(32, 5, 0)
++        pins[0]["port_id"] = "R0"
++        self.assertIsNone(single_port_pins({"pins": pins}))
++
++    def test_synthesized_pins_are_not_single_port(self):
++        self.assertIsNone(single_port_pins({"pins": []}))
++
++
++class BackendTest(unittest.TestCase):
++    def test_emits_views_named_by_the_module(self):
++        inventory = {
++            "version": 1,
++            "platform": "asap7",
++            "memories": [
++                {
++                    "name": "array_64x114",
++                    "rows": 64,
++                    "bits": 114,
++                    "addr_w": 6,
++                    "read_ports": 0,
++                    "write_ports": 0,
++                    "rw_ports": 1,
++                    "mask_lanes": 2,
++                    "port_convention": "firtool",
++                    "pins": rw0_pins(114, 6, 2),
++                    "idiomatic": True,
++                    "reason": "meets ASAP7 macro floors",
++                },
++                {
++                    "name": "diff_rat_state_bank_704x776",
++                    "rows": 704,
++                    "bits": 776,
++                    "idiomatic": False,
++                    "reason": "1 combinational read port(s)",
++                },
++            ],
++        }
++        with tempfile.TemporaryDirectory() as d:
++            inv = Path(d) / "memories.json"
++            inv.write_text(json.dumps(inventory))
++            out = Path(d) / "memories"
++            self.assertEqual(run_orfs_asap7("asap7", out, inv), 0)
++            self.assertEqual(
++                sorted(p.name for p in out.iterdir()),
++                [
++                    "array_64x114.lef",
++                    "array_64x114.lib",
++                    "array_64x114_pre_layout.lib",
++                    "blackboxes.txt",
++                ],
++            )
++            lib = (out / "array_64x114.lib").read_text()
++            self.assertIn("cell(array_64x114)", lib)
++            self.assertIn("bus(RW0_wmask)", lib)
++            self.assertIn("pin(RW0_en)", lib)
++            self.assertEqual((out / "blackboxes.txt").read_text(), "array_64x114\n")
++
++    def test_declared_separate_ports_are_refused(self):
++        pins = rw0_pins(32, 5, 0)
++        for p in pins:
++            p["port_id"] = "R0" if p["function"] in ("data_out",) else "W0"
++        inventory = {
++            "version": 1,
++            "memories": [
++                {
++                    "name": "ram_32x32",
++                    "rows": 32,
++                    "bits": 32,
++                    "port_convention": "firtool",
++                    "pins": pins,
++                    "idiomatic": True,
++                }
++            ],
++        }
++        with tempfile.TemporaryDirectory() as d:
++            inv = Path(d) / "memories.json"
++            inv.write_text(json.dumps(inventory))
++            self.assertEqual(run_orfs_asap7("asap7", Path(d) / "out", inv), 1)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tools/FakeRAM2.0/utils/basic_port_creator.py b/tools/FakeRAM2.0/utils/basic_port_creator.py
+index 9bd263e..16b1cab 100644
+--- a/tools/FakeRAM2.0/utils/basic_port_creator.py
++++ b/tools/FakeRAM2.0/utils/basic_port_creator.py
+@@ -96,6 +96,16 @@ class BasicPortCreator:
+             pin_pitch,
+         )
+         y_step += group_pitch
++        if rw_port_group.get_write_mask_bus_name():
++            y_step = self.write_signal_bus(
++                rw_port_group.get_write_mask_bus_name(),
++                0,
++                rw_port_group.get_write_mask_lanes(),
++                Port.Direction.INPUT,
++                y_step,
++                pin_pitch,
++            )
++            y_step += group_pitch
+         y_step = self.write_signal_bus(
+             rw_port_group.get_address_bus_name(),
+             0,
+diff --git a/tools/FakeRAM2.0/utils/class_memory.py b/tools/FakeRAM2.0/utils/class_memory.py
+index 33d81f9..1ae46f5 100644
+--- a/tools/FakeRAM2.0/utils/class_memory.py
++++ b/tools/FakeRAM2.0/utils/class_memory.py
+@@ -36,6 +36,7 @@ class Memory(NamedObject):
+         self.width_in_bytes = math.ceil(self.width_in_bits / 8.0)
+         self.total_size = self.width_in_bytes * self.depth
+         self.additional_height = mem_config.get_additional_height()
++        self.mask_lanes = mem_config.get_mask_lanes()
+         self.timing_data = timing_data
+         self.physical = PhysicalData()
+         if self.process.calc_dimensions():
+diff --git a/tools/FakeRAM2.0/utils/lef_exporter.py b/tools/FakeRAM2.0/utils/lef_exporter.py
+index ea65fee..3fc0c65 100644
+--- a/tools/FakeRAM2.0/utils/lef_exporter.py
++++ b/tools/FakeRAM2.0/utils/lef_exporter.py
+@@ -140,6 +140,13 @@ class LefExporter(Exporter):
+             )
+         if rw_port_group.get_data_input_bus_name():
+             self.write_signal_bus(fid, rw_port_group.get_data_input_bus_name(), 0, bits)
++        if rw_port_group.get_write_mask_bus_name():
++            self.write_signal_bus(
++                fid,
++                rw_port_group.get_write_mask_bus_name(),
++                0,
++                rw_port_group.get_write_mask_lanes(),
++            )
+         if rw_port_group.get_address_bus_name():
+             self.write_signal_bus(
+                 fid,
+diff --git a/tools/FakeRAM2.0/utils/liberty_exporter.py b/tools/FakeRAM2.0/utils/liberty_exporter.py
+index ef3f87e..c1396b3 100644
+--- a/tools/FakeRAM2.0/utils/liberty_exporter.py
++++ b/tools/FakeRAM2.0/utils/liberty_exporter.py
+@@ -155,6 +155,15 @@ class LibertyExporter(Exporter):
+                     bus_data["msb"] - bus_data["lsb"] + 1,
+                     bus_data["msb"],
+                 )
++        for rw_port_group in mem.get_rw_port_groups():
++            if rw_port_group.get_write_mask_bus_name():
++                lanes = rw_port_group.get_write_mask_lanes()
++                self.write_bus_def(
++                    out_fh,
++                    mem.get_name() + "_" + rw_port_group.get_write_mask_bus_name(),
++                    lanes,
++                    lanes - 1,
++                )
+         for bus_name, bus_data in mem.get_misc_busses().items():
+             self.write_bus_def(
+                 out_fh,
+@@ -442,6 +451,10 @@ class LibertyExporter(Exporter):
+                 is_ram,
+                 addr_bus_name,
+             )
++        if rw_port_group.get_write_mask_bus_name():
++            self.write_generic_bus(
++                out_fh, name, rw_port_group.get_write_mask_bus_name(), clk_pin_name
++            )
+         if rw_port_group.get_data_output_bus_name():
+             self.write_output_bus(
+                 out_fh,
+diff --git a/tools/FakeRAM2.0/utils/memory_config.py b/tools/FakeRAM2.0/utils/memory_config.py
+index 843bb85..db202c7 100644
+--- a/tools/FakeRAM2.0/utils/memory_config.py
++++ b/tools/FakeRAM2.0/utils/memory_config.py
+@@ -4,7 +4,16 @@
+ class MemoryConfig:
+     """Container for functional memory configuration"""
+ 
+-    def __init__(self, name, width_in_bits, depth, num_banks, additional_height):
++    def __init__(
++        self,
++        name,
++        width_in_bits,
++        depth,
++        num_banks,
++        additional_height,
++        pin_names=None,
++        mask_lanes=0,
++    ):
+         """Initializer"""
+ 
+         self._name = name
+@@ -12,6 +21,17 @@ class MemoryConfig:
+         self._depth = depth
+         self._num_banks = num_banks
+         self._additional_height = additional_height
++        # Optional: the port names the macro must carry, keyed by role
++        # (clk, ce, we, addr, din, dout, mask), and the number of write
++        # mask lanes. Absent, the memory keeps its historical pin names
++        # and writes whole words.
++        self._pin_names = dict(pin_names) if pin_names else {}
++        self._mask_lanes = int(mask_lanes or 0)
++        if self._mask_lanes and width_in_bits % self._mask_lanes:
++            raise Exception(
++                "Width %d is not a whole number of %d mask lanes (%s)"
++                % (width_in_bits, self._mask_lanes, name)
++            )
+ 
+     def set_name(self, name):
+         """Sets the name"""
+@@ -37,6 +57,14 @@ class MemoryConfig:
+         """Returns the additional_height"""
+         return self._additional_height
+ 
++    def get_pin_names(self):
++        """Returns the role -> port name dictionary (may be empty)"""
++        return self._pin_names
++
++    def get_mask_lanes(self):
++        """Returns the number of write mask lanes, 0 when unmasked"""
++        return self._mask_lanes
++
+     @staticmethod
+     def from_json(json_data):
+         return MemoryConfig(
+@@ -45,4 +73,6 @@ class MemoryConfig:
+             int(json_data["depth"]),
+             int(json_data["banks"]),
+             json_data.get("additional_height", 0),
++            json_data.get("pin_names"),
++            json_data.get("mask_lanes", 0),
+         )
+diff --git a/tools/FakeRAM2.0/utils/rw_port_group.py b/tools/FakeRAM2.0/utils/rw_port_group.py
+index 3f3c454..8b71ff4 100644
+--- a/tools/FakeRAM2.0/utils/rw_port_group.py
++++ b/tools/FakeRAM2.0/utils/rw_port_group.py
+@@ -37,6 +37,9 @@ class RWPortGroup:
+             self._clk_name = None
+         self._related_pin_list = []
+         self._related_busses = {}
++        # Optional write mask: one enable per lane of the data word.
++        self._write_mask_bus_name = None
++        self._write_mask_lanes = 0
+ 
+     def set_suffix(self, suffix):
+         """
+@@ -86,6 +89,19 @@ class RWPortGroup:
+         """Gets the data output bus name"""
+         return self._data_output_bus_name
+ 
++    def set_write_mask_bus(self, name, lanes):
++        """Sets the write mask bus name and its lane count"""
++        self._write_mask_bus_name = name
++        self._write_mask_lanes = lanes
++
++    def get_write_mask_bus_name(self):
++        """Gets the write mask bus name, or None when unmasked"""
++        return self._write_mask_bus_name
++
++    def get_write_mask_lanes(self):
++        """Gets the number of write mask lanes, 0 when unmasked"""
++        return self._write_mask_lanes
++
+     def add_related_pin(self, name):
+         """Adds related pin"""
+         self._related_pin_list.append(name)
+diff --git a/tools/FakeRAM2.0/utils/single_port_ram.py b/tools/FakeRAM2.0/utils/single_port_ram.py
+index 1f3f2d3..f1a7409 100755
+--- a/tools/FakeRAM2.0/utils/single_port_ram.py
++++ b/tools/FakeRAM2.0/utils/single_port_ram.py
+@@ -36,19 +36,24 @@ class SinglePortRAM(RAM):
+         """
+         RAM.__init__(self, mem_config, process_data, timing_data)
+         rw_port_group = RWPortGroup()
+-        rw_port_group.set_write_enable_name("we_in")
+-        rw_port_group.set_address_bus_name("addr_in")
+-        rw_port_group.set_data_input_bus_name("wd_in")
+-        rw_port_group.set_data_output_bus_name("rd_out")
+-        rw_port_group.set_clock_name("clk")
++        names = mem_config.get_pin_names()
++        rw_port_group.set_write_enable_name(names.get("we", "we_in"))
++        rw_port_group.set_address_bus_name(names.get("addr", "addr_in"))
++        rw_port_group.set_data_input_bus_name(names.get("din", "wd_in"))
++        rw_port_group.set_data_output_bus_name(names.get("dout", "rd_out"))
++        rw_port_group.set_clock_name(names.get("clk", "clk"))
++        if self.mask_lanes:
++            rw_port_group.set_write_mask_bus(
++                names.get("mask", "w_mask_in"), self.mask_lanes
++            )
+         self.add_rw_port_group(rw_port_group)
+-        self.add_misc_port("ce_in")
++        self.add_misc_port(names.get("ce", "ce_in"))
+         self.create_ports()
+ 
+     def get_num_pins(self):
+         """Returns the total number of logical pins"""
+         # rd_out (#bits) + wd_in (#bits) + addr_in (#addr_width) + we_in/ce_in/clk
+-        return (2 * self.get_width()) + self.get_addr_width() + 3
++        return (2 * self.get_width()) + self.get_addr_width() + 3 + self.mask_lanes
+ 
+     def write_verilog_file(self, out_file_name, is_blackbox=False):
+         """
+diff --git a/tools/FakeRAM2.0/utils/single_port_ram_liberty_exporter.py b/tools/FakeRAM2.0/utils/single_port_ram_liberty_exporter.py
+index 8ec41e0..5f55624 100644
+--- a/tools/FakeRAM2.0/utils/single_port_ram_liberty_exporter.py
++++ b/tools/FakeRAM2.0/utils/single_port_ram_liberty_exporter.py
+@@ -46,3 +46,7 @@ class SinglePortRAMLibertyExporter(RAMLibertyExporter):
+             True,
+             addr_bus_name,
+         )
++        if rw_port_group.get_write_mask_bus_name():
++            self.write_generic_bus(
++                out_fh, name, rw_port_group.get_write_mask_bus_name(), clk_pin_name
++            )
+diff --git a/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py b/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py
+index 6955b8b..e5c1a84 100644
+--- a/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py
++++ b/tools/FakeRAM2.0/utils/single_port_ram_verilog_exporter.py
+@@ -24,6 +24,14 @@ class SinglePortRAMVerilogExporter(VerilogExporter):
+         ce_pin = next(iter(mem.get_misc_ports()))
+         return (addr_bus, din_bus, dout_bus, we_pin, clk_pin, ce_pin)
+ 
++    def _get_mask(self):
++        """Returns (mask bus name, lanes); (None, 0) when unmasked"""
++        rw_port_group = self.get_memory().get_rw_port_groups()[0]
++        return (
++            rw_port_group.get_write_mask_bus_name(),
++            rw_port_group.get_write_mask_lanes(),
++        )
++
+     def export_module(self, out_fh):
+         """Exports the verilog module to the output stream"""
+ 
+@@ -59,7 +67,15 @@ class SinglePortRAMVerilogExporter(VerilogExporter):
+         out_fh.write("         end\n")
+         out_fh.write(f"         else if ({we_pin})\n")
+         out_fh.write("         begin\n")
+-        out_fh.write(f"            mem[{addr_bus}] <= {din_bus};\n")
++        mask_bus, lanes = self._get_mask()
++        if mask_bus:
++            out_fh.write("            for (j = 0; j < MASK_LANES; j = j + 1)\n")
++            out_fh.write(f"               if ({mask_bus}[j])\n")
++            out_fh.write(
++                f"                  mem[{addr_bus}][j*LANE_WIDTH +: LANE_WIDTH] <= {din_bus}[j*LANE_WIDTH +: LANE_WIDTH];\n"
++            )
++        else:
++            out_fh.write(f"            mem[{addr_bus}] <= {din_bus};\n")
+         out_fh.write("         end\n")
+         out_fh.write("         // read\n")
+         out_fh.write(f"         {dout_bus} <= mem[{addr_bus}];\n")
+@@ -85,12 +101,20 @@ class SinglePortRAMVerilogExporter(VerilogExporter):
+         out_fh.write(f"   {we_pin},\n")
+         out_fh.write(f"   {din_bus},\n")
+         out_fh.write(f"   {clk_pin},\n")
+-        out_fh.write(f"   {ce_pin}\n")
++        mask_bus, lanes = self._get_mask()
++        if mask_bus:
++            out_fh.write(f"   {ce_pin},\n")
++            out_fh.write(f"   {mask_bus}\n")
++        else:
++            out_fh.write(f"   {ce_pin}\n")
+         out_fh.write(");\n")
+         out_fh.write(f"   parameter BITS = {mem.get_width()};\n")
+         out_fh.write(f"   parameter WORD_DEPTH = {mem.get_depth()};\n")
+         out_fh.write(f"   parameter ADDR_WIDTH = {mem.get_addr_width()};\n")
+         out_fh.write(f"   parameter corrupt_mem_on_X_p = 1;\n")
++        if mask_bus:
++            out_fh.write(f"   parameter MASK_LANES = {lanes};\n")
++            out_fh.write(f"   parameter LANE_WIDTH = {mem.get_width() // lanes};\n")
+         out_fh.write("\n")
+         out_fh.write(f"   output reg [BITS-1:0]    {dout_bus};\n")
+         out_fh.write(f"   input  [ADDR_WIDTH-1:0]  {addr_bus};\n")
+@@ -98,6 +122,8 @@ class SinglePortRAMVerilogExporter(VerilogExporter):
+         out_fh.write(f"   input  [BITS-1:0]        {din_bus};\n")
+         out_fh.write(f"   input                    {clk_pin};\n")
+         out_fh.write(f"   input                    {ce_pin};\n")
++        if mask_bus:
++            out_fh.write(f"   input  [MASK_LANES-1:0]  {mask_bus};\n")
+         out_fh.write("\n")
+ 
+     def write_timing_check(self, out_fh):
+@@ -130,6 +156,11 @@ class SinglePortRAMVerilogExporter(VerilogExporter):
+         )
+         out_fh.write(
+             f"      $setuphold (posedge {clk_pin}, {din_bus},     0, 0, notifier);\n"
++            + (
++                f"      $setuphold (posedge {clk_pin}, {self._get_mask()[0]},     0, 0, notifier);\n"
++                if self._get_mask()[0]
++                else ""
++            )
+         )
+         out_fh.write("   endspecify\n")
+         out_fh.write("\n")
+@@ -147,5 +178,10 @@ class SinglePortRAMVerilogExporter(VerilogExporter):
+         out_fh.write(f"   input {we_pin},\n")
+         out_fh.write(f"   input [{data_bus_msb}:0] {din_bus},\n")
+         out_fh.write(f"   input {clk_pin},\n")
+-        out_fh.write(f"   input {ce_pin}\n")
++        mask_bus, lanes = self._get_mask()
++        if mask_bus:
++            out_fh.write(f"   input {ce_pin},\n")
++            out_fh.write(f"   input [{lanes - 1}:0] {mask_bus}\n")
++        else:
++            out_fh.write(f"   input {ce_pin}\n")
+         self.export_bb_footer(out_fh)

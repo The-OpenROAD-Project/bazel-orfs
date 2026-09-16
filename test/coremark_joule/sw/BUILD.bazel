@@ -7,8 +7,10 @@ load("@rules_python//python:defs.bzl", "py_test")
 # public_surface.py), so the default visibility stays inside the study.
 load(
     "//test/coremark_joule/sw:elf.bzl",
+    "FLAT_CRT0",
     "VEER_CRT0",
     "VEER_LINK_LD",
+    "XIANGSHAN_LINK_LD",
     "coremark_elf",
     "smoke_elf",
 )
@@ -81,6 +83,26 @@ smoke_elf(
     march = "rv32imc",
 )
 
+# XiangShan is RV64GC and its memory starts at 0x8000_0000. It takes its
+# reset vector as an input rather than from a bootrom, and its harness
+# loads the whole image into one external memory, so it keeps the flat
+# map and the copy-free runtime -- see link_xiangshan.ld.
+[
+    coremark_elf(
+        name = "coremark_rv64gc_{}".format(iterations),
+        cflags = BASELINE_CFLAGS,
+        crt0 = FLAT_CRT0,
+        iterations = iterations,
+        link_ld = XIANGSHAN_LINK_LD,
+        mabi = "lp64d",
+        march = "rv64gc",
+    )
+    for iterations in [
+        2,
+        3,
+    ]
+]
+
 # The subtraction's premise, checked. Not manual: it is seconds of work
 # and it guards a property of this repository's own source that would
 # otherwise rot silently, taking every cycle number with it.
@@ -94,6 +116,8 @@ py_test(
     data = [
         ":coremark_rv32i_2",
         ":coremark_rv32i_3",
+        ":coremark_rv64gc_2",
+        ":coremark_rv64gc_3",
     ],
     main = "//test/coremark_joule/scripts:iteration_delta_test.py",
 )

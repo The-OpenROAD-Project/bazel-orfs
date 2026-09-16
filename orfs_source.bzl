@@ -136,6 +136,21 @@ ORFS_PATCHES = [
     # re-pathed and kept comparable to what ORFS ships.
     # Not upstreamed -- retire at a bump onto an ORFS that picks one.
     Label("//patches:0067-orfs-fakeram-asap7-column-mux.patch"),
+    # firtool emits every Chisel memory as its own module with a fixed
+    # port convention and a register array called `Memory`. The detector
+    # named those memories by the array, so scan_files folded them all
+    # into one entry, and synthesized R0_/W0_ pin names the blackboxed
+    # module could never link to; XiangShan's XSCore converted nothing
+    # and memories.json said two entries. Names the memory after its
+    # module, takes the pins from the module's ports, counts an RW port
+    # as one, and refuses a combinational read, which no macro can be.
+    # Not upstreamed -- retire at a bump onto an ORFS that carries it.
+    Label("//patches:0069-orfs-auto-memories-firtool-modules.patch"),
+    # The FakeRAM asap7 backend emitted FakeRAM's own pin names whatever
+    # the module's were, and had no write mask. Builds the macro from the
+    # declared pins and adds mask lanes; unmasked output is unchanged.
+    # Goes with 0069; neither is useful without the other.
+    Label("//patches:0070-orfs-fakeram-declared-pins-write-mask.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

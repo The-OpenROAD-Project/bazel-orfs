@@ -244,3 +244,9 @@ py_test(
     ],
     main = "filter_saif_test.py",
 )
+
+py_binary(
+    name = "module_closure",
+    srcs = ["module_closure.py"],
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)

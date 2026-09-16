@@ -1,0 +1,33 @@
+# A macro placer for bank groups, XiangShan's for now.
+#
+# Study apparatus rather than a bazel-orfs tool: it is consumed only by
+# the XiangShan design, through MACRO_PLACEMENT_TCL, until the churn is
+# over and a second design says it has wider value. The natural home
+# after that is a clustering pre-pass in RTL-MP itself.
+load("@rules_python//python:defs.bzl", "py_binary", "py_test")
+
+package(default_visibility = ["//test/coremark_joule:__subpackages__"])
+
+exports_files([
+    "dump_macros.tcl",
+    "macro_anneal.py",
+])
+
+py_binary(
+    name = "macro_anneal",
+    srcs = ["macro_anneal.py"],
+    main = "macro_anneal.py",
+)
+
+# Not manual: milliseconds, and what it guards -- an overlapping or
+# off-track placement -- would otherwise show up as an MPL error deep in
+# a floorplan that took an hour to reach.
+py_test(
+    name = "macro_anneal_test",
+    size = "small",
+    srcs = [
+        "macro_anneal.py",
+        "macro_anneal_test.py",
+    ],
+    main = "macro_anneal_test.py",
+)

@@ -1,0 +1,460 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Oyvind Harboe <oyvind.harboe@zylin.com>
+Date: Tue, 15 Sep 2026 00:00:00 +0000
+Subject: [PATCH] AUTO_MEMORIES: a firtool memory module is a memory; read its
+ ports, refuse a combinational read
+
+Chisel designs reach the flow through firtool, which emits every
+inferred memory as its own module -- ram_<depth>x<width>,
+array_<depth>x<width> -- whose ports follow one convention,
+<R|W|RW><n>_<addr|en|clk|data|wdata|rdata|wmode|wmask>, and whose
+register array is always called `Memory`. The detector got three things
+wrong about them, and together they meant that no firtool memory was
+ever converted, silently, while the inventory said two entries and
+nothing failed.
+
+Naming. A memory was named after its module only when the module held
+exactly one cell of any kind. firtool's modules carry glue -- the
+`'bx` read mux, the mask ANDs -- so every one of them was named `Memory`
+instead, and scan_files keys by name, so forty memories collapsed into
+one. On XiangShan's XSCore: 41 memory modules in the design, two
+entries in memories.json, both declined. A module with one memory now
+*is* that memory and takes the module's name, whatever surrounds it; a
+module with several names them <module>.<cell>.
+
+Pins. The pin list was synthesized from yosys's port counts as
+R0_addr, W0_data and so on. The generated liberty view has to carry the
+ports of the module the flow blackboxes, or the module never links to
+it; and a read-write port, which yosys reports as a read plus a write,
+came out as two ports with a per-bit write enable where the module has
+one RW0_wmask of a few lanes. When every port of the module fits the
+convention, the pins are now the module's own, RW ports are counted as
+RW, and the mask width is the port's. `port_convention` in the schema
+says which happened; synthesized pins keep the old behaviour.
+
+Combinational reads. $mem_v2 RD_CLK_ENABLE says whether a read port is
+clocked. An SRAM macro reads on a clock edge, so a memory the design
+reads combinationally -- XiangShan's difftest RAT state banks, 8 x
+704x776 -- cannot become one without moving every read a cycle later.
+Such a memory is now counted (`comb_read_ports`) and refused with a
+reason; flops are the only faithful implementation.
+
+The FakeRAM asap7 backend emits a single read-write port today, so a
+memory declared with separate read and write ports under the convention
+is refused with a reason rather than handed a macro whose pins do not
+match. The companion FakeRAM patch builds the macro from these pins.
+
+Verified on XiangShan's own firtool output: array_64x114 detects as one
+RW port, 2 mask lanes, clocked read, idiomatic; the 704x776 difftest
+bank as one combinational read port, refused.
+
+Not upstreamed -- carried in bazel-orfs per the moratorium. Retires at
+a bump onto an ORFS that carries the change.
+---
+diff --git a/flow/scripts/memories/detect.py b/flow/scripts/memories/detect.py
+index c678621..7a34dbd 100644
+--- a/flow/scripts/memories/detect.py
++++ b/flow/scripts/memories/detect.py
+@@ -10,6 +10,7 @@ ports share a single clock domain.
+ from __future__ import annotations
+ 
+ import json
++import re
+ from pathlib import Path
+ 
+ import schema
+@@ -29,6 +30,78 @@ def parse_param_int(val) -> int:
+     return int(val)
+ 
+ 
++# firtool names a memory module's ports by port and function -- R0_addr,
++# W1_mask, RW0_wmode -- and this is the one convention read here. A module
++# whose every port fits it is a memory at the module boundary, and three
++# things follow that the yosys view alone gets wrong: the pins the macro
++# must expose are the module's own ports, not names synthesized from port
++# indices; a read-write port is one port, where yosys reports a read plus
++# a write; and the write mask is as wide as the port says, not the per-bit
++# enable yosys expands it into.
++_FIRTOOL_PORT = re.compile(
++    r"^(RW|R|W)(\d+)_(addr|en|clk|data|rdata|wdata|wmode|wmask|mask)$"
++)
++_FIRTOOL_FUNCTION = {
++    "addr": "addr",
++    "en": "en",
++    "clk": "clk",
++    "wmode": "wmode",
++    "wmask": "mask",
++    "mask": "mask",
++    "wdata": "data_in",
++    "rdata": "data_out",
++}
++
++
++def firtool_pins(mod_info: dict):
++    """Pins of a module whose ports all follow firtool's memory convention.
++
++    Returns (pins, read_ports, write_ports, rw_ports, mask_lanes), or None
++    when the module has no ports or any port does not fit the convention.
++    """
++    ports = mod_info.get("ports", {})
++    if not ports:
++        return None
++    pins: list[schema.Pin] = []
++    kinds: dict[str, str] = {}
++    mask_lanes = 0
++    for name, info in ports.items():
++        clean = name[1:] if name.startswith("\\") else name
++        m = _FIRTOOL_PORT.match(clean)
++        if not m:
++            return None
++        kind, index, field = m.groups()
++        port_id = kind + index
++        kinds[port_id] = kind
++        direction = info.get("direction", "input")
++        if field == "data":
++            function = "data_out" if direction == "output" else "data_in"
++        else:
++            function = _FIRTOOL_FUNCTION[field]
++        width = len(info.get("bits", [])) or 1
++        if function == "mask":
++            mask_lanes = max(mask_lanes, width)
++        pins.append(
++            schema.Pin(
++                name=clean,
++                direction=direction,
++                width=width,
++                port_id=port_id,
++                function=function,
++            )
++        )
++    found = list(kinds.values())
++    return pins, found.count("R"), found.count("W"), found.count("RW"), mask_lanes
++
++
++def _clock_enable_bits(val, ports: int) -> str:
++    """RD_CLK_ENABLE as a string of `ports` bits, most significant first."""
++    if isinstance(val, int):
++        return format(val, "0{}b".format(max(ports, 1)))
++    s = str(val)
++    return s[-ports:] if ports else s
++
++
+ def scan_yosys_json(data: dict | str | Path) -> list[schema.Memory]:
+     """Extract memory modules from a Yosys netlist JSON output ($mem_v2 cells)."""
+     if isinstance(data, (str, Path)):
+@@ -43,6 +116,9 @@ def scan_yosys_json(data: dict | str | Path) -> list[schema.Memory]:
+     for mod_name, mod_info in modules.items():
+         clean_mod_name = mod_name[1:] if mod_name.startswith("\\") else mod_name
+         cells = mod_info.get("cells", {})
++        mem_cells = [
++            n for n, c in cells.items() if c.get("type", "") in ("$mem_v2", "$mem")
++        ]
+         for cell_name, cell_info in cells.items():
+             cell_type = cell_info.get("type", "")
+             if cell_type not in ("$mem_v2", "$mem"):
+@@ -74,6 +150,12 @@ def scan_yosys_json(data: dict | str | Path) -> list[schema.Memory]:
+             mask_lanes = 0
+             if wr_ports > 0 and len(wr_en_bits) > wr_ports:
+                 mask_lanes = len(wr_en_bits) // wr_ports
++            # A read port without a clock is a combinational read. An
++            # absent parameter is yosys saying every read is clocked.
++            rd_clk_enable = params.get("RD_CLK_ENABLE")
++            comb_read_ports = 0
++            if rd_ports and rd_clk_enable is not None:
++                comb_read_ports = _clock_enable_bits(rd_clk_enable, rd_ports).count("0")
+ 
+             pins: list[schema.Pin] = []
+ 
+@@ -157,8 +239,27 @@ def scan_yosys_json(data: dict | str | Path) -> list[schema.Memory]:
+                         )
+                     )
+ 
++            # The module's own ports beat the synthesized pin list when
++            # they follow firtool's convention: those are the names the
++            # generated liberty view has to carry for the blackboxed
++            # module to link at all.
++            rw_ports = 0
++            port_convention = ""
++            convention = firtool_pins(mod_info)
++            if convention is not None:
++                pins, rd_ports, wr_ports, rw_ports, mask_lanes = convention
++                port_convention = "firtool"
++            # A module with one memory *is* that memory, whatever glue
++            # surrounds it, and takes the module's name -- which is the
++            # name the flow blackboxes. Every firtool memory calls its
++            # array `Memory`, so naming by cell would fold them all into
++            # one entry. A module with several is named per cell,
++            # qualified so the names stay distinct across modules.
+             clean_cell = cell_name[1:] if cell_name.startswith("\\") else cell_name
+-            mem_name = clean_mod_name if len(cells) == 1 else clean_cell
++            if len(mem_cells) == 1:
++                mem_name = clean_mod_name
++            else:
++                mem_name = f"{clean_mod_name}.{clean_cell}"
+ 
+             mem = schema.Memory(
+                 name=mem_name,
+@@ -167,8 +268,10 @@ def scan_yosys_json(data: dict | str | Path) -> list[schema.Memory]:
+                 addr_w=addr_w,
+                 read_ports=rd_ports,
+                 write_ports=wr_ports,
+-                rw_ports=0,
++                rw_ports=rw_ports,
+                 mask_lanes=mask_lanes,
++                comb_read_ports=comb_read_ports,
++                port_convention=port_convention,
+                 pins=pins,
+                 behavioral_model={"module": clean_mod_name},
+                 reason=f"Yosys inferred $mem_v2 ({'single-clock' if single_clock else 'multi-clock'})",
+diff --git a/flow/scripts/memories/detect_test.py b/flow/scripts/memories/detect_test.py
+index d378d11..5e5c8f5 100644
+--- a/flow/scripts/memories/detect_test.py
++++ b/flow/scripts/memories/detect_test.py
+@@ -99,5 +99,120 @@ class DetectTest(unittest.TestCase):
+         self.assertEqual(detect.scan_yosys_json(yosys_json), [])
+ 
+ 
++def _mem_cell(size, width, rd_clk_enable="1", wr_en_bits=None):
++    return {
++        "type": "$mem_v2",
++        "parameters": {
++            "SIZE": size,
++            "WIDTH": width,
++            "RD_PORTS": 1,
++            "WR_PORTS": 1,
++            "RD_CLK_ENABLE": rd_clk_enable,
++        },
++        "connections": {
++            "RD_CLK": [2],
++            "WR_CLK": [2],
++            "RD_EN": [3],
++            "WR_EN": wr_en_bits if wr_en_bits is not None else [4],
++            "RD_ADDR": list(range(10, 16)),
++            "WR_ADDR": list(range(10, 16)),
++            "RD_DATA": list(range(100, 100 + width)),
++            "WR_DATA": list(range(300, 300 + width)),
++        },
++    }
++
++
++def _firtool_rw_module(size=64, width=114, lanes=2, rd_clk_enable="1"):
++    """A module shaped like firtool's array_<depth>x<width>: one RW port."""
++    addr_w = (size - 1).bit_length()
++    ports = {
++        "RW0_addr": {"direction": "input", "bits": list(range(1, 1 + addr_w))},
++        "RW0_en": {"direction": "input", "bits": [20]},
++        "RW0_clk": {"direction": "input", "bits": [2]},
++        "RW0_wmode": {"direction": "input", "bits": [21]},
++        "RW0_wdata": {"direction": "input", "bits": list(range(300, 300 + width))},
++        "RW0_rdata": {"direction": "output", "bits": list(range(500, 500 + width))},
++        "RW0_wmask": {"direction": "input", "bits": list(range(30, 30 + lanes))},
++    }
++    cells = {
++        "\\Memory": _mem_cell(
++            size, width, rd_clk_enable, list(range(700, 700 + width))
++        ),
++        "$and$1": {"type": "$and", "parameters": {}, "connections": {}},
++        "$mux$2": {"type": "$mux", "parameters": {}, "connections": {}},
++    }
++    return {"ports": ports, "cells": cells}
++
++
++class FirtoolConventionTest(unittest.TestCase):
++    def test_one_memory_per_module_is_named_after_the_module(self):
++        # firtool calls every array `Memory`; two modules with glue around
++        # theirs must come out as two entries, named for the modules.
++        yosys_json = {
++            "modules": {
++                "\\array_64x114": _firtool_rw_module(),
++                "\\array_256x66": _firtool_rw_module(256, 66, 1),
++            }
++        }
++        mems = detect.scan_yosys_json(yosys_json)
++        self.assertEqual(sorted(m.name for m in mems), ["array_256x66", "array_64x114"])
++
++    def test_rw_port_pins_are_the_module_ports(self):
++        (m,) = detect.scan_yosys_json(
++            {"modules": {"\\array_64x114": _firtool_rw_module()}}
++        )
++        self.assertEqual(m.port_convention, "firtool")
++        self.assertEqual((m.read_ports, m.write_ports, m.rw_ports), (0, 0, 1))
++        self.assertEqual(m.mask_lanes, 2)
++        self.assertEqual(m.comb_read_ports, 0)
++        by_name = {p.name: p for p in m.pins}
++        self.assertEqual(
++            sorted(by_name),
++            [
++                "RW0_addr",
++                "RW0_clk",
++                "RW0_en",
++                "RW0_rdata",
++                "RW0_wdata",
++                "RW0_wmask",
++                "RW0_wmode",
++            ],
++        )
++        self.assertEqual(by_name["RW0_rdata"].function, "data_out")
++        self.assertEqual(by_name["RW0_rdata"].direction, "output")
++        self.assertEqual(by_name["RW0_wdata"].function, "data_in")
++        self.assertEqual(by_name["RW0_wmask"].function, "mask")
++        self.assertEqual(by_name["RW0_wmask"].width, 2)
++        self.assertEqual(by_name["RW0_wmode"].function, "wmode")
++        self.assertTrue(all(p.port_id == "RW0" for p in m.pins))
++
++    def test_combinational_read_is_counted(self):
++        (m,) = detect.scan_yosys_json(
++            {"modules": {"\\bank": _firtool_rw_module(rd_clk_enable="0")}}
++        )
++        self.assertEqual(m.comb_read_ports, 1)
++
++    def test_clock_enable_as_integer(self):
++        self.assertEqual(detect._clock_enable_bits(1, 1), "1")
++        self.assertEqual(detect._clock_enable_bits(2, 2), "10")
++        self.assertEqual(detect._clock_enable_bits("0", 1), "0")
++
++    def test_ports_outside_the_convention_keep_synthesized_pins(self):
++        module = _firtool_rw_module()
++        module["ports"]["ce_in"] = {"direction": "input", "bits": [40]}
++        (m,) = detect.scan_yosys_json({"modules": {"\\other": module}})
++        self.assertEqual(m.port_convention, "")
++        self.assertEqual((m.read_ports, m.write_ports, m.rw_ports), (1, 1, 0))
++        self.assertIn("R0_addr", [p.name for p in m.pins])
++
++    def test_second_memory_in_a_module_gets_a_qualified_name(self):
++        module = _firtool_rw_module()
++        module["cells"]["\\Other"] = _mem_cell(64, 8)
++        names = sorted(
++            m.name for m in detect.scan_yosys_json({"modules": {"\\m": module}})
++        )
++        self.assertEqual(names, ["m.Memory", "m.Other"])
++
++
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/flow/scripts/memories/idiomatic.py b/flow/scripts/memories/idiomatic.py
+index 2bcd47d..7109892 100644
+--- a/flow/scripts/memories/idiomatic.py
++++ b/flow/scripts/memories/idiomatic.py
+@@ -55,6 +55,17 @@ def judge(mem: schema.Memory) -> tuple[bool, str]:
+             "an inline array is the design asking for flip-flops. "
+             "Instantiate the memory as its own module to convert it",
+         )
++    # An SRAM macro reads on a clock edge. A memory the design reads
++    # combinationally is a register array in its own words -- a lookup
++    # table, a bypass structure -- and converting it would move every
++    # read a cycle later. Flops are the only faithful implementation.
++    if mem.comb_read_ports:
++        return (
++            False,
++            f"{mem.comb_read_ports} combinational read port(s): an SRAM macro "
++            "reads on a clock edge; a register array is what the design "
++            "asked for",
++        )
+     if mem.bits < 1:
+         return False, "no data pins"
+     if mem.rows < MIN_ROWS:
+@@ -71,6 +82,21 @@ def judge(mem: schema.Memory) -> tuple[bool, str]:
+             f"{mem.total_ports()} ports exceeds single-macro "
+             f"limit {MAX_TOTAL_PORTS}",
+         )
++    # What the FakeRAM asap7 backend emits today is a single read-write
++    # port. When the pins are the module's own, the port configuration is
++    # known exactly and anything else would generate a macro whose pins do
++    # not match the module it replaces.
++    if mem.port_convention == "firtool" and (
++        mem.rw_ports,
++        mem.read_ports,
++        mem.write_ports,
++    ) != (1, 0, 0):
++        return (
++            False,
++            f"R={mem.read_ports} W={mem.write_ports} RW={mem.rw_ports}: the "
++            "asap7 backend emits a single read-write port; a separate-port "
++            "macro is not emitted yet",
++        )
+     return True, "meets ASAP7 macro floors"
+ 
+ 
+diff --git a/flow/scripts/memories/idiomatic_test.py b/flow/scripts/memories/idiomatic_test.py
+index d26fbfc..04b34fd 100644
+--- a/flow/scripts/memories/idiomatic_test.py
++++ b/flow/scripts/memories/idiomatic_test.py
+@@ -49,5 +49,31 @@ class IdiomaticTest(unittest.TestCase):
+         self.assertTrue(memories[1].reason)
+ 
+ 
++class BackendShapeTest(unittest.TestCase):
++    def test_rejects_combinational_read(self):
++        m = mem(704, 776)
++        m.comb_read_ports = 1
++        ok, reason = idiomatic.judge(m)
++        self.assertFalse(ok)
++        self.assertIn("combinational read", reason)
++
++    def test_accepts_single_rw_port_under_firtool_convention(self):
++        m = mem(64, 114, read_ports=0, write_ports=0, rw_ports=1)
++        m.port_convention = "firtool"
++        ok, reason = idiomatic.judge(m)
++        self.assertTrue(ok, reason)
++
++    def test_rejects_separate_ports_under_firtool_convention(self):
++        m = mem(64, 114, read_ports=1, write_ports=1)
++        m.port_convention = "firtool"
++        ok, reason = idiomatic.judge(m)
++        self.assertFalse(ok)
++        self.assertIn("single read-write port", reason)
++
++    def test_synthesized_pins_keep_the_old_acceptance(self):
++        ok, reason = idiomatic.judge(mem(64, 32))
++        self.assertTrue(ok, reason)
++
++
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/flow/scripts/memories/schema.py b/flow/scripts/memories/schema.py
+index 060cf27..754ae83 100644
+--- a/flow/scripts/memories/schema.py
++++ b/flow/scripts/memories/schema.py
+@@ -49,6 +49,15 @@ class Memory:
+     # Total width of the per-port write mask, 0 if unmasked. Subword-split
+     # mask pins (`W0_mask_0..3`) contribute one lane each.
+     mask_lanes: int = 0
++    # Read ports yosys inferred without a clock ($mem_v2 RD_CLK_ENABLE=0).
++    # An SRAM macro reads on a clock edge, so one of these rules the memory
++    # out of conversion; see idiomatic.py.
++    comb_read_ports: int = 0
++    # Where the pin list came from. "firtool" when every port of the
++    # behavioral module follows firtool's <R|W|RW><n>_<function> naming and
++    # the pins are the module's own ports; "" when they were synthesized
++    # from the yosys port counts.
++    port_convention: str = ""
+     pins: list[Pin] = field(default_factory=list)
+     # The module whose RTL body simulates this memory: {"file", "module"}.
+     behavioral_model: dict | None = None
+@@ -106,9 +115,12 @@ def memory_from_dict(d: dict) -> Memory:
+         "write_ports",
+         "rw_ports",
+         "mask_lanes",
++        "comb_read_ports",
+     ):
+         if key in d:
+             setattr(mem, key, int(d[key]))
++    if "port_convention" in d:
++        mem.port_convention = str(d["port_convention"])
+     if "pins" in d:
+         mem.pins = [_pin_from_dict(p) for p in d["pins"]]
+     if "behavioral_model" in d:
+@@ -170,10 +182,13 @@ def merge(detected: list[Memory], overrides: list[Memory]) -> list[Memory]:
+             "write_ports",
+             "rw_ports",
+             "mask_lanes",
++            "comb_read_ports",
+         ):
+             value = getattr(o, key)
+             if value:
+                 setattr(base, key, value)
++        if o.port_convention:
++            base.port_convention = o.port_convention
+         if o.behavioral_model is not None:
+             base.behavioral_model = o.behavioral_model
+         if o.idiomatic:

@@ -122,6 +122,16 @@ int main(int argc, char **argv)
 {
     Verilated::commandArgs(argc, argv);
 
+    // The three small cores load their RAM from this plusarg in RTL, with
+    // $readmemh. XiangShan's memory lives in C++ behind DPI, and a DPI
+    // function cannot see plusargs without depending on the Verilated
+    // runtime, so the value is re-exported for it here. Harmless for the
+    // cores that do not read it.
+    const char *meminit = plusarg(argc, argv, "meminit", nullptr);
+    if (meminit != nullptr) {
+        setenv("CMJ_MEMINIT", meminit, 1);
+    }
+
     const char *stdout_path = plusarg(argc, argv, "stdout", nullptr);
     const char *cycles_path = plusarg(argc, argv, "cycles", nullptr);
     // A budget rather than an unbounded run: a core that never reaches
@@ -170,6 +180,16 @@ int main(int argc, char **argv)
         dut->trace(saif, 99);
     }
 #endif
+
+    // Deasserted first, and evaluated, so that asserting it is an edge.
+    // A design with asynchronous resets -- XiangShan's CHI link layer
+    // among them -- initialises its registers on the reset edge, and a
+    // signal that is simply low from time zero never produces one. The
+    // symptom is a register that keeps its X or zero and an assertion
+    // failing in the first cycle, a long way from the cause.
+    dut->resetn = 1;
+    dut->clk = 0;
+    dut->eval();
 
     dut->resetn = 0;
     for (int i = 0; i < kResetCycles; i++) {

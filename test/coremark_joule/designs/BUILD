@@ -23,6 +23,7 @@ SDC_FILES = [
     "//test/coremark_joule/designs/asap7/serv:constraints.sdc",
     "//test/coremark_joule/designs/asap7/ibex:constraints.sdc",
     "//test/coremark_joule/designs/asap7/veer:constraints.sdc",
+    "//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc",
 ]
 
 sh_test(
