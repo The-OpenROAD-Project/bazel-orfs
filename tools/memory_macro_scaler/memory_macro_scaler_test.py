@@ -12,15 +12,13 @@ from pathlib import Path
 
 import memory_macro_scaler as mms
 
-
 # ---------------------------------------------------------------------------
 # Fixture helpers
 # ---------------------------------------------------------------------------
 
 
 def _lib_header(name, time_unit='"1ns"'):
-    return textwrap.dedent(
-        f"""\
+    return textwrap.dedent(f"""\
         library({name}) {{
           technology (cmos);
           delay_model : table_lookup;
@@ -28,8 +26,7 @@ def _lib_header(name, time_unit='"1ns"'):
           voltage_unit : "1V";
           current_unit : "1uA";
           leakage_power_unit : "1nW";
-        """
-    )
+        """)
 
 
 def _firtool_sram_lib(
@@ -578,14 +575,29 @@ class TestScaleReference(unittest.TestCase):
         }
         # Output pin lands on the right edge (x0 near width_um).
         self.assertAlmostEqual(
-            by_pin["RW0_rdata"][0], bucket["width_um"] - mms._M4_PITCH_UM, places=3
+            by_pin["RW0_rdata"][0], bucket["width_um"] - mms._M4_WIDTH_UM, places=3
         )
         # Input pin lands on the left edge (x0 == 0).
         self.assertEqual(by_pin["RW0_addr"][0], 0.0)
-        # Clock lands on the top edge (y0 near height_um).
-        self.assertAlmostEqual(
-            by_pin["clk"][1], bucket["height_um"] - mms._M5_PITCH_UM, places=3
-        )
+        # Clock lands on the left edge with the inputs, on M4 (x0 == 0):
+        # an M5 pin at the top edge has no legal access unless its
+        # absolute x lands on an M5 track, and placement does not
+        # guarantee that (DRT-0255 on the clock net).
+        self.assertEqual(by_pin["clk"][0], 0.0)
+        # Every signal pin is the layer's wire width, a square, on the
+        # pitch: a 0.048 square is a width ASAP7's M4 table does not have
+        # and detailed routing flags every one as Rect Only. Edge pins on
+        # M4 (horizontal) sit on the y grid; the clock on M5 (vertical)
+        # sits on the x grid.
+        for name, (x0, y0, x1, y1) in by_pin.items():
+            if name.upper().startswith(("VDD", "VSS")):
+                continue
+            self.assertAlmostEqual(x1 - x0, mms._M4_WIDTH_UM, places=3, msg=name)
+            self.assertAlmostEqual(y1 - y0, mms._M4_WIDTH_UM, places=3, msg=name)
+            # M4 (horizontal, OFFSET 0.003): the pin's bottom edge is on the
+            # pitch multiple, as in the platform's fakeram7 LEFs.
+            on_grid = y0 / mms._M4_PITCH_UM
+            self.assertAlmostEqual(on_grid, round(on_grid), places=3, msg=name)
 
 
 # ---------------------------------------------------------------------------
@@ -745,20 +757,42 @@ class TestGenerateFromScratch(unittest.TestCase):
         self.assertIn("USE POWER", lef)
         self.assertIn("PIN VSS", lef)
         self.assertIn("USE GROUND", lef)
-        # And they must land as full-width M4 stripes — small disconnected
-        # rects don't overlap parent PDN stripes and PDN-0231 fires anyway.
+        # And they must land as M4 stripes spanning the macro — small
+        # disconnected rects don't overlap parent PDN stripes and PDN-0231
+        # fires anyway. They start one pitch in from each edge, as
+        # fakeram7's do: a stripe reaching x=0 runs through the pin column.
         m = re.search(r"SIZE\s+([\d.]+)\s+BY\s+([\d.]+)", lef)
         self.assertIsNotNone(m)
         width = float(m.group(1))
+        stripes = []
         for pg in ("VDD", "VSS"):
             block = re.search(rf"PIN {pg}.*?END {pg}", lef, re.DOTALL).group(0)
             stripe = re.search(
-                r"LAYER M4 ; RECT ([\d.]+) [\d.]+ ([\d.]+) [\d.]+", block
+                r"LAYER M4 ; RECT ([\d.]+) ([\d.]+) ([\d.]+) ([\d.]+)", block
             )
             self.assertIsNotNone(stripe, f"{pg} stripe not found on M4")
-            x_lo, x_hi = float(stripe.group(1)), float(stripe.group(2))
-            self.assertEqual(x_lo, 0.0)
-            self.assertAlmostEqual(x_hi, width, places=3)
+            x_lo, y_lo, x_hi, y_hi = (float(g) for g in stripe.groups())
+            self.assertAlmostEqual(x_lo, mms._M4_PITCH_UM, places=3)
+            self.assertAlmostEqual(x_hi, width - mms._M4_PITCH_UM, places=3)
+            stripes.append((y_lo, y_hi))
+        # No signal pin shares a row with a stripe: a pin under a rail has
+        # no access point (DRT-0073), and ASAP7 M4 spacing is 0.04.
+        pin_rects = re.findall(
+            r"PIN\s+(\S+).*?RECT\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)",
+            lef,
+            re.DOTALL,
+        )
+        signal = [
+            (n, float(y0), float(y1))
+            for n, _, y0, _, y1 in pin_rects
+            if n not in ("VDD", "VSS")
+        ]
+        self.assertGreater(len(signal), 100)
+        for name, y0, y1 in signal:
+            for sy0, sy1 in stripes:
+                self.assertTrue(
+                    y1 + 0.04 <= sy0 or y0 >= sy1 + 0.04, f"{name} row meets a rail"
+                )
 
 
 class TestBanking(unittest.TestCase):
@@ -820,8 +854,7 @@ class TestBanking(unittest.TestCase):
 
 class TestVerilogScanner(unittest.TestCase):
     def test_scan_detects_firtool_sram(self):
-        sv = textwrap.dedent(
-            """\
+        sv = textwrap.dedent("""\
             module data_128x64(
               input         clk,
               input  [6:0]  R0_addr,
@@ -838,8 +871,7 @@ class TestVerilogScanner(unittest.TestCase):
               output y
             );
             endmodule
-        """
-        )
+        """)
         roles = mms.scan_verilog_for_memories(sv)
         self.assertIn("data_128x64", roles)
         r = roles["data_128x64"]
@@ -859,8 +891,7 @@ class TestVerilogScanner(unittest.TestCase):
         reports an error. Taken from VeeR EH1's design/lib/mem_lib.sv,
         which is the shape that found this.
         """
-        sv = textwrap.dedent(
-            """\
+        sv = textwrap.dedent("""\
             module ram_2048x39
               ( input logic CLK,
                 input logic [10:0] ADR,
@@ -870,16 +901,16 @@ class TestVerilogScanner(unittest.TestCase):
                 input logic WE );
                reg [38:0] ram_core [2047:0];
             endmodule
-        """
-        )
+        """)
         roles = mms.scan_verilog_for_memories(sv)
         self.assertIn("ram_2048x39", roles)
-        self.assertEqual((2048, 39), (roles["ram_2048x39"].rows, roles["ram_2048x39"].bits))
+        self.assertEqual(
+            (2048, 39), (roles["ram_2048x39"].rows, roles["ram_2048x39"].bits)
+        )
 
     def test_scan_still_sees_firtool_ports_without_a_data_type(self):
         """The type is optional, not required: firtool's form still parses."""
-        sv = textwrap.dedent(
-            """\
+        sv = textwrap.dedent("""\
             module typeless_64x8(
               input  [5:0] R0_addr,
               input        R0_en,
@@ -887,15 +918,13 @@ class TestVerilogScanner(unittest.TestCase):
               output [7:0] R0_data
             );
             endmodule
-        """
-        )
+        """)
         roles = mms.scan_verilog_for_memories(sv)
         self.assertIn("typeless_64x8", roles)
         self.assertEqual("sram", roles["typeless_64x8"].kind)
 
     def test_scan_sees_signed_and_wire_declared_ports(self):
-        sv = textwrap.dedent(
-            """\
+        sv = textwrap.dedent("""\
             module signed_32x16(
               input wire clk,
               input wire [4:0] addr,
@@ -904,15 +933,15 @@ class TestVerilogScanner(unittest.TestCase):
               input wire signed [15:0] d
             );
             endmodule
-        """
-        )
+        """)
         roles = mms.scan_verilog_for_memories(sv)
         self.assertIn("signed_32x16", roles)
-        self.assertEqual((32, 16), (roles["signed_32x16"].rows, roles["signed_32x16"].bits))
+        self.assertEqual(
+            (32, 16), (roles["signed_32x16"].rows, roles["signed_32x16"].bits)
+        )
 
     def test_scan_detects_flop_memory_by_name(self):
-        sv = textwrap.dedent(
-            """\
+        sv = textwrap.dedent("""\
             module regfile_16x32(
               input clk,
               input [3:0] addr,
@@ -924,8 +953,7 @@ class TestVerilogScanner(unittest.TestCase):
               always @(posedge clk) if (we) mem[addr] <= d;
               assign q = mem[addr];
             endmodule
-        """
-        )
+        """)
         roles = mms.scan_verilog_for_memories(sv)
         self.assertIn("regfile_16x32", roles)
         r = roles["regfile_16x32"]
@@ -1183,8 +1211,7 @@ class TestVerilogScannerReadMode(unittest.TestCase):
     """Verilog-body heuristic for sync vs async read classification."""
 
     def test_posedge_always_nonblocking_rdata_is_sync(self):
-        sv = textwrap.dedent(
-            """\
+        sv = textwrap.dedent("""\
             module sram_8x8(
               input         R0_clk,
               input  [2:0]  R0_addr,
@@ -1200,16 +1227,14 @@ class TestVerilogScannerReadMode(unittest.TestCase):
                 R0_data <= Memory[R0_addr];
               end
             endmodule
-            """
-        )
+            """)
         roles = mms.scan_verilog_for_memories(sv)
         self.assertEqual(roles["sram_8x8"].read_mode, "sync")
 
     def test_registered_stage_assigned_to_rdata_is_sync(self):
         # Firtool-style: Memory[R0_addr] is sampled into a register on posedge,
         # then continuously assigned to the output. Still a synchronous read.
-        sv = textwrap.dedent(
-            """\
+        sv = textwrap.dedent("""\
             module sram_8x8(
               input         R0_clk,
               input  [2:0]  R0_addr,
@@ -1227,14 +1252,12 @@ class TestVerilogScannerReadMode(unittest.TestCase):
               end
               assign R0_data = Memory_R0_data;
             endmodule
-            """
-        )
+            """)
         roles = mms.scan_verilog_for_memories(sv)
         self.assertEqual(roles["sram_8x8"].read_mode, "sync")
 
     def test_continuous_assign_rdata_from_memory_is_async(self):
-        sv = textwrap.dedent(
-            """\
+        sv = textwrap.dedent("""\
             module sram_8x8(
               input         R0_clk,
               input  [2:0]  R0_addr,
@@ -1251,16 +1274,14 @@ class TestVerilogScannerReadMode(unittest.TestCase):
               end
               assign R0_data = Memory[R0_addr];
             endmodule
-            """
-        )
+            """)
         roles = mms.scan_verilog_for_memories(sv)
         self.assertEqual(roles["sram_8x8"].read_mode, "async")
 
     def test_ambiguous_body_defaults_to_sync(self):
         # No explicit drive of R0_data in the body (e.g. stubbed out) — keep
         # the current implicit behavior rather than silently flipping.
-        sv = textwrap.dedent(
-            """\
+        sv = textwrap.dedent("""\
             module sram_8x8(
               input         R0_clk,
               input  [2:0]  R0_addr,
@@ -1272,16 +1293,14 @@ class TestVerilogScannerReadMode(unittest.TestCase):
               input  [7:0]  W0_mask
             );
             endmodule
-            """
-        )
+            """)
         roles = mms.scan_verilog_for_memories(sv)
         self.assertEqual(roles["sram_8x8"].read_mode, "sync")
 
     def test_flop_memory_defaults_to_async(self):
         # Flop-based memories (by name suffix) are always async-read by
         # construction — the Verilog-body heuristic shouldn't override that.
-        sv = textwrap.dedent(
-            """\
+        sv = textwrap.dedent("""\
             module regfile_16x32(
               input         clk,
               input  [3:0]  addr,
@@ -1293,8 +1312,7 @@ class TestVerilogScannerReadMode(unittest.TestCase):
               always @(posedge clk) if (we) mem[addr] <= d;
               assign q = mem[addr];
             endmodule
-            """
-        )
+            """)
         roles = mms.scan_verilog_for_memories(sv)
         self.assertEqual(roles["regfile_16x32"].kind, "flop_memory")
         self.assertEqual(roles["regfile_16x32"].read_mode, "async")
@@ -1325,8 +1343,7 @@ class TestBehavioralMacrosReadMode(unittest.TestCase):
     """End-to-end: Verilog → generated .lib must respect read mode."""
 
     def test_async_verilog_produces_combinational_q_arc_in_generated_lib(self):
-        sv = textwrap.dedent(
-            """\
+        sv = textwrap.dedent("""\
             module async_sram_8x8(
               input         R0_clk,
               input  [2:0]  R0_addr,
@@ -1342,8 +1359,7 @@ class TestBehavioralMacrosReadMode(unittest.TestCase):
               always @(posedge W0_clk) if (W0_en) Memory[W0_addr] <= W0_data;
               assign R0_data = Memory[R0_addr];
             endmodule
-            """
-        )
+            """)
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             v = d / "async.sv"
@@ -1359,8 +1375,7 @@ class TestBehavioralMacrosReadMode(unittest.TestCase):
             self.assertNotRegex(q_block, r"timing_type\s*:\s*rising_edge")
 
     def test_sync_verilog_produces_rising_edge_q_arc_in_generated_lib(self):
-        sv = textwrap.dedent(
-            """\
+        sv = textwrap.dedent("""\
             module sync_sram_8x8(
               input         R0_clk,
               input  [2:0]  R0_addr,
@@ -1376,8 +1391,7 @@ class TestBehavioralMacrosReadMode(unittest.TestCase):
               always @(posedge R0_clk) R0_data <= Memory[R0_addr];
               always @(posedge W0_clk) if (W0_en) Memory[W0_addr] <= W0_data;
             endmodule
-            """
-        )
+            """)
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             v = d / "sync.sv"
