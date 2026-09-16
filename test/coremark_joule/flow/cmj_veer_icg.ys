@@ -1,0 +1,21 @@
+# Map VeeR's clock gate onto ASAP7's integrated clock gate.
+#
+# Runs through SYNTH_POST_HIERARCHY_SCRIPTS (patches/0068), which is
+# after hierarchy and before flatten -- the only window in which a
+# clockhdr instance is still a cell of its own type.
+#
+# chtype first, because the slang frontend elaborates one module per
+# instance and names each after the instance path:
+#
+#   \clockhdr$swerv_wrapper.mem.free_cg.rvclkhdr
+#   \clockhdr$swerv_wrapper.dbg.dbg_free_cg.rvclkhdr
+#   ... ~100 more
+#
+# so there is no cell of type `clockhdr` for techmap to match, and a
+# bare techmap -map silently maps nothing -- which is exactly what it
+# did: ICG 0, transparent latches 952. chtype folds the uniquified
+# copies back onto the one name the map file defines.
+#
+# SPDX-License-Identifier: Apache-2.0
+chtype -set clockhdr t:clockhdr$*
+techmap -map test/coremark_joule/flow/cmj_veer_icg_map.v

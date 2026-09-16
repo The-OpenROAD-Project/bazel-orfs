@@ -1,0 +1,40 @@
+# The study's pinned results.
+#
+# Measurements are minutes per core; presentation is not. Pinning the
+# numbers into a committed file means iterating on a plot never re-runs a
+# flow, and a number that changes shows up as a line in a pull request.
+load("@rules_python//python:defs.bzl", "py_binary")
+
+package(default_visibility = ["//test/coremark_joule:__subpackages__"])
+
+exports_files(["results.json"])
+
+py_binary(
+    name = "pin",
+    srcs = ["//test/coremark_joule/scripts:pin_results.py"],
+    args = [
+        "$(location //test/coremark_joule/sim:point_picorv32_rv32im)",
+        "$(location //test/coremark_joule/sim:point_serv_rv32i)",
+        "$(location //test/coremark_joule/sim:point_ibex_rv32imc)",
+        "$(location //test/coremark_joule/sim:point_veer_rv32imc)",
+    ],
+    data = [
+        "//test/coremark_joule/sim:point_ibex_rv32imc",
+        "//test/coremark_joule/sim:point_picorv32_rv32im",
+        "//test/coremark_joule/sim:point_serv_rv32i",
+        "//test/coremark_joule/sim:point_veer_rv32imc",
+    ],
+    main = "//test/coremark_joule/scripts:pin_results.py",
+    tags = ["manual"],
+)
+
+# The plot, from the pinned results alone -- no flow in the loop.
+genrule(
+    name = "plot",
+    srcs = ["results.json"],
+    outs = ["coremark_joule.png"],
+    cmd = "$(execpath //test/coremark_joule/scripts:plot_results) " +
+          "$(location results.json) --out $@",
+    tags = ["manual"],
+    tools = ["//test/coremark_joule/scripts:plot_results"],
+)

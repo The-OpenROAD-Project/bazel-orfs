@@ -1,0 +1,16 @@
+# Overlay for @picorv32: upstream YosysHQ/picorv32.
+#
+# picorv32.v carries every module the study needs -- the core itself, the
+# register file, and the optional multiplier/divider -- in one file, and
+# nothing is generated. The repository's own testbench.v is deliberately
+# not exported: this study drives all three cores from one wrapper and
+# one C runtime (see //test/coremark_joule/rtl), rather than adopting
+# each vendor's simulation harness and porting the software three times.
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "rtl",
+    srcs = ["picorv32.v"],
+)
+
+exports_files(["COPYING"])

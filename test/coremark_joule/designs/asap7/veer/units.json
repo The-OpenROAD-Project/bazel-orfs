@@ -1,0 +1,34 @@
+{
+  "design": "swerv_wrapper",
+  "min_coverage": 0.9,
+  "units": {
+    "ifu_ifc_ctl": "fetch",
+    "ifu_aln_ctl": "fetch",
+    "ifu_bp_ctl": "branch prediction",
+    "ifu_mem_ctl": "instruction cache control",
+    "dec_decode_ctl": "decode",
+    "dec_ib_ctl": "decode",
+    "dec_tlu_ctl": "control and CSR",
+    "dec_trigger": "control and CSR",
+    "exu": "execute",
+    "exu_alu_ctl": "execute",
+    "exu_div_ctl": "divider",
+    "lsu_lsc_ctl": "load/store",
+    "lsu_dccm_ctl": "load/store",
+    "lsu_dccm_mem": "load/store",
+    "lsu_stbuf": "load/store",
+    "lsu_bus_buffer": "load/store",
+    "lsu_bus_intf": "load/store",
+    "lsu_ecc": "load/store",
+    "lsu_trigger": "load/store",
+    "pic_ctrl": "interrupt controller",
+    "dma_ctrl": "DMA",
+    "dbg": "debug"
+  },
+  "waiver": "The kept-module list is ORFS's capture of the modules VeeR itself marks keep_hierarchy, not one written for this study, so the attribution is the core author's own decomposition rather than ours. Two things it does not reach. dec_gpr_ctl, the register file, is parameterized (GPR_BANKS) and so is named $paramod by yosys and does not survive into the ODB -- the same failure §5.7 of the paper describes for SERV, and the reason the breakdown has no register-file unit. And the three SRAM macros are instances rather than kept modules, so the instruction cache's arrays and the DCCM are attributed as macros rather than to the units that read them; that is the correct place for them, since the study's boundary is core plus L1 and the memories are the L1.",
+  "memory_units": {
+    "fakeram7_2048x39": "DCCM",
+    "fakeram7_256x34": "instruction cache data",
+    "fakeram7_64x21": "instruction cache tag"
+  }
+}

@@ -1,0 +1,24 @@
+# Overlay for @riscv_none_elf_gcc: xPack's bare-metal RISC-V GCC.
+#
+# One filegroup for the whole distribution rather than a cc_toolchain.
+# The study needs a compiler, not a C++ rule set: nothing here is a
+# cc_library, there is no dependency graph to model, and every ELF is one
+# invocation with an explicit flag list that the sweep varies. A
+# cc_toolchain would hide exactly the flags the study is measuring.
+#
+# gcc resolves its libexec, include and multilib directories relative to
+# argv[0], so the whole tree has to be present -- naming just bin/ gives
+# "cannot execute cc1".
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "all",
+    srcs = glob(
+        ["**"],
+        # The archive ships its own symlinked duplicates; excluding
+        # nothing is simplest and glob() already skips dangling links.
+        allow_empty = False,
+    ),
+)
+
+exports_files(["bin/riscv-none-elf-gcc"])

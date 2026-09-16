@@ -1,0 +1,33 @@
+# Overlay for @serv: upstream olofk/serv.
+#
+# rtl/ only. servant/ -- the reference SoC -- is deliberately not
+# exported: its "stdout" is a bit-banged UART on a one-bit GPIO decoded
+# by bench/uart_decoder.v, which costs thousands of cycles per character
+# and depends on a baud rate. This study gives every core the same
+# two-register sim-control device instead, so the C runtime and the
+# CoreMark port are shared rather than ported per core.
+#
+# Two files are excluded, neither of which this study instantiates:
+#
+# serv_debug.v is a simulation-only tracer full of $display, and it would
+# otherwise follow the core into synthesis.
+#
+# serv_synth_wrapper.v is an alternative top for FPGA synthesis, and at
+# this commit it instantiates serv_rf_ram_if without connecting o_ren.
+# That is upstream's to fix; the study hardens serv_rf_top directly and
+# never elaborates the wrapper, so excluding it is the honest way to not
+# inherit the problem.
+package(default_visibility = ["//visibility:public"])
+
+filegroup(
+    name = "rtl",
+    srcs = glob(
+        ["rtl/*.v"],
+        exclude = [
+            "rtl/serv_debug.v",
+            "rtl/serv_synth_wrapper.v",
+        ],
+    ),
+)
+
+exports_files(["LICENSE"])

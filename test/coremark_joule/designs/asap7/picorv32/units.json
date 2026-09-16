@@ -1,0 +1,9 @@
+{
+  "design": "cmj_picorv32",
+  "min_coverage": 0.9,
+  "units": {
+    "picorv32_pcpi_div": "divider",
+    "picorv32_pcpi_mul": "multiplier"
+  },
+  "waiver": "picorv32.v defines eight modules and the CPU is one of them: decode, execute, the ALU and control are all inline in the picorv32 module, so no SYNTH_KEEP_MODULES list can attribute them. This design therefore cannot meet the coverage floor, and the shortfall is a property of the RTL rather than of the method. The register file is not an exception to it: upstream's default is an inline `reg [31:0] cpuregs [0:31]` array, which patches/0066 makes AUTO_MEMORIES leave alone with a reason -- an inline array is the design asking for flip-flops -- so it synthesises as flops and falls into \"other\" with the datapath. Upstream offers a PICORV32_REGS macro that would break it out as a module, but it is commented out by default and using it would measure a different design from the one its author ships."
+}
