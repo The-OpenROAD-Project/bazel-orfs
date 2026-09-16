@@ -1636,6 +1636,64 @@ The direction of this bias is *opposite* to [§5.1](#51-the-boundary-met-and-wha
 push every point down in CoreMark/Joule, and most for the cores with
 the deepest logic.
 
+**What has been built, and what it could not do.** The chain a glitch
+measurement needs exists and works: `flow/write_sdf.tcl` takes
+per-instance delays from the same ODB the netlist and the power report
+come from; `lib_to_verilog` now declares the `specify` paths those
+delays annotate onto, which ASAP7 supplies no Verilog for;
+`scripts/iverilog_inputs.py` reconciles what OpenSTA writes with what
+iverilog can read, taking annotation failures from 96.2 % of instances
+to 3 in 21,156; and `test/glitch_smoke` demonstrates the whole point on
+two gates, where an SDF-annotated run emits a pulse on an output whose
+logic function is permanently zero and a zero-delay run emits nothing.
+
+**On ibex's full netlist it does not work.** Annotating the
+combinational cells stops the core executing; annotating only the
+sequential cells leaves it running. Eliminated, each by measurement
+rather than by argument: delay magnitude (an SDF with every delay set
+to 1 ps fails identically), setup violations (a simulated clock period
+of 5000 ps against a design closing at 1282 ps fails identically),
+clock skew (excluding all 260 clock-tree cells fails identically),
+cell family, and partial annotation. Six standalone reproductions --
+a single buffer, a buffer chain, a chain inside a submodule, a partly
+annotated chain, a delayed clock into an annotated flop, and a flop
+with asynchronous reset -- all behave correctly under the same
+annotation. So the failure needs something the full netlist has that
+none of those do, and finding it means debugging the simulator against
+a 25,835-instance design rather than measuring anything.
+
+Two false leads are recorded because they cost time and were both
+mistakes in the measuring apparatus rather than in what was measured.
+The testbench released reset on a clock edge, which zero-delay event
+ordering resolves silently and 17 ps of annotated skew turns into X
+across the netlist. And the first detector treated any X bit in the
+fetch address as failure, so it converged on the buffer driving
+`dbg_instr_addr[5]` -- the cell feeding the instrument, not the cell
+breaking the design. A bisection is only as good as its oracle.
+
+**A second blocker, independent of the first.** An event-driven
+gate-level simulation of ibex runs at **50 cycles per second** here,
+measured over 2,000 and 10,000 cycle runs and consistent between them.
+One CoreMark iteration is 407,448 cycles, so the window this study
+reports power over is 2.3 hours per arm before annotation, and longer
+with it. Verilator covers the same iteration in minutes: the ratio is
+about three orders of magnitude, and it is the reason this study uses a
+cycle-based simulator in the first place. It also rules out hunting for
+the cycles that matter inside a whole-core run -- CoreMark dispatches
+its matrix work per list item, and 40,000 cycles from reset contain no
+multiply at all, so reaching the interesting cycles costs hours before
+anything is measured.
+
+**So the measurement moves to the multiplier**, which needs none of
+that. It is a preserved module boundary of 3,199 cells, 12.4 % of the
+design, and the structure the literature names as the worst offender
+for glitch: unbalanced arrival times into a partial-product tree, with
+spurious switching growing row by row [7, 8]. Driving it alone from
+operand traces the working zero-delay simulation already produces gives
+glitch energy per multiply without annotating a whole core. What that
+cannot give is the core-wide number this section is about, and the
+distinction is kept rather than blurred.
+
 ### 5.3 Estimated, not extracted, parasitics — one point, measured
 
 `estimate_parasitics -global_routing` is a model of the wiring, not the
