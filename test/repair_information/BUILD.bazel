@@ -1,0 +1,171 @@
+"""Does `repair_timing` help because of its policy, or because of its
+information?
+
+ORFS repairs timing three times -- at resize and at CTS against
+`estimate_parasitics -placement`, and at global route against
+`estimate_parasitics -global_routing`. The story is that the last one is
+the good one because global route knows where the wires went. If that is
+the mechanism, then a throwaway global route before the earlier repairs
+would let them decide as well.
+
+Part A tests the necessary condition before anything is built: does the
+better instrument actually *rank* endpoints differently, and how cheap
+can the throwaway route be before it stops doing so. The reference is
+the routed design's own extracted SPEF.
+
+Every flow-running target here is manual -- each one loads a stage ODB
+and routes it. The parsers are the only thing `bazelisk test` runs.
+"""
+
+load("@orfs_designs//:designs.bzl", "DESIGNS")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+load(":probes.bzl", "ri_ladder")
+
+package(default_visibility = ["//visibility:private"])
+
+exports_files(["endpoint_slacks.tcl"])
+
+# The asap7 designs Part A runs on. Chosen for runtime -- every one of
+# them has to reach 6_final, since the reference instrument is the
+# extracted SPEF -- and to span contended and uncontended, because
+# pre-route-pessimism found contention is the necessary ingredient for
+# placement and global route to disagree at all. cva6, swerv_wrapper and
+# the *_lvt variants are deliberately absent: they are reported as not
+# measured rather than measured badly.
+STUDY_DESIGNS = [
+    "gcd",
+    "uart",
+    "mock-alu",
+    "riscv32i",
+    "aes",
+    "ibex",
+    "jpeg",
+    "ethmac",
+    "coralnpu",
+]
+
+# Variables the designs read from their own .tcl/.mk that ORFS has never
+# heard of; they take the user_* hatch past the variables.yaml
+# spell-check. Same lists the designs' own recorded BUILD files carry.
+DESIGN_USER_VARS = {
+    "mock-alu": [
+        "MOCK_ALU_OPERATIONS",
+        "MOCK_ALU_WIDTH",
+    ],
+}
+
+DESIGN_USER_SOURCE_VARS = {
+    "mock-cpu": ["SDC_FILE_EXTRA"],
+}
+
+[
+    ri_ladder(
+        name = directory.replace("-", "_"),
+        arguments = {
+            key: value
+            for key, value in DESIGNS["asap7/" + directory]["arguments"].items()
+            if key not in DESIGN_USER_VARS.get(directory, [])
+        },
+        design = DESIGNS["asap7/" + directory],
+        design_dir = directory,
+        sources = {
+            key: value
+            for key, value in DESIGNS["asap7/" + directory]["sources"].items()
+            if key not in DESIGN_USER_SOURCE_VARS.get(directory, [])
+        },
+        user_arguments = {
+            key: value
+            for key, value in DESIGNS["asap7/" + directory]["arguments"].items()
+            if key in DESIGN_USER_VARS.get(directory, [])
+        },
+        user_sources = {
+            key: value
+            for key, value in DESIGNS["asap7/" + directory]["sources"].items()
+            if key in DESIGN_USER_SOURCE_VARS.get(directory, [])
+        },
+    )
+    for directory in STUDY_DESIGNS
+]
+
+# Every probe one design produces, in the order the ladder reads.
+RUNGS = [
+    "placement",
+    "gr_cheapest",
+    "gr_no_overflow_loop",
+    "gr_few",
+    "gr_stock",
+    "spef",
+]
+
+# Copy a design's probe JSONs into the source tree, so every table in the
+# write-up can be re-derived without paying for the campaign again and a
+# re-run shows up as a diff rather than as a silently different number.
+# Manual, and it builds the probes it copies: running it is running the
+# campaign for that design.
+[
+    py_binary(
+        name = "update_{}".format(directory.replace("-", "_")),
+        srcs = ["//test/pre_route_pessimism:update_results.py"],
+        args = ["--dest-dir=test/repair_information/results"] + [
+            "$(rootpath :{}_{}.json)".format(directory.replace("-", "_"), rung)
+            for rung in RUNGS
+        ],
+        data = [
+            ":{}_{}.json".format(directory.replace("-", "_"), rung)
+            for rung in RUNGS
+        ],
+        main = "update_results.py",
+        tags = ["manual"],
+    )
+    for directory in STUDY_DESIGNS
+]
+
+py_library(
+    name = "rank_agreement",
+    srcs = ["rank_agreement.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "rank_agreement_test",
+    srcs = ["rank_agreement_test.py"],
+    imports = ["."],
+    deps = [":rank_agreement"],
+)
+
+py_library(
+    name = "noise_floor",
+    srcs = ["noise_floor.py"],
+    imports = ["."],
+)
+
+py_test(
+    name = "noise_floor_test",
+    srcs = ["noise_floor_test.py"],
+    imports = ["."],
+    deps = [":noise_floor"],
+)
+
+py_binary(
+    name = "rank_agreement_bin",
+    srcs = ["rank_agreement.py"],
+    imports = ["."],
+    main = "rank_agreement.py",
+)
+
+py_binary(
+    name = "report",
+    srcs = ["report.py"],
+    imports = ["."],
+    deps = [
+        ":noise_floor",
+        ":rank_agreement",
+    ],
+)
+
+py_test(
+    name = "report_test",
+    srcs = ["report_test.py"],
+    imports = ["."],
+    deps = [":report"],
+)
