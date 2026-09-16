@@ -23,3 +23,5 @@ test/estimation_ladder/README.pr.md
 
 # Verilator build artifacts from the equivalence smoke checks
 obj_dir/
+
+.claude/worktrees/
