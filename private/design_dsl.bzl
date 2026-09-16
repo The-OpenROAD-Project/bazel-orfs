@@ -212,7 +212,8 @@ def design(
         user_arguments = [],
         user_sources = [],
         local_arguments = [],
-        visibility = ["//visibility:public"]):
+        visibility = ["//visibility:public"],
+        extra = None):
     """Standard BUILD body for a design package.
 
     Args:
@@ -241,6 +242,11 @@ def design(
             in another module cannot collect <design>_test into a
             test_suite without it. Command-line targets ignore visibility,
             so this only matters for dependency edges.
+        extra: optional callable forwarded to orfs_design(); invoked with
+            the fully-processed design data so a package can declare
+            variants of its own flow (a placement-seed ensemble, say)
+            from the same parsed config.mk rather than a second copy of
+            it.
     """
     export_design_files()
     orfs_design(
@@ -249,6 +255,7 @@ def design(
         user_sources = user_sources,
         local_arguments = local_arguments,
         visibility = visibility,
+        extra = extra,
     )
     _auto_floorplan(designs, config)
 
