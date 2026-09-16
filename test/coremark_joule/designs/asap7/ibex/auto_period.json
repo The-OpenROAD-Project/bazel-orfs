@@ -1,0 +1,20 @@
+{
+  "history": [
+    {
+      "closed": false,
+      "period_ps": 1200,
+      "reg2reg_paths": 8,
+      "wns_reg2reg_ps": -73.988258
+    },
+    {
+      "closed": true,
+      "period_ps": 1282,
+      "reg2reg_paths": 8,
+      "wns_reg2reg_ps": 0.496048
+    }
+  ],
+  "start_ps": 1200,
+  "status": "converged",
+  "tolerance_ps": 2.0,
+  "winner_ps": 1282
+}

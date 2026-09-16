@@ -1,0 +1,44 @@
+{
+  "history": [
+    {
+      "closed": true,
+      "period_ps": 700,
+      "reg2reg_paths": 8,
+      "wns_reg2reg_ps": 155.256699
+    },
+    {
+      "closed": true,
+      "period_ps": 545,
+      "reg2reg_paths": 8,
+      "wns_reg2reg_ps": 46.290806
+    },
+    {
+      "closed": true,
+      "period_ps": 499,
+      "reg2reg_paths": 8,
+      "wns_reg2reg_ps": 9.273971
+    },
+    {
+      "closed": true,
+      "period_ps": 490,
+      "reg2reg_paths": 8,
+      "wns_reg2reg_ps": 33.676895
+    },
+    {
+      "closed": true,
+      "period_ps": 457,
+      "reg2reg_paths": 8,
+      "wns_reg2reg_ps": 19.030001
+    },
+    {
+      "closed": true,
+      "period_ps": 438,
+      "reg2reg_paths": 8,
+      "wns_reg2reg_ps": 1.443234
+    }
+  ],
+  "start_ps": 700,
+  "status": "converged",
+  "tolerance_ps": 2.0,
+  "winner_ps": 438
+}

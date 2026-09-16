@@ -310,7 +310,7 @@ def coremark_per_joule(
         power,
         core,
         isa,
-        frequency_mhz,
+        constraints,
         boundary,
         tags = ["manual"]):
     """Combine performance, frequency and power into one pinned point.
@@ -321,7 +321,12 @@ def coremark_per_joule(
       power: the stage_power() target; both its arms are read.
       core: core name, for the plot's label.
       isa: the -march the ELF was built with.
-      frequency_mhz: the SDC period the SAIF was timed against, as MHz.
+      constraints: the design's constraints.sdc. The reported frequency
+        is read from its `set clk_period`, so the period the design was
+        built at and the frequency its energy is divided by cannot
+        disagree -- they did, and the study reported ibex at a frequency
+        its netlist missed by 74 ps. auto_period pins the period; this
+        makes the frequency follow.
       boundary: what the hardened block contains. Mandatory, because
         the boundary rule is the study's central claim and a point that
         does not meet it has to say so next to its own number rather
@@ -336,6 +341,7 @@ def coremark_per_joule(
             per_mhz,
             power + "_vector_driven.json",
             power + "_vectorless.json",
+            constraints,
         ],
         outs = [name + ".json"],
         cmd = (
@@ -343,13 +349,13 @@ def coremark_per_joule(
             "--per-mhz $(location {per_mhz}) " +
             "--power $(location {power}_vector_driven.json) " +
             "--vectorless-power $(location {power}_vectorless.json) " +
-            "--frequency-mhz {frequency_mhz} " +
+            "--frequency-from-sdc $(location {constraints}) " +
             "--core {core} --isa {isa} --boundary '{boundary}' --out $@"
         ).format(
             bin = "//test/coremark_joule/scripts:cm_per_joule",
             boundary = boundary,
+            constraints = constraints,
             core = core,
-            frequency_mhz = frequency_mhz,
             isa = isa,
             per_mhz = per_mhz,
             power = power,

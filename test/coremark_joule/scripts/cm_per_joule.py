@@ -25,6 +25,7 @@ performance claim it cannot support.
 
 import argparse
 import json
+import re
 import sys
 
 
@@ -49,6 +50,22 @@ def combine(coremark_per_mhz, f_mhz, power_w):
     }
 
 
+_CLK_PERIOD = re.compile(r"^\s*set\s+clk_period\s+(\d+)\s*$", re.M)
+
+
+def frequency_mhz_from_sdc(sdc_text):
+    """MHz from a constraints.sdc's `set clk_period <ps>`.
+
+    One source for the period the design is built at and the frequency
+    its energy is reported at. auto_period pins the former; this makes
+    the latter follow rather than be maintained alongside it.
+    """
+    m = _CLK_PERIOD.search(sdc_text)
+    if not m:
+        raise SystemExit("no `set clk_period <ps>` line in the constraints")
+    return 1.0e6 / float(m.group(1))
+
+
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--per-mhz", required=True, help="the *_per_mhz.json")
@@ -59,7 +76,16 @@ def main(argv):
         "checked: a SAIF that failed to bind leaves the two identical, and "
         "OpenSTA reports that as a number rather than as an error.",
     )
-    parser.add_argument("--frequency-mhz", type=float, required=True)
+    freq = parser.add_mutually_exclusive_group(required=True)
+    freq.add_argument("--frequency-mhz", type=float)
+    freq.add_argument(
+        "--frequency-from-sdc",
+        help="the design's constraints.sdc, read for `set clk_period <ps>`. "
+        "Preferred over --frequency-mhz: the reported frequency and the "
+        "period the design was built at are then one fact rather than two "
+        "declarations free to drift, which is how this study came to "
+        "report ibex at a frequency its netlist missed by 74 ps.",
+    )
     parser.add_argument("--core", required=True)
     parser.add_argument("--isa", required=True)
     parser.add_argument("--stage", default="grt")
@@ -79,7 +105,11 @@ def main(argv):
         perf = json.load(f)
 
     power_w = totals(args.power)
-    result = combine(perf["coremark_per_mhz"], args.frequency_mhz, power_w)
+    f_mhz = args.frequency_mhz
+    if f_mhz is None:
+        with open(args.frequency_from_sdc) as f:
+            f_mhz = frequency_mhz_from_sdc(f.read())
+    result = combine(perf["coremark_per_mhz"], f_mhz, power_w)
     result.update(
         {
             "core": args.core,
