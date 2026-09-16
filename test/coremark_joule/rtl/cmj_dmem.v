@@ -1,7 +1,7 @@
 /* The data memory: four byte lanes with independent write enables.
  *
  * Read by both the simulation and the flow, unlike cmj_progmem.sv and
- * cmj_progmem_macros.v which are one or the other. There is nothing to
+ * flow/cmj_sram_blackbox.v which are one or the other. There is nothing to
  * blackbox here -- this is wiring, not storage -- and keeping one copy
  * is what stops the lane order drifting between what is simulated and
  * what is hardened.
@@ -14,7 +14,7 @@
  * a write mask, and when that lands this module collapses to a single
  * 2048 x 32 macro with the strobe wired to its mask pin: delete the
  * generate block, instantiate cmj_dmem_lane's replacement once, and set
- * mask_lanes to 4 in flow/cmj_progmem.memories. Nothing above this
+ * a byte mask on one 2048 x 32 SRAM in rtl/cmj_sram_models.sv. Nothing above this
  * file changes -- the tiles already pass wstrb_in and know nothing
  * about lanes, which is why the wrapper exists rather than the tiles
  * instantiating four macros each.

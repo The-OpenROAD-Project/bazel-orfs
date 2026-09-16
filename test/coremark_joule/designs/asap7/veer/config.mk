@@ -50,7 +50,8 @@ export SYNTH_SLANG_ARGS        = --single-unit --allow-use-before-declare
 #                        filegroup: it is the behavioural view of the
 #                        three memories, and macros.v below is the
 #                        hardening view of the same three module names.
-#   macros.v             ram_* -> fakeram7_*, this package.
+#   macros.v             ram_* -> sram_*, this package; the SRAM views
+#                        come from flow/BUILD.bazel's scaler target.
 #
 # The clock gate is mapped by SYNTH_TECHMAP_FILES below, not by
 # CLKGATE_MAP_FILE as in ORFS's own swerv_wrapper. PHYSICAL is not what
@@ -63,7 +64,8 @@ export SYNTH_SLANG_ARGS        = --single-unit --allow-use-before-declare
 export VERILOG_FILES           = //test/coremark_joule/rtl:veer/cmj_veer_defines.sv \
                                  @veer//:pkgs \
                                  @veer//:rtl \
-                                 $(DESIGN_HOME)/asap7/veer/macros.v
+                                 $(DESIGN_HOME)/asap7/veer/macros.v \
+                                 //test/coremark_joule/flow:cmj_sram_blackbox.v
 
 export SDC_FILE                = $(DESIGN_HOME)/asap7/veer/constraints.sdc
 
@@ -86,13 +88,13 @@ export VEER_HEADERS            = @veer//:hdrs \
 # already carries. They are platform files rather than design files:
 # ORFS's own asap7/swerv_wrapper keeps them as symlinks into exactly
 # these paths, so nothing is vendored here.
-export ADDITIONAL_LEFS         = $(PLATFORM_DIR)/lef/fakeram7_2048x39.lef \
-                                 $(PLATFORM_DIR)/lef/fakeram7_256x34.lef \
-                                 $(PLATFORM_DIR)/lef/fakeram7_64x21.lef
+export ADDITIONAL_LEFS         = //test/coremark_joule/flow:sram_2048x39.lef \
+                                 //test/coremark_joule/flow:sram_256x34.lef \
+                                 //test/coremark_joule/flow:sram_64x21.lef
 
-export ADDITIONAL_LIBS         = $(PLATFORM_DIR)/lib/NLDM/fakeram7_2048x39.lib \
-                                 $(PLATFORM_DIR)/lib/NLDM/fakeram7_256x34.lib \
-                                 $(PLATFORM_DIR)/lib/NLDM/fakeram7_64x21.lib
+export ADDITIONAL_LIBS         = //test/coremark_joule/flow:sram_2048x39.lib \
+                                 //test/coremark_joule/flow:sram_256x34.lib \
+                                 //test/coremark_joule/flow:sram_64x21.lib
 
 # Hierarchical synthesis with an explicit kept list, so report_power can
 # attribute power to functional units.

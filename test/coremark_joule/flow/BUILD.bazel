@@ -1,5 +1,34 @@
-# Flow-side scripts for the power path.
+# Flow-side scripts for the power path, and the SRAM views every design
+# hardens.
+load("@bazel-orfs//tools/memory_macro_scaler:behavioral_macros.bzl", "behavioral_macros")
+
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
+
+# The study's SRAMs, as LEF and Liberty from rtl/cmj_sram_models.sv.
+#
+# One generator for every memory on every point (§5.1), and one whose
+# energy and leakage depend on the memory's shape, which FakeRAM2.0's
+# did not (§8.5). The scaler reads each module's port widths -- rows
+# from the address, bits from the data, one read-write port -- and
+# writes <module>.lef, <module>.lib (post-CTS clock) and
+# <module>_pre_layout.lib; the designs name the first two in
+# ADDITIONAL_LEFS / ADDITIONAL_LIBS. The behavioural file itself never
+# reaches the flow, which sees only cmj_sram_blackbox.v.
+behavioral_macros(
+    name = "cmj_srams",
+    srcs = ["//test/coremark_joule/rtl:cmj_sram_models.sv"],
+    modules = [
+        "cmj_imem_sram",
+        "cmj_dmem_lane_sram",
+        "cmj_ic_tag_sram",
+        "cmj_ic_data_sram",
+        "sram_2048x39",
+        "sram_256x34",
+        "sram_64x21",
+    ],
+)
+
+exports_files(["cmj_sram_blackbox.v"])
 
 exports_files(["write_netlist.tcl"])
 
@@ -20,14 +49,6 @@ exports_files(["activity_sweep.tcl"])
 exports_files(["dup_inst_probe.tcl"])
 
 exports_files(["period_probe.tcl"])
-
-exports_files(["cmj_progmem.memories"])
-
-exports_files(["cmj_progmem_macros.v"])
-
-exports_files(["cmj_icache_ram.memories"])
-
-exports_files(["cmj_icache_ram_macros.v"])
 
 exports_files(["cmj_veer_icg_map.v"])
 

@@ -19,7 +19,7 @@ export DESIGN_NICKNAME         = ibex_synth100
 # ibex_alu.sv ahead of ibex_pkg.sv; the flow needs both groups listed or
 # every type in those packages is an unknown identifier.
 export VERILOG_FILES           = @ibex//:pkgs @ibex//:rtl //test/coremark_joule/rtl:cmj_ibex.sv \
-                                 //test/coremark_joule/flow:cmj_progmem_macros.v \
+                                 //test/coremark_joule/rtl:cmj_progmem.sv //test/coremark_joule/flow:cmj_sram_blackbox.v \
                                  //test/coremark_joule/rtl:cmj_dmem.v
 export SDC_FILE                = $(DESIGN_HOME)/asap7/ibex_synth100/constraints.sdc
 export SYNTH_HDL_FRONTEND      = slang
@@ -61,29 +61,20 @@ export SYNTH_KEEP_MODULES      = ibex_if_stage ibex_prefetch_buffer ibex_fetch_f
 # leave the whole functional-unit breakdown with a single unit in it.
 export OPENROAD_HIERARCHICAL    = 1
 
-# On, for the two tightly-coupled memories below. ibex's own register
-# file is ibex_register_file_ff -- flops by construction, not an
-# inferred memory -- so detection finds nothing in the core itself, and
-# everything AUTO_MEMORIES converts here comes from ADDITIONAL_MEMORIES.
-export AUTO_MEMORIES           = 1
-
-# The two tightly-coupled memories the tile hardens.
-#
-# Hardened by ORFS's AUTO_MEMORIES path, which calls FakeRAM2.0 -- the
-# same generator that produced the platform's own fakeram7_* views, and
-# therefore the same generator VeeR's ICCM, DCCM and cache arrays
-# already use. That is the point: the memory is 58-85 % of every point's
-# power in this study, so a cross-core energy comparison cannot afford
-# to have it come from two different models.
-#
-# The scanner cannot find these memories, and that is deliberate.
-# rtl/cmj_progmem.sv is the simulation view and is not in VERILOG_FILES
-# above, so the modules reach synthesis undefined and there is no
-# inferred $mem to detect. ADDITIONAL_MEMORIES carries the geometry
-# instead -- the mechanism variables.yaml documents as "or to describe
-# one the scanner cannot find", and the same one asap7/tinyRocket uses
-# for its tag and data arrays.
-export ADDITIONAL_MEMORIES     = //test/coremark_joule/flow:cmj_progmem.memories
+# The memories the tile hardens: the scaler's views of the SRAMs in
+# rtl/cmj_sram_models.sv (flow/BUILD.bazel generates them). One model
+# for every memory on every point is the reason for the choice -- the
+# memory is over half of each point's power, and a cross-core energy
+# comparison cannot afford to have its largest term come from two
+# different models -- and, unlike the FakeRAM2.0 views the study used
+# first, this model's energy and leakage depend on the memory's shape
+# (§5.1, §8.5). The flow sees each SRAM's boundary in
+# flow/cmj_sram_blackbox.v and nothing else; the memory detection pass
+# stays off because there is nothing left for it to find or convert.
+export ADDITIONAL_LEFS         = //test/coremark_joule/flow:cmj_imem_sram.lef \
+                                 //test/coremark_joule/flow:cmj_dmem_lane_sram.lef
+export ADDITIONAL_LIBS         = //test/coremark_joule/flow:cmj_imem_sram.lib \
+                                 //test/coremark_joule/flow:cmj_dmem_lane_sram.lib
 
 # Two macros in a design whose standard-cell half is small. Taken from
 # the veer config, which is the design in this study that already had

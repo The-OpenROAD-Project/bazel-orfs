@@ -62,22 +62,24 @@ module prim_ram_1p import prim_ram_1p_pkg::*; #(
 
   generate
     if (Width == 22 && Depth == 256) begin : gen_tag
-      cmj_ic_tag u_ram (
-          .clk    (clk_i),
-          .ce_in  (req_i),
-          .we_in  (write_i),
-          .addr_in(addr_i),
-          .wd_in  (wdata_i),
-          .rd_out (rdata_o)
+      cmj_ic_tag_sram u_ram (
+          .RW0_clk  (clk_i),
+          .RW0_en   (req_i),
+          .RW0_wmode(write_i),
+          .RW0_addr (addr_i),
+          .RW0_wmask(wmask_i),
+          .RW0_wdata(wdata_i),
+          .RW0_rdata(rdata_o)
       );
     end else if (Width == 64 && Depth == 256) begin : gen_data
-      cmj_ic_data u_ram (
-          .clk    (clk_i),
-          .ce_in  (req_i),
-          .we_in  (write_i),
-          .addr_in(addr_i),
-          .wd_in  (wdata_i),
-          .rd_out (rdata_o)
+      cmj_ic_data_sram u_ram (
+          .RW0_clk  (clk_i),
+          .RW0_en   (req_i),
+          .RW0_wmode(write_i),
+          .RW0_addr (addr_i),
+          .RW0_wmask(wmask_i),
+          .RW0_wdata(wdata_i),
+          .RW0_rdata(rdata_o)
       );
     end else begin : gen_unsupported
       /* A shape this file has no macro for. Failing at elaboration is
@@ -85,17 +87,5 @@ module prim_ram_1p import prim_ram_1p_pkg::*; #(
       $error("prim_ram_1p: no ASAP7 macro for %0d x %0d", Depth, Width);
     end
   endgenerate
-
-`ifndef SYNTHESIS
-  /* ibex sets DataBitsPerMask = Width on both banks, so every write is
-   * a whole word. If that ever changes, the macro has no way to honour
-   * the mask and would write the whole word anyway. */
-  always @(posedge clk_i) begin
-    if (rst_ni && req_i && write_i && !(&wmask_i)) begin
-      $display("prim_ram_1p: partial write, and the ASAP7 macro has no mask");
-      $finish;
-    end
-  end
-`endif
 
 endmodule
