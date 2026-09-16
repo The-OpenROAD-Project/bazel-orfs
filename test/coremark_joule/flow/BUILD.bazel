@@ -7,6 +7,8 @@ exports_files(["power_grt.tcl"])
 
 exports_files(["power_synth.tcl"])
 
+exports_files(["flop_power_probe.tcl"])
+
 exports_files(["power_units_grt.tcl"])
 
 exports_files(["hier_probe.tcl"])

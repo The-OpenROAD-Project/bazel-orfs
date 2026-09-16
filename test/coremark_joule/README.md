@@ -31,9 +31,11 @@ the order they move the numbers:
    the second pass has not been run (§5.5, §8.3).
 7. The kit is predictive. No absolute Watt here is a silicon Watt (§5.6).
 
-And one cross-check against a published number comes back implausible
-and unexplained: ibex's core-only energy per CoreMark iteration here,
-at 7 nm, equals a published 65 nm figure for the same core (§4.8).
+And one cross-check against published numbers comes back implausible
+and, after measurement, still unexplained: ibex's post-synthesis energy
+per CoreMark iteration here, at 7 nm, sits between two published 65 nm
+figures for the same core at the same stage, where node scaling says it
+should sit well below both (§4.8).
 
 We examine CoreMark and only CoreMark, on purpose, for two reasons. It
 is the one benchmark every core already reports, so a CoreMark energy
@@ -120,8 +122,8 @@ total on the one point measured against extraction (§5.3); and the
 corner is ASAP7's best case. The frequencies are no longer chosen:
 every core is built at a period derived from its own
 register-to-register slack (§5.5). §4.8 checks the numbers against the
-three nearest published studies and reports one disagreement it cannot
-yet explain.
+three nearest published studies, measures the one disagreement down to
+the netlist, and reports what is left unexplained.
 
 ---
 
@@ -239,7 +241,16 @@ it:
   blindness to reconvergent-fanout correlation.
 - A clock-network pin bypasses both paths and is given `2/period` at
   the clock's duty, taken exactly from the SDC. That one is not an
-  estimate.
+  estimate -- but see the next item.
+- **Every pin's density, annotated or not, is then clamped to
+  `1/slew`** (`PropActivityVisitor::setActivityCheck`): a net cannot
+  toggle faster than its own transition. The slew is the delay
+  calculator's, not the SDC's `set_clock_transition`. With a clock tree
+  the clamp is far above `2/period` and does nothing; §4.8 measures it
+  doing nothing at global route. On a synthesis netlist, where one port
+  drives two thousand flop clock pins with no buffer, the clock's slew
+  is nanoseconds and the flops are charged a third of the clock edges
+  the SDC says they see.
 
 OpenSTA exposes `report_activity_annotation`, which enumerates
 annotated and unannotated pins; the command exists because this
@@ -852,6 +863,9 @@ bazelisk build //test/coremark_joule/designs/asap7/picorv32:cmj_picorv32_grt_act
 # the boundary, per core: zero transfers per hot iteration
 bazelisk build //test/coremark_joule/sim:picorv32_rv32im_bus_traffic
 
+# §4.8's cross-check: ibex at synthesis, three periods, beside the published rows
+bazelisk build //test/coremark_joule/designs/asap7/ibex:ibex_synth_crosscheck
+
 # re-measure and rewrite the pinned results; then the plot, with no flow in the loop
 bazelisk run   //test/coremark_joule:pin
 bazelisk build //test/coremark_joule:plot
@@ -1161,35 +1175,70 @@ the default ibex configuration -- RV32IMC, no instruction cache, the
 core this study measures -- running CoreMark on a post-synthesis
 netlist in TSMC 65 nm at 1.2 V, typical corner, with PrimeTime and
 activity from a post-synthesis simulation. No memory is inside their
-boundary, so the comparable row here is ibex *core only*, from Table 8
-and §4.7's italic rows -- a build at 1200 ps, a period §5.5 has since
-found the netlist misses by 74 ps; the current point is at 1282 ps.
+boundary, so the comparable quantity here is *core only*: the tile's
+total less its macro group. To compare at the same stage, this study's
+ibex was taken to synthesis and no further, at its own 1282 ps and at
+the two periods the published netlists were synthesised for, with the
+same SAIF window captured on each netlist and power reported with no
+wires and no clock tree (`flow/power_synth.tcl`; the arms are the
+`ibex_synth100` and `ibex_synth500` packages, the table is
+`results/ibex_synth_crosscheck.md`).
 
-| | node | netlist | f | dynamic energy / iteration | CoreMark/MHz |
+| arm | f | core-only P | of which clock | core-only dynamic / iteration | CoreMark/MHz |
 |---|---|---|---|---|---|
-| [15], synthesised for 100 MHz | TSMC 65 nm, 1.2 V TT | post-synthesis: no wires, no clock tree | 100 MHz | 3.40 µJ | 2.36 |
-| [15], synthesised for f_max | TSMC 65 nm, 1.2 V TT | post-synthesis: no wires, no clock tree | 500 MHz | 0.92 µJ | 2.36 |
-| this study, core only, built at 1200 ps | ASAP7, 0.77 V FF | global route: estimated wires, clock tree | 833 MHz (unmet by 74 ps, §5.5) | 3.60 µJ total, of which 7.37 mW is the whole core | 2.45 |
+| this study, global route, 1282 ps | 780 MHz | 7.80 mW | 2.96 mW | 4.07 µJ | 2.45 |
+| this study, synthesis, 1282 ps | 780 MHz | 2.50 mW | 0.14 mW | 1.30 µJ, clamped | 2.45 |
+| this study, synthesis, 2000 ps | 500 MHz | 1.96 mW | 0.14 mW | 1.60 µJ, clamped | 2.45 |
+| **this study, synthesis, 10000 ps** | 100 MHz | 0.59 mW | 0.06 mW | **2.40 µJ** | 2.45 |
+| [15], synthesised for 100 MHz | 100 MHz | -- | none | **3.40 µJ** | 2.36 |
+| [15], synthesised for 500 MHz | 500 MHz | -- | none | **0.92 µJ** | 2.36 |
 
-The performance halves agree to 4 %: 2.36 against 2.45 CoreMark/MHz,
-on GCC 10 with `-O3` and loop unrolling against GCC 13 with the flags
-of §5.9. **The energy halves do not agree in the direction node scaling
-predicts.** Two process generations and a `V^2` ratio of 0.41 should
-put a 7 nm energy per iteration well below a 65 nm one; this study's
-core-only figure is instead equal to their relaxed-netlist figure and
-3.9x their tight-netlist one. Three things are known to push this
-study's number up relative to theirs, none of them yet measured: their
-netlist has no clock tree and no wires, and here the clock tree alone
-is a third of ibex's core-only power; their 100 MHz netlist is the
-smallest ibex synthesis can produce while this one is placed and
-routed for a period it did not meet; and ASAP7's liberty views are predictive rather
-than characterised. Their own two rows are also 3.7x apart in dynamic
-energy per iteration for the same RTL, which §2.3 says should not
-happen at fixed voltage, so the published side carries a spread of its
-own. **This is the one cross-check that comes back implausible, and it
-is reported rather than resolved.** The measurement that would settle
-it is one of theirs re-taken here: ibex synthesised for 100 MHz, power
-on the post-synthesis netlist, no clock tree, same SAIF window.
+**Three things the arms established before they compared anything.**
+First, the three synthesis netlists are byte-identical: this flow's
+synthesis does not depend on the clock period, so the three synthesis
+arms are one netlist -- 22,471 cells, 1,979 flops -- driven by one SAIF
+at three durations, and a quantity that should be period-independent
+had better come out so. Combinational and macro power did, to three
+digits. Sequential internal power did not, and the reason is §2.2's
+last item: the clock port drives all 1,979 flop clock pins with no
+buffer, its slew is about 2.1 ns, and OpenSTA clamps the flops' clock
+activity to 0.48 toggles per ns where the SDC says 1.56 (1282 ps) and
+1.00 (2000 ps). A per-flop probe (`flop_power_probe`) shows exactly
+that: 0.48/ns at both periods, 0.20/ns -- unclamped, equal to
+`2/period` -- at 10000 ps, and 1.56/ns at global route, where the clock
+tree has given the pins a real slew. Second, `set_clock_transition`
+does not lift the clamp, because the clamp reads the delay calculator's
+slews rather than the ideal clock's; arms with a 20 ps clock transition
+moved nothing. Third, because the netlist and the toggles are the same
+in every arm, the unclamped 10000 ps arm *is* the post-synthesis
+dynamic energy per iteration of this netlist at any period: **2.40 µJ**,
+and the clamped arms understate it by the ratio of clamped to true
+clock activity, 3.25x on the flop term at 1282 ps.
+
+**What the comparison then says.** The performance halves agree to
+4 %: 2.36 against 2.45 CoreMark/MHz, on GCC 10 with `-O3` and loop
+unrolling against GCC 13 with the flags of §5.9. The stage costs a
+measured **1.70x**: 4.07 µJ at global route against 2.40 µJ at
+synthesis, which is the clock tree (2.96 mW of 7.80), the estimated
+wires and the sizing that closing at 780 MHz took. That is a smaller
+share of the original disagreement than the clamped arms suggested, and
+it leaves the rest at the netlist. **At the same stage, with no wires
+and no clock tree, ibex on ASAP7 costs 2.40 µJ per iteration against
+3.40 and 0.92 µJ published for the same RTL at 65 nm: 0.71x one row and
+2.6x the other.** Two process generations and a `V^2` ratio of 0.41
+should put a 7 nm energy per operation several times below a 65 nm one,
+and it is not there. What the measurement has ruled out: the stage, the
+clock tree and the wires (1.70x, measured), the SAIF (identical toggles
+in every arm), and the estimator (§4.2). What it has not: ASAP7's
+predictive liberty energies -- the flops alone cost 1.64 fJ per
+flop-cycle here, from the unclamped arm -- and the mapping, 22,471 cells
+of which 2,328 are buffers for a core Design Compiler mapped in
+23.7 kGE. On the published side, the two rows are one RTL synthesised
+twice and differ by 3.7x in dynamic energy per iteration for a 33 %
+change in area, a spread the source does not explain either. **This
+cross-check is reported as measured down to the netlist and unexplained
+below it**; the next measurement is one of theirs re-taken with their
+tools, or one of ours with a characterised library.
 
 **Ordering against the subthreshold study [16].** Djupdal et al.
 implement SERV, PicoRV32 and ibex -- three of this study's four cores
@@ -1207,6 +1256,10 @@ report energy per instruction averaged over the eight kernels.
 | SERV | 78.74 pJ | 2.85 µW | 478 ns | 0.096 mm² | 193 µJ | 6.68 mW |
 | PicoRV32 | 19.74 pJ | 5.37 µW | 686 ns | 0.235 mm² | 11.6 µJ | 6.43 mW |
 | ibex | 14.10 pJ | 6.13 µW | 1,450 ns | 0.384 mm² | 3.60 µJ | 7.37 mW |
+
+The core-only column is the earlier build at 1200 ps (§4.7's italic
+rows). At the derived 1282 ps, with the SAIF timed to it, ibex core-only
+is 7.80 mW and 4.07 µJ, and the ratios below move by less than 15 %.
 
 The ordering agrees: ibex, then picorv32, then SERV, in both. The
 ratios do not, and the reason is instructive. Per instruction, SERV

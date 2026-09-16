@@ -1,5 +1,5 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
-load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power")
+load("//test/coremark_joule/flow:power.bzl", "flop_power_probe", "grt_netlist", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power")
 load("//test/coremark_joule/scripts:synth_crosscheck.bzl", "synth_crosscheck")
 
 exports_files(["constraints.sdc"])
@@ -99,7 +99,7 @@ period_probe(
 )
 
 # §4.8's cross-check, arm one: this design's own synthesis netlist at its
-# own 1200 ps period, power with no wires and no clock tree. Against the
+# own 1282 ps period, power with no wires and no clock tree. Against the
 # global-route point it isolates the stage; against the ibex_synth100 and
 # ibex_synth500 packages it isolates the period.
 grt_netlist(
@@ -123,16 +123,52 @@ stage_power(
 synth_crosscheck(
     name = "ibex_synth_crosscheck",
     arms = {
-        "grt, 1200 ps": ":cmj_ibex_grt_power",
-        "synth, 1200 ps": ":cmj_ibex_synth_power",
+        "grt, 1282 ps": ":cmj_ibex_grt_power",
+        "synth, 1282 ps": ":cmj_ibex_synth_power",
         "synth, 2000 ps": "//test/coremark_joule/designs/asap7/ibex_synth500:cmj_ibex_synth_power",
         "synth, 10000 ps": "//test/coremark_joule/designs/asap7/ibex_synth100:cmj_ibex_synth_power",
+        "synth, 1282 ps, 20 ps clock slew": ":cmj_ibex_synth_slew20_power",
+        "synth, 2000 ps, 20 ps clock slew": "//test/coremark_joule/designs/asap7/ibex_synth500:cmj_ibex_synth_slew20_power",
+        "synth, 10000 ps, 20 ps clock slew": "//test/coremark_joule/designs/asap7/ibex_synth100:cmj_ibex_synth_slew20_power",
     },
     per_mhz = "//test/coremark_joule/sim:ibex_rv32imc_per_mhz",
     periods_ps = {
-        "grt, 1200 ps": 1200,
-        "synth, 1200 ps": 1200,
+        "grt, 1282 ps": 1282,
+        "synth, 1282 ps": 1282,
         "synth, 2000 ps": 2000,
         "synth, 10000 ps": 10000,
+        "synth, 1282 ps, 20 ps clock slew": 1282,
+        "synth, 2000 ps, 20 ps clock slew": 2000,
+        "synth, 10000 ps, 20 ps clock slew": 10000,
     },
+)
+
+flop_power_probe(
+    name = "cmj_ibex_synth_flop_probe",
+    src = ":cmj_ibex_synth",
+    saif = "//test/coremark_joule/sim:ibex_rv32imc_synth_saif",
+    saif_scope = "TOP/cm_soc/cpu",
+)
+
+# The same synthesis arm with the clock given the transition a clock tree
+# would give it, so OpenSTA's 1/slew clamp on the unbuffered clock net
+# does not decide the flops' energy. 20 ps is a round post-CTS figure.
+stage_power(
+    name = "cmj_ibex_synth_slew20_power",
+    src = ":cmj_ibex_synth",
+    clock_transition_ps = 20,
+    saif = "//test/coremark_joule/sim:ibex_rv32imc_synth_saif",
+    saif_scope = "TOP/cm_soc/cpu",
+    stage = "synth",
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+# Does the clamp bite at global route? With a clock tree the slew is tens
+# of picoseconds and the flops should see the SDC's 2/period.
+flop_power_probe(
+    name = "cmj_ibex_grt_flop_probe",
+    src = ":cmj_ibex_grt",
+    saif = "//test/coremark_joule/sim:ibex_rv32imc_saif",
+    saif_scope = "TOP/cm_soc/cpu",
+    stage = "grt",
 )

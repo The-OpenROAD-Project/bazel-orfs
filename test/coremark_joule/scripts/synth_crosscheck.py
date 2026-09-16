@@ -24,8 +24,20 @@ import sys
 # energy per CoreMark iteration in microjoules and leakage in nanojoules,
 # at the frequency each netlist was synthesised for.
 PUBLISHED = [
-    {"label": "[15] synth, 100 MHz", "f_mhz": 100.0, "dyn_uj": 3.40, "leak_nj": 0.75, "cm_per_mhz": 2.36},
-    {"label": "[15] synth, 500 MHz", "f_mhz": 500.0, "dyn_uj": 0.92, "leak_nj": 5.54, "cm_per_mhz": 2.36},
+    {
+        "label": "[15] synth, 100 MHz",
+        "f_mhz": 100.0,
+        "dyn_uj": 3.40,
+        "leak_nj": 0.75,
+        "cm_per_mhz": 2.36,
+    },
+    {
+        "label": "[15] synth, 500 MHz",
+        "f_mhz": 500.0,
+        "dyn_uj": 0.92,
+        "leak_nj": 5.54,
+        "cm_per_mhz": 2.36,
+    },
 ]
 
 GROUPS = ["Sequential", "Combinational", "Clock", "Macro", "Pad", "Total"]
@@ -81,14 +93,22 @@ def render(rows, cycles_per_iteration, cm_per_mhz):
         )
     for p in PUBLISHED:
         out.append(
-            "| {label} | {f:.0f} MHz | — | none | **{dyn:.2f} µJ** | {leak:.2f} nJ | {cm:.2f} |".format(**{
-                "label": p["label"], "f": p["f_mhz"], "dyn": p["dyn_uj"], "leak": p["leak_nj"], "cm": p["cm_per_mhz"],
-            })
+            "| {label} | {f:.0f} MHz | — | none | **{dyn:.2f} µJ** | {leak:.2f} nJ | {cm:.2f} |".format(
+                **{
+                    "label": p["label"],
+                    "f": p["f_mhz"],
+                    "dyn": p["dyn_uj"],
+                    "leak": p["leak_nj"],
+                    "cm": p["cm_per_mhz"],
+                }
+            )
         )
     out.append("")
     out.append(
         "Core-only is report_power's Total minus its Macro group. One iteration is "
-        "{:,} cycles; energy is power times cycles times the SDC period.".format(cycles_per_iteration)
+        "{:,} cycles; energy is power times cycles times the SDC period.".format(
+            cycles_per_iteration
+        )
     )
     return "\n".join(out) + "\n"
 
@@ -96,7 +116,9 @@ def render(rows, cycles_per_iteration, cm_per_mhz):
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--per-mhz", required=True)
-    parser.add_argument("--arm", action="append", default=[], metavar="LABEL:PERIOD_PS:JSON")
+    parser.add_argument(
+        "--arm", action="append", default=[], metavar="LABEL:PERIOD_PS:JSON"
+    )
     parser.add_argument("--out-md", required=True)
     parser.add_argument("--out-json", required=True)
     args = parser.parse_args(argv[1:])
@@ -114,7 +136,11 @@ def main(argv):
     with open(args.out_md, "w") as f:
         f.write(render(rows, cycles, perf["coremark_per_mhz"]))
     with open(args.out_json, "w") as f:
-        json.dump({"cycles_per_iteration": cycles, "arms": rows, "published": PUBLISHED}, f, indent=2)
+        json.dump(
+            {"cycles_per_iteration": cycles, "arms": rows, "published": PUBLISHED},
+            f,
+            indent=2,
+        )
         f.write("\n")
     return 0
 
