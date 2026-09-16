@@ -15,4 +15,9 @@ bazel-orfs-bazel-dev
 # bazel-* symlinks are ignored by bazel itself; nested ones are not, so
 # //... would walk into another checkout's external repos and fail on
 # the first repo the root module does not know.
-.claude
+#
+# Scoped to the worktrees rather than to .claude, because .claude/hooks
+# holds the sources of //:guard_tool_test. Ignoring the whole directory
+# left that target declaring srcs bazel would not stage, so it built and
+# then died on exec with "file not found" for its own main file.
+.claude/worktrees
