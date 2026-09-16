@@ -678,6 +678,7 @@ def ri_qor(
         shapes,
         arms,
         seeds,
+        arm_sources = {},
         groups = "32",
         arguments = {},
         user_arguments = {},
@@ -705,6 +706,10 @@ def ri_qor(
         design: the parsed DESIGNS entry.
         shapes: shape name -> ORFS argument overrides.
         arms: arm name -> ORFS argument overrides (the thing under test).
+        arm_sources: arm name -> source-typed ORFS variables owned by
+            this package, for an arm whose change is a flow hook rather
+            than a variable. Merged after the design's own sources, so a
+            label of ours is never re-rooted into @orfs.
         seeds: GPL_RANDOM_SEED values, as strings.
         groups: the design size, as a string.
         arguments: the design's ORFS variables.
@@ -732,7 +737,7 @@ def ri_qor(
                     variant = variant,
                     arguments = args,
                     last_stage = "final",
-                    sources = design_sources,
+                    sources = design_sources | arm_sources.get(arm_name, {}),
                     tags = ["manual"],
                     top = design["name"],
                     user_arguments = user_arguments,

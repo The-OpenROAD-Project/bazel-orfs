@@ -38,6 +38,8 @@ package(default_visibility = ["//visibility:private"])
 
 exports_files([
     "endpoint_slacks.tcl",
+    "grt_unbuffer.tcl",
+    "grt_unbuffer_seq.tcl",
     "rc_cal_u12_tight.tcl",
     "rc_scan.tcl",
     "rc_cal_u55.tcl",
@@ -506,6 +508,23 @@ WIREBOUND_QOR_ARMS = {
     "base": {},
     "no_cts_rt": {"SKIP_CTS_REPAIR_TIMING": "1"},
     "no_grt_rt": {"SKIP_INCREMENTAL_REPAIR": "1"},
+    # Rip up the early repair's work before global route, two ways.
+    #
+    # The CTS repair costs 30.3 um2 of logic area for a period change
+    # that does not resolve, so its buffers are a candidate for removal
+    # by a repair that can see the real parasitics. "wholesale" removes
+    # every signal buffer before the route; "selective" removes none and
+    # instead lets the global-route repair use the unbuffer move, so the
+    # pair separates whether it matters *that* buffers come out or
+    # *which* ones do.
+    #
+    # Neither is expected to beat no_cts_rt, which already recovers the
+    # area by never inserting them -- the clock tree is built before the
+    # CTS repair runs, so a ripped-up netlist is the un-repaired one plus
+    # a perturbed detailed placement. The arms exist because that
+    # reasoning is falsifiable and cheap to falsify.
+    "unbuf_wholesale": {},
+    "unbuf_selective": {},
     # Neither. Removing one repair alone barely moves the period, which
     # is what two substitutes look like: whichever runs second fixes
     # what the first would have. Only turning both off separates "repair
@@ -529,6 +548,15 @@ WIREBOUND_SEEDS = [
 # rests on it.
 WIREBOUND_QOR_SHAPES = {"u55": WIREBOUND_ROUTED_SHAPES["u55"]}
 
+WIREBOUND_QOR_ARM_SOURCES = {
+    "unbuf_wholesale": {
+        "PRE_GLOBAL_ROUTE_TCL": ["//test/repair_information:grt_unbuffer.tcl"],
+    },
+    "unbuf_selective": {
+        "PRE_GLOBAL_ROUTE_TCL": ["//test/repair_information:grt_unbuffer_seq.tcl"],
+    },
+}
+
 ri_qor(
     name = "wbq",
     arguments = {
@@ -536,6 +564,7 @@ ri_qor(
         for key, value in WIREBOUND["arguments"].items()
         if key not in WIREBOUND_USER_VARS
     },
+    arm_sources = WIREBOUND_QOR_ARM_SOURCES,
     arms = WIREBOUND_QOR_ARMS,
     design = WIREBOUND,
     qualify_sources = False,

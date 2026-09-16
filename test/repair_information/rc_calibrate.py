@@ -51,12 +51,8 @@ WIRE_RE = re.compile(
 
 def parse_setrc(text):
     """{layer: (R, C)} and {signal|clock: (R, C)} from a setRC.tcl."""
-    layers = {
-        name: (float(r), float(c)) for name, r, c in LAYER_RE.findall(text)
-    }
-    wires = {
-        kind: (float(r), float(c)) for kind, r, c in WIRE_RE.findall(text)
-    }
+    layers = {name: (float(r), float(c)) for name, r, c in LAYER_RE.findall(text)}
+    wires = {kind: (float(r), float(c)) for kind, r, c in WIRE_RE.findall(text)}
     if not layers or not wires:
         raise SystemExit("setRC.tcl parsed to nothing: the format changed")
     return layers, wires
