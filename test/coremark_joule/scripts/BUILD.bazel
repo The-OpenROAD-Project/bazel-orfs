@@ -317,6 +317,18 @@ py_binary(
     main = "section_links.py",
 )
 
+# §5.13's seed ensemble folded into the pinned points: 2σ, and the
+# design's own draw kept as the point.
+py_test(
+    name = "pin_results_test",
+    size = "small",
+    srcs = [
+        "pin_results.py",
+        "pin_results_test.py",
+    ],
+    main = "pin_results_test.py",
+)
+
 # write_verilog can emit two instances under one name. Zero renames is
 # the assertion; a design that needs one says so and says why.
 py_binary(

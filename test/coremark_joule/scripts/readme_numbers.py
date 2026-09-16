@@ -99,6 +99,11 @@ def memory_inside(point):
     return text
 
 
+def has_seeds(document):
+    """True when every point carries a placement-seed ensemble (§5.13)."""
+    return all("coremark_per_joule_2sigma" in p for p in document["points"])
+
+
 def has_split(document):
     """True when every point carries the dynamic/leakage split."""
     return all(
@@ -112,7 +117,10 @@ def render_table1(document):
     if split:
         head += "| dynamic | leakage "
     head += "| CoreMark/Joule | memory inside the boundary |"
-    lines = [head, "|---" * (10 if split else 8) + "|"]
+    seeds = has_seeds(document)
+    if seeds:
+        head += " 2σ over seeds |"
+    lines = [head, "|---" * ((10 if split else 8) + (1 if seeds else 0)) + "|"]
     for p in ordered(document):
         row = "| {name} | {isa} | {cmmhz:.4f} | {cycles:,} | {f:.1f} | {p:.1f} mW ".format(
             name=NAMES[p["core"]],
@@ -129,6 +137,10 @@ def render_table1(document):
         row += "| {cmj:,.0f} | {mem} |".format(
             cmj=p["coremark_per_joule"], mem=memory_inside(p)
         )
+        if seeds:
+            row += " ±{sig:,.0f} ({n}) |".format(
+                sig=p["coremark_per_joule_2sigma"], n=p["seeds"]
+            )
         lines.append(row)
     return "\n".join(lines)
 
