@@ -1,0 +1,67 @@
+synth: a design-supplied script hook that runs before flatten
+
+synth's -extra-map is applied inside the techmap step, which comes after
+flatten. By then a module the design defines itself has been inlined and
+there are no cells of its type left to match, so -extra-map cannot
+substitute one.
+
+That is the case whenever a design must replace one of its own modules
+rather than a yosys primitive. A vendored core's clock gate is the
+example that wanted it: VeeR EH1 defines its gate in beh_lib.sv and
+names it through a macro that names the definition and the
+instantiation together, so the module cannot be redirected from outside
+the sources. Left alone it synthesizes to a transparent latch and an
+AND -- 952 latch cells on that configuration -- where a real flow maps
+it onto the library's integrated clock gate. The difference is not only
+area: a transparent latch lets STA borrow time across it, so every
+register-to-register path through a gated clock reports slack that a
+flop-based path would not.
+
+The hook is a yosys script rather than a list of techmap files because
+substituting a module is rarely just techmap. Under the slang frontend
+it never is: slang elaborates one module per instance and names each
+after the instance path, so the design holds a hundred differently
+named copies of the gate and none of type `clockhdr`. Folding them back
+onto one name (chtype) has to happen in the same window, and only the
+design knows which names to fold.
+
+hierarchy is re-run afterwards so the modules the substitution orphaned
+are pruned rather than carried into flatten and synthesized as dead
+logic.
+
+Not upstreamed. Retire at a bump onto an ORFS that carries a hook for
+this; upstreaming it should also add the variable to variables.yaml,
+which this patch deliberately leaves alone to keep the diff to the one
+file whose behaviour changes.
+---
+diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
+--- a/flow/scripts/synth.tcl
++++ b/flow/scripts/synth.tcl
+@@ -66,6 +66,27 @@
+ 
+ hierarchy -check -top $::env(DESIGN_NAME)
+ 
++# Design-supplied yosys scripts, run while the hierarchy is intact.
++#
++# synth's own -extra-map runs inside the techmap step, which is after
++# flatten: by then a module the design defines itself has been inlined
++# and there are no cells of its type left to match. A design that has to
++# substitute one of its own modules -- a vendored core's clock gate,
++# whose name is fixed by a macro that names the definition and the
++# instantiation together, so it cannot be redirected from outside --
++# needs the substitution to happen here instead. It is a script and not
++# a list of map files because the substitution generally needs more than
++# techmap: under slang each instance is its own module, and folding
++# those names back onto one is part of the same step.
++if { [env_var_exists_and_non_empty SYNTH_POST_HIERARCHY_SCRIPTS] } {
++  foreach synth_post_hierarchy_script $::env(SYNTH_POST_HIERARCHY_SCRIPTS) {
++    log_cmd script $synth_post_hierarchy_script
++  }
++  # Prune whatever the substitution orphaned, so flatten does not carry
++  # it in and synthesize it as dead logic.
++  log_cmd hierarchy -check -top $::env(DESIGN_NAME)
++}
++
+ if { $::env(SYNTH_GUT) } {
+   # /deletes all cells at the top level, which will quickly optimize away
+   # everything else, including macros.
