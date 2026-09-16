@@ -56,10 +56,14 @@ def plot(document, out_path, commodity=None):
                 (commodity["x_min"], commodity["y_min"]),
                 commodity["x_max"] - commodity["x_min"],
                 commodity["y_max"] - commodity["y_min"],
-                facecolor="tab:purple", alpha=0.16, edgecolor="tab:purple",
-                linewidth=1.0, linestyle="--", zorder=1,
+                facecolor="tab:purple",
+                alpha=0.16,
+                edgecolor="tab:purple",
+                linewidth=1.0,
+                linestyle="--",
+                zorder=1,
                 label="x86 / Arm, one core + L1 measured (App. A, %d parts)"
-                      % commodity["parts"],
+                % commodity["parts"],
             )
         )
 
@@ -160,8 +164,12 @@ def plot(document, out_path, commodity=None):
                     (commodity["x_min"], commodity["y_max"]),
                     commodity["x_max"] - commodity["x_min"],
                     top - commodity["y_max"],
-                    facecolor="tab:green", alpha=0.08, edgecolor="tab:green",
-                    linewidth=1.0, linestyle=":", zorder=1,
+                    facecolor="tab:green",
+                    alpha=0.08,
+                    edgecolor="tab:green",
+                    linewidth=1.0,
+                    linestyle=":",
+                    zorder=1,
                     label="no CPU here today",
                 )
             )
@@ -171,7 +179,10 @@ def plot(document, out_path, commodity=None):
             ax.annotate(
                 "no CPU here today",
                 (commodity["x_max"] * 0.85, top * 0.45),
-                fontsize=8.5, ha="center", va="center", color="tab:green",
+                fontsize=8.5,
+                ha="center",
+                va="center",
+                color="tab:green",
             )
     ax.set_xlabel("CoreMark/MHz  (performance per clock)")
     ax.set_ylabel("CoreMark/Joule  (work per unit energy)")
