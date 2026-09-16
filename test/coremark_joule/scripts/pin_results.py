@@ -18,6 +18,7 @@ Usage (via the generated target):
 
 import argparse
 import json
+import re
 import math
 import os
 import sys
@@ -157,6 +158,12 @@ def two_sigma(values):
     return 2.0 * math.sqrt(var)
 
 
+def seed_label(path):
+    """The seed a sample file was run at, from its `_seedN` name; else its stem."""
+    m = re.search(r"_seed(\d+)", os.path.basename(path))
+    return m.group(1) if m else os.path.splitext(os.path.basename(path))[0]
+
+
 def attach_samples(points, sample_paths):
     """Fold placement-seed samples into the point they belong to.
 
@@ -178,6 +185,7 @@ def attach_samples(points, sample_paths):
             )
         by_core[key].setdefault("seed_samples", []).append(
             {
+                "seed": seed_label(path),
                 "power_w": sample["power_w"],
                 "coremark_per_joule": sample["coremark_per_joule"],
                 "dynamic_power_w": sample.get("dynamic_power_w"),
@@ -187,6 +195,7 @@ def attach_samples(points, sample_paths):
     for p in points:
         samples = [
             {
+                "seed": "own",
                 "power_w": p["power_w"],
                 "coremark_per_joule": p["coremark_per_joule"],
                 "dynamic_power_w": p.get("dynamic_power_w"),

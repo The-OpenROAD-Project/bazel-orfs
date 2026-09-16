@@ -1,0 +1,65 @@
+{
+  "note": "\u00a75.1's Table 8b: the memory model switched and nothing else. The FakeRAM column is the previous revision's pinned points (results.json before the switch, SAIF windows already on the corrected time base); the scaler column is the same netlists' periods and floorplans re-hardened with tools/memory_macro_scaler's views, before the second period pass.",
+  "rows": [
+    {
+      "core": "ibex",
+      "fakeram": {
+        "coremark_per_joule": 100759.54170813787,
+        "power_w": 0.019
+      },
+      "isa": "rv32imc",
+      "scaler": {
+        "coremark_per_joule": 83966.28475678156,
+        "dynamic_power_w": 0.02275,
+        "leakage_power_w": 1.9e-06,
+        "macro_power_w": 0.0151,
+        "power_w": 0.0228
+      }
+    },
+    {
+      "core": "picorv32",
+      "fakeram": {
+        "coremark_per_joule": 25917.622328299258,
+        "power_w": 0.0457
+      },
+      "isa": "rv32im",
+      "scaler": {
+        "coremark_per_joule": 20926.419441753995,
+        "dynamic_power_w": 0.05656,
+        "leakage_power_w": 1.43e-06,
+        "macro_power_w": 0.0407,
+        "power_w": 0.0566
+      }
+    },
+    {
+      "core": "serv",
+      "fakeram": {
+        "coremark_per_joule": 1250.81873925991,
+        "power_w": 0.0443
+      },
+      "isa": "rv32i",
+      "scaler": {
+        "coremark_per_joule": 1013.0031105889217,
+        "dynamic_power_w": 0.054689999999999996,
+        "leakage_power_w": 7.51e-07,
+        "macro_power_w": 0.0427,
+        "power_w": 0.0547
+      }
+    },
+    {
+      "core": "veer",
+      "fakeram": {
+        "coremark_per_joule": 34702.45771757922,
+        "power_w": 0.0869
+      },
+      "isa": "rv32imc",
+      "scaler": {
+        "coremark_per_joule": 20941.969275400243,
+        "dynamic_power_w": 0.14348,
+        "leakage_power_w": 2.2e-05,
+        "macro_power_w": 0.109,
+        "power_w": 0.144
+      }
+    }
+  ]
+}

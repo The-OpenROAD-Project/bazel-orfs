@@ -37,7 +37,7 @@ class SeedSamplesTest(unittest.TestCase):
             paths = [
                 _write(
                     d,
-                    "s0.json",
+                    "point_ibex_rv32imc_seed11.json",
                     core="ibex",
                     isa="rv32imc",
                     power_w=0.021,
@@ -45,7 +45,7 @@ class SeedSamplesTest(unittest.TestCase):
                 ),
                 _write(
                     d,
-                    "s1.json",
+                    "point_ibex_rv32imc_seed12.json",
                     core="ibex",
                     isa="rv32imc",
                     power_w=0.019,
@@ -55,6 +55,8 @@ class SeedSamplesTest(unittest.TestCase):
             [out] = pin_results.attach_samples([dict(point)], paths)
         self.assertEqual(out["power_w"], 0.020)
         self.assertEqual(out["seeds"], 3)
+        # The design's own draw is labelled as such; the rest by their seed.
+        self.assertEqual([x["seed"] for x in out["seed_samples"]], ["own", "11", "12"])
         self.assertEqual(len(out["seed_samples"]), 3)
         self.assertAlmostEqual(
             out["power_2sigma_w"], pin_results.two_sigma([0.020, 0.021, 0.019])

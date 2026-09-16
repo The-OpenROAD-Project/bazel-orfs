@@ -258,6 +258,7 @@ py_test(
     name = "readme_numbers_test",
     size = "small",
     srcs = [
+        "fit_results.py",
         "readme_numbers.py",
         "readme_numbers_test.py",
     ],
@@ -265,14 +266,21 @@ py_test(
         "//test/coremark_joule:README.md",
         "//test/coremark_joule:results.json",
         "//test/coremark_joule/results:commodity_coremark.csv",
+        "//test/coremark_joule/results:model_switch.json",
     ],
     main = "readme_numbers_test.py",
 )
 
 py_binary(
     name = "readme_numbers",
-    srcs = ["readme_numbers.py"],
-    data = ["//test/coremark_joule/results:commodity_coremark.csv"],
+    srcs = [
+        "fit_results.py",
+        "readme_numbers.py",
+    ],
+    data = [
+        "//test/coremark_joule/results:commodity_coremark.csv",
+        "//test/coremark_joule/results:model_switch.json",
+    ],
     main = "readme_numbers.py",
 )
 

@@ -55,6 +55,13 @@ def power_groups(power_json):
         out["dynamic"] = t["internal"] + t["switching"]
     if "Macro" in d and isinstance(d["Macro"], dict):
         out["macro"] = d["Macro"]["total"]
+    # §4.7's table: the total of every cell-kind group report_power
+    # prints, so the split travels with the point and renders from it.
+    out["groups"] = {
+        k: v["total"]
+        for k, v in d.items()
+        if k not in ("Total", "Pad") and isinstance(v, dict) and "total" in v
+    }
     return out
 
 
@@ -147,6 +154,8 @@ def main(argv):
         result["leakage_power_w"] = groups["leakage"]
     if "macro" in groups:
         result["macro_power_w"] = groups["macro"]
+    if groups.get("groups"):
+        result["power_groups_w"] = groups["groups"]
 
     if args.vectorless_power:
         vectorless = totals(args.vectorless_power)
