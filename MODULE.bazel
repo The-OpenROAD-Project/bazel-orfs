@@ -75,6 +75,12 @@ archive_override(
         # patches/0069-orfs-openroad-args-tcl-source.patch.
         # Not upstreamed -- retire at a bump onto an OpenROAD carrying it.
         "//patches:0001-openroad-tcl-source-flag.patch",
+        # write_pin_placement wrote the pin name bare, so its output only
+        # read back through the .sdc unknown handler above; on stock tcl
+        # place_pin -pin_name R0_addr[0] fails on the [0]. Brace the name
+        # so the file the tool writes is the tcl it means.
+        # Not upstreamed -- retire at a bump onto an OpenROAD carrying it.
+        "//patches:0004-openroad-write-pin-placement-brace-names.patch",
     ],
     strip_prefix = "OpenROAD-c7e5e75131a65e402a2d46a1cb82659d725655da",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/c7e5e75131a65e402a2d46a1cb82659d725655da.tar.gz"],
