@@ -38,8 +38,8 @@ that check against the literature, dated.
    documentation calls a first-order anchor, and memory is 66 to 78 %
    of every point ([§5.1](#51-the-boundary-met-and-what-it-cost), [§8.6](#86-a-memory-model-that-knows-its-size----done)).
 2. Every point has an error bar from five placement seeds, and the
-   largest 2σ is 1.5 % of its point; anything inside that is not a
-   difference ([§5.13](#513-five-placement-seeds-behind-every-point)).
+   largest 2σ is 1.5 % of its point, and a gap inside that did not
+   resolve ([§5.13](#513-five-placement-seeds-behind-every-point)).
 3. The corner is the kit's best case: fast process, high voltage ([§5.4](#54-the-corner-is-asap7s-best-case-not-its-typical)).
 4. The simulation is zero-delay and carries no glitch power ([§5.2](#52-zero-delay-simulation-carries-no-glitch-power)),
    which [§2.4](#24-when-glitch-power-is-worth-measuring-and-when-it-is-premature) argues is the right depth for a screening study and
@@ -212,7 +212,7 @@ three cacheless cores it is this study's choice, not the core's ([§5.1](#51-the
 
 The question is the shape of the curve: does spending area and
 switching on a wider machine buy back its own energy? The literature
-that answers it for large cores answers it at a stated boundary with
+that answers it for large cores answers it with
 signoff tools [5, 6]. For small cores it is mostly not answered at all,
 and the reason is that the energy half of the metric is easy to get
 wrong in ways that do not look like errors.
@@ -333,8 +333,10 @@ to save energy" is wrong as stated.
 is $P_\mathrm{leak} / (\mathrm{CoreMark/MHz}\cdot f)$, which falls as $1/f$: a faster part
 spends less time leaking per unit of work. This is the whole argument
 for race-to-idle, and in a leakage-dominated regime — a small core at a
-low frequency, which is exactly where SERV sits — it is the dominant
-term.
+low frequency — it is the dominant term. No point in this study is in that
+regime: SERV is the smallest core and the fastest clock here, and its
+leakage rounds to zero on the scaler's anchor ([§5.1](#51-the-boundary-met-and-what-it-cost)),
+so the term is named for completeness and does nothing to these four.
 
 So if frequency were free, higher would be better. It is not free, and
 what it costs is where the efficiency goes.
@@ -753,11 +755,11 @@ instead of quietly moving a unit into "other".
 
 How well this works is a property of the RTL, and it differs sharply:
 
-| core | attribution |
-|---|---|
-| SERV | excellent — one module per architectural function |
-| ibex | excellent — the pipeline stages are modules |
-| picorv32 | **poor** — `picorv32.v` defines eight modules and the CPU is one of them; decode, execute, the ALU and control are all inline |
+| core | RTL structure | attribution delivered |
+|---|---|---|
+| SERV | excellent — one module per architectural function | **none** — its kept modules are parameterized and do not reach the ODB ([§5.7](#57-attribution-does-not-survive-parameterized-modules)) |
+| ibex | excellent — the pipeline stages are modules | yes |
+| picorv32 | **poor** — `picorv32.v` defines eight modules and the CPU is one of them; decode, execute, the ALU and control are all inline | partial — `picorv32_pcpi_mul` and `picorv32_pcpi_div` survive intact, the rest is waived in `units.json` |
 
 picorv32 therefore carries a written, reasoned waiver in its
 `units.json` rather than a silent shortfall. "This core cannot be
@@ -1180,10 +1182,12 @@ though each is one flow's closing period on one floorplan, not a Pareto
 front ([§8.4](#84-the-pareto-curve)).
 
 **What it takes to make the axis mean something.** A memory model whose
-energy depends on the size of the memory, first of all -- that work is
-planned in ORFS and this study inherits it when it lands. Then cores
-whose memory systems genuinely differ ([§7](#7-cores-after-the-first-four)'s roadmap), and a second
-period pass on the derived floorplans ([§8.3](#83-a-second-period-pass)). The present data cannot
+energy depends on the size of the memory was the first of it, and that is
+done ([§8.6](#86-a-memory-model-that-knows-its-size----done)) -- the axis above is already the
+shape-aware one, and it is still this flat. What is left is a *characterised*
+model rather than a fitted one, cores whose memory systems genuinely differ
+([§7](#7-cores-after-the-first-four)'s roadmap), and a second period pass on
+the derived floorplans ([§8.3](#83-a-second-period-pass)). The present data cannot
 separate a real law from the memory model's flatness, and says so.
 
 **Where the four points actually land.** VeeR delivers **1.95x** ibex's
@@ -1622,7 +1626,10 @@ that spends area and energy on an L1 to go faster is charged for the L1
 and credited with the speed, while a design with no L1 is charged for
 neither. picorv32 and SERV have no caches, and ibex is configured with
 `ICache=0`, so for all three the entire memory system is that memory;
-SERV's 41 million cycles per iteration are 41 million accesses to it.
+SERV's 41 million cycles per iteration are 41 million cycles of paying
+for it, because the scaler's Liberty charges a macro on every clock edge
+whatever the enable does ([§4.7](#47-where-the-power-goes)) -- not 41 million
+accesses, which a bit-serial datapath does not make.
 
 **The three cacheless cores harden the memory they run out of.**
 Each tile -- `cmj_serv`, `cmj_picorv32`, `cmj_ibex` -- contains the core
@@ -2555,9 +2562,10 @@ is a clock net the tree is built on, so the clock network grew by about
 unmatched fraction from 0.986 % to 1.0128 %, against a budget of 1.1 %
 with that reason written into `pin_policy.json`. The SAIF filter drops
 9,223 clock-network names rather than 5,284, for the same reason. And
-[§5.12](#512-two-carried-workarounds)'s first workaround has nothing to rename on the ICG netlist: the
-duplicate instance name `write_verilog` produced was on a clock cell
-that does not exist with real clock gates.
+[§5.12](#512-two-carried-workarounds)'s first workaround still has something to
+rename: `write_verilog` emits the collision on the ICG netlist too, now between
+two `ICGx1` cells rather than two latches, and the four pins it costs are waived
+by name in `pin_policy.json` ([§4.2](#42-annotation-completeness-and-the-estimator-bound)).
 
 ### 5.12 Two carried workarounds
 
@@ -2669,9 +2677,11 @@ stated typical corner. Its method is the gold standard this study is
 measured against in [§5](#5-threats-to-validity), and [§4.4](#44-a-22-nm-literature-series-and-what-it-is-and-is-not) explains why its points are drawn as a
 separate series.
 
-*The Cost of Application-Class Processing* [6] is the reference for the
-core + L1 boundary and for silicon-measured energy in the same
-technology family.
+*The Cost of Application-Class Processing* [6] is the reference for
+silicon-measured energy in the same technology family. It is cited for that
+and not for the boundary: [§4.5](#45-what-else-could-be-plotted-and-why-almost-nothing-can)
+records that its full text was not surveyed here, so what boundary it draws
+is not established.
 
 The studies nearest this one in method are [§4.5](#45-what-else-could-be-plotted-and-why-almost-nothing-can)'s near misses. [14] and
 [15] measure CoreMark energy on three and two small cores with PrimeTime
@@ -2832,8 +2842,9 @@ the underlying architecture's physical health, which those two hide.
   explicitly. [§5.5](#55-frequency-and-what-deriving-it-changed) explains why this is not cosmetic: dynamic energy
   per iteration is roughly frequency-independent while leakage energy
   per iteration is not, so a single total hides a term that moves with
-  the operating point. `report_power` already emits the split; Table 1
-  does not yet carry it.
+  the operating point. Table 1 carries the split; what it does not yet
+  carry is a leakage number worth reading, because the scaler's leakage
+  anchor puts it near zero on every point ([§5.1](#51-the-boundary-met-and-what-it-cost)).
 
 ### 8.2 More than one node
 
