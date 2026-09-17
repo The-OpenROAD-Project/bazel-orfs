@@ -6,5 +6,8 @@ export DESIGN_NAME             = Rob
 export DESIGN_NICKNAME         = xiangshan_Rob
 include ../block.mk
 
+# RobEntryCell is XiangShan patch 0003: the per-entry logic as one
+# module, instanced 352 times and synthesised once.
 export SYNTH_KEEP_MODULES      = RenameBuffer \
-                                 VTypeBuffer
+                                 VTypeBuffer \
+                                 RobEntryCell
