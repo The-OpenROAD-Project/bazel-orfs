@@ -47,17 +47,32 @@ struct Cells {
   std::string tie_lo;    // for unused inputs
 };
 
+// Knobs of the model liberty (views.h), asap7-shaped defaults, set in
+// the spec with `lib <knob> <value>`. Picoseconds, femtofarads,
+// nanowatts, so a spec reads in plain units.
+struct LibModel {
+  double gate_delay_ps = 25.0;      // one loaded gate level
+  double wire_factor = 1.3;         // on top of the gate levels
+  double input_load_ff = 0.6;       // per driven cell input
+  double clock_load_ff = 10.0;      // the block's clock pin as the parent sees it
+  double leakage_nw_per_cell = 1.0;
+  double output_max_cap_ff = 50.0;
+  double hold_ps = 0.0;
+};
+
 struct Spec {
   std::string module;    // generated module and block name
   int words = 0;
   int bits = 0;
   std::string clock = "clock";
+  std::string reset;     // optional: a port the RTL has and the array ignores
   std::vector<Port> read;
   std::vector<Port> write;
   Cells cells;
   int tap_columns = 8;    // a tap column every N bit columns
   int service_sites = 40; // free sites beside each tap, for the clock tree
   int banks = 1;          // word columns side by side; words % banks == 0
+  LibModel lib;
 };
 
 // Reads a spec from a small `key value` text file (see README.md).

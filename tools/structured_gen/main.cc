@@ -10,18 +10,22 @@
 #include "odb/lefin.h"
 #include "regfile.h"
 #include "utl/Logger.h"
+#include "views.h"
 
 namespace {
 
 void Usage() {
   std::cerr << "usage: structured_gen --spec FILE --lef FILE [--lef FILE ...]"
-               " --odb OUT.odb [--verilog OUT.v] [--def OUT.def]\n";
+               " [--odb OUT.odb] [--verilog OUT.v] [--def OUT.def]"
+               " [--lef-out OUT.lef] [--lib-out OUT.lib]"
+               " [--check-ports RTL.v]\n";
 }
 
 }  // namespace
 
 int main(int argc, char** argv) {
-  std::string spec_path, odb_path, verilog_path, def_path;
+  std::string spec_path, odb_path, verilog_path, def_path, lef_out, lib_out,
+      check_ports;
   std::vector<std::string> lefs;
   for (int i = 1; i < argc; ++i) {
     std::string a = argv[i];
@@ -42,12 +46,18 @@ int main(int argc, char** argv) {
       verilog_path = next();
     } else if (a == "--def") {
       def_path = next();
+    } else if (a == "--lef-out") {
+      lef_out = next();
+    } else if (a == "--lib-out") {
+      lib_out = next();
+    } else if (a == "--check-ports") {
+      check_ports = next();
     } else {
       Usage();
       return 2;
     }
   }
-  if (spec_path.empty() || lefs.empty() || odb_path.empty()) {
+  if (spec_path.empty() || lefs.empty()) {
     Usage();
     return 2;
   }
@@ -68,6 +78,21 @@ int main(int argc, char** argv) {
       }
     }
     structured_gen::Spec spec = structured_gen::ReadSpec(spec_path);
+    if (!check_ports.empty()) {
+      // The spec against the RTL it stands in for, before anything is
+      // built: a macro whose pins are not the module's is a silent
+      // miswire at the parent.
+      auto ports = structured_gen::ReadModulePorts(check_ports, spec.module);
+      auto problems = structured_gen::CheckPorts(spec, ports);
+      if (!problems.empty()) {
+        std::string all;
+        for (const auto& p : problems) {
+          all += "\n  " + p;
+        }
+        throw std::runtime_error("spec does not match module " + spec.module +
+                                 " in " + check_ports + ":" + all);
+      }
+    }
     odb::dbBlock* block = structured_gen::Generate(db, &logger, spec);
     if (!verilog_path.empty()) {
       structured_gen::WriteVerilog(block, verilog_path);
@@ -81,11 +106,27 @@ int main(int argc, char** argv) {
         throw std::runtime_error("cannot write " + def_path);
       }
     }
-    std::ofstream out(odb_path, std::ios::binary);
-    if (!out) {
-      throw std::runtime_error("cannot write " + odb_path);
+    if (!lef_out.empty()) {
+      structured_gen::WriteLef(block, &logger, lef_out);
     }
-    db->write(out);
+    if (!lib_out.empty()) {
+      // The flow's memories directory holds <m>.lib and <m>_pre_layout.lib;
+      // the model is the same file twice, said so in its comment.
+      structured_gen::WriteLiberty(block, spec, spec.lib, lib_out, false);
+      std::string pre = lib_out;
+      auto dot = pre.rfind(".lib");
+      if (dot != std::string::npos) {
+        pre = pre.substr(0, dot) + "_pre_layout.lib";
+        structured_gen::WriteLiberty(block, spec, spec.lib, pre, true);
+      }
+    }
+    if (!odb_path.empty()) {
+      std::ofstream out(odb_path, std::ios::binary);
+      if (!out) {
+        throw std::runtime_error("cannot write " + odb_path);
+      }
+      db->write(out);
+    }
     std::cout << "structured_gen: " << spec.module << " " << spec.words << "x"
               << spec.bits << " " << spec.read.size() << "R" << spec.write.size()
               << "W: " << block->getInsts().size() << " instances, "

@@ -12,6 +12,7 @@
 #include "odb/lefin.h"
 #include "regfile.h"
 #include "utl/Logger.h"
+#include "views.h"
 
 #define CHECK(cond)                                                       \
   do {                                                                    \
@@ -113,6 +114,62 @@ int main(int argc, char** argv) {
   CHECK(text.find("output [3:0] io_readPorts_1_data") != std::string::npos);
   CHECK(text.find("input io_writePorts_0_wen") != std::string::npos);
   CHECK(text.find("endmodule") != std::string::npos);
+
+  // The views a parent consumes before the block is routed.
+  std::string lef_path = dir + "/rf8x4.lef";
+  structured_gen::WriteLef(block, &logger, lef_path);
+  std::ifstream lf(lef_path);
+  std::string lef((std::istreambuf_iterator<char>(lf)),
+                  std::istreambuf_iterator<char>());
+  CHECK(lef.find("MACRO rf8x4") != std::string::npos);
+  CHECK(lef.find("PIN io_readPorts_0_addr[0]") != std::string::npos);
+  CHECK(lef.find("PIN clock") != std::string::npos);
+  CHECK(lef.find("OBS") != std::string::npos);
+
+  std::string lib_path = dir + "/rf8x4.lib";
+  structured_gen::WriteLiberty(block, spec, spec.lib, lib_path, false);
+  std::ifstream bf(lib_path);
+  std::string lib((std::istreambuf_iterator<char>(bf)),
+                  std::istreambuf_iterator<char>());
+  CHECK(lib.find("cell(rf8x4)") != std::string::npos);
+  CHECK(lib.find("bus(io_readPorts_0_addr)") != std::string::npos);
+  CHECK(lib.find("bus(io_readPorts_1_data)") != std::string::npos);
+  CHECK(lib.find("timing_type : combinational") != std::string::npos);
+  CHECK(lib.find("timing_type : setup_rising") != std::string::npos);
+  CHECK(lib.find("pin(io_writePorts_1_wen)") != std::string::npos);
+  CHECK(lib.find("clock : true") != std::string::npos);
+
+  // The spec against an RTL header in firtool's style: a match, then a
+  // width that differs, then a port the spec never mentions.
+  std::string rtl_path = dir + "/rf8x4_rtl.v";
+  {
+    std::ofstream f(rtl_path);
+    f << "module rf8x4(\n"
+         "  input        clock,\n"
+         "  input  [2:0] io_readPorts_0_addr,\n"
+         "               io_readPorts_1_addr,\n"
+         "  output [3:0] io_readPorts_0_data,\n"
+         "               io_readPorts_1_data,\n"
+         "  input  [2:0] io_writePorts_0_addr,\n"
+         "  input  [3:0] io_writePorts_0_data,\n"
+         "  input        io_writePorts_0_wen,\n"
+         "  input  [2:0] io_writePorts_1_addr,\n"
+         "  input  [3:0] io_writePorts_1_data,\n"
+         "  input        io_writePorts_1_wen\n"
+         ");\nendmodule\n";
+  }
+  auto ports = structured_gen::ReadModulePorts(rtl_path, "rf8x4");
+  CHECK(ports.size() == 11);
+  CHECK(structured_gen::CheckPorts(spec, ports).empty());
+  {
+    auto bad = ports;
+    bad[1].width = 4;  // io_readPorts_0_addr
+    auto problems = structured_gen::CheckPorts(spec, bad);
+    CHECK(problems.size() == 1);
+    CHECK(problems[0].find("io_readPorts_0_addr") != std::string::npos);
+    bad.push_back(structured_gen::RtlPort{"io_extra", 1, true});
+    CHECK(structured_gen::CheckPorts(spec, bad).size() == 2);
+  }
 
   std::string odb_path = dir + "/rf8x4.odb";
   {
