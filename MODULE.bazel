@@ -63,6 +63,19 @@ archive_override(
         "find . -name BUILD -exec sed -i 's|\"@slang\"|\"@sv-lang//:libsvlang\"|g' {} +",
         "sed -i 's|defines = \\[|copts = [\"-include\", \"fmt/format.h\"],\\n    defines = [|' src/syn/src/elab/BUILD third-party/slang-elab/src/BUILD",
     ],
+    patch_strip = 1,
+    patches = [
+        # openroad reads the command file with sta::include_file, one
+        # command at a time, so a failure is reported as a single line
+        # with the tcl stack trace discarded, and an unbalanced brace as
+        # "incomplete command at end of file" with no line at all.
+        # -tcl_source reads it with tcl's source instead, which is what
+        # the gui path already does. Nothing in OpenSTA changes and
+        # include_file stays the default. ORFS passes the flag via
+        # patches/0069-orfs-openroad-args-tcl-source.patch.
+        # Not upstreamed -- retire at a bump onto an OpenROAD carrying it.
+        "//patches:0001-openroad-tcl-source-flag.patch",
+    ],
     strip_prefix = "OpenROAD-c7e5e75131a65e402a2d46a1cb82659d725655da",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/c7e5e75131a65e402a2d46a1cb82659d725655da.tar.gz"],
 )
