@@ -271,6 +271,31 @@ def testbench(module, ports, n_in, n_out, cycles, period_ps, unknown_out_bits):
     return "\n".join(lines) + "\n"
 
 
+def count_words(path):
+    """Cycles in a packed stimulus file: one hex word a cycle."""
+    with open(path) as f:
+        return sum(1 for line in f if line.strip())
+
+
+def generate_only(args, ports):
+    """Write just the testbench, sized by an existing stimulus file."""
+    cycles = count_words(args.stim)
+    n_in = sum(w for d, n, w, _ in ports if is_input(d, n))
+    n_out = sum(w for d, n, w, _ in ports if d == "output")
+    with open(args.module) as f:
+        module = f.read().strip()
+    unknown_out_bits = set()
+    if args.unknown_out_bits:
+        unknown_out_bits = {int(b) for b in args.unknown_out_bits.split(",") if b}
+    with open(args.tb, "w") as f:
+        f.write(testbench(module, ports, n_in, n_out, cycles,
+                          args.period_ps, unknown_out_bits))
+    sys.stdout.write(
+        "mult_replay: testbench for %d cycles, %d stimulus bits, %d "
+        "expected bits -> %s\n" % (cycles, n_in, n_out, args.tb))
+    return 0
+
+
 def is_input(direction, name):
     """Replayed inputs: everything but the clock leaves the testbench drives."""
     return direction == "input" and CLOCK_MARK not in name
@@ -278,9 +303,10 @@ def is_input(direction, name):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--vcd", required=True)
+    ap.add_argument("--vcd", help="the recording to sample. Omit to "
+                    "generate only the testbench, against an existing --stim.")
     ap.add_argument("--ports", required=True)
-    ap.add_argument("--clock", required=True)
+    ap.add_argument("--clock", help="the clock to sample on; required with --vcd")
     ap.add_argument("--stim", required=True)
     ap.add_argument("--expect", required=True)
     ap.add_argument("--only-busy", action="store_true",
@@ -291,10 +317,22 @@ def main(argv=None):
     ap.add_argument("--tb", help="where to write the generated testbench")
     ap.add_argument("--module", help="file naming the netlist module to instantiate")
     ap.add_argument("--period-ps", type=int, default=1282)
+    ap.add_argument("--unknown-out-bits", default="",
+                    help="comma-separated packed output bit positions to "
+                         "exclude from the oracle, for the generate-only path")
     ap.add_argument("--report", help="where to write the packing description")
     args = ap.parse_args(argv)
 
     ports = read_ports(args.ports)
+
+    if not args.vcd:
+        # Generating the testbench against a stimulus that was recorded
+        # earlier. The recording is the expensive half -- it needs a
+        # whole-core run to reach the cycles worth measuring -- so it is
+        # committed, and the testbench that consumes it is generated
+        # from the netlist every time, where it cannot go stale.
+        return generate_only(args, ports)
+
     with open(args.vcd, errors="replace") as f:
         rows, masks, unknown = sample(f, ports, args.clock)
 
