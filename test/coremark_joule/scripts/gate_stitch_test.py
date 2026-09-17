@@ -11,7 +11,7 @@ import gate_stitch  # noqa: E402
 
 RTL = {
     "cm_soc": "module cm_soc(input clock);\n  Bus bus (.clock(clock));\n  Core core (.clock(clock));\nendmodule\n",
-    "Bus": "`include \"defs.svh\"\nmodule Bus(input clock);\nendmodule\n",
+    "Bus": '`include "defs.svh"\nmodule Bus(input clock);\nendmodule\n',
     "Core": "module Core(input clock);\n  Block blk (.clock(clock));\n  Alu alu (.clock(clock));\nendmodule\n",
     "Block": "module Block(input clock);\n  array_8x8 mem (.clk(clock));\n  Leaf leaf (.clock(clock));\nendmodule\n",
     "Leaf": "module Leaf(input clock);\nendmodule\n",
@@ -70,8 +70,21 @@ class StitchTest(unittest.TestCase):
         out = os.path.join(self.dir.name, "out.sv")
         report = os.path.join(self.dir.name, "r.json")
         rc = gate_stitch.main(
-            ["x", "--netlist", netlist, "--rtl-dir", self.dir.name, "--top", "cm_soc",
-             "--cell-suffix", "_ASAP7_", "--out", out, "--report", report]
+            [
+                "x",
+                "--netlist",
+                netlist,
+                "--rtl-dir",
+                self.dir.name,
+                "--top",
+                "cm_soc",
+                "--cell-suffix",
+                "_ASAP7_",
+                "--out",
+                out,
+                "--report",
+                report,
+            ]
         )
         self.assertEqual(rc, 0)
         text = open(out).read()

@@ -32,7 +32,8 @@ py_binary(
             "veer_rv32imc",
         ]
         for seed in SEEDS
-        # The physical side of each point, from the same grt ODB (§4.9).
+    ] + [
+        # The physical side of each point, from the same grt ODB (§4.10).
         "--physical",
         "picorv32:$(location //test/coremark_joule/designs/asap7/picorv32:cmj_picorv32_physical)",
         "--physical",
@@ -66,6 +67,7 @@ py_binary(
             "veer_rv32imc",
         ]
         for seed in SEEDS
+    ] + [
         "//test/coremark_joule/sim:xiangshan_rv64gc_per_mhz",
     ],
     main = "//test/coremark_joule/scripts:pin_results.py",

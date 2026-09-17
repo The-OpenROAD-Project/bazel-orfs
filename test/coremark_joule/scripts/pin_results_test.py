@@ -103,6 +103,8 @@ class SeedSamplesTest(unittest.TestCase):
                     ],
                     [path],
                 )
+
+
 def row(**kw):
     base = dict(
         name="X",

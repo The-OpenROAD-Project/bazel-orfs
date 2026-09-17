@@ -30,11 +30,39 @@ _INSTANCE = re.compile(
     r"^\s*([A-Za-z_][A-Za-z_0-9$]*)\s+(?:#\([^;]*?\)\s*)?[A-Za-z_\\][^\s(]*\s*\(", re.M
 )
 _KEYWORDS = {
-    "module", "input", "output", "inout", "wire", "reg", "assign", "always",
-    "initial", "parameter", "localparam", "logic", "integer", "genvar",
-    "function", "task", "if", "else", "for", "case", "endmodule", "begin",
-    "end", "posedge", "negedge", "typedef", "generate", "endgenerate",
-    "unique", "priority", "default", "return", "automatic",
+    "module",
+    "input",
+    "output",
+    "inout",
+    "wire",
+    "reg",
+    "assign",
+    "always",
+    "initial",
+    "parameter",
+    "localparam",
+    "logic",
+    "integer",
+    "genvar",
+    "function",
+    "task",
+    "if",
+    "else",
+    "for",
+    "case",
+    "endmodule",
+    "begin",
+    "end",
+    "posedge",
+    "negedge",
+    "typedef",
+    "generate",
+    "endgenerate",
+    "unique",
+    "priority",
+    "default",
+    "return",
+    "automatic",
 }
 
 
@@ -102,9 +130,15 @@ def stitch(netlist_text, rtl, top, cell_suffixes):
 
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--netlist", required=True, help="the parent's gate-level netlist")
-    parser.add_argument("--rtl-dir", required=True, help="firtool split-Verilog directory")
-    parser.add_argument("--top", required=True, help="simulation top module, e.g. cm_soc")
+    parser.add_argument(
+        "--netlist", required=True, help="the parent's gate-level netlist"
+    )
+    parser.add_argument(
+        "--rtl-dir", required=True, help="firtool split-Verilog directory"
+    )
+    parser.add_argument(
+        "--top", required=True, help="simulation top module, e.g. cm_soc"
+    )
     parser.add_argument(
         "--cell-suffix",
         action="append",

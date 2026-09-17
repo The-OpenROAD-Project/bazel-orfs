@@ -1,7 +1,6 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
-load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "hier_probe", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power", "stage_power_units")
-load("//test/coremark_joule/flow:seeds.bzl", "seed_variants")
 load("//test/coremark_joule/flow:power.bzl", "grt_netlist", "hier_probe", "period_probe", "physical_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power", "stage_power_units")
+load("//test/coremark_joule/flow:seeds.bzl", "seed_variants")
 
 exports_files(["constraints.sdc"])
 
@@ -87,7 +86,7 @@ period_probe(
     src = ":cmj_serv_grt",
 )
 
-# The measured side of the literature table. See §4.9.
+# The measured side of the literature table. See §4.10.
 physical_probe(
     name = "cmj_serv_physical",
     src = ":cmj_serv_grt",
