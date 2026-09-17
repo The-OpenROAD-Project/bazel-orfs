@@ -28,6 +28,7 @@ load(
     "//private:stages.bzl",
     "ALL_STAGE_TO_VARIABLES",
     "ALL_VARIABLE_TO_STAGES",
+    "UNSCOPED_ORFS_VARIABLES",
     "check_stage_variables",
     "dropped_variables",
     "get_sources",
@@ -271,6 +272,26 @@ def _split_matches_the_guards_predicate_test(ctx):
     check_stage_variables(known, {}, user, {})
     return unittest.end(env)
 
+def _every_orfs_variable_names_its_stages_test(ctx):
+    """No ORFS variable is silently applied to every stage.
+
+    A variables.yaml entry without `stages:` is mapped to ALL_STAGES, which
+    is right for DESIGN_NAME and wrong for ENABLE_DPO; the pinned ORFS has
+    a list for every variable (patches/0075). A bump that brings a new
+    unscoped variable fails here with its name: give it a stages list in
+    the ORFS patch, `All stages` if that is the truth.
+    """
+    env = unittest.begin(ctx)
+    asserts.equals(
+        env,
+        [],
+        UNSCOPED_ORFS_VARIABLES,
+        "ORFS variables without a `stages:` list in variables.yaml; bazel-orfs " +
+        "would apply each to every stage. Scope them in the carried ORFS patch.",
+    )
+    return unittest.end(env)
+
+every_orfs_variable_names_its_stages_test = unittest.make(_every_orfs_variable_names_its_stages_test)
 sorted_output_test = unittest.make(_sorted_output_test)
 split_user_variables_partitions_test = unittest.make(_split_user_variables_partitions_test)
 split_matches_the_guards_predicate_test = unittest.make(_split_matches_the_guards_predicate_test)
@@ -278,6 +299,7 @@ split_matches_the_guards_predicate_test = unittest.make(_split_matches_the_guard
 def stages_filter_test_suite(name):
     unittest.suite(
         name,
+        every_orfs_variable_names_its_stages_test,
         empty_stages_keeps_everything_test,
         filter_drops_out_of_stage_keeps_unmapped_test,
         union_over_stages_test,

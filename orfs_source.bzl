@@ -174,6 +174,12 @@ ORFS_PATCHES = [
     Label("//patches:0072-orfs-auto-memories-firtool-modules.patch"),
     Label("//patches:0073-orfs-fakeram-declared-pins-write-mask.patch"),
     Label("//patches:0074-orfs-skip-extract-fa.patch"),
+    # 42 ORFS variables had no `stages:` list; bazel-orfs applies such a
+    # variable to every stage, so setting ENABLE_DPO (a place knob) re-ran
+    # every block's synthesis. Every variable names its stages now; the
+    # test in test/stages_filter_test.bzl keeps it that way at bumps.
+    # Not upstreamed -- retire at a bump onto an ORFS that has them all.
+    Label("//patches:0075-orfs-variables-stages-complete.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
