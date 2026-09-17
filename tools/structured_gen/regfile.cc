@@ -326,9 +326,18 @@ dbBlock* Builder::Run() {
       ((header_cells_w + rows_per_word - 1) / rows_per_word + widest +
        site_w_ - 1) /
       site_w_ * site_w_;
-  const int tap_w = tap_ ? static_cast<int>(tap_->getWidth()) : 0;
+  // A service column every `tap_columns` bit columns: the tap cell and
+  // then `service_sites` empty sites on every row. The placement is
+  // legal without them; what needs the room is what comes after -- the
+  // clock tree's buffers and any repair -- and the slack inside a tile
+  // is a few sites at a time, which a BUFx24 cannot use. Contiguous free
+  // sites next to the flops are where a clock buffer wants to be.
+  const int tap_w = (tap_ ? static_cast<int>(tap_->getWidth()) : 0) +
+                    std::max(s.service_sites, 0) * site_w_;
   const int tap_every = std::max(s.tap_columns, 1);
-  const int tap_cols = tap_ ? (s.bits + tap_every - 1) / tap_every : 0;
+  const int tap_cols = (tap_ || s.service_sites > 0)
+                           ? (s.bits + tap_every - 1) / tap_every
+                           : 0;
   // Address inverters: one row band above the array.
   const int inv_rows = 1;
   const int total_rows = s.words * rows_per_word + inv_rows;
@@ -428,13 +437,15 @@ dbBlock* Builder::Run() {
     // Tiles.
     int x = header_w;
     for (int b = 0; b < s.bits; ++b) {
-      if (tap_ && b % tap_every == 0) {
-        for (int k = 0; k < rows_per_word; ++k) {
-          Cursor tc{row0 + k, x};
-          Place(tc, tap_, "tap_" + wn + "_c" + std::to_string(b / tap_every) +
-                              "_r" + std::to_string(k), {});
+      if (tap_cols > 0 && b % tap_every == 0) {
+        if (tap_) {
+          for (int k = 0; k < rows_per_word; ++k) {
+            Cursor tc{row0 + k, x};
+            Place(tc, tap_, "tap_" + wn + "_c" + std::to_string(b / tap_every) +
+                                "_r" + std::to_string(k), {});
+          }
         }
-        x += tap_w;
+        x += tap_w;  // the rest of the service column stays empty
       }
       std::string tn = wn + "_b" + std::to_string(b);
       std::vector<Cursor> tc;
@@ -691,6 +702,9 @@ Spec ReadSpec(const std::string& path) {
     } else if (key == "tap_columns") {
       need(1);
       s.tap_columns = std::stoi(v[0]);
+    } else if (key == "service_sites") {
+      need(1);
+      s.service_sites = std::stoi(v[0]);
     } else {
       Refuse(path + ":" + std::to_string(lineno) + ": unknown key `" + key + "`");
     }

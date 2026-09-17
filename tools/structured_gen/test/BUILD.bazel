@@ -1,0 +1,61 @@
+# A generated register file through ORFS, end to end: the tool writes the
+# netlist and the placed DEF, the flow takes them as SYNTH_NETLIST_FILES
+# and FLOORPLAN_DEF, and CTS, global route and the abstract run on a
+# design no placer touched. This is the tool's CI: the rule and the tool
+# cannot rot apart.
+load("@bazel-orfs//:openroad.bzl", "orfs_flow")
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+
+ASAP7_LEFS = [
+    "@orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef",
+    "@orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef",
+]
+
+genrule(
+    name = "rf32x32_gen",
+    srcs = ["rf32x32.spec"] + ASAP7_LEFS,
+    outs = [
+        "rf32x32.v",
+        "rf32x32.def",
+        "rf32x32.odb",
+    ],
+    cmd = "$(execpath //tools/structured_gen:structured_gen) " +
+          "--spec $(location rf32x32.spec) " +
+          " ".join(["--lef $(location {})".format(l) for l in ASAP7_LEFS]) +
+          " --odb $(location rf32x32.odb) --verilog $(location rf32x32.v)" +
+          " --def $(location rf32x32.def)",
+    tools = ["//tools/structured_gen:structured_gen"],
+)
+
+orfs_flow(
+    name = "rf32x32",
+    # Pins and outline are real from placement on; the abstract from grt
+    # carries a clock tree and routed parasitics without detailed route.
+    abstract_stage = "grt",
+    arguments = {
+        # A macro, not a chip: all layers to M7, block grid, no port
+        # buffers (the pins are on the die edge already) and no in-loop
+        # repair or inflation for what is already legal.
+        "DONT_BUFFER_PORTS": "1",
+        "GPL_ROUTABILITY_DRIVEN": "0",
+        "GPL_TIMING_DRIVEN": "0",
+        "MAX_ROUTING_LAYER": "M7",
+        "MIN_ROUTING_LAYER": "M2",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl",
+        "PLACE_DENSITY": "0.6",
+        "SYNTH_HIERARCHICAL": "0",
+    },
+    sources = {
+        # The netlist stands in for synthesis; the DEF for the floorplan.
+        "FLOORPLAN_DEF": [":rf32x32.def"],
+        "SDC_FILE": [":constraints.sdc"],
+        "SYNTH_NETLIST_FILES": [":rf32x32.v"],
+        "TAPCELL_TCL": [":no_tapcell.tcl"],
+    },
+    verilog_files = [":rf32x32.v"],
+)
+
+build_test(
+    name = "rf32x32_abstract_build_test",
+    targets = [":rf32x32_generate_abstract"],
+)
