@@ -50,18 +50,23 @@ export AUTO_MEMORIES           = 1
 # vector region the two together sent Nesterov from overflow 0.31 back to
 # 0.66 and past 1,900 iterations; off, placement is one descent. Both
 # are place-stage variables, so flipping them re-runs only placement.
-# Not set here, deliberately, so the block synthesis and floorplans
-# already built stay cached: ABC_AREA (synth), REMOVE_ABC_BUFFERS
-# (floorplan) and SKIP_REPORT_METRICS (every stage). The parent has all
-# three; the blocks pick them up when their synthesis is next redone.
 export GPL_TIMING_DRIVEN       = 0
 export GPL_ROUTABILITY_DRIVEN  = 0
-# Floorplan's repair_timing visits every violating endpoint (ORFS runs it
-# with -repair_tns 100): on Bpu that was 4248 latch endpoints at zero
-# slack, one STA pass each on 650 k instances, 944 no-op iterations and
-# counting after 20 minutes. One percent still repairs the worst path
-# and bounds the visit; ORFS's own note on the knob says 5 for runtime.
+
+# The parent's three turnaround knobs, now that the block synthesis is
+# redone anyway (parent config.mk says why each): the area abc script,
+# no report_metrics STA at every stage, and abc's buffers stripped at
+# floorplan instead of repaired. The last is the one that matters most
+# here: without it floorplan runs repair_timing over every violating
+# endpoint, and on Bpu that was 4248 latch endpoints at zero slack, one
+# STA pass each on 650 k instances, 944 no-op iterations in 20 minutes
+# with the rest of the machine idle. TNS_END_PERCENT bounds whatever
+# repair still runs later to the worst percent.
+export ABC_AREA                = 1
+export SKIP_REPORT_METRICS     = 1
+export REMOVE_ABC_BUFFERS      = 1
 export TNS_END_PERCENT         = 1
+export SKIP_LAST_GASP          = 1
 
 export CORE_UTILIZATION        = 40
 export CORE_ASPECT_RATIO       = 1
