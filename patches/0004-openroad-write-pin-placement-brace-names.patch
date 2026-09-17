@@ -15,7 +15,8 @@ Brace the name, so the file the tool writes is the tcl it means:
 Both emitters, the pin-list one and the bterm one, are changed the same
 way.  A braced name reads identically on either interpreter.
 
-Not upstreamed.  Retires on a //:bump onto an OpenROAD carrying it.
+Submitted upstream as OpenROAD PR #11437.  Retires on a //:bump onto
+an OpenROAD carrying it.
 
 diff --git a/src/ppl/src/IOPlacer.cpp b/src/ppl/src/IOPlacer.cpp
 index 97a72ca..870b079 100644

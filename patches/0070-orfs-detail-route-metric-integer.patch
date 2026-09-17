@@ -10,7 +10,8 @@ Spell it out.  This is the only abbreviated command in flow/scripts,
 flow/platforms and flow/util: every command token there was checked
 against the command set of the built openroad binary.
 
-Not upstreamed.  Retires on a //:bump onto an ORFS carrying it.
+Submitted upstream as ORFS PR #4542.  Retires on a //:bump onto an
+ORFS carrying it.
 
 diff --git a/flow/scripts/detail_route.tcl b/flow/scripts/detail_route.tcl
 index 907f4b708..538e8476e 100644
