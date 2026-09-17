@@ -56,7 +56,7 @@ module tb_glitch;
   always #(PeriodPs / 2) clk = ~clk;
 
   string sdf_file, vcd_file;
-  int unsigned cycles, skip, n;
+  int unsigned cycles, skip, n, progress;
 
   initial begin
     /* Annotation first, before any edge: a delay that arrives after the
@@ -95,7 +95,19 @@ module tb_glitch;
     repeat (20) @(negedge clk);
     #(PeriodPs / 4) resetn = 1'b1;
 
-    repeat (skip) @(posedge clk);
+    /* +progress=<n> reports where the core has got to every n cycles,
+     * with no dump. A window is chosen blind otherwise: the fast-forward
+     * to a steady-state cycle costs the better part of an hour on a
+     * design this size, and a window that turns out to be boot code is
+     * an hour spent measuring boot code. The address is the same one
+     * the correctness check reads, so a run that goes X says so here
+     * rather than in the counts afterwards. */
+    if (!$value$plusargs("progress=%d", progress)) progress = 0;
+    for (n = 0; n < skip; n++) begin
+      @(posedge clk);
+      if (progress != 0 && (n % progress) == 0)
+        $display("tb_glitch: cycle %0d, fetch %h", n, dbg_instr_addr);
+    end
 
     $dumpfile(vcd_file);
     /* +mult dumps only the multiplier subtree. A whole-core dump is

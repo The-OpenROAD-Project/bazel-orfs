@@ -36,6 +36,17 @@ module cmj_imem_sram (
 	output reg  [31:0] RW0_rdata
 );
 	reg [31:0] mem [0:8191];
+
+	/* A read of a location never written returns X otherwise, and
+	 * in a 4-state simulation that X reaches the fetch path and
+	 * stops the core -- VeeR reads its DCCM and its cache arrays
+	 * before it writes them. Verilator is 2-state and has always
+	 * behaved as though this initialisation were here, so adding
+	 * it aligns the two rather than changing either. A real macro
+	 * powers up undefined; real silicon does not propagate X. */
+	integer init_i;
+	initial for (init_i = 0; init_i <= 8191; init_i = init_i + 1)
+		mem[init_i] = 32'b0;
 	integer b;
 
 	always @(posedge RW0_clk) begin
@@ -62,6 +73,17 @@ module cmj_dmem_lane_sram (
 	output reg  [7:0] RW0_rdata
 );
 	reg [7:0] mem [0:2047];
+
+	/* A read of a location never written returns X otherwise, and
+	 * in a 4-state simulation that X reaches the fetch path and
+	 * stops the core -- VeeR reads its DCCM and its cache arrays
+	 * before it writes them. Verilator is 2-state and has always
+	 * behaved as though this initialisation were here, so adding
+	 * it aligns the two rather than changing either. A real macro
+	 * powers up undefined; real silicon does not propagate X. */
+	integer init_i;
+	initial for (init_i = 0; init_i <= 2047; init_i = init_i + 1)
+		mem[init_i] = 8'b0;
 	integer b;
 
 	always @(posedge RW0_clk) begin
@@ -88,6 +110,17 @@ module cmj_ic_tag_sram (
 	output reg  [21:0] RW0_rdata
 );
 	reg [21:0] mem [0:255];
+
+	/* A read of a location never written returns X otherwise, and
+	 * in a 4-state simulation that X reaches the fetch path and
+	 * stops the core -- VeeR reads its DCCM and its cache arrays
+	 * before it writes them. Verilator is 2-state and has always
+	 * behaved as though this initialisation were here, so adding
+	 * it aligns the two rather than changing either. A real macro
+	 * powers up undefined; real silicon does not propagate X. */
+	integer init_i;
+	initial for (init_i = 0; init_i <= 255; init_i = init_i + 1)
+		mem[init_i] = 22'b0;
 	integer b;
 
 	always @(posedge RW0_clk) begin
@@ -114,6 +147,17 @@ module cmj_ic_data_sram (
 	output reg  [63:0] RW0_rdata
 );
 	reg [63:0] mem [0:255];
+
+	/* A read of a location never written returns X otherwise, and
+	 * in a 4-state simulation that X reaches the fetch path and
+	 * stops the core -- VeeR reads its DCCM and its cache arrays
+	 * before it writes them. Verilator is 2-state and has always
+	 * behaved as though this initialisation were here, so adding
+	 * it aligns the two rather than changing either. A real macro
+	 * powers up undefined; real silicon does not propagate X. */
+	integer init_i;
+	initial for (init_i = 0; init_i <= 255; init_i = init_i + 1)
+		mem[init_i] = 64'b0;
 	integer b;
 
 	always @(posedge RW0_clk) begin
@@ -140,6 +184,17 @@ module sram_2048x39 (
 	output reg  [38:0] RW0_rdata
 );
 	reg [38:0] mem [0:2047];
+
+	/* A read of a location never written returns X otherwise, and
+	 * in a 4-state simulation that X reaches the fetch path and
+	 * stops the core -- VeeR reads its DCCM and its cache arrays
+	 * before it writes them. Verilator is 2-state and has always
+	 * behaved as though this initialisation were here, so adding
+	 * it aligns the two rather than changing either. A real macro
+	 * powers up undefined; real silicon does not propagate X. */
+	integer init_i;
+	initial for (init_i = 0; init_i <= 2047; init_i = init_i + 1)
+		mem[init_i] = 39'b0;
 	integer b;
 
 	always @(posedge RW0_clk) begin
@@ -166,6 +221,17 @@ module sram_256x34 (
 	output reg  [33:0] RW0_rdata
 );
 	reg [33:0] mem [0:255];
+
+	/* A read of a location never written returns X otherwise, and
+	 * in a 4-state simulation that X reaches the fetch path and
+	 * stops the core -- VeeR reads its DCCM and its cache arrays
+	 * before it writes them. Verilator is 2-state and has always
+	 * behaved as though this initialisation were here, so adding
+	 * it aligns the two rather than changing either. A real macro
+	 * powers up undefined; real silicon does not propagate X. */
+	integer init_i;
+	initial for (init_i = 0; init_i <= 255; init_i = init_i + 1)
+		mem[init_i] = 34'b0;
 	integer b;
 
 	always @(posedge RW0_clk) begin
@@ -192,6 +258,17 @@ module sram_64x21 (
 	output reg  [20:0] RW0_rdata
 );
 	reg [20:0] mem [0:63];
+
+	/* A read of a location never written returns X otherwise, and
+	 * in a 4-state simulation that X reaches the fetch path and
+	 * stops the core -- VeeR reads its DCCM and its cache arrays
+	 * before it writes them. Verilator is 2-state and has always
+	 * behaved as though this initialisation were here, so adding
+	 * it aligns the two rather than changing either. A real macro
+	 * powers up undefined; real silicon does not propagate X. */
+	integer init_i;
+	initial for (init_i = 0; init_i <= 63; init_i = init_i + 1)
+		mem[init_i] = 21'b0;
 	integer b;
 
 	always @(posedge RW0_clk) begin
