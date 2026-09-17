@@ -742,6 +742,21 @@ SEED_CORES = [
 # The minimal configuration exists to prove the harness cheaply: it is a
 # far smaller core and not a measurement, but it boots the same image
 # through the same contract.
+#
+# Eight Verilator threads for XiangShan alone: a CoreMark iteration on
+# the single-threaded model is over an hour of wall time on one core
+# while 47 idle, and the gate-level model is slower still. The other
+# cores' simulators finish in minutes and stay single-threaded. The DPI
+# memory behind xs_dpi.cc is plain C++ with no locking, so every DPI
+# call is serialised (--threads-dpi none); the model's own evaluation
+# is what runs in parallel.
+_XS_THREADS = [
+    "--threads",
+    "8",
+    "--threads-dpi",
+    "none",
+]
+
 [
     verilator_cc_library(
         name = "cm_soc_xiangshan" + suffix + "_lib",
@@ -749,7 +764,7 @@ SEED_CORES = [
         module = "//test/coremark_joule/xiangshan:cmj_soc" + suffix,
         module_top = "cm_soc",
         trace_mode = "none",
-        vopts = _SIM_VOPTS + [
+        vopts = _SIM_VOPTS + _XS_THREADS + [
             # firtool emits one enormous file and Verilator's default
             # output split makes the C++ compiler quadratic on it.
             "--output-split",
@@ -835,7 +850,7 @@ verilator_cc_library(
     module_top = "cm_soc",
     tags = ["manual"],
     trace_mode = "saif",
-    vopts = _SIM_VOPTS + _GATE_VOPTS + [
+    vopts = _SIM_VOPTS + _GATE_VOPTS + _XS_THREADS + [
         "--output-split",
         "20000",
         "-Wno-UNUSEDSIGNAL",
