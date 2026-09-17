@@ -1,0 +1,57 @@
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+
+# daemon.tcl is the script an odb_debug() target runs inside the flow's
+# OpenROAD; consumers reach it by label, so it is public.
+exports_files(
+    ["daemon.tcl"],
+    visibility = ["//visibility:public"],
+)
+
+# odbdebug.py, mcp_server.py and geometry.py run under the host python3
+# (an agent host launches mcp_server.py from .mcp.json; the CLIs are
+# meant for a shell next to the daemon), so they stay within the oldest
+# supported distro's interpreter. //:host_tools guards the syntax floor;
+# these targets exist so the behaviour has tests.
+py_library(
+    name = "odbdebug_lib",
+    srcs = [
+        "geometry.py",
+        "mcp_server.py",
+        "odbdebug.py",
+    ],
+    imports = ["."],
+    visibility = ["//visibility:public"],
+)
+
+py_binary(
+    name = "odbdebug",
+    srcs = ["odbdebug.py"],
+    visibility = ["//visibility:public"],
+    deps = [":odbdebug_lib"],
+)
+
+py_binary(
+    name = "mcp_server",
+    srcs = ["mcp_server.py"],
+    visibility = ["//visibility:public"],
+    deps = [":odbdebug_lib"],
+)
+
+py_binary(
+    name = "geometry",
+    srcs = ["geometry.py"],
+    visibility = ["//visibility:public"],
+    deps = [":odbdebug_lib"],
+)
+
+py_test(
+    name = "odbdebug_test",
+    srcs = ["odbdebug_test.py"],
+    deps = [":odbdebug_lib"],
+)
+
+py_test(
+    name = "geometry_test",
+    srcs = ["geometry_test.py"],
+    deps = [":odbdebug_lib"],
+)

@@ -1,0 +1,19 @@
+load("@rules_python//python:defs.bzl", "py_test")
+load("//:openroad.bzl", "odb_debug")
+
+# The daemon on a real placed design: launch, wait for daemon.json, ask
+# through the client, stop. //tools/odb_debug tests the wire protocol
+# against a fake; this is the one place the Tcl side runs.
+odb_debug(
+    name = "multiplier_place_odb_debug",
+    src = "//test/estimation_ladder:multiplier_asap7_place",
+)
+
+py_test(
+    name = "smoke_test",
+    size = "large",
+    srcs = ["smoke_test.py"],
+    args = ["$(rootpath :multiplier_place_odb_debug)"],
+    data = [":multiplier_place_odb_debug"],
+    deps = ["//tools/odb_debug:odbdebug_lib"],
+)

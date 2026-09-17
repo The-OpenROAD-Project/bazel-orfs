@@ -48,6 +48,9 @@ HOST_PYTHON = {
     "mock/yosys/src/bin/yosys.py": "mock/yosys/src/bin/yosys.sh: exec python3",
     "bump.py": "runs standalone, before any toolchain exists",
     "bump_impl.py": "bump.py: subprocess.run([sys.executable, local_impl])",
+    "tools/odb_debug/odbdebug.py": "tools/odb_debug/mcp_server.py: import odbdebug; README: python3 tools/odb_debug/odbdebug.py",
+    "tools/odb_debug/mcp_server.py": ".mcp.json: an agent host runs python3 tools/odb_debug/mcp_server.py",
+    "tools/odb_debug/geometry.py": "README: python3 tools/odb_debug/geometry.py next to the daemon",
 }
 
 # Files that invoke the host python3.  Kept equal to what a scan of the

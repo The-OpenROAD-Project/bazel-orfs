@@ -111,6 +111,9 @@ mechanics:
 - `/openroad-issue` — file it upstream as a `git am` patch + failing bazel test.
 - `/untar-and-run-report` — ship it as an untar-and-run `.tar.gz` archive.
 - `/odb-to-cpp` — turn a whittled `.odb` into a self-contained C++ unit test.
+- `/odb-debug` — ask a stage's ODB questions through a persistent OpenROAD
+  session (macros, cells inside macros, slivers, legality, worst paths)
+  from a shell or the `odb-debug` MCP server in `.mcp.json`.
 
 A simulation that hangs, produces no output or computes the wrong answer
 is a different problem from an OpenROAD failure, and has its own skill:

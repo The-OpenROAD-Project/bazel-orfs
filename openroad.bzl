@@ -28,6 +28,10 @@ load(
     _orfs_update = "orfs_update",
 )
 load(
+    "//private:odb_debug.bzl",
+    _odb_debug = "odb_debug",
+)
+load(
     "//private:orfs_design.bzl",
     _orfs_design = "orfs_design",
 )
@@ -105,6 +109,7 @@ orfs_macro = _orfs_macro
 orfs_run = _orfs_run
 orfs_variables = _orfs_variables
 orfs_run_executable = _orfs_run_executable
+odb_debug = _odb_debug
 orfs_test = _orfs_test
 orfs_floorplan = _orfs_floorplan
 orfs_place = _orfs_place
