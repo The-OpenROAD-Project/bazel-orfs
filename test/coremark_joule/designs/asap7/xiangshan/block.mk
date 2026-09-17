@@ -31,7 +31,14 @@ export VERILOG_FILES           = //test/coremark_joule/xiangshan:xiangshan_flat.
 export SDC_FILE                = $(DESIGN_HOME)/asap7/xiangshan/constraints.sdc
 
 export SYNTH_HIERARCHICAL      = 1
-export OPENROAD_HIERARCHICAL   = 1
+# Flat in OpenROAD: the hierarchy the parallel synthesis keeps is for
+# yosys; nothing reads a block's internal boundaries afterwards (its
+# power reaches the parent as a lib), and OpenROAD's hierarchical link
+# is priced in port bits times instances -- Rob's 352 entry cells at
+# 3,600 input bits each held link_design for 15-18 minutes, with the
+# same time whether the bits were 443 ports or one bus. link_design
+# without -hier flattens the netlist on read in seconds.
+export OPENROAD_HIERARCHICAL   = 0
 export AUTO_MEMORIES           = 1
 
 # Parallel synthesis inside each block with an explicit kept list, set
