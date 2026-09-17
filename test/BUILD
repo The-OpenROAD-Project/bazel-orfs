@@ -1448,6 +1448,26 @@ build_test(
     targets = [":fork_smoke"],
 )
 
+# The .sdc reading (bus subscripts like R0_addr[0] as names) is scoped to
+# read_sdc by patches/0003-opensta-read-sdc-scoped-unknown.patch; outside it
+# the interpreter is stock tcl. sdc_scope_smoke.tcl probes both sides of
+# that line on real OpenROAD, and that write_pin_placement (patch 0004)
+# writes tcl the stock interpreter reads.
+orfs_run(
+    name = "sdc_scope_smoke",
+    src = ":lb_32x128_floorplan",
+    openroad = "@openroad//:openroad",
+    out_dir = "sdc_scope_smoke_out",
+    script = ":sdc_scope_smoke.tcl",
+    tags = ["manual"],
+)
+
+build_test(
+    name = "sdc_scope_smoke_test",
+    tags = ["manual"],
+    targets = [":sdc_scope_smoke"],
+)
+
 # Manual target for testing the source-built OpenROAD GUI locally.
 # Run: bazelisk run //test:lb_32x128_openroad_gui_synth
 # This builds OpenROAD from source with GUI and opens the synthesis
