@@ -1,0 +1,27 @@
+detail_route.tcl records the antenna diode count with utl::metric_int,
+which is not a command: the command is utl::metric_integer, and the
+short name resolved only through OpenSTA's global unknown handler, which
+tries an unknown name as an abbreviation.  With that handler scoped to
+read_sdc (patches/0003-opensta-read-sdc-scoped-unknown.patch) the route
+stage of a design that skips detailed routing fails with
+invalid command name "utl::metric_int".
+
+Spell it out.  This is the only abbreviated command in flow/scripts,
+flow/platforms and flow/util: every command token there was checked
+against the command set of the built openroad binary.
+
+Not upstreamed.  Retires on a //:bump onto an ORFS carrying it.
+
+diff --git a/flow/scripts/detail_route.tcl b/flow/scripts/detail_route.tcl
+index 907f4b708..538e8476e 100644
+--- a/flow/scripts/detail_route.tcl
++++ b/flow/scripts/detail_route.tcl
+@@ -65,7 +65,7 @@ if { !$::env(SKIP_DETAILED_ROUTE) } {
+       incr repair_antennas_iters
+     }
+   } else {
+-    utl::metric_int "antenna_diodes_count" -1
++    utl::metric_integer "antenna_diodes_count" -1
+   }
+ 
+   source_step_tcl POST DETAIL_ROUTE

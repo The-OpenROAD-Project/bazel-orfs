@@ -157,6 +157,12 @@ ORFS_PATCHES = [
     # openroad and OpenSTA patches carried alongside this one.
     # Not upstreamed -- retire at a bump onto an ORFS that passes it.
     Label("//patches:0069-orfs-openroad-args-tcl-source.patch"),
+    # detail_route.tcl calls utl::metric_int, which is not a command but a
+    # unique prefix of utl::metric_integer; it only resolved through the
+    # .sdc unknown handler's abbreviation lookup, which the OpenSTA patch
+    # carried alongside scopes to read_sdc. Spell it out.
+    # Not upstreamed -- retire at a bump onto an ORFS carrying it.
+    Label("//patches:0070-orfs-detail-route-metric-integer.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
