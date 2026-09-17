@@ -44,7 +44,7 @@ export SYNTH_KEEP_MODULES      = Frontend Backend MemBlock CtrlBlock \
                                  VectorDecodeChannel SimpleDecodeChannel \
                                  UopBufferCtrlDecoder RenameBuffer VTypeBuffer \
                                  TLBNonBlock_1 TLBNonBlock_2 PMPChecker_8 \
-                                 PTWNewFilter BusyTable BusyTable_1 IntRegFile \
+                                 PTWNewFilter BusyTable BusyTable_1  \
                                  PhysicalStoreQueue VirtualStoreQueue
 
 # The second block of that list, from IssuePipeVialuVfmaVfdivVidiv on, is
@@ -96,8 +96,17 @@ export OPENROAD_HIERARCHICAL   = 1
 # core has is a compiled register file, and the idiomatic form of that
 # here is a generator linking OpenROAD's libraries -- a later tool, not
 # a flow setting.
+#
+# And the register files themselves, as blocks, after the parent's own
+# detailed placement followed the fp region's curve: 5.5 M violations to
+# 17 k in 400 iterations and three hours, then a thousand per 50. Their
+# flops and read-mux buffers were the residue both times. The vector
+# register file stays inside VecRegionModule, whose legalisation did
+# converge.
 export BLOCKS                  = VecRegionModule Bpu ICache \
-                                 DCacheWrapper L2TLBWrapper
+                                 DCacheWrapper L2TLBWrapper \
+                                 IntRegFile FpRegFilePart0 FpRegFilePart1 \
+                                 FpRegFilePart2 FpRegFilePart3
 
 # Turnaround: no repair inside global placement. Flat, the first
 # timing-driven iteration inserted 527,027 buffers over 9.8 M pins and
