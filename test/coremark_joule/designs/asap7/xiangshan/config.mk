@@ -180,6 +180,11 @@ export SKIP_LAST_GASP          = 1
 # vector converter, 51% of a vector FMA); skipped, adders take the
 # generic techmap. ORFS patch 0074 adds the knob. Turnaround only.
 export SKIP_EXTRACT_FA         = 1
+# The detailed-placement improvement pass (improve_placement, ENABLE_DPO)
+# is a wirelength polish after legalisation: 13 minutes on Rob and on
+# the load/store block, an unknown on the parent. Off while the flow is
+# being put together; back on for the measured run.
+export ENABLE_DPO              = 0
 
 # No pre-placement repair_timing. With REMOVE_ABC_BUFFERS unset, the
 # floorplan stage runs repair_timing on wire-load models before anything
