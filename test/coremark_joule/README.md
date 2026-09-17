@@ -941,7 +941,7 @@ to nearly seven times its own floor — 21.71 mW at zero activity against
 145.41 mW at two toggles per cycle. It is the one core in the study with
 a real clock-gating network ([§5.11](#511-veers-clock-gates-and-what-mapping-them-cost)), and a gated clock's activity *is*
 the enable's activity: told the enables never toggle, the estimator
-switches off a clock tree that carries 29.5 % of the design's power;
+switches off a clock tree that carries 18.8 % of the design's power;
 told they toggle every cycle, it runs the whole tree flat out. Clock
 gating is precisely the structure that gives a probabilistic estimator
 the most room, which is worth stating plainly — the spread is not a
@@ -958,18 +958,18 @@ annotated — and it moves the annotated result by zero.
 
 **VeeR is the case that shows why the sweep, not the audit, is the
 claim.** It is the one design with pins unaccounted for — 1.0073 % of
-its pin set — and its SAIF arm is still bit-identical at
-8.6504e-02 W across the whole sweep, while its vectorless arm runs
-21.7 mW to 124.8 mW. The sweep does not care why a pin is unannotated:
+its pin set — and its SAIF arm is still bit-identical at ten
+significant figures across the whole sweep, while its vectorless arm runs
+21.71 mW to 145.41 mW. The sweep does not care why a pin is unannotated:
 it varies the default the estimator would use for every one of them at
 once. Those 7,684 pins are worth exactly nothing to the reported number,
 and that is measured rather than argued.
 
 A secondary observation falls out of the control arm. At OpenSTA's own
-default activity a vectorless report says 47.02 mW for SERV against a
-measured 43.42 (1.09x), 67.65 mW for picorv32 against 44.43 (1.23x),
-35.61 mW for ibex against 19.46 (1.72x) — and 54.66 mW for VeeR against
-86.50 measured (0.43x), the one core it *understates*, because told
+default activity a vectorless report says 59.4 mW for SERV against a
+measured 54.7 (1.09x), 69.7 mW for picorv32 against 56.6 (1.23x),
+38.8 mW for ibex against 22.5 (1.72x) — and 63.5 mW for VeeR against
+146.0 measured (0.43x), the one core it *understates*, because told
 nothing about the enables it runs the clock gates at a guess. The error
 is differential and changes sign across the table. A vectorless
 CoreMark/Joule comparison of these four cores would put ibex 1.03x
@@ -1814,7 +1814,7 @@ presents the core's address bus to the macro's address pins directly,
 with no register in between, so a core whose address bus moves between
 accesses pays for that movement in the macro's input-pin energy. SERV
 does: its datapath is bit-serial, and it has the **highest** macro power
-of the three (19.90 mW, against picorv32's 14.10 and ibex's 11.90) despite
+of the three (42.70 mW, against picorv32's 40.70 and ibex's 14.90) despite
 by far the lowest access rate. That is real for this netlist and it
 would be real in silicon built this way, but it is a property of the
 tile rather than of SERV, and registering the address would change it.
@@ -2168,16 +2168,19 @@ describes.
 
 | ibex, one hot iteration | internal | switching | leakage | total |
 |---|---|---|---|---|
-| global route, estimated (reported) | 15.80 | 3.02 | 0.646 | **19.50 mW** |
+| global route, estimated | 15.80 | 3.02 | 0.646 | **19.50 mW** |
 | `6_final`, estimated | 15.80 | 3.02 | 0.646 | **19.50 mW** |
 | `6_final`, extracted SPEF | 15.80 | **2.69** | 0.646 | **19.10 mW** |
 
 **Table 9.** The parasitics estimate against extraction, on one design.
+All three arms are the pre-scaler build of [§8.6](#86-a-memory-model-that-knows-its-size----done),
+so the totals are not Table 1's 22.5 mW; what the experiment isolates is the
+difference between the arms, and that is unaffected.
 
 **The estimate is wrong by 10.9 % on the term it models, and by 2.05 %
 on the answer.** It overstates switching power — 3.02 mW against an
 extracted 2.69 mW — but switching is 15 % of ibex's total, so the total
-moves 2.05 %. The 82.6 % of this design's power that is internal is a
+moves 2.05 %. The 81 % of this design's power that is internal is a
 function of the library's own tables and the toggle counts, and the
 parasitics estimate does not touch it.
 
@@ -2197,7 +2200,7 @@ wrong and is likelier to get it wrong in the other direction.
 
 **What one point is not.** It is one core, one floorplan, one corner. A
 design whose power is less internal-dominated would show more of the
-10.9 % in its total; SERV and picorv32 are 72 % and 66 % macro, where
+10.9 % in its total; SERV and picorv32 are 78 % and 72 % macro, where
 the macro's own internal energy is a lookup rather than anything
 parasitics reach, so the direction is predictable and the size is not.
 [§8.5](#85-extract-the-parasitics-on-every-point-not-one) is the sweep that would settle it.
@@ -2935,7 +2938,7 @@ things it cannot tell you are the two worth knowing.
 
 **How it scales with the macro fraction.** The delta lands entirely on
 switching power, which is 15 % of ibex's total and a smaller share of
-SERV's and picorv32's, whose macro fractions are 72 % and 66 %. A
+SERV's and picorv32's, whose macro fractions are 78 % and 72 %. A
 macro's internal energy is a Liberty lookup that no wiring model
 reaches, so the total delta should *shrink* as the macro fraction rises.
 Predictable in direction, unmeasured in size.
