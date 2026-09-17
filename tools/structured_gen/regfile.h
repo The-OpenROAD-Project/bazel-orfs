@@ -57,6 +57,7 @@ struct Spec {
   Cells cells;
   int tap_columns = 8;    // a tap column every N bit columns
   int service_sites = 40; // free sites beside each tap, for the clock tree
+  int banks = 1;          // word columns side by side; words % banks == 0
 };
 
 // Reads a spec from a small `key value` text file (see README.md).

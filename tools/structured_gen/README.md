@@ -56,6 +56,11 @@ and any later repair need contiguous free sites next to the flops, and
 the slack inside a tile is a few sites at a time, which a BUFx24 cannot
 use.
 
+`banks` folds the word column into that many columns side by side, each
+with its own header and service columns, and ORs the banks' bitlines in
+a footer band below the array: the way to give a 256-word file an
+outline a parent can place, instead of one ten times taller than wide.
+
 Read path: address inverters, an AND2 tree over the literals, the tile's
 AND2, and log2(words) OR2 levels. For 256 words that is about twelve
 gate levels.
@@ -82,6 +87,7 @@ cell tap        TAPCELL_ASAP7_75t_R
 pin_layer       M4
 tap_columns     8
 service_sites   40
+banks           4
 ```
 
 Cell pins default to asap7's (`D CLK QN`, `A B Y`, `A1 A2 B1 B2 Y`,

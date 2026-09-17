@@ -338,10 +338,25 @@ dbBlock* Builder::Run() {
   const int tap_cols = (tap_ || s.service_sites > 0)
                            ? (s.bits + tap_every - 1) / tap_every
                            : 0;
+  // Banks: the word column folded into `banks` columns side by side, each
+  // with its own header and service columns, so a 256-word file is not
+  // ten times taller than it is wide. The read bitlines are one OR tree
+  // per bank and a final OR across banks in a footer band.
+  const int banks = std::max(s.banks, 1);
+  if (s.words % banks != 0) {
+    Refuse("words (" + std::to_string(s.words) + ") is not a multiple of banks (" +
+           std::to_string(banks) + ")");
+  }
+  const int words_per_bank = s.words / banks;
+  const int bank_w = header_w + s.bits * tile_w + tap_cols * tap_w;
   // Address inverters: one row band above the array.
   const int inv_rows = 1;
-  const int total_rows = s.words * rows_per_word + inv_rows;
-  const int core_w = header_w + s.bits * tile_w + tap_cols * tap_w;
+  // Footer: (banks-1) OR2 per read port per bit, as many rows as it takes.
+  const int core_w = banks * bank_w;
+  const int footer_cells_w =
+      banks > 1 ? (banks - 1) * R * s.bits * static_cast<int>(or2_->getWidth()) : 0;
+  const int footer_rows = banks > 1 ? (footer_cells_w + core_w - 1) / core_w + 1 : 0;
+  const int total_rows = footer_rows + words_per_bank * rows_per_word + inv_rows;
 
   // Core at a site multiple in from the die so a parent's ring fits.
   core_x0_ = 10 * site_w_;
@@ -398,11 +413,13 @@ dbBlock* Builder::Run() {
   };
 
   for (int n = 0; n < s.words; ++n) {
-    const int row0 = n * rows_per_word;
+    const int bank = n / words_per_bank;
+    const int row0 = footer_rows + (n % words_per_bank) * rows_per_word;
+    const int bank_x0 = bank * bank_w;
     // Header column, spread over this word's rows.
     std::vector<Cursor> hc;
     for (int k = 0; k < rows_per_word; ++k) {
-      hc.push_back(Cursor{row0 + k, 0});
+      hc.push_back(Cursor{row0 + k, bank_x0});
     }
     auto hcur = [&]() -> Cursor& { return Least(hc); };
     std::string wn = "w" + std::to_string(n);
@@ -428,14 +445,14 @@ dbBlock* Builder::Run() {
     Place(hcur(), inv_, hold[n]->getName(),
           {{g_pins.inv[0], any_write}, {g_pins.inv[1], hold[n]}});
     for (auto& c : hc) {
-      if (c.x > header_w) {
+      if (c.x > bank_x0 + header_w) {
         Refuse("header column overflow at word " + std::to_string(n) +
                ": widen the header estimate");
       }
     }
 
     // Tiles.
-    int x = header_w;
+    int x = bank_x0 + header_w;
     for (int b = 0; b < s.bits; ++b) {
       if (tap_cols > 0 && b % tap_every == 0) {
         if (tap_) {
@@ -521,13 +538,29 @@ dbBlock* Builder::Run() {
   // A node covering words [lo, hi) is dropped into the tile of word
   // (lo+hi)/2 in that bit column, round-robin over its rows.
   std::vector<std::vector<dbNet*>> rdata(R);
+  std::vector<Cursor> footer;
+  for (int k = 0; k < footer_rows; ++k) {
+    footer.push_back(Cursor{k, 0});
+  }
   for (int r = 0; r < R; ++r) {
     for (int b = 0; b < s.bits; ++b) {
-      dbNet* root = OrTree(
-          "rd" + std::to_string(r) + "_b" + std::to_string(b), leaves[r][b],
-          [&](int lo, int hi) -> Cursor& {
-            return Least(tiles_[((lo + hi) / 2) * s.bits + b].rows);
-          });
+      std::string prefix = "rd" + std::to_string(r) + "_b" + std::to_string(b);
+      std::vector<dbNet*> bank_roots;
+      for (int k = 0; k < banks; ++k) {
+        std::vector<dbNet*> bank_leaves(
+            leaves[r][b].begin() + k * words_per_bank,
+            leaves[r][b].begin() + (k + 1) * words_per_bank);
+        bank_roots.push_back(OrTree(
+            prefix + "_k" + std::to_string(k), bank_leaves,
+            [&](int lo, int hi) -> Cursor& {
+              int n = k * words_per_bank + (lo + hi) / 2;
+              return Least(tiles_[n * s.bits + b].rows);
+            }));
+      }
+      dbNet* root = banks == 1
+                        ? bank_roots[0]
+                        : OrTree(prefix + "_f", bank_roots,
+                                 [&](int, int) -> Cursor& { return Least(footer); });
       // Output port, its own net so the bterm has the RTL name.
       std::string name = Bit(s.read[r].data, b);
       std::vector<odb::dbITerm*> its(root->getITerms().begin(),
@@ -549,6 +582,11 @@ dbBlock* Builder::Run() {
                std::to_string(c.x - tiles_[i].x_end) +
                " dbu once its read OR trees were in: widen the tile estimate");
       }
+    }
+  }
+  for (const auto& c : footer) {
+    if (c.x > core_w) {
+      Refuse("footer overflow: widen the footer estimate");
     }
   }
   if (max_x_ > core_w) {
@@ -599,9 +637,9 @@ dbBlock* Builder::Run() {
   }
 
   logger_->report(
-      "structured_gen: {} {}x{} {}R{}W: {} rows of {} sites, die {} x {} um, "
-      "{} instances",
-      s.module, s.words, s.bits, R, W, total_rows, core_w / site_w_,
+      "structured_gen: {} {}x{} {}R{}W in {} bank(s): {} rows of {} sites, die "
+      "{} x {} um, {} instances",
+      s.module, s.words, s.bits, R, W, banks, total_rows, core_w / site_w_,
       die_w / static_cast<double>(tech->getLefUnits()),
       die_h / static_cast<double>(tech->getLefUnits()),
       block_->getInsts().size());
@@ -705,6 +743,9 @@ Spec ReadSpec(const std::string& path) {
     } else if (key == "service_sites") {
       need(1);
       s.service_sites = std::stoi(v[0]);
+    } else if (key == "banks") {
+      need(1);
+      s.banks = std::stoi(v[0]);
     } else {
       Refuse(path + ":" + std::to_string(lineno) + ": unknown key `" + key + "`");
     }

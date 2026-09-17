@@ -19,3 +19,4 @@ cell inv    INVx1_ASAP7_75t_R
 cell tap    TAPCELL_ASAP7_75t_R
 pin_layer   M4
 tap_columns 8
+banks       2
