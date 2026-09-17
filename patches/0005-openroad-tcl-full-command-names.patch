@@ -14,7 +14,8 @@ the built binary and checking every command token in src/**/*.tcl
 against it; a token that is not a command but a unique prefix of one is
 an abbreviation.  Behaviour is identical on either interpreter.
 
-Not upstreamed.  Retires on a //:bump onto an OpenROAD carrying it.
+Submitted upstream as OpenROAD PR #11439.  Retires on a //:bump onto
+an OpenROAD carrying it.
 
 diff --git a/src/Metrics.tcl b/src/Metrics.tcl
 index b56980f..42c5a1c 100644
