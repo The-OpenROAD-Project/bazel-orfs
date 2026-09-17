@@ -358,10 +358,6 @@ orfs.default(
         self.assertIsNone(bump_impl.find_orfs_source_tag(content))
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestOrfsPatchPairing(unittest.TestCase):
     ORFS_SOURCE = """ORFS_BAZEL_PLATFORMS = ["asap7"]
 
@@ -578,3 +574,7 @@ OTHER = [Label("//patches:not-an-orfs-patch.patch")]
             ),
             [],
         )
+
+
+if __name__ == "__main__":
+    unittest.main()
