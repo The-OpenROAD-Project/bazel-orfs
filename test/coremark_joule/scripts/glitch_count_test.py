@@ -126,3 +126,27 @@ class TestCount(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestNamesMustMatch(unittest.TestCase):
+    """A name that matches nothing is a mistake, not an empty result."""
+
+    def _count(self, **kw):
+        return count(io.StringIO(VCD), **kw)
+
+    def test_a_clock_that_matches_nothing_is_an_error(self):
+        with self.assertRaises(ValueError):
+            self._count(subtree="mult", clock="nope")
+
+    def test_a_busy_signal_that_matches_nothing_is_an_error(self):
+        """Otherwise the unit reports as having never worked."""
+        with self.assertRaises(ValueError):
+            self._count(subtree="mult", busy="valid_o", clock="clk")
+
+    def test_a_subtree_that_matches_nothing_is_an_error(self):
+        with self.assertRaises(ValueError):
+            self._count(subtree="nosuchscope", clock="clk")
+
+    def test_names_that_match_are_fine(self):
+        r = self._count(subtree="mult", busy="busy", clock="clk")
+        self.assertEqual(r["cycles"], 2)

@@ -89,6 +89,19 @@ def count(stream, subtree=None, busy=None, clock=None, pc=None):
     clock_ids = {i for i, p in ids.items() if clock and p.endswith(clock)}
     pc_ids = {i for i, p in ids.items() if pc and p.endswith(pc)}
 
+    # A name that matches nothing is a mistake, not an empty result. A
+    # missing clock silently reports zero cycles and a missing busy
+    # signal silently reports a unit that never worked -- both of which
+    # look like measurements, and one of them cost an afternoon.
+    for name, found, what in ((clock, clock_ids, "clock"),
+                              (busy, busy_ids, "busy signal"),
+                              (pc, pc_ids, "pc")):
+        if name and not found:
+            raise ValueError(
+                "%s %r matches no signal in the dump" % (what, name))
+    if subtree and not in_subtree:
+        raise ValueError("subtree %r matches no scope in the dump" % subtree)
+
     values = {}
     total = subtree_total = 0
     subtree_busy = subtree_idle = 0
