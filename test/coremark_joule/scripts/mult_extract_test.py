@@ -6,7 +6,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from mult_extract import cells, module_body, ports, sdf_subtree  # noqa: E402
+from mult_extract import cells, module_body, parent, ports, sdf_subtree  # noqa: E402
 
 NETLIST = """\
 module other (a, b);
@@ -103,3 +103,37 @@ class TestSdfSubtree(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestEscapedDivider(unittest.TestCase):
+    """OpenSTA escapes a slash inside a name; it is not a hierarchy level.
+
+    VeeR's clock-tree cells carry their own instance path in their name,
+    so a cell called `clkbuf_0_swerv\\/exu\\/i0_alu_e1\\` sits one level
+    below the module, not three. Splitting on every slash invents
+    hierarchy, and the module then looks like it has twenty instances.
+    """
+
+    SDF = (
+        "(DELAYFILE\n"
+        " (DIVIDER /)\n"
+        " (CELL\n"
+        '  (CELLTYPE "BUFx2")\n'
+        "  (INSTANCE top/alu/u0)\n"
+        " )\n"
+        " (CELL\n"
+        '  (CELLTYPE "BUFx2")\n'
+        "  (INSTANCE top/alu/clkbuf_0_top\\/alu\\)\n"
+        " )\n"
+        ")\n"
+    )
+
+    def test_an_escaped_slash_is_part_of_the_name(self):
+        text, n, prefix = sdf_subtree(self.SDF, "/alu/")
+        self.assertEqual(n, 2)
+        self.assertEqual(prefix, "top/alu/")
+
+    def test_parent_splits_on_real_dividers_only(self):
+        self.assertEqual(parent("a/b/c"), "a/b")
+        self.assertEqual(parent("a/b/c\\/d\\"), "a/b")
+        self.assertEqual(parent("a"), "")

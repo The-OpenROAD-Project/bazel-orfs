@@ -32,6 +32,21 @@ PORT = re.compile(
 INSTANCE = re.compile(r'\(INSTANCE ([^)]*)\)')
 
 
+# The hierarchy divider, but only where it is one. OpenSTA escapes a
+# slash inside a name as `\/`, and VeeR's clock-tree cells embed their
+# own instance path in their names -- `clkbuf_0_swerv\/exu\/i0_alu_e1\`
+# is one cell, not three levels. Splitting on every slash invents
+# hierarchy that is not there, and then a module appears to have twenty
+# instances when it has one.
+UNESCAPED_SLASH = re.compile(r'(?<!\\)/')
+
+
+def parent(path):
+    """Everything above the last real hierarchy divider in an instance path."""
+    parts = UNESCAPED_SLASH.split(path)
+    return "/".join(parts[:-1])
+
+
 def module_body(text, needle):
     """The text of the one module whose name contains `needle`."""
     starts = [m.start() for m in re.finditer(r'^module\s', text, re.M)]
@@ -93,7 +108,7 @@ def sdf_subtree(text, needle):
         m = INSTANCE.search(block)
         if m and needle in m.group(1):
             kept.append(block)
-            prefixes.add(m.group(1).rsplit("/", 1)[0])
+            prefixes.add(parent(m.group(1)))
     if not kept:
         raise ValueError("no SDF instance path contains %r" % needle)
     if len(prefixes) != 1:
