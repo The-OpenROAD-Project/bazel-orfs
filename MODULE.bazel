@@ -81,6 +81,13 @@ archive_override(
         # so the file the tool writes is the tcl it means.
         # Not upstreamed -- retire at a bump onto an OpenROAD carrying it.
         "//patches:0004-openroad-write-pin-placement-brace-names.patch",
+        # 27 tcl call sites in OpenROAD name a command by a unique prefix
+        # of its real name (utl::metric_int, sta::check_positive_int, ...)
+        # and only resolved through the .sdc unknown handler's abbreviation
+        # lookup; on stock tcl the place stage fails at the first one.
+        # Spell each one out.
+        # Not upstreamed -- retire at a bump onto an OpenROAD carrying it.
+        "//patches:0005-openroad-tcl-full-command-names.patch",
     ],
     strip_prefix = "OpenROAD-c7e5e75131a65e402a2d46a1cb82659d725655da",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/c7e5e75131a65e402a2d46a1cb82659d725655da.tar.gz"],
