@@ -504,3 +504,19 @@ py_test(
     ],
     main = "mult_replay_test.py",
 )
+
+py_binary(
+    name = "mult_extract",
+    srcs = ["mult_extract.py"],
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+py_test(
+    name = "mult_extract_test",
+    size = "small",
+    srcs = [
+        "mult_extract.py",
+        "mult_extract_test.py",
+    ],
+    main = "mult_extract_test.py",
+)
