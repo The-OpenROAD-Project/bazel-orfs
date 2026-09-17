@@ -45,7 +45,10 @@ export SYNTH_KEEP_MODULES      = Frontend Backend MemBlock CtrlBlock \
                                  UopBufferCtrlDecoder RenameBuffer VTypeBuffer \
                                  TLBNonBlock_1 TLBNonBlock_2 PMPChecker_8 \
                                  PTWNewFilter BusyTable BusyTable_1  \
-                                 PhysicalStoreQueue VirtualStoreQueue
+                                 PhysicalStoreQueue VirtualStoreQueue \
+                                 ExeUnitImp NewCSR RenameTableWrapper \
+                                 CompressUnit SSIT LFST SbufferData \
+                                 AgeDetector_40 ResolveQueue
 
 # The second block of that list, from IssuePipeVialuVfmaVfdivVidiv on, is
 # kept for synthesis turnaround, not for the breakdown. yosys and abc are
@@ -58,7 +61,10 @@ export SYNTH_KEEP_MODULES      = Frontend Backend MemBlock CtrlBlock \
 # size. Each becomes its own partition, and a module instantiated more
 # than once is synthesised once: DecodeStage's 33 MB was eight copies of
 # VectorDecodeChannel. Rob's own body, 12 MB, has no children to keep and
-# is the floor of the run.
+# is the floor of the run. The last line of the list cuts the 60-90 k
+# line partitions that remained (ExuBlock's CSR, Rename's tables and
+# compressor, MemCtrl's SSIT and LFST, Sbuffer's data, LoadQueueReplay's
+# age detectors, Ftq's resolve queue) at children of 15-60 k lines.
 #
 # units.json does not list them: report_power on a kept parent's
 # instance sums everything beneath it, children included, so the
@@ -110,12 +116,19 @@ export BLOCKS                  = VecRegionModule Bpu ICache \
 # AUTO_MEMORIES memory; the RTL stays as it is and is the simulation
 # model. IntRegFile is the banked variant, one address and data bus per
 # bank on every read port. The lib each gets is a model until its own
-# block flow replaces it with a routed abstract.
+# block flow replaces it with a routed abstract. The four Ftq queues are
+# register files by XiangShan patch 0002 (Reg(Vec) arrays given a module
+# boundary, utils.RegVecFile): 64 words each, one write, 1-4 reads, and
+# together 53 kbit of the Ftq partition's flops behind 64:1 read muxes.
 export STRUCTURED_MEMORIES     = $(DESIGN_HOME)/asap7/xiangshan/IntRegFile.regfile \
                                  $(DESIGN_HOME)/asap7/xiangshan/FpRegFilePart0.regfile \
                                  $(DESIGN_HOME)/asap7/xiangshan/FpRegFilePart1.regfile \
                                  $(DESIGN_HOME)/asap7/xiangshan/FpRegFilePart2.regfile \
-                                 $(DESIGN_HOME)/asap7/xiangshan/FpRegFilePart3.regfile
+                                 $(DESIGN_HOME)/asap7/xiangshan/FpRegFilePart3.regfile \
+                                 $(DESIGN_HOME)/asap7/xiangshan/FtqEntryQueue.regfile \
+                                 $(DESIGN_HOME)/asap7/xiangshan/FtqMetaQueueRedirect.regfile \
+                                 $(DESIGN_HOME)/asap7/xiangshan/FtqMetaQueueResolve.regfile \
+                                 $(DESIGN_HOME)/asap7/xiangshan/FtqMetaQueueCommit.regfile
 
 # Turnaround: no repair inside global placement. Flat, the first
 # timing-driven iteration inserted 527,027 buffers over 9.8 M pins and
