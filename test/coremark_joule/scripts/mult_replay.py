@@ -62,17 +62,27 @@ def declare(spelling):
 
 
 def parse_header(stream):
-    """identifier -> name, for $var lines at any scope depth."""
-    ids = {}
+    """name -> identifier, for $var lines at any scope depth.
+
+    Keyed by name, not by identifier. A VCD gives one identifier to every
+    name of the same net, so an identifier -> name map keeps whichever
+    alias was declared first and loses the rest -- and a port that lost
+    that race then matches nothing and silently keeps its initial value.
+    That is how `rst_ni` came through as 0 for a whole window: the
+    multiplier sat in reset, its state machine never advanced, and only
+    the one output that depends on state rather than on inputs was
+    wrong.
+    """
+    names = {}
     for line in stream:
         s = line.strip()
         if s.startswith("$var"):
             parts = s.split()
             if len(parts) >= 5:
-                ids.setdefault(parts[3], parts[4])
+                names.setdefault(parts[4], parts[3])
         elif s.startswith("$enddefinitions"):
-            return ids
-    return ids
+            return names
+    return names
 
 
 def normalize(value, width):
@@ -103,12 +113,19 @@ def sample(stream, ports, clock):
     is consumed -- sampling mid-block would catch the design halfway
     through settling.
     """
-    ids = parse_header(stream)
+    by_name = parse_header(stream)
     width = {n: w for _, n, w, _ in ports}
-    by_name = {}
-    for ident, name in ids.items():
-        by_name.setdefault(name, ident)
-    wanted = {by_name[n]: n for _, n, _, _ in ports if n in by_name}
+
+    # Every port has to be found. A port the dump does not name would
+    # otherwise keep the zero it was initialised with, and drive the
+    # replay with a value the recording never held.
+    absent = [n for _, n, _, _ in ports if n not in by_name]
+    if absent:
+        raise ValueError(
+            "%d port(s) are not in the dump, which would replay as 0: %s"
+            % (len(absent), ", ".join(absent[:8])))
+
+    wanted = {by_name[n]: n for _, n, _, _ in ports}
     clock_id = by_name.get(clock)
     if clock_id is None:
         raise ValueError("clock %r is not in the dump" % clock)
@@ -255,9 +272,17 @@ def testbench(module, ports, n_in, n_out, cycles, period_ps, unknown_out_bits):
     a("    end")
     a("    for (n = 0; n < NCycles; n++) begin")
     a("      @(posedge clk);")
-    a("      cur = stim[n];")
-    a("      /* Checked just before the next edge, once the annotated arm")
-    a("       * has had a whole period to settle. */")
+    a("      /* A picosecond after the edge, not on it. Driving an input")
+    a("       * at the instant the flops capture is a race, and which way")
+    a("       * it resolves is a property of the netlist rather than of")
+    a("       * the design: the same testbench reproduced one hardening")
+    a("       * exactly and lost a `valid` pulse per multiply on the")
+    a("       * next. It is also what the core does -- these inputs come")
+    a("       * from flops elsewhere, so they arrive after the edge, not")
+    a("       * on it. */")
+    a("      #1 cur = stim[n];")
+    a("      /* Checked near the end of the cycle, once the annotated arm")
+    a("       * has had almost a whole period to settle. */")
     a("      #(PeriodPs - PeriodPs / 8);")
     a("      got = {%s};" % ", ".join(n for n, _, _ in outs))
     a("      if ((got & OutMask) !== (want[n] & OutMask))")
