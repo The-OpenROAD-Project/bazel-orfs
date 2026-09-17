@@ -8,7 +8,8 @@ include ../block.mk
 # The issue pipes' partitions ran 9 to 27 minutes each: one execution
 # unit (VFEX0..3) holds a divider, an FMA and a converter of 20-30 k
 # lines apiece. Kept, each is a partition of its own, and VFMacWrapper's
-# four instances are synthesised once.
+# four instances are synthesised once; so are VectorCvt's two, which
+# were 20 minutes as one VCVTWrapper partition.
 export SYNTH_KEEP_MODULES      = IssuePipeVialuVfmaVfdivVidiv \
                                  IssuePipeVialuVimacVmoveVfcvtVfma \
                                  IssuePipeVialuVfma \
@@ -17,6 +18,7 @@ export SYNTH_KEEP_MODULES      = IssuePipeVialuVfmaVfdivVidiv \
                                  VFDivWrapper \
                                  VFMacWrapper \
                                  VCVTWrapper \
+                                 VectorCvt \
                                  VIMacU \
                                  IssueQueueVialuVimacVmoveVfcvtVfma \
                                  IssueQueueVialuVfmaVfdivVidiv \
