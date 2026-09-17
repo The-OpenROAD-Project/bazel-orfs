@@ -1,0 +1,93 @@
+openroad hands the command file to sta::include_file, which reads it one
+complete command at a time.  That is what supports -echo, -verbose,
+sta_continue_on_error and gzipped command files, but it also means a
+failure arrives as a single line,
+
+    Error: foo.tcl, 7 divide by zero
+
+with the tcl stack trace discarded, and an unbalanced brace arrives as
+"incomplete command at end of file" with no line number at all.
+
+Add -tcl_source, which reads the command file with tcl's own source
+command instead.  Errors then carry the full tcl stack trace naming each
+proc and the failing line, parse errors are located, and a top level
+return ends the script as tcl defines it.
+
+openroad -gui already reads the command file with source, so this lets
+the headless path do what the gui path does today.  The .openroad init
+file is read with echo and verbose set and is not touched.
+
+Nothing in OpenSTA changes and include_file stays the default: with the
+flag off this is byte for byte the current path.
+
+Not upstreamed.  Retires on a //:bump onto an OpenROAD carrying it.
+
+diff --git a/src/Main.cc b/src/Main.cc
+index 1baaaab..8a3b91f 100644
+--- a/src/Main.cc
++++ b/src/Main.cc
+@@ -102,6 +102,7 @@ static bool no_settings = false;
+ static bool minimize = false;
+ static bool web_enabled = false;
+ static const char* web_port_arg = nullptr;
++static bool tcl_source = false;
+ 
+ static const char* init_filename = ".openroad";
+ 
+@@ -261,6 +262,7 @@ int main(int argc, char* argv[])
+   minimize = findCmdLineFlag(argc, argv, "-minimize");
+   web_enabled = findCmdLineFlag(argc, argv, "-web");
+   web_port_arg = findCmdLineKey(argc, argv, "-web_port");
++  tcl_source = findCmdLineFlag(argc, argv, "-tcl_source");
+ 
+   cmd_argc = argc;
+   cmd_argv = argv;
+@@ -464,7 +466,27 @@ static int tclAppInit(int& argc,
+         char* cmd_file = argv[1];
+         if (cmd_file) {
+           if (!gui_enabled) {
+-            int result = sourceTclFile(cmd_file, false, false, interp);
++            int result;
++            if (tcl_source) {
++              // sta::include_file reads the file one command at a time,
++              // which is what supports -echo, -verbose,
++              // sta_continue_on_error and gzipped files, but an error is
++              // then reported without the tcl stack trace that produced
++              // it.  Read it with tcl's own source command instead.  The
++              // gui path below already does this.
++              const std::string cmd = fmt::format("source {{{}}}", cmd_file);
++              result = Tcl_Eval(interp, cmd.c_str());
++              if (result == TCL_ERROR) {
++                // Get a backtrace for the error.
++                const char* error_info
++                    = Tcl_GetVar(interp, "errorInfo", TCL_GLOBAL_ONLY);
++                if (error_info != nullptr) {
++                  fprintf(stderr, "%s\n", error_info);
++                }
++              }
++            } else {
++              result = sourceTclFile(cmd_file, false, false, interp);
++            }
+             if (exit_after_cmd_file) {
+               int exit_code = (result == TCL_OK) ? EXIT_SUCCESS : EXIT_FAILURE;
+               Tcl_Exit(exit_code);
+@@ -545,6 +567,7 @@ int ord::tclInit(Tcl_Interp* interp)
+ static void showUsage(const char* prog, const char* init_filename)
+ {
+   printf("Usage: %s [-help] [-version] [-no_init] [-no_splash] [-exit] ", prog);
++  printf("[-tcl_source] ");
+   printf("[-gui] [-web] [-threads count|max] [-log file_name] ");
+   printf("[-metrics file_name] [-db file_name] [-no_settings] [-minimize] ");
+   printf("cmd_file\n");
+@@ -554,6 +577,11 @@ static void showUsage(const char* prog, const char* init_filename)
+   printf("  -threads count|max    use count threads\n");
+   printf("  -no_splash            do not show the license splash at startup\n");
+   printf("  -exit                 exit after reading cmd_file\n");
++  printf(
++      "  -tcl_source           read cmd_file with the tcl source command rather\n"
++      "                        than sta::include_file, which reads it one command\n"
++      "                        at a time; -echo, -verbose, sta_continue_on_error\n"
++      "                        and gzipped files do not apply to it\n");
+   printf("  -gui                  start in gui mode\n");
+   printf("  -web                  start in web viewer mode\n");
+   printf("  -web_port port        web server port (default auto-assigned)\n");
