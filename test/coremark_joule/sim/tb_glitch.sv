@@ -25,6 +25,15 @@
  */
 `timescale 1ps / 1ps
 
+/* The instance of the hardened design inside cm_soc. Every SoC but
+ * VeeR's calls it `cpu`; VeeR's calls it `rvtop`, and six saif_scope
+ * entries name it, so the testbench bends rather than the flow.
+ * $sdf_annotate and $dumpvars both take a static hierarchical name, so
+ * this cannot be a plusarg. */
+`ifndef CPU_INST
+`define CPU_INST cpu
+`endif
+
 module tb_glitch;
   localparam int unsigned PeriodPs = 1282;
 
@@ -58,7 +67,7 @@ module tb_glitch;
      * testbench -- a mismatch reports
      * "Unable to find ... in scope" rather than quietly annotating
      * nothing. */
-    if ($value$plusargs("sdf=%s", sdf_file)) $sdf_annotate(sdf_file, dut.cpu);
+    if ($value$plusargs("sdf=%s", sdf_file)) $sdf_annotate(sdf_file, dut.`CPU_INST);
 
     if (!$value$plusargs("vcd=%s", vcd_file)) vcd_file = "glitch.vcd";
     if (!$value$plusargs("cycles=%d", cycles)) cycles = 2000;
@@ -95,10 +104,23 @@ module tb_glitch;
      * that allows: CoreMark dispatches its matrix work per list item
      * (calc_func), so it arrives in short bursts rather than as a
      * phase. */
-    if ($test$plusargs("mult"))
+    /* +cpu dumps the whole hardened design, which is how a boundary is
+     * recorded for a unit that has no scope of its own. $dumpvars takes
+     * a static hierarchical name, so a scope cannot be chosen by string
+     * at run time; dumping the design once and cutting each unit's
+     * ports out of that one file afterwards is what scales to a sweep,
+     * and is the only way to reach a unit instantiated more than once
+     * -- VeeR has four of the same ALU. */
+`ifdef IBEX_MULT_SCOPE
+    if ($test$plusargs("mult")) begin
       $dumpvars(0, tb_glitch.dut.cpu.\u_core__dot__u_ibex_core__dot__ex_block_i .\gen_multdiv_fast__dot__multdiv_i );
-    else
+    end else
+`endif
+    if ($test$plusargs("cpu")) begin
+      $dumpvars(0, tb_glitch.dut.`CPU_INST);
+    end else begin
       $dumpvars(0, tb_glitch);
+    end
     for (n = 0; n < cycles; n++) @(posedge clk);
     $display("tb_glitch: dumped %0d cycles at %0d ps%s", cycles, PeriodPs,
              sdf_file != "" ? " (SDF annotated)" : " (zero delay)");

@@ -1,5 +1,5 @@
 load("@coremark_joule_designs//:designs.bzl", "design")
-load("//test/coremark_joule/flow:power.bzl", "dup_inst_probe", "grt_netlist", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power", "stage_power_units")
+load("//test/coremark_joule/flow:power.bzl", "dup_inst_probe", "grt_netlist", "period_probe", "stage_activity_audit", "stage_activity_sweep", "stage_power", "stage_power_units", "stage_sdf")
 load("//test/coremark_joule/flow:seeds.bzl", "seed_variants")
 
 exports_files(["constraints.sdc"])
@@ -46,6 +46,15 @@ grt_netlist(
     # a budget the ensemble can live under; the paper reports the count
     # measured on the pinned design.
     max_renames = 4,
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+# The per-instance delays, for the glitch measurement (5.2b). VeeR has
+# four instances of exu_alu_ctl in one hardening, which is a within-
+# design measurement of how much of glitch is the implementation (2.4).
+stage_sdf(
+    name = "swerv_wrapper_grt_sdf",
+    src = ":swerv_wrapper_grt",
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 
