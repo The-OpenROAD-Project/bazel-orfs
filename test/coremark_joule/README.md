@@ -41,7 +41,9 @@ that check against the literature, dated.
    largest 2σ is 1.5 % of its point; anything inside that is not a
    difference ([§5.13](#513-five-placement-seeds-behind-every-point)).
 3. The corner is the kit's best case: fast process, high voltage ([§5.4](#54-the-corner-is-asap7s-best-case-not-its-typical)).
-4. The simulation is zero-delay and carries no glitch power ([§5.2](#52-zero-delay-simulation-carries-no-glitch-power)).
+4. The simulation is zero-delay and carries no glitch power ([§5.2](#52-zero-delay-simulation-carries-no-glitch-power)),
+   which [§2.4](#24-when-glitch-power-is-worth-measuring-and-when-it-is-premature) argues is the right depth for a screening study and
+   [§5.2b](#52b-glitch-power-in-the-multiplier-measured) spot-checks on the unit most exposed to it.
 5. The parasitics are estimated at global route, not extracted ([§5.3](#53-estimated-not-extracted-parasitics--one-point-measured)).
 6. Every frequency is a derived closing period from two passes of the
    period tuner on one floorplan; the second pass moved ibex by 14 ps
@@ -135,7 +137,10 @@ applied uniformly is something a comparison survives and two models is
 not, which is why every memory on every point is on it. ibex is
 measured with
 `ICache=0`, which [§5.1](#51-the-boundary-met-and-what-it-cost) shows is the right configuration rather than an
-omission. The simulation is zero-delay and so carries no glitch power;
+omission. The simulation is zero-delay and so carries no glitch power
+-- a deliberate choice rather than a shortfall, since glitch is a
+property of an implementation and moves with it even when the RTL does
+not ([§2.4](#24-when-glitch-power-is-worth-measuring-and-when-it-is-premature));
 the parasitics are estimated rather than extracted, worth 2.05 % of the
 total on the one point measured against extraction ([§5.3](#53-estimated-not-extracted-parasitics--one-point-measured)); and the
 corner is ASAP7's best case. Every core is built at a period derived
@@ -365,6 +370,90 @@ It also bears on [§4.6](#46-is-the-shape-real-the-boundary-and-the-memory-model
 across a 101× span in performance — is partly this: the three cores sit
 within 1.7× of each other in frequency and share a voltage, so the term
 that would separate them has not been exercised.
+
+
+### 2.4 When glitch power is worth measuring, and when it is premature
+
+A glitch is a transition the logic function did not ask for: a node
+settles only after its inputs have finished arriving, and every
+intermediate value it passed through charged a real capacitance on the
+way. So a glitch exists only where two signals arrive at different
+times. RTL expresses no arrival times at all, which is the whole reason
+this section exists -- the quantity is a property of an implementation,
+not of a description.
+
+**It is large and it is not a constant.** Shum and Anderson measure it
+the way [§5.2b](#52b-glitch-power-in-the-multiplier-measured) does, comparing "a functional (zero-delay) and
+timing simulation of each circuit", and report glitch power ranging
+from **5.8 % to 45.4 % of dynamic power across their benchmark
+circuits, averaging 26.0 %** [26]. That is FPGA rather than ASIC, and the absolute numbers do
+not transfer, but the spread does: a factor of eight between designs
+measured by one method on one fabric. Glitch is not a budget line you
+can carry as a constant.
+
+**It also moves when the implementation moves, with the RTL held
+fixed.** This study has that measurement by accident. [§5.2b](#52b-glitch-power-in-the-multiplier-measured)'s window was
+run twice on ibex's multiplier -- same RTL, same stimulus, same
+benchmark cycles -- across a re-baseline that changed the clock period,
+the memory model and the placement seed. Glitch over the window went
+from +27.2 % to +15.6 %, on the busy cycles from +47.4 % to +5.3 %, and
+back to back from +35.1 % to +0.2 %. Nothing the designer wrote changed.
+A figure that moves by a factor of nine when the floorplan moves cannot
+be used to choose between architectures.
+
+**So the remedies belong to an implementation, not to a description.**
+Quieting glitch means holding inputs still when a unit is idle, or
+balancing arrival times into a converging cone -- and the standard
+low-power methodology inserts both operand isolation and clock gating
+during synthesis [28]. That is not the whole story: operand isolation
+has real register-transfer content and has been automated at RT level
+since [27], so unlike scan insertion it is genuinely upstreamable, and a
+public core *can* carry it. ibex's `RV32MFast` simply does not, which
+[§5.2b](#52b-glitch-power-in-the-multiplier-measured) measured directly -- its operands change on every idle cycle.
+What is reliably absent from public RTL is the part that is a flow
+output: the balancing, the buffering, the isolation a tool inserted
+against one library at one corner. There is nothing general to upstream
+in it, because it is an answer to one implementation's arrival times.
+
+**There is a shift-left push, and it does not contradict any of this.**
+Vendors market glitch power estimation at the RTL stage [29, 30]. What
+moves earlier is the cost of measuring, not the need for an
+implementation: the published descriptions take the implemented
+design's timing as an input and avoid the gate-level *simulation*, not
+the gate-level *design* -- "true glitch detection required gate-level
+data" [30]. The parallel is the achieved clock period, which is equally
+a property of the implementation and which this study derives by
+running the flow rather than predicting it ([§5.5](#55-frequency-and-what-deriving-it-changed)) -- a derivation that
+caught one of these cores being published at a period it misses by
+74 ps.
+
+**Where that leaves a screening study.** The value of automated glitch
+discovery is proportional to the uncertainty about where the glitch is,
+and for a CPU that uncertainty is low: the literature nominates
+arithmetic units [7, 8], so this study went at the multiplier rather
+than scanning the core for hot spots. Shift-left tooling is
+strongest in the opposite case -- a novel accelerator, an unfamiliar
+dataflow, a datapath nobody has characterised -- where there is no body
+of knowledge to pick the place to look. A well-studied core is the
+weakest case for it.
+
+**Prior knowledge picked the right unit and predicted the wrong
+mechanism**, which is worth stating because it bounds how much the
+first can substitute for measurement. The literature's account of
+multiplier glitch is imbalance in the partial-product tree during
+multiplication, so the expected result was that the unit glitches when
+it multiplies. [§5.2b](#52b-glitch-power-in-the-multiplier-measured) measured +0.2 % back to back against +20.8 %
+idle: the unit was right, the mechanism was not, and the remedy that
+follows is operand gating rather than tree balancing. Domain knowledge
+says where to look. It does not say what is there.
+
+This study therefore reports vector-driven activity from a zero-delay
+simulation, states the resulting bias and its direction ([§5.2](#52-zero-delay-simulation-carries-no-glitch-power)), and
+spot-checks one unit chosen from prior knowledge ([§5.2b](#52b-glitch-power-in-the-multiplier-measured)). A full
+glitch campaign becomes worth its cost at the point where the RTL is
+frozen, the work per cycle is settled, and one implementation has been
+committed to -- which is the same point at which the extracted-parasitics
+flow of [§5.3](#53-estimated-not-extracted-parasitics--one-point-measured) and [§8.5](#85-extract-the-parasitics-on-every-point-not-one) becomes worth its cost, and for the same reason.
 
 ---
 
@@ -1627,10 +1716,18 @@ under-reporting is not uniform: a design with deep combinational logic
 between registers glitches more than a short pipeline, so the bias
 distorts the comparison between cores and not only the absolute
 numbers. SERV's bit-serial datapath and ibex's two-stage pipeline are
-at opposite ends of that. The size of the effect is not measured here;
-putting a number on it — one design, one short window, an SDF-annotated
-event-driven run against the same window's Verilator SAIF — is the
-single most valuable outstanding calibration.
+at opposite ends of that. [§5.2b](#52b-glitch-power-in-the-multiplier-measured) puts a number on it for the unit
+most exposed to it; the core-wide figure remains unmeasured, for the
+reasons the rest of this section gives.
+
+**This is a stated depth rather than a shortfall.** [§2.4](#24-when-glitch-power-is-worth-measuring-and-when-it-is-premature) is the
+argument: glitch is a property of an implementation, it moves by
+factors when the floorplan moves under fixed RTL, and the remedies for
+it are inserted against one implementation's arrival times. A screening
+study that has not committed to an implementation is measuring a moving
+target if it optimises against glitch, which is why this one reports
+activity without it, says which way the bias runs, and spot-checks the
+unit prior knowledge nominates.
 
 The direction of this bias is *opposite* to [§5.1](#51-the-boundary-met-and-what-it-cost)'s: glitch power would
 push every point down in CoreMark/Joule, and most for the cores with
@@ -1743,7 +1840,7 @@ multiply at all, so reaching the interesting cycles costs hours before
 anything is measured.
 
 **So the measurement moves to the multiplier**, which needs none of
-that, and [§5.2](#52-zero-delay-simulation-carries-no-glitch-power)b](#52b-glitch-power-in-the-multiplier-measured) reports it. What that cannot give is the core-wide
+that, and [§5.2b](#52b-glitch-power-in-the-multiplier-measured) reports it. What that cannot give is the core-wide
 number this section is about, and the distinction is kept rather than
 blurred.
 
@@ -2977,3 +3074,8 @@ copy of the Software.
 23. TSMC. *N4P Extends the Performance and Power Efficiency of the 5nm Family* — N4P is 22 % more power efficient than N5. https://pr.tsmc.com/english/news/2874
 24. Independent laptop reviews of the Snapdragon X Elite reporting ~3.4 GHz sustained all-core clocks and ~47.6 W package power under a CPU benchmark.
 25. EEMBC. *CoreMark scores database.* https://www.eembc.org/coremark/scores.php
+26. W. Shum, J. H. Anderson. "FPGA glitch power analysis and reduction." *ACM/IEEE International Symposium on Low Power Electronics and Design (ISLPED)*, pp. 27–32, 2011. https://janders.eecg.utoronto.ca/pdfs/warren_final.pdf
+27. M. Münch, N. Wehn, B. Wurth, R. Mehra, J. Sproch. "Automating RT-level operand isolation to minimize power consumption in datapaths." *Design, Automation and Test in Europe (DATE)*, pp. 624–631, 2000. doi:10.1145/343647.343873
+28. M. Keating, D. Flynn, R. Aitken, A. Gibbons, K. Shi. *Low Power Methodology Manual for System-on-Chip Design.* Springer, 2007.
+29. Keysight. *Decoding Glitch Power at the RTL Stage: a shift-left approach for glitch power estimation and optimization.* White paper. https://www.keysight.com/content/dam/keysight/en/doc/gate/white-papers/Decoding-Glitch-Power-at-the-RTL-Stage.pdf
+30. Zettabolt. *Accurate Post-PnR Glitch Power Estimation Using RTL.* Case study. https://zettabolt.com/blogs/Glitch-Power-Estimation
