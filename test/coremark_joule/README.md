@@ -3155,7 +3155,7 @@ copy of the Software.
 Nobody publishes CoreMark/Joule for a commodity CPU, so it has to be derived,
 and this appendix derives it twice by two independent methods. **A.1** reads
 CPU package power logged while CoreMark ran, from public result exports, for
-fifteen parts. **A.2** to **A.7** read total power at the mains plug on three
+twenty-one parts. **A.2** to **A.7** read total power at the mains plug on three
 parts in the room, swept by active core count.
 
 The two buy different things. The package method has the parts and the stated
@@ -3187,15 +3187,21 @@ power and are marked with what stands in for it.
 |---|---|---|---|---|---|---|
 | AMD EPYC 9654, Zen 4 | server | 96 | 3.71 GHz | 3,753,920 | 312 W measured | **12,028** |
 | AMD EPYC 9554, Zen 4 | server | 64 | 3.76 GHz | 2,950,220 | 287 W measured | 10,290 |
+| AMD EPYC 9374F, Zen 4 | server | 32 | 4.31 GHz | 1,679,742 | 201 W measured | 8,374 |
 | AMD EPYC 7763, Zen 3 | server | 64 | 2.45 GHz | 1,876,249 | 206 W measured | 9,089 |
+| AMD EPYC 7713, Zen 3 | server | 64 | 2.00 GHz | 1,824,524 | 206 W measured | 8,860 |
 | Intel Xeon Platinum 8490H, Sapphire Rapids | server | 60 | 3.50 GHz | 2,162,644 | 307 W measured | 7,055 |
 | Intel Xeon Platinum 8380, Ice Lake | server | 40 | 3.40 GHz | 1,177,693 | 244 W measured | 4,827 |
 | Ampere Altra Max M128-30, Neoverse N1 | server | 128 | 3.00 GHz | 2,823,599 | 250 W *rated* | 11,294 |
 | AMD Ryzen 9 7950X, Zen 4 | desktop | 16 | 5.57 GHz | 1,012,072 | 137 W measured | 7,363 |
 | AMD Ryzen 9 7900, Zen 4, 65 W part | desktop | 12 | 5.48 GHz | 648,202 | 79 W measured | 8,215 |
 | AMD Ryzen 9 7900X, Zen 4 | desktop | 12 | 5.73 GHz | 737,516 | 143 W measured | 5,144 |
+| AMD Ryzen 7 7700, Zen 4, 65 W part | desktop | 8 | 5.39 GHz | 493,775 | 80 W measured | 6,154 |
+| AMD Ryzen 7 7700X, Zen 4 | desktop | 8 | 5.57 GHz | 514,276 | 112 W measured | 4,575 |
 | AMD Ryzen 7 9700X, Zen 5, 65 W | desktop | 8 | 5.50 GHz | 545,799 | 77 W measured | 7,075 |
 | AMD Ryzen 7 9700X, Zen 5, 105 W cTDP | desktop | 8 | 5.50 GHz | 582,558 | 112 W measured | 5,214 |
+| AMD Ryzen 9 9950X, Zen 5 | desktop | 16 | 5.75 GHz | 793,794 | 158 W measured | 5,036 |
+| Intel Core i9-13900K, Raptor Lake | desktop | 8P + 16E | 5.50 GHz | 831,717 | 149 W measured | 5,580 |
 | Intel Core i9-14900K, Raptor Lake | desktop | 8P + 16E | 5.70 GHz | 872,643 | 170 W measured | 5,147 |
 | Intel Core Ultra 9 285K, Arrow Lake | desktop | 8P + 16E | 5.70 GHz | 1,048,146 | 150 W measured | 6,978 |
 | Apple M1, Mac mini | laptop-class | 4P + 4E | 3.20 GHz | 175,072 | 26.5 W *at the wall* [17] | 6,606 |
@@ -3222,6 +3228,16 @@ is **1.26x**. And it does not hold across generations: Ice Lake's Xeon
 8380 sits *below* Arrow Lake's 285K, so the node and the core count for
 more than the clock once the generation changes.
 
+**Two server rows sharpen that, both within one generation and one socket.**
+Zen 4 walks 12,028, 10,290 and 8,374 CoreMark/Joule as the part goes 96 cores
+at 3.71 GHz, 64 at 3.76 and 32 at 4.31 -- the frequency-optimised 9374F is the
+worst of the three, which is the claim above measured on one silicon family
+rather than across two. The Zen 3 pair says the opposite is *not* true below
+the voltage wall: 7763 and 7713 draw the same 206 W, and the 2.45 GHz bin
+returns more work for it than the 2.00 GHz bin (9,089 against 8,860). Clocking
+down only buys efficiency where the clock was being bought with voltage, and
+at 2 GHz on a 64-core server part it is not.
+
 **What the desktop rows add is the controlled experiment the servers
 cannot give.** The Ryzen 9 7900 and 7900X are the same twelve-core die at
 65 W and 170 W ratings: the 65 W part scores **1.60x** the CoreMark/Joule
@@ -3232,6 +3248,17 @@ twice: 6.7 % more CoreMark for 45 % more power, CoreMark/Joule down
 voltage route observed on silicon: the last few hundred megahertz are
 bought with $V^2$, and a server binned for 3.5 GHz at 1 W per core is on
 the cheap part of the curve that a 5.7 GHz desktop has left behind.
+
+**One desktop row does not behave, and it is reported rather than dropped.**
+The Zen 5 Ryzen 9 9950X returns **21.6 % less** CoreMark than the Zen 4 7950X
+it succeeds -- same sixteen cores, higher clock, same export, same kernel and
+compiler -- while drawing 14.7 % more power. A single odd run would be a
+reason to leave it out; this is not one. The same export's Ryzen 9 9900X
+regresses 14.1 % against the 7900X, and the Zen 5 parts that do *not* regress
+are exactly the single-die ones: the 9600X and 9700X improve on their Zen 4
+counterparts by 10.3 % and 6.1 %. Whatever splits them -- and two dual-die
+parts behaving alike is not a fluke -- it is in the published data rather than
+in our reading of it, so the row stays and the anomaly is stated.
 
 **How big the effect should be, and how big it is.** [§2.3](#23-why-coremarkjoule-falls-as-coremarksecond-rises)
 predicts energy per operation $\propto f^2$ on the voltage route. The
@@ -3414,9 +3441,9 @@ a finding about the parts.
 **The energy numbers agree with the package measurements, which is the
 most useful thing they do.** The slope estimator gives 9,970
 CoreMark/Joule for the Threadripper, 11,520 for the X Elite and 4,700
-for the Xeon. [§A.1](#a1-package-power-logged-during-the-run)'s fifteen
+for the Xeon. [§A.1](#a1-package-power-logged-during-the-run)'s twenty-one
 parts, measured at the package with power logged during the run, span
-**4,827 to 12,028**. Three wall-plug numbers from a different method, a
+**4,575 to 12,028**. Three wall-plug numbers from a different method, a
 different boundary and a different decade of silicon land inside that
 band.
 
