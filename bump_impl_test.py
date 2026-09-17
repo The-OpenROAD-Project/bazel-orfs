@@ -1,3 +1,5 @@
+import tempfile
+import os
 import unittest
 import bump_impl
 
@@ -274,6 +276,89 @@ class TestSubmoduleDigestStability(unittest.TestCase):
         )
         self.assertIn(NEW_HEX, out)
         self.assertNotIn(OLD_HEX, out)
+
+
+class TestSubmodulePatchExtraction(unittest.TestCase):
+    """A patch that touches a vendored submodule (src/sta, third-party/abc).
+
+    Bazel applies `patches` before `patch_cmds`, and the submodule tree is
+    empty until the patch_cmds fetch fills it, so such a patch cannot ride
+    in `patches`. The bumper extracts it into a base64 `patch -p1` entry in
+    patch_cmds, and the only trace of the source-of-truth label is the
+    `# Extracted from <label>` comment above it. The next bump has to pick
+    the label back up from that comment, or the patch is silently dropped.
+    """
+
+    PATCH = """Header.
+
+diff --git a/src/sta/tcl/Util.tcl b/src/sta/tcl/Util.tcl
+index 1111111..2222222 100644
+--- a/src/sta/tcl/Util.tcl
++++ b/src/sta/tcl/Util.tcl
+@@ -1,2 +1,2 @@
+ line one
+-line two
++line deux
+"""
+
+    def _workspace(self):
+        d = tempfile.mkdtemp()
+        os.mkdir(os.path.join(d, "patches"))
+        with open(os.path.join(d, "patches", "0003-opensta-x.patch"), "w") as f:
+            f.write(self.PATCH)
+        return d
+
+    def _content(self):
+        cmds = "".join(f"        {c!r},\n" for c in [_submodule_cmd("src/sta")])
+        return f"""archive_override(
+    module_name = "openroad",
+    integrity = "sha256-foo",
+    patch_cmds = [
+{cmds}    ],
+    patch_strip = 1,
+    patches = [
+        # Why the patch is carried.
+        "//patches:0003-opensta-x.patch",
+    ],
+    strip_prefix = "OpenROAD-12345",
+    urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/12345.tar.gz"],
+)
+"""
+
+    def _regenerate(self, content, workspace):
+        return bump_impl.update_openroad_archive_override(
+            content=content,
+            openroad_commit="12345",
+            fetch_integrity_fn=lambda u: "sha256-bar",
+            fetch_sha256_hex_fn=lambda u: NEW_HEX,
+            fetch_submodule_sha_fn=lambda r, c, p: OLD_SHA,
+            workspace_dir=workspace,
+        )
+
+    def test_submodule_patch_moves_to_base64_patch_cmds(self):
+        out = self._regenerate(self._content(), self._workspace())
+        self.assertNotIn('"//patches:0003-opensta-x.patch"', out)
+        self.assertIn("# Extracted from //patches:0003-opensta-x.patch", out)
+        self.assertIn("| base64 -d | patch -p1", out)
+        self.assertIn("# Why the patch is carried.", out)
+
+    def test_extracted_patch_survives_the_next_bump(self):
+        """The regression: round two used to drop the patch entirely."""
+        ws = self._workspace()
+        once = self._regenerate(self._content(), ws)
+        twice = self._regenerate(once, ws)
+        self.assertEqual(once, twice)
+        self.assertIn("| base64 -d | patch -p1", twice)
+
+    def test_extracted_patch_follows_its_source_file(self):
+        """The base64 bytes are regenerated from patches/, not copied over."""
+        ws = self._workspace()
+        once = self._regenerate(self._content(), ws)
+        with open(os.path.join(ws, "patches", "0003-opensta-x.patch"), "w") as f:
+            f.write(self.PATCH.replace("line deux", "line zwei"))
+        twice = self._regenerate(once, ws)
+        self.assertNotEqual(once, twice)
+        self.assertEqual(twice, self._regenerate(twice, ws))
 
 
 class TestUpdateOrfsSourceTag(unittest.TestCase):
