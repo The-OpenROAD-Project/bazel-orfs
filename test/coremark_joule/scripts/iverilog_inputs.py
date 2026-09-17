@@ -88,6 +88,25 @@ def rewrite_sdf(text):
     return _SDF_INSTANCE.sub(sub, text), n[0]
 
 
+# Header fields OpenSTA writes as `min::max` with the typical value
+# left empty. iverilog's SDF reader wants all three and reports
+# "Chosen value not defined" for each, and enough errors make it
+# abandon annotation altogether -- so two documentation fields would
+# cost the whole file. Nothing reads them: they record the corner the
+# delays were taken at, which this study states in the paper instead.
+_HEADER_FIELDS = ("VOLTAGE", "PROCESS", "TEMPERATURE")
+
+
+def drop_header_fields(text):
+    """Remove the header fields whose value iverilog cannot parse."""
+    n = 0
+    for field in _HEADER_FIELDS:
+        pattern = re.compile(r'^[ \t]*\(%s[^)\n]*\)[ \t]*\n' % field, re.M)
+        text, count = pattern.subn("", text)
+        n += count
+    return text, n
+
+
 def _drop_blocks(text, opener):
     """Remove every `(<opener> ...)` block, parenthesis-aware.
 
@@ -197,11 +216,13 @@ def main(argv=None):
         text, c = drop_cond(text)
         text, tc = drop_timingcheck(text)
         text, dc = drop_celltypes(text, args.drop_celltype)
+        text, hf = drop_header_fields(text)
         open(dst, "w").write(text)
         print(
             "iverilog_inputs: renamed %d instance paths, dropped %d "
-            "conditional arcs, %d timing-check sections and %d cells by "
-            "type in the SDF" % (n, c, tc, dc)
+            "conditional arcs, %d timing-check sections, %d cells by "
+            "type and %d unparseable header fields in the SDF"
+            % (n, c, tc, dc, hf)
         )
     return 0
 

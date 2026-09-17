@@ -6,6 +6,7 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+import iverilog_inputs  # noqa: E402
 from iverilog_inputs import REPLACEMENT, drop_celltypes, drop_cond, drop_timingcheck, rewrite_sdf, rewrite_verilog, safe  # noqa: E402
 
 
@@ -113,3 +114,39 @@ class TestDropCelltypes(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestHeaderFields(unittest.TestCase):
+    """OpenSTA writes min::max with no typical; iverilog wants all three."""
+
+    SDF = (
+        "(DELAYFILE\n"
+        ' (SDFVERSION "3.0")\n'
+        " (DIVIDER /)\n"
+        " (VOLTAGE 0.770::0.770)\n"
+        ' (PROCESS "1.000::1.000")\n'
+        " (TEMPERATURE 0.000::0.000)\n"
+        " (TIMESCALE 1ps)\n"
+        " (CELL\n"
+        '  (CELLTYPE "BUFx2")\n'
+        "  (INSTANCE u0)\n"
+        " )\n"
+        ")\n"
+    )
+
+    def test_the_three_unparseable_fields_go(self):
+        text, n = iverilog_inputs.drop_header_fields(self.SDF)
+        self.assertEqual(n, 3)
+        for field in ("VOLTAGE", "PROCESS", "TEMPERATURE"):
+            self.assertNotIn(field, text)
+
+    def test_everything_else_survives(self):
+        text, _ = iverilog_inputs.drop_header_fields(self.SDF)
+        for keep in ("SDFVERSION", "DIVIDER", "TIMESCALE", "CELLTYPE", "INSTANCE"):
+            self.assertIn(keep, text)
+
+    def test_it_is_idempotent(self):
+        once, _ = iverilog_inputs.drop_header_fields(self.SDF)
+        twice, n = iverilog_inputs.drop_header_fields(once)
+        self.assertEqual(n, 0)
+        self.assertEqual(once, twice)
