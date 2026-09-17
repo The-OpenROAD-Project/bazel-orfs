@@ -135,6 +135,19 @@ STAGE_METADATA = {
     ),
 }
 
+# ORFS variables whose variables.yaml entry has no `stages:` list. Such a
+# variable can only be treated as reaching every stage, and then setting it
+# invalidates every stage of every block: ENABLE_DPO, a detail-placement
+# knob, re-ran the synthesis of 34 blocks. patches/0075 gives every
+# variable of the pinned ORFS a list; test/stages_filter_test.bzl asserts
+# this stays empty, so a bump that brings a new unscoped variable fails
+# there, with the name, instead of costing someone a day of rebuilds.
+UNSCOPED_ORFS_VARIABLES = sorted([
+    k
+    for k, v in orfs_variable_metadata.items()
+    if "stages" not in v
+])
+
 ORFS_VARIABLE_TO_STAGES = {
     k: v["stages"] if "stages" in v and v["stages"] != ["All stages"] else ALL_STAGES
     for k, v in orfs_variable_metadata.items()
