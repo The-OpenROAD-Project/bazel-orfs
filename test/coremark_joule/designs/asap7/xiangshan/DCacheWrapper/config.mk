@@ -5,7 +5,10 @@ export DESIGN_NAME             = DCacheWrapper
 export DESIGN_NICKNAME         = xiangshan_DCacheWrapper
 include ../block.mk
 
+# MissQueue's partition ran 12 minutes; its sixteen MissEntry instances
+# are two thirds of it and, kept, are synthesised once.
 export SYNTH_KEEP_MODULES      = MissQueue \
+                                 MissEntry \
                                  BankedDataArray \
                                  L1ErrorMetaArray \
                                  L1PrefetchSourceArray \

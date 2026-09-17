@@ -5,9 +5,26 @@ export DESIGN_NAME             = Bpu
 export DESIGN_NICKNAME         = xiangshan_Bpu
 include ../block.mk
 
+# The predictors' partitions ran 6 to 10 minutes each. Kept below them:
+# Tage's eight tables, the main BTB's four internal banks and their
+# write buffer, and the SC's write-buffered table, so a partition is a
+# table rather than a predictor. A module instanced more than once
+# (MainBtbInternalBank x4, WriteBuffer_68 x2) is synthesised once.
 export SYNTH_KEEP_MODULES      = MainBtbAlignBank \
+                                 MainBtbInternalBank \
+                                 WriteBuffer_4 \
                                  Tage \
+                                 TageTable \
+                                 TageTable_1 \
+                                 TageTable_2 \
+                                 TageTable_3 \
+                                 TageTable_4 \
+                                 TageTable_5 \
+                                 TageTable_6 \
+                                 TageTable_7 \
                                  Sc \
+                                 Sc_Anon_7 \
+                                 WriteBuffer_68 \
                                  AheadBtb \
                                  Phr \
                                  MicroTage \

@@ -3,7 +3,8 @@
 # RegfileBank: every read port carries one 6-bit address and one 64-bit
 # data bus per bank, and the bank mux sits outside in the data path;
 # writes carry the full 8-bit address. `read_banked` gives the per-bank
-# buses in bank order, and the array's banks are those banks.
+# buses in bank order, and the array's banks are those banks, two wide
+# and two tall: 406 x 243 um instead of an 812 um strip.
 module IntRegFile
 words 224
 bits 64
@@ -40,3 +41,4 @@ cell tap TAPCELL_ASAP7_75t_R
 pin_layer M4
 tap_columns 8
 service_sites 40
+bank_columns 2
