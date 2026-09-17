@@ -96,17 +96,26 @@ export OPENROAD_HIERARCHICAL   = 1
 # core has is a compiled register file, and the idiomatic form of that
 # here is a generator linking OpenROAD's libraries -- a later tool, not
 # a flow setting.
-#
-# And the register files themselves, as blocks, after the parent's own
-# detailed placement followed the fp region's curve: 5.5 M violations to
-# 17 k in 400 iterations and three hours, then a thousand per 50. Their
-# flops and read-mux buffers were the residue both times. The vector
-# register file stays inside VecRegionModule, whose legalisation did
-# converge.
 export BLOCKS                  = VecRegionModule Bpu ICache \
-                                 DCacheWrapper L2TLBWrapper \
-                                 IntRegFile FpRegFilePart0 FpRegFilePart1 \
-                                 FpRegFilePart2 FpRegFilePart3
+                                 DCacheWrapper L2TLBWrapper
+
+# The register files, generated rather than synthesised. As flops the
+# four FpRegFilePart arrays stopped the fp region block's legalisation
+# twice and IntRegFile did the same to the parent (5.5 M violations to
+# 17 k in three hours, then a thousand fewer per 50 iterations); as
+# blocks of their own at 20 % utilisation they legalised in 17
+# iterations at 5x their cell area. Now each is a placed standard-cell
+# macro from tools/structured_gen, listed here by its spec, checked
+# against the module's ports at synthesis, and blackboxed like an
+# AUTO_MEMORIES memory; the RTL stays as it is and is the simulation
+# model. IntRegFile is the banked variant, one address and data bus per
+# bank on every read port. The lib each gets is a model until its own
+# block flow replaces it with a routed abstract.
+export STRUCTURED_MEMORIES     = $(DESIGN_HOME)/asap7/xiangshan/IntRegFile.regfile \
+                                 $(DESIGN_HOME)/asap7/xiangshan/FpRegFilePart0.regfile \
+                                 $(DESIGN_HOME)/asap7/xiangshan/FpRegFilePart1.regfile \
+                                 $(DESIGN_HOME)/asap7/xiangshan/FpRegFilePart2.regfile \
+                                 $(DESIGN_HOME)/asap7/xiangshan/FpRegFilePart3.regfile
 
 # Turnaround: no repair inside global placement. Flat, the first
 # timing-driven iteration inserted 527,027 buffers over 9.8 M pins and
