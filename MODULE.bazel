@@ -772,6 +772,12 @@ http_archive(
         # Carried, not upstreamed: Rob's per-entry logic as one module
         # instanced 352 times, so synthesis maps it once (patch header).
         "//test/coremark_joule/xiangshan:patches/0003-xiangshan-rob-entry-cell.patch",
+        # Carried, not upstreamed: the store queue's per-entry logic as one
+        # module instanced per entry, for the same reason.
+        "//test/coremark_joule/xiangshan:patches/0004-xiangshan-sq-entry-cell.patch",
+        # Carried, not upstreamed: the rename buffer as a RegVecFile, for
+        # the register-file generator.
+        "//test/coremark_joule/xiangshan:patches/0005-xiangshan-rename-buffer-file.patch",
     ],
     sha256 = "ed1561ee5b532ea0956aa3c9dbcf97454eace356bbdd7498a5fb2b5feaf57ded",
     strip_prefix = "XiangShan-37ce1b50b5b8fa1865205e76175e48fc636454d6",

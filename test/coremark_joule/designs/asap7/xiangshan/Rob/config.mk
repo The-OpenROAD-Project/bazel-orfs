@@ -11,3 +11,7 @@ include ../block.mk
 export SYNTH_KEEP_MODULES      = RenameBuffer \
                                  VTypeBuffer \
                                  RobEntryCell
+
+# The rename buffer as a generated register file (XiangShan patch 0005,
+# spec RenameBufferFile.regfile); the RTL module is the simulation model.
+export STRUCTURED_MEMORIES     = $(DESIGN_HOME)/asap7/xiangshan/RenameBufferFile.regfile
