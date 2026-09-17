@@ -778,6 +778,9 @@ http_archive(
         # Carried, not upstreamed: the rename buffer as a RegVecFile, for
         # the register-file generator.
         "//test/coremark_joule/xiangshan:patches/0005-xiangshan-rename-buffer-file.patch",
+        # Carried, not upstreamed: the store queue's forwarding query as one
+        # module per load pipeline, for the same reason as the cells.
+        "//test/coremark_joule/xiangshan:patches/0006-xiangshan-sq-forward-pipe.patch",
     ],
     sha256 = "ed1561ee5b532ea0956aa3c9dbcf97454eace356bbdd7498a5fb2b5feaf57ded",
     strip_prefix = "XiangShan-37ce1b50b5b8fa1865205e76175e48fc636454d6",
