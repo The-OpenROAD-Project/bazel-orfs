@@ -49,8 +49,12 @@ one-hot over the words and decoded once per word in the header column;
 the read bitline of a port is a balanced OR tree whose nodes are dropped
 into the tiles of the words they cover, so the tree runs down the column
 instead of piling up in a footer. A tile is as many standard rows tall
-as it takes to stay about 40 sites wide. A tap column stands every
-`tap_columns` bit columns.
+as it takes to stay about 40 sites wide. A service column stands every
+`tap_columns` bit columns: the tap cell and `service_sites` empty sites
+on every row. The array is legal without them; the clock tree's buffers
+and any later repair need contiguous free sites next to the flops, and
+the slack inside a tile is a few sites at a time, which a BUFx24 cannot
+use.
 
 Read path: address inverters, an AND2 tree over the literals, the tile's
 AND2, and log2(words) OR2 levels. For 256 words that is about twelve
@@ -77,6 +81,7 @@ cell inv        INVx1_ASAP7_75t_R
 cell tap        TAPCELL_ASAP7_75t_R
 pin_layer       M4
 tap_columns     8
+service_sites   40
 ```
 
 Cell pins default to asap7's (`D CLK QN`, `A B Y`, `A1 A2 B1 B2 Y`,
