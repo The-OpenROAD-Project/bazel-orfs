@@ -81,7 +81,6 @@ def coremark_run(
 
     native.genrule(
         name = name,
-        srcs = [image],
         outs = outs,
         cmd = (
             "$(execpath {sim}) " +
@@ -97,7 +96,15 @@ def coremark_run(
             sim = sim,
         ),
         tags = tags,
-        tools = [sim],
+        # The simulator is in srcs, not tools, on purpose. A tool is built
+        # in the exec configuration, and a gate-level simulator's netlist
+        # comes from the flow: as a tool it would have the whole flow to
+        # that stage -- the parent's synthesis and every hardened block's
+        # -- built a second time beside the target-configuration copy the
+        # power report uses. Host and target are the same machine here,
+        # and the binary carries no runfiles, so it runs from srcs as it
+        # would from tools.
+        srcs = [image, sim],
     )
 
 def bus_traffic(name, run_2, run_3, per_mhz, bus_bytes, tags = ["manual"]):
@@ -264,6 +271,8 @@ def coremark_saif(
             constraints,
             "{}.cycles".format(run_2),
             "{}.cycles".format(run_3),
+            # srcs, not tools: see coremark_run's simulator.
+            sim,
         ],
         outs = [raw],
         cmd = (
@@ -284,10 +293,7 @@ def coremark_saif(
             win = "//test/coremark_joule/scripts:saif_window",
         ),
         tags = tags,
-        tools = [
-            sim,
-            "//test/coremark_joule/scripts:saif_window",
-        ],
+        tools = ["//test/coremark_joule/scripts:saif_window"],
     )
 
     # A SAIF cannot carry a net name containing `/` -- that is the
