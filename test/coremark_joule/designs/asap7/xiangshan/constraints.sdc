@@ -58,4 +58,10 @@ foreach p [get_ports -quiet reset] {
 # the PDK's max_transition, and this one has not been swept.
 set_max_fanout 32 [current_design]
 
-source $::env(PLATFORM_DIR)/constraints.sdc
+# The platform's constraints add group_path targets between inputs,
+# registers and outputs. VectorDecodeChannel, a block of this design, is
+# pure decode with no register, and group_path refuses an empty -from or
+# -to (STA-0391); a design without registers has no such groups to name.
+if { [llength [all_registers]] > 0 } {
+  source $::env(PLATFORM_DIR)/constraints.sdc
+}
