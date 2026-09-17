@@ -191,8 +191,9 @@ export ENABLE_DPO              = 0
 # core of 44 macros, and repair_design drops wire buffers over macro
 # interiors up to 330 um from a free site. The diamond legaliser with
 # its default window (500 sites x 100 rows) fails on 4,755 of those;
-# a window spanning the largest macro (665 um) reaches them.
-export DETAIL_PLACEMENT_ARGS   = -use_diamond_legalizer -max_displacement {7000 1400}
+# the window is in microns: 450 reaches the centre of the largest macro
+# (805 um) from its edge and the length of any channel.
+export DETAIL_PLACEMENT_ARGS   = -use_diamond_legalizer -max_displacement {450 450}
 
 # No pre-placement repair_timing. With REMOVE_ABC_BUFFERS unset, the
 # floorplan stage runs repair_timing on wire-load models before anything
@@ -234,7 +235,10 @@ export ABC_AREA                = 1
 # the energy figure and it would be measuring the wrong thing.
 export AUTO_MEMORIES           = 1
 
-export CORE_UTILIZATION        = 40
+# 33, not 40: the annealer packs the blocks into the core with the gaps
+# above, and at 40 % (3.28 mm die) it used 3214 of 3277 um of height
+# with 10.8 um gaps; 54 um gaps need the room.
+export CORE_UTILIZATION        = 33
 export PLACE_DENSITY           = 0.65
 
 # Macro placement: the bank groups by our annealer, the rest by RTL-MP.
@@ -271,7 +275,15 @@ export ANNEAL_DEPTH            = 3
 # blocks tighter and leaves the placer contiguous room.
 export ANNEAL_MIN_CLUSTER      = 1
 export ANNEAL_CHANNEL_UM       = 4.0
-export ANNEAL_BLOCK_GAP_UM     = 10.8
+# Between blocks: 25 strap pitches. Two pitches (10.8 um) was right for
+# Bpu's SRAM banks, where almost nothing lives between blocks. Here the
+# 44 blocks are the whole core and every inter-block wire, its
+# repair_design buffers included, has to live in the gaps: at 10.8 um the
+# channels between intDataPath, fpRegion and rob held 370-540 cells per
+# 10 x 10 um patch (BUFx16f wire buffers, 997 of the 1000 the legaliser
+# named), row fragments under 10 um wide, no legal site within reach --
+# while 6.45 mm^2 of the core sat empty. Measured on take 12's ODBs.
+export ANNEAL_BLOCK_GAP_UM     = 54.0
 export ANNEAL_FILL             = 0.5
 
 # The power grid of a parent with hardened blocks. The platform's flat
