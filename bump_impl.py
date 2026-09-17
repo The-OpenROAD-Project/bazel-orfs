@@ -1309,11 +1309,16 @@ def update_openroad_archive_override(
 
     for line in old_block.splitlines():
         line_stripped = line.strip()
-        if (
-            line_stripped.startswith("#")
-            and line_stripped not in generated_comments
-            and not line_stripped.startswith("# Extracted from")
-        ):
+        if line_stripped.startswith("# Extracted from "):
+            # A submodule patch the previous bump rendered as a base64
+            # patch_cmds entry. The label lives only in this comment, so
+            # this is where it is picked back up; the workspace pass below
+            # re-reads the source-of-truth file and re-extracts it. The
+            # base64 line that follows is regenerated, not parsed.
+            label = line_stripped[len("# Extracted from ") :]
+            patches_with_comments.append((current_comments, label))
+            current_comments = []
+        elif line_stripped.startswith("#") and line_stripped not in generated_comments:
             current_comments.append(line_stripped)
         elif '"//' in line_stripped and ".patch" in line_stripped:
             matches = re.findall(r'"(//[^"]*\.patch)"', line_stripped)
