@@ -292,7 +292,7 @@ def render_table7(document):
 def render_table8(document):
     """§5.1: each core with its memory outside the boundary and inside it."""
     by = points_by_core(document)
-    head = "| core | CoreMark/MHz | CoreMark/Joule, core only | CoreMark/Joule, core + L1 | factor |"
+    head = "| core | CoreMark/MHz | CoreMark/Joule, core-only | CoreMark/Joule, core + L1 | factor |"
     lines = [head, "|---" * 5 + "|"]
     for p in document["points"]:
         c = p["core"]

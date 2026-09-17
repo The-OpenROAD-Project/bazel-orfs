@@ -58,7 +58,7 @@ configuration was measured. (Upstream's generator is Perl, which is why
 its output is committed rather than run in the build.)
 
 **Its CoreMark/MHz is 4.94, and upstream says on what.** The figure
-comes from Western Digital's own `docs/SweRV_CoreMark_Benchmarking.pdf`
+comes from Western Digital's own `seh1_SweRV_CoreMark_Benchmarking.pdf`
 [11], and the configuration it was measured on is not one of the
 generator's target presets:
 
