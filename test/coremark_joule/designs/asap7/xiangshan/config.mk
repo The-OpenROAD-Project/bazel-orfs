@@ -185,6 +185,14 @@ export SKIP_EXTRACT_FA         = 1
 # the load/store block, an unknown on the parent. Off while the flow is
 # being put together; back on for the measured run.
 export ENABLE_DPO              = 0
+# The parent's legaliser. The negotiation legaliser, OpenROAD's default,
+# stalled at 210 k violations and 19 k illegal cells after 80 iterations
+# (1.5 % fewer per ten): the glue is 167 k um^2 of cells on a 10.7 mm^2
+# core of 44 macros, and repair_design drops wire buffers over macro
+# interiors up to 330 um from a free site. The diamond legaliser with
+# its default window (500 sites x 100 rows) fails on 4,755 of those;
+# a window spanning the largest macro (665 um) reaches them.
+export DETAIL_PLACEMENT_ARGS   = -use_diamond_legalizer -max_displacement {7000 1400}
 
 # No pre-placement repair_timing. With REMOVE_ABC_BUFFERS unset, the
 # floorplan stage runs repair_timing on wire-load models before anything
