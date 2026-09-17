@@ -75,6 +75,7 @@ module          FpRegFilePart0
 words           256
 bits            16
 clock           clock
+reset           reset       # the RTL has it; the array ignores it
 read            io_readPorts_0_addr  io_readPorts_0_data
 read            io_readPorts_1_addr  io_readPorts_1_data
 write           io_writePorts_0_addr io_writePorts_0_data io_writePorts_0_wen
@@ -114,7 +115,8 @@ layer's pitch.
   Chisel `Reg(Vec)` gives the last port priority. XiangShan's rename
   never issues that, and the simulation model is the RTL, so it is a
   documented difference rather than a hidden one.
-- No reset. Register files in XiangShan have none.
+- `reset` is a port and nothing else: the RTL register files never use
+  theirs, and the macro's flops have no reset pin.
 - The pins sit on one layer at the die edge in port order; a parent
   that wants them on particular sides gets a `pin_side` key when it
   needs one.

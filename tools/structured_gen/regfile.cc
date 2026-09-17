@@ -109,7 +109,14 @@ class Builder {
   };
   dbInst* Place(Cursor& c, dbMaster* m, const std::string& name,
                 const std::vector<std::pair<std::string, dbNet*>>& conns) {
-    dbInst* inst = dbInst::create(block_, m, name.c_str());
+    // Cells are named after the net they drive, with a suffix: Verilog
+    // has one namespace for wires and instances, and yosys refuses a
+    // netlist where a cell and a wire share a name.
+    std::string inst_name = name;
+    if (block_->findNet(name.c_str()) != nullptr) {
+      inst_name += "_g";
+    }
+    dbInst* inst = dbInst::create(block_, m, inst_name.c_str());
     for (const auto& [pin, net] : conns) {
       odb::dbITerm* it = inst->findITerm(pin.c_str());
       if (it == nullptr) {
@@ -260,6 +267,11 @@ dbBlock* Builder::Run() {
   // ---- ports and their nets ------------------------------------------
   dbNet* clock = Net(s.clock);
   Input(s.clock);
+  if (!s.reset.empty()) {
+    // Chisel gives every module a reset; a register file without one
+    // still has the port. It exists on the macro, connected to nothing.
+    Input(s.reset);
+  }
   std::vector<std::vector<dbNet*>> raddr(R), waddr(W), wdata(W);
   std::vector<dbNet*> wen(W, nullptr);
   for (int r = 0; r < R; ++r) {
@@ -618,6 +630,9 @@ dbBlock* Builder::Run() {
     py += pitch;
   };
   left(s.clock);
+  if (!s.reset.empty()) {
+    left(s.reset);
+  }
   for (int r = 0; r < R; ++r) {
     for (int i = 0; i < A; ++i) {
       left(Bit(s.read[r].addr, i));
@@ -690,6 +705,9 @@ Spec ReadSpec(const std::string& path) {
     } else if (key == "clock") {
       need(1);
       s.clock = v[0];
+    } else if (key == "reset") {
+      need(1);
+      s.reset = v[0];
     } else if (key == "read") {
       need(2);
       s.read.push_back(Port{v[0], v[1], ""});
@@ -746,6 +764,18 @@ Spec ReadSpec(const std::string& path) {
     } else if (key == "banks") {
       need(1);
       s.banks = std::stoi(v[0]);
+    } else if (key == "lib") {
+      need(2);
+      double x = std::stod(v[1]);
+      const std::string& knob = v[0];
+      if (knob == "gate_delay_ps") s.lib.gate_delay_ps = x;
+      else if (knob == "wire_factor") s.lib.wire_factor = x;
+      else if (knob == "input_load_ff") s.lib.input_load_ff = x;
+      else if (knob == "clock_load_ff") s.lib.clock_load_ff = x;
+      else if (knob == "leakage_nw_per_cell") s.lib.leakage_nw_per_cell = x;
+      else if (knob == "output_max_cap_ff") s.lib.output_max_cap_ff = x;
+      else if (knob == "hold_ps") s.lib.hold_ps = x;
+      else Refuse(path + ":" + std::to_string(lineno) + ": unknown lib knob " + knob);
     } else {
       Refuse(path + ":" + std::to_string(lineno) + ": unknown key `" + key + "`");
     }
