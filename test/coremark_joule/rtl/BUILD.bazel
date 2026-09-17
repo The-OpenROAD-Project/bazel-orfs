@@ -125,7 +125,14 @@ verilog_library(
 
 verilog_library(
     name = "cm_soc_ibex",
-    srcs = ["cm_soc_ibex.sv"],
+    srcs = [
+        "cm_soc_ibex.sv",
+        # Bound into ibex's multiplier, inert without +multtrace. It is
+        # how 5.2's multiplier measurement gets the operands the core
+        # would really have issued, from a simulation fast enough to
+        # reach them.
+        "cmj_mult_trace.sv",
+    ],
     deps = [":cmj_ibex"],
 )
 
