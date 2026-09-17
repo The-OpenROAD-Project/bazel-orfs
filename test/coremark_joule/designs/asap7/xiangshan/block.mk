@@ -67,6 +67,10 @@ export SKIP_REPORT_METRICS     = 1
 export REMOVE_ABC_BUFFERS      = 1
 export TNS_END_PERCENT         = 1
 export SKIP_LAST_GASP          = 1
+# extract_fa was most of the arithmetic partitions' time (83% of the
+# vector converter, 51% of a vector FMA); skipped, adders take the
+# generic techmap. ORFS patch 0074 adds the knob. Turnaround only.
+export SKIP_EXTRACT_FA         = 1
 
 export CORE_UTILIZATION        = 40
 export CORE_ASPECT_RATIO       = 1

@@ -46,7 +46,11 @@ export SYNTH_KEEP_MODULES      = Frontend \
                                  PMPChecker_8 \
                                  PTWNewFilter \
                                  SbufferData \
-                                 ResolveQueue
+                                 ResolveQueue \
+                                 Region \
+                                 DecodeStage \
+                                 SimpleDecodeChannel \
+                                 UopBufferCtrlDecoder
 
 # The second block of that list, from IssuePipeVialuVfmaVfdivVidiv on, is
 # kept for synthesis turnaround, not for the breakdown. yosys and abc are
@@ -112,14 +116,25 @@ export BLOCKS                  = VecRegionModule \
                                  ICache \
                                  DCacheWrapper \
                                  L2TLBWrapper \
-                                 DecodeStage \
                                  Rob \
                                  Dispatch \
                                  Rename \
                                  MemCtrl \
-                                 Region \
                                  Region_1 \
-                                 LsqWrapper
+                                 LsqWrapper \
+                                 IssueQueueAluCsrFenceLinkBrhNjmp \
+                                 IssueQueueAluDivBrhNjmp \
+                                 IssueQueueAluI2fBrhNjmp \
+                                 IssueQueueAluBkuVset \
+                                 IssueQueueAluMul \
+                                 IssueQueueLdu \
+                                 IssueQueueStaMou \
+                                 IssueQueueStaMou_1 \
+                                 IssueQueueStdMoud \
+                                 IssueQueueStdMoud_1 \
+                                 DataPath \
+                                 ExuBlock \
+                                 VectorDecodeChannel
 
 # The register files, generated rather than synthesised. As flops the
 # four FpRegFilePart arrays stopped the fp region block's legalisation
@@ -164,6 +179,10 @@ export TNS_END_PERCENT         = 1
 export SKIP_CTS_REPAIR_TIMING  = 1
 export SKIP_INCREMENTAL_REPAIR = 1
 export SKIP_LAST_GASP          = 1
+# extract_fa was most of the arithmetic partitions' time (83% of the
+# vector converter, 51% of a vector FMA); skipped, adders take the
+# generic techmap. ORFS patch 0074 adds the knob. Turnaround only.
+export SKIP_EXTRACT_FA         = 1
 
 # No pre-placement repair_timing. With REMOVE_ABC_BUFFERS unset, the
 # floorplan stage runs repair_timing on wire-load models before anything

@@ -1,13 +1,16 @@
 # Region_1: floating-point region: issue queues, fp execution units and data path.
 # Everything shared is in ../block.mk; this file names the block and
 # what parallel synthesis keeps inside it (the parent's kept modules
-# that fall in this subtree, read off the generated Verilog).
+# that fall in this subtree, read off the generated Verilog), plus the
+# fp execution units under ExuBlock_1, a 35-minute partition as one.
 export DESIGN_NAME             = Region_1
 export DESIGN_NICKNAME         = xiangshan_Region_1
 include ../block.mk
 
 export SYNTH_KEEP_MODULES      = IssueQueueFaluFmacFdiv \
                                  ExuBlock_1 \
+                                 ExeUnitImp_10 \
+                                 ExeUnitImp_9 \
                                  DataPath_1 \
                                  IssueQueueFaluFmacFcvtFcmp \
                                  IssueQueueFaluFmac
