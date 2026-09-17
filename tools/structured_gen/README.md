@@ -60,6 +60,10 @@ use.
 with its own header and service columns, and ORs the banks' bitlines in
 a footer band below the array: the way to give a 256-word file an
 outline a parent can place, instead of one ten times taller than wide.
+`bank_columns` says how many of them stand side by side; the rest stack
+below, so a 128-bit word with four banks is four bank heights tall and
+one bank width wide instead of a strip four bank widths wide. The
+default is all of them in one row.
 
 Read path: address inverters, an AND2 tree over the literals, the tile's
 AND2, and log2(words) OR2 levels. For 256 words that is about twelve
@@ -89,6 +93,7 @@ pin_layer       M4
 tap_columns     8
 service_sites   40
 banks           4
+bank_columns    2           # two banks wide, two tall
 ```
 
 Cell pins default to asap7's (`D CLK QN`, `A B Y`, `A1 A2 B1 B2 Y`,
