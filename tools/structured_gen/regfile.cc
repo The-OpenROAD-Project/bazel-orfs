@@ -52,7 +52,6 @@ struct Pins {
   std::vector<std::string> ao22 = {"A1", "A2", "B1", "B2", "Y"};
   std::vector<std::string> inv = {"A", "Y"};
   std::vector<std::string> tie_lo = {"L"};
-  std::string pin_layer = "M4";
   bool flop_inverted = true;  // the flop's output is QN
 };
 
@@ -181,11 +180,10 @@ class Builder {
         rows.begin(), rows.end(),
         [](const Cursor& a, const Cursor& b) { return a.x < b.x; });
   }
-  void Pin(dbBTerm* t, int x, int y) {
+  void Pin(dbBTerm* t, odb::dbTechLayer* layer, int x, int y) {
     odb::dbBPin* bp = odb::dbBPin::create(t);
-    int w = pin_w_;
-    odb::dbBox::create(bp, pin_layer_, x - w / 2, y - w / 2, x + w / 2,
-                       y + w / 2);
+    int w = std::max(static_cast<int>(layer->getWidth()), 1);
+    odb::dbBox::create(bp, layer, x - w / 2, y - w / 2, x + w / 2, y + w / 2);
     bp->setPlacementStatus(odb::dbPlacementStatus::FIRM);
   }
 
@@ -194,7 +192,8 @@ class Builder {
   const Spec& spec_;
   dbBlock* block_ = nullptr;
   odb::dbSite* site_ = nullptr;
-  odb::dbTechLayer* pin_layer_ = nullptr;
+  odb::dbTechLayer* layer_h_ = nullptr;  // left/right edge pins
+  odb::dbTechLayer* layer_v_ = nullptr;  // top/bottom edge pins
   dbMaster* flop_ = nullptr;
   dbMaster* and2_ = nullptr;
   dbMaster* or2_ = nullptr;
@@ -202,6 +201,7 @@ class Builder {
   dbMaster* inv_ = nullptr;
   dbMaster* tap_ = nullptr;
   dbMaster* tie_lo_ = nullptr;
+  int dbu_ = 1000;
   int site_w_ = 0;
   int row_h_ = 0;
   int core_x0_ = 0;
@@ -244,21 +244,29 @@ dbBlock* Builder::Run() {
   }
   site_w_ = site_->getWidth();
   row_h_ = site_->getHeight();
-  pin_layer_ = tech->findLayer(g_pins.pin_layer.c_str());
-  if (pin_layer_ == nullptr) {
-    Refuse("pin layer not in the tech LEF: " + g_pins.pin_layer);
+  layer_h_ = tech->findLayer(s.pin_layer_h.c_str());
+  layer_v_ = tech->findLayer(s.pin_layer_v.c_str());
+  if (layer_h_ == nullptr || layer_v_ == nullptr) {
+    Refuse("pin layers not in the tech LEF: " + s.pin_layer_h + " " +
+           s.pin_layer_v);
   }
-  pin_w_ = std::max(pin_layer_->getWidth(), 1u);
+  pin_w_ = std::max(static_cast<int>(std::max(layer_h_->getWidth(),
+                                              layer_v_->getWidth())), 1);
 
   odb::dbChip* chip = db_->getChip();
   if (chip == nullptr) {
     chip = odb::dbChip::create(db_, tech, s.module.c_str());
   }
+  if (chip->getBlock() != nullptr) {
+    Refuse("the database already has a top block (" +
+           chip->getBlock()->getName() + "); one generation per database");
+  }
   block_ = dbBlock::create(chip, s.module.c_str());
   if (block_ == nullptr) {
-    Refuse("block " + s.module + " exists already");
+    Refuse("could not create block " + s.module);
   }
   block_->setDefUnits(tech->getLefUnits());
+  dbu_ = tech->getLefUnits();
 
   const int W = static_cast<int>(s.write.size());
   const int R = static_cast<int>(s.read.size());
@@ -272,12 +280,43 @@ dbBlock* Builder::Run() {
     // still has the port. It exists on the macro, connected to nothing.
     Input(s.reset);
   }
-  std::vector<std::vector<dbNet*>> raddr(R), waddr(W), wdata(W);
+  // Banks first: a banked read port has one address per bank, of the
+  // bank-local width.
+  const int banks = std::max(s.banks, 1);
+  if (s.words % banks != 0) {
+    Refuse("words (" + std::to_string(s.words) + ") is not a multiple of banks (" +
+           std::to_string(banks) + ")");
+  }
+  const int words_per_bank = s.words / banks;
+  const int A_bank = AddrBits(words_per_bank);
+  for (int r = 0; r < R; ++r) {
+    if (s.read[r].banked() &&
+        static_cast<int>(s.read[r].bank_addr.size()) != banks) {
+      Refuse("read port " + std::to_string(r) + " names " +
+             std::to_string(s.read[r].bank_addr.size()) + " banks, the array has " +
+             std::to_string(banks));
+    }
+  }
+  // raddr[r][k] is bank k's literals for a banked port; raddr[r][0] the
+  // one address of a plain port.
+  std::vector<std::vector<std::vector<dbNet*>>> raddr(R);
+  std::vector<std::vector<dbNet*>> waddr(W), wdata(W);
   std::vector<dbNet*> wen(W, nullptr);
   for (int r = 0; r < R; ++r) {
-    for (int i = 0; i < A; ++i) {
-      raddr[r].push_back(Net(Bit(s.read[r].addr, i)));
-      Input(Bit(s.read[r].addr, i));
+    if (s.read[r].banked()) {
+      raddr[r].resize(banks);
+      for (int k = 0; k < banks; ++k) {
+        for (int i = 0; i < A_bank; ++i) {
+          raddr[r][k].push_back(Net(Bit(s.read[r].bank_addr[k], i)));
+          Input(Bit(s.read[r].bank_addr[k], i));
+        }
+      }
+    } else {
+      raddr[r].resize(1);
+      for (int i = 0; i < A; ++i) {
+        raddr[r][0].push_back(Net(Bit(s.read[r].addr, i)));
+        Input(Bit(s.read[r].addr, i));
+      }
     }
   }
   for (int w = 0; w < W; ++w) {
@@ -352,22 +391,21 @@ dbBlock* Builder::Run() {
                            : 0;
   // Banks: the word column folded into `banks` columns side by side, each
   // with its own header and service columns, so a 256-word file is not
-  // ten times taller than it is wide. The read bitlines are one OR tree
-  // per bank and a final OR across banks in a footer band.
-  const int banks = std::max(s.banks, 1);
-  if (s.words % banks != 0) {
-    Refuse("words (" + std::to_string(s.words) + ") is not a multiple of banks (" +
-           std::to_string(banks) + ")");
-  }
-  const int words_per_bank = s.words / banks;
+  // ten times taller than it is wide. A plain read port's bitline is one
+  // OR tree per bank and a final OR across banks in a footer band; a
+  // banked port's bank trees are its outputs and need no footer.
   const int bank_w = header_w + s.bits * tile_w + tap_cols * tap_w;
+  int plain_reads = 0;
+  for (int r = 0; r < R; ++r) {
+    plain_reads += s.read[r].banked() ? 0 : 1;
+  }
   // Address inverters: one row band above the array.
   const int inv_rows = 1;
   // Footer: (banks-1) OR2 per read port per bit, as many rows as it takes.
   const int core_w = banks * bank_w;
   const int footer_cells_w =
-      banks > 1 ? (banks - 1) * R * s.bits * static_cast<int>(or2_->getWidth()) : 0;
-  const int footer_rows = banks > 1 ? (footer_cells_w + core_w - 1) / core_w + 1 : 0;
+      banks > 1 ? (banks - 1) * plain_reads * s.bits * static_cast<int>(or2_->getWidth()) : 0;
+  const int footer_rows = footer_cells_w > 0 ? (footer_cells_w + core_w - 1) / core_w + 1 : 0;
   const int total_rows = footer_rows + words_per_bank * rows_per_word + inv_rows;
 
   // Core at a site multiple in from the die so a parent's ring fits.
@@ -386,15 +424,20 @@ dbBlock* Builder::Run() {
   }
 
   // ---- address inverters, top band ------------------------------------
-  std::vector<std::vector<dbNet*>> raddr_n(R), waddr_n(W);
+  std::vector<std::vector<std::vector<dbNet*>>> raddr_n(R);
+  std::vector<std::vector<dbNet*>> waddr_n(W);
   {
     Cursor c{total_rows - 1, 0};
     for (int r = 0; r < R; ++r) {
-      for (int i = 0; i < A; ++i) {
-        dbNet* y = Net("rd" + std::to_string(r) + "_na" + std::to_string(i));
-        Place(c, inv_, y->getName(),
-              {{g_pins.inv[0], raddr[r][i]}, {g_pins.inv[1], y}});
-        raddr_n[r].push_back(y);
+      raddr_n[r].resize(raddr[r].size());
+      for (size_t k = 0; k < raddr[r].size(); ++k) {
+        for (size_t i = 0; i < raddr[r][k].size(); ++i) {
+          dbNet* y = Net("rd" + std::to_string(r) + "_k" + std::to_string(k) +
+                         "_na" + std::to_string(i));
+          Place(c, inv_, y->getName(),
+                {{g_pins.inv[0], raddr[r][k][i]}, {g_pins.inv[1], y}});
+          raddr_n[r][k].push_back(y);
+        }
       }
     }
     for (int w = 0; w < W; ++w) {
@@ -418,7 +461,7 @@ dbBlock* Builder::Run() {
   auto literals = [&](const std::vector<dbNet*>& a,
                       const std::vector<dbNet*>& an, int n) {
     std::vector<dbNet*> l;
-    for (int i = 0; i < A; ++i) {
+    for (size_t i = 0; i < a.size(); ++i) {
       l.push_back(((n >> i) & 1) ? a[i] : an[i]);
     }
     return l;
@@ -436,8 +479,11 @@ dbBlock* Builder::Run() {
     auto hcur = [&]() -> Cursor& { return Least(hc); };
     std::string wn = "w" + std::to_string(n);
     for (int r = 0; r < R; ++r) {
+      const bool banked = s.read[r].banked();
       rsel[r][n] = Decode(hcur(), wn + "_rsel" + std::to_string(r),
-                          literals(raddr[r], raddr_n[r], n));
+                          literals(raddr[r][banked ? bank : 0],
+                                   raddr_n[r][banked ? bank : 0],
+                                   banked ? n % words_per_bank : n));
     }
     std::vector<dbNet*> wsels;
     for (int w = 0; w < W; ++w) {
@@ -569,22 +615,31 @@ dbBlock* Builder::Run() {
               return Least(tiles_[n * s.bits + b].rows);
             }));
       }
-      dbNet* root = banks == 1
-                        ? bank_roots[0]
-                        : OrTree(prefix + "_f", bank_roots,
-                                 [&](int, int) -> Cursor& { return Least(footer); });
-      // Output port, its own net so the bterm has the RTL name.
-      std::string name = Bit(s.read[r].data, b);
-      std::vector<odb::dbITerm*> its(root->getITerms().begin(),
-                                     root->getITerms().end());
-      dbNet* out = Net(name);
-      for (auto* it : its) {
-        it->disconnect();
-        it->connect(out);
+      // Each root becomes an output net with the RTL's name: one per
+      // bank for a banked port, one after the footer OR for a plain one.
+      auto emit = [&](dbNet* root, const std::string& name) {
+        std::vector<odb::dbITerm*> its(root->getITerms().begin(),
+                                       root->getITerms().end());
+        dbNet* out = Net(name);
+        for (auto* it : its) {
+          it->disconnect();
+          it->connect(out);
+        }
+        dbNet::destroy(root);
+        Output(name, out);
+        rdata[r].push_back(out);
+      };
+      if (s.read[r].banked()) {
+        for (int k = 0; k < banks; ++k) {
+          emit(bank_roots[k], Bit(s.read[r].bank_data[k], b));
+        }
+      } else {
+        dbNet* root = banks == 1
+                          ? bank_roots[0]
+                          : OrTree(prefix + "_f", bank_roots,
+                                   [&](int, int) -> Cursor& { return Least(footer); });
+        emit(root, Bit(s.read[r].data, b));
       }
-      dbNet::destroy(root);
-      Output(name, out);
-      rdata[r].push_back(out);
     }
   }
   for (size_t i = 0; i < tiles_.size(); ++i) {
@@ -607,35 +662,57 @@ dbBlock* Builder::Run() {
   }
 
   // ---- pins on the die edge --------------------------------------------
-  // Read data along the bottom, write data along the top, addresses,
-  // enables and the clock on the left, spread on the pin layer's pitch.
-  const int pitch = std::max(pin_layer_->getPitch(), pin_w_ * 2);
-  int px = core_x0_ + pitch;
+  // Read data along the bottom and write data along the top, on the
+  // vertical layer; addresses, enables and the clock on the left, on the
+  // horizontal layer. Centres sit on the platform's track grid for that
+  // layer so a parent's macro placer can align them (MPL-0005 otherwise).
+  const int track_off = static_cast<int>(s.pin_track_offset_um * dbu_);
+  const int track_pitch = std::max(static_cast<int>(s.pin_track_pitch_um * dbu_), 1);
+  auto on_track = [&](int v) {
+    int k = (v - track_off + track_pitch - 1) / track_pitch;
+    return track_off + std::max(k, 0) * track_pitch;
+  };
+  const int edge = pin_w_;  // pin centre this far in from the die edge
+  int px = on_track(core_x0_ + track_pitch);
+  auto bottom = [&](const std::string& name) {
+    Pin(block_->findBTerm(name.c_str()), layer_v_, px, edge);
+    px += track_pitch;
+  };
   for (int r = 0; r < R; ++r) {
     for (int b = 0; b < s.bits; ++b) {
-      Pin(block_->findBTerm(Bit(s.read[r].data, b).c_str()), px, pin_w_);
-      px += pitch;
+      if (s.read[r].banked()) {
+        for (int k = 0; k < banks; ++k) {
+          bottom(Bit(s.read[r].bank_data[k], b));
+        }
+      } else {
+        bottom(Bit(s.read[r].data, b));
+      }
     }
   }
-  px = core_x0_ + pitch;
+  const int px_bottom_end = px;
+  px = on_track(core_x0_ + track_pitch);
   for (int w = 0; w < W; ++w) {
     for (int b = 0; b < s.bits; ++b) {
-      Pin(block_->findBTerm(Bit(s.write[w].data, b).c_str()), px, die_h - pin_w_);
-      px += pitch;
+      Pin(block_->findBTerm(Bit(s.write[w].data, b).c_str()), layer_v_, px,
+          die_h - edge);
+      px += track_pitch;
     }
   }
-  int py = core_y0_ + pitch;
+  int py = on_track(core_y0_ + track_pitch);
   auto left = [&](const std::string& name) {
-    Pin(block_->findBTerm(name.c_str()), pin_w_, py);
-    py += pitch;
+    Pin(block_->findBTerm(name.c_str()), layer_h_, edge, py);
+    py += track_pitch;
   };
   left(s.clock);
   if (!s.reset.empty()) {
     left(s.reset);
   }
   for (int r = 0; r < R; ++r) {
-    for (int i = 0; i < A; ++i) {
-      left(Bit(s.read[r].addr, i));
+    for (size_t k = 0; k < raddr[r].size(); ++k) {
+      for (size_t i = 0; i < raddr[r][k].size(); ++i) {
+        left(s.read[r].banked() ? Bit(s.read[r].bank_addr[k], static_cast<int>(i))
+                                : Bit(s.read[r].addr, static_cast<int>(i)));
+      }
     }
   }
   for (int w = 0; w < W; ++w) {
@@ -646,9 +723,9 @@ dbBlock* Builder::Run() {
       left(s.write[w].en);
     }
   }
-  if (px > die_w || py > die_h) {
-    Refuse("more pins than the die edge holds at this pitch; the array is "
-           "too narrow for its ports");
+  if (std::max(px, px_bottom_end) > die_w || py > die_h) {
+    Refuse("more pins than the die edge holds at the track pitch; the array "
+           "is too narrow for its ports (widen with fewer banks or more bits)");
   }
 
   logger_->report(
@@ -711,6 +788,17 @@ Spec ReadSpec(const std::string& path) {
     } else if (key == "read") {
       need(2);
       s.read.push_back(Port{v[0], v[1], ""});
+    } else if (key == "read_banked") {
+      if (v.size() < 2 || v.size() % 2 != 0) {
+        Refuse(path + ":" + std::to_string(lineno) +
+               ": `read_banked` takes addr data pairs, one per bank");
+      }
+      Port port;
+      for (size_t i = 0; i < v.size(); i += 2) {
+        port.bank_addr.push_back(v[i]);
+        port.bank_data.push_back(v[i + 1]);
+      }
+      s.read.push_back(port);
     } else if (key == "write") {
       if (v.size() != 2 && v.size() != 3) {
         Refuse(path + ":" + std::to_string(lineno) +
@@ -752,9 +840,16 @@ Spec ReadSpec(const std::string& path) {
       if (v[0] == "QN") g_pins.flop_inverted = true;
       else if (v[0] == "Q") g_pins.flop_inverted = false;
       else Refuse(path + ":" + std::to_string(lineno) + ": flop_output is Q or QN");
-    } else if (key == "pin_layer") {
+    } else if (key == "pin_layer" || key == "pin_layer_h") {
       need(1);
-      g_pins.pin_layer = v[0];
+      s.pin_layer_h = v[0];
+    } else if (key == "pin_layer_v") {
+      need(1);
+      s.pin_layer_v = v[0];
+    } else if (key == "pin_track") {
+      need(2);
+      s.pin_track_offset_um = std::stod(v[0]);
+      s.pin_track_pitch_um = std::stod(v[1]);
     } else if (key == "tap_columns") {
       need(1);
       s.tap_columns = std::stoi(v[0]);

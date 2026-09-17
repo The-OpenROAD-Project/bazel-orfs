@@ -173,6 +173,13 @@ def yosys_only_attrs():
             allow_files = True,
             default = CONFIG_FAKERAM,
         ),
+        "_structured_gen": attr.label(
+            doc = "The register-file generator STRUCTURED_MEMORIES runs; " +
+                  "staged only when a design sets that variable.",
+            executable = True,
+            cfg = "exec",
+            default = Label("@bazel-orfs//tools/structured_gen:structured_gen"),
+        ),
         "yosys": attr.label(
             doc = "Yosys binary. Override to use a custom or locally-built yosys.",
             executable = True,

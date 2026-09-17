@@ -59,3 +59,53 @@ build_test(
     name = "rf32x32_abstract_build_test",
     targets = [":rf32x32_generate_abstract"],
 )
+
+# The same register file replaced *by name* inside a parent: the parent's
+# RTL instantiates rf32x32, STRUCTURED_MEMORIES lists the spec, and the
+# memories step runs the generator, writes the views beside the
+# AUTO_MEMORIES ones and blackboxes the module. The floorplan then places
+# one macro. This is the hook the XiangShan register files use.
+orfs_flow(
+    name = "rf_parent",
+    arguments = {
+        "AUTO_MEMORIES": "1",
+        # A die the 168 x 19 um macro fits in with room around it; a
+        # utilisation-derived square would not (IFP-0002).
+        "CORE_AREA": "2 2 238 98",
+        "DIE_AREA": "0 0 240 100",
+        "MACRO_PLACE_HALO": "2 2",
+        "PDN_TCL": "$(PLATFORM_DIR)/openRoad/pdn/BLOCKS_grid_strategy.tcl",
+        "PLACE_DENSITY": "0.5",
+        "SYNTH_HIERARCHICAL": "0",
+    },
+    last_stage = "floorplan",
+    sources = {
+        "SDC_FILE": [":constraints.sdc"],
+        "STRUCTURED_MEMORIES": [":rf32x32.spec"],
+    },
+    verilog_files = ["rf_parent.sv"],
+)
+
+build_test(
+    name = "rf_parent_floorplan_build_test",
+    targets = [":rf_parent_floorplan"],
+)
+
+# The module reached the netlist as a cell, not as flops: blackboxes.txt
+# names it and 1_2_yosys.v instantiates it.
+genrule(
+    name = "rf_parent_replaced",
+    srcs = [":rf_parent_synth"],
+    outs = ["rf_parent_replaced.txt"],
+    cmd = "files=$$(echo $(locations :rf_parent_synth) | tr ' ' '\\n'); " +
+          "bb=$$(echo \"$$files\" | grep '/memories$$')/blackboxes.txt; " +
+          "net=$$(echo \"$$files\" | grep '/1_2_yosys.v$$'); " +
+          "grep -qx rf32x32 $$bb || { echo 'rf32x32 not in blackboxes.txt'; exit 1; }; " +
+          "grep -q '^ *rf32x32 ' $$net || { echo 'rf32x32 not a cell in the netlist'; exit 1; }; " +
+          "echo 'rf32x32 replaced by the generated macro' > $@",
+)
+
+build_test(
+    name = "rf_parent_replaced_test",
+    targets = [":rf_parent_replaced"],
+)

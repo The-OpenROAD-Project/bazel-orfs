@@ -163,6 +163,14 @@ ORFS_PATCHES = [
     # carried alongside scopes to read_sdc. Spell it out.
     # Upstream: ORFS PR #4542 -- retire at a bump onto an ORFS carrying it.
     Label("//patches:0070-orfs-detail-route-metric-integer.patch"),
+    # STRUCTURED_MEMORIES: a design lists register-file spec files, one
+    # per module, and gen_memories.py runs tools/structured_gen for each
+    # -- a placed standard-cell macro checked against the module's
+    # ports, its views beside the AUTO_MEMORIES ones, the module in
+    # blackboxes.txt. Explicit by design; XiangShan's register files are
+    # Reg(Vec) and no detector sees them. Not upstreamed -- retire at a
+    # bump onto an ORFS that can declare a generated macro per module.
+    Label("//patches:0071-orfs-structured-memories.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk

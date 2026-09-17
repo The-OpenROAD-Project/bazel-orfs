@@ -1,0 +1,215 @@
+AUTO_MEMORIES: STRUCTURED_MEMORIES, register files replaced by a generated macro, by name
+
+bazel-orfs carries this against ORFS; it is not upstreamed.
+
+A many-port register file synthesised to flops is what a legaliser
+cannot spread, and a core in XiangShan's class has these as compiled
+bitcells. bazel-orfs's tools/structured_gen builds one as a placed
+standard-cell macro from a small spec. This is the hook that lets a
+design say which modules get that treatment.
+
+STRUCTURED_MEMORIES lists spec files, one per module. Nothing is
+detected: XiangShan's register files are Reg(Vec) and never become a
+yosys memory, and a Mem rewrite would change which writer wins.
+gen_memories.py runs the generator (STRUCTURED_GEN, set by the build
+system) per spec with --check-ports against the Verilog file declaring
+the module, writes <module>.lef/.lib/_pre_layout.lib beside the
+AUTO_MEMORIES views, appends the module to blackboxes.txt after FakeRAM
+has written it, and records what it did in structured.json. A spec
+whose ports are not the module's stops the build there.
+
+Retires when ORFS grows a way to declare a generated macro per module;
+then `//:bump` onto that commit drops this patch.
+
+diff -ruN a/flow/Makefile b/flow/Makefile
+--- a/flow/Makefile	2026-09-17 08:12:49.605101471 +0200
++++ b/flow/Makefile	2026-09-17 08:14:37.254333346 +0200
+@@ -282,10 +282,13 @@
+ 	  --out-dir $(RESULTS_DIR)/memories \
+ 	  --json $(RESULTS_DIR)/memories.json \
+ 	  $(foreach file,$(VERILOG_FILES),--verilog $(file)) \
+-	  $(foreach file,$(ADDITIONAL_MEMORIES),--memories $(file))
++	  $(foreach file,$(ADDITIONAL_MEMORIES),--memories $(file)) \
++	  $(foreach file,$(STRUCTURED_MEMORIES),--structured-spec $(file)) \
++	  $(if $(STRUCTURED_GEN),--structured-gen $(STRUCTURED_GEN)) \
++	  $(foreach file,$(TECH_LEF) $(SC_LEF),--lef $(file))
+ 
+ $(RESULTS_DIR)/memories.json: $(RESULTS_DIR)/memories_inferred.json $(ADDITIONAL_MEMORIES) \
+-    $(wildcard $(SCRIPTS_DIR)/memories/*.py)
++    $(STRUCTURED_MEMORIES) $(wildcard $(SCRIPTS_DIR)/memories/*.py)
+ 	$(UNSET_AND_MAKE) do-auto-memories
+ 
+ yosys-dependencies: $(RESULTS_DIR)/memories.json
+diff -ruN a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
+--- a/flow/scripts/memories/gen_memories.py	2026-09-17 08:12:49.605617337 +0200
++++ b/flow/scripts/memories/gen_memories.py	2026-09-17 08:14:37.254487718 +0200
+@@ -19,6 +19,8 @@
+ from __future__ import annotations
+ 
+ import argparse
++import json
++import re
+ import sys
+ from pathlib import Path
+ 
+@@ -44,6 +46,75 @@
+     return None
+ 
+ 
++def _spec_module(spec: Path) -> str:
++    """The `module <name>` line of a register-file spec."""
++    for line in spec.read_text().splitlines():
++        parts = line.split("#", 1)[0].split()
++        if len(parts) == 2 and parts[0] == "module":
++            return parts[1]
++    raise SystemExit(f"gen_memories: {spec}: no `module` line")
++
++
++def _file_defining(module: str, verilog: list[Path]) -> Path:
++    """The Verilog file that declares `module`, for the port check."""
++    pat = re.compile(rf"^\s*module\s+{re.escape(module)}\b", re.M)
++    for path in verilog:
++        if pat.search(path.read_text(errors="replace")):
++            return path
++    raise SystemExit(
++        f"gen_memories: STRUCTURED_MEMORIES names module {module}, "
++        f"which none of the Verilog files declare"
++    )
++
++
++def run_structured(
++    specs: list[Path],
++    generator: str | None,
++    lefs: list[Path],
++    verilog: list[Path],
++    out_dir: Path,
++) -> list[str]:
++    """Generate a placed macro for every listed register file.
++
++    Explicit by design: a module is replaced only because a spec names
++    it, and a spec that does not match the module's ports stops the
++    build here rather than miswire the parent. Views land beside the
++    AUTO_MEMORIES ones and the module joins blackboxes.txt, so synthesis
++    and every later stage treat it as one more memory macro.
++    """
++    if not specs:
++        return []
++    if not generator:
++        raise SystemExit(
++            "gen_memories: STRUCTURED_MEMORIES is set but STRUCTURED_GEN is not; "
++            "the build system that carries the generator has to name it"
++        )
++    if not lefs:
++        raise SystemExit("gen_memories: STRUCTURED_MEMORIES needs TECH_LEF and SC_LEF")
++    modules = []
++    report = []
++    for spec in specs:
++        module = _spec_module(spec)
++        rtl = _file_defining(module, verilog)
++        cmd = [generator, "--spec", str(spec), "--check-ports", str(rtl)]
++        for lef in lefs:
++            cmd += ["--lef", str(lef)]
++        cmd += [
++            "--lef-out", str(out_dir / f"{module}.lef"),
++            "--lib-out", str(out_dir / f"{module}.lib"),
++            "--def", str(out_dir / f"{module}.def"),
++            "--verilog", str(out_dir / f"{module}.v"),
++        ]
++        subprocess.check_call(cmd)
++        modules.append(module)
++        report.append({"module": module, "spec": str(spec)})
++        sys.stderr.write(f"gen_memories: {module} -> structured macro ({spec.name})\n")
++    with (out_dir / "blackboxes.txt").open("a") as f:
++        f.write("".join(f"{m}\n" for m in modules))
++    (out_dir / "structured.json").write_text(json.dumps(report, indent=2) + "\n")
++    return modules
++
++
+ def run(
+     verilog: list[Path],
+     memories_files: list[Path],
+@@ -51,6 +122,9 @@
+     out_dir: Path,
+     json_path: Path,
+     yosys_json: Path | None = None,
++    structured_specs: list[Path] | None = None,
++    structured_gen: str | None = None,
++    lefs: list[Path] | None = None,
+ ) -> int:
+     if platform != "asap7":
+         sys.stderr.write(f"gen_memories: unsupported platform {platform}\n")
+@@ -94,6 +168,9 @@
+         ]
+     )
+ 
++    # After FakeRAM has written blackboxes.txt for the inferred memories.
++    run_structured(structured_specs or [], structured_gen, lefs or [], verilog, out_dir)
++
+     for mem in sorted(memories, key=lambda m: m.name):
+         verdict = "macro" if mem.idiomatic else "flops"
+         sys.stderr.write(
+@@ -129,6 +206,25 @@
+         help="User-supplied .memories file merged onto the "
+         "detected set (repeatable).",
+     )
++    p.add_argument(
++        "--structured-spec",
++        action="append",
++        default=[],
++        type=Path,
++        help="Register-file spec for STRUCTURED_MEMORIES (repeatable).",
++    )
++    p.add_argument(
++        "--structured-gen",
++        default=None,
++        help="The generator STRUCTURED_MEMORIES runs (STRUCTURED_GEN).",
++    )
++    p.add_argument(
++        "--lef",
++        action="append",
++        default=[],
++        type=Path,
++        help="Technology and cell LEF for the generator (repeatable).",
++    )
+     p.add_argument("--platform", required=True)
+     p.add_argument(
+         "--out-dir",
+@@ -150,6 +246,9 @@
+         args.out_dir,
+         args.json,
+         args.yosys_json,
++        args.structured_spec,
++        args.structured_gen,
++        args.lef,
+     )
+ 
+ 
+diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+--- a/flow/scripts/variables.yaml	2026-09-17 08:12:49.605380258 +0200
++++ b/flow/scripts/variables.yaml	2026-09-17 08:14:37.254126454 +0200
+@@ -210,6 +210,25 @@
+     docs/user/AutoMemories.md.
+   stages:
+     - synth
++STRUCTURED_MEMORIES:
++  description: >
++    Experimental. Space-separated list of register-file spec files, one
++    per RTL module to replace with a generated, placed standard-cell
++    macro rather than synthesise to flops. Each spec names its module,
++    words, bits, read and write ports by the RTL's own port names, and
++    the cells; the generator checks the spec against the module's ports,
++    writes `<module>.lef`, `<module>.lib` and `<module>_pre_layout.lib`
++    under `$(RESULTS_DIR)/memories/`, and the module is blackboxed like
++    an AUTO_MEMORIES macro. Explicit by design: nothing is detected.
++    Requires AUTO_MEMORIES=1 and STRUCTURED_GEN.
++  stages:
++    - synth
++STRUCTURED_GEN:
++  description: >
++    Path of the generator STRUCTURED_MEMORIES runs. Set by the build
++    system that carries the generator, not by a design.
++  stages:
++    - synth
+ SYNTH_MEMORY_MAX_BITS:
+   description: >
+     Maximum number of bits for memory synthesis.
