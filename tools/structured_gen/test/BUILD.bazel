@@ -24,7 +24,7 @@ genrule(
           " ".join(["--lef $(location {})".format(l) for l in ASAP7_LEFS]) +
           " --odb $(location rf32x32.odb) --verilog $(location rf32x32.v)" +
           " --def $(location rf32x32.def)",
-    tools = ["//tools/structured_gen:structured_gen"],
+    tools = ["//tools/structured_gen"],
 )
 
 orfs_flow(

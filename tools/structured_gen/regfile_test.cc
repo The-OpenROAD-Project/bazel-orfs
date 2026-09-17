@@ -47,7 +47,7 @@ int main(int argc, char** argv) {
          "cell flop DFFHQNx1_ASAP7_75t_R\ncell and2 AND2x2_ASAP7_75t_R\n"
          "cell or2 OR2x2_ASAP7_75t_R\ncell ao22 AO22x2_ASAP7_75t_R\n"
          "cell inv INVx1_ASAP7_75t_R\ncell tap TAPCELL_ASAP7_75t_R\n"
-         "pin_layer M4\ntap_columns 4\n";
+         "pin_layer M4\ntap_columns 4\nbanks 2\n";
   }
   utl::Logger logger;
   odb::dbDatabase* db = odb::dbDatabase::create();
