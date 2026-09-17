@@ -1717,12 +1717,24 @@ fetch address as failure, so it converged on the buffer driving
 `dbg_instr_addr[5]` -- the cell feeding the instrument, not the cell
 breaking the design. A bisection is only as good as its oracle.
 
-**A second blocker, independent of the first.** An event-driven
-gate-level simulation of ibex runs at **50 cycles per second** here,
-measured over 2,000 and 10,000 cycle runs and consistent between them.
+**A second blocker, independent of the first, and it has a
+mechanism.** An event-driven gate-level simulation of ibex runs at
+**76 cycles per second** unannotated. Annotated it starts at 42 and
+falls: 15.7 cycles/s between cycles 2,000 and 10,000, and under 4.9
+averaged over a nine-hour run that had still not reached cycle 155,111.
+The cause is measurable. Sampling RSS every 30 s over two otherwise
+identical runs, the zero-delay arm is flat at 139,432 KB from 30 s
+onward while the annotated arm climbs from 139,760 to 154,076 KB over
+4.5 minutes and keeps climbing -- about 53 KB/s, proportional to
+simulated events. **iverilog leaks memory under SDF annotation**, and a
+slowdown that compounds with simulation time does not extrapolate, which
+is why the estimates made from short runs here were wrong by hours. It
+is recorded as a candidate for upstreaming rather than acted on
+(`CLAUDE.md`).
+
 One CoreMark iteration is 407,448 cycles, so the window this study
-reports power over is 2.3 hours per arm before annotation, and longer
-with it. Verilator covers the same iteration in minutes: the ratio is
+reports power over is 1.5 hours per arm before annotation, and very
+much longer with it. Verilator covers the same iteration in minutes: the ratio is
 about three orders of magnitude, and it is the reason this study uses a
 cycle-based simulator in the first place. It also rules out hunting for
 the cycles that matter inside a whole-core run -- CoreMark dispatches
@@ -1731,14 +1743,94 @@ multiply at all, so reaching the interesting cycles costs hours before
 anything is measured.
 
 **So the measurement moves to the multiplier**, which needs none of
-that. It is a preserved module boundary of 3,199 cells, 12.4 % of the
-design, and the structure the literature names as the worst offender
-for glitch: unbalanced arrival times into a partial-product tree, with
-spurious switching growing row by row [7, 8]. Driving it alone from
-operand traces the working zero-delay simulation already produces gives
-glitch energy per multiply without annotating a whole core. What that
-cannot give is the core-wide number this section is about, and the
-distinction is kept rather than blurred.
+that, and [§5.2](#52-zero-delay-simulation-carries-no-glitch-power)b](#52b-glitch-power-in-the-multiplier-measured) reports it. What that cannot give is the core-wide
+number this section is about, and the distinction is kept rather than
+blurred.
+
+### 5.2b Glitch power in the multiplier, measured
+
+The multiplier is a preserved module boundary of 3,199 cells, 12.4 % of
+the design, and the structure the literature names as the worst
+offender for glitch: unbalanced arrival times into a partial-product
+tree, with spurious switching growing row by row [7, 8]. It is also
+separable, and that is what makes it measurable when the whole core is
+not.
+
+**The method is replay, not a second hardening.** Hardening the
+multiplier on its own would give a different netlist -- its own
+synthesis context, cell choices, clock tree and parasitics -- and the
+quantity wanted is a bound on the multiplier this study reports power
+for. So the module is taken out of the hardened netlist as it stands,
+carries the same per-instance delays `write_sdf` wrote for the whole
+design, and is driven by its own recorded boundary: every one of its 74
+input ports, per cycle, from the zero-delay whole-core run's dump. The
+8 clock leaves come from the testbench, because the buffers driving
+them are outside the module and their delays are not in its SDF; the
+other 66 are replayed, promoted nets included, because inventing them
+would be inventing the module's inputs.
+
+Three things make the replay checkable, and all three pass. Every one
+of the 3,116 cells that has a timing arc annotates without an SDF error
+-- the other 83 are tie cells, which have none. The recorded outputs
+are an oracle, and both arms reproduce them with **zero mismatches**.
+And the arms reproduce the whole-core run's 530 multiplies and 1,590
+busy cycles exactly, so they are the same work. The only unknown values
+anywhere are four bits -- `alu_adder_ext_i[0]`, `[33]` and
+`imd_val_q_i[33:32]` -- that are X in *every* recorded change, so they
+are constants carrying no information and contribute no transition to
+either arm.
+
+It also runs in **4 seconds an arm**, against a whole-core run that had
+not finished in nine hours.
+
+| arm | zero delay | annotated | glitch | of annotated |
+|---|---|---|---|---|
+| the window, 31.8 % duty | 2,478,847 | 3,153,997 | +27.2 % | 21.4 % |
+| its busy cycles | 673,817 | 993,175 | +47.4 % | 32.2 % |
+| its idle cycles | 1,805,030 | 2,160,822 | +19.7 % | 16.5 % |
+| back to back, 100 % duty | 506,481 | 684,235 | +35.1 % | 26.0 % |
+
+**Table 12.** Transitions in the multiplier over 5,001 cycles
+containing 530 multiplies, and over the same multiplies with the idle
+cycles between them removed.
+
+Per multiply that is **603 extra transitions**, and per idle cycle
+**104**. Reweighted from the window's 31.8 % duty to the 6.92 % the unit
+has over a hot iteration, the annotated run makes **21.3 % more
+transitions than the zero-delay one**, so 17.5 % of what the multiplier
+really switches is switching the logic function did not ask for.
+
+**What it is worth.** The multiplier is 264 µW of ibex's 22.5 mW, 1.17 %
+of the core. Scaling its dynamic power by the measured transition ratio
+puts the glitch at **56 µW, or 0.25 % of the core's total** -- so for
+this core, on this workload, the glitch this study's zero-delay activity
+cannot see is a quarter of a percent of the answer. That last step
+assumes the energy of a transition is the same wherever in the module it
+happens, which is the one approximation here that a measurement could
+remove: OpenSTA reads a VCD directly, so both arms can be reported
+against real extracted capacitances instead of scaled.
+
+**Saturating the multiplier makes it switch less, which is the
+interesting result.** Back to back it makes 318 transitions a cycle
+against 522 a cycle over a real iteration. ibex's `RV32MFast` has no
+operand isolation: during a multiply the operands are held for three
+cycles and only the accumulator moves, while an idle cycle exposes the
+whole array to whatever the ALU buses are doing. So the worst case for
+this unit is not saturated multiplication but idling, the absolute
+glitch rate is bounded by the idle figure rather than the busy one, and
+a design-level fix -- gating the operands -- would take more of this
+power out than making the multiplier faster would.
+
+**What this is not.** The inputs arrive at the cycle boundary as the
+dump records them, not staggered as they arrive in the core, so what is
+bounded is the glitch the tree generates from its own path imbalance and
+not the glitch injected at its boundary; the true figure is higher.
+Interconnect delays are absent throughout, for the reason above, which
+biases the same way. It is one unit, one window, one core. And the
+recorded boundary was taken before the re-baseline this paper now
+reports -- the multiplier's own power is unchanged by it, 265 µW against
+264 µW, but the ratio is re-measured on the current netlist as further
+work, together with the OpenSTA-reported version of the power step.
 
 ### 5.3 Estimated, not extracted, parasitics — one point, measured
 
