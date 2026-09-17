@@ -24,7 +24,7 @@
  *
  * Why the icache and not the ICCM, given that Western Digital's own
  * CoreMark configuration uses a 64 kB ICCM with the cache switched off
- * (docs/SweRV_CoreMark_Benchmarking.pdf, 4.94 CoreMark/MHz):
+ * (seh1_SweRV_CoreMark_Benchmarking.pdf, 4.94 CoreMark/MHz):
  *
  *   - **The ICCM cannot be filled by the core.** `lsu_addrcheck.sv`
  *     uses the ICCM region only to suppress side-effects; there is no
