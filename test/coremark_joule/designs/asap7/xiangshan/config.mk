@@ -28,25 +28,14 @@ export SYNTH_KEEP_MODULES      = Frontend \
                                  Backend \
                                  MemBlock \
                                  CtrlBlock \
-                                 Ftq \
                                  FusionDecoder \
-                                 IBuffer \
-                                 Ifu \
                                  NewLoadUnit \
                                  PMP \
                                  PMPChecker \
                                  PTWFilter \
-                                 TLB \
                                  Uncache \
-                                 Sbuffer \
-                                 TLBNonBlock \
-                                 PrefetcherWrapper \
-                                 TLBNonBlock_1 \
-                                 TLBNonBlock_2 \
                                  PMPChecker_8 \
                                  PTWNewFilter \
-                                 SbufferData \
-                                 ResolveQueue \
                                  Region \
                                  DecodeStage \
                                  SimpleDecodeChannel \
@@ -134,7 +123,17 @@ export BLOCKS                  = VecRegionModule \
                                  IssueQueueStdMoud_1 \
                                  DataPath \
                                  ExuBlock \
-                                 VectorDecodeChannel
+                                 VectorDecodeChannel \
+                                 Sbuffer \
+                                 TLBNonBlock \
+                                 TLBNonBlock_1 \
+                                 TLBNonBlock_2 \
+                                 PrefetcherWrapper \
+                                 HPerfMonitor_3 \
+                                 Ifu \
+                                 Ftq \
+                                 IBuffer \
+                                 TLB
 
 # The register files, generated rather than synthesised. As flops the
 # four FpRegFilePart arrays stopped the fp region block's legalisation
@@ -151,10 +150,8 @@ export BLOCKS                  = VecRegionModule \
 # register files by XiangShan patch 0002 (Reg(Vec) arrays given a module
 # boundary, utils.RegVecFile): 64 words each, one write, 1-4 reads, and
 # together 53 kbit of the Ftq partition's flops behind 64:1 read muxes.
-export STRUCTURED_MEMORIES     = $(DESIGN_HOME)/asap7/xiangshan/FtqEntryQueue.regfile \
-                                 $(DESIGN_HOME)/asap7/xiangshan/FtqMetaQueueRedirect.regfile \
-                                 $(DESIGN_HOME)/asap7/xiangshan/FtqMetaQueueResolve.regfile \
-                                 $(DESIGN_HOME)/asap7/xiangshan/FtqMetaQueueCommit.regfile
+# (The Ftq register files moved with Ftq into its block; the parent has
+# no generated register file of its own now.)
 
 # Turnaround: no repair inside global placement. Flat, the first
 # timing-driven iteration inserted 527,027 buffers over 9.8 M pins and
