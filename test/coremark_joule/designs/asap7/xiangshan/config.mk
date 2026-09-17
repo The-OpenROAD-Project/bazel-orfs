@@ -144,6 +144,15 @@ export GPL_ROUTABILITY_DRIVEN  = 0
 # counting after 20 minutes. One percent still repairs the worst path
 # and bounds the visit; ORFS's own note on the knob says 5 for runtime.
 export TNS_END_PERCENT         = 1
+# TURNAROUND SETTINGS -- flip to 0 for the measured run. The repairs
+# after clock tree synthesis and inside global route are the hours of a
+# design this size, and the number this flow is being put together for
+# is read at global route from the placed netlist's power; the timing
+# these would buy is not in it yet. Last gasp is the tail of every
+# repair_timing.
+export SKIP_CTS_REPAIR_TIMING  = 1
+export SKIP_INCREMENTAL_REPAIR = 1
+export SKIP_LAST_GASP          = 1
 
 # No pre-placement repair_timing. With REMOVE_ABC_BUFFERS unset, the
 # floorplan stage runs repair_timing on wire-load models before anything
