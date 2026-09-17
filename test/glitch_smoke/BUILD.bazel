@@ -1,0 +1,34 @@
+# The glitch demonstrator, as a test rather than as three files and a
+# note (paper, 5.2).
+#
+# Two gates whose reconvergent paths differ in delay. The logic function
+# of the output is a permanent zero; with the delays annotated it emits
+# a pulse anyway, and that pulse is glitch power in its smallest
+# possible form. A zero-delay simulator emits nothing, which is the
+# whole reason this study's activity is a lower bound.
+#
+# It is also the cheapest possible check that the toolchain still does
+# what 5.2 says it does: if iverilog stops honouring `specify` paths, or
+# the SDF reader stops matching, this fails in a second instead of a
+# whole-core measurement failing in hours.
+
+load("@rules_shell//shell:sh_test.bzl", "sh_test")
+
+sh_test(
+    name = "glitch_smoke_test",
+    size = "small",
+    srcs = ["glitch_smoke_test.sh"],
+    args = [
+        "$(rootpath @iverilog//:iverilog)",
+        "$(rootpath @iverilog//:vvp)",
+        "$(rootpath glitch.v)",
+    ],
+    data = [
+        "glitch.sdf",
+        "glitch.v",
+        "tb.v",
+        "@iverilog//:ivl_base",
+        "@iverilog//:iverilog",
+        "@iverilog//:vvp",
+    ],
+)
