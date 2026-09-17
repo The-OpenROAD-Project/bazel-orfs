@@ -115,8 +115,17 @@ SAIF annotates **100 % of pins** (28,264 / 53,694 / 81,165), **zero**
 are unannotated, and for all four cores the SAIF-driven total is
 bit-identical at ten significant figures across the whole sweep, while
 the same sweep moves the vectorless total by 21--144 %. The energy
-numbers are therefore vector-driven in the strong sense: OpenSTA's
-probabilistic activity model contributes nothing to them.
+numbers are therefore free of OpenSTA's probabilistic activity model: it
+contributes nothing to them. That is not the same as saying the SAIF
+determines all of them, and the difference is worth stating. A clock-network
+pin takes $2/\mathrm{period}$ from the SDC whether or not the SAIF reached
+it ([§2.2](#22-what-opensta-does-with-an-unannotated-pin)), and the clock group
+plus the clock-pin-driven share of sequential and macro internal power is most
+of every point ([§4.7](#47-where-the-power-goes)) -- which is why a SAIF time
+base wrong by 2.14x moved one core's total by 2.9 %
+([§5.3b](#53b-the-saifs-time-base-has-to-be-the-sdc-period)). What the SAIF
+determines is the combinational term and the data-pin share of the rest; what
+the SDC determines is the clock. Neither is an estimate.
 
 The shape the points make is reported with its diagnosis. The three
 cacheless cores lie close to a line in log--log axes; extrapolating it to
@@ -664,11 +673,15 @@ reason [§4.2](#42-annotation-completeness-and-the-estimator-bound) gives, and t
 than to keep it.
 
 What makes that tolerable rather than a loophole is that the sweep does
-not care how a pin came to be unannotated. It varies the default the
-estimator would use for *every* unannotated pin at once — matched or
-not, classified or not — and measures whether the answer moves. The
-classification says what was left out; the sweep says what it was
-worth.
+not care how a root came to be unannotated. It varies the default seeded
+into *every* unannotated root at once — matched or not, classified or not —
+and measures whether the answer moves; a non-root pin is reached through the
+propagation that default feeds. The one class it cannot reach is
+`clock_network`, which bypasses both paths for
+$2/\mathrm{period}$ ([§2.2](#22-what-opensta-does-with-an-unannotated-pin)) —
+and that is the class whose unannotated state is already the correct one. So
+the classification says what was left out, and the sweep says what it was
+worth everywhere the estimator could have spoken.
 
 OpenSTA's own summary line above the listings is deliberately not
 parsed. `Power::reportActivityAnnotation` computes `unannotated` as
@@ -962,10 +975,14 @@ annotated — and it moves the annotated result by zero.
 claim.** It is the one design with pins unaccounted for — 1.0073 % of
 its pin set — and its SAIF arm is still bit-identical at ten
 significant figures across the whole sweep, while its vectorless arm runs
-21.71 mW to 145.41 mW. The sweep does not care why a pin is unannotated:
-it varies the default the estimator would use for every one of them at
-once. Those 7,684 pins are worth exactly nothing to the reported number,
-and that is measured rather than argued.
+21.71 mW to 145.41 mW. Read carefully, that is two findings rather than
+one. The sweep bounds every path by which the estimator could have invented
+a density, and it comes back at zero: whatever those 7,684 pins cost, it is
+not the estimator. What they are is clock cells, and a clock pin takes
+$2/\mathrm{period}$ from the SDC rather than a guess
+([§2.2](#22-what-opensta-does-with-an-unannotated-pin)), so their unannotated
+state is the correct one. The first half is measured and the second is
+classified, and the claim needs both.
 
 A secondary observation falls out of the control arm. At OpenSTA's own
 default activity a vectorless report says 59.4 mW for SERV against a
@@ -1269,7 +1286,11 @@ fails in a way this study cannot yet explain.
 the default ibex configuration -- RV32IMC, no instruction cache, the
 core this study measures -- running CoreMark on a post-synthesis
 netlist in TSMC 65 nm at 1.2 V, typical corner, with PrimeTime and
-activity from a post-synthesis simulation. No memory is inside their
+activity from a post-synthesis simulation. One configuration difference is
+theirs and not ours: they state that "a latch-based register file
+implementation has been used for both the cores", where this study's ibex is
+`ibex_register_file_ff` and hardens as flops
+([§5.8](#58-where-each-cores-register-file-ends-up)). No memory is inside their
 boundary, so the comparable quantity here is *core only*: the tile's
 total less its macro group. To compare at the same stage, this study's
 ibex was taken to synthesis and no further, at its own 1282 ps and at
@@ -1326,9 +1347,13 @@ and it is not there. What the measurement has ruled out: the stage, the
 clock tree and the wires (1.70x, measured), the SAIF (identical toggles
 in every arm), and the estimator ([§4.2](#42-annotation-completeness-and-the-estimator-bound)). What it has not: ASAP7's
 predictive liberty energies -- the flops alone cost 1.64 fJ per
-flop-cycle here, from the unclamped arm -- and the mapping, 22,471 cells
+flop-cycle here, from the unclamped arm -- the mapping, 22,471 cells
 of which 2,328 are buffers for a core Design Compiler mapped in
-23.7 kGE. On the published side, the two rows are one RTL synthesised
+23.7 kGE, and **the register file**, latches on their side and flops on
+ours. The last one is a 32x32 array clocked every cycle, and the direction
+is the direction of the disagreement; its size is unmeasured, and measuring
+it means hardening ibex here with a latch-based file, which is a change to
+the design being measured and so a decision rather than a run. On the published side, the two rows are one RTL synthesised
 twice and differ by 3.7x in dynamic energy per iteration for a 33 %
 change in area, a spread the source does not explain either. **This
 cross-check is reported as measured down to the netlist and unexplained
@@ -2254,9 +2279,16 @@ a fourth copy would not have been an improvement on deleting the copy.
 ### 5.4 The corner is ASAP7's best case, not its typical
 
 `CORNER = BC` means FF process, 0.77 V, 25 °C ([§3.6](#36-corner-parasitics-and-stage)). Two consequences.
-Dynamic power scales with $V^2$, so at the nominal 0.70 V the same
-activity would give roughly $(0.70/0.77)^2 \approx 0.83$ of the reported
-switching power — about 17 % lower. Leakage is higher again at FF than
+Dynamic power scales with $V^2$, so at the nominal 0.70 V the same activity
+would give roughly $(0.70/0.77)^2 \approx 0.83$ of it — about 17 % lower.
+**That applies to the whole dynamic term, not only to switching**, which is
+worth saying because switching is the small half: on ibex it is 15 % of the
+total against 81 % internal ([§5.3](#53-estimated-not-extracted-parasitics--one-point-measured)),
+and a correction applied to switching alone would understate the corner by
+roughly five times. It is an estimate either way — the internal term comes
+from Liberty tables characterised at each corner rather than from a formula,
+so the only way to have the number is to read the TT liberty and re-report,
+which this study has not done. Leakage is higher again at FF than
 at TT, by more than the voltage ratio alone. The reported Watts are
 therefore an upper bound among ASAP7's corners, and the comparison in
 [§4.4](#44-a-22-nm-literature-series-and-what-it-is-and-is-not) against a typical-corner 22 nm series is biased against this
