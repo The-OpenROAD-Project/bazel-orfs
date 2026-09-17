@@ -175,8 +175,9 @@ void WriteLiberty(odb::dbBlock* block, const Spec& spec, const LibModel& m,
     << "        index_2 (\"1000, 1001\");\n"
     << "    }\n"
     << "    library_features(report_delay_calculation);\n";
+  const int A_bank = AddrWidth(words_per_bank);
   // One bus type per width in use.
-  std::set<int> widths = {A, spec.bits};
+  std::set<int> widths = {A, spec.bits, A_bank};
   for (int w : widths) {
     o << "    type (" << cell << "_bus_" << w << ") {\n"
       << "        base_type : array ;\n"
@@ -203,14 +204,16 @@ void WriteLiberty(odb::dbBlock* block, const Spec& spec, const LibModel& m,
       << "        capacitance : 0.001000;\n"
       << "    }\n";
   }
-  // Read ports: address in, data out combinational from that address.
-  for (int r = 0; r < R; ++r) {
-    o << "    bus(" << spec.read[r].addr << ")   {\n"
-      << "        bus_type : " << cell << "_bus_" << A << ";\n"
+  // Read ports: address in, data out combinational from that address. A
+  // banked port is one such pair per bank, with the bank-local width.
+  auto read_pair = [&](const std::string& addr, const std::string& data,
+                       int a_width, double read_ns_here) {
+    o << "    bus(" << addr << ")   {\n"
+      << "        bus_type : " << cell << "_bus_" << a_width << ";\n"
       << "        direction : input;\n"
       << "        capacitance : " << F(addr_pf) << ";\n"
       << "    }\n"
-      << "    bus(" << spec.read[r].data << ")   {\n"
+      << "    bus(" << data << ")   {\n"
       << "        bus_type : " << cell << "_bus_" << spec.bits << ";\n"
       << "        direction : output;\n"
       << "        max_capacitance : " << F(m.output_max_cap_ff / 1000.0) << ";\n";
@@ -219,18 +222,18 @@ void WriteLiberty(odb::dbBlock* block, const Spec& spec, const LibModel& m,
     // bitwise pairs of different sizes (STA-1216). Every data bit
     // depends on every address bit here.
     std::string addr_bits;
-    for (int i = 0; i < A; ++i) {
-      addr_bits += (i ? " " : "") + spec.read[r].addr + "[" + std::to_string(i) + "]";
+    for (int i = 0; i < a_width; ++i) {
+      addr_bits += (i ? " " : "") + addr + "[" + std::to_string(i) + "]";
     }
     for (int b = 0; b < spec.bits; ++b) {
-      o << "        pin(" << spec.read[r].data << "[" << b << "]) {\n"
+      o << "        pin(" << data << "[" << b << "]) {\n"
         << "            direction : output;\n"
         << "            timing() {\n"
         << "                related_pin : \"" << addr_bits << "\" ;\n"
         << "                timing_type : combinational;\n"
         << "                timing_sense : non_unate;\n";
-      Table2(o, "cell_rise", cell + "_delay_template", read_ns, 16);
-      Table2(o, "cell_fall", cell + "_delay_template", read_ns, 16);
+      Table2(o, "cell_rise", cell + "_delay_template", read_ns_here, 16);
+      Table2(o, "cell_fall", cell + "_delay_template", read_ns_here, 16);
       o << "                rise_transition(" << cell << "_slew_template) {\n"
         << "                    index_1 (\"0.005, 0.500\");\n"
         << "                    values (\"0.009, 0.227\")\n"
@@ -243,6 +246,20 @@ void WriteLiberty(odb::dbBlock* block, const Spec& spec, const LibModel& m,
         << "        }\n";
     }
     o << "    }\n";
+  };
+  // A banked port's read has no footer level.
+  const int bank_read_levels = 1 + Log2Ceil(A_bank) + 1 + Log2Ceil(words_per_bank);
+  const double bank_read_ns =
+      bank_read_levels * m.gate_delay_ps * m.wire_factor / 1000.0;
+  for (int r = 0; r < R; ++r) {
+    if (spec.read[r].banked()) {
+      for (size_t k = 0; k < spec.read[r].bank_addr.size(); ++k) {
+        read_pair(spec.read[r].bank_addr[k], spec.read[r].bank_data[k], A_bank,
+                  bank_read_ns);
+      }
+    } else {
+      read_pair(spec.read[r].addr, spec.read[r].data, A, read_ns);
+    }
   }
   // Write ports: everything constrained to the clock.
   for (int w = 0; w < W; ++w) {
@@ -324,9 +341,18 @@ std::vector<std::string> CheckPorts(const Spec& spec,
   if (!spec.reset.empty()) {
     want[spec.reset] = RtlPort{spec.reset, 1, true};
   }
+  const int banks = std::max(spec.banks, 1);
+  const int A_bank = AddrWidth(spec.words / banks);
   for (const auto& r : spec.read) {
-    want[r.addr] = RtlPort{r.addr, A, true};
-    want[r.data] = RtlPort{r.data, spec.bits, false};
+    if (r.banked()) {
+      for (size_t k = 0; k < r.bank_addr.size(); ++k) {
+        want[r.bank_addr[k]] = RtlPort{r.bank_addr[k], A_bank, true};
+        want[r.bank_data[k]] = RtlPort{r.bank_data[k], spec.bits, false};
+      }
+    } else {
+      want[r.addr] = RtlPort{r.addr, A, true};
+      want[r.data] = RtlPort{r.data, spec.bits, false};
+    }
   }
   for (const auto& w : spec.write) {
     want[w.addr] = RtlPort{w.addr, A, true};

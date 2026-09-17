@@ -171,6 +171,53 @@ int main(int argc, char** argv) {
     CHECK(structured_gen::CheckPorts(spec, bad).size() == 2);
   }
 
+  // A banked read port, the RegfileBank shape: per-bank address and data
+  // buses, no footer OR; the outputs are the banks' own.
+  std::string banked_spec = dir + "/rfb.spec";
+  {
+    std::ofstream f(banked_spec);
+    f << "module rfb8x4\nwords 8\nbits 4\nbanks 2\nclock clock\n"
+         "read_banked io_readPorts_0_addr_0 io_readPorts_0_data_0 "
+         "io_readPorts_0_addr_1 io_readPorts_0_data_1\n"
+         "write io_writePorts_0_addr io_writePorts_0_data io_writePorts_0_wen\n"
+         "cell flop DFFHQNx1_ASAP7_75t_R\ncell and2 AND2x2_ASAP7_75t_R\n"
+         "cell or2 OR2x2_ASAP7_75t_R\ncell ao22 AO22x2_ASAP7_75t_R\n"
+         "cell inv INVx1_ASAP7_75t_R\ncell tap TAPCELL_ASAP7_75t_R\n";
+  }
+  structured_gen::Spec bspec = structured_gen::ReadSpec(banked_spec);
+  CHECK(bspec.read.size() == 1 && bspec.read[0].banked());
+  // One generation per database: a second one gets its own.
+  odb::dbDatabase* db2 = odb::dbDatabase::create();
+  db2->setLogger(&logger);
+  odb::lefin reader2(db2, &logger, false);
+  odb::dbTech* tech2 = reader2.createTech("asap7", tech_lef.c_str());
+  CHECK(reader2.createLib(tech2, "asap7sc7p5t", cell_lef.c_str()) != nullptr);
+  odb::dbBlock* bblock = structured_gen::Generate(db2, &logger, bspec);
+  CHECK(bblock != nullptr);
+  int bank_outputs = 0;
+  for (odb::dbBTerm* t : bblock->getBTerms()) {
+    std::string n = t->getName();
+    if (n.rfind("io_readPorts_0_data_", 0) == 0) {
+      ++bank_outputs;
+      CHECK(t->getIoType() == odb::dbIoType::OUTPUT);
+      CHECK(t->getBPins().size() == 1);
+    }
+  }
+  CHECK(bank_outputs == 2 * 4);  // two banks, four bits each
+  // Bank-local addresses are 2 bits (4 words per bank), the write address 3.
+  CHECK(bblock->findBTerm("io_readPorts_0_addr_1[1]") != nullptr);
+  CHECK(bblock->findBTerm("io_readPorts_0_addr_1[2]") == nullptr);
+  CHECK(bblock->findBTerm("io_writePorts_0_addr[2]") != nullptr);
+  {
+    std::string blib = dir + "/rfb.lib";
+    structured_gen::WriteLiberty(bblock, bspec, bspec.lib, blib, false);
+    std::ifstream f(blib);
+    std::string text((std::istreambuf_iterator<char>(f)),
+                     std::istreambuf_iterator<char>());
+    CHECK(text.find("bus(io_readPorts_0_data_1)") != std::string::npos);
+    CHECK(text.find("bus(io_readPorts_0_addr_0)") != std::string::npos);
+  }
+
   std::string odb_path = dir + "/rf8x4.odb";
   {
     std::ofstream out(odb_path, std::ios::binary);

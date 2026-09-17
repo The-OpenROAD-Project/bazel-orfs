@@ -2134,6 +2134,21 @@ def _yosys_impl(ctx):
                  str(ctx.attr._fakeram.label) + " in " + str(ctx.label))
         fakeram_env = {"FAKERAM_RUN_PY": run_py[0].path}
 
+    # STRUCTURED_MEMORIES: the register-file generator runs inside the
+    # memories step, so the binary is staged into the canonicalize
+    # sandbox and named to make through STRUCTURED_GEN, the way FakeRAM
+    # is named through FAKERAM_RUN_PY. The views it writes land in the
+    # same results/memories directory and travel on OrfsInfo.memories.
+    if all_arguments.get("STRUCTURED_MEMORIES"):
+        if not auto_memories:
+            fail("STRUCTURED_MEMORIES is set but AUTO_MEMORIES is not 1: the " +
+                 "generated views ride the AUTO_MEMORIES memories step, so " +
+                 "both are needed. In " + str(ctx.label))
+        fakeram_inputs = fakeram_inputs + [ctx.executable._structured_gen]
+        fakeram_env = fakeram_env | {
+            "STRUCTURED_GEN": ctx.executable._structured_gen.path,
+        }
+
     # Clock-period extraction. The yosys side never reads the raw SDC:
     # synth_preamble.tcl consumes only SDC_FILE_CLOCK_PERIOD (the abc -D
     # value), which ORFS's do-sdc-clock-period target derives from the SDC

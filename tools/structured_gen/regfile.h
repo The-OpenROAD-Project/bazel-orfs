@@ -34,6 +34,11 @@ struct Port {
   std::string addr;  // bus name; bits are <addr>[i]
   std::string data;  // bus name; bits are <data>[i]
   std::string en;    // write ports only; empty means always enabled
+  // A banked read port (Chisel RegfileBank): one address and one data bus
+  // per bank, the bank mux outside. addr/data above are unused then.
+  std::vector<std::string> bank_addr;
+  std::vector<std::string> bank_data;
+  bool banked() const { return !bank_addr.empty(); }
 };
 
 // The cells the array is built from, by name in the loaded LEF.
@@ -73,6 +78,13 @@ struct Spec {
   int service_sites = 40; // free sites beside each tap, for the clock tree
   int banks = 1;          // word columns side by side; words % banks == 0
   LibModel lib;
+  // Pins: left and right edges on the horizontal layer, top and bottom on
+  // the vertical one, centred on that layer's track grid as the platform
+  // makes it, so a parent's macro placer can align them.
+  std::string pin_layer_h = "M4";
+  std::string pin_layer_v = "M5";
+  double pin_track_offset_um = 0.012;
+  double pin_track_pitch_um = 0.048;
 };
 
 // Reads a spec from a small `key value` text file (see README.md).
