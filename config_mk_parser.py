@@ -156,9 +156,16 @@ def _strip_inline_comment(value):
 class ConfigMkParser:
     """Parser for ORFS config.mk design DSL files."""
 
-    def __init__(self, designs_home="flow/designs", flow_home="flow"):
+    def __init__(
+        self, designs_home="flow/designs", flow_home="flow", platforms_dir=None
+    ):
         self.designs_home = designs_home
         self.flow_home = flow_home
+        # Where flow/platforms/<p>/config.mk is on disk, for a designs tree
+        # that is not ORFS's own: there the platform directory is not a
+        # sibling of the designs directory, and the logical flow_home is a
+        # label prefix rather than a path.
+        self.platforms_dir = platforms_dir
 
     def parse(self, config_path, base_dir=None, overrides=None):
         """Parse a config.mk file and return a ParsedDesign.
@@ -400,18 +407,33 @@ class ConfigMkParser:
             else:
                 result.arguments[var_name] = resolved
 
-    @staticmethod
-    def _platform_config_path(config_path, platform):
-        """flow/platforms/<platform>/config.mk next to flow/designs/..."""
+    def _platform_config_path(self, config_path, platform):
+        """flow/platforms/<platform>/config.mk for this design.
+
+        In ORFS's own tree the platform directory is a sibling of the
+        designs directory, so it is derived from the config path. A
+        consumer driving its own designs tree has no such sibling (the
+        derived path is a directory that does not exist), and the
+        platform file lives in ORFS, wherever the caller says with
+        `platforms_dir`. Without that, a hierarchical parent outside
+        ORFS silently ran with the flat power grid: the BLOCKS branch
+        asap7's config.mk selects on was never read.
+        """
         if not platform:
             return None
         parts = Path(config_path).parts
+        derived = None
         try:
             designs_idx = len(parts) - 1 - parts[::-1].index("designs")
+            flow_dir = Path(*parts[:designs_idx]) if designs_idx else Path(".")
+            derived = str(flow_dir / "platforms" / platform / "config.mk")
         except ValueError:
-            return None
-        flow_dir = Path(*parts[:designs_idx]) if designs_idx else Path(".")
-        return str(flow_dir / "platforms" / platform / "config.mk")
+            pass
+        if derived and os.path.exists(derived):
+            return derived
+        if self.platforms_dir:
+            return os.path.join(self.platforms_dir, platform, "config.mk")
+        return derived
 
     def _parse_file(self, filepath, base_dir, raw_vars, result, visited):
         """Parse a single file, handling includes recursively."""
@@ -1431,6 +1453,16 @@ def main():
         "elsewhere must pass its own, or every $(DESIGN_HOME) reference "
         "resolves to a package that does not exist.",
     )
+    parser.add_argument(
+        "--platforms-dir",
+        default=None,
+        help="Directory holding <platform>/config.mk on disk, for a designs "
+        "tree that is not ORFS's own. In ORFS the platform directory is a "
+        "sibling of the designs directory and is found from the config path; "
+        "elsewhere it is ORFS's flow/platforms, which the caller knows and "
+        "this parser does not. Without it a design with BLOCKS= misses the "
+        "variables the platform's config.mk selects on BLOCKS (asap7's PDN_TCL).",
+    )
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     parser.add_argument(
         "--generate", action="store_true", help="Generate orfs_flow() Bazel targets"
@@ -1450,7 +1482,9 @@ def main():
         parser.print_help()
         sys.exit(1)
 
-    mk_parser = ConfigMkParser(designs_home=args.designs_home)
+    mk_parser = ConfigMkParser(
+        designs_home=args.designs_home, platforms_dir=args.platforms_dir
+    )
     results = []
     exit_code = 0
 

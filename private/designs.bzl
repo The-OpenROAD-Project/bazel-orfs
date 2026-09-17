@@ -78,7 +78,16 @@ def _orfs_designs_impl(repository_ctx):
     # config_mk_parser._apply_platform_blocks_vars). It sits outside the
     # designs tree watched above, so watch it here or an edit to it
     # leaves DESIGNS stale.
+    #
+    # In ORFS's own tree that file is a sibling of the designs directory.
+    # A consumer's designs tree has no such sibling: the platform file is
+    # ORFS's, under @orfs//flow/platforms, and the parser cannot find it
+    # from the config path. It is told where, or a hierarchical parent
+    # outside ORFS runs with the flat power grid the BLOCKS branch exists
+    # to replace.
     platforms_dir = str(designs_path.dirname.dirname) + "/platforms"
+    if not repository_ctx.path(platforms_dir).exists:
+        platforms_dir = str(repository_ctx.path(Label("@orfs//flow:BUILD")).dirname) + "/platforms"
     for platform in repository_ctx.attr.platforms:
         platform_config = repository_ctx.path(
             platforms_dir + "/" + platform + "/config.mk",
@@ -102,6 +111,8 @@ def _orfs_designs_impl(repository_ctx):
             repository_ctx.attr.designs_dir.package,
             "--platforms",
             platforms_arg,
+            "--platforms-dir",
+            platforms_dir,
             "--json",
         ],
         timeout = 120,

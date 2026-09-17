@@ -105,132 +105,110 @@ class TestLineParsingBasic(unittest.TestCase):
         self.assertEqual(result.platform, "asap7")
 
     def test_conditional_assignment(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export SKIP_LAST_GASP ?= 1
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.arguments["SKIP_LAST_GASP"], "1")
 
     def test_conditional_assignment_no_override(self):
         """?= should not override a prior = assignment."""
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export CORE_UTILIZATION = 65
             export CORE_UTILIZATION ?= 50
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.arguments["CORE_UTILIZATION"], "65")
 
     def test_immediate_assignment(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export ABC_AREA := 1
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.arguments["ABC_AREA"], "1")
 
     def test_clear_to_empty(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export ADDER_MAP_FILE :=
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.arguments["ADDER_MAP_FILE"], "")
 
     def test_comment_lines_ignored(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             # This is a comment
             export PLATFORM = asap7
             # Another comment
             export DESIGN_NAME = gcd
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.platform, "asap7")
         self.assertEqual(result.design_name, "gcd")
 
     def test_empty_lines_ignored(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
 
             export DESIGN_NAME = gcd
 
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.platform, "asap7")
 
     def test_leading_whitespace(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
               export PLATFORM = asap7
             \texport DESIGN_NAME = gcd
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.platform, "asap7")
 
     def test_no_spaces_around_equals(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM=asap7
             export DESIGN_NAME=gcd
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.platform, "asap7")
 
     def test_multi_line_continuation(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export IO_NORTH_PINS = pin1 \\
             pin2 \\
             pin3
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertIn("pin1", result.arguments["IO_NORTH_PINS"])
         self.assertIn("pin2", result.arguments["IO_NORTH_PINS"])
         self.assertIn("pin3", result.arguments["IO_NORTH_PINS"])
 
     def test_non_export_line_ignored(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             SOME_VAR = value
-        """
-        )
+        """)
         result = self.parser.parse(config)
         # Non-export assignments are still parsed (Make allows it)
         self.assertIn("SOME_VAR", result.arguments)
 
     def test_make_target_line_warning(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             verilog:
             \techo hello
-        """
-        )
+        """)
         result = self.parser.parse(config)
         warnings = [w for w in result.warnings if isinstance(w, Warning)]
         target_warnings = [w for w in warnings if "Make target" in w.message]
@@ -244,114 +222,96 @@ class TestVariableResolution(unittest.TestCase):
         self.parser = ConfigMkParser()
 
     def test_design_home_ref(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/constraint.sdc
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertIn("SDC_FILE", result.sources)
         labels = result.sources["SDC_FILE"]
         self.assertTrue(any("constraint.sdc" in l for l in labels))
 
     def test_platform_ref(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = sky130hd
             export DESIGN_NAME = gcd
             export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/constraint.sdc
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertIn("SDC_FILE", result.sources)
 
     def test_design_nickname_default(self):
         """DESIGN_NICKNAME defaults to the design directory name."""
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint.sdc
-        """
-        )
+        """)
         result = self.parser.parse(config)
         # design_nickname should default to "test" (the dir name)
         self.assertEqual(result.design_nickname, "test")
 
     def test_design_nickname_explicit(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NICKNAME = aes
             export DESIGN_NAME = aes_cipher_top
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.design_nickname, "aes")
         self.assertEqual(result.design_name, "aes_cipher_top")
 
     def test_platform_dir_ref(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export PDN_TCL = $(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strategy.tcl
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertIn("PDN_TCL", result.sources)
         labels = result.sources["PDN_TCL"]
         self.assertTrue(any("platforms/asap7" in l for l in labels))
 
     def test_src_home_deprecated(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export SRC_HOME = $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)
             export VERILOG_FILES = $(SRC_HOME)/gcd.v
-        """
-        )
+        """)
         result = self.parser.parse(config)
         warnings = [w for w in result.warnings if isinstance(w, Warning)]
         src_warnings = [w for w in warnings if "SRC_HOME" in w.message]
         self.assertTrue(len(src_warnings) > 0)
 
     def test_shell_style_var_deprecated(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export TOP_DESIGN_NICKNAME = parent
             export DESIGN_NICKNAME = ${TOP_DESIGN_NICKNAME}_${DESIGN_NAME}
-        """
-        )
+        """)
         result = self.parser.parse(config)
         warnings = [w for w in result.warnings if isinstance(w, Warning)]
         shell_warnings = [w for w in warnings if "shell-style" in w.message]
         self.assertTrue(len(shell_warnings) > 0)
 
     def test_nested_refs(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = sky130hd
             export DESIGN_NAME = gcd
             export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/constraint.sdc
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertIn("SDC_FILE", result.sources)
 
     def test_unknown_variable_left_unresolved(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export ADDITIONAL_LIBS = $(LIB_DIR)/fakeram.lib
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertIn("ADDITIONAL_LIBS", result.sources)
         labels = result.sources["ADDITIONAL_LIBS"]
@@ -365,85 +325,71 @@ class TestVerilogFilesMapping(unittest.TestCase):
         self.parser = ConfigMkParser()
 
     def test_sort_wildcard_pattern(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/$(DESIGN_NAME)/*.v))
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.verilog_files, ["//flow/designs/src/gcd:verilog"])
 
     def test_sort_wildcard_nickname(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = aes_cipher_top
             export DESIGN_NICKNAME = aes
             export VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/*.v))
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.verilog_files, ["//flow/designs/src/aes:verilog"])
 
     def test_wildcard_without_sort(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export VERILOG_FILES = $(wildcard $(DESIGN_HOME)/src/$(DESIGN_NAME)/*.v)
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.verilog_files, ["//flow/designs/src/gcd:verilog"])
 
     def test_single_file(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = sky130hd
             export DESIGN_NAME = gcd
             export VERILOG_FILES = $(DESIGN_HOME)/src/$(DESIGN_NICKNAME)/gcd.v
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertTrue(len(result.verilog_files) == 1)
         self.assertIn("gcd.v", result.verilog_files[0])
 
     def test_multi_file_continuation(self):
         """Multi-file VERILOG_FILES with line continuations."""
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = test
             export VERILOG_FILES = $(DESIGN_HOME)/src/test/a.v \\
                 $(DESIGN_HOME)/src/test/b.v
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(len(result.verilog_files), 2)
 
     def test_platform_dir_verilog_deprecated(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = test
             export VERILOG_FILES = $(PLATFORM_DIR)/verilog/fakeram.sv
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertTrue(len(result.verilog_files) >= 1)
 
     def test_bare_glob_deprecated(self):
         """Glob without $(wildcard) — deprecated."""
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = gf180
             export DESIGN_NAME = uart
             export DESIGN_NICKNAME = uart-no-param
             export VERILOG_FILES = flow/designs/src/uart-no-param/*.v
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertTrue(len(result.verilog_files) >= 1)
 
@@ -455,27 +401,23 @@ class TestSdcFileMapping(unittest.TestCase):
         self.parser = ConfigMkParser()
 
     def test_standard_pattern_design_name(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/constraint.sdc
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertIn("SDC_FILE", result.sources)
         labels = result.sources["SDC_FILE"]
         self.assertTrue(any("constraint.sdc" in l for l in labels))
 
     def test_standard_pattern_nickname(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = sky130hd
             export DESIGN_NAME = gcd
             export DESIGN_NICKNAME = gcd
             export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/constraint.sdc
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertIn("SDC_FILE", result.sources)
         # Should be relative label since it's in the same dir
@@ -490,62 +432,52 @@ class TestVariableClassification(unittest.TestCase):
         self.parser = ConfigMkParser()
 
     def test_platform_is_structural(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.platform, "asap7")
         self.assertNotIn("PLATFORM", result.arguments)
 
     def test_design_name_is_structural(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.design_name, "gcd")
         self.assertNotIn("DESIGN_NAME", result.arguments)
 
     def test_verilog_files_is_structural(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/$(DESIGN_NAME)/*.v))
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertTrue(len(result.verilog_files) > 0)
         self.assertNotIn("VERILOG_FILES", result.arguments)
 
     def test_sdc_file_is_source(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/constraint.sdc
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertIn("SDC_FILE", result.sources)
         self.assertNotIn("SDC_FILE", result.arguments)
 
     def test_source_vars_classified(self):
         """All SOURCE_VARS should go to sources, not arguments."""
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export FASTROUTE_TCL = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/route.tcl
             export IO_CONSTRAINTS = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/io.tcl
             export PDN_TCL = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/pdn.tcl
-        """
-        )
+        """)
         result = self.parser.parse(config)
         for var in ("FASTROUTE_TCL", "IO_CONSTRAINTS", "PDN_TCL"):
             self.assertIn(var, result.sources, f"{var} should be in sources")
@@ -559,14 +491,12 @@ class TestVariableClassification(unittest.TestCase):
         variable was classified, canonicalization failed on
         "No rule to make target '.../tag_array.memories'".
         """
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = RocketTile
             export AUTO_MEMORIES = 1
             export ADDITIONAL_MEMORIES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/tag_array.memories
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertIn("ADDITIONAL_MEMORIES", result.sources)
         self.assertNotIn("ADDITIONAL_MEMORIES", result.arguments)
@@ -574,37 +504,31 @@ class TestVariableClassification(unittest.TestCase):
         self.assertEqual(result.arguments.get("AUTO_MEMORIES"), "1")
 
     def test_core_utilization_is_argument(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export CORE_UTILIZATION = 65
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertIn("CORE_UTILIZATION", result.arguments)
         self.assertEqual(result.arguments["CORE_UTILIZATION"], "65")
 
     def test_blocks_is_structural(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = test
             export BLOCKS = block1 block2
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.blocks, ["block1", "block2"])
         self.assertNotIn("BLOCKS", result.arguments)
 
     def test_synth_hierarchical_is_argument(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = test
             export SYNTH_HIERARCHICAL = 1
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertIn("SYNTH_HIERARCHICAL", result.arguments)
 
@@ -614,13 +538,11 @@ class TestVariableClassification(unittest.TestCase):
         Callers can declare it in config.mk and pass it through to
         orfs_design()'s local_arguments= to drop it before orfs_flow().
         """
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export VERILOG_FILES_BLACKBOX = $(DESIGN_HOME)/src/gcd/bbox.v
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertIn("VERILOG_FILES_BLACKBOX", result.sources)
         self.assertNotIn("VERILOG_FILES_BLACKBOX", result.arguments)
@@ -633,14 +555,12 @@ class TestVariableClassification(unittest.TestCase):
         This is the local-helper use case: declare a file list once and
         reference it via $(VAR) expansion within the same config.mk.
         """
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export VERILOG_FILES_BLACKBOX = $(DESIGN_HOME)/src/gcd/bbox.v
             export VERILOG_FILES = $(DESIGN_HOME)/src/gcd/top.v $(VERILOG_FILES_BLACKBOX)
-        """
-        )
+        """)
         result = self.parser.parse(config)
         joined = " ".join(result.verilog_files)
         self.assertIn("top.v", joined)
@@ -654,66 +574,57 @@ class TestConditionalParsing(unittest.TestCase):
         self.parser = ConfigMkParser()
 
     def test_ifeq_detected(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             ifeq ($(FLOW_VARIANT),top)
                 export DESIGN_NAME = top_module
             endif
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertTrue(result.has_conditionals)
 
     def test_ifeq_flow_variant_warning(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             ifeq ($(FLOW_VARIANT),top)
                 export ABC_AREA = 1
             endif
-        """
-        )
+        """)
         result = self.parser.parse(config)
         warnings = [w for w in result.warnings if isinstance(w, Warning)]
         fv_warnings = [w for w in warnings if "FLOW_VARIANT" in w.message]
         self.assertTrue(len(fv_warnings) > 0)
 
     def test_ifeq_use_fill_warning(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = gf12
             export DESIGN_NAME = gcd
             ifeq ($(USE_FILL),1)
                 export DESIGN_TYPE = CELL
             endif
-        """
-        )
+        """)
         result = self.parser.parse(config)
         warnings = [w for w in result.warnings if isinstance(w, Warning)]
         fill_warnings = [w for w in warnings if "USE_FILL" in w.message]
         self.assertTrue(len(fill_warnings) > 0)
 
     def test_ifeq_blocks_warning(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = test
             ifeq ($(BLOCKS),)
                 export ADDITIONAL_LEFS = something.lef
             endif
-        """
-        )
+        """)
         result = self.parser.parse(config)
         warnings = [w for w in result.warnings if isinstance(w, Warning)]
         block_warnings = [w for w in warnings if "BLOCKS" in w.message]
         self.assertTrue(len(block_warnings) > 0)
 
     def test_else_ifeq_chains(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = aes
             ifeq ($(FLOW_VARIANT),top)
@@ -723,16 +634,14 @@ class TestConditionalParsing(unittest.TestCase):
             else ifeq ($(FLOW_VARIANT),combine)
                 export DESIGN_NAME = combine
             endif
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertTrue(result.has_conditionals)
         # The unconditional DESIGN_NAME should be "aes"
         self.assertEqual(result.design_name, "aes")
 
     def test_nested_ifeq(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             ifeq ($(A),1)
@@ -741,20 +650,17 @@ class TestConditionalParsing(unittest.TestCase):
                 endif
             endif
             export CORE_UTILIZATION = 65
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertTrue(result.has_conditionals)
         self.assertEqual(result.arguments["CORE_UTILIZATION"], "65")
 
     def test_if_filter_deprecated(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = rapidus2hp
             export DESIGN_NAME = gcd
             export CORE_UTILIZATION = $(strip $(if $(filter 0.15,$(RAPIDUS_PDK_VERSION)),40,45))
-        """
-        )
+        """)
         result = self.parser.parse(config)
         warnings = [w for w in result.warnings if isinstance(w, Warning)]
         if_warnings = [
@@ -788,26 +694,22 @@ class TestConditionalParsing(unittest.TestCase):
         self.assertTrue(len(include_warnings) > 0)
 
     def test_work_home_deprecated(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = aes
             export SYNTH_NETLIST_FILES = $(WORK_HOME)/results/asap7/aes/top/1_synth.v
-        """
-        )
+        """)
         result = self.parser.parse(config)
         warnings = [w for w in result.warnings if isinstance(w, Warning)]
         wh_warnings = [w for w in warnings if "WORK_HOME" in w.message]
         self.assertTrue(len(wh_warnings) > 0)
 
     def test_relative_path_deprecated(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = test
             export VERILOG_FILES = designs/src/test/*.v
-        """
-        )
+        """)
         result = self.parser.parse(config)
         warnings = [w for w in result.warnings if isinstance(w, Warning)]
         rel_warnings = [
@@ -832,8 +734,7 @@ class TestConditionalEvaluation(unittest.TestCase):
 
     def test_ifeq_empty_taken_when_var_unset(self):
         """Unknown variable keeps the historical default-branch guess."""
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = test
             ifeq ($(BLOCKS),)
@@ -841,15 +742,13 @@ class TestConditionalEvaluation(unittest.TestCase):
             else
                 export ABC_AREA = 0
             endif
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.arguments["ABC_AREA"], "1")
 
     def test_ifeq_empty_skipped_when_var_set(self):
         """A set BLOCKS makes the if-branch dead and the else live."""
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = test
             export BLOCKS = b1
@@ -858,45 +757,41 @@ class TestConditionalEvaluation(unittest.TestCase):
             else
                 export ABC_AREA = 0
             endif
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.arguments["ABC_AREA"], "0")
 
     def test_ifeq_dead_branch_emits_no_missing_warning(self):
         """A branch make also skips is not "missing in Bazel"."""
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = test
             export BLOCKS = b1
             ifeq ($(BLOCKS),)
                 export CORE_UTILIZATION = 30
             endif
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertNotIn("CORE_UTILIZATION", result.arguments)
-        missing = [w for w in result.warnings if "only set inside conditional" in w.message]
+        missing = [
+            w for w in result.warnings if "only set inside conditional" in w.message
+        ]
         self.assertEqual(missing, [])
 
     def test_ifneq_evaluated(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = test
             export BLOCKS = b1
             ifneq ($(BLOCKS),)
                 export ABC_AREA = 1
             endif
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.arguments["ABC_AREA"], "1")
 
     def test_ifeq_literal_compare_evaluated(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = test
             export DESIGN_TYPE = CELL
@@ -905,14 +800,12 @@ class TestConditionalEvaluation(unittest.TestCase):
             else
                 export ABC_AREA = 0
             endif
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.arguments["ABC_AREA"], "1")
 
     def test_ifdef_evaluated(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = test
             export BLOCKS = b1
@@ -922,15 +815,13 @@ class TestConditionalEvaluation(unittest.TestCase):
             ifndef BLOCKS
                 export CORE_UTILIZATION = 30
             endif
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.arguments["ABC_AREA"], "1")
         self.assertNotIn("CORE_UTILIZATION", result.arguments)
 
     def test_else_ifeq_chain_evaluated(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = test
             export DESIGN_TYPE = RAM
@@ -941,15 +832,13 @@ class TestConditionalEvaluation(unittest.TestCase):
             else
                 export ABC_AREA = 3
             endif
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.arguments["ABC_AREA"], "2")
 
     def test_nested_conditional_both_decided(self):
         """Nested branches are adopted when every enclosing test is known."""
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = test
             export BLOCKS = b1
@@ -959,23 +848,20 @@ class TestConditionalEvaluation(unittest.TestCase):
                     export ABC_AREA = 1
                 endif
             endif
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.arguments["ABC_AREA"], "1")
 
     def test_unknown_function_call_stays_undecided(self):
         """A Make function in the test is not guessed at."""
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = test
             export CORNER = BC
             ifeq ($(filter BC,$(CORNER)),)
                 export ABC_AREA = 1
             endif
-        """
-        )
+        """)
         result = self.parser.parse(config)
         # Undecided: the historical test-for-empty default still applies.
         self.assertEqual(result.arguments["ABC_AREA"], "1")
@@ -1108,16 +994,51 @@ class TestPlatformBlocksVars(unittest.TestCase):
         self.assertNotIn("PLACE_DENSITY", result.arguments)
 
     def test_missing_platform_config_is_tolerated(self):
-        config = self._tree(
-            """\
+        config = self._tree("""\
             export PLATFORM = asap7
             export DESIGN_NAME = parent
             export BLOCKS = b1
-            """
-        )
+            """)
         result = self.parser.parse(config)
         self.assertEqual(result.blocks, ["b1"])
         self.assertNotIn("PDN_TCL", result.sources)
+
+    def test_designs_tree_outside_orfs_uses_platforms_dir(self):
+        """A consumer's designs tree has no platforms sibling.
+
+        test/coremark_joule/designs/asap7/xiangshan/config.mk derives
+        test/coremark_joule/platforms, which does not exist, so the
+        BLOCKS branch was never read and a hierarchical parent ran with
+        the flat grid (PDN-0232 on every block, PDN-0233). The platform
+        directory is ORFS's, passed in by whoever knows where ORFS is.
+        """
+        tmpdir = tempfile.mkdtemp()
+        design_dir = os.path.join(tmpdir, "site/designs/asap7/parent")
+        platforms_dir = os.path.join(tmpdir, "orfs/flow/platforms")
+        os.makedirs(design_dir)
+        os.makedirs(os.path.join(platforms_dir, "asap7"))
+        config = os.path.join(design_dir, "config.mk")
+        with open(config, "w") as f:
+            f.write(textwrap.dedent("""\
+                export PLATFORM = asap7
+                export DESIGN_NAME = parent
+                export BLOCKS = b1
+                """))
+        with open(os.path.join(platforms_dir, "asap7/config.mk"), "w") as f:
+            f.write(textwrap.dedent(self._PLATFORM_PDN))
+        # Without the hint: the derived sibling is missing, nothing adopted.
+        result = self.parser.parse(config)
+        self.assertNotIn("PDN_TCL", result.sources)
+        # With it: the BLOCKS branch is read from ORFS's platform file.
+        parser = ConfigMkParser(
+            designs_home="site/designs", platforms_dir=platforms_dir
+        )
+        result = parser.parse(config)
+        self.assertEqual(
+            result.sources["PDN_TCL"],
+            ["//flow:platforms/asap7/openRoad/pdn/BLOCKS.tcl"],
+        )
+        self.assertNotIn("PLACE_DENSITY", result.arguments)
 
 
 class TestBlocksSubMacros(unittest.TestCase):
@@ -1127,24 +1048,20 @@ class TestBlocksSubMacros(unittest.TestCase):
         self.parser = ConfigMkParser()
 
     def test_blocks_parsed(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = test
             export BLOCKS = block1 block2
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.blocks, ["block1", "block2"])
 
     def test_single_block(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = gf180
             export DESIGN_NAME = uart
             export BLOCKS = uart_rx
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.blocks, ["uart_rx"])
 
@@ -1276,14 +1193,12 @@ class TestBlocksSubMacros(unittest.TestCase):
 
     def test_nickname_with_make_style_refs(self):
         """DESIGN_NICKNAME using $(VAR) refs should also be resolved."""
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = MyDesign
             export TOP_DESIGN_NICKNAME = top
             export DESIGN_NICKNAME = $(TOP_DESIGN_NICKNAME)_$(DESIGN_NAME)
-        """
-        )
+        """)
         result = self.parser.parse(config)
         self.assertEqual(result.design_nickname, "top_MyDesign")
 
@@ -1295,15 +1210,13 @@ class TestGenerateOrfsFlow(unittest.TestCase):
         self.parser = ConfigMkParser()
 
     def test_simple_generation(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/$(DESIGN_NAME)/*.v))
             export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/constraint.sdc
             export CORE_UTILIZATION = 65
-        """
-        )
+        """)
         result = self.parser.parse(config)
         output = generate_orfs_flow(result)
         self.assertIn("orfs_flow(", output)
@@ -1346,29 +1259,25 @@ class TestLintReport(unittest.TestCase):
         self.parser = ConfigMkParser()
 
     def test_clean_config_no_lint(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             export VERILOG_FILES = $(sort $(wildcard $(DESIGN_HOME)/src/$(DESIGN_NAME)/*.v))
             export SDC_FILE = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NAME)/constraint.sdc
             export CORE_UTILIZATION = 65
-        """
-        )
+        """)
         result = self.parser.parse(config)
         report = lint_report(result)
         self.assertEqual(report, "")
 
     def test_deprecated_features_reported(self):
-        config, _ = _write_config(
-            """\
+        config, _ = _write_config("""\
             export PLATFORM = asap7
             export DESIGN_NAME = gcd
             ifeq ($(FLOW_VARIANT),top)
                 export ABC = 1
             endif
-        """
-        )
+        """)
         result = self.parser.parse(config)
         report = lint_report(result)
         self.assertIn("WARNING", report)
