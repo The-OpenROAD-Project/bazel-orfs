@@ -241,6 +241,49 @@ int main(int argc, char** argv) {
   CHECK(sblock->getDieArea().dx() < block->getDieArea().dx());
   CHECK(sblock->getDieArea().dy() > block->getDieArea().dy());
   CHECK(sblock->getDieArea().dx() * 2 > block->getDieArea().dx());
+  // Bit folds: the 4-bit word in two bands is narrower and taller again,
+  // with the same cells plus a second copy of each word's decode.
+  std::string folded_spec = dir + "/rff.spec";
+  {
+    std::ifstream in(spec_path);
+    std::ofstream f(folded_spec);
+    f << in.rdbuf() << "bit_folds 2\n";
+  }
+  odb::dbDatabase* db4 = odb::dbDatabase::create();
+  db4->setLogger(&logger);
+  odb::lefin reader4(db4, &logger, false);
+  odb::dbTech* tech4 = reader4.createTech("asap7", tech_lef.c_str());
+  CHECK(reader4.createLib(tech4, "asap7sc7p5t", cell_lef.c_str()) != nullptr);
+  odb::dbBlock* fblock = structured_gen::Generate(
+      db4, &logger, structured_gen::ReadSpec(folded_spec));
+  CHECK(fblock != nullptr);
+  CHECK(fblock->getInsts().size() > block->getInsts().size());
+  CHECK(fblock->getDieArea().dx() < block->getDieArea().dx());
+  CHECK(fblock->getDieArea().dy() > block->getDieArea().dy());
+  {
+    int fflops = 0;
+    std::map<int, std::vector<std::pair<int, int>>> rows;
+    odb::Rect fdie = fblock->getDieArea();
+    for (odb::dbInst* inst : fblock->getInsts()) {
+      odb::Rect box = inst->getBBox()->getBox();
+      CHECK(fdie.contains(box));
+      if (inst->getMaster()->getName() == "DFFHQNx1_ASAP7_75t_R") {
+        ++fflops;
+      }
+      rows[box.yMin()].emplace_back(box.xMin(), box.xMax());
+    }
+    CHECK(fflops == 8 * 4);
+    for (auto& [y, spans] : rows) {
+      std::sort(spans.begin(), spans.end());
+      for (size_t i = 1; i < spans.size(); ++i) {
+        CHECK(spans[i].first >= spans[i - 1].second);
+      }
+    }
+    for (odb::dbBTerm* t : fblock->getBTerms()) {
+      CHECK(t->getBPins().size() == 1);
+    }
+  }
+
   {
     // A bank_columns that does not divide banks is refused.
     std::ofstream f(stacked_spec, std::ios::app);

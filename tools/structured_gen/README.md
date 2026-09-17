@@ -63,7 +63,10 @@ outline a parent can place, instead of one ten times taller than wide.
 `bank_columns` says how many of them stand side by side; the rest stack
 below, so a 128-bit word with four banks is four bank heights tall and
 one bank width wide instead of a strip four bank widths wide. The
-default is all of them in one row.
+default is all of them in one row. `bit_folds` splits the word itself
+into that many bands, stacked, each with its own copy of the word
+decode: a 564-bit word with one write and one read port is a 600 um
+strip as one band and 80 x 140 um as eight.
 
 Read path: address inverters, an AND2 tree over the literals, the tile's
 AND2, and log2(words) OR2 levels. For 256 words that is about twelve
@@ -94,6 +97,7 @@ tap_columns     8
 service_sites   40
 banks           4
 bank_columns    2           # two banks wide, two tall
+bit_folds       1           # the word in one band
 ```
 
 Cell pins default to asap7's (`D CLK QN`, `A B Y`, `A1 A2 B1 B2 Y`,
