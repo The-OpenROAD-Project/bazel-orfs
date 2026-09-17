@@ -488,3 +488,19 @@ py_test(
     ],
     main = "glitch_project_test.py",
 )
+
+py_binary(
+    name = "mult_replay",
+    srcs = ["mult_replay.py"],
+    visibility = ["//test/coremark_joule:__subpackages__"],
+)
+
+py_test(
+    name = "mult_replay_test",
+    size = "small",
+    srcs = [
+        "mult_replay.py",
+        "mult_replay_test.py",
+    ],
+    main = "mult_replay_test.py",
+)

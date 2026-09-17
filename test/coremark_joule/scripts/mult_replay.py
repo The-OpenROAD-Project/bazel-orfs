@@ -1,0 +1,369 @@
+#!/usr/bin/env python3
+"""Turn a recorded module boundary into a standalone replay testbench.
+
+5.2's whole-core timing-annotated simulation does not work and, where it
+does run, runs at a few cycles per second -- so reaching the cycles where
+CoreMark multiplies costs hours before anything is measured. But the
+multiplier is a preserved module in the hardened netlist, its per-instance
+delays are in the same SDF the whole design's are, and every one of its
+port values is already recorded in the zero-delay run's dump. So the
+module can be simulated on its own, with the real cells and the real
+delays, driven by exactly what the core drove it with.
+
+Nothing here re-synthesizes anything. A standalone hardening of the
+multiplier would give a different netlist -- different context, different
+cell choices, its own clock tree and parasitics -- and the bound wanted
+is on the multiplier this study actually reports power for.
+
+What is replayed, and what is not:
+
+- the clock leaves are driven by the testbench, because the buffers that
+  drive them are outside the module and their delays are not in its SDF;
+- every other input is replayed per cycle from the dump, promoted nets
+  included. Those are buffered copies of reset and of data signals that
+  optimization pushed through the module boundary, and inventing them
+  would be inventing the module's inputs;
+- the outputs are replayed too, as an oracle: an arm that does not
+  reproduce them is not measuring the same work.
+
+The limitation this cannot escape: inputs arrive at the cycle boundary
+as the dump records them, not staggered as they arrive in the core. So
+what it measures is the glitch the partial-product tree generates from
+its own path imbalance, which is the bound wanted, and not the glitch
+injected at its boundary.
+"""
+
+import argparse
+import sys
+
+CLOCK_MARK = "clknet"
+
+
+def read_ports(path):
+    """(direction, name, width, spelling), in the order the netlist declares.
+
+    The spelling is the netlist's own, escape and all: a dump names a
+    port unescaped, a netlist may not, and a generated instantiation has
+    to use the netlist's.
+    """
+    ports = []
+    with open(path) as f:
+        for line in f:
+            parts = line.split()
+            if len(parts) >= 3:
+                spelling = parts[3] if len(parts) > 3 else parts[1]
+                ports.append((parts[0], parts[1], int(parts[2]), spelling))
+    return ports
+
+
+def declare(spelling):
+    """An identifier as Verilog needs it written: escaped names take a space."""
+    return spelling + " " if spelling.startswith("\\") else spelling
+
+
+def parse_header(stream):
+    """identifier -> name, for $var lines at any scope depth."""
+    ids = {}
+    for line in stream:
+        s = line.strip()
+        if s.startswith("$var"):
+            parts = s.split()
+            if len(parts) >= 5:
+                ids.setdefault(parts[3], parts[4])
+        elif s.startswith("$enddefinitions"):
+            return ids
+    return ids
+
+
+def normalize(value, width):
+    """A VCD value as a fixed-width binary string, plus its unknown bits.
+
+    The unknown bits are returned per position rather than as a flag.
+    A bit that is X in every change carries no information and becomes a
+    constant either way, so it can neither lose the replay anything nor
+    contribute a transition to either arm; a bit that is X only
+    sometimes is a real difference between the replay and the recording.
+    Collapsing the two into one flag hides exactly that distinction.
+    """
+    value = value.lower()
+    if len(value) < width:
+        pad = value[0] if value and value[0] in "xz" else "0"
+        value = pad * (width - len(value)) + value
+    elif len(value) > width:
+        value = value[-width:]
+    mask = [i for i, c in enumerate(value) if c in "xz"]
+    return value.replace("x", "0").replace("z", "0"), mask
+
+
+def sample(stream, ports, clock):
+    """Snapshot every port at each clock posedge, after that instant's events.
+
+    A zero-delay dump puts the edge and everything it causes at one
+    timestamp, so the snapshot has to be taken once the whole timestamp
+    is consumed -- sampling mid-block would catch the design halfway
+    through settling.
+    """
+    ids = parse_header(stream)
+    width = {n: w for _, n, w, _ in ports}
+    by_name = {}
+    for ident, name in ids.items():
+        by_name.setdefault(name, ident)
+    wanted = {by_name[n]: n for _, n, _, _ in ports if n in by_name}
+    clock_id = by_name.get(clock)
+    if clock_id is None:
+        raise ValueError("clock %r is not in the dump" % clock)
+
+    values = {n: "0" * width[n] for _, n, _, _ in ports}
+    # Whether the value a port currently holds was recorded as X or Z.
+    # Snapshotted with the values, because "this port was unknown at
+    # some point in the window" and "this port was unknown during the
+    # cycles being measured" are different claims, and only the second
+    # one says whether a replay of those cycles is exact.
+    unknown_now = {n: False for _, n, _, _ in ports}
+    rows, masks, unknown_ports = [], [], {}
+    pending_edge = False
+    clock_now = "0"
+
+    def flush():
+        rows.append(dict(values))
+        masks.append({n for n, u in unknown_now.items() if u})
+
+    for line in stream:
+        s = line.strip()
+        if not s:
+            continue
+        if s[0] == "#":
+            if pending_edge:
+                flush()
+                pending_edge = False
+            continue
+        if s[0] in "bBrR":
+            parts = s.split()
+            if len(parts) != 2:
+                continue
+            val, ident = parts[0][1:], parts[1]
+        elif s[0] in "01xzXZ":
+            val, ident = s[0], s[1:]
+        else:
+            continue
+        if ident == clock_id:
+            if clock_now == "0" and val == "1":
+                pending_edge = True
+            clock_now = val
+            if ident not in wanted:
+                continue
+        name = wanted.get(ident)
+        if name is None:
+            continue
+        clean, mask = normalize(val, width[name])
+        counts = unknown_ports.setdefault(name, {"changes": 0, "bits": {}})
+        counts["changes"] += 1
+        for i in mask:
+            bit = width[name] - 1 - i
+            counts["bits"][bit] = counts["bits"].get(bit, 0) + 1
+        values[name] = clean
+        unknown_now[name] = bool(mask)
+    if pending_edge:
+        flush()
+    return rows, masks, unknown_ports
+
+
+def pack(rows, ports, keep):
+    """One hex word per cycle, ports concatenated MSB-first in declared order."""
+    selected = [(n, w, s) for d, n, w, s in ports if keep(d, n)]
+    total = sum(w for _, w, _ in selected)
+    out = []
+    for row in rows:
+        bits = "".join(row[n] for n, _, _ in selected)
+        out.append("%0*x" % ((total + 3) // 4, int(bits, 2) if bits else 0))
+    return out, selected, total
+
+
+def testbench(module, ports, n_in, n_out, cycles, period_ps, unknown_out_bits):
+    """A self-contained replay testbench, generated because the ports are the design.
+
+    The module is instantiated from the hardened netlist by its own
+    escaped name, so nothing is re-synthesized and nothing is retyped.
+    """
+    ins = [(n, w, s) for d, n, w, s in ports if is_input(d, n)]
+    clocks = [(n, s) for d, n, w, s in ports
+              if d == "input" and CLOCK_MARK in n]
+    outs = [(n, w, s) for d, n, w, s in ports if d == "output"]
+
+    lines = ["/* Generated by mult_replay.py -- do not edit.",
+             " *",
+             " * The multiplier of the hardened ibex netlist, replayed on its own",
+             " * from the boundary the whole-core zero-delay run recorded (5.2).",
+             " * With +sdf it carries that design's own per-instance delays; the",
+             " * difference between the two arms is the glitch.",
+             " */",
+             "`timescale 1ps / 1ps",
+             "",
+             "module tb_mult_replay;",
+             "  localparam int unsigned PeriodPs = %d;" % period_ps,
+             "  localparam int unsigned NCycles  = %d;" % cycles,
+             "",
+             "  logic clk = 1'b0;",
+             "  logic [%d:0] stim   [0:NCycles-1];" % (n_in - 1),
+             "  logic [%d:0] want   [0:NCycles-1];" % (n_out - 1),
+             "  logic [%d:0] cur = '0;" % (n_in - 1),
+             "  logic [%d:0] got;" % (n_out - 1),
+             "  /* Bits that were X in every recorded change: unused, and",
+             "   * compared against nothing rather than compared against X. */",
+             "  localparam logic [%d:0] OutMask = %d'b%s;"
+             % (n_out - 1, n_out,
+                "".join("0" if i in unknown_out_bits else "1"
+                        for i in range(n_out - 1, -1, -1))),
+             "  int unsigned n, mismatches = 0;",
+             "  string sdf_file, vcd_file, stim_file, want_file;",
+             ""]
+    a = lines.append
+
+    hi = n_in - 1
+    for name, w, spelling in ins:
+        a("  wire %s%s = cur[%d:%d];"
+          % ("[%d:0] " % (w - 1) if w > 1 else "", name, hi, hi - w + 1))
+        hi -= w
+    a("")
+    for name, spelling in clocks:
+        a("  wire %s = clk;" % name)
+    a("")
+    for name, w, spelling in outs:
+        a("  wire %s%s;" % ("[%d:0] " % (w - 1) if w > 1 else "", name))
+    a("")
+    a("  %s dut (" % declare(module))
+    conns = ["      .%s(%s)" % (declare(s).rstrip() if not s.startswith("\\")
+                                else s + " ", n)
+             for d, n, w, s in ports]
+    a(",\n".join(conns))
+    a("  );")
+    a("")
+    a("  always #(PeriodPs / 2) clk = ~clk;")
+    a("")
+    a("  initial begin")
+    a("    if (!$value$plusargs(\"stim=%s\", stim_file)) stim_file = \"stim.hex\";")
+    a("    if (!$value$plusargs(\"expect=%s\", want_file))")
+    a("      want_file = \"expect.hex\";")
+    a("    $readmemh(stim_file, stim);")
+    a("    $readmemh(want_file, want);")
+    a("    /* Before any edge: a delay annotated after the design has")
+    a("     * started is a delay that did not apply to what came before. */")
+    a("    if ($value$plusargs(\"sdf=%s\", sdf_file)) $sdf_annotate(sdf_file, dut);")
+    a("    if ($value$plusargs(\"vcd=%s\", vcd_file)) begin")
+    a("      $dumpfile(vcd_file);")
+    a("      $dumpvars(0, tb_mult_replay);")
+    a("    end")
+    a("    for (n = 0; n < NCycles; n++) begin")
+    a("      @(posedge clk);")
+    a("      cur = stim[n];")
+    a("      /* Checked just before the next edge, once the annotated arm")
+    a("       * has had a whole period to settle. */")
+    a("      #(PeriodPs - PeriodPs / 8);")
+    a("      got = {%s};" % ", ".join(n for n, _, _ in outs))
+    a("      if ((got & OutMask) !== (want[n] & OutMask))")
+    a("        mismatches = mismatches + 1;")
+    a("    end")
+    a("    $display(\"tb_mult_replay: %0d cycles, %0d output mismatches%s\",")
+    a("             NCycles, mismatches, sdf_file != \"\" ? \" (SDF)\" : \" (zero delay)\");")
+    a("    $finish;")
+    a("  end")
+    a("endmodule")
+    return "\n".join(lines) + "\n"
+
+
+def is_input(direction, name):
+    """Replayed inputs: everything but the clock leaves the testbench drives."""
+    return direction == "input" and CLOCK_MARK not in name
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--vcd", required=True)
+    ap.add_argument("--ports", required=True)
+    ap.add_argument("--clock", required=True)
+    ap.add_argument("--stim", required=True)
+    ap.add_argument("--expect", required=True)
+    ap.add_argument("--only-busy", action="store_true",
+                    help="emit only the cycles the unit is working, "
+                         "back to back: the 100 %% duty upper bound")
+    ap.add_argument("--busy", default="mult_en_i",
+                    help="port whose high level marks a cycle of real work")
+    ap.add_argument("--tb", help="where to write the generated testbench")
+    ap.add_argument("--module", help="file naming the netlist module to instantiate")
+    ap.add_argument("--period-ps", type=int, default=1282)
+    ap.add_argument("--report", help="where to write the packing description")
+    args = ap.parse_args(argv)
+
+    ports = read_ports(args.ports)
+    with open(args.vcd, errors="replace") as f:
+        rows, masks, unknown = sample(f, ports, args.clock)
+
+    if args.only_busy:
+        # The upper bound: the unit's own working cycles, concatenated,
+        # with the idle cycles between bursts taken out. For this
+        # multiplier that is a reachable operating point rather than a
+        # fiction -- a multiply occupies it for three cycles, so a
+        # stream of them saturates it. The recorded outputs are not an
+        # oracle for this arm: removing the idle cycles changes what the
+        # module's own flops see, which is the point of the arm.
+        keep = [i for i, r in enumerate(rows) if r.get(args.busy) == "1"]
+        rows = [rows[i] for i in keep]
+        masks = [masks[i] for i in keep]
+
+    stim, in_sel, n_in = pack(rows, ports, is_input)
+    exp, out_sel, n_out = pack(rows, ports, lambda d, n: d == "output")
+    with open(args.stim, "w") as f:
+        f.write("\n".join(stim) + "\n")
+    with open(args.expect, "w") as f:
+        f.write("\n".join(exp) + "\n")
+
+    text = ["cycles sampled: %d" % len(rows),
+            "stimulus ports: %d (%d bits)" % (len(in_sel), n_in),
+            "expected ports: %d (%d bits)" % (len(out_sel), n_out)]
+    inputs = {n for d, n, _, _ in ports if is_input(d, n)}
+    busy = [i for i, r in enumerate(rows) if r.get(args.busy) == "1"]
+    text.append("%s high on %d of %d cycles" % (args.busy, len(busy), len(rows)))
+    always, sometimes = [], []
+    for name, counts in sorted(unknown.items()):
+        for bit, n in sorted(counts["bits"].items()):
+            row = (name, bit, n, counts["changes"],
+                   "input" if name in inputs else "output")
+            (always if n == counts["changes"] else sometimes).append(row)
+    if always:
+        text.append("bits unknown in every change -- constant, so no "
+                    "information is lost and no transition is counted:")
+        for name, bit, n, of, where in always:
+            text.append("  %-24s[%2d] %-6s %d of %d changes"
+                        % (name, bit, where, n, of))
+    if sometimes:
+        text.append("bits unknown in SOME changes -- the replay differs "
+                    "from the recording here:")
+        for name, bit, n, of, where in sometimes:
+            text.append("  %-24s[%2d] %-6s %d of %d changes"
+                        % (name, bit, where, n, of))
+    if not always and not sometimes:
+        text.append("no port ever carried X or Z")
+    if args.tb:
+        with open(args.module) as f:
+            module = f.read().strip()
+        unknown_out_bits = set()
+        offset = n_out
+        for name, w, _ in out_sel:
+            offset -= w
+            for bit in unknown.get(name, {}).get("bits", {}):
+                unknown_out_bits.add(offset + bit)
+        with open(args.tb, "w") as f:
+            f.write(testbench(module, ports, n_in, n_out, len(rows),
+                              args.period_ps, unknown_out_bits))
+        text.append("testbench: %s" % args.tb)
+
+    report = "\n".join(text) + "\n"
+    if args.report:
+        with open(args.report, "w") as f:
+            f.write(report)
+    sys.stdout.write(report)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
