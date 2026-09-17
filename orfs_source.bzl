@@ -148,6 +148,15 @@ ORFS_PATCHES = [
     # cells of their own type.
     # Not upstreamed -- retire at a bump onto an ORFS with such a hook.
     Label("//patches:0068-orfs-synth-techmap-hook.patch"),
+    # openroad reads a flow script with sta::include_file, which reads it
+    # one command at a time and reports a failure as a single line with
+    # the Tcl stack trace discarded -- and an unbalanced brace as
+    # "incomplete command at end of file", with no line at all. Passing
+    # -tcl_source reads it with Tcl's source instead, so a failure names
+    # each proc and the failing line. The flag itself comes from the
+    # openroad and OpenSTA patches carried alongside this one.
+    # Not upstreamed -- retire at a bump onto an ORFS that passes it.
+    Label("//patches:0069-orfs-openroad-args-tcl-source.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
