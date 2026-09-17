@@ -16,5 +16,6 @@ export SYNTH_KEEP_MODULES      = LoadQueueReplay \
                                  PhysicalStoreQueue \
                                  ForwardModule \
                                  SqEntryCell \
+                                 SqForwardPipe \
                                  VirtualStoreQueue \
                                  AgeDetector_40
