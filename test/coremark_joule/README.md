@@ -1949,6 +1949,75 @@ multiplier of 3,199 cells rather than 3,206. The conclusion survived
 the change and the numbers did not, which is the honest summary of how
 much weight one window on one hardening carries.
 
+### 5.2c A second core, and where that stops
+
+[§5.2](#52-zero-delay-simulation-carries-no-glitch-power)'s threat is not that this study under-reports power. It is that
+it under-reports it *differentially*: deep combinational logic glitches
+more than a short pipeline, so the bias distorts the comparison between
+cores rather than only the absolute numbers. One unit on one core does
+not bound that. This section records an attempt to measure a second
+core, what it cost, and why it is not finished.
+
+**VeeR was the right second core and offered a better experiment than
+expected.** It has four instances of `exu_alu_ctl` in one hardening --
+same RTL, same chip, same recording -- at 2,250, 2,250, 2,249 and 2,137
+cells and 70, 68, 72 and 67 ports. Synthesis already treated them
+differently by context. Glitch across those four would be a
+*within-design* measurement of [§2.4](#24-when-glitch-power-is-worth-measuring-and-when-it-is-premature)'s claim, with none of the
+confounds the across-re-baseline comparison carries.
+
+**It is not finished.** `exu.i0_alu_e1` replays with no SDF errors and
+every stateful cell seeded from the recording, and most of its outputs
+reproduce it digit for digit -- `flush_path` and `pc_ff` match. Two do
+not: `out` is X and `predict_p_ff` differs, so the oracle fails and
+there is no number. `GLITCH_RESUME.md` carries the untested hypothesis
+and what would settle it.
+
+**What the attempt did establish, and it is not nothing.** Five distinct
+defects, every one of which produced a plausible number rather than an
+error:
+
+| | what it did |
+|---|---|
+| memories never initialised | VeeR read locations never written, X reached the fetch path, the core stopped by cycle 20,000 |
+| escaped `/` treated as hierarchy | one module appeared to have twenty instances |
+| a name matching nothing accepted | an ALU reported busy on 0 of 2,001 cycles |
+| names resolved without scope | a unit replayed against a *different instance's* signals |
+| flops start X mid-stream | state whose enable never asserts inside the window never resolves |
+
+**Table 13.** Defects found extending the method to a second core.
+
+The fourth is the one worth the detour. A whole-design recording holds
+four instances of the same ALU, each with its own `out`, and the sampler
+took whichever the dump declared first -- silently. That would have
+corrupted the per-unit sweep [§8.8](#88-glitch-power-per-unit-and-per-core) describes, whose entire premise is
+recording once and cutting units out of it, and ibex could never have
+revealed it because its recording was scoped to a single module.
+
+**Three of the five are the same thing**, and it is the standing hazard
+of this kind of measurement: X out of uninitialised state, invisible
+from a two-state simulator. Together with [§5.2](#52-zero-delay-simulation-carries-no-glitch-power)'s whole-core
+annotation failure and the testbench that released reset on a clock
+edge, four-state gate-level simulation accounted for every dead end in
+this work that was not a tool limitation.
+
+**Why it stopped here.** Each fix revealed another layer, five deep, and
+the sixth is a question about when a gated clock first ticks inside a
+module being replayed from mid-stream. That is a simulation-methodology
+problem rather than a power-measurement one, and the study's remaining
+uncertainty is [§7](#7-cores-after-the-first-four)'s larger cores rather than a second glitch
+figure. The machinery is committed and tested, the failure is
+characterised, and resuming needs the one hypothesis tested rather than
+the chain rebuilt.
+
+**What is therefore still unmeasured**: the differential bias [§5.2](#52-zero-delay-simulation-carries-no-glitch-power)
+names. Glitch is measured on one unit of one core ([§5.2b](#52b-glitch-power-in-the-multiplier-measured)), and the
+claim that it distorts comparison *between* cores remains an argument
+rather than a number. SERV would settle it best -- a bit-serial datapath
+should glitch worst of the four -- and SERV is structurally out of
+reach: its kept modules are parameterized and do not survive into the
+ODB ([§5.7](#57-attribution-does-not-survive-parameterized-modules)), so there is no module boundary to cut.
+
 ### 5.3 Estimated, not extracted, parasitics — one point, measured
 
 `estimate_parasitics -global_routing` is a model of the wiring, not the
@@ -2814,6 +2883,29 @@ against CoreMark's Acceptable Use Agreement ([§9](#9-licensing)), which forbids
 trademark on a modified copy of the Software, before it is committed.
 
 ---
+
+### 8.8 Glitch power per unit, and per core
+
+[§5.2b](#52b-glitch-power-in-the-multiplier-measured) measures one unit of one core, and [§5.2c](#52c-a-second-core-and-where-that-stops) says why there is not
+yet a second. The shape that would finish it is a sweep: `units.json`
+already names the preserved modules per design, each replays in seconds
+off one shared recording, and the expensive half -- the zero-delay
+whole-design run, 35 minutes for ibex and nearly two hours for VeeR --
+is paid once per design and cached. A bazel target would fan the units
+out in parallel and re-run only the ones whose inputs moved.
+
+What it would give is the first core-wide figure, and it has to be
+reported as a lower bound: a sum over units cannot see the glitch
+injected *between* them by staggered arrival at their boundaries, which
+is where a good deal of real glitch lives. What it would not give is
+the differential bias across cores that [§5.2](#52-zero-delay-simulation-carries-no-glitch-power) actually names, because
+SERV -- the core whose bit-serial datapath should glitch worst -- has no
+module boundary to cut ([§5.7](#57-attribution-does-not-survive-parameterized-modules)).
+
+The obstacle is not the sweep. It is [§5.2c](#52c-a-second-core-and-where-that-stops)'s open question about
+when a gated clock first ticks in a module replayed from mid-stream,
+which every unit with un-reset state will meet. `GLITCH_RESUME.md`
+carries the chain, the measured costs, and the hypothesis to test.
 
 ## Appendix A. Shipping silicon at the wall plug
 
