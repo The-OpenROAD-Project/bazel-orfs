@@ -24,31 +24,29 @@ export SDC_FILE                = $(DESIGN_HOME)/asap7/xiangshan/constraints.sdc
 # categories ACM CF'25 reports for CVA6, CVA6S+ and the C910, so the two
 # breakdowns can be read against each other.
 export SYNTH_HIERARCHICAL      = 1
-export SYNTH_KEEP_MODULES      = Frontend Backend MemBlock CtrlBlock \
-                                 DecodeStage Dispatch Ftq FusionDecoder \
-                                 IBuffer Ifu NewLoadUnit PMP PMPChecker \
-                                 PTWFilter Region Region_1 Rename Rob TLB \
-                                 Uncache IssueQueueLdu IssueQueueAluMul \
-                                 ExuBlock DataPath IssueQueueAluI2fBrhNjmp \
-                                 IssueQueueAluBkuVset \
-                                 IssueQueueAluCsrFenceLinkBrhNjmp \
-                                 IssueQueueAluDivBrhNjmp IssueQueueStdMoud \
-                                 IssueQueueStdMoud_1 IssueQueueStaMou \
-                                 IssueQueueStaMou_1 IssueQueueFaluFmacFdiv \
-                                 ExuBlock_1 DataPath_1 \
-                                 IssueQueueFaluFmacFcvtFcmp IssueQueueFaluFmac \
-                                 LsqWrapper Sbuffer TLBNonBlock \
-                                 PrefetcherWrapper MemCtrl LoadQueueReplay \
-                                 LoadQueueRAW LoadQueueRAR VirtualLoadQueue \
-                                 LoadQueueUncache StoreQueue \
-                                 VectorDecodeChannel SimpleDecodeChannel \
-                                 UopBufferCtrlDecoder RenameBuffer VTypeBuffer \
-                                 TLBNonBlock_1 TLBNonBlock_2 PMPChecker_8 \
-                                 PTWNewFilter BusyTable BusyTable_1  \
-                                 PhysicalStoreQueue VirtualStoreQueue \
-                                 ExeUnitImp NewCSR RenameTableWrapper \
-                                 CompressUnit SSIT LFST SbufferData \
-                                 AgeDetector_40 ResolveQueue
+export SYNTH_KEEP_MODULES      = Frontend \
+                                 Backend \
+                                 MemBlock \
+                                 CtrlBlock \
+                                 Ftq \
+                                 FusionDecoder \
+                                 IBuffer \
+                                 Ifu \
+                                 NewLoadUnit \
+                                 PMP \
+                                 PMPChecker \
+                                 PTWFilter \
+                                 TLB \
+                                 Uncache \
+                                 Sbuffer \
+                                 TLBNonBlock \
+                                 PrefetcherWrapper \
+                                 TLBNonBlock_1 \
+                                 TLBNonBlock_2 \
+                                 PMPChecker_8 \
+                                 PTWNewFilter \
+                                 SbufferData \
+                                 ResolveQueue
 
 # The second block of that list, from IssuePipeVialuVfmaVfdivVidiv on, is
 # kept for synthesis turnaround, not for the breakdown. yosys and abc are
@@ -91,19 +89,37 @@ export OPENROAD_HIERARCHICAL   = 1
 # block (Bpu's predictors, DCacheWrapper's arrays, VecRegionModule's
 # issue queues and the vector register file are in their blocks).
 #
-# Region_1, the floating-point region, was a block and is not: its
-# detailed placement failed legalisation twice (4 h 10 min and 1 h 17
-# min, 17 k misaligned cells, every one under fpDataPath) at 28 %
-# utilisation with two sites of global-placement padding and a 2000-site
-# search window. The four FpRegFilePart flop arrays with their 14-port
-# read muxes are local density no legaliser spreads; Region_1/config.mk
-# keeps the attempt. It stays flat in the parent, which carries the
-# integer register file of the same shape anyway. The fix a competing
-# core has is a compiled register file, and the idiomatic form of that
-# here is a generator linking OpenROAD's libraries -- a later tool, not
-# a flow setting.
-export BLOCKS                  = VecRegionModule Bpu ICache \
-                                 DCacheWrapper L2TLBWrapper
+# Thirteen blocks, chosen for build time. The first five are the caches,
+# predictors and the vector region; the next eight are the rest of the
+# core's bulk, read off the generated Verilog by subtree size: decode
+# (942 k lines, eight copies of one channel), the reorder buffer (285 k),
+# dispatch (153 k), rename (80 k), memory dependence prediction (70 k),
+# the integer region (676 k), the floating-point region (257 k) and the
+# load/store queues (284 k). What stays in the parent is about 530 k
+# lines of glue: the frontend outside Bpu and ICache, MemBlock's TLBs,
+# store buffer and prefetchers, and the top-level connections. The blocks
+# synthesise and place in parallel, each partitioned inside, so the wall
+# time is the slowest block plus a small parent instead of one placement
+# of the whole core; and the gate-level simulation sees the blocks as
+# RTL, which is what makes it tractable.
+#
+# Region_1 was a block before, failed legalisation twice on its
+# floating-point register files, and came back into the parent. The
+# register files are generated macros now (FpRegFilePart0..3.regfile,
+# named in Region_1/config.mk), which is what its placement needed.
+export BLOCKS                  = VecRegionModule \
+                                 Bpu \
+                                 ICache \
+                                 DCacheWrapper \
+                                 L2TLBWrapper \
+                                 DecodeStage \
+                                 Rob \
+                                 Dispatch \
+                                 Rename \
+                                 MemCtrl \
+                                 Region \
+                                 Region_1 \
+                                 LsqWrapper
 
 # The register files, generated rather than synthesised. As flops the
 # four FpRegFilePart arrays stopped the fp region block's legalisation
@@ -120,12 +136,7 @@ export BLOCKS                  = VecRegionModule Bpu ICache \
 # register files by XiangShan patch 0002 (Reg(Vec) arrays given a module
 # boundary, utils.RegVecFile): 64 words each, one write, 1-4 reads, and
 # together 53 kbit of the Ftq partition's flops behind 64:1 read muxes.
-export STRUCTURED_MEMORIES     = $(DESIGN_HOME)/asap7/xiangshan/IntRegFile.regfile \
-                                 $(DESIGN_HOME)/asap7/xiangshan/FpRegFilePart0.regfile \
-                                 $(DESIGN_HOME)/asap7/xiangshan/FpRegFilePart1.regfile \
-                                 $(DESIGN_HOME)/asap7/xiangshan/FpRegFilePart2.regfile \
-                                 $(DESIGN_HOME)/asap7/xiangshan/FpRegFilePart3.regfile \
-                                 $(DESIGN_HOME)/asap7/xiangshan/FtqEntryQueue.regfile \
+export STRUCTURED_MEMORIES     = $(DESIGN_HOME)/asap7/xiangshan/FtqEntryQueue.regfile \
                                  $(DESIGN_HOME)/asap7/xiangshan/FtqMetaQueueRedirect.regfile \
                                  $(DESIGN_HOME)/asap7/xiangshan/FtqMetaQueueResolve.regfile \
                                  $(DESIGN_HOME)/asap7/xiangshan/FtqMetaQueueCommit.regfile
