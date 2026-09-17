@@ -1,0 +1,1140 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Oyvind Harboe <oyvind.harboe@zylin.com>
+Date: Wed, 17 Sep 2026 00:00:00 +0000
+Subject: [PATCH] variables.yaml: every variable names the stages that read it
+
+41 variables had no `stages:` list. The list is what a build system uses
+to know which stages a variable reaches; a variable without one can only
+be treated as reaching every stage, and then setting ENABLE_DPO, a
+detail-placement knob, re-runs synthesis, floorplan and everything else
+of every block of a hierarchical design -- measured on a 34-block
+XiangShan: the change of a placement polish cost a full pass of block
+synthesis.
+
+The scopes come from where flow/scripts reads each variable: ENABLE_DPO
+and DPO_MAX_DISPLACEMENT in detail_place.tcl (place); CAP_MARGIN and
+SLEW_MARGIN through repair_design_helper from resize.tcl and
+global_route.tcl; RECOVER_POWER and GENERATE_ARTIFACTS_ON_FAILURE in
+global_route.tcl; TAP_CELL_NAME, FASTROUTE_TCL and MIN_CLK_ROUTING_LAYER
+in the floorplan; USE_FILL, FILL_CONFIG and REPAIR_PDN_VIA_LAYER in
+detailed route; the klayout and RCX inputs in final; AUTO_MEMORIES in
+synth. The design, platform and library identifiers every stage loads
+say `All stages` explicitly, as the flow's own use of that value already
+allows. docs/user/FlowVariables.md and variables.json are regenerated
+with generate-variables-docs.py and yaml_to_json.py.
+
+Not upstreamed; carried by bazel-orfs. Retires at a //:bump onto an ORFS
+whose variables.yaml has a stages list for every variable.
+---
+diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
+--- a/docs/user/FlowVariables.md
++++ b/docs/user/FlowVariables.md
+@@ -288,6 +288,7 @@
+ | <a name="SKIP_CRIT_VT_SWAP"></a>SKIP_CRIT_VT_SWAP| Do not perform VT swap on critical cells to improve QoR (default: do critical VT swap). This is an additional VT swap on critical cells that remain near the end of setup fixing. If SKIP_VT_SWAP is set to 1, this also disables critical cell VT swap.| |
+ | <a name="SKIP_CTS_REPAIR_TIMING"></a>SKIP_CTS_REPAIR_TIMING| Skipping CTS repair, which can take a long time, can be useful in architectural exploration or when getting CI up and running.| 0|
+ | <a name="SKIP_DETAILED_ROUTE"></a>SKIP_DETAILED_ROUTE| Skips detailed route.| 0|
++| <a name="SKIP_EXTRACT_FA"></a>SKIP_EXTRACT_FA| Skip yosys's extract_fa before the adder techmap. Full-adder extraction is a large share of synthesis time on arithmetic-heavy modules (an FMA or a vector converter can spend most of its partition in it); without it adders map through the generic techmap. A turnaround setting for architectural exploration.| 0|
+ | <a name="SKIP_GATE_CLONING"></a>SKIP_GATE_CLONING| Do not use gate cloning transform to fix timing violations (default: use gate cloning).| |
+ | <a name="SKIP_INCREMENTAL_REPAIR"></a>SKIP_INCREMENTAL_REPAIR| Skip incremental repair in global route.| 0|
+ | <a name="SKIP_LAST_GASP"></a>SKIP_LAST_GASP| Do not use last gasp optimization to fix timing violations (default: use gate last gasp).| |
+@@ -296,6 +297,8 @@
+ | <a name="SKIP_REPORT_METRICS"></a>SKIP_REPORT_METRICS| If set to 1, then metrics, report_metrics does nothing. Useful to speed up builds.| 0|
+ | <a name="SKIP_VT_SWAP"></a>SKIP_VT_SWAP| Do not perform VT swap to improve QoR (default: do VT swap).| |
+ | <a name="SLEW_MARGIN"></a>SLEW_MARGIN| Specifies a slew margin when fixing max slew violations. This option allows you to overfix.| |
++| <a name="STRUCTURED_GEN"></a>STRUCTURED_GEN| Path of the generator STRUCTURED_MEMORIES runs. Set by the build system that carries the generator, not by a design.| |
++| <a name="STRUCTURED_MEMORIES"></a>STRUCTURED_MEMORIES| Experimental. Space-separated list of register-file spec files, one per RTL module to replace with a generated, placed standard-cell macro rather than synthesise to flops. Each spec names its module, words, bits, read and write ports by the RTL's own port names, and the cells; the generator checks the spec against the module's ports, writes `<module>.lef`, `<module>.lib` and `<module>_pre_layout.lib` under `$(RESULTS_DIR)/memories/`, and the module is blackboxed like an AUTO_MEMORIES macro. Explicit by design: nothing is detected. Requires AUTO_MEMORIES=1 and STRUCTURED_GEN.| |
+ | <a name="SWAP_ARITH_OPERATORS"></a>SWAP_ARITH_OPERATORS| Improve timing QoR by swapping ALU and MULT arithmetic operators.| |
+ | <a name="SYNTH_ARGS"></a>SYNTH_ARGS| Optional synthesis variables for yosys.| |
+ | <a name="SYNTH_BLACKBOXES"></a>SYNTH_BLACKBOXES| List of cells treated as a black box by Yosys. With Bazel, this can be used to run synthesis in parallel for the large modules of the design. Non-existant modules are ignored silently, useful when listing modules statically, even if modules come and go dynamically.| |
+@@ -337,6 +340,8 @@
+ | <a name="VERILOG_TOP_PARAMS"></a>VERILOG_TOP_PARAMS| Apply toplevel params (if exist). Passed in as a list of key value pairs in tcl syntax; separated by spaces: PARAM1 VALUE1 PARAM2 VALUE2| |
+ | <a name="VIA_IN_PIN_MAX_LAYER"></a>VIA_IN_PIN_MAX_LAYER| Passed as -via_in_pin_top_layer to pin_access and detailed_route.| |
+ | <a name="VIA_IN_PIN_MIN_LAYER"></a>VIA_IN_PIN_MIN_LAYER| Passed as -via_in_pin_bottom_layer to pin_access and detailed_route.| |
++| <a name="WIRE_LOAD_LIB"></a>WIRE_LOAD_LIB| Path to the Liberty file defining the wire_load group applied by WIRE_LOAD_TCL.| |
++| <a name="WIRE_LOAD_TCL"></a>WIRE_LOAD_TCL| Path to a Tcl script sourced after the design is opened to apply a statistical wire-load model (a Liberty wire_load group selected with set_wire_load_model) on nets that have no parasitics yet, i.e. before placement. Inert once real parasitics exist (wire-load models are not applied to nets that already carry parasitics).| |
+ | <a name="WRITE_ODB_AND_SDC_EACH_STAGE"></a>WRITE_ODB_AND_SDC_EACH_STAGE| Save out .sdc and .odb file after each stage, useful to disable when using a single OpenROAD instance to run all stages of the flow.| 1|
+ | <a name="YOSYS_FLAGS"></a>YOSYS_FLAGS| Flags to pass to yosys.| -v 3|
+ ## synth variables
+@@ -347,6 +352,7 @@
+ - [ABC_LOAD_IN_FF](#ABC_LOAD_IN_FF)
+ - [ADDER_MAP_FILE](#ADDER_MAP_FILE)
+ - [ADDITIONAL_MEMORIES](#ADDITIONAL_MEMORIES)
++- [AUTO_MEMORIES](#AUTO_MEMORIES)
+ - [CACHED_REPORTS](#CACHED_REPORTS)
+ - [CLKGATE_MAP_FILE](#CLKGATE_MAP_FILE)
+ - [DFF_LIB_FILE](#DFF_LIB_FILE)
+@@ -360,7 +366,10 @@
+ - [PRE_SYNTH_TCL](#PRE_SYNTH_TCL)
+ - [SDC_FILE](#SDC_FILE)
+ - [SDC_GUT](#SDC_GUT)
++- [SKIP_EXTRACT_FA](#SKIP_EXTRACT_FA)
+ - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
++- [STRUCTURED_GEN](#STRUCTURED_GEN)
++- [STRUCTURED_MEMORIES](#STRUCTURED_MEMORIES)
+ - [SYNTH_ARGS](#SYNTH_ARGS)
+ - [SYNTH_BLACKBOXES](#SYNTH_BLACKBOXES)
+ - [SYNTH_CANONICALIZE_TCL](#SYNTH_CANONICALIZE_TCL)
+@@ -392,6 +401,8 @@
+ - [VERILOG_FILES](#VERILOG_FILES)
+ - [VERILOG_INCLUDE_DIRS](#VERILOG_INCLUDE_DIRS)
+ - [VERILOG_TOP_PARAMS](#VERILOG_TOP_PARAMS)
++- [WIRE_LOAD_LIB](#WIRE_LOAD_LIB)
++- [WIRE_LOAD_TCL](#WIRE_LOAD_TCL)
+ - [YOSYS_FLAGS](#YOSYS_FLAGS)
+ 
+ ## floorplan variables
+@@ -403,6 +414,7 @@
+ - [CORE_MARGIN](#CORE_MARGIN)
+ - [CORE_UTILIZATION](#CORE_UTILIZATION)
+ - [DIE_AREA](#DIE_AREA)
++- [FASTROUTE_TCL](#FASTROUTE_TCL)
+ - [FLOORPLAN_DEF](#FLOORPLAN_DEF)
+ - [FOOTPRINT](#FOOTPRINT)
+ - [FOOTPRINT_TCL](#FOOTPRINT_TCL)
+@@ -417,6 +429,7 @@
+ - [MAKE_TRACKS](#MAKE_TRACKS)
+ - [MATCH_CELL_FOOTPRINT](#MATCH_CELL_FOOTPRINT)
+ - [MAX_ROUTING_LAYER](#MAX_ROUTING_LAYER)
++- [MIN_CLK_ROUTING_LAYER](#MIN_CLK_ROUTING_LAYER)
+ - [MIN_ROUTING_LAYER](#MIN_ROUTING_LAYER)
+ - [PDN_TCL](#PDN_TCL)
+ - [PLACE_DENSITY](#PLACE_DENSITY)
+@@ -452,6 +465,7 @@
+ - [RTLMP_WIRELENGTH_WT](#RTLMP_WIRELENGTH_WT)
+ - [SETUP_MOVE_SEQUENCE](#SETUP_MOVE_SEQUENCE)
+ - [SETUP_SLACK_MARGIN](#SETUP_SLACK_MARGIN)
++- [SET_RC_TCL](#SET_RC_TCL)
+ - [SKIP_BUFFER_REMOVAL](#SKIP_BUFFER_REMOVAL)
+ - [SKIP_CRIT_VT_SWAP](#SKIP_CRIT_VT_SWAP)
+ - [SKIP_GATE_CLONING](#SKIP_GATE_CLONING)
+@@ -461,6 +475,7 @@
+ - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
+ - [SKIP_VT_SWAP](#SKIP_VT_SWAP)
+ - [TAPCELL_TCL](#TAPCELL_TCL)
++- [TAP_CELL_NAME](#TAP_CELL_NAME)
+ - [TIEHI_CELL_AND_PORT](#TIEHI_CELL_AND_PORT)
+ - [TIELO_CELL_AND_PORT](#TIELO_CELL_AND_PORT)
+ - [TIE_SEPARATION](#TIE_SEPARATION)
+@@ -470,13 +485,16 @@
+ 
+ - [BALANCE_ROWS](#BALANCE_ROWS)
+ - [BUFFER_PORTS_ARGS](#BUFFER_PORTS_ARGS)
++- [CAP_MARGIN](#CAP_MARGIN)
+ - [CELL_PAD_IN_SITES_DETAIL_PLACEMENT](#CELL_PAD_IN_SITES_DETAIL_PLACEMENT)
+ - [CELL_PAD_IN_SITES_GLOBAL_PLACEMENT](#CELL_PAD_IN_SITES_GLOBAL_PLACEMENT)
+ - [CLUSTER_FLOPS](#CLUSTER_FLOPS)
+ - [CLUSTER_FLOPS_ARGS](#CLUSTER_FLOPS_ARGS)
+ - [DETAIL_PLACEMENT_ARGS](#DETAIL_PLACEMENT_ARGS)
+ - [DONT_BUFFER_PORTS](#DONT_BUFFER_PORTS)
++- [DPO_MAX_DISPLACEMENT](#DPO_MAX_DISPLACEMENT)
+ - [EARLY_SIZING_CAP_RATIO](#EARLY_SIZING_CAP_RATIO)
++- [ENABLE_DPO](#ENABLE_DPO)
+ - [ENABLE_PLACE_REPAIR_TIMING](#ENABLE_PLACE_REPAIR_TIMING)
+ - [FLOORPLAN_DEF](#FLOORPLAN_DEF)
+ - [GLOBAL_PLACEMENT_ARGS](#GLOBAL_PLACEMENT_ARGS)
+@@ -505,7 +523,9 @@
+ - [PRE_IO_PLACEMENT_TCL](#PRE_IO_PLACEMENT_TCL)
+ - [PRE_RESIZE_TCL](#PRE_RESIZE_TCL)
+ - [ROUTING_LAYER_ADJUSTMENT](#ROUTING_LAYER_ADJUSTMENT)
++- [SET_RC_TCL](#SET_RC_TCL)
+ - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
++- [SLEW_MARGIN](#SLEW_MARGIN)
+ - [TNS_END_PERCENT](#TNS_END_PERCENT)
+ 
+ ## cts variables
+@@ -529,6 +549,7 @@
+ - [REPORT_CLOCK_SKEW](#REPORT_CLOCK_SKEW)
+ - [SETUP_MOVE_SEQUENCE](#SETUP_MOVE_SEQUENCE)
+ - [SETUP_SLACK_MARGIN](#SETUP_SLACK_MARGIN)
++- [SET_RC_TCL](#SET_RC_TCL)
+ - [SKIP_BUFFER_REMOVAL](#SKIP_BUFFER_REMOVAL)
+ - [SKIP_CRIT_VT_SWAP](#SKIP_CRIT_VT_SWAP)
+ - [SKIP_CTS_REPAIR_TIMING](#SKIP_CTS_REPAIR_TIMING)
+@@ -541,9 +562,11 @@
+ 
+ ## grt variables
+ 
++- [CAP_MARGIN](#CAP_MARGIN)
+ - [CELL_PAD_IN_SITES_DETAIL_PLACEMENT](#CELL_PAD_IN_SITES_DETAIL_PLACEMENT)
+ - [DETAILED_METRICS](#DETAILED_METRICS)
+ - [ENABLE_RESISTANCE_AWARE](#ENABLE_RESISTANCE_AWARE)
++- [GENERATE_ARTIFACTS_ON_FAILURE](#GENERATE_ARTIFACTS_ON_FAILURE)
+ - [GLOBAL_ROUTE_ARGS](#GLOBAL_ROUTE_ARGS)
+ - [GLOBAL_ROUTE_USE_CUGR](#GLOBAL_ROUTE_USE_CUGR)
+ - [GRT_SEED](#GRT_SEED)
+@@ -554,10 +577,12 @@
+ - [OPT_POST_GRT_WNS](#OPT_POST_GRT_WNS)
+ - [POST_GLOBAL_ROUTE_TCL](#POST_GLOBAL_ROUTE_TCL)
+ - [PRE_GLOBAL_ROUTE_TCL](#PRE_GLOBAL_ROUTE_TCL)
++- [RECOVER_POWER](#RECOVER_POWER)
+ - [REPORT_CLOCK_SKEW](#REPORT_CLOCK_SKEW)
+ - [ROUTING_LAYER_ADJUSTMENT](#ROUTING_LAYER_ADJUSTMENT)
+ - [SETUP_MOVE_SEQUENCE](#SETUP_MOVE_SEQUENCE)
+ - [SETUP_SLACK_MARGIN](#SETUP_SLACK_MARGIN)
++- [SET_RC_TCL](#SET_RC_TCL)
+ - [SKIP_ANTENNA_REPAIR](#SKIP_ANTENNA_REPAIR)
+ - [SKIP_ANTENNA_REPAIR_PRE_GRT](#SKIP_ANTENNA_REPAIR_PRE_GRT)
+ - [SKIP_BUFFER_REMOVAL](#SKIP_BUFFER_REMOVAL)
+@@ -568,6 +593,7 @@
+ - [SKIP_PIN_SWAP](#SKIP_PIN_SWAP)
+ - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
+ - [SKIP_VT_SWAP](#SKIP_VT_SWAP)
++- [SLEW_MARGIN](#SLEW_MARGIN)
+ - [TNS_END_PERCENT](#TNS_END_PERCENT)
+ - [VIA_IN_PIN_MAX_LAYER](#VIA_IN_PIN_MAX_LAYER)
+ - [VIA_IN_PIN_MIN_LAYER](#VIA_IN_PIN_MIN_LAYER)
+@@ -578,6 +604,7 @@
+ - [DETAILED_ROUTE_END_ITERATION](#DETAILED_ROUTE_END_ITERATION)
+ - [DISABLE_VIA_GEN](#DISABLE_VIA_GEN)
+ - [FILL_CELLS](#FILL_CELLS)
++- [FILL_CONFIG](#FILL_CONFIG)
+ - [MATCH_CELL_FOOTPRINT](#MATCH_CELL_FOOTPRINT)
+ - [MAX_REPAIR_ANTENNAS_ITER_DRT](#MAX_REPAIR_ANTENNAS_ITER_DRT)
+ - [MAX_ROUTING_LAYER](#MAX_ROUTING_LAYER)
+@@ -588,11 +615,14 @@
+ - [POST_FILLCELL_TCL](#POST_FILLCELL_TCL)
+ - [PRE_DETAIL_ROUTE_TCL](#PRE_DETAIL_ROUTE_TCL)
+ - [PRE_FILLCELL_TCL](#PRE_FILLCELL_TCL)
++- [REPAIR_PDN_VIA_LAYER](#REPAIR_PDN_VIA_LAYER)
+ - [REPORT_CLOCK_SKEW](#REPORT_CLOCK_SKEW)
+ - [ROUTING_LAYER_ADJUSTMENT](#ROUTING_LAYER_ADJUSTMENT)
++- [SET_RC_TCL](#SET_RC_TCL)
+ - [SKIP_ANTENNA_REPAIR_POST_DRT](#SKIP_ANTENNA_REPAIR_POST_DRT)
+ - [SKIP_DETAILED_ROUTE](#SKIP_DETAILED_ROUTE)
+ - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
++- [USE_FILL](#USE_FILL)
+ - [VIA_IN_PIN_MAX_LAYER](#VIA_IN_PIN_MAX_LAYER)
+ - [VIA_IN_PIN_MIN_LAYER](#VIA_IN_PIN_MIN_LAYER)
+ 
+@@ -600,8 +630,13 @@
+ 
+ - [ADDITIONAL_GDS](#ADDITIONAL_GDS)
+ - [CDL_FILE](#CDL_FILE)
++- [CDL_FILES](#CDL_FILES)
++- [FILL_CONFIG](#FILL_CONFIG)
+ - [GDS_ALLOW_EMPTY](#GDS_ALLOW_EMPTY)
++- [GDS_FILES](#GDS_FILES)
+ - [GND_NETS_VOLTAGES](#GND_NETS_VOLTAGES)
++- [IR_DROP_LAYER](#IR_DROP_LAYER)
++- [KLAYOUT_TECH_FILE](#KLAYOUT_TECH_FILE)
+ - [MAX_ROUTING_LAYER](#MAX_ROUTING_LAYER)
+ - [MIN_ROUTING_LAYER](#MIN_ROUTING_LAYER)
+ - [POST_DENSITY_FILL_TCL](#POST_DENSITY_FILL_TCL)
+@@ -609,72 +644,57 @@
+ - [PRE_DENSITY_FILL_TCL](#PRE_DENSITY_FILL_TCL)
+ - [PRE_FINAL_REPORT_TCL](#PRE_FINAL_REPORT_TCL)
+ - [PWR_NETS_VOLTAGES](#PWR_NETS_VOLTAGES)
++- [RCX_RULES](#RCX_RULES)
+ - [REPORT_CLOCK_SKEW](#REPORT_CLOCK_SKEW)
+ - [ROUTING_LAYER_ADJUSTMENT](#ROUTING_LAYER_ADJUSTMENT)
++- [SEAL_GDS](#SEAL_GDS)
++- [SET_RC_TCL](#SET_RC_TCL)
+ - [SKIP_DETAILED_ROUTE](#SKIP_DETAILED_ROUTE)
+ - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
+ 
+ ## All stages variables
+ 
+-- [ASAP7_USE_VT](#ASAP7_USE_VT)
+-- [CORNERS](#CORNERS)
+-- [KEEP_VARS](#KEEP_VARS)
+-- [NUM_CORES](#NUM_CORES)
+-- [OPENROAD_HIERARCHICAL](#OPENROAD_HIERARCHICAL)
+-- [SWAP_ARITH_OPERATORS](#SWAP_ARITH_OPERATORS)
+-- [SYNTH_WRAPPED_OPERATORS](#SYNTH_WRAPPED_OPERATORS)
+-- [WRITE_ODB_AND_SDC_EACH_STAGE](#WRITE_ODB_AND_SDC_EACH_STAGE)
+-
+-## generate_abstract variables
+-
+-- [ABSTRACT_SOURCE](#ABSTRACT_SOURCE)
+-
+-## test variables
+-
+-- [RULES_JSON](#RULES_JSON)
+-
+-## Uncategorized variables
+-
+ - [ADDITIONAL_FILES](#ADDITIONAL_FILES)
+ - [ADDITIONAL_LEFS](#ADDITIONAL_LEFS)
+ - [ADDITIONAL_LIBS](#ADDITIONAL_LIBS)
+-- [AUTO_MEMORIES](#AUTO_MEMORIES)
++- [ASAP7_USE_VT](#ASAP7_USE_VT)
+ - [BLOCKS](#BLOCKS)
+-- [CAP_MARGIN](#CAP_MARGIN)
+-- [CDL_FILES](#CDL_FILES)
+ - [CORNER](#CORNER)
++- [CORNERS](#CORNERS)
+ - [DESIGN_NAME](#DESIGN_NAME)
+ - [DESIGN_NICKNAME](#DESIGN_NICKNAME)
+ - [DONT_USE_CELLS](#DONT_USE_CELLS)
+-- [DPO_MAX_DISPLACEMENT](#DPO_MAX_DISPLACEMENT)
+-- [ENABLE_DPO](#ENABLE_DPO)
+-- [FASTROUTE_TCL](#FASTROUTE_TCL)
+-- [FILL_CONFIG](#FILL_CONFIG)
+ - [FLOW_VARIANT](#FLOW_VARIANT)
+-- [GDS_FILES](#GDS_FILES)
+-- [GENERATE_ARTIFACTS_ON_FAILURE](#GENERATE_ARTIFACTS_ON_FAILURE)
+ - [GUI_TIMING](#GUI_TIMING)
+-- [IR_DROP_LAYER](#IR_DROP_LAYER)
+-- [KLAYOUT_TECH_FILE](#KLAYOUT_TECH_FILE)
++- [KEEP_VARS](#KEEP_VARS)
+ - [LAYER_PARASITICS_FILE](#LAYER_PARASITICS_FILE)
+ - [LIB_FILES](#LIB_FILES)
+ - [LIB_MODEL](#LIB_MODEL)
+ - [MACRO_EXTENSION](#MACRO_EXTENSION)
+-- [MIN_CLK_ROUTING_LAYER](#MIN_CLK_ROUTING_LAYER)
++- [NUM_CORES](#NUM_CORES)
++- [OPENROAD_HIERARCHICAL](#OPENROAD_HIERARCHICAL)
+ - [PLATFORM](#PLATFORM)
+ - [PLATFORM_TCL](#PLATFORM_TCL)
+ - [PROCESS](#PROCESS)
+-- [RCX_RULES](#RCX_RULES)
+-- [RECOVER_POWER](#RECOVER_POWER)
+ - [REMOVE_CELLS_FOR_LEC](#REMOVE_CELLS_FOR_LEC)
+-- [REPAIR_PDN_VIA_LAYER](#REPAIR_PDN_VIA_LAYER)
+ - [RUN_LOG_NAME_STEM](#RUN_LOG_NAME_STEM)
+ - [RUN_SCRIPT](#RUN_SCRIPT)
+ - [SC_LEF](#SC_LEF)
+-- [SEAL_GDS](#SEAL_GDS)
+-- [SET_RC_TCL](#SET_RC_TCL)
+-- [SLEW_MARGIN](#SLEW_MARGIN)
+-- [TAP_CELL_NAME](#TAP_CELL_NAME)
++- [SWAP_ARITH_OPERATORS](#SWAP_ARITH_OPERATORS)
++- [SYNTH_WRAPPED_OPERATORS](#SYNTH_WRAPPED_OPERATORS)
+ - [TECH_LEF](#TECH_LEF)
+-- [USE_FILL](#USE_FILL)
++- [WRITE_ODB_AND_SDC_EACH_STAGE](#WRITE_ODB_AND_SDC_EACH_STAGE)
++
++## generate_abstract variables
++
++- [ABSTRACT_SOURCE](#ABSTRACT_SOURCE)
++- [SET_RC_TCL](#SET_RC_TCL)
++
++## test variables
++
++- [RULES_JSON](#RULES_JSON)
++
++## Uncategorized variables
++
++
+ 
+diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
+--- a/flow/scripts/variables.json
++++ b/flow/scripts/variables.json
+@@ -37,7 +37,10 @@
+     ]
+   },
+   "ADDITIONAL_FILES": {
+-    "description": "Additional files to be added to `make issue` archive.\n"
++    "description": "Additional files to be added to `make issue` archive.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "ADDITIONAL_GDS": {
+     "description": "Hardened macro GDS files listed here.\n",
+@@ -46,10 +49,16 @@
+     ]
+   },
+   "ADDITIONAL_LEFS": {
+-    "description": "Hardened macro LEF view files listed here. The LEF information of the macros is immutable and used throughout all stages. Stored in the .odb file.\n"
++    "description": "Hardened macro LEF view files listed here. The LEF information of the macros is immutable and used throughout all stages. Stored in the .odb file.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "ADDITIONAL_LIBS": {
+-    "description": "Hardened macro library files listed here. The library information is immutable and used throughout all stages. Not stored in the .odb file.\n"
++    "description": "Hardened macro library files listed here. The library information is immutable and used throughout all stages. Not stored in the .odb file.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "ADDITIONAL_MEMORIES": {
+     "description": "Experimental. Space-separated list of user-supplied `.memories` files (the memories.json JSON schema) merged onto the set AUTO_MEMORIES detects \u2014 to force-convert a memory the idiomatic gate rejects, or to describe one the scanner cannot find. See docs/user/AutoMemories.md.\n",
+@@ -72,7 +81,10 @@
+   },
+   "AUTO_MEMORIES": {
+     "default": 0,
+-    "description": "Experimental. When set to 1, memory-shaped modules in the RTL (firtool/CIRCT `R*/W*/RW*_` port convention, module boundary only) are detected pre-synthesis, inventoried in `$(RESULTS_DIR)/memories.json`, and \u2014 when idiomatic as an SRAM macro \u2014 given generated .lib/.lef views under `$(RESULTS_DIR)/memories/`. Synthesis blackboxes those modules and all later stages read the generated views, so an existing design gets macro-based results without a memory compiler. Supported for the asap7 platform only. See docs/user/AutoMemories.md.\n"
++    "description": "Experimental. When set to 1, memory-shaped modules in the RTL (firtool/CIRCT `R*/W*/RW*_` port convention, module boundary only) are detected pre-synthesis, inventoried in `$(RESULTS_DIR)/memories.json`, and \u2014 when idiomatic as an SRAM macro \u2014 given generated .lib/.lef views under `$(RESULTS_DIR)/memories/`. Synthesis blackboxes those modules and all later stages read the generated views, so an existing design gets macro-based results without a memory compiler. Supported for the asap7 platform only. See docs/user/AutoMemories.md.\n",
++    "stages": [
++      "synth"
++    ]
+   },
+   "BALANCE_ROWS": {
+     "default": 0,
+@@ -82,7 +94,10 @@
+     ]
+   },
+   "BLOCKS": {
+-    "description": "Blocks used as hard macros in a hierarchical flow. Do note that you have to specify block-specific inputs file in the directory mentioned by Makefile.\n"
++    "description": "Blocks used as hard macros in a hierarchical flow. Do note that you have to specify block-specific inputs file in the directory mentioned by Makefile.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "BUFFER_PORTS_ARGS": {
+     "description": "Specify arguments to the buffer_ports call during placement. Only used if DONT_BUFFER_PORTS=0.\n",
+@@ -98,6 +113,10 @@
+   },
+   "CAP_MARGIN": {
+     "description": "Specifies a capacitance margin when fixing max capacitance violations. This option allows you to overfix.\n",
++    "stages": [
++      "place",
++      "grt"
++    ],
+     "tunable": 1
+   },
+   "CDL_FILE": {
+@@ -107,7 +126,10 @@
+     ]
+   },
+   "CDL_FILES": {
+-    "description": "Insert additional Circuit Description Language (`.cdl`) netlist files.\n"
++    "description": "Insert additional Circuit Description Language (`.cdl`) netlist files.\n",
++    "stages": [
++      "final"
++    ]
+   },
+   "CELL_PAD_IN_SITES_DETAIL_PLACEMENT": {
+     "default": 0,
+@@ -184,7 +206,10 @@
+     "type": "float"
+   },
+   "CORNER": {
+-    "description": "PVT corner library selection. Only available for ASAP7 and GF180 PDKs.\n"
++    "description": "PVT corner library selection. Only available for ASAP7 and GF180 PDKs.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "CORNERS": {
+     "description": "List of timing corner names for multi-corner analysis (e.g. \"slow fast\"). When set, liberty files are loaded per corner using uppercase <CORNER>_LIB_FILES environment variables (e.g. corner \"slow\" reads SLOW_LIB_FILES) and timing models are generated per corner.\n",
+@@ -249,10 +274,16 @@
+   },
+   "DESIGN_NAME": {
+     "description": "The name of the top-level module of the design.\n",
+-    "required": true
++    "required": true,
++    "stages": [
++      "All stages"
++    ]
+   },
+   "DESIGN_NICKNAME": {
+-    "description": "DESIGN_NICKNAME just changes the directory name that ORFS outputs to be DESIGN_NICKNAME instead of DESIGN_NAME in case DESIGN_NAME is unwieldy or conflicts with a different design.\n"
++    "description": "DESIGN_NICKNAME just changes the directory name that ORFS outputs to be DESIGN_NICKNAME instead of DESIGN_NAME in case DESIGN_NAME is unwieldy or conflicts with a different design.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "DETAILED_METRICS": {
+     "default": 0,
+@@ -314,11 +345,17 @@
+     ]
+   },
+   "DONT_USE_CELLS": {
+-    "description": "Dont use cells eases pin access in detailed routing.\n"
++    "description": "Dont use cells eases pin access in detailed routing.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "DPO_MAX_DISPLACEMENT": {
+     "default": "5 1",
+-    "description": "Specifies how far an instance can be moved when optimizing.\n"
++    "description": "Specifies how far an instance can be moved when optimizing.\n",
++    "stages": [
++      "place"
++    ]
+   },
+   "EARLY_SIZING_CAP_RATIO": {
+     "description": "Ratio between the input pin capacitance and the output pin load during initial gate sizing.\n",
+@@ -328,7 +365,10 @@
+   },
+   "ENABLE_DPO": {
+     "default": 1,
+-    "description": "Enable detail placement with improve_placement feature.\n"
++    "description": "Enable detail placement with improve_placement feature.\n",
++    "stages": [
++      "place"
++    ]
+   },
+   "ENABLE_PLACE_REPAIR_TIMING": {
+     "default": 0,
+@@ -344,7 +384,10 @@
+     ]
+   },
+   "FASTROUTE_TCL": {
+-    "description": "Specifies a Tcl script with commands to run before FastRoute.\n"
++    "description": "Specifies a Tcl script with commands to run before FastRoute.\n",
++    "stages": [
++      "floorplan"
++    ]
+   },
+   "FILL_CELLS": {
+     "description": "Fill cells are used to fill empty sites. If not set or empty, fill cell insertion is skipped.\n",
+@@ -353,7 +396,11 @@
+     ]
+   },
+   "FILL_CONFIG": {
+-    "description": "JSON rule file for metal fill during chip finishing.\n"
++    "description": "JSON rule file for metal fill during chip finishing.\n",
++    "stages": [
++      "route",
++      "final"
++    ]
+   },
+   "FLOORPLAN_DEF": {
+     "description": "Use the DEF file to initialize floorplan. Mutually exclusive with FOOTPRINT or DIE_AREA/CORE_AREA or CORE_UTILIZATION.\n",
+@@ -364,7 +411,10 @@
+   },
+   "FLOW_VARIANT": {
+     "default": "base",
+-    "description": "Flow variant to use, used in the flow variant directory name.\n"
++    "description": "Flow variant to use, used in the flow variant directory name.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "FOOTPRINT": {
+     "description": "Custom footprint definition file for ICeWall-based floorplan initialization. Mutually exclusive with FLOORPLAN_DEF or DIE_AREA/CORE_AREA or CORE_UTILIZATION.\n",
+@@ -385,11 +435,17 @@
+     ]
+   },
+   "GDS_FILES": {
+-    "description": "Path to platform GDS files.\n"
++    "description": "Path to platform GDS files.\n",
++    "stages": [
++      "final"
++    ]
+   },
+   "GENERATE_ARTIFACTS_ON_FAILURE": {
+     "default": 0,
+-    "description": "For instance Bazel needs artifacts (.odb and .rpt files) on a failure to allow the user to save hours on re-running the failed step locally, but when working with a Makefile flow, it is more natural to fail the step and leave the user to manually inspect the logs and artifacts directly via the file system. Set to 1 to change the behavior to generate artifacts upon failure to e.g. do a global route. The exit code will still be non-zero on all other failures that aren't covered by the \"useful to inspect the artifacts on failure\" use-case. Example: just like detailed routing, a global route that fails with congestion, is not a build failure(as in exit code non-zero), it is a successful(as in zero exit code) global route that produce reports detailing the problem. Detailed route will not proceed, if there is global routing congestion This allows build systems, such as bazel, to create artifacts for global and detailed route, even if the operation had problems, without having know about the semantics between global and detailed route. Considering that global and detailed route can run for a long time and use a lot of memory, this allows inspecting results on a laptop for a build that ran on a server.\n"
++    "description": "For instance Bazel needs artifacts (.odb and .rpt files) on a failure to allow the user to save hours on re-running the failed step locally, but when working with a Makefile flow, it is more natural to fail the step and leave the user to manually inspect the logs and artifacts directly via the file system. Set to 1 to change the behavior to generate artifacts upon failure to e.g. do a global route. The exit code will still be non-zero on all other failures that aren't covered by the \"useful to inspect the artifacts on failure\" use-case. Example: just like detailed routing, a global route that fails with congestion, is not a build failure(as in exit code non-zero), it is a successful(as in zero exit code) global route that produce reports detailing the problem. Detailed route will not proceed, if there is global routing congestion This allows build systems, such as bazel, to create artifacts for global and detailed route, even if the operation had problems, without having know about the semantics between global and detailed route. Considering that global and detailed route can run for a long time and use a lot of memory, this allows inspecting results on a laptop for a build that ran on a server.\n",
++    "stages": [
++      "grt"
++    ]
+   },
+   "GLOBAL_PLACEMENT_ARGS": {
+     "description": "Use additional tuning parameters during global placement other than default args defined in global_place.tcl.\n",
+@@ -453,7 +509,10 @@
+   },
+   "GUI_TIMING": {
+     "default": 1,
+-    "description": "Load timing information when opening GUI. For large designs, this can be quite time consuming. Useful to disable when investigating non-timing aspects like floorplan, placement, routing, etc.\n"
++    "description": "Load timing information when opening GUI. For large designs, this can be quite time consuming. Useful to disable when investigating non-timing aspects like floorplan, placement, routing, etc.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "HOLD_SLACK_MARGIN": {
+     "default": 0,
+@@ -490,7 +549,10 @@
+     ]
+   },
+   "IR_DROP_LAYER": {
+-    "description": "Default metal layer to report IR drop.\n"
++    "description": "Default metal layer to report IR drop.\n",
++    "stages": [
++      "final"
++    ]
+   },
+   "KEEP_VARS": {
+     "default": 0,
+@@ -500,7 +562,10 @@
+     ]
+   },
+   "KLAYOUT_TECH_FILE": {
+-    "description": "A mapping from LEF/DEF to GDS using the KLayout tool.\n"
++    "description": "A mapping from LEF/DEF to GDS using the KLayout tool.\n",
++    "stages": [
++      "final"
++    ]
+   },
+   "LATCH_MAP_FILE": {
+     "description": "Optional mapping file supplied to Yosys to map latches\n",
+@@ -510,6 +575,9 @@
+   },
+   "LAYER_PARASITICS_FILE": {
+     "description": "Path to per layer parasitics file. Defaults to $(PLATFORM_DIR)/setRC.tcl.\n",
++    "stages": [
++      "All stages"
++    ],
+     "type": "string"
+   },
+   "LEC_AUX_VERILOG_FILES": {
+@@ -526,11 +594,17 @@
+     ]
+   },
+   "LIB_FILES": {
+-    "description": "A Liberty file of the standard cell library with PVT characterization, input and output characteristics, timing and power definitions for each cell.\n"
++    "description": "A Liberty file of the standard cell library with PVT characterization, input and output characteristics, timing and power definitions for each cell.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "LIB_MODEL": {
+     "default": "NLDM",
+-    "description": "Selects between NLDM and CCS timing models for the ASAP7 platform. Valid values: NLDM (default), CCS. Used in flow/platforms/asap7/config.mk to pick the LIB_DIR subdirectory and accumulate the corresponding $(CORNER)_$(LIB_MODEL)_LIB_FILES list, and in flow/scripts/load.tcl to gate CCS-specific Tcl branches.\n"
++    "description": "Selects between NLDM and CCS timing models for the ASAP7 platform. Valid values: NLDM (default), CCS. Used in flow/platforms/asap7/config.mk to pick the LIB_DIR subdirectory and accumulate the corresponding $(CORNER)_$(LIB_MODEL)_LIB_FILES list, and in flow/scripts/load.tcl to gate CCS-specific Tcl branches.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "MACRO_BLOCKAGE_HALO": {
+     "description": "Distance beyond the edges of a macro that will also be covered by the blockage generated for that macro. Note that the default macro blockage halo comes from the largest of the specified MACRO_PLACE_HALO x or y values. This variable overrides that calculation.\n",
+@@ -539,7 +613,10 @@
+     ]
+   },
+   "MACRO_EXTENSION": {
+-    "description": "Sets the number of GCells added to the blockages boundaries from macros.\n"
++    "description": "Sets the number of GCells added to the blockages boundaries from macros.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "MACRO_PLACEMENT_TCL": {
+     "description": "Specifies the path of a TCL file on how to place macros manually.\nThe user may choose to place just some of the macros in the design.\nThe macro placer will handle the remaining unplaced macros.\n",
+@@ -627,7 +704,10 @@
+     ]
+   },
+   "MIN_CLK_ROUTING_LAYER": {
+-    "description": "The lowest metal layer name to be used for clock-net routing in global routing. Used in flow/platforms/*/fastroute.tcl as the lower bound of `set_routing_layers -clock`. Typically higher than MIN_ROUTING_LAYER so clock nets prefer the upper, lower-RC layers. No `stages:` list because floorplan.tcl also `source`s the platform fastroute.tcl.\n"
++    "description": "The lowest metal layer name to be used for clock-net routing in global routing. Used in flow/platforms/*/fastroute.tcl as the lower bound of `set_routing_layers -clock`. Typically higher than MIN_ROUTING_LAYER so clock nets prefer the upper, lower-RC layers. No `stages:` list because floorplan.tcl also `source`s the platform fastroute.tcl.\n",
++    "stages": [
++      "floorplan"
++    ]
+   },
+   "MIN_PLACE_STEP_COEF": {
+     "default": 0.95,
+@@ -724,10 +804,16 @@
+   },
+   "PLATFORM": {
+     "description": "Specifies process design kit or technology node to be used.\n",
+-    "required": true
++    "required": true,
++    "stages": [
++      "All stages"
++    ]
+   },
+   "PLATFORM_TCL": {
+-    "description": "Specifies a Tcl script with commands to run before loading design.\n"
++    "description": "Specifies a Tcl script with commands to run before loading design.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "POST_CTS_TCL": {
+     "description": "Specifies a Tcl script with commands to run after CTS is completed.\n",
+@@ -928,7 +1014,10 @@
+     ]
+   },
+   "PROCESS": {
+-    "description": "Technology node or process in use.\n"
++    "description": "Technology node or process in use.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "PWR_NETS_VOLTAGES": {
+     "description": "Used for IR Drop calculation.\n",
+@@ -937,11 +1026,17 @@
+     ]
+   },
+   "RCX_RULES": {
+-    "description": "RC Extraction rules file path.\n"
++    "description": "RC Extraction rules file path.\n",
++    "stages": [
++      "final"
++    ]
+   },
+   "RECOVER_POWER": {
+     "default": 0,
+-    "description": "Specifies how many percent of paths with positive slacks can be slowed for power savings [0-100].\n"
++    "description": "Specifies how many percent of paths with positive slacks can be slowed for power savings [0-100].\n",
++    "stages": [
++      "grt"
++    ]
+   },
+   "REMOVE_ABC_BUFFERS": {
+     "default": 0,
+@@ -953,10 +1048,16 @@
+   },
+   "REMOVE_CELLS_FOR_LEC": {
+     "description": "String patterns directly passed to write_verilog -remove_cells <> for lec checks.\n",
++    "stages": [
++      "All stages"
++    ],
+     "type": "string"
+   },
+   "REPAIR_PDN_VIA_LAYER": {
+-    "description": "Remove power grid vias which generate DRC violations after detailed routing.\n"
++    "description": "Remove power grid vias which generate DRC violations after detailed routing.\n",
++    "stages": [
++      "route"
++    ]
+   },
+   "REPORT_CLOCK_SKEW": {
+     "default": 1,
+@@ -1107,13 +1208,22 @@
+   },
+   "RUN_LOG_NAME_STEM": {
+     "default": "run",
+-    "description": "Stem of the log file name, the log file will be named `$(LOG_DIR)/$(RUN_LOG_NAME_STEM).log`.\n"
++    "description": "Stem of the log file name, the log file will be named `$(LOG_DIR)/$(RUN_LOG_NAME_STEM).log`.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "RUN_SCRIPT": {
+-    "description": "Path to script to run from `make run`, python or tcl script detected by .py or .tcl extension.\n"
++    "description": "Path to script to run from `make run`, python or tcl script detected by .py or .tcl extension.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "SC_LEF": {
+-    "description": "Path to technology standard cell LEF file.\n"
++    "description": "Path to technology standard cell LEF file.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "SDC_FILE": {
+     "description": "The path to design constraint (SDC) file.\n",
+@@ -1129,7 +1239,10 @@
+     ]
+   },
+   "SEAL_GDS": {
+-    "description": "Seal macro to place around the design.\n"
++    "description": "Seal macro to place around the design.\n",
++    "stages": [
++      "final"
++    ]
+   },
+   "SETUP_MOVE_SEQUENCE": {
+     "description": "Passed as -sequence to repair_timing. This should be a string of move keywords separated by commas.\n",
+@@ -1149,18 +1262,6 @@
+     ],
+     "tunable": 1
+   },
+-  "WIRE_LOAD_TCL": {
+-    "description": "Path to a Tcl script sourced after the design is opened to apply a statistical wire-load model (a Liberty wire_load group selected with set_wire_load_model) on nets that have no parasitics yet, i.e. before placement. Inert once real parasitics exist.\n",
+-    "stages": [
+-      "synth"
+-    ]
+-  },
+-  "WIRE_LOAD_LIB": {
+-    "description": "Path to the Liberty file defining the wire_load group applied by WIRE_LOAD_TCL.\n",
+-    "stages": [
+-      "synth"
+-    ]
+-  },
+   "SET_RC_TCL": {
+     "description": "Metal & Via RC definition file path.\n",
+     "stages": [
+@@ -1225,6 +1326,13 @@
+       "final"
+     ]
+   },
++  "SKIP_EXTRACT_FA": {
++    "default": 0,
++    "description": "Skip yosys's extract_fa before the adder techmap. Full-adder extraction is a large share of synthesis time on arithmetic-heavy modules (an FMA or a vector converter can spend most of its partition in it); without it adders map through the generic techmap. A turnaround setting for architectural exploration.\n",
++    "stages": [
++      "synth"
++    ]
++  },
+   "SKIP_GATE_CLONING": {
+     "description": "Do not use gate cloning transform to fix timing violations (default: use gate cloning).\n",
+     "stages": [
+@@ -1286,8 +1394,24 @@
+   },
+   "SLEW_MARGIN": {
+     "description": "Specifies a slew margin when fixing max slew violations. This option allows you to overfix.\n",
++    "stages": [
++      "place",
++      "grt"
++    ],
+     "tunable": 1
+   },
++  "STRUCTURED_GEN": {
++    "description": "Path of the generator STRUCTURED_MEMORIES runs. Set by the build system that carries the generator, not by a design.\n",
++    "stages": [
++      "synth"
++    ]
++  },
++  "STRUCTURED_MEMORIES": {
++    "description": "Experimental. Space-separated list of register-file spec files, one per RTL module to replace with a generated, placed standard-cell macro rather than synthesise to flops. Each spec names its module, words, bits, read and write ports by the RTL's own port names, and the cells; the generator checks the spec against the module's ports, writes `<module>.lef`, `<module>.lib` and `<module>_pre_layout.lib` under `$(RESULTS_DIR)/memories/`, and the module is blackboxed like an AUTO_MEMORIES macro. Explicit by design: nothing is detected. Requires AUTO_MEMORIES=1 and STRUCTURED_GEN.\n",
++    "stages": [
++      "synth"
++    ]
++  },
+   "SWAP_ARITH_OPERATORS": {
+     "description": "Improve timing QoR by swapping ALU and MULT arithmetic operators.\n",
+     "stages": [
+@@ -1463,10 +1587,16 @@
+     ]
+   },
+   "TAP_CELL_NAME": {
+-    "description": "Name of the cell to use in tap cell insertion.\n"
++    "description": "Name of the cell to use in tap cell insertion.\n",
++    "stages": [
++      "floorplan"
++    ]
+   },
+   "TECH_LEF": {
+-    "description": "A technology LEF file of the PDK that includes all relevant information regarding metal layers, vias, and spacing requirements.\n"
++    "description": "A technology LEF file of the PDK that includes all relevant information regarding metal layers, vias, and spacing requirements.\n",
++    "stages": [
++      "All stages"
++    ]
+   },
+   "TIEHI_CELL_AND_PORT": {
+     "description": "Tie high cells used in Yosys synthesis to replace a logical 1 in the Netlist.\n",
+@@ -1507,7 +1637,10 @@
+   },
+   "USE_FILL": {
+     "default": 0,
+-    "description": "Whether to perform metal density filling.\n"
++    "description": "Whether to perform metal density filling.\n",
++    "stages": [
++      "route"
++    ]
+   },
+   "VERILOG_DEFINES": {
+     "description": "Preprocessor defines passed to the language frontend. Example: `-D HPDCACHE_ASSERT_OFF`\n",
+@@ -1548,6 +1681,18 @@
+       "route"
+     ]
+   },
++  "WIRE_LOAD_LIB": {
++    "description": "Path to the Liberty file defining the wire_load group applied by\nWIRE_LOAD_TCL.\n",
++    "stages": [
++      "synth"
++    ]
++  },
++  "WIRE_LOAD_TCL": {
++    "description": "Path to a Tcl script sourced after the design is opened to apply a\nstatistical wire-load model (a Liberty wire_load group selected with\nset_wire_load_model) on nets that have no parasitics yet, i.e. before\nplacement. Inert once real parasitics exist (wire-load models are not\napplied to nets that already carry parasitics).\n",
++    "stages": [
++      "synth"
++    ]
++  },
+   "WRITE_ODB_AND_SDC_EACH_STAGE": {
+     "default": 1,
+     "description": "Save out .sdc and .odb file after each stage, useful to disable when using a single OpenROAD instance to run all stages of the flow.\n",
+diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -22,6 +22,8 @@
+     lot of memory, this allows inspecting results on a laptop for a build that
+     ran on a server.
+   default: 0
++  stages:
++    - grt
+ TNS_END_PERCENT:
+   description: >
+     Default TNS_END_PERCENT value for post CTS timing repair. Try fixing all
+@@ -70,6 +72,8 @@
+     Specifies how many percent of paths with positive slacks can be slowed for
+     power savings [0-100].
+   default: 0
++  stages:
++    - grt
+ SKIP_INCREMENTAL_REPAIR:
+   default: 0
+   description: >
+@@ -126,9 +130,13 @@
+ PROCESS:
+   description: |
+     Technology node or process in use.
++  stages:
++    - All stages
+ CORNER:
+   description: >
+     PVT corner library selection. Only available for ASAP7 and GF180 PDKs.
++  stages:
++    - All stages
+ CORNERS:
+   description: >
+     List of timing corner names for multi-corner analysis (e.g. "slow fast").
+@@ -141,17 +149,25 @@
+   description: >
+     A technology LEF file of the PDK that includes all relevant information
+     regarding metal layers, vias, and spacing requirements.
++  stages:
++    - All stages
+ SC_LEF:
+   description: |
+     Path to technology standard cell LEF file.
++  stages:
++    - All stages
+ GDS_FILES:
+   description: |
+     Path to platform GDS files.
++  stages:
++    - final
+ LIB_FILES:
+   description: >
+     A Liberty file of the standard cell library with PVT characterization,
+     input and output characteristics, timing and power definitions for each
+     cell.
++  stages:
++    - All stages
+ LIB_MODEL:
+   description: >
+     Selects between NLDM and CCS timing models for the ASAP7 platform.
+@@ -160,12 +176,18 @@
+     accumulate the corresponding $(CORNER)_$(LIB_MODEL)_LIB_FILES list,
+     and in flow/scripts/load.tcl to gate CCS-specific Tcl branches.
+   default: NLDM
++  stages:
++    - All stages
+ PLATFORM_TCL:
+   description: |
+     Specifies a Tcl script with commands to run before loading design.
++  stages:
++    - All stages
+ DONT_USE_CELLS:
+   description: |
+     Dont use cells eases pin access in detailed routing.
++  stages:
++    - All stages
+ SYNTH_GUT:
+   description: >
+     Load design and remove all internal logic before doing synthesis. This is
+@@ -201,6 +223,8 @@
+     gets macro-based results without a memory compiler. Supported for
+     the asap7 platform only. See docs/user/AutoMemories.md.
+   default: 0
++  stages:
++    - synth
+ ADDITIONAL_MEMORIES:
+   description: >
+     Experimental. Space-separated list of user-supplied `.memories`
+@@ -551,6 +575,8 @@
+   description: |
+     Path to per layer parasitics file. Defaults to $(PLATFORM_DIR)/setRC.tcl.
+   type: string
++  stages:
++    - All stages
+ TAPCELL_TCL:
+   description: |
+     Path to Endcap and Welltie cells file.
+@@ -614,6 +640,8 @@
+     quite time consuming. Useful to disable when investigating non-timing
+     aspects like floorplan, placement, routing, etc.
+   default: 1
++  stages:
++    - All stages
+ FILL_CELLS:
+   description: >
+     Fill cells are used to fill empty sites. If not set or empty, fill cell
+@@ -623,6 +651,8 @@
+ TAP_CELL_NAME:
+   description: |
+     Name of the cell to use in tap cell insertion.
++  stages:
++    - floorplan
+ CELL_PAD_IN_SITES_GLOBAL_PLACEMENT:
+   description: >
+     Cell padding on both sides in site widths to ease routability during global
+@@ -680,6 +710,8 @@
+ REPAIR_PDN_VIA_LAYER:
+   description: |
+     Remove power grid vias which generate DRC violations after detailed routing.
++  stages:
++    - route
+ GLOBAL_PLACEMENT_ARGS:
+   description: >
+     Use additional tuning parameters during global placement other than default
+@@ -690,10 +722,14 @@
+   description: |
+     Enable detail placement with improve_placement feature.
+   default: 1
++  stages:
++    - place
+ DPO_MAX_DISPLACEMENT:
+   description: |
+     Specifies how far an instance can be moved when optimizing.
+   default: 5 1
++  stages:
++    - place
+ GPL_RANDOM_SEED:
+   description: |
+     Specifies a random seed for global placement.  Useful for perturbation studies.
+@@ -746,11 +782,17 @@
+     Specifies a capacitance margin when fixing max capacitance violations. This
+     option allows you to overfix.
+   tunable: 1
++  stages:
++    - place
++    - grt
+ SLEW_MARGIN:
+   description: >
+     Specifies a slew margin when fixing max slew violations. This option allows
+     you to overfix.
+   tunable: 1
++  stages:
++    - place
++    - grt
+ CTS_ARGS:
+   description: |
+     Override `clock_tree_synthesis` arguments.
+@@ -931,6 +973,8 @@
+     `set_routing_layers -clock`. Typically higher than MIN_ROUTING_LAYER so
+     clock nets prefer the upper, lower-RC layers. No `stages:` list because
+     floorplan.tcl also `source`s the platform fastroute.tcl.
++  stages:
++    - floorplan
+ VIA_IN_PIN_MIN_LAYER:
+   description: >
+     Passed as -via_in_pin_bottom_layer to pin_access and detailed_route.
+@@ -956,6 +1000,8 @@
+ MACRO_EXTENSION:
+   description: |
+     Sets the number of GCells added to the blockages boundaries from macros.
++  stages:
++    - All stages
+ DETAILED_ROUTE_END_ITERATION:
+   description: >
+     Maximum number of iterations.
+@@ -975,6 +1021,8 @@
+ RCX_RULES:
+   description: |
+     RC Extraction rules file path.
++  stages:
++    - final
+ WIRE_LOAD_TCL:
+   description: |
+     Path to a Tcl script sourced after the design is opened to apply a
+@@ -1004,20 +1052,31 @@
+ FILL_CONFIG:
+   description: |
+     JSON rule file for metal fill during chip finishing.
++  stages:
++    - route
++    - final
+ KLAYOUT_TECH_FILE:
+   description: |
+     A mapping from LEF/DEF to GDS using the KLayout tool.
++  stages:
++    - final
+ IR_DROP_LAYER:
+   description: |
+     Default metal layer to report IR drop.
++  stages:
++    - final
+ PLATFORM:
+   required: true
+   description: |
+     Specifies process design kit or technology node to be used.
++  stages:
++    - All stages
+ DESIGN_NAME:
+   required: true
+   description: |
+     The name of the top-level module of the design.
++  stages:
++    - All stages
+ VERILOG_FILES:
+   required: true
+   description: >
+@@ -1048,14 +1107,20 @@
+ ADDITIONAL_FILES:
+   description: |
+     Additional files to be added to `make issue` archive.
++  stages:
++    - All stages
+ ADDITIONAL_LEFS:
+   description: >
+     Hardened macro LEF view files listed here. The LEF information of the
+     macros is immutable and used throughout all stages. Stored in the .odb file.
++  stages:
++    - All stages
+ ADDITIONAL_LIBS:
+   description: >
+     Hardened macro library files listed here. The library information is
+     immutable and used throughout all stages. Not stored in the .odb file.
++  stages:
++    - All stages
+ ADDITIONAL_GDS:
+   description: |
+     Hardened macro GDS files listed here.
+@@ -1071,6 +1136,8 @@
+     DESIGN_NICKNAME just changes the directory name that ORFS outputs to be
+     DESIGN_NICKNAME instead of DESIGN_NAME in case DESIGN_NAME is unwieldy or
+     conflicts with a different design.
++  stages:
++    - All stages
+ ABC_AREA:
+   description: |
+     Strategies for Yosys ABC synthesis: Area/Speed. Default ABC_SPEED.
+@@ -1091,9 +1158,13 @@
+   description: >
+     Blocks used as hard macros in a hierarchical flow. Do note that you have to
+     specify block-specific inputs file in the directory mentioned by Makefile.
++  stages:
++    - All stages
+ CDL_FILES:
+   description: |
+     Insert additional Circuit Description Language (`.cdl`) netlist files.
++  stages:
++    - final
+ DFF_LIB_FILE:
+   description: >
+     Single Liberty file for flip-flop technology mapping (dfflibmap) during
+@@ -1389,13 +1460,19 @@
+ FASTROUTE_TCL:
+   description: |
+     Specifies a Tcl script with commands to run before FastRoute.
++  stages:
++    - floorplan
+ USE_FILL:
+   description: >
+     Whether to perform metal density filling.
+   default: 0
++  stages:
++    - route
+ SEAL_GDS:
+   description: |
+     Seal macro to place around the design.
++  stages:
++    - final
+ ABSTRACT_SOURCE:
+   description: |
+     Which .odb file to use to create abstract
+@@ -1560,11 +1637,15 @@
+   description: >
+     Path to script to run from `make run`, python or tcl script detected by
+     .py or .tcl extension.
++  stages:
++    - All stages
+ RUN_LOG_NAME_STEM:
+   description: >
+     Stem of the log file name, the log file will be named
+     `$(LOG_DIR)/$(RUN_LOG_NAME_STEM).log`.
+   default: run
++  stages:
++    - All stages
+ YOSYS_FLAGS:
+   description: >
+     Flags to pass to yosys.
+@@ -1585,6 +1666,8 @@
+   description: >
+     Flow variant to use, used in the flow variant directory name.
+   default: base
++  stages:
++    - All stages
+ RULES_JSON:
+   description: >
+     json files with the metrics baseline regression rules.
+@@ -1686,6 +1769,8 @@
+     String patterns directly passed to write_verilog -remove_cells <> for
+     lec checks.
+   type: string
++  stages:
++    - All stages
+ ASAP7_USE_VT:
+   description: >
+     A space separated list of VT options to use with the ASAP7 standard cell library:
