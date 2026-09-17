@@ -62,27 +62,69 @@ def declare(spelling):
 
 
 def parse_header(stream):
-    """name -> identifier, for $var lines at any scope depth.
+    """full scope path -> identifier, for every $var line.
 
-    Keyed by name, not by identifier. A VCD gives one identifier to every
-    name of the same net, so an identifier -> name map keeps whichever
-    alias was declared first and loses the rest -- and a port that lost
-    that race then matches nothing and silently keeps its initial value.
-    That is how `rst_ni` came through as 0 for a whole window: the
-    multiplier sat in reset, its state machine never advanced, and only
-    the one output that depends on state rather than on inputs was
-    wrong.
+    Keyed by path rather than by bare name, and by name rather than by
+    identifier. Both matter, and each was a bug.
+
+    A VCD gives one identifier to every name of the same net, so an
+    identifier -> name map keeps whichever alias was declared first and
+    loses the rest; a port that lost that race matches nothing and
+    silently keeps its initial value. That is how `rst_ni` came through
+    as 0 for a whole window, leaving a multiplier in reset.
+
+    And a name is unique only inside its scope. A recording of a whole
+    design holds four instances of the same module, each with its own
+    `out` and its own `_0385_`, so a bare name resolves to whichever
+    instance was declared first -- which is a different module than the
+    one being replayed, and reads as every cycle mismatching.
     """
-    names = {}
+    paths, scope = {}, []
     for line in stream:
         s = line.strip()
-        if s.startswith("$var"):
+        if s.startswith("$scope"):
+            parts = s.split()
+            if len(parts) >= 3:
+                scope.append(parts[2])
+        elif s.startswith("$upscope"):
+            if scope:
+                scope.pop()
+        elif s.startswith("$var"):
             parts = s.split()
             if len(parts) >= 5:
-                names.setdefault(parts[4], parts[3])
+                paths.setdefault("/".join(scope + [parts[4]]), parts[3])
         elif s.startswith("$enddefinitions"):
-            return names
-    return names
+            return paths
+    return paths
+
+
+def resolve(paths, names, scope):
+    """name -> identifier, for names inside one instance scope.
+
+    `scope` is a substring of the instance's path. A name that resolves
+    to more than one signal inside it, or to none, is an error rather
+    than a guess: picking one would measure a different module and say
+    nothing about it.
+    """
+    out, ambiguous, missing = {}, [], []
+    for name in names:
+        # A dump may spell a name escaped where the netlist does not --
+        # `\ibradder__dot__pc_dec[13]` is one net whose name contains a
+        # bit-select, and iverilog keeps the backslash in the $var line.
+        candidates = (name, "\\" + name)
+        hits = [
+            (p, i) for p, i in paths.items()
+            if (scope in p if scope else True)
+            and p.rsplit("/", 1)[-1] in candidates
+        ]
+        idents = {i for _, i in hits}
+        if not hits:
+            missing.append(name)
+        elif len(idents) > 1:
+            ambiguous.append((name, len(idents)))
+        else:
+            out[name] = hits[0][1]
+    return out, ambiguous, missing
 
 
 def normalize(value, width):
@@ -105,7 +147,7 @@ def normalize(value, width):
     return value.replace("x", "0").replace("z", "0"), mask
 
 
-def sample(stream, ports, clock):
+def sample(stream, ports, clock, state=(), scope=""):
     """Snapshot every port at each clock posedge, after that instant's events.
 
     A zero-delay dump puts the edge and everything it causes at one
@@ -113,22 +155,42 @@ def sample(stream, ports, clock):
     is consumed -- sampling mid-block would catch the design halfway
     through settling.
     """
-    by_name = parse_header(stream)
+    paths = parse_header(stream)
     width = {n: w for _, n, w, _ in ports}
 
-    # Every port has to be found. A port the dump does not name would
-    # otherwise keep the zero it was initialised with, and drive the
-    # replay with a value the recording never held.
-    absent = [n for _, n, _, _ in ports if n not in by_name]
-    if absent:
+    names, seen = [], set()
+    for n in [p[1] for p in ports] + list(state) + [clock]:
+        if n not in seen:
+            seen.add(n)
+            names.append(n)
+    by_name, ambiguous, missing = resolve(paths, names, scope)
+
+    # Every name has to resolve, and resolve to one signal. A name the
+    # dump does not carry would otherwise keep the zero it was
+    # initialised with and drive the replay with a value the recording
+    # never held; a name that resolves to several is a different
+    # instance of the same module, which reads as every cycle
+    # mismatching.
+    if missing:
         raise ValueError(
-            "%d port(s) are not in the dump, which would replay as 0: %s"
-            % (len(absent), ", ".join(absent[:8])))
+            "%d name(s) are not in the dump under scope %r: %s"
+            % (len(missing), scope, ", ".join(missing[:8])))
+    if ambiguous:
+        raise ValueError(
+            "%d name(s) resolve to more than one signal under scope %r "
+            "-- give a narrower --scope: %s"
+            % (len(ambiguous), scope,
+               ", ".join("%s (%d)" % a for a in ambiguous[:6])))
 
     wanted = {by_name[n]: n for _, n, _, _ in ports}
-    clock_id = by_name.get(clock)
-    if clock_id is None:
-        raise ValueError("clock %r is not in the dump" % clock)
+    # Stateful cell outputs, recorded so the replay can begin where the
+    # recording was. A module simulated from mid-stream starts every
+    # flop at X, and one whose enable never asserts inside the window
+    # never resolves -- which is not a measurement, it is an X.
+    state_ids = {by_name[n]: n for n in state}
+    state_now = {n: "x" for n in state}
+    state_first = {}
+    clock_id = by_name[clock]
 
     values = {n: "0" * width[n] for _, n, _, _ in ports}
     # Whether the value a port currently holds was recorded as X or Z.
@@ -144,6 +206,8 @@ def sample(stream, ports, clock):
     def flush():
         rows.append(dict(values))
         masks.append({n for n, u in unknown_now.items() if u})
+        if not state_first:
+            state_first.update(state_now)
 
     for line in stream:
         s = line.strip()
@@ -169,6 +233,8 @@ def sample(stream, ports, clock):
             clock_now = val
             if ident not in wanted:
                 continue
+        if ident in state_ids:
+            state_now[state_ids[ident]] = val
         name = wanted.get(ident)
         if name is None:
             continue
@@ -182,7 +248,7 @@ def sample(stream, ports, clock):
         unknown_now[name] = bool(mask)
     if pending_edge:
         flush()
-    return rows, masks, unknown_ports
+    return rows, masks, unknown_ports, state_first
 
 
 def pack(rows, ports, keep):
@@ -196,7 +262,8 @@ def pack(rows, ports, keep):
     return out, selected, total
 
 
-def testbench(module, ports, n_in, n_out, cycles, period_ps, unknown_out_bits):
+def testbench(module, ports, n_in, n_out, cycles, period_ps,
+              unknown_out_bits, state=()):
     """A self-contained replay testbench, generated because the ports are the design.
 
     The module is instantiated from the hardened netlist by its own
@@ -255,6 +322,23 @@ def testbench(module, ports, n_in, n_out, cycles, period_ps, unknown_out_bits):
     a(",\n".join(conns))
     a("  );")
     a("")
+    if state:
+        a("  /* The recorded state, deposited before the first edge and let")
+        a("   * go just after it. A replay starts mid-stream: every cell in")
+        a("   * here begins X, where the recording had the whole run behind")
+        a("   * it, and a flop whose enable never asserts inside the window")
+        a("   * never resolves on its own. Forced through the first edge, so")
+        a("   * the flops capture from a defined state and keep it when the")
+        a("   * force is released. */")
+        a("  initial begin")
+        for net, raw, value in state:
+            a("    force dut.%s = 1'b%s;" % (declare(raw), value))
+        a("    @(posedge clk);")
+        a("    #2;")
+        for net, raw, value in state:
+            a("    release dut.%s;" % declare(raw))
+        a("  end")
+        a("")
     a("  always #(PeriodPs / 2) clk = ~clk;")
     a("")
     a("  initial begin")
@@ -342,6 +426,14 @@ def main(argv=None):
     ap.add_argument("--tb", help="where to write the generated testbench")
     ap.add_argument("--module", help="file naming the netlist module to instantiate")
     ap.add_argument("--period-ps", type=int, default=1282)
+    ap.add_argument("--scope", default="",
+                    help="substring of the instance path to resolve names "
+                         "under. A whole-design recording holds several "
+                         "instances of one module, and a bare name picks "
+                         "whichever was declared first.")
+    ap.add_argument("--state",
+                    help="mult_extract --out-state list; the module's flops "
+                         "are started from what the recording held")
     ap.add_argument("--unknown-out-bits", default="",
                     help="comma-separated packed output bit positions to "
                          "exclude from the oracle, for the generate-only path")
@@ -358,8 +450,16 @@ def main(argv=None):
         # from the netlist every time, where it cannot go stale.
         return generate_only(args, ports)
 
+    state_nets = []
+    if args.state:
+        with open(args.state) as f:
+            for line in f:
+                parts = line.split()
+                if len(parts) >= 3:
+                    state_nets.append((parts[0], parts[2]))
     with open(args.vcd, errors="replace") as f:
-        rows, masks, unknown = sample(f, ports, args.clock)
+        rows, masks, unknown, state_first = sample(
+            f, ports, args.clock, [n for n, _ in state_nets], args.scope)
 
     if args.only_busy:
         # The upper bound: the unit's own working cycles, concatenated,
@@ -415,9 +515,13 @@ def main(argv=None):
             offset -= w
             for bit in unknown.get(name, {}).get("bits", {}):
                 unknown_out_bits.add(offset + bit)
+        seed = [(n, raw, state_first.get(n, "x")) for n, raw in state_nets]
+        seed = [s for s in seed if s[2] in ("0", "1")]
         with open(args.tb, "w") as f:
             f.write(testbench(module, ports, n_in, n_out, len(rows),
-                              args.period_ps, unknown_out_bits))
+                              args.period_ps, unknown_out_bits, seed))
+        text.append("stateful cells seeded from the recording: %d of %d"
+                    % (len(seed), len(state_nets)))
         text.append("testbench: %s" % args.tb)
 
     report = "\n".join(text) + "\n"

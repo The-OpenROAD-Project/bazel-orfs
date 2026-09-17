@@ -78,6 +78,38 @@ def cells(body):
     return found
 
 
+# Cell types that hold state. A replay starts mid-stream, so every one
+# of these begins X where the recording had a hundred thousand cycles of
+# history behind it -- and a flop whose enable never asserts inside the
+# window never resolves. VeeR's ALU carries branch-prediction state that
+# does exactly that.
+SEQUENTIAL = ("DFF", "SDF", "DLL", "DHL", "ICG")
+STATE_PINS = ("Q", "QN")
+
+
+INSTANCE_STMT = re.compile(
+    r'^[ \t]*([A-Za-z_]\w*)[ \t]+(\\?\S+?)[ \t]*\((.*?)\);', re.M | re.S)
+
+
+def state_nets(body):
+    """(net, pin) for every stateful cell output in the module.
+
+    Parsed over whole statements rather than lines: a generated netlist
+    puts one port connection per line, so a line-wise match sees the
+    cell type and none of its pins.
+    """
+    out = []
+    for m in INSTANCE_STMT.finditer(body):
+        if not m.group(1).startswith(SEQUENTIAL):
+            continue
+        for pin in STATE_PINS:
+            c = re.search(r'\.%s\(\s*(\\?[^)\s]+)' % pin, m.group(3))
+            if c:
+                raw = c.group(1)
+                out.append((raw.lstrip("\\"), raw, pin))
+    return out
+
+
 def sdf_subtree(text, needle):
     """The SDF entries under the one instance path containing `needle`.
 
@@ -136,6 +168,10 @@ def main(argv=None):
     ap.add_argument("--out-ports", required=True)
     ap.add_argument("--out-name", required=True)
     ap.add_argument("--out-sdf", required=True)
+    ap.add_argument("--out-state",
+                    help="where to list the module's stateful cell outputs, "
+                         "so a mid-stream replay can start where the "
+                         "recording was rather than at X")
     args = ap.parse_args(argv)
 
     with open(args.netlist, errors="replace") as f:
@@ -153,6 +189,13 @@ def main(argv=None):
         f.write(name + "\n")
     with open(args.out_sdf, "w") as f:
         f.write(sdf)
+
+    if args.out_state:
+        nets = state_nets(body)
+        with open(args.out_state, "w") as f:
+            for net, raw, pin in nets:
+                f.write("%s %s %s\n" % (net, pin, raw))
+        print("mult_extract: %d stateful cell outputs" % len(nets))
 
     in_module = cells(body)
     print("mult_extract: %s" % name)
