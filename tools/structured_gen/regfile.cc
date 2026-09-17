@@ -289,6 +289,14 @@ dbBlock* Builder::Run() {
   }
   const int words_per_bank = s.words / banks;
   const int A_bank = AddrBits(words_per_bank);
+  // Banks in a grid: bank k stands in column k % bank_cols, bank row
+  // k / bank_cols, bank rows stacked upward from the footer.
+  const int bank_cols = s.bank_columns > 0 ? s.bank_columns : banks;
+  if (bank_cols > banks || banks % bank_cols != 0) {
+    Refuse("bank_columns (" + std::to_string(bank_cols) +
+           ") does not divide banks (" + std::to_string(banks) + ")");
+  }
+  const int bank_rows = banks / bank_cols;
   for (int r = 0; r < R; ++r) {
     if (s.read[r].banked() &&
         static_cast<int>(s.read[r].bank_addr.size()) != banks) {
@@ -389,12 +397,15 @@ dbBlock* Builder::Run() {
   const int tap_cols = (tap_ || s.service_sites > 0)
                            ? (s.bits + tap_every - 1) / tap_every
                            : 0;
-  // Banks: the word column folded into `banks` columns side by side, each
-  // with its own header and service columns, so a 256-word file is not
-  // ten times taller than it is wide. A plain read port's bitline is one
-  // OR tree per bank and a final OR across banks in a footer band; a
-  // banked port's bank trees are its outputs and need no footer.
+  // Banks: the word column folded into `banks` columns, `bank_cols` of
+  // them side by side and the rest stacked, each with its own header and
+  // service columns, so a 256-word file is not ten times taller than it
+  // is wide and a 128-bit one not ten times wider than tall. A plain read
+  // port's bitline is one OR tree per bank and a final OR across banks in
+  // a footer band; a banked port's bank trees are its outputs and need no
+  // footer.
   const int bank_w = header_w + s.bits * tile_w + tap_cols * tap_w;
+  const int bank_h_rows = words_per_bank * rows_per_word;
   int plain_reads = 0;
   for (int r = 0; r < R; ++r) {
     plain_reads += s.read[r].banked() ? 0 : 1;
@@ -402,11 +413,11 @@ dbBlock* Builder::Run() {
   // Address inverters: one row band above the array.
   const int inv_rows = 1;
   // Footer: (banks-1) OR2 per read port per bit, as many rows as it takes.
-  const int core_w = banks * bank_w;
+  const int core_w = bank_cols * bank_w;
   const int footer_cells_w =
       banks > 1 ? (banks - 1) * plain_reads * s.bits * static_cast<int>(or2_->getWidth()) : 0;
   const int footer_rows = footer_cells_w > 0 ? (footer_cells_w + core_w - 1) / core_w + 1 : 0;
-  const int total_rows = footer_rows + words_per_bank * rows_per_word + inv_rows;
+  const int total_rows = footer_rows + bank_rows * bank_h_rows + inv_rows;
 
   // Core at a site multiple in from the die so a parent's ring fits.
   core_x0_ = 10 * site_w_;
@@ -469,8 +480,9 @@ dbBlock* Builder::Run() {
 
   for (int n = 0; n < s.words; ++n) {
     const int bank = n / words_per_bank;
-    const int row0 = footer_rows + (n % words_per_bank) * rows_per_word;
-    const int bank_x0 = bank * bank_w;
+    const int row0 = footer_rows + (bank / bank_cols) * bank_h_rows +
+                     (n % words_per_bank) * rows_per_word;
+    const int bank_x0 = (bank % bank_cols) * bank_w;
     // Header column, spread over this word's rows.
     std::vector<Cursor> hc;
     for (int k = 0; k < rows_per_word; ++k) {
@@ -729,9 +741,10 @@ dbBlock* Builder::Run() {
   }
 
   logger_->report(
-      "structured_gen: {} {}x{} {}R{}W in {} bank(s): {} rows of {} sites, die "
-      "{} x {} um, {} instances",
-      s.module, s.words, s.bits, R, W, banks, total_rows, core_w / site_w_,
+      "structured_gen: {} {}x{} {}R{}W in {} bank(s) as {} x {}: {} rows of {} "
+      "sites, die {} x {} um, {} instances",
+      s.module, s.words, s.bits, R, W, banks, bank_cols, bank_rows, total_rows,
+      core_w / site_w_,
       die_w / static_cast<double>(tech->getLefUnits()),
       die_h / static_cast<double>(tech->getLefUnits()),
       block_->getInsts().size());
@@ -859,6 +872,9 @@ Spec ReadSpec(const std::string& path) {
     } else if (key == "banks") {
       need(1);
       s.banks = std::stoi(v[0]);
+    } else if (key == "bank_columns") {
+      need(1);
+      s.bank_columns = std::stoi(v[0]);
     } else if (key == "lib") {
       need(2);
       double x = std::stod(v[1]);

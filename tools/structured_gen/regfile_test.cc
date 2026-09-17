@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -216,6 +217,41 @@ int main(int argc, char** argv) {
                      std::istreambuf_iterator<char>());
     CHECK(text.find("bus(io_readPorts_0_data_1)") != std::string::npos);
     CHECK(text.find("bus(io_readPorts_0_addr_0)") != std::string::npos);
+  }
+
+  // Stacked banks: the same file with its two banks one above the other
+  // is half as wide and twice as tall as with them side by side, and has
+  // the same cells.
+  std::string stacked_spec = dir + "/rfs.spec";
+  {
+    std::ifstream in(spec_path);
+    std::ofstream f(stacked_spec);
+    f << in.rdbuf() << "bank_columns 1\n";
+  }
+  structured_gen::Spec sspec = structured_gen::ReadSpec(stacked_spec);
+  CHECK(sspec.bank_columns == 1);
+  odb::dbDatabase* db3 = odb::dbDatabase::create();
+  db3->setLogger(&logger);
+  odb::lefin reader3(db3, &logger, false);
+  odb::dbTech* tech3 = reader3.createTech("asap7", tech_lef.c_str());
+  CHECK(reader3.createLib(tech3, "asap7sc7p5t", cell_lef.c_str()) != nullptr);
+  odb::dbBlock* sblock = structured_gen::Generate(db3, &logger, sspec);
+  CHECK(sblock != nullptr);
+  CHECK(sblock->getInsts().size() == block->getInsts().size());
+  CHECK(sblock->getDieArea().dx() < block->getDieArea().dx());
+  CHECK(sblock->getDieArea().dy() > block->getDieArea().dy());
+  CHECK(sblock->getDieArea().dx() * 2 > block->getDieArea().dx());
+  {
+    // A bank_columns that does not divide banks is refused.
+    std::ofstream f(stacked_spec, std::ios::app);
+    f << "bank_columns 3\n";
+    bool refused = false;
+    try {
+      structured_gen::Generate(db3, &logger, structured_gen::ReadSpec(stacked_spec));
+    } catch (const std::runtime_error&) {
+      refused = true;
+    }
+    CHECK(refused);
   }
 
   std::string odb_path = dir + "/rf8x4.odb";

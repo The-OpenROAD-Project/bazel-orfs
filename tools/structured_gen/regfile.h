@@ -77,6 +77,12 @@ struct Spec {
   int tap_columns = 8;    // a tap column every N bit columns
   int service_sites = 40; // free sites beside each tap, for the clock tree
   int banks = 1;          // word columns side by side; words % banks == 0
+  // How many of the banks stand side by side; the rest stack below them.
+  // 0 means all of them, one row of banks. The outline is bank_columns
+  // bank widths wide and banks/bank_columns bank heights tall: a wide
+  // word (128 bits) wants its banks stacked, a narrow one wants them
+  // side by side. banks % bank_columns == 0.
+  int bank_columns = 0;
   LibModel lib;
   // Pins: left and right edges on the horizontal layer, top and bottom on
   // the vertical one, centred on that layer's track grid as the platform
