@@ -56,6 +56,12 @@ export AUTO_MEMORIES           = 1
 # three; the blocks pick them up when their synthesis is next redone.
 export GPL_TIMING_DRIVEN       = 0
 export GPL_ROUTABILITY_DRIVEN  = 0
+# Floorplan's repair_timing visits every violating endpoint (ORFS runs it
+# with -repair_tns 100): on Bpu that was 4248 latch endpoints at zero
+# slack, one STA pass each on 650 k instances, 944 no-op iterations and
+# counting after 20 minutes. One percent still repairs the worst path
+# and bounds the visit; ORFS's own note on the knob says 5 for runtime.
+export TNS_END_PERCENT         = 1
 
 export CORE_UTILIZATION        = 40
 export CORE_ASPECT_RATIO       = 1

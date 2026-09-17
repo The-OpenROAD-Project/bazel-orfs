@@ -138,6 +138,12 @@ export GPL_TIMING_DRIVEN       = 0
 # undid the placer's convergence (overflow 0.31 back to 0.66). Global
 # route will say what that costs; flip back for the measured run.
 export GPL_ROUTABILITY_DRIVEN  = 0
+# Floorplan's repair_timing visits every violating endpoint (ORFS runs it
+# with -repair_tns 100): on Bpu that was 4248 latch endpoints at zero
+# slack, one STA pass each on 650 k instances, 944 no-op iterations and
+# counting after 20 minutes. One percent still repairs the worst path
+# and bounds the visit; ORFS's own note on the knob says 5 for runtime.
+export TNS_END_PERCENT         = 1
 
 # No pre-placement repair_timing. With REMOVE_ABC_BUFFERS unset, the
 # floorplan stage runs repair_timing on wire-load models before anything
