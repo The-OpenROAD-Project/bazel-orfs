@@ -83,6 +83,11 @@ struct Spec {
   // word (128 bits) wants its banks stacked, a narrow one wants them
   // side by side. banks % bank_columns == 0.
   int bank_columns = 0;
+  // The word split into this many bit bands, stacked: a 564-bit word
+  // is one band 564 tiles wide, or four bands of 141 one above the
+  // other, each with its own copy of the word decode; the last band is
+  // short when the folds do not divide. Banks fold words; this folds bits.
+  int bit_folds = 1;
   LibModel lib;
   // Pins: left and right edges on the horizontal layer, top and bottom on
   // the vertical one, centred on that layer's track grid as the platform

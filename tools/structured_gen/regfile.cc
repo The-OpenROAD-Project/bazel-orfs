@@ -297,6 +297,15 @@ dbBlock* Builder::Run() {
            ") does not divide banks (" + std::to_string(banks) + ")");
   }
   const int bank_rows = banks / bank_cols;
+  // Bit folds: band f holds bits [f * bits_per_fold, (f + 1) * bits_per_fold)
+  // of every word, stacked above band f - 1 inside the bank; the last
+  // band is short when the folds do not divide the bits.
+  const int folds = std::max(s.bit_folds, 1);
+  if (folds > s.bits) {
+    Refuse("bit_folds (" + std::to_string(folds) + ") exceeds bits (" +
+           std::to_string(s.bits) + ")");
+  }
+  const int bits_per_fold = (s.bits + folds - 1) / folds;
   for (int r = 0; r < R; ++r) {
     if (s.read[r].banked() &&
         static_cast<int>(s.read[r].bank_addr.size()) != banks) {
@@ -395,7 +404,7 @@ dbBlock* Builder::Run() {
                     std::max(s.service_sites, 0) * site_w_;
   const int tap_every = std::max(s.tap_columns, 1);
   const int tap_cols = (tap_ || s.service_sites > 0)
-                           ? (s.bits + tap_every - 1) / tap_every
+                           ? (bits_per_fold + tap_every - 1) / tap_every
                            : 0;
   // Banks: the word column folded into `banks` columns, `bank_cols` of
   // them side by side and the rest stacked, each with its own header and
@@ -404,8 +413,10 @@ dbBlock* Builder::Run() {
   // port's bitline is one OR tree per bank and a final OR across banks in
   // a footer band; a banked port's bank trees are its outputs and need no
   // footer.
-  const int bank_w = header_w + s.bits * tile_w + tap_cols * tap_w;
-  const int bank_h_rows = words_per_bank * rows_per_word;
+  const int bank_w = header_w + bits_per_fold * tile_w + tap_cols * tap_w;
+  // A bank is `folds` bands tall, each band every word of the bank.
+  const int band_h_rows = words_per_bank * rows_per_word;
+  const int bank_h_rows = folds * band_h_rows;
   int plain_reads = 0;
   for (int r = 0; r < R; ++r) {
     plain_reads += s.read[r].banked() ? 0 : 1;
@@ -461,13 +472,16 @@ dbBlock* Builder::Run() {
     }
   }
 
-  // ---- per word: header decode, then tiles across the bits -------------
+  // ---- per band and word: header decode, then tiles across the bits ----
+  // The decode is per (band, word): a band is its own rows, so the word
+  // selects it needs are made again beside it. Cheap next to the tiles.
   std::vector<std::vector<dbNet*>> rsel(R, std::vector<dbNet*>(s.words));
   std::vector<std::vector<dbNet*>> wsel(W, std::vector<dbNet*>(s.words));
   std::vector<dbNet*> hold(s.words);
   // Read OR-tree leaves per (r, b): the AND outputs down the column.
   std::vector<std::vector<std::vector<dbNet*>>> leaves(
       R, std::vector<std::vector<dbNet*>>(s.bits));
+  tiles_.assign(static_cast<size_t>(s.words) * s.bits, Tile{});
 
   auto literals = [&](const std::vector<dbNet*>& a,
                       const std::vector<dbNet*>& an, int n) {
@@ -478,10 +492,11 @@ dbBlock* Builder::Run() {
     return l;
   };
 
+  for (int f = 0; f < folds; ++f)
   for (int n = 0; n < s.words; ++n) {
     const int bank = n / words_per_bank;
     const int row0 = footer_rows + (bank / bank_cols) * bank_h_rows +
-                     (n % words_per_bank) * rows_per_word;
+                     f * band_h_rows + (n % words_per_bank) * rows_per_word;
     const int bank_x0 = (bank % bank_cols) * bank_w;
     // Header column, spread over this word's rows.
     std::vector<Cursor> hc;
@@ -489,7 +504,8 @@ dbBlock* Builder::Run() {
       hc.push_back(Cursor{row0 + k, bank_x0});
     }
     auto hcur = [&]() -> Cursor& { return Least(hc); };
-    std::string wn = "w" + std::to_string(n);
+    std::string wn = "w" + std::to_string(n) +
+                     (folds > 1 ? "_f" + std::to_string(f) : "");
     for (int r = 0; r < R; ++r) {
       const bool banked = s.read[r].banked();
       rsel[r][n] = Decode(hcur(), wn + "_rsel" + std::to_string(r),
@@ -521,14 +537,15 @@ dbBlock* Builder::Run() {
       }
     }
 
-    // Tiles.
+    // Tiles, this band's bits.
     int x = bank_x0 + header_w;
-    for (int b = 0; b < s.bits; ++b) {
-      if (tap_cols > 0 && b % tap_every == 0) {
+    for (int bl = 0; bl < bits_per_fold && f * bits_per_fold + bl < s.bits; ++bl) {
+      const int b = f * bits_per_fold + bl;
+      if (tap_cols > 0 && bl % tap_every == 0) {
         if (tap_) {
           for (int k = 0; k < rows_per_word; ++k) {
             Cursor tc{row0 + k, x};
-            Place(tc, tap_, "tap_" + wn + "_c" + std::to_string(b / tap_every) +
+            Place(tc, tap_, "tap_" + wn + "_c" + std::to_string(bl / tap_every) +
                                 "_r" + std::to_string(k), {});
           }
         }
@@ -599,7 +616,7 @@ dbBlock* Builder::Run() {
         leaves[r][b].push_back(y);
       }
       // Keep the row cursors: the read OR trees fill the tile's leftover.
-      tiles_.push_back(Tile{tc, x + tile_w});
+      tiles_[static_cast<size_t>(n) * s.bits + b] = Tile{tc, x + tile_w};
       x += tile_w;
     }
   }
@@ -741,10 +758,10 @@ dbBlock* Builder::Run() {
   }
 
   logger_->report(
-      "structured_gen: {} {}x{} {}R{}W in {} bank(s) as {} x {}: {} rows of {} "
-      "sites, die {} x {} um, {} instances",
-      s.module, s.words, s.bits, R, W, banks, bank_cols, bank_rows, total_rows,
-      core_w / site_w_,
+      "structured_gen: {} {}x{} {}R{}W in {} bank(s) as {} x {}, {} bit fold(s): "
+      "{} rows of {} sites, die {} x {} um, {} instances",
+      s.module, s.words, s.bits, R, W, banks, bank_cols, bank_rows, folds,
+      total_rows, core_w / site_w_,
       die_w / static_cast<double>(tech->getLefUnits()),
       die_h / static_cast<double>(tech->getLefUnits()),
       block_->getInsts().size());
@@ -875,6 +892,9 @@ Spec ReadSpec(const std::string& path) {
     } else if (key == "bank_columns") {
       need(1);
       s.bank_columns = std::stoi(v[0]);
+    } else if (key == "bit_folds") {
+      need(1);
+      s.bit_folds = std::stoi(v[0]);
     } else if (key == "lib") {
       need(2);
       double x = std::stod(v[1]);
