@@ -14,7 +14,7 @@ living in an output directory nobody keeps.
 
 Usage (via the generated target):
     bazelisk run //test/coremark_joule:pin
-    bazelisk run //test/coremark_joule:pin -- --table   # the §4.9 table, no write
+    bazelisk run //test/coremark_joule:pin -- --table   # the §4.10 table, no write
 
 The literature rows live here too (LITERATURE), one schema for every
 paper, checked by check_literature and pin_results_test.
@@ -186,7 +186,7 @@ LITERATURE = [
     _row(
         _NONE,
         name="XiangShan Kunminghu V2",
-        cite="[14]",
+        cite="[26]",
         source="XiangShan KMH: An Open Source RISC-V Core with >15/GHz for "
         "SPECCPU2006, Y. Bao, 14 May 2025 (project slides)",
         locator="slide 10 (tape-out status: 7 nm, area, power, max core "
@@ -210,7 +210,7 @@ LITERATURE = [
     _row(
         _NONE,
         name="XiangShan Nanhu V2",
-        cite="[14]",
+        cite="[26]",
         source="XiangShan KMH slides, Y. Bao, 14 May 2025",
         locator="slide 10 (NHv2 taped out: 2.5 GHz, SPEC CPU2006 ~10/GHz), "
         "slide 6 (14 nm)",
@@ -224,7 +224,7 @@ LITERATURE = [
     _row(
         _NONE,
         name="SonicBOOM",
-        cite="[15]",
+        cite="[27]",
         source="SonicBOOM: The 3rd Generation Berkeley Out-of-Order Machine, "
         "CARRV 2020",
         locator="Section 5 (CoreMark/MHz, synthesis at 1 GHz), Figure 7 "
@@ -240,7 +240,7 @@ LITERATURE = [
     _row(
         _NONE,
         name="ibex (small)",
-        cite="[16]",
+        cite="[28]",
         source="lowRISC ibex README, performance/area table",
         locator="README table, row 'small' (RV32IMC, 3-cycle multiplier)",
         process="yosys basic synthesis flow, latch-based register file; "
@@ -257,7 +257,7 @@ LITERATURE = [
     _row(
         _NONE,
         name="SERV",
-        cite="[17]",
+        cite="[29]",
         source="olofk/serv README",
         locator="README 'Size' table, 'typical CMOS process' row",
         process="not named ('a typical CMOS process')",
@@ -269,7 +269,7 @@ LITERATURE = [
     _row(
         _NONE,
         name="picorv32",
-        cite="[18]",
+        cite="[30]",
         source="YosysHQ/picorv32 README",
         locator="README 'Performance' and 'Size' sections",
         process="Xilinx 7-series LUTs only; no ASIC area published",
@@ -282,7 +282,7 @@ LITERATURE = [
     _row(
         _NONE,
         name="VeeR EH1",
-        cite="[11], [19]",
+        cite="[11], [31]",
         source="Western Digital SweRV Core EH1 announcement, December 2018; "
         "CoreMark Benchmarking for SweRV, 20 November 2019 [11]",
         locator="announcement (4.9 CoreMark/MHz, up to 1.8 GHz on 28 nm); "
@@ -297,7 +297,7 @@ LITERATURE = [
     _row(
         _NONE,
         name="VeeR EL2",
-        cite="[20]",
+        cite="[32]",
         source="CHIPS Alliance / Western Digital SweRV Core EL2 announcement",
         locator="announcement: 3.6 CoreMark/MHz simulated, 0.023 mm2 in "
         "16 nm, up to 600 MHz",
@@ -438,7 +438,7 @@ def _cell(value, fmt="{:g}"):
 
 
 def literature_table(points, literature):
-    """The §4.9 table as markdown: measured rows first, then the literature.
+    """The §4.10 table as markdown: measured rows first, then the literature.
 
     Rendered from the pinned document so the README's table and the
     file cannot disagree without a diff showing it.
@@ -610,7 +610,7 @@ def main(argv):
     parser.add_argument(
         "--table",
         action="store_true",
-        help="print the literature table (§4.9) and write nothing",
+        help="print the literature table (§4.10) and write nothing",
     )
     args = parser.parse_args(argv[1:])
 

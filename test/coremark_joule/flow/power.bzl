@@ -448,8 +448,25 @@ def flop_power_probe(name, src, saif, saif_scope, stage = "synth", tags = ["manu
     §4.8's cross-check found the Sequential group's internal power not
     scaling with frequency on a byte-identical netlist; this names the
     term. See flow/flop_power_probe.tcl.
+    """
+    orfs_run(
+        name = name,
+        src = src,
+        outs = [name + ".txt"],
+        script = "//test/coremark_joule/flow:flop_power_probe.tcl",
+        data = [saif],
+        user_arguments = {
+            "STAGE_STEM": STAGE_STEM[stage],
+            "SAIF_STIMULI": "$(location {})".format(saif),
+            "SAIF_SCOPE": saif_scope,
+            "OUT": "$(location {}.txt)".format(name),
+        },
+        tags = tags,
+        visibility = visibility,
+    )
+
 def physical_probe(name, src, stage = "grt", ge_cell = "NAND2xp33_ASAP7_75t_R", tags = ["manual"], visibility = None):
-    """The measured side of the literature table (§4.9).
+    """The measured side of the literature table (§4.10).
 
     Standard-cell area, gate equivalents against `ge_cell`, flop and
     macro counts, die and core area, the SDC period and the reg2reg
@@ -463,12 +480,6 @@ def physical_probe(name, src, stage = "grt", ge_cell = "NAND2xp33_ASAP7_75t_R", 
         name = name,
         src = src,
         outs = [name + ".txt"],
-        script = "//test/coremark_joule/flow:flop_power_probe.tcl",
-        data = [saif],
-        user_arguments = {
-            "STAGE_STEM": STAGE_STEM[stage],
-            "SAIF_STIMULI": "$(location {})".format(saif),
-            "SAIF_SCOPE": saif_scope,
         script = "//test/coremark_joule/flow:physical_probe.tcl",
         user_arguments = {
             "STAGE_STEM": STAGE_STEM[stage],

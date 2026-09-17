@@ -735,6 +735,7 @@ SEED_CORES = [
     for core, isa, pkg, top, boundary, dropped in SEED_CORES
     for seed in SEEDS
 ]
+
 # XiangShan. One simulator, built from the concatenated Chisel output, with
 # the memory behind DPI rather than in a $readmemh array.
 #
@@ -857,8 +858,7 @@ cc_binary(
 # The SAIF for XiangShan, over its last CoreMark iteration.
 coremark_saif(
     name = "xiangshan_rv64gc_saif",
-    # Matches designs/asap7/xiangshan/constraints.sdc.
-    clk_period_ps = 1200,
+    constraints = "//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc",
     image = ":coremark_rv64gc_3_hex",
     # Not yet measured for this netlist: zero asserts that every net the
     # SAIF cannot carry is a clock net, and the first run says otherwise
@@ -877,9 +877,8 @@ coremark_per_joule(
     boundary = "core + L1: 64 kB instruction cache and 64 kB data cache as " +
                "SRAM macros; vector region, predictors, both caches and the " +
                "page walker hardened as blocks whose power is their .lib only",
+    constraints = "//test/coremark_joule/designs/asap7/xiangshan:constraints.sdc",
     core = "xiangshan",
-    # 1200 ps, the SDC period the SAIF was timed against.
-    frequency_mhz = "833.333",
     isa = "rv64gc",
     per_mhz = ":xiangshan_rv64gc_per_mhz",
     power = "//test/coremark_joule/designs/asap7/xiangshan:cmj_xiangshan_grt_power",
