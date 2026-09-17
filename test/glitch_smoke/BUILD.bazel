@@ -27,8 +27,8 @@ sh_test(
         "glitch.sdf",
         "glitch.v",
         "tb.v",
+        "@iverilog",
         "@iverilog//:ivl_base",
-        "@iverilog//:iverilog",
         "@iverilog//:vvp",
     ],
 )
