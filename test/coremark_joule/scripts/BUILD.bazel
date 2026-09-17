@@ -215,6 +215,27 @@ py_test(
 # What one CoreMark iteration costs on the external bus. The boundary is
 # a module for VeeR, so "is the benchmark inside it?" has an exact
 # answer, and this is the parser that takes it.
+# results/commodity_coremark.csv, regenerated from the four OpenBenchmarking
+# exports A.1 cites, with --check failing when the committed file and the
+# exports disagree. Manual, because the exports are Phoronix's data and are
+# not committed -- the test beside it is not.
+py_binary(
+    name = "fetch_commodity",
+    srcs = ["fetch_commodity.py"],
+    main = "fetch_commodity.py",
+    tags = ["manual"],
+)
+
+py_test(
+    name = "fetch_commodity_test",
+    size = "small",
+    srcs = [
+        "fetch_commodity.py",
+        "fetch_commodity_test.py",
+    ],
+    main = "fetch_commodity_test.py",
+)
+
 py_binary(
     name = "bus_probe",
     srcs = ["bus_probe.py"],

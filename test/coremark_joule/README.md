@@ -2971,24 +2971,6 @@ when a gated clock first ticks in a module replayed from mid-stream,
 which every unit with un-reset state will meet. `GLITCH_RESUME.md`
 carries the chain, the measured costs, and the hypothesis to test.
 
-## Appendix A. Shipping silicon at the wall plug
-
-[§A.1](#x) already places this
-study's cores against fifteen commodity parts, at a stated package
-boundary, with power logged during the benchmark. This appendix does
-not compete with that and should not be read as a second attempt at it.
-
-It reports something else: three parts measured at the **mains plug**,
-swept by active core count, on a machine in the room rather than from a
-public result export. That buys two things [§A.1](#x) cannot give — a
-core-count sweep, which is the only way to see a part throttle, and an
-independent method whose agreement with [§A.1](#x) is worth checking. It
-costs accuracy, and the appendix spends most of its length on how much.
-
-The short answer: **the throttling behaviour publishes, the energy
-numbers corroborate [§A.1](#x) without adding to it, and neither belongs on
-Figure 1.**
-
 ## 9. Conclusion
 
 Four RISC-V cores, hardened on ASAP7 and measured for CoreMark/MHz and
@@ -3068,6 +3050,12 @@ bazelisk build //test/coremark_joule/designs/asap7/ibex:ibex_synth_crosscheck
 # re-measure and rewrite the pinned results; then the plot, with no flow in the loop
 bazelisk run   //test/coremark_joule:pin
 bazelisk build //test/coremark_joule:plot
+
+# A.1's commodity table against the exports it was built from. The four
+# exports are Phoronix's data and are not committed: fetch them first from
+# openbenchmarking.org/result/<id> for the ids in Appendix A's reference.
+bazelisk run //test/coremark_joule/scripts:fetch_commodity -- \
+    --exports $PWD/exports --check $PWD/test/coremark_joule/results/commodity_coremark.csv
 ```
 
 `results.json` is committed, so iterating on the presentation never
@@ -3148,6 +3136,15 @@ whose platform bodies are `#error` stubs. CoreMark's Acceptable Use
 Agreement forbids using the trademark in connection with a modified
 copy of the Software.
 
+Appendix A's commodity rows are not ours. The measured figures are extracted
+from four public OpenBenchmarking.org result exports (Phoronix Media), cited
+by result id in the reference list and not redistributed here;
+`scripts/fetch_commodity.py` re-derives `results/commodity_coremark.csv` from
+them so the extraction is checkable without copying the source. The four
+rows PTS did not measure carry a vendor rating or a figure quoted from a
+published review, each attributed where it is used, except Graviton4, which
+has no published power and so is not in the table at all.
+
 ---
 
 ## Appendix A. Commodity silicon on the same axes
@@ -3155,7 +3152,7 @@ copy of the Software.
 Nobody publishes CoreMark/Joule for a commodity CPU, so it has to be derived,
 and this appendix derives it twice by two independent methods. **A.1** reads
 CPU package power logged while CoreMark ran, from public result exports, for
-twenty-one parts. **A.2** to **A.7** read total power at the mains plug on three
+twenty-six parts. **A.2** to **A.7** read total power at the mains plug on three
 parts in the room, swept by active core count.
 
 The two buy different things. The package method has the parts and the stated
@@ -3198,9 +3195,14 @@ power and are marked with what stands in for it.
 | AMD Ryzen 9 7900X, Zen 4 | desktop | 12 | 5.73 GHz | 737,516 | 143 W measured | 5,144 |
 | AMD Ryzen 7 7700, Zen 4, 65 W part | desktop | 8 | 5.39 GHz | 493,775 | 80 W measured | 6,154 |
 | AMD Ryzen 7 7700X, Zen 4 | desktop | 8 | 5.57 GHz | 514,276 | 112 W measured | 4,575 |
+| AMD Ryzen 5 7600, Zen 4, 65 W part | desktop | 6 | 5.17 GHz | 369,594 | 82 W measured | 4,504 |
+| AMD Ryzen 5 7600X, Zen 4 | desktop | 6 | 5.45 GHz | 387,173 | 99 W measured | 3,931 |
+| AMD Ryzen 9 9950X, Zen 5 | desktop | 16 | 5.75 GHz | 793,794 | 158 W measured | 5,036 |
+| AMD Ryzen 9 9900X, Zen 5 | desktop | 12 | 5.66 GHz | 633,447 | 130 W measured | 4,884 |
 | AMD Ryzen 7 9700X, Zen 5, 65 W | desktop | 8 | 5.50 GHz | 545,799 | 77 W measured | 7,075 |
 | AMD Ryzen 7 9700X, Zen 5, 105 W cTDP | desktop | 8 | 5.50 GHz | 582,558 | 112 W measured | 5,214 |
-| AMD Ryzen 9 9950X, Zen 5 | desktop | 16 | 5.75 GHz | 793,794 | 158 W measured | 5,036 |
+| AMD Ryzen 5 9600X, Zen 5, 65 W | desktop | 6 | 5.48 GHz | 427,217 | 79 W measured | 5,418 |
+| AMD Ryzen 5 9600X, Zen 5, 105 W cTDP | desktop | 6 | 5.48 GHz | 434,740 | 98 W measured | 4,417 |
 | Intel Core i9-13900K, Raptor Lake | desktop | 8P + 16E | 5.50 GHz | 831,717 | 149 W measured | 5,580 |
 | Intel Core i9-14900K, Raptor Lake | desktop | 8P + 16E | 5.70 GHz | 872,643 | 170 W measured | 5,147 |
 | Intel Core Ultra 9 285K, Arrow Lake | desktop | 8P + 16E | 5.70 GHz | 1,048,146 | 150 W measured | 6,978 |
@@ -3244,21 +3246,22 @@ cannot give.** The Ryzen 9 7900 and 7900X are the same twelve-core die at
 of the 170 W part for 12 % less CoreMark. The Ryzen 7 9700X measured at
 its 65 W default and at its 105 W option is one chip in one socket run
 twice: 6.7 % more CoreMark for 45 % more power, CoreMark/Joule down
-**26 %**. That is [§2.3](#23-why-coremarkjoule-falls-as-coremarksecond-rises)'s
+**26 %**. The Ryzen 5 9600X is the same experiment a third time and the
+steepest of the three: 1.8 % more CoreMark for 25 % more power, down
+**18 %**. That is [§2.3](#23-why-coremarkjoule-falls-as-coremarksecond-rises)'s
 voltage route observed on silicon: the last few hundred megahertz are
 bought with $V^2$, and a server binned for 3.5 GHz at 1 W per core is on
 the cheap part of the curve that a 5.7 GHz desktop has left behind.
 
-**One desktop row does not behave, and it is reported rather than dropped.**
-The Zen 5 Ryzen 9 9950X returns **21.6 % less** CoreMark than the Zen 4 7950X
-it succeeds -- same sixteen cores, higher clock, same export, same kernel and
-compiler -- while drawing 14.7 % more power. A single odd run would be a
-reason to leave it out; this is not one. The same export's Ryzen 9 9900X
-regresses 14.1 % against the 7900X, and the Zen 5 parts that do *not* regress
-are exactly the single-die ones: the 9600X and 9700X improve on their Zen 4
-counterparts by 10.3 % and 6.1 %. Whatever splits them -- and two dual-die
-parts behaving alike is not a fluke -- it is in the published data rather than
-in our reading of it, so the row stays and the anomaly is stated.
+**The Zen 5 desktop parts split on die count, and the dual-die ones do not
+behave.** The 9950X returns **21.6 % less** CoreMark than the Zen 4 7950X it
+succeeds -- same sixteen cores, higher clock, same export, same kernel and
+compiler -- while drawing 14.7 % more power, and the 9900X regresses 14.1 %
+against the 7900X on the same twelve cores. The Zen 5 parts that do *not*
+regress are exactly the single-die ones: the 9600X and 9700X improve on the
+7600X and 7700X by 10.3 % and 6.1 %. Two dual-die parts behaving alike is a
+property of the published data rather than of one run, and what splits them
+is not established here.
 
 **How big the effect should be, and how big it is.** [§2.3](#23-why-coremarkjoule-falls-as-coremarksecond-rises)
 predicts energy per operation $\propto f^2$ on the voltage route. The
@@ -3441,9 +3444,9 @@ a finding about the parts.
 **The energy numbers agree with the package measurements, which is the
 most useful thing they do.** The slope estimator gives 9,970
 CoreMark/Joule for the Threadripper, 11,520 for the X Elite and 4,700
-for the Xeon. [§A.1](#a1-package-power-logged-during-the-run)'s twenty-one
+for the Xeon. [§A.1](#a1-package-power-logged-during-the-run)'s twenty-six
 parts, measured at the package with power logged during the run, span
-**4,575 to 12,028**. Three wall-plug numbers from a different method, a
+**3,931 to 12,028**. Three wall-plug numbers from a different method, a
 different boundary and a different decade of silicon land inside that
 band.
 
