@@ -86,6 +86,12 @@ archive_override(
         # patches/0069-orfs-openroad-args-tcl-source.patch.
         # Not upstreamed -- retire at a bump onto an OpenROAD carrying it.
         "//patches:0001-openroad-tcl-source-flag.patch",
+        # openroad_lib, the whole tool as one cc_library, is visible only
+        # to OpenROAD's own packages. Public, so tools/structured_gen can
+        # link odb, utl and sta from this repository; nothing else changes.
+        # Not upstreamed -- retire at a bump onto an OpenROAD that exposes
+        # a library target for embedding.
+        "//patches:0002-openroad-openroad-lib-public.patch",
         # write_pin_placement wrote the pin name bare, so its output only
         # read back through the .sdc unknown handler above; on stock tcl
         # place_pin -pin_name R0_addr[0] fails on the [0]. Brace the name

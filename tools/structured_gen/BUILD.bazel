@@ -1,0 +1,35 @@
+# structured_gen: placed register files and CAMs as macros, written with
+# OpenROAD's own libraries rather than emitted as text for a later flow
+# to place. See README.md.
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_test")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "regfile",
+    srcs = ["regfile.cc"],
+    hdrs = ["regfile.h"],
+    deps = ["@openroad//:openroad_lib"],
+)
+
+cc_binary(
+    name = "structured_gen",
+    srcs = ["main.cc"],
+    deps = [":regfile"],
+)
+
+# Against the real asap7 LEF, so the cell names, pins and site the spec
+# names are the ones a flow would see.
+ASAP7_LEFS = [
+    "@orfs//flow:platforms/asap7/lef/asap7_tech_1x_201209.lef",
+    "@orfs//flow:platforms/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef",
+]
+
+cc_test(
+    name = "regfile_test",
+    size = "small",
+    srcs = ["regfile_test.cc"],
+    args = ["$(rlocationpath {})".format(l) for l in ASAP7_LEFS],
+    data = ASAP7_LEFS,
+    deps = [":regfile"],
+)
