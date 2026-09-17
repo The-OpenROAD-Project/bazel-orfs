@@ -1,0 +1,105 @@
+An .sdc file is a domain specific language that is almost tcl.  The one
+reading it needs that tcl does not give is the bus subscript: in foo[2]
+the brackets are part of a name, where tcl sees a command substitution.
+OpenSTA supplies that reading with sta_unknown, installed as the global
+namespace's unknown handler when tcl/Util.tcl loads and live for the
+whole session.  So every tcl script a session runs, not only the .sdc,
+is read on an interpreter that turns an unknown command into a bus
+subscript or into the unique command it abbreviates.
+
+Install the handler in read_sdc instead, for the extent of the .sdc
+file, and put the previous handler back on the way out, in a finally so
+an .sdc that fails restores it too.  Nested read_sdc saves and restores
+in order.  Nothing else changes: include_file is still the reader, the
+file/line reporting behind the SDC message ids is untouched, and inside
+read_sdc every .sdc reads exactly as before.  Outside read_sdc the
+interpreter is stock tcl, and the .sdc reading is an implementation
+detail of read_sdc, as it should be.
+
+Not upstreamed.  Retires on a //:bump onto an OpenSTA carrying it.
+
+diff --git a/src/sta/sdc/Sdc.tcl b/src/sta/sdc/Sdc.tcl
+index 64fdbfc..71be9de 100644
+--- a/src/sta/sdc/Sdc.tcl
++++ b/src/sta/sdc/Sdc.tcl
+@@ -36,6 +36,24 @@ namespace eval sta {
+ 
+ define_cmd_args "read_sdc" {[-echo] [-mode mode_name] filename}
+ 
++# An .sdc file is a domain specific language that is almost tcl.  The
++# one reading it needs that tcl does not give is the bus subscript: in
++# foo[2] the brackets are part of a name, where tcl sees a command
++# substitution.  sta_unknown (tcl/Util.tcl) supplies that reading as the
++# global namespace's unknown handler.  It is installed here, for the
++# extent of read_sdc, and the previous handler is put back on the way
++# out, so the .sdc reading stays an implementation detail of read_sdc
++# and nothing outside it sees anything but stock tcl.
++proc sdc_unknown_begin {} {
++  set prev [namespace eval :: { namespace unknown }]
++  namespace eval :: { namespace unknown ::sta_unknown }
++  return $prev
++}
++
++proc sdc_unknown_end { prev } {
++  namespace eval :: [list namespace unknown $prev]
++}
++
+ proc_redirect read_sdc {
+   parse_key_args "read_sdc" args keys {-mode} flags {-echo}
+ 
+@@ -43,19 +61,24 @@ proc_redirect read_sdc {
+   set echo [info exists flags(-echo)]
+   set filename [file nativename [lindex $args 0]]
+ 
+-  if { [info exists keys(-mode)] } {
+-    set mode_name $keys(-mode)
+-    set prev_mode [cmd_mode_name]
+-    try {
+-      set_cmd_mode $mode_name
+-      include_file $filename $echo 0
+-    } finally {
+-      if { $prev_mode != "default" } {
+-        set_cmd_mode $prev_mode
++  set prev_unknown [sdc_unknown_begin]
++  try {
++    if { [info exists keys(-mode)] } {
++      set mode_name $keys(-mode)
++      set prev_mode [cmd_mode_name]
++      try {
++        set_cmd_mode $mode_name
++        include_file $filename $echo 0
++      } finally {
++        if { $prev_mode != "default" } {
++          set_cmd_mode $prev_mode
++        }
+       }
++    } else {
++      include_file $filename $echo 0
+     }
+-  } else {
+-    include_file $filename $echo 0
++  } finally {
++    sdc_unknown_end $prev_unknown
+   }
+ }
+ 
+diff --git a/src/sta/tcl/Util.tcl b/src/sta/tcl/Util.tcl
+index 1544352..972fba8 100644
+--- a/src/sta/tcl/Util.tcl
++++ b/src/sta/tcl/Util.tcl
+@@ -486,6 +486,9 @@ proc include_file { filename echo verbose } {
+ # Bus signal names like foo[2] or bar[31:0] use brackets that
+ # look like "eval" to TCL. Catch the numeric "function" with the
+ # namespace's unknown handler and return the value instead of an error.
++# read_sdc installs this handler for the extent of the .sdc file and
++# restores the previous one on the way out (see sdc/Sdc.tcl); outside
++# read_sdc the interpreter is stock tcl.
+ proc sta_unknown { args } {
+   global errorCode errorInfo
+   
+@@ -522,5 +525,3 @@ proc is_bus_subscript { subscript } {
+             || [string match $subscript "*"] \
+             || [regexp {[0-9]+:[0-9]} $subscript]]
+ }
+-
+-namespace unknown sta_unknown
