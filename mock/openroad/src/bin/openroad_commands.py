@@ -449,9 +449,9 @@ def validate_env_vars():
                     f"non-numeric values: '{val}'",
                 )
 
-    # --- MOCK_AREA: scale factor ---
+    # --- MOCK_AREA: scale factor, or "pins" (fit the die to the pins) ---
     val = os.environ.get("MOCK_AREA", "")
-    if val:
+    if val and val != "pins":
         try:
             s = float(val)
             if s <= 0:

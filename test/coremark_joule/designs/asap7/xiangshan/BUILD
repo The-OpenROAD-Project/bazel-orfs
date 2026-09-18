@@ -9,6 +9,12 @@ design(
     # has placed. Their timing and power are then those of an unrouted
     # block; move to "final" for the measured run.
     block_abstract_stage = "place",
+    # The parent floorplans with each block's outline shrunk to what its
+    # pins need (1.5x the legal minimum perimeter), not to what the block's
+    # cells need: 4.15 mm2 of macros become about 0.75 mm2 and the die
+    # follows. Timing and power still come from the blocks' own abstracts.
+    # Turnaround setting; the parent's wires are as long as the mock.
+    block_mock_area = "pins",
     config = "config.mk",
     # Skip the 40-minute `global_placement -skip_io` step at the top and
     # place pins directly. RTL exploration only.
