@@ -32,6 +32,7 @@ exports_files([
     "log_timestamps.py",
     "make.tpl",
     "mock_area.tcl",
+    "mock_pins.tcl",
     "open_blend.sh",
     "open_html.sh",
     "package_stage.py",

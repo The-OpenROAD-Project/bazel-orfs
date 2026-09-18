@@ -480,6 +480,12 @@ def orfs_flow(
         "floorplan": [mock_area_name],
     }
 
+    # A pin-fitted mock puts its pins on adjacent edges (mock_pins.tcl), so
+    # the parent's placer has an orientation to choose; the block's own IO
+    # constraints, written for its real outline, do not apply to the mock.
+    mock_sources = sources
+    if mock_area == "pins":
+        mock_sources = sources | {"IO_CONSTRAINTS": ["@bazel-orfs//:mock_pins.tcl"]}
     _orfs_pass(
         name = name,
         top = top,
@@ -487,7 +493,7 @@ def orfs_flow(
         macros = macros,
         kept_macros = kept_macros,
         canon_blackbox_macros = canon_blackbox_macros,
-        sources = sources,
+        sources = mock_sources,
         user_sources = user_sources,
         stage_arguments = stage_arguments,
         renamed_inputs = {},

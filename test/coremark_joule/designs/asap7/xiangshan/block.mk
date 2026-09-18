@@ -98,3 +98,9 @@ export PDN_TCL                 = $(PLATFORM_DIR)/openRoad/pdn/BLOCK_grid_strateg
 export MIN_ROUTING_LAYER       = M2
 export MAX_ROUTING_LAYER       = M9
 export PLACE_PINS_ARGS         = -annealing
+# Two pin layers per edge direction: twice the pins an edge holds, so a
+# block's pins fit on two edges of a mocked outline (mock_pins.tcl) at a
+# size near its real one, and the real abstract's edges are less crowded.
+# asap7: M2 and M4 run horizontally, M3 and M5 vertically.
+export IO_PLACER_H             = M2 M4
+export IO_PLACER_V             = M3 M5
