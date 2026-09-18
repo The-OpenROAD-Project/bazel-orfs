@@ -1,0 +1,51 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Oyvind Harboe <oyvind.harboe@zylin.com>
+Date: Wed, 17 Sep 2026 00:00:00 +0000
+Subject: [PATCH] synth: SKIP_EXTRACT_FA, a turnaround knob for arithmetic-heavy
+ modules
+
+extract_fa runs unconditionally before the adder techmap. On
+arithmetic-heavy modules it is the largest share of the partition's
+time: in XiangShan's vector converter 83% (748 s) and in a vector FMA
+51% (848 s) of the synthesis, ahead of abc. SKIP_EXTRACT_FA=1 leaves the
+adders to the generic techmap, which is what architectural exploration
+wants while the flow is being put together; the default is unchanged.
+
+Not upstreamed; carried by bazel-orfs. Retires at a //:bump onto an ORFS
+that carries a knob for this.
+---
+diff -ruN a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
+--- a/flow/scripts/synth.tcl
++++ b/flow/scripts/synth.tcl
+@@ -219,7 +219,9 @@
+   )
+ } {
+   # extract the full adders
+-  extract_fa
++  if { ![env_var_equals SKIP_EXTRACT_FA 1] } {
++    extract_fa
++  }
+   # map full adders
+   techmap -map $::env(ADDER_MAP_FILE)
+   techmap
+diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -823,6 +823,17 @@
+     - cts
+     - floorplan
+     - grt
++SKIP_EXTRACT_FA:
++  description: >
++    Skip yosys's extract_fa before the adder techmap. Full-adder
++    extraction is a large share of synthesis time on arithmetic-heavy
++    modules (an FMA or a vector converter can spend most of its
++    partition in it); without it adders map through the generic techmap.
++    A turnaround setting for architectural exploration.
++  stages:
++    - synth
++  default: 0
++
+ SKIP_CTS_REPAIR_TIMING:
+   description: >
+     Skipping CTS repair, which can take a long time, can be useful in
