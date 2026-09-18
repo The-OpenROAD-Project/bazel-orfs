@@ -62,7 +62,9 @@ class Inventory:
         self.mfg_grid = 1
         self.site = (1, 1)
         self.tracks = {}  # (layer, "V"|"H") -> (offset, pitch)
+        self.track_patterns = {}  # (layer, "V"|"H") -> [(origin, count, step)]
         self.masters = {}  # name -> dict(w, h, vlayer, pox, hlayer, poy)
+        self.pin_layers = {}  # master -> {"V": [layers], "H": [layers]}
         self.macros = []  # (inst, master)
         self.module_area = {}  # path -> dbu^2
         self.nets = collections.Counter()  # (macro inst, key) -> count
@@ -88,8 +90,15 @@ class Inventory:
                 inv.site = (int(f[1]), int(f[2]))
             elif kind == "track":
                 inv.tracks[(f[1], f[2])] = (int(f[3]), int(f[4]))
+            elif kind == "trackpat":
+                inv.track_patterns.setdefault((f[1], f[2]), []).append(
+                    (int(f[3]), int(f[4]), int(f[5]))
+                )
+            elif kind == "pinlayers":
+                inv.pin_layers.setdefault(f[1], {})[f[2]] = f[3:]
             elif kind == "master":
                 inv.masters[f[1]] = {
+                    "name": f[1],
                     "w": int(f[2]),
                     "h": int(f[3]),
                     "vlayer": f[4],
@@ -203,12 +212,13 @@ def build_blocks(inv, depth, min_cluster, chan, fill, straps=None):
             continue
         m = inv.masters[master]
         cols, rows, _w, _h = tile_shape(len(insts), m["w"], m["h"], chan)
-        # Banks step by a whole number of track pitches, so snapping the
-        # first bank onto its tracks puts every bank on them and the
-        # channel between neighbours is the same everywhere, never less
-        # than asked for.
-        step_x = _track_multiple(m["w"] + chan, inv.tracks.get((m["vlayer"], "V")))
-        step_y = _track_multiple(m["h"] + chan, inv.tracks.get((m["hlayer"], "H")))
+        # Banks step by a whole number of the origin lattice (the pin
+        # layers' common track period, or the lowest pin layer's pitch
+        # when the inventory has no patterns), so snapping the first bank
+        # onto its tracks puts every bank on them and the channel between
+        # neighbours is the same everywhere, never less than asked for.
+        step_x = _multiple_of(m["w"] + chan, _pitch_of(inv, m, "V"))
+        step_y = _multiple_of(m["h"] + chan, _pitch_of(inv, m, "H"))
         if straps.can_miss(m["w"]):
             # Every bank of the block must see a stripe pair, so the step
             # is a multiple of the strap pitch as well as of the track.
@@ -367,7 +377,82 @@ def _multiple_of(length, unit):
     return int(math.ceil(length / float(unit))) * unit if unit > 0 else length
 
 
+def track_residues(inv, layer, axis):
+    """(period, sorted residues) of a layer's tracks along an axis.
+
+    The tracks of one layer may be several interleaved patterns (asap7's
+    M2 y-grid is seven patterns of period 0.27 um, spaced 0.036 six times
+    and 0.045 once), so the grid repeats with the patterns' common period
+    and a track sits at each residue in it. None when the inventory has no
+    patterns for the layer.
+    """
+    pats = inv.track_patterns.get((layer, axis))
+    if not pats:
+        return None
+    period = 0
+    for _, _, step in pats:
+        if step > 0:
+            period = _lcm(period, step) if period else step
+    if not period:
+        return None
+    residues = set()
+    for origin, _, step in pats:
+        if step > 0:
+            for k in range(period // step):
+                residues.add((origin + k * step) % period)
+    return period, sorted(residues)
+
+
+def lattice(inv, master_name, axis):
+    """Origin step along an axis that keeps every pin layer's tracks in phase.
+
+    A block's tracks and the parent's both start at their die origin, so
+    a macro origin that is a multiple of the common period of all the
+    layers its pins use (asap7 with pins on M2 and M4: 2.16 um in y; M3
+    and M5: 0.144 um in x) lands every pin on a parent track. Zero when
+    the inventory does not say which layers the pins use.
+    """
+    lat = 0
+    for layer in inv.pin_layers.get(master_name, {}).get(axis, []):
+        tr = track_residues(inv, layer, axis)
+        if tr:
+            lat = _lcm(lat, tr[0]) if lat else tr[0]
+    return lat
+
+
+def flip_legal(inv, master_name, orient):
+    """Whether a flip keeps the master's pins on tracks.
+
+    A flip about the y axis moves a pin from x to w - x; the pins stay on
+    tracks when the mirror image of each vertical pin layer's track set is
+    the set itself, which is a property of the master's width alone (M3
+    at pitch 0.036 from 0.009 needs w == 0.018 mod 0.036). Both layers of
+    a two-layer edge must agree, and some pairs never can (asap7's M3 and
+    M5 on one edge have no width both accept). R0 is always legal, and so
+    is anything the inventory has no patterns for.
+    """
+    m = inv.masters[master_name]
+    checks = []
+    if orient in ("MY", "R180"):
+        checks.append(("V", m["w"]))
+    if orient in ("MX", "R180"):
+        checks.append(("H", m["h"]))
+    for axis, size in checks:
+        for layer in inv.pin_layers.get(master_name, {}).get(axis, []):
+            tr = track_residues(inv, layer, axis)
+            if not tr:
+                continue
+            period, residues = tr
+            mirrored = sorted(set((size - r) % period for r in residues))
+            if mirrored != residues:
+                return False
+    return True
+
+
 def _pitch_of(inv, master, axis):
+    lat = lattice(inv, master["name"], axis) if "name" in master else 0
+    if lat:
+        return lat
     layer = master["vlayer"] if axis == "V" else master["hlayer"]
     track = inv.tracks.get((layer, axis))
     return track[1] if track and track[1] > 0 else 1
@@ -441,6 +526,8 @@ def choose_orientation(inv, inst, master, x, y, centres):
     }
     best, best_cost = "R0", None
     for orient in ("R0", "MX", "MY", "R180"):
+        if not flip_legal(inv, master, orient):
+            continue
         cost = 0.0
         for edge, n, tx, ty in pulls:
             ex, ey = mid[FLIPS[orient][edge]]
@@ -453,11 +540,21 @@ def choose_orientation(inv, inst, master, x, y, centres):
 def macro_origin(inv, master, x, y, orient="R0"):
     """Origin at or after (x, y) whose lowest-layer pins sit on tracks."""
     m = inv.masters[master]
-    vt = inv.tracks.get((m["vlayer"], "V"))
-    ht = inv.tracks.get((m["hlayer"], "H"))
-    pox, poy = pin_offsets(m, orient)
-    ox = snap_up(x + pox, vt[0], vt[1]) - pox if vt else x
-    oy = snap_up(y + poy, ht[0], ht[1]) - poy if ht else y
+    lx, ly = lattice(inv, master, "V"), lattice(inv, master, "H")
+    if lx or ly:
+        # Every pin layer known: the origin is a whole number of lattice
+        # steps from the die origin, which is where both the block's and
+        # the parent's tracks start, so every pin on every layer is on a
+        # track whatever the flip (flip_legal says which flips keep the
+        # block's own pins on its tracks).
+        ox = snap_up(x, inv.die[0] % lx, lx) if lx else x
+        oy = snap_up(y, inv.die[1] % ly, ly) if ly else y
+    else:
+        vt = inv.tracks.get((m["vlayer"], "V"))
+        ht = inv.tracks.get((m["hlayer"], "H"))
+        pox, poy = pin_offsets(m, orient)
+        ox = snap_up(x + pox, vt[0], vt[1]) - pox if vt else x
+        oy = snap_up(y + poy, ht[0], ht[1]) - poy if ht else y
     g = inv.mfg_grid
     ox = int(math.ceil(ox / float(g))) * g
     oy = int(math.ceil(oy / float(g))) * g

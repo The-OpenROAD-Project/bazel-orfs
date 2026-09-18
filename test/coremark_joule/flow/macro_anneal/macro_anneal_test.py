@@ -242,6 +242,116 @@ class EmitTest(unittest.TestCase):
             self.assertIn('"residual": 1', open(metrics).read())
 
 
+class LatticeTest(unittest.TestCase):
+    """asap7's grids: pins on two layers per axis, one of them irregular.
+
+    M2's y tracks are seven patterns of period 270 (0.036 apart six
+    times, then 0.045), M4's are 48 from 12; M3's x tracks 36 from 9, M5's
+    48 from 12. The XiangShan take-16 parent failed pin_access on every
+    macro because origins were snapped to the lowest layer only and
+    macros were flipped regardless of their size (measured 2026-09-18).
+    """
+
+    def inventory(self, w=83232, h=83232, vlayers="M3 M5", hlayers="M2 M4"):
+        lines = [
+            "# macro_anneal inventory v1",
+            "die 0 0 400000 400000 dbu {}".format(DBU),
+            "core 10000 10000 390000 390000",
+            "mfg_grid 1",
+            "site 54 270",
+            "track M3 V 9 36",
+            "track M2 H 45 36",
+        ]
+        for origin in (45, 81, 117, 153, 189, 225, 270):
+            lines.append("trackpat M2 H {} 37 270".format(origin))
+        lines += [
+            "trackpat M4 H 12 208 48",
+            "trackpat M3 V 9 277 36",
+            "trackpat M5 V 12 208 48",
+            "master mock {} {} M3 9 M2 45".format(w, h),
+            "pinlayers mock V {}".format(vlayers),
+            "pinlayers mock H {}".format(hlayers),
+            "edges mock 100 0 100 0",
+            "module logic 500000000",
+            "macro top/a mock",
+            "macro top/b mock",
+            "net top/a macro:top/b 100",
+            "netedge top/a macro:top/b L 100",
+        ]
+        return "\n".join(lines)
+
+    def test_residues_and_lattice(self):
+        inv = macro_anneal.Inventory.parse(self.inventory())
+        period, residues = macro_anneal.track_residues(inv, "M2", "H")
+        self.assertEqual(period, 270)
+        self.assertEqual(residues, [0, 45, 81, 117, 153, 189, 225])
+        self.assertEqual(macro_anneal.lattice(inv, "mock", "V"), 144)
+        self.assertEqual(macro_anneal.lattice(inv, "mock", "H"), 2160)
+
+    def test_origin_is_a_lattice_multiple_for_every_flip(self):
+        inv = macro_anneal.Inventory.parse(self.inventory())
+        for orient in ("R0", "MX", "MY", "R180"):
+            ox, oy = macro_anneal.macro_origin(inv, "mock", 10007, 10011, orient)
+            self.assertEqual(ox % 144, 0, orient)
+            self.assertEqual(oy % 2160, 0, orient)
+            self.assertGreaterEqual(ox, 10007)
+            self.assertGreaterEqual(oy, 10011)
+
+    def test_flip_legality_is_a_property_of_the_size(self):
+        # 83.232 um: R0 only. MX needs h == 1080 mod 2160 for M2 and M4
+        # together; MY has no width M3 and M5 both accept.
+        inv = macro_anneal.Inventory.parse(self.inventory())
+        self.assertTrue(macro_anneal.flip_legal(inv, "mock", "R0"))
+        self.assertFalse(macro_anneal.flip_legal(inv, "mock", "MX"))
+        self.assertFalse(macro_anneal.flip_legal(inv, "mock", "MY"))
+        self.assertFalse(macro_anneal.flip_legal(inv, "mock", "R180"))
+        inv = macro_anneal.Inventory.parse(self.inventory(h=1080 + 38 * 2160))
+        self.assertTrue(macro_anneal.flip_legal(inv, "mock", "MX"))
+        self.assertFalse(macro_anneal.flip_legal(inv, "mock", "MY"))
+        for w in range(83232, 83232 + 144):
+            inv = macro_anneal.Inventory.parse(self.inventory(w=w))
+            self.assertFalse(macro_anneal.flip_legal(inv, "mock", "MY"), w)
+        # One vertical pin layer: w == 18 mod 36 mirrors M3 onto itself.
+        inv = macro_anneal.Inventory.parse(self.inventory(w=83250, vlayers="M3"))
+        self.assertTrue(macro_anneal.flip_legal(inv, "mock", "MY"))
+        inv = macro_anneal.Inventory.parse(self.inventory(w=83232, vlayers="M3"))
+        self.assertFalse(macro_anneal.flip_legal(inv, "mock", "MY"))
+
+    def test_chooser_never_picks_an_illegal_flip(self):
+        # a's left pins face b to its right: MY would win, but is illegal
+        # at this width, so R0 stays.
+        inv = macro_anneal.Inventory.parse(self.inventory())
+        centres = {"top/b": (300000.0, 50000.0)}
+        self.assertEqual(
+            macro_anneal.choose_orientation(
+                inv, "top/a", "mock", 10000, 10000, centres
+            ),
+            "R0",
+        )
+        inv = macro_anneal.Inventory.parse(self.inventory(w=83250, vlayers="M3"))
+        self.assertEqual(
+            macro_anneal.choose_orientation(
+                inv, "top/a", "mock", 10000, 10000, centres
+            ),
+            "MY",
+        )
+
+    def test_banks_step_by_the_lattice(self):
+        text = self.inventory()
+        for i in range(4):
+            text += "\nmacro top/bank/m{} mock\nnet top/bank/m{} logic 10".format(i, i)
+        inv, blocks, _, placed, _ = run(text)
+        for inst, master, x, y, _ in placed:
+            self.assertEqual(x % 144, 0, inst)
+            self.assertEqual(y % 2160, 0, inst)
+
+    def test_without_patterns_the_old_snapping_holds(self):
+        inv, blocks, _, placed, _ = run(inventory())
+        for inst, master, x, y, _ in placed:
+            m = inv.masters[master]
+            self.assertEqual((x + m["pox"] - 24) % 48, 0, inst)
+
+
 class OrientationTest(unittest.TestCase):
     """A macro whose pins all sit on one edge is flipped to face its connections."""
 

@@ -69,6 +69,17 @@ proc dump_macro_inventory { out } {
         if { [llength $ys] > 1 } {
             puts $f "track [$layer getName] H [lindex $ys 0] [expr {[lindex $ys 1] - [lindex $ys 0]}]"
         }
+        # The full patterns too: a layer's grid may be several interleaved
+        # patterns (asap7's M2 is seven of period 0.27 um), and the origin
+        # lattice that keeps every pin on a track is their common period.
+        for { set i 0 } { $i < [$tg getNumGridPatternsX] } { incr i } {
+            lassign [$tg getGridPatternX $i] origin count step
+            puts $f "trackpat [$layer getName] V $origin $count $step"
+        }
+        for { set i 0 } { $i < [$tg getNumGridPatternsY] } { incr i } {
+            lassign [$tg getGridPatternY $i] origin count step
+            puts $f "trackpat [$layer getName] H $origin $count $step"
+        }
     }
 
     # Masters: size, and the lowest-routing-level signal pin per axis.
@@ -84,6 +95,8 @@ proc dump_macro_inventory { out } {
         if { [dict exists $masters $mname] } { continue }
         set vlev 1000000; set vlayer "-"; set pox 0
         set hlev 1000000; set hlayer "-"; set poy 0
+        set vlayers {}
+        set hlayers {}
         foreach mterm [$master getMTerms] {
             if { [$mterm getSigType] ne "SIGNAL" } { continue }
             set bb [$mterm getBBox]
@@ -93,16 +106,24 @@ proc dump_macro_inventory { out } {
                 foreach geo [$mpin getGeometry] {
                     set layer [$geo getTechLayer]
                     set lev [$layer getRoutingLevel]
+                    set lname [$layer getName]
                     if { [$layer getDirection] eq "VERTICAL" } {
-                        if { $lev < $vlev } { set vlev $lev; set vlayer [$layer getName]; set pox $xc }
+                        if { $lev < $vlev } { set vlev $lev; set vlayer $lname; set pox $xc }
+                        if { [lsearch -exact $vlayers $lname] < 0 } { lappend vlayers $lname }
                     } elseif { [$layer getDirection] eq "HORIZONTAL" } {
-                        if { $lev < $hlev } { set hlev $lev; set hlayer [$layer getName]; set poy $yc }
+                        if { $lev < $hlev } { set hlev $lev; set hlayer $lname; set poy $yc }
+                        if { [lsearch -exact $hlayers $lname] < 0 } { lappend hlayers $lname }
                     }
                 }
             }
         }
         dict set masters $mname 1
         puts $f "master $mname [$master getWidth] [$master getHeight] $vlayer $pox $hlayer $poy"
+        # Every layer the pins use per axis: a vertical-layer pin's x must
+        # stay on that layer's vertical tracks, a horizontal-layer pin's y
+        # on its horizontal ones, and each layer has its own pitch.
+        puts $f "pinlayers $mname V $vlayers"
+        puts $f "pinlayers $mname H $hlayers"
         # Which edge each signal pin sits on, so a flip of the macro means
         # something to the placer: L R B T counts.
         set edge_count [dict create L 0 R 0 B 0 T 0]
