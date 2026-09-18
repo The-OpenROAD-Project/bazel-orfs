@@ -18,7 +18,12 @@ design(
     config = "config.mk",
     # Skip the 40-minute `global_placement -skip_io` step at the top and
     # place pins directly. RTL exploration only.
-    quick_pins = True,
+    # No quick_pins: with timing- and routability-driven placement off, the
+    # place stage's first solve places the pins itself (global_placement
+    # -place_ios, ORFS patch 0077) and the second solve is skipped, which
+    # is faster than the blind pin placement quick_pins gave and better
+    # placed. quick_pins would pre-place the pins and make the flow skip
+    # that first solve.
     # The annealer's knobs, read by anneal_in_flow.tcl rather than by ORFS.
     user_arguments = [
         "ANNEAL_SEED",
