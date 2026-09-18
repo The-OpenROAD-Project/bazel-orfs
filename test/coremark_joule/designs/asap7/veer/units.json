@@ -25,7 +25,7 @@
     "dma_ctrl": "DMA",
     "dbg": "debug"
   },
-  "waiver": "The kept-module list is ORFS's capture of the modules VeeR itself marks keep_hierarchy, not one written for this study, so the attribution is the core author's own decomposition rather than ours. Two things it does not reach. dec_gpr_ctl, the register file, is parameterized (GPR_BANKS) and so is named $paramod by yosys and does not survive into the ODB -- the same failure §5.7 of the paper describes for SERV, and the reason the breakdown has no register-file unit. And the three SRAM macros are instances rather than kept modules, so the instruction cache's arrays and the DCCM are attributed as macros rather than to the units that read them; that is the correct place for them, since the study's boundary is core plus L1 and the memories are the L1.",
+  "waiver": "The kept-module list is ORFS's capture of the modules VeeR itself marks keep_hierarchy, not one written for this study, so the attribution is the core author's own decomposition rather than ours. Two things it does not reach. dec_gpr_ctl, the register file, is parameterized (GPR_BANKS) and so is named $paramod by yosys and does not survive into the ODB -- the same failure §6.2 of the paper describes for SERV, and the reason the breakdown has no register-file unit. And the three SRAM macros are instances rather than kept modules, so the instruction cache's arrays and the DCCM are attributed as macros rather than to the units that read them; that is the correct place for them, since the study's boundary is core plus L1 and the memories are the L1.",
   "memory_units": {
     "fakeram7_2048x39": "DCCM",
     "fakeram7_256x34": "instruction cache data",

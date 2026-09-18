@@ -19,7 +19,7 @@ expected triple validates both the two- and three-iteration runs, and a
 core that miscomputes on any iteration still fails.
 
 The stack high-water mark is checked here too, and for a related
-reason. Section 5.1 moved the program out of a 128 KiB simulation array
+reason. §4.2 moved the program out of a 128 KiB simulation array
 and into an 8 KiB data memory that is hardened with the core, which
 makes the headroom above .bss small enough to be worth measuring rather
 than assuming. crt0.S paints the region above _end before anything uses

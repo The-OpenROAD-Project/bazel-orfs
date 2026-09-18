@@ -8,7 +8,7 @@ package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 #
 # One generator for every memory on every point (§5.1), and one whose
 # energy and leakage depend on the memory's shape, which FakeRAM2.0's
-# did not (§8.5). The scaler reads each module's port widths -- rows
+# did not (§8.7). The scaler reads each module's port widths -- rows
 # from the address, bits from the data, one read-write port -- and
 # writes <module>.lef, <module>.lib (post-CTS clock) and
 # <module>_pre_layout.lib; the designs name the first two in

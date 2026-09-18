@@ -1,5 +1,5 @@
 # Pinned data the paper renders from: the commodity CoreMark and power
-# rows of §4.9, and §5.1's memory-model switch. Measurements of this study's own cores live in
+# rows of §A.1, and §5.1's memory-model switch. Measurements of this study's own cores live in
 # ../results.json.
 package(default_visibility = ["//test/coremark_joule:__subpackages__"])
 

@@ -6,7 +6,7 @@
  * with the small memory that holds the program its hot loop runs out
  * of. For picorv32, SERV and ibex that memory does not exist in their
  * repositories -- their testbenches use a simulation array -- so the
- * study supplies one and hardens it as part of the core. Section 5.1
+ * study supplies one and hardens it as part of the core. §4.2
  * reports what enforcing that cost.
  *
  * **Two memories, not one.** An instruction memory and a data memory at
@@ -27,7 +27,7 @@
  * point's power, and a cross-core energy comparison cannot afford to
  * have its largest term come from two different models. Unlike
  * FakeRAM2.0, which this study used first, the scaler's energy and
- * leakage depend on the memory's shape (§5.1, §8.5).
+ * leakage depend on the memory's shape (§5.1, §8.7).
  *
  * These wrappers keep the core-facing interface the tiles were written
  * against -- clk, ce_in, we_in, addr_in, wd_in, rd_out -- so swapping

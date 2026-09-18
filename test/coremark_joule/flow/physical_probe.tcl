@@ -1,6 +1,6 @@
 # The physical numbers a literature comparison needs, from one stage's ODB.
 #
-# §4.10 of the study compares each core against what its authors and
+# §4.9 of the study compares each core against what its authors and
 # others have published: gate equivalents, minimum clock period,
 # CoreMark/MHz and CoreMark/Joule. The published side of that table is
 # pinned in pin_results.py; this is the measured side, taken from the

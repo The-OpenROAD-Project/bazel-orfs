@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Plot CoreMark/Joule against CoreMark/MHz from the pinned results.
 
-Reads results.json, and optionally §4.9's committed commodity CSV, so
+Reads results.json, and optionally §A.1's committed commodity CSV, so
 iterating on the presentation never re-runs a flow.
 
 Both axes are logarithmic because the interesting range spans decades:
@@ -46,7 +46,7 @@ def plot(document, out_path, commodity=None):
     #
     # The upper one is the observation that follows from it: above those
     # parts, at their performance per clock, there is no CPU at all --
-    # not in this study, not in §4.9, not in the literature series. It
+    # not in this study, not in §A.1, not in the literature series. It
     # is drawn because an empty region is a result when the axes are
     # this wide, and because it is the region a core would have to reach
     # to be a major advance rather than a better point on a known curve.
@@ -104,7 +104,7 @@ def plot(document, out_path, commodity=None):
             zorder=3,
             label="asap7, grt, core + L1 hardened",
         )
-        # §5.13: 2σ over the placement-seed ensemble, where a point has
+        # §5.11: 2σ over the placement-seed ensemble, where a point has
         # one. A point without a bar has not been measured for spread,
         # which is different from having none.
         with_bars = [p for p in met if p.get("coremark_per_joule_2sigma")]

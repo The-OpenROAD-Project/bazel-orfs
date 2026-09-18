@@ -136,7 +136,7 @@ genrule(
     ]
 ]
 
-# The measured side of the literature table (§4.10), at every stage the
+# The measured side of the literature table (§4.9), at every stage the
 # flow has reached: the standard-cell area and the gate count are the
 # same from placement on, the period is only worth quoting at grt.
 [

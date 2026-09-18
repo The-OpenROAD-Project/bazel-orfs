@@ -17,7 +17,7 @@
 # So a frequency derived from the overall WNS would be limited by our
 # own assumption rather than by the core. The reg2reg worst slack is the
 # part that is a property of the design, and it is what `auto_period`
-# (§8.3) will drive.
+# (§5.7) will drive.
 #
 # The group is the platform's: $PLATFORM_DIR/constraints.sdc defines
 # in2reg, reg2out, reg2reg and in2out with `group_path`, and this asks

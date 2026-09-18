@@ -37,7 +37,7 @@ def totals(power_json):
 def power_groups(power_json):
     """Total power and its split from a report_power JSON, in watts.
 
-    `dynamic` is internal plus switching. §5.5 is why the split travels
+    `dynamic` is internal plus switching. §5.7 is why the split travels
     with the point: dynamic energy per iteration is frequency-independent
     and leakage energy per iteration is not, so a total alone hides the
     term that moves with the operating point.

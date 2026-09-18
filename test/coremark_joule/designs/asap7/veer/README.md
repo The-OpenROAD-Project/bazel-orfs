@@ -1,7 +1,7 @@
 # VeeR EH1 in the CoreMark/Joule study: how it is wired
 
 Design notes moved out of the study's paper (`test/coremark_joule/README.md`,
-§7) so that the paper carries results and this file carries mechanics.
+§8.1) so that the paper carries results and this file carries mechanics.
 The results stay there: 4.798 CoreMark/MHz against Western Digital's
 published 4.94, and zero external transfers per hot CoreMark iteration.
 

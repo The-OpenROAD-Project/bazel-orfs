@@ -11,7 +11,7 @@ probe targets of every design that has not converged in a single
 `bazel build`, then steps each design on its own reading.
 
 The per-design evidence JSON is the same shape auto_period writes, so
-§5.5's tables read either.
+§5.7's tables read either.
 """
 
 import argparse

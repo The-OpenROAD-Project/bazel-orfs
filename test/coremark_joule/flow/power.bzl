@@ -466,7 +466,7 @@ def flop_power_probe(name, src, saif, saif_scope, stage = "synth", tags = ["manu
     )
 
 def physical_probe(name, src, stage = "grt", ge_cell = "NAND2xp33_ASAP7_75t_R", tags = ["manual"], visibility = None):
-    """The measured side of the literature table (§4.10).
+    """The measured side of the literature table (§4.9).
 
     Standard-cell area, gate equivalents against `ge_cell`, flop and
     macro counts, die and core area, the SDC period and the reg2reg

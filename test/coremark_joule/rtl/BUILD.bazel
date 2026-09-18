@@ -287,7 +287,7 @@ verilog_library(
     ],
 )
 
-# §5.13's placement-seed ensemble: the same wrappers around each seed
+# §5.11's placement-seed ensemble: the same wrappers around each seed
 # variant's global-route netlist. Only the netlist differs from the
 # core's own *_gate library.
 [
