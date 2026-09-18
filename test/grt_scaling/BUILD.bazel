@@ -1,0 +1,108 @@
+load("@bazel_orfs_test_designs//:designs.bzl", STUDY_DESIGNS = "DESIGNS")
+load("@rules_python//python:defs.bzl", "py_binary", "py_library", "py_test")
+load(":arms.bzl", "grid_arm")
+
+# Global-route scaling: wirebound's netlist, IO-anchored, on a die swept
+# far past the size its cells need. The grid FastRoute routes on scales
+# with die area over track pitch squared, not with the netlist, and this
+# is where that cost is measured at tens of seconds instead of on a
+# 3.6 mm XiangShan at hours. docs/studies/grt-scaling/README.md is the
+# method; grt_bench.tcl is the measurement, run from an arm's _cts_deps.
+package(default_visibility = ["//visibility:private"])
+
+exports_files([
+    "grt_bench.tcl",
+    "io.tcl",
+])
+
+WIREBOUND = STUDY_DESIGNS["asap7/wirebound"]
+
+WIREBOUND_USER_VARS = ["WIREBOUND_CLK_PERIOD_PS"]
+
+WIREBOUND_VERILOG = ["//flow/designs/asap7/wirebound:wirebound.sv"]
+
+# The design's own arguments, minus the floorplan the die replaces:
+# CORE_UTILIZATION sizes the die from the cells, and these arms size it
+# by hand. MAX_ROUTING_LAYER M9 is wirebound's reason to exist for the
+# RC study; here fewer layers concentrate demand so overflow, and with it
+# the maze router, happens on a die that is otherwise empty. The stages
+# before the router run with arms.bzl's TURNAROUND_ARGS.
+GRID_BASE_ARGS = {
+    key: value
+    for key, value in WIREBOUND["arguments"].items()
+    if key not in WIREBOUND_USER_VARS + ["CORE_UTILIZATION", "CORE_MARGIN", "MAX_ROUTING_LAYER"]
+} | {
+    "MAX_ROUTING_LAYER": "M5",
+    "ROUTING_LAYER_ADJUSTMENT": "0.7",
+    # yosys's own Verilog frontend expands wirebound's four nested
+    # generate loops (half a million scopes) by re-prefixing every
+    # identifier string per level: minutes in expand_genblock/prefix_id
+    # for a netlist that synthesises in seconds. slang elaborates it
+    # without that pass.
+    "SYNTH_HDL_FRONTEND": "slang",
+}
+
+WIREBOUND_USER_ARGS = {
+    key: value
+    for key, value in WIREBOUND["arguments"].items()
+    if key in WIREBOUND_USER_VARS
+}
+
+# Die side in microns. asap7's GCell is 15 x 0.036 um = 0.54 um, so
+# 500 um is a 926-cell grid and 3600 um XiangShan's 6667.
+GRID_DIES = [500, 1000, 2000, 3600]
+
+[
+    grid_arm(
+        base_args = GRID_BASE_ARGS,
+        groups = 32,
+        io_constraints = "io.tcl",
+        sdc = "//flow/designs/asap7/wirebound:constraint.sdc",
+        side_um = side_um,
+        tags = ["manual"],
+        user_args = WIREBOUND_USER_ARGS,
+        verilog_files = WIREBOUND_VERILOG,
+    )
+    for side_um in GRID_DIES
+]
+
+# Net count at a fixed die, for the per-net memory and time terms.
+grid_arm(
+    base_args = GRID_BASE_ARGS,
+    groups = 64,
+    io_constraints = "io.tcl",
+    sdc = "//flow/designs/asap7/wirebound:constraint.sdc",
+    side_um = 2000,
+    tags = ["manual"],
+    user_args = WIREBOUND_USER_ARGS,
+    verilog_files = WIREBOUND_VERILOG,
+)
+
+# The matrix driver and its report. Run, not tested against a design:
+# `bazelisk run //test/grt_scaling:grt_bench -- matrix.json results/`.
+py_library(
+    name = "grt_bench_lib",
+    srcs = [
+        "grt_bench.py",
+        "report.py",
+    ],
+    imports = ["."],
+)
+
+py_binary(
+    name = "grt_bench",
+    srcs = ["grt_bench.py"],
+    deps = [":grt_bench_lib"],
+)
+
+py_binary(
+    name = "report",
+    srcs = ["report.py"],
+    deps = [":grt_bench_lib"],
+)
+
+py_test(
+    name = "grt_bench_test",
+    srcs = ["grt_bench_test.py"],
+    deps = [":grt_bench_lib"],
+)
