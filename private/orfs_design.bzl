@@ -228,51 +228,23 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
         mock_openroad,
         mock_yosys,
         abstract_stage = block_abstract_stage or _BLOCK_ABSTRACT_STAGE,
+        user_arguments = user_arguments,
+        user_sources = user_sources,
+        user_stages = user_stages,
+        local_arguments = local_arguments,
         quick_pins = quick_pins,
     )
 
     # Real flow — uses Docker image with real OpenROAD/Yosys
     arguments = dict(config["arguments"])
 
-    # Drop caller-flagged local helper vars used only via $(VAR)
-    # expansion within the same config.mk (e.g. VERILOG_FILES_BLACKBOX).
-    # They must not reach orfs_flow — they would either fail validation
-    # or be exposed as noise env vars. The config.mk parser may classify
-    # such helpers as either arguments or sources (e.g. when they expand
-    # to file globs), so drop from both.
-    for var in local_arguments:
-        arguments.pop(var, None)
-        sources.pop(var, None)
-
-    # Move caller-flagged design-specific knobs out of arguments and into
-    # user_arguments so they bypass the variables.yaml validator.
-    user_args = {}
-    for var in user_arguments:
-        if var in arguments:
-            user_args[var] = arguments.pop(var)
-
-    # Same idea for source-typed (path-label) project-specific knobs:
-    # variables that are in SOURCE_VARS (so the parser staged the path
-    # as a label) but are read only by user .tcl/.mk and have no
-    # variables.yaml entry.
-    user_srcs = {}
-    for var in user_sources:
-        if var in sources:
-            user_srcs[var] = sources.pop(var)
-        elif var in arguments:
-            # config_mk_parser decides source-ness by variable name, so a
-            # project-private path hook it has never heard of arrives as
-            # an argument -- where it then fails validation as an unknown
-            # ORFS variable, whatever its value looks like. user_sources
-            # is the caller saying it is a source, which is exactly the
-            # case the attribute exists for, so honour it here too. The
-            # value is a whitespace-separated label list, like any other
-            # source var.
-            user_srcs[var] = [
-                label
-                for label in arguments.pop(var).replace("\t", " ").split(" ")
-                if label
-            ]
+    user_args, user_srcs = _split_user_vars(
+        arguments,
+        sources,
+        user_arguments,
+        user_sources,
+        local_arguments,
+    )
 
     # Default SYNTH_NUM_PARTITIONS to a static value so that the action graph
     # is identical across machines and remote cache hits are possible.  Users
@@ -437,7 +409,58 @@ def _collect_include_dirs(arguments):
 # ORFS's own ABSTRACT_SOURCE reaches generate_abstract as ever.
 _BLOCK_ABSTRACT_STAGE = "final"
 
-def _create_block_targets(config, designs, platform, design, pkg, tags, mock_openroad, mock_yosys = None, abstract_stage = _BLOCK_ABSTRACT_STAGE, quick_pins = False):
+def _split_user_vars(arguments, sources, user_arguments, user_sources, local_arguments):
+    """Take the caller-flagged variables out of a parsed config's dicts.
+
+    Mutates `arguments` and `sources` in place and returns the
+    (user_args, user_srcs) dicts orfs_flow() takes. Shared by the parent
+    design and its BLOCKS= sub-macros: a block's config.mk may read the
+    same project-private knobs (a macro placer's settings, say), and they
+    have to bypass the variables.yaml validator there too.
+    """
+
+    # Drop caller-flagged local helper vars used only via $(VAR)
+    # expansion within the same config.mk (e.g. VERILOG_FILES_BLACKBOX).
+    # They must not reach orfs_flow — they would either fail validation
+    # or be exposed as noise env vars. The config.mk parser may classify
+    # such helpers as either arguments or sources (e.g. when they expand
+    # to file globs), so drop from both.
+    for var in local_arguments:
+        arguments.pop(var, None)
+        sources.pop(var, None)
+
+    # Move caller-flagged design-specific knobs out of arguments and into
+    # user_arguments so they bypass the variables.yaml validator.
+    user_args = {}
+    for var in user_arguments:
+        if var in arguments:
+            user_args[var] = arguments.pop(var)
+
+    # Same idea for source-typed (path-label) project-specific knobs:
+    # variables that are in SOURCE_VARS (so the parser staged the path
+    # as a label) but are read only by user .tcl/.mk and have no
+    # variables.yaml entry.
+    user_srcs = {}
+    for var in user_sources:
+        if var in sources:
+            user_srcs[var] = sources.pop(var)
+        elif var in arguments:
+            # config_mk_parser decides source-ness by variable name, so a
+            # project-private path hook it has never heard of arrives as
+            # an argument -- where it then fails validation as an unknown
+            # ORFS variable, whatever its value looks like. user_sources
+            # is the caller saying it is a source, which is exactly the
+            # case the attribute exists for, so honour it here too. The
+            # value is a whitespace-separated label list, like any other
+            # source var.
+            user_srcs[var] = [
+                label
+                for label in arguments.pop(var).replace("\t", " ").split(" ")
+                if label
+            ]
+    return user_args, user_srcs
+
+def _create_block_targets(config, designs, platform, design, pkg, tags, mock_openroad, mock_yosys = None, abstract_stage = _BLOCK_ABSTRACT_STAGE, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], quick_pins = False):
     """Create sub-macro orfs_flow() targets for BLOCKS.
 
     Returns:
@@ -459,16 +482,37 @@ def _create_block_targets(config, designs, platform, design, pkg, tags, mock_ope
             if "$(" not in vf and "${" not in vf and "//." not in vf and not vf.endswith(":")
         ]
         block_sources = _convert_sources(block_config["sources"], pkg)
+        block_arguments = dict(block_config["arguments"])
+        block_user_args, block_user_srcs = _split_user_vars(
+            block_arguments,
+            block_sources,
+            user_arguments,
+            user_sources,
+            local_arguments,
+        )
+
+        # Only the stage scopes for variables this block actually sets:
+        # orfs_flow() refuses a user_stages entry for a variable it was
+        # not given, and a block reads whichever subset of the parent's
+        # knobs its own config.mk names.
+        block_user_stages = {
+            var: stages
+            for var, stages in user_stages.items()
+            if var in block_user_args or var in block_user_srcs
+        }
 
         # Real flow
         orfs_flow(
-            quick_pins = quick_pins,
             name = block_config["name"],
             abstract_stage = abstract_stage,
             verilog_files = block_verilog,
             pdk = "//flow:" + platform,
-            arguments = block_config["arguments"],
+            arguments = block_arguments,
+            user_arguments = block_user_args,
             sources = block_sources,
+            user_sources = block_user_srcs,
+            user_stages = block_user_stages,
+            quick_pins = quick_pins,
             tags = tags,
         )
         macros.append(":%s_generate_abstract" % block_config["name"])
@@ -480,8 +524,12 @@ def _create_block_targets(config, designs, platform, design, pkg, tags, mock_ope
                 abstract_stage = abstract_stage,
                 verilog_files = block_verilog,
                 pdk = "//flow:" + platform,
-                arguments = block_config["arguments"],
+                arguments = block_arguments,
+                user_arguments = block_user_args,
                 sources = block_sources,
+                user_sources = block_user_srcs,
+                user_stages = block_user_stages,
+                quick_pins = quick_pins,
                 variant = "lint",
                 lint = True,
                 openroad = mock_openroad,
