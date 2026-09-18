@@ -79,6 +79,13 @@ a host-run python file whose syntax floor is above 3.6 (RHEL 8, SLES 15);
 the docstring in `host_tools.py` is the policy. CI runs it after
 `//:public_surface`.
 
+## Synthesis frontend
+
+Prefer `SYNTH_HDL_FRONTEND = slang`. yosys's own Verilog frontend is
+effectively deprecated for SystemVerilog and its generate expansion can
+cost minutes on a netlist that synthesises in seconds; when a design must
+stay on it, say why next to the setting. `.claude/commands/prefer-slang.md`.
+
 ## Bumping
 
 `bazelisk run //:bump` rewrites the override shapes it recognizes and
