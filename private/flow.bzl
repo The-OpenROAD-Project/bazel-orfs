@@ -511,10 +511,20 @@ def orfs_flow(
         html = html,
         **kwargs
     )
+
+    # mock_area.tcl runs in the floorplan stage's environment, where the
+    # place-scoped pin settings are filtered out; the pin-fit sizing needs
+    # the pin layers and place_pins' spacing the mocked flow will use, so
+    # hand them over from the flow's own arguments.
+    mock_area_arguments = {"MOCK_AREA": str(mock_area)}
+    if mock_area == "pins":
+        for var in ("IO_PLACER_H", "IO_PLACER_V", "PLACE_PINS_ARGS", "MOCK_AREA_PIN_EDGES", "MOCK_AREA_PIN_MARGIN"):
+            if var in arguments:
+                mock_area_arguments[var] = arguments[var]
     orfs_arguments(
         name = mock_area_name,
         src = _step_name(name, variant, "floorplan"),
-        arguments = {"MOCK_AREA": str(mock_area)},
+        arguments = mock_area_arguments,
         script = "@bazel-orfs//:mock_area.tcl",
         variant = variant or "base",
         **_strip_tool_kwargs(**kwargs)
