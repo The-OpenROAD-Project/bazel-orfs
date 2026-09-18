@@ -829,9 +829,14 @@ _XS_THREADS = [
     ]
 ]
 
+# Manual, like every other core's CRC test: the test builds its
+# simulator, and Verilating and compiling XiangShan is an order of
+# magnitude past what a CI runner has. Left in `...`, it starved the
+# runner and CI died with "the hosted runner lost communication".
 coremark_crc_test(
     name = "xiangshan_rv64gc_crc_test",
     run = ":xiangshan_rv64gc_3",
+    tags = ["manual"],
 )
 
 coremark_per_mhz(
