@@ -41,10 +41,16 @@ load(
 _HTML_STAGES = ["floorplan", "place", "cts", "grt", "route", "final"]
 
 def _strip_tool_kwargs(**kwargs):
-    """Strip tool-specific kwargs for non-stage targets (orfs_macro, orfs_run)."""
+    """Strip stage-only kwargs for non-stage targets (orfs_macro, orfs_arguments).
+
+    The tools, and user_stages: the variable scoping is a stage attribute,
+    and a flow declared with it (every BLOCKS= flow of a design that names
+    its knobs' stages) also declares these companions.
+    """
     kwargs.pop("openroad", None)
     kwargs.pop("opensta", None)
     kwargs.pop("yosys", None)
+    kwargs.pop("user_stages", None)
     return kwargs
 
 def _merge_extra_arguments(a, b):
