@@ -26,7 +26,9 @@ the committed mapping directly rather than through the per-commit
 snapshot; CoreMark does not touch vl, and the CRC gate and the cycle
 count are the check that nothing else moved.
 
-Carried by the bazel-orfs CoreMark/Joule study; not upstreamed.
+Carried by the bazel-orfs CoreMark/Joule study. Upstream as
+OpenXiangShan/XiangShan#6589 (draft, 2026-09-18), branch kunminghu-v3;
+retires at a bump onto a XiangShan that carries it.
 ---
 diff --git a/src/main/scala/xiangshan/backend/CtrlBlock.scala b/src/main/scala/xiangshan/backend/CtrlBlock.scala
 index 29e3f03..b9d8760 100644
