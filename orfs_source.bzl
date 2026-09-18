@@ -180,6 +180,7 @@ ORFS_PATCHES = [
     # test in test/stages_filter_test.bzl keeps it that way at bumps.
     # Not upstreamed -- retire at a bump onto an ORFS that has them all.
     Label("//patches:0075-orfs-variables-stages-complete.patch"),
+    Label("//patches:0076-orfs-detail-placement-args-everywhere.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
