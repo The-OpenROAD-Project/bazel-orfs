@@ -5,7 +5,8 @@
 #
 #   ./make run RUN_SCRIPT=<...>/grt_bench.tcl ODB_FILE=<results>/4_cts.odb \
 #       GRT_BENCH_OUT=<abs>/arm.json [GRT_BENCH_ARGS='-congestion_iterations 5'] \
-#       [GRT_BENCH_LAYERS='M2 M5'] [GRT_BENCH_PIN_ACCESS=0] [OPENROAD_EXE=<byo>]
+#       [GRT_BENCH_LAYERS='M2 M5'] [GRT_BENCH_PIN_ACCESS=0] [GRT_BENCH_LOAD_ONLY=1]
+#       [OPENROAD_EXE=<byo>]
 #
 # What it records, in one JSON (GRT_BENCH_OUT, required):
 #   load_s, pin_access_s, global_route_s      wall time of each step
@@ -76,6 +77,13 @@ set tile [[ord::get_db_block] getGCellTileSize]
 dict set gb grid "\{\"tile_um\": [expr { double($tile) / $dbu }], \"x\": [expr { [$die dx] / $tile }], \"y\": [expr { [$die dy] / $tile }]\}"
 dict set gb vm_rss_after_load_kb [gb_status VmRSS]
 gb_write
+
+# GRT_BENCH_LOAD_ONLY=1: a smoke test of a deps tree and its ODB, in the
+# load time alone -- the JSON has the design, its grid and its memory.
+if { [info exists ::env(GRT_BENCH_LOAD_ONLY)] && $::env(GRT_BENCH_LOAD_ONLY) ne "0" } {
+  puts "grt_bench: load only, wrote $::env(GRT_BENCH_OUT)"
+  return
+}
 
 if { [dict get $gb layers] ne "" } {
   lassign [dict get $gb layers] lo hi
