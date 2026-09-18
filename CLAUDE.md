@@ -23,6 +23,11 @@ machine.
 If you are on `main` or a detached `HEAD`, create a feature branch before
 committing.
 
+Do not use sunset or deprecated GitHub features; when a `gh` command fails
+on one (Projects classic breaks `gh pr edit`, for instance), follow
+`.claude/commands/github-deprecations.md`, which lists the known ones and
+the REST or Actions replacement for each.
+
 ## Confidentiality purge
 
 Before anything leaves this machine — every PR, PR comment, pushed commit,
