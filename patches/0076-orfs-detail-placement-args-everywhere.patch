@@ -19,8 +19,8 @@ variable to place, cts and grt so a build system passes it to all three.
 docs/user/FlowVariables.md and variables.json are regenerated with
 generate-variables-docs.py and yaml_to_json.py.
 
-Not upstreamed; carried by bazel-orfs. Retires at a //:bump onto an ORFS
-whose cts.tcl and global_route.tcl pass DETAIL_PLACEMENT_ARGS.
+Upstream: OpenROAD-flow-scripts PR #4546 (2026-09-18). Retires at a
+//:bump onto an ORFS that carries it.
 ---
 diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
 --- a/docs/user/FlowVariables.md
