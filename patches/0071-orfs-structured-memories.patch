@@ -21,9 +21,9 @@ whose ports are not the module's stops the build there.
 Retires when ORFS grows a way to declare a generated macro per module;
 then `//:bump` onto that commit drops this patch.
 
-diff -ruN a/flow/Makefile b/flow/Makefile
---- a/flow/Makefile	2026-09-17 08:12:49.605101471 +0200
-+++ b/flow/Makefile	2026-09-17 08:14:37.254333346 +0200
+diff --git a/flow/Makefile b/flow/Makefile
+--- a/flow/Makefile
++++ b/flow/Makefile
 @@ -282,10 +282,13 @@
  	  --out-dir $(RESULTS_DIR)/memories \
  	  --json $(RESULTS_DIR)/memories.json \
@@ -40,9 +40,9 @@ diff -ruN a/flow/Makefile b/flow/Makefile
  	$(UNSET_AND_MAKE) do-auto-memories
  
  yosys-dependencies: $(RESULTS_DIR)/memories.json
-diff -ruN a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
---- a/flow/scripts/memories/gen_memories.py	2026-09-17 08:12:49.605617337 +0200
-+++ b/flow/scripts/memories/gen_memories.py	2026-09-17 08:14:37.254487718 +0200
+diff --git a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_memories.py
+--- a/flow/scripts/memories/gen_memories.py
++++ b/flow/scripts/memories/gen_memories.py
 @@ -19,6 +19,8 @@
  from __future__ import annotations
  
@@ -184,10 +184,10 @@ diff -ruN a/flow/scripts/memories/gen_memories.py b/flow/scripts/memories/gen_me
      )
  
  
-diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
---- a/flow/scripts/variables.yaml	2026-09-17 08:12:49.605380258 +0200
-+++ b/flow/scripts/variables.yaml	2026-09-17 08:14:37.254126454 +0200
-@@ -210,6 +210,25 @@
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -211,6 +211,25 @@
      docs/user/AutoMemories.md.
    stages:
      - synth

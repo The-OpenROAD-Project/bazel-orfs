@@ -14,10 +14,10 @@ wants while the flow is being put together; the default is unchanged.
 Not upstreamed; carried by bazel-orfs. Retires at a //:bump onto an ORFS
 that carries a knob for this.
 ---
-diff -ruN a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
+diff --git a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
 --- a/flow/scripts/synth.tcl
 +++ b/flow/scripts/synth.tcl
-@@ -219,7 +219,9 @@
+@@ -240,7 +240,9 @@
    )
  } {
    # extract the full adders
@@ -28,10 +28,10 @@ diff -ruN a/flow/scripts/synth.tcl b/flow/scripts/synth.tcl
    # map full adders
    techmap -map $::env(ADDER_MAP_FILE)
    techmap
-diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -823,6 +823,17 @@
+@@ -885,6 +885,17 @@
      - cts
      - floorplan
      - grt

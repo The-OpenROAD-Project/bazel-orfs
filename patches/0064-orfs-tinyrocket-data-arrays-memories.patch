@@ -47,6 +47,22 @@ modules at the module boundary, which is what the AUTO_MEMORIES
 description in variables.yaml claims and detect.py does not do. Either
 fix retires this patch and 0062 together.
 
+diff --git a/flow/designs/asap7/tinyRocket/config.mk b/flow/designs/asap7/tinyRocket/config.mk
+--- a/flow/designs/asap7/tinyRocket/config.mk
++++ b/flow/designs/asap7/tinyRocket/config.mk
+@@ -19,7 +19,11 @@
+ # provides no behavioral fallback (the wrapper instantiates a
+ # tag_array_ext module the sources never define), so its conversion is
+ # forced via a .memories override.
+-export ADDITIONAL_MEMORIES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/tag_array.memories
++export ADDITIONAL_MEMORIES = \
++    $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/tag_array.memories \
++    $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/data_arrays_0.memories \
++    $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/data_arrays_0_0.memories \
++    $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/mem.memories
+ 
+ export CORE_UTILIZATION = 40
+ export CORE_MARGIN      = 2
 diff --git a/flow/designs/asap7/tinyRocket/data_arrays_0.memories b/flow/designs/asap7/tinyRocket/data_arrays_0.memories
 new file mode 100644
 --- /dev/null
@@ -399,19 +415,3 @@ new file mode 100644
 +    }
 +  ]
 +}
-diff --git a/flow/designs/asap7/tinyRocket/config.mk b/flow/designs/asap7/tinyRocket/config.mk
---- a/flow/designs/asap7/tinyRocket/config.mk
-+++ b/flow/designs/asap7/tinyRocket/config.mk
-@@ -19,7 +19,11 @@
- # provides no behavioral fallback (the wrapper instantiates a
- # tag_array_ext module the sources never define), so its conversion is
- # forced via a .memories override.
--export ADDITIONAL_MEMORIES = $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/tag_array.memories
-+export ADDITIONAL_MEMORIES = \
-+    $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/tag_array.memories \
-+    $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/data_arrays_0.memories \
-+    $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/data_arrays_0_0.memories \
-+    $(DESIGN_HOME)/$(PLATFORM)/$(DESIGN_NICKNAME)/mem.memories
- 
- export CORE_UTILIZATION = 40
- export CORE_MARGIN      = 2

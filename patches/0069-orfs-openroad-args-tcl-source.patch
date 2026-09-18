@@ -14,10 +14,9 @@ $(OR_ARGS) is still on the line, so a caller can override.
 Not upstreamed.  Retires on a //:bump onto an ORFS carrying it.
 
 diff --git a/flow/scripts/variables.mk b/flow/scripts/variables.mk
-index 6567737..4985068 100644
 --- a/flow/scripts/variables.mk
 +++ b/flow/scripts/variables.mk
-@@ -108,7 +108,7 @@ export OPENSTA_EXE
+@@ -108,7 +108,7 @@
  
  OPENROAD_IS_VALID := $(if $(OPENROAD_EXE),$(shell test -x $(OPENROAD_EXE) && echo "true"),)
  

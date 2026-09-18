@@ -23,7 +23,7 @@ companion patches 0050-0055 carry the rest of the change and go together.
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -948,6 +948,14 @@
+@@ -959,6 +959,14 @@
  SET_RC_TCL:
    description: |
      Metal & Via RC definition file path.

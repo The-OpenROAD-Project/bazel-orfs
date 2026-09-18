@@ -52,10 +52,9 @@ Not upstreamed -- carried in bazel-orfs per the moratorium. Retires at
 a bump onto an ORFS that carries the change.
 ---
 diff --git a/flow/scripts/memories/detect.py b/flow/scripts/memories/detect.py
-index c678621..7a34dbd 100644
 --- a/flow/scripts/memories/detect.py
 +++ b/flow/scripts/memories/detect.py
-@@ -10,6 +10,7 @@ ports share a single clock domain.
+@@ -10,6 +10,7 @@
  from __future__ import annotations
  
  import json
@@ -63,7 +62,7 @@ index c678621..7a34dbd 100644
  from pathlib import Path
  
  import schema
-@@ -29,6 +30,78 @@ def parse_param_int(val) -> int:
+@@ -29,6 +30,78 @@
      return int(val)
  
  
@@ -142,7 +141,7 @@ index c678621..7a34dbd 100644
  def scan_yosys_json(data: dict | str | Path) -> list[schema.Memory]:
      """Extract memory modules from a Yosys netlist JSON output ($mem_v2 cells)."""
      if isinstance(data, (str, Path)):
-@@ -43,6 +116,9 @@ def scan_yosys_json(data: dict | str | Path) -> list[schema.Memory]:
+@@ -43,6 +116,9 @@
      for mod_name, mod_info in modules.items():
          clean_mod_name = mod_name[1:] if mod_name.startswith("\\") else mod_name
          cells = mod_info.get("cells", {})
@@ -152,7 +151,7 @@ index c678621..7a34dbd 100644
          for cell_name, cell_info in cells.items():
              cell_type = cell_info.get("type", "")
              if cell_type not in ("$mem_v2", "$mem"):
-@@ -74,6 +150,12 @@ def scan_yosys_json(data: dict | str | Path) -> list[schema.Memory]:
+@@ -74,6 +150,12 @@
              mask_lanes = 0
              if wr_ports > 0 and len(wr_en_bits) > wr_ports:
                  mask_lanes = len(wr_en_bits) // wr_ports
@@ -165,7 +164,7 @@ index c678621..7a34dbd 100644
  
              pins: list[schema.Pin] = []
  
-@@ -157,8 +239,27 @@ def scan_yosys_json(data: dict | str | Path) -> list[schema.Memory]:
+@@ -157,8 +239,27 @@
                          )
                      )
  
@@ -194,7 +193,7 @@ index c678621..7a34dbd 100644
  
              mem = schema.Memory(
                  name=mem_name,
-@@ -167,8 +268,10 @@ def scan_yosys_json(data: dict | str | Path) -> list[schema.Memory]:
+@@ -167,8 +268,10 @@
                  addr_w=addr_w,
                  read_ports=rd_ports,
                  write_ports=wr_ports,
@@ -207,10 +206,9 @@ index c678621..7a34dbd 100644
                  behavioral_model={"module": clean_mod_name},
                  reason=f"Yosys inferred $mem_v2 ({'single-clock' if single_clock else 'multi-clock'})",
 diff --git a/flow/scripts/memories/detect_test.py b/flow/scripts/memories/detect_test.py
-index d378d11..5e5c8f5 100644
 --- a/flow/scripts/memories/detect_test.py
 +++ b/flow/scripts/memories/detect_test.py
-@@ -99,5 +99,120 @@ class DetectTest(unittest.TestCase):
+@@ -99,5 +99,120 @@
          self.assertEqual(detect.scan_yosys_json(yosys_json), [])
  
  
@@ -332,10 +330,9 @@ index d378d11..5e5c8f5 100644
  if __name__ == "__main__":
      unittest.main()
 diff --git a/flow/scripts/memories/idiomatic.py b/flow/scripts/memories/idiomatic.py
-index 2bcd47d..7109892 100644
 --- a/flow/scripts/memories/idiomatic.py
 +++ b/flow/scripts/memories/idiomatic.py
-@@ -55,6 +55,17 @@ def judge(mem: schema.Memory) -> tuple[bool, str]:
+@@ -55,6 +55,17 @@
              "an inline array is the design asking for flip-flops. "
              "Instantiate the memory as its own module to convert it",
          )
@@ -353,7 +350,7 @@ index 2bcd47d..7109892 100644
      if mem.bits < 1:
          return False, "no data pins"
      if mem.rows < MIN_ROWS:
-@@ -71,6 +82,21 @@ def judge(mem: schema.Memory) -> tuple[bool, str]:
+@@ -71,6 +82,21 @@
              f"{mem.total_ports()} ports exceeds single-macro "
              f"limit {MAX_TOTAL_PORTS}",
          )
@@ -376,10 +373,9 @@ index 2bcd47d..7109892 100644
  
  
 diff --git a/flow/scripts/memories/idiomatic_test.py b/flow/scripts/memories/idiomatic_test.py
-index d26fbfc..04b34fd 100644
 --- a/flow/scripts/memories/idiomatic_test.py
 +++ b/flow/scripts/memories/idiomatic_test.py
-@@ -49,5 +49,31 @@ class IdiomaticTest(unittest.TestCase):
+@@ -49,5 +49,31 @@
          self.assertTrue(memories[1].reason)
  
  
@@ -412,10 +408,9 @@ index d26fbfc..04b34fd 100644
  if __name__ == "__main__":
      unittest.main()
 diff --git a/flow/scripts/memories/schema.py b/flow/scripts/memories/schema.py
-index 060cf27..754ae83 100644
 --- a/flow/scripts/memories/schema.py
 +++ b/flow/scripts/memories/schema.py
-@@ -49,6 +49,15 @@ class Memory:
+@@ -49,6 +49,15 @@
      # Total width of the per-port write mask, 0 if unmasked. Subword-split
      # mask pins (`W0_mask_0..3`) contribute one lane each.
      mask_lanes: int = 0
@@ -431,7 +426,7 @@ index 060cf27..754ae83 100644
      pins: list[Pin] = field(default_factory=list)
      # The module whose RTL body simulates this memory: {"file", "module"}.
      behavioral_model: dict | None = None
-@@ -106,9 +115,12 @@ def memory_from_dict(d: dict) -> Memory:
+@@ -106,9 +115,12 @@
          "write_ports",
          "rw_ports",
          "mask_lanes",
@@ -444,7 +439,7 @@ index 060cf27..754ae83 100644
      if "pins" in d:
          mem.pins = [_pin_from_dict(p) for p in d["pins"]]
      if "behavioral_model" in d:
-@@ -170,10 +182,13 @@ def merge(detected: list[Memory], overrides: list[Memory]) -> list[Memory]:
+@@ -170,10 +182,13 @@
              "write_ports",
              "rw_ports",
              "mask_lanes",

@@ -31,10 +31,9 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
  1 file changed, 8 insertions(+), 1 deletion(-)
 
 diff --git a/flow/scripts/synth_preamble.tcl b/flow/scripts/synth_preamble.tcl
-index 14a9d70d7..ef142be96 100644
 --- a/flow/scripts/synth_preamble.tcl
 +++ b/flow/scripts/synth_preamble.tcl
-@@ -76,7 +76,14 @@ proc read_design_sources { } {
+@@ -76,7 +76,14 @@
    }
  
    if { [env_var_equals SYNTH_HDL_FRONTEND slang] } {

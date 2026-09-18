@@ -29,7 +29,7 @@ go together.
 diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -945,6 +945,21 @@
+@@ -956,6 +956,21 @@
  RCX_RULES:
    description: |
      RC Extraction rules file path.

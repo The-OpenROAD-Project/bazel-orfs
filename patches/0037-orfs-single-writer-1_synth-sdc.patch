@@ -26,7 +26,7 @@ Signed-off-by: Øyvind Harboe <oyvind.harboe@zylin.com>
 diff --git a/flow/scripts/synth_odb.tcl b/flow/scripts/synth_odb.tcl
 --- a/flow/scripts/synth_odb.tcl
 +++ b/flow/scripts/synth_odb.tcl
-@@ -28,10 +28,12 @@ report_design_area
+@@ -29,13 +29,15 @@
  report_design_area_metrics
  
  source_step_tcl POST SYNTH
@@ -41,10 +41,13 @@ diff --git a/flow/scripts/synth_odb.tcl b/flow/scripts/synth_odb.tcl
  # 1_synth.sdc.
 -orfs_write_sdc $::env(RESULTS_DIR)/1_synth.sdc
 +log_cmd write_sdc -no_timestamp $::env(RESULTS_DIR)/1_synth.sdc
+ if { $::env(LEC_CHECK) || $::env(SEC_CHECK) } {
+   write_lec_verilog 1_synth_lec.v
+ }
 diff --git a/flow/scripts/synth_syn.tcl b/flow/scripts/synth_syn.tcl
 --- a/flow/scripts/synth_syn.tcl
 +++ b/flow/scripts/synth_syn.tcl
-@@ -68,13 +68,15 @@ log_cmd repair_design -pre_placement
+@@ -69,13 +69,15 @@
  
  report_metrics 1 "synth" false false
  
@@ -60,5 +63,5 @@ diff --git a/flow/scripts/synth_syn.tcl b/flow/scripts/synth_syn.tcl
 -orfs_write_sdc $::env(RESULTS_DIR)/1_synth.sdc
 +log_cmd write_sdc -no_timestamp $::env(RESULTS_DIR)/1_synth.sdc
  
- # Gate-level netlist for LEC (write_lec_verilog strips physical-only
- # masters, matching the CTS-stage LEC convention) and any other netlist
+ # Gate-level netlist for downstream consumers. The Bazel synthesis action
+ # declares this file as an output, so it must be written unconditionally.
