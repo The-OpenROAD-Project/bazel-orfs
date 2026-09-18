@@ -214,7 +214,10 @@ def design(
         local_arguments = [],
         user_stages = {},
         visibility = ["//visibility:public"],
-        extra = None):
+        extra = None,
+        block_abstract_stage = None,
+        quick_pins = False,
+        canon_blackbox_macros = []):
     """Standard BUILD body for a design package.
 
     Args:
@@ -252,6 +255,14 @@ def design(
             variants of its own flow (a placement-seed ensemble, say)
             from the same parsed config.mk rather than a second copy of
             it.
+        block_abstract_stage: which stage each BLOCKS= sub-macro is
+            abstracted from; None is ORFS's own 6_final, "place" is the
+            fast mock abstract. Forwarded to orfs_design().
+        quick_pins: skip `global_placement -skip_io` at the top and place
+            pins directly; RTL exploration only. Forwarded to orfs_design().
+        canon_blackbox_macros: module names blackboxed at canonicalization
+            so partition synthesis does not wait on their place-and-route.
+            Forwarded to orfs_design().
     """
     export_design_files()
     orfs_design(
@@ -262,6 +273,9 @@ def design(
         user_stages = user_stages,
         visibility = visibility,
         extra = extra,
+        block_abstract_stage = block_abstract_stage,
+        quick_pins = quick_pins,
+        canon_blackbox_macros = canon_blackbox_macros,
     )
     _auto_floorplan(designs, config)
 

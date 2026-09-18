@@ -51,7 +51,7 @@ def _convert_sources(sources, pkg):
             result[var] = converted
     return result
 
-def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], extra = None, visibility = None):  # buildifier: disable=unused-variable
+def orfs_design(name = None, config = "config.mk", platform = None, design = None, designs = None, mock_openroad = None, mock_yosys = None, user_arguments = [], user_sources = [], user_stages = {}, local_arguments = [], extra = None, visibility = None, block_abstract_stage = None, quick_pins = False, canon_blackbox_macros = []):  # buildifier: disable=unused-variable
     """Create orfs_flow() targets for a design based on its parsed config.mk.
 
     Usage:
@@ -108,6 +108,18 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
             which appears verbatim inside VERILOG_FILES). These are
             dropped entirely before orfs_flow() is invoked — neither
             validated against variables.yaml nor exposed as env vars.
+        block_abstract_stage: the stage each BLOCKS= sub-macro is
+            abstracted from. Default None keeps ORFS's own answer, the
+            block's 6_final. "place" gives the parent a mock abstract
+            with the block's pins and outline before the block has run
+            CTS or route -- the fast-turnaround setting for a parent
+            that is itself the bottleneck; see docs/customize.md.
+        quick_pins: forwarded to orfs_flow(quick_pins=...) for the design
+            and for each of its BLOCKS: skip `global_placement -skip_io`
+            and place pins directly. RTL exploration only.
+        canon_blackbox_macros: forwarded to orfs_flow(): module names to
+            blackbox at canonicalization so the parent's partition
+            synthesis does not wait for those macros' place-and-route.
         extra: optional callable invoked after the real flow with the
             fully-processed design data (name, platform, verilog_files,
             arguments, user_arguments, sources, user_sources, user_stages,
@@ -215,6 +227,8 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
         tags,
         mock_openroad,
         mock_yosys,
+        abstract_stage = block_abstract_stage or _BLOCK_ABSTRACT_STAGE,
+        quick_pins = quick_pins,
     )
 
     # Real flow — uses Docker image with real OpenROAD/Yosys
@@ -292,6 +306,8 @@ def orfs_design(name = None, config = "config.mk", platform = None, design = Non
         user_sources = user_srcs,
         user_stages = user_stages,
         macros = macros if macros else [],
+        canon_blackbox_macros = canon_blackbox_macros,
+        quick_pins = quick_pins,
         stage_data = {"synth": extra_data} if extra_data else {},
         tags = tags,
         visibility = visibility,
@@ -421,7 +437,7 @@ def _collect_include_dirs(arguments):
 # ORFS's own ABSTRACT_SOURCE reaches generate_abstract as ever.
 _BLOCK_ABSTRACT_STAGE = "final"
 
-def _create_block_targets(config, designs, platform, design, pkg, tags, mock_openroad, mock_yosys = None):
+def _create_block_targets(config, designs, platform, design, pkg, tags, mock_openroad, mock_yosys = None, abstract_stage = _BLOCK_ABSTRACT_STAGE, quick_pins = False):
     """Create sub-macro orfs_flow() targets for BLOCKS.
 
     Returns:
@@ -446,8 +462,9 @@ def _create_block_targets(config, designs, platform, design, pkg, tags, mock_ope
 
         # Real flow
         orfs_flow(
+            quick_pins = quick_pins,
             name = block_config["name"],
-            abstract_stage = _BLOCK_ABSTRACT_STAGE,
+            abstract_stage = abstract_stage,
             verilog_files = block_verilog,
             pdk = "//flow:" + platform,
             arguments = block_config["arguments"],
@@ -460,7 +477,7 @@ def _create_block_targets(config, designs, platform, design, pkg, tags, mock_ope
         if mock_openroad:
             lint_kwargs = dict(
                 name = block_config["name"],
-                abstract_stage = _BLOCK_ABSTRACT_STAGE,
+                abstract_stage = abstract_stage,
                 verilog_files = block_verilog,
                 pdk = "//flow:" + platform,
                 arguments = block_config["arguments"],
