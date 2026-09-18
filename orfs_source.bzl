@@ -173,6 +173,7 @@ ORFS_PATCHES = [
     Label("//patches:0071-orfs-structured-memories.patch"),
     Label("//patches:0072-orfs-auto-memories-firtool-modules.patch"),
     Label("//patches:0073-orfs-fakeram-declared-pins-write-mask.patch"),
+    Label("//patches:0074-orfs-skip-extract-fa.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
