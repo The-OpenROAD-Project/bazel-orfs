@@ -171,6 +171,8 @@ ORFS_PATCHES = [
     # Reg(Vec) and no detector sees them. Not upstreamed -- retire at a
     # bump onto an ORFS that can declare a generated macro per module.
     Label("//patches:0071-orfs-structured-memories.patch"),
+    Label("//patches:0072-orfs-auto-memories-firtool-modules.patch"),
+    Label("//patches:0073-orfs-fakeram-declared-pins-write-mask.patch"),
 ]
 
 # Generate the BUILD file for any design directory that has a config.mk
