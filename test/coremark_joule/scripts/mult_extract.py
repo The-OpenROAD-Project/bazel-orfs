@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Take one module out of a hardened netlist, with its delays.
 
-5.2b measures glitch inside the multiplier by simulating that module on
+§5.3 measures glitch inside the multiplier by simulating that module on
 its own. Nothing is re-synthesized: what is wanted is the module as the
 design hardened it, so this cuts it out of the generated netlist and
 cuts the matching subtree out of the SDF `write_sdf` wrote for the whole
@@ -20,7 +20,7 @@ Four things come out, and each is needed by the replay:
 
 The cells the SDF does not mention are not an error: a tie cell has no
 timing arc, so it has no entry. The count is reported rather than
-checked, and 5.2b states it.
+checked, and §5.3 states it.
 """
 
 import argparse

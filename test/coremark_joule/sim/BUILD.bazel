@@ -220,7 +220,7 @@ TILE_BUS_BYTES = 4
         ),
         coremark_run(
             name = "picorv32_{}_{}".format(march, iterations),
-            # The boundary is a module now (section 5.1), so the same
+            # The boundary is a module now (§4.2), so the same
             # question VeeR's probe answers applies here: how much of
             # one hot iteration leaves it. The answer should be nothing.
             bus_probe = True,
@@ -658,7 +658,7 @@ coremark_saif(
     # they are clock-network nets OpenSTA gives 2/period, and being
     # unannotated is their correct state (§3.5). One on the FakeRAM
     # floorplan, two on the scaler's; the seed variants each draw their
-    # own. Four is the budget; the pinned design's count is what §5.12
+    # own. Four is the budget; the pinned design's count is what §6.5
     # reports.
     max_other_dropped = 4,
     run_2 = "veer_rv32imc_2",
@@ -682,7 +682,7 @@ coremark_per_joule(
     power = "//test/coremark_joule/designs/asap7/veer:swerv_wrapper_grt_power",
 )
 
-# §5.13's placement-seed ensemble, end to end: a gate-level simulator on
+# §5.11's placement-seed ensemble, end to end: a gate-level simulator on
 # each seed variant's netlist, its SAIF over the same hot iteration, and
 # its point. The RTL runs, the image and the SDC are the core's own, so
 # the only thing that differs between a seed's point and the core's is

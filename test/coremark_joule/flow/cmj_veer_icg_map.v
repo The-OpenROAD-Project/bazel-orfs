@@ -17,7 +17,7 @@
  * OpenSTA borrow time across it, so a reg-to-reg path through a gated
  * clock reports slack that a flop-based path would not -- which is why
  * VeeR's reg2reg WNS came out at exactly zero on eight paths at once
- * and why section 8.3 cannot push this core to its own f_max. An ICG is
+ * and why §8.4 cannot push this core to its own f_max. An ICG is
  * a cell, not a borrowable latch, and the analysis becomes the same
  * question the other three cores answer.
  *

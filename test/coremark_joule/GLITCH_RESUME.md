@@ -1,6 +1,6 @@
 # Resuming the glitch measurement
 
-Operational notes for the work [§5.2c](README.md#52c-a-second-core-and-where-that-stops) describes. The paper says what was
+Operational notes for the work [§5.4](README.md#54-a-second-core-and-where-that-stops) describes. The paper says what was
 learned and why it stopped; this says what to type and what to expect.
 
 Everything here is driven by hand from `tmp/`. Making it a bazel target
@@ -114,7 +114,7 @@ building it:
   `exu_alu_ctl`. Without `--scope` the sampler silently reads whichever
   the dump declared first.
 - **Not every core is reachable.** SERV's kept modules are
-  parameterized and do not survive into the ODB ([§5.7](README.md#57-attribution-does-not-survive-parameterized-modules)), so it has no
+  parameterized and do not survive into the ODB ([§6.2](README.md#62-attribution-does-not-survive-parameterized-modules)), so it has no
   module boundary to cut -- and SERV is the core [§5.2](README.md#52-zero-delay-simulation-carries-no-glitch-power) most wants,
   because its bit-serial datapath should glitch worst. picorv32 declares
   two units. VeeR has no multiplier module at all: `exu_mul_ctl` is not

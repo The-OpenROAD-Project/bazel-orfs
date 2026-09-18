@@ -95,7 +95,7 @@ class ReadmeNumbersTest(unittest.TestCase):
             self.assertFalse(
                 readme_numbers.has_seeds(self.document),
                 "results.json carries seed ensembles but README.md has no "
-                "seeds block (§5.13)",
+                "seeds block (§5.11)",
             )
             return
         begin = self.readme.index(readme_numbers.SEEDS_BEGIN)

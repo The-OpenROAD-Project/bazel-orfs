@@ -41,7 +41,7 @@ NAMES = {
 
 # Numbers from a configuration the study no longer runs: the three
 # cacheless cores measured with their memories outside the boundary
-# (§5.1, Table 8). They are the "before" of the boundary correction and
+# (§4.2, Table 2). They are the "before" of the boundary correction and
 # are not re-derivable from results.json, which pins only the current
 # configuration. Kept here so the ratios quoted against them are still
 # computed rather than typed.
@@ -74,7 +74,7 @@ COMMODITY_CSV = os.path.join(
 
 
 def model_switch_rows(path=MODEL_SWITCH_JSON):
-    """§5.1's Table 8b rows: the memory model switched and nothing else."""
+    """§5.1's Table 6 rows: the memory model switched and nothing else."""
     with open(path) as f:
         return json.load(f)["rows"]
 
@@ -113,7 +113,7 @@ def render_switch_table(rows=None):
 
 
 def commodity_rows(path=COMMODITY_CSV):
-    """§4.9's rows: CoreMark/s and the power that goes with it, per CPU."""
+    """§A.1's rows: CoreMark/s and the power that goes with it, per CPU."""
     with open(path) as f:
         rows = list(csv.DictReader(l for l in f if not l.startswith("#")))
     out = {}
@@ -158,7 +158,7 @@ def memory_inside(point):
 
 
 def has_seeds(document):
-    """True when every point carries a placement-seed ensemble (§5.13)."""
+    """True when every point carries a placement-seed ensemble (§5.11)."""
     return all("coremark_per_joule_2sigma" in p for p in document["points"])
 
 
@@ -213,7 +213,7 @@ def seed_2sigma_pct(point):
 
 
 def render_seed_table(document):
-    """§5.13's table: every draw of every core, and 2σ over the five.
+    """§5.11's table: every draw of every core, and 2σ over the five.
 
     One column per draw, labelled by the seed it was placed at (the
     design's own draw first), then 2σ in CoreMark/Joule and as a share of
@@ -290,7 +290,7 @@ def render_table7(document):
 
 
 def render_table8(document):
-    """§5.1: each core with its memory outside the boundary and inside it."""
+    """§4.2: each core with its memory outside the boundary and inside it."""
     by = points_by_core(document)
     head = "| core | CoreMark/MHz | CoreMark/Joule, core-only | CoreMark/Joule, core + L1 | factor |"
     lines = [head, "|---" * 5 + "|"]
@@ -373,7 +373,7 @@ def facts(document):
     # A vectorless comparison of ibex and VeeR: how close it would put them.
     vl_cmj = {c: cmmhz[c] * by[c]["frequency_mhz"] * 1e6 / vectorless[c] for c in by}
     out["vectorless_ibex_over_veer"] = _ratio(vl_cmj["ibex"], vl_cmj["veer"], 2)
-    # §4.9: the commodity ladder, measured package power where the run logged it.
+    # §A.1: the commodity ladder, measured package power where the run logged it.
     c = commodity_rows()
     epyc = c["AMD EPYC 9654"]["coremark_per_joule"]
     out["epyc_9654_over_7950x"] = _ratio(
@@ -439,14 +439,14 @@ def facts(document):
     out["ibex_logic_mw"] = "{:.1f} mW".format(1e3 * logic["ibex"])
     out["veer_over_ibex_logic"] = _ratio(logic["veer"], logic["ibex"], 1)
     out["veer_macro_share"] = "{:.0f} %".format(share["veer"])
-    # §5.1, Table 8b: what the memory model switch alone did.
+    # §5.1, Table 6: what the memory model switch alone did.
     switch = {r["core"]: switch_change_pct(r) for r in model_switch_rows()}
     cacheless = [-switch[c] for c in ("serv", "picorv32", "ibex")]
     out["switch_cacheless_fall"] = "fell together, by {:.0f} to {:.0f} %".format(
         min(cacheless), max(cacheless)
     )
     out["switch_veer_fall"] = "VeeR fell {:.0f} %".format(-switch["veer"])
-    # §5.13: the one gap in Table 1 the seed spread reaches.
+    # §5.11: the one gap in Table 1 the seed spread reaches.
     gap = 100.0 * abs(cmj["veer"] / cmj["picorv32"] - 1)
     out["veer_picorv32_gap"] = (
         "VeeR to picorv32, is {:.1f} % of the smaller point".format(gap)

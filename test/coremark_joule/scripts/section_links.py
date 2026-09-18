@@ -19,9 +19,8 @@ import re
 import sys
 
 HEADING = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
-# A section number may carry a letter suffix: the paper has 5.2b and
-# 5.3b, sections added between existing ones without renumbering the
-# rest. Without the suffix in the pattern, "§5.2b" matches as "§5.2"
+# A section number may carry a letter suffix, as 5.2b does when a section
+# is added between existing ones without renumbering the rest. Without the suffix in the pattern, "§5.2b" matches as "§5.2"
 # and the trailing "b" is left dangling outside the link.
 REF = re.compile(r"\[?§(\d+(?:\.\d+)?[a-z]?)(?:\]\(#[^)]*\))?")
 SECTION_NUMBER = re.compile(r"^(\d+(?:\.\d+)?[a-z]?)\.?\s")

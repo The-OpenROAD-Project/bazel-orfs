@@ -56,7 +56,7 @@ export OPENROAD_HIERARCHICAL    = 1
 # comparison cannot afford to have its largest term come from two
 # different models -- and, unlike the FakeRAM2.0 views the study used
 # first, this model's energy and leakage depend on the memory's shape
-# (§5.1, §8.5). The flow sees each SRAM's boundary in
+# (§5.1, §8.7). The flow sees each SRAM's boundary in
 # flow/cmj_sram_blackbox.v and nothing else; AUTO_MEMORIES stays off
 # because there is nothing left for it to find or convert.
 export ADDITIONAL_LEFS         = //test/coremark_joule/flow:cmj_imem_sram.lef \

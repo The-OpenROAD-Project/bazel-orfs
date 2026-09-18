@@ -22,7 +22,7 @@ py_binary(
         "$(location //test/coremark_joule/sim:point_ibex_rv32imc)",
         "$(location //test/coremark_joule/sim:point_veer_rv32imc)",
     ] + [
-        # §5.13: the other four placement draws of every core, as samples
+        # §5.11: the other four placement draws of every core, as samples
         # beside its point.
         "--sample $(location //test/coremark_joule/sim:point_{}_seed{})".format(p, seed)
         for p in [
@@ -33,7 +33,7 @@ py_binary(
         ]
         for seed in SEEDS
     ] + [
-        # The physical side of each point, from the same grt ODB (§4.10).
+        # The physical side of each point, from the same grt ODB (§4.9).
         "--physical",
         "picorv32:$(location //test/coremark_joule/designs/asap7/picorv32:cmj_picorv32_physical)",
         "--physical",

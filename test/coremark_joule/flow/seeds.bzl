@@ -1,6 +1,6 @@
 """Placement-seed variants of a design, from the design's own parsed config.
 
-§5.13: every point was one flow run at one placement seed, so no number
+§5.11: every point was one flow run at one placement seed, so no number
 had an error bar. The stage-variance study found this flow's run-to-run
 noise is born at placement, so the ensemble varies the global placer's
 seed and nothing else: each variant starts from the design's own

@@ -166,7 +166,7 @@ py_binary(
     deps = ["@bazel-orfs-dev-pip//matplotlib"],
 )
 
-# Where §4.10's measured commodity cores land on this study's axes.
+# Where §A.1's measured commodity cores land on this study's axes.
 py_test(
     name = "silicon_band_test",
     size = "small",
@@ -346,7 +346,7 @@ py_binary(
     main = "section_links.py",
 )
 
-# §5.13's seed ensemble folded into the pinned points: 2σ, and the
+# §5.11's seed ensemble folded into the pinned points: 2σ, and the
 # design's own draw kept as the point.
 py_test(
     name = "pin_results_test",

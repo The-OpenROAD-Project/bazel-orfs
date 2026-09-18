@@ -6,11 +6,11 @@ exports_files(["constraints.sdc"])
 
 design(
     config = "config.mk",
-    # §5.13's placement-seed ensemble: four more draws of global placement
+    # §5.11's placement-seed ensemble: four more draws of global placement
     # from this design's own floorplan, each taken through the same SAIF
     # and power chain as the design itself.
     extra = seed_variants(
-        # write_verilog's non-injective name mapping (§5.12). One collision on
+        # write_verilog's non-injective name mapping (§6.5). One collision on
         # the FakeRAM floorplan, two on the scaler's -- both clock-gate
         # latches -- and the seed variants will each draw their own. Four is
         # a budget the ensemble can live under; the paper reports the count
@@ -40,7 +40,7 @@ design(
 grt_netlist(
     name = "swerv_wrapper_grt_netlist",
     src = ":swerv_wrapper_grt",
-    # write_verilog's non-injective name mapping (§5.12). One collision on
+    # write_verilog's non-injective name mapping (§6.5). One collision on
     # the FakeRAM floorplan, two on the scaler's -- both clock-gate
     # latches -- and the seed variants will each draw their own. Four is
     # a budget the ensemble can live under; the paper reports the count
@@ -49,7 +49,7 @@ grt_netlist(
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 
-# The per-instance delays, for the glitch measurement (5.2b). VeeR has
+# The per-instance delays, for the glitch measurement (§5.3). VeeR has
 # four instances of exu_alu_ctl in one hardening, which is a within-
 # design measurement of how much of glitch is the implementation (2.4).
 stage_sdf(
@@ -71,7 +71,7 @@ stage_power(
 
 # Where the energy goes. This is the first design in the study whose
 # memories are hardened, so the breakdown carries the L1 as macros
-# alongside the pipeline units -- which is the split §8.1 of the paper
+# alongside the pipeline units -- which is the split §8.2 of the paper
 # asks for.
 stage_power_units(
     name = "swerv_wrapper_grt_power_units",

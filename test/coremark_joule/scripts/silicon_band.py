@@ -7,7 +7,7 @@ caches" -- the same boundary this study hardens and reports, reached by
 a different route.
 
 That makes a region on Figure 1 possible that is *measured* rather than
-apportioned. An earlier version of this took §4.9's package figures and
+apportioned. An earlier version of this took §A.1's package figures and
 divided by an assumed core share of 50-80 %; the assumption was the
 dominant uncertainty in the result and it is now unnecessary.
 

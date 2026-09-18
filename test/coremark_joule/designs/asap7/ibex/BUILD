@@ -7,7 +7,7 @@ exports_files(["constraints.sdc"])
 
 design(
     config = "config.mk",
-    # §5.13's placement-seed ensemble: four more draws of global placement
+    # §5.11's placement-seed ensemble: four more draws of global placement
     # from this design's own floorplan, each taken through the same SAIF
     # and power chain as the design itself.
     extra = seed_variants(
@@ -203,7 +203,7 @@ flop_power_probe(
     visibility = ["//test/coremark_joule:__subpackages__"],
 )
 
-# The measured side of the literature table. See §4.10.
+# The measured side of the literature table. See §4.9.
 physical_probe(
     name = "cmj_ibex_physical",
     src = ":cmj_ibex_grt",
