@@ -27,7 +27,7 @@ snapshot; CoreMark does not touch vl, and the CRC gate and the cycle
 count are the check that nothing else moved.
 
 Carried by the bazel-orfs CoreMark/Joule study. Upstream as
-OpenXiangShan/XiangShan#6589 (draft, 2026-09-18), branch kunminghu-v3;
+OpenXiangShan/XiangShan#6589 (open, 2026-09-18), branch kunminghu-v3;
 retires at a bump onto a XiangShan that carries it.
 ---
 diff --git a/src/main/scala/xiangshan/backend/CtrlBlock.scala b/src/main/scala/xiangshan/backend/CtrlBlock.scala
