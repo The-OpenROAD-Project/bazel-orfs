@@ -16,6 +16,23 @@
 # Sourced by anneal_in_flow.tcl with the floorplan initialised and the
 # macros still unplaced. Plain ODB API throughout.
 
+# The edge of the master a pin sits on: L, R, B or T, by the pin bbox
+# centre's nearest side.
+proc macro_anneal_pin_edge { master mterm } {
+    set bb [$mterm getBBox]
+    set xc [expr {([$bb xMin] + [$bb xMax]) / 2.0}]
+    set yc [expr {([$bb yMin] + [$bb yMax]) / 2.0}]
+    set w [$master getWidth]
+    set h [$master getHeight]
+    set d [list L $xc R [expr {$w - $xc}] B $yc T [expr {$h - $yc}]]
+    set best L
+    set bestd $xc
+    foreach {e dist} $d {
+        if { $dist < $bestd } { set best $e; set bestd $dist }
+    }
+    return $best
+}
+
 proc macro_anneal_module_path { inst_name } {
     set parts [split $inst_name "/"]
     if { [llength $parts] <= 1 } {
@@ -86,6 +103,14 @@ proc dump_macro_inventory { out } {
         }
         dict set masters $mname 1
         puts $f "master $mname [$master getWidth] [$master getHeight] $vlayer $pox $hlayer $poy"
+        # Which edge each signal pin sits on, so a flip of the macro means
+        # something to the placer: L R B T counts.
+        set edge_count [dict create L 0 R 0 B 0 T 0]
+        foreach mterm [$master getMTerms] {
+            if { [$mterm getSigType] ne "SIGNAL" } { continue }
+            dict incr edge_count [macro_anneal_pin_edge $master $mterm]
+        }
+        puts $f "edges $mname [dict get $edge_count L] [dict get $edge_count R] [dict get $edge_count B] [dict get $edge_count T]"
     }
 
     foreach inst $macros {
@@ -137,6 +162,30 @@ proc dump_macro_inventory { out } {
         }
         dict for { key n } $counts {
             puts $f "net [$inst getName] $key $n"
+        }
+        # The same, per edge of this macro's pin: what each edge connects to.
+        set master [$inst getMaster]
+        set per_edge {}
+        foreach iterm [$inst getITerms] {
+            set net [$iterm getNet]
+            if { $net eq "NULL" } { continue }
+            if { [$net getSigType] ne "SIGNAL" } { continue }
+            set edge [macro_anneal_pin_edge $master [$iterm getMTerm]]
+            foreach other [$net getITerms] {
+                set oinst [$other getInst]
+                if { $oinst eq $inst } { continue }
+                if { [[$oinst getMaster] isBlock] } {
+                    set key "macro:[$oinst getName]"
+                } else {
+                    set key [macro_anneal_module_path [$oinst getName]]
+                    if { $key eq "" } { set key "/" }
+                }
+                dict incr per_edge [list $key $edge]
+            }
+        }
+        dict for { ke n } $per_edge {
+            lassign $ke key edge
+            puts $f "netedge [$inst getName] $key $edge $n"
         }
     }
     close $f

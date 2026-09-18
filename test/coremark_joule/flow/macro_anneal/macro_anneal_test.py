@@ -101,7 +101,7 @@ class PlacementTest(unittest.TestCase):
 
     def test_pins_on_tracks(self):
         inv, blocks, _, placed, _ = run(inventory())
-        for inst, master, x, y in placed:
+        for inst, master, x, y, _ in placed:
             m = inv.masters[master]
             self.assertEqual((x + m["pox"] - 24) % 48, 0, inst)
             self.assertEqual((y + m["poy"] - 20) % 40, 0, inst)
@@ -113,7 +113,7 @@ class PlacementTest(unittest.TestCase):
         # cannot power.
         inv, blocks, _, placed, _ = run(inventory(), channel_um=4.0, block_gap_um=10.8)
         by_block = {}
-        for inst, master, x, y in placed:
+        for inst, master, x, y, _ in placed:
             for b in blocks:
                 if inst in b.macros:
                     by_block.setdefault(id(b), []).append((x, y, inv.masters[master]))
@@ -175,7 +175,7 @@ class StrapTest(unittest.TestCase):
 
     def test_every_narrow_bank_holds_a_stripe_pair(self):
         inv, blocks, _, placed, _ = run(self.narrow_inventory(), straps=STRAPS)
-        narrow = [(x, m) for _, m, x, _ in placed if m == "array_512x17"]
+        narrow = [(x, m) for _, m, x, _, _ in placed if m == "array_512x17"]
         self.assertEqual(len(narrow), 8)
         for x, m in narrow:
             self.assertTrue(
@@ -183,7 +183,7 @@ class StrapTest(unittest.TestCase):
                 "bank at {} has no stripe pair inside its rails".format(x),
             )
         # And they are still on their pin tracks.
-        for inst, master, x, y in placed:
+        for inst, master, x, y, _ in placed:
             self.assertEqual((x + inv.masters[master]["pox"] - 24) % 48, 0, inst)
 
     def test_narrow_banks_step_by_a_strap_multiple(self):
@@ -240,6 +240,79 @@ class EmitTest(unittest.TestCase):
             self.assertEqual(rc, 0)
             self.assertTrue(os.path.exists(out))
             self.assertIn('"residual": 1', open(metrics).read())
+
+
+class OrientationTest(unittest.TestCase):
+    """A macro whose pins all sit on one edge is flipped to face its connections."""
+
+    def inventory(self):
+        return "\n".join(
+            [
+                "# macro_anneal inventory v1",
+                "die 0 0 400000 400000 dbu {}".format(DBU),
+                "core 10000 10000 390000 390000",
+                "mfg_grid 1",
+                "site 54 270",
+                "track M4 V 24 48",
+                "track M5 H 20 40",
+                "master left_pins 20000 20000 M4 100 M5 70",
+                "edges left_pins 100 0 0 0",
+                "module logic 500000000",
+                # two singletons: a, whose pins are all on its left edge, and b
+                # to be placed after it (to its right); a's pins connect to b.
+                "macro top/a left_pins",
+                "macro top/b left_pins",
+                "net top/a macro:top/b 100",
+                "netedge top/a macro:top/b L 100",
+            ]
+        )
+
+    def test_pins_face_the_connected_macro(self):
+        inv = macro_anneal.Inventory.parse(self.inventory())
+        self.assertEqual(inv.edges["left_pins"]["L"], 100)
+        # a at the origin, b to its right: a's left-edge pins face away.
+        centres = {"top/b": (200000.0, 20000.0)}
+        self.assertEqual(
+            macro_anneal.choose_orientation(
+                inv, "top/a", "left_pins", 10000, 10000, centres
+            ),
+            "MY",
+        )
+        # b below a instead: a's left pins want the bottom edge, which no
+        # flip gives (a flip keeps left on a vertical edge), so R0 by tie.
+        centres = {"top/b": (20000.0, -200000.0)}
+        self.assertEqual(
+            macro_anneal.choose_orientation(
+                inv, "top/a", "left_pins", 10000, 10000, centres
+            ),
+            "R0",
+        )
+
+    def test_flipped_origin_keeps_pins_on_tracks(self):
+        inv = macro_anneal.Inventory.parse(self.inventory())
+        m = inv.masters["left_pins"]
+        for orient in ("R0", "MX", "MY", "R180"):
+            ox, oy = macro_anneal.macro_origin(inv, "left_pins", 10007, 10011, orient)
+            pox, poy = macro_anneal.pin_offsets(m, orient)
+            self.assertEqual((ox + pox - 24) % 48, 0, orient)
+            self.assertEqual((oy + poy - 20) % 40, 0, orient)
+
+    def test_spread_pins_keep_r0(self):
+        inv = macro_anneal.Inventory.parse(
+            self.inventory().replace(
+                "edges left_pins 100 0 0 0", "edges left_pins 25 25 25 25"
+            )
+        )
+        inv.net_edges.clear()
+        for e in "LRBT":
+            inv.net_edges[("top/a", "macro:top/b", e)] = 25
+        centres = {"top/b": (200000.0, 20000.0)}
+        self.assertEqual(
+            macro_anneal.choose_orientation(
+                inv, "top/a", "left_pins", 10000, 10000, centres
+            ),
+            "R0",
+        )
 
 
 if __name__ == "__main__":

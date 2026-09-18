@@ -66,6 +66,8 @@ class Inventory:
         self.macros = []  # (inst, master)
         self.module_area = {}  # path -> dbu^2
         self.nets = collections.Counter()  # (macro inst, key) -> count
+        self.edges = {}  # master -> {"L","R","B","T": pin count}
+        self.net_edges = collections.Counter()  # (macro inst, key, edge) -> count
 
     @classmethod
     def parse(cls, text):
@@ -101,6 +103,10 @@ class Inventory:
                 inv.module_area[f[1]] = inv.module_area.get(f[1], 0) + int(f[2])
             elif kind == "net":
                 inv.nets[(f[1], f[2])] += int(f[3])
+            elif kind == "edges":
+                inv.edges[f[1]] = dict(zip("LRBT", (int(x) for x in f[2:6])))
+            elif kind == "netedge":
+                inv.net_edges[(f[1], f[2], f[3])] += int(f[4])
         if inv.die is None or inv.core is None:
             raise ValueError("inventory has no die/core lines")
         return inv
@@ -383,21 +389,88 @@ def snap_up(value, offset, pitch):
     return offset + k * pitch
 
 
-def macro_origin(inv, master, x, y):
+# A flip mirrors which edge a pin is on: MX about the x axis (bottom and
+# top swap), MY about the y axis (left and right), R180 both.
+FLIPS = {
+    "R0": {"L": "L", "R": "R", "B": "B", "T": "T"},
+    "MX": {"L": "L", "R": "R", "B": "T", "T": "B"},
+    "MY": {"L": "R", "R": "L", "B": "B", "T": "T"},
+    "R180": {"L": "R", "R": "L", "B": "T", "T": "B"},
+}
+
+
+def pin_offsets(m, orient):
+    """The lowest-layer pin offsets of master m under a flip."""
+    pox = m["w"] - m["pox"] if orient in ("MY", "R180") else m["pox"]
+    poy = m["h"] - m["poy"] if orient in ("MX", "R180") else m["poy"]
+    return pox, poy
+
+
+def choose_orientation(inv, inst, master, x, y, centres):
+    """The flip that turns the macro's connected pins toward what they connect to.
+
+    Each connection from an edge of the macro pulls that edge toward its
+    target: another placed macro's centre, or the core centre for the
+    parent's cells, which are placed later and everywhere. The cost of an
+    orientation is the pin-weighted Manhattan distance from each edge's
+    midpoint, after the flip, to its targets; R0 wins ties, so a macro with
+    evenly spread pins keeps R0.
+    """
+    m = inv.masters[master]
+    w, h = m["w"], m["h"]
+    cx0, cy0 = (inv.core[0] + inv.core[2]) / 2.0, (inv.core[1] + inv.core[3]) / 2.0
+    pulls = []  # (edge, weight, tx, ty)
+    for (mi, key, edge), n in inv.net_edges.items():
+        if mi != inst:
+            continue
+        if key.startswith("macro:"):
+            other = centres.get(key[len("macro:") :])
+            if other is None:
+                continue
+            tx, ty = other
+        else:
+            tx, ty = cx0, cy0
+        pulls.append((edge, n, tx, ty))
+    if not pulls:
+        return "R0"
+    mid = {
+        "L": (x, y + h / 2.0),
+        "R": (x + w, y + h / 2.0),
+        "B": (x + w / 2.0, y),
+        "T": (x + w / 2.0, y + h),
+    }
+    best, best_cost = "R0", None
+    for orient in ("R0", "MX", "MY", "R180"):
+        cost = 0.0
+        for edge, n, tx, ty in pulls:
+            ex, ey = mid[FLIPS[orient][edge]]
+            cost += n * (abs(ex - tx) + abs(ey - ty))
+        if best_cost is None or cost < best_cost - 1e-9:
+            best, best_cost = orient, cost
+    return best
+
+
+def macro_origin(inv, master, x, y, orient="R0"):
     """Origin at or after (x, y) whose lowest-layer pins sit on tracks."""
     m = inv.masters[master]
     vt = inv.tracks.get((m["vlayer"], "V"))
     ht = inv.tracks.get((m["hlayer"], "H"))
-    ox = snap_up(x + m["pox"], vt[0], vt[1]) - m["pox"] if vt else x
-    oy = snap_up(y + m["poy"], ht[0], ht[1]) - m["poy"] if ht else y
+    pox, poy = pin_offsets(m, orient)
+    ox = snap_up(x + pox, vt[0], vt[1]) - pox if vt else x
+    oy = snap_up(y + poy, ht[0], ht[1]) - poy if ht else y
     g = inv.mfg_grid
     ox = int(math.ceil(ox / float(g))) * g
     oy = int(math.ceil(oy / float(g))) * g
     return ox, oy
 
 
-def placements(inv, blocks, chan, straps=None):
-    """(inst, master, x, y) in dbu for every macro in every macro block."""
+def placements(inv, blocks, chan, straps=None, flips=True):
+    """(inst, master, x, y, orient) in dbu for every macro in every macro block.
+
+    Positions first, for every macro; then each macro's flip, chosen against
+    the centres those positions give (a flip keeps the outline, so nothing
+    moves), and the origin re-snapped so the flipped pins land on tracks.
+    """
     straps = straps or Straps()
     out = []
     for b in blocks:
@@ -416,7 +489,17 @@ def placements(inv, blocks, chan, straps=None):
         for k, inst in enumerate(b.macros):
             col, row = k % b.cols, k // b.cols
             out.append((inst, b.master, ox0 + col * b.step_x, oy0 + row * b.step_y))
-    return out
+    centres = {}
+    for inst, master, x, y in out:
+        m = inv.masters[master]
+        centres[inst] = (x + m["w"] / 2.0, y + m["h"] / 2.0)
+    oriented = []
+    for inst, master, x, y in out:
+        orient = choose_orientation(inv, inst, master, x, y, centres) if flips else "R0"
+        if orient != "R0":
+            x, y = macro_origin(inv, master, x, y, orient)
+        oriented.append((inst, master, x, y, orient))
+    return oriented
 
 
 def check_legal(inv, blocks, placed):
@@ -424,7 +507,7 @@ def check_legal(inv, blocks, placed):
     problems = []
     x0, y0, x1, y1 = inv.core
     rects = []
-    for inst, master, x, y in placed:
+    for inst, master, x, y, _ in placed:
         m = inv.masters[master]
         r = (x, y, x + m["w"], y + m["h"])
         if r[0] < x0 or r[1] < y0 or r[2] > x1 or r[3] > y1:
@@ -448,13 +531,13 @@ def emit_tcl(inv, placed, residual, out_path):
         "to rtl_macro_placer.".format(len(placed), len(residual)),
         "set block [ord::get_db_block]",
     ]
-    for inst, master, x, y in placed:
+    for inst, master, x, y, orient in placed:
         lines.append(
             "place_macro -macro_name {{{}}} -location {{{:.4f} {:.4f}}} "
-            "-orientation R0 -exact".format(inst, x / dbu, y / dbu)
+            "-orientation {} -exact".format(inst, x / dbu, y / dbu, orient)
         )
     lines.append("foreach n {")
-    for inst, _, _, _ in placed:
+    for inst, _, _, _, _ in placed:
         lines.append("    {{{}}}".format(inst))
     lines.append("} {")
     lines.append("    [$block findInst $n] setPlacementStatus FIRM")
