@@ -58,7 +58,6 @@ tools/FakeRAM2.0/run.py accepts --orfs_asap7_backend.
 
 diff --git a/tools/FakeRAM2.0/BUILD.bazel b/tools/FakeRAM2.0/BUILD.bazel
 new file mode 100644
-index 0000000..16e9be4
 --- /dev/null
 +++ b/tools/FakeRAM2.0/BUILD.bazel
 @@ -0,0 +1,5 @@
@@ -69,14 +68,12 @@ index 0000000..16e9be4
 +)
 diff --git a/tools/FakeRAM2.0/orfs_asap7/__init__.py b/tools/FakeRAM2.0/orfs_asap7/__init__.py
 new file mode 100644
-index 0000000..edcf578
 --- /dev/null
 +++ b/tools/FakeRAM2.0/orfs_asap7/__init__.py
 @@ -0,0 +1 @@
 +# ORFS ASAP7 package
 diff --git a/tools/FakeRAM2.0/orfs_asap7/generate.py b/tools/FakeRAM2.0/orfs_asap7/generate.py
 new file mode 100644
-index 0000000..58fef20
 --- /dev/null
 +++ b/tools/FakeRAM2.0/orfs_asap7/generate.py
 @@ -0,0 +1,83 @@
@@ -164,10 +161,9 @@ index 0000000..58fef20
 +    (out_dir / "blackboxes.txt").write_text("".join(f"{m['name']}\n" for m in converted))
 +    return 0
 diff --git a/tools/FakeRAM2.0/run.py b/tools/FakeRAM2.0/run.py
-index f525c5f..06ae626 100755
 --- a/tools/FakeRAM2.0/run.py
 +++ b/tools/FakeRAM2.0/run.py
-@@ -8,6 +8,7 @@ from utils.class_process import Process
+@@ -8,6 +8,7 @@
  from utils.memory_config import MemoryConfig
  from utils.memory_factory import MemoryFactory
  from utils.timing_data import TimingData
@@ -175,7 +171,7 @@ index f525c5f..06ae626 100755
  
  
  def get_args() -> argparse.Namespace:
-@@ -28,10 +29,19 @@ def get_args() -> argparse.Namespace:
+@@ -26,10 +27,19 @@
          required=False,
          default="results",
      )
@@ -195,17 +191,16 @@ index f525c5f..06ae626 100755
      json_data = RunUtils.get_config(args.config)
      # Create a process object (shared by all srams)
      process = Process(json_data)
-@@ -52,4 +62,4 @@ def main(args: argparse.Namespace):
+@@ -50,4 +60,4 @@
  ### Entry point
  if __name__ == "__main__":
      args = get_args()
 -    main(args)
 +    sys.exit(main(args))
 diff --git a/tools/FakeRAM2.0/utils/class_process.py b/tools/FakeRAM2.0/utils/class_process.py
-index e1cfac3..745285c 100644
 --- a/tools/FakeRAM2.0/utils/class_process.py
 +++ b/tools/FakeRAM2.0/utils/class_process.py
-@@ -119,6 +119,9 @@ class Process:
+@@ -119,6 +119,9 @@
  
          total_height += additional_height
  

@@ -35,7 +35,7 @@ the stage through RUN_CMD.
 diff --git a/flow/scripts/flow.sh b/flow/scripts/flow.sh
 --- a/flow/scripts/flow.sh
 +++ b/flow/scripts/flow.sh
-@@ -3,6 +3,11 @@ set -euo pipefail
+@@ -3,6 +3,11 @@
  
  mkdir -p "$RESULTS_DIR" "$LOG_DIR" "$REPORTS_DIR" "$OBJECTS_DIR"
  
@@ -47,7 +47,7 @@ diff --git a/flow/scripts/flow.sh b/flow/scripts/flow.sh
  echo "Running $2.tcl, stage $1"
  
  (
-@@ -11,7 +16,7 @@ echo "Running $2.tcl, stage $1"
+@@ -11,7 +16,7 @@
    eval "$OPENROAD_EXE $OPENROAD_ARGS -exit \"$SCRIPTS_DIR/noop.tcl\"" \
      >"$LOG_DIR/$1.tmp.log" 2>&1
  

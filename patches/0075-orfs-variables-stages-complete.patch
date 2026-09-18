@@ -26,10 +26,10 @@ with generate-variables-docs.py and yaml_to_json.py.
 Not upstreamed; carried by bazel-orfs. Retires at a //:bump onto an ORFS
 whose variables.yaml has a stages list for every variable.
 ---
-diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
+diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
 --- a/docs/user/FlowVariables.md
 +++ b/docs/user/FlowVariables.md
-@@ -288,6 +288,7 @@
+@@ -289,6 +289,7 @@
  | <a name="SKIP_CRIT_VT_SWAP"></a>SKIP_CRIT_VT_SWAP| Do not perform VT swap on critical cells to improve QoR (default: do critical VT swap). This is an additional VT swap on critical cells that remain near the end of setup fixing. If SKIP_VT_SWAP is set to 1, this also disables critical cell VT swap.| |
  | <a name="SKIP_CTS_REPAIR_TIMING"></a>SKIP_CTS_REPAIR_TIMING| Skipping CTS repair, which can take a long time, can be useful in architectural exploration or when getting CI up and running.| 0|
  | <a name="SKIP_DETAILED_ROUTE"></a>SKIP_DETAILED_ROUTE| Skips detailed route.| 0|
@@ -37,16 +37,16 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  | <a name="SKIP_GATE_CLONING"></a>SKIP_GATE_CLONING| Do not use gate cloning transform to fix timing violations (default: use gate cloning).| |
  | <a name="SKIP_INCREMENTAL_REPAIR"></a>SKIP_INCREMENTAL_REPAIR| Skip incremental repair in global route.| 0|
  | <a name="SKIP_LAST_GASP"></a>SKIP_LAST_GASP| Do not use last gasp optimization to fix timing violations (default: use gate last gasp).| |
-@@ -296,6 +297,8 @@
+@@ -297,6 +298,8 @@
  | <a name="SKIP_REPORT_METRICS"></a>SKIP_REPORT_METRICS| If set to 1, then metrics, report_metrics does nothing. Useful to speed up builds.| 0|
  | <a name="SKIP_VT_SWAP"></a>SKIP_VT_SWAP| Do not perform VT swap to improve QoR (default: do VT swap).| |
  | <a name="SLEW_MARGIN"></a>SLEW_MARGIN| Specifies a slew margin when fixing max slew violations. This option allows you to overfix.| |
 +| <a name="STRUCTURED_GEN"></a>STRUCTURED_GEN| Path of the generator STRUCTURED_MEMORIES runs. Set by the build system that carries the generator, not by a design.| |
 +| <a name="STRUCTURED_MEMORIES"></a>STRUCTURED_MEMORIES| Experimental. Space-separated list of register-file spec files, one per RTL module to replace with a generated, placed standard-cell macro rather than synthesise to flops. Each spec names its module, words, bits, read and write ports by the RTL's own port names, and the cells; the generator checks the spec against the module's ports, writes `<module>.lef`, `<module>.lib` and `<module>_pre_layout.lib` under `$(RESULTS_DIR)/memories/`, and the module is blackboxed like an AUTO_MEMORIES macro. Explicit by design: nothing is detected. Requires AUTO_MEMORIES=1 and STRUCTURED_GEN.| |
- | <a name="SWAP_ARITH_OPERATORS"></a>SWAP_ARITH_OPERATORS| Improve timing QoR by swapping ALU and MULT arithmetic operators.| |
+ | <a name="SWAP_ARITH_OPERATORS"></a>SWAP_ARITH_OPERATORS| Improve timing QoR by swapping ALU and MULT arithmetic operators.| 0|
  | <a name="SYNTH_ARGS"></a>SYNTH_ARGS| Optional synthesis variables for yosys.| |
  | <a name="SYNTH_BLACKBOXES"></a>SYNTH_BLACKBOXES| List of cells treated as a black box by Yosys. With Bazel, this can be used to run synthesis in parallel for the large modules of the design. Non-existant modules are ignored silently, useful when listing modules statically, even if modules come and go dynamically.| |
-@@ -337,6 +340,8 @@
+@@ -338,6 +341,8 @@
  | <a name="VERILOG_TOP_PARAMS"></a>VERILOG_TOP_PARAMS| Apply toplevel params (if exist). Passed in as a list of key value pairs in tcl syntax; separated by spaces: PARAM1 VALUE1 PARAM2 VALUE2| |
  | <a name="VIA_IN_PIN_MAX_LAYER"></a>VIA_IN_PIN_MAX_LAYER| Passed as -via_in_pin_top_layer to pin_access and detailed_route.| |
  | <a name="VIA_IN_PIN_MIN_LAYER"></a>VIA_IN_PIN_MIN_LAYER| Passed as -via_in_pin_bottom_layer to pin_access and detailed_route.| |
@@ -55,7 +55,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  | <a name="WRITE_ODB_AND_SDC_EACH_STAGE"></a>WRITE_ODB_AND_SDC_EACH_STAGE| Save out .sdc and .odb file after each stage, useful to disable when using a single OpenROAD instance to run all stages of the flow.| 1|
  | <a name="YOSYS_FLAGS"></a>YOSYS_FLAGS| Flags to pass to yosys.| -v 3|
  ## synth variables
-@@ -347,6 +352,7 @@
+@@ -348,6 +353,7 @@
  - [ABC_LOAD_IN_FF](#ABC_LOAD_IN_FF)
  - [ADDER_MAP_FILE](#ADDER_MAP_FILE)
  - [ADDITIONAL_MEMORIES](#ADDITIONAL_MEMORIES)
@@ -63,10 +63,10 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [CACHED_REPORTS](#CACHED_REPORTS)
  - [CLKGATE_MAP_FILE](#CLKGATE_MAP_FILE)
  - [DFF_LIB_FILE](#DFF_LIB_FILE)
-@@ -360,7 +366,10 @@
- - [PRE_SYNTH_TCL](#PRE_SYNTH_TCL)
+@@ -364,7 +370,10 @@
  - [SDC_FILE](#SDC_FILE)
  - [SDC_GUT](#SDC_GUT)
+ - [SEC_CHECK](#SEC_CHECK)
 +- [SKIP_EXTRACT_FA](#SKIP_EXTRACT_FA)
  - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
 +- [STRUCTURED_GEN](#STRUCTURED_GEN)
@@ -74,7 +74,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [SYNTH_ARGS](#SYNTH_ARGS)
  - [SYNTH_BLACKBOXES](#SYNTH_BLACKBOXES)
  - [SYNTH_CANONICALIZE_TCL](#SYNTH_CANONICALIZE_TCL)
-@@ -392,6 +401,8 @@
+@@ -396,6 +405,8 @@
  - [VERILOG_FILES](#VERILOG_FILES)
  - [VERILOG_INCLUDE_DIRS](#VERILOG_INCLUDE_DIRS)
  - [VERILOG_TOP_PARAMS](#VERILOG_TOP_PARAMS)
@@ -83,7 +83,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [YOSYS_FLAGS](#YOSYS_FLAGS)
  
  ## floorplan variables
-@@ -403,6 +414,7 @@
+@@ -407,6 +418,7 @@
  - [CORE_MARGIN](#CORE_MARGIN)
  - [CORE_UTILIZATION](#CORE_UTILIZATION)
  - [DIE_AREA](#DIE_AREA)
@@ -91,7 +91,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [FLOORPLAN_DEF](#FLOORPLAN_DEF)
  - [FOOTPRINT](#FOOTPRINT)
  - [FOOTPRINT_TCL](#FOOTPRINT_TCL)
-@@ -417,6 +429,7 @@
+@@ -421,6 +433,7 @@
  - [MAKE_TRACKS](#MAKE_TRACKS)
  - [MATCH_CELL_FOOTPRINT](#MATCH_CELL_FOOTPRINT)
  - [MAX_ROUTING_LAYER](#MAX_ROUTING_LAYER)
@@ -99,7 +99,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [MIN_ROUTING_LAYER](#MIN_ROUTING_LAYER)
  - [PDN_TCL](#PDN_TCL)
  - [PLACE_DENSITY](#PLACE_DENSITY)
-@@ -452,6 +465,7 @@
+@@ -456,6 +469,7 @@
  - [RTLMP_WIRELENGTH_WT](#RTLMP_WIRELENGTH_WT)
  - [SETUP_MOVE_SEQUENCE](#SETUP_MOVE_SEQUENCE)
  - [SETUP_SLACK_MARGIN](#SETUP_SLACK_MARGIN)
@@ -107,7 +107,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [SKIP_BUFFER_REMOVAL](#SKIP_BUFFER_REMOVAL)
  - [SKIP_CRIT_VT_SWAP](#SKIP_CRIT_VT_SWAP)
  - [SKIP_GATE_CLONING](#SKIP_GATE_CLONING)
-@@ -461,6 +475,7 @@
+@@ -465,6 +479,7 @@
  - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
  - [SKIP_VT_SWAP](#SKIP_VT_SWAP)
  - [TAPCELL_TCL](#TAPCELL_TCL)
@@ -115,7 +115,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [TIEHI_CELL_AND_PORT](#TIEHI_CELL_AND_PORT)
  - [TIELO_CELL_AND_PORT](#TIELO_CELL_AND_PORT)
  - [TIE_SEPARATION](#TIE_SEPARATION)
-@@ -470,13 +485,16 @@
+@@ -474,13 +489,16 @@
  
  - [BALANCE_ROWS](#BALANCE_ROWS)
  - [BUFFER_PORTS_ARGS](#BUFFER_PORTS_ARGS)
@@ -132,7 +132,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [ENABLE_PLACE_REPAIR_TIMING](#ENABLE_PLACE_REPAIR_TIMING)
  - [FLOORPLAN_DEF](#FLOORPLAN_DEF)
  - [GLOBAL_PLACEMENT_ARGS](#GLOBAL_PLACEMENT_ARGS)
-@@ -505,7 +523,9 @@
+@@ -509,7 +527,9 @@
  - [PRE_IO_PLACEMENT_TCL](#PRE_IO_PLACEMENT_TCL)
  - [PRE_RESIZE_TCL](#PRE_RESIZE_TCL)
  - [ROUTING_LAYER_ADJUSTMENT](#ROUTING_LAYER_ADJUSTMENT)
@@ -142,7 +142,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [TNS_END_PERCENT](#TNS_END_PERCENT)
  
  ## cts variables
-@@ -529,6 +549,7 @@
+@@ -533,6 +553,7 @@
  - [REPORT_CLOCK_SKEW](#REPORT_CLOCK_SKEW)
  - [SETUP_MOVE_SEQUENCE](#SETUP_MOVE_SEQUENCE)
  - [SETUP_SLACK_MARGIN](#SETUP_SLACK_MARGIN)
@@ -150,7 +150,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [SKIP_BUFFER_REMOVAL](#SKIP_BUFFER_REMOVAL)
  - [SKIP_CRIT_VT_SWAP](#SKIP_CRIT_VT_SWAP)
  - [SKIP_CTS_REPAIR_TIMING](#SKIP_CTS_REPAIR_TIMING)
-@@ -541,9 +562,11 @@
+@@ -545,9 +566,11 @@
  
  ## grt variables
  
@@ -162,7 +162,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [GLOBAL_ROUTE_ARGS](#GLOBAL_ROUTE_ARGS)
  - [GLOBAL_ROUTE_USE_CUGR](#GLOBAL_ROUTE_USE_CUGR)
  - [GRT_SEED](#GRT_SEED)
-@@ -554,10 +577,12 @@
+@@ -558,10 +581,12 @@
  - [OPT_POST_GRT_WNS](#OPT_POST_GRT_WNS)
  - [POST_GLOBAL_ROUTE_TCL](#POST_GLOBAL_ROUTE_TCL)
  - [PRE_GLOBAL_ROUTE_TCL](#PRE_GLOBAL_ROUTE_TCL)
@@ -175,7 +175,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [SKIP_ANTENNA_REPAIR](#SKIP_ANTENNA_REPAIR)
  - [SKIP_ANTENNA_REPAIR_PRE_GRT](#SKIP_ANTENNA_REPAIR_PRE_GRT)
  - [SKIP_BUFFER_REMOVAL](#SKIP_BUFFER_REMOVAL)
-@@ -568,6 +593,7 @@
+@@ -572,6 +597,7 @@
  - [SKIP_PIN_SWAP](#SKIP_PIN_SWAP)
  - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
  - [SKIP_VT_SWAP](#SKIP_VT_SWAP)
@@ -183,7 +183,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [TNS_END_PERCENT](#TNS_END_PERCENT)
  - [VIA_IN_PIN_MAX_LAYER](#VIA_IN_PIN_MAX_LAYER)
  - [VIA_IN_PIN_MIN_LAYER](#VIA_IN_PIN_MIN_LAYER)
-@@ -578,6 +604,7 @@
+@@ -582,6 +608,7 @@
  - [DETAILED_ROUTE_END_ITERATION](#DETAILED_ROUTE_END_ITERATION)
  - [DISABLE_VIA_GEN](#DISABLE_VIA_GEN)
  - [FILL_CELLS](#FILL_CELLS)
@@ -191,7 +191,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [MATCH_CELL_FOOTPRINT](#MATCH_CELL_FOOTPRINT)
  - [MAX_REPAIR_ANTENNAS_ITER_DRT](#MAX_REPAIR_ANTENNAS_ITER_DRT)
  - [MAX_ROUTING_LAYER](#MAX_ROUTING_LAYER)
-@@ -588,11 +615,14 @@
+@@ -592,11 +619,14 @@
  - [POST_FILLCELL_TCL](#POST_FILLCELL_TCL)
  - [PRE_DETAIL_ROUTE_TCL](#PRE_DETAIL_ROUTE_TCL)
  - [PRE_FILLCELL_TCL](#PRE_FILLCELL_TCL)
@@ -206,7 +206,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [VIA_IN_PIN_MAX_LAYER](#VIA_IN_PIN_MAX_LAYER)
  - [VIA_IN_PIN_MIN_LAYER](#VIA_IN_PIN_MIN_LAYER)
  
-@@ -600,8 +630,13 @@
+@@ -604,8 +634,13 @@
  
  - [ADDITIONAL_GDS](#ADDITIONAL_GDS)
  - [CDL_FILE](#CDL_FILE)
@@ -217,10 +217,10 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [GND_NETS_VOLTAGES](#GND_NETS_VOLTAGES)
 +- [IR_DROP_LAYER](#IR_DROP_LAYER)
 +- [KLAYOUT_TECH_FILE](#KLAYOUT_TECH_FILE)
+ - [LEC_AUX_VERILOG_FILES](#LEC_AUX_VERILOG_FILES)
+ - [LEC_CHECK](#LEC_CHECK)
  - [MAX_ROUTING_LAYER](#MAX_ROUTING_LAYER)
- - [MIN_ROUTING_LAYER](#MIN_ROUTING_LAYER)
- - [POST_DENSITY_FILL_TCL](#POST_DENSITY_FILL_TCL)
-@@ -609,72 +644,57 @@
+@@ -615,73 +650,58 @@
  - [PRE_DENSITY_FILL_TCL](#PRE_DENSITY_FILL_TCL)
  - [PRE_FINAL_REPORT_TCL](#PRE_FINAL_REPORT_TCL)
  - [PWR_NETS_VOLTAGES](#PWR_NETS_VOLTAGES)
@@ -228,6 +228,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [REPORT_CLOCK_SKEW](#REPORT_CLOCK_SKEW)
  - [ROUTING_LAYER_ADJUSTMENT](#ROUTING_LAYER_ADJUSTMENT)
 +- [SEAL_GDS](#SEAL_GDS)
+ - [SEC_CHECK](#SEC_CHECK)
 +- [SET_RC_TCL](#SET_RC_TCL)
  - [SKIP_DETAILED_ROUTE](#SKIP_DETAILED_ROUTE)
  - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
@@ -317,7 +318,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
 +
 +
  
-diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
+diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
 --- a/flow/scripts/variables.json
 +++ b/flow/scripts/variables.json
 @@ -37,7 +37,10 @@
@@ -564,7 +565,7 @@ diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
      "type": "string"
    },
    "LEC_AUX_VERILOG_FILES": {
-@@ -526,11 +594,17 @@
+@@ -530,11 +598,17 @@
      ]
    },
    "LIB_FILES": {
@@ -584,7 +585,7 @@ diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
    },
    "MACRO_BLOCKAGE_HALO": {
      "description": "Distance beyond the edges of a macro that will also be covered by the blockage generated for that macro. Note that the default macro blockage halo comes from the largest of the specified MACRO_PLACE_HALO x or y values. This variable overrides that calculation.\n",
-@@ -539,7 +613,10 @@
+@@ -543,7 +617,10 @@
      ]
    },
    "MACRO_EXTENSION": {
@@ -595,8 +596,8 @@ diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
 +    ]
    },
    "MACRO_PLACEMENT_TCL": {
-     "description": "Specifies the path of a TCL file on how to place macros manually.\nThe user may choose to place just some of the macros in the design.\nThe macro placer will handle the remaining unplaced macros.\n",
-@@ -627,7 +704,10 @@
+     "description": "Specifies the path of a TCL file on how to place macros manually.\nThe user may choose to place just some of the macros in the design.\nThe macro placer will handle the remaining unplaced macros. Note\nthat using the macro placement file generated by the macro placer\nwill not result in the same global placement as actually running\nthe macro placer: the macro placement file does not contain the\nlocations that the macro placer generates for the standard cells,\nand those locations impact global placement.\n",
+@@ -631,7 +708,10 @@
      ]
    },
    "MIN_CLK_ROUTING_LAYER": {
@@ -608,7 +609,7 @@ diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
    },
    "MIN_PLACE_STEP_COEF": {
      "default": 0.95,
-@@ -724,10 +804,16 @@
+@@ -729,10 +809,16 @@
    },
    "PLATFORM": {
      "description": "Specifies process design kit or technology node to be used.\n",
@@ -627,7 +628,7 @@ diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
    },
    "POST_CTS_TCL": {
      "description": "Specifies a Tcl script with commands to run after CTS is completed.\n",
-@@ -928,7 +1014,10 @@
+@@ -933,7 +1019,10 @@
      ]
    },
    "PROCESS": {
@@ -639,7 +640,7 @@ diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
    },
    "PWR_NETS_VOLTAGES": {
      "description": "Used for IR Drop calculation.\n",
-@@ -937,11 +1026,17 @@
+@@ -942,11 +1031,17 @@
      ]
    },
    "RCX_RULES": {
@@ -659,7 +660,7 @@ diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
    },
    "REMOVE_ABC_BUFFERS": {
      "default": 0,
-@@ -953,10 +1048,16 @@
+@@ -958,10 +1053,16 @@
    },
    "REMOVE_CELLS_FOR_LEC": {
      "description": "String patterns directly passed to write_verilog -remove_cells <> for lec checks.\n",
@@ -677,7 +678,7 @@ diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
    },
    "REPORT_CLOCK_SKEW": {
      "default": 1,
-@@ -1107,13 +1208,22 @@
+@@ -1112,13 +1213,22 @@
    },
    "RUN_LOG_NAME_STEM": {
      "default": "run",
@@ -703,7 +704,7 @@ diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
    },
    "SDC_FILE": {
      "description": "The path to design constraint (SDC) file.\n",
-@@ -1129,7 +1239,10 @@
+@@ -1134,7 +1244,10 @@
      ]
    },
    "SEAL_GDS": {
@@ -713,9 +714,9 @@ diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
 +      "final"
 +    ]
    },
-   "SETUP_MOVE_SEQUENCE": {
-     "description": "Passed as -sequence to repair_timing. This should be a string of move keywords separated by commas.\n",
-@@ -1149,18 +1262,6 @@
+   "SEC_CHECK": {
+     "default": 0,
+@@ -1162,18 +1275,6 @@
      ],
      "tunable": 1
    },
@@ -734,7 +735,7 @@ diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
    "SET_RC_TCL": {
      "description": "Metal & Via RC definition file path.\n",
      "stages": [
-@@ -1225,6 +1326,13 @@
+@@ -1238,6 +1339,13 @@
        "final"
      ]
    },
@@ -748,7 +749,7 @@ diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
    "SKIP_GATE_CLONING": {
      "description": "Do not use gate cloning transform to fix timing violations (default: use gate cloning).\n",
      "stages": [
-@@ -1286,8 +1394,24 @@
+@@ -1299,8 +1407,24 @@
    },
    "SLEW_MARGIN": {
      "description": "Specifies a slew margin when fixing max slew violations. This option allows you to overfix.\n",
@@ -771,9 +772,9 @@ diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
 +    ]
 +  },
    "SWAP_ARITH_OPERATORS": {
+     "default": 0,
      "description": "Improve timing QoR by swapping ALU and MULT arithmetic operators.\n",
-     "stages": [
-@@ -1463,10 +1587,16 @@
+@@ -1483,10 +1607,16 @@
      ]
    },
    "TAP_CELL_NAME": {
@@ -792,7 +793,7 @@ diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
    },
    "TIEHI_CELL_AND_PORT": {
      "description": "Tie high cells used in Yosys synthesis to replace a logical 1 in the Netlist.\n",
-@@ -1507,7 +1637,10 @@
+@@ -1527,7 +1657,10 @@
    },
    "USE_FILL": {
      "default": 0,
@@ -804,7 +805,7 @@ diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
    },
    "VERILOG_DEFINES": {
      "description": "Preprocessor defines passed to the language frontend. Example: `-D HPDCACHE_ASSERT_OFF`\n",
-@@ -1548,6 +1681,18 @@
+@@ -1568,6 +1701,18 @@
        "route"
      ]
    },
@@ -823,7 +824,7 @@ diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
    "WRITE_ODB_AND_SDC_EACH_STAGE": {
      "default": 1,
      "description": "Save out .sdc and .odb file after each stage, useful to disable when using a single OpenROAD instance to run all stages of the flow.\n",
-diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
 @@ -22,6 +22,8 @@
@@ -903,7 +904,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  SYNTH_GUT:
    description: >
      Load design and remove all internal logic before doing synthesis. This is
-@@ -201,6 +223,8 @@
+@@ -202,6 +224,8 @@
      gets macro-based results without a memory compiler. Supported for
      the asap7 platform only. See docs/user/AutoMemories.md.
    default: 0
@@ -912,7 +913,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  ADDITIONAL_MEMORIES:
    description: >
      Experimental. Space-separated list of user-supplied `.memories`
-@@ -551,6 +575,8 @@
+@@ -557,6 +581,8 @@
    description: |
      Path to per layer parasitics file. Defaults to $(PLATFORM_DIR)/setRC.tcl.
    type: string
@@ -921,7 +922,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  TAPCELL_TCL:
    description: |
      Path to Endcap and Welltie cells file.
-@@ -614,6 +640,8 @@
+@@ -625,6 +651,8 @@
      quite time consuming. Useful to disable when investigating non-timing
      aspects like floorplan, placement, routing, etc.
    default: 1
@@ -930,7 +931,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  FILL_CELLS:
    description: >
      Fill cells are used to fill empty sites. If not set or empty, fill cell
-@@ -623,6 +651,8 @@
+@@ -634,6 +662,8 @@
  TAP_CELL_NAME:
    description: |
      Name of the cell to use in tap cell insertion.
@@ -939,7 +940,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  CELL_PAD_IN_SITES_GLOBAL_PLACEMENT:
    description: >
      Cell padding on both sides in site widths to ease routability during global
-@@ -680,6 +710,8 @@
+@@ -691,6 +721,8 @@
  REPAIR_PDN_VIA_LAYER:
    description: |
      Remove power grid vias which generate DRC violations after detailed routing.
@@ -948,7 +949,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  GLOBAL_PLACEMENT_ARGS:
    description: >
      Use additional tuning parameters during global placement other than default
-@@ -690,10 +722,14 @@
+@@ -701,10 +733,14 @@
    description: |
      Enable detail placement with improve_placement feature.
    default: 1
@@ -963,7 +964,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  GPL_RANDOM_SEED:
    description: |
      Specifies a random seed for global placement.  Useful for perturbation studies.
-@@ -746,11 +782,17 @@
+@@ -757,11 +793,17 @@
      Specifies a capacitance margin when fixing max capacitance violations. This
      option allows you to overfix.
    tunable: 1
@@ -981,7 +982,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  CTS_ARGS:
    description: |
      Override `clock_tree_synthesis` arguments.
-@@ -931,6 +973,8 @@
+@@ -942,6 +984,8 @@
      `set_routing_layers -clock`. Typically higher than MIN_ROUTING_LAYER so
      clock nets prefer the upper, lower-RC layers. No `stages:` list because
      floorplan.tcl also `source`s the platform fastroute.tcl.
@@ -990,7 +991,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  VIA_IN_PIN_MIN_LAYER:
    description: >
      Passed as -via_in_pin_bottom_layer to pin_access and detailed_route.
-@@ -956,6 +1000,8 @@
+@@ -967,6 +1011,8 @@
  MACRO_EXTENSION:
    description: |
      Sets the number of GCells added to the blockages boundaries from macros.
@@ -999,7 +1000,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  DETAILED_ROUTE_END_ITERATION:
    description: >
      Maximum number of iterations.
-@@ -975,6 +1021,8 @@
+@@ -986,6 +1032,8 @@
  RCX_RULES:
    description: |
      RC Extraction rules file path.
@@ -1008,7 +1009,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  WIRE_LOAD_TCL:
    description: |
      Path to a Tcl script sourced after the design is opened to apply a
-@@ -1004,20 +1052,31 @@
+@@ -1015,20 +1063,31 @@
  FILL_CONFIG:
    description: |
      JSON rule file for metal fill during chip finishing.
@@ -1040,7 +1041,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  VERILOG_FILES:
    required: true
    description: >
-@@ -1048,14 +1107,20 @@
+@@ -1059,14 +1118,20 @@
  ADDITIONAL_FILES:
    description: |
      Additional files to be added to `make issue` archive.
@@ -1061,7 +1062,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  ADDITIONAL_GDS:
    description: |
      Hardened macro GDS files listed here.
-@@ -1071,6 +1136,8 @@
+@@ -1082,6 +1147,8 @@
      DESIGN_NICKNAME just changes the directory name that ORFS outputs to be
      DESIGN_NICKNAME instead of DESIGN_NAME in case DESIGN_NAME is unwieldy or
      conflicts with a different design.
@@ -1070,7 +1071,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  ABC_AREA:
    description: |
      Strategies for Yosys ABC synthesis: Area/Speed. Default ABC_SPEED.
-@@ -1091,9 +1158,13 @@
+@@ -1102,9 +1169,13 @@
    description: >
      Blocks used as hard macros in a hierarchical flow. Do note that you have to
      specify block-specific inputs file in the directory mentioned by Makefile.
@@ -1084,7 +1085,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  DFF_LIB_FILE:
    description: >
      Single Liberty file for flip-flop technology mapping (dfflibmap) during
-@@ -1389,13 +1460,19 @@
+@@ -1401,13 +1472,19 @@
  FASTROUTE_TCL:
    description: |
      Specifies a Tcl script with commands to run before FastRoute.
@@ -1104,7 +1105,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  ABSTRACT_SOURCE:
    description: |
      Which .odb file to use to create abstract
-@@ -1560,11 +1637,15 @@
+@@ -1572,11 +1649,15 @@
    description: >
      Path to script to run from `make run`, python or tcl script detected by
      .py or .tcl extension.
@@ -1120,7 +1121,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  YOSYS_FLAGS:
    description: >
      Flags to pass to yosys.
-@@ -1585,6 +1666,8 @@
+@@ -1597,6 +1678,8 @@
    description: >
      Flow variant to use, used in the flow variant directory name.
    default: base
@@ -1129,7 +1130,7 @@ diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
  RULES_JSON:
    description: >
      json files with the metrics baseline regression rules.
-@@ -1686,6 +1769,8 @@
+@@ -1712,6 +1795,8 @@
      String patterns directly passed to write_verilog -remove_cells <> for
      lec checks.
    type: string

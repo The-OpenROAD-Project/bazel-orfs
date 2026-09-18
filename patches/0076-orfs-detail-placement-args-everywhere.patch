@@ -22,7 +22,7 @@ generate-variables-docs.py and yaml_to_json.py.
 Not upstreamed; carried by bazel-orfs. Retires at a //:bump onto an ORFS
 whose cts.tcl and global_route.tcl pass DETAIL_PLACEMENT_ARGS.
 ---
-diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
+diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
 --- a/docs/user/FlowVariables.md
 +++ b/docs/user/FlowVariables.md
 @@ -135,7 +135,7 @@
@@ -34,7 +34,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  | <a name="DFF_LIB_FILE"></a>DFF_LIB_FILE| Single Liberty file for flip-flop technology mapping (dfflibmap) during synthesis. Takes precedence over DFF_MAP_FILE when set.| |
  | <a name="DFF_MAP_FILE"></a>DFF_MAP_FILE| Optional mapping file supplied to Yosys to map D flip-flops| |
  | <a name="DIE_AREA"></a>DIE_AREA| The die area specified as a list of lower-left and upper-right corners in microns (X1 Y1 X2 Y2).| |
-@@ -540,6 +540,7 @@
+@@ -544,6 +544,7 @@
  - [CTS_SNAPSHOT](#CTS_SNAPSHOT)
  - [CTS_SNAPSHOTS](#CTS_SNAPSHOTS)
  - [DETAILED_METRICS](#DETAILED_METRICS)
@@ -42,7 +42,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [HOLD_SLACK_MARGIN](#HOLD_SLACK_MARGIN)
  - [LEC_AUX_VERILOG_FILES](#LEC_AUX_VERILOG_FILES)
  - [LEC_CHECK](#LEC_CHECK)
-@@ -565,6 +566,7 @@
+@@ -569,6 +570,7 @@
  - [CAP_MARGIN](#CAP_MARGIN)
  - [CELL_PAD_IN_SITES_DETAIL_PLACEMENT](#CELL_PAD_IN_SITES_DETAIL_PLACEMENT)
  - [DETAILED_METRICS](#DETAILED_METRICS)
@@ -50,7 +50,7 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [ENABLE_RESISTANCE_AWARE](#ENABLE_RESISTANCE_AWARE)
  - [GENERATE_ARTIFACTS_ON_FAILURE](#GENERATE_ARTIFACTS_ON_FAILURE)
  - [GLOBAL_ROUTE_ARGS](#GLOBAL_ROUTE_ARGS)
-diff -ruN a/flow/scripts/cts.tcl b/flow/scripts/cts.tcl
+diff --git a/flow/scripts/cts.tcl b/flow/scripts/cts.tcl
 --- a/flow/scripts/cts.tcl
 +++ b/flow/scripts/cts.tcl
 @@ -46,7 +46,7 @@
@@ -71,7 +71,7 @@ diff -ruN a/flow/scripts/cts.tcl b/flow/scripts/cts.tcl
    if { $result != 0 } {
      save_progress 4_1_error
      error "Detailed placement failed in CTS: $msg"
-diff -ruN a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
+diff --git a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
 --- a/flow/scripts/global_route.tcl
 +++ b/flow/scripts/global_route.tcl
 @@ -85,7 +85,7 @@
@@ -92,7 +92,7 @@ diff -ruN a/flow/scripts/global_route.tcl b/flow/scripts/global_route.tcl
      log_cmd check_placement -verbose
      # Route only the modified net by DPL
      if {
-diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
+diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
 --- a/flow/scripts/variables.json
 +++ b/flow/scripts/variables.json
 @@ -307,9 +307,11 @@
@@ -109,10 +109,10 @@ diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
      ]
    },
    "DFF_LIB_FILE": {
-diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
 --- a/flow/scripts/variables.yaml
 +++ b/flow/scripts/variables.yaml
-@@ -665,9 +665,15 @@
+@@ -676,9 +676,15 @@
    tunable: 1
  DETAIL_PLACEMENT_ARGS:
    description: >

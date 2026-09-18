@@ -29,7 +29,9 @@ go together.
 diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
 --- a/flow/scripts/variables.json
 +++ b/flow/scripts/variables.json
-@@ -1151,2 +1151,14 @@
+@@ -1162,6 +1162,18 @@
+     ],
+     "tunable": 1
    },
 +  "WIRE_LOAD_TCL": {
 +    "description": "Path to a Tcl script sourced after the design is opened to apply a statistical wire-load model (a Liberty wire_load group selected with set_wire_load_model) on nets that have no parasitics yet, i.e. before placement. Inert once real parasitics exist.\n",
@@ -44,3 +46,5 @@ diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
 +    ]
 +  },
    "SET_RC_TCL": {
+     "description": "Metal & Via RC definition file path.\n",
+     "stages": [
