@@ -1480,7 +1480,7 @@ one of them and ends up below a 350 W Xeon. The commodity ladder is
 congruent with the four points here, and it is congruent for the
 reasons this paper gives rather than by coincidence.
 
-### 4.9 The literature, side by side, and the discrepancies worth chasing
+### 4.10 The literature, side by side, and the discrepancies worth chasing
 
 Four numbers describe a core to the people who publish them: gate
 equivalents, minimum clock period, CoreMark/MHz and CoreMark/Joule. This
@@ -2711,7 +2711,7 @@ core its own budgeted run.
 | 7 | **VeeR EH1** | **4.798 measured** (4.94 published [11]) | SystemVerilog | **done** |
 | 8 | OpenC910 | ~4.9–7 | Verilog/SV | medium — 3-issue OoO, silicon-proven |
 | 9 | SonicBOOM | 6.2 | Chisel | high — pulls in the Scala generator |
-| 10 | **XiangShan (KMH V3)** | **8.29 measured** | Chisel | **in flow — §4.9 has it against its publications** |
+| 10 | **XiangShan (KMH V3)** | **8.29 measured** | Chisel | **in flow — §4.10 has it against its publications** |
 
 **Rungs 8–10 arrive with an L1 each**, as tiles or SoCs, and what gets
 hardened stops being obvious. [§3.1](#31-the-measurement-boundary)'s boundary is what makes them
