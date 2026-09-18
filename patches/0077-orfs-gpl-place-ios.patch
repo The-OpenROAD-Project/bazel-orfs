@@ -1,0 +1,171 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Oyvind Harboe <oyvind.harboe@zylin.com>
+Date: Fri, 18 Sep 2026 00:00:00 +0000
+Subject: [PATCH] place: one global placement with -place_ios when neither driven mode is on
+
+The place stage runs global placement twice: 3_1_place_gp_skip_io
+ignores the IO pins, 3_2_place_iop places the pins against that result,
+and 3_3_place_gp places again with the pins known. The second solve is
+where timing- and routability-driven placement happen; with both off it
+repeats the first with pin awareness as the only difference. OpenROAD's
+global_placement -place_ios co-optimises the movable pins with the cells
+in one solve and leaves them for place_pins to legalise, and it refuses
+-timing_driven and -routability_driven, so it fits exactly the case where
+the second solve has nothing left to add.
+
+When GPL_TIMING_DRIVEN and GPL_ROUTABILITY_DRIVEN are both off,
+3_1_place_gp_skip_io now runs the full global placement with -place_ios
+(port buffering and dont-use included, as 3_3 would have done), and
+leaves a marker file; 3_2_place_iop legalises the pins as before; and
+3_3_place_gp finds the marker and skips its global_placement, keeping
+its parasitics estimate, flop clustering and metrics. The three
+checkpoints and their names are unchanged, so nothing downstream moves.
+FLOORPLAN_DEF, FOOTPRINT and already-placed pins keep their existing
+paths. With either driven mode on nothing changes.
+
+On a 500 um anchored wirebound the two solves were 1:45 and 1:30; on the
+1.5 M-instance XiangShan parent the second was 17 minutes. Measured
+numbers for the one-solve flow are in the bazel-orfs study that carries
+this patch (test/grt_scaling).
+
+Not upstreamed; carried by bazel-orfs. Retires at a //:bump onto an ORFS
+whose place stage places the pins with global placement.
+---
+diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
+--- a/docs/user/FlowVariables.md
++++ b/docs/user/FlowVariables.md
+@@ -163,8 +163,8 @@
+ | <a name="GND_NETS_VOLTAGES"></a>GND_NETS_VOLTAGES| Used for IR Drop calculation.| |
+ | <a name="GPL_KEEP_OVERFLOW"></a>GPL_KEEP_OVERFLOW| Passed as -keep_resize_below_overflow to global_placement. Only used when GPL_TIMING_DRIVEN is enabled.| |
+ | <a name="GPL_RANDOM_SEED"></a>GPL_RANDOM_SEED| Specifies a random seed for global placement.  Useful for perturbation studies.| |
+-| <a name="GPL_ROUTABILITY_DRIVEN"></a>GPL_ROUTABILITY_DRIVEN| Specifies whether the placer should use routability driven placement.| 1|
+-| <a name="GPL_TIMING_DRIVEN"></a>GPL_TIMING_DRIVEN| Specifies whether the placer should use timing driven placement.| 1|
++| <a name="GPL_ROUTABILITY_DRIVEN"></a>GPL_ROUTABILITY_DRIVEN| Specifies whether the placer should use routability driven placement. With both this and GPL_TIMING_DRIVEN off, the first global placement places the IO pins as well (global_placement -place_ios), place_pins legalises them, and the second global placement is skipped.| 1|
++| <a name="GPL_TIMING_DRIVEN"></a>GPL_TIMING_DRIVEN| Specifies whether the placer should use timing driven placement. With both this and GPL_ROUTABILITY_DRIVEN off, the first global placement places the IO pins as well (global_placement -place_ios), place_pins legalises them, and the second global placement is skipped.| 1|
+ | <a name="GRT_SEED"></a>GRT_SEED| Specifies a random seed for global routing.  Useful for perturbation studies.| |
+ | <a name="GUI_TIMING"></a>GUI_TIMING| Load timing information when opening GUI. For large designs, this can be quite time consuming. Useful to disable when investigating non-timing aspects like floorplan, placement, routing, etc.| 1|
+ | <a name="HOLD_SLACK_MARGIN"></a>HOLD_SLACK_MARGIN| Specifies a time margin for the slack when fixing hold violations. This option allows you to overfix or underfix (negative value, terminate retiming before 0 or positive slack). floorplan.tcl uses min of HOLD_SLACK_MARGIN and 0 (default hold slack margin). This avoids overrepair in floorplan for hold by default, but allows skipping hold repair using a negative HOLD_SLACK_MARGIN. Exiting timing repair early is useful in exploration where the .sdc has a fixed clock period at the design's target clock period and where HOLD/SETUP_SLACK_MARGIN is used to avoid overrepair (extremely long running times) when exploring different parameter settings. When an ideal clock is used, that is before CTS, a clock insertion delay of 0 is used in timing paths. This creates a mismatch between macros that have a .lib file from after CTS, when the clock is propagated. To mitigate this, OpenSTA will use subtract the clock insertion delay of macros when calculating timing with ideal clock. Provided that min_clock_tree_path and max_clock_tree_path are in the .lib file, which is the case for macros built with OpenROAD. This is less accurate than if OpenROAD had created a placeholder clock tree for timing estimation purposes prior to CTS. There will inevitably be inaccuracies in the timing calculation prior to CTS. Use a slack margin that is low enough, even negative, to avoid overrepair. Inaccuracies in the timing prior to CTS can also lead to underrepair, but there no obvious and simple way to avoid underrapir in these cases. Overrepair can lead to excessive runtimes in repair or too much buffering being added, which can present itself as congestion of hold cells or buffer cells. Another use of SETUP/HOLD_SLACK_MARGIN is design parameter exploration when trying to find the minimum clock period for a design. The SDC_FILE for a design can be quite complicated and instead of modifying the clock period in the SDC_FILE, which can be non-trivial, the clock period can be fixed at the target frequency and the SETUP/HOLD_SLACK_MARGIN can be swept to find a plausible current minimum clock period.| 0|
+diff -ruN a/flow/scripts/global_place_skip_io.tcl b/flow/scripts/global_place_skip_io.tcl
+--- a/flow/scripts/global_place_skip_io.tcl
++++ b/flow/scripts/global_place_skip_io.tcl
+@@ -7,7 +7,29 @@
+   puts "FLOORPLAN_DEF is set. Skipping global placement without IOs"
+ } elseif { [all_pins_placed] } {
+   puts "All pins are placed. Skipping global placement without IOs"
++} elseif { [gpl_place_ios_mode] } {
++  # One global placement, pins included: the arguments 3_3_place_gp would
++  # use, with -place_ios in place of -skip_io. 3_3 then skips its own
++  # global_placement; the marker file tells it so.
++  puts "Timing- and routability-driven placement are off: placing IO pins with global placement (-place_ios)"
++  set_dont_use $::env(DONT_USE_CELLS)
++  if { ![env_var_exists_and_non_empty FOOTPRINT] && !$::env(DONT_BUFFER_PORTS) } {
++    puts "Perform port buffering..."
++    buffer_ports {*}[env_var_or_empty BUFFER_PORTS_ARGS]
++  }
++  set global_placement_args {}
++  append_env_var global_placement_args GPL_RANDOM_SEED -random_seed 1
++  log_cmd global_placement -place_ios -density [place_density_with_lb_addon] \
++    -pad_left $::env(CELL_PAD_IN_SITES_GLOBAL_PLACEMENT) \
++    -pad_right $::env(CELL_PAD_IN_SITES_GLOBAL_PLACEMENT) \
++    -force_center_initial_place \
++    -min_phi_coef $::env(MIN_PLACE_STEP_COEF) \
++    -max_phi_coef $::env(MAX_PLACE_STEP_COEF) \
++    {*}[env_var_or_empty GLOBAL_PLACEMENT_ARGS] \
++    {*}$global_placement_args
++  close [open $::env(RESULTS_DIR)/3_1_place_gp_skip_io.place_ios w]
+ } else {
++  file delete -force $::env(RESULTS_DIR)/3_1_place_gp_skip_io.place_ios
+   set global_placement_args {}
+   append_env_var global_placement_args GPL_RANDOM_SEED -random_seed 1
+ 
+diff -ruN a/flow/scripts/global_place.tcl b/flow/scripts/global_place.tcl
+--- a/flow/scripts/global_place.tcl
++++ b/flow/scripts/global_place.tcl
+@@ -14,7 +14,8 @@
+ # by default, IO ports will be buffered
+ # to not buffer IO ports, set environment variable
+ # DONT_BUFFER_PORT = 1
+-if { ![env_var_exists_and_non_empty FOOTPRINT] } {
++set place_ios_done [file exists $::env(RESULTS_DIR)/3_1_place_gp_skip_io.place_ios]
++if { ![env_var_exists_and_non_empty FOOTPRINT] && !$place_ios_done } {
+   if { !$::env(DONT_BUFFER_PORTS) } {
+     puts "Perform port buffering..."
+     buffer_ports {*}[env_var_or_empty BUFFER_PORTS_ARGS]
+@@ -62,7 +63,15 @@
+   log_cmd global_placement {*}$all_args
+ }
+ 
+-set result [catch { do_placement $global_placement_args } errMsg]
++if { $place_ios_done } {
++  # 3_1_place_gp_skip_io placed the cells and the IO pins together
++  # (-place_ios) and 3_2_place_iop legalised the pins: nothing is left for
++  # a second global placement to do.
++  puts "IO pins were placed with global placement in 3_1; skipping the second global placement"
++  set result 0
++} else {
++  set result [catch { do_placement $global_placement_args } errMsg]
++}
+ if { $result != 0 } {
+   orfs_write_db $::env(RESULTS_DIR)/3_3_place_gp-failed.odb
+   error $errMsg
+diff -ruN a/flow/scripts/util.tcl b/flow/scripts/util.tcl
+--- a/flow/scripts/util.tcl
++++ b/flow/scripts/util.tcl
+@@ -181,6 +181,15 @@
+ 
+ set global_route_congestion_report $::env(REPORTS_DIR)/congestion.rpt
+ 
++# IO pins are placed by the first global placement when neither timing-
++# nor routability-driven placement is on: global_placement -place_ios
++# co-optimises the pins with the cells, place_pins then legalises them,
++# and the second global placement has nothing left to add. The two driven
++# modes are incompatible with -place_ios, so they keep the three-step flow.
++proc gpl_place_ios_mode { } {
++  return [expr { ![env_var_equals GPL_TIMING_DRIVEN 1] && ![env_var_equals GPL_ROUTABILITY_DRIVEN 1] }]
++}
++
+ proc place_density_with_lb_addon { } {
+   if { [env_var_exists_and_non_empty PLACE_DENSITY_LB_ADDON] } {
+     # check the lower boundary of the PLACE_DENSITY and add PLACE_DENSITY_LB_ADDON
+diff -ruN a/flow/scripts/variables.json b/flow/scripts/variables.json
+--- a/flow/scripts/variables.json
++++ b/flow/scripts/variables.json
+@@ -489,14 +489,14 @@
+   },
+   "GPL_ROUTABILITY_DRIVEN": {
+     "default": 1,
+-    "description": "Specifies whether the placer should use routability driven placement.\n",
++    "description": "Specifies whether the placer should use routability driven placement.\nWith both this and GPL_TIMING_DRIVEN off, the first global placement\nplaces the IO pins as well (global_placement -place_ios), place_pins\nlegalises them, and the second global placement is skipped.\n",
+     "stages": [
+       "place"
+     ]
+   },
+   "GPL_TIMING_DRIVEN": {
+     "default": 1,
+-    "description": "Specifies whether the placer should use timing driven placement.\n",
++    "description": "Specifies whether the placer should use timing driven placement.\nWith both this and GPL_ROUTABILITY_DRIVEN off, the first global\nplacement places the IO pins as well (global_placement -place_ios),\nplace_pins legalises them, and the second global placement is skipped.\n",
+     "stages": [
+       "place"
+     ]
+diff -ruN a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
+--- a/flow/scripts/variables.yaml
++++ b/flow/scripts/variables.yaml
+@@ -744,12 +744,18 @@
+ GPL_TIMING_DRIVEN:
+   description: |
+     Specifies whether the placer should use timing driven placement.
++    With both this and GPL_ROUTABILITY_DRIVEN off, the first global
++    placement places the IO pins as well (global_placement -place_ios),
++    place_pins legalises them, and the second global placement is skipped.
+   stages:
+     - place
+   default: 1
+ GPL_ROUTABILITY_DRIVEN:
+   description: |
+     Specifies whether the placer should use routability driven placement.
++    With both this and GPL_TIMING_DRIVEN off, the first global placement
++    places the IO pins as well (global_placement -place_ios), place_pins
++    legalises them, and the second global placement is skipped.
+   stages:
+     - place
+   default: 1
