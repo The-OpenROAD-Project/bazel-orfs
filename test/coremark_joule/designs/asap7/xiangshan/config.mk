@@ -238,7 +238,13 @@ export AUTO_MEMORIES           = 1
 # 33, not 40: the annealer packs the blocks into the core with the gaps
 # above, and at 40 % (3.28 mm die) it used 3214 of 3277 um of height
 # with 10.8 um gaps; 54 um gaps need the room.
-export CORE_UTILIZATION        = 33
+# 18, not 33: with the blocks' outlines fitted to their pins the macros
+# are 0.83 mm2 instead of 4.15, and at 33 % the die no longer holds the
+# 54 um channels the annealer keeps around 44 of them and the logic
+# modules it tiles beside them; at 20 % it was 33 um short. 18 % gives a
+# 2.27 mm die, 2245 of 2263 um of its height used, and a global-route
+# grid a third the size of the 3.6 mm die's.
+export CORE_UTILIZATION        = 18
 export PLACE_DENSITY           = 0.65
 
 # Macro placement: the bank groups by our annealer, the rest by RTL-MP.
