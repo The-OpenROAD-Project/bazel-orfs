@@ -520,6 +520,7 @@ py_test(
     ],
     main = "mult_extract_test.py",
 )
+
 py_binary(
     name = "gate_stitch",
     srcs = ["gate_stitch.py"],
