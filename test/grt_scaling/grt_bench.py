@@ -35,6 +35,7 @@ JSON of the steps grt_bench.tcl finished, and the driver records how it
 ended (ok, timeout, oom, error). Done cells are skipped, so the matrix is
 resumable. Nothing here asks a question.
 """
+
 import argparse
 import json
 import os
@@ -67,7 +68,11 @@ def load_matrix(path):
 def make_command(design, arm, out_json, matrix):
     """The `./make run ...` argv for one cell, absolute paths throughout."""
     deps = os.path.abspath(design["deps"])
-    odb = os.path.join(deps, "_main", design["odb"]) if not os.path.isabs(design["odb"]) else design["odb"]
+    odb = (
+        os.path.join(deps, "_main", design["odb"])
+        if not os.path.isabs(design["odb"])
+        else design["odb"]
+    )
     log_dir = os.path.dirname(out_json)
     argv = [
         os.path.join(deps, "make"),
@@ -111,7 +116,9 @@ def scope_command(argv, unit, matrix):
 def openroad_pid(children_of):
     """The openroad process under a shell, found by comm."""
     try:
-        out = subprocess.run(["pgrep", "-P", str(children_of)], capture_output=True, text=True).stdout
+        out = subprocess.run(
+            ["pgrep", "-P", str(children_of)], capture_output=True, text=True
+        ).stdout
     except OSError:
         return None
     for pid in out.split():
@@ -157,7 +164,12 @@ def run_cell(design_name, design, arm_name, arm, rep, results_dir, matrix):
     cmd = scope_command(argv, "grt-bench-" + name, matrix)
     print("run  %s: %s" % (name, " ".join(cmd[-6:])))
     t0 = time.time()
-    proc = subprocess.Popen(cmd, env=env, stdout=open(out_json + ".driver.log", "w"), stderr=subprocess.STDOUT)
+    proc = subprocess.Popen(
+        cmd,
+        env=env,
+        stdout=open(out_json + ".driver.log", "w"),
+        stderr=subprocess.STDOUT,
+    )
     mem_log = open(out_json + ".mem.csv", "w")
     mem_log.write("t_s,vm_rss_kb,vm_swap_kb,vm_hwm_kb\n")
     pid = None
@@ -168,7 +180,10 @@ def run_cell(design_name, design, arm_name, arm, rep, results_dir, matrix):
             break
         if time.time() - t0 > matrix["timeout_s"]:
             status = "timeout"
-            subprocess.run(["systemctl", "--user", "stop", "grt-bench-" + name + ".scope"], capture_output=True)
+            subprocess.run(
+                ["systemctl", "--user", "stop", "grt-bench-" + name + ".scope"],
+                capture_output=True,
+            )
             proc.wait()
             break
         if pid is None:
@@ -176,16 +191,43 @@ def run_cell(design_name, design, arm_name, arm, rep, results_dir, matrix):
         if pid is not None:
             s = sample_memory(pid)
             if s:
-                mem_log.write("%.0f,%d,%d,%d\n" % (time.time() - t0, s.get("VmRSS", 0), s.get("VmSwap", 0), s.get("VmHWM", 0)))
+                mem_log.write(
+                    "%.0f,%d,%d,%d\n"
+                    % (
+                        time.time() - t0,
+                        s.get("VmRSS", 0),
+                        s.get("VmSwap", 0),
+                        s.get("VmHWM", 0),
+                    )
+                )
                 mem_log.flush()
         time.sleep(5)
     mem_log.close()
     if status == "ok" and proc.returncode != 0:
-        status = "oom" if proc.returncode in (137, -9) else "error(%d)" % proc.returncode
+        status = (
+            "oom" if proc.returncode in (137, -9) else "error(%d)" % proc.returncode
+        )
     if matrix.get("perf") and os.path.exists(out_json + ".perf.data"):
         with open(out_json + ".perf.txt", "w") as f:
-            subprocess.run(["perf", "report", "-i", out_json + ".perf.data", "--stdio", "--sort=sym"], stdout=f, stderr=subprocess.DEVNULL)
-    summary = {"status": status, "wall_s": round(time.time() - t0, 1), "design": design_name, "arm": arm_name, "repeat": rep}
+            subprocess.run(
+                [
+                    "perf",
+                    "report",
+                    "-i",
+                    out_json + ".perf.data",
+                    "--stdio",
+                    "--sort=sym",
+                ],
+                stdout=f,
+                stderr=subprocess.DEVNULL,
+            )
+    summary = {
+        "status": status,
+        "wall_s": round(time.time() - t0, 1),
+        "design": design_name,
+        "arm": arm_name,
+        "repeat": rep,
+    }
     # FastRoute's phase timers and the router's wirelength are logger
     # metrics; the session writes them to <out>.metrics.json at exit, after
     # grt_bench.tcl's own fold, so merge them here.
@@ -195,7 +237,7 @@ def run_cell(design_name, design, arm_name, arm, rep, results_dir, matrix):
             with open(metrics_path) as f:
                 for key, value in json.load(f).items():
                     if key.startswith("global_route__"):
-                        summary[key[len("global_route__"):]] = value
+                        summary[key[len("global_route__") :]] = value
         except ValueError:
             summary["metrics_json_error"] = True
     if os.path.exists(out_json):
@@ -215,15 +257,26 @@ def run_cell(design_name, design, arm_name, arm, rep, results_dir, matrix):
 
 
 def main(argv):
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("matrix")
     ap.add_argument("results_dir")
-    ap.add_argument("--only", action="append", default=[], help="design or arm name to run; repeatable")
+    ap.add_argument(
+        "--only",
+        action="append",
+        default=[],
+        help="design or arm name to run; repeatable",
+    )
     a = ap.parse_args(argv[1:])
     matrix = load_matrix(a.matrix)
     os.makedirs(a.results_dir, exist_ok=True)
     for design_name, design in matrix["designs"].items():
-        if a.only and design_name not in a.only and not any(x in matrix["arms"] for x in a.only):
+        if (
+            a.only
+            and design_name not in a.only
+            and not any(x in matrix["arms"] for x in a.only)
+        ):
             continue
         for arm_name, arm in matrix["arms"].items():
             if a.only and arm_name not in a.only and design_name not in a.only:

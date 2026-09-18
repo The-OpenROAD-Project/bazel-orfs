@@ -30,7 +30,11 @@ WIREBOUND_VERILOG = ["//flow/designs/asap7/wirebound:wirebound.sv"]
 GRID_BASE_ARGS = {
     key: value
     for key, value in WIREBOUND["arguments"].items()
-    if key not in WIREBOUND_USER_VARS + ["CORE_UTILIZATION", "CORE_MARGIN", "MAX_ROUTING_LAYER"]
+    if key not in WIREBOUND_USER_VARS + [
+        "CORE_UTILIZATION",
+        "CORE_MARGIN",
+        "MAX_ROUTING_LAYER",
+    ]
 } | {
     "MAX_ROUTING_LAYER": "M5",
     "ROUTING_LAYER_ADJUSTMENT": "0.7",
@@ -50,7 +54,12 @@ WIREBOUND_USER_ARGS = {
 
 # Die side in microns. asap7's GCell is 15 x 0.036 um = 0.54 um, so
 # 500 um is a 926-cell grid and 3600 um XiangShan's 6667.
-GRID_DIES = [500, 1000, 2000, 3600]
+GRID_DIES = [
+    500,
+    1000,
+    2000,
+    3600,
+]
 
 [
     grid_arm(

@@ -8,6 +8,7 @@ wall, pin_access, global_route, FastRoute's monotonic and overflow
 iteration phases, peak RSS, wirelength, and each against the baseline arm
 of the same design.
 """
+
 import argparse
 import glob
 import json
@@ -53,7 +54,9 @@ def table(cells, baseline):
     for (design, arm), reps in sorted(by.items()):
         # median over repeats of the numeric fields
         def med(key):
-            vals = sorted(float(c[key]) for c in reps if isinstance(c.get(key), (int, float)))
+            vals = sorted(
+                float(c[key]) for c in reps if isinstance(c.get(key), (int, float))
+            )
             return vals[len(vals) // 2] if vals else None
 
         rows.append(
@@ -66,12 +69,17 @@ def table(cells, baseline):
                 "global_route_s": med("global_route_s"),
                 "monotonic_s": med("fastroute__monotonic_s"),
                 "overflow_iterations_s": med("fastroute__overflow_iterations_s"),
-                "vm_hwm_gb": (med("vm_hwm_kb") or 0) / 1048576.0 if med("vm_hwm_kb") else None,
+                "vm_hwm_gb": (
+                    (med("vm_hwm_kb") or 0) / 1048576.0 if med("vm_hwm_kb") else None
+                ),
                 "wirelength_um": med("wirelength"),
             }
         )
     base = {r["design"]: r for r in rows if r["arm"] == baseline}
-    out = ["| design | arm | status | wall s | pin_access s | global_route s | vs base | monotonic s | overflow iters s | peak GB | wirelength um |", "|---|---|---|---|---|---|---|---|---|---|---|"]
+    out = [
+        "| design | arm | status | wall s | pin_access s | global_route s | vs base | monotonic s | overflow iters s | peak GB | wirelength um |",
+        "|---|---|---|---|---|---|---|---|---|---|---|",
+    ]
     for r in rows:
         b = base.get(r["design"], {})
         out.append(

@@ -45,6 +45,7 @@ def grid_arm(side_um, groups, base_args, user_args, verilog_files, sdc, io_const
         **kwargs: forwarded to orfs_flow (tags, visibility).
     """
     variant = "d{}_g{}".format(side_um, groups)
+
     # Every arm shares DESIGN_NICKNAME=wirebound; the variant keeps their
     # results, logs and _deps trees apart (results/asap7/wirebound/<variant>).
     orfs_flow(
