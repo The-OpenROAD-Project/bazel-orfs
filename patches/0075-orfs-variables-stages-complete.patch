@@ -191,7 +191,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [MATCH_CELL_FOOTPRINT](#MATCH_CELL_FOOTPRINT)
  - [MAX_REPAIR_ANTENNAS_ITER_DRT](#MAX_REPAIR_ANTENNAS_ITER_DRT)
  - [MAX_ROUTING_LAYER](#MAX_ROUTING_LAYER)
-@@ -592,11 +619,14 @@
+@@ -592,8 +619,10 @@
  - [POST_FILLCELL_TCL](#POST_FILLCELL_TCL)
  - [PRE_DETAIL_ROUTE_TCL](#PRE_DETAIL_ROUTE_TCL)
  - [PRE_FILLCELL_TCL](#PRE_FILLCELL_TCL)
@@ -202,11 +202,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [SKIP_ANTENNA_REPAIR_POST_DRT](#SKIP_ANTENNA_REPAIR_POST_DRT)
  - [SKIP_DETAILED_ROUTE](#SKIP_DETAILED_ROUTE)
  - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
-+- [USE_FILL](#USE_FILL)
- - [VIA_IN_PIN_MAX_LAYER](#VIA_IN_PIN_MAX_LAYER)
- - [VIA_IN_PIN_MIN_LAYER](#VIA_IN_PIN_MIN_LAYER)
- 
-@@ -604,8 +634,13 @@
+@@ -604,8 +633,13 @@
  
  - [ADDITIONAL_GDS](#ADDITIONAL_GDS)
  - [CDL_FILE](#CDL_FILE)
@@ -220,7 +216,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
  - [LEC_AUX_VERILOG_FILES](#LEC_AUX_VERILOG_FILES)
  - [LEC_CHECK](#LEC_CHECK)
  - [MAX_ROUTING_LAYER](#MAX_ROUTING_LAYER)
-@@ -615,73 +650,58 @@
+@@ -615,73 +649,59 @@
  - [PRE_DENSITY_FILL_TCL](#PRE_DENSITY_FILL_TCL)
  - [PRE_FINAL_REPORT_TCL](#PRE_FINAL_REPORT_TCL)
  - [PWR_NETS_VOLTAGES](#PWR_NETS_VOLTAGES)
@@ -232,6 +228,7 @@ diff --git a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
 +- [SET_RC_TCL](#SET_RC_TCL)
  - [SKIP_DETAILED_ROUTE](#SKIP_DETAILED_ROUTE)
  - [SKIP_REPORT_METRICS](#SKIP_REPORT_METRICS)
++- [USE_FILL](#USE_FILL)
  
  ## All stages variables
  
@@ -800,7 +797,7 @@ diff --git a/flow/scripts/variables.json b/flow/scripts/variables.json
 -    "description": "Whether to perform metal density filling.\n"
 +    "description": "Whether to perform metal density filling.\n",
 +    "stages": [
-+      "route"
++      "final"
 +    ]
    },
    "VERILOG_DEFINES": {
@@ -1096,7 +1093,7 @@ diff --git a/flow/scripts/variables.yaml b/flow/scripts/variables.yaml
      Whether to perform metal density filling.
    default: 0
 +  stages:
-+    - route
++    - final
  SEAL_GDS:
    description: |
      Seal macro to place around the design.
