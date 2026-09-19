@@ -48,7 +48,15 @@ diff -ruN a/docs/user/FlowVariables.md b/docs/user/FlowVariables.md
 diff -ruN a/flow/scripts/global_place_skip_io.tcl b/flow/scripts/global_place_skip_io.tcl
 --- a/flow/scripts/global_place_skip_io.tcl
 +++ b/flow/scripts/global_place_skip_io.tcl
-@@ -7,7 +7,29 @@
+@@ -3,10 +3,35 @@ erase_non_stage_variables place
+ load_design 2_floorplan.odb 2_floorplan.sdc
+ source_step_tcl PRE GLOBAL_PLACE_SKIP_IO
+ 
++# Stale from an earlier run of this stage until 3_1 says otherwise; only
++# the -place_ios branch below leaves it behind for 3_3_place_gp to find.
++file delete -force $::env(RESULTS_DIR)/3_1_place_gp_skip_io.place_ios
++
+ if { [env_var_exists_and_non_empty FLOORPLAN_DEF] } {
    puts "FLOORPLAN_DEF is set. Skipping global placement without IOs"
  } elseif { [all_pins_placed] } {
    puts "All pins are placed. Skipping global placement without IOs"
@@ -74,10 +82,8 @@ diff -ruN a/flow/scripts/global_place_skip_io.tcl b/flow/scripts/global_place_sk
 +    {*}$global_placement_args
 +  close [open $::env(RESULTS_DIR)/3_1_place_gp_skip_io.place_ios w]
  } else {
-+  file delete -force $::env(RESULTS_DIR)/3_1_place_gp_skip_io.place_ios
    set global_placement_args {}
    append_env_var global_placement_args GPL_RANDOM_SEED -random_seed 1
- 
 diff -ruN a/flow/scripts/global_place.tcl b/flow/scripts/global_place.tcl
 --- a/flow/scripts/global_place.tcl
 +++ b/flow/scripts/global_place.tcl
