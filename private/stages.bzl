@@ -30,6 +30,10 @@ BAZEL_VARIABLE_TO_STAGES = {
     "PLATFORM": ALL_STAGES_LIST,
     "PLATFORM_DIR": ALL_STAGES_LIST,
     "DESIGN_NAME": ALL_STAGES_LIST,
+    # Read by mock_area.tcl and mock_pins.tcl (mock_area = "pins"), at the
+    # mocked variant's floorplan; a block sets them in its own config.
+    "MOCK_AREA_PIN_EDGES": ["floorplan"],
+    "MOCK_AREA_PIN_MARGIN": ["floorplan"],
 }
 
 BAZEL_STAGE_TO_VARIABLES = {
