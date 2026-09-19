@@ -1,0 +1,58 @@
+OpenROAD: a gradient that stops changing ends global placement
+
+bazel-orfs carries this against OpenROAD; it is not upstreamed.
+
+gpl's step length is the coordinate distance divided by the gradient
+distance, the Barzilai-Borwein ratio over the backtracking step. When
+the gradient distance is exactly zero -- the gradients did not change at
+all between the two points -- that ratio is an infinity, and gpl reads
+any non-finite step length as a diverged solve and kills the run with
+
+  [ERROR GPL-0305] RePlAce diverged during gradient descent calculation,
+  resulting in an invalid step length (Inf or NaN).
+
+But an unchanged gradient is the opposite of a blow-up: it is a solve
+with nothing left to move. It shows up on a design the Nesterov loop
+cannot drive to the target overflow, where the iterations run to a
+standstill rather than to convergence -- a mocked SRAM in bazel-orfs
+(sram/sdq_17x64, the mocked variant) reaches it under
+global_placement -place_ios, where the movable IO pins follow the cells
+they are pulled by and the density penalty has almost no cell area to
+work with.
+
+Finish the region instead: a zero gradient distance marks it converged,
+with a warning naming the overflow it stopped at, so the placement that
+is there is kept and the flow goes on to legalisation. Every other
+non-finite step length is still a divergence. A solve whose gradient
+still changes never reaches this branch, so nothing changes for a design
+that converges.
+
+Retires at a //:bump onto an OpenROAD that ends such a solve itself.
+
+diff --git a/src/gpl/src/nesterovBase.cpp b/src/gpl/src/nesterovBase.cpp
+index e274730..b6d5e83 100644
+--- a/src/gpl/src/nesterovBase.cpp
++++ b/src/gpl/src/nesterovBase.cpp
+@@ -4315,6 +4315,22 @@ bool NesterovBase::nesterovUpdateStepLength()
+ 
+   debugPrint(log_, GPL, "np", 1, "NewStepLength: {:g}", newStepLength);
+ 
++  // The step length is the coordinate distance over the gradient distance.
++  // A gradient distance of zero means the gradients did not change at all
++  // between the two points: the solve has stopped moving and there is no
++  // Barzilai-Borwein step left to take. That is a placement that is over,
++  // not one that blew up, so finish this region instead of reporting the
++  // infinity it divides out to as a divergence.
++  if (gradDistance_ == 0.0f) {
++    log_->warn(GPL,
++               186,
++               "Gradient unchanged between steps at overflow {:.4f}; "
++               "nothing left to move, finishing global placement.",
++               sum_overflow_unscaled_);
++    isConverged_ = true;
++    return true;
++  }
++
+   if (std::isnan(newStepLength) || std::isinf(newStepLength)) {
+     isDiverged_ = true;
+     return false;

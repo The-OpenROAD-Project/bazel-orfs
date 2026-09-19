@@ -101,6 +101,13 @@ archive_override(
         # subtracting them. Without -place_ios nothing changes.
         # Not upstreamed -- retire at a bump onto an OpenROAD carrying it.
         "//patches:0004-openroad-gpl-place-ios-nan-step.patch",
+        # gpl read a step length of infinity as a diverged solve, but the
+        # infinity it hit came from a gradient distance of exactly zero:
+        # the gradients stopped changing, so there was nothing left to
+        # move. Finish the region at that point instead of failing the
+        # stage. Applies on top of 0004.
+        # Not upstreamed -- retire at a bump onto an OpenROAD carrying it.
+        "//patches:0005-openroad-gpl-zero-gradient-stop.patch",
     ],
     strip_prefix = "OpenROAD-d35e70836dd46c59ab9ee28631714f65b375729d",
     urls = ["https://github.com/The-OpenROAD-Project/OpenROAD/archive/d35e70836dd46c59ab9ee28631714f65b375729d.tar.gz"],
